@@ -15,3 +15,31 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Conflict: the inspected upstream code does not prove REQ-ECAT-005 (`0x607A=0x6064` before `0x000F`) for ZeroErr, and the specified controller interfaces cannot themselves write/read the raw target/actual pair.
 - Minimal question: What approved mechanism closes the ZeroErr preload gate: authorize the already-reviewed minimal upstream patch, add explicitly authorized raw preload interfaces to `enable_manager`, or provide another specified mechanism? No option is selected here.
 - Blocked scope: T-010 safety completion and T-013 enable authorization. Configuration and non-enable tasks continue.
+
+## BQ-003 — CANopen operation-mode command ownership
+
+- Evidence: the exact design skeleton requires `operation_mode: 1/3/3` in `bus.yml`, but pinned ros2_canopen Humble `Cia402System` does not consume that key. It changes mode only through edge-triggered `position_mode_cmd`/`velocity_mode_cmd` hardware command interfaces.
+- Conflict: REQ-CAN-002 freezes PP/PV modes, but no specified controller owns the three mode-command edges or confirms them before target commands.
+- Minimal question: Which approved component owns and sequences the ros2_canopen mode command interfaces for nodes 1/2/3? No owner is selected here.
+- Blocked scope: T-007 CANopen controller activation wiring and T-014 hardware activation. The T-006 bus template retains the mandated keys and capability report records that they are not runtime-active.
+
+## BQ-004 — Updown 0x6081 command ownership and ordering
+
+- Evidence: the EDS maps 0x6081 in RPDO2, and ros2_canopen exposes it only through generic `tpdo/index`, `tpdo/subindex`, `tpdo/data`, `tpdo/ons` one-shot interfaces. Its typed velocity interface means a velocity-mode target, not PP profile velocity.
+- Conflict: AMB-015 requires each updown move to carry target position plus 0x6081 maximum velocity, but the specification does not assign ownership or ordering of the generic PDO write relative to the position command.
+- Minimal question: Which approved component must claim and atomically sequence the generic 0x6081 one-shot with each updown position move? No controller/adapter is selected here.
+- Blocked scope: T-007 final updown controller wiring and T-014 updown motion. Other controller configuration continues.
+
+## BQ-005 — CANopen frozen activation/PP semantics versus stock Motor402
+
+- Evidence: stock `Motor402::handleInit()` enables before PP/PV preload, uses an unconditional fault-reset arm, and does not implement the frozen retry/deadline sequence. Stock `ProfiledPositionMode` waits on statusword bit 12 and does not guarantee the required one-cycle `0x003F` then `0x000F` pulse.
+- Conflict: these behaviors are not equivalent to REQ-CAN-004/005, and bus configuration alone cannot change them.
+- Minimal question: What implementation vehicle is authorized for the frozen CANopen activation and PP semantics: a downstream custom SystemInterface/controller, a minimal pinned ros2_canopen fork patch, or another specified mechanism? No option is selected here.
+- Blocked scope: T-014 hardware activation and all CANopen motion. Configuration, archive tooling, and source capability reporting continue.
+
+## BQ-006 — CANopen freshness and EMCY exposure to watchdog/diagnostics
+
+- Evidence: ros2_canopen internally detects heartbeat loss and queues EMCY/RPDO events, but pinned `Cia402System` exports only latest NMT state and latest RPDO value; it registers no EMCY callback and exposes no monotonic heartbeat/PDO receive timestamp.
+- Conflict: AMB-009 assigns 4000 ms heartbeat and 3000 ms PDO age decisions to `rt_watchdog`, while REQ-CAN-006 requires those ages and no-EMCY admission. The specified public interfaces cannot supply the inputs.
+- Minimal question: What approved boundary exposes heartbeat receipt time, PDO receipt time, and EMCY state to `rt_watchdog`/`rt_diagnostics` (for example an authorized downstream SystemInterface extension, a pinned fork interface, or another specified source)? No mechanism is selected here.
+- Blocked scope: T-011 CANopen freshness branches, T-012 CANopen diagnostics, and T-014 hardware activation. Domain-heartbeat watchdog work and non-CAN diagnostics may continue.
