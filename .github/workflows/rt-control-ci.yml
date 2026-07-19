@@ -1,0 +1,31 @@
+name: rt-control-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    container: ros:humble-ros-base
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-rosdep
+      - name: Install package dependencies
+        shell: bash
+        run: |
+          rosdep init 2>/dev/null || true
+          rosdep update
+          rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
+      - name: Build
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build --symlink-install
+      - name: Check migration-gate entry point
+        run: python3 tools/diff_legacy.py --help

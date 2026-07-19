@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rt_control_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch and runtime configuration for the rt-control domain.</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>robot_description</exec_depend>
+  <exec_depend>robot_hw_ethercat</exec_depend>
+  <exec_depend>robot_hw_canopen</exec_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

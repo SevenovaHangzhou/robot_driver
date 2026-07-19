@@ -1,0 +1,9 @@
+repositories:
+  src/vendor/robot_driver_baseline:
+    type: git
+    url: https://github.com/SevenovaHangzhou/robot_driver.git
+    version: 6bc94cd564361b9e4aa785af74683ecf13e258ce
+  src/vendor/ros2_canopen:
+    type: git
+    url: https://github.com/ros-industrial/ros2_canopen.git
+    version: fef50e54b1c94c50e908e2c5d0b8888eed907e8d
