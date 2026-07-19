@@ -43,3 +43,24 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Conflict: AMB-009 assigns 4000 ms heartbeat and 3000 ms PDO age decisions to `rt_watchdog`, while REQ-CAN-006 requires those ages and no-EMCY admission. The specified public interfaces cannot supply the inputs.
 - Minimal question: What approved boundary exposes heartbeat receipt time, PDO receipt time, and EMCY state to `rt_watchdog`/`rt_diagnostics` (for example an authorized downstream SystemInterface extension, a pinned fork interface, or another specified source)? No mechanism is selected here.
 - Blocked scope: T-011 CANopen freshness branches, T-012 CANopen diagnostics, and T-014 hardware activation. Domain-heartbeat watchdog work and non-CAN diagnostics may continue.
+
+## BQ-007 — Docker Compose frozen fields versus build/version wiring
+
+- Evidence: REQ-DEP-001 requires the design §7 Compose fields verbatim and forbids adding/removing fields. That fragment is stored at `docker/compose.yaml` but uses `build.context: .`, Dockerfile `docker/rt-control/Dockerfile`, and volume `./docker/cyclonedds.xml`, which resolve incorrectly unless the project directory is forced to the repository root. The same spec requires `versions.env` to be the single IgH version source and the image tag to equal the git SHA; normal Compose wiring needs additional `build.args` and `image` fields that the frozen list does not contain.
+- Conflict: either editing the Compose field set or relying on an external wrapper/build command is a deployment-contract choice not covered by the specification. The unresolved T-009 CPU set also cannot be committed as a literal.
+- Minimal question: Should T-008 authorize adding `build.args`, `image`, and an external cpuset substitution to `compose.yaml`, or must the Compose fragment remain byte-for-field equivalent and use a separately specified wrapper command/project-directory convention? No option is selected here.
+- Blocked scope: T-008 completion and image-build claim. Other source/configuration tasks continue; no privileged configuration was created.
+
+## BQ-008 — T-003 named URDF feature source is unavailable
+
+- Evidence: the supplied GitHub path for `feature/joint-naming-unify-underscore-20260718` returns 404, and that branch/ref is absent from every local `alfa_robot` clone inspected. The available local package is on commit `948689c59fb` and still contains mixed legacy joint spellings such as `left_v5_joint1` and `leftjoint1`, so it is not equivalent to the explicitly named joint-normalization source.
+- Conflict: T-003 requires the named upstream URDF as its migration input. Selecting the older local package or inventing the intended rename would be an uncovered source-of-truth decision.
+- Minimal question: Please provide the exact feature-branch commit/archive (or restore access to it), or explicitly authorize a particular local commit/package as the T-003 source.
+- Blocked scope: T-003 and description-dependent final launch validation. No substitute URDF was generated.
+
+## BQ-009 — T-004 slave-profile count and filename mapping conflict
+
+- Evidence: T-004 requires exactly 10 `slaves/*.yaml`, while spec §4 names `{zeroerr_j1..j5,left_j6,right_j6,ti5_j2,ti5_j3,turn}.yaml`. Expanding that set labels J2/J3 as both ZeroErr and Ti5, contradicting the hardware authority (J2/J3 are Ti5 only). The authoritative xacro actually uses eight profiles: ZeroErr J1/J4/J5/left-J6/right-J6/turn and Ti5 J2/J3; its ninth source file is an unused generic `joint6.yaml`. Its Ti5 J2 and J3 files are distinct but each is shared unchanged by left and right axes.
+- Conflict: retaining shared profiles yields eight active files; splitting both Ti5 profiles per physical axis yields ten, but that changes the specified filename set and duplicates identical stored configuration. Retaining or repurposing the unused generic J6 profile would create an unreferenced or hardware-inapplicable artifact. The specification does not choose among these structures.
+- Minimal question: Please freeze the exact ten target filenames and the 13-axis-to-filename mapping, or authorize the eight-profile mapping already proven by the authoritative xacro.
+- Blocked scope: T-004 and its dependent T-005/T-007/T-010/T-013 tasks. No EtherCAT numeric file was generated from an inferred mapping.
