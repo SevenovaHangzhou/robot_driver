@@ -1,18 +1,288 @@
 #!/usr/bin/env python3
-"""Placeholder entry point for the T-005 semantic migration gate."""
+"""Semantic migration gate for the frozen EtherCAT configuration."""
+
+from __future__ import annotations
 
 import argparse
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable
+
+import yaml
+from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
+
+
+LEGACY_CONFIG_PATH = Path(
+    "ethercat_driver_ros2/dual_arm_ethercat_control/config"
+)
+TARGET_PROFILE_PATH = Path(
+    "src/rt_control/robot_hw_ethercat/config/slaves"
+)
+TARGET_LIMITS_PATH = Path(
+    "src/rt_control/rt_control_bringup/config/joint_limits.yaml"
+)
+
+AXIS_PROFILES = {
+    "right_joint1": ("joint1.yaml", "zeroerr_j1.yaml"),
+    "right_joint2": ("joint2.yaml", "ti5_j2.yaml"),
+    "right_joint3": ("joint3.yaml", "ti5_j3.yaml"),
+    "right_joint4": ("joint4.yaml", "zeroerr_j4.yaml"),
+    "right_joint5": ("joint5.yaml", "zeroerr_j5.yaml"),
+    "right_joint6": ("right_joint6.yaml", "right_j6.yaml"),
+    "left_joint1": ("joint1.yaml", "zeroerr_j1.yaml"),
+    "left_joint2": ("joint2.yaml", "ti5_j2.yaml"),
+    "left_joint3": ("joint3.yaml", "ti5_j3.yaml"),
+    "left_joint4": ("joint4.yaml", "zeroerr_j4.yaml"),
+    "left_joint5": ("joint5.yaml", "zeroerr_j5.yaml"),
+    "left_joint6": ("left_joint6.yaml", "left_j6.yaml"),
+    "turn": ("turn.yaml", "turn.yaml"),
+}
+
+TI5_CSP_OVERLAY = """\
+sdo:
+  - {index: 0x6060, sub_index: 0, type: int8, value: 8}
+  - {index: 0x60c2, sub_index: 1, type: uint8, value: 4}
+  - {index: 0x60c2, sub_index: 2, type: int8, value: -3}
+rpdo:
+  - index: 0x1601
+    channels:
+      - {index: 0x6040, sub_index: 0, type: uint16, command_interface: control_word, default: 0}
+      - {index: 0x607a, sub_index: 0, type: int32, command_interface: position, factor: 41721.513402, default: .nan}
+tpdo:
+  - index: 0x1a01
+    channels:
+      - {index: 0x6041, sub_index: 0, type: uint16, state_interface: status_word}
+      - {index: 0x6064, sub_index: 0, type: int32, state_interface: position, factor: 0.0000239684498}
+"""
+
+
+class GateError(RuntimeError):
+    """Raised when the migration gate cannot perform a trustworthy comparison."""
+
+
+@dataclass(frozen=True)
+class Scalar:
+    """A YAML scalar retaining both its type and source spelling."""
+
+    kind: str
+    value: object
+    text: str
+
+    def display(self) -> str:
+        return f"{self.text} ({self.kind})"
+
+
+@dataclass(frozen=True)
+class Difference:
+    axis: str
+    key: str
+    expected: Scalar | None
+    actual: Scalar | None
+
+
+SemanticMap = dict[str, Scalar]
+
+
+def parse_integer(text: str) -> int:
+    normalized = text.replace("_", "")
+    sign = -1 if normalized.startswith("-") else 1
+    unsigned = normalized[1:] if normalized[:1] in {"-", "+"} else normalized
+    if unsigned.lower().startswith(("0x", "0o", "0b")):
+        return sign * int(unsigned, 0)
+    return int(normalized, 10)
+
+
+def scalar_from_node(node: ScalarNode) -> Scalar:
+    tag = node.tag.rsplit(":", maxsplit=1)[-1]
+    if tag == "int":
+        return Scalar("int", parse_integer(node.value), node.value)
+    if tag == "float":
+        return Scalar("float", node.value, node.value)
+    if tag == "bool":
+        value = node.value.lower() in {"true", "yes", "on"}
+        return Scalar("bool", value, node.value)
+    if tag == "null":
+        return Scalar("null", None, node.value)
+    return Scalar("string", node.value, node.value)
+
+
+def mapping_key(node: Node) -> str:
+    if not isinstance(node, ScalarNode):
+        raise GateError("Only scalar YAML mapping keys are supported")
+    return node.value
+
+
+def flatten_node(node: Node, prefix: str = "") -> SemanticMap:
+    if isinstance(node, ScalarNode):
+        if not prefix:
+            raise GateError("A scalar cannot be used as the configuration root")
+        return {prefix: scalar_from_node(node)}
+
+    flattened: SemanticMap = {}
+    if isinstance(node, MappingNode):
+        for key_node, value_node in node.value:
+            key = mapping_key(key_node)
+            child_prefix = f"{prefix}.{key}" if prefix else key
+            flattened.update(flatten_node(value_node, child_prefix))
+        return flattened
+
+    if isinstance(node, SequenceNode):
+        for index, value_node in enumerate(node.value):
+            child_prefix = f"{prefix}[{index}]"
+            flattened.update(flatten_node(value_node, child_prefix))
+        return flattened
+
+    raise GateError(f"Unsupported YAML node type: {type(node).__name__}")
+
+
+def compose_yaml(content: str, source: str) -> SemanticMap:
+    try:
+        node = yaml.compose(content)
+    except yaml.YAMLError as error:
+        raise GateError(f"Invalid YAML in {source}: {error}") from error
+    if node is None:
+        raise GateError(f"Empty YAML document: {source}")
+    return flatten_node(node)
+
+
+def load_yaml(path: Path) -> SemanticMap:
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise GateError(f"Cannot read {path}: {error}") from error
+    return compose_yaml(content, str(path))
+
+
+def equivalent(expected: Scalar, actual: Scalar) -> bool:
+    if expected.kind != actual.kind:
+        return False
+    if expected.kind == "float":
+        return expected.text == actual.text
+    return expected.value == actual.value
+
+
+def compare_maps(axis: str, expected: SemanticMap, actual: SemanticMap) -> list[Difference]:
+    differences: list[Difference] = []
+    for key in sorted(expected.keys() | actual.keys()):
+        expected_value = expected.get(key)
+        actual_value = actual.get(key)
+        if expected_value is None or actual_value is None:
+            differences.append(Difference(axis, key, expected_value, actual_value))
+        elif not equivalent(expected_value, actual_value):
+            differences.append(Difference(axis, key, expected_value, actual_value))
+    return differences
+
+
+def apply_frozen_overlay(legacy: SemanticMap, ti5: bool) -> SemanticMap:
+    expected = dict(legacy)
+    expected["auto_state_transitions"] = Scalar("bool", False, "false")
+    if not ti5:
+        return expected
+
+    for key in list(expected):
+        if key.startswith(("sdo", "rpdo", "tpdo")):
+            del expected[key]
+    expected.update(compose_yaml(TI5_CSP_OVERLAY, "built-in frozen Ti5 CSP overlay"))
+    return expected
+
+
+def resolve_legacy_config(root: Path) -> Path:
+    candidates = (root / LEGACY_CONFIG_PATH, root)
+    for candidate in candidates:
+        if (candidate / "icube_profiles").is_dir() and (candidate / "joint_limits.yaml").is_file():
+            return candidate
+    raise GateError(
+        f"Legacy root {root} does not contain {LEGACY_CONFIG_PATH} or a config directory"
+    )
+
+
+def resolve_target_paths(root: Path) -> tuple[Path, Path]:
+    profile_candidates = (root / TARGET_PROFILE_PATH, root / "config/slaves")
+    profiles = next((path for path in profile_candidates if path.is_dir()), None)
+    limits = root / TARGET_LIMITS_PATH
+    if profiles is None:
+        raise GateError(f"Target root {root} does not contain {TARGET_PROFILE_PATH}")
+    if not limits.is_file():
+        raise GateError(f"Target root {root} does not contain {TARGET_LIMITS_PATH}")
+    return profiles, limits
+
+
+def compare_configuration(legacy_root: Path, target_root: Path) -> tuple[list[Difference], int]:
+    legacy_config = resolve_legacy_config(legacy_root)
+    target_profiles, target_limits = resolve_target_paths(target_root)
+    differences: list[Difference] = []
+    compared_values = 0
+
+    for axis, (legacy_name, target_name) in AXIS_PROFILES.items():
+        legacy = load_yaml(legacy_config / "icube_profiles" / legacy_name)
+        expected = apply_frozen_overlay(legacy, ti5=legacy_name in {"joint2.yaml", "joint3.yaml"})
+        actual = load_yaml(target_profiles / target_name)
+        differences.extend(compare_maps(axis, expected, actual))
+        compared_values += len(expected)
+
+    legacy_limits = load_yaml(legacy_config / "joint_limits.yaml")
+    migrated_limits = load_yaml(target_limits)
+    differences.extend(compare_maps("joint_limits", legacy_limits, migrated_limits))
+    compared_values += len(legacy_limits)
+    return differences, compared_values
+
+
+def render_value(value: Scalar | None) -> str:
+    return "<missing>" if value is None else value.display()
+
+
+def print_differences(differences: Iterable[Difference]) -> None:
+    print("axis | semantic_key | expected | target")
+    print("--- | --- | --- | ---")
+    for difference in differences:
+        print(
+            f"{difference.axis} | {difference.key} | "
+            f"{render_value(difference.expected)} | {render_value(difference.actual)}"
+        )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Compare the frozen robot_driver EtherCAT YAML with the migrated configuration, "
+            "including only the approved CSP/enable-manager overlay."
+        )
+    )
+    parser.add_argument(
+        "--legacy-root",
+        type=Path,
+        required=True,
+        help="Read-only robot_driver@6bc94cd checkout or its dual-arm config directory",
+    )
+    parser.add_argument(
+        "--target-root",
+        type=Path,
+        default=Path(__file__).resolve().parents[1],
+        help="Target robot repository root (default: repository containing this script)",
+    )
+    return parser.parse_args()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Compare frozen legacy configuration with migrated configuration (T-005)."
+    args = parse_args()
+    try:
+        differences, compared_values = compare_configuration(
+            args.legacy_root.resolve(), args.target_root.resolve()
+        )
+    except GateError as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 2
+
+    if differences:
+        print_differences(differences)
+        print(f"FAIL: {len(differences)} semantic difference(s)", file=sys.stderr)
+        return 1
+
+    print(
+        "PASS 100%: 13 logical-axis profiles and joint_limits.yaml match "
+        f"({compared_values} semantic values)"
     )
-    parser.add_argument("--legacy-root")
-    parser.add_argument("--target-root")
-    args = parser.parse_args()
-    if args.legacy_root or args.target_root:
-        parser.error("T-005 is not implemented; migration comparison must not be bypassed")
     return 0
 
 
