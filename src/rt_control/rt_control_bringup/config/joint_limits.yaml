@@ -1,0 +1,262 @@
+metadata:
+  schema_version: 1
+  status: plc_xml_extracted_requires_low_speed_validation
+  source: /mnt/c/Users/k_ozi/Desktop/12轴.xml
+  source_type: CODESYS SoftMotion PLC XML
+  technical_unit: degree
+  fPositionPeriod_deg: 360.0
+  fSWMaxVelocity_deg_s: 5000.0
+  fSWMaxAcceleration_deg_s2: 10000.0
+  fSWMaxDeceleration_deg_s2: 10000.0
+  max_velocity_rad_s: 87.2664626
+  max_acceleration_rad_s2: 174.532925
+  direction_source: PLC XML InvertDirection=FALSE for all axes
+  zero_offset_source: >
+    User-confirmed encoder zero mapping: joint1/joint4/joint5/joint6 mechanical
+    zero is encoder 180 deg; joint2/joint3 mechanical zero is encoder 0 deg.
+  validation_status:
+    software_limits: PLC_XML_EXTRACTED
+    scaling: PLC_XML_EXTRACTED_FROM_SCALINGINCS
+    direction: REQUIRES_LOW_SPEED_VALIDATION
+    zero_offset: USER_CONFIRMED_ENCODER_ZERO_MAPPING
+    velocity_scale: REQUIRES_LOW_SPEED_VALIDATION
+  warning: >
+    Limits and scaling were extracted from the PLC XML SoftMotion configuration.
+    Direction and velocity scaling still require supervised low-speed validation.
+    Zero offset is mapped into the ROS mechanical-zero coordinate convention.
+    before real motion. Do not use this alone to justify strict hardware startup.
+joints:
+  left_joint1:
+    profile: joint1
+    limit_deg: 90.0
+    lower_position_rad: -1.57079632679
+    upper_position_rad: 1.57079632679
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -3.14159265359
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO
+  left_joint2:
+    profile: joint2
+    limit_deg: 90.0
+    lower_position_rad: -1.57079632679
+    upper_position_rad: 1.57079632679
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#40000"
+    counts_per_rev: 262144
+    counts_per_rad: 41721.513402
+    rad_per_count: 0.0000239684498
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: 0.0
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_0_DEG_MECHANICAL_ZERO
+  left_joint3:
+    profile: joint3
+    limit_deg: 140.0
+    lower_position_rad: -2.44346095279
+    upper_position_rad: 2.44346095279
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#40000"
+    counts_per_rev: 262144
+    counts_per_rad: 41721.513402
+    rad_per_count: 0.0000239684498
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: 0.0
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_0_DEG_MECHANICAL_ZERO
+  left_joint4:
+    profile: joint4
+    limit_deg: 180.0
+    lower_position_rad: -3.14159265359
+    upper_position_rad: 3.14159265359
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -3.14159265359
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO
+  left_joint5:
+    profile: joint5
+    limit_deg: 125.0
+    lower_position_rad: -2.18166156499
+    upper_position_rad: 2.18166156499
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -3.14159265359
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO
+  left_joint6:
+    profile: left_joint6
+    limit_deg: 179.0
+    lower_position_rad: -3.12413936107
+    upper_position_rad: 3.12413936107
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -0.846373899338
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: CURRENT_POSITION_SOFTWARE_ZERO
+  right_joint1:
+    profile: joint1
+    limit_deg: 90.0
+    lower_position_rad: -1.57079632679
+    upper_position_rad: 1.57079632679
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -3.14159265359
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO
+  right_joint2:
+    profile: joint2
+    limit_deg: 90.0
+    lower_position_rad: -1.57079632679
+    upper_position_rad: 1.57079632679
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#40000"
+    counts_per_rev: 262144
+    counts_per_rad: 41721.513402
+    rad_per_count: 0.0000239684498
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: 0.0
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_0_DEG_MECHANICAL_ZERO
+  right_joint3:
+    profile: joint3
+    limit_deg: 140.0
+    lower_position_rad: -2.44346095279
+    upper_position_rad: 2.44346095279
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#40000"
+    counts_per_rev: 262144
+    counts_per_rad: 41721.513402
+    rad_per_count: 0.0000239684498
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: 0.0
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_0_DEG_MECHANICAL_ZERO
+  right_joint4:
+    profile: joint4
+    limit_deg: 180.0
+    lower_position_rad: -3.14159265359
+    upper_position_rad: 3.14159265359
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -3.14159265359
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO
+  right_joint5:
+    profile: joint5
+    limit_deg: 125.0
+    lower_position_rad: -2.18166156499
+    upper_position_rad: 2.18166156499
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -3.14159265359
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO
+  right_joint6:
+    profile: right_joint6
+    limit_deg: 179.0
+    lower_position_rad: -3.12413936107
+    upper_position_rad: 3.12413936107
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: PLC_XML_TECH_UNIT_EFFECTIVE_SCALING
+    direction: 1
+    zero_offset_rad: -5.608077963079
+    verification:
+      source: PLC_XML_SOFTMOTION
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: CURRENT_POSITION_SOFTWARE_ZERO
+  turn:
+    profile: turn
+    limit_deg: 179.0
+    lower_position_rad: -3.12413936107
+    upper_position_rad: 3.12413936107
+    max_velocity_rad_s: 87.2664626
+    max_acceleration_rad_s2: 174.532925
+    scaling_incs_hex: "16#80000"
+    counts_per_rev: 524288
+    counts_per_rad: 83443.026803
+    rad_per_count: 0.0000119842249
+    reduction_ratio: USER_CONFIRMED_SAME_AS_ZEROERR_TURN
+    direction: 1
+    zero_offset_rad: -3.14159265359
+    verification:
+      source: USER_CONFIRMED_ZEROERR_TURN
+      direction: REQUIRES_LOW_SPEED_VALIDATION
+      zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO

@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<robot name="ecat_arms_control" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="config_dir" default="$(find robot_hw_ethercat)/config"/>
+
+  <xacro:macro name="zeroerr_axis" params="joint_name ring_position profile">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="digital_outputs"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"/>
+      <state_interface name="digital_inputs"/>
+      <state_interface name="status_word"/>
+      <ec_module name="${joint_name}_drive">
+        <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+        <param name="alias">0</param>
+        <param name="position">${ring_position}</param>
+        <param name="mode_of_operation">8</param>
+        <param name="slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
+      </ec_module>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="ti5_axis" params="joint_name ring_position profile">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"/>
+      <state_interface name="status_word"/>
+      <ec_module name="${joint_name}_drive">
+        <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+        <param name="alias">0</param>
+        <param name="position">${ring_position}</param>
+        <param name="mode_of_operation">8</param>
+        <param name="slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
+      </ec_module>
+    </joint>
+  </xacro:macro>
+
+  <ros2_control name="ecat_arms" type="system">
+    <hardware>
+      <plugin>ethercat_driver/EthercatDriver</plugin>
+      <param name="master_id">0</param>
+      <param name="control_frequency">250</param>
+    </hardware>
+
+    <xacro:zeroerr_axis joint_name="right_joint1" ring_position="1" profile="zeroerr_j1"/>
+    <xacro:ti5_axis joint_name="right_joint2" ring_position="2" profile="ti5_j2"/>
+    <xacro:ti5_axis joint_name="right_joint3" ring_position="3" profile="ti5_j3"/>
+    <xacro:zeroerr_axis joint_name="right_joint4" ring_position="4" profile="zeroerr_j4"/>
+    <xacro:zeroerr_axis joint_name="right_joint5" ring_position="5" profile="zeroerr_j5"/>
+    <xacro:zeroerr_axis joint_name="right_joint6" ring_position="6" profile="right_j6"/>
+    <xacro:zeroerr_axis joint_name="left_joint1" ring_position="7" profile="zeroerr_j1"/>
+    <xacro:ti5_axis joint_name="left_joint2" ring_position="8" profile="ti5_j2"/>
+    <xacro:ti5_axis joint_name="left_joint3" ring_position="9" profile="ti5_j3"/>
+    <xacro:zeroerr_axis joint_name="left_joint4" ring_position="10" profile="zeroerr_j4"/>
+    <xacro:zeroerr_axis joint_name="left_joint5" ring_position="11" profile="zeroerr_j5"/>
+    <xacro:zeroerr_axis joint_name="left_joint6" ring_position="12" profile="left_j6"/>
+    <xacro:zeroerr_axis joint_name="turn" ring_position="14" profile="turn"/>
+  </ros2_control>
+</robot>
