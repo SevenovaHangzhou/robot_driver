@@ -18,7 +18,7 @@ PDO remapping, or writes to unresolved safety objects.
 | Item | Evidence in `ld2_drive.eds` | Result |
 | --- | --- | --- |
 | Identity | 0x1018:01=`0x00000331`; :02=`0x5`; :03=`0x00000100` | Matches the supplied Leadshine family identity; real-device 0x1018 readback remains a commissioning gate. |
-| Heartbeat producer | 0x1017 is RW, EDS default `0x07D0` (2000 ms) | This differs from the recorded deployed value 1000 ms. `bus.yml` deliberately omits `heartbeat_producer`, so it does not request a 0x1017 write. |
+| Heartbeat producer | 0x1017 is RW, EDS default `0x07D0` (2000 ms) | The approved production value is 1000 ms. `bus.yml` deliberately requests the generated startup write. |
 | 0x6081 | RW UNSIGNED32, PDO-mappable, default 20000 | Present. The EDS default RPDO2 mapping 0x1601 contains 0x6081:00 followed by 0x6083:00, matching AMB-015. |
 | 0x5010 | No object section | Absent; no value or write is generated. TBD-004 remains open for manufacturer confirmation. |
 | 0x605E | RW INTEGER16, range 0..2, default 0 | Present, but the approved production value/semantics remain unresolved. No value or write is generated. |
@@ -26,26 +26,21 @@ PDO remapping, or writes to unresolved safety objects.
 
 ## Configuration write audit
 
-`bus.yml` contains no `sdo`, `rpdo`, `tpdo`, `heartbeat_producer`, or
-`sync_period` key. Consequently it requests no additional SDO writes, no PDO
-remap, and no SYNC production. The only explicit SDO-related value is
-`sdo_timeout_ms: 500`, which sets the host-side request timeout and does not
+`bus.yml` contains no explicit `sdo`, `rpdo`, `tpdo`, or `sync_period` key.
+Consequently it requests no PDO remap and no SYNC production. The approved
+`heartbeat_producer: 1000`, `heartbeat_consumer: true`, and
+`heartbeat_multiplier: 5.0` keys intentionally make dcfgen configure 0x1017
+and 0x1016 for symmetric 1000 ms production and 5000 ms consumption. Those
+two communication objects are the only newly authorized generated startup
+writes. `sdo_timeout_ms: 500` sets the host-side request timeout and does not
 write an OD entry.
 
 The dcfgen behavior was checked against the Lely implementation used by
-ros2_canopen: a slave heartbeat-producer SDO is appended only when the YAML
-explicitly contains `heartbeat_producer` and it differs from the EDS value.
-When the key is absent, dcfgen reads the EDS value for master-side heartbeat
-configuration and does not append a 0x1017 download. The generated DCF/bin must
-still be inspected during T-014 before connecting hardware.
-
-The `heartbeat_consumer: true` inherited by each slave section is retained from
-the mandated design skeleton. In dcfgen terminology that field means the slave
-monitors the master's heartbeat; master monitoring of slave heartbeats is a
-separate master option whose default is true. Because the master producer time
-is zero and all EDS 0x1016 entries are zero, the retained slave option does not
-create an OD write in this configuration. It must not be treated as the source
-of the frozen 4000 ms `rt_watchdog` age.
+ros2_canopen. In dcfgen terminology, the node-side consumer makes each drive
+monitor the master's heartbeat; the master-side consumer monitors node
+heartbeats. The generated DCF/bin and effective drive values must still be
+inspected/read back during T-014 before powered motion. No separate
+`rt_watchdog` heartbeat-age path remains.
 
 `tools/canopen_sdo_archive.sh` calls only the per-node `CORead` service. It
 uploads every subindex slot in the frozen ranges 0x1400..0x1403,
@@ -68,18 +63,11 @@ upstream implementation is lock-free.
 
 ### Heartbeat and NMT
 
-Lely/dcfgen can create master-side heartbeat consumers and reports heartbeat
-loss as a boot/error-control error. The ROS 2 driver exposes NMT state callbacks,
-but `Cia402System` stores only the latest NMT state; it does not expose the last
-heartbeat receive timestamp or a heartbeat-age state interface
-(`lely_driver_bridge.cpp:31-114`; `cia402_system.cpp:49-77`). Therefore the
-frozen 4000 ms watchdog age cannot be implemented solely from the exported
-`Cia402System` interfaces.
-
-The EDS default is 2000 ms while the live recorded producer is 1000 ms. Because
-0x1017 must not be written, the effective master consumer deadline produced by
-dcfgen must be inspected in the generated master DCF. No multiplier is invented
-in this task.
+Lely/dcfgen creates the approved bidirectional heartbeat consumers and reports
+heartbeat loss as a boot/error-control error. The production configuration uses
+a 1000 ms producer and multiplier 5 in both directions, hence a 5000 ms
+communication-fault detection bound. The ROS 2 driver does not expose a
+continuously increasing heartbeat age, and no custom age interface is added.
 
 ### Host bitrate and bus-off recovery
 
@@ -96,17 +84,17 @@ and five manufacturer bytes in an internal queue
 (`canopen_base_driver/src/lely_driver_bridge.cpp:183-192`). The base driver can
 invoke an EMCY callback and its diagnostic updater marks an emergency as ERROR.
 However, `Cia402System::initDeviceContainer()` registers only NMT and RPDO
-callbacks, not the available EMCY callback. No typed EMCY state interface is
-exported to `rt_watchdog`/`rt_diagnostics`. A downstream exposure mechanism
-requires an approved implementation choice (BQ-006).
+callbacks, not the available EMCY callback. The approved narrow upstream overlay
+adds track-EMCY-to-group-NMT-Stop behavior; diagnostics retains the upstream
+native EMCY fields instead of creating a watchdog input.
 
 ### PDO feedback freshness
 
 The RPDO callback publishes index/subindex/data into a latest-value cache, and
 the generic state interfaces export those values, but no monotonic receipt time
 or age is stored (`canopen_system.cpp:157-185`; `lely_driver_bridge.cpp:129-180`).
-The frozen 3000 ms PDO-freshness rule therefore needs an approved timestamp
-exposure path; it is not a bus.yml setting (BQ-006).
+The former custom updown PDO-age gate was explicitly withdrawn; PP admission
+uses the approved 0.05 m expected-start check against the exported position.
 
 ### 0x6081 command channel (AMB-015)
 
@@ -119,47 +107,47 @@ mapping write if the live mapping matches the archive.
 
 There is no typed 0x6081/profile-velocity command in `Cia402System`; its typed
 velocity command targets the selected velocity operation mode, not PP profile
-velocity. Ownership and atomic ordering between the updown position command and
-the generic 0x6081 one-shot are not specified. BQ-004 records the required
-decision for T-007/T-014.
+velocity. The approved updown controller therefore owns the generic one-shot
+and the position interface together. In one `write()` pass, ros2_canopen
+processes the 0x6081 one-shot before the typed PP target. No SDO readback,
+additional delay, or acknowledgement gate is added.
 
 ### Mode selection and activation sequence
 
-The design-mandated `operation_mode` keys are retained verbatim in `bus.yml`,
-but the pinned Humble `Cia402System` does not parse them. It changes mode only
-when its `position_mode_cmd` or `velocity_mode_cmd` command interface receives
-an edge (`cia402_system.cpp:329-365`). BQ-003 records the missing ownership of
-those mode commands.
+The design-mandated `operation_mode` keys are retained verbatim in `bus.yml`.
+The pinned Humble `Cia402System` does not consume them by itself, so the
+approved narrow lifecycle overlay reads them during non-RT hardware activation,
+calls the existing upstream init/mode APIs, confirms 0x6061, and seeds current
+position for updown plus zero for both tracks.
 
-The stock `Motor402::handleInit()` reads state, unconditionally arms a fault
-reset, and immediately transitions to Operation Enabled. It does not preload
-0x607A from 0x6064 for PP or preload 0x60FF=0 for PV
-(`canopen_402_driver/src/motor.cpp:351-408`). Mode switching uses a fixed
-five-second wait and 20 ms polling fallback rather than the frozen bounded
-500 ms / 3 attempts / 50 ms / 1 s / 4.5 s / 16 s sequence
-(`motor.cpp:78-173`). Stock PP logic also gates the new-point bit on statusword
-bit 12 and does not enforce an unconditional one-cycle 0x003F pulse
-(`profiled_position_mode.hpp:61-88`). These are not equivalent to
-REQ-CAN-004/005. BQ-005 blocks hardware activation until an implementation
-vehicle is authorized and verified.
+The stock `Motor402::handleInit()` reads state, arms its standard fault-reset
+path, transitions to Operation Enabled, and automatically executes Homing when
+0x6502 advertises it (`motor.cpp:351-408`). Stock PP also follows the standard
+statusword-bit-12 set-point acknowledgement handshake
+(`profiled_position_mode.hpp:61-88`). These behaviors supersede the former
+hardware-specific REQ-CAN-004/005 ordering/pulse rules by explicit user
+decision. The drive-adaptation checklist identifies the resulting drive-side
+requirements, especially removal of an unintended Homing advertisement.
 
 Quick stop itself is available: `halt_cmd` reaches `Motor402::handleHalt()`,
 which requests the Quick Stop Active transition from Operation Enabled
-(`cia402_system.cpp:385-390`; `motor.cpp:415-436`). This proves a standard
-quick-stop trigger exists, but it does not close the missing heartbeat/PDO-age
-inputs described above.
+(`cia402_system.cpp:385-390`; `motor.cpp:415-436`). Normal lifecycle teardown
+instead uses upstream `handleShutdown()` after seeding safe targets; Quick Stop
+remains an emergency path.
 
 ## Requirement result
 
 | Requirement | T-006 result |
 | --- | --- |
 | REQ-CAN-001 | 500 kbit/s remains a host `can0.service` responsibility in T-009; no conflicting bus value is introduced. |
-| REQ-CAN-002 | Exactly nodes 1/2/3 and modes 1/3/3 are represented; the commissioning-only node is absent from all CANopen configuration files. Runtime mode-command ownership remains BQ-003. |
-| REQ-CAN-003 | All position/velocity scale strings are copied exactly from the hardware mapping authority. |
-| REQ-CAN-004 | Host SDO timeout is 500 ms; stock activation is not equivalent and remains blocked by BQ-005. |
+| REQ-CAN-002 | Exactly nodes 1/2/3 and modes 1/3/3 are represented; the commissioning-only node is absent from all CANopen configuration files. Non-RT hardware activation owns mode initialization. |
+| REQ-CAN-003 | Updown scaling remains exact. The user-approved 0.2088 m sprocket radius supersedes the old track scale: position and velocity both use `-304894.5269959681` to-device and `-3.27982273034774e-6` from-device with zero offsets. |
+| REQ-CAN-004 | Host SDO timeout is 500 ms. The former custom activation order is explicitly superseded by upstream Motor402 plus the approved non-RT lifecycle orchestration; drive adaptation/readback remains a powered-motion gate. |
 | REQ-CAN-007 | Read-only full-range archive script delivered; no PDO configuration or SYNC key is present. Hardware execution belongs to T-014. |
-| REQ-CAN-008 | No unresolved raw value is filled. 0x5010 absence and 0x605E presence are documented; 0x1017 is not written. |
+| REQ-CAN-008 | No unresolved motion/safety value is filled. 0x5010 absence and 0x605E presence remain documented; only the separately approved heartbeat objects 0x1016/0x1017 are generated at startup. |
 
 T-006 delivers the configuration template, exact EDS asset, read-only archive
-tool, and capability evidence. It does not unlock CANopen hardware activation:
-BQ-003/004/005/006 and T-009/T-014 commissioning gates remain in force.
+tool, capability evidence, and the drive-adaptation checklist. It does not
+unlock powered CANopen motion: generated-DCF inspection, live OD readback,
+drive-local stop-reaction proof, and T-009/T-014 commissioning gates remain in
+force.

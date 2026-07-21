@@ -5,6 +5,10 @@ master:
   node_id: 100
   driver: "ros2_canopen::MasterDriver"
   package: "canopen_master_driver"
+  heartbeat_consumer: true
+  heartbeat_producer: 1000
+  heartbeat_multiplier: 5.0
+  stop_all_nodes: true
 
 defaults:
   dcf: "eds/ld2_drive.eds"
@@ -12,9 +16,12 @@ defaults:
   package: "canopen_402_driver"
   period: 20
   heartbeat_consumer: true
+  heartbeat_producer: 1000
+  heartbeat_multiplier: 5.0
   sdo_timeout_ms: 500
-  # REQ-CAN-007/008: do not add sdo/rpdo/tpdo entries here. The deployed
-  # mappings and 0x1017 producer time are read-only commissioning inputs.
+  # Heartbeat keys intentionally make dcfgen configure 0x1016/0x1017 at startup.
+  # Do not add ad-hoc sdo/rpdo/tpdo entries: deployed PDO mappings remain the
+  # drive-configuration authority and are archived read-only during commissioning.
 
 nodes:
   updown:
@@ -22,13 +29,23 @@ nodes:
     operation_mode: 1
     scale_pos_to_dev: 1000000.0
     scale_pos_from_dev: 0.000001
-  left_track:
+  left_track_joint:
     node_id: 2
+    mandatory: true
     operation_mode: 3
-    scale_vel_to_dev: -731746.8647903234
-    scale_vel_from_dev: -1.36659280431156e-6
-  right_track:
+    scale_pos_to_dev: -304894.5269959681
+    scale_pos_from_dev: -3.27982273034774e-6
+    scale_vel_to_dev: -304894.5269959681
+    scale_vel_from_dev: -3.27982273034774e-6
+    offset_pos_to_dev: 0.0
+    offset_pos_from_dev: 0.0
+  right_track_joint:
     node_id: 3
+    mandatory: true
     operation_mode: 3
-    scale_vel_to_dev: -731746.8647903234
-    scale_vel_from_dev: -1.36659280431156e-6
+    scale_pos_to_dev: -304894.5269959681
+    scale_pos_from_dev: -3.27982273034774e-6
+    scale_vel_to_dev: -304894.5269959681
+    scale_vel_from_dev: -3.27982273034774e-6
+    offset_pos_to_dev: 0.0
+    offset_pos_from_dev: 0.0
