@@ -1,0 +1,18 @@
+services:
+  rt-control:
+    build:
+      context: .
+      dockerfile: docker/rt-control/Dockerfile
+      args:
+        IGH_VERSION: "${IGH_VERSION:?IGH_VERSION must come from versions.env}"
+    image: "rt-control:${RT_CONTROL_IMAGE_TAG:?RT_CONTROL_IMAGE_TAG must be the current git SHA}"
+    network_mode: host
+    ipc: host
+    devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]
+    cap_add: [SYS_NICE, IPC_LOCK]
+    ulimits: {rtprio: 98, memlock: -1}
+    cpuset: "${RT_CONTROL_CPUSET:?RT_CONTROL_CPUSET must be confirmed on the target host}"
+    environment: [ROS_DOMAIN_ID=42, CYCLONEDDS_URI=file:///etc/cyclonedds.xml]
+    volumes: ["./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"]
+    restart: unless-stopped
+    stop_grace_period: 100s

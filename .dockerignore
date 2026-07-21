@@ -1,0 +1,7 @@
+.git
+build
+install
+log
+src/vendor
+**/__pycache__
+**/*.pyc

@@ -19,3 +19,15 @@ Build the in-repository packages with:
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
+
+Build or run the rt-control image only after exporting the target host's
+validated isolated CPU set:
+
+```bash
+export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+tools/rt_control_compose.sh build rt-control
+tools/rt_control_compose.sh up -d rt-control
+```
+
+The wrapper reads the IgH branch from `versions.env` and tags the image with
+the current Git commit. It intentionally has no default CPU set.
