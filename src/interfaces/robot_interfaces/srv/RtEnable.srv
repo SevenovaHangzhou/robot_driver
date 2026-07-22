@@ -1,0 +1,6 @@
+---
+bool ok
+int8 failed_batch
+string failed_joint
+uint16 status_word
+string stage

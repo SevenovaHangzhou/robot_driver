@@ -6,7 +6,14 @@
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>controller_interface</depend>
+  <depend>controller_manager_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>robot_interfaces</depend>
   <export>
     <build_type>ament_cmake</build_type>
+    <controller_interface plugin="${prefix}/enable_manager_plugins.xml"/>
   </export>
 </package>

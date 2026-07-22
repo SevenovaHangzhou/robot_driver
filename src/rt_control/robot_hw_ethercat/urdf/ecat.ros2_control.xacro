@@ -41,6 +41,7 @@
       <plugin>ethercat_driver/EthercatDriver</plugin>
       <param name="master_id">0</param>
       <param name="control_frequency">250</param>
+      <param name="preload_timeout_ms">5000</param>
     </hardware>
 
     <xacro:zeroerr_axis joint_name="right_joint1" ring_position="1" profile="zeroerr_j1"/>
@@ -56,5 +57,27 @@
     <xacro:zeroerr_axis joint_name="left_joint5" ring_position="11" profile="zeroerr_j5"/>
     <xacro:zeroerr_axis joint_name="left_joint6" ring_position="12" profile="left_j6"/>
     <xacro:zeroerr_axis joint_name="turn" ring_position="14" profile="turn"/>
+
+    <sensor name="ethercat_domain">
+      <state_interface name="process_data_age_ms"/>
+    </sensor>
+    <sensor name="ethercat_master">
+      <state_interface name="link_up"/>
+      <state_interface name="slaves_responding"/>
+      <state_interface name="wc_error_count"/>
+    </sensor>
+    <sensor name="ethercat_slave_1"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_2"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_3"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_4"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_5"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_6"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_7"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_8"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_9"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_10"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_11"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_12"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_14"><state_interface name="al_state"/></sensor>
   </ros2_control>
 </robot>

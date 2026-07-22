@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<library path="enable_manager_controller">
+  <class
+    name="enable_manager/EnableManagerController"
+    type="enable_manager::EnableManagerController"
+    base_class_type="controller_interface::ControllerInterface">
+    <description>Non-blocking thirteen-axis CiA402 enable and disable manager.</description>
+  </class>
+</library>
