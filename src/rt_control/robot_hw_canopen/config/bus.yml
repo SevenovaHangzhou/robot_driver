@@ -19,6 +19,9 @@ defaults:
   heartbeat_producer: 1000
   heartbeat_multiplier: 5.0
   sdo_timeout_ms: 500
+  diagnostics:
+    enable: true
+    period: 1000
   # Heartbeat keys intentionally make dcfgen configure 0x1016/0x1017 at startup.
   # Do not add ad-hoc sdo/rpdo/tpdo entries: deployed PDO mappings remain the
   # drive-configuration authority and are archived read-only during commissioning.

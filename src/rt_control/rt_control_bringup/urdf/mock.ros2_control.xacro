@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rt_control_mock_hardware">
+  <xacro:macro name="mock_ecat_axis" params="joint_name">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">64.0</param></state_interface>
+    </joint>
+  </xacro:macro>
+
+  <ros2_control name="ecat_arms" type="system">
+    <hardware>
+      <plugin>mock_components/GenericSystem</plugin>
+    </hardware>
+    <xacro:mock_ecat_axis joint_name="right_joint1"/>
+    <xacro:mock_ecat_axis joint_name="right_joint2"/>
+    <xacro:mock_ecat_axis joint_name="right_joint3"/>
+    <xacro:mock_ecat_axis joint_name="right_joint4"/>
+    <xacro:mock_ecat_axis joint_name="right_joint5"/>
+    <xacro:mock_ecat_axis joint_name="right_joint6"/>
+    <xacro:mock_ecat_axis joint_name="left_joint1"/>
+    <xacro:mock_ecat_axis joint_name="left_joint2"/>
+    <xacro:mock_ecat_axis joint_name="left_joint3"/>
+    <xacro:mock_ecat_axis joint_name="left_joint4"/>
+    <xacro:mock_ecat_axis joint_name="left_joint5"/>
+    <xacro:mock_ecat_axis joint_name="left_joint6"/>
+    <xacro:mock_ecat_axis joint_name="turn"/>
+    <sensor name="ethercat_domain">
+      <state_interface name="process_data_age_ms"><param name="initial_value">0.0</param></state_interface>
+    </sensor>
+    <sensor name="ethercat_master">
+      <state_interface name="link_up"><param name="initial_value">1.0</param></state_interface>
+      <state_interface name="slaves_responding"><param name="initial_value">15.0</param></state_interface>
+      <state_interface name="wc_error_count"><param name="initial_value">0.0</param></state_interface>
+    </sensor>
+    <sensor name="ethercat_slave_1"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_2"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_3"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_4"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_5"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_6"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_7"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_8"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_9"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_10"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_11"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_12"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_14"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+  </ros2_control>
+
+  <ros2_control name="canopen_mobile_axes" type="system">
+    <hardware>
+      <plugin>mock_components/GenericSystem</plugin>
+    </hardware>
+    <joint name="updown">
+      <command_interface name="position"/>
+      <command_interface name="tpdo/index"/>
+      <command_interface name="tpdo/subindex"/>
+      <command_interface name="tpdo/data"/>
+      <command_interface name="tpdo/ons"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+    </joint>
+    <joint name="left_track_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0.0</param></state_interface>
+    </joint>
+    <joint name="right_track_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0.0</param></state_interface>
+    </joint>
+  </ros2_control>
+</robot>

@@ -1,0 +1,3 @@
+float64 expected_start_position
+float64 position
+uint32 profile_velocity_raw

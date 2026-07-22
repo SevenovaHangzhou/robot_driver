@@ -1,0 +1,99 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 250
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    dual_arm_jtc:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    updown_position:
+      type: robot_hw_canopen/UpdownPositionController
+
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+
+    enable_manager:
+      type: enable_manager/EnableManagerController
+
+joint_state_broadcaster:
+  ros__parameters:
+    update_rate: 50
+
+dual_arm_jtc:
+  ros__parameters:
+    joints:
+      - right_joint1
+      - right_joint2
+      - right_joint3
+      - right_joint4
+      - right_joint5
+      - right_joint6
+      - left_joint1
+      - left_joint2
+      - left_joint3
+      - left_joint4
+      - left_joint5
+      - left_joint6
+      - turn
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+    allow_partial_joints_goal: false
+    open_loop_control: false
+    set_last_command_interface_value_as_state_on_activation: false
+    trajectory_start_consistency_check:
+      enabled: true
+      position_tolerance: 0.017453292519943295
+      feedback_age_state_interface: ethercat_domain/process_data_age_ms
+      max_feedback_age_ms: 500.0
+    constraints:
+      goal_time: 0.5
+      stopped_velocity_tolerance: 0.01
+
+updown_position:
+  ros__parameters: {}
+
+enable_manager:
+  ros__parameters:
+    batch_timeout: 4.0
+    disable_stage_timeout: 4.0
+    inter_batch_delay: 0.2
+    fault_reset_timeout: 4.0
+    controller_switch_timeout: 4.0
+    service_result_timeout_ms: 30000
+    jtc_name: dual_arm_jtc
+
+diff_drive_controller:
+  ros__parameters:
+    left_wheel_names:
+      - left_track_joint
+    right_wheel_names:
+      - right_track_joint
+    wheel_separation: 0.82
+    wheels_per_side: 1
+    wheel_radius: 1.0
+    odom_frame_id: odom
+    base_frame_id: base_link
+    position_feedback: true
+    open_loop: false
+    enable_odom_tf: true
+    cmd_vel_timeout: 0.5
+    use_stamped_vel: false
+    publish_rate: 50.0
+    linear.x.has_velocity_limits: true
+    linear.x.has_acceleration_limits: true
+    linear.x.has_jerk_limits: false
+    linear.x.min_velocity: -0.3
+    linear.x.max_velocity: 0.3
+    linear.x.min_acceleration: -0.6
+    linear.x.max_acceleration: 0.6
+    angular.z.has_velocity_limits: true
+    angular.z.has_acceleration_limits: true
+    angular.z.has_jerk_limits: false
+    angular.z.min_velocity: -0.3
+    angular.z.max_velocity: 0.3
+    angular.z.min_acceleration: -0.6
+    angular.z.max_acceleration: 0.6

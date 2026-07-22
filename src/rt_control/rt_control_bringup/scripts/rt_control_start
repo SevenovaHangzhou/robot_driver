@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+child_pid=""
+shutdown_started=0
+
+forward_shutdown() {
+  if (( shutdown_started != 0 )); then
+    return
+  fi
+  shutdown_started=1
+
+  if ! ros2 run enable_manager rt_disable_once; then
+    echo "UNCLEAN_SHUTDOWN: orderly EtherCAT disable did not complete" >&2
+  fi
+
+  if [[ -n "${child_pid}" ]] && kill -0 "${child_pid}" 2>/dev/null; then
+    kill -INT -- "-${child_pid}" 2>/dev/null || kill -INT "${child_pid}" 2>/dev/null || true
+  fi
+}
+
+trap forward_shutdown INT TERM
+
+setsid ros2 launch rt_control_bringup rt_control.launch.py "$@" &
+child_pid=$!
+exit_code=0
+while kill -0 "${child_pid}" 2>/dev/null; do
+  wait "${child_pid}"
+  exit_code=$?
+done
+trap - INT TERM
+exit "${exit_code}"

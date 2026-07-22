@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<robot name="canopen_mobile_axes_control" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="canopen_config_dir" default="$(find robot_hw_canopen)/config"/>
+  <xacro:arg name="can_interface_name" default="can0"/>
+
+  <ros2_control name="canopen_mobile_axes" type="system">
+    <hardware>
+      <plugin>canopen_ros2_control/Cia402System</plugin>
+      <param name="bus_config">$(arg canopen_config_dir)/bus.yml</param>
+      <param name="master_config">$(arg canopen_config_dir)/master.dcf</param>
+      <param name="master_bin">$(arg canopen_config_dir)/master.bin</param>
+      <param name="can_interface_name">$(arg can_interface_name)</param>
+    </hardware>
+
+    <joint name="updown">
+      <param name="node_id">1</param>
+      <param name="operation_mode">1</param>
+    </joint>
+    <joint name="left_track_joint">
+      <param name="node_id">2</param>
+      <param name="operation_mode">3</param>
+    </joint>
+    <joint name="right_track_joint">
+      <param name="node_id">3</param>
+      <param name="operation_mode">3</param>
+    </joint>
+  </ros2_control>
+</robot>

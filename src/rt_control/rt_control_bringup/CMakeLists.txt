@@ -3,6 +3,7 @@ project(rt_control_bringup)
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY launch config DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch config urdf DESTINATION share/${PROJECT_NAME})
+install(PROGRAMS scripts/rt_control_start DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
