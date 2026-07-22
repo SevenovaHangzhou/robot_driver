@@ -1243,3 +1243,17 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Benefit：保留已验证补丁的逐字身份和可追溯哈希，同时仍对实际仓库源代码执行严格空白检查。
 - Drawback：对整个暂存区直接运行无排除项的 `git diff --check` 会返回非零；审阅者必须使用文档中的分层
   命令，且未来重新生成补丁时仍需人工区分载荷空白与仓库源代码空白。
+
+## BQ-089 — Compose 必须以仓库根目录作为 project directory [RESOLVED 2026-07-22]
+
+- 状态：**RESOLVED**
+- 证据：从仓库根直接执行 `docker compose -f docker/compose.yaml ...` 时，当前 Compose 将首个 compose
+  文件所在的 `docker/` 作为默认 project directory，因而把 `dockerfile: docker/rt-control/Dockerfile`
+  错解为 `docker/docker/rt-control/Dockerfile`；失败发生在构建上下文解析阶段，没有执行镜像步骤。
+- 自主裁决：生产构建、config 和 up/down 统一使用 `tools/rt_control_compose.sh`；该冻结包装器显式传入
+  `--project-directory .`、`--env-file versions.env`，并从 Git HEAD 生成镜像标签。不再把裸 `-f` 命令
+  作为受支持入口。
+- Benefit：无论调用者当前目录和 Compose 默认规则如何，context、Dockerfile、版本文件和镜像标签都绑定
+  到同一仓库根目录。
+- Drawback：操作者必须经过包装器并预先提供已在目标机验证的 `RT_CONTROL_CPUSET`；绕过包装器的临时调试
+  命令需要自行完整复现 project-directory、env-file 和标签参数。
