@@ -3,8 +3,12 @@ services:
     build:
       context: .
       dockerfile: docker/rt-control/Dockerfile
+      network: host
       args:
         IGH_VERSION: "${IGH_VERSION:?IGH_VERSION must come from versions.env}"
+        IGH_COMMIT: "${IGH_COMMIT:?IGH_COMMIT must come from versions.env}"
+        HTTP_PROXY: "${RT_CONTROL_BUILD_PROXY:-}"
+        HTTPS_PROXY: "${RT_CONTROL_BUILD_PROXY:-}"
     image: "rt-control:${RT_CONTROL_IMAGE_TAG:?RT_CONTROL_IMAGE_TAG must be the current git SHA}"
     network_mode: host
     ipc: host

@@ -5,3 +5,5 @@ log
 src/vendor
 **/__pycache__
 **/*.pyc
+/*.md
+/docs
