@@ -1661,15 +1661,19 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 ## BQ-110 — 本机构建代理对 ROS apt 下载间歇返回 502 [RESOLVED 2026-07-25]
 
-- 状态：**RESOLVED — apt 下载阶段采用有界五次重试，最终镜像不保留该临时配置**。
+- 状态：**RESOLVED — 下载命令采用显式、有界的五次重试，最终镜像不保留重试工具**。
 - 证据：`b25578f` 在工控机直接构建的首轮下载中，80 个 ROS/Ubuntu 包里有 4 个经
   `127.0.0.1:7897` 返回 502；保持源码、固定依赖和命令不变重试后，首轮失败的 4 个包均成功，另一个 ROS
   包随机返回 502。两轮都在第一条 `apt-get install` 结束，未进入源码编译，符合瞬时代理/上游错误而非固定
   包损坏。
-- Decision：构建开始时写入临时 apt 配置 `Acquire::Retries "5"`，让显式 apt 命令及 rosdep 调用的 apt
-  共用同一有界重试；完成所有依赖安装和源码构建后删除该配置。包名、版本选择、软件源、TLS、apt 签名、
-  git commit 校验和失败返回码均不改变；五次仍失败则构建保持失败。
+- 修正证据：首次实现采用 apt 原生 `Acquire::Retries "5"`，但第三轮实机构建中单个 ROS 包返回 502 后 apt
+  仍直接退出，证明该配置未把当前代理的 502 判为可重试错误；不得把“已配置”误记作“已生效”。同一失败包
+  随后用 curl 经 HTTP 代理连续三次返回 200；ROS 仓库的 HTTPS 证书与 `packages.ros.org` 主机名不匹配，
+  因此不能通过跳过证书校验强改 HTTPS。
+- Final decision：用构建期 `rt-control-retry-command` 显式包装 `apt-get update/install`、`rosdep update/install`；
+  初次失败后最多再执行五次，间隔依次为 1/2/3/4/5 s，最后一次仍失败则保留原退出码令构建失败。完成所有
+  依赖安装和源码构建后删除该工具。包名、版本选择、软件源、TLS、apt 签名和 git commit 校验均不改变。
 - Benefit：无需无限重跑整层即可吸收少量随机 502，覆盖 Dockerfile 直接 apt 安装和 rosdep 间接安装，提升
   工控机本地构建的可重复性；该策略不进入最终运行镜像。
-- Drawback（重点）：代理或上游持续故障时，每个下载可能额外等待最多五轮后才暴露失败，使失败诊断变慢；
+- Drawback（重点）：代理或上游持续故障时，每条下载命令可能额外执行最多五轮后才暴露失败，使失败诊断变慢；
   重试只能改善瞬时网络可靠性，不能验证镜像内容，内容可信性仍依赖既有签名、固定提交和构建后核验。
