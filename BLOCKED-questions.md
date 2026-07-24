@@ -1673,3 +1673,25 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Benefit：避免为了单机网络故障增加并维护自定义下载控制层，Dockerfile 回到既有、容易审计的路径。
 - Drawback（重点）：若以后再次要求工控机直接构建，偶发 502 仍可能让构建失败，需要从基础网络或代理服务
   侧解决；本次不声称已经修复工控机的代理可靠性。
+
+## BQ-111 — 全量构建受 GitHub 直连阻断时复用已验证镜像 [RESOLVED 2026-07-25]
+
+- 状态：**RESOLVED — 仅对唯一运行差异做离线增量重建，并保留基镜像与生成物核验证据**。
+- 证据：开发机按最终源码全量构建时，基础系统、IgH 和前置层均命中缓存，但三个固定 GitHub 仓库在既有
+  `vcs --retry 5` 后分别以 GnuTLS `-110` 或 443 timeout 失败。`7de7d99` 已验证镜像 ID 为
+  `sha256:143af46296c8526d121b20a62df880ecf17e7767effc85c7b84db64e9fc1a34b`。从该提交到当前提交，Markdown
+  被 `.dockerignore` 排除，唯一进入运行镜像的源码差异是 `robot_hw_canopen/config/bus.yml` 将三节点
+  `boot_timeout_ms` 从 1000 改为 2000；Dockerfile 最终内容与 `7de7d99` 相同。
+- 修正证据：首个离线派生试验在生成目标后执行整个包的 `cmake --install`，全安装前缀 1633 个文件的哈希
+  比较发现，除预期 bus.yml 外还改写了 `robot_hw_canopen/package.dsv`，删除了原有环境 hook 条目。该试验镜像
+  因存在未授权运行环境差异而拒绝上传。
+- Final decision：以该固定镜像 ID 为基础，离线覆盖镜像内的 bus.yml 源文件，调用镜像已有的
+  `canopen_runtime_config` CMake target 重新运行 EDS normalization、cogen 与 dcfgen；随后只把 CMake 中
+  `CANOPEN_GENERATED_FILES` 对应的 8 个运行文件以 `copy_if_different` 更新到安装前缀，不执行整包 install。
+  以最终 feature commit 标记派生镜像。传输前核对源码哈希、安装前缀三节点的 2000 ms 值、生成 DCF/bin
+  文件、依赖版本和全安装前缀哈希差异。该方法仅适用于这次已证明的单配置差异，任何 C++、依赖或其他配置
+  变化都必须恢复全量构建。
+- Benefit：完全离线复用已编译且已通过上一轮镜像检查的代码和固定依赖，只重跑真正受影响的标准生成目标，
+  避免为部署网络增加生产代码或跳过配置生成。
+- Drawback（重点）：这不是从空缓存开始的全量重建，可信性依赖固定基镜像及“唯一运行差异”的审计结论；
+  因此必须把基镜像 ID、提交间文件差异和派生层核验一起归档，不能把该流程泛化为后续发布方式。
