@@ -10,6 +10,7 @@ LABEL org.opencontainers.image.version="${IGH_VERSION}" \
 
 RUN test -n "${IGH_VERSION}" \
     && [[ "${IGH_COMMIT}" =~ ^[0-9a-f]{40}$ ]] \
+    && printf 'Acquire::Retries "5";\n' > /etc/apt/apt.conf.d/80-rt-control-retries \
     && sed -i \
       -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
       -e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
@@ -128,7 +129,10 @@ RUN source /opt/ros/humble/setup.bash \
       --merge-install \
       --packages-up-to "${rt_control_packages[@]}" \
       --cmake-args -DBUILD_TESTING=OFF \
-    && rm -rf /var/lib/apt/lists/* /root/.ros/rosdep
+    && rm -rf \
+      /etc/apt/apt.conf.d/80-rt-control-retries \
+      /var/lib/apt/lists/* \
+      /root/.ros/rosdep
 
 COPY docker/rt-control/entrypoint.sh /rt-control-entrypoint.sh
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
