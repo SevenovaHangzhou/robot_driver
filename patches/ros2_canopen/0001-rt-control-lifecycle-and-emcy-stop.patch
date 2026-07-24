@@ -5,7 +5,7 @@ index aa2ad56..8b9589a 100644
 @@ -69,6 +69,11 @@ public:
      node_canopen_402_driver_->register_rpdo_cb(rpdo_cb);
    }
- 
+
 +  void register_emcy_cb(std::function<void(COEmcy, uint8_t)> emcy_cb)
 +  {
 +    node_canopen_402_driver_->register_emcy_cb(emcy_cb);
@@ -44,11 +44,37 @@ index ddb2fda..361ac74 100644
    bool readState();
  
    /**
+diff --git a/canopen_402_driver/src/motor.cpp b/canopen_402_driver/src/motor.cpp
+--- a/canopen_402_driver/src/motor.cpp
++++ b/canopen_402_driver/src/motor.cpp
+@@ -49,4 +49,9 @@ bool Motor402::isModeSupportedByDevice(uint16_t mode)
+ {
++  if (mode == MotorBase::Homing)
++  {
++    return false;
++  }
++
+   uint32_t supported_modes =
+     driver->universal_get_value<uint32_t>(supported_drive_modes_index, 0x0);
+   bool supported = supported_modes & (1 << (mode - 1));
+@@ -411,6 +416,5 @@ bool Motor402::handleShutdown()
+ {
+-  switchMode(MotorBase::No_Mode);
+   return switchState(State402::Switch_On_Disabled);
+ }
+ bool Motor402::handleHalt()
+ {
 diff --git a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp b/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp
 index 4b55b85..1957bfe 100644
 --- a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp
 +++ b/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp
-@@ -86,6 +86,8 @@ public:
+@@ -77,4 +77,5 @@ public:
+   virtual void configure(bool called_from_base) override;
+   virtual void activate(bool called_from_base) override;
+   virtual void deactivate(bool called_from_base) override;
++  virtual void cleanup(bool called_from_base) override;
+   virtual void add_to_master() override;
+@@ -86,6 +87,8 @@ public:
  
    virtual uint16_t get_mode() { return motor_->getMode(); }
  
@@ -75,7 +101,34 @@ diff --git a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_
 index ee01462..5fb6a1e 100644
 --- a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver_impl.hpp
 +++ b/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver_impl.hpp
-@@ -587,6 +587,16 @@ bool NodeCanopen402Driver<NODETYPE>::init_motor()
+@@ -402,4 +402,25 @@ void NodeCanopen402Driver<NODETYPE>::deactivate(bool called_from_base)
+ {
+   NodeCanopenProxyDriver<NODETYPE>::deactivate(false);
+-  timer_->cancel();
++}
++
++template <class NODETYPE>
++void NodeCanopen402Driver<NODETYPE>::cleanup(bool called_from_base)
++{
++  if (motor_)
++  {
++    auto promise = std::make_shared<std::promise<void>>();
++    auto future = promise->get_future();
++    this->exec_->post(
++      [this, promise]()
++      {
++        motor_.reset();
++        promise->set_value();
++      });
++    if (future.wait_for(this->non_transmit_timeout_) != std::future_status::ready)
++    {
++      throw DriverException("cleanup: Motor402 removal timed out");
++    }
++  }
++
++  NodeCanopenProxyDriver<NODETYPE>::cleanup(false);
+ }
+@@ -587,6 +608,16 @@ bool NodeCanopen402Driver<NODETYPE>::init_motor()
    }
  }
  
@@ -92,11 +145,35 @@ index ee01462..5fb6a1e 100644
  template <class NODETYPE>
  bool NodeCanopen402Driver<NODETYPE>::recover_motor()
  {
+diff --git a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+--- a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
++++ b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+@@ -319,12 +319,12 @@ public:
+     }
+     this->cleanup(true);
+-    io_guard_.reset();
+-    ctx_.reset();
+-    poll_.reset();
+-    loop_.reset();
+-
+-    exec_.reset();
+-    timer_.reset();
+-    ctrl_.reset();
++    sigset_.reset();
+     chan_.reset();
++    ctrl_.reset();
++    timer_.reset();
++    exec_.reset();
++    loop_.reset();
++    poll_.reset();
++    ctx_.reset();
++    io_guard_.reset();
+     this->configured_.store(false);
 diff --git a/canopen_core/include/canopen_core/device_container.hpp b/canopen_core/include/canopen_core/device_container.hpp
 index d2590dc..395ad59 100644
 --- a/canopen_core/include/canopen_core/device_container.hpp
 +++ b/canopen_core/include/canopen_core/device_container.hpp
-@@ -201,6 +201,29 @@ public:
+@@ -201,6 +201,78 @@ public:
     */
    virtual size_t count_drivers() { return registered_drivers_.size(); }
  
@@ -123,9 +200,100 @@ index d2590dc..395ad59 100644
 +    }
 +  }
 +
++  /**
++   * @brief Shutdown every registered driver while leaving the master running.
++   *
++   * @return true when every driver shutdown completed.
++   */
++  bool shutdown_drivers()
++  {
++    bool success = true;
++    for (const auto & entry : registered_drivers_)
++    {
++      try
++      {
++        entry.second->shutdown();
++      }
++      catch (const std::exception & exception)
++      {
++        RCLCPP_ERROR(
++          this->get_logger(), "Failed to shutdown CANopen driver %u: %s", entry.first,
++          exception.what());
++        success = false;
++      }
++    }
++    return success;
++  }
++
++  /**
++   * @brief Stop and join only the CANopen master runtime.
++   *
++   * @return true when master shutdown completed or no master exists.
++   */
++  bool shutdown_master()
++  {
++    if (!can_master_)
++    {
++      return true;
++    }
++    try
++    {
++      can_master_->shutdown();
++      return true;
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(
++        this->get_logger(), "Failed to shutdown CANopen master: %s", exception.what());
++      return false;
++    }
++  }
++
    /**
     * @brief Get node ids of all drivers with type
     *
+diff --git a/canopen_ros2_control/src/canopen_system.cpp b/canopen_ros2_control/src/canopen_system.cpp
+--- a/canopen_ros2_control/src/canopen_system.cpp
++++ b/canopen_ros2_control/src/canopen_system.cpp
+@@ -42,15 +42,29 @@ void CanopenSystem::clean()
+ {
+-  executor_->cancel();
+-  printf("Joining...");
+-  spin_thread_->join();
+-  printf("Joined!");
++  if (executor_)
++  {
++    executor_->cancel();
++  }
++
++  if (spin_thread_ && spin_thread_->joinable())
++  {
++    spin_thread_->join();
++  }
+-
++
++  if (device_container_)
++  {
++    if (!device_container_->shutdown_master())
++    {
++      RCLCPP_ERROR(kLogger, "CANopen master shutdown failed");
++    }
++  }
++
+   device_container_.reset();
+   executor_.reset();
+-
++
+-  init_thread_->join();
++  if (init_thread_ && init_thread_->joinable())
++  {
++    init_thread_->join();
++  }
+   init_thread_.reset();
+-
+-  executor_.reset();
+   spin_thread_.reset();
+ }
 diff --git a/canopen_ros2_control/src/cia402_system.cpp b/canopen_ros2_control/src/cia402_system.cpp
 index 8c0cc6f..81084be 100644
 --- a/canopen_ros2_control/src/cia402_system.cpp
@@ -164,7 +332,7 @@ index 8c0cc6f..81084be 100644
  
 +    auto emcy_cb = [this](ros2_canopen::COEmcy emcy, uint8_t id)
 +    {
-+      if (id != 2U && id != 3U)
++      if (emcy.eec == 0U || (id != 2U && id != 3U))
 +      {
 +        return;
 +      }
@@ -181,7 +349,7 @@ index 8c0cc6f..81084be 100644
      RCLCPP_INFO(
        kLogger, "\nRegistered driver:\n    name: '%s'\n    node_id: '0x%X'",
        it->second->get_node_base_interface()->get_name(), it->first);
-@@ -227,13 +252,299 @@ std::vector<hardware_interface::CommandInterface> Cia402System::export_command_i
+@@ -227,13 +252,318 @@ std::vector<hardware_interface::CommandInterface> Cia402System::export_command_i
  hardware_interface::CallbackReturn Cia402System::on_activate(
    const rclcpp_lifecycle::State & previous_state)
  {
@@ -270,6 +438,17 @@ index 8c0cc6f..81084be 100644
 +      break;
 +    }
 +    auto driver = std::static_pointer_cast<ros2_canopen::Cia402Driver>(driver_iterator->second);
++    ros2_canopen::COData mode_command = {
++      0x6060U, 0x00U, static_cast<uint32_t>(configuration.operation_mode)};
++    if (!driver->tpdo_transmit(mode_command))
++    {
++      primary_node = configuration.node_id;
++      primary_failure = "prime_operation_mode";
++      break;
++    }
++    RCLCPP_INFO(
++      kLogger, "Primed node %u RPDO mode cache with fixed mode %u", configuration.node_id,
++      configuration.operation_mode);
 +    if (!driver->init_motor())
 +    {
 +      primary_node = configuration.node_id;
@@ -467,13 +646,21 @@ index 8c0cc6f..81084be 100644
 +    }
 +  }
 +
++  if (!device_container_->request_nmt_stop_all_nodes() && !failed)
++  {
++    failed = true;
++    first_failure_stage = "nmt_stop";
++  }
++
++  if (!device_container_->shutdown_drivers() && !failed)
++  {
++    failed = true;
++    first_failure_stage = "driver_shutdown";
++  }
++
 +  const auto base_result = CanopenSystem::on_deactivate(previous_state);
 +  if (failed || base_result != CallbackReturn::SUCCESS)
 +  {
-+    if (!device_container_->request_nmt_stop_all_nodes())
-+    {
-+      RCLCPP_ERROR(kLogger, "Deactivation all-node NMT Stop request failed");
-+    }
 +    RCLCPP_ERROR(
 +      kLogger, "CANopen deactivation failed at node %u/%s", first_failure_node,
 +      first_failure_stage.c_str());

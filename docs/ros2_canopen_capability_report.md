@@ -135,6 +135,32 @@ which requests the Quick Stop Active transition from Operation Enabled
 instead uses upstream `handleShutdown()` after seeding safe targets; Quick Stop
 remains an emergency path.
 
+### T-014 live correction: mapped mode cache and cleanup ownership
+
+The first live activation disproved the assumption that calling only the typed
+mode API was sufficient. Because 0x6060 is in the configured RPDO image, its
+Lely-side cached default zero was sent again by the periodic PDO path after the
+API selected PP/PV. The approved overlay now validates the exact node mapping
+and primes that existing cache with Node 1=`1`, Nodes 2/3=`3` before
+`init_motor()`. This is neither a new PDO nor an SDO gate and adds no periodic
+bus load. A no-command cold run confirmed 0x6061 reports of 1/3/3, periodic
+cached commands of 1/3/3, and zero track targets throughout.
+
+Live 0x6502 is read-only `0x0003002D`, so drive-side removal of its Homing bit
+is not available. The overlay therefore suppresses only automatic Homing mode
+allocation for these fixed axes. Normal shutdown also retains the configured
+mode while using the upstream controlword state machine to reach Switch On
+Disabled; selecting No Mode first is incompatible with LD2 and caused Er870.
+
+Finally, `Motor402` owns mode helpers that retain the Lely fiber driver. Driver
+cleanup releases this graph on the still-running Lely executor before master
+shutdown. The corrected hardware-only stop completed in 1.903 seconds with
+container exit 0, all nodes repeatedly reporting NMT Stopped, no nonzero EMCY,
+no new CAN error/drop counters, and no fiber-executor assertion. BQ-112 records
+the evidence, benefits, drawbacks, and the exact portions of earlier decisions
+that this live result supersedes. Powered PP/PV and fault-reaction acceptance
+remain open T-014 work.
+
 ## Requirement result
 
 | Requirement | T-006 result |

@@ -1695,3 +1695,39 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   避免为部署网络增加生产代码或跳过配置生成。
 - Drawback（重点）：这不是从空缓存开始的全量重建，可信性依赖固定基镜像及“唯一运行差异”的审计结论；
   因此必须把基镜像 ID、提交间文件差异和派生层核验一起归档，不能把该流程泛化为后续发布方式。
+
+## BQ-112 — LD2 的 0x6060 周期 PDO 缓存、Homing 宣告与 Lely 析构线程 [RESOLVED 2026-07-25]
+
+- 状态：**RESOLVED — 按用户授权的后续自主裁决收敛，并完成一次不下发运动命令的实机启停复测**。
+- 证据：只调用上游 `set_operation_mode()` 时，驱动器短暂进入 Node 1 PP / Node 2、3 PV，随后 Lely
+  已映射 RPDO 的本地对象字典仍以默认值 `0` 周期发送 `0x6060`，把运行模式覆盖回 No Mode；LD2 在已使能
+  状态下因此报 `0x603F=0x5201`（Er870，不支持的控制模式）。实机 `0x6502` 为只读
+  `0x0003002D`，仍宣告 Homing，不能按 BQ-005 原计划通过启动写或驱动器持久参数清除。上游
+  `Motor402::handleShutdown()` 又先切换 No Mode、再进入 Switch On Disabled，会在正常停机重现同一错误。
+  最后，`Motor402` 的模式对象持有 `LelyDriverBridge` 的最后一个共享引用；若直到 ROS 信号线程析构才释放，
+  Lely 会触发 `ev_fiber_exec_fini` 的线程归属断言。
+- Final decision：保留 Node ID 到模式的 fail-closed 固定映射并在非实时硬件激活时严格校验：Node 1 只能为
+  PP=`1`，Node 2、3 只能为 PV=`3`，且必须恰有这三个节点。在调用上游 `init_motor()` 前，使用已有
+  `tpdo_transmit()` 路径把 `0x6060` 的 1/3/3 写入相应已映射 RPDO 缓存；不增加 PDO、不运行时重映射、
+  不增加 SDO 回读门禁。由于 `0x6502` 只读，在该固定系统中只禁止 `Motor402` 自动分配/执行 Homing，
+  其余标准模式检测不变。正常停机保留当前固定模式，只执行上游标准 CiA402 状态转换到
+  Switch On Disabled，随后全节点 NMT Stop；不再先写 `0x6060=0`。在 driver cleanup 阶段、主站 event loop
+  尚存活时，把 `Motor402` 投递到同一个 Lely executor 线程释放，再清理 master。
+- 与既有裁决的关系：本裁决只取代 BQ-005/BQ-046/BQ-047 中“Motor402 完全不修改”、通过驱动器清除
+  Homing 宣告，以及停机先进入 No Mode 的部分。CiA402 controlword/statusword 标准转换、PP bit-12 握手、
+  20 ms 安全目标处理窗口、心跳/EMCY 的上游归属均保持不变。
+- 实机复测：启动日志记录 Node 1/2/3 缓存分别预置 1/3/3；抓包 `0x281/0x282/0x283` 的
+  `0x6061` 分别回报 1/3/3，周期 `0x401/0x402/0x403` 继续携带 1/3/3，履带目标持续为零，未出现
+  非零 EMCY。`docker stop --timeout 60` 在
+  1.903 s 返回、容器 exit 0；三节点随后至少连续 5 s 回报 heartbeat state `0x04`（NMT Stopped），
+  CAN 保持 ERROR-ACTIVE，bus-error/error-warning/error-passive/bus-off 和 dropped 计数均无新增，且不再出现
+  Lely 析构断言。证据位于工控机
+  `/var/lib/rt-control/commissioning/mode-sdo-debug-20260725/thread-cleanup-*`；candump 与本轮 Docker 日志
+  SHA-256 分别为 `a43b8f832e2a061c07ebef99861535f3b48c4725e855e391efd84bf8bbfffb34`、
+  `1e346d5924779cb91c238bd38be049bf669f7834e715b4b81aceb4ae52322f79`。
+- Benefit：模式值与每个物理 Node 确定绑定，周期 PDO 不会再把模式覆盖为 0；不增加 CAN 帧种类或 50 Hz
+  周期负载；正常停机不再制造 Er870，且 Lely 对象在其要求的线程内销毁，容器能正常退出。
+- Drawback（重点）：固定 ros2_canopen overlay 扩大到三个很窄但必须长期 rebase 的兼容点；软件不再把
+  `0x6502` 的 Homing 位当作本机可执行能力的唯一真相。Node ID/用途变更会 fail closed，必须修改并重验映射。
+  本轮仅证明无外部命令下的激活、保持和清理，不证明 updown PP 打点速度/bit-12、履带方向/比例，或真实
+  heartbeat/EMCY 丢失时的机械停车反应；这些仍属于 T-014 未完成的带支撑实机验收。
