@@ -1640,28 +1640,26 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   6 s；若多个节点依次失败，整体启动诊断会相应变慢。该值解决的是 NMT Boot 时序，不证明驱动器 PDO、
   CiA402 或机械行为正确，后续实机门禁仍必须逐项通过。
 
-## BQ-109 — Dockerfile 抵消了已有的可选构建代理入口 [RESOLVED 2026-07-25]
+## BQ-109 — 工控机直接构建的本机代理适配 [SUPERSEDED 2026-07-25]
 
-- 状态：**RESOLVED — 仅恢复 Compose 已有 `RT_CONTROL_BUILD_PROXY` 的可选语义**。
+- 状态：**SUPERSEDED — 不再为本次工控机代理修改生产 Dockerfile，改为开发机构建后传输镜像**。
 - 证据：工控机 `mihomo` 在 `127.0.0.1:7897` 提供 HTTP/mixed proxy，经它访问 Docker Registry 返回标准
   认证挑战；`10808` 未监听。未设代理时，Docker Registry 的 DNS/IPv6 路径超时或被 reset。临时给 daemon
   和 buildx 客户端注入 7897 后 Registry 元数据成功，但 Dockerfile 的四个 `RUN` 均首先执行
   `unset HTTP_PROXY HTTPS_PROXY ...`，使 apt/git 继续直连；ROS 包下载因此极慢。Compose 已把显式
   `RT_CONTROL_BUILD_PROXY` 作为 Docker 预定义的 `HTTP_PROXY`/`HTTPS_PROXY` build args 传入，且 build
   network 已是 host，容器可访问宿主 `127.0.0.1:7897`。
-- Decision：删除四处主动清空代理环境的命令，不新增默认代理地址、不把 7897 写入 Dockerfile。未设置
-  `RT_CONTROL_BUILD_PROXY` 时仍是直连；只有操作者显式设置时，Registry、apt、git 使用同一临时代理。
-  依赖版本、固定提交、TLS URL、apt 签名校验、git commit 校验和最终 runtime 环境均保持不变。构建完成后
-  撤销临时 Docker daemon 代理并重启 daemon 验证环境已清空。
-- Benefit：工控机可以按当前 feature commit 直接、可重复构建，不再需要为普通增量修改传输整幅镜像；代理
-  仍是显式 opt-in，标准无代理构建行为不变。Docker 预定义 proxy args 不进入最终镜像配置或 history。
-- Drawback（重点）：启用时构建可达性依赖本机 `mihomo` 进程和 7897 端口，代理失效会令构建失败；网络流量
-  经过该本机代理。供应链约束仍由 HTTPS、apt 签名、固定源码 commit 和构建后的版本/补丁核验承担，不能把
-  “代理可连通”误当作依赖内容已验证。
+- Final decision：撤销 Dockerfile 的代理语义调整，恢复所有构建 `RUN` 主动清空代理变量的原行为；本次在
+  WSL 开发机按最终 feature commit 构建、核验，再以压缩镜像流经 SSH 传到工控机。工控机临时注入的 Docker
+  daemon 代理已经 `unset-environment` 并重启，`docker info` 的三项代理字段均为空。
+- Benefit：生产 Dockerfile 不再承载某台工控机的网络规避逻辑，构建路径保持冻结实现之前已验证的简单行为，
+  同时避开工控机代理的随机 502。
+- Drawback（重点）：每次镜像变化需要在开发机重新构建并传输较大的镜像归档，占用额外时间、带宽和两端磁盘；
+  工控机原地构建暂不作为本次 commissioning 的可靠路径。
 
-## BQ-110 — 本机构建代理对 ROS apt 下载间歇返回 502 [RESOLVED 2026-07-25]
+## BQ-110 — 为工控机代理增加下载重试工具 [REJECTED 2026-07-25]
 
-- 状态：**RESOLVED — 下载命令采用显式、有界的五次重试，最终镜像不保留重试工具**。
+- 状态：**REJECTED — 实验和反证保留，但不把专用重试工具留在实现中**。
 - 证据：`b25578f` 在工控机直接构建的首轮下载中，80 个 ROS/Ubuntu 包里有 4 个经
   `127.0.0.1:7897` 返回 502；保持源码、固定依赖和命令不变重试后，首轮失败的 4 个包均成功，另一个 ROS
   包随机返回 502。两轮都在第一条 `apt-get install` 结束，未进入源码编译，符合瞬时代理/上游错误而非固定
@@ -1670,10 +1668,8 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   仍直接退出，证明该配置未把当前代理的 502 判为可重试错误；不得把“已配置”误记作“已生效”。同一失败包
   随后用 curl 经 HTTP 代理连续三次返回 200；ROS 仓库的 HTTPS 证书与 `packages.ros.org` 主机名不匹配，
   因此不能通过跳过证书校验强改 HTTPS。
-- Final decision：用构建期 `rt-control-retry-command` 显式包装 `apt-get update/install`、`rosdep update/install`；
-  初次失败后最多再执行五次，间隔依次为 1/2/3/4/5 s，最后一次仍失败则保留原退出码令构建失败。完成所有
-  依赖安装和源码构建后删除该工具。包名、版本选择、软件源、TLS、apt 签名和 git commit 校验均不改变。
-- Benefit：无需无限重跑整层即可吸收少量随机 502，覆盖 Dockerfile 直接 apt 安装和 rosdep 间接安装，提升
-  工控机本地构建的可重复性；该策略不进入最终运行镜像。
-- Drawback（重点）：代理或上游持续故障时，每条下载命令可能额外执行最多五轮后才暴露失败，使失败诊断变慢；
-  重试只能改善瞬时网络可靠性，不能验证镜像内容，内容可信性仍依赖既有签名、固定提交和构建后核验。
+- Final decision：撤销 apt 原生重试配置和 `rt-control-retry-command` 方案，不增加脚本、不包装 rosdep/apt；按
+  BQ-109 改走开发机本地构建和镜像传输。该决定不改变任何运行时代码、依赖版本或硬件控制语义。
+- Benefit：避免为了单机网络故障增加并维护自定义下载控制层，Dockerfile 回到既有、容易审计的路径。
+- Drawback（重点）：若以后再次要求工控机直接构建，偶发 502 仍可能让构建失败，需要从基础网络或代理服务
+  侧解决；本次不声称已经修复工控机的代理可靠性。

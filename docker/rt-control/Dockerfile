@@ -8,17 +8,15 @@ ARG IGH_COMMIT
 LABEL org.opencontainers.image.version="${IGH_VERSION}" \
       io.rt-control.igh.commit="${IGH_COMMIT}"
 
-COPY docker/rt-control/retry-command.sh /usr/local/bin/rt-control-retry-command
-
-RUN chmod 0755 /usr/local/bin/rt-control-retry-command \
+RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && test -n "${IGH_VERSION}" \
     && [[ "${IGH_COMMIT}" =~ ^[0-9a-f]{40}$ ]] \
     && sed -i \
       -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
       -e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
       /etc/apt/sources.list \
-    && rt-control-retry-command apt-get update \
-    && rt-control-retry-command apt-get install -y --no-install-recommends \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
       autoconf \
       automake \
       build-essential \
@@ -38,7 +36,8 @@ RUN chmod 0755 /usr/local/bin/rt-control-retry-command \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp
-RUN git init ethercat \
+RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
+    && git init ethercat \
     && cd ethercat \
     && git remote add origin https://gitlab.com/etherlab.org/ethercat.git \
     && git fetch --depth 1 origin "${IGH_COMMIT}" \
@@ -85,15 +84,17 @@ RUN git config --global http.version HTTP/1.1 \
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 
-RUN source /opt/ros/humble/setup.bash \
+RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
+    && source /opt/ros/humble/setup.bash \
     && if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then rosdep init; fi \
     && sed -i \
       -e 's|https://raw.githubusercontent.com/|https://mirrors.tuna.tsinghua.edu.cn/github-raw/|g' \
       -e '\|/releases/fuerte.yaml|d' \
       /etc/ros/rosdep/sources.list.d/20-default.list
-RUN source /opt/ros/humble/setup.bash \
-    && rt-control-retry-command rosdep update --rosdistro humble \
-    && rt-control-retry-command apt-get update \
+RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
+    && source /opt/ros/humble/setup.bash \
+    && rosdep update --rosdistro humble \
+    && apt-get update \
     && rt_control_packages=( \
       canopen_master_driver \
       canopen_ros2_control \
@@ -113,7 +114,7 @@ RUN source /opt/ros/humble/setup.bash \
         --packages-up-to "${rt_control_packages[@]}" \
     ) \
     && (( ${#rt_control_dependency_paths[@]} > 0 )) \
-    && rt-control-retry-command rosdep install \
+    && rosdep install \
       --from-paths "${rt_control_dependency_paths[@]}" \
       --ignore-src \
       --rosdistro humble \
@@ -131,10 +132,7 @@ RUN source /opt/ros/humble/setup.bash \
       --merge-install \
       --packages-up-to "${rt_control_packages[@]}" \
       --cmake-args -DBUILD_TESTING=OFF \
-    && rm -rf \
-      /usr/local/bin/rt-control-retry-command \
-      /var/lib/apt/lists/* \
-      /root/.ros/rosdep
+    && rm -rf /var/lib/apt/lists/* /root/.ros/rosdep
 
 COPY docker/rt-control/entrypoint.sh /rt-control-entrypoint.sh
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
