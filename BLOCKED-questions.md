@@ -1543,3 +1543,37 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   继续阻止未验漂移。
 - Drawback：Docker 官方未来轮换签名 key 或发布安全更新时脚本会 fail closed，必须人工审核并更新冻结指纹/
   版本；本次意外发生的三个 Ubuntu curl 包升级不可无损回滚，已作为部署事实保留。
+
+## BQ-104 — T-009 的 250 Hz 空跑不得提前激活真实 CANopen 硬件 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 按任务安全门禁收窄为同镜像 mock 空跑**。
+- 证据：固定 ros2_canopen 补丁中的 `Cia402System::on_activate()` 会按 Node 1/2/3 调用
+  `init_motor()`、写运行模式并预装当前位置/零速；因此即使不调用 `/rt/enable`，直接启动默认生产 launch
+  也会进入真实 CAN 驱动激活流程。这已跨过 T-009“非使能启动”边界，而真实 EtherCAT/CAN 使能、无跳变和
+  PP/PV 行为分别属于 T-013/T-014。
+- Decision：T-009 的 §14 ⑦ 使用**同一生产镜像**、同一 CPU14 cpuset、host IPC/network、
+  `CAP_SYS_NICE`/`CAP_IPC_LOCK` 和 RT ulimit，但 launch 显式传
+  `use_mock_hardware:=true`，ROS Domain 改为 142，且不映射 `/dev/EtherCAT0`。并行 cyclictest 仍以
+  FIFO90 给 250 Hz/FIFO80 控制环施压。默认生产 Compose 只创建并检查安全字段，保持 `created`、从未启动。
+- Benefit：覆盖真实镜像、Controller Manager 频率/优先级、容器调度和宿主延迟路径，同时物理上不能访问
+  EtherCAT 设备，也不会实例化 ros2_canopen 真实插件，避免越过带电门禁。
+- Drawback：mock 结果不能证明 PDO/SYNC/WC、真实驱动激活、自动预装载或机械无跳变；这些证据仍必须在
+  T-013/T-014 按急停和支撑条件完成，不能把 T-009 soak 写成最终实总线验收。
+
+## BQ-105 — T-009 soak 启动窗口中工控机三个网络地址同时失联 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 操作者确认是现场误断电，不是软件、内核或自动休眠故障**。
+- 证据：最后确认的生产容器状态是 `created` 且从未启动。发送 mock soak 命令后，既有 SSH 会话停止返回，
+  Wi-Fi `192.168.0.40`、I219 `192.168.1.5` 和辅助 I210 `192.168.1.104` 均无 ARP/ICMP；同一 WSL 到
+  网关和公网正常。向已知 I219/I210/Wi-Fi MAC 多次发送 WoL 后仍未恢复。由于失联前命令回显未返回，当前
+  不能证明 mock/cyclictest 容器是否真正创建或开始运行，也不能把本轮计为 soak。
+- 已知安全边界：mock 命令未映射 `/dev/EtherCAT0`，使用 `use_mock_hardware:=true`；生产容器在最后可观测点
+  仍是 `created`。未调用 `/rt/enable`，未发布 FJT/updown/履带命令。
+- 恢复结果：冷启动后运行 `6.8.1-1056-realtime` 且 `/sys/kernel/realtime=1`；CPU14 隔离参数、systemd、
+  Docker、EtherCAT、CAN 和 `hostsetup/verify-host.sh` 全部恢复通过。当前 boot 无 OOM、panic、watchdog、
+  suspend 或 NVIDIA Xid。`last -x` 的前一会话中断与操作者确认的断电相符。Docker 证明 mock 与 cyclictest
+  容器从未创建，生产容器在该事件前仍为 `created`，因此没有遗留测试负载可清理。
+- Decision：把该失联归因为已确认的外部误断电；不修改休眠、内核、网络或容器配置，不把未开始的窗口计入
+  soak。T-009 的 30 分钟 mock+cyclictest 验收仍须另行完整执行。
+- Benefit：恢复检查排除了可见的软件崩溃和遗留负载，同时避免因一次已知误断电扩大宿主配置变更。
+- Drawback：断电前没有可用的 mock soak 数据；T-009 仍不能仅凭本次恢复检查宣告完成。

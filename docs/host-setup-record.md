@@ -116,6 +116,39 @@ and an unpowered/non-enabled rt-control startup only. It does not call
 `/rt/enable`, submit FJT goals, publish updown commands or move tracks. Powered
 motion remains gated by T-013/T-014 and the frozen safety preconditions.
 
+### Container deployment and interrupted soak
+
+Implementation commit `f3012bfc1a18a1cbf6391a047ad69ef358bbb003`
+was built as image `rt-control:f3012bfc1a18a1cbf6391a047ad69ef358bbb003`
+with image ID
+`sha256:80cf505aa723c2ec00fbbd65bbd24a73ced3cf9279c330da9d0270d4f16927bc`
+and size 549,114,905 bytes. All 21 packages built. The image has no proxy
+environment value and reports IgH 1.6.10, matching the host. It was streamed
+to the IPC without a tar file; the same feature commit was transferred by Git
+bundle, not pushed.
+
+Compose parsing passed. A production container was created but never started.
+Its archived inspect data shows CPU14, host network/IPC, no privileged mode,
+only `CAP_SYS_NICE` and `CAP_IPC_LOCK`, rtprio 98, unlimited memlock, the
+expected `/dev/EtherCAT0` mapping and read-only CycloneDDS file. The exact
+evidence directory is `/var/lib/rt-control/commissioning/t009-f3012bfc`.
+
+The required 30-minute run was deliberately prepared with mock hardware rather
+than the real plugins; BQ-104 records why a default launch would cross the
+T-013/T-014 CAN activation gate. At that point all three known IPC network
+addresses became unreachable while the WSL gateway remained healthy. The
+operator later confirmed that the IPC had been powered off accidentally.
+
+After the cold boot, the realtime kernel, CPU14 isolation, systemd services,
+Docker, EtherCAT, native CAN and `hostsetup/verify-host.sh` all passed again.
+The current boot has no OOM, panic, watchdog, suspend or NVIDIA Xid evidence.
+Docker history and object enumeration prove that neither the mock control
+container nor cyclictest container was ever created, so the commands had not
+started before power was removed. No test workload or large log was left to
+clean. BQ-105 records the complete resolution. The run has no valid duration
+or latency result and is not counted as a pass; T-009 remains incomplete until
+a clean 30-minute result is archived.
+
 ## Prior target retained for audit: alfa-two
 
 Date: 2026-07-22/23 CST
