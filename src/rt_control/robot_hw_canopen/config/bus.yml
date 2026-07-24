@@ -19,8 +19,8 @@ defaults:
   heartbeat_producer: 1000
   heartbeat_multiplier: 5.0
   sdo_timeout_ms: 500
-  # Match the frozen per-transition bound; ros2_canopen otherwise defaults to 20 ms.
-  boot_timeout_ms: 1000
+  # Allow one full 1000 ms heartbeat period plus reset/configuration latency.
+  boot_timeout_ms: 2000
   diagnostics:
     enable: true
     period: 1000

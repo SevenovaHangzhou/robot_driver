@@ -1617,19 +1617,25 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 ## BQ-108 — 节点驱动 Boot 等待误落入 ros2_canopen 的 20 ms 默认值 [RESOLVED 2026-07-25]
 
-- 状态：**RESOLVED — 按用户授权的后续自主实施裁决，采用冻结 transition 上限和上游现有配置先例**。
+- 状态：**RESOLVED — 按用户授权的后续自主实施裁决，并由两轮实机抓包收敛到主站同值窗口**。
 - 证据：生产镜像已成功打开 `can0` 并加载 Master；实机 Node 2 收到 NMT reset 后回传
   `0x702#00`，并正常响应 `0x1000`/`0x1018` SDO。CAN 始终 ERROR-ACTIVE、总线错误计数为 0，EtherCAT
   保持 `Idle / Active:no`。但三个 Boot attempt 分别只等待约 20 ms 后中止。固定 ros2_canopen 源码证明
   `master.boot_timeout`（默认 2000 ms）与设备 `boot_timeout_ms` 相互独立；后者未配置时默认 20 ms。实测该节点
   从 reset 到 Boot-up 约 103 ms，故 20 ms 必然早退。固定上游的 CiA402 测试配置已显式使用
   `boot_timeout_ms: 1000`，冻结 REQ-CAN-004 同时规定单 transition 上限为 1 s。
-- Decision：在 `bus.yml` 的设备 defaults 中显式设置 `boot_timeout_ms: 1000`，让 Node 1/2/3 使用同一
-  有界等待。保持 master 2000 ms、SDO 500 ms、三次 Boot attempt、NMT reset、心跳 1000/5000 ms 和所有
-  CiA402/PDO 语义不变。先做配置生成/构建检查，再重新启动；只有三个节点均 Boot 成功且现场状态无异常时才
-  继续 `/rt/enable`。
-- Benefit：给真实驱动器完成 reset、Boot-up 和身份 SDO 交换的合理窗口，同时与冻结的 1 s transition 上限及
-  上游已有配置对齐；仍会在有界时间内 fail closed，而不会无限等待。
-- Drawback（重点）：真正不响应的节点每次 Boot attempt 最多等待 1 s，三次尝试会令单节点失败路径增加到约
-  3 s；若多个节点依次失败，整体启动诊断会相应变慢。该值解决的是软件等待过短，不证明驱动器身份、PDO、
-  心跳或机械行为正确，后续实机门禁仍必须逐项通过。
+- 首轮修正与反证：先按上游 CiA402 测试配置及冻结的 1 s transition 数值试用
+  `boot_timeout_ms: 1000`。镜像构建和参数核对通过，但实机仍严格每 1000 ms 超时。完整抓包证明 Node 2
+  的 `0x1000`、四个 `0x1018` 身份子项、`0x1016` 和 `0x1017` 交换均成功且无 SDO abort；每次 NMT reset
+  到 Boot-up 约 120 ms，而生产 heartbeat 周期本身为 1000 ms。Lely 的 Boot 完成还在等待下一帧 PRE-OP
+  heartbeat，因此 1000 ms 窗口会在该心跳前约 120 ms 必然到期。冻结的 1 s deadline 属于后续 CiA402
+  transition，不是 NMT Boot 总窗口，不能混用。
+- Final decision：在 `bus.yml` 的设备 defaults 中显式设置 `boot_timeout_ms: 2000`，与 ros2_canopen Master
+  的默认 2000 ms Boot 窗口一致，给 Node 1/2/3 留出一个完整 1000 ms heartbeat 周期及 reset/config 余量。
+  保持 SDO 500 ms、三次 Boot attempt、NMT reset、心跳 1000/5000 ms 和所有 CiA402/PDO 语义不变。先做
+  配置生成/构建检查，再重新启动；只有三个节点均 Boot 成功且现场状态无异常时才继续 `/rt/enable`。
+- Benefit：等待条件与实际生产 heartbeat 时序及主站既有窗口一致，仍会在有界时间内 fail closed；实机报文已
+  排除总线错误、身份 SDO 失败和心跳配置写失败。
+- Drawback（重点）：真正不响应的节点每次 Boot attempt 最多等待 2 s，三次尝试会令单节点失败路径增加到约
+  6 s；若多个节点依次失败，整体启动诊断会相应变慢。该值解决的是 NMT Boot 时序，不证明驱动器 PDO、
+  CiA402 或机械行为正确，后续实机门禁仍必须逐项通过。
