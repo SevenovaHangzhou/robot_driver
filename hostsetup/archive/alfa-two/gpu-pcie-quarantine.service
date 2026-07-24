@@ -1,0 +1,15 @@
+[Unit]
+Description=Quarantine faulty alfa-two NVIDIA PCIe root port
+DefaultDependencies=no
+RequiresMountsFor=/usr/local/sbin/rt-control-gpu-pcie-quarantine
+After=systemd-remount-fs.service
+Before=systemd-udev-trigger.service systemd-udev-settle.service sysinit.target
+Before=display-manager.service docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rt-control-gpu-pcie-quarantine
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=rt-control SocketCAN can0 at frozen 500 kbit/s
+Requires=rt-control-can-names.service
+After=rt-control-can-names.service
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/sbin/ip link set dev can0 down
+ExecStart=/usr/sbin/ip link set dev can0 type can bitrate 500000
+ExecStart=/usr/sbin/ip link set dev can0 up
+ExecStop=-/usr/sbin/ip link set dev can0 down
+
+[Install]
+WantedBy=multi-user.target

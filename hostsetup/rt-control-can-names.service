@@ -1,0 +1,13 @@
+[Unit]
+Description=Bind rt-control and BMS CANable adapters by USB serial
+Wants=systemd-udev-settle.service
+After=systemd-udev-settle.service
+Before=can0.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rt-control-can-names
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1257,3 +1257,289 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   到同一仓库根目录。
 - Drawback：操作者必须经过包装器并预先提供已在目标机验证的 `RT_CONTROL_CPUSET`；绕过包装器的临时调试
   命令需要自行完整复现 project-directory、env-file 和标签参数。
+
+## BQ-090 — T-009 实机内核与 EtherCAT MAC 覆盖冻结初值 [RESOLVED 2026-07-23]
+
+- 状态：**RESOLVED — 用户明确批准的实机覆盖**。
+- 证据：`alfa-two` 实机运行 Ubuntu Pro `6.8.1-1056-realtime`，`/sys/kernel/realtime=1`；
+  I210 `enp3s0` 的固化 MAC 为 `8c:59:3c:15:01:f8`。原 REQ-RT-002/REQ-ECAT-008 写的是
+  5.15-rt 与旧 MAC `8c:59:3c:14:ff:d3`，在本机均不成立。用户已明确批准 HWE 6.8 RT 与新 MAC。
+- Decision：只对 T-009 主机实装值应用上述覆盖；master ID 0、`enp3s0` 专用且无 IP/DHCP/DDS、
+  IgH stable-1.6+ec_igb 与其余总线约束不变。旧值保留在原始证据文档中，不静默改写。
+- Benefit：部署绑定实际硬件和已成功启动的受支持 Ubuntu Pro RT 包，不会把主站指向不存在的 MAC。
+- Drawback：偏离原冻结主机版本，所有 out-of-tree 模块必须针对 6.8 RT 单独编译验证；换机不得复用该 MAC。
+
+## BQ-091 — `alfa-two` 隔离 CPU 与 SMT 策略 [RESOLVED 2026-07-23]
+
+- 状态：**RESOLVED — HIGH-RISK（启动参数/调度拓扑）**。
+- 证据：i7-14700 的 CPU 0-15 是八个双线程 P 核，CPU 16-27 是十二个单线程 E 核；
+  CPU 14/15 同属 P-core 7。当前 cmdline 无 isolcpus/nohz_full/rcu_nocbs/irqaffinity。
+- Decision：控制容器 cpuset 固定 CPU 14；启动参数采用
+  `nosmt isolcpus=domain,managed_irq,14 nohz_full=14 rcu_nocbs=14 irqaffinity=0-13,15-27`；
+  Controller Manager 使用已批准的 PROVISIONAL `SCHED_FIFO 80`。CPU 15 及其他 SMT 次线程由
+  `nosmt` 下线，避免同物理核争用。
+- Benefit：控制环独占完整 P 核，普通调度、IRQ、RCU callback 和 SMT sibling 均不与其竞争。
+- Drawback：全机少八个 SMT 逻辑线程且 CPU 14 不供普通工作负载使用；需重启生效，换 CPU/BIOS 后必须重探测。
+
+## BQ-092 — NVIDIA 595-open 强制 RT 构建与 PCIe 错误隔离 [RESOLVED/REVISED 2026-07-24]
+
+- 状态：**RESOLVED — HIGH-RISK（官方不支持的 RT GPU + 实机 PCIe 异常）**。
+- 证据：595 闭源和开源 DKMS 均以“does not support real-time kernels”拒绝 PREEMPT_RT；
+  版本限定覆盖与 GCC 12 可成功构建 595-open，`nvidia-smi` 正常识别 RTX A2000。但加载后 AER
+  correctable 总数约 80486174，主要为 RxErr，并含 BadTLP/BadDLLP。首次卸载模块后 5 秒增量为 0，
+  但重启后在 NVIDIA 模块未加载时仍复现：GPU 位于 D0/Gen4 x8，3 秒新增 10414 个 correctable，
+  HDMI 音频 function 仍绑定 `snd_hda_intel`。因此“仅卸载/屏蔽 NVIDIA 驱动即可止错”的早期结论
+  已被实测推翻，驱动不是根因。
+- Decision：保留 `/etc/dkms/nvidia-595.71.05.conf` 供可审计重建，但以
+  `/etc/modprobe.d/nvidia-rt-quarantine.conf` 阻止 NVIDIA 自动/直接加载；GDM 使用 Intel i915。
+  另外用 `gpu-pcie-quarantine.service` 在启动时严格校验 `01:00.1=10de:2291`、
+  `01:00.0=10de:25b8`；全 PCI sysfs 预扫发现任一目标 ID 移到其他 BDF 时 fail closed，并校验独占上游
+  根端口 `00:01.0=8086:a70d`，bus 01 出现任何非预期 child 同样拒绝执行。物理重新插拔后的复测推翻了
+  “只移除两个 endpoint 足以止错”的早期观测：两个 endpoint 已从 sysfs 消失时，根端口仍持续收到 AER；
+  改为移除经过完整拓扑校验的独占根端口后，AER 与日志增长才同时停止。EtherCAT、SSH、GDM/i915 均保持正常。
+  不用 `pci=noaer` 或关闭 AER 隐藏问题。
+  物理链路/供电检查和受控 Gen3 复测通过前不得解除两层隔离。
+- 启动时序修正：首次持久服务验证虽然最终摘除设备，但因错误地排在 `systemd-udev-settle` 之后，启动早期
+  仍产生 389349 条 AER 日志，属于不合格证据。unit 改为 `DefaultDependencies=no`、由 `sysinit.target`
+  拉起、仅等待根文件系统 remount，并排在 `systemd-udev-trigger` 之前；这样在任何 udev 驱动绑定前先完成
+  全 PCI ID/BDF 校验和移除。第二次重启中 unit 在 userspace 约 0.47 s 开始、107 ms 完成，启动时间由
+  约 86 s 降至 52 s，移除后根端口 15 s 增量为 0；但该 boot 仍产生 127072 条 AER 日志，证明错误已在
+  PCI 枚举/内核早期大量形成。服务保留为部分 containment，**不得据此宣称 GPU/RT 主机生产就绪**；
+  必须断电检查插接/载板/供电，或 BIOS 强制 Gen3 后重测。用户态继续提前已无可信收益，且仍禁止
+  `pci=noaer` 掩盖。重新插拔后的受控 PCI rescan 仍以 Gen4 x8 建链，2 秒产生 2360 条 AER 匹配日志，
+  明确为 correctable Physical Layer `RxErr`，因此插拔动作未修复链路；下一硬件试验必须是 BIOS 固定 Gen3
+  后冷启动复测，或交叉更换载板/插槽/显卡。
+- 后续用户报告已更换接口/Gen3 后的冷启动，实机仍枚举为同一 `00:01.0 -> 01:00.x` 拓扑；启动隔离前产生
+  2462 条 AER 匹配日志。受控 rescan 显示 GPU `LnkCap=16GT/s x16`、`LnkSta=16GT/s x8`，根端口
+  `LnkCap=32GT/s x16`、`LnkSta=16GT/s x8`，因此实际仍是 **Gen4 x8**，不是 Gen3。短窗口继续产生
+  2295 条 correctable Physical Layer `RxErr`，VGA 与 HDMI-audio function 均有报告，随后根端口重新隔离。
+  本次证据只说明更换动作未改变可见 BDF/协商代际，**不得误写成“Gen3 也失败”**；只有现场读到
+  `LnkSta: Speed 8GT/s` 后，才开始正式 Gen3 AER 验收。
+- 2026-07-24 用户最终裁决：**本台 rt-control 工控机不再使用 NVIDIA GPU**。因此取消 Gen3、驱动加载、
+  CUDA 与 GPU-load 验收，不再以“修复后可用 GPU”作为 T-009 前提；但这不等于允许带故障卡参加最终 RT
+  验收。断电物理拆除前继续保留 modprobe 与根端口两层隔离，只允许在确认 `00:01.0` 已摘除后进行受控
+  EtherCAT/CAN bring-up；最终 30 分钟 250 Hz/cyclictest 必须在故障卡物理移除、冷启动 NVIDIA 链路 AER
+  为零后执行。Benefit：彻底消除已知 AER 风暴和官方不支持的 NVIDIA+PREEMPT_RT 组合对实时/日志的影响。
+  Drawback：本 IPC 永久不提供 CUDA、NVIDIA 显示或 HDMI 音频；需要 GPU 的感知负载必须迁移到其他硬件。
+- Benefit：真正停止会污染日志和实时性的错误风暴，同时保留已安装驱动及明确恢复路径；设备 ID 校验可避免
+  PCI 地址变化时误删其他设备。
+- Drawback：隔离期间无 NVIDIA 计算、HDMI 音频和独显输出；服务依赖本机固定 BDF，目标 ID 出现在其他 BDF
+  时会失败而不猜测；
+  即使 PCIe 修复，595+PREEMPT_RT 仍不受 NVIDIA 官方支持，必须以 idle/GPU-load cyclictest 对照决定
+  是否可用于生产。重新插拔后的 endpoint-only 隔离失效使当前 boot 出现 8112545 条 AER 匹配记录，
+  `syslog`/`kern.log` 各增至约 82 GB、`/var/log` 共 169 GiB。用户明确要求删除测试产生的大日志后，已在
+  根端口止错条件下清空活动文件、删除八个超过 100 MB 的 AER 膨胀轮转文件，并执行 journal vacuum。
+  随后用真实 PCI rescan 验证新版完整拓扑校验/根端口移除脚本：service exit 0、根端口与 NVIDIA endpoint
+  均消失，短暂枚举产生的 1655 条 AER 匹配日志也已清理。最终 journal 占 40 MB、`/var/log` 占 602 MB，
+  根分区可用 371 GB（17% used），活动日志 5 秒无增长。代价是混入这些文件的旧日志也被删除，故关键诊断
+  数字保留在本裁决记录中。
+
+## BQ-093 — `alfa-two` Docker 来源、权限与受限网络部署 [RESOLVED 2026-07-23]
+
+- 状态：**RESOLVED — 自主部署裁决（安全边界已记录）**。
+- 证据：实机为 Docker 官方支持的 Ubuntu 22.04 amd64，安装前无 `docker.io`、`containerd`、`runc`
+  等冲突包，UFW 未启用。工控机直连 `download.docker.com` 被重置，Docker Hub 请求超时；WSL
+  `127.0.0.1:10808` 可访问官方源。官方文档要求生产机使用签名 apt repository，而 convenience script
+  只建议测试/开发使用。
+- Decision：使用 Docker 官方签名 apt repository，安装精确实测版本 Docker CE 29.6.2、containerd 2.2.6、
+  Buildx 0.35.0、Compose 5.3.1；不使用 convenience script，也不执行系统整体升级/自动清理。下载时仅建立
+  工控机 `127.0.0.1:18080` 到 WSL 代理的临时 SSH reverse forward，完成后关闭，不写入 apt、daemon、
+  镜像或仓库。保持 rootful Docker，但不把 `alfa` 加入等同 root 权限的 `docker` 组，生产操作显式使用
+  `sudo`。通过 FIFO+SSH 流式导入已验证镜像，不落大 tar 文件。对 Docker CE/CLI、containerd、Buildx、
+  Compose 和 rootless extras 设置可逆 apt hold；维护升级必须先 unhold，完成复测后重新 hold。
+- Benefit：软件来源、签名、确切版本和回滚包边界可审计；没有持久代理或扩大的本地用户权限；离线导入的
+  image ID 与 WSL 完全一致。
+- Drawback：`alfa` 不能直接操作 Docker socket，命令需 `sudo`；工控机尚不能直接从 Docker Hub 拉取，
+  后续升级/新镜像仍需临时受控传输。Docker 发布端口会改变防火墙路径，未来若新增端口必须在
+  `DOCKER-USER` 链单独审查；当前 Compose 使用 host network 但未声明发布端口。apt hold 同时阻止自动获取
+  Docker 安全更新，需纳入显式维护窗口，不能无限期不审查。
+
+## BQ-094 — IgH 安装脚本在 `ec_igb` 已接管 I210 后的幂等校验 [RESOLVED 2026-07-23]
+
+- 状态：**RESOLVED — 实机复查发现的脚本缺陷修正**。
+- 证据：首次启动成功后 `ec_igb` 接管 I210，普通 netdev `enp3s0` 不再出现在 `/sys/class/net`；旧脚本
+  仅从该路径读 MAC，因此合法复跑会在构建前误报接口缺失。当前主站仍能给出精确
+  `Main: 8c:59:3c:15:01:f8 (attached)`，且 `/etc/ethercat.conf` 保存同一 MAC。
+- Decision：首次安装继续以 netdev MAC 精确匹配且无 IPv4/IPv6 为门禁；接口已消失时，只有
+  `ethercat.service` active、既有 CLI 可执行、配置行逐字匹配、主站报告同一 MAC attached 四项同时成立，
+  才认定是 `ec_igb` 合法接管并允许复建。脚本不为幂等校验自动停止主站；显式 `--start` 才在安装末尾
+  重启服务，已接管路径跳过无意义的 `nmcli device set`。
+- Benefit：内核更新后的重复构建不再误失败，同时不会为了检查而中断可能在线的 EtherCAT 主站，也不会把
+  “接口消失”宽松解释成任意硬件状态。
+- Drawback：已接管路径依赖既有 IgH CLI 与配置作为交叉证据；若旧安装损坏到无法提供四项证据，脚本会
+  fail closed，需要维护窗口中先恢复 netdev/服务，而不会自行卸载模块猜测处理。
+
+## BQ-095 — CPU governor 在预备延迟通过后的保留策略 [RESOLVED 2026-07-23]
+
+- 状态：**RESOLVED — 自主实时调优裁决**。
+- 证据：保持实机默认 `intel_pstate`、`powersave` governor、`balance_performance` EPP，不修改 C-state 或
+  RT runtime；CPU14 上以 FIFO90、1 ms interval、mlockall 运行 30 分钟宿主 preliminary cyclictest，
+  1,800,000 周期结果为 Min 1 / Avg 4 / Max 18 µs，低于 100 µs 门槛；期间无调度节流、RCU stall、
+  lockup、AER 或内核 warning。
+- Decision：保留默认 governor/EPP，不为进一步压低预备数字强制全机/单核 performance，也不改 C-state
+  和 `sched_rt_runtime_us`。该结果只证明空闲宿主基线，不能替代实总线 250 Hz 控制空跑的最终 30 分钟验收。
+- Benefit：已经满足基线门槛，同时减少常驻功耗、热量和因温度降频带来的长期不确定性，避免引入规格外启动参数。
+- Drawback：真实感知/控制负载下的最坏延迟仍未知；若最终联合验收超过 100 µs，必须基于 trace/IRQ/热数据
+  重新裁决，不能把本次 18 µs 当作生产保证。
+
+## BQ-096 — 最终“容器内 cyclictest”工具注入方式 [RESOLVED 2026-07-23]
+
+- 状态：**RESOLVED — 不修改冻结生产镜像/Compose 的验收工具方案**。
+- 证据：生产镜像未内置 `cyclictest`，但已有兼容 `libnuma`；宿主提供 rt-tests 2.2-1 / cyclictest 2.20。
+  以同一生产 image ID 启动一次性诊断容器，只读绑定 `/usr/bin/cyclictest`、映射
+  `/dev/cpu_dma_latency`、CPU14、FIFO90、`SYS_NICE`/`IPC_LOCK` 与相同 ulimit，5 秒 5,000 周期结果
+  Min 1 / Avg 3 / Max 12 µs，并确认 PM QoS 设为 0 µs。
+- Decision：最终联合验收使用上述独立诊断容器，与 250 Hz 生产容器同时运行；不向生产镜像安装 rt-tests，
+  不给冻结 Compose 增加诊断 device/volume。证据必须同时记录生产 image ID、宿主 rt-tests 包版本和完整命令。
+- Benefit：验证发生在容器调度/namespace 路径中，又不污染生产镜像或永久扩大其设备权限；工具可独立移除。
+- Drawback：工具二进制来自宿主而非镜像供应链，且 FIFO90 的诊断线程会短暂抢占优先级80的控制环；这正是
+  联合延迟压力的一部分，但最终结果必须和 250 Hz overrun/总线状态一起解释。
+
+## BQ-097 — CANable 2.0 的 SLCAN commissioning 与生产 `gs_usb` 路径 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — HIGH-RISK（需现场刷写适配器固件，尚未执行）**。
+- 证据：实机 USB `16d0:117e`、序列号 `208031C05230` 运行 CANable 2.0 原厂 SLCAN 固件；现场手工进程为
+  `slcand -o -c -s6 /dev/ttyACM0 can0`。官方 CANable 命令表确认 `S6=500 kbit/s`；被动监听收到
+  `0x701/0x702/0x703/0x714`，数据均为 `0x7F`，SocketCAN 错误计数和 TX 均为 0。其中 `0x714` 是权威映射
+  已登记的 Node 20 Pitch 只读诊断心跳，不进入生产配置。SLCAN 在适配器内设置 bit timing，Linux 虚拟
+  interface 因而报告 `bitrate 0`，且手工 daemon 随桌面会话存在；这不满足 REQ-CAN-001/REQ-DEP-003 的
+  宿主 systemd 和 `bitrate 500000` 可核验证据。
+- Decision：SLCAN 仅允许继续做不发帧的 commissioning 观察，不改冻结 `hostsetup/can0.service` 去迁就它。
+  生产路径采用厂家官方支持的 CANable 2.0 candleLight 固件，使设备由内核原生 `gs_usb` 驱动；RT 内核
+  `6.8.1-1056-realtime` 已验证存在 signed in-tree `gs_usb.ko` 且 `CONFIG_CAN_GS_USB=m`。刷写后继续使用
+  冻结 unit 通过 netlink 设置 500000，并重新验证设备固定命名、`ip -details`、心跳和零错误。刷写需要现场
+  BOOT 按键/拔插配合，当前尚未执行；不得把本次 SLCAN 观察写成 T-009 完成。
+- Benefit：回到原生 SocketCAN/systemd/可观测 bitrate 的冻结架构，绕过 `slcand` userspace 串行转发，
+  官方说明在高负载下性能更好。
+- Drawback：固件刷写有中断和恢复风险，需要现场物理操作；CANable 2.0 candleLight 不支持 CAN-FD，但本项目
+  仅使用经典 CAN。依据：`https://canable.io/getting-started.html`、
+  `https://github.com/normaldotcom/canable2-fw`。
+
+## BQ-098 — low-latency 迁移后的 NVIDIA PCIe 隔离解除门禁 [BLOCKED 2026-07-24]
+
+- 状态：**BLOCKED — HIGH-RISK（需要用户明确批准一次无隔离启动）**。
+- 新裁决与旧裁决关系：用户随后明确选择 Ubuntu HWE low-latency 迁移以恢复 NVIDIA 能力，这覆盖 BQ-092
+  中“本 IPC 永久不使用 GPU”的软件部署范围；但它没有证明此前的 Gen4 x8 Physical Layer `RxErr` 已修复，
+  也没有自动授权解除为防止 169 GiB 日志膨胀而建立的硬件隔离。
+- 已完成证据：移除损坏的 `nvidia-dkms-535`/`nvidia-driver-535` 后，安装并一次性启动
+  `6.8.0-136-lowlatency`；`CONFIG_PREEMPT=y` 且无 `CONFIG_PREEMPT_RT`，CPU14 隔离参数原样继承，
+  realtime `6.8.1-1056` 与 generic `6.8.0-134` 回退内核均保留。IgH stable-1.6 冻结提交
+  `2f7f884f1c7d377c02a7d627eb06512126a0e50e` 已针对新 ABI 重建，`ec_igb` 报告主设备
+  `8c:59:3c:15:01:f8 (attached)`；当时现场链路为 DOWN、从站 0 个。安装了 Ubuntu 仓库的
+  `nvidia-driver-595-open=595.84-0ubuntu0.22.04.1` 与精确 ABI 的
+  `linux-modules-nvidia-595-open-6.8.0-136-lowlatency`，APT 模拟和实装均未引入 DKMS；模块 vermagic 与
+  当前内核一致。NVIDIA 官方说明 Turing 及更新架构应使用 open 模块，CUDA 13.2 Update 1 要求驱动至少
+  595.58.03，因此 595.84 满足 RTX A2000/CUDA 13.2 软件条件。
+- 接口名现场修正：移除旧 ABI 的 `ec_igb` 占用后，权威 MAC `8c:59:3c:15:01:f8` 在 sysfs 唯一对应
+  `enp2s0`；`enp3s0` 实际 MAC 为 `8c:59:3c:15:01:f9`。旧记录把 f8 与 `enp3s0` 并列是误判。
+  `hostsetup/igh-install.sh` 改为按权威 MAC 唯一解析当前 netdev 名称，发现零个或多个匹配均 fail closed；
+  `/etc/ethercat.conf` 仍只以冻结的 `MASTER0_DEVICE` MAC 绑定，不依赖可能随枚举变化的接口名。
+- 未通过门禁：`gpu-pcie-quarantine.service` 与 `/etc/modprobe.d/nvidia-rt-quarantine.conf` 仍启用。
+  当前内核的受控全局 PCI rescan 没有重新枚举已摘除的 `00:01.0` 根端口，因此 AER 无新增但也未见 GPU，
+  该结果只能判定为“未枚举”，不能判定硬件恢复。必须通过一次禁用根端口隔离的重启才能验证
+  `lspci`、协商代际、AER 增量和 `nvidia-smi`。
+- 用户批准与收紧执行：用户明确批准一次无隔离测试启动。为避免 SSH 恢复前重现持续风暴，实际采用更窄的
+  一次性 sysinit 测试窗口：保持 NVIDIA modprobe 禁载，在原隔离服务时序中先保留设备 2 秒、记录 BDF/
+  link/AER，再自动调用原脚本摘除根端口并删除测试 drop-in。Benefit：测试窗口有硬上限且自动恢复；
+  Drawback：只能采集早期物理层证据，不能在同一次启动直接运行 `nvidia-smi`。
+- 测试结果：`6.8.0-136-lowlatency` 于 21:01 启动，但测试包装器第一次读取时
+  `00:01.0/01:00.0/01:00.1` 就全部不存在，2 秒后仍不存在；AER 匹配数保持 `4 -> 4`、增量 0。
+  包装器成功报告 `root_port_removed=yes` 并自删除 drop-in，日志未失控（`/var/log` 约 855 MiB、journal
+  约 288 MiB），系统与 IgH 无 failed unit。该结果是“设备未枚举”，不是“链路通过”；软重启没有恢复此前
+  已从 sysfs 摘除的根端口，故不能解除 modprobe 禁载或测试 `nvidia-smi`。
+- 剩余问题：RTX A2000 当前是否仍物理安装？若已拆除，本轮 GPU 迁移在硬件门禁处终止；若仍安装，需要现场
+  完整断电冷启动（不是 `systemctl reboot`）后重跑同一有界窗口，才能判断物理链路/AER。
+- 用户纠正与冷启动证据：用户说明 21:01 测试时显卡实际未安装，随后断电插入并冷启动。默认 GRUB 回到
+  `6.8.1-1056-realtime`；隔离服务执行前本次 boot 记录 2,850 条 AER 匹配信息，仍为
+  `01:00.0` correctable Physical Layer `RxErr`，随后根端口被成功摘除。插卡还触发 BIOS 自动图形策略：
+  冷启动后的 PCI 树完全没有原先的 Intel `00:02.0`，`i915` 无设备可加载；NVIDIA 又被隔离，导致系统最终
+  没有任何 DRM GPU。`/dev/dri/card0` 是无 sysfs 后端的 `root:root 0600` 残留节点，GDM/Xorg 因此报
+  `Permission denied`、`no primary bus or device found` 与 `no screens found`。这解释了图形界面失败，
+  不是解除 modprobe 禁载的理由。
+- 新物理门禁：先在 AMI BIOS `RXE26005` 中把集成显卡从 Auto 改为强制 Enabled（常见名称为 Internal
+  Graphics/IGD/iGPU Multi-Monitor），并把主显示设为 IGD/IGFX、显示器接主板接口；确切菜单名称由该 OEM
+  BIOS 决定，若现场页面不同必须提供照片，不能猜测。只有冷启动后重新出现 `00:02.0`、`i915` 和有效
+  DRM 节点，才允许恢复 GDM。NVIDIA 隔离保持不变，因为本次冷启动已经复现硬件错误。
+- 暂行决定：确认硬件状态并完成必要冷启动前，不解除 modprobe 隔离、不把 low-latency 写成永久 GRUB 默认，
+  也不宣称 GPU 可用。
+- Benefit：内核、IgH 与 NVIDIA 软件栈已经可回退地准备完成，同时避免未经授权重现已知 PCIe 风暴。
+- Drawback：当前启动是一次性 low-latency；下一次普通重启仍回到 realtime，且隔离期间 `nvidia-smi` 必然
+  不可用。完整迁移和 GPU/负载延迟验收仍未完成。
+
+## BQ-099 — T-009 更换到原冻结硬件主机后的覆盖边界 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 用户授权配置新主机后的实施裁决**。
+- 证据：新目标 `ar-Default-string`（`192.168.0.40`）实际运行
+  `5.15.0-1032-realtime`，EtherCAT I210 MAC 为冻结值
+  `8c:59:3c:14:ff:d3`，15 个从站全部可见；CPU 同为 i7-14700，CPU 14/15
+  是一个完整 P-core。RTX 2000 Ada 正常工作且无 AER/Xid。BQ-090、BQ-092、
+  BQ-098 的 6.8/new-MAC/GPU-quarantine 证据均明确属于已放弃的 `alfa-two`。
+- Decision：新主机恢复原 REQ-RT-002/REQ-ECAT-008 的 5.15 PREEMPT_RT 和
+  `8c:59:3c:14:ff:d3`，仍用固定 IgH stable-1.6 提交与 `ec_igb`。同拓扑下
+  生产 cpuset 选 CPU 14，并采用已批准的 `nosmt` whole-core 参数；原主机已有的
+  C-state=1 参数只保留、不由本任务新增。`alfa-two` 的 GPU 隔离脚本不安装到新机，
+  但专有 NVIDIA 模块下的最终 GPU/MoveIt 联合延迟仍必须实测。
+- Benefit：主机重新与原冻结内核和硬件身份对齐，避免把 `alfa-two` 的异常与覆盖
+  污染到健康主机；CPU14 具有完整物理核隔离。
+- Drawback：换机使先前 `alfa-two` 的 Docker/IgH/延迟证据不能直接充当本机验收；
+  `nosmt` 会移除八个逻辑线程，NVIDIA 专有模块仍会 taint 实时内核。
+
+## BQ-100 — 两只同型号 CANable 的生产接口身份 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 实机枚举事实下的 fail-closed 绑定**。
+- 证据：两只 `1d50:606f` CANable 2.0 均由 `gs_usb` 驱动。当前 `can0` 序列号
+  `004D00675230500720333159` 正在收发 rt-control Node 1/2/3 数据；当前 `can1`
+  序列号 `003000265230500720333159` 由现有 BMS 节点使用。仅靠内核枚举顺序会在
+  换 USB 口或启动时序变化后交换名称。
+- Decision：用一次性 systemd 命名服务按两个精确 USB 序列号事务式重命名：前者
+  固定 `can0`，后者固定 `can1`，再由冻结 `can0.service` 设置 500 kbit/s。任一
+  设备缺失、重复或序列号变化均拒绝启动，不猜测另一只适配器。命名过程保留执行前
+  的 UP/DOWN 状态，避免实装检查额外改变 BMS 链路状态。
+- Benefit：彻底消除同型号适配器枚举交换导致向错误物理总线发控制帧的风险。
+- Drawback：两个指定适配器成为启动依赖；维护更换 CANable 后必须人工更新并重新
+  审核序列号，不能自动接受新硬件。
+
+## BQ-101 — Jammy AppArmor 不识别 Cursor 的 `userns` 规则 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 宿主安全服务修复**。
+- 证据：`apparmor.service` 唯一失败原因是
+  `/etc/apparmor.d/cursor-sandbox:11` 的 `userns,`；Ubuntu 22.04 自带解析器
+  报 `unexpected TOK_END_OF_RULE`，导致整次 profile reload 非零。该 profile 自
+  2026-01-23 起未成功加载，而不是 rt-control/Docker 新引入的问题。
+- Decision：备份原 profile，只注释 Jammy 不支持的 `userns,` 一行并保留其余规则，
+  以 `apparmor_parser` 解析成功和 `apparmor.service` active 为门禁。不禁用整个
+  AppArmor 服务，也不为 rt-control 添加宽松 profile。
+- Benefit：恢复全机 AppArmor profile 的正常加载，优于继续容忍失败服务或整体禁用。
+- Drawback：Cursor profile 在本机不包含较新 AppArmor 的 user-namespace 专用规则；
+  升级到支持该语法的系统后需要重新评估，而不能永久沿用注释。
+
+## BQ-102 — IgH 1.6 默认允许实时上下文 syslog [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — REQ-RT-004 的直接实施约束**。
+- 证据：固定 IgH 1.6.10 提交的 `configure` 默认报告
+  `whether to syslog in realtime context... yes`，并在 `master/domain.c`、
+  `master/master.c` 和 datagram 路径通过 `EC_RT_SYSLOG` 编译实时日志。冻结规则 9
+  明确禁止 RT read/update/write 路径日志；宿主模块无需实时日志才能提供已有的非 RT
+  启动/状态变化证据。
+- Decision：宿主 IgH 构建显式使用 `--disable-rt-syslog`，容器用户态库继续保持同一
+  1.6.10 ABI/提交。首次发现默认值时尚未进行任何运动或激活应用；随后立即用该开关
+  重建并重启空闲主站，以最终模块配置为验收对象。
+- Benefit：消除内核实时数据路径调用 syslog 的延迟和分配风险，直接满足 REQ-RT-004。
+- Drawback：少数只在 `EC_RT_SYSLOG` 下产生的运行期详细日志不可用；故障定位依赖已冻结
+  的主站状态、WC/diagnostics 与 commissioning CLI，而不能临时在生产模块中打开实时日志。
+
+## BQ-103 — Docker 安装脚本复跑的网络与包升级边界 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 实机幂等性复跑发现并收紧**。
+- 证据：Docker 已按固定指纹和版本成功安装后，第一版脚本复跑仍重新下载官方 GPG key；本机到
+  `download.docker.com` 的 TLS 连接瞬时 reset，使脚本退出。此前置步骤还因普通
+  `apt-get install` 语义把已安装的 `curl`、`libcurl4`、`libcurl4-openssl-dev` 从 Ubuntu
+  `.23` 升到 `.25`。Docker、EtherCAT、CAN 和启动配置均未改变，但这证明原脚本不满足“复跑不扩大变更”。
+- Decision：若 `/etc/apt/keyrings/docker.asc` 已存在，则离线读取并逐字核对冻结指纹后复用，绝不为复跑
+  再下载；仅在文件缺失时通过 TLS 获取。前置包安装增加 `--no-upgrade`，Docker 六包继续精确版本安装和
+  `apt-mark hold`。修正版实机复跑退出 0，零升级、零新装、零卸载。已有 RealSense 源缺 key
+  `FB0B24895113F120` 的 apt 警告不属于 rt-control，不越权修复。
+- Benefit：断续网络下已配置主机仍可验证并复用可信 key，维护复跑不会顺带升级宿主依赖；固定版本与 hold
+  继续阻止未验漂移。
+- Drawback：Docker 官方未来轮换签名 key 或发布安全更新时脚本会 fail closed，必须人工审核并更新冻结指纹/
+  版本；本次意外发生的三个 Ubuntu curl 包升级不可无损回滚，已作为部署事实保留。
