@@ -92,6 +92,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && rosdep update --rosdistro humble \
     && apt-get update \
     && rt_control_packages=( \
+      canopen_master_driver \
       canopen_ros2_control \
       ethercat_driver \
       ethercat_generic_cia402_drive \

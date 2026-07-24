@@ -1577,3 +1577,20 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   soak。T-009 的 30 分钟 mock+cyclictest 验收仍须另行完整执行。
 - Benefit：恢复检查排除了可见的软件崩溃和遗留负载，同时避免因一次已知误断电扩大宿主配置变更。
 - Drawback：断电前没有可用的 mock soak 数据；T-009 仍不能仅凭本次恢复检查宣告完成。
+
+## BQ-106 — ros2_canopen 动态 Master 组件未进入生产镜像构建闭包 [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 补齐已冻结上游实现所需的运行组件，不改变总线配置或协议语义**。
+- 证据：首次真实生产启动在 `DeviceContainer` 解析现有 `bus.yml` 后终止，原始异常为
+  `Could not find requested resource in ament index`。启动日志同时明确显示请求的插件是
+  `package: canopen_master_driver`、`driver: ros2_canopen::MasterDriver`。当时镜像只显式构建
+  `canopen_ros2_control` 及其静态依赖；`canopen_master_driver` 是由配置在运行时动态加载的 sibling package，
+  不在 `--packages-up-to canopen_ros2_control` 的依赖闭包中。故障发生在硬件组件加载和激活之前：EtherCAT
+  保持 `Idle / Active:no`，CAN 节点保持 PRE-OP，未调用 `/rt/enable`，也未发生运动。
+- Decision：把固定上游源码中的 `canopen_master_driver` 加入 Dockerfile 现有
+  `rt_control_packages` 白名单，让 rosdep 和 colcon 同时覆盖该官方运行组件；保持 `bus.yml`、DCF、PDO/SDO、
+  NMT、CiA402 握手和所有超时值原样。重建后先检查 ament 索引和 package prefix，再进行一次生产启动复测。
+- Benefit：DeviceContainer 可按已批准的 ros2_canopen 标准架构加载 Master；修复范围只覆盖缺失的运行依赖，
+  不引入自研主站或协议分支。
+- Drawback：生产镜像增加一个上游包及其少量体积和构建时间；该修复只能证明组件可加载，真实 NMT/PDO/EMCY
+  与机械无跳变仍须 T-013/T-014 实机证据。
