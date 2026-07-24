@@ -1,0 +1,30 @@
+diff --git a/lely_core_libraries/CMakeLists.txt b/lely_core_libraries/CMakeLists.txt
+index 29506fe4a8c6c3657f7bac368acd0b2d607c3727..a8f17aadf035cceb5c93ee947e8900a314100b5f 100644
+--- a/lely_core_libraries/CMakeLists.txt
++++ b/lely_core_libraries/CMakeLists.txt
+@@ -17,6 +17,7 @@ ExternalProject_Add(upstr_lely_core_libraries    # Name for custom target
+   UPDATE_COMMAND
+   COMMAND git reset --hard
+   COMMAND git apply --whitespace=fix --reject ${CMAKE_CURRENT_SOURCE_DIR}/patches/0001-Fix-dcf-tools.patch
++  COMMAND git apply --unidiff-zero --whitespace=fix --reject ${CMAKE_CURRENT_SOURCE_DIR}/patches/0002-Accept-preconfigured-CAN-tx-queue-length.patch
+   #CONFIGURE step execute autoreconf and configure
+   CONFIGURE_COMMAND autoreconf -i <SOURCE_DIR>
+   COMMAND <SOURCE_DIR>/configure --prefix=<INSTALL_DIR> --disable-cython --disable-doc --disable-tests --disable-static --disable-diag
+diff --git a/lely_core_libraries/patches/0002-Accept-preconfigured-CAN-tx-queue-length.patch b/lely_core_libraries/patches/0002-Accept-preconfigured-CAN-tx-queue-length.patch
+new file mode 100644
+index 0000000000000000000000000000000000000000..41188dd022416c400ecbb0e2bd67de8634099f17
+--- /dev/null
++++ b/lely_core_libraries/patches/0002-Accept-preconfigured-CAN-tx-queue-length.patch
+@@ -0,0 +1,12 @@
++diff --git a/src/io2/linux/can_ctrl.c b/src/io2/linux/can_ctrl.c
++index f834ebfb6e76b80410c1d2afe4e48e0a07649220..81f34f5b85ed3b81d0cb967de8a096d957f6bef9 100644
++--- a/src/io2/linux/can_ctrl.c
+++++ b/src/io2/linux/can_ctrl.c
++@@ -125 +125,6 @@ io_can_ctrl_init(io_can_ctrl_t *ctrl, unsigned int index, size_t txlen)
++-	if (io_if_set_txqlen(ARPHRD_CAN, impl->index, txlen) == -1)
+++	__u32 current_txlen = 0;
+++	if (io_if_get_txqlen(ARPHRD_CAN, impl->index, &current_txlen) == -1)
+++		return NULL;
+++
+++	if (current_txlen != txlen
+++			&& io_if_set_txqlen(ARPHRD_CAN, impl->index, txlen) == -1)

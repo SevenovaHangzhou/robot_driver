@@ -1594,3 +1594,23 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   不引入自研主站或协议分支。
 - Drawback：生产镜像增加一个上游包及其少量体积和构建时间；该修复只能证明组件可加载，真实 NMT/PDO/EMCY
   与机械无跳变仍须 T-013/T-014 实机证据。
+
+## BQ-107 — Lely 初始化无条件修改 CAN TX queue 需要容器 NET_ADMIN [RESOLVED 2026-07-24]
+
+- 状态：**RESOLVED — 用户批准采用 Lely 自身默认 `txqueuelen=128`，宿主预配置且容器不扩权**。
+- 证据：Master 组件补齐后的首次启动已成功实例化 `ros2_canopen::MasterDriver`，随后在
+  `lely::io::CanController("can0")` 抛出 `Operation not permitted`。同一生产安全上下文可创建并 bind
+  `PF_CAN/SOCK_RAW`，内核无 AppArmor/seccomp DENIED；直接调用固定镜像的
+  `io_can_ctrl_create_from_name("can0", 0)` 稳定返回 `errno=1`。固定 Lely 源码把参数 0 展开为默认
+  `LELY_IO_CAN_TXLEN=128`，然后无条件调用 `io_if_set_txqlen()`；实机 `can0` 当时为 10。该 netlink 写需要
+  `CAP_NET_ADMIN`，而生产容器只有默认 capability 加已冻结的 `IPC_LOCK`/`SYS_NICE`，BQ-007 明确禁止扩大
+  device/capability 权限。失败前 CAN 节点始终 PRE-OP、TX=0，EtherCAT 保持 `Idle / Active:no`，未使能或运动。
+- Decision：用户批准使用上游自身默认队列长度 128。`can0.service` 在接口拉起前以宿主 root 设置
+  `txqueuelen 128`；固定 Lely 仅增加窄兼容补丁：先读取当前值，已经等于 128 时跳过重复写，不一致时仍执行
+  原上游设置并在无权限下 fail closed。正式容器不增加 `NET_ADMIN`，不改 host network、bitrate、PDO/SDO、
+  NMT 或 CiA402 行为。补丁同时固定到现有 Lely commit，并做 apply-check。
+- Benefit：保留非 privileged 和最小 capability 边界；队列长度仍严格等于上游原本会设置的 128，避免沿用
+  宿主默认 10 带来的高负载 TX 排队不足，同时启动对宿主漏配保持失败可见。
+- Drawback（重点）：新增一个固定 Lely 源码补丁和宿主/容器联合前置条件；升级 ros2_canopen/Lely 时必须重核
+  补丁。128 会允许更多待发 CAN 帧排队，突发拥塞时最坏排队时延高于 10；本系统 50 Hz、经典 CAN 500 kbit/s
+  下接受该上游默认取舍。选择不授予 `NET_ADMIN` 也意味着容器不能自行修复错误的宿主队列配置。
