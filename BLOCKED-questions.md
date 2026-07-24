@@ -1639,3 +1639,22 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Drawback（重点）：真正不响应的节点每次 Boot attempt 最多等待 2 s，三次尝试会令单节点失败路径增加到约
   6 s；若多个节点依次失败，整体启动诊断会相应变慢。该值解决的是 NMT Boot 时序，不证明驱动器 PDO、
   CiA402 或机械行为正确，后续实机门禁仍必须逐项通过。
+
+## BQ-109 — Dockerfile 抵消了已有的可选构建代理入口 [RESOLVED 2026-07-25]
+
+- 状态：**RESOLVED — 仅恢复 Compose 已有 `RT_CONTROL_BUILD_PROXY` 的可选语义**。
+- 证据：工控机 `mihomo` 在 `127.0.0.1:7897` 提供 HTTP/mixed proxy，经它访问 Docker Registry 返回标准
+  认证挑战；`10808` 未监听。未设代理时，Docker Registry 的 DNS/IPv6 路径超时或被 reset。临时给 daemon
+  和 buildx 客户端注入 7897 后 Registry 元数据成功，但 Dockerfile 的四个 `RUN` 均首先执行
+  `unset HTTP_PROXY HTTPS_PROXY ...`，使 apt/git 继续直连；ROS 包下载因此极慢。Compose 已把显式
+  `RT_CONTROL_BUILD_PROXY` 作为 Docker 预定义的 `HTTP_PROXY`/`HTTPS_PROXY` build args 传入，且 build
+  network 已是 host，容器可访问宿主 `127.0.0.1:7897`。
+- Decision：删除四处主动清空代理环境的命令，不新增默认代理地址、不把 7897 写入 Dockerfile。未设置
+  `RT_CONTROL_BUILD_PROXY` 时仍是直连；只有操作者显式设置时，Registry、apt、git 使用同一临时代理。
+  依赖版本、固定提交、TLS URL、apt 签名校验、git commit 校验和最终 runtime 环境均保持不变。构建完成后
+  撤销临时 Docker daemon 代理并重启 daemon 验证环境已清空。
+- Benefit：工控机可以按当前 feature commit 直接、可重复构建，不再需要为普通增量修改传输整幅镜像；代理
+  仍是显式 opt-in，标准无代理构建行为不变。Docker 预定义 proxy args 不进入最终镜像配置或 history。
+- Drawback（重点）：启用时构建可达性依赖本机 `mihomo` 进程和 7897 端口，代理失效会令构建失败；网络流量
+  经过该本机代理。供应链约束仍由 HTTPS、apt 签名、固定源码 commit 和构建后的版本/补丁核验承担，不能把
+  “代理可连通”误当作依赖内容已验证。

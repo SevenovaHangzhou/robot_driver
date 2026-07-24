@@ -8,8 +8,7 @@ ARG IGH_COMMIT
 LABEL org.opencontainers.image.version="${IGH_VERSION}" \
       io.rt-control.igh.commit="${IGH_COMMIT}"
 
-RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
-    && test -n "${IGH_VERSION}" \
+RUN test -n "${IGH_VERSION}" \
     && [[ "${IGH_COMMIT}" =~ ^[0-9a-f]{40}$ ]] \
     && sed -i \
       -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
@@ -36,8 +35,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp
-RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
-    && git init ethercat \
+RUN git init ethercat \
     && cd ethercat \
     && git remote add origin https://gitlab.com/etherlab.org/ethercat.git \
     && git fetch --depth 1 origin "${IGH_COMMIT}" \
@@ -84,15 +82,13 @@ RUN git config --global http.version HTTP/1.1 \
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 
-RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
-    && source /opt/ros/humble/setup.bash \
+RUN source /opt/ros/humble/setup.bash \
     && if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then rosdep init; fi \
     && sed -i \
       -e 's|https://raw.githubusercontent.com/|https://mirrors.tuna.tsinghua.edu.cn/github-raw/|g' \
       -e '\|/releases/fuerte.yaml|d' \
       /etc/ros/rosdep/sources.list.d/20-default.list
-RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
-    && source /opt/ros/humble/setup.bash \
+RUN source /opt/ros/humble/setup.bash \
     && rosdep update --rosdistro humble \
     && apt-get update \
     && rt_control_packages=( \
