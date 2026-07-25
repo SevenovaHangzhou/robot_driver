@@ -4,8 +4,8 @@ default_stages: [pre-commit]
 repos:
   - repo: local
     hooks:
-      - id: rt-control-quality-gate
-        name: rt-control repository quality gate
+      - id: robot-quality-gate
+        name: robot monorepo quality gate
         entry: tools/quality_gate.sh
         language: system
         pass_filenames: false

@@ -31,6 +31,12 @@ class RepositoryGateTest(unittest.TestCase):
             repository_gate.check_path("src/rt_control/rt_watchdog/package.xml"),
             "retired rt_watchdog",
         )
+        for path in ("PROGRESS.md", "BLOCKED-questions.md"):
+            with self.subTest(path=path):
+                self.assert_has(
+                    repository_gate.check_path(path),
+                    "must live under domains/<domain>/",
+                )
         self.assertEqual(repository_gate.check_path("src/rt_control/enable_manager/package.xml"), [])
 
     def test_text_hygiene_detects_conflicts_secrets_and_missing_newline(self):
@@ -222,7 +228,7 @@ jobs:
         valid = """repos:
   - repo: local
     hooks:
-      - id: rt-control-quality-gate
+      - id: robot-quality-gate
         entry: tools/quality_gate.sh
         language: system
         pass_filenames: false
@@ -237,11 +243,17 @@ jobs:
 
     def make_valid_repository(self, root: Path):
         files = {
+            "README.md": "# Robot monorepo\n",
             "AGENTS.md": "# Contract\n",
+            "docs/README.md": "# System documentation\n",
+            "domains/rt_control/README.md": "# rt-control\n",
+            "domains/rt_control/AGENTS.md": "# rt-control contract\n",
+            "domains/rt_control/PROGRESS.md": "# rt-control progress\n",
+            "domains/rt_control/BLOCKED-questions.md": "# rt-control blockers\n",
             ".pre-commit-config.yaml": """repos:
   - repo: local
     hooks:
-      - id: rt-control-quality-gate
+      - id: robot-quality-gate
         entry: tools/quality_gate.sh
         language: system
         pass_filenames: false

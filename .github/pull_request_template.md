@@ -1,18 +1,18 @@
-<!-- rt-control-pr-contract:v1 -->
-# rt-control 变更审查
+<!-- robot-pr-contract:v1 -->
+# Robot monorepo 变更审查
 
 > 请保留本模板中的 `gate:*` 注释。所有必选项必须勾选，否则 CI 将拒绝该 PR。
 
 ## 变更范围
 
-<!-- 写明任务/需求号、目标包、直接消费者、明确未修改的内容。 -->
+<!-- 写明任务/需求号、所属域/公共资产、目标包、直接与跨域消费者、明确未修改的内容。 -->
 
 ## 架构与安全审查
 
 - [ ] <!-- gate:scope --> 变更能追溯到明确任务、需求或已裁决问题，且没有夹带无关改动。
-- [ ] <!-- gate:architecture --> 已检查域边界与依赖方向；未把任务规划、感知、导航或数据库职责放入 rt-control。
-- [ ] <!-- gate:interfaces --> 已说明 `robot_interfaces`、`robot_description`、TF 和跨容器版本兼容性；不适用时已在正文说明原因。
-- [ ] <!-- gate:realtime-safety --> 已审查实时分配/锁/阻塞、生命周期、取消、停机和故障路径；没有把 mock 或软件诊断冒充实机安全证明。
+- [ ] <!-- gate:architecture --> 已阅读所有受影响域契约，检查五域责任边界、共享包所有权与依赖方向。
+- [ ] <!-- gate:interfaces --> 已说明跨域接口、Robot Model、标定、TF 和发布版本兼容性；不适用时已在正文说明原因。
+- [ ] <!-- gate:realtime-safety --> 已按受影响域审查实时/安全、生命周期、取消、停机和故障收尾；没有把 mock 或软件诊断冒充实机证明。
 
 ## 验证证据
 

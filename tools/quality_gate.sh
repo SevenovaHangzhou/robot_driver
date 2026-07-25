@@ -48,4 +48,4 @@ python3 -m coverage report --fail-under=80 \
 
 bash tools/check_ecat_sync_shutdown_policy.sh
 
-echo "PASS: local repository quality gate"
+echo "PASS: local robot monorepo quality gate"

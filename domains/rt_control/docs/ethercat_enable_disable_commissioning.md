@@ -1,4 +1,4 @@
-# EtherCAT enable/disable commissioning record — 2026-07-25
+# rt-control EtherCAT enable/disable commissioning record — 2026-07-25
 
 ## Status and scope
 

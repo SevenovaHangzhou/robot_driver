@@ -1,4 +1,4 @@
-# ros2_canopen capability report (T-006)
+# rt-control ros2_canopen capability report (T-006)
 
 ## Scope and pinned inputs
 

@@ -45,11 +45,18 @@ SECRET_PATTERNS = (
 MERGE_MARKER = re.compile(r"^(?:<<<<<<< |>>>>>>> |\|\|\|\|\|\|\| )", re.MULTILINE)
 SKIP_TEXT_SUFFIXES = {".stl", ".bin", ".dcf"}
 REQUIRED_GOVERNANCE_FILES = (
+    "README.md",
     "AGENTS.md",
+    "docs/README.md",
+    "domains/rt_control/README.md",
+    "domains/rt_control/AGENTS.md",
+    "domains/rt_control/PROGRESS.md",
+    "domains/rt_control/BLOCKED-questions.md",
     ".pre-commit-config.yaml",
     ".github/pull_request_template.md",
     ".github/workflows/rt-control-ci.yml",
 )
+ROOT_DOMAIN_LEDGER_FILES = {"PROGRESS.md", "BLOCKED-questions.md"}
 
 
 def check_path(relative_path: str) -> list[str]:
@@ -60,6 +67,10 @@ def check_path(relative_path: str) -> list[str]:
         findings.append(f"{relative_path}: generated artifact must not be tracked")
     if relative_path.startswith("src/rt_control/rt_watchdog/"):
         findings.append(f"{relative_path}: retired rt_watchdog must remain absent")
+    if relative_path in ROOT_DOMAIN_LEDGER_FILES:
+        findings.append(
+            f"{relative_path}: domain progress and blocked questions must live under domains/<domain>/"
+        )
     return findings
 
 
@@ -324,14 +335,14 @@ def check_precommit_policy(config_text: str) -> list[str]:
                     candidate
                     for candidate in hooks
                     if isinstance(candidate, dict)
-                    and candidate.get("id") == "rt-control-quality-gate"
+                    and candidate.get("id") == "robot-quality-gate"
                 ),
                 None,
             )
             if hook is not None:
                 break
     if not isinstance(hook, dict):
-        return ["pre-commit must define the local rt-control-quality-gate hook"]
+        return ["pre-commit must define the local robot-quality-gate hook"]
 
     findings: list[str] = []
     if hook.get("entry") != "tools/quality_gate.sh":

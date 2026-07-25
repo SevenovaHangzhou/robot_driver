@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Sequence
 
 
-CONTRACT_MARKER = "<!-- rt-control-pr-contract:v1 -->"
+CONTRACT_MARKER = "<!-- robot-pr-contract:v1 -->"
 REQUIRED_SECTIONS = (
     "变更范围",
     "架构与安全审查",

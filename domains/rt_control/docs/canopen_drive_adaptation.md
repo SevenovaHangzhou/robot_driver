@@ -1,4 +1,4 @@
-# CANopen drive adaptation checklist
+# rt-control CANopen drive adaptation checklist
 
 This table is the operator-facing delta between the supplied LD2 EDS/defaults
 and the approved rt-control configuration. It does not authorize powered motion

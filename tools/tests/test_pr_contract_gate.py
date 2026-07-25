@@ -10,7 +10,7 @@ from tools import pr_contract_gate
 
 class PullRequestContractGateTest(unittest.TestCase):
     def valid_body(self):
-        return """<!-- rt-control-pr-contract:v1 -->
+        return """<!-- robot-pr-contract:v1 -->
 ## 变更范围
 Implements the repository quality gate.
 
@@ -24,7 +24,7 @@ Implements the repository quality gate.
 `tools/quality_gate.sh`: PASS
 
 ## 未验证项与剩余风险
-未执行实机验证；本变更只涉及仓库治理文件。
+未执行实机验证；本变更只涉及 monorepo 治理文件。
 
 ## 提交前确认
 - [x] <!-- gate:tests --> 已如实记录实际执行的验证

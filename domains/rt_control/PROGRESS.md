@@ -1,4 +1,4 @@
-# Implementation progress
+# rt-control implementation progress
 
 | Task | Commit | Self-check result | Remaining issues |
 | --- | --- | --- | --- |

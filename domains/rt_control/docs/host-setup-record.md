@@ -1,4 +1,4 @@
-# Host setup record
+# rt-control host setup record
 
 ## Active target: ar-Default-string (192.168.0.40)
 
