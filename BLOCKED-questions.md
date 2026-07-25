@@ -1731,3 +1731,77 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   `0x6502` 的 Homing 位当作本机可执行能力的唯一真相。Node ID/用途变更会 fail closed，必须修改并重验映射。
   本轮仅证明无外部命令下的激活、保持和清理，不证明 updown PP 打点速度/bit-12、履带方向/比例，或真实
   heartbeat/EMCY 丢失时的机械停车反应；这些仍属于 T-014 未完成的带支撑实机验收。
+
+## BQ-113 — EtherCAT 预装载窗口早于完整过程数据 [RESOLVED 2026-07-25]
+
+- 状态：**RESOLVED — HIGH-RISK（真实 13 轴启动门禁）**。
+- 证据：原 ICube `on_activate()` 在 master activate 后立即启动 5 s 预装载期限；本机 13 个已配置运动从站
+  首次达到 AL=OP 和 Domain `39/39` 需要约 26 s。原路径因此可能在 WC 不完整、`0x6064` 仍是缓存值时耗尽
+  预装载期限，或者错误地用陈旧反馈授权后续使能。环位置 13 是未配置的 hub，正常保持 PREOP，不能把全环
+  15 个位置都要求为 OP。
+- 自主裁决：给 ICube overlay 增加必填 `startup_bus_timeout_ms=70000`。硬件激活先循环现有
+  `master_.update()`，要求 13 个已配置 slave handle 全部 AL=OP 且 `processDataAgeMs()` 为有限值（即至少一次
+  `EC_WC_COMPLETE`）；超时直接返回 ERROR。满足后才单独启动原 `preload_timeout_ms=5000`，保持 raw
+  `0x6064 -> 0x607A` 和后续接管语义不变。不配置或猜测位置 0/13，不新增 PDO/SDO/state interface。
+- 实机结果：run 6/run 7 均先打印 `All configured EtherCAT slaves are OP with a complete working counter`，
+  再完成系统激活；复位、五批使能和标准失能均返回 success，运行过程 Domain 为 `39/39`。
+- Benefit：预装载证明来自完整且新鲜的过程数据，失败保持有界并 fail closed；不把非运动 hub 强行改为 OP。
+- Drawback（重点）：断线或从站异常时，启动失败最多延迟 70 s 才显现；`on_activate()` 的既有阻塞初始化窗口
+  相应变长。该门禁只解决首次完整数据，不解决 BQ-114 的控制循环接管同步波动。
+
+## BQ-114 — ICube 激活循环交接时的一次性 DC/WC 同步级联 [OPEN/HIGH-RISK 2026-07-25]
+
+- 状态：**OPEN/HIGH-RISK — 不隐藏错误，阻塞 T-013 最终完成声明，但不否定已在恢复后执行的无命令使能证据**。
+- 证据：BQ-113 门禁确认全部已配置从站 OP/WC complete 后，`on_activate()` 返回并由 controller-manager 的
+  `read()/update()/write()` 循环接管。此时 IgH 仍会依次报告多个从站 AL `0x001A Synchronization error`，
+  Domain 短暂降到不完整 WC；run 7 轮询依次见 `27/39 -> 16/39 -> 34/39 -> 39/39`，随后保持完整。累积
+  `wc_error_count` 增长后停止增长。增加 5 s “返回前稳定窗口”的 0003 实验补丁没有阻止交接后的级联，故已
+  删除，正式实现只保留 BQ-113 的 0002。
+- 伴随现象：四个 Ti5 的 PDO mapping clear/write 返回只读对象 abort `0x06010002`，但内核同时打印当前
+  `0x1601={6040,607A}`、`0x1A01={6041,6064}` 与冻结目标完全一致。当前不改 mapping、不屏蔽内核告警。
+- 当前决策：只有在级联自行恢复、13 个配置位置重新 OP、Domain 连续完整且过程数据 age 新鲜后，才允许人工
+  调用 reset/enable；恢复前绝不使能。不得用固定 sleep、关闭 DC、吞掉 WC/AL 错误或 `pci=noaer` 类方法制造
+  假绿。低速轨迹和 T-013 最终完成前继续定位循环交接/DC application-time 的根因。
+- Benefit：保留真实故障信号和冻结 DC/PDO 配置，不把未证明的延时试验固化为安全机制；恢复后的使能证据与
+  启动瞬态可以清楚分离。
+- Drawback（重点）：每次启动仍产生 AL/WC 错误和约十余秒不可用窗口；边缘链路可能无法自行恢复。当前结果
+  不能证明长期运动中的 DC 稳定性，不能据此勾选 T-013/T-015。
+
+## BQ-115 — Ti5 对 0x0000 的非激磁终态停留在 Ready To Switch On [RESOLVED 2026-07-25]
+
+- 状态：**RESOLVED — HIGH-RISK HARDWARE EXCEPTION；不得表述为 literal REQ-SAFE-002 已闭环**。
+- 证据：四个 Ti5 在 Fault Reset 清除 `0x7500` 后，PDO 持续写 `0x0000`，只读 SDO 同时确认
+  `0x6040=0x0000`、`0x603F=0`，但 statusword 保持 Ready To Switch On；额外试验持续写 `0x0002` 也不改变
+  状态。相同序列的九个 ZeroErr 均到 Switch On Disabled。供应的 Ti5 协议手册把 Ready To Switch On 定义为
+  电机未激磁，实机无命令保持曲线也未见跳变。
+- 自主裁决：常规失能、启动 sanitize 和全组 reset 仍对全轴写标准 `0x0000`。只有逻辑轴
+  `right_joint2/right_joint3/left_joint2/left_joint3` 可把 Ready To Switch On 作为“已确认非激磁”终态；其余
+  九轴仍严格要求 Switch On Disabled。使能序列不变，仍从 Ready 按 `0x0007 -> 0x000F` 进入 Operation
+  Enabled；不向 Ti5 增加私有 SDO/PDO 或自动 fault reset。
+- 与冻结要求的差异：REQ-SAFE-002、BQ-030/031/032/053/080 中 literal `0x0040` 的终态，只对这四个已实证
+  Ti5 收窄为上述非激磁终态。T-013 因此保持 partial，最终安全验收必须把此硬件例外人工签字，不得以 service
+  success 隐去差异。
+- 余留故障：master release 后四个 Ti5 均以 `0x6040=0x0000` 进入 Fault，`0x603F=0x7500`；下一次启动仍需
+  显式 `/rt/reset_fault`。建议在驱动器侧审查 EtherCAT 通讯丢失/主站释放反应映射。好处是有机会消除每次正常
+  关停后的虚假 Fault 和复位步骤；弊端是改变驱动器本地失联安全反应，若配置过松会削弱断网保护，因此必须由
+  厂商协议/现场断链试验确认，主站现在不猜测也不自动修改。
+- Benefit：服务结果与驱动器真实、无激磁的终态一致，不再因永远到不了的 `0x0040` 误超时；四轴仍保持
+  controlword `0x0000`，九个 ZeroErr 的严格确认未放宽。
+- Drawback（重点）：这是显式硬件兼容例外，并保留启动前人工 reset；若 Ti5 固件对 Ready 状态的扭矩语义与
+  手册不一致，软件本身无法检测。最终必须以驱动器参数表和机械断链/急停验收补证。
+
+## BQ-116 — 成功恢复后 diagnostics 仍展示上一轮失败 [RESOLVED 2026-07-25]
+
+- 状态：**RESOLVED — 最小字段清理并完成单次实机复测**。
+- 证据：run 6 的 reset/enable/disable service 均返回 success，但 IDLE/ENABLED 的
+  `/robot/rt_control/enable_manager` 仍显示旧的 `fault_requires_reset/right_joint2/4616`。原因是
+  `recordFailure()` 只在失败时写原子字段，任何成功终态都没有清理它们；硬件状态机本身已成功。
+- 自主裁决：新增只写既有原子字段的 `clearFailure()`，在 controller activate 以及 reset、enable、disable 的
+  成功/幂等成功路径清为 `success/-1/empty/0`。不增加 topic、接口、锁或动态分配；失败路径和 service 返回值
+  不变。
+- 实机复测：run 7 的 reset、enable、disable 全部 `ok=true`；ENABLED 和后续 IDLE diagnostics 都为
+  `failed_batch=-1`、空 `failed_joint`、`failed_status_word=0`、`stage=success`。Domain 保持 `39/39`；使能保持
+  最大反馈波动 0.016479°，失能后 0.004807°；容器 exit 0。
+- Benefit：当前健康状态不会被历史故障伪装成活动故障，rqt/上层监控可直接按当前 FSM 判断。
+- Drawback：diagnostics 不再承担“最后一次历史故障”存储；成功恢复后历史值被清除。完整历史仍保留在 Docker
+  日志和 commissioning 证据中，若未来需要持久故障史应由独立黑匣子需求实现，不能塞回当前实时控制器。

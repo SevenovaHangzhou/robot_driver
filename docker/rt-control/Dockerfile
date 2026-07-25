@@ -69,6 +69,10 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     && git -C src/vendor/ros2_canopen apply \

@@ -1,0 +1,93 @@
+diff --git a/ethercat_driver/src/ethercat_driver.cpp b/ethercat_driver/src/ethercat_driver.cpp
+index bd9ea6c..7d02ed7 100644
+--- a/ethercat_driver/src/ethercat_driver.cpp
++++ b/ethercat_driver/src/ethercat_driver.cpp
+@@ -16,2 +16,3 @@
+ 
++#include <cmath>
+ #include <algorithm>
+@@ -311,2 +312,14 @@ CallbackReturn EthercatDriver::on_activate(
+   }
++  const auto bus_timeout = info_.hardware_parameters.find("startup_bus_timeout_ms");
++  if (bus_timeout == info_.hardware_parameters.end()) {
++    RCLCPP_FATAL(
++      rclcpp::get_logger("EthercatDriver"), "Missing required startup_bus_timeout_ms");
++    return CallbackReturn::ERROR;
++  }
++  const int startup_bus_timeout_ms = std::stoi(bus_timeout->second);
++  if (startup_bus_timeout_ms <= 0) {
++    RCLCPP_FATAL(
++      rclcpp::get_logger("EthercatDriver"), "Invalid startup_bus_timeout_ms");
++    return CallbackReturn::ERROR;
++  }
+ 
+@@ -349,12 +362,19 @@ CallbackReturn EthercatDriver::on_activate(
+ 
+-  // start after one second
++  const auto add_milliseconds = [](struct timespec & value, int milliseconds) {
++      value.tv_sec += milliseconds / 1000;
++      value.tv_nsec += static_cast<long>(milliseconds % 1000) * 1000000L;
++      if (value.tv_nsec >= 1000000000L) {
++        value.tv_nsec -= 1000000000L;
++        ++value.tv_sec;
++      }
++    };
++  const auto deadline_reached = [](const struct timespec & now, const struct timespec & deadline) {
++      return now.tv_sec > deadline.tv_sec ||
++             (now.tv_sec == deadline.tv_sec && now.tv_nsec >= deadline.tv_nsec);
++    };
++
+   struct timespec t;
+   clock_gettime(CLOCK_MONOTONIC, &t);
+-  struct timespec deadline = t;
+-  deadline.tv_sec += preload_timeout_ms / 1000;
+-  deadline.tv_nsec += static_cast<long>(preload_timeout_ms % 1000) * 1000000L;
+-  if (deadline.tv_nsec >= 1000000000L) {
+-    deadline.tv_nsec -= 1000000000L;
+-    ++deadline.tv_sec;
+-  }
++  struct timespec bus_deadline = t;
++  add_milliseconds(bus_deadline, startup_bus_timeout_ms);
+   t.tv_nsec += master_.getInterval();
+@@ -365,2 +385,35 @@ CallbackReturn EthercatDriver::on_activate(
+ 
++  bool bus_ready = false;
++  while (!bus_ready) {
++    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, NULL);
++    master_.update();
++
++    bus_ready = std::isfinite(master_.processDataAgeMs());
++    for (size_t slave = 0; slave < master_.configuredSlaveCount(); ++slave) {
++      bus_ready = bus_ready && master_.slaveAlState(slave) == EC_AL_STATE_OP;
++    }
++
++    struct timespec now;
++    clock_gettime(CLOCK_MONOTONIC, &now);
++    if (!bus_ready && deadline_reached(now, bus_deadline)) {
++      RCLCPP_ERROR(
++        rclcpp::get_logger("EthercatDriver"),
++        "Timed out waiting for all configured slaves OP and a complete working counter");
++      return CallbackReturn::ERROR;
++    }
++
++    t.tv_nsec += master_.getInterval();
++    while (t.tv_nsec >= 1000000000L) {
++      t.tv_nsec -= 1000000000L;
++      ++t.tv_sec;
++    }
++  }
++  RCLCPP_INFO(
++    rclcpp::get_logger("EthercatDriver"),
++    "All configured EtherCAT slaves are OP with a complete working counter");
++
++  struct timespec preload_deadline;
++  clock_gettime(CLOCK_MONOTONIC, &preload_deadline);
++  add_milliseconds(preload_deadline, preload_timeout_ms);
++
+   bool running = true;
+@@ -385,4 +438,3 @@ CallbackReturn EthercatDriver::on_activate(
+       running &&
+-      (now.tv_sec > deadline.tv_sec ||
+-      (now.tv_sec == deadline.tv_sec && now.tv_nsec >= deadline.tv_nsec)))
++      deadline_reached(now, preload_deadline))
+     {

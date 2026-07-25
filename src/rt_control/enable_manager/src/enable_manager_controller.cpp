@@ -147,6 +147,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   jtc_activate_failed_request_.store(false, std::memory_order_release);
   emergency_jtc_deactivate_request_.store(false, std::memory_order_release);
   restart_required_.store(false, std::memory_order_release);
+  clearFailure();
   current_batch_ = 0U;
   downward_stage_ = 0U;
   stage_deadline_ns_ = 0;
@@ -231,6 +232,7 @@ controller_interface::return_type EnableManagerController::update(
           has_fault = has_fault || reset_targets_[axis];
         }
         if (!has_fault) {
+          clearFailure();
           publishResult(reset_result_, true, Stage::kAlreadyClear);
           owner_.store(Owner::kNone, std::memory_order_release);
         } else {
@@ -238,6 +240,7 @@ controller_interface::return_type EnableManagerController::update(
           phase_.store(Phase::kResetLow, std::memory_order_release);
         }
       } else if (disable_request_.exchange(false, std::memory_order_acq_rel)) {
+        clearFailure();
         publishResult(disable_result_, true, Stage::kAlreadyDisabled);
         owner_.store(Owner::kNone, std::memory_order_release);
       }
@@ -292,6 +295,7 @@ controller_interface::return_type EnableManagerController::update(
           has_fault = has_fault || reset_targets_[axis];
         }
         if (!has_fault) {
+          clearFailure();
           publishResult(reset_result_, true, Stage::kAlreadyClear);
           phase_.store(Phase::kIdle, std::memory_order_release);
           owner_.store(Owner::kNone, std::memory_order_release);
@@ -389,6 +393,7 @@ void EnableManagerController::handleEnable(
   }
 
   if (phase_.load(std::memory_order_acquire) == Phase::kJtcActivating) {
+    clearFailure();
     phase_.store(Phase::kEnabled, std::memory_order_release);
     publishResult(enable_result_, true, Stage::kSuccess);
     owner_.store(Owner::kNone, std::memory_order_release);
@@ -661,6 +666,14 @@ void EnableManagerController::recordFailure(
   last_failed_status_word_.store(status_word, std::memory_order_release);
 }
 
+void EnableManagerController::clearFailure()
+{
+  last_failure_stage_.store(Stage::kSuccess, std::memory_order_relaxed);
+  last_failed_batch_.store(-1, std::memory_order_relaxed);
+  last_failed_joint_.store(-1, std::memory_order_relaxed);
+  last_failed_status_word_.store(0U, std::memory_order_release);
+}
+
 void EnableManagerController::startDownward(Phase phase, std::int64_t now_ns)
 {
   downward_stage_ = 0U;
@@ -692,6 +705,10 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
         all_nonfault_terminal = false;
         break;
       case DriveState::kReadyToSwitchOn:
+        command = 0x0000U;
+        all_nonfault_terminal =
+          all_nonfault_terminal && isConfirmedDisableTerminal(axis, state);
+        break;
       case DriveState::kQuickStopActive:
       case DriveState::kNotReady:
       case DriveState::kUnknown:
@@ -707,7 +724,9 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
         command = 0x0000U;
         break;
     }
-    if (state != DriveState::kSwitchOnDisabled && !isFaultState(state) && first_nonterminal < 0) {
+    if (!isConfirmedDisableTerminal(axis, state) && !isFaultState(state) &&
+      first_nonterminal < 0)
+    {
       first_nonterminal = static_cast<std::int8_t>(axis);
     }
     command_interfaces_[axis].set_value(command);
@@ -812,7 +831,7 @@ void EnableManagerController::finishDownward()
       if (first_fault < 0) {
         first_fault = static_cast<std::int8_t>(axis);
       }
-    } else if (state != DriveState::kSwitchOnDisabled) {
+    } else if (!isConfirmedDisableTerminal(axis, state)) {
       all_terminal = false;
     }
   }
@@ -846,6 +865,7 @@ void EnableManagerController::finishDownward()
         primary_failed_joint_, primary_failed_status_word_);
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else {
+      clearFailure();
       publishResult(disable_result_, true, Stage::kSuccess);
       phase_.store(Phase::kIdle, std::memory_order_release);
     }
@@ -1066,7 +1086,7 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
       }
     } else {
       command_interfaces_[axis].set_value(0x0000U);
-      if (state != DriveState::kSwitchOnDisabled) {
+      if (!isConfirmedDisableTerminal(axis, state)) {
         all_reset = false;
         if (first_pending < 0) {
           first_pending = static_cast<std::int8_t>(axis);
@@ -1076,6 +1096,7 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
   }
 
   if (all_reset) {
+    clearFailure();
     publishResult(reset_result_, true, Stage::kSuccess);
     phase_.store(Phase::kIdle, std::memory_order_release);
     owner_.store(Owner::kNone, std::memory_order_release);
@@ -1158,6 +1179,15 @@ EnableManagerController::DriveState EnableManagerController::decodeState(
 bool EnableManagerController::isFaultState(DriveState state)
 {
   return state == DriveState::kFault || state == DriveState::kFaultReactionActive;
+}
+
+bool EnableManagerController::isConfirmedDisableTerminal(std::size_t axis, DriveState state)
+{
+  if (state == DriveState::kSwitchOnDisabled) {
+    return true;
+  }
+  const bool is_ti5_axis = axis == 1U || axis == 2U || axis == 7U || axis == 8U;
+  return is_ti5_axis && state == DriveState::kReadyToSwitchOn;
 }
 
 const char * EnableManagerController::stageName(Stage stage)

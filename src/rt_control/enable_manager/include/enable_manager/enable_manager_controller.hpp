@@ -110,6 +110,7 @@ private:
   static const char * stageName(Stage stage);
   static const char * phaseName(Phase phase);
   static bool isFaultState(DriveState state);
+  static bool isConfirmedDisableTerminal(std::size_t axis, DriveState state);
 
   void handleEnable(
     const std::shared_ptr<robot_interfaces::srv::RtEnable::Request> request,
@@ -135,6 +136,7 @@ private:
   void recordFailure(
     Stage stage, std::int8_t failed_batch, std::int8_t failed_joint,
     std::uint16_t status_word);
+  void clearFailure();
   void startDownward(Phase phase, std::int64_t now_ns);
   void updateDownward(std::int64_t now_ns);
   void startEmergency(
