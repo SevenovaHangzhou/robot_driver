@@ -1762,6 +1762,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 用户批准的缓解：在 8 个共享从站 profile 的启动 SDO 中把 `0x10F1:02` 写为 100。250 Hz 下这是约 400 ms
   的连续同步错误计数容差；9 个 ZeroErr 和 4 个 Ti5 的实机只读上传均确认当前值为 100。保持冻结 DC、PDO、
   250 Hz 和 BQ-113 完整 WC 门禁，不增加固定 sleep，也不隐藏内核 AL/WC 错误。
+- 迁移门审计：`diff_legacy.py` 仅将上述 `0x10F1:02=100` 作为 BQ-114 批准的列表头部 overlay；ZeroErr
+  必须为 `uint16`、Ti5 必须为 ESI 对齐的 `uint32`。其他 SDO 顺序、类型或数值差异仍然失败。纳入该 overlay
+  后，冻结基线比较覆盖 13 个逻辑轴和 `joint_limits.yaml` 共 813 个语义值。
 - 独立退出修正：保留 ICube `stop()` 只置 `running_=false`，因为它可由周期循环 callback 调用，不能加入阻塞
   主站操作；新增非实时 `EcMaster::deactivate(5000)`，只由 `EthercatDriver::on_deactivate()` 调用。该路径先
   `ecrt_master_deactivate()`，每 20 ms 轮询 13 个已配置运动从站并要求精确 PREOP，超时返回 lifecycle ERROR；

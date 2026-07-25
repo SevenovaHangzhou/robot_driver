@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +56,7 @@ tpdo:
       - {index: 0x6041, sub_index: 0, type: uint16, state_interface: status_word}
       - {index: 0x6064, sub_index: 0, type: int32, state_interface: position, factor: 0.0000239684498}
 """
+SDO_KEY = re.compile(r"^sdo\[(\d+)\](.*)$")
 
 
 class GateError(RuntimeError):
@@ -174,17 +176,36 @@ def compare_maps(axis: str, expected: SemanticMap, actual: SemanticMap) -> list[
     return differences
 
 
+def prepend_sync_tolerance(profile: SemanticMap, value_type: str) -> SemanticMap:
+    """Prepend the BQ-114-approved 0x10F1:02=100 startup SDO."""
+    expected: SemanticMap = {}
+    for key, value in profile.items():
+        match = SDO_KEY.match(key)
+        if match:
+            shifted_index = int(match.group(1)) + 1
+            expected[f"sdo[{shifted_index}]{match.group(2)}"] = value
+        else:
+            expected[key] = value
+    expected.update(
+        {
+            "sdo[0].index": Scalar("int", 0x10F1, "0x10f1"),
+            "sdo[0].sub_index": Scalar("int", 2, "2"),
+            "sdo[0].type": Scalar("string", value_type, value_type),
+            "sdo[0].value": Scalar("int", 100, "100"),
+        }
+    )
+    return expected
+
+
 def apply_frozen_overlay(legacy: SemanticMap, ti5: bool) -> SemanticMap:
     expected = dict(legacy)
     expected["auto_state_transitions"] = Scalar("bool", False, "false")
-    if not ti5:
-        return expected
-
-    for key in list(expected):
-        if key.startswith(("sdo", "rpdo", "tpdo")):
-            del expected[key]
-    expected.update(compose_yaml(TI5_CSP_OVERLAY, "built-in frozen Ti5 CSP overlay"))
-    return expected
+    if ti5:
+        for key in list(expected):
+            if key.startswith(("sdo", "rpdo", "tpdo")):
+                del expected[key]
+        expected.update(compose_yaml(TI5_CSP_OVERLAY, "built-in frozen Ti5 CSP overlay"))
+    return prepend_sync_tolerance(expected, "uint32" if ti5 else "uint16")
 
 
 def resolve_legacy_config(root: Path) -> Path:
@@ -246,7 +267,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Compare the frozen robot_driver EtherCAT YAML with the migrated configuration, "
-            "including only the approved CSP/enable-manager overlay."
+            "including only the approved CSP/enable-manager and BQ-114 sync-tolerance overlays."
         )
     )
     parser.add_argument(
