@@ -40,10 +40,10 @@ for argument in "${current_args[@]}"; do
 done
 filtered_args+=(
   nosmt
-  isolcpus=domain,managed_irq,14
+  "isolcpus=domain,managed_irq,14"
   nohz_full=14
   rcu_nocbs=14
-  irqaffinity=0-13,15-27
+  "irqaffinity=0-13,15-27"
 )
 
 install -d -m 0755 /etc/default/grub.d

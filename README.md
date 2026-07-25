@@ -48,3 +48,32 @@ For hardware-free controller loading checks, pass
 `RT_CONTROL_BUILD_PROXY` to a host-reachable proxy URL for that invocation;
 the value is scoped to the source-import layer and is not stored as a runtime
 environment variable.
+
+## Development quality gate
+
+Install the local hook dependencies once on an Ubuntu 22.04 development host:
+
+```bash
+sudo apt-get install python3-coverage python3-pip python3-yaml shellcheck
+python3 -m pip install --user pre-commit==3.7.1
+python3 -m pre_commit install
+```
+
+Run the same repository gate manually at any time:
+
+```bash
+tools/quality_gate.sh
+```
+
+The hook checks repository architecture, dependency pins, forbidden generated
+artifacts, YAML/XML/Python syntax, shell syntax, policy tests with at least 80%
+coverage, and the frozen EtherCAT shutdown policy. GitHub Actions reruns the
+same gate with ShellCheck mandatory, validates completion of the pull request
+contract, and then builds and tests the ROS workspace. Local hook success does
+not authorize hardware access, a commit, or a push; the rules in `AGENTS.md`
+still apply.
+
+After this workflow first succeeds, a repository administrator must configure
+the protected `main` branch to require the `governance` and `build` status
+checks and to disallow bypasses. Workflow files cannot enable GitHub branch
+protection by themselves.

@@ -5,23 +5,68 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: rt-control-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  governance:
     runs-on: ubuntu-22.04
     container: ros:humble-ros-base
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install quality-gate tools
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            python3-coverage \
+            python3-pip \
+            python3-yaml \
+            ripgrep \
+            shellcheck
+          python3 -m pip install --no-cache-dir pre-commit==3.7.1
+      - name: Run the same gate used by pre-commit
+        shell: bash
+        env:
+          REQUIRE_SHELLCHECK: "1"
+        run: pre-commit run --all-files --show-diff-on-failure
+      - name: Enforce pull request contract
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: python3 tools/pr_contract_gate.py --event-path "${GITHUB_EVENT_PATH}"
+
+  build:
+    needs: governance
+    runs-on: ubuntu-22.04
+    container: ros:humble-ros-base
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Checkout frozen legacy baseline
         uses: actions/checkout@v4
         with:
           repository: SevenovaHangzhou/robot_driver
           ref: 6bc94cd564361b9e4aa785af74683ecf13e258ce
           path: .legacy/robot_driver
+          persist-credentials: false
       - name: Install build tools
         shell: bash
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends python3-colcon-common-extensions python3-rosdep python3-yaml
+          apt-get install -y --no-install-recommends \
+            liburdfdom-tools \
+            python3-colcon-common-extensions \
+            python3-rosdep \
+            python3-yaml
       - name: Install package dependencies
         shell: bash
         run: |
@@ -33,6 +78,19 @@ jobs:
         run: |
           source /opt/ros/humble/setup.bash
           colcon build --symlink-install
+      - name: Test
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon test --event-handlers console_direct+
+          colcon test-result --verbose
+      - name: Validate shared robot description
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          xacro src/description/robot_description/urdf/robot.urdf.xacro \
+            > /tmp/robot-description-ci.urdf
+          check_urdf /tmp/robot-description-ci.urdf
       - name: Enforce frozen EtherCAT migration gate
         run: |
           python3 tools/diff_legacy.py \

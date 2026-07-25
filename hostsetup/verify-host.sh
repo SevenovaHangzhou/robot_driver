@@ -56,7 +56,7 @@ for argument in \
 done
 
 for irq_directory in /proc/irq/[0-9]*; do
-  affinity="$(< "${irq_directory}/effective_affinity_list" 2>/dev/null || true)"
+  affinity="$(cat -- "${irq_directory}/effective_affinity_list" 2>/dev/null || true)"
   if contains_cpu14 "${affinity}"; then
     fail "IRQ ${irq_directory##*/} targets CPU 14 via ${affinity}"
   fi
