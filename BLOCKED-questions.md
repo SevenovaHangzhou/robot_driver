@@ -1749,9 +1749,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Drawback（重点）：断线或从站异常时，启动失败最多延迟 70 s 才显现；`on_activate()` 的既有阻塞初始化窗口
   相应变长。该门禁只解决首次完整数据，不解决 BQ-114 的控制循环接管同步波动。
 
-## BQ-114 — ICube 激活循环交接时的一次性 DC/WC 同步级联 [OPEN/HIGH-RISK 2026-07-25]
+## BQ-114 — ICube 激活循环交接时的一次性 DC/WC 同步级联 [RESOLVED/HIGH-RISK 2026-07-25]
 
-- 状态：**OPEN/HIGH-RISK — 不隐藏错误，阻塞 T-013 最终完成声明，但不否定已在恢复后执行的无命令使能证据**。
+- 状态：**RESOLVED/HIGH-RISK MITIGATION — 已实机验证，不表述为 DC/application-time 根因修复，T-013 仍受低速运动验收约束**。
 - 证据：BQ-113 门禁确认全部已配置从站 OP/WC complete 后，`on_activate()` 返回并由 controller-manager 的
   `read()/update()/write()` 循环接管。此时 IgH 仍会依次报告多个从站 AL `0x001A Synchronization error`，
   Domain 短暂降到不完整 WC；run 7 轮询依次见 `27/39 -> 16/39 -> 34/39 -> 39/39`，随后保持完整。累积
@@ -1759,13 +1759,30 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   删除，正式实现只保留 BQ-113 的 0002。
 - 伴随现象：四个 Ti5 的 PDO mapping clear/write 返回只读对象 abort `0x06010002`，但内核同时打印当前
   `0x1601={6040,607A}`、`0x1A01={6041,6064}` 与冻结目标完全一致。当前不改 mapping、不屏蔽内核告警。
-- 当前决策：只有在级联自行恢复、13 个配置位置重新 OP、Domain 连续完整且过程数据 age 新鲜后，才允许人工
-  调用 reset/enable；恢复前绝不使能。不得用固定 sleep、关闭 DC、吞掉 WC/AL 错误或 `pci=noaer` 类方法制造
-  假绿。低速轨迹和 T-013 最终完成前继续定位循环交接/DC application-time 的根因。
-- Benefit：保留真实故障信号和冻结 DC/PDO 配置，不把未证明的延时试验固化为安全机制；恢复后的使能证据与
-  启动瞬态可以清楚分离。
-- Drawback（重点）：每次启动仍产生 AL/WC 错误和约十余秒不可用窗口；边缘链路可能无法自行恢复。当前结果
-  不能证明长期运动中的 DC 稳定性，不能据此勾选 T-013/T-015。
+- 用户批准的缓解：在 8 个共享从站 profile 的启动 SDO 中把 `0x10F1:02` 写为 100。250 Hz 下这是约 400 ms
+  的连续同步错误计数容差；9 个 ZeroErr 和 4 个 Ti5 的实机只读上传均确认当前值为 100。保持冻结 DC、PDO、
+  250 Hz 和 BQ-113 完整 WC 门禁，不增加固定 sleep，也不隐藏内核 AL/WC 错误。
+- 独立退出修正：保留 ICube `stop()` 只置 `running_=false`，因为它可由周期循环 callback 调用，不能加入阻塞
+  主站操作；新增非实时 `EcMaster::deactivate(5000)`，只由 `EthercatDriver::on_deactivate()` 调用。该路径先
+  `ecrt_master_deactivate()`，每 20 ms 轮询 13 个已配置运动从站并要求精确 PREOP，超时返回 lifecycle ERROR；
+  只有随后析构才 `ecrt_release_master()`。这与生产退出日志中 resource_manager 先调用 hardware deactivate、
+  再 shutdown 的既有顺序一致。
+- 实机复测：工控机镜像
+  `sha256:b8cc0ad9691e9fa34062338501ef1b26d9f8de6cf66eda62fca9802664a96cc5` 连续两轮分别在约
+  49 s、52 s 达到 13 个配置位置 OP 和 `39/39` 后才完成激活；从启动到停用、release 的内核
+  `0x001A/Synchronization error` 计数均为 0。两次 lifecycle 停用命令分别在 1.37 s、1.05 s 返回，驱动日志中
+  `Stopping` 到 `successfully stopped` 均约 41 ms，随后 master inactive、全环 15 个位置 PREOP，SIGINT 后
+  容器 exit 0。证据与清单位于工控机
+  `/var/lib/rt-control/validation/run-14-bq114-400ms-gated-ecat-only` 和
+  `/var/lib/rt-control/validation/run-15-bq114-400ms-gated-ecat-only-repeat`；清单 SHA-256 分别为
+  `248da7d6c29ccd742c0db62d4efd06f432cb2044f5c69f593c3185ed0c795624`、
+  `85f411497829e7794079991dc6087fec5b8915507e70119d4650e8b7e43a9dbb`。
+- Benefit：无需修改 IgH 内核或冻结 DC/PDO，即可跨过已观测的一次性交接波动；完整 WC 门禁仍 fail closed；
+  退出明确执行 deactivate→PREOP→release，不再依赖未运行的 ICube `run()` 线程隐式收尾。
+- Drawback（重点）：100 是“连续错误周期计数”，400 ms 只是 250 Hz 下的 nominal 换算，不是独立墙钟看门狗；
+  小于该窗口的真实同步扰动会延后升级为 `0x001A`，因此这是容差扩大而非根因修复。5 s PREOP 等待会使异常退出
+  最多增加 5 s，且失败会令 lifecycle 返回 ERROR。本轮为 EtherCAT-only（CAN component 保持 unconfigured）、
+  无使能无运动复测；低速轨迹、turn jog、长期 DC 稳定性和完整生产栈退出仍属于 T-013/T-015 验收。
 
 ## BQ-115 — Ti5 对 0x0000 的非激磁终态停留在 Ready To Switch On [RESOLVED 2026-07-25]
 
@@ -1805,3 +1822,15 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Benefit：当前健康状态不会被历史故障伪装成活动故障，rqt/上层监控可直接按当前 FSM 判断。
 - Drawback：diagnostics 不再承担“最后一次历史故障”存储；成功恢复后历史值被清除。完整历史仍保留在 Docker
   日志和 commissioning 证据中，若未来需要持久故障史应由独立黑匣子需求实现，不能塞回当前实时控制器。
+
+## BQ-117 — Ti5 `0x10F1:02` ESI 类型与实机上传长度不一致 [OPEN/HIGH-RISK 2026-07-25]
+
+- 状态：**OPEN/HIGH-RISK COMPATIBILITY — 不阻塞已验证的值 100 写入，但阻塞宣称 Ti5 对象类型已闭环**。
+- 不一致：供应的 `Ti5Robot_JointMotor_2.0.xml` 把 `0x10F1:02 Sync Error Counter Limit` 声明为
+  `UDINT/32 bit`，所以 Ti5 YAML 使用 `uint32`；同一实机四个 Ti5 的 SDO upload 却只返回 2 bytes，指定
+  `uint32` 读取报 `Data type mismatch`，指定 `uint16` 可读得 `0x0064/100`。ZeroErr ESI 与实机都为 UINT16。
+- 当前决策：本轮不擅自把 Ti5 startup SDO 从制造商 ESI 的 `uint32` 改成 `uint16`。实机启动没有该对象的 SDO
+  abort，四轴均读回 100，故保留已验证写入；在 Ti5 固件/ESI 版本得到厂商确认前，把类型差异作为显式兼容风险。
+- Benefit：不根据一次上传行为静默推翻供应商对象字典，且当前 100 的配置效果已实证。
+- Drawback（重点）：Ti5 固件与 ESI 至少一方不一致；更换固件/批次后 4-byte 写入可能被严格拒绝。发布验收应
+  固定固件版本，并向厂商确认 `0x10F1:02` 的真实宽度后再统一 ESI 与 YAML。

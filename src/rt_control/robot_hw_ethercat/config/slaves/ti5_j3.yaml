@@ -5,6 +5,7 @@ auto_fault_reset: false
 auto_state_transitions: false
 # Scaling source: PLC XML ScalingIncs=16#40000, fPositionPeriod=360 deg.
 sdo:
+  - {index: 0x10f1, sub_index: 2, type: uint32, value: 100}
   - {index: 0x6060, sub_index: 0, type: int8, value: 8}
   - {index: 0x60c2, sub_index: 1, type: uint8, value: 4}
   - {index: 0x60c2, sub_index: 2, type: int8, value: -3}

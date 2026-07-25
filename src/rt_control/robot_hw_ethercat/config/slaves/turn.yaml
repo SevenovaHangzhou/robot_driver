@@ -6,6 +6,7 @@ auto_state_transitions: false
 # Scaling source: user-confirmed ZeroErr turn motor, encoder midpoint is mechanical zero.
 # Mechanical zero is encoder 180 deg: ROS 0 rad <-> raw 262144 counts.
 sdo:
+  - {index: 0x10f1, sub_index: 2, type: uint16, value: 100}
   - {index: 0x6060, sub_index: 0, type: int8, value: 8}
 rpdo:
   - index: 0x1600

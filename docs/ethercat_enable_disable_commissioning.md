@@ -78,13 +78,12 @@ guess or silently rewrite that safety reaction.
 
 ## Remaining high-risk observations
 
-1. After `EthercatDriver::on_activate()` hands cyclic I/O to the normal
-   controller-manager read/write loop, the ring has a one-time synchronization
-   cascade. IgH reports AL status `0x001A`, and WC temporarily drops below
-   `39/39`; it recovered to `39/39` before reset/enable in both successful runs.
-   A tested five-second “stable before return” delay did not prevent the
-   cascade and was removed. The accumulated WC error count then plateaued, but
-   the root cause is not closed.
+1. The earlier one-time synchronization cascade at the handoff to the normal
+   controller-manager loop is mitigated, but its DC/application-time root cause
+   is not claimed closed. The approved startup SDO writes `0x10F1:02=100`, a
+   nominal 400 ms consecutive-error tolerance at 250 Hz. Two later isolated
+   EtherCAT-only cycles reached the existing complete-WC admission gate without
+   any `0x001A`; details and tradeoffs are recorded below and in BQ-114.
 2. Ti5 PDO assignment attempts return SDO abort `0x06010002` because the mapping
    objects are read-only. IgH reports that the currently mapped entries exactly
    equal the requested frozen `0x1601/0x1A01` entries. This explains the warning
@@ -107,3 +106,53 @@ is idle and inactive, all slaves are PREOP, and `can0` is ERROR-ACTIVE with zero
 error counters. The temporary build container and the two transferred source
 scratch files were removed; the built library and all evidence remain in the
 run-7 evidence directory.
+
+## BQ-114 400 ms mitigation and explicit master deactivation follow-up
+
+Two isolated EtherCAT-only cycles were executed with image
+`sha256:b8cc0ad9691e9fa34062338501ef1b26d9f8de6cf66eda62fca9802664a96cc5`.
+The CANopen hardware component remained unconfigured, and no drive enable or
+motion command was issued. This isolates master activation/deactivation and is
+not a substitute for the remaining production motion tests.
+
+| Check | Run 14 | Run 15 repeat |
+| --- | --- | --- |
+| Complete-WC gate before activation | PASS at about 49 s | PASS at about 52 s |
+| Configured motion positions | 1..12 and 14 OP; WC `39/39` | 1..12 and 14 OP; WC `39/39` |
+| `0x001A` from start through release | 0 | 0 |
+| Lifecycle deactivate command | exit 0 in 1.37 s | exit 0 in 1.05 s |
+| Driver stopping interval | about 41 ms | about 41 ms |
+| State before release | master inactive; all 15 positions PREOP | master inactive; all 15 positions PREOP |
+| Process exit | 0 | 0 |
+
+The implementation deliberately leaves `EcMaster::stop()` non-blocking because
+it is valid inside the upstream cyclic callback. A separate non-realtime
+`deactivate(5000)` path calls `ecrt_master_deactivate()`, polls only the thirteen
+configured motion slaves for exact PREOP at 20 ms intervals, and returns an
+error on timeout. `ecrt_release_master()` occurs later in the destructor. This
+matches the observed production resource-manager order: deactivate hardware,
+shutdown hardware, then destroy the node.
+
+All thirteen motion positions read back `0x10F1:02=100`. The ZeroErr object is
+16 bit in both ESI and hardware. The Ti5 ESI declares 32 bit, but the live SDO
+upload returns two bytes; a uint32 upload therefore reports a size mismatch,
+while uint16 reads 100. The tested uint32 startup write produced no SDO abort and
+the value was effective, so the ESI-aligned YAML is retained and the firmware
+compatibility discrepancy remains explicit in BQ-117.
+
+The benefit is a clean, deterministic deactivate→PREOP→release path and a
+minimal tolerance increase without changing IgH, DC, PDOs, or the fail-closed
+complete-WC gate. The highlighted drawback is that 100 counts only converts to
+about 400 ms at the configured 250 Hz; it can delay reporting a genuine short
+synchronization disturbance and does not repair the original timing cause. An
+abnormal PREOP transition can also extend shutdown by up to five seconds before
+returning lifecycle ERROR.
+
+Evidence is retained at
+`/var/lib/rt-control/validation/run-14-bq114-400ms-gated-ecat-only` and
+`/var/lib/rt-control/validation/run-15-bq114-400ms-gated-ecat-only-repeat`.
+Their evidence-manifest SHA-256 values are respectively
+`248da7d6c29ccd742c0db62d4efd06f432cb2044f5c69f593c3185ed0c795624` and
+`85f411497829e7794079991dc6087fec5b8915507e70119d4650e8b7e43a9dbb`.
+The IPC is currently left with master 0 inactive, all fifteen positions PREOP,
+and the validation container stopped with exit code 0.

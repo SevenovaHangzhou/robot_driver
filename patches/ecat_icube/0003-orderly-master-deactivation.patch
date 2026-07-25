@@ -1,0 +1,153 @@
+diff --git a/ethercat_driver/src/ethercat_driver.cpp b/ethercat_driver/src/ethercat_driver.cpp
+index bd9ea6c..b8921c3 100644
+--- a/ethercat_driver/src/ethercat_driver.cpp
++++ b/ethercat_driver/src/ethercat_driver.cpp
+@@ -410,12 +410,21 @@ CallbackReturn EthercatDriver::on_activate(
+ CallbackReturn EthercatDriver::on_deactivate(
+   const rclcpp_lifecycle::State & /*previous_state*/)
+ {
++  constexpr uint32_t shutdown_preop_timeout_ms = 5000;
+   activated_.store(false, std::memory_order_release);
+ 
+   RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "Stopping ...please wait...");
+ 
+-  // stop EC and disconnect
+-  master_.stop();
++  // The controller-manager loop has stopped calling read()/write(). Hand cyclic ownership
++  // back to IgH and wait for every configured motion slave to reach clean PREOP before
++  // the master handle is released during destruction.
++  const int deactivate_result = master_.deactivate(shutdown_preop_timeout_ms);
++  if (deactivate_result != 0) {
++    RCLCPP_ERROR(
++      rclcpp::get_logger("EthercatDriver"),
++      "Failed to deactivate EcMaster cleanly (error %d)", deactivate_result);
++    return CallbackReturn::ERROR;
++  }
+ 
+   RCLCPP_INFO(
+     rclcpp::get_logger("EthercatDriver"), "System successfully stopped!");
+diff --git a/ethercat_interface/include/ethercat_interface/ec_master.hpp b/ethercat_interface/include/ethercat_interface/ec_master.hpp
+index fecaf5b..7b95d78 100644
+--- a/ethercat_interface/include/ethercat_interface/ec_master.hpp
++++ b/ethercat_interface/include/ethercat_interface/ec_master.hpp
+@@ -62,6 +62,10 @@ public:
+   /** stop the control loop. use within callback, or from a separate thread. */
+   virtual void stop() {running_ = false;}
+ 
++  /** deactivate the IgH master and wait for configured slaves to reach PREOP.
++   *  This is blocking and must only be called from a non-realtime lifecycle path. */
++  int deactivate(uint32_t preop_timeout_ms);
++
+   /** time of last ethercat update, since calling run. stops if stop called.
+    *  returns actual time. use elapsedCycles()/frequency for discrete time at last update. */
+   virtual double elapsedTime();
+@@ -133,6 +137,7 @@ private:
+ 
+   /** EtherCAT master data */
+   ec_master_t * master_ = NULL;
++  bool master_active_ = false;
+   ec_master_state_t master_state_ = {};
+ 
+   /** data for a single domain */
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index 514800d..633ab6a 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -23,8 +23,11 @@
+ #include <time.h>
+ #include <sys/mman.h>
+ #include <string.h>
++#include <cerrno>
++#include <chrono>
+ #include <iostream>
+ #include <sstream>
++#include <thread>
+ 
+ #define EC_NEWTIMEVAL2NANO(TV) \
+   (((TV).tv_sec - 946684800ULL) * 1000000000ULL + (TV).tv_nsec)
+@@ -76,6 +79,10 @@ EcMaster::~EcMaster()
+       delete domain.second;
+     }
+   }
++  if (master_ != NULL) {
++    ecrt_release_master(master_);
++    master_ = NULL;
++  }
+ }
+ 
+ void EcMaster::addSlave(uint16_t alias, uint16_t position, EcSlave * slave)
+@@ -245,6 +252,7 @@ bool EcMaster::activate()
+     printWarning("Activate. Failed to activate master.");
+     return false;
+   }
++  master_active_ = true;
+ 
+   // retrieve domain data
+   for (auto & iter : domain_info_) {
+@@ -261,6 +269,65 @@ bool EcMaster::activate()
+   return true;
+ }
+ 
++int EcMaster::deactivate(uint32_t preop_timeout_ms)
++{
++  if (!master_active_) {
++    return 0;
++  }
++  if (master_ == NULL) {
++    return -ENODEV;
++  }
++
++  const int deactivate_result = ecrt_master_deactivate(master_);
++  if (deactivate_result != 0) {
++    printWarning(
++      "Deactivate. ecrt_master_deactivate failed with error " +
++      std::to_string(deactivate_result));
++    return deactivate_result;
++  }
++  master_active_ = false;
++
++  constexpr auto poll_interval = std::chrono::milliseconds(20);
++  const auto deadline =
++    std::chrono::steady_clock::now() + std::chrono::milliseconds(preop_timeout_ms);
++  uint16_t pending_position = 0;
++  uint8_t pending_al_state = 0;
++
++  while (true) {
++    bool all_preop = true;
++    for (const SlaveInfo & slave : slave_info_) {
++      ec_slave_info_t slave_state = {};
++      const int state_result = ecrt_master_get_slave(master_, slave.position, &slave_state);
++      if (state_result != 0) {
++        printWarning(
++          "Deactivate. Failed to read slave state at position " +
++          std::to_string(slave.position) + " with error " +
++          std::to_string(state_result));
++        return state_result;
++      }
++      if (slave_state.al_state != EC_AL_STATE_PREOP) {
++        all_preop = false;
++        pending_position = slave.position;
++        pending_al_state = slave_state.al_state;
++        break;
++      }
++    }
++
++    if (all_preop) {
++      return 0;
++    }
++    if (std::chrono::steady_clock::now() >= deadline) {
++      std::ostringstream message;
++      message << "Deactivate. Timed out waiting for slave at position "
++              << pending_position << " to reach clean PREOP; AL state 0x"
++              << std::hex << static_cast<unsigned int>(pending_al_state);
++      printWarning(message.str());
++      return -ETIMEDOUT;
++    }
++    std::this_thread::sleep_for(poll_interval);
++  }
++}
++
+ void EcMaster::update(uint32_t domain)
+ {
+   // receive process data
+
