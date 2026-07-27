@@ -1,0 +1,27 @@
+plc_node:
+  ros__parameters:
+    host: 192.168.1.88
+    port: 502
+    unit_id: 1
+    timeout_s: 1.0
+    interface: enp4s0
+    poll_period_s: 0.5
+    reconnect_period_s: 2.0
+    data_timeout_s: 1.5
+    do_command_register: 200
+    io_control_register: 201
+    di_status_register: 210
+    do_status_register: 211
+    io_alarm_register: 212
+    write_verify_timeout_s: 1.0
+    write_verify_period_s: 0.05
+    state_topic: /plc/io_state
+
+bms_node:
+  ros__parameters:
+    can_interface: can1
+    receive_timeout_s: 0.5
+    reconnect_period_s: 2.0
+    publish_period_s: 5.0
+    frame_timeout_s: 3.0
+    battery_state_topic: /bms/battery_state

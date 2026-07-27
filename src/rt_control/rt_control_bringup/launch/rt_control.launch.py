@@ -1,8 +1,14 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, EmitEvent, LogInfo, RegisterEventHandler
+from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
-from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    Command,
+    EnvironmentVariable,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
@@ -11,11 +17,16 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_mock_hardware = LaunchConfiguration("use_mock_hardware")
+    start_plc = LaunchConfiguration("start_plc")
+    start_bms = LaunchConfiguration("start_bms")
     description_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "urdf", "rt_control.urdf.xacro"]
     )
     controllers_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "config", "controllers.yaml"]
+    )
+    rt_io_file = PathJoinSubstitution(
+        [FindPackageShare("rt_control_bringup"), "config", "rt_io.yaml"]
     )
     robot_description = {
         "robot_description": ParameterValue(
@@ -54,6 +65,24 @@ def generate_launch_description():
         executable="rt_diagnostics_node",
         output="both",
         parameters=[{"hardware_id": "robot-001", "use_sim_time": use_sim_time}],
+    )
+    plc = Node(
+        package="plc_node",
+        executable="plc_node",
+        output="both",
+        parameters=[rt_io_file],
+        condition=IfCondition(start_plc),
+        respawn=True,
+        respawn_delay=2.0,
+    )
+    bms = Node(
+        package="bms_node",
+        executable="bms_node",
+        output="both",
+        parameters=[rt_io_file],
+        condition=IfCondition(start_bms),
+        respawn=True,
+        respawn_delay=2.0,
     )
 
     active_spawners = [
@@ -105,9 +134,23 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("use_mock_hardware", default_value="false"),
+            DeclareLaunchArgument(
+                "start_plc",
+                default_value=EnvironmentVariable(
+                    "RT_CONTROL_START_PLC", default_value="false"
+                ),
+            ),
+            DeclareLaunchArgument(
+                "start_bms",
+                default_value=EnvironmentVariable(
+                    "RT_CONTROL_START_BMS", default_value="false"
+                ),
+            ),
             control_node,
             state_publisher,
             diagnostics,
+            plc,
+            bms,
             *active_spawners,
             jtc_spawner,
             RegisterEventHandler(

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>plc_node</name>
+  <version>0.1.0</version>
+  <description>Minimal Modbus TCP PLC status and single-bit control bridge.</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <depend>robot_interfaces</depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>builtin_interfaces</test_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -10,6 +10,10 @@
 > **T-020 TF 发布边界：** 当前脚本仍锁定旧镜像 `4fc8414…`。只有在新 TF 镜像构建、部署并同步更新
 > release/launcher 锁后，下面的 `/tf`、`/tf_static` 新根链才适用于一键启动；不要把源码 Mock 结果当成目标机已上线。
 
+> **PLC/BMS 发布边界：** 当前锁定镜像同样不包含新的 PLC/BMS 节点。新镜像与 launcher 锁完成验收后，一键启动
+> 才会额外要求 `can1` 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、
+> `/bms/battery_state` 有效后再自动使能。接口细节见 [PLC / BMS 同容器集成](plc-bms-integration.md)。
+
 ## 启动
 
 在这份仓库的根目录执行一条命令：
@@ -35,9 +39,9 @@ READY: rt-control 已启动并完成 /rt/enable。
 
 1. 锁定当前账号、主机名、PREEMPT_RT 内核和隔离 CPU 14；
 2. 核对不可变 release、镜像 tag 和镜像 ID，禁止启动未验收镜像；
-3. 核对 Docker、IgH、16 个 EtherCAT 位置、CANable 序列号、500 kbit/s 和 Node 2/3 心跳；
+3. 核对 Docker、IgH、16 个 EtherCAT 位置、两只 CANable 序列号、500 kbit/s、Node 2/3 心跳和 BMS `0x3FC`；
 4. 要求一次现场使能确认；
-5. 启动 rt-control，等待 controller 和总线 ready；
+5. 启动同一个 rt-control 容器，等待 controller、总线、PLC 状态和 BMS 电压/SOC ready；
 6. 自动调用 `/rt/enable`，确认 JTC active、EtherCAT OP 和 `/joint_states` 有数据。
 
 如果任一步失败，脚本返回 `FAIL`；只要容器已经开始启动，它会尝试先调用
@@ -63,8 +67,8 @@ READY: rt-control 已启动并完成 /rt/enable。
 ./tools/rt_control_ipc.sh stop
 ```
 
-停止成功会显示 EtherCAT 已到 Idle/Inactive、16 个从站全 PREOP。该命令只处理
-`robot-rt-control-1`，不会停止或重启 `robot-rt-io-1` 和其他域容器。
+停止成功会显示 EtherCAT 已到 Idle/Inactive、16 个从站全 PREOP。PLC/BMS 与控制栈同属
+`robot-rt-control-1`，没有第二个 `robot-rt-io-1`；该命令不会停止或重启其他域容器。
 
 ## READY 后可用的当前工程接口
 
@@ -76,6 +80,9 @@ READY: rt-control 已启动并完成 /rt/enable。
 | 里程计 | `/diff_drive_controller/odom` |
 | 动态 TF（新镜像） | `/tf`，`tf2_msgs/msg/TFMessage` |
 | 静态 TF（新镜像） | `/tf_static`，`tf2_msgs/msg/TFMessage` |
+| PLC 状态（新镜像） | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` |
+| BMS 电压/SOC（新镜像） | `/bms/battery_state`，`sensor_msgs/msg/BatteryState` |
+| PLC 三路控制（新镜像） | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
 | 诊断 | `/diagnostics` |
 | 手工失能 | `/rt/disable` |
 

@@ -7,6 +7,7 @@ readonly expected_kernel="5.15.0-1032-realtime"
 readonly expected_cpuset="14"
 readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
 readonly expected_can_serial="004D00675230500720333159"
+readonly expected_bms_can_serial="003000265230500720333159"
 readonly runtime_sha="4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d"
 readonly runtime_image="rt-control:${runtime_sha}"
 readonly runtime_image_id="sha256:09c8a979c536955d160bc92c60e4531627f13b62a75b00ee108e6ef332226898"
@@ -180,8 +181,11 @@ verify_idle_bus_inputs()
   local master_output
   local slave_output
   local can_output
+  local bms_can_output
   local can_serial
+  local bms_can_serial
   local capture_file
+  local bms_capture_file
   local capture_result
 
   master_output="$(sudo ethercat master)"
@@ -222,6 +226,25 @@ verify_idle_bus_inputs()
   for cob_id in 702 703; do
     grep -Fq "can0 ${cob_id}#" "${capture_file}" || fail "未收到 0x${cob_id} 心跳。"
   done
+
+  bms_can_serial="$(udevadm info -q property -p /sys/class/net/can1 |
+    sed -n 's/^ID_SERIAL_SHORT=//p')"
+  [[ "${bms_can_serial}" == "${expected_bms_can_serial}" ]] ||
+    fail "can1 BMS USB 序列号不匹配。"
+  bms_can_output="$(ip -details -statistics link show can1)"
+  grep -Fq 'state UP' <<< "${bms_can_output}" || fail "can1 未 UP。"
+  grep -Fq 'can state ERROR-ACTIVE' <<< "${bms_can_output}" ||
+    fail "can1 不是 ERROR-ACTIVE。"
+  grep -Fq 'bitrate 500000' <<< "${bms_can_output}" ||
+    fail "can1 不是 500 kbit/s。"
+  bms_capture_file="${temporary_directory}/bms-before-start.log"
+  set +e
+  timeout 6 candump -L can1 > "${bms_capture_file}"
+  capture_result=$?
+  set -e
+  [[ ${capture_result} -eq 0 || ${capture_result} -eq 124 ]] ||
+    fail "无法被动读取 can1 BMS 总线。"
+  grep -Fq 'can1 3FC#' "${bms_capture_file}" || fail "can1 未收到 BMS 0x3FC 状态帧。"
 }
 
 confirm_hardware_authorization()
@@ -294,6 +317,22 @@ verify_canopen_operational_heartbeats()
   done
 }
 
+verify_rt_io_ready()
+{
+  local plc_state
+  local battery_state
+  plc_state="$(run_ros2_timeout 15 'ros2 topic echo /plc/io_state --once')" ||
+    fail "未收到 /plc/io_state。"
+  grep -Fq 'connected: true' <<< "${plc_state}" || fail "PLC 未连接。"
+  grep -Fq 'data_fresh: true' <<< "${plc_state}" || fail "PLC 状态不是新鲜数据。"
+
+  battery_state="$(run_ros2_timeout 20 'ros2 topic echo /bms/battery_state --once')" ||
+    fail "未收到 /bms/battery_state。"
+  grep -Eq '^voltage: [0-9]' <<< "${battery_state}" || fail "BMS 电压无有效数值。"
+  grep -Eq '^percentage: (0|1|0\.[0-9]+|1\.0+)$' <<< "${battery_state}" ||
+    fail "BMS SOC 无有效数值。"
+}
+
 start_rt_control()
 {
   local existing_state
@@ -334,6 +373,7 @@ start_rt_control()
     fail "自动使能前 dual_arm_jtc 不是 inactive。"
   verify_operational_ethercat
   verify_canopen_operational_heartbeats
+  verify_rt_io_ready
 
   info "调用 /rt/enable，自动使能 14 个 EtherCAT 轴。"
   enable_response="$(call_rt_service enable)"
@@ -362,7 +402,8 @@ start_rt_control()
     "READY: rt-control 已启动并完成 /rt/enable。" \
     "FJT: /dual_arm_jtc/follow_joint_trajectory" \
     "底盘: /cmd_vel" \
-    "状态: /joint_states  /diff_drive_controller/odom  /diagnostics"
+    "状态: /joint_states  /diff_drive_controller/odom  /diagnostics" \
+    "IO: /plc/io_state  /bms/battery_state"
 }
 
 status_rt_control()
@@ -374,6 +415,7 @@ status_rt_control()
   printf 'container: %s\n' "${container_state:-not-created}"
   sudo ethercat master
   ip -details -statistics link show can0
+  ip -details -statistics link show can1
   if [[ "${container_state}" == running* ]]; then
     run_ros2_timeout 15 'ros2 control list_controllers' | strip_ansi
   fi
@@ -427,7 +469,7 @@ stop_rt_control()
       if (( disable_ok == 0 )); then
         fail "最终总线已安全回到 Idle/PREOP，但显式 /rt/disable 未成功；请保留日志排查。"
       fi
-      info "STOPPED: rt-control 已有序停止，EtherCAT Idle/Inactive 且 16 个从站全 PREOP；未操作 robot-rt-io-1。"
+      info "STOPPED: rt-control 已有序停止，EtherCAT Idle/Inactive 且 16 个从站全 PREOP。"
       return
     fi
     sleep 1
@@ -441,7 +483,7 @@ print_help()
 当前 ar@192.168.0.40 工控机专用命令：
 
   ./tools/rt_control_ipc.sh          检查、启动并自动调用 /rt/enable
-  ./tools/rt_control_ipc.sh status   查看容器、EtherCAT、CAN 和 controller 状态
+  ./tools/rt_control_ipc.sh status   查看容器、EtherCAT、CANopen/BMS 和 controller 状态
   ./tools/rt_control_ipc.sh logs     持续查看最近 200 行日志
   ./tools/rt_control_ipc.sh stop     /rt/disable 后有序停止 rt-control
 

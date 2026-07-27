@@ -148,7 +148,7 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
   rt-control:
     cpuset: "${RT_CONTROL_CPUSET:?required}"
     devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]
-    cap_add: [SYS_NICE, IPC_LOCK]
+    cap_add: [SYS_NICE, IPC_LOCK, NET_RAW]
     volumes: ["./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"]
 """
         self.assertEqual(repository_gate.check_compose_policy(valid), [])
@@ -163,7 +163,7 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
 
         incomplete = valid.replace(
             '    devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]\n', "    devices: []\n"
-        ).replace("    cap_add: [SYS_NICE, IPC_LOCK]\n", "    cap_add: [SYS_NICE]\n")
+        ).replace("    cap_add: [SYS_NICE, IPC_LOCK, NET_RAW]\n", "    cap_add: [SYS_NICE]\n")
         findings = repository_gate.check_compose_policy(incomplete)
         self.assert_has(findings, "device mapping must remain exact")
         self.assert_has(findings, "capabilities must remain exact")
@@ -291,7 +291,7 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
   rt-control:
     cpuset: "${RT_CONTROL_CPUSET:?required}"
     devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]
-    cap_add: [SYS_NICE, IPC_LOCK]
+    cap_add: [SYS_NICE, IPC_LOCK, NET_RAW]
     volumes: ["./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"]
 """,
             "docker/rt-control/Dockerfile": """FROM ros:humble-ros-base

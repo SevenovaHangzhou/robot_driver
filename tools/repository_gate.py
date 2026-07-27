@@ -21,7 +21,9 @@ import yaml
 FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
 GENERATED_PARTS = {"build", "install", "log", ".colcon", "__pycache__"}
 DOMAIN_PACKAGES = {
+    "bms_node",
     "enable_manager",
+    "plc_node",
     "robot_hw_canopen",
     "robot_hw_ethercat",
     "rt_control_bringup",
@@ -220,7 +222,7 @@ def check_compose_policy(compose_text: str) -> list[str]:
     devices = set(service.get("devices") or [])
     if devices != allowed_devices:
         findings.append("docker/compose.yaml: approved EtherCAT device mapping must remain exact")
-    allowed_capabilities = {"SYS_NICE", "IPC_LOCK"}
+    allowed_capabilities = {"SYS_NICE", "IPC_LOCK", "NET_RAW"}
     capabilities = set(service.get("cap_add") or [])
     if capabilities != allowed_capabilities:
         findings.append("docker/compose.yaml: approved capabilities must remain exact")

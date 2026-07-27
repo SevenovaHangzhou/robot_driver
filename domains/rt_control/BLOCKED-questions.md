@@ -2046,3 +2046,22 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   需要迁移。RSP 与 TF 可用性继续跟随 rt-control 容器生命周期，目标机必须重建并部署新镜像后才会生效。
 - Verification boundary：源码合同测试、Xacro 展开、`check_urdf`、受影响包构建以及复用生产基座镜像的无设备 Mock
   已验证两话题类型、三段查询和运行消息边集合，且不存在 `world`。这不是目标机生产镜像部署或带电实机验证。
+
+## BQ-124 — PLC/BMS 最小接口、写所有权与临时 CPU 放置 [RESOLVED 2026-07-28]
+
+- Evidence：同事分支原实现同时开放批量输出 topic、三路 Bool topic 和三路 `SetBool` service，且 BMS 发布多组重复
+  数值/JSON 话题并依赖未形成跨进程仲裁的 `can_bus_guard`。PLC 对接资料给出 `%MW200/201/210/211/212`，现场映射由
+  用户确认：输出 bit0/bit1/bit2 分别为左电磁阀、右电磁阀、共用真空泵；输入 bit0/bit1 分别为左右真空已建立，1 为真。
+- User decision：BMS 只要电压和 SOC，单话题、5 秒一次；删除 `can_bus_guard`。PLC 只留三路 `SetBool`，每次只改目标
+  bit 并保持当前其他状态；启动、重连和退出不清输出。`%MW201 bit0` 必须始终为 1，连接发现为 0 时自动修复。
+  为近期联调先让 PLC/BMS 与控制栈同容器、同实时 CPU，后续再评估迁移到 housekeeping CPU。
+- Decision：BMS 只收 `0x3FC` 并发布 `/bms/battery_state`；PLC 只发布强类型 `/plc/io_state`，写服务需同时验证
+  `%MW200` 命令位与 `%MW211` 实际位。`%MW201` 使用读改写，只置 bit0，并要求回读全字与目标值一致，避免漏检
+  非目标 bit 变化。Compose 仍为单服务/PID 1
+  `rt_control_start`，以环境变量启用两个节点，新增最小 `NET_RAW`，不授予 `NET_ADMIN`，不在容器内配置 `can1`。
+- Realtime/safety boundary：同 CPU 放置是有意接受的短期联调风险，不关闭调度干扰、WCET 或生产实时性验收；后续 CPU
+  拆分不得改变 ROS 接口或寄存器语义。PLC/BMS 节点不进入 EtherCAT/CANopen 闭环，但当前 cpuset 会让其系统调用和
+  Python 调度与控制进程竞争。
+- Verification boundary：受影响四包构建通过，BMS/PLC 47 项测试、Compose 展开、launch 参数解析及仓库 26 项质量门禁
+  通过；没有访问 PLC、CAN 或输出。当前一键脚本仍锁旧镜像，必须以批准提交重建镜像并更新 release/SHA/镜像 ID 锁，
+  再完成目标机 start→READY→stop 与 IO 点对点核对，才算进入明日联调运行版本。

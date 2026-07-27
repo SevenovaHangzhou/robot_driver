@@ -16,6 +16,7 @@ for required in \
   'readonly expected_cpuset="14"' \
   'readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"' \
   'readonly expected_can_serial="004D00675230500720333159"' \
+  'readonly expected_bms_can_serial="003000265230500720333159"' \
   'readonly runtime_sha="4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d"' \
   'readonly runtime_image_id="sha256:09c8a979c536955d160bc92c60e4531627f13b62a75b00ee108e6ef332226898"' \
   'ENABLE_RT_CONTROL' \
@@ -23,6 +24,9 @@ for required in \
   'call_rt_service disable' \
   'compose up -d --no-build rt-control' \
   'compose stop rt-control' \
+  'can1 3FC#' \
+  'ros2 topic echo /plc/io_state --once' \
+  'ros2 topic echo /bms/battery_state --once' \
   '已记录但按现行裁决不自动停机'
 do
   grep -Fq -- "${required}" "${launcher}" || fail "launcher policy is missing: ${required}"
