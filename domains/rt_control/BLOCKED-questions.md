@@ -2023,3 +2023,26 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 2026-07-27 observation：本次 corrective image 验证时两只批准序列号的适配器均在场，`can0`/`can1` 均为
   500 kbit/s、ERROR-ACTIVE 且 RX/TX/error/drop 计数无错误，因此没有再次使用缺席例外。此现场状态不回答“以后允许
   BMS 适配器缺席吗”，生产 unit 拆分与否仍保持 OPEN，不能把一次两设备在场写成架构裁决。
+
+## BQ-123 — 导航与视觉共用的本体 TF 根链 [RESOLVED 2026-07-28]
+
+- Evidence：冻结 `REQ-IF-003` 和旧控制器配置要求 diff-drive 发布 `odom -> base_link`，但迁入的权威模型同时包含
+  固定 `world -> base_link`；RSP 与 diff-drive 同时运行时会让 `base_link` 出现两个父 frame。模型中该固定变换为
+  精确 `xyz="0 0 0.202094" rpy="0 0 0"`，可在不引入新标定数值的前提下表达底盘投影平面到本体基座的高度。
+- User decision：采用导航常用的 `odom -> base_footprint -> base_link`；由 rt-control Docker 同时运行
+  diff-drive 和 `robot_state_publisher`，向导航与视觉提供 `/tf`、`/tf_static`，两者类型均为
+  `tf2_msgs/msg/TFMessage`。本次授权同时覆盖实际 launch、URDF 加载、TF 发布和 Docker 配置检查/修改。
+- Decision：从权威活动模型删除虚拟 `world` link 和 `world_to_base` joint，原值迁为固定
+  `base_footprint_to_base`；diff-drive 以 50 Hz 发布唯一动态边 `odom -> base_footprint`；RSP 以同一展开模型发布
+  活动关节 `/tf`，并在 `/tf_static` 发布 `base_footprint -> base_link`、固定 Pitch 及传感器/工具固定边。
+  RSP 动态发布上限与已批准的 50 Hz `/joint_states` 对齐。`map -> odom` 仍由 perception/定位负责。
+- Compatibility：`/diff_drive_controller/odom.header.frame_id` 保持 `odom`，但 `child_frame_id` 从
+  `base_link` 改为 `base_footprint`。普通 TF 消费者继续可以查询组合后的 `odom -> base_link`；直接断言旧边或旧
+  `Odometry.child_frame_id` 的消费者必须同步更新。仿真若需要 `world`，应由仿真/定位层建立外部世界关系，不能让
+  本体 URDF 再次占有 `base_link` 的第二父节点。
+- Benefit：消除 TF 多父冲突，得到适合二维导航的地面投影 frame，同时让视觉、雷达和机械臂共享同一模型版本的完整
+  本体树；250 Hz 硬实时环不消费 TF，新增 RSP 参数不进入实时控制路径。
+- Drawback：这是公共 frame 契约变更；依赖 `world`、直接 `odom -> base_link` 边或旧 odometry child frame 的消费方
+  需要迁移。RSP 与 TF 可用性继续跟随 rt-control 容器生命周期，目标机必须重建并部署新镜像后才会生效。
+- Verification boundary：源码合同测试、Xacro 展开、`check_urdf`、受影响包构建以及复用生产基座镜像的无设备 Mock
+  已验证两话题类型、三段查询和运行消息边集合，且不存在 `world`。这不是目标机生产镜像部署或带电实机验证。

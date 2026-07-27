@@ -436,6 +436,10 @@ ros2 topic echo --once /joint_states
 timeout 10 ros2 topic hz /joint_states
 ros2 topic echo --once /diff_drive_controller/odom
 timeout 10 ros2 topic hz /diff_drive_controller/odom
+ros2 topic type /tf
+ros2 topic type /tf_static
+timeout 5 ros2 run tf2_ros tf2_echo odom base_footprint
+timeout 5 ros2 run tf2_ros tf2_echo base_footprint base_link
 timeout 5 ros2 run tf2_ros tf2_echo odom base_link
 timeout 5 ros2 topic echo /diagnostics
 ```
@@ -449,7 +453,8 @@ timeout 5 ros2 topic echo /diagnostics
 | `enable_manager` | active |
 | `dual_arm_jtc` | inactive；只有 `/rt/enable` 成功后才 active |
 | `/joint_states` | 约 50 Hz，14 个 EtherCAT 轴 + 两条履带，共 16 个控制关节名；两条 track joint 不在共享 URDF 中 |
-| odom 与 `odom → base_link` | 约 50 Hz；`map → odom` 不属于 rt-control |
+| odom 与 `odom → base_footprint` | 约 50 Hz；Odometry 的 child frame 为 `base_footprint` |
+| `/tf`、`/tf_static` | 类型均为 `tf2_msgs/msg/TFMessage`；可查询组合后的 `odom → base_link`，树中无 `world` |
 | `/diagnostics` | 约 1 Hz，多发布者，按名称聚合 |
 
 至少观察这些诊断节点：

@@ -23,6 +23,10 @@
 运行副本由已验收源码导出，不含 `.git`。开发仓库仍按 Git HEAD 生成镜像 tag；针对
 该不可变导出，一键工具会显式传入上表 SHA，不会把当前文档提交误当成运行镜像。
 
+T-020 已把源码 TF 合同更新为 `odom → base_footprint → base_link`，并通过复用上述镜像依赖的
+无设备容器 Mock 验证；上述已验收生产镜像本身尚未包含这次源码变化。新链路需要重新构建、部署和只读复核后，
+才能纳入本页的目标机部署结论。
+
 ## 2. Docker 内实现了什么
 
 ```mermaid
@@ -59,7 +63,7 @@ flowchart LR
 - 12 个手臂关节、Turn、EtherCAT Updown 共 14 轴完整 FJT/CSP 执行；
 - 左右履带 CANopen PV 与 `diff_drive_controller` 速度执行；
 - 14 轴分批使能、整组失能、整组故障复位和任一轴故障后的整组处理；
-- `/joint_states`、里程计、TF、FJT feedback/result 和当前工程版 `/diagnostics`；
+- `/joint_states`、里程计、`/tf`、`/tf_static`、FJT feedback/result 和当前工程版 `/diagnostics`；
 - 当前实际位置自动预装载，JTC 第一轨迹点一致性与 EtherCAT 反馈新鲜度检查；
 - PID 1 停机包装器：先失能、停控制器和 EtherCAT，再清理 CANopen 与 ROS 进程。
 
@@ -87,7 +91,9 @@ flowchart LR
 | --- | --- |
 | 控制周期 | 250 Hz / 4 ms |
 | `/joint_states` | 50 Hz |
-| 里程计和 `odom → base_link` | 50 Hz |
+| 里程计和 `odom → base_footprint` | 50 Hz |
+| RSP 活动本体 TF | 上限 50 Hz，与 `/joint_states` 对齐 |
+| 固定本体/传感器 TF | `/tf_static` transient-local；含 `base_footprint → base_link` |
 | FJT 关节顺序 | `right_joint1..6,left_joint1..6,turn,updown` |
 | FJT partial goal | 禁止 |
 | 第一轨迹点误差 | 旋转轴 `1 degree`；Updown `0.05 m` |

@@ -33,6 +33,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ros-humble-ros2-control \
       ros-humble-ros2-controllers \
       ros-humble-xacro \
+    && test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp

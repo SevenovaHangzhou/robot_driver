@@ -4,8 +4,8 @@
 > 当前接口验证发现、消息格式、轨迹/速度链路和取消/失败流程；所有接口仍属于
 > “当前工程接口”，公共域间契约冻结前不承诺名称、QoS 或错误语义长期兼容。
 
-适用运行版本为 `4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d`，目标机仅为
-`ar@192.168.0.40`。
+当前目标机硬件运行基线仍为 `4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d`，目标机仅为
+`ar@192.168.0.40`。T-020 的新 TF 根链已完成源码和容器 Mock 验证，但需要构建、部署新镜像后才会替换该运行基线。
 
 ## 1. 当前已完成
 
@@ -20,7 +20,8 @@
 
 ### 状态与生命周期
 
-- 输出关节状态、FJT feedback/result、里程计、`odom → base_link` 和诊断；
+- 输出关节状态、FJT feedback/result、里程计、导航/视觉共用 TF 和诊断；
+- 新 TF 合同为 `odom → base_footprint → base_link → 本体/传感器连杆`，不再由模型发布 `world → base_link`；
 - `/rt/enable`、`/rt/disable`、`/rt/reset_fault` 返回明确的阶段、失败批次、关节和
   原始 statusword；
 - 正常退出会先失能并释放 EtherCAT，再清理 CANopen，避免粗暴释放主站；
@@ -43,9 +44,14 @@
 | motion → rt-control | `/cmd_vel`，`geometry_msgs/msg/Twist` | 履带线速度/角速度 | 0.5 s 无命令超时；只能有一个有效 publisher |
 | 运维 → rt-control | `/rt/enable`、`/rt/disable`、`/rt/reset_fault`，`robot_interfaces/srv/RtEnable` | 14 个 EtherCAT 轴整组生命周期 | 不得当作急停；履带不受 `/rt/enable` 门控 |
 | rt-control → motion/状态消费者 | `/joint_states`，`sensor_msgs/msg/JointState` | 14 个 EtherCAT 轴和两条履带的控制状态 | 当前约 50 Hz；接口集合需要公共契约再次确认 |
-| rt-control → motion | `/diff_drive_controller/odom`，`nav_msgs/msg/Odometry` | 履带里程计 | 当前约 50 Hz；`map → odom` 不属于 rt-control |
-| rt-control → TF 消费者 | `/tf` 中的 `odom → base_link` | 局部底盘 TF | 当前约 50 Hz；不得由另一域重复发布同一变换 |
+| rt-control → motion/Nav2 | `/diff_drive_controller/odom`，`nav_msgs/msg/Odometry` | 履带里程计 | 约 50 Hz；`header.frame_id=odom`，新 `child_frame_id=base_footprint` |
+| rt-control → 导航/视觉 | `/tf`，`tf2_msgs/msg/TFMessage` | diff-drive 发布 `odom → base_footprint`；RSP 发布活动关节边 | 底盘边约 50 Hz，RSP 上限 50 Hz；同一边只允许一个发布者 |
+| rt-control → 导航/视觉 | `/tf_static`，`tf2_msgs/msg/TFMessage` | RSP 发布 `base_footprint → base_link` 和固定本体/传感器边 | transient-local 静态树；`map → odom` 仍由 perception/定位负责 |
 | rt-control → 运维/上层 | `/diagnostics`，`diagnostic_msgs/msg/DiagnosticArray` | EtherCAT、CANopen、使能和故障状态 | 当前约 1 Hz、多发布者；按 `status.name` 读取，结构尚未冻结 |
+
+兼容性注意：TF 客户端仍可直接查询组合后的 `odom → base_link`，但它不再是一条直接边。
+任何依赖 `/diff_drive_controller/odom.child_frame_id == base_link`、`world` frame 或重复发布本体
+TF 的节点都必须迁移；否则会重新制造多父树或产生坐标语义不一致。
 
 `/controller_manager/*`、`/dynamic_joint_states`、PDO/SDO、裸 CAN 帧和驱动内部状态
 接口不属于跨域契约，其他域不得直接依赖。gateway、autonomy 和 perception 也不应绕过
@@ -78,6 +84,7 @@ motion 直接发送运动命令。
 - 关节集合、顺序、单位、坐标系和时间戳；
 - Action 的取消、抢占、超时、重复目标和重启语义；
 - Topic 的 QoS、发布频率、单 publisher 所有权和断流语义；
+- `map/odom/base_footprint/base_link` 以及相机、雷达 frame 的唯一发布者和模型版本；
 - Service 的幂等、错误码、版本兼容和操作者权限；
 - ROS middleware、网卡暴露和跨容器发现范围。
 
@@ -111,6 +118,7 @@ heartbeat/EMCY 以及 enable manager 状态，适合工程排障。联调后仍�
 | 多轴与联合负载 | 逐轴最小 FJT 与资源采样已完成 | 可做小范围 motion 联调 | 验证生产轨迹、多轴同时运动和 GPU/motion 代表负载 jitter |
 | Ti5 对象宽度 | 当前实机能写入/读回 250，ESI 与实机宽度仍不一致 | 不阻塞当前固定硬件 | 固件/驱动器变更前取得供应商确认 |
 | 启动依赖策略 | 当前主机两只 CANable 均在场 | 不阻塞当前主机 | 后续决定缺少 BMS 适配器时 rt-control 是否允许独立启动 |
+| 新 TF 生产部署 | 源码合同、容器 Mock 和三段查询已通过 | 旧锁定镜像尚不含新根链 | 构建新镜像、更新 release/launcher 锁并在目标机只读复核 TF；无需电机运动 |
 
 ## 6. 联调期间的版本约束
 

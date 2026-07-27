@@ -3,12 +3,13 @@
   <!--
     Kinematics and meshes migrated from alfa_robot_description at
     8297e386b3fa8e8184820f7de5c91226c726bd94. Active-production overlays:
-    fixed pitch (BQ-062), bounded turn (BQ-060/BQ-061), and updown [0, 0.8] m (BQ-048).
+    base_footprint root (BQ-123), fixed pitch (BQ-062), bounded turn
+    (BQ-060/BQ-061), and updown [0, 0.8] m (BQ-048).
   -->
 
-  <link name="world"/>
-  <joint name="world_to_base" type="fixed">
-    <parent link="world"/>
+  <link name="base_footprint"/>
+  <joint name="base_footprint_to_base" type="fixed">
+    <parent link="base_footprint"/>
     <child link="base_link"/>
     <origin xyz="0 0 0.202094" rpy="0 0 0"/>
   </joint>

@@ -7,6 +7,9 @@
 > rt-control 负责人必须先把本提交的 `tools/` 部署到该 IPC，并在现场完成一次受控
 > “启动→READY→stop”验收；验收通过后，联调同事才按本页使用。
 
+> **T-020 TF 发布边界：** 当前脚本仍锁定旧镜像 `4fc8414…`。只有在新 TF 镜像构建、部署并同步更新
+> release/launcher 锁后，下面的 `/tf`、`/tf_static` 新根链才适用于一键启动；不要把源码 Mock 结果当成目标机已上线。
+
 ## 启动
 
 在这份仓库的根目录执行一条命令：
@@ -71,8 +74,13 @@ READY: rt-control 已启动并完成 /rt/enable。
 | 履带速度 | `/cmd_vel` |
 | 关节状态 | `/joint_states` |
 | 里程计 | `/diff_drive_controller/odom` |
+| 动态 TF（新镜像） | `/tf`，`tf2_msgs/msg/TFMessage` |
+| 静态 TF（新镜像） | `/tf_static`，`tf2_msgs/msg/TFMessage` |
 | 诊断 | `/diagnostics` |
 | 手工失能 | `/rt/disable` |
+
+新镜像中的本体链为 `odom → base_footprint → base_link → 本体/传感器连杆`；`map → odom`
+由 perception/定位负责。导航与视觉不得重复发布 rt-control 已拥有的边。
 
 这些名称当前可用于联调，但域间公共契约尚未冻结。接口类型和限制见
 [开发进度与联调准入](integration-readiness-summary.md)。

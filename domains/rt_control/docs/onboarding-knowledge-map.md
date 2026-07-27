@@ -43,7 +43,7 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 | motion → rt-control | 底盘线速度和角速度 | `/cmd_vel` | `Twist`；0.5 s 命令超时；控制器启动即 active，不受 `/rt/enable` 门控。 |
 | 运维/监督 → rt-control | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；不是急停接口。 |
 | rt-control → 上层 | 控制关节位置/速度、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 当前约 50 Hz，导出 16 个 ros2_control 关节名；这不等于共享 URDF 有 16 个可动关节。 |
-| rt-control → 上层 | 底盘里程计和局部 TF | `/diff_drive_controller/odom`、`odom → base_link` | 当前约 50 Hz；`map → odom` 不属于本域。 |
+| rt-control → 导航/视觉 | 底盘里程计和本体 TF | `/diff_drive_controller/odom`、`/tf`、`/tf_static` | `odom → base_footprint` 约 50 Hz，RSP 提供 `base_footprint → base_link → 本体/传感器`；`map → odom` 不属于本域。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |
 
 以下是内部实现接口，不应直接升级为跨域契约：`/dynamic_joint_states`、`/controller_manager/*`、原始 `digital_inputs/digital_outputs`、PDO、SDO 和裸 CAN 帧。当前也没有可供上层调用的真空/语义 IO 控制器或结果接口。已经删除的 `rt_watchdog` 和 `/heartbeat/motion`、`/heartbeat/autonomy` 也不是可用接口，不能假定系统存在全局上层失联保护。
