@@ -1837,3 +1837,39 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Benefit：不根据一次上传行为静默推翻供应商对象字典，且当前 100 的配置效果已实证。
 - Drawback（重点）：Ti5 固件与 ESI 至少一方不一致；更换固件/批次后 4-byte 写入可能被严格拒绝。发布验收应
   固定固件版本，并向厂商确认 `0x10F1:02` 的真实宽度后再统一 ESI 与 YAML。
+
+## BQ-118 — Updown 从 CANopen PP 迁移为 EtherCAT CSP [RESOLVED/HIGH-RISK 2026-07-27]
+
+- 状态：**RESOLVED/HIGH-RISK — 用户完成三轮接口、机械和故障语义裁决，并指定按实机 SW 5.11 固定 PDO 生成**。
+- 现场权威证据：环位置 15 的从站身份为 Vendor `0x0000034E`、Product
+  `0x00445566`、Revision `0x00000000`，设备名 `XMC_ESC`，HW `1.0`，SW `5.11`；启用驱动器参数
+  `sysPRM.EtherCATEnable=ON` 并执行 IgH rescan 后进入 PREOP。实机 SII 声明 `PdoAssign=false`、
+  `PdoConfig=false`，固定 RxPDO `0x1600` 为 `6040:16,6071:16,60FF:32,607A:32,6081:32,
+  6060:8,2302:16`（19 bytes），固定 TxPDO `0x1A00` 为 `6041:16,603F:16,6078:16,
+  606C:32,6064:32,6061:8,6000:8,2300:16,2301:16,60FD:32`（24 bytes）。供应商 XML
+  SHA-256 为 `4c295d61e87675652e9ba4df2b8e0970cd6bd7a4cbeae9927d04202add0a2b46`，但其中
+  RxPDO 末项为 `0x607F:uint32` 且 TxPDO 多出 `0x6077:int16`，分别形成 21/26 bytes，故不得作为
+  SW 5.11 运行映射覆盖现场 SII。
+- 用户裁决：完整删除 CANopen Node 1、旧 `updown_position` controller、`/updown/command` 和
+  `UpdownCommand.msg`；Updown 改为环位置 15 的 4 ms CSP，从 13 轴 JTC 扩为 14 轴，固定顺序为
+  `right_joint1..6,left_joint1..6,turn,updown`，继续使用
+  `/dual_arm_jtc/follow_joint_trajectory` 且拒绝 partial goal。Updown 加入 14 轴整体使能、失能、
+  全组 reset 和任一轴 Fault 全组停车，第五批与 Turn 同时使能。旋转轴第一点容差保持精确 1 degree
+  (`0.017453292519943295 rad`)，Updown 为 `0.05 m`，反馈年龄上限 `500 ms`。
+- 机械与数值：用户及供应商确认 65536 counts/rev、无减速比、丝杆导程 10 mm/rev、`0x6064`
+  向上为正、raw 0 对应 0 m、机械范围 `[0.0,0.8] m`、多圈绝对值且掉电保持，抱闸由驱动器管理。
+  因此比例固定为 `6553600 counts/m` 与 `0.000000152587890625 m/count`；目标最大速度
+  `0.3 m/s`、最大加/减速度 `0.5 m/s^2`，不增加 jerk 约束或自研插补器。
+- 启动与同步：保持 DC `AssignActivate=0x0300`、250 Hz；启动写 `0x60C2:01=4`、
+  `0x60C2:02=-3`、`0x6060=8`。沿用 BQ-114 的 `0x10F1:02=100`，即 4 ms 周期下约 400 ms
+  同步错误计数容差。固定 RPDO 内的 `0x6060` 每周期保持 CSP=8，其他非控制字段写保守常量 0，
+  不新增业务 command topic；固定 TPDO 全量注册但只向 ros2_control 暴露 position/statusword。
+- 与旧裁决关系：本裁决按原 spec 已预留的“更换 EtherCAT 电机后并入同一 FJT”接缝，取代 BQ-002、
+  BQ-019、BQ-046、BQ-051、BQ-052、BQ-112 及冻结 REQ-CAN-002/003/005/006、REQ-IF-007 中仅与
+  CANopen Node 1 PP Updown 有关的部分；两条履带 Node 2/3、标准 ros2_canopen 心跳/EMCY 和配对停车保持不变。
+- Benefit：Updown 与双臂/Turn 共用同一 250 Hz 官方 JTC 插补与 EtherCAT 周期，删除跨总线 PP 打点、
+  6081 速度和专用 topic 的双轨语义；固定 PDO 与实机 SW 5.11 字节布局逐项一致，周期模式不会回落为 0。
+- Drawback（重点）：供应商 XML 与实机固件映射不一致，升级固件或换驱动器时必须重新读取 SII 并逐项复核，
+  不能只替换 XML；14 轴任一轴故障会扩大为全组停机。`0.3 m/s`、`0.5 m/s^2` 是轨迹生成/验收上限，
+  Humble JTC 本身不会替代 motion 的时间参数化或机械安全链。当前只完成只读识别，尚未在新从站上写 SDO、
+  进入 OP、使能或运动，必须经过无使能通信、预装载、第五批使能和低速空载实机门禁。
