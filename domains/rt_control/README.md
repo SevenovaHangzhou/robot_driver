@@ -7,6 +7,9 @@ this directory is their single domain-level documentation and governance home.
 
 ## 新同事从这里开始
 
+- [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
+- [开发进度与联调准入](docs/integration-readiness-summary.md)：当前可用接口、已完成能力、联调边界以及域间契约/安全诊断等剩余任务。
+- [一键启动](docs/one-command-start.md)：当前工控机上启动、自动使能、查看状态/日志和有序停止的最短说明。
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
 - [XMC SW 5.11 固定 PDO 映射](docs/xmc-updown-sw511-fixed-pdo.md)：Updown 从站身份、19/24-byte 固定 PDO、启动 SDO、单位换算、XML 差异和实机门禁。
@@ -56,8 +59,11 @@ inspection, startup, and shutdown procedure in the
 [deployment and operations runbook](docs/deployment-operations-runbook.md);
 do not treat `up` as a hardware-free smoke test.
 
-The wrapper reads the pinned IgH version and full commit from `versions.env`
-and tags the image with the current repository commit. The dependency identity
+The wrapper reads the pinned IgH version and full commit from `versions.env`.
+In a Git checkout it tags the image with the current repository commit. For an
+audited non-Git release export it requires both `RT_CONTROL_PROJECT_ROOT` and an
+explicit full `RT_CONTROL_IMAGE_TAG`; the current-IPC launcher supplies the
+locked values and does not infer them from the directory contents. The dependency identity
 is also stored in the image labels and
 `/usr/local/share/rt-control/dependency-versions.env`. The wrapper intentionally
 has no default CPU set.
