@@ -3,21 +3,23 @@
 > 仅适用于已经部署好的 `ar@192.168.0.40`。脚本会访问真实 EtherCAT/CANopen，
 > 并自动调用 `/rt/enable`；不能在开发电脑、其他工控机或无现场授权时运行。
 
-> **交付前置：** 脚本已锁定关停修复候选镜像 `d415c0c…`，但该候选尚未在目标机完成受控
-> “启动→READY→stop”首跑。rt-control 负责人完成本页要求的分阶段实机验收前，联调同事不得自行启动。
+> **已验收版本：** 功能源码 `d415c0c…`、发布锁 `7bc8f16…`、镜像 ID
+> `sha256:01bd550b…` 已在本机完成受控“启动→READY→stop”。固定入口
+> `~/rt-control-current` 指向已验收的不可变操作副本，不得改指到开发工作区。
 
-> **T-020 TF 发布边界：** 候选镜像已包含新 TF 根链，并已通过无设备 Mock；目标机只读复核尚未完成，
-> 因而暂不能把候选镜像结果写成目标机已上线。
+> **T-020 TF 发布边界：** 当前镜像已在目标机发布新 TF 根链，并完成静态
+> `base_footprint → base_link` 和组合 `odom → base_link` 只读复核。
 
-> **PLC/BMS 发布边界：** 关停修复候选镜像与 launcher 锁已完成本机构建、带 IO Mock 和静态验收；一键启动会额外要求 `can1`
-> 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、`/bms/battery_state` 有效后再自动使能。
-> PLC/BMS 实机验证尚未完成，接口细节见 [PLC / BMS 同容器集成](plc-bms-integration.md)。
+> **PLC/BMS 发布边界：** 当前镜像已完成 PLC/BMS 读取、三路输出逐点 ON/OFF 和关停复测；一键启动仍会要求
+> `can1` 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、`/bms/battery_state` 有效后再自动使能。
+> 详细证据见 [PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
 
 ## 启动
 
-在这份仓库的根目录执行一条命令：
+SSH 登录这台工控机后，复制下面两行：
 
 ```bash
+cd ~/rt-control-current
 ./tools/rt_control_ipc.sh
 ```
 
@@ -77,11 +79,11 @@ READY: rt-control 已启动并完成 /rt/enable。
 | 履带速度 | `/cmd_vel` |
 | 关节状态 | `/joint_states` |
 | 里程计 | `/diff_drive_controller/odom` |
-| 动态 TF（新镜像） | `/tf`，`tf2_msgs/msg/TFMessage` |
-| 静态 TF（新镜像） | `/tf_static`，`tf2_msgs/msg/TFMessage` |
-| PLC 状态（新镜像） | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` |
-| BMS 电压/SOC（新镜像） | `/bms/battery_state`，`sensor_msgs/msg/BatteryState` |
-| PLC 三路控制（新镜像） | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
+| 动态 TF | `/tf`，`tf2_msgs/msg/TFMessage` |
+| 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage` |
+| PLC 状态 | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` |
+| BMS 电压/SOC | `/bms/battery_state`，`sensor_msgs/msg/BatteryState` |
+| PLC 三路控制 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
 | 诊断 | `/diagnostics` |
 | 手工失能 | `/rt/disable` |
 

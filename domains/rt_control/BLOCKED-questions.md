@@ -2065,3 +2065,10 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Verification boundary：受影响四包构建通过，BMS/PLC 47 项测试、Compose 展开、launch 参数解析及仓库 26 项质量门禁
   通过；没有访问 PLC、CAN 或输出。当前一键脚本仍锁旧镜像，必须以批准提交重建镜像并更新 release/SHA/镜像 ID 锁，
   再完成目标机 start→READY→stop 与 IO 点对点核对，才算进入明日联调运行版本。
+- 2026-07-28 integrated verification：关停修复源码 `d415c0c2c75917a9545a4a2f87487718de8622a2`、发布锁
+  `7bc8f16e903ef7174f60ebe9613f6eeed3a96185` 和镜像 ID
+  `sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2` 已在目标机完成 PLC/BMS 读取、三路
+  输出逐点 ON/OFF、无运动 start→READY→hold→stop。每路 `%MW200/%MW211` 只出现 `0x0001/0x0002/0x0004` 的目标
+  bit，末态 MW200/MW210/MW211/MW212 为 0、MW201 为 1；容器 exit 0，EtherCAT Idle/Inactive、16 从站 PREOP，
+  CAN0/CAN1 错误计数为 0。独立 BMS HMI 对照及左右实体/共用泵气路效果没有由 SSH 证据确认，仍是现场人工观察项；
+  该边界不改变本裁决的 CPU14 临时风险接受。

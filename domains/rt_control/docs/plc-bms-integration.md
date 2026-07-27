@@ -96,13 +96,13 @@ rt-control，不做容器内部的局部进程复活。
 
 首次候选提交 `e4fed685bfa4485c210ad038c804a331b4801d88`（镜像
 `sha256:998c5a1e9e5f70f7e09f1f2a8c316bbc3714bd9815e68f6b870130a332542c06`）已通过功能读取，但因上述关停竞态在
-100 秒后被 Docker 强制终止为 137，现已拒绝。必须从关停修复提交重新构建镜像、更新一键锁并重复目标机验证；在新
-镜像完成退出复测前，不得宣称 PLC/BMS 已在目标机上线。
+100 秒后被 Docker 强制终止为 137，现已拒绝。
 
 关停修复候选提交为 `d415c0c2c75917a9545a4a2f87487718de8622a2`，镜像 ID 为
 `sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2`。该镜像已在开启 PLC/BMS、使用 Mock
-硬件且 controller manager ready 的条件下 2 秒内 exit 0，无 traceback、respawn 或 `UNCLEAN_SHUTDOWN`；目标机
-重复验证仍是上线前门禁。
+硬件且 controller manager ready 的条件下 2 秒内 exit 0，无 traceback、respawn 或 `UNCLEAN_SHUTDOWN`。目标机
+随后完成只读重复停止、三路输出逐点 ON/OFF 和完整一键 start→READY→stop，全部 exit 0；详见
+[PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
 
 ## 联调检查
 
@@ -114,5 +114,6 @@ ros2 service call /plc/right_solenoid std_srvs/srv/SetBool "{data: false}"
 ros2 service call /plc/vacuum_pump std_srvs/srv/SetBool "{data: true}"
 ```
 
-首次带电联调前，需由 PLC / 电气人员再次对照实际 IO 确认左右臂、共用泵以及两路真空传感器方向。当前验证覆盖
-协议解析、位保留、回读判定、干净镜像构建、静态总装和无硬件 Mock；尚未连接 PLC、CAN 或驱动任何输出。
+协议解析、位保留、命令/实际位回读、干净镜像、目标机 PLC/CAN 读取和三路输出均已验证。独立 BMS HMI 目视对照、
+左右实体身份、共用泵气路效果和真空传感器建立状态仍需 PLC / 电气人员在正式工艺联调中复核；不要把寄存器验证
+扩写为尚未观察的机械/气路验收。

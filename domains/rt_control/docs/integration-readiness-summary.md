@@ -4,8 +4,9 @@
 > 当前接口验证发现、消息格式、轨迹/速度链路和取消/失败流程；所有接口仍属于
 > “当前工程接口”，公共域间契约冻结前不承诺名称、QoS 或错误语义长期兼容。
 
-当前目标机硬件运行基线仍为 `4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d`，目标机仅为
-`ar@192.168.0.40`。T-020 的新 TF 根链已完成源码和容器 Mock 验证，但需要构建、部署新镜像后才会替换该运行基线。
+当前目标机硬件运行基线为功能源码 `d415c0c2c75917a9545a4a2f87487718de8622a2`、发布锁
+`7bc8f16e903ef7174f60ebe9613f6eeed3a96185`，目标机仅为 `ar@192.168.0.40`。该版本已经包含并实机复核
+T-020 TF 根链、PLC/BMS 状态和三路 PLC 输出接口。
 
 ## 1. 当前已完成
 
@@ -25,14 +26,16 @@
 - `/rt/enable`、`/rt/disable`、`/rt/reset_fault` 返回明确的阶段、失败批次、关节和
   原始 statusword；
 - 正常退出会先失能并释放 EtherCAT，再清理 CANopen，避免粗暴释放主站；
-- 仓库已新增当前工控机专用的一键启动入口，在容器 ready 后自动调用 `/rt/enable`；
-  交给联调同事前仍需由 rt-control 负责人部署并完成一次组合命令实机首跑。
+- 当前工控机专用的一键启动入口会在容器 ready 后自动调用 `/rt/enable`，完整
+  start→READY→stop 实机首跑已通过；
+- 同一容器发布 BMS 电压/SOC 和 PLC 强类型状态，并只开放三路单点 `SetBool` 输出服务。
 
 ### 验证结论
 
 - Docker 镜像、控制器加载、Mock、迁移差异和仓库策略门禁通过；
 - 16-position EtherCAT 与两节点 CANopen 完成实机通信和重复有序启停；
 - 14 轴使能/失能以及 28 段逐轴最小低速 FJT 通过；
+- PLC/BMS 读取、三路输出逐点 ON/OFF、无运动一键使能保持和有序停止通过；
 - 当前负载下 CPU 和内存余量足够，详细数值见
   [Docker 部署与性能验证](docker-deployment-performance-summary.md)。
 
@@ -48,6 +51,9 @@
 | rt-control → 导航/视觉 | `/tf`，`tf2_msgs/msg/TFMessage` | diff-drive 发布 `odom → base_footprint`；RSP 发布活动关节边 | 底盘边约 50 Hz，RSP 上限 50 Hz；同一边只允许一个发布者 |
 | rt-control → 导航/视觉 | `/tf_static`，`tf2_msgs/msg/TFMessage` | RSP 发布 `base_footprint → base_link` 和固定本体/传感器边 | transient-local 静态树；`map → odom` 仍由 perception/定位负责 |
 | rt-control → 运维/上层 | `/diagnostics`，`diagnostic_msgs/msg/DiagnosticArray` | EtherCAT、CANopen、使能和故障状态 | 当前约 1 Hz、多发布者；按 `status.name` 读取，结构尚未冻结 |
+| rt-control → 状态消费者 | `/bms/battery_state`，`sensor_msgs/msg/BatteryState` | BMS 电压、SOC 和有效性 | 约 0.2 Hz；超过 3 秒未收到 `0x3FC` 时发布无效状态 |
+| rt-control → 状态消费者 | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` | PLC 连接、新鲜度、真空、输出和报警 | 约 2 Hz；必须同时检查 `connected` 和 `data_fresh` |
+| 运维/上层 → rt-control | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump`，`std_srvs/srv/SetBool` | 单路输出开关并等待命令/实际位一致 | 当前工程接口；不得绕开它直接写 PLC 寄存器 |
 
 兼容性注意：TF 客户端仍可直接查询组合后的 `odom → base_link`，但它不再是一条直接边。
 任何依赖 `/diff_drive_controller/odom.child_frame_id == base_link`、`world` frame 或重复发布本体
@@ -118,7 +124,7 @@ heartbeat/EMCY 以及 enable manager 状态，适合工程排障。联调后仍�
 | 多轴与联合负载 | 逐轴最小 FJT 与资源采样已完成 | 可做小范围 motion 联调 | 验证生产轨迹、多轴同时运动和 GPU/motion 代表负载 jitter |
 | Ti5 对象宽度 | 当前实机能写入/读回 250，ESI 与实机宽度仍不一致 | 不阻塞当前固定硬件 | 固件/驱动器变更前取得供应商确认 |
 | 启动依赖策略 | 当前主机两只 CANable 均在场 | 不阻塞当前主机 | 后续决定缺少 BMS 适配器时 rt-control 是否允许独立启动 |
-| 新 TF 生产部署 | 源码合同、容器 Mock 和三段查询已通过 | 旧锁定镜像尚不含新根链 | 构建新镜像、更新 release/launcher 锁并在目标机只读复核 TF；无需电机运动 |
+| BMS/PLC 现场对应关系 | CAN/寄存器/ROS 值和三路实际输出位已通过 | 不阻塞工程联调 | 用独立 HMI 目视对照 BMS；由电气/机械复核左右实体和共用泵气路效果 |
 
 ## 6. 联调期间的版本约束
 

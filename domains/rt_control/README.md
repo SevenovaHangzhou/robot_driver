@@ -11,6 +11,7 @@ this directory is their single domain-level documentation and governance home.
 - [开发进度与联调准入](docs/integration-readiness-summary.md)：当前可用接口、已完成能力、联调边界以及域间契约/安全诊断等剩余任务。
 - [一键启动](docs/one-command-start.md)：当前工控机上启动、自动使能、查看状态/日志和有序停止的最短说明。
 - [PLC / BMS 同容器集成](docs/plc-bms-integration.md)：精简接口、确认后的 IO 映射、保留位写入、中央配置和发布边界。
+- [PLC / BMS 与一键启动实机验收](docs/plc-bms-commissioning-20260728.md)：关停修复、三路输出逐点开关、无命令使能保持、末态总线和剩余人工观察项。
 - [PLC / BMS 合并与实机交接](docs/plc-bms-merge-hardware-handoff.md)：T-020 基线、提交/镜像锁流程、目标机验证顺序和证据清单。
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。

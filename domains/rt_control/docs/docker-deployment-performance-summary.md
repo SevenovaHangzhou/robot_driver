@@ -11,11 +11,13 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 实机运行提交 | `4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d` |
-| 镜像 | `rt-control:4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d` |
-| 镜像 ID | `sha256:09c8a979c536955d160bc92c60e4531627f13b62a75b00ee108e6ef332226898` |
-| 镜像大小 | `550091220 bytes`，约 `524.6 MiB` |
-| 不可变运行副本 | `/home/ar/rt-control-releases/4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d/robot` |
+| 实机运行源码 | `d415c0c2c75917a9545a4a2f87487718de8622a2` |
+| 发布锁 | `7bc8f16e903ef7174f60ebe9613f6eeed3a96185` |
+| 镜像 | `rt-control:d415c0c2c75917a9545a4a2f87487718de8622a2` |
+| 镜像 ID | `sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2` |
+| 镜像大小 | `552557165 bytes`，约 `527.0 MiB` |
+| 不可变运行副本 | `/home/ar/rt-control-releases/d415c0c2c75917a9545a4a2f87487718de8622a2/robot` |
+| 固定操作入口 | `/home/ar/rt-control-current` → 发布锁对应操作副本 |
 | 操作系统/内核 | Ubuntu 22.04.5 LTS，`5.15.0-1032-realtime`，PREEMPT_RT |
 | EtherCAT 主站 | IgH stable-1.6，commit `2f7f884f1c7d377c02a7d627eb06512126a0e50e` |
 | ROS | ROS 2 Humble，`ROS_DOMAIN_ID=42` |
@@ -23,9 +25,9 @@
 运行副本由已验收源码导出，不含 `.git`。开发仓库仍按 Git HEAD 生成镜像 tag；针对
 该不可变导出，一键工具会显式传入上表 SHA，不会把当前文档提交误当成运行镜像。
 
-T-020 已把源码 TF 合同更新为 `odom → base_footprint → base_link`，并通过复用上述镜像依赖的
-无设备容器 Mock 验证；上述已验收生产镜像本身尚未包含这次源码变化。新链路需要重新构建、部署和只读复核后，
-才能纳入本页的目标机部署结论。
+当前镜像已经包含 T-020 的 `odom → base_footprint → base_link` TF 合同以及 PLC/BMS 节点。目标机已完成 TF
+只读复核、IO 逐点测试和一键 start→READY→stop；原始证据见
+[PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
 
 ## 2. Docker 内实现了什么
 
@@ -38,6 +40,8 @@ flowchart LR
         J[14 轴 JTC]
         D[履带 diff-drive]
         E[使能与故障管理]
+        P[PLC IO]
+        BM[BMS 状态]
         S[关节/里程计/诊断]
         H[EtherCAT + CANopen]
         B --> J
@@ -46,6 +50,8 @@ flowchart LR
         J --> H
         D --> H
         E --> H
+        P --> S
+        BM --> S
         H --> S
     end
 
@@ -55,6 +61,8 @@ flowchart LR
     S --> ROS
     H --> EC[16-position EtherCAT]
     H --> CAN[CANopen Node 2/3]
+    P --> PLC[Modbus TCP PLC]
+    BM --> BCAN[CAN1 / 0x3FC]
 ```
 
 容器已经实现：
@@ -64,6 +72,7 @@ flowchart LR
 - 左右履带 CANopen PV 与 `diff_drive_controller` 速度执行；
 - 14 轴分批使能、整组失能、整组故障复位和任一轴故障后的整组处理；
 - `/joint_states`、里程计、`/tf`、`/tf_static`、FJT feedback/result 和当前工程版 `/diagnostics`；
+- `/plc/io_state`、三路 PLC 单点输出服务和 `/bms/battery_state`；
 - 当前实际位置自动预装载，JTC 第一轨迹点一致性与 EtherCAT 反馈新鲜度检查；
 - PID 1 停机包装器：先失能、停控制器和 EtherCAT，再清理 CANopen 与 ROS 进程。
 
@@ -78,7 +87,7 @@ flowchart LR
 | --- | --- | --- |
 | 网络/IPC | `host` / `host` | 与同机 ROS 2 域通信并访问宿主 SocketCAN |
 | CPU | `cpuset=14` | 使用已隔离的独立 P-core |
-| 权限 | `CAP_SYS_NICE`、`CAP_IPC_LOCK` | 实时调度和内存锁定 |
+| 权限 | `CAP_SYS_NICE`、`CAP_IPC_LOCK`、`CAP_NET_RAW` | 实时调度、内存锁定和被动读取 CAN1；没有 `NET_ADMIN` |
 | ulimit | `rtprio=98`、`memlock=-1` | 允许实时线程和锁定内存 |
 | 设备 | `/dev/EtherCAT0:/dev/EtherCAT0` | 唯一直接映射的硬件设备 |
 | 重启策略 | `unless-stopped` | 异常退出后的 Docker 级恢复策略 |
@@ -110,15 +119,16 @@ Updown 的机械范围为 `[0.0,0.8] m`，比例为 `6553600 counts/m`。配置�
 
 | 验证项 | 结论 |
 | --- | --- |
-| 镜像构建 | 22 个相关包完成干净构建；IgH、ICube、ros2_canopen 和 JTC 上游版本/补丁均锁定 |
+| 镜像构建 | 24 个相关包完成干净构建；IgH、ICube、ros2_canopen 和 JTC 上游版本/补丁均锁定 |
 | 配置与 Mock | 14 个 EtherCAT 轴、两条履带、controller 和生命周期接口均能加载；迁移/仓库门禁通过 |
 | 实机通信 | 16-position EtherCAT 可到 OP/WC-complete；CANopen Node 2/3 可到 Operational |
 | 实机使能 | 14 轴 reset/enable/hold/disable 路径通过；JTC 只在使能成功后 active |
-| 最小运动 | 28/28 个完整 14 轴 FJT goal 成功；13 个旋转轴分别往返 `0.5 degree`，Updown 往返 `0.05 m` |
-| 有序退出 | 当前镜像先后三轮重复启停及一次运动测试均干净退出；无已修复的 CANopen UAF、SIGSEGV 或 `0x001B` 退出级联 |
-| 最终状态 | 容器 `ExitCode=0`，EtherCAT Idle/Inactive、16 个从站全 PREOP；CAN0/1 无 bus-off/error |
+| 最小运动 | 未改变控制核心的前代 `4fc8414…` 已完成 28/28 个完整 14 轴 FJT goal；当前镜像完成无命令自动使能保持，未重复发送运动 |
+| PLC/BMS | 48.6 V/SOC 0.23 样本有效；PLC 2 Hz 状态有效；左阀、右阀、泵逐路 ON/OFF 的命令位和实际位一致 |
+| 有序退出 | 当前镜像重复只读停止、逐点输出停止和完整一键停止均 exit 0；没有 Python respawn、CANopen UAF、SIGSEGV 或 `0x001B` 退出级联 |
+| 最终状态 | 容器 `ExitCode=0`，EtherCAT Idle/Inactive、16 个从站全 PREOP；CAN0/1 ERROR-ACTIVE 且错误计数为 0；PLC 输出全关 |
 
-运动与保持覆盖的 180 秒性能窗口：
+未改变控制核心的 `4fc8414…` 运动与保持测试给出 180 秒性能窗口：
 
 | 指标 | 结果 |
 | --- | --- |
@@ -131,6 +141,10 @@ Updown 的机械范围为 `[0.0,0.8] m`，比例为 `6553600 counts/m`。配置�
 
 上述结果说明当前硬件上的资源余量足以支撑已测的 250 Hz 逐轴低速 FJT。它没有覆盖
 motion/GPU 同时满负载时的 deadline/jitter，因此不能替代后续联合负载验收。
+
+当前 IO 镜像另做了 30 秒同核观测：CPU14 平均 idle `95.63%`（busy `4.37%`），容器采样约 4.54% CPU、
+765.8 MiB；完整一键保持时单点样本为 4.00% CPU、644.5 MiB。PLC/BMS 当前共用 CPU14 是明确接受的临时联调
+策略，这些样本不能关闭调度干扰、WCET 或代表性联合负载验收。
 
 ## 5. 已知通信现象
 
@@ -149,6 +163,10 @@ CRC/Lost/WC 零增量复测，不能把“未影响本次控制”写成“通�
 
 - 14 轴运动：`/var/lib/rt-control/validation/run-18-fjt-low-speed-4fc8414/`；
 - CANopen 清理与同步容忍：`/var/lib/rt-control/validation/run-17-bq119-bq122-4fc8414/`；
+- 首次 IO 候选与性能/TF：`/var/lib/rt-control/validation/run-19-plc-bms-e4fed685/`（候选因关停失败已拒绝）；
+- 关停修复复测：`/var/lib/rt-control/validation/run-20-plc-bms-shutdown-fix-d415c0c/`；
+- PLC 三路输出：`/var/lib/rt-control/validation/run-21-plc-output-d415c0c/`；
+- 完整一键使能/停止：`/var/lib/rt-control/validation/run-22-one-command-d415c0c/`；
 - 详细原始记录：[14 轴 FJT 最小低速运动](fjt-14axis-low-speed-commissioning-20260727.md)、
   [CANopen 有序清理与 EtherCAT 同步容忍](canopen-shutdown-sync-tolerance-commissioning-20260727.md)。
 
