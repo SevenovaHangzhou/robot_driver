@@ -6,6 +6,7 @@ import time
 from typing import Callable
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from robot_interfaces.msg import PlcIoState
 from std_srvs.srv import SetBool
@@ -304,6 +305,8 @@ def main(args=None) -> None:
     try:
         node = PlcNode()
         rclpy.spin(node)
+    except ExternalShutdownException:
+        pass
     finally:
         if node is not None:
             node.destroy_node()

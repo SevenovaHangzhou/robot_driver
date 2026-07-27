@@ -72,8 +72,6 @@ def generate_launch_description():
         output="both",
         parameters=[rt_io_file],
         condition=IfCondition(start_plc),
-        respawn=True,
-        respawn_delay=2.0,
     )
     bms = Node(
         package="bms_node",
@@ -81,8 +79,6 @@ def generate_launch_description():
         output="both",
         parameters=[rt_io_file],
         condition=IfCondition(start_bms),
-        respawn=True,
-        respawn_delay=2.0,
     )
 
     active_spawners = [

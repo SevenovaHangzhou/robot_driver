@@ -89,10 +89,15 @@ ros2 launch rt_control_bringup rt_control.launch.py \
 `RT_CONTROL_START_PLC=true` 和 `RT_CONTROL_START_BMS=true`。它没有覆盖 `command` 或 `entrypoint`，所以原有
 有序失能与信号转发链保持不变。
 
-当前候选运行提交为 `e4fed685bfa4485c210ad038c804a331b4801d88`，对应镜像 ID 为
-`sha256:998c5a1e9e5f70f7e09f1f2a8c316bbc3714bd9815e68f6b870130a332542c06`。镜像已完成干净构建、包/接口、
-Compose、capability、CMD/PID 1 和无设备 Mock 验证；一键脚本与策略门禁已锁定该身份。目标机 release 部署及下面的
-PLC/BMS 实机验证尚未完成，因此当前只能称为“候选发布”，不得宣称已在目标机上线。
+PLC 与 BMS 节点各自处理普通 Modbus/CAN 断线并按配置重连，launch 不再对进程本身使用无条件 respawn。原因是
+ROS context 关停与 respawn 存在竞态：节点退出后可能在容器关停期间被重新拉起，导致 PID 1 无法结束。节点现在把
+`ExternalShutdownException` 作为正常退出并释放 socket；若 Python 进程意外崩溃，则保留错误证据并有序重启整个
+rt-control，不做容器内部的局部进程复活。
+
+首次候选提交 `e4fed685bfa4485c210ad038c804a331b4801d88`（镜像
+`sha256:998c5a1e9e5f70f7e09f1f2a8c316bbc3714bd9815e68f6b870130a332542c06`）已通过功能读取，但因上述关停竞态在
+100 秒后被 Docker 强制终止为 137，现已拒绝。必须从关停修复提交重新构建镜像、更新一键锁并重复目标机验证；在新
+镜像完成退出复测前，不得宣称 PLC/BMS 已在目标机上线。
 
 ## 联调检查
 

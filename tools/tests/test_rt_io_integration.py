@@ -34,6 +34,12 @@ def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:
     assert "rt_io.yaml" in launch_text
 
 
+def test_rt_io_nodes_are_not_respawned_during_container_shutdown() -> None:
+    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
+
+    assert "respawn=True" not in launch_text
+
+
 def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
     compose = yaml.safe_load((ROOT / "docker/compose.yaml").read_text())
 

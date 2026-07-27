@@ -1,5 +1,7 @@
 from builtin_interfaces.msg import Time
+from rclpy.executors import ExternalShutdownException
 
+import plc_node.plc_node as plc_node_module
 from plc_node.plc_logic import PlcIoSnapshot
 from plc_node.plc_node import OUTPUT_SERVICE_BINDINGS, plc_state_message, state_is_fresh
 
@@ -44,3 +46,25 @@ def test_state_freshness_rejects_missing_stale_and_future_data() -> None:
     assert not state_is_fresh(None, now_s=10.0, timeout_s=1.5)
     assert not state_is_fresh(8.0, now_s=10.0, timeout_s=1.5)
     assert not state_is_fresh(11.0, now_s=10.0, timeout_s=1.5)
+
+
+def test_main_treats_context_shutdown_as_clean_exit(monkeypatch) -> None:
+    class FakeNode:
+        destroyed = False
+
+        def destroy_node(self):
+            self.destroyed = True
+
+    node = FakeNode()
+    monkeypatch.setattr(plc_node_module.rclpy, "init", lambda args=None: None)
+    monkeypatch.setattr(plc_node_module, "PlcNode", lambda: node)
+    monkeypatch.setattr(
+        plc_node_module.rclpy,
+        "spin",
+        lambda _node: (_ for _ in ()).throw(ExternalShutdownException()),
+    )
+    monkeypatch.setattr(plc_node_module.rclpy, "ok", lambda: False)
+
+    plc_node_module.main()
+
+    assert node.destroyed

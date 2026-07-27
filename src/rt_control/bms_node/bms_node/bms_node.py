@@ -8,6 +8,7 @@ import time
 from dataclasses import replace
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import BatteryState
 
@@ -199,6 +200,8 @@ def main(args=None) -> None:
     try:
         node = BmsNode()
         rclpy.spin(node)
+    except ExternalShutdownException:
+        pass
     finally:
         if node is not None:
             node.destroy_node()

@@ -3,8 +3,10 @@ import socket
 import struct
 
 from builtin_interfaces.msg import Time
+from rclpy.executors import ExternalShutdownException
 from sensor_msgs.msg import BatteryState
 
+import bms_node.bms_node as bms_node_module
 from bms_node.bms_node import (
     CAN_FRAME_SIZE,
     battery_state_message,
@@ -75,3 +77,25 @@ def test_battery_state_message_publishes_nan_when_frame_is_stale() -> None:
     assert math.isnan(message.voltage)
     assert math.isnan(message.percentage)
     assert message.present is False
+
+
+def test_main_treats_context_shutdown_as_clean_exit(monkeypatch) -> None:
+    class FakeNode:
+        destroyed = False
+
+        def destroy_node(self):
+            self.destroyed = True
+
+    node = FakeNode()
+    monkeypatch.setattr(bms_node_module.rclpy, "init", lambda args=None: None)
+    monkeypatch.setattr(bms_node_module, "BmsNode", lambda: node)
+    monkeypatch.setattr(
+        bms_node_module.rclpy,
+        "spin",
+        lambda _node: (_ for _ in ()).throw(ExternalShutdownException()),
+    )
+    monkeypatch.setattr(bms_node_module.rclpy, "ok", lambda: False)
+
+    bms_node_module.main()
+
+    assert node.destroyed
