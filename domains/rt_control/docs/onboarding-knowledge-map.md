@@ -7,11 +7,11 @@
 ## 先记住的六件事
 
 1. rt-control 负责执行，不负责任务规划。正常业务命令方向是 `motion → rt-control`，工位、箱子、抓取策略和行为树不应进入本域。
-2. 250 Hz 控制环完全留在 rt-control 容器内；上层通过轨迹、速度、升降和生命周期接口交互。
-3. `/rt/enable` 只管理 13 个 EtherCAT 轴和 `dual_arm_jtc`。Updown 与两条履带属于 CANopen，硬件和控制器在进程启动时就会激活，不受该服务门控。
+2. 250 Hz 控制环完全留在 rt-control 容器内；上层通过轨迹、速度和生命周期接口交互。
+3. `/rt/enable` 管理 14 个 EtherCAT 轴和 `dual_arm_jtc`；Updown 是第 14 轴并与 Turn 同属第五使能批次。两条履带仍属于 CANopen，硬件和底盘控制器在进程启动时激活，不受该服务门控。
 4. 生产容器启动本身就会访问真实 EtherCAT，并激活 CANopen 硬件、初始化/设置模式/预置目标；CAN 驱动可能进入运行或激磁状态。它不能当作普通软件 smoke test，也不能只按“通信检查”授权。
-5. 当前没有独立 `rt_watchdog`，也没有 motion/autonomy heartbeat 或“上层失联后全机自动停机”接口。FJT、`/cmd_vel` 和 Updown 各自遵循不同的取消/超时语义。
-6. 当前只完成了部分实机验收。手臂低速轨迹、Turn jog、Updown、履带方向/比例和完整长稳测试仍不能写成“生产验收通过”。
+5. 当前没有独立 `rt_watchdog`，也没有 motion/autonomy heartbeat 或“上层失联后全机自动停机”接口。FJT 与 `/cmd_vel` 各自遵循不同的取消/超时语义。
+6. 当前只完成了部分实机验收。手臂低速轨迹、Turn jog、新 EtherCAT Updown、履带方向/比例和完整长稳测试仍不能写成“生产验收通过”。
 
 ## 1. 域边界图
 
@@ -22,7 +22,7 @@ flowchart LR
 
     subgraph RT[rt-control]
         L[生命周期与故障管理]
-        E[轨迹 / 速度 / 升降执行]
+        E[14 轴轨迹 / 底盘速度执行]
         H[EtherCAT 与 CANopen 硬件适配]
         S[关节、里程计、TF 与诊断状态]
         L --> E
@@ -30,7 +30,7 @@ flowchart LR
         H --> S
     end
 
-    M -->|13 轴轨迹、底盘速度、升降目标| E
+    M -->|14 轴轨迹、底盘速度| E
     S -->|执行结果与硬件状态| M
     S -->|告警与状态，经上层汇总| A
 ```
@@ -39,10 +39,9 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 
 | 方向 | 域间含义 | 当前 ROS 接口 | 关键约束 |
 | --- | --- | --- | --- |
-| motion → rt-control | 双臂与 Turn 的完整轨迹 | `/dual_arm_jtc/follow_joint_trajectory` | 13 轴必须完整；JTC 只在 `/rt/enable` 成功后 active；第一点与当前反馈误差不超过 1°，反馈年龄不超过 500 ms。 |
+| motion → rt-control | 双臂、Turn 与 Updown 的完整轨迹 | `/dual_arm_jtc/follow_joint_trajectory` | 14 轴必须完整；JTC 只在 `/rt/enable` 成功后 active；旋转轴第一点误差不超过 1°，Updown 不超过 `0.05 m`，反馈年龄不超过 500 ms。 |
 | motion → rt-control | 底盘线速度和角速度 | `/cmd_vel` | `Twist`；0.5 s 命令超时；控制器启动即 active，不受 `/rt/enable` 门控。 |
-| motion → rt-control | Updown 目标位置和驱动原始速度参数 | 设计为 `/updown/command` | 当前 launch 漏了 remap，实际通常是 `/updown_position/command`；这是待修复缺口，不能把私有名称固化成正式契约。 |
-| 运维/监督 → rt-control | 13 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；不是急停接口。 |
+| 运维/监督 → rt-control | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；不是急停接口。 |
 | rt-control → 上层 | 控制关节位置/速度、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 当前约 50 Hz，导出 16 个 ros2_control 关节名；这不等于共享 URDF 有 16 个可动关节。 |
 | rt-control → 上层 | 底盘里程计和局部 TF | `/diff_drive_controller/odom`、`odom → base_link` | 当前约 50 Hz；`map → odom` 不属于本域。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |
@@ -54,10 +53,10 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 ```mermaid
 flowchart TD
     RD[robot_description<br/>统一 URDF、mesh 与 TF 模型]
-    RI[robot_interfaces<br/>UpdownCommand / RtEnable]
+    RI[robot_interfaces<br/>RtEnable]
 
-    EC[robot_hw_ethercat<br/>13 轴拓扑与驱动 profile]
-    CAN[robot_hw_canopen<br/>3 节点总线与 Updown 控制器]
+    EC[robot_hw_ethercat<br/>14 轴拓扑与驱动 profile]
+    CAN[robot_hw_canopen<br/>2 节点履带总线]
     EM[enable_manager<br/>使能/失能/复位状态机]
     DG[rt_diagnostics<br/>诊断归一化]
     BR[rt_control_bringup<br/>运行总装与启动编排]
@@ -67,7 +66,6 @@ flowchart TD
     JTC[patched ros2_controllers JTC]
 
     RD --> BR
-    RI --> CAN
     RI --> EM
     EC --> IEC
     CAN --> ICAN
@@ -83,10 +81,10 @@ flowchart TD
 | 节点 | 它回答的问题 | 第一个阅读入口 |
 | --- | --- | --- |
 | `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot.urdf.xacro`](../../../src/description/robot_description/urdf/robot.urdf.xacro) |
-| `robot_interfaces` | 自定义消息和服务有哪些字段？ | [`UpdownCommand.msg`](../../../src/interfaces/robot_interfaces/msg/UpdownCommand.msg)、[`RtEnable.srv`](../../../src/interfaces/robot_interfaces/srv/RtEnable.srv) |
-| `robot_hw_ethercat` | 13 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](../../../src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](../../../src/rt_control/robot_hw_ethercat/config/slaves) |
-| `robot_hw_canopen` | Updown、左履带、右履带怎样映射到 CANopen 节点？ | [`canopen.ros2_control.xacro`](../../../src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](../../../src/rt_control/robot_hw_canopen/config/bus.yml) |
-| `enable_manager` | 13 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/enable_manager/include/enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
+| `robot_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/robot_interfaces/srv/RtEnable.srv) |
+| `robot_hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](../../../src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](../../../src/rt_control/robot_hw_ethercat/config/slaves) |
+| `robot_hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](../../../src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](../../../src/rt_control/robot_hw_canopen/config/bus.yml) |
+| `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/enable_manager/include/enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
 | `rt_diagnostics` | EtherCAT、CANopen 和使能状态怎样形成统一诊断？ | [`rt_diagnostics_node.cpp`](../../../src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp) |
 | `rt_control_bringup` | 哪些节点和控制器以什么顺序启动？ | [`rt_control.launch.py`](../../../src/rt_control/rt_control_bringup/launch/rt_control.launch.py)、[`controllers.yaml`](../../../src/rt_control/rt_control_bringup/config/controllers.yaml) |
 | 上游窄补丁 | 为什么只看本仓库源码还解释不了生产行为？ | [`deps.repos`](../../../deps.repos)、[`patches`](../../../patches)、[`Dockerfile`](../../../docker/rt-control/Dockerfile) |
@@ -124,7 +122,7 @@ flowchart TD
     X --> CM[controller_manager<br/>250 Hz / FIFO 80]
     L --> RSP[robot_state_publisher]
     L --> DIAG[rt_diagnostics]
-    CM --> A[JSB / Updown / diff-drive<br/>启动即 ACTIVE]
+    CM --> A[JSB / diff-drive<br/>启动即 ACTIVE]
     CM --> J[dual_arm_jtc<br/>启动为 INACTIVE]
     J -->|配置成功| EM[enable_manager<br/>加载并 ACTIVE]
     EM --> SS[STARTUP_SANITIZING<br/>清理上次驱动状态]
@@ -141,24 +139,22 @@ flowchart TD
 4. [`rt_control.urdf.xacro`](../../../src/rt_control/rt_control_bringup/urdf/rt_control.urdf.xacro) 决定装配真实硬件还是 mock hardware。
 5. [`controllers.yaml`](../../../src/rt_control/rt_control_bringup/config/controllers.yaml) 决定控制器频率、关节集合和运行约束。
 
-一个容易误解的事实是：`/rt/enable` 不是整个机器人的总授权开关。CANopen 硬件在 `Cia402System::on_activate()` 阶段就会 Boot、设置模式并预置安全目标；Updown 与 diff-drive 控制器也在启动时直接 active。
+一个容易误解的事实是：`/rt/enable` 不是整个机器人的总授权开关。CANopen 履带硬件在 `Cia402System::on_activate()` 阶段就会 Boot、设置 PV 模式并预置零速度，diff-drive 控制器也在启动时直接 active；Updown 则受 14 轴 EtherCAT 生命周期联锁管理。
 
 ### 3.2 执行链
 
 ```text
-13 轴：motion → FJT action → patched JTC → position command
-       → EtherCATDriver / CiA402 drive → 250 Hz PDO
+14 轴：motion → FJT action → patched JTC → position command
+       → EtherCATDriver / CiA402 drives → 250 Hz PDO
 
 底盘：motion/Nav2 → /cmd_vel → diff_drive_controller → 两侧履带 velocity
        → Cia402System → CANopen node 2/3
 
-升降：UpdownCommand → UpdownPositionController → 命令准入
-       → 先写 profile_velocity_raw，再交 position → CANopen node 1
 ```
 
-13 轴集合为右臂 6 轴、左臂 6 轴和 `turn`。Updown 不在 FJT 内，也没有与双臂轨迹原子同步的接口。
+14 轴固定顺序为右臂 6 轴、左臂 6 轴、`turn`、`updown`，不接受 partial goal。JTC 在接收 FJT 时同时检查完整集合、EtherCAT 反馈新鲜度和各轴第一点：13 个旋转轴阈值为精确 `0.017453292519943295 rad`，Updown 阈值为 `0.05 m`。
 
-Updown 命令当前约束为：位置单位 m，目标范围 `[0.0, 0.8]`，`expected_start_position` 与实际位置误差不超过 `0.05 m`；`profile_velocity_raw` 是驱动器对象 `0x6081` 的原始无符号值，不是已经换算的 SI 速度。非法命令会被忽略，接口没有逐命令接收/拒绝或完成结果。
+Updown 采用环位置 15 的 XMC SW 5.11 固定 PDO 和 4 ms CSP：`6553600 counts/m`，范围 `[0.0,0.8] m`，目标速度上限 `0.3 m/s`，加/减速度上限 `0.5 m/s²`。这些速度/加速度是 motion 时间参数化和实机验收约束；当前 JTC 不会从 `joint_limits.yaml` 自动执行它们。
 
 ### 3.3 使能与故障链
 
@@ -179,7 +175,7 @@ stateDiagram-v2
     RESETTING --> FAILED: 复位失败
 ```
 
-五个使能批次依次是：右 J1–J3、左 J1–J3、右 J4–J6、左 J4–J6、Turn。service 回调只提交请求，真正的状态机由 250 Hz `update()` 推进。建议按以下函数路径阅读：
+五个使能批次依次是：右 J1–J3、左 J1–J3、右 J4–J6、左 J4–J6、Turn + Updown。service 回调只提交请求，真正的状态机由 250 Hz `update()` 推进。建议按以下函数路径阅读：
 
 1. `on_configure()`：建立三个 service、controller switch client 和诊断定时器。
 2. `on_activate()`：清理旧状态并进入启动清理。
@@ -192,13 +188,13 @@ stateDiagram-v2
 
 ```text
 EtherCAT read() → ros2_control 状态接口 → /dynamic_joint_states
-                 → rt_diagnostics → master + 13 slave 诊断行
+                 → rt_diagnostics → master + 14 slave 诊断行
 
-ros2_canopen 原生 /diagnostics → rt_diagnostics → node_1..3 归一化诊断
+ros2_canopen 原生 /diagnostics → rt_diagnostics → node_2..3 归一化诊断
 enable_manager → /diagnostics 中独立的使能状态行
 ```
 
-`/diagnostics` 由多个发布者共同组成。至少应按名称观察 enable manager、EtherCAT master、13 个 EtherCAT slave 和 3 个 CANopen node，不能依赖消息到达顺序。
+`/diagnostics` 由多个发布者共同组成。至少应按名称观察 enable manager、EtherCAT master、14 个已配置 EtherCAT slave 和 2 个 CANopen node，不能依赖消息到达顺序。
 
 正常关停链是：
 
@@ -206,7 +202,7 @@ enable_manager → /diagnostics 中独立的使能状态行
 docker stop / SIGTERM
 → PID 1 捕获信号
 → rt_disable_once 调用 /rt/disable，最长等待 30 s
-→ JTC 停用、13 轴有序失能
+→ JTC 停用、14 轴有序失能
 → 向整个 ROS launch 进程组转发 SIGINT
 → CANopen 安全目标、NMT Stop 和 driver shutdown
 → EtherCAT master deactivate、等待从站 PREOP、release master
@@ -223,10 +219,10 @@ docker stop / SIGTERM
 | `EnableManagerController::on_activate()` | 启动时怎样进入 `STARTUP_SANITIZING` 并清理旧状态？ | 同上 |
 | `EnableManagerController::update()` | 非实时请求怎样由 250 Hz 状态机推进？ | 同上 |
 | `handleEnable/Disable/ResetFault()` | 三个生命周期 service 怎样接收、拒绝或抢占请求？ | 同上 |
-| `updateEnable()` | 五批 13 轴使能怎样逐步完成并激活 JTC？ | 同上 |
+| `updateEnable()` | 五批 14 轴使能怎样逐步完成并激活 JTC？ | 同上 |
 | `updateDownward()` / `startEmergency()` | 正常失能、使能回滚和运行中故障怎样收敛？ | 同上 |
 | `updateReset()` | 整组 Fault Reset 怎样发上升沿并确认？ | 同上 |
-| `UpdownPositionController::update()` | 升降命令如何校验起点、位置和原始速度值？ | [`updown_position_controller.cpp`](../../../src/rt_control/robot_hw_canopen/src/updown_position_controller.cpp) |
+| `validate_trajectory_start()` | 14 轴 FJT 如何按轴校验首点和 EtherCAT 反馈年龄？ | [`0001-jtc-start-consistency.patch`](../../../patches/ros2_controllers/0001-jtc-start-consistency.patch) |
 | `RtDiagnosticsNode::publishSnapshot()` | 多路硬件状态如何变成 1 Hz 诊断树？ | [`rt_diagnostics_node.cpp`](../../../src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp) |
 | `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](../../../src/rt_control/enable_manager/src/rt_disable_once.cpp) |
 
@@ -235,10 +231,10 @@ docker stop / SIGTERM
 | 要做的事 | 先看哪里 | 直接影响 | 需要联查 |
 | --- | --- | --- | --- |
 | 修改 link/joint、TF、几何或关节固有属性 | `robot_description` | 所有模型消费者 | motion、perception、rt-control 的联合模型验证。 |
-| 修改 13 轴映射/PDO/驱动参数 | `robot_hw_ethercat` | EtherCAT 插件、enable manager、diagnostics | 冻结 profile、上游补丁、迁移差异和实机分级验收。 |
-| 修改使能、失能、Fault Reset | `enable_manager` | 13 轴、JTC 生命周期、停机路径 | `rt_disable_once`、诊断、mock 与实机故障路径。 |
-| 修改双臂轨迹准入 | `controllers.yaml` + JTC patch | motion 的 FJT 调用 | 13 轴完整性、首点误差、反馈新鲜度、取消与结果语义。 |
-| 修改 Updown | `UpdownCommand` + `UpdownPositionController` + `bus.yml` | motion 和 CAN node 1 | 单位、原始速度值、替换语义、无结果接口的影响。 |
+| 修改 14 轴映射/PDO/驱动参数 | `robot_hw_ethercat` | EtherCAT 插件、enable manager、diagnostics | 冻结 profile、上游补丁、迁移差异和实机分级验收。 |
+| 修改使能、失能、Fault Reset | `enable_manager` | 14 轴、JTC 生命周期、停机路径 | `rt_disable_once`、诊断、mock 与实机故障路径。 |
+| 修改 14 轴轨迹准入 | `controllers.yaml` + JTC patch | motion 的 FJT 调用 | 完整性、逐轴首点误差、反馈新鲜度、取消与结果语义。 |
+| 修改 Updown | `xmc_updown_sw511.yaml` + EtherCAT xacro + JTC/limits | motion 和 EtherCAT slave 15 | 固定 PDO、SI/counts 换算、CSP 周期、第五批使能和整组故障语义。 |
 | 修改底盘 | `controllers.yaml` + `bus.yml` + ros2_canopen patch | `/cmd_vel`、odom、CAN node 2/3 | Nav2 参数、方向/比例、EMCY 与停止距离。 |
 | 修改诊断 | `rt_diagnostics` + 两类硬件状态接口 | 运维、autonomy/gateway 的状态汇总 | 多发布者聚合、陈旧判据、恢复后历史证据。 |
 | 增加真空或语义 IO | 先定义跨域契约，再实现 controller/hardware adapter | motion 与机械执行 | 当前只有部分底层 digital interface，不等于已有公共功能。 |
@@ -251,7 +247,7 @@ docker stop / SIGTERM
 1. 读根 [`README.md`](../../../README.md)、根 [`AGENTS.md`](../../../AGENTS.md) 和本域 [`AGENTS.md`](../AGENTS.md)，先确定边界和安全规则。
 2. 读本页前四节，建立接口、包依赖、启动和关停模型。
 3. 读 `rt_control.launch.py`、`controllers.yaml` 和三个 ros2_control xacro，理解总装。
-4. 读两个自定义接口定义，然后浏览 Updown 控制器、enable manager 头文件和 diagnostics。
+4. 读 `RtEnable.srv`，然后浏览 enable manager、XMC SW 5.11 profile 和 diagnostics。
 5. 最后看 [`PROGRESS.md`](../PROGRESS.md) 的验证边界，并在 [`BLOCKED-questions.md`](../BLOCKED-questions.md) 按设备、接口或 BQ 编号搜索。该文件后面的裁决可能取代早期记录，不建议只读前几项。
 
 ### 半天进入可修改状态
@@ -268,7 +264,7 @@ docker stop / SIGTERM
 
 | 等级 | 差距 | 对接手人的影响 |
 | --- | --- | --- |
-| 高 | Updown 公共话题冻结为 `/updown/command`，但 launch 未做 remap，当前实际通常为 `/updown_position/command`。 | 跨域接入前应修复 bringup；不要让 motion 依赖控制器私有名称。 |
+| 高 | XMC SW 5.11 的实机固定 PDO 与供应商 XML 不一致；当前 profile 以 slave 15 的 SII/PDO 扫描为权威，尚未完成 OP、使能和低速运动验收。 | 固件升级或换驱动器必须重读 SII 并逐项比对；不得直接用旧 XML 覆盖 profile，也不得把 mock/构建成功当实机通过。 |
 | 高 | BQ-115 是明确的硬件安全例外：`right_joint2/right_joint3/left_joint2/left_joint3` 四个 Ti5 在控制字 `0x0000` 下只到 Ready To Switch On；master release 后会以 `0x7500` 进入 Fault。 | 该状态只因设备手册和实测被接受为“未激磁”终态，不是 literal Switch On Disabled；最终验收要人工签字，下一次启动通常要显式 `/rt/reset_fault`。 |
 | 高 | BQ-117 仍开放：Ti5 `0x10F1:02` 的 ESI 声明宽度与实机上传长度不一致。 | 换驱动、固件或新机器时不能假定当前容忍策略仍成立。 |
 | 高 | Compose 设置了 `CYCLONEDDS_URI` 并挂载 loopback-only XML，但没有设置 `RMW_IMPLEMENTATION`；当前已检查镜像实际报告 `rmw_fastrtps_cpp`。 | 该 XML 目前不能作为网络隔离保证；host network 下 ROS/DDS 可能使用非 loopback 网卡。启动后要核对实际 RMW 和网络暴露，修复前不得宣称“远程发现被关闭”。 |

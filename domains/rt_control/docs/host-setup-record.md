@@ -1,5 +1,11 @@
 # rt-control host setup record
 
+> **Topology note (2026-07-27):** the earlier 15-position EtherCAT and
+> CANopen Node 1/2/3 observations below are historical. BQ-118 changes the
+> current target to a 16-position ring with XMC Updown at position 15 and
+> CANopen tracks only at Node 2/3. New deployment evidence must re-run the
+> updated host gate; this note does not rewrite the archived observations.
+
 ## Active target: ar-Default-string (192.168.0.40)
 
 Date: 2026-07-24 CST

@@ -9,6 +9,7 @@ this directory is their single domain-level documentation and governance home.
 
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
+- [XMC SW 5.11 固定 PDO 映射](docs/xmc-updown-sw511-fixed-pdo.md)：Updown 从站身份、19/24-byte 固定 PDO、启动 SDO、单位换算、XML 差异和实机门禁。
 - [PROGRESS.md](PROGRESS.md)：已经验证和仍未验证的范围，不能把构建或 Mock 结果当成实机验收。
 - [BLOCKED-questions.md](BLOCKED-questions.md)：已裁决和仍开放的硬件、接口与安全事实；按关键词或 BQ 编号搜索，并注意后续裁决可能取代早期记录。
 

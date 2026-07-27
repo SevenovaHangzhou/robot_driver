@@ -26,12 +26,13 @@
     <xacro:mock_ecat_axis joint_name="left_joint5"/>
     <xacro:mock_ecat_axis joint_name="left_joint6"/>
     <xacro:mock_ecat_axis joint_name="turn"/>
+    <xacro:mock_ecat_axis joint_name="updown"/>
     <sensor name="ethercat_domain">
       <state_interface name="process_data_age_ms"><param name="initial_value">0.0</param></state_interface>
     </sensor>
     <sensor name="ethercat_master">
       <state_interface name="link_up"><param name="initial_value">1.0</param></state_interface>
-      <state_interface name="slaves_responding"><param name="initial_value">15.0</param></state_interface>
+      <state_interface name="slaves_responding"><param name="initial_value">16.0</param></state_interface>
       <state_interface name="wc_error_count"><param name="initial_value">0.0</param></state_interface>
     </sensor>
     <sensor name="ethercat_slave_1"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
@@ -47,20 +48,13 @@
     <sensor name="ethercat_slave_11"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
     <sensor name="ethercat_slave_12"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
     <sensor name="ethercat_slave_14"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_15"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
   </ros2_control>
 
   <ros2_control name="canopen_mobile_axes" type="system">
     <hardware>
       <plugin>mock_components/GenericSystem</plugin>
     </hardware>
-    <joint name="updown">
-      <command_interface name="position"/>
-      <command_interface name="tpdo/index"/>
-      <command_interface name="tpdo/subindex"/>
-      <command_interface name="tpdo/data"/>
-      <command_interface name="tpdo/ons"/>
-      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
-    </joint>
     <joint name="left_track_joint">
       <command_interface name="velocity"/>
       <state_interface name="position"><param name="initial_value">0.0</param></state_interface>

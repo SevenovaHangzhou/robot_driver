@@ -28,6 +28,7 @@ for profile in \
   left_j6.yaml \
   right_j6.yaml \
   turn.yaml \
+  xmc_updown_sw511.yaml \
   zeroerr_j1.yaml \
   zeroerr_j4.yaml \
   zeroerr_j5.yaml

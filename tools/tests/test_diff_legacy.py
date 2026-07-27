@@ -47,6 +47,18 @@ tpdo:
         self.assertEqual(len(differences), 1)
         self.assertEqual(differences[0].key, "sdo[0].value")
 
+    def test_xmc_sw511_overlay_rejects_stale_xml_tail_entries(self):
+        expected = diff_legacy.compose_yaml(
+            diff_legacy.XMC_UPDOWN_SW511_PROFILE, "unit-test XMC profile"
+        )
+        actual = dict(expected)
+        actual["rpdo[0].channels[6].index"] = diff_legacy.Scalar(
+            "int", 0x607F, "0x607f"
+        )
+        differences = diff_legacy.compare_maps("updown", expected, actual)
+        self.assertEqual(len(differences), 1)
+        self.assertEqual(differences[0].key, "rpdo[0].channels[6].index")
+
 
 if __name__ == "__main__":
     unittest.main()

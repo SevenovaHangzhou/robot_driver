@@ -20,14 +20,14 @@ const std::array<const char *, EnableManagerController::kAxisCount>
 EnableManagerController::kJointNames = {
   "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
   "right_joint6", "left_joint1", "left_joint2", "left_joint3", "left_joint4",
-  "left_joint5", "left_joint6", "turn"};
+  "left_joint5", "left_joint6", "turn", "updown"};
 
 const std::array<std::array<std::int8_t, 3>, EnableManagerController::kBatchCount>
 EnableManagerController::kEnableBatches = {{{0, 1, 2}, {6, 7, 8}, {3, 4, 5}, {9, 10, 11},
-  {12, -1, -1}}};
+  {12, 13, -1}}};
 
 const std::array<std::uint8_t, EnableManagerController::kBatchCount>
-EnableManagerController::kBatchSizes = {3U, 3U, 3U, 3U, 1U};
+EnableManagerController::kBatchSizes = {3U, 3U, 3U, 3U, 2U};
 
 controller_interface::CallbackReturn EnableManagerController::on_init()
 {
@@ -135,7 +135,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   const rclcpp_lifecycle::State &)
 {
   if (command_interfaces_.size() != kAxisCount || state_interfaces_.size() != kAxisCount) {
-    RCLCPP_ERROR(get_node()->get_logger(), "Expected 13 control_word and 13 status_word interfaces");
+    RCLCPP_ERROR(get_node()->get_logger(), "Expected 14 control_word and 14 status_word interfaces");
     return controller_interface::CallbackReturn::ERROR;
   }
 

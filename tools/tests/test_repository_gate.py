@@ -132,7 +132,7 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
         )
         self.assertEqual(
             repository_gate.check_interface_path(
-                "src/interfaces/robot_interfaces/msg/UpdownCommand.msg"
+                "src/interfaces/robot_interfaces/srv/RtEnable.srv"
             ),
             [],
         )

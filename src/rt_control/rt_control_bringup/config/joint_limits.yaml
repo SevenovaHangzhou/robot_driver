@@ -260,3 +260,21 @@ joints:
       source: USER_CONFIRMED_ZEROERR_TURN
       direction: REQUIRES_LOW_SPEED_VALIDATION
       zero_offset: ENCODER_180_DEG_MECHANICAL_ZERO
+  updown:
+    profile: xmc_updown_sw511
+    lower_position_m: 0.0
+    upper_position_m: 0.8
+    max_velocity_m_s: 0.3
+    max_acceleration_m_s2: 0.5
+    max_deceleration_m_s2: 0.5
+    counts_per_rev: 65536
+    screw_lead_m_per_rev: 0.01
+    reduction_ratio: 1.0
+    counts_per_m: 6553600.0
+    m_per_count: 0.000000152587890625
+    direction: 1
+    zero_offset_m: 0.0
+    verification:
+      source: USER_AND_SUPPLIER_CONFIRMED_XMC_SW_5_11
+      direction: RAW_6064_INCREASES_UPWARD
+      zero_offset: RAW_0_IS_0_M

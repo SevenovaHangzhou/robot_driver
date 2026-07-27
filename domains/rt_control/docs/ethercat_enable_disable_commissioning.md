@@ -1,5 +1,10 @@
 # rt-control EtherCAT enable/disable commissioning record — 2026-07-25
 
+> **Historical topology:** this powered record covered the former 13-axis,
+> 15-position ring before BQ-118 added XMC Updown at position 15. It does not
+> validate the new 14-axis/16-position topology, XMC startup SDO, OP entry,
+> fifth-batch enable or CSP motion.
+
 ## Status and scope
 
 This is a **partial T-013 record**, not T-013 completion. It covers the EtherCAT

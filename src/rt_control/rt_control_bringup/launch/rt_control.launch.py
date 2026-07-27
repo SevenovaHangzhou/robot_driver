@@ -62,7 +62,6 @@ def generate_launch_description():
         )
         for name in (
             "joint_state_broadcaster",
-            "updown_position",
             "diff_drive_controller",
         )
     ]

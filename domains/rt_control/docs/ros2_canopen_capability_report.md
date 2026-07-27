@@ -1,5 +1,9 @@
 # rt-control ros2_canopen capability report (T-006)
 
+> **Historical scope:** this report predates BQ-118. Its Node 1/PP/Updown
+> findings remain evidence for the removed implementation only. Current
+> CANopen production scope contains the two PV track drives at Node 2/3.
+
 ## Scope and pinned inputs
 
 This report checks the CANopen configuration boundary required by

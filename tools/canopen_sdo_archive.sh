@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 Usage: canopen_sdo_archive.sh OUTPUT_DIRECTORY [CAN_INTERFACE]
 
-Read-only commissioning archive for the three production CANopen nodes.
+Read-only commissioning archive for the two production CANopen track nodes.
 The ros2_canopen driver services must already be running. The script captures
 CAN traffic while issuing SDO uploads for the frozen PDO communication and
 mapping ranges. It never calls an SDO-write service.
@@ -37,7 +37,7 @@ for command_name in candump ros2 date; do
 done
 
 readonly service_type="canopen_interfaces/srv/CORead"
-readonly -a node_names=(updown left_track right_track)
+readonly -a node_names=(left_track right_track)
 
 for node_name in "${node_names[@]}"; do
   if ! ros2 service list | grep -Fx "/${node_name}/sdo_read" >/dev/null; then
@@ -55,7 +55,7 @@ readonly metadata_file="${output_directory}/metadata.txt"
   echo "captured_at=$(date --iso-8601=seconds)"
   echo "can_interface=${can_interface}"
   echo "service_type=${service_type}"
-  echo "nodes=updown:1,left_track:2,right_track:3"
+  echo "nodes=left_track:2,right_track:3"
   echo "policy=SDO uploads only; no SDO downloads; no PDO remapping"
 } >"${metadata_file}"
 

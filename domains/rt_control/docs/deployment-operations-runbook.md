@@ -12,14 +12,14 @@
 | L1 | 修改宿主或启动硬件隔离测试进程 | 安装 Docker/IgH、修改 GRUB、启动 Mock/时延测试容器、重启 | 必须确认目标机、影响范围和恢复方式并取得相应授权。 |
 | L2 | 访问真实总线但不启动控制应用 | 启动宿主 EtherCAT/CAN、读取拓扑、授权的 SDO upload | 必须取得现场通信授权，设备处于安全状态。 |
 | L3 | 启动真实控制栈或改变驱动生命周期 | 生产容器 `up`、reset/enable/disable | CANopen 激活可能初始化并使驱动进入运行状态；必须有隔离区、实体急停/安全链、机械防护/支撑、监护人和单独授权。 |
-| L4 | 下发有意运动 | FJT、`/cmd_vel`、Updown 命令 | 在 L3 条件上，还要逐项批准起点、目标、速度、方向、停止距离和回退方案。 |
+| L4 | 下发有意运动 | 14 轴 FJT、`/cmd_vel` | 在 L3 条件上，还要逐项批准起点、目标、速度、方向、停止距离和回退方案。 |
 
 必须始终遵守：
 
 - `/rt/disable`、速度置零和软件 diagnostics 都不是急停或 STO。
-- 生产容器即使未调用 `/rt/enable`，也会对真实 CANopen 节点执行 `init_motor()`、设置模式并预置安全目标，Updown/履带 controller 随即 active；CAN 驱动可能进入 Operation Enabled/激磁状态。因此“启动容器”属于 L3，不是纯通信检查。
-- `/rt/enable` 只管理 13 个 EtherCAT 轴；Updown 和履带在启动时就 active。
-- 当前没有独立 `rt_watchdog` 或 motion/autonomy heartbeat，不存在统一的“上层失联后全机自动停机”。`/cmd_vel` 的 0.5 s 普通减速超时不能外推到 FJT、Updown 或整机安全。
+- 生产容器即使未调用 `/rt/enable`，也会对两条真实 CANopen 履带执行 `init_motor()`、设置 PV 模式并预置零速度，底盘 controller 随即 active；CAN 驱动可能进入 Operation Enabled/激磁状态。因此“启动容器”属于 L3，不是纯通信检查。
+- `/rt/enable` 管理双臂、Turn 和 Updown 共 14 个 EtherCAT 轴；两条履带在启动时 active。
+- 当前没有独立 `rt_watchdog` 或 motion/autonomy heartbeat，不存在统一的“上层失联后全机自动停机”。`/cmd_vel` 的 0.5 s 普通减速超时不能外推到 FJT 或整机安全。
 - 生产 Compose 只能通过 [`tools/rt_control_compose.sh`](../../../tools/rt_control_compose.sh) 调用。
 - 包装器的每次调用（包括 `logs` 和 `stop`）都要求先设置同一目标机已经验证的 `RT_CONTROL_CPUSET`。
 - Compose 虽挂载 loopback-only CycloneDDS XML，却没有固定 `RMW_IMPLEMENTATION`；当前镜像实际使用 Fast DDS。不能把该文件当作网络隔离，生产启动前必须核对实际 RMW 和 DDS 暴露面。
@@ -96,10 +96,10 @@ done
 | OS/架构 | Ubuntu 22.04 Jammy、amd64 |
 | 实时内核 | `5.15.0-1032-realtime`；仓库不负责安装 RT 内核 |
 | CPU | i7-14700；CPU 14 为隔离核，CPU 15 是同 core sibling 并下线 |
-| EtherCAT NIC | MAC `8c:59:3c:14:ff:d3`，预期环上 15 个位置 |
+| EtherCAT NIC | MAC `8c:59:3c:14:ff:d3`，预期环上 16 个位置；位置 15 为 XMC SW 5.11 Updown |
 | rt-control CAN | USB serial `004D00675230500720333159`，命名为 `can0` |
 | BMS CAN | USB serial `003000265230500720333159`，命名为 `can1`，不归 rt-control 配置 |
-| CAN 参数 | `can0` 500 kbit/s，txqueuelen 128，预期节点 1/2/3 心跳 |
+| CAN 参数 | `can0` 500 kbit/s，txqueuelen 128，预期节点 2/3 心跳 |
 | Docker | Docker CE 29.6.2、containerd 2.2.6，以及脚本冻结的 Buildx/Compose 版本 |
 | 其他验收 | NVIDIA、AppArmor、systemd unit、PCIe/Xid 等当前主机特定检查 |
 
@@ -111,7 +111,7 @@ done
 - EtherCAT NIC MAC、驱动或 PCI 拓扑不同；
 - 任一 CAN 适配器 serial 不同或没有两只适配器；
 - RT 内核版本/ABI 不同；
-- 现场 EtherCAT 拓扑不是已确认的 15 个位置；
+- 现场 EtherCAT 拓扑不是已确认的 16 个位置；
 - Ti5 的驱动身份、固件批次或配套 ESI 与已验证记录不一致，或无法追溯；
 - GPU、OS 或验证策略不同，导致 `verify-host.sh` 的冻结假设不成立。
 
@@ -339,9 +339,9 @@ journalctl -b -u rt-control-can-names.service -u can0.service
 预期至少包括：
 
 - IgH 版本/commit 与容器一致，EtherCAT link UP；
-- 15 个环位置全部响应，没有持续 lost frame/WC 增长；
+- 16 个环位置全部响应，没有持续 lost frame/WC 增长；
 - `can0` 对应批准的 serial、500 kbit/s、txqueuelen 128、ERROR-ACTIVE；
-- 能被动观察节点 `0x701/0x702/0x703` 心跳；
+- 能被动观察履带节点 `0x702/0x703` 心跳；
 - 没有 failed systemd unit、PCIe Bus Error 或 NVIDIA Xid。
 
 `verify-host.sh` 是当前冻结主机的严格验收，不是通用探测器。若新 profile 合法变化，应同步修改并评审验收逻辑，而不是跳过失败项。
@@ -445,11 +445,10 @@ timeout 5 ros2 topic echo /diagnostics
 | 对象 | 预期 |
 | --- | --- |
 | `joint_state_broadcaster` | active |
-| `updown_position` | active |
 | `diff_drive_controller` | active |
 | `enable_manager` | active |
 | `dual_arm_jtc` | inactive；只有 `/rt/enable` 成功后才 active |
-| `/joint_states` | 约 50 Hz，13 个 EtherCAT 轴 + Updown + 两条履带，共 16 个控制关节名；两条 track joint 不在共享 URDF 中 |
+| `/joint_states` | 约 50 Hz，14 个 EtherCAT 轴 + 两条履带，共 16 个控制关节名；两条 track joint 不在共享 URDF 中 |
 | odom 与 `odom → base_link` | 约 50 Hz；`map → odom` 不属于 rt-control |
 | `/diagnostics` | 约 1 Hz，多发布者，按名称聚合 |
 
@@ -457,10 +456,10 @@ timeout 5 ros2 topic echo /diagnostics
 
 - `/robot/rt_control/enable_manager`；
 - `/robot/rt_control/ethercat/master`；
-- EtherCAT `slave_1` 到 `slave_12` 和 `slave_14`；
-- CANopen `node_1`、`node_2`、`node_3`。
+- EtherCAT `slave_1` 到 `slave_12`、`slave_14` 和 XMC `slave_15`；
+- CANopen `node_2`、`node_3`。
 
-健康判据包括 EtherCAT `link=1`、`slaves_responding=15`、process data 新鲜、WC error 不持续增长、所需从站为 OP，以及三个 CAN 节点不为 STALE/ERROR。
+健康判据包括 EtherCAT `link=1`、`slaves_responding=16`、process data 新鲜、WC error 不持续增长、所需从站为 OP，以及两个 CAN 节点不为 STALE/ERROR。
 
 ## 10. 部署后的正常使用
 
@@ -471,15 +470,15 @@ timeout 5 ros2 topic echo /diagnostics
 → 等待 startup sanitize 稳定并只读检查 controller、总线和 diagnostics
 → 现场安全条件确认
 → 必要时解除物理原因后 reset_fault
-→ 单独批准并 enable 13 个 EtherCAT 轴
-→ motion 域发送轨迹、底盘或升降执行目标
+→ 单独批准并 enable 14 个 EtherCAT 轴
+→ motion 域发送 14 轴轨迹或底盘速度目标
 → motion 结束/取消 FJT，给履带下发零目标并确认物理静止
-→ Updown 到达并保持经批准的安全位置
-→ disable 13 个 EtherCAT 轴并确认终态
+→ Updown 随 FJT 到达并保持经批准的安全位置
+→ disable 14 个 EtherCAT 轴并确认终态
 → 需要关闭 CANopen 硬件时走 Compose graceful stop
 ```
 
-### 10.1 13 轴生命周期服务（L3）
+### 10.1 14 轴生命周期服务（L3）
 
 三项服务使用同一个空请求和响应结构：
 
@@ -512,21 +511,20 @@ ros2 service call /rt/disable robot_interfaces/srv/RtEnable "{}"
 
 `/rt/disable` 需要 JTC 切换和多阶段 CiA402 下行，不能替代实体急停。
 
-### 10.2 motion 域的三个执行入口（L4）
+### 10.2 motion 域的两个执行入口（L4）
 
 生产作业应由 motion 域生成命令，不应让 gateway、autonomy、perception 或人工 CLI 绕过规划直接驱动硬件。
 
 | 功能 | 接口 | 使用前提 | 当前限制 |
 | --- | --- | --- | --- |
-| 双臂 + Turn | `/dual_arm_jtc/follow_joint_trajectory`，`control_msgs/action/FollowJointTrajectory` | `/rt/enable` 成功、JTC active、完整 13 轴、第一点与反馈一致 | 手臂低速 FJT 和 Turn jog 尚未完成全部实机验收。 |
+| 双臂 + Turn + Updown | `/dual_arm_jtc/follow_joint_trajectory`，`control_msgs/action/FollowJointTrajectory` | `/rt/enable` 成功、JTC active、完整 14 轴、第一点与反馈一致 | 手臂、Turn 和新 EtherCAT Updown 尚未完成全部实机验收。 |
 | 履带 | `/cmd_vel`，`geometry_msgs/msg/Twist` | CAN node 2/3 健康、方向/比例和停止距离已验收、单一 publisher | 启动即 active，不受 `/rt/enable` 门控；0.5 s 超时和普通减速都不是急停。 |
-| Updown | 设计接口 `/updown/command`，`robot_interfaces/msg/UpdownCommand` | node 1 健康、当前位置已确认、`0x6081` 原始值有设备依据 | 当前 launch 漏 remap；实际私有话题不能作为长期契约，且实机 PP 尚未闭环。 |
 
 当前接口参数快照：
 
-- FJT 的完整关节集合是 `right_joint1`…`right_joint6`、`left_joint1`…`left_joint6`、`turn`；不接受 partial goal。Updown 不在这 13 轴里。
+- FJT 的完整关节集合和顺序是 `right_joint1`…`right_joint6`、`left_joint1`…`left_joint6`、`turn`、`updown`；不接受 partial goal。13 个旋转轴第一点误差阈值为精确 `0.017453292519943295 rad`，Updown 为 `0.05 m`；EtherCAT 反馈年龄必须不超过 500 ms。
 - `/cmd_vel` 当前限制为 `linear.x ±0.3 m/s`、`angular.z ±0.3 rad/s`，线/角加速度为 `±0.6`，jerk limit 未启用。这些 controller 限制不是机械安全距离或急停能力。
-- `UpdownCommand` 包含 `expected_start_position`、`position`（m）和 `profile_velocity_raw`。目标范围 `[0.0, 0.8] m`，起点允许误差 `0.05 m`；原始速度值没有可信 SI 换算和可猜测的默认值。
+- Updown 使用 4 ms CSP，比例为 `6553600 counts/m`，目标范围 `[0.0,0.8] m`，速度上限 `0.3 m/s`，加/减速度上限 `0.5 m/s²`。速度/加速度由 motion 的时间参数化和实机验收保证；当前 JTC 不会自动加载 `joint_limits.yaml` 执行这些上限。
 
 接手开发时可用以下只读命令查看类型和连接关系：
 
@@ -535,10 +533,9 @@ ros2 action info /dual_arm_jtc/follow_joint_trajectory
 ros2 interface show control_msgs/action/FollowJointTrajectory
 ros2 topic info /cmd_vel --verbose
 ros2 interface show geometry_msgs/msg/Twist
-ros2 interface show robot_interfaces/msg/UpdownCommand
 ```
 
-不要在普通生产运维手册里放可直接执行的运动数值。受控 commissioning 的 FJT、履带和 Updown 命令必须使用当次实测起点、经 motion 校验的目标、批准的低速参数和现场回退方案。
+不要在普通生产运维手册里放可直接执行的运动数值。受控 commissioning 的 14 轴 FJT 和履带命令必须使用当次实测起点、经 motion 校验的目标、批准的低速参数和现场回退方案。
 
 特别禁止在生产中手工执行 `ros2 control switch_controllers --activate dual_arm_jtc`；它会绕过五批使能联锁。
 
@@ -553,7 +550,7 @@ flowchart TD
     B -->|否| D[停止上层命令并保存日志/diagnostics]
     D --> E{EtherCAT enable manager FAILED?}
     E -->|是| F[查首故障轴和 stage<br/>解除物理原因后显式 reset]
-    E -->|否| G{CANopen/履带/Updown 故障?}
+    E -->|否| G{CANopen/履带故障?}
     G -->|是| H[有序停止整个 rt-control<br/>不做节点级自动局部恢复]
     G -->|否| I[按 controller、DDS、配置或上层命令定位]
     F --> J{reset 后状态可信?}
@@ -561,7 +558,7 @@ flowchart TD
     J -->|否| H
 ```
 
-CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-control 有序停止和重启，避免三个节点与 controller 状态不一致。
+CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-control 有序停止和重启，避免两个履带节点与 controller 状态不一致。
 
 恢复成功后 diagnostics 可能清除当前失败字段，历史证据主要保留在日志和 commissioning archive。应先归档再恢复。
 
@@ -578,7 +575,7 @@ CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-con
 | EtherCAT 启动像卡住 | 完整 OP/WC 门禁最长约 70 s；查 master/slave/WC 日志，不要强杀。 |
 | ROS graph 在远程可见或不可见，与 XML 预期不符 | 用 `ros2 doctor --report` 核对实际 RMW；当前 Compose 未固定 CycloneDDS，不能假定 loopback-only XML 生效。 |
 | 容器反复 restarting | 立即用包装器 `stop` 终止重启环，保存第一次失败日志，再查 controller/硬件启动原因。 |
-| Updown 找不到 `/updown/command` | 当前已知 remap 缺口；不要让消费者改用私有名称固化问题。 |
+| XMC slave 15 无法进入 OP 或 WC 不完整 | 先核对驱动 SW 5.11、`sysPRM.EtherCATEnable=ON`、实机固定 PDO 字节布局和启动 SDO；供应商 XML 的末项与实机不一致，禁止直接覆盖 YAML。 |
 | stop 很慢 | Compose 允许 100 s 做失能与总线清理；持续观察日志和最终状态。 |
 | 容器 exit 0 但日志有 `UNCLEAN_SHUTDOWN` | 当前退出码不能单独证明失能成功；按不干净停机处理并核查驱动/总线终态。 |
 
@@ -599,7 +596,7 @@ tools/rt_control_compose.sh ps -a
 
 - 日志有 `rt_control shutdown disable result: ok=true`；
 - 没有 `UNCLEAN_SHUTDOWN`；
-- `dual_arm_jtc` 已停用；九个 ZeroErr 到 Switch On Disabled，四个已裁决 Ti5 在 `0x0000` 下可处于 Ready To Switch On；
+- `dual_arm_jtc` 已停用；九个 ZeroErr 与 XMC Updown 到 Switch On Disabled，四个已裁决 Ti5 在 `0x0000` 下可处于 Ready To Switch On；
 - EtherCAT master inactive、从站回到 PREOP；
 - CANopen 完成安全目标、motor shutdown/NMT Stop 和 driver shutdown。
 
@@ -636,7 +633,7 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 每台新机至少归档：
 
 - 目标机只读事实和差异评审；
-- 四个 Ti5 的驱动身份、固件版本、ESI 文件/hash，以及 BQ-117 兼容性比对结论；
+- 四个 Ti5 的驱动身份、固件版本、ESI 文件/hash，以及 BQ-117 兼容性比对结论；XMC Updown 的 SW 5.11 身份、实机固定 PDO 归档和供应商 XML hash；
 - 宿主变更前备份及恢复验证；
 - Git SHA、依赖 SHA、image ID、镜像 inspect；
 - RT kernel/headers、Docker packages/key、IgH source/build dependencies 等宿主 bootstrap 来源与校验值；
@@ -653,7 +650,7 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 
 - T-009 的完整 30 分钟联合空跑/实时负载验证；
 - 12 轴手臂低速 FJT 和 Turn jog 的完整实机闭环；
-- Updown PP、速度参数和状态位的完整实机验收；
+- XMC Updown 的启动 SDO、OP、当前位置预装载、第五批使能、低速 CSP 运动和失能完整实机验收；
 - 履带方向/比例、heartbeat/EMCY 及断链后的机械停车验证；
 - EtherCAT 与 CANopen 同时运行时，完整生产栈 graceful stop/退出的联合实机证据；
 - BQ-115 的四个 Ti5 非 literal 失能终态最终人工签字，以及 master release 后 `0x7500` 的驱动侧反应审查；
@@ -661,4 +658,4 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 - 明确固定并验证生产 RMW/DDS 网卡边界；当前 loopback-only CycloneDDS XML 尚不能证明实际网络隔离；
 - 通用新机 profile、全离线宿主 bootstrap、自动镜像发布、readiness/healthcheck 和自动 rollback。
 
-当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
+当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。

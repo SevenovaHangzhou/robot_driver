@@ -71,9 +71,9 @@ systemctl is-active --quiet ethercat.service rt-control-can-names.service can0.s
 master_output="$(ethercat master)"
 grep -Fq "Main: ${ethercat_mac} (attached)" <<< "${master_output}" || fail "master MAC mismatch"
 grep -Fq 'Link: UP' <<< "${master_output}" || fail "EtherCAT link is down"
-grep -Fq 'Slaves: 15' <<< "${master_output}" || fail "EtherCAT does not report 15 slaves"
+grep -Fq 'Slaves: 16' <<< "${master_output}" || fail "EtherCAT does not report 16 slaves"
 grep -Fq 'Lost frames: 0' <<< "${master_output}" || fail "EtherCAT has lost frames"
-[[ "$(ethercat slaves | wc -l)" -eq 15 ]] || fail "EtherCAT scan does not contain 15 positions"
+[[ "$(ethercat slaves | wc -l)" -eq 16 ]] || fail "EtherCAT scan does not contain 16 positions"
 
 can_serial="$(udevadm info -q property -p /sys/class/net/can0 |
   sed -n 's/^ID_SERIAL_SHORT=//p')"
@@ -88,7 +88,7 @@ cleanup() {
 }
 trap cleanup EXIT
 timeout 6 candump -L can0 > "${heartbeat_log}" || [[ $? -eq 124 ]]
-for cob_id in 701 702 703; do
+for cob_id in 702 703; do
   grep -Fq "can0 ${cob_id}#" "${heartbeat_log}" || fail "missing heartbeat 0x${cob_id}"
 done
 
@@ -104,6 +104,6 @@ nvidia-smi --query-gpu=name,driver_version,pci.bus_id --format=csv,noheader
 
 printf '%s\n' \
   "PASS: realtime CPU14 isolation" \
-  "PASS: IgH 1.6.10, master ${ethercat_mac}, 15 slaves, zero lost frames" \
-  "PASS: can0 500 kbit/s on serial ${rt_control_can_serial}, heartbeats 0x701/702/703" \
+  "PASS: IgH 1.6.10, master ${ethercat_mac}, 16 slaves, zero lost frames" \
+  "PASS: can0 500 kbit/s on serial ${rt_control_can_serial}, heartbeats 0x702/703" \
   "PASS: Docker/containerd frozen versions, healthy systemd and GPU boot log"

@@ -21,11 +21,11 @@ namespace
 {
 using SteadyClock = std::chrono::steady_clock;
 constexpr auto kStaleTimeout = std::chrono::seconds(3);
-constexpr std::array<int, 13> kRingPositions = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14};
-constexpr std::array<const char *, 13> kJointNames = {
+constexpr std::array<int, 14> kRingPositions = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15};
+constexpr std::array<const char *, 14> kJointNames = {
   "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
   "right_joint6", "left_joint1", "left_joint2", "left_joint3", "left_joint4",
-  "left_joint5", "left_joint6", "turn"};
+  "left_joint5", "left_joint6", "turn", "updown"};
 
 diagnostic_msgs::msg::KeyValue makeKeyValue(std::string key, std::string value)
 {
@@ -116,7 +116,7 @@ private:
         }
         continue;
       }
-      if (status.hardware_id != "1" && status.hardware_id != "2" && status.hardware_id != "3") {
+      if (status.hardware_id != "2" && status.hardware_id != "3") {
         continue;
       }
       bool has_native_state = false;
@@ -127,7 +127,7 @@ private:
       if (!has_native_state) {
         continue;
       }
-      const std::size_t index = static_cast<std::size_t>(std::stoi(status.hardware_id) - 1);
+      const std::size_t index = static_cast<std::size_t>(std::stoi(status.hardware_id) - 2);
       canopen_[index].status = status;
       canopen_[index].received = SteadyClock::now();
       canopen_[index].valid = true;
@@ -149,7 +149,7 @@ private:
   void publishSnapshot()
   {
     std::unordered_map<std::string, double> values;
-    std::array<CanopenSnapshot, 3> canopen;
+    std::array<CanopenSnapshot, 2> canopen;
     SteadyClock::time_point received;
     bool has_dynamic_state = false;
     std::string enable_state;
@@ -189,7 +189,7 @@ private:
       master.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
       master.message = "EtherCAT link is down";
     } else if (
-      static_cast<int>(slaves_responding) != 15 ||
+      static_cast<int>(slaves_responding) != 16 ||
       (has_previous_wc_count_ && wc_error_count > previous_wc_error_count_))
     {
       master.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
@@ -246,7 +246,7 @@ private:
 
     for (std::size_t node = 0; node < canopen.size(); ++node) {
       diagnostic_msgs::msg::DiagnosticStatus normalized;
-      normalized.name = "/robot/rt_control/canopen/node_" + std::to_string(node + 1U);
+      normalized.name = "/robot/rt_control/canopen/node_" + std::to_string(node + 2U);
       normalized.hardware_id = hardware_id_;
       if (!canopen[node].valid || current_time - canopen[node].received > kStaleTimeout) {
         normalized.level = diagnostic_msgs::msg::DiagnosticStatus::STALE;
@@ -257,7 +257,7 @@ private:
         normalized.values = canopen[node].status.values;
       }
       normalized.values.push_back(
-        makeKeyValue("source_hardware_id", std::to_string(node + 1U)));
+        makeKeyValue("source_hardware_id", std::to_string(node + 2U)));
       array.status.push_back(std::move(normalized));
     }
 
@@ -266,7 +266,7 @@ private:
 
   std::mutex mutex_;
   std::unordered_map<std::string, double> values_;
-  std::array<CanopenSnapshot, 3> canopen_{};
+  std::array<CanopenSnapshot, 2> canopen_{};
   SteadyClock::time_point dynamic_state_received_{};
   bool has_dynamic_state_{false};
   std::string enable_manager_state_;

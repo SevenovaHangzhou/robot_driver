@@ -33,8 +33,8 @@
 - `src/description/robot_description`：平台级机器人权威模型源，只保存机器人固有的运动学、几何、惯量、碰撞模型、坐标系和 mesh。
 - `src/interfaces/robot_interfaces`：跨包/跨域 ROS 接口契约，只保存 `msg/srv/action` 定义，不放业务实现。
 - `src/rt_control/robot_hw_ethercat`：EtherCAT 拓扑、从站配置和 ros2_control 硬件描述。
-- `src/rt_control/robot_hw_canopen`：CANopen 总线配置、Updown 控制器及准入约束。
-- `src/rt_control/enable_manager`：13 轴使能、失能、故障复位状态机。
+- `src/rt_control/robot_hw_canopen`：两条履带的 CANopen 总线配置。
+- `src/rt_control/enable_manager`：14 轴使能、失能、故障复位状态机。
 - `src/rt_control/rt_diagnostics`：实时控制域诊断归一化和状态上报。
 - `src/rt_control/rt_control_bringup`：rt-control 总装、控制器配置、生命周期编排和唯一受支持的启动入口。
 - `patches`：对 `deps.repos` 中冻结上游版本的最小补丁，不是上游源码副本。

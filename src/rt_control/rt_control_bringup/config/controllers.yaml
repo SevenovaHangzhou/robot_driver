@@ -9,9 +9,6 @@ controller_manager:
     dual_arm_jtc:
       type: joint_trajectory_controller/JointTrajectoryController
 
-    updown_position:
-      type: robot_hw_canopen/UpdownPositionController
-
     diff_drive_controller:
       type: diff_drive_controller/DiffDriveController
 
@@ -38,6 +35,7 @@ dual_arm_jtc:
       - left_joint5
       - left_joint6
       - turn
+      - updown
     command_interfaces:
       - position
     state_interfaces:
@@ -47,15 +45,26 @@ dual_arm_jtc:
     set_last_command_interface_value_as_state_on_activation: false
     trajectory_start_consistency_check:
       enabled: true
-      position_tolerance: 0.017453292519943295
+      position_tolerances:
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.017453292519943295
+        - 0.05
       feedback_age_state_interface: ethercat_domain/process_data_age_ms
       max_feedback_age_ms: 500.0
     constraints:
       goal_time: 0.5
       stopped_velocity_tolerance: 0.01
-
-updown_position:
-  ros__parameters: {}
 
 enable_manager:
   ros__parameters:

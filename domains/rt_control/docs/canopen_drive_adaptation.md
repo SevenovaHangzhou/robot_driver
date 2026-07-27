@@ -1,5 +1,10 @@
 # rt-control CANopen drive adaptation checklist
 
+> **Historical scope:** BQ-118 (2026-07-27) removed CANopen Node 1 and the PP
+> Updown path. Rows about Node 1, Updown, PP, `0x607A` or `0x6081` are retained
+> only as commissioning history and are not current configuration. The active
+> CANopen scope is the two PV track drives at Node 2/3.
+
 This table is the operator-facing delta between the supplied LD2 EDS/defaults
 and the approved rt-control configuration. It does not authorize powered motion
 until every effective value and physical reaction has been archived in T-014.

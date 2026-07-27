@@ -36,6 +36,22 @@
     </joint>
   </xacro:macro>
 
+  <xacro:macro name="xmc_axis" params="joint_name ring_position profile">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"/>
+      <state_interface name="status_word"/>
+      <ec_module name="${joint_name}_drive">
+        <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+        <param name="alias">0</param>
+        <param name="position">${ring_position}</param>
+        <param name="mode_of_operation">8</param>
+        <param name="slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
+      </ec_module>
+    </joint>
+  </xacro:macro>
+
   <ros2_control name="ecat_arms" type="system">
     <hardware>
       <plugin>ethercat_driver/EthercatDriver</plugin>
@@ -58,6 +74,7 @@
     <xacro:zeroerr_axis joint_name="left_joint5" ring_position="11" profile="zeroerr_j5"/>
     <xacro:zeroerr_axis joint_name="left_joint6" ring_position="12" profile="left_j6"/>
     <xacro:zeroerr_axis joint_name="turn" ring_position="14" profile="turn"/>
+    <xacro:xmc_axis joint_name="updown" ring_position="15" profile="xmc_updown_sw511"/>
 
     <sensor name="ethercat_domain">
       <state_interface name="process_data_age_ms"/>
@@ -80,5 +97,6 @@
     <sensor name="ethercat_slave_11"><state_interface name="al_state"/></sensor>
     <sensor name="ethercat_slave_12"><state_interface name="al_state"/></sensor>
     <sensor name="ethercat_slave_14"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_15"><state_interface name="al_state"/></sensor>
   </ros2_control>
 </robot>

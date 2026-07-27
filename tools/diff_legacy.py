@@ -56,6 +56,62 @@ tpdo:
       - {index: 0x6041, sub_index: 0, type: uint16, state_interface: status_word}
       - {index: 0x6064, sub_index: 0, type: int32, state_interface: position, factor: 0.0000239684498}
 """
+XMC_UPDOWN_SW511_PROFILE = """\
+vendor_id: 0x0000034E
+product_id: 0x00445566
+assign_activate: 0x0300
+auto_fault_reset: false
+auto_state_transitions: false
+sdo:
+  - {index: 0x10f1, sub_index: 2, type: uint16, value: 100}
+  - {index: 0x60c2, sub_index: 1, type: uint8, value: 4}
+  - {index: 0x60c2, sub_index: 2, type: int8, value: -3}
+  - {index: 0x6060, sub_index: 0, type: int8, value: 8}
+rpdo:
+  - index: 0x1600
+    channels:
+      - {index: 0x6040, sub_index: 0, type: uint16, command_interface: control_word, default: 0}
+      - {index: 0x6071, sub_index: 0, type: int16, command_interface: fixed_target_torque, default: 0}
+      - {index: 0x60ff, sub_index: 0, type: int32, command_interface: fixed_target_velocity, default: 0}
+      - {index: 0x607a, sub_index: 0, type: int32, command_interface: position, factor: 6553600.0, default: .nan}
+      - {index: 0x6081, sub_index: 0, type: uint32, command_interface: fixed_profile_velocity, default: 0}
+      - {index: 0x6060, sub_index: 0, type: int8, command_interface: mode_of_operation, default: 8}
+      - {index: 0x2302, sub_index: 0, type: uint16, command_interface: fixed_vendor_control, default: 0}
+tpdo:
+  - index: 0x1a00
+    channels:
+      - {index: 0x6041, sub_index: 0, type: uint16, state_interface: status_word}
+      - {index: 0x603f, sub_index: 0, type: uint16}
+      - {index: 0x6078, sub_index: 0, type: int16}
+      - {index: 0x606c, sub_index: 0, type: int32}
+      - {index: 0x6064, sub_index: 0, type: int32, state_interface: position, factor: 0.000000152587890625}
+      - {index: 0x6061, sub_index: 0, type: int8}
+      - {index: 0x6000, sub_index: 0, type: uint8}
+      - {index: 0x2300, sub_index: 0, type: uint16}
+      - {index: 0x2301, sub_index: 0, type: uint16}
+      - {index: 0x60fd, sub_index: 0, type: uint32}
+"""
+XMC_UPDOWN_LIMITS = """\
+joints:
+  updown:
+    profile: xmc_updown_sw511
+    lower_position_m: 0.0
+    upper_position_m: 0.8
+    max_velocity_m_s: 0.3
+    max_acceleration_m_s2: 0.5
+    max_deceleration_m_s2: 0.5
+    counts_per_rev: 65536
+    screw_lead_m_per_rev: 0.01
+    reduction_ratio: 1.0
+    counts_per_m: 6553600.0
+    m_per_count: 0.000000152587890625
+    direction: 1
+    zero_offset_m: 0.0
+    verification:
+      source: USER_AND_SUPPLIER_CONFIRMED_XMC_SW_5_11
+      direction: RAW_6064_INCREASES_UPWARD
+      zero_offset: RAW_0_IS_0_M
+"""
 SDO_KEY = re.compile(r"^sdo\[(\d+)\](.*)$")
 
 
@@ -242,10 +298,22 @@ def compare_configuration(legacy_root: Path, target_root: Path) -> tuple[list[Di
         differences.extend(compare_maps(axis, expected, actual))
         compared_values += len(expected)
 
+    expected_updown = compose_yaml(
+        XMC_UPDOWN_SW511_PROFILE, "built-in BQ-118 XMC SW5.11 profile"
+    )
+    actual_updown = load_yaml(target_profiles / "xmc_updown_sw511.yaml")
+    differences.extend(compare_maps("updown", expected_updown, actual_updown))
+    compared_values += len(expected_updown)
+
     legacy_limits = load_yaml(legacy_config / "joint_limits.yaml")
+    approved_updown_limits = compose_yaml(
+        XMC_UPDOWN_LIMITS, "built-in BQ-118 XMC Updown limits"
+    )
+    expected_limits = dict(legacy_limits)
+    expected_limits.update(approved_updown_limits)
     migrated_limits = load_yaml(target_limits)
-    differences.extend(compare_maps("joint_limits", legacy_limits, migrated_limits))
-    compared_values += len(legacy_limits)
+    differences.extend(compare_maps("joint_limits", expected_limits, migrated_limits))
+    compared_values += len(expected_limits)
     return differences, compared_values
 
 
@@ -267,7 +335,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Compare the frozen robot_driver EtherCAT YAML with the migrated configuration, "
-            "including only the approved CSP/enable-manager and BQ-114 sync-tolerance overlays."
+            "including only the approved CSP/enable-manager, BQ-114 sync-tolerance, and "
+            "BQ-118 XMC SW5.11 overlays."
         )
     )
     parser.add_argument(
@@ -301,7 +370,7 @@ def main() -> int:
         return 1
 
     print(
-        "PASS 100%: 13 logical-axis profiles and joint_limits.yaml match "
+        "PASS 100%: 14 logical-axis profiles and joint_limits.yaml match "
         f"({compared_values} semantic values)"
     )
     return 0

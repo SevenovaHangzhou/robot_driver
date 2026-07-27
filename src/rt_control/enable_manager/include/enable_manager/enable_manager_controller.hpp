@@ -37,7 +37,7 @@ public:
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
-  static constexpr std::size_t kAxisCount = 13U;
+  static constexpr std::size_t kAxisCount = 14U;
   static constexpr std::size_t kBatchCount = 5U;
 
   enum class Phase : std::uint8_t

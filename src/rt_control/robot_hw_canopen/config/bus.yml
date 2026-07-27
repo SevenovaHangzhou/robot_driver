@@ -29,11 +29,6 @@ defaults:
   # drive-configuration authority and are archived read-only during commissioning.
 
 nodes:
-  updown:
-    node_id: 1
-    operation_mode: 1
-    scale_pos_to_dev: 1000000.0
-    scale_pos_from_dev: 0.000001
   left_track_joint:
     node_id: 2
     mandatory: true

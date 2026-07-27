@@ -12,10 +12,6 @@
       <param name="can_interface_name">$(arg can_interface_name)</param>
     </hardware>
 
-    <joint name="updown">
-      <param name="node_id">1</param>
-      <param name="operation_mode">1</param>
-    </joint>
     <joint name="left_track_joint">
       <param name="node_id">2</param>
       <param name="operation_mode">3</param>

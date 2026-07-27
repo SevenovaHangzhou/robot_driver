@@ -349,7 +349,7 @@ index 8c0cc6f..81084be 100644
      RCLCPP_INFO(
        kLogger, "\nRegistered driver:\n    name: '%s'\n    node_id: '0x%X'",
        it->second->get_node_base_interface()->get_name(), it->first);
-@@ -227,13 +252,318 @@ std::vector<hardware_interface::CommandInterface> Cia402System::export_command_i
+@@ -227,13 +252,277 @@ std::vector<hardware_interface::CommandInterface> Cia402System::export_command_i
  hardware_interface::CallbackReturn Cia402System::on_activate(
    const rclcpp_lifecycle::State & previous_state)
  {
@@ -392,9 +392,7 @@ index 8c0cc6f..81084be 100644
 +      const auto node_id = static_cast<uint8_t>(parsed_node_id);
 +      const auto mode = static_cast<uint16_t>(parsed_mode);
 +      if (
-+        (node_id == 1U && mode != MotorBase::Profiled_Position) ||
-+        ((node_id == 2U || node_id == 3U) && mode != MotorBase::Profiled_Velocity) ||
-+        (node_id != 1U && node_id != 2U && node_id != 3U))
++        (node_id != 2U && node_id != 3U) || mode != MotorBase::Profiled_Velocity)
 +      {
 +        RCLCPP_ERROR(
 +          kLogger, "Unsupported CANopen activation mapping for joint %s: node=%u mode=%u",
@@ -417,10 +415,10 @@ index 8c0cc6f..81084be 100644
 +    { return lhs.node_id < rhs.node_id; });
 +
 +  if (
-+    configurations.size() != 3U || configurations[0].node_id != 1U ||
-+    configurations[1].node_id != 2U || configurations[2].node_id != 3U)
++    configurations.size() != 2U || configurations[0].node_id != 2U ||
++    configurations[1].node_id != 3U)
 +  {
-+    RCLCPP_ERROR(kLogger, "Expected exactly CANopen motor nodes 1, 2, and 3");
++    RCLCPP_ERROR(kLogger, "Expected exactly CANopen track motor nodes 2 and 3");
 +    return CallbackReturn::ERROR;
 +  }
 +
@@ -464,22 +462,8 @@ index 8c0cc6f..81084be 100644
 +      break;
 +    }
 +
-+    bool target_seeded = false;
-+    if (configuration.node_id == 1U)
-+    {
-+      const double current_position = driver->get_position();
-+      motor_data_[configuration.node_id].actual_position = current_position;
-+      if (std::isfinite(current_position))
-+      {
-+        motor_data_[configuration.node_id].target.position_value = current_position;
-+        target_seeded = driver->set_target(current_position);
-+      }
-+    }
-+    else
-+    {
-+      motor_data_[configuration.node_id].target.velocity_value = 0.0;
-+      target_seeded = driver->set_target(0.0);
-+    }
++    motor_data_[configuration.node_id].target.velocity_value = 0.0;
++    const bool target_seeded = driver->set_target(0.0);
 +    if (!target_seeded)
 +    {
 +      primary_node = configuration.node_id;
@@ -506,18 +490,7 @@ index 8c0cc6f..81084be 100644
 +    auto driver = std::static_pointer_cast<ros2_canopen::Cia402Driver>(driver_iterator->second);
 +    bool target_valid = driver->get_mode() == configuration.operation_mode;
 +    bool target_result = true;
-+    if (configuration.node_id == 1U && target_valid)
-+    {
-+      const double current_position = driver->get_position();
-+      target_valid = std::isfinite(current_position);
-+      if (target_valid)
-+      {
-+        motor_data_[configuration.node_id].actual_position = current_position;
-+        motor_data_[configuration.node_id].target.position_value = current_position;
-+        target_result = driver->set_target(current_position);
-+      }
-+    }
-+    else if (target_valid)
++    if (target_valid)
 +    {
 +      motor_data_[configuration.node_id].target.velocity_value = 0.0;
 +      target_result = driver->set_target(0.0);
@@ -587,7 +560,7 @@ index 8c0cc6f..81084be 100644
 +  uint8_t first_failure_node = 0U;
 +  std::string first_failure_stage;
 +
-+  for (const uint8_t node_id : {1U, 2U, 3U})
++  for (const uint8_t node_id : {2U, 3U})
 +  {
 +    const auto driver_iterator = drivers.find(node_id);
 +    if (driver_iterator == drivers.end())
@@ -605,22 +578,8 @@ index 8c0cc6f..81084be 100644
 +    {
 +      continue;
 +    }
-+    bool target_result = false;
-+    if (node_id == 1U)
-+    {
-+      const double current_position = driver->get_position();
-+      motor_data_[node_id].actual_position = current_position;
-+      if (std::isfinite(current_position))
-+      {
-+        motor_data_[node_id].target.position_value = current_position;
-+        target_result = driver->set_target(current_position);
-+      }
-+    }
-+    else
-+    {
-+      motor_data_[node_id].target.velocity_value = 0.0;
-+      target_result = driver->set_target(0.0);
-+    }
++    motor_data_[node_id].target.velocity_value = 0.0;
++    const bool target_result = driver->set_target(0.0);
 +    if (!target_result && !failed)
 +    {
 +      failed = true;
@@ -630,7 +589,7 @@ index 8c0cc6f..81084be 100644
 +  }
 +  std::this_thread::sleep_for(std::chrono::milliseconds(20));
 +
-+  for (const uint8_t node_id : {1U, 2U, 3U})
++  for (const uint8_t node_id : {2U, 3U})
 +  {
 +    const auto driver_iterator = drivers.find(node_id);
 +    if (driver_iterator == drivers.end())

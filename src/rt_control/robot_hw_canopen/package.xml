@@ -2,19 +2,12 @@
 <package format="3">
   <name>robot_hw_canopen</name>
   <version>0.1.0</version>
-  <description>CANopen ros2_control configuration package.</description>
+  <description>CANopen ros2_control configuration for the two track drives.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>controller_interface</depend>
-  <depend>hardware_interface</depend>
   <build_depend>lely_core_libraries</build_depend>
   <exec_depend>lely_core_libraries</exec_depend>
-  <depend>pluginlib</depend>
-  <depend>rclcpp</depend>
-  <depend>rclcpp_lifecycle</depend>
-  <depend>realtime_tools</depend>
-  <depend>robot_interfaces</depend>
   <exec_depend>robot_description</exec_depend>
   <export>
     <build_type>ament_cmake</build_type>
