@@ -99,6 +99,11 @@ rt-control，不做容器内部的局部进程复活。
 100 秒后被 Docker 强制终止为 137，现已拒绝。必须从关停修复提交重新构建镜像、更新一键锁并重复目标机验证；在新
 镜像完成退出复测前，不得宣称 PLC/BMS 已在目标机上线。
 
+关停修复候选提交为 `d415c0c2c75917a9545a4a2f87487718de8622a2`，镜像 ID 为
+`sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2`。该镜像已在开启 PLC/BMS、使用 Mock
+硬件且 controller manager ready 的条件下 2 秒内 exit 0，无 traceback、respawn 或 `UNCLEAN_SHUTDOWN`；目标机
+重复验证仍是上线前门禁。
+
 ## 联调检查
 
 ```bash
