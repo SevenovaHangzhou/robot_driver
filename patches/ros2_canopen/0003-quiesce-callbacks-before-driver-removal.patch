@@ -1,0 +1,54 @@
+diff --git a/canopen_ros2_control/src/canopen_system.cpp b/canopen_ros2_control/src/canopen_system.cpp
+index c85d5e7..6301ef1 100644
+--- a/canopen_ros2_control/src/canopen_system.cpp
++++ b/canopen_ros2_control/src/canopen_system.cpp
+@@ -40,15 +40,7 @@ CanopenSystem::CanopenSystem() {}
+ 
+ void CanopenSystem::clean()
+ {
+-  if (executor_)
+-  {
+-    executor_->cancel();
+-  }
+-
+-  if (spin_thread_ && spin_thread_->joinable())
+-  {
+-    spin_thread_->join();
+-  }
++  stop_callback_executor();
+ 
+   if (device_container_)
+   {
+@@ -69,6 +61,19 @@ void CanopenSystem::clean()
+   spin_thread_.reset();
+ }
+ 
++void CanopenSystem::stop_callback_executor()
++{
++  if (executor_)
++  {
++    executor_->cancel();
++  }
++
++  if (spin_thread_ && spin_thread_->joinable())
++  {
++    spin_thread_->join();
++  }
++}
++
+ CanopenSystem::~CanopenSystem() { clean(); }
+ 
+ hardware_interface::CallbackReturn CanopenSystem::on_init(
+diff --git a/canopen_ros2_control/src/cia402_system.cpp b/canopen_ros2_control/src/cia402_system.cpp
+index e42096e..fe259be 100644
+--- a/canopen_ros2_control/src/cia402_system.cpp
++++ b/canopen_ros2_control/src/cia402_system.cpp
+@@ -508,6 +508,8 @@ hardware_interface::CallbackReturn Cia402System::on_deactivate(
+     first_failure_stage = "nmt_stop";
+   }
+ 
++  stop_callback_executor();
++
+   if (!device_container_->shutdown_drivers() && !failed)
+   {
+     failed = true;

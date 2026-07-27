@@ -28,21 +28,21 @@ tpdo:
         self.assertEqual(expected["sdo[0].index"].value, 0x10F1)
         self.assertEqual(expected["sdo[0].sub_index"].value, 2)
         self.assertEqual(expected["sdo[0].type"].value, "uint16")
-        self.assertEqual(expected["sdo[0].value"].value, 100)
+        self.assertEqual(expected["sdo[0].value"].value, 250)
         self.assertEqual(expected["sdo[1].index"].value, 0x6060)
 
     def test_ti5_overlay_prepends_uint32_sync_tolerance(self):
         expected = diff_legacy.apply_frozen_overlay(self.legacy_profile(), ti5=True)
         self.assertEqual(expected["sdo[0].index"].value, 0x10F1)
         self.assertEqual(expected["sdo[0].type"].value, "uint32")
-        self.assertEqual(expected["sdo[0].value"].value, 100)
+        self.assertEqual(expected["sdo[0].value"].value, 250)
         self.assertEqual(expected["sdo[1].index"].value, 0x6060)
         self.assertEqual(expected["sdo[2].index"].value, 0x60C2)
 
     def test_unapproved_sync_tolerance_change_still_fails(self):
         expected = diff_legacy.apply_frozen_overlay(self.legacy_profile(), ti5=False)
         actual = dict(expected)
-        actual["sdo[0].value"] = diff_legacy.Scalar("int", 101, "101")
+        actual["sdo[0].value"] = diff_legacy.Scalar("int", 251, "251")
         differences = diff_legacy.compare_maps("joint", expected, actual)
         self.assertEqual(len(differences), 1)
         self.assertEqual(differences[0].key, "sdo[0].value")

@@ -161,3 +161,16 @@ Their evidence-manifest SHA-256 values are respectively
 `85f411497829e7794079991dc6087fec5b8915507e70119d4650e8b7e43a9dbb`.
 The IPC is currently left with master 0 inactive, all fifteen positions PREOP,
 and the validation container stopped with exit code 0.
+
+### 2026-07-27 superseding tolerance decision
+
+The run-14/run-15 evidence above remains an immutable record of the tested
+`0x10F1:02=100` configuration. After later full-stack runs exposed short grouped
+datagram timeouts, the user explicitly accepted those transients as WARN-only
+and approved `0x10F1:02=250` for new builds: nominally 1000 ms at 4 ms. The
+benefit is fewer nuisance synchronization faults; the highlighted drawback is
+up to about 600 ms additional drive-side escalation delay for a genuinely
+continuous synchronization fault. This does not suppress IgH timeout/lost/WC
+diagnostics or close their NIC/IRQ/scheduling/physical-link root cause. The new
+value requires a fresh startup-SDO acceptance/readback check, especially for
+the open Ti5 width discrepancy in BQ-117.

@@ -7,7 +7,7 @@ auto_state_transitions: false
 # Software zero raw counts: 467955
 # ROS 0 rad maps to raw 467955 counts.
 sdo:
-  - {index: 0x10f1, sub_index: 2, type: uint16, value: 100}
+  - {index: 0x10f1, sub_index: 2, type: uint16, value: 250}
   - {index: 0x6060, sub_index: 0, type: int8, value: 8}
 rpdo:
   - index: 0x1600

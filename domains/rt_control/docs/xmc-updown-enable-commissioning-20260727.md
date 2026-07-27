@@ -86,8 +86,10 @@ inactive、enable manager=IDLE、XMC=Switch On Disabled。
 启动阶段还出现 `850 datagrams TIMED OUT`、多个从站 DC sync 超时和
 `0x001B Sync manager watchdog` 恢复过程。四个 Ti5 position 2/3/8/9 仍会
 收到 IgH 对固定 PDO remap 的尝试并以 `0x06010002 read-only object` 拒绝，
-尽管当前映射与目标一致且最终能进入 OP。不得通过进一步放宽 400 ms 容忍
-值来宣称问题消失；好处只会是减少启动失败，弊端是掩盖仍在发生的通讯丢帧。
+尽管当前映射与目标一致且最终能进入 OP。本段记录首轮镜像的 400 ms 边界；
+随后用户已在 BQ-120 明确接受短抖动并批准新构建改为 nominal 1000 ms。该变更的
+好处是减少无效同步故障，弊端是真实连续同步故障的驱动侧反应最多再延后约
+600 ms；它不消除、隐藏或关闭这里记录的通讯丢帧根因。
 
 ## 联合退出故障
 
@@ -113,6 +115,10 @@ exit 0。进程崩溃后 EtherCAT 被动 release，position 1..15 先后出现
 `0x001B Sync manager watchdog`，最终才全部回到 PREOP。CAN Node 2/3 最终
 心跳为 `0x04`（Stopped），CAN 错误计数为 0；EtherCAT master 最终 inactive，
 16 个位置全部 PREOP。
+
+后续窄补丁已把 CANopen 基类顺序改为先停 callback/thread 再释放 bridge，并在
+driver cleanup 前取消、join 专用 MultiThreadedExecutor。此文仍保留首轮崩溃原始
+证据；补丁只有在新镜像重复启停无 SIGSEGV 且 EtherCAT 明确有序退出后才算实机闭环。
 
 ## 后续门禁与方案权衡
 

@@ -63,7 +63,7 @@ assign_activate: 0x0300
 auto_fault_reset: false
 auto_state_transitions: false
 sdo:
-  - {index: 0x10f1, sub_index: 2, type: uint16, value: 100}
+  - {index: 0x10f1, sub_index: 2, type: uint16, value: 250}
   - {index: 0x60c2, sub_index: 1, type: uint8, value: 4}
   - {index: 0x60c2, sub_index: 2, type: int8, value: -3}
   - {index: 0x6060, sub_index: 0, type: int8, value: 8}
@@ -233,7 +233,7 @@ def compare_maps(axis: str, expected: SemanticMap, actual: SemanticMap) -> list[
 
 
 def prepend_sync_tolerance(profile: SemanticMap, value_type: str) -> SemanticMap:
-    """Prepend the BQ-114-approved 0x10F1:02=100 startup SDO."""
+    """Prepend the approved 0x10F1:02=250 startup SDO."""
     expected: SemanticMap = {}
     for key, value in profile.items():
         match = SDO_KEY.match(key)
@@ -247,7 +247,7 @@ def prepend_sync_tolerance(profile: SemanticMap, value_type: str) -> SemanticMap
             "sdo[0].index": Scalar("int", 0x10F1, "0x10f1"),
             "sdo[0].sub_index": Scalar("int", 2, "2"),
             "sdo[0].type": Scalar("string", value_type, value_type),
-            "sdo[0].value": Scalar("int", 100, "100"),
+            "sdo[0].value": Scalar("int", 250, "250"),
         }
     )
     return expected

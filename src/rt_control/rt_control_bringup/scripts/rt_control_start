@@ -11,7 +11,7 @@ forward_shutdown() {
   shutdown_started=1
 
   if ! ros2 run enable_manager rt_disable_once; then
-    echo "UNCLEAN_SHUTDOWN: orderly EtherCAT disable did not complete" >&2
+    echo "UNCLEAN_SHUTDOWN: orderly rt-control shutdown sequence did not complete" >&2
   fi
 
   if [[ -n "${child_pid}" ]] && kill -0 "${child_pid}" 2>/dev/null; then

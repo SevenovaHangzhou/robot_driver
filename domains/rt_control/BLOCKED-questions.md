@@ -1786,6 +1786,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   小于该窗口的真实同步扰动会延后升级为 `0x001A`，因此这是容差扩大而非根因修复。5 s PREOP 等待会使异常退出
   最多增加 5 s，且失败会令 lifecycle 返回 ERROR。本轮为 EtherCAT-only（CAN component 保持 unconfigured）、
   无使能无运动复测；低速轨迹、turn jog、长期 DC 稳定性和完整生产栈退出仍属于 T-013/T-015 验收。
+- 2026-07-27 supersession：以上 `100/400 ms` 是保留不改写的历史实机证据。用户在 BQ-120 复核后明确批准
+  新构建把 `0x10F1:02` 提高到 `250`，即 4 ms 周期下 nominal `1000 ms`；其收益、代价和未闭合边界以
+  BQ-120 的最新裁决为准。
 
 ## BQ-115 — Ti5 对 0x0000 的非激磁终态停留在 Ready To Switch On [RESOLVED 2026-07-25]
 
@@ -1837,6 +1840,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Benefit：不根据一次上传行为静默推翻供应商对象字典，且当前 100 的配置效果已实证。
 - Drawback（重点）：Ti5 固件与 ESI 至少一方不一致；更换固件/批次后 4-byte 写入可能被严格拒绝。发布验收应
   固定固件版本，并向厂商确认 `0x10F1:02` 的真实宽度后再统一 ESI 与 YAML。
+- 2026-07-27 update：新配置值已按用户批准改为 `250`，但 Ti5 仍保留 ESI 对齐的 `uint32` 类型。历史实机只证明
+  `100` 的启动写入没有 abort；因此必须在新镜像首次启动时确认四台 Ti5 均无该 SDO abort，并以 `uint16`
+  只读上传得到 `250`。完成前 BQ-117 继续 OPEN，不能把“250 可写”当作已验证事实。
 
 ## BQ-118 — Updown 从 CANopen PP 迁移为 EtherCAT CSP [RESOLVED/HIGH-RISK 2026-07-27]
 
@@ -1873,8 +1879,10 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   不能只替换 XML；14 轴任一轴故障会扩大为全组停机。`0.3 m/s`、`0.5 m/s^2` 是轨迹生成/验收上限，
   Humble JTC 本身不会替代 motion 的时间参数化或机械安全链。本裁决当时只完成只读识别；后续 T-019 已证明启动
   SDO、OP、预装载和第五批使能，但没有运动，并新发现 BQ-119/BQ-120，必须解决后才可进入低速空载运动门禁。
+- 2026-07-27 supersession：上述 `100/400 ms` 记录的是 T-019 首轮所用镜像，不代表新构建值。新构建统一使用
+  `0x10F1:02=250`（nominal 1000 ms），不改变 XMC 固定 PDO、CSP=8、4 ms 周期或任何控制接口。
 
-## BQ-119 — 两节点 ros2_canopen 退出存在 polling callback use-after-free [OPEN/HIGH-RISK 2026-07-27]
+## BQ-119 — 两节点 ros2_canopen 退出存在 polling callback use-after-free [IMPLEMENTED/PENDING-HW 2026-07-27]
 
 - Evidence：T-019 首次 14 轴使能测试中 `/rt/disable` 已成功，随后 controller manager deactivate
   `canopen_mobile_axes`。清理 `left_track_joint` 时，MultiThreadedExecutor 的并发 timer 仍在执行
@@ -1888,8 +1896,22 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   driver bridge。Benefit 是针对实际 use-after-free 且保留开源 CiA402 行为；drawback 是并发顺序补丁必须做重复启停和
   fault/EMCY 退出压力测试。直接先停整个 executor 更简单彻底，但可能阻塞依赖 executor 完成的 cleanup，死锁风险更高。
 - Blocked scope：修复并验证前禁止新的整栈使能、运动或宣称 graceful stop 通过；静态源码审计和 Mock 可继续。
+- Root cause：上游 `NodeCanopenDriver::deactivate()` 在 `activated_=false` 后先调用
+  `remove_from_master()` 释放 `LelyDriverBridge`，之后才进入派生类 `deactivate(true)` 取消 polling timer 并
+  join NMT 线程；这与实机 `get_id()` UAF 栈逐项吻合。仅交换顺序仍不够，因为 `TimerBase::cancel()` 不等待已经
+  进入 MultiThreadedExecutor 的 callback 返回。
+- 2026-07-27 implementation：用户批准维护窄上游并发补丁。第一道防线把基类顺序改为
+  `deactivate(true) -> remove_from_master()`；第二道防线在两履带完成零速、CiA402 shutdown 和全节点 NMT Stop 后，
+  先 `executor_->cancel()` 并 join spin thread，确认 ROS callback 全部排空，再执行 `shutdown_drivers()`；Lely master
+  仍在驱动 cleanup 完成后由既有 `clean()` 关闭。没有给 RT `read/update/write` 路径增加锁、阻塞或日志。
+- Verification：复用 ros2_canopen 现有 GTest 增加严格顺序期望。修复前稳定失败于
+  `remove_from_master()` 提前调用；修复后该目标通过，且 `canopen_ros2_control` 完整编译通过。Docker 以锁定上游
+  commit 依次应用 `0001/0002/0003`，仓库门禁检查回调排空在 driver release 之前。
+- Remaining gate：状态保持 PENDING-HW，必须用新镜像做重复完整启动/停止，确认没有 SIGSEGV、
+  `ros2_control_node` 非负退出，并按 BQ-122 的显式总线顺序让 EtherCAT 确实执行
+  deactivate→PREOP→release 后才能改为 RESOLVED。
 
-## BQ-120 — EtherCAT OP 期间仍周期性成组 datagram timeout [OPEN/HIGH-RISK 2026-07-27]
+## BQ-120 — EtherCAT OP 期间仍周期性成组 datagram timeout [RISK-ACCEPTED/ROOT-CAUSE-OPEN 2026-07-27]
 
 - Evidence：T-019 期间 IgH master `Lost frames` 从 391 增到 399；rt_diagnostics `wc_error_count` 从稳定后的 705
   增到 712。内核在 OP 阶段八次记录 `3` 或 `4 datagrams TIMED OUT`，间隔约 10–100 秒；反馈年龄采样仍约
@@ -1902,6 +1924,44 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Decision boundary：不再增加 `0x10F1:02` 或软件宽容值。Benefit 是不掩盖真实丢帧并保持 400 ms 已批准边界；
   drawback 是在根因修复前会阻塞运动验收。单纯增加宽容度实现最简单，但只延迟失败且扩大风险窗口，明确不采用。
 - Blocked scope：允许只读诊断和离线修复；禁止 FJT/Updown 运动，修复后必须证明稳定窗口内 lost/WC 不增长。
+- 2026-07-27 superseding user decision：用户明确接受这些短通信抖动不作为控制停机条件，并批准进一步增加驱动同步
+  错误计数容差；因此上一条 decision boundary 和 motion block 仅保留为历史记录，不再支配新构建。全部 9 个共享
+  profile 的 `0x10F1:02` 改为 `250`，在 4 ms 周期下 nominal 约 `1000 ms`。REQ-ECAT-009 的冻结语义仍是
+  AL/link/responding/WC 异常进入 diagnostics WARN、不得自动升级为 FAULT；250 Hz、DC、PDO、完整 WC 启动门禁均不变。
+- Benefit：已观测的 12–16 ms 成组 timeout 和控制循环交接抖动不会轻易触发驱动本地同步故障，减少无效启动失败或
+  整组掉使能；配置、迁移门和启动 SDO 仍单一一致。
+- Drawback（重点）：真实连续同步故障从约 400 ms 延后到约 1000 ms 才由该对象升级，最坏增加约 600 ms 的驱动侧
+  反应延迟。该值不是墙钟 watchdog，也不会消除 IgH `datagrams TIMED OUT`、Lost frames 或 WC 计数；软件仍会如实
+  WARN。NIC/IRQ/调度与物理链路根因调查继续 OPEN，但不再单独阻塞最小低速验收。
+- First-image gate：首次新镜像启动必须确认所有 ZeroErr/XMC 和四台 Ti5 接受值 250；尤其 Ti5 因 BQ-117 只能用
+  `uint16` SDO upload 做只读回读。若任何 startup abort、AL 无法稳定 OP 或反馈不新鲜，仍 fail closed，不能以风险接受
+  绕过启动门。
+
+## BQ-122 — 完整栈退出时 CANopen 清理先于 EtherCAT deactivate [IMPLEMENTED/PENDING-HW 2026-07-27]
+
+- Evidence：应用 BQ-119 的 CANopen callback 排空补丁后，首轮完整栈退出不再 SIGSEGV：spin thread 先退出、
+  两履带 driver 正常 shutdown、`ros2_control_node` 与容器均 exit 0。但是 controller_manager 停止全局 250 Hz
+  read/update/write 后，其 `ResourceManager::shutdown_components()` 按内部 `unordered_map` 实际先清理
+  `canopen_mobile_axes`；约 240 ms 后才调用 `ecat_arms` deactivate。其间 EtherCAT PDO 已停止，14 个运动从站在主站
+  deactivate 前全部报告一次 `0x001B Sync manager watchdog`。因此“CANopen UAF 已修复”不能等同于“完整栈干净退出”。
+- Root cause：ros2_control 的硬件 shutdown 次序不由 Xacro 中 `<ros2_control>` 的文本顺序保证；交换 include 不能形成
+  可验证契约。ICube 的 `ecrt_master_deactivate()` 本身有效，历史 EtherCAT-only 运行和本次显式调用都能在 PDO 尚持续时
+  干净进入 PREOP；问题是它在默认全局 shutdown 中被排在耗时 CANopen 清理之后。
+- Decision：不修改 BQ-033 已冻结的从站 SyncManager watchdog，不用更长硬件 watchdog 掩盖退出顺序。扩展 BQ-054
+  已有的 one-shot 退出客户端，在同一个冻结的 30 s 总 deadline 内依次：调用 `/rt/disable`；严格停用
+  `enable_manager` 与 `joint_state_broadcaster`（JTC 已由 disable 保证 inactive）；通过 controller_manager 标准
+  `set_hardware_component_state` 把 `ecat_arms` 确认降为 inactive；最后才由既有 wrapper 向 launch 进程组转发 SIGINT，
+  让 CANopen 完成 callback 排空、driver shutdown 与 NMT Stop。若 `/rt/disable` 因已有 Fault 返回失败，仍 best-effort
+  执行后两步以避免再制造总线 watchdog，但 helper 保持非零退出并记录 `UNCLEAN_SHUTDOWN`，不得伪报干净停机。
+- Benefit：在周期 PDO 仍存在时完成 EtherCAT OP→PREOP，保留驱动本地断链保护、IgH/ros2_control 标准生命周期和
+  已有 100 s Compose grace；不新增常驻节点、新包、主站私有状态接口或硬件 watchdog 数值。
+- Drawback（重点）：内部 `rt_disable_once` 现在同时依赖 controller-manager switch/hardware-state 两个服务，退出路径比
+  单次 disable 调用更复杂；`joint_state_broadcaster` 会在进程最终退出前提前停止。三步共享 30 s deadline，前一步异常
+  占满预算时后续步骤会 fail closed 并回退到不保证干净的普通进程 teardown，仍需下一次启动 sanitize。
+- Pre-implementation hardware proof：在同一镜像上人工逐项执行该顺序后，内核只记录 EtherCAT master thread 切换到
+  IDLE、全部从站 PREOP，随后进程退出时才 `Releasing master`/`Released`；窗口内 `0x001B=0`，容器 1.8 s exit 0。
+  对照默认顺序同机同镜像稳定产生 14 条 `0x001B`。该 A/B 结果证明修复层级正确，但集成 helper 的新镜像仍必须重复
+  启停后才可把本项和 BQ-119 改为 RESOLVED。
 
 ## BQ-121 — BMS CANable 缺席会阻塞 rt-control CAN unit [OPEN/DEPLOYMENT 2026-07-27]
 

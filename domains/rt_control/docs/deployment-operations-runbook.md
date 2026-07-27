@@ -87,7 +87,7 @@ done
 
 再确认两只 CAN 适配器的稳定 USB serial、EtherCAT NIC 的永久 MAC、驱动和 PCI 地址。不要只记录当次启动得到的 `ethX`、`enpXsY` 或 `ttyACM*` 名称。
 
-对于四个 Ti5，还要冻结每台驱动的 vendor/product/revision/serial 身份、可追溯的固件版本，以及配套 ESI 文件名和哈希。BQ-117 已证明当前 ESI 把 `0x10F1:02` 声明为 32 bit，而实机 upload 长度是 16 bit；“值 100 在当前四台驱动写入成功”不能外推到新批次或新固件。
+对于四个 Ti5，还要冻结每台驱动的 vendor/product/revision/serial 身份、可追溯的固件版本，以及配套 ESI 文件名和哈希。BQ-117 已证明当前 ESI 把 `0x10F1:02` 声明为 32 bit，而实机 upload 长度是 16 bit；历史值 100 的成功不能外推到新批次、新固件或当前新值 250。首次启动须确认没有 startup abort，并以 `uint16` 只读上传逐台确认 250。
 
 ### 当前冻结主机只用于对比，不是新机模板
 
@@ -595,10 +595,16 @@ tools/rt_control_compose.sh ps -a
 干净停机不能只看 exit code，应同时确认：
 
 - 日志有 `rt_control shutdown disable result: ok=true`；
+- 日志有 `rt_control shutdown controllers quiesced: enable_manager,joint_state_broadcaster`；
+- 日志有 `rt_control shutdown EtherCAT hardware state: inactive`，且该行早于 CANopen hardware deactivate；
 - 没有 `UNCLEAN_SHUTDOWN`；
 - `dual_arm_jtc` 已停用；九个 ZeroErr 与 XMC Updown 到 Switch On Disabled，四个已裁决 Ti5 在 `0x0000` 下可处于 Ready To Switch On；
 - EtherCAT master inactive、从站回到 PREOP；
 - CANopen 完成安全目标、motor shutdown/NMT Stop 和 driver shutdown。
+
+不能只依赖 controller_manager 的默认硬件遍历顺序：其内部容器不承诺 Xacro 文本顺序。若先清理 CANopen，
+全局 read/write 已停止而 EtherCAT deactivate 尚未开始，可能在约 240 ms 清理窗口触发全轴 `0x001B`。
+受支持的 wrapper 因此必须先完成上述显式 EtherCAT inactive 确认，再转发 SIGINT 进入 CANopen 清理。
 
 四个 Ti5 的 Ready To Switch On 仅是 BQ-115 基于手册和实测接受的“未激磁”硬件例外，不等于 literal `0x0040`。最终验收必须人工签字；master release 后的 `0x7500` Fault 也意味着下一次启动通常需要显式 reset。不要因为 service success 或容器 exit 0 隐去这两点。
 

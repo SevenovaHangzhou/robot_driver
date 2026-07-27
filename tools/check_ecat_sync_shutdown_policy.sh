@@ -5,6 +5,9 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 config_root="${repo_root}/src/rt_control/robot_hw_ethercat/config/slaves"
 shutdown_patch="${repo_root}/patches/ecat_icube/0003-orderly-master-deactivation.patch"
+canopen_lifecycle_patch="${repo_root}/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch"
+canopen_quiescence_patch="${repo_root}/patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch"
+shutdown_client="${repo_root}/src/rt_control/enable_manager/src/rt_disable_once.cpp"
 
 fail()
 {
@@ -16,7 +19,7 @@ assert_sync_limit()
 {
   local file="$1"
   local type="$2"
-  local expected="  - {index: 0x10f1, sub_index: 2, type: ${type}, value: 100}"
+  local expected="  - {index: 0x10f1, sub_index: 2, type: ${type}, value: 250}"
   local count
 
   count="$(rg -Fxc -- "${expected}" "${file}" || true)"
@@ -54,9 +57,49 @@ rg -Fq 'master_.deactivate(' "${shutdown_patch}" ||
 rg -Fq 'ecrt_release_master(master_)' "${shutdown_patch}" ||
   fail "EcMaster destruction must release the requested master"
 
+[[ -f "${canopen_lifecycle_patch}" ]] || fail "missing ${canopen_lifecycle_patch}"
+[[ -f "${canopen_quiescence_patch}" ]] || fail "missing ${canopen_quiescence_patch}"
+
+python3 - \
+  "${canopen_lifecycle_patch}" \
+  "${canopen_quiescence_patch}" \
+  "${shutdown_client}" <<'PY'
+import sys
+from pathlib import Path
+
+lifecycle = Path(sys.argv[1]).read_text(encoding="utf-8")
+quiescence = Path(sys.argv[2]).read_text(encoding="utf-8")
+shutdown = Path(sys.argv[3]).read_text(encoding="utf-8")
+
+deactivate = lifecycle.index("     this->deactivate(true);\n+    this->remove_from_master();")
+regression = lifecycle.index("EXPECT_CALL(*node_canopen_driver, deactivate(true))")
+cancel = quiescence.index("+  stop_callback_executor();")
+release = quiescence.index("   if (!device_container_->shutdown_drivers()")
+
+if not (deactivate >= 0 and regression >= 0 and cancel < release):
+    raise SystemExit("CANopen callback quiescence policy is incomplete or out of order")
+
+main = shutdown.index("int main(")
+disable_axes = shutdown.index("disableEthercatAxes(node, deadline)", main)
+quiesce_controllers = shutdown.index("quiesceEthercatControllers(node, deadline)", main)
+deactivate_hardware = shutdown.index("deactivateEthercatHardware(node, deadline)", main)
+if not disable_axes < quiesce_controllers < deactivate_hardware:
+    raise SystemExit("full-stack shutdown must disable axes, quiesce controllers, then deactivate EtherCAT")
+for required in (
+    'std::chrono::seconds(30)',
+    '"enable_manager", "joint_state_broadcaster"',
+    'kEthercatHardwareName[] = "ecat_arms"',
+    'PRIMARY_STATE_INACTIVE',
+):
+    if required not in shutdown:
+        raise SystemExit(f"shutdown orchestration policy is missing: {required}")
+PY
+
 dockerfile="${repo_root}/docker/rt-control/Dockerfile"
 rg -Fq '0003-orderly-master-deactivation.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the orderly-deactivation patch"
+rg -Fq '0003-quiesce-callbacks-before-driver-removal.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the CANopen callback-quiescence patch"
 
 if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
   [[ -d "${ECAT_ICUBE_SOURCE}/.git" ]] ||
@@ -77,4 +120,4 @@ if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
   done
 fi
 
-echo "PASS: EtherCAT 400 ms sync tolerance and orderly shutdown policy"
+echo "PASS: EtherCAT 1000 ms sync tolerance and ordered full-stack shutdown policy"
