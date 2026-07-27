@@ -11,6 +11,7 @@ this directory is their single domain-level documentation and governance home.
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
 - [XMC SW 5.11 固定 PDO 映射](docs/xmc-updown-sw511-fixed-pdo.md)：Updown 从站身份、19/24-byte 固定 PDO、启动 SDO、单位换算、XML 差异和实机门禁。
 - [XMC 首次整组使能记录](docs/xmc-updown-enable-commissioning-20260727.md)：14 轴 reset/enable/disable 实机结果，以及 WC 增长和联合退出段错误阻塞项。
+- [CANopen 有序清理与 EtherCAT 同步容忍复测](docs/canopen-shutdown-sync-tolerance-commissioning-20260727.md)：`0x10F1:02=250` 首镜像门禁、三轮联合退出、BQ-119/BQ-122 闭环和剩余风险。
 - [PROGRESS.md](PROGRESS.md)：已经验证和仍未验证的范围，不能把构建或 Mock 结果当成实机验收。
 - [BLOCKED-questions.md](BLOCKED-questions.md)：已裁决和仍开放的硬件、接口与安全事实；按关键词或 BQ 编号搜索，并注意后续裁决可能取代早期记录。
 

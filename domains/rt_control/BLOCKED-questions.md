@@ -1843,6 +1843,10 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 2026-07-27 update：新配置值已按用户批准改为 `250`，但 Ti5 仍保留 ESI 对齐的 `uint32` 类型。历史实机只证明
   `100` 的启动写入没有 abort；因此必须在新镜像首次启动时确认四台 Ti5 均无该 SDO abort，并以 `uint16`
   只读上传得到 `250`。完成前 BQ-117 继续 OPEN，不能把“250 可写”当作已验证事实。
+- 2026-07-27 first-image gate result：镜像 `rt-control:4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d`
+  首次启动没有 `0x10F1:02` startup abort；全部 14 个运动从站（九台 ZeroErr、四台 Ti5、XMC）均以
+  `uint16` 只读上传得到 `250`，随后完整进入 OP/WC-complete。由此关闭“新值是否真正写入当前实机”的门禁，
+  但不关闭 Ti5 ESI `uint32` 与实机上传 2-byte 的类型矛盾；换固件/批次前仍必须取得厂商确认。
 
 ## BQ-118 — Updown 从 CANopen PP 迁移为 EtherCAT CSP [RESOLVED/HIGH-RISK 2026-07-27]
 
@@ -1882,7 +1886,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 2026-07-27 supersession：上述 `100/400 ms` 记录的是 T-019 首轮所用镜像，不代表新构建值。新构建统一使用
   `0x10F1:02=250`（nominal 1000 ms），不改变 XMC 固定 PDO、CSP=8、4 ms 周期或任何控制接口。
 
-## BQ-119 — 两节点 ros2_canopen 退出存在 polling callback use-after-free [IMPLEMENTED/PENDING-HW 2026-07-27]
+## BQ-119 — 两节点 ros2_canopen 退出存在 polling callback use-after-free [RESOLVED 2026-07-27]
 
 - Evidence：T-019 首次 14 轴使能测试中 `/rt/disable` 已成功，随后 controller manager deactivate
   `canopen_mobile_axes`。清理 `left_track_joint` 时，MultiThreadedExecutor 的并发 timer 仍在执行
@@ -1907,11 +1911,17 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Verification：复用 ros2_canopen 现有 GTest 增加严格顺序期望。修复前稳定失败于
   `remove_from_master()` 提前调用；修复后该目标通过，且 `canopen_ros2_control` 完整编译通过。Docker 以锁定上游
   commit 依次应用 `0001/0002/0003`，仓库门禁检查回调排空在 driver release 之前。
-- Remaining gate：状态保持 PENDING-HW，必须用新镜像做重复完整启动/停止，确认没有 SIGSEGV、
-  `ros2_control_node` 非负退出，并按 BQ-122 的显式总线顺序让 EtherCAT 确实执行
-  deactivate→PREOP→release 后才能改为 RESOLVED。
+- Hardware verification：镜像 `rt-control:4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d` 在
+  `ar@192.168.0.40` 完成三轮完整启动/停止；第一轮还执行一次全组 reset、14 轴 enable/hold/disable，后两轮不发送
+  使能或运动命令。三轮均看到 `Exiting spin thread` 后才 cleanup 两个履带 driver，
+  `ros2_control_node` 和容器均正常退出、container exit 0，无 `SIGSEGV`、`get_id()` UAF 或
+  `UNCLEAN_SHUTDOWN`。证据归档为
+  `/var/lib/rt-control/validation/run-17-bq119-bq122-4fc8414/`，并有
+  `evidence-manifest.sha256` 完整性清单。
+- Resolution boundary：本项只关闭已复现的 callback/bridge 生命周期竞态，不宣称完成 heartbeat/EMCY 故障注入、
+  CAN 断链机械停车或长时间启停压力验收。
 
-## BQ-120 — EtherCAT OP 期间仍周期性成组 datagram timeout [RISK-ACCEPTED/ROOT-CAUSE-OPEN 2026-07-27]
+## BQ-120 — EtherCAT OP 期间仍周期性成组 datagram timeout [RISK-ACCEPTED/ROOT-CAUSE-LOCALIZED 2026-07-27]
 
 - Evidence：T-019 期间 IgH master `Lost frames` 从 391 增到 399；rt_diagnostics `wc_error_count` 从稳定后的 705
   增到 712。内核在 OP 阶段八次记录 `3` 或 `4 datagrams TIMED OUT`，间隔约 10–100 秒；反馈年龄采样仍约
@@ -1936,8 +1946,26 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - First-image gate：首次新镜像启动必须确认所有 ZeroErr/XMC 和四台 Ti5 接受值 250；尤其 Ti5 因 BQ-117 只能用
   `uint16` SDO upload 做只读回读。若任何 startup abort、AL 无法稳定 OP 或反馈不新鲜，仍 fail closed，不能以风险接受
   绕过启动门。
+- 2026-07-27 short-window result：上述 first-image gate 已通过；14 个运动从站均只读回读 `250` 并进入
+  OP/WC-complete。三轮整栈启停期间 IgH `Lost frames` 从基线 `399` 到最终仍为 `399`，退出窗口没有新的 datagram
+  timeout 或 WC/同步级联。该短窗口结果允许按用户已接受的风险继续后续最小低速验收，但不能代替 30 分钟联合空跑，
+  也不关闭 NIC/IRQ/调度/物理链路的长期根因调查。
+- Root-cause localization：停机后的只读 `ethercat crc` 显示只有 slave 2（Ti5 `right_joint2`）port 0
+  累计 `CRC=8, PHY=6`；slave 3 及其后的 `FWD=8` 是同一批坏帧的转发计数。`ethercat graph` 证明该入口直接连接
+  `slave 1 port 1 -> slave 2 port 0`。这 8 个 CRC 错误与首轮 IgH `Lost frames 391->399` 的增量精确一致，且八组
+  OP datagram timeout 同期发生，因此根因已优先定位到这段 MII 物理链路，而不是整个环或 XMC 新分支。
+- Exclusion evidence：主站 I210 `03:00.0` PCIe 为 2.5 GT/s x1 正常宽度，PCI Device/AER correctable、nonfatal、fatal
+  均为 0；IgH 主站 Tx errors 为 0，timeout 时段没有 link-down。ec_igb 接管后不提供普通 `enp3s0` ethtool 统计，
+  所以不能据此排除线缆/接头或相邻从站 PHY。
+- Scheduling observation：IgH module 当前额外配置 `run_on_cpu=12`，而仓库/GRUB 只隔离 CPU 14；CPU 12 仍接收普通
+  timer/softirq 和 `enp4s0` IRQ。该配置未记录在仓库 host contract，是次级调度风险；但 corrective 三轮在相同配置下
+  没有新增 lost frame，且物理 CRC 计数与历史增量一一对应，因此本轮不在线改 CPU 归属来混淆变量。
+- Next controlled action：维护窗口断电检查或替换 `slave 1 port 1 <-> slave 2 port 0` 的线缆与两端接头，并检查
+  slave 2 入端/slave 1 出端；复电后先记录 CRC 基线，再完成至少 30 分钟 OP 空跑，要求 CRC/PHY/FWD、Lost frames 和
+  WC error 都不增长。只有该段稳定后才单独评审 `run_on_cpu=12` 是保留、迁移到隔离 CPU，还是为主站另隔离 CPU；
+  不同时改物理链路与调度配置。
 
-## BQ-122 — 完整栈退出时 CANopen 清理先于 EtherCAT deactivate [IMPLEMENTED/PENDING-HW 2026-07-27]
+## BQ-122 — 完整栈退出时 CANopen 清理先于 EtherCAT deactivate [RESOLVED 2026-07-27]
 
 - Evidence：应用 BQ-119 的 CANopen callback 排空补丁后，首轮完整栈退出不再 SIGSEGV：spin thread 先退出、
   两履带 driver 正常 shutdown、`ros2_control_node` 与容器均 exit 0。但是 controller_manager 停止全局 250 Hz
@@ -1962,6 +1990,12 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   IDLE、全部从站 PREOP，随后进程退出时才 `Releasing master`/`Released`；窗口内 `0x001B=0`，容器 1.8 s exit 0。
   对照默认顺序同机同镜像稳定产生 14 条 `0x001B`。该 A/B 结果证明修复层级正确，但集成 helper 的新镜像仍必须重复
   启停后才可把本项和 BQ-119 改为 RESOLVED。
+- Integrated hardware verification：新镜像 `4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d` 的三轮退出均按
+  `disable -> controllers quiesced -> ecat_arms inactive -> SIGINT -> canopen_mobile_axes deactivate` 执行；完整 OP 的第三轮
+  也在约 3.0 s 内停止并 exit 0。每轮内核退出窗口均为 EtherCAT OP thread 先回 IDLE、从站回 PREOP、再 release master，
+  `0x001B=0`，没有 SyncManager watchdog 或 datagram timeout。最终 master 为 Idle/Inactive、16 个从站全 PREOP。
+- Resolution boundary：已关闭当前生产 wrapper 的确定性退出次序缺陷。绕过 `rt_control_start` 直接启动 launch、helper
+  在 30 s 总预算内失败、进程被 SIGKILL 或主机掉电均不受此保证；这些路径仍按不干净停机处理。
 
 ## BQ-121 — BMS CANable 缺席会阻塞 rt-control CAN unit [OPEN/DEPLOYMENT 2026-07-27]
 
@@ -1975,3 +2009,6 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   提高域独立性，代价是必须重新设计跨 unit 命名冲突、启动顺序和 host verification。
 - Blocked scope：不阻塞离线开发；在裁决并修改前，`ignore-dependencies` 只能作为逐次记录、逐次授权的 commissioning
   例外，不得写入生产脚本或自动启动流程。
+- 2026-07-27 observation：本次 corrective image 验证时两只批准序列号的适配器均在场，`can0`/`can1` 均为
+  500 kbit/s、ERROR-ACTIVE 且 RX/TX/error/drop 计数无错误，因此没有再次使用缺席例外。此现场状态不回答“以后允许
+  BMS 适配器缺席吗”，生产 unit 拆分与否仍保持 OPEN，不能把一次两设备在场写成架构裁决。

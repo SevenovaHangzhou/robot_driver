@@ -19,6 +19,11 @@ FJT、`/cmd_vel` 或任何有意运动目标。
 因此当前版本可以证明 SW 5.11 固定 PDO 和 14 轴使能路径可工作，不能证明
 持续通信、运动或联合优雅退出已经通过。
 
+> 后续状态：本页保留首次镜像的原始失败证据。BQ-119/BQ-122 已由 corrective
+> image `4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d` 的三轮实机启停关闭；
+> `0x10F1:02=250` 首镜像门禁也已通过。完整结果见
+> [CANopen 有序清理与 EtherCAT 同步容忍实机复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)。
+
 ## 发布物与现场前提
 
 - Git/T-017：`95527cc88700a50a90e193ac9afa63a00d05e907`；
@@ -129,9 +134,14 @@ driver cleanup 前取消、join 专用 MultiThreadedExecutor。此文仍保留�
    保留上游状态机；弊端是需要维护并发生命周期补丁和重复压力退出测试。
    直接先停整个 executor 的方案更彻底，但可能让现有 cleanup 中投递到
    executor 的任务永远无法完成，死锁风险更高。
-2. 定位周期性 datagram timeout 的来源，至少联查 NIC IRQ/CPU affinity、
-   OP 周期调度、DC/WC 统计和物理链路；修复前不发送 FJT。单纯提高容忍度
-   实现简单，但只推迟故障判定且扩大旧反馈被执行的窗口，不采用。
-3. 修复后重复“启动→reset→enable→保持→disable→stop”，要求 WC/lost-frame
-   稳定、无 `0x001B` 退出级联、`ros2_control_node` 和容器均干净退出，再进入
-   XMC 低速小位移 CSP 运动。
+2. 继续定位周期性 datagram timeout 的来源，至少联查 NIC IRQ/CPU affinity、
+   OP 周期调度、DC/WC 统计和物理链路。用户随后明确接受短通信抖动风险并批准把
+   `0x10F1:02` 提高到 `250`（nominal 1000 ms）；好处是减少短抖动导致的无效同步
+   故障，弊端是真实连续同步故障最多约晚 600 ms 才由驱动升级。该值不会消除或
+   隐藏 lost/WC 统计。后续只读 CRC 检查已把根因优先定位到
+   `slave 1 port 1 -> slave 2 port 0` 物理段，具体线缆/接头/端口仍待断电检查和
+   30 分钟空跑确认。
+3. 上述 corrective image 已完成三轮重复启停，其中一轮覆盖
+   “启动→reset→enable→保持→disable→stop”，lost frame 保持 399、无 `0x001B`
+   退出级联且进程/容器均干净退出。下一项仍是经现场批准的 XMC/14 轴低速小位移
+   CSP/FJT 运动验收。

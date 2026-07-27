@@ -583,7 +583,9 @@ CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-con
 
 ### 12.1 正常停机
 
-以下是每次部署都要重新满足的验收判据，不是“当前 EtherCAT + CANopen 完整生产栈联合退出已经实机通过”的声明；该联合证据仍未闭环。
+以下是每次部署都要重新满足的验收判据。corrective image
+`4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d` 已完成三轮 EtherCAT + CANopen
+联合有序退出实机验证，但该结果只适用于受支持的 wrapper、当前依赖和当前目标机，不能替代每次发布复验。
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
@@ -656,12 +658,12 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 
 - T-009 的完整 30 分钟联合空跑/实时负载验证；
 - 12 轴手臂低速 FJT 和 Turn jog 的完整实机闭环；
-- XMC Updown 的启动 SDO、OP、当前位置预装载、第五批使能、低速 CSP 运动和失能完整实机验收；
+- XMC Updown 的低速 CSP/FJT 运动、故障注入及恢复完整实机验收；启动 SDO、OP、当前位置预装载、第五批使能和失能已有首轮证据；
 - 履带方向/比例、heartbeat/EMCY 及断链后的机械停车验证；
-- EtherCAT 与 CANopen 同时运行时，完整生产栈 graceful stop/退出的联合实机证据；
+- 更长时间和 fault/EMCY/服务超时条件下的重复 graceful stop 压力证据；当前正常路径已有三轮联合实机证据；
 - BQ-115 的四个 Ti5 非 literal 失能终态最终人工签字，以及 master release 后 `0x7500` 的驱动侧反应审查；
 - BQ-117 的 Ti5 `0x10F1:02` 数据宽度问题闭环；
 - 明确固定并验证生产 RMW/DDS 网卡边界；当前 loopback-only CycloneDDS XML 尚不能证明实际网络隔离；
 - 通用新机 profile、全离线宿主 bootstrap、自动镜像发布、readiness/healthcheck 和自动 rollback。
 
-当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
+当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
