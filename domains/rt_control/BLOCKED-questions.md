@@ -1871,5 +1871,47 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   6081 速度和专用 topic 的双轨语义；固定 PDO 与实机 SW 5.11 字节布局逐项一致，周期模式不会回落为 0。
 - Drawback（重点）：供应商 XML 与实机固件映射不一致，升级固件或换驱动器时必须重新读取 SII 并逐项复核，
   不能只替换 XML；14 轴任一轴故障会扩大为全组停机。`0.3 m/s`、`0.5 m/s^2` 是轨迹生成/验收上限，
-  Humble JTC 本身不会替代 motion 的时间参数化或机械安全链。当前只完成只读识别，尚未在新从站上写 SDO、
-  进入 OP、使能或运动，必须经过无使能通信、预装载、第五批使能和低速空载实机门禁。
+  Humble JTC 本身不会替代 motion 的时间参数化或机械安全链。本裁决当时只完成只读识别；后续 T-019 已证明启动
+  SDO、OP、预装载和第五批使能，但没有运动，并新发现 BQ-119/BQ-120，必须解决后才可进入低速空载运动门禁。
+
+## BQ-119 — 两节点 ros2_canopen 退出存在 polling callback use-after-free [OPEN/HIGH-RISK 2026-07-27]
+
+- Evidence：T-019 首次 14 轴使能测试中 `/rt/disable` 已成功，随后 controller manager deactivate
+  `canopen_mobile_axes`。清理 `left_track_joint` 时，MultiThreadedExecutor 的并发 timer 仍在执行
+  `NodeCanopen402Driver::poll_timer_callback()`，最终在已经失效的
+  `LelyDriverBridge::get_id()` 访问地址 `0x2d8` 并 SIGSEGV。`ros2_control_node` exit `-11`，外层容器却 exit 0。
+- Impact：CANopen cleanup 抢先崩溃使 EtherCAT hardware 没有进入正常 deactivate；主站被进程释放时 14 个运动从站
+  出现 `0x001B Sync manager watchdog`，最终虽回 PREOP，但不满足干净退出契约。容器 exit 0 不能作为成功依据。
+- Question：应在哪个上游生命周期层完成 timer cancel、executor removal/barrier 和 bridge/Motor402 release 的严格排序，
+  同时不让已有 cleanup 投递任务死锁？
+- Preferred direction：窄补丁先取消 polling timer、阻止新 callback、等待 executor 中已开始 callback 排空，再销毁
+  driver bridge。Benefit 是针对实际 use-after-free 且保留开源 CiA402 行为；drawback 是并发顺序补丁必须做重复启停和
+  fault/EMCY 退出压力测试。直接先停整个 executor 更简单彻底，但可能阻塞依赖 executor 完成的 cleanup，死锁风险更高。
+- Blocked scope：修复并验证前禁止新的整栈使能、运动或宣称 graceful stop 通过；静态源码审计和 Mock 可继续。
+
+## BQ-120 — EtherCAT OP 期间仍周期性成组 datagram timeout [OPEN/HIGH-RISK 2026-07-27]
+
+- Evidence：T-019 期间 IgH master `Lost frames` 从 391 增到 399；rt_diagnostics `wc_error_count` 从稳定后的 705
+  增到 712。内核在 OP 阶段八次记录 `3` 或 `4 datagrams TIMED OUT`，间隔约 10–100 秒；反馈年龄采样仍约
+  `0.005 ms`，16 个位置仍为 OP。启动阶段另有 `850 datagrams TIMED OUT`、DC sync timeout 和部分
+  `0x001B` 恢复过程。
+- Conflict：BQ-114 的 400 ms 容忍允许系统最终进入 OP，但不能把仍增长的 timeout/WC 计数解释成健康通信；运动时继续
+  使用该状态会扩大旧过程数据或同步级联风险。
+- Question：丢失来自 NIC/IRQ/CPU 调度、DC 配置、物理链路还是主站/从站状态切换的哪一层？必须用同一镜像联查 IRQ、
+  cyclic loop、IgH domain/WC 和链路统计后裁决，不能继续猜测参数。
+- Decision boundary：不再增加 `0x10F1:02` 或软件宽容值。Benefit 是不掩盖真实丢帧并保持 400 ms 已批准边界；
+  drawback 是在根因修复前会阻塞运动验收。单纯增加宽容度实现最简单，但只延迟失败且扩大风险窗口，明确不采用。
+- Blocked scope：允许只读诊断和离线修复；禁止 FJT/Updown 运动，修复后必须证明稳定窗口内 lost/WC 不增长。
+
+## BQ-121 — BMS CANable 缺席会阻塞 rt-control CAN unit [OPEN/DEPLOYMENT 2026-07-27]
+
+- Evidence：目标机只有 rt-control CANable serial `004D00675230500720333159`；BMS serial
+  `003000265230500720333159` 缺席。`rt-control-can-names.service` 因要求两只设备同时存在而失败，连带
+  `can0.service` 无法正常 start。T-019 在逐字核对现有 can0 serial 后仅本次使用
+  `--job-mode=ignore-dependencies` 启动原 500 kbit/s/txqueuelen 128 unit，测试后恢复 DOWN；未修改 unit。
+- Question：生产策略是否继续要求 BMS 适配器在场作为全机部署门禁，还是拆分为两个独立命名 unit，使 rt-control CAN
+  只依赖自己的 serial？
+- Trade-off：保持严格联锁能阻止设备缺失/误命名后启动，代价是与 rt-control 无关的 BMS 维护会阻塞履带；拆分 unit
+  提高域独立性，代价是必须重新设计跨 unit 命名冲突、启动顺序和 host verification。
+- Blocked scope：不阻塞离线开发；在裁决并修改前，`ignore-dependencies` 只能作为逐次记录、逐次授权的 commissioning
+  例外，不得写入生产脚本或自动启动流程。
