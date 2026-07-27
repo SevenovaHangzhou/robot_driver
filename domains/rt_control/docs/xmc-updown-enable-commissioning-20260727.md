@@ -23,6 +23,8 @@ FJT、`/cmd_vel` 或任何有意运动目标。
 > image `4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d` 的三轮实机启停关闭；
 > `0x10F1:02=250` 首镜像门禁也已通过。完整结果见
 > [CANopen 有序清理与 EtherCAT 同步容忍实机复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)。
+> 随后的首轮 14 轴最小运动结果见
+> [14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)。
 
 ## 发布物与现场前提
 

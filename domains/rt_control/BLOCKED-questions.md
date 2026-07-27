@@ -1885,6 +1885,12 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   SDO、OP、预装载和第五批使能，但没有运动，并新发现 BQ-119/BQ-120，必须解决后才可进入低速空载运动门禁。
 - 2026-07-27 supersession：上述 `100/400 ms` 记录的是 T-019 首轮所用镜像，不代表新构建值。新构建统一使用
   `0x10F1:02=250`（nominal 1000 ms），不改变 XMC 固定 PDO、CSP=8、4 ms 周期或任何控制接口。
+- 2026-07-27 minimal-motion authorization and result：用户确认现场有硬件急停，当前关节位姿任意方向小幅运动
+  均无碰撞，并批准 13 个旋转轴各单程 `0.5 degree`、Updown 单程 `0.05 m`、每单程 `2 s`。执行选择
+  完整 14 轴 goal、一次只改变一轴、朝限位区间中点外移后回程；好处是首次运动能量低且故障可定位，弊端是
+  不覆盖反方向首次外移、多轴耦合和同时运动负载。28/28 段 action 成功；Updown 最大移动轴跟踪/终点误差为
+  `0.00184546718425/0.000252685546875 m`。这只关闭首轮最小 CSP/FJT 运动门禁，不关闭动态精度、故障注入或
+  生产轨迹验收；完整记录见 `docs/fjt-14axis-low-speed-commissioning-20260727.md`。
 
 ## BQ-119 — 两节点 ros2_canopen 退出存在 polling callback use-after-free [RESOLVED 2026-07-27]
 
@@ -1964,6 +1970,11 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   slave 2 入端/slave 1 出端；复电后先记录 CRC 基线，再完成至少 30 分钟 OP 空跑，要求 CRC/PHY/FWD、Lost frames 和
   WC error 都不增长。只有该段稳定后才单独评审 `run_on_cpu=12` 是保留、迁移到隔离 CPU，还是为主站另隔离 CPU；
   不同时改物理链路与调度配置。
+- 2026-07-27 minimal-motion result：在用户批准硬件急停、无碰撞位姿、旋转轴 `0.5 degree`、Updown
+  `0.05 m` 和单程 `2 s` 后，corrective image 完成 28/28 段逐轴外移/回程 FJT，期间没有 goal/drive
+  失败或整组掉使能。但 `Lost frames` 从 399 增至 402，slave 2 port 0 从 `CRC=8, PHY=6` 增至
+  `CRC=11, PHY=8`，三次 `4 datagrams TIMED OUT` 中一次发生在 FJT 窗口。该结果证明已批准的
+  1000 ms 容忍能跨过本轮短抖动，**不证明链路健康或根因关闭**；物理段维护和 30 分钟零增量门禁保持不变。
 
 ## BQ-122 — 完整栈退出时 CANopen 清理先于 EtherCAT deactivate [RESOLVED 2026-07-27]
 

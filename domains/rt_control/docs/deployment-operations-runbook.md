@@ -657,8 +657,10 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 截至本文编写时，不得宣称以下内容已完成：
 
 - T-009 的完整 30 分钟联合空跑/实时负载验证；
-- 12 轴手臂低速 FJT 和 Turn jog 的完整实机闭环；
-- XMC Updown 的低速 CSP/FJT 运动、故障注入及恢复完整实机验收；启动 SDO、OP、当前位置预装载、第五批使能和失能已有首轮证据；
+- 12 轴手臂、Turn 和 XMC Updown 已完成一次逐轴 `0.5 degree/0.05 m`、单程 `2 s` 的完整 14 轴 FJT
+  最小往返；尚未完成多轴同时运动、生产轨迹动态精度、实体方向人工记录和完整实时延迟验收；
+- XMC Updown 的故障注入及恢复完整实机验收；启动 SDO、OP、当前位置预装载、第五批使能/失能和首轮最小
+  CSP/FJT 已有证据；
 - 履带方向/比例、heartbeat/EMCY 及断链后的机械停车验证；
 - 更长时间和 fault/EMCY/服务超时条件下的重复 graceful stop 压力证据；当前正常路径已有三轮联合实机证据；
 - BQ-115 的四个 Ti5 非 literal 失能终态最终人工签字，以及 master release 后 `0x7500` 的驱动侧反应审查；
@@ -666,4 +668,4 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 - 明确固定并验证生产 RMW/DDS 网卡边界；当前 loopback-only CycloneDDS XML 尚不能证明实际网络隔离；
 - 通用新机 profile、全离线宿主 bootstrap、自动镜像发布、readiness/healthcheck 和自动 rollback。
 
-当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
+当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
