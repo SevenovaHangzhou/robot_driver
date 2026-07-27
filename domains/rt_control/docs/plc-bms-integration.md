@@ -89,9 +89,10 @@ ros2 launch rt_control_bringup rt_control.launch.py \
 `RT_CONTROL_START_PLC=true` 和 `RT_CONTROL_START_BMS=true`。它没有覆盖 `command` 或 `entrypoint`，所以原有
 有序失能与信号转发链保持不变。
 
-当前工控机的一键脚本锁定旧提交、旧镜像 ID 和旧 release 目录。源码合入本身不会改变那份不可变运行身份；必须在
-本变更形成批准提交后重新构建/验收镜像、建立 release 副本并更新脚本锁，才可以宣称 PLC/BMS 已进入目标机“一键
-启动”。在完成该发布动作前，不得用旧脚本成功启动旧镜像来冒充本功能已部署。
+当前候选运行提交为 `e4fed685bfa4485c210ad038c804a331b4801d88`，对应镜像 ID 为
+`sha256:998c5a1e9e5f70f7e09f1f2a8c316bbc3714bd9815e68f6b870130a332542c06`。镜像已完成干净构建、包/接口、
+Compose、capability、CMD/PID 1 和无设备 Mock 验证；一键脚本与策略门禁已锁定该身份。目标机 release 部署及下面的
+PLC/BMS 实机验证尚未完成，因此当前只能称为“候选发布”，不得宣称已在目标机上线。
 
 ## 联调检查
 
@@ -103,5 +104,5 @@ ros2 service call /plc/right_solenoid std_srvs/srv/SetBool "{data: false}"
 ros2 service call /plc/vacuum_pump std_srvs/srv/SetBool "{data: true}"
 ```
 
-首次带电联调前，需由 PLC / 电气人员再次对照实际 IO 确认左右臂、共用泵以及两路真空传感器方向。本次源码验证只
-覆盖协议解析、位保留、回读判定、构建、静态总装和无硬件测试，没有连接 PLC、CAN 或驱动任何输出。
+首次带电联调前，需由 PLC / 电气人员再次对照实际 IO 确认左右臂、共用泵以及两路真空传感器方向。当前验证覆盖
+协议解析、位保留、回读判定、干净镜像构建、静态总装和无硬件 Mock；尚未连接 PLC、CAN 或驱动任何输出。
