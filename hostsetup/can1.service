@@ -1,0 +1,18 @@
+[Unit]
+Description=BMS SocketCAN can1 at frozen 500 kbit/s
+Requires=rt-control-can-names.service
+After=rt-control-can-names.service
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/sbin/ip link set dev can1 down
+ExecStart=/usr/sbin/ip link set dev can1 type can bitrate 500000
+ExecStart=/usr/sbin/ip link set dev can1 txqueuelen 128
+ExecStart=/usr/sbin/ip link set dev can1 up
+ExecStop=-/usr/sbin/ip link set dev can1 down
+
+[Install]
+WantedBy=multi-user.target

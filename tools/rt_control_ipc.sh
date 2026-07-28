@@ -172,8 +172,8 @@ verify_start_dependencies()
     command -v "${command}" >/dev/null 2>&1 || fail "缺少命令 ${command}。"
   done
   systemctl is-active --quiet docker.service containerd.service ethercat.service \
-    rt-control-can-names.service can0.service ||
-    fail "Docker、EtherCAT 或 can0 的 systemd 服务未全部运行。"
+    rt-control-can-names.service can0.service can1.service ||
+    fail "Docker、EtherCAT 或 can0/can1 的 systemd 服务未全部运行。"
 }
 
 verify_idle_bus_inputs()

@@ -84,6 +84,7 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     naming_unit = (HOSTSETUP / "rt-control-can-names.service").read_text()
     installer = (HOSTSETUP / "can-install.sh").read_text()
     verifier = (HOSTSETUP / "verify-host.sh").read_text()
+    launcher = (ROOT / "tools/rt_control_ipc.sh").read_text()
 
     assert "Requires=rt-control-can-names.service" in can1_unit
     assert "After=rt-control-can-names.service" in can1_unit
@@ -94,3 +95,4 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     assert '"${script_dir}/can1.service" /etc/systemd/system/can1.service' in installer
     assert "enable rt-control-can-names.service can0.service can1.service" in installer
     assert "rt-control-can-names.service can0.service can1.service" in verifier
+    assert "rt-control-can-names.service can0.service can1.service" in launcher

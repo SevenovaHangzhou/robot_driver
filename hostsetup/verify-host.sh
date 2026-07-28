@@ -3,6 +3,7 @@ set -euo pipefail
 
 readonly ethercat_mac="8c:59:3c:14:ff:d3"
 readonly rt_control_can_serial="004D00675230500720333159"
+readonly bms_can_serial="003000265230500720333159"
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "run this script as root" >&2
@@ -63,7 +64,8 @@ for irq_directory in /proc/irq/[0-9]*; do
 done
 
 systemctl is-active --quiet apparmor.service docker.service containerd.service
-systemctl is-active --quiet ethercat.service rt-control-can-names.service can0.service
+systemctl is-active --quiet \
+  ethercat.service rt-control-can-names.service can0.service can1.service
 [[ "$(systemctl --failed --no-legend | wc -l)" -eq 0 ]] || fail "systemd has failed units"
 
 [[ "$(ethercat version)" == "IgH EtherCAT master 1.6.10 unknown" ]] ||
@@ -82,6 +84,13 @@ can_output="$(ip -details -statistics link show can0)"
 grep -Fq 'state UP' <<< "${can_output}" || fail "can0 is down"
 grep -Fq 'can state ERROR-ACTIVE' <<< "${can_output}" || fail "can0 is not ERROR-ACTIVE"
 grep -Fq 'bitrate 500000' <<< "${can_output}" || fail "can0 is not 500 kbit/s"
+bms_serial="$(udevadm info -q property -p /sys/class/net/can1 |
+  sed -n 's/^ID_SERIAL_SHORT=//p')"
+[[ "${bms_serial}" == "${bms_can_serial}" ]] || fail "can1 USB serial mismatch"
+bms_output="$(ip -details -statistics link show can1)"
+grep -Fq 'state UP' <<< "${bms_output}" || fail "can1 is down"
+grep -Fq 'can state ERROR-ACTIVE' <<< "${bms_output}" || fail "can1 is not ERROR-ACTIVE"
+grep -Fq 'bitrate 500000' <<< "${bms_output}" || fail "can1 is not 500 kbit/s"
 heartbeat_log="$(mktemp)"
 cleanup() {
   rm -f -- "${heartbeat_log}"
@@ -106,4 +115,5 @@ printf '%s\n' \
   "PASS: realtime CPU14 isolation" \
   "PASS: IgH 1.6.10, master ${ethercat_mac}, 16 slaves, zero lost frames" \
   "PASS: can0 500 kbit/s on serial ${rt_control_can_serial}, heartbeats 0x702/703" \
+  "PASS: can1 500 kbit/s on serial ${bms_can_serial}" \
   "PASS: Docker/containerd frozen versions, healthy systemd and GPU boot log"

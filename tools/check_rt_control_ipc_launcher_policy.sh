@@ -24,6 +24,7 @@ for required in \
   'call_rt_service disable' \
   'compose up -d --no-build rt-control' \
   'compose stop rt-control' \
+  'rt-control-can-names.service can0.service can1.service' \
   'can1 3FC#' \
   'ros2 topic echo /plc/io_state --once' \
   'ros2 topic echo /bms/battery_state --once' \

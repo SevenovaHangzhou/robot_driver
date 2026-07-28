@@ -26,17 +26,23 @@ install -o root -g root -m 0644 \
   /etc/systemd/system/rt-control-can-names.service
 install -o root -g root -m 0644 \
   "${script_dir}/can0.service" /etc/systemd/system/can0.service
+install -o root -g root -m 0644 \
+  "${script_dir}/can1.service" /etc/systemd/system/can1.service
 systemctl daemon-reload
-systemctl enable rt-control-can-names.service can0.service
+systemctl enable rt-control-can-names.service can0.service can1.service
 systemd-analyze verify \
   /etc/systemd/system/rt-control-can-names.service \
-  /etc/systemd/system/can0.service
+  /etc/systemd/system/can0.service \
+  /etc/systemd/system/can1.service
 
 if ${start_bus}; then
   systemctl restart rt-control-can-names.service
   systemctl restart can0.service
-  systemctl --no-pager --full status rt-control-can-names.service can0.service
+  systemctl restart can1.service
+  systemctl --no-pager --full status \
+    rt-control-can-names.service can0.service can1.service
   ip -details -statistics link show can0
+  ip -details -statistics link show can1
 else
   echo "CAN units installed; rerun with --start only when both named adapters are connected"
 fi
