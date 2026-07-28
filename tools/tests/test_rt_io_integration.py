@@ -5,6 +5,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 BRINGUP = ROOT / "src/rt_control/rt_control_bringup"
+HOSTSETUP = ROOT / "hostsetup"
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:
@@ -76,3 +77,20 @@ def test_removed_duplicate_and_unused_ros_interfaces_do_not_return() -> None:
     assert bms_source.count("create_publisher") == 1
     assert "can_bus_guard" not in bms_source
     assert "can_bus_guard" not in bms_manifest
+
+
+def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
+    can1_unit = (HOSTSETUP / "can1.service").read_text()
+    naming_unit = (HOSTSETUP / "rt-control-can-names.service").read_text()
+    installer = (HOSTSETUP / "can-install.sh").read_text()
+    verifier = (HOSTSETUP / "verify-host.sh").read_text()
+
+    assert "Requires=rt-control-can-names.service" in can1_unit
+    assert "After=rt-control-can-names.service" in can1_unit
+    assert "ip link set dev can1 type can bitrate 500000" in can1_unit
+    assert "ip link set dev can1 txqueuelen 128" in can1_unit
+    assert "ip link set dev can1 up" in can1_unit
+    assert "Before=can0.service can1.service" in naming_unit
+    assert '"${script_dir}/can1.service" /etc/systemd/system/can1.service' in installer
+    assert "enable rt-control-can-names.service can0.service can1.service" in installer
+    assert "rt-control-can-names.service can0.service can1.service" in verifier
