@@ -16,6 +16,14 @@ DOCKERFILE = ROOT / "docker/rt-control/Dockerfile"
 
 
 class TfContractTest(unittest.TestCase):
+    def assert_fixed_joint(self, joints, name, parent, child, xyz, rpy):
+        joint = joints[name]
+        self.assertEqual(joint.attrib["type"], "fixed")
+        self.assertEqual(joint.find("parent").attrib["link"], parent)
+        self.assertEqual(joint.find("child").attrib["link"], child)
+        self.assertEqual(joint.find("origin").attrib["xyz"], xyz)
+        self.assertEqual(joint.find("origin").attrib["rpy"], rpy)
+
     def test_robot_model_roots_at_base_footprint(self):
         robot = ET.parse(ROBOT_XACRO).getroot()
         link_names = {link.attrib["name"] for link in robot.findall("link")}
@@ -64,6 +72,108 @@ class TfContractTest(unittest.TestCase):
             "test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher",
             dockerfile,
         )
+
+    def test_perception_sensor_frames_match_the_onsite_reference(self):
+        robot = ET.parse(ROBOT_XACRO).getroot()
+        link_names = {link.attrib["name"] for link in robot.findall("link")}
+        joints = {joint.attrib["name"]: joint for joint in robot.findall("joint")}
+
+        self.assertTrue(
+            {
+                "lidar_front_mount",
+                "lidar_front",
+                "livox_fused_frame",
+                "top_sensor",
+                "lidar_rear_mount",
+                "lidar_rear",
+                "camera_top_color_optical_frame",
+            }.issubset(link_names)
+        )
+
+        self.assert_fixed_joint(
+            joints,
+            "lidar_front_mount_joint",
+            "turn",
+            "lidar_front_mount",
+            "0.16084 0 1.2155",
+            "0 0 0",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "lidar_front_frame_joint",
+            "lidar_front_mount",
+            "lidar_front",
+            "0 0 0",
+            "3.141592653589793 0 -1.570796326794897",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "lidar_front_to_livox_fused_frame",
+            "lidar_front",
+            "livox_fused_frame",
+            "0 0.175 0",
+            "3.141592653589793 0 0",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "lidar_front_to_top_sensor",
+            "lidar_front",
+            "top_sensor",
+            "0 0 0",
+            "3.141592653589793 0 -1.570796326794897",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "lidar_rear_mount_joint",
+            "turn",
+            "lidar_rear_mount",
+            "-0.19316 0 1.2155",
+            "0 0 0",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "lidar_rear_frame_joint",
+            "lidar_rear_mount",
+            "lidar_rear",
+            "0 0 0",
+            "3.141592653589793 0 -1.570796326794897",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "cam_front",
+            "turn",
+            "cam_front",
+            "0.23667 0 1.2725",
+            "0 0.7854 0",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "cam_front_to_camera_top_color_optical_frame",
+            "cam_front",
+            "camera_top_color_optical_frame",
+            "0 0 0",
+            "-1.57079632679 0 -1.57079632679",
+        )
+        self.assert_fixed_joint(
+            joints,
+            "cam_rear",
+            "turn",
+            "cam_rear",
+            "-0.25649 0 1.2854",
+            "0 0.2618 3.1416",
+        )
+
+    def test_sensor_frame_overlay_preserves_control_joint_contract(self):
+        robot = ET.parse(ROBOT_XACRO).getroot()
+        links = {link.attrib["name"] for link in robot.findall("link")}
+        joints = {joint.attrib["name"]: joint for joint in robot.findall("joint")}
+
+        self.assertIn("left_joint1", links)
+        self.assertIn("right_joint1", links)
+        self.assertNotIn("leftjoint1", links)
+        self.assertNotIn("rightjoint1", links)
+        self.assertEqual(joints["updown"].find("limit").attrib["upper"], "0.8")
+        self.assertEqual(joints["updown"].find("limit").attrib["velocity"], "0.3")
 
 
 if __name__ == "__main__":

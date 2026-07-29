@@ -531,7 +531,7 @@
     </collision>
   </link>
 
-  <link name="lidar_front">
+  <link name="lidar_front_mount">
     <inertial>
       <origin xyz="-6.42377262494165E-11 1.00857335138538E-05 0.00951653834947522" rpy="0 0 0" />
       <mass value="0.252827408348011" />
@@ -554,7 +554,12 @@
     </collision>
   </link>
 
-  <link name="lidar_rear">
+  <!-- Native installed MID360 frame; keep the CAD mesh on the mount link. -->
+  <link name="lidar_front"/>
+  <link name="livox_fused_frame"/>
+  <link name="top_sensor"/>
+
+  <link name="lidar_rear_mount">
     <inertial>
       <origin xyz="7.75510065591511E-05 1.02653775136408E-05 0.00951684895357141" rpy="0 0 0" />
       <mass value="0.248402965613694" />
@@ -576,6 +581,8 @@
       </geometry>
     </collision>
   </link>
+
+  <link name="lidar_rear"/>
 
   <link name="cam_front">
     <inertial>
@@ -623,6 +630,9 @@
     </collision>
   </link>
 
+  <!-- REP-103 optical frame used by the top perception camera pipeline. -->
+  <link name="camera_top_color_optical_frame"/>
+
   <!-- Production phase: pitch is mechanically fixed at the source zero pose. -->
   <joint name="pitch" type="fixed">
     <origin xyz="0.25918 -0.0545 0.05" rpy="0 0 0" />
@@ -654,29 +664,61 @@
     <axis xyz="0 0 0" />
   </joint>
 
-  <joint name="lidar_front" type="fixed">
+  <joint name="lidar_front_mount_joint" type="fixed">
     <origin xyz="0.16084 0 1.2155" rpy="0 0 0" />
     <parent link="turn" />
-    <child link="lidar_front" />
+    <child link="lidar_front_mount" />
     <axis xyz="0 0 0" />
   </joint>
 
-  <joint name="lidar_rear" type="fixed">
-    <origin xyz="-0.193155597668545 0 1.2155009" rpy="0 0 0" />
+  <joint name="lidar_front_frame_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="3.141592653589793 0 -1.570796326794897" />
+    <parent link="lidar_front_mount" />
+    <child link="lidar_front" />
+  </joint>
+
+  <!-- Frame represented by dual_livox_fusion and FAST-LIO fused input. -->
+  <joint name="lidar_front_to_livox_fused_frame" type="fixed">
+    <origin xyz="0 0.175 0" rpy="3.141592653589793 0 0" />
+    <parent link="lidar_front" />
+    <child link="livox_fused_frame" />
+  </joint>
+
+  <!-- Conventional robot working frame: +X front, +Y left, +Z up. -->
+  <joint name="lidar_front_to_top_sensor" type="fixed">
+    <origin xyz="0 0 0" rpy="3.141592653589793 0 -1.570796326794897" />
+    <parent link="lidar_front" />
+    <child link="top_sensor" />
+  </joint>
+
+  <joint name="lidar_rear_mount_joint" type="fixed">
+    <origin xyz="-0.19316 0 1.2155" rpy="0 0 0" />
     <parent link="turn" />
-    <child link="lidar_rear" />
+    <child link="lidar_rear_mount" />
     <axis xyz="0 0 0" />
+  </joint>
+
+  <joint name="lidar_rear_frame_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="3.141592653589793 0 -1.570796326794897" />
+    <parent link="lidar_rear_mount" />
+    <child link="lidar_rear" />
   </joint>
 
   <joint name="cam_front" type="fixed">
-    <origin xyz="0.224174685843815 0 1.28542950857142" rpy="0 0.261799387799146 0" />
+    <origin xyz="0.23667 0 1.2725" rpy="0 0.7854 0" />
     <parent link="turn" />
     <child link="cam_front" />
     <axis xyz="0 0 0" />
   </joint>
 
+  <joint name="cam_front_to_camera_top_color_optical_frame" type="fixed">
+    <origin xyz="0 0 0" rpy="-1.57079632679 0 -1.57079632679" />
+    <parent link="cam_front" />
+    <child link="camera_top_color_optical_frame" />
+  </joint>
+
   <joint name="cam_rear" type="fixed">
-    <origin xyz="-0.256485881180905 0 1.28542950857142" rpy="0 0.261799387799146 3.14159263525858" />
+    <origin xyz="-0.25649 0 1.2854" rpy="0 0.2618 3.1416" />
     <parent link="turn" />
     <child link="cam_rear" />
     <axis xyz="0 0 0" />

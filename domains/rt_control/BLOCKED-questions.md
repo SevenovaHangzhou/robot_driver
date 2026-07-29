@@ -2072,3 +2072,30 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   bit，末态 MW200/MW210/MW211/MW212 为 0、MW201 为 1；容器 exit 0，EtherCAT Idle/Inactive、16 从站 PREOP，
   CAN0/CAN1 错误计数为 0。独立 BMS HMI 对照及左右实体/共用泵气路效果没有由 SSH 证据确认，仍是现场人工观察项；
   该边界不改变本裁决的 CPU14 临时风险接受。
+
+## BQ-125 — 现场感知传感器坐标系与活动控制模型不一致 [RESOLVED/HIGH-RISK 2026-07-29]
+
+- Evidence：用户指定的现场参考 URDF（SHA-256
+  `db1b04c9b5aba34a2a9671a0f343d59b9d9dcdad9c9427dae2de2e3881ce8dff`）定义了
+  `lidar_front_mount -> lidar_front -> {livox_fused_frame, top_sensor}`、
+  `lidar_rear_mount -> lidar_rear` 和
+  `cam_front -> camera_top_color_optical_frame`。活动 `robot_description` 只有直接挂在 `turn` 下的雷达 CAD link，
+  缺少上述原生/融合/工作/光学 frame，且前相机安装位姿仍是旧值。
+- Conflict：参考文件仍使用 `leftjoint1/rightjoint1` 等旧控制关节名，把 Updown 上限写成 `0.92 m`，并把多个运动关节
+  `effort/velocity` 写为 0；整文件覆盖会破坏已经冻结、构建并实机验证的下划线命名、14 轴 ros2_control 接口和
+  Updown `0–0.8 m` 限位。参考文件在现场仓库中还是未跟踪资产，因此本次用用户指定的内容哈希固定取值，不能把其余
+  未审查字段静默提升为整机模型权威事实。
+- User decision：rt-control 容器发布的 URDF 应按照该现场参考补齐用户给出的感知 frame；允许直接在目标工控机完成后续
+  镜像更新，但不能因为同步感知 TF 覆盖既有控制关节裁决。
+- Decision：只合并参考文件的完整感知传感器固定子树和精确数值：雷达网格保留在新增 mount link，
+  `lidar_front/lidar_rear` 改为安装 MID360 的原生坐标系；增加 `livox_fused_frame`、`top_sensor` 和
+  `camera_top_color_optical_frame`；前/后相机固定 joint 使用参考位姿。保留现有基座、Pitch、Turn、Updown、双臂、工具
+  link/joint 名称、轴向和限位，不导入参考文件的旧控制字段或包名。
+- Benefit：`robot_state_publisher` 能从同一公共模型稳定发布感知管线实际使用的 `/tf_static`，融合点云、FAST-LIO、相机
+  和导航不再依赖各自私有静态 TF；CAD 网格与传感器原生轴分离，避免为了修正数据坐标而旋转实体可视/碰撞几何。
+- Drawback（重点）：这是公共 TF 契约变化；`lidar_front` 和 `lidar_rear` 相对 `turn` 的语义从 CAD 安装 frame 改成传感器
+  原生轴，`cam_front` 的安装平移/俯仰也变化。使用旧 frame 数值、重复发布同名静态 TF 或缓存旧模型的 perception、
+  motion、RViz 配置必须同步升级；错误的现场标定仍会一致地传播给所有消费者。
+- Verification/release boundary：合同测试必须逐项锁定上述父子关系和精确变换，同时防止旧控制关节名和 `0.92 m` 限位
+  回流；Xacro、`check_urdf`、共享包构建、仓库门禁和无设备运行 TF 查询通过后才能构建镜像。当前带电容器不会被原地
+  改写；生产切换仍需单独执行有序失能/停止、更新锁定镜像并验证 `/tf_static`，不能热改安装空间。
