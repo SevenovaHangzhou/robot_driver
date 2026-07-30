@@ -17,8 +17,8 @@ for required in \
   'readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"' \
   'readonly expected_can_serial="004D00675230500720333159"' \
   'readonly expected_bms_can_serial="003000265230500720333159"' \
-  'readonly runtime_sha="4d6d48bb0c621f33edb2e2603c05bf622e5fcec8"' \
-  'readonly runtime_image_id="sha256:f495d461cddced5c9b1fd5c8d0b3543a4b0c04f9e98b465a79b4d5fde0a0237e"' \
+  'readonly runtime_sha="1d4fb230140b555b05c69c6b29529c5137cb136c"' \
+  'readonly runtime_image_id="sha256:4b78c1b194ff7cbfdcc79672273a11ec3314081774465361a4cb7947ac4d9e75"' \
   'ENABLE_RT_CONTROL' \
   'call_rt_service enable' \
   'call_rt_service disable' \
