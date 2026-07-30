@@ -4,6 +4,53 @@
 `--symlink-install` 增量生效，不必为每次改动重构、导出和上传 Docker 镜像；Docker
 仍是里程碑发布、可追溯回归和同事交付的正式载体。
 
+## 最短使用说明
+
+首次拿到源码后，由 rt-control 负责人执行一次：
+
+```bash
+cd /home/ar/rt-control-dev/robot
+
+git branch --show-current
+git rev-parse --short HEAD
+./tools/bootstrap_native_dev.sh prepare
+./tools/bootstrap_native_dev.sh install-deps
+./tools/bootstrap_native_dev.sh build
+./tools/bootstrap_native_dev.sh doctor
+```
+
+日常只修改一个包时，不再制作镜像：
+
+```bash
+cd /home/ar/rt-control-dev/robot
+
+./tools/bootstrap_native_dev.sh build \
+  --packages-select <包名>
+```
+
+真实硬件普通启动不自动使能：
+
+```bash
+./tools/rt_control_native.sh start
+```
+
+确认现场允许上电后，再单独使能：
+
+```bash
+./tools/rt_control_native.sh enable
+```
+
+联调结束必须有序停止：
+
+```bash
+./tools/rt_control_native.sh stop
+```
+
+如果明确需要一次完成启动和使能，可用
+`./tools/rt_control_native.sh start-and-enable`。不要同时运行原生栈和
+`robot-rt-control-1` Docker 容器；包装器发现容器仍在运行时会直接拒绝启动。以上包装器
+会自行加载 ROS 和原生 overlay，不需要先在终端 source rt-control 的 `install/setup.bash`。
+
 ## 1. 固定目录
 
 ```text
@@ -122,5 +169,5 @@ controller、EtherCAT 和 CANopen 有序退出。脚本不会用 SIGKILL 掩盖�
 锁定镜像。准备联调里程碑或交付同事前仍应执行仓库门禁、干净镜像构建、Mock、发布锁
 更新和分阶段实机验证；不得把一次原生运行结果直接声明为发布镜像验收。
 
-当前提交只完成非 Docker 原生实现和离线检查，尚未在目标机安装依赖、构建、启动或
-使能原生栈。已部署 Docker 版本和 Compose 配置不由本提交修改。
+当前交付只把非 Docker 原生源码放到目标机；尚未安装原生依赖、导入 vendor、构建、
+启动或使能原生栈。已部署 Docker 版本和 Compose 配置不由本交付修改。
