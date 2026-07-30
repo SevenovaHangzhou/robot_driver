@@ -259,12 +259,14 @@ prepare_sources()
 
 source_build_environment()
 {
+  set +u
   # shellcheck disable=SC1091
   source /opt/ros/humble/setup.bash
   if [[ -f "${install_base}/setup.bash" ]]; then
     # shellcheck disable=SC1090
     source "${install_base}/setup.bash"
   fi
+  set -u
   export PATH="/usr/local/etherlab/bin:${PATH}"
   export LD_LIBRARY_PATH="/usr/local/etherlab/lib:${LD_LIBRARY_PATH:-}"
 }

@@ -57,6 +57,13 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn('readonly expected_cpuset="14"', self.text)
         self.assertIn('taskset --cpu-list "${expected_cpuset}"', self.text)
 
+    def test_runtime_sources_ros_setup_without_nounset(self):
+        start = self.text.index("source_runtime_environment()")
+        stop = self.text.index("runtime_env()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
+        self.assertLess(body.index('source "${install_root}/setup.bash"'), body.index("set -u"))
+
 
 class NativeBootstrapContractTest(unittest.TestCase):
     @classmethod
@@ -91,6 +98,13 @@ class NativeBootstrapContractTest(unittest.TestCase):
         self.assertIn('build_base="${workspace_root}/build"', self.text)
         self.assertIn('install_base="${workspace_root}/install"', self.text)
         self.assertIn('log_base="${workspace_root}/log"', self.text)
+
+    def test_bootstrap_sources_ros_setup_without_nounset(self):
+        start = self.text.index("source_build_environment()")
+        stop = self.text.index("dependency_paths()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
+        self.assertLess(body.index("source /opt/ros/humble/setup.bash"), body.index("set -u"))
 
 
 if __name__ == "__main__":

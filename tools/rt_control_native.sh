@@ -64,10 +64,12 @@ source_runtime_environment()
   [[ -f "${install_root}/setup.bash" ]] ||
     fail "native workspace is not built: ${install_root}/setup.bash"
   # These sources only affect this script process and its children.
+  set +u
   # shellcheck disable=SC1091
   source /opt/ros/humble/setup.bash
   # shellcheck disable=SC1090
   source "${install_root}/setup.bash"
+  set -u
   export PATH="/usr/local/etherlab/bin:${PATH}"
   export LD_LIBRARY_PATH="/usr/local/etherlab/lib:${LD_LIBRARY_PATH:-}"
 }
