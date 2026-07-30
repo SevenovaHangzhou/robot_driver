@@ -169,5 +169,11 @@ controller、EtherCAT 和 CANopen 有序退出。脚本不会用 SIGKILL 掩盖�
 锁定镜像。准备联调里程碑或交付同事前仍应执行仓库门禁、干净镜像构建、Mock、发布锁
 更新和分阶段实机验证；不得把一次原生运行结果直接声明为发布镜像验收。
 
-当前交付只把非 Docker 原生源码放到目标机；尚未安装原生依赖、导入 vendor、构建、
-启动或使能原生栈。已部署 Docker 版本和 Compose 配置不由本交付修改。
+截至 2026-07-31，目标工控机 `/home/ar/rt-control-dev/robot` 已切到
+`feature/rt-control-native-development` 的 `a022b1052e9b76480e8e37e4dac8913a81eba392`：
+`prepare` 已幂等导入并验证冻结 vendor/补丁，`install-deps` 报告 rosdep 依赖满足，
+完整 `build` 完成 24 个包，`doctor` 通过。宿主 IgH identity 已补齐到
+`/usr/local/share/rt-control/dependency-versions.env`，与 `versions.env` 的
+`stable-1.6 / 2f7f884f1c7d377c02a7d627eb06512126a0e50e` 一致。
+
+本次仍未启动、复位、使能或运动原生栈；已部署 Docker 版本和 Compose 配置不由本交付修改。
