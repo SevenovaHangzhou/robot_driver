@@ -248,7 +248,11 @@ prepare_sources()
   fi
 
   verify_vendor_heads
-  apply_frozen_patches
+  if (verify_frozen_vendor_trees) >/dev/null 2>&1; then
+    info "frozen patch set is already applied exactly"
+  else
+    apply_frozen_patches
+  fi
   verify_vendor_heads
   verify_frozen_vendor_trees
 }

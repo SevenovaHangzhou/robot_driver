@@ -77,6 +77,15 @@ class NativeBootstrapContractTest(unittest.TestCase):
         self.assertIn('GIT_INDEX_FILE="${actual_index}"', self.text)
         self.assertNotIn("git am", self.text)
 
+        start = self.text.index("prepare_sources()")
+        stop = self.text.index("source_build_environment()", start)
+        body = self.text[start:stop]
+        self.assertIn("if (verify_frozen_vendor_trees)", body)
+        self.assertLess(
+            body.index("if (verify_frozen_vendor_trees)"),
+            body.index("apply_frozen_patches"),
+        )
+
     def test_build_is_incremental_and_kept_outside_the_repository(self):
         self.assertIn("--symlink-install", self.text)
         self.assertIn('build_base="${workspace_root}/build"', self.text)
