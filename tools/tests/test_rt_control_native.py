@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = ROOT / "tools" / "rt_control_native.sh"
 BOOTSTRAP = ROOT / "tools" / "bootstrap_native_dev.sh"
+IGH_INSTALLER = ROOT / "hostsetup" / "igh-install.sh"
 
 
 class NativeLauncherContractTest(unittest.TestCase):
@@ -105,6 +106,22 @@ class NativeBootstrapContractTest(unittest.TestCase):
         body = self.text[start:stop]
         self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
         self.assertLess(body.index("source /opt/ros/humble/setup.bash"), body.index("set -u"))
+
+
+class NativeHostSetupContractTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.installer_text = IGH_INSTALLER.read_text(encoding="utf-8")
+        cls.bootstrap_text = BOOTSTRAP.read_text(encoding="utf-8")
+        cls.launcher_text = LAUNCHER.read_text(encoding="utf-8")
+
+    def test_host_igh_install_writes_the_dependency_identity_used_by_native_checks(self):
+        expected_path = "/usr/local/share/rt-control/dependency-versions.env"
+        self.assertIn(expected_path, self.installer_text)
+        self.assertIn(expected_path, self.bootstrap_text)
+        self.assertIn(expected_path, self.launcher_text)
+        self.assertIn("IGH_VERSION=%s\\nIGH_COMMIT=%s\\n", self.installer_text)
+        self.assertIn('install -d -m 0755 /usr/local/share/rt-control', self.installer_text)
 
 
 if __name__ == "__main__":

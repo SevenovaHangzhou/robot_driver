@@ -181,6 +181,14 @@ install -d -m 0755 /etc/ld.so.conf.d
 printf '%s\n' "${etherlab_prefix}/lib" > /etc/ld.so.conf.d/etherlab.conf
 ldconfig
 
+metadata_tmp="$(mktemp)"
+printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\n' \
+  "${IGH_VERSION}" "${IGH_COMMIT}" > "${metadata_tmp}"
+install -d -m 0755 /usr/local/share/rt-control
+install -o root -g root -m 0644 \
+  "${metadata_tmp}" /usr/local/share/rt-control/dependency-versions.env
+rm -f -- "${metadata_tmp}"
+
 if [[ -e /usr/local/bin/ethercat && ! -L /usr/local/bin/ethercat ]]; then
   echo "refusing to replace existing /usr/local/bin/ethercat" >&2
   exit 1
