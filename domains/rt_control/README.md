@@ -10,6 +10,7 @@ this directory is their single domain-level documentation and governance home.
 - [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
 - [开发进度与联调准入](docs/integration-readiness-summary.md)：当前可用接口、已完成能力、联调边界以及域间契约/安全诊断等剩余任务。
 - [一键启动](docs/one-command-start.md)：当前工控机上启动、自动使能、查看状态/日志和有序停止的最短说明。
+- [原生开发与运行](docs/native-development-workflow.md)：在目标机文件夹中增量编译、启动、显式使能和停止，不必每次重构镜像。
 - [PLC / BMS 同容器集成](docs/plc-bms-integration.md)：精简接口、确认后的 IO 映射、保留位写入、中央配置和发布边界。
 - [PLC / BMS 与一键启动实机验收](docs/plc-bms-commissioning-20260728.md)：关停修复、三路输出逐点开关、无命令使能保持、末态总线和剩余人工观察项。
 - [PLC / BMS 合并与实机交接](docs/plc-bms-merge-hardware-handoff.md)：T-020 基线、提交/镜像锁流程、目标机验证顺序和证据清单。
@@ -46,6 +47,12 @@ Build the in-repository packages with:
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
+
+目标工控机的日常开发使用独立工作区 `/home/ar/rt-control-dev`，由
+[`bootstrap_native_dev.sh`](../../tools/bootstrap_native_dev.sh) 管理冻结依赖和增量构建，
+由 [`rt_control_native.sh`](../../tools/rt_control_native.sh) 管理真实硬件进程。原生运行与
+Docker 运行互斥；Docker 继续作为里程碑发布、回归和交付载体。详见
+[原生开发与运行](docs/native-development-workflow.md)。
 
 Build or expand the rt-control image configuration only after exporting the
 target host's validated isolated CPU set:

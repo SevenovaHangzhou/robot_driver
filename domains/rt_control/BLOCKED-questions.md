@@ -2141,3 +2141,27 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   Launch/config 的无设备 Domain 143 Mock 实扫：`enable_odom_tf=False`；仅 `/wheel/odom` 一个 diff-drive publisher，
   约 50 Hz，frame 为 `odom/base_footprint`；旧两 topic 不存在；6 秒内无任何 `odom` 父 TF；静态
   `base_footprint -> base_link` 保持 `z=0.202094 m`。本结果不是新生产镜像或导航联合验证。
+
+## BQ-128 — 原生开发运行与同机 ROS 2 Domain/DDS 策略 [RESOLVED/HIGH-RISK 2026-07-31]
+
+- Evidence：目标机导航、雷达和感知终端没有永久设置 `ROS_DOMAIN_ID`，因此使用 ROS 2 默认 Domain 0；已部署的
+  rt-control 旧锁显式使用 Domain 42。把导航终端临时切到 Domain 42 后才能发现旧容器接口，但同时让原先不可见的
+  ROS 数据源进入同一 graph。另一次实测证明宿主使用 Fast DDS 默认传输即可发现 host-network/host-IPC 容器，
+  不依赖 UDP-only XML；该 XML 会关闭 shared-memory transport，不适合同时承载 FAST-LIO 点云等高带宽同机链路。
+- User decision：rt-control 原生运行、下一 Docker 镜像以及导航/雷达/感知的正常运行全部使用 Domain 0；开发阶段
+  允许不封镜像，直接在目标机独立文件夹中增量构建和运行。当前提交只交付非 Docker 原生版本，Docker 配置迁移另行提交。
+- Decision：原生包装器显式设置 `ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=0`、
+  `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`，并清除继承的 DDS XML 环境变量，保留 Fast DDS 默认 UDP+共享内存传输。
+  其他域只 source 自己的 workspace，不 source rt-control overlay。原生运行与生产容器互斥，普通 `start` 不 reset、
+  不 enable，只有显式 `enable` 或 `start-and-enable` 才能使能。下一 Docker 镜像统一 Domain 0 的决定继续有效，但不属于
+  本次原生提交的实现范围。
+- Native layout：目标机固定 `/home/ar/rt-control-dev/robot` 工作树，vendor/build/install/log 位于其上级工作区，
+  由 `deps.repos` 完整 SHA 和既有补丁生成。准备流程不得 reset/checkout/clean 已存在的 vendor；依赖 HEAD 或补丁状态
+  不符合冻结事实时 fail closed。Docker 继续作为里程碑发布、回归和同事交付载体。
+- Benefit：同机跨域无需反复给每个终端追加 rt-control DDS 环境，原生 `--symlink-install` 支持包级增量开发；默认
+  shared memory 不再被 rt-control 的低带宽 profile 全局关闭。
+- Drawback（重点）：Domain 0 会让同网段其他 Domain 0 participant 进入发现范围，错误的重复 publisher、TF 所有权
+  或旧 topic 消费者也更容易真正互相影响；原生运行直接依赖宿主 ROS/apt/IgH 状态，隔离、复现和回滚能力弱于锁定镜像。
+  Fast DDS 默认传输在多进程/多容器点云与控制联合负载下的共享内存权限、QoS、吞吐和长稳尚未验收。
+- Verification boundary：原生脚本合同、shell 静态检查和离线质量门禁必须先通过。本裁决不授权目标机安装、构建、
+  启动、总线访问、故障复位或使能；旧目标镜像在独立 Docker 变更完成受控重建/切换前仍是 Domain 42。
