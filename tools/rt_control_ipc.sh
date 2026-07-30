@@ -478,7 +478,7 @@ start_rt_control()
     "READY: rt-control 已启动并完成 /rt/enable。" \
     "FJT: /dual_arm_jtc/follow_joint_trajectory" \
     "底盘: /cmd_vel" \
-    "状态: /joint_states  /diff_drive_controller/odom  /diagnostics" \
+    "状态: /joint_states  /wheel/odom  /diagnostics" \
     "IO: /plc/io_state  /bms/battery_state"
 }
 

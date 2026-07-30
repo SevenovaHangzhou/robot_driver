@@ -10,6 +10,10 @@
 > **T-020 TF 发布边界：** 当前镜像已在目标机发布新 TF 根链，并完成静态
 > `base_footprint → base_link` 和组合 `odom → base_link` 只读复核。
 
+> **待发布接口变更：** 当前源码已把轮速输出改为 `/wheel/odom`，并停止由 rt-control 发布
+> `odom → base_footprint`；该边改由导航唯一发布。目标机锁定镜像切换前仍是旧行为，不得只复制本页名称而忽略实际
+> release SHA。
+
 > **PLC/BMS 发布边界：** 当前镜像已完成 PLC/BMS 读取、三路输出逐点 ON/OFF 和关停复测；一键启动仍会要求
 > `can1` 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、`/bms/battery_state` 有效后再自动使能。
 > 详细证据见 [PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
@@ -94,8 +98,8 @@ READY: rt-control 已启动并完成 /rt/enable。
 | 14 轴轨迹 | `/dual_arm_jtc/follow_joint_trajectory` |
 | 履带速度 | `/cmd_vel` |
 | 关节状态 | `/joint_states` |
-| 里程计 | `/diff_drive_controller/odom` |
-| 动态 TF | `/tf`，`tf2_msgs/msg/TFMessage` |
+| 原始轮速里程计 | `/wheel/odom`（待新锁定镜像发布） |
+| 动态 TF | `/tf`，`tf2_msgs/msg/TFMessage`；rt-control 不发布 `odom → base_footprint` |
 | 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage` |
 | PLC 状态 | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` |
 | BMS 电压/SOC | `/bms/battery_state`，`sensor_msgs/msg/BatteryState` |
@@ -103,8 +107,9 @@ READY: rt-control 已启动并完成 /rt/enable。
 | 诊断 | `/diagnostics` |
 | 手工失能 | `/rt/disable` |
 
-新镜像中的本体链为 `odom → base_footprint → base_link → 本体/传感器连杆`；`map → odom`
-由 perception/定位负责。导航与视觉不得重复发布 rt-control 已拥有的边。
+rt-control 的本体链从 `base_footprint → base_link → 本体/传感器连杆` 开始；导航域发布最终 `/odom` 和唯一动态
+`odom → base_footprint`，`map → odom` 仍由定位侧负责。`/wheel/odom` 是消息 topic，不是 TF frame。导航未启动时
+缺少 `odom → base_footprint` 是预期行为，其他域不得补发重复边。
 
 这些名称当前可用于联调，但域间公共契约尚未冻结。接口类型和限制见
 [开发进度与联调准入](integration-readiness-summary.md)。

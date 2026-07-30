@@ -21,8 +21,9 @@ T-020 TF 根链、PLC/BMS 状态和三路 PLC 输出接口。
 
 ### 状态与生命周期
 
-- 输出关节状态、FJT feedback/result、里程计、导航/视觉共用 TF 和诊断；
-- 新 TF 合同为 `odom → base_footprint → base_link → 本体/传感器连杆`，不再由模型发布 `world → base_link`；
+- 输出关节状态、FJT feedback/result、原始轮速里程计、本体 TF 和诊断；
+- 当前源码由 rt-control 发布 `base_footprint → base_link → 本体/传感器连杆`，不再发布 `world → base_link` 或
+  `odom → base_footprint`；后者和最终 `/odom` 由导航域唯一发布；
 - `/rt/enable`、`/rt/disable`、`/rt/reset_fault` 返回明确的阶段、失败批次、关节和
   原始 statusword；
 - 正常退出会先失能并释放 EtherCAT，再清理 CANopen，避免粗暴释放主站；
@@ -47,17 +48,17 @@ T-020 TF 根链、PLC/BMS 状态和三路 PLC 输出接口。
 | motion → rt-control | `/cmd_vel`，`geometry_msgs/msg/Twist` | 履带线速度/角速度 | 0.5 s 无命令超时；只能有一个有效 publisher |
 | 运维 → rt-control | `/rt/enable`、`/rt/disable`、`/rt/reset_fault`，`robot_interfaces/srv/RtEnable` | 14 个 EtherCAT 轴整组生命周期 | 不得当作急停；履带不受 `/rt/enable` 门控 |
 | rt-control → motion/状态消费者 | `/joint_states`，`sensor_msgs/msg/JointState` | 14 个 EtherCAT 轴和两条履带的控制状态 | 当前约 50 Hz；接口集合需要公共契约再次确认 |
-| rt-control → motion/Nav2 | `/diff_drive_controller/odom`，`nav_msgs/msg/Odometry` | 履带里程计 | 约 50 Hz；`header.frame_id=odom`，新 `child_frame_id=base_footprint` |
-| rt-control → 导航/视觉 | `/tf`，`tf2_msgs/msg/TFMessage` | diff-drive 发布 `odom → base_footprint`；RSP 发布活动关节边 | 底盘边约 50 Hz，RSP 上限 50 Hz；同一边只允许一个发布者 |
+| rt-control → motion/Nav2 | `/wheel/odom`，`nav_msgs/msg/Odometry` | 原始履带轮速里程计 | 约 50 Hz；`header.frame_id=odom`，`child_frame_id=base_footprint`；无旧 topic 别名 |
+| rt-control → 导航/视觉 | `/tf`，`tf2_msgs/msg/TFMessage` | RSP 只发布活动本体关节边；不发布 `odom → base_footprint` | RSP 上限 50 Hz；导航域必须成为该动态边唯一发布者 |
 | rt-control → 导航/视觉 | `/tf_static`，`tf2_msgs/msg/TFMessage` | RSP 发布 `base_footprint → base_link` 和固定本体/传感器边 | transient-local 静态树；`map → odom` 仍由 perception/定位负责 |
 | rt-control → 运维/上层 | `/diagnostics`，`diagnostic_msgs/msg/DiagnosticArray` | EtherCAT、CANopen、使能和故障状态 | 当前约 1 Hz、多发布者；按 `status.name` 读取，结构尚未冻结 |
 | rt-control → 状态消费者 | `/bms/battery_state`，`sensor_msgs/msg/BatteryState` | BMS 电压、SOC 和有效性 | 约 0.2 Hz；超过 3 秒未收到 `0x3FC` 时发布无效状态 |
 | rt-control → 状态消费者 | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` | PLC 连接、新鲜度、真空、输出和报警 | 约 2 Hz；必须同时检查 `connected` 和 `data_fresh` |
 | 运维/上层 → rt-control | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump`，`std_srvs/srv/SetBool` | 单路输出开关并等待命令/实际位一致 | 当前工程接口；不得绕开它直接写 PLC 寄存器 |
 
-兼容性注意：TF 客户端仍可直接查询组合后的 `odom → base_link`，但它不再是一条直接边。
-任何依赖 `/diff_drive_controller/odom.child_frame_id == base_link`、`world` frame 或重复发布本体
-TF 的节点都必须迁移；否则会重新制造多父树或产生坐标语义不一致。
+兼容性注意：订阅旧 `/diff_drive_controller/odom` 的节点必须改到 `/wheel/odom`。只启动 rt-control 时不能查询
+`odom → base_link`，因为导航尚未提供 `odom → base_footprint`；联合启动后才可通过该边与 RSP 本体树组合查询。
+依赖旧 topic、`world` frame 或重复发布本体/odom 边的节点都必须迁移，否则会制造多权威或坐标跳变。
 
 `/controller_manager/*`、`/dynamic_joint_states`、PDO/SDO、裸 CAN 帧和驱动内部状态
 接口不属于跨域契约，其他域不得直接依赖。gateway、autonomy 和 perception 也不应绕过

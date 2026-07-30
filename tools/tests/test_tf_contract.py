@@ -47,14 +47,21 @@ class TfContractTest(unittest.TestCase):
         ]
         self.assertEqual(base_parents, ["base_footprint"])
 
-    def test_diff_drive_publishes_odom_to_base_footprint_at_50_hz(self):
+    def test_diff_drive_publishes_raw_wheel_odom_without_owning_odom_tf(self):
         config = yaml.safe_load(CONTROLLERS.read_text(encoding="utf-8"))
         params = config["diff_drive_controller"]["ros__parameters"]
+        launch_text = BRINGUP_LAUNCH.read_text(encoding="utf-8")
 
         self.assertEqual(params["odom_frame_id"], "odom")
         self.assertEqual(params["base_frame_id"], "base_footprint")
-        self.assertIs(params["enable_odom_tf"], True)
+        self.assertIs(params["enable_odom_tf"], False)
         self.assertEqual(params["publish_rate"], 50.0)
+        self.assertIn(
+            '("/diff_drive_controller/odom", "/wheel/odom")', launch_text
+        )
+        self.assertNotIn(
+            '("/diff_drive_controller/odom", "/odom")', launch_text
+        )
 
     def test_bringup_owns_rsp_and_image_asserts_it_is_installed(self):
         launch_text = BRINGUP_LAUNCH.read_text(encoding="utf-8")

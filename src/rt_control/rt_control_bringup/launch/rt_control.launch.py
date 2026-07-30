@@ -49,6 +49,7 @@ def generate_launch_description():
         parameters=[robot_description, controllers_file, {"use_sim_time": use_sim_time}],
         remappings=[
             ("/diff_drive_controller/cmd_vel_unstamped", "/cmd_vel"),
+            ("/diff_drive_controller/odom", "/wheel/odom"),
         ],
     )
     state_publisher = Node(

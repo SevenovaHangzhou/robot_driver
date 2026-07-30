@@ -1,10 +1,10 @@
 # rt-control 后续修改计划
 
-状态：**实施中；恢复入口已进入源码，尚未构建发布镜像或实机验收**
+状态：**两项修改均已进入源码，尚未构建发布镜像或完成目标机验收**
 
 记录日期：2026-07-29
 
-本文记录后续修改范围、约束、实现状态和验收方向。当前目标工控机仍运行修改前的锁定镜像；本文所述恢复入口尚未部署到生产 release，也未执行掉电—复电实机测试。
+本文记录后续修改范围、约束、实现状态和验收方向。当前目标工控机仍运行修改前的锁定镜像；本文两项修改均尚未部署到生产 release，恢复入口也未执行掉电—复电实机测试。
 
 ## 1. 主接触器急停断电后的交互式恢复入口
 
@@ -69,7 +69,7 @@
 `/wheel/odom` 只是 `nav_msgs/msg/Odometry` topic 名称，不是 TF frame 名称。rt-control 同时停止发布动态
 `odom -> base_footprint` TF；导航域成为最终 `/odom` 里程计数据和 `odom -> base_footprint` TF 的唯一发布者。
 
-本项当前仍只记录，尚未修改 Launch、控制器配置、文档消费者或镜像。
+本项已修改当前源码中的 Launch、控制器配置和活动接口文档，但尚未构建/部署新的锁定镜像，导航域也尚未联合启动验证。
 
 ### 2.2 当前实机证据与不一致
 
@@ -106,9 +106,18 @@
 `/wheel/odom`。导航未启动或启动失败时，TF 树将有意缺少 `odom -> base_footprint`，此时依赖 odom 连通性的导航、可视化
 和感知消费者不可用，不能由 rt-control 自动补发一个备用 TF。
 
+### 2.5 当前源码实现状态
+
+- diff-drive 配置已设 `enable_odom_tf: false`；Launch 将其 odometry 发布端显式 remap 到 `/wheel/odom`。
+- 无设备 Mock 实扫只有 `/wheel/odom` 一个发布者，消息 frame 保持 `odom/base_footprint`，频率约 50 Hz；旧
+  `/diff_drive_controller/odom` 与 `/odom` 均不存在。
+- 同一 Mock 在 6 秒过滤观察内没有 `odom` 父 TF；RSP 的静态 `base_footprint -> base_link` 仍为
+  `z=0.202094 m`。
+- 目标机当前锁定镜像尚未切换；导航域的 `/odom` 和唯一 `odom -> base_footprint` 仍需在联合联调中验证。
+
 ## 3. 当前状态
 
 | 项目 | 状态 | 当前运行版本是否包含 |
 | --- | --- | --- |
 | 主接触器掉电恢复入口 | 源码已实现，待镜像和实机掉电—复电验收 | 否 |
-| `/wheel/odom` topic 与 `odom` TF 所有权移交 | 已记录，待与导航域联合实现和验证 | 否 |
+| `/wheel/odom` topic 与 `odom` TF 所有权移交 | 源码和无设备 Mock 已完成，待镜像部署和导航联合验证 | 否 |

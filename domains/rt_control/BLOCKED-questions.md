@@ -2046,6 +2046,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   需要迁移。RSP 与 TF 可用性继续跟随 rt-control 容器生命周期，目标机必须重建并部署新镜像后才会生效。
 - Verification boundary：源码合同测试、Xacro 展开、`check_urdf`、受影响包构建以及复用生产基座镜像的无设备 Mock
   已验证两话题类型、三段查询和运行消息边集合，且不存在 `world`。这不是目标机生产镜像部署或带电实机验证。
+- 2026-07-30 supersession：BQ-127 仅取代本条中“由 rt-control/diff-drive 发布
+  `odom -> base_footprint`”的所有权裁决；`base_footprint` 根、固定 `base_footprint -> base_link` 和无 `world`
+  的本体模型裁决继续有效。
 
 ## BQ-124 — PLC/BMS 最小接口、写所有权与临时 CPU 放置 [RESOLVED 2026-07-28]
 
@@ -2119,3 +2122,22 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   `0x0021` 仍是 BQ-115 的高风险硬件兼容例外，脚本不会消除 master release 后 `0x7500` 的驱动侧原因。
 - Verification boundary：源码合同和离线检查不授权主接触器操作。首次真实掉电—复电必须另行 L3 授权并记录旧
   disable 结果、容器/master 末态、reset 前后 14 轴状态、enable 结果和失败清理路径。
+
+## BQ-127 — 原始轮速里程计名称与 odom TF 跨域所有权 [RESOLVED 2026-07-30]
+
+- Evidence：修改前 rt-control 的 diff-drive 唯一发布 `/diff_drive_controller/odom`，消息内部为
+  `odom/base_footprint`，并以 50 Hz 发布动态 `odom -> base_footprint`。目标机并不存在 `/odom` topic。导航域计划
+  发布融合后的最终 `/odom`，若两域同时发布同名动态 TF 边会产生多权威、跳变和不可确定查询。
+- User decision：rt-control 原始轮速 topic 改为 `/wheel/odom`；同时从 rt-control TF 树移除
+  `odom -> base_footprint`，该边和最终 `/odom` 由导航域发布。
+- Decision：diff-drive 保留消息内 `header.frame_id=odom`、`child_frame_id=base_footprint` 和 50 Hz 语义，但发布端
+  显式 remap 为唯一 `/wheel/odom`，不保留 `/diff_drive_controller/odom` 或 `/odom` 别名；设置
+  `enable_odom_tf=false`。RSP 继续唯一发布 `base_footprint -> base_link -> 本体/传感器`，不得把 topic 名
+  `wheel/odom` 建成 TF frame。该裁决取代 BQ-123 的 diff-drive 动态 TF 所有权部分，不改变其本体根链。
+- Benefit：原始轮速与导航融合结果在名称和发布者上明确分层，消除两个域争用同一动态 TF 边的风险。
+- Drawback（重点）：只启动 rt-control 时 TF 树有意缺少 `odom -> base_footprint`，因此不能查询组合后的
+  `odom -> base_link`；旧 topic 消费者必须迁移，导航域未启动时不能由 rt-control 自动回退补边。
+- Verification：测试先行先复现旧 `enable_odom_tf=true`；修正后源码合同通过。复用已验收生产基座、只读挂载新
+  Launch/config 的无设备 Domain 143 Mock 实扫：`enable_odom_tf=False`；仅 `/wheel/odom` 一个 diff-drive publisher，
+  约 50 Hz，frame 为 `odom/base_footprint`；旧两 topic 不存在；6 秒内无任何 `odom` 父 TF；静态
+  `base_footprint -> base_link` 保持 `z=0.202094 m`。本结果不是新生产镜像或导航联合验证。

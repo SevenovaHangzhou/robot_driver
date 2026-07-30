@@ -29,6 +29,9 @@
 只读复核、IO 逐点测试和一键 start→READY→stop；原始证据见
 [PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
 
+> 后续源码已把原始轮速输出改为 `/wheel/odom`，并把 `odom → base_footprint` 所有权移交导航域；本页表格和性能
+> 数值仍描述上表已部署旧镜像，不能当作新接口已在目标机生效的证据。
+
 ## 2. Docker 内实现了什么
 
 ```mermaid

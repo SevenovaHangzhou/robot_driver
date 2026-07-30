@@ -15,7 +15,7 @@ this directory is their single domain-level documentation and governance home.
 - [PLC / BMS 合并与实机交接](docs/plc-bms-merge-hardware-handoff.md)：T-020 基线、提交/镜像锁流程、目标机验证顺序和证据清单。
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
-- [后续修改计划](docs/follow-up-modification-plan.md)：主接触器急停掉电恢复入口和轮速里程计 `/wheel/odom` 命名调整；恢复入口已进入源码，生产镜像和实机验收尚未完成。
+- [后续修改计划](docs/follow-up-modification-plan.md)：主接触器急停掉电恢复入口和 `/wheel/odom`/TF 所有权调整；两项均已进入源码，生产镜像与联合/实机验收尚未完成。
 - [XMC SW 5.11 固定 PDO 映射](docs/xmc-updown-sw511-fixed-pdo.md)：Updown 从站身份、19/24-byte 固定 PDO、启动 SDO、单位换算、XML 差异和实机门禁。
 - [XMC 首次整组使能记录](docs/xmc-updown-enable-commissioning-20260727.md)：14 轴 reset/enable/disable 实机结果，以及 WC 增长和联合退出段错误阻塞项。
 - [CANopen 有序清理与 EtherCAT 同步容忍复测](docs/canopen-shutdown-sync-tolerance-commissioning-20260727.md)：`0x10F1:02=250` 首镜像门禁、三轮联合退出、BQ-119/BQ-122 闭环和剩余风险。
