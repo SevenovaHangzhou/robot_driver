@@ -2099,3 +2099,23 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Verification/release boundary：合同测试必须逐项锁定上述父子关系和精确变换，同时防止旧控制关节名和 `0.92 m` 限位
   回流；Xacro、`check_urdf`、共享包构建、仓库门禁和无设备运行 TF 查询通过后才能构建镜像。当前带电容器不会被原地
   改写；生产切换仍需单独执行有序失能/停止、更新锁定镜像并验证 `/tf_static`，不能热改安装空间。
+
+## BQ-126 — 主接触器掉电恢复计划的 literal 0x0040 与 Ti5 冻结例外冲突 [RESOLVED 2026-07-30]
+
+- Evidence：已批准的恢复计划原写为 reset 后“14 轴均为 `0x0040`”，但 BQ-115 已根据协议手册、PDO/SDO
+  和实机结果冻结：`right_joint2/right_joint3/left_joint2/left_joint3` 四个 Ti5 在标准 controlword
+  `0x0000` 下保持 `Ready To Switch On (0x0021)`，并被限定接受为非激磁终态；其余轴严格要求 `0x0040`。
+- Conflict：照字面要求 14 个 `0x0040` 会让现场已知正常的四个 Ti5 永远无法通过恢复入口；反过来把 `0x0021`
+  放宽到所有轴会推翻 REQ-SAFE-002/BQ-115 的轴级边界。
+- Decision：恢复入口必须沿用 BQ-115：其余 10 轴以 `statusword & 0x004F == 0x0040` 为唯一通过条件；仅四个
+  指定 Ti5 额外接受 `statusword & 0x006F == 0x0021`。enable 后不设例外，14 轴都必须满足
+  `statusword & 0x006F == 0x0027`。状态来自现有 `/dynamic_joint_states`，不增加 ROS 包或常驻节点。
+- Recovery policy：专用 `recover-power-loss` 先最佳努力 disable 并销毁旧控制会话，确认 EtherCAT master
+  Idle/Inactive 后要求现场复电授权；新会话稳定后只调用一次 group reset 和一次 enable。普通 start 不 reset，任一步
+  失败不循环请求，并清理本次新会话。
+- Benefit：不让旧 JTC/PDO/预装载跨越硬件掉电，同时以逐轴真实状态而不是 service `ok` 单独作为准入证据；严格保留
+  Ti5 例外的轴级范围。
+- Drawback（重点）：这是人工恢复而非急停检测/STO；掉电期间无法确认 drive 收到软件 disable。四个 Ti5 的
+  `0x0021` 仍是 BQ-115 的高风险硬件兼容例外，脚本不会消除 master release 后 `0x7500` 的驱动侧原因。
+- Verification boundary：源码合同和离线检查不授权主接触器操作。首次真实掉电—复电必须另行 L3 授权并记录旧
+  disable 结果、容器/master 末态、reset 前后 14 轴状态、enable 结果和失败清理路径。

@@ -17,6 +17,7 @@ readonly container_name="robot-rt-control-1"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 compose_wrapper="${script_dir}/rt_control_compose.sh"
+axis_state_checker="${script_dir}/rt_control_axis_state_check.py"
 temporary_directory=""
 startup_started=0
 startup_complete=0
@@ -53,7 +54,7 @@ call_rt_service()
 {
   local operation="$1"
   case "${operation}" in
-    enable|disable) ;;
+    enable|disable|reset_fault) ;;
     *) fail "unsupported lifecycle operation: ${operation}" ;;
   esac
   run_ros2_timeout 40 \
@@ -148,12 +149,15 @@ verify_rt_host_configuration()
 verify_release_identity()
 {
   [[ -x "${compose_wrapper}" ]] || fail "缺少 Compose 包装器 ${compose_wrapper}。"
+  [[ -f "${axis_state_checker}" ]] || fail "缺少状态字检查器 ${axis_state_checker}。"
   [[ -f "${runtime_root}/docker/compose.yaml" ]] ||
     fail "缺少已验证运行副本 ${runtime_root}。"
   [[ "$(basename -- "$(dirname -- "${runtime_root}")")" == "${runtime_sha}" ]] ||
     fail "运行副本目录与锁定 SHA 不一致。"
 
   command -v docker >/dev/null 2>&1 || fail "缺少命令 docker。"
+  command -v python3 >/dev/null 2>&1 || fail "缺少命令 python3。"
+  python3 -c 'import yaml' >/dev/null 2>&1 || fail "缺少 Python yaml 模块。"
   sudo -v
 }
 
@@ -259,6 +263,19 @@ confirm_hardware_authorization()
   [[ "${answer}" == "ENABLE_RT_CONTROL" ]] || fail "未获得现场使能确认。"
 }
 
+confirm_power_loss_recovery_authorization()
+{
+  local answer
+  [[ -t 0 && -r /dev/tty ]] || fail "掉电恢复必须在现场交互终端运行。"
+  printf '%s\n' \
+    "旧控制会话已停止，EtherCAT 主站已释放。" \
+    "确认：主接触器已恢复；实体急停可用；14 轴和履带运动范围内无人、无障碍；当前允许复位并使能执行器。" \
+    "本流程将只调用一次 /rt/reset_fault 和一次 /rt/enable，不会自动重试。" \
+    "输入 RECOVER_RT_CONTROL 继续：" > /dev/tty
+  IFS= read -r answer < /dev/tty
+  [[ "${answer}" == "RECOVER_RT_CONTROL" ]] || fail "未获得现场掉电恢复确认。"
+}
+
 wait_for_enable_service()
 {
   local deadline=$((SECONDS + 120))
@@ -275,6 +292,29 @@ wait_for_enable_service()
     sleep 2
   done
   fail "120 秒内未发现 /rt/enable。"
+}
+
+wait_for_enable_manager_reset_ready()
+{
+  local deadline=$((SECONDS + 120))
+  local snapshot
+  while (( SECONDS < deadline )); do
+    snapshot="$(run_ros2_timeout 8 \
+      "ros2 topic echo --once /diagnostics diagnostic_msgs/msg/DiagnosticArray --filter \"any(s.name == '/robot/rt_control/enable_manager' for s in m.status)\"" \
+      2>/dev/null || true)"
+    if grep -Fq 'value: IDLE' <<< "${snapshot}"; then
+      return
+    fi
+    if grep -Fq 'value: FAILED' <<< "${snapshot}"; then
+      if grep -Fq 'value: fault_requires_reset' <<< "${snapshot}"; then
+        return
+      fi
+      printf '%s\n' "${snapshot}" >&2
+      fail "enable_manager 以非 Fault-reset 阶段失败，拒绝用 reset 掩盖原始故障。"
+    fi
+    sleep 1
+  done
+  fail "120 秒内 enable_manager 未进入 IDLE 或 fault_requires_reset。"
 }
 
 strip_ansi()
@@ -333,6 +373,50 @@ verify_rt_io_ready()
     fail "BMS SOC 无有效数值。"
 }
 
+verify_controllers_before_enable()
+{
+  local controller_output
+  controller_output="$(run_ros2_timeout 15 'ros2 control list_controllers' | strip_ansi)"
+  grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" ||
+    fail "joint_state_broadcaster 未 active。"
+  grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" ||
+    fail "diff_drive_controller 未 active。"
+  grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
+    fail "enable_manager 未 active。"
+  grep -Eq '^dual_arm_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
+    fail "使能前 dual_arm_jtc 不是 inactive。"
+}
+
+check_axis_states()
+{
+  local expected="$1"
+  local snapshot
+  snapshot="$(run_ros2_timeout 15 \
+    'ros2 topic echo --once /dynamic_joint_states control_msgs/msg/DynamicJointState')" ||
+    fail "未收到 /dynamic_joint_states，无法确认 ${expected} 状态字。"
+  if ! printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
+    fail "14 轴 ${expected} 状态字合同不满足。"
+  fi
+}
+
+wait_for_stopped_container_and_idle_master()
+{
+  local deadline=$((SECONDS + 20))
+  local container_state
+  local master_output
+  while (( SECONDS < deadline )); do
+    container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
+    master_output="$(sudo ethercat master 2>/dev/null || true)"
+    if [[ "${container_state}" != "running" ]] &&
+      grep -Fq 'Phase: Idle' <<< "${master_output}" &&
+      grep -Fq 'Active: no' <<< "${master_output}"; then
+      return
+    fi
+    sleep 1
+  done
+  fail "20 秒内未确认旧容器退出且 EtherCAT master Idle/Inactive。"
+}
+
 start_rt_control()
 {
   local existing_state
@@ -362,15 +446,7 @@ start_rt_control()
   compose up -d --no-build rt-control
   wait_for_enable_service
 
-  controller_output="$(run_ros2_timeout 15 'ros2 control list_controllers' | strip_ansi)"
-  grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" ||
-    fail "joint_state_broadcaster 未 active。"
-  grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" ||
-    fail "diff_drive_controller 未 active。"
-  grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
-    fail "enable_manager 未 active。"
-  grep -Eq '^dual_arm_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
-    fail "自动使能前 dual_arm_jtc 不是 inactive。"
+  verify_controllers_before_enable
   verify_operational_ethercat
   verify_canopen_operational_heartbeats
   verify_rt_io_ready
@@ -404,6 +480,80 @@ start_rt_control()
     "底盘: /cmd_vel" \
     "状态: /joint_states  /diff_drive_controller/odom  /diagnostics" \
     "IO: /plc/io_state  /bms/battery_state"
+}
+
+recover_power_loss()
+{
+  local container_state
+  local disable_response
+  local reset_response
+  local enable_response
+  local controller_output
+
+  trap on_start_exit EXIT INT TERM
+  info "检查当前工控机和锁定运行版本。"
+  verify_target_identity
+  verify_rt_host_configuration
+  verify_release_identity
+  verify_runtime_image
+  verify_start_dependencies
+
+  container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
+  if [[ "${container_state}" == "running" ]]; then
+    info "对旧控制会话最佳努力调用 /rt/disable；掉电导致失败时只记录，不伪报成功。"
+    if disable_response="$(call_rt_service disable)"; then
+      printf '%s\n' "${disable_response}"
+      if ! grep -Fq 'ok=True' <<< "${disable_response}"; then
+        info "WARN: 旧会话 /rt/disable 未确认成功；继续销毁旧控制会话。"
+      fi
+    else
+      info "WARN: 旧会话 /rt/disable 不可用；继续销毁旧控制会话。"
+    fi
+  else
+    info "旧 rt-control 容器未运行，无可调用的 /rt/disable。"
+  fi
+
+  info "停止旧容器并确认 EtherCAT 主站已释放。"
+  compose stop rt-control
+  wait_for_stopped_container_and_idle_master
+  confirm_power_loss_recovery_authorization
+
+  info "复电确认完成；重新核对现场总线后启动全新控制会话。"
+  verify_idle_bus_inputs
+  startup_started=1
+  compose up -d --no-build rt-control
+  wait_for_enable_service
+  verify_controllers_before_enable
+  verify_operational_ethercat
+  verify_canopen_operational_heartbeats
+  verify_rt_io_ready
+  wait_for_enable_manager_reset_ready
+
+  info "调用一次全组 /rt/reset_fault。"
+  reset_response="$(call_rt_service reset_fault)"
+  printf '%s\n' "${reset_response}"
+  grep -Fq 'ok=True' <<< "${reset_response}" || fail "/rt/reset_fault 返回失败。"
+  grep -Eq "stage='(success|already_clear)'" <<< "${reset_response}" ||
+    fail "/rt/reset_fault 未返回 success/already_clear。"
+  check_axis_states disabled
+
+  info "调用一次 /rt/enable。"
+  enable_response="$(call_rt_service enable)"
+  printf '%s\n' "${enable_response}"
+  grep -Fq 'ok=True' <<< "${enable_response}" || fail "/rt/enable 返回失败。"
+  grep -Eq "stage='(success|already_enabled)'" <<< "${enable_response}" ||
+    fail "/rt/enable 未返回成功阶段。"
+  check_axis_states enabled
+
+  controller_output="$(run_ros2_timeout 15 'ros2 control list_controllers' | strip_ansi)"
+  grep -Eq '^dual_arm_jtc[[:space:]].*active' <<< "${controller_output}" ||
+    fail "/rt/enable 后 dual_arm_jtc 未 active。"
+  verify_operational_ethercat
+
+  startup_complete=1
+  cleanup_temporary_directory
+  trap - EXIT INT TERM
+  info "RECOVERED: 新控制会话已通过一次 reset、逐轴状态确认和一次 enable。"
 }
 
 status_rt_control()
@@ -486,8 +636,11 @@ print_help()
   ./tools/rt_control_ipc.sh status   查看容器、EtherCAT、CANopen/BMS 和 controller 状态
   ./tools/rt_control_ipc.sh logs     持续查看最近 200 行日志
   ./tools/rt_control_ipc.sh stop     /rt/disable 后有序停止 rt-control
+  ./tools/rt_control_ipc.sh recover-power-loss
+                                      主接触器急停掉电后的交互式全新会话恢复
 
 start 必须在现场交互终端输入 ENABLE_RT_CONTROL；不提供自动 fault reset。
+recover-power-loss 必须输入 RECOVER_RT_CONTROL；只在该显式流程调用一次 fault reset。
 EOF
 }
 
@@ -496,6 +649,7 @@ case "${1:-start}" in
   status) status_rt_control ;;
   logs) logs_rt_control ;;
   stop) stop_rt_control ;;
+  recover-power-loss) recover_power_loss ;;
   help|-h|--help) print_help ;;
   *) print_help >&2; exit 2 ;;
 esac

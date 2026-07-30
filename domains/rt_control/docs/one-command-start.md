@@ -46,7 +46,23 @@ READY: rt-control 已启动并完成 /rt/enable。
 6. 自动调用 `/rt/enable`，确认 JTC active、EtherCAT OP 和 `/joint_states` 有数据。
 
 如果任一步失败，脚本返回 `FAIL`；只要容器已经开始启动，它会尝试先调用
-`/rt/disable`，再有序停止 rt-control。脚本**不会自动调用 `/rt/reset_fault`**。
+`/rt/disable`，再有序停止 rt-control。普通启动路径**不会自动调用 `/rt/reset_fault`**。
+
+## 主接触器急停掉电后的恢复
+
+仅在主接触器已经重新上电、现场安全条件重新成立后运行：
+
+```bash
+./tools/rt_control_ipc.sh recover-power-loss
+```
+
+脚本先对旧会话最佳努力失能并销毁旧容器，确认 EtherCAT master 已经 Idle/Inactive，随后才要求输入
+`RECOVER_RT_CONTROL`。确认后它会启动全新会话，等待总线/controller 稳定，只调用一次全组
+`/rt/reset_fault`，逐轴确认非激磁状态，再只调用一次 `/rt/enable` 并确认 14 轴 Operation Enabled 和 JTC active。
+
+四个 Ti5 按 BQ-115 允许在标准 `0x0000` 下以 `Ready To Switch On (0x0021)` 作为已确认非激磁终态；其余
+10 轴严格要求 `Switch On Disabled (0x0040)`。任一步失败都会停止并清理新会话，不循环 reset/enable。
+该命令不是急停检测、STO 或自动复电功能；当前修改尚未进入目标机锁定镜像，完成发布和单独实机验收前不要使用。
 
 ## 联调同事常用的另外三条命令
 

@@ -22,6 +22,9 @@ for required in \
   'ENABLE_RT_CONTROL' \
   'call_rt_service enable' \
   'call_rt_service disable' \
+  'call_rt_service reset_fault' \
+  'recover-power-loss) recover_power_loss' \
+  'RECOVER_RT_CONTROL' \
   'compose up -d --no-build rt-control' \
   'compose stop rt-control' \
   'rt-control-can-names.service can0.service can1.service' \
@@ -33,9 +36,6 @@ do
   grep -Fq -- "${required}" "${launcher}" || fail "launcher policy is missing: ${required}"
 done
 
-if grep -Fq '/rt/reset_fault' "${launcher}"; then
-  fail "one-command integration launcher must never reset faults automatically"
-fi
 if grep -Eq '(^|[[:space:]])docker[[:space:]]+compose' "${launcher}"; then
   fail "launcher must call the approved Compose wrapper"
 fi
@@ -56,13 +56,15 @@ from pathlib import Path
 text = Path(sys.argv[1]).read_text(encoding="utf-8")
 
 start_begin = text.index("start_rt_control()")
-start_end = text.index("status_rt_control()", start_begin)
+start_end = text.index("recover_power_loss()", start_begin)
 start = text[start_begin:start_end]
 confirm = start.index("confirm_hardware_authorization")
 compose_up = start.index("compose up -d --no-build rt-control")
 enable = start.index("call_rt_service enable")
 if not confirm < compose_up < enable:
     raise SystemExit("hardware confirmation must precede container start and automatic enable")
+if "call_rt_service reset_fault" in start:
+    raise SystemExit("ordinary one-command start must never reset faults automatically")
 
 cleanup_begin = text.index("on_start_exit()")
 cleanup_end = text.index("verify_target_identity()", cleanup_begin)
@@ -75,6 +77,23 @@ stop_end = text.index("print_help()", stop_begin)
 stop = text[stop_begin:stop_end]
 if not stop.index("call_rt_service disable") < stop.index("compose stop rt-control"):
     raise SystemExit("normal stop must disable before stopping the container")
+
+recovery_begin = text.index("recover_power_loss()")
+recovery_end = text.index("status_rt_control()", recovery_begin)
+recovery = text[recovery_begin:recovery_end]
+ordered_recovery = (
+    "call_rt_service disable",
+    "compose stop rt-control",
+    "confirm_power_loss_recovery_authorization",
+    "compose up -d --no-build rt-control",
+    "call_rt_service reset_fault",
+    "check_axis_states disabled",
+    "call_rt_service enable",
+    "check_axis_states enabled",
+)
+offsets = [recovery.index(item) for item in ordered_recovery]
+if offsets != sorted(offsets):
+    raise SystemExit("power-loss recovery sequence violates the frozen order")
 PY
 
 echo "PASS: current-IPC launcher is identity locked, confirmation gated and fail-closed"

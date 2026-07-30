@@ -412,6 +412,18 @@ tools/rt_control_compose.sh logs -f rt-control
 
 启动后 enable manager 先进入 `STARTUP_SANITIZING`，不保证直接到 `IDLE`。BQ-115 记录的四个 Ti5 在上次 master release 后通常会以 `0x7500` Fault 出现；应先等待 sanitize 到达稳定的 `FAILED`，确认没有新的物理故障，再按受控流程显式 `/rt/reset_fault`。软件不得自动复位或隐藏该例外。
 
+主接触器急停让执行器掉电、但工控机和旧容器仍在线时，不要反复运行普通一键启动。发布包含该功能的锁定 release
+后，应在主接触器恢复且现场条件重新确认时使用：
+
+```bash
+cd ~/rt-control-current
+./tools/rt_control_ipc.sh recover-power-loss
+```
+
+该入口按“旧会话最佳努力 disable → 销毁旧容器并确认 master Idle/Inactive → 人工复电确认 → 新会话 → 一次
+reset → 逐轴非激磁状态检查 → 一次 enable”执行。四个 Ti5 的 `0x0021` 例外严格限于 BQ-115 指定轴；其余 10
+轴仍要求 `0x0040`。任何失败都不得循环 reset/enable。该流程的首次掉电—复电测试仍属于单独 L3 实机授权。
+
 ### 9.2 进入 ROS 运维 shell
 
 `docker exec` 不会继承 PID 1 shell 中的 source，需要手动执行：
