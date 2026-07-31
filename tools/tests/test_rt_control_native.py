@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = ROOT / "tools" / "rt_control_native.sh"
 BOOTSTRAP = ROOT / "tools" / "bootstrap_native_dev.sh"
 IGH_INSTALLER = ROOT / "hostsetup" / "igh-install.sh"
+SIGNAL_GATE = ROOT / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
 
 
 class NativeLauncherContractTest(unittest.TestCase):
@@ -64,6 +65,12 @@ class NativeLauncherContractTest(unittest.TestCase):
         body = self.text[start:stop]
         self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
         self.assertLess(body.index('source "${install_root}/setup.bash"'), body.index("set -u"))
+
+    def test_symlink_install_signal_gate_source_is_executable(self):
+        self.assertTrue(
+            SIGNAL_GATE.stat().st_mode & 0o111,
+            "rt_control_start must be executable because native symlink-install points to it",
+        )
 
 
 class NativeBootstrapContractTest(unittest.TestCase):
