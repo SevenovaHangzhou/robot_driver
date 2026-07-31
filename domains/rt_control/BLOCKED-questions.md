@@ -1986,6 +1986,13 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   拒绝使能。该方案依赖 `taskset`/`sched_setaffinity` 语义，禁止替换为 cgroup cpuset 或 systemd
   `CPUAffinity=` 实现。RT throttling 二次触发不再依赖 `dmesg`，需用 kprobe/bpftrace 或 “FIFO80 约 95% CPU +
   1 秒节律超时”症状判断。该裁决新增调度拓扑风险控制，不关闭既有物理链路根因和 30 分钟零增量门禁。
+- 2026-07-31 target smoke after corrective：目标机源码快进到 `98e9d12`，`ec_master` 重载后
+  `/sys/module/ec_master/parameters/run_on_cpu=14`。native `start` 证明外层进程树在 housekeeping CPUs，唯一
+  FIFO80 update 线程 `PSR=14`，`EtherCAT-OP PSR=14`；第二次全组 `/rt/reset_fault` 成功后 `/rt/enable`
+  成功，14 轴 enabled 契约通过，`rt_control_native.sh stop` 有序 `/rt/disable` 并退出，最终 EtherCAT
+  Idle/Inactive、16 从站 PREOP、can0/can1 ERROR-ACTIVE 且 CAN error counters 为 0。Limit：启动阶段仍出现
+  transient SDO read-only PDO-mapping warning 和 `0x001B Sync manager watchdog` 恢复消息，之后进入稳定 OP；
+  因此该 smoke 只证明单次 enable/disable 可用，不关闭 BQ-120 的启动瞬态、物理链路和长时间导航负载根因。
 
 ## BQ-122 — 完整栈退出时 CANopen 清理先于 EtherCAT deactivate [RESOLVED 2026-07-27]
 
