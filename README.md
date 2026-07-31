@@ -53,11 +53,30 @@ robot/
 
 新域并入时应同时建立 `domains/<domain>/README.md`、`AGENTS.md`、`PROGRESS.md` 和 `BLOCKED-questions.md`，不将域内事实堆回根目录。
 
+## 分支模型
+
+| 分支 | 定位 | Docker 封装 |
+| --- | --- | --- |
+| `main` | 稳定集成与对外交付载体 | 必须：每个已导入域完成封装 |
+| `native` | 敏捷开发主线，源码增量迭代 | 不要求：允许原生构建与宿主直跑 |
+
+`native` 只豁免容器封装。实时性、硬安全链、域责任边界、冻结接口、共享资产所有权和质量门禁与 `main` 完全一致。完整规则见 [AGENTS.md](AGENTS.md) 第 4 节。
+
+## 文档入口
+
+| 文档 | 内容 |
+| --- | --- |
+| [AGENTS.md](AGENTS.md) | AI 与人共同遵守的架构、安全、质量与提交底线 |
+| [docs/cross-domain-interfaces.md](docs/cross-domain-interfaces.md) | 域间接口冻结基线、QoS、时效、成功语义与边界验收 |
+| [docs/collaboration-and-commit-standards.md](docs/collaboration-and-commit-standards.md) | 分支、提交、PR、Issue、评审、发布与权限 |
+| `domains/<domain>/AGENTS.md` | 该域更严格的专属规则 |
+
 ## 开发与提交
 
 1. 先阅读根 [AGENTS.md](AGENTS.md)。
 2. 根据变更路径，再阅读 `domains/<domain>/AGENTS.md`。
-3. 公共模型、接口或发布配置变更必须列出所有生产者、消费者和需联合验证的域。
-4. 提交前运行 `tools/quality_gate.sh` 及受影响域契约要求的附加门禁。
+3. 跨域接口相关变更先读 [docs/cross-domain-interfaces.md](docs/cross-domain-interfaces.md)。
+4. 公共模型、接口或发布配置变更必须列出所有生产者、消费者和需联合验证的域。
+5. 提交前运行 `tools/quality_gate.sh` 及受影响域契约要求的附加门禁。
 
 仓库级质量门禁目前与 rt-control 首个落地域一起实现。后续新域加入时，在保留公共门禁的前提下增加域级 CI job，不得用新域的需求削弱已有安全检查。
