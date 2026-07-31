@@ -113,6 +113,9 @@ def check_axis_states(document: object, expected: str) -> dict[str, int]:
 
 
 def _load_first_document(stream: str) -> object:
+    yaml_start = stream.find("---")
+    if yaml_start > 0:
+        stream = stream[yaml_start:]
     try:
         documents = yaml.safe_load_all(stream)
         return next(document for document in documents if document is not None)

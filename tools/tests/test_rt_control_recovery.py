@@ -3,7 +3,13 @@
 import unittest
 from pathlib import Path
 
-from tools.rt_control_axis_state_check import AxisStateError, check_axis_states
+import yaml
+
+from tools.rt_control_axis_state_check import (
+    AxisStateError,
+    _load_first_document,
+    check_axis_states,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -83,6 +89,22 @@ class AxisStateCheckTest(unittest.TestCase):
         message["interface_values"][0]["values"][1] = 39.5
         with self.assertRaisesRegex(AxisStateError, "right_joint1.*not an integer"):
             check_axis_states(message, "enabled")
+
+    def test_loader_ignores_ros2_echo_loss_notice_before_yaml_document(self):
+        message = dynamic_state({joint: 0x0040 for joint in AXES})
+        stream = "\n".join(
+            (
+                "A message was lost!!!",
+                "\ttotal count change:1",
+                "\ttotal count: 1",
+                "---",
+                yaml.safe_dump(message),
+            )
+        )
+
+        document = _load_first_document(stream)
+
+        self.assertEqual(check_axis_states(document, "disabled"), {joint: 0x0040 for joint in AXES})
 
 
 class RecoveryLauncherContractTest(unittest.TestCase):
