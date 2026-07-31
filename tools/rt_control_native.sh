@@ -5,6 +5,7 @@ readonly expected_user="ar"
 readonly expected_hostname="ar-Default-string"
 readonly expected_kernel="5.15.0-1032-realtime"
 readonly expected_cpuset="14"
+readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"
 readonly expected_ros_domain_id="0"
 readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
 readonly expected_can_serial="004D00675230500720333159"
@@ -21,9 +22,12 @@ pid_file="${runtime_root}/rt_control_start.pid"
 latest_log_link="${runtime_root}/latest.log"
 installed_start="${install_root}/lib/rt_control_bringup/rt_control_start"
 axis_state_checker="${repository_root}/tools/rt_control_axis_state_check.py"
+realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"
+thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"
 
 readonly repository_root workspace_root install_root runtime_root runtime_log_root
 readonly pid_file latest_log_link installed_start axis_state_checker
+readonly realtime_cpu_guard thread_affinity_tool
 
 info()
 {
@@ -112,6 +116,9 @@ call_rt_service()
     enable|disable|reset_fault) ;;
     *) fail "unsupported native lifecycle operation: ${operation}" ;;
   esac
+  if [[ "${operation}" == "enable" ]]; then
+    pin_controller_update_thread
+  fi
   run_ros2_timeout 40 ros2 service call \
     "/rt/${operation}" robot_interfaces/srv/RtEnable '{}'
 }
@@ -138,6 +145,7 @@ verify_realtime_host()
     fail "CPU ${expected_cpuset} is not full-nohz"
   grep -Eq '(^|,)15($|,)' /sys/devices/system/cpu/offline ||
     fail "CPU 15, the sibling of CPU 14, is not offline"
+  verify_igh_run_on_cpu_config
 
   realtime_limit="$(ulimit -r)"
   [[ "${realtime_limit}" =~ ^[0-9]+$ ]] && (( realtime_limit >= 98 )) ||
@@ -145,6 +153,15 @@ verify_realtime_host()
   memlock_limit="$(ulimit -l)"
   [[ "${memlock_limit}" == "unlimited" ]] ||
     fail "memlock limit is ${memlock_limit}; expected unlimited"
+}
+
+verify_igh_run_on_cpu_config()
+{
+  local config="/etc/modprobe.d/ec_master.conf"
+  local expected_line="options ec_master run_on_cpu=${expected_cpuset}"
+  [[ -r "${config}" ]] || fail "missing IgH CPU binding config: ${config}"
+  grep -Fxq "${expected_line}" "${config}" ||
+    fail "IgH ec_master is not pinned to isolated CPU ${expected_cpuset}"
 }
 
 verify_workspace()
@@ -155,8 +172,26 @@ verify_workspace()
   [[ -f /usr/local/share/rt-control/dependency-versions.env ]] ||
     fail "missing frozen IgH dependency identity"
   [[ -e /dev/EtherCAT0 ]] || fail "missing /dev/EtherCAT0"
+  [[ -x "${realtime_cpu_guard}" ]] ||
+    fail "missing executable realtime CPU guard: ${realtime_cpu_guard}"
+  [[ -x "${thread_affinity_tool}" ]] ||
+    fail "missing executable thread affinity helper: ${thread_affinity_tool}"
   command -v taskset >/dev/null 2>&1 || fail "missing taskset"
   command -v ethercat >/dev/null 2>&1 || fail "missing ethercat CLI"
+}
+
+verify_realtime_cpu_guard()
+{
+  "${realtime_cpu_guard}" --cpu "${expected_cpuset}" --mode strict
+}
+
+pin_controller_update_thread()
+{
+  python3 "${thread_affinity_tool}" \
+    --rt-cpu "${expected_cpuset}" \
+    --housekeeping-cpus "${expected_housekeeping_cpuset}" \
+    --rt-priority 80 \
+    --deadline 5
 }
 
 verify_bus_services()
@@ -275,7 +310,7 @@ launch_native()
   log_file="${runtime_log_root}/rt-control-$(date +%Y%m%d-%H%M%S).log"
   ln -sfn -- "${log_file}" "${latest_log_link}"
 
-  info "starting installed rt_control_start on CPU ${expected_cpuset}; log=${log_file}"
+  info "starting installed rt_control_start on housekeeping CPUs ${expected_housekeeping_cpuset}; rt CPU=${expected_cpuset}; log=${log_file}"
   nohup env \
     -u FASTRTPS_DEFAULT_PROFILES_FILE \
     -u FASTDDS_DEFAULT_PROFILES_FILE \
@@ -287,7 +322,7 @@ launch_native()
     RT_CONTROL_START_BMS="${RT_CONTROL_START_BMS:-true}" \
     PATH="${PATH}" \
     LD_LIBRARY_PATH="${LD_LIBRARY_PATH}" \
-    taskset --cpu-list "${expected_cpuset}" \
+    taskset --cpu-list "${expected_housekeeping_cpuset}" \
     "${installed_start}" > "${log_file}" 2>&1 < /dev/null &
   pid=$!
   printf '%s\n' "${pid}" > "${pid_file}"
@@ -469,6 +504,38 @@ verify_operational_ethercat()
   grep -Fq 'Slaves: 16' <<< "${master}" || fail "EtherCAT does not report 16 slaves"
   [[ "$(grep -Ec '^[[:space:]]*[0-9]+[[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\+' <<< "${slaves}")" -ge 14 ]] ||
     fail "EtherCAT drive slaves are not OP"
+  verify_ethercat_op_thread_cpu
+}
+
+verify_ethercat_op_thread_cpu()
+{
+  local allowed
+  local cls
+  local found=0
+  local rtprio
+  local status_file
+  local tid
+  while read -r tid cls rtprio; do
+    [[ -n "${tid}" ]] || continue
+    status_file="/proc/${tid}/status"
+    [[ -r "${status_file}" ]] || continue
+    found=1
+    allowed="$(sed -n 's/^Cpus_allowed_list:[[:space:]]*//p' "${status_file}")"
+    [[ "${allowed}" == "${expected_cpuset}" ]] ||
+      fail "EtherCAT-OP thread ${tid} CPU affinity is ${allowed}, expected ${expected_cpuset}"
+    case "${cls}" in
+      TS)
+        info "EtherCAT-OP thread ${tid} is SCHED_OTHER; field acceptance requires FIFO80 update duty <70% under navigation load"
+        ;;
+      FF|RR)
+        info "EtherCAT-OP thread ${tid} is ${cls} rtprio=${rtprio}; if rtprio >80, verify it does not cut the control cycle"
+        ;;
+      *)
+        info "EtherCAT-OP thread ${tid} scheduler class=${cls} rtprio=${rtprio}"
+        ;;
+    esac
+  done < <(ps -eLo tid=,cls=,rtprio=,comm= | awk '$4 == "EtherCAT-OP" {print $1, $2, $3}')
+  (( found == 1 )) || fail "EtherCAT-OP thread is not visible"
 }
 
 start_native()
@@ -483,6 +550,7 @@ start_native()
   if native_pid >/dev/null 2>&1; then
     fail "native rt-control is already running"
   fi
+  verify_realtime_cpu_guard
   verify_idle_ethercat
   verify_can_interface can0 "${expected_can_serial}"
   verify_can_interface can1 "${expected_bms_can_serial}"
@@ -495,6 +563,7 @@ start_native()
     terminate_failed_start
     fail "native stack did not expose /rt/enable within 90 seconds; stop was requested"
   fi
+  pin_controller_update_thread
   info "READY: native stack is running in Domain ${expected_ros_domain_id}; drives were not enabled"
 }
 
@@ -630,6 +699,8 @@ status_native()
   state="$(docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
   printf 'workspace=%s\n' "${workspace_root}"
   printf 'ros_domain_id=%s\n' "${expected_ros_domain_id}"
+  printf 'rt_cpu=%s\n' "${expected_cpuset}"
+  printf 'housekeeping_cpus=%s\n' "${expected_housekeeping_cpuset}"
   printf 'container_state=%s\n' "${state:-absent}"
   if [[ -z "${pid}" ]]; then
     printf 'native_state=stopped\n'

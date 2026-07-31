@@ -1975,6 +1975,17 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   失败或整组掉使能。但 `Lost frames` 从 399 增至 402，slave 2 port 0 从 `CRC=8, PHY=6` 增至
   `CRC=11, PHY=8`，三次 `4 datagrams TIMED OUT` 中一次发生在 FJT 窗口。该结果证明已批准的
   1000 ms 容忍能跨过本轮短抖动，**不证明链路健康或根因关闭**；物理段维护和 30 分钟零增量门禁保持不变。
+- 2026-07-31 scheduling corrective decision：导航负载启动后现场复现 EtherCAT 主站掉链，同时观察到
+  `sched: RT throttling activated`、datagram timeout 和 Sync Manager watchdog 同期出现。用户批准把 IgH
+  `EtherCAT-OP` 从未隔离 CPU12 收敛到已批准隔离核 CPU14，但该修改必须和 native 线程拆分同批实施，避免
+  “EtherCAT-OP + 整棵 rt-control 进程树”共同挤在 CPU14 的危险中间态。冻结实施方式：外层
+  `rt_control_start` 只用 `taskset` 约束到 housekeeping CPUs `0,2,4,6,8,10,12,16-27`，启动后由
+  `sched_setaffinity` 只把 `ros2_control_node` 中**唯一** `SCHED_FIFO/80` update 线程移到 CPU14；DDS、
+  service、CANopen/Lely、诊断和 IO 普通线程保留在 housekeeping。每次 native 脚本调用 `/rt/enable` 前均重新执行
+  并验证该 pin，若找不到 FIFO80、匹配到多个、`sched_setaffinity` 失败、affinity 或当前 `PSR` 不为 14，则 fail-fast
+  拒绝使能。该方案依赖 `taskset`/`sched_setaffinity` 语义，禁止替换为 cgroup cpuset 或 systemd
+  `CPUAffinity=` 实现。RT throttling 二次触发不再依赖 `dmesg`，需用 kprobe/bpftrace 或 “FIFO80 约 95% CPU +
+  1 秒节律超时”症状判断。该裁决新增调度拓扑风险控制，不关闭既有物理链路根因和 30 分钟零增量门禁。
 
 ## BQ-122 — 完整栈退出时 CANopen 清理先于 EtherCAT deactivate [RESOLVED 2026-07-27]
 

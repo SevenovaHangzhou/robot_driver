@@ -49,8 +49,9 @@ cd /home/ar/rt-control-dev/robot
 它等价于 `./tools/rt_control_native.sh recover-power-loss`，会要求输入
 `RECOVER_RT_CONTROL_NATIVE`，随后按固定顺序执行：尽力停止旧原生会话、等待 EtherCAT
 回到 Idle/Inactive、启动新的原生控制栈、等待 enable-manager 进入 `IDLE` 或
-`fault_requires_reset`、只调用一次 `/rt/reset_fault`、确认 14 个 EtherCAT 轴处于失能
-状态、只调用一次 `/rt/enable`，最后确认控制器、14 轴和 EtherCAT 主站均已进入运行态。
+`fault_requires_reset`、确认 controller update 线程已被 pin 到 CPU14、只调用一次
+`/rt/reset_fault`、确认 14 个 EtherCAT 轴处于失能状态、在 `/rt/enable` 前再次确认
+controller update 线程仍在 CPU14，最后确认控制器、14 轴和 EtherCAT 主站均已进入运行态。
 
 联调结束必须有序停止：
 
@@ -144,11 +145,26 @@ cd /home/ar/rt-control-dev/robot
 ./tools/rt_control_native.sh start
 ```
 
+启动脚本的 CPU 时序是固定的：
+
+1. 启动前扫描非白名单 `SCHED_FIFO/SCHED_RR` 线程；若发现它们实际运行在 CPU14，或 tight
+   affinity 包含 CPU14，则拒绝启动。
+2. 外层 `rt_control_start` 运行在 housekeeping CPUs：
+   `0,2,4,6,8,10,12,16-27`。
+3. 控制栈暴露 `/rt/enable` 服务后，脚本查找 `ros2_control_node` 内部实时线程；只有“恰好一个
+   `SCHED_FIFO` 且 `rt_priority=80`”的线程会被视为 controller update 线程。
+4. 该线程被 `sched_setaffinity` 到 CPU14；同一进程内 DDS、service、CANopen/Lely 和普通回调线程保留在
+   housekeeping CPUs。
+5. 设置后必须验证 update 线程 affinity 和当前 `PSR` 均为 14，否则启动失败，且不会使能执行器。
+
 在已运行的原生控制栈上显式使能：
 
 ```bash
 ./tools/rt_control_native.sh enable
 ```
+
+每次通过原生脚本调用 `/rt/enable` 前都会重新执行上述线程级 pin 和验证。这样即使
+`ros2_control_node` 崩溃重启、TID 变化，脚本也不会在未重新 pin 的情况下使能执行器。
 
 需要一次完成启动和使能时：
 
@@ -168,17 +184,21 @@ cd /home/ar/rt-control-dev/robot
 2. 如果旧原生会话仍存在，先尽力调用 `/rt/disable`，再请求 `rt_control_start` 有序退出。
 3. 等待 EtherCAT 主站确认 `Idle/Inactive`，避免上一轮控制栈残留。
 4. 启动新的原生控制栈。
-5. 等待 enable-manager 进入 `IDLE` 或明确的 `fault_requires_reset`。
-6. 调用一次全组 `/rt/reset_fault`。
-7. 检查 14 个 EtherCAT 轴处于失能状态。
-8. 调用一次 `/rt/enable`。
-9. 检查 JTC、JSB、diff-drive、enable-manager、14 轴状态和 EtherCAT OP 状态。
+5. 等待控制栈暴露 `/rt/enable`，并完成 controller update 线程 CPU14 pin 门禁。
+6. 等待 enable-manager 进入 `IDLE` 或明确的 `fault_requires_reset`。
+7. 调用一次全组 `/rt/reset_fault`。
+8. 检查 14 个 EtherCAT 轴处于失能状态。
+9. 在 `/rt/enable` 前再次执行并验证 controller update 线程 CPU14 pin。
+10. 调用一次 `/rt/enable`。
+11. 检查 JTC、JSB、diff-drive、enable-manager、14 轴状态和 EtherCAT OP 状态。
 
 如果任一步失败，脚本会停止本次恢复会话并报错；它不会发送 FJT、`/cmd_vel` 或 PLC 输出。
 
 以上命令都保留真实硬件确认口令。原生脚本锁定当前工控机、实时内核、CPU14、
 EtherCAT MAC、两只 CANable 序列号和 500 kbit/s 参数；任一事实不符即拒绝启动。
-它也会拒绝与正在运行的 `robot-rt-control-1` 容器重叠。
+它也会拒绝与正在运行的 `robot-rt-control-1` 容器重叠。IgH EtherCAT 主站必须通过
+`/etc/modprobe.d/ec_master.conf` 配置为 `options ec_master run_on_cpu=14`；该模块参数需要
+重启或重载 `ec_master` 后才对 `EtherCAT-OP` 线程生效。
 
 查看状态和日志：
 
@@ -209,4 +229,5 @@ controller、EtherCAT 和 CANopen 有序退出。脚本不会用 SIGKILL 掩盖�
 `/usr/local/share/rt-control/dependency-versions.env`，与 `versions.env` 的
 `stable-1.6 / 2f7f884f1c7d377c02a7d627eb06512126a0e50e` 一致。
 
-本次仍未启动、复位、使能或运动原生栈；已部署 Docker 版本和 Compose 配置不由本交付修改。
+后续 CPU14 线程级 pin 门禁和 IgH `run_on_cpu=14` 变更需要在目标机重新同步、构建、重启或重载
+IgH 后再做上电验证；已部署 Docker 版本和 Compose 配置不由原生开发文档修改。

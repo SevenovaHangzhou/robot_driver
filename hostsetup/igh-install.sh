@@ -205,6 +205,19 @@ EOF
 install -o root -g root -m 0644 "${config_tmp}" /etc/ethercat.conf
 rm -f -- "${config_tmp}"
 
+modprobe_tmp="$(mktemp)"
+cat > "${modprobe_tmp}" <<EOF
+# Managed by rt-control hostsetup/igh-install.sh.
+# Keep the IgH EtherCAT-OP kernel thread on the same isolated CPU as the
+# ros2_control realtime update thread.  This setting takes effect on module
+# reload or reboot; it does not migrate an already loaded ec_master module.
+options ec_master run_on_cpu=14
+EOF
+install -d -m 0755 /etc/modprobe.d
+install -o root -g root -m 0644 \
+  "${modprobe_tmp}" /etc/modprobe.d/ec_master.conf
+rm -f -- "${modprobe_tmp}"
+
 nm_tmp="$(mktemp)"
 cat > "${nm_tmp}" <<EOF
 # EtherCAT is a fieldbus interface. It must not carry IP, DHCP, or DDS traffic.

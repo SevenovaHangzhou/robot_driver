@@ -4,6 +4,9 @@ set -euo pipefail
 readonly ethercat_mac="8c:59:3c:14:ff:d3"
 readonly rt_control_can_serial="004D00675230500720333159"
 readonly bms_can_serial="003000265230500720333159"
+readonly rt_control_cpu="14"
+readonly housekeeping_cpus="0,2,4,6,8,10,12,16-27"
+readonly ec_master_run_on_cpu_line="options ec_master run_on_cpu=14"
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "run this script as root" >&2
@@ -52,9 +55,12 @@ for argument in \
   isolcpus=domain,managed_irq,14 \
   nohz_full=14 \
   rcu_nocbs=14 \
-  irqaffinity=0-13,15-27; do
+  irqaffinity=${housekeeping_cpus}; do
   grep -qw "${argument}" /proc/cmdline || fail "missing kernel argument ${argument}"
 done
+[[ -r /etc/modprobe.d/ec_master.conf ]] || fail "missing /etc/modprobe.d/ec_master.conf"
+grep -Fxq "${ec_master_run_on_cpu_line}" /etc/modprobe.d/ec_master.conf ||
+  fail "ec_master is not configured with run_on_cpu=${rt_control_cpu}"
 
 for irq_directory in /proc/irq/[0-9]*; do
   affinity="$(cat -- "${irq_directory}/effective_affinity_list" 2>/dev/null || true)"

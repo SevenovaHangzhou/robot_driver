@@ -8,8 +8,13 @@ ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = ROOT / "tools" / "rt_control_native.sh"
 BOOTSTRAP = ROOT / "tools" / "bootstrap_native_dev.sh"
 IGH_INSTALLER = ROOT / "hostsetup" / "igh-install.sh"
+HOST_VERIFIER = ROOT / "hostsetup" / "verify-host.sh"
+RT_LAUNCH = ROOT / "src" / "rt_control" / "rt_control_bringup" / "launch" / "rt_control.launch.py"
 SIGNAL_GATE = ROOT / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
 ONECLICK = ROOT / "tools" / "rt_control_native_oneclick.sh"
+CPU_GUARD = ROOT / "tools" / "rt_cpu_contamination_check.sh"
+THREAD_AFFINITY = ROOT / "tools" / "rt_control_thread_affinity.py"
+HEARTBEAT_WATCH = ROOT / "tools" / "canopen_heartbeat_watch.sh"
 
 
 class NativeLauncherContractTest(unittest.TestCase):
@@ -92,7 +97,48 @@ class NativeLauncherContractTest(unittest.TestCase):
 
     def test_verified_realtime_cpu_is_applied_to_the_runtime(self):
         self.assertIn('readonly expected_cpuset="14"', self.text)
-        self.assertIn('taskset --cpu-list "${expected_cpuset}"', self.text)
+        self.assertIn('readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"', self.text)
+        self.assertIn('taskset --cpu-list "${expected_housekeeping_cpuset}"', self.text)
+        self.assertNotIn('taskset --cpu-list "${expected_cpuset}" \\\n    "${installed_start}"', self.text)
+        self.assertNotIn("RT_CONTROL_ENABLE_NODE_AFFINITY", self.text)
+
+    def test_native_start_rejects_realtime_thread_pollution_on_cpu14(self):
+        self.assertIn('realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"', self.text)
+        self.assertIn("verify_realtime_cpu_guard", self.text)
+        start = self.text.index("start_native()")
+        stop = self.text.index("enable_native()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("verify_realtime_cpu_guard"), body.index("launch_native"))
+
+    def test_native_preflight_requires_igh_to_run_on_the_isolated_cpu(self):
+        self.assertIn("verify_igh_run_on_cpu_config", self.text)
+        self.assertIn('options ec_master run_on_cpu=${expected_cpuset}', self.text)
+        self.assertIn("verify_ethercat_op_thread_cpu", self.text)
+
+    def test_native_pins_only_controller_update_thread_after_startup(self):
+        self.assertIn('thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"', self.text)
+        self.assertIn("pin_controller_update_thread", self.text)
+        start = self.text.index("start_native()")
+        stop = self.text.index("enable_native()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("wait_for_enable_service"), body.index("pin_controller_update_thread"))
+        self.assertLess(body.index("pin_controller_update_thread"), body.index("READY: native stack"))
+
+    def test_every_native_enable_service_call_is_hard_gated_by_thread_pin(self):
+        start = self.text.index("call_rt_service()")
+        stop = self.text.index("verify_target_identity()", start)
+        body = self.text[start:stop]
+        self.assertIn('if [[ "${operation}" == "enable" ]]; then', body)
+        self.assertLess(body.index('if [[ "${operation}" == "enable" ]]; then'), body.index("run_ros2_timeout 40 ros2 service call"))
+        self.assertLess(body.index("pin_controller_update_thread"), body.index("run_ros2_timeout 40 ros2 service call"))
+
+    def test_oneclick_recovery_preserves_enable_pin_gate_after_fault_reset(self):
+        start = self.text.index("recover_power_loss_native()")
+        stop = self.text.index("stop_native()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("call_rt_service reset_fault"), body.index("check_axis_states disabled"))
+        self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
+        self.assertIn("call_rt_service enable", body)
 
     def test_runtime_sources_ros_setup_without_nounset(self):
         start = self.text.index("source_runtime_environment()")
@@ -154,6 +200,7 @@ class NativeHostSetupContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.installer_text = IGH_INSTALLER.read_text(encoding="utf-8")
+        cls.verifier_text = HOST_VERIFIER.read_text(encoding="utf-8")
         cls.bootstrap_text = BOOTSTRAP.read_text(encoding="utf-8")
         cls.launcher_text = LAUNCHER.read_text(encoding="utf-8")
 
@@ -165,6 +212,25 @@ class NativeHostSetupContractTest(unittest.TestCase):
         self.assertIn("IGH_VERSION=%s\\nIGH_COMMIT=%s\\n", self.installer_text)
         self.assertIn('install -d -m 0755 /usr/local/share/rt-control', self.installer_text)
 
+    def test_host_igh_install_pins_master_thread_to_the_isolated_cpu(self):
+        self.assertIn("/etc/modprobe.d/ec_master.conf", self.installer_text)
+        self.assertIn("options ec_master run_on_cpu=14", self.installer_text)
+        self.assertIn("/etc/modprobe.d/ec_master.conf", self.verifier_text)
+        self.assertIn("options ec_master run_on_cpu=14", self.verifier_text)
+
+
+class RtControlLaunchAffinityContractTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.text = RT_LAUNCH.read_text(encoding="utf-8")
+
+    def test_launch_does_not_bind_whole_ros2_processes_to_the_rt_cpu(self):
+        self.assertNotIn("RT_CONTROL_ENABLE_NODE_AFFINITY", self.text)
+        self.assertNotIn("RT_CONTROL_RT_CPU", self.text)
+        self.assertNotIn("RT_CONTROL_HOUSEKEEPING_CPUS", self.text)
+        self.assertNotIn("taskset --cpu-list", self.text)
+        self.assertNotIn("prefix=", self.text)
+
 
 class NativeOneClickRecoveryContractTest(unittest.TestCase):
     def test_oneclick_script_delegates_to_the_explicit_recovery_entrypoint(self):
@@ -175,6 +241,51 @@ class NativeOneClickRecoveryContractTest(unittest.TestCase):
         )
         text = ONECLICK.read_text(encoding="utf-8")
         self.assertIn('exec "${script_dir}/rt_control_native.sh" recover-power-loss "$@"', text)
+
+
+class RtControlDiagnosticScriptContractTest(unittest.TestCase):
+    def test_cpu_contamination_guard_is_executable_and_targets_realtime_threads(self):
+        self.assertTrue(CPU_GUARD.exists(), "CPU contamination guard is missing")
+        self.assertTrue(CPU_GUARD.stat().st_mode & 0o111, "CPU guard must be executable")
+        text = CPU_GUARD.read_text(encoding="utf-8")
+        self.assertIn("samples=10", text)
+        self.assertIn("--samples", text)
+        self.assertIn("sleep", text)
+        self.assertIn("SCHED_FIFO", text)
+        self.assertIn("SCHED_RR", text)
+        self.assertIn("Cpus_allowed_list", text)
+        self.assertIn("PSR", text)
+        self.assertIn("tight affinity", text)
+        self.assertIn("LOG-ONLY", text)
+        self.assertIn("rtprio >= 80", text)
+        self.assertIn("ToDesk", text)
+        self.assertIn("sunlogin", text)
+
+    def test_thread_affinity_helper_is_executable_and_keeps_canopen_off_rt_cpu(self):
+        self.assertTrue(THREAD_AFFINITY.exists(), "thread affinity helper is missing")
+        self.assertTrue(THREAD_AFFINITY.stat().st_mode & 0o111, "thread helper must be executable")
+        text = THREAD_AFFINITY.read_text(encoding="utf-8")
+        self.assertIn("os.sched_setaffinity", text)
+        self.assertIn("SCHED_FIFO", text)
+        self.assertIn("rt_priority", text)
+        self.assertIn("housekeeping", text)
+        self.assertIn("ros2_control_node", text)
+        self.assertIn("expected exactly one matching update thread", text)
+        self.assertIn("current_processor", text)
+        self.assertIn("Phase 0", text)
+        self.assertIn("--sample", text)
+        self.assertIn("SCHED_RR", text)
+
+    def test_canopen_heartbeat_watcher_is_read_only_and_tracks_master_gap(self):
+        self.assertTrue(HEARTBEAT_WATCH.exists(), "CANopen heartbeat watcher is missing")
+        self.assertTrue(HEARTBEAT_WATCH.stat().st_mode & 0o111, "heartbeat watcher must be executable")
+        text = HEARTBEAT_WATCH.read_text(encoding="utf-8")
+        self.assertIn("candump", text)
+        self.assertIn("0x764", text)
+        self.assertIn("0x702", text)
+        self.assertIn("0x703", text)
+        self.assertIn("max_gap", text)
+        self.assertNotIn("cansend", text)
 
 
 if __name__ == "__main__":
