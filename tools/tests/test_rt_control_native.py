@@ -62,15 +62,32 @@ class NativeLauncherContractTest(unittest.TestCase):
         start = self.text.index("recover_power_loss_native()")
         stop = self.text.index("stop_native()", start)
         body = self.text[start:stop]
-        self.assertEqual(body.count("call_rt_service reset_fault"), 1)
-        self.assertLess(body.index("confirm_recovery_authorization"), body.index("start_native preauthorized"))
+        self.assertNotIn("confirm_recovery_authorization", body)
         self.assertLess(
             body.index("wait_for_enable_manager_reset_ready"),
-            body.index("call_rt_service reset_fault"),
+            body.index("clear_resettable_faults_before_enable"),
         )
-        self.assertLess(body.index("call_rt_service reset_fault"), body.index("check_axis_states disabled"))
+        self.assertLess(body.index("clear_resettable_faults_before_enable"), body.index("check_axis_states disabled"))
         self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
         self.assertLess(body.index("call_rt_service enable"), body.index("check_axis_states enabled"))
+        self.assertLess(body.index("check_axis_states enabled"), body.index("monitor_native_warning_logs"))
+
+    def test_recovery_fault_reset_reports_unclearable_fault_context(self):
+        self.assertIn("clear_resettable_faults_before_enable()", self.text)
+        start = self.text.index("clear_resettable_faults_before_enable()")
+        stop = self.text.index("verify_controllers_before_enable()", start)
+        body = self.text[start:stop]
+        self.assertIn("call_rt_service reset_fault", body)
+        self.assertIn("print_fault_recovery_context", body)
+        self.assertIn("power-cycle the main contactor", body)
+
+    def test_native_launcher_self_raises_rtprio_and_memlock_limits(self):
+        self.assertIn("ensure_runtime_limits", self.text)
+        start = self.text.index("verify_realtime_host()")
+        stop = self.text.index("verify_igh_run_on_cpu_config()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("ensure_runtime_limits"), body.index("ulimit -r"))
+        self.assertIn("sudo prlimit --pid", self.text)
 
     def test_axis_state_checker_is_read_as_python_not_executed(self):
         start = self.text.index("check_axis_states()")
@@ -136,7 +153,7 @@ class NativeLauncherContractTest(unittest.TestCase):
         start = self.text.index("recover_power_loss_native()")
         stop = self.text.index("stop_native()", start)
         body = self.text[start:stop]
-        self.assertLess(body.index("call_rt_service reset_fault"), body.index("check_axis_states disabled"))
+        self.assertLess(body.index("clear_resettable_faults_before_enable"), body.index("check_axis_states disabled"))
         self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
         self.assertIn("call_rt_service enable", body)
 
@@ -256,10 +273,10 @@ class RtControlDiagnosticScriptContractTest(unittest.TestCase):
         self.assertIn("Cpus_allowed_list", text)
         self.assertIn("PSR", text)
         self.assertIn("tight affinity", text)
-        self.assertIn("LOG-ONLY", text)
+        self.assertIn("warn_records", text)
+        self.assertIn("WARN:", text)
         self.assertIn("rtprio >= 80", text)
-        self.assertIn("ToDesk", text)
-        self.assertIn("sunlogin", text)
+        self.assertNotIn("LOG-ONLY:", text)
 
     def test_thread_affinity_helper_is_executable_and_keeps_canopen_off_rt_cpu(self):
         self.assertTrue(THREAD_AFFINITY.exists(), "thread affinity helper is missing")

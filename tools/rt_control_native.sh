@@ -51,8 +51,9 @@ Native rt-control development runtime for ar-Default-string:
   ./tools/rt_control_native.sh start-and-enable
       Start the real control stack and call /rt/enable after explicit approval.
   ./tools/rt_control_native.sh recover-power-loss
-      One-command recovery start: stop any old native session, start fresh,
-      call /rt/reset_fault once, verify disabled state, then call /rt/enable.
+      Unattended recovery start: stop any old native session, start fresh,
+      auto-clear resettable faults once, verify disabled state, call /rt/enable,
+      then keep monitoring WARN/ERROR runtime logs in the foreground.
   ./tools/rt_control_native.sh enable
       Call /rt/enable on an already running native stack.
   ./tools/rt_control_native.sh stop
@@ -109,6 +110,43 @@ run_ros2_timeout()
     "$@"
 }
 
+runtime_limits_ok()
+{
+  local memlock_limit
+  local realtime_limit
+  realtime_limit="$(ulimit -r)"
+  memlock_limit="$(ulimit -l)"
+  [[ "${realtime_limit}" =~ ^[0-9]+$ ]] && (( realtime_limit >= 98 )) &&
+    [[ "${memlock_limit}" == "unlimited" ]]
+}
+
+ensure_runtime_limits()
+{
+  local memlock_limit
+  local realtime_limit
+  if runtime_limits_ok; then
+    return
+  fi
+
+  realtime_limit="$(ulimit -r)"
+  memlock_limit="$(ulimit -l)"
+  info "runtime limits are rtprio=${realtime_limit}, memlock=${memlock_limit}; requesting sudo prlimit for this launcher"
+  if [[ -t 0 || -r /dev/tty ]]; then
+    sudo prlimit --pid "$$" \
+      --rtprio=98:98 \
+      --memlock=unlimited:unlimited ||
+      fail "sudo prlimit could not raise rtprio/memlock for this launcher"
+  else
+    sudo -n prlimit --pid "$$" \
+      --rtprio=98:98 \
+      --memlock=unlimited:unlimited ||
+      fail "rtprio/memlock are too low and sudo is not available non-interactively"
+  fi
+
+  runtime_limits_ok ||
+    fail "runtime limits remain rtprio=$(ulimit -r), memlock=$(ulimit -l); expected rtprio>=98 and memlock=unlimited"
+}
+
 call_rt_service()
 {
   local operation="$1"
@@ -146,6 +184,7 @@ verify_realtime_host()
   grep -Eq '(^|,)15($|,)' /sys/devices/system/cpu/offline ||
     fail "CPU 15, the sibling of CPU 14, is not offline"
   verify_igh_run_on_cpu_config
+  ensure_runtime_limits
 
   realtime_limit="$(ulimit -r)"
   [[ "${realtime_limit}" =~ ^[0-9]+$ ]] && (( realtime_limit >= 98 )) ||
@@ -290,18 +329,6 @@ confirm_enable_authorization()
   [[ "${answer}" == "ENABLE_RT_CONTROL_NATIVE" ]] || fail "native enable not authorized"
 }
 
-confirm_recovery_authorization()
-{
-  local answer
-  [[ -t 0 && -r /dev/tty ]] || fail "native recovery requires an interactive terminal"
-  printf '%s\n' \
-    "This operation may stop an existing native session, starts real buses, calls /rt/reset_fault once, and then calls /rt/enable." \
-    "Confirm the main contactor is restored, the emergency stop is ready, and all 14 axes and tracks may be energized." \
-    "Type RECOVER_RT_CONTROL_NATIVE to continue:"
-  IFS= read -r answer < /dev/tty
-  [[ "${answer}" == "RECOVER_RT_CONTROL_NATIVE" ]] || fail "native recovery not authorized"
-}
-
 launch_native()
 {
   local log_file
@@ -436,6 +463,54 @@ wait_for_enable_manager_reset_ready()
     sleep 1
   done
   fail "enable_manager did not reach IDLE or fault_requires_reset within 120 seconds"
+}
+
+enable_manager_diagnostic_snapshot()
+{
+  run_ros2_timeout 8 ros2 topic echo --once /diagnostics \
+    diagnostic_msgs/msg/DiagnosticArray \
+    --filter "any(s.name == '/robot/rt_control/enable_manager' for s in m.status)" \
+    2>/dev/null || true
+}
+
+print_fault_recovery_context()
+{
+  local diagnostic_snapshot
+  local reset_response="$1"
+  printf '[rt-control-native] ERROR: resettable fault could not be cleared automatically.\n' >&2
+  printf '[rt-control-native] ERROR: /rt/reset_fault response follows:\n%s\n' "${reset_response}" >&2
+  diagnostic_snapshot="$(enable_manager_diagnostic_snapshot)"
+  if [[ -n "${diagnostic_snapshot}" ]]; then
+    printf '[rt-control-native] ERROR: enable_manager diagnostic follows:\n%s\n' "${diagnostic_snapshot}" >&2
+  else
+    printf '[rt-control-native] ERROR: enable_manager diagnostic was unavailable.\n' >&2
+  fi
+  printf '[rt-control-native] ERROR: do not enable; inspect the named drive/statusword, then power-cycle the main contactor and restart rt-control if the fault remains latched.\n' >&2
+}
+
+clear_resettable_faults_before_enable()
+{
+  local diagnostic_snapshot
+  local reset_response
+  diagnostic_snapshot="$(enable_manager_diagnostic_snapshot)"
+  if ! grep -Fq 'value: fault_requires_reset' <<< "${diagnostic_snapshot}"; then
+    info "no resettable enable_manager fault reported before enable"
+    return
+  fi
+
+  info "resettable enable_manager fault reported; calling one group /rt/reset_fault"
+  reset_response="$(call_rt_service reset_fault)" || {
+    print_fault_recovery_context "/rt/reset_fault service call did not return"
+    best_effort_stop_existing_native_for_recovery
+    fail "fault could not be cleared; power-cycle the main contactor and restart rt-control"
+  }
+  printf '%s\n' "${reset_response}"
+  if ! grep -Fq 'ok=True' <<< "${reset_response}" ||
+    ! grep -Eq "stage='(success|already_clear)'" <<< "${reset_response}"; then
+    print_fault_recovery_context "${reset_response}"
+    best_effort_stop_existing_native_for_recovery
+    fail "fault could not be cleared; power-cycle the main contactor and restart rt-control"
+  fi
 }
 
 verify_controllers_before_enable()
@@ -599,8 +674,6 @@ start_and_enable_native()
 recover_power_loss_native()
 {
   local enable_response
-  local reset_response
-  confirm_recovery_authorization
   verify_target_identity
   verify_realtime_host
   verify_workspace
@@ -615,17 +688,7 @@ recover_power_loss_native()
   verify_controllers_before_enable
   verify_operational_ethercat
 
-  info "calling one group /rt/reset_fault before enable"
-  reset_response="$(call_rt_service reset_fault)" || {
-    best_effort_stop_existing_native_for_recovery
-    fail "/rt/reset_fault did not return; native recovery session was stopped"
-  }
-  printf '%s\n' "${reset_response}"
-  if ! grep -Fq 'ok=True' <<< "${reset_response}" ||
-    ! grep -Eq "stage='(success|already_clear)'" <<< "${reset_response}"; then
-    best_effort_stop_existing_native_for_recovery
-    fail "/rt/reset_fault returned failure; native recovery session was stopped"
-  fi
+  clear_resettable_faults_before_enable
   check_axis_states disabled
 
   info "calling one /rt/enable after reset and disabled-state proof"
@@ -642,7 +705,8 @@ recover_power_loss_native()
   check_axis_states enabled
   verify_enabled_controllers
   verify_operational_ethercat
-  info "RECOVERED: native stack is running, reset once, and enabled"
+  info "RECOVERED: native stack is running and enabled"
+  monitor_native_warning_logs
 }
 
 stop_native()
@@ -718,6 +782,14 @@ logs_native()
 {
   [[ -e "${latest_log_link}" ]] || fail "no native runtime log exists"
   tail -n 200 -f "${latest_log_link}"
+}
+
+monitor_native_warning_logs()
+{
+  [[ -e "${latest_log_link}" ]] || fail "no native runtime log exists"
+  info "monitoring WARN/ERROR runtime logs from $(readlink -f "${latest_log_link}"); Ctrl+C exits monitor only"
+  tail -n 0 -F "${latest_log_link}" 2>/dev/null |
+    grep --line-buffered -Eai 'WARN|ERROR|FAIL|Fault|fault|EMCY|timeout|timed out|UNCLEAN_SHUTDOWN|bus-off|bus off|throttl|overrun|deadline|exception|segmentation|abort'
 }
 
 doctor_native()

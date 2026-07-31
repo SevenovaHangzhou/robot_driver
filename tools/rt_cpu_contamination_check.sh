@@ -11,11 +11,11 @@ usage()
   cat <<'EOF'
 Usage: tools/rt_cpu_contamination_check.sh [--cpu 14] [--mode warn|strict] [--samples 10] [--interval 0.1]
 
-Checks realtime SCHED_FIFO/SCHED_RR threads before rt-control starts.  A thread
+Checks realtime SCHED_FIFO/SCHED_RR threads before rt-control starts. A thread
 is a hard violation when its current PSR is the rt-control CPU, or when it has
-tight affinity that includes the rt-control CPU.  Broad default masks that still
-list CPU14 are LOG-ONLY unless rtprio >= 80, because isolcpus does not remove
-CPU14 from default Cpus_allowed_list masks.
+tight affinity that includes the rt-control CPU. Broad default masks that still
+list CPU14 are summarized as one WARN line for rtprio >= 80, because isolcpus
+does not remove CPU14 from default Cpus_allowed_list masks.
 EOF
 }
 
@@ -124,8 +124,26 @@ esac
   exit 2
 }
 
-violations=0
-warnings=0
+declare -A violation_records=()
+declare -A warn_records=()
+
+record_violation()
+{
+  local key="$1"
+  shift
+  if [[ -z "${violation_records[${key}]:-}" ]]; then
+    violation_records["${key}"]="$*"
+  fi
+}
+
+record_warning()
+{
+  local key="$1"
+  shift
+  if [[ -z "${warn_records[${key}]:-}" ]]; then
+    warn_records["${key}"]="$*"
+  fi
+}
 
 scan_once()
 {
@@ -139,35 +157,51 @@ scan_once()
     [[ -n "${allowed}" ]] || continue
 
     if [[ "${psr}" == "${rt_cpu}" ]]; then
-      printf 'VIOLATION: realtime thread on rt CPU PSR=%s pid=%s tid=%s cls=%s rtprio=%s comm=%s args=%s\n' \
-        "${psr}" "${pid}" "${tid}" "${cls}" "${rtprio}" "${comm}" "${args}" >&2
-      violations=$((violations + 1))
+      record_violation "${tid}:psr" \
+        "realtime thread on rt CPU PSR=${psr} pid=${pid} tid=${tid} cls=${cls} rtprio=${rtprio} comm=${comm} args=${args}"
       continue
     fi
 
     if contains_cpu "${allowed}" "${rt_cpu}" &&
        (( "$(cpu_count "${allowed}")" <= 4 )); then
-      printf 'VIOLATION: realtime thread has tight affinity including CPU%s pid=%s tid=%s allowed=%s cls=%s rtprio=%s comm=%s args=%s\n' \
-        "${rt_cpu}" "${pid}" "${tid}" "${allowed}" "${cls}" "${rtprio}" "${comm}" "${args}" >&2
-      violations=$((violations + 1))
+      record_violation "${tid}:tight" \
+        "realtime thread has tight affinity including CPU${rt_cpu} pid=${pid} tid=${tid} allowed=${allowed} cls=${cls} rtprio=${rtprio} comm=${comm} args=${args}"
       continue
     fi
 
-    if contains_cpu "${allowed}" "${rt_cpu}"; then
-      case "${args}" in
-        *ToDesk*|*todesk*|*sunlogin*|*Sunlogin*|*rviz2*|*fastlio*|*alfa_nav*)
-          if [[ "${rtprio}" =~ ^[0-9]+$ ]] && (( rtprio >= 80 )); then
-            printf 'WARN: rtprio >= 80 non-rt-control thread has broad CPU%s mask but PSR is %s; LOG-ONLY unless it runs on CPU%s pid=%s tid=%s allowed=%s cls=%s rtprio=%s comm=%s args=%s\n' \
-              "${rt_cpu}" "${psr}" "${rt_cpu}" "${pid}" "${tid}" "${allowed}" "${cls}" "${rtprio}" "${comm}" "${args}" >&2
-            warnings=$((warnings + 1))
-          else
-            printf 'LOG-ONLY: broad mask includes CPU%s but current PSR=%s pid=%s tid=%s allowed=%s cls=%s rtprio=%s comm=%s args=%s\n' \
-              "${rt_cpu}" "${psr}" "${pid}" "${tid}" "${allowed}" "${cls}" "${rtprio}" "${comm}" "${args}" >&2
-          fi
-          ;;
-      esac
+    if contains_cpu "${allowed}" "${rt_cpu}" &&
+       [[ "${rtprio}" =~ ^[0-9]+$ ]] && (( rtprio >= 80 )); then
+      record_warning "${tid}:broad" \
+        "pid=${pid} tid=${tid} current_psr=${psr} allowed=${allowed} cls=${cls} rtprio=${rtprio} comm=${comm} args=${args}"
     fi
   done < <(ps -eLo pid=,tid=,psr=,cls=,rtprio=,comm=,args=)
+}
+
+print_records()
+{
+  local label="$1"
+  local limit="$2"
+  shift 2
+  local -n records_ref="$1"
+  local count="${#records_ref[@]}"
+  local extra=0
+  local key
+  local shown=0
+
+  (( count > 0 )) || return
+  printf '%s' "${label}" >&2
+  for key in "${!records_ref[@]}"; do
+    if (( shown >= limit )); then
+      extra=$((extra + 1))
+      continue
+    fi
+    printf '%s%s' "$([[ "${shown}" -eq 0 ]] && printf '' || printf '; ')" "${records_ref[${key}]}" >&2
+    shown=$((shown + 1))
+  done
+  if (( extra > 0 )); then
+    printf '; ... %s more' "${extra}" >&2
+  fi
+  printf '\n' >&2
 }
 
 for ((sample = 1; sample <= samples; sample++)); do
@@ -177,8 +211,16 @@ for ((sample = 1; sample <= samples; sample++)); do
   fi
 done
 
+violations="${#violation_records[@]}"
+warnings="${#warn_records[@]}"
+
 if (( violations > 0 )); then
+  print_records "VIOLATION: " 8 violation_records
   [[ "${mode}" == "strict" ]] && exit 1
+fi
+
+if (( warnings > 0 )); then
+  print_records "WARN: rtprio >= 80 non-rt-control realtime thread(s) have broad CPU${rt_cpu} masks but were not observed running on CPU${rt_cpu}; threads: " 5 warn_records
 fi
 
 printf 'PASS: no non-whitelisted realtime thread executed on CPU%s across %s PSR samples; warnings=%s\n' \
