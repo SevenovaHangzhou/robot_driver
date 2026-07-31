@@ -75,6 +75,15 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn('python3 "${axis_state_checker}"', body)
         self.assertNotIn('-x "${axis_state_checker}"', body)
 
+    def test_axis_state_checker_retries_ros2_echo_sampling(self):
+        start = self.text.index("check_axis_states()")
+        stop = self.text.index("verify_operational_ethercat()", start)
+        body = self.text[start:stop]
+        self.assertIn("local deadline", body)
+        self.assertIn("while (( SECONDS < deadline )); do", body)
+        self.assertIn("sleep 1", body)
+        self.assertIn("last_error", body)
+
     def test_stop_requests_disable_before_signalling_runtime(self):
         start = self.text.index("stop_native()")
         stop = self.text.index("status_native()", start)

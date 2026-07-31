@@ -433,17 +433,29 @@ verify_enabled_controllers()
 
 check_axis_states()
 {
+  local deadline=$((SECONDS + 30))
   local expected="$1"
+  local last_error=""
   local snapshot
   [[ -f "${axis_state_checker}" && -r "${axis_state_checker}" ]] ||
     fail "missing or unreadable axis-state checker: ${axis_state_checker}"
-  snapshot="$(
-    run_ros2_timeout 15 ros2 topic echo --once /dynamic_joint_states \
-      control_msgs/msg/DynamicJointState
-  )" || fail "did not receive /dynamic_joint_states for ${expected} check"
-  if ! printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
-    fail "14-axis ${expected} CiA 402 contract is not satisfied"
-  fi
+  while (( SECONDS < deadline )); do
+    if ! snapshot="$(
+      run_ros2_timeout 8 ros2 topic echo --once /dynamic_joint_states \
+        control_msgs/msg/DynamicJointState 2>&1
+    )"; then
+      last_error="${snapshot}"
+      sleep 1
+      continue
+    fi
+    if printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
+      return
+    fi
+    last_error="${snapshot}"
+    sleep 1
+  done
+  printf '%s\n' "${last_error}" >&2
+  fail "14-axis ${expected} CiA 402 contract is not satisfied after 30 seconds"
 }
 
 verify_operational_ethercat()
