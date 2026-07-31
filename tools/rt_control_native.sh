@@ -216,6 +216,7 @@ verify_workspace()
   [[ -x "${thread_affinity_tool}" ]] ||
     fail "missing executable thread affinity helper: ${thread_affinity_tool}"
   command -v taskset >/dev/null 2>&1 || fail "missing taskset"
+  command -v setsid >/dev/null 2>&1 || fail "missing setsid"
   command -v ethercat >/dev/null 2>&1 || fail "missing ethercat CLI"
 }
 
@@ -338,7 +339,7 @@ launch_native()
   ln -sfn -- "${log_file}" "${latest_log_link}"
 
   info "starting installed rt_control_start on housekeeping CPUs ${expected_housekeeping_cpuset}; rt CPU=${expected_cpuset}; log=${log_file}"
-  nohup env \
+  nohup setsid env \
     -u FASTRTPS_DEFAULT_PROFILES_FILE \
     -u FASTDDS_DEFAULT_PROFILES_FILE \
     -u CYCLONEDDS_URI \
@@ -706,7 +707,11 @@ recover_power_loss_native()
   verify_enabled_controllers
   verify_operational_ethercat
   info "RECOVERED: native stack is running and enabled"
-  monitor_native_warning_logs
+  if should_monitor_native_logs; then
+    monitor_native_warning_logs
+  else
+    info "WARN/ERROR runtime log monitor disabled by RT_CONTROL_NATIVE_MONITOR=${RT_CONTROL_NATIVE_MONITOR}"
+  fi
 }
 
 stop_native()
@@ -782,6 +787,18 @@ logs_native()
 {
   [[ -e "${latest_log_link}" ]] || fail "no native runtime log exists"
   tail -n 200 -f "${latest_log_link}"
+}
+
+should_monitor_native_logs()
+{
+  case "${RT_CONTROL_NATIVE_MONITOR:-true}" in
+    0|false|FALSE|no|NO|off|OFF)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
 }
 
 monitor_native_warning_logs()

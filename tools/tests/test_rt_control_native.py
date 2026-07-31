@@ -115,6 +115,8 @@ class NativeLauncherContractTest(unittest.TestCase):
     def test_verified_realtime_cpu_is_applied_to_the_runtime(self):
         self.assertIn('readonly expected_cpuset="14"', self.text)
         self.assertIn('readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"', self.text)
+        self.assertIn('command -v setsid', self.text)
+        self.assertIn('nohup setsid env', self.text)
         self.assertIn('taskset --cpu-list "${expected_housekeeping_cpuset}"', self.text)
         self.assertNotIn('taskset --cpu-list "${expected_cpuset}" \\\n    "${installed_start}"', self.text)
         self.assertNotIn("RT_CONTROL_ENABLE_NODE_AFFINITY", self.text)
@@ -156,6 +158,15 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("clear_resettable_faults_before_enable"), body.index("check_axis_states disabled"))
         self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
         self.assertIn("call_rt_service enable", body)
+
+    def test_oneclick_recovery_monitors_logs_by_default_after_successful_enable(self):
+        self.assertIn("should_monitor_native_logs()", self.text)
+        self.assertIn("RT_CONTROL_NATIVE_MONITOR", self.text)
+        start = self.text.index("recover_power_loss_native()")
+        stop = self.text.index("stop_native()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("check_axis_states enabled"), body.index("should_monitor_native_logs"))
+        self.assertLess(body.index("should_monitor_native_logs"), body.index("monitor_native_warning_logs"))
 
     def test_runtime_sources_ros_setup_without_nounset(self):
         start = self.text.index("source_runtime_environment()")
