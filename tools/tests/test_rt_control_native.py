@@ -67,6 +67,14 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
         self.assertLess(body.index("call_rt_service enable"), body.index("check_axis_states enabled"))
 
+    def test_axis_state_checker_is_read_as_python_not_executed(self):
+        start = self.text.index("check_axis_states()")
+        stop = self.text.index("verify_operational_ethercat()", start)
+        body = self.text[start:stop]
+        self.assertIn('[[ -f "${axis_state_checker}" && -r "${axis_state_checker}" ]]', body)
+        self.assertIn('python3 "${axis_state_checker}"', body)
+        self.assertNotIn('-x "${axis_state_checker}"', body)
+
     def test_stop_requests_disable_before_signalling_runtime(self):
         start = self.text.index("stop_native()")
         stop = self.text.index("status_native()", start)

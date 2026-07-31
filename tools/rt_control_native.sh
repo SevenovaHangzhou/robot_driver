@@ -435,7 +435,8 @@ check_axis_states()
 {
   local expected="$1"
   local snapshot
-  [[ -x "${axis_state_checker}" ]] || fail "missing axis-state checker: ${axis_state_checker}"
+  [[ -f "${axis_state_checker}" && -r "${axis_state_checker}" ]] ||
+    fail "missing or unreadable axis-state checker: ${axis_state_checker}"
   snapshot="$(
     run_ros2_timeout 15 ros2 topic echo --once /dynamic_joint_states \
       control_msgs/msg/DynamicJointState
