@@ -166,6 +166,9 @@ apply_frozen_patches()
     patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
+    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
+    src/vendor/ros2_canopen
+  apply_patch_once \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     src/vendor/ros2_controllers
 }
@@ -226,7 +229,8 @@ verify_frozen_vendor_trees()
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
-    patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch
+    patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
+    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch
 }

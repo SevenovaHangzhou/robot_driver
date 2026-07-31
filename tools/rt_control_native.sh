@@ -230,6 +230,7 @@ pin_controller_update_thread()
   python3 "${thread_affinity_tool}" \
     --rt-cpu "${expected_cpuset}" \
     --housekeeping-cpus "${expected_housekeeping_cpuset}" \
+    --required-rt-thread-name rtcan-master \
     --rt-priority 80 \
     --deadline 5
 }

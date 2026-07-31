@@ -1,0 +1,24 @@
+diff --git a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+index 1f2cef8..5926676 100644
+--- a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
++++ b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+@@ -18,6 +18,9 @@
+ #include <yaml-cpp/yaml.h>
+ #include <atomic>
++#ifdef __linux__
++#include <pthread.h>
++#endif
+ #include <lely/coapp/master.hpp>
+ #include <lely/coapp/slave.hpp>
+ #include <lely/ev/exec.hpp>
+ #include <lely/ev/loop.hpp>
+@@ -232,6 +235,9 @@ public:
+     this->spinner_ = std::thread(
+       [this]()
+       {
++#ifdef __linux__
++        (void)pthread_setname_np(pthread_self(), "rtcan-master");
++#endif
+         try
+         {
+           loop_->run();

@@ -2183,3 +2183,24 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   Fast DDS 默认传输在多进程/多容器点云与控制联合负载下的共享内存权限、QoS、吞吐和长稳尚未验收。
 - Verification boundary：原生脚本合同、shell 静态检查和离线质量门禁必须先通过。本裁决不授权目标机安装、构建、
   启动、总线访问、故障复位或使能；旧目标镜像在独立 Docker 变更完成受控重建/切换前仍是 Domain 42。
+
+## BQ-129 — CANopen/Lely master loop 与 CPU14 隔离策略 [RESOLVED/HIGH-RISK 2026-08-01]
+
+- Evidence：现场复盘认为 CANopen heartbeat 长时间缺失和 EtherCAT 同步抖动可能同源，都是高负载下关键通信调度没有
+  足够隔离。前一版 BQ-120 将整个 `ros2_control_node` 外层放在 housekeeping，再只把唯一 FIFO80 update 线程迁移到
+  CPU14，因此 CANopen/Lely master event loop 仍可能受 housekeeping CPU 满载影响。运行态扫描显示该进程内普通线程默认都
+  叫 `ros2_control_no`，无法靠 TID 顺序或 CPU 占用稳定识别 CANopen heartbeat 线程；源码确认 ros2_canopen 的 Lely
+  master loop 来自 `NodeCanopenMaster::activate()` 创建的 `spinner_` 线程。
+- User decision：把 CANopen/Lely master heartbeat/event-loop 也放到 CPU14，不再保持其运行在 housekeeping CPU。
+- Decision：新增窄 ros2_canopen 补丁，仅给 Lely master loop 线程设置 Linux comm 名称 `rtcan-master`，不改变
+  CANopen 协议、heartbeat/NMT/EMCY 参数或设备状态机。native affinity 门禁在启动后和每次 `/rt/enable` 前要求
+  `ros2_control_node` 中恰好存在一个 `rtcan-master`，并将它与唯一 `SCHED_FIFO/80` update 线程一起 pin 到 CPU14；
+  DDS、service、diagnostics、BMS/PLC 及其余普通线程继续留在 housekeeping。
+- Benefit：CANopen master heartbeat/event-loop 不再被导航、FAST-LIO、RViz、rosbag 或桌面远控把 housekeeping CPU 打满
+  时直接饿住，同时保持 DDS/service 不挤占 CPU14。
+- Drawback（重点）：CPU14 现在承载 EtherCAT-OP、FIFO80 update 和一个 SCHED_OTHER 的 Lely master loop；如果控制线程
+  或 EtherCAT 长期占满 CPU14，Lely loop 仍可能受 RT throttling/调度延迟影响。该方案依赖线程命名补丁和
+  `taskset`/`sched_setaffinity` 语义，升级 ros2_canopen 时必须重核补丁；若未来增加第二个 CANopen master，当前
+  “恰好一个 `rtcan-master`”门禁会 fail-fast，需要重新裁决命名和绑定策略。
+- Verification boundary：本裁决只解决目标主站线程归属，不替代 CAN 总线物理层、USB-CAN 适配器、tx/rx 队列或驱动器
+  heartbeat consumer 的长稳验证；CAN error counters、EMCY/heartbeat 故障注入和导航联调压力仍需单独记录。

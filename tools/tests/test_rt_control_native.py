@@ -15,6 +15,9 @@ ONECLICK = ROOT / "tools" / "rt_control_native_oneclick.sh"
 CPU_GUARD = ROOT / "tools" / "rt_cpu_contamination_check.sh"
 THREAD_AFFINITY = ROOT / "tools" / "rt_control_thread_affinity.py"
 HEARTBEAT_WATCH = ROOT / "tools" / "canopen_heartbeat_watch.sh"
+CANOPEN_MASTER_THREAD_PATCH = (
+    ROOT / "patches" / "ros2_canopen" / "0004-name-canopen-master-loop-thread.patch"
+)
 
 
 class NativeLauncherContractTest(unittest.TestCase):
@@ -134,9 +137,10 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn('options ec_master run_on_cpu=${expected_cpuset}', self.text)
         self.assertIn("verify_ethercat_op_thread_cpu", self.text)
 
-    def test_native_pins_only_controller_update_thread_after_startup(self):
+    def test_native_pins_controller_update_and_canopen_master_loop_after_startup(self):
         self.assertIn('thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"', self.text)
         self.assertIn("pin_controller_update_thread", self.text)
+        self.assertIn("--required-rt-thread-name rtcan-master", self.text)
         start = self.text.index("start_native()")
         stop = self.text.index("enable_native()", start)
         body = self.text[start:stop]
@@ -208,6 +212,12 @@ class NativeBootstrapContractTest(unittest.TestCase):
         self.assertLess(
             body.index("if (verify_frozen_vendor_trees)"),
             body.index("apply_frozen_patches"),
+        )
+
+    def test_bootstrap_applies_the_canopen_master_thread_identity_patch(self):
+        self.assertIn(
+            "patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch",
+            self.text,
         )
 
     def test_build_is_incremental_and_kept_outside_the_repository(self):
@@ -289,7 +299,7 @@ class RtControlDiagnosticScriptContractTest(unittest.TestCase):
         self.assertIn("rtprio >= 80", text)
         self.assertNotIn("LOG-ONLY:", text)
 
-    def test_thread_affinity_helper_is_executable_and_keeps_canopen_off_rt_cpu(self):
+    def test_thread_affinity_helper_is_executable_and_pins_required_named_rt_threads(self):
         self.assertTrue(THREAD_AFFINITY.exists(), "thread affinity helper is missing")
         self.assertTrue(THREAD_AFFINITY.stat().st_mode & 0o111, "thread helper must be executable")
         text = THREAD_AFFINITY.read_text(encoding="utf-8")
@@ -303,6 +313,19 @@ class RtControlDiagnosticScriptContractTest(unittest.TestCase):
         self.assertIn("Phase 0", text)
         self.assertIn("--sample", text)
         self.assertIn("SCHED_RR", text)
+        self.assertIn("--required-rt-thread-name", text)
+        self.assertIn("expected exactly one matching required RT thread", text)
+        self.assertIn("rtcan-master", LAUNCHER.read_text(encoding="utf-8"))
+
+    def test_canopen_master_loop_patch_names_the_lely_thread_for_affinity_gate(self):
+        self.assertTrue(
+            CANOPEN_MASTER_THREAD_PATCH.exists(),
+            "CANopen master thread identity patch is missing",
+        )
+        text = CANOPEN_MASTER_THREAD_PATCH.read_text(encoding="utf-8")
+        self.assertIn("pthread_setname_np", text)
+        self.assertIn("rtcan-master", text)
+        self.assertIn("node_canopen_master.hpp", text)
 
     def test_canopen_heartbeat_watcher_is_read_only_and_tracks_master_gap(self):
         self.assertTrue(HEARTBEAT_WATCH.exists(), "CANopen heartbeat watcher is missing")

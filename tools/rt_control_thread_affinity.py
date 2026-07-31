@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Pin only the controller-manager realtime update thread to the RT CPU.
+"""Pin the control update and required bus-loop threads to the RT CPU.
 
 The native launcher starts the full ROS launch tree on housekeeping CPUs.  This
 helper then finds the single ros2_control_node SCHED_FIFO thread with the
 approved rt_priority and moves only that thread onto the isolated realtime CPU.
-All other ros2_control_node threads, including DDS, services and CANopen/Lely
-event-loop work, remain on housekeeping CPUs.
+It may also require named bus-loop threads, such as the ros2_canopen Lely master
+loop, and move those exact threads to the same isolated CPU.  All other
+ros2_control_node threads, including DDS and services, remain on housekeeping
+CPUs.
 """
 
 from __future__ import annotations
@@ -146,6 +148,12 @@ def describe_inventory(pid: int) -> str:
     return "\n".join(lines)
 
 
+def describe_all_threads(pid: int) -> str:
+    lines = ["ros2_control_node thread inventory:"]
+    lines.extend(describe_snapshot(thread_snapshot(tid)) for tid in list_threads(pid))
+    return "\n".join(lines)
+
+
 def select_update_thread(pid: int, rt_priority: int) -> int:
     inventory = realtime_thread_inventory(pid)
     matches = [
@@ -162,17 +170,34 @@ def select_update_thread(pid: int, rt_priority: int) -> int:
     return matches[0]
 
 
+def select_required_named_threads(pid: int, names: list[str]) -> dict[str, int]:
+    snapshots = [thread_snapshot(tid) for tid in list_threads(pid)]
+    selected: dict[str, int] = {}
+    for name in names:
+        matches = [snapshot for snapshot in snapshots if snapshot.name == name]
+        if len(matches) != 1:
+            raise RuntimeError(
+                "expected exactly one matching required RT thread "
+                f"(comm={name}), found {len(matches)}\n{describe_all_threads(pid)}"
+            )
+        selected[name] = matches[0].tid
+    return selected
+
+
 def pin_threads(
     pid: int,
     rt_cpu: set[int],
     housekeeping_cpus: set[int],
     rt_priority: int,
-) -> int:
+    required_rt_thread_names: list[str],
+) -> tuple[int, dict[str, int]]:
     threads = list_threads(pid)
-    target_tid = select_update_thread(pid, rt_priority)
+    update_tid = select_update_thread(pid, rt_priority)
+    named_tids = select_required_named_threads(pid, required_rt_thread_names)
+    rt_tids = {update_tid, *named_tids.values()}
     for tid in threads:
         try:
-            if tid == target_tid:
+            if tid in rt_tids:
                 os.sched_setaffinity(tid, rt_cpu)
             else:
                 os.sched_setaffinity(tid, housekeeping_cpus)
@@ -180,21 +205,24 @@ def pin_threads(
             raise RuntimeError(
                 f"sched_setaffinity failed for tid={tid} ({thread_name(tid)}): {exc}"
             ) from exc
-    return target_tid
+    return update_tid, named_tids
 
 
 def verify_affinity(
     pid: int,
-    target_tid: int,
+    update_tid: int,
+    named_tids: dict[str, int],
     rt_cpu: set[int],
     housekeeping_cpus: set[int],
 ) -> None:
+    rt_tids = {update_tid, *named_tids.values()}
     for tid in list_threads(pid):
         actual = os.sched_getaffinity(tid)
-        if tid == target_tid:
+        if tid in rt_tids:
             if actual != rt_cpu:
                 raise RuntimeError(
-                    f"update thread {tid} affinity is {format_cpu_list(actual)}, "
+                    f"RT CPU thread {tid} ({thread_name(tid)}) affinity is "
+                    f"{format_cpu_list(actual)}, "
                     f"expected {format_cpu_list(rt_cpu)}"
                 )
         elif actual != housekeeping_cpus:
@@ -224,6 +252,15 @@ def main() -> int:
     parser.add_argument("--rt-cpu", required=True)
     parser.add_argument("--housekeeping-cpus", required=True)
     parser.add_argument("--rt-priority", type=int, default=80)
+    parser.add_argument(
+        "--required-rt-thread-name",
+        action="append",
+        default=[],
+        help=(
+            "require exactly one ros2_control_node thread with this comm name "
+            "and pin it to the RT CPU; may be repeated"
+        ),
+    )
     parser.add_argument("--deadline", type=float, default=30.0)
     parser.add_argument("--psr-deadline", type=float, default=2.0)
     parser.add_argument(
@@ -253,13 +290,25 @@ def main() -> int:
             if args.sample:
                 print(describe_inventory(pid))
                 return 0
-            target_tid = pin_threads(pid, rt_cpu, housekeeping_cpus, args.rt_priority)
-            verify_affinity(pid, target_tid, rt_cpu, housekeeping_cpus)
-            wait_for_target_processor(target_tid, rt_cpu_number, args.psr_deadline)
+            update_tid, named_tids = pin_threads(
+                pid,
+                rt_cpu,
+                housekeeping_cpus,
+                args.rt_priority,
+                args.required_rt_thread_name,
+            )
+            verify_affinity(pid, update_tid, named_tids, rt_cpu, housekeeping_cpus)
+            wait_for_target_processor(update_tid, rt_cpu_number, args.psr_deadline)
+            named_summary = ", ".join(
+                f"{name}:tid={tid}" for name, tid in sorted(named_tids.items())
+            )
+            if not named_summary:
+                named_summary = "none"
             print(
                 "Pinned ros2_control_node update thread "
-                f"pid={pid} tid={target_tid} name={thread_name(target_tid)} "
+                f"pid={pid} tid={update_tid} name={thread_name(update_tid)} "
                 f"to RT CPU {format_cpu_list(rt_cpu)} with verified PSR={rt_cpu_number}; "
+                f"required RT CPU threads={named_summary}; "
                 f"other threads remain on "
                 f"housekeeping CPUs {format_cpu_list(housekeeping_cpus)}"
             )
