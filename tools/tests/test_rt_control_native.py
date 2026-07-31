@@ -9,6 +9,7 @@ LAUNCHER = ROOT / "tools" / "rt_control_native.sh"
 BOOTSTRAP = ROOT / "tools" / "bootstrap_native_dev.sh"
 IGH_INSTALLER = ROOT / "hostsetup" / "igh-install.sh"
 SIGNAL_GATE = ROOT / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
+ONECLICK = ROOT / "tools" / "rt_control_native_oneclick.sh"
 
 
 class NativeLauncherContractTest(unittest.TestCase):
@@ -40,7 +41,7 @@ class NativeLauncherContractTest(unittest.TestCase):
 
     def test_start_and_enable_requires_confirmation_and_never_resets_faults(self):
         start = self.text.index("start_and_enable_native()")
-        stop = self.text.index("stop_native()", start)
+        stop = self.text.index("recover_power_loss_native()", start)
         body = self.text[start:stop]
         self.assertLess(
             body.index("confirm_enable_authorization"),
@@ -48,6 +49,23 @@ class NativeLauncherContractTest(unittest.TestCase):
         )
         self.assertLess(body.index("start_native"), body.index("call_rt_service enable"))
         self.assertNotIn("call_rt_service reset_fault", body)
+
+    def test_reset_fault_is_only_used_by_the_explicit_recovery_entrypoint(self):
+        self.assertIn("enable|disable|reset_fault", self.text)
+        self.assertIn("recover-power-loss) recover_power_loss_native", self.text)
+
+        start = self.text.index("recover_power_loss_native()")
+        stop = self.text.index("stop_native()", start)
+        body = self.text[start:stop]
+        self.assertEqual(body.count("call_rt_service reset_fault"), 1)
+        self.assertLess(body.index("confirm_recovery_authorization"), body.index("start_native preauthorized"))
+        self.assertLess(
+            body.index("wait_for_enable_manager_reset_ready"),
+            body.index("call_rt_service reset_fault"),
+        )
+        self.assertLess(body.index("call_rt_service reset_fault"), body.index("check_axis_states disabled"))
+        self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
+        self.assertLess(body.index("call_rt_service enable"), body.index("check_axis_states enabled"))
 
     def test_stop_requests_disable_before_signalling_runtime(self):
         start = self.text.index("stop_native()")
@@ -129,6 +147,17 @@ class NativeHostSetupContractTest(unittest.TestCase):
         self.assertIn(expected_path, self.launcher_text)
         self.assertIn("IGH_VERSION=%s\\nIGH_COMMIT=%s\\n", self.installer_text)
         self.assertIn('install -d -m 0755 /usr/local/share/rt-control', self.installer_text)
+
+
+class NativeOneClickRecoveryContractTest(unittest.TestCase):
+    def test_oneclick_script_delegates_to_the_explicit_recovery_entrypoint(self):
+        self.assertTrue(ONECLICK.exists(), "native one-click recovery script is missing")
+        self.assertTrue(
+            ONECLICK.stat().st_mode & 0o111,
+            "native one-click recovery script must be executable",
+        )
+        text = ONECLICK.read_text(encoding="utf-8")
+        self.assertIn('exec "${script_dir}/rt_control_native.sh" recover-power-loss "$@"', text)
 
 
 if __name__ == "__main__":

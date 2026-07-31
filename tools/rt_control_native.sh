@@ -20,9 +20,10 @@ runtime_log_root="${workspace_root}/log/native"
 pid_file="${runtime_root}/rt_control_start.pid"
 latest_log_link="${runtime_root}/latest.log"
 installed_start="${install_root}/lib/rt_control_bringup/rt_control_start"
+axis_state_checker="${repository_root}/tools/rt_control_axis_state_check.py"
 
 readonly repository_root workspace_root install_root runtime_root runtime_log_root
-readonly pid_file latest_log_link installed_start
+readonly pid_file latest_log_link installed_start axis_state_checker
 
 info()
 {
@@ -45,6 +46,9 @@ Native rt-control development runtime for ar-Default-string:
       Start the real control stack without calling /rt/enable.
   ./tools/rt_control_native.sh start-and-enable
       Start the real control stack and call /rt/enable after explicit approval.
+  ./tools/rt_control_native.sh recover-power-loss
+      One-command recovery start: stop any old native session, start fresh,
+      call /rt/reset_fault once, verify disabled state, then call /rt/enable.
   ./tools/rt_control_native.sh enable
       Call /rt/enable on an already running native stack.
   ./tools/rt_control_native.sh stop
@@ -105,7 +109,7 @@ call_rt_service()
 {
   local operation="$1"
   case "${operation}" in
-    enable|disable) ;;
+    enable|disable|reset_fault) ;;
     *) fail "unsupported native lifecycle operation: ${operation}" ;;
   esac
   run_ros2_timeout 40 ros2 service call \
@@ -251,6 +255,18 @@ confirm_enable_authorization()
   [[ "${answer}" == "ENABLE_RT_CONTROL_NATIVE" ]] || fail "native enable not authorized"
 }
 
+confirm_recovery_authorization()
+{
+  local answer
+  [[ -t 0 && -r /dev/tty ]] || fail "native recovery requires an interactive terminal"
+  printf '%s\n' \
+    "This operation may stop an existing native session, starts real buses, calls /rt/reset_fault once, and then calls /rt/enable." \
+    "Confirm the main contactor is restored, the emergency stop is ready, and all 14 axes and tracks may be energized." \
+    "Type RECOVER_RT_CONTROL_NATIVE to continue:"
+  IFS= read -r answer < /dev/tty
+  [[ "${answer}" == "RECOVER_RT_CONTROL_NATIVE" ]] || fail "native recovery not authorized"
+}
+
 launch_native()
 {
   local log_file
@@ -300,6 +316,146 @@ terminate_failed_start()
   if [[ -n "${pid}" ]]; then
     kill -TERM "${pid}" 2>/dev/null || true
   fi
+}
+
+strip_ansi()
+{
+  sed -E $'s/\033\[[0-9;]*[mK]//g'
+}
+
+wait_for_idle_ethercat()
+{
+  local deadline=$((SECONDS + 20))
+  local master
+  while (( SECONDS < deadline )); do
+    master="$(ethercat master 2>/dev/null || true)"
+    if grep -Fq 'Phase: Idle' <<< "${master}" &&
+      grep -Fq 'Active: no' <<< "${master}"; then
+      return
+    fi
+    sleep 1
+  done
+  fail "EtherCAT master did not return to Idle/Inactive within 20 seconds"
+}
+
+best_effort_stop_existing_native_for_recovery()
+{
+  local deadline
+  local pid
+  local response
+  source_runtime_environment
+  pid="$(native_pid 2>/dev/null || true)"
+  if [[ -z "${pid}" ]]; then
+    cleanup_stale_pid_file
+    wait_for_idle_ethercat
+    return
+  fi
+
+  info "best-effort disabling old native session before recovery"
+  if response="$(call_rt_service disable)"; then
+    printf '%s\n' "${response}"
+    if ! grep -Fq 'ok=True' <<< "${response}"; then
+      info "WARN: old native /rt/disable did not confirm success; continuing recovery teardown"
+    fi
+  else
+    info "WARN: old native /rt/disable was unavailable; continuing recovery teardown"
+  fi
+
+  kill -TERM "${pid}" 2>/dev/null || true
+  deadline=$((SECONDS + 100))
+  while kill -0 "${pid}" 2>/dev/null && (( SECONDS < deadline )); do
+    sleep 1
+  done
+  if kill -0 "${pid}" 2>/dev/null; then
+    fail "old native runtime exceeded the 100-second recovery shutdown deadline; no SIGKILL was sent"
+  fi
+  rm -f -- "${pid_file}"
+  if [[ -e "${latest_log_link}" ]] &&
+    tail -n 200 "${latest_log_link}" | grep -Fq 'UNCLEAN_SHUTDOWN'; then
+    info "WARN: old native session reported UNCLEAN_SHUTDOWN; fresh recovery session will continue"
+  fi
+  wait_for_idle_ethercat
+}
+
+wait_for_enable_manager_reset_ready()
+{
+  local deadline=$((SECONDS + 120))
+  local snapshot
+  while (( SECONDS < deadline )); do
+    snapshot="$(
+      run_ros2_timeout 8 ros2 topic echo --once /diagnostics \
+        diagnostic_msgs/msg/DiagnosticArray \
+        --filter "any(s.name == '/robot/rt_control/enable_manager' for s in m.status)" \
+        2>/dev/null || true
+    )"
+    if grep -Fq 'value: IDLE' <<< "${snapshot}"; then
+      return
+    fi
+    if grep -Fq 'value: FAILED' <<< "${snapshot}"; then
+      if grep -Fq 'value: fault_requires_reset' <<< "${snapshot}"; then
+        return
+      fi
+      printf '%s\n' "${snapshot}" >&2
+      fail "enable_manager failed for a non-resettable stage; refusing to hide it with fault reset"
+    fi
+    sleep 1
+  done
+  fail "enable_manager did not reach IDLE or fault_requires_reset within 120 seconds"
+}
+
+verify_controllers_before_enable()
+{
+  local controller_output
+  controller_output="$(run_ros2_timeout 15 ros2 control list_controllers | strip_ansi)"
+  grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" ||
+    fail "joint_state_broadcaster is not active"
+  grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" ||
+    fail "diff_drive_controller is not active"
+  grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
+    fail "enable_manager is not active"
+  grep -Eq '^dual_arm_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
+    fail "dual_arm_jtc is not inactive before enable"
+}
+
+verify_enabled_controllers()
+{
+  local controller_output
+  controller_output="$(run_ros2_timeout 15 ros2 control list_controllers | strip_ansi)"
+  grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" ||
+    fail "diff_drive_controller is not active after enable"
+  grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" ||
+    fail "joint_state_broadcaster is not active after enable"
+  grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
+    fail "enable_manager is not active after enable"
+  grep -Eq '^dual_arm_jtc[[:space:]].*active' <<< "${controller_output}" ||
+    fail "dual_arm_jtc is not active after enable"
+}
+
+check_axis_states()
+{
+  local expected="$1"
+  local snapshot
+  [[ -x "${axis_state_checker}" ]] || fail "missing axis-state checker: ${axis_state_checker}"
+  snapshot="$(
+    run_ros2_timeout 15 ros2 topic echo --once /dynamic_joint_states \
+      control_msgs/msg/DynamicJointState
+  )" || fail "did not receive /dynamic_joint_states for ${expected} check"
+  if ! printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
+    fail "14-axis ${expected} CiA 402 contract is not satisfied"
+  fi
+}
+
+verify_operational_ethercat()
+{
+  local master
+  local slaves
+  master="$(ethercat master)"
+  slaves="$(ethercat slaves)"
+  grep -Fq 'Phase: Operation' <<< "${master}" || fail "EtherCAT master is not Operation"
+  grep -Fq 'Active: yes' <<< "${master}" || fail "EtherCAT master is not Active"
+  grep -Fq 'Slaves: 16' <<< "${master}" || fail "EtherCAT does not report 16 slaves"
+  [[ "$(grep -Ec '^[[:space:]]*[0-9]+[[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\+' <<< "${slaves}")" -ge 14 ]] ||
+    fail "EtherCAT drive slaves are not OP"
 }
 
 start_native()
@@ -356,6 +512,55 @@ start_and_enable_native()
     fail "/rt/enable returned failure; native stop was requested"
   fi
   info "ENABLED: native stack is ready"
+}
+
+recover_power_loss_native()
+{
+  local enable_response
+  local reset_response
+  confirm_recovery_authorization
+  verify_target_identity
+  verify_realtime_host
+  verify_workspace
+  verify_bus_services
+  reject_running_container
+  best_effort_stop_existing_native_for_recovery
+  verify_can_interface can0 "${expected_can_serial}"
+  verify_can_interface can1 "${expected_bms_can_serial}"
+
+  start_native preauthorized
+  wait_for_enable_manager_reset_ready
+  verify_controllers_before_enable
+  verify_operational_ethercat
+
+  info "calling one group /rt/reset_fault before enable"
+  reset_response="$(call_rt_service reset_fault)" || {
+    best_effort_stop_existing_native_for_recovery
+    fail "/rt/reset_fault did not return; native recovery session was stopped"
+  }
+  printf '%s\n' "${reset_response}"
+  if ! grep -Fq 'ok=True' <<< "${reset_response}" ||
+    ! grep -Eq "stage='(success|already_clear)'" <<< "${reset_response}"; then
+    best_effort_stop_existing_native_for_recovery
+    fail "/rt/reset_fault returned failure; native recovery session was stopped"
+  fi
+  check_axis_states disabled
+
+  info "calling one /rt/enable after reset and disabled-state proof"
+  enable_response="$(call_rt_service enable)" || {
+    best_effort_stop_existing_native_for_recovery
+    fail "/rt/enable did not return; native recovery session was stopped"
+  }
+  printf '%s\n' "${enable_response}"
+  if ! grep -Fq 'ok=True' <<< "${enable_response}" ||
+    ! grep -Eq "stage='(success|already_enabled)'" <<< "${enable_response}"; then
+    best_effort_stop_existing_native_for_recovery
+    fail "/rt/enable returned failure; native recovery session was stopped"
+  fi
+  check_axis_states enabled
+  verify_enabled_controllers
+  verify_operational_ethercat
+  info "RECOVERED: native stack is running, reset once, and enabled"
 }
 
 stop_native()
@@ -447,6 +652,7 @@ case "${1:-}" in
   doctor) doctor_native ;;
   start) start_native ;;
   start-and-enable) start_and_enable_native ;;
+  recover-power-loss) recover_power_loss_native ;;
   enable) enable_native ;;
   stop) stop_native ;;
   status) status_native ;;

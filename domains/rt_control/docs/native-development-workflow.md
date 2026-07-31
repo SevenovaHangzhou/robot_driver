@@ -40,6 +40,18 @@ cd /home/ar/rt-control-dev/robot
 ./tools/rt_control_native.sh enable
 ```
 
+急停或主接触器断电后，现场重新上电且确认允许执行器上电时，使用恢复一键脚本：
+
+```bash
+./tools/rt_control_native_oneclick.sh
+```
+
+它等价于 `./tools/rt_control_native.sh recover-power-loss`，会要求输入
+`RECOVER_RT_CONTROL_NATIVE`，随后按固定顺序执行：尽力停止旧原生会话、等待 EtherCAT
+回到 Idle/Inactive、启动新的原生控制栈、等待 enable-manager 进入 `IDLE` 或
+`fault_requires_reset`、只调用一次 `/rt/reset_fault`、确认 14 个 EtherCAT 轴处于失能
+状态、只调用一次 `/rt/enable`，最后确认控制器、14 轴和 EtherCAT 主站均已进入运行态。
+
 联调结束必须有序停止：
 
 ```bash
@@ -47,9 +59,10 @@ cd /home/ar/rt-control-dev/robot
 ```
 
 如果明确需要一次完成启动和使能，可用
-`./tools/rt_control_native.sh start-and-enable`。不要同时运行原生栈和
-`robot-rt-control-1` Docker 容器；包装器发现容器仍在运行时会直接拒绝启动。以上包装器
-会自行加载 ROS 和原生 overlay，不需要先在终端 source rt-control 的 `install/setup.bash`。
+`./tools/rt_control_native.sh start-and-enable`，但它不会自动 fault reset，不适合作为
+急停/主接触器掉电后的恢复入口。不要同时运行原生栈和 `robot-rt-control-1` Docker 容器；
+包装器发现容器仍在运行时会直接拒绝启动。以上包装器会自行加载 ROS 和原生 overlay，
+不需要先在终端 source rt-control 的 `install/setup.bash`。
 
 ## 1. 固定目录
 
@@ -142,6 +155,26 @@ cd /home/ar/rt-control-dev/robot
 ```bash
 ./tools/rt_control_native.sh start-and-enable
 ```
+
+主接触器断电、硬件急停或驱动器故障复位后的恢复启动：
+
+```bash
+./tools/rt_control_native_oneclick.sh
+```
+
+该脚本是傻瓜式入口，内部调用 `recover-power-loss`。它会：
+
+1. 要求现场输入 `RECOVER_RT_CONTROL_NATIVE`。
+2. 如果旧原生会话仍存在，先尽力调用 `/rt/disable`，再请求 `rt_control_start` 有序退出。
+3. 等待 EtherCAT 主站确认 `Idle/Inactive`，避免上一轮控制栈残留。
+4. 启动新的原生控制栈。
+5. 等待 enable-manager 进入 `IDLE` 或明确的 `fault_requires_reset`。
+6. 调用一次全组 `/rt/reset_fault`。
+7. 检查 14 个 EtherCAT 轴处于失能状态。
+8. 调用一次 `/rt/enable`。
+9. 检查 JTC、JSB、diff-drive、enable-manager、14 轴状态和 EtherCAT OP 状态。
+
+如果任一步失败，脚本会停止本次恢复会话并报错；它不会发送 FJT、`/cmd_vel` 或 PLC 输出。
 
 以上命令都保留真实硬件确认口令。原生脚本锁定当前工控机、实时内核、CPU14、
 EtherCAT MAC、两只 CANable 序列号和 500 kbit/s 参数；任一事实不符即拒绝启动。
