@@ -7,6 +7,8 @@
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>robot_description</exec_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-yaml</test_depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>
