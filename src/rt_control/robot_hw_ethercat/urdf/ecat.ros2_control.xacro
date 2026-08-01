@@ -65,7 +65,7 @@
     <xacro:ti5_axis joint_name="right_joint2" ring_position="2" profile="ti5_right_joint2"/>
     <xacro:ti5_axis joint_name="right_joint3" ring_position="3" profile="ti5_j3"/>
     <xacro:zeroerr_axis joint_name="right_joint4" ring_position="4" profile="zeroerr_right_joint4"/>
-    <xacro:zeroerr_axis joint_name="right_joint5" ring_position="5" profile="zeroerr_j5"/>
+    <xacro:zeroerr_axis joint_name="right_joint5" ring_position="5" profile="zeroerr_right_joint5"/>
     <xacro:zeroerr_axis joint_name="right_joint6" ring_position="6" profile="right_j6"/>
     <xacro:zeroerr_axis joint_name="left_joint1" ring_position="7" profile="zeroerr_j1"/>
     <xacro:ti5_axis joint_name="left_joint2" ring_position="8" profile="ti5_j2"/>

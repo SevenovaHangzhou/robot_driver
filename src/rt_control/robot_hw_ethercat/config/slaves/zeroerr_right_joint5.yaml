@@ -3,7 +3,7 @@ product_id: 0x00029252
 assign_activate: 0x0300
 auto_fault_reset: false
 auto_state_transitions: false
-# Dedicated ZeroErr profile for left_joint5 only. Transform position in the
+# Dedicated ZeroErr profile for right_joint5 only. Transform position in the
 # master around ROS zero; do not write 0x607E and do not change velocity.
 # Scaling source: PLC XML ScalingIncs=16#80000, fPositionPeriod=360 deg.
 # Mechanical zero is encoder 180 deg: ROS 0 rad <-> raw 262144 counts.
