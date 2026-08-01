@@ -50,7 +50,7 @@ def test_position_polarity_sdo_is_limited_to_right_joint2_and_left_joint3():
         assert without_position_polarity(dedicated) == shared
 
 
-def test_zeroerr_position_transform_is_limited_to_right_joint4_and_left_joint5():
+def test_zeroerr_position_transform_is_limited_to_right_joint4():
     xacro = XACRO_PATH.read_text(encoding="utf-8")
 
     assert '<xacro:zeroerr_axis joint_name="right_joint4" ring_position="4" profile="zeroerr_right_joint4"/>' in xacro
@@ -58,28 +58,28 @@ def test_zeroerr_position_transform_is_limited_to_right_joint4_and_left_joint5()
     assert '<xacro:zeroerr_axis joint_name="left_joint4" ring_position="10" profile="zeroerr_j4"/>' in xacro
     assert '<xacro:zeroerr_axis joint_name="right_joint5" ring_position="5" profile="zeroerr_j5"/>' in xacro
 
-    for dedicated_name, shared_name in (
-        ("zeroerr_right_joint4", "zeroerr_j4"),
-        ("zeroerr_left_joint5", "zeroerr_j5"),
-    ):
-        dedicated = load_profile(dedicated_name)
-        expected = deepcopy(load_profile(shared_name))
-        expected_command = next(
-            channel for channel in expected["rpdo"][0]["channels"] if channel["index"] == 0x607A
-        )
-        expected_state = next(
-            channel for channel in expected["tpdo"][0]["channels"] if channel["index"] == 0x6064
-        )
-        expected_command["factor"] *= -1
-        expected_state["factor"] *= -1
-        expected_state["offset"] *= -1
+    dedicated = load_profile("zeroerr_right_joint4")
+    expected = deepcopy(load_profile("zeroerr_j4"))
+    expected_command = next(
+        channel for channel in expected["rpdo"][0]["channels"] if channel["index"] == 0x607A
+    )
+    expected_state = next(
+        channel for channel in expected["tpdo"][0]["channels"] if channel["index"] == 0x6064
+    )
+    expected_command["factor"] *= -1
+    expected_state["factor"] *= -1
+    expected_state["offset"] *= -1
 
-        assert dedicated == expected
-        assert all(entry["index"] != 0x607E for entry in dedicated["sdo"])
-        assert all(
-            channel["index"] != 0x606C
-            for channel in dedicated["rpdo"][0]["channels"] + dedicated["tpdo"][0]["channels"]
-        )
+    assert dedicated == expected
+    assert all(entry["index"] != 0x607E for entry in dedicated["sdo"])
+    assert all(
+        channel["index"] != 0x606C
+        for channel in dedicated["rpdo"][0]["channels"] + dedicated["tpdo"][0]["channels"]
+    )
+
+
+def test_left_joint5_keeps_shared_zeroerr_direction():
+    assert load_profile("zeroerr_left_joint5") == load_profile("zeroerr_j5")
 
 
 def test_zeroerr_position_transform_negates_physical_position_but_preserves_ros_feedback():
