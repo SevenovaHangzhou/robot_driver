@@ -109,6 +109,30 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index('controller.state != "active"'), body.index("SwitchController::Request"))
         self.assertIn("return SwitchResult::kSuccess", body)
 
+    def test_emergency_jtc_deactivate_only_runs_after_enable_requested_jtc(self):
+        source = (
+            ROOT
+            / "src"
+            / "rt_control"
+            / "enable_manager"
+            / "src"
+            / "enable_manager_controller.cpp"
+        ).read_text(encoding="utf-8")
+        self.assertIn("jtc_deactivation_required_.store(false", source)
+        enable_start = source.index("const SwitchResult activation_result = switchJtc(true)")
+        self.assertLess(
+            source.rindex("jtc_deactivation_required_.store(true", 0, enable_start),
+            enable_start,
+        )
+
+        start = source.index("void EnableManagerController::handleNonRtFaultStop")
+        stop = source.index("void EnableManagerController::publishDiagnostics", start)
+        body = source[start:stop]
+        self.assertLess(
+            body.index("jtc_deactivation_required_.load"),
+            body.index("switchJtc(false)"),
+        )
+
     def test_reset_fault_uses_standard_disable_sequence_after_fault_clears(self):
         source = (
             ROOT

@@ -165,6 +165,7 @@ private:
   std::atomic_bool enable_hardware_ready_{false};
   std::atomic_bool jtc_activate_failed_request_{false};
   std::atomic_bool emergency_jtc_deactivate_request_{false};
+  std::atomic_bool jtc_deactivation_required_{false};
   std::atomic_bool restart_required_{false};
   std::atomic_bool switch_in_progress_{false};
   std::atomic_bool enable_callback_active_{false};

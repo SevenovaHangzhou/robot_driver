@@ -149,6 +149,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   enable_hardware_ready_.store(false, std::memory_order_release);
   jtc_activate_failed_request_.store(false, std::memory_order_release);
   emergency_jtc_deactivate_request_.store(false, std::memory_order_release);
+  jtc_deactivation_required_.store(false, std::memory_order_release);
   restart_required_.store(false, std::memory_order_release);
   clearFailure();
   current_batch_ = 0U;
@@ -377,8 +378,12 @@ void EnableManagerController::handleEnable(
     return;
   }
 
+  jtc_deactivation_required_.store(true, std::memory_order_release);
   const SwitchResult activation_result = switchJtc(true);
   if (activation_result != SwitchResult::kSuccess) {
+    if (activation_result == SwitchResult::kFailed) {
+      jtc_deactivation_required_.store(false, std::memory_order_release);
+    }
     if (activation_result == SwitchResult::kAmbiguous) {
       restart_required_.store(true, std::memory_order_release);
       emergency_jtc_deactivate_request_.store(true, std::memory_order_release);
@@ -467,6 +472,8 @@ void EnableManagerController::handleDisable(
       jtc_deactivate_failed_.store(true, std::memory_order_release);
       restart_required_.store(true, std::memory_order_release);
       recordFailure(Stage::kJtcDeactivateFailed, -1, -1, 0U);
+    } else {
+      jtc_deactivation_required_.store(false, std::memory_order_release);
     }
   }
   disable_request_.store(true, std::memory_order_release);
@@ -632,8 +639,13 @@ void EnableManagerController::handleNonRtFaultStop()
   if (!emergency_jtc_deactivate_request_.exchange(false, std::memory_order_acq_rel)) {
     return;
   }
+  if (!jtc_deactivation_required_.load(std::memory_order_acquire)) {
+    return;
+  }
   if (switchJtc(false) != SwitchResult::kSuccess) {
     restart_required_.store(true, std::memory_order_release);
+  } else {
+    jtc_deactivation_required_.store(false, std::memory_order_release);
   }
 }
 
