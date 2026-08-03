@@ -548,15 +548,16 @@ wait_for_enable_manager_reset_ready()
         --filter "any(s.name == '/robot/rt_control/enable_manager' for s in m.status)" \
         2>/dev/null || true
     )"
-    if grep -Fq 'value: IDLE' <<< "${snapshot}"; then
-      return
-    fi
-    if grep -Fq 'value: FAILED' <<< "${snapshot}"; then
+    if grep -Fq 'value: FAILED' <<< "${snapshot}" ||
+      grep -Fq 'value: restart_required' <<< "${snapshot}"; then
       if grep -Fq 'value: fault_requires_reset' <<< "${snapshot}"; then
         return
       fi
       printf '%s\n' "${snapshot}" >&2
       fail "enable_manager failed for a non-resettable stage; refusing to hide it with fault reset"
+    fi
+    if grep -Fq 'value: IDLE' <<< "${snapshot}"; then
+      return
     fi
     sleep 1
   done

@@ -85,6 +85,14 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn("print_fault_recovery_context", body)
         self.assertIn("power-cycle the main contactor", body)
 
+    def test_reset_ready_gate_rejects_restart_required_before_idle(self):
+        start = self.text.index("wait_for_enable_manager_reset_ready()")
+        stop = self.text.index("enable_manager_diagnostic_snapshot()", start)
+        body = self.text[start:stop]
+        self.assertIn("value: restart_required", body)
+        self.assertLess(body.index("value: FAILED"), body.index("value: IDLE"))
+        self.assertLess(body.index("value: restart_required"), body.index("value: IDLE"))
+
     def test_native_launcher_self_raises_rtprio_and_memlock_limits(self):
         self.assertIn("ensure_runtime_limits", self.text)
         start = self.text.index("verify_realtime_host()")

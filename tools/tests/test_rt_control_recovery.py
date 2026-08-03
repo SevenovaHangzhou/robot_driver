@@ -135,6 +135,16 @@ class RecoveryLauncherContractTest(unittest.TestCase):
 
         self.assertNotIn("call_rt_service reset_fault", text[begin:end])
 
+    def test_reset_ready_gate_rejects_restart_required_before_idle(self):
+        text = LAUNCHER.read_text(encoding="utf-8")
+        begin = text.index("wait_for_enable_manager_reset_ready()")
+        end = text.index("strip_ansi()", begin)
+        body = text[begin:end]
+
+        self.assertIn("value: restart_required", body)
+        self.assertLess(body.index("value: FAILED"), body.index("value: IDLE"))
+        self.assertLess(body.index("value: restart_required"), body.index("value: IDLE"))
+
 
 if __name__ == "__main__":
     unittest.main()

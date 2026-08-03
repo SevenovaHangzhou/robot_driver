@@ -347,15 +347,16 @@ wait_for_enable_manager_reset_ready()
     snapshot="$(run_ros2_timeout 8 \
       "ros2 topic echo --once /diagnostics diagnostic_msgs/msg/DiagnosticArray --filter \"any(s.name == '/robot/rt_control/enable_manager' for s in m.status)\"" \
       2>/dev/null || true)"
-    if grep -Fq 'value: IDLE' <<< "${snapshot}"; then
-      return
-    fi
-    if grep -Fq 'value: FAILED' <<< "${snapshot}"; then
+    if grep -Fq 'value: FAILED' <<< "${snapshot}" ||
+      grep -Fq 'value: restart_required' <<< "${snapshot}"; then
       if grep -Fq 'value: fault_requires_reset' <<< "${snapshot}"; then
         return
       fi
       printf '%s\n' "${snapshot}" >&2
       fail "enable_manager 以非 Fault-reset 阶段失败，拒绝用 reset 掩盖原始故障。"
+    fi
+    if grep -Fq 'value: IDLE' <<< "${snapshot}"; then
+      return
     fi
     sleep 1
   done
