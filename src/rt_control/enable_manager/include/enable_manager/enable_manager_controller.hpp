@@ -9,6 +9,7 @@
 #include <string>
 
 #include "controller_interface/controller_interface.hpp"
+#include "controller_manager_msgs/srv/list_controllers.hpp"
 #include "controller_manager_msgs/srv/switch_controller.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "rclcpp/callback_group.hpp"
@@ -206,6 +207,7 @@ private:
   rclcpp::Service<robot_interfaces::srv::RtEnable>::SharedPtr enable_service_;
   rclcpp::Service<robot_interfaces::srv::RtEnable>::SharedPtr disable_service_;
   rclcpp::Service<robot_interfaces::srv::RtEnable>::SharedPtr reset_service_;
+  rclcpp::Client<controller_manager_msgs::srv::ListControllers>::SharedPtr list_client_;
   rclcpp::Client<controller_manager_msgs::srv::SwitchController>::SharedPtr switch_client_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
   rclcpp::TimerBase::SharedPtr worker_timer_;

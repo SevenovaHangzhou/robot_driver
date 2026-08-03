@@ -93,6 +93,22 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("value: FAILED"), body.index("value: IDLE"))
         self.assertLess(body.index("value: restart_required"), body.index("value: IDLE"))
 
+    def test_jtc_deactivate_is_idempotent_before_strict_switch(self):
+        source = (
+            ROOT
+            / "src"
+            / "rt_control"
+            / "enable_manager"
+            / "src"
+            / "enable_manager_controller.cpp"
+        ).read_text(encoding="utf-8")
+        start = source.index("EnableManagerController::SwitchResult EnableManagerController::switchJtc")
+        stop = source.index("void EnableManagerController::handleNonRtFaultStop", start)
+        body = source[start:stop]
+        self.assertIn("ListControllers", body)
+        self.assertLess(body.index('controller.state != "active"'), body.index("SwitchController::Request"))
+        self.assertIn("return SwitchResult::kSuccess", body)
+
     def test_native_launcher_self_raises_rtprio_and_memlock_limits(self):
         self.assertIn("ensure_runtime_limits", self.text)
         start = self.text.index("verify_realtime_host()")

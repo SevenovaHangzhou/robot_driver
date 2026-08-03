@@ -112,6 +112,9 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
       &EnableManagerController::handleResetFault, this, std::placeholders::_1,
       std::placeholders::_2),
     rmw_qos_profile_services_default, reset_callback_group_);
+  list_client_ = get_node()->create_client<controller_manager_msgs::srv::ListControllers>(
+    "/controller_manager/list_controllers", rmw_qos_profile_services_default,
+    worker_callback_group_);
   switch_client_ = get_node()->create_client<controller_manager_msgs::srv::SwitchController>(
     "/controller_manager/switch_controller", rmw_qos_profile_services_default,
     worker_callback_group_);
@@ -567,6 +570,35 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
   if (!switch_client_->wait_for_service(std::chrono::milliseconds(0))) {
     clear_in_progress();
     return SwitchResult::kAmbiguous;
+  }
+
+  if (!activate && list_client_->wait_for_service(std::chrono::milliseconds(0))) {
+    auto list_request =
+      std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
+    auto list_future = list_client_->async_send_request(list_request);
+    const auto list_wait_status = list_future.wait_for(
+      std::chrono::duration<double>(controller_switch_timeout_seconds_));
+    if (list_wait_status == std::future_status::ready) {
+      const auto list_response = list_future.get();
+      bool found_jtc = false;
+      if (list_response != nullptr) {
+        for (const auto & controller : list_response->controller) {
+          if (controller.name != jtc_name_) {
+            continue;
+          }
+          found_jtc = true;
+          if (controller.state != "active") {
+            clear_in_progress();
+            return SwitchResult::kSuccess;
+          }
+          break;
+        }
+      }
+      if (!found_jtc) {
+        clear_in_progress();
+        return SwitchResult::kSuccess;
+      }
+    }
   }
 
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
