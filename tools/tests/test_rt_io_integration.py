@@ -47,6 +47,15 @@ def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
     assert set(compose["services"]) == {"rt-control"}
     service = compose["services"]["rt-control"]
     assert set(service["cap_add"]) == {"SYS_NICE", "IPC_LOCK", "NET_RAW"}
+    assert service["cpuset"].startswith("${RT_CONTROL_CPUSET:?")
+    assert service["environment"]["ROS_DOMAIN_ID"] == "0"
+    assert service["environment"]["ROS_LOCALHOST_ONLY"] == "0"
+    assert service["environment"]["RMW_IMPLEMENTATION"] == "rmw_fastrtps_cpp"
+    assert "CYCLONEDDS_URI" not in service["environment"]
+    assert "volumes" not in service
+    assert service["environment"]["RT_CONTROL_START_CPUSET"].startswith(
+        "${RT_CONTROL_START_CPUSET:?"
+    )
     assert service["environment"]["RT_CONTROL_START_PLC"] == "true"
     assert service["environment"]["RT_CONTROL_START_BMS"] == "true"
     assert "command" not in service
@@ -58,6 +67,10 @@ def test_docker_build_contains_only_the_two_required_io_packages() -> None:
 
     assert "      bms_node \\\n" in dockerfile
     assert "      plc_node \\\n" in dockerfile
+    assert "ros-humble-rmw-fastrtps-cpp" in dockerfile
+    assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile
+    assert "      util-linux \\\n" in dockerfile
+    assert "0004-name-canopen-master-loop-thread.patch" in dockerfile
     assert "can_bus_guard" not in dockerfile
     assert not (ROOT / "src/rt_control/can_bus_guard").exists()
 
@@ -93,6 +106,14 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     assert "ip link set dev can1 up" in can1_unit
     assert "Before=can0.service can1.service" in naming_unit
     assert '"${script_dir}/can1.service" /etc/systemd/system/can1.service' in installer
-    assert "enable rt-control-can-names.service can0.service can1.service" in installer
-    assert "rt-control-can-names.service can0.service can1.service" in verifier
-    assert "rt-control-can-names.service can0.service can1.service" in launcher
+    assert "disable rt-control-can-names.service can0.service can1.service" in installer
+    assert "/usr/local/sbin/rt-control-can-names --wait 30 --configure" in installer
+    assert "rt-control-can-names.service must not be enabled at boot" in verifier
+    assert "can0.service must not be enabled at boot" in verifier
+    assert "can1.service must not be enabled at boot" in verifier
+    assert 'can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"' in launcher
+    assert 'readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"' in launcher
+    assert 'RT_CONTROL_START_CPUSET="${expected_housekeeping_cpuset}"' in launcher
+    assert "pin_controller_update_thread" in launcher
+    assert "controller_manager_running_in_container" in launcher
+    assert '"${can_setup_tool}" --wait 30 --configure' in launcher

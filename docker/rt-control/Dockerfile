@@ -28,11 +28,12 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       python3-rosdep \
       python3-vcstool \
       ros-humble-diagnostic-updater \
-      ros-humble-rmw-cyclonedds-cpp \
+      ros-humble-rmw-fastrtps-cpp \
       ros-humble-robot-state-publisher \
       ros-humble-ros2-control \
       ros-humble-ros2-controllers \
       ros-humble-xacro \
+      util-linux \
     && test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher \
     && rm -rf /var/lib/apt/lists/*
 
@@ -90,6 +91,10 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
     && git -C src/vendor/ros2_canopen apply \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
+    && git -C src/vendor/ros2_canopen apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
+    && git -C src/vendor/ros2_canopen apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch \
     && git -C src/vendor/ros2_controllers apply \

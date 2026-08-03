@@ -69,9 +69,13 @@ for irq_directory in /proc/irq/[0-9]*; do
   fi
 done
 
-systemctl is-active --quiet apparmor.service docker.service containerd.service
-systemctl is-active --quiet \
-  ethercat.service rt-control-can-names.service can0.service can1.service
+systemctl is-active --quiet apparmor.service docker.service containerd.service ethercat.service
+systemctl is-enabled --quiet rt-control-can-names.service &&
+  fail "rt-control-can-names.service must not be enabled at boot"
+systemctl is-enabled --quiet can0.service &&
+  fail "can0.service must not be enabled at boot"
+systemctl is-enabled --quiet can1.service &&
+  fail "can1.service must not be enabled at boot"
 [[ "$(systemctl --failed --no-legend | wc -l)" -eq 0 ]] || fail "systemd has failed units"
 
 [[ "$(ethercat version)" == "IgH EtherCAT master 1.6.10 unknown" ]] ||

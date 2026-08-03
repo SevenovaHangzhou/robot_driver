@@ -15,12 +15,13 @@ services:
     devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]
     cap_add: [SYS_NICE, IPC_LOCK, NET_RAW]
     ulimits: {rtprio: 98, memlock: -1}
-    cpuset: "${RT_CONTROL_CPUSET:?RT_CONTROL_CPUSET must be confirmed on the target host}"
+    cpuset: "${RT_CONTROL_CPUSET:?RT_CONTROL_CPUSET must include housekeeping CPUs and the RT CPU}"
     environment:
-      ROS_DOMAIN_ID: "42"
-      CYCLONEDDS_URI: file:///etc/cyclonedds.xml
+      ROS_DOMAIN_ID: "0"
+      ROS_LOCALHOST_ONLY: "0"
+      RMW_IMPLEMENTATION: "rmw_fastrtps_cpp"
+      RT_CONTROL_START_CPUSET: "${RT_CONTROL_START_CPUSET:?RT_CONTROL_START_CPUSET must be the housekeeping CPU list}"
       RT_CONTROL_START_PLC: "true"
       RT_CONTROL_START_BMS: "true"
-    volumes: ["./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"]
     restart: unless-stopped
     stop_grace_period: 100s

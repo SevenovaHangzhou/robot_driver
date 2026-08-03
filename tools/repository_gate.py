@@ -226,10 +226,10 @@ def check_compose_policy(compose_text: str) -> list[str]:
     capabilities = set(service.get("cap_add") or [])
     if capabilities != allowed_capabilities:
         findings.append("docker/compose.yaml: approved capabilities must remain exact")
-    allowed_volumes = {"./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"}
+    allowed_volumes: set[str] = set()
     volumes = set(service.get("volumes") or [])
     if volumes != allowed_volumes:
-        findings.append("docker/compose.yaml: approved read-only volume must remain exact")
+        findings.append("docker/compose.yaml: no Docker volumes are approved")
     if "command" in service or "entrypoint" in service:
         findings.append(
             "docker/compose.yaml: command/entrypoint must not bypass the image signal gate"

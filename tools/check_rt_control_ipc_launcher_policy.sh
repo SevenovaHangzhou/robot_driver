@@ -14,6 +14,8 @@ fail()
 for required in \
   'readonly expected_hostname="ar-Default-string"' \
   'readonly expected_cpuset="14"' \
+  'readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"' \
+  'readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"' \
   'readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"' \
   'readonly expected_can_serial="004D00675230500720333159"' \
   'readonly expected_bms_can_serial="003000265230500720333159"' \
@@ -25,9 +27,14 @@ for required in \
   'call_rt_service reset_fault' \
   'recover-power-loss) recover_power_loss' \
   'RECOVER_RT_CONTROL' \
+  'RT_CONTROL_START_CPUSET="${expected_housekeeping_cpuset}"' \
+  'prepare_can_interfaces' \
+  'pin_controller_update_thread' \
+  'controller_manager_running_in_container' \
+  'terminate_container_launch_tree' \
   'compose up -d --no-build rt-control' \
   'compose stop rt-control' \
-  'rt-control-can-names.service can0.service can1.service' \
+  '"${can_setup_tool}" --wait 30 --configure' \
   'can1 3FC#' \
   'ros2 topic echo /plc/io_state --once' \
   'ros2 topic echo /bms/battery_state --once' \
@@ -59,24 +66,26 @@ start_begin = text.index("start_rt_control()")
 start_end = text.index("recover_power_loss()", start_begin)
 start = text[start_begin:start_end]
 confirm = start.index("confirm_hardware_authorization")
+prepare_can = start.index("prepare_can_interfaces")
+verify_idle = start.index("verify_idle_bus_inputs")
 compose_up = start.index("compose up -d --no-build rt-control")
 enable = start.index("call_rt_service enable")
-if not confirm < compose_up < enable:
-    raise SystemExit("hardware confirmation must precede container start and automatic enable")
+if not confirm < prepare_can < verify_idle < compose_up < enable:
+    raise SystemExit("hardware confirmation, CAN preflight, bus verification, container start and enable are misordered")
 if "call_rt_service reset_fault" in start:
     raise SystemExit("ordinary one-command start must never reset faults automatically")
 
 cleanup_begin = text.index("on_start_exit()")
 cleanup_end = text.index("verify_target_identity()", cleanup_begin)
 cleanup = text[cleanup_begin:cleanup_end]
-if not cleanup.index("call_rt_service disable") < cleanup.index("compose stop rt-control"):
-    raise SystemExit("failed startup must disable before stopping the container")
+if not cleanup.index("controller_manager_running_in_container") < cleanup.index("call_rt_service disable") < cleanup.index("compose stop rt-control"):
+    raise SystemExit("failed startup must check controller_manager before trying disable/stop")
 
 stop_begin = text.index("stop_rt_control()")
 stop_end = text.index("print_help()", stop_begin)
 stop = text[stop_begin:stop_end]
-if not stop.index("call_rt_service disable") < stop.index("compose stop rt-control"):
-    raise SystemExit("normal stop must disable before stopping the container")
+if not stop.index("controller_manager_running_in_container") < stop.index("call_rt_service disable") < stop.index("compose stop rt-control"):
+    raise SystemExit("normal stop must verify controller_manager before disable/stop")
 
 recovery_begin = text.index("recover_power_loss()")
 recovery_end = text.index("status_rt_control()", recovery_begin)
@@ -85,6 +94,8 @@ ordered_recovery = (
     "call_rt_service disable",
     "compose stop rt-control",
     "confirm_power_loss_recovery_authorization",
+    "prepare_can_interfaces",
+    "verify_idle_bus_inputs",
     "compose up -d --no-build rt-control",
     "call_rt_service reset_fault",
     "check_axis_states disabled",

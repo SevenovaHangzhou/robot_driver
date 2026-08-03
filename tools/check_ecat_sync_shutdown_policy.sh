@@ -15,6 +15,28 @@ fail()
   exit 1
 }
 
+fixed_line_count()
+{
+  local expected="$1"
+  local file="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -Fxc -- "${expected}" "${file}" || true
+  else
+    grep -Fxc -- "${expected}" "${file}" || true
+  fi
+}
+
+fixed_contains()
+{
+  local expected="$1"
+  local file="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -Fq -- "${expected}" "${file}"
+  else
+    grep -Fq -- "${expected}" "${file}"
+  fi
+}
+
 assert_sync_limit()
 {
   local file="$1"
@@ -22,7 +44,7 @@ assert_sync_limit()
   local expected="  - {index: 0x10f1, sub_index: 2, type: ${type}, value: 250}"
   local count
 
-  count="$(rg -Fxc -- "${expected}" "${file}" || true)"
+  count="$(fixed_line_count "${expected}" "${file}")"
   [[ "${count}" == "1" ]] ||
     fail "$(basename "${file}") must contain exactly one ${expected}"
 }
@@ -46,15 +68,15 @@ done
 
 [[ -f "${shutdown_patch}" ]] || fail "missing ${shutdown_patch}"
 
-rg -Fq 'int deactivate(uint32_t preop_timeout_ms);' "${shutdown_patch}" ||
+fixed_contains 'int deactivate(uint32_t preop_timeout_ms);' "${shutdown_patch}" ||
   fail "EcMaster must expose a bounded non-RT deactivate operation"
-rg -Fq 'ecrt_master_deactivate(master_)' "${shutdown_patch}" ||
+fixed_contains 'ecrt_master_deactivate(master_)' "${shutdown_patch}" ||
   fail "EcMaster deactivate must call the IgH deactivate API"
-rg -Fq 'ecrt_master_get_slave(master_' "${shutdown_patch}" ||
+fixed_contains 'ecrt_master_get_slave(master_' "${shutdown_patch}" ||
   fail "EcMaster deactivate must confirm configured slave AL states"
-rg -Fq 'master_.deactivate(' "${shutdown_patch}" ||
+fixed_contains 'master_.deactivate(' "${shutdown_patch}" ||
   fail "EthercatDriver on_deactivate must invoke EcMaster::deactivate"
-rg -Fq 'ecrt_release_master(master_)' "${shutdown_patch}" ||
+fixed_contains 'ecrt_release_master(master_)' "${shutdown_patch}" ||
   fail "EcMaster destruction must release the requested master"
 
 [[ -f "${canopen_lifecycle_patch}" ]] || fail "missing ${canopen_lifecycle_patch}"
@@ -96,10 +118,12 @@ for required in (
 PY
 
 dockerfile="${repo_root}/docker/rt-control/Dockerfile"
-rg -Fq '0003-orderly-master-deactivation.patch' "${dockerfile}" ||
+fixed_contains '0003-orderly-master-deactivation.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the orderly-deactivation patch"
-rg -Fq '0003-quiesce-callbacks-before-driver-removal.patch' "${dockerfile}" ||
+fixed_contains '0003-quiesce-callbacks-before-driver-removal.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the CANopen callback-quiescence patch"
+fixed_contains '0004-name-canopen-master-loop-thread.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the CANopen master thread identity patch"
 
 if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
   [[ -d "${ECAT_ICUBE_SOURCE}/.git" ]] ||

@@ -149,7 +149,6 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
     cpuset: "${RT_CONTROL_CPUSET:?required}"
     devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]
     cap_add: [SYS_NICE, IPC_LOCK, NET_RAW]
-    volumes: ["./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"]
 """
         self.assertEqual(repository_gate.check_compose_policy(valid), [])
 
@@ -167,6 +166,12 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
         findings = repository_gate.check_compose_policy(incomplete)
         self.assert_has(findings, "device mapping must remain exact")
         self.assert_has(findings, "capabilities must remain exact")
+
+        with_volume = valid + '    volumes: ["./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"]\n'
+        self.assert_has(
+            repository_gate.check_compose_policy(with_volume),
+            "no Docker volumes are approved",
+        )
 
     def test_dockerfile_must_keep_the_signal_gate_as_direct_command(self):
         valid = """FROM ros:humble-ros-base
@@ -292,7 +297,6 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
     cpuset: "${RT_CONTROL_CPUSET:?required}"
     devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]
     cap_add: [SYS_NICE, IPC_LOCK, NET_RAW]
-    volumes: ["./docker/cyclonedds.xml:/etc/cyclonedds.xml:ro"]
 """,
             "docker/rt-control/Dockerfile": """FROM ros:humble-ros-base
 ENTRYPOINT ["/rt-control-entrypoint.sh"]

@@ -24,10 +24,11 @@ installed_start="${install_root}/lib/rt_control_bringup/rt_control_start"
 axis_state_checker="${repository_root}/tools/rt_control_axis_state_check.py"
 realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"
 thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"
+can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"
 
 readonly repository_root workspace_root install_root runtime_root runtime_log_root
 readonly pid_file latest_log_link installed_start axis_state_checker
-readonly realtime_cpu_guard thread_affinity_tool
+readonly realtime_cpu_guard thread_affinity_tool can_setup_tool
 
 info()
 {
@@ -215,6 +216,8 @@ verify_workspace()
     fail "missing executable realtime CPU guard: ${realtime_cpu_guard}"
   [[ -x "${thread_affinity_tool}" ]] ||
     fail "missing executable thread affinity helper: ${thread_affinity_tool}"
+  [[ -x "${can_setup_tool}" ]] ||
+    fail "missing executable CAN setup helper: ${can_setup_tool}"
   command -v taskset >/dev/null 2>&1 || fail "missing taskset"
   command -v setsid >/dev/null 2>&1 || fail "missing setsid"
   command -v ethercat >/dev/null 2>&1 || fail "missing ethercat CLI"
@@ -237,9 +240,23 @@ pin_controller_update_thread()
 
 verify_bus_services()
 {
-  systemctl is-active --quiet \
-    ethercat.service rt-control-can-names.service can0.service can1.service ||
-    fail "EtherCAT, CAN naming, can0 and can1 services must be active"
+  systemctl is-active --quiet ethercat.service ||
+    fail "EtherCAT service must be active"
+}
+
+prepare_can_interfaces()
+{
+  info "preparing can0/can1 by fixed gs_usb serials at 500 kbit/s, txqueuelen 128"
+  if [[ ${EUID} -eq 0 ]]; then
+    "${can_setup_tool}" --wait 30 --configure ||
+      fail "CAN preflight failed; check the missing adapter message above"
+  elif [[ -t 0 || -r /dev/tty ]]; then
+    sudo "${can_setup_tool}" --wait 30 --configure ||
+      fail "CAN preflight failed; check the missing adapter message above"
+  else
+    sudo -n "${can_setup_tool}" --wait 30 --configure ||
+      fail "CAN preflight failed and sudo is not available non-interactively"
+  fi
 }
 
 verify_can_interface()
@@ -364,6 +381,11 @@ wait_for_enable_service()
   while (( SECONDS < deadline )); do
     pid="$(native_pid 2>/dev/null || true)"
     [[ -n "${pid}" ]] || return 1
+    if controller_manager_died_during_boot; then
+      print_first_boot_error
+      terminate_failed_start
+      fail "ros2_control_node exited during boot; launch/spawner process tree was terminated"
+    fi
     if run_ros2_timeout 3 ros2 service type /rt/enable 2>/dev/null |
       grep -Fq 'robot_interfaces/srv/RtEnable'; then
       return 0
@@ -378,13 +400,87 @@ terminate_failed_start()
   local pid
   pid="$(native_pid 2>/dev/null || true)"
   if [[ -n "${pid}" ]]; then
-    kill -TERM "${pid}" 2>/dev/null || true
+    terminate_native_launch_tree "${pid}"
   fi
+  rm -f -- "${pid_file}"
 }
 
 strip_ansi()
 {
   sed -E $'s/\033\[[0-9;]*[mK]//g'
+}
+
+native_descendants()
+{
+  local parent="$1"
+  local child
+  for child in $(pgrep -P "${parent}" 2>/dev/null || true); do
+    printf '%s\n' "${child}"
+    native_descendants "${child}"
+  done
+}
+
+controller_manager_died_during_boot()
+{
+  [[ -e "${latest_log_link}" ]] || return 1
+  strip_ansi < "${latest_log_link}" | grep -Eq \
+    'ros2_control_node-[0-9]+.*process has died|process\[ros2_control_node-[0-9]+\].*died|controller_manager.*(Segmentation fault|terminate called|Exception|exception|FATAL|ERROR)'
+}
+
+controller_manager_running_under_native()
+{
+  local pid
+  pid="$(native_pid 2>/dev/null || true)"
+  [[ -n "${pid}" ]] || return 1
+  while read -r child; do
+    [[ -r "/proc/${child}/cmdline" ]] || continue
+    tr '\0' ' ' < "/proc/${child}/cmdline" |
+      grep -Fq '/controller_manager/ros2_control_node' && return 0
+  done < <(native_descendants "${pid}")
+  return 1
+}
+
+print_first_boot_error()
+{
+  local first_error=""
+  if [[ -e "${latest_log_link}" ]]; then
+    first_error="$(strip_ansi < "${latest_log_link}" |
+      grep -m 1 -E '(\[ERROR\]|\[FATAL\]|process has died|Segmentation fault|terminate called|Exception|exception|Traceback|Failed|failed|abort|what\(\):)' || true)"
+  fi
+  if [[ -n "${first_error}" ]]; then
+    info "first boot error: ${first_error}"
+  else
+    info "first boot error: unavailable in ${latest_log_link}"
+  fi
+}
+
+terminate_native_launch_tree()
+{
+  local pid="$1"
+  local child
+  local deadline
+  local pgid
+  local pids=()
+  mapfile -t pids < <(native_descendants "${pid}")
+  for child in "${pids[@]}"; do
+    [[ -n "${child}" ]] || continue
+    pgid="$(ps -o pgid= -p "${child}" 2>/dev/null | tr -d '[:space:]' || true)"
+    [[ -n "${pgid}" && "${pgid}" != "$$" ]] || continue
+    kill -INT -- "-${pgid}" 2>/dev/null || true
+  done
+  for child in "${pids[@]}"; do
+    kill -TERM "${child}" 2>/dev/null || true
+  done
+  deadline=$((SECONDS + 10))
+  while kill -0 "${pid}" 2>/dev/null && (( SECONDS < deadline )); do
+    sleep 0.2
+  done
+  if kill -0 "${pid}" 2>/dev/null; then
+    for child in "${pids[@]}"; do
+      kill -KILL "${child}" 2>/dev/null || true
+    done
+    kill -KILL "${pid}" 2>/dev/null || true
+  fi
 }
 
 wait_for_idle_ethercat()
@@ -629,11 +725,12 @@ start_native()
   fi
   verify_realtime_cpu_guard
   verify_idle_ethercat
-  verify_can_interface can0 "${expected_can_serial}"
-  verify_can_interface can1 "${expected_bms_can_serial}"
   if [[ "${authorization}" != "preauthorized" ]]; then
     confirm_start_authorization
   fi
+  prepare_can_interfaces
+  verify_can_interface can0 "${expected_can_serial}"
+  verify_can_interface can1 "${expected_bms_can_serial}"
   source_runtime_environment
   launch_native
   if ! wait_for_enable_service; then
@@ -682,6 +779,7 @@ recover_power_loss_native()
   verify_bus_services
   reject_running_container
   best_effort_stop_existing_native_for_recovery
+  prepare_can_interfaces
   verify_can_interface can0 "${expected_can_serial}"
   verify_can_interface can1 "${expected_bms_can_serial}"
 
@@ -728,6 +826,13 @@ stop_native()
     cleanup_stale_pid_file
     info "native rt-control is already stopped"
     return
+  fi
+
+  if ! controller_manager_running_under_native; then
+    print_first_boot_error
+    terminate_native_launch_tree "${pid}"
+    rm -f -- "${pid_file}"
+    fail "controller_manager is not running; launch/spawner process tree was terminated without waiting for /rt/disable"
   fi
 
   info "requesting /rt/disable before signalling rt_control_start"

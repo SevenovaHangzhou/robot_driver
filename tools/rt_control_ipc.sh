@@ -5,6 +5,8 @@ readonly expected_user="ar"
 readonly expected_hostname="ar-Default-string"
 readonly expected_kernel="5.15.0-1032-realtime"
 readonly expected_cpuset="14"
+readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"
+readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"
 readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
 readonly expected_can_serial="004D00675230500720333159"
 readonly expected_bms_can_serial="003000265230500720333159"
@@ -16,8 +18,11 @@ readonly compose_project="robot"
 readonly container_name="robot-rt-control-1"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repository_root="$(cd -- "${script_dir}/.." && pwd)"
 compose_wrapper="${script_dir}/rt_control_compose.sh"
 axis_state_checker="${script_dir}/rt_control_axis_state_check.py"
+thread_affinity_tool="${script_dir}/rt_control_thread_affinity.py"
+can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"
 temporary_directory=""
 startup_started=0
 startup_complete=0
@@ -36,7 +41,8 @@ fail()
 compose()
 {
   sudo env \
-    RT_CONTROL_CPUSET="${expected_cpuset}" \
+    RT_CONTROL_CPUSET="${expected_container_cpuset}" \
+    RT_CONTROL_START_CPUSET="${expected_housekeeping_cpuset}" \
     RT_CONTROL_IMAGE_TAG="${runtime_sha}" \
     RT_CONTROL_PROJECT_ROOT="${runtime_root}" \
     "${compose_wrapper}" --project-name "${compose_project}" "$@"
@@ -57,6 +63,9 @@ call_rt_service()
     enable|disable|reset_fault) ;;
     *) fail "unsupported lifecycle operation: ${operation}" ;;
   esac
+  if [[ "${operation}" == "enable" ]]; then
+    pin_controller_update_thread
+  fi
   run_ros2_timeout 40 \
     "ros2 service call /rt/${operation} robot_interfaces/srv/RtEnable '{}'"
 }
@@ -75,8 +84,13 @@ on_start_exit()
   trap - EXIT INT TERM
   if (( startup_started != 0 && startup_complete == 0 )); then
     info "启动未完成，正在尝试整组失能并有序停止容器。"
-    call_rt_service disable >/dev/null 2>&1 || true
-    compose stop rt-control >/dev/null 2>&1 || true
+    if controller_manager_running_in_container; then
+      call_rt_service disable >/dev/null 2>&1 || true
+      compose stop rt-control >/dev/null 2>&1 || true
+    else
+      print_first_boot_error
+      terminate_container_launch_tree
+    fi
   fi
   cleanup_temporary_directory
   exit "${exit_code}"
@@ -172,12 +186,32 @@ verify_runtime_image()
 
 verify_start_dependencies()
 {
-  for command in ethercat candump ip udevadm systemctl timeout; do
+  for command in ethercat candump ip udevadm systemctl timeout python3; do
     command -v "${command}" >/dev/null 2>&1 || fail "缺少命令 ${command}。"
   done
-  systemctl is-active --quiet docker.service containerd.service ethercat.service \
-    rt-control-can-names.service can0.service can1.service ||
-    fail "Docker、EtherCAT 或 can0/can1 的 systemd 服务未全部运行。"
+  [[ -x "${thread_affinity_tool}" ]] ||
+    fail "缺少线程绑核工具 ${thread_affinity_tool}。"
+  [[ -x "${can_setup_tool}" ]] ||
+    fail "缺少 CAN 启动前检查工具 ${can_setup_tool}。"
+  systemctl is-active --quiet docker.service containerd.service ethercat.service ||
+    fail "Docker、containerd 或 EtherCAT systemd 服务未运行。"
+}
+
+prepare_can_interfaces()
+{
+  info "按固定 USB 序列号准备 can0/can1：500 kbit/s，队列 128，接口 UP。"
+  sudo "${can_setup_tool}" --wait 30 --configure ||
+    fail "CAN 启动前检查失败；请查看上方缺少哪只适配器。"
+}
+
+pin_controller_update_thread()
+{
+  sudo python3 "${thread_affinity_tool}" \
+    --rt-cpu "${expected_cpuset}" \
+    --housekeeping-cpus "${expected_housekeeping_cpuset}" \
+    --required-rt-thread-name rtcan-master \
+    --rt-priority 80 \
+    --deadline 5
 }
 
 verify_idle_bus_inputs()
@@ -280,10 +314,19 @@ wait_for_enable_service()
 {
   local deadline=$((SECONDS + 120))
   local container_state
+  local controller_manager_seen=0
   while (( SECONDS < deadline )); do
     container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
     if [[ "${container_state}" == "exited" || "${container_state}" == "dead" ]]; then
+      print_first_boot_error
       fail "rt-control 容器在就绪前退出，请运行日志命令。"
+    fi
+    if controller_manager_running_in_container; then
+      controller_manager_seen=1
+    elif (( controller_manager_seen != 0 )) || controller_manager_died_during_boot; then
+      print_first_boot_error
+      terminate_container_launch_tree
+      fail "ros2_control_node 在启动阶段提前退出；已结束 launch/spawner，不继续等待 /rt/enable。"
     fi
     if [[ "${container_state}" == "running" ]] &&
       run_ros2_timeout 6 'ros2 service list' 2>/dev/null | grep -Fxq '/rt/enable'; then
@@ -291,6 +334,8 @@ wait_for_enable_service()
     fi
     sleep 2
   done
+  print_first_boot_error
+  terminate_container_launch_tree
   fail "120 秒内未发现 /rt/enable。"
 }
 
@@ -320,6 +365,55 @@ wait_for_enable_manager_reset_ready()
 strip_ansi()
 {
   sed -E $'s/\033\[[0-9;]*[mK]//g'
+}
+
+controller_manager_running_in_container()
+{
+  local container_state
+  container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
+  [[ "${container_state}" == "running" ]] || return 1
+  sudo docker top "${container_name}" -eo pid,args 2>/dev/null |
+    grep -Fq '/controller_manager/ros2_control_node'
+}
+
+controller_manager_died_during_boot()
+{
+  local container_state
+  container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
+  [[ "${container_state}" == "running" ]] || return 1
+  compose logs --no-color --tail=400 rt-control 2>/dev/null | strip_ansi | grep -Eq \
+    'ros2_control_node-[0-9]+.*process has died|process\[ros2_control_node-[0-9]+\].*died|controller_manager.*(Segmentation fault|terminate called|Exception|exception|FATAL|ERROR)'
+}
+
+print_first_boot_error()
+{
+  local first_error=""
+  first_error="$(compose logs --no-color --tail=1000 rt-control 2>/dev/null | strip_ansi |
+    grep -m 1 -E '(\[ERROR\]|\[FATAL\]|process has died|Segmentation fault|terminate called|Exception|exception|Traceback|Failed|failed|abort|what\(\):|BOOT_ERROR)' || true)"
+  if [[ -n "${first_error}" ]]; then
+    info "first boot error: ${first_error}"
+  else
+    info "first boot error: 容器日志中未找到 ERROR/FATAL/进程退出标记。"
+  fi
+}
+
+terminate_container_launch_tree()
+{
+  local container_state
+  local deadline
+  container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
+  [[ "${container_state}" == "running" ]] || return
+  sudo docker exec "${container_name}" bash -lc '
+    pkill -INT -f "ros2 launch rt_control_bringup rt_control.launch.py" || true
+    pkill -TERM -f "controller_manager/ros2_control_node|controller_manager/spawner|robot_state_publisher|rt_diagnostics_node|plc_node|bms_node" || true
+  ' >/dev/null 2>&1 || true
+  deadline=$((SECONDS + 10))
+  while (( SECONDS < deadline )); do
+    container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
+    [[ "${container_state}" != "running" ]] && return
+    sleep 1
+  done
+  sudo docker kill "${container_name}" >/dev/null 2>&1 || true
 }
 
 verify_operational_ethercat()
@@ -437,9 +531,10 @@ start_rt_control()
   [[ "${existing_state}" != "running" ]] ||
     fail "${container_name} 已在运行；请使用 status，不要重复启动。"
 
+  confirm_hardware_authorization
+  prepare_can_interfaces
   verify_idle_bus_inputs
   lost_frames_before="$(sudo ethercat master | awk '/Lost frames:/{print $3; exit}')"
-  confirm_hardware_authorization
 
   info "启动锁定镜像并等待控制器就绪。"
   startup_started=1
@@ -500,14 +595,20 @@ recover_power_loss()
 
   container_state="$(sudo docker inspect "${container_name}" --format '{{.State.Status}}' 2>/dev/null || true)"
   if [[ "${container_state}" == "running" ]]; then
-    info "对旧控制会话最佳努力调用 /rt/disable；掉电导致失败时只记录，不伪报成功。"
-    if disable_response="$(call_rt_service disable)"; then
-      printf '%s\n' "${disable_response}"
-      if ! grep -Fq 'ok=True' <<< "${disable_response}"; then
-        info "WARN: 旧会话 /rt/disable 未确认成功；继续销毁旧控制会话。"
+    if controller_manager_running_in_container; then
+      info "对旧控制会话最佳努力调用 /rt/disable；掉电导致失败时只记录，不伪报成功。"
+      if disable_response="$(call_rt_service disable)"; then
+        printf '%s\n' "${disable_response}"
+        if ! grep -Fq 'ok=True' <<< "${disable_response}"; then
+          info "WARN: 旧会话 /rt/disable 未确认成功；继续销毁旧控制会话。"
+        fi
+      else
+        info "WARN: 旧会话 /rt/disable 不可用；继续销毁旧控制会话。"
       fi
     else
-      info "WARN: 旧会话 /rt/disable 不可用；继续销毁旧控制会话。"
+      info "WARN: 旧会话 controller_manager 已退出；跳过 /rt/disable 并直接结束 launch/spawner。"
+      print_first_boot_error
+      terminate_container_launch_tree
     fi
   else
     info "旧 rt-control 容器未运行，无可调用的 /rt/disable。"
@@ -519,6 +620,7 @@ recover_power_loss()
   confirm_power_loss_recovery_authorization
 
   info "复电确认完成；重新核对现场总线后启动全新控制会话。"
+  prepare_can_interfaces
   verify_idle_bus_inputs
   startup_started=1
   compose up -d --no-build rt-control
@@ -592,6 +694,12 @@ stop_rt_control()
   if [[ "${container_state}" != "running" ]]; then
     info "rt-control 已停止。"
     return
+  fi
+
+  if ! controller_manager_running_in_container; then
+    print_first_boot_error
+    terminate_container_launch_tree
+    fail "controller_manager 未运行；已结束 launch/spawner，未继续等待 /rt/disable。"
   fi
 
   info "调用 /rt/disable，然后走 PID 1 有序停止路径。"

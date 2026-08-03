@@ -15,6 +15,7 @@ ONECLICK = ROOT / "tools" / "rt_control_native_oneclick.sh"
 CPU_GUARD = ROOT / "tools" / "rt_cpu_contamination_check.sh"
 THREAD_AFFINITY = ROOT / "tools" / "rt_control_thread_affinity.py"
 HEARTBEAT_WATCH = ROOT / "tools" / "canopen_heartbeat_watch.sh"
+CAN_SETUP = ROOT / "hostsetup" / "rt-control-can-names.sh"
 CANOPEN_MASTER_THREAD_PATCH = (
     ROOT / "patches" / "ros2_canopen" / "0004-name-canopen-master-loop-thread.patch"
 )
@@ -147,6 +148,49 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("wait_for_enable_service"), body.index("pin_controller_update_thread"))
         self.assertLess(body.index("pin_controller_update_thread"), body.index("READY: native stack"))
 
+    def test_native_start_forces_can_preflight_after_authorization_before_launch(self):
+        self.assertIn('can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"', self.text)
+        self.assertIn("prepare_can_interfaces", self.text)
+        self.assertIn("--wait 30 --configure", self.text)
+        self.assertIn("EtherCAT service must be active", self.text)
+        self.assertNotIn("CAN naming, can0 and can1 services must be active", self.text)
+
+        start = self.text.index("start_native()")
+        stop = self.text.index("enable_native()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("confirm_start_authorization"), body.index("prepare_can_interfaces"))
+        self.assertLess(body.index("prepare_can_interfaces"), body.index("launch_native"))
+
+        recovery_start = self.text.index("recover_power_loss_native()")
+        recovery_stop = self.text.index("stop_native()", recovery_start)
+        recovery_body = self.text[recovery_start:recovery_stop]
+        self.assertLess(
+            recovery_body.index("best_effort_stop_existing_native_for_recovery"),
+            recovery_body.index("prepare_can_interfaces"),
+        )
+        self.assertLess(
+            recovery_body.index("prepare_can_interfaces"),
+            recovery_body.index("start_native preauthorized"),
+        )
+
+    def test_boot_failure_does_not_wait_full_enable_timeout_after_controller_manager_exit(self):
+        self.assertIn("controller_manager_died_during_boot", self.text)
+        self.assertIn("print_first_boot_error", self.text)
+        self.assertIn("terminate_native_launch_tree", self.text)
+        start = self.text.index("wait_for_enable_service()")
+        stop = self.text.index("terminate_failed_start()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("controller_manager_died_during_boot"), body.index("run_ros2_timeout 3 ros2 service type /rt/enable"))
+        self.assertIn("ros2_control_node exited during boot", body)
+
+    def test_stop_skips_disable_when_controller_manager_has_already_exited(self):
+        start = self.text.index("stop_native()")
+        stop = self.text.index("status_native()", start)
+        body = self.text[start:stop]
+        self.assertLess(body.index("controller_manager_running_under_native"), body.index("call_rt_service disable"))
+        self.assertIn("without waiting for /rt/disable", body)
+        self.assertIn("terminate_native_launch_tree", body)
+
     def test_every_native_enable_service_call_is_hard_gated_by_thread_pin(self):
         start = self.text.index("call_rt_service()")
         stop = self.text.index("verify_target_identity()", start)
@@ -184,6 +228,10 @@ class NativeLauncherContractTest(unittest.TestCase):
             SIGNAL_GATE.stat().st_mode & 0o111,
             "rt_control_start must be executable because native symlink-install points to it",
         )
+        text = SIGNAL_GATE.read_text(encoding="utf-8")
+        self.assertIn("RT_CONTROL_START_CPUSET", text)
+        self.assertIn("taskset --cpu-list", text)
+        self.assertIn("setsid", text)
 
 
 class NativeBootstrapContractTest(unittest.TestCase):
@@ -255,6 +303,27 @@ class NativeHostSetupContractTest(unittest.TestCase):
         self.assertIn("options ec_master run_on_cpu=14", self.installer_text)
         self.assertIn("/etc/modprobe.d/ec_master.conf", self.verifier_text)
         self.assertIn("options ec_master run_on_cpu=14", self.verifier_text)
+
+    def test_can_units_are_installed_but_not_enabled_at_boot(self):
+        can_installer = (ROOT / "hostsetup" / "can-install.sh").read_text(encoding="utf-8")
+        self.assertIn("systemctl disable rt-control-can-names.service can0.service can1.service", can_installer)
+        self.assertNotIn("systemctl enable rt-control-can-names.service can0.service can1.service", can_installer)
+        self.assertIn("rt-control-can-names.service must not be enabled at boot", self.verifier_text)
+        self.assertIn("can0.service must not be enabled at boot", self.verifier_text)
+        self.assertIn("can1.service must not be enabled at boot", self.verifier_text)
+
+    def test_can_setup_keeps_gs_usb_autoload_and_forces_runtime_configuration(self):
+        self.assertTrue(CAN_SETUP.exists(), "CAN setup helper is missing")
+        self.assertTrue(CAN_SETUP.stat().st_mode & 0o111, "CAN setup helper must be executable")
+        text = CAN_SETUP.read_text(encoding="utf-8")
+        self.assertIn('readonly RT_CONTROL_SERIAL="004D00675230500720333159"', text)
+        self.assertIn('readonly BMS_SERIAL="003000265230500720333159"', text)
+        self.assertIn("--wait SECONDS", text)
+        self.assertIn('ip link set dev "${interface}" type can bitrate "${BITRATE}"', text)
+        self.assertIn('ip link set dev "${interface}" txqueuelen "${TXQUEUELEN}"', text)
+        self.assertIn('ip link set dev "${interface}" up', text)
+        self.assertIn('missing ${label} CAN adapter', text)
+        self.assertNotIn("modprobe gs_usb", text)
 
 
 class RtControlLaunchAffinityContractTest(unittest.TestCase):

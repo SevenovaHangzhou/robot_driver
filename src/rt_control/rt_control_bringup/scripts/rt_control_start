@@ -21,7 +21,16 @@ forward_shutdown() {
 
 trap forward_shutdown INT TERM
 
-setsid ros2 launch rt_control_bringup rt_control.launch.py "$@" &
+launch_command=(ros2 launch rt_control_bringup rt_control.launch.py "$@")
+if [[ -n "${RT_CONTROL_START_CPUSET:-}" ]]; then
+  if ! command -v taskset >/dev/null 2>&1; then
+    echo "BOOT_ERROR: RT_CONTROL_START_CPUSET requires taskset but taskset is missing" >&2
+    exit 1
+  fi
+  launch_command=(taskset --cpu-list "${RT_CONTROL_START_CPUSET}" "${launch_command[@]}")
+fi
+
+setsid "${launch_command[@]}" &
 child_pid=$!
 exit_code=0
 while kill -0 "${child_pid}" 2>/dev/null; do
