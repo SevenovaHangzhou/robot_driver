@@ -109,6 +109,24 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index('controller.state != "active"'), body.index("SwitchController::Request"))
         self.assertIn("return SwitchResult::kSuccess", body)
 
+    def test_reset_fault_uses_standard_disable_sequence_after_fault_clears(self):
+        source = (
+            ROOT
+            / "src"
+            / "rt_control"
+            / "enable_manager"
+            / "src"
+            / "enable_manager_controller.cpp"
+        ).read_text(encoding="utf-8")
+        start = source.index("void EnableManagerController::updateReset")
+        stop = source.index("void EnableManagerController::setAllControlWords", start)
+        body = source[start:stop]
+        self.assertIn("DriveState::kOperationEnabled", body)
+        self.assertIn("command = 0x0007U", body)
+        self.assertIn("DriveState::kSwitchedOn", body)
+        self.assertIn("command = 0x0006U", body)
+        self.assertLess(body.index("command = 0x0007U"), body.index("isConfirmedDisableTerminal"))
+
     def test_native_launcher_self_raises_rtprio_and_memlock_limits(self):
         self.assertIn("ensure_runtime_limits", self.text)
         start = self.text.index("verify_realtime_host()")

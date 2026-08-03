@@ -1117,7 +1117,13 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
         first_pending = static_cast<std::int8_t>(axis);
       }
     } else {
-      command_interfaces_[axis].set_value(0x0000U);
+      std::uint16_t command = 0x0000U;
+      if (state == DriveState::kOperationEnabled) {
+        command = 0x0007U;
+      } else if (state == DriveState::kSwitchedOn) {
+        command = 0x0006U;
+      }
+      command_interfaces_[axis].set_value(command);
       if (!isConfirmedDisableTerminal(axis, state)) {
         all_reset = false;
         if (first_pending < 0) {
