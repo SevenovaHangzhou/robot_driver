@@ -274,6 +274,7 @@ controller_interface::return_type EnableManagerController::update(
       break;
     case Phase::kDisabling:
     case Phase::kRollback:
+    case Phase::kResetDisabling:
     case Phase::kEmergencyDisable:
       if (stage_deadline_ns_ == 0) {
         startDownward(phase, now_ns);
@@ -728,6 +729,7 @@ void EnableManagerController::startDownward(Phase phase, std::int64_t now_ns)
 
 void EnableManagerController::updateDownward(std::int64_t now_ns)
 {
+  const Phase active_phase = phase_.load(std::memory_order_acquire);
   bool any_operation_enabled = false;
   bool any_switched_on = false;
   bool all_nonfault_terminal = true;
@@ -805,6 +807,16 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
         }
       }
     }
+    if (active_phase == Phase::kResetDisabling) {
+      const std::uint16_t status =
+        first_nonterminal >= 0 ? status_words_[first_nonterminal] : 0U;
+      recordFailure(Stage::kFaultResetTimeout, -1, first_nonterminal, status);
+      publishResult(reset_result_, false, Stage::kFaultResetTimeout, -1, first_nonterminal, status);
+      setAllControlWords(0x0000U);
+      phase_.store(Phase::kFailed, std::memory_order_release);
+      owner_.store(Owner::kNone, std::memory_order_release);
+      return;
+    }
     if (primary_failure_stage_ == Stage::kSuccess) {
       primary_failure_stage_ = any_fault ? Stage::kFaultRequiresReset : Stage::kDisableTimeout;
       primary_failed_joint_ = first_nonterminal;
@@ -868,6 +880,7 @@ void EnableManagerController::finishDownward()
   bool any_fault = false;
   bool all_terminal = true;
   std::int8_t first_fault = -1;
+  std::int8_t first_nonterminal = -1;
   for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
     if (isFaultState(state)) {
@@ -877,6 +890,9 @@ void EnableManagerController::finishDownward()
       }
     } else if (!isConfirmedDisableTerminal(axis, state)) {
       all_terminal = false;
+      if (first_nonterminal < 0) {
+        first_nonterminal = static_cast<std::int8_t>(axis);
+      }
     }
   }
 
@@ -923,6 +939,23 @@ void EnableManagerController::finishDownward()
       primary_failed_joint_, primary_failed_status_word_);
     const bool restart = restart_required_.load(std::memory_order_acquire);
     phase_.store(any_fault || restart ? Phase::kFailed : Phase::kIdle, std::memory_order_release);
+    owner_.store(Owner::kNone, std::memory_order_release);
+    return;
+  }
+
+  if (completed_phase == Phase::kResetDisabling) {
+    if (any_fault || !all_terminal) {
+      const std::int8_t failed_joint = first_fault >= 0 ? first_fault : first_nonterminal;
+      const std::uint16_t status_word =
+        failed_joint >= 0 ? status_words_[failed_joint] : 0U;
+      publishResult(reset_result_, false, Stage::kFaultResetTimeout, -1, failed_joint, status_word);
+      recordFailure(Stage::kFaultResetTimeout, -1, failed_joint, status_word);
+      phase_.store(Phase::kFailed, std::memory_order_release);
+    } else {
+      clearFailure();
+      publishResult(reset_result_, true, Stage::kSuccess);
+      phase_.store(Phase::kIdle, std::memory_order_release);
+    }
     owner_.store(Owner::kNone, std::memory_order_release);
     return;
   }
@@ -1118,38 +1151,31 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
     return;
   }
 
-  bool all_reset = true;
+  bool all_reset_targets_left_fault = true;
   std::int8_t first_pending = -1;
   for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
+    std::uint16_t command = 0x0000U;
     if (reset_targets_[axis] && state == DriveState::kFault) {
-      command_interfaces_[axis].set_value(0x0080U);
-      all_reset = false;
+      command = 0x0080U;
+    }
+    command_interfaces_[axis].set_value(command);
+
+    if (isFaultState(state)) {
+      all_reset_targets_left_fault = false;
       if (first_pending < 0) {
         first_pending = static_cast<std::int8_t>(axis);
       }
-    } else {
-      std::uint16_t command = 0x0000U;
-      if (state == DriveState::kOperationEnabled) {
-        command = 0x0007U;
-      } else if (state == DriveState::kSwitchedOn) {
-        command = 0x0006U;
-      }
-      command_interfaces_[axis].set_value(command);
-      if (!isConfirmedDisableTerminal(axis, state)) {
-        all_reset = false;
-        if (first_pending < 0) {
-          first_pending = static_cast<std::int8_t>(axis);
-        }
-      }
+      continue;
+    }
+
+    if (reset_targets_[axis]) {
+      reset_targets_[axis] = false;
     }
   }
 
-  if (all_reset) {
-    clearFailure();
-    publishResult(reset_result_, true, Stage::kSuccess);
-    phase_.store(Phase::kIdle, std::memory_order_release);
-    owner_.store(Owner::kNone, std::memory_order_release);
+  if (all_reset_targets_left_fault) {
+    startDownward(Phase::kResetDisabling, now_ns);
   } else if (now_ns >= stage_deadline_ns_) {
     const std::uint16_t status = first_pending >= 0 ? status_words_[first_pending] : 0U;
     recordFailure(Stage::kFaultResetTimeout, -1, first_pending, status);
@@ -1280,6 +1306,7 @@ const char * EnableManagerController::phaseName(Phase phase)
     case Phase::kRollback: return "ROLLBACK";
     case Phase::kResetLow: return "RESET_LOW";
     case Phase::kResetHigh: return "RESET_HIGH";
+    case Phase::kResetDisabling: return "RESET_DISABLING";
     case Phase::kEmergencyQuickStop: return "EMERGENCY_QUICK_STOP";
     case Phase::kEmergencyDisable: return "EMERGENCY_DISABLE";
     case Phase::kFailed: return "FAILED";

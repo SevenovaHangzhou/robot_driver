@@ -55,6 +55,7 @@ private:
     kRollback,
     kResetLow,
     kResetHigh,
+    kResetDisabling,
     kEmergencyQuickStop,
     kEmergencyDisable,
     kFailed
