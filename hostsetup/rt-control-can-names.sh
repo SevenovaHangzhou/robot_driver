@@ -100,18 +100,20 @@ wait_for_serial() {
   done
 }
 
-verify_name_not_foreign() {
+verify_reserved_name_not_unknown() {
   local interface="$1"
-  local expected_serial="$2"
   local actual_serial
 
   [[ -e "/sys/class/net/${interface}" ]] || return
   actual_serial="$(udevadm info -q property -p "/sys/class/net/${interface}" |
     sed -n 's/^ID_SERIAL_SHORT=//p')"
-  [[ "${actual_serial}" == "${expected_serial}" ]] || {
-    echo "${interface} already exists but has USB serial ${actual_serial:-unknown}, expected ${expected_serial}" >&2
-    return 1
-  }
+  case "${actual_serial}" in
+    "${RT_CONTROL_SERIAL}"|"${BMS_SERIAL}")
+      return 0
+      ;;
+  esac
+  echo "${interface} already exists with unapproved USB serial ${actual_serial:-unknown}" >&2
+  return 1
 }
 
 configure_can_interface() {
@@ -146,8 +148,8 @@ verify_can_interface() {
     { echo "${interface} txqueuelen is not ${TXQUEUELEN} after CAN preflight" >&2; return 1; }
 }
 
-verify_name_not_foreign can0 "${RT_CONTROL_SERIAL}"
-verify_name_not_foreign can1 "${BMS_SERIAL}"
+verify_reserved_name_not_unknown can0
+verify_reserved_name_not_unknown can1
 
 rt_interface="$(wait_for_serial "rt-control/can0" "${RT_CONTROL_SERIAL}")"
 bms_interface="$(wait_for_serial "BMS/can1" "${BMS_SERIAL}")"
@@ -158,8 +160,12 @@ fi
 
 ip link set dev "${rt_interface}" down
 ip link set dev "${bms_interface}" down
-ip link set dev "${rt_interface}" name rtcan_tmp
-ip link set dev "${bms_interface}" name bmscan_tmp
+if [[ "${rt_interface}" != "rtcan_tmp" ]]; then
+  ip link set dev "${rt_interface}" name rtcan_tmp
+fi
+if [[ "${bms_interface}" != "bmscan_tmp" ]]; then
+  ip link set dev "${bms_interface}" name bmscan_tmp
+fi
 ip link set dev rtcan_tmp name can0
 ip link set dev bmscan_tmp name can1
 
