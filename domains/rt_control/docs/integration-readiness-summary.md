@@ -67,9 +67,9 @@
 `odom → base_link`，因为导航尚未提供 `odom → base_footprint`；联合启动后才可通过该边与 RSP 本体树组合查询。
 依赖旧 topic、`world` frame 或重复发布本体/odom 边的节点都必须迁移，否则会制造多权威或坐标跳变。
 
-`/controller_manager/*`、`/dynamic_joint_states`、PDO/SDO、裸 CAN 帧和驱动内部状态
-接口不属于跨域契约，其他域不得直接依赖。gateway、autonomy 和 perception 也不应绕过
-motion 直接发送运动命令。
+`/controller_manager/*`、`/rt_internal_state_broadcaster/dynamic_joint_states`、PDO/SDO、
+裸 CAN 帧和驱动内部状态接口不属于跨域契约，其他域不得直接依赖。公共 `/dynamic_joint_states`
+不作为 rt-control 域间接口承诺。gateway、autonomy 和 perception 也不应绕过 motion 直接发送运动命令。
 
 ## 3. 联调准入边界
 

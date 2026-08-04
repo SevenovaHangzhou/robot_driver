@@ -65,7 +65,13 @@ def generate_launch_description():
         package="rt_diagnostics",
         executable="rt_diagnostics_node",
         output="both",
-        parameters=[{"hardware_id": "robot-001", "use_sim_time": use_sim_time}],
+        parameters=[
+            {
+                "hardware_id": "robot-001",
+                "dynamic_joint_states_topic": "/rt_internal_state_broadcaster/dynamic_joint_states",
+                "use_sim_time": use_sim_time,
+            }
+        ],
     )
     control_adapter = Node(
         package="control_api_adapter",
@@ -109,6 +115,7 @@ def generate_launch_description():
         )
         for name in (
             "joint_state_broadcaster",
+            "rt_internal_state_broadcaster",
             "diff_drive_controller",
         )
     ]

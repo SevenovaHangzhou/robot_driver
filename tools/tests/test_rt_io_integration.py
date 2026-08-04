@@ -140,7 +140,8 @@ def test_internal_dynamic_state_is_used_only_for_rt_diagnostics() -> None:
     ipc_launcher = (ROOT / "tools/rt_control_ipc.sh").read_text()
 
     internal_topic = "/rt_internal_state_broadcaster/dynamic_joint_states"
-    assert 'declare_parameter<std::string>("dynamic_joint_states_topic"' in diagnostics_source
+    assert "declare_parameter<std::string>" in diagnostics_source
+    assert '"dynamic_joint_states_topic"' in diagnostics_source
     assert internal_topic in diagnostics_source
     assert internal_topic in native_launcher
     assert internal_topic in ipc_launcher

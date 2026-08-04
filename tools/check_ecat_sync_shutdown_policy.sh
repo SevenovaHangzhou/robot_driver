@@ -109,7 +109,7 @@ if not disable_axes < quiesce_controllers < deactivate_hardware:
     raise SystemExit("full-stack shutdown must disable axes, quiesce controllers, then deactivate EtherCAT")
 for required in (
     'std::chrono::seconds(30)',
-    '"enable_manager", "joint_state_broadcaster"',
+    '"enable_manager", "rt_internal_state_broadcaster", "joint_state_broadcaster"',
     'kEthercatHardwareName[] = "ecat_arms"',
     'PRIMARY_STATE_INACTIVE',
 ):

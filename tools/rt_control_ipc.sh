@@ -23,6 +23,7 @@ compose_wrapper="${script_dir}/rt_control_compose.sh"
 axis_state_checker="${script_dir}/rt_control_axis_state_check.py"
 thread_affinity_tool="${script_dir}/rt_control_thread_affinity.py"
 can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"
+internal_dynamic_joint_states_topic="/rt_internal_state_broadcaster/dynamic_joint_states"
 temporary_directory=""
 startup_started=0
 startup_complete=0
@@ -479,6 +480,7 @@ verify_controllers_before_enable()
   while (( SECONDS < deadline )); do
     controller_output="$(run_ros2_timeout 8 'ros2 control list_controllers' 2>/dev/null | strip_ansi || true)"
     if grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" &&
+      grep -Eq '^rt_internal_state_broadcaster[[:space:]].*active' <<< "${controller_output}" &&
       grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" &&
       grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" &&
       grep -Eq '^whole_body_jtc[[:space:]].*inactive' <<< "${controller_output}"; then
@@ -487,7 +489,7 @@ verify_controllers_before_enable()
     sleep 1
   done
   printf '%s\n' "${controller_output}" >&2
-  fail "30 秒内 controller 未达到使能前状态：JSB/diff-drive/enable-manager active 且 whole_body_jtc inactive。"
+  fail "30 秒内 controller 未达到使能前状态：public JSB/internal JSB/diff-drive/enable-manager active 且 whole_body_jtc inactive。"
 }
 
 check_axis_states()
@@ -495,8 +497,8 @@ check_axis_states()
   local expected="$1"
   local snapshot
   snapshot="$(run_ros2_timeout 15 \
-    'ros2 topic echo --once /dynamic_joint_states control_msgs/msg/DynamicJointState')" ||
-    fail "未收到 /dynamic_joint_states，无法确认 ${expected} 状态字。"
+    "ros2 topic echo --once ${internal_dynamic_joint_states_topic} control_msgs/msg/DynamicJointState")" ||
+    fail "未收到 ${internal_dynamic_joint_states_topic}，无法确认 ${expected} 状态字。"
   if ! printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
     fail "14 轴 ${expected} 状态字合同不满足。"
   fi

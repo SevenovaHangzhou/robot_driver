@@ -61,8 +61,10 @@ public:
   : Node("rt_diagnostics")
   {
     hardware_id_ = declare_parameter<std::string>("hardware_id", "robot-001");
+    const auto dynamic_joint_states_topic = declare_parameter<std::string>(
+      "dynamic_joint_states_topic", "/rt_internal_state_broadcaster/dynamic_joint_states");
     dynamic_state_subscription_ = create_subscription<control_msgs::msg::DynamicJointState>(
-      "/dynamic_joint_states", rclcpp::QoS(10),
+      dynamic_joint_states_topic, rclcpp::QoS(10),
       std::bind(&RtDiagnosticsNode::onDynamicState, this, std::placeholders::_1));
     diagnostic_subscription_ = create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
       "/diagnostics", rclcpp::QoS(50),

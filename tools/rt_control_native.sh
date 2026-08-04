@@ -25,10 +25,11 @@ axis_state_checker="${repository_root}/tools/rt_control_axis_state_check.py"
 realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"
 thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"
 can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"
+internal_dynamic_joint_states_topic="/rt_internal_state_broadcaster/dynamic_joint_states"
 
 readonly repository_root workspace_root install_root runtime_root runtime_log_root
 readonly pid_file latest_log_link installed_start axis_state_checker
-readonly realtime_cpu_guard thread_affinity_tool can_setup_tool
+readonly realtime_cpu_guard thread_affinity_tool can_setup_tool internal_dynamic_joint_states_topic
 
 info()
 {
@@ -643,6 +644,7 @@ verify_controllers_before_enable()
   while (( SECONDS < deadline )); do
     controller_output="$(run_ros2_timeout 8 ros2 control list_controllers 2>/dev/null | strip_ansi || true)"
     if grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" &&
+      grep -Eq '^rt_internal_state_broadcaster[[:space:]].*active' <<< "${controller_output}" &&
       grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" &&
       grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" &&
       grep -Eq '^whole_body_jtc[[:space:]].*inactive' <<< "${controller_output}"; then
@@ -651,7 +653,7 @@ verify_controllers_before_enable()
     sleep 1
   done
   printf '%s\n' "${controller_output}" >&2
-  fail "controllers did not reach pre-enable states within 30 seconds: JSB/diff-drive/enable-manager active and whole_body_jtc inactive"
+  fail "controllers did not reach pre-enable states within 30 seconds: public JSB/internal JSB/diff-drive/enable-manager active and whole_body_jtc inactive"
 }
 
 verify_enabled_controllers()
@@ -662,6 +664,8 @@ verify_enabled_controllers()
     fail "diff_drive_controller is not active after enable"
   grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" ||
     fail "joint_state_broadcaster is not active after enable"
+  grep -Eq '^rt_internal_state_broadcaster[[:space:]].*active' <<< "${controller_output}" ||
+    fail "rt_internal_state_broadcaster is not active after enable"
   grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
     fail "enable_manager is not active after enable"
   grep -Eq '^whole_body_jtc[[:space:]].*active' <<< "${controller_output}" ||
@@ -678,7 +682,7 @@ check_axis_states()
     fail "missing or unreadable axis-state checker: ${axis_state_checker}"
   while (( SECONDS < deadline )); do
     if ! snapshot="$(
-      run_ros2_timeout 8 ros2 topic echo --once /dynamic_joint_states \
+      run_ros2_timeout 8 ros2 topic echo --once "${internal_dynamic_joint_states_topic}" \
         control_msgs/msg/DynamicJointState 2>&1
     )"; then
       last_error="${snapshot}"

@@ -88,7 +88,8 @@ bool quiesceEthercatControllers(
   }
 
   const auto request = std::make_shared<SwitchController::Request>();
-  request->deactivate_controllers = {"enable_manager", "joint_state_broadcaster"};
+  request->deactivate_controllers = {
+    "enable_manager", "rt_internal_state_broadcaster", "joint_state_broadcaster"};
   request->strictness = SwitchController::Request::STRICT;
   request->activate_asap = false;
   request->timeout.sec = static_cast<std::int32_t>(kControllerSwitchTimeout.count());
@@ -105,7 +106,7 @@ bool quiesceEthercatControllers(
   }
 
   std::cerr <<
-    "rt_control shutdown controllers quiesced: enable_manager,joint_state_broadcaster\n";
+    "rt_control shutdown controllers quiesced: enable_manager,rt_internal_state_broadcaster,joint_state_broadcaster\n";
   return true;
 }
 

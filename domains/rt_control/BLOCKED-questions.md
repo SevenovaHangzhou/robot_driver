@@ -2204,3 +2204,21 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   “恰好一个 `rtcan-master`”门禁会 fail-fast，需要重新裁决命名和绑定策略。
 - Verification boundary：本裁决只解决目标主站线程归属，不替代 CAN 总线物理层、USB-CAN 适配器、tx/rx 队列或驱动器
   heartbeat consumer 的长稳验证；CAN error counters、EMCY/heartbeat 故障注入和导航联调压力仍需单独记录。
+
+## BQ-130 — 公共 JointState 与内部诊断 DynamicJointState 解耦 [RESOLVED 2026-08-04]
+
+- Evidence：域间接口已要求 `/joint_states` 只发布 14 个 EtherCAT 机械轴的 `position`。实机验证显示
+  `rt_diagnostics` 仍订阅公共 `/dynamic_joint_states` 读取 `status_word`、EtherCAT AL 状态和
+  `process_data_age_ms`，导致 enable 已成功时 `/rt_control/readiness` 仍误报 `NOT_READY/stale`。
+- User decision：保留公共 `/joint_states` 的收敛结果，修复 readiness 误判。
+- Decision：公共 `joint_state_broadcaster` 只发布 `/joint_states`，并关闭公共
+  `publish_dynamic_joint_states`。新增内部 `rt_internal_state_broadcaster`，启用
+  `use_local_topics=true`，将完整状态接口发布到
+  `/rt_internal_state_broadcaster/dynamic_joint_states`；`rt_diagnostics` 和本域状态字检查脚本改用该私有
+  topic。该调整是对 BQ-081/BQ-126 的 topic 适配，不恢复域外对 `/dynamic_joint_states` 的依赖。
+- Benefit：公共接口对导航/其他域保持干净；内部诊断继续拿到 statusword、AL、WC 和 process-age 数据，
+  readiness 不再因为接口收敛误判。
+- Drawback：增加一个 active broadcaster 和一个 50 Hz 私有诊断 topic；如果该内部 broadcaster 未启动，诊断会
+  fail-closed 为 stale。
+- Verification boundary：源码和 Mock 只能证明配置/加载路径正确；生产修复必须在 native/Docker 两种启动路径中验证
+  `/rt_control/readiness` 和 `/control/safety_state` 不再误报 EtherCAT stale。
