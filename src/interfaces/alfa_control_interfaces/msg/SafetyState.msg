@@ -1,0 +1,10 @@
+std_msgs/Header header
+bool safe_to_start_motion
+bool control_enabled
+bool enable_manager_ok
+bool ethercat_ok
+bool canopen_ok
+bool plc_ok
+bool bms_ok
+string state
+string[] active_faults

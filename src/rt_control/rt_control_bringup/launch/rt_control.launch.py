@@ -73,6 +73,18 @@ def generate_launch_description():
         output="both",
         parameters=[{"use_sim_time": use_sim_time}],
     )
+    vacuum_adapter = Node(
+        package="control_api_adapter",
+        executable="vacuum_adapter",
+        output="both",
+        parameters=[rt_io_file, {"use_sim_time": use_sim_time}],
+    )
+    rt_status_adapter = Node(
+        package="control_api_adapter",
+        executable="rt_status_adapter",
+        output="both",
+        parameters=[rt_io_file, {"use_sim_time": use_sim_time}],
+    )
     plc = Node(
         package="plc_node",
         executable="plc_node",
@@ -153,6 +165,8 @@ def generate_launch_description():
             state_publisher,
             diagnostics,
             control_adapter,
+            vacuum_adapter,
+            rt_status_adapter,
             plc,
             bms,
             *active_spawners,

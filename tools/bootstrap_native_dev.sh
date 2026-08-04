@@ -15,6 +15,7 @@ readonly build_base install_base log_base vendor_root
 
 readonly -a runtime_packages=(
   alfa_control_interfaces
+  alfa_system_interfaces
   bms_node
   canopen_master_driver
   canopen_ros2_control

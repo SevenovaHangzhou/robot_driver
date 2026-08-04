@@ -41,13 +41,16 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 | --- | --- | --- | --- |
 | motion → rt-control | 双臂、Turn 与 Updown 的完整轨迹 | `/whole_body_jtc/follow_joint_trajectory` | 14 轴必须完整；JTC 只在 `/rt/enable` 成功后 active；旋转轴第一点误差不超过 1°，Updown 不超过 `0.05 m`，反馈年龄不超过 500 ms。 |
 | motion → rt-control | 底盘线速度和角速度 | `/cmd_vel_safe` | `Twist`；0.5 s 命令超时；当前无 header/frame 校验；控制器启动即 active，不受 `/rt/enable` 门控。 |
+| motion → rt-control | 真空抓取/释放 | `/vacuum/grip` | 固定通道 `left/right`；当前只接受 `grip_profile_id=default`；`GRIP` 使用 PLC 数字量 `attached=true` 验证，`RELEASE` 仍为 `UNVERIFIED`。 |
 | 运维/监督 → rt-control | 普通控制启停公共入口 | `/control/set_enabled` | `enabled=true` 可自动清一次 resettable fault 后调用 `/rt/enable`；`enabled=false` 只调用 `/rt/disable`；不是急停或 STO。 |
+| 运维/RT 内部 → rt-control | 真空泵启停 | `/vacuum/pump/set_enabled` | 活动真空动作、PLC 不新鲜、任一通道 attached 或阀仍开时拒绝普通停泵。 |
 | rt-control 内部/诊断 | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；通常由公共适配层或启动脚本调用。 |
 | rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 当前配置为 100 Hz，仅导出 14 个 EtherCAT 机械轴；履带状态不进入公共 `/joint_states`。 |
 | rt-control → 导航/视觉 | 原始轮速里程计和本体 TF | `/wheel/odom`、`/tf`、`/tf_static` | `/wheel/odom` 约 50 Hz；RSP 提供 `base_footprint → base_link → 本体/传感器`；最终 `/odom` 与唯一 `odom → base_footprint` 属于导航域，`map → odom` 不属于本域。 |
+| rt-control → 上层 | 真空、安全和就绪摘要 | `/vacuum/state`、`/control/safety_state`、`/rt_control/readiness` | 真空状态无 `pressure_pa`；安全/就绪聚合 enable_manager、EtherCAT、CANopen node2/3、PLC fresh、BMS fresh。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |
 
-以下是内部实现接口，不应直接升级为跨域契约：`/dynamic_joint_states`、`/controller_manager/*`、原始 `digital_inputs/digital_outputs`、PDO、SDO 和裸 CAN 帧。当前也没有可供上层调用的真空/语义 IO 控制器或结果接口。已经删除的 `rt_watchdog` 和 `/heartbeat/motion`、`/heartbeat/autonomy` 也不是可用接口，不能假定系统存在全局上层失联保护。
+以下是内部实现接口，不应直接升级为跨域契约：`/dynamic_joint_states`、`/controller_manager/*`、原始 `digital_inputs/digital_outputs`、PDO、SDO 和裸 CAN 帧。PLC 单点服务只用于 rt-control 内部适配和工程调试；域外真空控制使用 `/vacuum/grip`。已经删除的 `rt_watchdog` 和 `/heartbeat/motion`、`/heartbeat/autonomy` 也不是可用接口，不能假定系统存在全局上层失联保护。
 
 ## 2. 代码依赖知识图谱
 

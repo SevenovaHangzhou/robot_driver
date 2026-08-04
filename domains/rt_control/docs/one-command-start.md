@@ -41,6 +41,7 @@ READY: rt-control 已启动并完成 /rt/enable。
 启停: /control/set_enabled
 FJT: /whole_body_jtc/follow_joint_trajectory
 底盘: /cmd_vel_safe
+真空: /vacuum/grip
 ```
 
 ## 这条命令自动完成什么
@@ -106,7 +107,12 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 | 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage` |
 | PLC 状态 | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` |
 | BMS 电压/SOC | `/battery_state`，`sensor_msgs/msg/BatteryState`，5 s 周期 |
-| PLC 三路控制 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
+| 真空动作 | `/vacuum/grip`，`alfa_control_interfaces/action/VacuumGrip`；通道 `left/right`，布尔吸附验证；当前 `grip_profile_id=default` |
+| 真空状态 | `/vacuum/state`，`alfa_control_interfaces/msg/VacuumState`；无 `pressure_pa` |
+| 真空泵维护 | `/vacuum/pump/set_enabled`，`alfa_control_interfaces/srv/SetPumpEnabled` |
+| PLC 底层调试 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
+| 安全摘要 | `/control/safety_state`，`alfa_control_interfaces/msg/SafetyState` |
+| 就绪状态 | `/rt_control/readiness`，`alfa_system_interfaces/msg/DomainReadiness` |
 | 诊断 | `/diagnostics` |
 | 公共启停 | `/control/set_enabled`，`alfa_control_interfaces/srv/SetControlEnabled`；`true` 时可自动清一次 resettable fault 后使能，`false` 只调用 `/rt/disable` |
 | 手工失能 | `/rt/disable` |

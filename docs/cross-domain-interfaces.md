@@ -1,6 +1,6 @@
 # 域间接口定义
 
-> 版本：v1.1（对齐五域接口规范 v3.2 的 rt-control 当前裁决）
+> 版本：v1.2（对齐五域接口规范 v3.3 与 rt-control 真空布尔裁决）
 > 适用范围：`robot_system` 仓库全部域实现
 > 状态：接口冻结基线。本文是 monorepo 内域间通信的唯一权威清单。
 
@@ -104,7 +104,7 @@ ID 前缀含义：`G` = Gateway/本地入口，`P` = Perception 提供，`N` = �
 | R-IN-02 | `/whole_body_jtc/follow_joint_trajectory` | Action / `control_msgs/action/FollowJointTrajectory` | Motion ⇄ RT-Control | 完整 14 轴；`allow_partial_joints_goal=false`；整组取消 |
 | R-IN-03 | `/control/set_enabled` | Service / `alfa_control_interfaces/srv/SetControlEnabled` | 维护/生命周期工具 → RT-Control | 不复位急停、安全继电器或 STO；不属于箱级任务流程 |
 | R-IN-04 | `/vacuum/pump/set_enabled` | Service / `alfa_control_interfaces/srv/SetPumpEnabled` | 维护工具或 RT 内部管理器 → RT-Control | 活动真空命令或可能持箱时拒绝普通停泵 |
-| R-IN-05 | `/vacuum/grip` | Action / `alfa_control_interfaces/action/VacuumGrip` | Motion ⇄ RT-Control | 通道同数量/同集/同序；GRIP 每通道新鲜表压 `<= -50 kPa`；RELEASE 仍 `UNVERIFIED` |
+| R-IN-05 | `/vacuum/grip` | Action / `alfa_control_interfaces/action/VacuumGrip` | Motion ⇄ RT-Control | 通道固定 `left/right`；通道同数量/同集/同序；当前只接受 `grip_profile_id=default`；GRIP 每通道新鲜 `attached=true`；RELEASE 仍 `UNVERIFIED` |
 
 R-IN-03 当前由 `control_api_adapter` 提供。`enabled=true` 时只通过现有
 enable_manager 服务链执行：等待 enable_manager 进入 `IDLE`、`ENABLED`、
@@ -121,7 +121,7 @@ enable_manager 服务链执行：等待 enable_manager 进入 `IDLE`、`ENABLED`
 | R-OUT-02 | `/wheel/odom` | Topic / `nav_msgs/msg/Odometry` | RT-Control → Perception | `Q_FAST_STATE`；50 Hz；最大年龄 200 ms；**不作为到站或停稳最终证据** |
 | R-OUT-03 | `/joint_states` | Topic / `sensor_msgs/msg/JointState` | RT-Control → Motion、Perception、Autonomy | 完整 14 轴；`Q_FAST_STATE`；100 Hz；最大年龄 200 ms |
 | R-OUT-04 | `/battery_state` | Topic / `sensor_msgs/msg/BatteryState` | RT-Control → Autonomy、观测工具 | 5 s 周期；只读，不作为业务控制入口 |
-| R-OUT-05 | `/vacuum/state` | Topic / `alfa_control_interfaces/msg/VacuumState` | RT-Control → Motion、Autonomy、观测工具 | `Q_STATE`；20～50 Hz；只 RT-Control 用于 GRIP 判定，其他域不自行计算成功 |
+| R-OUT-05 | `/vacuum/state` | Topic / `alfa_control_interfaces/msg/VacuumState` | RT-Control → Autonomy、观测工具 | `Q_STATE`；20～50 Hz；只 RT-Control 用于 GRIP 判定，其他域不自行计算成功；Motion 不订阅 |
 | R-OUT-06 | `/control/safety_state` | Topic / `alfa_control_interfaces/msg/SafetyState` | RT-Control → Perception、Motion、Autonomy | `Q_STATE`；10～50 Hz；最大年龄 200 ms；deny 或过期时禁止新动作 |
 | R-OUT-07 | `/robot_model/info` | Topic / `alfa_system_interfaces/msg/RobotModelInfo` | RT-Control → 各域 | `Q_LATCHED`；14 轴集合与校验值一致；任务期间版本不变 |
 | R-OUT-08 | `/calibration/info` | Topic / `alfa_system_interfaces/msg/CalibrationInfo` | RT-Control → 各域 | `Q_LATCHED`；曝光前与返回前版本一致 |
@@ -138,8 +138,8 @@ Action 返回 ROS `SUCCEEDED` 时，服务端必须已实际完成本次功能�
 - **P-01**：真实完成一次同步采集，并输出完整 25 箱、13～15 序列的计划；任一序列缺失即失败。
 - **P-02**：结果是当时、当地、当前箱的精位姿，stamp 为真实曝光时刻。
 - **M-02**：全部真空通道均为 `ATTACHED_VERIFIED` 才 `SUCCEEDED`；双箱任一侧未验证则整个 M-02 失败。
-- **M-05 GRIP**：每通道新鲜表压 `<= -50 kPa`；全部达到阈值才 `ATTACHED_VERIFIED`。
-- **M-05 RELEASE / M-03**：物理释放结果**永远记为 `UNVERIFIED`**，不以压力判定释放成功。
+- **M-05 GRIP**：每通道新鲜 `attached=true`；该布尔量由现场数字量真空传感器给出，对应 `-50 kPa` 阈值判断；全部目标通道为 true 才 `ATTACHED_VERIFIED`。
+- **M-05 RELEASE / M-03**：物理释放结果**永远记为 `UNVERIFIED`**，不以真空数字量反推释放成功。
 
 调用方只做轻量一致性检查（box_id、序号、owner/token、verification_level、时效），不重新计算服务端的判定。
 
@@ -273,7 +273,7 @@ G-01 `final_state` 三选一：`COMPLETED_UNVERIFIED` / `FAILED` / `CANCELED`。
 | `PlanAndExecutePick.Goal` | 删除 `plan_valid_until`；保留 `max_pose_age` |
 | `VacuumGrip.Goal` | 删除 `timeout`；物理命令预算只取版本化 `grip_profile`，父 Action deadline 独立且不得更短 |
 | `ExecuteDemoTask.Feedback` | 在同一 `.action` 冻结第 8 节 TaskPhase 0～14；删除旧 `BASE_GATED`、`RELEASING_GATE`、`NEXT_OR_FINISH` |
-| `VacuumChannelResult` | 仅保留 `channel`、`command_accepted`、`valve_actuation_completed`、`verification_level`、`error` |
+| `VacuumChannelResult` | 仅保留 `channel`、`command_accepted`、`valve_actuation_completed`、`verification_level`、`error`；不暴露 `pressure_pa` |
 
 ## 10. 边界验收清单
 

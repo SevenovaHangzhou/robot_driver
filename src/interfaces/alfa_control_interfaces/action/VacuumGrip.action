@@ -1,0 +1,17 @@
+uint8 GRIP=1
+uint8 RELEASE=2
+
+uint8 command
+string[] channels
+string grip_profile_id
+string context
+---
+uint8 UNVERIFIED=0
+uint8 ATTACHED_VERIFIED=1
+
+bool accepted
+uint8 overall_verification_level
+string error
+VacuumChannelResult[] channel_results
+---
+VacuumChannelFeedback[] channel_feedback

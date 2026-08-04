@@ -1,0 +1,13 @@
+bool enabled
+string reason
+---
+uint16 OK=0
+uint16 PLC_UNAVAILABLE=1
+uint16 COMMAND_REJECTED=2
+uint16 ACTIVE_VACUUM_COMMAND=3
+uint16 POSSIBLE_LOAD_HELD=4
+
+bool accepted
+bool enabled
+uint16 error_code
+string message

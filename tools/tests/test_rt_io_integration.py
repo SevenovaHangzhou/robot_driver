@@ -70,6 +70,19 @@ def test_public_rt_control_interfaces_match_current_contract() -> None:
     assert bms_params["battery_state_topic"] == "/battery_state"
     assert bms_params["publish_period_s"] == 5.0
 
+    vacuum_params = rt_io["vacuum_adapter"]["ros__parameters"]
+    assert vacuum_params["vacuum_state_topic"] == "/vacuum/state"
+    assert vacuum_params["pump_set_enabled_service"] == "/vacuum/pump/set_enabled"
+    assert vacuum_params["grip_action_name"] == "/vacuum/grip"
+    assert vacuum_params["publish_period_s"] == 0.05
+    assert vacuum_params["accepted_grip_profile_ids"] == ["default"]
+
+    status_params = rt_io["rt_status_adapter"]["ros__parameters"]
+    assert status_params["safety_state_topic"] == "/control/safety_state"
+    assert status_params["readiness_topic"] == "/rt_control/readiness"
+    assert status_params["safety_publish_period_s"] == 0.1
+    assert status_params["readiness_publish_period_s"] == 1.0
+
 
 def test_public_control_enable_adapter_is_started_with_rt_control() -> None:
     launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
@@ -97,6 +110,7 @@ def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
 
     assert 'executable="vacuum_adapter"' in launch_text
     assert 'executable="rt_status_adapter"' in launch_text
+    assert "parameters=[rt_io_file, {\"use_sim_time\": use_sim_time}]" in launch_text
     assert "scripts/vacuum_adapter" in adapter_cmake
     assert "scripts/rt_status_adapter" in adapter_cmake
     assert "<exec_depend>alfa_system_interfaces</exec_depend>" in adapter_manifest
@@ -108,10 +122,12 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
-    for text in (dockerfile, bootstrap):
-        assert "      alfa_control_interfaces \\\n" in text
-        assert "      alfa_system_interfaces \\\n" in text
-        assert "      control_api_adapter \\\n" in text
+    assert "      alfa_control_interfaces \\\n" in dockerfile
+    assert "      alfa_system_interfaces \\\n" in dockerfile
+    assert "      control_api_adapter \\\n" in dockerfile
+    assert "\n  alfa_control_interfaces\n" in bootstrap
+    assert "\n  alfa_system_interfaces\n" in bootstrap
+    assert "\n  control_api_adapter\n" in bootstrap
 
 
 def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:

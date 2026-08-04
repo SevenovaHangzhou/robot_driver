@@ -25,3 +25,34 @@ bms_node:
     publish_period_s: 5.0
     frame_timeout_s: 3.0
     battery_state_topic: /battery_state
+
+vacuum_adapter:
+  ros__parameters:
+    plc_state_topic: /plc/io_state
+    vacuum_state_topic: /vacuum/state
+    pump_set_enabled_service: /vacuum/pump/set_enabled
+    grip_action_name: /vacuum/grip
+    left_solenoid_service: /plc/left_solenoid
+    right_solenoid_service: /plc/right_solenoid
+    pump_service: /plc/vacuum_pump
+    publish_period_s: 0.05
+    plc_service_timeout_s: 2.0
+    plc_state_timeout_s: 1.5
+    grip_verify_timeout_s: 3.0
+    accepted_grip_profile_ids:
+      - default
+
+rt_status_adapter:
+  ros__parameters:
+    diagnostics_topic: /diagnostics
+    plc_state_topic: /plc/io_state
+    battery_state_topic: /battery_state
+    safety_state_topic: /control/safety_state
+    readiness_topic: /rt_control/readiness
+    diagnostic_timeout_s: 3.0
+    plc_timeout_s: 1.5
+    bms_timeout_s: 6.0
+    safety_publish_period_s: 0.1
+    readiness_publish_period_s: 1.0
+    version: "0.1.0"
+    config_summary: "14-axis EtherCAT, CANopen tracks, PLC vacuum, BMS"

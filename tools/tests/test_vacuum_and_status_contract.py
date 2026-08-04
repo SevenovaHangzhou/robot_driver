@@ -158,6 +158,45 @@ class VacuumAndStatusContractTest(unittest.TestCase):
         self.assertEqual(result.overall_verification_level, UNVERIFIED)
         self.assertEqual(io.calls, [("left", False)])
 
+    def test_unknown_grip_profile_is_rejected_without_plc_writes(self):
+        from control_api_adapter.vacuum_adapter import (
+            GRIP,
+            PlcCommandResult,
+            PlcVacuumSnapshot,
+            VacuumAdapterCore,
+        )
+
+        class FakeVacuumIo:
+            def __init__(self):
+                self.calls = []
+
+            def set_output(self, output_name, enabled):
+                self.calls.append((output_name, enabled))
+                return PlcCommandResult(True, "")
+
+            def read_snapshot(self):
+                return PlcVacuumSnapshot(
+                    connected=True,
+                    data_fresh=True,
+                    left_attached=False,
+                    right_attached=False,
+                    left_valve_open=False,
+                    right_valve_open=False,
+                    pump_enabled=False,
+                    error="",
+                )
+
+            def wait_for_attachment(self, channels, timeout_s):
+                raise AssertionError("unsupported profile must not wait for attachment")
+
+        io = FakeVacuumIo()
+        result = VacuumAdapterCore(io).execute_goal(GRIP, ["left"], "unknown", "pick")
+
+        self.assertFalse(result.succeeded)
+        self.assertFalse(result.accepted)
+        self.assertIn("unsupported grip_profile_id", result.error)
+        self.assertEqual(io.calls, [])
+
     def test_pump_disable_rejects_possible_load_held(self):
         from control_api_adapter.vacuum_adapter import (
             VacuumAdapterCore,

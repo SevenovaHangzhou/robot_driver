@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>alfa_control_interfaces</name>
+  <name>alfa_system_interfaces</name>
   <version>0.1.0</version>
-  <description>Temporary public control-domain ROS interface definitions.</description>
+  <description>Temporary public system-level ROS interface definitions.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
