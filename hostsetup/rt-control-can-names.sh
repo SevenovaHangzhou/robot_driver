@@ -129,23 +129,37 @@ verify_can_interface() {
   local expected_serial="$2"
   local label="$3"
   local actual_serial
+  local deadline=$((SECONDS + 5))
+  local last_error=""
   local output
 
-  [[ -e "/sys/class/net/${interface}" ]] ||
-    { echo "${label} CAN adapter did not bind to ${interface}" >&2; return 1; }
-  actual_serial="$(udevadm info -q property -p "/sys/class/net/${interface}" |
-    sed -n 's/^ID_SERIAL_SHORT=//p')"
-  [[ "${actual_serial}" == "${expected_serial}" ]] ||
-    { echo "${interface} serial mismatch for ${label}: got ${actual_serial:-unknown}, expected ${expected_serial}" >&2; return 1; }
-  output="$(ip -details -statistics link show "${interface}")"
-  grep -Fq 'state UP' <<< "${output}" ||
-    { echo "${interface} is not UP after CAN preflight" >&2; return 1; }
-  grep -Fq 'can state ERROR-ACTIVE' <<< "${output}" ||
-    { echo "${interface} is not ERROR-ACTIVE after CAN preflight" >&2; return 1; }
-  grep -Fq "bitrate ${BITRATE}" <<< "${output}" ||
-    { echo "${interface} is not ${BITRATE} bit/s after CAN preflight" >&2; return 1; }
-  grep -Fq "qlen ${TXQUEUELEN}" <<< "${output}" ||
-    { echo "${interface} txqueuelen is not ${TXQUEUELEN} after CAN preflight" >&2; return 1; }
+  while true; do
+    if [[ ! -e "/sys/class/net/${interface}" ]]; then
+      last_error="${label} CAN adapter did not bind to ${interface}"
+    else
+      actual_serial="$(udevadm info -q property -p "/sys/class/net/${interface}" |
+        sed -n 's/^ID_SERIAL_SHORT=//p')"
+      [[ "${actual_serial}" == "${expected_serial}" ]] ||
+        { echo "${interface} serial mismatch for ${label}: got ${actual_serial:-unknown}, expected ${expected_serial}" >&2; return 1; }
+      output="$(ip -details -statistics link show "${interface}")"
+      if ! grep -Fq 'state UP' <<< "${output}"; then
+        last_error="${interface} is not UP after CAN preflight"
+      elif ! grep -Fq 'can state ERROR-ACTIVE' <<< "${output}"; then
+        last_error="${interface} is not ERROR-ACTIVE after CAN preflight"
+      elif ! grep -Fq "bitrate ${BITRATE}" <<< "${output}"; then
+        last_error="${interface} is not ${BITRATE} bit/s after CAN preflight"
+      elif ! grep -Fq "qlen ${TXQUEUELEN}" <<< "${output}"; then
+        last_error="${interface} txqueuelen is not ${TXQUEUELEN} after CAN preflight"
+      else
+        return 0
+      fi
+    fi
+    if (( SECONDS >= deadline )); then
+      echo "${last_error}" >&2
+      return 1
+    fi
+    sleep 0.2
+  done
 }
 
 verify_reserved_name_not_unknown can0

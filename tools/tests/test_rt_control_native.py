@@ -391,6 +391,7 @@ class NativeHostSetupContractTest(unittest.TestCase):
         self.assertIn("verify_reserved_name_not_unknown can1", text)
         self.assertIn('"${RT_CONTROL_SERIAL}"|"${BMS_SERIAL}")', text)
         self.assertIn("unapproved USB serial", text)
+        self.assertIn("deadline=$((SECONDS + 5))", text)
         self.assertNotIn("verify_name_not_foreign", text)
         self.assertIn('ip link set dev "${interface}" type can bitrate "${BITRATE}"', text)
         self.assertIn('ip link set dev "${interface}" txqueuelen "${TXQUEUELEN}"', text)
