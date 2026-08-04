@@ -86,6 +86,34 @@ def test_public_control_enable_adapter_is_started_with_rt_control() -> None:
     assert "bool accepted\nbool enabled\nuint16 error_code\nstring message" in interface_srv
 
 
+def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
+    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
+    adapter_cmake = (
+        ROOT / "src/rt_control/control_api_adapter/CMakeLists.txt"
+    ).read_text()
+    adapter_manifest = (
+        ROOT / "src/rt_control/control_api_adapter/package.xml"
+    ).read_text()
+
+    assert 'executable="vacuum_adapter"' in launch_text
+    assert 'executable="rt_status_adapter"' in launch_text
+    assert "scripts/vacuum_adapter" in adapter_cmake
+    assert "scripts/rt_status_adapter" in adapter_cmake
+    assert "<exec_depend>alfa_system_interfaces</exec_depend>" in adapter_manifest
+    assert "<exec_depend>sensor_msgs</exec_depend>" in adapter_manifest
+    assert "<exec_depend>std_srvs</exec_depend>" in adapter_manifest
+
+
+def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -> None:
+    dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
+    bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
+
+    for text in (dockerfile, bootstrap):
+        assert "      alfa_control_interfaces \\\n" in text
+        assert "      alfa_system_interfaces \\\n" in text
+        assert "      control_api_adapter \\\n" in text
+
+
 def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:
     launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
 

@@ -47,6 +47,10 @@ def test_decode_snapshot_uses_confirmed_input_and_output_mapping() -> None:
     assert snapshot.vacuum_pump_on is True
     assert snapshot.io_alarm == 2
 
+    right_only = decode_io_snapshot(di_status=0b10, do_status=0, io_alarm=0)
+    assert right_only.left_vacuum_established is False
+    assert right_only.right_vacuum_established is True
+
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_output_matches_requires_command_and_actual_status(enabled: bool) -> None:
