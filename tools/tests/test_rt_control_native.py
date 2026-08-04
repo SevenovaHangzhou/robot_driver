@@ -424,6 +424,16 @@ class RtControlLaunchAffinityContractTest(unittest.TestCase):
         self.assertIn("ros2 service type /control/set_enabled", body)
         self.assertIn("alfa_control_interfaces/srv/SetControlEnabled", body)
 
+    def test_controller_state_gate_waits_for_spawners_before_enable(self):
+        launcher_text = LAUNCHER.read_text(encoding="utf-8")
+        start = launcher_text.index("verify_controllers_before_enable()")
+        stop = launcher_text.index("verify_enabled_controllers()", start)
+        body = launcher_text[start:stop]
+        self.assertIn("deadline=$((SECONDS + 30))", body)
+        self.assertIn("while (( SECONDS < deadline ))", body)
+        self.assertIn("sleep 1", body)
+        self.assertIn("whole_body_jtc", body)
+
 
 class NativeOneClickRecoveryContractTest(unittest.TestCase):
     def test_oneclick_script_delegates_to_the_explicit_recovery_entrypoint(self):

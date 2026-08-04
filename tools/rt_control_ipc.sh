@@ -473,16 +473,21 @@ verify_rt_io_ready()
 
 verify_controllers_before_enable()
 {
+  local deadline=$((SECONDS + 30))
   local controller_output
-  controller_output="$(run_ros2_timeout 15 'ros2 control list_controllers' | strip_ansi)"
-  grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" ||
-    fail "joint_state_broadcaster 未 active。"
-  grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" ||
-    fail "diff_drive_controller 未 active。"
-  grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
-    fail "enable_manager 未 active。"
-  grep -Eq '^whole_body_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
-    fail "使能前 whole_body_jtc 不是 inactive。"
+  controller_output=""
+  while (( SECONDS < deadline )); do
+    controller_output="$(run_ros2_timeout 8 'ros2 control list_controllers' 2>/dev/null | strip_ansi || true)"
+    if grep -Eq '^joint_state_broadcaster[[:space:]].*active' <<< "${controller_output}" &&
+      grep -Eq '^diff_drive_controller[[:space:]].*active' <<< "${controller_output}" &&
+      grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" &&
+      grep -Eq '^whole_body_jtc[[:space:]].*inactive' <<< "${controller_output}"; then
+      return
+    fi
+    sleep 1
+  done
+  printf '%s\n' "${controller_output}" >&2
+  fail "30 秒内 controller 未达到使能前状态：JSB/diff-drive/enable-manager active 且 whole_body_jtc inactive。"
 }
 
 check_axis_states()

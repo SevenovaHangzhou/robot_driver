@@ -145,6 +145,17 @@ class RecoveryLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("value: FAILED"), body.index("value: IDLE"))
         self.assertLess(body.index("value: restart_required"), body.index("value: IDLE"))
 
+    def test_controller_state_gate_waits_for_spawners_before_enable(self):
+        text = LAUNCHER.read_text(encoding="utf-8")
+        begin = text.index("verify_controllers_before_enable()")
+        end = text.index("check_axis_states()", begin)
+        body = text[begin:end]
+
+        self.assertIn("deadline=$((SECONDS + 30))", body)
+        self.assertIn("while (( SECONDS < deadline ))", body)
+        self.assertIn("sleep 1", body)
+        self.assertIn("whole_body_jtc", body)
+
 
 if __name__ == "__main__":
     unittest.main()
