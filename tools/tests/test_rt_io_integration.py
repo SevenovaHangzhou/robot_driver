@@ -50,11 +50,23 @@ def test_public_rt_control_interfaces_match_current_contract() -> None:
     manager_params = controllers["controller_manager"]["ros__parameters"]
     assert "whole_body_jtc" in manager_params
     assert "dual_arm_jtc" not in manager_params
+    assert (
+        manager_params["rt_internal_state_broadcaster"]["type"]
+        == "joint_state_broadcaster/JointStateBroadcaster"
+    )
 
     joint_state_params = controllers["joint_state_broadcaster"]["ros__parameters"]
     assert joint_state_params["update_rate"] == 100
     assert joint_state_params["joints"] == expected_joints
     assert joint_state_params["interfaces"] == ["position"]
+    assert joint_state_params["publish_dynamic_joint_states"] is False
+
+    internal_state_params = controllers["rt_internal_state_broadcaster"]["ros__parameters"]
+    assert internal_state_params["update_rate"] == 50
+    assert internal_state_params["use_local_topics"] is True
+    assert internal_state_params["publish_dynamic_joint_states"] is True
+    assert "joints" not in internal_state_params
+    assert "interfaces" not in internal_state_params
 
     jtc_params = controllers["whole_body_jtc"]["ros__parameters"]
     assert jtc_params["joints"] == expected_joints
@@ -110,12 +122,28 @@ def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
 
     assert 'executable="vacuum_adapter"' in launch_text
     assert 'executable="rt_status_adapter"' in launch_text
+    assert '"rt_internal_state_broadcaster"' in launch_text
+    assert '"/rt_internal_state_broadcaster/dynamic_joint_states"' in launch_text
     assert "parameters=[rt_io_file, {\"use_sim_time\": use_sim_time}]" in launch_text
     assert "scripts/vacuum_adapter" in adapter_cmake
     assert "scripts/rt_status_adapter" in adapter_cmake
     assert "<exec_depend>alfa_system_interfaces</exec_depend>" in adapter_manifest
     assert "<exec_depend>sensor_msgs</exec_depend>" in adapter_manifest
     assert "<exec_depend>std_srvs</exec_depend>" in adapter_manifest
+
+
+def test_internal_dynamic_state_is_used_only_for_rt_diagnostics() -> None:
+    diagnostics_source = (
+        ROOT / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
+    ).read_text()
+    native_launcher = (ROOT / "tools/rt_control_native.sh").read_text()
+    ipc_launcher = (ROOT / "tools/rt_control_ipc.sh").read_text()
+
+    internal_topic = "/rt_internal_state_broadcaster/dynamic_joint_states"
+    assert 'declare_parameter<std::string>("dynamic_joint_states_topic"' in diagnostics_source
+    assert internal_topic in diagnostics_source
+    assert internal_topic in native_launcher
+    assert internal_topic in ipc_launcher
 
 
 def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -> None:
