@@ -11,32 +11,29 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 实机运行源码 | `d415c0c2c75917a9545a4a2f87487718de8622a2` |
-| 发布锁 | `7bc8f16e903ef7174f60ebe9613f6eeed3a96185` |
-| 镜像 | `rt-control:d415c0c2c75917a9545a4a2f87487718de8622a2` |
-| 镜像 ID | `sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2` |
-| 镜像大小 | `552557165 bytes`，约 `527.0 MiB` |
-| 不可变运行副本 | `/home/ar/rt-control-releases/d415c0c2c75917a9545a4a2f87487718de8622a2/robot` |
+| 实机运行源码 | `ff730e3bc51e726f95ffd402c1793b114e41733a` |
+| 发布锁 | 本次锁定提交 |
+| 镜像 | `rt-control:ff730e3bc51e726f95ffd402c1793b114e41733a` |
+| 镜像 ID | `sha256:02ef48587b51bd4ab261f56e71c5274e4a95726f04587dd41176fcb08e7f4beb` |
+| 镜像大小 | `549986232 bytes`，约 `524.5 MiB` |
+| 不可变运行副本 | `/home/ar/rt-control-releases/ff730e3bc51e726f95ffd402c1793b114e41733a/robot` |
 | 固定操作入口 | `/home/ar/rt-control-current` → 发布锁对应操作副本 |
 | 操作系统/内核 | Ubuntu 22.04.5 LTS，`5.15.0-1032-realtime`，PREEMPT_RT |
 | EtherCAT 主站 | IgH stable-1.6，commit `2f7f884f1c7d377c02a7d627eb06512126a0e50e` |
-| ROS | ROS 2 Humble，`ROS_DOMAIN_ID=42` |
+| ROS | ROS 2 Humble，`ROS_DOMAIN_ID=0`，`RMW_IMPLEMENTATION=rmw_fastrtps_cpp` |
 
 运行副本由已验收源码导出，不含 `.git`。开发仓库仍按 Git HEAD 生成镜像 tag；针对
 该不可变导出，一键工具会显式传入上表 SHA，不会把当前文档提交误当成运行镜像。
 
-当前镜像已经包含 T-020 的 `odom → base_footprint → base_link` TF 合同以及 PLC/BMS 节点。目标机已完成 TF
-只读复核、IO 逐点测试和一键 start→READY→stop；原始证据见
-[PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
-
-> 后续源码已把原始轮速输出改为 `/wheel/odom`，并把 `odom → base_footprint` 所有权移交导航域；本页表格和性能
-> 数值仍描述上表已部署旧镜像，不能当作新接口已在目标机生效的证据。
+当前镜像已经包含 `/wheel/odom`、TF 所有权调整、PLC/BMS、`/control/set_enabled`、真空公共接口、
+`/control/safety_state` 和 `/rt_control/readiness`。本页表格描述本次发布候选；目标机受控验证结果以
+`PROGRESS.md` 最新记录为准。
 
 ## 2. Docker 内实现了什么
 
 ```mermaid
 flowchart LR
-    M[motion 等同机域<br/>当前工程接口] --> ROS[ROS 2 / Domain 42]
+    M[motion 等同机域<br/>当前工程接口] --> ROS[ROS 2 / Domain 0]
 
     subgraph C[rt-control 容器]
         B[rt_control_bringup]

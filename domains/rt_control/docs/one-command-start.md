@@ -3,18 +3,18 @@
 > 仅适用于已经部署好的 `ar@192.168.0.40`。脚本会访问真实 EtherCAT/CANopen，
 > 并自动调用 `/rt/enable`；不能在开发电脑、其他工控机或无现场授权时运行。
 
-> **已验收版本：** 功能源码 `d415c0c…`、发布锁 `7bc8f16…`、镜像 ID
-> `sha256:01bd550b…` 已在本机完成受控“启动→READY→stop”。固定入口
-> `~/rt-control-current` 指向已验收的不可变操作副本，不得改指到开发工作区。
+> **当前发布候选：** 功能源码 `ff730e3bc51e726f95ffd402c1793b114e41733a`、镜像 ID
+> `sha256:02ef48587b51bd4ab261f56e71c5274e4a95726f04587dd41176fcb08e7f4beb` 已完成干净 Docker
+> 构建；目标机受控“启动→READY→stop”验证完成后，`~/rt-control-current` 才能作为同事固定入口。
 
-> **T-020 TF 发布边界：** 当前镜像已在目标机发布新 TF 根链，并完成静态
-> `base_footprint → base_link` 和组合 `odom → base_link` 只读复核。
+> **T-020 TF 发布边界：** 前序镜像已在目标机完成 TF 只读复核；本发布候选延续
+> `base_footprint → base_link` 静态边，并仍不发布 `odom → base_footprint`。
 
-> **待发布接口变更：** 当前源码已把轮速输出改为 `/wheel/odom`，并停止由 rt-control 发布
-> `odom → base_footprint`；该边改由导航唯一发布。目标机锁定镜像切换前仍是旧行为，不得只复制本页名称而忽略实际
-> release SHA。
+> **接口边界：** 当前发布候选输出 `/wheel/odom`，不发布 `odom → base_footprint`；该边由导航唯一发布。
+> 真空公共接口为 `/vacuum/grip`、`/vacuum/state`、`/vacuum/pump/set_enabled`，状态只暴露 `left/right`
+> 布尔吸附结果，不暴露压力值。
 
-> **PLC/BMS 发布边界：** 当前镜像已完成 PLC/BMS 读取、三路输出逐点 ON/OFF 和关停复测；一键启动仍会要求
+> **PLC/BMS 发布边界：** 前序镜像已完成 PLC/BMS 读取、三路输出逐点 ON/OFF 和关停复测；本发布候选的一键启动仍会要求
 > `can1` 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、`/battery_state` 有效后再自动使能。
 > 详细证据见 [PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
 

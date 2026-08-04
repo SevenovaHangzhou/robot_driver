@@ -4,9 +4,10 @@
 > 当前接口验证发现、消息格式、轨迹/速度链路和取消/失败流程；所有接口仍属于
 > “当前工程接口”，公共域间契约冻结前不承诺名称、QoS 或错误语义长期兼容。
 
-当前目标机硬件运行基线为功能源码 `d415c0c2c75917a9545a4a2f87487718de8622a2`、发布锁
-`7bc8f16e903ef7174f60ebe9613f6eeed3a96185`，目标机仅为 `ar@192.168.0.40`。该版本已经包含并实机复核
-T-020 TF 根链、PLC/BMS 状态和三路 PLC 输出接口。
+当前发布候选为功能源码 `ff730e3bc51e726f95ffd402c1793b114e41733a`、镜像
+`rt-control:ff730e3bc51e726f95ffd402c1793b114e41733a`、镜像 ID
+`sha256:02ef48587b51bd4ab261f56e71c5274e4a95726f04587dd41176fcb08e7f4beb`，目标机仅为
+`ar@192.168.0.40`。该版本包含 T-020 TF 根链、PLC/BMS、公共启停、真空公共接口、安全摘要和 readiness。
 
 ## 1. 当前已完成
 
@@ -101,9 +102,9 @@ motion 直接发送运动命令。
 - Service 的幂等、错误码、版本兼容和操作者权限；
 - ROS middleware、网卡暴露和跨容器发现范围。
 
-当前容器设置了 `ROS_DOMAIN_ID=42`、host network 和 CycloneDDS 配置路径，但没有显式
-固定 `RMW_IMPLEMENTATION`。因此正式公共契约还需要记录实扫 RMW，并决定其他域是
-共享同一 DDS 配置还是通过受控桥接暴露；不能只凭 XML 文件名推断运行中的 middleware。
+当前容器设置了 `ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=0`、`RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
+和 host network。其他域要与 rt-control 直连联调时，应使用同一 Domain 和兼容 DDS 配置；如果后续改成跨主机或多容器隔离网络，
+需要重新定义 DDS discovery/Router 或桥接方式。
 
 ### B. 安全诊断公共输出
 
