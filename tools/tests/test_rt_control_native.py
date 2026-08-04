@@ -163,11 +163,33 @@ class NativeLauncherContractTest(unittest.TestCase):
         start = source.index("void EnableManagerController::updateReset")
         stop = source.index("void EnableManagerController::setAllControlWords", start)
         body = source[start:stop]
-        self.assertIn("DriveState::kOperationEnabled", body)
-        self.assertIn("command = 0x0007U", body)
-        self.assertIn("DriveState::kSwitchedOn", body)
-        self.assertIn("command = 0x0006U", body)
-        self.assertLess(body.index("command = 0x0007U"), body.index("isConfirmedDisableTerminal"))
+        self.assertIn("startDownward(Phase::kResetDisabling", body)
+        self.assertNotIn("DriveState::kOperationEnabled", body)
+        self.assertNotIn("DriveState::kSwitchedOn", body)
+
+        header = (
+            ROOT
+            / "src"
+            / "rt_control"
+            / "enable_manager"
+            / "include"
+            / "enable_manager"
+            / "enable_manager_controller.hpp"
+        ).read_text(encoding="utf-8")
+        self.assertIn("kResetDisabling", header)
+
+        downward_start = source.index("void EnableManagerController::updateDownward")
+        downward_stop = source.index("void EnableManagerController::startEmergency", downward_start)
+        downward_body = source[downward_start:downward_stop]
+        self.assertIn("case DriveState::kReadyToSwitchOn", downward_body)
+        self.assertIn("command = 0x0000U", downward_body)
+
+        finish_start = source.index("void EnableManagerController::finishDownward")
+        finish_stop = source.index("void EnableManagerController::updateEnable", finish_start)
+        finish_body = source[finish_start:finish_stop]
+        self.assertIn("completed_phase == Phase::kResetDisabling", finish_body)
+        self.assertIn("publishResult(reset_result_, true, Stage::kSuccess)", finish_body)
+        self.assertIn("publishResult(reset_result_, false, Stage::kFaultResetTimeout", finish_body)
 
     def test_native_launcher_self_raises_rtprio_and_memlock_limits(self):
         self.assertIn("ensure_runtime_limits", self.text)
