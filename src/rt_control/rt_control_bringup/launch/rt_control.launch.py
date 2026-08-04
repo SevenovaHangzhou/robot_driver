@@ -48,7 +48,7 @@ def generate_launch_description():
         output="both",
         parameters=[robot_description, controllers_file, {"use_sim_time": use_sim_time}],
         remappings=[
-            ("/diff_drive_controller/cmd_vel_unstamped", "/cmd_vel"),
+            ("/diff_drive_controller/cmd_vel_unstamped", "/cmd_vel_safe"),
             ("/diff_drive_controller/odom", "/wheel/odom"),
         ],
     )
@@ -98,7 +98,7 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=[
-            "dual_arm_jtc",
+            "whole_body_jtc",
             "--inactive",
             "--controller-manager",
             "/controller_manager",
@@ -118,12 +118,12 @@ def generate_launch_description():
         return [
             LogInfo(
                 msg=(
-                    "dual_arm_jtc did not reach configured INACTIVE state; "
+                    "whole_body_jtc did not reach configured INACTIVE state; "
                     "enable_manager will not be loaded and launch will stop"
                 )
             ),
             EmitEvent(
-                event=Shutdown(reason="dual_arm_jtc failed to configure INACTIVE")
+                event=Shutdown(reason="whole_body_jtc failed to configure INACTIVE")
             ),
         ]
 

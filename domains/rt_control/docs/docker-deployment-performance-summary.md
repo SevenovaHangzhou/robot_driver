@@ -75,7 +75,7 @@ flowchart LR
 - 左右履带 CANopen PV 与 `diff_drive_controller` 速度执行；
 - 14 轴分批使能、整组失能、整组故障复位和任一轴故障后的整组处理；
 - `/joint_states`、里程计、`/tf`、`/tf_static`、FJT feedback/result 和当前工程版 `/diagnostics`；
-- `/plc/io_state`、三路 PLC 单点输出服务和 `/bms/battery_state`；
+- `/plc/io_state`、三路 PLC 单点输出服务和 `/battery_state`；
 - 当前实际位置自动预装载，JTC 第一轨迹点一致性与 EtherCAT 反馈新鲜度检查；
 - PID 1 停机包装器：先失能、停控制器和 EtherCAT，再清理 CANopen 与 ROS 进程。
 

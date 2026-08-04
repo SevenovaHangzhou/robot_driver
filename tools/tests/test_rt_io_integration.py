@@ -25,6 +25,52 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert bms["frame_timeout_s"] == 3.0
 
 
+def test_public_rt_control_interfaces_match_current_contract() -> None:
+    controllers = yaml.safe_load((BRINGUP / "config/controllers.yaml").read_text())
+    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
+    rt_io = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
+
+    expected_joints = [
+        "right_joint1",
+        "right_joint2",
+        "right_joint3",
+        "right_joint4",
+        "right_joint5",
+        "right_joint6",
+        "left_joint1",
+        "left_joint2",
+        "left_joint3",
+        "left_joint4",
+        "left_joint5",
+        "left_joint6",
+        "turn",
+        "updown",
+    ]
+
+    manager_params = controllers["controller_manager"]["ros__parameters"]
+    assert "whole_body_jtc" in manager_params
+    assert "dual_arm_jtc" not in manager_params
+
+    joint_state_params = controllers["joint_state_broadcaster"]["ros__parameters"]
+    assert joint_state_params["update_rate"] == 100
+    assert joint_state_params["joints"] == expected_joints
+    assert joint_state_params["interfaces"] == ["position"]
+
+    jtc_params = controllers["whole_body_jtc"]["ros__parameters"]
+    assert jtc_params["joints"] == expected_joints
+    assert jtc_params["allow_partial_joints_goal"] is False
+
+    diff_drive_params = controllers["diff_drive_controller"]["ros__parameters"]
+    assert diff_drive_params["cmd_vel_timeout"] == 0.5
+    assert diff_drive_params["use_stamped_vel"] is False
+    assert '("/diff_drive_controller/cmd_vel_unstamped", "/cmd_vel_safe")' in launch_text
+    assert '"/cmd_vel"' not in launch_text
+
+    bms_params = rt_io["bms_node"]["ros__parameters"]
+    assert bms_params["battery_state_topic"] == "/battery_state"
+    assert bms_params["publish_period_s"] == 5.0
+
+
 def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:
     launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
 

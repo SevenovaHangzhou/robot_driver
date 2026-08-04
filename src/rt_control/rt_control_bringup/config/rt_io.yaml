@@ -24,4 +24,4 @@ bms_node:
     reconnect_period_s: 2.0
     publish_period_s: 5.0
     frame_timeout_s: 3.0
-    battery_state_topic: /bms/battery_state
+    battery_state_topic: /battery_state

@@ -192,7 +192,7 @@ cd /home/ar/rt-control-dev/robot
 10. 调用一次 `/rt/enable`。
 11. 检查 JTC、JSB、diff-drive、enable-manager、14 轴状态和 EtherCAT OP 状态。
 
-如果任一步失败，脚本会停止本次恢复会话并报错；它不会发送 FJT、`/cmd_vel` 或 PLC 输出。
+如果任一步失败，脚本会停止本次恢复会话并报错；它不会发送 FJT、`/cmd_vel_safe` 或 PLC 输出。
 
 以上命令都保留真实硬件确认口令。原生脚本锁定当前工控机、实时内核、CPU14、
 EtherCAT MAC、两只 CANable 序列号和 500 kbit/s 参数；任一事实不符即拒绝启动。

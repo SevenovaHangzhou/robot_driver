@@ -15,7 +15,7 @@
 > release SHA。
 
 > **PLC/BMS 发布边界：** 当前镜像已完成 PLC/BMS 读取、三路输出逐点 ON/OFF 和关停复测；一键启动仍会要求
-> `can1` 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、`/bms/battery_state` 有效后再自动使能。
+> `can1` 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、`/battery_state` 有效后再自动使能。
 > 详细证据见 [PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
 
 ## 启动
@@ -95,14 +95,14 @@ READY: rt-control 已启动并完成 /rt/enable。
 
 | 功能 | 接口 |
 | --- | --- |
-| 14 轴轨迹 | `/dual_arm_jtc/follow_joint_trajectory` |
-| 履带速度 | `/cmd_vel` |
-| 关节状态 | `/joint_states` |
+| 14 轴轨迹 | `/whole_body_jtc/follow_joint_trajectory` |
+| 履带速度 | `/cmd_vel_safe`，`geometry_msgs/msg/Twist`，0.5 s 超时 |
+| 关节状态 | `/joint_states`，仅 14 个 EtherCAT 机械轴，100 Hz |
 | 原始轮速里程计 | `/wheel/odom`（待新锁定镜像发布） |
 | 动态 TF | `/tf`，`tf2_msgs/msg/TFMessage`；rt-control 不发布 `odom → base_footprint` |
 | 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage` |
 | PLC 状态 | `/plc/io_state`，`robot_interfaces/msg/PlcIoState` |
-| BMS 电压/SOC | `/bms/battery_state`，`sensor_msgs/msg/BatteryState` |
+| BMS 电压/SOC | `/battery_state`，`sensor_msgs/msg/BatteryState`，5 s 周期 |
 | PLC 三路控制 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
 | 诊断 | `/diagnostics` |
 | 手工失能 | `/rt/disable` |

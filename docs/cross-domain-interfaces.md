@@ -1,6 +1,6 @@
 # 域间接口定义
 
-> 版本：v1.0（对齐五域接口规范 v3.1）
+> 版本：v1.1（对齐五域接口规范 v3.2 的 rt-control 当前裁决）
 > 适用范围：`robot_system` 仓库全部域实现
 > 状态：接口冻结基线。本文是 monorepo 内域间通信的唯一权威清单。
 
@@ -50,7 +50,7 @@
 
 | 剖面 | 定义 | 用途 |
 | --- | --- | --- |
-| `Q_CONTROL` | reliable / volatile / keep_last 1；deadline 100 ms；lifespan 200 ms | 周期控制命令（`/cmd_vel_safe`） |
+| `Q_CONTROL` | reliable / volatile / keep_last 1 | 周期控制命令（当前 `/cmd_vel_safe` 仍使用 `Twist`，本地 0.5 s 超时） |
 | `Q_FAST_STATE` | reliable / volatile / keep_last 小深度 | 高频状态（`/joint_states`、`/odom`、`/wheel/odom`） |
 | `Q_STATE` | reliable / volatile / keep_last 小深度 | 中频状态（`/vacuum/state`、`/control/safety_state`） |
 | `Q_LATCHED` | reliable / transient_local / keep_last 1 | 版本与就绪基线（readiness、`/robot_model/info`、`/calibration/info`、`/map`、N-03） |
@@ -94,13 +94,13 @@ ID 前缀含义：`G` = Gateway/本地入口，`P` = Perception 提供，`N` = �
 | M-03 | `/motion/plan_and_execute_place` | Action / `alfa_task_interfaces/action/PlanAndExecutePlace` | Autonomy ⇄ Motion | 固定放置配置；每序列一次；**不可重放**；Result 载荷等级 `UNVERIFIED` |
 | M-06 | `/motion/readiness` | Topic / `alfa_system_interfaces/msg/DomainReadiness` | Motion → Autonomy | 机械能力准入；变化立即发；稳定 1 Hz |
 | M-07 | `/motion/base_travel_readiness` | Topic / `alfa_motion_interfaces/msg/BaseTravelReadiness` | Motion → Autonomy | 固定四项公式；owner/token 匹配；严格时效 |
-| N-04 | `/cmd_vel_safe` | Topic / `geometry_msgs/msg/TwistStamped` | Motion → RT-Control | 见 R-IN-01；Motion 是唯一生产者 |
+| N-04 | `/cmd_vel_safe` | Topic / `geometry_msgs/msg/Twist` | Motion → RT-Control | 见 R-IN-01；Motion 是唯一生产者 |
 
 ### 5.4 RT-Control 输入
 
 | ID | ROS 名称 | 形式 / 类型 | 方向 | 关键约束 |
 | --- | --- | --- | --- | --- |
-| R-IN-01 | `/cmd_vel_safe` | Topic / `geometry_msgs/msg/TwistStamped` | Motion → RT-Control | `base_link`；仅 `linear.x`、`angular.z` 非零；`Q_CONTROL`；20～50 Hz；**200 ms 本地看门狗** |
+| R-IN-01 | `/cmd_vel_safe` | Topic / `geometry_msgs/msg/Twist` | Motion → RT-Control | 仅 `linear.x`、`angular.z` 非零；`Q_CONTROL`；20～50 Hz；**0.5 s 本地看门狗**；当前消息无 header，不做 frame_id 校验 |
 | R-IN-02 | `/whole_body_jtc/follow_joint_trajectory` | Action / `control_msgs/action/FollowJointTrajectory` | Motion ⇄ RT-Control | 完整 14 轴；`allow_partial_joints_goal=false`；整组取消 |
 | R-IN-03 | `/control/set_enabled` | Service / `alfa_control_interfaces/srv/SetControlEnabled` | 维护/生命周期工具 → RT-Control | 不复位急停、安全继电器或 STO；不属于箱级任务流程 |
 | R-IN-04 | `/vacuum/pump/set_enabled` | Service / `alfa_control_interfaces/srv/SetPumpEnabled` | 维护工具或 RT 内部管理器 → RT-Control | 活动真空命令或可能持箱时拒绝普通停泵 |
@@ -113,7 +113,7 @@ ID 前缀含义：`G` = Gateway/本地入口，`P` = Perception 提供，`N` = �
 | R-OUT-01 | `/tf`、`/tf_static` | Topic / `tf2_msgs/msg/TFMessage` | RT-Control 或状态发布器 → 全系统 | 本体坐标边唯一；静态/动态发布责任不重复；`map→odom` 不由本域发布 |
 | R-OUT-02 | `/wheel/odom` | Topic / `nav_msgs/msg/Odometry` | RT-Control → Perception | `Q_FAST_STATE`；50 Hz；最大年龄 200 ms；**不作为到站或停稳最终证据** |
 | R-OUT-03 | `/joint_states` | Topic / `sensor_msgs/msg/JointState` | RT-Control → Motion、Perception、Autonomy | 完整 14 轴；`Q_FAST_STATE`；100 Hz；最大年龄 200 ms |
-| R-OUT-04 | `/battery_state` | Topic / `sensor_msgs/msg/BatteryState` | RT-Control → Autonomy、观测工具 | 1 Hz；只读，不作为业务控制入口 |
+| R-OUT-04 | `/battery_state` | Topic / `sensor_msgs/msg/BatteryState` | RT-Control → Autonomy、观测工具 | 5 s 周期；只读，不作为业务控制入口 |
 | R-OUT-05 | `/vacuum/state` | Topic / `alfa_control_interfaces/msg/VacuumState` | RT-Control → Motion、Autonomy、观测工具 | `Q_STATE`；20～50 Hz；只 RT-Control 用于 GRIP 判定，其他域不自行计算成功 |
 | R-OUT-06 | `/control/safety_state` | Topic / `alfa_control_interfaces/msg/SafetyState` | RT-Control → Perception、Motion、Autonomy | `Q_STATE`；10～50 Hz；最大年龄 200 ms；deny 或过期时禁止新动作 |
 | R-OUT-07 | `/robot_model/info` | Topic / `alfa_system_interfaces/msg/RobotModelInfo` | RT-Control → 各域 | `Q_LATCHED`；14 轴集合与校验值一致；任务期间版本不变 |
@@ -204,7 +204,7 @@ M-07 还必须新鲜、owner/token 匹配，且在本序列正常 M-03 后报告
 
 ### 6.9 底盘必须能在本地停车
 
-Gate 锁住、N-01 不活动、定位/地图/安全条件无效或消息链路异常时，Motion 不得继续输出非零速度。RT-Control 在 `/cmd_vel_safe` 过期（>200 ms）或非法时**独立停车**，不依赖上游。
+Gate 锁住、N-01 不活动、定位/地图/安全条件无效或消息链路异常时，Motion 不得继续输出非零速度。RT-Control 在 `/cmd_vel_safe` 过期（>0.5 s）或非法时**独立停车**，不依赖上游。当前裁决保持 `geometry_msgs/msg/Twist`，因此不做消息内 `base_link` 校验。
 
 ### 6.10 250 Hz 控制环不得跨容器
 
@@ -296,7 +296,7 @@ G-01 `final_state` 三选一：`COMPLETED_UNVERIFIED` / `FAILED` / `CANCELED`。
 
 - [ ] RT-Control 250 Hz 实时控制循环满足本机时序要求，且未跨容器。
 - [ ] `/odom` 50 Hz，`/joint_states` 100 Hz；超过 200 ms 后不再作为新鲜状态证据。
-- [ ] `/cmd_vel_safe` 停发或过期后 RT-Control 在 200 ms 内本地停车。
+- [ ] `/cmd_vel_safe` 停发或过期后 RT-Control 在 0.5 s 内本地停车。
 - [ ] N-03、M-07、SafetyState 使用 200 ms 严格时效，未套用 readiness 的 1 s 宽限。
 
 ### 10.4 语义与证据

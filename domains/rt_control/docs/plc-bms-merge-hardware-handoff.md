@@ -43,7 +43,7 @@ git diff --check
 - 只接收标准 CAN 数据帧 `0x3FC`。
 - byte 0-1：大端无符号数 × 0.1 V。
 - byte 4：SOC 百分数，发布时换算为 0.0-1.0。
-- 唯一话题：`/bms/battery_state`，类型 `sensor_msgs/msg/BatteryState`，周期 5 秒。
+- 唯一话题：`/battery_state`，类型 `sensor_msgs/msg/BatteryState`，周期 5 秒。
 - 只承诺 `voltage` 和 `percentage`；其他浮点字段为 `NaN`。
 - 有效帧超过 3 秒未更新时，电压/SOC 均发布 `NaN`，`present=false`。
 - 节点只读 `can1`，不配置接口、位率或链路状态。
@@ -232,10 +232,10 @@ docker image inspect "rt-control:$(git rev-parse HEAD)" --format '{{.Id}}'
 2. 启动 BMS 节点后检查唯一话题：
 
 ```bash
-ros2 topic type /bms/battery_state
-ros2 topic info /bms/battery_state --verbose
-ros2 topic echo /bms/battery_state
-timeout 35 ros2 topic hz /bms/battery_state
+ros2 topic type /battery_state
+ros2 topic info /battery_state --verbose
+ros2 topic echo /battery_state
+timeout 35 ros2 topic hz /battery_state
 ```
 
 验收：

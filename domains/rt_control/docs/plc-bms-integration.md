@@ -23,7 +23,7 @@ PLC 与 BMS 已并入现有 `rt-control` 启动域，不再创建 `rt-io` 容器
 
 | 话题 | 类型 | 周期 | 有效字段 |
 | --- | --- | --- | --- |
-| `/bms/battery_state` | `sensor_msgs/msg/BatteryState` | 5 s | `voltage`、`percentage` |
+| `/battery_state` | `sensor_msgs/msg/BatteryState` | 5 s | `voltage`、`percentage` |
 
 未使用的浮点字段发布 `NaN`，不再发布电流、容量、告警、中文 JSON 或独立 SOC 话题。超过 3 秒未收到有效
 `0x3FC` 时，`voltage` 和 `percentage` 均为 `NaN`，`present=false`，不会继续伪装旧值为新数据。
@@ -107,7 +107,7 @@ rt-control，不做容器内部的局部进程复活。
 ## 联调检查
 
 ```bash
-ros2 topic echo /bms/battery_state
+ros2 topic echo /battery_state
 ros2 topic echo /plc/io_state
 ros2 service call /plc/left_solenoid std_srvs/srv/SetBool "{data: true}"
 ros2 service call /plc/right_solenoid std_srvs/srv/SetBool "{data: false}"

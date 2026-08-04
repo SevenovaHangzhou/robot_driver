@@ -82,7 +82,7 @@ class BmsNode(Node):
         self.declare_parameter("reconnect_period_s", 2.0)
         self.declare_parameter("publish_period_s", 5.0)
         self.declare_parameter("frame_timeout_s", 3.0)
-        self.declare_parameter("battery_state_topic", "/bms/battery_state")
+        self.declare_parameter("battery_state_topic", "/battery_state")
 
         self._can_interface = str(self.get_parameter("can_interface").value).strip()
         self._receive_timeout_s = self._positive_parameter("receive_timeout_s")

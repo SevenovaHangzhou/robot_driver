@@ -12,14 +12,14 @@
 | L1 | 修改宿主或启动硬件隔离测试进程 | 安装 Docker/IgH、修改 GRUB、启动 Mock/时延测试容器、重启 | 必须确认目标机、影响范围和恢复方式并取得相应授权。 |
 | L2 | 访问真实总线但不启动控制应用 | 启动宿主 EtherCAT/CAN、读取拓扑、授权的 SDO upload | 必须取得现场通信授权，设备处于安全状态。 |
 | L3 | 启动真实控制栈或改变驱动生命周期 | 生产容器 `up`、reset/enable/disable | CANopen 激活可能初始化并使驱动进入运行状态；必须有隔离区、实体急停/安全链、机械防护/支撑、监护人和单独授权。 |
-| L4 | 下发有意运动 | 14 轴 FJT、`/cmd_vel` | 在 L3 条件上，还要逐项批准起点、目标、速度、方向、停止距离和回退方案。 |
+| L4 | 下发有意运动 | 14 轴 FJT、`/cmd_vel_safe` | 在 L3 条件上，还要逐项批准起点、目标、速度、方向、停止距离和回退方案。 |
 
 必须始终遵守：
 
 - `/rt/disable`、速度置零和软件 diagnostics 都不是急停或 STO。
 - 生产容器即使未调用 `/rt/enable`，也会对两条真实 CANopen 履带执行 `init_motor()`、设置 PV 模式并预置零速度，底盘 controller 随即 active；CAN 驱动可能进入 Operation Enabled/激磁状态。因此“启动容器”属于 L3，不是纯通信检查。
 - `/rt/enable` 管理双臂、Turn 和 Updown 共 14 个 EtherCAT 轴；两条履带在启动时 active。
-- 当前没有独立 `rt_watchdog` 或 motion/autonomy heartbeat，不存在统一的“上层失联后全机自动停机”。`/cmd_vel` 的 0.5 s 普通减速超时不能外推到 FJT 或整机安全。
+- 当前没有独立 `rt_watchdog` 或 motion/autonomy heartbeat，不存在统一的“上层失联后全机自动停机”。`/cmd_vel_safe` 的 0.5 s 普通减速超时不能外推到 FJT 或整机安全。
 - 生产 Compose 只能通过 [`tools/rt_control_compose.sh`](../../../tools/rt_control_compose.sh) 调用。
 - 包装器的每次调用（包括 `logs` 和 `stop`）都要求先设置同一目标机已经验证的 `RT_CONTROL_CPUSET`。
 - Compose 虽挂载 loopback-only CycloneDDS XML，却没有固定 `RMW_IMPLEMENTATION`；当前镜像实际使用 Fast DDS。不能把该文件当作网络隔离，生产启动前必须核对实际 RMW 和 DDS 暴露面。
@@ -307,7 +307,7 @@ sudo docker logs --tail=300 rt-control-mock
 
 - controller manager 为 250 Hz、FIFO 80；
 - joint state broadcaster、Updown、diff-drive、enable manager 为 active；
-- `dual_arm_jtc` 为 inactive；
+- `whole_body_jtc` 为 inactive；
 - 停止时 PID 1 会先调用 `/rt/disable` 再关闭 ROS；
 - inspect 中没有 EtherCAT device。
 
@@ -461,8 +461,8 @@ timeout 5 ros2 topic echo /diagnostics
 | `joint_state_broadcaster` | active |
 | `diff_drive_controller` | active |
 | `enable_manager` | active |
-| `dual_arm_jtc` | inactive；只有 `/rt/enable` 成功后才 active |
-| `/joint_states` | 约 50 Hz，14 个 EtherCAT 轴 + 两条履带，共 16 个控制关节名；两条 track joint 不在共享 URDF 中 |
+| `whole_body_jtc` | inactive；只有 `/rt/enable` 成功后才 active |
+| `/joint_states` | 100 Hz，仅 14 个 EtherCAT 机械轴；两条 track joint 不在公共关节状态中 |
 | `/wheel/odom` | 约 50 Hz；`header.frame_id=odom`，`child_frame_id=base_footprint`；无旧 topic 别名 |
 | `/tf`、`/tf_static` | 类型均为 `tf2_msgs/msg/TFMessage`；rt-control 单独运行时不存在 `odom → base_footprint`，但保留 `base_footprint → base_link → ...`，树中无 `world` |
 | `/diagnostics` | 约 1 Hz，多发布者，按名称聚合 |
@@ -532,27 +532,27 @@ ros2 service call /rt/disable robot_interfaces/srv/RtEnable "{}"
 
 | 功能 | 接口 | 使用前提 | 当前限制 |
 | --- | --- | --- | --- |
-| 双臂 + Turn + Updown | `/dual_arm_jtc/follow_joint_trajectory`，`control_msgs/action/FollowJointTrajectory` | `/rt/enable` 成功、JTC active、完整 14 轴、第一点与反馈一致 | 手臂、Turn 和新 EtherCAT Updown 尚未完成全部实机验收。 |
-| 履带 | `/cmd_vel`，`geometry_msgs/msg/Twist` | CAN node 2/3 健康、方向/比例和停止距离已验收、单一 publisher | 启动即 active，不受 `/rt/enable` 门控；0.5 s 超时和普通减速都不是急停。 |
+| 双臂 + Turn + Updown | `/whole_body_jtc/follow_joint_trajectory`，`control_msgs/action/FollowJointTrajectory` | `/rt/enable` 成功、JTC active、完整 14 轴、第一点与反馈一致 | 手臂、Turn 和新 EtherCAT Updown 尚未完成全部实机验收。 |
+| 履带 | `/cmd_vel_safe`，`geometry_msgs/msg/Twist` | CAN node 2/3 健康、方向/比例和停止距离已验收、单一 publisher | 启动即 active，不受 `/rt/enable` 门控；0.5 s 超时和普通减速都不是急停；当前无 header/frame 校验。 |
 
 当前接口参数快照：
 
 - FJT 的完整关节集合和顺序是 `right_joint1`…`right_joint6`、`left_joint1`…`left_joint6`、`turn`、`updown`；不接受 partial goal。13 个旋转轴第一点误差阈值为精确 `0.017453292519943295 rad`，Updown 为 `0.05 m`；EtherCAT 反馈年龄必须不超过 500 ms。
-- `/cmd_vel` 当前限制为 `linear.x ±0.3 m/s`、`angular.z ±0.3 rad/s`，线/角加速度为 `±0.6`，jerk limit 未启用。这些 controller 限制不是机械安全距离或急停能力。
+- `/cmd_vel_safe` 当前限制为 `linear.x ±0.3 m/s`、`angular.z ±0.3 rad/s`，线/角加速度为 `±0.6`，jerk limit 未启用。这些 controller 限制不是机械安全距离或急停能力。
 - Updown 使用 4 ms CSP，比例为 `6553600 counts/m`，目标范围 `[0.0,0.8] m`，速度上限 `0.3 m/s`，加/减速度上限 `0.5 m/s²`。速度/加速度由 motion 的时间参数化和实机验收保证；当前 JTC 不会自动加载 `joint_limits.yaml` 执行这些上限。
 
 接手开发时可用以下只读命令查看类型和连接关系：
 
 ```bash
-ros2 action info /dual_arm_jtc/follow_joint_trajectory
+ros2 action info /whole_body_jtc/follow_joint_trajectory
 ros2 interface show control_msgs/action/FollowJointTrajectory
-ros2 topic info /cmd_vel --verbose
+ros2 topic info /cmd_vel_safe --verbose
 ros2 interface show geometry_msgs/msg/Twist
 ```
 
 不要在普通生产运维手册里放可直接执行的运动数值。受控 commissioning 的 14 轴 FJT 和履带命令必须使用当次实测起点、经 motion 校验的目标、批准的低速参数和现场回退方案。
 
-特别禁止在生产中手工执行 `ros2 control switch_controllers --activate dual_arm_jtc`；它会绕过五批使能联锁。
+特别禁止在生产中手工执行 `ros2 control switch_controllers --activate whole_body_jtc`；它会绕过五批使能联锁。
 
 ## 11. 故障恢复
 
@@ -615,7 +615,7 @@ tools/rt_control_compose.sh ps -a
 - 日志有 `rt_control shutdown controllers quiesced: enable_manager,joint_state_broadcaster`；
 - 日志有 `rt_control shutdown EtherCAT hardware state: inactive`，且该行早于 CANopen hardware deactivate；
 - 没有 `UNCLEAN_SHUTDOWN`；
-- `dual_arm_jtc` 已停用；九个 ZeroErr 与 XMC Updown 到 Switch On Disabled，四个已裁决 Ti5 在 `0x0000` 下可处于 Ready To Switch On；
+- `whole_body_jtc` 已停用；九个 ZeroErr 与 XMC Updown 到 Switch On Disabled，四个已裁决 Ti5 在 `0x0000` 下可处于 Ready To Switch On；
 - EtherCAT master inactive、从站回到 PREOP；
 - CANopen 完成安全目标、motor shutdown/NMT Stop 和 driver shutdown。
 

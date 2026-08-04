@@ -8,9 +8,9 @@
 
 1. rt-control 负责执行，不负责任务规划。正常业务命令方向是 `motion → rt-control`，工位、箱子、抓取策略和行为树不应进入本域。
 2. 250 Hz 控制环完全留在 rt-control 容器内；上层通过轨迹、速度和生命周期接口交互。
-3. `/rt/enable` 管理 14 个 EtherCAT 轴和 `dual_arm_jtc`；Updown 是第 14 轴并与 Turn 同属第五使能批次。两条履带仍属于 CANopen，硬件和底盘控制器在进程启动时激活，不受该服务门控。
+3. `/rt/enable` 管理 14 个 EtherCAT 轴和 `whole_body_jtc`；Updown 是第 14 轴并与 Turn 同属第五使能批次。两条履带仍属于 CANopen，硬件和底盘控制器在进程启动时激活，不受该服务门控。
 4. 生产容器启动本身就会访问真实 EtherCAT，并激活 CANopen 硬件、初始化/设置模式/预置目标；CAN 驱动可能进入运行或激磁状态。它不能当作普通软件 smoke test，也不能只按“通信检查”授权。
-5. 当前没有独立 `rt_watchdog`，也没有 motion/autonomy heartbeat 或“上层失联后全机自动停机”接口。FJT 与 `/cmd_vel` 各自遵循不同的取消/超时语义。
+5. 当前没有独立 `rt_watchdog`，也没有 motion/autonomy heartbeat 或“上层失联后全机自动停机”接口。FJT 与 `/cmd_vel_safe` 各自遵循不同的取消/超时语义。
 6. 当前已完成 14 轴逐轴最小低速 FJT，但多轴生产轨迹、履带方向/比例、故障注入和完整长稳测试仍不能写成“生产验收通过”。
 
 ## 1. 域边界图
@@ -39,10 +39,10 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 
 | 方向 | 域间含义 | 当前 ROS 接口 | 关键约束 |
 | --- | --- | --- | --- |
-| motion → rt-control | 双臂、Turn 与 Updown 的完整轨迹 | `/dual_arm_jtc/follow_joint_trajectory` | 14 轴必须完整；JTC 只在 `/rt/enable` 成功后 active；旋转轴第一点误差不超过 1°，Updown 不超过 `0.05 m`，反馈年龄不超过 500 ms。 |
-| motion → rt-control | 底盘线速度和角速度 | `/cmd_vel` | `Twist`；0.5 s 命令超时；控制器启动即 active，不受 `/rt/enable` 门控。 |
+| motion → rt-control | 双臂、Turn 与 Updown 的完整轨迹 | `/whole_body_jtc/follow_joint_trajectory` | 14 轴必须完整；JTC 只在 `/rt/enable` 成功后 active；旋转轴第一点误差不超过 1°，Updown 不超过 `0.05 m`，反馈年龄不超过 500 ms。 |
+| motion → rt-control | 底盘线速度和角速度 | `/cmd_vel_safe` | `Twist`；0.5 s 命令超时；当前无 header/frame 校验；控制器启动即 active，不受 `/rt/enable` 门控。 |
 | 运维/监督 → rt-control | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；不是急停接口。 |
-| rt-control → 上层 | 控制关节位置/速度、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 当前约 50 Hz，导出 16 个 ros2_control 关节名；这不等于共享 URDF 有 16 个可动关节。 |
+| rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 当前配置为 100 Hz，仅导出 14 个 EtherCAT 机械轴；履带状态不进入公共 `/joint_states`。 |
 | rt-control → 导航/视觉 | 原始轮速里程计和本体 TF | `/wheel/odom`、`/tf`、`/tf_static` | `/wheel/odom` 约 50 Hz；RSP 提供 `base_footprint → base_link → 本体/传感器`；最终 `/odom` 与唯一 `odom → base_footprint` 属于导航域，`map → odom` 不属于本域。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |
 
@@ -123,7 +123,7 @@ flowchart TD
     L --> RSP[robot_state_publisher]
     L --> DIAG[rt_diagnostics]
     CM --> A[JSB / diff-drive<br/>启动即 ACTIVE]
-    CM --> J[dual_arm_jtc<br/>启动为 INACTIVE]
+    CM --> J[whole_body_jtc<br/>启动为 INACTIVE]
     J -->|配置成功| EM[enable_manager<br/>加载并 ACTIVE]
     EM --> SS[STARTUP_SANITIZING<br/>清理上次驱动状态]
     SS -->|无 Fault 且终态确认| IDLE[IDLE]
@@ -147,7 +147,7 @@ flowchart TD
 14 轴：motion → FJT action → patched JTC → position command
        → EtherCATDriver / CiA402 drives → 250 Hz PDO
 
-底盘：motion/Nav2 → /cmd_vel → diff_drive_controller → 两侧履带 velocity
+底盘：motion/Nav2 → /cmd_vel_safe → diff_drive_controller → 两侧履带 velocity
        → Cia402System → CANopen node 2/3
 
 ```
@@ -235,7 +235,7 @@ docker stop / SIGTERM
 | 修改使能、失能、Fault Reset | `enable_manager` | 14 轴、JTC 生命周期、停机路径 | `rt_disable_once`、诊断、mock 与实机故障路径。 |
 | 修改 14 轴轨迹准入 | `controllers.yaml` + JTC patch | motion 的 FJT 调用 | 完整性、逐轴首点误差、反馈新鲜度、取消与结果语义。 |
 | 修改 Updown | `xmc_updown_sw511.yaml` + EtherCAT xacro + JTC/limits | motion 和 EtherCAT slave 15 | 固定 PDO、SI/counts 换算、CSP 周期、第五批使能和整组故障语义。 |
-| 修改底盘 | `controllers.yaml` + `bus.yml` + ros2_canopen patch | `/cmd_vel`、odom、CAN node 2/3 | Nav2 参数、方向/比例、EMCY 与停止距离。 |
+| 修改底盘 | `controllers.yaml` + `bus.yml` + ros2_canopen patch | `/cmd_vel_safe`、odom、CAN node 2/3 | Nav2 参数、方向/比例、EMCY 与停止距离。 |
 | 修改诊断 | `rt_diagnostics` + 两类硬件状态接口 | 运维、autonomy/gateway 的状态汇总 | 多发布者聚合、陈旧判据、恢复后历史证据。 |
 | 增加真空或语义 IO | 先定义跨域契约，再实现 controller/hardware adapter | motion 与机械执行 | 当前只有部分底层 digital interface，不等于已有公共功能。 |
 | 修改部署 | Dockerfile、Compose、启动脚本、`hostsetup` | 宿主、总线和所有运行包 | CPU/设备身份、权限、优雅退出、镜像与源码 SHA。 |
@@ -271,7 +271,7 @@ docker stop / SIGTERM
 | 中 | `joint_limits.yaml` 会被安装，但当前 launch/runtime 没有加载它。 | 它目前是迁移/审计数据，不能声称 JTC 或硬件已从该文件自动执行软件限位。 |
 | 中 | `rt_disable_once` 失败会打印 `UNCLEAN_SHUTDOWN`，但 PID 1 最终退出码仍取 ROS launch 子进程。 | 容器可能 exit 0 但失能不干净；停机验收必须同时检查日志和总线终态。 |
 | 中 | 底层有部分 digital IO 状态/命令接口，但没有真空/语义 IO controller 和域间消息。 | 不能把裸 IO 当作已经可用的吸附控制能力。 |
-| 中 | `/joint_states` 有 16 个控制关节名，但共享 URDF 只有 12 臂轴、`turn`、`updown` 共 14 个 movable joint；两条 track joint 不在模型中，`pitch` 当前按阶段性裁决固定为零。 | 不能从 state 数量推导 TF/模型覆盖；未来接入真实 pitch 反馈或 track 模型时属于跨域模型/接口变更。 |
+| 中 | `/joint_states` 已收敛为 12 臂轴、`turn`、`updown` 共 14 个 EtherCAT 机械轴；两条 track joint 不进入公共关节状态，`pitch` 当前按阶段性裁决固定为零。 | 不能从 `/joint_states` 推导履带状态；未来接入真实 pitch 反馈或 track 模型时属于跨域模型/接口变更。 |
 | 中 | `robot-001` 当前写在运行配置/代码中，仓库还没有按机器人 serial 管理配置的发布机制。 | 多机器人部署前需要配置归属和版本化方案。 |
 | 中 | Compose wrapper 没有固定 project name，默认会从发布目录名推导。 | 从不同末级目录直接回退可能创建第二套同为 host network、访问同一硬件的容器；发布目录约定和“全机唯一 rt-control project”必须显式核对。 |
 | 中 | 仓库还没有正式 release manifest、healthcheck、镜像传输、全离线宿主 bootstrap 和自动 rollback 工具。 | 新机部署必须人工保存 SHA、image ID、宿主依赖/事实和验收证据；传一个 Docker image 不等于离线新机已可部署。 |

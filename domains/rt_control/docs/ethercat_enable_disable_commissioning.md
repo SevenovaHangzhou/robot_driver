@@ -51,7 +51,7 @@ begin. Non-motion hub position 13 is not invented as a configured slave.
 | Process domain | `WorkingCounter 39/39` before reset, after enable, and after disable |
 | Group fault reset | `ok=true`, `stage=success` |
 | Five-batch enable | `ok=true`, `stage=success`; run 6 duration 2.353 s; run 7 duration 2.508 s |
-| JTC lifecycle | `dual_arm_jtc` ACTIVE only after hardware enable; INACTIVE after disable |
+| JTC lifecycle | `whole_body_jtc` ACTIVE only after hardware enable; INACTIVE after disable |
 | Normal disable | `ok=true`, `stage=success`; run 6 duration 1.493 s; run 7 duration 1.574 s |
 | Enable hold excursion | run 6 maximum 0.204620 degrees; run 7 maximum 0.016479 degrees; both below the 1 degree admission limit |
 | Disabled hold excursion | run 6 maximum 0.009613 degrees; run 7 maximum 0.004807 degrees |

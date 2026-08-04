@@ -622,8 +622,8 @@ verify_controllers_before_enable()
     fail "diff_drive_controller is not active"
   grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
     fail "enable_manager is not active"
-  grep -Eq '^dual_arm_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
-    fail "dual_arm_jtc is not inactive before enable"
+  grep -Eq '^whole_body_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
+    fail "whole_body_jtc is not inactive before enable"
 }
 
 verify_enabled_controllers()
@@ -636,8 +636,8 @@ verify_enabled_controllers()
     fail "joint_state_broadcaster is not active after enable"
   grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
     fail "enable_manager is not active after enable"
-  grep -Eq '^dual_arm_jtc[[:space:]].*active' <<< "${controller_output}" ||
-    fail "dual_arm_jtc is not active after enable"
+  grep -Eq '^whole_body_jtc[[:space:]].*active' <<< "${controller_output}" ||
+    fail "whole_body_jtc is not active after enable"
 }
 
 check_axis_states()

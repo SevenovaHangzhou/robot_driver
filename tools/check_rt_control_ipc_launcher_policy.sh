@@ -37,7 +37,7 @@ for required in \
   '"${can_setup_tool}" --wait 30 --configure' \
   'can1 3FC#' \
   'ros2 topic echo /plc/io_state --once' \
-  'ros2 topic echo /bms/battery_state --once' \
+  'ros2 topic echo /battery_state --once' \
   '已记录但按现行裁决不自动停机'
 do
   grep -Fq -- "${required}" "${launcher}" || fail "launcher policy is missing: ${required}"

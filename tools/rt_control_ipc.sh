@@ -461,8 +461,8 @@ verify_rt_io_ready()
   grep -Fq 'connected: true' <<< "${plc_state}" || fail "PLC 未连接。"
   grep -Fq 'data_fresh: true' <<< "${plc_state}" || fail "PLC 状态不是新鲜数据。"
 
-  battery_state="$(run_ros2_timeout 20 'ros2 topic echo /bms/battery_state --once')" ||
-    fail "未收到 /bms/battery_state。"
+  battery_state="$(run_ros2_timeout 20 'ros2 topic echo /battery_state --once')" ||
+    fail "未收到 /battery_state。"
   grep -Eq '^voltage: [0-9]' <<< "${battery_state}" || fail "BMS 电压无有效数值。"
   grep -Eq '^percentage: (0|1|0\.[0-9]+|1\.0+)$' <<< "${battery_state}" ||
     fail "BMS SOC 无有效数值。"
@@ -478,8 +478,8 @@ verify_controllers_before_enable()
     fail "diff_drive_controller 未 active。"
   grep -Eq '^enable_manager[[:space:]].*active' <<< "${controller_output}" ||
     fail "enable_manager 未 active。"
-  grep -Eq '^dual_arm_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
-    fail "使能前 dual_arm_jtc 不是 inactive。"
+  grep -Eq '^whole_body_jtc[[:space:]].*inactive' <<< "${controller_output}" ||
+    fail "使能前 whole_body_jtc 不是 inactive。"
 }
 
 check_axis_states()
@@ -555,8 +555,8 @@ start_rt_control()
     fail "/rt/enable 未返回成功阶段。"
 
   controller_output="$(run_ros2_timeout 15 'ros2 control list_controllers' | strip_ansi)"
-  grep -Eq '^dual_arm_jtc[[:space:]].*active' <<< "${controller_output}" ||
-    fail "/rt/enable 后 dual_arm_jtc 未 active。"
+  grep -Eq '^whole_body_jtc[[:space:]].*active' <<< "${controller_output}" ||
+    fail "/rt/enable 后 whole_body_jtc 未 active。"
   verify_operational_ethercat
   run_ros2_timeout 10 'ros2 topic echo /joint_states --once' >/dev/null
 
@@ -572,10 +572,10 @@ start_rt_control()
   printf '%s\n' \
     "" \
     "READY: rt-control 已启动并完成 /rt/enable。" \
-    "FJT: /dual_arm_jtc/follow_joint_trajectory" \
-    "底盘: /cmd_vel" \
+    "FJT: /whole_body_jtc/follow_joint_trajectory" \
+    "底盘: /cmd_vel_safe" \
     "状态: /joint_states  /wheel/odom  /diagnostics" \
-    "IO: /plc/io_state  /bms/battery_state"
+    "IO: /plc/io_state  /battery_state"
 }
 
 recover_power_loss()
@@ -649,8 +649,8 @@ recover_power_loss()
   check_axis_states enabled
 
   controller_output="$(run_ros2_timeout 15 'ros2 control list_controllers' | strip_ansi)"
-  grep -Eq '^dual_arm_jtc[[:space:]].*active' <<< "${controller_output}" ||
-    fail "/rt/enable 后 dual_arm_jtc 未 active。"
+  grep -Eq '^whole_body_jtc[[:space:]].*active' <<< "${controller_output}" ||
+    fail "/rt/enable 后 whole_body_jtc 未 active。"
   verify_operational_ethercat
 
   startup_complete=1

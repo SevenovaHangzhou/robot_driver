@@ -37,7 +37,7 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("fault_reset_timeout", 4.0);
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
-  auto_declare<std::string>("jtc_name", "dual_arm_jtc");
+  auto_declare<std::string>("jtc_name", "whole_body_jtc");
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
