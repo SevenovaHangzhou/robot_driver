@@ -73,6 +73,14 @@ def _component_ok(component: ComponentSnapshot) -> bool:
     return bool(component.fresh) and int(component.level) == OK
 
 
+def _diagnostic_level(value: Any) -> int:
+    if isinstance(value, (bytes, bytearray)):
+        if len(value) != 1:
+            return ERROR
+        return int(value[0])
+    return int(value)
+
+
 def _fault(label: str, component: ComponentSnapshot) -> str:
     if not component.fresh:
         return f"{label}: stale or missing"
@@ -329,7 +337,7 @@ def main(args=None) -> None:
             fresh = time.monotonic() - received <= self._diagnostic_timeout_s
             return ComponentSnapshot(
                 name=name,
-                level=int(status.level),
+                level=_diagnostic_level(status.level),
                 fresh=fresh,
                 message=str(status.message),
                 values={item.key: item.value for item in status.values},

@@ -614,6 +614,27 @@ clear_resettable_faults_before_enable()
   fi
 }
 
+verify_enable_manager_diagnostic_state()
+{
+  local expected_state="$1"
+  local expected_stage="$2"
+  local deadline=$((SECONDS + 15))
+  local snapshot
+  snapshot=""
+  while (( SECONDS < deadline )); do
+    snapshot="$(enable_manager_diagnostic_snapshot)"
+    if grep -Fq 'name: /robot/rt_control/enable_manager' <<< "${snapshot}" &&
+      grep -Fq "value: ${expected_state}" <<< "${snapshot}" &&
+      grep -Fq "value: ${expected_stage}" <<< "${snapshot}" &&
+      grep -Fq 'message: operational' <<< "${snapshot}"; then
+      return
+    fi
+    sleep 1
+  done
+  printf '%s\n' "${snapshot}" >&2
+  fail "enable_manager did not report ${expected_state}/${expected_stage} within 15 seconds"
+}
+
 verify_controllers_before_enable()
 {
   local deadline=$((SECONDS + 30))
@@ -745,7 +766,6 @@ start_native()
     terminate_failed_start
     fail "native stack did not expose /rt/enable and /control/set_enabled within 90 seconds; stop was requested"
   fi
-  pin_controller_update_thread
   info "READY: native stack is running in Domain ${expected_ros_domain_id}; drives were not enabled; public service /control/set_enabled is available"
 }
 
@@ -797,7 +817,7 @@ recover_power_loss_native()
   verify_operational_ethercat
 
   clear_resettable_faults_before_enable
-  check_axis_states disabled
+  verify_enable_manager_diagnostic_state IDLE success
 
   info "calling one /rt/enable after reset and disabled-state proof"
   enable_response="$(call_rt_service enable)" || {
@@ -810,7 +830,7 @@ recover_power_loss_native()
     best_effort_stop_existing_native_for_recovery
     fail "/rt/enable returned failure; native recovery session was stopped"
   fi
-  check_axis_states enabled
+  verify_enable_manager_diagnostic_state ENABLED success
   verify_enabled_controllers
   verify_operational_ethercat
   info "RECOVERED: native stack is running and enabled"

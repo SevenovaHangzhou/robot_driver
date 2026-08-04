@@ -11,6 +11,7 @@ from control_api_adapter.status_adapter import (  # noqa: E402
     ComponentSnapshot,
     ETHERCAT_SLAVE_NAMES,
     PlcHealthSnapshot,
+    _diagnostic_level,
     build_safety_summary,
 )
 
@@ -69,3 +70,11 @@ def test_safety_summary_reports_canopen_fault() -> None:
     assert not summary.safe_to_start_motion
     assert not summary.canopen_ok
     assert "/robot/rt_control/canopen/node_3: Fault" in summary.active_faults
+
+
+def test_diagnostic_level_accepts_ros_python_byte_field() -> None:
+    assert _diagnostic_level(0) == 0
+    assert _diagnostic_level(b"\x00") == 0
+    assert _diagnostic_level(b"\x02") == 2
+    assert _diagnostic_level(b"\x03") == 3
+    assert _diagnostic_level(b"") == 2

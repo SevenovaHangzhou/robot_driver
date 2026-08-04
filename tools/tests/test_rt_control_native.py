@@ -41,6 +41,12 @@ class NativeLauncherContractTest(unittest.TestCase):
         body = self.text[start:stop]
         self.assertLess(body.index("reject_running_container"), body.index("launch_native"))
 
+    def test_plain_start_does_not_pin_before_controllers_exist(self):
+        start = self.text.index("start_native()")
+        stop = self.text.index("enable_native()", start)
+        body = self.text[start:stop]
+        self.assertNotIn("pin_controller_update_thread", body)
+
     def test_plain_start_does_not_enable_or_reset_faults(self):
         start = self.text.index("start_native()")
         stop = self.text.index("enable_native()", start)
@@ -71,10 +77,22 @@ class NativeLauncherContractTest(unittest.TestCase):
             body.index("wait_for_enable_manager_reset_ready"),
             body.index("clear_resettable_faults_before_enable"),
         )
-        self.assertLess(body.index("clear_resettable_faults_before_enable"), body.index("check_axis_states disabled"))
-        self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
-        self.assertLess(body.index("call_rt_service enable"), body.index("check_axis_states enabled"))
-        self.assertLess(body.index("check_axis_states enabled"), body.index("monitor_native_warning_logs"))
+        self.assertLess(
+            body.index("clear_resettable_faults_before_enable"),
+            body.index("verify_enable_manager_diagnostic_state IDLE success"),
+        )
+        self.assertLess(
+            body.index("verify_enable_manager_diagnostic_state IDLE success"),
+            body.index("call_rt_service enable"),
+        )
+        self.assertLess(
+            body.index("call_rt_service enable"),
+            body.index("verify_enable_manager_diagnostic_state ENABLED success"),
+        )
+        self.assertLess(
+            body.index("verify_enable_manager_diagnostic_state ENABLED success"),
+            body.index("monitor_native_warning_logs"),
+        )
 
     def test_recovery_fault_reset_reports_unclearable_fault_context(self):
         self.assertIn("clear_resettable_faults_before_enable()", self.text)
@@ -208,11 +226,11 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn('thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"', self.text)
         self.assertIn("pin_controller_update_thread", self.text)
         self.assertIn("--required-rt-thread-name rtcan-master", self.text)
-        start = self.text.index("start_native()")
-        stop = self.text.index("enable_native()", start)
+        start = self.text.index("call_rt_service()")
+        stop = self.text.index("verify_target_identity()", start)
         body = self.text[start:stop]
-        self.assertLess(body.index("wait_for_enable_service"), body.index("pin_controller_update_thread"))
-        self.assertLess(body.index("pin_controller_update_thread"), body.index("READY: native stack"))
+        self.assertLess(body.index('[[ "${operation}" == "enable" ]]'), body.index("pin_controller_update_thread"))
+        self.assertLess(body.index("pin_controller_update_thread"), body.index('"/rt/${operation}"'))
 
     def test_native_start_forces_can_preflight_after_authorization_before_launch(self):
         self.assertIn('can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"', self.text)
@@ -269,8 +287,14 @@ class NativeLauncherContractTest(unittest.TestCase):
         start = self.text.index("recover_power_loss_native()")
         stop = self.text.index("stop_native()", start)
         body = self.text[start:stop]
-        self.assertLess(body.index("clear_resettable_faults_before_enable"), body.index("check_axis_states disabled"))
-        self.assertLess(body.index("check_axis_states disabled"), body.index("call_rt_service enable"))
+        self.assertLess(
+            body.index("clear_resettable_faults_before_enable"),
+            body.index("verify_enable_manager_diagnostic_state IDLE success"),
+        )
+        self.assertLess(
+            body.index("verify_enable_manager_diagnostic_state IDLE success"),
+            body.index("call_rt_service enable"),
+        )
         self.assertIn("call_rt_service enable", body)
 
     def test_oneclick_recovery_monitors_logs_by_default_after_successful_enable(self):
@@ -279,7 +303,10 @@ class NativeLauncherContractTest(unittest.TestCase):
         start = self.text.index("recover_power_loss_native()")
         stop = self.text.index("stop_native()", start)
         body = self.text[start:stop]
-        self.assertLess(body.index("check_axis_states enabled"), body.index("should_monitor_native_logs"))
+        self.assertLess(
+            body.index("verify_enable_manager_diagnostic_state ENABLED success"),
+            body.index("should_monitor_native_logs"),
+        )
         self.assertLess(body.index("should_monitor_native_logs"), body.index("monitor_native_warning_logs"))
 
     def test_runtime_sources_ros_setup_without_nounset(self):
