@@ -38,6 +38,9 @@ ENABLE_RT_CONTROL
 
 ```text
 READY: rt-control 已启动并完成 /rt/enable。
+启停: /control/set_enabled
+FJT: /whole_body_jtc/follow_joint_trajectory
+底盘: /cmd_vel_safe
 ```
 
 ## 这条命令自动完成什么
@@ -105,6 +108,7 @@ READY: rt-control 已启动并完成 /rt/enable。
 | BMS 电压/SOC | `/battery_state`，`sensor_msgs/msg/BatteryState`，5 s 周期 |
 | PLC 三路控制 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
 | 诊断 | `/diagnostics` |
+| 公共启停 | `/control/set_enabled`，`alfa_control_interfaces/srv/SetControlEnabled`；`true` 时可自动清一次 resettable fault 后使能，`false` 只调用 `/rt/disable` |
 | 手工失能 | `/rt/disable` |
 
 rt-control 的本体链从 `base_footprint → base_link → 本体/传感器连杆` 开始；导航域发布最终 `/odom` 和唯一动态

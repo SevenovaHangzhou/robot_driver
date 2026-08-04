@@ -67,6 +67,12 @@ def generate_launch_description():
         output="both",
         parameters=[{"hardware_id": "robot-001", "use_sim_time": use_sim_time}],
     )
+    control_adapter = Node(
+        package="control_api_adapter",
+        executable="control_enable_adapter",
+        output="both",
+        parameters=[{"use_sim_time": use_sim_time}],
+    )
     plc = Node(
         package="plc_node",
         executable="plc_node",
@@ -146,6 +152,7 @@ def generate_launch_description():
             control_node,
             state_publisher,
             diagnostics,
+            control_adapter,
             plc,
             bms,
             *active_spawners,

@@ -329,14 +329,17 @@ wait_for_enable_service()
       fail "ros2_control_node 在启动阶段提前退出；已结束 launch/spawner，不继续等待 /rt/enable。"
     fi
     if [[ "${container_state}" == "running" ]] &&
-      run_ros2_timeout 6 'ros2 service list' 2>/dev/null | grep -Fxq '/rt/enable'; then
+      run_ros2_timeout 6 'ros2 service type /rt/enable' 2>/dev/null |
+      grep -Fq 'robot_interfaces/srv/RtEnable' &&
+      run_ros2_timeout 6 'ros2 service type /control/set_enabled' 2>/dev/null |
+      grep -Fq 'alfa_control_interfaces/srv/SetControlEnabled'; then
       return
     fi
     sleep 2
   done
   print_first_boot_error
   terminate_container_launch_tree
-  fail "120 秒内未发现 /rt/enable。"
+  fail "120 秒内未发现 /rt/enable 和 /control/set_enabled。"
 }
 
 wait_for_enable_manager_reset_ready()
@@ -406,7 +409,7 @@ terminate_container_launch_tree()
   [[ "${container_state}" == "running" ]] || return
   sudo docker exec "${container_name}" bash -lc '
     pkill -INT -f "ros2 launch rt_control_bringup rt_control.launch.py" || true
-    pkill -TERM -f "controller_manager/ros2_control_node|controller_manager/spawner|robot_state_publisher|rt_diagnostics_node|plc_node|bms_node" || true
+    pkill -TERM -f "controller_manager/ros2_control_node|controller_manager/spawner|robot_state_publisher|rt_diagnostics_node|control_enable_adapter|plc_node|bms_node" || true
   ' >/dev/null 2>&1 || true
   deadline=$((SECONDS + 10))
   while (( SECONDS < deadline )); do
@@ -572,6 +575,7 @@ start_rt_control()
   printf '%s\n' \
     "" \
     "READY: rt-control 已启动并完成 /rt/enable。" \
+    "启停: /control/set_enabled" \
     "FJT: /whole_body_jtc/follow_joint_trajectory" \
     "底盘: /cmd_vel_safe" \
     "状态: /joint_states  /wheel/odom  /diagnostics" \

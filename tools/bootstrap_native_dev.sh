@@ -14,9 +14,11 @@ readonly repository_root workspace_root dependency_manifest
 readonly build_base install_base log_base vendor_root
 
 readonly -a runtime_packages=(
+  alfa_control_interfaces
   bms_node
   canopen_master_driver
   canopen_ros2_control
+  control_api_adapter
   ethercat_driver
   ethercat_generic_cia402_drive
   joint_trajectory_controller

@@ -71,6 +71,21 @@ def test_public_rt_control_interfaces_match_current_contract() -> None:
     assert bms_params["publish_period_s"] == 5.0
 
 
+def test_public_control_enable_adapter_is_started_with_rt_control() -> None:
+    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
+    bringup_manifest = (BRINGUP / "package.xml").read_text()
+    interface_srv = (
+        ROOT
+        / "src/interfaces/alfa_control_interfaces/srv/SetControlEnabled.srv"
+    ).read_text()
+
+    assert 'package="control_api_adapter"' in launch_text
+    assert 'executable="control_enable_adapter"' in launch_text
+    assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
+    assert "bool enabled\nstring reason\n---" in interface_srv
+    assert "bool accepted\nbool enabled\nuint16 error_code\nstring message" in interface_srv
+
+
 def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:
     launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
 
@@ -111,7 +126,9 @@ def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
 def test_docker_build_contains_only_the_two_required_io_packages() -> None:
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
 
+    assert "      alfa_control_interfaces \\\n" in dockerfile
     assert "      bms_node \\\n" in dockerfile
+    assert "      control_api_adapter \\\n" in dockerfile
     assert "      plc_node \\\n" in dockerfile
     assert "ros-humble-rmw-fastrtps-cpp" in dockerfile
     assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile
@@ -163,3 +180,4 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     assert "pin_controller_update_thread" in launcher
     assert "controller_manager_running_in_container" in launcher
     assert '"${can_setup_tool}" --wait 30 --configure' in launcher
+    assert "/control/set_enabled" in launcher

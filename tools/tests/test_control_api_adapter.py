@@ -1,9 +1,15 @@
 import unittest
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src/rt_control/control_api_adapter"))
 
 from control_api_adapter.control_enable_adapter import (
     ControlEnableAdapterCore,
     DiagnosticSnapshot,
     ErrorCode,
+    RtServiceUnavailable,
     RtServiceResult,
 )
 
@@ -109,6 +115,18 @@ class ControlEnableAdapterTest(unittest.TestCase):
         self.assertFalse(result.enabled)
         self.assertEqual(result.error_code, ErrorCode.RESET_FAILED)
         self.assertIn("fault_detected", result.message)
+
+    def test_enable_reports_internal_service_unavailable(self):
+        services = FakeRtServices({"enable": RtServiceUnavailable("/rt/enable timed out")})
+        diagnostics = FakeDiagnostics(DiagnosticSnapshot(state="IDLE", stage="success"))
+        adapter = ControlEnableAdapterCore(services, diagnostics)
+
+        result = adapter.set_enabled(True, reason="operator")
+
+        self.assertEqual(services.calls, ["enable"])
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.error_code, ErrorCode.RT_SERVICE_UNAVAILABLE)
+        self.assertIn("/rt/enable timed out", result.message)
 
 
 if __name__ == "__main__":

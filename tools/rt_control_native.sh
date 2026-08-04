@@ -387,7 +387,9 @@ wait_for_enable_service()
       fail "ros2_control_node exited during boot; launch/spawner process tree was terminated"
     fi
     if run_ros2_timeout 3 ros2 service type /rt/enable 2>/dev/null |
-      grep -Fq 'robot_interfaces/srv/RtEnable'; then
+      grep -Fq 'robot_interfaces/srv/RtEnable' &&
+      run_ros2_timeout 3 ros2 service type /control/set_enabled 2>/dev/null |
+      grep -Fq 'alfa_control_interfaces/srv/SetControlEnabled'; then
       return 0
     fi
     sleep 1
@@ -736,10 +738,10 @@ start_native()
   launch_native
   if ! wait_for_enable_service; then
     terminate_failed_start
-    fail "native stack did not expose /rt/enable within 90 seconds; stop was requested"
+    fail "native stack did not expose /rt/enable and /control/set_enabled within 90 seconds; stop was requested"
   fi
   pin_controller_update_thread
-  info "READY: native stack is running in Domain ${expected_ros_domain_id}; drives were not enabled"
+  info "READY: native stack is running in Domain ${expected_ros_domain_id}; drives were not enabled; public service /control/set_enabled is available"
 }
 
 enable_native()
@@ -925,6 +927,8 @@ doctor_native()
   source_runtime_environment
   runtime_env ros2 pkg prefix rt_control_bringup >/dev/null
   runtime_env ros2 pkg prefix enable_manager >/dev/null
+  runtime_env ros2 pkg prefix alfa_control_interfaces >/dev/null
+  runtime_env ros2 pkg prefix control_api_adapter >/dev/null
   info "PASS: native runtime is installed for Domain ${expected_ros_domain_id} with Fast DDS default transports"
 }
 

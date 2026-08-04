@@ -22,6 +22,7 @@ FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
 GENERATED_PARTS = {"build", "install", "log", ".colcon", "__pycache__"}
 DOMAIN_PACKAGES = {
     "bms_node",
+    "control_api_adapter",
     "enable_manager",
     "plc_node",
     "robot_hw_canopen",
@@ -32,7 +33,7 @@ DOMAIN_PACKAGES = {
 }
 SHARED_PACKAGE_PREFIXES = (
     "src/description/robot_description/",
-    "src/interfaces/robot_interfaces/",
+    "src/interfaces/",
 )
 DOMAIN_TOKEN = re.compile(
     r"(?i)(?:ros2_control|hardware_plugin|"
@@ -183,7 +184,7 @@ def check_robot_description_xml(relative_path: str, xml_text: str) -> list[str]:
 
 def check_interface_path(relative_path: str) -> list[str]:
     """Keep the shared interface package definition-only."""
-    prefix = "src/interfaces/robot_interfaces/"
+    prefix = "src/interfaces/"
     if not relative_path.startswith(prefix):
         return []
     local_path = PurePosixPath(relative_path[len(prefix) :])

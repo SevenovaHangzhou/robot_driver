@@ -74,6 +74,7 @@ flowchart LR
 - 12 个手臂关节、Turn、EtherCAT Updown 共 14 轴完整 FJT/CSP 执行；
 - 左右履带 CANopen PV 与 `diff_drive_controller` 速度执行；
 - 14 轴分批使能、整组失能、整组故障复位和任一轴故障后的整组处理；
+- 公共 `/control/set_enabled` 服务适配到内部 `/rt/reset_fault`、`/rt/enable` 和 `/rt/disable`；
 - `/joint_states`、里程计、`/tf`、`/tf_static`、FJT feedback/result 和当前工程版 `/diagnostics`；
 - `/plc/io_state`、三路 PLC 单点输出服务和 `/battery_state`；
 - 当前实际位置自动预装载，JTC 第一轨迹点一致性与 EtherCAT 反馈新鲜度检查；

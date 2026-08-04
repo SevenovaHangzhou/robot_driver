@@ -1,0 +1,16 @@
+bool enabled
+string reason
+---
+uint16 OK=0
+uint16 RT_SERVICE_UNAVAILABLE=1
+uint16 ENABLE_MANAGER_NOT_READY=2
+uint16 RESET_FAILED=3
+uint16 ENABLE_FAILED=4
+uint16 DISABLE_FAILED=5
+uint16 OPERATION_IN_PROGRESS=6
+uint16 RESTART_REQUIRED=7
+
+bool accepted
+bool enabled
+uint16 error_code
+string message

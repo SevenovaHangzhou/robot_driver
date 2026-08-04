@@ -41,7 +41,8 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 | --- | --- | --- | --- |
 | motion → rt-control | 双臂、Turn 与 Updown 的完整轨迹 | `/whole_body_jtc/follow_joint_trajectory` | 14 轴必须完整；JTC 只在 `/rt/enable` 成功后 active；旋转轴第一点误差不超过 1°，Updown 不超过 `0.05 m`，反馈年龄不超过 500 ms。 |
 | motion → rt-control | 底盘线速度和角速度 | `/cmd_vel_safe` | `Twist`；0.5 s 命令超时；当前无 header/frame 校验；控制器启动即 active，不受 `/rt/enable` 门控。 |
-| 运维/监督 → rt-control | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；不是急停接口。 |
+| 运维/监督 → rt-control | 普通控制启停公共入口 | `/control/set_enabled` | `enabled=true` 可自动清一次 resettable fault 后调用 `/rt/enable`；`enabled=false` 只调用 `/rt/disable`；不是急停或 STO。 |
+| rt-control 内部/诊断 | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；通常由公共适配层或启动脚本调用。 |
 | rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 当前配置为 100 Hz，仅导出 14 个 EtherCAT 机械轴；履带状态不进入公共 `/joint_states`。 |
 | rt-control → 导航/视觉 | 原始轮速里程计和本体 TF | `/wheel/odom`、`/tf`、`/tf_static` | `/wheel/odom` 约 50 Hz；RSP 提供 `base_footprint → base_link → 本体/传感器`；最终 `/odom` 与唯一 `odom → base_footprint` 属于导航域，`map → odom` 不属于本域。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |

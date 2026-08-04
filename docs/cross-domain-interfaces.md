@@ -106,6 +106,13 @@ ID 前缀含义：`G` = Gateway/本地入口，`P` = Perception 提供，`N` = �
 | R-IN-04 | `/vacuum/pump/set_enabled` | Service / `alfa_control_interfaces/srv/SetPumpEnabled` | 维护工具或 RT 内部管理器 → RT-Control | 活动真空命令或可能持箱时拒绝普通停泵 |
 | R-IN-05 | `/vacuum/grip` | Action / `alfa_control_interfaces/action/VacuumGrip` | Motion ⇄ RT-Control | 通道同数量/同集/同序；GRIP 每通道新鲜表压 `<= -50 kPa`；RELEASE 仍 `UNVERIFIED` |
 
+R-IN-03 当前由 `control_api_adapter` 提供。`enabled=true` 时只通过现有
+enable_manager 服务链执行：等待 enable_manager 进入 `IDLE`、`ENABLED`、
+`fault_requires_reset` 或 `restart_required`；若是 `fault_requires_reset`，自动调用一次
+`/rt/reset_fault`，成功后再调用 `/rt/enable`；`restart_required` 或复位失败时拒绝并提示断电/重启排查。`enabled=false`
+只调用 `/rt/disable`，不停止 launch、容器、主站进程，也不复位急停、安全继电器或 STO。
+统一接口包尚未独立建仓前，`alfa_control_interfaces` 是本仓库内的临时定义源。
+
 ### 5.5 RT-Control 输出
 
 | ID | ROS 名称 | 形式 / 类型 | 方向 | 关键约束 |

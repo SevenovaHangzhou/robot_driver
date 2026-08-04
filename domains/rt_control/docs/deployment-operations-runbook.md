@@ -498,12 +498,18 @@ timeout 5 ros2 topic echo /diagnostics
 三项服务使用同一个空请求和响应结构：
 
 ```bash
+ros2 service call /control/set_enabled alfa_control_interfaces/srv/SetControlEnabled "{enabled: true, reason: operator}"
+ros2 service call /control/set_enabled alfa_control_interfaces/srv/SetControlEnabled "{enabled: false, reason: operator}"
 ros2 service call /rt/reset_fault robot_interfaces/srv/RtEnable "{}"
 ros2 service call /rt/enable robot_interfaces/srv/RtEnable "{}"
 ros2 service call /rt/disable robot_interfaces/srv/RtEnable "{}"
 ```
 
-这些命令只能在现场条件满足后按需执行，不应把三条连续复制粘贴。推荐语义是：
+`/control/set_enabled` 是域外公共入口；`enabled=true` 会等待 enable_manager ready，遇到
+`fault_requires_reset` 时自动调用一次 `/rt/reset_fault`，成功后再调用 `/rt/enable`；`enabled=false`
+只调用 `/rt/disable`，不停止 launch/容器/主站进程，也不复位急停、安全继电器或 STO。
+
+内部 `/rt/*` 命令只能在现场条件满足后按需执行，不应把三条连续复制粘贴。推荐语义是：
 
 1. 只有 diagnostics 显示 `FAILED` 且物理故障原因已解除时才 reset。
 2. reset 成功只回到 `IDLE`，不会自动 enable。

@@ -339,6 +339,8 @@ class NativeBootstrapContractTest(unittest.TestCase):
         self.assertIn('build_base="${workspace_root}/build"', self.text)
         self.assertIn('install_base="${workspace_root}/install"', self.text)
         self.assertIn('log_base="${workspace_root}/log"', self.text)
+        self.assertIn("alfa_control_interfaces", self.text)
+        self.assertIn("control_api_adapter", self.text)
 
     def test_bootstrap_sources_ros_setup_without_nounset(self):
         start = self.text.index("source_build_environment()")
@@ -403,6 +405,18 @@ class RtControlLaunchAffinityContractTest(unittest.TestCase):
         self.assertNotIn("RT_CONTROL_HOUSEKEEPING_CPUS", self.text)
         self.assertNotIn("taskset --cpu-list", self.text)
         self.assertNotIn("prefix=", self.text)
+        self.assertIn('package="control_api_adapter"', self.text)
+        self.assertIn('executable="control_enable_adapter"', self.text)
+
+    def test_start_waits_for_internal_and_public_control_services(self):
+        launcher_text = LAUNCHER.read_text(encoding="utf-8")
+        start = launcher_text.index("wait_for_enable_service()")
+        stop = launcher_text.index("terminate_failed_start()", start)
+        body = launcher_text[start:stop]
+        self.assertIn("ros2 service type /rt/enable", body)
+        self.assertIn("robot_interfaces/srv/RtEnable", body)
+        self.assertIn("ros2 service type /control/set_enabled", body)
+        self.assertIn("alfa_control_interfaces/srv/SetControlEnabled", body)
 
 
 class NativeOneClickRecoveryContractTest(unittest.TestCase):

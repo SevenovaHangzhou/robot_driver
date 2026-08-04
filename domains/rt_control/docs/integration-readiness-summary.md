@@ -46,6 +46,7 @@ T-020 TF 根链、PLC/BMS 状态和三路 PLC 输出接口。
 | --- | --- | --- | --- |
 | motion → rt-control | `/whole_body_jtc/follow_joint_trajectory`，`control_msgs/action/FollowJointTrajectory` | 执行双臂、Turn、Updown 完整 14 轴轨迹 | 必须包含固定顺序全部 14 轴；仅在 `/rt/enable` 成功后接收 |
 | motion → rt-control | `/cmd_vel_safe`，`geometry_msgs/msg/Twist` | 履带线速度/角速度 | 当前裁决保持无 header 的 `Twist` 和 0.5 s 无命令超时；只能有一个有效 publisher |
+| 运维/生命周期工具 → rt-control | `/control/set_enabled`，`alfa_control_interfaces/srv/SetControlEnabled` | 公共普通控制启停入口 | `enabled=true` 等待 enable_manager ready，必要时自动调用一次 `/rt/reset_fault` 后 `/rt/enable`；`enabled=false` 只转 `/rt/disable` |
 | 运维 → rt-control | `/rt/enable`、`/rt/disable`、`/rt/reset_fault`，`robot_interfaces/srv/RtEnable` | 14 个 EtherCAT 轴整组生命周期 | 不得当作急停；履带不受 `/rt/enable` 门控 |
 | rt-control → motion/状态消费者 | `/joint_states`，`sensor_msgs/msg/JointState` | 仅 14 个 EtherCAT 机械轴状态 | 100 Hz；不包含两条履带控制 joint |
 | rt-control → motion/Nav2 | `/wheel/odom`，`nav_msgs/msg/Odometry` | 原始履带轮速里程计 | 约 50 Hz；`header.frame_id=odom`，`child_frame_id=base_footprint`；无旧 topic 别名 |

@@ -151,7 +151,7 @@ cd /home/ar/rt-control-dev/robot
    affinity 包含 CPU14，则拒绝启动。
 2. 外层 `rt_control_start` 运行在 housekeeping CPUs：
    `0,2,4,6,8,10,12,16-27`。
-3. 控制栈暴露 `/rt/enable` 服务后，脚本查找 `ros2_control_node` 内部实时线程；只有“恰好一个
+3. 控制栈同时暴露 `/rt/enable` 和 `/control/set_enabled` 服务后，脚本查找 `ros2_control_node` 内部实时线程；只有“恰好一个
    `SCHED_FIFO` 且 `rt_priority=80`”的线程会被视为 controller update 线程。
 4. 该线程被 `sched_setaffinity` 到 CPU14；同一进程内 DDS、service、CANopen/Lely 和普通回调线程保留在
    housekeeping CPUs。
