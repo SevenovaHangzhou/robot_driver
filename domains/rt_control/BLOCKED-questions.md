@@ -2222,3 +2222,23 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   fail-closed 为 stale。
 - Verification boundary：源码和 Mock 只能证明配置/加载路径正确；生产修复必须在 native/Docker 两种启动路径中验证
   `/rt_control/readiness` 和 `/control/safety_state` 不再误报 EtherCAT stale。
+
+## BQ-131 — CANopen 总线无报文导致 controller_manager 启动阶段退出 [BLOCKED 2026-08-05]
+
+- Evidence：目标工控机上 native 启动时，`/controller_manager`、`/device_container`、`/master` 和
+  `left_track_joint` 曾短暂出现，随后消失。最新 native 日志显示 `left_track_joint` 在 CANopen boot 阶段连续超时：
+  `Boot Timeout: The boot configure process timeout!`，随后 `Boot failed after 3 attempts` 并抛出
+  `ros2_canopen::DriverException`，导致 `ros2_control_node` abort。清理残留进程后，`can0/can1` 均可被固定命名并设置为
+  `UP/ERROR-ACTIVE/500 kbit/s/txqueuelen 128`，但被动抓取 `can0` 未见 node2/node3 heartbeat 或 PDO，`can1`
+  未见 BMS 帧。
+- Current conclusion：当前启动失败不是 enable_manager 使能流程问题，而是 CANopen boot 前置条件不满足；
+  SocketCAN 接口本身已配置成功，但现场 CAN 设备/总线没有产生可见报文。继续启动 rt-control 会复现
+  `left_track_joint` boot timeout，并使 `/controller_manager` 再次退出。
+- Blocking question：现场需要确认两条 CAN 总线对应设备是否已上电、接线/终端电阻/适配器插接是否正确、`can0`
+  是否能看到履带 node2/node3 心跳、`can1` 是否能看到 BMS 帧。只有被动抓包能看到预期报文后，才能继续 native 或
+  Docker 使能验证。
+- Required evidence before retry：执行 `candump -td -L can0` 应看到 `0x702/0x703` 等履带报文；执行
+  `candump -td -L can1` 应看到 BMS 周期帧。若接口仍为 `UP/ERROR-ACTIVE` 但无报文，应优先处理现场电源、线缆、
+  终端、适配器或设备启动顺序，而不是修改使能状态机。
+- Verification boundary：本记录不授权发送 NMT、SDO、reset、enable、FJT、`/cmd_vel_safe`、PLC 输出或真空动作；
+  在 CAN 报文恢复前，只允许做接口配置、只读链路状态和被动抓包检查。

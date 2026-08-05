@@ -11,11 +11,12 @@ usage()
   cat <<'EOF'
 Usage: tools/rt_cpu_contamination_check.sh [--cpu 14] [--mode warn|strict] [--samples 10] [--interval 0.1]
 
-Checks realtime SCHED_FIFO/SCHED_RR threads before rt-control starts. A thread
-is a hard violation when its current PSR is the rt-control CPU, or when it has
-tight affinity that includes the rt-control CPU. Broad default masks that still
-list CPU14 are summarized as one WARN line for rtprio >= 80, because isolcpus
-does not remove CPU14 from default Cpus_allowed_list masks.
+Checks realtime SCHED_FIFO/SCHED_RR threads before rt-control starts. A
+non-whitelisted thread is a hard violation when its current PSR is the
+rt-control CPU, or when it has tight affinity that includes the rt-control CPU.
+Broad default masks that still list CPU14 are summarized as one WARN line for
+rtprio >= 80, because isolcpus does not remove CPU14 from default
+Cpus_allowed_list masks.
 EOF
 }
 
@@ -79,7 +80,7 @@ is_whitelisted_rt_thread()
 {
   local comm="$1"
   case "${comm}" in
-    EtherCAT-OP|migration/*|idle_inject/*|irq_work/*|rcuc/*)
+    EtherCAT-OP|migration/*|idle_inject/*|irq_work/*|rcuc/*|rcub/*)
       return 0
       ;;
   esac

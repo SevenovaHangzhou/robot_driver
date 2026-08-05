@@ -508,6 +508,7 @@ class RtControlDiagnosticScriptContractTest(unittest.TestCase):
         self.assertIn("Cpus_allowed_list", text)
         self.assertIn("PSR", text)
         self.assertIn("tight affinity", text)
+        self.assertIn("rcub/*", text)
         self.assertIn("warn_records", text)
         self.assertIn("WARN:", text)
         self.assertIn("rtprio >= 80", text)
