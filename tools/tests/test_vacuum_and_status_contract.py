@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "src/rt_control/plc_node"))
 
 class VacuumAndStatusContractTest(unittest.TestCase):
     def test_vacuum_idl_uses_fixed_channels_and_no_pressure_field(self):
-        interface_root = ROOT / "src/interfaces/alfa_control_interfaces"
+        interface_root = ROOT / "src/interfaces/robot_control_interfaces"
         texts = "\n".join(
             (
                 interface_root / "msg/VacuumState.msg"

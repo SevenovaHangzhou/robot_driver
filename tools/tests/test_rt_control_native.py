@@ -388,7 +388,7 @@ class NativeBootstrapContractTest(unittest.TestCase):
         self.assertIn('build_base="${workspace_root}/build"', self.text)
         self.assertIn('install_base="${workspace_root}/install"', self.text)
         self.assertIn('log_base="${workspace_root}/log"', self.text)
-        self.assertIn("alfa_control_interfaces", self.text)
+        self.assertIn("robot_control_interfaces", self.text)
         self.assertIn("control_api_adapter", self.text)
 
     def test_bootstrap_sources_ros_setup_without_nounset(self):
@@ -469,9 +469,9 @@ class RtControlLaunchAffinityContractTest(unittest.TestCase):
         stop = launcher_text.index("terminate_failed_start()", start)
         body = launcher_text[start:stop]
         self.assertIn("ros2 service type /rt/enable", body)
-        self.assertIn("robot_interfaces/srv/RtEnable", body)
+        self.assertIn("rt_control_interfaces/srv/RtEnable", body)
         self.assertIn("ros2 service type /control/set_enabled", body)
-        self.assertIn("alfa_control_interfaces/srv/SetControlEnabled", body)
+        self.assertIn("robot_control_interfaces/srv/SetControlEnabled", body)
 
     def test_controller_state_gate_waits_for_spawners_before_enable(self):
         launcher_text = LAUNCHER.read_text(encoding="utf-8")

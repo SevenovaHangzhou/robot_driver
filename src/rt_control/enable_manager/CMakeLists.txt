@@ -8,7 +8,7 @@ find_package(diagnostic_msgs REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(robot_interfaces REQUIRED)
+find_package(rt_control_interfaces REQUIRED)
 
 add_library(enable_manager_controller SHARED
   src/enable_manager_controller.cpp
@@ -25,14 +25,14 @@ ament_target_dependencies(enable_manager_controller
   diagnostic_msgs
   pluginlib
   rclcpp
-  robot_interfaces
+  rt_control_interfaces
 )
 
 add_executable(rt_disable_once src/rt_disable_once.cpp)
 target_compile_features(rt_disable_once PUBLIC cxx_std_17)
 target_compile_options(rt_disable_once PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 ament_target_dependencies(
-  rt_disable_once controller_manager_msgs lifecycle_msgs rclcpp robot_interfaces
+  rt_disable_once controller_manager_msgs lifecycle_msgs rclcpp rt_control_interfaces
 )
 
 pluginlib_export_plugin_description_file(
@@ -52,7 +52,7 @@ install(FILES enable_manager_plugins.xml DESTINATION share/${PROJECT_NAME})
 ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   controller_interface controller_manager_msgs diagnostic_msgs lifecycle_msgs pluginlib rclcpp
-  robot_interfaces
+  rt_control_interfaces
 )
 
 ament_package()

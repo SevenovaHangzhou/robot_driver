@@ -126,31 +126,31 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
     def test_interface_package_rejects_business_implementation(self):
         self.assert_has(
             repository_gate.check_interface_path(
-                "src/interfaces/robot_interfaces/src/task_planner.cpp"
+                "src/interfaces/rt_control_interfaces/src/task_planner.cpp"
             ),
             "interface package must not contain business implementation",
         )
         self.assertEqual(
             repository_gate.check_interface_path(
-                "src/interfaces/robot_interfaces/srv/RtEnable.srv"
+                "src/interfaces/rt_control_interfaces/srv/RtEnable.srv"
             ),
             [],
         )
         self.assertEqual(
             repository_gate.check_interface_path(
-                "src/interfaces/alfa_control_interfaces/srv/SetControlEnabled.srv"
+                "src/interfaces/robot_control_interfaces/srv/SetControlEnabled.srv"
             ),
             [],
         )
         self.assert_has(
             repository_gate.check_interface_path(
-                "src/interfaces/alfa_control_interfaces/scripts/adapter.py"
+                "src/interfaces/robot_control_interfaces/scripts/adapter.py"
             ),
             "interface package must not contain business implementation",
         )
         self.assert_has(
             repository_gate.check_interface_path(
-                "src/interfaces/robot_interfaces/task_planner.py"
+                "src/interfaces/rt_control_interfaces/task_planner.py"
             ),
             "interface package must not contain business implementation",
         )
@@ -260,7 +260,7 @@ jobs:
 
     def make_valid_repository(self, root: Path):
         files = {
-            "README.md": "# Robot monorepo\n",
+            "README.md": "# robot_driver\n",
             "AGENTS.md": "# Contract\n",
             "docs/README.md": "# System documentation\n",
             "domains/rt_control/README.md": "# rt-control\n",
@@ -325,7 +325,7 @@ CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
   <link name="base_link"/>
 </robot>
 """,
-            "src/interfaces/robot_interfaces/msg/Example.msg": "string value\n",
+            "src/interfaces/rt_control_interfaces/msg/Example.msg": "string value\n",
             "tools/example.py": "print('ok')\n",
         }
         for relative_path, content in files.items():

@@ -181,14 +181,14 @@ def build_safety_summary(
 
 def main(args=None) -> None:
     import rclpy
-    from alfa_control_interfaces.msg import SafetyState
-    from alfa_system_interfaces.msg import DomainReadiness
+    from robot_control_interfaces.msg import SafetyState
+    from robot_system_interfaces.msg import DomainReadiness
     from diagnostic_msgs.msg import DiagnosticArray
     from rclpy.callback_groups import ReentrantCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
     from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-    from robot_interfaces.msg import PlcIoState
+    from rt_control_interfaces.msg import PlcIoState
     from sensor_msgs.msg import BatteryState
 
     class RtStatusAdapterNode(Node):

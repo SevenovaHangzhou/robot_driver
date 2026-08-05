@@ -1,4 +1,4 @@
-from robot_interfaces.msg import PlcIoState
+from rt_control_interfaces.msg import PlcIoState
 
 
 def test_plc_io_state_exposes_only_confirmed_semantic_state() -> None:

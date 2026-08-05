@@ -36,7 +36,7 @@ for required in \
   'compose stop rt-control' \
   '"${can_setup_tool}" --wait 30 --configure' \
   'ros2 service type /control/set_enabled' \
-  'alfa_control_interfaces/srv/SetControlEnabled' \
+  'robot_control_interfaces/srv/SetControlEnabled' \
   'can1 3FC#' \
   'ros2 topic echo /plc/io_state --once' \
   'ros2 topic echo /battery_state --once' \

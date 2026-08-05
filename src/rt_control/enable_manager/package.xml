@@ -12,7 +12,7 @@
   <depend>lifecycle_msgs</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
-  <depend>robot_interfaces</depend>
+  <depend>rt_control_interfaces</depend>
   <export>
     <build_type>ament_cmake</build_type>
     <controller_interface plugin="${prefix}/enable_manager_plugins.xml"/>

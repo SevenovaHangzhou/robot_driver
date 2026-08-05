@@ -1,3 +1,7 @@
+# R-IN-05 /vacuum/grip。Motion ⇄ RT-Control。
+# 通道固定为字符串 left/right；GRIP 以 RT-Control 发布的新鲜 attached=true 判定。
+# RELEASE 只证明阀命令完成，物理释放结果保持 UNVERIFIED。
+
 uint8 GRIP=1
 uint8 RELEASE=2
 

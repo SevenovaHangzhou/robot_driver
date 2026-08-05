@@ -219,12 +219,12 @@ def _snapshot_from_status(status) -> DiagnosticSnapshot:
 
 def main(args=None) -> None:
     import rclpy
-    from alfa_control_interfaces.srv import SetControlEnabled
+    from robot_control_interfaces.srv import SetControlEnabled
     from diagnostic_msgs.msg import DiagnosticArray
     from rclpy.callback_groups import ReentrantCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
-    from robot_interfaces.srv import RtEnable
+    from rt_control_interfaces.srv import RtEnable
 
     class RosRtServices:
         def __init__(self, node: Node, callback_group: ReentrantCallbackGroup) -> None:
