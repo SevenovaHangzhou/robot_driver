@@ -57,7 +57,7 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 ```mermaid
 flowchart TD
     RD[robot_description<br/>统一 URDF、mesh 与 TF 模型]
-    RI[robot_interfaces<br/>RtEnable]
+    RI[rt_control_interfaces<br/>RtEnable]
 
     EC[robot_hw_ethercat<br/>14 轴拓扑与驱动 profile]
     CAN[robot_hw_canopen<br/>2 节点履带总线]
@@ -85,7 +85,7 @@ flowchart TD
 | 节点 | 它回答的问题 | 第一个阅读入口 |
 | --- | --- | --- |
 | `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot.urdf.xacro`](../../../src/description/robot_description/urdf/robot.urdf.xacro) |
-| `robot_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/robot_interfaces/srv/RtEnable.srv) |
+| `rt_control_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/rt_control_interfaces/srv/RtEnable.srv) |
 | `robot_hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](../../../src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](../../../src/rt_control/robot_hw_ethercat/config/slaves) |
 | `robot_hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](../../../src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](../../../src/rt_control/robot_hw_canopen/config/bus.yml) |
 | `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/enable_manager/include/enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |

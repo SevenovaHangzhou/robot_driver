@@ -1,82 +1,87 @@
-# robot
+# robot_driver
 
-Robot 是半人形拆码垛机器人的机上软件 monorepo。仓库按五个逻辑域分工，但以一台机器人、一组共享契约和一份 release manifest 集成与发布。
+半人形拆码垛机器人的 **RT-Control 实时控制域仓库**。本仓库只保存实时域实现、
+构建封装、宿主配置和验收证据，不接收 Perception、Motion、Autonomy 或 Gateway 的
+业务实现代码。
 
-## 当前状态
+其他域只通过版本锁定的公共 ROS 2 契约与 RT-Control 交互。域间 endpoint 和 wire
+schema 的权威源是独立
+[`robot_interfaces`](https://github.com/SevenovaHangzhou/robot_interfaces) 仓库；
+本仓库只保存 RT-Control 需要的公共包构建镜像和本域私有接口。
 
-仓库目前已完整导入 **rt-control** 域代码、容器、宿主配置和验收记录。perception、motion、autonomy 和 gateway 将按同一目录与契约逐步并入。“当前只有 rt-control 实现”不改变根目录是整机公共仓库的定位。
+## 责任边界
 
-rt-control 的构建、Docker、实机和质量门禁说明见 [domains/rt_control/README.md](domains/rt_control/README.md)。
+RT-Control 负责：
 
-## 域划分
+- EtherCAT/CANopen、ros2_control 和 250 Hz 实时控制环；
+- 完整 14 轴轨迹、履带安全速度和 PLC/BMS IO 执行；
+- 驱动使能、失能、故障复位、停机收敛和硬件诊断；
+- 发布机械轴、轮速里程计、TF、真空、安全摘要和域就绪状态。
 
-| 域 | 核心责任 | 不负责 |
-| --- | --- | --- |
-| `rt-control` | EtherCAT/CANopen、ros2_control、轨迹/速度/IO 执行、硬件状态和实时诊断 | 任务顺序、导航/机械臂规划、感知决策 |
-| `perception` | 传感器、点云/视觉、定位、箱墙任务计划和近拍 6D pose | 运动执行、BT/FSM |
-| `motion` | MoveIt2/cuMotion/OMPL、碰撞世界、Nav2 和任务级运动 Action | Demo 流程编排、传感器推理 |
-| `autonomy` | 顶层 FSM、任务级 BT、顺序/取消/恢复、SQLite 任务账本和健康汇总 | Nav2/MoveIt、感知推理、硬件实时控制 |
-| `gateway` | 外部指令接入、MQTT/mTLS、状态/告警上报、离线缓存和 OTA | 绕过 autonomy 向 motion/rt-control 下发业务指令 |
+RT-Control 不负责：
 
-机内调用方向为：
+- 任务顺序、行为树、导航与机械臂规划、感知推理；
+- `map -> odom`、`odom -> base_footprint` 等外部坐标边；
+- 用软件状态替代急停、安全继电器、STO 或驱动器保护；
+- 收纳或直接引用其他四域的内部库、配置和业务代码。
 
-```text
-external/fleet ↔ gateway ↔ autonomy → perception
-                                      └→ motion → rt-control
-```
+## 接口所有权
 
-## 共享资产
+- `src/interfaces/robot_control_interfaces`、`robot_system_interfaces`：公共契约
+  0.5.0 的构建镜像，来源由 `src/interfaces/source-lock.yaml` 固定；不得在本仓库
+  独立改 schema。
+- `src/interfaces/rt_control_interfaces`：仅供 RT-Control 域内使用的
+  `PlcIoState`、`RtEnable` 等 msg/srv。
+- `docs/cross-domain-interfaces.md`：RT-Control 对公共契约的实现视图，不是第二份
+  域间事实源。
 
-- `src/description/robot_description`：机器人物理/运动学权威模型源，属于 Robot Model/平台基础层，不属于任一业务域。
-- `src/interfaces`：跨包/跨域 ROS 2 msg/srv/action 契约，不放业务实现。
-- `config`（待并入）：按机器人 serial 和场景版本化的配置/标定资产。
-- `docker` / `deploy`：五域镜像、整机 Compose、systemd 和 release manifest。当前 Compose 仅含 rt-control。
-
-共享包不得依赖业务域实现。域间只通过冻结接口交互，不得跨域引用对方的内部库、私有配置或可写数据目录。
+公共接口发生破坏性变化时，必须先修改 `robot_interfaces`，再由全部生产者和消费者
+锁定同一提交原子升级。ROS 2 两侧类型不一致时可能都正常启动但完全无法通信。
 
 ## 仓库结构
 
 ```text
-robot/
-├─ domains/                  # 各域说明、AI 契约、进度与阻塞记录
-│  └─ rt_control/
+robot_driver/
+├─ domains/rt_control/      # 实时域规则、进度、阻塞问题和验收记录
 ├─ src/
-│  ├─ description/          # 共享 Robot Model
-│  ├─ interfaces/           # 共享 ROS 契约
-│  └─ rt_control/           # 当前已导入的域实现
-├─ docker/                   # 镜像与 Compose
-├─ hostsetup/                # 当前为 rt-control 宿主安装与验收
-├─ patches/                  # 当前为 rt-control 冻结上游窄补丁
-├─ tools/                    # 仓库通用和域级工具
-└─ docs/                     # 整机/部署/验收文档
+│  ├─ description/          # robot_description 构建副本
+│  ├─ interfaces/           # 公共契约构建镜像 + RT-Control 私有接口
+│  └─ rt_control/           # 硬件、控制器、诊断和 bringup
+├─ docker/rt-control/       # RT-Control 镜像
+├─ docker/compose.yaml      # RT-Control 部署，不是其他域通用模板
+├─ hostsetup/               # 实时域宿主安装与验收
+├─ patches/                 # 冻结上游窄补丁
+├─ tools/                   # 构建、启动、门禁和运维工具
+└─ docs/                    # RT-Control 接口与部署文档
 ```
-
-新域并入时应同时建立 `domains/<domain>/README.md`、`AGENTS.md`、`PROGRESS.md` 和 `BLOCKED-questions.md`，不将域内事实堆回根目录。
 
 ## 分支模型
 
-| 分支 | 定位 | Docker 封装 |
+| 分支 | 定位 | Docker 要求 |
 | --- | --- | --- |
-| `main` | 稳定集成与对外交付载体 | 必须：每个已导入域完成封装 |
-| `native` | 敏捷开发主线，源码增量迭代 | 不要求：允许原生构建与宿主直跑 |
+| `main` | RT-Control 稳定集成与交付载体 | 必须提供可复现镜像和容器验证 |
+| `native` | 原生增量开发主线 | 可免容器封装，但实时、安全和质量要求不降低 |
 
-`native` 只豁免容器封装。实时性、硬安全链、域责任边界、冻结接口、共享资产所有权和质量门禁与 `main` 完全一致。完整规则见 [AGENTS.md](AGENTS.md) 第 4 节。
+所有共享分支禁止直接 push，变更经 feature/bugfix 分支和 PR 合并。完整规则见
+[AGENTS.md](AGENTS.md) 与
+[协作提交规范](docs/collaboration-and-commit-standards.md)。
 
 ## 文档入口
 
 | 文档 | 内容 |
 | --- | --- |
-| [AGENTS.md](AGENTS.md) | AI 与人共同遵守的架构、安全、质量与提交底线 |
-| [docs/cross-domain-interfaces.md](docs/cross-domain-interfaces.md) | 域间接口冻结基线、QoS、时效、成功语义与边界验收 |
-| [docs/collaboration-and-commit-standards.md](docs/collaboration-and-commit-standards.md) | 分支、提交、PR、Issue、评审、发布与权限 |
-| `domains/<domain>/AGENTS.md` | 该域更严格的专属规则 |
+| [domains/rt_control/README.md](domains/rt_control/README.md) | RT-Control 构建、运行与验收入口 |
+| [docs/cross-domain-interfaces.md](docs/cross-domain-interfaces.md) | 当前 main 对公共契约的实现视图 |
+| [domains/rt_control/docs/one-command-start.md](domains/rt_control/docs/one-command-start.md) | 一键启动与接口速查 |
+| [domains/rt_control/PROGRESS.md](domains/rt_control/PROGRESS.md) | 已完成工作及验证证据 |
+| [domains/rt_control/BLOCKED-questions.md](domains/rt_control/BLOCKED-questions.md) | 已裁决和待裁决问题 |
 
-## 开发与提交
+## 本地质量门禁
 
-1. 先阅读根 [AGENTS.md](AGENTS.md)。
-2. 根据变更路径，再阅读 `domains/<domain>/AGENTS.md`。
-3. 跨域接口相关变更先读 [docs/cross-domain-interfaces.md](docs/cross-domain-interfaces.md)。
-4. 公共模型、接口或发布配置变更必须列出所有生产者、消费者和需联合验证的域。
-5. 提交前运行 `tools/quality_gate.sh` 及受影响域契约要求的附加门禁。
+```bash
+tools/quality_gate.sh
+```
 
-仓库级质量门禁目前与 rt-control 首个落地域一起实现。后续新域加入时，在保留公共门禁的前提下增加域级 CI job，不得用新域的需求削弱已有安全检查。
+接口、硬件包或启动路径变更还必须按
+[RT-Control AGENTS.md](domains/rt_control/AGENTS.md) 构建和测试全部受影响包。没有容器、
+目标机或实机证据时必须明确记录为未验证，不得从源码检查推导运行结论。

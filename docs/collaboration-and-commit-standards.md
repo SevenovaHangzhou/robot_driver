@@ -1,8 +1,8 @@
-# robot_system 协作与代码提交规范
+# robot_driver 协作与代码提交规范
 
 > 版本：v1.0
-> 适用范围：`SevenovaHangzhou/robot_system` 仓库全部分支与全部贡献者
-> 前身：七曜星 GitHub 组织协作与代码提交规范（多仓库时期）。组织已改为**单仓多域 monorepo**，本文取代其中与仓库划分相关的内容，保留并收紧其协作与提交要求。
+> 适用范围：`SevenovaHangzhou/robot_driver` 仓库全部分支与全部贡献者
+> 仓库边界：只保存 RT-Control 实现；其他域仅作为公共契约的外部生产者、消费者和评审方。
 
 ## 1. 与其他规范的关系
 
@@ -11,31 +11,32 @@
 | 本文 | 人与流程：分支、提交、PR、Issue、评审、发布、权限 |
 | [AGENTS.md](../AGENTS.md) | AI 与人共同遵守的架构、安全、质量底线和自审格式 |
 | [docs/cross-domain-interfaces.md](cross-domain-interfaces.md) | 域间接口冻结基线与接口变更流程 |
-| `domains/<domain>/AGENTS.md` | 该域更严格的专属规则 |
+| `domains/rt_control/AGENTS.md` | RT-Control 更严格的专属规则 |
 
 域规则可以细化根规则，**不得放宽**。本文与 `AGENTS.md` 冲突时，以更严格的一方为准。
 
 ## 2. 仓库组织方式
 
-`robot_system` 是**一台机器人、一个仓库、一组共享契约、一份 release manifest**。
+`robot_driver` 是 RT-Control 独立仓库。公共接口和 Robot Model 分别由独立
+`robot_interfaces`、`robot_description` 仓库提供权威版本，本仓库只保存运行所需构建副本。
 
 ```text
-robot_system/
-├─ domains/<domain>/        # 域说明、AI 契约、进度与阻塞记录
+robot_driver/
+├─ domains/rt_control/      # 实时域说明、AI 契约、进度与阻塞记录
 ├─ src/
-│  ├─ description/          # 共享 Robot Model（不属任一业务域）
-│  ├─ interfaces/           # 共享 ROS 契约（不放业务实现）
-│  └─ <domain>/             # 域实现包
-├─ docker/                  # 各域镜像与整机 Compose
+│  ├─ description/          # robot_description 构建副本
+│  ├─ interfaces/           # 公共接口构建镜像 + RT-Control 私有接口
+│  └─ rt_control/           # 实时域实现包
+├─ docker/                  # RT-Control 镜像与 Compose
 ├─ hostsetup/               # 宿主安装与验收
 ├─ patches/                 # 冻结上游窄补丁
-├─ tools/                   # 仓库通用与域级工具
-└─ docs/                    # 整机架构、接口、部署、发布、验收
+├─ tools/                   # 实时域与仓库门禁工具
+└─ docs/                    # RT-Control 接口、部署、发布、验收
 ```
 
 三个边界互相独立，不得借部署便利破坏责任边界：
 
-- **域**是责任边界（rt-control / perception / motion / autonomy / gateway）。
+- **域**是责任边界；本仓库只实现 RT-Control，其他域不得把内部代码放进来。
 - **包**是编译与复用边界。
 - **容器**是部署边界。
 
@@ -45,7 +46,7 @@ robot_system/
 
 | 分支 | 用途 | Docker 封装要求 |
 | --- | --- | --- |
-| `main` | 稳定集成分支，对外交付载体 | **必须**：各域完成 Docker 封装 |
+| `main` | RT-Control 稳定集成分支，对外交付载体 | **必须**：完成 RT-Control Docker 封装 |
 | `native` | 敏捷开发主线，源码增量迭代 | **不要求**：允许原生构建运行 |
 | `feature/xxx` | 新功能开发 | 跟随其基线分支 |
 | `bugfix/xxx` | 普通缺陷修复 | 跟随其基线分支 |
@@ -56,7 +57,7 @@ robot_system/
 
 这是本仓库最重要的分支约定，完整规则见 [AGENTS.md](../AGENTS.md) 分支与封装契约一节。
 
-**`main`**：每个已导入域必须提供可复现的镜像构建、Compose 服务定义和容器内启动入口。禁止只能在宿主原生环境跑通的域进入 `main`。合并到 `main` 的 PR 必须提供容器构建与容器内启动证据。
+**`main`**：RT-Control 必须提供可复现的镜像构建、Compose 服务定义和容器内启动入口。禁止只能在宿主原生环境跑通的实现进入 `main`。合并到 `main` 的 PR 必须提供容器构建与容器内启动证据。
 
 **`native`**：为敏捷开发保留，允许 `--symlink-install` 增量构建、宿主直跑和原生一键脚本，暂不要求容器封装。`native` 上的实时性、安全链、接口契约和质量门禁要求**与 `main` 完全相同**，只豁免容器封装。
 
@@ -78,7 +79,7 @@ robot_system/
 
 ```text
 feature/rt-control-native-development
-feature/motion-nav2-base-gate
+feature/rt-control-contract-v0-5
 bugfix/joint-states-stale-timestamp
 hotfix/demo-ethercat-enable-timeout
 release/v0.3
@@ -126,16 +127,12 @@ refactor(rt-control): split enable manager from bringup
 | scope | 对应内容 |
 | --- | --- |
 | `rt-control` | `src/rt_control/**`、`docker/rt-control/**`、`hostsetup/**` |
-| `perception` | perception 域实现 |
-| `motion` | motion 域实现 |
-| `autonomy` | autonomy 域实现 |
-| `gateway` | gateway 域实现 |
 | `interfaces` | `src/interfaces/**` |
 | `description` | `src/description/**`（共享 Robot Model） |
 | `deploy` | `docker/compose.yaml`、`deploy/**`、systemd、release manifest |
 | `tools` | `tools/**` |
 | `ci` | `.github/**` |
-| `docs` | `docs/**`、域 README/PROGRESS |
+| `docs` | `docs/**`、RT-Control README/PROGRESS |
 
 跨多个 scope 时优先拆成多个提交。确实不可拆分时使用主责 scope，并在正文列出其余受影响范围。
 
@@ -191,7 +188,8 @@ pre-commit install
 - [ ] 未用软件诊断代替急停、安全继电器、STO、驱动器保护和机械限位；
 - [ ] 未把编译、mock、仿真或离线校验写成“实机验证通过”。
 
-缺少权威事实时**只阻塞受影响范围**，记录到 `domains/<domain>/BLOCKED-questions.md`，不要猜。
+缺少权威事实时**只阻塞受影响范围**，记录到
+`domains/rt_control/BLOCKED-questions.md`，不要猜。
 
 ## 6. Pull Request 规范
 
@@ -233,11 +231,11 @@ pre-commit install
 
 | 变更路径 | 必读附加契约 | 主要联合评审 |
 | --- | --- | --- |
-| `src/rt_control/**`、`docker/rt-control/**`、`hostsetup/**` | `domains/rt_control/AGENTS.md` | rt-control；模型/接口变更时加相关域 |
-| `src/description/robot_description/**` | 根 `AGENTS.md` 共享资产一节 + 全部消费域契约 | Robot Model + rt-control + motion + perception |
-| `src/interfaces/**` | 全部生产者/消费者域契约 | 接口所有者 + 全部消费域 |
-| `docker/compose.yaml`、`deploy/**`、共享 DDS/发布配置 | 全部受影响域契约 | 平台/集成 + 受影响域 |
-| 未建立域契约的新域目录 | 先建立 `domains/<domain>/AGENTS.md` | 域负责人 + 平台/集成 |
+| `src/rt_control/**`、`docker/rt-control/**`、`hostsetup/**` | `domains/rt_control/AGENTS.md` | rt-control；公共模型/接口变更时通知外部消费者 |
+| `src/description/robot_description/**` | 根 `AGENTS.md` 共享资产一节 | Robot Model + rt-control；破坏性变更通知外部消费域 |
+| `src/interfaces/robot_*_interfaces/**` | 独立 `robot_interfaces` 权威契约 | 接口所有者 + 全部跨域生产者/消费者 |
+| `src/interfaces/rt_control_interfaces/**` | `domains/rt_control/AGENTS.md` | RT-Control 域内生产者/消费者 |
+| `docker/compose.yaml`、`deploy/**`、DDS/发布配置 | `domains/rt_control/AGENTS.md` | RT-Control + 平台/集成 |
 
 `tools/**`、`docs/**`、`.github/**` 按其实际管理的对象归属，不因位于根目录就自动视为公共资产。
 
@@ -265,7 +263,7 @@ pre-commit install
 ```text
 [motion] Nav2 导航任务 Action 增加到位误差判定
 [rt-control] cmd_vel_safe 过期后本地停车时限收紧到 200 ms
-[interfaces] DomainReadiness 增加 producer_instance_id
+[interfaces] 明确 DomainReadiness 未就绪原因语义
 [deploy] Compose 增加 perception 域服务定义
 ```
 
@@ -288,9 +286,10 @@ pre-commit install
 - [ ] 标准 1
 - [ ] 标准 2
 
-## 涉及域与共享资产
-- rt-control / perception / motion / autonomy / gateway
+## 涉及实现与共享资产
+- rt-control
 - description / interfaces / deploy
+- 公共接口变更时列出外部生产者和消费者
 
 ## 需要的裁决或阻塞项
 若依赖未裁决的硬件、标定、安全或资源事实，在此列出。
@@ -298,7 +297,8 @@ pre-commit install
 
 ### 7.3 Issue 与 PR 关联
 
-一个 PR 对应一个或多个明确 Issue，PR 描述中写 `Closes #xx` 或 `Related to #xx`。跨域任务应先开一个 `design` Issue 承载裁决，再拆出各域实现 Issue。
+一个 PR 对应一个或多个明确 Issue，PR 描述中写 `Closes #xx` 或 `Related to #xx`。
+跨域任务先在 `robot_interfaces` 开 `design` Issue 承载裁决，再由各仓库分别实现；其他域代码不得进入本 PR。
 
 ## 8. 版本与发布
 
@@ -318,14 +318,14 @@ Demo 或阶段交付附后缀：`v0.3.0-demo`、`v0.3.0-rc1`。
 2. 更新 `CHANGELOG.md`（Added / Fixed / Changed / Known Issues）；
 3. 全域镜像构建成功，整机 Compose 可拉起；
 4. 执行整机验收清单与 `docs/cross-domain-interfaces.md` 第 10 节边界验收；
-5. 记录 release manifest：各域镜像 tag、Robot Model 版本/哈希、interfaces schema 版本、标定版本、冻结上游 commit SHA；
+5. 记录 release manifest：RT-Control 镜像 tag、Robot Model 版本/哈希、interfaces schema 版本、标定版本、冻结上游 commit SHA；
 6. 打 tag 并归档验收证据。
 
 Tag 是版本锚点，打出后不得移动或删除。
 
 ### 8.3 发布必备证据
 
-- 各域镜像构建日志与 image digest；
+- RT-Control 镜像构建日志与 image digest；
 - 整机 Compose 启动与健康检查记录；
 - 250 Hz 实时循环时序实测；
 - 接口边界验收清单勾选结果；
@@ -374,14 +374,15 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 
 ## 10. CI
 
-现有 workflow 分两阶段，新域并入时在保留公共门禁的前提下增加域级 job，**不得用新域需求削弱已有安全检查**：
+现有 workflow 分两阶段；新增 RT-Control 包时在保留公共门禁的前提下增加对应 job，
+**不得用新功能需求削弱已有安全检查**：
 
 | 阶段 | 内容 |
 | --- | --- |
 | `governance` | pre-commit 全量运行（同一份 `tools/quality_gate.sh`）；PR 契约门禁 |
 | `build` | 依赖安装、`colcon build`、`colcon test`、共享 Robot Model URDF 校验、冻结上游迁移门禁 |
 
-`main` 分支 CI 额外要求各域镜像构建与容器内启动 smoke test。CI 未通过不得合并。
+`main` 分支 CI 额外要求 RT-Control 镜像构建与容器内启动 smoke test。CI 未通过不得合并。
 
 ## 11. 权限与 Team
 
@@ -389,14 +390,10 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 | --- | --- |
 | `core-maintainers` | 仓库 maintain/admin；共享 Robot Model、interfaces、部署与安全边界的最终裁决 |
 | `rt-control-team` | `src/rt_control/**`、`docker/rt-control/**`、`hostsetup/**` |
-| `perception-team` | perception 域路径 |
-| `motion-team` | motion 域路径 |
-| `autonomy-team` | autonomy 域路径 |
-| `gateway-team` | gateway 域路径 |
 | `platform-integration` | `docker/**`、`deploy/**`、`tools/**`、`.github/**` |
 | `interns` | write 权限，不得 approve 合并 |
 
-单仓下用 CODEOWNERS 按路径分派评审，不用仓库权限切分域。所有成员对 `main` 与 `native` 均无直接 push 权限。
+使用 CODEOWNERS 按路径分派评审。所有成员对 `main` 与 `native` 均无直接 push 权限。
 
 ## 12. 必须暂停并请求裁决的情形
 

@@ -1,7 +1,7 @@
 # rt-control 域
 
 This directory owns the development contract and operating notes for the ROS 2
-Humble real-time control domain inside the shared robot monorepo. The runtime
+Humble real-time control domain in the dedicated `robot_driver` repository. The runtime
 source and deployment assets remain in their technical top-level directories;
 this directory is their single domain-level documentation and governance home.
 
@@ -32,7 +32,8 @@ Domain records:
 
 The source layout follows the frozen rt_control implementation specification:
 
-- `src/interfaces/robot_interfaces`: robot-internal ROS interfaces.
+- `src/interfaces/robot_control_interfaces`、`robot_system_interfaces`: 公共契约 0.5.0 的本地构建镜像。
+- `src/interfaces/rt_control_interfaces`: 仅供本域使用的 `PlcIoState`、`RtEnable` 等私有接口。
 - `src/description/robot_description`: kinematics-only robot description.
 - `src/rt_control`: EtherCAT/CANopen configuration, bringup, enable/fault handling, and diagnostics packages.
 - `docker/rt-control` and `docker/compose.yaml`: rt-control image and current Compose deployment.
