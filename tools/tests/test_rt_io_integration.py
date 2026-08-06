@@ -1,3 +1,4 @@
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import yaml
@@ -6,6 +7,39 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 BRINGUP = ROOT / "src/rt_control/rt_control_bringup"
 HOSTSETUP = ROOT / "hostsetup"
+
+
+def test_public_and_private_interface_packages_have_distinct_ownership() -> None:
+    interface_root = ROOT / "src/interfaces"
+    public_packages = ("robot_control_interfaces", "robot_system_interfaces")
+    source_lock = yaml.safe_load((interface_root / "source-lock.yaml").read_text())
+
+    assert source_lock == {
+        "schema_version": 1,
+        "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
+        "commit": "698d520c6eebaa1437f2a03ca7ff95d95ad3a600",
+        "contract_version": "0.5.0",
+        "mirrored_packages": list(public_packages),
+    }
+
+    assert not (interface_root / "alfa_control_interfaces").exists()
+    assert not (interface_root / "alfa_system_interfaces").exists()
+    assert not (interface_root / "robot_interfaces").exists()
+
+    for package_name in public_packages:
+        manifest = ET.parse(interface_root / package_name / "package.xml").getroot()
+        assert manifest.findtext("name") == package_name
+        assert manifest.findtext("version") == "0.5.0"
+
+    private_manifest = ET.parse(
+        interface_root / "rt_control_interfaces/package.xml"
+    ).getroot()
+    assert private_manifest.findtext("name") == "rt_control_interfaces"
+    assert {
+        path.relative_to(interface_root / "rt_control_interfaces").as_posix()
+        for path in (interface_root / "rt_control_interfaces").glob("**/*")
+        if path.is_file() and path.suffix in {".msg", ".srv", ".action"}
+    } == {"msg/PlcIoState.msg", "srv/RtEnable.srv"}
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:
@@ -101,7 +135,7 @@ def test_public_control_enable_adapter_is_started_with_rt_control() -> None:
     bringup_manifest = (BRINGUP / "package.xml").read_text()
     interface_srv = (
         ROOT
-        / "src/interfaces/alfa_control_interfaces/srv/SetControlEnabled.srv"
+        / "src/interfaces/robot_control_interfaces/srv/SetControlEnabled.srv"
     ).read_text()
 
     assert 'package="control_api_adapter"' in launch_text
@@ -127,7 +161,7 @@ def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
     assert "parameters=[rt_io_file, {\"use_sim_time\": use_sim_time}]" in launch_text
     assert "scripts/vacuum_adapter" in adapter_cmake
     assert "scripts/rt_status_adapter" in adapter_cmake
-    assert "<exec_depend>alfa_system_interfaces</exec_depend>" in adapter_manifest
+    assert "<exec_depend>robot_system_interfaces</exec_depend>" in adapter_manifest
     assert "<exec_depend>sensor_msgs</exec_depend>" in adapter_manifest
     assert "<exec_depend>std_srvs</exec_depend>" in adapter_manifest
 
@@ -151,11 +185,11 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
-    assert "      alfa_control_interfaces \\\n" in dockerfile
-    assert "      alfa_system_interfaces \\\n" in dockerfile
+    assert "      robot_control_interfaces \\\n" in dockerfile
+    assert "      robot_system_interfaces \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
-    assert "\n  alfa_control_interfaces\n" in bootstrap
-    assert "\n  alfa_system_interfaces\n" in bootstrap
+    assert "\n  robot_control_interfaces\n" in bootstrap
+    assert "\n  robot_system_interfaces\n" in bootstrap
     assert "\n  control_api_adapter\n" in bootstrap
 
 
@@ -199,7 +233,7 @@ def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
 def test_docker_build_contains_only_the_two_required_io_packages() -> None:
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
 
-    assert "      alfa_control_interfaces \\\n" in dockerfile
+    assert "      robot_control_interfaces \\\n" in dockerfile
     assert "      bms_node \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
     assert "      plc_node \\\n" in dockerfile

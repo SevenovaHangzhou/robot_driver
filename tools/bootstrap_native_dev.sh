@@ -14,8 +14,8 @@ readonly repository_root workspace_root dependency_manifest
 readonly build_base install_base log_base vendor_root
 
 readonly -a runtime_packages=(
-  alfa_control_interfaces
-  alfa_system_interfaces
+  robot_control_interfaces
+  robot_system_interfaces
   bms_node
   canopen_master_driver
   canopen_ros2_control
@@ -25,7 +25,7 @@ readonly -a runtime_packages=(
   joint_trajectory_controller
   plc_node
   robot_description
-  robot_interfaces
+  rt_control_interfaces
   robot_hw_ethercat
   robot_hw_canopen
   enable_manager

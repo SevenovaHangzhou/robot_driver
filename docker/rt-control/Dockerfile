@@ -114,8 +114,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && rosdep update --rosdistro humble \
     && apt-get update \
     && rt_control_packages=( \
-      alfa_control_interfaces \
-      alfa_system_interfaces \
+      robot_control_interfaces \
+      robot_system_interfaces \
       bms_node \
       canopen_master_driver \
       canopen_ros2_control \
@@ -125,7 +125,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       joint_trajectory_controller \
       plc_node \
       robot_description \
-      robot_interfaces \
+      rt_control_interfaces \
       robot_hw_ethercat \
       robot_hw_canopen \
       enable_manager \

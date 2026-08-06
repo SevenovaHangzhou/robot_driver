@@ -16,7 +16,7 @@
 
 开始编辑前，按顺序完成：
 
-1. 阅读根 `README.md` 和 `AGENTS.md`，确认五域公共边界；
+1. 阅读根 `README.md` 和 `AGENTS.md`，确认 RT-Control 仓库边界与域间公共契约；
 2. 阅读 `domains/rt_control/README.md` 和本契约，确认构建、容器启动和 rt-control 布局约束；
 3. 阅读 `domains/rt_control/PROGRESS.md` 中目标任务及相关历史验证记录；
 4. 在 `domains/rt_control/BLOCKED-questions.md` 搜索相关任务号、需求号、设备、接口或配置；
@@ -31,7 +31,10 @@
 ### 3.1 目录职责
 
 - `src/description/robot_description`：平台级机器人权威模型源，只保存机器人固有的运动学、几何、惯量、碰撞模型、坐标系和 mesh。
-- `src/interfaces/robot_interfaces`：跨包/跨域 ROS 接口契约，只保存 `msg/srv/action` 定义，不放业务实现。
+- `src/interfaces/robot_control_interfaces`、`robot_system_interfaces`：公共
+  `robot_interfaces` 契约仓库的 RT-Control 构建镜像，只能从权威契约同步。
+- `src/interfaces/rt_control_interfaces`：RT-Control 域内接口，只保存
+  `PlcIoState`、`RtEnable` 等本域 `msg/srv/action`，其他域不得依赖。
 - `src/rt_control/robot_hw_ethercat`：EtherCAT 拓扑、从站配置和 ros2_control 硬件描述。
 - `src/rt_control/robot_hw_canopen`：两条履带的 CANopen 总线配置。
 - `src/rt_control/enable_manager`：14 轴使能、失能、故障复位状态机。
@@ -50,16 +53,17 @@
 允许的主要依赖方向是：
 
 ```text
-robot_description ─┐
-                   ├─> rt_control 功能包 ─> rt_control_bringup
-robot_interfaces ──┘
+robot_description ───────────────┐
+robot_*_interfaces（公共镜像）───┼─> rt_control 功能包 ─> rt_control_bringup
+rt_control_interfaces（域内）────┘
 ```
 
 - 功能包不得反向依赖 `rt_control_bringup`；
-- `robot_description` 和 `robot_interfaces` 不得依赖任何域实现包；
+- `robot_description`、公共接口镜像和 `rt_control_interfaces` 不得依赖任何域实现包；
 - 功能包之间新增依赖前，必须证明不能通过已有 ros2_control/ROS 接口解耦；
 - rt-control 不接收 BT 节点、工位、箱子、抓取序列等任务层语义；
-- 新的跨域命令必须先明确责任域、调用方向、超时、取消、幂等和错误语义，再进入 `robot_interfaces`。
+- 新的跨域命令必须先在公共契约明确责任域、调用方向、超时、取消、幂等和错误语义，
+  再同步进本仓库的 `robot_*_interfaces` 构建镜像；不得放入 `rt_control_interfaces`。
 
 ### 3.3 `robot_description` 权威事实源
 
@@ -77,7 +81,9 @@ robot_interfaces ──┘
 
 ### 3.4 接口契约
 
-修改 `robot_interfaces` 时，必须同时检查所有生产者和消费者，并在交付说明中列出影响面。接口评审至少覆盖：
+修改公共 `robot_*_interfaces` 镜像时，必须先有同批公共契约变更，并检查所有跨域生产者
+和消费者。修改 `rt_control_interfaces` 时，只检查本域生产者和消费者，且不得扩大为跨域依赖。
+接口评审至少覆盖：
 
 - 单位、坐标系、时间戳和标识符是否明确；
 - request/goal 的合法性约束以及 reject 条件；
@@ -193,11 +199,13 @@ python3 tools/repository_gate.py
 
 ### 5.4 ROS 接口
 
-修改 `robot_interfaces` 时至少构建接口包及全部消费者，并对仓库全局搜索旧字段/旧名称：
+修改接口时至少构建公共镜像、域内包及全部 RT-Control 消费者，并对仓库全局搜索旧字段/旧名称：
 
 ```bash
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install --packages-above-and-dependencies robot_interfaces
+colcon build --symlink-install --packages-up-to \
+  robot_control_interfaces robot_system_interfaces rt_control_interfaces \
+  control_api_adapter plc_node enable_manager rt_control_bringup
 rg -n "<changed-interface-or-field>" src docker tools docs
 ```
 

@@ -10,7 +10,7 @@
 #include "controller_manager_msgs/srv/switch_controller.hpp"
 #include "lifecycle_msgs/msg/state.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "robot_interfaces/srv/rt_enable.hpp"
+#include "rt_control_interfaces/srv/rt_enable.hpp"
 
 namespace
 {
@@ -53,13 +53,13 @@ bool waitForResponse(
 bool disableEthercatAxes(
   const rclcpp::Node::SharedPtr & node, const SteadyClock::time_point deadline)
 {
-  const auto client = node->create_client<robot_interfaces::srv::RtEnable>("/rt/disable");
-  if (!waitForService<robot_interfaces::srv::RtEnable>(client, deadline)) {
+  const auto client = node->create_client<rt_control_interfaces::srv::RtEnable>("/rt/disable");
+  if (!waitForService<rt_control_interfaces::srv::RtEnable>(client, deadline)) {
     std::cerr << "UNCLEAN_SHUTDOWN: /rt/disable unavailable within shutdown deadline\n";
     return false;
   }
 
-  const auto request = std::make_shared<robot_interfaces::srv::RtEnable::Request>();
+  const auto request = std::make_shared<rt_control_interfaces::srv::RtEnable::Request>();
   auto future = client->async_send_request(request);
   if (!waitForResponse(node, future, deadline)) {
     std::cerr << "UNCLEAN_SHUTDOWN: /rt/disable did not return within shutdown deadline\n";

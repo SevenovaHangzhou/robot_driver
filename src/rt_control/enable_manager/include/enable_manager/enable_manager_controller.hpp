@@ -17,7 +17,7 @@
 #include "rclcpp/publisher.hpp"
 #include "rclcpp/service.hpp"
 #include "rclcpp/timer.hpp"
-#include "robot_interfaces/srv/rt_enable.hpp"
+#include "rt_control_interfaces/srv/rt_enable.hpp"
 
 namespace enable_manager
 {
@@ -115,19 +115,19 @@ private:
   static bool isConfirmedDisableTerminal(std::size_t axis, DriveState state);
 
   void handleEnable(
-    const std::shared_ptr<robot_interfaces::srv::RtEnable::Request> request,
-    std::shared_ptr<robot_interfaces::srv::RtEnable::Response> response);
+    const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
+    std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response);
   void handleDisable(
-    const std::shared_ptr<robot_interfaces::srv::RtEnable::Request> request,
-    std::shared_ptr<robot_interfaces::srv::RtEnable::Response> response);
+    const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
+    std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response);
   void handleResetFault(
-    const std::shared_ptr<robot_interfaces::srv::RtEnable::Request> request,
-    std::shared_ptr<robot_interfaces::srv::RtEnable::Response> response);
+    const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
+    std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response);
   bool waitForResult(ResultSlot & slot);
   void fillResponse(
-    const ResultSlot & slot, robot_interfaces::srv::RtEnable::Response & response) const;
+    const ResultSlot & slot, rt_control_interfaces::srv::RtEnable::Response & response) const;
   void fillImmediateResponse(
-    robot_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const;
+    rt_control_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const;
   SwitchResult switchJtc(bool activate);
   void handleNonRtFaultStop();
   void publishDiagnostics();
@@ -206,9 +206,9 @@ private:
   rclcpp::CallbackGroup::SharedPtr disable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr reset_callback_group_;
   rclcpp::CallbackGroup::SharedPtr worker_callback_group_;
-  rclcpp::Service<robot_interfaces::srv::RtEnable>::SharedPtr enable_service_;
-  rclcpp::Service<robot_interfaces::srv::RtEnable>::SharedPtr disable_service_;
-  rclcpp::Service<robot_interfaces::srv::RtEnable>::SharedPtr reset_service_;
+  rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr enable_service_;
+  rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr disable_service_;
+  rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr reset_service_;
   rclcpp::Client<controller_manager_msgs::srv::ListControllers>::SharedPtr list_client_;
   rclcpp::Client<controller_manager_msgs::srv::SwitchController>::SharedPtr switch_client_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;

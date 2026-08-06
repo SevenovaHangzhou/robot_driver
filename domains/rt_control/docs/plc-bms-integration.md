@@ -60,7 +60,7 @@ PLC 使用 Modbus TCP，默认 `192.168.1.88:502`、unit id `1`，绑定宿主�
 目标 bit 并保留其余 15 bit；然后在最多 1 秒内同时等待 `%MW200` 命令回读和 `%MW211` 实际状态的目标 bit
 一致。超时返回 `success=false`，不做补偿写或自动反向动作。启动、断连、重连和退出都不会把现有输出强制清零。
 
-唯一 PLC 状态话题为 `/plc/io_state`，类型 `robot_interfaces/msg/PlcIoState`，周期 0.5 秒。消息包含连接与
+唯一 PLC 状态话题为 `/plc/io_state`，类型 `rt_control_interfaces/msg/PlcIoState`，周期 0.5 秒。消息包含连接与
 新鲜度、左右真空建立、左右电磁阀、真空泵、`io_alarm` 和错误文本。断连或数据超过 1.5 秒时
 `data_fresh=false`；消费者必须同时检查 `connected` 与 `data_fresh`。
 

@@ -498,11 +498,11 @@ timeout 5 ros2 topic echo /diagnostics
 三项服务使用同一个空请求和响应结构：
 
 ```bash
-ros2 service call /control/set_enabled alfa_control_interfaces/srv/SetControlEnabled "{enabled: true, reason: operator}"
-ros2 service call /control/set_enabled alfa_control_interfaces/srv/SetControlEnabled "{enabled: false, reason: operator}"
-ros2 service call /rt/reset_fault robot_interfaces/srv/RtEnable "{}"
-ros2 service call /rt/enable robot_interfaces/srv/RtEnable "{}"
-ros2 service call /rt/disable robot_interfaces/srv/RtEnable "{}"
+ros2 service call /control/set_enabled robot_control_interfaces/srv/SetControlEnabled "{enabled: true, reason: operator}"
+ros2 service call /control/set_enabled robot_control_interfaces/srv/SetControlEnabled "{enabled: false, reason: operator}"
+ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable "{}"
+ros2 service call /rt/enable rt_control_interfaces/srv/RtEnable "{}"
+ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable "{}"
 ```
 
 `/control/set_enabled` 是域外公共入口；`enabled=true` 会等待 enable_manager ready，遇到

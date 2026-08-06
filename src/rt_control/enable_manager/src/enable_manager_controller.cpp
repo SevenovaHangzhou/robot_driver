@@ -97,17 +97,17 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   worker_callback_group_ =
     get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
-  enable_service_ = get_node()->create_service<robot_interfaces::srv::RtEnable>(
+  enable_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
     "/rt/enable", std::bind(
       &EnableManagerController::handleEnable, this, std::placeholders::_1,
       std::placeholders::_2),
     rmw_qos_profile_services_default, enable_callback_group_);
-  disable_service_ = get_node()->create_service<robot_interfaces::srv::RtEnable>(
+  disable_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
     "/rt/disable", std::bind(
       &EnableManagerController::handleDisable, this, std::placeholders::_1,
       std::placeholders::_2),
     rmw_qos_profile_services_default, disable_callback_group_);
-  reset_service_ = get_node()->create_service<robot_interfaces::srv::RtEnable>(
+  reset_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
     "/rt/reset_fault", std::bind(
       &EnableManagerController::handleResetFault, this, std::placeholders::_1,
       std::placeholders::_2),
@@ -317,8 +317,8 @@ controller_interface::return_type EnableManagerController::update(
 }
 
 void EnableManagerController::handleEnable(
-  const std::shared_ptr<robot_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<robot_interfaces::srv::RtEnable::Response> response)
+  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
+  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
 {
   bool expected_callback = false;
   if (!enable_callback_active_.compare_exchange_strong(expected_callback, true)) {
@@ -416,8 +416,8 @@ void EnableManagerController::handleEnable(
 }
 
 void EnableManagerController::handleDisable(
-  const std::shared_ptr<robot_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<robot_interfaces::srv::RtEnable::Response> response)
+  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
+  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
 {
   bool expected_callback = false;
   if (!disable_callback_active_.compare_exchange_strong(expected_callback, true)) {
@@ -487,8 +487,8 @@ void EnableManagerController::handleDisable(
 }
 
 void EnableManagerController::handleResetFault(
-  const std::shared_ptr<robot_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<robot_interfaces::srv::RtEnable::Response> response)
+  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
+  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
 {
   bool expected_callback = false;
   if (!reset_callback_active_.compare_exchange_strong(expected_callback, true)) {
@@ -546,7 +546,7 @@ bool EnableManagerController::waitForResult(ResultSlot & slot)
 }
 
 void EnableManagerController::fillResponse(
-  const ResultSlot & slot, robot_interfaces::srv::RtEnable::Response & response) const
+  const ResultSlot & slot, rt_control_interfaces::srv::RtEnable::Response & response) const
 {
   response.ok = slot.ok.load(std::memory_order_acquire);
   response.failed_batch = slot.failed_batch.load(std::memory_order_acquire);
@@ -557,7 +557,7 @@ void EnableManagerController::fillResponse(
 }
 
 void EnableManagerController::fillImmediateResponse(
-  robot_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const
+  rt_control_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const
 {
   response.ok = ok;
   response.failed_batch = -1;

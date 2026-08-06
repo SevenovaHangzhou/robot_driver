@@ -65,7 +65,7 @@ git diff --check
 
 ROS 接口只保留：
 
-- `/plc/io_state`：`robot_interfaces/msg/PlcIoState`，0.5 秒一次。
+- `/plc/io_state`：`rt_control_interfaces/msg/PlcIoState`，0.5 秒一次。
 - `/plc/left_solenoid`：`std_srvs/srv/SetBool`。
 - `/plc/right_solenoid`：`std_srvs/srv/SetBool`。
 - `/plc/vacuum_pump`：`std_srvs/srv/SetBool`。
@@ -110,7 +110,7 @@ ROS 接口只保留：
 
 - `src/rt_control/bms_node/`
 - `src/rt_control/plc_node/`
-- `src/interfaces/robot_interfaces/msg/PlcIoState.msg`
+- `src/interfaces/rt_control_interfaces/msg/PlcIoState.msg`
 - `src/rt_control/rt_control_bringup/config/rt_io.yaml`
 - `tools/tests/test_rt_io_integration.py`
 - `domains/rt_control/docs/plc-bms-integration.md`
@@ -132,7 +132,7 @@ ROS 接口只保留：
 
 已完成且通过：
 
-- `robot_interfaces`、`bms_node`、`plc_node`、`rt_control_bringup` 受影响包构建；
+- `rt_control_interfaces`、`bms_node`、`plc_node`、`rt_control_bringup` 受影响包构建；
 - BMS/PLC 共 47 项测试，0 failure；
 - `ament_flake8`，17 个相关 Python 文件无问题；
 - `tools/quality_gate.sh`：26 项仓库测试通过，分支覆盖率 84%；
@@ -150,13 +150,13 @@ colcon --log-base .colcon/rt_io_log build \
   --base-paths src/interfaces src/rt_control \
   --build-base .colcon/rt_io_build \
   --install-base .colcon/rt_io_install \
-  --packages-select robot_interfaces bms_node plc_node rt_control_bringup
+  --packages-select rt_control_interfaces bms_node plc_node rt_control_bringup
 
 source /home/kkozia/robot/.colcon/rt_io_install/setup.bash
 colcon --log-base .colcon/rt_io_test_log test \
   --build-base .colcon/rt_io_build \
   --install-base .colcon/rt_io_install \
-  --packages-select robot_interfaces bms_node plc_node
+  --packages-select rt_control_interfaces bms_node plc_node
 
 colcon --log-base .colcon/rt_io_test_result test-result \
   --test-result-base .colcon/rt_io_build --verbose

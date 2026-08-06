@@ -49,4 +49,4 @@ python3 -m coverage report --fail-under=80 \
 bash tools/check_ecat_sync_shutdown_policy.sh
 bash tools/check_rt_control_ipc_launcher_policy.sh
 
-echo "PASS: local robot monorepo quality gate"
+echo "PASS: local robot_driver RT-Control quality gate"

@@ -7,7 +7,7 @@
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
-  <depend>robot_interfaces</depend>
+  <depend>rt_control_interfaces</depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_srvs</exec_depend>
   <test_depend>ament_cmake_pytest</test_depend>

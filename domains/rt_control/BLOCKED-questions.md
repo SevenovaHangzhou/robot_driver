@@ -2223,7 +2223,31 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Verification boundary：源码和 Mock 只能证明配置/加载路径正确；生产修复必须在 native/Docker 两种启动路径中验证
   `/rt_control/readiness` 和 `/control/safety_state` 不再误报 EtherCAT stale。
 
-## BQ-131 — CANopen 总线无报文导致 controller_manager 启动阶段退出 [BLOCKED 2026-08-05]
+## BQ-131 — 域间契约权威源、公共包命名与 RT 接口最终裁决 [RESOLVED/HIGH-RISK 2026-08-05]
+
+- Evidence：`robot_driver main@6c0d14f` 已实现 `left/right attached` 真空布尔链、现有
+  `SetControlEnabled`/`SetPumpEnabled`/`SafetyState`/`DomainReadiness` 字段和
+  `joint_state_broadcaster.update_rate=100`；公共契约草案却使用 `alfa_*` 下游临时包的另一套
+  压力、UUID、ErrorInfo schema，并把 `/joint_states` 写成 50 Hz、Motion 写成
+  `/vacuum/state` 消费者、RT-Control 写成 Perception `/tf` 消费者。
+- User decision：域间接口以独立 `robot_interfaces` 契约为唯一事实源，但字段和真空判定以
+  当前 main 的可执行生产者为最终裁决；公共类型统一为 `robot_control_interfaces`、
+  `robot_system_interfaces`。RT-Control 自持独立 `rt_control_interfaces`，只放
+  `PlcIoState`、`RtEnable` 等域内类型。`/joint_states` 契约目标改为 100 Hz；
+  `/vacuum/state` 仅 Autonomy 消费；RT-Control 不消费 Perception `/tf`；`/tf_static`
+  独立登记；删除 `/robot_model/info` 与 `/calibration/info`。
+- Decision：公共契约 `698d520c6eebaa1437f2a03ca7ff95d95ad3a600` 升级为 0.5.0，
+  本仓库公共构建镜像和全部运行时引用同步改用 `robot_*`；
+  私有包改名为 `rt_control_interfaces`。该裁决明确取代 BQ-068 的 50 Hz 公共频率和 BQ-123
+  中“RSP 与 50 Hz JointState 对齐”的部分，不改变 250 Hz 实时控制环。
+- Risk：Humble controller_manager 对 per-controller update rate 使用整数分频；250/100 不是整数，
+  因此“配置为 100 Hz”不自动证明线上实频精确为 100 Hz。公共契约和配置按用户裁决固定 100 Hz，
+  但新 native/Docker 版本仍必须用 `ros2 topic hz /joint_states` 复测；若实频被上游调整，必须另行
+  裁决节流实现，不能静默把契约再改回 50 Hz。
+- Atomic release boundary：公共包名与 schema 都是 wire-breaking。Motion、Perception、Autonomy
+  必须与 RT-Control 使用同一个 `robot_interfaces` SHA；旧 `alfa_*` 与新 `robot_*` 不得混跑。
+
+## BQ-132 — CANopen 总线无报文导致 controller_manager 启动阶段退出 [BLOCKED 2026-08-05]
 
 - Evidence：目标工控机上 native 启动时，`/controller_manager`、`/device_container`、`/master` 和
   `left_track_joint` 曾短暂出现，随后消失。最新 native 日志显示 `left_track_joint` 在 CANopen boot 阶段连续超时：

@@ -441,16 +441,16 @@ class VacuumAdapterCore:
 
 def main(args=None) -> None:
     import rclpy
-    from alfa_control_interfaces.action import VacuumGrip
-    from alfa_control_interfaces.msg import VacuumChannelFeedback, VacuumChannelResult
-    from alfa_control_interfaces.msg import VacuumChannelState, VacuumState
-    from alfa_control_interfaces.srv import SetPumpEnabled
+    from robot_control_interfaces.action import VacuumGrip
+    from robot_control_interfaces.msg import VacuumChannelFeedback, VacuumChannelResult
+    from robot_control_interfaces.msg import VacuumChannelState, VacuumState
+    from robot_control_interfaces.srv import SetPumpEnabled
     from rclpy.action import ActionServer, CancelResponse, GoalResponse
     from rclpy.callback_groups import ReentrantCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
     from rclpy.qos import QoSProfile
-    from robot_interfaces.msg import PlcIoState
+    from rt_control_interfaces.msg import PlcIoState
     from std_srvs.srv import SetBool
 
     class RosVacuumIo:

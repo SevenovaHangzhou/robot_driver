@@ -8,7 +8,7 @@ from typing import Callable
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from robot_interfaces.msg import PlcIoState
+from rt_control_interfaces.msg import PlcIoState
 from std_srvs.srv import SetBool
 
 from plc_node.modbus_tcp import ModbusError, ModbusTcpClient

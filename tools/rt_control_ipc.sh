@@ -68,7 +68,7 @@ call_rt_service()
     pin_controller_update_thread
   fi
   run_ros2_timeout 40 \
-    "ros2 service call /rt/${operation} robot_interfaces/srv/RtEnable '{}'"
+    "ros2 service call /rt/${operation} rt_control_interfaces/srv/RtEnable '{}'"
 }
 
 cleanup_temporary_directory()
@@ -331,9 +331,9 @@ wait_for_enable_service()
     fi
     if [[ "${container_state}" == "running" ]] &&
       run_ros2_timeout 6 'ros2 service type /rt/enable' 2>/dev/null |
-      grep -Fq 'robot_interfaces/srv/RtEnable' &&
+      grep -Fq 'rt_control_interfaces/srv/RtEnable' &&
       run_ros2_timeout 6 'ros2 service type /control/set_enabled' 2>/dev/null |
-      grep -Fq 'alfa_control_interfaces/srv/SetControlEnabled'; then
+      grep -Fq 'robot_control_interfaces/srv/SetControlEnabled'; then
       return
     fi
     sleep 2
