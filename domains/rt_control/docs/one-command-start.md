@@ -3,8 +3,8 @@
 > 仅适用于已经部署好的 `ar@192.168.0.40`。脚本会访问真实 EtherCAT/CANopen，
 > 并自动调用 `/rt/enable`；不能在开发电脑、其他工控机或无现场授权时运行。
 
-> **当前发布候选：** 功能源码 `ff730e3bc51e726f95ffd402c1793b114e41733a`、镜像 ID
-> `sha256:02ef48587b51bd4ab261f56e71c5274e4a95726f04587dd41176fcb08e7f4beb` 已完成干净 Docker
+> **当前发布候选：** 功能源码 `2f8e9a24fdfcf368e3effc3a0fcb30733423e16d`、镜像 ID
+> `sha256:68a4239e7e395cd352f6ed26d9bfe8fceb2209f1e1808f7b28961010f3b19477` 已完成干净 Docker
 > 构建；目标机受控“启动→READY→stop”验证完成后，`~/rt-control-current` 才能作为同事固定入口。
 
 > **T-020 TF 发布边界：** 前序镜像已在目标机完成 TF 只读复核；本发布候选延续

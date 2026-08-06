@@ -11,12 +11,12 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 实机运行源码 | `ff730e3bc51e726f95ffd402c1793b114e41733a` |
+| 实机运行源码 | `2f8e9a24fdfcf368e3effc3a0fcb30733423e16d` |
 | 发布锁 | 本次锁定提交 |
-| 镜像 | `rt-control:ff730e3bc51e726f95ffd402c1793b114e41733a` |
-| 镜像 ID | `sha256:02ef48587b51bd4ab261f56e71c5274e4a95726f04587dd41176fcb08e7f4beb` |
-| 镜像大小 | `549986232 bytes`，约 `524.5 MiB` |
-| 不可变运行副本 | `/home/ar/rt-control-releases/ff730e3bc51e726f95ffd402c1793b114e41733a/robot` |
+| 镜像 | `rt-control:2f8e9a24fdfcf368e3effc3a0fcb30733423e16d` |
+| 镜像 ID | `sha256:68a4239e7e395cd352f6ed26d9bfe8fceb2209f1e1808f7b28961010f3b19477` |
+| 镜像大小 | `550064755 bytes`，约 `524.6 MiB` |
+| 不可变运行副本 | `/home/ar/rt-control-releases/2f8e9a24fdfcf368e3effc3a0fcb30733423e16d/robot` |
 | 固定操作入口 | `/home/ar/rt-control-current` → 发布锁对应操作副本 |
 | 操作系统/内核 | Ubuntu 22.04.5 LTS，`5.15.0-1032-realtime`，PREEMPT_RT |
 | EtherCAT 主站 | IgH stable-1.6，commit `2f7f884f1c7d377c02a7d627eb06512126a0e50e` |
