@@ -88,7 +88,7 @@ Robot Model 的权威源是独立 `robot_description` 仓库；
 
 域间接口的权威事实源是独立 `robot_interfaces` 契约仓库的
 `contract/endpoints.yaml` 和可编译 `robot_*_interfaces` 包。本仓库
-`src/interfaces/robot_control_interfaces`、`robot_system_interfaces` 只是当前 RT-Control
+`src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces` 只是当前 RT-Control
 镜像使用的构建副本，不得先于契约自行修改；同步时必须保持包名、字段、常量和语义一致。
 
 `src/interfaces/rt_control_interfaces` 只保存 RT-Control 域内 msg/srv/action 定义，不得被

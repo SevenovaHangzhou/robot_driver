@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "src/rt_control/plc_node"))
 
 class VacuumAndStatusContractTest(unittest.TestCase):
     def test_vacuum_idl_uses_fixed_channels_and_no_pressure_field(self):
-        interface_root = ROOT / "src/interfaces/robot_control_interfaces"
+        interface_root = ROOT / "src/interfaces/robot_rt_control_interfaces"
         texts = "\n".join(
             (
                 interface_root / "msg/VacuumState.msg"
@@ -63,6 +63,7 @@ class VacuumAndStatusContractTest(unittest.TestCase):
         self.assertTrue(all(channel.data_fresh for channel in channels))
 
     def test_grip_requires_every_selected_channel_attached_before_success(self):
+        from control_api_adapter.public_error import PublicErrorCode
         from control_api_adapter.vacuum_adapter import (
             ATTACHED_VERIFIED,
             GRIP,
@@ -87,7 +88,7 @@ class VacuumAndStatusContractTest(unittest.TestCase):
 
             def set_output(self, output_name, enabled):
                 self.calls.append((output_name, enabled))
-                return PlcCommandResult(True, "")
+                return PlcCommandResult(True, "", PublicErrorCode.SUCCESS)
 
             def read_snapshot(self):
                 return self.snapshot
@@ -118,6 +119,7 @@ class VacuumAndStatusContractTest(unittest.TestCase):
         )
 
     def test_release_does_not_turn_off_common_pump(self):
+        from control_api_adapter.public_error import PublicErrorCode
         from control_api_adapter.vacuum_adapter import (
             RELEASE,
             UNVERIFIED,
@@ -132,7 +134,7 @@ class VacuumAndStatusContractTest(unittest.TestCase):
 
             def set_output(self, output_name, enabled):
                 self.calls.append((output_name, enabled))
-                return PlcCommandResult(True, "")
+                return PlcCommandResult(True, "", PublicErrorCode.SUCCESS)
 
             def read_snapshot(self):
                 return PlcVacuumSnapshot(
@@ -159,6 +161,7 @@ class VacuumAndStatusContractTest(unittest.TestCase):
         self.assertEqual(io.calls, [("left", False)])
 
     def test_unknown_grip_profile_is_rejected_without_plc_writes(self):
+        from control_api_adapter.public_error import PublicErrorCode
         from control_api_adapter.vacuum_adapter import (
             GRIP,
             PlcCommandResult,
@@ -172,7 +175,7 @@ class VacuumAndStatusContractTest(unittest.TestCase):
 
             def set_output(self, output_name, enabled):
                 self.calls.append((output_name, enabled))
-                return PlcCommandResult(True, "")
+                return PlcCommandResult(True, "", PublicErrorCode.SUCCESS)
 
             def read_snapshot(self):
                 return PlcVacuumSnapshot(
@@ -194,14 +197,16 @@ class VacuumAndStatusContractTest(unittest.TestCase):
 
         self.assertFalse(result.succeeded)
         self.assertFalse(result.accepted)
-        self.assertIn("unsupported grip_profile_id", result.error)
+        self.assertEqual(result.error.code, PublicErrorCode.INVALID_GOAL)
+        self.assertFalse(result.error.retryable)
+        self.assertIn("unsupported grip_profile_id", result.error.message)
         self.assertEqual(io.calls, [])
 
     def test_pump_disable_rejects_possible_load_held(self):
+        from control_api_adapter.public_error import PublicErrorCode
         from control_api_adapter.vacuum_adapter import (
             VacuumAdapterCore,
             PlcVacuumSnapshot,
-            PumpErrorCode,
         )
 
         class FakeVacuumIo:
@@ -230,8 +235,9 @@ class VacuumAndStatusContractTest(unittest.TestCase):
         result = VacuumAdapterCore(FakeVacuumIo()).set_pump_enabled(False, "maintenance")
 
         self.assertFalse(result.accepted)
-        self.assertEqual(result.error_code, PumpErrorCode.POSSIBLE_LOAD_HELD)
-        self.assertIn("possible load", result.message)
+        self.assertEqual(result.error.code, PublicErrorCode.RT_POSSIBLE_LOAD_HELD)
+        self.assertFalse(result.error.retryable)
+        self.assertIn("possible load", result.error.message)
 
     def test_safety_summary_uses_approved_sources(self):
         from control_api_adapter.status_adapter import (

@@ -1,21 +1,16 @@
 from __future__ import annotations
 
-import enum
 import threading
 import time
 from dataclasses import dataclass
 from typing import Protocol
 
-
-class ErrorCode(enum.IntEnum):
-    OK = 0
-    RT_SERVICE_UNAVAILABLE = 1
-    ENABLE_MANAGER_NOT_READY = 2
-    RESET_FAILED = 3
-    ENABLE_FAILED = 4
-    DISABLE_FAILED = 5
-    OPERATION_IN_PROGRESS = 6
-    RESTART_REQUIRED = 7
+from .public_error import (
+    ErrorInfoData,
+    PublicErrorCode,
+    assign_error_info,
+    error_info,
+)
 
 
 @dataclass(frozen=True)
@@ -77,8 +72,7 @@ class DiagnosticSnapshot:
 class SetEnabledResult:
     accepted: bool
     enabled: bool
-    error_code: ErrorCode
-    message: str
+    error: ErrorInfoData
 
 
 class RtServices(Protocol):
@@ -125,29 +119,51 @@ class ControlEnableAdapterCore:
         try:
             result = self._rt_services.call("disable")
         except RtServiceUnavailable as exc:
-            return SetEnabledResult(False, False, ErrorCode.RT_SERVICE_UNAVAILABLE, str(exc))
+            return SetEnabledResult(
+                False,
+                False,
+                error_info(PublicErrorCode.RT_SERVICE_UNAVAILABLE, str(exc)),
+            )
 
         if result.ok and result.stage in self._DISABLE_SUCCESS_STAGES:
-            return SetEnabledResult(True, False, ErrorCode.OK, f"/rt/disable accepted: {result.summary()}")
+            return SetEnabledResult(
+                True,
+                False,
+                error_info(
+                    PublicErrorCode.SUCCESS,
+                    f"/rt/disable accepted: {result.summary()}",
+                ),
+            )
         return SetEnabledResult(
             False,
             False,
-            self._error_code_for_stage(result.stage, ErrorCode.DISABLE_FAILED),
-            f"/rt/disable rejected: {result.summary()}",
+            error_info(
+                self._error_code_for_stage(
+                    result.stage, PublicErrorCode.RT_DISABLE_FAILED
+                ),
+                f"/rt/disable rejected: {result.summary()}",
+            ),
         )
 
     def _enable_with_one_recovery_attempt(self) -> SetEnabledResult:
         try:
             snapshot = self._diagnostics.wait_for_reset_ready()
         except TimeoutError as exc:
-            return SetEnabledResult(False, False, ErrorCode.ENABLE_MANAGER_NOT_READY, str(exc))
+            return SetEnabledResult(
+                False,
+                False,
+                error_info(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY, str(exc)),
+            )
 
         if snapshot.restart_required:
             return SetEnabledResult(
                 False,
                 False,
-                ErrorCode.RESTART_REQUIRED,
-                f"enable_manager requires restart/power-cycle before enable: {snapshot.summary()}",
+                error_info(
+                    PublicErrorCode.RT_RESTART_REQUIRED,
+                    "enable_manager requires restart/power-cycle before enable: "
+                    f"{snapshot.summary()}",
+                ),
             )
 
         if snapshot.resettable_fault:
@@ -158,43 +174,63 @@ class ControlEnableAdapterCore:
         try:
             enable_result = self._rt_services.call("enable")
         except RtServiceUnavailable as exc:
-            return SetEnabledResult(False, False, ErrorCode.RT_SERVICE_UNAVAILABLE, str(exc))
+            return SetEnabledResult(
+                False,
+                False,
+                error_info(PublicErrorCode.RT_SERVICE_UNAVAILABLE, str(exc)),
+            )
 
         if enable_result.ok and enable_result.stage in self._ENABLE_SUCCESS_STAGES:
             return SetEnabledResult(
                 True,
                 True,
-                ErrorCode.OK,
-                f"/rt/enable accepted: {enable_result.summary()}",
+                error_info(
+                    PublicErrorCode.SUCCESS,
+                    f"/rt/enable accepted: {enable_result.summary()}",
+                ),
             )
         return SetEnabledResult(
             False,
             False,
-            self._error_code_for_stage(enable_result.stage, ErrorCode.ENABLE_FAILED),
-            f"/rt/enable rejected: {enable_result.summary()}",
+            error_info(
+                self._error_code_for_stage(
+                    enable_result.stage, PublicErrorCode.RT_ENABLE_FAILED
+                ),
+                f"/rt/enable rejected: {enable_result.summary()}",
+            ),
         )
 
     def _call_reset_fault(self) -> SetEnabledResult | None:
         try:
             reset_result = self._rt_services.call("reset_fault")
         except RtServiceUnavailable as exc:
-            return SetEnabledResult(False, False, ErrorCode.RT_SERVICE_UNAVAILABLE, str(exc))
+            return SetEnabledResult(
+                False,
+                False,
+                error_info(PublicErrorCode.RT_SERVICE_UNAVAILABLE, str(exc)),
+            )
 
         if reset_result.ok and reset_result.stage in self._RESET_SUCCESS_STAGES:
             return None
         return SetEnabledResult(
             False,
             False,
-            self._error_code_for_stage(reset_result.stage, ErrorCode.RESET_FAILED),
-            f"/rt/reset_fault could not clear fault: {reset_result.summary()}",
+            error_info(
+                self._error_code_for_stage(
+                    reset_result.stage, PublicErrorCode.RT_RESET_FAILED
+                ),
+                f"/rt/reset_fault could not clear fault: {reset_result.summary()}",
+            ),
         )
 
     @staticmethod
-    def _error_code_for_stage(stage: str, fallback: ErrorCode) -> ErrorCode:
+    def _error_code_for_stage(
+        stage: str, fallback: PublicErrorCode
+    ) -> PublicErrorCode:
         if stage == "operation_in_progress":
-            return ErrorCode.OPERATION_IN_PROGRESS
+            return PublicErrorCode.RT_OPERATION_IN_PROGRESS
         if stage == "restart_required":
-            return ErrorCode.RESTART_REQUIRED
+            return PublicErrorCode.RT_RESTART_REQUIRED
         return fallback
 
 
@@ -219,7 +255,7 @@ def _snapshot_from_status(status) -> DiagnosticSnapshot:
 
 def main(args=None) -> None:
     import rclpy
-    from robot_control_interfaces.srv import SetControlEnabled
+    from robot_rt_control_interfaces.srv import SetControlEnabled
     from diagnostic_msgs.msg import DiagnosticArray
     from rclpy.callback_groups import ReentrantCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
@@ -331,12 +367,11 @@ def main(args=None) -> None:
             result = self._core.set_enabled(bool(request.enabled), str(request.reason))
             response.accepted = result.accepted
             response.enabled = result.enabled
-            response.error_code = int(result.error_code)
-            response.message = result.message
+            assign_error_info(response.error, result.error)
             if result.accepted:
-                self.get_logger().info(result.message)
+                self.get_logger().info(result.error.message)
             else:
-                self.get_logger().error(result.message)
+                self.get_logger().error(result.error.message)
             return response
 
     rclpy.init(args=args)

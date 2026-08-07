@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>robot_control_interfaces</name>
-  <version>0.5.0</version>
+  <name>robot_rt_control_interfaces</name>
+  <version>0.6.0</version>
   <description>
     RT-Control 域边界接口：使能、真空、安全状态。
     对应 R-IN-03、R-IN-04、R-IN-05、R-OUT-05、R-OUT-06。
@@ -13,6 +13,7 @@
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
   <depend>std_msgs</depend>
+  <depend>robot_system_interfaces</depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
   <member_of_group>rosidl_interface_packages</member_of_group>
 

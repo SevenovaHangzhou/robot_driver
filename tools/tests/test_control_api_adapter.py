@@ -8,10 +8,10 @@ sys.path.insert(0, str(ROOT / "src/rt_control/control_api_adapter"))
 from control_api_adapter.control_enable_adapter import (
     ControlEnableAdapterCore,
     DiagnosticSnapshot,
-    ErrorCode,
     RtServiceUnavailable,
     RtServiceResult,
 )
+from control_api_adapter.public_error import PublicErrorCode
 
 
 class FakeRtServices:
@@ -49,7 +49,8 @@ class ControlEnableAdapterTest(unittest.TestCase):
         self.assertEqual(services.calls, ["disable"])
         self.assertTrue(result.accepted)
         self.assertFalse(result.enabled)
-        self.assertEqual(result.error_code, ErrorCode.OK)
+        self.assertEqual(result.error.code, PublicErrorCode.SUCCESS)
+        self.assertFalse(result.error.retryable)
 
     def test_enable_resets_resettable_fault_before_enable(self):
         services = FakeRtServices(
@@ -68,7 +69,7 @@ class ControlEnableAdapterTest(unittest.TestCase):
         self.assertEqual(services.calls, ["reset_fault", "enable"])
         self.assertTrue(result.accepted)
         self.assertTrue(result.enabled)
-        self.assertEqual(result.error_code, ErrorCode.OK)
+        self.assertEqual(result.error.code, PublicErrorCode.SUCCESS)
 
     def test_enable_without_fault_calls_enable_directly(self):
         services = FakeRtServices(
@@ -82,7 +83,7 @@ class ControlEnableAdapterTest(unittest.TestCase):
         self.assertEqual(services.calls, ["enable"])
         self.assertTrue(result.accepted)
         self.assertTrue(result.enabled)
-        self.assertEqual(result.error_code, ErrorCode.OK)
+        self.assertEqual(result.error.code, PublicErrorCode.SUCCESS)
 
     def test_enable_rejects_restart_required_without_reset(self):
         services = FakeRtServices({})
@@ -96,8 +97,9 @@ class ControlEnableAdapterTest(unittest.TestCase):
         self.assertEqual(services.calls, [])
         self.assertFalse(result.accepted)
         self.assertFalse(result.enabled)
-        self.assertEqual(result.error_code, ErrorCode.RESTART_REQUIRED)
-        self.assertIn("power-cycle", result.message)
+        self.assertEqual(result.error.code, PublicErrorCode.RT_RESTART_REQUIRED)
+        self.assertFalse(result.error.retryable)
+        self.assertIn("power-cycle", result.error.message)
 
     def test_enable_stops_if_resettable_fault_does_not_clear(self):
         services = FakeRtServices(
@@ -113,8 +115,9 @@ class ControlEnableAdapterTest(unittest.TestCase):
         self.assertEqual(services.calls, ["reset_fault"])
         self.assertFalse(result.accepted)
         self.assertFalse(result.enabled)
-        self.assertEqual(result.error_code, ErrorCode.RESET_FAILED)
-        self.assertIn("fault_detected", result.message)
+        self.assertEqual(result.error.code, PublicErrorCode.RT_RESET_FAILED)
+        self.assertFalse(result.error.retryable)
+        self.assertIn("fault_detected", result.error.message)
 
     def test_enable_reports_internal_service_unavailable(self):
         services = FakeRtServices({"enable": RtServiceUnavailable("/rt/enable timed out")})
@@ -125,8 +128,10 @@ class ControlEnableAdapterTest(unittest.TestCase):
 
         self.assertEqual(services.calls, ["enable"])
         self.assertFalse(result.accepted)
-        self.assertEqual(result.error_code, ErrorCode.RT_SERVICE_UNAVAILABLE)
-        self.assertIn("/rt/enable timed out", result.message)
+        self.assertEqual(result.error.code, PublicErrorCode.RT_SERVICE_UNAVAILABLE)
+        self.assertTrue(result.error.retryable)
+        self.assertEqual(result.error.origin, "rt_control")
+        self.assertIn("/rt/enable timed out", result.error.message)
 
 
 if __name__ == "__main__":

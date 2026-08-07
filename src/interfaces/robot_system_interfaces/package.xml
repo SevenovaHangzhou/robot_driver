@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="3">
   <name>robot_system_interfaces</name>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
   <description>
     跨域公共基础类型：域就绪心跳与统一错误载荷。
     仅收录 contract/endpoints.yaml 登记的域间类型。

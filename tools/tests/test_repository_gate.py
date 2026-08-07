@@ -138,13 +138,13 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
         )
         self.assertEqual(
             repository_gate.check_interface_path(
-                "src/interfaces/robot_control_interfaces/srv/SetControlEnabled.srv"
+                "src/interfaces/robot_rt_control_interfaces/srv/SetControlEnabled.srv"
             ),
             [],
         )
         self.assert_has(
             repository_gate.check_interface_path(
-                "src/interfaces/robot_control_interfaces/scripts/adapter.py"
+                "src/interfaces/robot_rt_control_interfaces/scripts/adapter.py"
             ),
             "interface package must not contain business implementation",
         )

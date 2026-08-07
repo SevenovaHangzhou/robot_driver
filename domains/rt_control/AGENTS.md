@@ -31,7 +31,7 @@
 ### 3.1 目录职责
 
 - `src/description/robot_description`：平台级机器人权威模型源，只保存机器人固有的运动学、几何、惯量、碰撞模型、坐标系和 mesh。
-- `src/interfaces/robot_control_interfaces`、`robot_system_interfaces`：公共
+- `src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces`：公共
   `robot_interfaces` 契约仓库的 RT-Control 构建镜像，只能从权威契约同步。
 - `src/interfaces/rt_control_interfaces`：RT-Control 域内接口，只保存
   `PlcIoState`、`RtEnable` 等本域 `msg/srv/action`，其他域不得依赖。
@@ -204,7 +204,7 @@ python3 tools/repository_gate.py
 ```bash
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install --packages-up-to \
-  robot_control_interfaces robot_system_interfaces rt_control_interfaces \
+  robot_rt_control_interfaces robot_system_interfaces rt_control_interfaces \
   control_api_adapter plc_node enable_manager rt_control_bringup
 rg -n "<changed-interface-or-field>" src docker tools docs
 ```

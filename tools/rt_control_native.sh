@@ -390,7 +390,7 @@ wait_for_enable_service()
     if run_ros2_timeout 3 ros2 service type /rt/enable 2>/dev/null |
       grep -Fq 'rt_control_interfaces/srv/RtEnable' &&
       run_ros2_timeout 3 ros2 service type /control/set_enabled 2>/dev/null |
-      grep -Fq 'robot_control_interfaces/srv/SetControlEnabled'; then
+      grep -Fq 'robot_rt_control_interfaces/srv/SetControlEnabled'; then
       return 0
     fi
     sleep 1
@@ -956,7 +956,7 @@ doctor_native()
   source_runtime_environment
   runtime_env ros2 pkg prefix rt_control_bringup >/dev/null
   runtime_env ros2 pkg prefix enable_manager >/dev/null
-  runtime_env ros2 pkg prefix robot_control_interfaces >/dev/null
+  runtime_env ros2 pkg prefix robot_rt_control_interfaces >/dev/null
   runtime_env ros2 pkg prefix control_api_adapter >/dev/null
   info "PASS: native runtime is installed for Domain ${expected_ros_domain_id} with Fast DDS default transports"
 }

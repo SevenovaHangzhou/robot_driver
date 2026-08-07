@@ -1,6 +1,6 @@
 # RT-Control 域间接口实现视图
 
-> 对齐公共契约：`robot_interfaces` 0.5.0 @ `698d520c6eebaa1437f2a03ca7ff95d95ad3a600`
+> 对齐公共契约：`robot_interfaces` 0.6.0 @ `e19d1450339d6bce598f664eb18fb093e02097ff`
 > 适用实现：`robot_driver main`
 > 状态：RT-Control 下游实现说明，不是第二份域间事实源
 
@@ -10,7 +10,7 @@
 [`robot_interfaces`](https://github.com/SevenovaHangzhou/robot_interfaces) 仓库的
 `contract/endpoints.yaml`。本仓库只实现 RT-Control，并保存两类接口包：
 
-- `src/interfaces/robot_control_interfaces`、`robot_system_interfaces`：公共契约 0.5.0
+- `src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces`：公共契约 0.6.0
   的构建镜像，字段和常量不得在本仓库单独修改；
 - `src/interfaces/rt_control_interfaces`：仅供 RT-Control 域内使用，其他域不得依赖。
 
@@ -23,9 +23,9 @@
 | --- | --- | --- | --- | --- |
 | R-IN-01 | `/cmd_vel_safe` | Topic / `geometry_msgs/msg/Twist` | Motion | 唯一生产者；20～50 Hz；只使用 `linear.x`、`angular.z`；本地接收超时 0.5 s 后停车 |
 | R-IN-02 | `/whole_body_jtc/follow_joint_trajectory` | Action / `control_msgs/action/FollowJointTrajectory` | Motion | 完整且唯一的 14 个机械轴；`allow_partial_joints_goal=false`；整组取消 |
-| R-IN-03 | `/control/set_enabled` | Service / `robot_control_interfaces/srv/SetControlEnabled` | 维护/生命周期工具 | `enabled=true` 等待 enable manager 就绪，必要时只自动复位一次，再调用 `/rt/enable`；`enabled=false` 只调用 `/rt/disable` |
-| R-IN-04 | `/vacuum/pump/set_enabled` | Service / `robot_control_interfaces/srv/SetPumpEnabled` | 维护工具或 RT 内部管理器 | 活动真空命令、状态不新鲜、阀仍开或可能持箱时拒绝普通停泵 |
-| R-IN-05 | `/vacuum/grip` | Action / `robot_control_interfaces/action/VacuumGrip` | Motion | 通道固定 `left/right`；当前只接受 `grip_profile_id=default`；GRIP 要求每通道新鲜 `attached=true`；RELEASE 保持 `UNVERIFIED` |
+| R-IN-03 | `/control/set_enabled` | Service / `robot_rt_control_interfaces/srv/SetControlEnabled` | 维护/生命周期工具 | `enabled=true` 等待 enable manager 就绪，必要时只自动复位一次，再调用 `/rt/enable`；`enabled=false` 只调用 `/rt/disable` |
+| R-IN-04 | `/vacuum/pump/set_enabled` | Service / `robot_rt_control_interfaces/srv/SetPumpEnabled` | 维护工具或 RT 内部管理器 | 活动真空命令、状态不新鲜、阀仍开或可能持箱时拒绝普通停泵 |
+| R-IN-05 | `/vacuum/grip` | Action / `robot_rt_control_interfaces/action/VacuumGrip` | Motion | 通道固定 `left/right`；当前只接受 `grip_profile_id=default`；GRIP 要求每通道新鲜 `attached=true`；RELEASE 保持 `UNVERIFIED` |
 
 Autonomy 不得直接调用以上五个控制入口。外部任务必须经过 Autonomy 和 Motion，不得绕过
 任务与运动域直达 RT-Control。
@@ -39,8 +39,8 @@ Autonomy 不得直接调用以上五个控制入口。外部任务必须经过 A
 | R-OUT-02 | `/wheel/odom` | Topic / `nav_msgs/msg/Odometry` | Perception | 50 Hz；`frame_id=odom`、`child_frame_id=base_footprint`；不作为最终到站或停稳证据 |
 | R-OUT-03 | `/joint_states` | Topic / `sensor_msgs/msg/JointState` | Motion、Perception、Autonomy | 100 Hz；只含 14 个 EtherCAT 机械轴；仅 position；不含履带控制关节 |
 | R-OUT-04 | `/battery_state` | Topic / `sensor_msgs/msg/BatteryState` | Autonomy | 5 s 周期；只读；一键 native 与 Docker 默认启动 BMS 节点 |
-| R-OUT-05 | `/vacuum/state` | Topic / `robot_control_interfaces/msg/VacuumState` | Autonomy | 20 Hz；`left/right` 离散 `attached` 状态；Motion 不订阅，其他域不得自行重算 GRIP 成功 |
-| R-OUT-06 | `/control/safety_state` | Topic / `robot_control_interfaces/msg/SafetyState` | Perception、Motion、Autonomy | 10 Hz；最大年龄 200 ms；软件可观测摘要，不代表急停、安全继电器或 STO 的真实状态 |
+| R-OUT-05 | `/vacuum/state` | Topic / `robot_rt_control_interfaces/msg/VacuumState` | Autonomy | 20 Hz；`left/right` 离散 `attached` 状态；Motion 不订阅，其他域不得自行重算 GRIP 成功 |
+| R-OUT-06 | `/control/safety_state` | Topic / `robot_rt_control_interfaces/msg/SafetyState` | Perception、Motion、Autonomy | 10 Hz；最大年龄 200 ms；软件可观测摘要，不代表急停、安全继电器或 STO 的真实状态 |
 | R-OUT-09 | `/rt_control/readiness` | Topic / `robot_system_interfaces/msg/DomainReadiness` | Autonomy | transient-local；状态变化立即发布，稳定时 1 Hz |
 | R-OUT-10 | `/diagnostics` | Topic / `diagnostic_msgs/msg/DiagnosticArray` | 诊断工具 | 只作诊断，不替代 Action Result、SafetyState、readiness 或硬安全链证据 |
 
@@ -52,9 +52,15 @@ RT-Control 不订阅 Perception 发布的 `map→odom` `/tf`。本域运行 `rob
 ### 4.1 使能与真空服务
 
 - `SetControlEnabled.Request`：`enabled`、`reason`；Response：`accepted`、`enabled`、
-  `error_code`、`message`，错误码范围由该 service 定义。
+  `robot_system_interfaces/ErrorInfo error`。
 - `SetPumpEnabled.Request`：`enabled`、`reason`；Response：`accepted`、`enabled`、
-  `error_code`、`message`。公共接口没有绕过持箱保护的 `force` 字段。
+  `robot_system_interfaces/ErrorInfo error`。公共接口没有绕过持箱保护的 `force` 字段。
+- `VacuumGrip.Result`：`accepted`、`overall_verification_level`、
+  `robot_system_interfaces/ErrorInfo error`、`channel_results`。
+- 三个入口的成功结果必须返回 `error.code=SUCCESS` 且 `retryable=false`；失败的恢复性
+  只由 `ErrorInfo.retryable` 表达，消费方不得解析 `code` 或 `message` 控制流程。
+- 结构化错误只在非实时 `control_api_adapter` 中从域内结果映射；不改变
+  `enable_manager`、PLC 输出服务或 250 Hz 控制环的内部接口。
 
 ### 4.2 真空 Action 与状态
 
@@ -129,7 +135,7 @@ Robot Model 与标定版本一致性改由发布清单固定同一 `robot_descri
 - 控制器频率、14轴集合和速度看门狗：`src/rt_control/rt_control_bringup/config/controllers.yaml`
 - PLC/BMS、真空、安全和 readiness 周期：`src/rt_control/rt_control_bringup/config/rt_io.yaml`
 - 公共适配器：`src/rt_control/control_api_adapter`
-- 公共 IDL 构建镜像：`src/interfaces/robot_control_interfaces`、
+- 公共 IDL 构建镜像：`src/interfaces/robot_rt_control_interfaces`、
   `src/interfaces/robot_system_interfaces`
 - 域内 IDL：`src/interfaces/rt_control_interfaces`
 

@@ -7,10 +7,10 @@ sys.path.insert(0, str(PACKAGE_ROOT))
 from control_api_adapter.control_enable_adapter import (  # noqa: E402
     ControlEnableAdapterCore,
     DiagnosticSnapshot,
-    ErrorCode,
     RtServiceUnavailable,
     RtServiceResult,
 )
+from control_api_adapter.public_error import PublicErrorCode  # noqa: E402
 
 
 class FakeRtServices:
@@ -45,7 +45,8 @@ def test_disable_only_calls_rt_disable():
     assert services.calls == ["disable"]
     assert result.accepted
     assert not result.enabled
-    assert result.error_code == ErrorCode.OK
+    assert result.error.code == PublicErrorCode.SUCCESS
+    assert not result.error.retryable
 
 
 def test_enable_resets_resettable_fault_before_enable():
@@ -65,7 +66,7 @@ def test_enable_resets_resettable_fault_before_enable():
     assert services.calls == ["reset_fault", "enable"]
     assert result.accepted
     assert result.enabled
-    assert result.error_code == ErrorCode.OK
+    assert result.error.code == PublicErrorCode.SUCCESS
 
 
 def test_enable_without_fault_calls_enable_directly():
@@ -78,7 +79,7 @@ def test_enable_without_fault_calls_enable_directly():
     assert services.calls == ["enable"]
     assert result.accepted
     assert result.enabled
-    assert result.error_code == ErrorCode.OK
+    assert result.error.code == PublicErrorCode.SUCCESS
 
 
 def test_enable_rejects_restart_required_without_reset():
@@ -91,8 +92,9 @@ def test_enable_rejects_restart_required_without_reset():
     assert services.calls == []
     assert not result.accepted
     assert not result.enabled
-    assert result.error_code == ErrorCode.RESTART_REQUIRED
-    assert "power-cycle" in result.message
+    assert result.error.code == PublicErrorCode.RT_RESTART_REQUIRED
+    assert not result.error.retryable
+    assert "power-cycle" in result.error.message
 
 
 def test_enable_stops_if_resettable_fault_does_not_clear():
@@ -109,8 +111,9 @@ def test_enable_stops_if_resettable_fault_does_not_clear():
     assert services.calls == ["reset_fault"]
     assert not result.accepted
     assert not result.enabled
-    assert result.error_code == ErrorCode.RESET_FAILED
-    assert "fault_detected" in result.message
+    assert result.error.code == PublicErrorCode.RT_RESET_FAILED
+    assert not result.error.retryable
+    assert "fault_detected" in result.error.message
 
 
 def test_enable_reports_internal_service_unavailable():
@@ -122,5 +125,7 @@ def test_enable_reports_internal_service_unavailable():
 
     assert services.calls == ["enable"]
     assert not result.accepted
-    assert result.error_code == ErrorCode.RT_SERVICE_UNAVAILABLE
-    assert "/rt/enable timed out" in result.message
+    assert result.error.code == PublicErrorCode.RT_SERVICE_UNAVAILABLE
+    assert result.error.retryable
+    assert result.error.origin == "rt_control"
+    assert "/rt/enable timed out" in result.error.message

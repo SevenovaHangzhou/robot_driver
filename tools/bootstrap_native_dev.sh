@@ -14,7 +14,7 @@ readonly repository_root workspace_root dependency_manifest
 readonly build_base install_base log_base vendor_root
 
 readonly -a runtime_packages=(
-  robot_control_interfaces
+  robot_rt_control_interfaces
   robot_system_interfaces
   bms_node
   canopen_master_driver
