@@ -27,8 +27,8 @@ RT-Control 不负责：
 
 ## 接口所有权
 
-- `src/interfaces/robot_control_interfaces`、`robot_system_interfaces`：公共契约
-  0.5.0 的构建镜像，来源由 `src/interfaces/source-lock.yaml` 固定；不得在本仓库
+- `src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces`：公共契约
+  0.6.0 的构建镜像，来源由 `src/interfaces/source-lock.yaml` 固定；不得在本仓库
   独立改 schema。
 - `src/interfaces/rt_control_interfaces`：仅供 RT-Control 域内使用的
   `PlcIoState`、`RtEnable` 等 msg/srv。

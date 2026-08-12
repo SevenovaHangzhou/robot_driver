@@ -2266,3 +2266,24 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   终端、适配器或设备启动顺序，而不是修改使能状态机。
 - Verification boundary：本记录不授权发送 NMT、SDO、reset、enable、FJT、`/cmd_vel_safe`、PLC 输出或真空动作；
   在 CAN 报文恢复前，只允许做接口配置、只读链路状态和被动抓包检查。
+
+## BQ-133 — RT-Control 公共错误载荷统一为 ErrorInfo [RESOLVED/HIGH-RISK 2026-08-07]
+
+- Evidence：BQ-131 固定的 `robot_driver main` 实现将三个公共入口分别表达为 service 专用
+  `uint16 error_code + string message` 和 Action 字符串错误；工作区公共契约已在
+  `robot_interfaces@e19d1450339d6bce598f664eb18fb093e02097ff` 收敛为 0.6.0，并把提供方包改名为
+  `robot_rt_control_interfaces`。`SetControlEnabled.Response`、`SetPumpEnabled.Response` 和
+  `VacuumGrip.Result` 的顶层失败载荷均为 `robot_system_interfaces/ErrorInfo`。
+- User decision：正式采用当前接口工作区的统一 `ErrorInfo`，同步修改 `robot_driver` 实现和
+  CHANGELOG；不继续保留三套公共错误表达。
+- Decision：本仓库镜像锁定契约 `e19d1450339d6bce598f664eb18fb093e02097ff`。三个入口统一填写
+  `ErrorInfo.code/retryable/message/origin`，`origin=rt_control`；成功为 `SUCCESS` 且
+  `retryable=false`。DREE 错误码只用于诊断，调用方控制流程只允许读取 `retryable`。
+  域内 `/rt/*`、PLC `SetBool` 和执行状态保持原类型，由非实时 `control_api_adapter` 做单向映射，
+  不把公共类型引入 250 Hz 控制环。
+- Supersedes：本裁决取代 BQ-131 中 `robot_control_interfaces` 包名以及 service 专用/字符串错误载荷
+  的结论；BQ-131 对真实 PLC 离散 IO、`SafetyState`/`DomainReadiness` 可生产字段、100 Hz
+  `/joint_states`、Autonomy-only `/vacuum/state`、无 Perception TF 输入和独立 `/tf_static` 的裁决继续有效。
+- Atomic release boundary：包名和三个结果 schema 都是 wire-breaking。RT-Control、Motion、Autonomy
+  及其他调用工具必须锁定同一 `robot_interfaces` SHA 后原子发布；旧包与 0.6.0 不得混跑。
+  本地源码/构建测试不能证明跨容器联合运行，也不授权总线访问、reset、enable、运动或 PLC 输出。

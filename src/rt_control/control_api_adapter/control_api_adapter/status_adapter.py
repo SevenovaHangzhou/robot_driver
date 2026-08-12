@@ -181,7 +181,7 @@ def build_safety_summary(
 
 def main(args=None) -> None:
     import rclpy
-    from robot_control_interfaces.msg import SafetyState
+    from robot_rt_control_interfaces.msg import SafetyState
     from robot_system_interfaces.msg import DomainReadiness
     from diagnostic_msgs.msg import DiagnosticArray
     from rclpy.callback_groups import ReentrantCallbackGroup

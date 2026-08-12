@@ -1,5 +1,7 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
+import re
+import sys
 
 import yaml
 
@@ -7,18 +9,21 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 BRINGUP = ROOT / "src/rt_control/rt_control_bringup"
 HOSTSETUP = ROOT / "hostsetup"
+sys.path.insert(0, str(ROOT / "src/rt_control/control_api_adapter"))
+
+from control_api_adapter.public_error import PublicErrorCode
 
 
 def test_public_and_private_interface_packages_have_distinct_ownership() -> None:
     interface_root = ROOT / "src/interfaces"
-    public_packages = ("robot_control_interfaces", "robot_system_interfaces")
+    public_packages = ("robot_rt_control_interfaces", "robot_system_interfaces")
     source_lock = yaml.safe_load((interface_root / "source-lock.yaml").read_text())
 
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "698d520c6eebaa1437f2a03ca7ff95d95ad3a600",
-        "contract_version": "0.5.0",
+        "commit": "e19d1450339d6bce598f664eb18fb093e02097ff",
+        "contract_version": "0.6.0",
         "mirrored_packages": list(public_packages),
     }
 
@@ -29,7 +34,7 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     for package_name in public_packages:
         manifest = ET.parse(interface_root / package_name / "package.xml").getroot()
         assert manifest.findtext("name") == package_name
-        assert manifest.findtext("version") == "0.5.0"
+        assert manifest.findtext("version") == "0.6.0"
 
     private_manifest = ET.parse(
         interface_root / "rt_control_interfaces/package.xml"
@@ -135,14 +140,55 @@ def test_public_control_enable_adapter_is_started_with_rt_control() -> None:
     bringup_manifest = (BRINGUP / "package.xml").read_text()
     interface_srv = (
         ROOT
-        / "src/interfaces/robot_control_interfaces/srv/SetControlEnabled.srv"
+        / "src/interfaces/robot_rt_control_interfaces/srv/SetControlEnabled.srv"
     ).read_text()
 
     assert 'package="control_api_adapter"' in launch_text
     assert 'executable="control_enable_adapter"' in launch_text
     assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
-    assert "bool enabled\nstring reason\n---" in interface_srv
-    assert "bool accepted\nbool enabled\nuint16 error_code\nstring message" in interface_srv
+    interface_fields = [
+        line.strip()
+        for line in interface_srv.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    assert interface_fields == [
+        "bool enabled",
+        "string reason",
+        "---",
+        "bool accepted",
+        "bool enabled",
+        "robot_system_interfaces/ErrorInfo error",
+    ]
+
+
+def test_all_public_rt_command_results_use_error_info() -> None:
+    interface_root = ROOT / "src/interfaces/robot_rt_control_interfaces"
+    for relative_path in (
+        "srv/SetControlEnabled.srv",
+        "srv/SetPumpEnabled.srv",
+        "action/VacuumGrip.action",
+    ):
+        interface_text = (interface_root / relative_path).read_text()
+        assert interface_text.count("robot_system_interfaces/ErrorInfo error") == 1
+        assert "uint16 error_code" not in interface_text
+
+
+def test_public_error_mapping_matches_contract_constants() -> None:
+    error_code_idl = (
+        ROOT / "src/interfaces/robot_system_interfaces/msg/ErrorCode.msg"
+    ).read_text()
+    contract_constants = {
+        name: int(value)
+        for name, value in re.findall(
+            r"^uint32\s+([A-Z][A-Z0-9_]*)=(\d+)\s*$",
+            error_code_idl,
+            flags=re.MULTILINE,
+        )
+    }
+
+    assert {
+        item.name: int(item.value) for item in PublicErrorCode
+    }.items() <= contract_constants.items()
 
 
 def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
@@ -185,10 +231,10 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
-    assert "      robot_control_interfaces \\\n" in dockerfile
+    assert "      robot_rt_control_interfaces \\\n" in dockerfile
     assert "      robot_system_interfaces \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
-    assert "\n  robot_control_interfaces\n" in bootstrap
+    assert "\n  robot_rt_control_interfaces\n" in bootstrap
     assert "\n  robot_system_interfaces\n" in bootstrap
     assert "\n  control_api_adapter\n" in bootstrap
 
@@ -233,7 +279,7 @@ def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
 def test_docker_build_contains_only_the_two_required_io_packages() -> None:
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
 
-    assert "      robot_control_interfaces \\\n" in dockerfile
+    assert "      robot_rt_control_interfaces \\\n" in dockerfile
     assert "      bms_node \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
     assert "      plc_node \\\n" in dockerfile

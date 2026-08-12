@@ -12,10 +12,10 @@ from control_api_adapter.vacuum_adapter import (  # noqa: E402
     UNVERIFIED,
     PlcCommandResult,
     PlcVacuumSnapshot,
-    PumpErrorCode,
     VacuumAdapterCore,
     build_vacuum_channel_states,
 )
+from control_api_adapter.public_error import PublicErrorCode  # noqa: E402
 
 
 class FakeVacuumIo:
@@ -25,7 +25,7 @@ class FakeVacuumIo:
 
     def set_output(self, output_name: str, enabled: bool) -> PlcCommandResult:
         self.calls.append((output_name, enabled))
-        return PlcCommandResult(True, "")
+        return PlcCommandResult(True, "", PublicErrorCode.SUCCESS)
 
     def read_snapshot(self) -> PlcVacuumSnapshot:
         return self.snapshot
@@ -115,7 +115,9 @@ def test_unknown_grip_profile_is_rejected_without_plc_writes() -> None:
 
     assert not result.succeeded
     assert not result.accepted
-    assert "unsupported grip_profile_id" in result.error
+    assert result.error.code == PublicErrorCode.INVALID_GOAL
+    assert not result.error.retryable
+    assert "unsupported grip_profile_id" in result.error.message
     assert io.calls == []
 
 
@@ -139,7 +141,9 @@ def test_concurrent_vacuum_goal_rejects_busy_without_plc_writes() -> None:
     assert not result.succeeded
     assert not result.accepted
     assert result.overall_verification_level == UNVERIFIED
-    assert "already running" in result.error
+    assert result.error.code == PublicErrorCode.RT_OPERATION_IN_PROGRESS
+    assert result.error.retryable
+    assert "already running" in result.error.message
     assert io.calls == []
 
 
@@ -159,5 +163,29 @@ def test_pump_disable_rejects_possible_load_held() -> None:
     result = VacuumAdapterCore(io).set_pump_enabled(False, "maintenance")
 
     assert not result.accepted
-    assert result.error_code == PumpErrorCode.POSSIBLE_LOAD_HELD
+    assert result.error.code == PublicErrorCode.RT_POSSIBLE_LOAD_HELD
+    assert not result.error.retryable
     assert io.calls == []
+
+
+def test_grip_reports_retryable_error_when_attachment_is_not_established() -> None:
+    io = FakeVacuumIo(
+        PlcVacuumSnapshot(
+            connected=True,
+            data_fresh=True,
+            left_attached=False,
+            right_attached=False,
+            left_valve_open=True,
+            right_valve_open=False,
+            pump_enabled=True,
+        )
+    )
+
+    result = VacuumAdapterCore(io).execute_goal(
+        GRIP, ["left"], "default", "pick"
+    )
+
+    assert not result.succeeded
+    assert result.accepted
+    assert result.error.code == PublicErrorCode.RT_VACUUM_NOT_ESTABLISHED
+    assert result.error.retryable

@@ -67,6 +67,15 @@ uint32 RT_ENABLE_FAILED=1021
 # 泵不可用（未上电、维护锁定或已强制停泵）。
 uint32 RT_PUMP_UNAVAILABLE=1022
 uint32 RT_TOLERANCE_VIOLATED=1060
+# 使能流程失败细分（R-IN-03 /control/set_enabled）。
+uint32 RT_RESET_FAILED=1023
+uint32 RT_DISABLE_FAILED=1024
+# PLC 拒绝泵/阀输出命令（R-IN-04 / R-IN-05）。
+uint32 RT_PUMP_COMMAND_REJECTED=1025
+# 停泵被拒：任一通道 attached 或阀仍开（R-IN-04）。
+uint32 RT_POSSIBLE_LOAD_HELD=1026
+# 需重启进程/容器才能恢复，非本域可自愈。
+uint32 RT_RESTART_REQUIRED=1027
 uint32 RT_INTERNAL_ERROR=1090
 
 # ---------- 1 RT-Control · 可自主恢复（1100~1199） ----------
@@ -76,6 +85,14 @@ uint32 RT_FIELDBUS_OFFLINE=1120
 uint32 RT_CMD_VEL_STALE=1130
 # 任一目标通道的新鲜 attached 状态未建立；物理动作重试仍受契约 6.5 约束。
 uint32 RT_VACUUM_NOT_ESTABLISHED=1160
+# 底层 rt 服务暂不可用（未起或正在切换），重试即可。
+uint32 RT_SERVICE_UNAVAILABLE=1100
+# enable_manager 尚未就绪。
+uint32 RT_ENABLE_MANAGER_NOT_READY=1101
+# 已有使能/停泵操作在执行中，等其结束后重试。
+uint32 RT_OPERATION_IN_PROGRESS=1102
+# PLC 不可用或数据不新鲜。
+uint32 RT_PLC_UNAVAILABLE=1121
 
 # ---------- 2 Perception · 不可自主恢复（2000~2099） ----------
 # 退避表与 wall_row 不匹配（契约 2.1）。感知侧配置过期。

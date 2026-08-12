@@ -333,7 +333,7 @@ wait_for_enable_service()
       run_ros2_timeout 6 'ros2 service type /rt/enable' 2>/dev/null |
       grep -Fq 'rt_control_interfaces/srv/RtEnable' &&
       run_ros2_timeout 6 'ros2 service type /control/set_enabled' 2>/dev/null |
-      grep -Fq 'robot_control_interfaces/srv/SetControlEnabled'; then
+      grep -Fq 'robot_rt_control_interfaces/srv/SetControlEnabled'; then
       return
     fi
     sleep 2
