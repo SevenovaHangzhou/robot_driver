@@ -9,7 +9,7 @@ services:
         IGH_COMMIT: "${IGH_COMMIT:?IGH_COMMIT must come from versions.env}"
         HTTP_PROXY: "${RT_CONTROL_BUILD_PROXY:-}"
         HTTPS_PROXY: "${RT_CONTROL_BUILD_PROXY:-}"
-    image: "rt-control:${RT_CONTROL_IMAGE_TAG:?RT_CONTROL_IMAGE_TAG must be the current git SHA}"
+    image: "rt-control:${RT_CONTROL_IMAGE_TAG:?RT_CONTROL_IMAGE_TAG must be the approved release tag}"
     network_mode: host
     ipc: host
     devices: ["/dev/EtherCAT0:/dev/EtherCAT0"]

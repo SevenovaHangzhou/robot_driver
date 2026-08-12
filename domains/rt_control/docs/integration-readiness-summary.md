@@ -4,10 +4,10 @@
 > 当前接口验证发现、消息格式、轨迹/速度链路和取消/失败流程；所有接口仍属于
 > “当前工程接口”，公共域间契约冻结前不承诺名称、QoS 或错误语义长期兼容。
 
-当前发布候选为功能源码 `2f8e9a24fdfcf368e3effc3a0fcb30733423e16d`、镜像
-`rt-control:2f8e9a24fdfcf368e3effc3a0fcb30733423e16d`、镜像 ID
-`sha256:68a4239e7e395cd352f6ed26d9bfe8fceb2209f1e1808f7b28961010f3b19477`，目标机仅为
-`ar@192.168.0.40`。该版本包含 T-020 TF 根链、PLC/BMS、公共启停、真空公共接口、安全摘要和 readiness。
+当前发布候选版本为 `V0.10`，镜像 tag 为 `rt-control:V0.10`，交付物通过 GitHub Release
+附件 `rt-control-V0.10-<git-sha>.tar.gz` 与 `.sha256` 发布，目标机仅为 `ar@192.168.0.40`。
+该版本包含 T-020 TF 根链、PLC/BMS、公共启停、真空公共接口、安全摘要、readiness 和
+T-IF-RT-005 统一 `ErrorInfo` 公共错误结构。
 
 ## 1. 当前已完成
 
@@ -136,7 +136,7 @@ heartbeat/EMCY 以及 enable manager 状态，适合工程排障。联调后仍�
 
 ## 6. 联调期间的版本约束
 
-- rt-control owner 提供并启动锁定镜像，其他域不要自行重建或替换 tag；
+- rt-control owner 提供并启动 GitHub Release `V0.10` 对应镜像，其他域不要自行重建或替换 tag；
 - motion 等域暂时按本页“当前接口”接入，并把接口依赖集中封装，便于公共契约调整；
 - 联调问题必须同时记录 rt-control SHA、其他域 SHA、ROS domain、实际 RMW 和时间窗口；
 - 发现接口缺项先形成公共契约裁决，不直接依赖 controller_manager、PDO 或裸 CAN 绕过。

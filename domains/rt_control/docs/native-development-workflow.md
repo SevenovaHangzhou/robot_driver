@@ -219,8 +219,8 @@ controller、EtherCAT 和 CANopen 有序退出。脚本不会用 SIGKILL 掩盖�
 ## 6. Docker 发布边界
 
 原生方式适合高频开发，但会直接依赖宿主 ROS/apt/IgH 环境，复现性和回滚隔离弱于
-锁定镜像。准备联调里程碑或交付同事前仍应执行仓库门禁、干净镜像构建、Mock、发布锁
-更新和分阶段实机验证；不得把一次原生运行结果直接声明为发布镜像验收。
+发布镜像。准备联调里程碑或交付同事前仍应执行仓库门禁、干净镜像构建、Mock、
+GitHub Release 归档发布和分阶段实机验证；不得把一次原生运行结果直接声明为发布镜像验收。
 
 截至 2026-07-31，目标工控机 `/home/ar/rt-control-dev/robot` 已切到
 `feature/rt-control-native-development` 的 `a022b1052e9b76480e8e37e4dac8913a81eba392`：

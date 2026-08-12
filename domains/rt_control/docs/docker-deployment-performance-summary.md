@@ -11,19 +11,20 @@
 
 | 项目 | 当前值 |
 | --- | --- |
-| 实机运行源码 | `2f8e9a24fdfcf368e3effc3a0fcb30733423e16d` |
-| 发布锁 | 本次锁定提交 |
-| 镜像 | `rt-control:2f8e9a24fdfcf368e3effc3a0fcb30733423e16d` |
-| 镜像 ID | `sha256:68a4239e7e395cd352f6ed26d9bfe8fceb2209f1e1808f7b28961010f3b19477` |
-| 镜像大小 | `550064755 bytes`，约 `524.6 MiB` |
-| 不可变运行副本 | `/home/ar/rt-control-releases/2f8e9a24fdfcf368e3effc3a0fcb30733423e16d/robot` |
-| 固定操作入口 | `/home/ar/rt-control-current` → 发布锁对应操作副本 |
+| 发布版本 | `V0.10` |
+| 实机运行源码 | GitHub tag `V0.10` 指向的提交 |
+| 镜像 | `rt-control:V0.10` |
+| 镜像归档 | GitHub Release `V0.10` 附件 `rt-control-V0.10-<git-sha>.tar.gz` 与 `.sha256` |
+| 镜像大小 | 发布构建后记录 |
+| 不可变运行副本 | `/home/ar/rt-control-releases/V0.10/robot` |
+| 固定操作入口 | `/home/ar/rt-control-current` → `V0.10` 操作副本 |
 | 操作系统/内核 | Ubuntu 22.04.5 LTS，`5.15.0-1032-realtime`，PREEMPT_RT |
 | EtherCAT 主站 | IgH stable-1.6，commit `2f7f884f1c7d377c02a7d627eb06512126a0e50e` |
 | ROS | ROS 2 Humble，`ROS_DOMAIN_ID=0`，`RMW_IMPLEMENTATION=rmw_fastrtps_cpp` |
 
-运行副本由已验收源码导出，不含 `.git`。开发仓库仍按 Git HEAD 生成镜像 tag；针对
-该不可变导出，一键工具会显式传入上表 SHA，不会把当前文档提交误当成运行镜像。
+运行副本由 GitHub Release `V0.10` 对应源码导出，不含 `.git`。开发仓库未显式设置
+`RT_CONTROL_IMAGE_TAG` 时仍按 Git HEAD 生成临时镜像 tag；正式操作副本会显式传入
+`RT_CONTROL_IMAGE_TAG=V0.10`，并要求目标机已从 Release 附件导入 `rt-control:V0.10`。
 
 当前镜像已经包含 `/wheel/odom`、TF 所有权调整、PLC/BMS、`/control/set_enabled`、真空公共接口、
 `/control/safety_state` 和 `/rt_control/readiness`。本页表格描述本次发布候选；目标机受控验证结果以

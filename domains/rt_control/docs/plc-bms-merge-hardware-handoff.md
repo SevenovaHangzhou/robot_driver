@@ -190,21 +190,21 @@ tools/rt_control_compose.sh build rt-control
 docker image inspect "rt-control:$(git rev-parse HEAD)" --format '{{.Id}}'
 ```
 
-5. 记录镜像 ID，完成容器内包、接口、CMD/PID 1、capability 和 Compose 展开检查。
+5. 记录镜像 inspect、Git tag SHA 和 Release 归档 SHA-256，完成容器内包、接口、CMD/PID 1、capability 和 Compose 展开检查。
 
-### 阶段 B：发布锁提交
+### 阶段 B：GitHub Release 发布
 
-镜像通过后，再做一个单独的发布锁提交：
+镜像通过后，不再把 image ID 写死进启动脚本。改为：
 
-- `tools/rt_control_ipc.sh`：
-  - `runtime_sha="<IO_SHA>"`
-  - `runtime_image="rt-control:<IO_SHA>"`
-  - `runtime_image_id="<实际镜像 ID>"`
-  - `runtime_root="/home/ar/rt-control-releases/<IO_SHA>/robot"`
-- `tools/check_rt_control_ipc_launcher_policy.sh`：同步更新 SHA 和镜像 ID 的精确断言。
+- 创建版本号 Git tag，例如 `V0.10`；
+- 将镜像保存为 `rt-control-V0.10-<git-sha>.tar.gz`；
+- 生成并上传 `.sha256`；
+- 在 GitHub Release 中记录源码 SHA、IgH commit、构建命令和未验证边界；
+- 目标机从 Release 附件下载、校验、`docker load` 后使用 `rt-control:V0.10`。
 - `PROGRESS.md` / 发布文档：记录构建和未验证边界。
 
-然后再次运行 `tools/quality_gate.sh`。运行 release 使用阶段 A 的 `IO_SHA`；阶段 B 只是锁定并指向该不可变运行副本。
+然后再次运行 `tools/quality_gate.sh`。运行 release 使用阶段 A 的版本号；仓库脚本只检查
+`rt-control:<release-version>` 和对应操作副本是否存在，不再校验内置 image ID。
 
 ## 7. 目标机部署前门禁
 

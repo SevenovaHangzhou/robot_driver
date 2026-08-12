@@ -19,8 +19,9 @@ for required in \
   'readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"' \
   'readonly expected_can_serial="004D00675230500720333159"' \
   'readonly expected_bms_can_serial="003000265230500720333159"' \
-  'readonly runtime_sha="2f8e9a24fdfcf368e3effc3a0fcb30733423e16d"' \
-  'readonly runtime_image_id="sha256:68a4239e7e395cd352f6ed26d9bfe8fceb2209f1e1808f7b28961010f3b19477"' \
+  'readonly release_version="${RT_CONTROL_RELEASE_VERSION:-V0.10}"' \
+  'readonly runtime_image="rt-control:${release_version}"' \
+  'readonly runtime_root="/home/ar/rt-control-releases/${release_version}/robot"' \
   'ENABLE_RT_CONTROL' \
   'call_rt_service enable' \
   'call_rt_service disable' \
@@ -51,12 +52,16 @@ fi
 
 for required in \
   'RT_CONTROL_PROJECT_ROOT' \
-  'Set RT_CONTROL_IMAGE_TAG to the audited release SHA for a non-Git export' \
-  'RT_CONTROL_IMAGE_TAG must be a full 40-character lowercase Git SHA'
+  'Set RT_CONTROL_IMAGE_TAG to the audited release version for a non-Git export' \
+  'RT_CONTROL_IMAGE_TAG must be a valid Docker tag such as V0.10'
 do
   grep -Fq -- "${required}" "${compose_wrapper}" ||
     fail "Compose wrapper export policy is missing: ${required}"
 done
+
+if grep -Eq 'runtime_sha=|runtime_image_id=|镜像 ID 不匹配' "${launcher}"; then
+  fail "launcher must not hard-lock a Git SHA or Docker image ID"
+fi
 
 python3 - "${launcher}" <<'PY'
 import sys

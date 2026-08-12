@@ -130,7 +130,7 @@ tools/quality_gate.sh
 发布记录至少包含：
 
 - 完整 Git SHA，且目标部署目录是同一 SHA 的干净工作树；
-- 镜像引用 `rt-control:<完整 Git SHA>` 和 image ID；
+- 镜像引用 `rt-control:<release-version>`、Git tag SHA 和 GitHub Release 归档 SHA-256；
 - [`versions.env`](../../../versions.env) 中 IgH 版本/commit；
 - [`deps.repos`](../../../deps.repos) 中三个上游完整 commit；
 - 目标机事实、目标 `RT_CONTROL_CPUSET`、操作者和时间；
@@ -144,7 +144,7 @@ tools/quality_gate.sh
 - 现有 CAN/EtherCAT systemd units；
 - `dpkg-query -W`、`apt-mark showhold`；
 - 当前内核、模块、网卡、总线和 `systemctl --failed` 状态；
-- 当前仓库 SHA、镜像引用、image ID 和 Compose 展开结果。
+- 当前仓库 SHA、镜像引用、Release 归档 SHA-256 和 Compose 展开结果。
 
 备份应放在版本化、只读或受控的位置，并实际验证可读。当前主机的历史备份位置只是一条现场记录，不能当作所有新机的默认路径。
 
@@ -165,35 +165,38 @@ tools/rt_control_compose.sh build rt-control
 构建后保存证据：
 
 ```bash
+release_version=V0.10
 release_sha="$(git rev-parse HEAD)"
-image_ref="rt-control:${release_sha}"
+image_ref="rt-control:${release_version}"
 docker image inspect "${image_ref}"
 ```
 
-核对 image tag 与 Git SHA 一致、IgH OCI label 与 `versions.env` 一致，且镜像 history/env 中没有代理或凭据。
+核对 image tag 与发布版本一致、Git tag 指向该源码 SHA、IgH OCI label 与 `versions.env` 一致，
+且镜像 history/env 中没有代理或凭据。
 
 ### 4.2 目标机只在应用镜像阶段网络受限
 
-当前仓库没有正式的镜像发布/传输工具。可靠做法是同时交付“干净的同 SHA 源码目录或 Git bundle”和“在联网构建机验证过的同 SHA 镜像”，并在两端比较 image ID。
-
-若现场批准使用文件传输，可采用标准 Docker archive，并额外做 SHA-256 校验：
+正式交付通过 GitHub Release 附件完成。联网构建机导出标准 Docker archive，并额外做 SHA-256 校验：
 
 ```bash
-docker image save "${image_ref}" | gzip > "rt-control-${release_sha}.tar.gz"
-sha256sum "rt-control-${release_sha}.tar.gz" > "rt-control-${release_sha}.tar.gz.sha256"
+docker image save "${image_ref}" | gzip > "rt-control-${release_version}-${release_sha}.tar.gz"
+sha256sum "rt-control-${release_version}-${release_sha}.tar.gz" \
+  > "rt-control-${release_version}-${release_sha}.tar.gz.sha256"
 ```
 
-通过现场批准的传输渠道送到目标机后：
+将 `.tar.gz` 与 `.sha256` 上传到同名 GitHub Release。目标机下载后：
 
 ```bash
-release_sha=<approved-full-git-sha>
-image_ref="rt-control:${release_sha}"
-sha256sum -c "rt-control-${release_sha}.tar.gz.sha256"
-gzip -dc "rt-control-${release_sha}.tar.gz" | docker image load
+release_version=V0.10
+release_sha=<release-tag-full-git-sha>
+image_ref="rt-control:${release_version}"
+sha256sum -c "rt-control-${release_version}-${release_sha}.tar.gz.sha256"
+gzip -dc "rt-control-${release_version}-${release_sha}.tar.gz" | docker image load
 docker image inspect "${image_ref}" --format '{{.Id}}'
 ```
 
-目标机上的 image ID 必须与构建机记录相同。不要在网络不稳定的工控机临时冷构建，也不要把某次手工传输描述成已经自动化的发布流程。
+目标机不再依赖仓库脚本内置 image ID 锁；追溯依据是 Git tag、Release 附件名和 SHA-256。
+不要在网络不稳定的工控机临时冷构建，也不要跳过 Release 附件校验后直接启动。
 
 这只解决 rt-control 应用镜像和源码的交付，不代表“全离线新机安装”已经成立。后续宿主 bootstrap 仍可能需要：
 
@@ -363,7 +366,7 @@ tools/rt_control_compose.sh ps -a
 
 创建不等于启动。检查展开配置和容器 inspect，确认：
 
-- image tag 等于当前完整 Git SHA，并且目标机已有这个 image ID；
+- image tag 等于当前发布版本，并且目标机已通过 GitHub Release SHA-256 校验导入该镜像；
 - `Privileged=false`；
 - cpuset 只包含经过验证的隔离 CPU；
 - host network、host IPC；

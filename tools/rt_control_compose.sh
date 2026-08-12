@@ -14,14 +14,15 @@ repository_root="$(cd -- "${repository_root}" && pwd)"
 : "${RT_CONTROL_CPUSET:?Set RT_CONTROL_CPUSET only after target-host CPU topology validation}"
 
 export RT_CONTROL_IMAGE_TAG
-if git -C "${repository_root}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  RT_CONTROL_IMAGE_TAG="$(git -C "${repository_root}" rev-parse --verify HEAD)"
-else
-  : "${RT_CONTROL_IMAGE_TAG:?Set RT_CONTROL_IMAGE_TAG to the audited release SHA for a non-Git export}"
-  if [[ ! "${RT_CONTROL_IMAGE_TAG}" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "RT_CONTROL_IMAGE_TAG must be a full 40-character lowercase Git SHA" >&2
+if [[ -n "${RT_CONTROL_IMAGE_TAG:-}" ]]; then
+  if [[ ! "${RT_CONTROL_IMAGE_TAG}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
+    echo "RT_CONTROL_IMAGE_TAG must be a valid Docker tag such as V0.10" >&2
     exit 2
   fi
+elif git -C "${repository_root}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  RT_CONTROL_IMAGE_TAG="$(git -C "${repository_root}" rev-parse --verify HEAD)"
+else
+  : "${RT_CONTROL_IMAGE_TAG:?Set RT_CONTROL_IMAGE_TAG to the audited release version for a non-Git export}"
 fi
 
 cd "${repository_root}"

@@ -3,9 +3,9 @@
 > 仅适用于已经部署好的 `ar@192.168.0.40`。脚本会访问真实 EtherCAT/CANopen，
 > 并自动调用 `/rt/enable`；不能在开发电脑、其他工控机或无现场授权时运行。
 
-> **当前发布候选：** 功能源码 `2f8e9a24fdfcf368e3effc3a0fcb30733423e16d`、镜像 ID
-> `sha256:68a4239e7e395cd352f6ed26d9bfe8fceb2209f1e1808f7b28961010f3b19477` 已完成干净 Docker
-> 构建；目标机受控“启动→READY→stop”验证完成后，`~/rt-control-current` 才能作为同事固定入口。
+> **当前发布候选：** `V0.10`。镜像以 GitHub Release 附件发布，目标机应先校验
+> `rt-control-V0.10-<git-sha>.tar.gz.sha256`，再 `docker load` 得到 `rt-control:V0.10`。
+> 目标机受控“启动→READY→stop”验证完成后，`~/rt-control-current` 才能作为同事固定入口。
 
 > **T-020 TF 发布边界：** 前序镜像已在目标机完成 TF 只读复核；本发布候选延续
 > `base_footprint → base_link` 静态边，并仍不发布 `odom → base_footprint`。
@@ -47,7 +47,7 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 ## 这条命令自动完成什么
 
 1. 锁定当前账号、主机名、PREEMPT_RT 内核和隔离 CPU 14；
-2. 核对不可变 release、镜像 tag 和镜像 ID，禁止启动未验收镜像；
+2. 核对 `V0.10` 不可变 release 操作副本和本地 `rt-control:V0.10` 镜像是否存在；
 3. 核对 Docker、IgH、16 个 EtherCAT 位置、两只 CANable 序列号、500 kbit/s、Node 2/3 心跳和 BMS `0x3FC`；
 4. 要求一次现场使能确认；
 5. 启动同一个 rt-control 容器，等待 controller、总线、PLC 状态和 BMS 电压/SOC ready；
@@ -70,7 +70,7 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 
 四个 Ti5 按 BQ-115 允许在标准 `0x0000` 下以 `Ready To Switch On (0x0021)` 作为已确认非激磁终态；其余
 10 轴严格要求 `Switch On Disabled (0x0040)`。任一步失败都会停止并清理新会话，不循环 reset/enable。
-该命令不是急停检测、STO 或自动复电功能；当前修改尚未进入目标机锁定镜像，完成发布和单独实机验收前不要使用。
+该命令不是急停检测、STO 或自动复电功能；目标机切换到 `V0.10` 并完成单独实机验收前不要使用。
 
 ## 联调同事常用的另外三条命令
 
@@ -102,7 +102,7 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 | 14 轴轨迹 | `/whole_body_jtc/follow_joint_trajectory` |
 | 履带速度 | `/cmd_vel_safe`，`geometry_msgs/msg/Twist`，0.5 s 超时 |
 | 关节状态 | `/joint_states`，仅 14 个 EtherCAT 机械轴，100 Hz |
-| 原始轮速里程计 | `/wheel/odom`（待新锁定镜像发布） |
+| 原始轮速里程计 | `/wheel/odom` |
 | 动态 TF | `/tf`，`tf2_msgs/msg/TFMessage`；rt-control 不发布 `odom → base_footprint` |
 | 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage` |
 | PLC 状态 | `/plc/io_state`，`rt_control_interfaces/msg/PlcIoState` |

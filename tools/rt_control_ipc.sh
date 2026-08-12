@@ -10,10 +10,9 @@ readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"
 readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
 readonly expected_can_serial="004D00675230500720333159"
 readonly expected_bms_can_serial="003000265230500720333159"
-readonly runtime_sha="2f8e9a24fdfcf368e3effc3a0fcb30733423e16d"
-readonly runtime_image="rt-control:${runtime_sha}"
-readonly runtime_image_id="sha256:68a4239e7e395cd352f6ed26d9bfe8fceb2209f1e1808f7b28961010f3b19477"
-readonly runtime_root="/home/ar/rt-control-releases/${runtime_sha}/robot"
+readonly release_version="${RT_CONTROL_RELEASE_VERSION:-V0.10}"
+readonly runtime_image="rt-control:${release_version}"
+readonly runtime_root="/home/ar/rt-control-releases/${release_version}/robot"
 readonly compose_project="robot"
 readonly container_name="robot-rt-control-1"
 
@@ -44,7 +43,7 @@ compose()
   sudo env \
     RT_CONTROL_CPUSET="${expected_container_cpuset}" \
     RT_CONTROL_START_CPUSET="${expected_housekeeping_cpuset}" \
-    RT_CONTROL_IMAGE_TAG="${runtime_sha}" \
+    RT_CONTROL_IMAGE_TAG="${release_version}" \
     RT_CONTROL_PROJECT_ROOT="${runtime_root}" \
     "${compose_wrapper}" --project-name "${compose_project}" "$@"
 }
@@ -167,8 +166,8 @@ verify_release_identity()
   [[ -f "${axis_state_checker}" ]] || fail "缺少状态字检查器 ${axis_state_checker}。"
   [[ -f "${runtime_root}/docker/compose.yaml" ]] ||
     fail "缺少已验证运行副本 ${runtime_root}。"
-  [[ "$(basename -- "$(dirname -- "${runtime_root}")")" == "${runtime_sha}" ]] ||
-    fail "运行副本目录与锁定 SHA 不一致。"
+  [[ "$(basename -- "$(dirname -- "${runtime_root}")")" == "${release_version}" ]] ||
+    fail "运行副本目录与发布版本 ${release_version} 不一致。"
 
   command -v docker >/dev/null 2>&1 || fail "缺少命令 docker。"
   command -v python3 >/dev/null 2>&1 || fail "缺少命令 python3。"
@@ -178,11 +177,8 @@ verify_release_identity()
 
 verify_runtime_image()
 {
-  local observed_image_id
-  observed_image_id="$(sudo docker image inspect "${runtime_image}" --format '{{.Id}}')" ||
-    fail "缺少镜像 ${runtime_image}。"
-  [[ "${observed_image_id}" == "${runtime_image_id}" ]] ||
-    fail "镜像 ID 不匹配，拒绝启动未验收镜像。"
+  sudo docker image inspect "${runtime_image}" >/dev/null 2>&1 ||
+    fail "缺少镜像 ${runtime_image}；请先从 GitHub Release ${release_version} 下载、校验并 docker load 发布归档。"
 }
 
 verify_start_dependencies()
@@ -531,7 +527,7 @@ start_rt_control()
   local enable_response
 
   trap on_start_exit EXIT INT TERM
-  info "检查当前工控机、锁定镜像和现场总线。"
+  info "检查当前工控机、${release_version} 发布镜像和现场总线。"
   verify_target_identity
   verify_rt_host_configuration
   verify_release_identity
@@ -547,7 +543,7 @@ start_rt_control()
   verify_idle_bus_inputs
   lost_frames_before="$(sudo ethercat master | awk '/Lost frames:/{print $3; exit}')"
 
-  info "启动锁定镜像并等待控制器就绪。"
+  info "启动 ${release_version} 发布镜像并等待控制器就绪。"
   startup_started=1
   compose up -d --no-build rt-control
   wait_for_enable_service
