@@ -37,7 +37,7 @@ class TfContractTest(unittest.TestCase):
         self.assertEqual(base_joint.attrib["type"], "fixed")
         self.assertEqual(base_joint.find("parent").attrib["link"], "base_footprint")
         self.assertEqual(base_joint.find("child").attrib["link"], "base_link")
-        self.assertEqual(base_joint.find("origin").attrib["xyz"], "0 0 0.202094")
+        self.assertEqual(base_joint.find("origin").attrib["xyz"], "0.15 0 0.202094")
         self.assertEqual(base_joint.find("origin").attrib["rpy"], "0 0 0")
 
         base_parents = [
