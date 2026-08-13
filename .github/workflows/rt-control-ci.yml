@@ -21,6 +21,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Trust the checked-out workspace inside the job container
+        shell: bash
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
       - name: Install quality-gate tools
         shell: bash
         run: |
