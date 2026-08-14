@@ -368,7 +368,7 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 | 仿真/mock | 在无实机条件下验证成功、取消、超时、失败、重启和资源收尾 |
 | 实机/HIL | 实时性、总线、使能/去使能、安全链；证据必须可追溯 |
 
-仓库工具链（`tools/**`）覆盖率门槛 80%。测试必须覆盖成功、取消、超时、失败、重启和资源收尾路径，不只测 happy path。
+仓库工具链覆盖率门禁：门禁集（`tools/repository_gate.py`、`tools/pr_contract_gate.py`）合并覆盖率 ≥80%，由 `quality_gate.sh` 强制；其余 `tools/**` Python 脚本的覆盖率在门禁输出中打印可见但暂不设阈值（现状：`diff_legacy` 63%、`rt_control_axis_state_check` 69%、`rt_control_thread_affinity` 0%，2026-08-13 实测），提升覆盖与纳入门禁属独立任务。测试收集使用 pytest（同时收集 unittest 类与模块级测试函数，防止静默漏收）。测试必须覆盖成功、取消、超时、失败、重启和资源收尾路径，不只测 happy path。
 
 **测试通过与实机验证是两件事**，不得混写。
 
