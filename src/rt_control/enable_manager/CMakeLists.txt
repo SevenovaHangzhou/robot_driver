@@ -55,4 +55,28 @@ ament_export_dependencies(
   rt_control_interfaces
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gmock REQUIRED)
+  find_package(hardware_interface REQUIRED)
+
+  ament_add_gmock(test_enable_manager_state_machine
+    test/test_enable_manager_state_machine.cpp
+  )
+  target_compile_features(test_enable_manager_state_machine PUBLIC cxx_std_17)
+  target_include_directories(test_enable_manager_state_machine PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
+  target_link_libraries(test_enable_manager_state_machine
+    enable_manager_controller
+  )
+  ament_target_dependencies(test_enable_manager_state_machine
+    controller_interface
+    controller_manager_msgs
+    diagnostic_msgs
+    hardware_interface
+    rclcpp
+    rt_control_interfaces
+  )
+endif()
+
 ament_package()

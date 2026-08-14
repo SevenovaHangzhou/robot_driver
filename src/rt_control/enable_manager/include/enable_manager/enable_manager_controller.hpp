@@ -38,6 +38,10 @@ public:
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
+  // Test-only access hook: grants the unit test fixture visibility into the private
+  // state machine. No behavior change; not referenced by production code.
+  friend class EnableManagerTestAccess;
+
   static constexpr std::size_t kAxisCount = 14U;
   static constexpr std::size_t kBatchCount = 5U;
 
