@@ -230,6 +230,11 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     assert "robot_interfaces_qos::diagnostic()" in diagnostics_source
     assert "robot_interfaces_qos::control()" in controller_patch
     assert controller_patch.count("robot_interfaces_qos::fast_state()") == 2
+    assert "diff_drive_controller/test/test_diff_drive_controller.cpp" in controller_patch
+    assert (
+        "controller_name + \"/cmd_vel\", robot_interfaces_qos::control()"
+        in controller_patch
+    )
 
 
 def test_public_adapters_populate_the_vendored_shared_message_schemas() -> None:

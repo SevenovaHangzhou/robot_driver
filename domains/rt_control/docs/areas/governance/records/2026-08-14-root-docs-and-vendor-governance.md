@@ -39,7 +39,10 @@ EtherCAT vendor 后，按预期暴露 CI 镜像缺少 `/usr/local/etherlab`，�
 corrective 改为用 native bootstrap 在隔离 vendor 根应用/核验冻结补丁，并按 `versions.env`
 构建固定 IgH 用户态库。第二轮已越过该失败点，随后在测试开启的 controller vendor 上暴露
 `ros2_control_test_assets` 未安装；corrective 将 rosdep `test` 依赖纳入 CI。repository gate
-同时锁住补丁、IgH 和测试依赖三项不可退化条件，CI 重跑待提交后触发。
+同时锁住补丁、IgH 和测试依赖三项不可退化条件。第三轮完成完整闭包构建，并运行 1079 个
+测试；其中 `diff_drive_controller` 的两个测试用例仍以 `SystemDefaultsQoS` 发布命令，和生产侧
+已采纳的 `control()` deadline 不兼容。corrective 没有缩小测试范围，而是把冻结补丁扩展到
+测试 fixture，使发布者与订阅者遵循同一个命名 QoS profile；第四轮 CI 待提交后触发。
 
 本记录不授权使能或运动。
 
