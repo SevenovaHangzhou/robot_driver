@@ -1,0 +1,147 @@
+# 只读运行测试（T1 mock / T2 实机只读）
+category: readonly-runtime
+cases:
+  - id: TC-RO-01
+    title: Mock 全图公共契约探测
+    purpose: 证明公共契约端点的名称、类型、方向与 docs/cross-domain-interfaces.md 第 2/3 节完全一致
+    area: contract
+    risk: T1
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    env_note: mock 不含 CANopen 硬件后端，/wheel/odom 只断言存在与类型，频率归 TC-RO-06
+    covers: ["src/rt_control/control_api_adapter/**", "src/interfaces/**", "src/rt_control/rt_control_bringup/**"]
+    traces: [docs/cross-domain-interfaces.md, "BQ-132"]
+    preconditions: 无硬件；BQ-132 决定无总线路径必须走 mock
+    entry: |
+      ros2 launch rt_control_bringup rt_control.launch.py use_mock_hardware:=true &
+      # 稳定后逐项比对（launch_testing 化为后续子任务）：
+      ros2 topic list -t ; ros2 service list -t ; ros2 action list -t
+    pass:
+      - 契约文档第 2/3 节全部端点存在且类型一致
+      - 各状态端点实测频率达到文档标称值（mock 可测项）
+    evidence: 三个 list 输出与频率采样存档
+    cleanup: 结束 launch 进程组
+    status: manual
+    v010_gate: run
+
+  - id: TC-RO-02
+    title: 已删除接口负向断言
+    purpose: 证明契约文档第 6 节已删除接口不出现在 ROS graph 中
+    area: contract
+    risk: T1
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/**"]
+    traces: [docs/cross-domain-interfaces.md]
+    preconditions: 与 TC-RO-01 同一次 mock 启动
+    entry: |
+      # 对第 6 节每个已删除端点执行不存在断言
+      ros2 topic list ; ros2 service list ; ros2 action list
+    pass:
+      - 第 6 节所列端点全部不存在（出现任何一个即 FAIL）
+    evidence: list 输出存档
+    cleanup: 同 TC-RO-01
+    status: manual
+    v010_gate: run
+
+  - id: TC-RO-03
+    title: 启动排序与失败收敛
+    purpose: 证明 whole_body_jtc spawner 失败时 launch 触发 Shutdown 而非带病运行
+    area: release-deploy
+    risk: T1
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: native
+    covers: ["src/rt_control/rt_control_bringup/launch/**"]
+    traces: [src/rt_control/rt_control_bringup/launch/rt_control.launch.py]
+    preconditions: mock 模式；人为使 JTC spawner 失败（如临时指向不存在控制器配置）
+    entry: |
+      ros2 launch rt_control_bringup rt_control.launch.py use_mock_hardware:=true
+    pass:
+      - JTC spawner 非零退出时 enable_manager 不启动且 launch 整体 Shutdown
+    evidence: launch 日志存档
+    cleanup: 还原临时配置改动
+    status: planned
+    v010_gate: "no"
+
+  - id: TC-RO-04
+    title: 容器内接口探测
+    purpose: 证明发布镜像容器内可复现 mock 契约探测（补齐规范要求的 main 容器 smoke）
+    area: release-deploy
+    risk: T1
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: docker
+    env_note: 生产镜像 BUILD_TESTING=OFF，容器内只做接口探测不跑包测试
+    covers: ["docker/**"]
+    traces: [docs/collaboration-and-commit-standards.md]
+    preconditions: 候选镜像已构建；容器以 mock 参数启动，不映射任何总线设备
+    entry: |
+      docker run --rm <image> bash -lc 'source /opt/rt_control_ws/install/setup.bash && \
+        ros2 launch rt_control_bringup rt_control.launch.py use_mock_hardware:=true & sleep 20 && \
+        ros2 topic list -t && ros2 service list -t && ros2 action list -t'
+    pass:
+      - 与 TC-RO-01/02 同判据
+    evidence: 容器日志存档
+    cleanup: 容器 --rm 自清理
+    status: planned
+    v010_gate: run
+
+  - id: TC-RO-05
+    title: 实机只读诊断快照
+    purpose: 采集 EtherCAT 主站/从站与 enable_manager 诊断基线读数，不做任何写入
+    area: contract
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/rt_diagnostics/**"]
+    traces: [docs/cross-domain-interfaces.md]
+    preconditions: 栈已由值守人员启动（本用例不启动栈）；仅订阅
+    entry: |
+      ros2 topic echo /diagnostics --once
+      ros2 topic echo /rt_control/readiness --once
+      ros2 topic echo /control/safety_state --once
+    pass:
+      - ethercat_master link_up=true、slaves_responding=16
+      - 各 slave al_state=OP（值 8）
+      - wc_error_count 读数记录为窗口基线
+    evidence: 三个 echo 输出存档并登记 wc_error_count 基线值
+    cleanup: 无（只读）
+    status: manual
+    v010_gate: run
+
+  - id: TC-RO-06
+    title: 实机状态频率实测
+    purpose: 证明公共状态端点实测频率达到契约标称值
+    area: contract
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/**"]
+    traces: [docs/cross-domain-interfaces.md]
+    preconditions: 栈已启动；仅订阅
+    entry: |
+      ros2 topic hz /joint_states /wheel/odom /vacuum/state /control/safety_state /rt_control/readiness --window 100
+    pass:
+      - 各端点实测频率不低于契约文档标称值（以文档为准）
+    evidence: hz 输出存档
+    cleanup: 无
+    status: manual
+    v010_gate: run
+
+  - id: TC-RO-07
+    title: CANopen 心跳间隔观察
+    purpose: 证明主站与两履带节点心跳周期符合 1000 ms 配置
+    area: canopen-chassis
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/robot_hw_canopen/**"]
+    traces: [tools/canopen_heartbeat_watch.sh, src/rt_control/robot_hw_canopen/config/bus.yml]
+    preconditions: can0 UP；栈运行中
+    entry: |
+      tools/canopen_heartbeat_watch.sh --interface can0 --duration 60
+    pass:
+      - 0x764/0x702/0x703 心跳间隔均在 1000 ms 容忍带内，无超阈值告警
+    evidence: 观察输出存档
+    cleanup: 无（脚本只读）
+    status: manual
+    v010_gate: reference

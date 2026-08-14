@@ -1,0 +1,109 @@
+# 静态测试（T0）：不启动任何 ROS 进程
+category: static
+cases:
+  - id: TC-ST-01
+    title: 仓库质量门禁全量
+    purpose: 证明候选 commit 满足全部架构、卫生与策略约束
+    area: governance
+    risk: T0
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["**"]
+    traces: [tools/quality_gate.sh, docs/collaboration-and-commit-standards.md]
+    preconditions: 干净候选 commit 检出，无未提交改动
+    entry: |
+      REQUIRE_SHELLCHECK=1 tools/quality_gate.sh
+    auto: "tools/quality_gate.sh"
+    pass:
+      - 退出码 0
+      - 覆盖率报告 fail-under=80 通过
+    evidence: 门禁完整 stdout 存档
+    cleanup: 无（只读）
+    status: automated
+    v010_gate: run
+
+  - id: TC-ST-02
+    title: 全包构建与包内测试
+    purpose: 证明 17 个包在候选 commit 上可构建、包内测试全过
+    area: governance
+    risk: T0
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: native
+    env_note: 生产镜像以 -DBUILD_TESTING=OFF 构建，本用例只在 native 工作区执行
+    covers: ["src/**"]
+    traces: [.github/workflows/rt-control-ci.yml]
+    preconditions: 冻结 vendor 已按 deps.repos 就位并打补丁
+    entry: |
+      colcon build --symlink-install
+      colcon test --event-handlers console_direct+
+      colcon test-result --verbose
+    pass:
+      - 构建无错误
+      - colcon test-result 无失败（当前基数：4 包 13 target 47 用例）
+    evidence: colcon 日志目录存档
+    cleanup: 无
+    status: automated
+    v010_gate: run
+
+  - id: TC-ST-03
+    title: 冻结基线语义比对
+    purpose: 证明候选相对基线 6bc94cd 的全部语义差异均为已批准 overlay
+    area: governance
+    risk: T0
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/**", "src/description/**"]
+    traces: [domains/rt_control/docs/baseline_report.md, tools/diff_legacy.py]
+    preconditions: 基线 checkout 就位（CI 自动检出 6bc94cd 到 .legacy/robot_driver）
+    entry: |
+      python3 tools/diff_legacy.py --legacy-root .legacy/robot_driver --target-root .
+    pass:
+      - 退出码 0（未批准语义差异数为 0）
+    evidence: 比对 stdout 存档
+    cleanup: 无
+    status: automated
+    v010_gate: run
+
+  - id: TC-ST-04
+    title: 发布身份六元组一致性
+    purpose: 证明源码 commit、公共契约 SHA、vendor SHA、IgH commit、镜像 label 与 digest 互相一致且可追溯
+    area: release-deploy
+    risk: T0
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: docker
+    covers: ["docker/**", "versions.env", "deps.repos", "src/interfaces/source-lock.yaml"]
+    traces: [src/interfaces/source-lock.yaml, versions.env, deps.repos]
+    preconditions: 候选镜像已按 TC-ST-05 构建
+    entry: |
+      # 逐项读取并比对（runner 子任务将脚本化）：
+      git rev-parse HEAD
+      grep commit src/interfaces/source-lock.yaml
+      grep version deps.repos
+      grep IGH_COMMIT versions.env
+      docker inspect <image> --format '{{index .Config.Labels "io.rt-control.igh.commit"}} {{.Id}}'
+      docker run --rm --entrypoint cat <image> /usr/local/share/rt-control/dependency-versions.env
+    pass:
+      - 六元组各值非空、互相一致，镜像 tag 等于源码完整 SHA
+    evidence: 六元组值与比对结果写入报告头
+    cleanup: 无
+    status: manual
+    v010_gate: run
+
+  - id: TC-ST-05
+    title: 干净候选 commit 镜像可复现构建
+    purpose: 证明发布镜像仅由冻结候选构建，构建期校验全部通过
+    area: release-deploy
+    risk: T0
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: docker
+    covers: ["docker/**", "versions.env", "deps.repos", "patches/**", "src/**"]
+    traces: [docker/rt-control/Dockerfile, tools/rt_control_compose.sh]
+    preconditions: 工作区干净且 HEAD 为冻结候选 commit
+    entry: |
+      tools/rt_control_compose.sh build
+    pass:
+      - 构建成功；Dockerfile 内 IgH commit 校验、vendor 目录断言、8 个补丁 apply --check 全部通过
+    evidence: 构建日志与镜像 ID/digest 存档
+    cleanup: 删除本地测试镜像（发布镜像走发布流程）
+    status: manual
+    v010_gate: run

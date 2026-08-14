@@ -18,7 +18,8 @@
 
 1. 阅读根 `README.md` 和 `AGENTS.md`，确认 RT-Control 仓库边界与域间公共契约；
 2. 阅读 `domains/rt_control/README.md` 和本契约，确认构建、容器启动和 rt-control 布局约束；
-3. 阅读 `domains/rt_control/PROGRESS.md` 中目标任务及相关历史验证记录；
+3. 阅读 `domains/rt_control/PROGRESS.md` 中目标任务及相关历史验证记录，并阅读
+   `domains/rt_control/docs/areas/` 中目标功能区 README 的冻结事实表与近期记录；
 4. 在 `domains/rt_control/BLOCKED-questions.md` 搜索相关任务号、需求号、设备、接口或配置；
 5. 阅读目标包的 `package.xml`、`CMakeLists.txt`、源代码、配置和直接消费者；
 6. 执行 `git status --short --branch`，区分用户已有改动与本任务改动；
@@ -137,7 +138,10 @@ rt_control_interfaces（域内）────┘
 5. **实现与测试**：只改任务所需文件，优先补自动化测试或检查脚本；
 6. **差异自审**：逐行审查工作树和暂存区，排除生成物、调试代码和无关改动；
 7. **按风险验证**：执行第 5 节适用的静态、构建、mock、容器或实机门禁；
-8. **记录证据**：更新 `domains/rt_control/PROGRESS.md` 及相关文档，写清命令、结果、未执行项和原因；
+8. **记录证据**：在 `domains/rt_control/docs/areas/` 对应功能区新增一条开发记录
+   （格式必须使用 `docs/areas/TEMPLATE.md`，归属与记录规则见 `docs/areas/README.md`），
+   同步维护该区 README 的冻结事实表，并在 `domains/rt_control/PROGRESS.md` 时间线
+   追加一行索引；写清命令、结果、未执行项和原因；
 9. **交付**：以“变更、架构影响、验证、未验证/风险”的格式汇报。
 
 用户已有改动必须保留。除非用户明确要求，不得通过 `git checkout --`、`git reset --hard`、清理工作树、覆盖文件或改写提交历史处理它们。
@@ -145,6 +149,12 @@ rt_control_interfaces（域内）────┘
 ## 5. 验证门禁
 
 ### 5.1 所有变更的最低门禁
+
+日常增量开发（内环）优先使用 `tools/run_scoped_tests.sh`：按改动范围自动裁剪到
+repository_gate / quality_gate / `colcon test --packages-above <受影响包>`，命中
+patches、deps.repos、versions.env、docker、CI 等全局影响路径时会提示改跑全量。
+增量漏掉的跨包影响由 PR 的 CI 全量兜底；发布门禁走 `tools/release_test_runner.py`，
+不得以增量结果替代。
 
 提交或上传前至少执行：
 
@@ -257,7 +267,7 @@ AI 不得把 mock、编译通过或离线配置检查描述成“实机验证通
 
 1. 完成第 5 节全部适用门禁；
 2. 重新审查 `git diff --cached`，确认暂存区没有用户无关改动；
-3. 更新 `domains/rt_control/PROGRESS.md` 和必要文档，确保结果可追溯；
+3. 更新 `domains/rt_control/docs/areas/` 对应功能区记录与 `domains/rt_control/PROGRESS.md` 时间线及必要文档，确保结果可追溯；
 4. 使用带任务号/需求号的提交信息，例如：
 
    ```text

@@ -1,0 +1,127 @@
+# 生命周期测试（T3：写控制字，不产生运动；全部需现场人工授权）
+category: lifecycle
+cases:
+  - id: TC-LC-01
+    title: 启动前预检
+    purpose: 证明宿主身份、总线接口与 CPU 隔离满足启动条件
+    area: release-deploy
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: native
+    covers: ["tools/rt_control_native.sh", "hostsetup/**"]
+    traces: [tools/rt_control_native.sh, hostsetup/verify-host.sh]
+    preconditions: 目标机 ar@192.168.0.40；上电，未启动栈
+    entry: |
+      tools/rt_control_native.sh doctor
+      sudo hostsetup/verify-host.sh
+    pass:
+      - 两者退出码 0；无 FAIL 项
+    evidence: 完整 stdout 存档
+    cleanup: 无
+    status: manual
+    v010_gate: run
+
+  - id: TC-LC-02
+    title: 正常启动与停机收敛
+    purpose: 证明栈可干净启动（不 enable）并有序停机，无 UNCLEAN_SHUTDOWN
+    area: release-deploy
+    risk: T3
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    env_note: native 走 rt_control_native.sh start/stop；docker 走 rt_control_ipc.sh，判据相同
+    covers: ["src/rt_control/rt_control_bringup/**", "src/rt_control/enable_manager/**"]
+    traces: [domains/rt_control/docs/canopen-shutdown-sync-tolerance-commissioning-20260727.md]
+    preconditions: TC-LC-01 通过；现场授权（确认短语 START_RT_CONTROL_NATIVE）
+    entry: |
+      tools/rt_control_native.sh start   # 现场输入确认短语
+      # 稳定 60 s 后
+      tools/rt_control_native.sh stop
+    pass:
+      - 启动后 /rt_control/readiness 可见且 16 从站 PREOP/OP
+      - 停机退出码 0；日志无 UNCLEAN_SHUTDOWN、无 SIGSEGV
+    evidence: 启动/停机日志与末态总线读数存档
+    cleanup: stop 即清理；异常时按 runbook 第 11 节恢复
+    status: manual
+    v010_gate: reference
+
+  - id: TC-LC-03
+    title: 故障复位（两段式）
+    purpose: 证明 /rt/reset_fault 先对 Fault 轴脉冲 0x0080、再走 staged 下行序列，不压缩流程
+    area: lifecycle
+    risk: T3
+    writes: { reset: yes, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/enable_manager/**"]
+    traces: [PROGRESS.md 历史段 "T-IF-RT-003 (reset staged-disable corrective)"]
+    preconditions: 栈运行中；存在或人为保留的 Fault 轴；现场授权
+    entry: |
+      ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable
+    pass:
+      - 响应 ok=true；全部轴离开 Fault
+      - 失败时 failed_batch/failed_joint/status_word/stage 字段完整可诊断
+    evidence: 服务响应与前后 /diagnostics 快照存档
+    cleanup: 复位失败按 fail-closed 停机，不重试叠加
+    status: manual
+    v010_gate: reference
+
+  - id: TC-LC-04
+    title: 14 轴分批使能与失能
+    purpose: 证明 5 批次（3/3/3/3/2）使能全部到 Operation Enabled，失能收敛到冻结终态
+    area: lifecycle
+    risk: T3
+    writes: { reset: no, enable: yes, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/enable_manager/**"]
+    traces: [tools/rt_control_axis_state_check.py, "BQ-115", "BQ-126"]
+    preconditions: TC-LC-02 通过后的运行栈；现场授权（确认短语 ENABLE_RT_CONTROL_NATIVE）
+    entry: |
+      tools/rt_control_native.sh enable   # 现场输入确认短语
+      # 校验后
+      ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable
+    pass:
+      - enable 后 14 轴 status_word 全为 Operation Enabled（axis_state_check enabled 判据）
+      - disable 后终态符合冻结例外表（Ti5 四轴 0x0021 例外不视为失败，也不关闭原判据）
+    evidence: 使能前后 DynamicJointState 快照与校验器输出存档
+    cleanup: 失能后确认全轴离开 Operation Enabled
+    status: manual
+    v010_gate: reference
+
+  - id: TC-LC-05
+    title: 断电恢复入口
+    purpose: 证明主接触器断电后 recover-power-loss 可一键恢复到可用状态
+    area: lifecycle
+    risk: T3
+    writes: { reset: yes, enable: yes, motion: no, plc: no }
+    env: native
+    covers: ["tools/rt_control_native.sh", "src/rt_control/enable_manager/**"]
+    traces: [domains/rt_control/docs/native-development-workflow.md, "domains/rt_control/docs/follow-up-modification-plan.md（historical，来源论证）"]
+    preconditions: 现场断电复位完成；现场授权（确认短语 RECOVER_RT_CONTROL）
+    entry: |
+      tools/rt_control_native_oneclick.sh   # 即 recover-power-loss
+    pass:
+      - 流程 fail-closed：任何阶段失败即停机，不带病继续
+      - 成功路径终态 14 轴可用、readiness ready=true
+    evidence: 全程日志存档
+    cleanup: 失败时按 runbook 第 11 节处置
+    status: manual
+    v010_gate: reference
+
+  - id: TC-LC-06
+    title: 异常残留后再启动
+    purpose: 证明前次未干净退出的残留状态不阻塞下次启动收敛
+    area: lifecycle
+    risk: T3
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/rt_control_bringup/**", "tools/rt_control_native.sh"]
+    traces: []
+    preconditions: 人为制造残留（kill -9 栈进程组）；现场授权
+    entry: |
+      # kill -9 后直接
+      tools/rt_control_native.sh start
+    pass:
+      - 二次启动收敛判据与 TC-LC-02 相同
+    evidence: 两次启动日志对照存档
+    cleanup: 同 TC-LC-02
+    status: planned
+    v010_gate: "no"

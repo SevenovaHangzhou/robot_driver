@@ -37,7 +37,7 @@ Autonomy 不得直接调用以上五个控制入口。外部任务必须经过 A
 | R-OUT-01 | `/tf` | Topic / `tf2_msgs/msg/TFMessage` | Perception、Motion、Autonomy | `robot_state_publisher` 发布本体动态坐标边；不发布 `map→odom` 或 `odom→base_footprint` |
 | R-OUT-01S | `/tf_static` | Topic / `tf2_msgs/msg/TFMessage` | Perception、Motion、Autonomy | 独立 Topic；transient-local；发布本体固定坐标边 |
 | R-OUT-02 | `/wheel/odom` | Topic / `nav_msgs/msg/Odometry` | Perception | 50 Hz；`frame_id=odom`、`child_frame_id=base_footprint`；不作为最终到站或停稳证据 |
-| R-OUT-03 | `/joint_states` | Topic / `sensor_msgs/msg/JointState` | Motion、Perception、Autonomy | 100 Hz；只含 14 个 EtherCAT 机械轴；仅 position；不含履带控制关节 |
+| R-OUT-03 | `/joint_states` | Topic / `sensor_msgs/msg/JointState` | Motion、Perception、Autonomy | 125 Hz（BQ-135：配置标称 100 Hz 被 250 Hz 控制环量化为 125 Hz，裁决以实测 125 为准）；只含 14 个 EtherCAT 机械轴；仅 position；不含履带控制关节 |
 | R-OUT-04 | `/battery_state` | Topic / `sensor_msgs/msg/BatteryState` | Autonomy | 5 s 周期；只读；一键 native 与 Docker 默认启动 BMS 节点 |
 | R-OUT-05 | `/vacuum/state` | Topic / `robot_rt_control_interfaces/msg/VacuumState` | Autonomy | 20 Hz；`left/right` 离散 `attached` 状态；Motion 不订阅，其他域不得自行重算 GRIP 成功 |
 | R-OUT-06 | `/control/safety_state` | Topic / `robot_rt_control_interfaces/msg/SafetyState` | Perception、Motion、Autonomy | 10 Hz；最大年龄 200 ms；软件可观测摘要，不代表急停、安全继电器或 STO 的真实状态 |

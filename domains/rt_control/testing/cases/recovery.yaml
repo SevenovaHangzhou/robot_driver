@@ -1,0 +1,101 @@
+# 异常恢复测试（T3；故障注入类需单独裁决后执行）
+category: recovery
+cases:
+  - id: TC-AR-01
+    title: 急停触发后的恢复路径
+    purpose: 证明急停/安全链动作后系统 fail-closed，且按既定流程可恢复
+    area: lifecycle
+    risk: T3
+    writes: { reset: yes, enable: yes, motion: no, plc: no }
+    env: native
+    covers: ["src/rt_control/enable_manager/**"]
+    traces: [domains/rt_control/docs/deployment-operations-runbook.md]
+    preconditions: 现场授权；急停按钮与安全链物理功能已由电气验收确认（软件不替代安全链）
+    entry: |
+      # 值守人员触发急停 → 观察栈行为 → 复位急停 → 走 TC-LC-03/04 恢复
+    pass:
+      - 急停期间无自动重试使能、无软件绕过
+      - 复位后按标准流程恢复到 14 轴可用
+    evidence: 全程日志与操作时间线存档
+    cleanup: 恢复失败按 runbook 第 11 节处置
+    status: planned
+    v010_gate: "no"
+
+  - id: TC-AR-02
+    title: EtherCAT 从站失联注入
+    purpose: 证明单从站失联时诊断正确降级、无未定义行为，恢复后可重新收敛
+    area: ecat-axes
+    risk: T3
+    writes: { reset: yes, enable: no, motion: no, plc: no }
+    env: native
+    covers: ["src/rt_control/robot_hw_ethercat/**", "src/rt_control/rt_diagnostics/**"]
+    traces: ["BQ-117"]
+    preconditions: 注入方式（断电单从站/断链）需先裁决并单独授权；禁止在带载状态注入
+    entry: |
+      # 待裁决后固化步骤（后续子 issue）
+    pass:
+      - slaves_responding 下降被诊断捕获，safety_state 相应降级
+      - 恢复接线后可按标准流程重新收敛
+    evidence: 注入前后诊断快照存档
+    cleanup: 恢复物理连接并完整重启栈
+    status: planned
+    v010_gate: "no"
+
+  - id: TC-AR-03
+    title: CANopen 总线无报文启动行为
+    purpose: 登记已知缺陷：无总线报文时 controller_manager 启动阶段退出（BQ-132）
+    area: canopen-chassis
+    risk: T3
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/robot_hw_canopen/**"]
+    traces: ["BQ-132"]
+    preconditions: BQ-132 当前 BLOCKED；本用例在裁决闭环前固定为已知 FAIL 登记项
+    entry: |
+      # 断开 can0 后启动栈，记录退出行为
+    pass:
+      - 目标行为待 BQ-132 裁决后定义；当前预期为启动退出（已知缺陷，不静默）
+    evidence: 启动日志存档
+    cleanup: 恢复 can0 后正常启动
+    status: blocked
+    v010_gate: "no"
+
+  - id: TC-AR-04
+    title: PLC 断连与重连
+    purpose: 证明 PLC 失联时 io_state 正确置 connected=false/data_fresh=false，重连后自恢复
+    area: io-power
+    risk: T3
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/plc_node/**"]
+    traces: [domains/rt_control/docs/plc-bms-integration.md]
+    preconditions: 断连方式为拔网线/关 PLC 电源，不改软件配置；现场授权
+    entry: |
+      # 断开 PLC 网络 60 s 后恢复，全程订阅 /plc/io_state 与 /control/safety_state
+    pass:
+      - 断连期间 connected=false、data_fresh=false、plc_ok=false
+      - 恢复后自动重连且输出状态与断前一致（无输出翻转）
+    evidence: 全程 io_state 记录存档
+    cleanup: 确认三路输出回读为 off
+    status: planned
+    v010_gate: "no"
+
+  - id: TC-AR-05
+    title: BMS 缺席行为
+    purpose: 登记已知部署约束：CANable 缺席阻塞 CAN unit（BQ-121），并验证 BMS 数据过期语义
+    area: io-power
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/bms_node/**", "hostsetup/**"]
+    traces: ["BQ-121"]
+    preconditions: BQ-121 当前 OPEN/DEPLOYMENT
+    entry: |
+      # can1 无 BMS 帧时订阅 /battery_state，验证过期字段置 NaN、bms_ok=false
+    pass:
+      - 数据过期时 voltage/SOC 为 NaN，safety_state 的 bms_ok=false
+      - 宿主 CAN unit 行为按 BQ-121 裁决结果验收（当前登记为部署约束）
+    evidence: /battery_state 与 safety_state 记录存档
+    cleanup: 无
+    status: planned
+    v010_gate: "no"

@@ -2287,3 +2287,36 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Atomic release boundary：包名和三个结果 schema 都是 wire-breaking。RT-Control、Motion、Autonomy
   及其他调用工具必须锁定同一 `robot_interfaces` SHA 后原子发布；旧包与 0.6.0 不得混跑。
   本地源码/构建测试不能证明跨容器联合运行，也不授权总线访问、reset、enable、运动或 PLC 输出。
+
+## BQ-134 — 发布测试性能阈值与零容忍项判定口径 [RESOLVED 2026-08-13]
+
+- Question：ELECTRI-80 要求裁决 TC-RT-02 的 CPU/内存判据、TC-LS-02 使能静置漂移
+  阈值，以及 blocked/swap/总线错误增量四项"零容忍项"是否直接 FAIL。
+- Evidence：baseline v0（`testing/baselines/v0.yaml`，180 s 窗口，当前主机）：
+  CPU14 平均 4.945% / 峰值 23.230%，`ros2_control_node` RSS 577.3 MiB，
+  blocked/swap 全 0。cyclictest >100 us 判据已由 BQ-064 冻结，不在本裁决内。
+- Decision（用户 2026-08-13 裁决）：
+  1. TC-RT-02 CPU14：绝对上限，平均 >10% 或峰值 >40% 即 FAIL；delta 全量打印
+     供趋势观察，不设相对增幅判定。
+  2. TC-RT-02 RSS：绝对上限，>700 MiB 即 FAIL。
+  3. TC-LS-02 使能静置漂移（≥30 min）：旋转轴 >0.5° 或 updown >5 mm 即 FAIL。
+  4. 零容忍项（blocked=0、swap=0、EtherCAT wc_error 窗口增量=0、CAN 错误计数
+     增量=0）：非零不自动 FAIL，记 REVIEW 交人工裁量后手工定 PASS/FAIL；已知
+     EtherCAT 成组丢包现象继续单独登记，不计入。
+- Consequence：阈值固化于 `testing/thresholds.yaml`，由
+  `tools/release_test_runner.py delta` 执行；用例 `TC-RT-02`、`TC-RT-03`、
+  `TC-LS-02` 的判据同步更新，TBD 全部消除。阈值调整须新 BQ 裁决。
+
+## BQ-135 — `/joint_states` 实际频率 125 Hz 与文档标称 100 Hz 不一致 [RESOLVED 2026-08-13]
+
+- Question：ELECTRI-77 mock 契约测试实测 `/joint_states` 为 125 Hz，
+  `docs/cross-domain-interfaces.md` R-OUT-03 标称 100 Hz。controller_manager
+  警告 100 不是 250 Hz 更新率的因数并向上取整到 125；同一 controllers.yaml
+  驱动生产，实机预计同为 125 Hz。改文档还是改 broadcaster 频率？
+- Decision（用户 2026-08-13 裁决）：以实测为准，契约视图改为 125 Hz；
+  `controllers.yaml` 的 `joint_state_broadcaster` 标称 100 Hz 配置不动
+  （避免破坏 diff_legacy 冻结基线语义值），文档注明量化关系。
+- Consequence：本仓库实现视图已更新。消费方（Motion/Perception/Autonomy）
+  与权威契约仓库 `robot_interfaces` 的对应描述需同步告知/更新——跨域通知
+  为后续动作，未完成前其他域按 100 Hz 假设的代码不受破坏（频率变高不变低）。
+  T-IF-RT-004 历史记录中"100 Hz 待实测确认"的注记由本裁决闭环。
