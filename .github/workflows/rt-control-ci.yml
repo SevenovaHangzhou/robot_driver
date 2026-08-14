@@ -31,6 +31,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             python3-coverage \
             python3-pip \
+            python3-pytest \
             python3-yaml \
             ripgrep \
             shellcheck

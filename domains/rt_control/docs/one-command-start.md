@@ -107,21 +107,21 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 | 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage` |
 | PLC 状态 | `/plc/io_state`，`rt_control_interfaces/msg/PlcIoState` |
 | BMS 电压/SOC | `/battery_state`，`sensor_msgs/msg/BatteryState`，5 s 周期 |
-| 真空动作 | `/vacuum/grip`，`robot_control_interfaces/action/VacuumGrip`；通道 `left/right`，布尔吸附验证；当前 `grip_profile_id=default` |
-| 真空状态 | `/vacuum/state`，`robot_control_interfaces/msg/VacuumState`；无 `pressure_pa` |
-| 真空泵维护 | `/vacuum/pump/set_enabled`，`robot_control_interfaces/srv/SetPumpEnabled` |
+| 真空动作 | `/vacuum/grip`，`robot_rt_control_interfaces/action/VacuumGrip`；通道 `left/right`，布尔吸附验证；当前 `grip_profile_id=default` |
+| 真空状态 | `/vacuum/state`，`robot_rt_control_interfaces/msg/VacuumState`；无 `pressure_pa` |
+| 真空泵维护 | `/vacuum/pump/set_enabled`，`robot_rt_control_interfaces/srv/SetPumpEnabled` |
 | PLC 底层调试 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
-| 安全摘要 | `/control/safety_state`，`robot_control_interfaces/msg/SafetyState` |
+| 安全摘要 | `/control/safety_state`，`robot_rt_control_interfaces/msg/SafetyState` |
 | 就绪状态 | `/rt_control/readiness`，`robot_system_interfaces/msg/DomainReadiness` |
 | 诊断 | `/diagnostics` |
-| 公共启停 | `/control/set_enabled`，`robot_control_interfaces/srv/SetControlEnabled`；`true` 时可自动清一次 resettable fault 后使能，`false` 只调用 `/rt/disable` |
+| 公共启停 | `/control/set_enabled`，`robot_rt_control_interfaces/srv/SetControlEnabled`；`true` 时可自动清一次 resettable fault 后使能，`false` 只调用 `/rt/disable` |
 | 手工失能 | `/rt/disable` |
 
 rt-control 的本体链从 `base_footprint → base_link → 本体/传感器连杆` 开始；导航域发布最终 `/odom` 和唯一动态
 `odom → base_footprint`，`map → odom` 仍由定位侧负责。`/wheel/odom` 是消息 topic，不是 TF frame。导航未启动时
 缺少 `odom → base_footprint` 是预期行为，其他域不得补发重复边。
 
-这些名称已对齐公共 `robot_interfaces` 契约 0.5.0。接口类型和限制见
+这些名称已对齐公共 `robot_interfaces` 契约 0.6.0。接口类型和限制见
 [RT-Control 域间接口实现视图](../../../docs/cross-domain-interfaces.md)和
 [开发进度与联调准入](integration-readiness-summary.md)。
 

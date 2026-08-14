@@ -1,0 +1,24 @@
+# RT-Control 性能 baseline v0
+# 登记依据见 ../README.md "Baseline" 节；数值原样取自来源文档，未做换算。
+schema: rt-control-baseline/v1
+id: v0
+status: registered-pending-approval   # 人工批准后改 approved
+registered: "2026-08-13"
+host: "ar-Default-string (192.168.0.40), CPU14 isolated, 5.15.0-1032-realtime"
+sources:
+  - metric_group: perf_window_180s
+    doc: domains/rt_control/docs/docker-deployment-performance-summary.md
+    note: 180 s 观测窗口，250 Hz 控制环运行中
+metrics:
+  cpu14_busy_avg_percent: 4.945
+  cpu14_busy_peak_percent: 23.230
+  ros2_control_node_rss_mib: 577.3
+  blocked_processes: 0
+  swap_in: 0
+  swap_out: 0
+excluded:
+  cyclictest: >
+    当前主机无有效 30 分钟记录：运行被意外断电中止（BQ-105），T-009 未完成。
+    host-setup-record.md 中的完整 30 分钟记录（Min 1 / Avg 4 / Max 18 us）属
+    已退役 alfa-two 主机（i7-12700），不可用作当前主机 baseline。
+    TC-RT-01 首次在当前主机通过后，以新增 baseline 版本补登记，不改本文件。

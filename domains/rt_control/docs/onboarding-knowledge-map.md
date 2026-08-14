@@ -109,7 +109,7 @@ flowchart TD
 | CAN 节点、EDS、运行模式和总线参数 | `robot_hw_canopen/config/bus.yml`、权威 EDS 和 CAN xacro | controller 临时参数、手工生成物。 |
 | controller 集合、频率、关节集合和运行时约束 | `rt_control_bringup/config/controllers.yaml` | 上层域的重复 controller 配置。 |
 | 上游版本和行为改动 | `deps.repos`、`versions.env`、`patches/*` | 未锁定的现场源码副本。 |
-| CPU、device、capability、DDS 与退出时间 | `docker/compose.yaml`、`docker/cyclonedds.xml`、启动脚本 | 镜像里的隐式默认值。 |
+| CPU、device、capability、DDS 与退出时间 | `docker/compose.yaml`、启动脚本 | 镜像里的隐式默认值。 |
 | 目标机 CPU/网卡/USB 设备事实 | `hostsetup` 和对应主机验收记录 | 从旧机器复制后未经验证的默认值。 |
 
 `rt_control_bringup/config/joint_limits.yaml` 当前会被安装并参与迁移审计，但 launch 没有加载它；不能把它误当作已经生效的 controller 软件限位源。
@@ -271,7 +271,7 @@ docker stop / SIGTERM
 | 高 | XMC SW 5.11 的实机固定 PDO 与供应商 XML 不一致；当前 profile 以 slave 15 的 SII/PDO 扫描为权威，尚未完成 OP、使能和低速运动验收。 | 固件升级或换驱动器必须重读 SII 并逐项比对；不得直接用旧 XML 覆盖 profile，也不得把 mock/构建成功当实机通过。 |
 | 高 | BQ-115 是明确的硬件安全例外：`right_joint2/right_joint3/left_joint2/left_joint3` 四个 Ti5 在控制字 `0x0000` 下只到 Ready To Switch On；master release 后会以 `0x7500` 进入 Fault。 | 该状态只因设备手册和实测被接受为“未激磁”终态，不是 literal Switch On Disabled；最终验收要人工签字，下一次启动通常要显式 `/rt/reset_fault`。 |
 | 高 | BQ-117 仍开放：Ti5 `0x10F1:02` 的 ESI 声明宽度与实机上传长度不一致。 | 换驱动、固件或新机器时不能假定当前容忍策略仍成立。 |
-| 高 | Compose 设置了 `CYCLONEDDS_URI` 并挂载 loopback-only XML，但没有设置 `RMW_IMPLEMENTATION`；当前已检查镜像实际报告 `rmw_fastrtps_cpp`。 | 该 XML 目前不能作为网络隔离保证；host network 下 ROS/DDS 可能使用非 loopback 网卡。启动后要核对实际 RMW 和网络暴露，修复前不得宣称“远程发现被关闭”。 |
+| 中 | Compose 已按 BQ-128 显式固定 `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`、`ROS_DOMAIN_ID=0`，无 DDS XML 挂载（"RMW 未固定"缺口已关闭）。 | host network + Domain 0 是跨域联调的预期配置，不是网络隔离；接入现场网络前仍须按 runbook 核对实际暴露范围。 |
 | 中 | `joint_limits.yaml` 会被安装，但当前 launch/runtime 没有加载它。 | 它目前是迁移/审计数据，不能声称 JTC 或硬件已从该文件自动执行软件限位。 |
 | 中 | `rt_disable_once` 失败会打印 `UNCLEAN_SHUTDOWN`，但 PID 1 最终退出码仍取 ROS launch 子进程。 | 容器可能 exit 0 但失能不干净；停机验收必须同时检查日志和总线终态。 |
 | 中 | 底层有部分 digital IO 状态/命令接口，但没有真空/语义 IO controller 和域间消息。 | 不能把裸 IO 当作已经可用的吸附控制能力。 |
@@ -280,4 +280,4 @@ docker stop / SIGTERM
 | 中 | Compose wrapper 没有固定 project name，默认会从发布目录名推导。 | 从不同末级目录直接回退可能创建第二套同为 host network、访问同一硬件的容器；发布目录约定和“全机唯一 rt-control project”必须显式核对。 |
 | 中 | 仓库还没有正式 release manifest、healthcheck、镜像传输、全离线宿主 bootstrap 和自动 rollback 工具。 | 新机部署必须人工保存 SHA、image ID、宿主依赖/事实和验收证据；传一个 Docker image 不等于离线新机已可部署。 |
 
-当前验证边界以 [`PROGRESS.md`](../PROGRESS.md)、[`host-setup-record.md`](host-setup-record.md) 和 [`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 为准。构建成功、mock 成功或一次通信上线，都不能替代实机运动、故障和长稳验收。
+当前验证边界以 [`PROGRESS.md`](../PROGRESS.md) 和 [`host-setup-record.md`](host-setup-record.md) 为准；[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 是 13 轴/15 位历史拓扑的证据，不覆盖当前 14 轴/16 位环。构建成功、mock 成功或一次通信上线，都不能替代实机运动、故障和长稳验收。

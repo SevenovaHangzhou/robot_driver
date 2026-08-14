@@ -1,0 +1,85 @@
+# 功能运动测试（T4：真实运动与 PLC 写；全部需现场人工授权）
+category: motion
+cases:
+  - id: TC-FM-01
+    title: 14 轴低速 FJT 往返
+    purpose: 证明完整 14 轴 FollowJointTrajectory 低速执行成功且首点误差在门限内
+    area: motion
+    risk: T4
+    writes: { reset: no, enable: yes, motion: yes, plc: no }
+    env: both
+    covers: ["src/rt_control/rt_control_bringup/config/**", "src/rt_control/robot_hw_ethercat/**"]
+    traces: [domains/rt_control/docs/fjt-14axis-low-speed-commissioning-20260727.md]
+    preconditions: TC-LC-04 通过；机械空间确认无碰撞风险；现场授权
+    entry: |
+      # 复用 2026-07-27 验收口径：13 旋转轴各 ±0.5°、updown ±0.05 m、单程 2 s、全轴往返
+      # goal 生成脚本随 runner 子任务固化
+    pass:
+      - 全部 goal SUCCEEDED（历史口径 28/28）
+      - 首点误差 < 门限（旋转轴 1°、updown 0.05 m）
+    evidence: 每个 goal 的 result 与轨迹日志存档
+    cleanup: 结束后 disable 全轴
+    status: manual
+    v010_gate: reference
+
+  - id: TC-FM-02
+    title: 履带底盘低速速度指令
+    purpose: 证明 /cmd_vel_safe 到两履带的执行与限速有效
+    area: motion
+    risk: T4
+    writes: { reset: no, enable: yes, motion: yes, plc: no }
+    env: both
+    covers: ["src/rt_control/robot_hw_canopen/**", "src/rt_control/rt_control_bringup/config/**"]
+    traces: [docs/cross-domain-interfaces.md]
+    preconditions: 整机架高或场地隔离；现场授权
+    entry: |
+      ros2 topic pub --once /cmd_vel_safe geometry_msgs/msg/Twist '{linear: {x: 0.05}}'
+      # 观察 /wheel/odom 与实际履带响应后发零速
+    pass:
+      - 履带按指令方向低速运动；零速指令后停止
+      - /wheel/odom 反馈方向与指令一致
+    evidence: 指令、/wheel/odom 记录与现场确认存档
+    cleanup: 发布零速并 disable
+    status: manual
+    v010_gate: reference
+
+  - id: TC-FM-03
+    title: PLC 三路输出与真空闭环
+    purpose: 证明左右电磁阀、真空泵逐点开关与真空建立反馈、持箱保护有效
+    area: io-power
+    risk: T4
+    writes: { reset: no, enable: no, motion: no, plc: yes }
+    env: both
+    covers: ["src/rt_control/plc_node/**", "src/rt_control/control_api_adapter/**"]
+    traces: [domains/rt_control/docs/plc-bms-commissioning-20260728.md]
+    preconditions: PLC 192.168.1.88:502 可达；现场授权
+    entry: |
+      # 逐点：/plc/left_solenoid、/plc/right_solenoid、/plc/vacuum_pump 各 on/off 并回读
+      # 公共层：/vacuum/grip GRIP/RELEASE、持箱状态下调用 /vacuum/pump/set_enabled(false)
+    pass:
+      - 每路输出回读与命令一致（io_state 确认）
+      - 持箱时停泵请求被拒绝且不写 PLC 输出
+      - RELEASE 不关公共泵
+    evidence: 每步服务响应与 /plc/io_state 快照存档
+    cleanup: 全部输出置 off 并确认回读
+    status: manual
+    v010_gate: reference
+
+  - id: TC-FM-04
+    title: FJT 首点误差拒绝边界
+    purpose: 证明超出首点误差门限的 goal 被拒绝而不是带偏差执行
+    area: motion
+    risk: T4
+    writes: { reset: no, enable: yes, motion: yes, plc: no }
+    env: native
+    covers: ["src/rt_control/rt_control_bringup/config/**"]
+    traces: [domains/rt_control/docs/docker-deployment-performance-summary.md]
+    preconditions: TC-FM-01 通过；现场授权
+    entry: |
+      # 构造首点偏离当前位置超门限（旋转轴 >1°）的 goal 下发
+    pass:
+      - goal 被拒绝或立即 abort，无轴移动
+    evidence: goal result 与轴位置前后快照存档
+    cleanup: disable 全轴
+    status: planned
+    v010_gate: "no"

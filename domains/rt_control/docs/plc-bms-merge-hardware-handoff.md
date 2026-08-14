@@ -1,5 +1,9 @@
 # PLC / BMS 合并、发布与实机验证交接
 
+> **历史交接文档（2026-08-13 标注）**：第 1 节工作区状态为 2026-07-28 时点快照，
+> 第 6 节两阶段提交流程已被 T-REL-010 的 Release 流程取代（现行流程见 runbook 第 4 节）。
+> 第 3 节"必须保留的内容"清单与第 8 节实机验证顺序仍为有效参考。
+
 更新时间：2026-07-28
 接手对象：已完成 T-020 的后续 AI / rt-control 负责人
 
@@ -37,47 +41,8 @@ git diff --check
 
 ## 2. 已完成的选择性集成
 
-### BMS
-
-- 仅保留 `bms_node`，没有合入 `can_bus_guard`。
-- 只接收标准 CAN 数据帧 `0x3FC`。
-- byte 0-1：大端无符号数 × 0.1 V。
-- byte 4：SOC 百分数，发布时换算为 0.0-1.0。
-- 唯一话题：`/battery_state`，类型 `sensor_msgs/msg/BatteryState`，周期 5 秒。
-- 只承诺 `voltage` 和 `percentage`；其他浮点字段为 `NaN`。
-- 有效帧超过 3 秒未更新时，电压/SOC 均发布 `NaN`，`present=false`。
-- 节点只读 `can1`，不配置接口、位率或链路状态。
-
-### PLC
-
-固定映射：
-
-| 地址 | 语义 |
-| --- | --- |
-| `%MW200 bit0` | 左臂电磁阀命令，1=开 |
-| `%MW200 bit1` | 右臂电磁阀命令，1=开 |
-| `%MW200 bit2` | 共用真空泵命令，1=开 |
-| `%MW201 bit0` | 远程控制允许，必须保持 1 |
-| `%MW210 bit0` / `IX0.6` | 左臂真空已建立，1=true |
-| `%MW210 bit1` / `IX0.7` | 右臂真空已建立，1=true |
-| `%MW211 bit0-bit2` | 三路实际输出状态 |
-| `%MW212` | IO 报警字 |
-
-ROS 接口只保留：
-
-- `/plc/io_state`：`rt_control_interfaces/msg/PlcIoState`，0.5 秒一次。
-- `/plc/left_solenoid`：`std_srvs/srv/SetBool`。
-- `/plc/right_solenoid`：`std_srvs/srv/SetBool`。
-- `/plc/vacuum_pump`：`std_srvs/srv/SetBool`。
-
-已经删除 `/plc/command`、三路 Bool command topic、`/plc/inputs`、`/plc/outputs` 和 JSON `/plc/status`。
-
-每个服务都执行：读取 `%MW200` → 只更新目标 bit → 写回 → 最多等待 1 秒，要求 `%MW200` 命令位与
-`%MW211` 实际位同时符合目标。失败返回 `success=false`，不做补偿写。启动、断连、重连和节点退出不会强制清零
-`%MW200`。
-
-连接、重连、服务调用和周期轮询都会检查 `%MW201 bit0`。发现为 0 时写入 `原值 | 0x0001` 并回读确认，且要求
-回读全字与目标值一致；非目标 bit 变化同样判为失败。修复失败会阻止服务写输出，但仍尽可能发布 PLC 只读状态。
+本节原有 BMS 帧解析、PLC 寄存器映射与 ROS 接口的完整副本已于 2026-08-13 移除：
+内容与 [plc-bms-integration.md](plc-bms-integration.md) 逐条重复且以后者为当前权威。
 
 详细接口说明见 [plc-bms-integration.md](plc-bms-integration.md)。
 

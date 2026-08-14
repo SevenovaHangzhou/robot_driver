@@ -269,7 +269,7 @@ sudo hostsetup/can-install.sh
 
 Mock 要使用同一个生产镜像，但必须使用独立 ROS Domain，且不能映射 `/dev/EtherCAT0`。先确认生产容器没有运行。
 
-独立 `ROS_DOMAIN_ID=142` 只避免与生产 Domain 42 混用，不等于网络隔离。由于当前 RMW 未固定，而 T-009 又要求复现 host network 路径，Mock 也可能在现场非 loopback 网卡发送 DDS 流量；只能在已批准的测试网络执行并记录实际 RMW/接口行为。
+独立 `ROS_DOMAIN_ID=142` 只避免与生产 Domain 0（BQ-128）混用，不等于网络隔离。RMW 已由 BQ-128 固定为 `rmw_fastrtps_cpp`（Fast DDS 默认 UDP+共享内存传输）；由于 T-009 要求复现 host network 路径，Mock 仍可能在现场非 loopback 网卡发送 DDS 流量，只能在已批准的测试网络执行并记录实际接口行为。
 
 下面是一份一次性模板；`sudo docker` 应替换为该目标机已批准的 Docker 提权入口：
 
@@ -290,8 +290,7 @@ sudo docker run -d \
   --ulimit memlock=-1:-1 \
   --stop-timeout 100 \
   -e ROS_DOMAIN_ID=142 \
-  -e CYCLONEDDS_URI=file:///etc/cyclonedds.xml \
-  -v "$(pwd)/docker/cyclonedds.xml:/etc/cyclonedds.xml:ro" \
+  -e RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
   "rt-control:${release_sha}" \
   /opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start \
   use_mock_hardware:=true
@@ -370,15 +369,15 @@ tools/rt_control_compose.sh ps -a
 - `Privileged=false`；
 - cpuset 只包含经过验证的隔离 CPU；
 - host network、host IPC；
-- capability 只有 `SYS_NICE`、`IPC_LOCK`；
+- capability 只有 `SYS_NICE`、`IPC_LOCK`、`NET_RAW`；
 - rtprio 98、memlock unlimited；
 - 只映射 `/dev/EtherCAT0`；
-- `cyclonedds.xml` 以只读方式挂载，`CYCLONEDDS_URI` 已设置，但实际 RMW 尚需运行时核对；
-- `ROS_DOMAIN_ID=42`。
+- `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` 显式固定，无 DDS XML 挂载；
+- `ROS_DOMAIN_ID=0`（BQ-128）。
 
-当前 [`cyclonedds.xml`](../../../docker/cyclonedds.xml) 的内容只绑定 loopback，但 Compose/Dockerfile 没有设置 `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`。已经检查的当前镜像由 `ros2 doctor --report` 报告为 `rmw_fastrtps_cpp`，因此 `CYCLONEDDS_URI` 很可能未生效；host network 下不能保证远程发现或 DDS 流量被限制在本机。此项是部署缺口，不应靠文档假设解决。生产接入现场网络前必须确认实际 RMW、监听/组播行为和允许的网卡，并把修复作为独立配置变更评审。
+RMW 已由 BQ-128 裁决并在 Compose 中显式固定为 `rmw_fastrtps_cpp`（`ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=0`，无 DDS XML 挂载），"RMW 未固定"这一历史部署缺口已关闭。host network + Domain 0 意味着与整机其他域共享发现空间——这是跨域联调的预期配置，不是网络隔离保证。
 
-这是 Phase H 的硬门禁。应先在已批准、隔离的测试网络中使用同镜像 Mock，通过 `ros2 doctor --report` 和宿主网络观测确认实际 RMW、监听/组播接口和可发现范围，再取得平台/网络安全评审。未测量、未批准，或实际暴露超出允许网卡时，不得启动生产容器；应先修复并验证 RMW/DDS 配置，而不是上线后再观察。
+Phase H 保留网络暴露门禁：接入现场网络前用 `ros2 doctor --report` 和宿主网络观测核对实际 RMW、监听/组播接口和可发现范围与预期一致；实际暴露超出允许网卡时不得启动生产容器，应先修复并验证配置，而不是上线后再观察。
 
 ### 8.1 新机最终 T-009 实时验收
 
@@ -424,7 +423,8 @@ cd ~/rt-control-current
 ```
 
 该入口按“旧会话最佳努力 disable → 销毁旧容器并确认 master Idle/Inactive → 人工复电确认 → 新会话 → 一次
-reset → 逐轴非激磁状态检查 → 一次 enable”执行。四个 Ti5 的 `0x0021` 例外严格限于 BQ-115 指定轴；其余 10
+reset → 逐轴非激磁状态检查 → 一次 enable”执行；完整序列与判据以 [one-command-start.md](one-command-start.md)
+为准，本节不再维护副本。四个 Ti5 的 `0x0021` 例外严格限于 BQ-115 指定轴；其余 10
 轴仍要求 `0x0040`。任何失败都不得循环 reset/enable。该流程的首次掉电—复电测试仍属于单独 L3 实机授权。
 
 ### 9.2 进入 ROS 运维 shell
@@ -501,8 +501,8 @@ timeout 5 ros2 topic echo /diagnostics
 三项服务使用同一个空请求和响应结构：
 
 ```bash
-ros2 service call /control/set_enabled robot_control_interfaces/srv/SetControlEnabled "{enabled: true, reason: operator}"
-ros2 service call /control/set_enabled robot_control_interfaces/srv/SetControlEnabled "{enabled: false, reason: operator}"
+ros2 service call /control/set_enabled robot_rt_control_interfaces/srv/SetControlEnabled "{enabled: true, reason: operator}"
+ros2 service call /control/set_enabled robot_rt_control_interfaces/srv/SetControlEnabled "{enabled: false, reason: operator}"
 ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable "{}"
 ros2 service call /rt/enable rt_control_interfaces/srv/RtEnable "{}"
 ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable "{}"
@@ -597,7 +597,7 @@ CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-con
 | CAN 命名 unit 失败 | 两只批准 serial 的适配器是否同时存在，是否更换过硬件。 |
 | Lely `Operation not permitted` | 宿主 `can0` txqueuelen 是否为 128；不要给容器增加 `NET_ADMIN`。 |
 | EtherCAT 启动像卡住 | 完整 OP/WC 门禁最长约 70 s；查 master/slave/WC 日志，不要强杀。 |
-| ROS graph 在远程可见或不可见，与 XML 预期不符 | 用 `ros2 doctor --report` 核对实际 RMW；当前 Compose 未固定 CycloneDDS，不能假定 loopback-only XML 生效。 |
+| ROS graph 远程可见性与预期不符 | 用 `ros2 doctor --report` 核对实际 RMW；Compose 已固定 `rmw_fastrtps_cpp`（BQ-128），无 DDS XML 挂载，可见性由 Domain 0 + host network 决定。 |
 | 容器反复 restarting | 立即用包装器 `stop` 终止重启环，保存第一次失败日志，再查 controller/硬件启动原因。 |
 | XMC slave 15 无法进入 OP 或 WC 不完整 | 先核对驱动 SW 5.11、`sysPRM.EtherCATEnable=ON`、实机固定 PDO 字节布局和启动 SDO；供应商 XML 的末项与实机不一致，禁止直接覆盖 YAML。 |
 | stop 很慢 | Compose 允许 100 s 做失能与总线清理；持续观察日志和最终状态。 |
@@ -692,4 +692,4 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 - 明确固定并验证生产 RMW/DDS 网卡边界；当前 loopback-only CycloneDDS XML 尚不能证明实际网络隔离；
 - 通用新机 profile、全离线宿主 bootstrap、自动镜像发布、readiness/healthcheck 和自动 rollback。
 
-当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
+当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md)（13 轴/15 位历史拓扑证据，不覆盖当前 14 轴/16 位环）和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。

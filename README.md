@@ -52,7 +52,7 @@ robot_driver/
 ├─ hostsetup/               # 实时域宿主安装与验收
 ├─ patches/                 # 冻结上游窄补丁
 ├─ tools/                   # 构建、启动、门禁和运维工具
-└─ docs/                    # RT-Control 接口与部署文档
+└─ docs/                    # 域间契约实现视图与协作规范
 ```
 
 ## 分支模型

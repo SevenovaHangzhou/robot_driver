@@ -1,0 +1,101 @@
+# 实时性能测试（T2：实机只读观测，不写任何控制对象）
+category: realtime-perf
+cases:
+  - id: TC-RT-01
+    title: cyclictest 30 分钟带压门禁
+    purpose: 证明隔离 CPU14 上实时延迟满足冻结判据
+    area: realtime-host
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: docker
+    env_note: 按 BQ-093/096 裁决方式注入宿主 cyclictest（只读 bind /usr/bin/cyclictest，映射 /dev/cpu_dma_latency），与运行中控制栈并行施压
+    covers: ["hostsetup/**", "docker/**"]
+    traces: [domains/rt_control/docs/deployment-operations-runbook.md, domains/rt_control/docs/host-setup-record.md, "BQ-064"]
+    preconditions: 栈运行中（FIFO 80 控制环在线）；宿主装有 rt-tests
+    entry: |
+      # 诊断容器内，单线程 FIFO 90、1 ms interval、mlockall，运行 1800 s
+      cyclictest --affinity 14 --threads 1 --priority 90 --policy fifo --interval 1000 --mlockall --duration 1800
+    pass:
+      - 最大延迟 ≤ 100 us（任何一次 > 100 us 即 FAIL，冻结判据）
+      - 期间 controller/容器无退出
+    evidence: cyclictest 直方图输出存档并登记 max/avg 入 baseline delta
+    cleanup: 结束诊断容器
+    status: manual
+    v010_gate: run
+
+  - id: TC-RT-02
+    title: 控制环资源占用窗口
+    purpose: 量化 CPU14 占用与 ros2_control_node 内存，对照 baseline 产出 delta
+    area: realtime-host
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/**"]
+    traces: [domains/rt_control/docs/docker-deployment-performance-summary.md, "BQ-134"]
+    preconditions: 栈运行中；窗口 ≥ 180 s（与 baseline 同口径）
+    entry: |
+      # 180 s 采样：CPU14 利用率、ros2_control_node RSS、blocked 进程数、swap
+      # 采集脚本产出 baseline 同名键的候选指标 YAML（ELECTRI-80）
+      python3 tools/rt_perf_capture.py capture --window 180 --out metrics.yaml
+      # 对照 baseline 出 delta（阈值来自 thresholds.yaml / BQ-134）
+      python3 tools/release_test_runner.py delta \
+        --baseline domains/rt_control/testing/baselines/v0.yaml \
+        --thresholds domains/rt_control/testing/thresholds.yaml \
+        --candidate metrics.yaml
+      # 等价手工口径（脚本不可用时）：
+      # pidstat -u -p $(pgrep -f ros2_control_node) 1 180 ; free -m
+    pass:
+      - CPU14 平均 ≤10%、峰值 ≤40%；RSS ≤700 MiB（BQ-134 绝对上限）
+      - blocked/swap 为 0；非零记 REVIEW 交人工裁量，不自动 FAIL（BQ-134）
+    evidence: 采样数据与 delta 表存档
+    cleanup: 无
+    status: manual
+    v010_gate: run
+
+  - id: TC-RT-03
+    title: 总线错误增量窗口
+    purpose: 证明观测窗口内 EtherCAT wc_error 与 CAN 错误计数无异常增长
+    area: ecat-axes
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/robot_hw_ethercat/**", "src/rt_control/robot_hw_canopen/**"]
+    traces: [domains/rt_control/docs/docker-deployment-performance-summary.md]
+    preconditions: 栈运行中；窗口与 TC-RT-02 同步执行
+    entry: |
+      # 窗口首尾各取一次 /diagnostics 中 wc_error_count 与 ip -details link show can0/can1 错误计数
+      # 与 TC-RT-02 同步执行：窗口首取一次 /diagnostics，CAN 计数由脚本在窗口首尾各取一次
+      ros2 topic echo /diagnostics --once > diag-first.yaml
+      python3 tools/rt_perf_capture.py capture --window 180 --out metrics.yaml
+      # 窗口结束后再取一次读数，并把 wc_error_delta 合并进同一份 metrics.yaml
+      ros2 topic echo /diagnostics --once > diag-last.yaml
+      python3 tools/rt_perf_capture.py wc-error --first diag-first.yaml --last diag-last.yaml \
+        --merge-into metrics.yaml --out metrics.yaml
+    pass:
+      - wc_error_count 窗口增量为 0（已知成组丢包现象另行登记，不静默）
+      - CAN error 计数增量为 0
+      - 增量非零记 REVIEW 交人工裁量，不自动 FAIL（BQ-134）
+    evidence: 首尾读数与差值存档
+    cleanup: 无
+    status: manual
+    v010_gate: run
+
+  - id: TC-RT-04
+    title: 实时 CPU 污染检查
+    purpose: 证明 CPU14 上无白名单外的 SCHED_FIFO/RR 线程
+    area: realtime-host
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["tools/rt_cpu_contamination_check.sh"]
+    traces: [tools/rt_cpu_contamination_check.sh]
+    preconditions: 栈运行中
+    entry: |
+      tools/rt_cpu_contamination_check.sh --cpu 14 --mode strict --samples 10
+    auto: "tools/rt_cpu_contamination_check.sh --cpu 14 --mode strict --samples 10"
+    pass:
+      - 退出码 0，无硬违规
+    evidence: 检查输出存档
+    cleanup: 无
+    status: automated
+    v010_gate: run

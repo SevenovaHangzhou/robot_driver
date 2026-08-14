@@ -1,0 +1,44 @@
+# 长稳测试（T2 观测 / T4 带载）
+category: endurance
+cases:
+  - id: TC-LS-01
+    title: 30 分钟稳定运行
+    purpose: 证明栈连续运行 30 分钟无退出、无错误增长、性能指标稳定
+    area: release-deploy
+    risk: T2
+    writes: { reset: no, enable: no, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/**"]
+    traces: [domains/rt_control/docs/docker-deployment-performance-summary.md]
+    preconditions: 栈运行中（可与 TC-RT-01/02/03 同窗执行以复用观测）
+    entry: |
+      # 30 分钟窗口内持续采样 TC-RT-02/03 同口径指标，窗口首尾比对
+    pass:
+      - 全程无进程退出、无 respawn
+      - 总线错误增量判据同 TC-RT-03
+      - 资源指标无单调增长趋势（内存泄漏迹象即 FAIL）
+    evidence: 全窗口采样数据存档
+    cleanup: 无
+    status: manual
+    v010_gate: run
+
+  - id: TC-LS-02
+    title: 使能保持与无命令静置
+    purpose: 证明 14 轴使能后长时间无命令静置不掉使能、不漂移、不累积故障
+    area: lifecycle
+    risk: T4
+    writes: { reset: no, enable: yes, motion: no, plc: no }
+    env: both
+    covers: ["src/rt_control/enable_manager/**", "src/rt_control/robot_hw_ethercat/**"]
+    traces: [domains/rt_control/docs/plc-bms-commissioning-20260728.md]
+    preconditions: TC-LC-04 通过；静置窗口 ≥ 30 分钟；现场授权并全程值守
+    entry: |
+      # enable 后不发送任何运动/IO 命令，静置观察
+    pass:
+      - 全程 14 轴保持 Operation Enabled
+      - 旋转轴漂移 ≤0.5°、updown ≤5 mm（BQ-134）
+      - /diagnostics 无新增故障行
+    evidence: 首尾轴状态快照与期间诊断日志存档
+    cleanup: 结束后 disable
+    status: manual
+    v010_gate: "no"

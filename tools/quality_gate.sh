@@ -41,10 +41,12 @@ fi
 
 python3 -m coverage erase
 python3 -m coverage run --branch \
-  --source=tools.repository_gate,tools.pr_contract_gate \
-  -m unittest discover -s tools/tests -p 'test_*.py'
+  --source=tools \
+  -m pytest tools/tests -q
 python3 -m coverage report --fail-under=80 \
   --include='tools/repository_gate.py,tools/pr_contract_gate.py'
+echo "NOTICE: informational coverage for remaining tools scripts (not gated):" >&2
+python3 -m coverage report --include='tools/diff_legacy.py,tools/rt_control_axis_state_check.py,tools/rt_control_thread_affinity.py,tools/release_test_runner.py,tools/scoped_tests.py,tools/rt_perf_capture.py' || true
 
 bash tools/check_ecat_sync_shutdown_policy.sh
 bash tools/check_rt_control_ipc_launcher_policy.sh

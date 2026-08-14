@@ -7,21 +7,18 @@ this directory is their single domain-level documentation and governance home.
 
 ## 新同事从这里开始
 
-- [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
-- [开发进度与联调准入](docs/integration-readiness-summary.md)：当前可用接口、已完成能力、联调边界以及域间契约/安全诊断等剩余任务。
 - [一键启动](docs/one-command-start.md)：当前工控机上启动、自动使能、查看状态/日志和有序停止的最短说明。
 - [原生开发与运行](docs/native-development-workflow.md)：在目标机文件夹中增量编译、启动、显式使能和停止，不必每次重构镜像。
-- [PLC / BMS 同容器集成](docs/plc-bms-integration.md)：精简接口、确认后的 IO 映射、保留位写入、中央配置和发布边界。
-- [PLC / BMS 与一键启动实机验收](docs/plc-bms-commissioning-20260728.md)：关停修复、三路输出逐点开关、无命令使能保持、末态总线和剩余人工观察项。
-- [PLC / BMS 合并与实机交接](docs/plc-bms-merge-hardware-handoff.md)：T-020 基线、提交/镜像锁流程、目标机验证顺序和证据清单。
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
-- [后续修改计划](docs/follow-up-modification-plan.md)：主接触器急停掉电恢复入口和 `/wheel/odom`/TF 所有权调整；两项均已进入源码，生产镜像与联合/实机验收尚未完成。
-- [XMC SW 5.11 固定 PDO 映射](docs/xmc-updown-sw511-fixed-pdo.md)：Updown 从站身份、19/24-byte 固定 PDO、启动 SDO、单位换算、XML 差异和实机门禁。
-- [XMC 首次整组使能记录](docs/xmc-updown-enable-commissioning-20260727.md)：14 轴 reset/enable/disable 实机结果，以及 WC 增长和联合退出段错误阻塞项。
-- [CANopen 有序清理与 EtherCAT 同步容忍复测](docs/canopen-shutdown-sync-tolerance-commissioning-20260727.md)：`0x10F1:02=250` 首镜像门禁、三轮联合退出、BQ-119/BQ-122 闭环和剩余风险。
-- [PROGRESS.md](PROGRESS.md)：已经验证和仍未验证的范围，不能把构建或 Mock 结果当成实机验收。
-- [BLOCKED-questions.md](BLOCKED-questions.md)：已裁决和仍开放的硬件、接口与安全事实；按关键词或 BQ 编号搜索，并注意后续裁决可能取代早期记录。
+- [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
+- [开发进度与联调准入](docs/integration-readiness-summary.md)：联调边界与剩余任务；接口清单以 docs/cross-domain-interfaces.md 为准。
+- [PROGRESS.md](PROGRESS.md)：验证时间线索引；不能把构建或 Mock 结果当成实机验收。
+- [BLOCKED-questions.md](BLOCKED-questions.md)：已裁决和仍开放的硬件、接口与安全事实；注意后续裁决可能取代早期记录。
+
+专题与历史文档（PLC/BMS、XMC、CANopen 验收记录、后续修改计划等）不再在此逐一罗列，
+按功能区索引见 [docs/areas/](docs/areas/README.md) 各区"历史锚点"；
+发布前测试体系与用例目录见 [testing/](testing/README.md)。
 
 Domain records:
 
@@ -29,6 +26,8 @@ Domain records:
 - [PROGRESS.md](PROGRESS.md): implementation and verification history.
 - [BLOCKED-questions.md](BLOCKED-questions.md): adjudicated and unresolved domain facts.
 - [docs/](docs/): onboarding, deployment, design evidence, commissioning notes, and host records.
+- [docs/areas/](docs/areas/README.md): per-functional-area development records and frozen facts.
+- [testing/](testing/README.md): pre-release test tiers, categories, and case catalog.
 
 The source layout follows the frozen rt_control implementation specification:
 

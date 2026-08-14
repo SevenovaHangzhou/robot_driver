@@ -1,0 +1,17 @@
+# 发布测试性能判定阈值（BQ-134 裁决，2026-08-13）
+# 由 tools/release_test_runner.py delta 消费；修改须新 BQ 裁决。
+schema: rt-control-thresholds/v1
+adjudication: BQ-134
+metrics:
+  cpu14_busy_avg_percent: { fail_above: 10.0 }
+  cpu14_busy_peak_percent: { fail_above: 40.0 }
+  ros2_control_node_rss_mib: { fail_above: 700.0 }
+  joint_drift_rotary_deg: { fail_above: 0.5 }
+  joint_drift_updown_mm: { fail_above: 5.0 }
+# 零容忍项：非零记 REVIEW 交人工裁量，不自动 FAIL（BQ-134 第 4 条）
+review_if_nonzero:
+  - blocked_processes
+  - swap_in
+  - swap_out
+  - wc_error_delta
+  - can_error_delta
