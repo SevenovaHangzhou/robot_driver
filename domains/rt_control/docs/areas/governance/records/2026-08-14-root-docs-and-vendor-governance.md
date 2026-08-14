@@ -37,7 +37,9 @@ architecture/file-hygiene gate PASS，187 个工具测试通过，repository gat
 和 staged diff 检查均通过。草稿 PR 首轮 governance job 通过；build job 首次真正导入
 EtherCAT vendor 后，按预期暴露 CI 镜像缺少 `/usr/local/etherlab`，形成失败证据。workflow
 corrective 改为用 native bootstrap 在隔离 vendor 根应用/核验冻结补丁，并按 `versions.env`
-构建固定 IgH 用户态库；repository gate 新增两项不可退化断言，CI 重跑待提交后触发。
+构建固定 IgH 用户态库。第二轮已越过该失败点，随后在测试开启的 controller vendor 上暴露
+`ros2_control_test_assets` 未安装；corrective 将 rosdep `test` 依赖纳入 CI。repository gate
+同时锁住补丁、IgH 和测试依赖三项不可退化条件，CI 重跑待提交后触发。
 
 本记录不授权使能或运动。
 
