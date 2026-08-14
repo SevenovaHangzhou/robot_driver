@@ -12,6 +12,7 @@
   <depend>lifecycle_msgs</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
+  <depend>robot_interfaces_qos</depend>
   <depend>rt_control_interfaces</depend>
   <test_depend>ament_cmake_gmock</test_depend>
   <test_depend>hardware_interface</test_depend>

@@ -9,8 +9,8 @@
 | 文档 | 管什么 |
 | --- | --- |
 | 本文 | 人与流程：分支、提交、PR、Issue、评审、发布、权限 |
-| [AGENTS.md](../AGENTS.md) | AI 与人共同遵守的架构、安全、质量底线和自审格式 |
-| [docs/cross-domain-interfaces.md](cross-domain-interfaces.md) | 域间接口冻结基线与接口变更流程 |
+| [AGENTS.md](AGENTS.md) | AI 与人共同遵守的架构、安全、质量底线和自审格式 |
+| `src/vendor/robot_interfaces/contract/views/rt_control.md` | 随固定 SHA 导入的 RT-Control 域间契约视图 |
 | `domains/rt_control/AGENTS.md` | RT-Control 更严格的专属规则 |
 
 域规则可以细化根规则，**不得放宽**。本文与 `AGENTS.md` 冲突时，以更严格的一方为准。
@@ -18,20 +18,22 @@
 ## 2. 仓库组织方式
 
 `robot_driver` 是 RT-Control 独立仓库。公共接口和 Robot Model 分别由独立
-`robot_interfaces`、`robot_description` 仓库提供权威版本，本仓库只保存运行所需构建副本。
+`robot_interfaces`、`robot_description` 仓库提供权威版本；公共接口通过
+`deps.repos` 固定 SHA 导入，Robot Model 在本仓库保留构建副本。
 
 ```text
 robot_driver/
 ├─ domains/rt_control/      # 实时域说明、AI 契约、进度与阻塞记录
 ├─ src/
 │  ├─ description/          # robot_description 构建副本
-│  ├─ interfaces/           # 公共接口构建镜像 + RT-Control 私有接口
+│  ├─ interfaces/           # 仅 RT-Control 私有接口与公共契约 source-lock
 │  └─ rt_control/           # 实时域实现包
+├─ src/vendor/              # 构建时导入的固定 SHA 上游依赖（不入库）
 ├─ docker/                  # RT-Control 镜像与 Compose
 ├─ hostsetup/               # 宿主安装与验收
 ├─ patches/                 # 冻结上游窄补丁
 ├─ tools/                   # 实时域与仓库门禁工具
-└─ docs/                    # RT-Control 接口、部署、发布、验收
+└─ collaboration-and-commit-standards.md
 ```
 
 三个边界互相独立，不得借部署便利破坏责任边界：
@@ -55,7 +57,7 @@ robot_driver/
 
 ### 3.2 `main` 与 `native` 的分工
 
-这是本仓库最重要的分支约定，完整规则见 [AGENTS.md](../AGENTS.md) 分支与封装契约一节。
+这是本仓库最重要的分支约定，完整规则见 [AGENTS.md](AGENTS.md) 分支与封装契约一节。
 
 **`main`**：RT-Control 必须提供可复现的镜像构建、Compose 服务定义和容器内启动入口。禁止只能在宿主原生环境跑通的实现进入 `main`。合并到 `main` 的 PR 必须提供容器构建与容器内启动证据。
 
@@ -132,7 +134,7 @@ refactor(rt-control): split enable manager from bringup
 | `deploy` | `docker/compose.yaml`、`deploy/**`、systemd、release manifest |
 | `tools` | `tools/**` |
 | `ci` | `.github/**` |
-| `docs` | `docs/**`、RT-Control README/PROGRESS |
+| `docs` | 根 README、`domains/rt_control/docs/**`、RT-Control PROGRESS |
 
 跨多个 scope 时优先拆成多个提交。确实不可拆分时使用主责 scope，并在正文列出其余受影响范围。
 
@@ -222,7 +224,7 @@ pre-commit install
 | --- | --- |
 | 普通域内变更 | ≥1 reviewer approve；CI 通过；无 unresolved conversation |
 | 共享 Robot Model（`src/description/**`） | ≥2 approve，其中 1 名核心负责人；全部消费域联合验证 |
-| 共享接口（`src/interfaces/**`） | 接口所有者 + 全部消费域 approve；同批更新 `docs/cross-domain-interfaces.md` |
+| 公共接口 vendor/source-lock | 接口所有者 + 全部消费域 approve；同批更新上游契约及固定 SHA |
 | 部署与 Compose（`docker/**`、`deploy/**`） | 平台/集成 + 全部受影响域 approve |
 | 实时性或安全边界（250 Hz 环、CPU 隔离、capability、device） | 核心负责人 approve；附时序或隔离实测证据 |
 | 合并到 `main` | 上述之外，必须附容器构建与容器内启动证据 |
@@ -233,11 +235,12 @@ pre-commit install
 | --- | --- | --- |
 | `src/rt_control/**`、`docker/rt-control/**`、`hostsetup/**` | `domains/rt_control/AGENTS.md` | rt-control；公共模型/接口变更时通知外部消费者 |
 | `src/description/robot_description/**` | 根 `AGENTS.md` 共享资产一节 | Robot Model + rt-control；破坏性变更通知外部消费域 |
-| `src/interfaces/robot_*_interfaces/**` | 独立 `robot_interfaces` 权威契约 | 接口所有者 + 全部跨域生产者/消费者 |
+| `deps.repos` 中的 `robot_interfaces` pin、`src/interfaces/source-lock.yaml` | 独立 `robot_interfaces` 权威契约 | 接口所有者 + 全部跨域生产者/消费者 |
 | `src/interfaces/rt_control_interfaces/**` | `domains/rt_control/AGENTS.md` | RT-Control 域内生产者/消费者 |
 | `docker/compose.yaml`、`deploy/**`、DDS/发布配置 | `domains/rt_control/AGENTS.md` | RT-Control + 平台/集成 |
 
-`tools/**`、`docs/**`、`.github/**` 按其实际管理的对象归属，不因位于根目录就自动视为公共资产。
+`tools/**`、`domains/rt_control/docs/**`、`.github/**` 按其实际管理的对象归属，
+不因位于根目录就自动视为公共资产。根 `docs/` 必须保持为空。
 
 ### 6.5 评审严重级别
 
@@ -317,7 +320,7 @@ Demo 或阶段交付附后缀：`v0.3.0-demo`、`v0.3.0-rc1`。
 1. 从 `main` 切 `release/vx.y`，冻结功能；
 2. 更新 `CHANGELOG.md`（Added / Fixed / Changed / Known Issues）；
 3. 全域镜像构建成功，整机 Compose 可拉起；
-4. 执行整机验收清单与 `docs/cross-domain-interfaces.md` 第 10 节边界验收；
+4. 执行整机验收清单与 vendored `contract/views/rt_control.md` 边界验收；
 5. 记录 release manifest：RT-Control 镜像 tag、Robot Model 版本/哈希、interfaces schema 版本、标定版本、冻结上游 commit SHA；
 6. 打 tag 并归档验收证据。
 

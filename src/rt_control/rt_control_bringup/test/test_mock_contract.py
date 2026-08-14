@@ -5,14 +5,11 @@
 #
 # AUTHORITATIVE SPEC NOTE
 # -----------------------
-# docs/cross-domain-interfaces.md is the authoritative implementation view of
-# the cross-domain contract (which itself mirrors robot_interfaces
-# contract/endpoints.yaml, see doc section 1). The tables below are a MIRROR of
-# that document, kept here only so the test is self-contained. If the doc and
-# this file disagree, the doc wins and this mirror must be updated:
-#   - Section 2  "RT-Control 接收的公共命令"  -> doc lines 24-28 (R-IN-01..05)
-#   - Section 3  "RT-Control 发布的公共状态"  -> doc lines 37-45 (R-OUT-01..10)
-#   - Section 6  "已删除接口"                 -> doc lines 123-127
+# The authoritative RT-Control view is vendored from robot_interfaces at
+# src/vendor/robot_interfaces/contract/views/rt_control.md. The tables below
+# are a self-contained runtime probe mirror of its "本域提供", "本域消费" and
+# "已删除的 endpoint" sections. Endpoint IDs are the stable anchors; line
+# numbers are intentionally not used because the view is generated.
 #
 # Mock degradations (BQ-132): use_mock_hardware:=true has no CANopen bus and
 # the bringup defaults start_plc:=false / start_bms:=false, so:
@@ -53,6 +50,7 @@ from rclpy.qos import (
 
 from diagnostic_msgs.msg import DiagnosticArray  # noqa: F401 (documents type)
 from robot_rt_control_interfaces.msg import SafetyState, VacuumState
+from robot_interfaces_qos import control, fast_state, latched, state
 from robot_system_interfaces.msg import DomainReadiness
 from sensor_msgs.msg import JointState
 
@@ -63,65 +61,69 @@ GRAPH_CONVERGE_TIMEOUT_SEC = 120.0
 GRAPH_POLL_PERIOD_SEC = 1.0
 
 # Frequency spot checks: generous tolerance, lower bound only (>= 70 % of the
-# contract-nominal rate). Known mock artefact: joint_state_broadcaster asks
-# for 100 Hz but the 250 Hz controller_manager rounds it to the nearest
-# divisor, 125 Hz, so /joint_states measures ~125 Hz in mock mode.
+# contract-nominal rate). The joint_state_broadcaster configuration remains
+# 100 Hz, but the 250 Hz controller_manager schedules it at the supported
+# 125 Hz divisor; the public contract therefore uses the measured 125 Hz.
 FREQUENCY_TOLERANCE_RATIO = 0.7
 MEASUREMENT_WARMUP_SEC = 2.0
 MEASUREMENT_WINDOW_SEC = 10.0
 
 PublicEndpoint = collections.namedtuple(
     "PublicEndpoint",
-    ["contract_id", "kind", "name", "ros_type", "doc_line", "degraded_note"],
+    ["contract_id", "kind", "name", "ros_type", "degraded_note"],
 )
 
-# Section 2 -- public commands RT-Control receives (doc lines 24-28).
+# Vendored view: "本域消费" plus command endpoints in "本域提供".
 PUBLIC_COMMAND_ENDPOINTS = (
-    PublicEndpoint("R-IN-01", "topic", "/cmd_vel_safe",
-                   "geometry_msgs/msg/Twist", 24, None),
+    PublicEndpoint("N-04", "topic", "/cmd_vel_safe",
+                   "geometry_msgs/msg/Twist", None),
     PublicEndpoint("R-IN-02", "action", "/whole_body_jtc/follow_joint_trajectory",
-                   "control_msgs/action/FollowJointTrajectory", 25, None),
+                   "control_msgs/action/FollowJointTrajectory", None),
     PublicEndpoint("R-IN-03", "service", "/control/set_enabled",
-                   "robot_rt_control_interfaces/srv/SetControlEnabled", 26, None),
+                   "robot_rt_control_interfaces/srv/SetControlEnabled", None),
     PublicEndpoint("R-IN-04", "service", "/vacuum/pump/set_enabled",
-                   "robot_rt_control_interfaces/srv/SetPumpEnabled", 27, None),
+                   "robot_rt_control_interfaces/srv/SetPumpEnabled", None),
     PublicEndpoint("R-IN-05", "action", "/vacuum/grip",
-                   "robot_rt_control_interfaces/action/VacuumGrip", 28, None),
+                   "robot_rt_control_interfaces/action/VacuumGrip", None),
 )
 
-# Section 3 -- public states RT-Control publishes (doc lines 37-45).
+# Vendored view: state endpoints in "本域提供".
 PUBLIC_STATE_ENDPOINTS = (
     PublicEndpoint("R-OUT-01", "topic", "/tf",
-                   "tf2_msgs/msg/TFMessage", 37, None),
+                   "tf2_msgs/msg/TFMessage", None),
     PublicEndpoint("R-OUT-01S", "topic", "/tf_static",
-                   "tf2_msgs/msg/TFMessage", 38, None),
+                   "tf2_msgs/msg/TFMessage", None),
     PublicEndpoint("R-OUT-02", "topic", "/wheel/odom",
-                   "nav_msgs/msg/Odometry", 39,
+                   "nav_msgs/msg/Odometry",
                    "CANopen-backed; existence+type only in mock (BQ-132)"),
     PublicEndpoint("R-OUT-03", "topic", "/joint_states",
-                   "sensor_msgs/msg/JointState", 40, None),
+                   "sensor_msgs/msg/JointState", None),
     PublicEndpoint("R-OUT-04", "topic", "/battery_state",
-                   "sensor_msgs/msg/BatteryState", 41,
+                   "sensor_msgs/msg/BatteryState",
                    "start_bms:=false in mock bringup; name/type visible via "
                    "rt_status_adapter subscription only"),
     PublicEndpoint("R-OUT-05", "topic", "/vacuum/state",
-                   "robot_rt_control_interfaces/msg/VacuumState", 42, None),
+                   "robot_rt_control_interfaces/msg/VacuumState", None),
     PublicEndpoint("R-OUT-06", "topic", "/control/safety_state",
-                   "robot_rt_control_interfaces/msg/SafetyState", 43, None),
+                   "robot_rt_control_interfaces/msg/SafetyState", None),
     PublicEndpoint("R-OUT-09", "topic", "/rt_control/readiness",
-                   "robot_system_interfaces/msg/DomainReadiness", 44, None),
+                   "robot_system_interfaces/msg/DomainReadiness", None),
     PublicEndpoint("R-OUT-10", "topic", "/diagnostics",
-                   "diagnostic_msgs/msg/DiagnosticArray", 45, None),
+                   "diagnostic_msgs/msg/DiagnosticArray", None),
 )
 
-# Section 6 -- removed endpoints; their presence in the graph is a contract
-# violation (doc lines 123-127).
+# Vendored view: "已删除的 endpoint".
 REMOVED_ENDPOINT_NAMES = (
-    "/robot_model/info",           # doc line 123
-    "/calibration/info",           # doc line 124
-    "/navigation/set_base_motion_inhibit",   # doc line 125
-    "/navigation/base_motion_gate_state",    # doc line 126
-    "/motion/base_travel_readiness",         # doc line 127
+    "/robot_model/info",
+    "/calibration/info",
+    "/navigation/set_base_motion_inhibit",
+    "/navigation/base_motion_gate_state",
+    "/motion/base_travel_readiness",
+    "/map",
+    "/navigation/scan",
+    "/motion/move_to_camera_view_pose",
+    "/motion/plan_and_execute_pick",
+    "/motion/plan_and_execute_place",
 )
 
 # Frequency spot checks actually MEASURED in mock mode (topic -> msg type,
@@ -129,10 +131,10 @@ REMOVED_ENDPOINT_NAMES = (
 # /battery_state (degraded, see header), /tf and /tf_static (event-driven /
 # latched), /diagnostics (no rate in section 3).
 FREQUENCY_CHECKS = {
-    "/joint_states": (JointState, 100.0, 40),
-    "/vacuum/state": (VacuumState, 20.0, 42),
-    "/control/safety_state": (SafetyState, 10.0, 43),
-    "/rt_control/readiness": (DomainReadiness, 1.0, 44),
+    "/joint_states": (JointState, 125.0, "R-OUT-03"),
+    "/vacuum/state": (VacuumState, 20.0, "R-OUT-05"),
+    "/control/safety_state": (SafetyState, 10.0, "R-OUT-06"),
+    "/rt_control/readiness": (DomainReadiness, 1.0, "R-OUT-09"),
 }
 
 # Best-effort/volatile subscriber matches every publisher QoS in the bringup
@@ -207,6 +209,49 @@ class TestMockContract(unittest.TestCase):
             "action": cls._action_types,
         }[kind]()
 
+    def _assert_qos_matches(self, actual, expected, *, endpoint):
+        for field in ("history", "depth", "reliability", "durability"):
+            if (
+                field in {"history", "depth"}
+                and actual.history == HistoryPolicy.UNKNOWN
+            ):
+                # Fast DDS on ROS 2 Humble does not expose endpoint history
+                # or depth through graph introspection (depth is reported as
+                # zero). Static tests still require the named profile call;
+                # reliability and durability remain observable here.
+                continue
+            self.assertEqual(
+                getattr(actual, field),
+                getattr(expected, field),
+                msg=f"{endpoint}: QoS {field} differs from robot_interfaces_qos",
+            )
+        for field in ("deadline", "lifespan"):
+            actual_ns = getattr(actual, field).nanoseconds
+            expected_ns = getattr(expected, field).nanoseconds
+            if expected_ns == 0 and actual_ns == (1 << 63) - 1:
+                # QoSProfile represents an unspecified duration as zero while
+                # Humble graph introspection returns RMW_DURATION_INFINITE.
+                # They are the same default/unbounded policy.
+                continue
+            self.assertEqual(
+                actual_ns,
+                expected_ns,
+                msg=f"{endpoint}: QoS {field} differs from robot_interfaces_qos",
+            )
+
+    def _assert_topic_endpoint_qos(self, topic, expected, *, publishers):
+        if publishers:
+            endpoint_info = self.node.get_publishers_info_by_topic(topic)
+        else:
+            endpoint_info = self.node.get_subscriptions_info_by_topic(topic)
+        self.assertTrue(
+            endpoint_info,
+            msg=f"{topic}: no {'publisher' if publishers else 'subscription'} QoS found",
+        )
+        for info in endpoint_info:
+            with self.subTest(topic=topic, node=info.node_name):
+                self._assert_qos_matches(info.qos_profile, expected, endpoint=topic)
+
     @classmethod
     def _missing_public_endpoints(cls):
         graphs = {kind: cls._graph_lookup(kind)
@@ -237,7 +282,7 @@ class TestMockContract(unittest.TestCase):
                     msg=(
                         f"{endpoint.contract_id}: {endpoint.kind} "
                         f"'{endpoint.name}' missing from graph "
-                        f"(cross-domain-interfaces.md line {endpoint.doc_line})"
+                        "(robot_interfaces RT-Control view)"
                     ),
                 )
                 self.assertEqual(
@@ -246,18 +291,18 @@ class TestMockContract(unittest.TestCase):
                         f"{endpoint.contract_id}: {endpoint.kind} "
                         f"'{endpoint.name}' has types {sorted(graph[endpoint.name])}, "
                         f"contract requires exactly '{endpoint.ros_type}' "
-                        f"(cross-domain-interfaces.md line {endpoint.doc_line})"
+                        "(robot_interfaces RT-Control view)"
                     ),
                 )
 
     # -- TC-RO-01: positive contract surface -------------------------------
 
     def test_tc_ro_01_public_command_endpoints_present_with_types(self):
-        """Section 2: all five R-IN endpoints exist with the contract types."""
+        """All five public command endpoints exist with the vendored types."""
         self._assert_endpoints_present(PUBLIC_COMMAND_ENDPOINTS)
 
     def test_tc_ro_01_public_state_endpoints_present_with_types(self):
-        """Section 3: all R-OUT endpoints exist with the contract types.
+        """All public state endpoints exist with the vendored types.
 
         R-OUT-02 and R-OUT-04 are existence+type only (mock degradations,
         see module header / BQ-132).
@@ -267,7 +312,7 @@ class TestMockContract(unittest.TestCase):
     # -- TC-RO-02: removed endpoints must not exist ------------------------
 
     def test_tc_ro_02_removed_endpoints_absent(self):
-        """Section 6: removed endpoints appearing in the graph is a breach."""
+        """Endpoints in the vendored removed list must stay absent."""
         graph_names = (
             set(self._topic_types())
             | set(self._service_types())
@@ -279,7 +324,7 @@ class TestMockContract(unittest.TestCase):
                     removed, graph_names,
                     msg=(
                         f"Removed endpoint '{removed}' reappeared in the graph "
-                        "(cross-domain-interfaces.md section 6)"
+                        "(robot_interfaces RT-Control view: 已删除的 endpoint)"
                     ),
                 )
                 offenders = [n for n in graph_names
@@ -289,9 +334,28 @@ class TestMockContract(unittest.TestCase):
                     msg=(
                         f"Removed endpoint '{removed}' has sub-names "
                         f"{offenders} in the graph "
-                        "(cross-domain-interfaces.md section 6)"
+                        "(robot_interfaces RT-Control view: 已删除的 endpoint)"
                     ),
                 )
+
+    def test_named_qos_profiles_match_vendored_contract(self):
+        """Public Topic entities use robot_interfaces_qos or an exact equivalent."""
+        for topic, profile in (
+            ("/joint_states", fast_state()),
+            ("/wheel/odom", fast_state()),
+            ("/vacuum/state", state()),
+            ("/control/safety_state", state()),
+            ("/rt_control/readiness", latched()),
+            ("/tf_static", latched()),
+        ):
+            self._assert_topic_endpoint_qos(topic, profile, publishers=True)
+
+        self._assert_topic_endpoint_qos(
+            "/cmd_vel_safe", control(), publishers=False
+        )
+        self._assert_topic_endpoint_qos(
+            "/battery_state", state(), publishers=False
+        )
 
     # -- Frequency spot checks ---------------------------------------------
 
@@ -309,7 +373,7 @@ class TestMockContract(unittest.TestCase):
             self.node.create_subscription(
                 msg_type, name, make_callback(name), MEASUREMENT_QOS
             )
-            for name, (msg_type, _nominal, _line) in FREQUENCY_CHECKS.items()
+            for name, (msg_type, _nominal, _contract_id) in FREQUENCY_CHECKS.items()
         ]
         try:
             self._spin_for(MEASUREMENT_WARMUP_SEC)
@@ -317,7 +381,7 @@ class TestMockContract(unittest.TestCase):
             window_start = time.monotonic()
             self._spin_for(MEASUREMENT_WINDOW_SEC)
             elapsed = time.monotonic() - window_start
-            for name, (_msg_type, nominal_hz, doc_line) in FREQUENCY_CHECKS.items():
+            for name, (_msg_type, nominal_hz, contract_id) in FREQUENCY_CHECKS.items():
                 measured_hz = (counters[name] - baseline[name]) / elapsed
                 with self.subTest(topic=name):
                     self.assertGreaterEqual(
@@ -326,7 +390,7 @@ class TestMockContract(unittest.TestCase):
                             f"'{name}' measured {measured_hz:.2f} Hz over "
                             f"{elapsed:.1f} s; contract nominal {nominal_hz} Hz "
                             f"(>= {FREQUENCY_TOLERANCE_RATIO * nominal_hz:.1f} Hz "
-                            f"required, cross-domain-interfaces.md line {doc_line})"
+                            f"required, robot_interfaces endpoint {contract_id})"
                         ),
                     )
         finally:

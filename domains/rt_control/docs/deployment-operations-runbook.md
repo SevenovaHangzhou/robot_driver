@@ -132,7 +132,7 @@ tools/quality_gate.sh
 - 完整 Git SHA，且目标部署目录是同一 SHA 的干净工作树；
 - 镜像引用 `rt-control:<release-version>`、Git tag SHA 和 GitHub Release 归档 SHA-256；
 - [`versions.env`](../../../versions.env) 中 IgH 版本/commit；
-- [`deps.repos`](../../../deps.repos) 中三个上游完整 commit；
+- [`deps.repos`](../../../deps.repos) 中四个上游完整 commit；
 - 目标机事实、目标 `RT_CONTROL_CPUSET`、操作者和时间；
 - 当前生产版本及其源码、镜像和宿主配置回退点。
 
@@ -465,7 +465,7 @@ timeout 5 ros2 topic echo /diagnostics
 | `diff_drive_controller` | active |
 | `enable_manager` | active |
 | `whole_body_jtc` | inactive；只有 `/rt/enable` 成功后才 active |
-| `/joint_states` | 100 Hz，仅 14 个 EtherCAT 机械轴；两条 track joint 不在公共关节状态中 |
+| `/joint_states` | 实频 125 Hz，仅 14 个 EtherCAT 机械轴；两条 track joint 不在公共关节状态中 |
 | `/wheel/odom` | 约 50 Hz；`header.frame_id=odom`，`child_frame_id=base_footprint`；无旧 topic 别名 |
 | `/tf`、`/tf_static` | 类型均为 `tf2_msgs/msg/TFMessage`；rt-control 单独运行时不存在 `odom → base_footprint`，但保留 `base_footprint → base_link → ...`，树中无 `world` |
 | `/diagnostics` | 约 1 Hz，多发布者，按名称聚合 |

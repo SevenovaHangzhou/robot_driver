@@ -30,7 +30,7 @@ cases:
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: both
     covers: ["src/rt_control/robot_hw_canopen/**", "src/rt_control/rt_control_bringup/config/**"]
-    traces: [docs/cross-domain-interfaces.md]
+    traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 整机架高或场地隔离；现场授权
     entry: |
       ros2 topic pub --once /cmd_vel_safe geometry_msgs/msg/Twist '{linear: {x: 0.05}}'

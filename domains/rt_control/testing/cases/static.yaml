@@ -9,7 +9,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     covers: ["**"]
-    traces: [tools/quality_gate.sh, docs/collaboration-and-commit-standards.md]
+    traces: [tools/quality_gate.sh, collaboration-and-commit-standards.md]
     preconditions: 干净候选 commit 检出，无未提交改动
     entry: |
       REQUIRE_SHELLCHECK=1 tools/quality_gate.sh

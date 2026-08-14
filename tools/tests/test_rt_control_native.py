@@ -383,6 +383,12 @@ class NativeBootstrapContractTest(unittest.TestCase):
             self.text,
         )
 
+    def test_bootstrap_applies_the_cross_domain_qos_patch(self):
+        self.assertIn(
+            "patches/ros2_controllers/0002-use-contract-qos-profiles.patch",
+            self.text,
+        )
+
     def test_build_is_incremental_and_kept_outside_the_repository(self):
         self.assertIn("--symlink-install", self.text)
         self.assertIn('build_base="${workspace_root}/build"', self.text)

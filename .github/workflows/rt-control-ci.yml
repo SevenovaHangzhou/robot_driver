@@ -67,26 +67,92 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
+            git \
             liburdfdom-tools \
             python3-colcon-common-extensions \
             python3-rosdep \
+            python3-vcstool \
             python3-yaml
+      - name: Import frozen source dependencies
+        shell: bash
+        run: vcs import --shallow --retry 5 --workers 1 . < deps.repos
       - name: Install package dependencies
         shell: bash
         run: |
           rosdep init 2>/dev/null || true
           rosdep update
-          rosdep install --from-paths src --ignore-src --rosdistro humble -r -y
+          rt_control_packages=(
+            robot_rt_control_interfaces
+            robot_system_interfaces
+            robot_interfaces_qos
+            bms_node
+            canopen_master_driver
+            canopen_ros2_control
+            control_api_adapter
+            ethercat_driver
+            ethercat_generic_cia402_drive
+            joint_trajectory_controller
+            plc_node
+            robot_description
+            rt_control_interfaces
+            robot_hw_ethercat
+            robot_hw_canopen
+            enable_manager
+            rt_diagnostics
+            rt_control_bringup
+          )
+          mapfile -t dependency_paths < <(
+            colcon list --base-paths src --paths-only \
+              --packages-up-to "${rt_control_packages[@]}"
+          )
+          rosdep install --from-paths "${dependency_paths[@]}" \
+            --ignore-src --rosdistro humble -r -y
       - name: Build
         shell: bash
         run: |
           source /opt/ros/humble/setup.bash
-          colcon build --symlink-install
+          colcon build --symlink-install --packages-up-to \
+            robot_rt_control_interfaces \
+            robot_system_interfaces \
+            robot_interfaces_qos \
+            bms_node \
+            canopen_master_driver \
+            canopen_ros2_control \
+            control_api_adapter \
+            ethercat_driver \
+            ethercat_generic_cia402_drive \
+            joint_trajectory_controller \
+            plc_node \
+            robot_description \
+            rt_control_interfaces \
+            robot_hw_ethercat \
+            robot_hw_canopen \
+            enable_manager \
+            rt_diagnostics \
+            rt_control_bringup
       - name: Test
         shell: bash
         run: |
           source /opt/ros/humble/setup.bash
-          colcon test --event-handlers console_direct+
+          colcon test --event-handlers console_direct+ --packages-up-to \
+            robot_rt_control_interfaces \
+            robot_system_interfaces \
+            robot_interfaces_qos \
+            bms_node \
+            canopen_master_driver \
+            canopen_ros2_control \
+            control_api_adapter \
+            ethercat_driver \
+            ethercat_generic_cia402_drive \
+            joint_trajectory_controller \
+            plc_node \
+            robot_description \
+            rt_control_interfaces \
+            robot_hw_ethercat \
+            robot_hw_canopen \
+            enable_manager \
+            rt_diagnostics \
+            rt_control_bringup
           colcon test-result --verbose
       - name: Validate shared robot description
         shell: bash

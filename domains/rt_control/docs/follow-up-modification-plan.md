@@ -6,7 +6,7 @@
 > 是否已随某个发布镜像部署以 release 记录为准。当前恢复入口见
 > [native-development-workflow.md](native-development-workflow.md) 与
 > [one-command-start.md](one-command-start.md)，`/wheel/odom`/TF 所有权见
-> [cross-domain-interfaces.md](../../../docs/cross-domain-interfaces.md)。
+> vendored `robot_interfaces/contract/views/rt_control.md`。
 
 状态：**两项修改均已进入源码，尚未构建发布镜像或完成目标机验收**
 

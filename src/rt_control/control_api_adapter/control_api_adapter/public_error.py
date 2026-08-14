@@ -55,7 +55,14 @@ def error_info(code: PublicErrorCode, message: str) -> ErrorInfoData:
 def assign_error_info(message, value: ErrorInfoData) -> None:
     """Populate a generated robot_system_interfaces/ErrorInfo message."""
 
-    message.code = int(value.code)
-    message.retryable = value.retryable
+    message.code = str(int(value.code))
     message.message = value.message
-    message.origin = value.origin
+    message.retryable = value.retryable
+    if value.code == PublicErrorCode.SUCCESS:
+        message.severity = message.OK
+    elif value.retryable:
+        message.severity = message.WARN
+    else:
+        message.severity = message.FAULT
+    message.source = value.origin
+    message.detail = ""

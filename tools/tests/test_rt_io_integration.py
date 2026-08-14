@@ -1,6 +1,4 @@
-import xml.etree.ElementTree as ET
 from pathlib import Path
-import re
 import sys
 
 import yaml
@@ -16,30 +14,36 @@ from control_api_adapter.public_error import PublicErrorCode
 
 def test_public_and_private_interface_packages_have_distinct_ownership() -> None:
     interface_root = ROOT / "src/interfaces"
-    public_packages = ("robot_rt_control_interfaces", "robot_system_interfaces")
+    public_packages = (
+        "robot_rt_control_interfaces",
+        "robot_system_interfaces",
+        "robot_interfaces_qos",
+    )
     source_lock = yaml.safe_load((interface_root / "source-lock.yaml").read_text())
+    dependencies = yaml.safe_load((ROOT / "deps.repos").read_text())["repositories"]
 
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "e19d1450339d6bce598f664eb18fb093e02097ff",
-        "contract_version": "0.6.0",
-        "mirrored_packages": list(public_packages),
+        "commit": "eb010e1e33b31ae8ae4ebe0843a2d5c5ca2fabd1",
+        "contract_version": "0.6.1",
+        "vendor_path": "src/vendor/robot_interfaces",
+        "vendored_packages": list(public_packages),
+    }
+    assert dependencies["src/vendor/robot_interfaces"] == {
+        "type": "git",
+        "url": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
+        "version": source_lock["commit"],
     }
 
     assert not (interface_root / "alfa_control_interfaces").exists()
     assert not (interface_root / "alfa_system_interfaces").exists()
     assert not (interface_root / "robot_interfaces").exists()
-
     for package_name in public_packages:
-        manifest = ET.parse(interface_root / package_name / "package.xml").getroot()
-        assert manifest.findtext("name") == package_name
-        assert manifest.findtext("version") == "0.6.0"
+        assert not (interface_root / package_name).exists()
 
-    private_manifest = ET.parse(
-        interface_root / "rt_control_interfaces/package.xml"
-    ).getroot()
-    assert private_manifest.findtext("name") == "rt_control_interfaces"
+    private_manifest = (interface_root / "rt_control_interfaces/package.xml").read_text()
+    assert "<name>rt_control_interfaces</name>" in private_manifest
     assert {
         path.relative_to(interface_root / "rt_control_interfaces").as_posix()
         for path in (interface_root / "rt_control_interfaces").glob("**/*")
@@ -138,57 +142,11 @@ def test_public_rt_control_interfaces_match_current_contract() -> None:
 def test_public_control_enable_adapter_is_started_with_rt_control() -> None:
     launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
     bringup_manifest = (BRINGUP / "package.xml").read_text()
-    interface_srv = (
-        ROOT
-        / "src/interfaces/robot_rt_control_interfaces/srv/SetControlEnabled.srv"
-    ).read_text()
 
     assert 'package="control_api_adapter"' in launch_text
     assert 'executable="control_enable_adapter"' in launch_text
     assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
-    interface_fields = [
-        line.strip()
-        for line in interface_srv.splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
-    assert interface_fields == [
-        "bool enabled",
-        "string reason",
-        "---",
-        "bool accepted",
-        "bool enabled",
-        "robot_system_interfaces/ErrorInfo error",
-    ]
-
-
-def test_all_public_rt_command_results_use_error_info() -> None:
-    interface_root = ROOT / "src/interfaces/robot_rt_control_interfaces"
-    for relative_path in (
-        "srv/SetControlEnabled.srv",
-        "srv/SetPumpEnabled.srv",
-        "action/VacuumGrip.action",
-    ):
-        interface_text = (interface_root / relative_path).read_text()
-        assert interface_text.count("robot_system_interfaces/ErrorInfo error") == 1
-        assert "uint16 error_code" not in interface_text
-
-
-def test_public_error_mapping_matches_contract_constants() -> None:
-    error_code_idl = (
-        ROOT / "src/interfaces/robot_system_interfaces/msg/ErrorCode.msg"
-    ).read_text()
-    contract_constants = {
-        name: int(value)
-        for name, value in re.findall(
-            r"^uint32\s+([A-Z][A-Z0-9_]*)=(\d+)\s*$",
-            error_code_idl,
-            flags=re.MULTILINE,
-        )
-    }
-
-    assert {
-        item.name: int(item.value) for item in PublicErrorCode
-    }.items() <= contract_constants.items()
+    assert int(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY) == 1101
 
 
 def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
@@ -231,12 +189,64 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
+    assert "robot_interfaces_qos" in dockerfile
+    assert "robot_interfaces_qos" in bootstrap
+
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
     assert "      robot_system_interfaces \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
     assert "\n  robot_rt_control_interfaces\n" in bootstrap
     assert "\n  robot_system_interfaces\n" in bootstrap
     assert "\n  control_api_adapter\n" in bootstrap
+    assert "test -d src/vendor/robot_interfaces/robot_rt_control_interfaces" in dockerfile
+    assert "test -d src/vendor/robot_interfaces/robot_system_interfaces" in dockerfile
+    assert "src/vendor/robot_interfaces" in bootstrap
+
+
+def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
+    bms_source = (ROOT / "src/rt_control/bms_node/bms_node/bms_node.py").read_text()
+    vacuum_source = (
+        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/vacuum_adapter.py"
+    ).read_text()
+    status_source = (
+        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py"
+    ).read_text()
+    enable_source = (
+        ROOT / "src/rt_control/enable_manager/src/enable_manager_controller.cpp"
+    ).read_text()
+    diagnostics_source = (
+        ROOT / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
+    ).read_text()
+    controller_patch = (
+        ROOT / "patches/ros2_controllers/0002-use-contract-qos-profiles.patch"
+    ).read_text()
+
+    assert "from robot_interfaces_qos import state" in bms_source
+    assert "self.create_publisher(BatteryState, topic, state())" in bms_source
+    assert "from robot_interfaces_qos import state" in vacuum_source
+    assert "state()," in vacuum_source
+    assert "from robot_interfaces_qos import diagnostic, latched, state" in status_source
+    assert "robot_interfaces_qos::diagnostic()" in enable_source
+    assert "robot_interfaces_qos::diagnostic()" in diagnostics_source
+    assert "robot_interfaces_qos::control()" in controller_patch
+    assert controller_patch.count("robot_interfaces_qos::fast_state()") == 2
+
+
+def test_public_adapters_populate_the_vendored_shared_message_schemas() -> None:
+    public_error_source = (
+        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/public_error.py"
+    ).read_text()
+    status_source = (
+        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py"
+    ).read_text()
+
+    assert "message.code = str(int(value.code))" in public_error_source
+    assert "message.source = value.origin" in public_error_source
+    assert 'message.detail = ""' in public_error_source
+    assert "def populate_domain_readiness(" in status_source
+    assert 'message.domain = "rt_control"' in status_source
+    assert 'message.readiness_name = "rt_control"' in status_source
+    assert "message.producer_instance_id = producer_instance_id" in status_source
 
 
 def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:

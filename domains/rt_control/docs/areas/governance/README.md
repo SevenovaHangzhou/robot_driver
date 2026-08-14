@@ -5,7 +5,7 @@
 **Owner 包/资产**：`tools/quality_gate.sh`、`tools/repository_gate.py`、
 `tools/pr_contract_gate.py`、`tools/diff_legacy.py`、`tools/tests/`、
 `.github/workflows/`、`.pre-commit-config.yaml`、各级 `AGENTS.md`、
-`docs/collaboration-and-commit-standards.md`、`domains/rt_control/docs/areas/`。
+`collaboration-and-commit-standards.md`、`domains/rt_control/docs/areas/`。
 
 不属于本区：具体功能的验证记录（归各功能区，即使证据由门禁产生）。
 
@@ -20,9 +20,13 @@
 | F5 | 测试风险分层 T0–T4，发布门禁自动部分只到 T2 | [governance-20260813-02](records/2026-08-13-test-case-catalog-v1.md)#F1 | 有效 |
 | F6 | 用例 ID 规则 `TC-<分类码>-<NN>`，不复用 | [governance-20260813-02](records/2026-08-13-test-case-catalog-v1.md)#F2 | 有效 |
 | F7 | V0.10 最小门禁 = v010_gate run 全过 + reference 全部给出历史坐标 | [governance-20260813-02](records/2026-08-13-test-case-catalog-v1.md)#F3 | 有效 |
+| F8 | 根 docs 必须为空，协作规范位于仓库根，接口视图来自 vendor | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F1 | 有效；取代 governance-20260813-04#F1 |
+| F9 | source-lock 发布身份必须与 deps.repos 的 robot_interfaces pin 一致 | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F2 | 有效 |
+| F10 | 已归档 records 保留旧路径作为历史坐标 | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F3 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-08-14 [清空根 docs 并建立公共接口 vendor 门禁](records/2026-08-14-root-docs-and-vendor-governance.md) — decision，PASS（T0）
 - 2026-08-14 [T2 性能采集脚本化（ELECTRI-80 脚本部分）](records/2026-08-13-rt-perf-capture.md) — feature，PASS（T0）
 - 2026-08-13 [增量测试 scope resolver（ELECTRI-81）](records/2026-08-13-scoped-tests.md) — feature，PASS（T0）
 - 2026-08-13 [BQ-134 性能阈值裁决落地](records/2026-08-13-bq134-thresholds.md) — decision，PASS（T0）
@@ -36,5 +40,5 @@
 ## 历史锚点（2026-08-13 前，未迁移）
 
 - PROGRESS.md 历史段：T-GOV-001/002、T-DOC-001/002
-- `docs/collaboration-and-commit-standards.md`（第 9.5 节五层测试要求、第 10 节 CI）
+- `collaboration-and-commit-standards.md`（第 9.5 节五层测试要求、第 10 节 CI）
 - 相关 Linear：ELECTRI-74（测试体系设计）

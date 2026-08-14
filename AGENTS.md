@@ -16,7 +16,8 @@
 3. 阅读目标包的 manifest、构建文件、实现、配置、测试和直接消费者；不只看被点名的单个文件。
 4. 执行 `git status --short --branch`，区分用户已有改动与本任务改动，并确认当前分支是 `main` 还是 `native`（决定是否适用第 4 节的封装要求）。
 5. 写明任务/需求号、所属域、目标包、跨域消费者、运行阶段和风险等级。
-6. 跨域接口相关变更先读 `docs/cross-domain-interfaces.md` 的冻结基线。
+6. 跨域接口相关变更先导入 `deps.repos`，再读
+   `src/vendor/robot_interfaces/contract/views/rt_control.md` 的冻结基线。
 
 ### 2.1 当前路径路由
 
@@ -24,7 +25,7 @@
 | --- | --- | --- |
 | `src/rt_control/**`、`docker/rt-control/**`、`hostsetup/**`、上游补丁/工具 | `domains/rt_control/AGENTS.md` | rt-control；模型/公共接口变更时通知外部消费者 |
 | `src/description/robot_description/**` | 根契约第 5.1 节 | Robot Model + rt-control；破坏性变更通知外部消费域 |
-| `src/interfaces/robot_*_interfaces/**` | 独立 `robot_interfaces` 权威契约 | 接口所有者 + 全部跨域生产者/消费者 |
+| `deps.repos` 的 `robot_interfaces` pin、`src/interfaces/source-lock.yaml` | 独立 `robot_interfaces` 权威契约 | 接口所有者 + 全部跨域生产者/消费者 |
 | `src/interfaces/rt_control_interfaces/**` | `domains/rt_control/AGENTS.md` | RT-Control 域内生产者/消费者 |
 | `docker/compose.yaml`、`deploy/**`、DDS/发布配置 | `domains/rt_control/AGENTS.md` | RT-Control + 平台/集成 |
 
@@ -70,7 +71,7 @@
 
 从 `native` 提升到 `main` 时必须补齐容器封装，并确认没有把原生专用路径、宿主绝对路径、开发者本机配置或未封装启动方式带入 `main`。原生一键脚本可以保留，但不得成为 `main` 的唯一启动方式。
 
-两条分支都禁止直接 push、force push 和改写共享历史；全部变更经 PR 合并。人的协作流程细则见 `docs/collaboration-and-commit-standards.md`。
+两条分支都禁止直接 push、force push 和改写共享历史；全部变更经 PR 合并。人的协作流程细则见 `collaboration-and-commit-standards.md`。
 
 ## 5. 共享包与权威事实源
 
@@ -87,14 +88,14 @@ Robot Model 的权威源是独立 `robot_description` 仓库；
 ### 5.2 Interfaces
 
 域间接口的权威事实源是独立 `robot_interfaces` 契约仓库的
-`contract/endpoints.yaml` 和可编译 `robot_*_interfaces` 包。本仓库
-`src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces` 只是当前 RT-Control
-镜像使用的构建副本，不得先于契约自行修改；同步时必须保持包名、字段、常量和语义一致。
+`contract/endpoints.yaml` 和可编译 `robot_*_interfaces` 包。本仓库以 `deps.repos`
+固定完整 SHA，将其导入 `src/vendor/robot_interfaces`；禁止在本仓库复制或修改公共
+schema。`src/interfaces/source-lock.yaml` 必须与该 pin 一致。
 
 `src/interfaces/rt_control_interfaces` 只保存 RT-Control 域内 msg/srv/action 定义，不得被
 其他域依赖。删除、重命名或改变公共字段类型、单位、坐标系、终态与错误语义均是破坏性变更；
-没有消费者迁移和原子发布方案不得合并。本仓库的 RT 接口视图与实现说明见
-`docs/cross-domain-interfaces.md`，必须与公共契约同批更新。
+没有消费者迁移和原子发布方案不得合并。RT 接口视图来自 vendored
+`contract/views/rt_control.md`，必须与公共契约同批更新。
 
 ## 6. 配置、密钥和安全
 

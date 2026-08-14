@@ -2310,13 +2310,56 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 ## BQ-135 — `/joint_states` 实际频率 125 Hz 与文档标称 100 Hz 不一致 [RESOLVED 2026-08-13]
 
 - Question：ELECTRI-77 mock 契约测试实测 `/joint_states` 为 125 Hz，
-  `docs/cross-domain-interfaces.md` R-OUT-03 标称 100 Hz。controller_manager
+  当时的 RT-Control 契约视图 R-OUT-03 标称 100 Hz。controller_manager
   警告 100 不是 250 Hz 更新率的因数并向上取整到 125；同一 controllers.yaml
   驱动生产，实机预计同为 125 Hz。改文档还是改 broadcaster 频率？
 - Decision（用户 2026-08-13 裁决）：以实测为准，契约视图改为 125 Hz；
   `controllers.yaml` 的 `joint_state_broadcaster` 标称 100 Hz 配置不动
   （避免破坏 diff_legacy 冻结基线语义值），文档注明量化关系。
-- Consequence：本仓库实现视图已更新。消费方（Motion/Perception/Autonomy）
-  与权威契约仓库 `robot_interfaces` 的对应描述需同步告知/更新——跨域通知
+- Consequence：权威仓库 `robot_interfaces` 的 RT-Control 视图已更新，vendoring 后路径为
+  `src/vendor/robot_interfaces/contract/views/rt_control.md`。消费方（Motion/Perception/Autonomy）
+  的对应描述需同步告知/更新——跨域通知
   为后续动作，未完成前其他域按 100 Hz 假设的代码不受破坏（频率变高不变低）。
   T-IF-RT-004 历史记录中"100 Hz 待实测确认"的注记由本裁决闭环。
+
+## BQ-136 — 公共接口改用固定 SHA vendoring 并采用命名 QoS [RESOLVED/HIGH-RISK 2026-08-14]
+
+- Question：RT-Control 是否删除树内 `robot_rt_control_interfaces`、
+  `robot_system_interfaces` 公共镜像，改从 `robot_interfaces` 固定 SHA 构建；根
+  `docs/` 如何收敛；是否保留 source-lock；以及 QoS 包是否进入实际通信路径？
+- User decision（2026-08-14）：同意清空根 `docs/`、把协作规范移到仓库根、保留
+  `src/interfaces/source-lock.yaml` 并强制与 `deps.repos` 一致、契约版本从 0.6.0
+  升为 0.6.1。随后明确要求采用 `robot_interfaces_qos`，取代最初“不接入 QoS”选项。
+- Decision：`src/interfaces` 只保留域内私有 `rt_control_interfaces` 和 source-lock；
+  `robot_rt_control_interfaces`、`robot_system_interfaces`、`robot_interfaces_qos` 从
+  `src/vendor/robot_interfaces` 构建。所有自有跨域 Topic 使用 QoS 包的命名 profile；
+  冻结的 `ros2_controllers` 通过最小 overlay patch 接入 `control()`/`fast_state()`；
+  不能直接依赖 QoS 包的 `/tf_static` 提供方必须通过运行时测试证明等价策略。
+- Atomic release boundary：`control()` 为 `/cmd_vel_safe` 增加 500 ms deadline 与
+  lifespan。Motion 发布端与 RT-Control 订阅端必须在同一发布批次升级，禁止新旧 QoS
+  混合部署；下游合并前还必须把临时上游 PR SHA 更新为 `robot_interfaces` 最终 merge SHA。
+- Verification boundary：本裁决只授权源码、mock、构建、容器构建和 PR 操作，不授权
+  目标机同步、总线访问、reset、enable、运动、PLC 输出或发布部署。
+
+## BQ-137 — vendored `ErrorInfo`/`DomainReadiness` 线协议与既有 RT 裁决冲突 [BLOCKED 2026-08-14]
+
+- Evidence：BQ-133 锁定的 `robot_interfaces@e19d1450` 使用
+  `ErrorInfo{uint32 code,bool retryable,string message,string origin}` 和
+  `DomainReadiness{ready,state,reason,version,config_summary}`。当前待 vendoring 的上游
+  `main@bdad6f9`/PR head `eb010e1` 已破坏性改为
+  `ErrorInfo{string code,string message,bool retryable,uint8 severity,string source,string detail}`，
+  并把 `DomainReadiness` 改为带 domain/readiness_name/status/operational_state/map_version/
+  producer_instance_id/blockers/errors 的共享结构；旧本地公共包镜像此前掩盖了该差异。
+- Conflict：上游 `ErrorInfo.msg` 注释把 `code` 定义为 mapping/navigation 节点内部诊断字符串，
+  但同仓库 RT-Control service/action 仍把它作为公共失败载荷，`ErrorCode.msg` 和 BQ-133 又要求
+  四位 DREE 数字语义。当前字段类型可以编译，错误码的权威语义却不唯一。
+- Current compatibility implementation：为证明完整 vendor SHA 可运行，RT-Control 暂把既有
+  DREE 数值转成十进制字符串，保持 `retryable`，并映射 OK/WARN/FAULT、`source=rt_control`；
+  readiness 按新共享结构填充。该映射已有生成 IDL 单测和 Domain 142 mock 运行证据，但不构成
+  对跨域错误码语义的自行裁决。
+- Blocking question：接口所有者需明确选择并在 `robot_interfaces` 中形成一致契约：公共
+  `ErrorInfo.code` 是否继续承载 DREE（若是，修正文档/常量/校验并确认字符串编码），还是改成
+  导航内部码（若是，为 RT-Control 三个公共结果另定权威错误载荷与迁移方案）；同时确认新的
+  `DomainReadiness` 是所有域必须原子采纳的最终 schema。
+- Blocked scope：不阻止本分支构建、mock、草稿 PR 和跨域评审；阻止下游 PR 合并、镜像发布及
+  部署。BQ-136 要求的最终 upstream merge SHA 更新和本问题的接口所有者裁决均完成后，才可解除。

@@ -32,8 +32,8 @@
 ### 3.1 目录职责
 
 - `src/description/robot_description`：平台级机器人权威模型源，只保存机器人固有的运动学、几何、惯量、碰撞模型、坐标系和 mesh。
-- `src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces`：公共
-  `robot_interfaces` 契约仓库的 RT-Control 构建镜像，只能从权威契约同步。
+- `src/vendor/robot_interfaces`：由 `deps.repos` 固定 SHA 导入的公共接口与 QoS，
+  `src/interfaces/source-lock.yaml` 必须记录同一身份；禁止在本仓库保存公共 schema 镜像。
 - `src/interfaces/rt_control_interfaces`：RT-Control 域内接口，只保存
   `PlcIoState`、`RtEnable` 等本域 `msg/srv/action`，其他域不得依赖。
 - `src/rt_control/robot_hw_ethercat`：EtherCAT 拓扑、从站配置和 ros2_control 硬件描述。
@@ -55,16 +55,16 @@
 
 ```text
 robot_description ───────────────┐
-robot_*_interfaces（公共镜像）───┼─> rt_control 功能包 ─> rt_control_bringup
+robot_*_interfaces + QoS（vendor）┼─> rt_control 功能包 ─> rt_control_bringup
 rt_control_interfaces（域内）────┘
 ```
 
 - 功能包不得反向依赖 `rt_control_bringup`；
-- `robot_description`、公共接口镜像和 `rt_control_interfaces` 不得依赖任何域实现包；
+- `robot_description`、公共接口 vendor 和 `rt_control_interfaces` 不得依赖任何域实现包；
 - 功能包之间新增依赖前，必须证明不能通过已有 ros2_control/ROS 接口解耦；
 - rt-control 不接收 BT 节点、工位、箱子、抓取序列等任务层语义；
 - 新的跨域命令必须先在公共契约明确责任域、调用方向、超时、取消、幂等和错误语义，
-  再同步进本仓库的 `robot_*_interfaces` 构建镜像；不得放入 `rt_control_interfaces`。
+  再更新本仓库的 `robot_interfaces` 固定 SHA；不得放入 `rt_control_interfaces`。
 
 ### 3.3 `robot_description` 权威事实源
 
@@ -82,7 +82,7 @@ rt_control_interfaces（域内）────┘
 
 ### 3.4 接口契约
 
-修改公共 `robot_*_interfaces` 镜像时，必须先有同批公共契约变更，并检查所有跨域生产者
+修改公共 `robot_*_interfaces` 契约或本仓库 vendor pin 时，必须先有同批公共契约变更，并检查所有跨域生产者
 和消费者。修改 `rt_control_interfaces` 时，只检查本域生产者和消费者，且不得扩大为跨域依赖。
 接口评审至少覆盖：
 
@@ -209,14 +209,15 @@ python3 tools/repository_gate.py
 
 ### 5.4 ROS 接口
 
-修改接口时至少构建公共镜像、域内包及全部 RT-Control 消费者，并对仓库全局搜索旧字段/旧名称：
+修改接口时先导入 `deps.repos`，再至少构建公共 vendor 包、域内包及全部 RT-Control 消费者，
+并对仓库全局搜索旧字段/旧名称：
 
 ```bash
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install --packages-up-to \
-  robot_rt_control_interfaces robot_system_interfaces rt_control_interfaces \
+  robot_rt_control_interfaces robot_system_interfaces robot_interfaces_qos rt_control_interfaces \
   control_api_adapter plc_node enable_manager rt_control_bringup
-rg -n "<changed-interface-or-field>" src docker tools docs
+rg -n "<changed-interface-or-field>" src docker tools domains README.md AGENTS.md
 ```
 
 交付记录必须列出生产者、消费者、兼容性结论及是否要求多个容器原子升级。

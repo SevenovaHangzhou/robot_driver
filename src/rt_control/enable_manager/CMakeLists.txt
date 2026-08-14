@@ -8,6 +8,7 @@ find_package(diagnostic_msgs REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(robot_interfaces_qos REQUIRED)
 find_package(rt_control_interfaces REQUIRED)
 
 add_library(enable_manager_controller SHARED
@@ -25,6 +26,7 @@ ament_target_dependencies(enable_manager_controller
   diagnostic_msgs
   pluginlib
   rclcpp
+  robot_interfaces_qos
   rt_control_interfaces
 )
 
@@ -52,7 +54,7 @@ install(FILES enable_manager_plugins.xml DESTINATION share/${PROJECT_NAME})
 ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   controller_interface controller_manager_msgs diagnostic_msgs lifecycle_msgs pluginlib rclcpp
-  rt_control_interfaces
+  robot_interfaces_qos rt_control_interfaces
 )
 
 if(BUILD_TESTING)
@@ -75,6 +77,7 @@ if(BUILD_TESTING)
     diagnostic_msgs
     hardware_interface
     rclcpp
+    robot_interfaces_qos
     rt_control_interfaces
   )
 endif()

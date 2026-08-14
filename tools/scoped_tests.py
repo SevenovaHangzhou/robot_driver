@@ -2,8 +2,8 @@
 """按改动范围裁剪本地测试（ELECTRI-81 scope resolver）。
 
 从 git 改动集推导最小验证集：纯文档 → repository_gate；tools/** → quality_gate；
-单包源码 → colcon test --packages-above（colcon 自算反向依赖）；接口包 → 三个
-接口包及全部下游；全局影响路径（patches/deps.repos/versions.env/docker/CI）→
+单包源码 → colcon test --packages-above（colcon 自算反向依赖）；域内私有接口包 →
+该包及全部下游；全局影响路径（patches/deps.repos/versions.env/docker/CI）→
 提示跑真·全量。同时按用例 covers 字段列出受影响的目录用例（信息性）。
 
 这是内环工具：CI 全量兜底不变，发布门禁走 release_test_runner。
@@ -21,9 +21,7 @@ import yaml
 FULL_SUITE_PATHS = ("patches/", "deps.repos", "versions.env", "docker/", ".github/")
 INTERFACE_PREFIX = "src/interfaces/"
 PACKAGE_PREFIXES = ("src/rt_control/", "src/description/")
-INTERFACE_PACKAGES = (
-    "robot_rt_control_interfaces", "robot_system_interfaces", "rt_control_interfaces",
-)
+INTERFACE_PACKAGES = ("rt_control_interfaces",)
 
 
 def classify(changed_files: list[str]) -> dict:
@@ -35,7 +33,7 @@ def classify(changed_files: list[str]) -> dict:
             plan["reasons"].append(f"{path}: 全局影响路径，需真·全量（CI 或完整本地流程）")
         elif path.startswith(INTERFACE_PREFIX):
             plan["packages"].update(INTERFACE_PACKAGES)
-            plan["reasons"].append(f"{path}: 接口层，选入三个接口包及全部下游")
+            plan["reasons"].append(f"{path}: 域内私有接口层，选入该接口包及全部下游")
         elif any(path.startswith(p) for p in PACKAGE_PREFIXES):
             package = path.split("/")[2]
             plan["packages"].add(package)

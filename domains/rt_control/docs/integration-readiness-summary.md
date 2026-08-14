@@ -43,8 +43,8 @@ T-IF-RT-005 统一 `ErrorInfo` 公共错误结构。
 
 ## 2. 当前可用于联调的接口
 
-接口清单、类型、频率和约束以
-[RT-Control 域间接口实现视图](../../../docs/cross-domain-interfaces.md) 为准，本文不再维护副本。
+接口清单、类型、频率和约束以 vendored
+`robot_interfaces/contract/views/rt_control.md` 为准，本文不再维护副本。
 （2026-08-13 移除：此前的副本表已漂移出源码中不存在的旧包名 `robot_control_interfaces`。）
 
 兼容性注意：订阅旧 `/diff_drive_controller/odom` 的节点必须改到 `/wheel/odom`。只启动 rt-control 时不能查询

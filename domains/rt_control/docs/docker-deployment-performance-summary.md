@@ -101,7 +101,7 @@ flowchart LR
 | 项目 | 当前值 |
 | --- | --- |
 | 控制周期 | 250 Hz / 4 ms |
-| `/joint_states` | 配置目标 100 Hz；发布实频需在新镜像上复测 |
+| `/joint_states` | 配置值 100 Hz；250 Hz 调度量化后的契约与 mock 实频为 125 Hz，发布镜像仍需复测 |
 | `/wheel/odom` | 50 Hz；不发布 `odom → base_footprint` TF |
 | RSP 活动本体 TF | 上限 50 Hz，独立于 `/joint_states` 发布频率 |
 | 固定本体/传感器 TF | `/tf_static` transient-local；含 `base_footprint → base_link` |
