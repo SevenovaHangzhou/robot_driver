@@ -381,6 +381,10 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     build_commands = _step_commands(build)
     if "vcs import" not in build_commands:
         findings.append("CI build job must import deps.repos with vcs import")
+    if "tools/bootstrap_native_dev.sh prepare" not in build_commands:
+        findings.append("CI build job must apply and verify frozen vendor patches")
+    if "./configure --prefix=/usr/local/etherlab --disable-kernel" not in build_commands:
+        findings.append("CI build job must build the pinned IgH userspace dependency")
     if "--packages-up-to" not in build_commands:
         findings.append("CI build job must limit colcon to the RT-Control package closure")
     for required_command, description in (

@@ -276,6 +276,8 @@ jobs:
     needs: governance
     steps:
       - run: vcs import . < deps.repos
+      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
+      - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
       - run: colcon build --packages-up-to rt_control_bringup
       - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
@@ -289,6 +291,18 @@ jobs:
         findings = repository_gate.check_ci_workflow_policy(weakened)
         self.assert_has(findings, "build job must depend on governance")
         self.assert_has(findings, "build job must run colcon test")
+
+        unprepared = valid.replace(
+            "      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws "
+            "tools/bootstrap_native_dev.sh prepare\n",
+            "",
+        ).replace(
+            "      - run: ./configure --prefix=/usr/local/etherlab --disable-kernel\n",
+            "",
+        )
+        findings = repository_gate.check_ci_workflow_policy(unprepared)
+        self.assert_has(findings, "apply and verify frozen vendor patches")
+        self.assert_has(findings, "build the pinned IgH userspace dependency")
 
     def test_precommit_must_call_the_full_repository_gate(self):
         valid = """repos:
@@ -340,6 +354,8 @@ jobs:
     needs: governance
     steps:
       - run: vcs import . < deps.repos
+      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
+      - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
       - run: colcon build --packages-up-to rt_control_bringup
       - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf

@@ -34,7 +34,10 @@ related: [BQ-136, BQ-137, contract-20260814-01, TC-ST-01, TC-ST-04]
 RED 阶段的治理门禁测试先按预期失败。实现后 `tools/quality_gate.sh` 全绿：repository
 architecture/file-hygiene gate PASS，187 个工具测试通过，repository gate 覆盖率 85%；
 `python3 tools/release_test_runner.py validate` 返回 `OK: 33 cases valid`；`git diff --check`
-和 staged diff 检查均通过。GitHub CI 尚待草稿 PR 触发。
+和 staged diff 检查均通过。草稿 PR 首轮 governance job 通过；build job 首次真正导入
+EtherCAT vendor 后，按预期暴露 CI 镜像缺少 `/usr/local/etherlab`，形成失败证据。workflow
+corrective 改为用 native bootstrap 在隔离 vendor 根应用/核验冻结补丁，并按 `versions.env`
+构建固定 IgH 用户态库；repository gate 新增两项不可退化断言，CI 重跑待提交后触发。
 
 本记录不授权使能或运动。
 
