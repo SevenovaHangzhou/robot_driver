@@ -2,6 +2,11 @@
 
 Date: 2026-07-20
 
+> **Historical document (marked 2026-08-13):** the T-001 migration is closed and
+> this report is retained as read-only evidence only. The frozen REQ table it
+> references was an external artifact and is no longer recoverable; current
+> traceability uses record coordinates under `domains/rt_control/docs/areas/`.
+
 This report is read-only evidence for the rt_control migration. No file under any legacy checkout was modified. Requirement and mapping precedence remains: frozen REQ table, hardware mapping export, implementation specification, then existing code as evidence of current state.
 
 ## 1. Baseline decision and repository census

@@ -6,6 +6,14 @@
 > CANopen tracks only at Node 2/3. New deployment evidence must re-run the
 > updated host gate; this note does not rewrite the archived observations.
 
+> **Host note (2026-08-13):** everything from "Prior target retained for
+> audit: alfa-two" onward records the decommissioned `alfa-two` host and the
+> abandoned low-latency migration attempt. Note the completed 30-minute
+> cyclictest record (Min 1 / Avg 4 / Max 18 us, i7-12700) belongs to that
+> decommissioned host; the current host's 30-minute run was aborted by an
+> accidental power-off (BQ-105) and T-009 remains incomplete on the current
+> host until a clean 30-minute result is archived.
+
 ## Active target: ar-Default-string (192.168.0.40)
 
 Date: 2026-07-24 CST

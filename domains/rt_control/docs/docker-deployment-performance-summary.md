@@ -94,7 +94,7 @@ flowchart LR
 | 设备 | `/dev/EtherCAT0:/dev/EtherCAT0` | 唯一直接映射的硬件设备 |
 | 重启策略 | `unless-stopped` | 异常退出后的 Docker 级恢复策略 |
 | 停止宽限 | `100 s` | 为失能和总线有序退出留出时间 |
-| DDS 配置 | 只读挂载 `/etc/cyclonedds.xml` | 当前文件选择 `lo`，但 RMW 尚未显式冻结 |
+| DDS 配置 | `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`、`ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=0` | Compose 显式固定（BQ-128），无 DDS XML 挂载；Fast DDS 默认 UDP+共享内存传输 |
 
 控制参数摘要：
 

@@ -1,5 +1,13 @@
 # rt-control 后续修改计划
 
+> **历史文档（2026-08-13 标注）**：本文两项修改均已核实进入当前 `main` 源码
+> （`controllers.yaml` 的 `enable_odom_tf: false`、launch 的 `/wheel/odom` remap、
+> `rt_control_ipc.sh` 的 `recover-power-loss`）。下文状态描述为 2026-07-29 时点快照；
+> 是否已随某个发布镜像部署以 release 记录为准。当前恢复入口见
+> [native-development-workflow.md](native-development-workflow.md) 与
+> [one-command-start.md](one-command-start.md)，`/wheel/odom`/TF 所有权见
+> [cross-domain-interfaces.md](../../../docs/cross-domain-interfaces.md)。
+
 状态：**两项修改均已进入源码，尚未构建发布镜像或完成目标机验收**
 
 记录日期：2026-07-29

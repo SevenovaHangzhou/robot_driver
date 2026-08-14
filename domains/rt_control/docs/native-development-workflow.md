@@ -194,6 +194,9 @@ cd /home/ar/rt-control-dev/robot
 
 如果任一步失败，脚本会停止本次恢复会话并报错；它不会发送 FJT、`/cmd_vel_safe` 或 PLC 输出。
 
+与 Docker 路径（[one-command-start.md](one-command-start.md)）相比，原生序列多出第 5、9 两步
+controller update 线程 CPU14 pin 门禁——这是原生运行的有意差异，不是文档漂移。
+
 以上命令都保留真实硬件确认口令。原生脚本锁定当前工控机、实时内核、CPU14、
 EtherCAT MAC、两只 CANable 序列号和 500 kbit/s 参数；任一事实不符即拒绝启动。
 它也会拒绝与正在运行的 `robot-rt-control-1` 容器重叠。IgH EtherCAT 主站必须通过
