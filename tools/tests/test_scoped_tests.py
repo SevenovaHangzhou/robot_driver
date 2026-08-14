@@ -63,12 +63,31 @@ class AffectedCasesTest(unittest.TestCase):
 
 
 class CliTest(unittest.TestCase):
-    def test_plan_mode_includes_staged_changes_and_exits_zero(self):
-        rc = st.main(["--repo-root", str(ROOT), "--base", "origin/main"])
+    def test_changed_from_git_includes_staged_and_untracked(self):
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            run = lambda *a: subprocess.run(a, cwd=tmp, check=True, capture_output=True)
+            run("git", "init", "-q", "-b", "main")
+            run("git", "config", "user.email", "t@t")
+            run("git", "config", "user.name", "t")
+            (tmp / "base.txt").write_text("x")
+            run("git", "add", "-A")
+            run("git", "commit", "-q", "-m", "base")
+            (tmp / "staged.txt").write_text("s")
+            run("git", "add", "staged.txt")
+            (tmp / "untracked.txt").write_text("u")
+            (tmp / "base.txt").write_text("modified")
+            changed = st.changed_from_git(tmp, "main")
+            self.assertIn("staged.txt", changed)
+            self.assertIn("untracked.txt", changed)
+            self.assertIn("base.txt", changed)
+
+    def test_plan_mode_exits_zero_regardless_of_repo_state(self):
+        rc = st.main(["--repo-root", str(ROOT), "--base", "HEAD"])
         self.assertEqual(rc, 0)
-        changed = st.changed_from_git(ROOT, "origin/main")
-        self.assertIn("tools/scoped_tests.py", changed)
-        self.assertIn("domains/rt_control/testing/README.md", changed)
 
 
 if __name__ == "__main__":
