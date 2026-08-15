@@ -10,6 +10,7 @@ from dataclasses import replace
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from robot_interfaces_qos import state
 from sensor_msgs.msg import BatteryState
 
 from bms_node.bms_protocol import (
@@ -95,7 +96,7 @@ class BmsNode(Node):
         topic = str(self.get_parameter("battery_state_topic").value).strip()
         if not topic:
             raise ValueError("battery_state_topic must not be empty")
-        self._publisher = self.create_publisher(BatteryState, topic, 10)
+        self._publisher = self.create_publisher(BatteryState, topic, state())
 
         self._lock = threading.Lock()
         self._sample = BmsSample()

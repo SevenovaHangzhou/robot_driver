@@ -12,7 +12,7 @@ this directory is their single domain-level documentation and governance home.
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
 - [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
-- [开发进度与联调准入](docs/integration-readiness-summary.md)：联调边界与剩余任务；接口清单以 docs/cross-domain-interfaces.md 为准。
+- [开发进度与联调准入](docs/integration-readiness-summary.md)：联调边界与剩余任务；接口清单以 vendored `robot_interfaces/contract/views/rt_control.md` 为准。
 - [PROGRESS.md](PROGRESS.md)：验证时间线索引；不能把构建或 Mock 结果当成实机验收。
 - [BLOCKED-questions.md](BLOCKED-questions.md)：已裁决和仍开放的硬件、接口与安全事实；注意后续裁决可能取代早期记录。
 
@@ -31,7 +31,8 @@ Domain records:
 
 The source layout follows the frozen rt_control implementation specification:
 
-- `src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces`: 公共契约 0.6.0 的本地构建镜像。
+- `src/vendor/robot_interfaces`: 从固定 SHA 导入的公共接口、契约视图与命名 QoS 包。
+- `src/interfaces/source-lock.yaml`: 与 `deps.repos` 一致的公共契约身份元数据。
 - `src/interfaces/rt_control_interfaces`: 仅供本域使用的 `PlcIoState`、`RtEnable` 等私有接口。
 - `src/description/robot_description`: kinematics-only robot description.
 - `src/rt_control`: EtherCAT/CANopen configuration, bringup, enable/fault handling, and diagnostics packages.

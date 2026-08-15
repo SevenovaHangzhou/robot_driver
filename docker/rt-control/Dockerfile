@@ -67,6 +67,10 @@ RUN git config --global http.version HTTP/1.1 \
     && test -d src/vendor/ecat_icube \
     && test -d src/vendor/ros2_canopen \
     && test -d src/vendor/ros2_controllers \
+    && test -d src/vendor/robot_interfaces/robot_rt_control_interfaces \
+    && test -d src/vendor/robot_interfaces/robot_system_interfaces \
+    && test -d src/vendor/robot_interfaces/qos \
+    && test -f src/vendor/robot_interfaces/contract/views/rt_control.md \
     && git -C src/vendor/ecat_icube apply --check \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
     && git -C src/vendor/ecat_icube apply \
@@ -98,7 +102,11 @@ RUN git config --global http.version HTTP/1.1 \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch \
+    && git -C src/vendor/ros2_controllers apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
+    && git -C src/vendor/ros2_controllers apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 
@@ -116,6 +124,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && rt_control_packages=( \
       robot_rt_control_interfaces \
       robot_system_interfaces \
+      robot_interfaces_qos \
       bms_node \
       canopen_master_driver \
       canopen_ros2_control \

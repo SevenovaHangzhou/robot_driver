@@ -70,7 +70,7 @@ controller update 线程仍在 CPU14，最后确认控制器、14 轴和 EtherCA
 ```text
 /home/ar/rt-control-dev/
 ├── robot/        # 本仓库 Git 工作树
-├── src/vendor/   # deps.repos 锁定的三个上游仓库
+├── src/vendor/   # deps.repos 锁定的四个上游仓库
 ├── build/        # colcon 构建输出
 ├── install/      # 原生运行 overlay
 └── log/          # colcon 与运行日志

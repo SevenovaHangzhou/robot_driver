@@ -45,7 +45,7 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 | 运维/监督 → rt-control | 普通控制启停公共入口 | `/control/set_enabled` | `enabled=true` 可自动清一次 resettable fault 后调用 `/rt/enable`；`enabled=false` 只调用 `/rt/disable`；不是急停或 STO。 |
 | 运维/RT 内部 → rt-control | 真空泵启停 | `/vacuum/pump/set_enabled` | 活动真空动作、PLC 不新鲜、任一通道 attached 或阀仍开时拒绝普通停泵。 |
 | rt-control 内部/诊断 | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；通常由公共适配层或启动脚本调用。 |
-| rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 当前配置为 100 Hz，仅导出 14 个 EtherCAT 机械轴；履带状态不进入公共 `/joint_states`。 |
+| rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 配置值 100 Hz 被 250 Hz 调度量化为实频 125 Hz；仅导出 14 个 EtherCAT 机械轴，履带状态不进入公共 `/joint_states`。 |
 | rt-control → 导航/视觉 | 原始轮速里程计和本体 TF | `/wheel/odom`、`/tf`、`/tf_static` | `/wheel/odom` 约 50 Hz；RSP 提供 `base_footprint → base_link → 本体/传感器`；最终 `/odom` 与唯一 `odom → base_footprint` 属于导航域，`map → odom` 不属于本域。 |
 | rt-control → 上层 | 真空、安全和就绪摘要 | `/vacuum/state`、`/control/safety_state`、`/rt_control/readiness` | 真空状态无 `pressure_pa`；安全/就绪聚合 enable_manager、EtherCAT、CANopen node2/3、PLC fresh、BMS fresh。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |
@@ -98,7 +98,10 @@ flowchart TD
 
 - `ecat_icube`：原始位置预装载、诊断状态接口、等待完整总线、有序回到 PREOP。
 - `ros2_canopen`：节点运行模式、安全目标预置、激活失败回滚、履带 EMCY 整组停止和有序关停。
-- `ros2_controllers`：FJT 第一轨迹点一致性与 EtherCAT 反馈新鲜度检查。
+- `ros2_controllers`：FJT 第一轨迹点一致性、EtherCAT 反馈新鲜度检查及公共控制/快速状态 QoS。
+
+第四个 vendor `robot_interfaces` 不打补丁，提供本域公共 IDL、契约视图和命名 QoS；
+其完整 SHA 同时记录在 `deps.repos` 与 `src/interfaces/source-lock.yaml`。
 
 ### 配置事实应该改在哪里
 

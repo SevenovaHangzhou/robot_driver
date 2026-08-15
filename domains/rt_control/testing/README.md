@@ -62,7 +62,7 @@ ID 一经使用不复用；用例作废保留条目并置 `status: retired`。
   v010_gate: run | reference | no   # V0.10 门禁：执行 / 引用历史证据 / 不要求
 ```
 
-判据里引用权威文档（如 `docs/cross-domain-interfaces.md` 的接口表）时，以文档
+判据里引用权威文档（如 vendored `robot_interfaces/contract/views/rt_control.md`）时，以文档
 为准，用例不复制其内容——避免第二事实源。
 
 可选字段 `auto: <单条 shell 命令>`：声明该用例可被 runner 自动执行（退出码 0 即

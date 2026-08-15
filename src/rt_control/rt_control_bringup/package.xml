@@ -30,6 +30,7 @@
   <test_depend>diagnostic_msgs</test_depend>
   <test_depend>sensor_msgs</test_depend>
   <test_depend>robot_rt_control_interfaces</test_depend>
+  <test_depend>robot_interfaces_qos</test_depend>
   <test_depend>robot_system_interfaces</test_depend>
   <export>
     <build_type>ament_cmake</build_type>

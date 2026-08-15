@@ -100,3 +100,6 @@
 | 2026-08-14 | governance | [T2 性能采集脚本化](docs/areas/governance/records/2026-08-13-rt-perf-capture.md) | PASS |
 | 2026-08-14 | lifecycle | [/rt/disable 日志取证：症状真实、机制误诊](docs/areas/lifecycle/records/2026-08-14-rt-disable-log-forensics.md) | PASS |
 | 2026-08-14 | lifecycle | [enable_manager 状态机表驱动 gtest](docs/areas/lifecycle/records/2026-08-14-enable-manager-gtest.md) | PASS |
+| 2026-08-14 | contract | [公共接口改为固定 SHA vendoring 并采用命名 QoS](docs/areas/contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md) | PASS（合并受 BQ-137 阻塞） |
+| 2026-08-14 | governance | [清空根 docs 并建立公共接口 vendor 门禁](docs/areas/governance/records/2026-08-14-root-docs-and-vendor-governance.md) | PASS |
+| 2026-08-16 | contract | [BQ-137 跨域错误与 readiness 语义裁决落地](docs/areas/contract/records/2026-08-16-bq137-shared-error-readiness.md) | PASS（发布待 PR #6 最终 SHA 与全域迁移） |

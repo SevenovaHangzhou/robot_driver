@@ -12,6 +12,7 @@
 #include "pluginlib/class_list_macros.hpp"
 #include "rclcpp/duration.hpp"
 #include "rclcpp/qos.hpp"
+#include "robot_interfaces_qos/profiles.hpp"
 
 namespace enable_manager
 {
@@ -120,7 +121,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     worker_callback_group_);
 
   diagnostics_publisher_ = get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
-    "/diagnostics", rclcpp::QoS(10));
+    "/diagnostics", robot_interfaces_qos::diagnostic());
   worker_timer_ = get_node()->create_wall_timer(
     std::chrono::milliseconds(20),
     std::bind(&EnableManagerController::handleNonRtFaultStop, this), worker_callback_group_);

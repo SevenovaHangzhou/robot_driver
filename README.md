@@ -7,7 +7,7 @@
 其他域只通过版本锁定的公共 ROS 2 契约与 RT-Control 交互。域间 endpoint 和 wire
 schema 的权威源是独立
 [`robot_interfaces`](https://github.com/SevenovaHangzhou/robot_interfaces) 仓库；
-本仓库只保存 RT-Control 需要的公共包构建镜像和本域私有接口。
+本仓库通过 `deps.repos` 固定并导入 RT-Control 需要的公共包，只在树内保存本域私有接口。
 
 ## 责任边界
 
@@ -27,13 +27,12 @@ RT-Control 不负责：
 
 ## 接口所有权
 
-- `src/interfaces/robot_rt_control_interfaces`、`robot_system_interfaces`：公共契约
-  0.6.0 的构建镜像，来源由 `src/interfaces/source-lock.yaml` 固定；不得在本仓库
-  独立改 schema。
+- `src/vendor/robot_interfaces`：由 `deps.repos` 固定 SHA 导入的公共契约、接口包与
+  `robot_interfaces_qos`；`src/interfaces/source-lock.yaml` 保存同一身份元数据。
 - `src/interfaces/rt_control_interfaces`：仅供 RT-Control 域内使用的
   `PlcIoState`、`RtEnable` 等 msg/srv。
-- `docs/cross-domain-interfaces.md`：RT-Control 对公共契约的实现视图，不是第二份
-  域间事实源。
+- `src/vendor/robot_interfaces/contract/views/rt_control.md`：随 vendor 导入的 RT-Control
+  契约视图，不是本仓库的第二份事实源。
 
 公共接口发生破坏性变化时，必须先修改 `robot_interfaces`，再由全部生产者和消费者
 锁定同一提交原子升级。ROS 2 两侧类型不一致时可能都正常启动但完全无法通信。
@@ -45,14 +44,15 @@ robot_driver/
 ├─ domains/rt_control/      # 实时域规则、进度、阻塞问题和验收记录
 ├─ src/
 │  ├─ description/          # robot_description 构建副本
-│  ├─ interfaces/           # 公共契约构建镜像 + RT-Control 私有接口
+│  ├─ interfaces/           # RT-Control 私有接口 + 公共契约 source-lock
+│  ├─ vendor/               # 构建时从 deps.repos 导入，不入库
 │  └─ rt_control/           # 硬件、控制器、诊断和 bringup
 ├─ docker/rt-control/       # RT-Control 镜像
 ├─ docker/compose.yaml      # RT-Control 部署，不是其他域通用模板
 ├─ hostsetup/               # 实时域宿主安装与验收
 ├─ patches/                 # 冻结上游窄补丁
 ├─ tools/                   # 构建、启动、门禁和运维工具
-└─ docs/                    # 域间契约实现视图与协作规范
+└─ collaboration-and-commit-standards.md
 ```
 
 ## 分支模型
@@ -64,14 +64,14 @@ robot_driver/
 
 所有共享分支禁止直接 push，变更经 feature/bugfix 分支和 PR 合并。完整规则见
 [AGENTS.md](AGENTS.md) 与
-[协作提交规范](docs/collaboration-and-commit-standards.md)。
+[协作提交规范](collaboration-and-commit-standards.md)。
 
 ## 文档入口
 
 | 文档 | 内容 |
 | --- | --- |
 | [domains/rt_control/README.md](domains/rt_control/README.md) | RT-Control 构建、运行与验收入口 |
-| [docs/cross-domain-interfaces.md](docs/cross-domain-interfaces.md) | 当前 main 对公共契约的实现视图 |
+| `src/vendor/robot_interfaces/contract/views/rt_control.md` | 固定 SHA 中的 RT-Control 公共契约视图 |
 | [domains/rt_control/docs/one-command-start.md](domains/rt_control/docs/one-command-start.md) | 一键启动与接口速查 |
 | [domains/rt_control/PROGRESS.md](domains/rt_control/PROGRESS.md) | 已完成工作及验证证据 |
 | [domains/rt_control/BLOCKED-questions.md](domains/rt_control/BLOCKED-questions.md) | 已裁决和待裁决问题 |

@@ -16,6 +16,7 @@ readonly build_base install_base log_base vendor_root
 readonly -a runtime_packages=(
   robot_rt_control_interfaces
   robot_system_interfaces
+  robot_interfaces_qos
   bms_node
   canopen_master_driver
   canopen_ros2_control
@@ -130,6 +131,13 @@ verify_vendor_heads()
     [[ "${actual}" == "${version}" ]] ||
       fail "${relative_path} is at ${actual}, expected frozen ${version}; no checkout was attempted"
   done < <(manifest_rows)
+
+  [[ -d "${workspace_root}/src/vendor/robot_interfaces/robot_rt_control_interfaces" ]] ||
+    fail "robot_interfaces vendor is missing robot_rt_control_interfaces"
+  [[ -d "${workspace_root}/src/vendor/robot_interfaces/robot_system_interfaces" ]] ||
+    fail "robot_interfaces vendor is missing robot_system_interfaces"
+  [[ -d "${workspace_root}/src/vendor/robot_interfaces/qos" ]] ||
+    fail "robot_interfaces vendor is missing robot_interfaces_qos"
 }
 
 apply_patch_once()
@@ -173,6 +181,9 @@ apply_frozen_patches()
     src/vendor/ros2_canopen
   apply_patch_once \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
+    src/vendor/ros2_controllers
+  apply_patch_once \
+    patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
     src/vendor/ros2_controllers
 }
 
@@ -235,7 +246,8 @@ verify_frozen_vendor_trees()
     patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
     patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
-    patches/ros2_controllers/0001-jtc-start-consistency.patch
+    patches/ros2_controllers/0001-jtc-start-consistency.patch \
+    patches/ros2_controllers/0002-use-contract-qos-profiles.patch
 }
 
 prepare_sources()

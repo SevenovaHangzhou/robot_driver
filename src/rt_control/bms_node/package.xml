@@ -8,6 +8,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>robot_interfaces_qos</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>builtin_interfaces</test_depend>

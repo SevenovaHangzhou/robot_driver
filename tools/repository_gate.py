@@ -19,6 +19,14 @@ import yaml
 
 
 FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
+SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+ROBOT_INTERFACES_PATH = "src/vendor/robot_interfaces"
+ROBOT_INTERFACES_URL = "https://github.com/SevenovaHangzhou/robot_interfaces.git"
+ROBOT_INTERFACES_PACKAGES = [
+    "robot_rt_control_interfaces",
+    "robot_system_interfaces",
+    "robot_interfaces_qos",
+]
 GENERATED_PARTS = {"build", "install", "log", ".colcon", "__pycache__"}
 DOMAIN_PACKAGES = {
     "bms_node",
@@ -50,7 +58,7 @@ SKIP_TEXT_SUFFIXES = {".stl", ".bin", ".dcf"}
 REQUIRED_GOVERNANCE_FILES = (
     "README.md",
     "AGENTS.md",
-    "docs/README.md",
+    "collaboration-and-commit-standards.md",
     "domains/rt_control/README.md",
     "domains/rt_control/AGENTS.md",
     "domains/rt_control/PROGRESS.md",
@@ -70,6 +78,8 @@ def check_path(relative_path: str) -> list[str]:
         findings.append(f"{relative_path}: generated artifact must not be tracked")
     if relative_path.startswith("src/rt_control/rt_watchdog/"):
         findings.append(f"{relative_path}: retired rt_watchdog must remain absent")
+    if relative_path.startswith("docs/"):
+        findings.append(f"{relative_path}: root docs directory must remain empty")
     if relative_path in ROOT_DOMAIN_LEDGER_FILES:
         findings.append(
             f"{relative_path}: domain progress and blocked questions must live under domains/<domain>/"
@@ -124,6 +134,62 @@ def check_dependency_pins(deps_text: str, versions_text: str) -> list[str]:
         versions[key.strip()] = value.strip()
     if not FULL_SHA.fullmatch(versions.get("IGH_COMMIT", "")):
         findings.append("versions.env: IGH_COMMIT must be a full 40-character commit SHA")
+    return findings
+
+
+def check_robot_interfaces_pin(deps_text: str, source_lock_text: str) -> list[str]:
+    """Keep the vendored contract pin and release metadata identical."""
+    try:
+        deps = yaml.safe_load(deps_text) or {}
+    except yaml.YAMLError as exc:
+        return [f"deps.repos: invalid YAML: {exc}"]
+    try:
+        source_lock = yaml.safe_load(source_lock_text) or {}
+    except yaml.YAMLError as exc:
+        return [f"src/interfaces/source-lock.yaml: invalid YAML: {exc}"]
+
+    findings: list[str] = []
+    repositories = deps.get("repositories")
+    dependency = (
+        repositories.get(ROBOT_INTERFACES_PATH)
+        if isinstance(repositories, dict)
+        else None
+    )
+    if not isinstance(dependency, dict):
+        findings.append(
+            f"deps.repos must vendor robot_interfaces at {ROBOT_INTERFACES_PATH}"
+        )
+        dependency = {}
+
+    if dependency.get("type") != "git":
+        findings.append("deps.repos robot_interfaces dependency must use type git")
+    if dependency.get("url") != ROBOT_INTERFACES_URL:
+        findings.append(
+            f"deps.repos robot_interfaces URL must be {ROBOT_INTERFACES_URL}"
+        )
+
+    dependency_commit = dependency.get("version")
+    lock_commit = source_lock.get("commit")
+    if not isinstance(lock_commit, str) or not FULL_SHA.fullmatch(lock_commit):
+        findings.append("source-lock.yaml commit must be a full 40-character commit SHA")
+    if dependency_commit != lock_commit:
+        findings.append("source-lock.yaml commit must match deps.repos robot_interfaces version")
+    if source_lock.get("schema_version") != 1:
+        findings.append("source-lock.yaml schema_version must be 1")
+    if source_lock.get("repository") != ROBOT_INTERFACES_URL:
+        findings.append(f"source-lock.yaml repository must be {ROBOT_INTERFACES_URL}")
+    if source_lock.get("vendor_path") != ROBOT_INTERFACES_PATH:
+        findings.append(
+            f"source-lock.yaml vendor_path must be {ROBOT_INTERFACES_PATH}"
+        )
+    if source_lock.get("vendored_packages") != ROBOT_INTERFACES_PACKAGES:
+        findings.append(
+            "source-lock.yaml vendored_packages must list exactly "
+            + ", ".join(ROBOT_INTERFACES_PACKAGES)
+        )
+    contract_version = source_lock.get("contract_version")
+    if not isinstance(contract_version, str) or not SEMVER.fullmatch(contract_version):
+        findings.append("source-lock.yaml contract_version must be x.y.z")
     return findings
 
 
@@ -183,11 +249,18 @@ def check_robot_description_xml(relative_path: str, xml_text: str) -> list[str]:
 
 
 def check_interface_path(relative_path: str) -> list[str]:
-    """Keep the shared interface package definition-only."""
+    """Keep only definition-only RT-Control-private interfaces in-tree."""
     prefix = "src/interfaces/"
     if not relative_path.startswith(prefix):
         return []
     local_path = PurePosixPath(relative_path[len(prefix) :])
+    if local_path.as_posix() in {"README.md", "source-lock.yaml"}:
+        return []
+    if not local_path.parts or local_path.parts[0] != "rt_control_interfaces":
+        return [
+            f"{relative_path}: public interface packages must come from "
+            "src/vendor/robot_interfaces"
+        ]
     forbidden_directories = {"src", "launch", "scripts", "config"}
     forbidden_suffixes = {".cpp", ".cc", ".c", ".hpp", ".hh", ".py", ".sh"}
     if (
@@ -306,6 +379,16 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
         findings.append("CI governance job must enforce the pull request contract")
 
     build_commands = _step_commands(build)
+    if "vcs import" not in build_commands:
+        findings.append("CI build job must import deps.repos with vcs import")
+    if "tools/bootstrap_native_dev.sh prepare" not in build_commands:
+        findings.append("CI build job must apply and verify frozen vendor patches")
+    if "./configure --prefix=/usr/local/etherlab --disable-kernel" not in build_commands:
+        findings.append("CI build job must build the pinned IgH userspace dependency")
+    if "--dependency-types test" not in build_commands:
+        findings.append("CI build job must install ROS test dependencies")
+    if "--packages-up-to" not in build_commands:
+        findings.append("CI build job must limit colcon to the RT-Control package closure")
     for required_command, description in (
         ("colcon build", "colcon build"),
         ("colcon test", "colcon test"),
@@ -440,6 +523,9 @@ def collect_findings(repository_root: Path) -> list[str]:
     versions_text = texts.get("versions.env")
     if deps_text is not None and versions_text is not None:
         findings.extend(check_dependency_pins(deps_text, versions_text))
+    source_lock_text = texts.get("src/interfaces/source-lock.yaml")
+    if deps_text is not None and source_lock_text is not None:
+        findings.extend(check_robot_interfaces_pin(deps_text, source_lock_text))
     if "docker/compose.yaml" in texts:
         findings.extend(check_compose_policy(texts["docker/compose.yaml"]))
     if "docker/rt-control/Dockerfile" in texts:

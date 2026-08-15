@@ -111,7 +111,7 @@ class AutoExecutionSafetyTest(unittest.TestCase):
 
 
 class ReleaseIdentityTest(unittest.TestCase):
-    def _fixture_repo(self, tmp, vendor_sha="a" * 40):
+    def _fixture_repo(self, tmp, vendor_sha="a" * 40, contract_sha="c" * 40):
         run = lambda *a: subprocess.run(a, cwd=tmp, check=True, capture_output=True)
         run("git", "init", "-q")
         run("git", "config", "user.email", "t@t")
@@ -120,14 +120,15 @@ class ReleaseIdentityTest(unittest.TestCase):
             "IGH_VERSION=stable-1.6\nIGH_COMMIT=" + "b" * 40 + "\n"
         )
         (tmp / "deps.repos").write_text(
-            "repositories:\n  ecat:\n    type: git\n    url: u\n    version: "
+            "repositories:\n  src/vendor/robot_interfaces:\n"
+            "    type: git\n    url: u\n    version: "
             + vendor_sha
             + "\n"
         )
         lock = tmp / "src/interfaces"
         lock.mkdir(parents=True)
         (lock / "source-lock.yaml").write_text(
-            "schema_version: 1\ncommit: " + "c" * 40 + "\ncontract_version: 0.6.0\n"
+            "schema_version: 1\ncommit: " + contract_sha + "\ncontract_version: 0.6.1\n"
         )
         run("git", "add", "-A")
         run("git", "commit", "-q", "-m", "init")
@@ -137,14 +138,17 @@ class ReleaseIdentityTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as d:
             tmp = Path(d)
-            self._fixture_repo(tmp)
+            self._fixture_repo(tmp, vendor_sha="c" * 40)
             identity, findings = rtr.collect_release_identity(tmp)
             self.assertEqual(len(identity["source_commit"]), 40)
             self.assertFalse(identity["source_dirty"])
-            self.assertEqual(identity["contract_version"], "0.6.0")
+            self.assertEqual(identity["contract_version"], "0.6.1")
             self.assertEqual(identity["contract_commit"], "c" * 40)
             self.assertEqual(identity["igh_commit"], "b" * 40)
-            self.assertEqual(identity["vendor_commits"], {"ecat": "a" * 40})
+            self.assertEqual(
+                identity["vendor_commits"],
+                {"src/vendor/robot_interfaces": "c" * 40},
+            )
             self.assertIsNone(identity["image_id"])
             self.assertEqual(findings, [])
 
@@ -156,8 +160,17 @@ class ReleaseIdentityTest(unittest.TestCase):
             self._fixture_repo(tmp, vendor_sha="main")
             (tmp / "junk.txt").write_text("x")
             _, findings = rtr.collect_release_identity(tmp)
-            self.assertTrue(any("ecat" in f for f in findings))
+            self.assertTrue(any("src/vendor/robot_interfaces" in f for f in findings))
             self.assertTrue(any("dirty" in f for f in findings))
+
+    def test_contract_and_robot_interfaces_vendor_sha_must_match(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            self._fixture_repo(tmp, vendor_sha="a" * 40, contract_sha="c" * 40)
+            _, findings = rtr.collect_release_identity(tmp)
+            self.assertTrue(any("does not match" in finding for finding in findings))
 
 
 class ReportTest(unittest.TestCase):

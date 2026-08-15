@@ -38,6 +38,10 @@ class RepositoryGateTest(unittest.TestCase):
                     "must live under domains/<domain>/",
                 )
         self.assertEqual(repository_gate.check_path("src/rt_control/enable_manager/package.xml"), [])
+        self.assert_has(
+            repository_gate.check_path("docs/README.md"),
+            "root docs directory must remain empty",
+        )
 
     def test_text_hygiene_detects_conflicts_secrets_and_missing_newline(self):
         fake_token = "ghp_" + "a" * 32
@@ -78,6 +82,44 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
         )
         self.assert_has(findings, "must be a full 40-character commit SHA")
         self.assert_has(findings, "IGH_COMMIT must be a full 40-character commit SHA")
+
+    def test_robot_interfaces_vendor_pin_matches_release_metadata(self):
+        contract_sha = "0123456789abcdef0123456789abcdef01234567"
+        deps = f"""repositories:
+  src/vendor/robot_interfaces:
+    type: git
+    url: https://github.com/SevenovaHangzhou/robot_interfaces.git
+    version: {contract_sha}
+"""
+        source_lock = f"""schema_version: 1
+repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
+commit: {contract_sha}
+contract_version: 0.6.1
+vendor_path: src/vendor/robot_interfaces
+vendored_packages:
+  - robot_rt_control_interfaces
+  - robot_system_interfaces
+  - robot_interfaces_qos
+"""
+        self.assertEqual(
+            repository_gate.check_robot_interfaces_pin(deps, source_lock), []
+        )
+
+        mismatched = source_lock.replace(contract_sha, "a" * 40, 1)
+        self.assert_has(
+            repository_gate.check_robot_interfaces_pin(deps, mismatched),
+            "must match deps.repos",
+        )
+        mirrored = source_lock.replace("vendored_packages", "mirrored_packages")
+        self.assert_has(
+            repository_gate.check_robot_interfaces_pin(deps, mirrored),
+            "vendored_packages must list exactly",
+        )
+        without_qos = source_lock.replace("  - robot_interfaces_qos\n", "")
+        self.assert_has(
+            repository_gate.check_robot_interfaces_pin(deps, without_qos),
+            "vendored_packages must list exactly",
+        )
 
     def test_shared_packages_cannot_depend_on_domain_implementation(self):
         manifest = """<?xml version="1.0"?>
@@ -136,23 +178,29 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
             ),
             [],
         )
-        self.assertEqual(
+        self.assert_has(
             repository_gate.check_interface_path(
                 "src/interfaces/robot_rt_control_interfaces/srv/SetControlEnabled.srv"
             ),
-            [],
+            "public interface packages must come from src/vendor/robot_interfaces",
         )
         self.assert_has(
             repository_gate.check_interface_path(
                 "src/interfaces/robot_rt_control_interfaces/scripts/adapter.py"
             ),
-            "interface package must not contain business implementation",
+            "public interface packages must come from src/vendor/robot_interfaces",
         )
         self.assert_has(
             repository_gate.check_interface_path(
                 "src/interfaces/rt_control_interfaces/task_planner.py"
             ),
             "interface package must not contain business implementation",
+        )
+        self.assertEqual(
+            repository_gate.check_interface_path(
+                "src/vendor/robot_interfaces/qos/robot_interfaces_qos/__init__.py"
+            ),
+            [],
         )
 
     def test_compose_policy_rejects_privilege_and_requires_cpu_gate(self):
@@ -227,19 +275,43 @@ jobs:
   build:
     needs: governance
     steps:
-      - run: colcon build
-      - run: colcon test
+      - run: vcs import . < deps.repos
+      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
+      - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
+      - run: rosdep install --dependency-types test
+      - run: colcon build --packages-up-to rt_control_bringup
+      - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
       - run: python3 tools/diff_legacy.py
 """
         self.assertEqual(repository_gate.check_ci_workflow_policy(valid), [])
 
         weakened = valid.replace("    needs: governance\n", "").replace(
-            "      - run: colcon test\n", ""
+            "      - run: colcon test --packages-up-to rt_control_bringup\n", ""
         )
         findings = repository_gate.check_ci_workflow_policy(weakened)
         self.assert_has(findings, "build job must depend on governance")
         self.assert_has(findings, "build job must run colcon test")
+
+        unprepared = valid.replace(
+            "      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws "
+            "tools/bootstrap_native_dev.sh prepare\n",
+            "",
+        ).replace(
+            "      - run: ./configure --prefix=/usr/local/etherlab --disable-kernel\n",
+            "",
+        )
+        findings = repository_gate.check_ci_workflow_policy(unprepared)
+        self.assert_has(findings, "apply and verify frozen vendor patches")
+        self.assert_has(findings, "build the pinned IgH userspace dependency")
+
+        no_test_dependencies = valid.replace(
+            "      - run: rosdep install --dependency-types test\n", ""
+        )
+        self.assert_has(
+            repository_gate.check_ci_workflow_policy(no_test_dependencies),
+            "install ROS test dependencies",
+        )
 
     def test_precommit_must_call_the_full_repository_gate(self):
         valid = """repos:
@@ -262,7 +334,7 @@ jobs:
         files = {
             "README.md": "# robot_driver\n",
             "AGENTS.md": "# Contract\n",
-            "docs/README.md": "# System documentation\n",
+            "collaboration-and-commit-standards.md": "# Collaboration\n",
             "domains/rt_control/README.md": "# rt-control\n",
             "domains/rt_control/AGENTS.md": "# rt-control contract\n",
             "domains/rt_control/PROGRESS.md": "# rt-control progress\n",
@@ -290,15 +362,19 @@ jobs:
   build:
     needs: governance
     steps:
-      - run: colcon build
-      - run: colcon test
+      - run: vcs import . < deps.repos
+      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
+      - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
+      - run: rosdep install --dependency-types test
+      - run: colcon build --packages-up-to rt_control_bringup
+      - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
       - run: python3 tools/diff_legacy.py
 """,
             "deps.repos": """repositories:
-  src/vendor/example:
+  src/vendor/robot_interfaces:
     type: git
-    url: https://example.invalid/example.git
+    url: https://github.com/SevenovaHangzhou/robot_interfaces.git
     version: 0123456789abcdef0123456789abcdef01234567
 """,
             "versions.env": """IGH_VERSION=stable-1.6
@@ -326,6 +402,16 @@ CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
 </robot>
 """,
             "src/interfaces/rt_control_interfaces/msg/Example.msg": "string value\n",
+            "src/interfaces/source-lock.yaml": """schema_version: 1
+repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
+commit: 0123456789abcdef0123456789abcdef01234567
+contract_version: 0.6.1
+vendor_path: src/vendor/robot_interfaces
+vendored_packages:
+  - robot_rt_control_interfaces
+  - robot_system_interfaces
+  - robot_interfaces_qos
+""",
             "tools/example.py": "print('ok')\n",
         }
         for relative_path, content in files.items():

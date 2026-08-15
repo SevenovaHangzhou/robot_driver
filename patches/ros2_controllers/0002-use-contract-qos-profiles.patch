@@ -1,0 +1,122 @@
+diff --git a/diff_drive_controller/CMakeLists.txt b/diff_drive_controller/CMakeLists.txt
+--- a/diff_drive_controller/CMakeLists.txt
++++ b/diff_drive_controller/CMakeLists.txt
+@@ -14,6 +14,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
+   pluginlib
+   rclcpp
+   rclcpp_lifecycle
++  robot_interfaces_qos
+   rcpputils
+   realtime_tools
+   tf2
+diff --git a/diff_drive_controller/package.xml b/diff_drive_controller/package.xml
+--- a/diff_drive_controller/package.xml
++++ b/diff_drive_controller/package.xml
+@@ -30,6 +30,7 @@
+   <depend>pluginlib</depend>
+   <depend>rclcpp</depend>
+   <depend>rclcpp_lifecycle</depend>
++  <depend>robot_interfaces_qos</depend>
+   <depend>rcpputils</depend>
+   <depend>realtime_tools</depend>
+   <depend>tf2</depend>
+diff --git a/diff_drive_controller/src/diff_drive_controller.cpp b/diff_drive_controller/src/diff_drive_controller.cpp
+--- a/diff_drive_controller/src/diff_drive_controller.cpp
++++ b/diff_drive_controller/src/diff_drive_controller.cpp
+@@ -25,6 +25,7 @@
+ #include "hardware_interface/types/hardware_interface_type_values.hpp"
+ #include "lifecycle_msgs/msg/state.hpp"
+ #include "rclcpp/logging.hpp"
++#include "robot_interfaces_qos/profiles.hpp"
+ #include "tf2/LinearMath/Quaternion.h"
+ 
+ namespace
+@@ -343,7 +344,7 @@ controller_interface::CallbackReturn DiffDriveController::on_configure(
+   if (use_stamped_vel_)
+   {
+     velocity_command_subscriber_ = get_node()->create_subscription<Twist>(
+-      DEFAULT_COMMAND_TOPIC, rclcpp::SystemDefaultsQoS(),
++      DEFAULT_COMMAND_TOPIC, robot_interfaces_qos::control(),
+       [this](const std::shared_ptr<Twist> msg) -> void
+       {
+         if (!subscriber_is_active_)
+@@ -367,7 +368,7 @@ controller_interface::CallbackReturn DiffDriveController::on_configure(
+   {
+     velocity_command_unstamped_subscriber_ =
+       get_node()->create_subscription<geometry_msgs::msg::Twist>(
+-        DEFAULT_COMMAND_UNSTAMPED_TOPIC, rclcpp::SystemDefaultsQoS(),
++        DEFAULT_COMMAND_UNSTAMPED_TOPIC, robot_interfaces_qos::control(),
+         [this](const std::shared_ptr<geometry_msgs::msg::Twist> msg) -> void
+         {
+           if (!subscriber_is_active_)
+@@ -387,7 +388,7 @@ controller_interface::CallbackReturn DiffDriveController::on_configure(
+ 
+   // initialize odometry publisher and message
+   odometry_publisher_ = get_node()->create_publisher<nav_msgs::msg::Odometry>(
+-    DEFAULT_ODOMETRY_TOPIC, rclcpp::SystemDefaultsQoS());
++    DEFAULT_ODOMETRY_TOPIC, robot_interfaces_qos::fast_state());
+   realtime_odometry_publisher_ =
+     std::make_shared<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(
+       odometry_publisher_);
+diff --git a/joint_state_broadcaster/CMakeLists.txt b/joint_state_broadcaster/CMakeLists.txt
+--- a/joint_state_broadcaster/CMakeLists.txt
++++ b/joint_state_broadcaster/CMakeLists.txt
+@@ -12,6 +12,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
+   generate_parameter_library
+   pluginlib
+   rclcpp_lifecycle
++  robot_interfaces_qos
+   rcutils
+   realtime_tools
+   sensor_msgs
+diff --git a/joint_state_broadcaster/package.xml b/joint_state_broadcaster/package.xml
+--- a/joint_state_broadcaster/package.xml
++++ b/joint_state_broadcaster/package.xml
+@@ -26,6 +26,7 @@
+   <depend>generate_parameter_library</depend>
+   <depend>pluginlib</depend>
+   <depend>rclcpp_lifecycle</depend>
++  <depend>robot_interfaces_qos</depend>
+   <depend>rcutils</depend>
+   <depend>realtime_tools</depend>
+   <depend>sensor_msgs</depend>
+diff --git a/joint_state_broadcaster/src/joint_state_broadcaster.cpp b/joint_state_broadcaster/src/joint_state_broadcaster.cpp
+--- a/joint_state_broadcaster/src/joint_state_broadcaster.cpp
++++ b/joint_state_broadcaster/src/joint_state_broadcaster.cpp
+@@ -25,6 +25,7 @@
+ #include "rclcpp/time.hpp"
+ #include "rclcpp_lifecycle/lifecycle_node.hpp"
+ #include "rcpputils/split.hpp"
++#include "robot_interfaces_qos/profiles.hpp"
+ #include "rcutils/logging_macros.h"
+ #include "std_msgs/msg/header.hpp"
+ 
+@@ -149,7 +150,7 @@ controller_interface::CallbackReturn JointStateBroadcaster::on_configure(
+     const std::string topic_name_prefix = params_.use_local_topics ? "~/" : "";
+ 
+     joint_state_publisher_ = get_node()->create_publisher<sensor_msgs::msg::JointState>(
+-      topic_name_prefix + "joint_states", rclcpp::SystemDefaultsQoS());
++      topic_name_prefix + "joint_states", robot_interfaces_qos::fast_state());
+ 
+     realtime_joint_state_publisher_ =
+       std::make_shared<realtime_tools::RealtimePublisher<sensor_msgs::msg::JointState>>(
+diff --git a/diff_drive_controller/test/test_diff_drive_controller.cpp b/diff_drive_controller/test/test_diff_drive_controller.cpp
+--- a/diff_drive_controller/test/test_diff_drive_controller.cpp
++++ b/diff_drive_controller/test/test_diff_drive_controller.cpp
+@@ -26,6 +26,7 @@
+ #include "hardware_interface/loaned_state_interface.hpp"
+ #include "hardware_interface/types/hardware_interface_type_values.hpp"
+ #include "lifecycle_msgs/msg/state.hpp"
++#include "robot_interfaces_qos/profiles.hpp"
+ #include "rclcpp/rclcpp.hpp"
+ 
+ using CallbackReturn = controller_interface::CallbackReturn;
+@@ -93,7 +94,7 @@ protected:
+ 
+     pub_node = std::make_shared<rclcpp::Node>("velocity_publisher");
+     velocity_publisher = pub_node->create_publisher<geometry_msgs::msg::TwistStamped>(
+-      controller_name + "/cmd_vel", rclcpp::SystemDefaultsQoS());
++      controller_name + "/cmd_vel", robot_interfaces_qos::control());
+   }
+ 
+   void TearDown() override

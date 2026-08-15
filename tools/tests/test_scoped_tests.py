@@ -25,11 +25,12 @@ class ClassifyTest(unittest.TestCase):
         self.assertTrue(any("--packages-above plc_node" in a for a in plan["actions"]))
         self.assertFalse(plan["full"])
 
-    def test_interface_change_selects_all_interface_packages(self):
+    def test_private_interface_change_selects_private_package_only(self):
         plan = st.classify(["src/interfaces/rt_control_interfaces/srv/RtEnable.srv"])
         joined = " ".join(plan["actions"])
         self.assertIn("rt_control_interfaces", joined)
-        self.assertIn("robot_rt_control_interfaces", joined)
+        self.assertNotIn("robot_rt_control_interfaces", joined)
+        self.assertNotIn("robot_system_interfaces", joined)
 
     def test_global_impact_paths_force_full_suite(self):
         for path in ("patches/ecat_icube/x.patch", "deps.repos", "versions.env",

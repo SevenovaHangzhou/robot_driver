@@ -3,14 +3,14 @@ category: readonly-runtime
 cases:
   - id: TC-RO-01
     title: Mock 全图公共契约探测
-    purpose: 证明公共契约端点的名称、类型、方向与 docs/cross-domain-interfaces.md 第 2/3 节完全一致
+    purpose: 证明公共契约端点的名称、类型、方向与 vendored RT-Control 契约视图完全一致
     area: contract
     risk: T1
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     env_note: mock 不含 CANopen 硬件后端，/wheel/odom 只断言存在与类型，频率归 TC-RO-06
     covers: ["src/rt_control/control_api_adapter/**", "src/interfaces/**", "src/rt_control/rt_control_bringup/**"]
-    traces: [docs/cross-domain-interfaces.md, "BQ-132"]
+    traces: [src/vendor/robot_interfaces/contract/views/rt_control.md, "BQ-132"]
     preconditions: 无硬件；BQ-132 决定无总线路径必须走 mock
     entry: |
       ros2 launch rt_control_bringup rt_control.launch.py use_mock_hardware:=true &
@@ -32,7 +32,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     covers: ["src/rt_control/**"]
-    traces: [docs/cross-domain-interfaces.md]
+    traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 与 TC-RO-01 同一次 mock 启动
     entry: |
       # 对第 6 节每个已删除端点执行不存在断言
@@ -72,7 +72,7 @@ cases:
     env: docker
     env_note: 生产镜像 BUILD_TESTING=OFF，容器内只做接口探测不跑包测试
     covers: ["docker/**"]
-    traces: [docs/collaboration-and-commit-standards.md]
+    traces: [collaboration-and-commit-standards.md]
     preconditions: 候选镜像已构建；容器以 mock 参数启动，不映射任何总线设备
     entry: |
       docker run --rm <image> bash -lc 'source /opt/rt_control_ws/install/setup.bash && \
@@ -93,7 +93,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     covers: ["src/rt_control/rt_diagnostics/**"]
-    traces: [docs/cross-domain-interfaces.md]
+    traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 栈已由值守人员启动（本用例不启动栈）；仅订阅
     entry: |
       ros2 topic echo /diagnostics --once
@@ -116,7 +116,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     covers: ["src/rt_control/**"]
-    traces: [docs/cross-domain-interfaces.md]
+    traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 栈已启动；仅订阅
     entry: |
       ros2 topic hz /joint_states /wheel/odom /vacuum/state /control/safety_state /rt_control/readiness --window 100

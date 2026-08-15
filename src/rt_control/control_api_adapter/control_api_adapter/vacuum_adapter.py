@@ -490,6 +490,7 @@ def main(args=None) -> None:
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
     from rclpy.qos import QoSProfile
+    from robot_interfaces_qos import state
     from rt_control_interfaces.msg import PlcIoState
     from std_srvs.srv import SetBool
 
@@ -650,7 +651,7 @@ def main(args=None) -> None:
             self._publisher = self.create_publisher(
                 VacuumState,
                 str(self.get_parameter("vacuum_state_topic").value),
-                QoSProfile(depth=10),
+                state(),
             )
             self._pump_service = self.create_service(
                 SetPumpEnabled,

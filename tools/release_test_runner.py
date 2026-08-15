@@ -175,6 +175,16 @@ def collect_release_identity(repo_root: Path, image: str | None = None):
             identity["vendor_commits"][name] = version
             if not FULL_SHA.match(version):
                 findings.append(f"deps.repos '{name}' version is not a full 40-hex SHA")
+        robot_interfaces_commit = identity["vendor_commits"].get(
+            "src/vendor/robot_interfaces"
+        )
+        if robot_interfaces_commit is None:
+            findings.append("deps.repos is missing src/vendor/robot_interfaces")
+        elif robot_interfaces_commit != identity["contract_commit"]:
+            findings.append(
+                "source-lock contract commit does not match "
+                "deps.repos src/vendor/robot_interfaces"
+            )
     else:
         findings.append("deps.repos missing")
 

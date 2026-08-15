@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
@@ -179,6 +180,44 @@ def build_safety_summary(
     )
 
 
+def populate_domain_readiness(
+    message: Any,
+    *,
+    header: Any,
+    summary: SafetySummary,
+    producer_instance_id: str,
+) -> None:
+    """Populate the contract-owned DomainReadiness schema for RT-Control."""
+
+    message.header = header
+    message.domain = "rt_control"
+    message.readiness_name = "rt_control"
+    message.ready = summary.safe_to_start_motion
+    message.status = (
+        message.STATUS_HEALTHY
+        if summary.safe_to_start_motion
+        else message.STATUS_UNAVAILABLE
+    )
+    message.operational_state = summary.state
+    message.map_version = ""
+    message.producer_instance_id = producer_instance_id
+    blockers: list[str] = []
+    if not summary.control_enabled:
+        blockers.append("control_disabled")
+    if not summary.enable_manager_ok:
+        blockers.append("enable_manager_unavailable")
+    if not summary.ethercat_ok:
+        blockers.append("ethercat_unavailable")
+    if not summary.canopen_ok:
+        blockers.append("canopen_unavailable")
+    if not summary.plc_ok:
+        blockers.append("plc_unavailable")
+    if not summary.bms_ok:
+        blockers.append("bms_unavailable")
+    message.blockers = blockers
+    message.errors = []
+
+
 def main(args=None) -> None:
     import rclpy
     from robot_rt_control_interfaces.msg import SafetyState
@@ -187,7 +226,8 @@ def main(args=None) -> None:
     from rclpy.callback_groups import ReentrantCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
-    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+    from rclpy.qos import QoSProfile
+    from robot_interfaces_qos import diagnostic, latched, state
     from rt_control_interfaces.msg import PlcIoState
     from sensor_msgs.msg import BatteryState
 
@@ -225,12 +265,13 @@ def main(args=None) -> None:
             self._bms_received_s: float | None = None
             self._last_readiness_signature: tuple[bool, str, str] | None = None
             self._last_readiness_publish_s = 0.0
+            self._producer_instance_id = str(uuid.uuid4())
 
             self._diagnostics_subscription = self.create_subscription(
                 DiagnosticArray,
                 str(self.get_parameter("diagnostics_topic").value),
                 self._on_diagnostics,
-                QoSProfile(depth=50),
+                diagnostic(),
                 callback_group=self._callback_group,
             )
             self._plc_subscription = self.create_subscription(
@@ -244,21 +285,18 @@ def main(args=None) -> None:
                 BatteryState,
                 str(self.get_parameter("battery_state_topic").value),
                 self._on_bms,
-                QoSProfile(depth=10),
+                state(),
                 callback_group=self._callback_group,
             )
             self._safety_publisher = self.create_publisher(
                 SafetyState,
                 str(self.get_parameter("safety_state_topic").value),
-                QoSProfile(depth=10),
+                state(),
             )
-            readiness_qos = QoSProfile(depth=1)
-            readiness_qos.reliability = ReliabilityPolicy.RELIABLE
-            readiness_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
             self._readiness_publisher = self.create_publisher(
                 DomainReadiness,
                 str(self.get_parameter("readiness_topic").value),
-                readiness_qos,
+                latched(),
             )
             self._timer = self.create_timer(
                 float(self.get_parameter("safety_publish_period_s").value),
@@ -307,12 +345,12 @@ def main(args=None) -> None:
                 or now_s - self._last_readiness_publish_s >= period_s
             ):
                 readiness = DomainReadiness()
-                readiness.header = safety.header
-                readiness.ready = summary.safe_to_start_motion
-                readiness.state = summary.state
-                readiness.reason = summary.readiness_reason
-                readiness.version = self._version
-                readiness.config_summary = self._config_summary
+                populate_domain_readiness(
+                    readiness,
+                    header=safety.header,
+                    summary=summary,
+                    producer_instance_id=self._producer_instance_id,
+                )
                 self._readiness_publisher.publish(readiness)
                 self._last_readiness_signature = signature
                 self._last_readiness_publish_s = now_s

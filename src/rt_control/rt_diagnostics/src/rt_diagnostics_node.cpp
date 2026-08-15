@@ -14,6 +14,7 @@
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "diagnostic_msgs/msg/key_value.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "robot_interfaces_qos/profiles.hpp"
 
 namespace rt_diagnostics
 {
@@ -67,10 +68,10 @@ public:
       dynamic_joint_states_topic, rclcpp::QoS(10),
       std::bind(&RtDiagnosticsNode::onDynamicState, this, std::placeholders::_1));
     diagnostic_subscription_ = create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
-      "/diagnostics", rclcpp::QoS(50),
+      "/diagnostics", robot_interfaces_qos::diagnostic(),
       std::bind(&RtDiagnosticsNode::onDiagnostics, this, std::placeholders::_1));
     publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
-      "/diagnostics", rclcpp::QoS(10));
+      "/diagnostics", robot_interfaces_qos::diagnostic());
     timer_ = create_wall_timer(std::chrono::seconds(1), [this]() {publishSnapshot();});
   }
 

@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
@@ -10,7 +11,11 @@ from control_api_adapter.control_enable_adapter import (  # noqa: E402
     RtServiceUnavailable,
     RtServiceResult,
 )
-from control_api_adapter.public_error import PublicErrorCode  # noqa: E402
+from control_api_adapter.public_error import (  # noqa: E402
+    PublicErrorCode,
+    assign_error_info,
+    error_info,
+)
 
 
 class FakeRtServices:
@@ -34,6 +39,33 @@ class FakeDiagnostics:
     def wait_for_reset_ready(self) -> DiagnosticSnapshot:
         self.calls += 1
         return self.snapshot
+
+
+def test_error_info_uses_vendored_uint32_dree_schema() -> None:
+    message = SimpleNamespace(
+        OK=0,
+        WARN=1,
+        FAULT=2,
+        code=0,
+        message="",
+        retryable=False,
+        severity=99,
+        source="",
+        detail="unexpected",
+    )
+
+    assign_error_info(
+        message,
+        error_info(PublicErrorCode.RT_SERVICE_UNAVAILABLE, "service unavailable"),
+    )
+
+    assert message.code == 1100
+    assert isinstance(message.code, int)
+    assert message.message == "service unavailable"
+    assert message.retryable
+    assert message.severity == message.WARN
+    assert message.source == "rt_control"
+    assert message.detail == ""
 
 
 def test_disable_only_calls_rt_disable():
