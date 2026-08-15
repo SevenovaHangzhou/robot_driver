@@ -25,8 +25,8 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "eb010e1e33b31ae8ae4ebe0843a2d5c5ca2fabd1",
-        "contract_version": "0.6.1",
+        "commit": "d8236bda7e087a54a8ee7585bc7a2d6a94251af4",
+        "contract_version": "0.7.0",
         "vendor_path": "src/vendor/robot_interfaces",
         "vendored_packages": list(public_packages),
     }
@@ -245,7 +245,8 @@ def test_public_adapters_populate_the_vendored_shared_message_schemas() -> None:
         ROOT / "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py"
     ).read_text()
 
-    assert "message.code = str(int(value.code))" in public_error_source
+    assert "message.code = int(value.code)" in public_error_source
+    assert "message.code = str(int(value.code))" not in public_error_source
     assert "message.source = value.origin" in public_error_source
     assert 'message.detail = ""' in public_error_source
     assert "def populate_domain_readiness(" in status_source

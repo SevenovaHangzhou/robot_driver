@@ -121,7 +121,7 @@ rt-control 的本体链从 `base_footprint → base_link → 本体/传感器连
 `odom → base_footprint`，`map → odom` 仍由定位侧负责。`/wheel/odom` 是消息 topic，不是 TF frame。导航未启动时
 缺少 `odom → base_footprint` 是预期行为，其他域不得补发重复边。
 
-这些名称已对齐公共 `robot_interfaces` 契约 0.6.1。接口类型和限制见 vendored
+这些名称已对齐公共 `robot_interfaces` 契约 0.7.0。接口类型和限制见 vendored
 `robot_interfaces/contract/views/rt_control.md` 和
 [开发进度与联调准入](integration-readiness-summary.md)。
 

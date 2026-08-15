@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-commit: eb010e1e33b31ae8ae4ebe0843a2d5c5ca2fabd1
-contract_version: 0.6.1
+commit: d8236bda7e087a54a8ee7585bc7a2d6a94251af4
+contract_version: 0.7.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:
   - robot_rt_control_interfaces

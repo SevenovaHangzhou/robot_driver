@@ -201,11 +201,20 @@ def populate_domain_readiness(
     message.operational_state = summary.state
     message.map_version = ""
     message.producer_instance_id = producer_instance_id
-    message.blockers = (
-        []
-        if summary.safe_to_start_motion
-        else list(summary.active_faults) or [summary.readiness_reason]
-    )
+    blockers: list[str] = []
+    if not summary.control_enabled:
+        blockers.append("control_disabled")
+    if not summary.enable_manager_ok:
+        blockers.append("enable_manager_unavailable")
+    if not summary.ethercat_ok:
+        blockers.append("ethercat_unavailable")
+    if not summary.canopen_ok:
+        blockers.append("canopen_unavailable")
+    if not summary.plc_ok:
+        blockers.append("plc_unavailable")
+    if not summary.bms_ok:
+        blockers.append("bms_unavailable")
+    message.blockers = blockers
     message.errors = []
 
 

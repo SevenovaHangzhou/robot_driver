@@ -10,3 +10,7 @@ including `robot_rt_control_interfaces`, `robot_system_interfaces`, and
 `robot_interfaces_qos`. `source-lock.yaml` records the same immutable identity
 for repository gates and release evidence. Change the upstream contract first,
 then update the pin and all producers/consumers in one coordinated release.
+
+The current 0.7.0 pin is the immutable head of upstream PR #6 for migration
+validation. It is not a release identity: after that PR merges, replace both
+pins with its final main commit before merging or releasing this branch.

@@ -131,5 +131,40 @@ def test_domain_readiness_uses_vendored_schema() -> None:
     assert message.operational_state == "NOT_READY"
     assert message.map_version == ""
     assert message.producer_instance_id == "instance-1"
-    assert message.blockers == ["/robot/rt_control/canopen/node_3: Fault"]
+    assert message.blockers == ["canopen_unavailable"]
+    assert message.errors == []
+
+
+def test_domain_readiness_healthy_state_has_no_blockers_or_errors() -> None:
+    summary = build_safety_summary(
+        enable_manager=ok_component(
+            "/robot/rt_control/enable_manager",
+            state="ENABLED",
+            stage="success",
+        ),
+        ethercat_master=ok_component("/robot/rt_control/ethercat/master"),
+        ethercat_slaves=[ok_component(name) for name in ETHERCAT_SLAVE_NAMES],
+        canopen_nodes=[ok_component(name) for name in CANOPEN_NODE_NAMES],
+        plc=PlcHealthSnapshot(connected=True, data_fresh=True),
+        bms=BatteryHealthSnapshot(present=True, fresh=True),
+    )
+    message = SimpleNamespace(
+        STATUS_HEALTHY="HEALTHY",
+        STATUS_DEGRADED="DEGRADED",
+        STATUS_UNAVAILABLE="UNAVAILABLE",
+        blockers=["unexpected"],
+        errors=["unexpected"],
+    )
+
+    populate_domain_readiness(
+        message,
+        header="header",
+        summary=summary,
+        producer_instance_id="instance-1",
+    )
+
+    assert message.ready
+    assert message.status == message.STATUS_HEALTHY
+    assert message.map_version == ""
+    assert message.blockers == []
     assert message.errors == []

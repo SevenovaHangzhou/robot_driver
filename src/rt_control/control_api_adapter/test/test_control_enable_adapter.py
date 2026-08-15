@@ -41,12 +41,12 @@ class FakeDiagnostics:
         return self.snapshot
 
 
-def test_error_info_uses_vendored_string_schema() -> None:
+def test_error_info_uses_vendored_uint32_dree_schema() -> None:
     message = SimpleNamespace(
         OK=0,
         WARN=1,
         FAULT=2,
-        code="",
+        code=0,
         message="",
         retryable=False,
         severity=99,
@@ -59,7 +59,8 @@ def test_error_info_uses_vendored_string_schema() -> None:
         error_info(PublicErrorCode.RT_SERVICE_UNAVAILABLE, "service unavailable"),
     )
 
-    assert message.code == "1100"
+    assert message.code == 1100
+    assert isinstance(message.code, int)
     assert message.message == "service unavailable"
     assert message.retryable
     assert message.severity == message.WARN

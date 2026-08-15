@@ -2341,11 +2341,11 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Verification boundary：本裁决只授权源码、mock、构建、容器构建和 PR 操作，不授权
   目标机同步、总线访问、reset、enable、运动、PLC 输出或发布部署。
 
-## BQ-137 — vendored `ErrorInfo`/`DomainReadiness` 线协议与既有 RT 裁决冲突 [BLOCKED 2026-08-14]
+## BQ-137 — vendored `ErrorInfo`/`DomainReadiness` 线协议与既有 RT 裁决冲突 [RESOLVED/HIGH-RISK 2026-08-16]
 
 - Evidence：BQ-133 锁定的 `robot_interfaces@e19d1450` 使用
   `ErrorInfo{uint32 code,bool retryable,string message,string origin}` 和
-  `DomainReadiness{ready,state,reason,version,config_summary}`。当前待 vendoring 的上游
+  `DomainReadiness{ready,state,reason,version,config_summary}`。发现时待 vendoring 的上游
   `main@bdad6f9`/PR head `eb010e1` 已破坏性改为
   `ErrorInfo{string code,string message,bool retryable,uint8 severity,string source,string detail}`，
   并把 `DomainReadiness` 改为带 domain/readiness_name/status/operational_state/map_version/
@@ -2353,13 +2353,17 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Conflict：上游 `ErrorInfo.msg` 注释把 `code` 定义为 mapping/navigation 节点内部诊断字符串，
   但同仓库 RT-Control service/action 仍把它作为公共失败载荷，`ErrorCode.msg` 和 BQ-133 又要求
   四位 DREE 数字语义。当前字段类型可以编译，错误码的权威语义却不唯一。
-- Current compatibility implementation：为证明完整 vendor SHA 可运行，RT-Control 暂把既有
-  DREE 数值转成十进制字符串，保持 `retryable`，并映射 OK/WARN/FAULT、`source=rt_control`；
-  readiness 按新共享结构填充。该映射已有生成 IDL 单测和 Domain 142 mock 运行证据，但不构成
-  对跨域错误码语义的自行裁决。
-- Blocking question：接口所有者需明确选择并在 `robot_interfaces` 中形成一致契约：公共
-  `ErrorInfo.code` 是否继续承载 DREE（若是，修正文档/常量/校验并确认字符串编码），还是改成
-  导航内部码（若是，为 RT-Control 三个公共结果另定权威错误载荷与迁移方案）；同时确认新的
-  `DomainReadiness` 是所有域必须原子采纳的最终 schema。
-- Blocked scope：不阻止本分支构建、mock、草稿 PR 和跨域评审；阻止下游 PR 合并、镜像发布及
-  部署。BQ-136 要求的最终 upstream merge SHA 更新和本问题的接口所有者裁决均完成后，才可解除。
+- User decision（2026-08-16）：`ErrorInfo` 明确定义为跨域公共错误载荷，`code` 权威采用
+  DREE，wire 类型使用 `uint32`；导航内部诊断字符串另设域内类型，不占用公共
+  `ErrorInfo.code`。确认当前 `DomainReadiness` 字段集为最终公共 schema，非地图依赖的
+  readiness 令 `map_version=""`，并冻结 `ready/status/blockers/errors` 一致性规则。全部域必须
+  锁定同一接口 SHA 原子升级。
+- Contract landing：旧的兼容字符串映射已删除。上游 `robot_interfaces` PR #6 将契约升到
+  0.7.0，PR head 为 `d8236bda7e087a54a8ee7585bc7a2d6a94251af4`；RT-Control 以
+  `uint32` 写入 DREE，并把 readiness blocker 改为稳定 reason token。PR #4 已合并，最终
+  main SHA 为 `1a60d83d52aa97952c8dbb3baafb50b6a95b9e86`，它是 0.6.1 回滚基线，
+  不包含本次 BQ-137 schema 修复。
+- Release boundary：语义阻塞已经解除，但线协议仍处于破坏性迁移阶段。下游当前 SHA 只用于
+  PR #6 迁移验证；PR #6 合并后必须再次把 `deps.repos` 与 `source-lock.yaml` 同步为最终
+  main SHA。RT-Control、Motion/Navigation、Perception、Autonomy 及 external 调用方完成同一
+  SHA 迁移和跨域 smoke 前，仍禁止合并本下游 PR、镜像发布和部署。
