@@ -11,6 +11,7 @@ including `robot_rt_control_interfaces`, `robot_system_interfaces`, and
 for repository gates and release evidence. Change the upstream contract first,
 then update the pin and all producers/consumers in one coordinated release.
 
-The current 0.7.0 pin is the immutable head of upstream PR #6 for migration
-validation. It is not a release identity: after that PR merges, replace both
-pins with its final main commit before merging or releasing this branch.
+The current 0.7.0 pin is the immutable upstream `main` commit
+`f699f45972ad15bbbbbb3da1a4894faf209144c9`. It contains the merged BQ-137
+wire-schema correction and the Perception contract-completeness change. Every
+producer and consumer must use this same SHA in one coordinated release.

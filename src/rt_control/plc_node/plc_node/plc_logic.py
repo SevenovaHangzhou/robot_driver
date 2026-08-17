@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-LEFT_SOLENOID_BIT = 0
-RIGHT_SOLENOID_BIT = 1
+LEFT_SOLENOID_BIT = 1
+RIGHT_SOLENOID_BIT = 0
 VACUUM_PUMP_BIT = 2
 SUPPORTED_OUTPUT_BITS = frozenset(
     (LEFT_SOLENOID_BIT, RIGHT_SOLENOID_BIT, VACUUM_PUMP_BIT)

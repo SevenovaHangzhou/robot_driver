@@ -16,11 +16,17 @@ def test_enable_remote_control_sets_only_bit_zero() -> None:
     assert enable_remote_control_word(0xA501) == 0xA501
 
 
+def test_output_bits_follow_confirmed_robot_side_mapping() -> None:
+    assert LEFT_SOLENOID_BIT == 1
+    assert RIGHT_SOLENOID_BIT == 0
+    assert VACUUM_PUMP_BIT == 2
+
+
 @pytest.mark.parametrize(
     ("bit", "enabled", "expected"),
     [
-        (LEFT_SOLENOID_BIT, True, 0b101),
-        (RIGHT_SOLENOID_BIT, True, 0b111),
+        (LEFT_SOLENOID_BIT, True, 0b111),
+        (RIGHT_SOLENOID_BIT, True, 0b101),
         (VACUUM_PUMP_BIT, False, 0b001),
     ],
 )
@@ -29,7 +35,7 @@ def test_set_output_bit_preserves_every_other_bit(bit: int, enabled: bool, expec
 
 
 def test_set_output_bit_preserves_non_io_bits() -> None:
-    assert set_output_bit(0xA505, RIGHT_SOLENOID_BIT, True) == 0xA507
+    assert set_output_bit(0xA505, LEFT_SOLENOID_BIT, True) == 0xA507
 
 
 def test_set_output_bit_rejects_unknown_output() -> None:
@@ -37,19 +43,26 @@ def test_set_output_bit_rejects_unknown_output() -> None:
         set_output_bit(0, 3, True)
 
 
-def test_decode_snapshot_uses_confirmed_input_and_output_mapping() -> None:
-    snapshot = decode_io_snapshot(di_status=0b01, do_status=0b110, io_alarm=2)
+def test_decode_snapshot_preserves_unverified_input_mapping() -> None:
+    snapshot = decode_io_snapshot(di_status=0b01, do_status=0, io_alarm=2)
 
     assert snapshot.left_vacuum_established is True
     assert snapshot.right_vacuum_established is False
-    assert snapshot.left_solenoid_on is False
-    assert snapshot.right_solenoid_on is True
-    assert snapshot.vacuum_pump_on is True
     assert snapshot.io_alarm == 2
 
     right_only = decode_io_snapshot(di_status=0b10, do_status=0, io_alarm=0)
     assert right_only.left_vacuum_established is False
     assert right_only.right_vacuum_established is True
+
+
+def test_decode_output_status_uses_confirmed_robot_side_mapping() -> None:
+    left_on = decode_io_snapshot(di_status=0, do_status=0b010, io_alarm=0)
+    assert left_on.left_solenoid_on is True
+    assert left_on.right_solenoid_on is False
+
+    right_on = decode_io_snapshot(di_status=0, do_status=0b001, io_alarm=0)
+    assert right_on.left_solenoid_on is False
+    assert right_on.right_solenoid_on is True
 
 
 @pytest.mark.parametrize("enabled", [False, True])

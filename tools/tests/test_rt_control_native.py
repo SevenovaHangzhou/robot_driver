@@ -224,7 +224,11 @@ class NativeLauncherContractTest(unittest.TestCase):
 
     def test_verified_realtime_cpu_is_applied_to_the_runtime(self):
         self.assertIn('readonly expected_cpuset="14"', self.text)
-        self.assertIn('readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"', self.text)
+        self.assertIn('readonly expected_housekeeping_cpuset="0,2,4,6,16-27"', self.text)
+        self.assertIn("cpu_list_contains", self.text)
+        self.assertIn("cpu_list_overlaps", self.text)
+        self.assertIn('CPU ${expected_cpuset} is not included in isolated CPUs', self.text)
+        self.assertIn('housekeeping CPUs ${expected_housekeeping_cpuset} overlap isolated CPUs', self.text)
         self.assertIn('command -v setsid', self.text)
         self.assertIn('nohup setsid env', self.text)
         self.assertIn('taskset --cpu-list "${expected_housekeeping_cpuset}"', self.text)
@@ -338,6 +342,53 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
         self.assertLess(body.index('source "${install_root}/setup.bash"'), body.index("set -u"))
 
+    def test_native_entrypoints_verify_public_adapter_dependency_closure_before_hardware(self):
+        self.assertIn("verify_runtime_dependency_closure()", self.text)
+        helper_start = self.text.index("verify_runtime_dependency_closure()")
+        helper_stop = self.text.index("verify_realtime_cpu_guard()", helper_start)
+        helper = self.text[helper_start:helper_stop]
+
+        for package in (
+            "robot_interfaces_qos",
+            "robot_rt_control_interfaces",
+            "robot_system_interfaces",
+            "rt_control_interfaces",
+            "bms_node",
+            "control_api_adapter",
+            "plc_node",
+            "rt_diagnostics",
+            "rt_control_bringup",
+        ):
+            self.assertIn(package, helper)
+        for profile in ("control", "fast_state", "state", "latched", "diagnostic"):
+            self.assertIn(profile, helper)
+        self.assertIn("runtime_env python3 -", helper)
+
+        start = self.text.index("start_native()")
+        stop = self.text.index("enable_native()", start)
+        start_body = self.text[start:stop]
+        self.assertLess(
+            start_body.index("source_runtime_environment"),
+            start_body.index("verify_runtime_dependency_closure"),
+        )
+        self.assertLess(
+            start_body.index("verify_runtime_dependency_closure"),
+            start_body.index("verify_bus_services"),
+        )
+
+        recovery_start = self.text.index("recover_power_loss_native()")
+        recovery_stop = self.text.index("stop_native()", recovery_start)
+        recovery_body = self.text[recovery_start:recovery_stop]
+        self.assertLess(
+            recovery_body.index("verify_runtime_dependency_closure"),
+            recovery_body.index("verify_bus_services"),
+        )
+
+        doctor_start = self.text.index("doctor_native()")
+        doctor_stop = self.text.index('case "${1:-}"', doctor_start)
+        doctor_body = self.text[doctor_start:doctor_stop]
+        self.assertIn("verify_runtime_dependency_closure", doctor_body)
+
     def test_symlink_install_signal_gate_source_is_executable(self):
         self.assertTrue(
             SIGNAL_GATE.stat().st_mode & 0o111,
@@ -403,6 +454,35 @@ class NativeBootstrapContractTest(unittest.TestCase):
         body = self.text[start:stop]
         self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
         self.assertLess(body.index("source /opt/ros/humble/setup.bash"), body.index("set -u"))
+
+    def test_full_runtime_build_verifies_installed_dependency_closure(self):
+        self.assertIn("verify_runtime_install()", self.text)
+        helper_start = self.text.index("verify_runtime_install()")
+        helper_stop = self.text.index("build_workspace()", helper_start)
+        helper = self.text[helper_start:helper_stop]
+        self.assertIn('for package in "${runtime_packages[@]}"', helper)
+        self.assertIn("ros2 pkg prefix", helper)
+        self.assertIn("runtime_qos_profile_smoke", helper)
+
+        build_start = self.text.index("build_workspace()")
+        build_stop = self.text.index("doctor()", build_start)
+        build_body = self.text[build_start:build_stop]
+        self.assertIn("verify_full_runtime=1", build_body)
+        custom_selection = build_body.index("if (( $# > 0 ))")
+        default_selection = build_body.index("else", custom_selection)
+        selection_done = build_body.index("fi", default_selection)
+        self.assertNotIn(
+            "--cmake-clean-cache",
+            build_body[custom_selection:default_selection],
+        )
+        self.assertIn(
+            "--cmake-clean-cache",
+            build_body[default_selection:selection_done],
+        )
+        self.assertLess(
+            build_body.index("colcon --log-base"),
+            build_body.index("verify_runtime_install"),
+        )
 
 
 class NativeHostSetupContractTest(unittest.TestCase):
@@ -474,10 +554,33 @@ class RtControlLaunchAffinityContractTest(unittest.TestCase):
         start = launcher_text.index("wait_for_enable_service()")
         stop = launcher_text.index("terminate_failed_start()", start)
         body = launcher_text[start:stop]
+        self.assertIn("local deadline=$((SECONDS + 150))", body)
         self.assertIn("ros2 service type /rt/enable", body)
         self.assertIn("rt_control_interfaces/srv/RtEnable", body)
         self.assertIn("ros2 service type /control/set_enabled", body)
         self.assertIn("robot_rt_control_interfaces/srv/SetControlEnabled", body)
+        self.assertIn("ros2 service call", body)
+        self.assertIn("/controller_manager/list_controllers", body)
+        self.assertIn("controller_manager_msgs/srv/ListControllers", body)
+        self.assertIn("ListControllers_Response", body)
+
+    def test_plain_start_reports_ready_only_after_runtime_initialization(self):
+        launcher_text = LAUNCHER.read_text(encoding="utf-8")
+        start = launcher_text.index("start_native()")
+        stop = launcher_text.index("enable_native()", start)
+        body = launcher_text[start:stop]
+        self.assertLess(
+            body.index("wait_for_enable_service"),
+            body.index("verify_controllers_before_enable"),
+        )
+        self.assertLess(
+            body.index("verify_controllers_before_enable"),
+            body.index("verify_operational_ethercat"),
+        )
+        self.assertLess(
+            body.index("verify_operational_ethercat"),
+            body.index('info "READY:'),
+        )
 
     def test_controller_state_gate_waits_for_spawners_before_enable(self):
         launcher_text = LAUNCHER.read_text(encoding="utf-8")
