@@ -287,6 +287,48 @@ verify_workspace()
   command -v ethercat >/dev/null 2>&1 || fail "missing ethercat CLI"
 }
 
+verify_runtime_dependency_closure()
+{
+  local package
+  for package in \
+    robot_interfaces_qos \
+    robot_rt_control_interfaces \
+    robot_system_interfaces \
+    rt_control_interfaces \
+    bms_node \
+    control_api_adapter \
+    plc_node \
+    rt_diagnostics \
+    rt_control_bringup; do
+    runtime_env ros2 pkg prefix "${package}" >/dev/null 2>&1 ||
+      fail "native runtime dependency is not installed: ${package}; run tools/bootstrap_native_dev.sh build while stopped"
+  done
+
+  [[ -x "${install_root}/lib/bms_node/bms_node" ]] ||
+    fail "missing installed bms_node executable"
+  [[ -x "${install_root}/lib/control_api_adapter/vacuum_adapter" ]] ||
+    fail "missing installed vacuum_adapter executable"
+  [[ -x "${install_root}/lib/control_api_adapter/rt_status_adapter" ]] ||
+    fail "missing installed rt_status_adapter executable"
+
+  if ! runtime_env python3 - <<'PY'
+from robot_interfaces_qos import control, diagnostic, fast_state, latched, state
+
+for name, factory in (
+    ("control", control),
+    ("fast_state", fast_state),
+    ("state", state),
+    ("latched", latched),
+    ("diagnostic", diagnostic),
+):
+    if factory() is None:
+        raise RuntimeError(f"QoS profile factory returned None: {name}")
+PY
+  then
+    fail "robot_interfaces_qos Python API is unavailable or incomplete; rebuild the native runtime closure while stopped"
+  fi
+}
+
 verify_realtime_cpu_guard()
 {
   "${realtime_cpu_guard}" --cpu "${expected_cpuset}" --mode strict
@@ -440,7 +482,7 @@ launch_native()
 
 wait_for_enable_service()
 {
-  local deadline=$((SECONDS + 90))
+  local deadline=$((SECONDS + 150))
   local pid
   while (( SECONDS < deadline )); do
     pid="$(native_pid 2>/dev/null || true)"
@@ -453,7 +495,11 @@ wait_for_enable_service()
     if run_ros2_timeout 3 ros2 service type /rt/enable 2>/dev/null |
       grep -Fq 'rt_control_interfaces/srv/RtEnable' &&
       run_ros2_timeout 3 ros2 service type /control/set_enabled 2>/dev/null |
-      grep -Fq 'robot_rt_control_interfaces/srv/SetControlEnabled'; then
+      grep -Fq 'robot_rt_control_interfaces/srv/SetControlEnabled' &&
+      run_ros2_timeout 5 ros2 service call \
+        /controller_manager/list_controllers \
+        controller_manager_msgs/srv/ListControllers '{}' 2>/dev/null |
+      grep -Fq 'ListControllers_Response'; then
       return 0
     fi
     sleep 1
@@ -813,6 +859,8 @@ start_native()
   verify_target_identity
   verify_realtime_host
   verify_workspace
+  source_runtime_environment
+  verify_runtime_dependency_closure
   verify_bus_services
   reject_running_container
   cleanup_stale_pid_file
@@ -827,11 +875,14 @@ start_native()
   prepare_can_interfaces
   verify_can_interface can0 "${expected_can_serial}"
   verify_can_interface can1 "${expected_bms_can_serial}"
-  source_runtime_environment
   launch_native
   if ! wait_for_enable_service; then
     terminate_failed_start
-    fail "native stack did not expose /rt/enable and /control/set_enabled within 90 seconds; stop was requested"
+    fail "native stack did not expose live control services within 150 seconds; stop was requested"
+  fi
+  if ! (verify_controllers_before_enable && verify_operational_ethercat); then
+    terminate_failed_start
+    fail "native stack did not reach disabled controller/EtherCAT readiness; stop was requested"
   fi
   info "READY: native stack is running in Domain ${expected_ros_domain_id}; drives were not enabled; public service /control/set_enabled is available"
 }
@@ -871,6 +922,8 @@ recover_power_loss_native()
   verify_target_identity
   verify_realtime_host
   verify_workspace
+  source_runtime_environment
+  verify_runtime_dependency_closure
   verify_bus_services
   reject_running_container
   best_effort_stop_existing_native_for_recovery
@@ -1017,10 +1070,7 @@ doctor_native()
   verify_workspace
   reject_running_container
   source_runtime_environment
-  runtime_env ros2 pkg prefix rt_control_bringup >/dev/null
-  runtime_env ros2 pkg prefix enable_manager >/dev/null
-  runtime_env ros2 pkg prefix robot_rt_control_interfaces >/dev/null
-  runtime_env ros2 pkg prefix control_api_adapter >/dev/null
+  verify_runtime_dependency_closure
   info "PASS: native runtime is installed for Domain ${expected_ros_domain_id} with Fast DDS default transports"
 }
 

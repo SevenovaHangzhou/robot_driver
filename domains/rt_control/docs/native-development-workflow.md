@@ -80,6 +80,11 @@ controller update 线程仍在 CPU14，最后确认控制器、14 轴和 EtherCA
 `reset`、`checkout` 或 `clean`；发现依赖不完整、HEAD 不等于冻结 SHA，或补丁状态
 无法解释时会停止并要求人工处理。
 
+不带包选择参数的完整 `build` 会清理各包 CMake cache，构建全部运行包依赖闭包，并在
+结束后逐包验证安装前缀及 `robot_interfaces_qos` 的五个命名 profile。带
+`--packages-select` 的命令只用于明确范围的增量开发，不构成可部署运行闭包证据；公共接口、
+QoS 或适配器依赖变化后必须再执行一次完整 `build`。
+
 ## 2. 首次准备
 
 ```bash
@@ -153,11 +158,20 @@ cd /home/ar/rt-control-dev/robot
 2. 外层 `rt_control_start` 运行在 housekeeping CPUs：
    `0,2,4,6,16-27`。这些 housekeeping CPUs 还必须与当前 `isolated`/`nohz_full`
    集合不重叠；当前多隔离核配置中的 CPU8/10/12 不归 native rt-control 普通线程使用。
-3. 控制栈同时暴露 `/rt/enable` 和 `/control/set_enabled` 服务后，脚本查找 `ros2_control_node` 内部实时线程；只有“恰好一个
+3. 接触总线前，脚本验证公共接口、`robot_interfaces_qos` Python API、适配器、BMS、PLC、
+   诊断与 bringup 均已安装；缺少任一运行依赖时 fail-closed。随后在最多 150 秒内要求
+   `/rt/enable`、`/control/set_enabled` 可发现，并实际调用
+   `/controller_manager/list_controllers`，避免旧 DDS discovery 造成假 READY。
+4. 控制器必须达到 disabled 启动契约，EtherCAT 必须为 Operation/Active；两项均通过后才
+   报告 READY。随后脚本查找 `ros2_control_node` 内部实时线程；只有“恰好一个
    `SCHED_FIFO` 且 `rt_priority=80`”的线程会被视为 controller update 线程。
-4. 该线程被 `sched_setaffinity` 到 CPU14；同一进程内 DDS、service、CANopen/Lely 和普通回调线程保留在
+5. 该线程被 `sched_setaffinity` 到 CPU14；同一进程内 DDS、service、CANopen/Lely 和普通回调线程保留在
    housekeeping CPUs。
-5. 设置后必须验证 update 线程 affinity 和当前 `PSR` 均为 14，否则启动失败，且不会使能执行器。
+6. 设置后必须验证 update 线程 affinity 和当前 `PSR` 均为 14，否则启动失败，且不会使能执行器。
+
+Native 包装器不是持久化 daemon。目标机的 SSH session cgroup 会在连接断开后回收该会话
+中的后台进程，即使进程使用了 `nohup`/`setsid`；远程联调必须保持启动终端连接。需要跨
+会话托管时，应另行实现并评审受控 systemd service，不能把远程 shell 后台任务当作发布态。
 
 在已运行的原生控制栈上显式使能：
 

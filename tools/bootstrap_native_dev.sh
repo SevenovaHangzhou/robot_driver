@@ -322,9 +322,40 @@ install_dependencies()
     -r -y
 }
 
+runtime_qos_profile_smoke()
+{
+  python3 - <<'PY'
+from robot_interfaces_qos import control, diagnostic, fast_state, latched, state
+
+for name, factory in (
+    ("control", control),
+    ("fast_state", fast_state),
+    ("state", state),
+    ("latched", latched),
+    ("diagnostic", diagnostic),
+):
+    if factory() is None:
+        raise RuntimeError(f"QoS profile factory returned None: {name}")
+PY
+}
+
+verify_runtime_install()
+{
+  local package
+  source_build_environment
+  for package in "${runtime_packages[@]}"; do
+    ros2 pkg prefix "${package}" >/dev/null 2>&1 ||
+      fail "full native build did not install runtime package: ${package}"
+  done
+  runtime_qos_profile_smoke ||
+    fail "full native build did not install the robot_interfaces_qos Python API"
+  info "PASS: full native runtime package and QoS Python closure is installed"
+}
+
 build_workspace()
 {
   local -a selection
+  local verify_full_runtime=0
   verify_workspace_layout
   require_commands colcon git
   verify_vendor_heads
@@ -335,7 +366,8 @@ build_workspace()
   if (( $# > 0 )); then
     selection=("$@")
   else
-    selection=(--packages-up-to "${runtime_packages[@]}")
+    selection=(--packages-up-to "${runtime_packages[@]}" --cmake-clean-cache)
+    verify_full_runtime=1
   fi
 
   colcon --log-base "${log_base}" build \
@@ -345,6 +377,10 @@ build_workspace()
     --merge-install \
     --symlink-install \
     "${selection[@]}"
+
+  if (( verify_full_runtime == 1 )); then
+    verify_runtime_install
+  fi
 }
 
 doctor()
