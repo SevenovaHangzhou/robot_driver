@@ -2093,6 +2093,10 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   bit，末态 MW200/MW210/MW211/MW212 为 0、MW201 为 1；容器 exit 0，EtherCAT Idle/Inactive、16 从站 PREOP，
   CAN0/CAN1 错误计数为 0。独立 BMS HMI 对照及左右实体/共用泵气路效果没有由 SSH 证据确认，仍是现场人工观察项；
   该边界不改变本裁决的 CPU14 临时风险接受。
+- 2026-08-17 output-side supersession：后续现场逐点测试确认 2026-07-28 的左右实体假设写反；
+  `%MW200/%MW211 bit0` 实际对应右臂电磁阀，`bit1` 对应左臂电磁阀，`bit2` 仍是共用真空泵。
+  `/plc/left_solenoid` 因此必须写/读回 bit1，`/plc/right_solenoid` 必须写/读回 bit0。
+  本次只重新确认输出侧；`%MW210 bit0/bit1` 的左右真空输入映射未在本次测试中重新裁决。
 
 ## BQ-125 — 现场感知传感器坐标系与活动控制模型不一致 [RESOLVED/HIGH-RISK 2026-07-29]
 

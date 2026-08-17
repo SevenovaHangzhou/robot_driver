@@ -14,6 +14,14 @@ def test_node_exposes_exactly_three_unambiguous_write_services() -> None:
     )
 
 
+def test_output_services_follow_confirmed_robot_side_mapping() -> None:
+    assert OUTPUT_SERVICE_BINDINGS == (
+        ("/plc/left_solenoid", 1),
+        ("/plc/right_solenoid", 0),
+        ("/plc/vacuum_pump", 2),
+    )
+
+
 def test_plc_state_message_projects_confirmed_semantics() -> None:
     message = plc_state_message(
         PlcIoSnapshot(

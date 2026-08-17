@@ -11,10 +11,12 @@ systemd unit（→ realtime-host）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | 输出 bit0=右阀、bit1=左阀、bit2=共用泵 | [io-power-20260817-01](records/2026-08-17-correct-solenoid-side-mapping.md)#F1 | 有效 |
+| 01#F2 | 本次未重新确认左右真空输入 bit，保持现状但仍需闭环复核 | [io-power-20260817-01](records/2026-08-17-correct-solenoid-side-mapping.md)#F2 | 有效 |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-08-17 [纠正左右电磁阀输出映射](records/2026-08-17-correct-solenoid-side-mapping.md) — corrective，PASS（T4；输入映射与新镜像待验证）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

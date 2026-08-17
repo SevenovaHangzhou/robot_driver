@@ -78,9 +78,9 @@ def test_write_output_changes_only_requested_bit_and_requires_both_readbacks() -
         verify_period_s=0.01,
     )
 
-    assert result.command_word == 0xA505
-    assert result.status_word == 0xA505
-    assert client.writes == [(200, 0xA505)]
+    assert result.command_word == 0xA506
+    assert result.status_word == 0xA506
+    assert client.writes == [(200, 0xA506)]
 
 
 def test_write_output_fails_without_compensating_write_when_status_disagrees() -> None:
@@ -100,7 +100,7 @@ def test_write_output_fails_without_compensating_write_when_status_disagrees() -
             verify_period_s=0.01,
         )
 
-    assert client.writes == [(200, 0xA501)]
+    assert client.writes == [(200, 0xA502)]
 
 
 def test_read_io_snapshot_uses_three_confirmed_status_registers() -> None:
@@ -115,7 +115,7 @@ def test_read_io_snapshot_uses_three_confirmed_status_registers() -> None:
 
     assert not snapshot.left_vacuum_established
     assert snapshot.right_vacuum_established
-    assert snapshot.left_solenoid_on
-    assert not snapshot.right_solenoid_on
+    assert not snapshot.left_solenoid_on
+    assert snapshot.right_solenoid_on
     assert snapshot.vacuum_pump_on
     assert snapshot.io_alarm == 7

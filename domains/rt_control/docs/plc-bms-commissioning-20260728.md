@@ -75,6 +75,10 @@ ID，禁止把它随意指向开发工作区。
 | `/plc/right_solenoid` | `success=true`，MW200/MW211=`0x0002` | `success=true`，均回 `0x0000` |
 | `/plc/vacuum_pump` | `success=true`，MW200/MW211=`0x0004` | `success=true`，均回 `0x0000` |
 
+> 2026-08-17 纠正：上表是当时“服务名→寄存器 bit”的真实历史证据，但当时没有完成左右
+> 实体观察。后续现场测试确认 bit0 实际是右阀、bit1 实际是左阀；当前映射与新证据见
+> [io-power corrective 记录](areas/io-power/records/2026-08-17-correct-solenoid-side-mapping.md)。
+
 测试全过程 `%MW201=0x0001`，`%MW212=0`。末态 `/plc/io_state` 再次报告三路输出均关闭。左阀第一次命令在 ROS CLI
 参数解析阶段失败，没有形成 service request，寄存器保持基线；修正引号后按上表通过。这是测试命令错误，不是 PLC
 或节点失败，原始记录未删改：
