@@ -147,10 +147,12 @@ cd /home/ar/rt-control-dev/robot
 
 启动脚本的 CPU 时序是固定的：
 
-1. 启动前扫描非白名单 `SCHED_FIFO/SCHED_RR` 线程；若发现它们实际运行在 CPU14，或 tight
-   affinity 包含 CPU14，则拒绝启动。
+1. 启动前要求 CPU14 包含在 `isolated` 和 `nohz_full` 集合内，并扫描非白名单
+   `SCHED_FIFO/SCHED_RR` 线程；若发现它们实际运行在 CPU14，或 tight affinity 包含
+   CPU14，则拒绝启动。
 2. 外层 `rt_control_start` 运行在 housekeeping CPUs：
-   `0,2,4,6,8,10,12,16-27`。
+   `0,2,4,6,16-27`。这些 housekeeping CPUs 还必须与当前 `isolated`/`nohz_full`
+   集合不重叠；当前多隔离核配置中的 CPU8/10/12 不归 native rt-control 普通线程使用。
 3. 控制栈同时暴露 `/rt/enable` 和 `/control/set_enabled` 服务后，脚本查找 `ros2_control_node` 内部实时线程；只有“恰好一个
    `SCHED_FIFO` 且 `rt_priority=80`”的线程会被视为 controller update 线程。
 4. 该线程被 `sched_setaffinity` 到 CPU14；同一进程内 DDS、service、CANopen/Lely 和普通回调线程保留在

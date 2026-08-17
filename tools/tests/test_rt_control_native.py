@@ -224,7 +224,11 @@ class NativeLauncherContractTest(unittest.TestCase):
 
     def test_verified_realtime_cpu_is_applied_to_the_runtime(self):
         self.assertIn('readonly expected_cpuset="14"', self.text)
-        self.assertIn('readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"', self.text)
+        self.assertIn('readonly expected_housekeeping_cpuset="0,2,4,6,16-27"', self.text)
+        self.assertIn("cpu_list_contains", self.text)
+        self.assertIn("cpu_list_overlaps", self.text)
+        self.assertIn('CPU ${expected_cpuset} is not included in isolated CPUs', self.text)
+        self.assertIn('housekeeping CPUs ${expected_housekeeping_cpuset} overlap isolated CPUs', self.text)
         self.assertIn('command -v setsid', self.text)
         self.assertIn('nohup setsid env', self.text)
         self.assertIn('taskset --cpu-list "${expected_housekeeping_cpuset}"', self.text)

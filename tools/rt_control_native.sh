@@ -5,7 +5,7 @@ readonly expected_user="ar"
 readonly expected_hostname="ar-Default-string"
 readonly expected_kernel="5.15.0-1032-realtime"
 readonly expected_cpuset="14"
-readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"
+readonly expected_housekeeping_cpuset="0,2,4,6,16-27"
 readonly expected_ros_domain_id="0"
 readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
 readonly expected_can_serial="004D00675230500720333159"
@@ -173,16 +173,79 @@ verify_target_identity()
     fail "kernel mismatch: expected ${expected_kernel}"
 }
 
+cpu_list_contains()
+{
+  local cpu_list="$1"
+  local wanted_cpu="$2"
+  local first
+  local last
+  local part
+  local -a parts
+  IFS=',' read -r -a parts <<< "${cpu_list}"
+  for part in "${parts[@]}"; do
+    [[ -n "${part}" ]] || continue
+    if [[ "${part}" == *-* ]]; then
+      first="${part%-*}"
+      last="${part#*-}"
+      if [[ "${first}" =~ ^[0-9]+$ && "${last}" =~ ^[0-9]+$ ]] &&
+        (( wanted_cpu >= first && wanted_cpu <= last )); then
+        return 0
+      fi
+    elif [[ "${part}" == "${wanted_cpu}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+cpu_list_overlaps()
+{
+  local left_list="$1"
+  local right_list="$2"
+  local cpu
+  local first
+  local last
+  local part
+  local -a parts
+  IFS=',' read -r -a parts <<< "${left_list}"
+  for part in "${parts[@]}"; do
+    [[ -n "${part}" ]] || continue
+    if [[ "${part}" == *-* ]]; then
+      first="${part%-*}"
+      last="${part#*-}"
+      if [[ "${first}" =~ ^[0-9]+$ && "${last}" =~ ^[0-9]+$ ]]; then
+        for ((cpu = first; cpu <= last; cpu++)); do
+          if cpu_list_contains "${right_list}" "${cpu}"; then
+            return 0
+          fi
+        done
+      fi
+    elif [[ "${part}" =~ ^[0-9]+$ ]] &&
+      cpu_list_contains "${right_list}" "${part}"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 verify_realtime_host()
 {
+  local isolated_cpus
   local memlock_limit
+  local nohz_full_cpus
   local realtime_limit
   [[ -r /sys/kernel/realtime && "$(< /sys/kernel/realtime)" == "1" ]] ||
     fail "PREEMPT_RT is not active"
-  [[ "$(< /sys/devices/system/cpu/isolated)" == "${expected_cpuset}" ]] ||
-    fail "CPU ${expected_cpuset} is not the frozen isolated CPU"
-  [[ "$(< /sys/devices/system/cpu/nohz_full)" == "${expected_cpuset}" ]] ||
-    fail "CPU ${expected_cpuset} is not full-nohz"
+  isolated_cpus="$(< /sys/devices/system/cpu/isolated)"
+  nohz_full_cpus="$(< /sys/devices/system/cpu/nohz_full)"
+  cpu_list_contains "${isolated_cpus}" "${expected_cpuset}" ||
+    fail "CPU ${expected_cpuset} is not included in isolated CPUs: ${isolated_cpus}"
+  cpu_list_contains "${nohz_full_cpus}" "${expected_cpuset}" ||
+    fail "CPU ${expected_cpuset} is not included in full-nohz CPUs: ${nohz_full_cpus}"
+  ! cpu_list_overlaps "${expected_housekeeping_cpuset}" "${isolated_cpus}" ||
+    fail "housekeeping CPUs ${expected_housekeeping_cpuset} overlap isolated CPUs: ${isolated_cpus}"
+  ! cpu_list_overlaps "${expected_housekeeping_cpuset}" "${nohz_full_cpus}" ||
+    fail "housekeeping CPUs ${expected_housekeeping_cpuset} overlap full-nohz CPUs: ${nohz_full_cpus}"
   grep -Eq '(^|,)15($|,)' /sys/devices/system/cpu/offline ||
     fail "CPU 15, the sibling of CPU 14, is not offline"
   verify_igh_run_on_cpu_config
