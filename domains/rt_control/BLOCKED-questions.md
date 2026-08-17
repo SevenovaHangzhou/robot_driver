@@ -2359,11 +2359,11 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   readiness 令 `map_version=""`，并冻结 `ready/status/blockers/errors` 一致性规则。全部域必须
   锁定同一接口 SHA 原子升级。
 - Contract landing：旧的兼容字符串映射已删除。上游 `robot_interfaces` PR #6 将契约升到
-  0.7.0，PR head 为 `d8236bda7e087a54a8ee7585bc7a2d6a94251af4`；RT-Control 以
-  `uint32` 写入 DREE，并把 readiness blocker 改为稳定 reason token。PR #4 已合并，最终
-  main SHA 为 `1a60d83d52aa97952c8dbb3baafb50b6a95b9e86`，它是 0.6.1 回滚基线，
-  不包含本次 BQ-137 schema 修复。
-- Release boundary：语义阻塞已经解除，但线协议仍处于破坏性迁移阶段。下游当前 SHA 只用于
-  PR #6 迁移验证；PR #6 合并后必须再次把 `deps.repos` 与 `source-lock.yaml` 同步为最终
-  main SHA。RT-Control、Motion/Navigation、Perception、Autonomy 及 external 调用方完成同一
-  SHA 迁移和跨域 smoke 前，仍禁止合并本下游 PR、镜像发布和部署。
+  0.7.0，PR head 为 `d8236bda7e087a54a8ee7585bc7a2d6a94251af4`；该提交已通过 PR #6
+  合入上游。当前上游 `main` 为 `f699f45972ad15bbbbbb3da1a4894faf209144c9`，同时包含
+  BQ-137 修复与后续 Perception contract-completeness 变更；RT-Control 的 `deps.repos` 与
+  `source-lock.yaml` 已同步锁定该最终 main SHA。PR #4 的
+  `1a60d83d52aa97952c8dbb3baafb50b6a95b9e86` 仍是 0.6.1 共同回滚基线。
+- Release boundary：语义阻塞及 RT-Control 的最终 SHA 回填已经解除，但线协议仍处于破坏性
+  跨域迁移阶段。RT-Control、Motion/Navigation、Perception、Autonomy 及 external 调用方完成
+  同一 `f699f45972ad15bbbbbb3da1a4894faf209144c9` 迁移和跨域 smoke 前，仍禁止镜像发布和部署。

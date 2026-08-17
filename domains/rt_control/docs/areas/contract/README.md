@@ -21,10 +21,14 @@
 | 03#F1 | ErrorInfo 是跨域公共载荷，code 唯一采用 uint32 DREE | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F1 | 有效 |
 | 03#F2 | 当前 DomainReadiness 为最终公共字段集并遵守一致性规则 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F2 | 有效 |
 | 03#F3 | 全部生产/消费域必须锁定同一接口 SHA 原子升级 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F3 | 有效 |
-| 03#F4 | d8236bd 是 PR #6 验证 SHA；发布仍须回填最终 main SHA | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F4 | 有效 |
+| 03#F4 | d8236bd 是 PR #6 验证 SHA；发布仍须回填最终 main SHA | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F4 | 已由 04#F1 闭环 |
+| 04#F1 | RT-Control 固定 robot_interfaces 最终 main SHA f699f45 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F1 | 有效 |
+| 04#F2 | f699f45 包含 BQ-137 与 Perception completeness，契约版本仍为 0.7.0 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F2 | 有效 |
+| 04#F3 | 最终 SHA 回填不解除各域同 SHA 原子升级与跨域 smoke 门禁 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F3 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）
 - 2026-08-16 [BQ-137 跨域错误与 readiness 语义裁决落地](records/2026-08-16-bq137-shared-error-readiness.md) — decision，PASS（T1；发布待 PR #6 最终 SHA 与全域迁移）
 - 2026-08-14 [公共接口改为固定 SHA vendoring 并采用命名 QoS](records/2026-08-14-robot-interfaces-vendoring-and-qos.md) — decision，PASS（T1；当时的 BQ-137 语义阻塞已由 03#F1～F4 闭环）
 - 2026-08-13 [/joint_states 频率裁决为实测 125 Hz（BQ-135）](records/2026-08-13-joint-states-125hz.md) — decision，PASS（T1）
