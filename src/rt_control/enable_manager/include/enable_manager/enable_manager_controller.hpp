@@ -42,8 +42,17 @@ private:
   // state machine. No behavior change; not referenced by production code.
   friend class EnableManagerTestAccess;
 
+  // DRIVER_VARIANT_PROJECTION_BEGIN:enable_manager_topology
   static constexpr std::size_t kAxisCount = 14U;
   static constexpr std::size_t kBatchCount = 5U;
+  inline static constexpr std::array<const char *, kAxisCount> kJointNames = {
+    "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
+    "right_joint6", "left_joint1", "left_joint2", "left_joint3", "left_joint4",
+    "left_joint5", "left_joint6", "turn", "updown"};
+  inline static constexpr std::array<std::array<std::int8_t, 3>, kBatchCount>
+    kEnableBatches = {{{0, 1, 2}, {6, 7, 8}, {3, 4, 5}, {9, 10, 11}, {12, 13, -1}}};
+  inline static constexpr std::array<std::uint8_t, kBatchCount> kBatchSizes = {3U, 3U, 3U, 3U, 2U};
+  // DRIVER_VARIANT_PROJECTION_END:enable_manager_topology
 
   enum class Phase : std::uint8_t
   {
@@ -116,7 +125,7 @@ private:
   static const char * stageName(Stage stage);
   static const char * phaseName(Phase phase);
   static bool isFaultState(DriveState state);
-  static bool isConfirmedDisableTerminal(std::size_t axis, DriveState state);
+  bool isConfirmedDisableTerminal(std::size_t axis, DriveState state) const;
 
   void handleEnable(
     const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
@@ -157,10 +166,6 @@ private:
   std::int8_t firstAxisNotInState(DriveState state) const;
   void refreshStatusWords();
 
-  static const std::array<const char *, kAxisCount> kJointNames;
-  static const std::array<std::array<std::int8_t, 3>, kBatchCount> kEnableBatches;
-  static const std::array<std::uint8_t, kBatchCount> kBatchSizes;
-
   std::atomic_bool active_{false};
   std::atomic<Phase> phase_{Phase::kInactive};
   std::atomic<Owner> owner_{Owner::kInternal};
@@ -187,6 +192,7 @@ private:
 
   std::array<std::uint16_t, kAxisCount> status_words_{};
   std::array<bool, kAxisCount> reset_targets_{};
+  std::array<bool, kAxisCount> ready_to_switch_on_disable_terminal_{};
   std::size_t current_batch_{0U};
   std::uint8_t downward_stage_{0U};
   std::int64_t stage_deadline_ns_{0};

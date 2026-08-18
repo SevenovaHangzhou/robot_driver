@@ -371,21 +371,29 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 | 仿真/mock | 在无实机条件下验证成功、取消、超时、失败、重启和资源收尾 |
 | 实机/HIL | 实时性、总线、使能/去使能、安全链；证据必须可追溯 |
 
-仓库工具链覆盖率门禁：门禁集（`tools/repository_gate.py`、`tools/pr_contract_gate.py`）合并覆盖率 ≥80%，由 `quality_gate.sh` 强制；其余 `tools/**` Python 脚本的覆盖率在门禁输出中打印可见但暂不设阈值（现状：`diff_legacy` 63%、`rt_control_axis_state_check` 69%、`rt_control_thread_affinity` 0%，2026-08-13 实测），提升覆盖与纳入门禁属独立任务。测试收集使用 pytest（同时收集 unittest 类与模块级测试函数，防止静默漏收）。测试必须覆盖成功、取消、超时、失败、重启和资源收尾路径，不只测 happy path。
+仓库工具链覆盖率门禁：门禁集（`tools/repository_gate.py`、
+`tools/pr_contract_gate.py`、`tools/driver_variant.py`、
+`tools/driver_variant_projections.py`、`tools/driver_variant_source_projections.py`）
+合并覆盖率 ≥80%，由 `quality_gate.sh` 强制；其余 `tools/**` Python 脚本的覆盖率在
+门禁输出中打印可见但暂不设阈值。ELECTRI-94 将三层驱动变体校验器纳入硬门禁，
+其余工具的提升与纳入仍属独立任务。测试收集使用 pytest（同时收集 unittest 类与
+模块级测试函数，防止静默漏收）。测试必须覆盖成功、取消、超时、失败、重启和资源
+收尾路径，不只测 happy path。
 
 **测试通过与实机验证是两件事**，不得混写。
 
 ## 10. CI
 
-现有 workflow 分两阶段；新增 RT-Control 包时在保留公共门禁的前提下增加对应 job，
-**不得用新功能需求削弱已有安全检查**：
+现有 workflow 先运行 governance，再并行运行 ROS build 与生产容器检查；新增 RT-Control
+包时在保留公共门禁的前提下增加对应 job，**不得用新功能需求削弱已有安全检查**：
 
 | 阶段 | 内容 |
 | --- | --- |
 | `governance` | pre-commit 全量运行（同一份 `tools/quality_gate.sh`）；PR 契约门禁 |
 | `build` | 依赖安装、`colcon build`、`colcon test`、共享 Robot Model URDF 校验、冻结上游迁移门禁 |
+| `container` | 生产 Dockerfile 构建；无网络、无设备、无额外 capability 的 Mock 加载与有序停机 |
 
-`main` 分支 CI 额外要求 RT-Control 镜像构建与容器内启动 smoke test。CI 未通过不得合并。
+PR 与 `main` push 都要求 RT-Control 镜像构建及容器内启动 smoke。CI 未通过不得合并。
 
 ## 11. 权限与 Team
 

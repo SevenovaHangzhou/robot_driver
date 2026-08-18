@@ -4,6 +4,7 @@ import math
 import time
 import uuid
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 
@@ -12,16 +13,78 @@ WARN = 1
 ERROR = 2
 STALE = 3
 
+ETHERCAT_DRIVE_POSITIONS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15)
+CANOPEN_NODE_IDS = (2, 3)
+
+ETHERCAT_SLAVE_PREFIX = "/robot/rt_control/ethercat/slave_"
+CANOPEN_NODE_PREFIX = "/robot/rt_control/canopen/node_"
 ETHERCAT_SLAVE_NAMES = tuple(
-    f"/robot/rt_control/ethercat/slave_{position}"
-    for position in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15)
+    f"{ETHERCAT_SLAVE_PREFIX}{position}" for position in ETHERCAT_DRIVE_POSITIONS
 )
-CANOPEN_NODE_NAMES = (
-    "/robot/rt_control/canopen/node_2",
-    "/robot/rt_control/canopen/node_3",
+CANOPEN_NODE_NAMES = tuple(
+    f"{CANOPEN_NODE_PREFIX}{node_id}" for node_id in CANOPEN_NODE_IDS
 )
 ENABLE_MANAGER_NAME = "/robot/rt_control/enable_manager"
 ETHERCAT_MASTER_NAME = "/robot/rt_control/ethercat/master"
+
+
+@dataclass(frozen=True)
+class DiagnosticTopology:
+    ethercat_slaves: tuple[str, ...] = ()
+    canopen_nodes: tuple[str, ...] = ()
+
+
+def update_diagnostic_topology(
+    current: DiagnosticTopology, names: Sequence[str]
+) -> DiagnosticTopology:
+    """Keep the last observed managed ID sequence, including invalid mutations."""
+    observed = tuple(names)
+    ethercat_slaves = tuple(
+        name for name in observed if name.startswith(ETHERCAT_SLAVE_PREFIX)
+    )
+    canopen_nodes = tuple(
+        name for name in observed if name.startswith(CANOPEN_NODE_PREFIX)
+    )
+    authoritative_snapshot = ETHERCAT_MASTER_NAME in observed
+    return DiagnosticTopology(
+        ethercat_slaves=(
+            ethercat_slaves
+            if authoritative_snapshot or ethercat_slaves
+            else current.ethercat_slaves
+        ),
+        canopen_nodes=(
+            canopen_nodes
+            if authoritative_snapshot or canopen_nodes
+            else current.canopen_nodes
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class DiagnosticState:
+    topology: DiagnosticTopology
+    components: Mapping[str, tuple[Any, float]]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "components", MappingProxyType(dict(self.components))
+        )
+
+
+def update_diagnostic_state(
+    current: DiagnosticState, statuses: Sequence[Any], received: float
+) -> DiagnosticState:
+    """Build one immutable topology/component snapshot for a diagnostics batch."""
+    batch = tuple(statuses)
+    components = dict(current.components)
+    for status in batch:
+        components[status.name] = (status, received)
+    return DiagnosticState(
+        topology=update_diagnostic_topology(
+            current.topology, tuple(status.name for status in batch)
+        ),
+        components=components,
+    )
 
 
 @dataclass(frozen=True)
@@ -109,10 +172,16 @@ def build_safety_summary(
         and enable_stage != "restart_required"
     )
 
-    ethercat_ok = _component_ok(ethercat_master) and len(ethercat_slaves) == len(
-        ETHERCAT_SLAVE_NAMES
-    ) and all(_component_ok(slave) for slave in ethercat_slaves)
-    canopen_ok = len(canopen_nodes) == len(CANOPEN_NODE_NAMES) and all(
+    ethercat_names = tuple(slave.name for slave in ethercat_slaves)
+    canopen_names = tuple(node.name for node in canopen_nodes)
+    ethercat_complete = ethercat_names == ETHERCAT_SLAVE_NAMES
+    canopen_complete = canopen_names == CANOPEN_NODE_NAMES
+    ethercat_ok = (
+        _component_ok(ethercat_master)
+        and ethercat_complete
+        and all(_component_ok(slave) for slave in ethercat_slaves)
+    )
+    canopen_ok = canopen_complete and all(
         _component_ok(node) for node in canopen_nodes
     )
     plc_ok = bool(plc.connected) and bool(plc.data_fresh)
@@ -128,14 +197,14 @@ def build_safety_summary(
             if not _component_ok(slave):
                 active_faults.append(_fault(slave.name, slave))
                 break
-        if len(ethercat_slaves) != len(ETHERCAT_SLAVE_NAMES):
+        if not ethercat_complete:
             active_faults.append("ethercat_slaves: incomplete diagnostic set")
     if not canopen_ok:
         for node in canopen_nodes:
             if not _component_ok(node):
                 active_faults.append(_fault(node.name, node))
                 break
-        if len(canopen_nodes) != len(CANOPEN_NODE_NAMES):
+        if not canopen_complete:
             active_faults.append("canopen_nodes: incomplete diagnostic set")
     if not plc_ok:
         active_faults.append(
@@ -223,7 +292,7 @@ def main(args=None) -> None:
     from robot_rt_control_interfaces.msg import SafetyState
     from robot_system_interfaces.msg import DomainReadiness
     from diagnostic_msgs.msg import DiagnosticArray
-    from rclpy.callback_groups import ReentrantCallbackGroup
+    from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
     from rclpy.qos import QoSProfile
@@ -247,10 +316,11 @@ def main(args=None) -> None:
             self.declare_parameter("version", "0.1.0")
             self.declare_parameter(
                 "config_summary",
-                "14-axis EtherCAT, CANopen tracks, PLC vacuum, BMS",
+                f"{len(ETHERCAT_DRIVE_POSITIONS)}-axis EtherCAT, "
+                "CANopen tracks, PLC vacuum, BMS",
             )
 
-            self._callback_group = ReentrantCallbackGroup()
+            self._callback_group = MutuallyExclusiveCallbackGroup()
             self._diagnostic_timeout_s = float(
                 self.get_parameter("diagnostic_timeout_s").value
             )
@@ -258,7 +328,7 @@ def main(args=None) -> None:
             self._bms_timeout_s = float(self.get_parameter("bms_timeout_s").value)
             self._version = str(self.get_parameter("version").value)
             self._config_summary = str(self.get_parameter("config_summary").value)
-            self._diagnostics: dict[str, tuple[Any, float]] = {}
+            self._diagnostic_state = DiagnosticState(DiagnosticTopology(), {})
             self._plc_message = None
             self._plc_received_s: float | None = None
             self._bms_message = None
@@ -305,9 +375,9 @@ def main(args=None) -> None:
             )
 
         def _on_diagnostics(self, message: DiagnosticArray) -> None:
-            received = time.monotonic()
-            for status in message.status:
-                self._diagnostics[status.name] = (status, received)
+            self._diagnostic_state = update_diagnostic_state(
+                self._diagnostic_state, message.status, time.monotonic()
+            )
 
         def _on_plc(self, message: PlcIoState) -> None:
             self._plc_message = message
@@ -356,19 +426,32 @@ def main(args=None) -> None:
                 self._last_readiness_publish_s = now_s
 
         def _build_summary(self) -> SafetySummary:
+            diagnostic_state = self._diagnostic_state
             return build_safety_summary(
-                enable_manager=self._component(ENABLE_MANAGER_NAME),
-                ethercat_master=self._component(ETHERCAT_MASTER_NAME),
+                enable_manager=self._component(
+                    ENABLE_MANAGER_NAME, diagnostic_state.components
+                ),
+                ethercat_master=self._component(
+                    ETHERCAT_MASTER_NAME, diagnostic_state.components
+                ),
                 ethercat_slaves=[
-                    self._component(name) for name in ETHERCAT_SLAVE_NAMES
+                    self._component(name, diagnostic_state.components)
+                    for name in diagnostic_state.topology.ethercat_slaves
                 ],
-                canopen_nodes=[self._component(name) for name in CANOPEN_NODE_NAMES],
+                canopen_nodes=[
+                    self._component(name, diagnostic_state.components)
+                    for name in diagnostic_state.topology.canopen_nodes
+                ],
                 plc=self._plc_health(),
                 bms=self._bms_health(),
             )
 
-        def _component(self, name: str) -> ComponentSnapshot:
-            status_and_time = self._diagnostics.get(name)
+        def _component(
+            self,
+            name: str,
+            components: Mapping[str, tuple[Any, float]],
+        ) -> ComponentSnapshot:
+            status_and_time = components.get(name)
             if status_and_time is None:
                 return ComponentSnapshot(name, STALE, False, "missing", {})
             status, received = status_and_time

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate one DynamicJointState snapshot for the current 14-axis IPC."""
+"""Validate one DynamicJointState snapshot for the configured RT-Control axes."""
 
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ AXES = (
     "turn",
     "updown",
 )
-TI5_DISABLED_EXCEPTION_AXES = frozenset(
-    {"right_joint2", "right_joint3", "left_joint2", "left_joint3"}
+READY_TO_SWITCH_ON_DISABLE_TERMINAL_AXES = (
+    "right_joint2", "right_joint3", "left_joint2", "left_joint3"
 )
 
 
@@ -98,14 +98,14 @@ def check_axis_states(document: object, expected: str) -> dict[str, int]:
             continue
 
         switch_on_disabled = status_word & 0x004F == 0x0040
-        ti5_ready_exception = (
-            joint in TI5_DISABLED_EXCEPTION_AXES
+        ready_to_switch_on_terminal = (
+            joint in READY_TO_SWITCH_ON_DISABLE_TERMINAL_AXES
             and status_word & 0x006F == 0x0021
         )
-        if not switch_on_disabled and not ti5_ready_exception:
+        if not switch_on_disabled and not ready_to_switch_on_terminal:
             expected_state = "SwitchOnDisabled(0x0040)"
-            if joint in TI5_DISABLED_EXCEPTION_AXES:
-                expected_state += " or frozen Ti5 ReadyToSwitchOn(0x0021)"
+            if joint in READY_TO_SWITCH_ON_DISABLE_TERMINAL_AXES:
+                expected_state += " or configured ReadyToSwitchOn(0x0021)"
             raise AxisStateError(
                 f"{joint}: raw=0x{status_word:04X}, expected={expected_state}"
             )

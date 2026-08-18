@@ -22,13 +22,46 @@ FULL_SUITE_PATHS = ("patches/", "deps.repos", "versions.env", "docker/", ".githu
 INTERFACE_PREFIX = "src/interfaces/"
 PACKAGE_PREFIXES = ("src/rt_control/", "src/description/")
 INTERFACE_PACKAGES = ("rt_control_interfaces",)
+DRIVER_VARIANT_MANIFEST = (
+    "src/rt_control/rt_control_bringup/config/driver_variant.yaml"
+)
+DRIVER_VARIANT_PROJECTION_PATHS = {
+    "src/description/robot_description/urdf/robot.urdf.xacro",
+    "src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro",
+    "src/rt_control/rt_control_bringup/config/controllers.yaml",
+    "src/rt_control/robot_hw_canopen/config/bus.yml",
+    "src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro",
+    "src/rt_control/rt_control_bringup/urdf/mock.ros2_control.xacro",
+    "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py",
+    "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp",
+    (
+        "src/rt_control/enable_manager/include/enable_manager/"
+        "enable_manager_controller.hpp"
+    ),
+    "src/rt_control/enable_manager/src/enable_manager_controller.cpp",
+    "tools/rt_control_axis_state_check.py",
+}
+DRIVER_VARIANT_PROJECTION_PREFIXES = (
+    "src/rt_control/robot_hw_ethercat/config/slaves/",
+)
+
+
+def _is_driver_variant_projection(path: str) -> bool:
+    return path in DRIVER_VARIANT_PROJECTION_PATHS or any(
+        path.startswith(prefix) for prefix in DRIVER_VARIANT_PROJECTION_PREFIXES
+    )
 
 
 def classify(changed_files: list[str]) -> dict:
     plan = {"full": False, "actions": [], "reasons": [], "packages": set()}
     needs_repo_gate = needs_quality_gate = False
     for path in changed_files:
-        if any(path.startswith(p) or path == p.rstrip("/") for p in FULL_SUITE_PATHS):
+        if path == DRIVER_VARIANT_MANIFEST:
+            plan["full"] = True
+            plan["reasons"].append(
+                f"{path}: 跨包驱动变体事实源，需真·全量（CI 或完整本地流程）"
+            )
+        elif any(path.startswith(p) or path == p.rstrip("/") for p in FULL_SUITE_PATHS):
             plan["full"] = True
             plan["reasons"].append(f"{path}: 全局影响路径，需真·全量（CI 或完整本地流程）")
         elif path.startswith(INTERFACE_PREFIX):
@@ -44,6 +77,9 @@ def classify(changed_files: list[str]) -> dict:
         else:
             needs_repo_gate = True
             plan["reasons"].append(f"{path}: 文档/其他，跑 repository_gate")
+        if _is_driver_variant_projection(path):
+            needs_quality_gate = True
+            plan["reasons"].append(f"{path}: 驱动变体投影，跑 quality_gate")
     if plan["full"]:
         plan["actions"] = ["tools/quality_gate.sh",
                           "colcon build --symlink-install && colcon test && colcon test-result --verbose"]

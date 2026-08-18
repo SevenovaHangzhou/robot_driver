@@ -102,6 +102,11 @@ enable_manager:
     controller_switch_timeout: 4.0
     service_result_timeout_ms: 30000
     jtc_name: whole_body_jtc
+    ready_to_switch_on_disable_terminal_joints:
+      - right_joint2
+      - right_joint3
+      - left_joint2
+      - left_joint3
 
 diff_drive_controller:
   ros__parameters:

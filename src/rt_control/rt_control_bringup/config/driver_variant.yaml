@@ -1,0 +1,276 @@
+# Versioned authority for the current RT-Control hardware variant.
+#
+# Runtime Xacro/YAML/C++ files remain projections during ELECTRI-94 phase 1
+# and are required to match this manifest through the repository quality gate.
+# PDO/SDO contents, vendor/product matching, offsets, software zeroes and field
+# calibration remain in their existing authoritative assets and are not copied
+# here.
+
+schema_version: 1
+variant_id: current-production-14ecat-2can-v1
+
+buses:
+  ethercat:
+    master_id: 0
+    ring:
+      - {position: 0, role: hub}
+      - {position: 1, role: drive, actuator: right_joint1_drive}
+      - {position: 2, role: drive, actuator: right_joint2_drive}
+      - {position: 3, role: drive, actuator: right_joint3_drive}
+      - {position: 4, role: drive, actuator: right_joint4_drive}
+      - {position: 5, role: drive, actuator: right_joint5_drive}
+      - {position: 6, role: drive, actuator: right_joint6_drive}
+      - {position: 7, role: drive, actuator: left_joint1_drive}
+      - {position: 8, role: drive, actuator: left_joint2_drive}
+      - {position: 9, role: drive, actuator: left_joint3_drive}
+      - {position: 10, role: drive, actuator: left_joint4_drive}
+      - {position: 11, role: drive, actuator: left_joint5_drive}
+      - {position: 12, role: drive, actuator: left_joint6_drive}
+      - {position: 13, role: hub}
+      - {position: 14, role: drive, actuator: turn_drive}
+      - {position: 15, role: drive, actuator: updown_drive}
+  canopen:
+    interface: can0
+    master_node_id: 100
+    nodes:
+      - {node_id: 2, actuator: left_track_drive, operation_mode: 3}
+      - {node_id: 3, actuator: right_track_drive, operation_mode: 3}
+
+drive_profiles:
+  - id: zeroerr_j1
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/zeroerr_j1.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: ti5_right_joint2
+    family: ti5
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/ti5_right_joint2.yaml
+    command_interfaces: [position, control_word]
+    state_interfaces: [position, status_word]
+  - id: ti5_j3
+    family: ti5
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/ti5_j3.yaml
+    command_interfaces: [position, control_word]
+    state_interfaces: [position, status_word]
+  - id: zeroerr_right_joint4
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/zeroerr_right_joint4.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: zeroerr_right_joint5
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/zeroerr_right_joint5.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: right_j6
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/right_j6.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: ti5_j2
+    family: ti5
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/ti5_j2.yaml
+    command_interfaces: [position, control_word]
+    state_interfaces: [position, status_word]
+  - id: ti5_left_joint3
+    family: ti5
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/ti5_left_joint3.yaml
+    command_interfaces: [position, control_word]
+    state_interfaces: [position, status_word]
+  - id: zeroerr_j4
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/zeroerr_j4.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: zeroerr_left_joint5
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/zeroerr_left_joint5.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: left_j6
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/left_j6.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: turn
+    family: zeroerr
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/turn.yaml
+    command_interfaces: [position, digital_outputs, control_word]
+    state_interfaces: [position, digital_inputs, status_word]
+  - id: xmc_updown_sw511
+    family: xmc
+    bus: ethercat
+    config: src/rt_control/robot_hw_ethercat/config/slaves/xmc_updown_sw511.yaml
+    command_interfaces: [position, control_word]
+    state_interfaces: [position, status_word]
+  - id: ld2_drive
+    family: leadshine_ld2
+    bus: canopen
+    config: src/rt_control/robot_hw_canopen/config/eds/ld2_drive.eds
+    command_interfaces: [velocity]
+    state_interfaces: [position, velocity]
+
+transmissions:
+  - id: zeroerr_rad_pos
+    si_unit: rad
+    effective_conversion:
+      position: {to_device: 83443.026803, from_device: 0.0000119842249}
+    reciprocity_rel_tol: 1.0e-9
+  - id: zeroerr_rad_neg
+    si_unit: rad
+    effective_conversion:
+      position: {to_device: -83443.026803, from_device: -0.0000119842249}
+    reciprocity_rel_tol: 1.0e-9
+  - id: ti5_rad_pos
+    si_unit: rad
+    effective_conversion:
+      position: {to_device: 41721.513402, from_device: 0.0000239684498}
+    reciprocity_rel_tol: 1.0e-9
+  - id: ti5_rad_neg
+    si_unit: rad
+    effective_conversion:
+      position: {to_device: -41721.513402, from_device: -0.0000239684498}
+    reciprocity_rel_tol: 1.0e-9
+  - id: xmc_linear_pos
+    si_unit: m
+    effective_conversion:
+      position: {to_device: 6553600.0, from_device: 0.000000152587890625}
+    reciprocity_rel_tol: 1.0e-9
+  - id: track_linear_neg
+    si_unit: m
+    effective_conversion:
+      position:
+        {to_device: -304894.5269959681, from_device: -3.27982273034774e-6}
+      velocity:
+        {to_device: -304894.5269959681, from_device: -3.27982273034774e-6}
+    reciprocity_rel_tol: 1.0e-9
+
+actuators:
+  - {id: right_joint1_drive, drive_profile: zeroerr_j1, transmission: zeroerr_rad_pos}
+  - {id: right_joint2_drive, drive_profile: ti5_right_joint2, transmission: ti5_rad_neg}
+  - {id: right_joint3_drive, drive_profile: ti5_j3, transmission: ti5_rad_pos}
+  - {id: right_joint4_drive, drive_profile: zeroerr_right_joint4, transmission: zeroerr_rad_neg}
+  - {id: right_joint5_drive, drive_profile: zeroerr_right_joint5, transmission: zeroerr_rad_neg}
+  - {id: right_joint6_drive, drive_profile: right_j6, transmission: zeroerr_rad_pos}
+  - {id: left_joint1_drive, drive_profile: zeroerr_j1, transmission: zeroerr_rad_pos}
+  - {id: left_joint2_drive, drive_profile: ti5_j2, transmission: ti5_rad_pos}
+  - {id: left_joint3_drive, drive_profile: ti5_left_joint3, transmission: ti5_rad_neg}
+  - {id: left_joint4_drive, drive_profile: zeroerr_j4, transmission: zeroerr_rad_pos}
+  - {id: left_joint5_drive, drive_profile: zeroerr_left_joint5, transmission: zeroerr_rad_neg}
+  - {id: left_joint6_drive, drive_profile: left_j6, transmission: zeroerr_rad_pos}
+  - {id: turn_drive, drive_profile: turn, transmission: zeroerr_rad_pos}
+  - {id: updown_drive, drive_profile: xmc_updown_sw511, transmission: xmc_linear_pos}
+  - {id: left_track_drive, drive_profile: ld2_drive, transmission: track_linear_neg}
+  - {id: right_track_drive, drive_profile: ld2_drive, transmission: track_linear_neg}
+
+joints:
+  - name: right_joint1
+    actuator: right_joint1_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: right_joint2
+    actuator: right_joint2_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: ti5_bq115
+  - name: right_joint3
+    actuator: right_joint3_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: ti5_bq115
+  - name: right_joint4
+    actuator: right_joint4_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: right_joint5
+    actuator: right_joint5_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: right_joint6
+    actuator: right_joint6_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: left_joint1
+    actuator: left_joint1_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: left_joint2
+    actuator: left_joint2_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: ti5_bq115
+  - name: left_joint3
+    actuator: left_joint3_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: ti5_bq115
+  - name: left_joint4
+    actuator: left_joint4_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: left_joint5
+    actuator: left_joint5_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: left_joint6
+    actuator: left_joint6_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: turn
+    actuator: turn_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.017453292519943295
+    lifecycle_policy: cia402_default
+  - name: updown
+    actuator: updown_drive
+    controller_role: whole_body_trajectory
+    position_tolerance: 0.05
+    lifecycle_policy: cia402_default
+  - name: left_track_joint
+    actuator: left_track_drive
+    controller_role: left_track
+  - name: right_track_joint
+    actuator: right_track_drive
+    controller_role: right_track
+
+enable:
+  batches:
+    - id: right_proximal
+      joints: [right_joint1, right_joint2, right_joint3]
+    - id: left_proximal
+      joints: [left_joint1, left_joint2, left_joint3]
+    - id: right_distal
+      joints: [right_joint4, right_joint5, right_joint6]
+    - id: left_distal
+      joints: [left_joint4, left_joint5, left_joint6]
+    - id: torso
+      joints: [turn, updown]
+  lifecycle_policies:
+    - id: cia402_default
+      disable_terminals: [switch_on_disabled]
+      fault_reset: explicit_only
+      source: CiA402
+    - id: ti5_bq115
+      disable_terminals: [switch_on_disabled, ready_to_switch_on]
+      fault_reset: explicit_only
+      source: BQ-115

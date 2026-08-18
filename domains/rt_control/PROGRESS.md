@@ -106,3 +106,8 @@
 | 2026-08-17 | contract | [robot_interfaces 回填最终 main SHA](docs/areas/contract/records/2026-08-17-robot-interfaces-final-main-pin.md) | PASS（T0；发布仍待镜像与全域同 SHA smoke） |
 | 2026-08-17 | io-power | [纠正左右电磁阀输出映射](docs/areas/io-power/records/2026-08-17-correct-solenoid-side-mapping.md) | PASS（T4；输入映射与新镜像待验证） |
 | 2026-08-17 | contract | [Native QoS 运行依赖闭包与 fail-closed 启动门禁](docs/areas/contract/records/2026-08-17-native-qos-runtime-closure.md) | PASS（T3；最终 stopped/Idle/PREOP） |
+| 2026-08-18 | motion | [驱动变体 manifest 与控制器投影](docs/areas/motion/records/2026-08-18-driver-variant-manifest.md) | PASS（T1） |
+| 2026-08-18 | lifecycle | [驱动变体按轴失能终态策略](docs/areas/lifecycle/records/2026-08-18-driver-variant-disable-policy.md) | PASS（T1） |
+| 2026-08-18 | contract | [驱动变体诊断投影与 readiness 完整性](docs/areas/contract/records/2026-08-18-driver-variant-diagnostics.md) | PASS（T1） |
+| 2026-08-18 | canopen-chassis | [履带节点/模式安全投影](docs/areas/canopen-chassis/records/2026-08-18-driver-variant-node-table.md) | PASS（T1） |
+| 2026-08-18 | governance | [驱动变体三层一致性门禁](docs/areas/governance/records/2026-08-18-driver-variant-gate.md) | PASS（T1） |

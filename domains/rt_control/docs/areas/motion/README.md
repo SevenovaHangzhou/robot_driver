@@ -12,10 +12,13 @@ launch 结构与容器（→ release-deploy）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | `driver_variant.yaml` 是 actuator 到既有 logical joint 的驱动映射及控制/生命周期参数事实源；joint 名称与类型仍以 Robot Model 为权威 | [motion-20260818-01](records/2026-08-18-driver-variant-manifest.md)#F1 | 有效 |
+| 01#F2 | 当前机型固定为 14 个 whole-body EtherCAT joint 与 2 个 CANopen track joint | [motion-20260818-01](records/2026-08-18-driver-variant-manifest.md)#F2 | 有效 |
+| 01#F3 | ELECTRI-94 phase 1 只做离线一致性门禁，不提供运行时热切换 | [motion-20260818-01](records/2026-08-18-driver-variant-manifest.md)#F3 | 有效 |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-08-18 [驱动变体 manifest 与控制器投影（ELECTRI-94）](records/2026-08-18-driver-variant-manifest.md) — feature，PASS（T1）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

@@ -71,6 +71,11 @@ public:
   static void setOwner(Controller & c, Owner o) {c.owner_.store(o);}
 
   static DriveState decode(std::uint16_t sw) {return EnableManagerController::decodeState(sw);}
+  static bool isConfirmedDisableTerminal(
+    const Controller & controller, std::size_t axis, DriveState state)
+  {
+    return controller.isConfirmedDisableTerminal(axis, state);
+  }
   static const char * stageName(Stage s) {return EnableManagerController::stageName(s);}
   static const char * phaseName(Phase p) {return EnableManagerController::phaseName(p);}
   static SwitchResult switchJtc(Controller & c, bool a) {return c.switchJtc(a);}
@@ -189,7 +194,12 @@ public:
 
   // Runs init/configure and assigns loaned interfaces backed by buffers this
   // fixture owns. Stops short of on_activate so tests can inspect that step.
-  void initAndConfigure(const std::string & name = "enable_manager_test")
+  void initAndConfigure(
+    const std::string & name = "enable_manager_test",
+    const std::vector<std::string> & ready_to_switch_on_terminal_joints = {
+      "right_joint2", "right_joint3", "left_joint2", "left_joint3"},
+    controller_interface::CallbackReturn expected =
+    controller_interface::CallbackReturn::SUCCESS)
   {
     rclcpp::NodeOptions options;
     options.parameter_overrides(
@@ -201,6 +211,9 @@ public:
         rclcpp::Parameter("controller_switch_timeout", kControllerSwitchTimeout),
         rclcpp::Parameter("service_result_timeout_ms", kServiceResultTimeoutMs),
         rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+        rclcpp::Parameter(
+          "ready_to_switch_on_disable_terminal_joints",
+          ready_to_switch_on_terminal_joints),
         rclcpp::Parameter("update_rate", 1000),
       });
     options.allow_undeclared_parameters(true);
@@ -208,10 +221,10 @@ public:
 
     ASSERT_EQ(
       controller_->init(name, "", options), controller_interface::return_type::OK);
-    ASSERT_EQ(
-      controller_->on_configure(rclcpp_lifecycle::State()),
-      controller_interface::CallbackReturn::SUCCESS);
-    assignInterfaces();
+    ASSERT_EQ(controller_->on_configure(rclcpp_lifecycle::State()), expected);
+    if (expected == controller_interface::CallbackReturn::SUCCESS) {
+      assignInterfaces();
+    }
   }
 
   void assignInterfaces()
@@ -270,6 +283,21 @@ public:
   {
     advance(dt);
     return controller_->update(rclcpp::Time(now_ns_, RCL_ROS_TIME), rclcpp::Duration::from_seconds(dt));
+  }
+
+  void enterDisablingFromEnabled()
+  {
+    bringUpToIdle();
+    setAllStatus(kSwOperationEnabled);
+    Access::setPhase(*controller_, Phase::kEnabled);
+    Access::setOwner(*controller_, Owner::kDisable);
+    ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+    Access::setDisableRequest(*controller_, true);
+    ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+    ASSERT_EQ(Access::phase(*controller_), Phase::kDisabling);
+    ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+    setAllStatus(kSwSwitchedOn);
+    ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
   }
 
   void updateTimes(std::size_t count, double dt = 0.001)
@@ -474,6 +502,92 @@ TEST_F(EnableManagerFixture, BatchTableCoversAllFourteenAxesExactlyOnce)
   for (std::size_t axis = 0; axis < kAxes; ++axis) {
     EXPECT_EQ(seen[axis], 1) << "axis " << axis << " (" << Access::jointNames()[axis] << ")";
   }
+}
+
+TEST_F(EnableManagerFixture, DisableTerminalPolicyIsFrozenPerJointAtConfigure)
+{
+  initAndConfigure();
+  const std::array<std::string, 4> expected_ready_to_switch_on{
+    "right_joint2", "right_joint3", "left_joint2", "left_joint3"};
+
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    EXPECT_TRUE(
+      Access::isConfirmedDisableTerminal(
+        *controller_, axis, DriveState::kSwitchOnDisabled)) << Access::jointNames()[axis];
+    const bool expected = std::find(
+      expected_ready_to_switch_on.begin(), expected_ready_to_switch_on.end(),
+      Access::jointNames()[axis]) != expected_ready_to_switch_on.end();
+    EXPECT_EQ(
+      Access::isConfirmedDisableTerminal(
+        *controller_, axis, DriveState::kReadyToSwitchOn), expected)
+      << Access::jointNames()[axis];
+  }
+
+  ASSERT_TRUE(
+    controller_->get_node()->set_parameter(
+      rclcpp::Parameter(
+        "ready_to_switch_on_disable_terminal_joints",
+        std::vector<std::string>{"right_joint1"})).successful);
+  EXPECT_FALSE(
+    Access::isConfirmedDisableTerminal(
+      *controller_, 0U, DriveState::kReadyToSwitchOn));
+  EXPECT_TRUE(
+    Access::isConfirmedDisableTerminal(
+      *controller_, 1U, DriveState::kReadyToSwitchOn));
+}
+
+TEST_F(EnableManagerFixture, DisableTerminalPolicyDoesNotDependOnHistoricalAxisIndexes)
+{
+  initAndConfigure("enable_manager_custom_policy", {"right_joint1"});
+
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    EXPECT_EQ(
+      Access::isConfirmedDisableTerminal(
+        *controller_, axis, DriveState::kReadyToSwitchOn), axis == 0U)
+      << Access::jointNames()[axis];
+  }
+}
+
+TEST_F(EnableManagerFixture, UnknownDisableTerminalJointFailsConfigure)
+{
+  initAndConfigure(
+    "enable_manager_unknown_policy", {"unknown_joint"},
+    controller_interface::CallbackReturn::ERROR);
+}
+
+TEST_F(EnableManagerFixture, DuplicateDisableTerminalJointFailsConfigure)
+{
+  initAndConfigure(
+    "enable_manager_duplicate_policy", {"right_joint2", "right_joint2"},
+    controller_interface::CallbackReturn::ERROR);
+}
+
+TEST_F(EnableManagerFixture, ConfiguredReadyToSwitchOnTerminalsCompleteDisable)
+{
+  enterDisablingFromEnabled();
+  setAllStatus(kSwSwitchOnDisabled);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    if (Access::isConfirmedDisableTerminal(
+        *controller_, axis, DriveState::kReadyToSwitchOn))
+    {
+      setStatus(axis, kSwReadyToSwitchOn);
+    }
+  }
+
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 10));
+  EXPECT_TRUE(Access::slotReady(Access::disableResult(*controller_)));
+  EXPECT_TRUE(Access::slotOk(Access::disableResult(*controller_)));
+}
+
+TEST_F(EnableManagerFixture, UnconfiguredReadyToSwitchOnDoesNotCompleteDisable)
+{
+  enterDisablingFromEnabled();
+  setAllStatus(kSwSwitchOnDisabled);
+  setStatus(0U, kSwReadyToSwitchOn);
+
+  updateTimes(10);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kDisabling);
+  EXPECT_FALSE(Access::slotReady(Access::disableResult(*controller_)));
 }
 
 TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)

@@ -25,6 +25,73 @@ class ClassifyTest(unittest.TestCase):
         self.assertTrue(any("--packages-above plc_node" in a for a in plan["actions"]))
         self.assertFalse(plan["full"])
 
+    def test_driver_variant_manifest_forces_full_suite(self):
+        plan = st.classify([
+            "src/rt_control/rt_control_bringup/config/driver_variant.yaml"
+        ])
+        self.assertTrue(plan["full"])
+        self.assertIn("tools/quality_gate.sh", plan["actions"])
+
+    def test_projection_consumers_run_quality_gate_and_package_tests(self):
+        for path, package in (
+            (
+                "src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro",
+                "robot_hw_ethercat",
+            ),
+            (
+                "src/rt_control/rt_control_bringup/config/controllers.yaml",
+                "rt_control_bringup",
+            ),
+            (
+                "src/rt_control/rt_control_bringup/urdf/mock.ros2_control.xacro",
+                "rt_control_bringup",
+            ),
+            (
+                "src/rt_control/robot_hw_canopen/config/bus.yml",
+                "robot_hw_canopen",
+            ),
+            (
+                "src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro",
+                "robot_hw_canopen",
+            ),
+            (
+                "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py",
+                "control_api_adapter",
+            ),
+            (
+                "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp",
+                "rt_diagnostics",
+            ),
+            (
+                "src/rt_control/enable_manager/include/enable_manager/enable_manager_controller.hpp",
+                "enable_manager",
+            ),
+            (
+                "src/rt_control/enable_manager/src/enable_manager_controller.cpp",
+                "enable_manager",
+            ),
+            (
+                "src/rt_control/robot_hw_ethercat/config/slaves/zeroerr_j1.yaml",
+                "robot_hw_ethercat",
+            ),
+            (
+                "src/description/robot_description/urdf/robot.urdf.xacro",
+                "robot_description",
+            ),
+        ):
+            with self.subTest(path=path):
+                plan = st.classify([path])
+                self.assertIn("tools/quality_gate.sh", plan["actions"])
+                self.assertTrue(
+                    any(f"--packages-above {package}" in action for action in plan["actions"])
+                )
+
+    def test_similar_slave_directory_does_not_trigger_projection_gate(self):
+        plan = st.classify([
+            "src/rt_control/robot_hw_ethercat/config/slaves2/example.yaml"
+        ])
+        self.assertNotIn("tools/quality_gate.sh", plan["actions"])
+
     def test_private_interface_change_selects_private_package_only(self):
         plan = st.classify(["src/interfaces/rt_control_interfaces/srv/RtEnable.srv"])
         joined = " ".join(plan["actions"])

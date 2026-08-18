@@ -17,19 +17,6 @@
 namespace enable_manager
 {
 
-const std::array<const char *, EnableManagerController::kAxisCount>
-EnableManagerController::kJointNames = {
-  "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
-  "right_joint6", "left_joint1", "left_joint2", "left_joint3", "left_joint4",
-  "left_joint5", "left_joint6", "turn", "updown"};
-
-const std::array<std::array<std::int8_t, 3>, EnableManagerController::kBatchCount>
-EnableManagerController::kEnableBatches = {{{0, 1, 2}, {6, 7, 8}, {3, 4, 5}, {9, 10, 11},
-  {12, 13, -1}}};
-
-const std::array<std::uint8_t, EnableManagerController::kBatchCount>
-EnableManagerController::kBatchSizes = {3U, 3U, 3U, 3U, 2U};
-
 controller_interface::CallbackReturn EnableManagerController::on_init()
 {
   auto_declare<double>("batch_timeout", 4.0);
@@ -39,6 +26,8 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
   auto_declare<std::string>("jtc_name", "whole_body_jtc");
+  auto_declare<std::vector<std::string>>(
+    "ready_to_switch_on_disable_terminal_joints", {});
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -78,6 +67,8 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     get_node()->get_parameter("controller_switch_timeout").as_double();
   const auto service_timeout = get_node()->get_parameter("service_result_timeout_ms").as_int();
   jtc_name_ = get_node()->get_parameter("jtc_name").as_string();
+  const auto ready_to_switch_on_terminal_joints = get_node()->get_parameter(
+    "ready_to_switch_on_disable_terminal_joints").as_string_array();
 
   if (
     batch_timeout_seconds_ <= 0.0 || disable_stage_timeout_seconds_ <= 0.0 ||
@@ -88,6 +79,30 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     return controller_interface::CallbackReturn::ERROR;
   }
   service_result_timeout_ = std::chrono::milliseconds(service_timeout);
+
+  std::array<bool, kAxisCount> configured_ready_to_switch_on_terminals{};
+  for (const auto & joint_name : ready_to_switch_on_terminal_joints) {
+    const auto joint = std::find_if(
+      kJointNames.begin(), kJointNames.end(),
+      [&joint_name](const char * configured_name) {
+        return joint_name == configured_name;
+      });
+    if (joint == kJointNames.end()) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(),
+        "Unknown ready-to-switch-on disable-terminal joint: %s", joint_name.c_str());
+      return controller_interface::CallbackReturn::ERROR;
+    }
+    const auto axis = static_cast<std::size_t>(std::distance(kJointNames.begin(), joint));
+    if (configured_ready_to_switch_on_terminals[axis]) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(),
+        "Duplicate ready-to-switch-on disable-terminal joint: %s", joint_name.c_str());
+      return controller_interface::CallbackReturn::ERROR;
+    }
+    configured_ready_to_switch_on_terminals[axis] = true;
+  }
+  ready_to_switch_on_disable_terminal_ = configured_ready_to_switch_on_terminals;
 
   enable_callback_group_ =
     get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
@@ -1258,13 +1273,14 @@ bool EnableManagerController::isFaultState(DriveState state)
   return state == DriveState::kFault || state == DriveState::kFaultReactionActive;
 }
 
-bool EnableManagerController::isConfirmedDisableTerminal(std::size_t axis, DriveState state)
+bool EnableManagerController::isConfirmedDisableTerminal(
+  std::size_t axis, DriveState state) const
 {
   if (state == DriveState::kSwitchOnDisabled) {
     return true;
   }
-  const bool is_ti5_axis = axis == 1U || axis == 2U || axis == 7U || axis == 8U;
-  return is_ti5_axis && state == DriveState::kReadyToSwitchOn;
+  return axis < kAxisCount && ready_to_switch_on_disable_terminal_[axis] &&
+         state == DriveState::kReadyToSwitchOn;
 }
 
 const char * EnableManagerController::stageName(Stage stage)

@@ -40,6 +40,15 @@ The source layout follows the frozen rt_control implementation specification:
 - `tools`: migration and commissioning tools.
 - `hostsetup`: target-host setup assets.
 
+For ELECTRI-94, `driver_variant.yaml` is the RT-Control source of truth for
+drive profiles, bus addresses, effective SI conversions, controller roles, and
+lifecycle projections. The independently versioned Robot Model remains the
+authority for logical joint names and types: the manifest must not add or
+remove a whole-body logical joint on its own. Any motor-count change that
+changes that logical topology must be made in the authoritative
+`robot_description` repository and atomically update this repository's pinned
+build copy/version together with every affected consumer.
+
 The legacy baseline `/home/kkozia/robot_driver@6bc94cd` is read-only and is not vendored in this repository. External source checkouts are declared in `deps.repos`.
 
 Build the in-repository packages with:
@@ -116,12 +125,13 @@ The hook checks repository architecture, dependency pins, forbidden generated
 artifacts, YAML/XML/Python syntax, shell syntax, policy tests with at least 80%
 coverage, and the frozen EtherCAT shutdown policy. GitHub Actions reruns the
 same gate with ShellCheck mandatory, validates completion of the pull request
-contract, and then builds and tests the ROS workspace. Local hook success does
-not authorize hardware access, a commit, or a push; both the root
+contract, builds and tests the ROS workspace, and builds the production image
+before exercising its signal-gated entrypoint with an isolated no-device Mock.
+Local hook success does not authorize hardware access, a commit, or a push; both the root
 [`AGENTS.md`](../../AGENTS.md) and this domain's [AGENTS.md](AGENTS.md) still
 apply.
 
 After this workflow first succeeds, a repository administrator must configure
-the protected `main` branch to require the `governance` and `build` status
-checks and to disallow bypasses. Workflow files cannot enable GitHub branch
-protection by themselves.
+the protected `main` branch to require the `governance`, `build`, and
+`container` status checks and to disallow bypasses. Workflow files cannot
+enable GitHub branch protection by themselves.

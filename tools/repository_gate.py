@@ -66,6 +66,7 @@ REQUIRED_GOVERNANCE_FILES = (
     ".pre-commit-config.yaml",
     ".github/pull_request_template.md",
     ".github/workflows/rt-control-ci.yml",
+    "tools/quality_gate.sh",
 )
 ROOT_DOMAIN_LEDGER_FILES = {"PROGRESS.md", "BLOCKED-questions.md"}
 
@@ -397,6 +398,113 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     ):
         if required_command not in build_commands:
             findings.append(f"CI build job must run {description}")
+
+    container = jobs.get("container")
+    if not isinstance(container, dict):
+        findings.append("CI workflow must define a container job")
+        return findings
+    container_needs = container.get("needs")
+    if container_needs != "governance" and not (
+        isinstance(container_needs, list) and "governance" in container_needs
+    ):
+        findings.append("CI container job must depend on governance")
+
+    container_commands = _step_commands(container)
+    if not (
+        "docker build" in container_commands
+        and "--file docker/rt-control/Dockerfile" in container_commands
+    ):
+        findings.append("CI container job must build the production Dockerfile")
+    if not all(
+        argument in container_commands
+        for argument in ("--build-arg IGH_VERSION", "--build-arg IGH_COMMIT")
+    ):
+        findings.append("CI container job must use the pinned IgH build arguments")
+    if "--network none" not in container_commands:
+        findings.append("CI container job must isolate the Mock container network")
+    forbidden_container_options = (
+        "--device",
+        "--privileged",
+        "--cap-add",
+        "--network host",
+        "--network=host",
+        "--ipc host",
+        "--ipc=host",
+        "--pid host",
+        "--pid=host",
+        "--mount",
+        "--volume",
+    )
+    if any(
+        forbidden in container_commands for forbidden in forbidden_container_options
+    ) or re.search(r"(?:^|\s)-v(?:\s|=)", container_commands):
+        findings.append(
+            "CI container job must not grant hardware or elevated privileges"
+        )
+    if not (
+        "docker run" in container_commands
+        and "use_mock_hardware:=true" in container_commands
+    ):
+        findings.append("CI container job must start the built image with Mock hardware")
+    if (
+        "/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"
+        not in container_commands
+    ):
+        findings.append(
+            "CI container job must exercise the installed signal-gated entrypoint"
+        )
+    ansi_filter = r"sed -E $'s/\033\[[0-9;]*[mK]//g'"
+    if ansi_filter not in container_commands or "| strip_ansi" not in container_commands:
+        findings.append("CI container job must normalize controller CLI output")
+    if "timeout 8 docker exec" not in container_commands:
+        findings.append("CI container job must bound each controller readiness query")
+    controller_state_patterns = (
+        "^joint_state_broadcaster[[:space:]].*active[[:space:]]*$",
+        "^rt_internal_state_broadcaster[[:space:]].*active[[:space:]]*$",
+        "^diff_drive_controller[[:space:]].*active[[:space:]]*$",
+        "^enable_manager[[:space:]].*active[[:space:]]*$",
+        "^whole_body_jtc[[:space:]].*inactive[[:space:]]*$",
+    )
+    if any(pattern not in container_commands for pattern in controller_state_patterns):
+        findings.append(
+            "CI container job must allow trailing whitespace in controller states"
+        )
+    if "docker stop --time 100" not in container_commands:
+        findings.append("CI container job must exercise orderly container shutdown")
+    log_capture = 'container_logs="$(docker logs'
+    log_print = "printf '%s\\n' \"${container_logs}\""
+    exit_capture = 'exit_code="$(docker inspect --format \'{{.State.ExitCode}}\''
+    exit_assertion = 'test "${exit_code}" -eq 0'
+    if log_capture not in container_commands:
+        findings.append("CI container job must capture Mock container logs")
+    ordered_shutdown_checks = (
+        "docker stop --time 100",
+        log_capture,
+        log_print,
+        exit_capture,
+        exit_assertion,
+    )
+    shutdown_positions = [
+        container_commands.find(command) for command in ordered_shutdown_checks
+    ]
+    if -1 in shutdown_positions or shutdown_positions != sorted(shutdown_positions):
+        findings.append(
+            "CI container job must capture Mock logs before asserting exit status"
+        )
+    if exit_assertion not in container_commands:
+        findings.append("CI container job must assert successful Mock container exit")
+    clean_shutdown_marker = "rt_control shutdown disable result: ok=true"
+    if clean_shutdown_marker not in container_commands:
+        findings.append(
+            "CI container job must verify the real shutdown success marker"
+        )
+    rejected_log_markers = r"UNCLEAN_SHUTDOWN|\[ERROR\]|\[FATAL\]"
+    if rejected_log_markers not in container_commands:
+        findings.append(
+            "CI container job must reject unclean or error-level Mock logs"
+        )
+    if "docker rm --force" not in container_commands:
+        findings.append("CI container job must clean up the Mock container")
     return findings
 
 
@@ -439,6 +547,40 @@ def check_precommit_policy(config_text: str) -> list[str]:
         findings.append("pre-commit pass_filenames must remain false")
     if hook.get("always_run") is not True:
         findings.append("pre-commit quality gate must always run")
+    return findings
+
+
+def check_quality_gate_policy(script_text: str) -> list[str]:
+    """Keep the driver-variant projection check in the full local/CI gate."""
+    repository_command = "python3 tools/repository_gate.py"
+    projection_command = (
+        "python3 -m tools.driver_variant_source_projections "
+        '--repository-root "${repository_root}"'
+    )
+    commands = [
+        line.strip()
+        for line in script_text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    findings: list[str] = []
+    if commands.count(repository_command) != 1:
+        findings.append(
+            "tools/quality_gate.sh must run repository_gate exactly once"
+        )
+    if commands.count(projection_command) != 1:
+        findings.append(
+            "tools/quality_gate.sh must run the driver-variant projection gate "
+            "exactly once"
+        )
+    if (
+        commands.count(repository_command) == 1
+        and commands.count(projection_command) == 1
+        and commands.index(projection_command) <= commands.index(repository_command)
+    ):
+        findings.append(
+            "tools/quality_gate.sh driver-variant projection gate must run after "
+            "repository_gate"
+        )
     return findings
 
 
@@ -536,6 +678,8 @@ def collect_findings(repository_root: Path) -> list[str]:
         )
     if ".pre-commit-config.yaml" in texts:
         findings.extend(check_precommit_policy(texts[".pre-commit-config.yaml"]))
+    if "tools/quality_gate.sh" in texts:
+        findings.extend(check_quality_gate_policy(texts["tools/quality_gate.sh"]))
     return sorted(set(findings))
 
 

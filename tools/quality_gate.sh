@@ -20,6 +20,7 @@ if ! python3 -c 'import coverage, yaml' >/dev/null 2>&1; then
 fi
 
 python3 tools/repository_gate.py
+python3 -m tools.driver_variant_source_projections --repository-root "${repository_root}"
 
 mapfile -t shell_files < <(
   git ls-files --cached --others --exclude-standard -- \
@@ -44,7 +45,7 @@ python3 -m coverage run --branch \
   --source=tools \
   -m pytest tools/tests -q
 python3 -m coverage report --fail-under=80 \
-  --include='tools/repository_gate.py,tools/pr_contract_gate.py'
+  --include='tools/repository_gate.py,tools/pr_contract_gate.py,tools/driver_variant.py,tools/driver_variant_projections.py,tools/driver_variant_source_projections.py'
 echo "NOTICE: informational coverage for remaining tools scripts (not gated):" >&2
 python3 -m coverage report --include='tools/diff_legacy.py,tools/rt_control_axis_state_check.py,tools/rt_control_thread_affinity.py,tools/release_test_runner.py,tools/scoped_tests.py,tools/rt_perf_capture.py' || true
 

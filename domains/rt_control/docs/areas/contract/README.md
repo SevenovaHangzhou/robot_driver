@@ -28,9 +28,12 @@
 | 05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
 | 05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
 | 05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
+| 06#F1 | readiness 必须匹配 manifest 派生的完整 EtherCAT/CANopen diagnostic ID 集合，重复或未知 ID 均 fail-closed | [contract-20260818-01](records/2026-08-18-driver-variant-diagnostics.md)#F1 | 有效 |
+| 06#F2 | rt_diagnostics 使用显式 node-ID 表查找，不依赖连续编号算术 | [contract-20260818-01](records/2026-08-18-driver-variant-diagnostics.md)#F2 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-08-18 [驱动变体诊断投影与 readiness 完整性（ELECTRI-94）](records/2026-08-18-driver-variant-diagnostics.md) — feature，PASS（T1）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）
 - 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）
 - 2026-08-16 [BQ-137 跨域错误与 readiness 语义裁决落地](records/2026-08-16-bq137-shared-error-readiness.md) — decision，PASS（T1；发布待 PR #6 最终 SHA 与全域迁移）

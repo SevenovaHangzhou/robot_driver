@@ -211,3 +211,89 @@ jobs:
           python3 tools/diff_legacy.py \
             --legacy-root .legacy/robot_driver \
             --target-root .
+
+  container:
+    needs: governance
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the production RT-Control image
+        shell: bash
+        run: |
+          set -euo pipefail
+          source versions.env
+          [[ "${IGH_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          docker build \
+            --file docker/rt-control/Dockerfile \
+            --build-arg IGH_VERSION="${IGH_VERSION}" \
+            --build-arg IGH_COMMIT="${IGH_COMMIT}" \
+            --tag rt-control:ci \
+            .
+      - name: Start and stop an isolated no-device Mock container
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_name=rt-control-ci-mock
+          strip_ansi()
+          {
+            sed -E $'s/\033\[[0-9;]*[mK]//g'
+          }
+
+          docker run --detach \
+            --name "${container_name}" \
+            --network none \
+            --ipc private \
+            --stop-timeout 100 \
+            --env ROS_DOMAIN_ID=142 \
+            --env RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
+            rt-control:ci \
+            /opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start \
+            use_mock_hardware:=true \
+            start_plc:=false \
+            start_bms:=false
+
+          ready=0
+          for _ in $(seq 1 90); do
+            if [[ "$(docker inspect --format '{{.State.Running}}' "${container_name}")" != "true" ]]; then
+              docker logs "${container_name}" 2>&1
+              exit 1
+            fi
+            controller_state="$(
+              timeout 8 docker exec "${container_name}" bash -lc \
+                'source /opt/rt_control_ws/install/setup.bash && ros2 control list_controllers' \
+                2>/dev/null | strip_ansi || true
+            )"
+            if grep -Eq '^joint_state_broadcaster[[:space:]].*active[[:space:]]*$' <<<"${controller_state}" &&
+              grep -Eq '^rt_internal_state_broadcaster[[:space:]].*active[[:space:]]*$' <<<"${controller_state}" &&
+              grep -Eq '^diff_drive_controller[[:space:]].*active[[:space:]]*$' <<<"${controller_state}" &&
+              grep -Eq '^enable_manager[[:space:]].*active[[:space:]]*$' <<<"${controller_state}" &&
+              grep -Eq '^whole_body_jtc[[:space:]].*inactive[[:space:]]*$' <<<"${controller_state}"
+            then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if (( ready == 0 )); then
+            printf '%s\n' "${controller_state:-no controller state available}"
+            docker logs "${container_name}" 2>&1
+            exit 1
+          fi
+          printf '%s\n' "${controller_state}"
+
+          docker stop --time 100 "${container_name}"
+          container_logs="$(docker logs "${container_name}" 2>&1)"
+          printf '%s\n' "${container_logs}"
+          exit_code="$(docker inspect --format '{{.State.ExitCode}}' "${container_name}")"
+          test "${exit_code}" -eq 0
+          grep -F 'rt_control shutdown disable result: ok=true' <<<"${container_logs}"
+          if grep -Eq 'UNCLEAN_SHUTDOWN|\[ERROR\]|\[FATAL\]' <<<"${container_logs}"; then
+            exit 1
+          fi
+      - name: Clean up the Mock container
+        if: always()
+        shell: bash
+        run: docker rm --force rt-control-ci-mock >/dev/null 2>&1 || true

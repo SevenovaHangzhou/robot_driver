@@ -283,6 +283,39 @@ jobs:
       - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
       - run: python3 tools/diff_legacy.py
+  container:
+    needs: governance
+    steps:
+      - run: |
+          source versions.env
+          docker build --file docker/rt-control/Dockerfile \
+            --build-arg IGH_VERSION="${IGH_VERSION}" \
+            --build-arg IGH_COMMIT="${IGH_COMMIT}" \
+            --tag rt-control:ci .
+      - run: |
+          strip_ansi() { sed -E $'s/\\033\\[[0-9;]*[mK]//g'; }
+          docker run --detach --name rt-control-ci-mock --network none \
+            rt-control:ci \
+            /opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start \
+            use_mock_hardware:=true
+          controller_state="$(timeout 8 docker exec rt-control-ci-mock \
+            bash -lc 'ros2 control list_controllers' | strip_ansi)"
+          grep -Eq '^joint_state_broadcaster[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^rt_internal_state_broadcaster[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^diff_drive_controller[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^enable_manager[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^whole_body_jtc[[:space:]].*inactive[[:space:]]*$' <<<"${controller_state}"
+          docker stop --time 100 rt-control-ci-mock
+          container_logs="$(docker logs rt-control-ci-mock 2>&1)"
+          printf '%s\\n' "${container_logs}"
+          exit_code="$(docker inspect --format '{{.State.ExitCode}}' rt-control-ci-mock)"
+          test "${exit_code}" -eq 0
+          grep -F 'rt_control shutdown disable result: ok=true' <<<"${container_logs}"
+          if grep -Eq 'UNCLEAN_SHUTDOWN|\\[ERROR\\]|\\[FATAL\\]' <<<"${container_logs}"; then
+            exit 1
+          fi
+      - if: always()
+        run: docker rm --force rt-control-ci-mock || true
 """
         self.assertEqual(repository_gate.check_ci_workflow_policy(valid), [])
 
@@ -313,6 +346,150 @@ jobs:
             "install ROS test dependencies",
         )
 
+        for weakened, expected in (
+            (
+                valid.replace("  container:\n", "  image_check:\n"),
+                "define a container job",
+            ),
+            (
+                valid.replace(
+                    "  container:\n    needs: governance\n",
+                    "  container:\n",
+                ),
+                "container job must depend on governance",
+            ),
+            (
+                valid.replace("docker build", "docker image inspect"),
+                "build the production Dockerfile",
+            ),
+            (
+                valid.replace("--build-arg IGH_VERSION", "--label IGH_VERSION"),
+                "use the pinned IgH build arguments",
+            ),
+            (
+                valid.replace("--build-arg IGH_COMMIT", "--label IGH_COMMIT"),
+                "use the pinned IgH build arguments",
+            ),
+            (
+                valid.replace("--network none", "--network host"),
+                "isolate the Mock container network",
+            ),
+            (
+                valid.replace(
+                    "--network none", "--network none --device /dev/EtherCAT0"
+                ),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network none --cap-add SYS_NICE"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network=host"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network none --ipc=host"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network none --pid host"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network none --mount type=bind"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network none --pid=host"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network none --volume /:/host"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("--network none", "--network none -v /:/host"),
+                "must not grant hardware or elevated privileges",
+            ),
+            (
+                valid.replace("use_mock_hardware:=true", "use_mock_hardware:=false"),
+                "start the built image with Mock hardware",
+            ),
+            (
+                valid.replace(
+                    "/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start",
+                    "ros2 launch rt_control_bringup rt_control.launch.py",
+                ),
+                "exercise the installed signal-gated entrypoint",
+            ),
+            (
+                valid.replace("docker stop --time 100", "docker kill"),
+                "exercise orderly container shutdown",
+            ),
+            (
+                valid.replace("docker rm --force", "docker inspect"),
+                "clean up the Mock container",
+            ),
+            (
+                valid.replace(
+                    'container_logs="$(docker logs rt-control-ci-mock 2>&1)"\n',
+                    "",
+                ),
+                "capture Mock container logs",
+            ),
+            (
+                valid.replace(" | strip_ansi", ""),
+                "normalize controller CLI output",
+            ),
+            (
+                valid.replace(
+                    "strip_ansi() { sed -E $'s/\\033\\[[0-9;]*[mK]//g'; }",
+                    "strip_ansi() { cat; }",
+                ),
+                "normalize controller CLI output",
+            ),
+            (
+                valid.replace("timeout 8 docker exec", "docker exec"),
+                "bound each controller readiness query",
+            ),
+            (
+                valid.replace("active[[:space:]]*$", "active$"),
+                "allow trailing whitespace in controller states",
+            ),
+            (
+                valid.replace(
+                    "rt_control shutdown disable result: ok=true",
+                    "/rt/disable ok=true",
+                ),
+                "verify the real shutdown success marker",
+            ),
+            (
+                valid.replace('test "${exit_code}" -eq 0', "true"),
+                "assert successful Mock container exit",
+            ),
+            (
+                valid.replace(
+                    "UNCLEAN_SHUTDOWN|\\[ERROR\\]|\\[FATAL\\]",
+                    "UNCLEAN_SHUTDOWN",
+                ),
+                "reject unclean or error-level Mock logs",
+            ),
+            (
+                valid.replace(
+                    'container_logs="$(docker logs rt-control-ci-mock 2>&1)"\n'
+                    '          printf \'%s\\n\' "${container_logs}"\n'
+                    '          exit_code="$(docker inspect',
+                    'exit_code="$(docker inspect',
+                ),
+                "capture Mock logs before asserting exit status",
+            ),
+        ):
+            with self.subTest(expected=expected):
+                self.assert_has(
+                    repository_gate.check_ci_workflow_policy(weakened), expected
+                )
+
     def test_precommit_must_call_the_full_repository_gate(self):
         valid = """repos:
   - repo: local
@@ -329,6 +506,52 @@ jobs:
             repository_gate.check_precommit_policy(weakened),
             "pass_filenames must remain false",
         )
+
+    def test_quality_gate_must_run_driver_variant_projection_gate(self):
+        valid = """#!/usr/bin/env bash
+python3 tools/repository_gate.py
+python3 -m tools.driver_variant_source_projections --repository-root "${repository_root}"
+"""
+        self.assertEqual(repository_gate.check_quality_gate_policy(valid), [])
+
+        missing = valid.replace(
+            'python3 -m tools.driver_variant_source_projections --repository-root "${repository_root}"\n',
+            "",
+        )
+        self.assert_has(
+            repository_gate.check_quality_gate_policy(missing),
+            "must run the driver-variant projection gate",
+        )
+
+        duplicate_projection = valid + valid.splitlines()[2] + "\n"
+        self.assert_has(
+            repository_gate.check_quality_gate_policy(duplicate_projection),
+            "driver-variant projection gate exactly once",
+        )
+
+        before_repository_gate = "\n".join(reversed(valid.splitlines())) + "\n"
+        self.assert_has(
+            repository_gate.check_quality_gate_policy(before_repository_gate),
+            "must run after repository_gate",
+        )
+
+        for weakened in (
+            valid.replace("python3 tools/repository_gate.py\n", ""),
+            valid.replace(
+                "python3 tools/repository_gate.py",
+                "# python3 tools/repository_gate.py",
+            ),
+            valid.replace(
+                "python3 tools/repository_gate.py\n",
+                "python3 tools/repository_gate.py\n"
+                "python3 tools/repository_gate.py\n",
+            ),
+        ):
+            with self.subTest(weakened=weakened):
+                self.assert_has(
+                    repository_gate.check_quality_gate_policy(weakened),
+                    "must run repository_gate exactly once",
+                )
 
     def make_valid_repository(self, root: Path):
         files = {
@@ -349,6 +572,10 @@ jobs:
         always_run: true
 """,
             ".github/pull_request_template.md": "# Review\n",
+            "tools/quality_gate.sh": """#!/usr/bin/env bash
+python3 tools/repository_gate.py
+python3 -m tools.driver_variant_source_projections --repository-root "${repository_root}"
+""",
             ".github/workflows/rt-control-ci.yml": """on:
   pull_request:
   push:
@@ -370,6 +597,39 @@ jobs:
       - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
       - run: python3 tools/diff_legacy.py
+  container:
+    needs: governance
+    steps:
+      - run: |
+          source versions.env
+          docker build --file docker/rt-control/Dockerfile \
+            --build-arg IGH_VERSION="${IGH_VERSION}" \
+            --build-arg IGH_COMMIT="${IGH_COMMIT}" \
+            --tag rt-control:ci .
+      - run: |
+          strip_ansi() { sed -E $'s/\\033\\[[0-9;]*[mK]//g'; }
+          docker run --detach --name rt-control-ci-mock --network none \
+            rt-control:ci \
+            /opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start \
+            use_mock_hardware:=true
+          controller_state="$(timeout 8 docker exec rt-control-ci-mock \
+            bash -lc 'ros2 control list_controllers' | strip_ansi)"
+          grep -Eq '^joint_state_broadcaster[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^rt_internal_state_broadcaster[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^diff_drive_controller[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^enable_manager[[:space:]].*active[[:space:]]*$' <<<"${controller_state}"
+          grep -Eq '^whole_body_jtc[[:space:]].*inactive[[:space:]]*$' <<<"${controller_state}"
+          docker stop --time 100 rt-control-ci-mock
+          container_logs="$(docker logs rt-control-ci-mock 2>&1)"
+          printf '%s\\n' "${container_logs}"
+          exit_code="$(docker inspect --format '{{.State.ExitCode}}' rt-control-ci-mock)"
+          test "${exit_code}" -eq 0
+          grep -F 'rt_control shutdown disable result: ok=true' <<<"${container_logs}"
+          if grep -Eq 'UNCLEAN_SHUTDOWN|\\[ERROR\\]|\\[FATAL\\]' <<<"${container_logs}"; then
+            exit 1
+          fi
+      - if: always()
+        run: docker rm --force rt-control-ci-mock || true
 """,
             "deps.repos": """repositories:
   src/vendor/robot_interfaces:
@@ -425,6 +685,19 @@ vendored_packages:
             root = Path(temporary_directory)
             self.make_valid_repository(root)
             self.assertEqual(repository_gate.collect_findings(root), [])
+
+    def test_collect_findings_rejects_a_bypassed_projection_gate(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            self.make_valid_repository(root)
+            (root / "tools/quality_gate.sh").write_text(
+                "#!/usr/bin/env bash\npython3 tools/repository_gate.py\n",
+                encoding="utf-8",
+            )
+            self.assert_has(
+                repository_gate.collect_findings(root),
+                "must run the driver-variant projection gate",
+            )
 
     def test_collect_findings_reports_missing_governance_and_invalid_syntax(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

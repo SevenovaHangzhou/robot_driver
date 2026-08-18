@@ -23,9 +23,13 @@
 | F8 | 根 docs 必须为空，协作规范位于仓库根，接口视图来自 vendor | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F1 | 有效；取代 governance-20260813-04#F1 |
 | F9 | source-lock 发布身份必须与 deps.repos 的 robot_interfaces pin 一致 | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F2 | 有效 |
 | F10 | 已归档 records 保留旧路径作为历史坐标 | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F3 | 有效 |
+| F11 | quality_gate 无条件运行驱动变体三层校验，两个入口命令均受 repository policy 保护 | [governance-20260818-01](records/2026-08-18-driver-variant-gate.md)#F1 | 有效 |
+| F12 | 工具覆盖率硬门禁扩展为 repository、PR contract 与三个 driver-variant 模块合并 ≥80% | [governance-20260818-01](records/2026-08-18-driver-variant-gate.md)#F2 | 有效；取代 governance-20260813-05#F2 |
+| F13 | manifest 变更触发全量；投影消费者变更触发 quality gate 与所属包测试 | [governance-20260818-01](records/2026-08-18-driver-variant-gate.md)#F3 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-08-18 [驱动变体三层一致性门禁（ELECTRI-94）](records/2026-08-18-driver-variant-gate.md) — feature，PASS（T1）
 - 2026-08-14 [清空根 docs 并建立公共接口 vendor 门禁](records/2026-08-14-root-docs-and-vendor-governance.md) — decision，PASS（T0）
 - 2026-08-14 [T2 性能采集脚本化（ELECTRI-80 脚本部分）](records/2026-08-13-rt-perf-capture.md) — feature，PASS（T0）
 - 2026-08-13 [增量测试 scope resolver（ELECTRI-81）](records/2026-08-13-scoped-tests.md) — feature，PASS（T0）
