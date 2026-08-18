@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -412,6 +413,85 @@ TEST(RollingCorrectness, IncrementalValidationChecksOnlyTheChangedSuffix)
   EXPECT_EQ(incremental, RejectCode::kPositionLimit);
   EXPECT_EQ(full, incremental);
   EXPECT_LT(incremental_invalid_count, full_invalid_count);
+}
+
+TEST(RollingCorrectness, MonotonicCursorMatchesReferenceWithConstantSearchWork)
+{
+  TrajectoryImage image;
+  image.generation = 7U;
+  image.point_count = 64U;
+  for (std::size_t index = 0U; index < image.point_count; ++index) {
+    image.points[index] = makePoint(
+      index * 100U * kMillisecondNs, 0.01 * static_cast<double>(index)).jointPoint();
+  }
+  ASSERT_TRUE(trajectoryImageStructureIsValid(image));
+
+  MonotonicTrajectoryCursor cursor;
+  std::size_t maximum_advances_in_one_sample = 0U;
+  const std::uint64_t end_time_ns = image.points[image.point_count - 1U].time_ns;
+  for (std::uint64_t time_ns = 0U; time_ns <= end_time_ns;
+    time_ns += 4U * kMillisecondNs)
+  {
+    JointPoint reference;
+    JointPoint monotonic;
+    std::size_t advances = 0U;
+    ASSERT_TRUE(sampleTrajectoryImage(image, time_ns, reference));
+    ASSERT_TRUE(sampleTrajectoryImageMonotonic(image, time_ns, cursor, monotonic, &advances));
+    maximum_advances_in_one_sample = std::max(maximum_advances_in_one_sample, advances);
+    for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+      EXPECT_DOUBLE_EQ(monotonic.positions[axis], reference.positions[axis]);
+      EXPECT_DOUBLE_EQ(monotonic.velocities[axis], reference.velocities[axis]);
+    }
+  }
+  EXPECT_LE(maximum_advances_in_one_sample, 1U);
+}
+
+TEST(RollingCorrectness, MonotonicCursorHandlesSpliceGenerationAndTimeReset)
+{
+  TrajectoryImage image;
+  image.generation = 11U;
+  image.point_count = 4U;
+  image.points[0] = makePoint(0U, 0.0).jointPoint();
+  image.points[1] = makePoint(100U * kMillisecondNs, 0.1).jointPoint();
+  image.points[2] = makePoint(100U * kMillisecondNs, 0.105).jointPoint();
+  image.points[3] = makePoint(200U * kMillisecondNs, 0.2).jointPoint();
+  image.roles[1] = TrajectoryPointRole::kSpliceLeft;
+  image.roles[2] = TrajectoryPointRole::kSpliceRight;
+  ASSERT_TRUE(trajectoryImageStructureIsValid(image));
+
+  MonotonicTrajectoryCursor cursor;
+  for (const std::uint64_t time_ns : {
+      96U * kMillisecondNs, 100U * kMillisecondNs, 104U * kMillisecondNs})
+  {
+    JointPoint reference;
+    JointPoint monotonic;
+    ASSERT_TRUE(sampleTrajectoryImage(image, time_ns, reference));
+    ASSERT_TRUE(sampleTrajectoryImageMonotonic(image, time_ns, cursor, monotonic));
+    EXPECT_EQ(monotonic.positions, reference.positions);
+    EXPECT_EQ(monotonic.velocities, reference.velocities);
+  }
+
+  JointPoint at_splice;
+  ASSERT_TRUE(sampleTrajectoryImageMonotonic(
+    image, 100U * kMillisecondNs, cursor, at_splice));
+  EXPECT_DOUBLE_EQ(at_splice.positions[0], 0.105);
+
+  TrajectoryImage next_generation = image;
+  next_generation.generation = 12U;
+  next_generation.point_count = 2U;
+  next_generation.points[0] = image.points[2];
+  next_generation.roles[0] = TrajectoryPointRole::kNormal;
+  next_generation.points[1] = image.points[3];
+  next_generation.roles[1] = TrajectoryPointRole::kNormal;
+  ASSERT_TRUE(trajectoryImageStructureIsValid(next_generation));
+
+  JointPoint reference;
+  JointPoint monotonic;
+  ASSERT_TRUE(sampleTrajectoryImage(next_generation, 104U * kMillisecondNs, reference));
+  ASSERT_TRUE(sampleTrajectoryImageMonotonic(
+    next_generation, 104U * kMillisecondNs, cursor, monotonic));
+  EXPECT_EQ(monotonic.positions, reference.positions);
+  EXPECT_EQ(monotonic.velocities, reference.velocities);
 }
 
 }  // namespace

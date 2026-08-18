@@ -234,6 +234,7 @@ private:
   std::uint64_t rt_last_accepted_arrival_ns_{0U};
   std::uint64_t rt_stop_elapsed_ns_{0U};
   TrajectoryImage rt_active_trajectory_{};
+  MonotonicTrajectoryCursor rt_sampling_cursor_{};
   SessionIdentity rt_identity_{};
   JointPoint rt_desired_{};
   StopTrajectory rt_stop_trajectory_{};

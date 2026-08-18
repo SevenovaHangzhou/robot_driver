@@ -19,6 +19,24 @@ bool sampleTrajectoryLeftLimit(
   const TrajectoryImage & image, std::uint64_t time_ns, JointPoint & point) noexcept;
 bool trajectoryImageStructureIsValid(const TrajectoryImage & image) noexcept;
 
+struct MonotonicTrajectoryCursor
+{
+  std::size_t point_index{0U};
+  std::uint64_t generation{0U};
+  std::uint64_t last_time_ns{0U};
+  bool initialized{false};
+
+  void reset() noexcept
+  {
+    *this = MonotonicTrajectoryCursor{};
+  }
+};
+
+bool sampleTrajectoryImageMonotonic(
+  const TrajectoryImage & image, std::uint64_t time_ns,
+  MonotonicTrajectoryCursor & cursor, JointPoint & point,
+  std::size_t * segment_advances = nullptr) noexcept;
+
 struct BufferConfiguration
 {
   std::size_t capacity{0U};

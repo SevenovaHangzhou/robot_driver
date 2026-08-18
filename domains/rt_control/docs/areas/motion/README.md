@@ -31,9 +31,13 @@ launch 结构与容器（→ release-deploy）。
 | 06#F1 | 256 是 ceiling，不是每次复制量 | [motion-20260819-06](records/2026-08-19-electri-102-effective-trajectory-copy.md)#F1 | 有效（T2） |
 | 06#F2 | capacity 64 有效 image copy 上界 14,936 bytes | [motion-20260819-06](records/2026-08-19-electri-102-effective-trajectory-copy.md)#F2 | 有效（T2） |
 | 06#F3 | snapshot 尾部无语义，读路径不得越过 point_count | [motion-20260819-06](records/2026-08-19-electri-102-effective-trajectory-copy.md)#F3 | 有效（T2） |
+| 07#F1 | 250 Hz Running 采样使用 generation-aware 单调 cursor | [motion-20260819-07](records/2026-08-19-electri-102-monotonic-sampler.md)#F1 | 有效（T2） |
+| 07#F2 | 非 RT reference sampler 保留为差分 oracle | [motion-20260819-07](records/2026-08-19-electri-102-monotonic-sampler.md)#F2 | 有效（T2） |
+| 07#F3 | splice 在 t=R 选择 right state | [motion-20260819-07](records/2026-08-19-electri-102-monotonic-sampler.md)#F3 | 有效（T2） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 RT 轨迹采样改单调游标](records/2026-08-19-electri-102-monotonic-sampler.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 snapshot 只复制有效轨迹节点](records/2026-08-19-electri-102-effective-trajectory-copy.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 rolling 增量后缀校验](records/2026-08-19-electri-102-incremental-validation.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 删除 rolling 重复 segment 校验](records/2026-08-19-electri-102-single-pass-validation.md) — perf，PASS（T2）

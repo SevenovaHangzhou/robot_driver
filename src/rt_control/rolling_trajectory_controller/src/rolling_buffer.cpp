@@ -699,6 +699,41 @@ bool trajectoryImageStructureIsValid(const TrajectoryImage & image) noexcept
 namespace
 {
 
+bool sampleSegment(
+  const JointPoint & start, const JointPoint & end,
+  std::uint64_t time_ns, JointPoint & point) noexcept
+{
+  if (
+    end.time_ns <= start.time_ns || time_ns <= start.time_ns ||
+    time_ns >= end.time_ns)
+  {
+    return false;
+  }
+  const std::uint64_t duration_ns = end.time_ns - start.time_ns;
+  const std::uint64_t elapsed_ns = time_ns - start.time_ns;
+  const double duration_seconds = static_cast<double>(duration_ns) * 1.0e-9;
+  const double s = static_cast<double>(elapsed_ns) / static_cast<double>(duration_ns);
+
+  point = JointPoint{};
+  point.time_ns = time_ns;
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    CubicHermite segment;
+    ScalarKinematicState state;
+    if (
+      !buildCubicHermite(
+        start.positions[axis], start.velocities[axis],
+        end.positions[axis], end.velocities[axis],
+        duration_seconds, segment) ||
+      !sampleCubicHermite(segment, s, state))
+    {
+      return false;
+    }
+    point.positions[axis] = state.position;
+    point.velocities[axis] = state.velocity;
+  }
+  return true;
+}
+
 bool sampleTrajectory(
   const TrajectoryImage & image, std::uint64_t time_ns, bool left_limit,
   JointPoint & point) noexcept
@@ -741,29 +776,7 @@ bool sampleTrajectory(
       continue;
     }
 
-    const std::uint64_t duration_ns = end.time_ns - start.time_ns;
-    const std::uint64_t elapsed_ns = time_ns - start.time_ns;
-    const double duration_seconds = static_cast<double>(duration_ns) * 1.0e-9;
-    const double s = static_cast<double>(elapsed_ns) / static_cast<double>(duration_ns);
-
-    point = JointPoint{};
-    point.time_ns = time_ns;
-    for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-      CubicHermite segment;
-      ScalarKinematicState state;
-      if (
-        !buildCubicHermite(
-          start.positions[axis], start.velocities[axis],
-          end.positions[axis], end.velocities[axis],
-          duration_seconds, segment) ||
-        !sampleCubicHermite(segment, s, state))
-      {
-        return false;
-      }
-      point.positions[axis] = state.position;
-      point.velocities[axis] = state.velocity;
-    }
-    return true;
+    return sampleSegment(start, end, time_ns, point);
   }
   return false;
 }
@@ -780,6 +793,59 @@ bool sampleTrajectoryLeftLimit(
   const TrajectoryImage & image, std::uint64_t time_ns, JointPoint & point) noexcept
 {
   return sampleTrajectory(image, time_ns, true, point);
+}
+
+bool sampleTrajectoryImageMonotonic(
+  const TrajectoryImage & image, std::uint64_t time_ns,
+  MonotonicTrajectoryCursor & cursor, JointPoint & point,
+  std::size_t * segment_advances) noexcept
+{
+  if (segment_advances != nullptr) {
+    *segment_advances = 0U;
+  }
+  if (
+    image.point_count == 0U || time_ns < image.points[0].time_ns ||
+    time_ns > image.points[image.point_count - 1U].time_ns)
+  {
+    return false;
+  }
+
+  const bool reset_required =
+    !cursor.initialized || cursor.generation != image.generation ||
+    time_ns < cursor.last_time_ns || cursor.point_index >= image.point_count;
+  std::size_t point_index = reset_required ? 0U : cursor.point_index;
+  std::size_t advances = 0U;
+  while (
+    point_index + 1U < image.point_count &&
+    image.points[point_index + 1U].time_ns <= time_ns)
+  {
+    ++point_index;
+    ++advances;
+  }
+
+  JointPoint candidate;
+  bool sampled = false;
+  if (image.points[point_index].time_ns == time_ns) {
+    candidate = image.points[point_index];
+    sampled = true;
+  } else if (point_index + 1U < image.point_count) {
+    sampled = sampleSegment(
+      image.points[point_index], image.points[point_index + 1U],
+      time_ns, candidate);
+  }
+  if (!sampled) {
+    return false;
+  }
+
+  cursor.point_index = point_index;
+  cursor.generation = image.generation;
+  cursor.last_time_ns = time_ns;
+  cursor.initialized = true;
+  point = candidate;
+  if (segment_advances != nullptr) {
+    *segment_advances = advances;
+  }
+  return true;
 }
 
 }  // namespace rolling_trajectory_controller

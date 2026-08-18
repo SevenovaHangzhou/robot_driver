@@ -352,6 +352,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
 
   hold_positions_ = source_commands;
   rt_active_trajectory_ = TrajectoryImage{};
+  rt_sampling_cursor_.reset();
   rt_identity_ = SessionIdentity{};
   rt_desired_ = JointPoint{};
   rt_desired_.positions = source_commands;
@@ -545,8 +546,9 @@ controller_interface::return_type RollingTrajectoryController::update(
             const std::uint64_t increment_ns = static_cast<std::uint64_t>(period_ns);
             if (
               !addTime(execution_ns, increment_ns, next_execution_ns) ||
-              !sampleTrajectoryImage(
-                rt_active_trajectory_, next_execution_ns, candidate) ||
+              !sampleTrajectoryImageMonotonic(
+                rt_active_trajectory_, next_execution_ns,
+                rt_sampling_cursor_, candidate) ||
               !desiredIsValid(candidate))
             {
               rt_invariant_stage_.store(
@@ -974,6 +976,7 @@ bool RollingTrajectoryController::resetRtEpoch(std::uint64_t epoch) noexcept
   }
 
   rt_active_trajectory_ = TrajectoryImage{};
+  rt_sampling_cursor_.reset();
   rt_identity_ = SessionIdentity{};
   rt_desired_ = hold;
   rt_stop_trajectory_ = stop_trajectory;
@@ -1063,9 +1066,11 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
   }
 
   JointPoint candidate;
+  MonotonicTrajectoryCursor candidate_cursor;
   std::uint64_t replacement_boundary_ns = 0U;
   if (
-    !sampleTrajectoryImage(trajectory, execution_ns, candidate) ||
+    !sampleTrajectoryImageMonotonic(
+      trajectory, execution_ns, candidate_cursor, candidate) ||
     !desiredIsValid(candidate) ||
     !addTime(execution_ns, kTestOnlyReplaceLeadNs, replacement_boundary_ns))
   {
@@ -1081,6 +1086,7 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
       std::memory_order_release);
     return SnapshotConsumeResult::kInvalid;
   }
+  rt_sampling_cursor_ = candidate_cursor;
   rt_identity_ = snapshot.identity;
   rt_desired_ = candidate;
   rt_consumed_publication_sequence_ = snapshot.publication_sequence;
