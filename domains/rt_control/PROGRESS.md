@@ -110,3 +110,4 @@
 | 2026-08-19 | motion | [JTC 首点一致性启用时关闭 topic 命令旁路](docs/areas/motion/records/2026-08-19-jtc-action-only-admission.md) | PASS（T1；完整 bringup 图待综合 mock 复验） |
 | 2026-08-19 | motion | [ELECTRI-102 rolling 控制器移植到公共接口契约](docs/areas/motion/records/2026-08-19-electri-102-rolling-controller-port.md) | PASS（T1；完整 Motion 联调门仍待后续阶段） |
 | 2026-08-19 | motion | [ELECTRI-102 rolling 前缀与 horizon 正确性闭环](docs/areas/motion/records/2026-08-19-electri-102-rolling-correctness.md) | PASS（T1；性能优化与综合 mock 仍待后续阶段） |
+| 2026-08-19 | motion | [ELECTRI-102 删除 rolling 重复 segment 校验](docs/areas/motion/records/2026-08-19-electri-102-single-pass-validation.md) | PASS（T2；增量后缀校验另行闭环） |

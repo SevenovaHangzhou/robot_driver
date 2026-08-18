@@ -603,17 +603,6 @@ RejectCode RollingBuffer::validateCandidate(const TrajectoryImage & candidate) c
     if (direct.code != RejectCode::kNone) {
       return direct.code;
     }
-  }
-
-  for (std::size_t index = 0U; index + 1U < candidate.point_count; ++index) {
-    if (isSplicePair(candidate, index)) {
-      continue;
-    }
-    const SegmentCheckResult direct =
-      limit_checker_.checkSegment(candidate.points[index], candidate.points[index + 1U], extrema);
-    if (direct.code != RejectCode::kNone) {
-      return direct.code;
-    }
     StoppingEnvelope stopping_envelope;
     const SegmentCheckResult stopping =
       limit_checker_.checkStoppingViability(extrema, stopping_envelope);

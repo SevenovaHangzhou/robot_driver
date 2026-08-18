@@ -23,9 +23,12 @@ launch 结构与容器（→ release-deploy）。
 | 03#F2 | accepted candidate 在 [E,R) 与 authoritative head 采样等价 | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F2 | 有效（T1） |
 | 03#F3 | capacity 不累计 session 历史 | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F3 | 有效（T1） |
 | 03#F4 | max_horizon 是 admission gate，不是只读 capability | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F4 | 有效（T1） |
+| 04#F1 | 全量 validator 每个连续段只做一次 direct check | [motion-20260819-04](records/2026-08-19-electri-102-single-pass-validation.md)#F1 | 有效（T2） |
+| 04#F2 | 删除重复循环不改变首个 RejectCode | [motion-20260819-04](records/2026-08-19-electri-102-single-pass-validation.md)#F2 | 有效（T2） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 删除 rolling 重复 segment 校验](records/2026-08-19-electri-102-single-pass-validation.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 rolling 前缀与 horizon 正确性闭环](records/2026-08-19-electri-102-rolling-correctness.md) — fix，PASS（T1）
 - 2026-08-19 [ELECTRI-102 rolling 控制器移植到公共接口契约](records/2026-08-19-electri-102-rolling-controller-port.md) — feat，PASS（T1）
 - 2026-08-19 [JTC 首点一致性启用时关闭 topic 命令旁路](records/2026-08-19-jtc-action-only-admission.md) — fix，PASS（T1）
