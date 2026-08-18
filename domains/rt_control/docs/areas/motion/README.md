@@ -12,10 +12,13 @@ launch 结构与容器（→ release-deploy）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | 首点一致性准入启用时，whole_body_jtc 只接受 FJT action | [motion-20260819-01](records/2026-08-19-jtc-action-only-admission.md)#F1 | 有效（T1） |
+| 01#F2 | 一致性准入关闭时保留上游 JTC topic 行为 | [motion-20260819-01](records/2026-08-19-jtc-action-only-admission.md)#F2 | 有效（T1） |
+| 01#F3 | topic 存在性与准入开关绑定，不增设独立配置位 | [motion-20260819-01](records/2026-08-19-jtc-action-only-admission.md)#F3 | 有效（T1） |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-08-19 [JTC 首点一致性启用时关闭 topic 命令旁路](records/2026-08-19-jtc-action-only-admission.md) — fix，PASS（T1）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 
