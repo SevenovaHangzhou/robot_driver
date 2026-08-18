@@ -15,7 +15,8 @@ enum class LimitsSource : std::uint8_t
 {
   kUnspecified = 0U,
   kProduction = 1U,
-  kTestOnly = 2U
+  kTestOnly = 2U,
+  kProvisional = 3U
 };
 
 struct AxisEnvelope
@@ -61,7 +62,8 @@ class LimitChecker
 {
 public:
   bool configure(
-    const DynamicEnvelope & envelope, bool allow_test_only_limits) noexcept;
+    const DynamicEnvelope & envelope, bool allow_test_only_limits,
+    bool allow_provisional_limits = false) noexcept;
   [[nodiscard]] bool configured() const noexcept;
   [[nodiscard]] const DynamicEnvelope & envelope() const noexcept;
 

@@ -48,15 +48,20 @@ bool validAxisEnvelope(const AxisEnvelope & axis) noexcept
 }
 
 bool validEnvelope(
-  const DynamicEnvelope & envelope, bool allow_test_only_limits) noexcept
+  const DynamicEnvelope & envelope, bool allow_test_only_limits,
+  bool allow_provisional_limits) noexcept
 {
   if (
     envelope.source != LimitsSource::kProduction &&
-    envelope.source != LimitsSource::kTestOnly)
+    envelope.source != LimitsSource::kTestOnly &&
+    envelope.source != LimitsSource::kProvisional)
   {
     return false;
   }
   if (envelope.source == LimitsSource::kTestOnly && !allow_test_only_limits) {
+    return false;
+  }
+  if (envelope.source == LimitsSource::kProvisional && !allow_provisional_limits) {
     return false;
   }
   if (!hasVersion(envelope.limits_version)) {
@@ -69,10 +74,11 @@ bool validEnvelope(
 }  // namespace
 
 bool LimitChecker::configure(
-  const DynamicEnvelope & envelope, bool allow_test_only_limits) noexcept
+  const DynamicEnvelope & envelope, bool allow_test_only_limits,
+  bool allow_provisional_limits) noexcept
 {
   configured_ = false;
-  if (!validEnvelope(envelope, allow_test_only_limits)) {
+  if (!validEnvelope(envelope, allow_test_only_limits, allow_provisional_limits)) {
     return false;
   }
   envelope_ = envelope;

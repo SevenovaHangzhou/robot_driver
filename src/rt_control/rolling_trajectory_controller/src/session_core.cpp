@@ -39,12 +39,14 @@ bool durationToNanoseconds(double duration_seconds, std::uint64_t & duration_ns)
 }  // namespace
 
 bool StopTrajectory::configure(
-  const DynamicEnvelope & envelope, bool allow_test_only_limits) noexcept
+  const DynamicEnvelope & envelope, bool allow_test_only_limits,
+  bool allow_provisional_limits) noexcept
 {
   if (state_ != StopTrajectoryState::kIdle) {
     return false;
   }
-  return limit_checker_.configure(envelope, allow_test_only_limits);
+  return limit_checker_.configure(
+    envelope, allow_test_only_limits, allow_provisional_limits);
 }
 
 bool StopTrajectory::begin(const JointPoint & desired) noexcept

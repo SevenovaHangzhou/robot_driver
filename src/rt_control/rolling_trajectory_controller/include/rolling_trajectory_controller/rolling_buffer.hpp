@@ -70,7 +70,8 @@ public:
   bool configure(std::size_t capacity) noexcept;
   bool configure(const BufferConfiguration & configuration) noexcept;
   bool configureLimits(
-    const DynamicEnvelope & envelope, bool allow_test_only_limits) noexcept;
+    const DynamicEnvelope & envelope, bool allow_test_only_limits,
+    bool allow_provisional_limits = false) noexcept;
 
   [[nodiscard]] bool configured() const noexcept;
   [[nodiscard]] std::size_t capacity() const noexcept;

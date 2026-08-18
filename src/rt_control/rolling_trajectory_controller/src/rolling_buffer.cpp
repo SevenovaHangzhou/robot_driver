@@ -113,12 +113,14 @@ bool RollingBuffer::configure(const BufferConfiguration & configuration) noexcep
 }
 
 bool RollingBuffer::configureLimits(
-  const DynamicEnvelope & envelope, bool allow_test_only_limits) noexcept
+  const DynamicEnvelope & envelope, bool allow_test_only_limits,
+  bool allow_provisional_limits) noexcept
 {
   if (!configured_ || session_state_ != SessionState::kNone) {
     return false;
   }
-  return limit_checker_.configure(envelope, allow_test_only_limits);
+  return limit_checker_.configure(
+    envelope, allow_test_only_limits, allow_provisional_limits);
 }
 
 bool RollingBuffer::configured() const noexcept

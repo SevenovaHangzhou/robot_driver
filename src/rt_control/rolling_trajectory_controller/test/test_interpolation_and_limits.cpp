@@ -69,6 +69,25 @@ TEST(DynamicEnvelope, TestOnlyLimitsRequireExplicitOptInAndVersion)
   EXPECT_FALSE(invalid_bounds_checker.configure(envelope, true));
 }
 
+TEST(DynamicEnvelope, ProvisionalAndTestOnlyAuthoritiesAreIndependent)
+{
+  DynamicEnvelope envelope = makeTestOnlyEnvelope();
+
+  LimitChecker checker;
+  EXPECT_FALSE(checker.configure(envelope, false, false));
+  EXPECT_TRUE(checker.configure(envelope, true, false));
+
+  envelope.source = LimitsSource::kProvisional;
+  LimitChecker provisional_checker;
+  EXPECT_FALSE(provisional_checker.configure(envelope, false, false));
+  EXPECT_FALSE(provisional_checker.configure(envelope, true, false));
+  EXPECT_TRUE(provisional_checker.configure(envelope, false, true));
+
+  envelope.source = LimitsSource::kProduction;
+  LimitChecker production_checker;
+  EXPECT_TRUE(production_checker.configure(envelope, false, false));
+}
+
 TEST(CubicHermite, ConstantPositionHasOnlyEndpointExtrema)
 {
   CubicHermite segment;

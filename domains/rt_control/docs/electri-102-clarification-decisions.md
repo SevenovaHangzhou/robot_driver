@@ -872,6 +872,40 @@ sequence/request。
 500～600 ms horizon 和 snapshot publication floor 仍按原顺序校验。Motion 因而可在 open
 response 后立即发送 Prime，不需要猜 RT 周期相位。
 
+### E102-D34 — provisional 与 test-only 的授权关系
+
+**问题**：两类非 production 包络是否共用一个“允许非生产限值”开关？
+
+- **【备选 A】** 共用一个开关。配置简单，但打开 mock 的 `test_only` 权限会顺带允许真实硬件
+  使用 provisional，反向也一样，授权范围被意外扩大。
+- **【备选 B】** 仅靠 YAML 的 `limits_source` 字符串区分，不设独立授权。能识别来源，却无法
+  表达部署者是否明确接受相应风险。
+- **【推荐／最终采用 C】** `allow_test_only_limits` 与 `allow_provisional_limits` 两个独立授权位；
+  production 无需 opt-in，test-only 只接受前者，provisional 只接受后者，两个开关不得互相
+  绕过。来源枚举固定为 `0 unspecified / 1 production / 2 test_only / 3 provisional`，与公共
+  `RollingLimitsSource` 一致。
+
+**影响**：mock fixture 继续显式打开 test-only；真实硬件上的本期估计包络必须显式打开
+provisional，并持续通过 public state 暴露来源。后续生产包络不能借 provisional 开关跳过
+版本和字段完整性检查。
+
+### E102-D35 — buffer capacity 64 是否过度保守
+
+**问题**：Motion 每 100 ms 一个 knot 时，内部容量是否应从 64 缩到接近常态 6～8 点？
+
+- **【备选 A】** 缩到 8。内存最小，但边界替换、调试批次和未来更密 knot 很容易触顶，且
+  传输 ceiling 仍是 256，并没有减少协议复杂度。
+- **【备选 B】** 使用 256。与 wire ceiling 一致，但三个 snapshot slot 常驻和 RT copy 上界
+  都明显变大，没有当前需求收益。
+- **【推荐／最终采用 C】** 保留 64。capacity 是“最多保存多少端点”，不是速度、限幅或必须
+  填满的批量；600 ms `max_horizon` 才限制未来时间窗口，因此当前 100 ms knot 常态只有约
+  6～8 个有效点。64 提供协议和测试余量，而有效点复制已经保证 RT 每拍只复制
+  `point_count`，不会固定搬运 64 点。
+
+**影响**：64 点最坏有效 snapshot copy 为 14,936 bytes；当前正常批次更小。若后续实测发现
+缓存压力，优先用 YAML 下调 capacity，不修改 256 点 wire ceiling，也不改变 Motion 100 ms
+knot 语义。
+
 ### 6.2 实施顺序裁决
 
 为了避免在错误数据结构上做性能优化，后续原子提交按以下因果顺序推进：

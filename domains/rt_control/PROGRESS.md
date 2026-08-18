@@ -114,3 +114,4 @@
 | 2026-08-19 | motion | [ELECTRI-102 rolling 增量后缀校验](docs/areas/motion/records/2026-08-19-electri-102-incremental-validation.md) | PASS（T2；full oracle 仅 test peer） |
 | 2026-08-19 | motion | [ELECTRI-102 snapshot 只复制有效轨迹节点](docs/areas/motion/records/2026-08-19-electri-102-effective-trajectory-copy.md) | PASS（T2；64 点有效复制 14,936 bytes） |
 | 2026-08-19 | motion | [ELECTRI-102 RT 轨迹采样改单调游标](docs/areas/motion/records/2026-08-19-electri-102-monotonic-sampler.md) | PASS（T2；64 点差分逐拍一致） |
+| 2026-08-19 | motion | [ELECTRI-102 provisional 与 test-only 限值授权隔离](docs/areas/motion/records/2026-08-19-electri-102-provisional-authority.md) | PASS（T1；YAML 来源与 public 状态在后续任务闭环） |

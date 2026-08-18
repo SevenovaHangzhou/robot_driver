@@ -34,9 +34,13 @@ launch 结构与容器（→ release-deploy）。
 | 07#F1 | 250 Hz Running 采样使用 generation-aware 单调 cursor | [motion-20260819-07](records/2026-08-19-electri-102-monotonic-sampler.md)#F1 | 有效（T2） |
 | 07#F2 | 非 RT reference sampler 保留为差分 oracle | [motion-20260819-07](records/2026-08-19-electri-102-monotonic-sampler.md)#F2 | 有效（T2） |
 | 07#F3 | splice 在 t=R 选择 right state | [motion-20260819-07](records/2026-08-19-electri-102-monotonic-sampler.md)#F3 | 有效（T2） |
+| 08#F1 | provisional 与 test-only 使用独立授权位 | [motion-20260819-08](records/2026-08-19-electri-102-provisional-authority.md)#F1 | 有效（T1） |
+| 08#F2 | public/local limits-source 枚举固定一致，provisional=3 | [motion-20260819-08](records/2026-08-19-electri-102-provisional-authority.md)#F2 | 有效（T1） |
+| 08#F3 | 非生产来源 opt-in 不绕过版本与字段校验 | [motion-20260819-08](records/2026-08-19-electri-102-provisional-authority.md)#F3 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 provisional 与 test-only 限值授权隔离](records/2026-08-19-electri-102-provisional-authority.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 RT 轨迹采样改单调游标](records/2026-08-19-electri-102-monotonic-sampler.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 snapshot 只复制有效轨迹节点](records/2026-08-19-electri-102-effective-trajectory-copy.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 rolling 增量后缀校验](records/2026-08-19-electri-102-incremental-validation.md) — perf，PASS（T2）
