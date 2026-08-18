@@ -311,6 +311,7 @@ RejectCode RollingBuffer::prepare(
 
   TrajectoryImage & candidate = submission.candidate;
   candidate.generation = head.generation + 1U;
+  std::size_t first_validated_segment_index = 0U;
   if (head.point_count == 0U) {
     if (batch.replace_from_ns != 0U || batch.points[0].time_ns != 0U) {
       return RejectCode::kTimeGap;
@@ -378,6 +379,7 @@ RejectCode RollingBuffer::prepare(
     candidate.points[prefix_count] = splice;
     replacement_splice.role = TrajectoryPointRole::kSpliceRight;
     candidate.points[prefix_count + 1U] = replacement_splice;
+    first_validated_segment_index = prefix_count + 1U;
     for (std::size_t index = 1U; index < batch.point_count; ++index) {
       copyPoint(batch.points[index], candidate.points[prefix_count + index + 1U]);
     }
@@ -400,7 +402,9 @@ RejectCode RollingBuffer::prepare(
     return horizon_validation;
   }
 
-  const RejectCode candidate_validation = validateCandidate(candidate);
+  submission.first_validated_segment_index = first_validated_segment_index;
+  const RejectCode candidate_validation = validateCandidate(
+    candidate, first_validated_segment_index, submission.validated_segment_count);
   if (candidate_validation != RejectCode::kNone) {
     return candidate_validation;
   }
@@ -588,16 +592,26 @@ void RollingBuffer::clearSessionData() noexcept
   last_accepted_sequence_ = 0U;
 }
 
-RejectCode RollingBuffer::validateCandidate(const TrajectoryImage & candidate) const noexcept
+RejectCode RollingBuffer::validateCandidate(
+  const TrajectoryImage & candidate, std::size_t first_segment_index,
+  std::size_t & validated_segment_count) const noexcept
 {
+  validated_segment_count = 0U;
   if (!trajectoryImageStructureIsValid(candidate)) {
     return RejectCode::kNonMonotonicTime;
   }
+  if (first_segment_index >= candidate.point_count - 1U) {
+    return RejectCode::kInvalidShape;
+  }
   SegmentExtrema extrema;
-  for (std::size_t index = 0U; index + 1U < candidate.point_count; ++index) {
+  for (
+    std::size_t index = first_segment_index;
+    index + 1U < candidate.point_count; ++index)
+  {
     if (isSplicePair(candidate, index)) {
       continue;
     }
+    ++validated_segment_count;
     const SegmentCheckResult direct =
       limit_checker_.checkSegment(candidate.points[index], candidate.points[index + 1U], extrema);
     if (direct.code != RejectCode::kNone) {

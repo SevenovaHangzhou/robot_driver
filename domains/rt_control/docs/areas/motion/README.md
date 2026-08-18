@@ -25,9 +25,13 @@ launch 结构与容器（→ release-deploy）。
 | 03#F4 | max_horizon 是 admission gate，不是只读 capability | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F4 | 有效（T1） |
 | 04#F1 | 全量 validator 每个连续段只做一次 direct check | [motion-20260819-04](records/2026-08-19-electri-102-single-pass-validation.md)#F1 | 有效（T2） |
 | 04#F2 | 删除重复循环不改变首个 RejectCode | [motion-20260819-04](records/2026-08-19-electri-102-single-pass-validation.md)#F2 | 有效（T2） |
+| 05#F1 | Prime 全量校验，普通 replacement 只校验新 suffix | [motion-20260819-05](records/2026-08-19-electri-102-incremental-validation.md)#F1 | 有效（T2） |
+| 05#F2 | checker 引入跨段状态时增量证明立即失效 | [motion-20260819-05](records/2026-08-19-electri-102-incremental-validation.md)#F2 | 有效（T2） |
+| 05#F3 | production 不执行增量后再全量 | [motion-20260819-05](records/2026-08-19-electri-102-incremental-validation.md)#F3 | 有效（T2） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 rolling 增量后缀校验](records/2026-08-19-electri-102-incremental-validation.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 删除 rolling 重复 segment 校验](records/2026-08-19-electri-102-single-pass-validation.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 rolling 前缀与 horizon 正确性闭环](records/2026-08-19-electri-102-rolling-correctness.md) — fix，PASS（T1）
 - 2026-08-19 [ELECTRI-102 rolling 控制器移植到公共接口契约](records/2026-08-19-electri-102-rolling-controller-port.md) — feat，PASS（T1）

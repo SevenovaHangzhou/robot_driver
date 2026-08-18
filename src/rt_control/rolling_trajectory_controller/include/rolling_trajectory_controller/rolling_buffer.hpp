@@ -11,6 +11,8 @@
 namespace rolling_trajectory_controller
 {
 
+class RollingBufferValidationTestPeer;
+
 bool sampleTrajectoryImage(
   const TrajectoryImage & image, std::uint64_t time_ns, JointPoint & point) noexcept;
 bool sampleTrajectoryLeftLimit(
@@ -39,6 +41,8 @@ struct PreparedSubmission
   SessionIdentity identity{};
   std::uint64_t validation_base_generation{0U};
   std::uint64_t sequence{0U};
+  std::size_t first_validated_segment_index{0U};
+  std::size_t validated_segment_count{0U};
   bool valid{false};
 };
 
@@ -82,9 +86,13 @@ public:
   bool sampleValidationHead(std::uint64_t time_ns, JointPoint & point) const noexcept;
 
 private:
+  friend class RollingBufferValidationTestPeer;
+
   RejectCode validateInput(const PointView * points, std::size_t point_count) const noexcept;
   void copyPoint(const PointView & input, JointPoint & output) const noexcept;
-  RejectCode validateCandidate(const TrajectoryImage & candidate) const noexcept;
+  RejectCode validateCandidate(
+    const TrajectoryImage & candidate, std::size_t first_segment_index,
+    std::size_t & validated_segment_count) const noexcept;
   RejectCode validateHorizon(
     const TrajectoryImage & candidate, const AdmissionContext & context,
     bool priming) const noexcept;

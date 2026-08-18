@@ -9,6 +9,19 @@
 
 namespace rolling_trajectory_controller
 {
+
+class RollingBufferValidationTestPeer
+{
+public:
+  static RejectCode validate(
+    const RollingBuffer & buffer, const TrajectoryImage & image,
+    std::size_t first_segment_index, std::size_t & validated_segment_count)
+  {
+    return buffer.validateCandidate(
+      image, first_segment_index, validated_segment_count);
+  }
+};
+
 namespace
 {
 
@@ -346,6 +359,59 @@ TEST(RollingCorrectness, MaxAndMinimumHorizonUseCoherentExecutionTime)
         identity, 4U, replace_from_ns, suffix_views.data(), suffix_views.size()),
       AdmissionContext{execution_ns, replace_from_ns, 200U * kMillisecondNs}),
     RejectCode::kInsufficientHorizon);
+}
+
+TEST(RollingCorrectness, IncrementalValidationChecksOnlyTheChangedSuffix)
+{
+  RollingBuffer buffer;
+  configureBuffer(buffer);
+  const SessionIdentity identity = makeIdentity();
+  ASSERT_TRUE(buffer.beginSession(identity, makePoint(0U).jointPoint()));
+  const auto prime = makePrime();
+  const auto prime_views = makeViews(prime);
+  ASSERT_EQ(
+    buffer.submit(makeBatch(identity, 1U, 0U, prime_views.data(), prime_views.size())),
+    RejectCode::kNone);
+  ASSERT_TRUE(buffer.activatePending());
+
+  constexpr std::uint64_t replace_from_ns = 400U * kMillisecondNs;
+  JointPoint left;
+  ASSERT_TRUE(sampleTrajectoryLeftLimit(buffer.image(), replace_from_ns, left));
+  std::array<OwnedPoint, 2U> suffix = {
+    makePoint(replace_from_ns), makePoint(550U * kMillisecondNs, 0.55)};
+  suffix[0].positions = left.positions;
+  suffix[0].velocities = left.velocities;
+  const auto suffix_views = makeViews(suffix);
+
+  PreparedSubmission prepared;
+  ASSERT_EQ(
+    buffer.prepare(
+      makeBatch(
+        identity, 2U, replace_from_ns, suffix_views.data(), suffix_views.size()),
+      AdmissionContext{0U, 16U * kMillisecondNs, 0U}, prepared),
+    RejectCode::kNone);
+  EXPECT_EQ(prepared.validated_segment_count, suffix.size() - 1U);
+  EXPECT_EQ(prepared.first_validated_segment_index, 5U);
+
+  std::size_t full_count = 0U;
+  EXPECT_EQ(
+    RollingBufferValidationTestPeer::validate(
+      buffer, prepared.candidate, 0U, full_count),
+    RejectCode::kNone);
+  EXPECT_GT(full_count, prepared.validated_segment_count);
+
+  TrajectoryImage invalid = prepared.candidate;
+  invalid.points[invalid.point_count - 1U].positions[0] = 1'000.0;
+  std::size_t incremental_invalid_count = 0U;
+  std::size_t full_invalid_count = 0U;
+  const RejectCode incremental = RollingBufferValidationTestPeer::validate(
+    buffer, invalid, prepared.first_validated_segment_index,
+    incremental_invalid_count);
+  const RejectCode full = RollingBufferValidationTestPeer::validate(
+    buffer, invalid, 0U, full_invalid_count);
+  EXPECT_EQ(incremental, RejectCode::kPositionLimit);
+  EXPECT_EQ(full, incremental);
+  EXPECT_LT(incremental_invalid_count, full_invalid_count);
 }
 
 }  // namespace
