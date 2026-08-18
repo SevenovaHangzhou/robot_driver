@@ -28,9 +28,13 @@
 | 05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
 | 05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
 | 05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
+| 06#F1 | ELECTRI-102 rolling 五端点是 Motion/RT-Control 公共接口，不进入 driver 私有包 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F1 | 有效（T0） |
+| 06#F2 | M-09 batch/point 归 Motion 包，其余 rolling 类型归 RT 包，QoS 归共享包 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F2 | 有效（T0） |
+| 06#F3 | rolling 接口 PR 等完整 mock/fake 软件门，不以 IDL build 单独放行 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F3 | 有效（T0） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 rolling 公共接口所有权裁决](records/2026-08-19-electri-102-public-interface-ownership.md) — decision，UNVERIFIED（T0；接口 PR 等完整 mock/fake 门）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）
 - 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）
 - 2026-08-16 [BQ-137 跨域错误与 readiness 语义裁决落地](records/2026-08-16-bq137-shared-error-readiness.md) — decision，PASS（T1；发布待 PR #6 最终 SHA 与全域迁移）

@@ -11,8 +11,10 @@
 
 ## 1. 控制边界
 
-- Rolling 五个端点是跨域公共接口，权威 schema 落在 `robot_interfaces`。在
-  `robot_driver` 功能可供 Motion 测试前，不提交接口仓库 PR。
+- Rolling 五个端点是跨域公共接口，权威 schema 落在 `robot_interfaces`，并按 endpoint
+  提供方归档：Motion 发布的 update batch/point 属 Motion 包，RT-Control 提供的三个
+  service 与 state 属 RT-Control 包。在 `robot_driver` 功能可供 Motion 测试前，不提交
+  接口仓库 PR。
 - Rolling 始终接收固定顺序的完整 14 轴：
   `right_joint1..6,left_joint1..6,turn,updown`。
 - RT-Control 不增加 `controlled_arm` 或 Turn/Updown 业务使能字段；当前实际移动哪些轴由
@@ -253,15 +255,21 @@ enable_manager 模式协调和互斥验证。普通 FJT 的行为与补丁边界
   会反向依赖 RT 域私有包，违反现有契约边界。
 - **【备选 B】** 立即向 robot_interfaces 提 PR 并合并，再写 driver。这样发布顺序简单，
   但未经过可执行 producer/consumer 验证的 schema 会过早成为公共事实。
-- **【推荐／最终采用 C】** 类型直接开发在 robot_interfaces 的
-  robot_rt_control_interfaces，QoS 开发在 robot_interfaces_qos；先使用基于
+- **【推荐／最终采用 C】** 类型直接开发在 robot_interfaces，并按 endpoint 提供方拆分：
+  `RollingJointTargetBatch`／`RollingJointPoint` 属 `robot_motion_interfaces`；
+  `SetJointControlMode`／`OpenRollingJointSession`／`CloseRollingJointSession`／
+  `RollingJointControlState` 及其成员类型属 `robot_rt_control_interfaces`；QoS 属
+  `robot_interfaces_qos`。先使用基于
   f699f45972ad15bbbbbb3da1a4894faf209144c9 的功能分支和多仓 overlay 构建，不在
   robot_driver 复制公共 IDL。robot_driver 达到 Motion 可测试门后，才提出接口 PR、
   正式确定 0.8.0 发布并回填最终 merge SHA。
 
 **影响**：功能阶段可以推送接口功能分支以获得可复现 SHA，但“推送功能分支”不等于提交
 PR 或发布合同。driver 的 source-lock 和 deps.repos 只在公共接口合并后锁最终 main SHA；
-正式发布前不允许四域混用不同 schema。
+正式发布前不允许四域混用不同 schema。该拆分不引入 schema 循环：Motion batch 不引用
+RT 类型，RT service/state 也不引用 Motion 类型；两域实现节点可以同时依赖两个公共包。
+本裁决在接口落地时依据 `contract/endpoints.yaml` 的 producer 所有权门禁作了上述精化，
+不是把 update 改成 RT-Control 发布。
 
 ### E102-D03 — 轴集合与“一次一臂”的归属
 
@@ -567,8 +575,10 @@ service QoS。
 
 **schema 约束**：
 
-- 包为 robot_rt_control_interfaces；新增 endpoint 建议登记为 R-IN-06 set_mode、
-  R-IN-07 open、R-IN-08 update、R-IN-09 close、R-OUT-07 state。
+- provider-owned 包与 endpoint ID 固定为：R-IN-06 set_mode、R-IN-07 open、R-IN-09 close、
+  R-OUT-07 state 使用 `robot_rt_control_interfaces`；M-09 update 使用
+  `robot_motion_interfaces`。R-IN-08 暂不分配：update 的 provider 是 Motion，不能为了编号
+  连续把它伪装成 RT-Control endpoint；稳定 ID 不要求连续。
 - point 的 positions／velocities 均为 float64[14]；batch points 为有界 sequence，ceiling 256。
 - UUID 使用 unique_identifier_msgs/UUID；axis hash 固定 32 byte，已核验 digest 为
   25c6e82bf505ca9eb99db1c645ab75d7ecde0153faaf6a7492c6210c4d362526。
