@@ -210,6 +210,8 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
       &EnableManagerController::handleSetMode, this, std::placeholders::_1,
       std::placeholders::_2),
     rmw_qos_profile_services_default, mode_callback_group_);
+  mode_result_publisher_ = get_node()->create_publisher<ModeResultMessage>(
+    "/rt/internal/joint_control/mode_result", robot_interfaces_qos::state());
   rclcpp::SubscriptionOptions source_subscription_options;
   source_subscription_options.callback_group = worker_callback_group_;
   jtc_state_subscription_ =
@@ -245,6 +247,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
   mode_cache_.fill(ModeCacheEntry{});
   next_mode_cache_slot_ = 0U;
+  mode_result_sequence_.store(0U, std::memory_order_release);
   {
     std::lock_guard<std::mutex> lock(command_snapshot_mutex_);
     jtc_command_snapshot_ = CommandSnapshot{};
@@ -1168,6 +1171,7 @@ void EnableManagerController::handleSetMode(
       *response, *request, ServiceResult::NOT_READY,
       current_control_mode_.load(std::memory_order_acquire), false, false,
       restart_required_.load(std::memory_order_acquire));
+    publishModeResult(*response);
     return;
   }
   const auto release_callback = [this]() {
@@ -1185,6 +1189,7 @@ void EnableManagerController::handleSetMode(
         entry.request = *request;
         entry.response = *response;
       }
+      publishModeResult(*response);
       release_callback();
     };
 
@@ -1202,6 +1207,7 @@ void EnableManagerController::handleSetMode(
           *response, *request, ServiceResult::WRONG_REQUEST,
           current_control_mode_.load(std::memory_order_acquire), false, false,
           restart_required_.load(std::memory_order_acquire));
+        publishModeResult(*response);
       }
       release_callback();
       return;
@@ -2271,6 +2277,25 @@ void EnableManagerController::populateModeError(
   error.message = code == ErrorCode::SUCCESS ?
     "mode request accepted" : "mode request rejected";
   error.detail = "rolling_service_result=" + std::to_string(result);
+}
+
+void EnableManagerController::publishModeResult(const ModeService::Response & response)
+{
+  if (mode_result_publisher_ == nullptr || isZeroIdentifier(response.request_id.uuid)) {
+    return;
+  }
+  ModeResultMessage event;
+  event.protocol_major = ModeResultMessage::PROTOCOL_MAJOR;
+  event.protocol_minor = ModeResultMessage::PROTOCOL_MINOR;
+  event.sequence = mode_result_sequence_.fetch_add(1U, std::memory_order_acq_rel) + 1U;
+  event.request_id = response.request_id;
+  event.result = response.result;
+  event.mode = response.mode;
+  event.controller_boot_id = response.controller_boot_id;
+  event.source_controller_deactivated = response.source_controller_deactivated;
+  event.target_controller_activated = response.target_controller_activated;
+  event.restart_required = response.restart_required;
+  mode_result_publisher_->publish(event);
 }
 
 EnableManagerController::DriveState EnableManagerController::decodeState(

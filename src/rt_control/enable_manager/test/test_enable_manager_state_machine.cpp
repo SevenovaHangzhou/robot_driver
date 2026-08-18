@@ -33,8 +33,11 @@
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/executors/multi_threaded_executor.hpp"
+#include "rclcpp/executors/single_threaded_executor.hpp"
+#include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
+#include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 
 namespace enable_manager
@@ -240,6 +243,7 @@ using ModeSwitchState = Access::ModeSwitchState;
 using RtEnable = rt_control_interfaces::srv::RtEnable;
 using ModeService = robot_rt_control_interfaces::srv::SetJointControlMode;
 using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
+using ModeResult = rt_control_interfaces::msg::JointControlModeResult;
 
 // CiA402 status words that decodeState() maps to each DriveState.
 constexpr std::uint16_t kSwNotReady = 0x0000U;
@@ -804,6 +808,23 @@ TEST_F(EnableManagerFixture, StableAndTakeoverGatesUseIndependentPerAxisThreshol
 TEST_F(EnableManagerFixture, ModeServiceIsIdempotentAndFailsBeforeSwitchAdmission)
 {
   bringUpToIdle();
+  auto observer = std::make_shared<rclcpp::Node>("mode_result_observer");
+  std::vector<ModeResult> mode_results;
+  auto mode_result_subscription = observer->create_subscription<ModeResult>(
+    "/rt/internal/joint_control/mode_result", robot_interfaces_qos::state(),
+    [&mode_results](ModeResult::SharedPtr result) {
+      mode_results.push_back(*result);
+    });
+  const auto discovery_deadline =
+    std::chrono::steady_clock::now() + std::chrono::seconds(1);
+  while (
+    mode_result_subscription->get_publisher_count() == 0U &&
+    std::chrono::steady_clock::now() < discovery_deadline)
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  ASSERT_EQ(mode_result_subscription->get_publisher_count(), 1U);
+
   auto request = std::make_shared<ModeService::Request>();
   request->protocol_major = 1U;
   request->protocol_minor = 0U;
@@ -820,12 +841,29 @@ TEST_F(EnableManagerFixture, ModeServiceIsIdempotentAndFailsBeforeSwitchAdmissio
   EXPECT_EQ(first->result.value, ServiceResult::NOT_ENABLED);
   EXPECT_TRUE(first->error.retryable);
   EXPECT_EQ(first->request_id.uuid, request->request_id.uuid);
+  rclcpp::executors::SingleThreadedExecutor observer_executor;
+  observer_executor.add_node(observer);
+  const auto result_deadline =
+    std::chrono::steady_clock::now() + std::chrono::seconds(1);
+  while (mode_results.empty() && std::chrono::steady_clock::now() < result_deadline) {
+    observer_executor.spin_some();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  ASSERT_EQ(mode_results.size(), 1U);
+  EXPECT_EQ(mode_results[0].sequence, 1U);
+  EXPECT_EQ(mode_results[0].request_id, request->request_id);
+  EXPECT_EQ(mode_results[0].result.value, ServiceResult::NOT_ENABLED);
+  EXPECT_EQ(
+    mode_results[0].mode.value,
+    robot_rt_control_interfaces::msg::JointControlMode::DISABLED);
 
   auto replay = std::make_shared<ModeService::Response>();
   Access::handleSetMode(*controller_, request, replay);
   EXPECT_EQ(replay->result.value, first->result.value);
   EXPECT_EQ(replay->error.code, first->error.code);
   EXPECT_EQ(replay->request_id.uuid, first->request_id.uuid);
+  observer_executor.spin_some();
+  EXPECT_EQ(mode_results.size(), 1U);
 
   auto conflicting_request = std::make_shared<ModeService::Request>(*request);
   conflicting_request->protocol_minor = 1U;

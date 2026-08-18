@@ -12,6 +12,7 @@ find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_motion_interfaces REQUIRED)
 find_package(robot_rt_control_interfaces REQUIRED)
 find_package(robot_system_interfaces REQUIRED)
+find_package(rt_control_interfaces REQUIRED)
 find_package(yaml_cpp_vendor REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
@@ -59,6 +60,7 @@ ament_target_dependencies(
   robot_motion_interfaces
   robot_rt_control_interfaces
   robot_system_interfaces
+  rt_control_interfaces
   yaml_cpp_vendor
 )
 
@@ -301,6 +303,7 @@ ament_export_dependencies(
   robot_motion_interfaces
   robot_rt_control_interfaces
   robot_system_interfaces
+  rt_control_interfaces
 )
 
 ament_package()

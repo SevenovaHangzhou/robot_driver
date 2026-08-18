@@ -23,6 +23,7 @@
 #include "rclcpp/executors/multi_threaded_executor.hpp"
 #include "rclcpp/executors/single_threaded_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_joint_control_state.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_reject_code.hpp"
@@ -46,6 +47,7 @@ public:
   using Close = robot_rt_control_interfaces::srv::CloseRollingJointSession;
   using Open = robot_rt_control_interfaces::srv::OpenRollingJointSession;
   using State = robot_rt_control_interfaces::msg::RollingJointControlState;
+  using ModeResult = rt_control_interfaces::msg::JointControlModeResult;
 
   static Identifier bootId(RollingTrajectoryController & controller)
   {
@@ -86,6 +88,12 @@ public:
     return controller.publishPublicState();
   }
 
+  static void handleModeResult(
+    RollingTrajectoryController & controller, const ModeResult & result)
+  {
+    controller.handleModeResult(std::make_shared<ModeResult>(result));
+  }
+
   static std::string stateTopic(const RollingTrajectoryController & controller)
   {
     return controller.state_publisher_->get_topic_name();
@@ -115,6 +123,7 @@ using Batch = robot_motion_interfaces::msg::RollingJointTargetBatch;
 using Close = robot_rt_control_interfaces::srv::CloseRollingJointSession;
 using Open = robot_rt_control_interfaces::srv::OpenRollingJointSession;
 using State = robot_rt_control_interfaces::msg::RollingJointControlState;
+using ModeResult = rt_control_interfaces::msg::JointControlModeResult;
 using PublicControlMode = robot_rt_control_interfaces::msg::JointControlMode;
 using PublicRejectCode = robot_rt_control_interfaces::msg::RollingRejectCode;
 using PublicLimitsSource = robot_rt_control_interfaces::msg::RollingLimitsSource;
@@ -313,6 +322,43 @@ TEST_F(StatePublisherTest, PrimingStateExposesTheSessionAndExplicitTestConfigura
   }
 }
 
+TEST_F(StatePublisherTest, StateCarriesTheNewestValidatedModeResult)
+{
+  ASSERT_EQ(update(), controller_interface::return_type::OK);
+  ModeResult result;
+  result.protocol_major = ModeResult::PROTOCOL_MAJOR;
+  result.protocol_minor = ModeResult::PROTOCOL_MINOR;
+  result.sequence = 2U;
+  result.request_id = makeUuid(70U);
+  result.result.value = PublicServiceResult::SWITCH_REJECTED;
+  result.mode.value = PublicControlMode::ROLLING_READY;
+  result.controller_boot_id.uuid = RollingControllerStateTestPeer::bootId(*controller_);
+  result.source_controller_deactivated = false;
+  result.target_controller_activated = true;
+  result.restart_required = true;
+  RollingControllerStateTestPeer::handleModeResult(*controller_, result);
+
+  ModeResult older = result;
+  older.sequence = 1U;
+  older.request_id = makeUuid(80U);
+  older.result.value = PublicServiceResult::NONE;
+  older.restart_required = false;
+  RollingControllerStateTestPeer::handleModeResult(*controller_, older);
+  ModeResult wrong_protocol = result;
+  wrong_protocol.sequence = 3U;
+  wrong_protocol.protocol_minor = 1U;
+  wrong_protocol.request_id = makeUuid(90U);
+  RollingControllerStateTestPeer::handleModeResult(*controller_, wrong_protocol);
+
+  State state;
+  ASSERT_TRUE(RollingControllerStateTestPeer::buildState(*controller_, state));
+  EXPECT_EQ(state.last_mode_request_id, result.request_id);
+  EXPECT_EQ(state.last_mode_result.value, PublicServiceResult::SWITCH_REJECTED);
+  EXPECT_FALSE(state.source_controller_deactivated);
+  EXPECT_TRUE(state.target_controller_activated);
+  EXPECT_TRUE(state.restart_required);
+}
+
 TEST(StatePublisherProvisionalTest, PublicStateExposesProvisionalSourceAndFileHash)
 {
   if (!rclcpp::ok()) {
@@ -376,10 +422,10 @@ TEST(StatePublisherProvisionalTest, PublicStateExposesProvisionalSourceAndFileHa
   EXPECT_EQ(
     state.limits_version,
     (std::array<std::uint8_t, 32>{
-      0xe3U, 0x55U, 0xf7U, 0x29U, 0x90U, 0xa1U, 0xc7U, 0x3bU,
-      0x62U, 0xd5U, 0x91U, 0xf7U, 0x33U, 0xcdU, 0x4dU, 0x2eU,
-      0x74U, 0x3bU, 0x78U, 0x29U, 0x8fU, 0x54U, 0x1dU, 0xc0U,
-      0xe9U, 0x2cU, 0xe0U, 0xecU, 0x16U, 0xccU, 0xd0U, 0xc4U}));
+        0xe3U, 0x55U, 0xf7U, 0x29U, 0x90U, 0xa1U, 0xc7U, 0x3bU,
+        0x62U, 0xd5U, 0x91U, 0xf7U, 0x33U, 0xcdU, 0x4dU, 0x2eU,
+        0x74U, 0x3bU, 0x78U, 0x29U, 0x8fU, 0x54U, 0x1dU, 0xc0U,
+        0xe9U, 0x2cU, 0xe0U, 0xecU, 0x16U, 0xccU, 0xd0U, 0xc4U}));
   EXPECT_EQ(
     controller.on_deactivate(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::SUCCESS);

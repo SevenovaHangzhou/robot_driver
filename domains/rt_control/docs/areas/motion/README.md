@@ -44,9 +44,13 @@ launch 结构与容器（→ release-deploy）。
 | 10#F2 | provisional schema 严格完整且无隐式 fallback | [motion-20260819-10](records/2026-08-19-electri-102-provisional-envelope.md)#F2 | 有效（T1） |
 | 10#F3 | provisional authority 在 configure/activate/public state 一致 | [motion-20260819-10](records/2026-08-19-electri-102-provisional-envelope.md)#F3 | 有效（T1） |
 | 10#F4 | provisional 不替代 BQ-138 台架实测或运动授权 | [motion-20260819-10](records/2026-08-19-electri-102-provisional-envelope.md)#F4 | 有效（T1） |
+| 11#F1 | rolling state 保持唯一公共 publisher | [motion-20260819-11](records/2026-08-19-electri-102-mode-result-state.md)#F1 | 有效（T1） |
+| 11#F2 | controller 间 mode result 只经私有有序事件交接 | [motion-20260819-11](records/2026-08-19-electri-102-mode-result-state.md)#F2 | 有效（T1） |
+| 11#F3 | rolling 严格校验新事件且 deactivate 不复用旧证据 | [motion-20260819-11](records/2026-08-19-electri-102-mode-result-state.md)#F3 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 模式结果进入 rolling 公共状态](records/2026-08-19-electri-102-mode-result-state.md) — feature，PASS（T1）
 - 2026-08-19 [ELECTRI-102 14 轴 provisional 包络严格加载](records/2026-08-19-electri-102-provisional-envelope.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 rolling 运行参数 YAML 化并冻结](records/2026-08-19-electri-102-runtime-parameters.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 provisional 与 test-only 限值授权隔离](records/2026-08-19-electri-102-provisional-authority.md) — feat，PASS（T1）

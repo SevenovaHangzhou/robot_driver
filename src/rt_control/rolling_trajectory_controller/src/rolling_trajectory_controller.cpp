@@ -256,7 +256,7 @@ bool RollingTrajectoryController::loadRuntimeConfiguration(std::string & error)
   candidate.buffer_capacity = static_cast<std::size_t>(capacity);
 
   const auto read_duration = [this, &error](
-      const char * name, std::uint64_t & destination) {
+    const char * name, std::uint64_t & destination) {
       if (!millisecondsToNanoseconds(get_node()->get_parameter(name).as_int(), destination)) {
         error = std::string(name) + " must be a positive, representable integer millisecond value";
         return false;
@@ -340,7 +340,7 @@ bool RollingTrajectoryController::loadRuntimeConfiguration(std::string & error)
   }
 
   const auto read_axis_values = [this, &error](
-      const char * name, std::array<double, kAxisCount> & destination) {
+    const char * name, std::array<double, kAxisCount> & destination) {
       const std::vector<double> values = get_node()->get_parameter(name).as_double_array();
       if (values.size() != kAxisCount) {
         error = std::string(name) + " must contain exactly 14 values in protocol axis order";
@@ -494,8 +494,14 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
     "/rt/rolling_joint_control/update", robot_interfaces_qos::rolling_command(),
     std::bind(&RollingTrajectoryController::handleUpdate, this, std::placeholders::_1),
     subscription_options);
+  mode_result_subscription_ = get_node()->create_subscription<ModeResultMessage>(
+    "/rt/internal/joint_control/mode_result", robot_interfaces_qos::state(),
+    std::bind(&RollingTrajectoryController::handleModeResult, this, std::placeholders::_1),
+    subscription_options);
 
   hold_positions_.fill(0.0);
+  last_mode_result_ = ModeResultMessage{};
+  last_mode_result_sequence_ = 0U;
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     observed_position_bits_[axis].store(encodeDouble(0.0), std::memory_order_relaxed);
     desired_position_bits_[axis].store(encodeDouble(0.0), std::memory_order_relaxed);
@@ -666,6 +672,8 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_deactivate(
     open_cache_ = OpenCacheEntry{};
     clearActiveCloseCache();
     finalize_cache_ = CloseCacheEntry{};
+    last_mode_result_ = ModeResultMessage{};
+    last_mode_result_sequence_ = 0U;
     stop_requested_.store(false, std::memory_order_release);
     stop_reason_.store(
       static_cast<std::uint8_t>(StopReason::kControllerDeactivated),
@@ -1192,12 +1200,18 @@ bool RollingTrajectoryController::buildPublicState(StateMessage & state)
   state.desired_velocities = view.desired.velocities;
   state.last_reject.value = static_cast<std::uint8_t>(last_reject_code_);
   state.stop_reason.value = static_cast<std::uint8_t>(view.stop_reason);
-  state.last_mode_request_id.uuid.fill(0U);
-  state.last_mode_result.value = ServiceResultMessage::NONE;
-  state.source_controller_deactivated =
-    view.stop_reason == StopReason::kControllerDeactivated;
-  state.target_controller_activated = false;
-  state.restart_required = false;
+  if (last_mode_result_sequence_ != 0U) {
+    state.last_mode_request_id = last_mode_result_.request_id;
+    state.last_mode_result = last_mode_result_.result;
+    state.source_controller_deactivated =
+      last_mode_result_.source_controller_deactivated;
+    state.target_controller_activated = last_mode_result_.target_controller_activated;
+    state.restart_required = last_mode_result_.restart_required;
+  } else {
+    state.last_mode_result.value = ServiceResultMessage::NONE;
+    state.source_controller_deactivated =
+      view.stop_reason == StopReason::kControllerDeactivated;
+  }
   state.accepted_count = accepted_count_;
   state.rejected_count = rejected_count_;
   state.superseded_pending_count = superseded_pending_count_;
@@ -1911,6 +1925,27 @@ void RollingTrajectoryController::handleUpdate(const BatchMessage::SharedPtr mes
     last_rejected_sequence_ = message->sequence;
     ++rejected_count_;
   }
+}
+
+void RollingTrajectoryController::handleModeResult(
+  const ModeResultMessage::SharedPtr message)
+{
+  if (
+    message == nullptr ||
+    message->protocol_major != ModeResultMessage::PROTOCOL_MAJOR ||
+    message->protocol_minor != ModeResultMessage::PROTOCOL_MINOR ||
+    message->sequence == 0U || isZeroIdentifier(message->request_id.uuid) ||
+    message->result.value > ServiceResultMessage::NOT_READY ||
+    message->mode.value > ControlModeMessage::RESTART_REQUIRED)
+  {
+    return;
+  }
+  std::lock_guard<std::mutex> lock(callback_mutex_);
+  if (message->sequence <= last_mode_result_sequence_) {
+    return;
+  }
+  last_mode_result_ = *message;
+  last_mode_result_sequence_ = message->sequence;
 }
 
 void RollingTrajectoryController::clearActiveCloseCache() noexcept

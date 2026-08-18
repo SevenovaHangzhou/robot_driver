@@ -24,6 +24,7 @@
 #include "robot_rt_control_interfaces/msg/rolling_joint_control_state.hpp"
 #include "robot_rt_control_interfaces/srv/set_joint_control_mode.hpp"
 #include "robot_system_interfaces/msg/error_info.hpp"
+#include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 
 namespace enable_manager
@@ -154,6 +155,7 @@ private:
   };
 
   using ModeService = robot_rt_control_interfaces::srv::SetJointControlMode;
+  using ModeResultMessage = rt_control_interfaces::msg::JointControlModeResult;
 
   struct ModeCacheEntry
   {
@@ -236,6 +238,7 @@ private:
     bool target_activated, bool restart_required);
   static void populateModeError(
     robot_system_interfaces::msg::ErrorInfo & error, std::uint8_t result);
+  void publishModeResult(const ModeService::Response & response);
   static const char * controllerNameForMode(
     ControlMode mode, const std::string & default_controller,
     const std::string & rolling_controller) noexcept;
@@ -343,6 +346,7 @@ private:
   CommandSnapshot rolling_command_snapshot_{};
   std::array<ModeCacheEntry, kModeCacheCapacity> mode_cache_{};
   std::size_t next_mode_cache_slot_{0U};
+  std::atomic<std::uint64_t> mode_result_sequence_{0U};
 
   rclcpp::CallbackGroup::SharedPtr enable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr disable_callback_group_;
@@ -353,6 +357,7 @@ private:
   rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr disable_service_;
   rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr reset_service_;
   rclcpp::Service<ModeService>::SharedPtr mode_service_;
+  rclcpp::Publisher<ModeResultMessage>::SharedPtr mode_result_publisher_;
   rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr
     jtc_state_subscription_;
   rclcpp::Subscription<robot_rt_control_interfaces::msg::RollingJointControlState>::SharedPtr

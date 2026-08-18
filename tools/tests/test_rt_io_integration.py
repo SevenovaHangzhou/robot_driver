@@ -48,7 +48,11 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
         path.relative_to(interface_root / "rt_control_interfaces").as_posix()
         for path in (interface_root / "rt_control_interfaces").glob("**/*")
         if path.is_file() and path.suffix in {".msg", ".srv", ".action"}
-    } == {"msg/PlcIoState.msg", "srv/RtEnable.srv"}
+    } == {
+        "msg/JointControlModeResult.msg",
+        "msg/PlcIoState.msg",
+        "srv/RtEnable.srv",
+    }
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:

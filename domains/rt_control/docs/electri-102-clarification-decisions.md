@@ -968,6 +968,29 @@ fault 的 RT 控制字收敛不受 DDS/controller-manager 阻塞。任何被 fau
 结果歧义的 mode 请求都不能报告成功，也不得自动重试；后续必须完成失能并按状态决定是否
 重启完整 RT-Control。
 
+### E102-D39 — set-mode 结果如何进入 rolling 公共状态
+
+**问题**：`SetJointControlMode.Response` 已返回即时结果，但公共
+`RollingJointControlState.last_mode_*` 也要求持续可观测；enable_manager 和 rolling 是两个
+controller，应由谁发布／传递这些字段？
+
+- **【备选 A】** enable_manager 直接成为 `/rt/rolling_joint_control/state` 的第二个 publisher。
+  无需内部接口，但同一公共状态会出现两个不完整事实源，sequence、session 和 QoS 语义无法
+  统一。
+- **【备选 B】** 保留 rolling 中的零值占位，只让 Motion 记住 service response。实现最小，
+  但违反 R-OUT-07 的持续可观测契约，重连客户端也看不到最近结果。
+- **【推荐／最终采用 C】** rolling 保持公共 state 的唯一 publisher；enable_manager 在
+  `/rt/internal/joint_control/mode_result` 发布 RT-Control 域内
+  `rt_control_interfaces/JointControlModeResult`，采用已有 `Q_STATE` 等价的 reliable、volatile
+  profile。事件含单调 sequence、request/result/mode/boot 和三项切换证据；rolling 严格校验
+  协议 1.0、非零 request/sequence、枚举范围并忽略乱序，再复制到下一个公共状态。外部域禁止
+  订阅或依赖这个内部类型／topic。
+
+**生命周期裁决**：rolling deactivate 在发布 TERMINATED 状态前清空旧 mode event，只以
+`stop_reason=CONTROLLER_DEACTIVATED` 证明自身已停用；随后收到的 rolling→FJT 结果可在下一次
+activation 前保存。内部 topic 不使用 transient-local，避免 controller 重建后回放上一 boot
+的结果；受支持 bringup 在允许 mode service 前已配置两个订阅端。
+
 ### 6.2 实施顺序裁决
 
 为了避免在错误数据结构上做性能优化，后续原子提交按以下因果顺序推进：

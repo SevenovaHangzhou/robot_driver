@@ -26,6 +26,7 @@
 #include "robot_motion_interfaces/msg/rolling_joint_target_batch.hpp"
 #include "robot_rt_control_interfaces/srv/close_rolling_joint_session.hpp"
 #include "robot_rt_control_interfaces/srv/open_rolling_joint_session.hpp"
+#include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rolling_trajectory_controller/limit_checker.hpp"
 #include "rolling_trajectory_controller/rolling_buffer.hpp"
 #include "rolling_trajectory_controller/rolling_snapshot.hpp"
@@ -63,6 +64,7 @@ private:
   using CloseService = robot_rt_control_interfaces::srv::CloseRollingJointSession;
   using OpenService = robot_rt_control_interfaces::srv::OpenRollingJointSession;
   using StateMessage = robot_rt_control_interfaces::msg::RollingJointControlState;
+  using ModeResultMessage = rt_control_interfaces::msg::JointControlModeResult;
   using ControlModeMessage = robot_rt_control_interfaces::msg::JointControlMode;
   using LimitsSourceMessage = robot_rt_control_interfaces::msg::RollingLimitsSource;
   using RejectCodeMessage = robot_rt_control_interfaces::msg::RollingRejectCode;
@@ -168,6 +170,7 @@ private:
     const std::shared_ptr<CloseService::Request> request,
     std::shared_ptr<CloseService::Response> response);
   void handleUpdate(const BatchMessage::SharedPtr message);
+  void handleModeResult(const ModeResultMessage::SharedPtr message);
   void clearActiveCloseCache() noexcept;
   CloseCacheEntry * findActiveCloseCache(const Identifier & request_id) noexcept;
   CloseCacheEntry * allocateActiveCloseCache() noexcept;
@@ -204,6 +207,8 @@ private:
   std::uint64_t rejected_count_{0U};
   std::uint64_t superseded_pending_count_{0U};
   std::uint64_t state_sequence_{0U};
+  std::uint64_t last_mode_result_sequence_{0U};
+  ModeResultMessage last_mode_result_{};
   std::atomic<std::uint64_t> timeout_count_{0U};
   std::atomic<std::uint64_t> invariant_failure_count_{0U};
   std::uint8_t last_service_error_{0U};
@@ -216,6 +221,7 @@ private:
   rclcpp::Service<OpenService>::SharedPtr open_service_{};
   rclcpp::Service<CloseService>::SharedPtr close_service_{};
   rclcpp::Subscription<BatchMessage>::SharedPtr update_subscription_{};
+  rclcpp::Subscription<ModeResultMessage>::SharedPtr mode_result_subscription_{};
   rclcpp_lifecycle::LifecyclePublisher<StateMessage>::SharedPtr state_publisher_{};
   rclcpp::TimerBase::SharedPtr state_timer_{};
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr
