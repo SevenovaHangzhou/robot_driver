@@ -21,6 +21,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -31,6 +32,9 @@
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp/executors/multi_threaded_executor.hpp"
+#include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
+#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 
 namespace enable_manager
@@ -46,6 +50,8 @@ public:
   using Stage = EnableManagerController::Stage;
   using DriveState = EnableManagerController::DriveState;
   using SwitchResult = EnableManagerController::SwitchResult;
+  using ControlMode = EnableManagerController::ControlMode;
+  using ModeSwitchState = EnableManagerController::ModeSwitchState;
 
   static constexpr std::size_t kAxisCount = EnableManagerController::kAxisCount;
   static constexpr std::size_t kBatchCount = EnableManagerController::kBatchCount;
@@ -69,6 +75,10 @@ public:
   static bool restartRequired(const Controller & c) {return c.restart_required_.load();}
   static void setPhase(Controller & c, Phase p) {c.phase_.store(p);}
   static void setOwner(Controller & c, Owner o) {c.owner_.store(o);}
+  static void setControlMode(Controller & c, ControlMode mode)
+  {
+    c.current_control_mode_.store(mode);
+  }
 
   static DriveState decode(std::uint16_t sw) {return EnableManagerController::decodeState(sw);}
   static const char * stageName(Stage s) {return EnableManagerController::stageName(s);}
@@ -88,6 +98,40 @@ public:
     bool default_active)
   {
     return c.registeredMotionControllerStateMatches(states, default_active);
+  }
+  static ControlMode detectControlMode(
+    const Controller & c,
+    const controller_manager_msgs::srv::ListControllers::Response & states)
+  {
+    return c.detectControlMode(states);
+  }
+  static ModeSwitchState classifyModeSwitchState(
+    const Controller & c,
+    const controller_manager_msgs::srv::ListControllers::Response & states,
+    ControlMode source, ControlMode target)
+  {
+    return c.classifyModeSwitchState(states, source, target);
+  }
+  static bool stableInterval(
+    const Controller & c,
+    const std::array<double, kAxisCount> & previous,
+    const std::array<double, kAxisCount> & current,
+    std::uint64_t previous_time_ns, std::uint64_t current_time_ns)
+  {
+    EnableManagerController::ActualSample previous_sample;
+    previous_sample.positions = previous;
+    previous_sample.steady_time_ns = previous_time_ns;
+    EnableManagerController::ActualSample current_sample;
+    current_sample.positions = current;
+    current_sample.steady_time_ns = current_time_ns;
+    return c.stableActualInterval(previous_sample, current_sample);
+  }
+  static bool sourceWithinTakeover(
+    const Controller & c,
+    const std::array<double, kAxisCount> & source,
+    const std::array<double, kAxisCount> & actual)
+  {
+    return c.sourceWithinTakeoverTolerance(source, actual);
   }
 
   using ResultSlot = EnableManagerController::ResultSlot;
@@ -127,6 +171,59 @@ public:
   static void handleEnable(Controller & c, Req q, Res s) {c.handleEnable(q, s);}
   static void handleDisable(Controller & c, Req q, Res s) {c.handleDisable(q, s);}
   static void handleResetFault(Controller & c, Req q, Res s) {c.handleResetFault(q, s);}
+  using ModeReq = std::shared_ptr<EnableManagerController::ModeService::Request>;
+  using ModeRes = std::shared_ptr<EnableManagerController::ModeService::Response>;
+  static void handleSetMode(Controller & c, ModeReq q, ModeRes s)
+  {
+    c.handleSetMode(q, s);
+  }
+  static void handleJtcState(
+    Controller & c,
+    const control_msgs::msg::JointTrajectoryControllerState::SharedPtr & message)
+  {
+    c.handleJtcState(message);
+  }
+  static void handleRollingState(
+    Controller & c,
+    const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr & message)
+  {
+    c.handleRollingState(message);
+  }
+  static ControlMode controlMode(const Controller & c)
+  {
+    return c.current_control_mode_.load();
+  }
+  static bool modeAbortRequested(const Controller & c)
+  {
+    return c.mode_abort_requested_.load();
+  }
+  static bool switchInProgress(const Controller & c)
+  {
+    return c.switch_in_progress_.load();
+  }
+  static void setSwitchInProgress(Controller & c, bool value)
+  {
+    c.switch_in_progress_.store(value);
+  }
+  static void requestEmergencyControllerStop(Controller & c)
+  {
+    c.jtc_deactivation_required_.store(true);
+    c.emergency_jtc_deactivate_request_.store(true);
+  }
+  static bool emergencyControllerStopRequested(const Controller & c)
+  {
+    return c.emergency_jtc_deactivate_request_.load();
+  }
+  static void handleNonRtFaultStop(Controller & c)
+  {
+    c.handleNonRtFaultStop();
+  }
+  static void startEmergency(
+    Controller & c, Stage stage, std::int8_t joint, std::uint16_t status,
+    std::int64_t now_ns)
+  {
+    c.startEmergency(stage, joint, status, now_ns);
+  }
 };
 
 namespace
@@ -138,7 +235,11 @@ using Owner = Access::Owner;
 using Stage = Access::Stage;
 using DriveState = Access::DriveState;
 using SwitchResult = Access::SwitchResult;
+using ControlMode = Access::ControlMode;
+using ModeSwitchState = Access::ModeSwitchState;
 using RtEnable = rt_control_interfaces::srv::RtEnable;
+using ModeService = robot_rt_control_interfaces::srv::SetJointControlMode;
+using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
 
 // CiA402 status words that decodeState() maps to each DriveState.
 constexpr std::uint16_t kSwNotReady = 0x0000U;
@@ -189,6 +290,8 @@ public:
   {
     controller_ = std::make_unique<EnableManagerController>();
     status_buffer_.fill(static_cast<double>(kSwSwitchOnDisabled));
+    position_buffer_.fill(0.0);
+    feedback_age_ms_ = 0.0;
     command_buffer_.fill(0.0);
   }
 
@@ -208,19 +311,19 @@ public:
   {
     rclcpp::NodeOptions options;
     options.parameter_overrides(
-      {
-        rclcpp::Parameter("batch_timeout", kBatchTimeout),
-        rclcpp::Parameter("disable_stage_timeout", kDisableStageTimeout),
-        rclcpp::Parameter("inter_batch_delay", kInterBatchDelay),
-        rclcpp::Parameter("fault_reset_timeout", kFaultResetTimeout),
-        rclcpp::Parameter("controller_switch_timeout", kControllerSwitchTimeout),
-        rclcpp::Parameter("service_result_timeout_ms", kServiceResultTimeoutMs),
-        rclcpp::Parameter(
-          "motion_controller_names",
-          std::vector<std::string>{"whole_body_jtc", "rolling_trajectory_controller"}),
-        rclcpp::Parameter("default_motion_controller", std::string("whole_body_jtc")),
-        rclcpp::Parameter("update_rate", 1000),
-      });
+        {
+          rclcpp::Parameter("batch_timeout", kBatchTimeout),
+          rclcpp::Parameter("disable_stage_timeout", kDisableStageTimeout),
+          rclcpp::Parameter("inter_batch_delay", kInterBatchDelay),
+          rclcpp::Parameter("fault_reset_timeout", kFaultResetTimeout),
+          rclcpp::Parameter("controller_switch_timeout", kControllerSwitchTimeout),
+          rclcpp::Parameter("service_result_timeout_ms", kServiceResultTimeoutMs),
+          rclcpp::Parameter(
+            "motion_controller_names",
+            std::vector<std::string>{"whole_body_jtc", "rolling_trajectory_controller"}),
+          rclcpp::Parameter("default_motion_controller", std::string("whole_body_jtc")),
+          rclcpp::Parameter("update_rate", 1000),
+        });
     options.allow_undeclared_parameters(true);
     options.automatically_declare_parameters_from_overrides(true);
 
@@ -237,7 +340,7 @@ public:
     command_handles_.clear();
     state_handles_.clear();
     command_handles_.reserve(kAxes);
-    state_handles_.reserve(kAxes);
+    state_handles_.reserve(kAxes * 2U + 1U);
 
     // The controller claims interfaces in kJointNames order, so build in that order.
     for (std::size_t axis = 0; axis < kAxes; ++axis) {
@@ -246,14 +349,22 @@ public:
       state_handles_.emplace_back(
         Access::jointNames()[axis], "status_word", &status_buffer_[axis]);
     }
+    for (std::size_t axis = 0; axis < kAxes; ++axis) {
+      state_handles_.emplace_back(
+        Access::jointNames()[axis], "position", &position_buffer_[axis]);
+    }
+    state_handles_.emplace_back(
+      "ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
 
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
     std::vector<hardware_interface::LoanedStateInterface> loaned_states;
     loaned_commands.reserve(kAxes);
-    loaned_states.reserve(kAxes);
+    loaned_states.reserve(kAxes * 2U + 1U);
     for (std::size_t axis = 0; axis < kAxes; ++axis) {
       loaned_commands.emplace_back(command_handles_[axis]);
-      loaned_states.emplace_back(state_handles_[axis]);
+    }
+    for (auto & state_handle : state_handles_) {
+      loaned_states.emplace_back(state_handle);
     }
     controller_->assign_interfaces(std::move(loaned_commands), std::move(loaned_states));
   }
@@ -287,7 +398,9 @@ public:
   controller_interface::return_type callUpdate(double dt = 0.001)
   {
     advance(dt);
-    return controller_->update(rclcpp::Time(now_ns_, RCL_ROS_TIME), rclcpp::Duration::from_seconds(dt));
+    return controller_->update(
+      rclcpp::Time(now_ns_, RCL_ROS_TIME),
+      rclcpp::Duration::from_seconds(dt));
   }
 
   void updateTimes(std::size_t count, double dt = 0.001)
@@ -430,7 +543,9 @@ public:
     return pending->done.load();
   }
 
-  bool pumpUntilDone(const std::shared_ptr<PendingCall> & pending, std::size_t max_iterations = 4000)
+  bool pumpUntilDone(
+    const std::shared_ptr<PendingCall> & pending,
+    std::size_t max_iterations = 4000)
   {
     const std::array<bool, kAxes> none{};
     return pumpUntilDone(pending, max_iterations, none);
@@ -446,6 +561,8 @@ public:
   std::unique_ptr<EnableManagerController> controller_;
   std::array<double, kAxes> command_buffer_{};
   std::array<double, kAxes> status_buffer_{};
+  std::array<double, kAxes> position_buffer_{};
+  double feedback_age_ms_{0.0};
   std::vector<hardware_interface::CommandInterface> command_handles_;
   std::vector<hardware_interface::StateInterface> state_handles_;
   std::int64_t now_ns_{1000000000};
@@ -455,7 +572,7 @@ public:
 // Fixture sanity / interface contract
 // ---------------------------------------------------------------------------
 
-TEST_F(EnableManagerFixture, ClaimsFourteenControlAndStatusInterfaces)
+TEST_F(EnableManagerFixture, ClaimsModeAdmissionStateInterfaces)
 {
   initAndConfigure();
 
@@ -463,7 +580,7 @@ TEST_F(EnableManagerFixture, ClaimsFourteenControlAndStatusInterfaces)
   const auto state_config = controller_->state_interface_configuration();
 
   ASSERT_EQ(command_config.names.size(), kAxes);
-  ASSERT_EQ(state_config.names.size(), kAxes);
+  ASSERT_EQ(state_config.names.size(), kAxes * 2U + 1U);
   EXPECT_EQ(
     command_config.type, controller_interface::interface_configuration_type::INDIVIDUAL);
   for (std::size_t axis = 0; axis < kAxes; ++axis) {
@@ -471,7 +588,12 @@ TEST_F(EnableManagerFixture, ClaimsFourteenControlAndStatusInterfaces)
       command_config.names[axis], std::string(Access::jointNames()[axis]) + "/control_word");
     EXPECT_EQ(
       state_config.names[axis], std::string(Access::jointNames()[axis]) + "/status_word");
+    EXPECT_EQ(
+      state_config.names[kAxes + axis],
+      std::string(Access::jointNames()[axis]) + "/position");
   }
+  EXPECT_EQ(
+    state_config.names[kAxes * 2U], "ethercat_domain/process_data_age_ms");
 }
 
 TEST_F(EnableManagerFixture, BatchTableCoversAllFourteenAxesExactlyOnce)
@@ -511,11 +633,11 @@ TEST_F(EnableManagerFixture, ConfigureRejectsInvalidMotionControllerRegistry)
     auto invalid = std::make_unique<EnableManagerController>();
     rclcpp::NodeOptions options;
     options.parameter_overrides(
-      {
-        rclcpp::Parameter("motion_controller_names", cases[index].names),
-        rclcpp::Parameter("default_motion_controller", cases[index].default_name),
-        rclcpp::Parameter("update_rate", 1000),
-      });
+        {
+          rclcpp::Parameter("motion_controller_names", cases[index].names),
+          rclcpp::Parameter("default_motion_controller", cases[index].default_name),
+          rclcpp::Parameter("update_rate", 1000),
+        });
     options.allow_undeclared_parameters(true);
     options.automatically_declare_parameters_from_overrides(true);
     ASSERT_EQ(
@@ -587,6 +709,331 @@ TEST_F(EnableManagerFixture, RegistryVerificationRequiresExactlyTheRequestedWrit
 
   states.controller.pop_back();
   EXPECT_FALSE(Access::verifyRegistryState(*controller_, states, false));
+}
+
+TEST_F(EnableManagerFixture, DetectsExclusiveMotionControllerOwnership)
+{
+  initAndConfigure();
+  controller_manager_msgs::srv::ListControllers::Response states;
+  states.controller.resize(2U);
+  states.controller[0].name = "whole_body_jtc";
+  states.controller[1].name = "rolling_trajectory_controller";
+
+  states.controller[0].state = "active";
+  states.controller[1].state = "inactive";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kFjtReady);
+
+  states.controller[0].state = "inactive";
+  states.controller[1].state = "active";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kRollingReady);
+
+  states.controller[1].state = "inactive";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kDisabled);
+
+  states.controller[0].state = "active";
+  states.controller[1].state = "active";
+  EXPECT_EQ(
+    Access::detectControlMode(*controller_, states), ControlMode::kRestartRequired);
+
+  states.controller.pop_back();
+  EXPECT_EQ(
+    Access::detectControlMode(*controller_, states), ControlMode::kRestartRequired);
+}
+
+TEST_F(EnableManagerFixture, ClassifiesNonTransactionalModeSwitchOutcomes)
+{
+  initAndConfigure();
+  controller_manager_msgs::srv::ListControllers::Response states;
+  states.controller.resize(2U);
+  states.controller[0].name = "whole_body_jtc";
+  states.controller[1].name = "rolling_trajectory_controller";
+
+  states.controller[0].state = "inactive";
+  states.controller[1].state = "active";
+  EXPECT_EQ(
+    Access::classifyModeSwitchState(
+      *controller_, states, ControlMode::kFjtReady, ControlMode::kRollingReady),
+    ModeSwitchState::kTargetActive);
+
+  states.controller[0].state = "active";
+  states.controller[1].state = "inactive";
+  EXPECT_EQ(
+    Access::classifyModeSwitchState(
+      *controller_, states, ControlMode::kFjtReady, ControlMode::kRollingReady),
+    ModeSwitchState::kSourcePreserved);
+
+  states.controller[0].state = "inactive";
+  EXPECT_EQ(
+    Access::classifyModeSwitchState(
+      *controller_, states, ControlMode::kFjtReady, ControlMode::kRollingReady),
+    ModeSwitchState::kAllInactive);
+
+  states.controller[0].state = "active";
+  states.controller[1].state = "active";
+  EXPECT_EQ(
+    Access::classifyModeSwitchState(
+      *controller_, states, ControlMode::kFjtReady, ControlMode::kRollingReady),
+    ModeSwitchState::kAmbiguous);
+}
+
+TEST_F(EnableManagerFixture, StableAndTakeoverGatesUseIndependentPerAxisThresholds)
+{
+  initAndConfigure();
+  std::array<double, kAxes> previous{};
+  std::array<double, kAxes> current{};
+  current[0] = 0.00002;
+  current[13] = 0.000002;
+  EXPECT_TRUE(
+    Access::stableInterval(*controller_, previous, current, 1000000U, 5000000U));
+  EXPECT_FALSE(
+    Access::stableInterval(*controller_, previous, current, 1000000U, 10000000U));
+
+  current[0] = 0.001;
+  EXPECT_FALSE(
+    Access::stableInterval(*controller_, previous, current, 1000000U, 5000000U));
+
+  std::array<double, kAxes> source{};
+  std::array<double, kAxes> actual{};
+  source[0] = 0.008;
+  source[13] = 0.004;
+  EXPECT_TRUE(Access::sourceWithinTakeover(*controller_, source, actual));
+  source[0] = 0.009;
+  EXPECT_FALSE(Access::sourceWithinTakeover(*controller_, source, actual));
+}
+
+TEST_F(EnableManagerFixture, ModeServiceIsIdempotentAndFailsBeforeSwitchAdmission)
+{
+  bringUpToIdle();
+  auto request = std::make_shared<ModeService::Request>();
+  request->protocol_major = 1U;
+  request->protocol_minor = 0U;
+  request->client_instance_id.uuid.fill(0x11U);
+  request->request_id.uuid.fill(0x22U);
+  request->expected_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::FJT_READY;
+  request->target_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
+
+  auto first = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, first);
+  EXPECT_FALSE(first->accepted);
+  EXPECT_EQ(first->result.value, ServiceResult::NOT_ENABLED);
+  EXPECT_TRUE(first->error.retryable);
+  EXPECT_EQ(first->request_id.uuid, request->request_id.uuid);
+
+  auto replay = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, replay);
+  EXPECT_EQ(replay->result.value, first->result.value);
+  EXPECT_EQ(replay->error.code, first->error.code);
+  EXPECT_EQ(replay->request_id.uuid, first->request_id.uuid);
+
+  auto conflicting_request = std::make_shared<ModeService::Request>(*request);
+  conflicting_request->protocol_minor = 1U;
+  auto conflict = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, conflicting_request, conflict);
+  EXPECT_EQ(conflict->result.value, ServiceResult::WRONG_REQUEST);
+  EXPECT_FALSE(conflict->error.retryable);
+
+  auto admission_request = std::make_shared<ModeService::Request>(*request);
+  admission_request->request_id.uuid.fill(0x33U);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setControlMode(*controller_, ControlMode::kFjtReady);
+  Access::setOwner(*controller_, Owner::kNone);
+  auto admission = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, admission_request, admission);
+  EXPECT_EQ(admission->result.value, ServiceResult::SOURCE_STATE_STALE);
+  EXPECT_EQ(Access::owner(*controller_), Owner::kNone);
+}
+
+TEST_F(EnableManagerFixture, ModeServiceExecutesVerifiedStrictSwitch)
+{
+  bringUpToIdle();
+  setAllStatus(kSwOperationEnabled);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setControlMode(*controller_, ControlMode::kFjtReady);
+  Access::setOwner(*controller_, Owner::kNone);
+
+  auto fake_manager = std::make_shared<rclcpp::Node>("fake_mode_controller_manager");
+  std::mutex states_mutex;
+  controller_manager_msgs::srv::ListControllers::Response controller_states;
+  controller_states.controller.resize(2U);
+  controller_states.controller[0].name = "whole_body_jtc";
+  controller_states.controller[0].state = "active";
+  controller_states.controller[1].name = "rolling_trajectory_controller";
+  controller_states.controller[1].state = "inactive";
+  std::atomic_uint32_t list_calls{0U};
+  std::atomic_uint32_t switch_calls{0U};
+  std::atomic_bool strict_request_valid{false};
+
+  auto list_service = fake_manager->create_service<
+    controller_manager_msgs::srv::ListControllers>(
+    "/controller_manager/list_controllers",
+    [&states_mutex, &controller_states, &list_calls](
+      const std::shared_ptr<controller_manager_msgs::srv::ListControllers::Request>,
+      std::shared_ptr<controller_manager_msgs::srv::ListControllers::Response> response) {
+      ++list_calls;
+      std::lock_guard<std::mutex> lock(states_mutex);
+      *response = controller_states;
+    });
+  auto switch_service = fake_manager->create_service<
+    controller_manager_msgs::srv::SwitchController>(
+    "/controller_manager/switch_controller",
+    [this, &states_mutex, &controller_states, &switch_calls, &strict_request_valid](
+      const std::shared_ptr<controller_manager_msgs::srv::SwitchController::Request> request,
+      std::shared_ptr<controller_manager_msgs::srv::SwitchController::Response> response) {
+      ++switch_calls;
+      strict_request_valid.store(
+        request->strictness ==
+        controller_manager_msgs::srv::SwitchController::Request::STRICT &&
+        request->activate_controllers ==
+        std::vector<std::string>{"rolling_trajectory_controller"} &&
+        request->deactivate_controllers == std::vector<std::string>{"whole_body_jtc"});
+      {
+        std::lock_guard<std::mutex> lock(states_mutex);
+        controller_states.controller[0].state = "inactive";
+        controller_states.controller[1].state = "active";
+      }
+      auto rolling_state =
+      std::make_shared<robot_rt_control_interfaces::msg::RollingJointControlState>();
+      rolling_state->control_mode.value =
+      robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
+      rolling_state->controller_boot_id.uuid.fill(0xABU);
+      rolling_state->desired_positions.fill(0.0);
+      rolling_state->has_session = false;
+      Access::handleRollingState(*controller_, rolling_state);
+      response->ok = true;
+    });
+
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3U);
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  executor.add_node(fake_manager);
+  std::thread executor_thread([&executor]() {executor.spin();});
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+  auto jtc_state =
+    std::make_shared<control_msgs::msg::JointTrajectoryControllerState>();
+  for (const char * joint_name : Access::jointNames()) {
+    jtc_state->joint_names.emplace_back(joint_name);
+  }
+  jtc_state->output.positions.assign(kAxes, 0.0);
+  Access::handleJtcState(*controller_, jtc_state);
+
+  std::atomic_bool pump_running{true};
+  std::thread update_thread([this, &pump_running]() {
+      std::int64_t update_time_ns = 2000000000LL;
+      while (pump_running.load()) {
+        controller_->update(
+          rclcpp::Time(update_time_ns), rclcpp::Duration::from_nanoseconds(4000000LL));
+        update_time_ns += 4000000LL;
+        std::this_thread::sleep_for(std::chrono::milliseconds(4));
+      }
+    });
+
+  auto request = std::make_shared<ModeService::Request>();
+  request->protocol_major = 1U;
+  request->protocol_minor = 0U;
+  request->client_instance_id.uuid.fill(0x41U);
+  request->request_id.uuid.fill(0x42U);
+  request->expected_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::FJT_READY;
+  request->target_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
+  auto response = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, response);
+  auto replay = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, replay);
+
+  pump_running.store(false);
+  update_thread.join();
+  executor.cancel();
+  executor_thread.join();
+  executor.remove_node(fake_manager);
+  executor.remove_node(controller_->get_node()->get_node_base_interface());
+
+  EXPECT_TRUE(response->accepted);
+  EXPECT_EQ(response->result.value, ServiceResult::NONE);
+  EXPECT_TRUE(response->source_controller_deactivated);
+  EXPECT_TRUE(response->target_controller_activated);
+  EXPECT_FALSE(response->restart_required);
+  EXPECT_EQ(
+    response->mode.value,
+    robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY);
+  EXPECT_THAT(response->controller_boot_id.uuid, ::testing::Each(0xABU));
+  EXPECT_EQ(Access::controlMode(*controller_), ControlMode::kRollingReady);
+  EXPECT_TRUE(strict_request_valid.load());
+  EXPECT_EQ(switch_calls.load(), 1U);
+  EXPECT_GE(list_calls.load(), 2U);
+  EXPECT_EQ(replay->result.value, response->result.value);
+  EXPECT_EQ(switch_calls.load(), 1U);
+  EXPECT_FALSE(Access::switchInProgress(*controller_));
+}
+
+TEST_F(EnableManagerFixture, GroupFaultPreemptsModeAdmissionWithoutClobberingSafetyOwner)
+{
+  bringUpToIdle();
+  setAllStatus(kSwOperationEnabled);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setControlMode(*controller_, ControlMode::kFjtReady);
+  Access::setOwner(*controller_, Owner::kNone);
+
+  auto jtc_state =
+    std::make_shared<control_msgs::msg::JointTrajectoryControllerState>();
+  for (const char * joint_name : Access::jointNames()) {
+    jtc_state->joint_names.emplace_back(joint_name);
+  }
+  jtc_state->output.positions.assign(kAxes, 0.0);
+  Access::handleJtcState(*controller_, jtc_state);
+  controller_->update(
+    rclcpp::Time(2000000000LL), rclcpp::Duration::from_nanoseconds(4000000LL));
+
+  auto request = std::make_shared<ModeService::Request>();
+  request->protocol_major = 1U;
+  request->protocol_minor = 0U;
+  request->client_instance_id.uuid.fill(0x51U);
+  request->request_id.uuid.fill(0x52U);
+  request->expected_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::FJT_READY;
+  request->target_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
+  auto response = std::make_shared<ModeService::Response>();
+  std::thread mode_thread(
+    [this, &request, &response]() {
+      Access::handleSetMode(*controller_, request, response);
+    });
+
+  const auto owner_deadline =
+    std::chrono::steady_clock::now() + std::chrono::milliseconds(200);
+  while (
+    Access::owner(*controller_) != Owner::kMode &&
+    std::chrono::steady_clock::now() < owner_deadline)
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  if (Access::owner(*controller_) != Owner::kMode) {
+    mode_thread.join();
+    FAIL() << "mode service never acquired ownership";
+    return;
+  }
+  Access::startEmergency(
+    *controller_, Stage::kFaultDetected, 0, kSwFault, 2004000000LL);
+  mode_thread.join();
+
+  EXPECT_EQ(response->result.value, ServiceResult::NOT_READY);
+  EXPECT_TRUE(Access::modeAbortRequested(*controller_));
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+  EXPECT_EQ(Access::owner(*controller_), Owner::kInternal);
+}
+
+TEST_F(EnableManagerFixture, EmergencyControllerStopWaitsForModeSwitchMutex)
+{
+  initAndConfigure();
+  Access::requestEmergencyControllerStop(*controller_);
+  Access::setSwitchInProgress(*controller_, true);
+
+  Access::handleNonRtFaultStop(*controller_);
+
+  EXPECT_TRUE(Access::emergencyControllerStopRequested(*controller_));
+  EXPECT_FALSE(Access::restartRequired(*controller_));
 }
 
 TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)
@@ -726,7 +1173,7 @@ TEST_F(EnableManagerFixture, EnableHappyPathWalksFiveBatchesInOrder)
 
 class EnableBatchTimeoutTest
   : public EnableManagerFixture,
-    public ::testing::WithParamInterface<std::size_t>
+  public ::testing::WithParamInterface<std::size_t>
 {
 };
 
@@ -838,7 +1285,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 class FaultResetTest
   : public EnableManagerFixture,
-    public ::testing::WithParamInterface<std::vector<std::size_t>>
+  public ::testing::WithParamInterface<std::vector<std::size_t>>
 {
 };
 

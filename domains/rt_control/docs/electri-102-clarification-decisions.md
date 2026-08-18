@@ -946,6 +946,28 @@ capacity、horizon、timeout、lead 与 nominal period。参数成功 configure 
 `rolling_trajectory_controller.envelope_file` 作为 controller_manager 的 dotted 参数只会落到
 manager 节点，rolling 子节点仍读到空值，因此该失败方案不得恢复。
 
+### E102-D38 — 模式切换期间 disable／group fault 如何抢占
+
+**问题**：set-mode 正在做停稳准入或等待 controller-manager STRICT 结果时，又收到软件
+disable 或 RT 线程发现 group fault，应拒绝安全请求、并发调用 controller-manager，还是建立
+单一写互斥和分级抢占？
+
+- **【备选 A】** 一律拒绝 disable/fault，等模式服务自然结束。实现简单，但把业务切换置于
+  安全收敛之前，不可接受。
+- **【备选 B】** disable、fault worker 与 mode callback 各自并发调用 switch-controller。
+  表面响应快，却可能让两个请求互相覆盖，事后无法证明哪个 writer ACTIVE。
+- **【推荐／最终采用 C】** 所有 controller-manager 写操作共享一个互斥位；软件 disable
+  设置 mode-abort，若还在准入阶段则 mode 立即返回 `NOT_READY`，disable 随后停用全部注册
+  writer；若请求已进入 controller-manager，则 disable 最多等待五个 500 ms 子阶段，超界就
+  锁存 `RESTART_REQUIRED` 并触发失能。group fault 不等待非 RT：250 Hz 状态机立即进入
+  quick-stop/downward，接管 owner；controller deactivate 请求保留到 mode switch 释放互斥后
+  再执行。mode callback 只能 compare-and-swap 释放自己的 owner，禁止覆盖 safety owner。
+
+**影响**：软件 disable 的正常最坏额外等待受 `5 × mode_switch_timeout_ms` 约束，而 group
+fault 的 RT 控制字收敛不受 DDS/controller-manager 阻塞。任何被 fault 打断、响应超时或
+结果歧义的 mode 请求都不能报告成功，也不得自动重试；后续必须完成失能并按状态决定是否
+重启完整 RT-Control。
+
 ### 6.2 实施顺序裁决
 
 为了避免在错误数据结构上做性能优化，后续原子提交按以下因果顺序推进：

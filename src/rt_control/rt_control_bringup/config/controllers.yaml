@@ -92,6 +92,7 @@ whole_body_jtc:
         - 0.05
       feedback_age_state_interface: ethercat_domain/process_data_age_ms
       max_feedback_age_ms: 500.0
+    state_publish_rate: 50.0
     constraints:
       goal_time: 0.5
       stopped_velocity_tolerance: 0.01
@@ -177,6 +178,42 @@ enable_manager:
       - whole_body_jtc
       - rolling_trajectory_controller
     default_motion_controller: whole_body_jtc
+    rolling_motion_controller: rolling_trajectory_controller
+    mode_switch_source_state_max_age_ms: 100
+    mode_switch_stable_interval_count: 5
+    mode_switch_maximum_sample_period_ms: 8
+    mode_switch_timeout_ms: 500
+    mode_switch_feedback_age_limit_ms: 500.0
+    mode_switch_stable_velocity_thresholds:
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.001
+    mode_switch_takeover_tolerances:
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.005
 
 diff_drive_controller:
   ros__parameters:

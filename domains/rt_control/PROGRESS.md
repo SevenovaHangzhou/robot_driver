@@ -119,3 +119,4 @@
 | 2026-08-19 | motion | [ELECTRI-102 14 轴 provisional 包络严格加载](docs/areas/motion/records/2026-08-19-electri-102-provisional-envelope.md) | PASS（T1；BQ-138 台架实测仍 OPEN） |
 | 2026-08-19 | lifecycle | [ELECTRI-102 enable_manager motion controller 注册表](docs/areas/lifecycle/records/2026-08-19-electri-102-motion-controller-registry.md) | PASS（T1；39/39 mock gtest，service 成功路径待综合 mock） |
 | 2026-08-19 | release-deploy | [ELECTRI-102 mandatory-inactive motion writer bringup](docs/areas/release-deploy/records/2026-08-19-electri-102-mandatory-inactive-bringup.md) | PASS（T1；安装态综合 mock，JTC/rolling INACTIVE） |
+| 2026-08-19 | lifecycle | [ELECTRI-102 FJT 与 rolling 严格模式切换](docs/areas/lifecycle/records/2026-08-19-electri-102-mode-switch.md) | PASS（T1；46/46 gtest，目标机耗时待测） |

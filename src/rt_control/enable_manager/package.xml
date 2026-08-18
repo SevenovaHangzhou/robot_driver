@@ -6,6 +6,7 @@
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>control_msgs</depend>
   <depend>controller_interface</depend>
   <depend>controller_manager_msgs</depend>
   <depend>diagnostic_msgs</depend>
@@ -13,6 +14,8 @@
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>robot_interfaces_qos</depend>
+  <depend>robot_rt_control_interfaces</depend>
+  <depend>robot_system_interfaces</depend>
   <depend>rt_control_interfaces</depend>
   <test_depend>ament_cmake_gmock</test_depend>
   <test_depend>hardware_interface</test_depend>

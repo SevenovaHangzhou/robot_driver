@@ -18,9 +18,14 @@
 | 03#F2 | 普通 enable 只保留 whole_body_jtc ACTIVE | [lifecycle-20260819-03](records/2026-08-19-electri-102-motion-controller-registry.md)#F2 | 有效（T1） |
 | 03#F3 | 失能成功要求所有注册成员复核为 INACTIVE | [lifecycle-20260819-03](records/2026-08-19-electri-102-motion-controller-registry.md)#F3 | 有效（T1） |
 | 03#F4 | controller 状态无法复核按 ambiguous/restart-required 收敛 | [lifecycle-20260819-03](records/2026-08-19-electri-102-motion-controller-registry.md)#F4 | 有效（T1） |
+| 04#F1 | 模式切换准入要求源状态新鲜、实际停稳和逐轴接管容差同时成立 | [lifecycle-20260819-04](records/2026-08-19-electri-102-mode-switch.md)#F1 | 有效（T1） |
+| 04#F2 | STRICT 响应与二次查询共同判定结果；歧义进入 RESTART_REQUIRED | [lifecycle-20260819-04](records/2026-08-19-electri-102-mode-switch.md)#F2 | 有效（T1） |
+| 04#F3 | disable/group fault 优先，全部 controller-manager 写操作串行 | [lifecycle-20260819-04](records/2026-08-19-electri-102-mode-switch.md)#F3 | 有效（T1） |
+| 04#F4 | set-mode 以 client/request ID 做定长幂等与冲突拒绝 | [lifecycle-20260819-04](records/2026-08-19-electri-102-mode-switch.md)#F4 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 FJT 与 rolling 严格模式切换](records/2026-08-19-electri-102-mode-switch.md) — feature，PASS（T1）
 - 2026-08-19 [ELECTRI-102 enable_manager motion controller 注册表](records/2026-08-19-electri-102-motion-controller-registry.md) — feat，PASS（T1）
 - 2026-08-14 [enable_manager 状态机表驱动 gtest（ELECTRI-93）](records/2026-08-14-enable-manager-gtest.md) — feature，PASS（工控机实跑 36/36）
 - 2026-08-14 [/rt/disable 缺陷声称的日志取证：症状真实、机制误诊](records/2026-08-14-rt-disable-log-forensics.md) — investigation，PASS（T2 只读）
