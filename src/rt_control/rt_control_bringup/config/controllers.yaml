@@ -170,7 +170,10 @@ enable_manager:
     fault_reset_timeout: 4.0
     controller_switch_timeout: 4.0
     service_result_timeout_ms: 30000
-    jtc_name: whole_body_jtc
+    motion_controller_names:
+      - whole_body_jtc
+      - rolling_trajectory_controller
+    default_motion_controller: whole_body_jtc
 
 diff_drive_controller:
   ros__parameters:

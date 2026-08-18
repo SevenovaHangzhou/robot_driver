@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "controller_interface/controller_interface.hpp"
 #include "controller_manager_msgs/srv/list_controllers.hpp"
@@ -132,6 +133,13 @@ private:
     const ResultSlot & slot, rt_control_interfaces::srv::RtEnable::Response & response) const;
   void fillImmediateResponse(
     rt_control_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const;
+  SwitchResult buildMotionControllerSwitchRequest(
+    const controller_manager_msgs::srv::ListControllers::Response & states,
+    bool activate_default,
+    controller_manager_msgs::srv::SwitchController::Request & request) const;
+  bool registeredMotionControllerStateMatches(
+    const controller_manager_msgs::srv::ListControllers::Response & states,
+    bool default_active) const;
   SwitchResult switchJtc(bool activate);
   void handleNonRtFaultStop();
   void publishDiagnostics();
@@ -204,7 +212,9 @@ private:
   double fault_reset_timeout_seconds_{4.0};
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
-  std::string jtc_name_{"whole_body_jtc"};
+  std::vector<std::string> motion_controller_names_{
+    "whole_body_jtc", "rolling_trajectory_controller"};
+  std::string default_motion_controller_{"whole_body_jtc"};
 
   rclcpp::CallbackGroup::SharedPtr enable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr disable_callback_group_;

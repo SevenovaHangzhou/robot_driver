@@ -38,7 +38,9 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("fault_reset_timeout", 4.0);
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
-  auto_declare<std::string>("jtc_name", "whole_body_jtc");
+  auto_declare<std::vector<std::string>>(
+    "motion_controller_names", {"whole_body_jtc", "rolling_trajectory_controller"});
+  auto_declare<std::string>("default_motion_controller", "whole_body_jtc");
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -77,12 +79,29 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   controller_switch_timeout_seconds_ =
     get_node()->get_parameter("controller_switch_timeout").as_double();
   const auto service_timeout = get_node()->get_parameter("service_result_timeout_ms").as_int();
-  jtc_name_ = get_node()->get_parameter("jtc_name").as_string();
+  motion_controller_names_ =
+    get_node()->get_parameter("motion_controller_names").as_string_array();
+  default_motion_controller_ =
+    get_node()->get_parameter("default_motion_controller").as_string();
+
+  std::vector<std::string> sorted_controller_names = motion_controller_names_;
+  std::sort(sorted_controller_names.begin(), sorted_controller_names.end());
+  const bool has_empty_name = std::any_of(
+    motion_controller_names_.begin(), motion_controller_names_.end(),
+    [](const std::string & name) {return name.empty();});
+  const bool has_duplicate_name = std::adjacent_find(
+    sorted_controller_names.begin(), sorted_controller_names.end()) !=
+    sorted_controller_names.end();
+  const bool default_is_registered = std::find(
+    motion_controller_names_.begin(), motion_controller_names_.end(),
+    default_motion_controller_) != motion_controller_names_.end();
 
   if (
     batch_timeout_seconds_ <= 0.0 || disable_stage_timeout_seconds_ <= 0.0 ||
     inter_batch_delay_seconds_ < 0.0 || fault_reset_timeout_seconds_ <= 0.0 ||
-    controller_switch_timeout_seconds_ <= 0.0 || service_timeout <= 0 || jtc_name_.empty())
+    controller_switch_timeout_seconds_ <= 0.0 || service_timeout <= 0 ||
+    motion_controller_names_.empty() || has_empty_name || has_duplicate_name ||
+    default_motion_controller_.empty() || !default_is_registered)
   {
     RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager timing or controller parameter");
     return controller_interface::CallbackReturn::ERROR;
@@ -567,6 +586,61 @@ void EnableManagerController::fillImmediateResponse(
   response.stage = stageName(stage);
 }
 
+EnableManagerController::SwitchResult
+EnableManagerController::buildMotionControllerSwitchRequest(
+  const controller_manager_msgs::srv::ListControllers::Response & states,
+  bool activate_default,
+  controller_manager_msgs::srv::SwitchController::Request & request) const
+{
+  request.activate_controllers.clear();
+  request.deactivate_controllers.clear();
+  for (const std::string & registered_name : motion_controller_names_) {
+    const auto controller = std::find_if(
+      states.controller.begin(), states.controller.end(),
+      [&registered_name](const auto & candidate) {
+        return candidate.name == registered_name;
+      });
+    if (controller == states.controller.end()) {
+      return SwitchResult::kFailed;
+    }
+    const bool is_active = controller->state == "active";
+    if (registered_name == default_motion_controller_ && activate_default) {
+      if (!is_active) {
+        if (controller->state != "inactive") {
+          return SwitchResult::kFailed;
+        }
+        request.activate_controllers.push_back(registered_name);
+      }
+    } else if (is_active) {
+      request.deactivate_controllers.push_back(registered_name);
+    }
+  }
+  return SwitchResult::kSuccess;
+}
+
+bool EnableManagerController::registeredMotionControllerStateMatches(
+  const controller_manager_msgs::srv::ListControllers::Response & states,
+  bool default_active) const
+{
+  for (const std::string & registered_name : motion_controller_names_) {
+    const auto controller = std::find_if(
+      states.controller.begin(), states.controller.end(),
+      [&registered_name](const auto & candidate) {
+        return candidate.name == registered_name;
+      });
+    if (controller == states.controller.end()) {
+      return false;
+    }
+    const std::string expected_state =
+      default_active && registered_name == default_motion_controller_ ?
+      "active" : "inactive";
+    if (controller->state != expected_state) {
+      return false;
+    }
+  }
+  return true;
+}
+
 EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool activate)
 {
   bool expected = false;
@@ -576,45 +650,66 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
   const auto clear_in_progress = [this]() {
       switch_in_progress_.store(false, std::memory_order_release);
     };
-  if (!switch_client_->wait_for_service(std::chrono::milliseconds(0))) {
+  if (
+    !switch_client_->wait_for_service(std::chrono::milliseconds(0)) ||
+    !list_client_->wait_for_service(std::chrono::milliseconds(0)))
+  {
     clear_in_progress();
     return SwitchResult::kAmbiguous;
   }
 
-  if (!activate && list_client_->wait_for_service(std::chrono::milliseconds(0))) {
-    auto list_request =
-      std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
-    auto list_future = list_client_->async_send_request(list_request);
-    const auto list_wait_status = list_future.wait_for(
-      std::chrono::duration<double>(controller_switch_timeout_seconds_));
-    if (list_wait_status == std::future_status::ready) {
-      const auto list_response = list_future.get();
-      bool found_jtc = false;
-      if (list_response != nullptr) {
-        for (const auto & controller : list_response->controller) {
-          if (controller.name != jtc_name_) {
-            continue;
-          }
-          found_jtc = true;
-          if (controller.state != "active") {
-            clear_in_progress();
-            return SwitchResult::kSuccess;
-          }
-          break;
-        }
+  auto list_request =
+    std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
+  auto list_future = list_client_->async_send_request(list_request);
+  const auto list_wait_status = list_future.wait_for(
+    std::chrono::duration<double>(controller_switch_timeout_seconds_));
+  if (list_wait_status != std::future_status::ready) {
+    clear_in_progress();
+    return SwitchResult::kAmbiguous;
+  }
+  const auto list_response = list_future.get();
+  if (list_response == nullptr) {
+    clear_in_progress();
+    return SwitchResult::kAmbiguous;
+  }
+
+  if (!activate) {
+    bool has_active_registered_controller = false;
+    for (const auto & controller : list_response->controller) {
+      if (controller.state != "active") {
+        continue;
       }
-      if (!found_jtc) {
-        clear_in_progress();
+      if (std::find(
+          motion_controller_names_.begin(), motion_controller_names_.end(),
+          controller.name) != motion_controller_names_.end())
+      {
+        has_active_registered_controller = true;
+        break;
+      }
+    }
+    if (!has_active_registered_controller) {
+      const bool all_inactive =
+        registeredMotionControllerStateMatches(*list_response, false);
+      clear_in_progress();
+      if (all_inactive) {
         return SwitchResult::kSuccess;
       }
+      return SwitchResult::kFailed;
     }
   }
 
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
-  if (activate) {
-    request->activate_controllers.push_back(jtc_name_);
-  } else {
-    request->deactivate_controllers.push_back(jtc_name_);
+  const SwitchResult plan_result =
+    buildMotionControllerSwitchRequest(*list_response, activate, *request);
+  if (plan_result != SwitchResult::kSuccess) {
+    clear_in_progress();
+    return plan_result;
+  }
+  if (request->activate_controllers.empty() && request->deactivate_controllers.empty()) {
+    const bool state_matches =
+      registeredMotionControllerStateMatches(*list_response, activate);
+    clear_in_progress();
+    return state_matches ? SwitchResult::kSuccess : SwitchResult::kFailed;
   }
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;
@@ -629,8 +724,21 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
   SwitchResult result = SwitchResult::kAmbiguous;
   if (wait_status == std::future_status::ready) {
     const auto switch_response = future.get();
-    result = switch_response != nullptr && switch_response->ok ?
-      SwitchResult::kSuccess : SwitchResult::kFailed;
+    if (switch_response != nullptr && switch_response->ok) {
+      auto verification_request =
+        std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
+      auto verification_future = list_client_->async_send_request(verification_request);
+      const auto verification_wait = verification_future.wait_for(
+        std::chrono::duration<double>(controller_switch_timeout_seconds_));
+      if (verification_wait == std::future_status::ready) {
+        const auto verification_response = verification_future.get();
+        result = verification_response != nullptr &&
+          registeredMotionControllerStateMatches(*verification_response, activate) ?
+          SwitchResult::kSuccess : SwitchResult::kAmbiguous;
+      }
+    } else {
+      result = SwitchResult::kFailed;
+    }
   }
   clear_in_progress();
   return result;

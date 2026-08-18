@@ -74,6 +74,21 @@ public:
   static const char * stageName(Stage s) {return EnableManagerController::stageName(s);}
   static const char * phaseName(Phase p) {return EnableManagerController::phaseName(p);}
   static SwitchResult switchJtc(Controller & c, bool a) {return c.switchJtc(a);}
+  static SwitchResult buildSwitchRequest(
+    const Controller & c,
+    const controller_manager_msgs::srv::ListControllers::Response & states,
+    bool activate_default,
+    controller_manager_msgs::srv::SwitchController::Request & request)
+  {
+    return c.buildMotionControllerSwitchRequest(states, activate_default, request);
+  }
+  static bool verifyRegistryState(
+    const Controller & c,
+    const controller_manager_msgs::srv::ListControllers::Response & states,
+    bool default_active)
+  {
+    return c.registeredMotionControllerStateMatches(states, default_active);
+  }
 
   using ResultSlot = EnableManagerController::ResultSlot;
 
@@ -200,7 +215,10 @@ public:
         rclcpp::Parameter("fault_reset_timeout", kFaultResetTimeout),
         rclcpp::Parameter("controller_switch_timeout", kControllerSwitchTimeout),
         rclcpp::Parameter("service_result_timeout_ms", kServiceResultTimeoutMs),
-        rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+        rclcpp::Parameter(
+          "motion_controller_names",
+          std::vector<std::string>{"whole_body_jtc", "rolling_trajectory_controller"}),
+        rclcpp::Parameter("default_motion_controller", std::string("whole_body_jtc")),
         rclcpp::Parameter("update_rate", 1000),
       });
     options.allow_undeclared_parameters(true);
@@ -474,6 +492,101 @@ TEST_F(EnableManagerFixture, BatchTableCoversAllFourteenAxesExactlyOnce)
   for (std::size_t axis = 0; axis < kAxes; ++axis) {
     EXPECT_EQ(seen[axis], 1) << "axis " << axis << " (" << Access::jointNames()[axis] << ")";
   }
+}
+
+TEST_F(EnableManagerFixture, ConfigureRejectsInvalidMotionControllerRegistry)
+{
+  struct Case
+  {
+    std::vector<std::string> names;
+    std::string default_name;
+  };
+  const std::vector<Case> cases = {
+    {{}, "whole_body_jtc"},
+    {{"whole_body_jtc", "whole_body_jtc"}, "whole_body_jtc"},
+    {{"whole_body_jtc", ""}, "whole_body_jtc"},
+    {{"rolling_trajectory_controller"}, "whole_body_jtc"}};
+
+  for (std::size_t index = 0U; index < cases.size(); ++index) {
+    auto invalid = std::make_unique<EnableManagerController>();
+    rclcpp::NodeOptions options;
+    options.parameter_overrides(
+      {
+        rclcpp::Parameter("motion_controller_names", cases[index].names),
+        rclcpp::Parameter("default_motion_controller", cases[index].default_name),
+        rclcpp::Parameter("update_rate", 1000),
+      });
+    options.allow_undeclared_parameters(true);
+    options.automatically_declare_parameters_from_overrides(true);
+    ASSERT_EQ(
+      invalid->init("enable_manager_invalid_registry_" + std::to_string(index), "", options),
+      controller_interface::return_type::OK);
+    EXPECT_EQ(
+      invalid->on_configure(rclcpp_lifecycle::State()),
+      controller_interface::CallbackReturn::ERROR)
+      << "case " << index;
+  }
+}
+
+TEST_F(EnableManagerFixture, RegistrySwitchPlanDeactivatesEveryOtherCommandWriter)
+{
+  initAndConfigure();
+  controller_manager_msgs::srv::ListControllers::Response states;
+  states.controller.resize(2U);
+  states.controller[0].name = "whole_body_jtc";
+  states.controller[0].state = "inactive";
+  states.controller[1].name = "rolling_trajectory_controller";
+  states.controller[1].state = "active";
+
+  controller_manager_msgs::srv::SwitchController::Request activate_default;
+  EXPECT_EQ(
+    Access::buildSwitchRequest(*controller_, states, true, activate_default),
+    SwitchResult::kSuccess);
+  EXPECT_THAT(activate_default.activate_controllers, ::testing::ElementsAre("whole_body_jtc"));
+  EXPECT_THAT(
+    activate_default.deactivate_controllers,
+    ::testing::ElementsAre("rolling_trajectory_controller"));
+
+  states.controller[0].state = "active";
+  controller_manager_msgs::srv::SwitchController::Request deactivate_all;
+  EXPECT_EQ(
+    Access::buildSwitchRequest(*controller_, states, false, deactivate_all),
+    SwitchResult::kSuccess);
+  EXPECT_TRUE(deactivate_all.activate_controllers.empty());
+  EXPECT_THAT(
+    deactivate_all.deactivate_controllers,
+    ::testing::ElementsAre("whole_body_jtc", "rolling_trajectory_controller"));
+
+  states.controller.pop_back();
+  controller_manager_msgs::srv::SwitchController::Request incomplete;
+  EXPECT_EQ(
+    Access::buildSwitchRequest(*controller_, states, false, incomplete),
+    SwitchResult::kFailed);
+}
+
+TEST_F(EnableManagerFixture, RegistryVerificationRequiresExactlyTheRequestedWriters)
+{
+  initAndConfigure();
+  controller_manager_msgs::srv::ListControllers::Response states;
+  states.controller.resize(2U);
+  states.controller[0].name = "whole_body_jtc";
+  states.controller[1].name = "rolling_trajectory_controller";
+
+  states.controller[0].state = "active";
+  states.controller[1].state = "inactive";
+  EXPECT_TRUE(Access::verifyRegistryState(*controller_, states, true));
+  EXPECT_FALSE(Access::verifyRegistryState(*controller_, states, false));
+
+  states.controller[0].state = "inactive";
+  EXPECT_TRUE(Access::verifyRegistryState(*controller_, states, false));
+  EXPECT_FALSE(Access::verifyRegistryState(*controller_, states, true));
+
+  states.controller[1].state = "active";
+  EXPECT_FALSE(Access::verifyRegistryState(*controller_, states, true));
+  EXPECT_FALSE(Access::verifyRegistryState(*controller_, states, false));
+
+  states.controller.pop_back();
+  EXPECT_FALSE(Access::verifyRegistryState(*controller_, states, false));
 }
 
 TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)
