@@ -37,6 +37,15 @@ struct OwnedPoint
     return PointView{
       time_ns, positions.data(), positions.size(), velocities.data(), velocities.size()};
   }
+
+  JointPoint jointPoint() const noexcept
+  {
+    JointPoint point;
+    point.time_ns = time_ns;
+    point.positions = positions;
+    point.velocities = velocities;
+    return point;
+  }
 };
 
 OwnedPoint makePoint(std::uint64_t time_ns, double position, double velocity = 0.0)
@@ -88,6 +97,7 @@ protected:
   {
     BufferConfiguration configuration;
     configuration.capacity = 8U;
+    configuration.max_horizon_ns = std::numeric_limits<std::uint64_t>::max();
     configuration.splice_position_tolerance.fill(1.0e-10);
     configuration.splice_velocity_tolerance.fill(1.0e-10);
     ASSERT_TRUE(buffer_.configure(configuration));
@@ -120,16 +130,17 @@ TEST(RollingBufferSession, RefusesToBeginWithoutAnApprovedDynamicEnvelope)
   identity.session_id = makeIdentifier(21U);
   identity.client_instance_id = makeIdentifier(41U);
 
-  EXPECT_FALSE(buffer.beginSession(identity));
+  const JointPoint anchor = makePoint(0U, 0.0).jointPoint();
+  EXPECT_FALSE(buffer.beginSession(identity, anchor));
   EXPECT_EQ(buffer.sessionState(), SessionState::kNone);
   EXPECT_TRUE(buffer.configureLimits(makeTestOnlyEnvelope(), true));
-  EXPECT_TRUE(buffer.beginSession(identity));
+  EXPECT_TRUE(buffer.beginSession(identity, anchor));
   EXPECT_FALSE(buffer.configureLimits(makeTestOnlyEnvelope(), true));
 }
 
 TEST_F(ProtocolVectors, WrongIdentityDoesNotConsumeSequenceButPayloadFailureDoes)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   std::array<OwnedPoint, 2> points = {makePoint(0U, 0.0), makePoint(kCycleNs, 0.1)};
   auto views = makeViews(points);
 
@@ -168,7 +179,7 @@ TEST_F(ProtocolVectors, WrongIdentityDoesNotConsumeSequenceButPayloadFailureDoes
 
 TEST_F(ProtocolVectors, PrimingRequiresAnExactZeroReplacementAndFirstPoint)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   std::array<OwnedPoint, 2> points = {makePoint(1U, 0.0), makePoint(kCycleNs, 0.1)};
   auto views = makeViews(points);
 
@@ -194,11 +205,12 @@ TEST_F(ProtocolVectors, PrimeMustMeetTheConfiguredInitialHorizonExactly)
   BufferConfiguration configuration;
   configuration.capacity = 4U;
   configuration.required_initial_horizon_ns = 2U * kCycleNs;
+  configuration.max_horizon_ns = std::numeric_limits<std::uint64_t>::max();
   configuration.splice_position_tolerance.fill(1.0e-10);
   configuration.splice_velocity_tolerance.fill(1.0e-10);
   ASSERT_TRUE(buffer_.configure(configuration));
   ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope(), true));
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
 
   std::array<OwnedPoint, 2> points = {
     makePoint(0U, 0.0), makePoint(2U * kCycleNs - 1U, 0.1)};
@@ -218,7 +230,7 @@ TEST_F(ProtocolVectors, PrimeMustMeetTheConfiguredInitialHorizonExactly)
 
 TEST_F(ProtocolVectors, LateSuffixIsRejectedAfterSequenceConsumption)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 3> prime = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1), makePoint(2U * kCycleNs, 0.2)};
   const auto prime_views = makeViews(prime);
@@ -226,13 +238,14 @@ TEST_F(ProtocolVectors, LateSuffixIsRejectedAfterSequenceConsumption)
     buffer_.submit(batch(1U, 0U, prime_views.data(), prime_views.size())),
     RejectCode::kNone);
   ASSERT_TRUE(buffer_.activatePending());
-  buffer_.setReplaceableFromNs(kCycleNs);
 
   const std::array<OwnedPoint, 2> suffix = {
     makePoint(kCycleNs - 1U, 0.1), makePoint(2U * kCycleNs, 0.2)};
   const auto suffix_views = makeViews(suffix);
   EXPECT_EQ(
-    buffer_.submit(batch(2U, kCycleNs - 1U, suffix_views.data(), suffix_views.size())),
+    buffer_.submit(
+      batch(2U, kCycleNs - 1U, suffix_views.data(), suffix_views.size()),
+      AdmissionContext{0U, kCycleNs, 0U}),
     RejectCode::kLateReplace);
   EXPECT_EQ(buffer_.lastSeenSequence(), 2U);
   EXPECT_EQ(buffer_.lastAcceptedSequence(), 1U);
@@ -242,7 +255,7 @@ TEST_F(ProtocolVectors, LateSuffixIsRejectedAfterSequenceConsumption)
 
 TEST_F(ProtocolVectors, FinalCommitRechecksBoundaryWithoutMutatingTheAcceptedHead)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 3> prime = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1), makePoint(2U * kCycleNs, 0.2)};
   const auto prime_views = makeViews(prime);
@@ -263,7 +276,8 @@ TEST_F(ProtocolVectors, FinalCommitRechecksBoundaryWithoutMutatingTheAcceptedHea
   PreparedSubmission prepared;
   ASSERT_EQ(
     buffer_.prepare(
-      batch(2U, kCycleNs, suffix_views.data(), suffix_views.size()), prepared),
+      batch(2U, kCycleNs, suffix_views.data(), suffix_views.size()),
+      AdmissionContext{}, prepared),
     RejectCode::kNone);
   ASSERT_TRUE(prepared.valid);
   EXPECT_EQ(buffer_.lastSeenSequence(), 2U);
@@ -271,7 +285,8 @@ TEST_F(ProtocolVectors, FinalCommitRechecksBoundaryWithoutMutatingTheAcceptedHea
   EXPECT_FALSE(buffer_.hasPending());
 
   EXPECT_EQ(
-    buffer_.commit(prepared, kCycleNs + 1U), RejectCode::kLateReplace);
+    buffer_.commit(prepared, AdmissionContext{0U, kCycleNs + 1U, 0U}),
+    RejectCode::kLateReplace);
   EXPECT_FALSE(prepared.valid);
   EXPECT_EQ(buffer_.lastSeenSequence(), 2U);
   EXPECT_EQ(buffer_.lastAcceptedSequence(), 1U);
@@ -282,7 +297,7 @@ TEST_F(ProtocolVectors, FinalCommitRechecksBoundaryWithoutMutatingTheAcceptedHea
 
 TEST_F(ProtocolVectors, ValidSuffixRetainsOnlyTheImmutablePrefix)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 4> prime = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1), makePoint(2U * kCycleNs, 0.2),
     makePoint(3U * kCycleNs, 0.3)};
@@ -291,7 +306,6 @@ TEST_F(ProtocolVectors, ValidSuffixRetainsOnlyTheImmutablePrefix)
     buffer_.submit(batch(1U, 0U, prime_views.data(), prime_views.size())),
     RejectCode::kNone);
   ASSERT_TRUE(buffer_.activatePending());
-  buffer_.setReplaceableFromNs(kCycleNs);
 
   JointPoint splice{};
   ASSERT_TRUE(buffer_.sampleValidationHead(2U * kCycleNs, splice));
@@ -303,16 +317,23 @@ TEST_F(ProtocolVectors, ValidSuffixRetainsOnlyTheImmutablePrefix)
   const auto suffix_views = makeViews(suffix);
 
   ASSERT_EQ(
-    buffer_.submit(batch(2U, 2U * kCycleNs, suffix_views.data(), suffix_views.size())),
+    buffer_.submit(
+      batch(2U, 2U * kCycleNs, suffix_views.data(), suffix_views.size()),
+      AdmissionContext{0U, kCycleNs, 0U}),
     RejectCode::kNone);
   ASSERT_TRUE(buffer_.hasPending());
   EXPECT_EQ(buffer_.image().generation, 1U);
   EXPECT_EQ(buffer_.pendingImage().generation, 2U);
-  ASSERT_EQ(buffer_.pendingImage().point_count, 5U);
+  ASSERT_EQ(buffer_.pendingImage().point_count, 6U);
   EXPECT_EQ(buffer_.pendingImage().points[0].time_ns, 0U);
   EXPECT_EQ(buffer_.pendingImage().points[1].time_ns, kCycleNs);
   EXPECT_EQ(buffer_.pendingImage().points[2].time_ns, 2U * kCycleNs);
-  EXPECT_EQ(buffer_.pendingImage().points[3].positions[0], 0.8);
+  EXPECT_EQ(buffer_.pendingImage().points[3].time_ns, 2U * kCycleNs);
+  EXPECT_EQ(
+    buffer_.pendingImage().points[2].role, TrajectoryPointRole::kSpliceLeft);
+  EXPECT_EQ(
+    buffer_.pendingImage().points[3].role, TrajectoryPointRole::kSpliceRight);
+  EXPECT_EQ(buffer_.pendingImage().points[4].positions[0], 0.8);
 
   ASSERT_TRUE(buffer_.activatePending());
   EXPECT_EQ(buffer_.image().generation, 2U);
@@ -321,9 +342,9 @@ TEST_F(ProtocolVectors, ValidSuffixRetainsOnlyTheImmutablePrefix)
 
 TEST_F(ProtocolVectors, SuffixMustMatchBothPositionAndVelocityAtTheSplice)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 3> prime = {
-    makePoint(0U, 0.0, 0.1), makePoint(kCycleNs, 0.1, 0.1),
+    makePoint(0U, 0.0), makePoint(kCycleNs, 0.1, 0.1),
     makePoint(2U * kCycleNs, 0.2, 0.1)};
   const auto prime_views = makeViews(prime);
   ASSERT_EQ(
@@ -355,7 +376,7 @@ TEST_F(ProtocolVectors, SuffixMustMatchBothPositionAndVelocityAtTheSplice)
 
 TEST_F(ProtocolVectors, NewUpdateBuildsAgainstPendingValidationHead)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 3> prime = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1), makePoint(2U * kCycleNs, 0.2)};
   const auto prime_views = makeViews(prime);
@@ -391,18 +412,21 @@ TEST_F(ProtocolVectors, NewUpdateBuildsAgainstPendingValidationHead)
   EXPECT_FALSE(buffer_.hasPending());
   EXPECT_EQ(buffer_.image().points[0].time_ns, 0U);
   EXPECT_EQ(buffer_.image().points[1].time_ns, kCycleNs);
-  EXPECT_EQ(buffer_.image().points[2].positions[0], 0.7);
+  JointPoint replacement_end;
+  ASSERT_TRUE(sampleTrajectoryImage(buffer_.image(), 3U * kCycleNs, replacement_end));
+  EXPECT_EQ(replacement_end.positions[0], 0.7);
 }
 
 TEST_F(ProtocolVectors, PrefixPlusSuffixCannotExceedRuntimeCapacity)
 {
   BufferConfiguration configuration;
   configuration.capacity = 4U;
+  configuration.max_horizon_ns = std::numeric_limits<std::uint64_t>::max();
   configuration.splice_position_tolerance.fill(1.0e-10);
   configuration.splice_velocity_tolerance.fill(1.0e-10);
   ASSERT_TRUE(buffer_.configure(configuration));
   ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope(), true));
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
 
   const std::array<OwnedPoint, 4> prime = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1), makePoint(2U * kCycleNs, 0.2),
@@ -433,7 +457,7 @@ TEST_F(ProtocolVectors, InteriorVelocityViolationCannotBecomePending)
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
   envelope.axes[0].velocity_positive = 1.4;
   ASSERT_TRUE(buffer_.configureLimits(envelope, true));
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, JointPoint{}));
 
   std::array<OwnedPoint, 2> points{};
   points[0].time_ns = 0U;
@@ -455,14 +479,16 @@ TEST_F(ProtocolVectors, StopUnsafeDirectlyValidSegmentCannotBecomePending)
   envelope.axes[0].position_upper = 1.0;
   envelope.axes[0].stop_acceleration_positive = 1.0;
   ASSERT_TRUE(buffer_.configureLimits(envelope, true));
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, JointPoint{}));
 
-  std::array<OwnedPoint, 2> points{};
+  std::array<OwnedPoint, 3> points{};
   points[0].time_ns = 0U;
-  points[0].velocities[0] = 0.8;
-  points[1].time_ns = 1'000'000'000U;
-  points[1].positions[0] = 0.8;
+  points[1].time_ns = 500'000'000U;
+  points[1].positions[0] = 0.4;
   points[1].velocities[0] = 0.8;
+  points[2].time_ns = 1'000'000'000U;
+  points[2].positions[0] = 0.8;
+  points[2].velocities[0] = 0.8;
   const auto views = makeViews(points);
   EXPECT_EQ(
     buffer_.submit(batch(1U, 0U, views.data(), views.size())),
@@ -475,7 +501,7 @@ TEST_F(ProtocolVectors, StopUnsafeDirectlyValidSegmentCannotBecomePending)
 
 TEST_F(ProtocolVectors, ActiveSessionCannotBeResetThroughConfiguration)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 2> points = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1)};
   const auto views = makeViews(points);
@@ -494,7 +520,7 @@ TEST_F(ProtocolVectors, ActiveSessionCannotBeResetThroughConfiguration)
 
 TEST_F(ProtocolVectors, ActiveSessionCannotBypassProtocolThroughDirectReplace)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 2> prime = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1)};
   const auto prime_views = makeViews(prime);
@@ -518,7 +544,7 @@ TEST_F(ProtocolVectors, ActiveSessionCannotBypassProtocolThroughDirectReplace)
 
 TEST_F(ProtocolVectors, GracefulCloseDiscardsPendingFutureAndConsumesLaterSequences)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   const std::array<OwnedPoint, 2> prime = {
     makePoint(0U, 0.0), makePoint(kCycleNs, 0.1)};
   const auto prime_views = makeViews(prime);
@@ -542,7 +568,7 @@ TEST_F(ProtocolVectors, GracefulCloseDiscardsPendingFutureAndConsumesLaterSequen
 
 TEST_F(ProtocolVectors, SessionCanOnlyBeDestroyedAfterHolding)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   EXPECT_EQ(buffer_.identity().session_id, identity_.session_id);
   EXPECT_FALSE(buffer_.finishSession());
   ASSERT_TRUE(buffer_.requestStop());
@@ -561,22 +587,22 @@ TEST_F(ProtocolVectors, SessionCanOnlyBeDestroyedAfterHolding)
 
 TEST_F(ProtocolVectors, TerminationInvalidatesTheSessionUntilExplicitReset)
 {
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   buffer_.terminateSession();
   EXPECT_EQ(buffer_.sessionState(), SessionState::kTerminated);
   EXPECT_EQ(buffer_.identity().controller_boot_id, Identifier{});
   EXPECT_EQ(buffer_.identity().session_id, Identifier{});
   EXPECT_EQ(buffer_.identity().client_instance_id, Identifier{});
-  EXPECT_FALSE(buffer_.beginSession(identity_));
+  EXPECT_FALSE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   EXPECT_TRUE(buffer_.resetTerminated());
   EXPECT_EQ(buffer_.sessionState(), SessionState::kNone);
-  EXPECT_TRUE(buffer_.beginSession(identity_));
+  EXPECT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
 }
 
 TEST_F(ProtocolVectors, RandomArrivalOrderMatchesTheSequenceReferenceModel)
 {
   constexpr std::uint32_t kSeed = 0xE102U;
-  ASSERT_TRUE(buffer_.beginSession(identity_));
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
   std::array<OwnedPoint, 2> points = {makePoint(0U, 0.0), makePoint(kCycleNs, 0.1)};
   points[1].velocities[0] = std::numeric_limits<double>::quiet_NaN();
   const auto views = makeViews(points);

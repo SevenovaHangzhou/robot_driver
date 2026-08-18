@@ -19,9 +19,14 @@ launch 结构与容器（→ release-deploy）。
 | 02#F2 | rolling controller 核心已在 public feature-interface overlay 构建并加载 | [motion-20260819-02](records/2026-08-19-electri-102-rolling-controller-port.md)#F2 | 有效（T1） |
 | 02#F3 | rolling service 细粒度结果与公共 DREE 映射逐项固定 | [motion-20260819-02](records/2026-08-19-electri-102-rolling-controller-port.md)#F3 | 有效（T1） |
 | 02#F4 | controller 移植通过不等于 Motion 联调门槛已通过 | [motion-20260819-02](records/2026-08-19-electri-102-rolling-controller-port.md)#F4 | 有效（T1） |
+| 03#F1 | Prime generation 不可改变 open 返回的 t=0 hold | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F1 | 有效（T1） |
+| 03#F2 | accepted candidate 在 [E,R) 与 authoritative head 采样等价 | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F2 | 有效（T1） |
+| 03#F3 | capacity 不累计 session 历史 | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F3 | 有效（T1） |
+| 03#F4 | max_horizon 是 admission gate，不是只读 capability | [motion-20260819-03](records/2026-08-19-electri-102-rolling-correctness.md)#F4 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 rolling 前缀与 horizon 正确性闭环](records/2026-08-19-electri-102-rolling-correctness.md) — fix，PASS（T1）
 - 2026-08-19 [ELECTRI-102 rolling 控制器移植到公共接口契约](records/2026-08-19-electri-102-rolling-controller-port.md) — feat，PASS（T1）
 - 2026-08-19 [JTC 首点一致性启用时关闭 topic 命令旁路](records/2026-08-19-jtc-action-only-admission.md) — fix，PASS（T1）
 

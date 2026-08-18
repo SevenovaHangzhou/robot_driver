@@ -202,6 +202,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   BufferConfiguration buffer_configuration;
   buffer_configuration.capacity = kTestOnlyBufferCapacity;
   buffer_configuration.required_initial_horizon_ns = kTestOnlyRequiredInitialHorizonNs;
+  buffer_configuration.max_horizon_ns = kTestOnlyMaxHorizonNs;
   buffer_configuration.splice_position_tolerance.fill(1.0e-9);
   buffer_configuration.splice_velocity_tolerance.fill(1.0e-9);
   envelope_ = makeTestOnlyEnvelope();
@@ -780,6 +781,48 @@ bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noex
   return false;
 }
 
+bool RollingTrajectoryController::buildAdmissionContext(
+  AdmissionContext & context) const noexcept
+{
+  if (
+    buffer_.sessionState() == SessionState::kPriming &&
+    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) ==
+    SessionState::kPriming &&
+    active_generation_.load(std::memory_order_acquire) == 0U)
+  {
+    context.execution_time_ns = 0U;
+    context.replaceable_from_ns = 0U;
+    context.minimum_horizon_ns = 4U * kTestOnlyNominalPeriodNs;
+    return true;
+  }
+
+  RtStateView view;
+  if (
+    !readRtStateView(view) ||
+    view.session_epoch != session_epoch_.load(std::memory_order_acquire))
+  {
+    return false;
+  }
+
+  std::uint64_t stop_duration_ns = 0U;
+  if (!calculateStopDurationNs(view.desired, stop_duration_ns)) {
+    return false;
+  }
+  std::uint64_t minimum_horizon_ns = stop_duration_ns;
+  if (
+    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns) ||
+    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns) ||
+    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns) ||
+    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns))
+  {
+    return false;
+  }
+  context.execution_time_ns = view.execution_time_ns;
+  context.replaceable_from_ns = view.replaceable_from_ns;
+  context.minimum_horizon_ns = minimum_horizon_ns;
+  return true;
+}
+
 bool RollingTrajectoryController::buildPublicState(StateMessage & state)
 {
   std::lock_guard<std::mutex> lock(callback_mutex_);
@@ -971,7 +1014,7 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
   if (
     trajectory.point_count == 0U || trajectory.point_count > kTransportMaxPoints ||
     trajectory.generation == 0U || trajectory.generation <= active_generation ||
-    trajectory.points[0].time_ns != 0U)
+    !trajectoryImageStructureIsValid(trajectory))
   {
     rt_invariant_stage_.store(
       static_cast<std::uint8_t>(RtInvariantStage::kSnapshotShapeOrGeneration),
@@ -981,13 +1024,22 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
 
   const std::uint64_t execution_ns = execution_time_ns_.load(std::memory_order_relaxed);
   if (priming) {
-    if (execution_ns != 0U) {
+    if (execution_ns != 0U || trajectory.points[0].time_ns != 0U) {
       rt_invariant_stage_.store(
         static_cast<std::uint8_t>(RtInvariantStage::kSnapshotPrimingTime),
         std::memory_order_release);
       return SnapshotConsumeResult::kInvalid;
     }
   } else {
+    if (
+      trajectory.points[0].time_ns > execution_ns ||
+      trajectory.points[trajectory.point_count - 1U].time_ns < execution_ns)
+    {
+      rt_invariant_stage_.store(
+        static_cast<std::uint8_t>(RtInvariantStage::kSnapshotShapeOrGeneration),
+        std::memory_order_release);
+      return SnapshotConsumeResult::kInvalid;
+    }
     const std::uint64_t replaceable_from_ns =
       replaceable_from_ns_.load(std::memory_order_acquire);
     const bool safe_zero_time_handoff =
@@ -1297,6 +1349,9 @@ void RollingTrajectoryController::handleOpen(
   identity.controller_boot_id = controller_boot_id_;
   identity.session_id = generateIdentifier();
   identity.client_instance_id = request->client_instance_id.uuid;
+  JointPoint prime_anchor;
+  prime_anchor.positions = hold_positions;
+  prime_anchor.velocities.fill(0.0);
   const std::uint64_t current_epoch = session_epoch_.load(std::memory_order_acquire);
   const std::uint64_t latest_publication =
     snapshot_exchange_.latestPublicationSequence();
@@ -1307,7 +1362,7 @@ void RollingTrajectoryController::handleOpen(
     setOpenError(*response, ServiceResultMessage::RESTART_REQUIRED);
     return;
   }
-  if (!buffer_.beginSession(identity)) {
+  if (!buffer_.beginSession(identity, prime_anchor)) {
     setOpenError(*response, ServiceResultMessage::LIMITS_UNAVAILABLE);
     return;
   }
@@ -1508,8 +1563,9 @@ void RollingTrajectoryController::handleUpdate(const BatchMessage::SharedPtr mes
   std::lock_guard<std::mutex> lock(callback_mutex_);
   RejectCode result = RejectCode::kNone;
   PreparedSubmission submission;
+  AdmissionContext admission_context;
   bool supersedes_pending = false;
-  if (!synchronizeBufferStateFromRt()) {
+  if (!synchronizeBufferStateFromRt() || !buildAdmissionContext(admission_context)) {
     result = RejectCode::kSessionNotAccepting;
   } else if (
     message->protocol_major != kProtocolMajor || message->protocol_minor != kProtocolMinor)
@@ -1528,16 +1584,17 @@ void RollingTrajectoryController::handleUpdate(const BatchMessage::SharedPtr mes
     batch.replace_from_ns = message->replace_from_ns;
     batch.points = point_views.data();
     batch.point_count = point_count;
-    buffer_.setReplaceableFromNs(
-      replaceable_from_ns_.load(std::memory_order_acquire));
     supersedes_pending = buffer_.hasPending();
-    result = buffer_.prepare(batch, submission);
+    result = buffer_.prepare(batch, admission_context, submission);
     if (result == RejectCode::kNone) {
-      if (!synchronizeBufferStateFromRt()) {
+      AdmissionContext commit_context;
+      if (
+        !synchronizeBufferStateFromRt() ||
+        !buildAdmissionContext(commit_context))
+      {
         result = RejectCode::kSessionNotAccepting;
       } else {
-        result = buffer_.commit(
-          submission, replaceable_from_ns_.load(std::memory_order_acquire));
+        result = buffer_.commit(submission, commit_context);
       }
     }
   }

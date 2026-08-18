@@ -164,6 +164,7 @@ private:
   void setCloseError(CloseService::Response & response, std::uint8_t error_code);
   bool synchronizeBufferStateFromRt() noexcept;
   bool readRtStateView(RtStateView & view) const noexcept;
+  bool buildAdmissionContext(AdmissionContext & context) const noexcept;
   bool buildPublicState(StateMessage & state);
   bool publishPublicState();
   bool resetRtEpoch(std::uint64_t epoch) noexcept;

@@ -42,7 +42,8 @@ enum class RejectCode : std::uint8_t
   kVelocityLimit = 16U,
   kAccelerationLimit = 17U,
   kNotStoppingViable = 18U,
-  kSessionNotAccepting = 19U
+  kSessionNotAccepting = 19U,
+  kHorizonExceeded = 20U
 };
 
 struct PointView
@@ -99,11 +100,19 @@ enum class StopReason : std::uint8_t
   kControllerRestart = 10U
 };
 
+enum class TrajectoryPointRole : std::uint8_t
+{
+  kNormal = 0U,
+  kSpliceLeft = 1U,
+  kSpliceRight = 2U
+};
+
 struct JointPoint
 {
   std::uint64_t time_ns{0U};
   std::array<double, kAxisCount> positions{};
   std::array<double, kAxisCount> velocities{};
+  TrajectoryPointRole role{TrajectoryPointRole::kNormal};
 };
 
 struct TrajectoryImage

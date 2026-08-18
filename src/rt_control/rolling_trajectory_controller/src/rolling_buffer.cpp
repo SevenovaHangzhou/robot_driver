@@ -9,11 +9,67 @@
 
 namespace rolling_trajectory_controller
 {
+namespace
+{
+
+bool isSplicePair(const TrajectoryImage & image, std::size_t index) noexcept
+{
+  return index + 1U < image.point_count &&
+         image.points[index].time_ns == image.points[index + 1U].time_ns &&
+         image.points[index].role == TrajectoryPointRole::kSpliceLeft &&
+         image.points[index + 1U].role == TrajectoryPointRole::kSpliceRight;
+}
+
+bool findHistoryStart(
+  const TrajectoryImage & image, std::uint64_t execution_time_ns,
+  std::size_t & start_index) noexcept
+{
+  if (
+    image.point_count == 0U || execution_time_ns < image.points[0].time_ns ||
+    execution_time_ns > image.points[image.point_count - 1U].time_ns)
+  {
+    return false;
+  }
+
+  start_index = 0U;
+  for (std::size_t index = 0U; index < image.point_count; ++index) {
+    const std::uint64_t point_time_ns = image.points[index].time_ns;
+    if (point_time_ns > execution_time_ns) {
+      break;
+    }
+    start_index = index;
+  }
+  return true;
+}
+
+bool validPrimeAnchor(const JointPoint & anchor, const DynamicEnvelope & envelope) noexcept
+{
+  if (anchor.time_ns != 0U || anchor.role != TrajectoryPointRole::kNormal) {
+    return false;
+  }
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    const AxisEnvelope & limits = envelope.axes[axis];
+    const double position = anchor.positions[axis];
+    const double velocity = anchor.velocities[axis];
+    const double safe_lower = limits.position_lower + limits.position_margin_lower;
+    const double safe_upper = limits.position_upper - limits.position_margin_upper;
+    if (
+      !std::isfinite(position) || !std::isfinite(velocity) || velocity != 0.0 ||
+      position < safe_lower || position > safe_upper)
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
 
 bool RollingBuffer::configure(std::size_t capacity) noexcept
 {
   BufferConfiguration configuration;
   configuration.capacity = capacity;
+  configuration.max_horizon_ns = std::numeric_limits<std::uint64_t>::max();
   return configure(configuration);
 }
 
@@ -22,7 +78,13 @@ bool RollingBuffer::configure(const BufferConfiguration & configuration) noexcep
   if (configured_ && session_state_ != SessionState::kNone) {
     return false;
   }
-  if (configuration.capacity == 0U || configuration.capacity > kTransportMaxPoints) {
+  if (configuration.capacity < 2U || configuration.capacity > kTransportMaxPoints) {
+    return false;
+  }
+  if (
+    configuration.max_horizon_ns == 0U ||
+    configuration.required_initial_horizon_ns > configuration.max_horizon_ns)
+  {
     return false;
   }
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
@@ -41,10 +103,10 @@ bool RollingBuffer::configure(const BufferConfiguration & configuration) noexcep
   pending_image_ = TrajectoryImage{};
   pending_valid_ = false;
   identity_ = SessionIdentity{};
+  prime_anchor_ = JointPoint{};
   session_state_ = SessionState::kNone;
   last_seen_sequence_ = 0U;
   last_accepted_sequence_ = 0U;
-  replaceable_from_ns_ = 0U;
   limit_checker_ = LimitChecker{};
   configured_ = true;
   return true;
@@ -112,7 +174,7 @@ const SessionIdentity & RollingBuffer::identity() const noexcept
 RejectCode RollingBuffer::validateInput(
   const PointView * points, std::size_t point_count) const noexcept
 {
-  if (points == nullptr || point_count == 0U) {
+  if (points == nullptr || point_count < 2U) {
     return RejectCode::kInvalidShape;
   }
   if (point_count > configuration_.capacity) {
@@ -150,6 +212,7 @@ RejectCode RollingBuffer::validateInput(
 void RollingBuffer::copyPoint(const PointView & input, JointPoint & output) const noexcept
 {
   output.time_ns = input.time_ns;
+  output.role = TrajectoryPointRole::kNormal;
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     output.positions[axis] = input.positions[axis];
     output.velocities[axis] = input.velocities[axis];
@@ -185,27 +248,30 @@ RejectCode RollingBuffer::replace(
   return RejectCode::kNone;
 }
 
-bool RollingBuffer::beginSession(const SessionIdentity & identity) noexcept
+bool RollingBuffer::beginSession(
+  const SessionIdentity & identity, const JointPoint & prime_anchor) noexcept
 {
   if (
     !configured_ || !limit_checker_.configured() ||
-    session_state_ != SessionState::kNone)
+    session_state_ != SessionState::kNone ||
+    !validPrimeAnchor(prime_anchor, limit_checker_.envelope()))
   {
     return false;
   }
   identity_ = identity;
+  prime_anchor_ = prime_anchor;
   image_ = TrajectoryImage{};
   pending_image_ = TrajectoryImage{};
   pending_valid_ = false;
   last_seen_sequence_ = 0U;
   last_accepted_sequence_ = 0U;
-  replaceable_from_ns_ = 0U;
   session_state_ = SessionState::kPriming;
   return true;
 }
 
 RejectCode RollingBuffer::prepare(
-  const BatchView & batch, PreparedSubmission & submission) noexcept
+  const BatchView & batch, const AdmissionContext & context,
+  PreparedSubmission & submission) noexcept
 {
   submission = PreparedSubmission{};
   if (!configured_ || session_state_ == SessionState::kNone ||
@@ -249,13 +315,16 @@ RejectCode RollingBuffer::prepare(
     if (batch.replace_from_ns != 0U || batch.points[0].time_ns != 0U) {
       return RejectCode::kTimeGap;
     }
+    if (context.execution_time_ns != 0U) {
+      return RejectCode::kLateReplace;
+    }
     candidate.point_count = batch.point_count;
     candidate.earliest_changed_ns = 0U;
     for (std::size_t index = 0U; index < batch.point_count; ++index) {
       copyPoint(batch.points[index], candidate.points[index]);
     }
   } else {
-    if (batch.replace_from_ns < replaceable_from_ns_) {
+    if (batch.replace_from_ns < context.replaceable_from_ns) {
       return RejectCode::kLateReplace;
     }
     if (batch.points[0].time_ns != batch.replace_from_ns) {
@@ -263,7 +332,7 @@ RejectCode RollingBuffer::prepare(
     }
 
     JointPoint splice{};
-    if (!sampleTrajectoryImage(head, batch.replace_from_ns, splice)) {
+    if (!sampleTrajectoryLeftLimit(head, batch.replace_from_ns, splice)) {
       return RejectCode::kTimeGap;
     }
     JointPoint replacement_splice{};
@@ -276,34 +345,59 @@ RejectCode RollingBuffer::prepare(
       return continuity;
     }
 
+    std::size_t history_start = 0U;
+    if (!findHistoryStart(head, context.execution_time_ns, history_start)) {
+      return RejectCode::kTimeGap;
+    }
     std::size_t prefix_count = 0U;
+    std::size_t source_index = history_start;
     while (
-      prefix_count < head.point_count &&
-      head.points[prefix_count].time_ns < batch.replace_from_ns)
+      source_index < head.point_count &&
+      head.points[source_index].time_ns < batch.replace_from_ns)
     {
       ++prefix_count;
+      ++source_index;
     }
-    if (prefix_count + batch.point_count > configuration_.capacity) {
+    if (prefix_count + batch.point_count + 1U > configuration_.capacity) {
       return RejectCode::kCapacityExceeded;
     }
 
-    candidate.point_count = prefix_count + batch.point_count;
+    candidate.point_count = prefix_count + batch.point_count + 1U;
     candidate.earliest_changed_ns = pending_valid_ ?
       std::min(head.earliest_changed_ns, batch.replace_from_ns) : batch.replace_from_ns;
     for (std::size_t index = 0U; index < prefix_count; ++index) {
-      candidate.points[index] = head.points[index];
+      candidate.points[index] = head.points[history_start + index];
     }
-    for (std::size_t index = 0U; index < batch.point_count; ++index) {
-      copyPoint(batch.points[index], candidate.points[prefix_count + index]);
+    if (
+      prefix_count > 0U &&
+      candidate.points[0].role == TrajectoryPointRole::kSpliceRight)
+    {
+      candidate.points[0].role = TrajectoryPointRole::kNormal;
+    }
+    splice.role = TrajectoryPointRole::kSpliceLeft;
+    candidate.points[prefix_count] = splice;
+    replacement_splice.role = TrajectoryPointRole::kSpliceRight;
+    candidate.points[prefix_count + 1U] = replacement_splice;
+    for (std::size_t index = 1U; index < batch.point_count; ++index) {
+      copyPoint(batch.points[index], candidate.points[prefix_count + index + 1U]);
     }
   }
 
-  if (
-    head.point_count == 0U &&
-    candidate.points[candidate.point_count - 1U].time_ns <
-    configuration_.required_initial_horizon_ns)
-  {
-    return RejectCode::kInsufficientHorizon;
+  if (session_state_ == SessionState::kPriming && batch.replace_from_ns == 0U) {
+    JointPoint replacement_anchor;
+    copyPoint(batch.points[0], replacement_anchor);
+    std::array<double, kAxisCount> exact_tolerance{};
+    const RejectCode anchor_continuity = checkSpliceContinuity(
+      prime_anchor_, replacement_anchor, exact_tolerance, exact_tolerance);
+    if (anchor_continuity != RejectCode::kNone) {
+      return anchor_continuity;
+    }
+  }
+
+  const RejectCode horizon_validation = validateHorizon(
+    candidate, context, session_state_ == SessionState::kPriming);
+  if (horizon_validation != RejectCode::kNone) {
+    return horizon_validation;
   }
 
   const RejectCode candidate_validation = validateCandidate(candidate);
@@ -319,7 +413,7 @@ RejectCode RollingBuffer::prepare(
 }
 
 RejectCode RollingBuffer::commit(
-  PreparedSubmission & submission, std::uint64_t replaceable_from_ns) noexcept
+  PreparedSubmission & submission, const AdmissionContext & context) noexcept
 {
   if (!submission.valid) {
     return RejectCode::kSessionNotAccepting;
@@ -345,9 +439,13 @@ RejectCode RollingBuffer::commit(
     return RejectCode::kSessionNotAccepting;
   }
 
-  replaceable_from_ns_ = std::max(replaceable_from_ns_, replaceable_from_ns);
-  if (submission.candidate.earliest_changed_ns < replaceable_from_ns_) {
+  if (submission.candidate.earliest_changed_ns < context.replaceable_from_ns) {
     return RejectCode::kLateReplace;
+  }
+  const RejectCode horizon_validation = validateHorizon(
+    submission.candidate, context, session_state_ == SessionState::kPriming);
+  if (horizon_validation != RejectCode::kNone) {
+    return horizon_validation;
   }
 
   pending_image_ = submission.candidate;
@@ -358,12 +456,18 @@ RejectCode RollingBuffer::commit(
 
 RejectCode RollingBuffer::submit(const BatchView & batch) noexcept
 {
+  return submit(batch, AdmissionContext{});
+}
+
+RejectCode RollingBuffer::submit(
+  const BatchView & batch, const AdmissionContext & context) noexcept
+{
   PreparedSubmission submission;
-  const RejectCode prepared = prepare(batch, submission);
+  const RejectCode prepared = prepare(batch, context, submission);
   if (prepared != RejectCode::kNone) {
     return prepared;
   }
-  return commit(submission, replaceable_from_ns_);
+  return commit(submission, context);
 }
 
 bool RollingBuffer::activatePending() noexcept
@@ -462,11 +566,6 @@ bool RollingBuffer::resetTerminated() noexcept
   return true;
 }
 
-void RollingBuffer::setReplaceableFromNs(std::uint64_t replaceable_from_ns) noexcept
-{
-  replaceable_from_ns_ = std::max(replaceable_from_ns_, replaceable_from_ns);
-}
-
 bool RollingBuffer::sampleValidationHead(
   std::uint64_t time_ns, JointPoint & point) const noexcept
 {
@@ -484,15 +583,21 @@ void RollingBuffer::clearSessionData() noexcept
   pending_image_ = TrajectoryImage{};
   pending_valid_ = false;
   identity_ = SessionIdentity{};
+  prime_anchor_ = JointPoint{};
   last_seen_sequence_ = 0U;
   last_accepted_sequence_ = 0U;
-  replaceable_from_ns_ = 0U;
 }
 
 RejectCode RollingBuffer::validateCandidate(const TrajectoryImage & candidate) const noexcept
 {
+  if (!trajectoryImageStructureIsValid(candidate)) {
+    return RejectCode::kNonMonotonicTime;
+  }
   SegmentExtrema extrema;
   for (std::size_t index = 0U; index + 1U < candidate.point_count; ++index) {
+    if (isSplicePair(candidate, index)) {
+      continue;
+    }
     const SegmentCheckResult direct =
       limit_checker_.checkSegment(candidate.points[index], candidate.points[index + 1U], extrema);
     if (direct.code != RejectCode::kNone) {
@@ -501,6 +606,9 @@ RejectCode RollingBuffer::validateCandidate(const TrajectoryImage & candidate) c
   }
 
   for (std::size_t index = 0U; index + 1U < candidate.point_count; ++index) {
+    if (isSplicePair(candidate, index)) {
+      continue;
+    }
     const SegmentCheckResult direct =
       limit_checker_.checkSegment(candidate.points[index], candidate.points[index + 1U], extrema);
     if (direct.code != RejectCode::kNone) {
@@ -516,8 +624,73 @@ RejectCode RollingBuffer::validateCandidate(const TrajectoryImage & candidate) c
   return RejectCode::kNone;
 }
 
-bool sampleTrajectoryImage(
-  const TrajectoryImage & image, std::uint64_t time_ns, JointPoint & point) noexcept
+RejectCode RollingBuffer::validateHorizon(
+  const TrajectoryImage & candidate, const AdmissionContext & context,
+  bool priming) const noexcept
+{
+  if (candidate.point_count < 2U) {
+    return RejectCode::kInvalidShape;
+  }
+  if (
+    candidate.points[0].time_ns > context.execution_time_ns ||
+    candidate.points[candidate.point_count - 1U].time_ns < context.execution_time_ns)
+  {
+    return RejectCode::kTimeGap;
+  }
+  const std::uint64_t available_horizon_ns =
+    candidate.points[candidate.point_count - 1U].time_ns - context.execution_time_ns;
+  if (
+    (priming && available_horizon_ns < configuration_.required_initial_horizon_ns) ||
+    (!priming && available_horizon_ns <= context.minimum_horizon_ns))
+  {
+    return RejectCode::kInsufficientHorizon;
+  }
+  if (available_horizon_ns > configuration_.max_horizon_ns) {
+    return RejectCode::kHorizonExceeded;
+  }
+  return RejectCode::kNone;
+}
+
+bool trajectoryImageStructureIsValid(const TrajectoryImage & image) noexcept
+{
+  if (image.point_count == 0U || image.point_count > kTransportMaxPoints) {
+    return false;
+  }
+  for (std::size_t index = 0U; index < image.point_count; ++index) {
+    const TrajectoryPointRole role = image.points[index].role;
+    if (role > TrajectoryPointRole::kSpliceRight) {
+      return false;
+    }
+    if (role == TrajectoryPointRole::kSpliceLeft && !isSplicePair(image, index)) {
+      return false;
+    }
+    if (
+      role == TrajectoryPointRole::kSpliceRight &&
+      (index == 0U || !isSplicePair(image, index - 1U)))
+    {
+      return false;
+    }
+    if (index == 0U) {
+      continue;
+    }
+    const std::uint64_t previous_time_ns = image.points[index - 1U].time_ns;
+    const std::uint64_t current_time_ns = image.points[index].time_ns;
+    if (current_time_ns < previous_time_ns) {
+      return false;
+    }
+    if (current_time_ns == previous_time_ns && !isSplicePair(image, index - 1U)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+namespace
+{
+
+bool sampleTrajectory(
+  const TrajectoryImage & image, std::uint64_t time_ns, bool left_limit,
+  JointPoint & point) noexcept
 {
   if (
     image.point_count == 0U || time_ns < image.points[0].time_ns ||
@@ -526,17 +699,34 @@ bool sampleTrajectoryImage(
     return false;
   }
 
+  bool found_exact = false;
+  JointPoint exact;
   for (std::size_t index = 0U; index < image.point_count; ++index) {
-    if (image.points[index].time_ns == time_ns) {
+    if (image.points[index].time_ns > time_ns) {
+      break;
+    }
+    if (image.points[index].time_ns != time_ns) {
+      continue;
+    }
+    if (left_limit && image.points[index].role == TrajectoryPointRole::kSpliceLeft) {
       point = image.points[index];
       return true;
     }
+    exact = image.points[index];
+    found_exact = true;
+  }
+  if (found_exact) {
+    point = exact;
+    return true;
   }
 
   for (std::size_t index = 0U; index + 1U < image.point_count; ++index) {
     const JointPoint & start = image.points[index];
     const JointPoint & end = image.points[index + 1U];
-    if (time_ns <= start.time_ns || time_ns >= end.time_ns) {
+    if (
+      end.time_ns == start.time_ns || time_ns <= start.time_ns ||
+      time_ns >= end.time_ns)
+    {
       continue;
     }
 
@@ -545,6 +735,7 @@ bool sampleTrajectoryImage(
     const double duration_seconds = static_cast<double>(duration_ns) * 1.0e-9;
     const double s = static_cast<double>(elapsed_ns) / static_cast<double>(duration_ns);
 
+    point = JointPoint{};
     point.time_ns = time_ns;
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
       CubicHermite segment;
@@ -564,6 +755,20 @@ bool sampleTrajectoryImage(
     return true;
   }
   return false;
+}
+
+}  // namespace
+
+bool sampleTrajectoryImage(
+  const TrajectoryImage & image, std::uint64_t time_ns, JointPoint & point) noexcept
+{
+  return sampleTrajectory(image, time_ns, false, point);
+}
+
+bool sampleTrajectoryLeftLimit(
+  const TrajectoryImage & image, std::uint64_t time_ns, JointPoint & point) noexcept
+{
+  return sampleTrajectory(image, time_ns, true, point);
 }
 
 }  // namespace rolling_trajectory_controller

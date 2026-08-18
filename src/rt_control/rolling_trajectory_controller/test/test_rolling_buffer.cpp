@@ -56,9 +56,12 @@ TEST(RollingBuffer, ConfigurationEnforcesTheTransportCeiling)
   EXPECT_FALSE(buffer.configure(kTransportMaxPoints + 1U));
   EXPECT_FALSE(buffer.configured());
 
-  EXPECT_TRUE(buffer.configure(1U));
+  EXPECT_FALSE(buffer.configure(1U));
+  EXPECT_FALSE(buffer.configured());
+
+  EXPECT_TRUE(buffer.configure(2U));
   EXPECT_TRUE(buffer.configured());
-  EXPECT_EQ(buffer.capacity(), 1U);
+  EXPECT_EQ(buffer.capacity(), 2U);
 
   EXPECT_TRUE(buffer.configure(kTransportMaxPoints));
   EXPECT_EQ(buffer.capacity(), kTransportMaxPoints);
@@ -168,8 +171,8 @@ TEST(RollingBuffer, AcceptsUpToTheConfiguredCapacityAndAdvancesGeneration)
   EXPECT_EQ(buffer.image().points.front().positions[0], 1.0);
   EXPECT_EQ(buffer.image().points.back().time_ns, 1'020'000'000U);
 
-  ASSERT_EQ(buffer.replace(views.data(), 1U), RejectCode::kNone);
-  EXPECT_EQ(buffer.image().point_count, 1U);
+  ASSERT_EQ(buffer.replace(views.data(), 2U), RejectCode::kNone);
+  EXPECT_EQ(buffer.image().point_count, 2U);
   EXPECT_EQ(buffer.image().generation, 2U);
 }
 

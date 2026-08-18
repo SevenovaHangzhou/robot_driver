@@ -854,6 +854,24 @@ sequence/request。
 采用 B 后，RT 路径真实分配仍必然命中；其他线程不会污染计数。完整 11 项 CTest 与单测
 结果一致，避免“单独运行通过、全套运行偶发失败”。
 
+### E102-D33 — open 后首批是否必须等待一次 RT tick
+
+**问题**：open 已返回 hold/session 后，若 Motion 的 Prime 在 RT 线程观察新 session epoch 前
+到达，应该拒绝、阻塞等待，还是使用 open 时已锁存的起始事实？
+
+- **【备选 A】** 返回 `SessionNotAccepting`，要求 Motion 等下一条 state。会无意义增加一次
+  20 ms 状态发布等待，并让 Prime 时序依赖 executor/RT 相位。
+- **【备选 B】** callback 等待 RT tick。会让非 RT callback 与 250 Hz 线程建立阻塞依赖，
+  破坏有界性并可能死锁。
+- **【推荐／最终采用 C】** 当且仅当 buffer 与 public RT session 都是 Priming、active
+  generation 为 0 时，使用 open 已锁存的不变量构造 admission context：E=0、
+  replaceable_from=0、hold q/零速度、四周期 guard。RT 首次接管时再次校验 generation、结构、
+  t=0 anchor 和可采样性。
+
+这不放宽 Running 更新，也不允许旧 epoch update；identity、sequence、Prime 精确 anchor、
+500～600 ms horizon 和 snapshot publication floor 仍按原顺序校验。Motion 因而可在 open
+response 后立即发送 Prime，不需要猜 RT 周期相位。
+
 ### 6.2 实施顺序裁决
 
 为了避免在错误数据结构上做性能优化，后续原子提交按以下因果顺序推进：
