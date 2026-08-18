@@ -1,6 +1,7 @@
 #ifndef ROLLING_TRAJECTORY_CONTROLLER__ROLLING_TYPES_HPP_
 #define ROLLING_TRAJECTORY_CONTROLLER__ROLLING_TYPES_HPP_
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -112,19 +113,43 @@ struct JointPoint
   std::uint64_t time_ns{0U};
   std::array<double, kAxisCount> positions{};
   std::array<double, kAxisCount> velocities{};
-  TrajectoryPointRole role{TrajectoryPointRole::kNormal};
 };
 
 struct TrajectoryImage
 {
   std::array<JointPoint, kTransportMaxPoints> points{};
+  std::array<TrajectoryPointRole, kTransportMaxPoints> roles{};
   std::size_t point_count{0U};
   std::uint64_t generation{0U};
   std::uint64_t earliest_changed_ns{0U};
 };
 
+[[nodiscard]] inline constexpr std::size_t effectiveTrajectoryCopyBytes(
+  std::size_t point_count) noexcept
+{
+  return point_count > kTransportMaxPoints ? 0U :
+    point_count * (sizeof(JointPoint) + sizeof(TrajectoryPointRole)) +
+    sizeof(std::size_t) + 2U * sizeof(std::uint64_t);
+}
+
+inline bool copyTrajectoryImageEffective(
+  const TrajectoryImage & source, TrajectoryImage & destination) noexcept
+{
+  if (source.point_count > kTransportMaxPoints) {
+    return false;
+  }
+  std::copy_n(source.points.begin(), source.point_count, destination.points.begin());
+  std::copy_n(source.roles.begin(), source.point_count, destination.roles.begin());
+  destination.generation = source.generation;
+  destination.earliest_changed_ns = source.earliest_changed_ns;
+  destination.point_count = source.point_count;
+  return true;
+}
+
 static_assert(std::is_trivially_copyable_v<JointPoint>);
 static_assert(std::is_trivially_copyable_v<TrajectoryImage>);
+static_assert(sizeof(JointPoint) == sizeof(std::uint64_t) + 2U * kAxisCount * sizeof(double));
+static_assert(effectiveTrajectoryCopyBytes(64U) <= 15U * 1024U);
 
 }  // namespace rolling_trajectory_controller
 

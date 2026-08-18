@@ -1075,7 +1075,12 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
     return SnapshotConsumeResult::kInvalid;
   }
 
-  rt_active_trajectory_ = trajectory;
+  if (!copyTrajectoryImageEffective(trajectory, rt_active_trajectory_)) {
+    rt_invariant_stage_.store(
+      static_cast<std::uint8_t>(RtInvariantStage::kSnapshotShapeOrGeneration),
+      std::memory_order_release);
+    return SnapshotConsumeResult::kInvalid;
+  }
   rt_identity_ = snapshot.identity;
   rt_desired_ = candidate;
   rt_consumed_publication_sequence_ = snapshot.publication_sequence;

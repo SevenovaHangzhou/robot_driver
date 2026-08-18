@@ -81,6 +81,42 @@ TrajectoryImage makeImage(std::uint64_t generation)
   return image;
 }
 
+TEST(TrajectoryImage, Capacity64EffectiveCopyFitsTheFifteenKibBudget)
+{
+  constexpr std::size_t expected_joint_point_size =
+    sizeof(std::uint64_t) + 2U * kAxisCount * sizeof(double);
+  EXPECT_EQ(sizeof(JointPoint), expected_joint_point_size);
+  EXPECT_LE(effectiveTrajectoryCopyBytes(64U), 15U * 1024U);
+  EXPECT_LT(effectiveTrajectoryCopyBytes(64U), sizeof(TrajectoryImage));
+}
+
+TEST(TrajectoryImage, EffectiveCopyLeavesUnusedTailUntouched)
+{
+  TrajectoryImage source;
+  source.point_count = 2U;
+  source.generation = 7U;
+  source.earliest_changed_ns = 123U;
+  source.points[0].time_ns = 10U;
+  source.points[1].time_ns = 20U;
+  source.roles[0] = TrajectoryPointRole::kSpliceLeft;
+  source.roles[1] = TrajectoryPointRole::kSpliceRight;
+
+  TrajectoryImage destination;
+  destination.points[2].time_ns = 0xfeedU;
+  destination.roles[2] = TrajectoryPointRole::kSpliceRight;
+  ASSERT_TRUE(copyTrajectoryImageEffective(source, destination));
+
+  EXPECT_EQ(destination.point_count, source.point_count);
+  EXPECT_EQ(destination.generation, source.generation);
+  EXPECT_EQ(destination.earliest_changed_ns, source.earliest_changed_ns);
+  EXPECT_EQ(destination.points[0].time_ns, 10U);
+  EXPECT_EQ(destination.points[1].time_ns, 20U);
+  EXPECT_EQ(destination.roles[0], TrajectoryPointRole::kSpliceLeft);
+  EXPECT_EQ(destination.roles[1], TrajectoryPointRole::kSpliceRight);
+  EXPECT_EQ(destination.points[2].time_ns, 0xfeedU);
+  EXPECT_EQ(destination.roles[2], TrajectoryPointRole::kSpliceRight);
+}
+
 SessionIdentity makeIdentity(std::uint64_t generation)
 {
   SessionIdentity identity;

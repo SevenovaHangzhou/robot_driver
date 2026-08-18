@@ -112,3 +112,4 @@
 | 2026-08-19 | motion | [ELECTRI-102 rolling 前缀与 horizon 正确性闭环](docs/areas/motion/records/2026-08-19-electri-102-rolling-correctness.md) | PASS（T1；性能优化与综合 mock 仍待后续阶段） |
 | 2026-08-19 | motion | [ELECTRI-102 删除 rolling 重复 segment 校验](docs/areas/motion/records/2026-08-19-electri-102-single-pass-validation.md) | PASS（T2；增量后缀校验另行闭环） |
 | 2026-08-19 | motion | [ELECTRI-102 rolling 增量后缀校验](docs/areas/motion/records/2026-08-19-electri-102-incremental-validation.md) | PASS（T2；full oracle 仅 test peer） |
+| 2026-08-19 | motion | [ELECTRI-102 snapshot 只复制有效轨迹节点](docs/areas/motion/records/2026-08-19-electri-102-effective-trajectory-copy.md) | PASS（T2；64 点有效复制 14,936 bytes） |

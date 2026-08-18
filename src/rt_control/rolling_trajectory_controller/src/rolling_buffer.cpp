@@ -16,8 +16,8 @@ bool isSplicePair(const TrajectoryImage & image, std::size_t index) noexcept
 {
   return index + 1U < image.point_count &&
          image.points[index].time_ns == image.points[index + 1U].time_ns &&
-         image.points[index].role == TrajectoryPointRole::kSpliceLeft &&
-         image.points[index + 1U].role == TrajectoryPointRole::kSpliceRight;
+         image.roles[index] == TrajectoryPointRole::kSpliceLeft &&
+         image.roles[index + 1U] == TrajectoryPointRole::kSpliceRight;
 }
 
 bool findHistoryStart(
@@ -44,7 +44,7 @@ bool findHistoryStart(
 
 bool validPrimeAnchor(const JointPoint & anchor, const DynamicEnvelope & envelope) noexcept
 {
-  if (anchor.time_ns != 0U || anchor.role != TrajectoryPointRole::kNormal) {
+  if (anchor.time_ns != 0U) {
     return false;
   }
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
@@ -212,7 +212,6 @@ RejectCode RollingBuffer::validateInput(
 void RollingBuffer::copyPoint(const PointView & input, JointPoint & output) const noexcept
 {
   output.time_ns = input.time_ns;
-  output.role = TrajectoryPointRole::kNormal;
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     output.positions[axis] = input.positions[axis];
     output.velocities[axis] = input.velocities[axis];
@@ -244,7 +243,9 @@ RejectCode RollingBuffer::replace(
     copyPoint(points[point_index], candidate.points[point_index]);
   }
 
-  image_ = candidate;
+  if (!copyTrajectoryImageEffective(candidate, image_)) {
+    return RejectCode::kSessionNotAccepting;
+  }
   return RejectCode::kNone;
 }
 
@@ -368,17 +369,18 @@ RejectCode RollingBuffer::prepare(
       std::min(head.earliest_changed_ns, batch.replace_from_ns) : batch.replace_from_ns;
     for (std::size_t index = 0U; index < prefix_count; ++index) {
       candidate.points[index] = head.points[history_start + index];
+      candidate.roles[index] = head.roles[history_start + index];
     }
     if (
       prefix_count > 0U &&
-      candidate.points[0].role == TrajectoryPointRole::kSpliceRight)
+      candidate.roles[0] == TrajectoryPointRole::kSpliceRight)
     {
-      candidate.points[0].role = TrajectoryPointRole::kNormal;
+      candidate.roles[0] = TrajectoryPointRole::kNormal;
     }
-    splice.role = TrajectoryPointRole::kSpliceLeft;
     candidate.points[prefix_count] = splice;
-    replacement_splice.role = TrajectoryPointRole::kSpliceRight;
+    candidate.roles[prefix_count] = TrajectoryPointRole::kSpliceLeft;
     candidate.points[prefix_count + 1U] = replacement_splice;
+    candidate.roles[prefix_count + 1U] = TrajectoryPointRole::kSpliceRight;
     first_validated_segment_index = prefix_count + 1U;
     for (std::size_t index = 1U; index < batch.point_count; ++index) {
       copyPoint(batch.points[index], candidate.points[prefix_count + index + 1U]);
@@ -452,7 +454,9 @@ RejectCode RollingBuffer::commit(
     return horizon_validation;
   }
 
-  pending_image_ = submission.candidate;
+  if (!copyTrajectoryImageEffective(submission.candidate, pending_image_)) {
+    return RejectCode::kSessionNotAccepting;
+  }
   pending_valid_ = true;
   last_accepted_sequence_ = submission.sequence;
   return RejectCode::kNone;
@@ -482,7 +486,9 @@ bool RollingBuffer::activatePending() noexcept
   {
     return false;
   }
-  image_ = pending_image_;
+  if (!copyTrajectoryImageEffective(pending_image_, image_)) {
+    return false;
+  }
   pending_image_ = TrajectoryImage{};
   pending_valid_ = false;
   if (session_state_ == SessionState::kPriming) {
@@ -509,7 +515,9 @@ bool RollingBuffer::acknowledgeActiveGeneration(std::uint64_t generation) noexce
     return false;
   }
   if (pending_valid_ && pending_image_.generation == generation) {
-    image_ = pending_image_;
+    if (!copyTrajectoryImageEffective(pending_image_, image_)) {
+      return false;
+    }
     pending_image_ = TrajectoryImage{};
     pending_valid_ = false;
   }
@@ -660,7 +668,7 @@ bool trajectoryImageStructureIsValid(const TrajectoryImage & image) noexcept
     return false;
   }
   for (std::size_t index = 0U; index < image.point_count; ++index) {
-    const TrajectoryPointRole role = image.points[index].role;
+    const TrajectoryPointRole role = image.roles[index];
     if (role > TrajectoryPointRole::kSpliceRight) {
       return false;
     }
@@ -711,7 +719,7 @@ bool sampleTrajectory(
     if (image.points[index].time_ns != time_ns) {
       continue;
     }
-    if (left_limit && image.points[index].role == TrajectoryPointRole::kSpliceLeft) {
+    if (left_limit && image.roles[index] == TrajectoryPointRole::kSpliceLeft) {
       point = image.points[index];
       return true;
     }

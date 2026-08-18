@@ -330,9 +330,9 @@ TEST_F(ProtocolVectors, ValidSuffixRetainsOnlyTheImmutablePrefix)
   EXPECT_EQ(buffer_.pendingImage().points[2].time_ns, 2U * kCycleNs);
   EXPECT_EQ(buffer_.pendingImage().points[3].time_ns, 2U * kCycleNs);
   EXPECT_EQ(
-    buffer_.pendingImage().points[2].role, TrajectoryPointRole::kSpliceLeft);
+    buffer_.pendingImage().roles[2], TrajectoryPointRole::kSpliceLeft);
   EXPECT_EQ(
-    buffer_.pendingImage().points[3].role, TrajectoryPointRole::kSpliceRight);
+    buffer_.pendingImage().roles[3], TrajectoryPointRole::kSpliceRight);
   EXPECT_EQ(buffer_.pendingImage().points[4].positions[0], 0.8);
 
   ASSERT_TRUE(buffer_.activatePending());

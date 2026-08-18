@@ -28,9 +28,13 @@ launch 结构与容器（→ release-deploy）。
 | 05#F1 | Prime 全量校验，普通 replacement 只校验新 suffix | [motion-20260819-05](records/2026-08-19-electri-102-incremental-validation.md)#F1 | 有效（T2） |
 | 05#F2 | checker 引入跨段状态时增量证明立即失效 | [motion-20260819-05](records/2026-08-19-electri-102-incremental-validation.md)#F2 | 有效（T2） |
 | 05#F3 | production 不执行增量后再全量 | [motion-20260819-05](records/2026-08-19-electri-102-incremental-validation.md)#F3 | 有效（T2） |
+| 06#F1 | 256 是 ceiling，不是每次复制量 | [motion-20260819-06](records/2026-08-19-electri-102-effective-trajectory-copy.md)#F1 | 有效（T2） |
+| 06#F2 | capacity 64 有效 image copy 上界 14,936 bytes | [motion-20260819-06](records/2026-08-19-electri-102-effective-trajectory-copy.md)#F2 | 有效（T2） |
+| 06#F3 | snapshot 尾部无语义，读路径不得越过 point_count | [motion-20260819-06](records/2026-08-19-electri-102-effective-trajectory-copy.md)#F3 | 有效（T2） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 snapshot 只复制有效轨迹节点](records/2026-08-19-electri-102-effective-trajectory-copy.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 rolling 增量后缀校验](records/2026-08-19-electri-102-incremental-validation.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 删除 rolling 重复 segment 校验](records/2026-08-19-electri-102-single-pass-validation.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 rolling 前缀与 horizon 正确性闭环](records/2026-08-19-electri-102-rolling-correctness.md) — fix，PASS（T1）

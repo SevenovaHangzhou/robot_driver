@@ -115,7 +115,10 @@ bool RollingSnapshotExchange::publish(
   std::uint64_t arrival_time_ns) noexcept
 {
   WriterGuard writer(writer_active_);
-  if (!writer.owns() || publication_sequence_ >= kMaxPublicationSequence) {
+  if (
+    !writer.owns() || publication_sequence_ >= kMaxPublicationSequence ||
+    trajectory.point_count > kTransportMaxPoints)
+  {
     return false;
   }
 
@@ -143,7 +146,11 @@ bool RollingSnapshotExchange::publish(
   const std::uint64_t sequence = publication_sequence_ + 1U;
   RollingSnapshot & snapshot = slots_[selected_slot].snapshot;
   snapshot.identity = identity;
-  snapshot.trajectory = trajectory;
+  if (!copyTrajectoryImageEffective(trajectory, snapshot.trajectory)) {
+    slots_[selected_slot].state.store(
+      static_cast<std::uint8_t>(SlotState::kReady), std::memory_order_release);
+    return false;
+  }
   snapshot.arrival_time_ns = arrival_time_ns;
   snapshot.publication_sequence = sequence;
   slots_[selected_slot].state.store(

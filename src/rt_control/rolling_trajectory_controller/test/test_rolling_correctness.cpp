@@ -225,8 +225,8 @@ TEST(RollingCorrectness, InteriorSpliceKeepsEverySampleBeforeRUnchanged)
     if (candidate.points[index].time_ns == replace_from_ns &&
       candidate.points[index + 1U].time_ns == replace_from_ns)
     {
-      EXPECT_EQ(candidate.points[index].role, TrajectoryPointRole::kSpliceLeft);
-      EXPECT_EQ(candidate.points[index + 1U].role, TrajectoryPointRole::kSpliceRight);
+      EXPECT_EQ(candidate.roles[index], TrajectoryPointRole::kSpliceLeft);
+      EXPECT_EQ(candidate.roles[index + 1U], TrajectoryPointRole::kSpliceRight);
       found_pair = true;
     }
   }
