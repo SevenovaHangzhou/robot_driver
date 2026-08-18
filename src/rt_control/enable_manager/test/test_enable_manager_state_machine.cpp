@@ -217,6 +217,12 @@ public:
   {
     return c.emergency_jtc_deactivate_request_.load();
   }
+  static bool waitForControllerManagerServices(
+    Controller & c, std::chrono::milliseconds timeout)
+  {
+    return c.list_client_->wait_for_service(timeout) &&
+           c.switch_client_->wait_for_service(timeout);
+  }
   static void handleNonRtFaultStop(Controller & c)
   {
     c.handleNonRtFaultStop();
@@ -945,8 +951,9 @@ TEST_F(EnableManagerFixture, ModeServiceExecutesVerifiedStrictSwitch)
   rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3U);
   executor.add_node(controller_->get_node()->get_node_base_interface());
   executor.add_node(fake_manager);
+  ASSERT_TRUE(
+    Access::waitForControllerManagerServices(*controller_, std::chrono::seconds(1)));
   std::thread executor_thread([&executor]() {executor.spin();});
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   auto jtc_state =
     std::make_shared<control_msgs::msg::JointTrajectoryControllerState>();

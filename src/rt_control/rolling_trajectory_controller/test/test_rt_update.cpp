@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -263,6 +266,24 @@ public:
   {
     controller.rt_last_accepted_arrival_ns_ = 0U;
   }
+
+  static std::uint64_t acceptedCount(RollingTrajectoryController & controller)
+  {
+    std::lock_guard<std::mutex> lock(controller.callback_mutex_);
+    return controller.accepted_count_;
+  }
+
+  static std::uint64_t rejectedCount(RollingTrajectoryController & controller)
+  {
+    std::lock_guard<std::mutex> lock(controller.callback_mutex_);
+    return controller.rejected_count_;
+  }
+
+  static std::uint64_t invariantFailureCount(
+    const RollingTrajectoryController & controller)
+  {
+    return controller.invariant_failure_count_.load(std::memory_order_acquire);
+  }
 };
 
 namespace
@@ -376,6 +397,44 @@ Batch makeReplacement(
     batch.points[1].velocities[axis] = 0.0;
   }
   return batch;
+}
+
+Batch makeHoldWindow(
+  const Open::Response & open, std::uint64_t sequence,
+  std::uint64_t replace_from_ns)
+{
+  constexpr std::size_t kPointCount = 6U;
+  constexpr std::uint64_t kKnotIntervalNs = 100'000'000U;
+  Batch batch;
+  batch.protocol_major = Batch::PROTOCOL_MAJOR;
+  batch.protocol_minor = Batch::PROTOCOL_MINOR;
+  batch.controller_boot_id = open.controller_boot_id;
+  batch.session_id = open.session_id;
+  batch.client_instance_id = open.client_instance_id;
+  batch.sequence = sequence;
+  batch.replace_from_ns = replace_from_ns;
+  batch.points.resize(kPointCount);
+  for (std::size_t point_index = 0U; point_index < kPointCount; ++point_index) {
+    auto & point = batch.points[point_index];
+    point.time_from_session_start_ns =
+      replace_from_ns + static_cast<std::uint64_t>(point_index) * kKnotIntervalNs;
+    point.positions = open.hold_positions;
+    point.velocities.fill(0.0);
+  }
+  return batch;
+}
+
+std::uint64_t percentileNanoseconds(
+  std::vector<std::uint64_t> samples, double percentile)
+{
+  if (samples.empty()) {
+    return 0U;
+  }
+  std::sort(samples.begin(), samples.end());
+  const double scaled_index =
+    percentile * static_cast<double>(samples.size() - 1U);
+  const std::size_t index = static_cast<std::size_t>(std::ceil(scaled_index));
+  return samples[index];
 }
 
 class RtUpdateTest : public ::testing::Test
@@ -634,6 +693,28 @@ TEST_F(RtUpdateTest, ClockAnomalyUsesNominalStepsInsteadOfTheBadPeriod)
   }
 }
 
+TEST_F(RtUpdateTest, BoundedPeriodJitterAdvancesWithoutClockAnomaly)
+{
+  const Open::Response response = open();
+  ASSERT_TRUE(response.accepted);
+  RollingControllerRtTestPeer::submit(
+    *controller_, makeTrajectory(response, 500'000'000U, 0.0));
+  ASSERT_EQ(update(), controller_interface::return_type::OK);
+
+  constexpr std::array<std::int64_t, 6U> kPeriodsNs = {
+    3'000'000, 5'000'000, 4'000'000, 7'000'000, 1'000'000, 4'000'000};
+  std::uint64_t expected_execution_ns = 0U;
+  for (const std::int64_t period_ns : kPeriodsNs) {
+    ASSERT_EQ(update(period_ns), controller_interface::return_type::OK);
+    expected_execution_ns += static_cast<std::uint64_t>(period_ns);
+    EXPECT_EQ(
+      RollingControllerRtTestPeer::executionTime(*controller_), expected_execution_ns);
+    EXPECT_EQ(
+      RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+    EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kNone);
+  }
+}
+
 TEST_F(RtUpdateTest, NonPositivePeriodsLatchTheSameClockAnomaly)
 {
   constexpr std::array<std::int64_t, 2> invalid_periods = {0, -1};
@@ -738,6 +819,43 @@ TEST_F(RtUpdateTest, UpdateTimeoutStopsEvenWithAPlentifulOldFuture)
     RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kUpdateTimeout);
 }
 
+TEST_F(RtUpdateTest, TimedOutSessionCanFinalizeAndOpenAFreshSession)
+{
+  const Open::Response first = open(90U);
+  ASSERT_TRUE(first.accepted);
+  RollingControllerRtTestPeer::submit(
+    *controller_, makeTrajectory(first, 500'000'000U, 0.0));
+  ASSERT_EQ(update(), controller_interface::return_type::OK);
+  ASSERT_EQ(update(), controller_interface::return_type::OK);
+  RollingControllerRtTestPeer::expireAcceptedUpdate(*controller_);
+  for (std::size_t cycle = 0U;
+    cycle < 100U &&
+    RollingControllerRtTestPeer::sessionState(*controller_) != SessionState::kHolding;
+    ++cycle)
+  {
+    ASSERT_EQ(update(), controller_interface::return_type::OK);
+  }
+  ASSERT_EQ(
+    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
+  ASSERT_EQ(
+    RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kUpdateTimeout);
+
+  const Close::Response finalized = RollingControllerRtTestPeer::close(
+    *controller_, makeCloseRequest(first, 190U, Close::Request::FINALIZE));
+  ASSERT_TRUE(finalized.accepted);
+  ASSERT_TRUE(finalized.completed);
+
+  const Open::Response second = open(91U);
+  ASSERT_TRUE(second.accepted);
+  EXPECT_NE(second.session_id, first.session_id);
+  RollingControllerRtTestPeer::submit(
+    *controller_, makeTrajectory(second, 500'000'000U, 0.0));
+  ASSERT_EQ(update(), controller_interface::return_type::OK);
+  EXPECT_EQ(
+    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+  EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kNone);
+}
+
 TEST_F(RtUpdateTest, PrimeTimeoutStopsAtTheOriginalHold)
 {
   const auto initial_commands = command_positions_;
@@ -767,6 +885,202 @@ TEST_F(RtUpdateTest, UpdatePathDoesNotAllocate)
   }
   track_allocations = false;
   EXPECT_EQ(tracked_allocation_count, before);
+}
+
+TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFiftyHertz)
+{
+  std::uint64_t cycle_count = 250U;
+  if (const char * configured_cycles = std::getenv("E102_SOAK_CYCLES")) {
+    char * end = nullptr;
+    const unsigned long long parsed = std::strtoull(configured_cycles, &end, 10);
+    ASSERT_NE(end, configured_cycles);
+    ASSERT_EQ(*end, '\0');
+    ASSERT_GT(parsed, 0U);
+    cycle_count = static_cast<std::uint64_t>(parsed);
+  }
+  const bool realtime = []() {
+      const char * value = std::getenv("E102_SOAK_REALTIME");
+      return value != nullptr && std::string(value) == "1";
+    }();
+
+  const Open::Response response = open(100U);
+  ASSERT_TRUE(response.accepted);
+  std::uint64_t next_sequence = 1U;
+  RollingControllerRtTestPeer::submit(
+    *controller_, makeHoldWindow(response, next_sequence++, 0U));
+  ASSERT_EQ(RollingControllerRtTestPeer::lastReject(*controller_), RejectCode::kNone);
+  ASSERT_EQ(update(), controller_interface::return_type::OK);
+  ASSERT_EQ(
+    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+
+  const std::size_t expected_batch_count = static_cast<std::size_t>(
+    (cycle_count * 30U) / 250U + 2U);
+  std::vector<std::uint64_t> update_durations_ns;
+  std::vector<std::uint64_t> validation_durations_ns;
+  std::vector<std::uint64_t> callback_to_rt_ns;
+  update_durations_ns.reserve(static_cast<std::size_t>(cycle_count));
+  validation_durations_ns.reserve(expected_batch_count);
+  callback_to_rt_ns.reserve(expected_batch_count);
+
+  std::uint64_t publisher_accumulator = 0U;
+  std::uint64_t published_batches = 1U;
+  std::uint64_t late_replace_count = 0U;
+  std::uint64_t allocation_count = 0U;
+  std::uint64_t late_cycle_count = 0U;
+  std::string failure_reason;
+  auto last_submission_time = std::chrono::steady_clock::time_point{};
+  bool submission_pending = false;
+  const auto wall_start = std::chrono::steady_clock::now();
+  auto next_deadline = wall_start;
+
+  for (std::uint64_t cycle = 0U; cycle < cycle_count; ++cycle) {
+    publisher_accumulator += 30U;
+    if (publisher_accumulator >= 250U) {
+      publisher_accumulator -= 250U;
+      const std::uint64_t replace_from_ns =
+        RollingControllerRtTestPeer::replaceableFrom(*controller_);
+      Batch batch = makeHoldWindow(response, next_sequence++, replace_from_ns);
+      const auto validation_start = std::chrono::steady_clock::now();
+      RollingControllerRtTestPeer::submit(*controller_, batch);
+      const auto validation_end = std::chrono::steady_clock::now();
+      validation_durations_ns.push_back(
+        static_cast<std::uint64_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+            validation_end - validation_start).count()));
+      last_submission_time = validation_end;
+      submission_pending = true;
+      ++published_batches;
+      const RejectCode reject = RollingControllerRtTestPeer::lastReject(*controller_);
+      if (reject == RejectCode::kLateReplace) {
+        ++late_replace_count;
+      }
+      if (reject != RejectCode::kNone) {
+        failure_reason = "batch_rejected_code=" +
+          std::to_string(static_cast<unsigned int>(reject));
+        break;
+      }
+    }
+
+    const std::uint64_t allocations_before = tracked_allocation_count;
+    track_allocations = true;
+    const auto update_start = std::chrono::steady_clock::now();
+    const controller_interface::return_type update_result = update();
+    const auto update_end = std::chrono::steady_clock::now();
+    track_allocations = false;
+    allocation_count += tracked_allocation_count - allocations_before;
+    update_durations_ns.push_back(
+      static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+          update_end - update_start).count()));
+    if (submission_pending) {
+      callback_to_rt_ns.push_back(
+        static_cast<std::uint64_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+            update_end - last_submission_time).count()));
+      submission_pending = false;
+    }
+    if (update_result != controller_interface::return_type::OK) {
+      failure_reason = "rt_update_returned_error";
+      break;
+    }
+    if (allocation_count != 0U) {
+      failure_reason = "rt_allocation_detected";
+      break;
+    }
+    if (
+      RollingControllerRtTestPeer::sessionState(*controller_) != SessionState::kRunning ||
+      RollingControllerRtTestPeer::stopReason(*controller_) != StopReason::kNone)
+    {
+      failure_reason = "unexpected_stop_reason=" + std::to_string(
+        static_cast<unsigned int>(
+          RollingControllerRtTestPeer::stopReason(*controller_)));
+      break;
+    }
+    for (const double command : command_positions_) {
+      if (!std::isfinite(command)) {
+        failure_reason = "non_finite_command";
+        break;
+      }
+    }
+    if (!failure_reason.empty()) {
+      break;
+    }
+
+    if (realtime) {
+      next_deadline += std::chrono::nanoseconds(kCycleNs);
+      if (update_end > next_deadline) {
+        ++late_cycle_count;
+      } else {
+        std::this_thread::sleep_until(next_deadline);
+      }
+    }
+  }
+  track_allocations = false;
+  const auto wall_end = std::chrono::steady_clock::now();
+
+  const std::uint64_t update_p50_ns =
+    percentileNanoseconds(update_durations_ns, 0.50);
+  const std::uint64_t update_p99_ns =
+    percentileNanoseconds(update_durations_ns, 0.99);
+  const std::uint64_t update_p999_ns =
+    percentileNanoseconds(update_durations_ns, 0.999);
+  const std::uint64_t validation_p50_ns =
+    percentileNanoseconds(validation_durations_ns, 0.50);
+  const std::uint64_t validation_p99_ns =
+    percentileNanoseconds(validation_durations_ns, 0.99);
+  const std::uint64_t validation_p999_ns =
+    percentileNanoseconds(validation_durations_ns, 0.999);
+  const std::uint64_t visibility_p999_ns =
+    percentileNanoseconds(callback_to_rt_ns, 0.999);
+  const std::uint64_t wall_duration_ms = static_cast<std::uint64_t>(
+    std::chrono::duration_cast<std::chrono::milliseconds>(wall_end - wall_start).count());
+  const bool passed = failure_reason.empty() &&
+    update_durations_ns.size() == static_cast<std::size_t>(cycle_count);
+
+  if (const char * report_path = std::getenv("E102_SOAK_REPORT")) {
+    std::ofstream report(report_path, std::ios::out | std::ios::trunc);
+    ASSERT_TRUE(report.is_open()) << "cannot open soak report: " << report_path;
+    report << "{\n"
+           << "  \"schema_version\": 1,\n"
+           << "  \"scenario\": \"10hz_knots_30hz_batches_250hz_fake\",\n"
+           << "  \"seed\": 57602,\n"
+           << "  \"passed\": " << (passed ? "true" : "false") << ",\n"
+           << "  \"realtime\": " << (realtime ? "true" : "false") << ",\n"
+           << "  \"cycles_requested\": " << cycle_count << ",\n"
+           << "  \"cycles_completed\": " << update_durations_ns.size() << ",\n"
+           << "  \"simulated_duration_ns\": "
+           << update_durations_ns.size() * kCycleNs << ",\n"
+           << "  \"wall_duration_ms\": " << wall_duration_ms << ",\n"
+           << "  \"published_batches\": " << published_batches << ",\n"
+           << "  \"accepted_batches\": "
+           << RollingControllerRtTestPeer::acceptedCount(*controller_) << ",\n"
+           << "  \"rejected_batches\": "
+           << RollingControllerRtTestPeer::rejectedCount(*controller_) << ",\n"
+           << "  \"late_replace_count\": " << late_replace_count << ",\n"
+           << "  \"rt_allocation_count\": " << allocation_count << ",\n"
+           << "  \"invariant_failure_count\": "
+           << RollingControllerRtTestPeer::invariantFailureCount(*controller_) << ",\n"
+           << "  \"late_cycle_count\": " << late_cycle_count << ",\n"
+           << "  \"max_point_count\": 6,\n"
+           << "  \"knot_interval_ns\": 100000000,\n"
+           << "  \"batch_rate_hz\": 30,\n"
+           << "  \"update_rate_hz\": 250,\n"
+           << "  \"update_p50_ns\": " << update_p50_ns << ",\n"
+           << "  \"update_p99_ns\": " << update_p99_ns << ",\n"
+           << "  \"update_p999_ns\": " << update_p999_ns << ",\n"
+           << "  \"validation_p50_ns\": " << validation_p50_ns << ",\n"
+           << "  \"validation_p99_ns\": " << validation_p99_ns << ",\n"
+           << "  \"validation_p999_ns\": " << validation_p999_ns << ",\n"
+           << "  \"callback_to_rt_p999_ns\": " << visibility_p999_ns << ",\n"
+           << "  \"failure\": \"" << failure_reason << "\"\n"
+           << "}\n";
+  }
+
+  EXPECT_TRUE(passed) << failure_reason;
+  EXPECT_EQ(late_replace_count, 0U);
+  EXPECT_EQ(allocation_count, 0U);
+  EXPECT_EQ(RollingControllerRtTestPeer::rejectedCount(*controller_), 0U);
+  EXPECT_EQ(RollingControllerRtTestPeer::invariantFailureCount(*controller_), 0U);
 }
 
 TEST_F(RtUpdateTest, ConcurrentOpenPublicationAndRtConsumptionRemainCoherent)

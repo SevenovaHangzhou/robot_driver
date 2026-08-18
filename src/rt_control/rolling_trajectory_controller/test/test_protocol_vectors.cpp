@@ -177,6 +177,28 @@ TEST_F(ProtocolVectors, WrongIdentityDoesNotConsumeSequenceButPayloadFailureDoes
   EXPECT_EQ(buffer_.pendingImage().generation, 1U);
 }
 
+TEST_F(ProtocolVectors, DuplicateSequenceIsStaleAndCannotMutatePendingTrajectory)
+{
+  ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
+  std::array<OwnedPoint, 2> points = {makePoint(0U, 0.0), makePoint(kCycleNs, 0.1)};
+  auto views = makeViews(points);
+  ASSERT_EQ(
+    buffer_.submit(batch(1U, 0U, views.data(), views.size())), RejectCode::kNone);
+  const TrajectoryImage accepted_candidate = buffer_.pendingImage();
+
+  points[1] = makePoint(kCycleNs, 0.9);
+  views = makeViews(points);
+  EXPECT_EQ(
+    buffer_.submit(batch(1U, 0U, views.data(), views.size())),
+    RejectCode::kStaleSequence);
+  EXPECT_EQ(buffer_.lastSeenSequence(), 1U);
+  EXPECT_EQ(buffer_.lastAcceptedSequence(), 1U);
+  EXPECT_EQ(
+    std::memcmp(
+      &buffer_.pendingImage(), &accepted_candidate, sizeof(TrajectoryImage)),
+    0);
+}
+
 TEST_F(ProtocolVectors, PrimingRequiresAnExactZeroReplacementAndFirstPoint)
 {
   ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));

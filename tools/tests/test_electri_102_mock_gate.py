@@ -71,12 +71,17 @@ class ScenarioExecutionTest(unittest.TestCase):
             "import json, os, pathlib, sys\n"
             "xml_arg = next(a for a in sys.argv if a.startswith('--gtest_output=xml:'))\n"
             "xml_path = pathlib.Path(xml_arg.split(':', 1)[1])\n"
-            "xml_path.write_text('<testsuites tests=\"1\" failures=\"0\"/>')\n"
+            "xml_path.write_text('<testsuites tests=\"1\" failures=\"0\">' "
+            "'<testsuite><testcase name=\"fake\"/></testsuite></testsuites>')\n"
             "metrics = os.environ.get('E102_SOAK_REPORT')\n"
             "if metrics:\n"
             "    payload = {'passed': True, 'cycles_requested': 250, "
             "'cycles_completed': 250, 'late_replace_count': 0, "
-            "'rt_allocation_count': 0, 'invariant_failure_count': 0}\n"
+            "'rt_allocation_count': 0, 'invariant_failure_count': 0, "
+            "'rejected_batches': 0, 'published_batches': 31, "
+            "'accepted_batches': 31, 'max_point_count': 6, "
+            "'knot_interval_ns': 100000000, 'batch_rate_hz': 30, "
+            "'update_rate_hz': 250, 'realtime': False}\n"
             "    pathlib.Path(metrics).write_text(json.dumps(payload))\n"
             f"sys.exit({exit_code})\n"
         )
@@ -152,6 +157,41 @@ class ScenarioExecutionTest(unittest.TestCase):
         self.assertEqual(result["status"], "FAIL")
         self.assertIn("missing executable", result["detail"])
 
+    def test_zero_test_junit_is_rejected_even_when_process_exits_zero(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            build_root = root / "build"
+            evidence = root / "evidence"
+            scenario = next(
+                item
+                for item in gate.scenario_catalog()
+                if item.id == "frequency_jitter"
+            )
+            self._install_fake_gtest(
+                build_root, scenario.package, scenario.binary, exit_code=0
+            )
+            executable = build_root / scenario.package / scenario.binary
+            script_lines = executable.read_text().splitlines()
+            script_lines = [
+                "xml_path.write_text('<testsuites tests=\"0\" failures=\"0\"/>')"
+                if line.startswith("xml_path.write_text(")
+                else line
+                for line in script_lines
+            ]
+            executable.write_text("\n".join(script_lines) + "\n")
+
+            result = gate.run_scenario(
+                scenario,
+                build_root,
+                evidence,
+                soak_seconds=1,
+                realtime=False,
+                inherited_environment=os.environ,
+            )
+
+            self.assertEqual(result["status"], "FAIL")
+            self.assertIn("executed zero tests", result["detail"])
+
 
 class ReportTest(unittest.TestCase):
     def test_soak_metrics_fail_closed_on_any_safety_counter(self):
@@ -162,6 +202,14 @@ class ReportTest(unittest.TestCase):
             "late_replace_count": 0,
             "rt_allocation_count": 0,
             "invariant_failure_count": 0,
+            "rejected_batches": 0,
+            "published_batches": 31,
+            "accepted_batches": 31,
+            "max_point_count": 6,
+            "knot_interval_ns": 100_000_000,
+            "batch_rate_hz": 30,
+            "update_rate_hz": 250,
+            "realtime": False,
         }
         self.assertEqual(gate.validate_soak_metrics(valid), [])
         invalid = dict(valid, rt_allocation_count=1)
