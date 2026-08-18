@@ -229,6 +229,60 @@ TEST_F(ControllerLifecycleTest, InvalidRuntimeParameterMatrixFailsConfigureWitho
   }
 }
 
+TEST_F(ControllerLifecycleTest, ProvisionalConfigurationRequiresItsOwnOptInAndExactFile)
+{
+  auto make_provisional_parameters = []() {
+      auto parameters = makeValidTestOnlyParameters();
+      replaceParameter(parameters, rclcpp::Parameter("configuration_source", "provisional"));
+      replaceParameter(
+        parameters, rclcpp::Parameter("allow_test_only_configuration", true));
+      replaceParameter(
+        parameters, rclcpp::Parameter("allow_provisional_configuration", false));
+      replaceParameter(
+        parameters,
+        rclcpp::Parameter("envelope_file", ROLLING_PROVISIONAL_ENVELOPE_PATH));
+      return parameters;
+    };
+
+  auto denied_options = rclcpp::NodeOptions();
+  denied_options.parameter_overrides(make_provisional_parameters());
+  RollingTrajectoryController denied;
+  ASSERT_EQ(
+    denied.init("provisional_denied", "", denied_options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    denied.on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+
+  auto accepted_parameters = make_provisional_parameters();
+  replaceParameter(
+    accepted_parameters, rclcpp::Parameter("allow_test_only_configuration", false));
+  replaceParameter(
+    accepted_parameters, rclcpp::Parameter("allow_provisional_configuration", true));
+  auto accepted_options = rclcpp::NodeOptions();
+  accepted_options.parameter_overrides(accepted_parameters);
+  RollingTrajectoryController accepted;
+  ASSERT_EQ(
+    accepted.init("provisional_accepted", "", accepted_options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    accepted.on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+
+  replaceParameter(
+    accepted_parameters,
+    rclcpp::Parameter("envelope_file", "/tmp/e102-missing-envelope.yaml"));
+  auto missing_options = rclcpp::NodeOptions();
+  missing_options.parameter_overrides(accepted_parameters);
+  RollingTrajectoryController missing;
+  ASSERT_EQ(
+    missing.init("provisional_missing", "", missing_options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    missing.on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+}
+
 TEST_F(ControllerLifecycleTest, ActivationRequiresEveryClaimedInterface)
 {
   assignInterfaces(kAxisCount, kAxisCount);

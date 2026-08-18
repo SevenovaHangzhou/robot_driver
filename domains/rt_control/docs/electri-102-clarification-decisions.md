@@ -927,6 +927,22 @@ guard 之和不超过 required horizon。任一关系失败即 configure 失败�
 capacity、horizon、timeout、lead 与 nominal period。参数成功 configure 后全部冻结，避免
 活动 session 中途改变准入语义。
 
+### E102-D37 — provisional 文件路径由谁解析
+
+**问题**：controller 如何定位安装后的 `rolling_envelope_provisional.yaml`？
+
+- **【备选 A】** YAML 写工作目录相对路径。最省代码，但容器、测试和安装目录不同，会产生
+  “同一配置在不同 cwd 读到不同文件”的问题。
+- **【备选 B】** controller 自己通过 ament index 查找 `rt_control_bringup`。路径稳定，但让
+  controller package 反向依赖 bringup，形成错误的构建／部署依赖方向。
+- **【推荐／最终采用 C】** `controllers.yaml` 中 `envelope_file` 默认空字符串；受支持的
+  `rt_control.launch.py` 用 `FindPackageShare(rt_control_bringup)` 解析安装路径，并以
+  `rolling_trajectory_controller.envelope_file` 绝对参数注入 controller manager。直接绕过
+  launch 加载 controller 时若未显式给绝对路径，configure fail-closed。
+
+**影响**：loader 不猜 cwd、不从 URDF 隐式回退，也不依赖 bringup 包。测试直接传入源树绝对
+路径；安装态 launch 必须在完整 mock 中证明注入值指向安装副本。
+
 ### 6.2 实施顺序裁决
 
 为了避免在错误数据结构上做性能优化，后续原子提交按以下因果顺序推进：

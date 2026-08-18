@@ -7,13 +7,17 @@ find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_motion_interfaces REQUIRED)
 find_package(robot_rt_control_interfaces REQUIRED)
 find_package(robot_system_interfaces REQUIRED)
+find_package(yaml_cpp_vendor REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 add_library(rolling_trajectory_core
   src/cubic_hermite.cpp
+  src/envelope_loader.cpp
   src/limit_checker.cpp
   src/rolling_buffer.cpp
   src/rolling_snapshot.cpp
@@ -28,6 +32,7 @@ target_include_directories(rolling_trajectory_core PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 set_target_properties(rolling_trajectory_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(rolling_trajectory_core PRIVATE OpenSSL::Crypto yaml-cpp)
 
 add_library(rolling_trajectory_controller_plugin SHARED
   src/rolling_trajectory_controller.cpp
@@ -49,10 +54,12 @@ ament_target_dependencies(
   pluginlib
   rcl_interfaces
   rclcpp
+  OpenSSL
   robot_interfaces_qos
   robot_motion_interfaces
   robot_rt_control_interfaces
   robot_system_interfaces
+  yaml_cpp_vendor
 )
 
 if(BUILD_TESTING)
@@ -109,6 +116,20 @@ if(BUILD_TESTING)
   target_include_directories(test_stopping_envelope PRIVATE include)
   target_link_libraries(test_stopping_envelope rolling_trajectory_core)
 
+  ament_add_gtest(test_envelope_loader
+    test/test_envelope_loader.cpp
+  )
+  target_compile_features(test_envelope_loader PUBLIC cxx_std_17)
+  target_compile_options(
+    test_envelope_loader PRIVATE -Wall -Wextra -Wpedantic -Wconversion
+  )
+  target_compile_definitions(
+    test_envelope_loader PRIVATE
+    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../rt_control_bringup/config/rolling_envelope_provisional.yaml\""
+  )
+  target_include_directories(test_envelope_loader PRIVATE include)
+  target_link_libraries(test_envelope_loader rolling_trajectory_core)
+
   ament_add_gtest(test_rolling_snapshot
     test/test_rolling_snapshot.cpp
   )
@@ -127,6 +148,10 @@ if(BUILD_TESTING)
     test_controller_lifecycle PRIVATE -Wall -Wextra -Wpedantic -Wconversion
   )
   target_include_directories(test_controller_lifecycle PRIVATE include)
+  target_compile_definitions(
+    test_controller_lifecycle PRIVATE
+    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../rt_control_bringup/config/rolling_envelope_provisional.yaml\""
+  )
   ament_target_dependencies(
     test_controller_lifecycle controller_interface hardware_interface rclcpp
   )
@@ -210,6 +235,10 @@ if(BUILD_TESTING)
     test_state_publisher PRIVATE -Wall -Wextra -Wpedantic -Wconversion
   )
   target_include_directories(test_state_publisher PRIVATE include)
+  target_compile_definitions(
+    test_state_publisher PRIVATE
+    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../rt_control_bringup/config/rolling_envelope_provisional.yaml\""
+  )
   ament_target_dependencies(
     test_state_publisher
     controller_interface

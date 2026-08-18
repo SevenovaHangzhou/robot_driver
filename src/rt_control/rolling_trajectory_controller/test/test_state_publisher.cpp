@@ -26,6 +26,7 @@
 #include "robot_rt_control_interfaces/msg/rolling_joint_control_state.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_reject_code.hpp"
+#include "robot_rt_control_interfaces/msg/rolling_limits_source.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_session_state.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_stop_reason.hpp"
@@ -116,6 +117,7 @@ using Open = robot_rt_control_interfaces::srv::OpenRollingJointSession;
 using State = robot_rt_control_interfaces::msg::RollingJointControlState;
 using PublicControlMode = robot_rt_control_interfaces::msg::JointControlMode;
 using PublicRejectCode = robot_rt_control_interfaces::msg::RollingRejectCode;
+using PublicLimitsSource = robot_rt_control_interfaces::msg::RollingLimitsSource;
 using PublicServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
 using PublicSessionState = robot_rt_control_interfaces::msg::RollingSessionState;
 using PublicStopReason = robot_rt_control_interfaces::msg::RollingStopReason;
@@ -296,6 +298,7 @@ TEST_F(StatePublisherTest, PrimingStateExposesTheSessionAndExplicitTestConfigura
   EXPECT_TRUE(state.has_session);
   EXPECT_FALSE(state.has_accepted_update);
   EXPECT_TRUE(state.test_only_limits);
+  EXPECT_EQ(state.limits_source.value, PublicLimitsSource::TEST_ONLY);
   EXPECT_EQ(state.axis_set_hash, kAxisSetHash);
   EXPECT_EQ(state.limits_version, response.limits_version);
   EXPECT_EQ(state.buffer_capacity, response.buffer_capacity);
@@ -308,6 +311,78 @@ TEST_F(StatePublisherTest, PrimingStateExposesTheSessionAndExplicitTestConfigura
     EXPECT_DOUBLE_EQ(state.desired_positions[axis], command_positions_[axis]);
     EXPECT_DOUBLE_EQ(state.desired_velocities[axis], 0.0);
   }
+}
+
+TEST(StatePublisherProvisionalTest, PublicStateExposesProvisionalSourceAndFileHash)
+{
+  if (!rclcpp::ok()) {
+    rclcpp::init(0, nullptr);
+  }
+  auto options = rclcpp::NodeOptions();
+  options.parameter_overrides(
+      {
+        rclcpp::Parameter("configuration_source", "provisional"),
+        rclcpp::Parameter("allow_test_only_configuration", false),
+        rclcpp::Parameter("allow_provisional_configuration", true),
+        rclcpp::Parameter("envelope_file", ROLLING_PROVISIONAL_ENVELOPE_PATH),
+        rclcpp::Parameter(
+          "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+        rclcpp::Parameter(
+          "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+        rclcpp::Parameter(
+          "takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
+  RollingTrajectoryController controller;
+  ASSERT_EQ(
+    controller.init("test_provisional_state", "", options),
+    controller_interface::return_type::OK);
+  ASSERT_EQ(
+    controller.on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+
+  std::array<double, kAxisCount> commands{};
+  std::array<double, kAxisCount> positions{};
+  commands.back() = 0.1;
+  positions.back() = 0.1;
+  double feedback_age_ms = 0.0;
+  std::vector<hardware_interface::CommandInterface> command_handles;
+  std::vector<hardware_interface::StateInterface> state_handles;
+  std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
+  std::vector<hardware_interface::LoanedStateInterface> loaned_states;
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    command_handles.emplace_back(kJointNames[axis], "position", &commands[axis]);
+    state_handles.emplace_back(kJointNames[axis], "position", &positions[axis]);
+  }
+  state_handles.emplace_back(
+    "ethercat_domain", "process_data_age_ms", &feedback_age_ms);
+  for (auto & handle : command_handles) {
+    loaned_commands.emplace_back(handle);
+  }
+  for (auto & handle : state_handles) {
+    loaned_states.emplace_back(handle);
+  }
+  controller.assign_interfaces(std::move(loaned_commands), std::move(loaned_states));
+  ASSERT_EQ(
+    controller.on_activate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  ASSERT_EQ(
+    controller.update(
+      rclcpp::Time(0), rclcpp::Duration::from_nanoseconds(kCycleNs)),
+    controller_interface::return_type::OK);
+
+  State state;
+  ASSERT_TRUE(RollingControllerStateTestPeer::buildState(controller, state));
+  EXPECT_FALSE(state.test_only_limits);
+  EXPECT_EQ(state.limits_source.value, PublicLimitsSource::PROVISIONAL);
+  EXPECT_EQ(
+    state.limits_version,
+    (std::array<std::uint8_t, 32>{
+      0xe3U, 0x55U, 0xf7U, 0x29U, 0x90U, 0xa1U, 0xc7U, 0x3bU,
+      0x62U, 0xd5U, 0x91U, 0xf7U, 0x33U, 0xcdU, 0x4dU, 0x2eU,
+      0x74U, 0x3bU, 0x78U, 0x29U, 0x8fU, 0x54U, 0x1dU, 0xc0U,
+      0xe9U, 0x2cU, 0xe0U, 0xecU, 0x16U, 0xccU, 0xd0U, 0xc4U}));
+  EXPECT_EQ(
+    controller.on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
 }
 
 TEST_F(StatePublisherTest, StateEndpointUsesTheNamedContractQos)

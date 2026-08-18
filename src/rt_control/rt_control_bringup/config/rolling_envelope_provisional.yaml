@@ -1,0 +1,171 @@
+metadata:
+  schema_version: 1
+  limits_source: provisional
+  status: ESTIMATED_NOT_MEASURED
+  estimation_method: >
+    Position bounds are the conservative intersection of robot.urdf.xacro and
+    joint_limits.yaml. Rotary velocity is 15 deg/s and rotary acceleration and
+    stopping acceleration are 0.75 rad/s^2 by ELECTRI-102 decision. Updown uses
+    0.09 m/s and 0.5 m/s^2. Margins are 0.5 deg rotary and 5 mm Updown.
+  owner: Sevenova RT-Control
+  commissioning_schedule: domains/rt_control/BLOCKED-questions.md#bq-138--electri-102-production-envelope-bench-measurement
+  warning: >
+    THIS FILE DOES NOT REPLACE BENCH MEASUREMENT. Values are estimated and
+    permit only separately authorized low-speed Rolling validation; see the
+    commissioning_schedule entry before promoting limits_source to production.
+
+axes:
+  - name: right_joint1
+    position_lower: -1.57079632679
+    position_upper: 1.57079632679
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: right_joint2
+    position_lower: -1.57079632679
+    position_upper: 1.57079632679
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: right_joint3
+    position_lower: -2.44346095279
+    position_upper: 2.44346095279
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: right_joint4
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: right_joint5
+    position_lower: -2.18166156499
+    position_upper: 2.18166156499
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: right_joint6
+    position_lower: -3.12413936107
+    position_upper: 3.12413936107
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: left_joint1
+    position_lower: -1.57079632679
+    position_upper: 1.57079632679
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: left_joint2
+    position_lower: -1.57079632679
+    position_upper: 1.57079632679
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: left_joint3
+    position_lower: -2.44346095279
+    position_upper: 2.44346095279
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: left_joint4
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: left_joint5
+    position_lower: -2.18166156499
+    position_upper: 2.18166156499
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: left_joint6
+    position_lower: -3.12413936107
+    position_upper: 3.12413936107
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: turn
+    position_lower: -3.12413936107
+    position_upper: 3.12413936107
+    velocity_positive: 0.2617993877991494
+    velocity_negative: 0.2617993877991494
+    acceleration_positive: 0.75
+    acceleration_negative: 0.75
+    stop_acceleration_positive: 0.75
+    stop_acceleration_negative: 0.75
+    position_margin_lower: 0.008726646259971648
+    position_margin_upper: 0.008726646259971648
+  - name: updown
+    position_lower: 0.0
+    position_upper: 0.8
+    velocity_positive: 0.09
+    velocity_negative: 0.09
+    acceleration_positive: 0.5
+    acceleration_negative: 0.5
+    stop_acceleration_positive: 0.5
+    stop_acceleration_negative: 0.5
+    position_margin_lower: 0.005
+    position_margin_upper: 0.005

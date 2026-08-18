@@ -40,9 +40,14 @@ launch 结构与容器（→ release-deploy）。
 | 09#F1 | rolling 运行参数是 configure-time 冻结快照 | [motion-20260819-09](records/2026-08-19-electri-102-runtime-parameters.md)#F1 | 有效（T1） |
 | 09#F2 | tolerance 参数均为固定协议轴序的 14 值数组 | [motion-20260819-09](records/2026-08-19-electri-102-runtime-parameters.md)#F2 | 有效（T1） |
 | 09#F3 | Open 回报实际参数，非法配置不静默钳制 | [motion-20260819-09](records/2026-08-19-electri-102-runtime-parameters.md)#F3 | 有效（T1） |
+| 10#F1 | provisional 文件字节 SHA-256 是 public limits version | [motion-20260819-10](records/2026-08-19-electri-102-provisional-envelope.md)#F1 | 有效（T1） |
+| 10#F2 | provisional schema 严格完整且无隐式 fallback | [motion-20260819-10](records/2026-08-19-electri-102-provisional-envelope.md)#F2 | 有效（T1） |
+| 10#F3 | provisional authority 在 configure/activate/public state 一致 | [motion-20260819-10](records/2026-08-19-electri-102-provisional-envelope.md)#F3 | 有效（T1） |
+| 10#F4 | provisional 不替代 BQ-138 台架实测或运动授权 | [motion-20260819-10](records/2026-08-19-electri-102-provisional-envelope.md)#F4 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 14 轴 provisional 包络严格加载](records/2026-08-19-electri-102-provisional-envelope.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 rolling 运行参数 YAML 化并冻结](records/2026-08-19-electri-102-runtime-parameters.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 provisional 与 test-only 限值授权隔离](records/2026-08-19-electri-102-provisional-authority.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 RT 轨迹采样改单调游标](records/2026-08-19-electri-102-monotonic-sampler.md) — perf，PASS（T2）

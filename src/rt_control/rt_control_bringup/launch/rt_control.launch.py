@@ -25,6 +25,13 @@ def generate_launch_description():
     controllers_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "config", "controllers.yaml"]
     )
+    rolling_envelope_file = PathJoinSubstitution(
+        [
+            FindPackageShare("rt_control_bringup"),
+            "config",
+            "rolling_envelope_provisional.yaml",
+        ]
+    )
     rt_io_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "config", "rt_io.yaml"]
     )
@@ -46,7 +53,16 @@ def generate_launch_description():
         package="controller_manager",
         executable="ros2_control_node",
         output="both",
-        parameters=[robot_description, controllers_file, {"use_sim_time": use_sim_time}],
+        parameters=[
+            robot_description,
+            controllers_file,
+            {
+                "use_sim_time": use_sim_time,
+                "rolling_trajectory_controller.envelope_file": ParameterValue(
+                    rolling_envelope_file, value_type=str
+                ),
+            },
+        ],
         remappings=[
             ("/diff_drive_controller/cmd_vel_unstamped", "/cmd_vel_safe"),
             ("/diff_drive_controller/odom", "/wheel/odom"),
@@ -56,8 +72,7 @@ def generate_launch_description():
         package="robot_state_publisher",
         executable="robot_state_publisher",
         output="both",
-        parameters=[
-            robot_description,
+        parameters=[robot_description,
             {"publish_frequency": 50.0, "use_sim_time": use_sim_time},
         ],
     )

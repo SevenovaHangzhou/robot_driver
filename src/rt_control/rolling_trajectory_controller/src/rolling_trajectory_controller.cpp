@@ -18,6 +18,7 @@
 #include "rclcpp/qos.hpp"
 #include "rclcpp/subscription_options.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
+#include "rolling_trajectory_controller/envelope_loader.hpp"
 #include "rolling_trajectory_controller/service_error.hpp"
 
 namespace rolling_trajectory_controller
@@ -38,9 +39,11 @@ constexpr std::int64_t kDefaultMaximumControllerPeriodMs = 8;
 constexpr std::int64_t kDefaultSchedulingGuardMs = 4;
 constexpr double kDefaultOpenFeedbackAgeLimitMs = 500.0;
 
-constexpr std::array<std::string_view, 19> kManagedParameterNames = {
+constexpr std::array<std::string_view, 21> kManagedParameterNames = {
   "configuration_source",
   "allow_test_only_configuration",
+  "allow_provisional_configuration",
+  "envelope_file",
   "buffer_capacity",
   "max_horizon_ms",
   "required_initial_horizon_ms",
@@ -199,6 +202,8 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_init()
 {
   auto_declare<std::string>("configuration_source", "unconfigured");
   auto_declare<bool>("allow_test_only_configuration", false);
+  auto_declare<bool>("allow_provisional_configuration", false);
+  auto_declare<std::string>("envelope_file", "");
   auto_declare<std::int64_t>("buffer_capacity", kDefaultBufferCapacity);
   auto_declare<std::int64_t>("max_horizon_ms", kDefaultMaxHorizonMs);
   auto_declare<std::int64_t>(
@@ -397,10 +402,18 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   const std::string source = get_node()->get_parameter("configuration_source").as_string();
   const bool allow_test_only =
     get_node()->get_parameter("allow_test_only_configuration").as_bool();
-  if (source != "test_only" || !allow_test_only) {
+  const bool allow_provisional =
+    get_node()->get_parameter("allow_provisional_configuration").as_bool();
+  const std::string envelope_file = get_node()->get_parameter("envelope_file").as_string();
+  if (
+    (source == "test_only" && !allow_test_only) ||
+    (source == "provisional" && !allow_provisional) ||
+    (source != "test_only" && source != "provisional"))
+  {
     RCLCPP_ERROR(
       get_node()->get_logger(),
-      "Rolling controller requires an explicitly allowed complete test-only configuration");
+      "Rolling controller configuration source '%s' lacks its explicit authority",
+      source.c_str());
     return controller_interface::CallbackReturn::ERROR;
   }
   std::string configuration_error;
@@ -420,16 +433,37 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
     runtime_configuration_.splice_position_tolerances;
   buffer_configuration.splice_velocity_tolerance =
     runtime_configuration_.splice_velocity_tolerances;
-  envelope_ = makeTestOnlyEnvelope();
+  if (source == "test_only") {
+    if (!envelope_file.empty()) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(),
+        "Test-only rolling configuration must not provide an envelope file");
+      return controller_interface::CallbackReturn::ERROR;
+    }
+    envelope_ = makeTestOnlyEnvelope();
+  } else {
+    std::string envelope_error;
+    if (!loadProvisionalEnvelope(envelope_file, envelope_, envelope_error)) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(), "Failed to load provisional rolling envelope: %s",
+        envelope_error.c_str());
+      return controller_interface::CallbackReturn::ERROR;
+    }
+    RCLCPP_WARN(
+      get_node()->get_logger(),
+      "Using ESTIMATED_NOT_MEASURED provisional rolling envelope '%s'; "
+      "this does not authorize hardware motion or replace bench measurement",
+      envelope_file.c_str());
+  }
   if (
     !buffer_.configure(buffer_configuration) ||
-    !buffer_.configureLimits(envelope_, true))
+    !buffer_.configureLimits(envelope_, allow_test_only, allow_provisional))
   {
-    RCLCPP_ERROR(get_node()->get_logger(), "Failed to configure rolling buffer test envelope");
+    RCLCPP_ERROR(get_node()->get_logger(), "Failed to configure rolling buffer envelope");
     return controller_interface::CallbackReturn::ERROR;
   }
   rt_stop_trajectory_ = StopTrajectory{};
-  if (!rt_stop_trajectory_.configure(envelope_, true)) {
+  if (!rt_stop_trajectory_.configure(envelope_, allow_test_only, allow_provisional)) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to configure rolling stop trajectory");
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -575,7 +609,10 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   rt_desired_.positions = source_commands;
   rt_desired_.velocities.fill(0.0);
   rt_stop_trajectory_ = StopTrajectory{};
-  if (!rt_stop_trajectory_.configure(envelope_, true)) {
+  if (!rt_stop_trajectory_.configure(
+      envelope_, envelope_.source == LimitsSource::kTestOnly,
+      envelope_.source == LimitsSource::kProvisional))
+  {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to reset rolling stop trajectory");
     return controller_interface::CallbackReturn::ERROR;
   }

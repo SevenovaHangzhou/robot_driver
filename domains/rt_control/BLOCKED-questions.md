@@ -2371,3 +2371,18 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Release boundary：语义阻塞及 RT-Control 的最终 SHA 回填已经解除，但线协议仍处于破坏性
   跨域迁移阶段。RT-Control、Motion/Navigation、Perception、Autonomy 及 external 调用方完成
   同一 `f699f45972ad15bbbbbb3da1a4894faf209144c9` 迁移和跨域 smoke 前，仍禁止镜像发布和部署。
+
+## BQ-138 — ELECTRI-102 production envelope 台架实测 [OPEN/HIGH-RISK 2026-08-19]
+
+- Evidence：本期只有 PLC/URDF 位置界、用户批准的 15 deg/s、0.75 rad/s^2 旋转估计值和
+  Updown 0.09 m/s、0.5 m/s^2；没有逐轴停车、跟踪误差、方向、制动不对称和 margin 台架
+  实测。`rolling_envelope_provisional.yaml` 因此明确标为 `ESTIMATED_NOT_MEASURED`，其精确
+  文件 SHA-256 为 `e355f72990a1c73b62d591f733cd4d2e743b78298f541dc0e92ce0ec16ccd0c4`。
+- Current decision：该文件只作为 Rolling 的 provisional 来源，使用独立 opt-in、启动 WARN
+  和 public-state 持续暴露；不影响 whole_body_jtc/FJT，也不构成任何硬件运动授权。当前
+  位置交集基于 robot_driver 的构建副本；权威 robot_description 同步后必须重新跑合同测试并
+  产生新 hash。
+- Close gate：逐轴完成正负方向低速确认、不同负载下停车减速度分位数、跟踪误差与采样量化、
+  软件／硬限位余量验证；给出责任人、目标机证据目录和审批记录。随后生成独立 production
+  artifact、重新执行 14 轴 envelope/stop/fault/soak 门，并通过新契约记录升级
+  `limits_source=production`。不得原地把 provisional 字符串改名后关闭本项。

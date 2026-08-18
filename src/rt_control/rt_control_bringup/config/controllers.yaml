@@ -97,6 +97,11 @@ whole_body_jtc:
 # right_joint1..6, left_joint1..6, turn, updown.
 rolling_trajectory_controller:
   ros__parameters:
+    configuration_source: provisional
+    allow_test_only_configuration: false
+    allow_provisional_configuration: true
+    # rt_control.launch.py overrides this with the installed absolute path.
+    envelope_file: ""
     buffer_capacity: 64
     max_horizon_ms: 600
     required_initial_horizon_ms: 500

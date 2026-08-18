@@ -116,3 +116,4 @@
 | 2026-08-19 | motion | [ELECTRI-102 RT 轨迹采样改单调游标](docs/areas/motion/records/2026-08-19-electri-102-monotonic-sampler.md) | PASS（T2；64 点差分逐拍一致） |
 | 2026-08-19 | motion | [ELECTRI-102 provisional 与 test-only 限值授权隔离](docs/areas/motion/records/2026-08-19-electri-102-provisional-authority.md) | PASS（T1；YAML 来源与 public 状态在后续任务闭环） |
 | 2026-08-19 | motion | [ELECTRI-102 rolling 运行参数 YAML 化并冻结](docs/areas/motion/records/2026-08-19-electri-102-runtime-parameters.md) | PASS（T1；Open 回报实参，非法矩阵 fail-closed） |
+| 2026-08-19 | motion | [ELECTRI-102 14 轴 provisional 包络严格加载](docs/areas/motion/records/2026-08-19-electri-102-provisional-envelope.md) | PASS（T1；BQ-138 台架实测仍 OPEN） |
