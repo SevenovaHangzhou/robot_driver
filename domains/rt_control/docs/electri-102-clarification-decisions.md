@@ -354,8 +354,8 @@ period 非正或大于 8 ms 触发 ClockAnomaly。update_timeout 的有效值必
 - **【备选 A】** 编译期常量。运行路径最简单，但每次调参需改代码，且测试值容易混入生产。
 - **【备选 B】** ROS 参数热更新。调整方便，但活动轨迹可能在一半 session 中换掉安全包络。
 - **【推荐／最终采用 C】** controller 标量进入 controllers.yaml；每轴包络进入独立
-  rolling_envelope_provisional.yaml。参数描述符只读，在 configure 时一次读取、交叉校验并
-  冻结；修改后必须重新 configure/restart。
+  rolling_envelope_provisional.yaml。参数只允许在 configure 前设置，在 configure 时一次
+  读取、交叉校验并由参数回调门冻结；修改后必须重新 configure/restart。
 
 **硬约束**：越界、缺字段、非有限值、关系不成立均 configure 失败，不做静默钳制或默认
 回退。Motion 的 30 Hz、100 ms 和 500 ms 配置由 Motion 自己持有，driver 文档只记录合同。
@@ -905,6 +905,27 @@ provisional，并持续通过 public state 暴露来源。后续生产包络不�
 **影响**：64 点最坏有效 snapshot copy 为 14,936 bytes；当前正常批次更小。若后续实测发现
 缓存压力，优先用 YAML 下调 capacity，不修改 256 点 wire ceiling，也不改变 Motion 100 ms
 knot 语义。
+
+### E102-D36 — 参数数组粒度与越界策略
+
+**问题**：splice／takeover 容差按“旋转轴一组 + Updown 一组”写两个数，还是把完整 14 轴
+数组作为 controller 参数？非关键时间参数是否给任意固定上限？
+
+- **【备选 A】** 每类只写 rotary/updown 两个数，并在 C++ 中扩成 14 轴。YAML 短，但轴类型
+  映射藏在代码里，未来单轴标定会再次改接口。
+- **【推荐／最终采用 B】** YAML 显式给 14 个值，顺序与协议固定轴序完全一致；configure
+  要求恰好 14 个有限非负值。代码不猜某轴属于哪一类，也不做缺项回退。
+- **【备选 C】** 每个轴使用名字到数值的 map。可读性高，但 ROS 2 controller 参数的嵌套
+  映射处理更复杂，并会引入名称拼写与固定数组 schema 的双重校验。
+
+**越界裁决**：capacity 固定合法范围 2～256；`update_timeout_ms` 按既有裁决固定 100～500；
+其他毫秒量不设置未经证据支持的任意“小上限”，而是要求正整数、可无溢出转换，并校验
+`required<=max`、`nominal<=maximum<=timeout`、`prime>=maximum`、`replace_lead<=max`、四项
+guard 之和不超过 required horizon。任一关系失败即 configure 失败，不钳制。
+
+**影响**：当前 YAML 可直接逐轴调整 takeover/splice；open response 回报实际生效的
+capacity、horizon、timeout、lead 与 nominal period。参数成功 configure 后全部冻结，避免
+活动 session 中途改变准入语义。
 
 ### 6.2 实施顺序裁决
 

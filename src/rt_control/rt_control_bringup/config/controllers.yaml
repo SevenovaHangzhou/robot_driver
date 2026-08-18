@@ -93,6 +93,70 @@ whole_body_jtc:
       goal_time: 0.5
       stopped_velocity_tolerance: 0.01
 
+# Fixed axis order for all 14-value arrays:
+# right_joint1..6, left_joint1..6, turn, updown.
+rolling_trajectory_controller:
+  ros__parameters:
+    buffer_capacity: 64
+    max_horizon_ms: 600
+    required_initial_horizon_ms: 500
+    update_timeout_ms: 200
+    replace_lead_ms: 16
+    state_publish_period_ms: 20
+    prime_timeout_ms: 100
+    nominal_controller_period_ms: 4
+    maximum_controller_period_ms: 8
+    one_cycle_detection_guard_ms: 4
+    stop_time_growth_guard_ms: 4
+    non_rt_to_rt_visibility_guard_ms: 4
+    period_quantization_guard_ms: 4
+    open_feedback_age_limit_ms: 500.0
+    takeover_tolerances:
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.00872664626
+      - 0.005
+    splice_position_tolerances:
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.01
+      - 0.003
+    splice_velocity_tolerances:
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.03
+      - 0.02
+
 enable_manager:
   ros__parameters:
     batch_timeout: 4.0

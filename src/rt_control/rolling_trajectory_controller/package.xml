@@ -11,6 +11,7 @@
   <depend>controller_interface</depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
+  <depend>rcl_interfaces</depend>
   <depend>rclcpp</depend>
   <depend>robot_interfaces_qos</depend>
   <depend>robot_motion_interfaces</depend>

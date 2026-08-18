@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -23,6 +24,35 @@ namespace
 {
 
 constexpr double kTestOnlyTakeoverTolerance = 0.125;
+
+std::vector<rclcpp::Parameter> makeValidTestOnlyParameters()
+{
+  return {
+    rclcpp::Parameter("configuration_source", "test_only"),
+    rclcpp::Parameter("allow_test_only_configuration", true),
+    rclcpp::Parameter(
+      "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+    rclcpp::Parameter(
+      "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+    rclcpp::Parameter(
+      "takeover_tolerances",
+      std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))};
+}
+
+void replaceParameter(
+  std::vector<rclcpp::Parameter> & parameters,
+  const rclcpp::Parameter & replacement)
+{
+  const auto existing = std::find_if(
+    parameters.begin(), parameters.end(), [&replacement](const auto & parameter) {
+      return parameter.get_name() == replacement.get_name();
+    });
+  if (existing == parameters.end()) {
+    parameters.push_back(replacement);
+  } else {
+    *existing = replacement;
+  }
+}
 
 class ControllerLifecycleTest : public ::testing::Test
 {
@@ -54,12 +84,7 @@ protected:
       "ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
 
     auto options = rclcpp::NodeOptions();
-    options.parameter_overrides({
-      rclcpp::Parameter("configuration_source", "test_only"),
-      rclcpp::Parameter("allow_test_only_configuration", true),
-      rclcpp::Parameter(
-        "test_only_takeover_tolerances",
-        std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))});
+    options.parameter_overrides(makeValidTestOnlyParameters());
     controller_ = std::make_unique<RollingTrajectoryController>();
     ASSERT_EQ(
       controller_->init("test_rolling_controller", "", options),
@@ -142,7 +167,7 @@ TEST_F(ControllerLifecycleTest, ConfigurationRefusesImplicitOrUnapprovedTestThre
     rclcpp::Parameter("configuration_source", "test_only"),
     rclcpp::Parameter("allow_test_only_configuration", false),
     rclcpp::Parameter(
-      "test_only_takeover_tolerances",
+      "takeover_tolerances",
       std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))});
   RollingTrajectoryController unapproved;
   ASSERT_EQ(
@@ -151,6 +176,57 @@ TEST_F(ControllerLifecycleTest, ConfigurationRefusesImplicitOrUnapprovedTestThre
   EXPECT_EQ(
     unapproved.on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::ERROR);
+}
+
+TEST_F(ControllerLifecycleTest, RuntimeParametersAreFrozenAfterConfigure)
+{
+  const auto result = controller_->get_node()->set_parameter(
+    rclcpp::Parameter("buffer_capacity", std::int64_t{32}));
+  EXPECT_FALSE(result.successful);
+}
+
+TEST_F(ControllerLifecycleTest, InvalidRuntimeParameterMatrixFailsConfigureWithoutClamping)
+{
+  const std::vector<rclcpp::Parameter> invalid_parameters = {
+    rclcpp::Parameter("buffer_capacity", std::int64_t{1}),
+    rclcpp::Parameter("buffer_capacity", std::int64_t{257}),
+    rclcpp::Parameter("max_horizon_ms", std::int64_t{499}),
+    rclcpp::Parameter("required_initial_horizon_ms", std::int64_t{601}),
+    rclcpp::Parameter("update_timeout_ms", std::int64_t{99}),
+    rclcpp::Parameter("update_timeout_ms", std::int64_t{501}),
+    rclcpp::Parameter("replace_lead_ms", std::int64_t{0}),
+    rclcpp::Parameter("replace_lead_ms", std::int64_t{601}),
+    rclcpp::Parameter("state_publish_period_ms", std::int64_t{0}),
+    rclcpp::Parameter("prime_timeout_ms", std::int64_t{7}),
+    rclcpp::Parameter("nominal_controller_period_ms", std::int64_t{0}),
+    rclcpp::Parameter("maximum_controller_period_ms", std::int64_t{3}),
+    rclcpp::Parameter("one_cycle_detection_guard_ms", std::int64_t{0}),
+    rclcpp::Parameter("one_cycle_detection_guard_ms", std::int64_t{500}),
+    rclcpp::Parameter(
+      "open_feedback_age_limit_ms", std::numeric_limits<double>::quiet_NaN()),
+    rclcpp::Parameter(
+      "takeover_tolerances", std::vector<double>(kAxisCount - 1U, 0.1)),
+    rclcpp::Parameter(
+      "splice_position_tolerances", std::vector<double>(kAxisCount, -0.1)),
+    rclcpp::Parameter(
+      "splice_velocity_tolerances",
+      std::vector<double>(kAxisCount, std::numeric_limits<double>::infinity()))};
+
+  for (std::size_t index = 0U; index < invalid_parameters.size(); ++index) {
+    auto parameters = makeValidTestOnlyParameters();
+    replaceParameter(parameters, invalid_parameters[index]);
+    auto options = rclcpp::NodeOptions();
+    options.parameter_overrides(parameters);
+    RollingTrajectoryController invalid;
+    ASSERT_EQ(
+      invalid.init("invalid_runtime_configuration_" + std::to_string(index), "", options),
+      controller_interface::return_type::OK)
+      << invalid_parameters[index].get_name();
+    EXPECT_EQ(
+      invalid.on_configure(rclcpp_lifecycle::State()),
+      controller_interface::CallbackReturn::ERROR)
+      << invalid_parameters[index].get_name();
+  }
 }
 
 TEST_F(ControllerLifecycleTest, ActivationRequiresEveryClaimedInterface)

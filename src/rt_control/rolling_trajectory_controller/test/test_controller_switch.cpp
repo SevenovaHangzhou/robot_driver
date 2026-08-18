@@ -225,7 +225,11 @@ TEST(RollingControllerSwitch, StrictSwitchNeverDoubleClaimsPositionCommands)
       {
         rclcpp::Parameter("configuration_source", "test_only"),
         rclcpp::Parameter("allow_test_only_configuration", true),
-        rclcpp::Parameter("test_only_takeover_tolerances", std::vector<double>(kAxisCount, 0.1))});
+        rclcpp::Parameter(
+          "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+        rclcpp::Parameter(
+          "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+        rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount, 0.1))});
   ASSERT_EQ(
     manager->configure_controller("whole_body_jtc"),
     controller_interface::return_type::OK);

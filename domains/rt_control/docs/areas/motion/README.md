@@ -37,9 +37,13 @@ launch 结构与容器（→ release-deploy）。
 | 08#F1 | provisional 与 test-only 使用独立授权位 | [motion-20260819-08](records/2026-08-19-electri-102-provisional-authority.md)#F1 | 有效（T1） |
 | 08#F2 | public/local limits-source 枚举固定一致，provisional=3 | [motion-20260819-08](records/2026-08-19-electri-102-provisional-authority.md)#F2 | 有效（T1） |
 | 08#F3 | 非生产来源 opt-in 不绕过版本与字段校验 | [motion-20260819-08](records/2026-08-19-electri-102-provisional-authority.md)#F3 | 有效（T1） |
+| 09#F1 | rolling 运行参数是 configure-time 冻结快照 | [motion-20260819-09](records/2026-08-19-electri-102-runtime-parameters.md)#F1 | 有效（T1） |
+| 09#F2 | tolerance 参数均为固定协议轴序的 14 值数组 | [motion-20260819-09](records/2026-08-19-electri-102-runtime-parameters.md)#F2 | 有效（T1） |
+| 09#F3 | Open 回报实际参数，非法配置不静默钳制 | [motion-20260819-09](records/2026-08-19-electri-102-runtime-parameters.md)#F3 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 rolling 运行参数 YAML 化并冻结](records/2026-08-19-electri-102-runtime-parameters.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 provisional 与 test-only 限值授权隔离](records/2026-08-19-electri-102-provisional-authority.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 RT 轨迹采样改单调游标](records/2026-08-19-electri-102-monotonic-sampler.md) — perf，PASS（T2）
 - 2026-08-19 [ELECTRI-102 snapshot 只复制有效轨迹节点](records/2026-08-19-electri-102-effective-trajectory-copy.md) — perf，PASS（T2）

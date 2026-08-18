@@ -193,8 +193,17 @@ protected:
         {
           rclcpp::Parameter("configuration_source", "test_only"),
           rclcpp::Parameter("allow_test_only_configuration", true),
+          rclcpp::Parameter("buffer_capacity", std::int64_t{32}),
+          rclcpp::Parameter("max_horizon_ms", std::int64_t{700}),
+          rclcpp::Parameter("required_initial_horizon_ms", std::int64_t{500}),
+          rclcpp::Parameter("update_timeout_ms", std::int64_t{317}),
+          rclcpp::Parameter("replace_lead_ms", std::int64_t{24}),
           rclcpp::Parameter(
-            "test_only_takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
+            "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+          rclcpp::Parameter(
+            "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+          rclcpp::Parameter(
+            "takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
     controller_ = std::make_unique<RollingTrajectoryController>();
     ASSERT_EQ(
       controller_->init("test_rolling_callbacks", "", options),
@@ -333,7 +342,11 @@ TEST_F(ControllerCallbacksTest, OpenAdmissionAndRetryAreDeterministic)
   EXPECT_EQ(accepted.controller_boot_id.uuid, boot);
   EXPECT_EQ(accepted.client_instance_id, request.client_instance_id);
   EXPECT_EQ(accepted.axis_set_hash, kAxisSetHash);
-  EXPECT_EQ(accepted.buffer_capacity, 64U);
+  EXPECT_EQ(accepted.buffer_capacity, 32U);
+  EXPECT_EQ(accepted.max_horizon_ns, 700'000'000U);
+  EXPECT_EQ(accepted.required_initial_horizon_ns, 500'000'000U);
+  EXPECT_EQ(accepted.update_timeout_ns, 317'000'000U);
+  EXPECT_EQ(accepted.replace_lead_ns, 24'000'000U);
   EXPECT_TRUE(accepted.test_only_limits);
   EXPECT_TRUE(
     std::any_of(

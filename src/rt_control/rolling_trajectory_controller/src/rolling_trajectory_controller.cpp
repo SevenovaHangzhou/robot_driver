@@ -9,6 +9,7 @@
 #include <functional>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -23,6 +24,59 @@ namespace rolling_trajectory_controller
 {
 namespace
 {
+
+constexpr std::uint64_t kNanosecondsPerMillisecond = 1'000'000U;
+constexpr std::int64_t kDefaultBufferCapacity = 64;
+constexpr std::int64_t kDefaultMaxHorizonMs = 600;
+constexpr std::int64_t kDefaultRequiredInitialHorizonMs = 500;
+constexpr std::int64_t kDefaultUpdateTimeoutMs = 200;
+constexpr std::int64_t kDefaultReplaceLeadMs = 16;
+constexpr std::int64_t kDefaultStatePublishPeriodMs = 20;
+constexpr std::int64_t kDefaultPrimeTimeoutMs = 100;
+constexpr std::int64_t kDefaultNominalControllerPeriodMs = 4;
+constexpr std::int64_t kDefaultMaximumControllerPeriodMs = 8;
+constexpr std::int64_t kDefaultSchedulingGuardMs = 4;
+constexpr double kDefaultOpenFeedbackAgeLimitMs = 500.0;
+
+constexpr std::array<std::string_view, 19> kManagedParameterNames = {
+  "configuration_source",
+  "allow_test_only_configuration",
+  "buffer_capacity",
+  "max_horizon_ms",
+  "required_initial_horizon_ms",
+  "update_timeout_ms",
+  "replace_lead_ms",
+  "state_publish_period_ms",
+  "prime_timeout_ms",
+  "nominal_controller_period_ms",
+  "maximum_controller_period_ms",
+  "one_cycle_detection_guard_ms",
+  "stop_time_growth_guard_ms",
+  "non_rt_to_rt_visibility_guard_ms",
+  "period_quantization_guard_ms",
+  "open_feedback_age_limit_ms",
+  "takeover_tolerances",
+  "splice_position_tolerances",
+  "splice_velocity_tolerances"};
+
+bool isManagedParameter(std::string_view name) noexcept
+{
+  return std::find(kManagedParameterNames.begin(), kManagedParameterNames.end(), name) !=
+         kManagedParameterNames.end();
+}
+
+bool millisecondsToNanoseconds(std::int64_t milliseconds, std::uint64_t & nanoseconds) noexcept
+{
+  if (milliseconds <= 0) {
+    return false;
+  }
+  const auto value = static_cast<std::uint64_t>(milliseconds);
+  if (value > std::numeric_limits<std::uint64_t>::max() / kNanosecondsPerMillisecond) {
+    return false;
+  }
+  nanoseconds = value * kNanosecondsPerMillisecond;
+  return true;
+}
 
 constexpr std::array<std::uint8_t, 32> kAxisSetHash = {
   0x25U, 0xc6U, 0xe8U, 0x2bU, 0xf5U, 0x05U, 0xcaU, 0x9eU,
@@ -145,8 +199,169 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_init()
 {
   auto_declare<std::string>("configuration_source", "unconfigured");
   auto_declare<bool>("allow_test_only_configuration", false);
-  auto_declare<std::vector<double>>("test_only_takeover_tolerances", {});
+  auto_declare<std::int64_t>("buffer_capacity", kDefaultBufferCapacity);
+  auto_declare<std::int64_t>("max_horizon_ms", kDefaultMaxHorizonMs);
+  auto_declare<std::int64_t>(
+    "required_initial_horizon_ms", kDefaultRequiredInitialHorizonMs);
+  auto_declare<std::int64_t>("update_timeout_ms", kDefaultUpdateTimeoutMs);
+  auto_declare<std::int64_t>("replace_lead_ms", kDefaultReplaceLeadMs);
+  auto_declare<std::int64_t>("state_publish_period_ms", kDefaultStatePublishPeriodMs);
+  auto_declare<std::int64_t>("prime_timeout_ms", kDefaultPrimeTimeoutMs);
+  auto_declare<std::int64_t>(
+    "nominal_controller_period_ms", kDefaultNominalControllerPeriodMs);
+  auto_declare<std::int64_t>(
+    "maximum_controller_period_ms", kDefaultMaximumControllerPeriodMs);
+  auto_declare<std::int64_t>("one_cycle_detection_guard_ms", kDefaultSchedulingGuardMs);
+  auto_declare<std::int64_t>("stop_time_growth_guard_ms", kDefaultSchedulingGuardMs);
+  auto_declare<std::int64_t>(
+    "non_rt_to_rt_visibility_guard_ms", kDefaultSchedulingGuardMs);
+  auto_declare<std::int64_t>("period_quantization_guard_ms", kDefaultSchedulingGuardMs);
+  auto_declare<double>("open_feedback_age_limit_ms", kDefaultOpenFeedbackAgeLimitMs);
+  auto_declare<std::vector<double>>("takeover_tolerances", {});
+  auto_declare<std::vector<double>>("splice_position_tolerances", {});
+  auto_declare<std::vector<double>>("splice_velocity_tolerances", {});
+  parameters_frozen_.store(false, std::memory_order_relaxed);
+  parameter_callback_handle_ = get_node()->add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & parameters) {
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      if (!parameters_frozen_.load(std::memory_order_acquire)) {
+        return result;
+      }
+      for (const auto & parameter : parameters) {
+        if (isManagedParameter(parameter.get_name())) {
+          result.successful = false;
+          result.reason = "rolling runtime parameters are frozen after configure";
+          break;
+        }
+      }
+      return result;
+    });
   return controller_interface::CallbackReturn::SUCCESS;
+}
+
+bool RollingTrajectoryController::loadRuntimeConfiguration(std::string & error)
+{
+  RuntimeConfiguration candidate;
+  const std::int64_t capacity = get_node()->get_parameter("buffer_capacity").as_int();
+  if (capacity < 2 || capacity > static_cast<std::int64_t>(kTransportMaxPoints)) {
+    error = "buffer_capacity must be in [2, 256]";
+    return false;
+  }
+  candidate.buffer_capacity = static_cast<std::size_t>(capacity);
+
+  const auto read_duration = [this, &error](
+      const char * name, std::uint64_t & destination) {
+      if (!millisecondsToNanoseconds(get_node()->get_parameter(name).as_int(), destination)) {
+        error = std::string(name) + " must be a positive, representable integer millisecond value";
+        return false;
+      }
+      return true;
+    };
+  if (
+    !read_duration("max_horizon_ms", candidate.max_horizon_ns) ||
+    !read_duration(
+      "required_initial_horizon_ms", candidate.required_initial_horizon_ns) ||
+    !read_duration("update_timeout_ms", candidate.update_timeout_ns) ||
+    !read_duration("replace_lead_ms", candidate.replace_lead_ns) ||
+    !read_duration("state_publish_period_ms", candidate.state_publish_period_ns) ||
+    !read_duration("prime_timeout_ms", candidate.prime_timeout_ns) ||
+    !read_duration(
+      "nominal_controller_period_ms", candidate.nominal_controller_period_ns) ||
+    !read_duration(
+      "maximum_controller_period_ms", candidate.maximum_controller_period_ns) ||
+    !read_duration(
+      "one_cycle_detection_guard_ms", candidate.scheduling_guard.one_cycle_detection_ns) ||
+    !read_duration(
+      "stop_time_growth_guard_ms", candidate.scheduling_guard.stop_time_growth_ns) ||
+    !read_duration(
+      "non_rt_to_rt_visibility_guard_ms",
+      candidate.scheduling_guard.non_rt_to_rt_visibility_ns) ||
+    !read_duration(
+      "period_quantization_guard_ms",
+      candidate.scheduling_guard.period_quantization_ns))
+  {
+    return false;
+  }
+
+  if (candidate.required_initial_horizon_ns > candidate.max_horizon_ns) {
+    error = "required_initial_horizon_ms must not exceed max_horizon_ms";
+    return false;
+  }
+  constexpr std::uint64_t kMinimumUpdateTimeoutNs = 100'000'000U;
+  constexpr std::uint64_t kMaximumUpdateTimeoutNs = 500'000'000U;
+  if (
+    candidate.update_timeout_ns < kMinimumUpdateTimeoutNs ||
+    candidate.update_timeout_ns > kMaximumUpdateTimeoutNs)
+  {
+    error = "update_timeout_ms must be in [100, 500]";
+    return false;
+  }
+  if (
+    candidate.maximum_controller_period_ns < candidate.nominal_controller_period_ns ||
+    candidate.update_timeout_ns < candidate.maximum_controller_period_ns ||
+    candidate.prime_timeout_ns < candidate.maximum_controller_period_ns ||
+    candidate.replace_lead_ns > candidate.max_horizon_ns)
+  {
+    error = "controller periods, timeouts, replace lead, and horizon are inconsistent";
+    return false;
+  }
+
+  std::uint64_t total_guard_ns = 0U;
+  for (const std::uint64_t guard_ns : {
+      candidate.scheduling_guard.one_cycle_detection_ns,
+      candidate.scheduling_guard.stop_time_growth_ns,
+      candidate.scheduling_guard.non_rt_to_rt_visibility_ns,
+      candidate.scheduling_guard.period_quantization_ns})
+  {
+    if (!addTime(total_guard_ns, guard_ns, total_guard_ns)) {
+      error = "scheduling guard sum overflows";
+      return false;
+    }
+  }
+  if (total_guard_ns > candidate.required_initial_horizon_ns) {
+    error = "scheduling guard sum must not exceed required_initial_horizon_ms";
+    return false;
+  }
+
+  candidate.open_feedback_age_limit_ms =
+    get_node()->get_parameter("open_feedback_age_limit_ms").as_double();
+  if (
+    !std::isfinite(candidate.open_feedback_age_limit_ms) ||
+    candidate.open_feedback_age_limit_ms <= 0.0)
+  {
+    error = "open_feedback_age_limit_ms must be finite and positive";
+    return false;
+  }
+
+  const auto read_axis_values = [this, &error](
+      const char * name, std::array<double, kAxisCount> & destination) {
+      const std::vector<double> values = get_node()->get_parameter(name).as_double_array();
+      if (values.size() != kAxisCount) {
+        error = std::string(name) + " must contain exactly 14 values in protocol axis order";
+        return false;
+      }
+      for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+        if (!std::isfinite(values[axis]) || values[axis] < 0.0) {
+          error = std::string(name) + " contains a non-finite or negative value";
+          return false;
+        }
+        destination[axis] = values[axis];
+      }
+      return true;
+    };
+  if (
+    !read_axis_values("takeover_tolerances", candidate.takeover_tolerances) ||
+    !read_axis_values(
+      "splice_position_tolerances", candidate.splice_position_tolerances) ||
+    !read_axis_values(
+      "splice_velocity_tolerances", candidate.splice_velocity_tolerances))
+  {
+    return false;
+  }
+
+  runtime_configuration_ = candidate;
+  return true;
 }
 
 controller_interface::InterfaceConfiguration
@@ -182,29 +397,29 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   const std::string source = get_node()->get_parameter("configuration_source").as_string();
   const bool allow_test_only =
     get_node()->get_parameter("allow_test_only_configuration").as_bool();
-  const std::vector<double> tolerances =
-    get_node()->get_parameter("test_only_takeover_tolerances").as_double_array();
-  if (source != "test_only" || !allow_test_only || tolerances.size() != kAxisCount) {
+  if (source != "test_only" || !allow_test_only) {
     RCLCPP_ERROR(
       get_node()->get_logger(),
       "Rolling controller requires an explicitly allowed complete test-only configuration");
     return controller_interface::CallbackReturn::ERROR;
   }
-  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    if (!std::isfinite(tolerances[axis]) || tolerances[axis] < 0.0) {
-      RCLCPP_ERROR(
-        get_node()->get_logger(), "Invalid test-only takeover tolerance at axis %zu", axis);
-      return controller_interface::CallbackReturn::ERROR;
-    }
-    takeover_tolerances_[axis] = tolerances[axis];
+  std::string configuration_error;
+  if (!loadRuntimeConfiguration(configuration_error)) {
+    RCLCPP_ERROR(
+      get_node()->get_logger(), "Invalid rolling runtime configuration: %s",
+      configuration_error.c_str());
+    return controller_interface::CallbackReturn::ERROR;
   }
 
   BufferConfiguration buffer_configuration;
-  buffer_configuration.capacity = kTestOnlyBufferCapacity;
-  buffer_configuration.required_initial_horizon_ns = kTestOnlyRequiredInitialHorizonNs;
-  buffer_configuration.max_horizon_ns = kTestOnlyMaxHorizonNs;
-  buffer_configuration.splice_position_tolerance.fill(1.0e-9);
-  buffer_configuration.splice_velocity_tolerance.fill(1.0e-9);
+  buffer_configuration.capacity = runtime_configuration_.buffer_capacity;
+  buffer_configuration.required_initial_horizon_ns =
+    runtime_configuration_.required_initial_horizon_ns;
+  buffer_configuration.max_horizon_ns = runtime_configuration_.max_horizon_ns;
+  buffer_configuration.splice_position_tolerance =
+    runtime_configuration_.splice_position_tolerances;
+  buffer_configuration.splice_velocity_tolerance =
+    runtime_configuration_.splice_velocity_tolerances;
   envelope_ = makeTestOnlyEnvelope();
   if (
     !buffer_.configure(buffer_configuration) ||
@@ -224,7 +439,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   state_publisher_ = get_node()->create_publisher<StateMessage>(
     "/rt/rolling_joint_control/state", robot_interfaces_qos::rolling_state());
   state_timer_ = get_node()->create_wall_timer(
-    std::chrono::nanoseconds(kTestOnlyStatePublishPeriodNs),
+    std::chrono::nanoseconds(runtime_configuration_.state_publish_period_ns),
     [this]() {(void)publishPublicState();}, callback_group_);
   state_timer_->cancel();
   open_service_ = get_node()->create_service<OpenService>(
@@ -274,6 +489,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   has_accepted_update_.store(false, std::memory_order_relaxed);
   initial_handoff_gate_.clear(std::memory_order_relaxed);
   configured_ = true;
+  parameters_frozen_.store(true, std::memory_order_release);
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -307,7 +523,8 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
     const double actual_position = state_interfaces_[axis].get_value();
     if (
       !std::isfinite(source_command) || !std::isfinite(actual_position) ||
-      std::abs(source_command - actual_position) > takeover_tolerances_[axis])
+      std::abs(source_command - actual_position) >
+      runtime_configuration_.takeover_tolerances[axis])
     {
       RCLCPP_ERROR(
         get_node()->get_logger(), "Unsafe rolling-controller takeover at axis %zu", axis);
@@ -485,7 +702,7 @@ controller_interface::return_type RollingTrajectoryController::update(
     } else if (
       elapsedExceeds(
         steadyNowNs(), prime_start_time_ns_.load(std::memory_order_acquire),
-        kTestOnlyPrimeTimeoutNs))
+        runtime_configuration_.prime_timeout_ns))
     {
       update_succeeded = beginRtStop(StopReason::kPrimeTimeout);
     } else {
@@ -519,7 +736,8 @@ controller_interface::return_type RollingTrajectoryController::update(
           update_succeeded = beginRtStop(StopReason::kClockAnomaly);
         } else if (
           elapsedExceeds(
-            steadyNowNs(), rt_last_accepted_arrival_ns_, kTestOnlyUpdateTimeoutNs))
+            steadyNowNs(), rt_last_accepted_arrival_ns_,
+            runtime_configuration_.update_timeout_ns))
         {
           update_succeeded = beginRtStop(StopReason::kUpdateTimeout);
         } else {
@@ -528,16 +746,14 @@ controller_interface::return_type RollingTrajectoryController::update(
             execution_time_ns_.load(std::memory_order_relaxed);
           const std::uint64_t buffered_until_ns =
             buffered_until_ns_.load(std::memory_order_relaxed);
-          constexpr SchedulingGuard guard{
-            kTestOnlyNominalPeriodNs, kTestOnlyNominalPeriodNs,
-            kTestOnlyNominalPeriodNs, kTestOnlyNominalPeriodNs};
           if (!calculateStopDurationNs(rt_desired_, stop_duration_ns)) {
             rt_invariant_stage_.store(
               static_cast<std::uint8_t>(RtInvariantStage::kStopDuration),
               std::memory_order_release);
             update_succeeded = beginRtStop(StopReason::kInternalInvariant);
           } else if (!hasSufficientStoppingHorizon(
-              execution_ns, buffered_until_ns, stop_duration_ns, guard))
+              execution_ns, buffered_until_ns, stop_duration_ns,
+              runtime_configuration_.scheduling_guard))
           {
             update_succeeded = beginRtStop(StopReason::kLowWater);
           } else {
@@ -659,10 +875,11 @@ bool RollingTrajectoryController::elapsedExceeds(
   return now_ns < start_ns || now_ns - start_ns > limit_ns;
 }
 
-bool RollingTrajectoryController::validPeriod(std::int64_t period_ns) noexcept
+bool RollingTrajectoryController::validPeriod(std::int64_t period_ns) const noexcept
 {
   return period_ns > 0 &&
-         static_cast<std::uint64_t>(period_ns) <= kTestOnlyMaximumPeriodNs;
+         static_cast<std::uint64_t>(period_ns) <=
+         runtime_configuration_.maximum_controller_period_ns;
 }
 
 bool RollingTrajectoryController::addTime(
@@ -794,7 +1011,11 @@ bool RollingTrajectoryController::buildAdmissionContext(
   {
     context.execution_time_ns = 0U;
     context.replaceable_from_ns = 0U;
-    context.minimum_horizon_ns = 4U * kTestOnlyNominalPeriodNs;
+    context.minimum_horizon_ns =
+      runtime_configuration_.scheduling_guard.one_cycle_detection_ns +
+      runtime_configuration_.scheduling_guard.stop_time_growth_ns +
+      runtime_configuration_.scheduling_guard.non_rt_to_rt_visibility_ns +
+      runtime_configuration_.scheduling_guard.period_quantization_ns;
     return true;
   }
 
@@ -812,10 +1033,22 @@ bool RollingTrajectoryController::buildAdmissionContext(
   }
   std::uint64_t minimum_horizon_ns = stop_duration_ns;
   if (
-    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns) ||
-    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns) ||
-    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns) ||
-    !addTime(minimum_horizon_ns, kTestOnlyNominalPeriodNs, minimum_horizon_ns))
+    !addTime(
+      minimum_horizon_ns,
+      runtime_configuration_.scheduling_guard.one_cycle_detection_ns,
+      minimum_horizon_ns) ||
+    !addTime(
+      minimum_horizon_ns,
+      runtime_configuration_.scheduling_guard.stop_time_growth_ns,
+      minimum_horizon_ns) ||
+    !addTime(
+      minimum_horizon_ns,
+      runtime_configuration_.scheduling_guard.non_rt_to_rt_visibility_ns,
+      minimum_horizon_ns) ||
+    !addTime(
+      minimum_horizon_ns,
+      runtime_configuration_.scheduling_guard.period_quantization_ns,
+      minimum_horizon_ns))
   {
     return false;
   }
@@ -1072,7 +1305,9 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
     !sampleTrajectoryImageMonotonic(
       trajectory, execution_ns, candidate_cursor, candidate) ||
     !desiredIsValid(candidate) ||
-    !addTime(execution_ns, kTestOnlyReplaceLeadNs, replacement_boundary_ns))
+    !addTime(
+      execution_ns, runtime_configuration_.replace_lead_ns,
+      replacement_boundary_ns))
   {
     rt_invariant_stage_.store(
       static_cast<std::uint8_t>(RtInvariantStage::kSnapshotSample),
@@ -1155,7 +1390,7 @@ bool RollingTrajectoryController::advanceRtStop(std::int64_t period_ns) noexcept
 {
   const StopReason reason = static_cast<StopReason>(
     stop_reason_.load(std::memory_order_acquire));
-  std::uint64_t increment_ns = kTestOnlyNominalPeriodNs;
+  std::uint64_t increment_ns = runtime_configuration_.nominal_controller_period_ns;
   if (reason != StopReason::kClockAnomaly && validPeriod(period_ns)) {
     increment_ns = static_cast<std::uint64_t>(period_ns);
   }
@@ -1194,7 +1429,7 @@ bool RollingTrajectoryController::updateRtReplaceableBoundary() noexcept
   std::uint64_t boundary_ns = 0U;
   if (!addTime(
       execution_time_ns_.load(std::memory_order_relaxed),
-      kTestOnlyReplaceLeadNs, boundary_ns))
+      runtime_configuration_.replace_lead_ns, boundary_ns))
   {
     return false;
   }
@@ -1327,7 +1562,7 @@ void RollingTrajectoryController::handleOpen(
     decodeDouble(feedback_age_bits_.load(std::memory_order_acquire));
   if (
     !std::isfinite(feedback_age_ms) || feedback_age_ms < 0.0 ||
-    feedback_age_ms > kOpenFeedbackAgeLimitMs)
+    feedback_age_ms > runtime_configuration_.open_feedback_age_limit_ms)
   {
     setOpenError(*response, ServiceResultMessage::FEEDBACK_STALE);
     return;
@@ -1348,7 +1583,7 @@ void RollingTrajectoryController::handleOpen(
     }
     if (
       !std::isfinite(actual) ||
-      std::abs(hold - actual) > takeover_tolerances_[axis])
+      std::abs(hold - actual) > runtime_configuration_.takeover_tolerances[axis])
     {
       setOpenError(*response, ServiceResultMessage::TAKEOVER_MISMATCH);
       return;
@@ -1390,13 +1625,15 @@ void RollingTrajectoryController::handleOpen(
   response->capability_bits = kCapabilityBits;
   response->transport_max_points = static_cast<std::uint16_t>(kTransportMaxPoints);
   response->buffer_capacity = static_cast<std::uint16_t>(buffer_.capacity());
-  response->max_horizon_ns = kTestOnlyMaxHorizonNs;
-  response->required_initial_horizon_ns = kTestOnlyRequiredInitialHorizonNs;
-  response->replace_lead_ns = kTestOnlyReplaceLeadNs;
-  response->update_timeout_ns = kTestOnlyUpdateTimeoutNs;
-  response->nominal_controller_period_ns = kTestOnlyNominalPeriodNs;
+  response->max_horizon_ns = runtime_configuration_.max_horizon_ns;
+  response->required_initial_horizon_ns =
+    runtime_configuration_.required_initial_horizon_ns;
+  response->replace_lead_ns = runtime_configuration_.replace_lead_ns;
+  response->update_timeout_ns = runtime_configuration_.update_timeout_ns;
+  response->nominal_controller_period_ns =
+    runtime_configuration_.nominal_controller_period_ns;
   response->initial_replaceable_from_ns = 0U;
-  response->test_only_limits = true;
+  response->test_only_limits = envelope_.source == LimitsSource::kTestOnly;
   response->hold_positions = hold_positions;
   response->hold_velocities.fill(0.0);
   open_cache_.valid = true;

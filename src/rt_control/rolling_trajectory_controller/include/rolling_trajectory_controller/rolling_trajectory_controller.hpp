@@ -7,9 +7,11 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <string>
 
 #include "controller_interface/controller_interface.hpp"
 #include "rclcpp/callback_group.hpp"
+#include "rclcpp/node_interfaces/node_parameters_interface.hpp"
 #include "rclcpp/service.hpp"
 #include "rclcpp/subscription.hpp"
 #include "rclcpp/timer.hpp"
@@ -120,19 +122,27 @@ private:
     JointPoint desired{};
   };
 
+  struct RuntimeConfiguration
+  {
+    std::size_t buffer_capacity{0U};
+    std::uint64_t max_horizon_ns{0U};
+    std::uint64_t required_initial_horizon_ns{0U};
+    std::uint64_t update_timeout_ns{0U};
+    std::uint64_t replace_lead_ns{0U};
+    std::uint64_t state_publish_period_ns{0U};
+    std::uint64_t prime_timeout_ns{0U};
+    std::uint64_t nominal_controller_period_ns{0U};
+    std::uint64_t maximum_controller_period_ns{0U};
+    SchedulingGuard scheduling_guard{};
+    double open_feedback_age_limit_ms{0.0};
+    std::array<double, kAxisCount> takeover_tolerances{};
+    std::array<double, kAxisCount> splice_position_tolerances{};
+    std::array<double, kAxisCount> splice_velocity_tolerances{};
+  };
+
   static constexpr const char * kFeedbackAgeInterface =
     "ethercat_domain/process_data_age_ms";
   static constexpr std::size_t kCloseCacheCapacity = 8U;
-  static constexpr std::size_t kTestOnlyBufferCapacity = 64U;
-  static constexpr std::uint64_t kTestOnlyMaxHorizonNs = 600'000'000U;
-  static constexpr std::uint64_t kTestOnlyRequiredInitialHorizonNs = 500'000'000U;
-  static constexpr std::uint64_t kTestOnlyNominalPeriodNs = 4'000'000U;
-  static constexpr std::uint64_t kTestOnlyMaximumPeriodNs = 8'000'000U;
-  static constexpr std::uint64_t kTestOnlyPrimeTimeoutNs = 100'000'000U;
-  static constexpr std::uint64_t kTestOnlyUpdateTimeoutNs = 200'000'000U;
-  static constexpr std::uint64_t kTestOnlyReplaceLeadNs = 16'000'000U;
-  static constexpr std::uint64_t kTestOnlyStatePublishPeriodNs = 20'000'000U;
-  static constexpr double kOpenFeedbackAgeLimitMs = 500.0;
   static constexpr std::uint64_t kCapabilityBits = 0x1fU;
 
   static Identifier generateIdentifier() noexcept;
@@ -146,9 +156,10 @@ private:
     const CloseService::Request & lhs, const CloseService::Request & rhs) noexcept;
   static bool elapsedExceeds(
     std::uint64_t now_ns, std::uint64_t start_ns, std::uint64_t limit_ns) noexcept;
-  static bool validPeriod(std::int64_t period_ns) noexcept;
+  bool validPeriod(std::int64_t period_ns) const noexcept;
   static bool addTime(
     std::uint64_t value_ns, std::uint64_t increment_ns, std::uint64_t & sum_ns) noexcept;
+  bool loadRuntimeConfiguration(std::string & error);
 
   void handleOpen(
     const std::shared_ptr<OpenService::Request> request,
@@ -177,13 +188,13 @@ private:
   bool calculateStopDurationNs(
     const JointPoint & desired, std::uint64_t & duration_ns) const noexcept;
 
-  std::array<double, kAxisCount> takeover_tolerances_{};
   std::array<double, kAxisCount> hold_positions_{};
   std::array<std::atomic<std::uint64_t>, kAxisCount> observed_position_bits_{};
   std::array<std::atomic<std::uint64_t>, kAxisCount> desired_position_bits_{};
   std::array<std::atomic<std::uint64_t>, kAxisCount> desired_velocity_bits_{};
   std::atomic<std::uint64_t> feedback_age_bits_{0U};
   DynamicEnvelope envelope_{};
+  RuntimeConfiguration runtime_configuration_{};
   RollingBuffer buffer_{};
   RollingSnapshotExchange snapshot_exchange_{};
   Identifier controller_boot_id_{};
@@ -207,6 +218,8 @@ private:
   rclcpp::Subscription<BatchMessage>::SharedPtr update_subscription_{};
   rclcpp_lifecycle::LifecyclePublisher<StateMessage>::SharedPtr state_publisher_{};
   rclcpp::TimerBase::SharedPtr state_timer_{};
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr
+    parameter_callback_handle_{};
   std::atomic<std::uint8_t> rt_session_state_{
     static_cast<std::uint8_t>(SessionState::kNone)};
   std::atomic<std::uint8_t> stop_reason_{
@@ -227,6 +240,7 @@ private:
   std::atomic_flag initial_handoff_gate_ = ATOMIC_FLAG_INIT;
   std::atomic_bool stop_requested_{false};
   bool configured_{false};
+  std::atomic_bool parameters_frozen_{false};
   std::atomic_bool active_{false};
   std::uint64_t rt_observed_session_epoch_{0U};
   std::uint64_t rt_publication_floor_{1U};

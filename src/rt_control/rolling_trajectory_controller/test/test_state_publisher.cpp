@@ -221,7 +221,11 @@ protected:
           rclcpp::Parameter("configuration_source", "test_only"),
           rclcpp::Parameter("allow_test_only_configuration", true),
           rclcpp::Parameter(
-            "test_only_takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
+            "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+          rclcpp::Parameter(
+            "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+          rclcpp::Parameter(
+            "takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
     controller_ = std::make_unique<RollingTrajectoryController>();
     ASSERT_EQ(
       controller_->init("test_rolling_state", "", options),

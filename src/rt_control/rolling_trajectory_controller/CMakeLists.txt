@@ -5,6 +5,7 @@ find_package(ament_cmake REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_motion_interfaces REQUIRED)
@@ -46,6 +47,7 @@ ament_target_dependencies(
   controller_interface
   hardware_interface
   pluginlib
+  rcl_interfaces
   rclcpp
   robot_interfaces_qos
   robot_motion_interfaces
@@ -264,6 +266,7 @@ ament_export_dependencies(
   controller_interface
   hardware_interface
   pluginlib
+  rcl_interfaces
   rclcpp
   robot_interfaces_qos
   robot_motion_interfaces
