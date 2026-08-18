@@ -936,12 +936,15 @@ capacity、horizon、timeout、lead 与 nominal period。参数成功 configure 
 - **【备选 B】** controller 自己通过 ament index 查找 `rt_control_bringup`。路径稳定，但让
   controller package 反向依赖 bringup，形成错误的构建／部署依赖方向。
 - **【推荐／最终采用 C】** `controllers.yaml` 中 `envelope_file` 默认空字符串；受支持的
-  `rt_control.launch.py` 用 `FindPackageShare(rt_control_bringup)` 解析安装路径，并以
-  `rolling_trajectory_controller.envelope_file` 绝对参数注入 controller manager。直接绕过
-  launch 加载 controller 时若未显式给绝对路径，configure fail-closed。
+  `rt_control.launch.py` 用 ament index 解析安装路径，生成仅含该绝对路径的 controller-node
+  临时参数文件，并通过 rolling spawner 的 `--param-file` 与主 controllers 文件一起注入。
+  launch shutdown 删除临时文件。直接绕过 launch 加载 controller 时若未显式给绝对路径，
+  configure fail-closed。
 
 **影响**：loader 不猜 cwd、不从 URDF 隐式回退，也不依赖 bringup 包。测试直接传入源树绝对
-路径；安装态 launch 必须在完整 mock 中证明注入值指向安装副本。
+路径；安装态 launch 必须在完整 mock 中证明注入值指向安装副本。Humble 实测证明把
+`rolling_trajectory_controller.envelope_file` 作为 controller_manager 的 dotted 参数只会落到
+manager 节点，rolling 子节点仍读到空值，因此该失败方案不得恢复。
 
 ### 6.2 实施顺序裁决
 

@@ -118,3 +118,4 @@
 | 2026-08-19 | motion | [ELECTRI-102 rolling 运行参数 YAML 化并冻结](docs/areas/motion/records/2026-08-19-electri-102-runtime-parameters.md) | PASS（T1；Open 回报实参，非法矩阵 fail-closed） |
 | 2026-08-19 | motion | [ELECTRI-102 14 轴 provisional 包络严格加载](docs/areas/motion/records/2026-08-19-electri-102-provisional-envelope.md) | PASS（T1；BQ-138 台架实测仍 OPEN） |
 | 2026-08-19 | lifecycle | [ELECTRI-102 enable_manager motion controller 注册表](docs/areas/lifecycle/records/2026-08-19-electri-102-motion-controller-registry.md) | PASS（T1；39/39 mock gtest，service 成功路径待综合 mock） |
+| 2026-08-19 | release-deploy | [ELECTRI-102 mandatory-inactive motion writer bringup](docs/areas/release-deploy/records/2026-08-19-electri-102-mandatory-inactive-bringup.md) | PASS（T1；安装态综合 mock，JTC/rolling INACTIVE） |

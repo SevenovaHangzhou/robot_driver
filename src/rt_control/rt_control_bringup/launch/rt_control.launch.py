@@ -1,7 +1,18 @@
+import json
+from pathlib import Path
+import tempfile
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, EmitEvent, LogInfo, RegisterEventHandler
+from launch.actions import (
+    DeclareLaunchArgument,
+    EmitEvent,
+    LogInfo,
+    OpaqueFunction,
+    RegisterEventHandler,
+)
 from launch.conditions import IfCondition
-from launch.event_handlers import OnProcessExit
+from launch.event_handlers import OnProcessExit, OnShutdown
 from launch.events import Shutdown
 from launch.substitutions import (
     Command,
@@ -12,6 +23,73 @@ from launch.substitutions import (
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+
+
+def write_rolling_parameter_override(envelope_path, directory=None):
+    """Write the controller-node override required by Humble's spawner."""
+    resolved_envelope = Path(envelope_path).resolve(strict=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        suffix=".yaml",
+        dir=directory,
+        delete=False,
+    ) as parameter_file:
+        json.dump(
+            {
+                "rolling_trajectory_controller": {
+                    "ros__parameters": {"envelope_file": str(resolved_envelope)}
+                }
+            },
+            parameter_file,
+        )
+        parameter_file.write("\n")
+        return Path(parameter_file.name).resolve()
+
+
+def remove_generated_parameter_file(_context, parameter_file):
+    Path(parameter_file).unlink(missing_ok=True)
+    return []
+
+
+def make_mandatory_inactive_spawner(
+    controller_name, next_action, parameter_files=()
+):
+    """Build an INACTIVE spawner and its fail-closed exit transition."""
+    arguments = [
+        controller_name,
+        "--inactive",
+        "--controller-manager",
+        "/controller_manager",
+    ]
+    for parameter_file in parameter_files:
+        arguments.extend(["--param-file", parameter_file])
+
+    spawner = Node(
+        package="controller_manager",
+        executable="spawner",
+        arguments=arguments,
+        output="both",
+    )
+
+    def transition(event, _context):
+        if event.returncode == 0:
+            return [next_action]
+        return [
+            LogInfo(
+                msg=(
+                    f"{controller_name} did not reach configured INACTIVE state; "
+                    "the command-writer chain will not continue and launch will stop"
+                )
+            ),
+            EmitEvent(
+                event=Shutdown(
+                    reason=f"{controller_name} failed to configure INACTIVE"
+                )
+            ),
+        ]
+
+    return spawner, transition
 
 
 def generate_launch_description():
@@ -25,12 +103,13 @@ def generate_launch_description():
     controllers_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "config", "controllers.yaml"]
     )
-    rolling_envelope_file = PathJoinSubstitution(
-        [
-            FindPackageShare("rt_control_bringup"),
-            "config",
-            "rolling_envelope_provisional.yaml",
-        ]
+    rolling_envelope_file = (
+        Path(get_package_share_directory("rt_control_bringup"))
+        / "config"
+        / "rolling_envelope_provisional.yaml"
+    )
+    rolling_parameter_override = write_rolling_parameter_override(
+        rolling_envelope_file
     )
     rt_io_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "config", "rt_io.yaml"]
@@ -56,12 +135,7 @@ def generate_launch_description():
         parameters=[
             robot_description,
             controllers_file,
-            {
-                "use_sim_time": use_sim_time,
-                "rolling_trajectory_controller.envelope_file": ParameterValue(
-                    rolling_envelope_file, value_type=str
-                ),
-            },
+            {"use_sim_time": use_sim_time},
         ],
         remappings=[
             ("/diff_drive_controller/cmd_vel_unstamped", "/cmd_vel_safe"),
@@ -134,43 +208,35 @@ def generate_launch_description():
             "diff_drive_controller",
         )
     ]
-    jtc_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "whole_body_jtc",
-            "--inactive",
-            "--controller-manager",
-            "/controller_manager",
-        ],
-        output="both",
-    )
     enable_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["enable_manager", "--controller-manager", "/controller_manager"],
         output="both",
     )
-
-    def start_enable_manager_after_jtc(event, _context):
-        if event.returncode == 0:
-            return [enable_spawner]
-        return [
-            LogInfo(
-                msg=(
-                    "whole_body_jtc did not reach configured INACTIVE state; "
-                    "enable_manager will not be loaded and launch will stop"
-                )
-            ),
-            EmitEvent(
-                event=Shutdown(reason="whole_body_jtc failed to configure INACTIVE")
-            ),
-        ]
+    rolling_spawner, rolling_transition_handler = make_mandatory_inactive_spawner(
+        "rolling_trajectory_controller",
+        enable_spawner,
+        parameter_files=[controllers_file, str(rolling_parameter_override)],
+    )
+    jtc_spawner, jtc_transition_handler = make_mandatory_inactive_spawner(
+        "whole_body_jtc", rolling_spawner
+    )
 
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("use_mock_hardware", default_value="false"),
+            RegisterEventHandler(
+                OnShutdown(
+                    on_shutdown=[
+                        OpaqueFunction(
+                            function=remove_generated_parameter_file,
+                            args=[str(rolling_parameter_override)],
+                        )
+                    ]
+                )
+            ),
             DeclareLaunchArgument(
                 "start_plc",
                 default_value=EnvironmentVariable(
@@ -192,12 +258,18 @@ def generate_launch_description():
             plc,
             bms,
             *active_spawners,
-            jtc_spawner,
+            RegisterEventHandler(
+                OnProcessExit(
+                    target_action=rolling_spawner,
+                    on_exit=rolling_transition_handler,
+                )
+            ),
             RegisterEventHandler(
                 OnProcessExit(
                     target_action=jtc_spawner,
-                    on_exit=start_enable_manager_after_jtc,
+                    on_exit=jtc_transition_handler,
                 )
             ),
+            jtc_spawner,
         ]
     )

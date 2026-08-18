@@ -49,6 +49,7 @@ from rclpy.qos import (
 )
 
 from diagnostic_msgs.msg import DiagnosticArray  # noqa: F401 (documents type)
+from controller_manager_msgs.srv import ListControllers
 from robot_rt_control_interfaces.msg import SafetyState, VacuumState
 from robot_interfaces_qos import control, fast_state, latched, state
 from robot_system_interfaces.msg import DomainReadiness
@@ -240,10 +241,15 @@ class TestMockContract(unittest.TestCase):
             )
 
     def _assert_topic_endpoint_qos(self, topic, expected, *, publishers):
-        if publishers:
-            endpoint_info = self.node.get_publishers_info_by_topic(topic)
-        else:
-            endpoint_info = self.node.get_subscriptions_info_by_topic(topic)
+        endpoint_info = []
+        deadline = time.monotonic() + 30.0
+        while not endpoint_info and time.monotonic() < deadline:
+            if publishers:
+                endpoint_info = self.node.get_publishers_info_by_topic(topic)
+            else:
+                endpoint_info = self.node.get_subscriptions_info_by_topic(topic)
+            if not endpoint_info:
+                self.executor.spin_once(timeout_sec=0.2)
         self.assertTrue(
             endpoint_info,
             msg=f"{topic}: no {'publisher' if publishers else 'subscription'} QoS found",
@@ -337,6 +343,40 @@ class TestMockContract(unittest.TestCase):
                         "(robot_interfaces RT-Control view: 已删除的 endpoint)"
                     ),
                 )
+
+    def test_motion_command_writers_are_configured_inactive(self):
+        """JTC and rolling are both ready, but neither owns command interfaces."""
+        client = self.node.create_client(
+            ListControllers, "/controller_manager/list_controllers"
+        )
+        try:
+            self.assertTrue(client.wait_for_service(timeout_sec=10.0))
+            # Public graph convergence occurs as soon as JTC is configured.
+            # The mandatory rolling -> enable_manager spawner tail is still
+            # in flight at that point, so allow it to settle before issuing
+            # one (and only one) controller-manager query.
+            self._spin_for(5.0)
+            future = client.call_async(ListControllers.Request())
+            call_deadline = time.monotonic() + 15.0
+            while not future.done() and time.monotonic() < call_deadline:
+                self.executor.spin_once(timeout_sec=0.1)
+            self.assertTrue(future.done())
+            states = {
+                controller.name: controller.state
+                for controller in future.result().controller
+            }
+            self.assertEqual(states.get("whole_body_jtc"), "inactive")
+            self.assertEqual(
+                states.get("rolling_trajectory_controller"), "inactive"
+            )
+            self.assertEqual(states.get("enable_manager"), "active")
+        finally:
+            self.node.destroy_client(client)
+
+    def test_jtc_topic_admission_path_is_absent(self):
+        self.assertNotIn(
+            "/whole_body_jtc/joint_trajectory", self._topic_types()
+        )
 
     def test_named_qos_profiles_match_vendored_contract(self):
         """Public Topic entities use robot_interfaces_qos or an exact equivalent."""

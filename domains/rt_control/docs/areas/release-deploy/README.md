@@ -14,10 +14,13 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | motion writer 启动链固定为 JTC INACTIVE → rolling INACTIVE → enable_manager ACTIVE | [release-deploy-20260819-01](records/2026-08-19-electri-102-mandatory-inactive-bringup.md)#F1 | 有效（T1） |
+| 01#F2 | rolling provisional 包络由 spawner 参数文件注入安装态绝对路径 | [release-deploy-20260819-01](records/2026-08-19-electri-102-mandatory-inactive-bringup.md)#F2 | 有效（T1） |
+| 01#F3 | 任一 mandatory-INACTIVE spawner 失败均停止 launch，不启动 enable_manager | [release-deploy-20260819-01](records/2026-08-19-electri-102-mandatory-inactive-bringup.md)#F3 | 有效（T1） |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-08-19 [ELECTRI-102 mandatory-inactive motion writer bringup](records/2026-08-19-electri-102-mandatory-inactive-bringup.md) — feature，PASS（T1）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

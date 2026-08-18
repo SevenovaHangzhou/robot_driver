@@ -12,6 +12,9 @@ controller_manager:
     whole_body_jtc:
       type: joint_trajectory_controller/JointTrajectoryController
 
+    rolling_trajectory_controller:
+      type: rolling_trajectory_controller/RollingTrajectoryController
+
     diff_drive_controller:
       type: diff_drive_controller/DiffDriveController
 
