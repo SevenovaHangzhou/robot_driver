@@ -108,3 +108,4 @@
 | 2026-08-17 | contract | [Native QoS 运行依赖闭包与 fail-closed 启动门禁](docs/areas/contract/records/2026-08-17-native-qos-runtime-closure.md) | PASS（T3；最终 stopped/Idle/PREOP） |
 | 2026-08-19 | contract | [ELECTRI-102 rolling 公共接口所有权裁决](docs/areas/contract/records/2026-08-19-electri-102-public-interface-ownership.md) | UNVERIFIED（T0；接口 PR 等完整 mock/fake 门） |
 | 2026-08-19 | motion | [JTC 首点一致性启用时关闭 topic 命令旁路](docs/areas/motion/records/2026-08-19-jtc-action-only-admission.md) | PASS（T1；完整 bringup 图待综合 mock 复验） |
+| 2026-08-19 | motion | [ELECTRI-102 rolling 控制器移植到公共接口契约](docs/areas/motion/records/2026-08-19-electri-102-rolling-controller-port.md) | PASS（T1；完整 Motion 联调门仍待后续阶段） |

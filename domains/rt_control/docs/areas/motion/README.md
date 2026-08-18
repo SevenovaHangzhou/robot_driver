@@ -15,9 +15,14 @@ launch 结构与容器（→ release-deploy）。
 | 01#F1 | 首点一致性准入启用时，whole_body_jtc 只接受 FJT action | [motion-20260819-01](records/2026-08-19-jtc-action-only-admission.md)#F1 | 有效（T1） |
 | 01#F2 | 一致性准入关闭时保留上游 JTC topic 行为 | [motion-20260819-01](records/2026-08-19-jtc-action-only-admission.md)#F2 | 有效（T1） |
 | 01#F3 | topic 存在性与准入开关绑定，不增设独立配置位 | [motion-20260819-01](records/2026-08-19-jtc-action-only-admission.md)#F3 | 有效（T1） |
+| 02#F1 | rolling command 属于 Motion，session/state 属于 RT-Control | [motion-20260819-02](records/2026-08-19-electri-102-rolling-controller-port.md)#F1 | 有效（T1） |
+| 02#F2 | rolling controller 核心已在 public feature-interface overlay 构建并加载 | [motion-20260819-02](records/2026-08-19-electri-102-rolling-controller-port.md)#F2 | 有效（T1） |
+| 02#F3 | rolling service 细粒度结果与公共 DREE 映射逐项固定 | [motion-20260819-02](records/2026-08-19-electri-102-rolling-controller-port.md)#F3 | 有效（T1） |
+| 02#F4 | controller 移植通过不等于 Motion 联调门槛已通过 | [motion-20260819-02](records/2026-08-19-electri-102-rolling-controller-port.md)#F4 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 rolling 控制器移植到公共接口契约](records/2026-08-19-electri-102-rolling-controller-port.md) — feat，PASS（T1）
 - 2026-08-19 [JTC 首点一致性启用时关闭 topic 命令旁路](records/2026-08-19-jtc-action-only-admission.md) — fix，PASS（T1）
 
 ## 历史锚点（2026-08-13 前，未迁移）

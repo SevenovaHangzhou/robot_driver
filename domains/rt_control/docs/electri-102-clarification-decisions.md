@@ -810,6 +810,50 @@ robot_description 实施时也各自从权威 main 创建一个中文功能分�
 这些项若将来进入范围，必须新建证据记录／授权，不得借 ELECTRI-102 当前软件分支默认获得
 许可。
 
+### E102-D31 — rolling 细粒度结果到公共 DREE 的映射
+
+**问题**：`RollingServiceResult` 已负责 rolling 协议分支，配套的公共 `ErrorInfo` 应按每个
+细节另造 DREE 码、全部压成一个通用拒绝码，还是复用现有公共类别？
+
+- **【备选 A】** 为 20 个拒绝原因各增加一个 RT-Control DREE 码。表达最细，但会把
+  rolling 私有状态复制进跨域公共错误空间，且扩大本期接口变更。
+- **【备选 B】** 全部映射为 `GOAL_REJECTED`。实现最小，但 `retryable`、配置错误、安全拒绝
+  和暂态未就绪无法区分。
+- **【推荐／最终采用 C】** 程序精确分支继续读取 `RollingServiceResult`；`ErrorInfo` 只映射
+  到现有 DREE 类别，并逐项测试锁定：
+
+| RollingServiceResult | ErrorInfo.code | retryable |
+| --- | --- | --- |
+| NONE | SUCCESS | false |
+| WRONG_PROTOCOL | VERSION_MISMATCH | false |
+| WRONG_REQUEST / WRONG_CLIENT / AXIS_SET_MISMATCH | INVALID_GOAL | false |
+| WRONG_BOOT / WRONG_SESSION | RETRYABLE_INVALID_GOAL | true |
+| NOT_ENABLED / SESSION_BUSY / SESSION_EXISTS / SOURCE_STATE_STALE / SOURCE_MOVING / FEEDBACK_STALE / SWITCH_TIMEOUT / NOT_READY | NOT_READY | true |
+| WRONG_MODE / SWITCH_REJECTED | GOAL_REJECTED | false |
+| TAKEOVER_MISMATCH | RT_TOLERANCE_VIOLATED | false |
+| UNSAFE_HOLD | SAFETY_DENIED | false |
+| LIMITS_UNAVAILABLE / RESTART_REQUIRED | VERSION_MISMATCH | false |
+| 未知枚举值 | INTERNAL_ERROR | false |
+
+`source` 固定为 `rt_control`，`detail` 只供诊断并带原始枚举值；Motion 不解析字符串。这里的
+“可重试”表示机器在外部状态变化或重新 open 后可以形成新请求，不表示可原样重放同一
+sequence/request。
+
+### E102-D32 — RT 零分配门禁的计数归属
+
+**问题**：同一 gtest 进程中有 ROS/DDS 后台线程时，零分配门禁统计整个进程还是只统计执行
+`update()` 的线程？
+
+- **【备选 A】** 全进程全局计数。会把发现节点、日志等非 RT 线程的合法分配误报为 RT
+  分配，完整套件中出现时序相关假阳性。
+- **【推荐／最终采用 B】** 分配钩子仍覆盖所有 `new` 变体，但 tracking flag 和 counter
+  使用 `thread_local`，只在直接调用 250 Hz `update()` 的测试线程内打开。
+- **【备选 C】** 测试时停掉所有 executor/DDS 线程。隔离更强，但不能覆盖控制器在真实
+  ROS 并发背景下的 update 路径。
+
+采用 B 后，RT 路径真实分配仍必然命中；其他线程不会污染计数。完整 11 项 CTest 与单测
+结果一致，避免“单独运行通过、全套运行偶发失败”。
+
 ### 6.2 实施顺序裁决
 
 为了避免在错误数据结构上做性能优化，后续原子提交按以下因果顺序推进：
