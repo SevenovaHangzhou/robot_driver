@@ -26,6 +26,7 @@
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [根 README 补齐记录与测试体系导航](records/2026-08-19-root-readme-record-testing-navigation.md) — fix，PASS（T0）
 - 2026-08-14 [清空根 docs 并建立公共接口 vendor 门禁](records/2026-08-14-root-docs-and-vendor-governance.md) — decision，PASS（T0）
 - 2026-08-14 [T2 性能采集脚本化（ELECTRI-80 脚本部分）](records/2026-08-13-rt-perf-capture.md) — feature，PASS（T0）
 - 2026-08-13 [增量测试 scope resolver（ELECTRI-81）](records/2026-08-13-scoped-tests.md) — feature，PASS（T0）

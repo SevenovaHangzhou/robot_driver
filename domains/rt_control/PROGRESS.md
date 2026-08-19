@@ -106,3 +106,4 @@
 | 2026-08-17 | contract | [robot_interfaces 回填最终 main SHA](docs/areas/contract/records/2026-08-17-robot-interfaces-final-main-pin.md) | PASS（T0；发布仍待镜像与全域同 SHA smoke） |
 | 2026-08-17 | io-power | [纠正左右电磁阀输出映射](docs/areas/io-power/records/2026-08-17-correct-solenoid-side-mapping.md) | PASS（T4；输入映射与新镜像待验证） |
 | 2026-08-17 | contract | [Native QoS 运行依赖闭包与 fail-closed 启动门禁](docs/areas/contract/records/2026-08-17-native-qos-runtime-closure.md) | PASS（T3；最终 stopped/Idle/PREOP） |
+| 2026-08-19 | governance | [根 README 补齐记录与测试体系导航](docs/areas/governance/records/2026-08-19-root-readme-record-testing-navigation.md) | PASS（T0） |
