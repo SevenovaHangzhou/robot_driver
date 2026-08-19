@@ -123,3 +123,4 @@
 | 2026-08-19 | motion | [ELECTRI-102 模式结果进入 rolling 公共状态](docs/areas/motion/records/2026-08-19-electri-102-mode-result-state.md) | PASS（T1；内部有序事件与公共状态逐字段闭环） |
 | 2026-08-19 | motion | [ELECTRI-102 mock 长稳与 Motion 公开接口交接](docs/areas/motion/records/2026-08-19-electri-102-mock-and-motion-handoff.md) | PASS（T2；600 秒 14/14，接口分支暂不提 PR） |
 | 2026-08-19 | realtime-host | [ELECTRI-102 validation executor 亲和性边界](docs/areas/realtime-host/records/2026-08-19-electri-102-validation-affinity.md) | PARTIAL（T0；机制确认，目标 TID/PSR 待测） |
+| 2026-08-19 | contract | [ELECTRI-102 锁定 rolling 公共接口功能 SHA](docs/areas/contract/records/2026-08-19-electri-102-feature-contract-pin.md) | PASS（T1；9cc9379 已推分支、未提 PR） |

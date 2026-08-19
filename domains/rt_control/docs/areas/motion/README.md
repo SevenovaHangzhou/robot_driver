@@ -8,6 +8,13 @@
 不属于本区：轨迹规划与任务编排（运控域，不在本仓库）、使能状态机（→ lifecycle）、
 launch 结构与容器（→ release-deploy）。
 
+## ELECTRI-102 交付入口
+
+- [完成说明](../../electri-102-completion-report.md)
+- [Motion 联调与生产端指南](../../electri-102-motion-integration-guide.md)
+- [需求澄清与决策记录](../../electri-102-clarification-decisions.md)
+- [mock 长稳与性能报告](../../electri-102-mock-performance-report.md)
+
 ## 冻结事实（当前有效）
 
 | # | 事实 | 来源 | 状态 |

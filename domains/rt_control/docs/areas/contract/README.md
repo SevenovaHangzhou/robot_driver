@@ -1,6 +1,6 @@
 # contract — 公共契约与适配层
 
-**范围**：公共契约 vendor（`robot_rt_control_interfaces`、`robot_system_interfaces`、
+**范围**：公共契约 vendor（`robot_motion_interfaces`、`robot_rt_control_interfaces`、`robot_system_interfaces`、
 `robot_interfaces_qos`）与 `source-lock.yaml`、域私有接口（`rt_control_interfaces`）、
 公共适配器（enable/vacuum/status）、诊断归一化及 vendored RT-Control 契约视图。
 **Owner 包/资产**：`src/rt_control/control_api_adapter`、`src/interfaces/*`、
@@ -22,18 +22,23 @@
 | 03#F2 | 当前 DomainReadiness 为最终公共字段集并遵守一致性规则 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F2 | 有效 |
 | 03#F3 | 全部生产/消费域必须锁定同一接口 SHA 原子升级 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F3 | 有效 |
 | 03#F4 | d8236bd 是 PR #6 验证 SHA；发布仍须回填最终 main SHA | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F4 | 已由 04#F1 闭环 |
-| 04#F1 | RT-Control 固定 robot_interfaces 最终 main SHA f699f45 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F1 | 有效 |
+| 04#F1 | RT-Control 固定 robot_interfaces 最终 main SHA f699f45 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F1 | 已由 07#F1 在本功能分支取代 |
 | 04#F2 | f699f45 包含 BQ-137 与 Perception completeness，契约版本仍为 0.7.0 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F2 | 有效 |
 | 04#F3 | 最终 SHA 回填不解除各域同 SHA 原子升级与跨域 smoke 门禁 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F3 | 有效 |
 | 05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
 | 05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
 | 05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
-| 06#F1 | ELECTRI-102 rolling 五端点是 Motion/RT-Control 公共接口，不进入 driver 私有包 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F1 | 有效（T0） |
-| 06#F2 | M-09 batch/point 归 Motion 包，其余 rolling 类型归 RT 包，QoS 归共享包 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F2 | 有效（T0） |
-| 06#F3 | rolling 接口 PR 等完整 mock/fake 软件门，不以 IDL build 单独放行 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F3 | 有效（T0） |
+| 06#F1 | ELECTRI-102 rolling 五端点是 Motion/RT-Control 公共接口，不进入 driver 私有包 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F1 | 有效（T1） |
+| 06#F2 | M-09 batch/point 归 Motion 包，其余 rolling 类型归 RT 包，QoS 归共享包 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F2 | 有效（T1） |
+| 06#F3 | rolling 接口 PR 等完整 mock/fake 软件门，不以 IDL build 单独放行 | [contract-20260819-01](records/2026-08-19-electri-102-public-interface-ownership.md)#F3 | 门已通过；PR 仍按用户裁决等待 Motion 反馈 |
+| 07#F1 | 本功能分支锁定 rolling 公共接口 SHA 9cc9379 | [contract-20260819-02](records/2026-08-19-electri-102-feature-contract-pin.md)#F1 | 有效（T1） |
+| 07#F2 | driver 公开依赖闭包含 Motion、RT-Control、System、QoS 四包 | [contract-20260819-02](records/2026-08-19-electri-102-feature-contract-pin.md)#F2 | 有效（T1） |
+| 07#F3 | 9cc9379 是可供 Motion mock 的功能 SHA，不是正式发布 | [contract-20260819-02](records/2026-08-19-electri-102-feature-contract-pin.md)#F3 | 有效（T1） |
+| 07#F4 | Motion 与 driver 必须使用同一接口 SHA | [contract-20260819-02](records/2026-08-19-electri-102-feature-contract-pin.md)#F4 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 锁定 rolling 公共接口功能 SHA](records/2026-08-19-electri-102-feature-contract-pin.md) — feature，PASS（T1；已推分支、未提 PR）
 - 2026-08-19 [ELECTRI-102 rolling 公共接口所有权裁决](records/2026-08-19-electri-102-public-interface-ownership.md) — decision，UNVERIFIED（T0；接口 PR 等完整 mock/fake 门）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）
 - 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）
