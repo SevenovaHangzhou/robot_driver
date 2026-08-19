@@ -47,9 +47,15 @@ launch 结构与容器（→ release-deploy）。
 | 11#F1 | rolling state 保持唯一公共 publisher | [motion-20260819-11](records/2026-08-19-electri-102-mode-result-state.md)#F1 | 有效（T1） |
 | 11#F2 | controller 间 mode result 只经私有有序事件交接 | [motion-20260819-11](records/2026-08-19-electri-102-mode-result-state.md)#F2 | 有效（T1） |
 | 11#F3 | rolling 严格校验新事件且 deactivate 不复用旧证据 | [motion-20260819-11](records/2026-08-19-electri-102-mode-result-state.md)#F3 | 有效（T1） |
+| 12#F1 | 软件门包含 14 项矩阵和真实墙钟 600 秒 fake-250 Hz soak | [motion-20260819-12](records/2026-08-19-electri-102-mock-and-motion-handoff.md)#F1 | 有效（T2） |
+| 12#F2 | 10/30/250 Hz soak 的 18,001 批全部接受且零容忍计数全零 | [motion-20260819-12](records/2026-08-19-electri-102-mock-and-motion-handoff.md)#F2 | 有效（T2） |
+| 12#F3 | Motion 示例只依赖公共接口且默认 dry-run | [motion-20260819-12](records/2026-08-19-electri-102-mock-and-motion-handoff.md)#F3 | 有效（T1） |
+| 12#F4 | public DDS peer 与 controller fake loop 是互补证据 | [motion-20260819-12](records/2026-08-19-electri-102-mock-and-motion-handoff.md)#F4 | 有效（T1/T2） |
+| 12#F5 | GenericSystem 不模拟 CiA402 enable，不构成完整 live bringup 证据 | [motion-20260819-12](records/2026-08-19-electri-102-mock-and-motion-handoff.md)#F5 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 mock 长稳与 Motion 公开接口交接](records/2026-08-19-electri-102-mock-and-motion-handoff.md) — feature，PASS（T2）
 - 2026-08-19 [ELECTRI-102 模式结果进入 rolling 公共状态](records/2026-08-19-electri-102-mode-result-state.md) — feature，PASS（T1）
 - 2026-08-19 [ELECTRI-102 14 轴 provisional 包络严格加载](records/2026-08-19-electri-102-provisional-envelope.md) — feat，PASS（T1）
 - 2026-08-19 [ELECTRI-102 rolling 运行参数 YAML 化并冻结](records/2026-08-19-electri-102-runtime-parameters.md) — feat，PASS（T1）

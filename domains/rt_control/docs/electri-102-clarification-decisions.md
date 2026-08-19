@@ -1,6 +1,6 @@
 # ELECTRI-102 需求澄清与风险裁决日志
 
-> 状态：软件设计裁决已闭环；功能代码、目标机证据和硬件运动授权尚未完成。
+> 状态：软件与 mock 交付裁决已闭环；目标机证据、标定、生产包络和硬件运动授权未完成。
 > 日期：2026-08-19
 > 范围：视觉伺服使用的 14 轴 rolling trajectory 控制路径。
 
@@ -756,8 +756,9 @@ Quick Stop 条件；既有 Fault、意外离开 Operation Enabled 或失能超�
   BQ 编号当当前权威。实施阶段需要新增 BQ 时从当前下一个可用编号 BQ-138 起分配，并建立
   当前 contract record，不回写覆盖现有 BQ-130～137。
 
-**影响**：所有 dual_arm_jtc 改为 whole_body_jtc；E102 文档中的 50 Hz 改为 125 Hz 并引用
-现有 2026-08-13 契约记录；旧 R-OUT-03 手工表改成 robot_interfaces 权威 registry／view。
+**影响**：所有 dual_arm_jtc 改为 whole_body_jtc；原型中把 `/joint_states` 写成 50 Hz 的内容
+改为 125 Hz 并引用现有 2026-08-13 契约记录（JTC state 与 rolling state 各自的 50 Hz 不在
+此纠正范围）；旧 R-OUT-03 手工表改成 robot_interfaces 权威 registry／view。
 今晚只维护本文这一份裁决文件，避免出现两份同时自称最终决策。
 
 ### E102-D28 — “可供 Motion 测试”和接口 PR 的门槛
@@ -773,8 +774,9 @@ Quick Stop 条件；既有 Fault、意外离开 Operation Enabled 或失能超�
      矩阵和 JTC 回归全绿；
   4. 250 Hz fake 至少 10 分钟，Motion mock 30 Hz／100 ms，point_count 有界，RT allocation
      trap 零命中；
-  5. 最小 public-IDL-only producer 可完成 cancel/wait、mode、open、prime、update、
-     REQUEST_STOP、FINALIZE、return-to-FJT；
+  5. Motion 集成在进入示例前完成自己 goal 的 cancel/wait；最小 public-IDL-only producer
+     明确校验此前置条件，并可完成 mode、open、prime、update、REQUEST_STOP、FINALIZE、
+     return-to-FJT。独立示例不伪造它不拥有的 Action handle；
   6. 每场景输出 JSON/JUnit，失败保存 seed、trace 和 report。
 
 **性能证据**：T19 报告 validation p50/p99/p99.9、callback→RT visibility、DDS 延迟、
@@ -990,6 +992,116 @@ controller，应由谁发布／传递这些字段？
 `stop_reason=CONTROLLER_DEACTIVATED` 证明自身已停用；随后收到的 rolling→FJT 结果可在下一次
 activation 前保存。内部 topic 不使用 transient-local，避免 controller 重建后回放上一 boot
 的结果；受支持 bringup 在允许 mode service 前已配置两个订阅端。
+
+### E102-D40 — 完整 mock 如何处理 GenericSystem 不模拟 CiA402 使能
+
+**问题**：标准 `use_mock_hardware:=true` bringup 能加载全部 controller，但 GenericSystem
+一直给出 `status_word=0x0040`，公共 enable 会在第一轴按真实 CiA402 准入拒绝。是否为了让
+Motion 示例“一键跑通”而弱化 enable_manager？
+
+- **【备选 A】** 在 mock 下跳过 CiA402 检查并直接把系统标成 enabled。联调直观，但同一
+  enable_manager 在 mock 与生产具有不同安全语义，最容易隐藏接管缺陷。
+- **【备选 B】** 本期再实现完整的 CiA402 mock hardware plugin。证据最完整，但会把工作
+  扩展到驱动状态机仿真、故障注入和生命周期验收，超过视觉伺服 transport 的关键路径。
+- **【推荐／最终采用 C】** 分层验证且显式报告边界：真实 rolling controller 在 fake
+  250 Hz loop 中验证轨迹、停止、切换和零分配；Motion producer 与独立 public-IDL peer
+  跨进程、经 DDS 验证完整五端点会话。标准 bringup 的 mock-enable 缺口登记为已知限制，
+  不修改生产 CiA402 准入，也不宣称标准 bringup live producer 已通过。
+
+**影响**：软件合同和 Motion 生产端可独立开发，但在补齐 B 之前，标准 GenericSystem launch
+只能用于 controller 加载／配置／图契约，不能作为完整 enable→mode→session 的集成夹具。
+
+### E102-D41 — 10 分钟长稳使用加速时间还是真实墙钟
+
+**问题**：150,000 个 250 Hz 周期是只需尽快算完，还是必须实际运行 600 秒？
+
+- **【备选 A】** 只跑 accelerated fake time。CI 快，但不能暴露线程调度、长期计数增长和
+  墙钟 pacing 问题。
+- **【推荐／最终采用 B】** 开发阶段先跑 accelerated 回归，最终软件门再跑一次真实墙钟
+  600 秒；两者都要求 14 个场景机器可读、失败保留 seed/trace，长稳要求零 reject、零
+  LateReplace、零 RT allocation、零 invariant/late-cycle。
+
+**结果**：真实墙钟 600 秒完成 150,000/150,000 周期，18,001/18,001 批次接受，所有零容忍
+计数为 0。该结果证明桌面 fake loop 稳定性，不替代目标机实时调度证据。
+
+### E102-D42 — 是否用桌面性能数值下调 replace lead
+
+**问题**：桌面 10 分钟测试已测到 validation p99.9 约 127 微秒，是否把 16 ms
+`replace_lead` 立即下调？
+
+- **【备选 A】** 按桌面 p99.9 加少量 margin 下调到 1～2 ms。响应略快，但没有包含真实
+  DDS、Motion 进程调度、目标机负载和 non-RT→RT generation 交接尾部。
+- **【备选 B】** 为“更保守”继续增大到 32 ms。会增加视觉修正生效等待，且当前没有风险
+  数据支持扩大。
+- **【推荐／最终采用 C】** 保持 `replace_lead_ms: 16` 的 provisional 初值；记录桌面
+  p50/p99/p99.9，但只有目标机 DDS 端到端、generation 交接和 LateReplace 分布完成后才
+  修改 YAML。修改不需要改 IDL 或 C++ 常量。
+
+### E102-D43 — Motion 示例默认是否允许发布命令
+
+**问题**：最小 producer 直接运行时，是立即连接 rolling endpoint，还是安全默认？
+
+- **【备选 A】** 默认 live，提供 `--dry-run`。复制命令少，但误在真实 Domain 运行时会尝试
+  模式切换和发布 14 轴命令。
+- **【推荐／最终采用 B】** 默认只输出冻结的轴序、频率、horizon 和工作流 JSON，完全不
+  import／初始化 ROS；只有显式 `--allow-command-publication` 才运行，而且文档只允许隔离
+  mock Domain。示例不代替 Motion 取消自己持有的 FJT goal，也不调用 enable。
+- **【备选 C】** 示例自动 cancel 任意活动 FJT 并自动 enable。它不拥有别人的 Action handle，
+  也无法证明接入的是 mock，违反所有权和安全边界。
+
+### E102-D44 — 公共接口分支何时推送和提 PR
+
+**问题**：公开 IDL 已通过构建且 driver 已消费，应立即提接口 PR 吗？
+
+- **【备选 A】** IDL 编译通过即提 PR。最早暴露评审，但 schema 尚未用真实 producer 和
+  consumer 一起执行时容易反复改线协议。
+- **【推荐／用户最终采用 B】** 完成 public-IDL-only producer、DDS peer、controller fake
+  gate 和 Motion 交接文档后，推送接口功能分支并让 driver 锁精确功能 SHA；暂不提 PR。
+  待 Motion 实际接入反馈确认接口可用后，再单独提接口 PR／0.8.0。
+- **【备选 C】** 等真实硬件视觉伺服完成后才推分支。会阻塞 Motion 并行开发，且把软件
+  合同验证错误地绑到现场运动。
+
+### E102-D45 — 缺少权威手眼外参时是否修改基准模型
+
+**问题**：当前工作区没有权威 `robot_description` 源仓、右手标定文件或左手镜像生成记录，
+是否按计划自行计算／硬编码 joint5→camera 外参？
+
+- **【备选 A】** 从聊天描述或现有相机姿态猜测并写进 driver 构建副本。可以让 TF 名字出现，
+  但数值来源不可追溯，且只改副本违反权威源治理。
+- **【备选 B】** 把现场标定结果直接固化进基准 URDF。部署方便，但违反本仓库“现场标定不
+  进入基准模型”的治理边界。
+- **【推荐／最终采用 C】** 本期不伪造 T-01 完成：保留预期 frame／YAML 接入设计，要求
+  robot_description owner 提供版本化的非现场基准外参或批准的部署覆盖资产；右手实测和
+  左手 `mirror_estimate` 必须带来源 metadata。获得权威资产后在两个仓库单独提交和验矩阵。
+
+**影响**：rolling transport 与 Motion mock producer 不依赖手眼数值，因此软件接口交付可
+闭环；真实 IBVS/PBVS、左右臂精度及相机 TF 验收保持未完成，不能被本期“完成”字样覆盖。
+
+### E102-D46 — CPU 亲和性用源码证明还是当前目标机动态证明
+
+**问题**：T-13 是否可仅凭启动脚本宣称验证线程已离开 RT 核？
+
+- **【备选 A】** 只看 Docker cpuset／注释并标 PASS。无法证明最终 TID 和 PSR。
+- **【推荐／最终采用 B】** 本期先记录静态机制：进程树在 housekeeping CPU 启动，工具只把
+  唯一 FIFO80 update 和明确命名的 `rtcan-master` pin 到 CPU14，其余 DDS/service/executor
+  线程全部重设为 housekeeping；因此 rolling callback/validation 没有专用 RT affinity。
+  当前无硬件任务不启动目标栈，动态 `ps -To pid,tid,comm,psr` 证据列为目标联调门。
+- **【备选 C】** 为 validation 新增专用线程和 affinity。没有测到争用前就增加调度与同步
+  复杂度，并改变已验证 executor 路径。
+
+### E102-D47 — 本期“完成”的准确边界
+
+**问题**：何时可以给用户交付完成说明，又不把视觉闭环和硬件能力说大？
+
+- **【备选 A】** 只有真实相机、目标机、右臂运动和精度指标全部通过才算任何完成。边界最严，
+  但会把已完成的跨域 transport 软件交付无限期绑到另行授权事项。
+- **【推荐／最终采用 B】** 将本期完成定义为：Motion 仅凭公共 IDL、交接文档和示例，可在
+  隔离 mock 中实现“一次一臂、10 Hz knot、30 Hz suffix”的 producer；RT controller 的
+  正确性、异常矩阵、模式状态机和 10 分钟 fake loop 通过。完成报告必须同时列出未完成的
+  手眼外参、标准 GenericSystem enable、目标机 DDS/affinity/switch timing、production
+  envelope 和所有硬件运动。
+- **【备选 C】** 用“视觉伺服完成”统称上述软件结果。会让读者误以为视觉测量、坐标链、
+  控制律、真实机械臂响应和精度均已验收，禁止采用。
 
 ### 6.2 实施顺序裁决
 

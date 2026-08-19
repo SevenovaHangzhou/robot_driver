@@ -2386,3 +2386,45 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   软件／硬限位余量验证；给出责任人、目标机证据目录和审批记录。随后生成独立 production
   artifact、重新执行 14 轴 envelope/stop/fault/soak 门，并通过新契约记录升级
   `limits_source=production`。不得原地把 provisional 字符串改名后关闭本项。
+
+## BQ-139 — ELECTRI-102 手眼外参权威资产与部署边界 [OPEN/HIGH-RISK 2026-08-19]
+
+- Evidence：当前工作区没有独立 `robot_description` 权威源仓、
+  `hand_eye_extrinsics.yaml`、右手标定原始记录或左手镜像生成记录。driver 构建副本也没有
+  `config/`，只存在既有基准 URDF。仓库治理同时禁止把现场标定值直接写入基准模型。
+- Current decision：不从聊天、矩阵截图或既有相机 frame 猜 joint5→camera 数值，不只修改
+  driver 副本，也不把现场校准伪装成基准模型。rolling transport 和 public Motion mock 不依赖
+  这些数值，可独立交付；真实 IBVS/PBVS 和左右臂精度保持未验证。
+- Close gate：robot_description owner 提供可追溯的版本化基准外参或批准的部署覆盖资产，
+  明确右手数据来源、四元数/RPY 生成方式、左手 `mirror_estimate_of_right` metadata 和安装路径；
+  权威仓与 driver 副本分别提交。Xacro 展开、双侧 TF 链、YAML matrix 逐元素 `<1e-9` 和左右
+  精度分开验收后关闭。现场标定如何装载必须另有部署裁决，不得绕过治理规则。
+
+## BQ-140 — ELECTRI-102 目标机 DDS、generation、切换和线程亲和标定 [OPEN 2026-08-19]
+
+- Evidence：桌面 fake loop 的 validation p99.9 为 127.092 µs，direct test-peer
+  callback→RT p99.9 为 23.424 µs，但后者不经过跨进程 DDS。模式切换 gtest 证明状态机结果，
+  没有目标机 STRICT switch 分布。本次源码审查证明 validation 设计上留在 housekeeping，
+  没有采当前目标进程的 TID/PSR。
+- Current decision：`replace_lead_ms=16`、`mode_switch_timeout_ms=500` 保持 provisional；不按
+  桌面数据下调或扩大。目标证据缺失不阻塞无硬件软件／mock 交付，但阻塞 production timing
+  声明和节拍预算。
+- Close gate：在目标工控机、最终 DDS 配置和代表性 Motion/视觉负载下，按 capacity/batch size
+  记录 validation p50/p99/p99.9、publish→accepted generation、LateReplace 率和 STRICT switch
+  分布；同时保存 `ps -To pid,tid,comm,cls,rtprio,psr` 与各 TID affinity，证明 validation 在
+  housekeeping、250 Hz update 在批准 RT CPU。以测量反推 lead/timeout YAML 并留记录。
+
+## BQ-141 — 标准 GenericSystem mock 不模拟 CiA402 enable [OPEN/TOOLING 2026-08-19]
+
+- Evidence：`use_mock_hardware:=true` 的完整 bringup 能加载并配置 JTC、rolling 和
+  enable_manager，但公共 `/control/set_enabled` 返回
+  `enable_batch_timeout/right_joint1/status_word=0x0040`。GenericSystem 不根据 control-word
+  command 生成 CiA402 状态迁移，因此无法到达 FJT_READY，也就不能用标准 launch 跑完整
+  set-mode/open/update/close 链。
+- Current decision：不在 mock 模式绕过 enable_manager 的生产准入。本期使用 controller
+  fake-250 Hz 测轨迹语义，并用 public-IDL DDS peer 测 Motion 五端点工作流；二者均不声明
+  standard bringup live session 通过。
+- Close gate：如后续需要一键全栈 mock，新增独立、显式 test-only 的 CiA402 mock hardware
+  plugin，至少模拟 14 轴 reset/enable/disable、status/control word、command/state follow、fault
+  和 controller switch；复用相同 enable_manager，无 test-mode bypass。通过完整 launch
+  enable→FJT→rolling→session→FJT→disable 后再关闭。

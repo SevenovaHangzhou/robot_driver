@@ -13,10 +13,13 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | 只有 FIFO80 update 和明确命名 RT bus thread 被放到 CPU14 | [realtime-host-20260819-01](records/2026-08-19-electri-102-validation-affinity.md)#F1 | 有效（T0） |
+| 01#F2 | rolling validation 没有专用 affinity，按机制留在 housekeeping | [realtime-host-20260819-01](records/2026-08-19-electri-102-validation-affinity.md)#F2 | 有效（T0） |
+| 01#F3 | 目标机当前 TID/PSR 仍需动态复核 | [realtime-host-20260819-01](records/2026-08-19-electri-102-validation-affinity.md)#F3 | 待验证 |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-08-19 [ELECTRI-102 validation executor 亲和性边界](records/2026-08-19-electri-102-validation-affinity.md) — investigation，PARTIAL（T0）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

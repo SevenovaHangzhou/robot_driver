@@ -121,3 +121,5 @@
 | 2026-08-19 | release-deploy | [ELECTRI-102 mandatory-inactive motion writer bringup](docs/areas/release-deploy/records/2026-08-19-electri-102-mandatory-inactive-bringup.md) | PASS（T1；安装态综合 mock，JTC/rolling INACTIVE） |
 | 2026-08-19 | lifecycle | [ELECTRI-102 FJT 与 rolling 严格模式切换](docs/areas/lifecycle/records/2026-08-19-electri-102-mode-switch.md) | PASS（T1；46/46 gtest，目标机耗时待测） |
 | 2026-08-19 | motion | [ELECTRI-102 模式结果进入 rolling 公共状态](docs/areas/motion/records/2026-08-19-electri-102-mode-result-state.md) | PASS（T1；内部有序事件与公共状态逐字段闭环） |
+| 2026-08-19 | motion | [ELECTRI-102 mock 长稳与 Motion 公开接口交接](docs/areas/motion/records/2026-08-19-electri-102-mock-and-motion-handoff.md) | PASS（T2；600 秒 14/14，接口分支暂不提 PR） |
+| 2026-08-19 | realtime-host | [ELECTRI-102 validation executor 亲和性边界](docs/areas/realtime-host/records/2026-08-19-electri-102-validation-affinity.md) | PARTIAL（T0；机制确认，目标 TID/PSR 待测） |
