@@ -350,9 +350,11 @@ class NativeLauncherContractTest(unittest.TestCase):
 
         for package in (
             "robot_interfaces_qos",
+            "robot_motion_interfaces",
             "robot_rt_control_interfaces",
             "robot_system_interfaces",
             "rt_control_interfaces",
+            "rolling_trajectory_controller",
             "bms_node",
             "control_api_adapter",
             "plc_node",
@@ -360,7 +362,15 @@ class NativeLauncherContractTest(unittest.TestCase):
             "rt_control_bringup",
         ):
             self.assertIn(package, helper)
-        for profile in ("control", "fast_state", "state", "latched", "diagnostic"):
+        for profile in (
+            "control",
+            "rolling_command",
+            "rolling_state",
+            "fast_state",
+            "state",
+            "latched",
+            "diagnostic",
+        ):
             self.assertIn(profile, helper)
         self.assertIn("runtime_env python3 -", helper)
 
@@ -446,6 +456,8 @@ class NativeBootstrapContractTest(unittest.TestCase):
         self.assertIn('install_base="${workspace_root}/install"', self.text)
         self.assertIn('log_base="${workspace_root}/log"', self.text)
         self.assertIn("robot_rt_control_interfaces", self.text)
+        self.assertIn("robot_motion_interfaces", self.text)
+        self.assertIn("rolling_trajectory_controller", self.text)
         self.assertIn("control_api_adapter", self.text)
 
     def test_bootstrap_sources_ros_setup_without_nounset(self):

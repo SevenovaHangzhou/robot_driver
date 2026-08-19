@@ -190,7 +190,7 @@ def test_internal_dynamic_state_is_used_only_for_rt_diagnostics() -> None:
     assert internal_topic in ipc_launcher
 
 
-def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -> None:
+def test_public_interfaces_and_controllers_are_in_runtime_package_lists() -> None:
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
@@ -198,11 +198,16 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
     assert "robot_interfaces_qos" in bootstrap
 
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
+    assert "      robot_motion_interfaces \\\n" in dockerfile
     assert "      robot_system_interfaces \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
+    assert "      rolling_trajectory_controller \\\n" in dockerfile
+    assert "\n  robot_motion_interfaces\n" in bootstrap
     assert "\n  robot_rt_control_interfaces\n" in bootstrap
     assert "\n  robot_system_interfaces\n" in bootstrap
     assert "\n  control_api_adapter\n" in bootstrap
+    assert "\n  rolling_trajectory_controller\n" in bootstrap
+    assert "test -d src/vendor/robot_interfaces/robot_motion_interfaces" in dockerfile
     assert "test -d src/vendor/robot_interfaces/robot_rt_control_interfaces" in dockerfile
     assert "test -d src/vendor/robot_interfaces/robot_system_interfaces" in dockerfile
     assert "src/vendor/robot_interfaces" in bootstrap
