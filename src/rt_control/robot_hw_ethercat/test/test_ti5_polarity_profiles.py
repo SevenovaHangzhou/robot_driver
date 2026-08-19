@@ -6,7 +6,7 @@ import yaml
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
 PROFILE_DIR = PACKAGE_DIR / "config" / "slaves"
-XACRO_PATH = PACKAGE_DIR / "urdf" / "ecat.ros2_control.xacro"
+VARIANT_PATH = PACKAGE_DIR / "variants" / "alfa_v1.yaml"
 
 
 def load_profile(name):
@@ -21,13 +21,22 @@ def channel(profile, pdo_name, object_index):
     raise AssertionError(f"missing object 0x{object_index:04X} in {pdo_name}")
 
 
-def test_only_authorized_axes_use_dedicated_ti5_profiles():
-    xacro = XACRO_PATH.read_text(encoding="utf-8")
+def axis_binding(family, joint_name):
+    descriptor = yaml.safe_load(VARIANT_PATH.read_text(encoding="utf-8"))
+    matches = [
+        axis
+        for axis in descriptor["axes"]
+        if axis["family"] == family and axis["joint_name"] == joint_name
+    ]
+    assert len(matches) == 1
+    return matches[0]
 
-    assert '<xacro:ti5_axis joint_name="right_joint2" ring_position="2" profile="ti5_right_joint2"/>' in xacro
-    assert '<xacro:ti5_axis joint_name="left_joint3" ring_position="9" profile="ti5_left_joint3"/>' in xacro
-    assert '<xacro:ti5_axis joint_name="left_joint2" ring_position="8" profile="ti5_j2"/>' in xacro
-    assert '<xacro:ti5_axis joint_name="right_joint3" ring_position="3" profile="ti5_j3"/>' in xacro
+
+def test_only_authorized_axes_use_dedicated_ti5_profiles():
+    assert axis_binding("ti5", "right_joint2")["profile"] == "ti5_right_joint2"
+    assert axis_binding("ti5", "left_joint3")["profile"] == "ti5_left_joint3"
+    assert axis_binding("ti5", "left_joint2")["profile"] == "ti5_j2"
+    assert axis_binding("ti5", "right_joint3")["profile"] == "ti5_j3"
 
 
 def test_ti5_position_polarity_is_reversed_by_master_mapping_only():
@@ -51,12 +60,10 @@ def test_ti5_position_polarity_is_reversed_by_master_mapping_only():
 
 
 def test_zeroerr_position_transform_is_limited_to_authorized_axes():
-    xacro = XACRO_PATH.read_text(encoding="utf-8")
-
-    assert '<xacro:zeroerr_axis joint_name="right_joint4" ring_position="4" profile="zeroerr_right_joint4"/>' in xacro
-    assert '<xacro:zeroerr_axis joint_name="right_joint5" ring_position="5" profile="zeroerr_right_joint5"/>' in xacro
-    assert '<xacro:zeroerr_axis joint_name="left_joint5" ring_position="11" profile="zeroerr_left_joint5"/>' in xacro
-    assert '<xacro:zeroerr_axis joint_name="left_joint4" ring_position="10" profile="zeroerr_j4"/>' in xacro
+    assert axis_binding("zeroerr", "right_joint4")["profile"] == "zeroerr_right_joint4"
+    assert axis_binding("zeroerr", "right_joint5")["profile"] == "zeroerr_right_joint5"
+    assert axis_binding("zeroerr", "left_joint5")["profile"] == "zeroerr_left_joint5"
+    assert axis_binding("zeroerr", "left_joint4")["profile"] == "zeroerr_j4"
 
     for dedicated_name, shared_name in (
         ("zeroerr_right_joint4", "zeroerr_j4"),

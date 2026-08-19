@@ -342,6 +342,18 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
         self.assertLess(body.index('source "${install_root}/setup.bash"'), body.index("set -u"))
 
+    def test_axis_policy_comes_from_the_selected_install_root(self):
+        self.assertIn(
+            'enable_manager_config="${install_root}/share/'
+            'rt_control_bringup/config/controllers.yaml"',
+            self.text,
+        )
+        self.assertNotIn(
+            'enable_manager_config="${repository_root}/src/rt_control/'
+            'rt_control_bringup/config/controllers.yaml"',
+            self.text,
+        )
+
     def test_native_entrypoints_verify_public_adapter_dependency_closure_before_hardware(self):
         self.assertIn("verify_runtime_dependency_closure()", self.text)
         helper_start = self.text.index("verify_runtime_dependency_closure()")
@@ -433,6 +445,14 @@ class NativeBootstrapContractTest(unittest.TestCase):
             "patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch",
             self.text,
         )
+
+    def test_bootstrap_applies_typed_hardware_topology_patches(self):
+        for patch in (
+            "patches/ecat_icube/0004-use-component-parameters-for-ec-modules.patch",
+            "patches/ecat_icube/0005-validate-component-module-parameters.patch",
+            "patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch",
+        ):
+            self.assertGreaterEqual(self.text.count(patch), 2, patch)
 
     def test_bootstrap_applies_the_cross_domain_qos_patch(self):
         self.assertIn(

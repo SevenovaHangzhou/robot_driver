@@ -14,10 +14,14 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | 一个 controller_manager 组合 ecat_arms 与 canopen_mobile_axes 两个独立 hardware system | [release-deploy-20260819-01](records/2026-08-19-franka-style-hardware-composition.md)#F1 | 有效（Docker/T1） |
+| 01#F2 | 当前受控 seam 仅允许 alfa_v1 与相同 logical ABI，不承诺任意电机数量/类型热切换 | [release-deploy-20260819-01](records/2026-08-19-franka-style-hardware-composition.md)#F2 | T1 通过；其他变体/HIL 待验证 |
+| 01#F3 | 两个 owner-local descriptors 同时驱动 hardware Xacro 与 diagnostics topology；无独立 composition YAML，controller/safety 仍由各 owner 显式维护 | [release-deploy-20260819-01](records/2026-08-19-franka-style-hardware-composition.md)#F3 | 有效（Docker/T1） |
+| 01#F4 | 新变体不得改变 BQ-122 的确定性停机顺序和 30 s 总 deadline | [release-deploy-20260819-01](records/2026-08-19-franka-style-hardware-composition.md)#F4 | 有效（最终镜像 Mock 已复核） |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-08-19 [Franka 风格双硬件插件组合入口](records/2026-08-19-franka-style-hardware-composition.md) — feature，PASS（Docker/T1；实机/HIL 未执行）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

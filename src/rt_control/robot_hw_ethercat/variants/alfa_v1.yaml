@@ -1,0 +1,77 @@
+schema_version: 1
+variant: alfa_v1
+system: ecat_arms
+extra_responders:
+  - ring_position: 0
+  - ring_position: 13
+axes:
+  - joint_name: right_joint1
+    family: zeroerr
+    ring_position: 1
+    profile: zeroerr_j1
+    mode_of_operation: 8
+  - joint_name: right_joint2
+    family: ti5
+    ring_position: 2
+    profile: ti5_right_joint2
+    mode_of_operation: 8
+  - joint_name: right_joint3
+    family: ti5
+    ring_position: 3
+    profile: ti5_j3
+    mode_of_operation: 8
+  - joint_name: right_joint4
+    family: zeroerr
+    ring_position: 4
+    profile: zeroerr_right_joint4
+    mode_of_operation: 8
+  - joint_name: right_joint5
+    family: zeroerr
+    ring_position: 5
+    profile: zeroerr_right_joint5
+    mode_of_operation: 8
+  - joint_name: right_joint6
+    family: zeroerr
+    ring_position: 6
+    profile: right_j6
+    mode_of_operation: 8
+  - joint_name: left_joint1
+    family: zeroerr
+    ring_position: 7
+    profile: zeroerr_j1
+    mode_of_operation: 8
+  - joint_name: left_joint2
+    family: ti5
+    ring_position: 8
+    profile: ti5_j2
+    mode_of_operation: 8
+  - joint_name: left_joint3
+    family: ti5
+    ring_position: 9
+    profile: ti5_left_joint3
+    mode_of_operation: 8
+  - joint_name: left_joint4
+    family: zeroerr
+    ring_position: 10
+    profile: zeroerr_j4
+    mode_of_operation: 8
+  - joint_name: left_joint5
+    family: zeroerr
+    ring_position: 11
+    profile: zeroerr_left_joint5
+    mode_of_operation: 8
+  - joint_name: left_joint6
+    family: zeroerr
+    ring_position: 12
+    profile: left_j6
+    mode_of_operation: 8
+  - joint_name: turn
+    family: zeroerr
+    ring_position: 14
+    profile: turn
+    mode_of_operation: 8
+  - joint_name: updown
+    family: xmc
+    ring_position: 15
+    profile: xmc_updown_sw511
+    mode_of_operation: 8

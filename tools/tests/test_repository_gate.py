@@ -136,6 +136,17 @@ vendored_packages:
             "shared package must not depend on domain package",
         )
 
+        semantic_dependency = manifest.replace(
+            "rt_control_bringup", "rt_control_semantic_components"
+        )
+        self.assert_has(
+            repository_gate.check_manifest_dependencies(
+                "src/description/robot_description/package.xml",
+                semantic_dependency,
+            ),
+            "shared package must not depend on domain package",
+        )
+
         feature_manifest = manifest.replace("robot_description", "enable_manager").replace(
             "src/description/robot_description", "src/rt_control/enable_manager"
         )
@@ -261,6 +272,37 @@ CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
             "Docker CMD must execute the installed rt_control_start directly",
         )
 
+    def test_docker_build_context_excludes_local_test_artifacts(self):
+        required_patterns = """.coverage
+**/.coverage
+coverage.xml
+**/coverage.xml
+htmlcov
+**/htmlcov
+.pytest_cache
+**/.pytest_cache
+"""
+        self.assertEqual(
+            repository_gate.check_dockerignore_policy(required_patterns), []
+        )
+
+        for pattern in (
+            ".coverage",
+            "**/.coverage",
+            "coverage.xml",
+            "**/coverage.xml",
+            "htmlcov",
+            "**/htmlcov",
+            ".pytest_cache",
+            "**/.pytest_cache",
+        ):
+            with self.subTest(pattern=pattern):
+                incomplete = required_patterns.replace(f"{pattern}\n", "", 1)
+                self.assert_has(
+                    repository_gate.check_dockerignore_policy(incomplete),
+                    pattern,
+                )
+
     def test_ci_workflow_must_preserve_governance_before_build(self):
         valid = """on:
   pull_request:
@@ -349,6 +391,15 @@ jobs:
         always_run: true
 """,
             ".github/pull_request_template.md": "# Review\n",
+            ".dockerignore": """.coverage
+**/.coverage
+coverage.xml
+**/coverage.xml
+htmlcov
+**/htmlcov
+.pytest_cache
+**/.pytest_cache
+""",
             ".github/workflows/rt-control-ci.yml": """on:
   pull_request:
   push:

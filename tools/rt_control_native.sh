@@ -22,13 +22,14 @@ pid_file="${runtime_root}/rt_control_start.pid"
 latest_log_link="${runtime_root}/latest.log"
 installed_start="${install_root}/lib/rt_control_bringup/rt_control_start"
 axis_state_checker="${repository_root}/tools/rt_control_axis_state_check.py"
+enable_manager_config="${install_root}/share/rt_control_bringup/config/controllers.yaml"
 realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"
 thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"
 can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"
 internal_dynamic_joint_states_topic="/rt_internal_state_broadcaster/dynamic_joint_states"
 
 readonly repository_root workspace_root install_root runtime_root runtime_log_root
-readonly pid_file latest_log_link installed_start axis_state_checker
+readonly pid_file latest_log_link installed_start axis_state_checker enable_manager_config
 readonly realtime_cpu_guard thread_affinity_tool can_setup_tool internal_dynamic_joint_states_topic
 
 info()
@@ -789,6 +790,8 @@ check_axis_states()
   local snapshot
   [[ -f "${axis_state_checker}" && -r "${axis_state_checker}" ]] ||
     fail "missing or unreadable axis-state checker: ${axis_state_checker}"
+  [[ -f "${enable_manager_config}" && -r "${enable_manager_config}" ]] ||
+    fail "missing or unreadable enable-manager config: ${enable_manager_config}"
   while (( SECONDS < deadline )); do
     if ! snapshot="$(
       run_ros2_timeout 8 ros2 topic echo --once "${internal_dynamic_joint_states_topic}" \
@@ -798,14 +801,15 @@ check_axis_states()
       sleep 1
       continue
     fi
-    if printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
+    if printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" \
+      --controller-config "${enable_manager_config}" --expected "${expected}"; then
       return
     fi
     last_error="${snapshot}"
     sleep 1
   done
   printf '%s\n' "${last_error}" >&2
-  fail "14-axis ${expected} CiA 402 contract is not satisfied after 30 seconds"
+  fail "managed-axis ${expected} CiA 402 contract is not satisfied after 30 seconds"
 }
 
 verify_operational_ethercat()

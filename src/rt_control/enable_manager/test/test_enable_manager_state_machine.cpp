@@ -20,6 +20,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <thread>
@@ -47,22 +48,6 @@ public:
   using DriveState = EnableManagerController::DriveState;
   using SwitchResult = EnableManagerController::SwitchResult;
 
-  static constexpr std::size_t kAxisCount = EnableManagerController::kAxisCount;
-  static constexpr std::size_t kBatchCount = EnableManagerController::kBatchCount;
-
-  static const std::array<const char *, kAxisCount> & jointNames()
-  {
-    return EnableManagerController::kJointNames;
-  }
-  static const std::array<std::array<std::int8_t, 3>, kBatchCount> & batches()
-  {
-    return EnableManagerController::kEnableBatches;
-  }
-  static const std::array<std::uint8_t, kBatchCount> & batchSizes()
-  {
-    return EnableManagerController::kBatchSizes;
-  }
-
   static Phase phase(const Controller & c) {return c.phase_.load();}
   static Owner owner(const Controller & c) {return c.owner_.load();}
   static std::size_t currentBatch(const Controller & c) {return c.current_batch_;}
@@ -71,9 +56,19 @@ public:
   static void setOwner(Controller & c, Owner o) {c.owner_.store(o);}
 
   static DriveState decode(std::uint16_t sw) {return EnableManagerController::decodeState(sw);}
+  static void refreshStatusWords(Controller & c) {c.refreshStatusWords();}
+  static std::uint16_t statusWord(const Controller & c, std::size_t axis)
+  {
+    return c.status_words_[axis];
+  }
   static const char * stageName(Stage s) {return EnableManagerController::stageName(s);}
   static const char * phaseName(Phase p) {return EnableManagerController::phaseName(p);}
   static SwitchResult switchJtc(Controller & c, bool a) {return c.switchJtc(a);}
+  static bool isConfirmedDisableTerminal(
+    const Controller & c, std::size_t axis, DriveState state)
+  {
+    return c.isConfirmedDisableTerminal(axis, state);
+  }
 
   using ResultSlot = EnableManagerController::ResultSlot;
 
@@ -125,6 +120,16 @@ using DriveState = Access::DriveState;
 using SwitchResult = Access::SwitchResult;
 using RtEnable = rt_control_interfaces::srv::RtEnable;
 
+constexpr std::size_t kAxes = 14U;
+constexpr std::size_t kBatches = 5U;
+constexpr std::array<const char *, kAxes> kJointNames{
+  "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
+  "right_joint6", "left_joint1", "left_joint2", "left_joint3", "left_joint4",
+  "left_joint5", "left_joint6", "turn", "updown"};
+constexpr std::array<std::array<std::int8_t, 3>, kBatches> kEnableBatches{{
+  {{0, 1, 2}}, {{6, 7, 8}}, {{3, 4, 5}}, {{9, 10, 11}}, {{12, 13, -1}}}};
+constexpr std::array<std::uint8_t, kBatches> kBatchSizes{3U, 3U, 3U, 3U, 2U};
+
 // CiA402 status words that decodeState() maps to each DriveState.
 constexpr std::uint16_t kSwNotReady = 0x0000U;
 constexpr std::uint16_t kSwSwitchOnDisabled = 0x0040U;
@@ -142,9 +147,6 @@ constexpr std::uint16_t kCwSwitchOn = 0x0007U;
 constexpr std::uint16_t kCwEnableOperation = 0x000FU;
 constexpr std::uint16_t kCwFaultReset = 0x0080U;
 
-constexpr std::size_t kAxes = Access::kAxisCount;
-constexpr std::size_t kBatches = Access::kBatchCount;
-
 // Timing parameters used by every fixture instance. Small values keep the
 // tests fast while remaining well above the 1 ms simulated control period.
 constexpr double kBatchTimeout = 0.20;
@@ -153,6 +155,46 @@ constexpr double kInterBatchDelay = 0.02;
 constexpr double kFaultResetTimeout = 0.20;
 constexpr double kControllerSwitchTimeout = 0.05;
 constexpr int kServiceResultTimeoutMs = 300;
+
+void addOrReplaceParameter(
+  std::vector<rclcpp::Parameter> & parameters, const rclcpp::Parameter & candidate)
+{
+  const auto existing = std::find_if(
+    parameters.begin(), parameters.end(), [&candidate](const rclcpp::Parameter & parameter) {
+      return parameter.get_name() == candidate.get_name();
+    });
+  if (existing == parameters.end()) {
+    parameters.push_back(candidate);
+  } else {
+    *existing = candidate;
+  }
+}
+
+std::vector<rclcpp::Parameter> parametersWithFixtureTopology(
+  const std::vector<rclcpp::Parameter> & additional_parameters = {})
+{
+  std::vector<rclcpp::Parameter> parameters{
+    rclcpp::Parameter(
+      "managed_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
+    rclcpp::Parameter(
+      "enable_batch_joint_names",
+      std::vector<std::string>{
+          "right_joint1", "right_joint2", "right_joint3",
+          "left_joint1", "left_joint2", "left_joint3",
+          "right_joint4", "right_joint5", "right_joint6",
+          "left_joint4", "left_joint5", "left_joint6", "turn", "updown"}),
+    rclcpp::Parameter(
+      "enable_batch_sizes", std::vector<std::int64_t>{3, 3, 3, 3, 2}),
+    rclcpp::Parameter(
+      "ready_to_switch_on_disable_terminal_joints",
+      std::vector<std::string>{
+          "right_joint2", "right_joint3", "left_joint2", "left_joint3"}),
+  };
+  for (const auto & parameter : additional_parameters) {
+    addOrReplaceParameter(parameters, parameter);
+  }
+  return parameters;
+}
 
 class EnableManagerFixture : public ::testing::Test
 {
@@ -189,20 +231,26 @@ public:
 
   // Runs init/configure and assigns loaned interfaces backed by buffers this
   // fixture owns. Stops short of on_activate so tests can inspect that step.
-  void initAndConfigure(const std::string & name = "enable_manager_test")
+  void initAndConfigure(
+    const std::string & name = "enable_manager_test",
+    const std::vector<rclcpp::Parameter> & additional_parameters = {})
   {
     rclcpp::NodeOptions options;
-    options.parameter_overrides(
-      {
-        rclcpp::Parameter("batch_timeout", kBatchTimeout),
-        rclcpp::Parameter("disable_stage_timeout", kDisableStageTimeout),
-        rclcpp::Parameter("inter_batch_delay", kInterBatchDelay),
-        rclcpp::Parameter("fault_reset_timeout", kFaultResetTimeout),
-        rclcpp::Parameter("controller_switch_timeout", kControllerSwitchTimeout),
-        rclcpp::Parameter("service_result_timeout_ms", kServiceResultTimeoutMs),
-        rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
-        rclcpp::Parameter("update_rate", 1000),
-      });
+    auto parameters = parametersWithFixtureTopology(
+        {
+          rclcpp::Parameter("batch_timeout", kBatchTimeout),
+          rclcpp::Parameter("disable_stage_timeout", kDisableStageTimeout),
+          rclcpp::Parameter("inter_batch_delay", kInterBatchDelay),
+          rclcpp::Parameter("fault_reset_timeout", kFaultResetTimeout),
+          rclcpp::Parameter("controller_switch_timeout", kControllerSwitchTimeout),
+          rclcpp::Parameter("service_result_timeout_ms", kServiceResultTimeoutMs),
+          rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+          rclcpp::Parameter("update_rate", 1000),
+        });
+    for (const auto & parameter : additional_parameters) {
+      addOrReplaceParameter(parameters, parameter);
+    }
+    options.parameter_overrides(parameters);
     options.allow_undeclared_parameters(true);
     options.automatically_declare_parameters_from_overrides(true);
 
@@ -216,6 +264,17 @@ public:
 
   void assignInterfaces()
   {
+    std::array<std::size_t, kAxes> loan_order{};
+    for (std::size_t axis = 0; axis < kAxes; ++axis) {
+      loan_order[axis] = axis;
+    }
+    assignInterfaces(loan_order);
+  }
+
+  void assignInterfaces(
+    const std::array<std::size_t, kAxes> & loan_order,
+    std::size_t wrong_state_name_axis = kAxes)
+  {
     command_handles_.clear();
     state_handles_.clear();
     command_handles_.reserve(kAxes);
@@ -224,16 +283,19 @@ public:
     // The controller claims interfaces in kJointNames order, so build in that order.
     for (std::size_t axis = 0; axis < kAxes; ++axis) {
       command_handles_.emplace_back(
-        Access::jointNames()[axis], "control_word", &command_buffer_[axis]);
+        kJointNames[axis], "control_word", &command_buffer_[axis]);
+      const std::string state_joint_name = axis == wrong_state_name_axis ?
+        std::string("unexpected_joint") : std::string(kJointNames[axis]);
       state_handles_.emplace_back(
-        Access::jointNames()[axis], "status_word", &status_buffer_[axis]);
+        state_joint_name, "status_word", &status_buffer_[axis]);
     }
 
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
     std::vector<hardware_interface::LoanedStateInterface> loaned_states;
     loaned_commands.reserve(kAxes);
     loaned_states.reserve(kAxes);
-    for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    for (const std::size_t axis : loan_order) {
+      ASSERT_LT(axis, kAxes);
       loaned_commands.emplace_back(command_handles_[axis]);
       loaned_states.emplace_back(state_handles_[axis]);
     }
@@ -269,7 +331,9 @@ public:
   controller_interface::return_type callUpdate(double dt = 0.001)
   {
     advance(dt);
-    return controller_->update(rclcpp::Time(now_ns_, RCL_ROS_TIME), rclcpp::Duration::from_seconds(dt));
+    return controller_->update(
+      rclcpp::Time(now_ns_, RCL_ROS_TIME),
+      rclcpp::Duration::from_seconds(dt));
   }
 
   void updateTimes(std::size_t count, double dt = 0.001)
@@ -412,7 +476,9 @@ public:
     return pending->done.load();
   }
 
-  bool pumpUntilDone(const std::shared_ptr<PendingCall> & pending, std::size_t max_iterations = 4000)
+  bool pumpUntilDone(
+    const std::shared_ptr<PendingCall> & pending,
+    std::size_t max_iterations = 4000)
   {
     const std::array<bool, kAxes> none{};
     return pumpUntilDone(pending, max_iterations, none);
@@ -437,6 +503,21 @@ public:
 // Fixture sanity / interface contract
 // ---------------------------------------------------------------------------
 
+TEST_F(EnableManagerFixture, ConfigureRejectsMissingExplicitTopology)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides({rclcpp::Parameter("update_rate", 1000)});
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+
+  ASSERT_EQ(
+    controller_->init("enable_manager_missing_topology", "", options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+}
+
 TEST_F(EnableManagerFixture, ClaimsFourteenControlAndStatusInterfaces)
 {
   initAndConfigure();
@@ -450,9 +531,9 @@ TEST_F(EnableManagerFixture, ClaimsFourteenControlAndStatusInterfaces)
     command_config.type, controller_interface::interface_configuration_type::INDIVIDUAL);
   for (std::size_t axis = 0; axis < kAxes; ++axis) {
     EXPECT_EQ(
-      command_config.names[axis], std::string(Access::jointNames()[axis]) + "/control_word");
+      command_config.names[axis], std::string(kJointNames[axis]) + "/control_word");
     EXPECT_EQ(
-      state_config.names[axis], std::string(Access::jointNames()[axis]) + "/status_word");
+      state_config.names[axis], std::string(kJointNames[axis]) + "/status_word");
   }
 }
 
@@ -463,23 +544,355 @@ TEST_F(EnableManagerFixture, BatchTableCoversAllFourteenAxesExactlyOnce)
   std::array<int, kAxes> seen{};
 
   for (std::size_t batch = 0; batch < kBatches; ++batch) {
-    EXPECT_EQ(Access::batchSizes()[batch], expected_sizes[batch]) << "batch " << batch;
-    for (std::size_t item = 0; item < Access::batchSizes()[batch]; ++item) {
-      const std::int8_t axis = Access::batches()[batch][item];
+    EXPECT_EQ(kBatchSizes[batch], expected_sizes[batch]) << "batch " << batch;
+    for (std::size_t item = 0; item < kBatchSizes[batch]; ++item) {
+      const std::int8_t axis = kEnableBatches[batch][item];
       ASSERT_GE(axis, 0);
       ASSERT_LT(static_cast<std::size_t>(axis), kAxes);
       ++seen[static_cast<std::size_t>(axis)];
     }
   }
   for (std::size_t axis = 0; axis < kAxes; ++axis) {
-    EXPECT_EQ(seen[axis], 1) << "axis " << axis << " (" << Access::jointNames()[axis] << ")";
+    EXPECT_EQ(seen[axis], 1) << "axis " << axis << " (" << kJointNames[axis] << ")";
   }
 }
+
+TEST_F(EnableManagerFixture, ConfiguredTopologyOwnsInterfacesBatchesAndDisablePolicy)
+{
+  initAndConfigure(
+    "enable_manager_custom_topology",
+      {
+        rclcpp::Parameter(
+          "managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
+        rclcpp::Parameter(
+          "enable_batch_joint_names",
+          std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
+        rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2, 1}),
+        rclcpp::Parameter(
+          "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{"axis_c"}),
+      });
+
+  const auto command_config = controller_->command_interface_configuration();
+  const auto state_config = controller_->state_interface_configuration();
+  EXPECT_THAT(
+    command_config.names,
+    ::testing::ElementsAre(
+      "axis_c/control_word", "axis_a/control_word", "axis_b/control_word"));
+  EXPECT_THAT(
+    state_config.names,
+    ::testing::ElementsAre(
+      "axis_c/status_word", "axis_a/status_word", "axis_b/status_word"));
+  EXPECT_TRUE(
+    Access::isConfirmedDisableTerminal(*controller_, 0U, DriveState::kReadyToSwitchOn));
+  EXPECT_FALSE(
+    Access::isConfirmedDisableTerminal(*controller_, 1U, DriveState::kReadyToSwitchOn));
+  EXPECT_TRUE(
+    Access::isConfirmedDisableTerminal(*controller_, 2U, DriveState::kSwitchOnDisabled));
+
+  controller_->release_interfaces();
+  std::array<double, 3> custom_commands{};
+  std::array<double, 3> custom_status{
+    static_cast<double>(kSwSwitchOnDisabled),
+    static_cast<double>(kSwSwitchOnDisabled),
+    static_cast<double>(kSwSwitchOnDisabled)};
+  const std::array<std::string, 3> custom_joints{"axis_c", "axis_a", "axis_b"};
+  std::vector<hardware_interface::CommandInterface> command_handles;
+  std::vector<hardware_interface::StateInterface> state_handles;
+  command_handles.reserve(custom_joints.size());
+  state_handles.reserve(custom_joints.size());
+  for (std::size_t axis = 0; axis < custom_joints.size(); ++axis) {
+    command_handles.emplace_back(
+      custom_joints[axis], "control_word", &custom_commands[axis]);
+    state_handles.emplace_back(custom_joints[axis], "status_word", &custom_status[axis]);
+  }
+  std::vector<hardware_interface::LoanedCommandInterface> commands;
+  std::vector<hardware_interface::LoanedStateInterface> states;
+  for (std::size_t axis = 0; axis < custom_joints.size(); ++axis) {
+    commands.emplace_back(command_handles[axis]);
+    states.emplace_back(state_handles[axis]);
+  }
+  controller_->assign_interfaces(std::move(commands), std::move(states));
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 10));
+  Access::setEnableRequest(*controller_, true);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+  EXPECT_EQ(static_cast<std::uint16_t>(custom_commands[0]), kCwZero);
+  EXPECT_EQ(static_cast<std::uint16_t>(custom_commands[1]), kCwShutdown);
+  EXPECT_EQ(static_cast<std::uint16_t>(custom_commands[2]), kCwShutdown);
+  EXPECT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+}
+
+TEST_F(EnableManagerFixture, SuccessfulConfigureRejectsTopologyParameterUpdates)
+{
+  initAndConfigure();
+
+  const std::vector<rclcpp::Parameter> attempted_updates{
+    rclcpp::Parameter("managed_joints", std::vector<std::string>{"mutated_axis"}),
+    rclcpp::Parameter(
+      "enable_batch_joint_names", std::vector<std::string>{"mutated_axis"}),
+    rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{1}),
+    rclcpp::Parameter(
+      "ready_to_switch_on_disable_terminal_joints",
+      std::vector<std::string>{"right_joint1"}),
+  };
+
+  for (const auto & attempted_update : attempted_updates) {
+    SCOPED_TRACE(attempted_update.get_name());
+    const auto original = controller_->get_node()->get_parameter(attempted_update.get_name());
+
+    const auto result = controller_->get_node()->set_parameter(attempted_update);
+
+    EXPECT_FALSE(result.successful);
+    EXPECT_THAT(result.reason, ::testing::HasSubstr("configured"));
+    EXPECT_EQ(controller_->get_node()->get_parameter(attempted_update.get_name()), original);
+  }
+}
+
+TEST_F(EnableManagerFixture, PreConfigureSetParametersCanSelectTopology)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides({rclcpp::Parameter("update_rate", 1000)});
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+  ASSERT_EQ(
+    controller_->init("enable_manager_preconfigure_topology", "", options),
+    controller_interface::return_type::OK);
+
+  const auto result = controller_->get_node()->set_parameters_atomically(
+      {
+        rclcpp::Parameter(
+          "managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
+        rclcpp::Parameter(
+          "enable_batch_joint_names",
+          std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
+        rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2, 1}),
+        rclcpp::Parameter(
+          "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{"axis_c"}),
+      });
+
+  ASSERT_TRUE(result.successful) << result.reason;
+  ASSERT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  EXPECT_THAT(
+    controller_->command_interface_configuration().names,
+    ::testing::ElementsAre(
+      "axis_c/control_word", "axis_a/control_word", "axis_b/control_word"));
+}
+
+TEST_F(EnableManagerFixture, ExplicitEmptyDisableTerminalPolicyIsValid)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(
+      {
+        rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_a"}),
+        rclcpp::Parameter(
+          "enable_batch_joint_names", std::vector<std::string>{"axis_a"}),
+        rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{1}),
+        rclcpp::Parameter(
+          "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{}),
+        rclcpp::Parameter("update_rate", 1000),
+      });
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+
+  ASSERT_EQ(
+    controller_->init("enable_manager_empty_terminal_policy", "", options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+}
+
+TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(
+    parametersWithFixtureTopology(
+      {
+        rclcpp::Parameter("batch_timeout", 0.0),
+        rclcpp::Parameter("update_rate", 1000),
+      }));
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+  ASSERT_EQ(
+    controller_->init("enable_manager_retry_topology", "", options),
+    controller_interface::return_type::OK);
+  ASSERT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+
+  const auto result = controller_->get_node()->set_parameters_atomically(
+      {
+        rclcpp::Parameter("batch_timeout", kBatchTimeout),
+        rclcpp::Parameter(
+          "managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
+        rclcpp::Parameter(
+          "enable_batch_joint_names",
+          std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
+        rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2, 1}),
+        rclcpp::Parameter(
+          "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{"axis_c"}),
+      });
+
+  ASSERT_TRUE(result.successful) << result.reason;
+  ASSERT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  EXPECT_THAT(
+    controller_->command_interface_configuration().names,
+    ::testing::ElementsAre(
+      "axis_c/control_word", "axis_a/control_word", "axis_b/control_word"));
+}
+
+TEST_F(EnableManagerFixture, ConfigureRejectsTopologyThatDoesNotCoverEveryManagedJointOnce)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(
+      {
+        rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_a", "axis_b"}),
+        rclcpp::Parameter(
+          "enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_a"}),
+        rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2}),
+        rclcpp::Parameter(
+          "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{}),
+        rclcpp::Parameter("update_rate", 1000),
+      });
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+
+  ASSERT_EQ(
+    controller_->init("enable_manager_invalid_topology", "", options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+}
+
+TEST_F(EnableManagerFixture, ConfigureRejectsInvalidBatchAndDisablePolicyShapes)
+{
+  struct InvalidTopology
+  {
+    std::vector<std::string> managed;
+    std::vector<std::string> flat_batches;
+    std::vector<std::int64_t> batch_sizes;
+    std::vector<std::string> ready_terminal;
+  };
+  const std::vector<InvalidTopology> invalid_topologies{
+    {{}, {}, {1}, {}},
+    {{"axis_a"}, {"axis_a"}, {0}, {}},
+    {{"axis_a", "axis_b", "axis_c", "axis_d"},
+      {"axis_a", "axis_b", "axis_c", "axis_d"}, {4}, {}},
+    {{"axis_a", "axis_b"}, {"axis_a"}, {1}, {}},
+    {{"axis_a"}, {"unknown"}, {1}, {}},
+    {{"axis_a"}, {"axis_a"}, {1}, {"unknown"}},
+    {{"axis_a"}, {"axis_a"}, {1}, {"axis_a", "axis_a"}},
+  };
+
+  for (std::size_t index = 0; index < invalid_topologies.size(); ++index) {
+    SCOPED_TRACE(index);
+    const auto & topology = invalid_topologies[index];
+    auto candidate = std::make_unique<EnableManagerController>();
+    rclcpp::NodeOptions options;
+    options.parameter_overrides(
+        {
+          rclcpp::Parameter("managed_joints", topology.managed),
+          rclcpp::Parameter("enable_batch_joint_names", topology.flat_batches),
+          rclcpp::Parameter("enable_batch_sizes", topology.batch_sizes),
+          rclcpp::Parameter(
+            "ready_to_switch_on_disable_terminal_joints", topology.ready_terminal),
+          rclcpp::Parameter("update_rate", 1000),
+        });
+    options.allow_undeclared_parameters(true);
+    options.automatically_declare_parameters_from_overrides(true);
+    ASSERT_EQ(
+      candidate->init("enable_manager_invalid_shape_" + std::to_string(index), "", options),
+      controller_interface::return_type::OK);
+    EXPECT_EQ(
+      candidate->on_configure(rclcpp_lifecycle::State()),
+      controller_interface::CallbackReturn::ERROR);
+  }
+}
+
+struct NonFiniteTimingCase
+{
+  const char * parameter_name;
+  double value;
+  const char * test_name;
+};
+
+class EnableManagerNonFiniteTimingTest
+  : public EnableManagerFixture,
+  public ::testing::WithParamInterface<NonFiniteTimingCase>
+{};
+
+TEST_P(EnableManagerNonFiniteTimingTest, ConfigureRejectsNonFiniteValue)
+{
+  const auto & test_case = GetParam();
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(
+    parametersWithFixtureTopology(
+      {
+        rclcpp::Parameter(test_case.parameter_name, test_case.value),
+        rclcpp::Parameter("update_rate", 1000),
+      }));
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+
+  ASSERT_EQ(
+    controller_->init(
+      std::string("enable_manager_non_finite_") + test_case.test_name, "", options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  TimingParameters,
+  EnableManagerNonFiniteTimingTest,
+  ::testing::Values(
+    NonFiniteTimingCase{
+      "batch_timeout", std::numeric_limits<double>::quiet_NaN(), "BatchTimeoutNaN"},
+    NonFiniteTimingCase{
+      "batch_timeout", std::numeric_limits<double>::infinity(), "BatchTimeoutInfinity"},
+    NonFiniteTimingCase{
+      "disable_stage_timeout", std::numeric_limits<double>::quiet_NaN(),
+      "DisableStageTimeoutNaN"},
+    NonFiniteTimingCase{
+      "disable_stage_timeout", std::numeric_limits<double>::infinity(),
+      "DisableStageTimeoutInfinity"},
+    NonFiniteTimingCase{
+      "inter_batch_delay", std::numeric_limits<double>::quiet_NaN(),
+      "InterBatchDelayNaN"},
+    NonFiniteTimingCase{
+      "inter_batch_delay", std::numeric_limits<double>::infinity(),
+      "InterBatchDelayInfinity"},
+    NonFiniteTimingCase{
+      "fault_reset_timeout", std::numeric_limits<double>::quiet_NaN(),
+      "FaultResetTimeoutNaN"},
+    NonFiniteTimingCase{
+      "fault_reset_timeout", std::numeric_limits<double>::infinity(),
+      "FaultResetTimeoutInfinity"},
+    NonFiniteTimingCase{
+      "controller_switch_timeout", std::numeric_limits<double>::quiet_NaN(),
+      "ControllerSwitchTimeoutNaN"},
+    NonFiniteTimingCase{
+      "controller_switch_timeout", std::numeric_limits<double>::infinity(),
+      "ControllerSwitchTimeoutInfinity"}),
+  [](const ::testing::TestParamInfo<NonFiniteTimingCase> & info) {
+    return info.param.test_name;
+  });
 
 TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)
 {
   rclcpp::NodeOptions options;
-  options.parameter_overrides({rclcpp::Parameter("update_rate", 1000)});
+  options.parameter_overrides(
+    parametersWithFixtureTopology(
+      {rclcpp::Parameter("update_rate", 1000)}));
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
   ASSERT_EQ(
@@ -490,8 +903,8 @@ TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)
     controller_interface::CallbackReturn::SUCCESS);
 
   // Assign only 2 of the 14 required interface pairs.
-  command_handles_.emplace_back(Access::jointNames()[0], "control_word", &command_buffer_[0]);
-  state_handles_.emplace_back(Access::jointNames()[0], "status_word", &status_buffer_[0]);
+  command_handles_.emplace_back(kJointNames[0], "control_word", &command_buffer_[0]);
+  state_handles_.emplace_back(kJointNames[0], "status_word", &status_buffer_[0]);
   std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
   std::vector<hardware_interface::LoanedStateInterface> loaned_states;
   loaned_commands.emplace_back(command_handles_[0]);
@@ -501,6 +914,100 @@ TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)
   EXPECT_EQ(
     controller_->on_activate(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::ERROR);
+}
+
+TEST_F(EnableManagerFixture, ShuffledLoansAreBoundByJointAndInterfaceName)
+{
+  initAndConfigure();
+  controller_->release_interfaces();
+
+  std::array<std::size_t, kAxes> reverse_order{};
+  for (std::size_t loan = 0; loan < kAxes; ++loan) {
+    reverse_order[loan] = kAxes - loan - 1U;
+  }
+  assignInterfaces(reverse_order);
+  activate();
+
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200)) << "startup sanitize did not reach IDLE";
+
+  Access::setEnableRequest(*controller_, true);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+  ASSERT_EQ(Access::phase(*controller_), Phase::kEnabling);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+
+  std::array<bool, kAxes> first_batch{};
+  for (std::size_t item = 0; item < kBatchSizes[0]; ++item) {
+    first_batch[static_cast<std::size_t>(kEnableBatches[0][item])] = true;
+  }
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    EXPECT_EQ(command(axis), first_batch[axis] ? kCwShutdown : kCwZero)
+      << "loan order changed the logical binding for " << kJointNames[axis];
+  }
+}
+
+TEST_F(EnableManagerFixture, WrongInterfaceNameRejectsActivationAndCorrectedReloanSucceeds)
+{
+  initAndConfigure();
+  controller_->release_interfaces();
+
+  std::array<std::size_t, kAxes> natural_order{};
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    natural_order[axis] = axis;
+  }
+  assignInterfaces(natural_order, 0U);
+
+  const auto bad_activation = controller_->on_activate(rclcpp_lifecycle::State());
+  EXPECT_EQ(bad_activation, controller_interface::CallbackReturn::ERROR);
+  if (bad_activation == controller_interface::CallbackReturn::SUCCESS) {
+    ASSERT_EQ(
+      controller_->on_deactivate(rclcpp_lifecycle::State()),
+      controller_interface::CallbackReturn::SUCCESS);
+  }
+
+  controller_->release_interfaces();
+  assignInterfaces(natural_order);
+  EXPECT_EQ(
+    controller_->on_activate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS)
+    << "failed activation must release any partially bound semantic interfaces";
+}
+
+TEST_F(EnableManagerFixture, DeactivateZerosCommandsAndAllowsFreshLoansToReactivate)
+{
+  initAndConfigure();
+  activate();
+  command_buffer_.fill(static_cast<double>(kCwEnableOperation));
+
+  ASSERT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    EXPECT_EQ(command(axis), kCwZero) << kJointNames[axis];
+  }
+
+  controller_->release_interfaces();
+  assignInterfaces();
+  EXPECT_EQ(
+    controller_->on_activate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS)
+    << "deactivation must release semantic bindings before fresh loans are assigned";
+}
+
+TEST_F(EnableManagerFixture, NonFiniteStatusWordsMapToUnknownAndSentinel)
+{
+  initAndConfigure();
+  activate();
+  status_buffer_[0] = std::numeric_limits<double>::quiet_NaN();
+  status_buffer_[1] = std::numeric_limits<double>::infinity();
+
+  Access::refreshStatusWords(*controller_);
+
+  for (const std::size_t axis : {0U, 1U}) {
+    EXPECT_EQ(Access::statusWord(*controller_, axis), 0xFFFFU);
+    EXPECT_EQ(
+      Access::decode(Access::statusWord(*controller_, axis)), DriveState::kUnknown);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -538,8 +1045,8 @@ TEST_F(EnableManagerFixture, EnableHappyPathWalksFiveBatchesInOrder)
     std::array<bool, kAxes> in_this_batch{};
     std::array<bool, kAxes> in_later_batch{};
     for (std::size_t b = 0; b < kBatches; ++b) {
-      for (std::size_t item = 0; item < Access::batchSizes()[b]; ++item) {
-        const auto axis = static_cast<std::size_t>(Access::batches()[b][item]);
+      for (std::size_t item = 0; item < kBatchSizes[b]; ++item) {
+        const auto axis = static_cast<std::size_t>(kEnableBatches[b][item]);
         if (b == batch) {
           in_this_batch[axis] = true;
         } else if (b > batch) {
@@ -561,7 +1068,7 @@ TEST_F(EnableManagerFixture, EnableHappyPathWalksFiveBatchesInOrder)
       for (std::size_t axis = 0; axis < kAxes; ++axis) {
         if (in_this_batch[axis]) {
           EXPECT_EQ(command(axis), step.expected_command)
-            << "axis " << axis << " (" << Access::jointNames()[axis] << ")";
+            << "axis " << axis << " (" << kJointNames[axis] << ")";
         } else if (in_later_batch[axis]) {
           // Batch isolation: axes of later batches must stay un-commanded.
           EXPECT_EQ(command(axis), kCwZero)
@@ -613,7 +1120,7 @@ TEST_F(EnableManagerFixture, EnableHappyPathWalksFiveBatchesInOrder)
 
 class EnableBatchTimeoutTest
   : public EnableManagerFixture,
-    public ::testing::WithParamInterface<std::size_t>
+  public ::testing::WithParamInterface<std::size_t>
 {
 };
 
@@ -623,10 +1130,10 @@ TEST_P(EnableBatchTimeoutTest, StallingOneAxisReportsBatchTimeoutWithFailureDeta
   // Stall the last axis of the batch under test.
   const auto stalled_axis =
     static_cast<std::size_t>(
-    Access::batches()[stalled_batch][Access::batchSizes()[stalled_batch] - 1U]);
+    kEnableBatches[stalled_batch][kBatchSizes[stalled_batch] - 1U]);
   SCOPED_TRACE(
     "batch " + std::to_string(stalled_batch) + " stalled axis " +
-    std::to_string(stalled_axis) + " (" + Access::jointNames()[stalled_axis] + ")");
+    std::to_string(stalled_axis) + " (" + kJointNames[stalled_axis] + ")");
 
   bringUpToIdle();
 
@@ -668,8 +1175,8 @@ TEST_P(EnableBatchTimeoutTest, StallingOneAxisReportsBatchTimeoutWithFailureDeta
     ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
     stepDriveResponses(stalled);
   }
-  for (std::size_t item = 0; item < Access::batchSizes()[stalled_batch]; ++item) {
-    const auto axis = static_cast<std::size_t>(Access::batches()[stalled_batch][item]);
+  for (std::size_t item = 0; item < kBatchSizes[stalled_batch]; ++item) {
+    const auto axis = static_cast<std::size_t>(kEnableBatches[stalled_batch][item]);
     if (axis == stalled_axis) {
       continue;
     }
@@ -699,7 +1206,7 @@ TEST_P(EnableBatchTimeoutTest, StallingOneAxisReportsBatchTimeoutWithFailureDeta
   EXPECT_EQ(pending->response->stage, std::string("enable_batch_timeout"));
   EXPECT_EQ(pending->response->failed_batch, static_cast<std::int8_t>(stalled_batch));
   EXPECT_EQ(
-    pending->response->failed_joint, std::string(Access::jointNames()[stalled_axis]));
+    pending->response->failed_joint, std::string(kJointNames[stalled_axis]));
   EXPECT_EQ(pending->response->status_word, kSwReadyToSwitchOn);
 
   // And the underlying slot agrees with the wire response.
@@ -725,7 +1232,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 class FaultResetTest
   : public EnableManagerFixture,
-    public ::testing::WithParamInterface<std::vector<std::size_t>>
+  public ::testing::WithParamInterface<std::vector<std::size_t>>
 {
 };
 
@@ -762,7 +1269,7 @@ TEST_P(FaultResetTest, ResetDrivesFaultResetBitOnlyToFaultedAxes)
   for (std::size_t axis = 0; axis < kAxes; ++axis) {
     if (is_faulted[axis]) {
       EXPECT_EQ(command(axis), kCwFaultReset)
-        << "faulted axis " << axis << " (" << Access::jointNames()[axis] << ")";
+        << "faulted axis " << axis << " (" << kJointNames[axis] << ")";
     } else {
       EXPECT_EQ(command(axis), kCwZero)
         << "healthy axis " << axis << " received the fault-reset bit";
@@ -873,7 +1380,7 @@ TEST_F(EnableManagerFixture, ResetTimesOutWhenFaultNeverClears)
   RtEnable::Response response;
   Access::fillResponse(*controller_, slot, response);
   EXPECT_EQ(response.stage, std::string("fault_reset_timeout"));
-  EXPECT_EQ(response.failed_joint, std::string(Access::jointNames()[kStuckAxis]));
+  EXPECT_EQ(response.failed_joint, std::string(kJointNames[kStuckAxis]));
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,7 +1517,7 @@ TEST_F(EnableManagerFixture, DisableStageTimeoutEscalatesToEmergencyQuickStop)
   RtEnable::Response response;
   Access::fillResponse(*controller_, slot, response);
   EXPECT_EQ(response.stage, std::string("disable_timeout"));
-  EXPECT_EQ(response.failed_joint, std::string(Access::jointNames()[kStuckAxis]));
+  EXPECT_EQ(response.failed_joint, std::string(kJointNames[kStuckAxis]));
 }
 
 TEST_F(EnableManagerFixture, DisableFromIdleReportsAlreadyDisabled)
@@ -1189,7 +1696,7 @@ TEST_P(DecodeStateTest, MapsStatusWordToDriveState)
 INSTANTIATE_TEST_SUITE_P(
   Cia402, DecodeStateTest,
   ::testing::Values(
-    DecodeCase{0x0000U, DriveState::kNotReady, "not ready"},
+    DecodeCase{0x0000U, DriveState::kNotReadyToSwitchOn, "not ready"},
     DecodeCase{0x0040U, DriveState::kSwitchOnDisabled, "switch on disabled"},
     DecodeCase{0x0021U, DriveState::kReadyToSwitchOn, "ready to switch on"},
     DecodeCase{0x0023U, DriveState::kSwitchedOn, "switched on"},

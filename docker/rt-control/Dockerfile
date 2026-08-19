@@ -83,6 +83,14 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0003-orderly-master-deactivation.patch \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0003-orderly-master-deactivation.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0004-use-component-parameters-for-ec-modules.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0004-use-component-parameters-for-ec-modules.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0005-validate-component-module-parameters.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0005-validate-component-module-parameters.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     && git -C src/vendor/ros2_canopen apply \
@@ -99,6 +107,10 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
     && git -C src/vendor/ros2_canopen apply \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
+    && git -C src/vendor/ros2_canopen apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
+    && git -C src/vendor/ros2_canopen apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch \
     && git -C src/vendor/ros2_controllers apply \

@@ -1,0 +1,2452 @@
+diff --git a/canopen_402_driver/include/canopen_402_driver/cia402_driver.hpp b/canopen_402_driver/include/canopen_402_driver/cia402_driver.hpp
+index 8b9589a9493bc2cc72e5de66e6492934b60cca36..85541c0d15d2c3ce5fefbb232185f6283b75bb8d 100644
+--- a/canopen_402_driver/include/canopen_402_driver/cia402_driver.hpp
++++ b/canopen_402_driver/include/canopen_402_driver/cia402_driver.hpp
+@@ -90,8 +90,20 @@ public:
+ 
+   uint16_t get_mode() { return node_canopen_402_driver_->get_mode(); }
+ 
++  uint16_t get_actual_mode() { return node_canopen_402_driver_->get_actual_mode(); }
++
+   State402::InternalState get_state() { return node_canopen_402_driver_->get_state(); }
+ 
++  bool lock_operation_mode(uint16_t mode)
++  {
++    return node_canopen_402_driver_->lock_operation_mode(mode);
++  }
++
++  bool is_operation_mode_allowed(uint16_t mode) const
++  {
++    return node_canopen_402_driver_->is_operation_mode_allowed(mode);
++  }
++
+   bool set_operation_mode(uint16_t mode)
+   {
+     return node_canopen_402_driver_->set_operation_mode(mode);
+diff --git a/canopen_402_driver/include/canopen_402_driver/motor.hpp b/canopen_402_driver/include/canopen_402_driver/motor.hpp
+index 361ac749edda268cf84b5d8cc9c1199d6e93bc5f..15ba2d55f713649e0d7fb09aa10187a3540346bd 100644
+--- a/canopen_402_driver/include/canopen_402_driver/motor.hpp
++++ b/canopen_402_driver/include/canopen_402_driver/motor.hpp
+@@ -38,6 +38,10 @@
+ namespace ros2_canopen
+ {
+ 
++static_assert(
++  std::atomic<uint16_t>::is_always_lock_free,
++  "CiA402 actual-mode snapshots must remain lock-free for the control loop");
++
+ typedef ModeForwardHelper<MotorBase::Profiled_Velocity, int32_t, 0x60FF, 0, 0> ProfiledVelocityMode;
+ typedef ModeForwardHelper<MotorBase::Profiled_Torque, int16_t, 0x6071, 0, 0> ProfiledTorqueMode;
+ typedef ModeForwardHelper<MotorBase::Cyclic_Synchronous_Position, int32_t, 0x607A, 0, 0>
+@@ -75,6 +79,7 @@ public:
+   virtual bool enterModeAndWait(uint16_t mode);
+   virtual bool isModeSupported(uint16_t mode);
+   virtual uint16_t getMode();
++  uint16_t getActualMode() noexcept;
+ 
+   State402::InternalState getState() { return state_handler_.getState(); }
+   bool readState();
+@@ -233,7 +238,7 @@ private:
+   std::unordered_map<uint16_t, AllocFuncType> mode_allocators_;
+ 
+   ModeSharedPtr selected_mode_;
+-  uint16_t mode_id_;
++  std::atomic<uint16_t> mode_id_{MotorBase::No_Mode};
+   std::condition_variable mode_cond_;
+   std::mutex mode_mutex_;
+   const State402::InternalState switching_state_;
+diff --git a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp b/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp
+index 2a65bb3aedde2912c033ed504561ae606a86da1a..e55f252c13742b8d1efd086346df04a534e5220f 100644
+--- a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp
++++ b/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver.hpp
+@@ -19,6 +19,9 @@
+ #ifndef NODE_CANOPEN_402_DRIVER
+ #define NODE_CANOPEN_402_DRIVER
+ 
++#include <atomic>
++#include <mutex>
++
+ #include "canopen_402_driver/motor.hpp"
+ #include "canopen_base_driver/lely_driver_bridge.hpp"
+ #include "canopen_interfaces/srv/co_target_double.hpp"
+@@ -63,6 +66,8 @@ protected:
+   double offset_pos_from_dev_;
+   ros2_canopen::State402::InternalState switching_state_;
+   int homing_timeout_seconds_;
++  std::atomic<uint16_t> locked_operation_mode_{MotorBase::No_Mode};
++  std::mutex operation_mode_mutex_;
+ 
+   void publish();
+   virtual void poll_timer_callback() override;
+@@ -87,8 +92,24 @@ public:
+ 
+   virtual uint16_t get_mode() { return motor_->getMode(); }
+ 
++  virtual uint16_t get_actual_mode() { return motor_->getActualMode(); }
++
+   virtual State402::InternalState get_state() { return motor_->getState(); }
+ 
++  /**
++   * @brief Irreversibly restrict runtime mode changes to one configured mode.
++   *
++   * An unlocked driver retains the upstream behavior. The first non-zero mode
++   * locks the driver; repeating the same lock is idempotent and a conflicting
++   * lock is rejected. There is deliberately no unlock API.
++   */
++  bool lock_operation_mode(uint16_t mode);
++
++  /**
++   * @brief Return whether a requested mode is allowed by the current lock.
++   */
++  bool is_operation_mode_allowed(uint16_t mode) const;
++
+   /**
+    * @brief Service Callback to initialise device
+    *
+diff --git a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver_impl.hpp b/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver_impl.hpp
+index 54f9c849a96a5400b167d5be90a5ff4d8cace218..3ed6d3d28b681f2fea20fb13340dab4cac062b89 100644
+--- a/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver_impl.hpp
++++ b/canopen_402_driver/include/canopen_402_driver/node_interfaces/node_canopen_402_driver_impl.hpp
+@@ -45,6 +45,10 @@ void NodeCanopen402Driver<rclcpp::Node>::init(bool called_from_base)
+   NodeCanopenProxyDriver<rclcpp::Node>::init(false);
+   publish_joint_state =
+     this->node_->create_publisher<sensor_msgs::msg::JointState>("~/joint_states", 1);
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
+   handle_init_service = this->node_->create_service<std_srvs::srv::Trigger>(
+     std::string(this->node_->get_name()).append("/init").c_str(),
+     std::bind(
+@@ -131,6 +135,10 @@ void NodeCanopen402Driver<rclcpp_lifecycle::LifecycleNode>::init(bool called_fro
+   NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::init(false);
+   publish_joint_state =
+     this->node_->create_publisher<sensor_msgs::msg::JointState>("~/joint_states", 10);
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
+   handle_init_service = this->node_->create_service<std_srvs::srv::Trigger>(
+     std::string(this->node_->get_name()).append("/init").c_str(),
+     std::bind(
+@@ -647,6 +655,14 @@ bool NodeCanopen402Driver<NODETYPE>::halt_motor()
+ template <class NODETYPE>
+ bool NodeCanopen402Driver<NODETYPE>::set_operation_mode(uint16_t mode)
+ {
++  std::scoped_lock operation_mode_lock(operation_mode_mutex_);
++  if (!is_operation_mode_allowed(mode))
++  {
++    RCLCPP_ERROR(
++      this->node_->get_logger(), "Rejected operation mode %u: driver is locked to mode %u", mode,
++      locked_operation_mode_.load(std::memory_order_acquire));
++    return false;
++  }
+   if (this->activated_.load())
+   {
+     if (motor_->getMode() != mode)
+@@ -661,6 +677,31 @@ bool NodeCanopen402Driver<NODETYPE>::set_operation_mode(uint16_t mode)
+   return false;
+ }
+ 
++template <class NODETYPE>
++bool NodeCanopen402Driver<NODETYPE>::lock_operation_mode(uint16_t mode)
++{
++  std::scoped_lock operation_mode_lock(operation_mode_mutex_);
++  if (mode == MotorBase::No_Mode)
++  {
++    return false;
++  }
++
++  uint16_t unlocked_mode = MotorBase::No_Mode;
++  if (locked_operation_mode_.compare_exchange_strong(
++      unlocked_mode, mode, std::memory_order_acq_rel, std::memory_order_acquire))
++  {
++    return true;
++  }
++  return unlocked_mode == mode;
++}
++
++template <class NODETYPE>
++bool NodeCanopen402Driver<NODETYPE>::is_operation_mode_allowed(uint16_t mode) const
++{
++  const auto locked_mode = locked_operation_mode_.load(std::memory_order_acquire);
++  return locked_mode == MotorBase::No_Mode || locked_mode == mode;
++}
++
+ template <class NODETYPE>
+ bool NodeCanopen402Driver<NODETYPE>::set_target(double target)
+ {
+diff --git a/canopen_402_driver/src/motor.cpp b/canopen_402_driver/src/motor.cpp
+index 451157903c9cc3d483ac081802ac88c2b1c49fae..2ccb7f5b84dd1536a7947bed5a5cf419eab6308e 100644
+--- a/canopen_402_driver/src/motor.cpp
++++ b/canopen_402_driver/src/motor.cpp
+@@ -45,6 +45,11 @@ uint16_t Motor402::getMode()
+   return selected_mode_ ? selected_mode_->mode_id_ : (uint16_t)MotorBase::No_Mode;
+ }
+ 
++uint16_t Motor402::getActualMode() noexcept
++{
++  return mode_id_.load(std::memory_order_relaxed);
++}
++
+ bool Motor402::isModeSupportedByDevice(uint16_t mode)
+ {
+   if (mode == MotorBase::Homing)
+@@ -116,7 +121,9 @@ bool Motor402::switchMode(uint16_t mode)
+   {  // disable mode handler
+     std::scoped_lock lock(mode_mutex_);
+ 
+-    if (mode_id_ == mode && selected_mode_ && selected_mode_->mode_id_ == mode)
++    if (
++      mode_id_.load(std::memory_order_relaxed) == mode && selected_mode_ &&
++      selected_mode_->mode_id_ == mode)
+     {
+       // nothing to do
+       return true;
+@@ -138,13 +145,17 @@ bool Motor402::switchMode(uint16_t mode)
+       std::chrono::steady_clock::now() + std::chrono::seconds(5);
+     if (monitor_mode_)
+     {
+-      while (mode_id_ != mode && mode_cond_.wait_until(lock, abstime) == std::cv_status::no_timeout)
++      while (
++        mode_id_.load(std::memory_order_relaxed) != mode &&
++        mode_cond_.wait_until(lock, abstime) == std::cv_status::no_timeout)
+       {
+       }
+     }
+     else
+     {
+-      while (mode_id_ != mode && std::chrono::steady_clock::now() < abstime)
++      while (
++        mode_id_.load(std::memory_order_relaxed) != mode &&
++        std::chrono::steady_clock::now() < abstime)
+       {
+         lock.unlock();                                                    // unlock inside loop
+         driver->universal_get_value<int8_t>(op_mode_display_index, 0x0);  // poll
+@@ -153,7 +164,7 @@ bool Motor402::switchMode(uint16_t mode)
+       }
+     }
+ 
+-    if (mode_id_ == mode)
++    if (mode_id_.load(std::memory_order_relaxed) == mode)
+     {
+       selected_mode_ = next_mode;
+       okay = true;
+@@ -165,7 +176,8 @@ bool Motor402::switchMode(uint16_t mode)
+     else
+     {
+       RCLCPP_INFO(rclcpp::get_logger("canopen_402_driver"), "Mode switch timed out.");
+-      driver->universal_set_value<int8_t>(op_mode_index, 0x0, mode_id_);
++      driver->universal_set_value<int8_t>(
++        op_mode_index, 0x0, mode_id_.load(std::memory_order_relaxed));
+       if (enable_diagnostics_.load())
+       {
+         this->diag_collector_->addf("cia402_mode", "Mode switch timed out: %d", mode);
+@@ -233,9 +245,9 @@ bool Motor402::readState()
+       RCLCPP_INFO(rclcpp::get_logger("canopen_402_driver"), "Mode handler has error.");
+     }
+   }
+-  if (new_mode != mode_id_)
++  if (new_mode != mode_id_.load(std::memory_order_relaxed))
+   {
+-    mode_id_ = new_mode;
++    mode_id_.store(new_mode, std::memory_order_relaxed);
+     mode_cond_.notify_all();
+   }
+   if (selected_mode_ && selected_mode_->mode_id_ != new_mode)
+@@ -266,7 +278,9 @@ void Motor402::handleWrite()
+     std::scoped_lock lock(mode_mutex_);
+     Mode::OpModeAccesser cwa(control_word_);
+     bool okay = false;
+-    if (selected_mode_ && selected_mode_->mode_id_ == mode_id_)
++    if (
++      selected_mode_ &&
++      selected_mode_->mode_id_ == mode_id_.load(std::memory_order_relaxed))
+     {
+       okay = selected_mode_->write(cwa);
+     }
+diff --git a/canopen_core/include/canopen_core/device_container.hpp b/canopen_core/include/canopen_core/device_container.hpp
+index 448f70a819c8a99a1febc12c4052057fde3fa5a0..aeb8f04da042db67c844e15731e06abf1f2b2505 100644
+--- a/canopen_core/include/canopen_core/device_container.hpp
++++ b/canopen_core/include/canopen_core/device_container.hpp
+@@ -63,12 +63,17 @@ public:
+     this->declare_parameter<std::string>("master_config", "");
+     this->declare_parameter<std::string>("bus_config", "");
+     this->declare_parameter<std::string>("master_bin", "");
++    this->declare_parameter<bool>("expose_mutating_ros_api", true);
++    this->get_parameter("expose_mutating_ros_api", expose_mutating_ros_api_);
+     client_cbg_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+-    init_driver_service_ = this->create_service<canopen_interfaces::srv::CONode>(
+-      "~/init_driver",
+-      std::bind(
+-        &DeviceContainer::on_init_driver, this, std::placeholders::_1, std::placeholders::_2),
+-      rmw_qos_profile_services_default, client_cbg_);
++    if (expose_mutating_ros_api_)
++    {
++      init_driver_service_ = this->create_service<canopen_interfaces::srv::CONode>(
++        "~/init_driver",
++        std::bind(
++          &DeviceContainer::on_init_driver, this, std::placeholders::_1, std::placeholders::_2),
++        rmw_qos_profile_services_default, client_cbg_);
++    }
+ 
+     this->loadNode_srv_.reset();
+     this->unloadNode_srv_.reset();
+@@ -206,7 +211,7 @@ public:
+    *
+    * @return true when the request was submitted to the active master.
+    */
+-  bool request_nmt_stop_all_nodes()
++  virtual bool request_nmt_stop_all_nodes()
+   {
+     try
+     {
+@@ -229,7 +234,7 @@ public:
+    *
+    * @return true when every driver shutdown completed.
+    */
+-  bool shutdown_drivers()
++  virtual bool shutdown_drivers()
+   {
+     bool success = true;
+     for (const auto & entry : registered_drivers_)
+@@ -254,7 +259,7 @@ public:
+    *
+    * @return true when master shutdown completed or no master exists.
+    */
+-  bool shutdown_master()
++  virtual bool shutdown_master()
+   {
+     if (!can_master_)
+     {
+@@ -353,6 +358,7 @@ protected:
+   std::string dcf_bin_;             ///< Cached value of .bin file parameter
+   std::string can_interface_name_;  ///< Cached value of can interface name
+   bool lifecycle_operation_;
++  bool expose_mutating_ros_api_{true};
+ 
+   // ROS Objects
+   std::weak_ptr<rclcpp::Executor> executor_;  ///< Pointer to ros executor instance
+diff --git a/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp b/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp
+index d3d03333ce722ed3a8147fa732c986922963e05f..f4b7a707057767af015c644b83bf05bb348f4bc1 100644
+--- a/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp
++++ b/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp
+@@ -76,6 +76,7 @@ protected:
+   std::string container_name_;
+   std::string eds_;
+   std::string bin_;
++  bool expose_mutating_ros_api_{true};
+ 
+   rclcpp::CallbackGroup::SharedPtr client_cbg_;
+   rclcpp::CallbackGroup::SharedPtr timer_cbg_;
+@@ -103,13 +104,13 @@ public:
+     std::shared_ptr<lely::ev::Executor> exec, std::shared_ptr<lely::canopen::AsyncMaster> master)
+   {
+     RCLCPP_DEBUG(node_->get_logger(), "set_master_start");
+-    if (!configured_.load())
++    if (activated_.load())
+     {
+-      throw DriverException("Set Master: driver is not configured");
++      throw DriverException("Set Master: driver is already activated");
+     }
+-    if (activated_.load())
++    if (initialised_.load() && !configured_.load())
+     {
+-      throw DriverException("Set Master: driver is not activated");
++      throw DriverException("Set Master: driver initialization is in progress");
+     }
+     this->exec_ = exec;
+     this->master_ = master;
+@@ -142,6 +143,8 @@ public:
+     node_->declare_parameter("node_id", 0);
+     node_->declare_parameter("non_transmit_timeout", 100);
+     node_->declare_parameter("config", "");
++    node_->declare_parameter("expose_mutating_ros_api", true);
++    node_->get_parameter("expose_mutating_ros_api", expose_mutating_ros_api_);
+     this->init(true);
+     this->initialised_.store(true);
+     RCLCPP_DEBUG(node_->get_logger(), "init_end");
+diff --git a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+index 6f6b745c3877a6ab98b0ac53393036b71e38b559..c875ee2eba3b95d05b28b68d3fc0fbf757e597b8 100644
+--- a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
++++ b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+@@ -89,6 +89,7 @@ protected:
+   std::string master_bin_;
+   std::string can_interface_name_;
+   uint32_t timeout_;
++  bool expose_mutating_ros_api_{true};
+ 
+   std::thread spinner_;
+ 
+@@ -124,6 +125,8 @@ public:
+     node_->declare_parameter("node_id", 0);
+     node_->declare_parameter("non_transmit_timeout", 100);
+     node_->declare_parameter("config", "");
++    node_->declare_parameter("expose_mutating_ros_api", true);
++    node_->get_parameter("expose_mutating_ros_api", expose_mutating_ros_api_);
+     this->init(true);
+     this->initialised_.store(true);
+     RCLCPP_DEBUG(node_->get_logger(), "init_end");
+diff --git a/canopen_core/src/device_container.cpp b/canopen_core/src/device_container.cpp
+index edfb7a35ac2e0cadb70a37876fa2380465855979..95ea9a4a298f9d9d10627ba78a7fc69fe36b870c 100644
+--- a/canopen_core/src/device_container.cpp
++++ b/canopen_core/src/device_container.cpp
+@@ -16,6 +16,8 @@
+ #include "canopen_core/device_container.hpp"
+ #include "canopen_core/device_container_error.hpp"
+ 
++#include <utility>
++
+ using namespace ros2_canopen;
+ 
+ void DeviceContainer::set_executor(const std::weak_ptr<rclcpp::Executor> executor)
+@@ -244,6 +246,8 @@ bool DeviceContainer::load_master()
+       params.push_back(rclcpp::Parameter("node_id", (int)node_id.value()));
+       params.push_back(rclcpp::Parameter("non_transmit_timeout", 100));
+       params.push_back(rclcpp::Parameter("config", config_->dump_device(*it)));
++      params.push_back(
++        rclcpp::Parameter("expose_mutating_ros_api", expose_mutating_ros_api_));
+ 
+       if (!this->load_component(
+             package_name.value(), driver_name.value(), node_id.value(), *it, params,
+@@ -253,6 +257,14 @@ bool DeviceContainer::load_master()
+         return false;
+       }
+ 
++      if (!expose_mutating_ros_api_ && can_master_->is_lifecycle())
++      {
++        RCLCPP_ERROR(
++          this->get_logger(),
++          "Restricted embedded mode does not support a lifecycle CANopen master");
++        can_master_.reset();
++        return false;
++      }
+       add_node_to_executor(can_master_->get_node_base_interface());
+       can_master_->init();
+       master_found = true;
+@@ -320,6 +332,8 @@ bool DeviceContainer::load_drivers()
+       params.push_back(rclcpp::Parameter("node_id", (int)node_id.value()));
+       params.push_back(rclcpp::Parameter("config", config_->dump_device(*it)));
+       params.push_back(rclcpp::Parameter("non_transmit_timeout", 100));
++      params.push_back(
++        rclcpp::Parameter("expose_mutating_ros_api", expose_mutating_ros_api_));
+ 
+       if (!this->load_component(
+             package_name.value(), driver_name.value(), node_id.value(), *it, params,
+@@ -331,6 +345,29 @@ bool DeviceContainer::load_drivers()
+           node_id.value(), it->c_str(), driver_name.value().c_str(), package_name.value().c_str());
+         return false;
+       }
++      if (!expose_mutating_ros_api_)
++      {
++        try
++        {
++          auto executor = can_master_->get_executor();
++          auto master = can_master_->get_master();
++          if (!executor || !master)
++          {
++            RCLCPP_ERROR(
++              this->get_logger(), "Direct master attachment returned an invalid master");
++            return false;
++          }
++          registered_drivers_.at(node_id.value())
++            ->set_master(std::move(executor), std::move(master));
++        }
++        catch (const std::exception & exception)
++        {
++          RCLCPP_ERROR(
++            this->get_logger(), "Direct master attachment failed for node %hu: %s",
++            node_id.value(), exception.what());
++          return false;
++        }
++      }
+       add_node_to_executor(registered_drivers_[node_id.value()]->get_node_base_interface());
+       registered_drivers_[node_id.value()]->init();
+     }
+@@ -342,6 +379,13 @@ bool DeviceContainer::load_manager()
+ {
+   if (this->lifecycle_operation_)
+   {
++    if (!expose_mutating_ros_api_)
++    {
++      RCLCPP_ERROR(
++        this->get_logger(),
++        "Restricted embedded mode refuses the lifecycle manager mutation surface");
++      return false;
++    }
+     RCLCPP_INFO(this->get_logger(), "Loading Manager Configuration.");
+     auto node_options = rclcpp::NodeOptions();
+     node_options.use_global_arguments(false);
+diff --git a/canopen_core/src/node_interfaces/node_canopen_driver.cpp b/canopen_core/src/node_interfaces/node_canopen_driver.cpp
+index 6668a0df5b3ce01711abe3a1c35edb3affdbf505..c30fe37b67b5a2c13779f3da671b2457c26b9028 100644
+--- a/canopen_core/src/node_interfaces/node_canopen_driver.cpp
++++ b/canopen_core/src/node_interfaces/node_canopen_driver.cpp
+@@ -22,6 +22,11 @@ void ros2_canopen::node_interfaces::NodeCanopenDriver<rclcpp::Node>::demand_set_
+   {
+     throw ros2_canopen::DriverException("Set Master: driver is not configured");
+   }
++  if (master_set_.load())
++  {
++    RCLCPP_DEBUG(node_->get_logger(), "Master was attached in process; skipping init service");
++    return;
++  }
+   std::string init_service_name = container_name_ + "/init_driver";
+   RCLCPP_DEBUG(node_->get_logger(), "Service: %s", init_service_name.c_str());
+   rclcpp::Client<canopen_interfaces::srv::CONode>::SharedPtr demand_set_master_client;
+@@ -66,6 +71,11 @@ void ros2_canopen::node_interfaces::NodeCanopenDriver<
+   {
+     throw ros2_canopen::DriverException("Set Master: driver is not configured");
+   }
++  if (master_set_.load())
++  {
++    RCLCPP_DEBUG(node_->get_logger(), "Master was attached in process; skipping init service");
++    return;
++  }
+   std::string init_service_name = container_name_ + "/init_driver";
+   rclcpp::Client<canopen_interfaces::srv::CONode>::SharedPtr demand_set_master_client;
+   // demand_set_master_client;
+diff --git a/canopen_core/test/test_node_canopen_driver.cpp b/canopen_core/test/test_node_canopen_driver.cpp
+index 620daac4f7ce44de08d696e3227dded4ddf49301..9d1b49aff8589e457412cdf4bd62be8e09ae4668 100644
+--- a/canopen_core/test/test_node_canopen_driver.cpp
++++ b/canopen_core/test/test_node_canopen_driver.cpp
+@@ -127,6 +127,7 @@ TEST_F(NodeCanopenDriverTest, test_set_master)
+ 
+   node_canopen_driver->set_master(exec, master);
+   EXPECT_TRUE(node_canopen_driver->master_set_.load());
++  EXPECT_NO_THROW(node_canopen_driver->demand_set_master());
+ 
+   node_canopen_driver->configured_.store(true);
+   node_canopen_driver->activated_.store(true);
+@@ -135,8 +136,14 @@ TEST_F(NodeCanopenDriverTest, test_set_master)
+ 
+   node_canopen_driver->configured_.store(false);
+   node_canopen_driver->activated_.store(false);
++  node_canopen_driver->initialised_.store(true);
+ 
+   EXPECT_THROW(node_canopen_driver->set_master(exec, master), DriverException);
++
++  node_canopen_driver->initialised_.store(false);
++
++  EXPECT_NO_THROW(node_canopen_driver->set_master(exec, master));
++  EXPECT_TRUE(node_canopen_driver->master_set_.load());
+ }
+ 
+ TEST_F(NodeCanopenDriverTest, test_configure)
+diff --git a/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp b/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp
+index 970bfedd9a1ac63c499642cb4b9f7432386332ed..16bf14d844b4140d2b33a05607276207df2be91a 100644
+--- a/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp
++++ b/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp
+@@ -109,6 +109,11 @@ void NodeCanopenBasicMaster<rclcpp::Node>::init(bool called_from_base)
+       &ros2_canopen::node_interfaces::NodeCanopenBasicMaster<rclcpp::Node>::on_sdo_read, this,
+       std::placeholders::_1, std::placeholders::_2));
+ 
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWriteID>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+@@ -127,6 +132,11 @@ void NodeCanopenBasicMaster<rclcpp_lifecycle::LifecycleNode>::init(bool called_f
+         rclcpp_lifecycle::LifecycleNode>::on_sdo_read,
+       this, std::placeholders::_1, std::placeholders::_2));
+ 
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWriteID>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+diff --git a/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp b/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp
+index 51e7f43aef92ba73851c0ba5cc140827dabd5430..da13f6240bd111fed861438e5af0eff11c62c554 100644
+--- a/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp
++++ b/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp
+@@ -17,6 +17,46 @@
+ #include "canopen_master_driver/node_interfaces/node_canopen_basic_master.hpp"
+ #include "gtest/gtest.h"
+ 
++TEST(NodeCanopenBasicMaster, restricted_mode_omits_sdo_write_service)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    options.parameter_overrides(
++      {rclcpp::Parameter("expose_mutating_ros_api", false)});
++    rclcpp::Node node("restricted_master", options);
++    ros2_canopen::node_interfaces::NodeCanopenBasicMaster<rclcpp::Node> interface(&node);
++    auto * base_interface =
++      static_cast<ros2_canopen::node_interfaces::NodeCanopenMasterInterface *>(&interface);
++    ASSERT_NO_THROW(base_interface->init());
++
++    const auto services =
++      node.get_service_names_and_types_by_node(node.get_name(), node.get_namespace());
++    EXPECT_EQ(services.count("/restricted_master/sdo_read"), 1U);
++    EXPECT_EQ(services.count("/restricted_master/sdo_write"), 0U);
++  }
++  rclcpp::shutdown();
++}
++
++TEST(NodeCanopenBasicMaster, standalone_mode_exposes_sdo_write_service_by_default)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    rclcpp::Node node("standalone_master", options);
++    ros2_canopen::node_interfaces::NodeCanopenBasicMaster<rclcpp::Node> interface(&node);
++    auto * base_interface =
++      static_cast<ros2_canopen::node_interfaces::NodeCanopenMasterInterface *>(&interface);
++    ASSERT_NO_THROW(base_interface->init());
++
++    const auto services =
++      node.get_service_names_and_types_by_node(node.get_name(), node.get_namespace());
++    EXPECT_EQ(services.count("/standalone_master/sdo_read"), 1U);
++    EXPECT_EQ(services.count("/standalone_master/sdo_write"), 1U);
++  }
++  rclcpp::shutdown();
++}
++
+ TEST(NodeCanopenBasicMaster, test_good_sequence_advanced)
+ {
+   rclcpp::init(0, nullptr);
+diff --git a/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp b/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp
+index b58882913db3912edf13d9d33f1db57cc58b54d5..392f8b4941b3157a6feeb90279104e4b6ed82fc6 100644
+--- a/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp
++++ b/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp
+@@ -37,13 +37,23 @@ void NodeCanopenProxyDriver<rclcpp::Node>::init(bool called_from_base)
+ {
+   nmt_state_publisher = this->node_->create_publisher<std_msgs::msg::String>(
+     std::string(this->node_->get_name()).append("/nmt_state").c_str(), 10);
++  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
++    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
++  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
++    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
++    std::bind(
++      &NodeCanopenProxyDriver<rclcpp::Node>::on_sdo_read, this, std::placeholders::_1,
++      std::placeholders::_2));
++
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   tpdo_subscriber = this->node_->create_subscription<canopen_interfaces::msg::COData>(
+     std::string(this->node_->get_name()).append("/tpdo").c_str(), 10,
+     std::bind(&NodeCanopenProxyDriver<rclcpp::Node>::on_tpdo, this, std::placeholders::_1));
+ 
+-  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
+-    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
+-
+   nmt_state_reset_service = this->node_->create_service<std_srvs::srv::Trigger>(
+     std::string(this->node_->get_name()).append("/nmt_reset_node").c_str(),
+     std::bind(
+@@ -56,12 +66,6 @@ void NodeCanopenProxyDriver<rclcpp::Node>::init(bool called_from_base)
+       &NodeCanopenProxyDriver<rclcpp::Node>::on_nmt_state_start, this, std::placeholders::_1,
+       std::placeholders::_2));
+ 
+-  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
+-    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
+-    std::bind(
+-      &NodeCanopenProxyDriver<rclcpp::Node>::on_sdo_read, this, std::placeholders::_1,
+-      std::placeholders::_2));
+-
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWrite>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+@@ -74,15 +78,25 @@ void NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::init(bool called_f
+ {
+   nmt_state_publisher = this->node_->create_publisher<std_msgs::msg::String>(
+     std::string(this->node_->get_name()).append("/nmt_state").c_str(), 10);
++  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
++    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
++  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
++    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
++    std::bind(
++      &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_sdo_read, this,
++      std::placeholders::_1, std::placeholders::_2));
++
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   tpdo_subscriber = this->node_->create_subscription<canopen_interfaces::msg::COData>(
+     std::string(this->node_->get_name()).append("/tpdo").c_str(), 10,
+     std::bind(
+       &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_tpdo, this,
+       std::placeholders::_1));
+ 
+-  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
+-    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
+-
+   nmt_state_reset_service = this->node_->create_service<std_srvs::srv::Trigger>(
+     std::string(this->node_->get_name()).append("/nmt_reset_node").c_str(),
+     std::bind(
+@@ -95,12 +109,6 @@ void NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::init(bool called_f
+       &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_nmt_state_start, this,
+       std::placeholders::_1, std::placeholders::_2));
+ 
+-  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
+-    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
+-    std::bind(
+-      &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_sdo_read, this,
+-      std::placeholders::_1, std::placeholders::_2));
+-
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWrite>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+diff --git a/canopen_ros2_control/CMakeLists.txt b/canopen_ros2_control/CMakeLists.txt
+index a33e51ac4ccd38184007e7b7b9ef6813d8a1dde6..9bbcd75620f41dbda64cc3f618bc0ba744b727ed 100644
+--- a/canopen_ros2_control/CMakeLists.txt
++++ b/canopen_ros2_control/CMakeLists.txt
+@@ -60,8 +60,9 @@ install(
+ )
+ 
+ if(BUILD_TESTING)
+-  #find_package(ament_cmake_gmock REQUIRED)
+-  #find_package(ros2_control_test_assets REQUIRED)
++  ament_add_gmock(test_cia402_hardware_info test/test_cia402_hardware_info.cpp)
++  target_link_libraries(test_cia402_hardware_info canopen_ros2_control)
++  ament_target_dependencies(test_cia402_hardware_info hardware_interface)
+ 
+   #ament_add_gmock(test_canopen_system test/test_canopen_system.cpp)
+   #target_include_directories(test_canopen_system PRIVATE include)
+diff --git a/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp b/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
+index b9246cad44878b290b3ce2be9013006815c151cf..ddb1d7895c0af32f0d9574e473b0c59028f11f1a 100644
+--- a/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
++++ b/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
+@@ -200,7 +200,7 @@ public:
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   CanopenSystem();
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+-  ~CanopenSystem();
++  ~CanopenSystem() noexcept override;
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   hardware_interface::CallbackReturn on_init(
+     const hardware_interface::HardwareInfo & info) override;
+@@ -223,6 +223,10 @@ public:
+   hardware_interface::CallbackReturn on_shutdown(
+     const rclcpp_lifecycle::State & previous_state) override;
+ 
++  CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
++  hardware_interface::CallbackReturn on_error(
++    const rclcpp_lifecycle::State & previous_state) override;
++
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   hardware_interface::CallbackReturn on_activate(
+     const rclcpp_lifecycle::State & previous_state) override;
+@@ -249,8 +253,8 @@ protected:
+   std::unique_ptr<std::thread> init_thread_;
+ 
+   void spin();
+-  void stop_callback_executor();
+-  void clean();
++  virtual bool stop_callback_executor();
++  bool clean();
+ 
+ private:
+   void initDeviceContainer();
+diff --git a/canopen_ros2_control/include/canopen_ros2_control/cia402_system.hpp b/canopen_ros2_control/include/canopen_ros2_control/cia402_system.hpp
+index bcf7ebfaa6266a7efdb38593d0b9b17431ad8c81..f42c9de6d702d33a50bec1846d5b2cda0883307f 100644
+--- a/canopen_ros2_control/include/canopen_ros2_control/cia402_system.hpp
++++ b/canopen_ros2_control/include/canopen_ros2_control/cia402_system.hpp
+@@ -25,6 +25,8 @@
+ #ifndef CANOPEN_ROS2_CONTROL__CIA402_SYSTEM_HPP_
+ #define CANOPEN_ROS2_CONTROL__CIA402_SYSTEM_HPP_
+ 
++#include <atomic>
++
+ #include "canopen_402_driver/cia402_driver.hpp"
+ #include "canopen_ros2_control/canopen_system.hpp"
+ 
+@@ -86,13 +88,23 @@ public:
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   Cia402System();
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+-  ~Cia402System() = default;
++  ~Cia402System() noexcept override;
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   hardware_interface::CallbackReturn on_init(const hardware_interface::HardwareInfo & info);
+ 
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   hardware_interface::CallbackReturn on_configure(const rclcpp_lifecycle::State & previous_state);
+ 
++  CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
++  hardware_interface::CallbackReturn on_cleanup(const rclcpp_lifecycle::State & previous_state);
++
++  CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
++  hardware_interface::CallbackReturn on_shutdown(const rclcpp_lifecycle::State & previous_state);
++
++  CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
++  hardware_interface::CallbackReturn on_error(
++    const rclcpp_lifecycle::State & previous_state) override;
++
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   std::vector<hardware_interface::StateInterface> export_state_interfaces();
+ 
+@@ -115,7 +127,33 @@ protected:
+   // can stuff
+   std::map<uint, MotorNodeData> motor_data_;
+ 
++  bool isConfiguredMotorMode(uint8_t node_id, uint16_t operation_mode) const;
++
++  virtual hardware_interface::CallbackReturn configureCommunication();
++
++  virtual hardware_interface::CallbackReturn activateConfiguredMotors();
++
++  virtual hardware_interface::CallbackReturn deactivateConfiguredMotors();
++
++  virtual hardware_interface::return_type readConfiguredMotors();
++
++  bool isMotorSessionActive() const
++  {
++    return motor_session_active_.load(std::memory_order_acquire);
++  }
++
+ private:
++  struct MotorConfiguration
++  {
++    std::string joint_name;
++    uint8_t node_id;
++    uint16_t operation_mode;
++  };
++
++  bool configureMotorTopology(const hardware_interface::HardwareInfo & info);
++
++  bool isConfiguredMotorNode(uint8_t node_id) const;
++
+   void switchModes(uint id, const std::shared_ptr<ros2_canopen::Cia402Driver> & driver);
+ 
+   void handleInit(uint id, const std::shared_ptr<ros2_canopen::Cia402Driver> & driver);
+@@ -125,6 +163,11 @@ private:
+   void handleHalt(uint id, const std::shared_ptr<ros2_canopen::Cia402Driver> & driver);
+ 
+   void initDeviceContainer();
++
++  std::vector<MotorConfiguration> motor_configurations_;
++  bool configured_mode_locks_valid_{false};
++  std::atomic<bool> mode_drift_latched_{false};
++  std::atomic<bool> motor_session_active_{false};
+ };
+ 
+ }  // namespace canopen_ros2_control
+diff --git a/canopen_ros2_control/src/canopen_system.cpp b/canopen_ros2_control/src/canopen_system.cpp
+index 6301ef151368dfeb924b7fa905e68b5018ed4d87..fad7cfe5d409618dbcc274ed943bab8d91ec4cad 100644
+--- a/canopen_ros2_control/src/canopen_system.cpp
++++ b/canopen_ros2_control/src/canopen_system.cpp
+@@ -23,6 +23,7 @@
+ 
+ #include "canopen_ros2_control/canopen_system.hpp"
+ 
++#include <exception>
+ #include <limits>
+ #include <vector>
+ #include "hardware_interface/types/hardware_interface_type_values.hpp"
+@@ -38,15 +39,40 @@ namespace canopen_ros2_control
+ 
+ CanopenSystem::CanopenSystem() {}
+ 
+-void CanopenSystem::clean()
++bool CanopenSystem::clean()
+ {
+-  stop_callback_executor();
++  if (!device_container_ && !executor_ && !spin_thread_ && !init_thread_)
++  {
++    return true;
++  }
++
++  bool success = true;
++  if (device_container_ && !device_container_->request_nmt_stop_all_nodes())
++  {
++    RCLCPP_ERROR(kLogger, "CANopen terminal all-node NMT Stop request failed");
++    success = false;
++  }
++
++  if (!stop_callback_executor())
++  {
++    RCLCPP_ERROR(kLogger, "CANopen callback executor barrier failed");
++    // Driver callbacks may still be in flight. Keep the complete communication
++    // graph alive so lifecycle cleanup can be retried without reintroducing the
++    // callback/use-after-free race guarded by this barrier.
++    return false;
++  }
+ 
+   if (device_container_)
+   {
++    if (!device_container_->shutdown_drivers())
++    {
++      RCLCPP_ERROR(kLogger, "CANopen driver shutdown failed");
++      success = false;
++    }
+     if (!device_container_->shutdown_master())
+     {
+       RCLCPP_ERROR(kLogger, "CANopen master shutdown failed");
++      success = false;
+     }
+   }
+ 
+@@ -59,22 +85,51 @@ void CanopenSystem::clean()
+   }
+   init_thread_.reset();
+   spin_thread_.reset();
++  return success;
+ }
+ 
+-void CanopenSystem::stop_callback_executor()
++bool CanopenSystem::stop_callback_executor()
+ {
++  bool success = true;
+   if (executor_)
+   {
+-    executor_->cancel();
++    try
++    {
++      executor_->cancel();
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(kLogger, "Failed to cancel CANopen callback executor: %s", exception.what());
++      success = false;
++    }
+   }
+ 
+   if (spin_thread_ && spin_thread_->joinable())
+   {
+-    spin_thread_->join();
++    try
++    {
++      spin_thread_->join();
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(kLogger, "Failed to join CANopen callback executor: %s", exception.what());
++      success = false;
++    }
+   }
++  return success;
+ }
+ 
+-CanopenSystem::~CanopenSystem() { clean(); }
++CanopenSystem::~CanopenSystem() noexcept
++{
++  if (!clean())
++  {
++    RCLCPP_FATAL(
++      kLogger,
++      "CanopenSystem destruction could not quiesce CANopen callbacks; terminating before "
++      "callback-owned state is destroyed");
++    std::terminate();
++  }
++}
+ 
+ hardware_interface::CallbackReturn CanopenSystem::on_init(
+   const hardware_interface::HardwareInfo & info)
+@@ -120,15 +175,19 @@ hardware_interface::CallbackReturn CanopenSystem::on_configure(
+ hardware_interface::CallbackReturn CanopenSystem::on_cleanup(
+   const rclcpp_lifecycle::State & previous_state)
+ {
+-  clean();
+-  return CallbackReturn::SUCCESS;
++  return clean() ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
+ }
+ 
+ hardware_interface::CallbackReturn CanopenSystem::on_shutdown(
+   const rclcpp_lifecycle::State & previous_state)
+ {
+-  clean();
+-  return CallbackReturn::SUCCESS;
++  return clean() ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
++}
++
++hardware_interface::CallbackReturn CanopenSystem::on_error(
++  const rclcpp_lifecycle::State & previous_state)
++{
++  return clean() ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
+ }
+ 
+ void CanopenSystem::spin()
+diff --git a/canopen_ros2_control/src/cia402_system.cpp b/canopen_ros2_control/src/cia402_system.cpp
+index fe259be9a870569fb9d353c478ce8d4f6c7af9f0..dad26ef933ad800b99c4e9f0c7c453b7fbf31329 100644
+--- a/canopen_ros2_control/src/cia402_system.cpp
++++ b/canopen_ros2_control/src/cia402_system.cpp
+@@ -26,6 +26,7 @@
+ #include <algorithm>
+ #include <chrono>
+ #include <cmath>
++#include <exception>
+ #include <limits>
+ #include <stdexcept>
+ #include <string>
+@@ -37,6 +38,23 @@
+ namespace
+ {
+ auto const kLogger = rclcpp::get_logger("Cia402System");
++constexpr uint16_t kTargetVelocityIndex = 0x60FFU;
++
++template <typename Unsigned>
++Unsigned parseUnsignedParameter(const std::string & value, const char * parameter_name)
++{
++  if (value.empty() || value.find_first_not_of("0123456789") != std::string::npos)
++  {
++    throw std::invalid_argument(std::string(parameter_name) + " must be an unsigned integer");
++  }
++  std::size_t parsed_characters = 0U;
++  const auto parsed = std::stoul(value, &parsed_characters, 10);
++  if (parsed_characters != value.size() || parsed > std::numeric_limits<Unsigned>::max())
++  {
++    throw std::out_of_range(std::string(parameter_name) + " is outside its valid range");
++  }
++  return static_cast<Unsigned>(parsed);
++}
+ }
+ 
+ namespace canopen_ros2_control
+@@ -44,6 +62,18 @@ namespace canopen_ros2_control
+ 
+ Cia402System::Cia402System() : CanopenSystem() {}
+ 
++Cia402System::~Cia402System() noexcept
++{
++  if (!clean())
++  {
++    RCLCPP_FATAL(
++      kLogger,
++      "Cia402System destruction could not quiesce CANopen callbacks; terminating before motor "
++      "state is destroyed");
++    std::terminate();
++  }
++}
++
+ hardware_interface::CallbackReturn Cia402System::on_init(
+   const hardware_interface::HardwareInfo & info)
+ {
+@@ -52,7 +82,92 @@ hardware_interface::CallbackReturn Cia402System::on_init(
+     return CallbackReturn::ERROR;
+   }
+ 
+-  return CallbackReturn::SUCCESS;
++  return configureMotorTopology(info) ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
++}
++
++bool Cia402System::configureMotorTopology(const hardware_interface::HardwareInfo & info)
++{
++  std::vector<MotorConfiguration> configurations;
++  configurations.reserve(info.joints.size());
++  for (const auto & joint : info.joints)
++  {
++    const auto node_parameter = joint.parameters.find("node_id");
++    const auto mode_parameter = joint.parameters.find("operation_mode");
++    if (
++      node_parameter == joint.parameters.end() ||
++      mode_parameter == joint.parameters.end())
++    {
++      RCLCPP_ERROR(
++        kLogger, "Joint %s must define node_id and operation_mode together", joint.name.c_str());
++      return false;
++    }
++    try
++    {
++      const auto node_id = parseUnsignedParameter<uint8_t>(node_parameter->second, "node_id");
++      const auto mode =
++        parseUnsignedParameter<uint16_t>(mode_parameter->second, "operation_mode");
++      if (node_id == 0U || node_id > 127U)
++      {
++        RCLCPP_ERROR(
++          kLogger, "Invalid CANopen node for joint %s: node=%u", joint.name.c_str(), node_id);
++        return false;
++      }
++      if (mode != MotorBase::Profiled_Velocity)
++      {
++        RCLCPP_ERROR(
++          kLogger,
++          "Joint %s uses mode %u, but this system can only seed a safe Profiled Velocity target",
++          joint.name.c_str(), mode);
++        return false;
++      }
++      configurations.push_back({joint.name, node_id, mode});
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(
++        kLogger, "Invalid CANopen parameters for joint %s: %s", joint.name.c_str(),
++        exception.what());
++      return false;
++    }
++  }
++  std::sort(
++    configurations.begin(), configurations.end(),
++    [](const MotorConfiguration & lhs, const MotorConfiguration & rhs)
++    { return lhs.node_id < rhs.node_id; });
++  if (configurations.empty())
++  {
++    RCLCPP_ERROR(kLogger, "No configured CiA402 motor joints");
++    return false;
++  }
++  const auto duplicate = std::adjacent_find(
++    configurations.begin(), configurations.end(),
++    [](const MotorConfiguration & lhs, const MotorConfiguration & rhs)
++    { return lhs.node_id == rhs.node_id; });
++  if (duplicate != configurations.end())
++  {
++    RCLCPP_ERROR(kLogger, "CANopen node %u is assigned to more than one joint", duplicate->node_id);
++    return false;
++  }
++
++  motor_configurations_ = std::move(configurations);
++  return true;
++}
++
++bool Cia402System::isConfiguredMotorNode(uint8_t node_id) const
++{
++  return std::any_of(
++    motor_configurations_.begin(), motor_configurations_.end(),
++    [node_id](const MotorConfiguration & configuration)
++    { return configuration.node_id == node_id; });
++}
++
++bool Cia402System::isConfiguredMotorMode(uint8_t node_id, uint16_t operation_mode) const
++{
++  const auto configuration = std::find_if(
++    motor_configurations_.begin(), motor_configurations_.end(),
++    [node_id](const MotorConfiguration & candidate) { return candidate.node_id == node_id; });
++  return configuration != motor_configurations_.end() &&
++         configuration->operation_mode == operation_mode;
+ }
+ 
+ void Cia402System::initDeviceContainer()
+@@ -66,6 +181,35 @@ void Cia402System::initDeviceContainer()
+     info_.hardware_parameters["bus_config"], tmp_master_bin);
+   auto drivers = device_container_->get_registered_drivers();
+   RCLCPP_INFO(kLogger, "Number of registered drivers: '%lu'", device_container_->count_drivers());
++
++  bool mode_locks_valid = true;
++  for (const auto & configuration : motor_configurations_)
++  {
++    const auto driver_iterator = drivers.find(configuration.node_id);
++    if (driver_iterator == drivers.end())
++    {
++      RCLCPP_ERROR(
++        kLogger, "Cannot lock configured mode for missing CANopen node %u",
++        configuration.node_id);
++      mode_locks_valid = false;
++      continue;
++    }
++    auto driver = std::static_pointer_cast<ros2_canopen::Cia402Driver>(driver_iterator->second);
++    if (!driver->lock_operation_mode(configuration.operation_mode))
++    {
++      RCLCPP_ERROR(
++        kLogger, "Cannot lock CANopen node %u to configured mode %u", configuration.node_id,
++        configuration.operation_mode);
++      mode_locks_valid = false;
++    }
++  }
++  configured_mode_locks_valid_ = mode_locks_valid;
++  if (!configured_mode_locks_valid_)
++  {
++    RCLCPP_ERROR(kLogger, "CANopen configured operation-mode locks are incomplete");
++    return;
++  }
++
+   for (auto it = drivers.begin(); it != drivers.end(); it++)
+   {
+     auto driver = std::static_pointer_cast<ros2_canopen::Cia402Driver>(it->second);
+@@ -82,7 +226,7 @@ void Cia402System::initDeviceContainer()
+ 
+     auto emcy_cb = [this](ros2_canopen::COEmcy emcy, uint8_t id)
+     {
+-      if (emcy.eec == 0U || (id != 2U && id != 3U))
++      if (emcy.eec == 0U || !isConfiguredMotorNode(id))
+       {
+         return;
+       }
+@@ -105,10 +249,21 @@ void Cia402System::initDeviceContainer()
+ }
+ 
+ hardware_interface::CallbackReturn Cia402System::on_configure(
+-  const rclcpp_lifecycle::State & previous_state)
++  const rclcpp_lifecycle::State &)
++{
++  motor_session_active_.store(false, std::memory_order_release);
++  return configureCommunication();
++}
++
++hardware_interface::CallbackReturn Cia402System::configureCommunication()
+ {
++  configured_mode_locks_valid_ = false;
+   executor_ = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+-  device_container_ = std::make_shared<ros2_canopen::DeviceContainer>(executor_);
++  auto container_options = rclcpp::NodeOptions().use_global_arguments(false);
++  container_options.parameter_overrides(
++    {rclcpp::Parameter("expose_mutating_ros_api", false)});
++  device_container_ = std::make_shared<ros2_canopen::DeviceContainer>(
++    executor_, "device_container", container_options);
+   executor_->add_node(device_container_);
+ 
+   // threads
+@@ -134,9 +289,35 @@ hardware_interface::CallbackReturn Cia402System::on_configure(
+     RCLCPP_ERROR(kLogger, "Could not join init thread!");
+     return CallbackReturn::ERROR;
+   }
++  if (!configured_mode_locks_valid_)
++  {
++    RCLCPP_ERROR(kLogger, "CANopen configuration rejected: operation-mode lock failed");
++    return CallbackReturn::ERROR;
++  }
+   return CallbackReturn::SUCCESS;
+ }
+ 
++hardware_interface::CallbackReturn Cia402System::on_cleanup(
++  const rclcpp_lifecycle::State & previous_state)
++{
++  motor_session_active_.store(false, std::memory_order_release);
++  return CanopenSystem::on_cleanup(previous_state);
++}
++
++hardware_interface::CallbackReturn Cia402System::on_shutdown(
++  const rclcpp_lifecycle::State & previous_state)
++{
++  motor_session_active_.store(false, std::memory_order_release);
++  return CanopenSystem::on_shutdown(previous_state);
++}
++
++hardware_interface::CallbackReturn Cia402System::on_error(
++  const rclcpp_lifecycle::State & previous_state)
++{
++  motor_session_active_.store(false, std::memory_order_release);
++  return CanopenSystem::on_error(previous_state);
++}
++
+ std::vector<hardware_interface::StateInterface> Cia402System::export_state_interfaces()
+ {
+   std::vector<hardware_interface::StateInterface> state_interfaces;
+@@ -170,80 +351,12 @@ std::vector<hardware_interface::CommandInterface> Cia402System::export_command_i
+ {
+   std::vector<hardware_interface::CommandInterface> command_interfaces;
+ 
+-  // underlying base class export first
+-  command_interfaces = CanopenSystem::export_command_interfaces();
+-
+-  for (uint i = 0; i < info_.joints.size(); i++)
++  command_interfaces.reserve(motor_configurations_.size());
++  for (const auto & configuration : motor_configurations_)
+   {
+-    if (info_.joints[i].parameters.find("node_id") == info_.joints[i].parameters.end())
+-    {
+-      // skip adding canopen interfaces
+-      continue;
+-    }
+-
+-    const uint8_t node_id = static_cast<uint8_t>(std::stoi(info_.joints[i].parameters["node_id"]));
+-
+-    // target
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, hardware_interface::HW_IF_POSITION,
+-      &motor_data_[node_id].target.position_value));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, hardware_interface::HW_IF_VELOCITY,
+-      &motor_data_[node_id].target.velocity_value));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, hardware_interface::HW_IF_EFFORT,
+-      &motor_data_[node_id].target.torque_value));
+-    // init
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "init_cmd", &motor_data_[node_id].init.ons_cmd));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "init_fbk", &motor_data_[node_id].init.resp));
+-
+-    // halt
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "halt_cmd", &motor_data_[node_id].halt.ons_cmd));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "halt_fbk", &motor_data_[node_id].halt.resp));
+-
+-    // recover
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "recover_cmd", &motor_data_[node_id].recover.ons_cmd));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "recover_fbk", &motor_data_[node_id].recover.resp));
+-
+-    // set position mode
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "position_mode_cmd", &motor_data_[node_id].position_mode.ons_cmd));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "position_mode_fbk", &motor_data_[node_id].position_mode.resp));
+-
+-    // set velocity mode
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "velocity_mode_cmd", &motor_data_[node_id].velocity_mode.ons_cmd));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "velocity_mode_fbk", &motor_data_[node_id].velocity_mode.resp));
+-
+-    // set cyclic velocity mode
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "cyclic_velocity_mode_cmd",
+-      &motor_data_[node_id].cyclic_velocity_mode.ons_cmd));
+     command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "cyclic_velocity_mode_fbk",
+-      &motor_data_[node_id].cyclic_velocity_mode.resp));
+-    // set cyclic position mode
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "cyclic_position_mode_cmd",
+-      &motor_data_[node_id].cyclic_position_mode.ons_cmd));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "cyclic_position_mode_fbk",
+-      &motor_data_[node_id].cyclic_position_mode.resp));
+-    // set interpolated position mode
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "interpolated_position_mode_cmd",
+-      &motor_data_[node_id].interpolated_position_mode.ons_cmd));
+-    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+-      info_.joints[i].name, "interpolated_position_mode_fbk",
+-      &motor_data_[node_id].interpolated_position_mode.resp));
++      configuration.joint_name, hardware_interface::HW_IF_VELOCITY,
++      &motor_data_[configuration.node_id].target.velocity_value));
+   }
+ 
+   return command_interfaces;
+@@ -252,79 +365,32 @@ std::vector<hardware_interface::CommandInterface> Cia402System::export_command_i
+ hardware_interface::CallbackReturn Cia402System::on_activate(
+   const rclcpp_lifecycle::State & previous_state)
+ {
+-  if (CanopenSystem::on_activate(previous_state) != CallbackReturn::SUCCESS)
++  motor_session_active_.store(false, std::memory_order_release);
++  if (mode_drift_latched_.load(std::memory_order_acquire))
+   {
++    RCLCPP_ERROR(kLogger, "CANopen activation rejected after a latched operation-mode drift");
+     return CallbackReturn::ERROR;
+   }
+-
+-  struct MotorConfiguration
+-  {
+-    uint8_t node_id;
+-    uint16_t operation_mode;
+-  };
+-
+-  std::vector<MotorConfiguration> configurations;
+-  for (const auto & joint : info_.joints)
++  if (CanopenSystem::on_activate(previous_state) != CallbackReturn::SUCCESS)
+   {
+-    const auto node_parameter = joint.parameters.find("node_id");
+-    if (node_parameter == joint.parameters.end())
+-    {
+-      continue;
+-    }
+-    const auto mode_parameter = joint.parameters.find("operation_mode");
+-    if (mode_parameter == joint.parameters.end())
+-    {
+-      RCLCPP_ERROR(kLogger, "Joint %s has no operation_mode parameter", joint.name.c_str());
+-      return CallbackReturn::ERROR;
+-    }
+-    try
+-    {
+-      const auto parsed_node_id = std::stoul(node_parameter->second);
+-      const auto parsed_mode = std::stoul(mode_parameter->second);
+-      if (
+-        parsed_node_id > std::numeric_limits<uint8_t>::max() ||
+-        parsed_mode > std::numeric_limits<uint16_t>::max())
+-      {
+-        throw std::out_of_range("node_id or operation_mode is outside its storage range");
+-      }
+-      const auto node_id = static_cast<uint8_t>(parsed_node_id);
+-      const auto mode = static_cast<uint16_t>(parsed_mode);
+-      if (
+-        (node_id != 2U && node_id != 3U) || mode != MotorBase::Profiled_Velocity)
+-      {
+-        RCLCPP_ERROR(
+-          kLogger, "Unsupported CANopen activation mapping for joint %s: node=%u mode=%u",
+-          joint.name.c_str(), node_id, mode);
+-        return CallbackReturn::ERROR;
+-      }
+-      configurations.push_back({node_id, mode});
+-    }
+-    catch (const std::exception & exception)
+-    {
+-      RCLCPP_ERROR(
+-        kLogger, "Invalid CANopen parameters for joint %s: %s", joint.name.c_str(),
+-        exception.what());
+-      return CallbackReturn::ERROR;
+-    }
++    return CallbackReturn::ERROR;
+   }
+-  std::sort(
+-    configurations.begin(), configurations.end(),
+-    [](const MotorConfiguration & lhs, const MotorConfiguration & rhs)
+-    { return lhs.node_id < rhs.node_id; });
+ 
+-  if (
+-    configurations.size() != 2U || configurations[0].node_id != 2U ||
+-    configurations[1].node_id != 3U)
++  const auto activation_result = activateConfiguredMotors();
++  if (activation_result == CallbackReturn::SUCCESS)
+   {
+-    RCLCPP_ERROR(kLogger, "Expected exactly CANopen track motor nodes 2 and 3");
+-    return CallbackReturn::ERROR;
++    motor_session_active_.store(true, std::memory_order_release);
+   }
++  return activation_result;
++}
+ 
++hardware_interface::CallbackReturn Cia402System::activateConfiguredMotors()
++{
+   auto drivers = device_container_->get_registered_drivers();
+   std::vector<uint8_t> completed_nodes;
+   std::string primary_failure;
+   uint8_t primary_node = 0U;
+-  for (const auto & configuration : configurations)
++  for (const auto & configuration : motor_configurations_)
+   {
+     const auto driver_iterator = drivers.find(configuration.node_id);
+     if (driver_iterator == drivers.end())
+@@ -359,6 +425,12 @@ hardware_interface::CallbackReturn Cia402System::on_activate(
+       primary_failure = "set_operation_mode";
+       break;
+     }
++    if (driver->get_actual_mode() != configuration.operation_mode)
++    {
++      primary_node = configuration.node_id;
++      primary_failure = "verify_operation_mode";
++      break;
++    }
+ 
+     motor_data_[configuration.node_id].target.velocity_value = 0.0;
+     const bool target_seeded = driver->set_target(0.0);
+@@ -378,7 +450,7 @@ hardware_interface::CallbackReturn Cia402System::on_activate(
+ 
+   std::string rollback_failure;
+   uint8_t rollback_node = 0U;
+-  for (const auto & configuration : configurations)
++  for (const auto & configuration : motor_configurations_)
+   {
+     const auto driver_iterator = drivers.find(configuration.node_id);
+     if (driver_iterator == drivers.end())
+@@ -402,7 +474,7 @@ hardware_interface::CallbackReturn Cia402System::on_activate(
+   std::this_thread::sleep_for(std::chrono::milliseconds(20));
+ 
+   std::vector<uint8_t> shutdown_order(completed_nodes.rbegin(), completed_nodes.rend());
+-  for (const auto & configuration : configurations)
++  for (const auto & configuration : motor_configurations_)
+   {
+     if (
+       std::find(completed_nodes.begin(), completed_nodes.end(), configuration.node_id) ==
+@@ -451,14 +523,28 @@ hardware_interface::CallbackReturn Cia402System::on_activate(
+ 
+ hardware_interface::CallbackReturn Cia402System::on_deactivate(
+   const rclcpp_lifecycle::State & previous_state)
++{
++  const bool was_active = motor_session_active_.exchange(false, std::memory_order_acq_rel);
++  const auto motor_result =
++    was_active ? deactivateConfiguredMotors() : CallbackReturn::SUCCESS;
++  const auto base_result = CanopenSystem::on_deactivate(previous_state);
++  if (motor_result != CallbackReturn::SUCCESS || base_result != CallbackReturn::SUCCESS)
++  {
++    return CallbackReturn::ERROR;
++  }
++  return CallbackReturn::SUCCESS;
++}
++
++hardware_interface::CallbackReturn Cia402System::deactivateConfiguredMotors()
+ {
+   auto drivers = device_container_->get_registered_drivers();
+   bool failed = false;
+   uint8_t first_failure_node = 0U;
+   std::string first_failure_stage;
+ 
+-  for (const uint8_t node_id : {2U, 3U})
++  for (const auto & configuration : motor_configurations_)
+   {
++    const uint8_t node_id = configuration.node_id;
+     const auto driver_iterator = drivers.find(node_id);
+     if (driver_iterator == drivers.end())
+     {
+@@ -476,7 +562,16 @@ hardware_interface::CallbackReturn Cia402System::on_deactivate(
+       continue;
+     }
+     motor_data_[node_id].target.velocity_value = 0.0;
+-    const bool target_result = driver->set_target(0.0);
++    bool target_result = false;
++    if (isConfiguredMotorMode(node_id, driver->get_actual_mode()))
++    {
++      target_result = driver->set_target(0.0);
++    }
++    else
++    {
++      ros2_canopen::COData safe_velocity_command = {kTargetVelocityIndex, 0x00U, 0U};
++      target_result = driver->tpdo_transmit(safe_velocity_command);
++    }
+     if (!target_result && !failed)
+     {
+       failed = true;
+@@ -486,8 +581,9 @@ hardware_interface::CallbackReturn Cia402System::on_deactivate(
+   }
+   std::this_thread::sleep_for(std::chrono::milliseconds(20));
+ 
+-  for (const uint8_t node_id : {2U, 3U})
++  for (const auto & configuration : motor_configurations_)
+   {
++    const uint8_t node_id = configuration.node_id;
+     const auto driver_iterator = drivers.find(node_id);
+     if (driver_iterator == drivers.end())
+     {
+@@ -502,22 +598,12 @@ hardware_interface::CallbackReturn Cia402System::on_deactivate(
+     }
+   }
+ 
+-  if (!device_container_->request_nmt_stop_all_nodes() && !failed)
++  if (failed && !device_container_->request_nmt_stop_all_nodes())
+   {
+-    failed = true;
+-    first_failure_stage = "nmt_stop";
++    RCLCPP_ERROR(kLogger, "CANopen deactivation fallback all-node NMT Stop request failed");
+   }
+ 
+-  stop_callback_executor();
+-
+-  if (!device_container_->shutdown_drivers() && !failed)
+-  {
+-    failed = true;
+-    first_failure_stage = "driver_shutdown";
+-  }
+-
+-  const auto base_result = CanopenSystem::on_deactivate(previous_state);
+-  if (failed || base_result != CallbackReturn::SUCCESS)
++  if (failed)
+   {
+     RCLCPP_ERROR(
+       kLogger, "CANopen deactivation failed at node %u/%s", first_failure_node,
+@@ -533,85 +619,121 @@ hardware_interface::return_type Cia402System::read(
+   // TODO(anyone): read robot states
+ 
+   auto ret_val = CanopenSystem::read(time, period);
++  if (ret_val != hardware_interface::return_type::OK)
++  {
++    return ret_val;
++  }
++  return readConfiguredMotors();
++}
+ 
++hardware_interface::return_type Cia402System::readConfiguredMotors()
++{
++  if (!device_container_)
++  {
++    return hardware_interface::return_type::ERROR;
++  }
+   auto drivers = device_container_->get_registered_drivers();
+ 
+-  for (auto it = canopen_data_.begin(); it != canopen_data_.end(); ++it)
++  for (const auto & configuration : motor_configurations_)
+   {
++    const auto driver_iterator = drivers.find(configuration.node_id);
++    if (driver_iterator == drivers.end())
++    {
++      return hardware_interface::return_type::ERROR;
++    }
+     auto motion_controller_driver =
+-      std::static_pointer_cast<ros2_canopen::Cia402Driver>(drivers[it->first]);
++      std::static_pointer_cast<ros2_canopen::Cia402Driver>(driver_iterator->second);
+     // get position
+-    motor_data_[it->first].actual_position = motion_controller_driver->get_position();
++    motor_data_[configuration.node_id].actual_position = motion_controller_driver->get_position();
+     // get speed
+-    motor_data_[it->first].actual_speed = motion_controller_driver->get_speed();
++    motor_data_[configuration.node_id].actual_speed = motion_controller_driver->get_speed();
+   }
+ 
+-  return ret_val;
++  return hardware_interface::return_type::OK;
+ }
+ 
+ hardware_interface::return_type Cia402System::write(
+-  const rclcpp::Time & time, const rclcpp::Duration & period)
++  const rclcpp::Time &, const rclcpp::Duration &)
+ {
+-  auto drivers = device_container_->get_registered_drivers();
+-
+-  for (auto it = canopen_data_.begin(); it != canopen_data_.end(); ++it)
++  if (mode_drift_latched_.load(std::memory_order_acquire))
+   {
+-    // TODO(livanov93): check casting
+-    auto motion_controller_driver =
+-      std::static_pointer_cast<ros2_canopen::Cia402Driver>(drivers[it->first]);
+-    // do same as in proxy system first - handle nmt, tpdo, rpdo
+-    // reset node nmt
+-    if (it->second.nmt_state.reset_command())
++    for (const auto & configuration : motor_configurations_)
+     {
+-      motion_controller_driver->reset_node_nmt_command();
++      motor_data_[configuration.node_id].target.velocity_value = 0.0;
+     }
++    return hardware_interface::return_type::ERROR;
++  }
+ 
+-    // start nmt
+-    if (it->second.nmt_state.start_command())
++  if (!motor_session_active_.load(std::memory_order_acquire))
++  {
++    for (const auto & configuration : motor_configurations_)
+     {
+-      motion_controller_driver->start_node_nmt_command();
++      motor_data_[configuration.node_id].target.velocity_value = 0.0;
+     }
++    return hardware_interface::return_type::OK;
++  }
++
++  auto drivers = device_container_->get_registered_drivers();
+ 
+-    // tpdo data one shot mechanism
+-    if (it->second.tpdo_data.write_command())
++  uint8_t drift_node = 0U;
++  uint16_t expected_mode = MotorBase::No_Mode;
++  uint16_t observed_mode = MotorBase::No_Mode;
++  bool driver_missing = false;
++  for (const auto & configuration : motor_configurations_)
++  {
++    const auto driver_iterator = drivers.find(configuration.node_id);
++    if (driver_iterator == drivers.end())
+     {
+-      it->second.tpdo_data.prepare_data();
+-      motion_controller_driver->tpdo_transmit(it->second.tpdo_data.original_data);
++      drift_node = configuration.node_id;
++      expected_mode = configuration.operation_mode;
++      driver_missing = true;
++      break;
+     }
++    auto driver = std::static_pointer_cast<ros2_canopen::Cia402Driver>(driver_iterator->second);
++    observed_mode = driver->get_actual_mode();
++    if (!isConfiguredMotorMode(configuration.node_id, observed_mode))
++    {
++      drift_node = configuration.node_id;
++      expected_mode = configuration.operation_mode;
++      break;
++    }
++  }
+ 
+-    // initialisation
+-    handleInit(it->first, motion_controller_driver);
+-
+-    // halt
+-    handleHalt(it->first, motion_controller_driver);
+-
+-    // recover
+-    handleRecover(it->first, motion_controller_driver);
+-
+-    // mode switching
+-    switchModes(it->first, motion_controller_driver);
+-
+-    const uint16_t & mode = motion_controller_driver->get_mode();
+-
+-    switch (mode)
++  if (drift_node != 0U)
++  {
++    bool safe_velocity_failed = false;
++    for (const auto & configuration : motor_configurations_)
+     {
+-      case MotorBase::No_Mode:
+-        break;
+-      case MotorBase::Profiled_Position:
+-      case MotorBase::Cyclic_Synchronous_Position:
+-      case MotorBase::Interpolated_Position:
+-        motion_controller_driver->set_target(motor_data_[it->first].target.position_value);
+-        break;
+-      case MotorBase::Profiled_Velocity:
+-      case MotorBase::Cyclic_Synchronous_Velocity:
+-        motion_controller_driver->set_target(motor_data_[it->first].target.velocity_value);
+-        break;
+-      case MotorBase::Profiled_Torque:
+-        motion_controller_driver->set_target(motor_data_[it->first].target.torque_value);
+-        break;
+-      default:
+-        RCLCPP_INFO(kLogger, "Mode %u not supported", mode);
++      motor_data_[configuration.node_id].target.velocity_value = 0.0;
++      const auto driver_iterator = drivers.find(configuration.node_id);
++      if (driver_iterator == drivers.end())
++      {
++        safe_velocity_failed = true;
++        continue;
++      }
++      auto driver = std::static_pointer_cast<ros2_canopen::Cia402Driver>(driver_iterator->second);
++      ros2_canopen::COData safe_velocity_command = {kTargetVelocityIndex, 0x00U, 0U};
++      if (!driver->tpdo_transmit(safe_velocity_command))
++      {
++        safe_velocity_failed = true;
++      }
+     }
++    const bool nmt_stop_requested = device_container_->request_nmt_stop_all_nodes();
++    mode_drift_latched_.store(true, std::memory_order_release);
++    RCLCPP_ERROR(
++      kLogger,
++      "CANopen operation-mode contract failed at node %u: expected=%u observed=%u%s; "
++      "safe_velocity=%s nmt_stop=%s; restart required",
++      drift_node, expected_mode, observed_mode, driver_missing ? " driver_missing" : "",
++      safe_velocity_failed ? "failed" : "requested", nmt_stop_requested ? "requested" : "failed");
++    return hardware_interface::return_type::ERROR;
++  }
++
++  for (const auto & configuration : motor_configurations_)
++  {
++    const auto driver =
++      std::static_pointer_cast<ros2_canopen::Cia402Driver>(drivers.at(configuration.node_id));
++    driver->set_target(motor_data_[configuration.node_id].target.velocity_value);
+   }
+ 
+   return hardware_interface::return_type::OK;
+diff --git a/canopen_ros2_control/test/test_cia402_hardware_info.cpp b/canopen_ros2_control/test/test_cia402_hardware_info.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..c631107efd2c27997754df7089c95412fcc3aec7
+--- /dev/null
++++ b/canopen_ros2_control/test/test_cia402_hardware_info.cpp
+@@ -0,0 +1,753 @@
++#include <gtest/gtest.h>
++
++#include <chrono>
++#include <future>
++#include <initializer_list>
++#include <memory>
++#include <set>
++#include <string>
++#include <thread>
++#include <utility>
++#include <vector>
++
++#include "canopen_402_driver/base.hpp"
++#include "canopen_402_driver/cia402_driver.hpp"
++#include "canopen_402_driver/motor.hpp"
++#include "canopen_ros2_control/cia402_system.hpp"
++#include "hardware_interface/hardware_info.hpp"
++#include "rclcpp/executors/multi_threaded_executor.hpp"
++#include "rclcpp/rclcpp.hpp"
++
++namespace canopen_ros2_control
++{
++namespace
++{
++
++using JointParameters = std::pair<std::string, std::string>;
++
++class InspectableCia402System : public Cia402System
++{
++public:
++  using Cia402System::isConfiguredMotorMode;
++};
++
++class LifecycleInspectableCia402System : public Cia402System
++{
++public:
++  bool motorSessionActive() const { return isMotorSessionActive(); }
++
++  unsigned int activationCount() const { return activation_count_; }
++
++  unsigned int deactivationCount() const { return deactivation_count_; }
++
++  unsigned int configurationCount() const { return configuration_count_; }
++
++  unsigned int readCount() const { return read_count_; }
++
++  unsigned int terminalBarrierCount() const { return terminal_barrier_count_; }
++
++protected:
++  hardware_interface::CallbackReturn configureCommunication() override
++  {
++    ++configuration_count_;
++    return hardware_interface::CallbackReturn::SUCCESS;
++  }
++
++  hardware_interface::CallbackReturn activateConfiguredMotors() override
++  {
++    ++activation_count_;
++    return hardware_interface::CallbackReturn::SUCCESS;
++  }
++
++  hardware_interface::CallbackReturn deactivateConfiguredMotors() override
++  {
++    ++deactivation_count_;
++    return hardware_interface::CallbackReturn::SUCCESS;
++  }
++
++  hardware_interface::return_type readConfiguredMotors() override
++  {
++    ++read_count_;
++    return hardware_interface::return_type::OK;
++  }
++
++  bool stop_callback_executor() override
++  {
++    ++terminal_barrier_count_;
++    return true;
++  }
++
++private:
++  unsigned int configuration_count_{0U};
++  unsigned int activation_count_{0U};
++  unsigned int deactivation_count_{0U};
++  unsigned int read_count_{0U};
++  unsigned int terminal_barrier_count_{0U};
++};
++
++class InspectableDeviceContainer : public ros2_canopen::DeviceContainer
++{
++public:
++  using ros2_canopen::DeviceContainer::DeviceContainer;
++
++  void simulateLifecycleOperation() { lifecycle_operation_ = true; }
++
++  bool hasLifecycleManager() const { return lifecycle_manager_ != nullptr; }
++
++protected:
++  void add_node_to_executor(
++    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr) override
++  {
++  }
++};
++
++struct TerminalCleanupResults
++{
++  bool nmt_stop{true};
++  bool callback_barrier{true};
++  bool drivers{true};
++  bool master{true};
++};
++
++class TerminalDeviceContainer : public ros2_canopen::DeviceContainer
++{
++public:
++  TerminalDeviceContainer(
++    std::vector<std::string> & events, const TerminalCleanupResults & results,
++    const std::string & node_name)
++  : DeviceContainer(
++      std::weak_ptr<rclcpp::Executor>(), node_name,
++      rclcpp::NodeOptions().use_global_arguments(false)),
++    events_(events),
++    results_(results)
++  {
++  }
++
++  bool request_nmt_stop_all_nodes() override
++  {
++    events_.push_back("nmt_stop");
++    return results_.nmt_stop;
++  }
++
++  bool shutdown_drivers() override
++  {
++    events_.push_back("drivers");
++    return results_.drivers;
++  }
++
++  bool shutdown_master() override
++  {
++    events_.push_back("master");
++    return results_.master;
++  }
++
++private:
++  std::vector<std::string> & events_;
++  const TerminalCleanupResults & results_;
++};
++
++class TerminalInspectableCia402System : public Cia402System
++{
++public:
++  TerminalInspectableCia402System(
++    std::vector<std::string> & events, const TerminalCleanupResults & results)
++  : events_(events), results_(results)
++  {
++  }
++
++  void installContainer(const std::shared_ptr<ros2_canopen::DeviceContainer> & container)
++  {
++    device_container_ = container;
++  }
++
++  bool hasInstalledContainer() const { return device_container_ != nullptr; }
++
++protected:
++  bool stop_callback_executor() override
++  {
++    events_.push_back("callback_barrier");
++    return results_.callback_barrier;
++  }
++
++private:
++  std::vector<std::string> & events_;
++  const TerminalCleanupResults & results_;
++};
++
++class TerminalInspectableCanopenSystem : public CanopenSystem
++{
++public:
++  TerminalInspectableCanopenSystem(
++    std::vector<std::string> & events, const TerminalCleanupResults & results)
++  : events_(events), results_(results)
++  {
++  }
++
++  void installContainer(const std::shared_ptr<ros2_canopen::DeviceContainer> & container)
++  {
++    device_container_ = container;
++  }
++
++  bool hasInstalledContainer() const { return device_container_ != nullptr; }
++
++protected:
++  bool stop_callback_executor() override
++  {
++    events_.push_back("callback_barrier");
++    return results_.callback_barrier;
++  }
++
++private:
++  std::vector<std::string> & events_;
++  const TerminalCleanupResults & results_;
++};
++
++template <typename SystemT>
++class SelfDeletingSystem : public SystemT
++{
++public:
++  void deleteOnOwnedThread(
++    std::shared_future<void> release, std::promise<void> & deletion_started)
++  {
++    this->spin_thread_ = std::make_unique<std::thread>(
++      [this, release = std::move(release), &deletion_started]() {
++        release.wait();
++        deletion_started.set_value();
++        delete this;
++      });
++  }
++};
++
++hardware_interface::HardwareInfo makeHardwareInfo(
++  std::initializer_list<std::pair<std::string, JointParameters>> joints)
++{
++  hardware_interface::HardwareInfo info;
++  info.name = "test_canopen_system";
++  info.type = "system";
++  info.hardware_class_type = "canopen_ros2_control/Cia402System";
++  info.hardware_parameters = {
++    {"bus_config", "/tmp/bus.yml"},
++    {"master_config", "/tmp/master.dcf"},
++    {"master_bin", "/tmp/master.bin"},
++    {"can_interface_name", "can0"},
++  };
++  for (const auto & [joint_name, parameters] : joints)
++  {
++    hardware_interface::ComponentInfo joint;
++    joint.name = joint_name;
++    joint.type = "joint";
++    if (!parameters.first.empty())
++    {
++      joint.parameters.emplace("node_id", parameters.first);
++    }
++    if (!parameters.second.empty())
++    {
++      joint.parameters.emplace("operation_mode", parameters.second);
++    }
++    info.joints.push_back(std::move(joint));
++  }
++  return info;
++}
++
++TEST(Cia402HardwareInfoTest, AcceptsArbitraryUniqueCanopenNodeIds)
++{
++  Cia402System system;
++  const auto info = makeHardwareInfo({
++    {"front_track", {"7", "3"}},
++    {"middle_track", {"11", "3"}},
++    {"rear_track", {"42", "3"}},
++  });
++
++  EXPECT_EQ(system.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
++}
++
++TEST(Cia402HardwareInfoTest, ExposesOnlyConfiguredProfiledVelocityCommandSurface)
++{
++  Cia402System system;
++  const auto info = makeHardwareInfo({
++    {"left_track", {"2", "3"}},
++    {"right_track", {"3", "3"}},
++  });
++  ASSERT_EQ(system.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
++
++  const auto interfaces = system.export_command_interfaces();
++  std::set<std::string> interface_names;
++  for (const auto & interface : interfaces)
++  {
++    interface_names.insert(interface.get_name());
++  }
++
++  EXPECT_EQ(
++    interface_names,
++    (std::set<std::string>{"left_track/velocity", "right_track/velocity"}));
++}
++
++TEST(Cia402HardwareInfoTest, DetectsConfiguredModeDriftAndUnknownNodes)
++{
++  InspectableCia402System system;
++  const auto info = makeHardwareInfo({
++    {"left_track", {"2", "3"}},
++    {"right_track", {"3", "3"}},
++  });
++  ASSERT_EQ(system.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
++
++  EXPECT_TRUE(system.isConfiguredMotorMode(2U, MotorBase::Profiled_Velocity));
++  EXPECT_FALSE(system.isConfiguredMotorMode(2U, MotorBase::Profiled_Position));
++  EXPECT_FALSE(system.isConfiguredMotorMode(2U, MotorBase::Cyclic_Synchronous_Velocity));
++  EXPECT_FALSE(system.isConfiguredMotorMode(2U, MotorBase::Profiled_Torque));
++  EXPECT_FALSE(system.isConfiguredMotorMode(42U, MotorBase::Profiled_Velocity));
++}
++
++TEST(Cia402HardwareInfoTest, InactiveReadWriteIsSafeAndTheMotorSessionCanReactivate)
++{
++  LifecycleInspectableCia402System system;
++  ASSERT_EQ(
++    system.on_init(makeHardwareInfo({{"left_track", {"2", "3"}}})),
++    hardware_interface::CallbackReturn::SUCCESS);
++  auto command_interfaces = system.export_command_interfaces();
++  ASSERT_EQ(command_interfaces.size(), 1U);
++
++  const rclcpp_lifecycle::State state;
++  const rclcpp::Time now(0, 0, RCL_ROS_TIME);
++  const rclcpp::Duration period(0, 4000000);
++  ASSERT_EQ(system.on_configure(state), hardware_interface::CallbackReturn::SUCCESS);
++  EXPECT_EQ(system.configurationCount(), 1U);
++  EXPECT_FALSE(system.motorSessionActive());
++
++  command_interfaces.front().set_value(1.0);
++  EXPECT_EQ(system.write(now, period), hardware_interface::return_type::OK);
++  EXPECT_DOUBLE_EQ(command_interfaces.front().get_value(), 0.0);
++
++  ASSERT_EQ(system.on_activate(state), hardware_interface::CallbackReturn::SUCCESS);
++  EXPECT_TRUE(system.motorSessionActive());
++  EXPECT_EQ(system.activationCount(), 1U);
++
++  ASSERT_EQ(system.on_deactivate(state), hardware_interface::CallbackReturn::SUCCESS);
++  EXPECT_FALSE(system.motorSessionActive());
++  EXPECT_EQ(system.deactivationCount(), 1U);
++  EXPECT_EQ(system.terminalBarrierCount(), 0U);
++
++  EXPECT_EQ(system.read(now, period), hardware_interface::return_type::OK);
++  EXPECT_EQ(system.readCount(), 1U);
++  command_interfaces.front().set_value(1.0);
++  EXPECT_EQ(system.write(now, period), hardware_interface::return_type::OK);
++  EXPECT_DOUBLE_EQ(command_interfaces.front().get_value(), 0.0);
++
++  EXPECT_EQ(system.on_activate(state), hardware_interface::CallbackReturn::SUCCESS);
++  EXPECT_TRUE(system.motorSessionActive());
++  EXPECT_EQ(system.activationCount(), 2U);
++
++  ASSERT_EQ(system.on_deactivate(state), hardware_interface::CallbackReturn::SUCCESS);
++  ASSERT_EQ(system.on_cleanup(state), hardware_interface::CallbackReturn::SUCCESS);
++  ASSERT_EQ(system.on_configure(state), hardware_interface::CallbackReturn::SUCCESS);
++  EXPECT_EQ(system.configurationCount(), 2U);
++  EXPECT_EQ(system.on_activate(state), hardware_interface::CallbackReturn::SUCCESS);
++  EXPECT_TRUE(system.motorSessionActive());
++  EXPECT_EQ(system.activationCount(), 3U);
++}
++
++TEST(Cia402HardwareInfoTest, TerminalCleanupPreservesOrderAndPropagatesEveryFailure)
++{
++  rclcpp::init(0, nullptr);
++  {
++    const std::vector<TerminalCleanupResults> cases = {
++      {},
++      {false, true, true, true},
++      {true, true, false, true},
++      {true, true, true, false},
++    };
++    for (std::size_t index = 0U; index < cases.size(); ++index)
++    {
++      std::vector<std::string> events;
++      TerminalInspectableCia402System system(events, cases[index]);
++      auto container = std::make_shared<TerminalDeviceContainer>(
++        events, cases[index], "terminal_container_" + std::to_string(index));
++      system.installContainer(container);
++
++      const auto result = system.on_cleanup(rclcpp_lifecycle::State());
++      EXPECT_EQ(
++        result, index == 0U ? hardware_interface::CallbackReturn::SUCCESS
++                            : hardware_interface::CallbackReturn::ERROR);
++      EXPECT_EQ(
++        events,
++        (std::vector<std::string>{"nmt_stop", "callback_barrier", "drivers", "master"}));
++
++      const auto completed_event_count = events.size();
++      EXPECT_EQ(
++        system.on_cleanup(rclcpp_lifecycle::State()),
++        hardware_interface::CallbackReturn::SUCCESS);
++      EXPECT_EQ(events.size(), completed_event_count);
++    }
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, TerminalCallbackBarrierFailureBlocksTeardownAndCanRetry)
++{
++  rclcpp::init(0, nullptr);
++  {
++    TerminalCleanupResults results{false, false, false, false};
++    std::vector<std::string> events;
++    TerminalInspectableCia402System system(events, results);
++    auto container = std::make_shared<TerminalDeviceContainer>(
++      events, results, "terminal_barrier_retry_container");
++    system.installContainer(container);
++
++    EXPECT_EQ(
++      system.on_cleanup(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::ERROR);
++    EXPECT_EQ(events, (std::vector<std::string>{"nmt_stop", "callback_barrier"}));
++    EXPECT_TRUE(system.hasInstalledContainer());
++
++    results = TerminalCleanupResults{};
++    EXPECT_EQ(
++      system.on_cleanup(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::SUCCESS);
++    EXPECT_EQ(
++      events,
++      (std::vector<std::string>{
++        "nmt_stop", "callback_barrier", "nmt_stop", "callback_barrier", "drivers", "master"}));
++    EXPECT_FALSE(system.hasInstalledContainer());
++
++    const auto completed_event_count = events.size();
++    EXPECT_EQ(
++      system.on_cleanup(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::SUCCESS);
++    EXPECT_EQ(events.size(), completed_event_count);
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, TerminalShutdownPropagatesCleanupFailure)
++{
++  rclcpp::init(0, nullptr);
++  {
++    const TerminalCleanupResults results{true, true, true, false};
++    std::vector<std::string> events;
++    TerminalInspectableCia402System system(events, results);
++    auto container = std::make_shared<TerminalDeviceContainer>(
++      events, results, "terminal_shutdown_container");
++    system.installContainer(container);
++
++    EXPECT_EQ(
++      system.on_shutdown(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::ERROR);
++    EXPECT_EQ(
++      events,
++      (std::vector<std::string>{"nmt_stop", "callback_barrier", "drivers", "master"}));
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, ErrorTransitionRunsTerminalCleanupBeforeFinalization)
++{
++  rclcpp::init(0, nullptr);
++  {
++    const TerminalCleanupResults results;
++    std::vector<std::string> events;
++    TerminalInspectableCia402System system(events, results);
++    auto container = std::make_shared<TerminalDeviceContainer>(
++      events, results, "terminal_error_container");
++    system.installContainer(container);
++
++    EXPECT_EQ(
++      system.on_error(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::SUCCESS);
++    EXPECT_EQ(
++      events,
++      (std::vector<std::string>{"nmt_stop", "callback_barrier", "drivers", "master"}));
++    EXPECT_FALSE(system.hasInstalledContainer());
++  }
++  {
++    TerminalCleanupResults results{true, false, true, true};
++    std::vector<std::string> events;
++    TerminalInspectableCia402System system(events, results);
++    auto container = std::make_shared<TerminalDeviceContainer>(
++      events, results, "terminal_error_barrier_container");
++    system.installContainer(container);
++
++    EXPECT_EQ(
++      system.on_error(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::ERROR);
++    EXPECT_EQ(events, (std::vector<std::string>{"nmt_stop", "callback_barrier"}));
++    EXPECT_TRUE(system.hasInstalledContainer());
++
++    results = TerminalCleanupResults{};
++    EXPECT_EQ(
++      system.on_cleanup(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::SUCCESS);
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, BaseErrorTransitionRunsTerminalCleanupBeforeFinalization)
++{
++  rclcpp::init(0, nullptr);
++  {
++    const TerminalCleanupResults results;
++    std::vector<std::string> events;
++    TerminalInspectableCanopenSystem system(events, results);
++    auto container = std::make_shared<TerminalDeviceContainer>(
++      events, results, "base_terminal_error_container");
++    system.installContainer(container);
++
++    EXPECT_EQ(
++      system.on_error(rclcpp_lifecycle::State()),
++      hardware_interface::CallbackReturn::SUCCESS);
++    EXPECT_EQ(
++      events,
++      (std::vector<std::string>{"nmt_stop", "callback_barrier", "drivers", "master"}));
++    EXPECT_FALSE(system.hasInstalledContainer());
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, DerivedDestructorCleanupIsIdempotentWithBaseDestructor)
++{
++  rclcpp::init(0, nullptr);
++  {
++    const TerminalCleanupResults results;
++    std::vector<std::string> events;
++    {
++      TerminalInspectableCia402System system(events, results);
++      auto container = std::make_shared<TerminalDeviceContainer>(
++        events, results, "terminal_destructor_container");
++      system.installContainer(container);
++    }
++    EXPECT_EQ(events, (std::vector<std::string>{"nmt_stop", "drivers", "master"}));
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, DerivedDestructorFailStopsIfCallbackBarrierCannotJoin)
++{
++  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
++  EXPECT_DEATH(
++    {
++      std::promise<void> release;
++      std::promise<void> deletion_started;
++      auto deletion_started_future = deletion_started.get_future();
++      auto * system = new SelfDeletingSystem<Cia402System>();
++      system->deleteOnOwnedThread(release.get_future().share(), deletion_started);
++      release.set_value();
++      deletion_started_future.wait();
++      std::this_thread::sleep_for(std::chrono::seconds(5));
++    },
++    "Cia402System destruction could not quiesce CANopen callbacks");
++}
++
++TEST(Cia402HardwareInfoTest, BaseDestructorFailStopsIfCallbackBarrierCannotJoin)
++{
++  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
++  EXPECT_DEATH(
++    {
++      std::promise<void> release;
++      std::promise<void> deletion_started;
++      auto deletion_started_future = deletion_started.get_future();
++      auto * system = new SelfDeletingSystem<CanopenSystem>();
++      system->deleteOnOwnedThread(release.get_future().share(), deletion_started);
++      release.set_value();
++      deletion_started_future.wait();
++      std::this_thread::sleep_for(std::chrono::seconds(5));
++    },
++    "CanopenSystem destruction could not quiesce CANopen callbacks");
++}
++
++TEST(Cia402HardwareInfoTest, ActualOperationModeCacheStartsFailClosed)
++{
++  ros2_canopen::Motor402 motor(
++    nullptr, ros2_canopen::State402::Switch_On_Disabled, 0);
++
++  EXPECT_EQ(motor.getActualMode(), MotorBase::No_Mode);
++}
++
++TEST(Cia402HardwareInfoTest, DriverModeLockIsCompatibleUntilExplicitlyFrozen)
++{
++  rclcpp::init(0, nullptr);
++  {
++    ros2_canopen::Cia402Driver driver(
++      rclcpp::NodeOptions().use_global_arguments(false));
++
++    EXPECT_TRUE(driver.is_operation_mode_allowed(MotorBase::Profiled_Position));
++    EXPECT_TRUE(driver.is_operation_mode_allowed(MotorBase::Cyclic_Synchronous_Velocity));
++    EXPECT_FALSE(driver.lock_operation_mode(MotorBase::No_Mode));
++    EXPECT_TRUE(driver.is_operation_mode_allowed(MotorBase::Profiled_Torque));
++    EXPECT_TRUE(driver.lock_operation_mode(MotorBase::Profiled_Velocity));
++    EXPECT_TRUE(driver.lock_operation_mode(MotorBase::Profiled_Velocity));
++    EXPECT_TRUE(driver.is_operation_mode_allowed(MotorBase::Profiled_Velocity));
++    EXPECT_FALSE(driver.is_operation_mode_allowed(MotorBase::Profiled_Position));
++    EXPECT_FALSE(driver.is_operation_mode_allowed(MotorBase::Cyclic_Synchronous_Velocity));
++    EXPECT_FALSE(driver.is_operation_mode_allowed(MotorBase::Profiled_Torque));
++    EXPECT_FALSE(driver.lock_operation_mode(MotorBase::Profiled_Position));
++  }
++  {
++    ros2_canopen::Cia402Driver concurrent_driver(
++      rclcpp::NodeOptions().use_global_arguments(false));
++    bool velocity_lock = false;
++    bool position_lock = false;
++    std::thread velocity_thread(
++      [&concurrent_driver, &velocity_lock]()
++      { velocity_lock = concurrent_driver.lock_operation_mode(MotorBase::Profiled_Velocity); });
++    std::thread position_thread(
++      [&concurrent_driver, &position_lock]()
++      { position_lock = concurrent_driver.lock_operation_mode(MotorBase::Profiled_Position); });
++    velocity_thread.join();
++    position_thread.join();
++
++    EXPECT_NE(velocity_lock, position_lock);
++    EXPECT_NE(
++      concurrent_driver.is_operation_mode_allowed(MotorBase::Profiled_Velocity),
++      concurrent_driver.is_operation_mode_allowed(MotorBase::Profiled_Position));
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, EmbeddedContainerOmitsInitDriverService)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    options.parameter_overrides(
++      {rclcpp::Parameter("expose_mutating_ros_api", false)});
++    auto container = std::make_shared<ros2_canopen::DeviceContainer>(
++      executor, "restricted_device_container", options);
++
++    const auto services = container->get_service_names_and_types_by_node(
++      container->get_name(), container->get_namespace());
++    EXPECT_EQ(services.count("/restricted_device_container/init_driver"), 0U);
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, EmbeddedContainerRejectsLifecycleManagerMutationSurface)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    options.parameter_overrides(
++      {rclcpp::Parameter("expose_mutating_ros_api", false)});
++    auto container = std::make_shared<InspectableDeviceContainer>(
++      executor, "restricted_lifecycle_device_container", options);
++    container->simulateLifecycleOperation();
++
++    EXPECT_FALSE(container->load_manager());
++    EXPECT_FALSE(container->hasLifecycleManager());
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, EmbeddedDriverOmitsEveryMutatingRosEntryPoint)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    options.arguments(
++      {"--ros-args", "-r", "__node:=restricted_cia402_driver"});
++    options.parameter_overrides(
++      {rclcpp::Parameter("expose_mutating_ros_api", false)});
++    ros2_canopen::Cia402Driver driver(options);
++    driver.get_node_canopen_driver_interface()->init();
++
++    const auto services =
++      driver.get_service_names_and_types_by_node(driver.get_name(), driver.get_namespace());
++    EXPECT_EQ(services.count("/restricted_cia402_driver/sdo_read"), 1U);
++    const std::vector<std::string> forbidden_services = {
++      "/restricted_cia402_driver/sdo_write",
++      "/restricted_cia402_driver/nmt_reset_node",
++      "/restricted_cia402_driver/nmt_start_node",
++      "/restricted_cia402_driver/init",
++      "/restricted_cia402_driver/enable",
++      "/restricted_cia402_driver/disable",
++      "/restricted_cia402_driver/halt",
++      "/restricted_cia402_driver/recover",
++      "/restricted_cia402_driver/position_mode",
++      "/restricted_cia402_driver/velocity_mode",
++      "/restricted_cia402_driver/cyclic_velocity_mode",
++      "/restricted_cia402_driver/cyclic_position_mode",
++      "/restricted_cia402_driver/interpolated_position_mode",
++      "/restricted_cia402_driver/torque_mode",
++      "/restricted_cia402_driver/cyclic_torque_mode",
++      "/restricted_cia402_driver/target",
++    };
++    for (const auto & service_name : forbidden_services)
++    {
++      EXPECT_EQ(services.count(service_name), 0U) << service_name;
++    }
++
++    const auto topics = driver.get_topic_names_and_types();
++    EXPECT_EQ(topics.count("/restricted_cia402_driver/tpdo"), 0U);
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, StandaloneDriverKeepsUpstreamMutatingRosApiByDefault)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    options.arguments(
++      {"--ros-args", "-r", "__node:=standalone_cia402_driver"});
++    ros2_canopen::Cia402Driver driver(options);
++    driver.get_node_canopen_driver_interface()->init();
++
++    const auto services =
++      driver.get_service_names_and_types_by_node(driver.get_name(), driver.get_namespace());
++    EXPECT_EQ(services.count("/standalone_cia402_driver/sdo_read"), 1U);
++    EXPECT_EQ(services.count("/standalone_cia402_driver/sdo_write"), 1U);
++    EXPECT_EQ(services.count("/standalone_cia402_driver/target"), 1U);
++    EXPECT_EQ(services.count("/standalone_cia402_driver/position_mode"), 1U);
++
++    const auto topics = driver.get_topic_names_and_types();
++    EXPECT_EQ(topics.count("/standalone_cia402_driver/tpdo"), 1U);
++  }
++  rclcpp::shutdown();
++}
++
++TEST(Cia402HardwareInfoTest, RejectsEmptyOrDuplicateMotorTopology)
++{
++  Cia402System empty_system;
++  EXPECT_EQ(
++    empty_system.on_init(makeHardwareInfo({})), hardware_interface::CallbackReturn::ERROR);
++
++  Cia402System duplicate_system;
++  EXPECT_EQ(
++    duplicate_system.on_init(makeHardwareInfo({
++      {"left_track", {"2", "3"}},
++      {"right_track", {"2", "3"}},
++    })),
++    hardware_interface::CallbackReturn::ERROR);
++}
++
++class InvalidCia402ParameterTest :
++  public ::testing::TestWithParam<std::pair<std::string, JointParameters>>
++{};
++
++TEST_P(InvalidCia402ParameterTest, RejectsMalformedOrUnsafeParameters)
++{
++  Cia402System system;
++  const auto & [label, parameters] = GetParam();
++  EXPECT_EQ(
++    system.on_init(makeHardwareInfo({{label, parameters}})),
++    hardware_interface::CallbackReturn::ERROR)
++    << label;
++}
++
++INSTANTIATE_TEST_SUITE_P(
++  InvalidParameters, InvalidCia402ParameterTest,
++  ::testing::Values(
++    std::make_pair("both_missing", JointParameters{"", ""}),
++    std::make_pair("missing_node", JointParameters{"", "3"}),
++    std::make_pair("missing_mode", JointParameters{"2", ""}),
++    std::make_pair("non_numeric_node", JointParameters{"two", "3"}),
++    std::make_pair("trailing_node", JointParameters{"2x", "3"}),
++    std::make_pair("leading_space_node", JointParameters{" 2", "3"}),
++    std::make_pair("negative_node", JointParameters{"-2", "3"}),
++    std::make_pair("fractional_node", JointParameters{"2.0", "3"}),
++    std::make_pair("zero_node", JointParameters{"0", "3"}),
++    std::make_pair("large_node", JointParameters{"128", "3"}),
++    std::make_pair("unsafe_mode", JointParameters{"2", "9"})));
++
++}  // namespace
++}  // namespace canopen_ros2_control

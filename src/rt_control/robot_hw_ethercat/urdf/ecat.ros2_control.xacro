@@ -1,102 +1,358 @@
 <?xml version="1.0"?>
 <robot name="ecat_arms_control" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:arg name="config_dir" default="$(find robot_hw_ethercat)/config"/>
+  <xacro:arg name="variant_dir" default="$(find robot_hw_ethercat)/variants"/>
 
-  <xacro:macro name="zeroerr_axis" params="joint_name ring_position profile">
-    <joint name="${joint_name}">
-      <command_interface name="position"/>
-      <command_interface name="digital_outputs"/>
-      <command_interface name="control_word"/>
-      <state_interface name="position"/>
-      <state_interface name="digital_inputs"/>
-      <state_interface name="status_word"/>
-      <ec_module name="${joint_name}_drive">
-        <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
-        <param name="alias">0</param>
-        <param name="position">${ring_position}</param>
-        <param name="mode_of_operation">8</param>
-        <param name="slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
-      </ec_module>
+  <xacro:macro name="rt_control_ecat_mock_initial_value" params="value use_mock_hardware">
+    <xacro:if value="${use_mock_hardware}">
+      <param name="initial_value">${value}</param>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_module"
+    params="joint_name ring_position profile mode_of_operation use_mock_hardware">
+    <xacro:unless value="${use_mock_hardware}">
+      <param name="ec_module.name">${joint_name}_drive</param>
+      <param name="ec_module.plugin">ethercat_generic_plugins/EcCiA402Drive</param>
+      <param name="ec_module.alias">0</param>
+      <param name="ec_module.position">${ring_position}</param>
+      <param name="ec_module.mode_of_operation">${mode_of_operation}</param>
+      <param name="ec_module.slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
+    </xacro:unless>
+  </xacro:macro>
+
+  <xacro:macro name="rt_control_ecat_command_interfaces" params="interfaces">
+    <xacro:if value="${len(interfaces) > 0}">
+      <command_interface name="${interfaces[0].name}"/>
+      <xacro:rt_control_ecat_command_interfaces interfaces="${interfaces[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_state_interfaces"
+    params="interfaces use_mock_hardware">
+    <xacro:if value="${len(interfaces) > 0}">
+      <state_interface name="${interfaces[0].name}">
+        <xacro:rt_control_ecat_mock_initial_value
+          value="${interfaces[0].mock_initial_value}"
+          use_mock_hardware="${use_mock_hardware}"/>
+      </state_interface>
+      <xacro:rt_control_ecat_state_interfaces
+        interfaces="${interfaces[1:]}"
+        use_mock_hardware="${use_mock_hardware}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_axis"
+    params="axis interface_contract use_mock_hardware">
+    <joint name="${axis.joint_name}">
+      <xacro:rt_control_ecat_command_interfaces
+        interfaces="${interface_contract.required_command_interfaces}"/>
+      <xacro:rt_control_ecat_state_interfaces
+        interfaces="${interface_contract.required_state_interfaces}"
+        use_mock_hardware="${use_mock_hardware}"/>
+      <xacro:rt_control_ecat_module
+        joint_name="${axis.joint_name}"
+        ring_position="${axis.ring_position}"
+        profile="${axis.profile}"
+        mode_of_operation="${axis.mode_of_operation}"
+        use_mock_hardware="${use_mock_hardware}"/>
     </joint>
   </xacro:macro>
 
-  <xacro:macro name="ti5_axis" params="joint_name ring_position profile">
-    <joint name="${joint_name}">
-      <command_interface name="position"/>
-      <command_interface name="control_word"/>
-      <state_interface name="position"/>
-      <state_interface name="status_word"/>
-      <ec_module name="${joint_name}_drive">
-        <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
-        <param name="alias">0</param>
-        <param name="position">${ring_position}</param>
-        <param name="mode_of_operation">8</param>
-        <param name="slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
-      </ec_module>
-    </joint>
-  </xacro:macro>
-
-  <xacro:macro name="xmc_axis" params="joint_name ring_position profile">
-    <joint name="${joint_name}">
-      <command_interface name="position"/>
-      <command_interface name="control_word"/>
-      <state_interface name="position"/>
-      <state_interface name="status_word"/>
-      <ec_module name="${joint_name}_drive">
-        <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
-        <param name="alias">0</param>
-        <param name="position">${ring_position}</param>
-        <param name="mode_of_operation">8</param>
-        <param name="slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
-      </ec_module>
-    </joint>
-  </xacro:macro>
-
-  <ros2_control name="ecat_arms" type="system">
-    <hardware>
-      <plugin>ethercat_driver/EthercatDriver</plugin>
-      <param name="master_id">0</param>
-      <param name="control_frequency">250</param>
-      <param name="startup_bus_timeout_ms">70000</param>
-      <param name="preload_timeout_ms">5000</param>
-    </hardware>
-
-    <xacro:zeroerr_axis joint_name="right_joint1" ring_position="1" profile="zeroerr_j1"/>
-    <xacro:ti5_axis joint_name="right_joint2" ring_position="2" profile="ti5_right_joint2"/>
-    <xacro:ti5_axis joint_name="right_joint3" ring_position="3" profile="ti5_j3"/>
-    <xacro:zeroerr_axis joint_name="right_joint4" ring_position="4" profile="zeroerr_right_joint4"/>
-    <xacro:zeroerr_axis joint_name="right_joint5" ring_position="5" profile="zeroerr_right_joint5"/>
-    <xacro:zeroerr_axis joint_name="right_joint6" ring_position="6" profile="right_j6"/>
-    <xacro:zeroerr_axis joint_name="left_joint1" ring_position="7" profile="zeroerr_j1"/>
-    <xacro:ti5_axis joint_name="left_joint2" ring_position="8" profile="ti5_j2"/>
-    <xacro:ti5_axis joint_name="left_joint3" ring_position="9" profile="ti5_left_joint3"/>
-    <xacro:zeroerr_axis joint_name="left_joint4" ring_position="10" profile="zeroerr_j4"/>
-    <xacro:zeroerr_axis joint_name="left_joint5" ring_position="11" profile="zeroerr_left_joint5"/>
-    <xacro:zeroerr_axis joint_name="left_joint6" ring_position="12" profile="left_j6"/>
-    <xacro:zeroerr_axis joint_name="turn" ring_position="14" profile="turn"/>
-    <xacro:xmc_axis joint_name="updown" ring_position="15" profile="xmc_updown_sw511"/>
-
-    <sensor name="ethercat_domain">
-      <state_interface name="process_data_age_ms"/>
+  <xacro:macro
+    name="rt_control_ecat_slave_sensor"
+    params="ring_position use_mock_hardware">
+    <sensor name="ethercat_slave_${ring_position}">
+      <state_interface name="al_state">
+        <xacro:rt_control_ecat_mock_initial_value
+          value="8.0" use_mock_hardware="${use_mock_hardware}"/>
+      </state_interface>
     </sensor>
-    <sensor name="ethercat_master">
-      <state_interface name="link_up"/>
-      <state_interface name="slaves_responding"/>
-      <state_interface name="wc_error_count"/>
-    </sensor>
-    <sensor name="ethercat_slave_1"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_2"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_3"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_4"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_5"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_6"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_7"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_8"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_9"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_10"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_11"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_12"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_14"><state_interface name="al_state"/></sensor>
-    <sensor name="ethercat_slave_15"><state_interface name="al_state"/></sensor>
-  </ros2_control>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_validate_profile_sdos"
+    params="entries mode_of_operation profile">
+    <xacro:if value="${len(entries) > 0}">
+      <xacro:property name="entry" value="${entries[0]}"/>
+      <xacro:if value="${entry.index == 0x6060}">
+        <xacro:unless value="${entry.value == mode_of_operation}">
+          <xacro:if value="${xacro.fatal(
+            'Profile', profile, 'SDO 0x6060 value', entry.value,
+            'does not match descriptor mode', mode_of_operation)}"/>
+        </xacro:unless>
+      </xacro:if>
+      <xacro:rt_control_ecat_validate_profile_sdos
+        entries="${entries[1:]}"
+        mode_of_operation="${mode_of_operation}"
+        profile="${profile}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_validate_profile_channels"
+    params="channels mode_of_operation profile">
+    <xacro:if value="${len(channels) > 0}">
+      <xacro:property name="channel" value="${channels[0]}"/>
+      <xacro:if value="${channel.index == 0x6060}">
+        <xacro:unless value="${channel.default == mode_of_operation}">
+          <xacro:if value="${xacro.fatal(
+            'Profile', profile, 'RPDO 0x6060 default', channel.default,
+            'does not match descriptor mode', mode_of_operation)}"/>
+        </xacro:unless>
+      </xacro:if>
+      <xacro:rt_control_ecat_validate_profile_channels
+        channels="${channels[1:]}"
+        mode_of_operation="${mode_of_operation}"
+        profile="${profile}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_validate_profile_rpdos"
+    params="pdos mode_of_operation profile">
+    <xacro:if value="${len(pdos) > 0}">
+      <xacro:rt_control_ecat_validate_profile_channels
+        channels="${pdos[0].channels}"
+        mode_of_operation="${mode_of_operation}"
+        profile="${profile}"/>
+      <xacro:rt_control_ecat_validate_profile_rpdos
+        pdos="${pdos[1:]}"
+        mode_of_operation="${mode_of_operation}"
+        profile="${profile}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_assert_axis_not_extra_responder"
+    params="ring_position responders">
+    <xacro:if value="${len(responders) > 0}">
+      <xacro:if value="${ring_position == responders[0].ring_position}">
+        <xacro:if value="${xacro.fatal(
+          'duplicate ring_position', ring_position,
+          'between axis and extra responder')}"/>
+      </xacro:if>
+      <xacro:rt_control_ecat_assert_axis_not_extra_responder
+        ring_position="${ring_position}"
+        responders="${responders[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_validate_extra_responders"
+    params="responders seen_positions">
+    <xacro:if value="${len(responders) > 0}">
+      <xacro:property name="ring_position" value="${responders[0].ring_position}"/>
+      <xacro:if value="${ring_position in seen_positions}">
+        <xacro:if value="${xacro.fatal(
+          'duplicate ring_position', ring_position, 'in extra_responders')}"/>
+      </xacro:if>
+      <xacro:rt_control_ecat_validate_extra_responders
+        responders="${responders[1:]}"
+        seen_positions="${seen_positions + [ring_position]}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_axes"
+    params="axes extra_responders families interface_contracts
+            seen_joints seen_positions use_mock_hardware">
+    <xacro:if value="${len(axes) > 0}">
+      <xacro:property name="axis" value="${axes[0]}"/>
+      <xacro:if value="${str(axis.joint_name) in seen_joints}">
+        <xacro:if value="${xacro.fatal(
+          'duplicate joint_name', axis.joint_name, 'in EtherCAT descriptor')}"/>
+      </xacro:if>
+      <xacro:if value="${axis.ring_position in seen_positions}">
+        <xacro:if value="${xacro.fatal(
+          'duplicate ring_position', axis.ring_position, 'between axes')}"/>
+      </xacro:if>
+      <xacro:rt_control_ecat_assert_axis_not_extra_responder
+        ring_position="${axis.ring_position}"
+        responders="${extra_responders}"/>
+      <xacro:unless value="${str(axis.family) in families}">
+        <xacro:if value="${xacro.fatal(
+          'unsupported family', axis.family, 'for joint', axis.joint_name)}"/>
+      </xacro:unless>
+      <xacro:property name="family_config" value="${families[str(axis.family)]}"/>
+      <xacro:unless
+        value="${axis.mode_of_operation in family_config.certified_modes}">
+        <xacro:if value="${xacro.fatal(
+          'uncertified mode_of_operation', axis.mode_of_operation,
+          'for joint', axis.joint_name)}"/>
+      </xacro:unless>
+      <xacro:unless
+        value="${str(family_config.interface_contract) in interface_contracts}">
+        <xacro:if value="${xacro.fatal(
+          'unsupported interface_contract', family_config.interface_contract,
+          'for family', axis.family)}"/>
+      </xacro:unless>
+      <xacro:property
+        name="interface_contract"
+        value="${interface_contracts[str(family_config.interface_contract)]}"/>
+
+      <xacro:property
+        name="profile_config"
+        value="${xacro.load_yaml('$(arg config_dir)/slaves/' + str(axis.profile) + '.yaml')}"/>
+      <xacro:property
+        name="identity_profile_config"
+        value="${xacro.load_yaml(
+          '$(arg config_dir)/slaves/' + str(family_config.identity_profile) + '.yaml')}"/>
+      <xacro:unless value="${
+        profile_config.vendor_id == identity_profile_config.vendor_id and
+        profile_config.product_id == identity_profile_config.product_id}">
+        <xacro:if value="${xacro.fatal(
+          'profile device identity for', axis.profile,
+          'does not match family', axis.family,
+          'identity source', family_config.identity_profile)}"/>
+      </xacro:unless>
+      <xacro:rt_control_ecat_validate_profile_sdos
+        entries="${profile_config.sdo}"
+        mode_of_operation="${axis.mode_of_operation}"
+        profile="${axis.profile}"/>
+      <xacro:rt_control_ecat_validate_profile_rpdos
+        pdos="${profile_config.rpdo}"
+        mode_of_operation="${axis.mode_of_operation}"
+        profile="${axis.profile}"/>
+
+      <xacro:rt_control_ecat_axis
+        axis="${axis}"
+        interface_contract="${interface_contract}"
+        use_mock_hardware="${use_mock_hardware}"/>
+
+      <xacro:rt_control_ecat_axes
+        axes="${axes[1:]}"
+        extra_responders="${extra_responders}"
+        families="${families}"
+        interface_contracts="${interface_contracts}"
+        seen_joints="${seen_joints + [str(axis.joint_name)]}"
+        seen_positions="${seen_positions + [axis.ring_position]}"
+        use_mock_hardware="${use_mock_hardware}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ecat_slave_sensors"
+    params="axes use_mock_hardware">
+    <xacro:if value="${len(axes) > 0}">
+      <xacro:rt_control_ecat_slave_sensor
+        ring_position="${axes[0].ring_position}"
+        use_mock_hardware="${use_mock_hardware}"/>
+      <xacro:rt_control_ecat_slave_sensors
+        axes="${axes[1:]}"
+        use_mock_hardware="${use_mock_hardware}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ethercat_descriptor_system"
+    params="descriptor family_registry use_mock_hardware">
+    <xacro:unless value="${descriptor.schema_version == 1}">
+      <xacro:if value="${xacro.fatal(
+        'Unsupported EtherCAT descriptor schema_version:',
+        descriptor.schema_version)}"/>
+    </xacro:unless>
+    <xacro:unless value="${str(descriptor.system) == 'ecat_arms'}">
+      <xacro:if value="${xacro.fatal(
+        'Unsupported EtherCAT system:', descriptor.system)}"/>
+    </xacro:unless>
+    <xacro:unless value="${len(descriptor.axes) > 0}">
+      <xacro:if value="${xacro.fatal('EtherCAT descriptor axes must not be empty')}"/>
+    </xacro:unless>
+    <xacro:rt_control_ecat_validate_extra_responders
+      responders="${descriptor.extra_responders}"
+      seen_positions="${[]}"/>
+
+    <ros2_control name="${descriptor.system}" type="system">
+      <hardware>
+        <xacro:if value="${use_mock_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+        </xacro:if>
+        <xacro:unless value="${use_mock_hardware}">
+          <plugin>ethercat_driver/EthercatDriver</plugin>
+          <param name="master_id">0</param>
+          <param name="control_frequency">250</param>
+          <param name="startup_bus_timeout_ms">70000</param>
+          <param name="preload_timeout_ms">5000</param>
+        </xacro:unless>
+      </hardware>
+
+      <xacro:rt_control_ecat_axes
+        axes="${descriptor.axes}"
+        extra_responders="${descriptor.extra_responders}"
+        families="${family_registry.families}"
+        interface_contracts="${family_registry.interface_contracts}"
+        seen_joints="${[]}"
+        seen_positions="${[]}"
+        use_mock_hardware="${use_mock_hardware}"/>
+
+      <sensor name="ethercat_domain">
+        <state_interface name="process_data_age_ms">
+          <xacro:rt_control_ecat_mock_initial_value
+            value="0.0" use_mock_hardware="${use_mock_hardware}"/>
+        </state_interface>
+      </sensor>
+      <sensor name="ethercat_master">
+        <state_interface name="link_up">
+          <xacro:rt_control_ecat_mock_initial_value
+            value="1.0" use_mock_hardware="${use_mock_hardware}"/>
+        </state_interface>
+        <state_interface name="slaves_responding">
+          <xacro:rt_control_ecat_mock_initial_value
+            value="${len(descriptor.axes) + len(descriptor.extra_responders)}"
+            use_mock_hardware="${use_mock_hardware}"/>
+        </state_interface>
+        <state_interface name="wc_error_count">
+          <xacro:rt_control_ecat_mock_initial_value
+            value="0.0" use_mock_hardware="${use_mock_hardware}"/>
+        </state_interface>
+      </sensor>
+      <xacro:rt_control_ecat_slave_sensors
+        axes="${descriptor.axes}"
+        use_mock_hardware="${use_mock_hardware}"/>
+    </ros2_control>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_ethercat_system"
+    params="variant use_mock_hardware">
+    <xacro:property name="variant_name" value="${str(variant)}"/>
+    <xacro:unless value="${len(variant_name) > 0}">
+      <xacro:if value="${xacro.fatal('invalid EtherCAT variant identifier: empty')}"/>
+    </xacro:unless>
+    <xacro:if value="${len(variant_name) > 0}">
+      <xacro:unless value="${variant_name[0] in 'abcdefghijklmnopqrstuvwxyz'}">
+        <xacro:if value="${xacro.fatal(
+          'invalid EtherCAT variant identifier:', variant_name)}"/>
+      </xacro:unless>
+      <xacro:unless value="${len(xacro.tokenize(
+        variant_name, 'abcdefghijklmnopqrstuvwxyz0123456789_')) == 0}">
+        <xacro:if value="${xacro.fatal(
+          'invalid EtherCAT variant identifier:', variant_name)}"/>
+      </xacro:unless>
+    </xacro:if>
+    <xacro:property
+      name="variant_descriptor"
+      value="${xacro.load_yaml('$(arg variant_dir)/' + variant_name + '.yaml')}"/>
+    <xacro:property
+      name="family_registry"
+      value="${xacro.load_yaml('$(arg config_dir)/families.yaml')}"/>
+    <xacro:unless value="${family_registry.schema_version == 1}">
+      <xacro:if value="${xacro.fatal(
+        'Unsupported EtherCAT family registry schema_version:',
+        family_registry.schema_version)}"/>
+    </xacro:unless>
+    <xacro:unless value="${str(variant_descriptor.variant) == variant_name}">
+      <xacro:if value="${xacro.fatal(
+        'EtherCAT descriptor variant', variant_descriptor.variant,
+        'does not match requested variant', variant_name)}"/>
+    </xacro:unless>
+    <xacro:rt_control_ethercat_descriptor_system
+      descriptor="${variant_descriptor}"
+      family_registry="${family_registry}"
+      use_mock_hardware="${use_mock_hardware}"/>
+  </xacro:macro>
 </robot>

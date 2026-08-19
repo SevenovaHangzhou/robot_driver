@@ -168,6 +168,12 @@ apply_frozen_patches()
     patches/ecat_icube/0003-orderly-master-deactivation.patch \
     src/vendor/ecat_icube
   apply_patch_once \
+    patches/ecat_icube/0004-use-component-parameters-for-ec-modules.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
+    patches/ecat_icube/0005-validate-component-module-parameters.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
@@ -178,6 +184,9 @@ apply_frozen_patches()
     src/vendor/ros2_canopen
   apply_patch_once \
     patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
+    src/vendor/ros2_canopen
+  apply_patch_once \
+    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
@@ -239,12 +248,15 @@ verify_frozen_vendor_trees()
   verify_patched_vendor_tree src/vendor/ecat_icube \
     patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
     patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
-    patches/ecat_icube/0003-orderly-master-deactivation.patch
+    patches/ecat_icube/0003-orderly-master-deactivation.patch \
+    patches/ecat_icube/0004-use-component-parameters-for-ec-modules.patch \
+    patches/ecat_icube/0005-validate-component-module-parameters.patch
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
     patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
-    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch
+    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
+    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch

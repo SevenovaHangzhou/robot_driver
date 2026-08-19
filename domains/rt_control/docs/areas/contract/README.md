@@ -28,9 +28,13 @@
 | 05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
 | 05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
 | 05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
+| 06#F1 | diagnostics topology 从所选 EtherCAT/CANopen owner-local descriptors 派生；无独立 composition 配置，且不生成 Robot Model/controller/safety policy | [contract-20260819-06](records/2026-08-19-diagnostic-composition-contract.md)#F1 | 有效（Docker/T1） |
+| 06#F2 | rt_diagnostics 把动态详细拓扑归一化为稳定 EtherCAT/CANopen 摘要，状态适配器只消费摘要 | [contract-20260819-06](records/2026-08-19-diagnostic-composition-contract.md)#F2 | 有效（Docker/T1；真实总线时效待验证） |
+| 06#F3 | 畸形快照 fail stale，摘要确定性保留最高严重级具体来源，hardware_id 禁止形成自反馈 | [contract-20260819-06](records/2026-08-19-diagnostic-composition-contract.md)#F3 | 有效（Docker/T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [诊断拓扑组合与稳定摘要契约](records/2026-08-19-diagnostic-composition-contract.md) — feature，PASS（Docker/T1；READY/实机未验证）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）
 - 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）
 - 2026-08-16 [BQ-137 跨域错误与 readiness 语义裁决落地](records/2026-08-16-bq137-shared-error-readiness.md) — decision，PASS（T1；发布待 PR #6 最终 SHA 与全域迁移）

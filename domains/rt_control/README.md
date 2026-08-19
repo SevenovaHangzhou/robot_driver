@@ -10,6 +10,7 @@ this directory is their single domain-level documentation and governance home.
 - [一键启动](docs/one-command-start.md)：当前工控机上启动、自动使能、查看状态/日志和有序停止的最短说明。
 - [原生开发与运行](docs/native-development-workflow.md)：在目标机文件夹中增量编译、启动、显式使能和停止，不必每次重构镜像。
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
+- [硬件配置隔离分层与电机变体维护指南](docs/hardware-configuration-layering-and-motor-variants.md)：Franka 风格分层、配置 owner、改电机/比例/模式流程及“单文件修改”的真实边界。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
 - [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
 - [开发进度与联调准入](docs/integration-readiness-summary.md)：联调边界与剩余任务；接口清单以 vendored `robot_interfaces/contract/views/rt_control.md` 为准。
@@ -40,6 +41,32 @@ The source layout follows the frozen rt_control implementation specification:
 - `tools`: migration and commissioning tools.
 - `hostsetup`: target-host setup assets.
 
+## 硬件配置分层与组合
+
+ELECTRI-94 采用 Franka 风格的分层和 semantic components，但保留多设备组合：
+`rt_control_bringup` 在一个 `controller_manager` 中组合独立的 EtherCAT
+`ecat_arms` 与 CANopen `canopen_mobile_axes` system。bringup 只负责总装、启动顺序和
+controller 配置；功能包不得反向依赖 bringup。
+
+本仓库不要求硬件配置 strict SSOT，而按所有权分层，并用 alignment contract tests 防止
+同一 logical ABI 静默漂移：
+
+- `robot_description` 拥有 joint 名称、类型及机器人固有模型事实；
+- `robot_hw_ethercat` 与 `robot_hw_canopen` 各自拥有总线局部 real/mock Xacro、配置、
+  profile 和 `variants/<name>.yaml` 注册表，并向 bringup 暴露受控 variant macro；
+- `rt_control_semantic_components` 只封装 loaned interface 的类型化绑定、读写和状态
+  解码，不拥有机型拓扑、批次、时序或总线生命周期；
+- `enable_manager` 拥有 managed joints、使能批次、时序和 Ti5 失能终态策略；
+- `rt_control_bringup` 从本次选择的两份 hardware descriptor 派生 diagnostics 的预期
+  topology，不再维护独立的 composition 配置；controller/safety policy 仍由其 owner
+  显式维护，不从 descriptor 自动推断。
+
+当前唯一支持的生产 variant 是 `alfa_v1`，并保持现有 logical joint/interface ABI：
+EtherCAT 仅准入 CSP 8，CANopen 仅准入 Profiled Velocity 3，CAN descriptor 还必须与
+`bus.yml` 对齐。同 ABI 轴可以映射已认证 profile；新增 profile 需要 profile + descriptor，
+增删 logical joint 仍须联动 Robot Model、controller/safety 和 HIL/实机门禁。详细边界见
+[硬件配置维护指南](docs/hardware-configuration-layering-and-motor-variants.md)。
+
 The legacy baseline `/home/kkozia/robot_driver@6bc94cd` is read-only and is not vendored in this repository. External source checkouts are declared in `deps.repos`.
 
 Build the in-repository packages with:
@@ -56,10 +83,11 @@ Docker 运行互斥；Docker 继续作为里程碑发布、回归和交付载体
 [原生开发与运行](docs/native-development-workflow.md)。
 
 Build or expand the rt-control image configuration only after exporting the
-target host's validated isolated CPU set:
+target host's independently validated container and startup CPU sets:
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_START_CPUSET=<validated-housekeeping-only-cpu-list>
 tools/rt_control_compose.sh config
 tools/rt_control_compose.sh build rt-control
 ```

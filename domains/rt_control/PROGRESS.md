@@ -106,3 +106,8 @@
 | 2026-08-17 | contract | [robot_interfaces 回填最终 main SHA](docs/areas/contract/records/2026-08-17-robot-interfaces-final-main-pin.md) | PASS（T0；发布仍待镜像与全域同 SHA smoke） |
 | 2026-08-17 | io-power | [纠正左右电磁阀输出映射](docs/areas/io-power/records/2026-08-17-correct-solenoid-side-mapping.md) | PASS（T4；输入映射与新镜像待验证） |
 | 2026-08-17 | contract | [Native QoS 运行依赖闭包与 fail-closed 启动门禁](docs/areas/contract/records/2026-08-17-native-qos-runtime-closure.md) | PASS（T3；最终 stopped/Idle/PREOP） |
+| 2026-08-19 | ecat-axes | [EtherCAT 硬件包接管变体 Xacro 与 HardwareInfo 拓扑](docs/areas/ecat-axes/records/2026-08-19-hardware-owned-variant-xacro.md) | PASS（Docker/T1；最终 29-package 镜像与无设备 Mock，实机/HIL 未执行） |
+| 2026-08-19 | canopen-chassis | [CANopen 硬件包接管变体 Xacro 与电机拓扑](docs/areas/canopen-chassis/records/2026-08-19-hardwareinfo-motor-topology.md) | PASS（Docker/T1；上游 CANopen 178 tests 与最终无设备 Mock，实机/HIL 未执行） |
+| 2026-08-19 | lifecycle | [CiA402 semantic component 与使能策略分层](docs/areas/lifecycle/records/2026-08-19-semantic-component-policy-split.md) | PASS（Docker/T1；预期 controller 状态与 BQ-122 clean shutdown，powered 生命周期未执行） |
+| 2026-08-19 | contract | [诊断拓扑组合与稳定摘要契约](docs/areas/contract/records/2026-08-19-diagnostic-composition-contract.md) | PASS（Docker/T1；SafetyState NOT_READY fail closed，READY/实机未验证） |
+| 2026-08-19 | release-deploy | [Franka 风格双硬件插件组合入口](docs/areas/release-deploy/records/2026-08-19-franka-style-hardware-composition.md) | PASS（Docker/T1；镜像 5a61aa…、Mock a706… exit 0；实机/HIL 未执行） |

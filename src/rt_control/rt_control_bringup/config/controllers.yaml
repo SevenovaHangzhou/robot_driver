@@ -95,6 +95,47 @@ whole_body_jtc:
 
 enable_manager:
   ros__parameters:
+    managed_joints:
+      - right_joint1
+      - right_joint2
+      - right_joint3
+      - right_joint4
+      - right_joint5
+      - right_joint6
+      - left_joint1
+      - left_joint2
+      - left_joint3
+      - left_joint4
+      - left_joint5
+      - left_joint6
+      - turn
+      - updown
+    enable_batch_joint_names:
+      - right_joint1
+      - right_joint2
+      - right_joint3
+      - left_joint1
+      - left_joint2
+      - left_joint3
+      - right_joint4
+      - right_joint5
+      - right_joint6
+      - left_joint4
+      - left_joint5
+      - left_joint6
+      - turn
+      - updown
+    enable_batch_sizes:
+      - 3
+      - 3
+      - 3
+      - 3
+      - 2
+    ready_to_switch_on_disable_terminal_joints:
+      - right_joint2
+      - right_joint3
+      - left_joint2
+      - left_joint3
     batch_timeout: 4.0
     disable_stage_timeout: 4.0
     inter_batch_delay: 0.2

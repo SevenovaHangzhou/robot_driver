@@ -6,9 +6,11 @@ from pathlib import Path
 import yaml
 
 from tools.rt_control_axis_state_check import (
+    AxisStatePolicy,
     AxisStateError,
     _load_first_document,
     check_axis_states,
+    load_axis_state_policy,
 )
 
 
@@ -32,6 +34,10 @@ AXES = (
     "updown",
 )
 TI5_AXES = {"right_joint2", "right_joint3", "left_joint2", "left_joint3"}
+POLICY = AxisStatePolicy(AXES, frozenset(TI5_AXES))
+CONTROLLERS = (
+    ROOT / "src/rt_control/rt_control_bringup/config/controllers.yaml"
+)
 
 
 def dynamic_state(status_words):
@@ -53,7 +59,7 @@ class AxisStateCheckTest(unittest.TestCase):
             joint: (0x0021 if joint in TI5_AXES else 0x0040) for joint in AXES
         }
 
-        observed = check_axis_states(dynamic_state(words), "disabled")
+        observed = check_axis_states(dynamic_state(words), "disabled", POLICY)
 
         self.assertEqual(observed, words)
 
@@ -65,30 +71,30 @@ class AxisStateCheckTest(unittest.TestCase):
             AxisStateError,
             r"updown.*raw=0x0021.*expected=SwitchOnDisabled\(0x0040\)",
         ):
-            check_axis_states(dynamic_state(words), "disabled")
+            check_axis_states(dynamic_state(words), "disabled", POLICY)
 
     def test_enabled_requires_operation_enabled_on_all_fourteen_axes(self):
         words = {joint: 0x0027 for joint in AXES}
-        self.assertEqual(check_axis_states(dynamic_state(words), "enabled"), words)
+        self.assertEqual(check_axis_states(dynamic_state(words), "enabled", POLICY), words)
 
         words["right_joint3"] = 0x0023
         with self.assertRaisesRegex(
             AxisStateError,
             r"right_joint3.*raw=0x0023.*expected=OperationEnabled\(0x0027\)",
         ):
-            check_axis_states(dynamic_state(words), "enabled")
+            check_axis_states(dynamic_state(words), "enabled", POLICY)
 
     def test_rejects_missing_or_non_integral_status_words(self):
         message = dynamic_state({joint: 0x0040 for joint in AXES})
         message["interface_values"][4]["interface_names"] = ["position"]
         message["interface_values"][4]["values"] = [0.0]
         with self.assertRaisesRegex(AxisStateError, "right_joint5.*missing status_word"):
-            check_axis_states(message, "disabled")
+            check_axis_states(message, "disabled", POLICY)
 
         message = dynamic_state({joint: 0x0027 for joint in AXES})
         message["interface_values"][0]["values"][1] = 39.5
         with self.assertRaisesRegex(AxisStateError, "right_joint1.*not an integer"):
-            check_axis_states(message, "enabled")
+            check_axis_states(message, "enabled", POLICY)
 
     def test_loader_ignores_ros2_echo_loss_notice_before_yaml_document(self):
         message = dynamic_state({joint: 0x0040 for joint in AXES})
@@ -104,10 +110,45 @@ class AxisStateCheckTest(unittest.TestCase):
 
         document = _load_first_document(stream)
 
-        self.assertEqual(check_axis_states(document, "disabled"), {joint: 0x0040 for joint in AXES})
+        self.assertEqual(
+            check_axis_states(document, "disabled", POLICY),
+            {joint: 0x0040 for joint in AXES},
+        )
+
+    def test_policy_is_loaded_from_enable_manager_configuration(self):
+        self.assertEqual(load_axis_state_policy(CONTROLLERS), POLICY)
+
+    def test_custom_policy_changes_the_managed_set_and_ready_exception(self):
+        policy = AxisStatePolicy(("axis_b", "axis_a"), frozenset({"axis_a"}))
+        document = {
+            "joint_names": ["axis_a", "axis_b"],
+            "interface_values": [
+                {"interface_names": ["status_word"], "values": [0x0021]},
+                {"interface_names": ["status_word"], "values": [0x0040]},
+            ],
+        }
+
+        self.assertEqual(
+            check_axis_states(document, "disabled", policy),
+            {"axis_b": 0x0040, "axis_a": 0x0021},
+        )
 
 
 class RecoveryLauncherContractTest(unittest.TestCase):
+    def test_axis_policy_comes_from_the_selected_release_copy(self):
+        text = LAUNCHER.read_text(encoding="utf-8")
+
+        self.assertIn(
+            'enable_manager_config="${runtime_root}/src/rt_control/'
+            'rt_control_bringup/config/controllers.yaml"',
+            text,
+        )
+        self.assertNotIn(
+            'enable_manager_config="${repository_root}/src/rt_control/'
+            'rt_control_bringup/config/controllers.yaml"',
+            text,
+        )
+
     def test_recovery_is_explicit_and_follows_the_frozen_order(self):
         text = LAUNCHER.read_text(encoding="utf-8")
         begin = text.index("recover_power_loss()")

@@ -1,0 +1,14 @@
+schema_version: 1
+variant: alfa_v1
+system: canopen_mobile_axes
+nodes:
+  - joint_name: left_track_joint
+    node_id: 2
+    operation_mode: 3
+    side: left
+    profile: ld2_drive
+  - joint_name: right_track_joint
+    node_id: 3
+    operation_mode: 3
+    side: right
+    profile: ld2_drive

@@ -1,9 +1,14 @@
 #include "enable_manager/enable_manager_controller.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
+#include <iterator>
+#include <limits>
+#include <string_view>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -17,21 +22,34 @@
 namespace enable_manager
 {
 
-const std::array<const char *, EnableManagerController::kAxisCount>
-EnableManagerController::kJointNames = {
-  "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
-  "right_joint6", "left_joint1", "left_joint2", "left_joint3", "left_joint4",
-  "left_joint5", "left_joint6", "turn", "updown"};
+namespace
+{
 
-const std::array<std::array<std::int8_t, 3>, EnableManagerController::kBatchCount>
-EnableManagerController::kEnableBatches = {{{0, 1, 2}, {6, 7, 8}, {3, 4, 5}, {9, 10, 11},
-  {12, 13, -1}}};
+constexpr std::array<std::string_view, 4> kTopologyParameterNames{
+  "managed_joints",
+  "enable_batch_joint_names",
+  "enable_batch_sizes",
+  "ready_to_switch_on_disable_terminal_joints"};
 
-const std::array<std::uint8_t, EnableManagerController::kBatchCount>
-EnableManagerController::kBatchSizes = {3U, 3U, 3U, 3U, 2U};
+constexpr std::uint8_t topologyParameterBit(std::size_t index)
+{
+  return static_cast<std::uint8_t>(1U << index);
+}
+
+constexpr std::uint8_t kAllTopologyParametersMask = static_cast<std::uint8_t>(
+  (1U << kTopologyParameterNames.size()) - 1U);
+
+}  // namespace
 
 controller_interface::CallbackReturn EnableManagerController::on_init()
 {
+  auto_declare<std::vector<std::string>>("managed_joints", {});
+  auto_declare<std::vector<std::string>>(
+    "enable_batch_joint_names", {});
+  auto_declare<std::vector<std::int64_t>>("enable_batch_sizes", {});
+  auto_declare<std::vector<std::string>>(
+    "ready_to_switch_on_disable_terminal_joints", {});
+
   auto_declare<double>("batch_timeout", 4.0);
   auto_declare<double>("disable_stage_timeout", 4.0);
   auto_declare<double>("inter_batch_delay", 0.2);
@@ -39,6 +57,21 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
   auto_declare<std::string>("jtc_name", "whole_body_jtc");
+
+  topology_parameters_frozen_.store(false, std::memory_order_release);
+  topology_parameters_explicit_mask_.store(0U, std::memory_order_release);
+  const auto & parameter_overrides =
+    get_node()->get_node_parameters_interface()->get_parameter_overrides();
+  for (std::size_t index = 0; index < kTopologyParameterNames.size(); ++index) {
+    if (parameter_overrides.count(std::string{kTopologyParameterNames[index]}) != 0U) {
+      topology_parameters_explicit_mask_.fetch_or(
+        topologyParameterBit(index), std::memory_order_acq_rel);
+    }
+  }
+  topology_parameter_callback_ = get_node()->add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & parameters) {
+      return validateTopologyParameterUpdate(parameters);
+    });
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -47,9 +80,10 @@ EnableManagerController::command_interface_configuration() const
 {
   controller_interface::InterfaceConfiguration configuration;
   configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-  configuration.names.reserve(kAxisCount);
-  for (const char * joint : kJointNames) {
-    configuration.names.emplace_back(std::string(joint) + "/control_word");
+  configuration.names.reserve(cia402_axes_.size());
+  for (const auto & axis : cia402_axes_) {
+    const auto & names = axis.get_command_interface_names();
+    configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
   return configuration;
 }
@@ -59,9 +93,10 @@ EnableManagerController::state_interface_configuration() const
 {
   controller_interface::InterfaceConfiguration configuration;
   configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-  configuration.names.reserve(kAxisCount);
-  for (const char * joint : kJointNames) {
-    configuration.names.emplace_back(std::string(joint) + "/status_word");
+  configuration.names.reserve(cia402_axes_.size());
+  for (const auto & axis : cia402_axes_) {
+    const auto & names = axis.get_state_interface_names();
+    configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
   return configuration;
 }
@@ -69,6 +104,10 @@ EnableManagerController::state_interface_configuration() const
 controller_interface::CallbackReturn EnableManagerController::on_configure(
   const rclcpp_lifecycle::State &)
 {
+  if (!configureTopology()) {
+    return controller_interface::CallbackReturn::ERROR;
+  }
+
   batch_timeout_seconds_ = get_node()->get_parameter("batch_timeout").as_double();
   disable_stage_timeout_seconds_ =
     get_node()->get_parameter("disable_stage_timeout").as_double();
@@ -80,6 +119,11 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   jtc_name_ = get_node()->get_parameter("jtc_name").as_string();
 
   if (
+    !std::isfinite(batch_timeout_seconds_) ||
+    !std::isfinite(disable_stage_timeout_seconds_) ||
+    !std::isfinite(inter_batch_delay_seconds_) ||
+    !std::isfinite(fault_reset_timeout_seconds_) ||
+    !std::isfinite(controller_switch_timeout_seconds_) ||
     batch_timeout_seconds_ <= 0.0 || disable_stage_timeout_seconds_ <= 0.0 ||
     inter_batch_delay_seconds_ < 0.0 || fault_reset_timeout_seconds_ <= 0.0 ||
     controller_switch_timeout_seconds_ <= 0.0 || service_timeout <= 0 || jtc_name_.empty())
@@ -132,14 +176,174 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   active_.store(false, std::memory_order_release);
   phase_.store(Phase::kInactive, std::memory_order_release);
   owner_.store(Owner::kInternal, std::memory_order_release);
+  topology_parameters_frozen_.store(true, std::memory_order_release);
   return controller_interface::CallbackReturn::SUCCESS;
+}
+
+rcl_interfaces::msg::SetParametersResult
+EnableManagerController::validateTopologyParameterUpdate(
+  const std::vector<rclcpp::Parameter> & parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+
+  for (const auto & parameter : parameters) {
+    const auto match = std::find(
+      kTopologyParameterNames.begin(), kTopologyParameterNames.end(), parameter.get_name());
+    if (match == kTopologyParameterNames.end()) {
+      continue;
+    }
+    if (topology_parameters_frozen_.load(std::memory_order_acquire)) {
+      result.successful = false;
+      result.reason =
+        "enable-manager topology is already configured; topology parameters are immutable";
+      return result;
+    }
+    const auto index = static_cast<std::size_t>(
+      std::distance(kTopologyParameterNames.begin(), match));
+    topology_parameters_explicit_mask_.fetch_or(
+      topologyParameterBit(index), std::memory_order_acq_rel);
+  }
+  return result;
+}
+
+bool EnableManagerController::configureTopology()
+{
+  if (
+    topology_parameters_explicit_mask_.load(std::memory_order_acquire) !=
+    kAllTopologyParametersMask)
+  {
+    RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "managed_joints, enable_batch_joint_names, enable_batch_sizes, and "
+      "ready_to_switch_on_disable_terminal_joints must all be explicitly configured");
+    return false;
+  }
+
+  const auto managed_joints = get_node()->get_parameter("managed_joints").as_string_array();
+  const auto flat_batch_joints =
+    get_node()->get_parameter("enable_batch_joint_names").as_string_array();
+  const auto batch_sizes = get_node()->get_parameter("enable_batch_sizes").as_integer_array();
+  const auto ready_terminal_joints = get_node()->get_parameter(
+    "ready_to_switch_on_disable_terminal_joints").as_string_array();
+
+  constexpr std::size_t kMaximumIndexedCount =
+    static_cast<std::size_t>(std::numeric_limits<std::int8_t>::max());
+  if (
+    managed_joints.empty() || managed_joints.size() > kMaximumIndexedCount ||
+    batch_sizes.empty() || batch_sizes.size() > kMaximumIndexedCount)
+  {
+    RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "managed_joints and enable_batch_sizes must each contain 1..127 entries");
+    return false;
+  }
+
+  std::unordered_map<std::string, std::size_t> axis_by_name;
+  axis_by_name.reserve(managed_joints.size());
+  for (std::size_t axis = 0; axis < managed_joints.size(); ++axis) {
+    const auto & joint = managed_joints[axis];
+    if (joint.empty() || !axis_by_name.emplace(joint, axis).second) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(), "managed_joints must contain unique nonempty names");
+      return false;
+    }
+  }
+
+  std::size_t expected_flat_count = 0U;
+  for (const auto batch_size : batch_sizes) {
+    if (batch_size < 1 || batch_size > 3) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(), "every enable batch must contain 1..3 joints");
+      return false;
+    }
+    expected_flat_count += static_cast<std::size_t>(batch_size);
+  }
+  if (expected_flat_count != flat_batch_joints.size()) {
+    RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "enable_batch_sizes must exactly partition enable_batch_joint_names");
+    return false;
+  }
+
+  std::vector<std::vector<std::size_t>> candidate_batches;
+  candidate_batches.reserve(batch_sizes.size());
+  std::vector<std::uint8_t> seen(managed_joints.size(), 0U);
+  std::size_t flat_index = 0U;
+  for (const auto batch_size : batch_sizes) {
+    std::vector<std::size_t> batch;
+    batch.reserve(static_cast<std::size_t>(batch_size));
+    for (std::int64_t item = 0; item < batch_size; ++item) {
+      const auto & joint = flat_batch_joints[flat_index++];
+      const auto axis = axis_by_name.find(joint);
+      if (axis == axis_by_name.end() || seen[axis->second] != 0U) {
+        RCLCPP_ERROR(
+          get_node()->get_logger(),
+          "enable batches must cover every managed joint exactly once");
+        return false;
+      }
+      seen[axis->second] = 1U;
+      batch.push_back(axis->second);
+    }
+    candidate_batches.push_back(std::move(batch));
+  }
+  if (std::find(seen.begin(), seen.end(), 0U) != seen.end()) {
+    RCLCPP_ERROR(
+      get_node()->get_logger(), "enable batches must cover every managed joint exactly once");
+    return false;
+  }
+
+  std::vector<std::uint8_t> candidate_ready_terminal(managed_joints.size(), 0U);
+  for (const auto & joint : ready_terminal_joints) {
+    const auto axis = axis_by_name.find(joint);
+    if (axis == axis_by_name.end() || candidate_ready_terminal[axis->second] != 0U) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(),
+        "ready_to_switch_on_disable_terminal_joints must be a unique managed-joint subset");
+      return false;
+    }
+    candidate_ready_terminal[axis->second] = 1U;
+  }
+
+  std::vector<rt_control_semantic_components::Cia402Axis> candidate_axes;
+  candidate_axes.reserve(managed_joints.size());
+  for (const auto & joint : managed_joints) {
+    candidate_axes.emplace_back(joint);
+  }
+
+  joint_names_ = managed_joints;
+  enable_batches_ = std::move(candidate_batches);
+  ready_to_switch_on_disable_terminal_ = std::move(candidate_ready_terminal);
+  status_words_.assign(managed_joints.size(), 0U);
+  reset_targets_.assign(managed_joints.size(), 0U);
+  cia402_axes_ = std::move(candidate_axes);
+  return true;
 }
 
 controller_interface::CallbackReturn EnableManagerController::on_activate(
   const rclcpp_lifecycle::State &)
 {
-  if (command_interfaces_.size() != kAxisCount || state_interfaces_.size() != kAxisCount) {
-    RCLCPP_ERROR(get_node()->get_logger(), "Expected 14 control_word and 14 status_word interfaces");
+  if (
+    command_interfaces_.size() != cia402_axes_.size() ||
+    state_interfaces_.size() != cia402_axes_.size())
+  {
+    RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "Expected one control_word and status_word interface for every managed joint");
+    return controller_interface::CallbackReturn::ERROR;
+  }
+
+  bool interfaces_bound = true;
+  for (auto & axis : cia402_axes_) {
+    const bool command_bound = axis.assign_loaned_command_interfaces(command_interfaces_);
+    const bool state_bound = axis.assign_loaned_state_interfaces(state_interfaces_);
+    interfaces_bound = interfaces_bound && command_bound && state_bound;
+  }
+  if (!interfaces_bound) {
+    releaseCia402Interfaces();
+    RCLCPP_ERROR(
+      get_node()->get_logger(),
+      "CiA402 interfaces must match each configured joint exactly once");
     return controller_interface::CallbackReturn::ERROR;
   }
 
@@ -175,6 +379,7 @@ controller_interface::CallbackReturn EnableManagerController::on_deactivate(
   setAllControlWords(0x0000U);
   phase_.store(Phase::kInactive, std::memory_order_release);
   owner_.store(Owner::kInternal, std::memory_order_release);
+  releaseCia402Interfaces();
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -192,7 +397,7 @@ controller_interface::return_type EnableManagerController::update(
   if (phase == Phase::kEnabled || phase == Phase::kJtcActivating ||
     phase == Phase::kJtcDeactivating)
   {
-    for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+    for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
       const DriveState state = decodeState(status_words_[axis]);
       if (isFaultState(state)) {
         startEmergency(
@@ -230,9 +435,9 @@ controller_interface::return_type EnableManagerController::update(
         stage_deadline_ns_ = now_ns + static_cast<std::int64_t>(batch_timeout_seconds_ * 1e9);
         phase_.store(Phase::kEnabling, std::memory_order_release);
       } else if (reset_request_.exchange(false, std::memory_order_acq_rel)) {
-        reset_targets_.fill(false);
+        std::fill(reset_targets_.begin(), reset_targets_.end(), 0U);
         bool has_fault = false;
-        for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+        for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
           reset_targets_[axis] = isFaultState(decodeState(status_words_[axis]));
           has_fault = has_fault || reset_targets_[axis];
         }
@@ -294,9 +499,9 @@ controller_interface::return_type EnableManagerController::update(
       if (disable_request_.exchange(false, std::memory_order_acq_rel)) {
         startDownward(Phase::kDisabling, now_ns);
       } else if (reset_request_.exchange(false, std::memory_order_acq_rel)) {
-        reset_targets_.fill(false);
+        std::fill(reset_targets_.begin(), reset_targets_.end(), 0U);
         bool has_fault = false;
-        for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+        for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
           reset_targets_[axis] = isFaultState(decodeState(status_words_[axis]));
           has_fault = has_fault || reset_targets_[axis];
         }
@@ -552,7 +757,7 @@ void EnableManagerController::fillResponse(
   response.ok = slot.ok.load(std::memory_order_acquire);
   response.failed_batch = slot.failed_batch.load(std::memory_order_acquire);
   const std::int8_t failed_joint = slot.failed_joint.load(std::memory_order_acquire);
-  response.failed_joint = failed_joint >= 0 ? kJointNames[failed_joint] : "";
+  response.failed_joint = failed_joint >= 0 ? joint_names_[failed_joint] : "";
   response.status_word = slot.status_word.load(std::memory_order_acquire);
   response.stage = stageName(slot.stage.load(std::memory_order_acquire));
 }
@@ -681,7 +886,7 @@ void EnableManagerController::publishDiagnostics()
   add_value("state", phaseName(phase));
   add_value(
     "failed_batch", std::to_string(last_failed_batch_.load(std::memory_order_acquire)));
-  add_value("failed_joint", failed_joint >= 0 ? kJointNames[failed_joint] : "");
+  add_value("failed_joint", failed_joint >= 0 ? joint_names_[failed_joint] : "");
   add_value(
     "failed_status_word",
     std::to_string(last_failed_status_word_.load(std::memory_order_acquire)));
@@ -737,7 +942,7 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
   bool any_fault = false;
   std::int8_t first_nonterminal = -1;
 
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
     std::uint16_t command = 0x0000U;
     switch (state) {
@@ -757,7 +962,7 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
           all_nonfault_terminal && isConfirmedDisableTerminal(axis, state);
         break;
       case DriveState::kQuickStopActive:
-      case DriveState::kNotReady:
+      case DriveState::kNotReadyToSwitchOn:
       case DriveState::kUnknown:
         command = 0x0000U;
         all_nonfault_terminal = false;
@@ -776,7 +981,7 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
     {
       first_nonterminal = static_cast<std::int8_t>(axis);
     }
-    command_interfaces_[axis].set_value(command);
+    setControlWord(axis, command);
   }
 
   bool advance_stage = false;
@@ -801,7 +1006,7 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
 
   if (now_ns >= stage_deadline_ns_) {
     if (first_nonterminal < 0 && any_fault) {
-      for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+      for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
         if (isFaultState(decodeState(status_words_[axis]))) {
           first_nonterminal = static_cast<std::int8_t>(axis);
           break;
@@ -859,7 +1064,7 @@ void EnableManagerController::startEmergency(
 void EnableManagerController::updateEmergencyQuickStop(std::int64_t now_ns)
 {
   bool any_operation_enabled = false;
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
     std::uint16_t command = 0x0000U;
     if (state == DriveState::kOperationEnabled || state == DriveState::kQuickStopActive) {
@@ -868,7 +1073,7 @@ void EnableManagerController::updateEmergencyQuickStop(std::int64_t now_ns)
       command = 0x0006U;
     }
     any_operation_enabled = any_operation_enabled || state == DriveState::kOperationEnabled;
-    command_interfaces_[axis].set_value(command);
+    setControlWord(axis, command);
   }
   if (!any_operation_enabled || now_ns >= stage_deadline_ns_) {
     startDownward(Phase::kEmergencyDisable, now_ns);
@@ -882,7 +1087,7 @@ void EnableManagerController::finishDownward()
   bool all_terminal = true;
   std::int8_t first_fault = -1;
   std::int8_t first_nonterminal = -1;
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
     if (isFaultState(state)) {
       any_fault = true;
@@ -986,7 +1191,7 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
     enable_preempt_requested_ = true;
   }
 
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     if (isFaultState(decodeState(status_words_[axis]))) {
       disable_request_.store(false, std::memory_order_release);
       startEmergency(
@@ -996,8 +1201,9 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
   }
 
   if (phase == Phase::kInterBatchDelay) {
-    for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
-      command_interfaces_[axis].set_value(
+    for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
+      setControlWord(
+        axis,
         decodeState(status_words_[axis]) == DriveState::kOperationEnabled ? 0x000FU : 0x0000U);
     }
     if (enable_preempt_requested_) {
@@ -1016,12 +1222,12 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
 
   bool batch_complete = true;
   std::int8_t invalid_axis = -1;
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     bool is_current = false;
     bool is_previous = false;
     for (std::size_t batch = 0; batch <= current_batch_; ++batch) {
-      for (std::size_t item = 0; item < kBatchSizes[batch]; ++item) {
-        if (static_cast<std::size_t>(kEnableBatches[batch][item]) == axis) {
+      for (const auto batch_axis : enable_batches_[batch]) {
+        if (batch_axis == axis) {
           is_current = batch == current_batch_;
           is_previous = batch < current_batch_;
         }
@@ -1061,7 +1267,7 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
           break;
       }
     }
-    command_interfaces_[axis].set_value(command);
+    setControlWord(axis, command);
   }
 
   if (invalid_axis >= 0) {
@@ -1073,7 +1279,8 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
       primary_failure_stage_, primary_failed_batch_, invalid_axis,
       primary_failed_status_word_);
     if (enable_preempt_requested_) {
-      publishResult(enable_result_, false, primary_failure_stage_, primary_failed_batch_,
+      publishResult(
+        enable_result_, false, primary_failure_stage_, primary_failed_batch_,
         primary_failed_joint_, primary_failed_status_word_);
       owner_.store(Owner::kDisable, std::memory_order_release);
       disable_request_.store(false, std::memory_order_release);
@@ -1091,7 +1298,7 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
       owner_.store(Owner::kDisable, std::memory_order_release);
       primary_failure_stage_ = Stage::kSuccess;
       startDownward(Phase::kDisabling, now_ns);
-    } else if (current_batch_ + 1U == kBatchCount) {
+    } else if (current_batch_ + 1U == enable_batches_.size()) {
       enable_hardware_ready_.store(true, std::memory_order_release);
       phase_.store(Phase::kJtcActivating, std::memory_order_release);
     } else {
@@ -1103,9 +1310,8 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
   }
 
   if (now_ns >= stage_deadline_ns_) {
-    std::int8_t failed_axis = kEnableBatches[current_batch_][0];
-    for (std::size_t item = 0; item < kBatchSizes[current_batch_]; ++item) {
-      const auto axis = static_cast<std::size_t>(kEnableBatches[current_batch_][item]);
+    std::int8_t failed_axis = static_cast<std::int8_t>(enable_batches_[current_batch_][0]);
+    for (const auto axis : enable_batches_[current_batch_]) {
       if (decodeState(status_words_[axis]) != DriveState::kOperationEnabled) {
         failed_axis = static_cast<std::int8_t>(axis);
         break;
@@ -1154,13 +1360,13 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
 
   bool all_reset_targets_left_fault = true;
   std::int8_t first_pending = -1;
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
     std::uint16_t command = 0x0000U;
     if (reset_targets_[axis] && state == DriveState::kFault) {
       command = 0x0080U;
     }
-    command_interfaces_[axis].set_value(command);
+    setControlWord(axis, command);
 
     if (isFaultState(state)) {
       all_reset_targets_left_fault = false;
@@ -1187,16 +1393,29 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
   }
 }
 
+void EnableManagerController::setControlWord(
+  std::size_t axis, std::uint16_t control_word)
+{
+  (void)cia402_axes_[axis].set_control_word(control_word);
+}
+
 void EnableManagerController::setAllControlWords(std::uint16_t control_word)
 {
-  for (auto & interface : command_interfaces_) {
-    interface.set_value(control_word);
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
+    setControlWord(axis, control_word);
+  }
+}
+
+void EnableManagerController::releaseCia402Interfaces() noexcept
+{
+  for (auto & axis : cia402_axes_) {
+    axis.release_interfaces();
   }
 }
 
 bool EnableManagerController::allAxesInState(DriveState state) const
 {
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     if (decodeState(status_words_[axis]) != state) {
       return false;
     }
@@ -1206,7 +1425,7 @@ bool EnableManagerController::allAxesInState(DriveState state) const
 
 std::int8_t EnableManagerController::firstAxisNotInState(DriveState state) const
 {
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     if (decodeState(status_words_[axis]) != state) {
       return static_cast<std::int8_t>(axis);
     }
@@ -1216,41 +1435,15 @@ std::int8_t EnableManagerController::firstAxisNotInState(DriveState state) const
 
 void EnableManagerController::refreshStatusWords()
 {
-  for (std::size_t axis = 0; axis < kAxisCount; ++axis) {
-    const double value = state_interfaces_[axis].get_value();
-    status_words_[axis] =
-      std::isfinite(value) ? static_cast<std::uint16_t>(value) : 0xFFFFU;
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
+    status_words_[axis] = cia402_axes_[axis].get_status_word().value_or(0xFFFFU);
   }
 }
 
 EnableManagerController::DriveState EnableManagerController::decodeState(
   std::uint16_t status_word)
 {
-  if ((status_word & 0x004FU) == 0x0000U) {
-    return DriveState::kNotReady;
-  }
-  if ((status_word & 0x004FU) == 0x0040U) {
-    return DriveState::kSwitchOnDisabled;
-  }
-  if ((status_word & 0x006FU) == 0x0021U) {
-    return DriveState::kReadyToSwitchOn;
-  }
-  if ((status_word & 0x006FU) == 0x0023U) {
-    return DriveState::kSwitchedOn;
-  }
-  if ((status_word & 0x006FU) == 0x0027U) {
-    return DriveState::kOperationEnabled;
-  }
-  if ((status_word & 0x006FU) == 0x0007U) {
-    return DriveState::kQuickStopActive;
-  }
-  if ((status_word & 0x004FU) == 0x000FU) {
-    return DriveState::kFaultReactionActive;
-  }
-  if ((status_word & 0x004FU) == 0x0008U) {
-    return DriveState::kFault;
-  }
-  return DriveState::kUnknown;
+  return rt_control_semantic_components::Cia402Axis::decode_state(status_word);
 }
 
 bool EnableManagerController::isFaultState(DriveState state)
@@ -1258,13 +1451,15 @@ bool EnableManagerController::isFaultState(DriveState state)
   return state == DriveState::kFault || state == DriveState::kFaultReactionActive;
 }
 
-bool EnableManagerController::isConfirmedDisableTerminal(std::size_t axis, DriveState state)
+bool EnableManagerController::isConfirmedDisableTerminal(
+  std::size_t axis, DriveState state) const
 {
   if (state == DriveState::kSwitchOnDisabled) {
     return true;
   }
-  const bool is_ti5_axis = axis == 1U || axis == 2U || axis == 7U || axis == 8U;
-  return is_ti5_axis && state == DriveState::kReadyToSwitchOn;
+  return axis < ready_to_switch_on_disable_terminal_.size() &&
+         ready_to_switch_on_disable_terminal_[axis] != 0U &&
+         state == DriveState::kReadyToSwitchOn;
 }
 
 const char * EnableManagerController::stageName(Stage stage)

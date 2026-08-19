@@ -20,6 +20,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd -- "${script_dir}/.." && pwd)"
 compose_wrapper="${script_dir}/rt_control_compose.sh"
 axis_state_checker="${script_dir}/rt_control_axis_state_check.py"
+enable_manager_config="${runtime_root}/src/rt_control/rt_control_bringup/config/controllers.yaml"
 thread_affinity_tool="${script_dir}/rt_control_thread_affinity.py"
 can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"
 internal_dynamic_joint_states_topic="/rt_internal_state_broadcaster/dynamic_joint_states"
@@ -164,6 +165,7 @@ verify_release_identity()
 {
   [[ -x "${compose_wrapper}" ]] || fail "缺少 Compose 包装器 ${compose_wrapper}。"
   [[ -f "${axis_state_checker}" ]] || fail "缺少状态字检查器 ${axis_state_checker}。"
+  [[ -f "${enable_manager_config}" ]] || fail "缺少使能策略配置 ${enable_manager_config}。"
   [[ -f "${runtime_root}/docker/compose.yaml" ]] ||
     fail "缺少已验证运行副本 ${runtime_root}。"
   [[ "$(basename -- "$(dirname -- "${runtime_root}")")" == "${release_version}" ]] ||
@@ -495,8 +497,9 @@ check_axis_states()
   snapshot="$(run_ros2_timeout 15 \
     "ros2 topic echo --once ${internal_dynamic_joint_states_topic} control_msgs/msg/DynamicJointState")" ||
     fail "未收到 ${internal_dynamic_joint_states_topic}，无法确认 ${expected} 状态字。"
-  if ! printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
-    fail "14 轴 ${expected} 状态字合同不满足。"
+  if ! printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" \
+    --controller-config "${enable_manager_config}" --expected "${expected}"; then
+    fail "受管轴 ${expected} 状态字合同不满足。"
   fi
 }
 

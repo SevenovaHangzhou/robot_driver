@@ -1,0 +1,31 @@
+schema_version: 1
+interface_contracts:
+  cia402_position:
+    required_command_interfaces:
+      - {name: position, index: 0x607a, sub_index: 0, type: int32}
+      - {name: control_word, index: 0x6040, sub_index: 0, type: uint16}
+    required_state_interfaces:
+      - {name: position, index: 0x6064, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: status_word, index: 0x6041, sub_index: 0, type: uint16, mock_initial_value: 64.0}
+  cia402_position_with_digital_io:
+    required_command_interfaces:
+      - {name: position, index: 0x607a, sub_index: 0, type: int32}
+      - {name: digital_outputs, index: 0x60fe, sub_index: 0, type: uint32}
+      - {name: control_word, index: 0x6040, sub_index: 0, type: uint16}
+    required_state_interfaces:
+      - {name: position, index: 0x6064, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: digital_inputs, index: 0x60fd, sub_index: 0, type: uint32, mock_initial_value: 0.0}
+      - {name: status_word, index: 0x6041, sub_index: 0, type: uint16, mock_initial_value: 64.0}
+families:
+  zeroerr:
+    identity_profile: zeroerr_j1
+    interface_contract: cia402_position_with_digital_io
+    certified_modes: [8]
+  ti5:
+    identity_profile: ti5_j2
+    interface_contract: cia402_position
+    certified_modes: [8]
+  xmc:
+    identity_profile: xmc_updown_sw511
+    interface_contract: cia402_position
+    certified_modes: [8]

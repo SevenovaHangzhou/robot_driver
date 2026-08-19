@@ -37,6 +37,7 @@ DOMAIN_PACKAGES = {
     "robot_hw_ethercat",
     "rt_control_bringup",
     "rt_diagnostics",
+    "rt_control_semantic_components",
     "rt_watchdog",
 }
 SHARED_PACKAGE_PREFIXES = (
@@ -59,6 +60,7 @@ REQUIRED_GOVERNANCE_FILES = (
     "README.md",
     "AGENTS.md",
     "collaboration-and-commit-standards.md",
+    ".dockerignore",
     "domains/rt_control/README.md",
     "domains/rt_control/AGENTS.md",
     "domains/rt_control/PROGRESS.md",
@@ -333,6 +335,29 @@ def check_dockerfile_policy(dockerfile_text: str) -> list[str]:
     return findings
 
 
+def check_dockerignore_policy(dockerignore_text: str) -> list[str]:
+    """Keep local test artifacts out of reproducible release images."""
+    required_patterns = {
+        ".coverage",
+        "**/.coverage",
+        "coverage.xml",
+        "**/coverage.xml",
+        "htmlcov",
+        "**/htmlcov",
+        ".pytest_cache",
+        "**/.pytest_cache",
+    }
+    active_patterns = {
+        line.strip()
+        for line in dockerignore_text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    return [
+        f".dockerignore: required build-context exclusion is missing: {pattern}"
+        for pattern in sorted(required_patterns - active_patterns)
+    ]
+
+
 def _step_commands(job: object) -> str:
     if not isinstance(job, dict):
         return ""
@@ -530,6 +555,8 @@ def collect_findings(repository_root: Path) -> list[str]:
         findings.extend(check_compose_policy(texts["docker/compose.yaml"]))
     if "docker/rt-control/Dockerfile" in texts:
         findings.extend(check_dockerfile_policy(texts["docker/rt-control/Dockerfile"]))
+    if ".dockerignore" in texts:
+        findings.extend(check_dockerignore_policy(texts[".dockerignore"]))
     if ".github/workflows/rt-control-ci.yml" in texts:
         findings.extend(
             check_ci_workflow_policy(texts[".github/workflows/rt-control-ci.yml"])
