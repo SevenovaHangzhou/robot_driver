@@ -39,7 +39,7 @@
 ## 记录索引（倒序）
 
 - 2026-08-19 [ELECTRI-102 锁定 rolling 公共接口功能 SHA](records/2026-08-19-electri-102-feature-contract-pin.md) — feature，PASS（T1；已推分支、未提 PR）
-- 2026-08-19 [ELECTRI-102 rolling 公共接口所有权裁决](records/2026-08-19-electri-102-public-interface-ownership.md) — decision，UNVERIFIED（T0；接口 PR 等完整 mock/fake 门）
+- 2026-08-19 [ELECTRI-102 rolling 公共接口所有权裁决](records/2026-08-19-electri-102-public-interface-ownership.md) — decision，当时为 UNVERIFIED（T0）；mock/fake 门已由 contract-20260819-02 闭环，PR 仍按用户裁决等待 Motion 反馈
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）
 - 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）
 - 2026-08-16 [BQ-137 跨域错误与 readiness 语义裁决落地](records/2026-08-16-bq137-shared-error-readiness.md) — decision，PASS（T1；发布待 PR #6 最终 SHA 与全域迁移）

@@ -106,7 +106,7 @@
 | 2026-08-17 | contract | [robot_interfaces 回填最终 main SHA](docs/areas/contract/records/2026-08-17-robot-interfaces-final-main-pin.md) | PASS（T0；发布仍待镜像与全域同 SHA smoke） |
 | 2026-08-17 | io-power | [纠正左右电磁阀输出映射](docs/areas/io-power/records/2026-08-17-correct-solenoid-side-mapping.md) | PASS（T4；输入映射与新镜像待验证） |
 | 2026-08-17 | contract | [Native QoS 运行依赖闭包与 fail-closed 启动门禁](docs/areas/contract/records/2026-08-17-native-qos-runtime-closure.md) | PASS（T3；最终 stopped/Idle/PREOP） |
-| 2026-08-19 | contract | [ELECTRI-102 rolling 公共接口所有权裁决](docs/areas/contract/records/2026-08-19-electri-102-public-interface-ownership.md) | UNVERIFIED（T0；接口 PR 等完整 mock/fake 门） |
+| 2026-08-19 | contract | [ELECTRI-102 rolling 公共接口所有权裁决](docs/areas/contract/records/2026-08-19-electri-102-public-interface-ownership.md) | 当时 UNVERIFIED（T0）；已由 contract-20260819-02 闭环，PR 等 Motion 反馈 |
 | 2026-08-19 | motion | [JTC 首点一致性启用时关闭 topic 命令旁路](docs/areas/motion/records/2026-08-19-jtc-action-only-admission.md) | PASS（T1；完整 bringup 图待综合 mock 复验） |
 | 2026-08-19 | motion | [ELECTRI-102 rolling 控制器移植到公共接口契约](docs/areas/motion/records/2026-08-19-electri-102-rolling-controller-port.md) | PASS（T1；完整 Motion 联调门仍待后续阶段） |
 | 2026-08-19 | motion | [ELECTRI-102 rolling 前缀与 horizon 正确性闭环](docs/areas/motion/records/2026-08-19-electri-102-rolling-correctness.md) | PASS（T1；性能优化与综合 mock 仍待后续阶段） |
@@ -124,3 +124,4 @@
 | 2026-08-19 | motion | [ELECTRI-102 mock 长稳与 Motion 公开接口交接](docs/areas/motion/records/2026-08-19-electri-102-mock-and-motion-handoff.md) | PASS（T2；600 秒 14/14，接口分支暂不提 PR） |
 | 2026-08-19 | realtime-host | [ELECTRI-102 validation executor 亲和性边界](docs/areas/realtime-host/records/2026-08-19-electri-102-validation-affinity.md) | PARTIAL（T0；机制确认，目标 TID/PSR 待测） |
 | 2026-08-19 | contract | [ELECTRI-102 锁定 rolling 公共接口功能 SHA](docs/areas/contract/records/2026-08-19-electri-102-feature-contract-pin.md) | PASS（T1；9cc9379 已推分支、未提 PR） |
+| 2026-08-19 | release-deploy | [ELECTRI-102 rolling 安装态依赖闭包与无硬件镜像验证](docs/areas/release-deploy/records/2026-08-19-electri-102-rolling-runtime-closure.md) | PASS（T1；185a343 镜像零设备、零网络 mock） |

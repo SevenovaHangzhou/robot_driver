@@ -17,9 +17,13 @@
 | 01#F1 | motion writer 启动链固定为 JTC INACTIVE → rolling INACTIVE → enable_manager ACTIVE | [release-deploy-20260819-01](records/2026-08-19-electri-102-mandatory-inactive-bringup.md)#F1 | 有效（T1） |
 | 01#F2 | rolling provisional 包络由 spawner 参数文件注入安装态绝对路径 | [release-deploy-20260819-01](records/2026-08-19-electri-102-mandatory-inactive-bringup.md)#F2 | 有效（T1） |
 | 01#F3 | 任一 mandatory-INACTIVE spawner 失败均停止 launch，不启动 enable_manager | [release-deploy-20260819-01](records/2026-08-19-electri-102-mandatory-inactive-bringup.md)#F3 | 有效（T1） |
+| 02#F1 | Docker／Native 显式安装并检查 Motion interface、rolling controller 与 rolling QoS | [release-deploy-20260819-02](records/2026-08-19-electri-102-rolling-runtime-closure.md)#F1 | 有效（T1） |
+| 02#F2 | Native 入口在硬件访问前 fail-closed 检查 rolling 运行闭包 | [release-deploy-20260819-02](records/2026-08-19-electri-102-rolling-runtime-closure.md)#F2 | 有效（T1） |
+| 02#F3 | 185a343 候选镜像已通过零设备、零网络 mock installed-runtime smoke | [release-deploy-20260819-02](records/2026-08-19-electri-102-rolling-runtime-closure.md)#F3 | 有效（T1） |
 
 ## 记录索引（倒序）
 
+- 2026-08-19 [ELECTRI-102 rolling 安装态依赖闭包与无硬件镜像验证](records/2026-08-19-electri-102-rolling-runtime-closure.md) — corrective，PASS（T1）
 - 2026-08-19 [ELECTRI-102 mandatory-inactive motion writer bringup](records/2026-08-19-electri-102-mandatory-inactive-bringup.md) — feature，PASS（T1）
 
 ## 历史锚点（2026-08-13 前，未迁移）

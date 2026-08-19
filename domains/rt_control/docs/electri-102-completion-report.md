@@ -22,7 +22,9 @@ command writer。
   参数化并有 fail-closed 测试；
 - public-IDL-only producer 和 DDS peer 能完成 mode→open→prime→30 Hz update→两阶段 close→
   回 FJT；
-- 14 项异常／长稳矩阵与真实墙钟 10 分钟 fake loop 通过。
+- Docker 与 Native 入口在硬件访问前显式检查 Motion 接口、rolling controller 和 rolling QoS
+  的安装态运行闭包；
+- 14 项异常／长稳矩阵与当前干净实现提交的真实墙钟 10 分钟 fake loop 通过。
 
 “完成”在本文只表示上述 software/mock checkpoint。它不表示相机图像、手眼 TF、视觉控制律、
 真实关节响应、精度或 production safety envelope 已通过。
@@ -32,7 +34,7 @@ command writer。
 | 仓库 | 分支／身份 | 状态 |
 | --- | --- | --- |
 | `SevenovaHangzhou/robot_interfaces` | `功能/视觉伺服-ELECTRI-102` @ `9cc937970736cd19fd3bf5283de8cc5c15926967` | 已推送；54 项门禁单测与 Humble 全 6 包构建通过；未提 PR。 |
-| `SevenovaHangzhou/robot_driver` | `功能/视觉伺服-ELECTRI-102` | 原子提交完成并推送；锁定上述接口 SHA；未提 PR。 |
+| `SevenovaHangzhou/robot_driver` | `功能/视觉伺服-ELECTRI-102`，功能／镜像提交 `185a343b08be877cc96941e6187a102c270847ff` | 原子提交完成并推送；锁定上述接口 SHA；不提 PR。 |
 | `SevenovaHangzhou/robot_description` | 无可用权威工作树／无外参 artifact | 未修改；T-01 明确未完成，见 BQ-139。 |
 
 接口仓保持 `[Unreleased]`／包版本 0.7.0；没有伪造 0.8.0、tag 或 release。按用户裁决，Motion
@@ -84,7 +86,7 @@ command writer。
 | T-18 mock 矩阵 | **PASS** | 14/14；真实墙钟 600 秒，150,000 周期，18,001 batch 全接受，零容忍计数全 0。 |
 | T-19 lead／切换标定 | **PARTIAL** | 桌面分位数已记录；没有目标 DDS/generation/switch 分布，16 ms 不升级为 production。 |
 | T-20 Motion 说明／示例 | **PASS** | 完整指南、21 个 RejectCode 响应、dry-run producer、public DDS peer；1 秒 31/31 batch。 |
-| T-21 契约／BQ／进度 | **PASS** | 决策 D01～D47、area records、BQ-138～141、PROGRESS 和精确接口 pin 已更新。 |
+| T-21 契约／BQ／进度 | **PASS** | 决策 D01～D47、area records、BQ-138～141、PROGRESS 和精确接口 pin 已更新；门禁强制每项含问题、至少两个选项、推荐项与最终采用项。 |
 
 T-01、T-13 动态部分和 T-19 目标部分不阻塞“Motion mock transport”完成口径，但明确阻塞
 真实视觉伺服／production 声明。
@@ -97,11 +99,20 @@ T-01、T-13 动态部分和 T-19 目标部分不阻塞“Motion mock transport�
   `packages-up-to` 仍受既有 `lely_core_libraries` 本地缺失限制，没有把该环境缺口写成代码失败。
 - driver package test result：276 tests，0 errors，0 failures，0 skipped；包含完整 mock launch
   7 项、JTC topic absence、writer inactive、QoS 和 `/joint_states` 125 Hz 实测。
-- repository quality gate：209 passed、1 skipped；skip 只因为通用门不加载外部接口 overlay，
-  同一 public DDS test 在锁定 overlay 下单独 PASS。
-- 最终 accelerated acceptance：14/14 PASS；此前 clean controller commit 的真实墙钟 600 秒
-  acceptance 也是 14/14 PASS。
+- repository quality gate：210 passed、1 skipped、83% 门禁覆盖率；skip 只因为通用门不加载
+  外部接口 overlay，同一 public DDS test 已在锁定 overlay 下单独 PASS。本机没有 shellcheck，
+  该项由 CI 强制，两个本地 shell 文件已通过 `bash -n`。
+- 当前无脏改动的实现提交 `185a343...` 真实墙钟 acceptance：14/14 PASS；600 秒内完成
+  150,000 个 250 Hz 周期和 18,001 个 30 Hz batch，reject、LateReplace、RT allocation、
+  invariant failure、late cycle 均为 0；update p99/p99.9 为 22.231/31.586 us，validation
+  p99/p99.9 为 109.146/121.615 us。
 - public DDS：1 秒 31 个 sequence 全接受，hardware/controller-manager/enable 均未启动。
+- 发布镜像 `rt-control:185a343b08be877cc96941e6187a102c270847ff` 完整构建 PASS，image ID
+  `sha256:664f02f97a79910229d6c345cf1803b011541324fbfa265b1859378710c8fc8f`；安装态包／QoS
+  smoke PASS。
+- 同一镜像的无硬件容器 smoke 使用 `network=none`、`devices=[]`、Domain 223；JTC／rolling
+  均 INACTIVE、enable_manager ACTIVE，五个 rolling 端点可见，JTC topic 旁路不存在，停止
+  exit 0 且无 ERROR/FATAL。没有执行 production compose `up`、reset、enable 或 motion。
 
 ## 6. 明确未完成／不得外推
 
