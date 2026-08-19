@@ -23,6 +23,7 @@ SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 ROBOT_INTERFACES_PATH = "src/vendor/robot_interfaces"
 ROBOT_INTERFACES_URL = "https://github.com/SevenovaHangzhou/robot_interfaces.git"
 ROBOT_INTERFACES_PACKAGES = [
+    "robot_motion_interfaces",
     "robot_rt_control_interfaces",
     "robot_system_interfaces",
     "robot_interfaces_qos",

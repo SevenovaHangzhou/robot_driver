@@ -97,6 +97,7 @@ commit: {contract_sha}
 contract_version: 0.6.1
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:
+  - robot_motion_interfaces
   - robot_rt_control_interfaces
   - robot_system_interfaces
   - robot_interfaces_qos
@@ -408,6 +409,7 @@ commit: 0123456789abcdef0123456789abcdef01234567
 contract_version: 0.6.1
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:
+  - robot_motion_interfaces
   - robot_rt_control_interfaces
   - robot_system_interfaces
   - robot_interfaces_qos

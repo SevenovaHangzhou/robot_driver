@@ -15,6 +15,7 @@ from control_api_adapter.public_error import PublicErrorCode
 def test_public_and_private_interface_packages_have_distinct_ownership() -> None:
     interface_root = ROOT / "src/interfaces"
     public_packages = (
+        "robot_motion_interfaces",
         "robot_rt_control_interfaces",
         "robot_system_interfaces",
         "robot_interfaces_qos",
@@ -25,7 +26,7 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "f699f45972ad15bbbbbb3da1a4894faf209144c9",
+        "commit": "9cc937970736cd19fd3bf5283de8cc5c15926967",
         "contract_version": "0.7.0",
         "vendor_path": "src/vendor/robot_interfaces",
         "vendored_packages": list(public_packages),
