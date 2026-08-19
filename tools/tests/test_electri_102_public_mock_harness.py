@@ -1,4 +1,5 @@
 import json
+import importlib.util
 import os
 import subprocess
 import sys
@@ -11,6 +12,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class PublicMockHarnessTest(unittest.TestCase):
     def test_complete_motion_workflow_uses_public_dds_contract(self):
+        if importlib.util.find_spec("robot_interfaces_qos") is None:
+            self.skipTest(
+                "requires the pinned robot_interfaces feature overlay; "
+                "the dedicated ELECTRI-102 gate runs this test with that overlay"
+            )
         environment = dict(os.environ)
         environment["ROS_DOMAIN_ID"] = str(50 + os.getpid() % 150)
         environment["ROS_LOCALHOST_ONLY"] = "1"
