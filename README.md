@@ -41,7 +41,9 @@ RT-Control 不负责：
 
 ```text
 robot_driver/
-├─ domains/rt_control/      # 实时域规则、进度、阻塞问题和验收记录
+├─ domains/rt_control/      # 实时域规则、进度时间线、阻塞问题和验收记录
+│  ├─ docs/areas/           # 按 9 个功能区组织的开发记录与冻结事实索引
+│  └─ testing/              # 发布前测试分层、用例目录、runner 与 baseline
 ├─ src/
 │  ├─ description/          # robot_description 构建副本
 │  ├─ interfaces/           # RT-Control 私有接口 + 公共契约 source-lock
@@ -51,7 +53,7 @@ robot_driver/
 ├─ docker/compose.yaml      # RT-Control 部署，不是其他域通用模板
 ├─ hostsetup/               # 实时域宿主安装与验收
 ├─ patches/                 # 冻结上游窄补丁
-├─ tools/                   # 构建、启动、门禁和运维工具
+├─ tools/                   # 构建、启动、门禁、测试 runner 和运维工具
 └─ collaboration-and-commit-standards.md
 ```
 
@@ -71,17 +73,29 @@ robot_driver/
 | 文档 | 内容 |
 | --- | --- |
 | [domains/rt_control/README.md](domains/rt_control/README.md) | RT-Control 构建、运行与验收入口 |
+| [domains/rt_control/docs/areas/README.md](domains/rt_control/docs/areas/README.md) | 9 个功能区的开发记录、归属规则与冻结事实索引 |
+| [domains/rt_control/testing/README.md](domains/rt_control/testing/README.md) | 发布前测试分层、用例、runner 与 baseline |
 | `src/vendor/robot_interfaces/contract/views/rt_control.md` | 固定 SHA 中的 RT-Control 公共契约视图 |
 | [domains/rt_control/docs/one-command-start.md](domains/rt_control/docs/one-command-start.md) | 一键启动与接口速查 |
-| [domains/rt_control/PROGRESS.md](domains/rt_control/PROGRESS.md) | 已完成工作及验证证据 |
+| [domains/rt_control/PROGRESS.md](domains/rt_control/PROGRESS.md) | 2026-08-13 起的验证时间线索引 |
 | [domains/rt_control/BLOCKED-questions.md](domains/rt_control/BLOCKED-questions.md) | 已裁决和待裁决问题 |
 
 ## 本地质量门禁
 
 ```bash
+# 日常增量内环
+tools/run_scoped_tests.sh
+
+# 提交/PR 前仓库质量门禁
 tools/quality_gate.sh
+
+# 发布候选用例目录校验与 V0.10 执行计划
+python3 tools/release_test_runner.py validate
+python3 tools/release_test_runner.py plan --gate v010
 ```
 
-接口、硬件包或启动路径变更还必须按
+增量内环不能替代提交/PR 前的仓库质量门禁；发布身份、自动执行、人工结果合并和 baseline
+delta 的完整用法见 [发布前测试体系](domains/rt_control/testing/README.md)。接口、硬件包或
+启动路径变更还必须按
 [RT-Control AGENTS.md](domains/rt_control/AGENTS.md) 构建和测试全部受影响包。没有容器、
 目标机或实机证据时必须明确记录为未验证，不得从源码检查推导运行结论。
