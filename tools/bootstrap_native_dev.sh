@@ -14,6 +14,7 @@ readonly repository_root workspace_root dependency_manifest
 readonly build_base install_base log_base vendor_root
 
 readonly -a runtime_packages=(
+  robot_motion_interfaces
   robot_rt_control_interfaces
   robot_system_interfaces
   robot_interfaces_qos
@@ -31,6 +32,7 @@ readonly -a runtime_packages=(
   robot_hw_canopen
   enable_manager
   rt_diagnostics
+  rolling_trajectory_controller
   rt_control_bringup
 )
 
@@ -132,6 +134,8 @@ verify_vendor_heads()
       fail "${relative_path} is at ${actual}, expected frozen ${version}; no checkout was attempted"
   done < <(manifest_rows)
 
+  [[ -d "${workspace_root}/src/vendor/robot_interfaces/robot_motion_interfaces" ]] ||
+    fail "robot_interfaces vendor is missing robot_motion_interfaces"
   [[ -d "${workspace_root}/src/vendor/robot_interfaces/robot_rt_control_interfaces" ]] ||
     fail "robot_interfaces vendor is missing robot_rt_control_interfaces"
   [[ -d "${workspace_root}/src/vendor/robot_interfaces/robot_system_interfaces" ]] ||
@@ -325,10 +329,20 @@ install_dependencies()
 runtime_qos_profile_smoke()
 {
   python3 - <<'PY'
-from robot_interfaces_qos import control, diagnostic, fast_state, latched, state
+from robot_interfaces_qos import (
+    control,
+    diagnostic,
+    fast_state,
+    latched,
+    rolling_command,
+    rolling_state,
+    state,
+)
 
 for name, factory in (
     ("control", control),
+    ("rolling_command", rolling_command),
+    ("rolling_state", rolling_state),
     ("fast_state", fast_state),
     ("state", state),
     ("latched", latched),

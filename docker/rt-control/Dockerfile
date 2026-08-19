@@ -67,6 +67,7 @@ RUN git config --global http.version HTTP/1.1 \
     && test -d src/vendor/ecat_icube \
     && test -d src/vendor/ros2_canopen \
     && test -d src/vendor/ros2_controllers \
+    && test -d src/vendor/robot_interfaces/robot_motion_interfaces \
     && test -d src/vendor/robot_interfaces/robot_rt_control_interfaces \
     && test -d src/vendor/robot_interfaces/robot_system_interfaces \
     && test -d src/vendor/robot_interfaces/qos \
@@ -122,6 +123,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && rosdep update --rosdistro humble \
     && apt-get update \
     && rt_control_packages=( \
+      robot_motion_interfaces \
       robot_rt_control_interfaces \
       robot_system_interfaces \
       robot_interfaces_qos \
@@ -139,6 +141,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       robot_hw_canopen \
       enable_manager \
       rt_diagnostics \
+      rolling_trajectory_controller \
       rt_control_bringup \
     ) \
     && mapfile -t rt_control_dependency_paths < <( \

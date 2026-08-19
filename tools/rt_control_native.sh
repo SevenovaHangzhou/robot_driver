@@ -292,9 +292,11 @@ verify_runtime_dependency_closure()
   local package
   for package in \
     robot_interfaces_qos \
+    robot_motion_interfaces \
     robot_rt_control_interfaces \
     robot_system_interfaces \
     rt_control_interfaces \
+    rolling_trajectory_controller \
     bms_node \
     control_api_adapter \
     plc_node \
@@ -312,10 +314,20 @@ verify_runtime_dependency_closure()
     fail "missing installed rt_status_adapter executable"
 
   if ! runtime_env python3 - <<'PY'
-from robot_interfaces_qos import control, diagnostic, fast_state, latched, state
+from robot_interfaces_qos import (
+    control,
+    diagnostic,
+    fast_state,
+    latched,
+    rolling_command,
+    rolling_state,
+    state,
+)
 
 for name, factory in (
     ("control", control),
+    ("rolling_command", rolling_command),
+    ("rolling_state", rolling_state),
     ("fast_state", fast_state),
     ("state", state),
     ("latched", latched),
