@@ -86,7 +86,7 @@ robot_driver/
 # 日常增量内环
 tools/run_scoped_tests.sh
 
-# 提交/PR 前全量门禁
+# 提交/PR 前仓库质量门禁
 tools/quality_gate.sh
 
 # 发布候选用例目录校验与 V0.10 执行计划
@@ -94,7 +94,7 @@ python3 tools/release_test_runner.py validate
 python3 tools/release_test_runner.py plan --gate v010
 ```
 
-增量内环不能替代提交/PR 前的全量门禁；发布身份、自动执行、人工结果合并和 baseline
+增量内环不能替代提交/PR 前的仓库质量门禁；发布身份、自动执行、人工结果合并和 baseline
 delta 的完整用法见 [发布前测试体系](domains/rt_control/testing/README.md)。接口、硬件包或
 启动路径变更还必须按
 [RT-Control AGENTS.md](domains/rt_control/AGENTS.md) 构建和测试全部受影响包。没有容器、

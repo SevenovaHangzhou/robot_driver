@@ -5,7 +5,7 @@ title: 根 README 补齐记录与测试体系导航
 date: 2026-08-19
 type: fix
 trigger: ELECTRI-74（从未合并提交 f3efbb40 重新落地仍有效的根 README 导航）
-commits: [docs/electri-74-readme-refresh]
+commits: [fd24f9f4d46582d2c429a588a4a1f1d08ebc2f84]
 env: none
 risk: T0
 writes: { reset: no, enable: no, motion: no, plc: no }
@@ -25,10 +25,10 @@ PR #4 评审期产生的提交 `f3efbb40` 补充了根 README 中的功能区记
 
 - 根 README 的仓库结构与文档入口补充 `domains/rt_control/docs/areas/` 和
   `domains/rt_control/testing/`。
-- 本地质量门禁区分 scoped 内环、全量 quality gate，以及发布候选用例目录校验和
+- 本地质量门禁区分 scoped 内环、仓库级 quality gate，以及发布候选用例目录校验和
   V0.10 执行计划；完整 identity、run、delta 用法继续由 testing README 维护。
-- 保留独立 `robot_interfaces` 仓库、`deps.repos`、vendored 契约视图和
-  `src/interfaces/source-lock.yaml` 的权威链，不恢复已删除的根 `docs/`。
+- 保留独立 `robot_interfaces` 权威源，以及 `deps.repos`、vendored 契约视图和
+  `src/interfaces/source-lock.yaml` 的身份锁定链，不恢复已删除的根 `docs/`。
 - 仅更新导航和治理记录；不修改测试 schema、用例、runner、公共接口或运行行为。
 
 ## 验证
