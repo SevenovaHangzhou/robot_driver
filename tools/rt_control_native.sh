@@ -8,8 +8,12 @@ readonly expected_cpuset="14"
 readonly expected_housekeeping_cpuset="0,2,4,6,16-27"
 readonly expected_ros_domain_id="0"
 readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
-readonly expected_can_serial="004D00675230500720333159"
-readonly expected_bms_can_serial="003000265230500720333159"
+readonly expected_can_pci_vendor="0x10b5"
+readonly expected_can_pci_device="0x9140"
+readonly expected_can_pci_driver="zpcican"
+readonly expected_can_pci_ports="4"
+readonly expected_canopen_can_pci_port="0"
+readonly expected_bms_can_pci_port="1"
 readonly container_name="robot-rt-control-1"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,12 +28,11 @@ installed_start="${install_root}/lib/rt_control_bringup/rt_control_start"
 axis_state_checker="${repository_root}/tools/rt_control_axis_state_check.py"
 realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"
 thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"
-can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"
 internal_dynamic_joint_states_topic="/rt_internal_state_broadcaster/dynamic_joint_states"
 
 readonly repository_root workspace_root install_root runtime_root runtime_log_root
 readonly pid_file latest_log_link installed_start axis_state_checker
-readonly realtime_cpu_guard thread_affinity_tool can_setup_tool internal_dynamic_joint_states_topic
+readonly realtime_cpu_guard thread_affinity_tool internal_dynamic_joint_states_topic
 
 info()
 {
@@ -280,8 +283,8 @@ verify_workspace()
     fail "missing executable realtime CPU guard: ${realtime_cpu_guard}"
   [[ -x "${thread_affinity_tool}" ]] ||
     fail "missing executable thread affinity helper: ${thread_affinity_tool}"
-  [[ -x "${can_setup_tool}" ]] ||
-    fail "missing executable CAN setup helper: ${can_setup_tool}"
+  command -v ip >/dev/null 2>&1 || fail "missing ip"
+  command -v modprobe >/dev/null 2>&1 || fail "missing modprobe"
   command -v taskset >/dev/null 2>&1 || fail "missing taskset"
   command -v setsid >/dev/null 2>&1 || fail "missing setsid"
   command -v ethercat >/dev/null 2>&1 || fail "missing ethercat CLI"
@@ -352,37 +355,159 @@ verify_bus_services()
 
 prepare_can_interfaces()
 {
-  info "preparing can0/can1 by fixed gs_usb serials at 500 kbit/s, txqueuelen 128"
+  local deadline=$((SECONDS + 30))
+  local interface
+  local port
+  local reserved
+  local source
+  local -a pcie_interfaces=()
+  local -a sources=()
+
+  info "preparing PCIe-9140I L0 as CANopen/can0 and L1 as BMS/can1 at 500 kbit/s, txqueuelen 128"
+  run_privileged modprobe "${expected_can_pci_driver}" ||
+    fail "could not load ${expected_can_pci_driver}; check the installed PCIe CAN driver"
+
+  while true; do
+    pcie_interfaces=()
+    for ((port = 0; port < expected_can_pci_ports; port++)); do
+      interface="$(pcie_can_interface_for_port "${port}" || true)"
+      [[ -n "${interface}" ]] && pcie_interfaces[port]="${interface}"
+    done
+    if (( ${#pcie_interfaces[@]} == expected_can_pci_ports )); then
+      break
+    fi
+    if (( SECONDS >= deadline )); then
+      fail "missing PCIe-9140I CAN ports: expected ${expected_can_pci_ports} ports from ${expected_can_pci_driver}"
+    fi
+    sleep 0.5
+  done
+
+  sources=("${pcie_interfaces[@]}")
+  for reserved in can0 can1 pciecan1 pciecan2 pciecan3 \
+    zpcie_tmp0 zpcie_tmp1 zpcie_tmp2 zpcie_tmp3 bmscan_tmp; do
+    [[ -e "/sys/class/net/${reserved}" ]] || continue
+    for source in "${sources[@]}"; do
+      [[ "${reserved}" == "${source}" ]] && continue 2
+    done
+    fail "reserved CAN interface ${reserved} belongs to unknown hardware"
+  done
+
+  for interface in "${sources[@]}"; do
+    run_privileged ip link set dev "${interface}" down ||
+      fail "could not bring ${interface} down for deterministic CAN naming"
+  done
+  for ((port = 0; port < expected_can_pci_ports; port++)); do
+    interface="${pcie_interfaces[port]}"
+    if [[ "${interface}" != "zpcie_tmp${port}" ]]; then
+      run_privileged ip link set dev "${interface}" name "zpcie_tmp${port}" ||
+        fail "could not stage PCIe CAN port ${port} for deterministic naming"
+    fi
+  done
+  run_privileged ip link set dev zpcie_tmp0 name can0 ||
+    fail "could not bind PCIe-9140I L0 to can0"
+  run_privileged ip link set dev zpcie_tmp1 name can1 ||
+    fail "could not bind PCIe-9140I L1 to BMS/can1"
+  for ((port = 2; port < expected_can_pci_ports; port++)); do
+    run_privileged ip link set dev "zpcie_tmp${port}" name "pciecan${port}" ||
+      fail "could not park PCIe-9140I L${port} as pciecan${port}"
+  done
+
+  configure_can_interface can0
+  configure_can_interface can1
+}
+
+run_privileged()
+{
   if [[ ${EUID} -eq 0 ]]; then
-    "${can_setup_tool}" --wait 30 --configure ||
-      fail "CAN preflight failed; check the missing adapter message above"
+    "$@"
   elif [[ -t 0 || -r /dev/tty ]]; then
-    sudo "${can_setup_tool}" --wait 30 --configure ||
-      fail "CAN preflight failed; check the missing adapter message above"
+    sudo "$@"
   else
-    sudo -n "${can_setup_tool}" --wait 30 --configure ||
-      fail "CAN preflight failed and sudo is not available non-interactively"
+    sudo -n "$@"
   fi
 }
 
-verify_can_interface()
+pcie_can_interface_for_port()
 {
-  local expected_serial="$2"
+  local expected_dev_id
+  local interface_path
+  local match=""
+  local port="$1"
+  expected_dev_id="$(printf '0x%x' "${port}")"
+  for interface_path in /sys/class/net/*; do
+    [[ -r "${interface_path}/type" ]] || continue
+    [[ "$(< "${interface_path}/type")" == "280" ]] || continue
+    [[ "$(basename "$(readlink -f "${interface_path}/device/driver" 2>/dev/null)")" == "${expected_can_pci_driver}" ]] || continue
+    [[ "$(< "${interface_path}/device/vendor")" == "${expected_can_pci_vendor}" ]] || continue
+    [[ "$(< "${interface_path}/device/device")" == "${expected_can_pci_device}" ]] || continue
+    [[ "$(< "${interface_path}/dev_id")" == "${expected_dev_id}" ]] || continue
+    [[ -z "${match}" ]] || return 1
+    match="${interface_path##*/}"
+  done
+  [[ -n "${match}" ]] || return 1
+  printf '%s\n' "${match}"
+}
+
+configure_can_interface()
+{
   local interface="$1"
-  local observed_serial
+  run_privileged ip link set dev "${interface}" down ||
+    fail "could not bring ${interface} down for CAN configuration"
+  run_privileged ip link set dev "${interface}" type can bitrate 500000 ||
+    fail "could not set ${interface} to 500 kbit/s"
+  run_privileged ip link set dev "${interface}" txqueuelen 128 ||
+    fail "could not set ${interface} txqueuelen to 128"
+  run_privileged ip link set dev "${interface}" up ||
+    fail "could not bring ${interface} up"
+}
+
+verify_can_link()
+{
+  local deadline=$((SECONDS + 5))
+  local flags
+  local interface="$1"
+  local last_error=""
   local output
-  observed_serial="$(
-    udevadm info -q property -p "/sys/class/net/${interface}" 2>/dev/null |
-      sed -n 's/^ID_SERIAL_SHORT=//p'
-  )"
-  [[ "${observed_serial}" == "${expected_serial}" ]] ||
-    fail "${interface} USB serial mismatch"
-  output="$(ip -details -statistics link show "${interface}")"
-  grep -Fq 'state UP' <<< "${output}" || fail "${interface} is not UP"
-  grep -Fq 'can state ERROR-ACTIVE' <<< "${output}" ||
-    fail "${interface} is not ERROR-ACTIVE"
-  grep -Fq 'bitrate 500000' <<< "${output}" ||
-    fail "${interface} is not 500 kbit/s"
+  while true; do
+    if [[ ! -r "/sys/class/net/${interface}/flags" ]]; then
+      last_error="${interface} disappeared after CAN configuration"
+    else
+      flags="$(< "/sys/class/net/${interface}/flags")"
+      output="$(ip -details -statistics link show "${interface}")"
+      if (( (flags & 0x1) == 0 )); then
+        last_error="${interface} is not administratively UP"
+      elif ! grep -Fq 'can state ERROR-ACTIVE' <<< "${output}"; then
+        last_error="${interface} is not ERROR-ACTIVE"
+      elif ! grep -Fq 'bitrate 500000' <<< "${output}"; then
+        last_error="${interface} is not 500 kbit/s"
+      elif ! grep -Fq 'qlen 128' <<< "${output}"; then
+        last_error="${interface} txqueuelen is not 128"
+      else
+        return 0
+      fi
+    fi
+    if (( SECONDS >= deadline )); then
+      fail "${last_error} after waiting 5 seconds"
+    fi
+    sleep 0.2
+  done
+}
+
+verify_pcie_can_interface()
+{
+  local interface="$1"
+  local port="$2"
+  local expected_dev_id
+  expected_dev_id="$(printf '0x%x' "${port}")"
+  [[ "$(basename "$(readlink -f "/sys/class/net/${interface}/device/driver" 2>/dev/null)")" == "${expected_can_pci_driver}" ]] ||
+    fail "${interface} is not owned by ${expected_can_pci_driver}"
+  [[ "$(< "/sys/class/net/${interface}/device/vendor")" == "${expected_can_pci_vendor}" ]] ||
+    fail "${interface} PCI vendor mismatch"
+  [[ "$(< "/sys/class/net/${interface}/device/device")" == "${expected_can_pci_device}" ]] ||
+    fail "${interface} PCI device mismatch"
+  [[ "$(< "/sys/class/net/${interface}/dev_id")" == "${expected_dev_id}" ]] ||
+    fail "${interface} is not PCIe-9140I logical port L${port}"
+  verify_can_link "${interface}"
 }
 
 verify_idle_ethercat()
@@ -873,8 +998,8 @@ start_native()
     confirm_start_authorization
   fi
   prepare_can_interfaces
-  verify_can_interface can0 "${expected_can_serial}"
-  verify_can_interface can1 "${expected_bms_can_serial}"
+  verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"
+  verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"
   launch_native
   if ! wait_for_enable_service; then
     terminate_failed_start
@@ -928,8 +1053,8 @@ recover_power_loss_native()
   reject_running_container
   best_effort_stop_existing_native_for_recovery
   prepare_can_interfaces
-  verify_can_interface can0 "${expected_can_serial}"
-  verify_can_interface can1 "${expected_bms_can_serial}"
+  verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"
+  verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"
 
   start_native preauthorized
   wait_for_enable_manager_reset_ready
