@@ -258,10 +258,63 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index('[[ "${operation}" == "enable" ]]'), body.index("pin_controller_update_thread"))
         self.assertLess(body.index("pin_controller_update_thread"), body.index('"/rt/${operation}"'))
 
-    def test_native_start_forces_can_preflight_after_authorization_before_launch(self):
-        self.assertIn('can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"', self.text)
+    def test_native_can_preflight_uses_fixed_zlg_pcie_identity_and_port_roles(self):
+        for expected in (
+            'readonly expected_can_pci_vendor="0x10b5"',
+            'readonly expected_can_pci_device="0x9140"',
+            'readonly expected_can_pci_driver="zpcican"',
+            'readonly expected_can_pci_ports="4"',
+            'readonly expected_canopen_can_pci_port="0"',
+            'readonly expected_bms_can_pci_port="1"',
+        ):
+            self.assertIn(expected, self.text)
+        self.assertNotIn("expected_can_serial", self.text)
+        self.assertNotIn("expected_bms_can_serial", self.text)
+        self.assertNotIn("can_setup_tool", self.text)
+
+        start = self.text.index("prepare_can_interfaces()")
+        stop = self.text.index("run_privileged()", start)
+        body = self.text[start:stop]
+        self.assertIn('modprobe "${expected_can_pci_driver}"', body)
+        self.assertIn('pcie_can_interface_for_port "${port}"', body)
+        self.assertIn('zpcie_tmp0 name can0', body)
+        self.assertIn('zpcie_tmp1 name can1', body)
+        self.assertIn('name "pciecan${port}"', body)
+        self.assertIn("configure_can_interface can0", body)
+        self.assertIn("configure_can_interface can1", body)
+
+    def test_native_can_preflight_rejects_wrong_pcie_identity_and_waits_for_ready_links(self):
+        finder_start = self.text.index("pcie_can_interface_for_port()")
+        finder_stop = self.text.index("configure_can_interface()", finder_start)
+        finder = self.text[finder_start:finder_stop]
+        for identity_path in (
+            "/device/driver",
+            "/device/vendor",
+            "/device/device",
+            "/dev_id",
+        ):
+            self.assertIn(identity_path, finder)
+
+        verify_start = self.text.index("verify_can_link()")
+        verify_stop = self.text.index("verify_pcie_can_interface()", verify_start)
+        verify = self.text[verify_start:verify_stop]
+        self.assertIn("SECONDS + 5", verify)
+        self.assertIn("flags & 0x1", verify)
+        self.assertIn("can state ERROR-ACTIVE", verify)
+        self.assertIn("bitrate 500000", verify)
+        self.assertIn("qlen 128", verify)
+        self.assertIn("return 0", verify)
+
+        identity_start = self.text.index("verify_pcie_can_interface()")
+        identity_stop = self.text.index("verify_idle_ethercat()", identity_start)
+        identity = self.text[identity_start:identity_stop]
+        self.assertIn("expected_can_pci_driver", identity)
+        self.assertIn("expected_can_pci_vendor", identity)
+        self.assertIn("expected_can_pci_device", identity)
+        self.assertIn("expected_dev_id", identity)
+
+    def test_native_start_forces_pcie_can_preflight_after_authorization_before_launch(self):
         self.assertIn("prepare_can_interfaces", self.text)
-        self.assertIn("--wait 30 --configure", self.text)
         self.assertIn("EtherCAT service must be active", self.text)
         self.assertNotIn("CAN naming, can0 and can1 services must be active", self.text)
 
@@ -269,6 +322,14 @@ class NativeLauncherContractTest(unittest.TestCase):
         stop = self.text.index("enable_native()", start)
         body = self.text[start:stop]
         self.assertLess(body.index("confirm_start_authorization"), body.index("prepare_can_interfaces"))
+        self.assertIn(
+            'verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"',
+            body,
+        )
+        self.assertIn(
+            'verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"',
+            body,
+        )
         self.assertLess(body.index("prepare_can_interfaces"), body.index("launch_native"))
 
         recovery_start = self.text.index("recover_power_loss_native()")
@@ -281,6 +342,14 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(
             recovery_body.index("prepare_can_interfaces"),
             recovery_body.index("start_native preauthorized"),
+        )
+        self.assertIn(
+            'verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"',
+            recovery_body,
+        )
+        self.assertIn(
+            'verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"',
+            recovery_body,
         )
 
     def test_boot_failure_does_not_wait_full_enable_timeout_after_controller_manager_exit(self):
