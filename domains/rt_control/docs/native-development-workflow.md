@@ -214,7 +214,9 @@ Native 包装器不是持久化 daemon。目标机的 SSH session cgroup 会在�
 controller update 线程 CPU14 pin 门禁——这是原生运行的有意差异，不是文档漂移。
 
 以上命令都保留真实硬件确认口令。原生脚本锁定当前工控机、实时内核、CPU14、
-EtherCAT MAC、两只 CANable 序列号和 500 kbit/s 参数；任一事实不符即拒绝启动。
+EtherCAT MAC，以及 ZLG PCIe-9140I 的 `10b5:9140` PCI 身份、`zpcican` 驱动和端口
+`dev_id`；L0 固定为 CANopen `can0`、L1 固定为 BMS `can1`，两路均设置为
+500 kbit/s、txqueuelen 128。硬件身份、端口数量或保留接口名任一不符即拒绝启动。
 它也会拒绝与正在运行的 `robot-rt-control-1` 容器重叠。IgH EtherCAT 主站必须通过
 `/etc/modprobe.d/ec_master.conf` 配置为 `options ec_master run_on_cpu=14`；该模块参数需要
 重启或重载 `ec_master` 后才对 `EtherCAT-OP` 线程生效。
