@@ -2371,3 +2371,23 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Release boundary：语义阻塞及 RT-Control 的最终 SHA 回填已经解除，但线协议仍处于破坏性
   跨域迁移阶段。RT-Control、Motion/Navigation、Perception、Autonomy 及 external 调用方完成
   同一 `f699f45972ad15bbbbbb3da1a4894faf209144c9` 迁移和跨域 smoke 前，仍禁止镜像发布和部署。
+
+## BQ-139 — 履带主动轮半径与轮距更正 [RESOLVED/HIGH-RISK 2026-08-21]
+
+- Evidence：BQ-064 曾按当时用户选择把 `0.2088 m` 冻结为主动轮半径，配置比例为
+  `-304894.5269959681` raw/(m 或 m/s)。用户现明确更正主动轮物理半径为 `0.1044 m`，
+  即 `0.2088 m` 是直径；同时要求履带轮距从 `0.82 m` 改为原值的 2.39 倍，得到
+  `1.9598 m`。
+- Decision：本裁决取代 BQ-064 对主动轮几何尺寸和数值比例的结论。左右履带统一使用
+  `scale_pos_to_dev=scale_vel_to_dev=-609789.0539919361`，逆比例统一为
+  `scale_pos_from_dev=scale_vel_from_dev=-1.63991136517387e-6`，位置偏移保持零；
+  `diff_drive_controller.wheel_radius=1.0` 保持不变以避免重复换算，`wheel_separation`
+  冻结为 `1.9598`。
+- Benefit：ROS 侧米、米每秒及差速运动学与更正后的物理几何一致，位置与速度换算继续保持
+  导数一致。
+- Drawback（重点）：相同 ROS 直线速度对应的 raw 命令绝对值变为旧配置的两倍；相同原地
+  转向角速度同时叠加 2.39 倍轮距，raw 需求约为旧配置的 4.78 倍。若任一物理尺寸不准确，
+  实际速度、转向与里程会产生显著误差。
+- Verification boundary：源码、生成 DCF、Mock 和自动测试不能证明实车比例。新配置首次投入
+  运动前必须在低速、有急停、隔离区和监护条件下测量直行距离、履带速度、原地转向角度及
+  里程计；未经该 T4 验证不得声明实机机械参数验收通过。
