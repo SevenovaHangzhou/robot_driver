@@ -2391,3 +2391,19 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Verification boundary：源码、生成 DCF、Mock 和自动测试不能证明实车比例。新配置首次投入
   运动前必须在低速、有急停、隔离区和监护条件下测量直行距离、履带速度、原地转向角度及
   里程计；未经该 T4 验证不得声明实机机械参数验收通过。
+## BQ-138 — 生产 CAN 适配器从 CANable2 迁移到 ZLG PCIe-9140I [RESOLVED/PARTIAL 2026-08-21]
+
+- 状态：**RESOLVED for native identity/mapping；生产发布与长稳仍未完成**。
+- Evidence：ELECTRI-95 将现场永久 TX stall 缩窄到 CANable2/`gs_usb` 的 TX-echo/发送完成
+  路径；用户随后明确选择 PCIe 卡并确认 CANopen 与 BMS 两路均已迁移。目标机
+  `0000:08:00.0=10b5:9140` 在 `5.15.0-1032-realtime` 上由 `zpcican` 枚举四个
+  SocketCAN 通道，`dev_id=0x0..0x3`。只读现场观测确认 L0 与 L1 均为 500 kbit/s、
+  ERROR-ACTIVE、零 CAN 错误，L0 收到履带报文，L1 持续收到 BMS 报文。
+- Decision：native 启动按 driver/vendor/device/`dev_id` 唯一识别四通道，事务式重命名
+  L0=`can0`、L1=`can1`，L2/L3=`pciecan2/3` 且保持 DOWN；只配置前两路为
+  500 kbit/s、txqueuelen 128。未知硬件占用保留名称、通道缺失或身份不符均 fail closed；
+  不自动回退到 CANable2。该决策取代 BQ-100 对 native 入口的两只 USB 序列号绑定，并在
+  当前双通道硬件在场条件下解除 BQ-121 的缺席阻塞。
+- Boundary：本裁决不等于 ELECTRI-104 完成。Docker/current-release 入口、可复现驱动安装、
+  bus-off/restart、满载以及 24 h 导航负载 HIL 尚未验收；在这些证据完成前不得声明生产
+  迁移完成，也不得关闭 ELECTRI-104。

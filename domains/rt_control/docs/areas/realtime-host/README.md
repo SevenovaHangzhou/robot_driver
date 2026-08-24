@@ -13,10 +13,11 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| HOST-CAN-1 | `ar-Default-string` 的 native CAN 入口按 PCI 身份和 `dev_id` 绑定 ZLG PCIe-9140I：L0=`can0`（CANopen）、L1=`can1`（BMS），L2/L3 保持备用；不以偶然的 `canX` 枚举号或 CANable USB 序列号识别。 | [realtime-host-20260821-01](records/2026-08-21-zlg-pcie-can-native-preflight.md) | ACTIVE（native；Docker 发布入口尚未迁移） |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- [2026-08-21 ZLG PCIe-9140I native CAN 预检迁移](records/2026-08-21-zlg-pcie-can-native-preflight.md)
 
 ## 历史锚点（2026-08-13 前，未迁移）
 
