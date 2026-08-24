@@ -171,7 +171,7 @@ remain open T-014 work.
 | --- | --- |
 | REQ-CAN-001 | 500 kbit/s remains a host `can0.service` responsibility in T-009; no conflicting bus value is introduced. |
 | REQ-CAN-002 | Exactly nodes 1/2/3 and modes 1/3/3 are represented; the commissioning-only node is absent from all CANopen configuration files. Non-RT hardware activation owns mode initialization. |
-| REQ-CAN-003 | Updown scaling remains exact. The user-approved 0.2088 m sprocket radius supersedes the old track scale: position and velocity both use `-304894.5269959681` to-device and `-3.27982273034774e-6` from-device with zero offsets. |
+| REQ-CAN-003 | Track scaling remains exact. The user-approved 0.1044 m sprocket radius (0.2088 m diameter) supersedes the prior interpretation: position and velocity both use `-609789.0539919361` to-device and `-1.63991136517387e-6` from-device with zero offsets. |
 | REQ-CAN-004 | Host SDO timeout is 500 ms. The former custom activation order is explicitly superseded by upstream Motor402 plus the approved non-RT lifecycle orchestration; drive adaptation/readback remains a powered-motion gate. |
 | REQ-CAN-007 | Read-only full-range archive script delivered; no PDO configuration or SYNC key is present. Hardware execution belongs to T-014. |
 | REQ-CAN-008 | No unresolved motion/safety value is filled. 0x5010 absence and 0x605E presence remain documented; only the separately approved heartbeat objects 0x1016/0x1017 are generated at startup. |

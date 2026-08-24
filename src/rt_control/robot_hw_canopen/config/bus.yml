@@ -29,23 +29,28 @@ defaults:
   # drive-configuration authority and are archived read-only during commissioning.
 
 nodes:
+  # Track position and velocity are exposed to ros2_control directly in metres
+  # and metres/second.  The frozen geometry is a 0.1044 m sprocket radius,
+  # 40 motor revolutions per sprocket revolution, and 10000 drive units per
+  # motor revolution.  Keep diff_drive_controller.wheel_radius at 1.0 so this
+  # physical conversion is applied exactly once.
   left_track_joint:
     node_id: 2
     mandatory: true
     operation_mode: 3
-    scale_pos_to_dev: -304894.5269959681
-    scale_pos_from_dev: -3.27982273034774e-6
-    scale_vel_to_dev: -304894.5269959681
-    scale_vel_from_dev: -3.27982273034774e-6
+    scale_pos_to_dev: -609789.0539919361
+    scale_pos_from_dev: -1.63991136517387e-6
+    scale_vel_to_dev: -609789.0539919361
+    scale_vel_from_dev: -1.63991136517387e-6
     offset_pos_to_dev: 0.0
     offset_pos_from_dev: 0.0
   right_track_joint:
     node_id: 3
     mandatory: true
     operation_mode: 3
-    scale_pos_to_dev: -304894.5269959681
-    scale_pos_from_dev: -3.27982273034774e-6
-    scale_vel_to_dev: -304894.5269959681
-    scale_vel_from_dev: -3.27982273034774e-6
+    scale_pos_to_dev: -609789.0539919361
+    scale_pos_from_dev: -1.63991136517387e-6
+    scale_vel_to_dev: -609789.0539919361
+    scale_vel_from_dev: -1.63991136517387e-6
     offset_pos_to_dev: 0.0
     offset_pos_from_dev: 0.0
