@@ -26,8 +26,13 @@ class NativeLauncherContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.text = LAUNCHER.read_text(encoding="utf-8")
 
-    def test_runtime_is_fixed_to_shared_domain_and_default_fastdds_transports(self):
-        self.assertIn('readonly expected_ros_domain_id="0"', self.text)
+    def test_runtime_defaults_to_shared_domain_and_default_fastdds_transports(self):
+        self.assertIn(
+            'expected_ros_domain_id="${RT_CONTROL_ROS_DOMAIN_ID:-${ROS_DOMAIN_ID:-0}}"',
+            self.text,
+        )
+        self.assertIn("--ros-domain-id", self.text)
+        self.assertIn("validate_ros_domain_id", self.text)
         self.assertIn('ROS_DOMAIN_ID="${expected_ros_domain_id}"', self.text)
         self.assertIn('RMW_IMPLEMENTATION="rmw_fastrtps_cpp"', self.text)
         self.assertIn('-u FASTRTPS_DEFAULT_PROFILES_FILE', self.text)
@@ -454,7 +459,7 @@ class NativeLauncherContractTest(unittest.TestCase):
         )
 
         doctor_start = self.text.index("doctor_native()")
-        doctor_stop = self.text.index('case "${1:-}"', doctor_start)
+        doctor_stop = self.text.index('case "${command_name:-}"', doctor_start)
         doctor_body = self.text[doctor_start:doctor_stop]
         self.assertIn("verify_runtime_dependency_closure", doctor_body)
 
