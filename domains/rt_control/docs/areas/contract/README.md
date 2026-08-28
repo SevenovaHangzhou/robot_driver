@@ -22,15 +22,18 @@
 | 03#F2 | 当前 DomainReadiness 为最终公共字段集并遵守一致性规则 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F2 | 有效 |
 | 03#F3 | 全部生产/消费域必须锁定同一接口 SHA 原子升级 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F3 | 有效 |
 | 03#F4 | d8236bd 是 PR #6 验证 SHA；发布仍须回填最终 main SHA | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F4 | 已由 04#F1 闭环 |
-| 04#F1 | RT-Control 固定 robot_interfaces 最终 main SHA f699f45 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F1 | 有效 |
+| 04#F1 | RT-Control 固定 robot_interfaces 最终 main SHA f699f45 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F1 | 已由 06#F1 取代 |
 | 04#F2 | f699f45 包含 BQ-137 与 Perception completeness，契约版本仍为 0.7.0 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F2 | 有效 |
 | 04#F3 | 最终 SHA 回填不解除各域同 SHA 原子升级与跨域 smoke 门禁 | [contract-20260817-01](records/2026-08-17-robot-interfaces-final-main-pin.md)#F3 | 有效 |
 | 05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
 | 05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
 | 05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
+| 06#F1 | RT-Control 权威 robot_interfaces SHA 固定为 92d6ff2 | [contract-20260827-01](records/2026-08-27-robot-interfaces-main-pin.md)#F1 | 有效 |
+| 06#F2 | f699f45→92d6ff2 未改变 RT 三个公共包，只改变 Motion M-08 Action | [contract-20260827-01](records/2026-08-27-robot-interfaces-main-pin.md)#F2 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-08-27 [robot_interfaces 权威 SHA 同步至 92d6ff2](records/2026-08-27-robot-interfaces-main-pin.md) — corrective，PASS（T1；RT schema 不变）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）
 - 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）
 - 2026-08-16 [BQ-137 跨域错误与 readiness 语义裁决落地](records/2026-08-16-bq137-shared-error-readiness.md) — decision，PASS（T1；发布待 PR #6 最终 SHA 与全域迁移）

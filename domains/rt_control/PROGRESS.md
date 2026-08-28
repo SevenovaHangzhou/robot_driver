@@ -109,3 +109,4 @@
 | 2026-08-19 | governance | [根 README 补齐记录与测试体系导航](docs/areas/governance/records/2026-08-19-root-readme-record-testing-navigation.md) | PASS（T0） |
 | 2026-08-21 | canopen-chassis | [履带主动轮半径与轮距更正](docs/areas/canopen-chassis/records/2026-08-21-track-mechanics-1044mm-19598mm.md) | PASS（T0；自动测试/镜像/Mock；T4 实车比例待验证） |
 | 2026-08-21 | realtime-host | [ZLG PCIe-9140I native CAN 预检迁移](docs/areas/realtime-host/records/2026-08-21-zlg-pcie-can-native-preflight.md) | PARTIAL（ELECTRI-104；native 双总线已观测，Docker/24 h HIL 待完成） |
+| 2026-08-27 | contract | [robot_interfaces 权威 SHA 同步至 92d6ff2](docs/areas/contract/records/2026-08-27-robot-interfaces-main-pin.md) | PASS（T1；RT schema 不变，Motion/Autonomy 需同 SHA 原子升级） |
