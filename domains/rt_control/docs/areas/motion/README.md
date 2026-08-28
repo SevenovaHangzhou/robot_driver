@@ -12,10 +12,11 @@ launch 结构与容器（→ release-deploy）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| F1 | `diff_drive_controller.wheel_separation=0.95089496 m`，为用户明确要求的有效轮距参数 `1.9598 * 0.4852`；该值不等同于已实测物理轮距 | BQ-140；[2026-08-24 记录](records/2026-08-24-track-effective-separation-95089496mm.md) | 已裁决，待 T4 实车转向/里程计复验 |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- [2026-08-24 履带有效轮距调整为 0.95089496 m](records/2026-08-24-track-effective-separation-95089496mm.md)
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

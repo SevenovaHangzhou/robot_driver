@@ -36,5 +36,5 @@ The track position and velocity conversion uses the approved 0.1044 m
 active-sprocket radius (0.2088 m diameter): both directions use the exact
 `bus.yml` factors. `diff_drive_controller.wheel_radius` remains 1.0 because the
 hardware interface is expressed directly in metres and metres/second; applying
-0.1044 there again would double-convert the command. The approved track
-separation is 1.9598 m.
+0.1044 there again would double-convert the command. The effective track
+separation is owned by the diff-drive controller configuration and BQ-140.
