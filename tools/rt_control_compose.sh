@@ -13,6 +13,14 @@ repository_root="$(cd -- "${repository_root}" && pwd)"
 
 : "${RT_CONTROL_CPUSET:?Set RT_CONTROL_CPUSET only after target-host CPU topology validation}"
 
+RT_CONTROL_ROS_DOMAIN_ID="${RT_CONTROL_ROS_DOMAIN_ID:-0}"
+if [[ ! "${RT_CONTROL_ROS_DOMAIN_ID}" =~ ^(0|[1-9][0-9]{0,2})$ ]] ||
+  (( RT_CONTROL_ROS_DOMAIN_ID > 232 )); then
+  echo "RT_CONTROL_ROS_DOMAIN_ID must be a decimal integer in 0..232: ${RT_CONTROL_ROS_DOMAIN_ID}" >&2
+  exit 2
+fi
+export RT_CONTROL_ROS_DOMAIN_ID
+
 export RT_CONTROL_IMAGE_TAG
 if [[ -n "${RT_CONTROL_IMAGE_TAG:-}" ]]; then
   if [[ ! "${RT_CONTROL_IMAGE_TAG}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
