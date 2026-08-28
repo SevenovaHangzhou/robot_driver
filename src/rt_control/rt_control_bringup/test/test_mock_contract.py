@@ -25,7 +25,7 @@ import os
 import time
 import unittest
 
-# Isolate from the live robot graph (ROS_DOMAIN_ID 0) on the industrial PC.
+# Isolate from the configured live robot graph on the industrial PC.
 # Must run before rclpy.init() and before the launch service forks children.
 DEFAULT_TEST_DOMAIN_ID = "142"
 os.environ.setdefault("ROS_DOMAIN_ID", DEFAULT_TEST_DOMAIN_ID)

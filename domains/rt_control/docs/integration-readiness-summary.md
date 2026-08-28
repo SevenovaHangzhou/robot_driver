@@ -86,8 +86,9 @@ T-IF-RT-005 统一 `ErrorInfo` 公共错误结构。
 - Service 的幂等、错误码、版本兼容和操作者权限；
 - ROS middleware、网卡暴露和跨容器发现范围。
 
-当前容器设置了 `ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=0`、`RMW_IMPLEMENTATION=rmw_fastrtps_cpp`
-和 host network。其他域要与 rt-control 直连联调时，应使用同一 Domain 和兼容 DDS 配置；如果后续改成跨主机或多容器隔离网络，
+当前代码按 BQ-141 将 `ROS_DOMAIN_ID` 作为 `0..232` 的部署输入（默认 0），并继续固定
+`ROS_LOCALHOST_ONLY=0`、`RMW_IMPLEMENTATION=rmw_fastrtps_cpp` 和 host network。其他域要与 rt-control
+直连联调时，必须由同一部署清单设置相同 Domain 和兼容 DDS 配置；如果后续改成跨主机或多容器隔离网络，
 需要重新定义 DDS discovery/Router 或桥接方式。
 
 ### B. 安全诊断公共输出

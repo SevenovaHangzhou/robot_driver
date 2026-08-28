@@ -30,9 +30,13 @@
 | 05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
 | 06#F1 | RT-Control 权威 robot_interfaces SHA 固定为 92d6ff2 | [contract-20260827-01](records/2026-08-27-robot-interfaces-main-pin.md)#F1 | 有效 |
 | 06#F2 | f699f45→92d6ff2 未改变 RT 三个公共包，只改变 Motion M-08 Action | [contract-20260827-01](records/2026-08-27-robot-interfaces-main-pin.md)#F2 | 有效 |
+| 07#F1 | ROS Domain 由部署显式配置为十进制 `0..232`，默认 `0` | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F1 | 有效；取代 BQ-128 固定 Domain 0 |
+| 07#F2 | 同一机器实例的五域必须使用同一 Domain，Domain 不是安全隔离 | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F2 | 有效 |
+| 07#F3 | RMW 仍固定 `rmw_fastrtps_cpp`，传输仍为 Fast DDS 默认 UDP+SHM | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F3 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-08-28 [ROS Domain 由部署显式配置](records/2026-08-28-configurable-ros-domain.md) — decision，PASS（T1；native/Compose/Mock）
 - 2026-08-27 [robot_interfaces 权威 SHA 同步至 92d6ff2](records/2026-08-27-robot-interfaces-main-pin.md) — corrective，PASS（T1；RT schema 不变）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）
 - 2026-08-17 [robot_interfaces 回填最终 main SHA](records/2026-08-17-robot-interfaces-final-main-pin.md) — corrective，PASS（T0；发布仍待镜像与全域同 SHA smoke）

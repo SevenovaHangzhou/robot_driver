@@ -60,6 +60,7 @@ target host's validated isolated CPU set:
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_ROS_DOMAIN_ID=<本机器实例统一的 0..232>
 tools/rt_control_compose.sh config
 tools/rt_control_compose.sh build rt-control
 ```

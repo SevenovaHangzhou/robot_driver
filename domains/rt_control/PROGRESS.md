@@ -111,3 +111,4 @@
 | 2026-08-21 | realtime-host | [ZLG PCIe-9140I native CAN 预检迁移](docs/areas/realtime-host/records/2026-08-21-zlg-pcie-can-native-preflight.md) | PARTIAL（ELECTRI-104；native 双总线已观测，Docker/24 h HIL 待完成） |
 | 2026-08-24 | motion | [履带有效轮距调整为 0.95089496 m](docs/areas/motion/records/2026-08-24-track-effective-separation-95089496mm.md) | PASS（T1；自动测试/镜像/Mock；T4 实车转向与里程计待验证） |
 | 2026-08-27 | contract | [robot_interfaces 权威 SHA 同步至 92d6ff2](docs/areas/contract/records/2026-08-27-robot-interfaces-main-pin.md) | PASS（T1；RT schema 不变，Motion/Autonomy 需同 SHA 原子升级） |
+| 2026-08-28 | contract | [ROS Domain 由部署显式配置](docs/areas/contract/records/2026-08-28-configurable-ros-domain.md) | PASS（T1；默认/显式/非法值、镜像与无硬件 Mock） |
