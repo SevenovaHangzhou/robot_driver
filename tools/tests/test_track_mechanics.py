@@ -48,7 +48,7 @@ class TrackMechanicsContractTest(unittest.TestCase):
 
         diff_drive = controllers["diff_drive_controller"]["ros__parameters"]
         self.assertEqual(diff_drive["wheel_radius"], 1.0)
-        self.assertEqual(diff_drive["wheel_separation"], 1.9598)
+        self.assertEqual(diff_drive["wheel_separation"], 0.95089496)
 
 
 if __name__ == "__main__":

@@ -2391,6 +2391,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Verification boundary：源码、生成 DCF、Mock 和自动测试不能证明实车比例。新配置首次投入
   运动前必须在低速、有急停、隔离区和监护条件下测量直行距离、履带速度、原地转向角度及
   里程计；未经该 T4 验证不得声明实机机械参数验收通过。
+
 ## BQ-138 — 生产 CAN 适配器从 CANable2 迁移到 ZLG PCIe-9140I [RESOLVED/PARTIAL 2026-08-21]
 
 - 状态：**RESOLVED for native identity/mapping；生产发布与长稳仍未完成**。
@@ -2407,3 +2408,16 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Boundary：本裁决不等于 ELECTRI-104 完成。Docker/current-release 入口、可复现驱动安装、
   bus-off/restart、满载以及 24 h 导航负载 HIL 尚未验收；在这些证据完成前不得声明生产
   迁移完成，也不得关闭 ELECTRI-104。
+
+## BQ-140 — 履带 diff-drive 有效轮距缩小为前值的 0.4852 [RESOLVED/HIGH-RISK 2026-08-24]
+
+- Evidence：用户明确要求把履带差速控制器中的轮距缩小为当时配置 `1.9598 m` 的
+  `0.4852` 倍，计算结果为 `0.95089496 m`。该输入是控制器有效轮距裁决，不是新的物理尺寸测量证据。
+- Decision：`diff_drive_controller.wheel_separation` 从 `1.9598` 改为 `0.95089496`。本裁决只取代
+  BQ-139 的轮距值及由此推导的转向 raw 需求；BQ-139 的 `0.1044 m` 主动轮半径、CANopen 比例和
+  `wheel_radius=1.0` 继续有效。
+- Benefit：同一角速度命令对应的左右履带速度差为旧配置的 `48.52%`，与用户要求的有效转向模型一致。
+- Drawback（重点）：若实车有效轮距仍接近 `1.9598 m`，实际角速度将明显低于命令，而轮式里程计会高估转角；
+  导航融合前必须实测。
+- Verification boundary：回归测试、构建和无硬件 Mock 只能证明配置被正确加载。在低速、急停、隔离区和监护条件下
+  完成原地转向角度与 `/wheel/odom` 对比前，不得声明 T4 实机验收通过。

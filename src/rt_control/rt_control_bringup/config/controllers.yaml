@@ -109,7 +109,7 @@ diff_drive_controller:
       - left_track_joint
     right_wheel_names:
       - right_track_joint
-    wheel_separation: 1.9598
+    wheel_separation: 0.95089496
     wheels_per_side: 1
     wheel_radius: 1.0
     odom_frame_id: odom
