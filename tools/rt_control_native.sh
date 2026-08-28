@@ -6,7 +6,6 @@ readonly expected_hostname="ar-Default-string"
 readonly expected_kernel="5.15.0-1032-realtime"
 readonly expected_cpuset="14"
 readonly expected_housekeeping_cpuset="0,2,4,6,16-27"
-readonly expected_ros_domain_id="0"
 readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
 readonly expected_can_pci_vendor="0x10b5"
 readonly expected_can_pci_device="0x9140"
@@ -34,6 +33,10 @@ readonly repository_root workspace_root install_root runtime_root runtime_log_ro
 readonly pid_file latest_log_link installed_start axis_state_checker
 readonly realtime_cpu_guard thread_affinity_tool internal_dynamic_joint_states_topic
 
+expected_ros_domain_id="${RT_CONTROL_ROS_DOMAIN_ID:-${ROS_DOMAIN_ID:-0}}"
+command_name=""
+command_args=()
+
 info()
 {
   printf '[rt-control-native] %s\n' "$*"
@@ -50,26 +53,67 @@ usage()
   cat <<'EOF'
 Native rt-control development runtime for ar-Default-string:
 
-  ./tools/rt_control_native.sh doctor
-  ./tools/rt_control_native.sh start
+  ./tools/rt_control_native.sh [--ros-domain-id N] doctor
+  ./tools/rt_control_native.sh [--ros-domain-id N] start
       Start the real control stack without calling /rt/enable.
-  ./tools/rt_control_native.sh start-and-enable
+  ./tools/rt_control_native.sh [--ros-domain-id N] start-and-enable
       Start the real control stack and call /rt/enable after explicit approval.
-  ./tools/rt_control_native.sh recover-power-loss
+  ./tools/rt_control_native.sh [--ros-domain-id N] recover-power-loss
       Unattended recovery start: stop any old native session, start fresh,
       auto-clear resettable faults once, verify disabled state, call /rt/enable,
       then keep monitoring WARN/ERROR runtime logs in the foreground.
-  ./tools/rt_control_native.sh enable
+  ./tools/rt_control_native.sh [--ros-domain-id N] enable
       Call /rt/enable on an already running native stack.
-  ./tools/rt_control_native.sh stop
+  ./tools/rt_control_native.sh [--ros-domain-id N] stop
       Call /rt/disable, then signal the installed rt_control_start gate.
-  ./tools/rt_control_native.sh status
+  ./tools/rt_control_native.sh [--ros-domain-id N] status
   ./tools/rt_control_native.sh logs
 
-The runtime is fixed to ROS_DOMAIN_ID=0 and rmw_fastrtps_cpp. It explicitly
-removes DDS XML environment variables so Fast DDS keeps its default UDP/SHM
-transports. This script never changes the calling shell environment.
+Options:
+  --ros-domain-id N
+      ROS_DOMAIN_ID for this script and its child processes. Defaults to
+      RT_CONTROL_ROS_DOMAIN_ID, then ROS_DOMAIN_ID, then 0.
+
+The runtime uses rmw_fastrtps_cpp and explicitly removes DDS XML environment
+variables so Fast DDS keeps its default UDP/SHM transports. This script never
+changes the calling shell environment.
 EOF
+}
+
+validate_ros_domain_id()
+{
+  local value="$1"
+  [[ "${value}" =~ ^(0|[1-9][0-9]{0,2})$ ]] ||
+    fail "ROS_DOMAIN_ID must be a decimal integer in 0..232: ${value}"
+  (( value <= 232 )) ||
+    fail "ROS_DOMAIN_ID must be a decimal integer in 0..232: ${value}"
+}
+
+parse_launcher_args()
+{
+  local option
+  command_args=()
+  while (($#)); do
+    case "$1" in
+      --ros-domain-id|--domain-id)
+        option="$1"
+        shift
+        [[ $# -gt 0 ]] || fail "${option} requires an integer value"
+        expected_ros_domain_id="$1"
+        ;;
+      --ros-domain-id=*|--domain-id=*)
+        expected_ros_domain_id="${1#*=}"
+        ;;
+      *)
+        if [[ -z "${command_name}" ]]; then
+          command_name="$1"
+        else
+          command_args+=("$1")
+        fi
+        ;;
+    esac
+    shift
+  done
 }
 
 source_runtime_environment()
@@ -1199,13 +1243,26 @@ doctor_native()
   info "PASS: native runtime is installed for Domain ${expected_ros_domain_id} with Fast DDS default transports"
 }
 
-case "${1:-}" in
+parse_launcher_args "$@"
+
+case "${command_name:-}" in
+  -h|--help|help|"")
+    usage
+    exit 0
+    ;;
+  *)
+    validate_ros_domain_id "${expected_ros_domain_id}"
+    readonly expected_ros_domain_id
+    ;;
+esac
+
+case "${command_name:-}" in
   doctor) doctor_native ;;
   start) start_native ;;
   start-and-enable) start_and_enable_native ;;
   recover-power-loss) recover_power_loss_native ;;
   enable) enable_native ;;
-  stop) stop_native ;;
+  stop) stop_native "${command_args[@]}" ;;
   status) status_native ;;
   logs) logs_native ;;
   -h|--help|help|"") usage ;;

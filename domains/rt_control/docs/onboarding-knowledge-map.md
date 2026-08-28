@@ -274,7 +274,7 @@ docker stop / SIGTERM
 | 高 | XMC SW 5.11 的实机固定 PDO 与供应商 XML 不一致；当前 profile 以 slave 15 的 SII/PDO 扫描为权威，尚未完成 OP、使能和低速运动验收。 | 固件升级或换驱动器必须重读 SII 并逐项比对；不得直接用旧 XML 覆盖 profile，也不得把 mock/构建成功当实机通过。 |
 | 高 | BQ-115 是明确的硬件安全例外：`right_joint2/right_joint3/left_joint2/left_joint3` 四个 Ti5 在控制字 `0x0000` 下只到 Ready To Switch On；master release 后会以 `0x7500` 进入 Fault。 | 该状态只因设备手册和实测被接受为“未激磁”终态，不是 literal Switch On Disabled；最终验收要人工签字，下一次启动通常要显式 `/rt/reset_fault`。 |
 | 高 | BQ-117 仍开放：Ti5 `0x10F1:02` 的 ESI 声明宽度与实机上传长度不一致。 | 换驱动、固件或新机器时不能假定当前容忍策略仍成立。 |
-| 中 | Compose 已按 BQ-128 显式固定 `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`、`ROS_DOMAIN_ID=0`，无 DDS XML 挂载（"RMW 未固定"缺口已关闭）。 | host network + Domain 0 是跨域联调的预期配置，不是网络隔离；接入现场网络前仍须按 runbook 核对实际暴露范围。 |
+| 中 | Compose 按 BQ-141 固定 `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` 且无 DDS XML 挂载，Domain 改为 `0..232` 的部署输入（默认 0）。 | 五域 Domain 不一致会直接断开 DDS 发现；Domain 不是网络隔离，接入现场网络前仍须按 runbook 核对实际暴露范围。 |
 | 中 | `joint_limits.yaml` 会被安装，但当前 launch/runtime 没有加载它。 | 它目前是迁移/审计数据，不能声称 JTC 或硬件已从该文件自动执行软件限位。 |
 | 中 | `rt_disable_once` 失败会打印 `UNCLEAN_SHUTDOWN`，但 PID 1 最终退出码仍取 ROS launch 子进程。 | 容器可能 exit 0 但失能不干净；停机验收必须同时检查日志和总线终态。 |
 | 中 | 底层有部分 digital IO 状态/命令接口，但没有真空/语义 IO controller 和域间消息。 | 不能把裸 IO 当作已经可用的吸附控制能力。 |

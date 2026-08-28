@@ -20,11 +20,14 @@
 | 固定操作入口 | `/home/ar/rt-control-current` → `V0.10` 操作副本 |
 | 操作系统/内核 | Ubuntu 22.04.5 LTS，`5.15.0-1032-realtime`，PREEMPT_RT |
 | EtherCAT 主站 | IgH stable-1.6，commit `2f7f884f1c7d377c02a7d627eb06512126a0e50e` |
-| ROS | ROS 2 Humble，`ROS_DOMAIN_ID=0`，`RMW_IMPLEMENTATION=rmw_fastrtps_cpp` |
+| ROS | ROS 2 Humble；已部署 V0.10 为 `ROS_DOMAIN_ID=0`；仓库 BQ-141 后由部署输入 `0..232`；`RMW_IMPLEMENTATION=rmw_fastrtps_cpp` |
 
 运行副本由 GitHub Release `V0.10` 对应源码导出，不含 `.git`。开发仓库未显式设置
 `RT_CONTROL_IMAGE_TAG` 时仍按 Git HEAD 生成临时镜像 tag；正式操作副本会显式传入
 `RT_CONTROL_IMAGE_TAG=V0.10`，并要求目标机已从 Release 附件导入 `rt-control:V0.10`。
+
+V0.10 的 Domain 0 是已部署快照，不因源码文档修改而自动变更。BQ-141 之后的新 release 必须在
+发布清单中记录 `RT_CONTROL_ROS_DOMAIN_ID`，与其他域保持一致后再原子切换。
 
 当前镜像已经包含 `/wheel/odom`、TF 所有权调整、PLC/BMS、`/control/set_enabled`、真空公共接口、
 `/control/safety_state` 和 `/rt_control/readiness`。本页表格描述本次发布候选；目标机受控验证结果以
@@ -34,7 +37,7 @@
 
 ```mermaid
 flowchart LR
-    M[motion 等同机域<br/>当前工程接口] --> ROS[ROS 2 / Domain 0]
+    M[motion 等同机域<br/>当前工程接口] --> ROS[ROS 2 / 部署统一 Domain]
 
     subgraph C[rt-control 容器]
         B[rt_control_bringup]
@@ -94,7 +97,7 @@ flowchart LR
 | 设备 | `/dev/EtherCAT0:/dev/EtherCAT0` | 唯一直接映射的硬件设备 |
 | 重启策略 | `unless-stopped` | 异常退出后的 Docker 级恢复策略 |
 | 停止宽限 | `100 s` | 为失能和总线有序退出留出时间 |
-| DDS 配置 | `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`、`ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=0` | Compose 显式固定（BQ-128），无 DDS XML 挂载；Fast DDS 默认 UDP+共享内存传输 |
+| DDS 配置 | `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`、`ROS_DOMAIN_ID=${RT_CONTROL_ROS_DOMAIN_ID:-0}`、`ROS_LOCALHOST_ONLY=0` | Domain 由部署显式配置（BQ-141）；无 DDS XML 挂载；Fast DDS 默认 UDP+共享内存传输 |
 
 控制参数摘要：
 

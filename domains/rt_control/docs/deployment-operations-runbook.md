@@ -267,9 +267,13 @@ sudo hostsetup/can-install.sh
 
 ## 6. Phase E：硬件隔离 Mock smoke（L1）
 
-Mock 要使用同一个生产镜像，但必须使用独立 ROS Domain，且不能映射 `/dev/EtherCAT0`。先确认生产容器没有运行。
+Mock 要使用同一个生产镜像，但必须使用与当前生产值不同的独立 ROS Domain，且不能映射
+`/dev/EtherCAT0`。先确认生产容器没有运行。
 
-独立 `ROS_DOMAIN_ID=142` 只避免与生产 Domain 0（BQ-128）混用，不等于网络隔离。RMW 已由 BQ-128 固定为 `rmw_fastrtps_cpp`（Fast DDS 默认 UDP+共享内存传输）；由于 T-009 要求复现 host network 路径，Mock 仍可能在现场非 loopback 网卡发送 DDS 流量，只能在已批准的测试网络执行并记录实际接口行为。
+示例 `ROS_DOMAIN_ID=142` 只是测试值，运行前必须确认它未被任何在线生产实例使用。RMW 仍由
+BQ-141 固定为 `rmw_fastrtps_cpp`（Fast DDS 默认 UDP+共享内存传输）。Domain 不等于网络隔离；
+由于 T-009 要求复现 host network 路径，Mock 仍可能在现场非 loopback 网卡发送 DDS 流量，只能在已批准的
+测试网络执行并记录实际接口行为。
 
 下面是一份一次性模板；`sudo docker` 应替换为该目标机已批准的 Docker 提权入口：
 
@@ -358,6 +362,7 @@ journalctl -b -u rt-control-can-names.service -u can0.service
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_ROS_DOMAIN_ID=<该机器实例统一的 0..232>
 tools/rt_control_compose.sh config
 tools/rt_control_compose.sh create rt-control
 tools/rt_control_compose.sh ps -a
@@ -373,9 +378,11 @@ tools/rt_control_compose.sh ps -a
 - rtprio 98、memlock unlimited；
 - 只映射 `/dev/EtherCAT0`；
 - `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` 显式固定，无 DDS XML 挂载；
-- `ROS_DOMAIN_ID=0`（BQ-128）。
+- `ROS_DOMAIN_ID` 等于部署清单的 `RT_CONTROL_ROS_DOMAIN_ID`，范围 `0..232`（BQ-141）。
 
-RMW 已由 BQ-128 裁决并在 Compose 中显式固定为 `rmw_fastrtps_cpp`（`ROS_DOMAIN_ID=0`、`ROS_LOCALHOST_ONLY=0`，无 DDS XML 挂载），"RMW 未固定"这一历史部署缺口已关闭。host network + Domain 0 意味着与整机其他域共享发现空间——这是跨域联调的预期配置，不是网络隔离保证。
+RMW 由 BQ-141 继续固定为 `rmw_fastrtps_cpp`，`ROS_LOCALHOST_ONLY=0`，无 DDS XML 挂载；只有
+Domain 从固定 0 改为部署输入，默认仍为 0。host network + 共享 Domain 意味着与整机其他域共享发现空间；
+这是跨域联调前提，不是网络隔离保证。
 
 Phase H 保留网络暴露门禁：接入现场网络前用 `ros2 doctor --report` 和宿主网络观测核对实际 RMW、监听/组播接口和可发现范围与预期一致；实际暴露超出允许网卡时不得启动生产容器，应先修复并验证配置，而不是上线后再观察。
 
@@ -597,7 +604,7 @@ CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-con
 | CAN 命名 unit 失败 | 两只批准 serial 的适配器是否同时存在，是否更换过硬件。 |
 | Lely `Operation not permitted` | 宿主 `can0` txqueuelen 是否为 128；不要给容器增加 `NET_ADMIN`。 |
 | EtherCAT 启动像卡住 | 完整 OP/WC 门禁最长约 70 s；查 master/slave/WC 日志，不要强杀。 |
-| ROS graph 远程可见性与预期不符 | 用 `ros2 doctor --report` 核对实际 RMW；Compose 已固定 `rmw_fastrtps_cpp`（BQ-128），无 DDS XML 挂载，可见性由 Domain 0 + host network 决定。 |
+| ROS graph 远程可见性与预期不符 | 核对五域的 `RT_CONTROL_ROS_DOMAIN_ID`/`ROS_DOMAIN_ID` 是否一致，然后用 `ros2 doctor --report` 核对 RMW；更改 Domain 后重启 participant 和 ROS 2 CLI daemon。 |
 | 容器反复 restarting | 立即用包装器 `stop` 终止重启环，保存第一次失败日志，再查 controller/硬件启动原因。 |
 | XMC slave 15 无法进入 OP 或 WC 不完整 | 先核对驱动 SW 5.11、`sysPRM.EtherCATEnable=ON`、实机固定 PDO 字节布局和启动 SDO；供应商 XML 的末项与实机不一致，禁止直接覆盖 YAML。 |
 | stop 很慢 | Compose 允许 100 s 做失能与总线清理；持续观察日志和最终状态。 |

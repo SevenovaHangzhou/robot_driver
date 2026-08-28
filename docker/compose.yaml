@@ -17,7 +17,7 @@ services:
     ulimits: {rtprio: 98, memlock: -1}
     cpuset: "${RT_CONTROL_CPUSET:?RT_CONTROL_CPUSET must include housekeeping CPUs and the RT CPU}"
     environment:
-      ROS_DOMAIN_ID: "0"
+      ROS_DOMAIN_ID: "${RT_CONTROL_ROS_DOMAIN_ID:-0}"
       ROS_LOCALHOST_ONLY: "0"
       RMW_IMPLEMENTATION: "rmw_fastrtps_cpp"
       RT_CONTROL_START_CPUSET: "${RT_CONTROL_START_CPUSET:?RT_CONTROL_START_CPUSET must be the housekeeping CPU list}"

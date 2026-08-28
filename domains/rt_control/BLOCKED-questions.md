@@ -2164,7 +2164,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   约 50 Hz，frame 为 `odom/base_footprint`；旧两 topic 不存在；6 秒内无任何 `odom` 父 TF；静态
   `base_footprint -> base_link` 保持 `z=0.202094 m`。本结果不是新生产镜像或导航联合验证。
 
-## BQ-128 — 原生开发运行与同机 ROS 2 Domain/DDS 策略 [RESOLVED/HIGH-RISK 2026-07-31]
+## BQ-128 — 原生开发运行与同机 ROS 2 Domain/DDS 策略 [SUPERSEDED IN PART BY BQ-141 2026-08-28]
 
 - Evidence：目标机导航、雷达和感知终端没有永久设置 `ROS_DOMAIN_ID`，因此使用 ROS 2 默认 Domain 0；已部署的
   rt-control 旧锁显式使用 Domain 42。把导航终端临时切到 Domain 42 后才能发现旧容器接口，但同时让原先不可见的
@@ -2421,3 +2421,19 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   导航融合前必须实测。
 - Verification boundary：回归测试、构建和无硬件 Mock 只能证明配置被正确加载。在低速、急停、隔离区和监护条件下
   完成原地转向角度与 `/wheel/odom` 对比前，不得声明 T4 实机验收通过。
+
+## BQ-141 — ROS 2 Domain 由部署显式配置 [RESOLVED/HIGH-RISK 2026-08-28]
+
+- Evidence：BQ-128 将原生与 Docker 运行固定为 Domain 0，但现场联调已需要按机器实例选择其他
+  Domain。用户于 2026-08-28 正式裁决取代 BQ-128 的固定 Domain 0 要求，改为可配置 ROS Domain。
+- Decision：Domain 必须是十进制整数 `0..232`，非法值在 Docker 或真实总线访问前 fail-closed。
+  Native 优先级为 `--ros-domain-id` → `RT_CONTROL_ROS_DOMAIN_ID` → `ROS_DOMAIN_ID` → `0`；Docker Compose
+  使用 `RT_CONTROL_ROS_DOMAIN_ID` 并默认为 `0`。
+- Cross-domain contract：同一机器实例上需要直接 DDS 通信的 RT-Control、Motion、Navigation、Perception
+  和 Autonomy 必须在同一部署清单中锁定相同 Domain；任一域单独改值都不构成有效发布。
+- Retained decisions：BQ-128 的 `ROS_LOCALHOST_ONLY=0`、`rmw_fastrtps_cpp`、Fast DDS 默认 UDP+SHM、不挂载 DDS XML、
+  各域只 source 自己 workspace、native/Docker 互斥及普通 start 不 reset/不 enable 继续有效。
+- Risk：Domain 只是 DDS 发现分区，不是身份认证、网络隔离或安全边界。配置不一致会表现为 service/topic/action
+  不可见；修改 Domain 后必须重启相关 participant 并清理 ROS 2 CLI daemon 的旧发现缓存。
+- Verification boundary：脚本和 Compose 合同、镜像构建及无硬件 Mock 必须覆盖默认、显式值和非法值。
+  本裁决不授权启动真实总线、reset、enable、运动或 PLC 输出；多域联合 DDS 发现/通信仍需单独验收。

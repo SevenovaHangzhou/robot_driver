@@ -31,6 +31,7 @@ cd /home/ar/rt-control-dev/robot
 真实硬件普通启动不自动使能：
 
 ```bash
+export RT_CONTROL_ROS_DOMAIN_ID=<本机器实例统一的 0..232>
 ./tools/rt_control_native.sh start
 ```
 
@@ -117,22 +118,39 @@ cd /home/ar/rt-control-dev/robot
 
 ## 4. ROS/DDS 约定
 
-原生脚本显式使用：
+按 BQ-141，ROS Domain 是部署输入而不再固定为 0。Native 优先级是：
 
 ```text
-ROS_DOMAIN_ID=0
+--ros-domain-id N
+RT_CONTROL_ROS_DOMAIN_ID
+ROS_DOMAIN_ID
+默认 0
+```
+
+所有值必须是十进制 `0..232`。推荐在联调终端显式设置一次：
+
+```bash
+export RT_CONTROL_ROS_DOMAIN_ID=12
+./tools/rt_control_native.sh doctor
+./tools/rt_control_native.sh start
+```
+
+单次命令可用 `./tools/rt_control_native.sh --ros-domain-id 12 <command>` 覆盖环境。
+包装器对子进程继续显式设置：
+
+```text
+ROS_DOMAIN_ID=<已验证的部署值>
 ROS_LOCALHOST_ONLY=0
 RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 ```
 
 原生子进程不设置 `FASTRTPS_DEFAULT_PROFILES_FILE`、`FASTDDS_DEFAULT_PROFILES_FILE` 或
-`CYCLONEDDS_URI`，因此 Fast DDS 保留默认 UDP 与共享内存传输。导航、雷达和感知继续
-source 各自的 ROS/workspace；它们默认也在 Domain 0 时无需 source rt-control overlay
-或额外 DDS 脚本。
+`CYCLONEDDS_URI`，因此 Fast DDS 保留默认 UDP 与共享内存传输。导航、雷达、感知和运控继续
+source 各自的 ROS/workspace，但必须从同一部署清单取得与 RT-Control 相同的 Domain。
 
-原生包装器只把这些变量传给自己的子进程，不会修改调用终端。Domain 0 会让同网段、
-同 Domain 的 ROS 2 participant 互相发现；现场网络必须受控，节点名、topic 所有权和
-QoS 仍需按公共契约管理。
+原生包装器只把这些变量传给自己的子进程，不会修改调用终端。同网段、同 Domain 的
+ROS 2 participant 会互相发现；Domain 不是网络或安全隔离。现场网络必须受控，节点名、
+topic 所有权和 QoS 仍需按公共契约管理。
 
 ## 5. 真实硬件启动
 
