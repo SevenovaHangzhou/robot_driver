@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -39,6 +42,35 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn('-u FASTDDS_DEFAULT_PROFILES_FILE', self.text)
         self.assertIn('-u CYCLONEDDS_URI', self.text)
         self.assertNotIn("fastdds_udp_only.xml", self.text)
+
+    def test_domain_argument_is_validated_before_hardware_access(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            environment = os.environ.copy()
+            environment["RT_CONTROL_NATIVE_WS"] = workspace
+
+            valid = subprocess.run(
+                [str(LAUNCHER), "--ros-domain-id", "12", "status"],
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(valid.returncode, 0, valid.stderr)
+            self.assertIn("ros_domain_id=12", valid.stdout)
+
+            for invalid_domain in ("-1", "08", "233", "not-a-number"):
+                invalid = subprocess.run(
+                    [str(LAUNCHER), "--ros-domain-id", invalid_domain, "status"],
+                    env=environment,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(invalid.returncode, 0)
+                self.assertIn(
+                    "ROS_DOMAIN_ID must be a decimal integer in 0..232",
+                    invalid.stderr,
+                )
 
     def test_native_runtime_cannot_overlap_the_container_runtime(self):
         start = self.text.index("start_native()")
