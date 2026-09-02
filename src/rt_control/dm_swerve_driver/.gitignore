@@ -1,0 +1,9 @@
+build/
+build-*/
+install/
+log/
+coverage/
+*.gcda
+*.gcno
+*.gcov
+__pycache__/
