@@ -5,6 +5,8 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 config_root="${repo_root}/src/rt_control/robot_hw_ethercat/config/slaves"
 shutdown_patch="${repo_root}/patches/ecat_icube/0003-orderly-master-deactivation.patch"
+preserve_pdo_patch="${repo_root}/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch"
+igh_preserve_pdo_patch="${repo_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
 canopen_lifecycle_patch="${repo_root}/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch"
 canopen_quiescence_patch="${repo_root}/patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch"
 shutdown_client="${repo_root}/src/rt_control/enable_manager/src/rt_disable_once.cpp"
@@ -49,6 +51,15 @@ assert_sync_limit()
     fail "$(basename "${file}") must contain exactly one ${expected}"
 }
 
+assert_passive_profile_has_no_startup_sdo()
+{
+  local file="$1"
+  local count
+  count="$(fixed_line_count 'sdo:' "${file}")"
+  [[ "${count:-0}" == "0" ]] ||
+    fail "$(basename "${file}") is passive but configures startup SDO writes"
+}
+
 for profile in \
   left_j6.yaml \
   right_j6.yaml \
@@ -66,6 +77,9 @@ do
   assert_sync_limit "${config_root}/${profile}" uint32
 done
 
+assert_passive_profile_has_no_startup_sdo "${config_root}/x503_right.yaml"
+assert_passive_profile_has_no_startup_sdo "${config_root}/x503_left.yaml"
+
 [[ -f "${shutdown_patch}" ]] || fail "missing ${shutdown_patch}"
 
 fixed_contains 'int deactivate(uint32_t preop_timeout_ms);' "${shutdown_patch}" ||
@@ -78,6 +92,25 @@ fixed_contains 'master_.deactivate(' "${shutdown_patch}" ||
   fail "EthercatDriver on_deactivate must invoke EcMaster::deactivate"
 fixed_contains 'ecrt_release_master(master_)' "${shutdown_patch}" ||
   fail "EcMaster destruction must release the requested master"
+
+[[ -f "${preserve_pdo_patch}" ]] || fail "missing ${preserve_pdo_patch}"
+[[ -f "${igh_preserve_pdo_patch}" ]] || fail "missing ${igh_preserve_pdo_patch}"
+fixed_contains 'use_slave_pdo_defaults' "${preserve_pdo_patch}" ||
+  fail "generic EtherCAT slaves must load the fixed-PDO policy"
+fixed_contains 'ecrt_slave_config_flag(' "${preserve_pdo_patch}" ||
+  fail "ecat adapter must pass the fixed-PDO policy to IgH"
+fixed_contains '"PreservePdoConfig", 1' "${preserve_pdo_patch}" ||
+  fail "ecat adapter must enable IgH fixed-PDO verification"
+fixed_contains 'int pdos_status = ecrt_slave_config_pdos(' "${preserve_pdo_patch}" ||
+  fail "fixed-PDO slaves must register the complete expected layout for verification"
+fixed_contains 'without writing CoE mapping objects' "${preserve_pdo_patch}" ||
+  fail "fixed-PDO policy must document that desired registration does not authorize writes"
+fixed_contains 'ec_fsm_pdo_conf_preserve_config' "${igh_preserve_pdo_patch}" ||
+  fail "IgH must implement fixed-PDO preservation"
+fixed_contains 'ec_pdo_equal_entries' "${igh_preserve_pdo_patch}" ||
+  fail "IgH must fail closed on a fixed PDO mapping mismatch"
+fixed_contains 'ec_pdo_list_equal' "${igh_preserve_pdo_patch}" ||
+  fail "IgH must fail closed on a fixed PDO assignment mismatch"
 
 [[ -f "${canopen_lifecycle_patch}" ]] || fail "missing ${canopen_lifecycle_patch}"
 [[ -f "${canopen_quiescence_patch}" ]] || fail "missing ${canopen_quiescence_patch}"
@@ -120,6 +153,10 @@ PY
 dockerfile="${repo_root}/docker/rt-control/Dockerfile"
 fixed_contains '0003-orderly-master-deactivation.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the orderly-deactivation patch"
+fixed_contains '0004-preserve-fixed-pdo-config.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the ecat fixed-PDO patch"
+fixed_contains '0001-preserve-verified-pdo-config.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the IgH fixed-PDO patch"
 fixed_contains '0003-quiesce-callbacks-before-driver-removal.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the CANopen callback-quiescence patch"
 fixed_contains '0004-name-canopen-master-loop-thread.patch' "${dockerfile}" ||
@@ -131,11 +168,12 @@ if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
 
   scratch="$(mktemp -d)"
   trap 'rm -rf "${scratch}"' EXIT
-  git clone --quiet --local "${ECAT_ICUBE_SOURCE}" "${scratch}/ecat_icube"
+  git clone --quiet --local --no-hardlinks "${ECAT_ICUBE_SOURCE}" "${scratch}/ecat_icube"
   for patch in \
     0001-rt-control-preload-and-diagnostics.patch \
     0002-wait-for-complete-bus-before-preload.patch \
-    0003-orderly-master-deactivation.patch
+    0003-orderly-master-deactivation.patch \
+    0004-preserve-fixed-pdo-config.patch
   do
     git -C "${scratch}/ecat_icube" apply --check \
       "${repo_root}/patches/ecat_icube/${patch}"
@@ -144,4 +182,20 @@ if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
   done
 fi
 
-echo "PASS: EtherCAT 1000 ms sync tolerance and ordered full-stack shutdown policy"
+if [[ -n "${IGH_SOURCE:-}" ]]; then
+  [[ -d "${IGH_SOURCE}/.git" ]] ||
+    fail "IGH_SOURCE is not a Git checkout: ${IGH_SOURCE}"
+
+  # shellcheck disable=SC1091
+  source "${repo_root}/versions.env"
+  igh_scratch="$(mktemp -d)"
+  if ! git clone --quiet --local --no-hardlinks "${IGH_SOURCE}" "${igh_scratch}/igh"; then
+    rm -rf -- "${igh_scratch}"
+    fail "failed to clone IGH_SOURCE"
+  fi
+  git -C "${igh_scratch}/igh" checkout --quiet --detach "${IGH_COMMIT}"
+  git -C "${igh_scratch}/igh" apply --check "${igh_preserve_pdo_patch}"
+  rm -rf -- "${igh_scratch}"
+fi
+
+echo "PASS: EtherCAT motion sync tolerance, passive-SDO exclusion, fixed-PDO verification, and ordered shutdown policy"

@@ -96,7 +96,7 @@ done
 | OS/架构 | Ubuntu 22.04 Jammy、amd64 |
 | 实时内核 | `5.15.0-1032-realtime`；仓库不负责安装 RT 内核 |
 | CPU | i7-14700；CPU 14 为隔离核，CPU 15 是同 core sibling 并下线 |
-| EtherCAT NIC | MAC `8c:59:3c:14:ff:d3`，预期环上 16 个位置；位置 15 为 XMC SW 5.11 Updown |
+| EtherCAT NIC | MAC `8c:59:3c:15:01:f8`，预期环上 18 个位置；Hub 为 0/13，右/左 X503 为 14/15，Turn/Updown 为 16/17 |
 | rt-control CAN | USB serial `004D00675230500720333159`，命名为 `can0` |
 | BMS CAN | USB serial `003000265230500720333159`，命名为 `can1`，不归 rt-control 配置 |
 | CAN 参数 | `can0` 500 kbit/s，txqueuelen 128，预期节点 2/3 心跳 |
@@ -111,7 +111,7 @@ done
 - EtherCAT NIC MAC、驱动或 PCI 拓扑不同；
 - 任一 CAN 适配器 serial 不同或没有两只适配器；
 - RT 内核版本/ABI 不同；
-- 现场 EtherCAT 拓扑不是已确认的 16 个位置；
+- 现场 EtherCAT 拓扑不是已确认的 18 个位置，或 Hub 0/13、X503 14/15、Turn 16、Updown 17 任一错位；
 - Ti5 的驱动身份、固件批次或配套 ESI 与已验证记录不一致，或无法追溯；
 - GPU、OS 或验证策略不同，导致 `verify-host.sh` 的冻结假设不成立。
 
@@ -345,7 +345,7 @@ journalctl -b -u rt-control-can-names.service -u can0.service
 预期至少包括：
 
 - IgH 版本/commit 与容器一致，EtherCAT link UP；
-- 16 个环位置全部响应，没有持续 lost frame/WC 增长；
+- 18 个环位置全部响应，没有持续 lost frame/WC 增长；两台 X503 identity 与 fixed PDO 8/25 条目通过只读核对；
 - `can0` 对应批准的 serial、500 kbit/s、txqueuelen 128、ERROR-ACTIVE；
 - 能被动观察履带节点 `0x702/0x703` 心跳；
 - 没有 failed systemd unit、PCIe Bus Error 或 NVIDIA Xid。
@@ -481,10 +481,10 @@ timeout 5 ros2 topic echo /diagnostics
 
 - `/robot/rt_control/enable_manager`；
 - `/robot/rt_control/ethercat/master`；
-- EtherCAT `slave_1` 到 `slave_12`、`slave_14` 和 XMC `slave_15`；
+- EtherCAT 运动轴 `slave_1` 到 `slave_12`、Turn `slave_16`、XMC `slave_17`，以及右/左 X503 `slave_14/15`；
 - CANopen `node_2`、`node_3`。
 
-健康判据包括 EtherCAT `link=1`、`slaves_responding=16`、process data 新鲜、WC error 不持续增长、所需从站为 OP，以及两个 CAN 节点不为 STALE/ERROR。
+健康判据包括 EtherCAT `link=1`、`slaves_responding=18`、process data 新鲜、WC error 不持续增长、14 个运动轴与两台 X503 为 OP，以及两个 CAN 节点不为 STALE/ERROR。两个 Hub 保持 PREOP。
 
 ## 10. 部署后的正常使用
 
@@ -606,7 +606,8 @@ CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-con
 | EtherCAT 启动像卡住 | 完整 OP/WC 门禁最长约 70 s；查 master/slave/WC 日志，不要强杀。 |
 | ROS graph 远程可见性与预期不符 | 核对五域的 `RT_CONTROL_ROS_DOMAIN_ID`/`ROS_DOMAIN_ID` 是否一致，然后用 `ros2 doctor --report` 核对 RMW；更改 Domain 后重启 participant 和 ROS 2 CLI daemon。 |
 | 容器反复 restarting | 立即用包装器 `stop` 终止重启环，保存第一次失败日志，再查 controller/硬件启动原因。 |
-| XMC slave 15 无法进入 OP 或 WC 不完整 | 先核对驱动 SW 5.11、`sysPRM.EtherCATEnable=ON`、实机固定 PDO 字节布局和启动 SDO；供应商 XML 的末项与实机不一致，禁止直接覆盖 YAML。 |
+| XMC slave 17 无法进入 OP 或 WC 不完整 | 先核对驱动 SW 5.11、`sysPRM.EtherCATEnable=ON`、实机固定 PDO 字节布局和启动 SDO；供应商 XML 的末项与实机不一致，禁止直接覆盖 YAML。 |
+| X503 slave 14/15 无法进入 OP 或 WC 不完整 | 先核对串联顺序、identity 和 RxPDO 8/TxPDO 25 条目；确认宿主与镜像均带 fixed-PDO 保护补丁。禁止通过写 PDO assignment/mapping 现场试错。 |
 | stop 很慢 | Compose 允许 100 s 做失能与总线清理；持续观察日志和最终状态。 |
 | 容器 exit 0 但日志有 `UNCLEAN_SHUTDOWN` | 当前退出码不能单独证明失能成功；按不干净停机处理并核查驱动/总线终态。 |
 
@@ -699,4 +700,4 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 - 明确固定并验证生产 RMW/DDS 网卡边界；当前 loopback-only CycloneDDS XML 尚不能证明实际网络隔离；
 - 通用新机 profile、全离线宿主 bootstrap、自动镜像发布、readiness/healthcheck 和自动 rollback。
 
-当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md)（13 轴/15 位历史拓扑证据，不覆盖当前 14 轴/16 位环）和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
+当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[双 X503 18 位运行拓扑记录](areas/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md)（13 轴/15 位历史拓扑证据；后续 16 位记录同样不覆盖当前 18 位环）和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。

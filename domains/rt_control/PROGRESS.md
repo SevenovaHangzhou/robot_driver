@@ -113,3 +113,4 @@
 | 2026-08-27 | contract | [robot_interfaces 权威 SHA 同步至 92d6ff2](docs/areas/contract/records/2026-08-27-robot-interfaces-main-pin.md) | PASS（T1；RT schema 不变，Motion/Autonomy 需同 SHA 原子升级） |
 | 2026-08-28 | contract | [ROS Domain 由部署显式配置](docs/areas/contract/records/2026-08-28-configurable-ros-domain.md) | PASS（T1；默认/显式/非法值、镜像与无硬件 Mock） |
 | 2026-09-02 | contract | [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](docs/areas/contract/records/2026-09-02-lidar-main-tf.md) | PARTIAL（T1；工控机源树/独立镜像已验证，生产切换与消费者联合验证待完成） |
+| 2026-09-02 | ecat-axes | [双 X503 接入 18 位运行拓扑](docs/areas/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md) | PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验） |

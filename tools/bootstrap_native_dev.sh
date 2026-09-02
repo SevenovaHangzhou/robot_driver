@@ -386,12 +386,22 @@ build_workspace()
 doctor()
 {
   local metadata="/usr/local/share/rt-control/dependency-versions.env"
+  local patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
+  local patch_sha256
   verify_workspace_layout
   require_commands bash git python3 vcs colcon rosdep
   python3 -c 'import yaml' >/dev/null 2>&1 || fail "missing Python yaml module"
   [[ -f /opt/ros/humble/setup.bash ]] || fail "ROS 2 Humble is not installed"
   [[ -d /usr/local/etherlab/lib ]] || fail "missing IgH userspace library"
   [[ -f "${metadata}" ]] || fail "missing IgH dependency identity: ${metadata}"
+  [[ -r "${patch}" ]] || fail "missing IgH PDO-preservation patch: ${patch}"
+  # shellcheck disable=SC1091
+  source "${repository_root}/versions.env"
+  patch_sha256="$(sha256sum "${patch}" | awk '{print $1}')"
+  grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${metadata}" || fail "installed IgH version mismatch"
+  grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${metadata}" || fail "installed IgH commit mismatch"
+  grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${patch_sha256}" "${metadata}" ||
+    fail "installed IgH lacks fixed-PDO preservation support"
   refuse_partial_vendor_tree
   if [[ -d "${vendor_root}" ]]; then
     verify_vendor_heads

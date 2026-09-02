@@ -14,7 +14,8 @@ T-IF-RT-005 统一 `ErrorInfo` 公共错误结构。
 ### 控制执行
 
 - 12 个手臂关节、Turn、EtherCAT Updown 组成完整 14 轴 JTC/FJT；
-- Updown 已从 CANopen Node 1 迁移为 EtherCAT position 15 的 CSP；
+- Updown 已从 CANopen Node 1 迁移为 EtherCAT position 17 的 CSP；
+- 右/左 X503 已作为 raw-only EtherCAT sensor 接入 position 14/15，不进入 14 轴 JTC 或使能集合；
 - 左右履带保持 CANopen Node 2/3，由 diff-drive 接收速度命令；
 - 14 轴当前位置预装载、分批使能、失能、整组复位和故障整组处理已实现；
 - FJT 会拒绝 partial goal、第一点超差或 EtherCAT 反馈过旧的目标；
@@ -35,7 +36,8 @@ T-IF-RT-005 统一 `ErrorInfo` 公共错误结构。
 ### 验证结论
 
 - Docker 镜像、控制器加载、Mock、迁移差异和仓库策略门禁通过；
-- 16-position EtherCAT 与两节点 CANopen 完成实机通信和重复有序启停；
+- 历史 16-position EtherCAT 与两节点 CANopen 已完成实机通信和重复有序启停；当前 18-position
+  拓扑的离线构建/测试已通过，两台 X503 的 OP/WC/raw 实机验收仍待完成；
 - 14 轴使能/失能以及 28 段逐轴最小低速 FJT 通过；
 - PLC/BMS 读取、三路输出逐点 ON/OFF、无运动一键使能保持和有序停止通过；
 - 当前负载下 CPU 和内存余量足够，详细数值见

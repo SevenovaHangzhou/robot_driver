@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly ethercat_mac="8c:59:3c:14:ff:d3"
+readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly repository_root="$(cd -- "${script_dir}/.." && pwd)"
+# shellcheck disable=SC1091
+source "${repository_root}/versions.env"
+
+readonly ethercat_mac="8c:59:3c:15:01:f8"
 readonly rt_control_can_serial="004D00675230500720333159"
 readonly bms_can_serial="003000265230500720333159"
 readonly rt_control_cpu="14"
 readonly housekeeping_cpus="0,2,4,6,8,10,12,16-27"
 readonly ec_master_run_on_cpu_line="options ec_master run_on_cpu=14"
+readonly igh_patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
+readonly igh_metadata="/usr/local/share/rt-control/dependency-versions.env"
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "run this script as root" >&2
@@ -17,6 +24,16 @@ fail() {
   echo "FAIL: $*" >&2
   exit 1
 }
+
+[[ -r "${igh_patch}" ]] || fail "missing IgH PDO-preservation patch ${igh_patch}"
+[[ -r "${igh_metadata}" ]] || fail "missing installed IgH dependency identity"
+expected_igh_patch_sha256="$(sha256sum "${igh_patch}" | awk '{print $1}')"
+grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${igh_metadata}" ||
+  fail "installed IgH version does not match versions.env"
+grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${igh_metadata}" ||
+  fail "installed IgH commit does not match versions.env"
+grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${expected_igh_patch_sha256}" "${igh_metadata}" ||
+  fail "installed IgH master does not contain the approved PDO-preservation patch"
 
 contains_cpu14() {
   local list="$1"
@@ -83,9 +100,9 @@ systemctl is-enabled --quiet can1.service &&
 master_output="$(ethercat master)"
 grep -Fq "Main: ${ethercat_mac} (attached)" <<< "${master_output}" || fail "master MAC mismatch"
 grep -Fq 'Link: UP' <<< "${master_output}" || fail "EtherCAT link is down"
-grep -Fq 'Slaves: 16' <<< "${master_output}" || fail "EtherCAT does not report 16 slaves"
+grep -Fq 'Slaves: 18' <<< "${master_output}" || fail "EtherCAT does not report 18 slaves"
 grep -Fq 'Lost frames: 0' <<< "${master_output}" || fail "EtherCAT has lost frames"
-[[ "$(ethercat slaves | wc -l)" -eq 16 ]] || fail "EtherCAT scan does not contain 16 positions"
+[[ "$(ethercat slaves | wc -l)" -eq 18 ]] || fail "EtherCAT scan does not contain 18 positions"
 
 can_serial="$(udevadm info -q property -p /sys/class/net/can0 |
   sed -n 's/^ID_SERIAL_SHORT=//p')"
@@ -123,7 +140,7 @@ nvidia-smi --query-gpu=name,driver_version,pci.bus_id --format=csv,noheader
 
 printf '%s\n' \
   "PASS: realtime CPU14 isolation" \
-  "PASS: IgH 1.6.10, master ${ethercat_mac}, 16 slaves, zero lost frames" \
+  "PASS: IgH 1.6.10 with fixed-PDO verification, master ${ethercat_mac}, 18 slaves, zero lost frames" \
   "PASS: can0 500 kbit/s on serial ${rt_control_can_serial}, heartbeats 0x702/703" \
   "PASS: can1 500 kbit/s on serial ${bms_can_serial}" \
   "PASS: Docker/containerd frozen versions, healthy systemd and GPU boot log"

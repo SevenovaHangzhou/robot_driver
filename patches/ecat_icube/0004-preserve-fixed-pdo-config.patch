@@ -1,0 +1,133 @@
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp b/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp
+index 9d733ee..d0f40b5 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp
+@@ -35,6 +35,7 @@ public:
+   GenericEcSlave();
+   virtual ~GenericEcSlave();
+   virtual int assign_activate_dc_sync();
++  virtual bool useSlavePdoDefaults() const;
+ 
+   virtual void processData(size_t index, uint8_t * domain_address);
+ 
+@@ -59,6 +60,7 @@ protected:
+   std::vector<unsigned int> domain_map_;
+   YAML::Node slave_config_;
+   uint32_t assign_activate_ = 0;
++  bool use_slave_pdo_defaults_ = false;
+ 
+   /** set up of the drive configuration from yaml node*/
+   bool setup_from_config(YAML::Node slave_config);
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp b/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
+index db42782..f83d834 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
+@@ -40,6 +40,7 @@ GenericEcSlave::GenericEcSlave()
+ : EcSlave(0, 0) {}
+ GenericEcSlave::~GenericEcSlave() {}
+ int GenericEcSlave::assign_activate_dc_sync() {return assign_activate_;}
++bool GenericEcSlave::useSlavePdoDefaults() const {return use_slave_pdo_defaults_;}
+ 
+ void GenericEcSlave::processData(size_t index, uint8_t * domain_address)
+ {
+@@ -134,6 +135,9 @@ bool GenericEcSlave::setup_from_config(YAML::Node slave_config)
+     if (slave_config["assign_activate"]) {
+       assign_activate_ = slave_config["assign_activate"].as<uint32_t>();
+     }
++    if (slave_config["use_slave_pdo_defaults"]) {
++      use_slave_pdo_defaults_ = slave_config["use_slave_pdo_defaults"].as<bool>();
++    }
+ 
+     if (slave_config["sm"]) {
+       for (const auto & sm : slave_config["sm"]) {
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp b/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp
+index d16c352..f21d049 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp
+@@ -111,6 +111,7 @@ TEST_F(GenericEcSlaveTest, SlaveSetupSlaveFromConfig)
+   ASSERT_EQ(plugin_->vendor_id_, 0x00000011);
+   ASSERT_EQ(plugin_->product_id_, 0x07030924);
+   ASSERT_EQ(plugin_->assign_activate_, 0x0321);
++  ASSERT_FALSE(plugin_->useSlavePdoDefaults());
+ 
+   ASSERT_EQ(plugin_->rpdos_.size(), 1);
+   ASSERT_EQ(plugin_->rpdos_[0].index, 0x1607);
+@@ -129,6 +130,16 @@ TEST_F(GenericEcSlaveTest, SlaveSetupSlaveFromConfig)
+   ASSERT_EQ(plugin_->pdo_channels_info_[4].data_type, "uint16");
+ }
+ 
++TEST_F(GenericEcSlaveTest, SlaveSetupCanUseOnlineSlavePdoDefaults)
++{
++  SetUp();
++  YAML::Node config = YAML::Load(test_slave_config);
++  config["use_slave_pdo_defaults"] = true;
++
++  ASSERT_TRUE(plugin_->setup_from_config(config));
++  ASSERT_TRUE(plugin_->useSlavePdoDefaults());
++}
++
+ TEST_F(GenericEcSlaveTest, SlaveSetupPdoChannels)
+ {
+   SetUp();
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.hpp b/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.hpp
+index a78e482..944e44d 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.hpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.hpp
+@@ -28,6 +28,7 @@
+ class FriendGenericEcSlave : public ethercat_generic_plugins::GenericEcSlave
+ {
+   FRIEND_TEST(GenericEcSlaveTest, SlaveSetupSlaveFromConfig);
++  FRIEND_TEST(GenericEcSlaveTest, SlaveSetupCanUseOnlineSlavePdoDefaults);
+   FRIEND_TEST(GenericEcSlaveTest, SlaveSetupPdoChannels);
+   FRIEND_TEST(GenericEcSlaveTest, SlaveSetupSyncs);
+   FRIEND_TEST(GenericEcSlaveTest, SlaveSetupDomains);
+diff --git a/ethercat_interface/include/ethercat_interface/ec_slave.hpp b/ethercat_interface/include/ethercat_interface/ec_slave.hpp
+index b9cc276..a2ea4da 100644
+--- a/ethercat_interface/include/ethercat_interface/ec_slave.hpp
++++ b/ethercat_interface/include/ethercat_interface/ec_slave.hpp
+@@ -45,6 +45,8 @@ public:
+   virtual void set_state_is_operational(bool value) {is_operational_ = value;}
+   /** Assign activate DC synchronization. return activate word*/
+   virtual int assign_activate_dc_sync() {return 0x00;}
++  /** Preserve and verify the PDO assignment already read from the online slave. */
++  virtual bool useSlavePdoDefaults() const {return false;}
+   /** number of elements in the syncs array. */
+   virtual size_t syncSize() {return 0;}
+   /** a pointer to all PDO entries */
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index 633ab6a..e5bc5e8 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -122,11 +122,27 @@ void EcMaster::addSlave(uint16_t alias, uint16_t position, EcSlave * slave)
+   size_t num_syncs = slave->syncSize();
+   const ec_sync_info_t * syncs = slave->syncs();
+   if (num_syncs > 0) {
+-    // configure pdos in slave
+-    int pdos_status = ecrt_slave_config_pdos(slave_info.config, num_syncs, syncs);
+-    if (pdos_status) {
+-      printWarning("Add slave. Failed to configure PDOs");
+-      return;
++    if (slave->useSlavePdoDefaults()) {
++      if (ecrt_slave_config_flag(
++          slave_info.config, "PreservePdoConfig", 1) != 0)
++      {
++        printWarning("Add slave. Failed to preserve PDO configuration.");
++        return;
++      }
++      // Register the expected assignment and mapping in the master. The
++      // patched IgH FSM compares it with the online fixed layout before
++      // SAFEOP and refuses a mismatch without writing CoE mapping objects.
++      int pdos_status = ecrt_slave_config_pdos(slave_info.config, num_syncs, syncs);
++      if (pdos_status) {
++        printWarning("Add slave. Failed to register fixed PDO layout.");
++        return;
++      }
++    } else {
++      int pdos_status = ecrt_slave_config_pdos(slave_info.config, num_syncs, syncs);
++      if (pdos_status) {
++        printWarning("Add slave. Failed to configure PDOs");
++        return;
++      }
+     }
+   } else {
+     printWarning(

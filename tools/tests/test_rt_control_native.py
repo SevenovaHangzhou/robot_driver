@@ -605,13 +605,46 @@ class NativeHostSetupContractTest(unittest.TestCase):
         self.assertIn(expected_path, self.bootstrap_text)
         self.assertIn(expected_path, self.launcher_text)
         self.assertIn("IGH_VERSION=%s\\nIGH_COMMIT=%s\\n", self.installer_text)
+        self.assertIn("IGH_PRESERVE_PDO_PATCH_SHA256=%s", self.installer_text)
         self.assertIn('install -d -m 0755 /usr/local/share/rt-control', self.installer_text)
+
+    def test_host_igh_install_and_verifier_require_fixed_pdo_support(self):
+        patch_name = "0001-preserve-verified-pdo-config.patch"
+        self.assertIn(patch_name, self.installer_text)
+        self.assertIn('git -C "${build_root}" apply "${igh_patch}"', self.installer_text)
+        self.assertIn("IGH_PRESERVE_PDO_PATCH_SHA256", self.verifier_text)
+        self.assertIn("Slaves: 18", self.verifier_text)
+        self.assertIn("18 positions", self.verifier_text)
 
     def test_host_igh_install_pins_master_thread_to_the_isolated_cpu(self):
         self.assertIn("/etc/modprobe.d/ec_master.conf", self.installer_text)
         self.assertIn("options ec_master run_on_cpu=14", self.installer_text)
         self.assertIn("/etc/modprobe.d/ec_master.conf", self.verifier_text)
         self.assertIn("options ec_master run_on_cpu=14", self.verifier_text)
+
+    def test_host_igh_install_archives_legacy_flat_kernel_modules(self):
+        self.assertIn("legacy_module_names=(ec_master ec_igb ec_generic)", self.installer_text)
+        self.assertIn(
+            '"/lib/modules/${kernel_release}/ethercat/master/ec_master.ko"',
+            self.installer_text,
+        )
+        self.assertIn(
+            '"/var/lib/rt-control/module-backups/igh-${kernel_release}-',
+            self.installer_text,
+        )
+        self.assertIn('mv -- "${legacy_module}" "${legacy_module_backup}/"', self.installer_text)
+        self.assertLess(
+            self.installer_text.index("make CC=\"${compiler_binary}\" modules_install install"),
+            self.installer_text.index("legacy_modules_to_archive=()"),
+        )
+        self.assertLess(
+            self.installer_text.index('mv -- "${legacy_module}"'),
+            self.installer_text.index('depmod -a "${kernel_release}"'),
+        )
+        self.assertIn(
+            'resolved_module="$(modinfo -k "${kernel_release}" -n ',
+            self.installer_text,
+        )
 
     def test_can_units_are_installed_but_not_enabled_at_boot(self):
         can_installer = (ROOT / "hostsetup" / "can-install.sh").read_text(encoding="utf-8")

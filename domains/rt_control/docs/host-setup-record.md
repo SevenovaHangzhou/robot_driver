@@ -6,6 +6,12 @@
 > CANopen tracks only at Node 2/3. New deployment evidence must re-run the
 > updated host gate; this note does not rewrite the archived observations.
 
+> **Topology note (2026-09-02):** the current runtime target is now an
+> 18-position ring: Hub 0, motion axes 1..12, Hub 13, right/left X503 at
+> 14/15, Turn 16 and XMC Updown 17. The two X503 devices are daisy-chained
+> from Hub 13 OUT8. All 15/16-position observations below remain historical
+> evidence and do not validate the current topology.
+
 > **Host note (2026-08-13):** everything from "Prior target retained for
 > audit: alfa-two" onward records the decommissioned `alfa-two` host and the
 > abandoned low-latency migration attempt. Note the completed 30-minute

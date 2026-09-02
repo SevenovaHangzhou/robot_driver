@@ -100,8 +100,9 @@ cases:
       ros2 topic echo /rt_control/readiness --once
       ros2 topic echo /control/safety_state --once
     pass:
-      - ethercat_master link_up=true、slaves_responding=16
-      - 各 slave al_state=OP（值 8）
+      - ethercat_master link_up=true、slaves_responding=18
+      - 14 个运动轴 slave 1..12、16、17 的 al_state=OP（值 8）
+      - X503 slave 14、15 的 al_state=OP（值 8），且各 12 个 raw 状态接口可读
       - wc_error_count 读数记录为窗口基线
     evidence: 三个 echo 输出存档并登记 wc_error_count 基线值
     cleanup: 无（只读）

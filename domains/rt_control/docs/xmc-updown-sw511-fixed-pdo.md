@@ -16,7 +16,7 @@
 | DC AssignActivate | `0x0300` |
 | PDO 能力 | `PdoAssign=false`、`PdoConfig=false`，不得重映射 |
 
-主站运行配置由 [`xmc_updown_sw511.yaml`](../../../src/rt_control/robot_hw_ethercat/config/slaves/xmc_updown_sw511.yaml) 直接描述，并由 [`ecat.ros2_control.xacro`](../../../src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro) 在 position 15 实例化。IgH/ICube 这条路径不需要把 XML 复制进类似 TwinCAT 的 ESI 目录；XML 仅作为供应商资料和差异证据保存。
+主站运行配置由 [`xmc_updown_sw511.yaml`](../../../src/rt_control/robot_hw_ethercat/config/slaves/xmc_updown_sw511.yaml) 直接描述，并由 [`ecat.ros2_control.xacro`](../../../src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro) 在当前 18 位拓扑的 position 17 实例化（历史 16 位拓扑为 position 15）。IgH/ICube 这条路径不需要把 XML 复制进类似 TwinCAT 的 ESI 目录；XML 仅作为供应商资料和差异证据保存。
 
 ## 固定 RxPDO `0x1600`（主站到驱动器）
 
@@ -82,8 +82,8 @@
 
 本配置完成静态、构建和 Mock 验证不等于实机通过。按风险逐级完成：
 
-1. 只读核对 position 15 身份、HW/SW 和 19/24 byte 固定 PDO；
-2. 无使能启动，确认启动 SDO 成功、16 个位置响应、全部所需从站进入 OP 且 WC complete；
+1. 只读核对 position 17 身份、HW/SW 和 19/24 byte 固定 PDO；
+2. 无使能启动，确认启动 SDO 成功、18 个位置响应、14 个运动轴和 X503 14/15 进入 OP 且 WC complete；
 3. 确认当前位置预装载后，验证 `/rt/enable` 第五批 Turn + Updown；
 4. 在机械防护和实体急停条件下执行单独批准的低速、小位移 14 轴完整 FJT；
 5. 验证取消、整组 Fault 停车、整组 reset、失能和主站退出终态。
