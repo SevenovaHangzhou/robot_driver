@@ -16,6 +16,7 @@ evidence:
   - "工控机隔离 ROS Domain 230 的 /tf_static 数值 smoke：PASS"
   - "工控机独立 lidar-main 镜像构建：PASS"
   - "本地 tools/tests/test_tf_contract.py：PASS"
+  - "PR #15 body：tools/pr_contract_gate.validate_body PASS"
   - "STL SHA-256：549449b3acf4da35264538a678bd82a1448c8571180e9c467eee949beac4197a"
 supersedes: []
 related: [BQ-125, T-020, ELECTRI-106]
