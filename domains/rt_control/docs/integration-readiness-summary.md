@@ -23,7 +23,7 @@ T-IF-RT-005 统一 `ErrorInfo` 公共错误结构。
 ### 状态与生命周期
 
 - 输出关节状态、FJT feedback/result、原始轮速里程计、本体 TF 和诊断；
-- 当前源码由 rt-control 发布 `base_footprint → base_link → 本体/传感器连杆`，不再发布 `world → base_link` 或
+- 当前源码由 rt-control 发布 `base_footprint → base_link → 本体/传感器连杆`（含 `base_link → lidar_main`），不再发布 `world → base_link` 或
   `odom → base_footprint`；后者和最终 `/odom` 由导航域唯一发布；
 - `/rt/enable`、`/rt/disable`、`/rt/reset_fault` 返回明确的阶段、失败批次、关节和
   原始 statusword；

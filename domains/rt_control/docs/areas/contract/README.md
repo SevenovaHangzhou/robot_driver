@@ -33,9 +33,13 @@
 | 07#F1 | ROS Domain 由部署显式配置为十进制 `0..232`，默认 `0` | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F1 | 有效；取代 BQ-128 固定 Domain 0 |
 | 07#F2 | 同一机器实例的五域必须使用同一 Domain，Domain 不是安全隔离 | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F2 | 有效 |
 | 07#F3 | RMW 仍固定 `rmw_fastrtps_cpp`，传输仍为 Fast DDS 默认 UDP+SHM | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F3 | 有效 |
+| 08#F1 | 共享模型新增固定边 `base_link → lidar_main`，位姿为 `xyz=(0.382364228640, 0.133500000000, 0.121820508080)`、`rpy=(0, 0.523598775598, 0)` | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F1 | 有效；消费者联合验证待完成 |
+| 08#F2 | `lidar_main.STL` 使用 `base_link` 坐标和毫米单位，消费时必须使用 `0.001` 缩放 | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F2 | 有效 |
+| 08#F3 | `lidar_main` 变更不新增公共接口、不改变 odom TF 所有权或实时控制参数 | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F3 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-09-02 [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](records/2026-09-02-lidar-main-tf.md) — feature，PARTIAL（T1；生产切换与消费者联合验证待完成）
 - 2026-08-28 [ROS Domain 由部署显式配置](records/2026-08-28-configurable-ros-domain.md) — decision，PASS（T1；native/Compose/Mock）
 - 2026-08-27 [robot_interfaces 权威 SHA 同步至 92d6ff2](records/2026-08-27-robot-interfaces-main-pin.md) — corrective，PASS（T1；RT schema 不变）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）

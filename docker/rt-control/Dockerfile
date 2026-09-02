@@ -37,6 +37,10 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher \
     && rm -rf /var/lib/apt/lists/*
 
+# The UID1000 production override uses /home/user for ROS launch logs.
+# Create it in the image rather than relying on a host bind mount.
+RUN install -d -m 0750 -o 1000 -g 1000 /home/user
+
 WORKDIR /tmp
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && git init ethercat \

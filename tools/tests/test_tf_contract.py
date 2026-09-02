@@ -79,6 +79,53 @@ class TfContractTest(unittest.TestCase):
             "test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher",
             dockerfile,
         )
+        self.assertIn(
+            "install -d -m 0750 -o 1000 -g 1000 /home/user",
+            dockerfile,
+        )
+
+    def test_lidar_main_frame_and_mesh_contract(self):
+        robot = ET.parse(ROBOT_XACRO).getroot()
+        links = {link.attrib["name"]: link for link in robot.findall("link")}
+        joints = {joint.attrib["name"]: joint for joint in robot.findall("joint")}
+
+        self.assertIn("lidar_main", links)
+        self.assert_fixed_joint(
+            joints,
+            "lidar_main_joint",
+            "base_link",
+            "lidar_main",
+            "0.382364228640 0.133500000000 0.121820508080",
+            "0 0.523598775598 0",
+        )
+
+        lidar = links["lidar_main"]
+        expected_scale = "0.001 0.001 0.001"
+        expected_origin_xyz = "-0.270226881461 -0.133500000000 -0.296681769019"
+        expected_origin_rpy = "0 -0.523598775598 0"
+        for geometry_name, mesh_path in (
+            ("visual", "package://robot_description/meshes/current_robot/visual/lidar_main.STL"),
+            ("collision", "package://robot_description/meshes/current_robot/collision/lidar_main.STL"),
+        ):
+            origin = lidar.find(f"{geometry_name}/origin")
+            mesh = lidar.find(f"{geometry_name}/geometry/mesh")
+            self.assertIsNotNone(origin)
+            self.assertIsNotNone(mesh)
+            self.assertEqual(origin.attrib["xyz"], expected_origin_xyz)
+            self.assertEqual(origin.attrib["rpy"], expected_origin_rpy)
+            self.assertEqual(mesh.attrib["filename"], mesh_path)
+            self.assertEqual(mesh.attrib["scale"], expected_scale)
+            asset_path = (
+                ROOT
+                / "src/description/robot_description"
+                / mesh_path.split("package://robot_description/", 1)[1]
+            )
+            self.assertTrue(asset_path.is_file())
+            asset = asset_path.read_bytes()
+            self.assertIn(b"frame=base_link", asset[:80])
+            self.assertIn(b"unit=millimeter", asset[:80])
+            triangle_count = int.from_bytes(asset[80:84], "little")
+            self.assertEqual(len(asset), 84 + 50 * triangle_count)
 
     def test_perception_sensor_frames_match_the_onsite_reference(self):
         robot = ET.parse(ROBOT_XACRO).getroot()
