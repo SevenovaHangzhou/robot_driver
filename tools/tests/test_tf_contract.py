@@ -79,6 +79,10 @@ class TfContractTest(unittest.TestCase):
             "test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher",
             dockerfile,
         )
+        self.assertIn(
+            "install -d -m 0750 -o 1000 -g 1000 /home/user",
+            dockerfile,
+        )
 
     def test_lidar_main_frame_and_mesh_contract(self):
         robot = ET.parse(ROBOT_XACRO).getroot()
