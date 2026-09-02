@@ -531,6 +531,30 @@
     </collision>
   </link>
 
+  <!-- The supplied STL is authored in base_link millimetres.  The inverse
+       visual/collision origin maps it into the lidar_main link frame. -->
+  <link name="lidar_main">
+    <visual>
+      <origin xyz="-0.270226881461 -0.133500000000 -0.296681769019"
+              rpy="0 -0.523598775598 0" />
+      <geometry>
+        <mesh filename="package://robot_description/meshes/current_robot/visual/lidar_main.STL"
+              scale="0.001 0.001 0.001" />
+      </geometry>
+      <material name="lidar_main_material">
+        <color rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.270226881461 -0.133500000000 -0.296681769019"
+              rpy="0 -0.523598775598 0" />
+      <geometry>
+        <mesh filename="package://robot_description/meshes/current_robot/collision/lidar_main.STL"
+              scale="0.001 0.001 0.001" />
+      </geometry>
+    </collision>
+  </link>
+
   <link name="lidar_front_mount">
     <inertial>
       <origin xyz="-6.42377262494165E-11 1.00857335138538E-05 0.00951653834947522" rpy="0 0 0" />
@@ -661,6 +685,14 @@
     <origin xyz="0.2964 -0.045 0.16366" rpy="0 0 0" />
     <parent link="updown" />
     <child link="front_sensor" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+  <joint name="lidar_main_joint" type="fixed">
+    <origin xyz="0.382364228640 0.133500000000 0.121820508080"
+            rpy="0 0.523598775598 0" />
+    <parent link="base_link" />
+    <child link="lidar_main" />
     <axis xyz="0 0 0" />
   </joint>
 

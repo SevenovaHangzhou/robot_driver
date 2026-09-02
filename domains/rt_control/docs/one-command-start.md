@@ -104,7 +104,7 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 | 关节状态 | `/joint_states`，仅 14 个 EtherCAT 机械轴，实频 125 Hz |
 | 原始轮速里程计 | `/wheel/odom` |
 | 动态 TF | `/tf`，`tf2_msgs/msg/TFMessage`；rt-control 不发布 `odom → base_footprint` |
-| 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage` |
+| 静态 TF | `/tf_static`，`tf2_msgs/msg/TFMessage`；包含 `base_link → lidar_main` 及其他固定本体/传感器边 |
 | PLC 状态 | `/plc/io_state`，`rt_control_interfaces/msg/PlcIoState` |
 | BMS 电压/SOC | `/battery_state`，`sensor_msgs/msg/BatteryState`，5 s 周期 |
 | 真空动作 | `/vacuum/grip`，`robot_rt_control_interfaces/action/VacuumGrip`；通道 `left/right`，布尔吸附验证；当前 `grip_profile_id=default` |

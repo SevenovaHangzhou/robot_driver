@@ -46,7 +46,7 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 | 运维/RT 内部 → rt-control | 真空泵启停 | `/vacuum/pump/set_enabled` | 活动真空动作、PLC 不新鲜、任一通道 attached 或阀仍开时拒绝普通停泵。 |
 | rt-control 内部/诊断 | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；通常由公共适配层或启动脚本调用。 |
 | rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 配置值 100 Hz 被 250 Hz 调度量化为实频 125 Hz；仅导出 14 个 EtherCAT 机械轴，履带状态不进入公共 `/joint_states`。 |
-| rt-control → 导航/视觉 | 原始轮速里程计和本体 TF | `/wheel/odom`、`/tf`、`/tf_static` | `/wheel/odom` 约 50 Hz；RSP 提供 `base_footprint → base_link → 本体/传感器`；最终 `/odom` 与唯一 `odom → base_footprint` 属于导航域，`map → odom` 不属于本域。 |
+| rt-control → 导航/视觉 | 原始轮速里程计和本体 TF | `/wheel/odom`、`/tf`、`/tf_static` | `/wheel/odom` 约 50 Hz；RSP 提供 `base_footprint → base_link → 本体/传感器`（含 `lidar_main`）；最终 `/odom` 与唯一 `odom → base_footprint` 属于导航域，`map → odom` 不属于本域。 |
 | rt-control → 上层 | 真空、安全和就绪摘要 | `/vacuum/state`、`/control/safety_state`、`/rt_control/readiness` | 真空状态无 `pressure_pa`；安全/就绪聚合 enable_manager、EtherCAT、CANopen node2/3、PLC fresh、BMS fresh。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |
 
