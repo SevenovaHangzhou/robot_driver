@@ -31,9 +31,10 @@ ROS Domain、host network/ipc 和只读 X11 绑定，设置 `cap_drop: ALL`、`n
 
 - `python3 -m pytest -q tools/tests/test_operator_ui_packaging.py`：PASS，2 tests。
 - `docker compose -f docker/operator-ui.compose.yaml config --quiet`：PASS。
-- 使用一次性构建代理完成全新基础层和 29 packages 构建；最终审查镜像
-  `rt-control:operator-ui-review-final` 为
-  `sha256:6b7e3f054ce83e9b55a4c0f40878f09110f647b8e7ee4541c5f94fc3db763783`。
+- rebase 到 `main@b80f6c1` 并补齐双 X503 兼容后，使用一次性构建代理完成 IgH
+  fixed-PDO 补丁及 29 packages 构建；`a0f3286` 的最终审查镜像
+  `rt-control:operator-ui-mainline-review` 为
+  `sha256:53ce267e974b3e8297bd79257246330259062f0f58efda70476eb4d3e60436da`。
 - 镜像内 `python_qt_binding` 导入、UI executable、TI5 catalog 及 PyQt5 ELF 文件尺寸检查：PASS。
 - `--network none`、offscreen、Domain 232 UI 烟测：PASS；SIGTERM 后无 KILL、traceback 或残留容器。
 - 镜像 runtime environment 与 history 检查：无代理环境变量，无本次代理 URL。
