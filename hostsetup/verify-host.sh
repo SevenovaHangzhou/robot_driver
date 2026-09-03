@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-readonly repository_root="$(cd -- "${script_dir}/.." && pwd)"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly script_dir
+repository_root="$(cd -- "${script_dir}/.." && pwd)"
+readonly repository_root
 # shellcheck disable=SC1091
 source "${repository_root}/versions.env"
 
