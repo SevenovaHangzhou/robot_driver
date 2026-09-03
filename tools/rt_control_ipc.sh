@@ -7,7 +7,7 @@ readonly expected_kernel="5.15.0-1032-realtime"
 readonly expected_cpuset="14"
 readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"
 readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"
-readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
+readonly expected_ethercat_mac="8c:59:3c:15:01:f8"
 readonly expected_can_serial="004D00675230500720333159"
 readonly expected_bms_can_serial="003000265230500720333159"
 readonly release_version="${RT_CONTROL_RELEASE_VERSION:-V0.10}"
@@ -201,6 +201,25 @@ prepare_can_interfaces()
     fail "CAN 启动前检查失败；请查看上方缺少哪只适配器。"
 }
 
+verify_igh_fixed_pdo_support()
+{
+  local metadata="/usr/local/share/rt-control/dependency-versions.env"
+  local patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
+  local patch_sha256
+  [[ -r "${repository_root}/versions.env" ]] || fail "缺少 versions.env。"
+  [[ -r "${patch}" ]] || fail "缺少 IgH fixed-PDO 保护补丁。"
+  [[ -r "${metadata}" ]] || fail "缺少宿主 IgH 依赖身份文件。"
+  # shellcheck disable=SC1091
+  source "${repository_root}/versions.env"
+  patch_sha256="$(sha256sum "${patch}" | awk '{print $1}')"
+  grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${metadata}" ||
+    fail "宿主 IgH 版本与 versions.env 不一致。"
+  grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${metadata}" ||
+    fail "宿主 IgH commit 与 versions.env 不一致。"
+  grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${patch_sha256}" "${metadata}" ||
+    fail "宿主 IgH 未安装 X503 所需的 fixed-PDO 保护补丁。"
+}
+
 pin_controller_update_thread()
 {
   sudo python3 "${thread_affinity_tool}" \
@@ -211,9 +230,34 @@ pin_controller_update_thread()
     --deadline 5
 }
 
+verify_x503_identity_and_pdos()
+{
+  local identity
+  local pdos
+  local position="$1"
+  identity="$(sudo ethercat slaves --verbose --position "${position}")"
+  grep -Eqi 'Vendor Id:[[:space:]]+0x0*503([[:space:]]|$)' <<< "${identity}" ||
+    fail "X503 position ${position} Vendor ID 不匹配。"
+  grep -Eqi 'Product code:[[:space:]]+0x26483052([[:space:]]|$)' <<< "${identity}" ||
+    fail "X503 position ${position} Product Code 不匹配。"
+  grep -Eqi 'Revision number:[[:space:]]+0x0*20111([[:space:]]|$)' <<< "${identity}" ||
+    fail "X503 position ${position} Revision 不匹配。"
+
+  pdos="$(sudo ethercat pdos --position "${position}")"
+  grep -Eqi 'RxPDO[[:space:]]+0x1601([[:space:]]|$)' <<< "${pdos}" ||
+    fail "X503 position ${position} 缺少 RxPDO 0x1601。"
+  grep -Eqi 'TxPDO[[:space:]]+0x1a00([[:space:]]|$)' <<< "${pdos}" ||
+    fail "X503 position ${position} 缺少 TxPDO 0x1A00。"
+  [[ "$(grep -Eic 'PDO entry[[:space:]]+0x7010:0*[1-8]([,[:space:]]|$)' <<< "${pdos}")" -eq 8 ]] ||
+    fail "X503 position ${position} RxPDO 条目数不是 8。"
+  [[ "$(grep -Eic 'PDO entry[[:space:]]+0x6000:' <<< "${pdos}")" -eq 25 ]] ||
+    fail "X503 position ${position} TxPDO 条目数不是 25。"
+}
+
 verify_idle_bus_inputs()
 {
   local master_output
+  local position
   local slave_output
   local can_output
   local bms_can_output
@@ -223,17 +267,28 @@ verify_idle_bus_inputs()
   local bms_capture_file
   local capture_result
 
+  verify_igh_fixed_pdo_support
+
   master_output="$(sudo ethercat master)"
   grep -Fq "Main: ${expected_ethercat_mac} (attached)" <<< "${master_output}" ||
     fail "EtherCAT 主站 MAC 不匹配。"
   grep -Fq 'Link: UP' <<< "${master_output}" || fail "EtherCAT 链路未 UP。"
-  grep -Fq 'Slaves: 16' <<< "${master_output}" || fail "EtherCAT 从站数量不是 16。"
+  grep -Fq 'Slaves: 18' <<< "${master_output}" || fail "EtherCAT 从站数量不是 18。"
   grep -Fq 'Tx errors:   0' <<< "${master_output}" || fail "EtherCAT 主站存在 Tx error。"
   grep -Fq 'Phase: Idle' <<< "${master_output}" || fail "启动前 EtherCAT master 不是 Idle。"
   grep -Fq 'Active: no' <<< "${master_output}" || fail "启动前 EtherCAT master 已被其他进程占用。"
 
   slave_output="$(sudo ethercat slaves)"
-  [[ "$(wc -l <<< "${slave_output}")" -eq 16 ]] || fail "EtherCAT 扫描结果不是 16 行。"
+  [[ "$(wc -l <<< "${slave_output}")" -eq 18 ]] || fail "EtherCAT 扫描结果不是 18 行。"
+  for position in 0 13; do
+    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]\\+[[:space:]]+SG-ECAT-HUB_6[[:space:]]*$" \
+      <<< "${slave_output}" || fail "EtherCAT position ${position} 不是预期 Hub。"
+  done
+  for position in 14 15; do
+    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]\\+[[:space:]]+DST_X503[[:space:]]*$" \
+      <<< "${slave_output}" || fail "EtherCAT position ${position} 不是 X503。"
+    verify_x503_identity_and_pdos "${position}"
+  done
   if grep -Eq '[[:space:]](INIT|BOOT|SAFEOP)[[:space:]]' <<< "${slave_output}"; then
     fail "启动前存在 INIT、BOOT 或 SAFEOP 从站。"
   fi
@@ -425,15 +480,21 @@ verify_operational_ethercat()
   master_output="$(sudo ethercat master)"
   grep -Fq 'Phase: Operation' <<< "${master_output}" || fail "EtherCAT master 未进入 Operation。"
   grep -Fq 'Active: yes' <<< "${master_output}" || fail "EtherCAT master 未激活。"
-  grep -Fq 'Slaves: 16' <<< "${master_output}" || fail "EtherCAT 从站数量不是 16。"
+  grep -Fq 'Slaves: 18' <<< "${master_output}" || fail "EtherCAT 从站数量不是 18。"
 
   slave_output="$(sudo ethercat slaves)"
-  for position in {0..12} 14 15; do
+  for position in {1..12} 16 17; do
     grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]OP[[:space:]]+\\+" \
       <<< "${slave_output}" || fail "EtherCAT position ${position} 未进入 OP。"
   done
-  grep -Eq '^[[:space:]]*13[[:space:]].*[[:space:]]PREOP[[:space:]]+\+' \
-    <<< "${slave_output}" || fail "观察 hub position 13 未保持 PREOP。"
+  for position in 14 15; do
+    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]OP[[:space:]]+\\+[[:space:]]+DST_X503[[:space:]]*$" \
+      <<< "${slave_output}" || fail "EtherCAT X503 position ${position} 未进入 OP。"
+  done
+  for position in 0 13; do
+    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]PREOP[[:space:]]+\\+[[:space:]]+SG-ECAT-HUB_6[[:space:]]*$" \
+      <<< "${slave_output}" || fail "EtherCAT Hub position ${position} 未保持 PREOP。"
+  done
 }
 
 verify_canopen_operational_heartbeats()
@@ -731,16 +792,16 @@ stop_rt_control()
     final_slaves="$(sudo ethercat slaves)"
     if grep -Fq 'Phase: Idle' <<< "${final_master}" &&
       grep -Fq 'Active: no' <<< "${final_master}" &&
-      [[ "$(grep -Ec '[[:space:]]PREOP[[:space:]]+\+' <<< "${final_slaves}")" -eq 16 ]]; then
+      [[ "$(grep -Ec '[[:space:]]PREOP[[:space:]]+\+' <<< "${final_slaves}")" -eq 18 ]]; then
       if (( disable_ok == 0 )); then
         fail "最终总线已安全回到 Idle/PREOP，但显式 /rt/disable 未成功；请保留日志排查。"
       fi
-      info "STOPPED: rt-control 已有序停止，EtherCAT Idle/Inactive 且 16 个从站全 PREOP。"
+      info "STOPPED: rt-control 已有序停止，EtherCAT Idle/Inactive 且 18 个从站全 PREOP。"
       return
     fi
     sleep 1
   done
-  fail "容器已停止，但 15 秒内未确认 EtherCAT Idle/Inactive 和 16 个 PREOP 从站。"
+  fail "容器已停止，但 15 秒内未确认 EtherCAT Idle/Inactive 和 18 个 PREOP 从站。"
 }
 
 print_help()

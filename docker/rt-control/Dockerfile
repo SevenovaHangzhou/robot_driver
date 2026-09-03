@@ -6,7 +6,8 @@ ARG IGH_VERSION
 ARG IGH_COMMIT
 
 LABEL org.opencontainers.image.version="${IGH_VERSION}" \
-      io.rt-control.igh.commit="${IGH_COMMIT}"
+      io.rt-control.igh.commit="${IGH_COMMIT}" \
+      io.rt-control.igh.preserve-pdo-config="true"
 
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && test -n "${IGH_VERSION}" \
@@ -42,6 +43,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
 RUN install -d -m 0750 -o 1000 -g 1000 /home/user
 
 WORKDIR /tmp
+COPY patches/igh/0001-preserve-verified-pdo-config.patch \
+  /tmp/0001-preserve-verified-pdo-config.patch
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && git init ethercat \
     && cd ethercat \
@@ -49,16 +52,21 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && git fetch --depth 1 origin "${IGH_COMMIT}" \
     && git checkout --detach FETCH_HEAD \
     && test "$(git rev-parse HEAD)" = "${IGH_COMMIT}" \
+    && git apply --check /tmp/0001-preserve-verified-pdo-config.patch \
+    && git apply /tmp/0001-preserve-verified-pdo-config.patch \
     && ./bootstrap \
     && ./configure --prefix=/usr/local/etherlab --disable-kernel \
     && make -j"$(nproc)" \
     && make install \
     && install -d /usr/local/share/rt-control \
-    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\n' \
-      "${IGH_VERSION}" "${IGH_COMMIT}" \
+    && igh_patch_sha256="$(sha256sum \
+      /tmp/0001-preserve-verified-pdo-config.patch | awk '{print $1}')" \
+    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\n' \
+      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" \
       > /usr/local/share/rt-control/dependency-versions.env \
     && ldconfig \
-    && rm -rf /tmp/ethercat
+    && rm -rf /tmp/ethercat \
+    && rm -f /tmp/0001-preserve-verified-pdo-config.patch
 
 ENV PATH="/usr/local/etherlab/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/etherlab/lib"
@@ -87,6 +95,10 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0003-orderly-master-deactivation.patch \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0003-orderly-master-deactivation.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     && git -C src/vendor/ros2_canopen apply \

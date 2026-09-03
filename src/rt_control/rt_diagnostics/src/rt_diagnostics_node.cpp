@@ -22,11 +22,14 @@ namespace
 {
 using SteadyClock = std::chrono::steady_clock;
 constexpr auto kStaleTimeout = std::chrono::seconds(3);
-constexpr std::array<int, 14> kRingPositions = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15};
+constexpr std::array<int, 14> kRingPositions = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17};
 constexpr std::array<const char *, 14> kJointNames = {
   "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
   "right_joint6", "left_joint1", "left_joint2", "left_joint3", "left_joint4",
   "left_joint5", "left_joint6", "turn", "updown"};
+constexpr std::array<int, 2> kSensorRingPositions = {14, 15};
+constexpr std::array<const char *, 2> kSensorNames = {
+  "right_force_sensor", "left_force_sensor"};
 
 diagnostic_msgs::msg::KeyValue makeKeyValue(std::string key, std::string value)
 {
@@ -192,7 +195,7 @@ private:
       master.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
       master.message = "EtherCAT link is down";
     } else if (
-      static_cast<int>(slaves_responding) != 16 ||
+      static_cast<int>(slaves_responding) != 18 ||
       (has_previous_wc_count_ && wc_error_count > previous_wc_error_count_))
     {
       master.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
@@ -244,6 +247,32 @@ private:
       slave.values.push_back(makeKeyValue("al_state", std::to_string(al_state)));
       slave.values.push_back(makeKeyValue("cia402_state", cia402StateName(status_word)));
       slave.values.push_back(makeKeyValue("position", std::to_string(position)));
+      array.status.push_back(std::move(slave));
+    }
+
+    for (std::size_t sensor = 0; sensor < kSensorRingPositions.size(); ++sensor) {
+      const int position = kSensorRingPositions[sensor];
+      diagnostic_msgs::msg::DiagnosticStatus slave;
+      slave.name = "/robot/rt_control/ethercat/slave_" + std::to_string(position);
+      slave.hardware_id = hardware_id_;
+      double al_state = 0.0;
+      double channel_1_raw = 0.0;
+      const bool complete =
+        getValue(values, "ethercat_slave_" + std::to_string(position) + "/al_state", al_state) &&
+        getValue(values, std::string(kSensorNames[sensor]) + "/channel_1_raw", channel_1_raw);
+      if (topic_stale || process_stale || !complete) {
+        slave.level = diagnostic_msgs::msg::DiagnosticStatus::STALE;
+        slave.message = "X503 process-data snapshot is stale";
+      } else if (static_cast<int>(al_state) != 0x08) {
+        slave.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+        slave.message = "X503 is not in OP";
+      } else {
+        slave.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+        slave.message = "X503 raw input available";
+      }
+      slave.values.push_back(makeKeyValue("al_state", std::to_string(al_state)));
+      slave.values.push_back(makeKeyValue("position", std::to_string(position)));
+      slave.values.push_back(makeKeyValue("channel_1_raw", std::to_string(channel_1_raw)));
       array.status.push_back(std::move(slave));
     }
 

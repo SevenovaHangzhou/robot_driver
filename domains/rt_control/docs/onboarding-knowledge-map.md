@@ -161,7 +161,7 @@ flowchart TD
 
 14 轴固定顺序为右臂 6 轴、左臂 6 轴、`turn`、`updown`，不接受 partial goal。JTC 在接收 FJT 时同时检查完整集合、EtherCAT 反馈新鲜度和各轴第一点：13 个旋转轴阈值为精确 `0.017453292519943295 rad`，Updown 阈值为 `0.05 m`。
 
-Updown 采用环位置 15 的 XMC SW 5.11 固定 PDO 和 4 ms CSP：`6553600 counts/m`，范围 `[0.0,0.8] m`，目标速度上限 `0.3 m/s`，加/减速度上限 `0.5 m/s²`。这些速度/加速度是 motion 时间参数化和实机验收约束；当前 JTC 不会从 `joint_limits.yaml` 自动执行它们。
+Updown 采用环位置 17 的 XMC SW 5.11 固定 PDO 和 4 ms CSP：`6553600 counts/m`，范围 `[0.0,0.8] m`，目标速度上限 `0.3 m/s`，加/减速度上限 `0.5 m/s²`。位置 14/15 是右/左 X503 raw-only 传感器，不进入 14 轴运动集合。这些速度/加速度是 motion 时间参数化和实机验收约束；当前 JTC 不会从 `joint_limits.yaml` 自动执行它们。
 
 ### 3.3 使能与故障链
 
@@ -241,7 +241,8 @@ docker stop / SIGTERM
 | 修改 14 轴映射/PDO/驱动参数 | `robot_hw_ethercat` | EtherCAT 插件、enable manager、diagnostics | 冻结 profile、上游补丁、迁移差异和实机分级验收。 |
 | 修改使能、失能、Fault Reset | `enable_manager` | 14 轴、JTC 生命周期、停机路径 | `rt_disable_once`、诊断、mock 与实机故障路径。 |
 | 修改 14 轴轨迹准入 | `controllers.yaml` + JTC patch | motion 的 FJT 调用 | 完整性、逐轴首点误差、反馈新鲜度、取消与结果语义。 |
-| 修改 Updown | `xmc_updown_sw511.yaml` + EtherCAT xacro + JTC/limits | motion 和 EtherCAT slave 15 | 固定 PDO、SI/counts 换算、CSP 周期、第五批使能和整组故障语义。 |
+| 修改 Updown | `xmc_updown_sw511.yaml` + EtherCAT xacro + JTC/limits | motion 和 EtherCAT slave 17 | 固定 PDO、SI/counts 换算、CSP 周期、第五批使能和整组故障语义。 |
+| 修改 X503 | `x503_right.yaml`、`x503_left.yaml` + EtherCAT xacro + fixed-PDO 补丁 | EtherCAT slave 14/15 与 diagnostics | 只发布 raw state；核对 identity、8/25 PDO 条目、串联顺序和不写映射策略。 |
 | 修改底盘 | `controllers.yaml` + `bus.yml` + ros2_canopen patch | `/cmd_vel_safe`、odom、CAN node 2/3 | Nav2 参数、方向/比例、EMCY 与停止距离。 |
 | 修改诊断 | `rt_diagnostics` + 两类硬件状态接口 | 运维、autonomy/gateway 的状态汇总 | 多发布者聚合、陈旧判据、恢复后历史证据。 |
 | 增加真空或语义 IO | 先定义跨域契约，再实现 controller/hardware adapter | motion 与机械执行 | 当前只有部分底层 digital interface，不等于已有公共功能。 |
@@ -271,7 +272,7 @@ docker stop / SIGTERM
 
 | 等级 | 差距 | 对接手人的影响 |
 | --- | --- | --- |
-| 高 | XMC SW 5.11 的实机固定 PDO 与供应商 XML 不一致；当前 profile 以 slave 15 的 SII/PDO 扫描为权威，尚未完成 OP、使能和低速运动验收。 | 固件升级或换驱动器必须重读 SII 并逐项比对；不得直接用旧 XML 覆盖 profile，也不得把 mock/构建成功当实机通过。 |
+| 高 | XMC SW 5.11 的实机固定 PDO 与供应商 XML 不一致；当前 profile 以历史扫描确认的固定布局为权威，运行位置已迁移到 slave 17。 | 固件升级、换驱动器或位置迁移后必须重读 SII 并逐项比对；不得直接用旧 XML 覆盖 profile，也不得把 mock/构建成功当实机通过。 |
 | 高 | BQ-115 是明确的硬件安全例外：`right_joint2/right_joint3/left_joint2/left_joint3` 四个 Ti5 在控制字 `0x0000` 下只到 Ready To Switch On；master release 后会以 `0x7500` 进入 Fault。 | 该状态只因设备手册和实测被接受为“未激磁”终态，不是 literal Switch On Disabled；最终验收要人工签字，下一次启动通常要显式 `/rt/reset_fault`。 |
 | 高 | BQ-117 仍开放：Ti5 `0x10F1:02` 的 ESI 声明宽度与实机上传长度不一致。 | 换驱动、固件或新机器时不能假定当前容忍策略仍成立。 |
 | 中 | Compose 按 BQ-141 固定 `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` 且无 DDS XML 挂载，Domain 改为 `0..232` 的部署输入（默认 0）。 | 五域 Domain 不一致会直接断开 DDS 发现；Domain 不是网络隔离，接入现场网络前仍须按 runbook 核对实际暴露范围。 |
@@ -283,4 +284,4 @@ docker stop / SIGTERM
 | 中 | Compose wrapper 没有固定 project name，默认会从发布目录名推导。 | 从不同末级目录直接回退可能创建第二套同为 host network、访问同一硬件的容器；发布目录约定和“全机唯一 rt-control project”必须显式核对。 |
 | 中 | 仓库还没有正式 release manifest、healthcheck、镜像传输、全离线宿主 bootstrap 和自动 rollback 工具。 | 新机部署必须人工保存 SHA、image ID、宿主依赖/事实和验收证据；传一个 Docker image 不等于离线新机已可部署。 |
 
-当前验证边界以 [`PROGRESS.md`](../PROGRESS.md) 和 [`host-setup-record.md`](host-setup-record.md) 为准；[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 是 13 轴/15 位历史拓扑的证据，不覆盖当前 14 轴/16 位环。构建成功、mock 成功或一次通信上线，都不能替代实机运动、故障和长稳验收。
+当前验证边界以 [`PROGRESS.md`](../PROGRESS.md) 和 [`host-setup-record.md`](host-setup-record.md) 为准；[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md) 是 13 轴/15 位历史拓扑的证据，后续 16 位记录也不覆盖当前 14 运动轴 + 2 X503 的 18 位环。构建成功、mock 成功或一次通信上线，都不能替代实机运动、故障和长稳验收。

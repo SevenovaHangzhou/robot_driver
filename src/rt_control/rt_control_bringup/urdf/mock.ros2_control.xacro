@@ -9,6 +9,23 @@
     </joint>
   </xacro:macro>
 
+  <xacro:macro name="mock_x503_sensor" params="sensor_name">
+    <sensor name="${sensor_name}">
+      <state_interface name="channel_1_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="channel_2_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="channel_3_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="channel_4_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="channel_5_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="channel_6_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="sample_code_1_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="sample_code_2_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="sample_code_3_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="sample_code_4_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="sample_code_5_raw"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="sample_code_6_raw"><param name="initial_value">0.0</param></state_interface>
+    </sensor>
+  </xacro:macro>
+
   <ros2_control name="ecat_arms" type="system">
     <hardware>
       <plugin>mock_components/GenericSystem</plugin>
@@ -27,12 +44,14 @@
     <xacro:mock_ecat_axis joint_name="left_joint6"/>
     <xacro:mock_ecat_axis joint_name="turn"/>
     <xacro:mock_ecat_axis joint_name="updown"/>
+    <xacro:mock_x503_sensor sensor_name="right_force_sensor"/>
+    <xacro:mock_x503_sensor sensor_name="left_force_sensor"/>
     <sensor name="ethercat_domain">
       <state_interface name="process_data_age_ms"><param name="initial_value">0.0</param></state_interface>
     </sensor>
     <sensor name="ethercat_master">
       <state_interface name="link_up"><param name="initial_value">1.0</param></state_interface>
-      <state_interface name="slaves_responding"><param name="initial_value">16.0</param></state_interface>
+      <state_interface name="slaves_responding"><param name="initial_value">18.0</param></state_interface>
       <state_interface name="wc_error_count"><param name="initial_value">0.0</param></state_interface>
     </sensor>
     <sensor name="ethercat_slave_1"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
@@ -49,6 +68,8 @@
     <sensor name="ethercat_slave_12"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
     <sensor name="ethercat_slave_14"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
     <sensor name="ethercat_slave_15"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_16"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
+    <sensor name="ethercat_slave_17"><state_interface name="al_state"><param name="initial_value">8.0</param></state_interface></sensor>
   </ros2_control>
 
   <ros2_control name="canopen_mobile_axes" type="system">

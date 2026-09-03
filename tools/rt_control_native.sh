@@ -6,7 +6,7 @@ readonly expected_hostname="ar-Default-string"
 readonly expected_kernel="5.15.0-1032-realtime"
 readonly expected_cpuset="14"
 readonly expected_housekeeping_cpuset="0,2,4,6,16-27"
-readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"
+readonly expected_ethercat_mac="8c:59:3c:15:01:f8"
 readonly expected_can_pci_vendor="0x10b5"
 readonly expected_can_pci_device="0x9140"
 readonly expected_can_pci_driver="zpcican"
@@ -315,13 +315,31 @@ verify_igh_run_on_cpu_config()
     fail "IgH ec_master is not pinned to isolated CPU ${expected_cpuset}"
 }
 
+verify_igh_fixed_pdo_support()
+{
+  local metadata="/usr/local/share/rt-control/dependency-versions.env"
+  local patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
+  local patch_sha256
+  [[ -r "${repository_root}/versions.env" ]] || fail "missing versions.env"
+  [[ -r "${patch}" ]] || fail "missing IgH PDO-preservation patch"
+  [[ -r "${metadata}" ]] || fail "missing frozen IgH dependency identity"
+  # shellcheck disable=SC1091
+  source "${repository_root}/versions.env"
+  patch_sha256="$(sha256sum "${patch}" | awk '{print $1}')"
+  grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${metadata}" ||
+    fail "installed IgH version does not match versions.env"
+  grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${metadata}" ||
+    fail "installed IgH commit does not match versions.env"
+  grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${patch_sha256}" "${metadata}" ||
+    fail "installed IgH master lacks the required fixed-PDO preservation patch"
+}
+
 verify_workspace()
 {
   [[ -x "${installed_start}" ]] || fail "missing installed signal gate: ${installed_start}"
   [[ -x "${install_root}/lib/enable_manager/rt_disable_once" ]] ||
     fail "missing installed shutdown helper"
-  [[ -f /usr/local/share/rt-control/dependency-versions.env ]] ||
-    fail "missing frozen IgH dependency identity"
+  verify_igh_fixed_pdo_support
   [[ -e /dev/EtherCAT0 ]] || fail "missing /dev/EtherCAT0"
   [[ -x "${realtime_cpu_guard}" ]] ||
     fail "missing executable realtime CPU guard: ${realtime_cpu_guard}"
@@ -554,9 +572,34 @@ verify_pcie_can_interface()
   verify_can_link "${interface}"
 }
 
+verify_x503_identity_and_pdos()
+{
+  local identity
+  local pdos
+  local position="$1"
+  identity="$(ethercat slaves --verbose --position "${position}")"
+  grep -Eqi 'Vendor Id:[[:space:]]+0x0*503([[:space:]]|$)' <<< "${identity}" ||
+    fail "X503 position ${position} vendor ID mismatch"
+  grep -Eqi 'Product code:[[:space:]]+0x26483052([[:space:]]|$)' <<< "${identity}" ||
+    fail "X503 position ${position} product code mismatch"
+  grep -Eqi 'Revision number:[[:space:]]+0x0*20111([[:space:]]|$)' <<< "${identity}" ||
+    fail "X503 position ${position} revision mismatch"
+
+  pdos="$(ethercat pdos --position "${position}")"
+  grep -Eqi 'RxPDO[[:space:]]+0x1601([[:space:]]|$)' <<< "${pdos}" ||
+    fail "X503 position ${position} RxPDO 0x1601 is missing"
+  grep -Eqi 'TxPDO[[:space:]]+0x1a00([[:space:]]|$)' <<< "${pdos}" ||
+    fail "X503 position ${position} TxPDO 0x1A00 is missing"
+  [[ "$(grep -Eic 'PDO entry[[:space:]]+0x7010:0*[1-8]([,[:space:]]|$)' <<< "${pdos}")" -eq 8 ]] ||
+    fail "X503 position ${position} RxPDO entry count mismatch"
+  [[ "$(grep -Eic 'PDO entry[[:space:]]+0x6000:' <<< "${pdos}")" -eq 25 ]] ||
+    fail "X503 position ${position} TxPDO entry count mismatch"
+}
+
 verify_idle_ethercat()
 {
   local master
+  local position
   local slaves
   master="$(ethercat master)"
   slaves="$(ethercat slaves)"
@@ -565,8 +608,17 @@ verify_idle_ethercat()
   grep -Fq 'Link: UP' <<< "${master}" || fail "EtherCAT link is not UP"
   grep -Fq 'Phase: Idle' <<< "${master}" || fail "EtherCAT master is not Idle"
   grep -Fq 'Active: no' <<< "${master}" || fail "EtherCAT master is already active"
-  grep -Fq 'Slaves: 16' <<< "${master}" || fail "EtherCAT does not report 16 slaves"
-  [[ "$(wc -l <<< "${slaves}")" -eq 16 ]] || fail "EtherCAT scan is not 16 positions"
+  grep -Fq 'Slaves: 18' <<< "${master}" || fail "EtherCAT does not report 18 slaves"
+  [[ "$(wc -l <<< "${slaves}")" -eq 18 ]] || fail "EtherCAT scan is not 18 positions"
+  for position in 0 13; do
+    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]\\+[[:space:]]+SG-ECAT-HUB_6[[:space:]]*$" \
+      <<< "${slaves}" || fail "EtherCAT position ${position} is not the expected Hub"
+  done
+  for position in 14 15; do
+    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]\\+[[:space:]]+DST_X503[[:space:]]*$" \
+      <<< "${slaves}" || fail "EtherCAT position ${position} is not an X503"
+    verify_x503_identity_and_pdos "${position}"
+  done
 }
 
 native_pid()
@@ -980,14 +1032,21 @@ check_axis_states()
 verify_operational_ethercat()
 {
   local master
+  local position
   local slaves
   master="$(ethercat master)"
   slaves="$(ethercat slaves)"
   grep -Fq 'Phase: Operation' <<< "${master}" || fail "EtherCAT master is not Operation"
   grep -Fq 'Active: yes' <<< "${master}" || fail "EtherCAT master is not Active"
-  grep -Fq 'Slaves: 16' <<< "${master}" || fail "EtherCAT does not report 16 slaves"
-  [[ "$(grep -Ec '^[[:space:]]*[0-9]+[[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\+' <<< "${slaves}")" -ge 14 ]] ||
-    fail "EtherCAT drive slaves are not OP"
+  grep -Fq 'Slaves: 18' <<< "${master}" || fail "EtherCAT does not report 18 slaves"
+  [[ "$(grep -Ec '^[[:space:]]*(1[0-2]|1[67]|[1-9])[[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\+' <<< "${slaves}")" -eq 14 ]] ||
+    fail "all 14 EtherCAT motion axes are not OP"
+  [[ "$(grep -Ec '^[[:space:]]*1[45][[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\+[[:space:]]+DST_X503[[:space:]]*$' <<< "${slaves}")" -eq 2 ]] ||
+    fail "X503 slaves at positions 14 and 15 are not OP"
+  for position in 0 13; do
+    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]PREOP[[:space:]]+\\+[[:space:]]+SG-ECAT-HUB_6[[:space:]]*$" \
+      <<< "${slaves}" || fail "passive Hub position ${position} is not PREOP"
+  done
   verify_ethercat_op_thread_cpu
 }
 

@@ -1,0 +1,88 @@
+# Right X503-B passive force-input profile.
+# Physical order: Hub position 13 OUT8 -> this device -> left X503.
+# The fixed online PDO layout must be preserved and verified, never rewritten.
+# Values remain raw until channel order, units and decoupling data are verified.
+metadata:
+  profile_kind: passive_force_input_only
+  sync_mode: dc
+  motion_ready: false
+  device_name: right_force_sensor
+  side: right
+  ring_position: 14
+  chain_index: 1
+  upstream: hub_position_13_out8
+  downstream: left_force_sensor
+  topology: daisy_chain_from_hub_position_13_out8
+  hub_output_port: OUT8
+  chain_order_source: user_physical_confirmation_2026_09_02
+  esi_file: DST_X503_Device_Des_V1.2.xml
+  esi_sha256: c96e56964de30c6d77a376ab4ecd2e9bb543a7d5ac9461d2ee9134652d0ad611
+  manual_file: X503-B中性使用手册V1.6.pdf
+  manual_sha256: b68b7cde981b6fff82e38f2ecf3eaf06ebd0d7e340276c817f45f09c9864e36d
+  revision_id: 0x00020111
+  standard_ethercat_serial_is_zero: true
+  runtime_identity_readback_required: true
+  runtime_pdo_readback_required: true
+  channel_semantics: unresolved
+  engineering_units: unresolved
+  scaling_and_decoupling: unresolved
+  esi_sm3_default_size_bytes: 6
+  online_txpdo_size_bytes: 100
+  esi_size_conflict_unresolved: true
+
+vendor_id: 0x00000503
+product_id: 0x26483052
+use_slave_pdo_defaults: true
+assign_activate: 0x0300
+
+# Fixed online RxPDO 0x1601, SM2, 16 bits. All outputs remain zero and are not
+# exported as command interfaces; in particular s_upload remains zero.
+rpdo:
+  - index: 0x1601
+    channels:
+      - {index: 0x7010, sub_index: 1, type: bool, default: 0}
+      - {index: 0x7010, sub_index: 2, type: bool, default: 0}
+      - {index: 0x7010, sub_index: 3, type: bool, default: 0}
+      - {index: 0x7010, sub_index: 4, type: bool, default: 0}
+      - {index: 0x7010, sub_index: 5, type: bool, default: 0}
+      - {index: 0x7010, sub_index: 6, type: bool, default: 0}
+      - {index: 0x7010, sub_index: 7, type: bool, default: 0}
+      - {index: 0x7010, sub_index: 8, type: bool, default: 0}
+      - {index: 0x0000, sub_index: 0, type: bit8}
+
+# Fixed online TxPDO 0x1A00, SM3, 25 DINT entries (100 bytes). Only the six
+# raw value channels and six raw sample-code channels are exported.
+tpdo:
+  - index: 0x1A00
+    channels:
+      - {index: 0x6000, sub_index: 1, type: int32, state_interface: channel_1_raw}
+      - {index: 0x6000, sub_index: 2, type: int32, state_interface: channel_2_raw}
+      - {index: 0x6000, sub_index: 3, type: int32, state_interface: channel_3_raw}
+      - {index: 0x6000, sub_index: 4, type: int32, state_interface: channel_4_raw}
+      - {index: 0x6000, sub_index: 5, type: int32, state_interface: channel_5_raw}
+      - {index: 0x6000, sub_index: 6, type: int32, state_interface: channel_6_raw}
+      - {index: 0x6000, sub_index: 7, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 8, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 9, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 10, type: int32, state_interface: sample_code_1_raw}
+      - {index: 0x6000, sub_index: 11, type: int32, state_interface: sample_code_2_raw}
+      - {index: 0x6000, sub_index: 12, type: int32, state_interface: sample_code_3_raw}
+      - {index: 0x6000, sub_index: 13, type: int32, state_interface: sample_code_4_raw}
+      - {index: 0x6000, sub_index: 14, type: int32, state_interface: sample_code_5_raw}
+      - {index: 0x6000, sub_index: 15, type: int32, state_interface: sample_code_6_raw}
+      - {index: 0x6000, sub_index: 16, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 17, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 18, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 19, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 20, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 21, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 22, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 23, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 24, type: int32, state_interface: ~}
+      - {index: 0x6000, sub_index: 25, type: int32, state_interface: ~}
+
+sm:
+  - {index: 0, type: output, pdo: ~, watchdog: disable}
+  - {index: 1, type: input, pdo: ~, watchdog: disable}
+  - {index: 2, type: output, pdo: rpdo, watchdog: enable}
+  - {index: 3, type: input, pdo: tpdo, watchdog: disable}

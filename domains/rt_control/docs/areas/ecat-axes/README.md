@@ -1,6 +1,6 @@
 # ecat-axes — EtherCAT 14 轴伺服
 
-**范围**：EtherCAT 主站与 14 轴伺服的拓扑（16 位环）、slave profile、PDO/SDO 映射、
+**范围**：EtherCAT 主站、14 个运动轴与 2 台 X503 的拓扑（18 位环）、slave profile、PDO/SDO 映射、
 极性/坐标变换、启动 SDO。
 **Owner 包/资产**：`src/rt_control/robot_hw_ethercat`、`patches/ecat_icube`。
 
@@ -11,10 +11,13 @@ IgH 安装与宿主（→ realtime-host）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | 18 位运行拓扑固定为 Hub 0、运动轴 1..12、Hub 13、右/左 X503 14/15、Turn 16、Updown 17；X503 链为 `Hub 13 OUT8 -> right -> left` | [ecat-axes-20260902-01](records/2026-09-02-add-dual-x503-profile-files.md)#F1 | PARTIAL（离线通过；实机 OP/WC 待验） |
+| 01#F2 | 两份 profile 均锁定实机 identity `0x00000503/0x26483052@0x00020111`、fixed RxPDO `0x1601` 与 TxPDO `0x1A00`（25×DINT/100 bytes），必须保留校验而非重写 | [ecat-axes-20260902-01](records/2026-09-02-add-dual-x503-profile-files.md)#F2 | PARTIAL（补丁链通过；实机 OP 待验） |
+| 01#F3 | X503 仅提供 raw state interface，不进入 14 轴使能、JTC 或公共 `/joint_states` | [ecat-axes-20260902-01](records/2026-09-02-add-dual-x503-profile-files.md)#F3 | PASS（静态/Mock） |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-09-02 [双 X503 接入 18 位运行拓扑](records/2026-09-02-add-dual-x503-profile-files.md) — feature，PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

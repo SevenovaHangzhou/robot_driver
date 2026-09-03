@@ -52,6 +52,29 @@
     </joint>
   </xacro:macro>
 
+  <xacro:macro name="x503_sensor" params="sensor_name ring_position profile">
+    <sensor name="${sensor_name}">
+      <state_interface name="channel_1_raw"/>
+      <state_interface name="channel_2_raw"/>
+      <state_interface name="channel_3_raw"/>
+      <state_interface name="channel_4_raw"/>
+      <state_interface name="channel_5_raw"/>
+      <state_interface name="channel_6_raw"/>
+      <state_interface name="sample_code_1_raw"/>
+      <state_interface name="sample_code_2_raw"/>
+      <state_interface name="sample_code_3_raw"/>
+      <state_interface name="sample_code_4_raw"/>
+      <state_interface name="sample_code_5_raw"/>
+      <state_interface name="sample_code_6_raw"/>
+      <ec_module name="${sensor_name}_device">
+        <plugin>ethercat_generic_plugins/GenericEcSlave</plugin>
+        <param name="alias">0</param>
+        <param name="position">${ring_position}</param>
+        <param name="slave_config">$(arg config_dir)/slaves/${profile}.yaml</param>
+      </ec_module>
+    </sensor>
+  </xacro:macro>
+
   <ros2_control name="ecat_arms" type="system">
     <hardware>
       <plugin>ethercat_driver/EthercatDriver</plugin>
@@ -61,6 +84,10 @@
       <param name="preload_timeout_ms">5000</param>
     </hardware>
 
+    <!-- Confirmed 18-position physical topology:
+         Hub 0 -> arm drives 1..12 -> Hub 13.
+         Hub 13 OUT8 -> right X503 at 14 -> left X503 at 15 (daisy chain).
+         Turn and Updown are separate Hub 13 branches at positions 16 and 17. -->
     <xacro:zeroerr_axis joint_name="right_joint1" ring_position="1" profile="zeroerr_j1"/>
     <xacro:ti5_axis joint_name="right_joint2" ring_position="2" profile="ti5_right_joint2"/>
     <xacro:ti5_axis joint_name="right_joint3" ring_position="3" profile="ti5_j3"/>
@@ -73,8 +100,10 @@
     <xacro:zeroerr_axis joint_name="left_joint4" ring_position="10" profile="zeroerr_j4"/>
     <xacro:zeroerr_axis joint_name="left_joint5" ring_position="11" profile="zeroerr_left_joint5"/>
     <xacro:zeroerr_axis joint_name="left_joint6" ring_position="12" profile="left_j6"/>
-    <xacro:zeroerr_axis joint_name="turn" ring_position="14" profile="turn"/>
-    <xacro:xmc_axis joint_name="updown" ring_position="15" profile="xmc_updown_sw511"/>
+    <xacro:x503_sensor sensor_name="right_force_sensor" ring_position="14" profile="x503_right"/>
+    <xacro:x503_sensor sensor_name="left_force_sensor" ring_position="15" profile="x503_left"/>
+    <xacro:zeroerr_axis joint_name="turn" ring_position="16" profile="turn"/>
+    <xacro:xmc_axis joint_name="updown" ring_position="17" profile="xmc_updown_sw511"/>
 
     <sensor name="ethercat_domain">
       <state_interface name="process_data_age_ms"/>
@@ -98,5 +127,7 @@
     <sensor name="ethercat_slave_12"><state_interface name="al_state"/></sensor>
     <sensor name="ethercat_slave_14"><state_interface name="al_state"/></sensor>
     <sensor name="ethercat_slave_15"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_16"><state_interface name="al_state"/></sensor>
+    <sensor name="ethercat_slave_17"><state_interface name="al_state"/></sensor>
   </ros2_control>
 </robot>

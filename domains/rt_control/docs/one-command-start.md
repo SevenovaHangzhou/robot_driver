@@ -48,7 +48,7 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 
 1. 锁定当前账号、主机名、PREEMPT_RT 内核和隔离 CPU 14；
 2. 核对 `V0.10` 不可变 release 操作副本和本地 `rt-control:V0.10` 镜像是否存在；
-3. 核对 Docker、IgH、16 个 EtherCAT 位置、两只 CANable 序列号、500 kbit/s、Node 2/3 心跳和 BMS `0x3FC`；
+3. 核对 Docker、带 fixed-PDO 保护的 IgH、18 个 EtherCAT 位置（Hub 0/13、X503 14/15）、两只 CANable 序列号、500 kbit/s、Node 2/3 心跳和 BMS `0x3FC`；
 4. 要求一次现场使能确认；
 5. 启动同一个 rt-control 容器，等待 controller、总线、PLC 状态和 BMS 电压/SOC ready；
 6. 自动调用 `/rt/enable`，确认 JTC active、EtherCAT OP 和 `/joint_states` 有数据。
@@ -92,7 +92,7 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 ./tools/rt_control_ipc.sh stop
 ```
 
-停止成功会显示 EtherCAT 已到 Idle/Inactive、16 个从站全 PREOP。PLC/BMS 与控制栈同属
+停止成功会显示 EtherCAT 已到 Idle/Inactive、18 个从站全 PREOP。PLC/BMS 与控制栈同属
 `robot-rt-control-1`，没有第二个 `robot-rt-io-1`；该命令不会停止或重启其他域容器。
 
 ## READY 后可用的当前工程接口

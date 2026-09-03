@@ -16,7 +16,7 @@ for required in \
   'readonly expected_cpuset="14"' \
   'readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"' \
   'readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"' \
-  'readonly expected_ethercat_mac="8c:59:3c:14:ff:d3"' \
+  'readonly expected_ethercat_mac="8c:59:3c:15:01:f8"' \
   'readonly expected_can_serial="004D00675230500720333159"' \
   'readonly expected_bms_can_serial="003000265230500720333159"' \
   'readonly release_version="${RT_CONTROL_RELEASE_VERSION:-V0.10}"' \
