@@ -1,0 +1,32 @@
+services:
+  rt-control-operator-ui:
+    image: "rt-control:${RT_CONTROL_IMAGE_TAG:?RT_CONTROL_IMAGE_TAG must be the approved release tag}"
+    command:
+      - /opt/rt_control_ws/install/lib/rt_control_operator_ui/rt_control_operator_ui
+    network_mode: host
+    ipc: host
+    user: "1000:1000"
+    cpuset: "${RT_CONTROL_UI_CPUSET:?RT_CONTROL_UI_CPUSET must contain housekeeping CPUs only}"
+    environment:
+      ROS_DOMAIN_ID: "${RT_CONTROL_ROS_DOMAIN_ID:-0}"
+      ROS_LOCALHOST_ONLY: "0"
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      DISPLAY: "${DISPLAY:?DISPLAY must identify the local X server}"
+      XAUTHORITY: /tmp/.Xauthority
+      HOME: /tmp/rt-control-operator-ui
+    volumes:
+      - type: bind
+        source: "${XAUTHORITY:?XAUTHORITY must identify the operator Xauthority file}"
+        target: /tmp/.Xauthority
+        read_only: true
+      - type: bind
+        source: /tmp/.X11-unix
+        target: /tmp/.X11-unix
+        read_only: true
+    tmpfs:
+      - /tmp/rt-control-operator-ui:uid=1000,gid=1000,mode=0700
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"

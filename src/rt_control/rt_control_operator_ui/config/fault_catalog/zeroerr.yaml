@@ -1,0 +1,18 @@
+faults:
+  - vendor: ZeroErr
+    code: 0xA000
+    title_zh: 主站掉线
+    severity: error
+    reset_policy: reset_once_after_link_recovered
+    possible_causes:
+      - EtherCAT 通信中断
+      - 使能状态下从 OP 异常切换到非 OP
+      - 从站动力电源或通信链路被切断
+    operator_actions:
+      - 确认 EtherCAT Link UP
+      - 确认预期从站全部响应
+      - 确认 Working Counter 完整后只复位一次
+    manual_title: eRob CANopen and EtherCAT 用户手册
+    manual_version: V1.9
+    manual_pages: 119,142
+    source_reference: sha256:1d4026599ec09e601366da5c1d95432f5dfc5582c4e949e216b371f9c1266221

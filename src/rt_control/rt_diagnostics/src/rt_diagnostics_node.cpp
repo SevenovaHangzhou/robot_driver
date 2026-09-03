@@ -3,8 +3,10 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <iomanip>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -30,6 +32,9 @@ constexpr std::array<const char *, 14> kJointNames = {
 constexpr std::array<int, 2> kSensorRingPositions = {14, 15};
 constexpr std::array<const char *, 2> kSensorNames = {
   "right_force_sensor", "left_force_sensor"};
+constexpr std::array<const char *, 14> kVendors = {
+  "ZeroErr", "TI5", "TI5", "ZeroErr", "ZeroErr", "ZeroErr", "ZeroErr",
+  "TI5", "TI5", "ZeroErr", "ZeroErr", "ZeroErr", "ZeroErr", "XMC"};
 
 diagnostic_msgs::msg::KeyValue makeKeyValue(std::string key, std::string value)
 {
@@ -37,6 +42,13 @@ diagnostic_msgs::msg::KeyValue makeKeyValue(std::string key, std::string value)
   item.key = std::move(key);
   item.value = std::move(value);
   return item;
+}
+
+std::string hex16(std::uint16_t value)
+{
+  std::ostringstream stream;
+  stream << "0x" << std::uppercase << std::hex << std::setw(4) << std::setfill('0') << value;
+  return stream.str();
 }
 
 const char * cia402StateName(std::uint16_t status_word)
@@ -244,6 +256,12 @@ private:
         slave.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
         slave.message = "EtherCAT slave state expected";
       }
+      slave.values.push_back(makeKeyValue("joint", kJointNames[axis]));
+      slave.values.push_back(makeKeyValue("ring_position", std::to_string(position)));
+      slave.values.push_back(makeKeyValue("vendor", kVendors[axis]));
+      slave.values.push_back(makeKeyValue("al_state_raw", std::to_string(al_state)));
+      slave.values.push_back(makeKeyValue("status_word_raw", std::to_string(status_word)));
+      slave.values.push_back(makeKeyValue("status_word_hex", hex16(status_word)));
       slave.values.push_back(makeKeyValue("al_state", std::to_string(al_state)));
       slave.values.push_back(makeKeyValue("cia402_state", cia402StateName(status_word)));
       slave.values.push_back(makeKeyValue("position", std::to_string(position)));

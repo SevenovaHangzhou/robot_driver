@@ -1,0 +1,128 @@
+faults:
+  - vendor: TI5
+    code: 0x2310
+    title_zh: 电机过载
+    severity: critical
+    reset_policy: do_not_reset
+    possible_causes: [电机侧持续大电流输出, 机构卡住或负载超过电机能力]
+    operator_actions: [检查机构是否卡住, 核对电机选型并排除过载后再处理]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x2320
+    title_zh: 输出短路报警
+    severity: critical
+    reset_policy: do_not_reset
+    possible_causes: [电机侧瞬时输出电流过大, 电机侧短路或电机损坏]
+    operator_actions: [检查电机及线缆是否短路, 排除硬件损坏后再处理]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x3110
+    title_zh: 供电电压过高
+    severity: critical
+    reset_policy: reset_once_after_condition_resolved
+    possible_causes: [供电电压瞬时或持续过高, 减速回馈导致母线电压升高]
+    operator_actions: [检查供电电压, 检查能量泄放措施, 检查减速度设置]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x3120
+    title_zh: 供电电压过低
+    severity: error
+    reset_policy: reset_once_after_condition_resolved
+    possible_causes: [供电电压瞬时或持续过低, 电源功率不足或加速度过大]
+    operator_actions: [检查供电电压, 检查电源容量, 检查加速度设置]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x4200
+    title_zh: 电机温度报警
+    severity: critical
+    reset_policy: reset_once_after_condition_resolved
+    possible_causes: [电机温度过高或过低, 环境温度异常]
+    operator_actions: [检查电机和环境温度, 等待温度恢复正常]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x4300
+    title_zh: 驱动器温度报警
+    severity: critical
+    reset_policy: reset_once_after_condition_resolved
+    possible_causes: [驱动器温度过高或过低, 环境温度异常]
+    operator_actions: [检查驱动器和环境温度, 检查散热或保温措施]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x5220
+    title_zh: 控制电路 CPU 错误
+    severity: critical
+    reset_policy: do_not_reset
+    possible_causes: [驱动控制 CPU 运行负载过高, 通信周期或 PDO 负载不合适]
+    operator_actions: [记录运行工况, 检查通信周期和 PDO 内容, 联系厂家技术人员]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x6100
+    title_zh: 内部软件错误
+    severity: critical
+    reset_policy: do_not_reset
+    possible_causes: [驱动内部软件异常]
+    operator_actions: [保存完整运行工况和日志, 联系厂家技术人员]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x7300
+    title_zh: 编码器报警
+    severity: critical
+    reset_policy: do_not_reset
+    possible_causes: [编码器数据读取错误, 编码器软硬件异常]
+    operator_actions: [检查编码器连接和硬件, 保存日志并定位软硬件问题]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x7500
+    title_zh: 通信错误
+    severity: error
+    reset_policy: reset_once_after_link_recovered
+    possible_causes:
+      - EtherCAT 异常从 OP 切换到非 OP
+      - 通信线屏蔽、接地、接头或线缆损坏
+      - EtherCAT ALStatusCode 报错
+    operator_actions:
+      - 确认 EtherCAT Link UP
+      - 检查通信线、屏蔽、接地和接头
+      - 确认预期从站与 Working Counter 完整后只复位一次
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3
+  - vendor: TI5
+    code: 0x8611
+    title_zh: 跟随误差过大
+    severity: critical
+    reset_policy: reset_once_after_condition_resolved
+    possible_causes: [位置指令与实际位置误差超过设定范围并持续超时, 机械限制或控制增益不合适]
+    operator_actions: [检查跟随误差范围和时间, 检查机械限制与三环增益, 检查电子齿轮比和编码器分辨率]
+    manual_title: 钛虎 C1 关节模组通讯使用说明
+    manual_version: 1.1.1
+    manual_pages: 77-78
+    source_reference: sha256:0ab5855061db0ff6c5ef98f5ce17eff334fd80cc3849dc1ece3f5f43853927f3

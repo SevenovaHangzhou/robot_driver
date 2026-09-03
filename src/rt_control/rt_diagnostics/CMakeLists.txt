@@ -16,4 +16,9 @@ ament_target_dependencies(
 
 install(TARGETS rt_diagnostics_node DESTINATION lib/${PROJECT_NAME})
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_diagnostic_contract test/test_diagnostic_contract.py)
+endif()
+
 ament_package()

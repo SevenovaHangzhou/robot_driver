@@ -2437,3 +2437,30 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   不可见；修改 Domain 后必须重启相关 participant 并清理 ROS 2 CLI daemon 的旧发现缓存。
 - Verification boundary：脚本和 Compose 合同、镜像构建及无硬件 Mock 必须覆盖默认、显式值和非法值。
   本裁决不授权启动真实总线、reset、enable、运动或 PLC 输出；多域联合 DDS 发现/通信仍需单独验收。
+
+## BQ-142 — EtherCAT 伺服 0x603F 错误码的自动采集通道未冻结 [OPEN/HIGH-RISK 2026-09-03]
+
+- Evidence：ZeroErr V1.9 与钛虎 C1 1.1.1 手册都要求在驱动故障后读取对象
+  `0x603F`；前者说明只保留一个错误值直至清除，后者用该对象承载
+  `0x2310..0x8611`。当前全部 EtherCAT 轴 profile 只把 `0x6041 status_word`
+  暴露为状态接口，`rt_diagnostics` 因而只能发布状态字，不能可靠生成
+  `error_code_raw/error_code_hex`。
+- ESI evidence：ZeroErr V3.2.0 ESI SHA-256
+  `67f7f1179e2c14c07ab1e3611116e33e4932f290551456f6317104e68e52372c` 的 identity
+  `0x5A65726F:0x00029252` 与现有 profile 一致，`0x603F` 是 `uint16`、`ro`、
+  `PdoMapping=T`，且固定 `0x1A05/0x1A06` 显式包含该对象；Ti5 2.0 ESI SHA-256
+  `9fff4ad7c7f561e583d0b8fdff6e8a475ad24e02feed98aac6cd07f2d59d7576` 的 identity
+  `0x00522227:0x00009253` 也与现有 profile 一致，并同样声明 `0x603F uint16 ro PdoMapping=T`。
+- Conflict：资料已证明两个型号支持 TxPDO 映射，但改动仍会改变已验收的 14 轴 PDO：ZeroErr
+  动态 `0x1A00` 从 80 bit 增至 96 bit；Ti5 需从不含错误码的固定 `0x1A01` 切到动态
+  `0x1A00`，由 48 bit 增至 64 bit。在 `rt_diagnostics` 中调用 `ethercat upload` 则会引入
+  特权子进程、阻塞 CoE 访问和第二条主站读取路径，违反既有诊断数据面裁决。
+- Proposed decision A（推荐）：ZeroErr 保持动态 `0x1A00` 并增加 `0x603F:00 uint16`；Ti5
+  改用动态 `0x1A00` 映射 `0x6041/0x6064/0x603F`。两者通过 ICube/JSB 形成唯一只读数据面，
+  `rt_diagnostics` 再发布 `error_code_raw/error_code_hex`。合并前必须构建新镜像，部署后先做
+  全从站 OP/WC 完整、错误码 0 的只读验收，再在单独授权下做一次已知故障/清除验证。
+- Proposed decision B：由 EtherCAT owner 提供有界、事件触发、非实时的 CoE 读取接口；禁止 CLI 轮询，
+  并定义与 Fault 状态、超时、主站停机和错误清除之间的顺序。
+- Current boundary：操作员 UI 只解释现有 `/diagnostics` 中真实出现的错误码；没有 `0x603F` 时保留
+  原始状态字与诊断文本并显示未知，不猜测厂商错误码。BQ-142 未裁决前不得声明 EtherCAT 厂商错误码
+  已自动采集，也不得改 PDO、执行 SDO 写入或新增轮询器。

@@ -14,10 +14,12 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | 操作员 UI 使用独立非特权 Compose 服务，复用同版 RT-Control 镜像且不映射任何硬件 | [release-deploy-20260903-01](records/2026-09-03-operator-ui-container.md)#F1 | 有效 |
+| 01#F2 | UI 容器固定非 root、housekeeping cpuset、host network/ipc、cap-drop ALL、restart=no | [release-deploy-20260903-01](records/2026-09-03-operator-ui-container.md)#F2 | 有效；镜像 T1 PASS，目标机 X11/UID/CPU 集待验证 |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-09-03 [操作员 UI 最小权限容器封装](records/2026-09-03-operator-ui-container.md) — feature，PASS（T1；目标机验收待完成）
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

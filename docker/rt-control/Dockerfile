@@ -155,6 +155,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       robot_hw_canopen \
       enable_manager \
       rt_diagnostics \
+      rt_control_operator_ui \
       rt_control_bringup \
     ) \
     && mapfile -t rt_control_dependency_paths < <( \
@@ -180,6 +181,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       --merge-install \
       --packages-up-to "${rt_control_packages[@]}" \
       --cmake-args -DBUILD_TESTING=OFF \
+    && python3 -c 'from python_qt_binding.QtWidgets import QApplication' \
     && rm -rf /var/lib/apt/lists/* /root/.ros/rosdep
 
 COPY docker/rt-control/entrypoint.sh /rt-control-entrypoint.sh

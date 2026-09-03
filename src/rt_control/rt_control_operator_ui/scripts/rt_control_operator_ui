@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+
+from rt_control_operator_ui.app import main
+
+
+raise SystemExit(main())
