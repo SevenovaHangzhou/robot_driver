@@ -20,8 +20,10 @@ _TOPOLOGY = {
     10: ("left_joint4", "ZeroErr"),
     11: ("left_joint5", "ZeroErr"),
     12: ("left_joint6", "ZeroErr"),
-    14: ("turn", "ZeroErr"),
-    15: ("updown", "XMC"),
+    14: ("right_force_sensor", "X503"),
+    15: ("left_force_sensor", "X503"),
+    16: ("turn", "ZeroErr"),
+    17: ("updown", "XMC"),
 }
 
 
@@ -82,7 +84,12 @@ class DiagnosticFaultProjector:
         values = _values(status)
         address = _address(source, values)
         topology_joint, topology_vendor = _TOPOLOGY.get(address, ("", ""))
-        joint = values.get("joint") or values.get("failed_joint") or topology_joint
+        joint = (
+            values.get("joint")
+            or values.get("sensor")
+            or values.get("failed_joint")
+            or topology_joint
+        )
         vendor = values.get("vendor") or topology_vendor or "Unknown"
         status_word = _number(
             values, "status_word_hex", "status_word_raw", "failed_status_word"

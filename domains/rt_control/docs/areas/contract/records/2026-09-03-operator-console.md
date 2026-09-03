@@ -34,9 +34,11 @@ AL 原值与 statusword 原值/十六进制键，没有新增 topic 或公共接
 ## 验证
 
 - `colcon build --symlink-install --packages-select rt_diagnostics rt_control_operator_ui`：PASS。
-- `colcon test --packages-select rt_diagnostics rt_control_operator_ui`：PASS，46 aggregate tests，
-  对应 36 个 focused pytest cases。
-- `QT_QPA_PLATFORM=offscreen python3 -m pytest ...`：PASS，36 focused tests。
+- rebase 到双 X503 18 位主线后，`colcon test --packages-select rt_diagnostics
+  rt_control_operator_ui`：PASS，48 aggregate tests，对应 38 个包内 pytest cases；另有
+  2 个 Docker 封装测试。
+- `tools/quality_gate.sh`：PASS，202 tests，83% policy coverage。
+- `QT_QPA_PLATFORM=offscreen python3 -m pytest ...`：PASS，37 focused tests。
 - `QT_QPA_PLATFORM=offscreen ROS_DOMAIN_ID=232 timeout --kill-after=2s 3s ...`：PASS，
   退出码 124、无 traceback，SIGTERM 后 Qt/ROS 线程有界收尾。
 

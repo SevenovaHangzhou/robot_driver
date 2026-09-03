@@ -117,3 +117,29 @@ def test_master_link_failure_uses_diagnostic_text_when_no_vendor_code_exists() -
     assert event.source == "/robot/rt_control/ethercat/master"
     assert event.error_code == 0
     assert event.message == "EtherCAT link is down"
+
+
+def test_rebased_18_device_topology_does_not_mislabel_x503_as_turn() -> None:
+    sensor_event = projector().project(
+        status(
+            name="/robot/rt_control/ethercat/slave_14",
+            message="X503 is not in OP",
+            values={"position": "14"},
+        ),
+        5.0,
+    )
+    turn_event = projector().project(
+        status(
+            name="/robot/rt_control/ethercat/slave_16",
+            message="CiA402 fault",
+            values={"position": "16", "status_word_hex": "0x0008"},
+        ),
+        6.0,
+    )
+
+    assert sensor_event is not None
+    assert sensor_event.joint == "right_force_sensor"
+    assert sensor_event.vendor == "X503"
+    assert turn_event is not None
+    assert turn_event.joint == "turn"
+    assert turn_event.vendor == "ZeroErr"

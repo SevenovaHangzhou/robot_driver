@@ -288,6 +288,10 @@ private:
         slave.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
         slave.message = "X503 raw input available";
       }
+      slave.values.push_back(makeKeyValue("sensor", kSensorNames[sensor]));
+      slave.values.push_back(makeKeyValue("ring_position", std::to_string(position)));
+      slave.values.push_back(makeKeyValue("vendor", "X503"));
+      slave.values.push_back(makeKeyValue("al_state_raw", std::to_string(al_state)));
       slave.values.push_back(makeKeyValue("al_state", std::to_string(al_state)));
       slave.values.push_back(makeKeyValue("position", std::to_string(position)));
       slave.values.push_back(makeKeyValue("channel_1_raw", std::to_string(channel_1_raw)));

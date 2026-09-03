@@ -25,3 +25,9 @@ def test_existing_diagnostic_keys_remain_for_compatibility() -> None:
         'makeKeyValue("position"',
     ):
         assert key in SOURCE
+
+
+def test_x503_rows_identify_sensor_without_pretending_it_is_a_joint() -> None:
+    assert 'makeKeyValue("sensor", kSensorNames[sensor])' in SOURCE
+    assert 'makeKeyValue("vendor", "X503")' in SOURCE
+    assert 'makeKeyValue("ring_position", std::to_string(position))' in SOURCE
