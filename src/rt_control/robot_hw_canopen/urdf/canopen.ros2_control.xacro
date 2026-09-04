@@ -1,24 +1,202 @@
 <?xml version="1.0"?>
 <robot name="canopen_mobile_axes_control" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:arg name="canopen_config_dir" default="$(find robot_hw_canopen)/config"/>
+  <xacro:arg
+    name="canopen_authority_bus"
+    default="$(find robot_hw_canopen)/config/bus.authority.yml"/>
+  <xacro:arg name="canopen_variant_dir" default="$(find robot_hw_canopen)/variants"/>
   <xacro:arg name="can_interface_name" default="can0"/>
 
-  <ros2_control name="canopen_mobile_axes" type="system">
-    <hardware>
-      <plugin>canopen_ros2_control/Cia402System</plugin>
-      <param name="bus_config">$(arg canopen_config_dir)/bus.yml</param>
-      <param name="master_config">$(arg canopen_config_dir)/master.dcf</param>
-      <param name="master_bin">$(arg canopen_config_dir)/master.bin</param>
-      <param name="can_interface_name">$(arg can_interface_name)</param>
-    </hardware>
+  <xacro:macro
+    name="rt_control_canopen_track_joint"
+    params="joint_name node_id operation_mode use_mock_hardware">
+    <joint name="${joint_name}">
+      <param name="node_id">${node_id}</param>
+      <param name="operation_mode">${operation_mode}</param>
+      <xacro:if value="${use_mock_hardware}">
+        <command_interface name="velocity"/>
+        <state_interface name="position">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="velocity">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+      </xacro:if>
+    </joint>
+  </xacro:macro>
 
-    <joint name="left_track_joint">
-      <param name="node_id">2</param>
-      <param name="operation_mode">3</param>
-    </joint>
-    <joint name="right_track_joint">
-      <param name="node_id">3</param>
-      <param name="operation_mode">3</param>
-    </joint>
-  </ros2_control>
+  <xacro:macro
+    name="rt_control_canopen_validate_nodes"
+    params="nodes index">
+    <xacro:if value="${index &lt; python.len(nodes)}">
+      <xacro:property name="node" value="${nodes[index]}"/>
+      <xacro:property
+        name="node_fields"
+        value="${python.set(['joint_name', 'node_id', 'operation_mode', 'side', 'profile'])}"/>
+      <xacro:if value="${not python.isinstance(node, python.dict) or python.set(node.keys()) != node_fields}">
+        <xacro:if value="${xacro.fatal('CANopen descriptor node fields must be exactly:', python.sorted(node_fields))}"/>
+      </xacro:if>
+      <xacro:if value="${not python.isinstance(node['joint_name'], python.str) or not node['joint_name'] or node['joint_name'][0] not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' or not python.all([character in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_' for character in node['joint_name']])}">
+        <xacro:if value="${xacro.fatal('CANopen descriptor joint_name must be a ROS-safe identifier matching ^[A-Za-z][A-Za-z0-9_]*$')}"/>
+      </xacro:if>
+      <xacro:if value="${node['joint_name'] == 'master'}">
+        <xacro:if value="${xacro.fatal('CANopen descriptor joint_name master collides with a reserved build artifact')}"/>
+      </xacro:if>
+      <xacro:if value="${python.type(node['node_id']) != python.int or node['node_id'] &lt; 1 or node['node_id'] &gt; 127}">
+        <xacro:if value="${xacro.fatal('CANopen descriptor node_id must be an integer in [1, 127]')}"/>
+      </xacro:if>
+      <xacro:if value="${python.type(node['operation_mode']) != python.int or node['operation_mode'] != 3}">
+        <xacro:if value="${xacro.fatal('CANopen descriptor nodes require operation_mode 3')}"/>
+      </xacro:if>
+      <xacro:if value="${node['side'] not in ['left', 'right']}">
+        <xacro:if value="${xacro.fatal('CANopen descriptor side left/right required')}"/>
+      </xacro:if>
+      <xacro:if value="${node['profile'] != 'ld2_drive'}">
+        <xacro:if value="${xacro.fatal('CANopen descriptor nodes require profile ld2_drive')}"/>
+      </xacro:if>
+      <xacro:rt_control_canopen_validate_nodes
+        nodes="${nodes}"
+        index="${index + 1}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_canopen_validate_bus_nodes"
+    params="nodes bus_nodes index">
+    <xacro:if value="${index &lt; python.len(nodes)}">
+      <xacro:property name="node" value="${nodes[index]}"/>
+      <xacro:property name="bus_node" value="${bus_nodes[node['joint_name']]}"/>
+      <xacro:if value="${python.type(bus_node.get('mandatory')) != python.bool or not bus_node.get('mandatory')}">
+        <xacro:if value="${xacro.fatal('CANopen bus.yml node', node['joint_name'], 'mandatory must be true')}"/>
+      </xacro:if>
+      <xacro:if value="${python.set(['dcf', 'driver', 'package']).intersection(bus_node.keys())}">
+        <xacro:if value="${xacro.fatal('CANopen bus.yml node', node['joint_name'], 'must not override dcf/driver/package')}"/>
+      </xacro:if>
+      <xacro:if value="${python.type(bus_node.get('node_id')) != python.int}">
+        <xacro:if value="${xacro.fatal('CANopen bus.yml node', node['joint_name'], 'node_id must be an integer')}"/>
+      </xacro:if>
+      <xacro:if value="${bus_node.get('node_id') &lt; 1 or bus_node.get('node_id') &gt; 127}">
+        <xacro:if value="${xacro.fatal('CANopen bus.yml node', node['joint_name'], 'node_id must be in [1, 127]')}"/>
+      </xacro:if>
+      <xacro:if value="${python.type(bus_node.get('operation_mode')) != python.int}">
+        <xacro:if value="${xacro.fatal('CANopen bus.yml node', node['joint_name'], 'operation_mode must be an integer')}"/>
+      </xacro:if>
+      <xacro:if value="${bus_node.get('operation_mode') != 3}">
+        <xacro:if value="${xacro.fatal('CANopen bus.yml node', node['joint_name'], 'operation_mode must be 3')}"/>
+      </xacro:if>
+      <xacro:if value="${bus_node.get('node_id') != node['node_id'] or bus_node.get('operation_mode') != node['operation_mode']}">
+        <xacro:if value="${xacro.fatal('CANopen bus.yml node_id/operation_mode mismatch for:', node['joint_name'])}"/>
+      </xacro:if>
+      <xacro:rt_control_canopen_validate_bus_nodes
+        nodes="${nodes}"
+        bus_nodes="${bus_nodes}"
+        index="${index + 1}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_canopen_emit_joints"
+    params="nodes index use_mock_hardware">
+    <xacro:if value="${index &lt; python.len(nodes)}">
+      <xacro:property name="node" value="${nodes[index]}"/>
+      <xacro:rt_control_canopen_track_joint
+        joint_name="${node['joint_name']}"
+        node_id="${node['node_id']}"
+        operation_mode="${node['operation_mode']}"
+        use_mock_hardware="${use_mock_hardware}"/>
+      <xacro:rt_control_canopen_emit_joints
+        nodes="${nodes}"
+        index="${index + 1}"
+        use_mock_hardware="${use_mock_hardware}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <xacro:macro
+    name="rt_control_canopen_system"
+    params="variant use_mock_hardware">
+    <xacro:if value="${not variant or '/' in variant or '..' in variant}">
+      <xacro:if value="${xacro.fatal('Invalid CANopen hardware variant identifier:', variant)}"/>
+    </xacro:if>
+
+    <xacro:property
+      name="variant_path"
+      value="$(arg canopen_variant_dir)/${variant}.yaml"/>
+    <xacro:property name="descriptor" value="${xacro.load_yaml(variant_path)}"/>
+    <xacro:property
+      name="root_fields"
+      value="${python.set(['schema_version', 'variant', 'system', 'nodes'])}"/>
+
+    <xacro:if value="${python.set(descriptor.keys()) != root_fields}">
+      <xacro:if value="${xacro.fatal('CANopen descriptor root fields must be exactly:', python.sorted(root_fields))}"/>
+    </xacro:if>
+    <xacro:if value="${python.type(descriptor['schema_version']) != python.int or descriptor['schema_version'] != 1}">
+      <xacro:if value="${xacro.fatal('CANopen descriptor requires schema_version 1')}"/>
+    </xacro:if>
+    <xacro:if value="${descriptor['variant'] != variant}">
+      <xacro:if value="${xacro.fatal('CANopen descriptor variant must match requested variant:', variant)}"/>
+    </xacro:if>
+    <xacro:if value="${descriptor['system'] != 'canopen_mobile_axes'}">
+      <xacro:if value="${xacro.fatal('CANopen descriptor system canopen_mobile_axes required')}"/>
+    </xacro:if>
+    <xacro:if value="${not python.isinstance(descriptor['nodes'], python.list) or not descriptor['nodes']}">
+      <xacro:if value="${xacro.fatal('CANopen descriptor nodes must be a non-empty list')}"/>
+    </xacro:if>
+
+    <xacro:rt_control_canopen_validate_nodes
+      nodes="${descriptor['nodes']}"
+      index="${0}"/>
+
+    <xacro:property
+      name="joint_names"
+      value="${[node['joint_name'] for node in descriptor['nodes']]}"/>
+    <xacro:property
+      name="node_ids"
+      value="${[node['node_id'] for node in descriptor['nodes']]}"/>
+    <xacro:if value="${python.len(python.set(joint_names)) != python.len(joint_names)}">
+      <xacro:if value="${xacro.fatal('duplicate CANopen joint_name in descriptor')}"/>
+    </xacro:if>
+    <xacro:if value="${python.len(python.set(node_ids)) != python.len(node_ids)}">
+      <xacro:if value="${xacro.fatal('duplicate CANopen node_id in descriptor')}"/>
+    </xacro:if>
+
+    <xacro:property
+      name="bus"
+      value="${xacro.load_yaml('$(arg canopen_authority_bus)')}"/>
+    <xacro:if value="${not python.isinstance(bus.get('nodes'), python.dict) or python.set(bus['nodes'].keys()) != python.set(joint_names)}">
+      <xacro:if value="${xacro.fatal('CANopen bus.yml node names must exactly match descriptor nodes')}"/>
+    </xacro:if>
+    <xacro:if value="${not python.isinstance(bus.get('defaults'), python.dict) or bus['defaults'].get('dcf') != 'eds/ld2_drive.eds'}">
+      <xacro:if value="${xacro.fatal('CANopen bus.yml defaults.dcf must be eds/ld2_drive.eds')}"/>
+    </xacro:if>
+    <xacro:if value="${bus['defaults'].get('driver') != 'ros2_canopen::Cia402Driver'}">
+      <xacro:if value="${xacro.fatal('CANopen bus.yml defaults.driver must be ros2_canopen::Cia402Driver')}"/>
+    </xacro:if>
+    <xacro:if value="${bus['defaults'].get('package') != 'canopen_402_driver'}">
+      <xacro:if value="${xacro.fatal('CANopen bus.yml defaults.package must be canopen_402_driver')}"/>
+    </xacro:if>
+    <xacro:rt_control_canopen_validate_bus_nodes
+      nodes="${descriptor['nodes']}"
+      bus_nodes="${bus['nodes']}"
+      index="${0}"/>
+
+    <ros2_control name="${descriptor['system']}" type="system">
+      <hardware>
+        <xacro:if value="${use_mock_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+        </xacro:if>
+        <xacro:unless value="${use_mock_hardware}">
+          <plugin>canopen_ros2_control/Cia402System</plugin>
+          <param name="bus_config">$(arg canopen_config_dir)/bus.yml</param>
+          <param name="master_config">$(arg canopen_config_dir)/master.dcf</param>
+          <param name="master_bin">$(arg canopen_config_dir)/master.bin</param>
+          <param name="can_interface_name">$(arg can_interface_name)</param>
+        </xacro:unless>
+      </hardware>
+
+      <xacro:rt_control_canopen_emit_joints
+        nodes="${descriptor['nodes']}"
+        index="${0}"
+        use_mock_hardware="${use_mock_hardware}"/>
+    </ros2_control>
+  </xacro:macro>
 </robot>
