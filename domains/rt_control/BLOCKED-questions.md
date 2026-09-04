@@ -2451,9 +2451,11 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   Native 启动达到 Operation 后必须找到恰好一个 `EtherCAT-OP`、确认其 affinity 仅为 CPU14，
   再通过受控 `chrt` 设置并复读 policy/priority；READY 前和每次 `/rt/enable` 前任一步失败均
   fail closed。
-- Timer boundary：contamination gate 只豁免与所检查 CPU 同号、`SCHED_FIFO/1` 且没有
-  `/proc/<tid>/exe` 的 `ktimers/<cpu>` 内核线程。名称、CPU、priority 或内核线程身份任一不符，
-  仍按未知 RT 污染处理；不得把 `ktimers/*` 扩大成用户进程旁路。
+- Timer boundary（2026-09-04 corrective）：contamination gate 只豁免与所检查 CPU 同号、
+  `SCHED_FIFO/1` 且 `/proc/<tid>/stat` field 9 包含 Linux `PF_KTHREAD=0x00200000` 的
+  `ktimers/<cpu>` 内核线程。不得用 `/proc/<tid>/exe` 是否为 symlink 判定；目标 6.8 RT
+  procfs 会保留该 symlink 但拒绝跟随。名称、CPU、priority 或 kernel flag 任一不符，仍按
+  未知 RT 污染处理；不得把 `ktimers/*` 扩大成用户进程旁路。
 - Benefit：修复正常 PREEMPT_RT timer kthread 的误报，并让 IgH operation FSM 在普通负载下不再
   与所有 SCHED_OTHER 线程无差别竞争，同时保留 FIFO80 对主循环的严格优先权。
 - Drawback：CPU14 新增一个 FIFO79 线程，可能压缩 `rtcan-master` 的普通调度窗口并增加 RT
