@@ -193,6 +193,38 @@ TEST(CanopenNativeDiagnosticTest, TreatsAnyEmcyPayloadAsAnError)
   EXPECT_NE(result.message.find(source.values[2].value), std::string::npos);
 }
 
+TEST(CanopenNativeDiagnosticTest, AcceptsThePinnedUpstreamZeroEmcyResetPayload)
+{
+  auto source = makeOperationalDiagnostic();
+  source.values[2].value = "Emergency message: eec: 0 er: 0 msef: 0 0 0 0 0 ";
+
+  const auto result = evaluateNativeCanopenDiagnostic(source);
+
+  EXPECT_EQ(result.level, kOk);
+  EXPECT_EQ(result.message, source.message);
+}
+
+TEST(CanopenNativeDiagnosticTest, RejectsMalformedZeroEmcyPayloads)
+{
+  const std::vector<std::string> malformed{
+    "Emergency message: eec: 0 er: 0 msef: 0 0 0 0 0",
+    "Emergency message: eec: 00 er: 0 msef: 0 0 0 0 0 ",
+    "Emergency message: eec: 0 er: 0 msef: 0 0 0 0 ",
+    "Emergency message: eec: 0 er: 0 msef: 0 0 0 0 0 0 ",
+    "Emergency message: eec: 0 er: 1 msef: 0 0 0 0 0 ",
+    "Emergency message: eec: 0 er: 0 msef: 0 0 0 0 1 ",
+  };
+
+  for (const auto & payload : malformed) {
+    auto source = makeOperationalDiagnostic();
+    source.values[2].value = payload;
+
+    const auto result = evaluateNativeCanopenDiagnostic(source);
+
+    EXPECT_EQ(result.level, kError) << "payload=" << payload;
+  }
+}
+
 TEST(CanopenNativeDiagnosticTest, RejectsNonCanonicalDeviceAndModeValues)
 {
   auto removed = makeOperationalDiagnostic();
