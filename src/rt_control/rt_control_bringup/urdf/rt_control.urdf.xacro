@@ -1,12 +1,16 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="alfa_robot_rt_control">
   <xacro:arg name="use_mock_hardware" default="false"/>
+  <xacro:arg name="ethercat_variant" default="alfa_v1"/>
+  <xacro:arg name="canopen_variant" default="alfa_v1"/>
   <xacro:include filename="$(find robot_description)/urdf/robot.urdf.xacro"/>
-  <xacro:unless value="$(arg use_mock_hardware)">
-    <xacro:include filename="$(find robot_hw_ethercat)/urdf/ecat.ros2_control.xacro"/>
-    <xacro:include filename="$(find robot_hw_canopen)/urdf/canopen.ros2_control.xacro"/>
-  </xacro:unless>
-  <xacro:if value="$(arg use_mock_hardware)">
-    <xacro:include filename="$(find rt_control_bringup)/urdf/mock.ros2_control.xacro"/>
-  </xacro:if>
+  <xacro:include filename="$(find robot_hw_ethercat)/urdf/ecat.ros2_control.xacro"/>
+  <xacro:include filename="$(find robot_hw_canopen)/urdf/canopen.ros2_control.xacro"/>
+
+  <xacro:rt_control_ethercat_system
+    variant="$(arg ethercat_variant)"
+    use_mock_hardware="$(arg use_mock_hardware)"/>
+  <xacro:rt_control_canopen_system
+    variant="$(arg canopen_variant)"
+    use_mock_hardware="$(arg use_mock_hardware)"/>
 </robot>
