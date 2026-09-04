@@ -19,6 +19,7 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd -- "${script_dir}/.." && pwd)"
 workspace_root="${RT_CONTROL_NATIVE_WS:-$(cd -- "${repository_root}/.." && pwd)}"
 install_root="${workspace_root}/install"
+etherlab_prefix="${RT_CONTROL_ETHERLAB_PREFIX:-/usr/local/etherlab}"
 runtime_root="${workspace_root}/.rt-control-native"
 runtime_log_root="${workspace_root}/log/native"
 pid_file="${runtime_root}/rt_control_start.pid"
@@ -30,7 +31,7 @@ realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"
 thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"
 internal_dynamic_joint_states_topic="/rt_internal_state_broadcaster/dynamic_joint_states"
 
-readonly repository_root workspace_root install_root runtime_root runtime_log_root
+readonly repository_root workspace_root install_root etherlab_prefix runtime_root runtime_log_root
 readonly pid_file latest_log_link installed_start axis_state_checker enable_manager_config
 readonly realtime_cpu_guard thread_affinity_tool internal_dynamic_joint_states_topic
 
@@ -68,6 +69,8 @@ Native rt-control development runtime for ar-Default-string:
   ./tools/rt_control_native.sh [--ros-domain-id N] stop
       Call /rt/disable, then signal the installed rt_control_start gate.
   ./tools/rt_control_native.sh [--ros-domain-id N] status
+  ./tools/rt_control_native.sh [--ros-domain-id N] env
+      Print the resolved Native environment without starting hardware.
   ./tools/rt_control_native.sh logs
 
 Options:
@@ -122,6 +125,8 @@ source_runtime_environment()
   [[ -f /opt/ros/humble/setup.bash ]] || fail "ROS 2 Humble is not installed"
   [[ -f "${install_root}/setup.bash" ]] ||
     fail "native workspace is not built: ${install_root}/setup.bash"
+  [[ -d "${etherlab_prefix}/lib" ]] ||
+    fail "missing EtherLab userspace library: ${etherlab_prefix}/lib"
   # These sources only affect this script process and its children.
   set +u
   # shellcheck disable=SC1091
@@ -129,8 +134,17 @@ source_runtime_environment()
   # shellcheck disable=SC1090
   source "${install_root}/setup.bash"
   set -u
-  export PATH="/usr/local/etherlab/bin:${PATH}"
-  export LD_LIBRARY_PATH="/usr/local/etherlab/lib:${LD_LIBRARY_PATH:-}"
+  export RT_CONTROL_ETHERLAB_PREFIX="${etherlab_prefix}"
+  export PATH="${etherlab_prefix}/bin:${PATH}"
+  export LD_LIBRARY_PATH="${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"
+}
+
+print_runtime_environment()
+{
+  source_runtime_environment
+  printf 'RT_CONTROL_ETHERLAB_PREFIX=%s\n' "${RT_CONTROL_ETHERLAB_PREFIX}"
+  printf 'PATH=%s\n' "${PATH}"
+  printf 'LD_LIBRARY_PATH=%s\n' "${LD_LIBRARY_PATH}"
 }
 
 runtime_env()
@@ -1327,6 +1341,7 @@ case "${command_name:-}" in
   enable) enable_native ;;
   stop) stop_native "${command_args[@]}" ;;
   status) status_native ;;
+  env) print_runtime_environment ;;
   logs) logs_native ;;
   -h|--help|help|"") usage ;;
   *) usage >&2; exit 2 ;;

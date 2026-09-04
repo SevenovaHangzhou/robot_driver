@@ -9,8 +9,9 @@ build_base="${workspace_root}/build"
 install_base="${workspace_root}/install"
 log_base="${workspace_root}/log"
 vendor_root="${workspace_root}/src/vendor"
+etherlab_prefix="${RT_CONTROL_ETHERLAB_PREFIX:-/usr/local/etherlab}"
 
-readonly repository_root workspace_root dependency_manifest
+readonly repository_root workspace_root dependency_manifest etherlab_prefix
 readonly build_base install_base log_base vendor_root
 
 readonly -a runtime_packages=(
@@ -59,6 +60,9 @@ Usage:
 RT_CONTROL_NATIVE_WS defaults to the parent of this repository. The supported
 target layout is /home/ar/rt-control-dev/robot with workspace outputs and
 vendor repositories under /home/ar/rt-control-dev.
+
+RT_CONTROL_ETHERLAB_PREFIX defaults to /usr/local/etherlab and controls the
+EtherLab userspace include/library lookup for this process.
 
 prepare never resets, checks out, or cleans an existing vendor repository.
 install-deps is the only command that may invoke apt through rosdep/sudo.
@@ -306,8 +310,9 @@ source_build_environment()
     source "${install_base}/setup.bash"
   fi
   set -u
-  export PATH="/usr/local/etherlab/bin:${PATH}"
-  export LD_LIBRARY_PATH="/usr/local/etherlab/lib:${LD_LIBRARY_PATH:-}"
+  export RT_CONTROL_ETHERLAB_PREFIX="${etherlab_prefix}"
+  export PATH="${etherlab_prefix}/bin:${PATH}"
+  export LD_LIBRARY_PATH="${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"
 }
 
 dependency_paths()
@@ -412,7 +417,8 @@ doctor()
   require_commands bash git python3 vcs colcon rosdep
   python3 -c 'import yaml' >/dev/null 2>&1 || fail "missing Python yaml module"
   [[ -f /opt/ros/humble/setup.bash ]] || fail "ROS 2 Humble is not installed"
-  [[ -d /usr/local/etherlab/lib ]] || fail "missing IgH userspace library"
+  [[ -d "${etherlab_prefix}/lib" ]] ||
+    fail "missing IgH userspace library: ${etherlab_prefix}/lib"
   [[ -f "${metadata}" ]] || fail "missing IgH dependency identity: ${metadata}"
   [[ -r "${patch}" ]] || fail "missing IgH PDO-preservation patch: ${patch}"
   # shellcheck disable=SC1091
@@ -438,6 +444,9 @@ print_environment()
 {
   printf 'source /opt/ros/humble/setup.bash\n'
   printf 'source %q\n' "${install_base}/setup.bash"
+  printf 'export RT_CONTROL_ETHERLAB_PREFIX=%q\n' "${etherlab_prefix}"
+  printf 'export PATH=%q\n' "${etherlab_prefix}/bin:${PATH}"
+  printf 'export LD_LIBRARY_PATH=%q\n' "${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"
 }
 
 case "${1:-}" in
