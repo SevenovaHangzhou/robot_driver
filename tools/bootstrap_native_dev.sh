@@ -58,8 +58,10 @@ Usage:
   tools/bootstrap_native_dev.sh env
 
 RT_CONTROL_NATIVE_WS defaults to the parent of this repository. The supported
-target layout is /home/ar/rt-control-dev/robot with workspace outputs and
-vendor repositories under /home/ar/rt-control-dev.
+daily-development layout is /home/user/rt-control-dev/robot with workspace
+outputs and vendor repositories under /home/user/rt-control-dev. Versioned
+validation releases use /home/user/rt-control-main/releases/<short-main-sha>/
+with the repository in its robot_driver/ child directory.
 
 RT_CONTROL_ETHERLAB_PREFIX defaults to /usr/local/etherlab and controls the
 EtherLab userspace include/library lookup for this process.

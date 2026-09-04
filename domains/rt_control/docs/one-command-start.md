@@ -1,7 +1,9 @@
 # rt-control 一键启动
 
-> 仅适用于已经部署好的 `ar@192.168.0.40`。脚本会访问真实 EtherCAT/CANopen，
-> 并自动调用 `/rt/enable`；不能在开发电脑、其他工控机或无现场授权时运行。
+> 当前目标身份已切换为 `user@localhost`（管理地址 `192.168.0.250`，内核
+> `6.8.1-1057-realtime`）。本轮按 Native-first 流程验证，暂不运行 Docker；本页的一键
+> Docker 路径在 PCIe CAN 迁移和发布验证完成前不得使用。脚本会访问真实
+> EtherCAT/CANopen 并自动调用 `/rt/enable`，无现场授权时严禁运行。
 
 > **当前发布候选：** `V0.10`。镜像以 GitHub Release 附件发布，目标机应先校验
 > `rt-control-V0.10-<git-sha>.tar.gz.sha256`，再 `docker load` 得到 `rt-control:V0.10`。

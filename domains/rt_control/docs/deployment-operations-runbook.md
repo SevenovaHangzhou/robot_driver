@@ -95,12 +95,13 @@ done
 
 | 项目 | 当前脚本/记录所期待的事实 |
 | --- | --- |
+| 运行身份 | 用户 `user`；hostname `localhost`；管理地址 `192.168.0.250` |
 | OS/架构 | Ubuntu 22.04 Jammy、amd64 |
-| 实时内核 | `5.15.0-1032-realtime`；仓库不负责安装 RT 内核 |
+| 实时内核 | `6.8.1-1057-realtime`；仓库不负责安装 RT 内核 |
 | CPU | i7-14700；CPU 14 为隔离核，CPU 15 是同 core sibling 并下线 |
 | EtherCAT NIC | MAC `8c:59:3c:15:01:f8`，预期环上 18 个位置；Hub 为 0/13，右/左 X503 为 14/15，Turn/Updown 为 16/17 |
-| rt-control CAN | USB serial `004D00675230500720333159`，命名为 `can0` |
-| BMS CAN | USB serial `003000265230500720333159`，命名为 `can1`，不归 rt-control 配置 |
+| rt-control CAN | ZLG PCIe-9140I `10b5:9140` / `zpcican`，L0（`dev_id=0`）命名为 `can0` |
+| BMS CAN | 同一 PCIe 卡 L1（`dev_id=1`）命名为 `can1`；L2/L3 保持备用 |
 | CAN 参数 | `can0` 500 kbit/s，txqueuelen 128，预期节点 2/3 心跳 |
 | Docker | Docker CE 29.6.2、containerd 2.2.6，以及脚本冻结的 Buildx/Compose 版本 |
 | 其他验收 | NVIDIA、AppArmor、systemd unit、PCIe/Xid 等当前主机特定检查 |

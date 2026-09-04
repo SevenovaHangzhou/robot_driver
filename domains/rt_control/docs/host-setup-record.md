@@ -20,7 +20,25 @@
 > accidental power-off (BQ-105) and T-009 remains incomplete on the current
 > host until a clean 30-minute result is archived.
 
-## Active target: ar-Default-string (192.168.0.40)
+> **Host note (2026-09-04):** the approved active target is now
+> `user@localhost` (management address `192.168.0.250`) running
+> `6.8.1-1057-realtime`. Its current Native identity and read-only preflight
+> evidence are recorded in
+> [`realtime-host-20260904-01`](areas/realtime-host/records/2026-09-04-current-ipc-identity.md).
+> The `ar-Default-string` section below is retained unchanged as historical
+> evidence and no longer defines launcher identity.
+
+## Active target: localhost (192.168.0.250)
+
+| Item | Approved current value |
+| --- | --- |
+| Runtime account | `user` |
+| Hostname | `localhost` |
+| Realtime kernel | `6.8.1-1057-realtime` |
+| Native release layout | `/home/user/rt-control-main/releases/<short-main-sha>/robot_driver` |
+| ROS Domain | deployment input; `7` for the 2026-09-04 controlled validation |
+
+## Prior target retained for audit: ar-Default-string (192.168.0.40)
 
 Date: 2026-07-24 CST
 Task: T-009

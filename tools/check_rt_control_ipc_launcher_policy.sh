@@ -12,7 +12,9 @@ fail()
 }
 
 for required in \
-  'readonly expected_hostname="ar-Default-string"' \
+  'readonly expected_user="user"' \
+  'readonly expected_hostname="localhost"' \
+  'readonly expected_kernel="6.8.1-1057-realtime"' \
   'readonly expected_cpuset="14"' \
   'readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"' \
   'readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"' \
@@ -21,7 +23,8 @@ for required in \
   'readonly expected_bms_can_serial="003000265230500720333159"' \
   'readonly release_version="${RT_CONTROL_RELEASE_VERSION:-V0.10}"' \
   'readonly runtime_image="rt-control:${release_version}"' \
-  'readonly runtime_root="/home/ar/rt-control-releases/${release_version}/robot"' \
+  'readonly runtime_root="/home/user/rt-control-releases/${release_version}/robot"' \
+  'PCIe CAN 迁移及 Docker 验证完成前禁止使用本入口；当前只批准 Native 流程。' \
   'ENABLE_RT_CONTROL' \
   'call_rt_service enable' \
   'call_rt_service disable' \

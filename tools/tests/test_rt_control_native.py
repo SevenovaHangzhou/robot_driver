@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LAUNCHER = ROOT / "tools" / "rt_control_native.sh"
+IPC_LAUNCHER = ROOT / "tools" / "rt_control_ipc.sh"
 BOOTSTRAP = ROOT / "tools" / "bootstrap_native_dev.sh"
 IGH_INSTALLER = ROOT / "hostsetup" / "igh-install.sh"
 HOST_VERIFIER = ROOT / "hostsetup" / "verify-host.sh"
@@ -28,6 +29,31 @@ class NativeLauncherContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.text = LAUNCHER.read_text(encoding="utf-8")
+
+    def test_real_hardware_launchers_lock_the_approved_current_ipc_identity(self):
+        expected_identity = (
+            'readonly expected_user="user"',
+            'readonly expected_hostname="localhost"',
+            'readonly expected_kernel="6.8.1-1057-realtime"',
+        )
+        obsolete_identity = (
+            'readonly expected_user="ar"',
+            'readonly expected_hostname="ar-Default-string"',
+            'readonly expected_kernel="5.15.0-1032-realtime"',
+        )
+
+        for launcher in (LAUNCHER, IPC_LAUNCHER):
+            text = launcher.read_text(encoding="utf-8")
+            for identity_lock in expected_identity:
+                self.assertIn(identity_lock, text)
+            for identity_lock in obsolete_identity:
+                self.assertNotIn(identity_lock, text)
+
+        ipc_text = IPC_LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn(
+            'readonly runtime_root="/home/user/rt-control-releases/${release_version}/robot"',
+            ipc_text,
+        )
 
     def test_runtime_defaults_to_shared_domain_and_default_fastdds_transports(self):
         self.assertIn(
