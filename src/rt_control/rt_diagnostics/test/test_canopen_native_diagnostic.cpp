@@ -182,7 +182,7 @@ TEST(CanopenNativeDiagnosticTest, DoesNotTreatTransitionHistoryAsTheCurrentCia40
   EXPECT_EQ(evaluateNativeCanopenDiagnostic(old_transition_history).level, kOk);
 }
 
-TEST(CanopenNativeDiagnosticTest, TreatsAnyEmcyPayloadAsAnError)
+TEST(CanopenNativeDiagnosticTest, TreatsANonzeroEmcyPayloadAsAnError)
 {
   auto source = makeOperationalDiagnostic();
   source.values[2].value = "Emergency message: eec: 4096 er: 1 msef: 2 3 4 5 6 ";

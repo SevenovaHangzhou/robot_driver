@@ -23,6 +23,10 @@ constexpr std::string_view kAttachedDevice{"Added to master."};
 constexpr std::string_view kOperationalNmt{"START"};
 constexpr std::string_view kOperationEnabledSummary{"Operation enabled"};
 constexpr std::string_view kProfiledVelocityMode{"Mode switched to: 3"};
+// ros2_canopen retains this exact CANopen error-reset frame in its EMCY field.
+// Its safety callback also treats eec == 0 as cleared rather than an active fault.
+constexpr std::string_view kClearedEmcy{
+  "Emergency message: eec: 0 er: 0 msef: 0 0 0 0 0 "};
 
 std::string withNativeMessage(
   std::string message, const std::string & native_message)
@@ -165,7 +169,7 @@ NativeCanopenDiagnosticAssessment evaluateNativeCanopenDiagnostic(
   }
 
   const auto & emcy_state = *fields.at("emcy_state");
-  if (!emcy_state.empty()) {
+  if (!emcy_state.empty() && emcy_state != kClearedEmcy) {
     consider(
       assessment, kError,
       withNativeMessage(
