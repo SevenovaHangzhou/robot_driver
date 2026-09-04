@@ -1,0 +1,25 @@
+diff --git a/ethercat_interface/CMakeLists.txt b/ethercat_interface/CMakeLists.txt
+--- a/ethercat_interface/CMakeLists.txt
++++ b/ethercat_interface/CMakeLists.txt
+@@ -13,7 +13,7 @@ find_package(ament_cmake_ros REQUIRED)
+ find_package(rclcpp REQUIRED)
+ 
+ # EtherLab
+-set(ETHERLAB_DIR /usr/local/etherlab)
++set(ETHERLAB_DIR "/usr/local/etherlab" CACHE PATH "EtherLab installation prefix")
+ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+ 
+ find_library(ETHERCAT_LIB ethercat HINTS ${ETHERLAB_DIR}/lib)
+diff --git a/ethercat_manager/CMakeLists.txt b/ethercat_manager/CMakeLists.txt
+--- a/ethercat_manager/CMakeLists.txt
++++ b/ethercat_manager/CMakeLists.txt
+@@ -7,7 +7,7 @@ find_package(ament_cmake REQUIRED)
+ find_package(rclcpp REQUIRED)
+ find_package(ethercat_msgs REQUIRED)
+ 
+ # EtherLab
+-set(ETHERLAB_DIR /usr/local/etherlab)
++set(ETHERLAB_DIR "/usr/local/etherlab" CACHE PATH "EtherLab installation prefix")
+ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+ 
+ find_library(ETHERCAT_LIB ethercat HINTS ${ETHERLAB_DIR}/lib)

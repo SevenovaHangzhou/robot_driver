@@ -177,6 +177,9 @@ apply_frozen_patches()
     patches/ecat_icube/0006-validate-component-module-parameters.patch \
     src/vendor/ecat_icube
   apply_patch_once \
+    patches/ecat_icube/0007-configure-etherlab-prefix.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
@@ -254,7 +257,8 @@ verify_frozen_vendor_trees()
     patches/ecat_icube/0003-orderly-master-deactivation.patch \
     patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
     patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch \
-    patches/ecat_icube/0006-validate-component-module-parameters.patch
+    patches/ecat_icube/0006-validate-component-module-parameters.patch \
+    patches/ecat_icube/0007-configure-etherlab-prefix.patch
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \

@@ -561,6 +561,37 @@ class NativeBootstrapContractTest(unittest.TestCase):
         ):
             self.assertGreaterEqual(self.text.count(patch), 2, patch)
 
+    def test_etherlab_prefix_patch_is_cache_configurable_and_ordered(self):
+        patch_name = "patches/ecat_icube/0007-configure-etherlab-prefix.patch"
+        patch_path = ROOT / patch_name
+        self.assertTrue(patch_path.is_file(), patch_name)
+        patch = patch_path.read_text(encoding="utf-8")
+        for cmake_path in (
+            "ethercat_interface/CMakeLists.txt",
+            "ethercat_manager/CMakeLists.txt",
+        ):
+            self.assertIn(f"--- a/{cmake_path}", patch)
+            self.assertIn(f"+++ b/{cmake_path}", patch)
+        self.assertEqual(
+            patch.count("-set(ETHERLAB_DIR /usr/local/etherlab)"),
+            2,
+        )
+        self.assertEqual(
+            patch.count('+set(ETHERLAB_DIR "/usr/local/etherlab" CACHE PATH'),
+            2,
+        )
+        self.assertGreaterEqual(self.text.count(patch_name), 2)
+        dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text(
+            encoding="utf-8"
+        )
+        for consumer in (self.text, dockerfile):
+            self.assertLess(
+                consumer.index(
+                    "patches/ecat_icube/0006-validate-component-module-parameters.patch"
+                ),
+                consumer.index(patch_name),
+            )
+
     def test_bootstrap_applies_the_cross_domain_qos_patch(self):
         self.assertIn(
             "patches/ros2_controllers/0002-use-contract-qos-profiles.patch",
