@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly expected_user="ar"
-readonly expected_hostname="ar-Default-string"
-readonly expected_kernel="5.15.0-1032-realtime"
+readonly expected_user="user"
+readonly expected_hostname="localhost"
+readonly expected_kernel="6.8.1-1057-realtime"
 readonly expected_cpuset="14"
 readonly expected_housekeeping_cpuset="0,2,4,6,8,10,12,16-27"
 readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"
@@ -12,7 +12,7 @@ readonly expected_can_serial="004D00675230500720333159"
 readonly expected_bms_can_serial="003000265230500720333159"
 readonly release_version="${RT_CONTROL_RELEASE_VERSION:-V0.10}"
 readonly runtime_image="rt-control:${release_version}"
-readonly runtime_root="/home/ar/rt-control-releases/${release_version}/robot"
+readonly runtime_root="/home/user/rt-control-releases/${release_version}/robot"
 readonly compose_project="robot"
 readonly container_name="robot-rt-control-1"
 
@@ -810,7 +810,9 @@ stop_rt_control()
 print_help()
 {
   cat <<'EOF'
-当前 ar@192.168.0.40 工控机专用命令：
+当前 user@192.168.0.250 工控机专用命令：
+
+  PCIe CAN 迁移及 Docker 验证完成前禁止使用本入口；当前只批准 Native 流程。
 
   ./tools/rt_control_ipc.sh          检查、启动并自动调用 /rt/enable
   ./tools/rt_control_ipc.sh status   查看容器、EtherCAT、CANopen/BMS 和 controller 状态

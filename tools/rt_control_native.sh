@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly expected_user="ar"
-readonly expected_hostname="ar-Default-string"
-readonly expected_kernel="5.15.0-1032-realtime"
+readonly expected_user="user"
+readonly expected_hostname="localhost"
+readonly expected_kernel="6.8.1-1057-realtime"
 readonly expected_cpuset="14"
 readonly expected_housekeeping_cpuset="0,2,4,6,16-27"
 readonly expected_ethercat_mac="8c:59:3c:15:01:f8"
@@ -53,7 +53,7 @@ fail()
 usage()
 {
   cat <<'EOF'
-Native rt-control development runtime for ar-Default-string:
+Native rt-control development runtime for localhost:
 
   ./tools/rt_control_native.sh [--ros-domain-id N] doctor
   ./tools/rt_control_native.sh [--ros-domain-id N] start
