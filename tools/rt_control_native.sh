@@ -6,6 +6,8 @@ readonly expected_hostname="localhost"
 readonly expected_kernel="6.8.1-1057-realtime"
 readonly expected_cpuset="14"
 readonly expected_housekeeping_cpuset="0,2,4,6,16-27"
+readonly expected_controller_update_rt_priority="80"
+readonly expected_ethercat_op_rt_priority="79"
 readonly expected_ethercat_mac="8c:59:3c:15:01:f8"
 readonly expected_can_pci_vendor="0x10b5"
 readonly expected_can_pci_device="0x9140"
@@ -220,6 +222,7 @@ call_rt_service()
   esac
   if [[ "${operation}" == "enable" ]]; then
     pin_controller_update_thread
+    configure_and_verify_ethercat_op_thread
   fi
   run_ros2_timeout 40 ros2 service call \
     "/rt/${operation}" rt_control_interfaces/srv/RtEnable '{}'
@@ -364,6 +367,7 @@ verify_workspace()
   command -v modprobe >/dev/null 2>&1 || fail "missing modprobe"
   command -v taskset >/dev/null 2>&1 || fail "missing taskset"
   command -v setsid >/dev/null 2>&1 || fail "missing setsid"
+  command -v chrt >/dev/null 2>&1 || fail "missing chrt"
   command -v ethercat >/dev/null 2>&1 || fail "missing ethercat CLI"
 }
 
@@ -420,7 +424,7 @@ pin_controller_update_thread()
     --rt-cpu "${expected_cpuset}" \
     --housekeeping-cpus "${expected_housekeeping_cpuset}" \
     --required-rt-thread-name rtcan-master \
-    --rt-priority 80 \
+    --rt-priority "${expected_controller_update_rt_priority}" \
     --deadline 5
 }
 
@@ -1050,7 +1054,6 @@ check_axis_states()
 verify_operational_ethercat()
 {
   local master
-  local position
   local slaves
   master="$(ethercat master)"
   slaves="$(ethercat slaves)"
@@ -1061,42 +1064,57 @@ verify_operational_ethercat()
     fail "all 14 EtherCAT motion axes are not OP"
   [[ "$(grep -Ec '^[[:space:]]*1[45][[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\+[[:space:]]+DST_X503[[:space:]]*$' <<< "${slaves}")" -eq 2 ]] ||
     fail "X503 slaves at positions 14 and 15 are not OP"
-  for position in 0 13; do
-    grep -Eq "^[[:space:]]*${position}[[:space:]].*[[:space:]]PREOP[[:space:]]+\\+[[:space:]]+SG-ECAT-HUB_6[[:space:]]*$" \
-      <<< "${slaves}" || fail "passive Hub position ${position} is not PREOP"
-  done
-  verify_ethercat_op_thread_cpu
+  grep -Eq '^[[:space:]]*0[[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\+[[:space:]]+SG-ECAT-HUB_6[[:space:]]*$' \
+    <<< "${slaves}" || fail "passive Hub position 0 is not OP"
+  grep -Eq '^[[:space:]]*13[[:space:]]+[^[:space:]]+[[:space:]]+PREOP[[:space:]]+\+[[:space:]]+SG-ECAT-HUB_6[[:space:]]*$' \
+    <<< "${slaves}" || fail "passive Hub position 13 is not PREOP"
+  configure_and_verify_ethercat_op_thread
 }
 
-verify_ethercat_op_thread_cpu()
+configure_and_verify_ethercat_op_thread()
 {
   local allowed
   local cls
-  local found=0
+  local comm
   local rtprio
   local status_file
   local tid
-  while read -r tid cls rtprio; do
-    [[ -n "${tid}" ]] || continue
-    status_file="/proc/${tid}/status"
-    [[ -r "${status_file}" ]] || continue
-    found=1
-    allowed="$(sed -n 's/^Cpus_allowed_list:[[:space:]]*//p' "${status_file}")"
-    [[ "${allowed}" == "${expected_cpuset}" ]] ||
-      fail "EtherCAT-OP thread ${tid} CPU affinity is ${allowed}, expected ${expected_cpuset}"
-    case "${cls}" in
-      TS)
-        info "EtherCAT-OP thread ${tid} is SCHED_OTHER; field acceptance requires FIFO80 update duty <70% under navigation load"
-        ;;
-      FF|RR)
-        info "EtherCAT-OP thread ${tid} is ${cls} rtprio=${rtprio}; if rtprio >80, verify it does not cut the control cycle"
-        ;;
-      *)
-        info "EtherCAT-OP thread ${tid} scheduler class=${cls} rtprio=${rtprio}"
-        ;;
-    esac
-  done < <(ps -eLo tid=,cls=,rtprio=,comm= | awk '$4 == "EtherCAT-OP" {print $1, $2, $3}')
-  (( found == 1 )) || fail "EtherCAT-OP thread is not visible"
+  local -a matches=()
+
+  (( expected_ethercat_op_rt_priority < expected_controller_update_rt_priority )) ||
+    fail "EtherCAT-OP priority must remain below the control update priority"
+  mapfile -t matches < <(
+    ps -eLo tid=,cls=,rtprio=,comm= |
+      awk '$4 == "EtherCAT-OP" {print $1, $2, $3, $4}'
+  )
+  (( ${#matches[@]} == 1 )) ||
+    fail "expected exactly one EtherCAT-OP thread, found ${#matches[@]}"
+
+  read -r tid cls rtprio comm <<< "${matches[0]}"
+  [[ "${comm}" == "EtherCAT-OP" ]] ||
+    fail "EtherCAT-OP thread identity changed before scheduling"
+  status_file="/proc/${tid}/status"
+  [[ -r "${status_file}" ]] || fail "EtherCAT-OP thread ${tid} disappeared"
+  allowed="$(sed -n 's/^Cpus_allowed_list:[[:space:]]*//p' "${status_file}")"
+  [[ "${allowed}" == "${expected_cpuset}" ]] ||
+    fail "EtherCAT-OP thread ${tid} CPU affinity is ${allowed}, expected ${expected_cpuset}"
+
+  if [[ "${cls}" != "FF" || "${rtprio}" != "${expected_ethercat_op_rt_priority}" ]]; then
+    info "setting EtherCAT-OP thread ${tid} to SCHED_FIFO/${expected_ethercat_op_rt_priority} below the FIFO/${expected_controller_update_rt_priority} control update thread"
+    run_privileged chrt --fifo --pid "${expected_ethercat_op_rt_priority}" "${tid}" ||
+      fail "could not set EtherCAT-OP thread ${tid} scheduling policy"
+  fi
+
+  if ! read -r cls rtprio < <(ps -o cls=,rtprio= -p "${tid}"); then
+    fail "EtherCAT-OP thread ${tid} disappeared after scheduling"
+  fi
+  [[ "$(< "/proc/${tid}/comm")" == "EtherCAT-OP" ]] ||
+    fail "EtherCAT-OP thread identity changed after scheduling"
+  [[ "${cls}" == "FF" ]] ||
+    fail "EtherCAT-OP thread ${tid} scheduler class is ${cls}, expected FF"
+  [[ "${rtprio}" == "${expected_ethercat_op_rt_priority}" ]] ||
+    fail "EtherCAT-OP thread ${tid} rtprio is ${rtprio}, expected ${expected_ethercat_op_rt_priority}"
+  info "EtherCAT-OP thread ${tid} is CPU${expected_cpuset} SCHED_FIFO/${rtprio} below the FIFO/${expected_controller_update_rt_priority} control update thread"
 }
 
 start_native()

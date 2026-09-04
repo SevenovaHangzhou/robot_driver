@@ -2437,3 +2437,28 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   不可见；修改 Domain 后必须重启相关 participant 并清理 ROS 2 CLI daemon 的旧发现缓存。
 - Verification boundary：脚本和 Compose 合同、镜像构建及无硬件 Mock 必须覆盖默认、显式值和非法值。
   本裁决不授权启动真实总线、reset、enable、运动或 PLC 输出；多域联合 DDS 发现/通信仍需单独验收。
+
+## BQ-142 — EtherCAT-OP 与 CPU14 内核 timer 线程的实时调度顺序 [RESOLVED/HIGH-RISK 2026-09-04]
+
+- Evidence：新工控机 Native 运行态中，controller update 为 CPU14 上唯一 `SCHED_FIFO/80`
+  线程，`EtherCAT-OP` 与 `rtcan-master` 均为 `SCHED_OTHER/0`，`ktimers/14` 为内核
+  `SCHED_FIFO/1`。冻结 IgH `stable-1.6@2f7f884f` 的 operation thread 只通过
+  `kthread_create()`、`kthread_bind(..., run_on_cpu)` 和 `wake_up_process()` 创建，未配置
+  scheduler/priority；其循环注释明确要求 operation FSM 不快于发送 RT 线程。BQ-120/BQ-129
+  只冻结三类线程共置 CPU14 和 update FIFO80，没有给 `EtherCAT-OP` 数值优先级。
+- User decision：提高 `EtherCAT-OP` 优先级。采用 `SCHED_FIFO/79`：高于普通线程，但严格低于
+  250 Hz controller update 的 FIFO80，使 master/slave FSM 获得确定调度而不能抢占主控制循环。
+  Native 启动达到 Operation 后必须找到恰好一个 `EtherCAT-OP`、确认其 affinity 仅为 CPU14，
+  再通过受控 `chrt` 设置并复读 policy/priority；READY 前和每次 `/rt/enable` 前任一步失败均
+  fail closed。
+- Timer boundary：contamination gate 只豁免与所检查 CPU 同号、`SCHED_FIFO/1` 且没有
+  `/proc/<tid>/exe` 的 `ktimers/<cpu>` 内核线程。名称、CPU、priority 或内核线程身份任一不符，
+  仍按未知 RT 污染处理；不得把 `ktimers/*` 扩大成用户进程旁路。
+- Benefit：修复正常 PREEMPT_RT timer kthread 的误报，并让 IgH operation FSM 在普通负载下不再
+  与所有 SCHED_OTHER 线程无差别竞争，同时保留 FIFO80 对主循环的严格优先权。
+- Drawback：CPU14 新增一个 FIFO79 线程，可能压缩 `rtcan-master` 的普通调度窗口并增加 RT
+  throttling 风险；数值虽由现有 FIFO80 和 IgH 相对顺序推导，仍须在代表性导航/GPU 负载下测量
+  update duty、WC、lost frames、CAN heartbeat gap 与 throttling。
+- Verification boundary：源码合同、shell 静态检查和本地质量门禁不能证明目标调度效果。当前已使能
+  的旧 Native 会话按用户要求保持运行且未被修改；FIFO79 只允许在后续维护窗口由新 main 的全新会话
+  应用，未经该实测不得声明调度优化验收完成。

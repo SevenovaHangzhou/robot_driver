@@ -309,7 +309,49 @@ class NativeLauncherContractTest(unittest.TestCase):
     def test_native_preflight_requires_igh_to_run_on_the_isolated_cpu(self):
         self.assertIn("verify_igh_run_on_cpu_config", self.text)
         self.assertIn('options ec_master run_on_cpu=${expected_cpuset}', self.text)
-        self.assertIn("verify_ethercat_op_thread_cpu", self.text)
+        self.assertIn("configure_and_verify_ethercat_op_thread", self.text)
+
+    def test_operational_topology_accepts_only_the_observed_hub_states(self):
+        start = self.text.index("verify_operational_ethercat()")
+        stop = self.text.index("configure_and_verify_ethercat_op_thread()", start)
+        body = self.text[start:stop]
+        self.assertIn(
+            '0[[:space:]]+[^[:space:]]+[[:space:]]+OP[[:space:]]+\\+[[:space:]]+SG-ECAT-HUB_6',
+            body,
+        )
+        self.assertIn(
+            '13[[:space:]]+[^[:space:]]+[[:space:]]+PREOP[[:space:]]+\\+[[:space:]]+SG-ECAT-HUB_6',
+            body,
+        )
+        self.assertNotIn("for position in 0 13", body)
+
+    def test_ethercat_operation_thread_is_fifo_below_the_control_update_thread(self):
+        self.assertIn('readonly expected_controller_update_rt_priority="80"', self.text)
+        self.assertIn('readonly expected_ethercat_op_rt_priority="79"', self.text)
+        self.assertIn(
+            '--rt-priority "${expected_controller_update_rt_priority}"',
+            self.text,
+        )
+
+        start = self.text.index("configure_and_verify_ethercat_op_thread()")
+        stop = self.text.index("start_native()", start)
+        body = self.text[start:stop]
+        self.assertIn("expected exactly one EtherCAT-OP thread", body)
+        self.assertIn(
+            'run_privileged chrt --fifo --pid "${expected_ethercat_op_rt_priority}" "${tid}"',
+            body,
+        )
+        self.assertIn('[[ "${cls}" == "FF" ]]', body)
+        self.assertIn('[[ "${rtprio}" == "${expected_ethercat_op_rt_priority}" ]]', body)
+        self.assertNotIn("if rtprio >80", body)
+
+        call_start = self.text.index("call_rt_service()")
+        call_stop = self.text.index("verify_target_identity()", call_start)
+        call_body = self.text[call_start:call_stop]
+        self.assertLess(
+            call_body.index("configure_and_verify_ethercat_op_thread"),
+            call_body.index('"/rt/${operation}"'),
+        )
 
     def test_native_pins_controller_update_and_canopen_master_loop_after_startup(self):
         self.assertIn('thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"', self.text)
@@ -921,6 +963,10 @@ class RtControlDiagnosticScriptContractTest(unittest.TestCase):
         self.assertIn("PSR", text)
         self.assertIn("tight affinity", text)
         self.assertIn("rcub/*", text)
+        self.assertIn("ktimers/*", text)
+        self.assertIn('"${comm}" == "ktimers/${rt_cpu}"', text)
+        self.assertIn('"${rtprio}" == "1"', text)
+        self.assertIn('! -L "/proc/${tid}/exe"', text)
         self.assertIn("warn_records", text)
         self.assertIn("WARN:", text)
         self.assertIn("rtprio >= 80", text)
