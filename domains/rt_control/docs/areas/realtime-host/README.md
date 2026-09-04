@@ -15,7 +15,7 @@
 | --- | --- | --- | --- |
 | HOST-IDENTITY-1 | 当前真实硬件 launcher 锁定 `user` / `localhost` / `6.8.1-1057-realtime`；旧 `ar-Default-string` 身份仅保留为历史证据。 | [realtime-host-20260904-01](records/2026-09-04-current-ipc-identity.md) | ACTIVE |
 | HOST-CAN-1 | `localhost` 的 native CAN 入口按 PCI 身份和 `dev_id` 绑定 ZLG PCIe-9140I：L0=`can0`（CANopen）、L1=`can1`（BMS），L2/L3 保持备用；不以偶然的 `canX` 枚举号或 CANable USB 序列号识别。 | [realtime-host-20260821-01](records/2026-08-21-zlg-pcie-can-native-preflight.md), [realtime-host-20260904-01](records/2026-09-04-current-ipc-identity.md) | ACTIVE（native；Docker 发布入口尚未迁移） |
-| HOST-SCHED-1 | CPU14 上 controller update 固定 FIFO80；`EtherCAT-OP` 由 Native launcher 设置并复核为 FIFO79；`ktimers/14` 仅在 FIFO1 且 `PF_KTHREAD` 为真时豁免。 | [realtime-host-20260904-02](records/2026-09-04-native-runtime-thread-gates.md)#F2-F3, [realtime-host-20260904-03](records/2026-09-04-ktimers-procfs-corrective.md)#F1-F2, BQ-142 | PARTIAL（corrective 待新 main 目标机复验） |
+| HOST-SCHED-1 | CPU14 上 controller update 固定 FIFO80；`EtherCAT-OP` 由 Native launcher 设置并复核为 FIFO79；`ktimers/14` 仅在 FIFO1 且 `PF_KTHREAD` 为真时豁免。 | [realtime-host-20260904-02](records/2026-09-04-native-runtime-thread-gates.md)#F2-F3, [realtime-host-20260904-03](records/2026-09-04-ktimers-procfs-corrective.md)#F1-F2, BQ-142 | PASS（T3 Native；PR CI/Docker 待完成） |
 
 ## 记录索引（倒序）
 

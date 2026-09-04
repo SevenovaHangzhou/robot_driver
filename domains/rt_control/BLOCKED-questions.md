@@ -2461,6 +2461,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - Drawback：CPU14 新增一个 FIFO79 线程，可能压缩 `rtcan-master` 的普通调度窗口并增加 RT
   throttling 风险；数值虽由现有 FIFO80 和 IgH 相对顺序推导，仍须在代表性导航/GPU 负载下测量
   update duty、WC、lost frames、CAN heartbeat gap 与 throttling。
-- Verification boundary：源码合同、shell 静态检查和本地质量门禁不能证明目标调度效果。当前已使能
-  的旧 Native 会话按用户要求保持运行且未被修改；FIFO79 只允许在后续维护窗口由新 main 的全新会话
-  应用，未经该实测不得声明调度优化验收完成。
+- Verification（2026-09-04）：在新工控机 `main@f765900c` 加候选 corrective 的隔离 Native
+  release 上，strict CPU14 guard 连续 10 次采样通过；唯一一次受控 enable 前后均复核 controller
+  update=FIFO80、`EtherCAT-OP`=FIFO79、`rtcan-master`=SCHED_OTHER0 且三者仅在 CPU14。两轮
+  使能后 WC 均为 48/48、lost 维持 390，14 轴 OperationEnabled，session 保持 running/enabled。
+  该 T3 证据闭合本次调度纠错，但不替代仍待执行的代表性导航/GPU 负载、RT throttling 与长期
+  CAN heartbeat-gap 验收；Docker/main 封装由 PR CI 补齐。

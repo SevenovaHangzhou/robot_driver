@@ -7,11 +7,12 @@ type: corrective
 trigger: ELECTRI-113 target start failure
 commits: [fix/electri-113-ktimers-procfs]
 env: native
-risk: T2
-writes: { reset: no, enable: no, motion: no, plc: no }
-verified: PARTIAL
+risk: T3
+writes: { reset: no, enable: yes, motion: no, plc: no }
+verified: PASS
 evidence:
   - ELECTRI-113
+  - /home/user/rt-control-main/releases/f765900c/log/native/rt-control-20260904-192123.log
 supersedes: [realtime-host-20260904-02#F1]
 related: [BQ-142, realtime-host-20260904-02]
 ---
@@ -41,10 +42,15 @@ symlink 条目，但跟随目标返回权限错误，所以 `-L` 为真。
 - Linux v6.8 权威源码 `include/linux/sched.h` 定义 `PF_KTHREAD=0x00200000`。
 - 目标机只读复核：`ktimers/14` field 9 为 `69238848`（`0x04208040`），与
   `0x00200000` 按位与结果非零；同次检查 shell 的按位与结果为零。
-- 目标机新 release 的失败发生在总线访问前；最终保持 Master0 Idle/Inactive、18 PREOP、
-  `/dev/EtherCAT0` 与 CAN socket 无 owner，reset/enable/PLC 写均为 0。
+- 在 `main@f765900c` 的隔离 release 应用候选差异后，目标机 strict CPU14 guard 连续 10 次
+  PSR 采样通过且 warnings=0；Native doctor/start 到达 READY。
+- 唯一一次 `/rt/enable` 返回 `ok=True, stage=success`，未调用 `/rt/reset_fault`。使能入口
+  复核 controller update 为 CPU14/FIFO80、`rtcan-master` 为 CPU14/SCHED_OTHER0、
+  `EtherCAT-OP` 为 CPU14/FIFO79。
+- 两轮使能后证据间隔约 65 秒：WC 均为 48/48，EtherCAT lost 保持 390，14 轴均为
+  OperationEnabled；Native PID 243767 保持 running/enabled。
 
-本记录不授权使能或运动。
+本次实机操作经现场授权，操作人：用户，确认短语入口：`rt_control_native.sh start/enable`。
 
 ## 结论与冻结事实
 
@@ -54,7 +60,7 @@ symlink 条目，但跟随目标返回权限错误，所以 `-L` 为真。
 
 ## 遗留
 
-- 该 corrective 合入并取得新 main CI 后，须在同一目标机 exact release 重跑真实 wrapper
-  doctor/start；只有门禁通过并实际验证 EtherCAT-OP FIFO79 后，才能关闭 ELECTRI-113。
-- 当前切换失败未启动新 runtime。旧 release 自动回退的单次 start 也提前退出且无日志，现场
-  保持安全停机；不得将本地测试写成恢复运行或受控使能完成。
+- 候选差异仍须通过 PR CI 并合入 main；目标机当前运行的是 `f765900c` 加候选差异的已验证
+  release，不把它写成尚未产生的 merge SHA。
+- 未运行 Docker；按用户指定由 PR CI 补 Docker/main 封装门禁。can0 arbitration-lost 的
+  `2147→2164` 增长继续由 ELECTRI-114 跟踪，不与真实 bus-error 混淆。

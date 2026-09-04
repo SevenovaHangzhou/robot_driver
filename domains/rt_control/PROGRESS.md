@@ -120,4 +120,5 @@
 | 2026-09-04 | ecat-axes | [Hub 0/13 运行态门禁修正](docs/areas/ecat-axes/records/2026-09-04-hub-runtime-state-gate.md) | PARTIAL（T2 现场事实；新 main 复验待维护窗口） |
 | 2026-09-04 | realtime-host | [Native 运行线程门禁修正](docs/areas/realtime-host/records/2026-09-04-native-runtime-thread-gates.md) | PARTIAL（本地门禁；FIFO79 目标机复验待维护窗口） |
 | 2026-09-04 | io-power | [PLC 绑定接口切换为 eno1](docs/areas/io-power/records/2026-09-04-plc-interface-eno1.md) | PARTIAL（配置/测试；当前 PLC 未重启） |
-| 2026-09-04 | realtime-host | [ktimers procfs 身份判定纠错](docs/areas/realtime-host/records/2026-09-04-ktimers-procfs-corrective.md) | PARTIAL（目标机复现；新 main 重试待 CI） |
+| 2026-09-04 | realtime-host | [ktimers procfs 身份判定纠错](docs/areas/realtime-host/records/2026-09-04-ktimers-procfs-corrective.md) | PASS（T3 Native；CPU14/FIFO79 与受控使能已验证，PR CI/Docker 待完成） |
+| 2026-09-04 | contract | [CANopen 零值 EMCY 归一化与 readiness 收口](docs/areas/contract/records/2026-09-04-cleared-emcy-readiness.md) | PASS（T3 Native；两轮 readiness HEALTHY/READY，PR CI/Docker 待完成） |
