@@ -13,9 +13,11 @@ systemd unit（→ realtime-host）。
 | --- | --- | --- | --- |
 | 01#F1 | 输出 bit0=右阀、bit1=左阀、bit2=共用泵 | [io-power-20260817-01](records/2026-08-17-correct-solenoid-side-mapping.md)#F1 | 有效 |
 | 01#F2 | 本次未重新确认左右真空输入 bit，保持现状但仍需闭环复核 | [io-power-20260817-01](records/2026-08-17-correct-solenoid-side-mapping.md)#F2 | 有效 |
+| 02#F1 | 当前新工控机访问 `192.168.1.88:502` 的 PLC socket 固定绑定 `eno1`；旧 `enp4s0` 不再是活动配置。 | [io-power-20260904-01](records/2026-09-04-plc-interface-eno1.md)#F1 | PARTIAL（配置/测试通过；运行进程待授权重启） |
 
 ## 记录索引（倒序）
 
+- 2026-09-04 [PLC 绑定接口切换为 eno1](records/2026-09-04-plc-interface-eno1.md) — fix，PARTIAL（未重启当前运行进程）
 - 2026-08-17 [纠正左右电磁阀输出映射](records/2026-08-17-correct-solenoid-side-mapping.md) — corrective，PASS（T4；输入映射与新镜像待验证）
 
 ## 历史锚点（2026-08-13 前，未迁移）
