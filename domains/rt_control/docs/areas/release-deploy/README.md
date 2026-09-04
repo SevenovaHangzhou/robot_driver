@@ -16,7 +16,7 @@
 | --- | --- | --- | --- |
 | 01#F1 | bringup 只选择并组合 EtherCAT/CANopen 两个 package-owned real/mock system，配置对齐在 Node 创建前 fail closed | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock） |
 | 01#F2 | ecat_icube 补丁顺序为 0001..0006，PR #16 fixed-PDO 0004 必须先于 HardwareInfo 0005/0006；ros2_canopen 为 0001..0005 | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F4 | PASS（冻结 SHA apply-check + Docker build） |
-| 01#F3 | ecat_icube 当前补丁顺序为 0001..0007；0007 使 EtherLab 前缀默认兼容且可由 CMake CACHE PATH 重定位，旧 patched vendor 原地增量 prepare 需改用干净 workspace | [release-deploy-20260904-01](records/2026-09-04-electri-94-native-closure.md)#运维限制 | PASS（Native build/test） |
+| 01#F3 | ecat_icube 当前补丁顺序为 0001..0007；0007 使 EtherLab 前缀默认兼容且可由 CMake CACHE PATH 重定位，`RT_CONTROL_ETHERLAB_PREFIX` 统一运行时库路径，旧 patched vendor 原地增量 prepare 需改用干净 workspace | [release-deploy-20260904-01](records/2026-09-04-electri-94-native-closure.md)#运维限制 | PASS（Native build/test + ldd） |
 
 ## 记录索引（倒序）
 
