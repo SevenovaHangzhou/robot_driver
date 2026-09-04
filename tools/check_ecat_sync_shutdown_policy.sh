@@ -161,6 +161,12 @@ fixed_contains '0003-quiesce-callbacks-before-driver-removal.patch' "${dockerfil
   fail "Dockerfile must apply the CANopen callback-quiescence patch"
 fixed_contains '0004-name-canopen-master-loop-thread.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the CANopen master thread identity patch"
+fixed_contains '0005-use-component-parameters-for-ec-modules.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the typed EtherCAT HardwareInfo patch"
+fixed_contains '0006-validate-component-module-parameters.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the strict EtherCAT module validation patch"
+fixed_contains '0005-derive-motor-topology-from-hardware-info.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the derived CANopen motor topology patch"
 
 if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
   [[ -d "${ECAT_ICUBE_SOURCE}/.git" ]] ||
@@ -173,7 +179,9 @@ if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
     0001-rt-control-preload-and-diagnostics.patch \
     0002-wait-for-complete-bus-before-preload.patch \
     0003-orderly-master-deactivation.patch \
-    0004-preserve-fixed-pdo-config.patch
+    0004-preserve-fixed-pdo-config.patch \
+    0005-use-component-parameters-for-ec-modules.patch \
+    0006-validate-component-module-parameters.patch
   do
     git -C "${scratch}/ecat_icube" apply --check \
       "${repo_root}/patches/ecat_icube/${patch}"

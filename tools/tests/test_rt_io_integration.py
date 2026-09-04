@@ -363,6 +363,9 @@ def test_docker_build_contains_only_the_two_required_io_packages() -> None:
     assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile
     assert "      util-linux \\\n" in dockerfile
     assert "0004-name-canopen-master-loop-thread.patch" in dockerfile
+    assert "0005-use-component-parameters-for-ec-modules.patch" in dockerfile
+    assert "0006-validate-component-module-parameters.patch" in dockerfile
+    assert "0005-derive-motor-topology-from-hardware-info.patch" in dockerfile
     assert "can_bus_guard" not in dockerfile
     assert not (ROOT / "src/rt_control/can_bus_guard").exists()
 
