@@ -79,9 +79,15 @@ cpu_count()
 is_whitelisted_rt_thread()
 {
   local comm="$1"
+  local rtprio="$2"
+  local tid="$3"
   case "${comm}" in
     EtherCAT-OP|migration/*|idle_inject/*|irq_work/*|rcuc/*|rcub/*)
       return 0
+      ;;
+    ktimers/*)
+      [[ "${comm}" == "ktimers/${rt_cpu}" && "${rtprio}" == "1" &&
+        ! -L "/proc/${tid}/exe" ]] && return 0
       ;;
   esac
   return 1
@@ -150,7 +156,7 @@ scan_once()
 {
   while read -r pid tid psr cls rtprio comm args; do
     [[ "${cls}" == "FF" || "${cls}" == "RR" ]] || continue
-    if is_whitelisted_rt_thread "${comm}" "${rtprio}"; then
+    if is_whitelisted_rt_thread "${comm}" "${rtprio}" "${tid}"; then
       continue
     fi
     status="/proc/${tid}/status"
