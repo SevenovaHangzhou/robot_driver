@@ -60,7 +60,7 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     bms = document["bms_node"]["ros__parameters"]
 
     assert plc["host"] == "192.168.1.88"
-    assert plc["interface"] == "enp4s0"
+    assert plc["interface"] == "eno1"
     assert plc["poll_period_s"] == 0.5
     assert plc["io_control_register"] == 201
     assert plc["di_status_register"] == 210
