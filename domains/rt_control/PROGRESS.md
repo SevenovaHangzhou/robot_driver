@@ -117,3 +117,5 @@
 | 2026-09-02 | ecat-axes | [双 X503 接入 18 位运行拓扑](docs/areas/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md) | PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验） |
 | 2026-09-03 | release-deploy | [将 ELECTRI-94 硬件配置分层移植到双 X503 main](docs/areas/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md) | PASS（T1 Docker/Mock；CI 与 18 位实机待验） |
 | 2026-09-04 | realtime-host | [当前工控机真实硬件身份锁迁移](docs/areas/realtime-host/records/2026-09-04-current-ipc-identity.md) | PARTIAL（T2 身份/总线只读；新 main Native doctor/受控使能待验） |
+| 2026-09-04 | ecat-axes | [Hub 0/13 运行态门禁修正](docs/areas/ecat-axes/records/2026-09-04-hub-runtime-state-gate.md) | PARTIAL（T2 现场事实；新 main 复验待维护窗口） |
+| 2026-09-04 | realtime-host | [Native 运行线程门禁修正](docs/areas/realtime-host/records/2026-09-04-native-runtime-thread-gates.md) | PARTIAL（本地门禁；FIFO79 目标机复验待维护窗口） |
