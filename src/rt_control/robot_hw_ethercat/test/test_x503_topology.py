@@ -7,7 +7,8 @@ PACKAGE_DIR = Path(__file__).resolve().parents[1]
 ROOT_DIR = PACKAGE_DIR.parents[2]
 PROFILE_DIR = PACKAGE_DIR / "config/slaves"
 XACRO_PATH = PACKAGE_DIR / "urdf/ecat.ros2_control.xacro"
-MOCK_PATH = ROOT_DIR / "src/rt_control/rt_control_bringup/urdf/mock.ros2_control.xacro"
+VARIANT_PATH = PACKAGE_DIR / "variants/alfa_v1.yaml"
+FAMILY_REGISTRY_PATH = PACKAGE_DIR / "config/families.yaml"
 DIAGNOSTICS_PATH = ROOT_DIR / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
 NATIVE_PATH = ROOT_DIR / "tools/rt_control_native.sh"
 IPC_PATH = ROOT_DIR / "tools/rt_control_ipc.sh"
@@ -23,31 +24,29 @@ def load_profile(side: str) -> dict:
 
 
 def test_eighteen_position_topology_keeps_fourteen_motion_axes():
-    xacro = XACRO_PATH.read_text(encoding="utf-8")
+    descriptor = yaml.safe_load(VARIANT_PATH.read_text(encoding="utf-8"))
 
-    assert 'joint_name="right_joint1" ring_position="1"' in xacro
-    assert 'joint_name="right_joint6" ring_position="6"' in xacro
-    assert 'joint_name="left_joint1" ring_position="7"' in xacro
-    assert 'joint_name="left_joint6" ring_position="12"' in xacro
-    assert (
-        'sensor_name="right_force_sensor" ring_position="14" profile="x503_right"'
-        in xacro
-    )
-    assert (
-        'sensor_name="left_force_sensor" ring_position="15" profile="x503_left"'
-        in xacro
-    )
-    assert 'joint_name="turn" ring_position="16"' in xacro
-    assert 'joint_name="updown" ring_position="17"' in xacro
-    assert "Hub 13 OUT8 -> right X503 at 14 -> left X503 at 15" in xacro
-    assert 'joint_name="right_joint7"' not in xacro
-    assert 'joint_name="left_joint7"' not in xacro
-    assert xacro.index('sensor_name="right_force_sensor" ring_position="14"') < xacro.index(
-        'sensor_name="left_force_sensor" ring_position="15"'
-    )
-    assert 'ethercat_slave_13' not in xacro
-    for position in (*range(1, 13), 14, 15, 16, 17):
-        assert f'ethercat_slave_{position}' in xacro
+    assert [axis["ring_position"] for axis in descriptor["axes"]] == [
+        *range(1, 13),
+        16,
+        17,
+    ]
+    assert [axis["joint_name"] for axis in descriptor["axes"]][-2:] == [
+        "turn",
+        "updown",
+    ]
+    assert [
+        (sensor["sensor_name"], sensor["ring_position"], sensor["profile"])
+        for sensor in descriptor["sensors"]
+    ] == [
+        ("right_force_sensor", 14, "x503_right"),
+        ("left_force_sensor", 15, "x503_left"),
+    ]
+    assert descriptor["extra_responders"] == [
+        {"ring_position": 0},
+        {"ring_position": 13},
+    ]
+    assert len(descriptor["axes"]) == 14
 
 
 def test_x503_profiles_match_confirmed_fixed_online_layout():
@@ -87,19 +86,23 @@ def test_x503_profiles_match_confirmed_fixed_online_layout():
 
 
 def test_x503_ros_interfaces_are_state_only_and_present_in_mock():
+    descriptor = yaml.safe_load(VARIANT_PATH.read_text(encoding="utf-8"))
+    registry = yaml.safe_load(FAMILY_REGISTRY_PATH.read_text(encoding="utf-8"))
     xacro = XACRO_PATH.read_text(encoding="utf-8")
-    start = xacro.index('<xacro:macro name="x503_sensor"')
-    stop = xacro.index("</xacro:macro>", start)
-    macro = xacro[start:stop]
-    mock = MOCK_PATH.read_text(encoding="utf-8")
+    family = registry["families"]["x503"]
+    contract = registry["interface_contracts"][family["interface_contract"]]
 
-    assert "ethercat_generic_plugins/GenericEcSlave" in macro
-    assert "${profile}.yaml" in macro
-    assert "command_interface" not in macro
-    assert "force." not in macro and "torque." not in macro
-    assert 'mock_x503_sensor sensor_name="right_force_sensor"' in mock
-    assert 'mock_x503_sensor sensor_name="left_force_sensor"' in mock
-    assert '<param name="initial_value">18.0</param>' in mock
+    assert {sensor["family"] for sensor in descriptor["sensors"]} == {"x503"}
+    assert family["certified_modes"] == []
+    assert contract["required_command_interfaces"] == []
+    assert [
+        interface["name"] for interface in contract["required_state_interfaces"]
+    ] == [
+        *(f"channel_{index}_raw" for index in range(1, 7)),
+        *(f"sample_code_{index}_raw" for index in range(1, 7)),
+    ]
+    assert "ethercat_generic_plugins/GenericEcSlave" in xacro
+    assert "force." not in xacro and "torque." not in xacro
 
 
 def test_diagnostics_and_startup_require_both_x503_devices():
@@ -107,10 +110,12 @@ def test_diagnostics_and_startup_require_both_x503_devices():
     native = NATIVE_PATH.read_text(encoding="utf-8")
     ipc = IPC_PATH.read_text(encoding="utf-8")
 
-    assert "static_cast<int>(slaves_responding) != 18" in diagnostics
-    assert "kRingPositions = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16, 17}" in diagnostics
-    assert "kSensorRingPositions = {14, 15}" in diagnostics
-    assert '"right_force_sensor", "left_force_sensor"' in diagnostics
+    assert '"ethercat_sensor_names"' in diagnostics
+    assert '"ethercat_sensor_ring_positions"' in diagnostics
+    assert "topology_->ethercat_sensors()" in diagnostics
+    assert 'sensor.sensor_name + "/channel_1_raw"' in diagnostics
+    assert '"right_force_sensor"' not in diagnostics
+    assert '"left_force_sensor"' not in diagnostics
     for script in (native, ipc):
         assert "Slaves: 18" in script
         assert "DST_X503" in script

@@ -4,7 +4,7 @@ import math
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 
 OK = 0
@@ -12,16 +12,9 @@ WARN = 1
 ERROR = 2
 STALE = 3
 
-ETHERCAT_SLAVE_NAMES = tuple(
-    f"/robot/rt_control/ethercat/slave_{position}"
-    for position in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15)
-)
-CANOPEN_NODE_NAMES = (
-    "/robot/rt_control/canopen/node_2",
-    "/robot/rt_control/canopen/node_3",
-)
 ENABLE_MANAGER_NAME = "/robot/rt_control/enable_manager"
-ETHERCAT_MASTER_NAME = "/robot/rt_control/ethercat/master"
+ETHERCAT_SUMMARY_NAME = "/robot/rt_control/ethercat/summary"
+CANOPEN_SUMMARY_NAME = "/robot/rt_control/canopen/summary"
 
 
 @dataclass(frozen=True)
@@ -93,50 +86,39 @@ def _fault(label: str, component: ComponentSnapshot) -> str:
 def build_safety_summary(
     *,
     enable_manager: ComponentSnapshot,
-    ethercat_master: ComponentSnapshot,
-    ethercat_slaves: Sequence[ComponentSnapshot],
-    canopen_nodes: Sequence[ComponentSnapshot],
+    ethercat: ComponentSnapshot,
+    canopen: ComponentSnapshot,
     plc: PlcHealthSnapshot,
     bms: BatteryHealthSnapshot,
 ) -> SafetySummary:
     enable_state = str(enable_manager.values.get("state", ""))
     enable_stage = str(enable_manager.values.get("stage", ""))
-    control_enabled = _component_ok(enable_manager) and enable_state == "ENABLED"
-    enable_manager_ok = (
-        bool(enable_manager.fresh)
-        and int(enable_manager.level) == OK
-        and enable_state != "FAILED"
-        and enable_stage != "restart_required"
+    enable_manager_diagnostic_ok = _component_ok(enable_manager)
+    enable_manager_contract_ok = (
+        enable_state in {"INACTIVE", "IDLE", "ENABLED"}
+        and enable_stage == "success"
     )
+    enable_manager_ok = enable_manager_diagnostic_ok and enable_manager_contract_ok
+    control_enabled = enable_manager_ok and enable_state == "ENABLED"
 
-    ethercat_ok = _component_ok(ethercat_master) and len(ethercat_slaves) == len(
-        ETHERCAT_SLAVE_NAMES
-    ) and all(_component_ok(slave) for slave in ethercat_slaves)
-    canopen_ok = len(canopen_nodes) == len(CANOPEN_NODE_NAMES) and all(
-        _component_ok(node) for node in canopen_nodes
-    )
-    plc_ok = bool(plc.connected) and bool(plc.data_fresh)
+    ethercat_ok = _component_ok(ethercat)
+    canopen_ok = _component_ok(canopen)
+    plc_ok = bool(plc.connected) and bool(plc.data_fresh) and not plc.error
     bms_ok = bool(bms.present) and bool(bms.fresh)
 
     active_faults: list[str] = []
     if not enable_manager_ok:
-        active_faults.append(_fault("enable_manager", enable_manager))
+        if enable_manager_diagnostic_ok and not enable_manager_contract_ok:
+            active_faults.append(
+                "enable_manager: invalid state/stage "
+                f"{enable_state!r}/{enable_stage!r}"
+            )
+        else:
+            active_faults.append(_fault("enable_manager", enable_manager))
     if not ethercat_ok:
-        if not _component_ok(ethercat_master):
-            active_faults.append(_fault("ethercat_master", ethercat_master))
-        for slave in ethercat_slaves:
-            if not _component_ok(slave):
-                active_faults.append(_fault(slave.name, slave))
-                break
-        if len(ethercat_slaves) != len(ETHERCAT_SLAVE_NAMES):
-            active_faults.append("ethercat_slaves: incomplete diagnostic set")
+        active_faults.append(_fault("ethercat", ethercat))
     if not canopen_ok:
-        for node in canopen_nodes:
-            if not _component_ok(node):
-                active_faults.append(_fault(node.name, node))
-                break
-        if len(canopen_nodes) != len(CANOPEN_NODE_NAMES):
-            active_faults.append("canopen_nodes: incomplete diagnostic set")
+        active_faults.append(_fault("canopen", canopen))
     if not plc_ok:
         active_faults.append(
             f"plc: {'stale or disconnected' if not plc.error else plc.error}"
@@ -154,7 +136,14 @@ def build_safety_summary(
     )
     if safe_to_start_motion:
         state = "READY"
-    elif enable_manager_ok and not control_enabled and ethercat_ok and canopen_ok and plc_ok and bms_ok:
+    elif (
+        enable_manager_ok
+        and not control_enabled
+        and ethercat_ok
+        and canopen_ok
+        and plc_ok
+        and bms_ok
+    ):
         state = "DISABLED"
     else:
         state = "NOT_READY"
@@ -171,9 +160,8 @@ def build_safety_summary(
         active_faults=tuple(active_faults),
         sources={
             "enable_manager": enable_manager,
-            "ethercat_master": ethercat_master,
-            "ethercat_slaves": list(ethercat_slaves),
-            "canopen_nodes": list(canopen_nodes),
+            "ethercat": ethercat,
+            "canopen": canopen,
             "plc": plc,
             "bms": bms,
         },
@@ -223,7 +211,7 @@ def main(args=None) -> None:
     from robot_rt_control_interfaces.msg import SafetyState
     from robot_system_interfaces.msg import DomainReadiness
     from diagnostic_msgs.msg import DiagnosticArray
-    from rclpy.callback_groups import ReentrantCallbackGroup
+    from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
     from rclpy.qos import QoSProfile
@@ -244,20 +232,12 @@ def main(args=None) -> None:
             self.declare_parameter("bms_timeout_s", 6.0)
             self.declare_parameter("safety_publish_period_s", 0.1)
             self.declare_parameter("readiness_publish_period_s", 1.0)
-            self.declare_parameter("version", "0.1.0")
-            self.declare_parameter(
-                "config_summary",
-                "14-axis EtherCAT, CANopen tracks, PLC vacuum, BMS",
-            )
-
-            self._callback_group = ReentrantCallbackGroup()
+            self._callback_group = MutuallyExclusiveCallbackGroup()
             self._diagnostic_timeout_s = float(
                 self.get_parameter("diagnostic_timeout_s").value
             )
             self._plc_timeout_s = float(self.get_parameter("plc_timeout_s").value)
             self._bms_timeout_s = float(self.get_parameter("bms_timeout_s").value)
-            self._version = str(self.get_parameter("version").value)
-            self._config_summary = str(self.get_parameter("config_summary").value)
             self._diagnostics: dict[str, tuple[Any, float]] = {}
             self._plc_message = None
             self._plc_received_s: float | None = None
@@ -358,11 +338,8 @@ def main(args=None) -> None:
         def _build_summary(self) -> SafetySummary:
             return build_safety_summary(
                 enable_manager=self._component(ENABLE_MANAGER_NAME),
-                ethercat_master=self._component(ETHERCAT_MASTER_NAME),
-                ethercat_slaves=[
-                    self._component(name) for name in ETHERCAT_SLAVE_NAMES
-                ],
-                canopen_nodes=[self._component(name) for name in CANOPEN_NODE_NAMES],
+                ethercat=self._component(ETHERCAT_SUMMARY_NAME),
+                canopen=self._component(CANOPEN_SUMMARY_NAME),
                 plc=self._plc_health(),
                 bms=self._bms_health(),
             )

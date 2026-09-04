@@ -2,15 +2,17 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
 
 from control_api_adapter.status_adapter import (  # noqa: E402
     BatteryHealthSnapshot,
-    CANOPEN_NODE_NAMES,
+    CANOPEN_SUMMARY_NAME,
     ComponentSnapshot,
-    ETHERCAT_SLAVE_NAMES,
+    ETHERCAT_SUMMARY_NAME,
     PlcHealthSnapshot,
     _diagnostic_level,
     build_safety_summary,
@@ -35,9 +37,8 @@ def test_safety_summary_requires_enabled_control_and_all_approved_sources() -> N
             state="ENABLED",
             stage="success",
         ),
-        ethercat_master=ok_component("/robot/rt_control/ethercat/master"),
-        ethercat_slaves=[ok_component(name) for name in ETHERCAT_SLAVE_NAMES],
-        canopen_nodes=[ok_component(name) for name in CANOPEN_NODE_NAMES],
+        ethercat=ok_component(ETHERCAT_SUMMARY_NAME),
+        canopen=ok_component(CANOPEN_SUMMARY_NAME),
         plc=PlcHealthSnapshot(connected=True, data_fresh=True),
         bms=BatteryHealthSnapshot(present=True, fresh=True),
     )
@@ -47,10 +48,70 @@ def test_safety_summary_requires_enabled_control_and_all_approved_sources() -> N
     assert summary.state == "READY"
 
 
+def test_safety_summary_rejects_plc_remote_control_error() -> None:
+    summary = build_safety_summary(
+        enable_manager=ok_component(
+            "/robot/rt_control/enable_manager",
+            state="ENABLED",
+            stage="success",
+        ),
+        ethercat=ok_component(ETHERCAT_SUMMARY_NAME),
+        canopen=ok_component(CANOPEN_SUMMARY_NAME),
+        plc=PlcHealthSnapshot(
+            connected=True,
+            data_fresh=True,
+            error="remote control unavailable: injected failure",
+        ),
+        bms=BatteryHealthSnapshot(present=True, fresh=True),
+    )
+
+    assert not summary.safe_to_start_motion
+    assert not summary.plc_ok
+    assert summary.state == "NOT_READY"
+    assert summary.active_faults == (
+        "plc: remote control unavailable: injected failure",
+    )
+
+
+@pytest.mark.parametrize(
+    ("enable_state", "enable_stage"),
+    [
+        ("ENABLED", ""),
+        ("ENABLED", "fault_detected"),
+        ("ENABLED", "operation_in_progress"),
+        ("ENABLED", "jtc_activate_failed"),
+        ("ENABLED", "fault_requires_reset"),
+        ("UNKNOWN", "success"),
+    ],
+)
+def test_safety_summary_rejects_invalid_enable_manager_stable_state(
+    enable_state: str,
+    enable_stage: str,
+) -> None:
+    summary = build_safety_summary(
+        enable_manager=ok_component(
+            "/robot/rt_control/enable_manager",
+            state=enable_state,
+            stage=enable_stage,
+        ),
+        ethercat=ok_component(ETHERCAT_SUMMARY_NAME),
+        canopen=ok_component(CANOPEN_SUMMARY_NAME),
+        plc=PlcHealthSnapshot(connected=True, data_fresh=True),
+        bms=BatteryHealthSnapshot(present=True, fresh=True),
+    )
+
+    assert not summary.safe_to_start_motion
+    assert not summary.control_enabled
+    assert not summary.enable_manager_ok
+    assert summary.state == "NOT_READY"
+    assert summary.active_faults == (
+        f"enable_manager: invalid state/stage {enable_state!r}/{enable_stage!r}",
+    )
+
+
 def test_safety_summary_reports_canopen_fault() -> None:
-    node_2 = ok_component("/robot/rt_control/canopen/node_2")
-    node_3 = ComponentSnapshot(
-        name="/robot/rt_control/canopen/node_3",
+    canopen = ComponentSnapshot(
+        name=CANOPEN_SUMMARY_NAME,
         level=2,
         fresh=True,
         message="Fault",
@@ -62,16 +123,15 @@ def test_safety_summary_reports_canopen_fault() -> None:
             state="ENABLED",
             stage="success",
         ),
-        ethercat_master=ok_component("/robot/rt_control/ethercat/master"),
-        ethercat_slaves=[ok_component(name) for name in ETHERCAT_SLAVE_NAMES],
-        canopen_nodes=[node_2, node_3],
+        ethercat=ok_component(ETHERCAT_SUMMARY_NAME),
+        canopen=canopen,
         plc=PlcHealthSnapshot(connected=True, data_fresh=True),
         bms=BatteryHealthSnapshot(present=True, fresh=True),
     )
 
     assert not summary.safe_to_start_motion
     assert not summary.canopen_ok
-    assert "/robot/rt_control/canopen/node_3: Fault" in summary.active_faults
+    assert f"{CANOPEN_SUMMARY_NAME}: Fault" in summary.active_faults
 
 
 def test_diagnostic_level_accepts_ros_python_byte_field() -> None:
@@ -89,14 +149,10 @@ def test_domain_readiness_uses_vendored_schema() -> None:
             state="ENABLED",
             stage="success",
         ),
-        ethercat_master=ok_component("/robot/rt_control/ethercat/master"),
-        ethercat_slaves=[ok_component(name) for name in ETHERCAT_SLAVE_NAMES],
-        canopen_nodes=[
-            ok_component("/robot/rt_control/canopen/node_2"),
-            ComponentSnapshot(
-                "/robot/rt_control/canopen/node_3", 2, True, "Fault", {}
-            ),
-        ],
+        ethercat=ok_component(ETHERCAT_SUMMARY_NAME),
+        canopen=ComponentSnapshot(
+            CANOPEN_SUMMARY_NAME, 2, True, "Fault", {}
+        ),
         plc=PlcHealthSnapshot(connected=True, data_fresh=True),
         bms=BatteryHealthSnapshot(present=True, fresh=True),
     )
@@ -142,9 +198,8 @@ def test_domain_readiness_healthy_state_has_no_blockers_or_errors() -> None:
             state="ENABLED",
             stage="success",
         ),
-        ethercat_master=ok_component("/robot/rt_control/ethercat/master"),
-        ethercat_slaves=[ok_component(name) for name in ETHERCAT_SLAVE_NAMES],
-        canopen_nodes=[ok_component(name) for name in CANOPEN_NODE_NAMES],
+        ethercat=ok_component(ETHERCAT_SUMMARY_NAME),
+        canopen=ok_component(CANOPEN_SUMMARY_NAME),
         plc=PlcHealthSnapshot(connected=True, data_fresh=True),
         bms=BatteryHealthSnapshot(present=True, fresh=True),
     )

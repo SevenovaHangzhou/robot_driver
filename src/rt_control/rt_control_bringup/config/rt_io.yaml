@@ -54,5 +54,3 @@ rt_status_adapter:
     bms_timeout_s: 6.0
     safety_publish_period_s: 0.1
     readiness_publish_period_s: 1.0
-    version: "0.1.0"
-    config_summary: "14-axis EtherCAT, CANopen tracks, PLC vacuum, BMS"

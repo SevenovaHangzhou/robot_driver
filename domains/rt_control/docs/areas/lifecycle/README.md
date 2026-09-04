@@ -14,11 +14,13 @@
 | 01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |
 | 01#F2 | rt_disable_once 三阶段共享单一绝对 deadline 是已验证现状（29 例日志佐证），非缺陷 | [lifecycle-20260814-01](records/2026-08-14-rt-disable-log-forensics.md)#F2 | 有效 |
 | 02#F1 | enable_manager 单元测试基线 = 36 用例 @ 3ff153d（a–f 六项）；行为修改须先过套件 | [lifecycle-20260814-02](records/2026-08-14-enable-manager-gtest.md)#F1 | 有效 |
+| 03#F1 | `Cia402Axis` 只绑定/解码接口；managed joints、批次、时序和 Ti5 终态由 enable_manager 显式配置并冻结 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F7 | PASS（T1 Docker/Mock） |
 
 ## 记录索引（倒序）
 
 - 2026-08-14 [enable_manager 状态机表驱动 gtest（ELECTRI-93）](records/2026-08-14-enable-manager-gtest.md) — feature，PASS（工控机实跑 36/36）
 - 2026-08-14 [/rt/disable 缺陷声称的日志取证：症状真实、机制误诊](records/2026-08-14-rt-disable-log-forensics.md) — investigation，PASS（T2 只读）
+- 2026-08-19 [CiA402 semantic component 与使能策略分层（未合并分支历史）](records/2026-08-19-semantic-component-policy-split.md) — feature，历史 T1；当前由 03#F1 取代
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

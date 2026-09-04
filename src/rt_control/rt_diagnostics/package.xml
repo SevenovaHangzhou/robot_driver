@@ -9,7 +9,10 @@
   <depend>control_msgs</depend>
   <depend>diagnostic_msgs</depend>
   <depend>rclcpp</depend>
+  <depend>rcl_interfaces</depend>
   <depend>robot_interfaces_qos</depend>
+  <depend>rt_control_semantic_components</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

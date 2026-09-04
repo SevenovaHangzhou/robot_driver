@@ -10,6 +10,7 @@ this directory is their single domain-level documentation and governance home.
 - [一键启动](docs/one-command-start.md)：当前工控机上启动、自动使能、查看状态/日志和有序停止的最短说明。
 - [原生开发与运行](docs/native-development-workflow.md)：在目标机文件夹中增量编译、启动、显式使能和停止，不必每次重构镜像。
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
+- [硬件配置隔离分层与电机变体维护指南](docs/hardware-configuration-layering-and-motor-variants.md)：owner-local descriptor、双硬件组合、X503 sensor 与修改电机/模式的真实边界。
 - [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
 - [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
 - [开发进度与联调准入](docs/integration-readiness-summary.md)：联调边界与剩余任务；接口清单以 vendored `robot_interfaces/contract/views/rt_control.md` 为准。
@@ -40,6 +41,27 @@ The source layout follows the frozen rt_control implementation specification:
 - `tools`: migration and commissioning tools.
 - `hostsetup`: target-host setup assets.
 
+## 硬件配置分层与组合
+
+ELECTRI-94 采用 owner-local registry 与 semantic component 分层，同时保留多设备组合：
+`rt_control_bringup` 在一个 `controller_manager` 中组合独立的 EtherCAT `ecat_arms`
+与 CANopen `canopen_mobile_axes` system。bringup 只负责 variant 选择、总装、启动顺序和
+controller 对齐；功能包不得反向依赖 bringup。
+
+- `robot_description` 拥有 logical joint、几何和物理硬限位；
+- `robot_hw_ethercat` 的 `alfa_v1` descriptor 拥有 14 个 motion axes、右/左 X503
+  state-only sensors、两个 Hub responders 及其 18 位注册；
+- `robot_hw_canopen` descriptor 拥有履带 Node 2/3、mode 3、side/profile 注册，并与
+  `bus.yml` 严格对齐；
+- `rt_control_semantic_components` 只封装 loaned interface 绑定、读写和 CiA402 解码；
+- `enable_manager` 显式拥有 managed joints、批次、时序和 Ti5 失能终态策略；
+- diagnostics topology 从本次选择的 descriptors 派生，公共 status adapter 只消费稳定
+  总线 summary，不维护第二份电机清单。
+
+本设计不是把 Robot Model、PDO/SDO 和 safety policy 合并成 strict SSOT。详细所有权、
+profile/mode 准入及增删设备流程见
+[硬件配置维护指南](docs/hardware-configuration-layering-and-motor-variants.md)。
+
 The legacy baseline `/home/kkozia/robot_driver@6bc94cd` is read-only and is not vendored in this repository. External source checkouts are declared in `deps.repos`.
 
 Build the in-repository packages with:
@@ -56,10 +78,11 @@ Docker 运行互斥；Docker 继续作为里程碑发布、回归和交付载体
 [原生开发与运行](docs/native-development-workflow.md)。
 
 Build or expand the rt-control image configuration only after exporting the
-target host's validated isolated CPU set:
+target host's validated container and startup CPU sets:
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_START_CPUSET=<validated-housekeeping-only-cpu-list>
 export RT_CONTROL_ROS_DOMAIN_ID=<本机器实例统一的 0..232>
 tools/rt_control_compose.sh config
 tools/rt_control_compose.sh build rt-control

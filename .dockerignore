@@ -5,5 +5,13 @@ log
 src/vendor
 **/__pycache__
 **/*.pyc
+.coverage
+**/.coverage
+coverage.xml
+**/coverage.xml
+htmlcov
+**/htmlcov
+.pytest_cache
+**/.pytest_cache
 /*.md
 /docs

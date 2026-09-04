@@ -9,8 +9,9 @@ build_base="${workspace_root}/build"
 install_base="${workspace_root}/install"
 log_base="${workspace_root}/log"
 vendor_root="${workspace_root}/src/vendor"
+etherlab_prefix="${RT_CONTROL_ETHERLAB_PREFIX:-/usr/local/etherlab}"
 
-readonly repository_root workspace_root dependency_manifest
+readonly repository_root workspace_root dependency_manifest etherlab_prefix
 readonly build_base install_base log_base vendor_root
 
 readonly -a runtime_packages=(
@@ -59,6 +60,9 @@ Usage:
 RT_CONTROL_NATIVE_WS defaults to the parent of this repository. The supported
 target layout is /home/ar/rt-control-dev/robot with workspace outputs and
 vendor repositories under /home/ar/rt-control-dev.
+
+RT_CONTROL_ETHERLAB_PREFIX defaults to /usr/local/etherlab and controls the
+EtherLab userspace include/library lookup for this process.
 
 prepare never resets, checks out, or cleans an existing vendor repository.
 install-deps is the only command that may invoke apt through rosdep/sudo.
@@ -168,6 +172,18 @@ apply_frozen_patches()
     patches/ecat_icube/0003-orderly-master-deactivation.patch \
     src/vendor/ecat_icube
   apply_patch_once \
+    patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
+    patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
+    patches/ecat_icube/0006-validate-component-module-parameters.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
+    patches/ecat_icube/0007-configure-etherlab-prefix.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
@@ -178,6 +194,9 @@ apply_frozen_patches()
     src/vendor/ros2_canopen
   apply_patch_once \
     patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
+    src/vendor/ros2_canopen
+  apply_patch_once \
+    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
@@ -239,12 +258,17 @@ verify_frozen_vendor_trees()
   verify_patched_vendor_tree src/vendor/ecat_icube \
     patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
     patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
-    patches/ecat_icube/0003-orderly-master-deactivation.patch
+    patches/ecat_icube/0003-orderly-master-deactivation.patch \
+    patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
+    patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch \
+    patches/ecat_icube/0006-validate-component-module-parameters.patch \
+    patches/ecat_icube/0007-configure-etherlab-prefix.patch
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
     patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
-    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch
+    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
+    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch
@@ -286,8 +310,9 @@ source_build_environment()
     source "${install_base}/setup.bash"
   fi
   set -u
-  export PATH="/usr/local/etherlab/bin:${PATH}"
-  export LD_LIBRARY_PATH="/usr/local/etherlab/lib:${LD_LIBRARY_PATH:-}"
+  export RT_CONTROL_ETHERLAB_PREFIX="${etherlab_prefix}"
+  export PATH="${etherlab_prefix}/bin:${PATH}"
+  export LD_LIBRARY_PATH="${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"
 }
 
 dependency_paths()
@@ -392,7 +417,8 @@ doctor()
   require_commands bash git python3 vcs colcon rosdep
   python3 -c 'import yaml' >/dev/null 2>&1 || fail "missing Python yaml module"
   [[ -f /opt/ros/humble/setup.bash ]] || fail "ROS 2 Humble is not installed"
-  [[ -d /usr/local/etherlab/lib ]] || fail "missing IgH userspace library"
+  [[ -d "${etherlab_prefix}/lib" ]] ||
+    fail "missing IgH userspace library: ${etherlab_prefix}/lib"
   [[ -f "${metadata}" ]] || fail "missing IgH dependency identity: ${metadata}"
   [[ -r "${patch}" ]] || fail "missing IgH PDO-preservation patch: ${patch}"
   # shellcheck disable=SC1091
@@ -418,6 +444,9 @@ print_environment()
 {
   printf 'source /opt/ros/humble/setup.bash\n'
   printf 'source %q\n' "${install_base}/setup.bash"
+  printf 'export RT_CONTROL_ETHERLAB_PREFIX=%q\n' "${etherlab_prefix}"
+  printf 'export PATH=%q\n' "${etherlab_prefix}/bin:${PATH}"
+  printf 'export LD_LIBRARY_PATH=%q\n' "${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"
 }
 
 case "${1:-}" in

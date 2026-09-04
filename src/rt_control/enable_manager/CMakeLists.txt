@@ -10,6 +10,7 @@ find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
 find_package(rt_control_interfaces REQUIRED)
+find_package(rt_control_semantic_components REQUIRED)
 
 add_library(enable_manager_controller SHARED
   src/enable_manager_controller.cpp
@@ -28,6 +29,7 @@ ament_target_dependencies(enable_manager_controller
   rclcpp
   robot_interfaces_qos
   rt_control_interfaces
+  rt_control_semantic_components
 )
 
 add_executable(rt_disable_once src/rt_disable_once.cpp)
@@ -55,6 +57,7 @@ ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   controller_interface controller_manager_msgs diagnostic_msgs lifecycle_msgs pluginlib rclcpp
   robot_interfaces_qos rt_control_interfaces
+  rt_control_semantic_components
 )
 
 if(BUILD_TESTING)
@@ -79,6 +82,7 @@ if(BUILD_TESTING)
     rclcpp
     robot_interfaces_qos
     rt_control_interfaces
+    rt_control_semantic_components
   )
 endif()
 

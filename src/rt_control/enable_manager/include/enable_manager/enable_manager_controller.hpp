@@ -1,23 +1,28 @@
 #ifndef ENABLE_MANAGER__ENABLE_MANAGER_CONTROLLER_HPP_
 #define ENABLE_MANAGER__ENABLE_MANAGER_CONTROLLER_HPP_
 
-#include <array>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "controller_interface/controller_interface.hpp"
 #include "controller_manager_msgs/srv/list_controllers.hpp"
 #include "controller_manager_msgs/srv/switch_controller.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "rclcpp/callback_group.hpp"
 #include "rclcpp/client.hpp"
+#include "rclcpp/node_interfaces/node_parameters_interface.hpp"
+#include "rclcpp/parameter.hpp"
 #include "rclcpp/publisher.hpp"
 #include "rclcpp/service.hpp"
 #include "rclcpp/timer.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
+#include "rt_control_semantic_components/cia402_axis.hpp"
 
 namespace enable_manager
 {
@@ -42,9 +47,6 @@ private:
   // state machine. No behavior change; not referenced by production code.
   friend class EnableManagerTestAccess;
 
-  static constexpr std::size_t kAxisCount = 14U;
-  static constexpr std::size_t kBatchCount = 5U;
-
   enum class Phase : std::uint8_t
   {
     kInactive,
@@ -67,18 +69,7 @@ private:
 
   enum class Owner : std::uint8_t {kNone, kEnable, kDisable, kReset, kInternal};
   enum class SwitchResult : std::uint8_t {kSuccess, kFailed, kAmbiguous};
-  enum class DriveState : std::uint8_t
-  {
-    kNotReady,
-    kSwitchOnDisabled,
-    kReadyToSwitchOn,
-    kSwitchedOn,
-    kOperationEnabled,
-    kQuickStopActive,
-    kFaultReactionActive,
-    kFault,
-    kUnknown
-  };
+  using DriveState = rt_control_semantic_components::Cia402State;
 
   enum class Stage : std::uint8_t
   {
@@ -116,7 +107,10 @@ private:
   static const char * stageName(Stage stage);
   static const char * phaseName(Phase phase);
   static bool isFaultState(DriveState state);
-  static bool isConfirmedDisableTerminal(std::size_t axis, DriveState state);
+  bool isConfirmedDisableTerminal(std::size_t axis, DriveState state) const;
+  bool configureTopology();
+  rcl_interfaces::msg::SetParametersResult validateTopologyParameterUpdate(
+    const std::vector<rclcpp::Parameter> & parameters);
 
   void handleEnable(
     const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
@@ -152,14 +146,12 @@ private:
   void finishDownward();
   void updateEnable(std::int64_t now_ns);
   void updateReset(std::int64_t now_ns);
+  void setControlWord(std::size_t axis, std::uint16_t control_word);
   void setAllControlWords(std::uint16_t control_word);
+  void releaseCia402Interfaces() noexcept;
   bool allAxesInState(DriveState state) const;
   std::int8_t firstAxisNotInState(DriveState state) const;
   void refreshStatusWords();
-
-  static const std::array<const char *, kAxisCount> kJointNames;
-  static const std::array<std::array<std::int8_t, 3>, kBatchCount> kEnableBatches;
-  static const std::array<std::uint8_t, kBatchCount> kBatchSizes;
 
   std::atomic_bool active_{false};
   std::atomic<Phase> phase_{Phase::kInactive};
@@ -176,6 +168,8 @@ private:
   std::atomic_bool enable_callback_active_{false};
   std::atomic_bool disable_callback_active_{false};
   std::atomic_bool reset_callback_active_{false};
+  std::atomic_bool topology_parameters_frozen_{false};
+  std::atomic<std::uint8_t> topology_parameters_explicit_mask_{0U};
 
   ResultSlot enable_result_;
   ResultSlot disable_result_;
@@ -185,8 +179,12 @@ private:
   std::atomic<std::int8_t> last_failed_joint_{-1};
   std::atomic<std::uint16_t> last_failed_status_word_{0U};
 
-  std::array<std::uint16_t, kAxisCount> status_words_{};
-  std::array<bool, kAxisCount> reset_targets_{};
+  std::vector<std::string> joint_names_;
+  std::vector<std::vector<std::size_t>> enable_batches_;
+  std::vector<std::uint8_t> ready_to_switch_on_disable_terminal_;
+  std::vector<std::uint16_t> status_words_;
+  std::vector<std::uint8_t> reset_targets_;
+  std::vector<rt_control_semantic_components::Cia402Axis> cia402_axes_;
   std::size_t current_batch_{0U};
   std::uint8_t downward_stage_{0U};
   std::int64_t stage_deadline_ns_{0};
@@ -218,6 +216,8 @@ private:
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
   rclcpp::TimerBase::SharedPtr worker_timer_;
   rclcpp::TimerBase::SharedPtr diagnostics_timer_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr
+    topology_parameter_callback_;
 };
 
 }  // namespace enable_manager

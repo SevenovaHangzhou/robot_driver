@@ -14,10 +14,15 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 01#F1 | bringup 只选择并组合 EtherCAT/CANopen 两个 package-owned real/mock system，配置对齐在 Node 创建前 fail closed | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock） |
+| 01#F2 | ecat_icube 补丁顺序为 0001..0006，PR #16 fixed-PDO 0004 必须先于 HardwareInfo 0005/0006；ros2_canopen 为 0001..0005 | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F4 | PASS（冻结 SHA apply-check + Docker build） |
+| 01#F3 | ecat_icube 当前补丁顺序为 0001..0007；0007 使 EtherLab 前缀默认兼容且可由 CMake CACHE PATH 重定位，`RT_CONTROL_ETHERLAB_PREFIX` 统一运行时库路径，旧 patched vendor 原地增量 prepare 需改用干净 workspace | [release-deploy-20260904-01](records/2026-09-04-electri-94-native-closure.md)#运维限制 | PASS（Native build/test + ldd） |
 
 ## 记录索引（倒序）
 
-（暂无记录）
+- 2026-09-04 [ELECTRI-94 Native 依赖闭包与可移植 EtherLab 前缀](records/2026-09-04-electri-94-native-closure.md) — corrective，PASS（T1 Native；Docker/实机待验）
+- 2026-09-03 [将 ELECTRI-94 硬件配置分层移植到双 X503 main](records/2026-09-03-port-hardware-composition-to-main.md) — feature，PASS（T1 Docker/Mock；CI/实机待验）
+- 2026-08-19 [Franka 风格双硬件插件组合入口（未合并分支历史）](records/2026-08-19-franka-style-hardware-composition.md) — feature，历史 T1；当前由 01#F1/F2 取代
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

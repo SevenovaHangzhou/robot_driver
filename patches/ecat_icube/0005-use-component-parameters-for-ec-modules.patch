@@ -1,0 +1,149 @@
+diff --git a/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp b/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
+index 9d24743..7109298 100644
+--- a/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
++++ b/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
+@@ -82,7 +82,7 @@ private:
+   };
+ 
+   std::vector<std::unordered_map<std::string, std::string>> getEcModuleParam(
+-    std::string & urdf, std::string component_name, std::string component_type);
++    const hardware_interface::ComponentInfo & component) const;
+   StateInterfaceBinding findSensorStateInterface(
+     const std::string & sensor_name, const std::string & interface_name) const;
+   void updateDiagnosticStateInterfaces();
+diff --git a/ethercat_driver/src/ethercat_driver.cpp b/ethercat_driver/src/ethercat_driver.cpp
+index 8050e36..bc7ec9f 100644
+--- a/ethercat_driver/src/ethercat_driver.cpp
++++ b/ethercat_driver/src/ethercat_driver.cpp
+@@ -16,15 +16,19 @@
+ 
+ #include <cmath>
+ #include <algorithm>
+-#include <tinyxml2.h>
+ #include <string>
+-#include <regex>
++#include <utility>
+ 
+ #include "hardware_interface/types/hardware_interface_type_values.hpp"
+ #include "rclcpp/rclcpp.hpp"
+ 
+ namespace ethercat_driver
+ {
++namespace
++{
++constexpr char kEcModuleParameterPrefix[] = "ec_module.";
++}
++
+ CallbackReturn EthercatDriver::on_init(
+   const hardware_interface::HardwareInfo & info)
+ {
+@@ -74,7 +78,7 @@ CallbackReturn EthercatDriver::on_init(
+   for (uint j = 0; j < info_.joints.size(); j++) {
+     RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "joints");
+     // check all joints for EC modules and load into ec_modules_
+-    auto module_params = getEcModuleParam(info_.original_xml, info_.joints[j].name, "joint");
++    auto module_params = getEcModuleParam(info_.joints[j]);
+     ec_module_parameters_.insert(
+       ec_module_parameters_.end(), module_params.begin(), module_params.end());
+     for (auto i = 0ul; i < module_params.size(); i++) {
+@@ -108,7 +112,7 @@ CallbackReturn EthercatDriver::on_init(
+   for (uint g = 0; g < info_.gpios.size(); g++) {
+     RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "gpios");
+     // check all gpios for EC modules and load into ec_modules_
+-    auto module_params = getEcModuleParam(info_.original_xml, info_.gpios[g].name, "gpio");
++    auto module_params = getEcModuleParam(info_.gpios[g]);
+     ec_module_parameters_.insert(
+       ec_module_parameters_.end(), module_params.begin(), module_params.end());
+     for (auto i = 0ul; i < module_params.size(); i++) {
+@@ -142,7 +146,7 @@ CallbackReturn EthercatDriver::on_init(
+   for (uint s = 0; s < info_.sensors.size(); s++) {
+     RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "sensors");
+     // check all sensors for EC modules and load into ec_modules_
+-    auto module_params = getEcModuleParam(info_.original_xml, info_.sensors[s].name, "sensor");
++    auto module_params = getEcModuleParam(info_.sensors[s]);
+     ec_module_parameters_.insert(
+       ec_module_parameters_.end(), module_params.begin(), module_params.end());
+     for (auto i = 0ul; i < module_params.size(); i++) {
+@@ -545,62 +549,32 @@ void EthercatDriver::updateDiagnosticStateInterfaces()
+ }
+ 
+ std::vector<std::unordered_map<std::string, std::string>> EthercatDriver::getEcModuleParam(
+-  std::string & urdf,
+-  std::string component_name,
+-  std::string component_type)
++  const hardware_interface::ComponentInfo & component) const
+ {
+-  // Check if everything OK with URDF string
+-  if (urdf.empty()) {
+-    throw std::runtime_error("empty URDF passed to robot");
+-  }
+-  tinyxml2::XMLDocument doc;
+-  if (!doc.Parse(urdf.c_str()) && doc.Error()) {
+-    throw std::runtime_error("invalid URDF passed in to robot parser");
+-  }
+-  if (doc.Error()) {
+-    throw std::runtime_error("invalid URDF passed in to robot parser");
+-  }
+-
+-  tinyxml2::XMLElement * robot_it = doc.RootElement();
+-  if (std::string("robot").compare(robot_it->Name())) {
+-    throw std::runtime_error("the robot tag is not root element in URDF");
+-  }
+-
+-  const tinyxml2::XMLElement * ros2_control_it = robot_it->FirstChildElement("ros2_control");
+-  if (!ros2_control_it) {
+-    throw std::runtime_error("no ros2_control tag");
+-  }
+-
+-  std::vector<std::unordered_map<std::string, std::string>> module_params;
+   std::unordered_map<std::string, std::string> module_param;
+-
+-  while (ros2_control_it) {
+-    const auto * ros2_control_child_it = ros2_control_it->FirstChildElement(component_type.c_str());
+-    while (ros2_control_child_it) {
+-      if (!component_name.compare(ros2_control_child_it->Attribute("name"))) {
+-        const auto * ec_module_it = ros2_control_child_it->FirstChildElement("ec_module");
+-        while (ec_module_it) {
+-          module_param.clear();
+-          module_param["name"] = ec_module_it->Attribute("name");
+-          const auto * plugin_it = ec_module_it->FirstChildElement("plugin");
+-          if (NULL != plugin_it) {
+-            module_param["plugin"] = plugin_it->GetText();
+-          }
+-          const auto * param_it = ec_module_it->FirstChildElement("param");
+-          while (param_it) {
+-            module_param[param_it->Attribute("name")] = param_it->GetText();
+-            param_it = param_it->NextSiblingElement("param");
+-          }
+-          module_params.push_back(module_param);
+-          ec_module_it = ec_module_it->NextSiblingElement("ec_module");
+-        }
++  const std::string prefix{kEcModuleParameterPrefix};
++  for (const auto & parameter : component.parameters) {
++    if (parameter.first.compare(0U, prefix.size(), prefix) == 0) {
++      const std::string key = parameter.first.substr(prefix.size());
++      if (key.empty()) {
++        throw std::runtime_error(
++                "empty EtherCAT module parameter name for component " + component.name);
+       }
+-      ros2_control_child_it = ros2_control_child_it->NextSiblingElement(component_type.c_str());
++      module_param.emplace(key, parameter.second);
+     }
+-    ros2_control_it = ros2_control_it->NextSiblingElement("ros2_control");
+   }
+ 
+-  return module_params;
++  if (module_param.empty()) {
++    return {};
++  }
++  for (const char * required : {"name", "plugin", "alias", "position", "slave_config"}) {
++    if (module_param.find(required) == module_param.end()) {
++      throw std::runtime_error(
++              "missing EtherCAT module parameter " + std::string(required) +
++              " for component " + component.name);
++    }
++  }
++  return {std::move(module_param)};
+ }
+ 
+ }  // namespace ethercat_driver

@@ -448,6 +448,70 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertLess(body.index("set +u"), body.index("source /opt/ros/humble/setup.bash"))
         self.assertLess(body.index('source "${install_root}/setup.bash"'), body.index("set -u"))
 
+    def test_runtime_etherlab_prefix_is_configurable_and_propagated(self):
+        self.assertIn(
+            'etherlab_prefix="${RT_CONTROL_ETHERLAB_PREFIX:-/usr/local/etherlab}"',
+            self.text,
+        )
+        start = self.text.index("source_runtime_environment()")
+        stop = self.text.index("runtime_env()", start)
+        body = self.text[start:stop]
+        self.assertIn('export PATH="${etherlab_prefix}/bin:${PATH}"', body)
+        self.assertIn(
+            'export LD_LIBRARY_PATH="${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"',
+            body,
+        )
+        self.assertIn('[[ -d "${etherlab_prefix}/lib" ]]', body)
+        self.assertNotIn("/usr/local/etherlab/bin", body)
+        self.assertNotIn("/usr/local/etherlab/lib", body)
+        self.assertIn("env) print_runtime_environment", self.text)
+
+    def test_native_env_entrypoint_emits_selected_etherlab_prefix(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            workspace_path = Path(workspace)
+            prefix = workspace_path / "etherlab"
+            (prefix / "lib").mkdir(parents=True)
+            (workspace_path / "install").mkdir()
+            (workspace_path / "install" / "setup.bash").write_text(
+                "", encoding="utf-8"
+            )
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "RT_CONTROL_NATIVE_WS": workspace,
+                    "RT_CONTROL_ETHERLAB_PREFIX": str(prefix),
+                }
+            )
+            for variable in (
+                "AMENT_PREFIX_PATH",
+                "CMAKE_PREFIX_PATH",
+                "COLCON_PREFIX_PATH",
+                "PYTHONPATH",
+            ):
+                environment.pop(variable, None)
+            result = subprocess.run(
+                [str(LAUNCHER), "env"],
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(f"RT_CONTROL_ETHERLAB_PREFIX={prefix}", result.stdout)
+            self.assertIn(f"LD_LIBRARY_PATH={prefix}/lib:", result.stdout)
+
+    def test_axis_policy_comes_from_the_selected_install_root(self):
+        self.assertIn(
+            'enable_manager_config="${install_root}/share/'
+            'rt_control_bringup/config/controllers.yaml"',
+            self.text,
+        )
+        self.assertNotIn(
+            'enable_manager_config="${repository_root}/src/rt_control/'
+            'rt_control_bringup/config/controllers.yaml"',
+            self.text,
+        )
+
     def test_native_entrypoints_verify_public_adapter_dependency_closure_before_hardware(self):
         self.assertIn("verify_runtime_dependency_closure()", self.text)
         helper_start = self.text.index("verify_runtime_dependency_closure()")
@@ -540,6 +604,46 @@ class NativeBootstrapContractTest(unittest.TestCase):
             self.text,
         )
 
+    def test_bootstrap_applies_typed_hardware_topology_patches(self):
+        for patch in (
+            "patches/ecat_icube/0004-preserve-fixed-pdo-config.patch",
+            "patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch",
+            "patches/ecat_icube/0006-validate-component-module-parameters.patch",
+            "patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch",
+        ):
+            self.assertGreaterEqual(self.text.count(patch), 2, patch)
+
+    def test_etherlab_prefix_patch_is_cache_configurable_and_ordered(self):
+        patch_name = "patches/ecat_icube/0007-configure-etherlab-prefix.patch"
+        patch_path = ROOT / patch_name
+        self.assertTrue(patch_path.is_file(), patch_name)
+        patch = patch_path.read_text(encoding="utf-8")
+        for cmake_path in (
+            "ethercat_interface/CMakeLists.txt",
+            "ethercat_manager/CMakeLists.txt",
+        ):
+            self.assertIn(f"--- a/{cmake_path}", patch)
+            self.assertIn(f"+++ b/{cmake_path}", patch)
+        self.assertEqual(
+            patch.count("-set(ETHERLAB_DIR /usr/local/etherlab)"),
+            2,
+        )
+        self.assertEqual(
+            patch.count('+set(ETHERLAB_DIR "/usr/local/etherlab" CACHE PATH'),
+            2,
+        )
+        self.assertGreaterEqual(self.text.count(patch_name), 2)
+        dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text(
+            encoding="utf-8"
+        )
+        for consumer in (self.text, dockerfile):
+            self.assertLess(
+                consumer.index(
+                    "patches/ecat_icube/0006-validate-component-module-parameters.patch"
+                ),
+                consumer.index(patch_name),
+            )
+
     def test_bootstrap_applies_the_cross_domain_qos_patch(self):
         self.assertIn(
             "patches/ros2_controllers/0002-use-contract-qos-profiles.patch",
@@ -553,6 +657,40 @@ class NativeBootstrapContractTest(unittest.TestCase):
         self.assertIn('log_base="${workspace_root}/log"', self.text)
         self.assertIn("robot_rt_control_interfaces", self.text)
         self.assertIn("control_api_adapter", self.text)
+
+    def test_bootstrap_etherlab_prefix_is_configurable_and_printed_safely(self):
+        self.assertIn(
+            'etherlab_prefix="${RT_CONTROL_ETHERLAB_PREFIX:-/usr/local/etherlab}"',
+            self.text,
+        )
+        start = self.text.index("source_build_environment()")
+        stop = self.text.index("dependency_paths()", start)
+        body = self.text[start:stop]
+        self.assertIn('export PATH="${etherlab_prefix}/bin:${PATH}"', body)
+        self.assertIn(
+            'export LD_LIBRARY_PATH="${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"',
+            body,
+        )
+        self.assertNotIn("/usr/local/etherlab/bin", body)
+        self.assertNotIn("/usr/local/etherlab/lib", body)
+        doctor_start = self.text.index("doctor()")
+        doctor_stop = self.text.index("print_environment()", doctor_start)
+        self.assertIn('[[ -d "${etherlab_prefix}/lib" ]]', self.text[doctor_start:doctor_stop])
+        self.assertIn("RT_CONTROL_ETHERLAB_PREFIX", self.text[self.text.index("print_environment()"):])
+
+    def test_bootstrap_env_entrypoint_emits_selected_etherlab_prefix(self):
+        selected = "/tmp/e94-etherlab-contract"
+        environment = os.environ.copy()
+        environment["RT_CONTROL_ETHERLAB_PREFIX"] = selected
+        result = subprocess.run(
+            [str(BOOTSTRAP), "env"],
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(selected, result.stdout)
 
     def test_bootstrap_sources_ros_setup_without_nounset(self):
         start = self.text.index("source_build_environment()")

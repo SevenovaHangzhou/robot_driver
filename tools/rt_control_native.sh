@@ -19,18 +19,20 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd -- "${script_dir}/.." && pwd)"
 workspace_root="${RT_CONTROL_NATIVE_WS:-$(cd -- "${repository_root}/.." && pwd)}"
 install_root="${workspace_root}/install"
+etherlab_prefix="${RT_CONTROL_ETHERLAB_PREFIX:-/usr/local/etherlab}"
 runtime_root="${workspace_root}/.rt-control-native"
 runtime_log_root="${workspace_root}/log/native"
 pid_file="${runtime_root}/rt_control_start.pid"
 latest_log_link="${runtime_root}/latest.log"
 installed_start="${install_root}/lib/rt_control_bringup/rt_control_start"
 axis_state_checker="${repository_root}/tools/rt_control_axis_state_check.py"
+enable_manager_config="${install_root}/share/rt_control_bringup/config/controllers.yaml"
 realtime_cpu_guard="${repository_root}/tools/rt_cpu_contamination_check.sh"
 thread_affinity_tool="${repository_root}/tools/rt_control_thread_affinity.py"
 internal_dynamic_joint_states_topic="/rt_internal_state_broadcaster/dynamic_joint_states"
 
-readonly repository_root workspace_root install_root runtime_root runtime_log_root
-readonly pid_file latest_log_link installed_start axis_state_checker
+readonly repository_root workspace_root install_root etherlab_prefix runtime_root runtime_log_root
+readonly pid_file latest_log_link installed_start axis_state_checker enable_manager_config
 readonly realtime_cpu_guard thread_affinity_tool internal_dynamic_joint_states_topic
 
 expected_ros_domain_id="${RT_CONTROL_ROS_DOMAIN_ID:-${ROS_DOMAIN_ID:-0}}"
@@ -67,6 +69,8 @@ Native rt-control development runtime for ar-Default-string:
   ./tools/rt_control_native.sh [--ros-domain-id N] stop
       Call /rt/disable, then signal the installed rt_control_start gate.
   ./tools/rt_control_native.sh [--ros-domain-id N] status
+  ./tools/rt_control_native.sh [--ros-domain-id N] env
+      Print the resolved Native environment without starting hardware.
   ./tools/rt_control_native.sh logs
 
 Options:
@@ -121,6 +125,8 @@ source_runtime_environment()
   [[ -f /opt/ros/humble/setup.bash ]] || fail "ROS 2 Humble is not installed"
   [[ -f "${install_root}/setup.bash" ]] ||
     fail "native workspace is not built: ${install_root}/setup.bash"
+  [[ -d "${etherlab_prefix}/lib" ]] ||
+    fail "missing EtherLab userspace library: ${etherlab_prefix}/lib"
   # These sources only affect this script process and its children.
   set +u
   # shellcheck disable=SC1091
@@ -128,8 +134,17 @@ source_runtime_environment()
   # shellcheck disable=SC1090
   source "${install_root}/setup.bash"
   set -u
-  export PATH="/usr/local/etherlab/bin:${PATH}"
-  export LD_LIBRARY_PATH="/usr/local/etherlab/lib:${LD_LIBRARY_PATH:-}"
+  export RT_CONTROL_ETHERLAB_PREFIX="${etherlab_prefix}"
+  export PATH="${etherlab_prefix}/bin:${PATH}"
+  export LD_LIBRARY_PATH="${etherlab_prefix}/lib:${LD_LIBRARY_PATH:-}"
+}
+
+print_runtime_environment()
+{
+  source_runtime_environment
+  printf 'RT_CONTROL_ETHERLAB_PREFIX=%s\n' "${RT_CONTROL_ETHERLAB_PREFIX}"
+  printf 'PATH=%s\n' "${PATH}"
+  printf 'LD_LIBRARY_PATH=%s\n' "${LD_LIBRARY_PATH}"
 }
 
 runtime_env()
@@ -1010,6 +1025,8 @@ check_axis_states()
   local snapshot
   [[ -f "${axis_state_checker}" && -r "${axis_state_checker}" ]] ||
     fail "missing or unreadable axis-state checker: ${axis_state_checker}"
+  [[ -f "${enable_manager_config}" && -r "${enable_manager_config}" ]] ||
+    fail "missing or unreadable enable-manager config: ${enable_manager_config}"
   while (( SECONDS < deadline )); do
     if ! snapshot="$(
       run_ros2_timeout 8 ros2 topic echo --once "${internal_dynamic_joint_states_topic}" \
@@ -1019,14 +1036,15 @@ check_axis_states()
       sleep 1
       continue
     fi
-    if printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" --expected "${expected}"; then
+    if printf '%s\n' "${snapshot}" | python3 "${axis_state_checker}" \
+      --controller-config "${enable_manager_config}" --expected "${expected}"; then
       return
     fi
     last_error="${snapshot}"
     sleep 1
   done
   printf '%s\n' "${last_error}" >&2
-  fail "14-axis ${expected} CiA 402 contract is not satisfied after 30 seconds"
+  fail "managed-axis ${expected} CiA 402 contract is not satisfied after 30 seconds"
 }
 
 verify_operational_ethercat()
@@ -1323,6 +1341,7 @@ case "${command_name:-}" in
   enable) enable_native ;;
   stop) stop_native "${command_args[@]}" ;;
   status) status_native ;;
+  env) print_runtime_environment ;;
   logs) logs_native ;;
   -h|--help|help|"") usage ;;
   *) usage >&2; exit 2 ;;

@@ -1,0 +1,409 @@
+diff --git a/ethercat_driver/CMakeLists.txt b/ethercat_driver/CMakeLists.txt
+index a97e0e4..c6dc19d 100644
+--- a/ethercat_driver/CMakeLists.txt
++++ b/ethercat_driver/CMakeLists.txt
+@@ -52,6 +52,10 @@ install(
+ 
+ if(BUILD_TESTING)
+   find_package(ament_cmake_gtest REQUIRED)
++  ament_add_gtest(test_ec_module_parameters test/test_ec_module_parameters.cpp)
++  target_include_directories(test_ec_module_parameters PRIVATE include)
++  target_link_libraries(test_ec_module_parameters ${PROJECT_NAME})
++  ament_target_dependencies(test_ec_module_parameters hardware_interface)
+ endif()
+ 
+ ## EXPORTS
+diff --git a/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp b/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
+index 7109298..a60cc45 100644
+--- a/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
++++ b/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
+@@ -69,6 +69,8 @@ public:
+   hardware_interface::return_type write(const rclcpp::Time &, const rclcpp::Duration &) override;
+ 
+ private:
++  friend class EthercatDriverTestAccess;
++
+   struct StateInterfaceBinding
+   {
+     size_t component = std::numeric_limits<size_t>::max();
+@@ -81,8 +83,8 @@ private:
+     }
+   };
+ 
+-  std::vector<std::unordered_map<std::string, std::string>> getEcModuleParam(
+-    const hardware_interface::ComponentInfo & component) const;
++  static std::vector<std::unordered_map<std::string, std::string>> getEcModuleParam(
++    const hardware_interface::ComponentInfo & component);
+   StateInterfaceBinding findSensorStateInterface(
+     const std::string & sensor_name, const std::string & interface_name) const;
+   void updateDiagnosticStateInterfaces();
+diff --git a/ethercat_driver/package.xml b/ethercat_driver/package.xml
+index 15c0d48..8e8053b 100644
+--- a/ethercat_driver/package.xml
++++ b/ethercat_driver/package.xml
+@@ -17,6 +17,7 @@
+ 
+   <test_depend>ament_lint_auto</test_depend>
+   <test_depend>ament_lint_common</test_depend>
++  <test_depend>ament_cmake_gtest</test_depend>
+ 
+   <export>
+     <build_type>ament_cmake</build_type>
+diff --git a/ethercat_driver/src/ethercat_driver.cpp b/ethercat_driver/src/ethercat_driver.cpp
+index bc7ec9f..9b8b0ab 100644
+--- a/ethercat_driver/src/ethercat_driver.cpp
++++ b/ethercat_driver/src/ethercat_driver.cpp
+@@ -16,7 +16,11 @@
+ 
+ #include <cmath>
+ #include <algorithm>
++#include <cstdint>
++#include <limits>
++#include <stdexcept>
+ #include <string>
++#include <unordered_set>
+ #include <utility>
+ 
+ #include "hardware_interface/types/hardware_interface_type_values.hpp"
+@@ -27,6 +30,27 @@ namespace ethercat_driver
+ namespace
+ {
+ constexpr char kEcModuleParameterPrefix[] = "ec_module.";
++
++template<typename Integer>
++void validateUnsignedParameter(
++  const std::unordered_map<std::string, std::string> & parameters,
++  const char * parameter_name,
++  const std::string & component_name)
++{
++  const std::string & value = parameters.at(parameter_name);
++  if (value.empty() || value.find_first_not_of("0123456789") != std::string::npos) {
++    throw std::invalid_argument(
++            "EtherCAT module parameter " + std::string(parameter_name) +
++            " for component " + component_name + " must be an unsigned integer");
++  }
++  std::size_t parsed_characters = 0U;
++  const auto parsed = std::stoul(value, &parsed_characters, 10);
++  if (parsed_characters != value.size() || parsed > std::numeric_limits<Integer>::max()) {
++    throw std::out_of_range(
++            "EtherCAT module parameter " + std::string(parameter_name) +
++            " for component " + component_name + " is outside its valid range");
++  }
++}
+ }
+ 
+ CallbackReturn EthercatDriver::on_init(
+@@ -78,7 +102,21 @@ CallbackReturn EthercatDriver::on_init(
+   for (uint j = 0; j < info_.joints.size(); j++) {
+     RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "joints");
+     // check all joints for EC modules and load into ec_modules_
+-    auto module_params = getEcModuleParam(info_.joints[j]);
++    std::vector<std::unordered_map<std::string, std::string>> module_params;
++    try {
++      module_params = getEcModuleParam(info_.joints[j]);
++    } catch (const std::exception & exception) {
++      RCLCPP_FATAL(
++        rclcpp::get_logger("EthercatDriver"), "%s", exception.what());
++      return CallbackReturn::ERROR;
++    }
++    if (module_params.size() != 1U) {
++      RCLCPP_FATAL(
++        rclcpp::get_logger("EthercatDriver"),
++        "Joint %s must define exactly one EtherCAT module",
++        info_.joints[j].name.c_str());
++      return CallbackReturn::ERROR;
++    }
+     ec_module_parameters_.insert(
+       ec_module_parameters_.end(), module_params.begin(), module_params.end());
+     for (auto i = 0ul; i < module_params.size(); i++) {
+@@ -106,13 +144,21 @@ CallbackReturn EthercatDriver::on_init(
+           rclcpp::get_logger("EthercatDriver"),
+           "The plugin of %s failed to load for some reason. Error: %s\n",
+           info_.joints[j].name.c_str(), ex.what());
++        return CallbackReturn::ERROR;
+       }
+     }
+   }
+   for (uint g = 0; g < info_.gpios.size(); g++) {
+     RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "gpios");
+     // check all gpios for EC modules and load into ec_modules_
+-    auto module_params = getEcModuleParam(info_.gpios[g]);
++    std::vector<std::unordered_map<std::string, std::string>> module_params;
++    try {
++      module_params = getEcModuleParam(info_.gpios[g]);
++    } catch (const std::exception & exception) {
++      RCLCPP_FATAL(
++        rclcpp::get_logger("EthercatDriver"), "%s", exception.what());
++      return CallbackReturn::ERROR;
++    }
+     ec_module_parameters_.insert(
+       ec_module_parameters_.end(), module_params.begin(), module_params.end());
+     for (auto i = 0ul; i < module_params.size(); i++) {
+@@ -140,13 +186,21 @@ CallbackReturn EthercatDriver::on_init(
+           rclcpp::get_logger("EthercatDriver"),
+           "The plugin of %s failed to load for some reason. Error: %s\n",
+           info_.gpios[g].name.c_str(), ex.what());
++        return CallbackReturn::ERROR;
+       }
+     }
+   }
+   for (uint s = 0; s < info_.sensors.size(); s++) {
+     RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "sensors");
+     // check all sensors for EC modules and load into ec_modules_
+-    auto module_params = getEcModuleParam(info_.sensors[s]);
++    std::vector<std::unordered_map<std::string, std::string>> module_params;
++    try {
++      module_params = getEcModuleParam(info_.sensors[s]);
++    } catch (const std::exception & exception) {
++      RCLCPP_FATAL(
++        rclcpp::get_logger("EthercatDriver"), "%s", exception.what());
++      return CallbackReturn::ERROR;
++    }
+     ec_module_parameters_.insert(
+       ec_module_parameters_.end(), module_params.begin(), module_params.end());
+     for (auto i = 0ul; i < module_params.size(); i++) {
+@@ -174,10 +228,22 @@ CallbackReturn EthercatDriver::on_init(
+           rclcpp::get_logger("EthercatDriver"),
+           "The plugin of %s failed to load for some reason. Error: %s\n",
+           info_.sensors[s].name.c_str(), ex.what());
++        return CallbackReturn::ERROR;
+       }
+     }
+   }
+ 
++  std::unordered_set<std::string> module_addresses;
++  for (const auto & parameters : ec_module_parameters_) {
++    const std::string address = parameters.at("alias") + ":" + parameters.at("position");
++    if (!module_addresses.insert(address).second) {
++      RCLCPP_FATAL(
++        rclcpp::get_logger("EthercatDriver"),
++        "More than one EtherCAT module uses alias:position %s", address.c_str());
++      return CallbackReturn::ERROR;
++    }
++  }
++
+   RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "Got %li modules", ec_modules_.size());
+ 
+   process_data_age_binding_ =
+@@ -549,7 +615,7 @@ void EthercatDriver::updateDiagnosticStateInterfaces()
+ }
+ 
+ std::vector<std::unordered_map<std::string, std::string>> EthercatDriver::getEcModuleParam(
+-  const hardware_interface::ComponentInfo & component) const
++  const hardware_interface::ComponentInfo & component)
+ {
+   std::unordered_map<std::string, std::string> module_param;
+   const std::string prefix{kEcModuleParameterPrefix};
+@@ -567,13 +633,45 @@ std::vector<std::unordered_map<std::string, std::string>> EthercatDriver::getEcM
+   if (module_param.empty()) {
+     return {};
+   }
+-  for (const char * required : {"name", "plugin", "alias", "position", "slave_config"}) {
+-    if (module_param.find(required) == module_param.end()) {
++  for (const char * required : {"name", "plugin", "alias", "position", "slave_config"})
++  {
++    const auto parameter = module_param.find(required);
++    if (parameter == module_param.end() || parameter->second.empty()) {
+       throw std::runtime_error(
+               "missing EtherCAT module parameter " + std::string(required) +
+               " for component " + component.name);
+     }
+   }
++  validateUnsignedParameter<std::uint16_t>(module_param, "alias", component.name);
++  validateUnsignedParameter<std::uint16_t>(module_param, "position", component.name);
++  module_param["alias"] = std::to_string(std::stoul(module_param.at("alias")));
++  module_param["position"] = std::to_string(std::stoul(module_param.at("position")));
++  if (module_param.at("plugin") == "ethercat_generic_plugins/EcCiA402Drive") {
++    const auto mode_parameter = module_param.find("mode_of_operation");
++    if (mode_parameter == module_param.end() || mode_parameter->second.empty()) {
++      throw std::runtime_error(
++              "missing EtherCAT module parameter mode_of_operation for component " +
++              component.name);
++    }
++    validateUnsignedParameter<std::int8_t>(module_param, "mode_of_operation", component.name);
++    const auto mode = std::stoul(mode_parameter->second);
++    switch (mode) {
++      case 0U:
++      case 1U:
++      case 3U:
++      case 4U:
++      case 6U:
++      case 7U:
++      case 8U:
++      case 9U:
++      case 10U:
++        break;
++      default:
++        throw std::invalid_argument(
++                "unsupported CiA402 mode_of_operation for component " + component.name);
++    }
++    module_param["mode_of_operation"] = std::to_string(mode);
++  }
+   return {std::move(module_param)};
+ }
+ 
+diff --git a/ethercat_driver/test/test_ec_module_parameters.cpp b/ethercat_driver/test/test_ec_module_parameters.cpp
+new file mode 100644
+index 0000000..6ce370d
+--- /dev/null
++++ b/ethercat_driver/test/test_ec_module_parameters.cpp
+@@ -0,0 +1,159 @@
++#include <gtest/gtest.h>
++
++#include <array>
++#include <cstdint>
++#include <exception>
++#include <stdexcept>
++#include <string>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++
++#include "ethercat_driver/ethercat_driver.hpp"
++#include "hardware_interface/hardware_info.hpp"
++
++namespace ethercat_driver
++{
++
++class EthercatDriverTestAccess
++{
++public:
++  static std::vector<std::unordered_map<std::string, std::string>> moduleParameters(
++    const hardware_interface::ComponentInfo & component)
++  {
++    return EthercatDriver::getEcModuleParam(component);
++  }
++};
++
++namespace
++{
++
++hardware_interface::ComponentInfo makeComponent()
++{
++  hardware_interface::ComponentInfo component;
++  component.name = "axis";
++  component.type = "joint";
++  component.parameters = {
++    {"ec_module.name", "axis_drive"},
++    {"ec_module.plugin", "ethercat_generic_plugins/EcCiA402Drive"},
++    {"ec_module.alias", "0"},
++    {"ec_module.position", "15"},
++    {"ec_module.mode_of_operation", "8"},
++    {"ec_module.slave_config", "/config/slaves/axis.yaml"},
++    {"unrelated", "preserved outside the EtherCAT module"},
++  };
++  return component;
++}
++
++TEST(EcModuleParametersTest, StripsTheNamespaceAndPreservesRuntimeValues)
++{
++  const auto modules = EthercatDriverTestAccess::moduleParameters(makeComponent());
++
++  ASSERT_EQ(modules.size(), 1U);
++  EXPECT_EQ(
++    modules.front(),
++    (std::unordered_map<std::string, std::string>{
++      {"name", "axis_drive"},
++      {"plugin", "ethercat_generic_plugins/EcCiA402Drive"},
++      {"alias", "0"},
++      {"position", "15"},
++      {"mode_of_operation", "8"},
++      {"slave_config", "/config/slaves/axis.yaml"},
++    }));
++}
++
++TEST(EcModuleParametersTest, CanonicalizesNumericValuesBeforeAddressComparison)
++{
++  auto component = makeComponent();
++  component.parameters["ec_module.alias"] = "000";
++  component.parameters["ec_module.position"] = "0015";
++  component.parameters["ec_module.mode_of_operation"] = "008";
++
++  const auto modules = EthercatDriverTestAccess::moduleParameters(component);
++
++  ASSERT_EQ(modules.size(), 1U);
++  EXPECT_EQ(modules.front().at("alias"), "0");
++  EXPECT_EQ(modules.front().at("position"), "15");
++  EXPECT_EQ(modules.front().at("mode_of_operation"), "8");
++}
++
++TEST(EcModuleParametersTest, AllowsComponentsWithoutAnEthercatModule)
++{
++  hardware_interface::ComponentInfo sensor;
++  sensor.name = "diagnostic_sensor";
++  sensor.type = "sensor";
++  sensor.parameters = {{"initial_value", "0.0"}};
++
++  EXPECT_TRUE(EthercatDriverTestAccess::moduleParameters(sensor).empty());
++}
++
++TEST(EcModuleParametersTest, RejectsMissingOrEmptyRequiredValues)
++{
++  const std::array<const char *, 5> required{
++    "name", "plugin", "alias", "position", "slave_config"};
++  for (const char * name : required) {
++    auto missing = makeComponent();
++    missing.parameters.erase(std::string("ec_module.") + name);
++    EXPECT_THROW(EthercatDriverTestAccess::moduleParameters(missing), std::runtime_error) << name;
++
++    auto empty = makeComponent();
++    empty.parameters[std::string("ec_module.") + name].clear();
++    EXPECT_THROW(EthercatDriverTestAccess::moduleParameters(empty), std::runtime_error) << name;
++  }
++}
++
++TEST(EcModuleParametersTest, RequiresModeForCia402DriveModules)
++{
++  auto component = makeComponent();
++  component.parameters.erase("ec_module.mode_of_operation");
++
++  EXPECT_THROW(EthercatDriverTestAccess::moduleParameters(component), std::runtime_error);
++}
++
++TEST(EcModuleParametersTest, AllowsOtherPluginTypesWithoutCia402Mode)
++{
++  auto component = makeComponent();
++  component.parameters["ec_module.plugin"] = "example/NonCia402Module";
++  component.parameters.erase("ec_module.mode_of_operation");
++
++  const auto modules = EthercatDriverTestAccess::moduleParameters(component);
++
++  ASSERT_EQ(modules.size(), 1U);
++  EXPECT_EQ(modules.front().at("plugin"), "example/NonCia402Module");
++  EXPECT_EQ(modules.front().count("mode_of_operation"), 0U);
++}
++
++class InvalidNumericEcModuleParameterTest :
++  public ::testing::TestWithParam<std::pair<std::string, std::string>>
++{};
++
++TEST_P(InvalidNumericEcModuleParameterTest, RejectsMalformedOrOutOfRangeValues)
++{
++  auto component = makeComponent();
++  const auto & [parameter, value] = GetParam();
++  component.parameters["ec_module." + parameter] = value;
++
++  EXPECT_THROW(EthercatDriverTestAccess::moduleParameters(component), std::exception);
++}
++
++INSTANTIATE_TEST_SUITE_P(
++  InvalidNumbers, InvalidNumericEcModuleParameterTest,
++  ::testing::Values(
++    std::make_pair("alias", "-1"),
++    std::make_pair("alias", "1.0"),
++    std::make_pair("alias", "1junk"),
++    std::make_pair("alias", "65536"),
++    std::make_pair("position", "-1"),
++    std::make_pair("position", "65536"),
++    std::make_pair("mode_of_operation", "2"),
++    std::make_pair("mode_of_operation", "5"),
++    std::make_pair("mode_of_operation", "-1"),
++    std::make_pair("mode_of_operation", "1.5"),
++    std::make_pair("mode_of_operation", "11"),
++    std::make_pair("mode_of_operation", "127"),
++    std::make_pair("mode_of_operation", "128"),
++    std::make_pair("mode_of_operation", "255"),
++    std::make_pair("mode_of_operation", "256")));
++
++}  // namespace
++}  // namespace ethercat_driver
