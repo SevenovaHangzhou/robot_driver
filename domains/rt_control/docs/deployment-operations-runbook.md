@@ -21,7 +21,9 @@
 - `/rt/enable` 管理双臂、Turn 和 Updown 共 14 个 EtherCAT 轴；两条履带在启动时 active。
 - 当前没有独立 `rt_watchdog` 或 motion/autonomy heartbeat，不存在统一的“上层失联后全机自动停机”。`/cmd_vel_safe` 的 0.5 s 普通减速超时不能外推到 FJT 或整机安全。
 - 生产 Compose 只能通过 [`tools/rt_control_compose.sh`](../../../tools/rt_control_compose.sh) 调用。
-- 包装器的每次调用（包括 `logs` 和 `stop`）都要求先设置同一目标机已经验证的 `RT_CONTROL_CPUSET`。
+- 包装器的每次调用（包括 `logs` 和 `stop`）都要求先分别设置同一目标机已经验证的
+  `RT_CONTROL_CPUSET`（容器可用 CPU）和 `RT_CONTROL_START_CPUSET`（启动进程仅用的
+  housekeeping CPU）；不得从一个集合猜出另一个。
 - Compose 虽挂载 loopback-only CycloneDDS XML，却没有固定 `RMW_IMPLEMENTATION`；当前镜像实际使用 Fast DDS。不能把该文件当作网络隔离，生产启动前必须核对实际 RMW 和 DDS 暴露面。
 - 生产 PID 1 只能是已安装的 `rt_control_start`。不得直接启动 launch，也不得用 `ros2 run` 再包一层。
 - 正常停机必须给有序失能和总线清理留下时间；不得使用 `docker kill`、`kill -9`、`docker pause`。
@@ -133,7 +135,7 @@ tools/quality_gate.sh
 - 镜像引用 `rt-control:<release-version>`、Git tag SHA 和 GitHub Release 归档 SHA-256；
 - [`versions.env`](../../../versions.env) 中 IgH 版本/commit；
 - [`deps.repos`](../../../deps.repos) 中四个上游完整 commit；
-- 目标机事实、目标 `RT_CONTROL_CPUSET`、操作者和时间；
+- 目标机事实、目标 `RT_CONTROL_CPUSET`、目标 `RT_CONTROL_START_CPUSET`、操作者和时间；
 - 当前生产版本及其源码、镜像和宿主配置回退点。
 
 宿主变更前，人工备份并校验至少以下内容。仓库目前没有自动备份脚本：
@@ -152,10 +154,12 @@ tools/quality_gate.sh
 
 ### 4.1 联网构建机
 
-`RT_CONTROL_CPUSET` 必须来自 Phase A 的目标机验证；包装器故意没有默认值：
+`RT_CONTROL_CPUSET` 与 `RT_CONTROL_START_CPUSET` 必须分别来自 Phase A 的目标机验证；
+包装器和 Compose 故意都没有默认值：
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_START_CPUSET=<validated-housekeeping-only-cpu-list>
 tools/rt_control_compose.sh config
 tools/rt_control_compose.sh build rt-control
 ```
@@ -362,6 +366,7 @@ journalctl -b -u rt-control-can-names.service -u can0.service
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_START_CPUSET=<validated-housekeeping-only-cpu-list>
 export RT_CONTROL_ROS_DOMAIN_ID=<该机器实例统一的 0..232>
 tools/rt_control_compose.sh config
 tools/rt_control_compose.sh create rt-control
@@ -409,6 +414,7 @@ Phase H 保留网络暴露门禁：接入现场网络前用 `ros2 doctor --repor
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_START_CPUSET=<validated-housekeeping-only-cpu-list>
 tools/rt_control_compose.sh up -d --no-build rt-control
 tools/rt_control_compose.sh ps
 tools/rt_control_compose.sh logs --tail=300 rt-control
@@ -598,6 +604,7 @@ CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-con
 | 现象 | 优先检查 |
 | --- | --- |
 | `RT_CONTROL_CPUSET must be confirmed` | 缺少目标机实测 cpuset；禁止填写仓库默认或照抄旧机 14。 |
+| `RT_CONTROL_START_CPUSET must be the housekeeping CPU list` | 缺少目标机实测的启动 housekeeping cpuset；不得从容器 cpuset 猜测。 |
 | Compose 找不到路径/Dockerfile | 是否绕过包装器；回到仓库根目录使用 `tools/rt_control_compose.sh`。 |
 | Docker socket permission denied | 当前用户没有 rootful Docker 权限是预期策略；使用目标机批准的提权入口。 |
 | IgH 安装拒绝 | RT 内核/headers、MAC、NIC 是否带 IP、旧模块是否占用。 |
@@ -621,6 +628,7 @@ CANopen 故障不做节点级自动 NMT 恢复。解除原因后走完整 rt-con
 
 ```bash
 export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
+export RT_CONTROL_START_CPUSET=<validated-housekeeping-only-cpu-list>
 tools/rt_control_compose.sh stop rt-control
 tools/rt_control_compose.sh logs --tail=300 rt-control
 tools/rt_control_compose.sh ps -a
@@ -655,7 +663,9 @@ tools/rt_control_compose.sh ps -a
 1. 正常停止当前容器并保存证据。
 2. 用 `tools/rt_control_compose.sh ls --all` 和 `docker ps -a --filter label=com.docker.compose.service=rt-control` 盘点全部 project/container；任何其他 rt-control 实例必须先确认已停止，不能有 `running` 或 `restarting`。
 3. 进入末级目录名与当前 project 约定相同的旧 SHA 干净发布目录，核对 Git SHA、image ID、IgH label 和宿主兼容性。
-4. 设置同一台目标机已经验证的 `RT_CONTROL_CPUSET`，用包装器执行 `config`，核对 project name、容器名和所有设备字段。
+4. 分别设置同一台目标机已经验证的 `RT_CONTROL_CPUSET` 与
+   `RT_CONTROL_START_CPUSET`，用包装器执行 `config`，核对 project name、容器名和
+   所有设备字段。
 5. 确认全机只会有这一套 rt-control project，且旧镜像已经存在后，用 `up -d --no-build rt-control` 启动。
 6. 重新执行通信、诊断和分级验收；“旧版本”不自动等于“安全版本”。
 

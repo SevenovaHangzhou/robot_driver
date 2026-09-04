@@ -36,10 +36,12 @@
 | 08#F1 | 共享模型新增固定边 `base_link → lidar_main`，位姿为 `xyz=(0.382364228640, 0.133500000000, 0.121820508080)`、`rpy=(0, 0.523598775598, 0)` | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F1 | 有效；消费者联合验证待完成 |
 | 08#F2 | `lidar_main.STL` 使用 `base_link` 坐标和毫米单位，消费时必须使用 `0.001` 缩放 | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F2 | 有效 |
 | 08#F3 | `lidar_main` 变更不新增公共接口、不改变 odom TF 所有权或实时控制参数 | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F3 | 有效 |
+| 09#F1 | diagnostics topology 从所选 hardware descriptors 派生；公共 status adapter 只消费稳定总线 summary，不持有固定电机数组 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F3 | PASS（T1 Docker/Mock） |
 
 ## 记录索引（倒序）
 
 - 2026-09-02 [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](records/2026-09-02-lidar-main-tf.md) — feature，PARTIAL（T1；生产切换与消费者联合验证待完成）
+- 2026-08-19 [诊断拓扑组合与稳定摘要契约（未合并分支历史）](records/2026-08-19-diagnostic-composition-contract.md) — feature，历史 T1；当前由 09#F1 取代
 - 2026-08-28 [ROS Domain 由部署显式配置](records/2026-08-28-configurable-ros-domain.md) — decision，PASS（T1；native/Compose/Mock）
 - 2026-08-27 [robot_interfaces 权威 SHA 同步至 92d6ff2](records/2026-08-27-robot-interfaces-main-pin.md) — corrective，PASS（T1；RT schema 不变）
 - 2026-08-17 [Native QoS 运行依赖闭包与 fail-closed 启动门禁](records/2026-08-17-native-qos-runtime-closure.md) — corrective，PASS（T3；最终 stopped/Idle/PREOP）

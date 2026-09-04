@@ -14,10 +14,12 @@ IgH 安装与宿主（→ realtime-host）。
 | 01#F1 | 18 位运行拓扑固定为 Hub 0、运动轴 1..12、Hub 13、右/左 X503 14/15、Turn 16、Updown 17；X503 链为 `Hub 13 OUT8 -> right -> left` | [ecat-axes-20260902-01](records/2026-09-02-add-dual-x503-profile-files.md)#F1 | PARTIAL（离线通过；实机 OP/WC 待验） |
 | 01#F2 | 两份 profile 均锁定实机 identity `0x00000503/0x26483052@0x00020111`、fixed RxPDO `0x1601` 与 TxPDO `0x1A00`（25×DINT/100 bytes），必须保留校验而非重写 | [ecat-axes-20260902-01](records/2026-09-02-add-dual-x503-profile-files.md)#F2 | PARTIAL（补丁链通过；实机 OP 待验） |
 | 01#F3 | X503 仅提供 raw state interface，不进入 14 轴使能、JTC 或公共 `/joint_states` | [ecat-axes-20260902-01](records/2026-09-02-add-dual-x503-profile-files.md)#F3 | PASS（静态/Mock） |
+| 02#F1 | `alfa_v1` descriptor 分离 14 个 axes、两台 state-only X503 sensors 与 Hub responders，并共同生成 real/mock 与诊断 topology | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock；实机仍沿用 01 的 PARTIAL） |
 
 ## 记录索引（倒序）
 
 - 2026-09-02 [双 X503 接入 18 位运行拓扑](records/2026-09-02-add-dual-x503-profile-files.md) — feature，PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验）
+- 2026-08-19 [EtherCAT 硬件包接管变体 Xacro（未合并分支历史）](records/2026-08-19-hardware-owned-variant-xacro.md) — feature，历史 T1；当前由 02#F1 取代
 
 ## 历史锚点（2026-08-13 前，未迁移）
 

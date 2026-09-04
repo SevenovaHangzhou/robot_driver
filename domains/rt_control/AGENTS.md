@@ -38,7 +38,9 @@
   `PlcIoState`、`RtEnable` 等本域 `msg/srv/action`，其他域不得依赖。
 - `src/rt_control/robot_hw_ethercat`：EtherCAT 拓扑、从站配置和 ros2_control 硬件描述。
 - `src/rt_control/robot_hw_canopen`：两条履带的 CANopen 总线配置。
-- `src/rt_control/enable_manager`：14 轴使能、失能、故障复位状态机。
+- `src/rt_control/rt_control_semantic_components`：对 ros2_control loaned interfaces
+  的无拓扑、无策略类型化语义封装；不得持有总线生命周期或机型编排。
+- `src/rt_control/enable_manager`：由显式整机策略配置驱动的受管轴使能、失能、故障复位状态机。
 - `src/rt_control/rt_diagnostics`：实时控制域诊断归一化和状态上报。
 - `src/rt_control/rt_control_bringup`：rt-control 总装、控制器配置、生命周期编排和唯一受支持的启动入口。
 - `patches`：对 `deps.repos` 中冻结上游版本的最小补丁，不是上游源码副本。
@@ -121,7 +123,8 @@ rt_control_interfaces（域内）────┘
 ### 3.7 容器与宿主机边界
 
 - 生产容器必须通过安装后的 `rt_control_start` 作为 PID 1；不得用 `ros2 run` 包裹它，也不得直接启动 launch 文件绕过失能等待；
-- Compose 一律通过 `tools/rt_control_compose.sh` 调用；`RT_CONTROL_CPUSET` 必须来自目标机验证，不得设置仓库默认值；
+- Compose 一律通过 `tools/rt_control_compose.sh` 调用；`RT_CONTROL_CPUSET` 与
+  `RT_CONTROL_START_CPUSET` 必须分别来自目标机验证，不得设置仓库默认值或从彼此猜测；
 - 不得增加 `privileged: true`、扩大设备映射、capability、主机目录写权限或 DDS 暴露范围，除非有明确需求和风险评审；
 - 镜像依赖必须锁定且可追溯；不得在仓库、镜像环境变量、构建日志或文档中写入代理凭据、令牌或私有地址；
 - `hostsetup` 脚本会修改 GRUB、systemd、内核模块、网络和总线。没有用户对目标主机及动作的明确授权，只能静态检查，禁止执行安装、启停、重启或写设备操作；
@@ -241,7 +244,9 @@ colcon build --symlink-install --packages-select robot_hw_ethercat robot_hw_cano
 
 - 改动 shell 脚本：对所有修改的脚本执行 `bash -n`；可用时执行 `shellcheck`；
 - 改动 Python/launch：执行 `python3 -m py_compile <changed-files>`，并运行适用的 launch/mock 检查；
-- 改动 Compose：设置经验证的临时 `RT_CONTROL_CPUSET`，通过 `tools/rt_control_compose.sh config` 检查展开结果；不得为通过校验而把该值写成仓库默认；
+- 改动 Compose：分别设置经验证的临时 `RT_CONTROL_CPUSET` 与
+  `RT_CONTROL_START_CPUSET`，通过 `tools/rt_control_compose.sh config` 检查展开结果；
+  不得为通过校验而把任一值写成仓库默认；
 - 改动 Dockerfile、`deps.repos`、`versions.env` 或补丁：需要完整镜像构建，或明确说明为何当前环境不能执行；
 - 改动 systemd unit：先用副本或离线方式执行 `systemd-analyze verify`；
 - 改动 `hostsetup`：只做语法和静态审查，除非用户明确授权在已确认目标机执行。
