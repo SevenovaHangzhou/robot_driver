@@ -116,3 +116,4 @@
 | 2026-09-02 | contract | [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](docs/areas/contract/records/2026-09-02-lidar-main-tf.md) | PARTIAL（T1；工控机源树/独立镜像已验证，生产切换与消费者联合验证待完成） |
 | 2026-09-02 | ecat-axes | [双 X503 接入 18 位运行拓扑](docs/areas/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md) | PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验） |
 | 2026-09-03 | release-deploy | [将 ELECTRI-94 硬件配置分层移植到双 X503 main](docs/areas/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md) | PASS（T1 Docker/Mock；CI 与 18 位实机待验） |
+| 2026-09-04 | realtime-host | [当前工控机真实硬件身份锁迁移](docs/areas/realtime-host/records/2026-09-04-current-ipc-identity.md) | PARTIAL（T2 身份/总线只读；新 main Native doctor/受控使能待验） |

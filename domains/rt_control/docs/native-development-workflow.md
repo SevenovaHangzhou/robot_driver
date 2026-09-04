@@ -1,6 +1,7 @@
 # rt-control 原生开发与运行
 
-本文只适用于目标工控机 `ar-Default-string`。目标是让日常源码修改通过
+本文只适用于目标工控机 `user@localhost`（管理地址 `192.168.0.250`，内核
+`6.8.1-1057-realtime`）。目标是让日常源码修改通过
 `--symlink-install` 增量生效，不必为每次改动重构、导出和上传 Docker 镜像；Docker
 仍是里程碑发布、可追溯回归和同事交付的正式载体。
 
@@ -9,7 +10,7 @@
 首次拿到源码后，由 rt-control 负责人执行一次：
 
 ```bash
-cd /home/ar/rt-control-dev/robot
+cd /home/user/rt-control-dev/robot
 
 git branch --show-current
 git rev-parse --short HEAD
@@ -22,7 +23,7 @@ git rev-parse --short HEAD
 日常只修改一个包时，不再制作镜像：
 
 ```bash
-cd /home/ar/rt-control-dev/robot
+cd /home/user/rt-control-dev/robot
 
 ./tools/bootstrap_native_dev.sh build \
   --packages-select <包名>
@@ -69,7 +70,7 @@ controller update 线程仍在 CPU14，最后确认控制器、14 轴和 EtherCA
 ## 1. 固定目录
 
 ```text
-/home/ar/rt-control-dev/
+/home/user/rt-control-dev/
 ├── robot/        # 本仓库 Git 工作树
 ├── src/vendor/   # deps.repos 锁定的四个上游仓库
 ├── build/        # colcon 构建输出
@@ -89,7 +90,7 @@ QoS 或适配器依赖变化后必须再执行一次完整 `build`。
 ## 2. 首次准备
 
 ```bash
-cd /home/ar/rt-control-dev/robot
+cd /home/user/rt-control-dev/robot
 
 ./tools/bootstrap_native_dev.sh prepare
 ./tools/bootstrap_native_dev.sh install-deps
@@ -106,7 +107,7 @@ symlink install，输出都在仓库外。
 只改一个或少数包时：
 
 ```bash
-cd /home/ar/rt-control-dev/robot
+cd /home/user/rt-control-dev/robot
 
 ./tools/bootstrap_native_dev.sh build \
   --packages-select <本次修改的包>
@@ -157,7 +158,7 @@ topic 所有权和 QoS 仍需按公共契约管理。
 先做只读门禁：
 
 ```bash
-cd /home/ar/rt-control-dev/robot
+cd /home/user/rt-control-dev/robot
 ./tools/rt_control_native.sh doctor
 ./tools/rt_control_native.sh status
 ```

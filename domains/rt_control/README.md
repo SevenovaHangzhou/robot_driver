@@ -71,7 +71,8 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
-目标工控机的日常开发使用独立工作区 `/home/ar/rt-control-dev`，由
+目标工控机 `user@localhost`（管理地址 `192.168.0.250`）的日常开发使用独立工作区
+`/home/user/rt-control-dev`，由
 [`bootstrap_native_dev.sh`](../../tools/bootstrap_native_dev.sh) 管理冻结依赖和增量构建，
 由 [`rt_control_native.sh`](../../tools/rt_control_native.sh) 管理真实硬件进程。原生运行与
 Docker 运行互斥；Docker 继续作为里程碑发布、回归和交付载体。详见
