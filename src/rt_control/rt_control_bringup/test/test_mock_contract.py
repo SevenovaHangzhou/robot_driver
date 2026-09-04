@@ -50,7 +50,7 @@ from rclpy.qos import (
 
 from diagnostic_msgs.msg import DiagnosticArray  # noqa: F401 (documents type)
 from robot_rt_control_interfaces.msg import SafetyState, VacuumState
-from robot_interfaces_qos import control, fast_state, latched, state
+from robot_interfaces_qos import control, diagnostic, fast_state, latched, state
 from robot_system_interfaces.msg import DomainReadiness
 from sensor_msgs.msg import JointState
 
@@ -308,6 +308,32 @@ class TestMockContract(unittest.TestCase):
         see module header / BQ-132).
         """
         self._assert_endpoints_present(PUBLIC_STATE_ENDPOINTS)
+
+    def test_hardware_health_summaries_are_published(self):
+        """The status adapter consumes stable summaries, not hardware topology."""
+        observed_names = set()
+
+        def _capture(message):
+            observed_names.update(status.name for status in message.status)
+
+        subscription = self.node.create_subscription(
+            DiagnosticArray, "/diagnostics", _capture, diagnostic()
+        )
+        deadline = time.monotonic() + 10.0
+        expected = {
+            "/robot/rt_control/ethercat/summary",
+            "/robot/rt_control/canopen/summary",
+        }
+        try:
+            while time.monotonic() < deadline and not expected <= observed_names:
+                self.executor.spin_once(timeout_sec=0.2)
+        finally:
+            self.node.destroy_subscription(subscription)
+
+        self.assertTrue(
+            expected <= observed_names,
+            msg=f"missing hardware summaries: {sorted(expected - observed_names)}",
+        )
 
     # -- TC-RO-02: removed endpoints must not exist ------------------------
 
