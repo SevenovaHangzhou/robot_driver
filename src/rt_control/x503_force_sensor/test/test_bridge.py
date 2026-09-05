@@ -119,3 +119,17 @@ def test_malformed_sample_code_snapshot_fails_closed():
     }
     snapshot = calibration_from_values(values)
     assert not snapshot.sample_validity_confirmed
+
+
+def test_out_of_range_unit_code_fails_closed():
+    values = {
+        **{f"decimal_{index}": "1" for index in range(1, 7)},
+        **{f"unit_{index}": "1" for index in range(1, 6)},
+        "unit_6": str(2**32),
+        "snapshot_valid": "true",
+        "engineering_unit_contract": CONFIRMED_ENGINEERING_UNIT_CONTRACT,
+        "validity_policy": "sample_codes_equal",
+        **{f"valid_sample_code_{index}": str(index) for index in range(1, 7)},
+    }
+    snapshot = calibration_from_values(values)
+    assert not snapshot.engineering_units_valid

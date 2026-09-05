@@ -41,6 +41,7 @@ class CalibrationSnapshot:
             and len(self.decimals) == 6
             and len(self.units) == 6
             and all(0 <= decimal <= 9 for decimal in self.decimals)
+            and all(0 <= unit <= 0xFFFFFFFF for unit in self.units)
             and self.engineering_unit_contract
             == CONFIRMED_ENGINEERING_UNIT_CONTRACT
         )
@@ -50,6 +51,10 @@ class CalibrationSnapshot:
         return (
             self.validity_policy == "sample_codes_equal"
             and len(self.valid_sample_codes) == 6
+            and all(
+                -2147483648 <= code <= 2147483647
+                for code in self.valid_sample_codes
+            )
         )
 
 
