@@ -31,7 +31,7 @@ def main(args=None) -> int:
     from rcl_interfaces.msg import ParameterDescriptor
     from rclpy.node import Node
     from rclpy.parameter import Parameter
-    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+    from robot_interfaces_qos import fast_state, latched
     from std_msgs.msg import Int32MultiArray
 
     class X503WrenchBridge(Node):
@@ -95,21 +95,16 @@ def main(args=None) -> int:
             }
             self._wrench_publishers = {
                 config.sensor_name: self.create_publisher(
-                    WrenchStamped, config.wrench_topic, 10
+                    WrenchStamped, config.wrench_topic, fast_state()
                 )
                 for config in self._configs
             }
             self._raw_publishers = {
                 config.sensor_name: self.create_publisher(
-                    Int32MultiArray, config.raw_topic, 10
+                    Int32MultiArray, config.raw_topic, fast_state()
                 )
                 for config in self._configs
             }
-            calibration_qos = QoSProfile(
-                depth=1,
-                reliability=ReliabilityPolicy.RELIABLE,
-                durability=DurabilityPolicy.TRANSIENT_LOCAL,
-            )
             dynamic_topic = self.declare_parameter(
                 "dynamic_joint_states_topic",
                 "/rt_internal_state_broadcaster/dynamic_joint_states",
@@ -124,7 +119,7 @@ def main(args=None) -> int:
                 DiagnosticArray,
                 calibration_topic,
                 self._on_calibration,
-                calibration_qos,
+                latched(),
             )
 
         def _on_calibration(self, message: Any) -> None:

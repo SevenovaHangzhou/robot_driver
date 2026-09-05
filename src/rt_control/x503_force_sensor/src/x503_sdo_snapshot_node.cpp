@@ -16,6 +16,7 @@
 #include "diagnostic_msgs/msg/key_value.hpp"
 #include "ethercat_manager/ec_master_async.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "robot_interfaces_qos/profiles.hpp"
 #include "yaml-cpp/yaml.h"
 
 namespace x503_force_sensor
@@ -98,10 +99,8 @@ public:
     }
     loadReadbackConfig();
 
-    rclcpp::QoS qos(1);
-    qos.reliable();
-    qos.transient_local();
-    publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(calibration_topic_, qos);
+    publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      calibration_topic_, robot_interfaces_qos::latched());
     timer_ = create_wall_timer(
       std::chrono::milliseconds(retry_period_ms_),
       std::bind(&X503SdoSnapshotNode::tryRead, this));

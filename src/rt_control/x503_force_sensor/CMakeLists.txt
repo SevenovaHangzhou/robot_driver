@@ -5,6 +5,7 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(robot_interfaces_qos REQUIRED)
 find_package(yaml_cpp_vendor REQUIRED)
 
 find_path(
@@ -33,7 +34,13 @@ target_include_directories(
   "${ETHERCAT_MANAGER_INCLUDE_DIR}"
   "${ETHERLAB_INCLUDE_DIR}"
 )
-ament_target_dependencies(x503_sdo_snapshot diagnostic_msgs rclcpp yaml_cpp_vendor)
+ament_target_dependencies(
+  x503_sdo_snapshot
+  diagnostic_msgs
+  rclcpp
+  robot_interfaces_qos
+  yaml_cpp_vendor
+)
 install(TARGETS x503_sdo_snapshot DESTINATION lib/${PROJECT_NAME})
 
 ament_python_install_package(${PROJECT_NAME})
