@@ -13,14 +13,20 @@ from .bridge import (
 )
 
 
-def _key_values(status: Any) -> dict[str, str]:
-    return {item.key: item.value for item in status.values}
+def _key_values(status: Any) -> dict[str, str] | None:
+    values: dict[str, str] = {}
+    for item in status.values:
+        if not item.key or item.key in values:
+            return None
+        values[item.key] = item.value
+    return values
 
 
 def main(args=None) -> int:
     import rclpy
     from control_msgs.msg import DynamicJointState
     from diagnostic_msgs.msg import DiagnosticArray
+    from diagnostic_msgs.msg import DiagnosticStatus
     from geometry_msgs.msg import WrenchStamped
     from rclpy.node import Node
     from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
@@ -75,6 +81,9 @@ def main(args=None) -> int:
                 )
             )
             self._calibration: dict[str, CalibrationSnapshot] = {}
+            self._sensor_names = {
+                config.sensor_name for config in self._configs
+            }
             self._wrench_publishers = {
                 config.sensor_name: self.create_publisher(
                     WrenchStamped, config.wrench_topic, 10
@@ -111,11 +120,17 @@ def main(args=None) -> int:
 
         def _on_calibration(self, message: Any) -> None:
             for status in message.status:
-                snapshot = calibration_from_values(_key_values(status))
-                if status.hardware_id in {
-                    config.sensor_name for config in self._configs
-                }:
-                    self._calibration[status.hardware_id] = snapshot
+                if status.hardware_id not in self._sensor_names:
+                    continue
+                if status.level == DiagnosticStatus.ERROR:
+                    self._calibration[status.hardware_id] = CalibrationSnapshot(
+                        False, (), (), "unresolved"
+                    )
+                    continue
+                values = _key_values(status)
+                self._calibration[status.hardware_id] = (
+                    calibration_from_values(values or {})
+                )
 
         def _on_dynamic_state(self, message: Any) -> None:
             for config in self._configs:
@@ -135,7 +150,7 @@ def main(args=None) -> int:
                 if wrench is None:
                     continue
                 output = WrenchStamped()
-                output.header.stamp = message.header.stamp
+                output.header.stamp = self.get_clock().now().to_msg()
                 output.header.frame_id = config.frame_id
                 output.wrench.force.x = wrench[0]
                 output.wrench.force.y = wrench[1]

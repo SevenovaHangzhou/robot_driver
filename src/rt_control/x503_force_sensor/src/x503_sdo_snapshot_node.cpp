@@ -102,8 +102,15 @@ private:
       throw std::invalid_argument("unsupported X503B readback schema_version");
     }
     const auto readback = document["read_only_sdo"];
+    engineering_unit_contract_ = document["engineering_unit_contract"].as<std::string>();
     validity_policy_ = document["validity_policy"].as<std::string>();
     valid_sample_codes_ = document["valid_sample_codes"].as<std::vector<std::int64_t>>();
+    if (
+      engineering_unit_contract_ != "unresolved" &&
+      engineering_unit_contract_ != "force_N_torque_Nm")
+    {
+      throw std::invalid_argument("unsupported X503B engineering_unit_contract");
+    }
     if (validity_policy_ != "unresolved" && validity_policy_ != "sample_codes_equal") {
       throw std::invalid_argument("unsupported X503B validity_policy");
     }
@@ -113,10 +120,15 @@ private:
     sdo_index_ = readback["index"].as<std::uint16_t>();
     decimal_subindices_ = readback["decimal_subindices"].as<std::vector<std::uint8_t>>();
     unit_subindices_ = readback["unit_subindices"].as<std::vector<std::uint8_t>>();
-    expected_unit_codes_ = readback["expected_unit_codes"].as<std::vector<std::uint32_t>>();
+    if (readback["expected_unit_codes"]) {
+      expected_unit_codes_ =
+        readback["expected_unit_codes"].as<std::vector<std::uint32_t>>();
+    }
     if (
       decimal_subindices_.size() != 6U || unit_subindices_.size() != 6U ||
-      expected_unit_codes_.size() != 6U)
+      (!expected_unit_codes_.empty() && expected_unit_codes_.size() != 6U) ||
+      (engineering_unit_contract_ == "force_N_torque_Nm" &&
+      expected_unit_codes_.size() != 6U))
     {
       throw std::invalid_argument("X503B readback config must describe six channels");
     }
@@ -152,6 +164,7 @@ private:
     status.message = "X503B read-only SDO snapshot unavailable";
     status.values.push_back(key("slave_position", std::to_string(slave_position)));
     status.values.push_back(key("snapshot_valid", "false"));
+    status.values.push_back(key("engineering_unit_contract", engineering_unit_contract_));
     status.values.push_back(key("validity_policy", validity_policy_));
 
     std::array<std::uint32_t, 6U> decimals{};
@@ -164,7 +177,10 @@ private:
         if (!readUnsigned(master, slave_position, sdo_index_, unit_subindices_[channel], units[channel])) {
           return status;
         }
-        if (decimals[channel] > 9U || units[channel] != expected_unit_codes_[channel]) {
+        if (
+          decimals[channel] > 9U ||
+          (!expected_unit_codes_.empty() && units[channel] != expected_unit_codes_[channel]))
+        {
           return status;
         }
       }
@@ -173,15 +189,18 @@ private:
       return status;
     }
 
-    status.level = validity_policy_ == "sample_codes_equal"
+    status.level = engineering_unit_contract_ == "force_N_torque_Nm" &&
+      validity_policy_ == "sample_codes_equal"
       ? diagnostic_msgs::msg::DiagnosticStatus::OK
       : diagnostic_msgs::msg::DiagnosticStatus::WARN;
-    status.message = validity_policy_ == "sample_codes_equal"
+    status.message = engineering_unit_contract_ == "force_N_torque_Nm" &&
+      validity_policy_ == "sample_codes_equal"
       ? "X503B unit/decimal snapshot valid; shadow Wrench enabled"
-      : "X503B unit/decimal snapshot valid; sample validity policy unresolved";
+      : "X503B read-only snapshot valid; Wrench contract unresolved";
     status.values.clear();
     status.values.push_back(key("slave_position", std::to_string(slave_position)));
     status.values.push_back(key("snapshot_valid", "true"));
+    status.values.push_back(key("engineering_unit_contract", engineering_unit_contract_));
     status.values.push_back(key("validity_policy", validity_policy_));
     for (std::size_t channel = 0; channel < 6U; ++channel) {
       status.values.push_back(key("decimal_" + std::to_string(channel + 1U), std::to_string(decimals[channel])));
@@ -229,6 +248,7 @@ private:
   std::vector<std::string> sensor_names_;
   std::vector<int> slave_positions_;
   std::string calibration_topic_;
+  std::string engineering_unit_contract_;
   std::string validity_policy_;
   std::string readback_config_;
   std::uint16_t sdo_index_{};

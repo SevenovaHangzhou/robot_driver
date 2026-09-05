@@ -12,11 +12,12 @@ def test_only_unit_and_decimal_sdos_are_read():
         SOURCE.parents[2] / "robot_hw_ethercat/config/x503b_readback.yaml"
     ).read_text(encoding="utf-8")
     assert "index: 0x8005" in config
+    assert "engineering_unit_contract: unresolved" in config
     assert "validity_policy: unresolved" in config
     assert "valid_sample_codes: []" in config
     assert "decimal_subindices: [6, 7, 8, 9, 10, 11]" in config
     assert "unit_subindices: [12, 13, 14, 15, 16, 17]" in config
-    assert "expected_unit_codes: [5, 5, 5, 7, 7, 7]" in config
+    assert "expected_unit_codes" not in config
     assert "sdo_download" not in text
     assert "set_sdo" not in text
     assert "0x8001" not in text

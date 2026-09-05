@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from x503_force_sensor.bridge import (
     CalibrationSnapshot,
-    EXPECTED_UNITS,
+    CONFIRMED_ENGINEERING_UNIT_CONTRACT,
     calibration_from_values,
     convert_to_wrench,
     extract_sensor_frame,
@@ -48,7 +48,7 @@ def test_raw_values_do_not_become_wrench_without_readback():
     )
     assert frame is not None
     calibration = CalibrationSnapshot(
-        False, (1,) * 6, EXPECTED_UNITS, "unresolved"
+        False, (1,) * 6, (100,) * 6, "unresolved"
     )
     assert convert_to_wrench(frame, calibration) is None
 
@@ -62,9 +62,10 @@ def test_converts_only_validated_units_and_decimals():
     calibration = CalibrationSnapshot(
         True,
         (1, 1, 1, 2, 2, 2),
-        EXPECTED_UNITS,
+        (10, 11, 12, 13, 14, 15),
         "sample_codes_equal",
         (1, 2, 3, 4, 5, 6),
+        CONFIRMED_ENGINEERING_UNIT_CONTRACT,
     )
     assert convert_to_wrench(frame, calibration) == (
         10.0,
@@ -76,7 +77,7 @@ def test_converts_only_validated_units_and_decimals():
     )
 
 
-def test_rejects_wrong_unit_codes():
+def test_rejects_unconfirmed_engineering_unit_contract():
     frame = extract_sensor_frame(
         _message(list(range(1, 13))), "right_force_sensor"
     )
@@ -84,7 +85,7 @@ def test_rejects_wrong_unit_codes():
     calibration = CalibrationSnapshot(
         True,
         (0,) * 6,
-        (5, 5, 5, 5, 7, 7),
+        (5, 5, 5, 7, 7, 7),
         "sample_codes_equal",
         (1, 2, 3, 4, 5, 6),
     )
@@ -94,11 +95,9 @@ def test_rejects_wrong_unit_codes():
 def test_parses_calibration_snapshot_values():
     values = {
         **{f"decimal_{index}": "1" for index in range(1, 7)},
-        **{
-            f"unit_{index}": str(unit)
-            for index, unit in enumerate(EXPECTED_UNITS, 1)
-        },
+        **{f"unit_{index}": str(index) for index in range(1, 7)},
         "snapshot_valid": "true",
+        "engineering_unit_contract": CONFIRMED_ENGINEERING_UNIT_CONTRACT,
         "validity_policy": "sample_codes_equal",
         **{f"valid_sample_code_{index}": str(index) for index in range(1, 7)},
     }
@@ -110,11 +109,9 @@ def test_parses_calibration_snapshot_values():
 def test_malformed_sample_code_snapshot_fails_closed():
     values = {
         **{f"decimal_{index}": "1" for index in range(1, 7)},
-        **{
-            f"unit_{index}": str(unit)
-            for index, unit in enumerate(EXPECTED_UNITS, 1)
-        },
+        **{f"unit_{index}": str(index) for index in range(1, 7)},
         "snapshot_valid": "true",
+        "engineering_unit_contract": CONFIRMED_ENGINEERING_UNIT_CONTRACT,
         "validity_policy": "sample_codes_equal",
         **{
             f"valid_sample_code_{index}": "bad" for index in range(1, 7)

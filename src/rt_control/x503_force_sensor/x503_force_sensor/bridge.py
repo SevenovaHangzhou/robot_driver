@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 RAW_CHANNELS = tuple(f"channel_{index}_raw" for index in range(1, 7))
 SAMPLE_CHANNELS = tuple(f"sample_code_{index}_raw" for index in range(1, 7))
-EXPECTED_UNITS = (5, 5, 5, 7, 7, 7)
+CONFIRMED_ENGINEERING_UNIT_CONTRACT = "force_N_torque_Nm"
 
 
 @dataclass(frozen=True)
@@ -32,6 +32,7 @@ class CalibrationSnapshot:
     units: tuple[int, ...]
     validity_policy: str
     valid_sample_codes: tuple[int, ...] = ()
+    engineering_unit_contract: str = "unresolved"
 
     @property
     def engineering_units_valid(self) -> bool:
@@ -40,7 +41,8 @@ class CalibrationSnapshot:
             and len(self.decimals) == 6
             and len(self.units) == 6
             and all(0 <= decimal <= 9 for decimal in self.decimals)
-            and self.units == EXPECTED_UNITS
+            and self.engineering_unit_contract
+            == CONFIRMED_ENGINEERING_UNIT_CONTRACT
         )
 
     @property
@@ -132,7 +134,11 @@ def calibration_from_values(
         units = tuple(int(values[f"unit_{index}"]) for index in range(1, 7))
     except (KeyError, TypeError, ValueError):
         return CalibrationSnapshot(False, (), (), "unresolved")
-    valid = values.get("snapshot_valid", "false").lower() == "true"
+    snapshot_valid = values.get("snapshot_valid", "false")
+    valid = (
+        isinstance(snapshot_valid, str)
+        and snapshot_valid.lower() == "true"
+    )
     try:
         sample_codes = (
             tuple(
@@ -152,4 +158,7 @@ def calibration_from_values(
         units=units,
         validity_policy=values.get("validity_policy", "unresolved"),
         valid_sample_codes=sample_codes,
+        engineering_unit_contract=values.get(
+            "engineering_unit_contract", "unresolved"
+        ),
     )
