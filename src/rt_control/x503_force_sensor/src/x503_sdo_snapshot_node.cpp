@@ -64,6 +64,16 @@ public:
     if (sensor_names_.size() != slave_positions.size() || sensor_names_.empty()) {
       throw std::invalid_argument("X503B sensor_names and slave_positions must have equal nonzero size");
     }
+    std::vector<std::string> seen_sensor_names;
+    for (const auto & sensor_name : sensor_names_) {
+      if (sensor_name.empty() ||
+        std::find(seen_sensor_names.begin(), seen_sensor_names.end(), sensor_name) !=
+        seen_sensor_names.end())
+      {
+        throw std::invalid_argument("X503B sensor_names must be unique and nonempty");
+      }
+      seen_sensor_names.push_back(sensor_name);
+    }
     if (
       master_index < 0 || master_index > 65535 || retry_count < 1 || retry_period_ms < 1 ||
       retry_count > std::numeric_limits<int>::max() ||
@@ -77,6 +87,12 @@ public:
     for (const auto position : slave_positions) {
       if (position < 0 || position > 65534) {
         throw std::invalid_argument("X503B slave position is outside 0..65534");
+      }
+      if (
+        std::find(slave_positions_.begin(), slave_positions_.end(), position) !=
+        slave_positions_.end())
+      {
+        throw std::invalid_argument("X503B slave_positions must be unique");
       }
       slave_positions_.push_back(static_cast<int>(position));
     }

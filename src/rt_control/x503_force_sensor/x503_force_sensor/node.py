@@ -65,10 +65,23 @@ def main(args=None) -> int:
                 or len(sensor_names) != len(wrench_topics)
                 or len(sensor_names) != len(raw_topics)
                 or len(sensor_names) != len(frame_ids)
+                or len(sensor_names) != len(set(sensor_names))
+                or any(
+                    not isinstance(value, str)
+                    or not value
+                    or value != value.strip()
+                    for values in (
+                        sensor_names,
+                        wrench_topics,
+                        raw_topics,
+                        frame_ids,
+                    )
+                    for value in values
+                )
             ):
                 raise ValueError(
-                    "sensor_names/topics/raw_topics/frame_ids must have "
-                    "equal lengths"
+                    "sensor_names/topics/raw_topics/frame_ids must be "
+                    "nonempty, unique, trimmed, and equal-length"
                 )
             self._configs = tuple(
                 SensorConfig(name, wrench, raw, frame)
