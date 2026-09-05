@@ -11,7 +11,7 @@ risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no, sdo: no }
 verified: PARTIAL
 evidence:
-  - "x503_force_sensor package build and colcon test: 2 test targets / 9 cases, 0 failures"
+  - "x503_force_sensor package build and colcon test: 2 test targets / 10 cases, 0 failures"
   - "affected native-source build: 29 packages finished"
   - "affected colcon test-result: 1434 tests, 0 errors, 0 failures, 18 skipped"
   - "tools/quality_gate.sh: 214 passed"
@@ -45,7 +45,7 @@ related: [ecat-axes-20260902-01, BQ-143]
 ## 验证
 
 - `x503_force_sensor` package build：PASS；C++ snapshot executable 与 Python bridge 安装成功。
-- `colcon test --packages-select x503_force_sensor`：2 test targets / 9 cases，0 failures。
+- `colcon test --packages-select x503_force_sensor`：2 test targets / 10 cases，0 failures。
 - 受影响 native-source build：29 packages finished，0 failures。
 - 受影响全量 `colcon test-result`：1434 tests，0 errors，0 failures，18 skipped；Mock launch
   停机时 bridge cleanly exit。
