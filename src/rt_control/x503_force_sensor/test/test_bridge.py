@@ -110,7 +110,10 @@ def test_parses_calibration_snapshot_values():
 def test_malformed_sample_code_snapshot_fails_closed():
     values = {
         **{f"decimal_{index}": "1" for index in range(1, 7)},
-        **{f"unit_{index}": str(unit) for index, unit in enumerate(EXPECTED_UNITS, 1)},
+        **{
+            f"unit_{index}": str(unit)
+            for index, unit in enumerate(EXPECTED_UNITS, 1)
+        },
         "snapshot_valid": "true",
         "validity_policy": "sample_codes_equal",
         **{
