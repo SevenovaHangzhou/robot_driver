@@ -234,6 +234,7 @@ private:
   {
     if (attempts_ >= retry_count_) {
       timer_->cancel();
+      rclcpp::shutdown();
       return;
     }
     ++attempts_;
@@ -291,6 +292,8 @@ int main(int argc, char ** argv)
     rclcpp::shutdown();
     return 2;
   }
-  rclcpp::shutdown();
+  if (rclcpp::ok()) {
+    rclcpp::shutdown();
+  }
   return 0;
 }
