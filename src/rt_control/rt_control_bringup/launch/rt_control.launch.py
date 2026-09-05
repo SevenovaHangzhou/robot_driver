@@ -197,6 +197,7 @@ def _launch_setup(context):
                             "/rt_internal_state_broadcaster/dynamic_joint_states"
                         ),
                         "calibration_topic": "/rt_control/x503b/calibration",
+                        "use_sim_time": use_sim_time,
                     }
                 ],
                 condition=IfCondition(
@@ -219,6 +220,7 @@ def _launch_setup(context):
                             ]
                         ),
                         "calibration_topic": "/rt_control/x503b/calibration",
+                        "use_sim_time": use_sim_time,
                     }
                 ],
                 condition=IfCondition(
