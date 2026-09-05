@@ -173,7 +173,15 @@ def test_descriptor_has_the_frozen_public_schema_and_topology() -> None:
         for sensor in descriptor["sensors"]
     ) == X503_SENSORS
     assert all(
-        tuple(sensor) == ("sensor_name", "family", "ring_position", "profile")
+        set(sensor) == {
+            "sensor_name",
+            "family",
+            "ring_position",
+            "profile",
+            "wrench_topic",
+            "raw_topic",
+            "frame_id",
+        }
         and sensor["family"] == "x503"
         for sensor in descriptor["sensors"]
     )
