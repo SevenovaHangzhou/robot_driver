@@ -42,7 +42,7 @@ related: [ecat-axes-20260902-01]
 ## 验证
 
 - `x503_force_sensor` package build：PASS；C++ snapshot executable 与 Python bridge 安装成功。
-- `colcon test --packages-select x503_force_sensor`：10 tests，0 failures。
+- `colcon test --packages-select x503_force_sensor`：11 aggregate tests，0 failures。
 - 无设备 SDO snapshot smoke：读取配置文件成功；`/dev/EtherCAT0` 缺失时在有界重试后退出，
   未调用任何 SDO write 路径。
 - X503 bridge pure tests：raw frame 完整性、非整数拒绝、单位/小数转换、错误单位拒绝、
