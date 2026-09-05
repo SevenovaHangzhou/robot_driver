@@ -68,7 +68,11 @@ class SensorFrame:
 def _exact_int(value: Any) -> int | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    if not math.isfinite(float(value)) or int(value) != value:
+    try:
+        numeric = float(value)
+    except OverflowError:
+        return None
+    if not math.isfinite(numeric) or int(numeric) != value:
         return None
     integer = int(value)
     if integer < -2147483648 or integer > 2147483647:

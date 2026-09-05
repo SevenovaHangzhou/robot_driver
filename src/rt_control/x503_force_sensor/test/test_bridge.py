@@ -40,6 +40,8 @@ def test_rejects_partial_or_non_integral_frame():
     values = list(range(1, 13))
     values[2] = 1.5
     assert extract_sensor_frame(_message(values), "right_force_sensor") is None
+    values[2] = 10**400
+    assert extract_sensor_frame(_message(values), "right_force_sensor") is None
 
 
 def test_accepts_signed_dint_boundaries():
