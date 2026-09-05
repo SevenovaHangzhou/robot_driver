@@ -2467,3 +2467,19 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   使能后 WC 均为 48/48、lost 维持 390，14 轴 OperationEnabled，session 保持 running/enabled。
   该 T3 证据闭合本次调度纠错，但不替代仍待执行的代表性导航/GPU 负载、RT throttling 与长期
   CAN heartbeat-gap 验收；Docker/main 封装由 PR CI 补齐。
+
+## BQ-143 — X503B 工程单位、sample-code 有效性与 FT  frame 尚未确认 [BLOCKED 2026-09-06]
+
+- Evidence：当前 X503B profile 只冻结了 `0x6000:01..06`/`0x6000:10..15` 的 PDO 位置，
+  并明确标记通道语义、工程单位和缩放仍 unresolved。尚无权威证据把 `0x8005:12..17`
+  的实际单位码逐项映射为 N/N·m，也没有 sample-code 有效值策略或左右传感器的 TF
+  配对记录；`right_ft_sensor_link`/`left_ft_sensor_link` 仅是待确认接口名。
+- Decision：ELECTRI-116 当前只交付同一 PDO frame 的 raw shadow 与只读 SDO 快照，SDO
+  读取严格限于 `0x8005:06..11` 小数位和 `0x8005:12..17` 单位；禁止任何 SDO 写入、
+  置零、存储或把过载上限当换算比例。`WrenchStamped` 必须等硬件/模型 owner 提供
+  六个单位码、实际小数位解释、sample-code 有效性和 TF 证据后再打开。
+- Unblocked scope：raw `Int32MultiArray` 影子采集、离线 Mock、构建和契约测试继续；
+  当前 `engineering_unit_contract` 与 `validity_policy` 保持 `unresolved`，不发布正常
+  工程量样本。
+- Verification boundary：目标机只读 SDO/身份/PDO 现场复核需单独维护窗口授权；本裁决
+  不授权打开 EtherCAT 读回节点、reset、enable、运动或 PLC 写入。
