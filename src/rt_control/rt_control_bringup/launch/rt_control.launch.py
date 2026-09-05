@@ -182,6 +182,50 @@ def _launch_setup(context):
         parameters=[rt_io_file],
         condition=IfCondition(start_bms),
     )
+    x503_parameters = hardware_composition.x503_parameters()
+    x503_nodes = []
+    if x503_parameters["sensor_names"]:
+        x503_nodes = [
+            Node(
+                package="x503_force_sensor",
+                executable="x503_wrench_bridge",
+                output="both",
+                parameters=[
+                    {
+                        **x503_parameters,
+                        "dynamic_joint_states_topic": (
+                            "/rt_internal_state_broadcaster/dynamic_joint_states"
+                        ),
+                        "calibration_topic": "/rt_control/x503b/calibration",
+                    }
+                ],
+                condition=IfCondition(
+                    LaunchConfiguration("start_x503_force_sensor")
+                ),
+            ),
+            Node(
+                package="x503_force_sensor",
+                executable="x503_sdo_snapshot",
+                output="both",
+                parameters=[
+                    {
+                        "sensor_names": x503_parameters["sensor_names"],
+                        "slave_positions": x503_parameters["slave_positions"],
+                        "readback_config": PathJoinSubstitution(
+                            [
+                                FindPackageShare("robot_hw_ethercat"),
+                                "config",
+                                "x503b_readback.yaml",
+                            ]
+                        ),
+                        "calibration_topic": "/rt_control/x503b/calibration",
+                    }
+                ],
+                condition=IfCondition(
+                    LaunchConfiguration("start_x503_sdo_snapshot")
+                ),
+            ),
+        ]
 
     active_controller_names = (
         "joint_state_broadcaster",
@@ -254,6 +298,7 @@ def _launch_setup(context):
         rt_status_adapter,
         plc,
         bms,
+        *x503_nodes,
         *spawner_handlers,
         active_spawners[0],
     ]
@@ -276,6 +321,18 @@ def generate_launch_description():
                 "start_bms",
                 default_value=EnvironmentVariable(
                     "RT_CONTROL_START_BMS", default_value="false"
+                ),
+            ),
+            DeclareLaunchArgument(
+                "start_x503_force_sensor",
+                default_value=EnvironmentVariable(
+                    "RT_CONTROL_START_X503_FORCE_SENSOR", default_value="true"
+                ),
+            ),
+            DeclareLaunchArgument(
+                "start_x503_sdo_snapshot",
+                default_value=EnvironmentVariable(
+                    "RT_CONTROL_START_X503_SDO_SNAPSHOT", default_value="false"
                 ),
             ),
             OpaqueFunction(function=_launch_setup),

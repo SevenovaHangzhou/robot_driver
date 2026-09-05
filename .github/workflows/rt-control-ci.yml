@@ -54,6 +54,7 @@ jobs:
     timeout-minutes: 30
     env:
       RT_CONTROL_NATIVE_WS: /tmp/rt-control-ci-ws
+      X503_ETHERCAT_MANAGER_INCLUDE_DIR: /tmp/rt-control-ci-ws/src/vendor/ecat_icube/ethercat_manager/include
     steps:
       - uses: actions/checkout@v4
         with:
@@ -130,6 +131,7 @@ jobs:
             robot_hw_canopen
             enable_manager
             rt_diagnostics
+            x503_force_sensor
             rt_control_bringup
           )
           mapfile -t dependency_paths < <(
@@ -173,6 +175,7 @@ jobs:
             robot_hw_canopen \
             enable_manager \
             rt_diagnostics \
+            x503_force_sensor \
             rt_control_bringup
       - name: Test
         shell: bash
@@ -198,6 +201,7 @@ jobs:
             robot_hw_canopen \
             enable_manager \
             rt_diagnostics \
+            x503_force_sensor \
             rt_control_bringup
           colcon test-result --verbose
       - name: Validate shared robot description

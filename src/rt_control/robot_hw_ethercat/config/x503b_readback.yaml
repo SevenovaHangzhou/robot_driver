@@ -1,0 +1,9 @@
+schema_version: 1
+profile: x503b_v1
+validity_policy: unresolved
+valid_sample_codes: []
+read_only_sdo:
+  index: 0x8005
+  decimal_subindices: [6, 7, 8, 9, 10, 11]
+  unit_subindices: [12, 13, 14, 15, 16, 17]
+  expected_unit_codes: [5, 5, 5, 7, 7, 7]

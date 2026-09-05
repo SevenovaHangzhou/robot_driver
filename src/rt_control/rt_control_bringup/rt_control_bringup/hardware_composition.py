@@ -67,6 +67,9 @@ class EthercatAxis:
 class EthercatSensor:
     sensor_name: str
     ring_position: int
+    wrench_topic: str = ""
+    raw_topic: str = ""
+    frame_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -111,6 +114,17 @@ class HardwareComposition:
             ],
             "ethercat_expected_responders": self.ethercat.expected_responders,
             "canopen_node_ids": [node.node_id for node in self.canopen.nodes],
+        }
+
+    def x503_parameters(self) -> dict[str, Any]:
+        """Return descriptor-owned X503 ROS bridge metadata."""
+        sensors = [sensor for sensor in self.ethercat.sensors if sensor.wrench_topic]
+        return {
+            "sensor_names": [sensor.sensor_name for sensor in sensors],
+            "wrench_topics": [sensor.wrench_topic for sensor in sensors],
+            "raw_topics": [sensor.raw_topic for sensor in sensors],
+            "frame_ids": [sensor.frame_id for sensor in sensors],
+            "slave_positions": [sensor.ring_position for sensor in sensors],
         }
 
 
@@ -332,7 +346,26 @@ def _parse_ethercat_variant(path: str | Path) -> EthercatComposition:
             )
         resource_names.add(sensor_name)
         ring_positions.add(ring_position)
-        sensors.append(EthercatSensor(sensor_name, ring_position))
+        wrench_topic = ""
+        raw_topic = ""
+        frame_id = ""
+        if "wrench_topic" in sensor:
+            wrench_topic = _trimmed_string(
+                sensor["wrench_topic"], sensor_path + ("wrench_topic",)
+            )
+        if "raw_topic" in sensor:
+            raw_topic = _trimmed_string(
+                sensor["raw_topic"], sensor_path + ("raw_topic",)
+            )
+        if "frame_id" in sensor:
+            frame_id = _trimmed_string(
+                sensor["frame_id"], sensor_path + ("frame_id",)
+            )
+        if bool(wrench_topic) != bool(raw_topic) or bool(wrench_topic) != bool(frame_id):
+            raise HardwareCompositionError(
+                f"{_path(sensor_path)} X503 ROS metadata must provide wrench_topic, raw_topic and frame_id together"
+            )
+        sensors.append(EthercatSensor(sensor_name, ring_position, wrench_topic, raw_topic, frame_id))
 
     for index, raw_responder in enumerate(raw_extra):
         responder_path = (descriptor_path.name, "extra_responders", index)

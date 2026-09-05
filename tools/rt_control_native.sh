@@ -383,6 +383,7 @@ verify_runtime_dependency_closure()
     control_api_adapter \
     plc_node \
     rt_diagnostics \
+    x503_force_sensor \
     rt_control_bringup; do
     runtime_env ros2 pkg prefix "${package}" >/dev/null 2>&1 ||
       fail "native runtime dependency is not installed: ${package}; run tools/bootstrap_native_dev.sh build while stopped"

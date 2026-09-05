@@ -102,6 +102,19 @@ def test_canonical_variants_load_and_flatten_for_diagnostics() -> None:
         "ethercat_expected_responders": 18,
         "canopen_node_ids": [2, 3],
     }
+    assert composition.x503_parameters() == {
+        "sensor_names": ["right_force_sensor", "left_force_sensor"],
+        "wrench_topics": [
+            "/rt_control/right_x503b/wrench",
+            "/rt_control/left_x503b/wrench",
+        ],
+        "raw_topics": [
+            "/rt_control/right_x503b/raw",
+            "/rt_control/left_x503b/raw",
+        ],
+        "frame_ids": ["right_ft_sensor_link", "left_ft_sensor_link"],
+        "slave_positions": [14, 15],
+    }
 
 
 def test_launch_loads_selected_hardware_variants_before_nodes_and_only_wires_diagnostics(
@@ -128,6 +141,15 @@ def test_launch_loads_selected_hardware_variants_before_nodes_and_only_wires_dia
     class _FakeComposition:
         def diagnostics_parameters(self) -> dict[str, Any]:
             return copy.deepcopy(expected_parameters)
+
+        def x503_parameters(self) -> dict[str, Any]:
+            return {
+                "sensor_names": [],
+                "wrench_topics": [],
+                "raw_topics": [],
+                "frame_ids": [],
+                "slave_positions": [],
+            }
 
     class _RecordingNode(LaunchNode):
         def __init__(self, **kwargs: Any) -> None:
