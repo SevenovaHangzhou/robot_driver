@@ -28,47 +28,43 @@ def main(args=None) -> int:
     from diagnostic_msgs.msg import DiagnosticArray
     from diagnostic_msgs.msg import DiagnosticStatus
     from geometry_msgs.msg import WrenchStamped
+    from rcl_interfaces.msg import ParameterDescriptor
     from rclpy.node import Node
+    from rclpy.parameter import Parameter
     from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
     from std_msgs.msg import Int32MultiArray
 
     class X503WrenchBridge(Node):
         def __init__(self) -> None:
             super().__init__("x503_force_sensor_bridge")
+            string_array = ParameterDescriptor(
+                type=Parameter.Type.STRING_ARRAY.value
+            )
             sensor_names = list(
                 self.declare_parameter(
-                    "sensor_names", ["right_force_sensor", "left_force_sensor"]
+                    "sensor_names", None, string_array
                 ).value
+                or []
             )
             wrench_topics = list(
                 self.declare_parameter(
-                    "wrench_topics",
-                    [
-                        "/rt_control/right_x503b/wrench",
-                        "/rt_control/left_x503b/wrench",
-                    ],
+                    "wrench_topics", None, string_array
                 ).value
+                or []
             )
             raw_topics = list(
-                self.declare_parameter(
-                    "raw_topics",
-                    [
-                        "/rt_control/right_x503b/raw",
-                        "/rt_control/left_x503b/raw",
-                    ],
-                ).value
+                self.declare_parameter("raw_topics", None, string_array).value
+                or []
             )
             frame_ids = list(
-                self.declare_parameter(
-                    "frame_ids",
-                    ["right_ft_sensor_link", "left_ft_sensor_link"],
-                ).value
+                self.declare_parameter("frame_ids", None, string_array).value
+                or []
             )
-            if not (
-                len(sensor_names)
-                == len(wrench_topics)
-                == len(raw_topics)
-                == len(frame_ids)
+            if (
+                not sensor_names
+                or len(sensor_names) != len(wrench_topics)
+                or len(sensor_names) != len(raw_topics)
+                or len(sensor_names) != len(frame_ids)
             ):
                 raise ValueError(
                     "sensor_names/topics/raw_topics/frame_ids must have "
@@ -123,8 +119,8 @@ def main(args=None) -> int:
                 if status.hardware_id not in self._sensor_names:
                     continue
                 if status.level == DiagnosticStatus.ERROR:
-                    self._calibration[status.hardware_id] = CalibrationSnapshot(
-                        False, (), (), "unresolved"
+                    self._calibration[status.hardware_id] = (
+                        CalibrationSnapshot(False, (), (), "unresolved")
                     )
                     continue
                 values = _key_values(status)

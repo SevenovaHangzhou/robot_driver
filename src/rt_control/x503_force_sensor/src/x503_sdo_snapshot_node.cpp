@@ -52,9 +52,9 @@ public:
   {
     const auto master_index = declare_parameter<std::int64_t>("master_index", 0);
     sensor_names_ = declare_parameter<std::vector<std::string>>(
-      "sensor_names", {"right_force_sensor", "left_force_sensor"});
+      "sensor_names", std::vector<std::string>{});
     const auto slave_positions = declare_parameter<std::vector<std::int64_t>>(
-      "slave_positions", {14, 15});
+      "slave_positions", std::vector<std::int64_t>{});
     calibration_topic_ = declare_parameter<std::string>(
       "calibration_topic", "/rt_control/x503b/calibration");
     const auto retry_count = declare_parameter<std::int64_t>("retry_count", 20);
