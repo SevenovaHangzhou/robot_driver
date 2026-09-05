@@ -5,6 +5,7 @@ rt_cpu="14"
 mode="warn"
 samples=10
 interval="0.1"
+readonly pf_kthread_flag=$((0x00200000))
 
 usage()
 {
@@ -76,6 +77,20 @@ cpu_count()
   printf '%s\n' "${total}"
 }
 
+is_kernel_thread()
+{
+  local flags
+  local tid="$1"
+  [[ "${tid}" =~ ^[0-9]+$ && -r "/proc/${tid}/stat" ]] || return 1
+  # proc_pid_stat(5) field 9 exposes task flags. PF_KTHREAD is 0x00200000
+  # in Linux include/linux/sched.h; unlike /proc/<tid>/exe, this remains
+  # readable when procfs denies following the executable symlink.
+  flags="$(awk '{sub(/^.*\) /, ""); print $7; exit}' "/proc/${tid}/stat" 2>/dev/null)" ||
+    return 1
+  [[ "${flags}" =~ ^[0-9]+$ ]] || return 1
+  (( (flags & pf_kthread_flag) != 0 ))
+}
+
 is_whitelisted_rt_thread()
 {
   local comm="$1"
@@ -86,8 +101,8 @@ is_whitelisted_rt_thread()
       return 0
       ;;
     ktimers/*)
-      [[ "${comm}" == "ktimers/${rt_cpu}" && "${rtprio}" == "1" &&
-        ! -L "/proc/${tid}/exe" ]] && return 0
+      [[ "${comm}" == "ktimers/${rt_cpu}" && "${rtprio}" == "1" ]] &&
+        is_kernel_thread "${tid}" && return 0
       ;;
   esac
   return 1

@@ -37,9 +37,11 @@
 | 08#F2 | `lidar_main.STL` 使用 `base_link` 坐标和毫米单位，消费时必须使用 `0.001` 缩放 | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F2 | 有效 |
 | 08#F3 | `lidar_main` 变更不新增公共接口、不改变 odom TF 所有权或实时控制参数 | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F3 | 有效 |
 | 09#F1 | diagnostics topology 从所选 hardware descriptors 派生；公共 status adapter 只消费稳定总线 summary，不持有固定电机数组 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F3 | PASS（T1 Docker/Mock） |
+| 10#F1 | pinned `ros2_canopen` 的完整零值 error-reset EMCY 文本归一化为 cleared；其它非空或格式漂移继续 fail closed | [contract-20260904-01](records/2026-09-04-cleared-emcy-readiness.md)#F1-F2 | PASS（T3 Native；PR CI/Docker 待完成） |
 
 ## 记录索引（倒序）
 
+- 2026-09-04 [CANopen 零值 EMCY 归一化与 readiness 收口](records/2026-09-04-cleared-emcy-readiness.md) — corrective，PASS（T3 Native；PR CI/Docker 待完成）
 - 2026-09-02 [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](records/2026-09-02-lidar-main-tf.md) — feature，PARTIAL（T1；生产切换与消费者联合验证待完成）
 - 2026-08-19 [诊断拓扑组合与稳定摘要契约（未合并分支历史）](records/2026-08-19-diagnostic-composition-contract.md) — feature，历史 T1；当前由 09#F1 取代
 - 2026-08-28 [ROS Domain 由部署显式配置](records/2026-08-28-configurable-ros-domain.md) — decision，PASS（T1；native/Compose/Mock）
