@@ -13,7 +13,7 @@ verified: PARTIAL
 evidence:
   - "x503_force_sensor package build and colcon test: 2 test targets / 10 cases, 0 failures"
   - "affected native-source build: 29 packages finished"
-  - "affected colcon test-result: 1434 tests, 0 errors, 0 failures, 18 skipped"
+  - "affected colcon test-result: 1435 tests, 0 errors, 0 failures, 18 skipped"
   - "tools/quality_gate.sh: 214 passed"
   - "robot_hw_ethercat variant tests: 34 passed; rt_control_bringup composition tests: 46 passed"
 supersedes: []
@@ -47,7 +47,7 @@ related: [ecat-axes-20260902-01, BQ-143]
 - `x503_force_sensor` package build：PASS；C++ snapshot executable 与 Python bridge 安装成功。
 - `colcon test --packages-select x503_force_sensor`：2 test targets / 10 cases，0 failures。
 - 受影响 native-source build：29 packages finished，0 failures。
-- 受影响全量 `colcon test-result`：1434 tests，0 errors，0 failures，18 skipped；Mock launch
+- 受影响全量 `colcon test-result`：1435 tests，0 errors，0 failures，18 skipped；Mock launch
   停机时 bridge cleanly exit。
 - 无设备 SDO snapshot smoke：读取配置文件成功；`/dev/EtherCAT0` 缺失时在有界重试后退出，
   未调用任何 SDO write 路径。
