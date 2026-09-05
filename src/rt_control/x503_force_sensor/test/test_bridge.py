@@ -42,6 +42,27 @@ def test_rejects_partial_or_non_integral_frame():
     assert extract_sensor_frame(_message(values), "right_force_sensor") is None
 
 
+def test_accepts_signed_dint_boundaries():
+    values = [
+        -2147483648,
+        -1,
+        0,
+        1,
+        2147483647,
+        -42,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+    ]
+    frame = extract_sensor_frame(_message(values), "right_force_sensor")
+
+    assert frame is not None
+    assert frame.raw_values == tuple(values[:6])
+
+
 def test_raw_values_do_not_become_wrench_without_readback():
     frame = extract_sensor_frame(
         _message(list(range(1, 13))), "right_force_sensor"
