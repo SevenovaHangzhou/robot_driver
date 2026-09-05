@@ -16,10 +16,12 @@ IgH 安装与宿主（→ realtime-host）。
 | 01#F3 | X503 仅提供 raw state interface，不进入 14 轴使能、JTC 或公共 `/joint_states` | [ecat-axes-20260902-01](records/2026-09-02-add-dual-x503-profile-files.md)#F3 | PASS（静态/Mock） |
 | 02#F1 | `alfa_v1` descriptor 分离 14 个 axes、两台 state-only X503 sensors 与 Hub responders，并共同生成 real/mock 与诊断 topology | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock；实机仍沿用 01 的 PARTIAL） |
 | 03#F1 | 18 位环进入 Operation 后，Hub position 0 为 OP，Hub position 13 保持 PREOP；Native READY 门禁必须逐位验证，不能把两个 Hub 合并为同一状态假设。 | [ecat-axes-20260904-01](records/2026-09-04-hub-runtime-state-gate.md)#F1 | PASS（T2 现场只读；主线运行复验待维护窗口） |
+| 04#F1 | X503B raw shadow bridge 只消费 rt-control state frame；最小只读单位元数据为 `0x8005:06~11`/`0x8005:12~17`，validity 未确认时禁止 WrenchStamped | [ecat-axes-20260906-01](records/2026-09-06-electri-116-x503b-shadow-bridge.md)#F1-F3 | PARTIAL（T1；目标 SDO/validity/TF 待验） |
 
 ## 记录索引（倒序）
 
 - 2026-09-04 [Hub 0/13 运行态门禁修正](records/2026-09-04-hub-runtime-state-gate.md) — fix，PARTIAL（现场事实已确认；新 main 运行复验待维护窗口）
+- 2026-09-06 [ELECTRI-116 X503B raw shadow采集与只读单位元数据桥](records/2026-09-06-electri-116-x503b-shadow-bridge.md) — feature，PARTIAL（T1；目标 SDO/validity/TF 待验）
 - 2026-09-02 [双 X503 接入 18 位运行拓扑](records/2026-09-02-add-dual-x503-profile-files.md) — feature，PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验）
 - 2026-08-19 [EtherCAT 硬件包接管变体 Xacro（未合并分支历史）](records/2026-08-19-hardware-owned-variant-xacro.md) — feature，历史 T1；当前由 02#F1 取代
 

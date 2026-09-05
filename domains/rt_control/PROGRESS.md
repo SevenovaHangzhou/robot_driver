@@ -122,3 +122,4 @@
 | 2026-09-04 | io-power | [PLC 绑定接口切换为 eno1](docs/areas/io-power/records/2026-09-04-plc-interface-eno1.md) | PARTIAL（配置/测试；当前 PLC 未重启） |
 | 2026-09-04 | realtime-host | [ktimers procfs 身份判定纠错](docs/areas/realtime-host/records/2026-09-04-ktimers-procfs-corrective.md) | PASS（T3 Native；CPU14/FIFO79 与受控使能已验证，PR CI/Docker 待完成） |
 | 2026-09-04 | contract | [CANopen 零值 EMCY 归一化与 readiness 收口](docs/areas/contract/records/2026-09-04-cleared-emcy-readiness.md) | PASS（T3 Native；两轮 readiness HEALTHY/READY，PR CI/Docker 待完成） |
+| 2026-09-06 | ecat-axes | [ELECTRI-116 X503B raw shadow采集与只读单位元数据桥](docs/areas/ecat-axes/records/2026-09-06-electri-116-x503b-shadow-bridge.md) | PARTIAL（T1；目标 SDO/validity/TF 与 CI 待完成） |
