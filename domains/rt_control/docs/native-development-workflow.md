@@ -48,8 +48,8 @@ export RT_CONTROL_ROS_DOMAIN_ID=<本机器实例统一的 0..232>
 ./tools/rt_control_native_oneclick.sh
 ```
 
-它等价于 `./tools/rt_control_native.sh recover-power-loss`，会要求输入
-`RECOVER_RT_CONTROL_NATIVE`，随后按固定顺序执行：尽力停止旧原生会话、等待 EtherCAT
+它等价于 `./tools/rt_control_native.sh recover-power-loss`，是受控维护窗口下的无人值守恢复入口；
+调用方必须在执行前确认现场安全条件。随后按固定顺序执行：尽力停止旧原生会话、等待 EtherCAT
 回到 Idle/Inactive、启动新的原生控制栈、等待 enable-manager 进入 `IDLE` 或
 `fault_requires_reset`、确认 controller update 线程已被 pin 到 CPU14、只调用一次
 `/rt/reset_fault`、确认 14 个 EtherCAT 轴处于失能状态、在 `/rt/enable` 前再次确认
@@ -215,24 +215,24 @@ Native 包装器不是持久化 daemon。目标机的 SSH session cgroup 会在�
 
 该脚本是傻瓜式入口，内部调用 `recover-power-loss`。它会：
 
-1. 要求现场输入 `RECOVER_RT_CONTROL_NATIVE`。
-2. 如果旧原生会话仍存在，先尽力调用 `/rt/disable`，再请求 `rt_control_start` 有序退出。
-3. 等待 EtherCAT 主站确认 `Idle/Inactive`，避免上一轮控制栈残留。
-4. 启动新的原生控制栈。
-5. 等待控制栈暴露 `/rt/enable`，并完成 controller update 线程 CPU14 pin 门禁。
-6. 等待 enable-manager 进入 `IDLE` 或明确的 `fault_requires_reset`。
-7. 调用一次全组 `/rt/reset_fault`。
-8. 检查 14 个 EtherCAT 轴处于失能状态。
-9. 在 `/rt/enable` 前再次执行并验证 controller update 线程 CPU14 pin。
-10. 调用一次 `/rt/enable`。
-11. 检查 JTC、JSB、diff-drive、enable-manager、14 轴状态和 EtherCAT OP 状态。
+1. 如果旧原生会话仍存在，先尽力调用 `/rt/disable`，再请求 `rt_control_start` 有序退出。
+2. 等待 EtherCAT 主站确认 `Idle/Inactive`，避免上一轮控制栈残留。
+3. 启动新的原生控制栈。
+4. 等待控制栈暴露 `/rt/enable`，并完成 controller update 线程 CPU14 pin 门禁。
+5. 等待 enable-manager 进入 `IDLE` 或明确的 `fault_requires_reset`。
+6. 调用一次全组 `/rt/reset_fault`。
+7. 检查 14 个 EtherCAT 轴处于失能状态。
+8. 在 `/rt/enable` 前再次执行并验证 controller update 线程 CPU14 pin。
+9. 调用一次 `/rt/enable`。
+10. 检查 JTC、JSB、diff-drive、enable-manager、14 轴状态和 EtherCAT OP 状态。
 
 如果任一步失败，脚本会停止本次恢复会话并报错；它不会发送 FJT、`/cmd_vel_safe` 或 PLC 输出。
 
 与 Docker 路径（[one-command-start.md](one-command-start.md)）相比，原生序列多出第 5、9 两步
 controller update 线程 CPU14 pin 门禁——这是原生运行的有意差异，不是文档漂移。
 
-以上命令都保留真实硬件确认口令。原生脚本锁定当前工控机、实时内核、CPU14、
+普通 `start`/`start-and-enable` 保留真实硬件确认口令；`recover-power-loss` 是显式命名的
+无人值守恢复入口，不能在未审批的自动任务中调用。原生脚本锁定当前工控机、实时内核、CPU14、
 EtherCAT MAC，以及 ZLG PCIe-9140I 的 `10b5:9140` PCI 身份、`zpcican` 驱动和端口
 `dev_id`；L0 固定为 CANopen `can0`、L1 固定为 BMS `can1`，两路均设置为
 500 kbit/s、txqueuelen 128。硬件身份、端口数量或保留接口名任一不符即拒绝启动。
