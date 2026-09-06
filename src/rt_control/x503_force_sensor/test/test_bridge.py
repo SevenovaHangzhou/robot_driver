@@ -100,6 +100,30 @@ def test_converts_only_validated_units_and_decimals():
     )
 
 
+def test_accepts_the_manual_decimal_upper_bound():
+    frame = extract_sensor_frame(
+        _message([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]),
+        "right_force_sensor",
+    )
+    assert frame is not None
+    calibration = CalibrationSnapshot(
+        True,
+        (10, 10, 10, 10, 10, 10),
+        (5, 5, 5, 7, 7, 7),
+        "sample_codes_equal",
+        (1, 2, 3, 4, 5, 6),
+        CONFIRMED_ENGINEERING_UNIT_CONTRACT,
+    )
+    assert convert_to_wrench(frame, calibration) == (
+        1e-10,
+        2e-10,
+        3e-10,
+        4e-10,
+        5e-10,
+        6e-10,
+    )
+
+
 def test_rejects_unconfirmed_engineering_unit_contract():
     frame = extract_sensor_frame(
         _message(list(range(1, 13))), "right_force_sensor"

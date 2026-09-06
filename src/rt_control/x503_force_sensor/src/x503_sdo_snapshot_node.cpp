@@ -193,7 +193,7 @@ private:
           return status;
         }
         if (
-          decimals[channel] > 9U ||
+          decimals[channel] > 10U ||
           (!expected_unit_codes_.empty() && units[channel] != expected_unit_codes_[channel]))
         {
           return status;

@@ -1,12 +1,14 @@
 schema_version: 1
 profile: x503b_v1
-engineering_unit_contract: unresolved
+# X503-B V1.6: code 5=N, code 7=N.m.  Runtime still validates the
+# configured tuple with a read-only SDO snapshot before publishing WrenchStamped.
+engineering_unit_contract: force_N_torque_Nm
 validity_policy: unresolved
 valid_sample_codes: []
-# Unit-code meanings and sample-code validity are intentionally not inferred
-# until the hardware owner supplies read-only evidence.  A confirmed contract
-# must add its expected unit-code tuple before WrenchStamped can be enabled.
+# Unit-code meanings come from the X503-B V1.6 manual; sample-code validity is
+# still unresolved until the hardware owner supplies read-only evidence.
 read_only_sdo:
   index: 0x8005
   decimal_subindices: [6, 7, 8, 9, 10, 11]
   unit_subindices: [12, 13, 14, 15, 16, 17]
+  expected_unit_codes: [5, 5, 5, 7, 7, 7]
