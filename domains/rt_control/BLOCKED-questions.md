@@ -2472,13 +2472,15 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 - Evidence：用户提供的 X503-B V1.6 手册已明确 `0x6000:01..06` 是校准后 DINT、
   `0x6000:10..15` 是采样原码，`0x8005:06..11` 小数位范围为 `0..10`，单位码 `5=N`、
-  `7=N·m`。但手册不定义 sample-code 的有效性判据，也没有给出当前两台设备实际回读
-  的单位/小数位值或左右传感器 TF 配对记录。
+  `7=N·m`。手册未定义 sample-code 的新鲜度判据，也没有给出当前两台设备实际回读的
+  单位/小数位值或左右传感器 TF 配对记录。
 - Decision：ELECTRI-116 当前只交付同一 PDO frame 的 raw shadow 与只读 SDO 快照，SDO
   读取严格限于 `0x8005:06..11` 小数位和 `0x8005:12..17` 单位；禁止任何 SDO 写入、
   置零、存储或把过载上限当换算比例。硬件配置固定期望单位码 `[5,5,5,7,7,7]`，
-  但 `WrenchStamped` 必须等两台设备实际只读回读、sample-code 有效性和 TF 证据后再打开。
+  采样原码采用用户批准的范围假设：六路均在 `-999999..999999` 时视为当前帧可用；该
+  假设不承诺识别通讯中断后的冻结旧帧。`WrenchStamped` 仍必须等两台设备实际只读回读
+  和 TF 证据后再打开。
 - Unblocked scope：raw `Int32MultiArray` 影子采集、离线 Mock、构建和契约测试继续；
-  当前仅 `validity_policy` 保持 `unresolved`，实际回读未完成时仍不发布正常工程量样本。
+  当前 `validity_policy: sample_codes_in_range`，实际回读未完成时仍不发布正常工程量样本。
 - Verification boundary：目标机只读 SDO/身份/PDO 现场复核需单独维护窗口授权；本裁决
   不授权打开 EtherCAT 读回节点、reset、enable、运动或 PLC 写入。

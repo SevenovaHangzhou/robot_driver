@@ -124,6 +124,51 @@ def test_accepts_the_manual_decimal_upper_bound():
     )
 
 
+def test_accepts_sample_codes_in_the_manual_range():
+    frame = extract_sensor_frame(
+        _message([100, 200, 300, 400, 500, 600, 7, 8, 9, 10, 11, 12]),
+        "right_force_sensor",
+    )
+    assert frame is not None
+    calibration = CalibrationSnapshot(
+        True,
+        (1, 1, 1, 2, 2, 2),
+        (5, 5, 5, 7, 7, 7),
+        "sample_codes_in_range",
+        (),
+        CONFIRMED_ENGINEERING_UNIT_CONTRACT,
+        -999999,
+        999999,
+    )
+    assert convert_to_wrench(frame, calibration) == (
+        10.0,
+        20.0,
+        30.0,
+        4.0,
+        5.0,
+        6.0,
+    )
+
+
+def test_rejects_sample_codes_outside_the_manual_range():
+    frame = extract_sensor_frame(
+        _message([100, 200, 300, 400, 500, 600, 7, 8, 9, 10, 11, 12]),
+        "right_force_sensor",
+    )
+    assert frame is not None
+    calibration = CalibrationSnapshot(
+        True,
+        (1, 1, 1, 2, 2, 2),
+        (5, 5, 5, 7, 7, 7),
+        "sample_codes_in_range",
+        (),
+        CONFIRMED_ENGINEERING_UNIT_CONTRACT,
+        -5,
+        5,
+    )
+    assert convert_to_wrench(frame, calibration) is None
+
+
 def test_rejects_unconfirmed_engineering_unit_contract():
     frame = extract_sensor_frame(
         _message(list(range(1, 13))), "right_force_sensor"

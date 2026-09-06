@@ -13,8 +13,10 @@ def test_only_unit_and_decimal_sdos_are_read():
     ).read_text(encoding="utf-8")
     assert "index: 0x8005" in config
     assert "engineering_unit_contract: force_N_torque_Nm" in config
-    assert "validity_policy: unresolved" in config
+    assert "validity_policy: sample_codes_in_range" in config
     assert "valid_sample_codes: []" in config
+    assert "sample_code_min: -999999" in config
+    assert "sample_code_max: 999999" in config
     assert "decimal_subindices: [6, 7, 8, 9, 10, 11]" in config
     assert "unit_subindices: [12, 13, 14, 15, 16, 17]" in config
     assert "expected_unit_codes: [5, 5, 5, 7, 7, 7]" in config
@@ -29,4 +31,5 @@ def test_unit_contract_is_fail_closed():
     text = SOURCE.read_text(encoding="utf-8")
     assert "expected_unit_codes_" in text
     assert "decimals[channel] > 10U" in text
+    assert "sample_codes_in_range" in text
     assert "snapshot_valid" in text

@@ -3,10 +3,12 @@ profile: x503b_v1
 # X503-B V1.6: code 5=N, code 7=N.m.  Runtime still validates the
 # configured tuple with a read-only SDO snapshot before publishing WrenchStamped.
 engineering_unit_contract: force_N_torque_Nm
-validity_policy: unresolved
+validity_policy: sample_codes_in_range
 valid_sample_codes: []
-# Unit-code meanings come from the X503-B V1.6 manual; sample-code validity is
-# still unresolved until the hardware owner supplies read-only evidence.
+# Unit-code meanings come from the X503-B V1.6 manual.  The validity policy is
+# an explicit user-approved range assumption, not a claim that it detects stale frames.
+sample_code_min: -999999
+sample_code_max: 999999
 read_only_sdo:
   index: 0x8005
   decimal_subindices: [6, 7, 8, 9, 10, 11]

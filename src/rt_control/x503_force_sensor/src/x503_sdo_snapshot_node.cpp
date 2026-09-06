@@ -120,17 +120,29 @@ private:
     engineering_unit_contract_ = document["engineering_unit_contract"].as<std::string>();
     validity_policy_ = document["validity_policy"].as<std::string>();
     valid_sample_codes_ = document["valid_sample_codes"].as<std::vector<std::int64_t>>();
+    sample_code_min_ = document["sample_code_min"].as<std::int64_t>();
+    sample_code_max_ = document["sample_code_max"].as<std::int64_t>();
     if (
       engineering_unit_contract_ != "unresolved" &&
       engineering_unit_contract_ != "force_N_torque_Nm")
     {
       throw std::invalid_argument("unsupported X503B engineering_unit_contract");
     }
-    if (validity_policy_ != "unresolved" && validity_policy_ != "sample_codes_equal") {
+    if (
+      validity_policy_ != "unresolved" && validity_policy_ != "sample_codes_equal" &&
+      validity_policy_ != "sample_codes_in_range")
+    {
       throw std::invalid_argument("unsupported X503B validity_policy");
     }
     if (validity_policy_ == "sample_codes_equal" && valid_sample_codes_.size() != 6U) {
       throw std::invalid_argument("sample_codes_equal requires six valid_sample_codes");
+    }
+    if (
+      sample_code_min_ < std::numeric_limits<std::int32_t>::min() ||
+      sample_code_max_ > std::numeric_limits<std::int32_t>::max() ||
+      sample_code_min_ > sample_code_max_)
+    {
+      throw std::invalid_argument("invalid X503B sample-code range");
     }
     sdo_index_ = readback["index"].as<std::uint16_t>();
     decimal_subindices_ = readback["decimal_subindices"].as<std::vector<std::uint8_t>>();
@@ -181,6 +193,8 @@ private:
     status.values.push_back(key("snapshot_valid", "false"));
     status.values.push_back(key("engineering_unit_contract", engineering_unit_contract_));
     status.values.push_back(key("validity_policy", validity_policy_));
+    status.values.push_back(key("sample_code_min", std::to_string(sample_code_min_)));
+    status.values.push_back(key("sample_code_max", std::to_string(sample_code_max_)));
 
     std::array<std::uint32_t, 6U> decimals{};
     std::array<std::uint32_t, 6U> units{};
@@ -205,11 +219,11 @@ private:
     }
 
     status.level = engineering_unit_contract_ == "force_N_torque_Nm" &&
-      validity_policy_ == "sample_codes_equal"
+      validity_policy_ != "unresolved"
       ? diagnostic_msgs::msg::DiagnosticStatus::OK
       : diagnostic_msgs::msg::DiagnosticStatus::WARN;
     status.message = engineering_unit_contract_ == "force_N_torque_Nm" &&
-      validity_policy_ == "sample_codes_equal"
+      validity_policy_ != "unresolved"
       ? "X503B unit/decimal snapshot valid; shadow Wrench enabled"
       : "X503B read-only snapshot valid; Wrench contract unresolved";
     status.values.clear();
@@ -217,6 +231,8 @@ private:
     status.values.push_back(key("snapshot_valid", "true"));
     status.values.push_back(key("engineering_unit_contract", engineering_unit_contract_));
     status.values.push_back(key("validity_policy", validity_policy_));
+    status.values.push_back(key("sample_code_min", std::to_string(sample_code_min_)));
+    status.values.push_back(key("sample_code_max", std::to_string(sample_code_max_)));
     for (std::size_t channel = 0; channel < 6U; ++channel) {
       status.values.push_back(key("decimal_" + std::to_string(channel + 1U), std::to_string(decimals[channel])));
       status.values.push_back(key("unit_" + std::to_string(channel + 1U), std::to_string(units[channel])));
@@ -272,6 +288,8 @@ private:
   std::vector<std::uint8_t> unit_subindices_;
   std::vector<std::uint32_t> expected_unit_codes_;
   std::vector<std::int64_t> valid_sample_codes_;
+  std::int64_t sample_code_min_{};
+  std::int64_t sample_code_max_{};
   int retry_count_{};
   int retry_period_ms_{};
   int attempts_{};

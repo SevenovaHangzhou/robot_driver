@@ -33,6 +33,8 @@ class CalibrationSnapshot:
     validity_policy: str
     valid_sample_codes: tuple[int, ...] = ()
     engineering_unit_contract: str = "unresolved"
+    sample_code_min: int = -2147483648
+    sample_code_max: int = 2147483647
 
     @property
     def engineering_units_valid(self) -> bool:
@@ -48,14 +50,21 @@ class CalibrationSnapshot:
 
     @property
     def sample_validity_confirmed(self) -> bool:
-        return (
-            self.validity_policy == "sample_codes_equal"
-            and len(self.valid_sample_codes) == 6
-            and all(
-                -2147483648 <= code <= 2147483647
-                for code in self.valid_sample_codes
+        if self.validity_policy == "sample_codes_equal":
+            return (
+                len(self.valid_sample_codes) == 6
+                and all(
+                    -2147483648 <= code <= 2147483647
+                    for code in self.valid_sample_codes
+                )
             )
-        )
+        if self.validity_policy == "sample_codes_in_range":
+            return (
+                -2147483648 <= self.sample_code_min <= self.sample_code_max
+                <= 2147483647
+                and len(self.valid_sample_codes) == 0
+            )
+        return False
 
 
 @dataclass(frozen=True)
@@ -120,8 +129,18 @@ def convert_to_wrench(
     if (
         not calibration.engineering_units_valid
         or not calibration.sample_validity_confirmed
-        or frame.sample_codes != calibration.valid_sample_codes
     ):
+        return None
+    if calibration.validity_policy == "sample_codes_equal":
+        if frame.sample_codes != calibration.valid_sample_codes:
+            return None
+    elif calibration.validity_policy == "sample_codes_in_range":
+        if not all(
+            calibration.sample_code_min <= code <= calibration.sample_code_max
+            for code in frame.sample_codes
+        ):
+            return None
+    else:
         return None
     scale = tuple(10.0 ** (-decimal) for decimal in calibration.decimals)
     values = tuple(
@@ -148,6 +167,7 @@ def calibration_from_values(
         isinstance(snapshot_valid, str)
         and snapshot_valid.lower() == "true"
     )
+    validity_policy = values.get("validity_policy", "unresolved")
     try:
         sample_codes = (
             tuple(
@@ -161,13 +181,24 @@ def calibration_from_values(
         )
     except (TypeError, ValueError):
         sample_codes = ()
+    if validity_policy == "sample_codes_in_range":
+        try:
+            sample_code_min = int(values["sample_code_min"])
+            sample_code_max = int(values["sample_code_max"])
+        except (KeyError, TypeError, ValueError):
+            return CalibrationSnapshot(False, (), (), "unresolved")
+    else:
+        sample_code_min = -2147483648
+        sample_code_max = 2147483647
     return CalibrationSnapshot(
         valid=valid,
         decimals=decimals,
         units=units,
-        validity_policy=values.get("validity_policy", "unresolved"),
+        validity_policy=validity_policy,
         valid_sample_codes=sample_codes,
         engineering_unit_contract=values.get(
             "engineering_unit_contract", "unresolved"
         ),
+        sample_code_min=sample_code_min,
+        sample_code_max=sample_code_max,
     )
