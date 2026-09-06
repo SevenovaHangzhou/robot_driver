@@ -40,7 +40,7 @@ class CalibrationSnapshot:
             self.valid
             and len(self.decimals) == 6
             and len(self.units) == 6
-            and all(0 <= decimal <= 9 for decimal in self.decimals)
+            and all(0 <= decimal <= 10 for decimal in self.decimals)
             and all(0 <= unit <= 0xFFFFFFFF for unit in self.units)
             and self.engineering_unit_contract
             == CONFIRMED_ENGINEERING_UNIT_CONTRACT
