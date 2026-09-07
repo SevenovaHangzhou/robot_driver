@@ -141,6 +141,7 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
+ENV X503_ETHERCAT_MANAGER_INCLUDE_DIR="/opt/rt_control_ws/src/vendor/ecat_icube/ethercat_manager/include"
 
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && source /opt/ros/humble/setup.bash \
@@ -171,6 +172,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       robot_hw_canopen \
       enable_manager \
       rt_diagnostics \
+      x503_force_sensor \
       rt_control_bringup \
     ) \
     && mapfile -t rt_control_dependency_paths < <( \

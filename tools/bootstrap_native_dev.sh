@@ -32,6 +32,7 @@ readonly -a runtime_packages=(
   robot_hw_canopen
   enable_manager
   rt_diagnostics
+  x503_force_sensor
   rt_control_bringup
 )
 
@@ -389,6 +390,7 @@ build_workspace()
   verify_frozen_vendor_trees
   source_build_environment
   mkdir -p "${build_base}" "${install_base}" "${log_base}"
+  export X503_ETHERCAT_MANAGER_INCLUDE_DIR="${vendor_root}/ecat_icube/ethercat_manager/include"
 
   if (( $# > 0 )); then
     selection=("$@")

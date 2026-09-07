@@ -21,6 +21,7 @@
   <exec_depend>joint_trajectory_controller</exec_depend>
   <exec_depend>plc_node</exec_depend>
   <exec_depend>rt_diagnostics</exec_depend>
+  <exec_depend>x503_force_sensor</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>python3-yaml</exec_depend>

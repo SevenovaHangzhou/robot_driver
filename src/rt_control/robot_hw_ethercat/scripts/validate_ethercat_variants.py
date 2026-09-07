@@ -33,6 +33,7 @@ AXIS_KEYS = (
 )
 RESPONDER_KEYS = ("ring_position",)
 SENSOR_KEYS = ("sensor_name", "family", "ring_position", "profile")
+SENSOR_ROS_KEYS = ("wrench_topic", "raw_topic", "frame_id")
 FAMILY_REGISTRY_KEYS = ("schema_version", "interface_contracts", "families")
 INTERFACE_CONTRACT_KEYS = (
     "required_command_interfaces",
@@ -163,6 +164,12 @@ def _integer(value: Any, context: str) -> int:
 def _identifier(value: Any, context: str) -> str:
     if not isinstance(value, str) or IDENTIFIER_PATTERN.fullmatch(value) is None:
         raise ValidationError(f"{context} must be a ROS-style identifier")
+    return value
+
+
+def _trimmed_string(value: Any, context: str) -> str:
+    if not isinstance(value, str) or not value.strip() or value != value.strip():
+        raise ValidationError(f"{context} must be a nonempty, trimmed string")
     return value
 
 
@@ -554,7 +561,19 @@ def validate_variant(variant_path: Path, profile_dir: Path) -> None:
     for index, raw_sensor in enumerate(sensors):
         context = f"{variant_path}: sensors[{index}]"
         sensor = _mapping(raw_sensor, context)
-        _exact_keys(sensor, SENSOR_KEYS, context)
+        missing = sorted(set(SENSOR_KEYS) - set(sensor))
+        unknown = sorted(set(sensor) - set(SENSOR_KEYS) - set(SENSOR_ROS_KEYS))
+        if missing or unknown:
+            raise ValidationError(
+                f"{context} keys mismatch: missing={missing}, unknown={unknown}"
+            )
+        ros_keys_present = [key for key in SENSOR_ROS_KEYS if key in sensor]
+        if ros_keys_present and len(ros_keys_present) != len(SENSOR_ROS_KEYS):
+            raise ValidationError(
+                f"{context} X503 ROS metadata must provide all of {SENSOR_ROS_KEYS}"
+            )
+        for key in ros_keys_present:
+            _trimmed_string(sensor[key], f"{context}.{key}")
 
         sensor_name = _identifier(sensor["sensor_name"], f"{context}.sensor_name")
         if sensor_name in seen_sensors:

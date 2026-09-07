@@ -595,6 +595,7 @@ class NativeLauncherContractTest(unittest.TestCase):
             "control_api_adapter",
             "plc_node",
             "rt_diagnostics",
+            "x503_force_sensor",
             "rt_control_bringup",
         ):
             self.assertIn(package, helper)

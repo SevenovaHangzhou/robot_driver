@@ -9,10 +9,16 @@ sensors:
     family: x503
     ring_position: 14
     profile: x503_right
+    wrench_topic: /rt_control/right_x503b/wrench
+    raw_topic: /rt_control/right_x503b/raw
+    frame_id: right_ft_sensor_link
   - sensor_name: left_force_sensor
     family: x503
     ring_position: 15
     profile: x503_left
+    wrench_topic: /rt_control/left_x503b/wrench
+    raw_topic: /rt_control/left_x503b/raw
+    frame_id: left_ft_sensor_link
 axes:
   - joint_name: right_joint1
     family: zeroerr
