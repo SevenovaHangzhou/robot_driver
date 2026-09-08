@@ -62,5 +62,28 @@ TEST(FeedbackRouterTest, LoggerExceptionsCannotEscapeRealtimePath)
       [](const std::string &) {throw std::runtime_error{"logger failed"};})));
 }
 
+TEST(FeedbackRouterTest, DropsKnownFramesOlderThanCurrentCommand)
+{
+  DmMotor motor{DmMotorConfig{1U, 0x11U, kLimits}};
+  std::array<DmMotor *, kMotorCount> motors{};
+  motors[0] = &motor;
+  auto stale = feedback(0x11U, 1U);
+  stale.kernel_timestamp = std::chrono::nanoseconds{100};
+  auto fresh = feedback(0x11U, 1U);
+  fresh.kernel_timestamp = std::chrono::nanoseconds{300};
+  std::vector<std::string> warnings;
+
+  const auto result = route_feedback_frames(
+    {stale, fresh}, motors,
+    [&](const std::string & message) {warnings.push_back(message);},
+    std::chrono::nanoseconds{200});
+
+  EXPECT_TRUE(result.received[0]);
+  EXPECT_EQ(result.accepted_frames, 1U);
+  EXPECT_EQ(result.stale_frames, 1U);
+  EXPECT_EQ(motor.health().received_frames, 1U);
+  EXPECT_EQ(warnings.size(), 1U);
+}
+
 }  // namespace
 }  // namespace dm_swerve_driver

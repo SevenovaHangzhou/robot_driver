@@ -32,6 +32,12 @@ struct SwerveModuleState {
   double angle_rad{0.0};
 };
 
+struct SwerveModuleMeasurement {
+  double speed_mps{0.0};
+  double angle_rad{0.0};
+  bool valid{true};
+};
+
 struct SwerveModulePosition {
   double distance_m{0.0};
   double angle_rad{0.0};
@@ -42,12 +48,35 @@ struct OptimizedModuleState {
   double speed_mps{0.0};
   double continuous_angle_rad{0.0};
   double error_rad{0.0};
+  bool reversed{false};
 };
 
 struct AlignmentResult {
   std::array<OptimizedModuleState, kSwerveModuleCount> modules{};
   double maximum_error_rad{0.0};
   bool gated{false};
+};
+
+struct SwerveSetpointParameters {
+  double alignment_threshold_rad{0.349};
+  double flip_hysteresis_rad{0.1};
+  double maximum_steering_slew_radps{3.0};
+};
+
+class SwerveSetpointGenerator final {
+public:
+  explicit SwerveSetpointGenerator(const SwerveSetpointParameters & parameters);
+
+  [[nodiscard]] AlignmentResult generate(
+    const std::array<SwerveModuleState, kSwerveModuleCount> & desired,
+    const std::array<double, kSwerveModuleCount> & measured_angles_rad,
+    double dt_seconds);
+  void reset() noexcept;
+
+private:
+  SwerveSetpointParameters parameters_;
+  std::array<bool, kSwerveModuleCount> reversed_{};
+  std::array<std::optional<double>, kSwerveModuleCount> previous_targets_{};
 };
 
 [[nodiscard]] double wrap_pi(double angle_rad) noexcept;
@@ -66,6 +95,12 @@ void desaturate_wheel_speeds(
 [[nodiscard]] OptimizedModuleState optimize_module(
   const SwerveModuleState & desired, double current_unwrapped_angle_rad);
 
+[[nodiscard]] OptimizedModuleState optimize_module(
+  const SwerveModuleState & desired,
+  double current_unwrapped_angle_rad,
+  bool previous_reversed,
+  double hysteresis_rad);
+
 [[nodiscard]] AlignmentResult optimize_and_apply_alignment(
   const std::array<SwerveModuleState, kSwerveModuleCount> & desired,
   const std::array<double, kSwerveModuleCount> & current_unwrapped_angles_rad,
@@ -80,6 +115,10 @@ void desaturate_wheel_speeds(
 [[nodiscard]] std::optional<ChassisDelta> wheel_chassis_delta_from_position_deltas(
   const std::array<SwerveModulePosition, kSwerveModuleCount> & previous,
   const std::array<SwerveModulePosition, kSwerveModuleCount> & current,
+  const std::array<Translation2d, kSwerveModuleCount> & module_locations);
+
+[[nodiscard]] std::optional<ChassisSpeeds> chassis_speeds_from_module_states(
+  const std::array<SwerveModuleMeasurement, kSwerveModuleCount> & modules,
   const std::array<Translation2d, kSwerveModuleCount> & module_locations);
 
 }  // namespace dm_swerve_driver

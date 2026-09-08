@@ -7,11 +7,11 @@ Implemented features:
 - DaMiao MIT, feedback, register and special-command codec
 - RAII SocketCAN interface with filtered receive, `sendmmsg` batch writes and bounded collect
 - 100 Hz absolute-time control thread; executor callbacks only update timestamped mailboxes
-- command discretization, swerve IK/optimization/desaturation/alignment gating
-- position-increment odometry with gyro yaw and wheel-derived yaw fallback
-- PMAX/VMAX/TMAX startup readback with configured fallback, p_m steering seed and enable retry
+- command discretization, stateful flip hysteresis, steering slew, unified desaturation and alignment gating
+- position-increment odometry, measured twist, gyro/wheel yaw fallback and quality-scaled covariance
+- strict PMAX/VMAX/TMAX, feedback, p_m and enable startup gates
 - ks/kv/ka drive feedforward and bounded steering angular-velocity feedforward
-- non-latching command, IMU, motor-feedback and whole-bus degradation with automatic recovery
+- single-motor stop, classified recovery limits and manually cleared fault latching
 - odometry, TF, joint states, diagnostics and enable/disable/clear/rezero services
 - fake 8-motor bus tests, vcan integration hook and read-only hardware audit tool
 
@@ -45,7 +45,9 @@ ctest --test-dir build -R test_socketcan_vcan --output-on-failure
 
 ## Run
 
-All values in [swerve_params.yaml](config/swerve_params.yaml) are placeholders until calibrated.
+All geometry, gearing, limits and feedforward values in
+[swerve_params.yaml](config/swerve_params.yaml) are placeholders until calibrated. This is an
+intentional bring-up prerequisite, not a claim that the checked-in values fit a real chassis.
 
 ```bash
 source install/setup.bash
@@ -53,7 +55,17 @@ ros2 launch dm_swerve_driver swerve_driver.launch.py \
   params_file:=/absolute/path/to/swerve_params.yaml
 ```
 
-The launch file configures and activates the lifecycle node automatically. The only hard-stop paths are explicit disable, process shutdown and SIGINT:
+The launch file configures and activates the lifecycle node automatically. Activation succeeds
+only after all eight motors pass limit-register readback, initial feedback, steering absolute-angle
+initialization and enable confirmation. For steering gear ratio greater than one, missing or
+inconsistent `p_m` also rejects activation and the log directs the operator to rezero.
+
+`can.allow_fallback_limits` defaults to `false`. It can only be enabled with a `vcan*` or `fake*`
+interface for tests; production CAN cannot bypass limit readback. `can.write_timeout_register` defaults
+to `true`, but the assumed 50 us/count conversion and persistence semantics still require the
+single-motor hardware check described below.
+
+Control services:
 
 ```bash
 ros2 service call /swerve_driver/disable std_srvs/srv/Trigger {}
@@ -62,7 +74,29 @@ ros2 service call /swerve_driver/clear_faults std_srvs/srv/Trigger {}
 ros2 service call /swerve_driver/rezero_steering std_srvs/srv/Trigger {}
 ```
 
-`rezero_steering` is accepted only while control is disabled.
+`rezero_steering` is accepted only while control is disabled. It succeeds only after every steering
+motor acknowledges `save_zero` by MST_ID and an independent feedback poll verifies position within
+`steering.rezero_tolerance_rad`.
+
+## Safety behavior
+
+- A motor reaching `safety.feedback_silent_cycles`, becoming disabled, or reporting an ERR gates
+  all four drive commands to zero while steering holds its current measured angle.
+- A CAN write/collect exception also enters a transport-faulted zero-speed window; it clears only
+  after one complete, freshly timestamped feedback set is received.
+- Under-voltage and communication-lost errors are cleared and re-enabled no faster than once per
+  second. Each motor gets `safety.auto_recovery_limit` attempts (default 3); the count persists
+  across automatic recovery and exceeding it latches the fault.
+- Encoder/read-encoder, over-voltage, over-current, MOS/coil over-temperature, overload and unknown
+  hardware errors latch immediately.
+- A latched fault keeps all drive commands at zero. Only `~/clear_faults` can unlock it, and only
+  after fresh enable acknowledgements from all eight motors; a partial clear remains latched.
+  `~/disable` followed by `~/enable` preserves both the latch and recovery counters.
+- `/cmd_vel` timeout and IMU loss remain non-latching. A fresh command recovers the watchdog;
+  timeout hold mode keeps the measured steering angle, while non-hold mode slews toward zero.
+  IMU loss switches yaw to wheel odometry and inflates the configured odometry covariance.
+- The 20-degree steering alignment gate remains an intentional, tunable control-quality mechanism;
+  navigation-layer continuity is handled by navigation tuning rather than bypassing the gate.
 
 ## ROS interfaces
 
@@ -101,4 +135,6 @@ The software implementation and fake-bus verification are complete. Real motor a
 - [Hardware bring-up order](doc/hardware_bringup.md)
 - [Current hardware validation status](doc/hardware_validation_status.md)
 
-Do not mark Phase 6 hardware acceptance complete until the现场记录 template is populated and signed.
+Do not mark hardware acceptance complete until the 现场记录 template is populated and signed. In
+particular, software tests cannot prove physical cable-pull stopping; the firmware TIMEOUT and
+physical disconnect test close that requirement.

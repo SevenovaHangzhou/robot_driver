@@ -17,8 +17,10 @@ inline constexpr std::uint32_t kTimeoutCountsPerMillisecond{20U};
 struct CanParameters {
   std::string interface_name{"vcan0"};
   std::int64_t feedback_deadline_us{4000};
-  bool write_timeout_register{false};
+  bool write_timeout_register{true};
   std::int64_t timeout_register_ms{100};
+  std::int64_t write_timeout_us{2000};
+  bool allow_fallback_limits{false};
 };
 
 struct ControlParameters {
@@ -48,6 +50,9 @@ struct SteeringParameters {
   double max_ff_speed_radps{3.0};
   std::array<double, kSwerveModuleCount> zero_offset_rad{};
   std::array<bool, kSwerveModuleCount> inverted{};
+  double flip_hysteresis_rad{0.1};
+  double max_slew_radps{3.0};
+  double rezero_tolerance_rad{0.05};
 };
 
 struct DriveParameters {
@@ -69,6 +74,7 @@ struct MotorParameters {
 struct SafetyParameters {
   std::uint64_t feedback_silent_cycles{50U};
   double reenable_period_s{1.0};
+  std::uint32_t auto_recovery_limit{3U};
 };
 
 struct OdometryParameters {
@@ -78,6 +84,13 @@ struct OdometryParameters {
   std::string odom_frame{"odom"};
   std::string base_frame{"base_link"};
   double publish_rate_hz{50.0};
+  double max_imu_yaw_step_rad{0.5};
+  std::array<double, 6U> pose_covariance_diagonal{
+    0.01, 0.01, 1000000.0, 1000000.0, 1000000.0, 0.02};
+  std::array<double, 6U> twist_covariance_diagonal{
+    0.02, 0.02, 1000000.0, 1000000.0, 1000000.0, 0.04};
+  double imu_fallback_covariance_scale{10.0};
+  double missing_module_covariance_scale{4.0};
 };
 
 struct DriverParameters {

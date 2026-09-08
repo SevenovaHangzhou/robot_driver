@@ -25,6 +25,17 @@ void validate_yaw(double yaw_rad)
   }
 }
 
+void update_valid_baselines(
+  std::array<SwerveModulePosition, kSwerveModuleCount> & baselines,
+  const std::array<SwerveModulePosition, kSwerveModuleCount> & positions)
+{
+  for (std::size_t index{0U}; index < positions.size(); ++index) {
+    if (positions[index].valid) {
+      baselines[index] = positions[index];
+    }
+  }
+}
+
 }  // namespace
 
 Pose2d pose_exp(const BodyDelta & delta) noexcept
@@ -109,7 +120,7 @@ Pose2d SwerveOdometry::update(
     translation.has_value() ? translation->y : 0.0,
     delta_yaw};
   pose_ = integrate_pose(pose_, delta, yaw_offset_rad_ + yaw_rad);
-  previous_positions_ = positions;
+  update_valid_baselines(previous_positions_, positions);
   previous_yaw_rad_ = yaw_rad;
   return pose_;
 }

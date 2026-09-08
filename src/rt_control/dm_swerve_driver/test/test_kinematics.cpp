@@ -216,5 +216,82 @@ TEST(SwerveKinematicsTest, RejectsInvalidPhysicalLimits)
     std::invalid_argument);
 }
 
+TEST(SwerveKinematicsTest, MeasuredModuleStatesRecoverChassisSpeeds)
+{
+  const ChassisSpeeds expected{0.8, -0.3, 0.7};
+  const std::array<double, kSwerveModuleCount> previous{};
+  const auto states = inverse_kinematics(expected, kLocations, previous, 0.0);
+  std::array<SwerveModuleMeasurement, kSwerveModuleCount> measured{};
+  for (std::size_t index{0U}; index < measured.size(); ++index) {
+    measured[index] = SwerveModuleMeasurement{
+      states[index].speed_mps, states[index].angle_rad, true};
+  }
+  measured[2].valid = false;
+
+  const auto actual = chassis_speeds_from_module_states(measured, kLocations);
+  ASSERT_TRUE(actual.has_value());
+  EXPECT_NEAR(actual->vx_mps, expected.vx_mps, kTolerance);
+  EXPECT_NEAR(actual->vy_mps, expected.vy_mps, kTolerance);
+  EXPECT_NEAR(actual->omega_radps, expected.omega_radps, kTolerance);
+}
+
+TEST(SwerveKinematicsTest, MeasuredChassisSpeedsNeedAtLeastTwoModules)
+{
+  std::array<SwerveModuleMeasurement, kSwerveModuleCount> measured{};
+  measured[0] = SwerveModuleMeasurement{1.0, 0.0, true};
+  for (std::size_t index{1U}; index < measured.size(); ++index) {
+    measured[index].valid = false;
+  }
+  EXPECT_FALSE(chassis_speeds_from_module_states(measured, kLocations).has_value());
+}
+
+TEST(SwerveKinematicsTest, FlipSelectionUsesHysteresisAroundNinetyDegrees)
+{
+  constexpr double hysteresis{0.1};
+  bool reversed{false};
+  auto state = optimize_module(
+    SwerveModuleState{1.0, 92.0 * kPi / 180.0}, 0.0, reversed, hysteresis);
+  EXPECT_FALSE(state.reversed);
+  EXPECT_GT(state.speed_mps, 0.0);
+
+  state = optimize_module(
+    SwerveModuleState{1.0, 97.0 * kPi / 180.0}, 0.0,
+    state.reversed, hysteresis);
+  EXPECT_TRUE(state.reversed);
+  EXPECT_LT(state.speed_mps, 0.0);
+
+  state = optimize_module(
+    SwerveModuleState{1.0, 88.0 * kPi / 180.0}, 0.0,
+    state.reversed, hysteresis);
+  EXPECT_TRUE(state.reversed);
+  EXPECT_LT(state.speed_mps, 0.0);
+
+  state = optimize_module(
+    SwerveModuleState{1.0, 80.0 * kPi / 180.0}, 0.0,
+    state.reversed, hysteresis);
+  EXPECT_FALSE(state.reversed);
+  EXPECT_GT(state.speed_mps, 0.0);
+}
+
+TEST(SwerveKinematicsTest, SteeringSlewPrecedesAlignmentGate)
+{
+  SwerveSetpointGenerator generator{
+    SwerveSetpointParameters{0.15, 0.1, 1.0}};
+  std::array<SwerveModuleState, kSwerveModuleCount> desired{};
+  std::array<double, kSwerveModuleCount> measured{};
+  for (auto & module : desired) {
+    module = SwerveModuleState{1.0, 1.0};
+  }
+
+  const auto setpoint = generator.generate(desired, measured, 0.1);
+  EXPECT_NEAR(setpoint.maximum_error_rad, 1.0, kTolerance);
+  EXPECT_TRUE(setpoint.gated);
+  for (const auto & module : setpoint.modules) {
+    EXPECT_NEAR(module.continuous_angle_rad, 0.1, kTolerance);
+    EXPECT_NEAR(module.error_rad, 1.0, kTolerance);
+    EXPECT_DOUBLE_EQ(module.speed_mps, 0.0);
+  }
+}
+
 }  // namespace
 }  // namespace dm_swerve_driver

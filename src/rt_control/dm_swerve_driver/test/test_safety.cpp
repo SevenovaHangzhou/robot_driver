@@ -15,6 +15,16 @@ const std::array<Translation2d, kSwerveModuleCount> kLocations{
   Translation2d{0.5, 0.4}, Translation2d{0.5, -0.4},
   Translation2d{-0.5, 0.4}, Translation2d{-0.5, -0.4}};
 
+[[nodiscard]] std::array<DmMotorHealth, kMotorCount> healthy_motors()
+{
+  std::array<DmMotorHealth, kMotorCount> health{};
+  for (auto & motor : health) {
+    motor.has_feedback = true;
+    motor.error = MotorError::enabled;
+  }
+  return health;
+}
+
 TEST(SafetyMonitorTest, CommandTimeoutStopsAndNewCommandImmediatelyRecovers)
 {
   SafetyMonitor monitor{default_parameters()};
@@ -63,34 +73,135 @@ TEST(SafetyMonitorTest, ImuFallbackAndRecoveryKeepYawContinuous)
   EXPECT_NEAR(yaw.yaw_rad, 1.4, 1e-12);
 }
 
-TEST(SafetyMonitorTest, RecoveryActionsAreRateLimitedAndSelfClearing)
+TEST(SafetyMonitorTest, SingleSilentMotorStopsAndLatchesAfterRecoveryLimit)
 {
-  SafetyMonitor monitor{default_parameters()};
+  auto parameters = default_parameters();
+  parameters.safety.feedback_silent_cycles = 2U;
+  parameters.safety.auto_recovery_limit = 3U;
+  SafetyMonitor monitor{parameters};
   const auto epoch = std::chrono::steady_clock::time_point{};
-  std::array<DmMotorHealth, kMotorCount> health{};
-  health[0].consecutive_missed_frames = 50U;
-  health[1].has_feedback = true;
-  health[1].error = MotorError::over_current;
+  auto health = healthy_motors();
+  health[0].consecutive_missed_frames = 2U;
 
   auto actions = monitor.recovery_actions(health, epoch);
   EXPECT_TRUE(actions.reenable[0]);
-  EXPECT_TRUE(actions.clear_fault[1]);
-  EXPECT_TRUE(actions.reenable[1]);
+  EXPECT_TRUE(monitor.faulted());
+  EXPECT_FALSE(monitor.fault_latched());
+  EXPECT_EQ(monitor.recovery_attempts()[0], 1U);
 
   actions = monitor.recovery_actions(health, epoch + 500ms);
   EXPECT_FALSE(actions.reenable[0]);
-  EXPECT_FALSE(actions.clear_fault[1]);
 
   actions = monitor.recovery_actions(health, epoch + 1s);
   EXPECT_TRUE(actions.reenable[0]);
-  EXPECT_TRUE(actions.clear_fault[1]);
+  EXPECT_EQ(monitor.recovery_attempts()[0], 2U);
+  actions = monitor.recovery_actions(health, epoch + 2s);
+  EXPECT_TRUE(actions.reenable[0]);
+  EXPECT_EQ(monitor.recovery_attempts()[0], 3U);
 
-  health[0].consecutive_missed_frames = 0U;
-  health[1].error = MotorError::enabled;
-  actions = monitor.recovery_actions(health, epoch + 1100ms);
+  actions = monitor.recovery_actions(health, epoch + 3s);
   EXPECT_FALSE(actions.reenable[0]);
+  EXPECT_TRUE(monitor.fault_latched());
+}
+
+TEST(SafetyMonitorTest, RecoverableVoltageFaultClearsButKeepsAttemptCount)
+{
+  SafetyMonitor monitor{default_parameters()};
+  const auto epoch = std::chrono::steady_clock::time_point{};
+  auto health = healthy_motors();
+  health[1].error = MotorError::under_voltage;
+
+  auto actions = monitor.recovery_actions(health, epoch);
+  EXPECT_TRUE(actions.clear_fault[1]);
+  EXPECT_TRUE(actions.reenable[1]);
+  EXPECT_TRUE(monitor.faulted());
+  EXPECT_EQ(monitor.recovery_attempts()[1], 1U);
+
+  health[1].error = MotorError::enabled;
+  actions = monitor.recovery_actions(health, epoch + 10ms);
   EXPECT_FALSE(actions.clear_fault[1]);
   EXPECT_FALSE(actions.reenable[1]);
+  EXPECT_FALSE(monitor.faulted());
+  EXPECT_EQ(monitor.recovery_attempts()[1], 1U);
+}
+
+TEST(SafetyMonitorTest, NonrecoverableHardwareErrorsLatchWithoutAutomaticCommands)
+{
+  constexpr std::array<MotorError, 7U> errors{
+    MotorError::encoder, MotorError::encoder_read, MotorError::over_voltage,
+    MotorError::over_current, MotorError::mos_over_temperature,
+    MotorError::coil_over_temperature, MotorError::overload};
+  for (const auto error : errors) {
+    SafetyMonitor monitor{default_parameters()};
+    auto health = healthy_motors();
+    health[2].error = error;
+
+    const auto actions = monitor.recovery_actions(health, {});
+
+    EXPECT_TRUE(monitor.faulted());
+    EXPECT_TRUE(monitor.fault_latched());
+    EXPECT_FALSE(actions.clear_fault[2]);
+    EXPECT_FALSE(actions.reenable[2]);
+  }
+}
+
+TEST(SafetyMonitorTest, ManualClearUnlocksOnlyAfterEveryMotorIsEnabled)
+{
+  SafetyMonitor monitor{default_parameters()};
+  auto health = healthy_motors();
+  health[0].error = MotorError::under_voltage;
+  static_cast<void>(monitor.recovery_actions(health, {}));
+  health[0].error = MotorError::enabled;
+  health[1].error = MotorError::over_current;
+  static_cast<void>(monitor.recovery_actions(
+      health, std::chrono::steady_clock::time_point{10ms}));
+  ASSERT_TRUE(monitor.fault_latched());
+  ASSERT_EQ(monitor.recovery_attempts()[0], 1U);
+
+  const auto actions = monitor.manual_clear_actions();
+  EXPECT_TRUE(std::all_of(actions.clear_fault.begin(), actions.clear_fault.end(),
+      [](bool selected) {return selected;}));
+  EXPECT_TRUE(std::all_of(actions.reenable.begin(), actions.reenable.end(),
+      [](bool selected) {return selected;}));
+
+  std::array<bool, kMotorCount> enable_confirmed{};
+  enable_confirmed.fill(true);
+  health[1].error = MotorError::disabled;
+  EXPECT_FALSE(monitor.complete_manual_clear(health, enable_confirmed));
+  EXPECT_TRUE(monitor.fault_latched());
+
+  health[1].error = MotorError::enabled;
+  enable_confirmed[2] = false;
+  EXPECT_FALSE(monitor.complete_manual_clear(health, enable_confirmed));
+  enable_confirmed[2] = true;
+  EXPECT_TRUE(monitor.complete_manual_clear(health, enable_confirmed));
+  EXPECT_FALSE(monitor.faulted());
+  EXPECT_FALSE(monitor.fault_latched());
+  EXPECT_TRUE(std::all_of(
+      monitor.recovery_attempts().begin(), monitor.recovery_attempts().end(),
+      [](std::uint32_t attempts) {return attempts == 0U;}));
+}
+
+TEST(SafetyMonitorTest, ManualClearCannotHideAnActiveTransportFault)
+{
+  SafetyMonitor monitor{default_parameters()};
+  const auto health = healthy_motors();
+  monitor.mark_transport_failure();
+  EXPECT_TRUE(monitor.faulted());
+
+  const auto actions = monitor.manual_clear_actions();
+  std::array<bool, kMotorCount> confirmed{};
+  confirmed.fill(true);
+  EXPECT_TRUE(std::all_of(actions.reenable.begin(), actions.reenable.end(),
+      [](bool selected) {return selected;}));
+  EXPECT_FALSE(monitor.complete_manual_clear(health, confirmed));
+  EXPECT_TRUE(monitor.faulted());
+
+  std::array<bool, kMotorCount> received{};
+  received.fill(true);
+  monitor.observe_feedback(received);
+  EXPECT_TRUE(monitor.complete_manual_clear(health, confirmed));
+  EXPECT_FALSE(monitor.faulted());
 }
 
 TEST(SafetyMonitorTest, BusSilentRequiresEveryMotorPastThreshold)

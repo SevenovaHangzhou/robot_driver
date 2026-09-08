@@ -36,7 +36,11 @@ ControlLoop::Impl::Impl(
   transport_{std::move(transport)},
   callbacks_{std::move(callbacks)},
   modules_{make_modules(parameters_)},
-  safety_{parameters_}
+  safety_{parameters_},
+  setpoint_generator_{SwerveSetpointParameters{
+      parameters_.chassis.align_threshold_rad,
+      parameters_.steering.flip_hysteresis_rad,
+      parameters_.steering.max_slew_radps}}
 {
   validate_parameters(parameters_);
   if (transport_ == nullptr) {
@@ -52,7 +56,7 @@ ControlLoop::Impl::~Impl() noexcept
 bool ControlLoop::Impl::initialize(SteadyClock::time_point now)
 {
   std::lock_guard<std::mutex> io_lock{io_mutex_};
-  if (initialized_) {
+  if (initialized_.load()) {
     return true;
   }
   try {
@@ -61,12 +65,30 @@ bool ControlLoop::Impl::initialize(SteadyClock::time_point now)
     log(DriverLogLevel::error, std::string{"failed to open CAN transport: "} + error.what());
     transport_->close();
     return false;
+  } catch (...) {
+    log(DriverLogLevel::error, "failed to open CAN transport with an unknown error");
+    transport_->close();
+    return false;
   }
   try {
-    initialize_motors(parameters_, *transport_, motor_pointers(), logger());
+    if (!initialize_motors(parameters_, *transport_, motor_pointers(), logger())) {
+      log(DriverLogLevel::error, "motor startup gate failed; refusing to enable driver");
+      disable_motors(*transport_, motor_pointers(), logger());
+      transport_->close();
+      return false;
+    }
   } catch (const std::exception & error) {
-    log(DriverLogLevel::warning,
-      std::string{"motor startup incomplete; continuing degraded: "} + error.what());
+    log(DriverLogLevel::error,
+      std::string{"motor startup failed; refusing to enable driver: "} + error.what());
+    disable_motors(*transport_, motor_pointers(), logger());
+    transport_->close();
+    return false;
+  } catch (...) {
+    log(DriverLogLevel::error,
+      "motor startup failed with an unknown error; refusing to enable driver");
+    disable_motors(*transport_, motor_pointers(), logger());
+    transport_->close();
+    return false;
   }
   try {
     initialize_odometry(now);
@@ -82,7 +104,7 @@ bool ControlLoop::Impl::initialize(SteadyClock::time_point now)
     transport_->close();
     return false;
   }
-  initialized_ = true;
+  initialized_.store(true);
   refresh_status();
   return true;
 }
@@ -98,20 +120,31 @@ void ControlLoop::Impl::initialize_odometry(SteadyClock::time_point now)
   odometry_.emplace(
     module_locations(parameters_), initial_yaw.yaw_rad, initial_positions);
   previous_positions_ = initial_positions;
+  setpoint_generator_.reset();
+  last_cycle_time_ = now;
   last_publish_time_ = now - publish_period();
 }
 
 bool ControlLoop::Impl::step(SteadyClock::time_point now)
 {
   std::lock_guard<std::mutex> io_lock{io_mutex_};
-  if (!initialized_ || !transport_->is_open()) {
+  if (!initialized_.load()) {
+    return false;
+  }
+  if (!transport_->is_open()) {
+    safety_.mark_transport_failure();
+    refresh_status();
     return false;
   }
   try {
     return execute_cycle(now);
   } catch (const std::exception & error) {
+    safety_.mark_transport_failure();
+    refresh_status();
     log(DriverLogLevel::error, std::string{"control cycle failed: "} + error.what());
   } catch (...) {
+    safety_.mark_transport_failure();
+    refresh_status();
     log(DriverLogLevel::error, "control cycle failed with an unknown error");
   }
   return false;
@@ -119,7 +152,7 @@ bool ControlLoop::Impl::step(SteadyClock::time_point now)
 
 void ControlLoop::Impl::start()
 {
-  if (!initialized_) {
+  if (!initialized_.load()) {
     throw std::logic_error{"ControlLoop must be initialized before start"};
   }
   bool expected{false};
@@ -136,12 +169,12 @@ void ControlLoop::Impl::stop() noexcept
     thread_.join();
   }
   std::lock_guard<std::mutex> io_lock{io_mutex_};
-  if (initialized_ && transport_->is_open()) {
+  if (initialized_.load() && transport_->is_open()) {
     send_zero_cycles();
     disable_motors(*transport_, motor_pointers(), logger());
   }
   transport_->close();
-  initialized_ = false;
+  initialized_.store(false);
   refresh_status();
 }
 
@@ -154,23 +187,68 @@ void ControlLoop::Impl::submit_command(
     log(DriverLogLevel::warning, "ignored non-finite cmd_vel command");
     return;
   }
-  std::lock_guard<std::mutex> lock{mailbox_mutex_};
-  command_mailbox_ = TimedCommand{command, timestamp, true};
+  bool rejected_timestamp{false};
+  {
+    std::lock_guard<std::mutex> lock{mailbox_mutex_};
+    rejected_timestamp = command_mailbox_.valid && timestamp < command_mailbox_.timestamp;
+    if (!rejected_timestamp) {
+      command_mailbox_ = TimedCommand{command, timestamp, true};
+    }
+  }
+  if (rejected_timestamp) {
+    log(DriverLogLevel::warning, "ignored out-of-order cmd_vel timestamp");
+  }
 }
 
-void ControlLoop::Impl::submit_imu_yaw(double yaw_rad, SteadyClock::time_point timestamp)
+bool ControlLoop::Impl::submit_imu_yaw(
+  double yaw_rad, SteadyClock::time_point timestamp, double yaw_rate_radps)
 {
-  if (!std::isfinite(yaw_rad)) {
+  if (!std::isfinite(yaw_rad) || !std::isfinite(yaw_rate_radps)) {
     log(DriverLogLevel::warning, "ignored non-finite IMU yaw");
-    return;
+    return false;
   }
-  std::lock_guard<std::mutex> lock{mailbox_mutex_};
-  yaw_mailbox_ = TimedYaw{yaw_rad, timestamp, true};
+  bool rejected_jump{false};
+  bool rejected_timestamp{false};
+  {
+    std::lock_guard<std::mutex> lock{mailbox_mutex_};
+    rejected_timestamp = yaw_mailbox_.valid && timestamp < yaw_mailbox_.timestamp;
+    const bool temporally_adjacent = yaw_mailbox_.valid && !rejected_timestamp &&
+      timestamp - yaw_mailbox_.timestamp <=
+      std::chrono::duration_cast<SteadyClock::duration>(
+      std::chrono::duration<double>{parameters_.odometry.imu_timeout_s});
+    rejected_jump = temporally_adjacent &&
+      std::abs(wrap_pi(yaw_rad - yaw_mailbox_.value)) >
+      parameters_.odometry.max_imu_yaw_step_rad;
+    if (!rejected_jump && !rejected_timestamp) {
+      yaw_mailbox_ = TimedYaw{yaw_rad, yaw_rate_radps, timestamp, true};
+    }
+  }
+  if (rejected_timestamp) {
+    log(DriverLogLevel::warning, "ignored out-of-order IMU timestamp");
+    return false;
+  }
+  if (rejected_jump) {
+    log(DriverLogLevel::warning, "ignored implausible IMU yaw jump");
+    return false;
+  }
+  return true;
 }
 
 void ControlLoop::Impl::request_clear_faults() noexcept
 {
   clear_faults_requested_.store(true);
+}
+
+void ControlLoop::Impl::restore_fault_state(
+  bool fault_latched,
+  const std::array<std::uint32_t, kMotorCount> & recovery_attempts)
+{
+  std::lock_guard<std::mutex> io_lock{io_mutex_};
+  if (initialized_.load() || running_.load()) {
+    throw std::logic_error{"fault state must be restored before control initialization"};
+  }
+  safety_.restore_recovery_state(recovery_attempts, fault_latched);
+  refresh_status();
 }
 
 bool ControlLoop::Impl::is_running() const noexcept
@@ -223,14 +301,22 @@ void ControlLoop::submit_command(
   impl_->submit_command(command, timestamp);
 }
 
-void ControlLoop::submit_imu_yaw(double yaw_rad, SteadyClock::time_point timestamp)
+bool ControlLoop::submit_imu_yaw(
+  double yaw_rad, SteadyClock::time_point timestamp, double yaw_rate_radps)
 {
-  impl_->submit_imu_yaw(yaw_rad, timestamp);
+  return impl_->submit_imu_yaw(yaw_rad, timestamp, yaw_rate_radps);
 }
 
 void ControlLoop::request_clear_faults() noexcept
 {
   impl_->request_clear_faults();
+}
+
+void ControlLoop::restore_fault_state(
+  bool fault_latched,
+  const std::array<std::uint32_t, kMotorCount> & recovery_attempts)
+{
+  impl_->restore_fault_state(fault_latched, recovery_attempts);
 }
 
 bool ControlLoop::is_running() const noexcept

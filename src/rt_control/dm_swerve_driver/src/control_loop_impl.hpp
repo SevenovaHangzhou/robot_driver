@@ -27,6 +27,7 @@ struct TimedCommand {
 
 struct TimedYaw {
   double value{0.0};
+  double rate_radps{0.0};
   SteadyClock::time_point timestamp{};
   bool valid{false};
 };
@@ -41,7 +42,9 @@ struct CyclePlan {
   CommandDecision command{};
   ChassisSpeeds discrete_command{};
   AlignmentResult alignment{};
+  double dt_seconds{0.0};
   bool drive_gated{false};
+  bool hold_steering{false};
 };
 
 class ControlLoop::Impl {
@@ -57,8 +60,12 @@ public:
   void start();
   void stop() noexcept;
   void submit_command(const ChassisSpeeds & command, SteadyClock::time_point timestamp);
-  void submit_imu_yaw(double yaw_rad, SteadyClock::time_point timestamp);
+  bool submit_imu_yaw(
+    double yaw_rad, SteadyClock::time_point timestamp, double yaw_rate_radps);
   void request_clear_faults() noexcept;
+  void restore_fault_state(
+    bool fault_latched,
+    const std::array<std::uint32_t, kMotorCount> & recovery_attempts);
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] ControlLoopStatus status() const;
 
@@ -73,7 +80,11 @@ private:
   current_module_positions(
     const std::optional<std::array<bool, kMotorCount>> & received) const;
   [[nodiscard]] std::array<double, kSwerveModuleCount> current_angles();
+  [[nodiscard]] std::array<SwerveModuleMeasurement, kSwerveModuleCount>
+  current_module_measurements(const std::array<bool, kMotorCount> & received) const;
   [[nodiscard]] std::array<DmMotorHealth, kMotorCount> motor_health() noexcept;
+  [[nodiscard]] double measured_cycle_period(SteadyClock::time_point now);
+  [[nodiscard]] double wheel_speed_cap() const noexcept;
 
   [[nodiscard]] bool execute_cycle(SteadyClock::time_point now);
   [[nodiscard]] CyclePlan prepare_cycle(SteadyClock::time_point now);
@@ -84,7 +95,8 @@ private:
     const MailboxSnapshot & mailbox,
     const std::array<bool, kMotorCount> & received,
     SteadyClock::time_point now,
-    bool & imu_fallback);
+    bool & imu_fallback,
+    ChassisSpeeds & measured_twist);
   void process_recovery(SteadyClock::time_point now);
   void mark_missing_feedback(const std::array<bool, kMotorCount> & received);
   void update_cycle_status(
@@ -93,9 +105,9 @@ private:
     bool command_timed_out,
     bool imu_fallback,
     bool bus_silent);
-  void dispatch_recovery_actions(
+  [[nodiscard]] std::array<bool, kMotorCount> dispatch_recovery_actions(
     const RecoveryActions & actions, SteadyClock::time_point now);
-  void send_special_actions(
+  [[nodiscard]] FeedbackRouteResult send_special_actions(
     const std::array<bool, kMotorCount> & selected,
     SpecialCommand command,
     SteadyClock::time_point now);
@@ -104,12 +116,18 @@ private:
     SteadyClock::time_point now,
     const Pose2d & pose,
     const ChassisSpeeds & command,
-    bool alignment_gated);
+    const ChassisSpeeds & measured_twist,
+    bool alignment_gated,
+    bool imu_fallback,
+    std::size_t valid_module_count);
   [[nodiscard]] ControlLoopOutput make_output(
     SteadyClock::time_point now,
     const Pose2d & pose,
     const ChassisSpeeds & command,
-    bool alignment_gated) const;
+    const ChassisSpeeds & measured_twist,
+    bool alignment_gated,
+    bool imu_fallback,
+    std::size_t valid_module_count) const;
   void refresh_status();
   void send_zero_cycles() noexcept;
   [[nodiscard]] std::vector<CanFrame> make_zero_frames(double dt);
@@ -121,8 +139,10 @@ private:
   ControlLoopCallbacks callbacks_;
   std::array<SwerveModule, kSwerveModuleCount> modules_;
   SafetyMonitor safety_;
+  SwerveSetpointGenerator setpoint_generator_;
   std::optional<SwerveOdometry> odometry_;
   std::optional<std::array<SwerveModulePosition, kSwerveModuleCount>> previous_positions_;
+  std::optional<SteadyClock::time_point> last_cycle_time_;
   std::array<double, kSwerveModuleCount> last_angles_{};
   mutable std::mutex mailbox_mutex_;
   TimedCommand command_mailbox_{};
@@ -132,7 +152,7 @@ private:
   std::mutex io_mutex_;
   std::atomic<bool> running_{false};
   std::atomic<bool> clear_faults_requested_{false};
-  bool initialized_{false};
+  std::atomic<bool> initialized_{false};
   std::thread thread_;
   SteadyClock::time_point last_publish_time_{};
 };

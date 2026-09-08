@@ -31,6 +31,28 @@ void require_nonnegative(
   }
 }
 
+template<std::size_t Size>
+void require_nonnegative_array(
+  std::vector<std::string> & errors,
+  const std::array<double, Size> & values,
+  const char * name)
+{
+  if (std::any_of(values.begin(), values.end(), [](double value) {
+      return !std::isfinite(value) || value < 0.0;
+    }))
+  {
+    errors.emplace_back(std::string{name} + " values must be finite and nonnegative");
+  }
+}
+
+void require_inflation_scale(
+  std::vector<std::string> & errors, double value, const char * name)
+{
+  if (!std::isfinite(value) || value < 1.0) {
+    errors.emplace_back(std::string{name} + " must be finite and at least one");
+  }
+}
+
 template<typename T, std::size_t Size>
 void validate_ids(
   std::vector<std::string> & errors,
@@ -109,8 +131,18 @@ void validate_can_and_control(
   if (parameters.can.interface_name.empty()) {
     errors.emplace_back("can.interface must not be empty");
   }
+  if (parameters.can.allow_fallback_limits &&
+    parameters.can.interface_name.rfind("vcan", 0U) != 0U &&
+    parameters.can.interface_name.rfind("fake", 0U) != 0U)
+  {
+    errors.emplace_back(
+      "can.allow_fallback_limits is only permitted for vcan or fake interfaces");
+  }
   if (parameters.can.feedback_deadline_us <= 0) {
     errors.emplace_back("can.feedback_deadline_us must be positive");
+  }
+  if (parameters.can.write_timeout_us <= 0) {
+    errors.emplace_back("can.write_timeout_us must be positive");
   }
   if (parameters.can.timeout_register_ms <= 0) {
     errors.emplace_back("can.timeout_register_ms must be positive");
@@ -129,6 +161,9 @@ void validate_can_and_control(
     const double period_us{1.0e6 / parameters.control.rate_hz};
     if (static_cast<double>(parameters.can.feedback_deadline_us) >= period_us) {
       errors.emplace_back("can.feedback_deadline_us must be shorter than the control period");
+    }
+    if (static_cast<double>(parameters.can.write_timeout_us) >= period_us) {
+      errors.emplace_back("can.write_timeout_us must be shorter than the control period");
     }
   }
 }
@@ -163,6 +198,16 @@ void validate_steering(
   require_nonnegative(errors, steering.kd, "steering.kd");
   require_nonnegative(errors, steering.kff_omega, "steering.kff_omega");
   require_nonnegative(errors, steering.max_ff_speed_radps, "steering.max_ff_speed_radps");
+  require_nonnegative(
+    errors, steering.flip_hysteresis_rad, "steering.flip_hysteresis_rad");
+  if (std::isfinite(steering.flip_hysteresis_rad) &&
+    steering.flip_hysteresis_rad >= kPi / 2.0)
+  {
+    errors.emplace_back("steering.flip_hysteresis_rad must be less than pi/2");
+  }
+  require_positive(errors, steering.max_slew_radps, "steering.max_slew_radps");
+  require_positive(
+    errors, steering.rezero_tolerance_rad, "steering.rezero_tolerance_rad");
   if (steering.kp > kMitKpMax || steering.kd > kMitKdMax) {
     errors.emplace_back("steering kp/kd exceed MIT field limits");
   }
@@ -190,8 +235,36 @@ void validate_drive_and_degradation(
     errors.emplace_back("safety.feedback_silent_cycles must be positive");
   }
   require_positive(errors, parameters.safety.reenable_period_s, "safety.reenable_period_s");
+  if (std::isfinite(parameters.safety.reenable_period_s) &&
+    parameters.safety.reenable_period_s < 1.0)
+  {
+    errors.emplace_back("safety.reenable_period_s must be at least 1 second");
+  }
+  if (parameters.safety.auto_recovery_limit == 0U) {
+    errors.emplace_back("safety.auto_recovery_limit must be positive");
+  }
   require_positive(errors, parameters.odometry.imu_timeout_s, "odometry.imu_timeout_s");
   require_positive(errors, parameters.odometry.publish_rate_hz, "odometry.publish_rate_hz");
+  require_positive(
+    errors, parameters.odometry.max_imu_yaw_step_rad,
+    "odometry.max_imu_yaw_step_rad");
+  if (std::isfinite(parameters.odometry.max_imu_yaw_step_rad) &&
+    parameters.odometry.max_imu_yaw_step_rad > kPi)
+  {
+    errors.emplace_back("odometry.max_imu_yaw_step_rad must not exceed pi");
+  }
+  require_nonnegative_array(
+    errors, parameters.odometry.pose_covariance_diagonal,
+    "odometry.pose_covariance_diagonal");
+  require_nonnegative_array(
+    errors, parameters.odometry.twist_covariance_diagonal,
+    "odometry.twist_covariance_diagonal");
+  require_inflation_scale(
+    errors, parameters.odometry.imu_fallback_covariance_scale,
+    "odometry.imu_fallback_covariance_scale");
+  require_inflation_scale(
+    errors, parameters.odometry.missing_module_covariance_scale,
+    "odometry.missing_module_covariance_scale");
   if (parameters.odometry.publish_rate_hz > parameters.control.rate_hz) {
     errors.emplace_back("odometry.publish_rate_hz cannot exceed control.rate_hz");
   }

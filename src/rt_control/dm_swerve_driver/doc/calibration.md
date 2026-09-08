@@ -6,7 +6,7 @@
 
 每次标定记录日期、电机序列号、ESC_ID/MST_ID、固件版本、电源电压、轮胎状态、载荷和参数 Git commit。修改参数后保存原始数据与拟合脚本输出，不只记录最后一个数字。
 
-软件没有温度停车、故障锁存或人工复位门。电机固件负责自身保护；测试人员仍必须准备可直接断开主电源的物理开关，并确保台架能承受最大输出。
+软件采用严格安全门：任一电机失联或报错都会把全车驱动命令置零；不可恢复错误及自动恢复超限会锁存，且只能由 `~/clear_faults` 在 8 台电机重新确认使能后解除。电机固件仍负责最底层保护；测试人员必须准备可直接断开主电源的物理开关，并确保台架能承受最大输出。
 
 标定前执行：
 
@@ -28,20 +28,20 @@ ros2 run dm_swerve_driver dm_swerve_bringup_check \
 1. 设置唯一 ESC_ID 和 MST_ID，记录 FL、FR、RL、RR 的转向/驱动对应关系。
 2. 确认全部电机为 MIT 模式、CAN 2.0 标准帧、1 Mbps。
 3. 记录 PMAX、VMAX、TMAX、固件版本和齿轮减速比寄存器。
-4. 配置电机 TIMEOUT；驱动内写入 `0x09` 仍保持为可选项。
+4. 在单电机台架确认 TIMEOUT `0x09` 的 50 µs/计数换算和掉电持久性；驱动默认会按 `can.timeout_register_ms` 写入。
 5. 接上整条总线后运行只读审计，确保 8 个 MST_ID 都有反馈。
 
-验收：ID 无重复；驱动读回的映射限幅与 GUI 一致。读回与 YAML 不同时驱动会使用读回值并 WARN，不会拒绝使能。
+验收：ID 无重复；驱动读回的映射限幅与 GUI 一致。读回值与 YAML 不同时使用电机读回值并 WARN；任何一台读回失败都会拒绝使能。`can.allow_fallback_limits` 仅允许在 `vcan*`/`fake*` 测试中显式开启，不能用于实车绕过该门。
 
 ## 2. 转向机械零点
 
 1. 架起车辆并失能驱动：`ros2 service call /swerve_driver/disable std_srvs/srv/Trigger {}`。
 2. 用治具把四个轮面严格平行于车体 +x 方向。
-3. 调用 `ros2 service call /swerve_driver/rezero_steering std_srvs/srv/Trigger {}`。
+3. 调用 `ros2 service call /swerve_driver/rezero_steering std_srvs/srv/Trigger {}`；确认服务回复成功且没有列出失败 ESC_ID。
 4. 断电、等待母线完全放电、重新上电，再次只读审计 p_m 与主反馈。
 5. 启动节点，确认 diagnostics 中四个转向电机 `seeded_from_multi_turn=true`。
 
-验收：断电重启后轮向误差满足机械要求；`wrapPi(p_m)-wrapPi(raw)` 小于 0.1 rad。若 G_s>1 且 p_m 不持久，停止实车落地测试并追加 homing/索引方案。
+验收：服务已逐台确认 save-zero 回复并独立回读零位；断电重启后轮向误差满足机械要求；`wrapPi(p_m)-wrapPi(raw)` 小于 0.1 rad。G_s>1 时 p_m 缺失或不一致会拒绝启动；若 p_m 不持久，停止实车落地测试并追加 homing/索引方案。
 
 ## 3. 轮径与驱动齿比
 
@@ -83,7 +83,8 @@ ros2 run dm_swerve_driver dm_swerve_bringup_check \
 2. 增加 kp 到响应足够快，再增加 kd 抑制过冲，目标过冲小于 5%。
 3. 使用低幅正弦角度目标，逐步增加 `kff_omega` 以减小相位滞后。
 4. 设置 `steering.max_ff_speed_radps` 为机构可接受的轴侧目标角速度；它在乘 G_s 前钳位。
-5. 人工制造接近 0.9·PMAX 的回中条件，确认回中周期 steering v_des=0、驱动速度=0，随后由 20° 对齐门控接力。
+5. 设置 `steering.max_slew_radps`，验证目标舵角按轴侧斜率推进；在 ±90° 附近验证 `flip_hysteresis_rad` 不发生周期翻转抖动。
+6. 人工制造接近 0.9·PMAX 的回中条件，确认回中周期 steering v_des=0、驱动速度=0，随后由 20° 对齐门控接力。
 
 验收：无满 VMAX 速度前馈尖峰、无明显踢腿，±π 等效翻转后可自动恢复行驶。
 
@@ -93,10 +94,13 @@ ros2 run dm_swerve_driver dm_swerve_bringup_check \
 
 - 8 条 MIT 指令同周期批发，反馈无异常 MST_ID。
 - `/cmd_vel` 超时自动零速，新命令立即恢复。
+- `hold_steer_on_timeout=true` 时超时保持当前实测舵角且不发角速度前馈；设为 false 才斜坡回零。
 - 拔掉 IMU 后不停车，yaw 切到轮式估计；恢复 IMU 时 odom 无跳变。
-- 单电机反馈丢失时其余 7 电机继续，恢复后自动归队。
-- 总线整体静默时驱动速度被置零，恢复后自动解除。
-- 电机 ERR 触发限频 clear+enable，但没有上位机故障锁存。
+- 任一电机反馈达到静默阈值时四个驱动轮全部置零；恢复并确认健康后才自动归队。
+- 欠压/通信丢失每秒至多恢复一次，达到配置次数上限后锁存。
+- 过流、过温、编码器、过载等错误立即锁存；`clear_faults` 缺任一 enable 回复时不得解锁。
+- 运动中物理拔掉 CAN，确认电机固件在 `timeout_register_ms` 内自行失能。
+- 注入一次上位机 CAN write/collect 异常，确认 transport faulted 时驱动保持零速，完整反馈恢复后才恢复运动。
 - `disable`、SIGINT 和进程退出均发送零速后批量失能。
 
 完成后把实测结果填入 `hardware_validation_status.md`，并由测试人员签字。

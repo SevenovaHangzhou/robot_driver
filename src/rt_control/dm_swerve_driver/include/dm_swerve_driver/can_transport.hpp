@@ -16,6 +16,7 @@ public:
   virtual void open() = 0;
   virtual void close() noexcept = 0;
   [[nodiscard]] virtual bool is_open() const noexcept = 0;
+  [[nodiscard]] virtual bool allows_fallback_limits() const noexcept {return false;}
   virtual void write_batch(const std::vector<CanFrame> & frames) = 0;
   [[nodiscard]] virtual std::vector<ReceivedCanFrame> collect(
     std::size_t expected_count,

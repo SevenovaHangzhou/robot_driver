@@ -11,7 +11,7 @@ namespace dm_swerve_driver {
 
 using StartupLogger = std::function<void(DriverLogLevel, const std::string &)>;
 
-void initialize_motors(
+[[nodiscard]] bool initialize_motors(
   const DriverParameters & parameters,
   CanTransport & transport,
   const std::array<DmMotor *, kMotorCount> & motors,

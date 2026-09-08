@@ -3,6 +3,7 @@
 #include <memory>
 #include <chrono>
 #include <stdexcept>
+#include <thread>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
@@ -150,6 +151,106 @@ TEST_F(SwerveDriverNodeTest, EnableServiceContainsTransportFactoryExceptions)
   ASSERT_NE(unknown_failure, nullptr);
   EXPECT_FALSE(unknown_failure->success);
   EXPECT_FALSE(node->control_status().running);
+
+  EXPECT_EQ(node->deactivate().label(), "inactive");
+  executor.remove_node(client_node);
+  executor.remove_node(node->get_node_base_interface());
+}
+
+TEST_F(SwerveDriverNodeTest, RezeroServiceListsMotorThatFailsAcknowledgement)
+{
+  auto node = std::make_shared<SwerveDriverNode>(
+    rclcpp::NodeOptions{},
+    [](const DriverParameters &) {
+      auto transport = std::make_unique<test::FakeCanTransport>();
+      transport->set_dropped_mst_id(0x12U);
+      return transport;
+    });
+  auto client_node = std::make_shared<rclcpp::Node>("swerve_rezero_client");
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  executor.add_node(client_node);
+  ASSERT_EQ(node->configure().label(), "inactive");
+  auto client = client_node->create_client<std_srvs::srv::Trigger>(
+    "/swerve_driver/rezero_steering");
+  ASSERT_TRUE(client->wait_for_service(std::chrono::milliseconds{200}));
+
+  auto future = client->async_send_request(
+    std::make_shared<std_srvs::srv::Trigger::Request>());
+  ASSERT_EQ(
+    executor.spin_until_future_complete(future, std::chrono::seconds{1}),
+    rclcpp::FutureReturnCode::SUCCESS);
+  const auto response = future.get();
+
+  EXPECT_FALSE(response->success);
+  EXPECT_NE(response->message.find("ESC_ID 2"), std::string::npos);
+  executor.remove_node(client_node);
+  executor.remove_node(node->get_node_base_interface());
+}
+
+TEST_F(SwerveDriverNodeTest, StrictStartupFailureRejectsLifecycleActivation)
+{
+  auto node = std::make_shared<SwerveDriverNode>(
+    rclcpp::NodeOptions{},
+    [](const DriverParameters &) {
+      auto transport = std::make_unique<test::FakeCanTransport>();
+      transport->set_register_replies_enabled(false);
+      return transport;
+    });
+
+  ASSERT_EQ(node->configure().label(), "inactive");
+  EXPECT_NE(node->activate().label(), "active");
+  EXPECT_FALSE(node->control_status().running);
+}
+
+TEST_F(SwerveDriverNodeTest, DisableEnableCannotBypassLatchedFault)
+{
+  std::size_t transport_count{0U};
+  auto node = std::make_shared<SwerveDriverNode>(
+    rclcpp::NodeOptions{},
+    [&](const DriverParameters &) {
+      auto transport = std::make_unique<test::FakeCanTransport>();
+      if (++transport_count == 1U) {
+        transport->override_next_error(0x11U, MotorError::over_current);
+      }
+      return transport;
+    });
+  auto client_node = std::make_shared<rclcpp::Node>("swerve_latch_client");
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(node->get_node_base_interface());
+  executor.add_node(client_node);
+  ASSERT_EQ(node->configure().label(), "inactive");
+  ASSERT_EQ(node->activate().label(), "active");
+
+  for (int attempt{0}; attempt < 50 && !node->control_status().fault_latched; ++attempt) {
+    std::this_thread::sleep_for(std::chrono::milliseconds{10});
+  }
+  ASSERT_TRUE(node->control_status().fault_latched);
+
+  const auto call = [&](const std::string & service_name) {
+      auto client = client_node->create_client<std_srvs::srv::Trigger>(service_name);
+      if (!client->wait_for_service(std::chrono::milliseconds{200})) {
+        throw std::runtime_error{"service unavailable"};
+      }
+      auto future = client->async_send_request(
+        std::make_shared<std_srvs::srv::Trigger::Request>());
+      if (executor.spin_until_future_complete(future, std::chrono::seconds{1}) !=
+        rclcpp::FutureReturnCode::SUCCESS)
+      {
+        throw std::runtime_error{"service timeout"};
+      }
+      return future.get();
+    };
+
+  ASSERT_TRUE(call("/swerve_driver/disable")->success);
+  ASSERT_TRUE(call("/swerve_driver/enable")->success);
+  EXPECT_TRUE(node->control_status().fault_latched);
+
+  ASSERT_TRUE(call("/swerve_driver/clear_faults")->success);
+  for (int attempt{0}; attempt < 50 && node->control_status().fault_latched; ++attempt) {
+    std::this_thread::sleep_for(std::chrono::milliseconds{10});
+  }
+  EXPECT_FALSE(node->control_status().fault_latched);
 
   EXPECT_EQ(node->deactivate().label(), "inactive");
   executor.remove_node(client_node);

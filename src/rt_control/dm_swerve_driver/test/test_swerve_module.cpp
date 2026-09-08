@@ -121,6 +121,36 @@ TEST(SwerveModuleTest, RecentersNearPmaxWithOneEquivalentPiFlip)
   EXPECT_NEAR(aligned.wheel_speed_mps, -1.0, 1e-12);
 }
 
+TEST(SwerveModuleTest, ExplicitSteeringHoldDoesNotRecenterNearPmax)
+{
+  auto config = steering_config();
+  config.gear_ratio = 1.0;
+  config.zero_offset_rad = 0.0;
+  auto module = make_module(config);
+  module.steering_motor().seed_position(18.2);
+
+  const auto command = module.make_command(
+    OptimizedModuleState{0.0, 18.2, 0.0}, 0.1, true, true);
+
+  EXPECT_FALSE(command.recentered);
+  EXPECT_NEAR(command.continuous_angle_rad, 18.2, 1e-12);
+  EXPECT_NEAR(command.steering.position, 18.2, 1e-12);
+  EXPECT_DOUBLE_EQ(command.drive.velocity, 0.0);
+}
+
+TEST(SwerveModuleTest, ExplicitSteeringHoldSuppressesAngularFeedforward)
+{
+  auto module = make_module();
+  static_cast<void>(module.make_command(
+      OptimizedModuleState{0.0, 0.0, 0.0}, 0.1));
+
+  const auto command = module.make_command(
+    OptimizedModuleState{1.0, 1.0, 0.0}, 0.1, false, true);
+
+  EXPECT_DOUBLE_EQ(command.steering.velocity, 0.0);
+  EXPECT_DOUBLE_EQ(command.drive.velocity, 0.0);
+}
+
 TEST(SwerveModuleTest, SteeringFeedforwardClampsAxisSideStepBeforeGearRatio)
 {
   auto config = steering_config();

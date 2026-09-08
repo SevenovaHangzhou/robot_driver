@@ -60,7 +60,8 @@ public:
   [[nodiscard]] SwerveModuleCommand make_command(
     const OptimizedModuleState & target,
     double dt_seconds,
-    bool force_drive_zero = false);
+    bool force_drive_zero = false,
+    bool hold_steering = false);
   [[nodiscard]] std::array<CanFrame, 2U> encode_command_frames(
     const SwerveModuleCommand & command) const;
   void reset_command_history() noexcept;

@@ -26,6 +26,31 @@ using SteadyClock = std::chrono::steady_clock;
          now - previous.value() >= std::chrono::duration<double>{period_seconds};
 }
 
+[[nodiscard]] bool recoverable_error(MotorError error) noexcept
+{
+  return error == MotorError::under_voltage || error == MotorError::communication_lost;
+}
+
+[[nodiscard]] bool immediate_latch_error(const DmMotorHealth & motor) noexcept
+{
+  return motor.has_feedback && motor.error != MotorError::disabled &&
+         motor.error != MotorError::enabled && !recoverable_error(motor.error);
+}
+
+[[nodiscard]] bool silent(
+  const DmMotorHealth & motor, std::uint64_t threshold) noexcept
+{
+  return motor.consecutive_missed_frames >= threshold;
+}
+
+[[nodiscard]] bool needs_automatic_recovery(
+  const DmMotorHealth & motor, std::uint64_t threshold) noexcept
+{
+  return silent(motor, threshold) ||
+         (motor.has_feedback &&
+         (motor.error == MotorError::disabled || recoverable_error(motor.error)));
+}
+
 }  // namespace
 
 SafetyMonitor::SafetyMonitor(const DriverParameters & parameters)
@@ -90,25 +115,115 @@ RecoveryActions SafetyMonitor::recovery_actions(
   SteadyClock::time_point now)
 {
   RecoveryActions actions{};
+  bool current_fault{fault_latched_ || transport_faulted_};
+  for (const auto & motor : motors) {
+    const bool motor_fault = silent(
+      motor, parameters_.safety.feedback_silent_cycles) ||
+      (motor.has_feedback && motor.error != MotorError::enabled);
+    current_fault = current_fault || motor_fault;
+    fault_latched_ = fault_latched_ || immediate_latch_error(motor);
+  }
+  faulted_ = current_fault || fault_latched_;
+  if (fault_latched_) {
+    return actions;
+  }
+
   for (std::size_t index{0U}; index < motors.size(); ++index) {
     const auto & motor = motors[index];
-    const bool silent = motor.consecutive_missed_frames >=
-      parameters_.safety.feedback_silent_cycles;
-    const bool not_enabled = motor.has_feedback && motor.error != MotorError::enabled;
-    if (motor.has_fault() && action_due(
-        last_clear_fault_[index], now, parameters_.safety.reenable_period_s))
-    {
-      actions.clear_fault[index] = true;
-      last_clear_fault_[index] = now;
+    if (!needs_automatic_recovery(motor, parameters_.safety.feedback_silent_cycles)) {
+      continue;
     }
-    if ((silent || not_enabled) && action_due(
-        last_reenable_[index], now, parameters_.safety.reenable_period_s))
-    {
-      actions.reenable[index] = true;
-      last_reenable_[index] = now;
+    if (recovery_attempts_[index] >= parameters_.safety.auto_recovery_limit) {
+      fault_latched_ = true;
+      break;
     }
+    if (!action_due(last_recovery_[index], now, parameters_.safety.reenable_period_s)) {
+      continue;
+    }
+    actions.clear_fault[index] = motor.has_feedback && recoverable_error(motor.error);
+    actions.reenable[index] = true;
+    last_recovery_[index] = now;
+    ++recovery_attempts_[index];
+  }
+  if (fault_latched_) {
+    actions = RecoveryActions{};
+    faulted_ = true;
   }
   return actions;
+}
+
+RecoveryActions SafetyMonitor::manual_clear_actions() noexcept
+{
+  RecoveryActions actions;
+  actions.clear_fault.fill(true);
+  actions.reenable.fill(true);
+  return actions;
+}
+
+bool SafetyMonitor::complete_manual_clear(
+  const std::array<DmMotorHealth, kMotorCount> & motors,
+  const std::array<bool, kMotorCount> & enable_confirmed) noexcept
+{
+  bool verified{!transport_faulted_};
+  for (std::size_t index{0U}; index < motors.size(); ++index) {
+    verified = verified && enable_confirmed[index] && motors[index].enabled() &&
+      motors[index].consecutive_missed_frames < parameters_.safety.feedback_silent_cycles;
+  }
+  if (!verified) {
+    faulted_ = true;
+    fault_latched_ = true;
+    return false;
+  }
+  recovery_attempts_.fill(0U);
+  last_recovery_.fill(std::nullopt);
+  faulted_ = false;
+  fault_latched_ = false;
+  return true;
+}
+
+void SafetyMonitor::restore_recovery_state(
+  const std::array<std::uint32_t, kMotorCount> & recovery_attempts,
+  bool fault_latched) noexcept
+{
+  recovery_attempts_ = recovery_attempts;
+  last_recovery_.fill(std::nullopt);
+  fault_latched_ = fault_latched;
+  faulted_ = fault_latched;
+  transport_faulted_ = false;
+}
+
+void SafetyMonitor::mark_transport_failure() noexcept
+{
+  transport_faulted_ = true;
+  faulted_ = true;
+}
+
+void SafetyMonitor::observe_feedback(
+  const std::array<bool, kMotorCount> & received) noexcept
+{
+  if (std::all_of(received.begin(), received.end(), [](bool value) {return value;})) {
+    transport_faulted_ = false;
+  }
+}
+
+bool SafetyMonitor::faulted() const noexcept
+{
+  return faulted_ || transport_faulted_;
+}
+
+bool SafetyMonitor::fault_latched() const noexcept
+{
+  return fault_latched_;
+}
+
+bool SafetyMonitor::transport_faulted() const noexcept
+{
+  return transport_faulted_;
+}
+
+const std::array<std::uint32_t, kMotorCount> & SafetyMonitor::recovery_attempts() const noexcept
+{
+  return recovery_attempts_;
 }
 
 bool SafetyMonitor::all_bus_silent(

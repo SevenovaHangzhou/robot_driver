@@ -31,7 +31,8 @@ void log_safely(
 FeedbackRouteResult route_feedback_frames(
   const std::vector<ReceivedCanFrame> & frames,
   const std::array<DmMotor *, kMotorCount> & motors,
-  const FeedbackRouteLogger & log_warning) noexcept
+  const FeedbackRouteLogger & log_warning,
+  std::optional<std::chrono::nanoseconds> minimum_timestamp) noexcept
 {
   FeedbackRouteResult result{};
   for (const auto & received : frames) {
@@ -39,6 +40,14 @@ FeedbackRouteResult route_feedback_frames(
     if (index == motors.size()) {
       ++result.unknown_frames;
       log_safely(log_warning, "dropping frame with unknown MST_ID");
+      continue;
+    }
+
+    if (minimum_timestamp.has_value() &&
+      received.kernel_timestamp < *minimum_timestamp)
+    {
+      ++result.stale_frames;
+      log_safely(log_warning, "dropping motor feedback older than the current command");
       continue;
     }
 

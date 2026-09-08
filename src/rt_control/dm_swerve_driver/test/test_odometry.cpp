@@ -153,5 +153,55 @@ TEST(SwerveOdometryTest, ResetPreservesRequestedYawOffset)
   EXPECT_NEAR(pose.heading_rad, -0.4, kTolerance);
 }
 
+TEST(SwerveOdometryTest, RecoveredFeedbackPreservesDistanceAcrossMissingCycles)
+{
+  auto positions = initial_positions(1.0, 0.0, 0.0);
+  SwerveOdometry odometry{kLocations, 0.0, positions};
+
+  for (auto & position : positions) {
+    position.distance_m = 1.0;
+  }
+  static_cast<void>(odometry.update(0.0, positions));
+
+  for (auto & position : positions) {
+    position.distance_m = 2.0;
+    position.valid = false;
+  }
+  static_cast<void>(odometry.update(0.0, positions));
+  for (auto & position : positions) {
+    position.distance_m = 2.5;
+  }
+  static_cast<void>(odometry.update(0.0, positions));
+
+  for (auto & position : positions) {
+    position.distance_m = 3.0;
+    position.valid = true;
+  }
+  const auto recovered = odometry.update(0.0, positions);
+  EXPECT_NEAR(recovered.x_m, 3.0, kTolerance);
+  EXPECT_NEAR(recovered.y_m, 0.0, kTolerance);
+}
+
+TEST(SwerveOdometryTest, RecoveredFeedbackUsesWrapSafeAngleAcrossGap)
+{
+  std::array<SwerveModulePosition, kSwerveModuleCount> positions{};
+  for (auto & position : positions) {
+    position = SwerveModulePosition{0.0, 179.0 * kPi / 180.0, true};
+  }
+  SwerveOdometry odometry{kLocations, 0.0, positions};
+
+  for (auto & position : positions) {
+    position = SwerveModulePosition{0.5, -179.0 * kPi / 180.0, false};
+  }
+  static_cast<void>(odometry.update(0.0, positions));
+  for (auto & position : positions) {
+    position = SwerveModulePosition{1.0, -179.0 * kPi / 180.0, true};
+  }
+  const auto recovered = odometry.update(0.0, positions);
+
+  EXPECT_NEAR(recovered.x_m, -1.0, 2e-4);
+  EXPECT_NEAR(recovered.y_m, 0.0, 2e-4);
+}
+
 }  // namespace
 }  // namespace dm_swerve_driver

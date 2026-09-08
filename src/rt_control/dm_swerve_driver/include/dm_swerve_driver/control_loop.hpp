@@ -30,6 +30,9 @@ struct ControlLoopOutput {
   std::array<double, kSwerveModuleCount> wheel_distance_m{};
   std::array<double, kSwerveModuleCount> wheel_velocity_mps{};
   bool alignment_gated{false};
+  ChassisSpeeds measured_twist{};
+  bool imu_fallback{false};
+  std::size_t valid_module_count{kSwerveModuleCount};
 };
 
 struct ControlLoopStatus {
@@ -45,6 +48,14 @@ struct ControlLoopStatus {
   std::array<DmMotorHealth, kMotorCount> motors{};
   std::array<MotorLimits, kMotorCount> motor_limits{};
   Pose2d pose{};
+  bool faulted{false};
+  bool fault_latched{false};
+  bool transport_faulted{false};
+  std::uint64_t stale_frames{0U};
+  std::uint64_t unknown_frames_last_cycle{0U};
+  std::uint64_t rejected_frames_last_cycle{0U};
+  std::uint64_t stale_frames_last_cycle{0U};
+  std::array<std::uint32_t, kMotorCount> recovery_attempts{};
 };
 
 struct ControlLoopCallbacks {
@@ -74,10 +85,14 @@ public:
   void submit_command(
     const ChassisSpeeds & command,
     std::chrono::steady_clock::time_point timestamp);
-  void submit_imu_yaw(
+  bool submit_imu_yaw(
     double yaw_rad,
-    std::chrono::steady_clock::time_point timestamp);
+    std::chrono::steady_clock::time_point timestamp,
+    double yaw_rate_radps = 0.0);
   void request_clear_faults() noexcept;
+  void restore_fault_state(
+    bool fault_latched,
+    const std::array<std::uint32_t, kMotorCount> & recovery_attempts);
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] ControlLoopStatus status() const;

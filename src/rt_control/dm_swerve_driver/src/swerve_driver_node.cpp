@@ -1,12 +1,10 @@
 #include "dm_swerve_driver/swerve_driver_node.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <memory>
-#include <iterator>
+#include <stdexcept>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <geometry_msgs/msg/twist.hpp>
@@ -19,7 +17,9 @@
 #include <tf2_ros/transform_broadcaster.h>
 
 #include "dm_swerve_driver/diagnostics.hpp"
+#include "dm_swerve_driver/imu_validation.hpp"
 #include "dm_swerve_driver/ros_params.hpp"
+#include "dm_swerve_driver/steering_rezero.hpp"
 #include "ros_output.hpp"
 
 namespace dm_swerve_driver {
@@ -63,6 +63,10 @@ public:
       RCLCPP_ERROR(node_.get_logger(), "configuration failed: %s", error.what());
       static_cast<void>(cleanup());
       return CallbackReturn::FAILURE;
+    } catch (...) {
+      RCLCPP_ERROR(node_.get_logger(), "configuration failed with an unknown error");
+      static_cast<void>(cleanup());
+      return CallbackReturn::FAILURE;
     }
   }
 
@@ -82,6 +86,11 @@ public:
       return CallbackReturn::SUCCESS;
     } catch (const std::exception & error) {
       RCLCPP_ERROR(node_.get_logger(), "activation failed: %s", error.what());
+      stop_control();
+      deactivate_publishers();
+      return CallbackReturn::FAILURE;
+    } catch (...) {
+      RCLCPP_ERROR(node_.get_logger(), "activation failed with an unknown error");
       stop_control();
       deactivate_publishers();
       return CallbackReturn::FAILURE;
@@ -134,11 +143,19 @@ private:
     imu_subscription_ = node_.create_subscription<sensor_msgs::msg::Imu>(
       parameters_.odometry.imu_topic, rclcpp::SensorDataQoS{},
       [this](sensor_msgs::msg::Imu::ConstSharedPtr message) {
-        if (control_loop_) {
-          control_loop_->submit_imu_yaw(
-            tf2::getYaw(message->orientation),
-            std::chrono::steady_clock::now());
+        if (!control_loop_) {
+          return;
         }
+        if (!imu_orientation_valid(*message)) {
+          RCLCPP_WARN_THROTTLE(
+            node_.get_logger(), *node_.get_clock(), 1000,
+            "ignored IMU sample with unavailable or invalid orientation");
+          return;
+        }
+        static_cast<void>(control_loop_->submit_imu_yaw(
+            tf2::getYaw(message->orientation),
+            std::chrono::steady_clock::now(),
+            message->angular_velocity.z));
       });
   }
 
@@ -175,9 +192,9 @@ private:
           response->message = "disable the driver before steering rezero";
           return;
         }
-        response->success = rezero_steering();
-        response->message = response->success ?
-          "steering zero commands sent" : "steering rezero failed";
+        const auto result = rezero_steering();
+        response->success = result.first;
+        response->message = result.second;
       });
   }
 
@@ -211,6 +228,8 @@ private:
     stop_control();
     control_loop_ = std::make_unique<ControlLoop>(
       parameters_, transport_factory_(parameters_), control_callbacks());
+    control_loop_->restore_fault_state(
+      last_status_.fault_latched, last_status_.recovery_attempts);
     if (!control_loop_->initialize(std::chrono::steady_clock::now())) {
       stop_control();
       return false;
@@ -219,33 +238,27 @@ private:
     return true;
   }
 
-  [[nodiscard]] bool rezero_steering() noexcept
+  [[nodiscard]] std::pair<bool, std::string> rezero_steering() noexcept
   {
     try {
       auto transport = transport_factory_(parameters_);
+      if (!transport) {
+        throw std::runtime_error{"transport factory returned null"};
+      }
       transport->open();
-      std::vector<CanFrame> frames;
-      frames.reserve(kSwerveModuleCount);
-      std::transform(
-        parameters_.motors.steering_esc_id.begin(),
-        parameters_.motors.steering_esc_id.end(),
-        std::back_inserter(frames),
-        [](std::uint16_t esc_id) {
-          return make_special_command(esc_id, SpecialCommand::save_zero);
-        });
-      transport->write_batch(frames);
-      static_cast<void>(transport->collect(
-          frames.size(),
-          std::chrono::steady_clock::now() +
-          std::chrono::microseconds{parameters_.can.feedback_deadline_us}));
+      const auto result = perform_steering_rezero(parameters_, *transport);
       transport->close();
-      return true;
+      if (result.success()) {
+        return {true, "steering zero verified for all motors"};
+      }
+      return {false, steering_rezero_failure_message(result)};
     } catch (const std::exception & error) {
       RCLCPP_ERROR(node_.get_logger(), "steering rezero failed: %s", error.what());
+      return {false, std::string{"steering rezero failed: "} + error.what()};
     } catch (...) {
       RCLCPP_ERROR(node_.get_logger(), "steering rezero failed with an unknown error");
+      return {false, "steering rezero failed with an unknown error"};
     }
-    return false;
   }
 
   void publish_diagnostics()

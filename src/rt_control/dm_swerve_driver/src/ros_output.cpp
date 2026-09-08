@@ -9,6 +9,8 @@
 #include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include "dm_swerve_driver/odometry_covariance.hpp"
+
 namespace dm_swerve_driver {
 namespace {
 
@@ -65,7 +67,7 @@ std::unique_ptr<CanTransport> make_default_transport(
   return std::make_unique<SocketCanTransport>(SocketCanOptions{
       parameters.can.interface_name,
       receive_ids,
-      std::chrono::microseconds{2000},
+      std::chrono::microseconds{parameters.can.write_timeout_us},
       false});
 }
 
@@ -91,9 +93,13 @@ void publish_control_output(
   odometry.pose.pose.position.x = output.pose.x_m;
   odometry.pose.pose.position.y = output.pose.y_m;
   odometry.pose.pose.orientation = orientation;
-  odometry.twist.twist.linear.x = output.command.vx_mps;
-  odometry.twist.twist.linear.y = output.command.vy_mps;
-  odometry.twist.twist.angular.z = output.command.omega_radps;
+  odometry.twist.twist.linear.x = output.measured_twist.vx_mps;
+  odometry.twist.twist.linear.y = output.measured_twist.vy_mps;
+  odometry.twist.twist.angular.z = output.measured_twist.omega_radps;
+  const auto covariances = make_odometry_covariances(
+    parameters.odometry, output.imu_fallback, output.valid_module_count);
+  odometry.pose.covariance = covariances.pose;
+  odometry.twist.covariance = covariances.twist;
   odometry_publisher->publish(odometry);
   publish_joint_states(stamp, parameters, output, joint_state_publisher);
 

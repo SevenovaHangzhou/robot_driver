@@ -47,7 +47,7 @@ const std::array<const char *, kMotorCount> kMotorNames{
 [[nodiscard]] std::uint8_t motor_level(const DmMotorHealth & health) noexcept
 {
   if (!health.has_feedback || health.error == MotorError::disabled ||
-    health.error == MotorError::over_voltage || health.error == MotorError::under_voltage ||
+    health.error == MotorError::under_voltage ||
     health.error == MotorError::communication_lost)
   {
     return DiagnosticStatus::WARN;
@@ -85,6 +85,26 @@ void add_value(
   return result;
 }
 
+[[nodiscard]] const char * summary_message(
+  const ControlLoopStatus & status, bool motor_error, bool degraded) noexcept
+{
+  if (status.fault_latched) {
+    return "motor fault latched; manual clear required";
+  }
+  if (status.faulted) {
+    return status.transport_faulted ?
+      "transport faulted; all drive commands gated" :
+      "motor safety faulted; all drive commands gated";
+  }
+  if (status.bus_silent) {
+    return "CAN bus silent; drive commands gated";
+  }
+  if (motor_error) {
+    return "one or more motors report faults";
+  }
+  return degraded ? "driver running with recoverable degradation" : "driver healthy";
+}
+
 [[nodiscard]] DiagnosticStatus summary_status(
   const ControlLoopStatus & status,
   const std::vector<DiagnosticStatus> & motor_statuses)
@@ -97,18 +117,34 @@ void add_value(
       return motor.level == DiagnosticStatus::ERROR;
     });
   const bool degraded = !status.initialized || status.command_timed_out || status.imu_fallback ||
-    status.unknown_frames != 0U || status.rejected_frames != 0U;
-  summary.level = status.bus_silent || motor_error ? DiagnosticStatus::ERROR :
+    status.unknown_frames_last_cycle != 0U ||
+    status.rejected_frames_last_cycle != 0U ||
+    status.stale_frames_last_cycle != 0U;
+  summary.level = status.faulted || status.fault_latched || status.bus_silent || motor_error ?
+    DiagnosticStatus::ERROR :
     (degraded ? DiagnosticStatus::WARN : DiagnosticStatus::OK);
-  summary.message = status.bus_silent ? "CAN bus silent; drive commands gated" :
-    (motor_error ? "one or more motors report faults" :
-    (degraded ? "driver running with recoverable degradation" : "driver healthy"));
+  summary.message = summary_message(status, motor_error, degraded);
   add_value(summary, "command_timed_out", status.command_timed_out ? "true" : "false");
   add_value(summary, "imu_fallback", status.imu_fallback ? "true" : "false");
   add_value(summary, "completed_cycles", std::to_string(status.completed_cycles));
   add_value(summary, "loop_overruns", std::to_string(status.loop_overruns));
   add_value(summary, "unknown_frames", std::to_string(status.unknown_frames));
   add_value(summary, "rejected_frames", std::to_string(status.rejected_frames));
+  add_value(summary, "stale_frames", std::to_string(status.stale_frames));
+  add_value(summary, "faulted", status.faulted ? "true" : "false");
+  add_value(summary, "fault_latched", status.fault_latched ? "true" : "false");
+  add_value(summary, "transport_faulted", status.transport_faulted ? "true" : "false");
+  std::uint64_t recovery_attempts{0U};
+  for (const auto attempts : status.recovery_attempts) {
+    recovery_attempts += attempts;
+  }
+  add_value(summary, "recovery_attempts", std::to_string(recovery_attempts));
+  add_value(summary, "unknown_frames_last_cycle",
+    std::to_string(status.unknown_frames_last_cycle));
+  add_value(summary, "rejected_frames_last_cycle",
+    std::to_string(status.rejected_frames_last_cycle));
+  add_value(summary, "stale_frames_last_cycle",
+    std::to_string(status.stale_frames_last_cycle));
   return summary;
 }
 

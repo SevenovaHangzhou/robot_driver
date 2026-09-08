@@ -170,11 +170,42 @@ OptimizedModuleState optimize_module(
 
   double error{wrap_pi(desired.angle_rad - wrap_pi(current_unwrapped_angle_rad))};
   double speed{desired.speed_mps};
+  bool reversed{false};
   if (std::abs(error) > kPi / 2.0) {
     error -= std::copysign(kPi, error);
     speed = -speed;
+    reversed = true;
   }
-  return OptimizedModuleState{speed, current_unwrapped_angle_rad + error, error};
+  return OptimizedModuleState{
+    speed, current_unwrapped_angle_rad + error, error, reversed};
+}
+
+OptimizedModuleState optimize_module(
+  const SwerveModuleState & desired,
+  double current_unwrapped_angle_rad,
+  bool previous_reversed,
+  double hysteresis_rad)
+{
+  validate_state(desired);
+  if (!finite(current_unwrapped_angle_rad)) {
+    throw std::invalid_argument{"current module angle must be finite"};
+  }
+  if (!finite(hysteresis_rad) || hysteresis_rad < 0.0 || hysteresis_rad >= kPi / 2.0) {
+    throw std::invalid_argument{"flip hysteresis must be finite and in [0, pi/2)"};
+  }
+
+  double error{wrap_pi(desired.angle_rad - wrap_pi(current_unwrapped_angle_rad))};
+  const double absolute_error{std::abs(error)};
+  const bool reversed = previous_reversed ?
+    absolute_error >= kPi / 2.0 - hysteresis_rad :
+    absolute_error > kPi / 2.0 + hysteresis_rad;
+  double speed{desired.speed_mps};
+  if (reversed) {
+    error -= std::copysign(kPi, error);
+    speed = -speed;
+  }
+  return OptimizedModuleState{
+    speed, current_unwrapped_angle_rad + error, error, reversed};
 }
 
 AlignmentResult optimize_and_apply_alignment(
@@ -277,6 +308,39 @@ std::optional<ChassisDelta> wheel_chassis_delta_from_position_deltas(
     return std::nullopt;
   }
   return ChassisDelta{(*solution)[0], (*solution)[1], (*solution)[2]};
+}
+
+std::optional<ChassisSpeeds> chassis_speeds_from_module_states(
+  const std::array<SwerveModuleMeasurement, kSwerveModuleCount> & modules,
+  const std::array<Translation2d, kSwerveModuleCount> & module_locations)
+{
+  AugmentedMatrix normal{};
+  std::size_t valid_count{0U};
+  for (std::size_t index{0U}; index < modules.size(); ++index) {
+    if (!modules[index].valid) {
+      continue;
+    }
+    const auto & module = modules[index];
+    const auto & location = module_locations[index];
+    if (!finite(module.speed_mps) || !finite(module.angle_rad) ||
+      !finite(location.x) || !finite(location.y))
+    {
+      throw std::invalid_argument{"valid module velocity samples and geometry must be finite"};
+    }
+    const double wheel_x{module.speed_mps * std::cos(module.angle_rad)};
+    const double wheel_y{module.speed_mps * std::sin(module.angle_rad)};
+    accumulate_observation(normal, {1.0, 0.0, -location.y}, wheel_x);
+    accumulate_observation(normal, {0.0, 1.0, location.x}, wheel_y);
+    ++valid_count;
+  }
+  if (valid_count < 2U) {
+    return std::nullopt;
+  }
+  const auto solution = solve_three_by_three(normal);
+  if (!solution.has_value()) {
+    return std::nullopt;
+  }
+  return ChassisSpeeds{(*solution)[0], (*solution)[1], (*solution)[2]};
 }
 
 }  // namespace dm_swerve_driver

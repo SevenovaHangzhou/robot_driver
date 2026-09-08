@@ -114,7 +114,8 @@ void validate_drive_config(const DriveModuleConfig & config)
   const MotorLimits & limits,
   double direction,
   double dt_seconds,
-  std::optional<double> & previous_target_rad)
+  std::optional<double> & previous_target_rad,
+  bool hold_steering)
 {
   const double position_limit{config.command_limit_fraction * limits.position_max};
   target.motor_position_rad = std::clamp(
@@ -122,7 +123,7 @@ void validate_drive_config(const DriveModuleConfig & config)
   const double raw_target_velocity = previous_target_rad.has_value() ?
     (target.angle_rad - *previous_target_rad) / dt_seconds : 0.0;
   previous_target_rad = target.angle_rad;
-  const double target_velocity = target.recentered ? 0.0 : std::clamp(
+  const double target_velocity = hold_steering || target.recentered ? 0.0 : std::clamp(
     raw_target_velocity, -config.max_ff_speed_radps, config.max_ff_speed_radps);
   const double motor_velocity{std::clamp(
       config.kff_omega * target_velocity * config.gear_ratio * direction,
@@ -228,7 +229,10 @@ double SwerveModule::wheel_velocity_mps() const
 }
 
 SwerveModuleCommand SwerveModule::make_command(
-  const OptimizedModuleState & target, double dt_seconds, bool force_drive_zero)
+  const OptimizedModuleState & target,
+  double dt_seconds,
+  bool force_drive_zero,
+  bool hold_steering)
 {
   if (!finite(target.speed_mps) || !finite(target.continuous_angle_rad) ||
     !finite(target.error_rad) || !finite(dt_seconds) || dt_seconds <= 0.0)
@@ -236,12 +240,19 @@ SwerveModuleCommand SwerveModule::make_command(
     throw std::invalid_argument{"module target and period must be finite and valid"};
   }
 
-  SteeringTarget steering_target{select_steering_target(
-      target, steering_config_, steering_motor_.limits().position_max)};
+  SteeringTarget steering_target{
+    target.speed_mps,
+    target.continuous_angle_rad,
+    motor_position_for_angle(target.continuous_angle_rad, steering_config_),
+    false};
+  if (!hold_steering) {
+    steering_target = select_steering_target(
+      target, steering_config_, steering_motor_.limits().position_max);
+  }
   const MitCommand steering_command{make_steering_command(
       steering_target, steering_config_, steering_motor_.limits(), steering_sign(),
-      dt_seconds, previous_steering_target_rad_)};
-  const bool suppress_drive{force_drive_zero || steering_target.recentered};
+      dt_seconds, previous_steering_target_rad_, hold_steering)};
+  const bool suppress_drive{force_drive_zero || hold_steering || steering_target.recentered};
   const DriveTarget drive_target{make_drive_command(
       steering_target.wheel_speed_mps, suppress_drive, drive_config_, drive_motor_.limits(),
       drive_sign(), dt_seconds, previous_wheel_speed_mps_)};

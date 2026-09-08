@@ -50,6 +50,23 @@ public:
     const std::array<DmMotorHealth, kMotorCount> & motors,
     std::chrono::steady_clock::time_point now);
 
+  [[nodiscard]] RecoveryActions manual_clear_actions() noexcept;
+  [[nodiscard]] bool complete_manual_clear(
+    const std::array<DmMotorHealth, kMotorCount> & motors,
+    const std::array<bool, kMotorCount> & enable_confirmed) noexcept;
+  void restore_recovery_state(
+    const std::array<std::uint32_t, kMotorCount> & recovery_attempts,
+    bool fault_latched) noexcept;
+  void mark_transport_failure() noexcept;
+  void observe_feedback(
+    const std::array<bool, kMotorCount> & received) noexcept;
+
+  [[nodiscard]] bool faulted() const noexcept;
+  [[nodiscard]] bool fault_latched() const noexcept;
+  [[nodiscard]] bool transport_faulted() const noexcept;
+  [[nodiscard]] const std::array<std::uint32_t, kMotorCount> & recovery_attempts()
+    const noexcept;
+
   [[nodiscard]] bool all_bus_silent(
     const std::array<DmMotorHealth, kMotorCount> & motors) const noexcept;
 
@@ -61,9 +78,11 @@ private:
   double yaw_rad_{0.0};
   double imu_offset_rad_{0.0};
   std::array<std::optional<std::chrono::steady_clock::time_point>, kMotorCount>
-    last_clear_fault_{};
-  std::array<std::optional<std::chrono::steady_clock::time_point>, kMotorCount>
-    last_reenable_{};
+    last_recovery_{};
+  std::array<std::uint32_t, kMotorCount> recovery_attempts_{};
+  bool faulted_{false};
+  bool fault_latched_{false};
+  bool transport_faulted_{false};
 };
 
 }  // namespace dm_swerve_driver

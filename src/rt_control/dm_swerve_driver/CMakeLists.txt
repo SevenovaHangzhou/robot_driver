@@ -37,6 +37,7 @@ endif()
 
 add_library(dm_swerve_ros
   src/diagnostics.cpp
+  src/imu_validation.cpp
   src/ros_output.cpp
   src/ros_params.cpp
   src/swerve_driver_node.cpp
@@ -76,11 +77,13 @@ target_compile_options(swerve_driver_node PRIVATE -Wall -Wextra -Wpedantic -Wcon
 add_library(dm_swerve_control
   src/can_transport.cpp
   src/control_cycle.cpp
+  src/control_recovery.cpp
   src/control_loop.cpp
   src/control_thread.cpp
   src/motor_startup.cpp
   src/params.cpp
   src/safety_monitor.cpp
+  src/steering_rezero.cpp
 )
 target_compile_features(dm_swerve_control PUBLIC cxx_std_17)
 target_include_directories(dm_swerve_control
@@ -97,8 +100,10 @@ if(DM_SWERVE_ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 add_library(dm_swerve_math
+  src/odometry_covariance.cpp
   src/swerve_kinematics.cpp
   src/swerve_odometry.cpp
+  src/swerve_setpoint.cpp
 )
 target_compile_features(dm_swerve_math PUBLIC cxx_std_17)
 target_include_directories(dm_swerve_math
@@ -174,6 +179,9 @@ if(BUILD_TESTING)
   ament_add_gtest(test_odometry test/test_odometry.cpp)
   target_link_libraries(test_odometry dm_swerve_math)
 
+  ament_add_gtest(test_odometry_covariance test/test_odometry_covariance.cpp)
+  target_link_libraries(test_odometry_covariance dm_swerve_math)
+
   ament_add_gtest(test_motor_unwrap test/test_motor_unwrap.cpp)
   target_link_libraries(test_motor_unwrap dm_swerve_motor)
 
@@ -189,6 +197,9 @@ if(BUILD_TESTING)
   ament_add_gtest(test_control_loop test/test_control_loop.cpp)
   target_link_libraries(test_control_loop dm_swerve_control dm_swerve_protocol)
 
+  ament_add_gtest(test_steering_rezero test/test_steering_rezero.cpp)
+  target_link_libraries(test_steering_rezero dm_swerve_control dm_swerve_protocol)
+
   ament_add_gtest(test_safety test/test_safety.cpp)
   target_link_libraries(test_safety dm_swerve_control)
 
@@ -203,6 +214,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_diagnostics test/test_diagnostics.cpp)
   target_link_libraries(test_diagnostics dm_swerve_ros)
   ament_target_dependencies(test_diagnostics diagnostic_msgs)
+
+  ament_add_gtest(test_imu_validation test/test_imu_validation.cpp)
+  target_link_libraries(test_imu_validation dm_swerve_ros)
+  ament_target_dependencies(test_imu_validation sensor_msgs)
 
   ament_add_gtest(test_integration_fake_bus test/test_integration_fake_bus.cpp)
   target_link_libraries(test_integration_fake_bus dm_swerve_control dm_swerve_protocol)

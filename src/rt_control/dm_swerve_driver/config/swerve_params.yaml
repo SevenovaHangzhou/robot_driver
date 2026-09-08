@@ -3,8 +3,12 @@ swerve_driver:
     can:
       interface: vcan0
       feedback_deadline_us: 4000
-      write_timeout_register: false
+      write_timeout_us: 2000
+      # Verify the 50 us/count assumption on one real motor before vehicle bring-up.
+      write_timeout_register: true
       timeout_register_ms: 100
+      # Test-only escape hatch; validation rejects true for production CAN interfaces.
+      allow_fallback_limits: false
 
     control:
       rate_hz: 100.0
@@ -35,6 +39,9 @@ swerve_driver:
       kd: 1.0
       kff_omega: 0.9
       max_ff_speed_radps: 3.0
+      flip_hysteresis_rad: 0.1
+      max_slew_radps: 3.0
+      rezero_tolerance_rad: 0.05
       zero_offset_rad: [0.0, 0.0, 0.0, 0.0]
       invert: [false, false, false, false]
 
@@ -55,6 +62,7 @@ swerve_driver:
     safety:
       feedback_silent_cycles: 50
       reenable_period_s: 1.0
+      auto_recovery_limit: 3
 
     odometry:
       imu_topic: /imu/data
@@ -63,3 +71,8 @@ swerve_driver:
       odom_frame: odom
       base_frame: base_link
       publish_rate_hz: 50.0
+      max_imu_yaw_step_rad: 0.5
+      pose_covariance_diagonal: [0.01, 0.01, 1000000.0, 1000000.0, 1000000.0, 0.02]
+      twist_covariance_diagonal: [0.02, 0.02, 1000000.0, 1000000.0, 1000000.0, 0.04]
+      imu_fallback_covariance_scale: 10.0
+      missing_module_covariance_scale: 4.0

@@ -26,7 +26,23 @@ TEST(DriverParametersTest, DefaultsAreRunnablePlaceholders)
   EXPECT_TRUE(parameter_errors(parameters).empty());
   EXPECT_NO_THROW(validate_parameters(parameters));
   EXPECT_EQ(parameters.can.interface_name, "vcan0");
+  EXPECT_FALSE(parameters.can.allow_fallback_limits);
+  EXPECT_TRUE(parameters.can.write_timeout_register);
+  EXPECT_EQ(parameters.can.write_timeout_us, 2000);
   EXPECT_DOUBLE_EQ(parameters.steering.max_ff_speed_radps, 3.0);
+}
+
+TEST(DriverParametersTest, AllowsFallbackLimitsOnlyWhenExplicitlyUsingVcan)
+{
+  auto parameters = default_parameters();
+  parameters.can.allow_fallback_limits = true;
+  EXPECT_TRUE(parameter_errors(parameters).empty());
+
+  parameters.can.interface_name = "can0";
+  EXPECT_TRUE(contains_error(parameter_errors(parameters), "allow_fallback_limits"));
+
+  parameters.can.interface_name = "fake0";
+  EXPECT_FALSE(contains_error(parameter_errors(parameters), "allow_fallback_limits"));
 }
 
 TEST(DriverParametersTest, DerivesRep103ModuleLocations)
@@ -75,6 +91,7 @@ TEST(DriverParametersTest, RejectsInvalidGeometryTimingGainsAndIdentifiers)
   auto parameters = default_parameters();
   parameters.chassis.wheel_radius_m = 0.0;
   parameters.control.rate_hz = 0.0;
+  parameters.can.write_timeout_us = 0;
   parameters.steering.max_ff_speed_radps = -1.0;
   parameters.odometry.publish_rate_hz = 101.0;
   parameters.motors.drive_mst_id[3] = parameters.motors.steering_mst_id[0];
@@ -82,6 +99,7 @@ TEST(DriverParametersTest, RejectsInvalidGeometryTimingGainsAndIdentifiers)
 
   EXPECT_TRUE(contains_error(errors, "wheel_radius_m"));
   EXPECT_TRUE(contains_error(errors, "rate_hz"));
+  EXPECT_TRUE(contains_error(errors, "write_timeout_us"));
   EXPECT_TRUE(contains_error(errors, "max_ff_speed_radps"));
   EXPECT_TRUE(contains_error(errors, "publish_rate_hz"));
   EXPECT_TRUE(contains_error(errors, "MST_ID"));
@@ -110,6 +128,48 @@ TEST(DriverParametersTest, RejectsCanIdOverlapAndTimeoutRegisterOverflow)
   EXPECT_TRUE(contains_error(errors, "overlap"));
   EXPECT_TRUE(contains_error(errors, "0x7FF"));
   EXPECT_TRUE(contains_error(errors, "timeout_register_ms"));
+}
+
+TEST(DriverParametersTest, RejectsInvalidPhaseSevenControlQualityLimits)
+{
+  auto parameters = default_parameters();
+  parameters.steering.flip_hysteresis_rad = -0.1;
+  parameters.steering.max_slew_radps = 0.0;
+  parameters.odometry.max_imu_yaw_step_rad = kPi + 0.1;
+  const auto errors = parameter_errors(parameters);
+
+  EXPECT_TRUE(contains_error(errors, "flip_hysteresis_rad"));
+  EXPECT_TRUE(contains_error(errors, "max_slew_radps"));
+  EXPECT_TRUE(contains_error(errors, "max_imu_yaw_step_rad"));
+}
+
+TEST(DriverParametersTest, RejectsInvalidOdometryQualityAndRezeroParameters)
+{
+  auto parameters = default_parameters();
+  parameters.steering.rezero_tolerance_rad = 0.0;
+  parameters.odometry.pose_covariance_diagonal[1] = -1.0;
+  parameters.odometry.twist_covariance_diagonal[2] =
+    std::numeric_limits<double>::infinity();
+  parameters.odometry.imu_fallback_covariance_scale = 0.5;
+  parameters.odometry.missing_module_covariance_scale = 0.0;
+  const auto errors = parameter_errors(parameters);
+
+  EXPECT_TRUE(contains_error(errors, "rezero_tolerance_rad"));
+  EXPECT_TRUE(contains_error(errors, "pose_covariance_diagonal"));
+  EXPECT_TRUE(contains_error(errors, "twist_covariance_diagonal"));
+  EXPECT_TRUE(contains_error(errors, "imu_fallback_covariance_scale"));
+  EXPECT_TRUE(contains_error(errors, "missing_module_covariance_scale"));
+}
+
+TEST(DriverParametersTest, RejectsUnsafeAutomaticRecoveryConfiguration)
+{
+  auto parameters = default_parameters();
+  parameters.safety.reenable_period_s = 0.5;
+  parameters.safety.auto_recovery_limit = 0U;
+  const auto errors = parameter_errors(parameters);
+
+  EXPECT_TRUE(contains_error(errors, "reenable_period_s"));
+  EXPECT_TRUE(contains_error(errors, "auto_recovery_limit"));
 }
 
 }  // namespace

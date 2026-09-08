@@ -78,7 +78,7 @@ void log_safely(
   return reply->float_value();
 }
 
-void read_motor_limits(
+[[nodiscard]] bool read_motor_limits(
   CanTransport & transport,
   const DriverParameters & parameters,
   DmMotor & motor,
@@ -93,9 +93,19 @@ void read_motor_limits(
   if (!position.has_value() || !velocity.has_value() || !torque.has_value() ||
     *position <= 0.0F || *velocity <= 0.0F || *torque <= 0.0F)
   {
-    log_safely(log, DriverLogLevel::warning,
-      "motor limit read failed; using configured fallback limits");
-    return;
+    std::ostringstream message;
+    message << "ESC_ID " << motor.esc_id() << " motor limit read failed";
+    const bool vcan_interface = parameters.can.interface_name.rfind("vcan", 0U) == 0U;
+    if (parameters.can.allow_fallback_limits &&
+      (vcan_interface || transport.allows_fallback_limits()))
+    {
+      message << "; using explicitly allowed vcan fallback limits";
+      log_safely(log, DriverLogLevel::warning, message.str());
+      return true;
+    }
+    message << "; strict startup rejected";
+    log_safely(log, DriverLogLevel::error, message.str());
+    return false;
   }
 
   const MotorLimits actual{*position, *velocity, *torque};
@@ -108,6 +118,7 @@ void read_motor_limits(
     log_safely(log, DriverLogLevel::warning,
       "motor limits differ from configured fallback; using register values");
   }
+  return true;
 }
 
 void maybe_write_timeout(
@@ -200,7 +211,56 @@ void seed_positions(
   }
 }
 
-void enable_motors(
+[[nodiscard]] bool validate_multi_turn_positions(
+  const DriverParameters & parameters,
+  const std::array<DmMotor *, kMotorCount> & motors,
+  const std::array<std::optional<double>, kSwerveModuleCount> & multi_turn,
+  const StartupLogger & log)
+{
+  if (parameters.steering.gear_ratio <= 1.0) {
+    return true;
+  }
+  bool valid{true};
+  for (std::size_t index{0U}; index < kSwerveModuleCount; ++index) {
+    if (!multi_turn[index].has_value()) {
+      std::ostringstream message;
+      message << "ESC_ID " << motors[index]->esc_id() <<
+        " steering p_m unavailable; strict startup rejected; run ~/rezero_steering";
+      log_safely(log, DriverLogLevel::error, message.str());
+      valid = false;
+    } else if (!DmMotor::multi_turn_consistent(
+        motors[index]->raw_position(), *multi_turn[index]))
+    {
+      std::ostringstream message;
+      message << "ESC_ID " << motors[index]->esc_id() <<
+        " steering p_m disagrees with principal feedback; strict startup rejected; "
+        "run ~/rezero_steering";
+      log_safely(log, DriverLogLevel::error, message.str());
+      valid = false;
+    }
+  }
+  return valid;
+}
+
+[[nodiscard]] bool all_feedback_received(
+  const FeedbackRouteResult & feedback,
+  const std::array<DmMotor *, kMotorCount> & motors,
+  const StartupLogger & log)
+{
+  bool complete{true};
+  for (std::size_t index{0U}; index < feedback.received.size(); ++index) {
+    if (!feedback.received[index]) {
+      std::ostringstream message;
+      message << "ESC_ID " << motors[index]->esc_id() <<
+        " did not provide startup feedback; strict startup rejected";
+      log_safely(log, DriverLogLevel::error, message.str());
+      complete = false;
+    }
+  }
+  return complete;
+}
+
+[[nodiscard]] bool enable_motors(
   CanTransport & transport,
   const DriverParameters & parameters,
   const std::array<DmMotor *, kMotorCount> & motors,
@@ -216,34 +276,47 @@ void enable_motors(
       }
     }
     if (enable_frames.empty()) {
-      return;
+      return true;
     }
     transport.write_batch(enable_frames);
     const auto frames = transport.collect(enable_frames.size(), feedback_deadline(parameters));
     static_cast<void>(route_feedback_frames(frames, motors, {}));
   }
   log_safely(log, DriverLogLevel::error,
-    "one or more motors did not acknowledge enable; continuing in degraded mode");
+    "one or more motors did not acknowledge enable; strict startup rejected");
+  return false;
 }
 
 }  // namespace
 
-void initialize_motors(
+bool initialize_motors(
   const DriverParameters & parameters,
   CanTransport & transport,
   const std::array<DmMotor *, kMotorCount> & motors,
   const StartupLogger & log)
 {
+  bool limits_valid{true};
   for (DmMotor * motor : motors) {
-    read_motor_limits(transport, parameters, *motor, log);
+    limits_valid = read_motor_limits(transport, parameters, *motor, log) && limits_valid;
     maybe_write_timeout(transport, parameters, *motor, log);
+  }
+  if (!limits_valid) {
+    return false;
   }
   const auto multi_turn = read_multi_turn_positions(
     transport, parameters, motors);
-  static_cast<void>(poll_current_feedback(transport, parameters, motors, log));
+  const auto feedback = poll_current_feedback(transport, parameters, motors, log);
+  if (!all_feedback_received(feedback, motors, log) ||
+    !validate_multi_turn_positions(parameters, motors, multi_turn, log))
+  {
+    return false;
+  }
   seed_positions(parameters, motors, multi_turn, log);
-  enable_motors(transport, parameters, motors, log);
+  if (!enable_motors(transport, parameters, motors, log)) {
+    return false;
+  }
   seed_positions(parameters, motors, multi_turn, log);
+  return true;
 }
 
 void disable_motors(

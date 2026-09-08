@@ -65,5 +65,48 @@ TEST(DiagnosticsTest, SummaryWarnsForRecoverableDegradationAndErrorsForSilentBus
   EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
 }
 
+TEST(DiagnosticsTest, FaultedAndLatchedStatesAreExplicitErrors)
+{
+  ControlLoopStatus status{};
+  status.initialized = true;
+  status.command_timed_out = false;
+  for (auto & motor : status.motors) {
+    motor.has_feedback = true;
+    motor.error = MotorError::enabled;
+  }
+  status.faulted = true;
+  status.transport_faulted = true;
+  auto diagnostics = build_diagnostic_statuses(status, default_parameters());
+  ASSERT_FALSE(diagnostics.empty());
+  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
+  EXPECT_NE(diagnostics.back().message.find("faulted"), std::string::npos);
+
+  status.fault_latched = true;
+  diagnostics = build_diagnostic_statuses(status, default_parameters());
+  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
+  EXPECT_NE(diagnostics.back().message.find("latched"), std::string::npos);
+}
+
+TEST(DiagnosticsTest, HistoricalNoiseDoesNotKeepHealthySummaryDegraded)
+{
+  ControlLoopStatus status{};
+  status.initialized = true;
+  status.command_timed_out = false;
+  status.unknown_frames = 10U;
+  status.rejected_frames = 4U;
+  status.stale_frames = 2U;
+  for (auto & motor : status.motors) {
+    motor.has_feedback = true;
+    motor.error = MotorError::enabled;
+  }
+
+  auto diagnostics = build_diagnostic_statuses(status, default_parameters());
+  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::OK);
+
+  status.unknown_frames_last_cycle = 1U;
+  diagnostics = build_diagnostic_statuses(status, default_parameters());
+  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::WARN);
+}
+
 }  // namespace
 }  // namespace dm_swerve_driver
