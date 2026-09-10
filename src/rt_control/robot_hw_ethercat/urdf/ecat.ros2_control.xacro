@@ -422,7 +422,7 @@
         <xacro:unless value="${use_mock_hardware}">
           <plugin>ethercat_driver/EthercatDriver</plugin>
           <param name="master_id">0</param>
-          <param name="control_frequency">250</param>
+          <param name="control_frequency">1000</param>
           <param name="startup_bus_timeout_ms">70000</param>
           <param name="preload_timeout_ms">5000</param>
         </xacro:unless>

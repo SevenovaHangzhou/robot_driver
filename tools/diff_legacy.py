@@ -41,9 +41,10 @@ AXIS_PROFILES = {
 }
 
 TI5_CSP_OVERLAY = """\
+use_slave_pdo_defaults: true
 sdo:
   - {index: 0x6060, sub_index: 0, type: int8, value: 8}
-  - {index: 0x60c2, sub_index: 1, type: uint8, value: 4}
+  - {index: 0x60c2, sub_index: 1, type: uint8, value: 1}
   - {index: 0x60c2, sub_index: 2, type: int8, value: -3}
 rpdo:
   - index: 0x1601
@@ -64,7 +65,7 @@ auto_fault_reset: false
 auto_state_transitions: false
 sdo:
   - {index: 0x10f1, sub_index: 2, type: uint16, value: 250}
-  - {index: 0x60c2, sub_index: 1, type: uint8, value: 4}
+  - {index: 0x60c2, sub_index: 1, type: uint8, value: 1}
   - {index: 0x60c2, sub_index: 2, type: int8, value: -3}
   - {index: 0x6060, sub_index: 0, type: int8, value: 8}
 rpdo:
@@ -336,7 +337,7 @@ def parse_args() -> argparse.Namespace:
         description=(
             "Compare the frozen robot_driver EtherCAT YAML with the migrated configuration, "
             "including only the approved CSP/enable-manager, BQ-114 sync-tolerance, and "
-            "BQ-118 XMC SW5.11 overlays."
+            "BQ-118 XMC SW5.11 and ELECTRI-97 1 kHz/verified-PDO overlays."
         )
     )
     parser.add_argument(

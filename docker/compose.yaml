@@ -21,6 +21,8 @@ services:
       ROS_LOCALHOST_ONLY: "0"
       RMW_IMPLEMENTATION: "rmw_fastrtps_cpp"
       RT_CONTROL_START_CPUSET: "${RT_CONTROL_START_CPUSET:?RT_CONTROL_START_CPUSET must be the housekeeping CPU list}"
+      RT_CONTROL_ECAT_STARTUP_CPU: "${RT_CONTROL_ECAT_STARTUP_CPU:?RT_CONTROL_ECAT_STARTUP_CPU must be the verified RT CPU}"
+      RT_CONTROL_ECAT_STARTUP_PRIORITY: "80"
       RT_CONTROL_START_PLC: "true"
       RT_CONTROL_START_BMS: "true"
     restart: unless-stopped

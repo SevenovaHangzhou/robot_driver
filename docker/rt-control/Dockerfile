@@ -45,6 +45,8 @@ RUN install -d -m 0750 -o 1000 -g 1000 /home/user
 WORKDIR /tmp
 COPY patches/igh/0001-preserve-verified-pdo-config.patch \
   /tmp/0001-preserve-verified-pdo-config.patch
+COPY patches/igh/0002-dc-offset-use-sent-application-time.patch \
+  /tmp/0002-dc-offset-use-sent-application-time.patch
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && git init ethercat \
     && cd ethercat \
@@ -54,6 +56,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && test "$(git rev-parse HEAD)" = "${IGH_COMMIT}" \
     && git apply --check /tmp/0001-preserve-verified-pdo-config.patch \
     && git apply /tmp/0001-preserve-verified-pdo-config.patch \
+    && git apply --check /tmp/0002-dc-offset-use-sent-application-time.patch \
+    && git apply /tmp/0002-dc-offset-use-sent-application-time.patch \
     && ./bootstrap \
     && ./configure --prefix=/usr/local/etherlab --disable-kernel \
     && make -j"$(nproc)" \
@@ -61,12 +65,14 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && install -d /usr/local/share/rt-control \
     && igh_patch_sha256="$(sha256sum \
       /tmp/0001-preserve-verified-pdo-config.patch | awk '{print $1}')" \
-    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\n' \
-      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" \
+    && igh_dc_patch_sha256="$(sha256sum \
+      /tmp/0002-dc-offset-use-sent-application-time.patch | awk '{print $1}')" \
+    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_DC_OFFSET_PATCH_SHA256=%s\n' \
+      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" \
       > /usr/local/share/rt-control/dependency-versions.env \
     && ldconfig \
     && rm -rf /tmp/ethercat \
-    && rm -f /tmp/0001-preserve-verified-pdo-config.patch
+    && rm -f /tmp/0001-preserve-verified-pdo-config.patch /tmp/0002-dc-offset-use-sent-application-time.patch
 
 ENV PATH="/usr/local/etherlab/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/etherlab/lib"
@@ -111,6 +117,22 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0007-configure-etherlab-prefix.patch \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0007-configure-etherlab-prefix.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0008-use-monotonic-application-time.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0008-use-monotonic-application-time.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0011-dc-rate-diagnostics.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0011-dc-rate-diagnostics.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     && git -C src/vendor/ros2_canopen apply \
@@ -142,6 +164,9 @@ RUN git config --global http.version HTTP/1.1 \
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 ENV X503_ETHERCAT_MANAGER_INCLUDE_DIR="/opt/rt_control_ws/src/vendor/ecat_icube/ethercat_manager/include"
+ENV RT_CONTROL_ECAT_CONTINUOUS_HANDOFF="1"
+ENV RT_CONTROL_ECAT_SYNC0_SHIFT_NS="0"
+ENV RT_CONTROL_ECAT_EXPLICIT_SEND_INTERVAL="1"
 
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && source /opt/ros/humble/setup.bash \

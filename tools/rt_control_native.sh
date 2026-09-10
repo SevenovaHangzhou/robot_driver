@@ -337,19 +337,40 @@ verify_igh_fixed_pdo_support()
 {
   local metadata="/usr/local/share/rt-control/dependency-versions.env"
   local patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
+  local dc_patch="${repository_root}/patches/igh/0002-dc-offset-use-sent-application-time.patch"
   local patch_sha256
+  local dc_patch_sha256
+  local module_path
+  local module_symbols
+  local module_notes="/sys/module/ec_master/notes/.note.gnu.build-id"
   [[ -r "${repository_root}/versions.env" ]] || fail "missing versions.env"
   [[ -r "${patch}" ]] || fail "missing IgH PDO-preservation patch"
+  [[ -r "${dc_patch}" ]] || fail "missing IgH DC offset patch"
   [[ -r "${metadata}" ]] || fail "missing frozen IgH dependency identity"
   # shellcheck disable=SC1091
   source "${repository_root}/versions.env"
   patch_sha256="$(sha256sum "${patch}" | awk '{print $1}')"
+  dc_patch_sha256="$(sha256sum "${dc_patch}" | awk '{print $1}')"
   grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${metadata}" ||
     fail "installed IgH version does not match versions.env"
   grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${metadata}" ||
     fail "installed IgH commit does not match versions.env"
   grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${patch_sha256}" "${metadata}" ||
     fail "installed IgH master lacks the required fixed-PDO preservation patch"
+  grep -Fxq 'IGH_HRTIMER=1' "${metadata}" ||
+    fail "IgH requires --enable-hrtimer before FIFO scheduling"
+  grep -Fxq "IGH_DC_OFFSET_PATCH_SHA256=${dc_patch_sha256}" "${metadata}" ||
+    fail "installed IgH lacks the expected DC offset patch"
+  command -v nm >/dev/null 2>&1 || fail "nm is required to verify IgH hrtimer support"
+  command -v objcopy >/dev/null 2>&1 || fail "objcopy is required to verify the loaded IgH build"
+  module_path="$(modinfo -n ec_master)" || fail "cannot locate installed ec_master"
+  [[ -r "${module_notes}" ]] || fail "cannot read the loaded ec_master build identity"
+  cmp -s "${module_notes}" \
+    <(objcopy --dump-section .note.gnu.build-id=/dev/stdout "${module_path}" /dev/null) ||
+    fail "loaded ec_master differs from the installed module; reload it while stopped"
+  module_symbols="$(nm --undefined-only "${module_path}")" || fail "cannot inspect ec_master"
+  grep -Eq '[[:space:]]hrtimer_start_range_ns$' <<< "${module_symbols}" ||
+    fail "ec_master lacks the hrtimer blocking-wait implementation"
 }
 
 verify_workspace()
@@ -426,7 +447,7 @@ pin_controller_update_thread()
     --housekeeping-cpus "${expected_housekeeping_cpuset}" \
     --required-rt-thread-name rtcan-master \
     --rt-priority "${expected_controller_update_rt_priority}" \
-    --deadline 5
+    --deadline "${1:-5}"
 }
 
 verify_bus_services()
@@ -713,6 +734,12 @@ launch_native()
     RMW_IMPLEMENTATION="rmw_fastrtps_cpp" \
     RT_CONTROL_START_PLC="${RT_CONTROL_START_PLC:-true}" \
     RT_CONTROL_START_BMS="${RT_CONTROL_START_BMS:-true}" \
+    RT_CONTROL_ECAT_STARTUP_CPU="${expected_cpuset}" \
+    RT_CONTROL_ECAT_STARTUP_PRIORITY="${expected_controller_update_rt_priority}" \
+    RT_CONTROL_ECAT_CONTINUOUS_HANDOFF="${RT_CONTROL_ECAT_CONTINUOUS_HANDOFF:-1}" \
+    RT_CONTROL_ECAT_SYNC0_SHIFT_NS="${RT_CONTROL_ECAT_SYNC0_SHIFT_NS:-0}" \
+    RT_CONTROL_ECAT_EXPLICIT_SEND_INTERVAL="${RT_CONTROL_ECAT_EXPLICIT_SEND_INTERVAL:-1}" \
+    RT_CONTROL_ECAT_TRACE_FILE="${log_file%.log}-ecat-send.csv" \
     PATH="${PATH}" \
     LD_LIBRARY_PATH="${LD_LIBRARY_PATH}" \
     taskset --cpu-list "${expected_housekeeping_cpuset}" \
@@ -1118,6 +1145,39 @@ configure_and_verify_ethercat_op_thread()
   info "EtherCAT-OP thread ${tid} is CPU${expected_cpuset} SCHED_FIFO/${rtprio} below the FIFO/${expected_controller_update_rt_priority} control update thread"
 }
 
+prepare_startup_realtime()
+{
+  local deadline=$((SECONDS + 150))
+  local remaining
+  local launching_pid
+
+  while (( SECONDS < deadline )); do
+    if ! native_pid >/dev/null 2>&1; then
+      launching_pid=""
+      [[ ! -r "${pid_file}" ]] || launching_pid="$(< "${pid_file}")"
+      if [[ ! "${launching_pid}" =~ ^[1-9][0-9]*$ ]] ||
+         ! kill -0 "${launching_pid}" 2>/dev/null; then
+        info "native process exited before realtime startup configuration"
+        return 1
+      fi
+      # nohup/setsid may not have exec'd the installed signal gate yet.
+      sleep 0.02
+      continue
+    fi
+    if pgrep --exact EtherCAT-OP >/dev/null; then
+      configure_and_verify_ethercat_op_thread || return 1
+      remaining=$((deadline - SECONDS))
+      (( remaining > 0 )) || return 1
+      pin_controller_update_thread "${remaining}" || return 1
+      native_pid >/dev/null 2>&1 || return 1
+      return 0
+    fi
+    sleep 0.02
+  done
+  info "EtherCAT-OP thread did not appear within the realtime startup deadline"
+  return 1
+}
+
 start_native()
 {
   local authorization="${1:-interactive}"
@@ -1141,6 +1201,10 @@ start_native()
   verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"
   verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"
   launch_native
+  if ! (prepare_startup_realtime); then
+    terminate_failed_start
+    fail "native realtime startup configuration failed; stop was requested"
+  fi
   if ! wait_for_enable_service; then
     terminate_failed_start
     fail "native stack did not expose live control services within 150 seconds; stop was requested"

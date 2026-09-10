@@ -102,7 +102,7 @@ def test_public_rt_control_interfaces_match_current_contract() -> None:
     )
 
     joint_state_params = controllers["joint_state_broadcaster"]["ros__parameters"]
-    assert joint_state_params["update_rate"] == 100
+    assert joint_state_params["update_rate"] == 125
     assert joint_state_params["joints"] == expected_joints
     assert joint_state_params["interfaces"] == ["position"]
     assert joint_state_params["publish_dynamic_joint_states"] is False

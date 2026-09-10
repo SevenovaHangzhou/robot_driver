@@ -364,13 +364,34 @@ def test_real_ethercat_joint_and_sensor_interface_contract(
     } == ECAT_SENSOR_INTERFACES
 
 
+def test_ethercat_cycle_and_profile_timing_match_controller_rate() -> None:
+    ecat_dir = PACKAGE_DIRS["robot_hw_ethercat"]
+    hardware = ET.parse(ecat_dir / "urdf/ecat.ros2_control.xacro")
+    frequency = int(hardware.findtext(".//param[@name='control_frequency']"))
+    controllers = yaml.safe_load(CONTROLLERS_CONFIG.read_text())
+    rate = controllers["controller_manager"]["ros__parameters"]["update_rate"]
+    assert frequency == rate, "EtherCAT startup/SYNC0 and runtime cycles must match"
+    public_rate = controllers["joint_state_broadcaster"]["ros__parameters"]["update_rate"]
+    assert public_rate == 125 and rate % public_rate == 0
+    for path in (ecat_dir / "config/slaves").glob("*.yaml"):
+        profile = yaml.safe_load(path.read_text())
+        assert profile.get("assign_activate") == 0x0300, path.name
+        assert "assign-activate" not in profile, path.name
+        interpolation = {
+            item["sub_index"]: item["value"]
+            for item in profile.get("sdo", []) if item["index"] == 0x60C2
+        }
+        if interpolation:
+            assert interpolation[1] * 10 ** interpolation[2] == 1 / rate, path.name
+
+
 def test_real_ethercat_driver_configuration_contract(
     expanded_real: ET.Element,
 ) -> None:
     system = _systems(expanded_real)["ecat_arms"]
     assert _parameters(system.find("hardware")) == {
         "master_id": "0",
-        "control_frequency": "250",
+        "control_frequency": "1000",
         "startup_bus_timeout_ms": "70000",
         "preload_timeout_ms": "5000",
     }

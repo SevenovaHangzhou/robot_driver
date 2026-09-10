@@ -1,0 +1,180 @@
+diff --git a/ethercat_driver/include/ethercat_driver/startup_realtime.hpp b/ethercat_driver/include/ethercat_driver/startup_realtime.hpp
+new file mode 100644
+index 0000000..b6de0bb
+--- /dev/null
++++ b/ethercat_driver/include/ethercat_driver/startup_realtime.hpp
+@@ -0,0 +1,117 @@
++// SPDX-License-Identifier: Apache-2.0
++#ifndef ETHERCAT_DRIVER__STARTUP_REALTIME_HPP_
++#define ETHERCAT_DRIVER__STARTUP_REALTIME_HPP_
++
++#include <sched.h>
++#include <cerrno>
++#include <cstdio>
++#include <cstdlib>
++#include <stdexcept>
++#include <string>
++#include <system_error>
++
++namespace ethercat_driver
++{
++// The activation caller must restore its policy before creating runtime threads.
++class StartupRealtime
++{
++public:
++  StartupRealtime()
++  {
++    const char * cpu = std::getenv("RT_CONTROL_ECAT_STARTUP_CPU");
++    const char * priority = std::getenv("RT_CONTROL_ECAT_STARTUP_PRIORITY");
++    if (cpu == nullptr && priority == nullptr) {
++      return;
++    }
++    if (cpu == nullptr || priority == nullptr) {
++      throw std::invalid_argument("Both EtherCAT startup CPU and priority are required");
++    }
++    const int cpu_id = parse(cpu, 0, CPU_SETSIZE - 1);
++    const int rt_priority = parse(
++      priority, sched_get_priority_min(SCHED_FIFO), sched_get_priority_max(SCHED_FIFO));
++    old_policy_ = sched_getscheduler(0);
++    if (old_policy_ < 0 || sched_getparam(0, &old_parameter_) != 0 ||
++      sched_getaffinity(0, sizeof(old_affinity_), &old_affinity_) != 0)
++    {
++      throw std::system_error(errno, std::generic_category(), "Read startup thread scheduling");
++    }
++    cpu_set_t target;
++    CPU_ZERO(&target);
++    CPU_SET(cpu_id, &target);
++    if (sched_setaffinity(0, sizeof(target), &target) != 0) {
++      throw std::system_error(errno, std::generic_category(), "Pin EtherCAT startup thread");
++    }
++    affinity_changed_ = true;
++    sched_param parameter{};
++    parameter.sched_priority = rt_priority;
++    if (sched_setscheduler(0, SCHED_FIFO, &parameter) != 0) {
++      const int error = errno;
++      if (restore() != 0) {
++        std::fputs("Failed to restore EtherCAT startup affinity\n", stderr);
++      }
++      throw std::system_error(error, std::generic_category(), "Set EtherCAT startup FIFO");
++    }
++    policy_changed_ = true;
++    enabled_ = true;
++  }
++
++  ~StartupRealtime()
++  {
++    if (restore() != 0) {
++      std::fputs("Failed to restore EtherCAT startup thread scheduling\n", stderr);
++    }
++  }
++
++  StartupRealtime(const StartupRealtime &) = delete;
++  StartupRealtime & operator=(const StartupRealtime &) = delete;
++  StartupRealtime(StartupRealtime &&) = delete;
++  StartupRealtime & operator=(StartupRealtime &&) = delete;
++
++  bool enabled() const noexcept {return enabled_;}
++
++  int restore() noexcept
++  {
++    int error = 0;
++    if (policy_changed_) {
++      if (sched_setscheduler(0, old_policy_, &old_parameter_) == 0) {
++        policy_changed_ = false;
++      } else {
++        error = errno;
++      }
++    }
++    if (affinity_changed_) {
++      if (sched_setaffinity(0, sizeof(old_affinity_), &old_affinity_) == 0) {
++        affinity_changed_ = false;
++      } else if (error == 0) {
++        error = errno;
++      }
++    }
++    return error;
++  }
++
++private:
++  static int parse(const char * text, int minimum, int maximum)
++  {
++    const std::string value(text);
++    if (value.empty() || value.find_first_not_of("0123456789") != std::string::npos) {
++      throw std::invalid_argument("Invalid EtherCAT startup scheduling value");
++    }
++    const auto parsed = std::stoul(value);
++    if (minimum < 0 || parsed < static_cast<unsigned long>(minimum) ||
++      parsed > static_cast<unsigned long>(maximum))
++    {
++      throw std::out_of_range("EtherCAT startup scheduling value out of range");
++    }
++    return static_cast<int>(parsed);
++  }
++
++  int old_policy_{SCHED_OTHER};
++  sched_param old_parameter_{};
++  cpu_set_t old_affinity_{};
++  bool affinity_changed_{false};
++  bool policy_changed_{false};
++  bool enabled_{false};
++};
++}  // namespace ethercat_driver
++
++#endif  // ETHERCAT_DRIVER__STARTUP_REALTIME_HPP_
+diff --git a/ethercat_driver/src/ethercat_driver.cpp b/ethercat_driver/src/ethercat_driver.cpp
+index 3852c09..78a3c07 100644
+--- a/ethercat_driver/src/ethercat_driver.cpp
++++ b/ethercat_driver/src/ethercat_driver.cpp
+@@ -13,6 +13,7 @@
+ // limitations under the License.
+ 
+ #include "ethercat_driver/ethercat_driver.hpp"
++#include "ethercat_driver/startup_realtime.hpp"
+ 
+ #include <cmath>
+ #include <algorithm>
+@@ -352,6 +353,7 @@ EthercatDriver::export_command_interfaces()
+ 
+ CallbackReturn EthercatDriver::on_activate(
+   const rclcpp_lifecycle::State & /*previous_state*/)
++try
+ {
+   if (activated_.load(std::memory_order_acquire)) {
+     RCLCPP_FATAL(rclcpp::get_logger("EthercatDriver"), "Double on_activate()");
+@@ -425,6 +427,10 @@ CallbackReturn EthercatDriver::on_activate(
+     }
+   }
+ 
++  StartupRealtime startup_realtime;
++  if (startup_realtime.enabled()) {
++    RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "EtherCAT startup realtime scope entered");
++  }
+   if (!master_.activate()) {
+     RCLCPP_ERROR(rclcpp::get_logger("EthercatDriver"), "Activate EcMaster failed");
+     return CallbackReturn::ERROR;
+@@ -525,10 +531,25 @@ CallbackReturn EthercatDriver::on_activate(
+   RCLCPP_INFO(
+     rclcpp::get_logger("EthercatDriver"), "System Successfully started!");
+ 
++  const int restore_error = startup_realtime.restore();
++  if (restore_error != 0) {
++    RCLCPP_ERROR(
++      rclcpp::get_logger("EthercatDriver"),
++      "Failed to restore startup thread scheduling: %d", restore_error);
++    return CallbackReturn::ERROR;
++  }
++  if (startup_realtime.enabled()) {
++    RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "EtherCAT startup realtime scope restored");
++  }
+   activated_.store(true, std::memory_order_release);
+ 
+   return CallbackReturn::SUCCESS;
+ }
++catch (const std::exception & error)
++{
++  RCLCPP_ERROR(rclcpp::get_logger("EthercatDriver"), "EtherCAT activation failed: %s", error.what());
++  return CallbackReturn::ERROR;
++}
+ 
+ CallbackReturn EthercatDriver::on_deactivate(
+   const rclcpp_lifecycle::State & /*previous_state*/)

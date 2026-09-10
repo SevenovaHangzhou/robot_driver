@@ -39,6 +39,23 @@ def test_only_authorized_axes_use_dedicated_ti5_profiles():
     assert axis_binding("ti5", "right_joint3")["profile"] == "ti5_j3"
 
 
+def test_ti5_fixed_position_pdos_are_preserved_and_registered_in_order():
+    for name in ("ti5_j2", "ti5_j3", "ti5_left_joint3", "ti5_right_joint2"):
+        profile = load_profile(name)
+        assert profile["use_slave_pdo_defaults"] is True
+        assert profile["auto_fault_reset"] is False
+        assert profile["auto_state_transitions"] is False
+        for direction, pdo_index, expected in (
+            ("rpdo", 0x1601, [(0x6040, 0, "uint16"), (0x607A, 0, "int32")]),
+            ("tpdo", 0x1A01, [(0x6041, 0, "uint16"), (0x6064, 0, "int32")]),
+        ):
+            assert len(profile[direction]) == 1
+            pdo = profile[direction][0]
+            assert pdo["index"] == pdo_index
+            assert [(item["index"], item["sub_index"], item["type"])
+                    for item in pdo["channels"]] == expected
+
+
 def test_ti5_position_polarity_is_reversed_by_master_mapping_only():
     for dedicated_name, shared_name in (
         ("ti5_right_joint2", "ti5_j2"),

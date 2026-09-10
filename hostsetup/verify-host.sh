@@ -15,6 +15,7 @@ readonly rt_control_cpu="14"
 readonly housekeeping_cpus="0,2,4,6,8,10,12,16-27"
 readonly ec_master_run_on_cpu_line="options ec_master run_on_cpu=14"
 readonly igh_patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
+readonly igh_dc_patch="${repository_root}/patches/igh/0002-dc-offset-use-sent-application-time.patch"
 readonly igh_metadata="/usr/local/share/rt-control/dependency-versions.env"
 
 if [[ ${EUID} -ne 0 ]]; then
@@ -28,14 +29,20 @@ fail() {
 }
 
 [[ -r "${igh_patch}" ]] || fail "missing IgH PDO-preservation patch ${igh_patch}"
+[[ -r "${igh_dc_patch}" ]] || fail "missing IgH DC offset patch ${igh_dc_patch}"
 [[ -r "${igh_metadata}" ]] || fail "missing installed IgH dependency identity"
 expected_igh_patch_sha256="$(sha256sum "${igh_patch}" | awk '{print $1}')"
+expected_igh_dc_patch_sha256="$(sha256sum "${igh_dc_patch}" | awk '{print $1}')"
 grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${igh_metadata}" ||
   fail "installed IgH version does not match versions.env"
 grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${igh_metadata}" ||
   fail "installed IgH commit does not match versions.env"
 grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${expected_igh_patch_sha256}" "${igh_metadata}" ||
   fail "installed IgH master does not contain the approved PDO-preservation patch"
+grep -Fxq 'IGH_HRTIMER=1' "${igh_metadata}" ||
+  fail "IgH requires --enable-hrtimer before FIFO scheduling"
+grep -Fxq "IGH_DC_OFFSET_PATCH_SHA256=${expected_igh_dc_patch_sha256}" "${igh_metadata}" ||
+  fail "installed IgH lacks the expected DC offset patch"
 
 contains_cpu14() {
   local list="$1"

@@ -1,0 +1,33 @@
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index f3a68ae..6399dca 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -29,8 +29,9 @@
+ #include <sstream>
+ #include <thread>
+ 
++// Application time uses monotonic uptime, without a wall-clock epoch offset.
+ #define EC_NEWTIMEVAL2NANO(TV) \
+-  (((TV).tv_sec - 946684800ULL) * 1000000000ULL + (TV).tv_nsec)
++  (static_cast<uint64_t>((TV).tv_sec) * 1000000000ULL + (TV).tv_nsec)
+ 
+ namespace ethercat_interface
+ {
+@@ -374,7 +375,7 @@ void EcMaster::update(uint32_t domain)
+ 
+   struct timespec t;
+ 
+-  clock_gettime(CLOCK_REALTIME, &t);
++  clock_gettime(CLOCK_MONOTONIC, &t);
+   ecrt_master_application_time(master_, EC_NEWTIMEVAL2NANO(t));
+   ecrt_master_sync_reference_clock(master_);
+   ecrt_master_sync_slave_clocks(master_);
+@@ -438,7 +439,7 @@ void EcMaster::writeData(uint32_t domain)
+ 
+   struct timespec t;
+ 
+-  clock_gettime(CLOCK_REALTIME, &t);
++  clock_gettime(CLOCK_MONOTONIC, &t);
+   ecrt_master_application_time(master_, EC_NEWTIMEVAL2NANO(t));
+   ecrt_master_sync_reference_clock(master_);
+   ecrt_master_sync_slave_clocks(master_);

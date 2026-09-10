@@ -28,6 +28,10 @@ SCHEDULER_NAMES = {
 }
 
 
+class UpdateThreadNotReady(RuntimeError):
+    """The controller has not created its realtime update thread yet."""
+
+
 @dataclass(frozen=True)
 class ThreadSnapshot:
     tid: int
@@ -156,11 +160,18 @@ def describe_all_threads(pid: int) -> str:
 
 def select_update_thread(pid: int, rt_priority: int) -> int:
     inventory = realtime_thread_inventory(pid)
+    if any(snapshot.name == "ecat-handoff" for snapshot in inventory):
+        raise UpdateThreadNotReady("waiting for the temporary EtherCAT handoff thread to exit")
     matches = [
         snapshot.tid
         for snapshot in inventory
         if snapshot.scheduler == SCHED_FIFO and snapshot.rt_priority == rt_priority
+        and snapshot.tid != pid
     ]
+    if not matches:
+        raise UpdateThreadNotReady(
+            f"waiting for the SCHED_FIFO/{rt_priority} update thread in pid={pid}"
+        )
     if len(matches) != 1:
         raise RuntimeError(
             "expected exactly one matching update thread "
@@ -313,6 +324,9 @@ def main() -> int:
                 f"housekeeping CPUs {format_cpu_list(housekeeping_cpus)}"
             )
             return 0
+        except UpdateThreadNotReady as exc:
+            last_error = str(exc)
+            time.sleep(0.02)
         except (FileNotFoundError, ProcessLookupError) as exc:
             last_error = str(exc)
             time.sleep(0.5)
