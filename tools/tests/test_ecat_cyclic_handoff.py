@@ -14,6 +14,8 @@ class CyclicHandoffContractTest(unittest.TestCase):
         self.assertTrue((ROOT / patch).is_file())
         for path in ["tools/bootstrap_native_dev.sh", "docker/rt-control/Dockerfile"]:
             self.assertEqual((ROOT / path).read_text().count(patch), 2, path)
+            self.assertEqual((ROOT / path).read_text().count(
+                "patches/ecat_icube/0012-fix-timing-source-lint.patch"), 2, path)
         native = (ROOT / "tools/rt_control_native.sh").read_text()
         docker = (ROOT / "docker/rt-control/Dockerfile").read_text()
         for setting, value in [("RT_CONTROL_ECAT_CONTINUOUS_HANDOFF", "1"),

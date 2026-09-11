@@ -62,6 +62,12 @@ EtherCAT硬件inactive，退出0，无UNCLEAN_SHUTDOWN。验证容器已删除�
 
 ## 遗留
 
+2026-09-11 CI补充：首轮GitHub运行34469711153编译及功能测试通过，但interface的
+copyright、cpplint、uncrustify失败。追加0012补丁补齐5份文件版权头、include顺序、
+格式及测试桩参数写法，时间字段使用与POSIX成员相同的decltype类型；不改时序参数或
+控制逻辑。Native/Docker补丁链更新为0001..0012。隔离冻结源码重新构建后，interface
+完整10个CTest（含全部6个linter）通过，7个定时/统计单测及279项仓库门禁通过。
+
 双X503停机0x001A、长时间抖动、冷启动/PDO分配掉电保持性、使能运动和跟随误差仍未闭环。
 0x10F1:02仍为250计数，1 ms周期下nominal容忍时间约250 ms，不能沿用旧1秒描述。
 当前IPC Docker包装器还有已记录的PCIe CAN迁移/发布门禁，本PR不宣称已部署容器。

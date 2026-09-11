@@ -23,7 +23,7 @@
 ## 启动
 
 ELECTRI-97 将控制与 EtherCAT 周期统一为 1 kHz，保留 `/joint_states` 125 Hz。
-构建镜像时包含 ICube 0001..0011 和 IgH 已校验 PDO/发送时刻配对补丁。
+构建镜像时包含 ICube 0001..0012 和 IgH 已校验 PDO/发送时刻配对补丁。
 直接使用 Compose 包装器前，除 `RT_CONTROL_CPUSET`、`RT_CONTROL_START_CPUSET` 外，
 还必须显式提供已验证的单个 RT 核 `RT_CONTROL_ECAT_STARTUP_CPU`；FIFO 优先级与
 controller_manager 一致为 80。当前 IPC 包装器从既有已验证 CPU 配置传入这个值。

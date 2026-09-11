@@ -11,7 +11,7 @@ IgH 安装与宿主（→ realtime-host）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
-| MAIN-RATE-1 | Native/Docker包含完整0001..0011链和1 kHz周期；JSB显式125 Hz保持公共契约。容器安装入口/Mock生命周期/有序退出0通过。 | [ecat-axes-20260910-02](records/2026-09-10-electri-97-main-packaging.md)#F1-F3 | PASS（T1容器；实机Docker发布未验） |
+| MAIN-RATE-1 | Native/Docker包含0001..0012链和1 kHz周期；0012修正CI风格检查，JSB显式125 Hz保持公共契约。容器安装入口/Mock生命周期/有序退出0通过。 | [ecat-axes-20260910-02](records/2026-09-10-electri-97-main-packaging.md)#F1-F3 | PASS（T1容器；实机Docker发布未验） |
 | RATE-1 | 默认部署漏改的 Xacro 250 Hz 已补齐为 1000；首轮启动 6.821 秒，16 个 DC 节点实际周期 1 ms、同相，14 轴保持失能；5 秒 DC 告警本轮未出现。 | [ecat-axes-20260910-01](records/2026-09-10-electri-97-startup-rate-correction.md)#F1-F4 | PARTIAL（T3单轮；冷启动/长期/运动未验） |
 | TI5-PDO-1 | 四份Ti5 profile保留已校验PDO，失败在外层终止；三轮映射abort为0，PDO阶段由4.224秒降至约3.454秒，最终新配置保留、14轴失能无故障位。 | [ecat-axes-20260909-03](records/2026-09-09-electri-97-ti5-preserved-pdo.md)#F1-F4 | PASS（T3失能启动；DC/长期/运动未闭环） |
 | DC-STAGES-1 | 优化前非DC约11.5秒；Ti5保留后约10.73秒（PDO约3.45秒、进入OP约4.57秒）。DC仍独立波动，OP/WKC正常不保证持续偏差小于10 us。 | [ecat-axes-20260909-03](records/2026-09-09-electri-97-ti5-preserved-pdo.md)#F2-F3 | PASS（阶段计时；整体DC未修复） |

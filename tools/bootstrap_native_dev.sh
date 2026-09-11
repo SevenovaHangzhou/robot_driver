@@ -199,6 +199,9 @@ apply_frozen_patches()
     patches/ecat_icube/0011-dc-rate-diagnostics.patch \
     src/vendor/ecat_icube
   apply_patch_once \
+    patches/ecat_icube/0012-fix-timing-source-lint.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
@@ -281,7 +284,8 @@ verify_frozen_vendor_trees()
     patches/ecat_icube/0008-use-monotonic-application-time.patch \
     patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
     patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
-    patches/ecat_icube/0011-dc-rate-diagnostics.patch
+    patches/ecat_icube/0011-dc-rate-diagnostics.patch \
+    patches/ecat_icube/0012-fix-timing-source-lint.patch
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \

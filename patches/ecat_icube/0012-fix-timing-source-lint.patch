@@ -1,0 +1,353 @@
+diff --git a/ethercat_interface/include/ethercat_interface/diagnostic_timing.hpp b/ethercat_interface/include/ethercat_interface/diagnostic_timing.hpp
+index cacaf55..ce0fce3 100644
+--- a/ethercat_interface/include/ethercat_interface/diagnostic_timing.hpp
++++ b/ethercat_interface/include/ethercat_interface/diagnostic_timing.hpp
+@@ -1,12 +1,26 @@
++// Copyright 2026 RT-Control contributors
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
+ // SPDX-License-Identifier: Apache-2.0
+ #ifndef ETHERCAT_INTERFACE__DIAGNOSTIC_TIMING_HPP_
+ #define ETHERCAT_INTERFACE__DIAGNOSTIC_TIMING_HPP_
+ 
++#include <time.h>
+ #include <cstdint>
+ #include <cstdlib>
+ #include <stdexcept>
+ #include <string>
+-#include <time.h>
+ 
+ namespace ethercat_interface
+ {
+@@ -22,7 +36,8 @@ inline uint64_t diagnosticUnsigned(const char * setting)
+ inline uint64_t validateActivationDeadline(uint64_t deadline, uint64_t now)
+ {
+   if (deadline <= now || deadline - now > 60000000000ULL) {
+-    throw std::invalid_argument("Diagnostic activation deadline must be within the next 60 seconds");
++    throw std::invalid_argument(
++            "Diagnostic activation deadline must be within the next 60 seconds");
+   }
+   return deadline;
+ }
+@@ -45,10 +60,11 @@ inline bool waitForDiagnosticActivation()
+   if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+     return false;
+   }
+-  const uint64_t deadline = validateActivationDeadline(diagnosticUnsigned(setting),
++  const uint64_t deadline = validateActivationDeadline(
++    diagnosticUnsigned(setting),
+     static_cast<uint64_t>(now.tv_sec) * 1000000000ULL + now.tv_nsec);
+   const timespec wake{static_cast<time_t>(deadline / 1000000000ULL),
+-    static_cast<long>(deadline % 1000000000ULL)};
++    static_cast<decltype(now.tv_nsec)>(deadline % 1000000000ULL)};
+   // A signal interrupts the experiment before activation instead of extending startup.
+   return clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &wake, nullptr) == 0;
+ }
+diff --git a/ethercat_interface/include/ethercat_interface/send_trace.hpp b/ethercat_interface/include/ethercat_interface/send_trace.hpp
+index 9ee23f6..bca7439 100644
+--- a/ethercat_interface/include/ethercat_interface/send_trace.hpp
++++ b/ethercat_interface/include/ethercat_interface/send_trace.hpp
+@@ -1,3 +1,17 @@
++// Copyright 2026 RT-Control contributors
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
+ // SPDX-License-Identifier: Apache-2.0
+ #ifndef ETHERCAT_INTERFACE__SEND_TRACE_HPP_
+ #define ETHERCAT_INTERFACE__SEND_TRACE_HPP_
+@@ -26,7 +40,8 @@ public:
+     previous_valid_ = false;
+   }
+ 
+-  void record(uint64_t nanoseconds, SendPhase phase, uint32_t working_counter,
++  void record(
++    uint64_t nanoseconds, SendPhase phase, uint32_t working_counter,
+     bool complete = true) noexcept
+   {
+     if (statistics_enabled_) {
+@@ -66,7 +81,8 @@ public:
+     if (enabled_ || statistics_enabled_) {
+       timespec now{};
+       if (clock_gettime(CLOCK_MONOTONIC, &now) == 0) {
+-        record(static_cast<uint64_t>(now.tv_sec) * 1000000000ULL + now.tv_nsec,
++        record(
++          static_cast<uint64_t>(now.tv_sec) * 1000000000ULL + now.tv_nsec,
+           phase, working_counter, complete);
+       }
+     }
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index b601929..fe3e402 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -13,9 +13,6 @@
+ // limitations under the License.
+ 
+ #include "ethercat_interface/ec_master.hpp"
+-#include "ethercat_interface/diagnostic_timing.hpp"
+-#include <fstream>
+-#include "ethercat_interface/ec_slave.hpp"
+ 
+ #include <unistd.h>
+ #include <sys/resource.h>
+@@ -27,10 +24,14 @@
+ #include <string.h>
+ #include <cerrno>
+ #include <chrono>
++#include <fstream>
+ #include <iostream>
+ #include <sstream>
+ #include <thread>
+ 
++#include "ethercat_interface/diagnostic_timing.hpp"
++#include "ethercat_interface/ec_slave.hpp"
++
+ // Application time uses monotonic uptime, without a wall-clock epoch offset.
+ #define EC_NEWTIMEVAL2NANO(TV) \
+   (static_cast<uint64_t>((TV).tv_sec) * 1000000000ULL + (TV).tv_nsec)
+@@ -253,7 +254,8 @@ bool EcMaster::activate()
+     const char * send_interval = std::getenv("RT_CONTROL_ECAT_EXPLICIT_SEND_INTERVAL");
+     if (send_interval != nullptr) {
+       if (std::string(send_interval) != "1" || interval_ == 0 || interval_ % 1000 != 0) {
+-        throw std::invalid_argument("Explicit send interval requires 1 and a whole-microsecond period");
++        throw std::invalid_argument(
++                "Explicit send interval requires 1 and a whole-microsecond period");
+       }
+       if (ecrt_master_set_send_interval(master_, interval_ / 1000) != 0) {
+         return false;
+@@ -410,7 +412,8 @@ void EcMaster::update(uint32_t domain)
+ 
+   // send process data
+   ecrt_domain_queue(domain_info->domain);
+-  send_trace_.recordNow(SendPhase::Startup, domain_info->domain_state.working_counter,
++  send_trace_.recordNow(
++    SendPhase::Startup, domain_info->domain_state.working_counter,
+     domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+   ecrt_master_send(master_);
+   for (DomainInfo::Entry & entry : domain_info->entries) {
+@@ -474,7 +477,8 @@ bool EcMaster::maintainData(uint32_t domain)
+   {
+     return false;
+   }
+-  send_trace_.recordNow(SendPhase::Maintenance, domain_info->domain_state.working_counter,
++  send_trace_.recordNow(
++    SendPhase::Maintenance, domain_info->domain_state.working_counter,
+     domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+   const int send_result = ecrt_master_send(master_);
+   ++update_counter_;
+@@ -518,7 +522,8 @@ void EcMaster::writeData(uint32_t domain)
+ 
+   // send process data
+   ecrt_domain_queue(domain_info->domain);
+-  send_trace_.recordNow(SendPhase::Control, domain_info->domain_state.working_counter,
++  send_trace_.recordNow(
++    SendPhase::Control, domain_info->domain_state.working_counter,
+     domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+   ecrt_master_send(master_);
+   for (DomainInfo::Entry & entry : domain_info->entries) {
+diff --git a/ethercat_interface/test/test_diagnostic_timing.cpp b/ethercat_interface/test/test_diagnostic_timing.cpp
+index 984029d..7e689e7 100644
+--- a/ethercat_interface/test/test_diagnostic_timing.cpp
++++ b/ethercat_interface/test/test_diagnostic_timing.cpp
+@@ -1,3 +1,17 @@
++// Copyright 2026 RT-Control contributors
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
+ #include <gtest/gtest.h>
+ 
+ #include "ethercat_interface/diagnostic_timing.hpp"
+diff --git a/ethercat_interface/test/test_maintain_data.cpp b/ethercat_interface/test/test_maintain_data.cpp
+index d139842..5551c81 100644
+--- a/ethercat_interface/test/test_maintain_data.cpp
++++ b/ethercat_interface/test/test_maintain_data.cpp
+@@ -1,3 +1,17 @@
++// Copyright 2026 RT-Control contributors
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
+ #include <gtest/gtest.h>
+ #include <array>
+ #include <string>
+@@ -15,24 +29,79 @@ bool receive_failure = false;
+ 
+ extern "C"
+ {
+-ec_master_t * __wrap_ecrt_request_master(unsigned int)
+-{return reinterpret_cast<ec_master_t *>(1);}
+-void __wrap_ecrt_release_master(ec_master_t *) {}
+-ec_domain_t * __wrap_ecrt_master_create_domain(ec_master_t *)
+-{return reinterpret_cast<ec_domain_t *>(2);}
+-int __wrap_ecrt_master_receive(ec_master_t *)
+-{calls.emplace_back("receive"); return receive_failure ? -1 : 0;}
+-int __wrap_ecrt_domain_process(ec_domain_t *) {calls.emplace_back("process"); return 0;}
+-int __wrap_ecrt_domain_state(const ec_domain_t *, ec_domain_state_t * state)
+-{*state = {}; state->working_counter = 48; state->wc_state = EC_WC_COMPLETE; return 0;}
+-int __wrap_ecrt_master_state(const ec_master_t *, ec_master_state_t * state)
+-{*state = {}; state->link_up = 1; state->slaves_responding = 18; return 0;}
+-int __wrap_ecrt_master_application_time(ec_master_t *, uint64_t time)
+-{app_time = time; calls.emplace_back("application_time"); return 0;}
+-int __wrap_ecrt_master_sync_reference_clock(ec_master_t *) {calls.emplace_back("reference"); return 0;}
+-int __wrap_ecrt_master_sync_slave_clocks(ec_master_t *) {calls.emplace_back("slaves"); return 0;}
+-int __wrap_ecrt_domain_queue(ec_domain_t *) {calls.emplace_back("queue"); return 0;}
+-int __wrap_ecrt_master_send(ec_master_t *) {calls.emplace_back("send"); return 0;}
++ec_master_t * __wrap_ecrt_request_master(unsigned int master_index)
++{
++  static_cast<void>(master_index);
++  return reinterpret_cast<ec_master_t *>(1);
++}
++void __wrap_ecrt_release_master(ec_master_t * master)
++{
++  static_cast<void>(master);
++}
++ec_domain_t * __wrap_ecrt_master_create_domain(ec_master_t * master)
++{
++  static_cast<void>(master);
++  return reinterpret_cast<ec_domain_t *>(2);
++}
++int __wrap_ecrt_master_receive(ec_master_t * master)
++{
++  static_cast<void>(master);
++  calls.emplace_back("receive");
++  return receive_failure ? -1 : 0;
++}
++int __wrap_ecrt_domain_process(ec_domain_t * domain)
++{
++  static_cast<void>(domain);
++  calls.emplace_back("process");
++  return 0;
++}
++int __wrap_ecrt_domain_state(const ec_domain_t * domain, ec_domain_state_t * state)
++{
++  static_cast<void>(domain);
++  *state = {};
++  state->working_counter = 48;
++  state->wc_state = EC_WC_COMPLETE;
++  return 0;
++}
++int __wrap_ecrt_master_state(const ec_master_t * master, ec_master_state_t * state)
++{
++  static_cast<void>(master);
++  *state = {};
++  state->link_up = 1;
++  state->slaves_responding = 18;
++  return 0;
++}
++int __wrap_ecrt_master_application_time(ec_master_t * master, uint64_t time)
++{
++  static_cast<void>(master);
++  app_time = time;
++  calls.emplace_back("application_time");
++  return 0;
++}
++int __wrap_ecrt_master_sync_reference_clock(ec_master_t * master)
++{
++  static_cast<void>(master);
++  calls.emplace_back("reference");
++  return 0;
++}
++int __wrap_ecrt_master_sync_slave_clocks(ec_master_t * master)
++{
++  static_cast<void>(master);
++  calls.emplace_back("slaves");
++  return 0;
++}
++int __wrap_ecrt_domain_queue(ec_domain_t * domain)
++{
++  static_cast<void>(domain);
++  calls.emplace_back("queue");
++  return 0;
++}
++int __wrap_ecrt_master_send(ec_master_t * master)
++{
++  static_cast<void>(master);
++  calls.emplace_back("send");
++  return 0;
++}
+ }
+ 
+ namespace ethercat_interface
+@@ -56,7 +125,8 @@ public:
+ class ObservedSlave : public EcSlave
+ {
+ public:
+-  ObservedSlave() : EcSlave(0, 0) {}
++  ObservedSlave()
++  : EcSlave(0, 0) {}
+   void processData(size_t, uint8_t *) override {++interface_updates;}
+   void onPdoCycleSent() override {++acknowledgements;}
+   int interface_updates = 0;
+@@ -72,8 +142,9 @@ TEST(MaintainDataTest, ExchangesRawImageAndDcWithoutChangingCommandsOrInterfaces
+   EcMaster master;
+   EcMasterHandoffTestAccess::addDomain(master, slave);
+   ASSERT_TRUE(master.maintainData());
+-  EXPECT_EQ(calls, (std::vector<std::string>{
+-    "receive", "process", "application_time", "reference", "slaves", "queue", "send"}));
++  EXPECT_EQ(
++    calls, (std::vector<std::string>{
++      "receive", "process", "application_time", "reference", "slaves", "queue", "send"}));
+   EXPECT_GT(app_time, 0U);
+   EXPECT_EQ(image, original_image);
+   EXPECT_EQ(slave.interface_updates, 0);
+diff --git a/ethercat_interface/test/test_send_trace.cpp b/ethercat_interface/test/test_send_trace.cpp
+index c79d8b4..324c66a 100644
+--- a/ethercat_interface/test/test_send_trace.cpp
++++ b/ethercat_interface/test/test_send_trace.cpp
+@@ -1,3 +1,17 @@
++// Copyright 2026 RT-Control contributors
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
+ #include <gtest/gtest.h>
+ 
+ #include <sstream>

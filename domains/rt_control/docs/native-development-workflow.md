@@ -95,7 +95,8 @@ IgH send interval 按实际周期设置；`/joint_states` 显式保持公共契�
 启动期间使用经核对的 RT CPU/FIFO 优先级，初始化结束至控制器接管之间持续收发。
 普通启动不设置诊断定时激活，不启用 IgH 100 us 初始偏移阈值实验。
 
-Native 与 Docker 均应用 ICube 0001..0011；`0011-dc-rate-diagnostics.patch`
+Native 与 Docker 均应用 ICube 0001..0012；0012仅修正上游风格/版权检查，
+`0011-dc-rate-diagnostics.patch`
 已从 experimental 移到补丁主目录。已有工作区若曾手动试验或回退，须检查完整补丁树；
 源码被恢复后需清理受影响的构建对象再重编，不能只替换共享库或依赖增量时间戳。
 Ti5 PreservePdoConfig 会拒绝不符合 `1601/1A01` 的在线布局，换驱动或掉电后需先

@@ -5,6 +5,8 @@ The tested timing-support patch has moved to
 Native and Docker both include it with the approved 1 kHz configuration,
 continuous handoff, common shift 0 and explicit send interval. Diagnostic
 activation delays remain opt-in and are not part of normal startup.
+Patch 0012 follows 0011 to add license headers and satisfy the upstream
+copyright/cpplint/uncrustify checks; it does not change timing settings.
 
 `0011-dc-rate-diagnostics.patch` applies after ICube patches 0001 through
 0010 on frozen commit 1390be742986f4e898ca112e49bb24805be9899a. It provides bounded, pre-activation diagnostic
