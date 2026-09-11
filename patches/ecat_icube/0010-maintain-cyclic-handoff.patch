@@ -1,0 +1,847 @@
+diff --git a/ethercat_driver/CMakeLists.txt b/ethercat_driver/CMakeLists.txt
+index c6dc19d..f959521 100644
+--- a/ethercat_driver/CMakeLists.txt
++++ b/ethercat_driver/CMakeLists.txt
+@@ -17,6 +17,7 @@ add_library(
+   ${PROJECT_NAME}
+   SHARED
+   src/ethercat_driver.cpp)
++target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+ 
+ target_include_directories(
+   ${PROJECT_NAME}
+@@ -56,6 +57,9 @@ if(BUILD_TESTING)
+   target_include_directories(test_ec_module_parameters PRIVATE include)
+   target_link_libraries(test_ec_module_parameters ${PROJECT_NAME})
+   ament_target_dependencies(test_ec_module_parameters hardware_interface)
++  ament_add_gtest(test_cyclic_handoff test/test_cyclic_handoff.cpp TIMEOUT 15)
++  target_include_directories(test_cyclic_handoff PRIVATE include)
++  target_compile_features(test_cyclic_handoff PRIVATE cxx_std_17)
+ endif()
+ 
+ ## EXPORTS
+diff --git a/ethercat_driver/include/ethercat_driver/cyclic_handoff.hpp b/ethercat_driver/include/ethercat_driver/cyclic_handoff.hpp
+new file mode 100644
+index 0000000..c26fbea
+--- /dev/null
++++ b/ethercat_driver/include/ethercat_driver/cyclic_handoff.hpp
+@@ -0,0 +1,87 @@
++// SPDX-License-Identifier: Apache-2.0
++#ifndef ETHERCAT_DRIVER__CYCLIC_HANDOFF_HPP_
++#define ETHERCAT_DRIVER__CYCLIC_HANDOFF_HPP_
++
++#include <atomic>
++#include <cstdint>
++
++namespace ethercat_driver
++{
++class CyclicHandoff
++{
++public:
++  void reset(bool enabled) noexcept
++  {
++    state_.store(enabled ? State::Idle : State::Control, std::memory_order_release);
++  }
++
++  bool beginMaintenance() noexcept
++  {
++    auto expected = State::Idle;
++    return state_.compare_exchange_strong(
++      expected, State::Busy, std::memory_order_acq_rel, std::memory_order_acquire);
++  }
++
++  void finishMaintenance() noexcept
++  {
++    auto expected = State::Busy;
++    if (!state_.compare_exchange_strong(
++        expected, State::Idle, std::memory_order_release, std::memory_order_relaxed) &&
++      expected == State::Requested)
++    {
++      state_.compare_exchange_strong(
++        expected, State::Released, std::memory_order_release, std::memory_order_relaxed);
++    }
++  }
++
++  bool claimControl() noexcept
++  {
++    auto expected = state_.load(std::memory_order_acquire);
++    if (expected == State::Control) {
++      return true;
++    }
++    if (expected == State::Idle || expected == State::Released) {
++      return state_.compare_exchange_strong(
++        expected, State::Control, std::memory_order_acq_rel, std::memory_order_acquire);
++    }
++    if (expected == State::Busy) {
++      state_.compare_exchange_strong(
++        expected, State::Requested, std::memory_order_acq_rel, std::memory_order_acquire);
++    }
++    return false;
++  }
++
++  void failMaintenance() noexcept
++  {
++    auto expected = State::Busy;
++    if (!state_.compare_exchange_strong(
++        expected, State::Failed, std::memory_order_release, std::memory_order_relaxed) &&
++      expected == State::Requested)
++    {
++      state_.compare_exchange_strong(
++        expected, State::Failed, std::memory_order_release, std::memory_order_relaxed);
++    }
++  }
++
++  bool controlOwns() const noexcept
++  {
++    return state_.load(std::memory_order_acquire) == State::Control;
++  }
++  bool failed() const noexcept
++  {
++    return state_.load(std::memory_order_acquire) == State::Failed;
++  }
++  bool stopped() const noexcept
++  {
++    return state_.load(std::memory_order_acquire) == State::Stopped;
++  }
++  void cancel() noexcept {state_.store(State::Stopped, std::memory_order_release);}
++
++private:
++  enum class State : uint8_t {Idle, Busy, Requested, Released, Control, Failed, Stopped};
++  static_assert(std::atomic<State>::is_always_lock_free, "handoff requires lock-free atomics");
++  std::atomic<State> state_{State::Stopped};
++};
++}  // namespace ethercat_driver
++
++#endif  // ETHERCAT_DRIVER__CYCLIC_HANDOFF_HPP_
+diff --git a/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp b/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
+index a60cc45..84b2c63 100644
+--- a/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
++++ b/ethercat_driver/include/ethercat_driver/ethercat_driver.hpp
+@@ -21,6 +21,7 @@
+ #include <unordered_map>
+ #include <memory>
+ #include <string>
++#include <thread>
+ #include <vector>
+ #include <pluginlib/class_loader.hpp>
+ #include "hardware_interface/handle.hpp"
+@@ -31,6 +32,7 @@
+ #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
+ #include "rclcpp_lifecycle/state.hpp"
+ #include "ethercat_driver/visibility_control.h"
++#include "ethercat_driver/cyclic_handoff.hpp"
+ #include "ethercat_interface/ec_slave.hpp"
+ #include "ethercat_interface/ec_master.hpp"
+ 
+@@ -44,6 +46,9 @@ class EthercatDriver : public hardware_interface::SystemInterface
+ public:
+   RCLCPP_SHARED_PTR_DEFINITIONS(EthercatDriver)
+ 
++  ETHERCAT_DRIVER_PUBLIC
++  ~EthercatDriver() override;
++
+   ETHERCAT_DRIVER_PUBLIC
+   CallbackReturn on_init(const hardware_interface::HardwareInfo & info) override;
+ 
+@@ -89,6 +94,9 @@ private:
+     const std::string & sensor_name, const std::string & interface_name) const;
+   void updateDiagnosticStateInterfaces();
+   void setSensorState(const StateInterfaceBinding & binding, double value);
++  void startHandoff(timespec next_cycle, int timeout_ms);
++  void stopHandoff();
++  void exportSendTrace();
+ 
+   std::vector<std::shared_ptr<ethercat_interface::EcSlave>> ec_modules_;
+   std::vector<std::unordered_map<std::string, std::string>> ec_module_parameters_;
+@@ -106,6 +114,10 @@ private:
+   int control_frequency_;
+   ethercat_interface::EcMaster master_;
+   std::atomic_bool activated_{false};
++  CyclicHandoff handoff_;
++  std::thread handoff_thread_;
++  std::string send_trace_path_;
++  bool trace_exported_{false};
+   StateInterfaceBinding process_data_age_binding_;
+   StateInterfaceBinding link_up_binding_;
+   StateInterfaceBinding slaves_responding_binding_;
+diff --git a/ethercat_driver/src/ethercat_driver.cpp b/ethercat_driver/src/ethercat_driver.cpp
+index 78a3c07..41951d6 100644
+--- a/ethercat_driver/src/ethercat_driver.cpp
++++ b/ethercat_driver/src/ethercat_driver.cpp
+@@ -18,6 +18,8 @@
+ #include <cmath>
+ #include <algorithm>
+ #include <cstdint>
++#include <future>
++#include <pthread.h>
+ #include <limits>
+ #include <stdexcept>
+ #include <string>
+@@ -359,6 +361,17 @@ try
+     RCLCPP_FATAL(rclcpp::get_logger("EthercatDriver"), "Double on_activate()");
+     return CallbackReturn::ERROR;
+   }
++
++  stopHandoff();
++  const char * handoff_setting = std::getenv("RT_CONTROL_ECAT_CONTINUOUS_HANDOFF");
++  const bool continuous_handoff = handoff_setting != nullptr && std::string(handoff_setting) == "1";
++  if (handoff_setting != nullptr && !continuous_handoff && std::string(handoff_setting) != "0") {
++    throw std::invalid_argument("RT_CONTROL_ECAT_CONTINUOUS_HANDOFF must be 0 or 1");
++  }
++  const char * trace_path = std::getenv("RT_CONTROL_ECAT_TRACE_FILE");
++  send_trace_path_ = trace_path == nullptr ? "" : trace_path;
++  trace_exported_ = false;
++  master_.enableSendTrace(!send_trace_path_.empty());
+   RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "Starting ...please wait...");
+   if (info_.hardware_parameters.find("control_frequency") == info_.hardware_parameters.end()) {
+     control_frequency_ = 100;
+@@ -541,12 +554,21 @@ try
+   if (startup_realtime.enabled()) {
+     RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "EtherCAT startup realtime scope restored");
+   }
++  handoff_.reset(continuous_handoff);
++  if (continuous_handoff) {
++    startHandoff(t, preload_timeout_ms);
++    RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "EtherCAT cyclic handoff maintenance started");
++  }
+   activated_.store(true, std::memory_order_release);
+ 
+   return CallbackReturn::SUCCESS;
+ }
+ catch (const std::exception & error)
+ {
++  stopHandoff();
++  activated_.store(false, std::memory_order_release);
++  master_.deactivate(5000);
++  exportSendTrace();
+   RCLCPP_ERROR(rclcpp::get_logger("EthercatDriver"), "EtherCAT activation failed: %s", error.what());
+   return CallbackReturn::ERROR;
+ }
+@@ -556,6 +578,7 @@ CallbackReturn EthercatDriver::on_deactivate(
+ {
+   constexpr uint32_t shutdown_preop_timeout_ms = 5000;
+   activated_.store(false, std::memory_order_release);
++  stopHandoff();
+ 
+   RCLCPP_INFO(rclcpp::get_logger("EthercatDriver"), "Stopping ...please wait...");
+ 
+@@ -563,6 +586,7 @@ CallbackReturn EthercatDriver::on_deactivate(
+   // back to IgH and wait for every configured motion slave to reach clean PREOP before
+   // the master handle is released during destruction.
+   const int deactivate_result = master_.deactivate(shutdown_preop_timeout_ms);
++  exportSendTrace();
+   if (deactivate_result != 0) {
+     RCLCPP_ERROR(
+       rclcpp::get_logger("EthercatDriver"),
+@@ -581,6 +605,12 @@ hardware_interface::return_type EthercatDriver::read(
+   const rclcpp::Duration & /*period*/)
+ {
+   if (activated_.load(std::memory_order_acquire)) {
++    if (handoff_.failed()) {
++      return hardware_interface::return_type::ERROR;
++    }
++    if (!handoff_.claimControl()) {
++      return hardware_interface::return_type::OK;
++    }
+     master_.readData();
+     updateDiagnosticStateInterfaces();
+   }
+@@ -592,11 +622,115 @@ hardware_interface::return_type EthercatDriver::write(
+   const rclcpp::Duration & /*period*/)
+ {
+   if (activated_.load(std::memory_order_acquire)) {
++    if (handoff_.failed()) {
++      return hardware_interface::return_type::ERROR;
++    }
++    if (!handoff_.controlOwns()) {
++      return hardware_interface::return_type::OK;
++    }
+     master_.writeData();
+   }
+   return hardware_interface::return_type::OK;
+ }
+ 
++EthercatDriver::~EthercatDriver()
++{
++  stopHandoff();
++  exportSendTrace();
++}
++
++void EthercatDriver::startHandoff(timespec next_cycle, int timeout_ms)
++{
++  const auto interval = master_.getInterval();
++  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
++  std::promise<void> ready;
++  auto started = ready.get_future();
++  handoff_thread_ = std::thread(
++    [this, next_cycle, interval, deadline, ready = std::move(ready)]() mutable {
++      bool announced = false;
++      try {
++        const int name_error = pthread_setname_np(pthread_self(), "ecat-handoff");
++        if (name_error != 0) {
++          throw std::system_error(name_error, std::generic_category(), "Name cyclic handoff thread");
++        }
++        StartupRealtime scheduling;
++        if (!scheduling.enabled()) {
++          throw std::runtime_error("Cyclic handoff requires explicit startup CPU and priority");
++        }
++        ready.set_value();
++        announced = true;
++        while (handoff_.beginMaintenance()) {
++          if (std::chrono::steady_clock::now() >= deadline) {
++            throw std::runtime_error("Controller did not take cyclic ownership before the preload timeout");
++          }
++          int sleep_error;
++          do {
++            sleep_error = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_cycle, nullptr);
++          } while (sleep_error == EINTR && !handoff_.stopped() &&
++            std::chrono::steady_clock::now() < deadline);
++          if (handoff_.stopped()) {
++            break;
++          }
++          if (sleep_error != 0) {
++            throw std::system_error(sleep_error, std::generic_category(), "Sleep cyclic handoff thread");
++          }
++          if (!master_.maintainData()) {
++            throw std::runtime_error("EtherCAT I/O failed during cyclic handoff");
++          }
++          handoff_.finishMaintenance();
++
++          timespec now{};
++          clock_gettime(CLOCK_MONOTONIC, &now);
++          next_cycle.tv_nsec += interval;
++          if (next_cycle.tv_nsec >= 1000000000L) {
++            next_cycle.tv_nsec -= 1000000000L;
++            ++next_cycle.tv_sec;
++          }
++          // A delayed wakeup must not produce a burst of catch-up PDO frames.
++          if (next_cycle.tv_sec < now.tv_sec ||
++            (next_cycle.tv_sec == now.tv_sec && next_cycle.tv_nsec <= now.tv_nsec))
++          {
++            next_cycle = now;
++            next_cycle.tv_nsec += interval;
++            if (next_cycle.tv_nsec >= 1000000000L) {
++              next_cycle.tv_nsec -= 1000000000L;
++              ++next_cycle.tv_sec;
++            }
++          }
++        }
++      } catch (const std::exception & error) {
++        handoff_.failMaintenance();
++        if (!announced) {
++          ready.set_exception(std::current_exception());
++        }
++        std::fprintf(stderr, "EtherCAT cyclic handoff failed: %s\n", error.what());
++      }
++    });
++  if (started.wait_until(deadline) != std::future_status::ready) {
++    stopHandoff();
++    throw std::runtime_error("Cyclic handoff thread did not start before the preload timeout");
++  }
++  started.get();
++}
++
++void EthercatDriver::stopHandoff()
++{
++  handoff_.cancel();
++  if (handoff_thread_.joinable()) {
++    handoff_thread_.join();
++  }
++}
++
++void EthercatDriver::exportSendTrace()
++{
++  if (!trace_exported_ && !send_trace_path_.empty()) {
++    trace_exported_ = true;
++    if (!master_.writeSendTrace(send_trace_path_)) {
++      RCLCPP_WARN(rclcpp::get_logger("EthercatDriver"), "Failed to export EtherCAT send trace");
++    }
++  }
++}
++
+ EthercatDriver::StateInterfaceBinding EthercatDriver::findSensorStateInterface(
+   const std::string & sensor_name, const std::string & interface_name) const
+ {
+diff --git a/ethercat_driver/test/test_cyclic_handoff.cpp b/ethercat_driver/test/test_cyclic_handoff.cpp
+new file mode 100644
+index 0000000..ddb5b01
+--- /dev/null
++++ b/ethercat_driver/test/test_cyclic_handoff.cpp
+@@ -0,0 +1,116 @@
++#include <gtest/gtest.h>
++
++#include <condition_variable>
++#include <mutex>
++#include <thread>
++#include <vector>
++
++#include "ethercat_driver/cyclic_handoff.hpp"
++
++using ethercat_driver::CyclicHandoff;
++
++TEST(CyclicHandoffTest, KeepsSendingDuringControllerConstruction)
++{
++  CyclicHandoff handoff;
++  handoff.reset(true);
++  std::vector<int> sends{0};
++  for (int milliseconds = 4; milliseconds <= 68; milliseconds += 4) {
++    ASSERT_TRUE(handoff.beginMaintenance());
++    sends.push_back(milliseconds);
++    handoff.finishMaintenance();
++  }
++  ASSERT_TRUE(handoff.claimControl());
++  sends.push_back(72);
++  EXPECT_TRUE(handoff.controlOwns());
++  EXPECT_FALSE(handoff.beginMaintenance());
++  for (size_t i = 1; i < sends.size(); ++i) {
++    EXPECT_EQ(sends[i] - sends[i - 1], 4);
++  }
++}
++
++TEST(CyclicHandoffTest, BusyCycleFinishesBeforeControllerCanAccessData)
++{
++  CyclicHandoff handoff;
++  handoff.reset(true);
++  ASSERT_TRUE(handoff.beginMaintenance());
++  EXPECT_FALSE(handoff.claimControl());
++  EXPECT_FALSE(handoff.controlOwns());
++  EXPECT_FALSE(handoff.claimControl());
++  handoff.finishMaintenance();
++  EXPECT_FALSE(handoff.controlOwns());
++  EXPECT_FALSE(handoff.beginMaintenance());
++  EXPECT_TRUE(handoff.claimControl());
++  EXPECT_TRUE(handoff.controlOwns());
++}
++
++TEST(CyclicHandoffTest, CancellationCannotBeOverwrittenByAnInFlightCycle)
++{
++  CyclicHandoff handoff;
++  handoff.reset(true);
++  ASSERT_TRUE(handoff.beginMaintenance());
++  handoff.cancel();
++  handoff.finishMaintenance();
++  EXPECT_TRUE(handoff.stopped());
++  EXPECT_FALSE(handoff.claimControl());
++  EXPECT_FALSE(handoff.beginMaintenance());
++}
++
++TEST(CyclicHandoffTest, FailedOrExpiredMaintenanceNeverAuthorizesControl)
++{
++  for (bool request_takeover : {false, true}) {
++    CyclicHandoff handoff;
++    handoff.reset(true);
++    ASSERT_TRUE(handoff.beginMaintenance());
++    if (request_takeover) {
++      EXPECT_FALSE(handoff.claimControl());
++    }
++    handoff.failMaintenance();
++    EXPECT_TRUE(handoff.failed());
++    EXPECT_FALSE(handoff.claimControl());
++    EXPECT_FALSE(handoff.controlOwns());
++    EXPECT_FALSE(handoff.beginMaintenance());
++  }
++}
++
++TEST(CyclicHandoffTest, DisabledExperimentRetainsDirectControllerOwnership)
++{
++  CyclicHandoff handoff;
++  handoff.reset(false);
++  EXPECT_TRUE(handoff.claimControl());
++  EXPECT_TRUE(handoff.controlOwns());
++  EXPECT_FALSE(handoff.beginMaintenance());
++}
++
++TEST(CyclicHandoffTest, CompletionPublishesDataAcrossThreads)
++{
++  CyclicHandoff handoff;
++  handoff.reset(true);
++  std::mutex mutex;
++  std::condition_variable condition;
++  bool entered = false;
++  bool requested = false;
++  int payload = 0;
++  std::thread producer([&]() {
++    EXPECT_TRUE(handoff.beginMaintenance());
++    {
++      std::unique_lock<std::mutex> lock(mutex);
++      entered = true;
++      condition.notify_one();
++      condition.wait(lock, [&]() {return requested;});
++    }
++    payload = 42;
++    handoff.finishMaintenance();
++  });
++  {
++    std::unique_lock<std::mutex> lock(mutex);
++    condition.wait(lock, [&]() {return entered;});
++    EXPECT_FALSE(handoff.claimControl());
++    requested = true;
++    condition.notify_one();
++  }
++  while (!handoff.claimControl()) {
++    std::this_thread::yield();
++  }
++  EXPECT_EQ(payload, 42);
++  producer.join();
++}
+diff --git a/ethercat_interface/CMakeLists.txt b/ethercat_interface/CMakeLists.txt
+index aab5cfa..1781142 100644
+--- a/ethercat_interface/CMakeLists.txt
++++ b/ethercat_interface/CMakeLists.txt
+@@ -51,6 +51,17 @@ install(
+ )
+ 
+ if(BUILD_TESTING)
++  find_package(ament_cmake_gtest REQUIRED)
++  ament_add_gtest(test_send_trace test/test_send_trace.cpp)
++  target_include_directories(test_send_trace PRIVATE include)
++  ament_add_gtest(test_maintain_data test/test_maintain_data.cpp src/ec_master.cpp)
++  target_include_directories(test_maintain_data PRIVATE include ${ETHERLAB_DIR}/include)
++  target_link_libraries(test_maintain_data ${ETHERCAT_LIB})
++  foreach(api request_master release_master master_create_domain master_receive domain_process
++      domain_state master_state master_application_time master_sync_reference_clock
++      master_sync_slave_clocks domain_queue master_send)
++    target_link_libraries(test_maintain_data "-Wl,--wrap=ecrt_${api}")
++  endforeach()
+   # find_package(ament_cmake_gtest REQUIRED)
+   find_package(ament_lint_auto REQUIRED)
+   find_package(yaml_cpp_vendor REQUIRED)
+diff --git a/ethercat_interface/include/ethercat_interface/ec_master.hpp b/ethercat_interface/include/ethercat_interface/ec_master.hpp
+index 7b95d78..76ee7e6 100644
+--- a/ethercat_interface/include/ethercat_interface/ec_master.hpp
++++ b/ethercat_interface/include/ethercat_interface/ec_master.hpp
+@@ -26,6 +26,7 @@
+ #include <map>
+ #include <chrono>
+ #include "ethercat_interface/ec_slave.hpp"
++#include "ethercat_interface/send_trace.hpp"
+ 
+ 
+ namespace ethercat_interface
+@@ -97,6 +98,12 @@ public:
+   void readData(uint32_t domain = 0);
+   void writeData(uint32_t domain = 0);
+ 
++  /** Exchange the existing PDO image and DC clocks without touching exported interfaces. */
++  bool maintainData(uint32_t domain = 0);
++  void enableSendTrace(bool enabled) {send_trace_.reset(enabled);}
++  /** Export only from a stopped, non-realtime lifecycle path. */
++  bool writeSendTrace(const std::string & path) const;
++
+   /** Age of the most recent complete working-counter sample, in milliseconds. */
+   double processDataAgeMs(uint32_t domain = 0) const;
+   uint32_t slavesResponding() const {return master_state_.slaves_responding;}
+@@ -107,6 +114,7 @@ public:
+   uint8_t slaveAlState(size_t configured_slave_index) const;
+ 
+ private:
++  friend class EcMasterHandoffTestAccess;
+   /** true if running */
+   volatile bool running_ = false;
+ 
+@@ -191,6 +199,7 @@ private:
+   uint32_t check_state_frequency_ = 10;
+ 
+   uint32_t interval_;
++  SendTrace send_trace_;
+ };
+ 
+ }  // namespace ethercat_interface
+diff --git a/ethercat_interface/include/ethercat_interface/send_trace.hpp b/ethercat_interface/include/ethercat_interface/send_trace.hpp
+new file mode 100644
+index 0000000..729472b
+--- /dev/null
++++ b/ethercat_interface/include/ethercat_interface/send_trace.hpp
+@@ -0,0 +1,73 @@
++// SPDX-License-Identifier: Apache-2.0
++#ifndef ETHERCAT_INTERFACE__SEND_TRACE_HPP_
++#define ETHERCAT_INTERFACE__SEND_TRACE_HPP_
++
++#include <time.h>
++#include <array>
++#include <cstddef>
++#include <cstdint>
++#include <ostream>
++
++namespace ethercat_interface
++{
++enum class SendPhase : uint8_t {Startup, Maintenance, Control};
++
++// Access follows cyclic ownership; export only after all senders have stopped.
++class SendTrace
++{
++public:
++  void reset(bool enabled) noexcept
++  {
++    enabled_ = enabled;
++    next_ = count_ = control_count_ = 0;
++  }
++
++  void record(uint64_t nanoseconds, SendPhase phase, uint32_t working_counter) noexcept
++  {
++    if (!enabled_) {
++      return;
++    }
++    samples_[next_] = {nanoseconds, phase, working_counter};
++    next_ = (next_ + 1) % samples_.size();
++    if (count_ < samples_.size()) {
++      ++count_;
++    }
++    if (phase == SendPhase::Control && ++control_count_ == 256) {
++      enabled_ = false;
++    }
++  }
++
++  void recordNow(SendPhase phase, uint32_t working_counter) noexcept
++  {
++    if (enabled_) {
++      timespec now{};
++      if (clock_gettime(CLOCK_MONOTONIC, &now) == 0) {
++        record(static_cast<uint64_t>(now.tv_sec) * 1000000000ULL + now.tv_nsec,
++          phase, working_counter);
++      }
++    }
++  }
++
++  void writeCsv(std::ostream & output) const
++  {
++    output << "monotonic_ns,phase,working_counter\n";
++    constexpr const char * names[] = {"startup", "maintenance", "control"};
++    const size_t first = (next_ + samples_.size() - count_) % samples_.size();
++    for (size_t i = 0; i < count_; ++i) {
++      const auto & sample = samples_[(first + i) % samples_.size()];
++      output << sample.nanoseconds << ',' << names[static_cast<size_t>(sample.phase)] << ',' <<
++        sample.working_counter << '\n';
++    }
++  }
++
++private:
++  struct Sample {uint64_t nanoseconds; SendPhase phase; uint32_t working_counter;};
++  std::array<Sample, 1024> samples_{};
++  size_t next_{0};
++  size_t count_{0};
++  size_t control_count_{0};
++  bool enabled_{false};
++};
++}  // namespace ethercat_interface
++
++#endif  // ETHERCAT_INTERFACE__SEND_TRACE_HPP_
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index 6399dca..79dfe63 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -13,6 +13,7 @@
+ // limitations under the License.
+ 
+ #include "ethercat_interface/ec_master.hpp"
++#include <fstream>
+ #include "ethercat_interface/ec_slave.hpp"
+ 
+ #include <unistd.h>
+@@ -382,6 +383,7 @@ void EcMaster::update(uint32_t domain)
+ 
+   // send process data
+   ecrt_domain_queue(domain_info->domain);
++  send_trace_.recordNow(SendPhase::Startup, domain_info->domain_state.working_counter);
+   ecrt_master_send(master_);
+   for (DomainInfo::Entry & entry : domain_info->entries) {
+     entry.slave->onPdoCycleSent();
+@@ -422,6 +424,42 @@ void EcMaster::readData(uint32_t domain)
+   ++update_counter_;
+ }
+ 
++bool EcMaster::maintainData(uint32_t domain)
++{
++  DomainInfo * domain_info = domain_info_.at(domain);
++  if (domain_info == nullptr) {
++    throw std::runtime_error("Null domain during cyclic handoff");
++  }
++  if (ecrt_master_receive(master_) < 0 || ecrt_domain_process(domain_info->domain) < 0) {
++    return false;
++  }
++  checkDomainState(domain, true);
++  if (update_counter_ % check_state_frequency_ == 0) {
++    checkMasterState();
++    checkSlaveStates();
++  }
++  timespec now{};
++  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 ||
++    ecrt_master_application_time(master_, EC_NEWTIMEVAL2NANO(now)) < 0 ||
++    ecrt_master_sync_reference_clock(master_) < 0 ||
++    ecrt_master_sync_slave_clocks(master_) < 0 || ecrt_domain_queue(domain_info->domain) < 0)
++  {
++    return false;
++  }
++  send_trace_.recordNow(SendPhase::Maintenance, domain_info->domain_state.working_counter);
++  const int send_result = ecrt_master_send(master_);
++  ++update_counter_;
++  return send_result >= 0;
++}
++
++bool EcMaster::writeSendTrace(const std::string & path) const
++{
++  std::ofstream output(path);
++  send_trace_.writeCsv(output);
++  output.flush();
++  return output.good();
++}
++
+ void EcMaster::writeData(uint32_t domain)
+ {
+   const auto domain_iter = domain_info_.find(domain);
+@@ -446,6 +484,7 @@ void EcMaster::writeData(uint32_t domain)
+ 
+   // send process data
+   ecrt_domain_queue(domain_info->domain);
++  send_trace_.recordNow(SendPhase::Control, domain_info->domain_state.working_counter);
+   ecrt_master_send(master_);
+   for (DomainInfo::Entry & entry : domain_info->entries) {
+     entry.slave->onPdoCycleSent();
+diff --git a/ethercat_interface/test/test_maintain_data.cpp b/ethercat_interface/test/test_maintain_data.cpp
+new file mode 100644
+index 0000000..d139842
+--- /dev/null
++++ b/ethercat_interface/test/test_maintain_data.cpp
+@@ -0,0 +1,96 @@
++#include <gtest/gtest.h>
++#include <array>
++#include <string>
++#include <vector>
++
++#include "ethercat_interface/ec_master.hpp"
++
++namespace
++{
++std::vector<std::string> calls;
++std::array<uint8_t, 8> image{6, 0, 42, 0, 0, 0, 0, 0};
++uint64_t app_time = 0;
++bool receive_failure = false;
++}
++
++extern "C"
++{
++ec_master_t * __wrap_ecrt_request_master(unsigned int)
++{return reinterpret_cast<ec_master_t *>(1);}
++void __wrap_ecrt_release_master(ec_master_t *) {}
++ec_domain_t * __wrap_ecrt_master_create_domain(ec_master_t *)
++{return reinterpret_cast<ec_domain_t *>(2);}
++int __wrap_ecrt_master_receive(ec_master_t *)
++{calls.emplace_back("receive"); return receive_failure ? -1 : 0;}
++int __wrap_ecrt_domain_process(ec_domain_t *) {calls.emplace_back("process"); return 0;}
++int __wrap_ecrt_domain_state(const ec_domain_t *, ec_domain_state_t * state)
++{*state = {}; state->working_counter = 48; state->wc_state = EC_WC_COMPLETE; return 0;}
++int __wrap_ecrt_master_state(const ec_master_t *, ec_master_state_t * state)
++{*state = {}; state->link_up = 1; state->slaves_responding = 18; return 0;}
++int __wrap_ecrt_master_application_time(ec_master_t *, uint64_t time)
++{app_time = time; calls.emplace_back("application_time"); return 0;}
++int __wrap_ecrt_master_sync_reference_clock(ec_master_t *) {calls.emplace_back("reference"); return 0;}
++int __wrap_ecrt_master_sync_slave_clocks(ec_master_t *) {calls.emplace_back("slaves"); return 0;}
++int __wrap_ecrt_domain_queue(ec_domain_t *) {calls.emplace_back("queue"); return 0;}
++int __wrap_ecrt_master_send(ec_master_t *) {calls.emplace_back("send"); return 0;}
++}
++
++namespace ethercat_interface
++{
++class EcMasterHandoffTestAccess
++{
++public:
++  static void addDomain(EcMaster & master, EcSlave & slave)
++  {
++    auto domain = new EcMaster::DomainInfo(master.master_);
++    domain->domain_pd = image.data();
++    EcMaster::DomainInfo::Entry entry;
++    entry.slave = &slave;
++    entry.num_pdos = 1;
++    entry.offset = new uint32_t[1]{0};
++    domain->entries.push_back(entry);
++    master.domain_info_.emplace(0, domain);
++  }
++};
++
++class ObservedSlave : public EcSlave
++{
++public:
++  ObservedSlave() : EcSlave(0, 0) {}
++  void processData(size_t, uint8_t *) override {++interface_updates;}
++  void onPdoCycleSent() override {++acknowledgements;}
++  int interface_updates = 0;
++  int acknowledgements = 0;
++};
++
++TEST(MaintainDataTest, ExchangesRawImageAndDcWithoutChangingCommandsOrInterfaces)
++{
++  calls.clear();
++  app_time = 0;
++  const auto original_image = image;
++  ObservedSlave slave;
++  EcMaster master;
++  EcMasterHandoffTestAccess::addDomain(master, slave);
++  ASSERT_TRUE(master.maintainData());
++  EXPECT_EQ(calls, (std::vector<std::string>{
++    "receive", "process", "application_time", "reference", "slaves", "queue", "send"}));
++  EXPECT_GT(app_time, 0U);
++  EXPECT_EQ(image, original_image);
++  EXPECT_EQ(slave.interface_updates, 0);
++  EXPECT_EQ(slave.acknowledgements, 0);
++  EXPECT_TRUE(std::isfinite(master.processDataAgeMs()));
++}
++
++TEST(MaintainDataTest, ReadFailureDoesNotSendOrUpdateInterfaces)
++{
++  calls.clear();
++  ObservedSlave slave;
++  EcMaster master;
++  EcMasterHandoffTestAccess::addDomain(master, slave);
++  receive_failure = true;
++  EXPECT_FALSE(master.maintainData());
++  receive_failure = false;
++  EXPECT_EQ(calls, (std::vector<std::string>{"receive"}));
++  EXPECT_EQ(slave.interface_updates, 0);
++}
++}  // namespace ethercat_interface
+diff --git a/ethercat_interface/test/test_send_trace.cpp b/ethercat_interface/test/test_send_trace.cpp
+new file mode 100644
+index 0000000..b1b9917
+--- /dev/null
++++ b/ethercat_interface/test/test_send_trace.cpp
+@@ -0,0 +1,40 @@
++#include <gtest/gtest.h>
++
++#include <sstream>
++#include <string>
++
++#include "ethercat_interface/send_trace.hpp"
++
++TEST(SendTraceTest, IsBoundedAndFreezesAfterTheHandoffWindow)
++{
++  ethercat_interface::SendTrace trace;
++  trace.reset(true);
++  for (uint64_t i = 0; i < 2000; ++i) {
++    trace.record(i * 4000000, ethercat_interface::SendPhase::Startup, 48);
++  }
++  trace.record(8000000000, ethercat_interface::SendPhase::Maintenance, 48);
++  for (uint64_t i = 1; i <= 300; ++i) {
++    trace.record(8000000000 + i * 4000000, ethercat_interface::SendPhase::Control, 48);
++  }
++  std::ostringstream output;
++  trace.writeCsv(output);
++  std::istringstream input(output.str());
++  std::string line;
++  size_t lines = 0;
++  while (std::getline(input, line)) {++lines;}
++  EXPECT_EQ(lines, 1025U);
++  EXPECT_EQ(line, "");
++  EXPECT_NE(output.str().find("9024000000,control,48\n"), std::string::npos);
++  EXPECT_EQ(output.str().find("9028000000"), std::string::npos);
++  EXPECT_NE(output.str().find("8000000000,maintenance,48\n"), std::string::npos);
++}
++
++TEST(SendTraceTest, DisabledTraceDoesNotCollectSamples)
++{
++  ethercat_interface::SendTrace trace;
++  trace.reset(false);
++  trace.record(4, ethercat_interface::SendPhase::Startup, 48);
++  std::ostringstream output;
++  trace.writeCsv(output);
++  EXPECT_EQ(output.str(), "monotonic_ns,phase,working_counter\n");
++}

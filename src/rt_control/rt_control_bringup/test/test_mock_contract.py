@@ -61,9 +61,8 @@ GRAPH_CONVERGE_TIMEOUT_SEC = 120.0
 GRAPH_POLL_PERIOD_SEC = 1.0
 
 # Frequency spot checks: generous tolerance, lower bound only (>= 70 % of the
-# contract-nominal rate). The joint_state_broadcaster configuration remains
-# 100 Hz, but the 250 Hz controller_manager schedules it at the supported
-# 125 Hz divisor; the public contract therefore uses the measured 125 Hz.
+# contract-nominal rate). The joint_state_broadcaster explicitly requests the
+# established public 125 Hz rate, an exact divisor of the 1 kHz control loop.
 FREQUENCY_TOLERANCE_RATIO = 0.7
 MEASUREMENT_WARMUP_SEC = 2.0
 MEASUREMENT_WINDOW_SEC = 10.0

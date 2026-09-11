@@ -3,6 +3,8 @@ product_id: 0x00009253
 assign_activate: 0x0300
 auto_fault_reset: false
 auto_state_transitions: false
+# Verify the fixed position-only PDO layout without rewriting read-only objects.
+use_slave_pdo_defaults: true
 # Dedicated profile for left_joint3 only. Position polarity is reversed in
 # the master mapping by negating both 0x607A command and 0x6064 feedback
 # factors. Do not write 0x607E here; Ti5 0x607E also exposes velocity/torque
@@ -11,7 +13,7 @@ auto_state_transitions: false
 sdo:
   - {index: 0x10f1, sub_index: 2, type: uint32, value: 250}
   - {index: 0x6060, sub_index: 0, type: int8, value: 8}
-  - {index: 0x60c2, sub_index: 1, type: uint8, value: 4}
+  - {index: 0x60c2, sub_index: 1, type: uint8, value: 1}
   - {index: 0x60c2, sub_index: 2, type: int8, value: -3}
 rpdo:
   - index: 0x1601

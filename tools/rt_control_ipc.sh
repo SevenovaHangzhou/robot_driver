@@ -44,6 +44,7 @@ compose()
   sudo env \
     RT_CONTROL_CPUSET="${expected_container_cpuset}" \
     RT_CONTROL_START_CPUSET="${expected_housekeeping_cpuset}" \
+    RT_CONTROL_ECAT_STARTUP_CPU="${expected_cpuset}" \
     RT_CONTROL_IMAGE_TAG="${release_version}" \
     RT_CONTROL_PROJECT_ROOT="${runtime_root}" \
     "${compose_wrapper}" --project-name "${compose_project}" "$@"

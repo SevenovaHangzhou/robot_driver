@@ -16,6 +16,9 @@ if [[ ! -r "${igh_patch}" ]]; then
   exit 1
 fi
 igh_patch_sha256="$(sha256sum "${igh_patch}" | awk '{print $1}')"
+igh_dc_patch="${repository_root}/patches/igh/0002-dc-offset-use-sent-application-time.patch"
+[[ -r "${igh_dc_patch}" ]] || { echo "missing IgH DC offset patch" >&2; exit 1; }
+igh_dc_patch_sha256="$(sha256sum "${igh_dc_patch}" | awk '{print $1}')"
 if [[ ! "${igh_patch_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
   echo "failed to identify IgH PDO-preservation patch" >&2
   exit 1
@@ -158,6 +161,7 @@ fi
 git -C "${source_root}" checkout --detach "${IGH_COMMIT}"
 test "$(git -C "${source_root}" rev-parse HEAD)" = "${IGH_COMMIT}"
 git -C "${source_root}" apply --check "${igh_patch}"
+git -C "${source_root}" apply --check "${igh_dc_patch}"
 
 if [[ ! -f "${source_root}/devices/igb/igb_main-${kernel_series}-orig.c" ]]; then
   echo "IgH ${IGH_COMMIT} has no ec_igb source for kernel series ${kernel_series}" >&2
@@ -175,6 +179,8 @@ trap cleanup EXIT
 git -C "${source_root}" archive "${IGH_COMMIT}" | tar -x -C "${build_root}"
 git -C "${build_root}" apply --check "${igh_patch}"
 git -C "${build_root}" apply "${igh_patch}"
+git -C "${build_root}" apply --check "${igh_dc_patch}"
+git -C "${build_root}" apply "${igh_dc_patch}"
 cd "${build_root}"
 ./bootstrap
 ./configure \
@@ -182,6 +188,7 @@ cd "${build_root}"
   --sysconfdir=/etc \
   --disable-initd \
   --disable-rt-syslog \
+  --enable-hrtimer \
   --enable-generic \
   --enable-igb \
   --with-systemdsystemunitdir=/lib/systemd/system \
@@ -236,8 +243,8 @@ printf '%s\n' "${etherlab_prefix}/lib" > /etc/ld.so.conf.d/etherlab.conf
 ldconfig
 
 metadata_tmp="$(mktemp)"
-printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\n' \
-  "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" > "${metadata_tmp}"
+printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_HRTIMER=1\nIGH_DC_OFFSET_PATCH_SHA256=%s\n' \
+  "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" > "${metadata_tmp}"
 install -d -m 0755 /usr/local/share/rt-control
 install -o root -g root -m 0644 \
   "${metadata_tmp}" /usr/local/share/rt-control/dependency-versions.env

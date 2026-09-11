@@ -1,7 +1,8 @@
 diff --git a/include/ecrt.h b/include/ecrt.h
+index 3ab462f..2a710bb 100644
 --- a/include/ecrt.h
 +++ b/include/ecrt.h
-@@ -1955,6 +1955,11 @@ EC_PUBLIC_API int ecrt_slave_config_idn(
+@@ -1954,6 +1954,11 @@ EC_PUBLIC_API int ecrt_slave_config_idn(
   * - WaitBeforeSAFEOPms: Number of milliseconds to wait before commanding the
   *   transition from PREOP to SAFEOP. This can be used as a workaround for
   *   slaves that need a little time to initialize.
@@ -14,17 +15,10 @@ diff --git a/include/ecrt.h b/include/ecrt.h
   * This method has to be called in non-realtime context before
   * ecrt_master_activate().
 diff --git a/master/fsm_pdo.c b/master/fsm_pdo.c
+index 0d5f87e..b1d391b 100644
 --- a/master/fsm_pdo.c
 +++ b/master/fsm_pdo.c
-@@ -42,6 +42,7 @@ void ec_fsm_pdo_print(const ec_fsm_pdo_t *);
- int ec_fsm_pdo_running(const ec_fsm_pdo_t *);
- ec_pdo_t *ec_fsm_pdo_conf_action_next_pdo(const ec_fsm_pdo_t *,
-         const struct list_head *);
-+int ec_fsm_pdo_conf_preserve_config(const ec_fsm_pdo_t *);
- 
- /****************************************************************************/
- 
-@@ -126,6 +127,25 @@ void ec_fsm_pdo_print(
+@@ -114,6 +114,25 @@ void ec_fsm_pdo_print(
  
  /****************************************************************************/
  
@@ -50,7 +44,7 @@ diff --git a/master/fsm_pdo.c b/master/fsm_pdo.c
  /** Start reading the PDO configuration.
   */
  void ec_fsm_pdo_start_reading(
-@@ -527,6 +547,27 @@ void ec_fsm_pdo_conf_action_check_mapping(
+@@ -528,6 +547,27 @@ void ec_fsm_pdo_conf_action_check_mapping(
          ec_datagram_t *datagram /**< Datagram to use. */
          )
  {
@@ -78,7 +72,7 @@ diff --git a/master/fsm_pdo.c b/master/fsm_pdo.c
      // check, if slave supports PDO configuration
      if ((fsm->slave->sii.mailbox_protocols & EC_MBOX_COE)
              && fsm->slave->sii.has_general
-@@ -601,6 +642,22 @@ void ec_fsm_pdo_conf_action_check_assignment(
+@@ -603,6 +643,22 @@ void ec_fsm_pdo_conf_action_check_assignment(
          ec_datagram_t *datagram /**< Datagram to use. */
          )
  {
@@ -101,3 +95,33 @@ diff --git a/master/fsm_pdo.c b/master/fsm_pdo.c
      if ((fsm->slave->sii.mailbox_protocols & EC_MBOX_COE)
              && fsm->slave->sii.has_general
              && fsm->slave->sii.coe_details.enable_pdo_assign) {
+diff --git a/master/fsm_pdo.h b/master/fsm_pdo.h
+index 41fc876..4685d72 100644
+--- a/master/fsm_pdo.h
++++ b/master/fsm_pdo.h
+@@ -70,6 +70,7 @@ void ec_fsm_pdo_start_configuration(ec_fsm_pdo_t *, ec_slave_t *);
+ 
+ int ec_fsm_pdo_exec(ec_fsm_pdo_t *, ec_datagram_t *);
+ int ec_fsm_pdo_success(const ec_fsm_pdo_t *);
++int ec_fsm_pdo_conf_preserve_config(const ec_fsm_pdo_t *);
+ 
+ /****************************************************************************/
+ 
+diff --git a/master/fsm_slave_config.c b/master/fsm_slave_config.c
+index 5ce95db..1720818 100644
+--- a/master/fsm_slave_config.c
++++ b/master/fsm_slave_config.c
+@@ -1043,6 +1043,13 @@ void ec_fsm_slave_config_state_pdo_conf(
+ 
+     if (!ec_fsm_pdo_success(fsm->fsm_pdo)) {
+         EC_SLAVE_WARN(fsm->slave, "PDO configuration failed.\n");
++        if (ec_fsm_pdo_conf_preserve_config(fsm->fsm_pdo)) {
++            EC_SLAVE_ERR(fsm->slave,
++                    "Refusing unverified preserved PDO configuration.\n");
++            fsm->slave->error_flag = 1;
++            fsm->state = ec_fsm_slave_config_state_error;
++            return;
++        }
+     }
+ 
+     ec_fsm_slave_config_enter_watchdog_divider(fsm);

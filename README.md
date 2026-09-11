@@ -13,7 +13,7 @@ schema 的权威源是独立
 
 RT-Control 负责：
 
-- EtherCAT/CANopen、ros2_control 和 250 Hz 实时控制环；
+- EtherCAT/CANopen、ros2_control 和 1 kHz 实时控制环；
 - 完整 14 轴轨迹、履带安全速度和 PLC/BMS IO 执行；
 - 驱动使能、失能、故障复位、停机收敛和硬件诊断；
 - 发布机械轴、轮速里程计、TF、真空、安全摘要和域就绪状态。

@@ -89,6 +89,23 @@ QoS 或适配器依赖变化后必须再执行一次完整 `build`。
 
 ## 2. 首次准备
 
+ELECTRI-97 的默认控制周期为 1 ms：controller_manager、EtherCAT Xacro
+`control_frequency` 和 Ti5/Updown `0x60C2` 必须一致。SYNC0 使用统一 shift 0，
+IgH send interval 按实际周期设置；`/joint_states` 显式保持公共契约的 125 Hz。
+启动期间使用经核对的 RT CPU/FIFO 优先级，初始化结束至控制器接管之间持续收发。
+普通启动不设置诊断定时激活，不启用 IgH 100 us 初始偏移阈值实验。
+
+Native 与 Docker 均应用 ICube 0001..0012；0012仅修正上游风格/版权检查，
+`0011-dc-rate-diagnostics.patch`
+已从 experimental 移到补丁主目录。已有工作区若曾手动试验或回退，须检查完整补丁树；
+源码被恢复后需清理受影响的构建对象再重编，不能只替换共享库或依赖增量时间戳。
+Ti5 PreservePdoConfig 会拒绝不符合 `1601/1A01` 的在线布局，换驱动或掉电后需先
+读回核对，不应通过放宽检查让错误布局进入 OP。
+
+当前失能暖启动记录为 6.821/6.381 秒；冷启动、长期抖动及使能运动未据此验收，
+两次停机的 X503 `0x001A` 仍有待处理。详细记录见
+[启动周期纠错](areas/ecat-axes/records/2026-09-10-electri-97-startup-rate-correction.md)。
+
 ```bash
 cd /home/user/rt-control-dev/robot
 

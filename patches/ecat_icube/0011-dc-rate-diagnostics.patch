@@ -1,0 +1,364 @@
+diff --git a/ethercat_interface/CMakeLists.txt b/ethercat_interface/CMakeLists.txt
+index 1781142..2297444 100644
+--- a/ethercat_interface/CMakeLists.txt
++++ b/ethercat_interface/CMakeLists.txt
+@@ -52,6 +52,8 @@ install(
+ 
+ if(BUILD_TESTING)
+   find_package(ament_cmake_gtest REQUIRED)
++  ament_add_gtest(test_diagnostic_timing test/test_diagnostic_timing.cpp)
++  target_include_directories(test_diagnostic_timing PRIVATE include)
+   ament_add_gtest(test_send_trace test/test_send_trace.cpp)
+   target_include_directories(test_send_trace PRIVATE include)
+   ament_add_gtest(test_maintain_data test/test_maintain_data.cpp src/ec_master.cpp)
+diff --git a/ethercat_interface/include/ethercat_interface/diagnostic_timing.hpp b/ethercat_interface/include/ethercat_interface/diagnostic_timing.hpp
+new file mode 100644
+index 0000000..cacaf55
+--- /dev/null
++++ b/ethercat_interface/include/ethercat_interface/diagnostic_timing.hpp
+@@ -0,0 +1,57 @@
++// SPDX-License-Identifier: Apache-2.0
++#ifndef ETHERCAT_INTERFACE__DIAGNOSTIC_TIMING_HPP_
++#define ETHERCAT_INTERFACE__DIAGNOSTIC_TIMING_HPP_
++
++#include <cstdint>
++#include <cstdlib>
++#include <stdexcept>
++#include <string>
++#include <time.h>
++
++namespace ethercat_interface
++{
++inline uint64_t diagnosticUnsigned(const char * setting)
++{
++  const std::string value(setting == nullptr ? "" : setting);
++  if (value.empty() || value.find_first_not_of("0123456789") != std::string::npos) {
++    throw std::invalid_argument("Diagnostic timing value must be an unsigned decimal integer");
++  }
++  return std::stoull(value);
++}
++
++inline uint64_t validateActivationDeadline(uint64_t deadline, uint64_t now)
++{
++  if (deadline <= now || deadline - now > 60000000000ULL) {
++    throw std::invalid_argument("Diagnostic activation deadline must be within the next 60 seconds");
++  }
++  return deadline;
++}
++
++inline uint32_t validateSyncShift(uint64_t shift, uint32_t interval)
++{
++  if (interval == 0 || shift >= interval) {
++    throw std::invalid_argument("Diagnostic SYNC0 shift must be smaller than the cycle period");
++  }
++  return static_cast<uint32_t>(shift);
++}
++
++inline bool waitForDiagnosticActivation()
++{
++  const char * setting = std::getenv("RT_CONTROL_ECAT_ACTIVATE_AT_NS");
++  if (setting == nullptr) {
++    return true;
++  }
++  timespec now{};
++  if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
++    return false;
++  }
++  const uint64_t deadline = validateActivationDeadline(diagnosticUnsigned(setting),
++    static_cast<uint64_t>(now.tv_sec) * 1000000000ULL + now.tv_nsec);
++  const timespec wake{static_cast<time_t>(deadline / 1000000000ULL),
++    static_cast<long>(deadline % 1000000000ULL)};
++  // A signal interrupts the experiment before activation instead of extending startup.
++  return clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &wake, nullptr) == 0;
++}
++}  // namespace ethercat_interface
++
++#endif  // ETHERCAT_INTERFACE__DIAGNOSTIC_TIMING_HPP_
+diff --git a/ethercat_interface/include/ethercat_interface/send_trace.hpp b/ethercat_interface/include/ethercat_interface/send_trace.hpp
+index 729472b..9ee23f6 100644
+--- a/ethercat_interface/include/ethercat_interface/send_trace.hpp
++++ b/ethercat_interface/include/ethercat_interface/send_trace.hpp
+@@ -19,11 +19,35 @@ public:
+   void reset(bool enabled) noexcept
+   {
+     enabled_ = enabled;
++    statistics_enabled_ = enabled;
+     next_ = count_ = control_count_ = 0;
++    statistics_ = {};
++    previous_ns_ = 0;
++    previous_valid_ = false;
+   }
+ 
+-  void record(uint64_t nanoseconds, SendPhase phase, uint32_t working_counter) noexcept
++  void record(uint64_t nanoseconds, SendPhase phase, uint32_t working_counter,
++    bool complete = true) noexcept
+   {
++    if (statistics_enabled_) {
++      auto & statistics = statistics_[static_cast<size_t>(phase)];
++      ++statistics.samples;
++      statistics.incomplete += !complete;
++      if (previous_valid_ && previous_phase_ == phase) {
++        if (nanoseconds > previous_ns_) {
++          const uint64_t gap = nanoseconds - previous_ns_;
++          if (statistics.gaps++ == 0 || gap < statistics.minimum) {statistics.minimum = gap;}
++          if (gap > statistics.maximum) {statistics.maximum = gap;}
++          const uint64_t bucket = gap / 1000;
++          ++statistics.histogram[bucket < 16000 ? bucket : 16000];
++        } else {
++          ++statistics.nonmonotonic;
++        }
++      }
++      previous_valid_ = true;
++      previous_ns_ = nanoseconds;
++      previous_phase_ = phase;
++    }
+     if (!enabled_) {
+       return;
+     }
+@@ -37,13 +61,13 @@ public:
+     }
+   }
+ 
+-  void recordNow(SendPhase phase, uint32_t working_counter) noexcept
++  void recordNow(SendPhase phase, uint32_t working_counter, bool complete = true) noexcept
+   {
+-    if (enabled_) {
++    if (enabled_ || statistics_enabled_) {
+       timespec now{};
+       if (clock_gettime(CLOCK_MONOTONIC, &now) == 0) {
+         record(static_cast<uint64_t>(now.tv_sec) * 1000000000ULL + now.tv_nsec,
+-          phase, working_counter);
++          phase, working_counter, complete);
+       }
+     }
+   }
+@@ -60,7 +84,42 @@ public:
+     }
+   }
+ 
++  void writeStatisticsCsv(std::ostream & output) const
++  {
++    output << "phase,samples,gaps,min_gap_ns,max_gap_ns,wkc_incomplete,nonmonotonic\n";
++    constexpr const char * names[] = {"startup", "maintenance", "control"};
++    for (size_t phase = 0; phase < statistics_.size(); ++phase) {
++      const auto & value = statistics_[phase];
++      output << names[phase] << ',' << value.samples << ',' << value.gaps << ',' <<
++        value.minimum << ',' << value.maximum << ',' << value.incomplete << ',' <<
++        value.nonmonotonic << '\n';
++    }
++  }
++
++  void writeHistogramCsv(std::ostream & output) const
++  {
++    output << "phase,gap_us,count\n";
++    constexpr const char * names[] = {"startup", "maintenance", "control"};
++    for (size_t phase = 0; phase < statistics_.size(); ++phase) {
++      for (size_t bucket = 0; bucket < statistics_[phase].histogram.size(); ++bucket) {
++        const uint64_t count = statistics_[phase].histogram[bucket];
++        if (count) {output << names[phase] << ',' << bucket << ',' << count << '\n';}
++      }
++    }
++  }
++
+ private:
++  struct Statistics
++  {
++    uint64_t samples{0}, gaps{0}, minimum{0}, maximum{0}, incomplete{0}, nonmonotonic{0};
++    // One-microsecond bins; the last bin contains every gap >= 16 ms.
++    std::array<uint64_t, 16001> histogram{};
++  };
++  std::array<Statistics, 3> statistics_{};
++  bool statistics_enabled_{false};
++  bool previous_valid_{false};
++  uint64_t previous_ns_{0};
++  SendPhase previous_phase_{SendPhase::Startup};
+   struct Sample {uint64_t nanoseconds; SendPhase phase; uint32_t working_counter;};
+   std::array<Sample, 1024> samples_{};
+   size_t next_{0};
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index 79dfe63..b601929 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -13,6 +13,7 @@
+ // limitations under the License.
+ 
+ #include "ethercat_interface/ec_master.hpp"
++#include "ethercat_interface/diagnostic_timing.hpp"
+ #include <fstream>
+ #include "ethercat_interface/ec_slave.hpp"
+ 
+@@ -109,11 +110,14 @@ void EcMaster::addSlave(uint16_t alias, uint16_t position, EcSlave * slave)
+     struct timespec t;
+     clock_gettime(CLOCK_MONOTONIC, &t);
+     ecrt_master_application_time(master_, EC_NEWTIMEVAL2NANO(t));
++    const char * shift_setting = std::getenv("RT_CONTROL_ECAT_SYNC0_SHIFT_NS");
++    const uint32_t shift = shift_setting == nullptr ? interval_ - (t.tv_nsec % interval_) :
++      validateSyncShift(diagnosticUnsigned(shift_setting), interval_);
+     ecrt_slave_config_dc(
+       slave_info.config,
+       slave->assign_activate_dc_sync(),
+       interval_,
+-      interval_ - (t.tv_nsec % (interval_)),
++      shift,
+       0,
+       0);
+   }
+@@ -245,6 +249,20 @@ void EcMaster::registerPDOInDomain(
+ 
+ bool EcMaster::activate()
+ {
++  try {
++    const char * send_interval = std::getenv("RT_CONTROL_ECAT_EXPLICIT_SEND_INTERVAL");
++    if (send_interval != nullptr) {
++      if (std::string(send_interval) != "1" || interval_ == 0 || interval_ % 1000 != 0) {
++        throw std::invalid_argument("Explicit send interval requires 1 and a whole-microsecond period");
++      }
++      if (ecrt_master_set_send_interval(master_, interval_ / 1000) != 0) {
++        return false;
++      }
++    }
++  } catch (const std::exception & error) {
++    printWarning(error.what());
++    return false;
++  }
+   // register domain
+   for (auto & iter : domain_info_) {
+     DomainInfo * domain_info = iter.second;
+@@ -259,6 +277,15 @@ bool EcMaster::activate()
+       return false;
+     }
+   }
++  try {
++    if (!waitForDiagnosticActivation()) {
++      printWarning("Diagnostic activation wait interrupted or failed");
++      return false;
++    }
++  } catch (const std::exception & error) {
++    printWarning(error.what());
++    return false;
++  }
+   // set application time
+   struct timespec t;
+   clock_gettime(CLOCK_MONOTONIC, &t);
+@@ -383,7 +410,8 @@ void EcMaster::update(uint32_t domain)
+ 
+   // send process data
+   ecrt_domain_queue(domain_info->domain);
+-  send_trace_.recordNow(SendPhase::Startup, domain_info->domain_state.working_counter);
++  send_trace_.recordNow(SendPhase::Startup, domain_info->domain_state.working_counter,
++    domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+   ecrt_master_send(master_);
+   for (DomainInfo::Entry & entry : domain_info->entries) {
+     entry.slave->onPdoCycleSent();
+@@ -446,7 +474,8 @@ bool EcMaster::maintainData(uint32_t domain)
+   {
+     return false;
+   }
+-  send_trace_.recordNow(SendPhase::Maintenance, domain_info->domain_state.working_counter);
++  send_trace_.recordNow(SendPhase::Maintenance, domain_info->domain_state.working_counter,
++    domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+   const int send_result = ecrt_master_send(master_);
+   ++update_counter_;
+   return send_result >= 0;
+@@ -457,7 +486,12 @@ bool EcMaster::writeSendTrace(const std::string & path) const
+   std::ofstream output(path);
+   send_trace_.writeCsv(output);
+   output.flush();
+-  return output.good();
++  std::ofstream statistics(path + ".stats.csv"), histogram(path + ".hist.csv");
++  send_trace_.writeStatisticsCsv(statistics);
++  send_trace_.writeHistogramCsv(histogram);
++  statistics.flush();
++  histogram.flush();
++  return output.good() && statistics.good() && histogram.good();
+ }
+ 
+ void EcMaster::writeData(uint32_t domain)
+@@ -484,7 +518,8 @@ void EcMaster::writeData(uint32_t domain)
+ 
+   // send process data
+   ecrt_domain_queue(domain_info->domain);
+-  send_trace_.recordNow(SendPhase::Control, domain_info->domain_state.working_counter);
++  send_trace_.recordNow(SendPhase::Control, domain_info->domain_state.working_counter,
++    domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+   ecrt_master_send(master_);
+   for (DomainInfo::Entry & entry : domain_info->entries) {
+     entry.slave->onPdoCycleSent();
+diff --git a/ethercat_interface/test/test_diagnostic_timing.cpp b/ethercat_interface/test/test_diagnostic_timing.cpp
+new file mode 100644
+index 0000000..984029d
+--- /dev/null
++++ b/ethercat_interface/test/test_diagnostic_timing.cpp
+@@ -0,0 +1,33 @@
++#include <gtest/gtest.h>
++
++#include "ethercat_interface/diagnostic_timing.hpp"
++
++using ethercat_interface::diagnosticUnsigned;
++using ethercat_interface::validateActivationDeadline;
++using ethercat_interface::validateSyncShift;
++
++TEST(DiagnosticTimingTest, RejectsInvalidUnsignedSettings)
++{
++  for (const char * text : {"", "-1", "+1", " 1", "1x", "18446744073709551616"}) {
++    EXPECT_THROW(diagnosticUnsigned(text), std::exception) << text;
++  }
++  EXPECT_EQ(diagnosticUnsigned("120000000000"), 120000000000ULL);
++}
++
++TEST(DiagnosticTimingTest, DeadlineMustBeFutureAndBounded)
++{
++  EXPECT_EQ(validateActivationDeadline(1500000000, 1000000000), 1500000000ULL);
++  EXPECT_THROW(validateActivationDeadline(1000000000, 1000000000), std::exception);
++  EXPECT_THROW(validateActivationDeadline(999999999, 1000000000), std::exception);
++  EXPECT_THROW(validateActivationDeadline(62000000000ULL, 1000000000), std::exception);
++}
++
++TEST(DiagnosticTimingTest, CommonPhaseFitsEverySupportedExperimentPeriod)
++{
++  for (uint32_t interval : {4000000U, 2000000U, 1000000U}) {
++    EXPECT_EQ(validateSyncShift(0, interval), 0U);
++    EXPECT_EQ(validateSyncShift(interval - 1, interval), interval - 1);
++    EXPECT_THROW(validateSyncShift(interval, interval), std::exception);
++  }
++  EXPECT_THROW(validateSyncShift(0, 0), std::exception);
++}
+diff --git a/ethercat_interface/test/test_send_trace.cpp b/ethercat_interface/test/test_send_trace.cpp
+index b1b9917..c79d8b4 100644
+--- a/ethercat_interface/test/test_send_trace.cpp
++++ b/ethercat_interface/test/test_send_trace.cpp
+@@ -38,3 +38,34 @@ TEST(SendTraceTest, DisabledTraceDoesNotCollectSamples)
+   trace.writeCsv(output);
+   EXPECT_EQ(output.str(), "monotonic_ns,phase,working_counter\n");
+ }
++
++TEST(SendTraceTest, RuntimeStatisticsContinueAfterTheRawWindowFreezes)
++{
++  ethercat_interface::SendTrace trace;
++  trace.reset(true);
++  for (uint64_t i = 1; i <= 300; ++i) {
++    trace.record(i * 1000000, ethercat_interface::SendPhase::Control, 48, i != 280);
++  }
++  std::ostringstream statistics, histogram;
++  trace.writeStatisticsCsv(statistics);
++  trace.writeHistogramCsv(histogram);
++  EXPECT_NE(statistics.str().find("control,300,299,1000000,1000000,1,0\n"), std::string::npos);
++  EXPECT_NE(histogram.str().find("control,1000,299\n"), std::string::npos);
++  trace.reset(false);
++  std::ostringstream cleared;
++  trace.writeStatisticsCsv(cleared);
++  EXPECT_NE(cleared.str().find("control,0,0,0,0,0,0\n"), std::string::npos);
++}
++
++TEST(SendTraceTest, PhaseChangesAndBackwardsTimeDoNotBecomeValidCycleGaps)
++{
++  ethercat_interface::SendTrace trace;
++  trace.reset(true);
++  trace.record(1000000, ethercat_interface::SendPhase::Startup, 48);
++  trace.record(2000000, ethercat_interface::SendPhase::Control, 48);
++  trace.record(1000000, ethercat_interface::SendPhase::Control, 48);
++  trace.record(18000000, ethercat_interface::SendPhase::Control, 48);
++  std::ostringstream output;
++  trace.writeStatisticsCsv(output);
++  EXPECT_NE(output.str().find("control,3,1,17000000,17000000,0,1\n"), std::string::npos);
++}

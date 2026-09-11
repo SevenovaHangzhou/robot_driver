@@ -38,6 +38,17 @@ tpdo:
         self.assertEqual(expected["sdo[0].value"].value, 250)
         self.assertEqual(expected["sdo[1].index"].value, 0x6060)
         self.assertEqual(expected["sdo[2].index"].value, 0x60C2)
+        self.assertEqual(expected["sdo[2].value"].value, 1)
+        self.assertTrue(expected["use_slave_pdo_defaults"].value)
+
+    def test_ti5_old_cycle_and_disabled_preservation_still_fail(self):
+        expected = diff_legacy.apply_frozen_overlay(self.legacy_profile(), ti5=True)
+        actual = dict(expected)
+        actual["sdo[2].value"] = diff_legacy.Scalar("int", 4, "4")
+        actual["use_slave_pdo_defaults"] = diff_legacy.Scalar("bool", False, "false")
+        differences = diff_legacy.compare_maps("joint", expected, actual)
+        self.assertEqual({item.key for item in differences},
+                         {"sdo[2].value", "use_slave_pdo_defaults"})
 
     def test_unapproved_sync_tolerance_change_still_fails(self):
         expected = diff_legacy.apply_frozen_overlay(self.legacy_profile(), ti5=False)
