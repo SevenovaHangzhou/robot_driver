@@ -1,0 +1,17 @@
+plc_io_modbus:
+  ros__parameters:
+    host: "192.168.1.12"  # IO 模块 IP
+    port: 502  # Modbus TCP 端口
+    unit_id: 1  # Modbus 单元标识
+    poll_period: 0.2  # 轮询周期（秒），一个周期顺序读取三类数据
+    relay_address: 0  # 继电器 OUTPUT00 的线圈地址，服务 true 开启、false 关闭
+    vacuum_register: 0  # AI 输入寄存器地址，FC04 读取一个 uint16；待现场确认
+    vacuum_scale: 1.0  # 工程值 = raw × scale + offset；比例及单位待确认
+    vacuum_offset: 0.0  # 模拟量换算偏移，待确认
+    laser_address: 0  # 激光 DI 起始地址，FC02；待现场确认
+    laser_bit: 0  # 相对 DI 起始地址的偏移 0..15，高电平发布 true
+
+# /plc_io/vacuum_pump：std_srvs/srv/SetBool，控制真空泵继电器
+# ros2 service call /plc_io/vacuum_pump std_srvs/srv/SetBool "{data: true}"
+# /plc_io/vacuum_sensor：std_msgs/msg/Float32，发布真空模拟量
+# /plc_io/infrared_laser：std_msgs/msg/Bool，发布激光开关量
