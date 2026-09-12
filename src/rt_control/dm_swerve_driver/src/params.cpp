@@ -208,6 +208,25 @@ void validate_steering(
   require_positive(errors, steering.max_slew_radps, "steering.max_slew_radps");
   require_positive(
     errors, steering.rezero_tolerance_rad, "steering.rezero_tolerance_rad");
+  const SteeringAngleLimits angle_limits{
+    steering.joint_limit_min_rad,
+    steering.joint_limit_max_rad,
+    steering.joint_limit_margin_rad,
+    steering.joint_limit_tolerance_rad};
+  if (!valid_steering_angle_limits(angle_limits)) {
+    errors.emplace_back("steering angle range must span [pi, 2*pi]");
+  }
+  require_nonnegative(
+    errors, steering.joint_limit_tolerance_rad,
+    "steering.joint_limit_tolerance_rad");
+  if (std::isfinite(steering.joint_limit_min_rad) &&
+    std::isfinite(steering.joint_limit_max_rad) &&
+    std::isfinite(steering.joint_limit_margin_rad) &&
+    (steering.joint_limit_min_rad + steering.joint_limit_margin_rad > 0.0 ||
+    steering.joint_limit_max_rad - steering.joint_limit_margin_rad < 0.0))
+  {
+    errors.emplace_back("steering angle range must contain zero");
+  }
   if (steering.kp > kMitKpMax || steering.kd > kMitKdMax) {
     errors.emplace_back("steering kp/kd exceed MIT field limits");
   }
@@ -265,6 +284,12 @@ void validate_drive_and_degradation(
   require_inflation_scale(
     errors, parameters.odometry.missing_module_covariance_scale,
     "odometry.missing_module_covariance_scale");
+  require_positive(
+    errors, parameters.odometry.slip_residual_threshold,
+    "odometry.slip_residual_threshold");
+  require_inflation_scale(
+    errors, parameters.odometry.slip_covariance_scale,
+    "odometry.slip_covariance_scale");
   if (parameters.odometry.publish_rate_hz > parameters.control.rate_hz) {
     errors.emplace_back("odometry.publish_rate_hz cannot exceed control.rate_hz");
   }
@@ -324,9 +349,12 @@ SteeringModuleConfig steering_module_config(
     parameters.steering.kp,
     parameters.steering.kd,
     parameters.steering.kff_omega,
-    0.9,
-    0.95,
-    parameters.steering.max_ff_speed_radps};
+    parameters.steering.max_ff_speed_radps,
+    SteeringAngleLimits{
+      parameters.steering.joint_limit_min_rad,
+      parameters.steering.joint_limit_max_rad,
+      parameters.steering.joint_limit_margin_rad,
+      parameters.steering.joint_limit_tolerance_rad}};
 }
 
 DriveModuleConfig drive_module_config(

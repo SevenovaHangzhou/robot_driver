@@ -14,7 +14,7 @@ constexpr MotorLimits kDriveLimits{50.0, 100.0, 20.0};
 
 [[nodiscard]] SteeringModuleConfig steering_config(bool inverted = false)
 {
-  return SteeringModuleConfig{2.0, inverted, 0.1, 30.0, 1.0, 0.9, 0.9, 0.95};
+  return SteeringModuleConfig{2.0, inverted, 0.1, 30.0, 1.0, 0.9, 3.0, {}};
 }
 
 [[nodiscard]] DriveModuleConfig drive_config(double maximum_acceleration = 100.0)
@@ -97,44 +97,35 @@ TEST(SwerveModuleTest, SteeringInversionAffectsPositionAndVelocity)
   EXPECT_NEAR(command.steering.velocity, -1.8, 1e-12);
 }
 
-TEST(SwerveModuleTest, RecentersNearPmaxWithOneEquivalentPiFlip)
+TEST(SwerveModuleTest, PreservesPlannerBranchNearPmax)
 {
   auto config = steering_config();
-  config.gear_ratio = 1.0;
+  config.gear_ratio = 6.0;
   config.zero_offset_rad = 0.0;
   auto module = make_module(config);
-  static_cast<void>(module.make_command(
-      OptimizedModuleState{1.0, 17.9, 0.0}, 0.1));
   const auto command = module.make_command(
-    OptimizedModuleState{1.0, 18.2, 0.0}, 0.1);
+    OptimizedModuleState{1.0, 3.1, 0.0}, 0.1);
 
-  EXPECT_TRUE(command.recentered);
-  EXPECT_NEAR(command.continuous_angle_rad, 18.2 - kPi, 1e-12);
-  EXPECT_NEAR(command.steering.position, 18.2 - kPi, 1e-12);
+  EXPECT_NEAR(command.target_angle_rad, 3.1, 1e-12);
+  EXPECT_NEAR(command.steering.position, 18.6, 1e-12);
   EXPECT_DOUBLE_EQ(command.steering.velocity, 0.0);
-  EXPECT_DOUBLE_EQ(command.wheel_speed_mps, 0.0);
-  EXPECT_DOUBLE_EQ(command.drive.velocity, 0.0);
-
-  const auto aligned = module.make_command(
-    OptimizedModuleState{-1.0, 18.2 - kPi, 0.0}, 0.1);
-  EXPECT_FALSE(aligned.recentered);
-  EXPECT_NEAR(aligned.wheel_speed_mps, -1.0, 1e-12);
+  EXPECT_NEAR(command.wheel_speed_mps, 1.0, 1e-12);
+  EXPECT_NE(command.drive.velocity, 0.0);
 }
 
-TEST(SwerveModuleTest, ExplicitSteeringHoldDoesNotRecenterNearPmax)
+TEST(SwerveModuleTest, ExplicitSteeringHoldPreservesPlannerTarget)
 {
   auto config = steering_config();
-  config.gear_ratio = 1.0;
+  config.gear_ratio = 6.0;
   config.zero_offset_rad = 0.0;
   auto module = make_module(config);
-  module.steering_motor().seed_position(18.2);
+  module.steering_motor().seed_position(18.0);
 
   const auto command = module.make_command(
-    OptimizedModuleState{0.0, 18.2, 0.0}, 0.1, true, true);
+    OptimizedModuleState{0.0, 3.0, 0.0}, 0.1, true, true);
 
-  EXPECT_FALSE(command.recentered);
-  EXPECT_NEAR(command.continuous_angle_rad, 18.2, 1e-12);
-  EXPECT_NEAR(command.steering.position, 18.2, 1e-12);
+  EXPECT_NEAR(command.target_angle_rad, 3.0, 1e-12);
+  EXPECT_NEAR(command.steering.position, 18.0, 1e-12);
   EXPECT_DOUBLE_EQ(command.drive.velocity, 0.0);
 }
 
@@ -164,15 +155,57 @@ TEST(SwerveModuleTest, SteeringFeedforwardClampsAxisSideStepBeforeGearRatio)
   EXPECT_NEAR(command.steering.velocity, 0.9 * 0.25 * 2.0, 1e-12);
 }
 
-TEST(SwerveModuleTest, SteeringPositionIsClampedInsideMappingBoundary)
+TEST(SwerveModuleTest, SteeringPositionInsidePmaxIsNotClampedToLegacyMargin)
+{
+  auto config = steering_config();
+  config.gear_ratio = 6.2;
+  config.zero_offset_rad = 0.0;
+  auto module = make_module(config);
+  const double target_angle{kPi - 0.01};
+  const auto command = module.make_command(
+    OptimizedModuleState{0.0, target_angle, 0.0}, 0.1, true, true);
+
+  EXPECT_NEAR(command.steering.position, target_angle * 6.2, 1e-12);
+}
+
+TEST(SwerveModuleTest, SteeringJointTargetOutsideMechanicalLimitsIsRejected)
 {
   auto config = steering_config();
   config.gear_ratio = 1.0;
   config.zero_offset_rad = 0.0;
   auto module = make_module(config);
-  const auto command = module.make_command(
-    OptimizedModuleState{1.0, 100.0, 0.0}, 0.1);
-  EXPECT_NEAR(std::abs(command.steering.position), 0.95 * kSteeringLimits.position_max, 1e-12);
+
+  EXPECT_THROW(
+    static_cast<void>(module.make_command(
+        OptimizedModuleState{0.0, kPi + 0.01, 0.0}, 0.1)),
+    std::out_of_range);
+}
+
+TEST(SwerveModuleTest, SteeringJointLimitMarginIsEnforcedAtOutput)
+{
+  auto config = steering_config();
+  config.gear_ratio = 1.0;
+  config.zero_offset_rad = 0.0;
+  config.angle_limits = SteeringAngleLimits{-kPi, kPi, 0.1};
+  auto module = make_module(config);
+
+  EXPECT_THROW(
+    static_cast<void>(module.make_command(
+        OptimizedModuleState{0.0, kPi - 0.05, 0.0}, 0.1)),
+    std::out_of_range);
+}
+
+TEST(SwerveModuleTest, SteeringPositionOutsidePmaxIsRejectedInsteadOfClamped)
+{
+  auto config = steering_config();
+  config.gear_ratio = 7.0;
+  config.zero_offset_rad = 0.0;
+  auto module = make_module(config);
+
+  EXPECT_THROW(
+    static_cast<void>(module.make_command(
+        OptimizedModuleState{1.0, 3.0, 0.0}, 0.1)),
+    std::out_of_range);
 }
 
 TEST(SwerveModuleTest, AccelerationLimitFeedsKaAndHardGateBypassesRamp)

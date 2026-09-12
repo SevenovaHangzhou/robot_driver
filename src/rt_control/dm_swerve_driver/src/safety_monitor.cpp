@@ -115,7 +115,7 @@ RecoveryActions SafetyMonitor::recovery_actions(
   SteadyClock::time_point now)
 {
   RecoveryActions actions{};
-  bool current_fault{fault_latched_ || transport_faulted_};
+  bool current_fault{fault_latched_ || transport_faulted_ || steering_limit_faulted_};
   for (const auto & motor : motors) {
     const bool motor_fault = silent(
       motor, parameters_.safety.feedback_silent_cycles) ||
@@ -164,7 +164,7 @@ bool SafetyMonitor::complete_manual_clear(
   const std::array<DmMotorHealth, kMotorCount> & motors,
   const std::array<bool, kMotorCount> & enable_confirmed) noexcept
 {
-  bool verified{!transport_faulted_};
+  bool verified{!transport_faulted_ && !steering_limit_faulted_};
   for (std::size_t index{0U}; index < motors.size(); ++index) {
     verified = verified && enable_confirmed[index] && motors[index].enabled() &&
       motors[index].consecutive_missed_frames < parameters_.safety.feedback_silent_cycles;
@@ -190,6 +190,7 @@ void SafetyMonitor::restore_recovery_state(
   fault_latched_ = fault_latched;
   faulted_ = fault_latched;
   transport_faulted_ = false;
+  steering_limit_faulted_ = false;
 }
 
 void SafetyMonitor::mark_transport_failure() noexcept
@@ -206,9 +207,20 @@ void SafetyMonitor::observe_feedback(
   }
 }
 
+bool SafetyMonitor::observe_steering_limit_violation(bool active) noexcept
+{
+  const bool changed{active != steering_limit_faulted_};
+  steering_limit_faulted_ = active;
+  if (active) {
+    faulted_ = true;
+    fault_latched_ = true;
+  }
+  return changed;
+}
+
 bool SafetyMonitor::faulted() const noexcept
 {
-  return faulted_ || transport_faulted_;
+  return faulted_ || transport_faulted_ || steering_limit_faulted_;
 }
 
 bool SafetyMonitor::fault_latched() const noexcept
@@ -219,6 +231,11 @@ bool SafetyMonitor::fault_latched() const noexcept
 bool SafetyMonitor::transport_faulted() const noexcept
 {
   return transport_faulted_;
+}
+
+bool SafetyMonitor::steering_limit_faulted() const noexcept
+{
+  return steering_limit_faulted_;
 }
 
 const std::array<std::uint32_t, kMotorCount> & SafetyMonitor::recovery_attempts() const noexcept

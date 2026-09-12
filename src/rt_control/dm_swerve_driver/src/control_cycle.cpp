@@ -1,34 +1,20 @@
 #include "control_loop_impl.hpp"
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <optional>
 #include <utility>
 namespace dm_swerve_driver {
 namespace {
 constexpr std::size_t kMaxFeedbackCollections{16U};
-[[nodiscard]] ChassisSpeeds limit_chassis_command(
-  ChassisSpeeds command, const ChassisParameters & limits)
-{
-  const double linear_speed{std::hypot(command.vx_mps, command.vy_mps)};
-  if (linear_speed > limits.max_linear_speed_mps) {
-    const double scale{limits.max_linear_speed_mps / linear_speed};
-    command.vx_mps *= scale;
-    command.vy_mps *= scale;
-  }
-  command.omega_radps = std::clamp(
-    command.omega_radps,
-    -limits.max_angular_speed_radps,
-    limits.max_angular_speed_radps);
-  return command;
-}
 void update_valid_positions(
   std::array<SwerveModulePosition, kSwerveModuleCount> & baselines,
   const std::array<SwerveModulePosition, kSwerveModuleCount> & positions)
 {
   for (std::size_t index{0U}; index < positions.size(); ++index) {
-    if (positions[index].valid) {
+    if (positions[index].valid || positions[index].rejected_as_slip) {
       baselines[index] = positions[index];
+      baselines[index].valid = true;
+      baselines[index].rejected_as_slip = false;
     }
   }
 }
@@ -173,69 +159,6 @@ std::array<DmMotorHealth, kMotorCount> ControlLoop::Impl::motor_health() noexcep
   return health;
 }
 
-double ControlLoop::Impl::measured_cycle_period(SteadyClock::time_point now)
-{
-  const double nominal{1.0 / parameters_.control.rate_hz};
-  double measured{nominal};
-  if (last_cycle_time_.has_value() && now > *last_cycle_time_) {
-    measured = std::chrono::duration<double>{now - *last_cycle_time_}.count();
-  }
-  last_cycle_time_ = now;
-  return std::clamp(measured, 0.5 * nominal, 2.0 * nominal);
-}
-
-double ControlLoop::Impl::wheel_speed_cap() const noexcept
-{
-  double cap{parameters_.chassis.max_wheel_speed_mps};
-  for (const auto & module : modules_) {
-    const double motor_cap = module.drive_motor().limits().velocity_max *
-      parameters_.chassis.wheel_radius_m / parameters_.drive.gear_ratio;
-    cap = std::min(cap, motor_cap);
-  }
-  return cap;
-}
-
-CyclePlan ControlLoop::Impl::prepare_cycle(SteadyClock::time_point now)
-{
-  CyclePlan plan;
-  plan.dt_seconds = measured_cycle_period(now);
-  plan.mailbox = mailbox_snapshot();
-  const auto command_timestamp = plan.mailbox.command.valid ?
-    std::optional<SteadyClock::time_point>{plan.mailbox.command.timestamp} : std::nullopt;
-  plan.command = safety_.command_for_cycle(
-    plan.mailbox.command.value, command_timestamp, now);
-  const ChassisSpeeds limited{limit_chassis_command(
-      plan.command.command, parameters_.chassis)};
-  plan.discrete_command = discretize(limited, plan.dt_seconds);
-  const auto angles = current_angles();
-  const bool safety_faulted{safety_.faulted()};
-  const bool timeout_holds_steering = plan.command.timed_out &&
-    parameters_.control.hold_steer_on_timeout;
-  const bool hold_steering = safety_faulted || timeout_holds_steering;
-  if (hold_steering) {
-    setpoint_generator_.reset();
-  }
-  auto held_angles = angles;
-  if (plan.command.timed_out && !parameters_.control.hold_steer_on_timeout) {
-    held_angles.fill(0.0);
-  }
-  std::array<SwerveModuleState, kSwerveModuleCount> desired{};
-  if (hold_steering) {
-    for (std::size_t index{0U}; index < desired.size(); ++index) {
-      desired[index] = SwerveModuleState{0.0, angles[index]};
-    }
-  } else {
-    desired = inverse_kinematics(
-      plan.discrete_command, module_locations(parameters_), held_angles,
-      parameters_.chassis.velocity_deadband_mps);
-  }
-  desaturate_wheel_speeds(desired, wheel_speed_cap());
-  plan.alignment = setpoint_generator_.generate(desired, angles, plan.dt_seconds);
-  plan.hold_steering = hold_steering;
-  plan.drive_gated = plan.alignment.gated || safety_faulted;
-  return plan;
-}
-
 std::vector<CanFrame> ControlLoop::Impl::make_cycle_frames(const CyclePlan & plan)
 {
   std::vector<CanFrame> commands;
@@ -278,14 +201,29 @@ FeedbackRouteResult ControlLoop::Impl::exchange_cycle_frames(
   return route;
 }
 
-Pose2d ControlLoop::Impl::update_cycle_odometry(
+CycleOdometry ControlLoop::Impl::update_cycle_odometry(
   const MailboxSnapshot & mailbox,
   const std::array<bool, kMotorCount> & received,
-  SteadyClock::time_point now,
-  bool & imu_fallback,
-  ChassisSpeeds & measured_twist)
+  SteadyClock::time_point now)
 {
-  const auto positions = current_module_positions(received);
+  CycleOdometry result;
+  auto positions = current_module_positions(received);
+  const auto wheel_fit = chassis_speeds_with_slip_rejection(
+    current_module_measurements(received), module_locations(parameters_),
+    parameters_.odometry.slip_residual_threshold);
+  if (wheel_fit.has_value()) {
+    result.measured_twist = wheel_fit->speeds;
+    result.slipping_modules = wheel_fit->slipping_modules;
+    result.valid_module_count = wheel_fit->used_module_count;
+    for (std::size_t index{0U}; index < positions.size(); ++index) {
+      if (result.slipping_modules[index]) {
+        positions[index].valid = false;
+        positions[index].rejected_as_slip = true;
+      }
+    }
+  } else {
+    result.valid_module_count = count_valid_modules(received, modules_);
+  }
   double wheel_delta_yaw{0.0};
   if (previous_positions_.has_value()) {
     const auto wheel_delta = wheel_chassis_delta_from_position_deltas(
@@ -306,36 +244,23 @@ Pose2d ControlLoop::Impl::update_cycle_odometry(
       yaw.imu_fallback ? "IMU stale; using wheel-derived yaw" :
       "IMU recovered; realigned yaw offset without a pose jump");
   }
-  imu_fallback = yaw.imu_fallback;
-  const auto wheel_twist = chassis_speeds_from_module_states(
-    current_module_measurements(received), module_locations(parameters_));
-  if (wheel_twist.has_value()) {
-    measured_twist.vx_mps = wheel_twist->vx_mps;
-    measured_twist.vy_mps = wheel_twist->vy_mps;
-  }
+  result.imu_fallback = yaw.imu_fallback;
   if (!yaw.imu_fallback) {
-    measured_twist.omega_radps = mailbox.yaw.rate_radps;
-  } else if (wheel_twist.has_value()) {
-    measured_twist.omega_radps = wheel_twist->omega_radps;
+    result.measured_twist.omega_radps = mailbox.yaw.rate_radps;
   }
-  return odometry_->update(yaw.yaw_rad, positions);
+  result.pose = odometry_->update(yaw.yaw_rad, positions);
+  return result;
 }
 
 bool ControlLoop::Impl::execute_cycle(SteadyClock::time_point now)
 {
   const CyclePlan plan{prepare_cycle(now)};
   const auto route = exchange_cycle_frames(make_cycle_frames(plan), now);
-  bool imu_fallback{false};
-  ChassisSpeeds measured_twist{};
-  const Pose2d pose{update_cycle_odometry(
-      plan.mailbox, route.received, now, imu_fallback, measured_twist)};
-  const std::size_t valid_module_count{count_valid_modules(route.received, modules_)};
+  const CycleOdometry odometry{update_cycle_odometry(plan.mailbox, route.received, now)};
   process_recovery(now);
   const bool bus_silent{safety_.all_bus_silent(motor_health())};
-  update_cycle_status(route, pose, plan.command.timed_out, imu_fallback, bus_silent);
-  maybe_publish(
-    now, pose, plan.discrete_command, measured_twist, plan.alignment.gated,
-    imu_fallback, valid_module_count);
+  update_cycle_status(route, odometry, plan.command.timed_out, bus_silent);
+  maybe_publish(now, odometry, plan.discrete_command, plan.alignment.gated);
   return true;
 }
 
@@ -369,9 +294,8 @@ void ControlLoop::Impl::mark_missing_feedback(
 
 void ControlLoop::Impl::update_cycle_status(
   const FeedbackRouteResult & route,
-  const Pose2d & pose,
+  const CycleOdometry & odometry,
   bool command_timed_out,
-  bool imu_fallback,
   bool bus_silent)
 {
   const auto motors = motor_pointers();
@@ -384,13 +308,18 @@ void ControlLoop::Impl::update_cycle_status(
   status_.rejected_frames_last_cycle = route.rejected_frames;
   status_.stale_frames_last_cycle = route.stale_frames;
   status_.command_timed_out = command_timed_out;
-  status_.imu_fallback = imu_fallback;
+  status_.imu_fallback = odometry.imu_fallback;
   status_.bus_silent = bus_silent;
   status_.faulted = safety_.faulted();
   status_.fault_latched = safety_.fault_latched();
   status_.transport_faulted = safety_.transport_faulted();
+  status_.steering_limit_faulted = safety_.steering_limit_faulted();
   status_.recovery_attempts = safety_.recovery_attempts();
-  status_.pose = pose;
+  status_.pose = odometry.pose;
+  status_.slipping_modules = odometry.slipping_modules;
+  status_.slip_detected = std::any_of(
+    odometry.slipping_modules.begin(), odometry.slipping_modules.end(),
+    [](bool slipping) {return slipping;});
   for (std::size_t index{0U}; index < motors.size(); ++index) {
     status_.motors[index] = motors[index]->health();
     status_.motor_limits[index] = motors[index]->limits();

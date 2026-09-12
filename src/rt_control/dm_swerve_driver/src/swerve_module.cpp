@@ -12,7 +12,6 @@ struct SteeringTarget {
   double wheel_speed_mps{0.0};
   double angle_rad{0.0};
   double motor_position_rad{0.0};
-  bool recentered{false};
 };
 
 struct DriveTarget {
@@ -33,11 +32,9 @@ void validate_steering_config(const SteeringModuleConfig & config)
     finite(config.max_ff_speed_radps) && config.max_ff_speed_radps >= 0.0;
   const bool geometry_valid = finite(config.gear_ratio) && config.gear_ratio > 0.0 &&
     finite(config.zero_offset_rad);
-  const bool fractions_valid = finite(config.recenter_trigger_fraction) &&
-    finite(config.command_limit_fraction) && config.recenter_trigger_fraction > 0.0 &&
-    config.recenter_trigger_fraction < config.command_limit_fraction &&
-    config.command_limit_fraction <= 1.0;
-  if (!gains_valid || !geometry_valid || !fractions_valid) {
+  if (!gains_valid || !geometry_valid ||
+    !valid_steering_angle_limits(config.angle_limits))
+  {
     throw std::invalid_argument{"invalid steering module configuration"};
   }
 }
@@ -79,37 +76,8 @@ void validate_drive_config(const DriveModuleConfig & config)
          axis_sign(config.inverted);
 }
 
-[[nodiscard]] SteeringTarget select_steering_target(
-  const OptimizedModuleState & target,
-  const SteeringModuleConfig & config,
-  double position_max)
-{
-  SteeringTarget selected{
-    target.speed_mps,
-    target.continuous_angle_rad,
-    motor_position_for_angle(target.continuous_angle_rad, config),
-    false};
-  if (std::abs(selected.motor_position_rad) <= config.recenter_trigger_fraction * position_max) {
-    return selected;
-  }
-
-  const double plus_angle{target.continuous_angle_rad + kPi};
-  const double minus_angle{target.continuous_angle_rad - kPi};
-  const double plus_position{motor_position_for_angle(plus_angle, config)};
-  const double minus_position{motor_position_for_angle(minus_angle, config)};
-  const bool use_plus{std::abs(plus_position) < std::abs(minus_position)};
-  const double candidate_position{use_plus ? plus_position : minus_position};
-  if (std::abs(candidate_position) < std::abs(selected.motor_position_rad)) {
-    selected.angle_rad = use_plus ? plus_angle : minus_angle;
-    selected.motor_position_rad = candidate_position;
-    selected.wheel_speed_mps = -selected.wheel_speed_mps;
-    selected.recentered = true;
-  }
-  return selected;
-}
-
 [[nodiscard]] MitCommand make_steering_command(
-  SteeringTarget & target,
+  const SteeringTarget & target,
   const SteeringModuleConfig & config,
   const MotorLimits & limits,
   double direction,
@@ -117,13 +85,16 @@ void validate_drive_config(const DriveModuleConfig & config)
   std::optional<double> & previous_target_rad,
   bool hold_steering)
 {
-  const double position_limit{config.command_limit_fraction * limits.position_max};
-  target.motor_position_rad = std::clamp(
-    target.motor_position_rad, -position_limit, position_limit);
+  if (!steering_angle_within_limits(target.angle_rad, config.angle_limits)) {
+    throw std::out_of_range{"steering target exceeds mechanical limits"};
+  }
+  if (std::abs(target.motor_position_rad) > limits.position_max) {
+    throw std::out_of_range{"steering motor target exceeds PMAX"};
+  }
   const double raw_target_velocity = previous_target_rad.has_value() ?
     (target.angle_rad - *previous_target_rad) / dt_seconds : 0.0;
   previous_target_rad = target.angle_rad;
-  const double target_velocity = hold_steering || target.recentered ? 0.0 : std::clamp(
+  const double target_velocity = hold_steering ? 0.0 : std::clamp(
     raw_target_velocity, -config.max_ff_speed_radps, config.max_ff_speed_radps);
   const double motor_velocity{std::clamp(
       config.kff_omega * target_velocity * config.gear_ratio * direction,
@@ -234,7 +205,7 @@ SwerveModuleCommand SwerveModule::make_command(
   bool force_drive_zero,
   bool hold_steering)
 {
-  if (!finite(target.speed_mps) || !finite(target.continuous_angle_rad) ||
+  if (!finite(target.speed_mps) || !finite(target.target_angle_rad) ||
     !finite(target.error_rad) || !finite(dt_seconds) || dt_seconds <= 0.0)
   {
     throw std::invalid_argument{"module target and period must be finite and valid"};
@@ -242,17 +213,12 @@ SwerveModuleCommand SwerveModule::make_command(
 
   SteeringTarget steering_target{
     target.speed_mps,
-    target.continuous_angle_rad,
-    motor_position_for_angle(target.continuous_angle_rad, steering_config_),
-    false};
-  if (!hold_steering) {
-    steering_target = select_steering_target(
-      target, steering_config_, steering_motor_.limits().position_max);
-  }
+    target.target_angle_rad,
+    motor_position_for_angle(target.target_angle_rad, steering_config_)};
   const MitCommand steering_command{make_steering_command(
       steering_target, steering_config_, steering_motor_.limits(), steering_sign(),
       dt_seconds, previous_steering_target_rad_, hold_steering)};
-  const bool suppress_drive{force_drive_zero || hold_steering || steering_target.recentered};
+  const bool suppress_drive{force_drive_zero || hold_steering};
   const DriveTarget drive_target{make_drive_command(
       steering_target.wheel_speed_mps, suppress_drive, drive_config_, drive_motor_.limits(),
       drive_sign(), dt_seconds, previous_wheel_speed_mps_)};
@@ -261,8 +227,7 @@ SwerveModuleCommand SwerveModule::make_command(
     steering_command,
     drive_target.command,
     drive_target.wheel_speed_mps,
-    steering_target.angle_rad,
-    steering_target.recentered};
+    steering_target.angle_rad};
 }
 
 std::array<CanFrame, 2U> SwerveModule::encode_command_frames(

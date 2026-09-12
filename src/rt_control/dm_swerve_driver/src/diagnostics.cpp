@@ -88,6 +88,9 @@ void add_value(
 [[nodiscard]] const char * summary_message(
   const ControlLoopStatus & status, bool motor_error, bool degraded) noexcept
 {
+  if (status.steering_limit_faulted) {
+    return "steering measurement exceeds physical limits; manual clear required";
+  }
   if (status.fault_latched) {
     return "motor fault latched; manual clear required";
   }
@@ -102,7 +105,28 @@ void add_value(
   if (motor_error) {
     return "one or more motors report faults";
   }
+  if (status.slip_detected) {
+    return "differential wheel slip detected; odometry input rejected";
+  }
   return degraded ? "driver running with recoverable degradation" : "driver healthy";
+}
+
+[[nodiscard]] std::string slipping_module_names(
+  const std::array<bool, kSwerveModuleCount> & slipping)
+{
+  const std::array<const char *, kSwerveModuleCount> names{
+    "front_left", "front_right", "rear_left", "rear_right"};
+  std::string result;
+  for (std::size_t index{0U}; index < slipping.size(); ++index) {
+    if (!slipping[index]) {
+      continue;
+    }
+    if (!result.empty()) {
+      result += ',';
+    }
+    result += names[index];
+  }
+  return result;
 }
 
 [[nodiscard]] DiagnosticStatus summary_status(
@@ -117,6 +141,7 @@ void add_value(
       return motor.level == DiagnosticStatus::ERROR;
     });
   const bool degraded = !status.initialized || status.command_timed_out || status.imu_fallback ||
+    status.slip_detected ||
     status.unknown_frames_last_cycle != 0U ||
     status.rejected_frames_last_cycle != 0U ||
     status.stale_frames_last_cycle != 0U;
@@ -134,6 +159,10 @@ void add_value(
   add_value(summary, "faulted", status.faulted ? "true" : "false");
   add_value(summary, "fault_latched", status.fault_latched ? "true" : "false");
   add_value(summary, "transport_faulted", status.transport_faulted ? "true" : "false");
+  add_value(summary, "steering_limit_faulted",
+    status.steering_limit_faulted ? "true" : "false");
+  add_value(summary, "slip_detected", status.slip_detected ? "true" : "false");
+  add_value(summary, "slipping_modules", slipping_module_names(status.slipping_modules));
   std::uint64_t recovery_attempts{0U};
   for (const auto attempts : status.recovery_attempts) {
     recovery_attempts += attempts;
@@ -155,6 +184,7 @@ std::vector<DiagnosticStatus> build_diagnostic_statuses(
   const DriverParameters & parameters)
 {
   std::vector<DiagnosticStatus> diagnostics;
+  if (status.kinco_backend) {return build_kinco_diagnostic_statuses(status);}
   diagnostics.reserve(kMotorCount + 1U);
   for (std::size_t index{0U}; index < status.motors.size(); ++index) {
     diagnostics.push_back(motor_status(status.motors[index], parameters, index));

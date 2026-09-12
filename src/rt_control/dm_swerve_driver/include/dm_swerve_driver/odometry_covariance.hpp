@@ -16,7 +16,8 @@ struct OdometryCovariances {
 [[nodiscard]] OdometryCovariances make_odometry_covariances(
   const OdometryParameters & parameters,
   bool imu_fallback,
-  std::size_t valid_module_count);
+  std::size_t valid_module_count,
+  bool slip_detected = false);
 
 }  // namespace dm_swerve_driver
 

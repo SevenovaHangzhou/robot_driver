@@ -42,11 +42,29 @@ struct SwerveModulePosition {
   double distance_m{0.0};
   double angle_rad{0.0};
   bool valid{true};
+  bool rejected_as_slip{false};
+};
+
+struct ChassisSpeedFit {
+  ChassisSpeeds speeds{};
+  std::array<double, kSwerveModuleCount> residual_mps{};
+  std::array<bool, kSwerveModuleCount> used_modules{};
+  std::array<bool, kSwerveModuleCount> slipping_modules{};
+  std::size_t used_module_count{0U};
+
+  [[nodiscard]] bool slip_detected() const noexcept;
+};
+
+struct SteeringAngleLimits {
+  double minimum_rad{-kPi};
+  double maximum_rad{kPi};
+  double margin_rad{0.0};
+  double measurement_tolerance_rad{0.0};
 };
 
 struct OptimizedModuleState {
   double speed_mps{0.0};
-  double continuous_angle_rad{0.0};
+  double target_angle_rad{0.0};
   double error_rad{0.0};
   bool reversed{false};
 };
@@ -61,6 +79,7 @@ struct SwerveSetpointParameters {
   double alignment_threshold_rad{0.349};
   double flip_hysteresis_rad{0.1};
   double maximum_steering_slew_radps{3.0};
+  SteeringAngleLimits angle_limits{};
 };
 
 class SwerveSetpointGenerator final {
@@ -80,6 +99,14 @@ private:
 };
 
 [[nodiscard]] double wrap_pi(double angle_rad) noexcept;
+[[nodiscard]] bool valid_steering_angle_limits(
+  const SteeringAngleLimits & limits) noexcept;
+[[nodiscard]] bool steering_angle_within_limits(
+  double angle_rad, const SteeringAngleLimits & limits) noexcept;
+[[nodiscard]] bool steering_measurement_within_tolerance(
+  double angle_rad, const SteeringAngleLimits & limits) noexcept;
+[[nodiscard]] double clamp_steering_measurement_to_safe_range(
+  double angle_rad, const SteeringAngleLimits & limits);
 [[nodiscard]] ChassisSpeeds discretize(const ChassisSpeeds & speeds, double dt_seconds);
 
 [[nodiscard]] std::array<SwerveModuleState, kSwerveModuleCount> inverse_kinematics(
@@ -93,17 +120,19 @@ void desaturate_wheel_speeds(
   double maximum_speed_mps);
 
 [[nodiscard]] OptimizedModuleState optimize_module(
-  const SwerveModuleState & desired, double current_unwrapped_angle_rad);
+  const SwerveModuleState & desired, double current_angle_rad);
 
 [[nodiscard]] OptimizedModuleState optimize_module(
   const SwerveModuleState & desired,
-  double current_unwrapped_angle_rad,
+  double current_angle_rad,
   bool previous_reversed,
-  double hysteresis_rad);
+  double hysteresis_rad,
+  const SteeringAngleLimits & limits = {});
 
-[[nodiscard]] AlignmentResult optimize_and_apply_alignment(
+[[nodiscard, deprecated("use SwerveSetpointGenerator for bounded steering")]]
+AlignmentResult optimize_and_apply_alignment(
   const std::array<SwerveModuleState, kSwerveModuleCount> & desired,
-  const std::array<double, kSwerveModuleCount> & current_unwrapped_angles_rad,
+  const std::array<double, kSwerveModuleCount> & current_angles_rad,
   double alignment_threshold_rad);
 
 [[nodiscard]] std::optional<Translation2d> wheel_translation_from_position_deltas(
@@ -120,6 +149,11 @@ void desaturate_wheel_speeds(
 [[nodiscard]] std::optional<ChassisSpeeds> chassis_speeds_from_module_states(
   const std::array<SwerveModuleMeasurement, kSwerveModuleCount> & modules,
   const std::array<Translation2d, kSwerveModuleCount> & module_locations);
+
+[[nodiscard]] std::optional<ChassisSpeedFit> chassis_speeds_with_slip_rejection(
+  const std::array<SwerveModuleMeasurement, kSwerveModuleCount> & modules,
+  const std::array<Translation2d, kSwerveModuleCount> & module_locations,
+  double slip_residual_threshold);
 
 }  // namespace dm_swerve_driver
 

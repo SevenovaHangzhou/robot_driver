@@ -139,6 +139,29 @@ TEST(SwerveOdometryTest, MissingModulesAreExcludedAndAllMissingStillTracksYaw)
   EXPECT_NEAR(pose.heading_rad, 0.2, kTolerance);
 }
 
+TEST(SwerveOdometryTest, SlipRejectedModuleAdvancesBaselineWithoutPollutingPose)
+{
+  auto positions = initial_positions(1.0, 0.0, 0.0);
+  SwerveOdometry odometry{kLocations, 0.0, positions};
+  for (auto & position : positions) {
+    position.distance_m = 1.0;
+  }
+  positions[2].distance_m = 10.0;
+  positions[2].valid = false;
+  positions[2].rejected_as_slip = true;
+
+  auto pose = odometry.update(0.0, positions);
+  EXPECT_NEAR(pose.x_m, 1.0, kTolerance);
+
+  for (auto & position : positions) {
+    position.distance_m += 1.0;
+    position.valid = true;
+    position.rejected_as_slip = false;
+  }
+  pose = odometry.update(0.0, positions);
+  EXPECT_NEAR(pose.x_m, 2.0, kTolerance);
+}
+
 TEST(SwerveOdometryTest, ResetPreservesRequestedYawOffset)
 {
   auto positions = initial_positions(0.0, 0.0, 0.0);

@@ -53,6 +53,10 @@ struct SteeringParameters {
   double flip_hysteresis_rad{0.1};
   double max_slew_radps{3.0};
   double rezero_tolerance_rad{0.05};
+  double joint_limit_min_rad{-kPi};
+  double joint_limit_max_rad{kPi};
+  double joint_limit_margin_rad{0.0};
+  double joint_limit_tolerance_rad{0.0};
 };
 
 struct DriveParameters {
@@ -91,6 +95,8 @@ struct OdometryParameters {
     0.02, 0.02, 1000000.0, 1000000.0, 1000000.0, 0.04};
   double imu_fallback_covariance_scale{10.0};
   double missing_module_covariance_scale{4.0};
+  double slip_residual_threshold{0.25};
+  double slip_covariance_scale{4.0};
 };
 
 struct DriverParameters {

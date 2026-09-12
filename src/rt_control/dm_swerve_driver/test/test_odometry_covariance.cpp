@@ -39,6 +39,23 @@ TEST(OdometryCovarianceTest, MultipliesFallbackAndMissingModuleInflation)
   }
 }
 
+TEST(OdometryCovarianceTest, SlipInflationIsIndependentAndMultiplicative)
+{
+  OdometryParameters parameters;
+  parameters.pose_covariance_diagonal.fill(1.0);
+  parameters.twist_covariance_diagonal.fill(2.0);
+  parameters.imu_fallback_covariance_scale = 10.0;
+  parameters.missing_module_covariance_scale = 4.0;
+  parameters.slip_covariance_scale = 3.0;
+
+  const auto covariance = make_odometry_covariances(parameters, true, 3U, true);
+
+  for (std::size_t index{0U}; index < 6U; ++index) {
+    EXPECT_DOUBLE_EQ(covariance.pose[index * 7U], 120.0);
+    EXPECT_DOUBLE_EQ(covariance.twist[index * 7U], 240.0);
+  }
+}
+
 TEST(OdometryCovarianceTest, RejectsInvalidPublicInputs)
 {
   OdometryParameters parameters;

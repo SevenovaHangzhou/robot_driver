@@ -105,19 +105,23 @@ tx = Δx·s − Δy·c;  ty = Δx·c + Δy·s
 (x,y) += Rot(θ₀)·(tx,ty);  θ = yaw_offset + yaw_gyro(k)   # yaw 直接取陀螺
 ```
 
-### ⑤ 角度优化 + 连续多圈指令
+### ⑤ 角度优化 + 有限关节指令
 
 ```
-err = wrapPi(target − wrapPi(current));  若 |err|>π/2: err −= sign(err)·π, 轮速反向
-continuous_target = current_unwrapped + err               # 无 ±π 跳变
-motor_target = (continuous_target + θ₀_i)·G_s·sign_s      # 钳位 ±0.95·PMAX
+safe_range = [joint_limit_min + margin, joint_limit_max − margin]
+forward = {wrapPi(target)+2kπ | 候选在 safe_range 内}
+reverse = {wrapPi(target+π)+2kπ | 候选在 safe_range 内}   # 同时反转轮速
+按 |candidate−current| 的线性区间距离和滞回选择分支
+target_next = target_prev + clamp(selected−target_prev, ±max_slew·dt)
+err = selected−current                                    # 不回绕,供门控/余弦补偿
+motor_target = (target_next + θ₀_i)·G_s·sign_s            # 超出 PMAX 显式失败,禁止静默钳位
 ```
 
-漂移防护:`|motor_target| > 0.9·PMAX` 时允许一次 ±π 等效翻转回中(需专门单测)。
+电机输出层只做换算和校验,不得基于 PMAX 再次选择 ±π 分支。
 
 ### ⑥ MIT 字段映射——要求④
 
-- **转向**:`p_des=motor_target, v_des=clamp(Kff·ω_target_axis·G_s, ±VMAX), kp=steer_kp, kd=steer_kd, t_ff=0`;ω_target 由相邻两周期 continuous_target 差分
+- **转向**:`p_des=motor_target, v_des=clamp(Kff·ω_target_axis·G_s, ±VMAX), kp=steer_kp, kd=steer_kd, t_ff=0`;ω_target 由相邻两周期有界 target 差分
 - **驱动**:`p_des=0, kp=0, v_des=clamp(v_wheel/r_w·G_d·sign_d, ±VMAX), kd=drive_kd`(kd 兼作速度环增益,硬件限 [0,5]),`t_ff=clamp((ks·sgn(v)+kv·v+ka·a)/G_d, ±TMAX)`;a 由限斜率的目标速度差分得到
 
 ### ⑦ 转向多圈解绕与开机初始化
@@ -187,7 +191,7 @@ motor_target = (continuous_target + θ₀_i)·G_s·sign_s      # 钳位 ±0.95·
 
 **无硬件集成测试**:`fake_motor_sim` 在 vcan0 模拟 8 电机(MIT 一阶动力学 + 使能/寄存器状态机 + 可配延迟/丢包),断言:每周期 8 帧背靠背(时间戳散布 <1 ms,验证原子下发)、直线/圆弧里程计收敛、注入单电机丢帧后其余 7 电机照常+恢复后自动归队。无 vcan 权限时 skip。
 
-**标定文档**(doc/calibration.md 大纲):① 上位机分配 ID/审计限幅寄存器(须在刷 gs_usb 固件前用官方 GUI)② 治具对轮 → rezero(0xFE)→ 断电复验 ③ 推行 5 m 标 wheel_radius/gear_ratio ④ kd=0 下 t_ff 斜坡找起动力矩 = ks(双向平均)⑤ 恒速平台拟合 kv ⑥ 可选阶跃拟合 ka ⑦ 转向 90° 阶跃调 kp/kd(<5% 超调)再正弦跟踪调 kff ⑧ 实车验证门控阈值与超时
+**标定文档**(doc/calibration.md 大纲):① 上位机分配 ID/审计限幅寄存器(须在刷 gs_usb 固件前用官方 GUI)② 治具对轮 → rezero(0xFE)→ 断电复验 ③ 推行 5 m 标 wheel_radius/gear_ratio,**并逐轮比对累计转角得到每轮轮径**(配置改每轮四值,消除旋转漂移的轮径分量;摩擦差异不标——速度环积分器自动消除,只查力矩饱和)④ kd=0 下 t_ff 斜坡找起动力矩 = ks(双向平均)⑤ 恒速平台拟合 kv ⑥ 可选阶跃拟合 ka ⑦ 转向 90° 阶跃调 kp/kd(<5% 超调)再正弦跟踪调 kff ⑧ 实车验证门控阈值与超时 ⑨ **原地旋转反解舵角零偏精标**:命令纯 wz 正反两向,由各轮实测速度分量最小二乘解 δθ_i 写回 zero_offset_rad;同时以"平均速度向量模"(非瞬时速度模)评估残余漂移。此科目先在仿真验证流程后真机复用(源自 2026-09 Gazebo 旋转中心审计的结论:漂移主因是接触动力学/数值抖动,系统分量优先归因于零偏与运动学参数,不平移 TF)
 
 ## 实施阶段顺序(Codex 执行,每阶段结束交 Claude review 后再进入下一阶段)
 
@@ -257,7 +261,7 @@ motor_target = (continuous_target + θ₀_i)·G_s·sign_s      # 钳位 ±0.95·
 1. **驱动速度环靠 kd∈[0,5] 硬件封顶**:重载下 P 速度环偏软,ks/kv 前馈必须扛主力(标定重点);不够则备选:上位机外环速度 PI 调 t_ff,或驱动轮退回原生速度模式。kd/前馈参数做成热更新
 2. **p_m 断电持久性未知**:若多圈计数不保持,G_s>1 的转向绝对角开机可能有 2π/G_s 模糊(表现为轮向偏差)→ Phase 6 第一步实机验证;失败则需追加 homing(硬限位/索引)工作项
 3. **TIMEOUT 寄存器写(0x09)**:写操作码与"易失 vs 需 0xAA 保存"语义需实机确认;最稳妥是先用官方上位机配置一次,驱动内写入仅作可选校验
-4. **G_s 大时转向电机位置向 ±PMAX 随机游走**:0.9·PMAX 处 ±π 等效翻转回中,需专项单测
+4. **已由 Phase 7.5 关闭**:删除电机层 PMAX 回中;机械安全区间映射不进 PMAX 时启动拒绝
 5. **0x33 寄存器读的回复帧格式是协议中文档最薄弱处**:Phase 1 尽早对实机验证;codec 独立成文件,改格式只动一处。读不回也不阻塞——启动序列已定义了 YAML 后备路径
 
 ## Phase 7:验收整改——严格安全策略 + 缺陷修复(2026-09-03,依据同事验收报告与用户决议)
@@ -310,6 +314,38 @@ motor_target = (continuous_target + θ₀_i)·G_s·sign_s      # 钳位 ±0.95·
 - P0-07(断线停车):软件侧无法证明,由 7B-4 的电机固件 TIMEOUT + 物理拔线实测科目闭环
 - P1-02(20° 门控走停):功能符合设计(用户要求⑤),阈值可调,导航连续性由导航层调参处理
 
+## Phase 7.5:±180° 机械限位适配(2026-09-11,Gazebo 左后轮跨 π 异常旋转触发的需求变更)
+
+**需求变更**:舵轮转向轴存在 ±180° 机械硬限位,推翻原"连续旋转"假设。方向:保留硬限位、改转向规划,不改连续关节。根因两条:① wrapPi 最短路把 +179°→−179° 当 2° 运动,实际穿越限位;② 门控/余弦补偿吃 wrapPi 误差,跨 π 时误判 2° 放行驱动 → 异常旋转;另 swerve_module 的 PMAX 回中在下层擅自改分支,属分层违规。
+
+1. **分支选择改限位内行程代价**(swerve_kinematics 纯函数):正轮速候选 wrapPi(φ) 与反轮速候选 wrapPi(φ+π),±π 双边界表示均入候选,留 `joint_limit_margin_rad`;代价 = 与 θ_c 的有界区间线性距离(无回绕);滞回改代价制(另一分支代价 + hysteresis < 当前才切换)。两端点在限位内 ⇒ 直线段轨迹全程合法,叠加既有斜坡限速
+2. **误差定义换血(修症状的关键)**:error = 所选分支带符号线性行程(非 wrapPi 差);对齐门控、余弦补偿、ω 前馈差分全部改用。+179°→−179° 场景门控看到 178° → 驱动置零至对齐
+3. **电机层降级为纯换算+校验**:删除 select_steering_target 的 PMAX 回中(及 recenter_trigger_fraction、相关测试);启动校验 [(limit_min+θ₀)·G_s, (limit_max+θ₀)·G_s] ⊆ ±PMAX(含裕量),不满足拒使能;运行时电机目标越出机械限位映射区间 = 上层 bug → 显式报错+保持,禁止静默钳位;单测断言下层永不改分支
+4. **参数**:新增 `steering.joint_limit_min_rad/max_rad`(默认 ±π)、`joint_limit_margin_rad`;flip_hysteresis_rad 语义改代价差滞回;多圈解绕对限位关节退化为平凡,加启动断言
+5. **回归测试**:+179°→−179° 选反分支行程 178° 且门控闭合;θ_c=+179° 目标 0° 用 +180° 边界候选(1° 行程);属性扫描任意 (θ_c,φ) 目标与轨迹均在 [min+margin, max−margin];电机层不改分支;Gazebo 左后轮跨 π 场景回归
+6. **连带修订**:核心数学第⑤节、第⑦节与本节冲突处以本节为准;Phase 8(Kinco 平台)同样适用本节——CSP 目标位置生成沿用同一分支选择器,限位校验换算用 Kinco 单位
+
+## Phase 7.5 评审记录(2026-09-11,Claude review,HEAD 1c8c529)
+
+**结论:五项要求全部落实,通过;附 1 条必修鲁棒性缺口 + 2 条注记**。
+
+核对:分支选择改 2πk 窗口取最近等效角(`nearest_equivalent_in_limits`,±π 双边界表示被 turn-window 自然覆盖,验证 θ_c=+179°/目标 0° 得 +180° 候选 1° 行程 ✓);代价制滞回 ✓;误差改线性行程且门控/余弦/前馈差分全部改用 ✓(RearLeftPiCrossing 测试断言 178° 误差全轮门控);PMAX 回中及 recenter/command_limit_fraction 参数删除,电机层降级为换算+校验、越界显式抛错 ✓;启动双硬门(机械区间 ⊆ PMAX 可表示性 + 播种角在限内)✓;safe_range ≥ π 校验保证任意朝向可达 ✓;属性网格扫描/边界候选/滞回/斜坡邻界测试齐全 ✓。
+
+**必修(下一批带上)**:
+1. **[中高] 量测角越界导致周期失败死循环**:`optimize_module` 对 measured current 落在 margin 区/略越物理限位(背隙、限位柔性、零偏误差在实机必然出现)直接抛 out_of_range → step 捕获 → 每周期"cycle failed"、不发帧 → 电机 TIMEOUT 失能、无恢复路径。修法:量测角在 [物理限位 ± tolerance] 内时**钳入 safe 区参与计算**(margin 只约束目标,不拒绝量测);超出物理限位+容差才算故障,且走 SafetyMonitor 正规故障路径(可锁存、可 clear),不是异常循环。网格测试补 current ∈ margin 区/略越界用例
+2. [低] `validate_seeded_steering_positions` 用含 margin 的 safe 区拒启动:轮子恰停在 margin 区内会拒使能且 rezero 无解(轮子物理就在那);改用物理限位+容差,与上条同一原则
+3. [低] 旧 2 参 `optimize_and_apply_alignment`(默认限位、无滞回)仍存在,确认仅测试引用;标记 deprecated 防生产误用
+
+### Phase 7.5 评审必修闭环(2026-09-11,Codex,实现 HEAD 820f687,文档 HEAD 10b204d)
+
+- 新增 `steering.joint_limit_tolerance_rad`(默认 0):仅用于物理端点附近量测容差,不扩大扣除 margin 后的目标安全区间。
+- margin 区或物理限位 ± tolerance 内的量测钳入 safe 区参与规划,目标和整条 slew 轨迹仍严格留在 safe 区。
+- 超出物理限位 ± tolerance 的量测不再抛异常导致周期停帧,改走 `SafetyMonitor` 正规路径:立即锁存、四驱归零、控制周期继续发帧；活动越界时拒绝 clear,量测恢复后仍需人工 clear。
+- 启动播种角按物理限位 ± tolerance 校验；完整 safe 目标区间映射进实际 PMAX 的启动硬门保持不变。
+- 旧 2 参 `optimize_and_apply_alignment` 已标记 deprecated,生产代码与测试均无调用。
+- 已补参数/ROS、边界量测、启动、运行锁存、人工清错与 diagnostics 回归测试。
+- 最终验证:普通/`-Werror`/ASan+UBSan/coverage CTest 均 21/21；全新隔离 colcon 193 tests、0 errors、0 failures、0 skipped；cppcheck 29/29；28 个核心源文件加权行覆盖率 85.98%；全部生产 `.cpp` 不超过 400 行(最大 397 行)。
+
 ## Phase 8(规划,待硬件最终确认):EtherCAT 后端 + CANopen 外置编码器
 
 背景:下一代舵轮模组换用步科(Kinco)FD 系列低压伺服(EtherCAT,手册确认支持 CSP/CSV/CST 周期同步模式),转向轴选配 16 位 CANopen 外置编码器。达妙版冻结为算法验证平台,控制核心整体平移。
@@ -318,7 +354,7 @@ motor_target = (continuous_target + θ₀_i)·G_s·sign_s      # 钳位 ±0.95·
 
 - 上位机双总线:EtherCAT 主站(8 台 FD 驱动器)+ SocketCAN can0(4 个 CANopen 编码器,总线独占)
 - **复用不动**:kinematics(discretize/IK/FK/optimize+迟滞/去饱和/门控/斜坡)、swerve_odometry、swerve_setpoint、safety_monitor 策略框架、control_loop 结构、ROS 接口、参数框架。要求⑥原子下发由 EtherCAT 单帧+DC 同步原生保证
-- **替换**:dm_frame_codec/socketcan_interface/motor_startup → EtherCAT 层(建议 SOEM,用户态)+ DS402 状态机(0x06→0x0F 使能、0x86 清故障、状态字 bit3 故障位)+ PDO 映射(RxPDO 0x1601 可配)
+- **替换**:dm_frame_codec/socketcan_interface/motor_startup → EtherCAT 层(IgH/ecrt)+ DS402 状态机(0x06→0x07→0x0F 使能、0x0000→0x0080→0x0000 有界脉冲清故障、状态字 bit3 故障位)+ PDO 映射(RxPDO 0x1601 可配)
 - **模式**:转向 = CSP(8),目标位置 0x607A 每周期下发;驱动 = CSV(9),目标速度 0x60FF。単位换算:速度 DEC=(rpm·512·编码器分辨率)/1875,位置 inc
 
 ### 要求④前馈的归属(已与步科确认:前馈对象仅上位机/SDO 可写,不可 PDO 映射)
@@ -349,6 +385,14 @@ motor_target = (continuous_target + θ₀_i)·G_s·sign_s      # 钳位 ±0.95·
 - 收益:轴侧分辨率 = 单圈分辨率 × G_e;配合保留的 ±π 等价翻转回中策略,轴角有界,多圈计数不会溢出
 - CiA 406 读数对象 0x6004(含多圈的 32 位位置)映射进 TPDO
 
+### 打滑检测(差模,小增量,2026-09-11 决议纳入)
+
+- **最小二乘残差检测**:复用 `wheel_chassis_delta` 的 3×3 正规方程,解算后计算**逐模块残差**(每模块 2 行观测的拟合残差)。残差超阈值(新参数 `slip_residual_threshold`)→ 该模块本周期从 FK 剔除(复用现有 valid 机制)+ diagnostics 上报**定位到轮**
+- **协方差**:odometry 膨胀机制新增 `slip_covariance_scale` 系数,检测到打滑周期按此膨胀
+- 辅助信号(后续可选):陀螺 ω vs 轮式反解 ω 比对、IMU 加速度 vs 轮式加速度比对、力矩-运动不匹配(0x6077 实际力矩在 TPDO)
+- **分工原则(写进文档)**:差模打滑(单轮/不一致)归驱动层残差检测;**共模打滑**(急刹/坡道四轮同滑,残差盲区)归上层 EKF 跨传感器融合——驱动层职责是诚实协方差 + 预清洗的 odom,不越界做整车状态估计
+- 测试:注入单轮虚假轮速断言检测/定位/剔除/膨胀齐动作;注入共模一致偏差断言残差不触发(明示盲区,防误用)
+
 ### 已确认决策(2026-09-07)
 
 - **电机自带编码器同为多圈绝对**,但电机→轴传动链有传动误差 → **舵角主备关系定案**:外置编码器为主源(测轴侧真值,闭掉传动链背隙/弹性);电机多圈绝对为备份 + **开机双绝对源交叉校验**(各自换算轴角比对,差异 > 阈值(背隙+弹性余量,标定实测)→ 按严格策略拒使能;可同时捕获任一侧多圈复位、齿数配置错、安装松动)。运行时外置编码器掉线 → 以掉线时刻两源偏差即时校准后降级用电机侧角度,恢复归队
@@ -358,3 +402,40 @@ motor_target = (continuous_target + θ₀_i)·G_s·sign_s      # 钳位 ±0.95·
 
 1. 编码器"16 位"的构成:**单圈分辨率几位 + 多圈计数几位**;多圈保持机制(电池 / 韦根自发电);精确齿数比
 2. FD 驱动器支持的最小 DC 周期与 PDO watchdog 超时配置范围
+
+### Phase 8 开工前资料核验(2026-09-11,Codex)
+
+- 本地 Kinco FD ESI 与《Kinco 低压伺服驱动器使用手册》确认 CSP/CSV/CST=8/9/10、0x60FB.02/.03 为位置环速度/加速度前馈、0x2601 为 16 位实时错误字。
+- 实现采用 `0x0000→0x0080→0x0000` 的 bit7 复位脉冲。更正此前解释：0x0086 也包含 bit7 和 shutdown 低位，不能仅因 Modbus 异常响应同值便断言它不是控制字；本实现显式分开复位与使能步骤。
+- BRT 编码器 EDS/手册确认 0x6004 为 32 位无符号位置，0x6501/0x6502 可读实际单圈分辨率/硬件总圈数，TPDO2 默认 transmission type=1 可由 SYNC 触发；该系列多圈绝对值不依赖电池或停电记忆。
+- 采购型号的 0x6501/0x6502 实际值与精确齿数比仍需现场读回/机械资料确认；软件以期望值对读回值做严格启动校验，不猜位宽拆分。
+
+### Phase 8 软件推进记录(2026-09-12,Codex)
+
+- 本轮提交：`8ebbf99`；增量 review：`git diff df11631..8ebbf99 -- dm_swerve_driver`。尚未推送远程。
+- 按用户要求取消每个小改动独立 RED/GREEN 提交，只补一条跨组件运行冒烟并统一回归。
+- 已实现真实 IgH 1.6 可选适配：八轴 PDO 重映射、DC、WKC/AL/链路及 PDO watchdog；已从固定官方源码构建用户库并完成真实节点动态链接，非接口桩验证。
+- ROS `driver.backend=kinco` 接入实际 Kinco 控制线程，保持 cmd/IMU 邮箱、odom/TF/joint states、enable/disable/clear/rezero 服务。
+- 启动先禁能取样，经外置编码器规格/持久值/机械角/双绝对源检查后才使能。运行沿用有限角规划、对齐门控、主备切换和故障锁存/恢复上限；恢复控制字嵌入单次周期批。
+- BRT 初始化校验 TPDO2 映射和缩放，配置 SYNC/心跳，确认 SDO 后进入 Operational；旧 TPDO、杂帧、重复及缺帧被隔离。
+- 标零改为保存安装偏移/电机参考与快照；新配置模板 `config/kinco_params.yaml` 的未确认字段默认 0/空，拒绝配置。
+- 0x60FB 速度前馈参数明确使用 `position_velocity_feedforward_raw`，ESI 默认 raw=256，不将工程百分数直接下发；写入默认关闭。
+- 普通/Werror/ASan+UBSan/coverage 回归各 29/29，已有测试结果汇总 220 tests、0 errors/failures；cppcheck 47 个生产源文件通过，核心源行覆盖率约 83.3%。
+- 现场工作见 `doc/kinco_bringup.md`：FD/BRT PDO、DC/watchdog 范围、背隙、真实标零、π 边界和拔线停止尚未验收。当前运行路径为 CSP/CSV；CST 闭速度环留待 CSV 低速实测不足后追加。
+
+### 当前方案确认(2026-09-12,用户决议)
+
+- 取消达妙 CAN/MIT 电机方案，四舵轮电机方案只保留 Kinco FD EtherCAT：4 转向 CSP + 4 驱动 CSV。
+- 保留 4 个 BRT 外置绝对编码器及其 CANopen 通信，继续以轴侧编码器为舵角主源、电机编码器为备份。
+- 保留精确齿数换算、双源标零与交叉校验、持久快照、SYNC/心跳、掉线备份和恢复归队。
+- 标定资料按上述总线分工维护；历史达妙资料不再列入当前桌面交付。
+
+### GitHub 功能分支同步(2026-09-12)
+
+- 用户已授权同步至 `SevenovaHangzhou/robot_driver` 的 `feature/damiao舵轮驱动`。
+- 导入独立开发仓库的包提交 `10ab59b`，包含此前尚未上传的有限舵角、最小二乘残差、
+  Kinco EtherCAT / 外置 CANopen 编码器运行链路及最新标定资料。
+- 同步目录干净构建通过（Debug、Werror），CTest 29/29；colcon 报告 249 tests、
+  0 errors、0 failures、0 skipped。目标仓库质量门禁通过（197 策略测试，覆盖率 83%）；
+  本机 ShellCheck 缺失，由远程 CI 检查。
+- 此记录只描述源码上传；不代表硬件上机、整车部署或生产验收。

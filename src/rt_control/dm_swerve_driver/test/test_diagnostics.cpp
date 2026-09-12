@@ -108,5 +108,47 @@ TEST(DiagnosticsTest, HistoricalNoiseDoesNotKeepHealthySummaryDegraded)
   EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::WARN);
 }
 
+TEST(DiagnosticsTest, SteeringLimitFaultIsReportedExplicitly)
+{
+  ControlLoopStatus status{};
+  status.initialized = true;
+  status.faulted = true;
+  status.fault_latched = true;
+  status.steering_limit_faulted = true;
+  const auto diagnostics = build_diagnostic_statuses(status, default_parameters());
+
+  ASSERT_FALSE(diagnostics.empty());
+  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
+  EXPECT_NE(diagnostics.back().message.find("steering measurement"), std::string::npos);
+  EXPECT_TRUE(std::any_of(
+      diagnostics.back().values.begin(), diagnostics.back().values.end(),
+      [](const auto & value) {
+        return value.key == "steering_limit_faulted" && value.value == "true";
+      }));
+}
+
+TEST(DiagnosticsTest, DifferentialSlipNamesAffectedModulesWithoutLatching)
+{
+  ControlLoopStatus status{};
+  status.initialized = true;
+  status.command_timed_out = false;
+  status.slip_detected = true;
+  status.slipping_modules[2] = true;
+  for (auto & motor : status.motors) {
+    motor.has_feedback = true;
+    motor.error = MotorError::enabled;
+  }
+  const auto diagnostics = build_diagnostic_statuses(status, default_parameters());
+
+  ASSERT_FALSE(diagnostics.empty());
+  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::WARN);
+  EXPECT_NE(diagnostics.back().message.find("wheel slip"), std::string::npos);
+  EXPECT_TRUE(std::any_of(
+      diagnostics.back().values.begin(), diagnostics.back().values.end(),
+      [](const auto & value) {
+        return value.key == "slipping_modules" && value.value == "rear_left";
+      }));
+}
+
 }  // namespace
 }  // namespace dm_swerve_driver

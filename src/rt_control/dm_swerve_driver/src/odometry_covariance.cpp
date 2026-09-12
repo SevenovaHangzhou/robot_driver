@@ -8,7 +8,8 @@ namespace dm_swerve_driver {
 OdometryCovariances make_odometry_covariances(
   const OdometryParameters & parameters,
   bool imu_fallback,
-  std::size_t valid_module_count)
+  std::size_t valid_module_count,
+  bool slip_detected)
 {
   if (valid_module_count > kSwerveModuleCount) {
     throw std::invalid_argument{"valid module count exceeds the swerve module count"};
@@ -19,6 +20,9 @@ OdometryCovariances make_odometry_covariances(
   }
   if (valid_module_count < kSwerveModuleCount) {
     scale *= parameters.missing_module_covariance_scale;
+  }
+  if (slip_detected) {
+    scale *= parameters.slip_covariance_scale;
   }
   if (!std::isfinite(scale) || scale < 1.0) {
     throw std::invalid_argument{"odometry covariance scale must be finite and at least one"};

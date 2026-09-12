@@ -9,6 +9,8 @@
 #include "dm_swerve_driver/params.hpp"
 
 namespace dm_swerve_driver {
+[[nodiscard]] std::vector<diagnostic_msgs::msg::DiagnosticStatus>
+build_kinco_diagnostic_statuses(const ControlLoopStatus & status);
 
 [[nodiscard]] std::vector<diagnostic_msgs::msg::DiagnosticStatus>
 build_diagnostic_statuses(

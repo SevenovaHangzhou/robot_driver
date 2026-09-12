@@ -1,0 +1,68 @@
+# Commissioning template. Zero hardware fields deliberately fail configuration.
+# Supply this file through params_file in swerve_driver.launch.py.
+swerve_driver:
+  ros__parameters:
+    driver:
+      backend: kinco
+    control:
+      rate_hz: 100.0
+      realtime_priority: 0
+      cmd_vel_timeout_s: 0.25
+      hold_steer_on_timeout: true
+    chassis:
+      wheelbase_m: 0.5
+      track_m: 0.4
+      wheel_radius_m: 0.1
+      max_linear_speed_mps: 0.2
+      max_wheel_speed_mps: 0.3
+      max_angular_speed_radps: 0.3
+      max_wheel_acceleration_mps2: 0.5
+    steering:
+      gear_ratio: 1.0
+      zero_offset_rad: [0.0, 0.0, 0.0, 0.0]
+      invert: [false, false, false, false]
+      joint_limit_min_rad: -3.141592653589793
+      joint_limit_max_rad: 3.141592653589793
+      joint_limit_margin_rad: 0.0
+      joint_limit_tolerance_rad: 0.0
+      max_slew_radps: 1.0
+      flip_hysteresis_rad: 0.1
+    drive:
+      gear_ratio: 1.0
+      invert: [false, false, false, false]
+    odometry:
+      slip_residual_threshold: 0.25
+      slip_covariance_scale: 4.0
+    kinco:
+      ethercat:
+        master_index: 0
+        # Order: FL/FR/RL/RR steering, then FL/FR/RL/RR drive.
+        slave_positions: [0, 1, 2, 3, 4, 5, 6, 7]
+        vendor_id: 6820200
+        product_code: 4604997
+        # Must equal 1e9/control.rate_hz and be supported by the actual FD.
+        dc_cycle_ns: 0
+        pdo_watchdog_ms: 0
+        startup_cycle_limit: 5000
+      steering_encoder_resolution: [0, 0, 0, 0]
+      drive_encoder_resolution: [0, 0, 0, 0]
+      write_position_feedforward: false
+      # ESI raw default (not an engineering percentage).
+      position_velocity_feedforward_raw: 256
+      position_acceleration_feedforward: 32767
+      write_fault_reaction_option: false
+      fault_reaction_option_code: 1
+      encoder:
+        can_interface: can0
+        feedback_deadline_us: 2000
+        node_ids: [1, 2, 3, 4]
+        expected_counts_per_revolution: [0, 0, 0, 0]
+        expected_distinguishable_revolutions: [0, 0, 0, 0]
+        ring_gear_teeth: [0, 0, 0, 0]
+        pinion_teeth: [0, 0, 0, 0]
+        direction: [1, 1, 1, 1]
+        installation_offset_rad: [0.0, 0.0, 0.0, 0.0]
+        source_disagreement_threshold_rad: 0.0
+        maximum_offline_axis_motion_rad: 0.0
+        maximum_rejoin_correction_rad: 0.0
+        snapshot_path: ""

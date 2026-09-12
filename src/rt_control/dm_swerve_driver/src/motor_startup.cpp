@@ -1,4 +1,5 @@
 #include "motor_startup.hpp"
+#include "steering_startup.hpp"
 
 #include <algorithm>
 #include <array>
@@ -303,6 +304,9 @@ bool initialize_motors(
   if (!limits_valid) {
     return false;
   }
+  if (!validate_steering_command_ranges(parameters, motors, log)) {
+    return false;
+  }
   const auto multi_turn = read_multi_turn_positions(
     transport, parameters, motors);
   const auto feedback = poll_current_feedback(transport, parameters, motors, log);
@@ -312,6 +316,9 @@ bool initialize_motors(
     return false;
   }
   seed_positions(parameters, motors, multi_turn, log);
+  if (!validate_seeded_steering_positions(parameters, motors, log)) {
+    return false;
+  }
   if (!enable_motors(transport, parameters, motors, log)) {
     return false;
   }

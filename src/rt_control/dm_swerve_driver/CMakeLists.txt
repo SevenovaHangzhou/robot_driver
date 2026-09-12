@@ -15,6 +15,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 
 option(DM_SWERVE_ENABLE_COVERAGE "Build dm_swerve_driver with GCC coverage" OFF)
+option(DM_SWERVE_ENABLE_IGH "Build the real IgH 1.6 EtherCAT adapter" OFF)
 
 add_library(dm_swerve_protocol
   src/bringup_audit.cpp
@@ -35,9 +36,45 @@ if(DM_SWERVE_ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_options(dm_swerve_protocol PUBLIC --coverage)
 endif()
 
+add_library(dm_swerve_kinco
+  src/canopen_encoder.cpp
+  src/canopen_encoder_setup.cpp
+  src/atomic_text_file.cpp
+  src/encoder_snapshot_store.cpp
+  src/external_steering_encoder.cpp
+  src/kinco_backend.cpp
+  src/kinco_ds402.cpp
+  src/kinco_params.cpp
+  src/kinco_units.cpp
+)
+target_compile_features(dm_swerve_kinco PUBLIC cxx_std_17)
+target_include_directories(dm_swerve_kinco
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+target_compile_options(dm_swerve_kinco PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+if(DM_SWERVE_ENABLE_IGH)
+  find_path(IGH_INCLUDE_DIR ecrt.h REQUIRED)
+  find_library(IGH_LIBRARY ethercat REQUIRED)
+  target_sources(dm_swerve_kinco PRIVATE src/igh_ethercat_bus.cpp)
+  target_include_directories(dm_swerve_kinco SYSTEM PRIVATE ${IGH_INCLUDE_DIR})
+  target_link_libraries(dm_swerve_kinco PUBLIC ${IGH_LIBRARY})
+else()
+  target_sources(dm_swerve_kinco PRIVATE src/igh_unavailable.cpp)
+endif()
+
+if(DM_SWERVE_ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_compile_options(dm_swerve_kinco PRIVATE --coverage -O0 -g)
+  target_link_options(dm_swerve_kinco PUBLIC --coverage)
+endif()
+
 add_library(dm_swerve_ros
   src/diagnostics.cpp
   src/imu_validation.cpp
+  src/kinco_ros_params.cpp
+  src/kinco_diagnostics.cpp
+  src/node_backend.cpp
   src/ros_output.cpp
   src/ros_params.cpp
   src/swerve_driver_node.cpp
@@ -48,7 +85,7 @@ target_include_directories(dm_swerve_ros
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(dm_swerve_ros dm_swerve_control)
+target_link_libraries(dm_swerve_ros dm_swerve_control dm_swerve_kinco)
 ament_target_dependencies(dm_swerve_ros
   diagnostic_msgs
   geometry_msgs
@@ -76,13 +113,18 @@ target_compile_options(swerve_driver_node PRIVATE -Wall -Wextra -Wpedantic -Wcon
 
 add_library(dm_swerve_control
   src/can_transport.cpp
+  src/kinco_control_loop.cpp
+  src/kinco_control_cycle.cpp
+  src/kinco_calibration.cpp
   src/control_cycle.cpp
+  src/control_setpoint.cpp
   src/control_recovery.cpp
   src/control_loop.cpp
   src/control_thread.cpp
   src/motor_startup.cpp
   src/params.cpp
   src/safety_monitor.cpp
+  src/steering_startup.cpp
   src/steering_rezero.cpp
 )
 target_compile_features(dm_swerve_control PUBLIC cxx_std_17)
@@ -91,7 +133,7 @@ target_include_directories(dm_swerve_control
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(dm_swerve_control PUBLIC dm_swerve_motor)
+target_link_libraries(dm_swerve_control PUBLIC dm_swerve_motor dm_swerve_kinco)
 target_compile_options(dm_swerve_control PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 if(DM_SWERVE_ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -102,8 +144,10 @@ endif()
 add_library(dm_swerve_math
   src/odometry_covariance.cpp
   src/swerve_kinematics.cpp
+  src/swerve_least_squares.cpp
   src/swerve_odometry.cpp
   src/swerve_setpoint.cpp
+  src/swerve_steering.cpp
 )
 target_compile_features(dm_swerve_math PUBLIC cxx_std_17)
 target_include_directories(dm_swerve_math
@@ -117,6 +161,8 @@ if(DM_SWERVE_ENABLE_COVERAGE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_compile_options(dm_swerve_math PRIVATE --coverage -O0 -g)
   target_link_options(dm_swerve_math PUBLIC --coverage)
 endif()
+
+target_link_libraries(dm_swerve_kinco PUBLIC dm_swerve_math dm_swerve_protocol)
 
 add_library(dm_swerve_motor
   src/dm_motor.cpp
@@ -149,7 +195,7 @@ target_compile_options(
   dm_swerve_bringup_check PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 install(TARGETS
-  dm_swerve_protocol dm_swerve_math dm_swerve_motor dm_swerve_control dm_swerve_ros
+  dm_swerve_protocol dm_swerve_kinco dm_swerve_math dm_swerve_motor dm_swerve_control dm_swerve_ros
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -224,6 +270,29 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_bringup_audit test/test_bringup_audit.cpp)
   target_link_libraries(test_bringup_audit dm_swerve_protocol)
+
+  ament_add_gtest(test_kinco_ds402 test/test_kinco_ds402.cpp)
+  target_link_libraries(test_kinco_ds402 dm_swerve_kinco)
+
+  ament_add_gtest(test_kinco_units test/test_kinco_units.cpp)
+  target_link_libraries(test_kinco_units dm_swerve_kinco)
+
+  ament_add_gtest(test_external_steering_encoder test/test_external_steering_encoder.cpp)
+  target_link_libraries(test_external_steering_encoder dm_swerve_kinco)
+
+  ament_add_gtest(test_encoder_snapshot_store test/test_encoder_snapshot_store.cpp)
+  target_link_libraries(test_encoder_snapshot_store dm_swerve_kinco)
+
+  ament_add_gtest(test_kinco_backend test/test_kinco_backend.cpp)
+  target_link_libraries(test_kinco_backend dm_swerve_kinco)
+
+  ament_add_gtest(test_canopen_encoder test/test_canopen_encoder.cpp)
+  target_link_libraries(test_canopen_encoder dm_swerve_kinco dm_swerve_protocol)
+
+  ament_add_gtest(test_kinco_params test/test_kinco_params.cpp)
+  ament_add_gtest(test_kinco_runtime test/test_kinco_runtime.cpp)
+  target_link_libraries(test_kinco_runtime dm_swerve_control)
+  target_link_libraries(test_kinco_params dm_swerve_kinco dm_swerve_control)
 
   add_test(
     NAME test_launch_description

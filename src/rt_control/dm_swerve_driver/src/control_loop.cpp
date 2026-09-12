@@ -40,7 +40,12 @@ ControlLoop::Impl::Impl(
   setpoint_generator_{SwerveSetpointParameters{
       parameters_.chassis.align_threshold_rad,
       parameters_.steering.flip_hysteresis_rad,
-      parameters_.steering.max_slew_radps}}
+      parameters_.steering.max_slew_radps,
+      SteeringAngleLimits{
+        parameters_.steering.joint_limit_min_rad,
+        parameters_.steering.joint_limit_max_rad,
+        parameters_.steering.joint_limit_margin_rad,
+        parameters_.steering.joint_limit_tolerance_rad}}}
 {
   validate_parameters(parameters_);
   if (transport_ == nullptr) {

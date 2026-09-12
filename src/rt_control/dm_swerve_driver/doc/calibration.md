@@ -1,5 +1,11 @@
 # dm_swerve_driver 标定流程
 
+历史资料：达妙 CAN/MIT 电机方案已取消，本页不再用于当前四舵轮现场标定。
+
+本文的协议和伺服前馈步骤适用于达妙 MIT 平台。当前 Kinco EtherCAT + 外置编码器方案
+请使用 [四舵轮标定说明](swerve_calibration_overview.md) 和
+[现场标定手册](swerve_calibration_manual.md)，不要将本页的 MIT 增益/前馈步骤套到 Kinco CSV。
+
 本文是 `config/swerve_params.yaml` 的实车标定规程。仓库中的机械尺寸、限幅和前馈系数只是 vcan 占位值，未完成本流程前不得把它们当作实车参数。
 
 ## 0. 记录与通用约束
@@ -84,9 +90,13 @@ ros2 run dm_swerve_driver dm_swerve_bringup_check \
 3. 使用低幅正弦角度目标，逐步增加 `kff_omega` 以减小相位滞后。
 4. 设置 `steering.max_ff_speed_radps` 为机构可接受的轴侧目标角速度；它在乘 G_s 前钳位。
 5. 设置 `steering.max_slew_radps`，验证目标舵角按轴侧斜率推进；在 ±90° 附近验证 `flip_hysteresis_rad` 不发生周期翻转抖动。
-6. 人工制造接近 0.9·PMAX 的回中条件，确认回中周期 steering v_des=0、驱动速度=0，随后由 20° 对齐门控接力。
+6. 标定 `steering.joint_limit_min_rad/max_rad` 与 `joint_limit_margin_rad`；确认扣除裕量后的安全区间跨度仍不少于 π。
+7. 在机械端点静止采集编码器/Gazebo 量测噪声，仅据此设置最小必要的 `steering.joint_limit_tolerance_rad`；默认 0 为失效安全值。该容差只接受量测，绝不扩大目标安全区间。
+8. 从 +179° 请求 -179°，确认规划选择限位内约 +1° 的反速等效分支，全部中间目标不越界，且对齐前四个驱动速度均为零。
+9. 核对安全区间两端经零偏、齿比和方向映射后均在实际 PMAX 内；故意配置不可达范围时必须拒绝启动。
+10. 注入落在 margin 区和物理端点容差内的量测，确认控制周期不中断且规划目标仍在安全区；再注入超出物理限位加容差的量测，确认全车驱动归零并锁存，量测恢复且人工 clear 后才解锁。
 
-验收：无满 VMAX 速度前馈尖峰、无明显踢腿，±π 等效翻转后可自动恢复行驶。
+验收：无跨机械限位路径、无下层二次分支或静默位置钳位、无满 VMAX 前馈尖峰；边界量测噪声不造成控制循环停帧，真正越界进入可诊断、可人工清除的安全锁存；对齐后自动恢复行驶。
 
 ## 8. 整车功能验证
 

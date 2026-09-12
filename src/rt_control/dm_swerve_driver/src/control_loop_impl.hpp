@@ -47,6 +47,14 @@ struct CyclePlan {
   bool hold_steering{false};
 };
 
+struct CycleOdometry {
+  Pose2d pose{};
+  ChassisSpeeds measured_twist{};
+  std::array<bool, kSwerveModuleCount> slipping_modules{};
+  std::size_t valid_module_count{0U};
+  bool imu_fallback{false};
+};
+
 class ControlLoop::Impl {
 public:
   Impl(
@@ -91,19 +99,16 @@ private:
   [[nodiscard]] std::vector<CanFrame> make_cycle_frames(const CyclePlan & plan);
   [[nodiscard]] FeedbackRouteResult exchange_cycle_frames(
     const std::vector<CanFrame> & commands, SteadyClock::time_point now);
-  [[nodiscard]] Pose2d update_cycle_odometry(
+  [[nodiscard]] CycleOdometry update_cycle_odometry(
     const MailboxSnapshot & mailbox,
     const std::array<bool, kMotorCount> & received,
-    SteadyClock::time_point now,
-    bool & imu_fallback,
-    ChassisSpeeds & measured_twist);
+    SteadyClock::time_point now);
   void process_recovery(SteadyClock::time_point now);
   void mark_missing_feedback(const std::array<bool, kMotorCount> & received);
   void update_cycle_status(
     const FeedbackRouteResult & route,
-    const Pose2d & pose,
+    const CycleOdometry & odometry,
     bool command_timed_out,
-    bool imu_fallback,
     bool bus_silent);
   [[nodiscard]] std::array<bool, kMotorCount> dispatch_recovery_actions(
     const RecoveryActions & actions, SteadyClock::time_point now);
@@ -114,20 +119,14 @@ private:
 
   void maybe_publish(
     SteadyClock::time_point now,
-    const Pose2d & pose,
+    const CycleOdometry & odometry,
     const ChassisSpeeds & command,
-    const ChassisSpeeds & measured_twist,
-    bool alignment_gated,
-    bool imu_fallback,
-    std::size_t valid_module_count);
+    bool alignment_gated);
   [[nodiscard]] ControlLoopOutput make_output(
     SteadyClock::time_point now,
-    const Pose2d & pose,
+    const CycleOdometry & odometry,
     const ChassisSpeeds & command,
-    const ChassisSpeeds & measured_twist,
-    bool alignment_gated,
-    bool imu_fallback,
-    std::size_t valid_module_count) const;
+    bool alignment_gated) const;
   void refresh_status();
   void send_zero_cycles() noexcept;
   [[nodiscard]] std::vector<CanFrame> make_zero_frames(double dt);

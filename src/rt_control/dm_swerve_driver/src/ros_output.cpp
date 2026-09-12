@@ -97,7 +97,8 @@ void publish_control_output(
   odometry.twist.twist.linear.y = output.measured_twist.vy_mps;
   odometry.twist.twist.angular.z = output.measured_twist.omega_radps;
   const auto covariances = make_odometry_covariances(
-    parameters.odometry, output.imu_fallback, output.valid_module_count);
+    parameters.odometry, output.imu_fallback, output.valid_module_count,
+    output.slip_detected);
   odometry.pose.covariance = covariances.pose;
   odometry.twist.covariance = covariances.twist;
   odometry_publisher->publish(odometry);

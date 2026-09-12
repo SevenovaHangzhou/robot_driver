@@ -21,6 +21,8 @@
 #include "dm_swerve_driver/ros_params.hpp"
 #include "dm_swerve_driver/steering_rezero.hpp"
 #include "ros_output.hpp"
+#include "node_backend.hpp"
+#include "dm_swerve_driver/kinco_calibration.hpp"
 
 namespace dm_swerve_driver {
 
@@ -34,16 +36,15 @@ public:
     }
   }
 
-  ~Impl() noexcept
-  {
-    stop_control();
-  }
+  ~Impl() noexcept {stop_control();}
 
   [[nodiscard]] CallbackReturn configure()
   {
     try {
       declare_driver_parameters(node_);
       parameters_ = load_driver_parameters(node_);
+      backend_ = configure_node_backend(node_, parameters_, kinco_);
+      last_status_.kinco_backend = backend_ == "kinco";
       odometry_publisher_ = node_.create_publisher<nav_msgs::msg::Odometry>("~/odom", 10U);
       joint_state_publisher_ =
         node_.create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10U);
@@ -226,8 +227,8 @@ private:
       return true;
     }
     stop_control();
-    control_loop_ = std::make_unique<ControlLoop>(
-      parameters_, transport_factory_(parameters_), control_callbacks());
+    control_loop_ = make_node_control_runner(
+      backend_, parameters_, kinco_, transport_factory_, control_callbacks());
     control_loop_->restore_fault_state(
       last_status_.fault_latched, last_status_.recovery_attempts);
     if (!control_loop_->initialize(std::chrono::steady_clock::now())) {
@@ -241,6 +242,10 @@ private:
   [[nodiscard]] std::pair<bool, std::string> rezero_steering() noexcept
   {
     try {
+      if (backend_ == "kinco") {
+        calibrate_kinco_steering(parameters_, kinco_);
+        return {true, "encoder installation offsets and motor reference saved; no hardware zero written"};
+      }
       auto transport = transport_factory_(parameters_);
       if (!transport) {
         throw std::runtime_error{"transport factory returned null"};
@@ -326,7 +331,9 @@ private:
   SwerveDriverNode & node_;
   TransportFactory transport_factory_;
   DriverParameters parameters_{};
-  std::unique_ptr<ControlLoop> control_loop_;
+  std::unique_ptr<ControlRunner> control_loop_;
+  KincoParameters kinco_{};
+  std::string backend_{"damiao"};
   ControlLoopStatus last_status_{};
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odometry_publisher_;
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::JointState>::SharedPtr

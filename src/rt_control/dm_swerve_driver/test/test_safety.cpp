@@ -204,6 +204,27 @@ TEST(SafetyMonitorTest, ManualClearCannotHideAnActiveTransportFault)
   EXPECT_FALSE(monitor.faulted());
 }
 
+TEST(SafetyMonitorTest, SteeringLimitLatchClearsOnlyAfterMeasurementRecovers)
+{
+  SafetyMonitor monitor{default_parameters()};
+  const auto health = healthy_motors();
+  std::array<bool, kMotorCount> confirmed{};
+  confirmed.fill(true);
+
+  EXPECT_TRUE(monitor.observe_steering_limit_violation(true));
+  EXPECT_TRUE(monitor.steering_limit_faulted());
+  EXPECT_TRUE(monitor.faulted());
+  EXPECT_TRUE(monitor.fault_latched());
+  EXPECT_FALSE(monitor.complete_manual_clear(health, confirmed));
+
+  EXPECT_TRUE(monitor.observe_steering_limit_violation(false));
+  EXPECT_FALSE(monitor.steering_limit_faulted());
+  EXPECT_TRUE(monitor.fault_latched());
+  EXPECT_TRUE(monitor.complete_manual_clear(health, confirmed));
+  EXPECT_FALSE(monitor.faulted());
+  EXPECT_FALSE(monitor.fault_latched());
+}
+
 TEST(SafetyMonitorTest, BusSilentRequiresEveryMotorPastThreshold)
 {
   SafetyMonitor monitor{default_parameters()};

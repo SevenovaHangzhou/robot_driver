@@ -130,6 +130,77 @@ TEST(ControlLoopTest, GearedSteeringRequiresConsistentMultiTurnPosition)
   EXPECT_FALSE(inconsistent_loop.initialize({}));
 }
 
+TEST(ControlLoopTest, SteeringMechanicalRangeMustFitReadMotorPmax)
+{
+  auto parameters = default_parameters();
+  parameters.steering.gear_ratio = 3.5;
+  parameters.steering.zero_offset_rad[0] = 0.5;
+  std::vector<std::string> logs;
+  ControlLoop loop{
+    parameters, std::make_unique<test::FakeCanTransport>(),
+    ControlLoopCallbacks{{}, [&](DriverLogLevel, const std::string & message) {
+      logs.push_back(message);
+    }}};
+
+  EXPECT_FALSE(loop.initialize({}));
+  EXPECT_TRUE(std::any_of(logs.begin(), logs.end(), [](const auto & message) {
+    return message.find("mechanical steering range") != std::string::npos;
+  }));
+}
+
+TEST(ControlLoopTest, StartupRejectsSteeringFeedbackOutsideMechanicalRange)
+{
+  auto parameters = default_parameters();
+  parameters.steering.joint_limit_min_rad = -2.0;
+  parameters.steering.joint_limit_max_rad = 2.0;
+  auto transport = std::make_unique<test::FakeCanTransport>();
+  transport->set_multi_turn_override(1U, 2.5F);
+  transport->set_position_override(0x11U, 2.5);
+  ControlLoop loop{parameters, std::move(transport)};
+
+  EXPECT_FALSE(loop.initialize({}));
+}
+
+TEST(ControlLoopTest, StartupAcceptsSteeringMeasurementInsidePhysicalTolerance)
+{
+  auto parameters = default_parameters();
+  parameters.steering.joint_limit_margin_rad = 0.1;
+  parameters.steering.joint_limit_tolerance_rad = 0.02;
+  const double measured{kPi + 0.01};
+  auto transport = std::make_unique<test::FakeCanTransport>();
+  transport->set_multi_turn_override(1U, static_cast<float>(measured));
+  transport->set_position_override(0x11U, measured);
+  ControlLoop loop{parameters, std::move(transport)};
+
+  EXPECT_TRUE(loop.initialize({}));
+}
+
+TEST(ControlLoopTest, RuntimeSteeringLimitViolationLatchesWithoutBreakingCycles)
+{
+  auto parameters = default_parameters();
+  parameters.steering.joint_limit_tolerance_rad = 0.02;
+  auto transport = std::make_unique<test::FakeCanTransport>();
+  auto * observer = transport.get();
+  ControlLoop loop{parameters, std::move(transport)};
+  const auto epoch = std::chrono::steady_clock::time_point{};
+  ASSERT_TRUE(loop.initialize(epoch));
+  loop.submit_command(ChassisSpeeds{0.5, 0.0, 0.0}, epoch);
+  observer->set_position_override(0x11U, kPi + 0.03);
+
+  ASSERT_TRUE(loop.step(epoch + 10ms));
+  observer->clear_batches();
+  EXPECT_TRUE(loop.step(epoch + 20ms));
+  EXPECT_TRUE(loop.status().fault_latched);
+  EXPECT_TRUE(loop.status().steering_limit_faulted);
+  ASSERT_FALSE(observer->batches().empty());
+  for (const auto & frame : observer->batches().front()) {
+    if (frame.id >= 5U && frame.id <= 8U) {
+      EXPECT_NEAR(
+        decode_mit_command(frame, parameters.limits_fallback).velocity, 0.0, 0.02);
+    }
+  }
+}
+
 TEST(ControlLoopTest, CycleWritesOneEightFrameBatchAndRoutesFeedback)
 {
   auto transport = std::make_unique<test::FakeCanTransport>();
@@ -754,6 +825,49 @@ TEST(ControlLoopTest, PublishesCurrentOdometryQualityInputs)
   ASSERT_FALSE(outputs.empty());
   EXPECT_FALSE(outputs.back().imu_fallback);
   EXPECT_EQ(outputs.back().valid_module_count, 3U);
+}
+
+TEST(ControlLoopTest, SlipResidualLocatesWheelAndRecomputesMeasuredTwist)
+{
+  auto parameters = default_parameters();
+  parameters.control.cmd_vel_timeout_s = 1.0;
+  parameters.chassis.max_wheel_acceleration_mps2 = 100.0;
+  parameters.odometry.publish_rate_hz = 100.0;
+  parameters.odometry.slip_residual_threshold = 0.05;
+  std::vector<ControlLoopOutput> outputs;
+  auto transport = std::make_unique<test::FakeCanTransport>();
+  auto * observer = transport.get();
+  ControlLoop loop{
+    parameters, std::move(transport),
+    ControlLoopCallbacks{
+      [&](const ControlLoopOutput & output) {outputs.push_back(output);}, {}}};
+  const auto epoch = std::chrono::steady_clock::time_point{};
+  ASSERT_TRUE(loop.initialize(epoch));
+  for (int cycle{1}; cycle <= 20; ++cycle) {
+    const auto now = epoch + cycle * 10ms;
+    loop.submit_command(ChassisSpeeds{0.5, 0.0, 0.0}, now);
+    ASSERT_TRUE(loop.submit_imu_yaw(0.0, now));
+    ASSERT_TRUE(loop.step(now));
+  }
+  ASSERT_FALSE(outputs.empty());
+  const ChassisSpeeds healthy_twist{outputs.back().measured_twist};
+
+  observer->set_velocity_override(0x17U, 20.0);
+  loop.submit_command(ChassisSpeeds{0.5, 0.0, 0.0}, epoch + 210ms);
+  ASSERT_TRUE(loop.submit_imu_yaw(0.0, epoch + 210ms));
+
+  ASSERT_TRUE(loop.step(epoch + 210ms));
+
+  ASSERT_FALSE(outputs.empty());
+  const auto & output = outputs.back();
+  EXPECT_TRUE(output.slip_detected);
+  EXPECT_TRUE(output.slipping_modules[2]);
+  EXPECT_EQ(output.valid_module_count, 3U);
+  EXPECT_NEAR(output.measured_twist.vx_mps, healthy_twist.vx_mps, 0.01);
+  EXPECT_NEAR(output.measured_twist.vy_mps, healthy_twist.vy_mps, 0.01);
+  const auto status = loop.status();
+  EXPECT_TRUE(status.slip_detected);
+  EXPECT_TRUE(status.slipping_modules[2]);
 }
 
 TEST(ControlLoopTest, HealthyImuAngularVelocityDoesNotDependOnWheelFk)

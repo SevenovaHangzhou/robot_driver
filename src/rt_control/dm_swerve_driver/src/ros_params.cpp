@@ -122,6 +122,14 @@ void declare_module_parameters(
   declare_if_missing(node, "steering.max_slew_radps", defaults.steering.max_slew_radps);
   declare_if_missing(
     node, "steering.rezero_tolerance_rad", defaults.steering.rezero_tolerance_rad);
+  declare_if_missing(
+    node, "steering.joint_limit_min_rad", defaults.steering.joint_limit_min_rad);
+  declare_if_missing(
+    node, "steering.joint_limit_max_rad", defaults.steering.joint_limit_max_rad);
+  declare_if_missing(
+    node, "steering.joint_limit_margin_rad", defaults.steering.joint_limit_margin_rad);
+  declare_if_missing(
+    node, "steering.joint_limit_tolerance_rad", defaults.steering.joint_limit_tolerance_rad);
   declare_if_missing(node, "steering.zero_offset_rad", to_vector(defaults.steering.zero_offset_rad));
   declare_if_missing(node, "steering.invert", to_vector(defaults.steering.inverted));
   declare_if_missing(node, "drive.gear_ratio", defaults.drive.gear_ratio);
@@ -166,6 +174,12 @@ void declare_motor_and_degradation(
   declare_if_missing(
     node, "odometry.missing_module_covariance_scale",
     defaults.odometry.missing_module_covariance_scale);
+  declare_if_missing(
+    node, "odometry.slip_residual_threshold",
+    defaults.odometry.slip_residual_threshold);
+  declare_if_missing(
+    node, "odometry.slip_covariance_scale",
+    defaults.odometry.slip_covariance_scale);
 }
 
 void load_can_and_control(
@@ -225,6 +239,14 @@ void load_module_parameters(
   steering.max_slew_radps = node.get_parameter("steering.max_slew_radps").as_double();
   steering.rezero_tolerance_rad =
     node.get_parameter("steering.rezero_tolerance_rad").as_double();
+  steering.joint_limit_min_rad =
+    node.get_parameter("steering.joint_limit_min_rad").as_double();
+  steering.joint_limit_max_rad =
+    node.get_parameter("steering.joint_limit_max_rad").as_double();
+  steering.joint_limit_margin_rad =
+    node.get_parameter("steering.joint_limit_margin_rad").as_double();
+  steering.joint_limit_tolerance_rad =
+    node.get_parameter("steering.joint_limit_tolerance_rad").as_double();
   steering.zero_offset_rad = to_array<double, kSwerveModuleCount>(
     node.get_parameter("steering.zero_offset_rad").as_double_array(), "steering.zero_offset_rad");
   steering.inverted = to_array<bool, kSwerveModuleCount>(
@@ -283,6 +305,10 @@ void load_motor_and_degradation(
     node.get_parameter("odometry.imu_fallback_covariance_scale").as_double();
   odometry.missing_module_covariance_scale =
     node.get_parameter("odometry.missing_module_covariance_scale").as_double();
+  odometry.slip_residual_threshold =
+    node.get_parameter("odometry.slip_residual_threshold").as_double();
+  odometry.slip_covariance_scale =
+    node.get_parameter("odometry.slip_covariance_scale").as_double();
 }
 
 }  // namespace

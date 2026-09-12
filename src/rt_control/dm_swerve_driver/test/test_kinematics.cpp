@@ -123,18 +123,19 @@ TEST(SwerveKinematicsTest, DesaturationPreservesRatios)
   EXPECT_NEAR(states[3].speed_mps, 2.0, kTolerance);
 }
 
-TEST(SwerveKinematicsTest, OptimizeReversesSpeedAndKeepsContinuousTarget)
+TEST(SwerveKinematicsTest, OptimizeSelectsEquivalentTargetInsideMechanicalLimits)
 {
   const auto reversed = optimize_module(
     SwerveModuleState{2.0, 170.0 * kPi / 180.0}, 0.0);
   EXPECT_NEAR(reversed.speed_mps, -2.0, kTolerance);
   EXPECT_NEAR(reversed.error_rad, -10.0 * kPi / 180.0, kTolerance);
-  EXPECT_NEAR(reversed.continuous_angle_rad, -10.0 * kPi / 180.0, kTolerance);
+  EXPECT_NEAR(reversed.target_angle_rad, -10.0 * kPi / 180.0, kTolerance);
 
   const auto crossing = optimize_module(
     SwerveModuleState{1.0, -179.0 * kPi / 180.0}, 179.0 * kPi / 180.0);
-  EXPECT_NEAR(crossing.error_rad, 2.0 * kPi / 180.0, kTolerance);
-  EXPECT_NEAR(crossing.continuous_angle_rad, 181.0 * kPi / 180.0, kTolerance);
+  EXPECT_NEAR(crossing.speed_mps, -1.0, kTolerance);
+  EXPECT_NEAR(crossing.error_rad, -178.0 * kPi / 180.0, kTolerance);
+  EXPECT_NEAR(crossing.target_angle_rad, 1.0 * kPi / 180.0, kTolerance);
 }
 
 TEST(SwerveKinematicsTest, AlignmentAppliesCosineAndGatesAllWheels)
@@ -144,16 +145,18 @@ TEST(SwerveKinematicsTest, AlignmentAppliesCosineAndGatesAllWheels)
     state = SwerveModuleState{2.0, 10.0 * kPi / 180.0};
   }
   const std::array<double, kSwerveModuleCount> measured{};
-  const auto aligned = optimize_and_apply_alignment(
-    desired, measured, 20.0 * kPi / 180.0);
+  SwerveSetpointGenerator aligned_generator{SwerveSetpointParameters{
+      20.0 * kPi / 180.0, 0.0, 1000.0, {}}};
+  const auto aligned = aligned_generator.generate(desired, measured, 0.01);
   EXPECT_FALSE(aligned.gated);
   for (const auto & state : aligned.modules) {
     EXPECT_NEAR(state.speed_mps, 2.0 * std::cos(10.0 * kPi / 180.0), kTolerance);
   }
 
   desired[2].angle_rad = 25.0 * kPi / 180.0;
-  const auto gated = optimize_and_apply_alignment(
-    desired, measured, 20.0 * kPi / 180.0);
+  SwerveSetpointGenerator gated_generator{SwerveSetpointParameters{
+      20.0 * kPi / 180.0, 0.0, 1000.0, {}}};
+  const auto gated = gated_generator.generate(desired, measured, 0.01);
   EXPECT_TRUE(gated.gated);
   EXPECT_NEAR(gated.maximum_error_rad, 25.0 * kPi / 180.0, kTolerance);
   for (const auto & state : gated.modules) {
@@ -212,7 +215,8 @@ TEST(SwerveKinematicsTest, RejectsInvalidPhysicalLimits)
   EXPECT_THROW(static_cast<void>(discretize(ChassisSpeeds{}, 0.0)), std::invalid_argument);
   EXPECT_THROW(desaturate_wheel_speeds(states, 0.0), std::invalid_argument);
   EXPECT_THROW(
-    static_cast<void>(optimize_and_apply_alignment(states, {}, -0.1)),
+    static_cast<void>(SwerveSetpointGenerator(
+        SwerveSetpointParameters{-0.1, 0.1, 1.0, {}})),
     std::invalid_argument);
 }
 
@@ -243,6 +247,59 @@ TEST(SwerveKinematicsTest, MeasuredChassisSpeedsNeedAtLeastTwoModules)
     measured[index].valid = false;
   }
   EXPECT_FALSE(chassis_speeds_from_module_states(measured, kLocations).has_value());
+}
+
+TEST(SwerveKinematicsTest, ResidualFitLocatesAndRejectsSingleWheelSlip)
+{
+  const ChassisSpeeds expected{0.8, -0.3, 0.7};
+  const std::array<double, kSwerveModuleCount> previous{};
+  const auto states = inverse_kinematics(expected, kLocations, previous, 0.0);
+  std::array<SwerveModuleMeasurement, kSwerveModuleCount> measured{};
+  for (std::size_t index{0U}; index < measured.size(); ++index) {
+    measured[index] = SwerveModuleMeasurement{
+      states[index].speed_mps, states[index].angle_rad, true};
+  }
+  measured[2].speed_mps += 2.0;
+
+  const auto fit = chassis_speeds_with_slip_rejection(measured, kLocations, 0.1);
+
+  ASSERT_TRUE(fit.has_value());
+  EXPECT_TRUE(fit->slipping_modules[2]);
+  EXPECT_FALSE(fit->used_modules[2]);
+  EXPECT_EQ(fit->used_module_count, 3U);
+  EXPECT_NEAR(fit->speeds.vx_mps, expected.vx_mps, kTolerance);
+  EXPECT_NEAR(fit->speeds.vy_mps, expected.vy_mps, kTolerance);
+  EXPECT_NEAR(fit->speeds.omega_radps, expected.omega_radps, kTolerance);
+  EXPECT_GT(fit->residual_mps[2], 0.1);
+}
+
+TEST(SwerveKinematicsTest, ResidualFitDocumentsCommonModeBlindSpot)
+{
+  const ChassisSpeeds common_mode_motion{1.3, 0.2, -0.4};
+  const std::array<double, kSwerveModuleCount> previous{};
+  const auto states = inverse_kinematics(common_mode_motion, kLocations, previous, 0.0);
+  std::array<SwerveModuleMeasurement, kSwerveModuleCount> measured{};
+  for (std::size_t index{0U}; index < measured.size(); ++index) {
+    measured[index] = SwerveModuleMeasurement{
+      states[index].speed_mps, states[index].angle_rad, true};
+  }
+
+  const auto fit = chassis_speeds_with_slip_rejection(measured, kLocations, 0.01);
+
+  ASSERT_TRUE(fit.has_value());
+  EXPECT_FALSE(fit->slip_detected());
+  EXPECT_EQ(fit->used_module_count, kSwerveModuleCount);
+  EXPECT_NEAR(fit->speeds.vx_mps, common_mode_motion.vx_mps, kTolerance);
+  EXPECT_NEAR(fit->speeds.vy_mps, common_mode_motion.vy_mps, kTolerance);
+  EXPECT_NEAR(fit->speeds.omega_radps, common_mode_motion.omega_radps, kTolerance);
+}
+
+TEST(SwerveKinematicsTest, ResidualFitRejectsInvalidThreshold)
+{
+  std::array<SwerveModuleMeasurement, kSwerveModuleCount> measured{};
+  EXPECT_THROW(
+    static_cast<void>(chassis_speeds_with_slip_rejection(measured, kLocations, 0.0)),
+    std::invalid_argument);
 }
 
 TEST(SwerveKinematicsTest, FlipSelectionUsesHysteresisAroundNinetyDegrees)
@@ -287,9 +344,125 @@ TEST(SwerveKinematicsTest, SteeringSlewPrecedesAlignmentGate)
   EXPECT_NEAR(setpoint.maximum_error_rad, 1.0, kTolerance);
   EXPECT_TRUE(setpoint.gated);
   for (const auto & module : setpoint.modules) {
-    EXPECT_NEAR(module.continuous_angle_rad, 0.1, kTolerance);
+    EXPECT_NEAR(module.target_angle_rad, 0.1, kTolerance);
     EXPECT_NEAR(module.error_rad, 1.0, kTolerance);
     EXPECT_DOUBLE_EQ(module.speed_mps, 0.0);
+  }
+}
+
+TEST(SwerveKinematicsTest, SteeringSlewStaysInsideLimitsNearPiBoundary)
+{
+  SwerveSetpointGenerator generator{
+    SwerveSetpointParameters{kPi, 0.1, 1.0}};
+  std::array<SwerveModuleState, kSwerveModuleCount> desired{};
+  std::array<double, kSwerveModuleCount> measured{};
+  desired.fill(SwerveModuleState{1.0, -179.0 * kPi / 180.0});
+  measured.fill(179.0 * kPi / 180.0);
+
+  for (int cycle{0}; cycle < 40; ++cycle) {
+    const auto setpoint = generator.generate(desired, measured, 0.1);
+    for (std::size_t index{0U}; index < setpoint.modules.size(); ++index) {
+      EXPECT_TRUE(setpoint.modules[index].reversed);
+      EXPECT_GE(setpoint.modules[index].target_angle_rad, -kPi);
+      EXPECT_LE(setpoint.modules[index].target_angle_rad, kPi);
+      measured[index] = setpoint.modules[index].target_angle_rad;
+    }
+  }
+  for (const auto angle : measured) {
+    EXPECT_NEAR(angle, 1.0 * kPi / 180.0, kTolerance);
+  }
+}
+
+TEST(SwerveKinematicsTest, SteeringLimitsMustCoverEveryWheelHeading)
+{
+  EXPECT_THROW(
+    SwerveSetpointGenerator(SwerveSetpointParameters{
+        0.2, 0.1, 1.0, SteeringAngleLimits{-0.5, 0.5}}),
+    std::invalid_argument);
+}
+
+TEST(SwerveKinematicsTest, BoundedOptimizationCanSelectPositivePiEndpoint)
+{
+  const auto state = optimize_module(
+    SwerveModuleState{1.0, 0.0},
+    179.0 * kPi / 180.0,
+    false,
+    0.0,
+    SteeringAngleLimits{-kPi, kPi, 0.0});
+
+  EXPECT_TRUE(state.reversed);
+  EXPECT_NEAR(state.target_angle_rad, kPi, kTolerance);
+  EXPECT_NEAR(state.error_rad, kPi / 180.0, kTolerance);
+  EXPECT_NEAR(state.speed_mps, -1.0, kTolerance);
+}
+
+TEST(SwerveKinematicsTest, RearLeftPiCrossingUsesLinearErrorAndGatesAllDrive)
+{
+  SwerveSetpointGenerator generator{SwerveSetpointParameters{
+      20.0 * kPi / 180.0, 0.1, 1000.0, {}}};
+  std::array<SwerveModuleState, kSwerveModuleCount> desired{};
+  std::array<double, kSwerveModuleCount> measured{};
+  desired.fill(SwerveModuleState{1.0, 0.0});
+  desired[2].angle_rad = -179.0 * kPi / 180.0;
+  measured[2] = 179.0 * kPi / 180.0;
+
+  const auto setpoint = generator.generate(desired, measured, 0.01);
+
+  EXPECT_TRUE(setpoint.gated);
+  EXPECT_TRUE(setpoint.modules[2].reversed);
+  EXPECT_NEAR(setpoint.modules[2].target_angle_rad, kPi / 180.0, kTolerance);
+  EXPECT_NEAR(setpoint.modules[2].error_rad, -178.0 * kPi / 180.0, kTolerance);
+  for (const auto & module : setpoint.modules) {
+    EXPECT_DOUBLE_EQ(module.speed_mps, 0.0);
+  }
+}
+
+TEST(SwerveKinematicsTest, BoundedOptimizationGridNeverLeavesSafeInterval)
+{
+  constexpr SteeringAngleLimits limits{-kPi, kPi, 0.05};
+  constexpr int samples{72};
+  const double safe_minimum{limits.minimum_rad + limits.margin_rad};
+  const double safe_maximum{limits.maximum_rad - limits.margin_rad};
+  for (int current_index{0}; current_index <= samples; ++current_index) {
+    const double current = safe_minimum +
+      (safe_maximum - safe_minimum) * static_cast<double>(current_index) / samples;
+    for (int desired_index{0}; desired_index <= samples; ++desired_index) {
+      const double desired{-kPi + 2.0 * kPi * desired_index / samples};
+      for (const bool previous_reversed : {false, true}) {
+        const auto state = optimize_module(
+          SwerveModuleState{1.0, desired}, current,
+          previous_reversed, 0.1, limits);
+        EXPECT_GE(state.target_angle_rad, safe_minimum);
+        EXPECT_LE(state.target_angle_rad, safe_maximum);
+        EXPECT_NEAR(
+          state.error_rad, state.target_angle_rad - current, kTolerance);
+      }
+    }
+  }
+}
+
+TEST(SwerveKinematicsTest, MeasurementsNearPhysicalLimitsAreClampedIntoSafeRange)
+{
+  constexpr SteeringAngleLimits limits{-kPi, kPi, 0.1, 0.02};
+  SwerveSetpointGenerator generator{
+    SwerveSetpointParameters{kPi, 0.1, 1.0, limits}};
+  std::array<SwerveModuleState, kSwerveModuleCount> desired{};
+  desired.fill(SwerveModuleState{1.0, 0.0});
+  std::array<double, kSwerveModuleCount> measured{};
+  measured.fill(kPi - 0.05);
+
+  auto setpoint = generator.generate(desired, measured, 0.1);
+  for (const auto & module : setpoint.modules) {
+    EXPECT_LE(module.target_angle_rad, kPi - limits.margin_rad);
+    EXPECT_GE(module.target_angle_rad, -kPi + limits.margin_rad);
+  }
+
+  SwerveSetpointGenerator tolerance_generator{
+    SwerveSetpointParameters{kPi, 0.1, 1.0, limits}};
+  measured.fill(kPi + 0.01);
+  EXPECT_NO_THROW(setpoint = tolerance_generator.generate(desired, measured, 0.1));
+  for (const auto & module : setpoint.modules) {
+    EXPECT_LE(module.target_angle_rad, kPi - limits.margin_rad);
   }
 }
 

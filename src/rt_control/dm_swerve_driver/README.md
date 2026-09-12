@@ -7,7 +7,7 @@ Implemented features:
 - DaMiao MIT, feedback, register and special-command codec
 - RAII SocketCAN interface with filtered receive, `sendmmsg` batch writes and bounded collect
 - 100 Hz absolute-time control thread; executor callbacks only update timestamped mailboxes
-- command discretization, stateful flip hysteresis, steering slew, unified desaturation and alignment gating
+- command discretization, bounded steering branch selection, slew, unified desaturation and alignment gating
 - position-increment odometry, measured twist, gyro/wheel yaw fallback and quality-scaled covariance
 - strict PMAX/VMAX/TMAX, feedback, p_m and enable startup gates
 - ks/kv/ka drive feedforward and bounded steering angular-velocity feedforward
@@ -59,6 +59,18 @@ The launch file configures and activates the lifecycle node automatically. Activ
 only after all eight motors pass limit-register readback, initial feedback, steering absolute-angle
 initialization and enable confirmation. For steering gear ratio greater than one, missing or
 inconsistent `p_m` also rejects activation and the log directs the operator to rezero.
+The seeded steering angle must be inside the physical joint interval plus the configured measurement
+tolerance, and the complete safe target interval must map through offset/gearing/direction into the
+motor's read-back PMAX.
+
+Steering is a bounded revolute joint, not a continuous joint. `steering.joint_limit_min_rad`,
+`steering.joint_limit_max_rad` and `steering.joint_limit_margin_rad` define its safe interval.
+Equivalent forward/reverse wheel directions are compared by actual travel inside that interval;
+the motor output layer validates the selected target but never changes its branch or clamps it.
+`steering.joint_limit_tolerance_rad` applies only to measured-angle noise around the physical
+endpoints and defaults to zero. A measurement inside that tolerance is clamped into the safe interval
+for planning; one beyond it latches a steering-limit fault while the loop continues sending zero drive.
+The fault cannot be cleared until the measurement returns inside the tolerated physical interval.
 
 `can.allow_fallback_limits` defaults to `false`. It can only be enabled with a `vcan*` or `fake*`
 interface for tests; production CAN cannot bypass limit readback. `can.write_timeout_register` defaults
@@ -129,9 +141,18 @@ ros2 run dm_swerve_driver dm_swerve_bringup_check \
 
 ## Hardware completion boundary
 
+Phase 8 adds the Kinco FD backend selected by `driver.backend=kinco`, with an optional
+IgH 1.6 adapter, CANopen absolute steering encoders, startup cross-checks and wheel slip
+filtering. See [Kinco commissioning](doc/kinco_bringup.md) and `config/kinco_params.yaml`.
+The default build has no IgH dependency; real EtherCAT activation requires
+`-DDM_SWERVE_ENABLE_IGH=ON`. Hardware acceptance remains pending.
+
 The software implementation and fake-bus verification are complete. Real motor and vehicle validation cannot be performed without the physical CAN adapter, motors and chassis. Follow:
 
 - [Calibration procedure](doc/calibration.md)
+- [Four-module calibration overview (Kinco)](doc/swerve_calibration_overview.md)
+- [Four-module field calibration manual](doc/swerve_calibration_manual.md)
+- [Calibration record template](doc/swerve_calibration_record_template.md)
 - [Hardware bring-up order](doc/hardware_bringup.md)
 - [Current hardware validation status](doc/hardware_validation_status.md)
 

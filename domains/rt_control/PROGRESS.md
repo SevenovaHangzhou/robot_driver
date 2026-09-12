@@ -88,6 +88,7 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-09-12 | ecat-axes | [四舵轮 Phase 7.5/8 有限角规划、残差检测与 EtherCAT 同步](docs/areas/ecat-axes/records/2026-09-12-swerve-phase8-sync.md) | PARTIAL |
 | 2026-08-13 | governance | [建立功能区开发记录体系](docs/areas/governance/records/2026-08-13-establish-area-record-system.md) | UNVERIFIED |
 | 2026-08-13 | governance | [首版发布前测试用例目录](docs/areas/governance/records/2026-08-13-test-case-catalog-v1.md) | UNVERIFIED |
 | 2026-08-13 | governance | [文档矛盾修正与重复测试清理](docs/areas/governance/records/2026-08-13-doc-contradiction-and-test-dedup.md) | PASS |

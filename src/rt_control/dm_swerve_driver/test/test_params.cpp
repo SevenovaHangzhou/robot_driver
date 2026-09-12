@@ -30,6 +30,12 @@ TEST(DriverParametersTest, DefaultsAreRunnablePlaceholders)
   EXPECT_TRUE(parameters.can.write_timeout_register);
   EXPECT_EQ(parameters.can.write_timeout_us, 2000);
   EXPECT_DOUBLE_EQ(parameters.steering.max_ff_speed_radps, 3.0);
+  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_min_rad, -kPi);
+  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_max_rad, kPi);
+  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_margin_rad, 0.0);
+  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_tolerance_rad, 0.0);
+  EXPECT_DOUBLE_EQ(parameters.odometry.slip_residual_threshold, 0.25);
+  EXPECT_DOUBLE_EQ(parameters.odometry.slip_covariance_scale, 4.0);
 }
 
 TEST(DriverParametersTest, AllowsFallbackLimitsOnlyWhenExplicitlyUsingVcan)
@@ -69,6 +75,10 @@ TEST(DriverParametersTest, BuildsPerModuleMotorAndFeedforwardConfiguration)
   parameters.steering.inverted[2] = true;
   parameters.drive.inverted[2] = true;
   parameters.steering.max_ff_speed_radps = 0.75;
+  parameters.steering.joint_limit_min_rad = -2.8;
+  parameters.steering.joint_limit_max_rad = 2.9;
+  parameters.steering.joint_limit_margin_rad = 0.1;
+  parameters.steering.joint_limit_tolerance_rad = 0.02;
 
   const auto steering = steering_module_config(parameters, 2U);
   const auto drive = drive_module_config(parameters, 2U);
@@ -78,6 +88,10 @@ TEST(DriverParametersTest, BuildsPerModuleMotorAndFeedforwardConfiguration)
   EXPECT_DOUBLE_EQ(steering.zero_offset_rad, 0.4);
   EXPECT_TRUE(steering.inverted);
   EXPECT_DOUBLE_EQ(steering.max_ff_speed_radps, 0.75);
+  EXPECT_DOUBLE_EQ(steering.angle_limits.minimum_rad, -2.8);
+  EXPECT_DOUBLE_EQ(steering.angle_limits.maximum_rad, 2.9);
+  EXPECT_DOUBLE_EQ(steering.angle_limits.margin_rad, 0.1);
+  EXPECT_DOUBLE_EQ(steering.angle_limits.measurement_tolerance_rad, 0.02);
   EXPECT_TRUE(drive.inverted);
   EXPECT_DOUBLE_EQ(drive.wheel_radius_m, parameters.chassis.wheel_radius_m);
   EXPECT_EQ(steering_motor.esc_id, 3U);
@@ -143,6 +157,30 @@ TEST(DriverParametersTest, RejectsInvalidPhaseSevenControlQualityLimits)
   EXPECT_TRUE(contains_error(errors, "max_imu_yaw_step_rad"));
 }
 
+TEST(DriverParametersTest, RejectsInvalidBoundedSteeringRange)
+{
+  auto parameters = default_parameters();
+  parameters.steering.joint_limit_min_rad = -0.5;
+  parameters.steering.joint_limit_max_rad = 0.5;
+  EXPECT_TRUE(contains_error(parameter_errors(parameters), "steering angle range"));
+
+  parameters.steering.joint_limit_min_rad = -kPi - 0.1;
+  parameters.steering.joint_limit_max_rad = kPi + 0.1;
+  EXPECT_TRUE(contains_error(parameter_errors(parameters), "steering angle range"));
+
+  parameters.steering.joint_limit_min_rad = 0.1;
+  parameters.steering.joint_limit_max_rad = kPi;
+  EXPECT_TRUE(contains_error(parameter_errors(parameters), "contain zero"));
+
+  parameters = default_parameters();
+  parameters.steering.joint_limit_margin_rad = kPi / 2.0 + 0.01;
+  EXPECT_TRUE(contains_error(parameter_errors(parameters), "steering angle range"));
+
+  parameters = default_parameters();
+  parameters.steering.joint_limit_tolerance_rad = -0.01;
+  EXPECT_TRUE(contains_error(parameter_errors(parameters), "joint_limit_tolerance_rad"));
+}
+
 TEST(DriverParametersTest, RejectsInvalidOdometryQualityAndRezeroParameters)
 {
   auto parameters = default_parameters();
@@ -152,6 +190,8 @@ TEST(DriverParametersTest, RejectsInvalidOdometryQualityAndRezeroParameters)
     std::numeric_limits<double>::infinity();
   parameters.odometry.imu_fallback_covariance_scale = 0.5;
   parameters.odometry.missing_module_covariance_scale = 0.0;
+  parameters.odometry.slip_residual_threshold = 0.0;
+  parameters.odometry.slip_covariance_scale = 0.5;
   const auto errors = parameter_errors(parameters);
 
   EXPECT_TRUE(contains_error(errors, "rezero_tolerance_rad"));
@@ -159,6 +199,8 @@ TEST(DriverParametersTest, RejectsInvalidOdometryQualityAndRezeroParameters)
   EXPECT_TRUE(contains_error(errors, "twist_covariance_diagonal"));
   EXPECT_TRUE(contains_error(errors, "imu_fallback_covariance_scale"));
   EXPECT_TRUE(contains_error(errors, "missing_module_covariance_scale"));
+  EXPECT_TRUE(contains_error(errors, "slip_residual_threshold"));
+  EXPECT_TRUE(contains_error(errors, "slip_covariance_scale"));
 }
 
 TEST(DriverParametersTest, RejectsUnsafeAutomaticRecoveryConfiguration)

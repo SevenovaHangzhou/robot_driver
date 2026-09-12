@@ -60,10 +60,12 @@ public:
   void mark_transport_failure() noexcept;
   void observe_feedback(
     const std::array<bool, kMotorCount> & received) noexcept;
+  [[nodiscard]] bool observe_steering_limit_violation(bool active) noexcept;
 
   [[nodiscard]] bool faulted() const noexcept;
   [[nodiscard]] bool fault_latched() const noexcept;
   [[nodiscard]] bool transport_faulted() const noexcept;
+  [[nodiscard]] bool steering_limit_faulted() const noexcept;
   [[nodiscard]] const std::array<std::uint32_t, kMotorCount> & recovery_attempts()
     const noexcept;
 
@@ -83,6 +85,7 @@ private:
   bool faulted_{false};
   bool fault_latched_{false};
   bool transport_faulted_{false};
+  bool steering_limit_faulted_{false};
 };
 
 }  // namespace dm_swerve_driver

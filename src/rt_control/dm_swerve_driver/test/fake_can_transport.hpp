@@ -106,10 +106,16 @@ public:
           }
         }
         if (frame.id != kRegisterCanId &&
-          position_override_[response->id & 0x0FU].has_value())
+          (position_override_[response->id & 0x0FU].has_value() ||
+          velocity_override_[response->id & 0x0FU].has_value()))
         {
           auto feedback = decode_motor_feedback(*response, limits_[motor_index]);
-          feedback.position = *position_override_[response->id & 0x0FU];
+          if (position_override_[response->id & 0x0FU].has_value()) {
+            feedback.position = *position_override_[response->id & 0x0FU];
+          }
+          if (velocity_override_[response->id & 0x0FU].has_value()) {
+            feedback.velocity = *velocity_override_[response->id & 0x0FU];
+          }
           *response = encode_motor_feedback(response->id, feedback, limits_[motor_index]);
         }
         if (!drop_all_feedback_ &&
@@ -174,6 +180,10 @@ public:
   {
     position_override_[mst_id & 0x0FU] = position;
   }
+  void set_velocity_override(std::uint16_t mst_id, std::optional<double> velocity)
+  {
+    velocity_override_[mst_id & 0x0FU] = velocity;
+  }
   void clear_batches() {batches_.clear();}
 
   [[nodiscard]] const std::vector<std::vector<CanFrame>> & batches() const noexcept
@@ -199,6 +209,7 @@ private:
   std::optional<RegisterId> suppressed_register_;
   std::array<std::optional<MotorError>, 16U> next_error_override_{};
   std::array<std::optional<double>, 16U> position_override_{};
+  std::array<std::optional<double>, 16U> velocity_override_{};
   std::array<std::optional<float>, 16U> multi_turn_override_{};
   bool open_{false};
   bool fail_open_{false};

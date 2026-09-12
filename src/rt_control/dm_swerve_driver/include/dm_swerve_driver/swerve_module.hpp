@@ -16,9 +16,8 @@ struct SteeringModuleConfig {
   double kp{30.0};
   double kd{1.0};
   double kff_omega{0.9};
-  double recenter_trigger_fraction{0.9};
-  double command_limit_fraction{0.95};
   double max_ff_speed_radps{3.0};
+  SteeringAngleLimits angle_limits{};
 };
 
 struct DriveModuleConfig {
@@ -36,8 +35,7 @@ struct SwerveModuleCommand {
   MitCommand steering;
   MitCommand drive;
   double wheel_speed_mps{0.0};
-  double continuous_angle_rad{0.0};
-  bool recentered{false};
+  double target_angle_rad{0.0};
 };
 
 class SwerveModule final {

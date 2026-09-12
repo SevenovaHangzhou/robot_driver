@@ -4,6 +4,8 @@
 #include <cmath>
 #include <stdexcept>
 
+#include "swerve_least_squares.hpp"
+
 namespace dm_swerve_driver {
 namespace {
 
@@ -40,53 +42,6 @@ void validate_state(const SwerveModuleState & state)
 [[nodiscard]] double midpoint_angle(double previous, double current) noexcept
 {
   return previous + wrap_pi(current - previous) / 2.0;
-}
-
-using AugmentedMatrix = std::array<std::array<double, 4U>, 3U>;
-
-[[nodiscard]] std::optional<std::array<double, 3U>> solve_three_by_three(
-  AugmentedMatrix matrix) noexcept
-{
-  constexpr double singular_tolerance{1e-12};
-  for (std::size_t column{0U}; column < 3U; ++column) {
-    std::size_t pivot{column};
-    for (std::size_t row{column + 1U}; row < 3U; ++row) {
-      if (std::abs(matrix[row][column]) > std::abs(matrix[pivot][column])) {
-        pivot = row;
-      }
-    }
-    if (std::abs(matrix[pivot][column]) < singular_tolerance) {
-      return std::nullopt;
-    }
-    std::swap(matrix[column], matrix[pivot]);
-    const double divisor{matrix[column][column]};
-    for (std::size_t entry{column}; entry < 4U; ++entry) {
-      matrix[column][entry] /= divisor;
-    }
-    for (std::size_t row{0U}; row < 3U; ++row) {
-      if (row == column) {
-        continue;
-      }
-      const double scale{matrix[row][column]};
-      for (std::size_t entry{column}; entry < 4U; ++entry) {
-        matrix[row][entry] -= scale * matrix[column][entry];
-      }
-    }
-  }
-  return std::array<double, 3U>{matrix[0][3], matrix[1][3], matrix[2][3]};
-}
-
-void accumulate_observation(
-  AugmentedMatrix & normal,
-  const std::array<double, 3U> & row,
-  double measurement) noexcept
-{
-  for (std::size_t outer{0U}; outer < 3U; ++outer) {
-    for (std::size_t inner{0U}; inner < 3U; ++inner) {
-      normal[outer][inner] += row[outer] * row[inner];
-    }
-    normal[outer][3] += row[outer] * measurement;
-  }
 }
 
 }  // namespace
@@ -160,80 +115,6 @@ void desaturate_wheel_speeds(
   }
 }
 
-OptimizedModuleState optimize_module(
-  const SwerveModuleState & desired, double current_unwrapped_angle_rad)
-{
-  validate_state(desired);
-  if (!finite(current_unwrapped_angle_rad)) {
-    throw std::invalid_argument{"current module angle must be finite"};
-  }
-
-  double error{wrap_pi(desired.angle_rad - wrap_pi(current_unwrapped_angle_rad))};
-  double speed{desired.speed_mps};
-  bool reversed{false};
-  if (std::abs(error) > kPi / 2.0) {
-    error -= std::copysign(kPi, error);
-    speed = -speed;
-    reversed = true;
-  }
-  return OptimizedModuleState{
-    speed, current_unwrapped_angle_rad + error, error, reversed};
-}
-
-OptimizedModuleState optimize_module(
-  const SwerveModuleState & desired,
-  double current_unwrapped_angle_rad,
-  bool previous_reversed,
-  double hysteresis_rad)
-{
-  validate_state(desired);
-  if (!finite(current_unwrapped_angle_rad)) {
-    throw std::invalid_argument{"current module angle must be finite"};
-  }
-  if (!finite(hysteresis_rad) || hysteresis_rad < 0.0 || hysteresis_rad >= kPi / 2.0) {
-    throw std::invalid_argument{"flip hysteresis must be finite and in [0, pi/2)"};
-  }
-
-  double error{wrap_pi(desired.angle_rad - wrap_pi(current_unwrapped_angle_rad))};
-  const double absolute_error{std::abs(error)};
-  const bool reversed = previous_reversed ?
-    absolute_error >= kPi / 2.0 - hysteresis_rad :
-    absolute_error > kPi / 2.0 + hysteresis_rad;
-  double speed{desired.speed_mps};
-  if (reversed) {
-    error -= std::copysign(kPi, error);
-    speed = -speed;
-  }
-  return OptimizedModuleState{
-    speed, current_unwrapped_angle_rad + error, error, reversed};
-}
-
-AlignmentResult optimize_and_apply_alignment(
-  const std::array<SwerveModuleState, kSwerveModuleCount> & desired,
-  const std::array<double, kSwerveModuleCount> & current_unwrapped_angles_rad,
-  double alignment_threshold_rad)
-{
-  if (!finite(alignment_threshold_rad) || alignment_threshold_rad < 0.0) {
-    throw std::invalid_argument{"alignment threshold must be finite and nonnegative"};
-  }
-
-  AlignmentResult result{};
-  for (std::size_t index{0U}; index < result.modules.size(); ++index) {
-    result.modules[index] = optimize_module(desired[index], current_unwrapped_angles_rad[index]);
-    result.maximum_error_rad = std::max(
-      result.maximum_error_rad, std::abs(result.modules[index].error_rad));
-    result.modules[index].speed_mps *= std::max(0.0, std::cos(result.modules[index].error_rad));
-  }
-
-  result.gated = result.maximum_error_rad > alignment_threshold_rad;
-  if (result.gated) {
-    for (auto & module : result.modules) {
-      module.speed_mps = 0.0;
-    }
-  }
-  return result;
-}
-
 std::optional<Translation2d> wheel_translation_from_position_deltas(
   const std::array<SwerveModulePosition, kSwerveModuleCount> & previous,
   const std::array<SwerveModulePosition, kSwerveModuleCount> & current,
@@ -279,7 +160,7 @@ std::optional<ChassisDelta> wheel_chassis_delta_from_position_deltas(
   const std::array<SwerveModulePosition, kSwerveModuleCount> & current,
   const std::array<Translation2d, kSwerveModuleCount> & module_locations)
 {
-  AugmentedMatrix normal{};
+  std::array<ModuleVectorObservation, kSwerveModuleCount> observations{};
   std::size_t valid_count{0U};
   for (std::size_t index{0U}; index < current.size(); ++index) {
     if (!previous[index].valid || !current[index].valid) {
@@ -296,26 +177,27 @@ std::optional<ChassisDelta> wheel_chassis_delta_from_position_deltas(
     }
     const double distance{new_position.distance_m - old_position.distance_m};
     const double angle{midpoint_angle(old_position.angle_rad, new_position.angle_rad)};
-    accumulate_observation(normal, {1.0, 0.0, -location.y}, distance * std::cos(angle));
-    accumulate_observation(normal, {0.0, 1.0, location.x}, distance * std::sin(angle));
+    observations[index] = ModuleVectorObservation{
+      distance * std::cos(angle), distance * std::sin(angle), true};
     ++valid_count;
   }
   if (valid_count < 2U) {
     return std::nullopt;
   }
-  const auto solution = solve_three_by_three(normal);
-  if (!solution.has_value()) {
+  const auto fit = fit_module_observations(observations, module_locations, std::nullopt);
+  if (!fit.has_value()) {
     return std::nullopt;
   }
-  return ChassisDelta{(*solution)[0], (*solution)[1], (*solution)[2]};
+  return ChassisDelta{fit->solution[0], fit->solution[1], fit->solution[2]};
 }
 
-std::optional<ChassisSpeeds> chassis_speeds_from_module_states(
+namespace {
+
+[[nodiscard]] std::array<ModuleVectorObservation, kSwerveModuleCount> velocity_observations(
   const std::array<SwerveModuleMeasurement, kSwerveModuleCount> & modules,
   const std::array<Translation2d, kSwerveModuleCount> & module_locations)
 {
-  AugmentedMatrix normal{};
-  std::size_t valid_count{0U};
+  std::array<ModuleVectorObservation, kSwerveModuleCount> observations{};
   for (std::size_t index{0U}; index < modules.size(); ++index) {
     if (!modules[index].valid) {
       continue;
@@ -327,20 +209,54 @@ std::optional<ChassisSpeeds> chassis_speeds_from_module_states(
     {
       throw std::invalid_argument{"valid module velocity samples and geometry must be finite"};
     }
-    const double wheel_x{module.speed_mps * std::cos(module.angle_rad)};
-    const double wheel_y{module.speed_mps * std::sin(module.angle_rad)};
-    accumulate_observation(normal, {1.0, 0.0, -location.y}, wheel_x);
-    accumulate_observation(normal, {0.0, 1.0, location.x}, wheel_y);
-    ++valid_count;
+    observations[index] = ModuleVectorObservation{
+      module.speed_mps * std::cos(module.angle_rad),
+      module.speed_mps * std::sin(module.angle_rad),
+      true};
   }
-  if (valid_count < 2U) {
+  return observations;
+}
+
+}  // namespace
+
+bool ChassisSpeedFit::slip_detected() const noexcept
+{
+  return std::any_of(
+    slipping_modules.begin(), slipping_modules.end(), [](bool slipping) {return slipping;});
+}
+
+std::optional<ChassisSpeeds> chassis_speeds_from_module_states(
+  const std::array<SwerveModuleMeasurement, kSwerveModuleCount> & modules,
+  const std::array<Translation2d, kSwerveModuleCount> & module_locations)
+{
+  const auto fit = fit_module_observations(
+    velocity_observations(modules, module_locations), module_locations, std::nullopt);
+  if (!fit.has_value()) {
     return std::nullopt;
   }
-  const auto solution = solve_three_by_three(normal);
-  if (!solution.has_value()) {
+  return ChassisSpeeds{fit->solution[0], fit->solution[1], fit->solution[2]};
+}
+
+std::optional<ChassisSpeedFit> chassis_speeds_with_slip_rejection(
+  const std::array<SwerveModuleMeasurement, kSwerveModuleCount> & modules,
+  const std::array<Translation2d, kSwerveModuleCount> & module_locations,
+  double slip_residual_threshold)
+{
+  if (!finite(slip_residual_threshold) || slip_residual_threshold <= 0.0) {
+    throw std::invalid_argument{"slip residual threshold must be finite and positive"};
+  }
+  const auto fit = fit_module_observations(
+    velocity_observations(modules, module_locations), module_locations,
+    slip_residual_threshold);
+  if (!fit.has_value()) {
     return std::nullopt;
   }
-  return ChassisSpeeds{(*solution)[0], (*solution)[1], (*solution)[2]};
+  return ChassisSpeedFit{
+    ChassisSpeeds{fit->solution[0], fit->solution[1], fit->solution[2]},
+    fit->residuals,
+    fit->used,
+    fit->rejected,
+    fit->used_count};
 }
 
 }  // namespace dm_swerve_driver

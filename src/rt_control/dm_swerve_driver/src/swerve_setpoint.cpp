@@ -34,6 +34,9 @@ SwerveSetpointGenerator::SwerveSetpointGenerator(
   {
     throw std::invalid_argument{"maximum steering slew must be finite and positive"};
   }
+  if (!valid_steering_angle_limits(parameters_.angle_limits)) {
+    throw std::invalid_argument{"steering angle limits must span [pi, 2*pi]"};
+  }
 }
 
 AlignmentResult SwerveSetpointGenerator::generate(
@@ -48,22 +51,29 @@ AlignmentResult SwerveSetpointGenerator::generate(
   AlignmentResult result{};
   const double maximum_step{parameters_.maximum_steering_slew_radps * dt_seconds};
   for (std::size_t index{0U}; index < result.modules.size(); ++index) {
+    if (!steering_measurement_within_tolerance(
+        measured_angles_rad[index], parameters_.angle_limits))
+    {
+      throw std::out_of_range{"steering measurement exceeds physical limit tolerance"};
+    }
+    const double planning_angle{clamp_steering_measurement_to_safe_range(
+        measured_angles_rad[index], parameters_.angle_limits)};
     const auto optimized = optimize_module(
-      desired[index], measured_angles_rad[index], reversed_[index],
-      parameters_.flip_hysteresis_rad);
+      desired[index], planning_angle, reversed_[index],
+      parameters_.flip_hysteresis_rad, parameters_.angle_limits);
     reversed_[index] = optimized.reversed;
 
     if (!previous_targets_[index].has_value()) {
-      previous_targets_[index] = measured_angles_rad[index];
+      previous_targets_[index] = planning_angle;
     }
-    const double target_delta{wrap_pi(
-        optimized.continuous_angle_rad - *previous_targets_[index])};
+    const double target_delta{
+      optimized.target_angle_rad - *previous_targets_[index]};
     const double limited_target = *previous_targets_[index] +
       std::clamp(target_delta, -maximum_step, maximum_step);
     previous_targets_[index] = limited_target;
 
     result.modules[index] = optimized;
-    result.modules[index].continuous_angle_rad = limited_target;
+    result.modules[index].target_angle_rad = limited_target;
     result.modules[index].speed_mps *= std::max(0.0, std::cos(optimized.error_rad));
     result.maximum_error_rad = std::max(
       result.maximum_error_rad, std::abs(optimized.error_rad));

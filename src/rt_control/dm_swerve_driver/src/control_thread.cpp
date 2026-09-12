@@ -4,6 +4,7 @@
 #include <sched.h>
 #include <time.h>
 
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <string>
@@ -32,21 +33,22 @@ void add_period(timespec & value, std::chrono::nanoseconds period) noexcept
 
 ControlLoopOutput ControlLoop::Impl::make_output(
   SteadyClock::time_point now,
-  const Pose2d & pose,
+  const CycleOdometry & odometry,
   const ChassisSpeeds & command,
-  const ChassisSpeeds & measured_twist,
-  bool alignment_gated,
-  bool imu_fallback,
-  std::size_t valid_module_count) const
+  bool alignment_gated) const
 {
   ControlLoopOutput output{};
   output.timestamp = now;
-  output.pose = pose;
+  output.pose = odometry.pose;
   output.command = command;
-  output.measured_twist = measured_twist;
+  output.measured_twist = odometry.measured_twist;
   output.alignment_gated = alignment_gated;
-  output.imu_fallback = imu_fallback;
-  output.valid_module_count = valid_module_count;
+  output.imu_fallback = odometry.imu_fallback;
+  output.valid_module_count = odometry.valid_module_count;
+  output.slipping_modules = odometry.slipping_modules;
+  output.slip_detected = std::any_of(
+    odometry.slipping_modules.begin(), odometry.slipping_modules.end(),
+    [](bool slipping) {return slipping;});
   for (std::size_t index{0U}; index < modules_.size(); ++index) {
     if (modules_[index].steering_motor().position_initialized()) {
       output.steering_angle_rad[index] = modules_[index].steering_angle_rad();
@@ -61,20 +63,15 @@ ControlLoopOutput ControlLoop::Impl::make_output(
 
 void ControlLoop::Impl::maybe_publish(
   SteadyClock::time_point now,
-  const Pose2d & pose,
+  const CycleOdometry & odometry,
   const ChassisSpeeds & command,
-  const ChassisSpeeds & measured_twist,
-  bool alignment_gated,
-  bool imu_fallback,
-  std::size_t valid_module_count)
+  bool alignment_gated)
 {
   if (now - last_publish_time_ < publish_period()) {
     return;
   }
   last_publish_time_ = now;
-  const ControlLoopOutput output{make_output(
-      now, pose, command, measured_twist, alignment_gated,
-      imu_fallback, valid_module_count)};
+  const ControlLoopOutput output{make_output(now, odometry, command, alignment_gated)};
   try {
     if (callbacks_.publish_output) {
       callbacks_.publish_output(output);
@@ -95,6 +92,7 @@ void ControlLoop::Impl::refresh_status()
   status_.faulted = safety_.faulted();
   status_.fault_latched = safety_.fault_latched();
   status_.transport_faulted = safety_.transport_faulted();
+  status_.steering_limit_faulted = safety_.steering_limit_faulted();
   status_.recovery_attempts = safety_.recovery_attempts();
   for (std::size_t index{0U}; index < motors.size(); ++index) {
     status_.motors[index] = motors[index]->health();
