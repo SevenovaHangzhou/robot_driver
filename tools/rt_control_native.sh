@@ -338,8 +338,10 @@ verify_igh_fixed_pdo_support()
   local metadata="/usr/local/share/rt-control/dependency-versions.env"
   local patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
   local dc_patch="${repository_root}/patches/igh/0002-dc-offset-use-sent-application-time.patch"
+  local preop_patch="${repository_root}/patches/igh/0003-preop-only-coe.patch"
   local patch_sha256
   local dc_patch_sha256
+  local preop_patch_sha256
   local module_path
   local module_symbols
   local module_notes="/sys/module/ec_master/notes/.note.gnu.build-id"
@@ -361,6 +363,10 @@ verify_igh_fixed_pdo_support()
     fail "IgH requires --enable-hrtimer before FIFO scheduling"
   grep -Fxq "IGH_DC_OFFSET_PATCH_SHA256=${dc_patch_sha256}" "${metadata}" ||
     fail "installed IgH lacks the expected DC offset patch"
+  [[ -r "${preop_patch}" ]] || fail "missing IgH PREOP CoE policy patch"
+  preop_patch_sha256="$(sha256sum "${preop_patch}" | awk '{print $1}')"
+  grep -Fxq "IGH_PREOP_COE_PATCH_SHA256=${preop_patch_sha256}" "${metadata}" ||
+    fail "installed IgH lacks the PREOP-only CoE policy"
   command -v nm >/dev/null 2>&1 || fail "nm is required to verify IgH hrtimer support"
   command -v objcopy >/dev/null 2>&1 || fail "objcopy is required to verify the loaded IgH build"
   module_path="$(modinfo -n ec_master)" || fail "cannot locate installed ec_master"
@@ -384,6 +390,8 @@ verify_workspace()
     fail "missing executable realtime CPU guard: ${realtime_cpu_guard}"
   [[ -x "${thread_affinity_tool}" ]] ||
     fail "missing executable thread affinity helper: ${thread_affinity_tool}"
+  [[ -r "${script_dir}/rt_control_ti5_pdo_prepare.py" ]] ||
+    fail "missing Ti5 fixed-PDO preparation helper"
   command -v ip >/dev/null 2>&1 || fail "missing ip"
   command -v modprobe >/dev/null 2>&1 || fail "missing modprobe"
   command -v taskset >/dev/null 2>&1 || fail "missing taskset"
@@ -1178,6 +1186,15 @@ prepare_startup_realtime()
   return 1
 }
 
+prepare_ti5_pdo_assignments()
+{
+  local output
+  output="${runtime_log_root}/ti5-pdo-$(date +%Y%m%d-%H%M%S)-$$"
+  python3 "${script_dir}/rt_control_ti5_pdo_prepare.py" --restore --output "${output}" \
+    --profiles "${install_root}/share/robot_hw_ethercat/config/slaves" ||
+    fail "Ti5 fixed-PDO preparation failed; RT-Control was not started; see ${output}"
+}
+
 start_native()
 {
   local authorization="${1:-interactive}"
@@ -1200,6 +1217,7 @@ start_native()
   prepare_can_interfaces
   verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"
   verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"
+  prepare_ti5_pdo_assignments
   launch_native
   if ! (prepare_startup_realtime); then
     terminate_failed_start

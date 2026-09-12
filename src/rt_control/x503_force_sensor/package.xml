@@ -2,15 +2,14 @@
 <package format="3">
   <name>x503_force_sensor</name>
   <version>0.1.0</version>
-  <description>Shadow-only X503B EtherCAT state to ROS WrenchStamped bridge.</description>
+  <description>X503B PREOP calibration and PDO-only ROS WrenchStamped bridge.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
-  <depend>diagnostic_msgs</depend>
-  <depend>rclcpp</depend>
-  <depend>robot_interfaces_qos</depend>
-  <depend>yaml_cpp_vendor</depend>
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>robot_interfaces_qos</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>control_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>

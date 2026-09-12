@@ -44,6 +44,10 @@ launch_native() {
     mkdir -p "$runtime_root"
     printf '123\n' > "$pid_file"
 }
+prepare_ti5_pdo_assignments() {
+    event pdo
+    [[ "$TEST_CASE" != "pdo_failure" ]]
+}
 pgrep() { [[ "$TEST_CASE" != "exited" && "$TEST_CASE" != "kernel_timeout" ]]; }
 kill() { [[ "$TEST_CASE" != "exited" ]]; }
 sleep() {
@@ -84,16 +88,17 @@ start_native preauthorized
     def test_plain_start_prepares_realtime_before_readiness_without_enable(self):
         result, events, running = self.run_start()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(events, ["launch", "kernel", "pin", "services", "controllers", "operational"])
+        self.assertEqual(events, ["pdo", "launch", "kernel", "pin", "services", "controllers", "operational"])
         self.assertTrue(running)
         self.assertIn("READY:", result.stdout)
 
     def test_failed_realtime_configuration_stops_without_readiness(self):
         for scenario, expected in [
-            ("kernel_failure", ["launch", "kernel", "stop"]),
-            ("pin_failure", ["launch", "kernel", "pin", "stop"]),
-            ("exited", ["launch", "stop"]),
-            ("kernel_timeout", ["launch", "stop"]),
+            ("pdo_failure", ["pdo"]),
+            ("kernel_failure", ["pdo", "launch", "kernel", "stop"]),
+            ("pin_failure", ["pdo", "launch", "kernel", "pin", "stop"]),
+            ("exited", ["pdo", "launch", "stop"]),
+            ("kernel_timeout", ["pdo", "launch", "stop"]),
         ]:
             with self.subTest(scenario=scenario):
                 result, events, running = self.run_start(scenario)
@@ -105,7 +110,7 @@ start_native preauthorized
     def test_waits_for_the_launched_process_to_complete_exec(self):
         result, events, running = self.run_start("exec_pending")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(events, ["launch", "kernel", "pin", "services", "controllers", "operational"])
+        self.assertEqual(events, ["pdo", "launch", "kernel", "pin", "services", "controllers", "operational"])
         self.assertTrue(running)
 
 

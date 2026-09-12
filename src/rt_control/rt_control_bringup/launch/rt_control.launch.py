@@ -1,4 +1,8 @@
 from pathlib import Path
+import json
+import uuid
+
+import yaml
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -26,6 +30,7 @@ from rt_control_bringup.hardware_composition import (
     validate_controller_compatibility,
     variant_descriptor_path,
 )
+from x503_force_sensor.preop import load_sensor_spec, read_preop_snapshot
 
 
 def _raise_required_spawner_failure(
@@ -64,6 +69,8 @@ def _start_next_spawner_or_stop(
 
 
 def _launch_setup(context):
+    if LaunchConfiguration("start_x503_sdo_snapshot", default="false").perform(context) != "false":
+        raise ValueError("Standalone SDO polling is disabled; X503 parameters are read once in PREOP")
     use_mock_hardware_value = LaunchConfiguration("use_mock_hardware").perform(
         context
     )
@@ -85,6 +92,28 @@ def _launch_setup(context):
     )
     controllers_path = bringup_share / "config/controllers.yaml"
     validate_controller_compatibility(hardware_composition, controllers_path)
+    x503_parameters = hardware_composition.x503_parameters()
+    startup_id = uuid.uuid4().hex
+    preop_snapshot_json = ""
+    if x503_parameters["sensor_names"]:
+        force_enabled = LaunchConfiguration("start_x503_force_sensor", default="true").perform(context)
+        if force_enabled not in {"true", "false"}:
+            raise ValueError("start_x503_force_sensor must be true or false")
+        if force_enabled == "true":
+            ethercat_share = Path(get_package_share_directory("robot_hw_ethercat"))
+            specs = [load_sensor_spec(
+                sensor.sensor_name, sensor.ring_position,
+                ethercat_share / "config/slaves" / f"{sensor.profile}.yaml")
+                for sensor in hardware_composition.ethercat.sensors if sensor.wrench_topic]
+            readback_config = yaml.safe_load(
+                (ethercat_share / "config/x503b_readback.yaml").read_text(encoding="utf-8"))
+            # This call completes before any Node action is created or started.
+            # The runtime receives only this launch's in-memory snapshot.
+            snapshot = read_preop_snapshot(
+                specs, readback_config, startup_id=startup_id,
+                expected_responders=hardware_composition.ethercat.expected_responders,
+                mock=use_mock_hardware_value == "true")
+            preop_snapshot_json = json.dumps(snapshot)
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_mock_hardware = use_mock_hardware_value
     ethercat_variant = LaunchConfiguration("ethercat_variant")
@@ -182,7 +211,6 @@ def _launch_setup(context):
         parameters=[rt_io_file],
         condition=IfCondition(start_bms),
     )
-    x503_parameters = hardware_composition.x503_parameters()
     x503_nodes = []
     if x503_parameters["sensor_names"]:
         x503_nodes = [
@@ -197,34 +225,13 @@ def _launch_setup(context):
                             "/rt_internal_state_broadcaster/dynamic_joint_states"
                         ),
                         "calibration_topic": "/rt_control/x503b/calibration",
+                        "preop_snapshot_json": preop_snapshot_json,
+                        "startup_id": startup_id,
                         "use_sim_time": use_sim_time,
                     }
                 ],
                 condition=IfCondition(
                     LaunchConfiguration("start_x503_force_sensor")
-                ),
-            ),
-            Node(
-                package="x503_force_sensor",
-                executable="x503_sdo_snapshot",
-                output="both",
-                parameters=[
-                    {
-                        "sensor_names": x503_parameters["sensor_names"],
-                        "slave_positions": x503_parameters["slave_positions"],
-                        "readback_config": PathJoinSubstitution(
-                            [
-                                FindPackageShare("robot_hw_ethercat"),
-                                "config",
-                                "x503b_readback.yaml",
-                            ]
-                        ),
-                        "calibration_topic": "/rt_control/x503b/calibration",
-                        "use_sim_time": use_sim_time,
-                    }
-                ],
-                condition=IfCondition(
-                    LaunchConfiguration("start_x503_sdo_snapshot")
                 ),
             ),
         ]

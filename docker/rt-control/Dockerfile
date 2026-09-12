@@ -47,6 +47,7 @@ COPY patches/igh/0001-preserve-verified-pdo-config.patch \
   /tmp/0001-preserve-verified-pdo-config.patch
 COPY patches/igh/0002-dc-offset-use-sent-application-time.patch \
   /tmp/0002-dc-offset-use-sent-application-time.patch
+COPY patches/igh/0003-preop-only-coe.patch /tmp/0003-preop-only-coe.patch
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && git init ethercat \
     && cd ethercat \
@@ -58,6 +59,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && git apply /tmp/0001-preserve-verified-pdo-config.patch \
     && git apply --check /tmp/0002-dc-offset-use-sent-application-time.patch \
     && git apply /tmp/0002-dc-offset-use-sent-application-time.patch \
+    && git apply --check /tmp/0003-preop-only-coe.patch \
+    && git apply /tmp/0003-preop-only-coe.patch \
     && ./bootstrap \
     && ./configure --prefix=/usr/local/etherlab --disable-kernel \
     && make -j"$(nproc)" \
@@ -67,12 +70,13 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       /tmp/0001-preserve-verified-pdo-config.patch | awk '{print $1}')" \
     && igh_dc_patch_sha256="$(sha256sum \
       /tmp/0002-dc-offset-use-sent-application-time.patch | awk '{print $1}')" \
-    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_DC_OFFSET_PATCH_SHA256=%s\n' \
-      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" \
+    && igh_preop_patch_sha256="$(sha256sum /tmp/0003-preop-only-coe.patch | awk '{print $1}')" \
+    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_DC_OFFSET_PATCH_SHA256=%s\nIGH_PREOP_COE_PATCH_SHA256=%s\n' \
+      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" "${igh_preop_patch_sha256}" \
       > /usr/local/share/rt-control/dependency-versions.env \
     && ldconfig \
     && rm -rf /tmp/ethercat \
-    && rm -f /tmp/0001-preserve-verified-pdo-config.patch /tmp/0002-dc-offset-use-sent-application-time.patch
+    && rm -f /tmp/0001-preserve-verified-pdo-config.patch /tmp/0002-dc-offset-use-sent-application-time.patch /tmp/0003-preop-only-coe.patch
 
 ENV PATH="/usr/local/etherlab/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/etherlab/lib"
