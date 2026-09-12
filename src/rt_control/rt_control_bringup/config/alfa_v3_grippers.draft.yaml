@@ -1,0 +1,35 @@
+# Not loaded by production launch. Replace every TBD from approved calibration.
+controller_manager:
+  ros__parameters:
+    left_gripper_controller:
+      type: position_controllers/GripperActionController
+    right_gripper_controller:
+      type: position_controllers/GripperActionController
+
+left_gripper_controller:
+  ros__parameters:
+    joint: TBD
+    pp:
+      enabled: true
+      min_position: TBD
+      max_position: TBD
+      command_timeout: TBD
+    max_effort: TBD
+    goal_tolerance: TBD
+    stall_velocity_threshold: TBD
+    stall_timeout: TBD
+    allow_stalling: false
+
+right_gripper_controller:
+  ros__parameters:
+    joint: TBD
+    pp:
+      enabled: true
+      min_position: TBD
+      max_position: TBD
+      command_timeout: TBD
+    max_effort: TBD
+    goal_tolerance: TBD
+    stall_velocity_threshold: TBD
+    stall_timeout: TBD
+    allow_stalling: false

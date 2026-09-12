@@ -1,0 +1,149 @@
+# Commissioning inventory, not a loadable EtherCAT runtime variant.
+# Positions/identities: ecat-axes-20260912-03; joint order: user confirmation.
+# Modes are the requested CSP/PP assignments, not a live 0x6061 readback.
+schema_version: 1
+robot_variant: alfa_v3
+physical_profile: arms_only
+status: draft
+master_id: 0
+
+identities:
+  coupler_main:
+    vendor_id: 0x00100000
+    product_code: 0x10F40931
+    revision_number: 0x00010000
+  coupler_subdevice:
+    vendor_id: 0x00100000
+    product_code: 0x10F40932
+    revision_number: 0x00010000
+  zeroerr:
+    vendor_id: 0x5A65726F
+    product_code: 0x00029252
+    revision_number: 0x00000001
+
+# Non-motion responders; never add these to enable_manager's managed axes.
+# Observed stored aliases are metadata, not a selected runtime addressing policy.
+extra_responders:
+  - ring_position: 0
+    identity_ref: coupler_main
+    observed_alias: 2
+  - ring_position: 17
+    identity_ref: coupler_subdevice
+    observed_alias: 7
+
+# Approved usage requirements for commissioning; not consumed by runtime yet.
+# Fault reset (6040 bit 7) is distinct from resetting the load encoder (2242).
+# Range/battery/reference validation is still pending; no fault-state override.
+encoder_policies:
+  single_turn:
+    requires_multiturn_retention: false
+    startup_battery_reset_codes: [0x730F]
+    startup_reset_method: cia402_fault_reset
+    reset_owner: enable_manager
+    require_fault_free_status: true
+    auto_reset_load_encoder: false
+    require_nonwrapping_output_range: true
+    output_count_interval: TBD
+    range_verified: false
+  multiturn_required:
+    requires_multiturn_retention: true
+    startup_battery_reset_codes: []
+    require_fault_free_status: true
+    auto_reset_load_encoder: false
+    require_valid_battery: true
+    require_valid_multiturn_reference: true
+    battery_verified: false
+    reference_verified: false
+
+branches:
+  left:
+    connector: X2
+    main_esc_port: 3
+    identity_ref: zeroerr
+    axes:
+      - physical_joint: J1
+        ring_position: 1
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J2
+        ring_position: 2
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J3
+        ring_position: 3
+        mode_of_operation: 8
+        robot_model_joint: TBD
+        encoder_policy: single_turn
+      - physical_joint: J4
+        ring_position: 4
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J5
+        ring_position: 5
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J6
+        ring_position: 6
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J7
+        ring_position: 7
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: gripper
+        ring_position: 8
+        mode_of_operation: 1
+        robot_model_joint: TBD
+        encoder_policy: multiturn_required
+  right:
+    connector: X3
+    main_esc_port: 1
+    identity_ref: zeroerr
+    axes:
+      - physical_joint: J1
+        ring_position: 9
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J2
+        ring_position: 10
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J3
+        ring_position: 11
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J4
+        ring_position: 12
+        mode_of_operation: 8
+        robot_model_joint: TBD
+        encoder_policy: single_turn
+      - physical_joint: J5
+        ring_position: 13
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J6
+        ring_position: 14
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: J7
+        ring_position: 15
+        mode_of_operation: 8
+        robot_model_joint: TBD
+      - physical_joint: gripper
+        ring_position: 16
+        mode_of_operation: 1
+        robot_model_joint: TBD
+        encoder_policy: multiturn_required
+
+drive_profiles:
+  csp: config/machines/zeroerr_csp.draft.yaml
+  gripper_pp: config/grippers/zeroerr_pp.draft.yaml
+mechanical_parameters: TBD
+pending_facts:
+  - authoritative Robot Model joint names
+  - drive PDO/SDO mapping, units, scaling, limits and calibration
+  - coupler runtime state/DC and ESI display-version difference
+  - runtime addressing, controllers and lifecycle qualification
+  - "PP Halt policy: live firmware has no 0x605D object"
+  - verified nonwrapping single-turn ranges for left J3 and right J4
+  - gripper battery and multiturn-reference qualification after battery reconnection

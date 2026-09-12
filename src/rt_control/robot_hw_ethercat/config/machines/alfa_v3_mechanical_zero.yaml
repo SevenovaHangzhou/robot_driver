@@ -1,0 +1,24 @@
+# User-confirmed mechanical zero. Raw output-encoder counts; no guessed rad/m scaling.
+schema_version: 1
+robot_variant: alfa_v3
+confirmed_by: user
+captured_utc: '2026-09-12T08:43:26.768834+00:00'
+external_transmission_ratio: 1.0
+position_object: 0x6064
+axes:
+  - {ring_position: 1, zero_counts: 21613, digital_outputs: 1}
+  - {ring_position: 2, zero_counts: 424470, digital_outputs: 1}
+  - {ring_position: 3, zero_counts: 369962, digital_outputs: 1}
+  - {ring_position: 4, zero_counts: 212362, digital_outputs: 1}
+  - {ring_position: 5, zero_counts: 262139, digital_outputs: 1}
+  - {ring_position: 6, zero_counts: 262141, digital_outputs: 1}
+  - {ring_position: 7, zero_counts: 117227, digital_outputs: 1}
+  - {ring_position: 8, zero_counts: 222142, digital_outputs: 1}
+  - {ring_position: 9, zero_counts: 252125, digital_outputs: 1}
+  - {ring_position: 10, zero_counts: 312150, digital_outputs: 1}
+  - {ring_position: 11, zero_counts: 262141, digital_outputs: 1}
+  - {ring_position: 12, zero_counts: 465961, digital_outputs: 1}
+  - {ring_position: 13, zero_counts: 36412, digital_outputs: 1}
+  - {ring_position: 14, zero_counts: 61508, digital_outputs: 1}
+  - {ring_position: 15, zero_counts: 150512, digital_outputs: 1}
+  - {ring_position: 16, zero_counts: 292159, digital_outputs: 1}

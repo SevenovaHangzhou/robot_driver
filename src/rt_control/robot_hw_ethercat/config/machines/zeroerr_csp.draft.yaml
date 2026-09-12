@@ -1,0 +1,22 @@
+# Gen3 CSP candidate based on direct CoE mapping uploads, not a runtime profile.
+# Never copy the old robot's zero, scaling, digital output or sync-error tolerance.
+verified: false
+vendor_id: 0x5A65726F
+product_id: 0x00029252
+assign_activate: TBD
+auto_fault_reset: false
+auto_state_transitions: false
+sdo:
+  - {index: 0x6060, sub_index: 0, type: int8, value: 8}
+rpdo:
+  - index: 0x1600
+    channels:
+      - {index: 0x607a, sub_index: 0, type: int32, command_interface: position, factor: TBD, offset: TBD, default: .nan}
+      - {index: 0x60fe, sub_index: 0, type: uint32, command_interface: digital_outputs, default: TBD}
+      - {index: 0x6040, sub_index: 0, type: uint16, command_interface: control_word, default: 0}
+tpdo:
+  - index: 0x1a00
+    channels:
+      - {index: 0x6064, sub_index: 0, type: int32, state_interface: position, factor: TBD, offset: TBD}
+      - {index: 0x60fd, sub_index: 0, type: uint32, state_interface: digital_inputs}
+      - {index: 0x6041, sub_index: 0, type: uint16, state_interface: status_word}

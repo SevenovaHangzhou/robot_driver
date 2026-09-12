@@ -1,0 +1,413 @@
+diff --git a/gripper_controllers/include/gripper_controllers/gripper_action_controller.hpp b/gripper_controllers/include/gripper_controllers/gripper_action_controller.hpp
+index 530df2f..e84b503 100644
+--- a/gripper_controllers/include/gripper_controllers/gripper_action_controller.hpp
++++ b/gripper_controllers/include/gripper_controllers/gripper_action_controller.hpp
+@@ -19,6 +19,12 @@
+ 
+ // C++ standard
+ #include <cassert>
++#include <algorithm>
++#include <array>
++#include <atomic>
++#include <cmath>
++#include <cstdint>
++#include <mutex>
+ #include <memory>
+ #include <stdexcept>
+ #include <string>
+@@ -68,6 +74,8 @@ public:
+   {
+     double position_;    // Last commanded position
+     double max_effort_;  // Max allowed effort
++    uint64_t sequence_{0};
++    bool halt_{false};
+   };
+ 
+   GRIPPER_ACTION_CONTROLLER_PUBLIC GripperActionController();
+@@ -162,6 +170,19 @@ protected:
+   rclcpp::Time last_movement_time_ = rclcpp::Time(0, 0, RCL_ROS_TIME);  ///< Store stall time
+   double computed_command_;                                             ///< Computed command
+ 
++  // Opt-in acknowledged PP transport. Action handles are retired by the non-RT timer.
++  std::array<hardware_interface::LoanedCommandInterface *, 3> pp_commands_{};
++  std::array<hardware_interface::LoanedStateInterface *, 3> pp_states_{};
++  std::atomic_bool pp_active_{false}, pp_ready_{false}, pp_busy_{false};
++  std::atomic_int pp_result_code_{0};
++  std::atomic<double> pp_position_{0.0}, pp_effort_{0.0};
++  std::mutex pp_lifecycle_mutex_;
++  std::optional<rclcpp_action::GoalUUID> pp_pending_goal_;
++  uint64_t pp_sequence_{0}, pp_rt_sequence_{0}, pp_terminal_sequence_{0};
++  double pp_elapsed_{0.0}, pp_stalled_{0.0};
++  bool pp_stopping_{false};
++  controller_interface::return_type update_pp(const rclcpp::Duration & period);
++
+   /**
+    * \brief Check for success and publish appropriate result and feedback.
+    **/
+diff --git a/gripper_controllers/include/gripper_controllers/gripper_action_controller_impl.hpp b/gripper_controllers/include/gripper_controllers/gripper_action_controller_impl.hpp
+index 45b4142..d559f7e 100644
+--- a/gripper_controllers/include/gripper_controllers/gripper_action_controller_impl.hpp
++++ b/gripper_controllers/include/gripper_controllers/gripper_action_controller_impl.hpp
+@@ -56,8 +56,9 @@ controller_interface::CallbackReturn GripperActionController<HardwareInterface>:
+ 
+ template <const char * HardwareInterface>
+ controller_interface::return_type GripperActionController<HardwareInterface>::update(
+-  const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
++  const rclcpp::Time & /*time*/, const rclcpp::Duration & period)
+ {
++  if (params_.pp.enabled) {return update_pp(period);}
+   command_struct_rt_ = *(command_.readFromRT());
+ 
+   const double current_position = joint_position_state_interface_->get().get_value();
+@@ -77,8 +78,24 @@ controller_interface::return_type GripperActionController<HardwareInterface>::up
+ 
+ template <const char * HardwareInterface>
+ rclcpp_action::GoalResponse GripperActionController<HardwareInterface>::goal_callback(
+-  const rclcpp_action::GoalUUID &, std::shared_ptr<const GripperCommandAction::Goal>)
++  const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const GripperCommandAction::Goal> goal)
+ {
++  std::lock_guard<std::mutex> guard(pp_lifecycle_mutex_);
++  if (params_.pp.enabled)
++  {
++    const auto & command = goal->command;
++    bool expected = false;
++    if (!pp_active_.load() || !pp_ready_.load() ||
++      !std::isfinite(command.position) || !std::isfinite(command.max_effort) ||
++      command.position < params_.pp.min_position || command.position > params_.pp.max_position ||
++      command.max_effort <= 0.0 || command.max_effort > params_.max_effort ||
++      pp_sequence_ >= 9007199254740991ULL || !pp_busy_.compare_exchange_strong(expected, true))
++    {
++      return rclcpp_action::GoalResponse::REJECT;
++    }
++    pp_pending_goal_ = uuid;
++    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
++  }
+   RCLCPP_INFO(get_node()->get_logger(), "Received & accepted new action goal");
+   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+ }
+@@ -88,6 +105,51 @@ void GripperActionController<HardwareInterface>::accepted_callback(
+   std::shared_ptr<GoalHandle> goal_handle)  // Try to update goal
+ {
+   auto rt_goal = std::make_shared<RealtimeGoalHandle>(goal_handle);
++  std::lock_guard<std::mutex> guard(pp_lifecycle_mutex_);
++
++  if (params_.pp.enabled)
++  {
++    if (!pp_active_.load() || !pp_pending_goal_ || *pp_pending_goal_ != goal_handle->get_goal_id())
++    {
++      goal_handle->abort(std::make_shared<GripperCommandAction::Result>());
++      return;
++    }
++    pp_pending_goal_.reset();
++    command_struct_ = {goal_handle->get_goal()->command.position,
++      goal_handle->get_goal()->command.max_effort, ++pp_sequence_, false};
++    pp_result_code_.store(0);
++    rt_goal->execute();
++    rt_active_goal_.writeFromNonRT(rt_goal);
++    command_.writeFromNonRT(command_struct_);
++    goal_handle_timer_.reset();
++    goal_handle_timer_ = get_node()->create_wall_timer(
++      action_monitor_period_.to_chrono<std::chrono::nanoseconds>(), [this, rt_goal]()
++      {
++        // ROS Action publication and its internal locks stay outside update().
++        std::lock_guard<std::mutex> guard(pp_lifecycle_mutex_);
++        if (!pp_active_.load()) {return;}
++        const int result = pp_result_code_.load();
++        if (result > 0)
++        {
++          if (result == 1) {rt_goal->gh_->succeed(pre_alloc_result_);}
++          else if (result == 2) {rt_goal->gh_->canceled(pre_alloc_result_);}
++          else {rt_goal->gh_->abort(pre_alloc_result_);}
++          rt_active_goal_.writeFromNonRT(RealtimeGoalHandlePtr());
++          pp_busy_.store(false);
++          pp_result_code_.store(0);
++        }
++        else if (rt_goal->gh_->is_executing())
++        {
++          auto & feedback = rt_goal->preallocated_feedback_;
++          feedback->position = pp_position_.load();
++          feedback->effort = pp_effort_.load();
++          feedback->reached_goal = false;
++          feedback->stalled = false;
++          rt_goal->gh_->publish_feedback(feedback);
++        }
++      });
++    return;
++  }
+ 
+   // Accept new goal
+   preempt_active_goal();
+@@ -118,6 +180,20 @@ template <const char * HardwareInterface>
+ rclcpp_action::CancelResponse GripperActionController<HardwareInterface>::cancel_callback(
+   const std::shared_ptr<GoalHandle> goal_handle)
+ {
++  std::lock_guard<std::mutex> guard(pp_lifecycle_mutex_);
++  if (params_.pp.enabled)
++  {
++    const auto active = *rt_active_goal_.readFromNonRT();
++    int expected = 0;
++    if (!pp_active_.load() || !active || active->gh_ != goal_handle ||
++      !pp_result_code_.compare_exchange_strong(expected, -1))
++    {
++      return rclcpp_action::CancelResponse::REJECT;
++    }
++    command_struct_.halt_ = true;
++    command_.writeFromNonRT(command_struct_);
++    return rclcpp_action::CancelResponse::ACCEPT;
++  }
+   RCLCPP_INFO(get_node()->get_logger(), "Got request to cancel goal");
+ 
+   // Check that cancel request refers to currently active goal (if any)
+@@ -200,6 +276,7 @@ template <const char * HardwareInterface>
+ controller_interface::CallbackReturn GripperActionController<HardwareInterface>::on_configure(
+   const rclcpp_lifecycle::State &)
+ {
++  std::lock_guard<std::mutex> guard(pp_lifecycle_mutex_);
+   const auto logger = get_node()->get_logger();
+   if (!param_listener_)
+   {
+@@ -208,6 +285,20 @@ controller_interface::CallbackReturn GripperActionController<HardwareInterface>:
+   }
+   params_ = param_listener_->get_params();
+ 
++  if (params_.pp.enabled &&
++    (std::string(HardwareInterface) != hardware_interface::HW_IF_POSITION ||
++    !std::isfinite(params_.pp.min_position) || !std::isfinite(params_.pp.max_position) ||
++    params_.pp.min_position < 0.0 || params_.pp.max_position <= params_.pp.min_position ||
++    !std::isfinite(params_.max_effort) || params_.max_effort <= 0.0 ||
++    !std::isfinite(params_.pp.command_timeout) || params_.pp.command_timeout <= 0.0 ||
++    !std::isfinite(params_.goal_tolerance) || params_.goal_tolerance <= 0.0 ||
++    !std::isfinite(params_.stall_timeout) || params_.stall_timeout <= 0.0 ||
++    !std::isfinite(params_.stall_velocity_threshold) || params_.stall_velocity_threshold <= 0.0))
++  {
++    RCLCPP_ERROR(logger, "PP requires explicit position, force and timeout limits");
++    return controller_interface::CallbackReturn::ERROR;
++  }
++
+   // Action status checking update rate
+   action_monitor_period_ = rclcpp::Duration::from_seconds(1.0 / params_.action_monitor_rate);
+   RCLCPP_INFO(
+@@ -226,6 +317,42 @@ template <const char * HardwareInterface>
+ controller_interface::CallbackReturn GripperActionController<HardwareInterface>::on_activate(
+   const rclcpp_lifecycle::State &)
+ {
++  std::unique_lock<std::mutex> pp_lock(pp_lifecycle_mutex_, std::defer_lock);
++  if (params_.pp.enabled) {pp_lock.lock();}
++  if (params_.pp.enabled)
++  {
++    const std::array<std::string, 3> commands{"max_effort", "pp_sequence", "pp_halt"};
++    const std::array<std::string, 3> states{"pp_sequence", "pp_state", "effort"};
++    for (size_t i = 0; i < commands.size(); ++i)
++    {
++      pp_commands_[i] = nullptr;
++      pp_states_[i] = nullptr;
++      for (auto & command : command_interfaces_)
++      {
++        if (command.get_name() == params_.joint + "/" + commands[i]) {pp_commands_[i] = &command;}
++      }
++      for (auto & state : state_interfaces_)
++      {
++        if (state.get_name() == params_.joint + "/" + states[i]) {pp_states_[i] = &state;}
++      }
++      if (!pp_commands_[i] || !pp_states_[i]) {return controller_interface::CallbackReturn::ERROR;}
++    }
++    pp_commands_[0]->set_value(0.0);
++    const double previous_sequence = pp_states_[0]->get_value();
++    if (!std::isfinite(previous_sequence) || previous_sequence < 0.0 ||
++      previous_sequence > 9007199254740991.0 || std::floor(previous_sequence) != previous_sequence)
++    {
++      return controller_interface::CallbackReturn::ERROR;
++    }
++    pp_sequence_ = std::max(pp_sequence_, static_cast<uint64_t>(previous_sequence));
++    pp_commands_[1]->set_value(previous_sequence);
++    pp_commands_[2]->set_value(1.0);
++    pp_busy_.store(false);
++    pp_result_code_.store(0);
++    pp_ready_.store(false);
++    pp_rt_sequence_ = 0;
++    pp_terminal_sequence_ = 0;
++  }
+   auto command_interface_it = std::find_if(
+     command_interfaces_.begin(), command_interfaces_.end(),
+     [](const hardware_interface::LoanedCommandInterface & command_interface)
+@@ -287,6 +414,7 @@ controller_interface::CallbackReturn GripperActionController<HardwareInterface>:
+   // Command - non RT version
+   command_struct_.position_ = joint_position_state_interface_->get().get_value();
+   command_struct_.max_effort_ = params_.max_effort;
++  if (params_.pp.enabled) {command_struct_.sequence_ = 0; command_struct_.halt_ = true;}
+   command_.initRT(command_struct_);
+ 
+   // Result
+@@ -303,6 +431,8 @@ controller_interface::CallbackReturn GripperActionController<HardwareInterface>:
+     std::bind(&GripperActionController::cancel_callback, this, std::placeholders::_1),
+     std::bind(&GripperActionController::accepted_callback, this, std::placeholders::_1));
+ 
++  pp_active_.store(params_.pp.enabled);
++
+   return controller_interface::CallbackReturn::SUCCESS;
+ }
+ 
+@@ -310,6 +440,23 @@ template <const char * HardwareInterface>
+ controller_interface::CallbackReturn GripperActionController<HardwareInterface>::on_deactivate(
+   const rclcpp_lifecycle::State &)
+ {
++  std::unique_lock<std::mutex> pp_lock(pp_lifecycle_mutex_, std::defer_lock);
++  if (params_.pp.enabled) {pp_lock.lock();}
++  if (params_.pp.enabled && pp_active_.exchange(false))
++  {
++    pp_pending_goal_.reset();
++    pp_ready_.store(false);
++    pp_commands_[2]->set_value(1.0);
++    const auto goal = *rt_active_goal_.readFromNonRT();
++    if (goal && goal->gh_->is_active())
++    {
++      goal->gh_->abort(std::make_shared<GripperCommandAction::Result>());
++    }
++    goal_handle_timer_.reset();
++    rt_active_goal_.writeFromNonRT(RealtimeGoalHandlePtr());
++    pp_busy_.store(false);
++    pp_result_code_.store(0);
++  }
+   joint_command_interface_ = std::nullopt;
+   joint_position_state_interface_ = std::nullopt;
+   joint_velocity_state_interface_ = std::nullopt;
+@@ -321,6 +468,12 @@ template <const char * HardwareInterface>
+ controller_interface::InterfaceConfiguration
+ GripperActionController<HardwareInterface>::command_interface_configuration() const
+ {
++  if (params_.pp.enabled)
++  {
++    return {controller_interface::interface_configuration_type::INDIVIDUAL,
++      {params_.joint + "/position", params_.joint + "/max_effort",
++        params_.joint + "/pp_sequence", params_.joint + "/pp_halt"}};
++  }
+   return {
+     controller_interface::interface_configuration_type::INDIVIDUAL,
+     {params_.joint + "/" + HardwareInterface}};
+@@ -330,12 +483,112 @@ template <const char * HardwareInterface>
+ controller_interface::InterfaceConfiguration
+ GripperActionController<HardwareInterface>::state_interface_configuration() const
+ {
++  if (params_.pp.enabled)
++  {
++    return {controller_interface::interface_configuration_type::INDIVIDUAL,
++      {params_.joint + "/position", params_.joint + "/velocity", params_.joint + "/pp_sequence",
++        params_.joint + "/pp_state", params_.joint + "/effort"}};
++  }
+   return {
+     controller_interface::interface_configuration_type::INDIVIDUAL,
+     {params_.joint + "/" + hardware_interface::HW_IF_POSITION,
+      params_.joint + "/" + hardware_interface::HW_IF_VELOCITY}};
+ }
+ 
++template <const char * HardwareInterface>
++controller_interface::return_type GripperActionController<HardwareInterface>::update_pp(
++  const rclcpp::Duration & period)
++{
++  if (!pp_active_.load()) {return controller_interface::return_type::OK;}
++  const double position = joint_position_state_interface_->get().get_value();
++  const double velocity = joint_velocity_state_interface_->get().get_value();
++  const double sequence = pp_states_[0]->get_value();
++  const double state = pp_states_[1]->get_value();
++  const double effort = pp_states_[2]->get_value();
++  static_assert(std::atomic<double>::is_always_lock_free, "PP snapshots require lock-free doubles");
++  pp_position_.store(position);
++  pp_effort_.store(effort);
++  const bool healthy = std::isfinite(position) && std::isfinite(velocity) &&
++    std::isfinite(effort) && std::isfinite(sequence) && state >= 1.0 && state <= 8.0;
++  pp_ready_.store(healthy && (state == 1.0 || state == 6.0 || state == 8.0));
++  const auto command = *command_.readFromRT();
++  if (!pp_busy_.load() || command.sequence_ == 0 || command.sequence_ == pp_terminal_sequence_)
++  {
++    if (!healthy) {pp_commands_[2]->set_value(1.0);}
++    return controller_interface::return_type::OK;
++  }
++  if (command.sequence_ != pp_rt_sequence_)
++  {
++    pp_rt_sequence_ = command.sequence_;
++    pp_elapsed_ = 0.0;
++    pp_stalled_ = 0.0;
++    pp_stopping_ = false;
++  }
++  const double dt = period.seconds();
++  const bool canceling = command.halt_ || pp_result_code_.load() == -1;
++  pp_elapsed_ += std::isfinite(dt) && dt > 0.0 ? dt : params_.pp.command_timeout;
++  // All fields are sampled from the same RealtimeBuffer command envelope.
++  joint_command_interface_->get().set_value(command.position_);
++  pp_commands_[0]->set_value(command.max_effort_);
++  pp_commands_[1]->set_value(static_cast<double>(command.sequence_));
++  pp_commands_[2]->set_value(canceling || pp_stopping_ ? 1.0 : 0.0);
++  const bool matching = sequence == static_cast<double>(command.sequence_);
++  bool reached = matching && state == 6.0 &&
++    std::abs(command.position_ - position) <= params_.goal_tolerance;
++  bool stalled = false;
++  if (matching && state == 5.0 && !canceling && !pp_stopping_)
++  {
++    pp_stalled_ = std::abs(velocity) > params_.stall_velocity_threshold ? 0.0 : pp_stalled_ + dt;
++    stalled = pp_stalled_ >= params_.stall_timeout;
++  }
++  if ((canceling || stalled) && !pp_stopping_)
++  {
++    pp_stopping_ = true;
++    pp_elapsed_ = 0.0;
++    pp_commands_[2]->set_value(1.0);
++  }
++  const bool stopped = matching && state == 8.0 &&
++    std::abs(velocity) <= params_.stall_velocity_threshold;
++  const bool failed = !healthy || pp_elapsed_ >= params_.pp.command_timeout;
++  if (!failed && !((canceling || pp_stopping_) ? stopped : reached))
++  {
++    return controller_interface::return_type::OK;
++  }
++  pre_alloc_result_->position = position;
++  pre_alloc_result_->effort = effort;
++  pre_alloc_result_->reached_goal = !failed && !pp_stopping_ && reached;
++  pre_alloc_result_->stalled = pp_stopping_ && !canceling;
++  int result_code = 1;
++  if (failed)
++  {
++    pp_commands_[2]->set_value(1.0);
++    result_code = 3;
++  }
++  else if (canceling)
++  {
++    result_code = 2;
++  }
++  else if (pp_stopping_ && !params_.allow_stalling)
++  {
++    result_code = 3;
++  }
++  if (result_code == 1)
++  {
++    int expected = 0;
++    if (!pp_result_code_.compare_exchange_strong(expected, 1))
++    {
++      // A cancel accepted after this cycle's snapshot wins over success.
++      pp_commands_[2]->set_value(1.0);
++      pp_stopping_ = true;
++      pp_elapsed_ = 0.0;
++      return controller_interface::return_type::OK;
++    }
++  }
++  else {pp_result_code_.store(result_code);}
++  pp_terminal_sequence_ = command.sequence_;
++  return controller_interface::return_type::OK;
++}
++
+ template <const char * HardwareInterface>
+ GripperActionController<HardwareInterface>::GripperActionController()
+ : controller_interface::ControllerInterface(),
+diff --git a/gripper_controllers/src/gripper_action_controller_parameters.yaml b/gripper_controllers/src/gripper_action_controller_parameters.yaml
+index a847643..6981bb2 100644
+--- a/gripper_controllers/src/gripper_action_controller_parameters.yaml
++++ b/gripper_controllers/src/gripper_action_controller_parameters.yaml
+@@ -1,4 +1,9 @@
+ gripper_action_controller:
++  pp:
++    enabled: {type: bool, default_value: false}
++    min_position: {type: double, default_value: 0.0}
++    max_position: {type: double, default_value: 0.0}
++    command_timeout: {type: double, default_value: 0.0}
+   action_monitor_rate: {
+     type: double,
+     default_value: 20.0,

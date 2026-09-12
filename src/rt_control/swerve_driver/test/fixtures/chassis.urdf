@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!-- Synthetic software-only fixture. Not a robot_description artifact. -->
+<robot name="swerve_mock">
+  <link name="base"/>
+  <link name="s0_link"/>
+  <joint name="s0" type="continuous"><parent link="base"/><child link="s0_link"/><axis xyz="0 0 1"/></joint>
+  <link name="d0_link"/>
+  <joint name="d0" type="continuous"><parent link="base"/><child link="d0_link"/><axis xyz="0 0 1"/></joint>
+  <link name="s1_link"/>
+  <joint name="s1" type="continuous"><parent link="base"/><child link="s1_link"/><axis xyz="0 0 1"/></joint>
+  <link name="d1_link"/>
+  <joint name="d1" type="continuous"><parent link="base"/><child link="d1_link"/><axis xyz="0 0 1"/></joint>
+  <link name="s2_link"/>
+  <joint name="s2" type="continuous"><parent link="base"/><child link="s2_link"/><axis xyz="0 0 1"/></joint>
+  <link name="d2_link"/>
+  <joint name="d2" type="continuous"><parent link="base"/><child link="d2_link"/><axis xyz="0 0 1"/></joint>
+  <link name="s3_link"/>
+  <joint name="s3" type="continuous"><parent link="base"/><child link="s3_link"/><axis xyz="0 0 1"/></joint>
+  <link name="d3_link"/>
+  <joint name="d3" type="continuous"><parent link="base"/><child link="d3_link"/><axis xyz="0 0 1"/></joint>
+  <ros2_control name="SwerveMock" type="system">
+    <hardware><plugin>mock_components/GenericSystem</plugin><param name="calculate_dynamics">true</param></hardware>
+    <joint name="s0">
+      <command_interface name="position"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="d0">
+      <command_interface name="velocity"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <joint name="s1">
+      <command_interface name="position"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="d1">
+      <command_interface name="velocity"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <joint name="s2">
+      <command_interface name="position"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="d2">
+      <command_interface name="velocity"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <joint name="s3">
+      <command_interface name="position"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="d3">
+      <command_interface name="velocity"/>
+      <command_interface name="control_word"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <sensor name="e0">
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </sensor>
+    <sensor name="e1">
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </sensor>
+    <sensor name="e2">
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </sensor>
+    <sensor name="e3">
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </sensor>
+    <sensor name="ethercat_domain"><state_interface name="process_data_age_ms"><param name="initial_value">0</param></state_interface></sensor>
+  </ros2_control>
+</robot>

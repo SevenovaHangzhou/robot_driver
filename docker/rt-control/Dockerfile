@@ -141,6 +141,10 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0012-fix-timing-source-lint.patch \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0012-fix-timing-source-lint.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     && git -C src/vendor/ros2_canopen apply \
@@ -168,7 +172,11 @@ RUN git config --global http.version HTTP/1.1 \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
+    && git -C src/vendor/ros2_controllers apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
+    && git -C src/vendor/ros2_controllers apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 ENV X503_ETHERCAT_MANAGER_INCLUDE_DIR="/opt/rt_control_ws/src/vendor/ecat_icube/ethercat_manager/include"

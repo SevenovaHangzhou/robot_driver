@@ -177,10 +177,31 @@ jobs:
             rt_diagnostics \
             x503_force_sensor \
             rt_control_bringup
+      - name: Install upstream controller test hardware
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          # Humble test assets reference test_actuator/test_system, supplied by
+          # this test-only package rather than the installed hardware_interface.
+          fixture_root="${RUNNER_TEMP}/ros2-control-test-fixtures"
+          fixture_commit=e65ddd72804f3f2d9b19e533a15ed436b2f3fc42
+          git init "${fixture_root}/src"
+          git -C "${fixture_root}/src" remote add origin \
+            https://github.com/ros-controls/ros2_control.git
+          git -C "${fixture_root}/src" fetch --depth 1 origin "${fixture_commit}"
+          git -C "${fixture_root}/src" checkout --detach FETCH_HEAD
+          test "$(git -C "${fixture_root}/src" rev-parse HEAD)" = "${fixture_commit}"
+          colcon --log-base "${fixture_root}/log" build \
+            --base-paths "${fixture_root}/src/hardware_interface_testing" \
+            --build-base "${fixture_root}/build" \
+            --install-base "${fixture_root}/install" \
+            --cmake-args -DBUILD_TESTING=OFF
       - name: Test
         shell: bash
         run: |
           source /opt/ros/humble/setup.bash
+          source "${RUNNER_TEMP}/ros2-control-test-fixtures/install/setup.bash"
           colcon test --event-handlers console_direct+ \
             --base-paths src "${RT_CONTROL_NATIVE_WS}/src/vendor" \
             --packages-up-to \

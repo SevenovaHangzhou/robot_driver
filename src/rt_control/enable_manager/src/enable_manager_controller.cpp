@@ -57,6 +57,8 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
   auto_declare<std::string>("jtc_name", "whole_body_jtc");
+  auto_declare<bool>("enable_only", false);
+  auto_declare<std::string>("disable_terminal_policy", "joint_list");
 
   topology_parameters_frozen_.store(false, std::memory_order_release);
   topology_parameters_explicit_mask_.store(0U, std::memory_order_release);
@@ -117,6 +119,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     get_node()->get_parameter("controller_switch_timeout").as_double();
   const auto service_timeout = get_node()->get_parameter("service_result_timeout_ms").as_int();
   jtc_name_ = get_node()->get_parameter("jtc_name").as_string();
+  enable_only_ = get_node()->get_parameter("enable_only").as_bool();
 
   if (
     !std::isfinite(batch_timeout_seconds_) ||
@@ -126,7 +129,8 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     !std::isfinite(controller_switch_timeout_seconds_) ||
     batch_timeout_seconds_ <= 0.0 || disable_stage_timeout_seconds_ <= 0.0 ||
     inter_batch_delay_seconds_ < 0.0 || fault_reset_timeout_seconds_ <= 0.0 ||
-    controller_switch_timeout_seconds_ <= 0.0 || service_timeout <= 0 || jtc_name_.empty())
+    controller_switch_timeout_seconds_ <= 0.0 || service_timeout <= 0 ||
+    (enable_only_ ? !jtc_name_.empty() : jtc_name_.empty()))
   {
     RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager timing or controller parameter");
     return controller_interface::CallbackReturn::ERROR;
@@ -188,6 +192,15 @@ EnableManagerController::validateTopologyParameterUpdate(
   result.successful = true;
 
   for (const auto & parameter : parameters) {
+    if (parameter.get_name() == "enable_only" || parameter.get_name() == "jtc_name" ||
+      parameter.get_name() == "disable_terminal_policy")
+    {
+      if (topology_parameters_frozen_.load(std::memory_order_acquire)) {
+        result.successful = false;
+        result.reason = "enable-manager controller policy is already configured";
+        return result;
+      }
+    }
     const auto match = std::find(
       kTopologyParameterNames.begin(), kTopologyParameterNames.end(), parameter.get_name());
     if (match == kTopologyParameterNames.end()) {
@@ -209,9 +222,21 @@ EnableManagerController::validateTopologyParameterUpdate(
 
 bool EnableManagerController::configureTopology()
 {
-  if (
-    topology_parameters_explicit_mask_.load(std::memory_order_acquire) !=
-    kAllTopologyParametersMask)
+  auto explicit_mask = topology_parameters_explicit_mask_.load(std::memory_order_acquire);
+  const auto terminal_policy = get_node()->get_parameter("disable_terminal_policy").as_string();
+  if (terminal_policy == "switch_on_disabled") {
+    if (!get_node()->get_parameter("ready_to_switch_on_disable_terminal_joints").as_string_array().empty()) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Explicit disabled-terminal policy conflicts with joint exceptions");
+      return false;
+    }
+    // This explicit policy has no per-joint exceptions. Avoid an untyped empty
+    // array in ROS parameter YAML while preserving legacy explicit-list admission.
+    explicit_mask |= topologyParameterBit(3U);
+  } else if (terminal_policy != "joint_list") {
+    RCLCPP_ERROR(get_node()->get_logger(), "Unknown disable_terminal_policy");
+    return false;
+  }
+  if (explicit_mask != kAllTopologyParametersMask)
   {
     RCLCPP_ERROR(
       get_node()->get_logger(),
@@ -774,6 +799,10 @@ void EnableManagerController::fillImmediateResponse(
 
 EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool activate)
 {
+  // Stationary commissioning exposes no motion command interfaces. Its explicit
+  // policy has no trajectory controller to activate; drive-state, timeout,
+  // fault, rollback and ordered-disable paths still run normally.
+  if (enable_only_) {return SwitchResult::kSuccess;}
   bool expected = false;
   if (!switch_in_progress_.compare_exchange_strong(expected, true)) {
     return SwitchResult::kAmbiguous;

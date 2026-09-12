@@ -135,3 +135,24 @@
 | 2026-09-10 | ecat-axes | [ELECTRI-97 main容器封装](docs/areas/ecat-axes/records/2026-09-10-electri-97-main-packaging.md) | PASS（T1）；Docker补齐0001..0011/1kHz/显式核参数，JSB保持契约125Hz。完整镜像、隔离Mock安装入口/14关节/有序退出0通过，279项含ShellCheck门禁及925语义迁移比较通过；未验实机Docker、冷启动、长期和运动。 |
 | 2026-09-11 | ecat-axes | [Ti5启动分配与安装配置恢复](docs/areas/ecat-axes/records/2026-09-11-ti5-assignment-recovery.md) | PARTIAL（T3）；修复Native启动前分配/缓存/安装profile检查与进程误识别，288项门禁通过。标准oneclick恢复使能交付，14轴使能/WKC48；本轮OP19.121s且仍有DC告警/UNMATCHED，未验掉电重复性。 |
 | 2026-09-12 | ecat-axes | [X503 PREOP 参数快照与主站 CoE 限制](docs/areas/ecat-axes/records/2026-09-12-x503-preop-snapshot.md) | PASS（T3不使能）；两侧24项各读一次、WKC48/48，OP6000帧零SDO/CoE邮箱流量，最终停止失能。容器129项测试通过，PDI根因与长期/运动验证未闭合。 |
+| 2026-09-07 | release-deploy | [ELECTRI-118 三代机模块化物理 Profile 与控制范围校验骨架](docs/areas/release-deploy/records/2026-09-07-electri-118-machine-profiles.md) | UNVERIFIED（T0 静态配置；真实硬件接入待后续） |
+| 2026-09-08 | ecat-axes | [ELECTRI-118 零差 PP 夹爪适配与限力](docs/areas/ecat-axes/records/2026-09-08-zeroerr-pp-gripper.md) | PARTIAL（T1 离线/增量容器；标定与实机待验） |
+| 2026-09-08 | motion | [ELECTRI-118 官方夹爪 PP Action 扩展](docs/areas/motion/records/2026-09-08-pp-gripper-action.md) | PARTIAL（T1 Action/PDO 闭环；全量交付镜像与实机待验） |
+| 2026-09-08 | motion | [舵轮保留转向 CSP 与外置舵角观测](docs/areas/motion/records/2026-09-08-swerve-csp-feedback-decision.md) | UNVERIFIED（设计已裁决；运行实现/实机待验） |
+| 2026-09-08 | release-deploy | [舵轮更名设计的头部协议关联修复](docs/areas/release-deploy/records/2026-09-08-swerve-owner-reference-corrective.md) | UNVERIFIED（44 项配置测试通过；底盘运行实现待迁移） |
+| 2026-09-09 | motion | [swerve_driver 算法与 CSP/CSV 控制器源码迁移](docs/areas/motion/records/2026-09-09-swerve-controller-migration.md) | PARTIAL（T1 Native/容器；真实后端、启动组合与实机待完成） |
+| 2026-09-09 | release-deploy | [swerve_driver 构建闭包与增量容器验证](docs/areas/release-deploy/records/2026-09-09-swerve-package-integration.md) | PARTIAL（T1；未替换生产服务） |
+| 2026-09-12 | release-deploy | [三代机开发快照部署至测试主机](docs/areas/release-deploy/records/2026-09-12-gen3-test-host-deployment.md) | PARTIAL（30 包构建，282 条测试记录通过；未启动真实总线） |
+| 2026-09-12 | ecat-axes | [汇川 GR10-EC-6SW 双设备 ESI 归档](docs/areas/ecat-axes/records/2026-09-12-inovance-gr10-esi.md) | UNVERIFIED（文件/安装校验通过；实物与拓扑待验） |
+| 2026-09-12 | ecat-axes | [三代机双臂 X2/X3 接线与十八从站扫描](docs/areas/ecat-axes/records/2026-09-12-gen3-arm-branch-scan.md) | PARTIAL（T2 只读；左 1..8、右 9..16、分支器 0/17；链内关节绑定待确认） |
+| 2026-09-12 | ecat-axes | [双臂 J1..J7 与夹爪物理轴序确认](docs/areas/ecat-axes/records/2026-09-12-gen3-arm-axis-order.md) | UNVERIFIED（T0 配置；左 CSP 1..7/PP 8，右 CSP 9..15/PP 16；正式运行绑定待完成） |
+| 2026-09-12 | ecat-axes | [零差 CSP/PP 协议核验与类型/对齐修正](docs/areas/ecat-axes/records/2026-09-12-gen3-zeroerr-protocol.md) | PARTIAL（656 次只读；signed 6072/14-byte PP TxPDO 修正；605D/电池问题待核实） |
+| 2026-09-12 | ecat-axes | [J3/J4 单圈策略与夹爪补电池后复查](docs/areas/ecat-axes/records/2026-09-12-gen3-encoder-usage-policy.md) | PARTIAL（32 次只读；夹爪 7314，负载编码器复位未执行） |
+| 2026-09-12 | ecat-axes | [左夹爪单次编码器复位后 Fault 持续](docs/areas/ecat-axes/records/2026-09-12-left-gripper-encoder-reset.md) | PARTIAL（左 2242 写入一次，7314 清除；Fault 持续，右侧暂停） |
+| 2026-09-12 | ecat-axes | [左夹爪一次普通清错未退出 Fault](docs/areas/ecat-axes/records/2026-09-12-left-gripper-fault-reset.md) | PARTIAL（6040 三次写入成功，但仍 Fault；右侧条件未满足） |
+| 2026-09-12 | ecat-axes | [上位机重置编码器后双夹爪普通清错](docs/areas/ecat-axes/records/2026-09-12-grippers-post-vendor-fault-reset.md) | PARTIAL（两侧各一次，置位回读 80，但均未退出 Fault） |
+| 2026-09-12 | ecat-axes | [用户重新上电后双夹爪故障解除](docs/areas/ecat-axes/records/2026-09-12-grippers-power-cycle-recovery.md) | PARTIAL（只读确认全部 Fault 位为 0；夹爪错误寄存器清除，未再次清错） |
+| 2026-09-12 | ecat-axes | [三代机机械零位与14 CSP+2 PP原位使能](docs/areas/ecat-axes/records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3，全16轴使能/保持/失能通过；WC48/48，最终Idle/PREOP） |
+| 2026-09-12 | lifecycle | [原位使能入口和显式终态策略](docs/areas/lifecycle/records/2026-09-12-stationary-enable-entry.md) | PARTIAL（62条状态机测试；Mock和实际有序退出通过，运动栈不变） |
+| 2026-09-12 | release-deploy | [ELECTRI-118同步最新main并解决冲突](docs/areas/release-deploy/records/2026-09-12-electri-118-main-sync.md) | UNVERIFIED（五个冲突文件已解决；124项配置回归通过，新基线全量构建/实机待验） |
+| 2026-09-13 | release-deploy | [ELECTRI-118对齐PR25后的main并准备新PR](docs/areas/release-deploy/records/2026-09-13-electri-118-pr-integration.md) | PARTIAL（T1；三处文本冲突与记录重号已处理，32包完整镜像、旧机/三代机Mock有序退出、166项配置回归及215条功能包测试记录通过；新基线实机待验） |

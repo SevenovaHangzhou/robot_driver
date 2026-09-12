@@ -203,6 +203,7 @@ private:
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
   std::string jtc_name_{"whole_body_jtc"};
+  bool enable_only_{false};
 
   rclcpp::CallbackGroup::SharedPtr enable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr disable_callback_group_;

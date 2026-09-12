@@ -1,0 +1,7 @@
+<library path="zeroerr_pp_slave">
+  <class name="robot_hw_ethercat/ZeroErrPpSlave"
+         type="robot_hw_ethercat::ZeroErrPpSlave"
+         base_class_type="ethercat_interface::EcSlave">
+    <description>Opt-in calibrated ZeroErr PP gripper with acknowledged commands.</description>
+  </class>
+</library>

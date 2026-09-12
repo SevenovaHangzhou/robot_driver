@@ -11,6 +11,20 @@ from .hardware_composition import (
     validate_controller_compatibility,
     variant_descriptor_path,
 )
+from .machine_profile import (
+    BusLayout,
+    GroupReference,
+    MachineManifest,
+    MachineProfileError,
+    ModeGroup,
+    ModuleSpec,
+    PhysicalLayout,
+    PhysicalProfile,
+    ScopeSpec,
+    SelectedHardware,
+    load_machine_manifest,
+    select_hardware,
+)
 
 __all__ = [
     "CanopenComposition",
@@ -22,4 +36,16 @@ __all__ = [
     "load_hardware_variants",
     "validate_controller_compatibility",
     "variant_descriptor_path",
+    "BusLayout",
+    "GroupReference",
+    "MachineManifest",
+    "MachineProfileError",
+    "ModeGroup",
+    "ModuleSpec",
+    "PhysicalLayout",
+    "PhysicalProfile",
+    "ScopeSpec",
+    "SelectedHardware",
+    "load_machine_manifest",
+    "select_hardware",
 ]

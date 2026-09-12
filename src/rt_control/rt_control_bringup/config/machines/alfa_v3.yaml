@@ -1,0 +1,313 @@
+schema_version: 1
+robot_variant: alfa_v3
+status: draft
+# EtherCAT branch coupler ESI: Inovance GR10-EC-6SW (corrected model spelling).
+# ESI declares two devices, 0x10F40931 and 0x10F40932, vendor 0x00100000.
+# Arm-bench scan and user wiring: X2 -> left (positions 1..8), X3 -> right (9..16).
+# Coupler main/sub-device positions: 0/17; identities match ESI in PREOP.
+# User confirmed each chain as J1..J7 (CSP), then gripper (PP).
+# Physical-axis facts: robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml.
+# Robot Model joint names, drive profiles and runtime composition remain pending.
+# Sixteen arm actuators do not imply sixteen total EtherCAT responders.
+functional_modules: [arms, updown, swerve_chassis, head_gimbal]
+
+modules:
+  arms:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    master_id: 0
+    instance_count: 2
+    actuator_count: 16
+    sensor_count: 0
+    mode_groups:
+      - name: csp
+        count: 14
+        mode_of_operation: 8
+        interface: position
+        certified: false
+      - name: gripper_pp
+        count: 2
+        mode_of_operation: 1
+        interface: position
+        certified: false
+    per_instance_mode_groups:
+      csp: 7
+      gripper_pp: 1
+    authority: null
+    requires: []
+    sensor_bindings: []
+    hardware_identity:
+      package: robot_hw_ethercat
+      file: config/machines/alfa_v3_arms_only.draft.yaml
+      key: identities.zeroerr
+    profile_ref: TBD
+    mechanical_parameters: TBD
+    pending_facts:
+      - authoritative Robot Model joint names and runtime axis bindings
+      - ZeroErr PDO/SDO profile for CSP and PP drives
+      - arm and gripper mechanical limits and transmission parameters
+
+  updown:
+    role: actuator
+    transport: ethercat
+    status: draft
+    master_id: 0
+    instance_count: 1
+    actuator_count: 1
+    sensor_count: 0
+    mode_groups:
+      - name: csp
+        count: 1
+        mode_of_operation: 8
+        interface: position
+        certified: false
+    per_instance_mode_groups:
+      csp: 1
+    authority: null
+    requires: []
+    sensor_bindings: []
+    hardware_identity: TBD
+    profile_ref: TBD
+    mechanical_parameters: TBD
+    pending_facts:
+      - EtherCAT ring position and device identity
+      - PDO/SDO profile and mechanical limits
+
+  # Chassis migration target: swerve_driver; no rezero, MIT gains or wheel torque feedforward.
+  # Steering CSP uses Kinco's internal position/velocity loops; drive CSV uses its velocity loop.
+  swerve_chassis:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    master_id: 0
+    instance_count: 4
+    actuator_count: 8
+    sensor_count: 0
+    mode_groups:
+      - name: steering_csp
+        count: 4
+        mode_of_operation: 8
+        interface: position
+        certified: false
+      - name: drive_csv
+        count: 4
+        mode_of_operation: 9
+        interface: velocity
+        certified: false
+    per_instance_mode_groups:
+      steering_csp: 1
+      drive_csv: 1
+    authority: null
+    requires: [swerve_encoders]
+    sensor_bindings: []
+    hardware_identity: TBD
+    profile_ref: TBD
+    mechanical_parameters: TBD
+    pending_facts:
+      - Kinco FD EtherCAT identity, PDO/SDO mapping and watchdog
+      - EtherCAT ring positions and motor-side encoder relationship
+      - wheel geometry, gearing, limits and calibration
+
+  # Required design: 4000 us CANopen SYNC, with four synchronous TPDO responses.
+  # Actual feedback latency and phase relative to EtherCAT DC remain unverified.
+  swerve_encoders:
+    role: state_sensor_group
+    transport: canopen
+    status: draft
+    master_id: null
+    instance_count: 4
+    actuator_count: 0
+    sensor_count: 4
+    mode_groups: []
+    per_instance_mode_groups: {}
+    authority: steering_angle
+    requires: []
+    sensor_bindings: [front_left, front_right, rear_left, rear_right]
+    hardware_identity: TBD
+    profile_ref: TBD
+    mechanical_parameters: TBD
+    pending_facts:
+      - CANopen node IDs and CiA 406 EDS/PDO mapping
+      - device support and timing verification for 4 ms SYNC-triggered TPDO
+      - encoder resolution, gear ratio, zero and backlash calibration
+
+  head_gimbal:
+    role: actuator_group
+    transport: damiao_can
+    status: draft
+    master_id: null
+    instance_count: 2
+    actuator_count: 2
+    sensor_count: 0
+    mode_groups:
+      - name: vendor_can
+        count: 2
+        mode_of_operation: null
+        interface: vendor_can
+        certified: false
+    per_instance_mode_groups:
+      vendor_can: 1
+    authority: null
+    requires: []
+    sensor_bindings: []
+    hardware_identity: TBD
+    profile_ref: TBD
+    mechanical_parameters: TBD
+    pending_facts:
+      - DaMiao CAN IDs and motor limits
+      - head gimbal mechanical zero and transmission parameters
+
+profiles:
+  arms_only:
+    status: draft
+    modules: [arms]
+    allowed_scopes: [arms_only]
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+      - runtime descriptor and controller bindings for the confirmed physical arm axes
+      - Inovance GR10-EC-6SW runtime state/DC qualification and ESI display-version difference
+
+  arms_updown:
+    status: draft
+    modules: [arms, updown]
+    allowed_scopes: [arms_only, arms_updown]
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+      - physical EtherCAT ring layout with Updown connected
+
+  chassis_only:
+    status: draft
+    modules: [swerve_chassis, swerve_encoders]
+    allowed_scopes: [chassis_only]
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: draft
+        node_ids: TBD
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+      - physical EtherCAT ring layout for the chassis bench
+
+  full_robot:
+    status: draft
+    modules: [arms, updown, swerve_chassis, swerve_encoders, head_gimbal]
+    allowed_scopes: [arms_only, arms_updown, chassis_only, full, head_only]
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: draft
+        node_ids: TBD
+      damiao_can:
+        status: draft
+        node_ids: TBD
+    pending_facts:
+      - complete EtherCAT ring order and responder identities
+      - CANopen encoder bus identity and head-gimbal CAN wiring
+
+  head_only:
+    status: draft
+    modules: [head_gimbal]
+    allowed_scopes: [head_only]
+    layout:
+      ethercat:
+        status: absent
+        master_id: null
+        ring_positions: []
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: draft
+        node_ids: TBD
+    pending_facts:
+      - DaMiao head-gimbal CAN wiring and IDs
+
+scopes:
+  arms_only:
+    enabled_modules: [arms]
+    required_state_modules: []
+    actuator_groups:
+      - {module: arms, mode_group: csp}
+      - {module: arms, mode_group: gripper_pp}
+    jtc_groups:
+      - {module: arms, mode_group: csp}
+    global_readiness: partial_scope
+
+  arms_updown:
+    enabled_modules: [arms, updown]
+    required_state_modules: []
+    actuator_groups:
+      - {module: arms, mode_group: csp}
+      - {module: arms, mode_group: gripper_pp}
+      - {module: updown, mode_group: csp}
+    jtc_groups:
+      - {module: arms, mode_group: csp}
+      - {module: updown, mode_group: csp}
+    global_readiness: partial_scope
+
+  chassis_only:
+    enabled_modules: [swerve_chassis, swerve_encoders]
+    required_state_modules: [swerve_encoders]
+    actuator_groups:
+      - {module: swerve_chassis, mode_group: steering_csp}
+      - {module: swerve_chassis, mode_group: drive_csv}
+    jtc_groups: []
+    global_readiness: partial_scope
+
+  full:
+    enabled_modules: [arms, updown, swerve_chassis, swerve_encoders, head_gimbal]
+    required_state_modules: [swerve_encoders]
+    actuator_groups:
+      - {module: arms, mode_group: csp}
+      - {module: arms, mode_group: gripper_pp}
+      - {module: updown, mode_group: csp}
+      - {module: swerve_chassis, mode_group: steering_csp}
+      - {module: swerve_chassis, mode_group: drive_csv}
+      - {module: head_gimbal, mode_group: vendor_can}
+    jtc_groups:
+      - {module: arms, mode_group: csp}
+      - {module: updown, mode_group: csp}
+    global_readiness: full_scope
+
+  head_only:
+    enabled_modules: [head_gimbal]
+    required_state_modules: []
+    actuator_groups:
+      - {module: head_gimbal, mode_group: vendor_can}
+    jtc_groups: []
+    global_readiness: partial_scope
+
+owner_refs:
+  ethercat: robot_hw_ethercat
+  canopen: robot_hw_canopen
+  # Existing head-protocol reference; independent of the planned chassis package name.
+  damiao_can: dm_swerve_driver

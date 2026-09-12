@@ -7,6 +7,11 @@
 不属于本区：使能/失能状态机（→ lifecycle）、控制器与轨迹（→ motion）、
 IgH 安装与宿主（→ realtime-host）。
 
+三代机的模块组合和分范围校验由
+[`release-deploy-20260907-01`](../release-deploy/records/2026-09-07-electri-118-machine-profiles.md)
+登记；在步科 EtherCAT 身份、PDO/SDO、环位和机械参数确认前，它不改变本区当前
+`alfa_v1` 的生产拓扑。
+
 ## 冻结事实（当前有效）
 
 | # | 事实 | 来源 | 状态 |
@@ -25,6 +30,17 @@ IgH 安装与宿主（→ realtime-host）。
 | 02#F1 | `alfa_v1` descriptor 分离 14 个 axes、两台 state-only X503 sensors 与 Hub responders，并共同生成 real/mock 与诊断 topology | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock；实机仍沿用 01 的 PARTIAL） |
 | 03#F1 | 18 位环进入 Operation 后，Hub position 0 为 OP，Hub position 13 保持 PREOP；Native READY 门禁必须逐位验证，不能把两个 Hub 合并为同一状态假设。 | [ecat-axes-20260904-01](records/2026-09-04-hub-runtime-state-gate.md)#F1 | PASS（T2 现场只读；主线运行复验待维护窗口） |
 | 04#F1 | X503B raw shadow bridge 只消费 rt-control state frame；V1.6 已定义单位码 `5=N`、`7=N·m`，采样原码采用 `-999999..999999` 范围门禁，实际回读/TF 未完成时禁止 WrenchStamped | [ecat-axes-20260906-01](records/2026-09-06-electri-116-x503b-shadow-bridge.md)#F1-F3 | PARTIAL（T1；目标 SDO/实际参数/TF 待验） |
+| 05#F1 | PP 夹爪可选模块按已发送 PDO 与同序号反馈握手；旧 CSP profile 不变，TBD 和实机准入继续阻塞 | [PP 夹爪记录](records/2026-09-08-zeroerr-pp-gripper.md)#F1 | PARTIAL（T1 离线/增量容器） |
+| 06#F1 | GR10-EC-6SW ESI 声明两个 JunctionSlave 设备，ID/端口说明已归档；实物身份与十八从站数量已在 07#F1 核验 | [汇川 ESI 记录](records/2026-09-12-inovance-gr10-esi.md) | T0 文件事实；T2 进展见 07#F1 |
+| 07#F1 | arms_only 实扫左臂 X2=1..8、右臂 X3=9..16、分支器=0/17，共 18 PREOP 从站；物理轴序后续在 08#F1 确认，运行态与 DC 待验 | [双臂分支扫描](records/2026-09-12-gen3-arm-branch-scan.md)#F1 | PARTIAL（T2 只读） |
+| 08#F1 | 用户确认两臂均为 J1..J7 后接夹爪：左 CSP=1..7、PP=8，右 CSP=9..15、PP=16；物理清单已保存，正式 Model/运行绑定仍 TBD | [双臂物理轴序](records/2026-09-12-gen3-arm-axis-order.md)#F1 | UNVERIFIED（T0 配置；无实机运动） |
+| 09#F1 | 16 台当前均为 CSP、10-byte Rx/Tx；PP 候选为 8/14-byte、6072=int16。605D 实机不存在，730F 位置 3/8/12/16，停止与电池问题待确认 | [零差协议核验](records/2026-09-12-gen3-zeroerr-protocol.md) | PARTIAL（T2 只读、T1 软件） |
+| 10#F1 | 用户确认仅左 J3/右 J4 按单圈，夹爪需要多圈；补电池后夹爪错误变为 7314，需单独恢复圈数基准，未自动复位 | [编码器用途与电池复查](records/2026-09-12-gen3-encoder-usage-policy.md) | PARTIAL（策略、T2 只读） |
+| 11#F1 | 左夹爪 8 已获授权写一次 2242，7314 清除但 Fault 持续；按停止条件暂停，右夹爪 16 未写，普通 6040 清错待追加授权 | [左夹爪编码器复位](records/2026-09-12-left-gripper-encoder-reset.md) | PARTIAL（T3 单次写入、未使能） |
+| 12#F1 | 左夹爪获追加授权完成一次 6040 SDO 清错，但仍 Fault/1001=1/603F=0；右侧条件不满足，需厂家确认 PREOP 清错及 2242 语义 | [左夹爪普通清错](records/2026-09-12-left-gripper-fault-reset.md) | PARTIAL（T3，未恢复/未使能） |
+| 13#F1 | 用户上位机重置编码器后，两夹爪获新授权各做一次普通清错；6040=80 可回读但 Fault 持续，控制字已归 0 | [上位机复位后双夹爪清错](records/2026-09-12-grippers-post-vendor-fault-reset.md) | PARTIAL（T3，未恢复/未使能） |
+| 14#F1 | 用户重新上电后两夹爪 603F/1001=0，全部 16 轴 Fault 位清除；仍为 CSP、NotReadyToSwitchOn，PP 和运行未验证 | [重新上电后复查](records/2026-09-12-grippers-power-cycle-recovery.md) | PARTIAL（T2；更新 11..13 的历史故障状态） |
+| 15#F1 | 用户零位已归档；14 CSP+2 PP 实际 OP、WC48/48、16轴使能/保持/失能成功，最终 Idle/PREOP；PP运动/限力尚未验证 | [原位使能实测](records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3；当前状态及模式以本记录为准） |
 
 ## 记录索引（倒序）
 
@@ -32,6 +48,17 @@ IgH 安装与宿主（→ realtime-host）。
 
 - 2026-09-11 [Ti5分配和安装配置恢复，使能交付](records/2026-09-11-ti5-assignment-recovery.md) — corrective，PARTIAL（T3）
 
+- 2026-09-12 [三代机零位与14 CSP+2 PP原位使能](records/2026-09-12-gen3-stationary-enable.md)：PARTIAL，真实使能/失能完成，当前已停机。
+- 2026-09-12 [重新上电后双夹爪故障解除](records/2026-09-12-grippers-power-cycle-recovery.md)：PARTIAL，只读确认，未再次清错或使能。
+- 2026-09-12 [零差上位机复位后两夹爪普通清错](records/2026-09-12-grippers-post-vendor-fault-reset.md)：PARTIAL，清错位回读成功，但故障态未退出。
+- 2026-09-12 [左夹爪一次普通清错后仍 Fault](records/2026-09-12-left-gripper-fault-reset.md)：PARTIAL，SDO 成功但驱动未恢复，右侧暂停。
+- 2026-09-12 [左夹爪编码器复位后 Fault 持续](records/2026-09-12-left-gripper-encoder-reset.md)：PARTIAL，仅位置 8 写入一次，右侧暂停。
+- 2026-09-12 [J3/J4 单圈与夹爪多圈电池复查](records/2026-09-12-gen3-encoder-usage-policy.md)：PARTIAL，策略登记，编码器复位未执行。
+- 2026-09-12 [零差协议回读与 PP 类型/对齐修正](records/2026-09-12-gen3-zeroerr-protocol.md)：PARTIAL，回读与软件修正，停止策略和电池问题开放。
+- 2026-09-12 [双臂 J1..J7/夹爪物理轴序与模式](records/2026-09-12-gen3-arm-axis-order.md)：用户确认，物理清单落盘，保持运行准入关闭。
+- 2026-09-12 [三代机双臂 X2/X3 与十八从站扫描](records/2026-09-12-gen3-arm-branch-scan.md)：PARTIAL，接线与身份核验，未启动控制栈。
+- 2026-09-12 [汇川 GR10-EC-6SW 分支器 ESI](records/2026-09-12-inovance-gr10-esi.md)：investigation，文件已核对，实际拓扑待验。
+- 2026-09-08 [ELECTRI-118 零差 PP 夹爪适配](records/2026-09-08-zeroerr-pp-gripper.md)：PARTIAL，离线/增量容器通过，实机待验。
 - 2026-09-10 [ELECTRI-97 main容器与125 Hz公共状态兼容](records/2026-09-10-electri-97-main-packaging.md) — fix，PASS（T1 Docker）
 - 2026-09-10 [ELECTRI-97 默认启动周期遗漏与旧结论纠错](records/2026-09-10-electri-97-startup-rate-correction.md) — corrective，PARTIAL（T3失能启动6.821秒）
 - 2026-09-09 [ELECTRI-97 Ti5保留PDO及失败传播修正](records/2026-09-09-electri-97-ti5-preserved-pdo.md) — fix，PASS（T3三轮失能启动）

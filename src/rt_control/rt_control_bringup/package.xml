@@ -8,6 +8,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
   <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
   <exec_depend>control_api_adapter</exec_depend>
   <exec_depend>robot_description</exec_depend>
   <exec_depend>bms_node</exec_depend>
@@ -19,6 +21,8 @@
   <exec_depend>hardware_interface</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>gripper_controllers</exec_depend>
+  <exec_depend>swerve_driver</exec_depend>
   <exec_depend>plc_node</exec_depend>
   <exec_depend>rt_diagnostics</exec_depend>
   <exec_depend>x503_force_sensor</exec_depend>
