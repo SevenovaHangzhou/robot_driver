@@ -1,7 +1,6 @@
 # EtherCAT 四舵轮验证状态
 
 更新时间：2026-09-12。当前电机方案仅采用 Kinco FD EtherCAT CSP/CSV。
-达妙 CAN/MIT 电机验收项目不再列入本方案。
 
 ## 已有软件证据
 

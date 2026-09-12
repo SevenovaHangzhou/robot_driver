@@ -1,4 +1,4 @@
-#include "dm_swerve_driver/safety_monitor.hpp"
+#include "dm_swerve_driver/kinco_safety_monitor.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -26,40 +26,35 @@ using SteadyClock = std::chrono::steady_clock;
          now - previous.value() >= std::chrono::duration<double>{period_seconds};
 }
 
-[[nodiscard]] bool recoverable_error(MotorError error) noexcept
-{
-  return error == MotorError::under_voltage || error == MotorError::communication_lost;
-}
-
-[[nodiscard]] bool immediate_latch_error(const DmMotorHealth & motor) noexcept
-{
-  return motor.has_feedback && motor.error != MotorError::disabled &&
-         motor.error != MotorError::enabled && !recoverable_error(motor.error);
-}
-
 [[nodiscard]] bool silent(
-  const DmMotorHealth & motor, std::uint64_t threshold) noexcept
+  const KincoAxisHealth & axis, std::uint64_t threshold) noexcept
 {
-  return motor.consecutive_missed_frames >= threshold;
+  return axis.consecutive_missed_frames >= threshold;
 }
 
 [[nodiscard]] bool needs_automatic_recovery(
-  const DmMotorHealth & motor, std::uint64_t threshold) noexcept
+  const KincoAxisHealth & axis, std::uint64_t threshold) noexcept
 {
-  return silent(motor, threshold) ||
-         (motor.has_feedback &&
-         (motor.error == MotorError::disabled || recoverable_error(motor.error)));
+  return silent(axis, threshold) ||
+         (axis.has_feedback &&
+         (axis.condition == KincoAxisCondition::disabled ||
+         axis.condition == KincoAxisCondition::recoverable_fault));
 }
 
 }  // namespace
 
-SafetyMonitor::SafetyMonitor(const DriverParameters & parameters)
+bool KincoAxisHealth::enabled() const noexcept
+{
+  return has_feedback && condition == KincoAxisCondition::enabled;
+}
+
+KincoSafetyMonitor::KincoSafetyMonitor(const DriverParameters & parameters)
 : parameters_{parameters}
 {
   validate_parameters(parameters_);
 }
 
-CommandDecision SafetyMonitor::command_for_cycle(
+CommandDecision KincoSafetyMonitor::command_for_cycle(
   const ChassisSpeeds & command,
   std::optional<SteadyClock::time_point> command_timestamp,
   SteadyClock::time_point now)
@@ -76,7 +71,7 @@ CommandDecision SafetyMonitor::command_for_cycle(
   return CommandDecision{timed_out ? ChassisSpeeds{} : command, timed_out, changed};
 }
 
-YawDecision SafetyMonitor::update_yaw(
+YawDecision KincoSafetyMonitor::update_yaw(
   const std::optional<TimedYawSample> & imu,
   double wheel_delta_yaw_rad,
   SteadyClock::time_point now)
@@ -87,7 +82,6 @@ YawDecision SafetyMonitor::update_yaw(
   const bool imu_fresh = imu.has_value() && std::isfinite(imu->yaw_rad) &&
     deadline_fresh(imu->timestamp, now, parameters_.odometry.imu_timeout_s);
   const bool source_changed{imu_fresh == imu_fallback_};
-
   if (imu_fresh) {
     if (!yaw_initialized_) {
       yaw_rad_ = imu->yaw_rad;
@@ -110,27 +104,26 @@ YawDecision SafetyMonitor::update_yaw(
   return YawDecision{yaw_rad_, imu_fallback_, source_changed};
 }
 
-RecoveryActions SafetyMonitor::recovery_actions(
-  const std::array<DmMotorHealth, kMotorCount> & motors,
+KincoRecoveryActions KincoSafetyMonitor::recovery_actions(
+  const std::array<KincoAxisHealth, kKincoAxisCount> & axes,
   SteadyClock::time_point now)
 {
-  RecoveryActions actions{};
+  KincoRecoveryActions actions{};
   bool current_fault{fault_latched_ || transport_faulted_ || steering_limit_faulted_};
-  for (const auto & motor : motors) {
-    const bool motor_fault = silent(
-      motor, parameters_.safety.feedback_silent_cycles) ||
-      (motor.has_feedback && motor.error != MotorError::enabled);
-    current_fault = current_fault || motor_fault;
-    fault_latched_ = fault_latched_ || immediate_latch_error(motor);
+  for (const auto & axis : axes) {
+    current_fault = current_fault || silent(axis, parameters_.safety.feedback_silent_cycles) ||
+      (axis.has_feedback && axis.condition != KincoAxisCondition::enabled);
+    fault_latched_ = fault_latched_ ||
+      (axis.has_feedback && axis.condition == KincoAxisCondition::latching_fault);
   }
   faulted_ = current_fault || fault_latched_;
   if (fault_latched_) {
     return actions;
   }
 
-  for (std::size_t index{0U}; index < motors.size(); ++index) {
-    const auto & motor = motors[index];
-    if (!needs_automatic_recovery(motor, parameters_.safety.feedback_silent_cycles)) {
+  for (std::size_t index{0U}; index < axes.size(); ++index) {
+    const auto & axis = axes[index];
+    if (!needs_automatic_recovery(axis, parameters_.safety.feedback_silent_cycles)) {
       continue;
     }
     if (recovery_attempts_[index] >= parameters_.safety.auto_recovery_limit) {
@@ -140,34 +133,35 @@ RecoveryActions SafetyMonitor::recovery_actions(
     if (!action_due(last_recovery_[index], now, parameters_.safety.reenable_period_s)) {
       continue;
     }
-    actions.clear_fault[index] = motor.has_feedback && recoverable_error(motor.error);
+    actions.clear_fault[index] =
+      axis.has_feedback && axis.condition == KincoAxisCondition::recoverable_fault;
     actions.reenable[index] = true;
     last_recovery_[index] = now;
     ++recovery_attempts_[index];
   }
   if (fault_latched_) {
-    actions = RecoveryActions{};
+    actions = KincoRecoveryActions{};
     faulted_ = true;
   }
   return actions;
 }
 
-RecoveryActions SafetyMonitor::manual_clear_actions() noexcept
+KincoRecoveryActions KincoSafetyMonitor::manual_clear_actions() noexcept
 {
-  RecoveryActions actions;
+  KincoRecoveryActions actions;
   actions.clear_fault.fill(true);
   actions.reenable.fill(true);
   return actions;
 }
 
-bool SafetyMonitor::complete_manual_clear(
-  const std::array<DmMotorHealth, kMotorCount> & motors,
-  const std::array<bool, kMotorCount> & enable_confirmed) noexcept
+bool KincoSafetyMonitor::complete_manual_clear(
+  const std::array<KincoAxisHealth, kKincoAxisCount> & axes,
+  const std::array<bool, kKincoAxisCount> & enable_confirmed) noexcept
 {
   bool verified{!transport_faulted_ && !steering_limit_faulted_};
-  for (std::size_t index{0U}; index < motors.size(); ++index) {
-    verified = verified && enable_confirmed[index] && motors[index].enabled() &&
-      motors[index].consecutive_missed_frames < parameters_.safety.feedback_silent_cycles;
+  for (std::size_t index{0U}; index < axes.size(); ++index) {
+    verified = verified && enable_confirmed[index] && axes[index].enabled() &&
+      axes[index].consecutive_missed_frames < parameters_.safety.feedback_silent_cycles;
   }
   if (!verified) {
     faulted_ = true;
@@ -181,8 +175,8 @@ bool SafetyMonitor::complete_manual_clear(
   return true;
 }
 
-void SafetyMonitor::restore_recovery_state(
-  const std::array<std::uint32_t, kMotorCount> & recovery_attempts,
+void KincoSafetyMonitor::restore_recovery_state(
+  const std::array<std::uint32_t, kKincoAxisCount> & recovery_attempts,
   bool fault_latched) noexcept
 {
   recovery_attempts_ = recovery_attempts;
@@ -193,21 +187,21 @@ void SafetyMonitor::restore_recovery_state(
   steering_limit_faulted_ = false;
 }
 
-void SafetyMonitor::mark_transport_failure() noexcept
+void KincoSafetyMonitor::mark_transport_failure() noexcept
 {
   transport_faulted_ = true;
   faulted_ = true;
 }
 
-void SafetyMonitor::observe_feedback(
-  const std::array<bool, kMotorCount> & received) noexcept
+void KincoSafetyMonitor::observe_feedback(
+  const std::array<bool, kKincoAxisCount> & received) noexcept
 {
   if (std::all_of(received.begin(), received.end(), [](bool value) {return value;})) {
     transport_faulted_ = false;
   }
 }
 
-bool SafetyMonitor::observe_steering_limit_violation(bool active) noexcept
+bool KincoSafetyMonitor::observe_steering_limit_violation(bool active) noexcept
 {
   const bool changed{active != steering_limit_faulted_};
   steering_limit_faulted_ = active;
@@ -218,37 +212,30 @@ bool SafetyMonitor::observe_steering_limit_violation(bool active) noexcept
   return changed;
 }
 
-bool SafetyMonitor::faulted() const noexcept
+bool KincoSafetyMonitor::faulted() const noexcept
 {
   return faulted_ || transport_faulted_ || steering_limit_faulted_;
 }
 
-bool SafetyMonitor::fault_latched() const noexcept
+bool KincoSafetyMonitor::fault_latched() const noexcept
 {
   return fault_latched_;
 }
 
-bool SafetyMonitor::transport_faulted() const noexcept
+bool KincoSafetyMonitor::transport_faulted() const noexcept
 {
   return transport_faulted_;
 }
 
-bool SafetyMonitor::steering_limit_faulted() const noexcept
+bool KincoSafetyMonitor::steering_limit_faulted() const noexcept
 {
   return steering_limit_faulted_;
 }
 
-const std::array<std::uint32_t, kMotorCount> & SafetyMonitor::recovery_attempts() const noexcept
+const std::array<std::uint32_t, kKincoAxisCount> &
+KincoSafetyMonitor::recovery_attempts() const noexcept
 {
   return recovery_attempts_;
-}
-
-bool SafetyMonitor::all_bus_silent(
-  const std::array<DmMotorHealth, kMotorCount> & motors) const noexcept
-{
-  return std::all_of(motors.begin(), motors.end(), [&](const DmMotorHealth & motor) {
-      return motor.consecutive_missed_frames >= parameters_.safety.feedback_silent_cycles;
-    });
 }
 
 }  // namespace dm_swerve_driver

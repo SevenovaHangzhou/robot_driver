@@ -2,8 +2,6 @@
 # Supply this file through params_file in swerve_driver.launch.py.
 swerve_driver:
   ros__parameters:
-    driver:
-      backend: kinco
     control:
       rate_hz: 100.0
       realtime_priority: 0

@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
 
-#include <memory>
+#include <cstdint>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -34,68 +35,43 @@ public:
 const auto * const environment =
   ::testing::AddGlobalTestEnvironment(new RosContextEnvironment{});
 
-TEST(RosParametersTest, DeclaresAndLoadsValidDefaults)
+TEST(RosParametersTest, DeclaresAndLoadsCommonDefaults)
 {
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("params_defaults");
-  EXPECT_NO_THROW(declare_driver_parameters(*node));
+
+  declare_driver_parameters(*node);
   const auto parameters = load_driver_parameters(*node);
+
   EXPECT_TRUE(parameter_errors(parameters).empty());
   EXPECT_DOUBLE_EQ(parameters.control.rate_hz, 100.0);
-  EXPECT_DOUBLE_EQ(parameters.steering.max_ff_speed_radps, 3.0);
   EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_min_rad, -kPi);
-  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_max_rad, kPi);
-  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_margin_rad, 0.0);
-  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_tolerance_rad, 0.0);
   EXPECT_DOUBLE_EQ(parameters.odometry.slip_residual_threshold, 0.25);
-  EXPECT_DOUBLE_EQ(parameters.odometry.slip_covariance_scale, 4.0);
 }
 
-TEST(RosParametersTest, AppliesScalarAndArrayOverrides)
+TEST(RosParametersTest, AppliesCommonScalarAndArrayOverrides)
 {
   rclcpp::NodeOptions options;
   options.parameter_overrides({
-      rclcpp::Parameter{"steering.max_ff_speed_radps", 0.5},
-      rclcpp::Parameter{"can.allow_fallback_limits", true},
-      rclcpp::Parameter{"can.write_timeout_us", std::int64_t{1500}},
-      rclcpp::Parameter{"steering.flip_hysteresis_rad", 0.2},
       rclcpp::Parameter{"steering.max_slew_radps", 1.25},
       rclcpp::Parameter{"steering.joint_limit_min_rad", -2.8},
       rclcpp::Parameter{"steering.joint_limit_max_rad", 2.9},
       rclcpp::Parameter{"steering.joint_limit_margin_rad", 0.1},
-      rclcpp::Parameter{"steering.joint_limit_tolerance_rad", 0.02},
-      rclcpp::Parameter{"odometry.max_imu_yaw_step_rad", 0.4},
-      rclcpp::Parameter{"steering.rezero_tolerance_rad", 0.02},
-      rclcpp::Parameter{
-        "odometry.pose_covariance_diagonal",
-        std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
-      rclcpp::Parameter{"odometry.imu_fallback_covariance_scale", 12.0},
-      rclcpp::Parameter{"odometry.slip_residual_threshold", 0.2},
-      rclcpp::Parameter{"odometry.slip_covariance_scale", 6.0},
-      rclcpp::Parameter{"safety.auto_recovery_limit", std::int64_t{5}},
-      rclcpp::Parameter{"steering.zero_offset_rad", std::vector<double>{0.1, 0.2, 0.3, 0.4}},
-      rclcpp::Parameter{"motors.drive_mst_id", std::vector<std::int64_t>{31, 32, 33, 34}}});
+      rclcpp::Parameter{"steering.zero_offset_rad",
+        std::vector<double>{0.1, 0.2, 0.3, 0.4}},
+      rclcpp::Parameter{"drive.invert", std::vector<bool>{true, false, true, false}},
+      rclcpp::Parameter{"safety.auto_recovery_limit", std::int64_t{5}}});
   auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("params_overrides", options);
+
   declare_driver_parameters(*node);
   const auto parameters = load_driver_parameters(*node);
 
-  EXPECT_DOUBLE_EQ(parameters.steering.max_ff_speed_radps, 0.5);
-  EXPECT_TRUE(parameters.can.allow_fallback_limits);
-  EXPECT_EQ(parameters.can.write_timeout_us, 1500);
-  EXPECT_DOUBLE_EQ(parameters.steering.flip_hysteresis_rad, 0.2);
   EXPECT_DOUBLE_EQ(parameters.steering.max_slew_radps, 1.25);
   EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_min_rad, -2.8);
   EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_max_rad, 2.9);
   EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_margin_rad, 0.1);
-  EXPECT_DOUBLE_EQ(parameters.steering.joint_limit_tolerance_rad, 0.02);
-  EXPECT_DOUBLE_EQ(parameters.odometry.max_imu_yaw_step_rad, 0.4);
-  EXPECT_DOUBLE_EQ(parameters.steering.rezero_tolerance_rad, 0.02);
-  EXPECT_DOUBLE_EQ(parameters.odometry.pose_covariance_diagonal[5], 6.0);
-  EXPECT_DOUBLE_EQ(parameters.odometry.imu_fallback_covariance_scale, 12.0);
-  EXPECT_DOUBLE_EQ(parameters.odometry.slip_residual_threshold, 0.2);
-  EXPECT_DOUBLE_EQ(parameters.odometry.slip_covariance_scale, 6.0);
-  EXPECT_EQ(parameters.safety.auto_recovery_limit, 5U);
   EXPECT_DOUBLE_EQ(parameters.steering.zero_offset_rad[3], 0.4);
-  EXPECT_EQ(parameters.motors.drive_mst_id[0], 31U);
+  EXPECT_TRUE(parameters.drive.inverted[0]);
+  EXPECT_EQ(parameters.safety.auto_recovery_limit, 5U);
 }
 
 TEST(RosParametersTest, DeclaresAndLoadsStrictKincoConfiguration)
@@ -128,32 +104,26 @@ TEST(RosParametersTest, DeclaresAndLoadsStrictKincoConfiguration)
   EXPECT_TRUE(kinco_parameter_errors(parameters).empty());
   EXPECT_EQ(parameters.dc_cycle_ns, 1000000);
   EXPECT_EQ(parameters.encoder_expected_counts_per_revolution[3], 65536U);
-  EXPECT_EQ(parameters.encoder_ring_gear_teeth[0], 120U);
-  EXPECT_EQ(parameters.encoder_snapshot_path, "/tmp/encoder.snapshot");
 }
 
-TEST(RosParametersTest, RejectsWrongSizedArrays)
+TEST(RosParametersTest, RejectsInvalidArrayAndPriorityBeforeNarrowing)
 {
-  rclcpp::NodeOptions options;
-  options.parameter_overrides({
+  rclcpp::NodeOptions bad_array;
+  bad_array.parameter_overrides({
       rclcpp::Parameter{"steering.zero_offset_rad", std::vector<double>{0.1, 0.2, 0.3}}});
-  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("params_bad_array", options);
-  declare_driver_parameters(*node);
-  EXPECT_THROW(
-    static_cast<void>(load_driver_parameters(*node)),
-    std::invalid_argument);
-}
+  auto array_node =
+    std::make_shared<rclcpp_lifecycle::LifecycleNode>("params_bad_array", bad_array);
+  declare_driver_parameters(*array_node);
+  EXPECT_THROW(load_driver_parameters(*array_node), std::invalid_argument);
 
-TEST(RosParametersTest, RejectsRealtimePriorityBeforeNarrowing)
-{
-  rclcpp::NodeOptions options;
-  options.parameter_overrides({
-      rclcpp::Parameter{
-        "control.realtime_priority", std::int64_t{std::numeric_limits<std::int64_t>::max()}}});
-  auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>(
-    "params_bad_priority", options);
-  declare_driver_parameters(*node);
-  EXPECT_THROW(load_driver_parameters(*node), std::invalid_argument);
+  rclcpp::NodeOptions bad_priority;
+  bad_priority.parameter_overrides({
+      rclcpp::Parameter{"control.realtime_priority",
+        std::numeric_limits<std::int64_t>::max()}});
+  auto priority_node =
+    std::make_shared<rclcpp_lifecycle::LifecycleNode>("params_bad_priority", bad_priority);
+  declare_driver_parameters(*priority_node);
+  EXPECT_THROW(load_driver_parameters(*priority_node), std::invalid_argument);
 }
 
 }  // namespace

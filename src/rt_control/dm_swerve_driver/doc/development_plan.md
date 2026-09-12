@@ -430,12 +430,26 @@ motor_target = (target_next + θ₀_i)·G_s·sign_s            # 超出 PMAX 显
 - 保留精确齿数换算、双源标零与交叉校验、持久快照、SYNC/心跳、掉线备份和恢复归队。
 - 标定资料按上述总线分工维护；历史达妙资料不再列入当前桌面交付。
 
-### GitHub 功能分支同步(2026-09-12)
+### GitHub 推送完成(2026-09-12)
 
-- 用户已授权同步至 `SevenovaHangzhou/robot_driver` 的 `feature/damiao舵轮驱动`。
-- 导入独立开发仓库的包提交 `10ab59b`，包含此前尚未上传的有限舵角、最小二乘残差、
-  Kinco EtherCAT / 外置 CANopen 编码器运行链路及最新标定资料。
-- 同步目录干净构建通过（Debug、Werror），CTest 29/29；colcon 报告 249 tests、
-  0 errors、0 failures、0 skipped。目标仓库质量门禁通过（197 策略测试，覆盖率 83%）；
-  本机 ShellCheck 缺失，由远程 CI 检查。
-- 此记录只描述源码上传；不代表硬件上机、整车部署或生产验收。
+- 远程仓库：`https://github.com/SevenovaHangzhou/robot_driver`。
+- 分支：`feature/damiao舵轮驱动`；远端提交：`b5ecdc4ed7d4eca6576836c8b8e9c7dff0a1c4bd`。
+- 包内容同步自本地 `10ab59b`，包含最小二乘残差/异常轮剔除/协方差、有限角规划、
+  Kinco EtherCAT + BRT CANopen 编码器、标定说明与记录表。
+- 干净 Werror 构建及包测试通过：CTest 29/29，colcon 249 tests、0 errors/failures/skipped；
+  GitHub 仓库质量门禁通过：197 策略测试、覆盖率 83%。本机缺 ShellCheck，待 CI 验证。
+- 已通过 `git ls-remote` 核对远端 SHA。本次为功能分支源码上传，未做实机操作或生产部署。
+
+### Phase 8 旧电机后端清理完成(2026-09-13,Codex)
+
+- 本地实现提交：`f495c87a2956f94c6d080396439388a1492127f3`。
+- 删除达妙 MIT 编解码、寄存器读写、使能/清错/标零、启动序列、反馈路由、
+  电机/模块封装、旧控制循环、虚拟电机、bring-up 工具及其专属测试和参数。
+- 节点不再声明或选择 `driver.backend`，启动路径固定为 Kinco EtherCAT；
+  默认 launch 与配置模板均指向 `config/kinco_params.yaml`。
+- 独立保留外置 BRT 编码器所需的通用 `CanFrame`、`CanTransport`、SocketCAN
+  和 CANopen。SocketCAN 帧长校验改为标准 0～8 字节，允许 CANopen SYNC/短帧。
+- 达妙安全状态类型已替换为 Kinco DS402 轴状态与故障分类，ROS diagnostics
+  只报告 8 个 EtherCAT 轴、4 个外置编码器及底盘汇总。
+- 默认 fail-closed 构建完成，CTest 18/18 通过；使用本机 IgH 1.6 头文件和静态库的
+  `DM_SWERVE_ENABLE_IGH=ON` Release 构建通过。未执行实机 EtherCAT/CANopen 验收。

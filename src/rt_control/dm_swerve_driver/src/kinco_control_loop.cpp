@@ -35,7 +35,6 @@ KincoControlLoop::Impl::Impl(DriverParameters common, KincoParameters parameters
       parameters_.encoder_maximum_rejoin_correction_rad);
   }
   controls_.fill(0x000FU);
-  status_.kinco_backend = true;
 }
 
 bool KincoControlLoop::Impl::initialize(KincoClock::time_point now)
@@ -236,7 +235,9 @@ void KincoControlLoop::start() {impl_->start();}
 void KincoControlLoop::stop() noexcept {impl_->stop();}
 bool KincoControlLoop::is_running() const noexcept {return impl_->running_.load();}
 void KincoControlLoop::request_clear_faults() noexcept {impl_->clear_requested_.store(true);}
-void KincoControlLoop::restore_fault_state(bool latched, const std::array<std::uint32_t, kMotorCount> & tries)
+void KincoControlLoop::restore_fault_state(
+  bool latched,
+  const std::array<std::uint32_t, kKincoAxisCount> & tries)
 {
   std::lock_guard<std::mutex> lock{impl_->io_mutex_};
   impl_->safety_.restore_recovery_state(tries, latched);

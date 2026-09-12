@@ -1,153 +1,71 @@
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <string>
-
-#include <diagnostic_msgs/msg/diagnostic_status.hpp>
 
 #include "dm_swerve_driver/diagnostics.hpp"
 
 namespace dm_swerve_driver {
 namespace {
 
-TEST(DiagnosticsTest, PublishesEightMotorsAndHealthySummary)
+[[nodiscard]] ControlLoopStatus healthy_status()
 {
-  ControlLoopStatus status{};
+  ControlLoopStatus status;
   status.initialized = true;
   status.command_timed_out = false;
-  for (auto & motor : status.motors) {
-    motor.has_feedback = true;
-    motor.error = MotorError::enabled;
+  status.ethercat.domain.link_up = true;
+  status.ethercat.domain.all_slaves_operational = true;
+  status.ethercat.domain.expected_working_counter = 8U;
+  status.ethercat.domain.working_counter = 8U;
+  for (std::size_t index{0U}; index < kKincoAxisCount; ++index) {
+    auto & axis = status.ethercat.feedback[index];
+    axis.online = true;
+    axis.status_word = 0x0027U;
+    axis.mode_display =
+      static_cast<std::int8_t>(index < kSwerveModuleCount ? 8 : 9);
   }
-  const auto diagnostics = build_diagnostic_statuses(status, default_parameters());
-
-  ASSERT_EQ(diagnostics.size(), kMotorCount + 1U);
-  EXPECT_EQ(diagnostics.front().level, diagnostic_msgs::msg::DiagnosticStatus::OK);
-  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::OK);
-}
-
-TEST(DiagnosticsTest, ReportsFaultTemperatureAndSeedSourceWithoutAddingStopState)
-{
-  ControlLoopStatus status{};
-  status.motors[0].has_feedback = true;
-  status.motors[0].error = MotorError::mos_over_temperature;
-  status.motors[0].mos_temperature_c = 95U;
-  status.motors[0].seeded_from_multi_turn = true;
-  const auto diagnostics = build_diagnostic_statuses(status, default_parameters());
-
-  ASSERT_GE(diagnostics.size(), 1U);
-  EXPECT_EQ(diagnostics[0].level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
-  const auto has_temperature = std::any_of(
-    diagnostics[0].values.begin(), diagnostics[0].values.end(),
-    [](const auto & value) {
-      return value.key == "mos_temperature_c" && value.value == "95";
-    });
-  const auto has_seed_source = std::any_of(
-    diagnostics[0].values.begin(), diagnostics[0].values.end(),
-    [](const auto & value) {
-      return value.key == "seeded_from_multi_turn" && value.value == "true";
-    });
-  EXPECT_TRUE(has_temperature);
-  EXPECT_TRUE(has_seed_source);
-}
-
-TEST(DiagnosticsTest, SummaryWarnsForRecoverableDegradationAndErrorsForSilentBus)
-{
-  ControlLoopStatus status{};
-  status.command_timed_out = true;
-  status.imu_fallback = true;
-  auto diagnostics = build_diagnostic_statuses(status, default_parameters());
-  ASSERT_FALSE(diagnostics.empty());
-  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::WARN);
-
-  status.bus_silent = true;
-  diagnostics = build_diagnostic_statuses(status, default_parameters());
-  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
-}
-
-TEST(DiagnosticsTest, FaultedAndLatchedStatesAreExplicitErrors)
-{
-  ControlLoopStatus status{};
-  status.initialized = true;
-  status.command_timed_out = false;
-  for (auto & motor : status.motors) {
-    motor.has_feedback = true;
-    motor.error = MotorError::enabled;
+  for (std::size_t index{0U}; index < kSwerveModuleCount; ++index) {
+    status.steering_sources[index].valid = true;
+    status.steering_sources[index].source = SteeringAngleSource::external_encoder;
+    status.encoder_heartbeat[index] = true;
   }
-  status.faulted = true;
-  status.transport_faulted = true;
-  auto diagnostics = build_diagnostic_statuses(status, default_parameters());
-  ASSERT_FALSE(diagnostics.empty());
-  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
-  EXPECT_NE(diagnostics.back().message.find("faulted"), std::string::npos);
-
-  status.fault_latched = true;
-  diagnostics = build_diagnostic_statuses(status, default_parameters());
-  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
-  EXPECT_NE(diagnostics.back().message.find("latched"), std::string::npos);
+  return status;
 }
 
-TEST(DiagnosticsTest, HistoricalNoiseDoesNotKeepHealthySummaryDegraded)
+TEST(DiagnosticsTest, HealthyEthercatAndExternalEncodersAreOk)
 {
-  ControlLoopStatus status{};
-  status.initialized = true;
-  status.command_timed_out = false;
-  status.unknown_frames = 10U;
-  status.rejected_frames = 4U;
-  status.stale_frames = 2U;
-  for (auto & motor : status.motors) {
-    motor.has_feedback = true;
-    motor.error = MotorError::enabled;
+  const auto diagnostics = build_diagnostic_statuses(healthy_status());
+
+  ASSERT_EQ(diagnostics.size(), 13U);
+  for (const auto & status : diagnostics) {
+    EXPECT_EQ(status.level, diagnostic_msgs::msg::DiagnosticStatus::OK);
   }
+}
 
-  auto diagnostics = build_diagnostic_statuses(status, default_parameters());
-  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::OK);
+TEST(DiagnosticsTest, EncoderFallbackIsAWarning)
+{
+  auto status = healthy_status();
+  status.steering_sources[2].source = SteeringAngleSource::motor_backup;
+  status.steering_sources[2].degraded = true;
+  status.encoder_heartbeat[2] = false;
 
-  status.unknown_frames_last_cycle = 1U;
-  diagnostics = build_diagnostic_statuses(status, default_parameters());
+  const auto diagnostics = build_diagnostic_statuses(status);
+
+  EXPECT_EQ(diagnostics[10].level, diagnostic_msgs::msg::DiagnosticStatus::WARN);
   EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::WARN);
 }
 
-TEST(DiagnosticsTest, SteeringLimitFaultIsReportedExplicitly)
+TEST(DiagnosticsTest, AxisOrLatchedFaultIsAnError)
 {
-  ControlLoopStatus status{};
-  status.initialized = true;
+  auto status = healthy_status();
+  status.ethercat.feedback[5].error_word = 1U << 7U;
   status.faulted = true;
   status.fault_latched = true;
-  status.steering_limit_faulted = true;
-  const auto diagnostics = build_diagnostic_statuses(status, default_parameters());
 
-  ASSERT_FALSE(diagnostics.empty());
+  const auto diagnostics = build_diagnostic_statuses(status);
+
+  EXPECT_EQ(diagnostics[5].level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
   EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::ERROR);
-  EXPECT_NE(diagnostics.back().message.find("steering measurement"), std::string::npos);
-  EXPECT_TRUE(std::any_of(
-      diagnostics.back().values.begin(), diagnostics.back().values.end(),
-      [](const auto & value) {
-        return value.key == "steering_limit_faulted" && value.value == "true";
-      }));
-}
-
-TEST(DiagnosticsTest, DifferentialSlipNamesAffectedModulesWithoutLatching)
-{
-  ControlLoopStatus status{};
-  status.initialized = true;
-  status.command_timed_out = false;
-  status.slip_detected = true;
-  status.slipping_modules[2] = true;
-  for (auto & motor : status.motors) {
-    motor.has_feedback = true;
-    motor.error = MotorError::enabled;
-  }
-  const auto diagnostics = build_diagnostic_statuses(status, default_parameters());
-
-  ASSERT_FALSE(diagnostics.empty());
-  EXPECT_EQ(diagnostics.back().level, diagnostic_msgs::msg::DiagnosticStatus::WARN);
-  EXPECT_NE(diagnostics.back().message.find("wheel slip"), std::string::npos);
-  EXPECT_TRUE(std::any_of(
-      diagnostics.back().values.begin(), diagnostics.back().values.end(),
-      [](const auto & value) {
-        return value.key == "slipping_modules" && value.value == "rear_left";
-      }));
+  EXPECT_NE(diagnostics.back().message.find("manual clear"), std::string::npos);
 }
 
 }  // namespace

@@ -70,10 +70,14 @@ TEST(SocketCanVcanIntegrationTest, BatchFramesAreBackToBackAndRepliesAreCollecte
     frame.data[0] = static_cast<std::uint8_t>(id - 0x100U);
     commands.push_back(frame);
   }
+  commands[0].length = 0U;
+  commands[1].length = 4U;
   driver.write_batch(commands);
 
   const auto received = peer.collect(8U, std::chrono::steady_clock::now() + 20ms);
   ASSERT_EQ(received.size(), 8U);
+  EXPECT_EQ(received[0].frame.length, 0U);
+  EXPECT_EQ(received[1].frame.length, 4U);
   EXPECT_GT(received.front().kernel_timestamp.count(), 0);
   EXPECT_LT(
     received.back().kernel_timestamp - received.front().kernel_timestamp,

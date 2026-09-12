@@ -6,7 +6,7 @@
 #include <thread>
 #include "dm_swerve_driver/kinco_control_loop.hpp"
 #include "dm_swerve_driver/encoder_snapshot_store.hpp"
-#include "dm_swerve_driver/safety_monitor.hpp"
+#include "dm_swerve_driver/kinco_safety_monitor.hpp"
 
 namespace dm_swerve_driver {
 using KincoClock = std::chrono::steady_clock;
@@ -36,15 +36,15 @@ public:
   CanopenEncoderClient encoders_;
   EncoderSnapshotStore store_;
   ControlLoopCallbacks callbacks_;
-  SafetyMonitor safety_;
+  KincoSafetyMonitor safety_;
   SwerveSetpointGenerator planner_;
   std::array<std::optional<SteeringAngleSourceSelector>, kSwerveModuleCount> selectors_{};
   std::array<ExternalSteeringEncoderConfig, kSwerveModuleCount> encoder_configs_{};
   std::array<SteeringAngleSelection, kSwerveModuleCount> sources_{};
-  std::array<DmMotorHealth, kMotorCount> health_{};
-  std::array<Ds402FaultResetSequence, kMotorCount> reset_sequences_{};
-  std::array<bool, kMotorCount> recovering_{};
-  std::array<std::uint16_t, kMotorCount> controls_{};
+  std::array<KincoAxisHealth, kKincoAxisCount> health_{};
+  std::array<Ds402FaultResetSequence, kKincoAxisCount> reset_sequences_{};
+  std::array<bool, kKincoAxisCount> recovering_{};
+  std::array<std::uint16_t, kKincoAxisCount> controls_{};
   std::array<double, kSwerveModuleCount> previous_speed_{};
   KincoHardwareCycle feedback_{};
   CanopenEncoderCycle encoder_cycle_{};

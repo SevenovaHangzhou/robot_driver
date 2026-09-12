@@ -10,8 +10,6 @@
 | 4 转向电机 + 4 驱动电机 | EtherCAT / IgH | CSP 位置控制、CSV 速度控制及电机反馈 |
 | 4 外置绝对编码器 | CANopen / 独立 SocketCAN | 轴侧绝对舵角、SYNC 采样与心跳 |
 
-取消的是达妙 CAN/MIT 电机方案，外置编码器及其标定、双源检查和主备切换流程保留。
-
 现场操作见 [四舵轮标定手册](swerve_calibration_manual.md)，
 测量结果填入 [标定记录模板](swerve_calibration_record_template.md)。
 本文中的默认值和算例不构成实车标定结果。

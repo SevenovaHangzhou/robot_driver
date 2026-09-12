@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include "dm_swerve_driver/dm_frame_codec.hpp"
+#include "dm_swerve_driver/can_frame.hpp"
 
 namespace dm_swerve_driver {
 

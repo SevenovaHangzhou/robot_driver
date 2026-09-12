@@ -17,24 +17,18 @@
 #include <tf2_ros/transform_broadcaster.h>
 
 #include "dm_swerve_driver/diagnostics.hpp"
+#include "dm_swerve_driver/igh_ethercat_bus.hpp"
 #include "dm_swerve_driver/imu_validation.hpp"
-#include "dm_swerve_driver/ros_params.hpp"
-#include "dm_swerve_driver/steering_rezero.hpp"
-#include "ros_output.hpp"
-#include "node_backend.hpp"
 #include "dm_swerve_driver/kinco_calibration.hpp"
+#include "dm_swerve_driver/kinco_control_loop.hpp"
+#include "dm_swerve_driver/ros_params.hpp"
+#include "ros_output.hpp"
 
 namespace dm_swerve_driver {
 
 class SwerveDriverNode::Impl {
 public:
-  Impl(SwerveDriverNode & owner, TransportFactory factory)
-  : node_{owner}, transport_factory_{std::move(factory)}
-  {
-    if (!transport_factory_) {
-      transport_factory_ = make_default_transport;
-    }
-  }
+  explicit Impl(SwerveDriverNode & owner) : node_{owner} {}
 
   ~Impl() noexcept {stop_control();}
 
@@ -43,8 +37,9 @@ public:
     try {
       declare_driver_parameters(node_);
       parameters_ = load_driver_parameters(node_);
-      backend_ = configure_node_backend(node_, parameters_, kinco_);
-      last_status_.kinco_backend = backend_ == "kinco";
+      declare_kinco_parameters(node_);
+      kinco_ = load_kinco_parameters(node_);
+      load_kinco_calibration(parameters_, kinco_);
       odometry_publisher_ = node_.create_publisher<nav_msgs::msg::Odometry>("~/odom", 10U);
       joint_state_publisher_ =
         node_.create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10U);
@@ -227,8 +222,9 @@ private:
       return true;
     }
     stop_control();
-    control_loop_ = make_node_control_runner(
-      backend_, parameters_, kinco_, transport_factory_, control_callbacks());
+    control_loop_ = std::make_unique<KincoControlLoop>(
+      parameters_, kinco_, make_igh_ethercat_bus(kinco_),
+      make_encoder_transport(kinco_), control_callbacks());
     control_loop_->restore_fault_state(
       last_status_.fault_latched, last_status_.recovery_attempts);
     if (!control_loop_->initialize(std::chrono::steady_clock::now())) {
@@ -242,21 +238,8 @@ private:
   [[nodiscard]] std::pair<bool, std::string> rezero_steering() noexcept
   {
     try {
-      if (backend_ == "kinco") {
-        calibrate_kinco_steering(parameters_, kinco_);
-        return {true, "encoder installation offsets and motor reference saved; no hardware zero written"};
-      }
-      auto transport = transport_factory_(parameters_);
-      if (!transport) {
-        throw std::runtime_error{"transport factory returned null"};
-      }
-      transport->open();
-      const auto result = perform_steering_rezero(parameters_, *transport);
-      transport->close();
-      if (result.success()) {
-        return {true, "steering zero verified for all motors"};
-      }
-      return {false, steering_rezero_failure_message(result)};
+      calibrate_kinco_steering(parameters_, kinco_);
+      return {true, "encoder installation offsets and motor reference saved; no hardware zero written"};
     } catch (const std::exception & error) {
       RCLCPP_ERROR(node_.get_logger(), "steering rezero failed: %s", error.what());
       return {false, std::string{"steering rezero failed: "} + error.what()};
@@ -273,7 +256,7 @@ private:
     }
     diagnostic_msgs::msg::DiagnosticArray message;
     message.header.stamp = node_.now();
-    message.status = build_diagnostic_statuses(control_status(), parameters_);
+    message.status = build_diagnostic_statuses(control_status());
     diagnostics_publisher_->publish(message);
   }
 
@@ -329,11 +312,9 @@ private:
   }
 
   SwerveDriverNode & node_;
-  TransportFactory transport_factory_;
   DriverParameters parameters_{};
-  std::unique_ptr<ControlRunner> control_loop_;
+  std::unique_ptr<KincoControlLoop> control_loop_;
   KincoParameters kinco_{};
-  std::string backend_{"damiao"};
   ControlLoopStatus last_status_{};
   rclcpp_lifecycle::LifecyclePublisher<nav_msgs::msg::Odometry>::SharedPtr odometry_publisher_;
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::JointState>::SharedPtr
@@ -350,11 +331,9 @@ private:
   bool configured_{false};
 };
 
-SwerveDriverNode::SwerveDriverNode(
-  const rclcpp::NodeOptions & options,
-  TransportFactory transport_factory)
+SwerveDriverNode::SwerveDriverNode(const rclcpp::NodeOptions & options)
 : rclcpp_lifecycle::LifecycleNode{"swerve_driver", options},
-  impl_{std::make_unique<Impl>(*this, std::move(transport_factory))}
+  impl_{std::make_unique<Impl>(*this)}
 {
 }
 

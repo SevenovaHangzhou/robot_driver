@@ -4,28 +4,31 @@
 
 namespace dm_swerve_driver {
 namespace {
-MotorError policy_error(const KincoAxisFeedback & axis, const KincoFaultReport & fault)
+KincoAxisCondition policy_condition(
+  const KincoAxisFeedback & axis, const KincoFaultReport & fault)
 {
   if (fault.disposition == FaultDisposition::latch) {
-    if (fault.over_current) {return MotorError::over_current;}
-    if (fault.over_temperature) {return MotorError::mos_over_temperature;}
-    if (fault.over_voltage) {return MotorError::over_voltage;}
-    if (fault.overload) {return MotorError::overload;}
-    return MotorError::encoder;  // All other hard errors use the existing latch policy.
+    return KincoAxisCondition::latching_fault;
   }
-  if (fault.under_voltage) {return MotorError::under_voltage;}
+  if (fault.disposition == FaultDisposition::recoverable) {
+    return KincoAxisCondition::recoverable_fault;
+  }
   const auto state = decode_ds402_state(axis.status_word);
   if (state == Ds402State::fault || state == Ds402State::fault_reaction_active ||
-    state == Ds402State::unknown) {return MotorError::encoder;}
-  return state == Ds402State::operation_enabled ? MotorError::enabled : MotorError::disabled;
+    state == Ds402State::unknown)
+  {
+    return KincoAxisCondition::latching_fault;
+  }
+  return state == Ds402State::operation_enabled ?
+         KincoAxisCondition::enabled : KincoAxisCondition::disabled;
 }
 }
 
 void KincoControlLoop::Impl::update_health(KincoClock::time_point now)
 {
   const bool domain_ok = feedback_.raw.domain.healthy();
-  std::array<bool, kMotorCount> received{}, enabled{};
-  for (std::size_t i{0U}; i < kMotorCount; ++i) {
+  std::array<bool, kKincoAxisCount> received{}, enabled{};
+  for (std::size_t i{0U}; i < kKincoAxisCount; ++i) {
     const auto & axis = feedback_.raw.feedback[i];
     received[i] = domain_ok && axis.online;
     auto & health = health_[i];
@@ -33,9 +36,11 @@ void KincoControlLoop::Impl::update_health(KincoClock::time_point now)
       health.has_feedback = true;
       ++health.received_frames;
       health.consecutive_missed_frames = 0U;
-      health.error = policy_error(axis, feedback_.axis_faults[i]);
+      health.condition = policy_condition(axis, feedback_.axis_faults[i]);
       const auto expected_mode = static_cast<std::int8_t>(i < kSwerveModuleCount ? 8 : 9);
-      if (axis.mode_display != expected_mode) {health.error = MotorError::encoder;}
+      if (axis.mode_display != expected_mode) {
+        health.condition = KincoAxisCondition::latching_fault;
+      }
     } else {
       ++health.missed_frames;
       ++health.consecutive_missed_frames;
@@ -52,7 +57,7 @@ void KincoControlLoop::Impl::update_health(KincoClock::time_point now)
     clearing_ = true;
     clear_deadline_ = now + std::chrono::seconds{2};
   }
-  for (std::size_t i{0U}; i < kMotorCount; ++i) {
+  for (std::size_t i{0U}; i < kKincoAxisCount; ++i) {
     if (actions.reenable[i]) {
       recovering_[i] = true;
       if (decode_ds402_state(feedback_.raw.feedback[i].status_word) == Ds402State::fault) {
@@ -181,7 +186,6 @@ ControlLoopOutput KincoControlLoop::Impl::update_odometry(KincoClock::time_point
 void KincoControlLoop::Impl::refresh_status()
 {
   std::lock_guard<std::mutex> lock{status_mutex_};
-  status_.kinco_backend = true;
   status_.initialized = initialized_;
   status_.running = running_.load();
   status_.faulted = safety_.faulted();
@@ -189,7 +193,6 @@ void KincoControlLoop::Impl::refresh_status()
   status_.transport_faulted = safety_.transport_faulted();
   status_.steering_limit_faulted = source_fault_;
   status_.recovery_attempts = safety_.recovery_attempts();
-  status_.motors = health_;
   status_.ethercat = feedback_.raw;
   status_.steering_sources = sources_;
   status_.encoder_heartbeat = encoder_cycle_.heartbeat_seen;

@@ -1,9 +1,7 @@
 #include "ros_output.hpp"
 
 #include <array>
-#include <chrono>
 #include <string>
-#include <vector>
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2/LinearMath/Quaternion.hpp>
@@ -14,7 +12,7 @@
 namespace dm_swerve_driver {
 namespace {
 
-const std::array<std::string, kMotorCount> kJointNames{
+const std::array<std::string, kKincoAxisCount> kJointNames{
   "front_left_steer_joint", "front_right_steer_joint",
   "rear_left_steer_joint", "rear_right_steer_joint",
   "front_left_wheel_joint", "front_right_wheel_joint",
@@ -36,8 +34,8 @@ void publish_joint_states(
   sensor_msgs::msg::JointState joints;
   joints.header.stamp = stamp;
   joints.name.assign(kJointNames.begin(), kJointNames.end());
-  joints.position.resize(kMotorCount);
-  joints.velocity.resize(kMotorCount);
+  joints.position.resize(kKincoAxisCount);
+  joints.velocity.resize(kKincoAxisCount);
   for (std::size_t index{0U}; index < kSwerveModuleCount; ++index) {
     joints.position[index] = output.steering_angle_rad[index];
     joints.position[index + kSwerveModuleCount] =
@@ -49,27 +47,6 @@ void publish_joint_states(
 }
 
 }  // namespace
-
-std::unique_ptr<CanTransport> make_default_transport(
-  const DriverParameters & parameters)
-{
-  std::vector<std::uint16_t> receive_ids;
-  receive_ids.reserve(kMotorCount + 1U);
-  receive_ids.insert(
-    receive_ids.end(),
-    parameters.motors.steering_mst_id.begin(),
-    parameters.motors.steering_mst_id.end());
-  receive_ids.insert(
-    receive_ids.end(),
-    parameters.motors.drive_mst_id.begin(),
-    parameters.motors.drive_mst_id.end());
-  receive_ids.push_back(kRegisterCanId);
-  return std::make_unique<SocketCanTransport>(SocketCanOptions{
-      parameters.can.interface_name,
-      receive_ids,
-      std::chrono::microseconds{parameters.can.write_timeout_us},
-      false});
-}
 
 void publish_control_output(
   rclcpp_lifecycle::LifecycleNode & node,

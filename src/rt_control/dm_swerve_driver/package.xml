@@ -2,7 +2,7 @@
 <package format="3">
   <name>dm_swerve_driver</name>
   <version>0.1.0</version>
-  <description>DaMiao four-module swerve drive protocol and control core.</description>
+  <description>Kinco EtherCAT four-module swerve driver with CANopen steering encoders.</description>
   <maintainer email="maintainer@example.com">dm_swerve_driver maintainers</maintainer>
   <license>Apache-2.0</license>
 

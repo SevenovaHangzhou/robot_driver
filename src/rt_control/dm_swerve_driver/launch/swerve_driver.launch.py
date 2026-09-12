@@ -38,7 +38,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "params_file",
                 default_value=PathJoinSubstitution(
-                    [FindPackageShare("dm_swerve_driver"), "config", "swerve_params.yaml"]
+                    [FindPackageShare("dm_swerve_driver"), "config", "kinco_params.yaml"]
                 ),
             ),
             RegisterEventHandler(OnProcessStart(target_action=driver, on_start=[configure])),

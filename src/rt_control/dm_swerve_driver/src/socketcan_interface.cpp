@@ -89,8 +89,8 @@ void validate_outgoing_frame(const CanFrame & frame)
   if (frame.id > CAN_SFF_MASK) {
     throw std::invalid_argument{"outgoing CAN identifier exceeds 11 bits"};
   }
-  if (frame.length != CAN_MAX_DLEN) {
-    throw std::invalid_argument{"DaMiao outgoing frames must contain eight bytes"};
+  if (frame.length > CAN_MAX_DLEN) {
+    throw std::invalid_argument{"outgoing CAN payload exceeds eight bytes"};
   }
 }
 

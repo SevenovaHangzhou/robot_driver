@@ -3,7 +3,7 @@
 完整标定资料：[标定说明](swerve_calibration_overview.md)、
 [现场手册](swerve_calibration_manual.md)、[记录模板](swerve_calibration_record_template.md)。
 
-节点入口仍为 `swerve_driver_node`，通过 `driver.backend=kinco` 选择新后端。
+节点入口为 `swerve_driver_node`，运行路径固定为 Kinco EtherCAT。
 模板在 `config/kinco_params.yaml`；硬件事实字段的 0 值会拒绝配置。
 总线分工已确认：8 台电机使用 EtherCAT，4 个外置 BRT 编码器保留 CANopen。
 真实 EtherCAT 电机总线及 CANopen 编码器台架验收尚未执行。

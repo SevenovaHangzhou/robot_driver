@@ -5,17 +5,12 @@
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 
-#include "dm_swerve_driver/control_loop.hpp"
-#include "dm_swerve_driver/params.hpp"
+#include "dm_swerve_driver/control_types.hpp"
 
 namespace dm_swerve_driver {
 [[nodiscard]] std::vector<diagnostic_msgs::msg::DiagnosticStatus>
-build_kinco_diagnostic_statuses(const ControlLoopStatus & status);
-
-[[nodiscard]] std::vector<diagnostic_msgs::msg::DiagnosticStatus>
 build_diagnostic_statuses(
-  const ControlLoopStatus & status,
-  const DriverParameters & parameters);
+  const ControlLoopStatus & status);
 
 }  // namespace dm_swerve_driver
 

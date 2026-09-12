@@ -1,26 +1,18 @@
 #ifndef DM_SWERVE_DRIVER__SWERVE_DRIVER_NODE_HPP_
 #define DM_SWERVE_DRIVER__SWERVE_DRIVER_NODE_HPP_
 
-#include <functional>
 #include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
-#include "dm_swerve_driver/can_transport.hpp"
-#include "dm_swerve_driver/control_loop.hpp"
-#include "dm_swerve_driver/params.hpp"
+#include "dm_swerve_driver/control_types.hpp"
 
 namespace dm_swerve_driver {
 
-using TransportFactory = std::function<std::unique_ptr<CanTransport>(
-    const DriverParameters &)>;
-
 class SwerveDriverNode final : public rclcpp_lifecycle::LifecycleNode {
 public:
-  explicit SwerveDriverNode(
-    const rclcpp::NodeOptions & options = rclcpp::NodeOptions{},
-    TransportFactory transport_factory = {});
+  explicit SwerveDriverNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions{});
   ~SwerveDriverNode() noexcept override;
 
   [[nodiscard]] ControlLoopStatus control_status() const;

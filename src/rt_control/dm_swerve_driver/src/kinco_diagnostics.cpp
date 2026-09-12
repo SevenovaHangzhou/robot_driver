@@ -16,11 +16,11 @@ void add(Status & status, const std::string & key, const std::string & value)
 }
 }
 
-std::vector<Status> build_kinco_diagnostic_statuses(const ControlLoopStatus & state)
+std::vector<Status> build_diagnostic_statuses(const ControlLoopStatus & state)
 {
   std::vector<Status> result;
   result.reserve(13U);
-  for (std::size_t i{0U}; i < kMotorCount; ++i) {
+  for (std::size_t i{0U}; i < kKincoAxisCount; ++i) {
     const auto & axis = state.ethercat.feedback[i];
     Status status;
     status.name = std::string{"dm_swerve_driver/"} + names[i % kSwerveModuleCount] +
