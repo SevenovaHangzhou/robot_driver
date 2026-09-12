@@ -338,8 +338,10 @@ verify_igh_fixed_pdo_support()
   local metadata="/usr/local/share/rt-control/dependency-versions.env"
   local patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
   local dc_patch="${repository_root}/patches/igh/0002-dc-offset-use-sent-application-time.patch"
+  local preop_patch="${repository_root}/patches/igh/0003-preop-only-coe.patch"
   local patch_sha256
   local dc_patch_sha256
+  local preop_patch_sha256
   local module_path
   local module_symbols
   local module_notes="/sys/module/ec_master/notes/.note.gnu.build-id"
@@ -361,6 +363,10 @@ verify_igh_fixed_pdo_support()
     fail "IgH requires --enable-hrtimer before FIFO scheduling"
   grep -Fxq "IGH_DC_OFFSET_PATCH_SHA256=${dc_patch_sha256}" "${metadata}" ||
     fail "installed IgH lacks the expected DC offset patch"
+  [[ -r "${preop_patch}" ]] || fail "missing IgH PREOP CoE policy patch"
+  preop_patch_sha256="$(sha256sum "${preop_patch}" | awk '{print $1}')"
+  grep -Fxq "IGH_PREOP_COE_PATCH_SHA256=${preop_patch_sha256}" "${metadata}" ||
+    fail "installed IgH lacks the PREOP-only CoE policy"
   command -v nm >/dev/null 2>&1 || fail "nm is required to verify IgH hrtimer support"
   command -v objcopy >/dev/null 2>&1 || fail "objcopy is required to verify the loaded IgH build"
   module_path="$(modinfo -n ec_master)" || fail "cannot locate installed ec_master"

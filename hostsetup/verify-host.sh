@@ -16,6 +16,7 @@ readonly housekeeping_cpus="0,2,4,6,8,10,12,16-27"
 readonly ec_master_run_on_cpu_line="options ec_master run_on_cpu=14"
 readonly igh_patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
 readonly igh_dc_patch="${repository_root}/patches/igh/0002-dc-offset-use-sent-application-time.patch"
+readonly igh_preop_patch="${repository_root}/patches/igh/0003-preop-only-coe.patch"
 readonly igh_metadata="/usr/local/share/rt-control/dependency-versions.env"
 
 if [[ ${EUID} -ne 0 ]]; then
@@ -43,6 +44,10 @@ grep -Fxq 'IGH_HRTIMER=1' "${igh_metadata}" ||
   fail "IgH requires --enable-hrtimer before FIFO scheduling"
 grep -Fxq "IGH_DC_OFFSET_PATCH_SHA256=${expected_igh_dc_patch_sha256}" "${igh_metadata}" ||
   fail "installed IgH lacks the expected DC offset patch"
+[[ -r "${igh_preop_patch}" ]] || fail "missing IgH PREOP CoE policy patch"
+expected_igh_preop_patch_sha256="$(sha256sum "${igh_preop_patch}" | awk '{print $1}')"
+grep -Fxq "IGH_PREOP_COE_PATCH_SHA256=${expected_igh_preop_patch_sha256}" "${igh_metadata}" ||
+  fail "installed IgH lacks the PREOP-only CoE policy"
 
 contains_cpu14() {
   local list="$1"

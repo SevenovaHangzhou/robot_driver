@@ -11,6 +11,8 @@ IgH 安装与宿主（→ realtime-host）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| X503-PREOP-1 | 两侧单位/小数位每次初始化只在 PREOP 读取一次，OP 用本次快照与 PDO；离开 OP 或断链后快照失效。主站拒绝非 PREOP CoE 请求。 | [ecat-axes-20260912-01](records/2026-09-12-x503-preop-snapshot.md)#F1-F4 | PASS（T3不使能；PDI固件根因、长期/运动未闭环） |
+| TI5-ASSIGN-1 | Native 启动检查实际安装 profile、驱动分配和 IgH 缓存，仅将已知默认分配恢复为已验证的 1601/1A01；未知映射拒绝启动，正确暖态无写入/重扫。 | [ecat-axes-20260911-01](records/2026-09-11-ti5-assignment-recovery.md)#F1-F3 | PARTIAL（T3；掉电重复性未验） |
 | MAIN-RATE-1 | Native/Docker包含0001..0012链和1 kHz周期；0012修正CI风格检查，JSB显式125 Hz保持公共契约。容器安装入口/Mock生命周期/有序退出0通过。 | [ecat-axes-20260910-02](records/2026-09-10-electri-97-main-packaging.md)#F1-F3 | PASS（T1容器；实机Docker发布未验） |
 | RATE-1 | 默认部署漏改的 Xacro 250 Hz 已补齐为 1000；首轮启动 6.821 秒，16 个 DC 节点实际周期 1 ms、同相，14 轴保持失能；5 秒 DC 告警本轮未出现。 | [ecat-axes-20260910-01](records/2026-09-10-electri-97-startup-rate-correction.md)#F1-F4 | PARTIAL（T3单轮；冷启动/长期/运动未验） |
 | TI5-PDO-1 | 四份Ti5 profile保留已校验PDO，失败在外层终止；三轮映射abort为0，PDO阶段由4.224秒降至约3.454秒，最终新配置保留、14轴失能无故障位。 | [ecat-axes-20260909-03](records/2026-09-09-electri-97-ti5-preserved-pdo.md)#F1-F4 | PASS（T3失能启动；DC/长期/运动未闭环） |
@@ -25,6 +27,10 @@ IgH 安装与宿主（→ realtime-host）。
 | 04#F1 | X503B raw shadow bridge 只消费 rt-control state frame；V1.6 已定义单位码 `5=N`、`7=N·m`，采样原码采用 `-999999..999999` 范围门禁，实际回读/TF 未完成时禁止 WrenchStamped | [ecat-axes-20260906-01](records/2026-09-06-electri-116-x503b-shadow-bridge.md)#F1-F3 | PARTIAL（T1；目标 SDO/实际参数/TF 待验） |
 
 ## 记录索引（倒序）
+
+- 2026-09-12 [X503 PREOP 一次快照与 CoE 状态限制](records/2026-09-12-x503-preop-snapshot.md) — fix，PASS（T3 不使能启动；OP 零邮箱流量）
+
+- 2026-09-11 [Ti5分配和安装配置恢复，使能交付](records/2026-09-11-ti5-assignment-recovery.md) — corrective，PARTIAL（T3）
 
 - 2026-09-10 [ELECTRI-97 main容器与125 Hz公共状态兼容](records/2026-09-10-electri-97-main-packaging.md) — fix，PASS（T1 Docker）
 - 2026-09-10 [ELECTRI-97 默认启动周期遗漏与旧结论纠错](records/2026-09-10-electri-97-startup-rate-correction.md) — corrective，PARTIAL（T3失能启动6.821秒）

@@ -70,6 +70,7 @@ class EthercatSensor:
     wrench_topic: str = ""
     raw_topic: str = ""
     frame_id: str = ""
+    profile: str = ""
 
 
 @dataclass(frozen=True)
@@ -365,7 +366,12 @@ def _parse_ethercat_variant(path: str | Path) -> EthercatComposition:
             raise HardwareCompositionError(
                 f"{_path(sensor_path)} X503 ROS metadata must provide wrench_topic, raw_topic and frame_id together"
             )
-        sensors.append(EthercatSensor(sensor_name, ring_position, wrench_topic, raw_topic, frame_id))
+        profile = sensor.get("profile", "")
+        if (not isinstance(profile, str)
+                or (profile and _VARIANT_NAME.fullmatch(profile) is None)
+                or (wrench_topic and not profile)):
+            raise HardwareCompositionError(f"{_path(sensor_path)} requires a valid sensor profile")
+        sensors.append(EthercatSensor(sensor_name, ring_position, wrench_topic, raw_topic, frame_id, profile))
 
     for index, raw_responder in enumerate(raw_extra):
         responder_path = (descriptor_path.name, "extra_responders", index)

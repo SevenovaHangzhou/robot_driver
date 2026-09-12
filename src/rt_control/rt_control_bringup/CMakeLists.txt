@@ -24,6 +24,7 @@ if(BUILD_TESTING)
     test_hardware_composition_config
     test/test_hardware_composition_config.py
   )
+  ament_add_pytest_test(test_preop_snapshot_launch test/test_preop_snapshot_launch.py)
   # ELECTRI-77: mock cross-domain contract suite (TC-RO-01 / TC-RO-02).
   # Requires an isolated ROS_DOMAIN_ID when run on a machine with a live
   # ROS 2 graph (the repo tooling exports ROS_DOMAIN_ID=142 for this).

@@ -1,0 +1,166 @@
+From: RT-Control maintainers
+Subject: [PATCH] Restrict CoE mailbox requests to error-free PREOP
+
+X503 mailbox handling fails intermittently while cyclic OP traffic is active.
+Read static parameters before activation and reject CoE request transmission
+outside PREOP. Do not schedule automatic dictionary reads in other states.
+
+diff --git a/master/mailbox.c b/master/mailbox.c
+--- a/master/mailbox.c
++++ b/master/mailbox.c
+@@ -6,90 +6,96 @@
+  *
+  *  The IgH EtherCAT Master is free software; you can redistribute it and/or
+  *  modify it under the terms of the GNU General Public License version 2, as
+  *  published by the Free Software Foundation.
+  *
+  *  The IgH EtherCAT Master is distributed in the hope that it will be useful,
+  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+  *  Public License for more details.
+  *
+  *  You should have received a copy of the GNU General Public License along
+  *  with the IgH EtherCAT Master; if not, write to the Free Software
+  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+  *
+  ****************************************************************************/
+ 
+ /**
+    \file
+    Mailbox functionality.
+ */
+ 
+ /****************************************************************************/
+ 
+ #include <linux/slab.h>
+ #include <linux/delay.h>
+ 
+ #include "mailbox.h"
+ #include "datagram.h"
+ #include "master.h"
+ 
+ /****************************************************************************/
+ 
+ /**
+    Prepares a mailbox-send datagram.
+    \return Pointer to mailbox datagram data, or ERR_PTR() code.
+ */
+ 
+ uint8_t *ec_slave_mbox_prepare_send(const ec_slave_t *slave, /**< slave */
+                                     ec_datagram_t *datagram, /**< datagram */
+                                     uint8_t type, /**< mailbox protocol */
+                                     size_t size /**< size of the data */
+                                     )
+ {
+     size_t total_size;
+     int ret;
++
++    /* All CoE SDO and dictionary requests must precede OP activation. */
++    if (type == EC_MBOX_TYPE_COE
++            && slave->current_state != EC_SLAVE_STATE_PREOP) {
++        return ERR_PTR(-EPERM);
++    }
+ 
+     if (unlikely(!slave->sii.mailbox_protocols)) {
+         EC_SLAVE_ERR(slave, "Slave does not support mailbox"
+                 " communication!\n");
+         return ERR_PTR(-EPROTONOSUPPORT);
+     }
+ 
+     total_size = EC_MBOX_HEADER_SIZE + size;
+ 
+     if (unlikely(total_size > slave->configured_rx_mailbox_size)) {
+         EC_SLAVE_ERR(slave, "Data size (%zu) does not fit in mailbox (%u)!\n",
+                 total_size, slave->configured_rx_mailbox_size);
+         return ERR_PTR(-ENOBUFS);
+     }
+ 
+     ret = ec_datagram_fpwr(datagram, slave->station_address,
+             slave->configured_rx_mailbox_offset,
+             slave->configured_rx_mailbox_size);
+     if (ret)
+         return ERR_PTR(ret);
+ 
+     EC_WRITE_U16(datagram->data,     size); // mailbox service data length
+     EC_WRITE_U16(datagram->data + 2, slave->station_address); // station addr.
+     EC_WRITE_U8 (datagram->data + 4, 0x00); // channel & priority
+     EC_WRITE_U8 (datagram->data + 5, type); // underlying protocol type
+ 
+     return datagram->data + EC_MBOX_HEADER_SIZE;
+ }
+ 
+ /****************************************************************************/
+ 
+ /**
+    Prepares a datagram for checking the mailbox state.
+    \todo Determine sync manager used for receive mailbox
+    \return 0 in case of success, else < 0
+ */
+ 
+ int ec_slave_mbox_prepare_check(const ec_slave_t *slave, /**< slave */
+                                 ec_datagram_t *datagram /**< datagram */
+                                 )
+ {
+     int ret = ec_datagram_fprd(datagram, slave->station_address, 0x808, 8);
+     if (ret)
+         return ret;
+ 
+diff --git a/master/fsm_master.c b/master/fsm_master.c
+--- a/master/fsm_master.c
++++ b/master/fsm_master.c
+@@ -628,12 +628,11 @@
+             slave++) {
+         if (!(slave->sii.mailbox_protocols & EC_MBOX_COE)
+                 || (slave->sii.has_general
+                     && !slave->sii.coe_details.enable_sdo_info)
+                 || slave->sdo_dictionary_fetched
+-                || slave->current_state == EC_SLAVE_STATE_INIT
+-                || slave->current_state == EC_SLAVE_STATE_UNKNOWN
++                || slave->current_state != EC_SLAVE_STATE_PREOP
+                 || jiffies - slave->jiffies_preop < EC_WAIT_SDO_DICT * HZ) {
+             continue;
+         }
+ 
+         EC_SLAVE_DBG(slave, 1, "Fetching SDO dictionary.\n");
+diff --git a/master/fsm_coe.c b/master/fsm_coe.c
+--- a/master/fsm_coe.c
++++ b/master/fsm_coe.c
+@@ -203,32 +203,38 @@
+     fsm->state = ec_fsm_coe_dict_start;
+ }
+ 
+ /****************************************************************************/
+ 
+ /** Starts to transfer an SDO to/from a slave.
+  */
+ void ec_fsm_coe_transfer(
+         ec_fsm_coe_t *fsm, /**< State machine. */
+         ec_slave_t *slave, /**< EtherCAT slave. */
+         ec_sdo_request_t *request /**< SDO request. */
+         )
+ {
+     fsm->slave = slave;
+     fsm->request = request;
+ 
++    if (slave->current_state != EC_SLAVE_STATE_PREOP) {
++        request->errno = EPERM;
++        fsm->state = ec_fsm_coe_error;
++        return;
++    }
++
+     if (request->dir == EC_DIR_OUTPUT) {
+         fsm->state = ec_fsm_coe_down_start;
+     }
+     else {
+         fsm->state = ec_fsm_coe_up_start;
+     }
+ }
+ 
+ /****************************************************************************/
+ 
+ /** Executes the current state of the state machine.
+  *
+  * \return 1 if the datagram was used, else 0.
+  */
+ int ec_fsm_coe_exec(
+         ec_fsm_coe_t *fsm, /**< Finite state machine. */

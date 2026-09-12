@@ -2470,6 +2470,12 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 ## BQ-143 — X503B 实际单位回读、sample-code 有效性与 FT frame 尚未确认 [BLOCKED 2026-09-06]
 
+- 2026-09-12 更新：用户授权每次启动在 PREOP 完成实际参数确认，OP 后禁止 SDO 读写。
+  两侧实读小数位 `[1,1,1,3,3,3]`、单位码 `[5,5,5,7,7,7]` 已验证；
+  [ecat-axes-20260912-01](docs/areas/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)
+  记录本次快照、主站 CoE 限制及不使能验证。FT frame 使用已有配置，现场 TF/测量标定
+  和 sample-code 新鲜度问题仍未闭合；不因本次单位读回而宣称全部事项解决。
+
 - Evidence：用户提供的 X503-B V1.6 手册已明确 `0x6000:01..06` 是校准后 DINT、
   `0x6000:10..15` 是采样原码，`0x8005:06..11` 小数位范围为 `0..10`，单位码 `5=N`、
   `7=N·m`。手册未定义 sample-code 的新鲜度判据，也没有给出当前两台设备实际回读的
