@@ -1,0 +1,45 @@
+Expose existing cycle boundaries and WC validity to opt-in EtherCAT modules.
+
+diff --git a/ethercat_interface/include/ethercat_interface/ec_slave.hpp b/ethercat_interface/include/ethercat_interface/ec_slave.hpp
+index a2ea4da..7f5732f 100644
+--- a/ethercat_interface/include/ethercat_interface/ec_slave.hpp
++++ b/ethercat_interface/include/ethercat_interface/ec_slave.hpp
+@@ -37,6 +37,10 @@ public:
+   virtual ~EcSlave() {}
+   /** read or write data to the domain */
+   virtual void processData(size_t /*index*/, uint8_t * /*domain_address*/) {}
++  /** Prepare one coherent output image using the master's working-counter result. */
++  virtual void onPdoCycleStart(bool /*complete*/) {}
++  /** Invalidate module feedback before controller update on incomplete process data. */
++  virtual void onPdoCycleRead(bool /*complete*/) {}
+   /** notify the module after the prepared RPDO image has been sent */
+   virtual void onPdoCycleSent() {}
+   /** a pointer to syncs. return &syncs[0] */
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index f3a68ae..150f85b 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -367,6 +367,7 @@ void EcMaster::update(uint32_t domain)
+ 
+   // read and write process data
+   for (DomainInfo::Entry & entry : domain_info->entries) {
++    entry.slave->onPdoCycleStart(domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+     for (int i = 0; i < entry.num_pdos; ++i) {
+       (entry.slave)->processData(i, domain_info->domain_pd + entry.offset[i]);
+     }
+@@ -413,6 +414,7 @@ void EcMaster::readData(uint32_t domain)
+ 
+   // read and write process data
+   for (DomainInfo::Entry & entry : domain_info->entries) {
++    entry.slave->onPdoCycleRead(domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+     for (int i = 0; i < entry.num_pdos; ++i) {
+       (entry.slave)->processData(i, domain_info->domain_pd + entry.offset[i]);
+     }
+@@ -431,6 +433,7 @@ void EcMaster::writeData(uint32_t domain)
+ 
+   // read and write process data
+   for (DomainInfo::Entry & entry : domain_info->entries) {
++    entry.slave->onPdoCycleStart(domain_info->domain_state.wc_state == EC_WC_COMPLETE);
+     for (int i = 0; i < entry.num_pdos; ++i) {
+       (entry.slave)->processData(i, domain_info->domain_pd + entry.offset[i]);
+     }

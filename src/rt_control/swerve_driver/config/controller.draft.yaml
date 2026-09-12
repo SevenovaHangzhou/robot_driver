@@ -1,0 +1,40 @@
+# Deliberately not loaded by production launch. Module order: FL, FR, RL, RR.
+# Hardware owns PDO scaling, direction, gearing and static encoder zero offsets.
+controller_manager:
+  ros__parameters:
+    update_rate: 250
+    swerve_controller:
+      type: swerve_driver/SwerveController
+
+swerve_controller:
+  ros__parameters:
+    calibration_verified: false
+    steering_joints: [TBD, TBD, TBD, TBD]
+    drive_joints: [TBD, TBD, TBD, TBD]
+    steering_encoders: [TBD, TBD, TBD, TBD]
+    module_x: [TBD, TBD, TBD, TBD]
+    module_y: [TBD, TBD, TBD, TBD]
+    wheel_radius: [TBD, TBD, TBD, TBD]
+    steering_min: [TBD, TBD, TBD, TBD]
+    steering_max: [TBD, TBD, TBD, TBD]
+    max_linear_speed: TBD
+    max_angular_speed: TBD
+    max_wheel_speed: TBD
+    max_wheel_acceleration: TBD
+    velocity_deadband: TBD
+    max_encoder_difference: TBD
+    max_update_period: TBD
+    alignment_threshold: TBD
+    flip_hysteresis: TBD
+    max_steering_slew: TBD
+    feedback_timeout: TBD
+    pose_covariance: [TBD, TBD, TBD, TBD, TBD, TBD]
+    twist_covariance: [TBD, TBD, TBD, TBD, TBD, TBD]
+    imu_fallback_covariance_scale: TBD
+    missing_module_covariance_scale: TBD
+    imu_enabled: false
+    # Supply an aligned base-frame IMU and its explicit validation limits to enable it.
+    imu_frame_id: TBD
+    imu_timeout: TBD
+    max_imu_yaw_step: TBD
+    quaternion_norm_tolerance: TBD

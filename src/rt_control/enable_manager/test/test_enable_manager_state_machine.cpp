@@ -537,6 +537,63 @@ TEST_F(EnableManagerFixture, ClaimsFourteenControlAndStatusInterfaces)
   }
 }
 
+TEST_F(EnableManagerFixture, EnableOnlyCompletesEnableAndDisableWithoutControllerServices)
+{
+  initAndConfigure("enable_only_test", {
+    rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string(""))});
+  if (::testing::Test::HasFatalFailure()) {return;}
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  auto enabled = callAsync(ServiceKind::kEnable);
+  const bool enabled_done = pumpUntilDone(enabled);
+  join(enabled);
+  ASSERT_TRUE(enabled_done);
+  EXPECT_TRUE(enabled->response->ok) << enabled->response->stage;
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  auto disabled = callAsync(ServiceKind::kDisable);
+  const bool disabled_done = pumpUntilDone(disabled);
+  join(disabled);
+  ASSERT_TRUE(disabled_done);
+  EXPECT_TRUE(disabled->response->ok) << disabled->response->stage;
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {EXPECT_EQ(command(axis), kCwZero);}
+  EXPECT_FALSE(controller_->get_node()->set_parameter(
+    rclcpp::Parameter("enable_only", false)).successful);
+}
+
+TEST_F(EnableManagerFixture, ExplicitDisabledTerminalPolicyDoesNotNeedAnEmptyYamlArray)
+{
+  auto parameters = parametersWithFixtureTopology({
+    rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string("")),
+    rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled"))});
+  parameters.erase(std::remove_if(parameters.begin(), parameters.end(), [](const auto & p) {
+    return p.get_name() == "ready_to_switch_on_disable_terminal_joints";
+  }), parameters.end());
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(parameters);
+  ASSERT_EQ(controller_->init("explicit_disabled_terminal", "", options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+}
+
+TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExplicit)
+{
+  auto parameters = parametersWithFixtureTopology({
+    rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
+    rclcpp::Parameter("controller_switch_timeout", 0.0)});
+  parameters.erase(std::remove_if(parameters.begin(), parameters.end(), [](const auto & p) {
+    return p.get_name() == "ready_to_switch_on_disable_terminal_joints";
+  }), parameters.end());
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(parameters);
+  ASSERT_EQ(controller_->init("failed_terminal_policy", "", options), controller_interface::return_type::OK);
+  EXPECT_EQ(controller_->on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
+  controller_->get_node()->set_parameter(rclcpp::Parameter("disable_terminal_policy", std::string("joint_list")));
+  controller_->get_node()->set_parameter(rclcpp::Parameter("controller_switch_timeout", 4.0));
+  EXPECT_EQ(controller_->on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
+}
+
 TEST_F(EnableManagerFixture, BatchTableCoversAllFourteenAxesExactlyOnce)
 {
   ASSERT_EQ(kBatches, 5U);

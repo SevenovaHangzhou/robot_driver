@@ -71,6 +71,34 @@ source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
+For the draft third-generation modular hardware manifest, run a hardware-free
+static validation of every declared physical-profile/control-scope pair:
+
+```bash
+python3 src/rt_control/rt_control_bringup/scripts/validate_machine_profile.py \
+  --manifest src/rt_control/rt_control_bringup/config/machines/alfa_v3.yaml --all
+```
+
+The corresponding launch entry is
+`rt_control_module.launch.py`; `validation_only` defaults to `true`. It reports
+the selected module and actuator/mode counts without creating ROS hardware
+nodes. A runtime request is rejected until the manifest's TBD identities,
+layouts, mappings, and calibration facts are completed and independently
+verified. CI or a release gate can enforce the same condition directly with
+`--require-runtime-ready`.
+
+For example, the current arm-bench check is:
+
+```bash
+ros2 launch rt_control_bringup rt_control_module.launch.py \
+  robot_variant:=alfa_v3 physical_profile:=arms_only \
+  control_scope:=arms_only validation_only:=true
+```
+
+完整设备到货后只控制机械臂时，把 `physical_profile` 换为 `full_robot`，仍保持
+`control_scope:=arms_only`；该组合会保留完整物理布局校验，但不会把 Updown、舵轮或
+头部云台加入活动控制集合。
+
 目标工控机 `user@localhost`（管理地址 `192.168.0.250`）的日常开发使用独立工作区
 `/home/user/rt-control-dev`，由
 [`bootstrap_native_dev.sh`](../../tools/bootstrap_native_dev.sh) 管理冻结依赖和增量构建，

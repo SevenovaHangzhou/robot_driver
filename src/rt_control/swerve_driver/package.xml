@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>swerve_driver</name>
+  <version>0.1.0</version>
+  <description>Protocol-independent four-module swerve algorithms and CSP/CSV controller.</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>controller_interface</depend>
+  <depend>hardware_interface</depend>
+  <depend>diagnostic_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>realtime_tools</depend>
+  <depend>robot_interfaces_qos</depend>
+  <depend>rt_control_semantic_components</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>controller_manager</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

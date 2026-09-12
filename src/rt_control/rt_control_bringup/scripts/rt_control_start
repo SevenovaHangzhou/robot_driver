@@ -21,7 +21,12 @@ forward_shutdown() {
 
 trap forward_shutdown INT TERM
 
-launch_command=(ros2 launch rt_control_bringup rt_control.launch.py "$@")
+launch_file=rt_control.launch.py
+if [[ "${1:-}" == "--enable-only" ]]; then
+  launch_file=rt_control_enable_only.launch.py
+  shift
+fi
+launch_command=(ros2 launch rt_control_bringup "${launch_file}" "$@")
 if [[ -n "${RT_CONTROL_START_CPUSET:-}" ]]; then
   if ! command -v taskset >/dev/null 2>&1; then
     echo "BOOT_ERROR: RT_CONTROL_START_CPUSET requires taskset but taskset is missing" >&2

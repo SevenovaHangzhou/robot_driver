@@ -38,6 +38,7 @@ DOMAIN_PACKAGES = {
     "rt_control_bringup",
     "rt_diagnostics",
     "rt_control_semantic_components",
+    "swerve_driver",
     "rt_watchdog",
 }
 SHARED_PACKAGE_PREFIXES = (

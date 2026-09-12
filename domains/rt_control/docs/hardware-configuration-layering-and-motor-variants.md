@@ -5,6 +5,11 @@
 `alfa_v1`。当前拓扑是 18 位：Hub 0/13、14 个运动轴、右/左 X503 state-only sensor
 14/15、Turn 16 与 Updown 17。
 
+ELECTRI-118 另增三代机的组合 manifest
+`src/rt_control/rt_control_bringup/config/machines/alfa_v3.yaml`。它目前是 draft，
+只登记模块、物理 profile 和控制范围，不改变 `alfa_v1` 生产选择，也不承载尚未确认的
+PDO/SDO、环位、身份或机械参数。可用 `validate_machine_profile.py --all` 做无硬件静态校验。
+
 本文不是实机操作授权。修改 PDO/SDO、控制模式、比例、方向或电机数量后，必须按风险
 重新执行静态检查、Mock、容器和 HIL/实机门禁；软件状态不能替代急停、STO、驱动器
 保护或机械限位。

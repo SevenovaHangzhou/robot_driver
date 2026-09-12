@@ -1,0 +1,61 @@
+# Observations only. These are neither approved operating limits nor startup writes.
+schema_version: 1
+runtime_configuration: false
+captured_utc: '2026-09-12T05:43:27.126038+00:00'
+master_id: 0
+physical_profile: arms_only
+drive_positions: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+raw_evidence:
+  filename: gen3-live-protocol-20260912.json
+  sha256: f5d463dc2e039c913655b593894b85647228713a59486a6377dd7eca740571d2
+  uploads: 656
+  successful: 640
+  object_not_found: 16
+before_and_after: {master_active: false, master_phase: Idle, responders: 18, al_state: PREOP}
+hardware_version: '1005'
+software_versions:
+  '150403170': [1, 2, 3, 4, 5, 6, 11, 12, 13, 14]
+  '550403170': [7, 8, 15]
+  '150729090': [9, 10]
+  '550729090': [16]
+common:
+  modes_of_operation: 8
+  modes_of_operation_display: 8
+  supported_drive_modes: 0x0000038D
+  rxpdo_assignment: [0x1600]
+  txpdo_assignment: [0x1A00]
+  rxpdo_map: [0x607A0020, 0x60FE0020, 0x60400010]
+  txpdo_map: [0x60640020, 0x60FD0020, 0x60410010]
+  rxpdo_bytes: 10
+  txpdo_bytes: 10
+  sync_type_1c32_01: 0
+  sync_type_1c33_01: 0
+  cycle_ns_1c32_02: 1000000
+  cycle_ns_1c33_02: 1000000
+  min_cycle_ns_1c32_05: 500000
+  supported_sync_types_1c32_04: 5
+  supported_sync_types_1c33_04: 5
+  sync_error_limit_10f1_02: 10
+  max_torque_6072_type: int16
+  halt_option_605d:
+    dictionary_entry_present: false
+    upload_abort: 0x06020000
+    meaning: object_does_not_exist
+profile_velocity_acceleration_deceleration_raw:
+  # Same observed raw value for 6081, 6083 and 6084 at each position.
+  5566: [1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 13, 14, 15, 16]
+  55660: [7, 11]
+max_torque_6072_raw:
+  1350: [1, 2, 9, 10]
+  1001: [3, 4, 11, 12]
+  1201: [5, 13]
+  2112: [6, 14]
+  2000: [7, 8, 15, 16]
+statusword_6041:
+  0x0000: [1, 2, 3, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+  0x1000: [4, 7]
+error_register_603f:
+  0x0000: [1, 2, 4, 5, 6, 7, 9, 10, 11, 13, 14, 15]
+  0x730F: [3, 8, 12, 16]
+# Manual section 7.2.14 labels 730F as encoder multi-turn holding battery low.
+# This snapshot does not establish current CiA402 Fault state or battery voltage.

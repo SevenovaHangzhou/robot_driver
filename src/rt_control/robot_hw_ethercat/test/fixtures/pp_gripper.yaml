@@ -1,0 +1,41 @@
+# Synthetic device, calibration and timings for in-memory tests only.
+vendor_id: 1
+product_id: 2
+assign_activate: 0
+pp:
+  verified: true
+  counts_per_metre: 100000.0
+  zero_counts: 100.0
+  min_position: 0.0
+  max_position: 0.08
+  max_force: 10.0
+  permille_per_newton: 20.0
+  max_torque_permille: 200
+  position_tolerance: 0.0001
+  stopped_velocity: 0.0001
+  ack_timeout: 0.1
+  halt_timeout: 0.2
+  stopped_cycles: 2
+  velocity_metres_per_unit: 0.00001
+  effort_newtons_per_unit: 0.05
+sdo:
+  - {index: 0x6060, sub_index: 0, type: int8, value: 1}
+  - {index: 0x6081, sub_index: 0, type: uint32, value: 1000}
+  - {index: 0x6083, sub_index: 0, type: uint32, value: 10000}
+  - {index: 0x6084, sub_index: 0, type: uint32, value: 10000}
+  - {index: 0x605d, sub_index: 0, type: int16, value: 2}
+rpdo:
+  - index: 0x1600
+    channels:
+      - {index: 0x6040, sub_index: 0, type: uint16}
+      - {index: 0x6072, sub_index: 0, type: int16}
+      - {index: 0x607a, sub_index: 0, type: int32}
+tpdo:
+  - index: 0x1a00
+    channels:
+      - {index: 0x6041, sub_index: 0, type: uint16}
+      - {index: 0x6061, sub_index: 0, type: int8}
+      - {index: 0x6064, sub_index: 0, type: int32}
+      - {index: 0x606c, sub_index: 0, type: int32}
+      - {index: 0x6077, sub_index: 0, type: int16}
+      - {index: 0x0000, sub_index: 0, type: uint8}

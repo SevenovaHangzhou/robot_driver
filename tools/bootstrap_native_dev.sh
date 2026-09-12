@@ -202,6 +202,9 @@ apply_frozen_patches()
     patches/ecat_icube/0012-fix-timing-source-lint.patch \
     src/vendor/ecat_icube
   apply_patch_once \
+    patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
+    src/vendor/ecat_icube
+  apply_patch_once \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
@@ -221,6 +224,9 @@ apply_frozen_patches()
     src/vendor/ros2_controllers
   apply_patch_once \
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
+    src/vendor/ros2_controllers
+  apply_patch_once \
+    patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
     src/vendor/ros2_controllers
 }
 
@@ -285,7 +291,8 @@ verify_frozen_vendor_trees()
     patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
     patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
     patches/ecat_icube/0011-dc-rate-diagnostics.patch \
-    patches/ecat_icube/0012-fix-timing-source-lint.patch
+    patches/ecat_icube/0012-fix-timing-source-lint.patch \
+    patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
@@ -294,7 +301,8 @@ verify_frozen_vendor_trees()
     patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
-    patches/ros2_controllers/0002-use-contract-qos-profiles.patch
+    patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
+    patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch
 }
 
 prepare_sources()

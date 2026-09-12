@@ -1,0 +1,7 @@
+<library path="swerve_controller">
+  <class name="swerve_driver/SwerveController"
+         type="swerve_driver::SwerveController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Four steering CSP targets and four drive CSV targets with external steering observations.</description>
+  </class>
+</library>
