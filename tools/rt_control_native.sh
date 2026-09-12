@@ -384,6 +384,8 @@ verify_workspace()
     fail "missing executable realtime CPU guard: ${realtime_cpu_guard}"
   [[ -x "${thread_affinity_tool}" ]] ||
     fail "missing executable thread affinity helper: ${thread_affinity_tool}"
+  [[ -r "${script_dir}/rt_control_ti5_pdo_prepare.py" ]] ||
+    fail "missing Ti5 fixed-PDO preparation helper"
   command -v ip >/dev/null 2>&1 || fail "missing ip"
   command -v modprobe >/dev/null 2>&1 || fail "missing modprobe"
   command -v taskset >/dev/null 2>&1 || fail "missing taskset"
@@ -1178,6 +1180,15 @@ prepare_startup_realtime()
   return 1
 }
 
+prepare_ti5_pdo_assignments()
+{
+  local output
+  output="${runtime_log_root}/ti5-pdo-$(date +%Y%m%d-%H%M%S)-$$"
+  python3 "${script_dir}/rt_control_ti5_pdo_prepare.py" --restore --output "${output}" \
+    --profiles "${install_root}/share/robot_hw_ethercat/config/slaves" ||
+    fail "Ti5 fixed-PDO preparation failed; RT-Control was not started; see ${output}"
+}
+
 start_native()
 {
   local authorization="${1:-interactive}"
@@ -1200,6 +1211,7 @@ start_native()
   prepare_can_interfaces
   verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"
   verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"
+  prepare_ti5_pdo_assignments
   launch_native
   if ! (prepare_startup_realtime); then
     terminate_failed_start

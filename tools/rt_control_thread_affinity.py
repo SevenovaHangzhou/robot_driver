@@ -79,8 +79,14 @@ def find_ros2_control_pid() -> int | None:
         if not entry.name.isdigit():
             continue
         pid = int(entry.name)
-        cmdline = process_cmdline(pid)
-        if "ros2_control_node" in cmdline and "controller_manager" in cmdline:
+        command = Path(process_cmdline(pid).split(" ", 1)[0])
+        if command.name != "ros2_control_node" or command.parent.name != "controller_manager":
+            continue
+        try:
+            executable = Path(str(Path(f"/proc/{pid}/exe").readlink()).removesuffix(" (deleted)"))
+        except FileNotFoundError:
+            continue
+        if executable.name == "ros2_control_node" and executable.parent.name == "controller_manager":
             matches.append(pid)
     if len(matches) > 1:
         raise RuntimeError(f"multiple ros2_control_node processes found: {matches}")
