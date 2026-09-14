@@ -119,6 +119,7 @@ def _launch_setup(context):
     ethercat_variant = LaunchConfiguration("ethercat_variant")
     canopen_variant = LaunchConfiguration("canopen_variant")
     start_plc = LaunchConfiguration("start_plc")
+    start_plc_io_modbus = LaunchConfiguration("start_plc_io_modbus")
     start_bms = LaunchConfiguration("start_bms")
     description_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "urdf", "rt_control.urdf.xacro"]
@@ -126,6 +127,9 @@ def _launch_setup(context):
     controllers_file = str(controllers_path)
     rt_io_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "config", "rt_io.yaml"]
+    )
+    plc_io_modbus_file = PathJoinSubstitution(
+        [FindPackageShare("plc_io_modbus"), "config", "plc_io_modbus.yaml"]
     )
     robot_description = {
         "robot_description": ParameterValue(
@@ -203,6 +207,13 @@ def _launch_setup(context):
         output="both",
         parameters=[rt_io_file],
         condition=IfCondition(start_plc),
+    )
+    plc_io_modbus = Node(
+        package="plc_io_modbus",
+        executable="plc_io_modbus",
+        output="both",
+        parameters=[plc_io_modbus_file],
+        condition=IfCondition(start_plc_io_modbus),
     )
     bms = Node(
         package="bms_node",
@@ -306,6 +317,7 @@ def _launch_setup(context):
         vacuum_adapter,
         rt_status_adapter,
         plc,
+        plc_io_modbus,
         bms,
         *x503_nodes,
         *spawner_handlers,
@@ -324,6 +336,12 @@ def generate_launch_description():
                 "start_plc",
                 default_value=EnvironmentVariable(
                     "RT_CONTROL_START_PLC", default_value="false"
+                ),
+            ),
+            DeclareLaunchArgument(
+                "start_plc_io_modbus",
+                default_value=EnvironmentVariable(
+                    "RT_CONTROL_START_PLC_IO_MODBUS", default_value="false"
                 ),
             ),
             DeclareLaunchArgument(
