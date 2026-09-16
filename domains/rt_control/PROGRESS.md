@@ -157,3 +157,11 @@
 | 2026-09-12 | release-deploy | [ELECTRI-118同步最新main并解决冲突](docs/areas/release-deploy/records/2026-09-12-electri-118-main-sync.md) | UNVERIFIED（五个冲突文件已解决；124项配置回归通过，新基线全量构建/实机待验） |
 | 2026-09-13 | release-deploy | [ELECTRI-118对齐PR25后的main并准备新PR](docs/areas/release-deploy/records/2026-09-13-electri-118-pr-integration.md) | PARTIAL（T1；三处文本冲突与记录重号已处理，32包完整镜像、旧机/三代机Mock有序退出、166项配置回归及215条功能包测试记录通过；新基线实机待验） |
 | 2026-09-14 | io-power | [分立 IO 模块真空桥接](docs/areas/io-power/records/2026-09-14-discrete-analog-vacuum-bridge.md) | PARTIAL（T1 离线构建/测试；实机吸附、释放与 Docker 待验） |
+| 2026-09-13 | release-deploy | [ELECTRI-117 四舵轮控制器接入三代机模块选择](docs/areas/release-deploy/records/2026-09-13-swerve-controller-module-binding.md) | UNVERIFIED（T0；58项配置测试、静态安装校验与质量门禁通过；运行/容器/实机待验） |
+| 2026-09-15 | motion | [HT-WS-HH270 舵轮厂家机械图纸参数提取](docs/areas/motion/records/2026-09-15-swerve-module-mechanical-drawing.md) | UNVERIFIED（T0；图纸参数和歧义已登记，厂家确认与整车标定待完成） |
+| 2026-09-15 | governance | [main 稳定源码与 Docker 人工封装解耦](docs/areas/governance/records/2026-09-15-main-manual-docker-packaging.md) | PASS（T0；普通源码 PR 不强制镜像，人工封装/发布门禁保留） |
+| 2026-09-16 | canopen-chassis | [三代机四路 CANopen 舵角 state-only provider](docs/areas/canopen-chassis/records/2026-09-16-swerve-encoder-state-provider.md) | PARTIAL（T1；核心/provider/补丁闭包与 draft 接入通过，真实 EDS/总线/标定待验） |
+| 2026-09-16 | ecat-axes | [Kinco 四舵轮 CSP/CSV 接口合同与八轴 draft](docs/areas/ecat-axes/records/2026-09-16-kinco-swerve-contract-draft.md) | UNVERIFIED（T0；配置回归通过，identity/profile/环位/实机待验） |
+| 2026-09-16 | motion | [四舵轮最小二乘残差剔除与里程计隔离](docs/areas/motion/records/2026-09-16-swerve-slip-residual-rejection.md) | PARTIAL（T1；70条 Native/Mock 测试通过，实机阈值与打滑待验） |
+| 2026-09-16 | motion | [四舵轮机械限位内转向规划与输出门禁](docs/areas/motion/records/2026-09-16-swerve-bounded-steering-planner.md) | PARTIAL（T1；77条 Native/Mock 测试通过，逐轮限位与实机跟踪待验） |
+| 2026-09-16 | canopen-chassis | [四舵轮外置编码器 108/27 齿传动确认](docs/areas/canopen-chassis/records/2026-09-16-swerve-encoder-gearing-confirmation.md) | PARTIAL（T1；公式/配置回归通过，EDS、方向、零偏与实机待验） |

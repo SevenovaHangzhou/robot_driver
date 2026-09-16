@@ -12,6 +12,7 @@ struct OdometryParameters
   std::array<double, 6> twist_covariance_diagonal{};
   double imu_fallback_covariance_scale{1.0};
   double missing_module_covariance_scale{1.0};
+  double slip_covariance_scale{1.0};
 };
 }  // namespace swerve_driver
 #endif  // SWERVE_DRIVER__PARAMS_HPP_

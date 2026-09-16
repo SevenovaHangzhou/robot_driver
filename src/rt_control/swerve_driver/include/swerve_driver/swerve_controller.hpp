@@ -3,6 +3,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -49,7 +50,7 @@ private:
   };
   static int64_t steady_now() noexcept;
   ModuleFeedbackArray read_feedback() const;
-  void write_output(const ControlOutput & output);
+  [[nodiscard]] bool write_output(const ControlOutput & output);
   void stop_outputs();
   void accept_command(const geometry_msgs::msg::Twist & message, uint64_t generation);
   void accept_imu(const sensor_msgs::msg::Imu & message, uint64_t generation);
@@ -60,11 +61,12 @@ private:
   std::vector<std::string> command_names_, state_names_;
   std::array<hardware_interface::LoanedCommandInterface *, 8> commands_{};
   std::array<hardware_interface::LoanedStateInterface *, 37> states_{};
-  std::array<OdometryCovariances, 4> covariances_{};
+  std::array<OdometryCovariances, 8> covariances_{};
   realtime_tools::RealtimeBuffer<Command> command_buffer_;
   realtime_tools::RealtimeBuffer<ImuSample> imu_buffer_;
   std::atomic_bool active_{false}, ready_{false};
   std::atomic<ControlStatus> status_{ControlStatus::inactive};
+  std::atomic<unsigned int> slipping_mask_{0U};
   std::mutex lifecycle_mutex_;
   uint64_t generation_{0};
   int64_t block_before_ns_{0};

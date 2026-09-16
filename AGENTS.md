@@ -14,7 +14,7 @@
 1. 阅读根 `README.md`，确认 RT-Control 责任边界和共享资产所有权。
 2. 阅读 `domains/rt_control/README.md`、`AGENTS.md`、`PROGRESS.md` 和 `BLOCKED-questions.md`。
 3. 阅读目标包的 manifest、构建文件、实现、配置、测试和直接消费者；不只看被点名的单个文件。
-4. 执行 `git status --short --branch`，区分用户已有改动与本任务改动，并确认当前分支是 `main` 还是 `native`（决定是否适用第 4 节的封装要求）。
+4. 执行 `git status --short --branch`，区分用户已有改动与本任务改动，并确认是否涉及人工 Docker 封装或发布（决定是否适用第 4 节的封装要求）。
 5. 写明任务/需求号、所属域、目标包、跨域消费者、运行阶段和风险等级。
 6. 跨域接口相关变更先导入 `deps.repos`，再读
    `src/vendor/robot_interfaces/contract/views/rt_control.md` 的冻结基线。
@@ -46,22 +46,23 @@
 
 | 分支 | 定位 | Docker 封装 |
 | --- | --- | --- |
-| `main` | RT-Control 稳定集成与对外交付载体 | **必须**：完成 RT-Control Docker 封装 |
-| `native` | 敏捷开发主线，源码增量迭代 | **不要求**：允许原生构建与宿主直跑 |
+| `main` | RT-Control 稳定源码集成基线 | **不强制**：源码稳定后由人工单独发起封装 |
+| `native` | 敏捷开发主线，源码增量迭代 | **不强制**：允许原生构建与宿主直跑 |
 
-### 4.1 `main` 必须是封装好的 RT-Control
+### 4.1 `main` 是稳定源码基线
 
-进入 `main` 的 RT-Control 变更必须同时提供：
+普通源码 PR 进入 `main` 不再要求同步构建 Docker 镜像或提供容器启动证据。
+它仍必须通过适用的源码构建、单测、契约、Mock、实时/安全和生命周期门禁，
+且不得依赖开发者本机绝对路径、未记录环境或不可复现的人工源码修改。
 
-- 可复现的 `docker/rt-control/Dockerfile`，版本与上游依赖按不可变标识固定；
-- `docker/compose.yaml` 中的 RT-Control 服务定义，含最小 device、capability、cpuset、ulimits 和停机宽限；
-- 容器内启动入口，不依赖宿主源码树、宿主绝对路径或人工前置步骤。
+Dockerfile、Compose 和容器启动入口继续保留为发布资产，但不得默认声称与
+`main` HEAD 同步。只有人工封装任务明确记录 source SHA、镜像身份并完成容器验证后，
+该镜像才是部署候选。改动 `docker/**`、Compose、镜像依赖或正式发布资产时，
+仍须执行对应的镜像/容器门禁。
 
-禁止把只能在宿主原生环境跑通的实现合并进 `main`。合并到 `main` 的变更必须给出镜像构建与容器内启动证据；缺证据时按未验证处理，不得声明完成。
+### 4.2 `native` 为敏捷开发分支
 
-### 4.2 `native` 为敏捷开发豁免封装
-
-`native` 允许 `--symlink-install` 增量构建、宿主直跑和原生一键启动脚本，暂不要求容器封装。豁免范围**只限容器封装本身**。
+`native` 允许 `--symlink-install` 增量构建、宿主直跑和原生一键启动脚本，不要求容器封装。
 
 `native` 与 `main` 完全同等的要求：实时性与调度隔离、硬安全链与软件不越界、域责任边界与依赖方向、冻结的域间接口、共享 Robot Model 与 interfaces 的所有权、密钥与敏感数据禁令、`tools/quality_gate.sh` 及域级门禁、提交与自审格式。
 
@@ -69,7 +70,9 @@
 
 ### 4.3 `native` → `main` 的提升
 
-从 `native` 提升到 `main` 时必须补齐容器封装，并确认没有把原生专用路径、宿主绝对路径、开发者本机配置或未封装启动方式带入 `main`。原生一键脚本可以保留，但不得成为 `main` 的唯一启动方式。
+从 `native` 提升到 `main` 不要求补齐容器封装，但必须确认没有把宿主绝对路径、
+开发者本机配置或不可复现的临时修改带进 `main`。需要发布时，由人工从选定的
+`main` source SHA 单独执行封装、验证和归档。
 
 两条分支都禁止直接 push、force push 和改写共享历史；全部变更经 PR 合并。人的协作流程细则见 `collaboration-and-commit-standards.md`。
 
@@ -130,9 +133,10 @@ git diff --cached
 tools/quality_gate.sh
 ```
 
-还必须执行所属域 `AGENTS.md` 要求的包构建、单测、契约、mock/仿真、容器或 HIL/实机门禁。公共模型或接口变更必须扩大到全部消费者，不得只验证修改者自己的包。
-
-目标为 `main` 的变更还必须给出镜像构建与容器内启动证据。目标为 `native` 的变更免除容器封装，但第 4.2 节列出的其他要求一项不减。
+还必须执行所属域 `AGENTS.md` 要求的适用包构建、单测、契约、mock/仿真或
+HIL/实机门禁。公共模型或接口变更必须扩大到全部消费者，不得只验证修改者自己的包。
+仅当变更涉及 Docker/Compose、镜像依赖，或用户明确发起人工封装/发布时，
+才要求镜像构建与容器内启动证据；分支名本身不触发该要求。
 
 提交或推送只在用户明确要求时执行。被授权后仍必须：
 
@@ -164,7 +168,7 @@ tools/quality_gate.sh
 - 目标分支：main/native
 - 域边界与依赖方向：PASS/FAIL
 - Robot Model/接口兼容性：PASS/FAIL/N/A
-- 分支封装要求（main 需容器证据）：PASS/FAIL/N/A
+- Docker/发布封装影响（普通源码变更可 N/A）：PASS/FAIL/N/A
 - 安全、生命周期与失败收尾：PASS/FAIL/N/A
 
 验证证据：

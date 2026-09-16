@@ -2570,16 +2570,43 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 已完成：swerve_driver 算法、CSP/CSV ros2_control 插件、Mock 共享 manager 及增量容器测试。
 - 未完成代码接入：Kinco 实际从站 profile、CANopen state-only 编码器提供器，以及 scope-specific
   controller 列表/使能组合。不能仅安装新包就宣称三代机 launch 已可运行。
+- 2026-09-16 软件推进：已增加四转向 CSP 与四驱动 CSV 的 ros2_control interface
+  contracts，并登记共享 master 0 的八轴 fail-closed draft。合同固定 0x607A/0x60FF/
+  0x6040 命令和 0x6064/0x606C/0x6041/0x6061 状态，但未创建 Kinco family、
+  identity profile、slave PDO/SDO profile 或 production variant；实际硬件准入仍未完成。
 - 硬件契约：转向 position 为电机反馈按固定标定折算的输出轴 rad，外置 position 是独立实测舵角；
   驱动轮 position/velocity 为轮侧 rad/rad/s。原始计数、齿比、符号和零位换算属于硬件层。
 - 编码器后端须提供真实 TPDO 接收年龄 feedback_age_ms，不能每次 read() 时无条件置零；SYNC 目标
   周期为 4000 us，CAN/EtherCAT 两类数据的时延差必须纳入比较阈值验证，不假定同相。
+- 2026-09-16 已实现四路 state-only provider 软件骨架：复用冻结 Lely/ros2_canopen master，
+  由 RPDO 回调记录每路 `0x6004:00` 值及单调接收时刻，导出 `position` 和
+  `feedback_age_ms`，不导出 command interface。4 ms SYNC 由 master `sync_period`
+  产生；实际 EDS、Node ID、方向和零偏仍为 TBD，runtime gate 保持关闭。
+- 2026-09-16 用户确认外置编码器使用 108 齿回转齿圈和 27 齿小齿轮，四轮统一按
+  `axis_angle = encoder_angle × 27/108` 换算，即编码器 4 圈对应舵轴 1 圈。齿数不再是
+  阻塞项，但 EDS、Node ID、0x6501/0x6502、方向和零偏仍未确认。108/27 不属于 Kinco
+  电机传动，原先推导的电机总减速比 140:1 已撤回为 TBD。
 - 当前控制器拒绝缺失/失效的必需反馈，不含自动切换电机编码器继续运动、NMT 恢复或重新使能。
   更宽松的降级运行策略尚未获得独立授权，不能从旧达妙自动恢复代码推导。
 - 实际 PDO/SDO、字段比例、机械标定、反馈/差异阈值、真实 Robot Model/关节名仍未确认。
   N-04 命令和里程计最终按现有公共契约接线，当前只提供控制器私有 endpoint，不新增跨域旁路。
+- 2026-09-15 用户提供厂家图纸 `HT-WS-HH270-17.68-Q750-Z400(2).pdf`。已提取名义
+  200 mm 轮径、17.68 行走减速比、35:1 转向减速机、108/27 齿传动、270 mm 安装高度、
+  367 mm 回转包络及悬挂行程，并以 `verified: false` 登记。图纸未给数值舵角硬限位；
+  140:1 总转向比、转向电流/扭矩行、反馈齿数、质量和牵引重量单位仍待厂家澄清。
+  厂家名义值不关闭逐轮有效半径、零位、硬限位、背隙和阈值标定。
 - 主控 update 内无总线收发。订阅等生命周期设置在受控无运动阶段执行；实际 250 Hz 时序、切换
-  抖动、watchdog 和停车行为须在获得现场授权后验证。完整生产交付镜像仍待闭合。
+  抖动、watchdog 和停车行为须在获得现场授权后验证。生产镜像在源码稳定后由人工封装，
+  不作为当前源码推进或进入 `main` 的前置门禁。
+- 2026-09-16 已增加协议无关的固定规模最小二乘残差剔除：单轮异常会同时从实测 twist 和
+  当周期位置里程计排除，恢复不补跳，并在 diagnostics 标出 FL/FR/RL/RR、放大 covariance。
+  `slip_residual_threshold`（m/s）和 `slip_covariance_scale` 仍须实车标定；四轮共同满足另一组
+  刚体速度的共模误差不可由本方法识别。当前仅做估计隔离/告警，不新增残差停车或锁存策略。
+- 2026-09-16 已纠正 main 中遗漏的有限转向语义：逐轮在已标定机械区间内比较正/反轮速
+  等效候选，线性 slew 不跨端点；平移优先统一分支；ControlCore 和 ros2_control 写出层均
+  再检查目标。不存在 continuous-joint、下层 ±pi 二次选支、PMAX 重定位或静默命令 clamp。
+  四轮 `steering_min/max`、margin、measurement tolerance、deadband 和 slew 仍为 TBD，
+  图纸没有数值硬限位，必须完成逐轮标定后才能解除 runtime gate。
 
 ## BQ-146: 三代机汇川分支器身份与拓扑 [OPEN/HIGH-RISK 2026-09-12]
 
@@ -2604,3 +2631,16 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   ecat-axes-20260912-03，物理映射确认见 ecat-axes-20260912-04；arms_only 的可见位置为 0..17，
   正式运行描述与绑定完成前 manifest 保持 draft，不套用旧 Hub 例外。
 - 软件上传、构建与无硬件测试可继续；本项不授权总线启动、写 SDO、复位、使能或运动。
+
+## BQ-148: main 稳定源码与 Docker 人工封装解耦 [RESOLVED/DESIGN 2026-09-15]
+
+- User decision：`main` 作为 RT-Control 稳定源码集成基线，普通源码 PR 不再强制同步
+  Docker 封装、镜像构建或容器启动证据；源码稳定后由用户人工发起封装。
+- 不降低的门禁：源码构建、单测、契约、Mock、实时与安全审查、生命周期和失败收尾、
+  公共模型/接口消费者验证、Git/文件卫生仍按变更范围执行。
+- Dockerfile、Compose、容器入口和部署手册继续保留。改动这些资产，或人工发起封装/
+  正式发布时，仍必须记录精确 source SHA、镜像身份、构建日志和容器内启动/停机证据。
+- 仓库中的 Docker 资产不自动代表 `main` HEAD 已被封装；没有明确 source SHA 与镜像
+  对应记录的产物不得作为部署候选。
+- `native` 提升到 `main` 不要求先构建镜像，但不得带入宿主绝对路径、个人配置或
+  不可复现的临时修改。本裁决不授权容器启动、总线访问、复位、使能或运动。

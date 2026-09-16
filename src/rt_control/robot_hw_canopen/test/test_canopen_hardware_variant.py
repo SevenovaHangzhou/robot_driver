@@ -17,6 +17,10 @@ VARIANT_DIR = PACKAGE_DIR / "variants"
 VARIANT_PATH = VARIANT_DIR / "alfa_v1.yaml"
 BUS_PATH = PACKAGE_DIR / "config/bus.yml"
 VALIDATOR_PATH = PACKAGE_DIR / "cmake/validate_canopen_variant.py"
+SWERVE_VALIDATOR_PATH = PACKAGE_DIR / "cmake/validate_swerve_encoder_profile.py"
+SWERVE_DRAFT_PATH = (
+    PACKAGE_DIR / "config/machines/alfa_v3_swerve_encoders.draft.yaml"
+)
 CMAKE_PATH = PACKAGE_DIR / "CMakeLists.txt"
 XACRO_NAMESPACE = "http://www.ros.org/wiki/xacro"
 MACRO_TAG = f"{{{XACRO_NAMESPACE}}}macro"
@@ -35,6 +39,15 @@ VALIDATOR_SPEC = importlib.util.spec_from_file_location(
 assert VALIDATOR_SPEC is not None and VALIDATOR_SPEC.loader is not None
 VALIDATOR = importlib.util.module_from_spec(VALIDATOR_SPEC)
 VALIDATOR_SPEC.loader.exec_module(VALIDATOR)
+
+SWERVE_VALIDATOR_SPEC = importlib.util.spec_from_file_location(
+    "robot_hw_canopen_swerve_validator", SWERVE_VALIDATOR_PATH
+)
+assert (
+    SWERVE_VALIDATOR_SPEC is not None and SWERVE_VALIDATOR_SPEC.loader is not None
+)
+SWERVE_VALIDATOR = importlib.util.module_from_spec(SWERVE_VALIDATOR_SPEC)
+SWERVE_VALIDATOR_SPEC.loader.exec_module(SWERVE_VALIDATOR)
 
 
 def _load_yaml(path: Path) -> dict:
@@ -668,3 +681,81 @@ def test_cmake_validates_every_registered_variant_and_derives_joint_bins() -> No
     assert "xacro.load_yaml('$(arg canopen_authority_bus)')" in xacro
     assert "left_track_joint.bin" not in cmake
     assert "right_track_joint.bin" not in cmake
+
+
+def test_swerve_encoder_draft_has_four_ordered_state_only_resources() -> None:
+    profile = SWERVE_VALIDATOR.validate(SWERVE_DRAFT_PATH)
+
+    assert profile["verified"] is False
+    assert profile["node_driver"] == {
+        "class": "ros2_canopen::ProxyDriver",
+        "package": "canopen_proxy_driver",
+    }
+    assert profile["master_driver"] == {
+        "class": "ros2_canopen::MasterDriver",
+        "package": "canopen_master_driver",
+    }
+    assert profile["sync_period_us"] == 4000
+    assert profile["position_pdo"] == {
+        "index": 0x6004,
+        "subindex": 0,
+        "bit_length": 32,
+        "signed": False,
+    }
+    assert profile["state_interfaces"] == ["position", "feedback_age_ms"]
+    assert [node["resource_name"] for node in profile["nodes"]] == [
+        "front_left_steering_encoder",
+        "front_right_steering_encoder",
+        "rear_left_steering_encoder",
+        "rear_right_steering_encoder",
+    ]
+    assert all(node["ring_gear_teeth"] == 108 for node in profile["nodes"])
+    assert all(node["pinion_gear_teeth"] == 27 for node in profile["nodes"])
+    assert all(
+        value == "TBD"
+        for node in profile["nodes"]
+        for field, value in node.items()
+        if field
+        not in {"resource_name", "ring_gear_teeth", "pinion_gear_teeth"}
+    )
+
+
+def test_swerve_encoder_draft_rejects_partially_guessed_hardware(
+    tmp_path: Path,
+) -> None:
+    profile = deepcopy(_load_yaml(SWERVE_DRAFT_PATH))
+    profile["nodes"][0]["node_id"] = 1
+    path = tmp_path / "alfa_v3_swerve_encoders.draft.yaml"
+    _write_yaml(path, profile)
+
+    with pytest.raises(
+        SWERVE_VALIDATOR.ValidationError, match="must remain TBD"
+    ):
+        SWERVE_VALIDATOR.validate(path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (("ring_gear_teeth", 107), ("pinion_gear_teeth", 28)),
+)
+def test_swerve_encoder_draft_rejects_wrong_confirmed_gear_teeth(
+    field: str, value: int, tmp_path: Path
+) -> None:
+    profile = deepcopy(_load_yaml(SWERVE_DRAFT_PATH))
+    profile["nodes"][0][field] = value
+    path = tmp_path / "alfa_v3_swerve_encoders.draft.yaml"
+    _write_yaml(path, profile)
+
+    with pytest.raises(
+        SWERVE_VALIDATOR.ValidationError, match="confirmed external encoder gearing"
+    ):
+        SWERVE_VALIDATOR.validate(path)
+
+
+def test_cmake_builds_and_installs_swerve_encoder_draft_validator() -> None:
+    cmake = CMAKE_PATH.read_text(encoding="utf-8")
+
+    assert "validate_swerve_encoder_profile ALL" in cmake
+    assert "alfa_v3_swerve_encoders.draft.yaml" in cmake
+    assert "install(DIRECTORY config/machines" in cmake
+    assert "cmake/validate_swerve_encoder_profile.py" in cmake

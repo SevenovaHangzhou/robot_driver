@@ -41,9 +41,11 @@ IgH 安装与宿主（→ realtime-host）。
 | 13#F1 | 用户上位机重置编码器后，两夹爪获新授权各做一次普通清错；6040=80 可回读但 Fault 持续，控制字已归 0 | [上位机复位后双夹爪清错](records/2026-09-12-grippers-post-vendor-fault-reset.md) | PARTIAL（T3，未恢复/未使能） |
 | 14#F1 | 用户重新上电后两夹爪 603F/1001=0，全部 16 轴 Fault 位清除；仍为 CSP、NotReadyToSwitchOn，PP 和运行未验证 | [重新上电后复查](records/2026-09-12-grippers-power-cycle-recovery.md) | PARTIAL（T2；更新 11..13 的历史故障状态） |
 | 15#F1 | 用户零位已归档；14 CSP+2 PP 实际 OP、WC48/48、16轴使能/保持/失能成功，最终 Idle/PREOP；PP运动/限力尚未验证 | [原位使能实测](records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3；当前状态及模式以本记录为准） |
+| 16#F1 | Kinco 四转向 CSP/四驱动 CSV 已建立协议无关接口合同和八轴 fail-closed draft；未创建 identity/profile/runtime variant | [Kinco 舵轮合同草案](records/2026-09-16-kinco-swerve-contract-draft.md)#F1-F4 | UNVERIFIED（T0 配置；实机参数和运行待验） |
 
 ## 记录索引（倒序）
 
+- 2026-09-16 [Kinco 四舵轮 CSP/CSV 接口合同与八轴 draft](records/2026-09-16-kinco-swerve-contract-draft.md)：UNVERIFIED（T0，runtime gate 保持关闭）。
 - 2026-09-12 [X503 PREOP 一次快照与 CoE 状态限制](records/2026-09-12-x503-preop-snapshot.md) — fix，PASS（T3 不使能启动；OP 零邮箱流量）
 
 - 2026-09-11 [Ti5分配和安装配置恢复，使能交付](records/2026-09-11-ti5-assignment-recovery.md) — corrective，PARTIAL（T3）

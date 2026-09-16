@@ -165,6 +165,10 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     && git -C src/vendor/ros2_canopen apply \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
+    && git -C src/vendor/ros2_canopen apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
+    && git -C src/vendor/ros2_canopen apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch \
     && git -C src/vendor/ros2_controllers apply \

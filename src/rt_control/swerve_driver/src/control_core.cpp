@@ -10,12 +10,25 @@ namespace swerve_driver
 namespace
 {
 bool positive(double x) noexcept {return std::isfinite(x) && x > 0.0;}
+SteeringAngleLimits steering_limits(const CoreConfig & config, size_t index) noexcept
+{
+  return {config.steering_min[index], config.steering_max[index],
+    config.steering_limit_margin[index], config.steering_limit_tolerance[index]};
+}
+SwerveSetpointParameters setpoint_parameters(const CoreConfig & config)
+{
+  auto parameters = config.setpoint;
+  for (size_t i = 0; i < parameters.angle_limits.size(); ++i) {
+    parameters.angle_limits[i] = steering_limits(config, i);
+  }
+  return parameters;
+}
 void validate(const CoreConfig & c)
 {
   if (!positive(c.max_linear_speed) || !positive(c.max_angular_speed) ||
     !positive(c.max_wheel_speed) || !positive(c.max_wheel_acceleration) ||
     !positive(c.max_encoder_difference) || !positive(c.max_update_period) ||
-    !positive(c.velocity_deadband) ||
+    !positive(c.velocity_deadband) || !positive(c.slip_residual_threshold) ||
     !(c.max_angular_speed * c.max_update_period < kPi))
   {
     throw std::invalid_argument("Swerve limits and timing must be explicitly configured");
@@ -25,7 +38,7 @@ void validate(const CoreConfig & c)
     if (!positive(c.wheel_radius[i]) || !std::isfinite(c.max_wheel_speed / c.wheel_radius[i]) ||
       !std::isfinite(c.locations[i].x) ||
       !std::isfinite(c.locations[i].y) || !std::isfinite(c.steering_min[i]) ||
-      !std::isfinite(c.steering_max[i]) || c.steering_min[i] >= c.steering_max[i])
+      !valid_steering_angle_limits(steering_limits(c, i)))
     {
       throw std::invalid_argument("Invalid swerve geometry or steering travel");
     }
@@ -42,7 +55,7 @@ void validate(const CoreConfig & c)
 }  // namespace
 
 ControlCore::ControlCore(const CoreConfig & config)
-: config_(config), setpoints_(config.setpoint)
+: config_(config), setpoints_(setpoint_parameters(config))
 {
   validate(config_);
   last_motor_positions_.fill(std::numeric_limits<double>::quiet_NaN());
@@ -53,8 +66,8 @@ void ControlCore::remember_positions(const ModuleFeedbackArray & feedback) noexc
 {
   for (size_t i = 0; i < 4; ++i) {
     const auto position = feedback[i].steering_position;
-    if (feedback[i].valid && std::isfinite(position) &&
-      position >= config_.steering_min[i] && position <= config_.steering_max[i])
+    if (feedback[i].valid && steering_angle_within_limits(
+        position, steering_limits(config_, i)))
     {
       last_motor_positions_[i] = position;
     }
@@ -67,18 +80,21 @@ bool ControlCore::measurement_valid(const ModuleFeedback & f) const noexcept
          std::isfinite(f.wheel_position) && std::isfinite(f.wheel_velocity);
 }
 
+bool ControlCore::module_ready(const ModuleFeedback & f, size_t index) const noexcept
+{
+  const auto limits = steering_limits(config_, index);
+  return measurement_valid(f) && f.enabled &&
+         std::isfinite(f.wheel_position * config_.wheel_radius[index]) &&
+         std::isfinite(f.wheel_velocity * config_.wheel_radius[index]) &&
+         std::abs(f.steering_position - f.steering_angle) <= config_.max_encoder_difference &&
+         steering_angle_within_limits(f.steering_position, limits) &&
+         steering_measurement_within_tolerance(f.steering_angle, limits);
+}
+
 bool ControlCore::feedback_ready(const ModuleFeedbackArray & feedback) const noexcept
 {
   for (size_t i = 0; i < 4; ++i) {
-    const auto & f = feedback[i];
-    if (!measurement_valid(f) || !f.enabled ||
-      !std::isfinite(f.wheel_position * config_.wheel_radius[i]) ||
-      !std::isfinite(f.wheel_velocity * config_.wheel_radius[i]) ||
-      std::abs(f.steering_position - f.steering_angle) > config_.max_encoder_difference ||
-      f.steering_position < config_.steering_min[i] || f.steering_position > config_.steering_max[i])
-    {
-      return false;
-    }
+    if (!module_ready(feedback[i], i)) {return false;}
   }
   return true;
 }
@@ -87,8 +103,13 @@ std::array<SwerveModulePosition, 4> ControlCore::positions(const ModuleFeedbackA
 {
   std::array<SwerveModulePosition, 4> result{};
   for (size_t i = 0; i < 4; ++i) {
+    const auto limits = steering_limits(config_, i);
+    const bool angle_valid = steering_measurement_within_tolerance(
+      feedback[i].steering_angle, limits);
     result[i] = {feedback[i].wheel_position * config_.wheel_radius[i],
-      feedback[i].steering_angle, measurement_valid(feedback[i])};
+      angle_valid ? clamp_steering_measurement_to_safe_range(
+        feedback[i].steering_angle, limits) : feedback[i].steering_angle,
+      module_ready(feedback[i], i) && angle_valid};
     result[i].valid = result[i].valid && std::isfinite(result[i].distance_m);
   }
   return result;
@@ -120,10 +141,47 @@ void ControlCore::observe(const ModuleFeedbackArray & feedback, std::optional<Ya
 {
   if (!odometry_) {return;}
   const auto current = positions(feedback);
-  const auto delta = wheel_chassis_delta_from_position_deltas(previous_positions_, current, config_.locations);
+  auto odometry_positions = current;
+  std::array<SwerveModuleMeasurement, 4> measured{};
+  std::size_t measured_count{0U};
   for (size_t i = 0; i < 4; ++i) {
-    if (current[i].valid) {previous_positions_[i] = current[i];}
+    measured[i] = {feedback[i].wheel_velocity * config_.wheel_radius[i],
+      current[i].angle_rad, current[i].valid};
+    measured[i].valid = measured[i].valid && std::isfinite(measured[i].speed_mps);
+    if (measured[i].valid) {++measured_count;}
   }
+
+  output_.measured_twist = {};
+  output_.slipping_modules.fill(false);
+  output_.slip_detected = false;
+  output_.valid_modules = measured_count;
+  const auto fit = chassis_speeds_with_slip_rejection(
+    measured, config_.locations, config_.slip_residual_threshold);
+  if (fit.has_value()) {
+    output_.measured_twist = fit->speeds;
+    output_.slipping_modules = fit->slipping_modules;
+    output_.slip_detected = fit->slip_detected();
+    output_.valid_modules = fit->used_module_count;
+    for (size_t i = 0; i < 4; ++i) {
+      if (fit->slipping_modules[i]) {
+        odometry_positions[i].valid = false;
+        odometry_positions[i].rejected_as_slip = true;
+      }
+    }
+  } else if (measured_count >= 2U) {
+    output_.slip_detected = true;
+    output_.valid_modules = 0U;
+    for (size_t i = 0; i < 4; ++i) {
+      if (measured[i].valid) {
+        output_.slipping_modules[i] = true;
+        odometry_positions[i].valid = false;
+        odometry_positions[i].rejected_as_slip = true;
+      }
+    }
+  }
+
+  const auto delta = wheel_chassis_delta_from_position_deltas(
+    previous_positions_, odometry_positions, config_.locations);
   const bool fresh_imu = imu && std::isfinite(imu->yaw_rad) && std::isfinite(imu->rate_radps);
   if (fresh_imu) {
     if (!imu_fallback_) {yaw_ += wrap_pi(imu->yaw_rad - last_imu_yaw_);}
@@ -133,16 +191,10 @@ void ControlCore::observe(const ModuleFeedbackArray & feedback, std::optional<Ya
   }
   imu_fallback_ = !fresh_imu;
   output_.imu_fallback = imu_fallback_;
-  output_.pose = odometry_->update(yaw_, current);
-  std::array<SwerveModuleMeasurement, 4> measured{};
-  output_.valid_modules = 0;
+  output_.pose = odometry_->update(yaw_, odometry_positions);
   for (size_t i = 0; i < 4; ++i) {
-    measured[i] = {feedback[i].wheel_velocity * config_.wheel_radius[i],
-      feedback[i].steering_angle, current[i].valid};
-    measured[i].valid = measured[i].valid && std::isfinite(measured[i].speed_mps);
-    if (measured[i].valid) {++output_.valid_modules;}
+    if (current[i].valid) {previous_positions_[i] = current[i];}
   }
-  output_.measured_twist = chassis_speeds_from_module_states(measured, config_.locations).value_or(ChassisSpeeds{});
   if (fresh_imu) {output_.measured_twist.omega_radps = imu->rate_radps;}
   if (!std::isfinite(output_.pose.x_m) || !std::isfinite(output_.pose.y_m) ||
     !std::isfinite(output_.pose.heading_rad) || !std::isfinite(output_.measured_twist.vx_mps) ||
@@ -197,8 +249,8 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
   const auto max_step = config_.max_wheel_acceleration * dt;
   for (size_t i = 0; i < 4; ++i) {
     const auto target = std::abs(desired[i].speed_mps) < config_.velocity_deadband ?
-      feedback[i].steering_position : targets.modules[i].continuous_angle_rad;
-    if (!std::isfinite(target) || target < config_.steering_min[i] || target > config_.steering_max[i]) {
+      feedback[i].steering_position : targets.modules[i].target_angle_rad;
+    if (!steering_angle_within_limits(target, steering_limits(config_, i))) {
       return stop(feedback, ControlStatus::steering_limit);
     }
     output_.steering_position[i] = target;

@@ -12,6 +12,9 @@ import yaml
 
 BRINGUP_DIR = Path(__file__).resolve().parents[1]
 MACHINE_PATH = BRINGUP_DIR / "config/machines/alfa_v3.yaml"
+SWERVE_MECHANICS_PATH = (
+    BRINGUP_DIR / "config/machines/alfa_v3_swerve_mechanics.draft.yaml"
+)
 ARM_LAYOUT_PATH = (
     BRINGUP_DIR.parent / "robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml"
 )
@@ -71,8 +74,23 @@ def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
     }
     assert manifest.modules["swerve_encoders"].role == "state_sensor_group"
     assert manifest.modules["swerve_encoders"].transport == "canopen"
+    assert manifest.modules["swerve_encoders"].profile_ref == {
+        "package": "robot_hw_canopen",
+        "file": "config/machines/alfa_v3_swerve_encoders.draft.yaml",
+        "verified": False,
+    }
     assert manifest.modules["head_gimbal"].transport == "damiao_can"
     assert manifest.modules["arms"].mechanical_parameters == "TBD"
+    assert manifest.modules["swerve_chassis"].mechanical_parameters == {
+        "package": "rt_control_bringup",
+        "file": "config/machines/alfa_v3_swerve_mechanics.draft.yaml",
+        "verified": False,
+    }
+    assert manifest.modules["swerve_chassis"].profile_ref == {
+        "package": "robot_hw_ethercat",
+        "file": "config/machines/alfa_v3_swerve_chassis.draft.yaml",
+        "verified": False,
+    }
     assert manifest.modules["arms"].instance_count == 2
     assert manifest.modules["arms"].per_instance_mode_groups == {
         "csp": 7,
@@ -84,6 +102,58 @@ def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
         "chassis_only",
         "full",
         "head_only",
+    )
+
+
+def test_swerve_vendor_drawing_facts_do_not_replace_vehicle_calibration():
+    mechanics = yaml.safe_load(SWERVE_MECHANICS_PATH.read_text(encoding="utf-8"))
+
+    assert mechanics["verified"] is False
+    assert mechanics["source"]["sha256"] == (
+        "8feb1c75ce4258e551ba6fddc9b517d55e842fc32d7e7cffdc49d639ad916c1f"
+    )
+    assert mechanics["module"]["nominal_wheel_diameter_m"] == 0.2
+    assert mechanics["drive"]["selected_reducer_ratio"] == 17.68
+    assert mechanics["steering"]["steering_support_gear_teeth"] == 108
+    assert mechanics["steering"]["external_encoder_pinion_gear_teeth"] == 27
+    assert mechanics["steering"]["external_encoder_ring_gear_teeth"] == 108
+    assert mechanics["steering"]["external_encoder_turns_per_axis_turn"] == 4.0
+    assert mechanics["steering"]["external_encoder_gearing_verified"] is True
+    assert mechanics["steering"]["reducer_ratio"] == 35.0
+    assert mechanics["steering"]["derived_motor_to_steering_axis_ratio"] == "TBD"
+    assert mechanics["steering"]["derived_ratio_verified"] is False
+    assert mechanics["steering"]["mechanical_min_angle_rad"] == "TBD"
+    assert mechanics["steering"]["mechanical_max_angle_rad"] == "TBD"
+    assert "per-module loaded effective wheel radius" in (
+        mechanics["required_vehicle_calibration"]
+    )
+
+    controller = yaml.safe_load(
+        (BRINGUP_DIR.parent / "swerve_driver/config/controller.draft.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    parameters = controller["swerve_controller"]["ros__parameters"]
+    assert parameters["calibration_verified"] is False
+    assert parameters["wheel_radius"] == ["TBD"] * 4
+    assert parameters["steering_min"] == ["TBD"] * 4
+    assert parameters["steering_max"] == ["TBD"] * 4
+
+
+def test_unverified_swerve_mechanics_remain_a_runtime_blocker(tmp_path: Path):
+    document = _load_document()
+    chassis = document["modules"]["swerve_chassis"]
+    chassis["hardware_identity"] = {"checked": True}
+    chassis["profile_ref"] = {"checked": True}
+
+    selected = _module().select_hardware(
+        _write_document(tmp_path, document),
+        physical_profile="chassis_only",
+        control_scope="chassis_only",
+    )
+
+    assert "module swerve_chassis contains TBD or unverified values" in (
+        selected.runtime_blockers
     )
 
 
@@ -195,6 +265,111 @@ def test_chassis_scope_requires_four_external_canopen_encoder_states():
     }
     assert selected.canopen_node_ids is None
     assert selected.global_readiness == "partial_scope"
+    assert [(binding.module, binding.name, binding.plugin, binding.package, binding.config_file)
+            for binding in selected.controllers] == [
+        ("swerve_chassis", "swerve_controller", "swerve_driver/SwerveController",
+         "swerve_driver", "config/controller.draft.yaml")
+    ]
+    assert selected.controllers[0].required_state_modules == ("swerve_encoders",)
+
+
+def test_arm_only_scope_never_claims_swerve_controller():
+    selected = _module().select_hardware(
+        MACHINE_PATH, physical_profile="full_robot", control_scope="arms_only"
+    )
+    assert selected.controllers == ()
+
+
+@pytest.mark.parametrize("control_scope", ["chassis_only", "full"])
+def test_full_physical_robot_selects_swerve_only_for_chassis_scopes(control_scope: str):
+    selected = _module().select_hardware(
+        MACHINE_PATH, physical_profile="full_robot", control_scope=control_scope
+    )
+
+    assert [binding.name for binding in selected.controllers] == ["swerve_controller"]
+    assert selected.required_state_modules == ("swerve_encoders",)
+
+
+def test_swerve_controller_binding_requires_existing_module_and_encoder(tmp_path: Path):
+    module = _module()
+    document = _load_document()
+    document["controllers"]["swerve_chassis"]["required_state_modules"] = []
+    with pytest.raises(module.MachineProfileError, match="required state"):
+        module.load_machine_manifest(_write_document(tmp_path, document))
+
+    document = _load_document()
+    document["controllers"]["swerve_chassis"]["module"] = "missing_chassis"
+    with pytest.raises(module.MachineProfileError, match="unknown module"):
+        module.load_machine_manifest(_write_document(tmp_path, document))
+
+
+def test_controller_bindings_are_optional_for_other_v1_machine_variants(tmp_path: Path):
+    document = _load_document()
+    document["robot_variant"] = "other_machine"
+    del document["controllers"]
+
+    selected = _module().select_hardware(
+        _write_document(tmp_path, document),
+        physical_profile="chassis_only",
+        control_scope="chassis_only",
+    )
+    assert selected.controllers == ()
+
+
+def test_alfa_v3_cannot_omit_its_swerve_controller_binding(tmp_path: Path):
+    document = _load_document()
+    del document["controllers"]
+
+    with pytest.raises(_module().MachineProfileError, match="swerve chassis controller"):
+        _module().load_machine_manifest(_write_document(tmp_path, document))
+
+
+def test_swerve_binding_matches_installed_draft_controller_contract():
+    binding = _module().load_machine_manifest(MACHINE_PATH).controllers["swerve_chassis"]
+    config_path = BRINGUP_DIR.parent / binding.package / binding.config_file
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    manager = config["controller_manager"]["ros__parameters"]
+    params = config[binding.name]["ros__parameters"]
+
+    assert manager["update_rate"] == 250
+    assert manager[binding.name]["type"] == binding.plugin
+    assert params["calibration_verified"] is False
+    assert params["steering_joints"] == ["TBD"] * 4
+    assert params["drive_joints"] == ["TBD"] * 4
+    assert params["steering_encoders"] == [
+        "front_left_steering_encoder",
+        "front_right_steering_encoder",
+        "rear_left_steering_encoder",
+        "rear_right_steering_encoder",
+    ]
+
+
+def test_draft_swerve_config_blocks_runtime_even_if_other_facts_are_ready(tmp_path: Path):
+    document = _load_document()
+    document["status"] = "ready"
+    for item in document["modules"].values():
+        item["status"] = "ready"
+        item["pending_facts"] = []
+        item["hardware_identity"] = {"checked": True}
+        item["profile_ref"] = {"checked": True}
+        item["mechanical_parameters"] = {"checked": True}
+        for group in item["mode_groups"]:
+            group["certified"] = True
+    profile = document["profiles"]["chassis_only"]
+    profile["status"] = "ready"
+    profile["pending_facts"] = []
+    profile["layout"]["ethercat"]["status"] = "ready"
+    profile["layout"]["ethercat"]["ring_positions"] = list(range(8))
+    profile["layout"]["canopen"]["status"] = "ready"
+    profile["layout"]["canopen"]["node_ids"] = [1, 2, 3, 4]
+    module = _module()
+    with pytest.raises(module.MachineProfileError, match="draft config"):
+        module.select_hardware(
+            _write_document(tmp_path, document),
+            physical_profile="chassis_only",
+            control_scope="chassis_only",
+            require_runtime_ready=True,
+        )
 
 
 def test_head_only_has_no_ethercat_master_and_uses_damiao_can():

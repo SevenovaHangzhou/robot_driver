@@ -13,9 +13,12 @@ struct CoreConfig
   std::array<double, 4> wheel_radius{};
   std::array<double, 4> steering_min{};
   std::array<double, 4> steering_max{};
+  std::array<double, 4> steering_limit_margin{};
+  std::array<double, 4> steering_limit_tolerance{};
   double max_linear_speed{0.0}, max_angular_speed{0.0}, max_wheel_speed{0.0};
   double max_wheel_acceleration{0.0}, velocity_deadband{0.0};
   double max_encoder_difference{0.0}, max_update_period{0.0};
+  double slip_residual_threshold{0.0};
   SwerveSetpointParameters setpoint{};
 };
 
@@ -43,6 +46,8 @@ struct ControlOutput
   ControlStatus status{ControlStatus::inactive};
   size_t valid_modules{0};
   bool imu_fallback{true};
+  std::array<bool, 4> slipping_modules{};
+  bool slip_detected{false};
 };
 
 class ControlCore
@@ -58,6 +63,7 @@ public:
 
 private:
   bool measurement_valid(const ModuleFeedback & feedback) const noexcept;
+  bool module_ready(const ModuleFeedback & feedback, std::size_t index) const noexcept;
   void remember_positions(const ModuleFeedbackArray & feedback) noexcept;
   std::array<SwerveModulePosition, 4> positions(const ModuleFeedbackArray & feedback) const;
   void observe(const ModuleFeedbackArray & feedback, std::optional<YawSample> imu);
