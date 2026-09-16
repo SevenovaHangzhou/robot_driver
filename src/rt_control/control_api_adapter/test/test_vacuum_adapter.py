@@ -30,8 +30,18 @@ class FakeVacuumIo:
     def read_snapshot(self) -> PlcVacuumSnapshot:
         return self.snapshot
 
-    def wait_for_attachment(self, channels, timeout_s) -> PlcVacuumSnapshot:
+    def wait_for_attachment(
+        self, channels, timeout_s, cancel_requested, state_callback
+    ) -> PlcVacuumSnapshot:
         self.calls.append(("wait_for_attachment", tuple(channels), timeout_s))
+        state_callback(self.snapshot)
+        return self.snapshot
+
+    def wait_for_release(
+        self, timeout_s, cancel_requested, state_callback
+    ) -> PlcVacuumSnapshot:
+        self.calls.append(("wait_for_release", timeout_s))
+        state_callback(self.snapshot)
         return self.snapshot
 
 
@@ -51,6 +61,8 @@ def test_vacuum_state_projection_keeps_fixed_channel_order() -> None:
     assert [item.channel for item in channels] == ["left", "right"]
     assert channels[0].attached
     assert not channels[1].attached
+    assert channels[0].valve_commanded_open
+    assert channels[1].valve_commanded_open
     assert all(item.data_fresh for item in channels)
 
 
@@ -74,13 +86,38 @@ def test_grip_succeeds_only_after_every_target_channel_is_attached() -> None:
     assert result.overall_verification_level == ATTACHED_VERIFIED
     assert io.calls == [
         ("pump", True),
-        ("left", True),
-        ("right", True),
         ("wait_for_attachment", ("left", "right"), 2.0),
     ]
 
 
-def test_release_does_not_turn_off_common_pump() -> None:
+def test_grip_publishes_state_while_waiting_for_attachment() -> None:
+    io = FakeVacuumIo(
+        PlcVacuumSnapshot(
+            connected=True,
+            data_fresh=True,
+            left_attached=True,
+            right_attached=False,
+            left_valve_open=True,
+            right_valve_open=False,
+            pump_enabled=True,
+        )
+    )
+    feedback = []
+
+    result = VacuumAdapterCore(io).execute_goal(
+        GRIP,
+        ["left"],
+        "default",
+        "pick",
+        feedback_callback=feedback.append,
+    )
+
+    assert result.succeeded
+    assert len(feedback) >= 3
+    assert feedback[-1][0].attached
+
+
+def test_release_turns_relay_off_and_waits_for_zero_kpa() -> None:
     io = FakeVacuumIo(
         PlcVacuumSnapshot(
             connected=True,
@@ -89,14 +126,19 @@ def test_release_does_not_turn_off_common_pump() -> None:
             right_attached=True,
             left_valve_open=False,
             right_valve_open=True,
-            pump_enabled=True,
+            pump_enabled=False,
+            vacuum_pressure_valid=True,
+            vacuum_pressure_kpa=0.0,
+            vacuum_released=True,
         )
     )
-    result = VacuumAdapterCore(io).execute_goal(RELEASE, ["left"], "default", "release")
+    result = VacuumAdapterCore(io, release_verify_timeout_s=2.0).execute_goal(
+        RELEASE, ["left"], "default", "release"
+    )
 
     assert result.succeeded
     assert result.overall_verification_level == UNVERIFIED
-    assert io.calls == [("left", False)]
+    assert io.calls == [("pump", False), ("wait_for_release", 2.0)]
 
 
 def test_unknown_grip_profile_is_rejected_without_plc_writes() -> None:
@@ -189,3 +231,85 @@ def test_grip_reports_retryable_error_when_attachment_is_not_established() -> No
     assert result.accepted
     assert result.error.code == PublicErrorCode.RT_VACUUM_NOT_ESTABLISHED
     assert result.error.retryable
+
+
+def test_grip_cancel_leaves_pump_and_valve_outputs_unchanged() -> None:
+    io = FakeVacuumIo(
+        PlcVacuumSnapshot(
+            connected=True,
+            data_fresh=True,
+            left_attached=False,
+            right_attached=True,
+            left_valve_open=True,
+            right_valve_open=True,
+            pump_enabled=True,
+        )
+    )
+    cancel_checks = iter((False, False, True))
+
+    result = VacuumAdapterCore(io).execute_goal(
+        GRIP,
+        ["left"],
+        "default",
+        "pick",
+        cancel_requested=lambda: next(cancel_checks, True),
+    )
+
+    assert not result.succeeded
+    assert result.accepted
+    assert result.error.code == PublicErrorCode.CANCELED
+    assert ("pump", False) not in io.calls
+    assert ("left", False) not in io.calls
+    assert ("right", False) not in io.calls
+
+
+def test_release_timeout_keeps_relay_off_and_reports_pressure() -> None:
+    io = FakeVacuumIo(
+        PlcVacuumSnapshot(
+            connected=True,
+            data_fresh=True,
+            left_attached=False,
+            right_attached=False,
+            left_valve_open=False,
+            right_valve_open=False,
+            pump_enabled=False,
+            vacuum_pressure_valid=True,
+            vacuum_pressure_kpa=-8.5,
+            vacuum_released=False,
+        )
+    )
+
+    result = VacuumAdapterCore(io, release_verify_timeout_s=1.0).execute_goal(
+        RELEASE, ["left"], "default", "release"
+    )
+
+    assert not result.succeeded
+    assert result.accepted
+    assert result.error.code == PublicErrorCode.TIMEOUT
+    assert "-8.500 kPa" in result.error.message
+    assert io.calls == [("pump", False), ("wait_for_release", 1.0)]
+
+
+def test_output_echo_without_attachment_never_reports_grip_success() -> None:
+    io = FakeVacuumIo(
+        PlcVacuumSnapshot(
+            connected=True,
+            data_fresh=True,
+            left_attached=False,
+            right_attached=False,
+            left_valve_open=True,
+            right_valve_open=False,
+            pump_enabled=True,
+        )
+    )
+
+    result = VacuumAdapterCore(io).execute_goal(
+        GRIP, ["left"], "default", "pick"
+    )
+
+    assert not result.succeeded
+    assert result.error.code == PublicErrorCode.RT_VACUUM_NOT_ESTABLISHED
+    assert result.channel_results[0].valve_actuation_completed
+    assert result.channel_results[0].verification_level == UNVERIFIED
+    assert ("pump", False) not in io.calls
+    assert ("left", False) not in io.calls

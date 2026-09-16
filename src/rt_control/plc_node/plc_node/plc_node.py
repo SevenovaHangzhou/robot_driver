@@ -67,6 +67,10 @@ def plc_state_message(
     message.left_solenoid_on = snapshot.left_solenoid_on
     message.right_solenoid_on = snapshot.right_solenoid_on
     message.vacuum_pump_on = snapshot.vacuum_pump_on
+    # 旧 PLC 没有模拟量压力输入，明确标记无效，避免释放 Action 把默认 0 当真值。
+    message.vacuum_pressure_valid = False
+    message.vacuum_pressure_kpa = float("nan")
+    message.vacuum_released = False
     message.io_alarm = snapshot.io_alarm
     message.error = error
     return message

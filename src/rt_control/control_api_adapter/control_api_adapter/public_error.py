@@ -8,7 +8,9 @@ class PublicErrorCode(enum.IntEnum):
     """RT-Control subset of the contract-owned DREE error-code table."""
 
     SUCCESS = 0
+    TIMEOUT = 2
     INVALID_GOAL = 4
+    CANCELED = 80
 
     RT_ENABLE_FAILED = 1021
     RT_PUMP_UNAVAILABLE = 1022

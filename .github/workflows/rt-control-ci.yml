@@ -124,6 +124,7 @@ jobs:
             ethercat_driver
             ethercat_generic_cia402_drive
             joint_trajectory_controller
+            plc_io_modbus
             plc_node
             robot_description
             rt_control_interfaces
@@ -168,6 +169,7 @@ jobs:
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
+            plc_io_modbus \
             plc_node \
             robot_description \
             rt_control_interfaces \
@@ -215,6 +217,7 @@ jobs:
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
+            plc_io_modbus \
             plc_node \
             robot_description \
             rt_control_interfaces \

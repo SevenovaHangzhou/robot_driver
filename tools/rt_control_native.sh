@@ -410,7 +410,7 @@ verify_runtime_dependency_closure()
     rt_control_interfaces \
     bms_node \
     control_api_adapter \
-    plc_node \
+    plc_io_modbus \
     rt_diagnostics \
     x503_force_sensor \
     rt_control_bringup; do
@@ -420,6 +420,8 @@ verify_runtime_dependency_closure()
 
   [[ -x "${install_root}/lib/bms_node/bms_node" ]] ||
     fail "missing installed bms_node executable"
+  [[ -x "${install_root}/lib/plc_io_modbus/plc_io_modbus" ]] ||
+    fail "missing installed plc_io_modbus executable"
   [[ -x "${install_root}/lib/control_api_adapter/vacuum_adapter" ]] ||
     fail "missing installed vacuum_adapter executable"
   [[ -x "${install_root}/lib/control_api_adapter/rt_status_adapter" ]] ||

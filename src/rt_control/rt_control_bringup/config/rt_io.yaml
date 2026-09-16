@@ -1,22 +1,3 @@
-plc_node:
-  ros__parameters:
-    host: 192.168.1.88
-    port: 502
-    unit_id: 1
-    timeout_s: 1.0
-    interface: eno1
-    poll_period_s: 0.5
-    reconnect_period_s: 2.0
-    data_timeout_s: 1.5
-    do_command_register: 200
-    io_control_register: 201
-    di_status_register: 210
-    do_status_register: 211
-    io_alarm_register: 212
-    write_verify_timeout_s: 1.0
-    write_verify_period_s: 0.05
-    state_topic: /plc/io_state
-
 bms_node:
   ros__parameters:
     can_interface: can1
@@ -32,13 +13,12 @@ vacuum_adapter:
     vacuum_state_topic: /vacuum/state
     pump_set_enabled_service: /vacuum/pump/set_enabled
     grip_action_name: /vacuum/grip
-    left_solenoid_service: /plc/left_solenoid
-    right_solenoid_service: /plc/right_solenoid
     pump_service: /plc/vacuum_pump
     publish_period_s: 0.05
     plc_service_timeout_s: 2.0
     plc_state_timeout_s: 1.5
     grip_verify_timeout_s: 3.0
+    release_verify_timeout_s: 3.0
     accepted_grip_profile_ids:
       - default
 

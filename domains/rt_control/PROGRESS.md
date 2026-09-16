@@ -156,3 +156,4 @@
 | 2026-09-12 | lifecycle | [原位使能入口和显式终态策略](docs/areas/lifecycle/records/2026-09-12-stationary-enable-entry.md) | PARTIAL（62条状态机测试；Mock和实际有序退出通过，运动栈不变） |
 | 2026-09-12 | release-deploy | [ELECTRI-118同步最新main并解决冲突](docs/areas/release-deploy/records/2026-09-12-electri-118-main-sync.md) | UNVERIFIED（五个冲突文件已解决；124项配置回归通过，新基线全量构建/实机待验） |
 | 2026-09-13 | release-deploy | [ELECTRI-118对齐PR25后的main并准备新PR](docs/areas/release-deploy/records/2026-09-13-electri-118-pr-integration.md) | PARTIAL（T1；三处文本冲突与记录重号已处理，32包完整镜像、旧机/三代机Mock有序退出、166项配置回归及215条功能包测试记录通过；新基线实机待验） |
+| 2026-09-14 | io-power | [分立 IO 模块真空桥接](docs/areas/io-power/records/2026-09-14-discrete-analog-vacuum-bridge.md) | PARTIAL（T1 离线构建/测试；实机吸附、释放与 Docker 待验） |

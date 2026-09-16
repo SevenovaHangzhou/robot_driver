@@ -127,6 +127,9 @@ def _launch_setup(context):
     rt_io_file = PathJoinSubstitution(
         [FindPackageShare("rt_control_bringup"), "config", "rt_io.yaml"]
     )
+    plc_io_modbus_file = PathJoinSubstitution(
+        [FindPackageShare("plc_io_modbus"), "config", "plc_io_modbus.yaml"]
+    )
     robot_description = {
         "robot_description": ParameterValue(
             Command(
@@ -198,10 +201,10 @@ def _launch_setup(context):
         parameters=[rt_io_file, {"use_sim_time": use_sim_time}],
     )
     plc = Node(
-        package="plc_node",
-        executable="plc_node",
+        package="plc_io_modbus",
+        executable="plc_io_modbus",
         output="both",
-        parameters=[rt_io_file],
+        parameters=[plc_io_modbus_file],
         condition=IfCondition(start_plc),
     )
     bms = Node(
