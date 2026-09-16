@@ -30,8 +30,10 @@ void update_valid_baselines(
   const std::array<SwerveModulePosition, kSwerveModuleCount> & positions)
 {
   for (std::size_t index{0U}; index < positions.size(); ++index) {
-    if (positions[index].valid) {
+    if (positions[index].valid || positions[index].rejected_as_slip) {
       baselines[index] = positions[index];
+      baselines[index].valid = true;
+      baselines[index].rejected_as_slip = false;
     }
   }
 }

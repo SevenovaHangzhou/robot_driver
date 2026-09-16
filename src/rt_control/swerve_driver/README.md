@@ -6,10 +6,14 @@ See [NOTICE.md](NOTICE.md) for the exact source revision of the migrated math.
 
 ## Implemented
 
-- Chassis discretization, inverse/forward kinematics, equivalent-angle flipping
-  with hysteresis, steering slew, speed desaturation and alignment/cosine gating.
+- Chassis discretization, inverse/forward kinematics, mechanical-interval steering
+  branch selection with hysteresis, bounded steering slew, speed desaturation and
+  alignment/cosine gating.
 - Measured wheel-position-increment odometry, measured twist and optional IMU
   yaw/rate with wheel-yaw fallback and continuity on source changes.
+- Fixed-size least-squares residual checking rejects an inconsistent wheel from
+  measured twist and position odometry, reports its FL/FR/RL/RR identity and
+  inflates covariance while the rejection is active.
 - Eight ros2_control commands: four steering positions (CSP) and four wheel
   velocities (CSV). No standalone CAN thread, EtherCAT master or motor enable writer.
 - Explicit geometry/travel/feedback validation, stop-on-invalid-feedback behavior,
@@ -67,7 +71,18 @@ cross-domain contract or bypassing Motion. Existing production remappings are un
 Command freshness follows N-04: at most 500 ms since local receipt of Twist,
 with no fabricated message timestamp or frame. Non-finite/non-planar commands
 stop drive output. Linear/angular/wheel limits and wheel acceleration are bounded
-by explicit parameters; steering targets outside declared travel are rejected.
+by explicit parameters. Each wheel evaluates the positive-speed and reversed-speed
+equivalent angle inside its calibrated mechanical interval. A pure translation uses
+one feasible aggregate branch for all four wheels when possible. Target interpolation
+is linear inside the interval, so `+179 deg -> -179 deg` is never treated as a two-degree
+cross-limit move. There is no continuous-joint mode or lower-layer branch reselection.
+
+`steering_min/max` are per-wheel physical endpoints. `steering_limit_margin` shrinks
+the commandable target interval, while `steering_limit_tolerance` only admits small
+measurement uncertainty outside the physical endpoint before clamping the planning
+observation back into the safe interval. It never expands a command target. All four
+safe intervals must span at least 180 degrees and no physical interval may exceed
+360 degrees. These values and `steering_angle_deadband` remain calibration outputs.
 
 Any invalid/stale required feedback, mode/state mismatch or excessive difference
 between motor-derived and measured steering angles gates all drive commands to
@@ -82,6 +97,14 @@ be scheduled in the supervised no-motion startup/switching phase. `update()` use
 fixed arrays and bounded computation. DDS callbacks communicate through fixed-size
 realtime buffers; odometry publication uses the standard realtime publisher and
 diagnostics run outside update. Target-host timing and lifecycle jitter need HIL validation.
+
+`slip_residual_threshold` is a positive wheel-vector residual in m/s and must be
+derived from recorded healthy and induced-slip data. A rejected wheel does not
+accumulate a deferred position correction when it recovers. Residual checking
+cannot detect common-mode wheel error that remains exactly consistent with a
+different rigid-body chassis velocity; an independent IMU or external pose source
+is still required to observe that failure mode. `slip_covariance_scale` must be at
+least one and is multiplied with the existing IMU-fallback and missing-module scales.
 
 ## Remaining Hardware Integration
 

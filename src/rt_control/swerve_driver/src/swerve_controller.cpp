@@ -53,15 +53,18 @@ CallbackReturn SwerveController::on_init()
     auto_declare<std::vector<std::string>>(name, {});
   }
   for (const auto * name : {"module_x", "module_y", "wheel_radius", "steering_min", "steering_max",
-      "pose_covariance", "twist_covariance"})
+      "steering_limit_margin", "steering_limit_tolerance", "pose_covariance", "twist_covariance"})
   {
     auto_declare<std::vector<double>>(name, {});
   }
   for (const auto * name : {"max_linear_speed", "max_angular_speed", "max_wheel_speed",
       "max_wheel_acceleration", "velocity_deadband", "max_encoder_difference", "max_update_period",
+      "slip_residual_threshold",
       "alignment_threshold", "flip_hysteresis", "max_steering_slew", "feedback_timeout",
+      "translation_heading_epsilon", "steering_angle_deadband",
       "imu_timeout", "max_imu_yaw_step", "quaternion_norm_tolerance",
-      "imu_fallback_covariance_scale", "missing_module_covariance_scale"})
+      "imu_fallback_covariance_scale", "missing_module_covariance_scale",
+      "slip_covariance_scale"})
   {
     auto_declare<double>(name, 0.0);
   }
@@ -100,11 +103,15 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     const auto radius = numbers("wheel_radius", 4);
     const auto low = numbers("steering_min", 4);
     const auto high = numbers("steering_max", 4);
+    const auto margin = numbers("steering_limit_margin", 4);
+    const auto tolerance = numbers("steering_limit_tolerance", 4);
     for (size_t i = 0; i < 4; ++i) {
       config_.locations[i] = {x[i], y[i]};
       config_.wheel_radius[i] = radius[i];
       config_.steering_min[i] = low[i];
       config_.steering_max[i] = high[i];
+      config_.steering_limit_margin[i] = margin[i];
+      config_.steering_limit_tolerance[i] = tolerance[i];
     }
     config_.max_linear_speed = number("max_linear_speed");
     config_.max_angular_speed = number("max_angular_speed");
@@ -113,7 +120,12 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.velocity_deadband = number("velocity_deadband");
     config_.max_encoder_difference = number("max_encoder_difference");
     config_.max_update_period = number("max_update_period");
-    config_.setpoint = {number("alignment_threshold"), number("flip_hysteresis"), number("max_steering_slew")};
+    config_.slip_residual_threshold = number("slip_residual_threshold");
+    config_.setpoint.alignment_threshold_rad = number("alignment_threshold");
+    config_.setpoint.flip_hysteresis_rad = number("flip_hysteresis");
+    config_.setpoint.maximum_steering_slew_radps = number("max_steering_slew");
+    config_.setpoint.translation_heading_epsilon_rad = number("translation_heading_epsilon");
+    config_.setpoint.steering_angle_deadband_rad = number("steering_angle_deadband");
     feedback_timeout_ = number("feedback_timeout");
     if (!positive(feedback_timeout_)) {throw std::invalid_argument("feedback_timeout must be positive");}
     auto candidate = std::make_unique<ControlCore>(config_);
@@ -155,8 +167,10 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     std::copy(twist.begin(), twist.end(), covariance.twist_covariance_diagonal.begin());
     covariance.imu_fallback_covariance_scale = number("imu_fallback_covariance_scale");
     covariance.missing_module_covariance_scale = number("missing_module_covariance_scale");
-    for (size_t i = 0; i < 4; ++i) {
-      covariances_[i] = make_odometry_covariances(covariance, (i & 1U) != 0, (i & 2U) != 0 ? 0 : 4);
+    covariance.slip_covariance_scale = number("slip_covariance_scale");
+    for (size_t i = 0; i < covariances_.size(); ++i) {
+      covariances_[i] = make_odometry_covariances(
+        covariance, (i & 1U) != 0, (i & 2U) != 0 ? 0U : 4U, (i & 4U) != 0);
       for (const auto * matrix : {&covariances_[i].pose, &covariances_[i].twist}) {
         if (!std::all_of(matrix->begin(), matrix->end(), [](double value) {return std::isfinite(value);})) {
           throw std::invalid_argument("Swerve covariance overflow");
@@ -185,6 +199,7 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       "~/diagnostics", robot_interfaces_qos::diagnostic());
     diagnostic_timer_ = get_node()->create_wall_timer(std::chrono::milliseconds(100),
       [this]() {publish_diagnostics();});
+    slipping_mask_.store(0U);
   } catch (const std::exception & error) {
     core_.reset();
     RCLCPP_ERROR(get_node()->get_logger(), "Swerve configuration rejected: %s", error.what());
@@ -252,8 +267,11 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     imu_buffer_.writeFromNonRT(ImuSample{});
     publish_elapsed_ = 0.0;
     last_output_ = core_->update(feedback, {}, false, 0.004);
-    write_output(last_output_);
+    if (!write_output(last_output_)) {
+      throw std::runtime_error{"Swerve activation produced an unsafe output"};
+    }
     status_.store(last_output_.status);
+    slipping_mask_.store(0U);
     ready_.store(true);
     active_.store(true);
   } catch (const std::exception & error) {
@@ -285,12 +303,24 @@ ModuleFeedbackArray SwerveController::read_feedback() const
   return result;
 }
 
-void SwerveController::write_output(const ControlOutput & output)
+bool SwerveController::write_output(const ControlOutput & output)
 {
+  for (size_t i = 0; i < 4; ++i) {
+    const SteeringAngleLimits limits{
+      config_.steering_min[i], config_.steering_max[i],
+      config_.steering_limit_margin[i], config_.steering_limit_tolerance[i]};
+    if (!steering_angle_within_limits(output.steering_position[i], limits) ||
+      !std::isfinite(output.drive_velocity[i]))
+    {
+      stop_outputs();
+      return false;
+    }
+  }
   for (size_t i = 0; i < 4; ++i) {
     commands_[2 * i]->set_value(output.steering_position[i]);
     commands_[2 * i + 1]->set_value(output.drive_velocity[i]);
   }
+  return true;
 }
 
 void SwerveController::stop_outputs()
@@ -322,6 +352,7 @@ CallbackReturn SwerveController::on_deactivate(const rclcpp_lifecycle::State &)
   states_.fill(nullptr);
   release_interfaces();
   status_.store(ControlStatus::inactive);
+  slipping_mask_.store(0U);
   return CallbackReturn::SUCCESS;
 }
 
@@ -394,13 +425,25 @@ controller_interface::return_type SwerveController::update(const rclcpp::Time & 
     block_before_ns_ = now;
     stop_outputs();
     status_.store(ControlStatus::feedback_fault);
+    slipping_mask_.store(0U);
     return controller_interface::return_type::ERROR;
   }
   if (last_output_.status == ControlStatus::steering_limit || last_output_.status == ControlStatus::invalid_command) {
     block_before_ns_ = now;
   }
-  write_output(last_output_);
+  if (!write_output(last_output_)) {
+    ready_.store(false);
+    block_before_ns_ = now;
+    status_.store(ControlStatus::steering_limit);
+    slipping_mask_.store(0U);
+    return controller_interface::return_type::ERROR;
+  }
   status_.store(last_output_.status);
+  unsigned int slipping_mask{0U};
+  for (size_t i = 0; i < last_output_.slipping_modules.size(); ++i) {
+    if (last_output_.slipping_modules[i]) {slipping_mask |= 1U << i;}
+  }
+  slipping_mask_.store(slipping_mask);
   publish_elapsed_ += positive(dt) ? dt : 0.0;
   if (publish_elapsed_ >= 0.02 && realtime_odometry_->trylock()) {
     auto & message = realtime_odometry_->msg_;
@@ -412,7 +455,8 @@ controller_interface::return_type SwerveController::update(const rclcpp::Time & 
     message.twist.twist.linear.x = last_output_.measured_twist.vx_mps;
     message.twist.twist.linear.y = last_output_.measured_twist.vy_mps;
     message.twist.twist.angular.z = last_output_.measured_twist.omega_radps;
-    const size_t covariance = (last_output_.imu_fallback ? 1U : 0U) + (last_output_.valid_modules < 4 ? 2U : 0U);
+    const size_t covariance = (last_output_.imu_fallback ? 1U : 0U) +
+      (last_output_.valid_modules < 4 ? 2U : 0U) + (last_output_.slip_detected ? 4U : 0U);
     message.pose.covariance = covariances_[covariance].pose;
     message.twist.covariance = covariances_[covariance].twist;
     realtime_odometry_->unlockAndPublish();
@@ -429,12 +473,30 @@ void SwerveController::publish_diagnostics()
   message.header.stamp = get_node()->now();
   diagnostic_msgs::msg::DiagnosticStatus item;
   const auto status = status_.load();
+  const auto slipping_mask = slipping_mask_.load();
+  const bool slip_detected{slipping_mask != 0U};
   item.name = get_node()->get_name();
   item.hardware_id = "swerve_chassis";
-  item.message = status_name(status);
-  item.level = status == ControlStatus::running ? item.OK :
-    (status == ControlStatus::feedback_fault || status == ControlStatus::steering_limit ||
-    status == ControlStatus::invalid_command ? item.ERROR : item.WARN);
+  const bool error = status == ControlStatus::feedback_fault ||
+    status == ControlStatus::steering_limit || status == ControlStatus::invalid_command;
+  item.message = slip_detected && !error ? "wheel_slip" : status_name(status);
+  item.level = error ? item.ERROR :
+    (slip_detected || status != ControlStatus::running ? item.WARN : item.OK);
+  diagnostic_msgs::msg::KeyValue slip_value;
+  slip_value.key = "slip_detected";
+  slip_value.value = slip_detected ? "true" : "false";
+  item.values.push_back(std::move(slip_value));
+  diagnostic_msgs::msg::KeyValue modules_value;
+  modules_value.key = "slipping_modules";
+  constexpr std::array<const char *, 4> module_names{"FL", "FR", "RL", "RR"};
+  for (size_t i = 0; i < module_names.size(); ++i) {
+    if ((slipping_mask & (1U << i)) != 0U) {
+      if (!modules_value.value.empty()) {modules_value.value += ',';}
+      modules_value.value += module_names[i];
+    }
+  }
+  modules_value.value = modules_value.value.empty() ? "none" : modules_value.value;
+  item.values.push_back(std::move(modules_value));
   message.status.push_back(std::move(item));
   diagnostic_publisher_->publish(message);
 }
