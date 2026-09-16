@@ -237,6 +237,39 @@ TEST_F(SwerveControllerTest, LateralCommandTraversesInterfacesAndProducesMeasure
   EXPECT_EQ(odometry->child_frame_id, "base_footprint");
 }
 
+TEST_F(SwerveControllerTest, SlipInflatesCovarianceAndNamesRejectedModule)
+{
+  nav_msgs::msg::Odometry::SharedPtr odometry;
+  diagnostic_msgs::msg::DiagnosticArray::SharedPtr diagnostics;
+  auto odometry_subscription = client->create_subscription<nav_msgs::msg::Odometry>(
+    "/swerve_test/odom", robot_interfaces_qos::fast_state(),
+    [&](nav_msgs::msg::Odometry::SharedPtr message) {odometry = message;});
+  auto diagnostic_subscription = client->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
+    "/swerve_test/diagnostics", robot_interfaces_qos::diagnostic(),
+    [&](diagnostic_msgs::msg::DiagnosticArray::SharedPtr message) {diagnostics = message;});
+  for (size_t i = 0; i < 4; ++i) {
+    state("d" + std::to_string(i) + "/velocity", i == 2U ? 30.0 : 10.0);
+  }
+
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return odometry && diagnostics && !diagnostics->status.empty() &&
+           diagnostics->status.front().message == "wheel_slip";
+  });
+
+  ASSERT_TRUE(odometry);
+  ASSERT_TRUE(diagnostics);
+  ASSERT_FALSE(diagnostics->status.empty());
+  const auto & item = diagnostics->status.front();
+  EXPECT_EQ(item.level, item.WARN);
+  const auto modules = std::find_if(item.values.begin(), item.values.end(), [](const auto & value) {
+      return value.key == "slipping_modules";
+    });
+  ASSERT_NE(modules, item.values.end());
+  EXPECT_EQ(modules->value, "RL");
+  EXPECT_DOUBLE_EQ(odometry->pose.covariance[0], 40.0);
+}
+
 TEST_F(SwerveControllerTest, InvalidRosCommandAndMotorFaultStopTheChassis)
 {
   send(1.0);
@@ -305,6 +338,13 @@ TEST_F(SwerveControllerTest, RejectsOverflowingCovariance)
 {
   controller.on_deactivate(rclcpp_lifecycle::State{});
   controller.get_node()->set_parameter({"pose_covariance", std::vector<double>(6, 1e308)});
+  EXPECT_EQ(controller.on_configure(rclcpp_lifecycle::State{}), CallbackReturn::ERROR);
+}
+
+TEST_F(SwerveControllerTest, RejectsNonpositiveSlipThreshold)
+{
+  controller.on_deactivate(rclcpp_lifecycle::State{});
+  controller.get_node()->set_parameter({"slip_residual_threshold", 0.0});
   EXPECT_EQ(controller.on_configure(rclcpp_lifecycle::State{}), CallbackReturn::ERROR);
 }
 

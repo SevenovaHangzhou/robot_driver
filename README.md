@@ -61,8 +61,8 @@ robot_driver/
 
 | 分支 | 定位 | Docker 要求 |
 | --- | --- | --- |
-| `main` | RT-Control 稳定集成与交付载体 | 必须提供可复现镜像和容器验证 |
-| `native` | 原生增量开发主线 | 可免容器封装，但实时、安全和质量要求不降低 |
+| `main` | RT-Control 稳定源码集成基线 | 普通源码 PR 不强制封装；稳定后人工封装 |
+| `native` | 原生增量开发主线 | 不强制封装，但实时、安全和质量要求不降低 |
 
 所有共享分支禁止直接 push，变更经 feature/bugfix 分支和 PR 合并。完整规则见
 [AGENTS.md](AGENTS.md) 与
@@ -97,5 +97,6 @@ python3 tools/release_test_runner.py plan --gate v010
 增量内环不能替代提交/PR 前的仓库质量门禁；发布身份、自动执行、人工结果合并和 baseline
 delta 的完整用法见 [发布前测试体系](domains/rt_control/testing/README.md)。接口、硬件包或
 启动路径变更还必须按
-[RT-Control AGENTS.md](domains/rt_control/AGENTS.md) 构建和测试全部受影响包。没有容器、
-目标机或实机证据时必须明确记录为未验证，不得从源码检查推导运行结论。
+[RT-Control AGENTS.md](domains/rt_control/AGENTS.md) 构建和测试全部受影响包。
+只有 Docker/Compose 变更或人工封装/发布任务需要容器证据；没有目标机或实机证据时
+仍必须明确记录为未验证，不得从源码检查推导运行结论。

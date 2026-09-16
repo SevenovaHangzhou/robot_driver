@@ -16,6 +16,23 @@ interface_contracts:
       - {name: position, index: 0x6064, sub_index: 0, type: int32, mock_initial_value: 0.0}
       - {name: digital_inputs, index: 0x60fd, sub_index: 0, type: uint32, mock_initial_value: 0.0}
       - {name: status_word, index: 0x6041, sub_index: 0, type: uint16, mock_initial_value: 64.0}
+  swerve_steering_csp:
+    required_command_interfaces:
+      - {name: position, index: 0x607a, sub_index: 0, type: int32}
+      - {name: control_word, index: 0x6040, sub_index: 0, type: uint16}
+    required_state_interfaces:
+      - {name: position, index: 0x6064, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: status_word, index: 0x6041, sub_index: 0, type: uint16, mock_initial_value: 64.0}
+      - {name: mode_of_operation_display, index: 0x6061, sub_index: 0, type: int8, mock_initial_value: 8.0}
+  swerve_drive_csv:
+    required_command_interfaces:
+      - {name: velocity, index: 0x60ff, sub_index: 0, type: int32}
+      - {name: control_word, index: 0x6040, sub_index: 0, type: uint16}
+    required_state_interfaces:
+      - {name: position, index: 0x6064, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: velocity, index: 0x606c, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: status_word, index: 0x6041, sub_index: 0, type: uint16, mock_initial_value: 64.0}
+      - {name: mode_of_operation_display, index: 0x6061, sub_index: 0, type: int8, mock_initial_value: 9.0}
   x503_raw_input:
     required_command_interfaces: []
     required_state_interfaces:

@@ -16,9 +16,15 @@ launch 结构与容器（→ release-deploy）。
 | F2 | 官方夹爪 controller 的 PP 扩展默认关闭；启用后按同序号反馈完成到位/取消，max_effort 使用 N，不接受无限力请求 | [PP Action 记录](records/2026-09-08-pp-gripper-action.md) | PARTIAL，实机待验 |
 | F3 | 三代机转向 CSP、驱动 CSV；外置编码器用于实际舵角观测与校验，不增加转向位置外环或运行中慢速修正 | [CSP 舵角决策](records/2026-09-08-swerve-csp-feedback-decision.md)；BQ-144 | 已裁决，待实现/实机验证 |
 | F4 | swerve_driver 算法与 ros2_control 插件已迁入，只申请 4 路位置与 4 路速度命令，不含 rezero/MIT/力矩前馈 | [源码迁移记录](records/2026-09-09-swerve-controller-migration.md) | PARTIAL（T1 Native/容器；真实后端待接） |
+| F5 | HT-WS-HH270 厂家图纸已登记名义轮径、传动、安装包络和悬挂参数；数据保持 draft，不能替代逐轮有效半径、零位、硬限位和背隙标定 | [厂家机械图纸提取](records/2026-09-15-swerve-module-mechanical-drawing.md)#F1-F4 | UNVERIFIED（T0 图纸提取；厂家澄清/实测待完成） |
+| F6 | 四轮速度使用固定规模最小二乘残差剔除；同一异常轮从 twist 与位置里程计排除且恢复无补跳，阈值保持待标定；共模一致误差不可辨识 | [残差剔除记录](records/2026-09-16-swerve-slip-residual-rejection.md)#F1-F4 | PARTIAL（T1 Native/Mock；阈值和实机打滑待验） |
+| F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
 
 ## 记录索引（倒序）
 
+- [2026-09-16 四舵轮机械限位内转向规划与输出门禁](records/2026-09-16-swerve-bounded-steering-planner.md)
+- [2026-09-16 四舵轮最小二乘残差剔除与里程计隔离](records/2026-09-16-swerve-slip-residual-rejection.md)
+- [2026-09-15 HT-WS-HH270 舵轮厂家机械图纸提取](records/2026-09-15-swerve-module-mechanical-drawing.md)
 - [2026-09-09 swerve_driver 实际源码迁移](records/2026-09-09-swerve-controller-migration.md)
 - [2026-09-08 舵轮保留转向 CSP 与外置舵角观测](records/2026-09-08-swerve-csp-feedback-decision.md)
 - [2026-09-08 官方夹爪 PP Action 扩展](records/2026-09-08-pp-gripper-action.md)

@@ -65,7 +65,7 @@ cases:
 
   - id: TC-RO-04
     title: 容器内接口探测
-    purpose: 证明发布镜像容器内可复现 mock 契约探测（补齐规范要求的 main 容器 smoke）
+    purpose: 证明人工封装的发布镜像可在容器内复现 mock 契约探测
     area: release-deploy
     risk: T1
     writes: { reset: no, enable: no, motion: no, plc: no }

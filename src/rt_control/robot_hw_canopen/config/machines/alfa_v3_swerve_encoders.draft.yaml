@@ -1,0 +1,63 @@
+schema_version: 1
+module: swerve_encoders
+status: draft
+verified: false
+plugin: robot_hw_canopen/SwerveEncoderSystem
+node_driver:
+  class: ros2_canopen::ProxyDriver
+  package: canopen_proxy_driver
+master_driver:
+  class: ros2_canopen::MasterDriver
+  package: canopen_master_driver
+can_interface: TBD
+master_node_id: TBD
+sync_period_us: 4000
+position_pdo:
+  index: 0x6004
+  subindex: 0
+  bit_length: 32
+  signed: false
+state_interfaces: [position, feedback_age_ms]
+nodes:
+  - resource_name: front_left_steering_encoder
+    node_id: TBD
+    eds_file: TBD
+    counts_per_revolution: TBD
+    distinguishable_revolutions: TBD
+    ring_gear_teeth: 108
+    pinion_gear_teeth: 27
+    direction: TBD
+    installation_offset_rad: TBD
+  - resource_name: front_right_steering_encoder
+    node_id: TBD
+    eds_file: TBD
+    counts_per_revolution: TBD
+    distinguishable_revolutions: TBD
+    ring_gear_teeth: 108
+    pinion_gear_teeth: 27
+    direction: TBD
+    installation_offset_rad: TBD
+  - resource_name: rear_left_steering_encoder
+    node_id: TBD
+    eds_file: TBD
+    counts_per_revolution: TBD
+    distinguishable_revolutions: TBD
+    ring_gear_teeth: 108
+    pinion_gear_teeth: 27
+    direction: TBD
+    installation_offset_rad: TBD
+  - resource_name: rear_right_steering_encoder
+    node_id: TBD
+    eds_file: TBD
+    counts_per_revolution: TBD
+    distinguishable_revolutions: TBD
+    ring_gear_teeth: 108
+    pinion_gear_teeth: 27
+    direction: TBD
+    installation_offset_rad: TBD
+pending_facts:
+  - actual encoder model and authority EDS
+  - CAN interface and unique master/node IDs
+  - 0x6004/0x6501/0x6502 readback and TPDO mapping
+  - external encoder direction and installation offsets
+  - heartbeat, feedback age and discontinuity acceptance thresholds

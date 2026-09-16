@@ -16,6 +16,11 @@ VARIANT_PATH = PACKAGE_DIR / "variants/alfa_v1.yaml"
 PROFILE_DIR = PACKAGE_DIR / "config/slaves"
 FAMILY_REGISTRY_PATH = PACKAGE_DIR / "config/families.yaml"
 VALIDATOR_PATH = PACKAGE_DIR / "scripts/validate_ethercat_variants.py"
+SWERVE_DRAFT_PATH = (
+    PACKAGE_DIR / "config/machines/alfa_v3_swerve_chassis.draft.yaml"
+)
+SWERVE_VALIDATOR_PATH = PACKAGE_DIR / "scripts/validate_kinco_swerve_draft.py"
+CMAKE_PATH = PACKAGE_DIR / "CMakeLists.txt"
 XACRO_NAMESPACE = "http://www.ros.org/wiki/xacro"
 ECAT_JOINTS = (
     "right_joint1",
@@ -96,6 +101,113 @@ def _validate(
         capture_output=True,
         text=True,
     )
+
+
+def _validate_swerve(path: Path = SWERVE_DRAFT_PATH) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["python3", str(SWERVE_VALIDATOR_PATH), "--profile", str(path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_swerve_csp_csv_interface_contracts_match_controller_and_enable_ownership():
+    contracts = _load_family_registry()["interface_contracts"]
+
+    assert contracts["swerve_steering_csp"] == {
+        "required_command_interfaces": [
+            {"name": "position", "index": 0x607A, "sub_index": 0, "type": "int32"},
+            {"name": "control_word", "index": 0x6040, "sub_index": 0, "type": "uint16"},
+        ],
+        "required_state_interfaces": [
+            {
+                "name": "position", "index": 0x6064, "sub_index": 0,
+                "type": "int32", "mock_initial_value": 0.0,
+            },
+            {
+                "name": "status_word", "index": 0x6041, "sub_index": 0,
+                "type": "uint16", "mock_initial_value": 64.0,
+            },
+            {
+                "name": "mode_of_operation_display", "index": 0x6061,
+                "sub_index": 0, "type": "int8", "mock_initial_value": 8.0,
+            },
+        ],
+    }
+    assert contracts["swerve_drive_csv"] == {
+        "required_command_interfaces": [
+            {"name": "velocity", "index": 0x60FF, "sub_index": 0, "type": "int32"},
+            {"name": "control_word", "index": 0x6040, "sub_index": 0, "type": "uint16"},
+        ],
+        "required_state_interfaces": [
+            {
+                "name": "position", "index": 0x6064, "sub_index": 0,
+                "type": "int32", "mock_initial_value": 0.0,
+            },
+            {
+                "name": "velocity", "index": 0x606C, "sub_index": 0,
+                "type": "int32", "mock_initial_value": 0.0,
+            },
+            {
+                "name": "status_word", "index": 0x6041, "sub_index": 0,
+                "type": "uint16", "mock_initial_value": 64.0,
+            },
+            {
+                "name": "mode_of_operation_display", "index": 0x6061,
+                "sub_index": 0, "type": "int8", "mock_initial_value": 9.0,
+            },
+        ],
+    }
+    assert all(
+        family["interface_contract"] not in {"swerve_steering_csp", "swerve_drive_csv"}
+        for family in _load_family_registry()["families"].values()
+    )
+
+
+def test_kinco_swerve_draft_is_ordered_and_fully_fail_closed():
+    profile = yaml.safe_load(SWERVE_DRAFT_PATH.read_text(encoding="utf-8"))
+    result = _validate_swerve()
+
+    assert result.returncode == 0, result.stderr
+    assert profile["status"] == "draft"
+    assert profile["verified"] is False
+    assert profile["master_id"] == 0
+    assert [axis["module"] for axis in profile["axes"]] == [
+        "front_left", "front_right", "rear_left", "rear_right",
+        "front_left", "front_right", "rear_left", "rear_right",
+    ]
+    assert [axis["role"] for axis in profile["axes"]] == ["steering"] * 4 + ["drive"] * 4
+    assert [axis["mode_of_operation"] for axis in profile["axes"]] == [8] * 4 + [9] * 4
+    assert [axis["interface_contract"] for axis in profile["axes"]] == (
+        ["swerve_steering_csp"] * 4 + ["swerve_drive_csv"] * 4
+    )
+    assert all(
+        axis[field] == "TBD"
+        for axis in profile["axes"]
+        for field in ("joint_name", "ring_position", "family", "profile")
+    )
+
+
+def test_kinco_swerve_draft_rejects_partially_guessed_ring_position(tmp_path: Path):
+    profile = yaml.safe_load(SWERVE_DRAFT_PATH.read_text(encoding="utf-8"))
+    profile["axes"][0]["ring_position"] = 0
+    path = tmp_path / "alfa_v3_swerve_chassis.draft.yaml"
+    path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
+
+    result = _validate_swerve(path)
+
+    assert result.returncode != 0
+    assert "must remain TBD" in result.stderr
+
+
+def test_cmake_builds_and_installs_kinco_swerve_draft_validator():
+    cmake = CMAKE_PATH.read_text(encoding="utf-8")
+
+    assert "validate_kinco_swerve_draft ALL" in cmake
+    assert "alfa_v3_swerve_chassis.draft.yaml" in cmake
+    assert "scripts/validate_kinco_swerve_draft.py" in cmake
+    assert "install(DIRECTORY urdf config variants" in cmake
 
 
 def _expand(

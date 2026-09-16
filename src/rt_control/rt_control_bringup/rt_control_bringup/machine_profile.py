@@ -159,6 +159,12 @@ def _contains_tbd(value: Any) -> bool:
     return False
 
 
+def _contains_unresolved_reference(value: Any) -> bool:
+    return _contains_tbd(value) or (
+        isinstance(value, Mapping) and value.get("verified") is False
+    )
+
+
 def _status(value: Any, location: Sequence[object]) -> str:
     status = _string(value, location)
     if status not in _STATUSES:
@@ -256,6 +262,17 @@ class ScopeSpec:
 
 
 @dataclass(frozen=True)
+class ControllerBinding:
+    module: str
+    name: str
+    plugin: str
+    package: str
+    config_file: str
+    actuator_groups: tuple[str, ...]
+    required_state_modules: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class MachineManifest:
     path: Path
     variant: str
@@ -264,6 +281,7 @@ class MachineManifest:
     modules: Mapping[str, ModuleSpec]
     profiles: Mapping[str, PhysicalProfile]
     scopes: Mapping[str, ScopeSpec]
+    controllers: Mapping[str, ControllerBinding]
     owner_refs: Mapping[str, str]
 
 
@@ -288,6 +306,7 @@ class SelectedHardware:
     jtc_mode_counts: Mapping[int, int]
     required_state_modules: tuple[str, ...]
     state_sensor_count: int
+    controllers: tuple[ControllerBinding, ...]
     validation_status: str
     global_readiness: str
     runtime_blockers: tuple[str, ...]
@@ -896,6 +915,79 @@ def _validate_profile_scope_links(
                 )
 
 
+def _parse_controllers(
+    raw_controllers: Any,
+    location: Sequence[object],
+    modules: Mapping[str, ModuleSpec],
+    scopes: Mapping[str, ScopeSpec],
+) -> dict[str, ControllerBinding]:
+    controllers = _mapping(raw_controllers, location)
+    bindings: dict[str, ControllerBinding] = {}
+    used_names: set[str] = set()
+    for raw_key, raw_binding in controllers.items():
+        key = _string(raw_key, (*location, "<name>"), identifier=True)
+        entry = (*location, key)
+        binding = _mapping(raw_binding, entry)
+        _exact_keys(
+            binding,
+            {"module", "name", "plugin", "package", "config_file",
+             "actuator_groups", "required_state_modules"},
+            entry,
+        )
+        module_name = _string(binding["module"], (*entry, "module"), identifier=True)
+        if module_name not in modules:
+            raise MachineProfileError(f"{_path(entry)} references unknown module {module_name!r}")
+        if key != module_name or modules[module_name].role == "state_sensor_group":
+            raise MachineProfileError(f"{_path(entry)} must bind its actuator module")
+        name = _string(binding["name"], (*entry, "name"), identifier=True)
+        if name in used_names:
+            raise MachineProfileError(f"{_path(entry)} duplicates controller name {name!r}")
+        used_names.add(name)
+        package = _string(binding["package"], (*entry, "package"), identifier=True)
+        plugin = _string(binding["plugin"], (*entry, "plugin"))
+        if re.fullmatch(rf"{re.escape(package)}/[A-Za-z][A-Za-z0-9]*", plugin) is None:
+            raise MachineProfileError(f"{_path(entry)} plugin must belong to {package}")
+        config_file = _string(binding["config_file"], (*entry, "config_file"))
+        path = Path(config_file)
+        if (
+            path.is_absolute()
+            or len(path.parts) < 2
+            or any(part == ".." for part in path.parts)
+            or path.suffix != ".yaml"
+        ):
+            raise MachineProfileError(f"{_path(entry)} config_file must be package-relative")
+        groups = _string_list(binding["actuator_groups"], (*entry, "actuator_groups"))
+        expected = {group.name for group in modules[module_name].mode_groups}
+        if not groups or len(set(groups)) != len(groups) or set(groups) != expected:
+            raise MachineProfileError(f"{_path(entry)} actuator_groups must cover module exactly")
+        states = _string_list(
+            binding["required_state_modules"], (*entry, "required_state_modules")
+        )
+        expected_states = {
+            required for required in modules[module_name].requires
+            if modules[required].role == "state_sensor_group"
+        }
+        if len(set(states)) != len(states) or set(states) != expected_states:
+            raise MachineProfileError(f"{_path(entry)} required state modules must match module dependencies")
+        for scope in scopes.values():
+            if module_name not in scope.enabled_modules:
+                continue
+            selected = {item.mode_group for item in scope.actuator_groups if item.module == module_name}
+            if selected != expected or not set(states).issubset(scope.required_state_modules):
+                raise MachineProfileError(
+                    f"{_path(entry)} requires all actuator groups and required state modules "
+                    f"in scope {scope.name}"
+                )
+            if any(item.module == module_name for item in scope.jtc_groups):
+                raise MachineProfileError(
+                    f"{_path(entry)} may not share its actuator groups with JTC"
+                )
+        bindings[key] = ControllerBinding(
+            module_name, name, plugin, package, config_file, groups, states
+        )
+    return bindings
+
+
 def _validate_known_v3_contract(manifest: MachineManifest) -> None:
     if manifest.variant != "alfa_v3":
         return
@@ -996,6 +1088,17 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
     for name, expected in expected_profile_modules.items():
         if manifest.profiles[name].modules != expected:
             raise MachineProfileError(f"alfa_v3 profile {name} has an unexpected module set")
+    if set(manifest.controllers) != {"swerve_chassis"}:
+        raise MachineProfileError("alfa_v3 requires the swerve chassis controller binding")
+    controller = manifest.controllers["swerve_chassis"]
+    if (
+        controller.plugin != "swerve_driver/SwerveController"
+        or controller.package != "swerve_driver"
+        or controller.name != "swerve_controller"
+        or controller.actuator_groups != ("steering_csp", "drive_csv")
+        or controller.required_state_modules != ("swerve_encoders",)
+    ):
+        raise MachineProfileError("alfa_v3 swerve controller binding is inconsistent")
 
 
 def load_machine_manifest(path: str | Path) -> MachineManifest:
@@ -1003,18 +1106,19 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
     manifest_path = Path(path)
     document = _load_yaml(manifest_path)
     root_location = (manifest_path.name,)
+    required_keys = {
+        "schema_version",
+        "robot_variant",
+        "status",
+        "functional_modules",
+        "modules",
+        "profiles",
+        "scopes",
+        "owner_refs",
+    }
     _exact_keys(
         document,
-        {
-            "schema_version",
-            "robot_variant",
-            "status",
-            "functional_modules",
-            "modules",
-            "profiles",
-            "scopes",
-            "owner_refs",
-        },
+        required_keys | ({"controllers"} if "controllers" in document else set()),
         root_location,
     )
     schema_version = _integer(
@@ -1054,6 +1158,9 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         )
     profiles = _parse_profiles(document["profiles"], (*root_location, "profiles"), modules)
     scopes = _parse_scopes(document["scopes"], (*root_location, "scopes"), modules)
+    controllers = _parse_controllers(
+        document.get("controllers", {}), (*root_location, "controllers"), modules, scopes
+    )
     owner_refs_raw = _mapping(document["owner_refs"], (*root_location, "owner_refs"))
     owner_refs: dict[str, str] = {}
     for raw_name, raw_owner in owner_refs_raw.items():
@@ -1069,6 +1176,7 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         modules=modules,
         profiles=profiles,
         scopes=scopes,
+        controllers=controllers,
         owner_refs=owner_refs,
     )
     _validate_profile_scope_links(profiles, scopes)
@@ -1114,17 +1222,20 @@ def _runtime_blockers(
         if module.pending_facts:
             blockers.append(f"module {module_name} has pending facts")
         if any(
-            _contains_tbd(value)
+            _contains_unresolved_reference(value)
             for value in (
                 module.hardware_identity,
                 module.profile_ref,
                 module.mechanical_parameters,
             )
         ):
-            blockers.append(f"module {module_name} contains TBD values")
+            blockers.append(f"module {module_name} contains TBD or unverified values")
         for group in module.mode_groups:
             if (module_name, group.name) in selected_group_keys and not group.certified:
                 blockers.append(f"mode group {module_name}.{group.name} is not certified")
+        controller = manifest.controllers.get(module_name)
+        if controller is not None and controller.config_file.endswith(".draft.yaml"):
+            blockers.append(f"controller {controller.name} uses a draft config")
 
     transport_layouts = {
         "ethercat": profile.layout.ethercat,
@@ -1214,6 +1325,10 @@ def select_hardware(
     state_sensor_count = sum(
         manifest.modules[name].sensor_count for name in scope.required_state_modules
     )
+    controllers = tuple(
+        manifest.controllers[name]
+        for name in active_modules if name in manifest.controllers
+    )
     blockers = _runtime_blockers(manifest, profile, scope)
     if require_runtime_ready and blockers:
         raise MachineProfileError(
@@ -1239,6 +1354,7 @@ def select_hardware(
         jtc_mode_counts=jtc_mode_counts,
         required_state_modules=scope.required_state_modules,
         state_sensor_count=state_sensor_count,
+        controllers=controllers,
         validation_status="ready" if not blockers else "draft",
         global_readiness=scope.global_readiness,
         runtime_blockers=blockers,
@@ -1247,6 +1363,7 @@ def select_hardware(
 
 __all__ = [
     "BusLayout",
+    "ControllerBinding",
     "GroupReference",
     "MachineManifest",
     "MachineProfileError",

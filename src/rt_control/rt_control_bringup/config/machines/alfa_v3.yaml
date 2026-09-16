@@ -102,12 +102,19 @@ modules:
     requires: [swerve_encoders]
     sensor_bindings: []
     hardware_identity: TBD
-    profile_ref: TBD
-    mechanical_parameters: TBD
+    profile_ref:
+      package: robot_hw_ethercat
+      file: config/machines/alfa_v3_swerve_chassis.draft.yaml
+      verified: false
+    mechanical_parameters:
+      package: rt_control_bringup
+      file: config/machines/alfa_v3_swerve_mechanics.draft.yaml
+      verified: false
     pending_facts:
       - Kinco FD EtherCAT identity, PDO/SDO mapping and watchdog
       - EtherCAT ring positions and motor-side encoder relationship
-      - wheel geometry, gearing, limits and calibration
+      - confirm drawing ambiguities, steering hard-stop angles and installed module geometry
+      - complete per-module wheel radius, zero, limit, backlash and threshold calibration
 
   # Required design: 4000 us CANopen SYNC, with four synchronous TPDO responses.
   # Actual feedback latency and phase relative to EtherCAT DC remain unverified.
@@ -125,8 +132,14 @@ modules:
     requires: []
     sensor_bindings: [front_left, front_right, rear_left, rear_right]
     hardware_identity: TBD
-    profile_ref: TBD
-    mechanical_parameters: TBD
+    profile_ref:
+      package: robot_hw_canopen
+      file: config/machines/alfa_v3_swerve_encoders.draft.yaml
+      verified: false
+    mechanical_parameters:
+      package: rt_control_bringup
+      file: config/machines/alfa_v3_swerve_mechanics.draft.yaml
+      verified: false
     pending_facts:
       - CANopen node IDs and CiA 406 EDS/PDO mapping
       - device support and timing verification for 4 ms SYNC-triggered TPDO
@@ -305,6 +318,16 @@ scopes:
       - {module: head_gimbal, mode_group: vendor_can}
     jtc_groups: []
     global_readiness: partial_scope
+
+controllers:
+  swerve_chassis:
+    module: swerve_chassis
+    name: swerve_controller
+    plugin: swerve_driver/SwerveController
+    package: swerve_driver
+    config_file: config/controller.draft.yaml
+    actuator_groups: [steering_csp, drive_csv]
+    required_state_modules: [swerve_encoders]
 
 owner_refs:
   ethercat: robot_hw_ethercat

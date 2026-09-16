@@ -26,6 +26,16 @@ add_custom_target(
   COMMENT "Validating EtherCAT variant, family, and slave-profile contracts"
   VERBATIM
 )
+add_custom_target(
+  validate_kinco_swerve_draft ALL
+  COMMAND
+    ${Python3_EXECUTABLE}
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/validate_kinco_swerve_draft.py
+    --profile
+    ${CMAKE_CURRENT_SOURCE_DIR}/config/machines/alfa_v3_swerve_chassis.draft.yaml
+  COMMENT "Validating fail-closed alfa_v3 Kinco swerve draft"
+  VERBATIM
+)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -65,7 +75,9 @@ install(TARGETS zeroerr_pp_slave EXPORT export_zeroerr_pp_slave
 ament_export_targets(export_zeroerr_pp_slave HAS_LIBRARY_TARGET)
 ament_export_dependencies(ethercat_generic_slave ethercat_interface pluginlib)
 install(
-  PROGRAMS scripts/validate_ethercat_variants.py
+  PROGRAMS
+    scripts/validate_ethercat_variants.py
+    scripts/validate_kinco_swerve_draft.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

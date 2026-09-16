@@ -1,0 +1,110 @@
+schema_version: 1
+record: alfa_v3_swerve_mechanics
+status: draft
+verified: false
+
+source:
+  drawing_number: HT-WS-HH270-17.68-Q750-Z400
+  file_name: HT-WS-HH270-17.68-Q750-Z400(2).pdf
+  sha256: 8feb1c75ce4258e551ba6fddc9b517d55e842fc32d7e7cffdc49d639ad916c1f
+  created_at: 2026-08-15
+  extracted_at: 2026-09-15
+
+supplemental_confirmations:
+  - date: 2026-09-16
+    source: user_confirmation
+    fact: external_encoder_gearing_uses_108_tooth_ring_and_27_tooth_pinion
+
+module:
+  model: HT-WS-HH270-17.68-Q750-Z400
+  nominal_wheel_diameter_m: 0.200
+  nominal_wheel_radius_m: 0.100
+  wheel_width_m: 0.060
+  installation_height_m: 0.270
+  rotation_swept_diameter_m: 0.367
+  approximate_self_weight_kg_as_printed: 35.0
+  brake_voltage_v: 48
+  grease_temperature_range_as_printed: [-20, 200]
+  grease_temperature_unit_verified: false
+
+mounting:
+  thread_count: 8
+  thread: M8
+  reference_diameter_m: 0.190
+  reference_diameter_interpretation_verified: false
+  locating_diameter_m: 0.160
+  locating_diameter_upper_tolerance_m: 0.0
+  locating_diameter_lower_tolerance_m: -0.00010
+  locating_height_m: 0.005
+  drawing_clearance_dimension_m: 0.063
+  clearance_datum_verified: false
+
+suspension:
+  preload_travel_m: 0.010
+  downward_travel_m: 0.038
+  free_state_wheel_droop_m: 0.0205
+
+steering:
+  motor_model_as_printed: SMC60S-0040-30QAK-5DSU
+  servo_driver_model: FD124S-CB-005
+  rated_power_w: 400
+  rated_voltage_v: 48
+  rated_speed_rpm: 3000
+  rated_current_a_as_printed: 1.27
+  rated_torque_nm_as_printed: 11.95
+  printed_current_torque_rows_verified: false
+  motor_protection_level: IP65
+  steering_support_gear_teeth: 108
+  external_encoder_ring_gear_teeth: 108
+  external_encoder_pinion_gear_teeth: 27
+  external_encoder_turns_per_axis_turn: 4.0
+  external_encoder_gearing_verified: true
+  reducer_ratio: 35.0
+  derived_motor_to_steering_axis_ratio: TBD
+  derived_ratio_verified: false
+  reducer_rated_output_torque_nm: 40
+  left_right_limit_sensor: normally_open_npn_proximity
+  mechanical_min_angle_rad: TBD
+  mechanical_max_angle_rad: TBD
+  angle_feedback: external_encoder_with_feedback_gear
+
+drive:
+  motor_model: SMC80S-0075-30WAK-5DCH
+  servo_driver_model: FD134S-CB-000
+  rated_power_w: 750
+  rated_voltage_v: 48
+  rated_speed_rpm: 3000
+  rated_current_a: 22.44
+  rated_torque_nm: 2.387
+  motor_protection_level: IP65
+  selected_reducer_ratio: 17.68
+  reducer_rated_output_torque_nm: 340
+  nominal_max_linear_speed_m_per_min: 106.6
+  traction_weight_as_printed: 420
+  traction_weight_unit: TBD
+  traction_weight_reference_factor: 1.5
+  reducer_options_as_printed:
+    - {ratio: 17.68, rated_output_torque_nm: 340, max_speed_m_per_min: 106.6, traction_weight: 420}
+    - {ratio: 27.48, rated_output_torque_nm: 300, max_speed_m_per_min: 68.56, traction_weight: 654}
+    - {ratio: 44.57, rated_output_torque_nm: 270, max_speed_m_per_min: 42.27, traction_weight: 1060}
+    - {ratio: 70.72, rated_output_torque_nm: 240, max_speed_m_per_min: 26.64, traction_weight: 1683}
+
+unresolved_drawing_items:
+  - Manufacturer must confirm the steering motor current and torque rows; the printed values are inconsistent with 400 W at 3000 rpm.
+  - Manufacturer must provide the motor-to-steering-axis ratio; the confirmed 108/27 gearing belongs to the external encoder and must not be multiplied into the 35:1 motor reducer.
+  - The drawing shows normally-open NPN left/right limit sensors but gives no steering hard-stop angles or zero datum.
+  - The external encoder model, counts per revolution, distinguishable revolutions and installation direction are not specified.
+  - Confirm the mounting reference diameter, clearance datum and the title-block mass value before production use.
+  - The traction-weight value has no explicit unit in the drawing.
+  - The grease row prints -20 to 200 degrees without an explicit temperature unit.
+
+required_vehicle_calibration:
+  - per-module loaded effective wheel radius
+  - motor-derived steering zero offset
+  - external encoder installation offset and direction
+  - physical hard-stop angles, command margin and measurement tolerance
+  - bidirectional steering backlash and repeatability
+  - installed module coordinates and steering-axis-to-contact-patch offset
+  - motor/external encoder disagreement threshold
+  - steering slew, wheel acceleration and alignment thresholds
+  - least-squares slip residual and odometry covariance scales

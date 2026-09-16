@@ -247,7 +247,8 @@ colcon build --symlink-install --packages-select robot_hw_ethercat robot_hw_cano
 - 改动 Compose：分别设置经验证的临时 `RT_CONTROL_CPUSET` 与
   `RT_CONTROL_START_CPUSET`，通过 `tools/rt_control_compose.sh config` 检查展开结果；
   不得为通过校验而把任一值写成仓库默认；
-- 改动 Dockerfile、`deps.repos`、`versions.env` 或补丁：需要完整镜像构建，或明确说明为何当前环境不能执行；
+- 改动 Dockerfile/Compose：先完成静态展开和相关脚本检查；只有人工封装/发布任务才要求完整镜像构建。
+- 改动 `deps.repos`、`versions.env` 或补丁：必须完成冻结源 apply-check 和适用的干净原生构建；镜像重建延后到人工封装，除非本任务本身涉及镜像。
 - 改动 systemd unit：先用副本或离线方式执行 `systemd-analyze verify`；
 - 改动 `hostsetup`：只做语法和静态审查，除非用户明确授权在已确认目标机执行。
 
@@ -264,6 +265,8 @@ colcon build --symlink-install --packages-select robot_hw_ethercat robot_hw_cano
 7. 完整生产验收。
 
 AI 不得把 mock、编译通过或离线配置检查描述成“实机验证通过”。
+第 4 级仅在 Docker/Compose 变更或人工封装/发布任务中是必做项；
+普通 `main` 源码 PR 不因目标分支而自动触发容器或镜像门禁。
 
 ## 6. 提交、推送和上传规则
 
