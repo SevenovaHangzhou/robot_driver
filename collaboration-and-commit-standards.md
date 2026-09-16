@@ -48,8 +48,8 @@ robot_driver/
 
 | 分支 | 用途 | Docker 封装要求 |
 | --- | --- | --- |
-| `main` | RT-Control 稳定集成分支，对外交付载体 | **必须**：完成 RT-Control Docker 封装 |
-| `native` | 敏捷开发主线，源码增量迭代 | **不要求**：允许原生构建运行 |
+| `main` | RT-Control 稳定源码集成分支 | **不强制**：稳定后人工发起封装 |
+| `native` | 敏捷开发主线，源码增量迭代 | **不强制**：允许原生构建运行 |
 | `feature/xxx` | 新功能开发 | 跟随其基线分支 |
 | `bugfix/xxx` | 普通缺陷修复 | 跟随其基线分支 |
 | `hotfix/xxx` | 现场或演示前紧急修复 | 跟随其基线分支 |
@@ -59,11 +59,15 @@ robot_driver/
 
 这是本仓库最重要的分支约定，完整规则见 [AGENTS.md](AGENTS.md) 分支与封装契约一节。
 
-**`main`**：RT-Control 必须提供可复现的镜像构建、Compose 服务定义和容器内启动入口。禁止只能在宿主原生环境跑通的实现进入 `main`。合并到 `main` 的 PR 必须提供容器构建与容器内启动证据。
+**`main`**：作为稳定源码基线，普通源码 PR 不要求同步 Docker 封装或容器证据。
+源码仍须可复现构建并通过适用的测试、Mock、接口、实时和安全门禁。
+仓库中的 Docker/Compose 是发布资产，不默认代表 `main` HEAD 的已封装状态。
 
-**`native`**：为敏捷开发保留，允许 `--symlink-install` 增量构建、宿主直跑和原生一键脚本，暂不要求容器封装。`native` 上的实时性、安全链、接口契约和质量门禁要求**与 `main` 完全相同**，只豁免容器封装。
+**`native`**：为敏捷开发保留，允许 `--symlink-install` 增量构建、宿主直跑和原生一键脚本，不要求容器封装。`native` 上的实时性、安全链、接口契约和质量门禁要求**与 `main` 完全相同**。
 
-`native` → `main` 的提升必须补齐容器封装，不得把原生专用路径、宿主绝对路径或未封装启动方式带进 `main`。
+`native` → `main` 的提升不要求补齐容器封装，但不得把宿主绝对路径、
+开发者本机配置或不可复现的临时修改带进 `main`。源码稳定后由人工选择明确的
+`main` SHA，单独完成镜像构建、容器验证和发布归档。
 
 ### 3.3 分支保护
 
@@ -227,7 +231,7 @@ pre-commit install
 | 公共接口 vendor/source-lock | 接口所有者 + 全部消费域 approve；同批更新上游契约及固定 SHA |
 | 部署与 Compose（`docker/**`、`deploy/**`） | 平台/集成 + 全部受影响域 approve |
 | 实时性或安全边界（250 Hz 环、CPU 隔离、capability、device） | 核心负责人 approve；附时序或隔离实测证据 |
-| 合并到 `main` | 上述之外，必须附容器构建与容器内启动证据 |
+| 人工 Docker 封装或正式发布 | 必须记录 source SHA，并附镜像构建、容器内启动和镜像身份 |
 
 ### 6.4 评审分工路由
 
@@ -319,7 +323,7 @@ Demo 或阶段交付附后缀：`v0.3.0-demo`、`v0.3.0-rc1`。
 
 1. 从 `main` 切 `release/vx.y`，冻结功能；
 2. 更新 `CHANGELOG.md`（Added / Fixed / Changed / Known Issues）；
-3. 全域镜像构建成功，整机 Compose 可拉起；
+3. 由人工从冻结的 `main` source SHA 完成全域镜像构建，整机 Compose 可拉起；
 4. 执行整机验收清单与 vendored `contract/views/rt_control.md` 边界验收；
 5. 记录 release manifest：RT-Control 镜像 tag、Robot Model 版本/哈希、interfaces schema 版本、标定版本、冻结上游 commit SHA；
 6. 打 tag 并归档验收证据。
@@ -385,7 +389,9 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 | `governance` | pre-commit 全量运行（同一份 `tools/quality_gate.sh`）；PR 契约门禁 |
 | `build` | 依赖安装、`colcon build`、`colcon test`、共享 Robot Model URDF 校验、冻结上游迁移门禁 |
 
-`main` 分支 CI 额外要求 RT-Control 镜像构建与容器内启动 smoke test。CI 未通过不得合并。
+普通 `main` 源码 CI 不强制构建 RT-Control 生产镜像。改动 Docker/Compose、
+镜像依赖或人工发起封装/发布时，必须运行独立的镜像构建与容器内启动 smoke，
+结果未通过不得把该产物登记为发布候选。
 
 ## 11. 权限与 Team
 
@@ -426,4 +432,5 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 
 **接口先冻结，责任边界不越界，证据可追溯，未验证就写未验证。**
 
-`main` 交付容器，`native` 交付速度；两者的安全与契约底线完全一致。
+`main` 交付稳定源码，`native` 支撑快速迭代；Docker 由人工在稳定节点单独封装，
+三者的安全与契约底线完全一致。

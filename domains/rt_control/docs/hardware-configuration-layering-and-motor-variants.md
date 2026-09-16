@@ -313,7 +313,7 @@ node/diagnostics 列表从 descriptor 派生；controller tolerance、使能批�
 2. 两个 hardware package、受影响 controller、semantic component、diagnostics 和
    bringup 的构建/单测；
 3. `use_mock_hardware:=true` 的资源 claim、controller 状态、诊断派生和 clean shutdown；
-4. 最终提交对应的 Docker 镜像构建与无设备容器启动；
+4. 若本次由人工发起 Docker 封装/发布，再执行镜像构建与无设备容器启动；
 5. 断动力或不使能的现场总线枚举、身份、PDO/DCF 和 mode readback；
 6. 有急停/STO、隔离区、机械支撑、限速、监护人和回退方案的生命周期/HIL；
 7. 按每种电机/profile/mode 分别完成方向、比例、故障注入、断链和停机验收。
