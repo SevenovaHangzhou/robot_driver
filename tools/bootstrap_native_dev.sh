@@ -220,6 +220,9 @@ apply_frozen_patches()
     patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
+    patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
+    src/vendor/ros2_canopen
+  apply_patch_once \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     src/vendor/ros2_controllers
   apply_patch_once \
@@ -298,7 +301,8 @@ verify_frozen_vendor_trees()
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
     patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
     patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
-    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch
+    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
+    patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
