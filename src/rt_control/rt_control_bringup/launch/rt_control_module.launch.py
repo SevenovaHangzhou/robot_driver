@@ -96,6 +96,7 @@ def _launch_setup(context):
         f"groups={_group_summary(dict(selected.group_counts))} "
         f"jtc_modes={_mode_summary(dict(selected.jtc_mode_counts))} "
         f"state_sensors={selected.state_sensor_count} "
+        f"controllers={','.join(f'{binding.name}:{binding.plugin}' for binding in selected.controllers) or 'none'} "
         f"ethercat_master={selected.ethercat_master_id} "
         f"ethercat_ring={_layout_summary(selected.ethercat_ring_positions)} "
         f"canopen_nodes={_layout_summary(selected.canopen_node_ids)} "

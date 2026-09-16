@@ -87,6 +87,12 @@ layouts, mappings, and calibration facts are completed and independently
 verified. CI or a release gate can enforce the same condition directly with
 `--require-runtime-ready`.
 
+`chassis_only` and `full` now select the existing
+`swerve_driver/SwerveController` draft config together with four required
+CANopen steering encoders. Other scopes do not claim that controller. The
+selection is still static: motor PDOs and encoder state providers must be
+implemented in their shared hardware-owner packages before any runtime launch.
+
 For example, the current arm-bench check is:
 
 ```bash

@@ -98,6 +98,20 @@ def test_full_physical_profile_arms_scope_reports_inactive_modules(monkeypatch):
     assert "physical_profile=full_robot" in message
     assert "control_scope=arms_only" in message
     assert "inactive=updown,swerve_chassis,swerve_encoders,head_gimbal" in message
+    assert "controllers=none" in message
+
+
+def test_chassis_only_summary_lists_scoped_swerve_controller(monkeypatch):
+    module = _launch_module()
+    monkeypatch.setattr(module, "get_package_share_directory", lambda _: str(BRINGUP_DIR))
+
+    actions = module._launch_setup(
+        _context(physical_profile="chassis_only", control_scope="chassis_only")
+    )
+    message = actions[0].msg[0].text
+    assert "controllers=swerve_controller:swerve_driver/SwerveController" in message
+    assert "state_sensors=4" in message
+    assert "status=draft" in message
 
 
 @pytest.mark.parametrize(
