@@ -1,0 +1,106 @@
+schema_version: 1
+module: swerve_chassis
+status: draft
+verified: false
+shared_system: ecat_arms
+master_id: 0
+driver_plugin: ethercat_generic_plugins/EcCiA402Drive
+requested_control_frequency_hz: 1000
+dc_cycle_ns: TBD
+pdo_watchdog_ms: TBD
+device_identity:
+  vendor_id: TBD
+  product_code: TBD
+  revision_number: TBD
+mechanical_reference:
+  package: rt_control_bringup
+  file: config/machines/alfa_v3_swerve_mechanics.draft.yaml
+  verified: false
+axes:
+  - module: front_left
+    role: steering
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    command_unit: output_axis_rad
+    feedback_units: {position: output_axis_rad}
+  - module: front_right
+    role: steering
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    command_unit: output_axis_rad
+    feedback_units: {position: output_axis_rad}
+  - module: rear_left
+    role: steering
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    command_unit: output_axis_rad
+    feedback_units: {position: output_axis_rad}
+  - module: rear_right
+    role: steering
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    command_unit: output_axis_rad
+    feedback_units: {position: output_axis_rad}
+  - module: front_left
+    role: drive
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    command_unit: wheel_rad_per_second
+    feedback_units: {position: wheel_rad, velocity: wheel_rad_per_second}
+  - module: front_right
+    role: drive
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    command_unit: wheel_rad_per_second
+    feedback_units: {position: wheel_rad, velocity: wheel_rad_per_second}
+  - module: rear_left
+    role: drive
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    command_unit: wheel_rad_per_second
+    feedback_units: {position: wheel_rad, velocity: wheel_rad_per_second}
+  - module: rear_right
+    role: drive
+    joint_name: TBD
+    ring_position: TBD
+    family: TBD
+    profile: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    command_unit: wheel_rad_per_second
+    feedback_units: {position: wheel_rad, velocity: wheel_rad_per_second}
+pending_facts:
+  - actual Kinco FD model, ESI identity and revision
+  - chassis_only and full_robot EtherCAT ring positions
+  - CSP and CSV PDO/SDO profiles with scaling and mode readback
+  - motor encoder resolution, electronic gearing, direction and static zero
+  - DC support, watchdog range and 0x605E stop behavior
+  - calibrated wheel radius, steering hard stops and transmission confirmation
