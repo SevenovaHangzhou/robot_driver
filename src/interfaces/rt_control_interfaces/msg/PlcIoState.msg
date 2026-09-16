@@ -6,5 +6,8 @@ bool right_vacuum_established
 bool left_solenoid_on
 bool right_solenoid_on
 bool vacuum_pump_on
+bool vacuum_pressure_valid
+float32 vacuum_pressure_kpa
+bool vacuum_released
 uint16 io_alarm
 string error

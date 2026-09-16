@@ -32,6 +32,9 @@ class PlcVacuumSnapshot:
     right_valve_open: bool
     pump_enabled: bool
     error: str = ""
+    vacuum_pressure_valid: bool = False
+    vacuum_pressure_kpa: float = math.nan
+    vacuum_released: bool = False
 
     def channel_attached(self, channel: str) -> bool:
         if channel == LEFT:
@@ -41,10 +44,9 @@ class PlcVacuumSnapshot:
         raise ValueError(f"unsupported vacuum channel: {channel}")
 
     def channel_valve_open(self, channel: str) -> bool:
-        if channel == LEFT:
-            return self.left_valve_open
-        if channel == RIGHT:
-            return self.right_valve_open
+        if channel in CHANNELS:
+            # 公共消息保留历史字段名；单继电器硬件中它表示泵继电器命令状态。
+            return self.pump_enabled
         raise ValueError(f"unsupported vacuum channel: {channel}")
 
     @property
@@ -52,8 +54,6 @@ class PlcVacuumSnapshot:
         return (
             self.left_attached
             or self.right_attached
-            or self.left_valve_open
-            or self.right_valve_open
         )
 
 
@@ -106,7 +106,19 @@ class VacuumIo(Protocol):
         ...
 
     def wait_for_attachment(
-        self, channels: Sequence[str], timeout_s: float
+        self,
+        channels: Sequence[str],
+        timeout_s: float,
+        cancel_requested: Callable[[], bool],
+        state_callback: Callable[[PlcVacuumSnapshot], None],
+    ) -> PlcVacuumSnapshot:
+        ...
+
+    def wait_for_release(
+        self,
+        timeout_s: float,
+        cancel_requested: Callable[[], bool],
+        state_callback: Callable[[PlcVacuumSnapshot], None],
     ) -> PlcVacuumSnapshot:
         ...
 
@@ -131,14 +143,14 @@ def build_vacuum_channel_states(
             channel=LEFT,
             attached=snapshot.left_attached,
             pump_enabled=snapshot.pump_enabled,
-            valve_commanded_open=snapshot.left_valve_open,
+            valve_commanded_open=snapshot.channel_valve_open(LEFT),
             data_fresh=snapshot.connected and snapshot.data_fresh,
         ),
         VacuumChannelStateData(
             channel=RIGHT,
             attached=snapshot.right_attached,
             pump_enabled=snapshot.pump_enabled,
-            valve_commanded_open=snapshot.right_valve_open,
+            valve_commanded_open=snapshot.channel_valve_open(RIGHT),
             data_fresh=snapshot.connected and snapshot.data_fresh,
         ),
     )
@@ -150,15 +162,19 @@ class VacuumAdapterCore:
         io: VacuumIo,
         *,
         grip_verify_timeout_s: float = 3.0,
+        release_verify_timeout_s: float = 3.0,
         accepted_grip_profile_ids: Sequence[str] = ("default",),
     ) -> None:
         if not math.isfinite(grip_verify_timeout_s) or grip_verify_timeout_s <= 0.0:
             raise ValueError("grip_verify_timeout_s must be finite and greater than zero")
+        if not math.isfinite(release_verify_timeout_s) or release_verify_timeout_s <= 0.0:
+            raise ValueError("release_verify_timeout_s must be finite and greater than zero")
         profiles = tuple(str(item).strip() for item in accepted_grip_profile_ids)
         if not profiles or any(not item for item in profiles):
             raise ValueError("accepted_grip_profile_ids must contain non-empty strings")
         self._io = io
         self._grip_verify_timeout_s = float(grip_verify_timeout_s)
+        self._release_verify_timeout_s = float(release_verify_timeout_s)
         self._accepted_grip_profile_ids = frozenset(profiles)
         self._operation_lock = threading.Lock()
         self._active_operation = False
@@ -223,6 +239,7 @@ class VacuumAdapterCore:
         context: str,
         feedback_callback: Callable[[tuple[VacuumChannelStateData, ...]], None]
         | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
     ) -> VacuumExecutionResult:
         del context
         try:
@@ -294,9 +311,16 @@ class VacuumAdapterCore:
             self._active_operation = True
 
         try:
+            is_cancel_requested = cancel_requested or (lambda: False)
+            if is_cancel_requested():
+                return self._canceled(selected_channels)
             if int(command) == GRIP:
-                return self._execute_grip(selected_channels, feedback_callback)
-            return self._execute_release(selected_channels, feedback_callback)
+                return self._execute_grip(
+                    selected_channels, feedback_callback, is_cancel_requested
+                )
+            return self._execute_release(
+                selected_channels, feedback_callback, is_cancel_requested
+            )
         finally:
             with self._operation_lock:
                 self._active_operation = False
@@ -305,6 +329,7 @@ class VacuumAdapterCore:
         self,
         selected_channels: tuple[str, ...],
         feedback_callback: Callable[[tuple[VacuumChannelStateData, ...]], None] | None,
+        cancel_requested: Callable[[], bool],
     ) -> VacuumExecutionResult:
         pump_result = self._io.set_output("pump", True)
         if not pump_result.success:
@@ -325,32 +350,21 @@ class VacuumAdapterCore:
                 ),
             )
 
-        for channel in selected_channels:
-            command_result = self._io.set_output(channel, True)
-            if not command_result.success:
-                return VacuumExecutionResult(
-                    False,
-                    False,
-                    UNVERIFIED,
-                    error_info(
-                        command_result.error_code,
-                        f"{channel} valve command failed: {command_result.message}",
-                    ),
-                    self._channel_results(
-                        selected_channels,
-                        command_accepted=False,
-                        valve_actuation_completed=False,
-                        verification_level=UNVERIFIED,
-                        error="valve command failed",
-                    ),
-                )
+        if cancel_requested():
+            return self._canceled(selected_channels)
 
         snapshot = self._io.read_snapshot()
         self._publish_feedback(snapshot, feedback_callback)
         snapshot = self._io.wait_for_attachment(
-            selected_channels, self._grip_verify_timeout_s
+            selected_channels,
+            self._grip_verify_timeout_s,
+            cancel_requested,
+            lambda current: self._publish_feedback(current, feedback_callback),
         )
         self._publish_feedback(snapshot, feedback_callback)
+
+        if cancel_requested():
+            return self._canceled(selected_channels, snapshot)
 
         if not snapshot.connected or not snapshot.data_fresh:
             return self._attachment_failed(
@@ -392,37 +406,110 @@ class VacuumAdapterCore:
         self,
         selected_channels: tuple[str, ...],
         feedback_callback: Callable[[tuple[VacuumChannelStateData, ...]], None] | None,
+        cancel_requested: Callable[[], bool],
     ) -> VacuumExecutionResult:
-        channel_results: list[VacuumChannelResultData] = []
-        for channel in selected_channels:
-            command_result = self._io.set_output(channel, False)
-            channel_results.append(
-                VacuumChannelResultData(
-                    channel=channel,
-                    command_accepted=command_result.success,
-                    valve_actuation_completed=command_result.success,
+        pump_result = self._io.set_output("pump", False)
+        if not pump_result.success:
+            return VacuumExecutionResult(
+                False,
+                False,
+                UNVERIFIED,
+                error_info(
+                    pump_result.error_code,
+                    f"pump release command failed: {pump_result.message}",
+                ),
+                self._channel_results(
+                    selected_channels,
+                    command_accepted=False,
+                    valve_actuation_completed=False,
                     verification_level=UNVERIFIED,
-                    error="" if command_result.success else command_result.message,
-                )
+                    error="pump release command failed",
+                ),
             )
-            if not command_result.success:
-                return VacuumExecutionResult(
-                    False,
-                    False,
-                    UNVERIFIED,
-                    error_info(
-                        command_result.error_code,
-                        f"{channel} valve release failed: {command_result.message}",
-                    ),
-                    tuple(channel_results),
-                )
-        self._publish_feedback(self._io.read_snapshot(), feedback_callback)
+        if cancel_requested():
+            return self._canceled(selected_channels)
+
+        snapshot = self._io.read_snapshot()
+        self._publish_feedback(snapshot, feedback_callback)
+        snapshot = self._io.wait_for_release(
+            self._release_verify_timeout_s,
+            cancel_requested,
+            lambda current: self._publish_feedback(current, feedback_callback),
+        )
+        self._publish_feedback(snapshot, feedback_callback)
+        if cancel_requested():
+            return self._canceled(selected_channels, snapshot)
+        if not snapshot.connected or not snapshot.data_fresh or not snapshot.vacuum_pressure_valid:
+            return self._release_failed(
+                selected_channels,
+                snapshot,
+                "vacuum pressure observation is unavailable or stale",
+                PublicErrorCode.RT_PLC_UNAVAILABLE,
+            )
+        if not snapshot.vacuum_released:
+            return self._release_failed(
+                selected_channels,
+                snapshot,
+                f"release pressure not reached: {snapshot.vacuum_pressure_kpa:.3f} kPa",
+                PublicErrorCode.TIMEOUT,
+            )
         return VacuumExecutionResult(
             True,
             True,
             UNVERIFIED,
             error_info(PublicErrorCode.SUCCESS, ""),
-            tuple(channel_results),
+            self._channel_results(
+                selected_channels,
+                command_accepted=True,
+                valve_actuation_completed=True,
+                verification_level=UNVERIFIED,
+                error="",
+            ),
+        )
+
+    def _release_failed(
+        self,
+        selected_channels: tuple[str, ...],
+        snapshot: PlcVacuumSnapshot,
+        error: str,
+        error_code: PublicErrorCode,
+    ) -> VacuumExecutionResult:
+        return VacuumExecutionResult(
+            False,
+            True,
+            UNVERIFIED,
+            error_info(error_code, error),
+            self._channel_results(
+                selected_channels,
+                command_accepted=True,
+                valve_actuation_completed=not snapshot.pump_enabled,
+                verification_level=UNVERIFIED,
+                error=error,
+            ),
+        )
+
+    def _canceled(
+        self,
+        selected_channels: tuple[str, ...],
+        snapshot: PlcVacuumSnapshot | None = None,
+    ) -> VacuumExecutionResult:
+        # 取消只停止本次软件等待。这里不自动关阀或共用泵，因为另一侧可能仍在持载。
+        current = snapshot if snapshot is not None else self._io.read_snapshot()
+        return VacuumExecutionResult(
+            False,
+            True,
+            UNVERIFIED,
+            error_info(PublicErrorCode.CANCELED, "vacuum action canceled"),
+            tuple(
+                VacuumChannelResultData(
+                    channel=channel,
+                    command_accepted=current.channel_valve_open(channel),
+                    valve_actuation_completed=current.channel_valve_open(channel),
+                    verification_level=UNVERIFIED,
+                    error="canceled; outputs left unchanged",
+                )
+                for channel in selected_channels
+            ),
         )
 
     def _attachment_failed(
@@ -506,17 +593,8 @@ def main(args=None) -> None:
             self._condition = threading.Condition()
             self._latest_message = None
             self._latest_received_s: float | None = None
+            self._message_generation = 0
             self._clients = {
-                "left": node.create_client(
-                    SetBool,
-                    str(node.get_parameter("left_solenoid_service").value),
-                    callback_group=callback_group,
-                ),
-                "right": node.create_client(
-                    SetBool,
-                    str(node.get_parameter("right_solenoid_service").value),
-                    callback_group=callback_group,
-                ),
                 "pump": node.create_client(
                     SetBool,
                     str(node.get_parameter("pump_service").value),
@@ -535,6 +613,7 @@ def main(args=None) -> None:
             with self._condition:
                 self._latest_message = message
                 self._latest_received_s = time.monotonic()
+                self._message_generation += 1
                 self._condition.notify_all()
 
         def set_output(self, output_name: str, enabled: bool) -> PlcCommandResult:
@@ -585,16 +664,53 @@ def main(args=None) -> None:
                 return self._snapshot_locked()
 
         def wait_for_attachment(
-            self, channels: Sequence[str], timeout_s: float
+            self,
+            channels: Sequence[str],
+            timeout_s: float,
+            cancel_requested: Callable[[], bool],
+            state_callback: Callable[[PlcVacuumSnapshot], None],
         ) -> PlcVacuumSnapshot:
             deadline = time.monotonic() + float(timeout_s)
             with self._condition:
+                starting_generation = self._message_generation
                 while rclpy.ok():
                     snapshot = self._snapshot_locked()
+                    state_callback(snapshot)
+                    if cancel_requested():
+                        return snapshot
                     if (
                         snapshot.connected
                         and snapshot.data_fresh
+                        and self._message_generation > starting_generation
                         and all(snapshot.channel_attached(channel) for channel in channels)
+                    ):
+                        return snapshot
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0.0:
+                        return snapshot
+                    self._condition.wait(timeout=min(0.1, remaining))
+            return self._snapshot_locked()
+
+        def wait_for_release(
+            self,
+            timeout_s: float,
+            cancel_requested: Callable[[], bool],
+            state_callback: Callable[[PlcVacuumSnapshot], None],
+        ) -> PlcVacuumSnapshot:
+            deadline = time.monotonic() + float(timeout_s)
+            with self._condition:
+                starting_generation = self._message_generation
+                while rclpy.ok():
+                    snapshot = self._snapshot_locked()
+                    state_callback(snapshot)
+                    if cancel_requested():
+                        return snapshot
+                    if (
+                        snapshot.connected
+                        and snapshot.data_fresh
+                        and self._message_generation > starting_generation
+                        and snapshot.vacuum_pressure_valid
+                        and snapshot.vacuum_released
                     ):
                         return snapshot
                     remaining = deadline - time.monotonic()
@@ -619,6 +735,9 @@ def main(args=None) -> None:
                 right_valve_open=bool(message.right_solenoid_on),
                 pump_enabled=bool(message.vacuum_pump_on),
                 error=str(message.error),
+                vacuum_pressure_valid=bool(message.vacuum_pressure_valid),
+                vacuum_pressure_kpa=float(message.vacuum_pressure_kpa),
+                vacuum_released=bool(message.vacuum_released),
             )
 
     class VacuumAdapterNode(Node):
@@ -628,13 +747,12 @@ def main(args=None) -> None:
             self.declare_parameter("vacuum_state_topic", "/vacuum/state")
             self.declare_parameter("pump_set_enabled_service", "/vacuum/pump/set_enabled")
             self.declare_parameter("grip_action_name", "/vacuum/grip")
-            self.declare_parameter("left_solenoid_service", "/plc/left_solenoid")
-            self.declare_parameter("right_solenoid_service", "/plc/right_solenoid")
             self.declare_parameter("pump_service", "/plc/vacuum_pump")
             self.declare_parameter("publish_period_s", 0.05)
             self.declare_parameter("plc_service_timeout_s", 2.0)
             self.declare_parameter("plc_state_timeout_s", 1.5)
             self.declare_parameter("grip_verify_timeout_s", 3.0)
+            self.declare_parameter("release_verify_timeout_s", 3.0)
             self.declare_parameter("accepted_grip_profile_ids", ["default"])
 
             self._callback_group = ReentrantCallbackGroup()
@@ -643,6 +761,9 @@ def main(args=None) -> None:
                 self._io,
                 grip_verify_timeout_s=float(
                     self.get_parameter("grip_verify_timeout_s").value
+                ),
+                release_verify_timeout_s=float(
+                    self.get_parameter("release_verify_timeout_s").value
                 ),
                 accepted_grip_profile_ids=list(
                     self.get_parameter("accepted_grip_profile_ids").value
@@ -711,6 +832,7 @@ def main(args=None) -> None:
                 feedback_callback=lambda channels: self._publish_feedback(
                     goal_handle, channels
                 ),
+                cancel_requested=lambda: bool(goal_handle.is_cancel_requested),
             )
             response = VacuumGrip.Result()
             response.accepted = result.accepted
@@ -719,7 +841,7 @@ def main(args=None) -> None:
             response.channel_results = [
                 self._to_channel_result(item) for item in result.channel_results
             ]
-            if goal_handle.is_cancel_requested and not result.succeeded:
+            if result.error.code == PublicErrorCode.CANCELED:
                 goal_handle.canceled()
             elif result.succeeded:
                 goal_handle.succeed()

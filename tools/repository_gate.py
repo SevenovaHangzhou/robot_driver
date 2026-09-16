@@ -32,6 +32,7 @@ DOMAIN_PACKAGES = {
     "bms_node",
     "control_api_adapter",
     "enable_manager",
+    "plc_io_modbus",
     "plc_node",
     "robot_hw_canopen",
     "robot_hw_ethercat",

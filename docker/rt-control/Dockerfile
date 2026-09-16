@@ -210,7 +210,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ethercat_driver \
       ethercat_generic_cia402_drive \
       joint_trajectory_controller \
-      plc_node \
+      plc_io_modbus \
       robot_description \
       rt_control_interfaces \
       robot_hw_ethercat \

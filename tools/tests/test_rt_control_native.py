@@ -593,7 +593,7 @@ class NativeLauncherContractTest(unittest.TestCase):
             "rt_control_interfaces",
             "bms_node",
             "control_api_adapter",
-            "plc_node",
+            "plc_io_modbus",
             "rt_diagnostics",
             "x503_force_sensor",
             "rt_control_bringup",

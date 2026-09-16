@@ -56,16 +56,32 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:
     document = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
-    plc = document["plc_node"]["ros__parameters"]
+    node_source = (ROOT / "src/rt_control/plc_io_modbus/src/node.cpp").read_text()
+    plc = yaml.safe_load(
+        (ROOT / "src/rt_control/plc_io_modbus/config/plc_io_modbus.yaml").read_text()
+    )["plc_io_modbus"]["ros__parameters"]
     bms = document["bms_node"]["ros__parameters"]
 
-    assert plc["host"] == "192.168.1.88"
-    assert plc["interface"] == "eno1"
-    assert plc["poll_period_s"] == 0.5
-    assert plc["io_control_register"] == 201
-    assert plc["di_status_register"] == 210
-    assert plc["do_status_register"] == 211
-    assert plc["io_alarm_register"] == 212
+    assert plc["digital"]["module"]["host"] == "192.168.1.12"
+    assert plc["digital"]["inputs"]["infrared_laser"] == {"di_address": 0}
+    assert plc["digital"]["outputs"]["vacuum_pump_relay"]["do_address"] == 0
+    assert plc["analog"]["module"]["host"] == "192.168.1.13"
+    vacuum_sensor = plc["analog"]["inputs"]["vacuum_sensor"]
+    assert vacuum_sensor["register"] == 0
+    assert vacuum_sensor["attached_threshold_kpa"] == -80.0
+    assert vacuum_sensor["released_threshold_kpa"] == 0.0
+    assert "outputs" not in plc
+    assert "vacuum_sensor" not in plc
+    configured_hardware_parameters = (
+        "digital.module.host",
+        "digital.inputs.infrared_laser.di_address",
+        "digital.outputs.vacuum_pump_relay.do_address",
+        "analog.module.host",
+        "analog.inputs.vacuum_sensor.register",
+        "analog.inputs.vacuum_sensor.released_threshold_kpa",
+    )
+    for parameter_name in configured_hardware_parameters:
+        assert f'declare_parameter("{parameter_name}"' in node_source
     assert bms["can_interface"] == "can1"
     assert bms["publish_period_s"] == 5.0
     assert bms["frame_timeout_s"] == 3.0
@@ -263,7 +279,8 @@ def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:
 
     assert '"RT_CONTROL_START_PLC", default_value="false"' in launch_text
     assert '"RT_CONTROL_START_BMS", default_value="false"' in launch_text
-    assert 'package="plc_node"' in launch_text
+    assert 'package="plc_io_modbus"' in launch_text
+    assert 'package="plc_node"' not in launch_text
     assert 'package="bms_node"' in launch_text
     assert "rt_io.yaml" in launch_text
 
@@ -352,13 +369,13 @@ def test_compose_wrapper_rejects_invalid_ros_domains_before_docker(tmp_path: Pat
         assert "args=" not in result.stdout
 
 
-def test_docker_build_contains_only_the_two_required_io_packages() -> None:
+def test_docker_build_contains_required_io_packages() -> None:
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
 
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
     assert "      bms_node \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
-    assert "      plc_node \\\n" in dockerfile
+    assert "      plc_io_modbus \\\n" in dockerfile
     assert "ros-humble-rmw-fastrtps-cpp" in dockerfile
     assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile
     assert "      util-linux \\\n" in dockerfile
