@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 from pathlib import Path
 import sys
 
@@ -33,6 +34,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--all", action="store_true", dest="all_selections")
     parser.add_argument("--physical-profile")
     parser.add_argument("--control-scope")
+    parser.add_argument("--force-sensor-option")
     parser.add_argument(
         "--require-runtime-ready",
         action="store_true",
@@ -45,16 +47,21 @@ def _validate_all(manifest, *, require_runtime_ready: bool) -> int:
     selections = 0
     for profile in manifest.profiles.values():
         for scope_name in profile.allowed_scopes:
-            select_hardware(
-                manifest,
-                physical_profile=profile.name,
-                control_scope=scope_name,
-                require_runtime_ready=require_runtime_ready,
-            )
-            selections += 1
+            option_names = tuple(manifest.hardware_options)
+            allowed = [profile.hardware_options[name] for name in option_names]
+            for option_values in itertools.product(*allowed):
+                select_hardware(
+                    manifest,
+                    physical_profile=profile.name,
+                    control_scope=scope_name,
+                    hardware_options=dict(zip(option_names, option_values)),
+                    require_runtime_ready=require_runtime_ready,
+                )
+                selections += 1
     print(
         f"validated {manifest.variant}: {len(manifest.modules)} modules, "
-        f"{len(manifest.profiles)} physical profiles, {selections} profile/scope selections"
+        f"{len(manifest.profiles)} physical profiles, {selections} "
+        "profile/scope/option selections"
     )
     return 0
 
@@ -64,7 +71,11 @@ def main() -> int:
     try:
         manifest = load_machine_manifest(arguments.manifest)
         if arguments.all_selections:
-            if arguments.physical_profile or arguments.control_scope:
+            if (
+                arguments.physical_profile
+                or arguments.control_scope
+                or arguments.force_sensor_option
+            ):
                 raise MachineProfileError(
                     "--all cannot be combined with --physical-profile or --control-scope"
                 )
@@ -79,11 +90,18 @@ def main() -> int:
             manifest,
             physical_profile=arguments.physical_profile,
             control_scope=arguments.control_scope,
+            hardware_options={
+                "force_sensors": arguments.force_sensor_option or "none"
+            },
             require_runtime_ready=arguments.require_runtime_ready,
         )
         print(
             f"validated {manifest.variant}/{selected.physical_profile}/"
-            f"{selected.control_scope}: actuators={selected.actuator_count}"
+            f"{selected.control_scope}: actuators={selected.actuator_count} "
+            + " ".join(
+                f"{name}={value}"
+                for name, value in selected.hardware_options.items()
+            )
         )
         return 0
     except (MachineProfileError, OSError, ValueError) as error:

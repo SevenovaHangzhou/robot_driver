@@ -2,20 +2,12 @@
 <package format="3">
   <name>x503_force_sensor</name>
   <version>0.1.0</version>
-  <description>X503B PREOP calibration and PDO-only ROS WrenchStamped bridge.</description>
+  <description>X503B PREOP calibration for the shared C++ force/torque broadcaster.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
-  <exec_depend>diagnostic_msgs</exec_depend>
-  <exec_depend>robot_interfaces_qos</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
-  <exec_depend>ament_index_python</exec_depend>
-  <exec_depend>control_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>rcl_interfaces</exec_depend>
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <export>
     <build_type>ament_cmake</build_type>

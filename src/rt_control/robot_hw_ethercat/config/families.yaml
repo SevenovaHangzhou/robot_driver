@@ -48,6 +48,18 @@ interface_contracts:
       - {name: sample_code_4_raw, index: 0x6000, sub_index: 13, type: int32, mock_initial_value: 0.0}
       - {name: sample_code_5_raw, index: 0x6000, sub_index: 14, type: int32, mock_initial_value: 0.0}
       - {name: sample_code_6_raw, index: 0x6000, sub_index: 15, type: int32, mock_initial_value: 0.0}
+  bluepoint_wrench_input:
+    required_command_interfaces: []
+    required_state_interfaces:
+      - {name: channel_1_raw, index: 0x4000, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: channel_2_raw, index: 0x4001, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: channel_3_raw, index: 0x4002, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: channel_4_raw, index: 0x4003, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: channel_5_raw, index: 0x4004, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: channel_6_raw, index: 0x4005, sub_index: 0, type: int32, mock_initial_value: 0.0}
+      - {name: status_code_raw, index: 0x4006, sub_index: 0, type: uint32, mock_initial_value: 0.0}
+      - {name: sample_counter_raw, index: 0x4007, sub_index: 0, type: uint32, mock_initial_value: 0.0}
+      - {name: temperature_raw, index: 0x4008, sub_index: 0, type: int32, mock_initial_value: 0.0}
 families:
   zeroerr:
     identity_profile: zeroerr_j1
@@ -64,4 +76,8 @@ families:
   x503:
     identity_profile: x503_right
     interface_contract: x503_raw_input
+    certified_modes: []
+  bluepoint_p140000107:
+    identity_profile: bluepoint_p140000107
+    interface_contract: bluepoint_wrench_input
     certified_modes: []

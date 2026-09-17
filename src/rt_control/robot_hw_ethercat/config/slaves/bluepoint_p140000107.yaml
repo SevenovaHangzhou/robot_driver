@@ -1,0 +1,67 @@
+# Blue Point / ACTI P140000107 passive six-axis force/torque sensor.
+# This profile preserves the complete ESI PDO layout. The undocumented RxPDO
+# REAL fields and the tare control word are fixed at zero and are not exported.
+metadata:
+  profile_kind: passive_force_torque_input_only
+  device_name: P140000107
+  commercial_brand: Blue Point
+  esi_vendor_name: ACTI
+  revision_id: 0x00000002
+  esi_file: P140000107-1.0.1.1-ECXML.xml
+  esi_original_sha256: 8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad
+  esi_sha256: f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8
+  manual_file: EtherCAT communication protocol V1.1
+  manual_sha256: 39432f1304b68af1839a3553b4581da92a3923306945e5985cdbae7d7689ae0c
+  sync_mode: dc_candidate
+  runtime_identity_readback_required: true
+  runtime_pdo_readback_required: true
+  status_code_semantics: unresolved
+  sample_counter_unit_ms: 1
+  force_raw_per_newton: 10000
+  torque_raw_per_newton_metre: 10000
+  temperature_raw_per_degree_celsius: 10
+  tare_control_exposed: false
+  ring_positions: TBD
+  frame_ids: TBD
+
+vendor_id: 0x000000A1
+product_id: 0x00008081
+use_slave_pdo_defaults: true
+assign_activate: 0x0300
+
+# ESI RxPDO 0x1600 is 8 x 32 bits. 0x2000 bit 0 has a documented tare
+# rising-edge action, so every output remains fixed at zero in this read-only
+# integration. The seven REAL fields are bit-compatible zero words but have no
+# documented runtime meaning in the supplied V1.1 protocol.
+rpdo:
+  - index: 0x1600
+    channels:
+      - {index: 0x2000, sub_index: 0, type: int32, default: 0}
+      - {index: 0x2001, sub_index: 0, type: uint32, default: 0}
+      - {index: 0x2002, sub_index: 0, type: uint32, default: 0}
+      - {index: 0x2003, sub_index: 0, type: uint32, default: 0}
+      - {index: 0x2004, sub_index: 0, type: uint32, default: 0}
+      - {index: 0x2005, sub_index: 0, type: uint32, default: 0}
+      - {index: 0x2006, sub_index: 0, type: uint32, default: 0}
+      - {index: 0x2007, sub_index: 0, type: uint32, default: 0}
+
+# ESI TxPDO 0x1A00 is 9 x 32 bits. Six DINT wrench values stay raw here;
+# rt_force_torque_broadcaster applies the protocol's 1e-4 SI scale.
+tpdo:
+  - index: 0x1A00
+    channels:
+      - {index: 0x4000, sub_index: 0, type: int32, state_interface: channel_1_raw}
+      - {index: 0x4001, sub_index: 0, type: int32, state_interface: channel_2_raw}
+      - {index: 0x4002, sub_index: 0, type: int32, state_interface: channel_3_raw}
+      - {index: 0x4003, sub_index: 0, type: int32, state_interface: channel_4_raw}
+      - {index: 0x4004, sub_index: 0, type: int32, state_interface: channel_5_raw}
+      - {index: 0x4005, sub_index: 0, type: int32, state_interface: channel_6_raw}
+      - {index: 0x4006, sub_index: 0, type: uint32, state_interface: status_code_raw}
+      - {index: 0x4007, sub_index: 0, type: uint32, state_interface: sample_counter_raw}
+      - {index: 0x4008, sub_index: 0, type: int32, state_interface: temperature_raw}
+
+sm:
+  - {index: 0, type: output, pdo: ~, watchdog: disable}
+  - {index: 1, type: input, pdo: ~, watchdog: disable}
+  - {index: 2, type: output, pdo: rpdo, watchdog: enable}
+  - {index: 3, type: input, pdo: tpdo, watchdog: disable}

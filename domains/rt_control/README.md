@@ -101,6 +101,19 @@ ros2 launch rt_control_bringup rt_control_module.launch.py \
   control_scope:=arms_only validation_only:=true
 ```
 
+蓝点腕部六维力传感器是独立硬件选项，不增加第六个 physical profile。缺货期默认
+`force_sensor_option:=none`，继续表示已确认的十八从站双臂环；仅做静态审查时可显式选择：
+
+```bash
+ros2 launch rt_control_bringup rt_control_module.launch.py \
+  robot_variant:=alfa_v3 physical_profile:=arms_only \
+  control_scope:=arms_only force_sensor_option:=bluepoint_dual \
+  validation_only:=true
+```
+
+后者当前输出 `ethercat_ring=TBD` 且 `status=draft`。它不自动探测、不能在缺失任一传感器时
+降级，也不能在 ring position、Robot Model frame 和 sample freshness 未确认前用于真实启动。
+
 完整设备到货后只控制机械臂时，把 `physical_profile` 换为 `full_robot`，仍保持
 `control_scope:=arms_only`；该组合会保留完整物理布局校验，但不会把 Updown、舵轮或
 头部云台加入活动控制集合。

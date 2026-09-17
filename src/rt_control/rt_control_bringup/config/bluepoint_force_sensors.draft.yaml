@@ -1,0 +1,65 @@
+# Draft controller parameters for two Blue Point / ACTI P140000107 sensors.
+# This is not a ros2_control parameter file and is never loaded while any TBD
+# remains. Runtime composition will render one controller section per sensor.
+schema_version: 1
+verified: false
+plugin: rt_force_torque_broadcaster/ForceTorqueBroadcaster
+calibration_topic: /rt_control/bluepoint/calibration
+sensors:
+  - side: left
+    controller_name: left_wrist_force_sensor_broadcaster
+    sensor_name: left_wrist_force_sensor
+    profile: bluepoint_p140000107
+    ring_position: TBD
+    frame_id: TBD
+    wrench_topic: /rt_control/left_wrist/wrench
+    raw_topic: /rt_control/left_wrist/raw
+    diagnostic_name: /robot/rt_control/bluepoint/left_wrist_force_sensor/calibration
+    value_interfaces:
+      - left_wrist_force_sensor/channel_1_raw
+      - left_wrist_force_sensor/channel_2_raw
+      - left_wrist_force_sensor/channel_3_raw
+      - left_wrist_force_sensor/channel_4_raw
+      - left_wrist_force_sensor/channel_5_raw
+      - left_wrist_force_sensor/channel_6_raw
+    auxiliary_interfaces:
+      - left_wrist_force_sensor/status_code_raw
+      - left_wrist_force_sensor/sample_counter_raw
+      - left_wrist_force_sensor/temperature_raw
+    scale_factors: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
+    decimals: [4, 4, 4, 4, 4, 4]
+    unit_codes: [5, 5, 5, 7, 7, 7]
+    validity_policy: none
+    calibration_valid: false
+    snapshot_source: fixed_protocol
+  - side: right
+    controller_name: right_wrist_force_sensor_broadcaster
+    sensor_name: right_wrist_force_sensor
+    profile: bluepoint_p140000107
+    ring_position: TBD
+    frame_id: TBD
+    wrench_topic: /rt_control/right_wrist/wrench
+    raw_topic: /rt_control/right_wrist/raw
+    diagnostic_name: /robot/rt_control/bluepoint/right_wrist_force_sensor/calibration
+    value_interfaces:
+      - right_wrist_force_sensor/channel_1_raw
+      - right_wrist_force_sensor/channel_2_raw
+      - right_wrist_force_sensor/channel_3_raw
+      - right_wrist_force_sensor/channel_4_raw
+      - right_wrist_force_sensor/channel_5_raw
+      - right_wrist_force_sensor/channel_6_raw
+    auxiliary_interfaces:
+      - right_wrist_force_sensor/status_code_raw
+      - right_wrist_force_sensor/sample_counter_raw
+      - right_wrist_force_sensor/temperature_raw
+    scale_factors: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
+    decimals: [4, 4, 4, 4, 4, 4]
+    unit_codes: [5, 5, 5, 7, 7, 7]
+    validity_policy: none
+    calibration_valid: false
+    snapshot_source: fixed_protocol
+pending_facts:
+  - left/right absolute ring positions after installation
+  - authoritative frame IDs and installed sensor-axis orientation
+  - live PDO/DC/sample-counter behavior and StatusCode semantics
+  - sample freshness policy for closed-loop force-control admission

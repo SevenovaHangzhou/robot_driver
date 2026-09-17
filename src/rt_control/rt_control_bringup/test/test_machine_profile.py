@@ -53,6 +53,7 @@ def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
     )
     assert set(manifest.modules) == {
         "arms",
+        "wrist_force_sensors",
         "updown",
         "swerve_chassis",
         "swerve_encoders",
@@ -73,6 +74,12 @@ def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
         "head_only",
     }
     assert manifest.modules["swerve_encoders"].role == "state_sensor_group"
+    force_option = manifest.hardware_options["force_sensors"]
+    assert force_option.default_selection == "none"
+    assert set(force_option.selections) == {"none", "bluepoint_dual"}
+    assert force_option.selections["bluepoint_dual"].modules == (
+        "wrist_force_sensors",
+    )
     assert manifest.modules["swerve_encoders"].transport == "canopen"
     assert manifest.modules["swerve_encoders"].profile_ref == {
         "package": "robot_hw_canopen",
@@ -197,6 +204,36 @@ def test_arms_only_selection_derives_sixteen_actuators_with_fourteen_csp_and_two
     assert selected.jtc_mode_counts == {8: 14}
     assert selected.required_state_modules == ()
     assert selected.validation_status == "draft"
+    assert selected.hardware_options == {"force_sensors": "none"}
+
+
+def test_dual_bluepoint_option_adds_two_state_only_sensors_without_changing_actuators():
+    selected = _module().select_hardware(
+        MACHINE_PATH,
+        physical_profile="arms_only",
+        control_scope="arms_only",
+        hardware_options={"force_sensors": "bluepoint_dual"},
+    )
+
+    assert selected.hardware_options == {"force_sensors": "bluepoint_dual"}
+    assert selected.physical_modules == ("arms", "wrist_force_sensors")
+    assert selected.active_modules == ("arms", "wrist_force_sensors")
+    assert selected.inactive_modules == ()
+    assert selected.actuator_count == 16
+    assert selected.state_sensor_count == 2
+    assert selected.required_state_modules == ("wrist_force_sensors",)
+    assert selected.ethercat_ring_positions is None
+    assert "EtherCAT ring positions are TBD" in selected.runtime_blockers
+
+
+def test_bluepoint_option_is_rejected_for_profiles_without_arms():
+    with pytest.raises(_module().MachineProfileError, match="not allowed"):
+        _module().select_hardware(
+            MACHINE_PATH,
+            physical_profile="chassis_only",
+            control_scope="chassis_only",
+            hardware_options={"force_sensors": "bluepoint_dual"},
+        )
 
 
 def test_arms_updown_adds_only_one_csp_axis():

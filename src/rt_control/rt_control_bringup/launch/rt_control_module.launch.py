@@ -48,6 +48,10 @@ def _group_summary(group_counts: dict[str, int]) -> str:
     ) or "none"
 
 
+def _option_summary(options: dict[str, str]) -> str:
+    return ",".join(f"{name}:{value}" for name, value in options.items()) or "none"
+
+
 def _manifest_path(robot_variant: str) -> Path:
     if not robot_variant or "/" in robot_variant or ".." in robot_variant:
         raise ValueError("robot_variant must be a package-owned identifier")
@@ -64,6 +68,9 @@ def _launch_setup(context):
     robot_variant = LaunchConfiguration("robot_variant").perform(context)
     physical_profile = LaunchConfiguration("physical_profile").perform(context)
     control_scope = LaunchConfiguration("control_scope").perform(context)
+    force_sensor_option = LaunchConfiguration(
+        "force_sensor_option", default="none"
+    ).perform(context)
 
     try:
         manifest = load_machine_manifest(_manifest_path(robot_variant))
@@ -71,6 +78,7 @@ def _launch_setup(context):
             manifest,
             physical_profile=physical_profile,
             control_scope=control_scope,
+            hardware_options={"force_sensors": force_sensor_option},
             require_runtime_ready=not validation_only,
         )
     except (MachineProfileError, OSError, ValueError) as error:
@@ -89,6 +97,7 @@ def _launch_setup(context):
         f"ELECTRI-118 validation: robot_variant={selected.manifest_variant} "
         f"physical_profile={selected.physical_profile} "
         f"control_scope={selected.control_scope} "
+        f"options={_option_summary(dict(selected.hardware_options))} "
         f"active={','.join(selected.active_modules)} "
         f"inactive={inactive} "
         f"actuators={selected.actuator_count} "
@@ -113,6 +122,7 @@ def generate_launch_description():
             DeclareLaunchArgument("robot_variant", default_value="alfa_v3"),
             DeclareLaunchArgument("physical_profile", default_value="arms_only"),
             DeclareLaunchArgument("control_scope", default_value="arms_only"),
+            DeclareLaunchArgument("force_sensor_option", default_value="none"),
             DeclareLaunchArgument("validation_only", default_value="true"),
             OpaqueFunction(function=_launch_setup),
         ]
