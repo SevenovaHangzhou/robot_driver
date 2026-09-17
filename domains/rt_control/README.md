@@ -43,6 +43,10 @@ The source layout follows the frozen rt_control implementation specification:
 
 ## 硬件配置分层与组合
 
+ELECTRI-105 的 [LPMS-NAV3 CAN IMU 驱动](../../src/rt_control/lpms_nav3_can/README.md)
+已进入源码构建闭包，但未加入生产启动。其独立 launch 默认为静态校验、输出私有 topic，
+三代机共线 CAN 与跨域导航融合仍受 BQ-150 准入限制。
+
 ELECTRI-94 采用 owner-local registry 与 semantic component 分层，同时保留多设备组合：
 `rt_control_bringup` 在一个 `controller_manager` 中组合独立的 EtherCAT `ecat_arms`
 与 CANopen `canopen_mobile_axes` system。bringup 只负责 variant 选择、总装、启动顺序和

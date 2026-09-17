@@ -30,6 +30,7 @@ ROBOT_INTERFACES_PACKAGES = [
 GENERATED_PARTS = {"build", "install", "log", ".colcon", "__pycache__"}
 DOMAIN_PACKAGES = {
     "bms_node",
+    "lpms_nav3_can",
     "control_api_adapter",
     "enable_manager",
     "plc_io_modbus",
