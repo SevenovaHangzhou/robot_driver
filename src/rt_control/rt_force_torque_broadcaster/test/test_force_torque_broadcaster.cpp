@@ -133,10 +133,17 @@ protected:
   {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     while (!complete() && std::chrono::steady_clock::now() < deadline) {
-      controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.001));
       executor.spin_some();
     }
     ASSERT_TRUE(complete());
+  }
+
+  void update_once()
+  {
+    ASSERT_EQ(
+      controller.update(
+        controller.get_node()->now(), rclcpp::Duration::from_seconds(0.001)),
+      controller_interface::return_type::OK);
   }
 
   void SetUp() override
@@ -190,7 +197,14 @@ TEST_F(ForceTorqueBroadcasterTest, PublishesCompatibleRawWrenchAndCalibrationTop
     [&](diagnostic_msgs::msg::DiagnosticArray::SharedPtr message) {
       calibration = message;
     });
+  spin_until(
+    [&]() {
+      return raw_subscription->get_publisher_count() > 0U &&
+      wrench_subscription->get_publisher_count() > 0U &&
+      calibration_subscription->get_publisher_count() > 0U;
+    });
   set_valid_frame();
+  update_once();
 
   spin_until([&]() {return raw && wrench && calibration;});
 
@@ -220,12 +234,20 @@ TEST_F(ForceTorqueBroadcasterTest, RecoveredLinkNeverReusesInvalidatedCalibratio
   const auto wrench_subscription = client->create_subscription<geometry_msgs::msg::WrenchStamped>(
     "/test/wrench", robot_interfaces_qos::fast_state(),
     [&](geometry_msgs::msg::WrenchStamped::SharedPtr) {++wrench_count;});
+  spin_until(
+    [&]() {
+      return raw_subscription->get_publisher_count() > 0U &&
+      wrench_subscription->get_publisher_count() > 0U;
+    });
   set_valid_frame();
+  update_once();
   spin_until([&]() {return raw_count >= 1U && wrench_count >= 1U;});
 
   set_state("ethercat_slave_14/al_state", 2.0);
+  update_once();
   spin_until([&]() {return raw_count >= 2U;});
   set_state("ethercat_slave_14/al_state", 8.0);
+  update_once();
   spin_until([&]() {return raw_count >= 3U;});
   EXPECT_EQ(wrench_count, 1U);
 }
@@ -248,6 +270,12 @@ TEST_F(ForceTorqueBroadcasterTest, InvalidCalibrationPublishesRawButNotWrench)
     "/test/wrench", robot_interfaces_qos::fast_state(),
     [&](geometry_msgs::msg::WrenchStamped::SharedPtr message) {wrench = message;});
 
+  spin_until(
+    [&]() {
+      return raw_subscription->get_publisher_count() > 0U &&
+      wrench_subscription->get_publisher_count() > 0U;
+    });
+  update_once();
   spin_until([&]() {return raw != nullptr;});
   EXPECT_FALSE(wrench);
 }
