@@ -389,6 +389,18 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 | `governance` | pre-commit 全量运行（同一份 `tools/quality_gate.sh`）；PR 契约门禁 |
 | `build` | 依赖安装、`colcon build`、`colcon test`、共享 Robot Model URDF 校验、冻结上游迁移门禁 |
 
+触发策略按变更性质分离：
+
+| 事件 | 执行内容 |
+| --- | --- |
+| PR `opened`、`synchronize`、`reopened` | `rt-control-ci` 的 `governance` 和完整 `build` |
+| PR `edited` | `pr-metadata-governance` 仅校验 PR contract，不启动或取消完整构建 |
+| PR 合并后的 `push(main)` | 不重复运行本 workflow；以合并前检查和仓库的 PR-only 规则为准 |
+
+取消合并后重复构建的前提是 `main` 保持禁止直接 push、禁止绕过，并持续要求 PR 的
+`governance` 与 `build` 通过。GitHub 分支保护必须由管理员另行配置；若允许直接 push，
+必须先恢复与其风险匹配的 main 检查。
+
 普通 `main` 源码 CI 不强制构建 RT-Control 生产镜像。改动 Docker/Compose、
 镜像依赖或人工发起封装/发布时，必须运行独立的镜像构建与容器内启动 smoke，
 结果未通过不得把该产物登记为发布候选。

@@ -69,6 +69,7 @@ REQUIRED_GOVERNANCE_FILES = (
     "domains/rt_control/BLOCKED-questions.md",
     ".pre-commit-config.yaml",
     ".github/pull_request_template.md",
+    ".github/workflows/pr-metadata-governance.yml",
     ".github/workflows/rt-control-ci.yml",
 )
 ROOT_DOMAIN_LEDGER_FILES = {"PROGRESS.md", "BLOCKED-questions.md"}
@@ -380,8 +381,20 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
 
     findings: list[str] = []
     events = workflow.get("on") if isinstance(workflow, dict) else None
-    if not isinstance(events, dict) or not {"pull_request", "push"}.issubset(events):
-        findings.append("CI workflow must run on pull_request and main push")
+    pull_request = events.get("pull_request") if isinstance(events, dict) else None
+    event_types = pull_request.get("types") if isinstance(pull_request, dict) else None
+    required_event_types = {"opened", "synchronize", "reopened"}
+    if (
+        not isinstance(event_types, list) or
+        len(event_types) != len(required_event_types) or
+        set(event_types) != required_event_types
+    ):
+        findings.append(
+            "CI workflow must run the full build for opened, synchronize, and reopened only; "
+            "it must not run the full build for pull request edits"
+        )
+    if isinstance(events, dict) and "push" in events:
+        findings.append("CI workflow must not run on main push after a PR merge")
     permissions = workflow.get("permissions") if isinstance(workflow, dict) else None
     if not isinstance(permissions, dict) or permissions.get("contents") != "read":
         findings.append("CI workflow must keep contents permission read-only")
@@ -424,6 +437,53 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     ):
         if required_command not in build_commands:
             findings.append(f"CI build job must run {description}")
+    return findings
+
+
+def check_pr_metadata_workflow_policy(workflow_text: str) -> list[str]:
+    """Keep PR-description edits isolated from the full ROS build."""
+    try:
+        workflow = yaml.load(workflow_text, Loader=yaml.BaseLoader) or {}
+    except yaml.YAMLError as exc:
+        return [
+            f".github/workflows/pr-metadata-governance.yml: invalid YAML: {exc}"
+        ]
+
+    findings: list[str] = []
+    events = workflow.get("on") if isinstance(workflow, dict) else None
+    pull_request = events.get("pull_request") if isinstance(events, dict) else None
+    event_types = pull_request.get("types") if isinstance(pull_request, dict) else None
+    if (
+        not isinstance(events, dict) or
+        set(events) != {"pull_request"} or
+        event_types != ["edited"]
+    ):
+        findings.append("PR metadata governance must run only for pull request edits")
+
+    permissions = workflow.get("permissions") if isinstance(workflow, dict) else None
+    if not isinstance(permissions, dict) or permissions.get("contents") != "read":
+        findings.append("PR metadata governance must keep contents permission read-only")
+
+    concurrency = workflow.get("concurrency") if isinstance(workflow, dict) else None
+    group = concurrency.get("group") if isinstance(concurrency, dict) else None
+    cancel_in_progress = (
+        concurrency.get("cancel-in-progress") if isinstance(concurrency, dict) else None
+    )
+    if (
+        not isinstance(group, str) or
+        "github.event.pull_request.number" not in group or
+        cancel_in_progress != "true"
+    ):
+        findings.append(
+            "PR metadata governance must cancel only older edits for the same pull request"
+        )
+
+    jobs = workflow.get("jobs") if isinstance(workflow, dict) else None
+    if not isinstance(jobs, dict) or set(jobs) != {"governance"}:
+        findings.append("PR metadata governance must not define a build job")
+        return findings
+    if "tools/pr_contract_gate.py" not in _step_commands(jobs["governance"]):
+        findings.append("PR metadata governance must enforce the pull request contract")
     return findings
 
 
@@ -562,6 +622,12 @@ def collect_findings(repository_root: Path) -> list[str]:
     if ".github/workflows/rt-control-ci.yml" in texts:
         findings.extend(
             check_ci_workflow_policy(texts[".github/workflows/rt-control-ci.yml"])
+        )
+    if ".github/workflows/pr-metadata-governance.yml" in texts:
+        findings.extend(
+            check_pr_metadata_workflow_policy(
+                texts[".github/workflows/pr-metadata-governance.yml"]
+            )
         )
     if ".pre-commit-config.yaml" in texts:
         findings.extend(check_precommit_policy(texts[".pre-commit-config.yaml"]))

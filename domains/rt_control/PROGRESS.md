@@ -167,3 +167,4 @@
 | 2026-09-16 | canopen-chassis | [四舵轮外置编码器 108/27 齿传动确认](docs/areas/canopen-chassis/records/2026-09-16-swerve-encoder-gearing-confirmation.md) | PARTIAL（T1；公式/配置回归通过，EDS、方向、零偏与实机待验） |
 | 2026-09-16 | io-power | [四路 Modbus LED 驱动与离线验证](docs/areas/io-power/records/2026-09-16-modbus-led-driver.md) | PARTIAL（Issue #31；T1 两包构建、通信测试及140项bringup回归；实机/整机Mock待验） |
 | 2026-09-17 | ecat-axes | [六维力统一 C++ broadcaster 与三代机蓝点可选配置](docs/areas/ecat-axes/records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md) | PARTIAL（T1 Mock；X503/蓝点实机待验） |
+| 2026-09-17 | governance | [PR CI 触发去重与描述编辑隔离](docs/areas/governance/records/2026-09-17-pr-ci-trigger-deduplication.md) | PARTIAL（T0；本地门禁通过；远端事件行为及 main 分支保护待完成） |
