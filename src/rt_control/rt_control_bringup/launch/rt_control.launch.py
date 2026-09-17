@@ -21,6 +21,7 @@ from launch.substitutions import (
     EnvironmentVariable,
     LaunchConfiguration,
     PathJoinSubstitution,
+    PythonExpression,
 )
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -214,6 +215,15 @@ def _launch_setup(context):
         parameters=[rt_io_file],
         condition=IfCondition(start_bms),
     )
+    # 灯带独立使用 Modbus TCP 网关，不占用整机 EtherCAT 控制接口。
+    led = Node(
+        package="modbus_tcp_rtu485_led",
+        executable="led_strip_node",
+        name="led_strip_node",
+        output="both",
+        parameters=[LaunchConfiguration("led_config")],
+        condition=IfCondition(LaunchConfiguration("start_led")),
+    )
     x503_nodes = []
     if x503_parameters["sensor_names"]:
         x503_nodes = [
@@ -310,6 +320,7 @@ def _launch_setup(context):
         rt_status_adapter,
         plc,
         bms,
+        led,
         *x503_nodes,
         *spawner_handlers,
         active_spawners[0],
@@ -323,6 +334,17 @@ def generate_launch_description():
             DeclareLaunchArgument("use_mock_hardware", default_value="false"),
             DeclareLaunchArgument("ethercat_variant", default_value="alfa_v1"),
             DeclareLaunchArgument("canopen_variant", default_value="alfa_v1"),
+            DeclareLaunchArgument(
+                "start_led", default_value=PythonExpression(
+                    ["'", LaunchConfiguration("use_mock_hardware"), "' != 'true'"]
+                )
+            ),
+            DeclareLaunchArgument(
+                "led_config",
+                default_value=PathJoinSubstitution(
+                    [FindPackageShare("modbus_tcp_rtu485_led"), "config", "led_strip.yaml"]
+                ),
+            ),
             DeclareLaunchArgument(
                 "start_plc",
                 default_value=EnvironmentVariable(
