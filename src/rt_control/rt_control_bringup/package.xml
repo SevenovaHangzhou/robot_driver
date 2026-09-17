@@ -13,6 +13,7 @@
   <exec_depend>control_api_adapter</exec_depend>
   <exec_depend>robot_description</exec_depend>
   <exec_depend>bms_node</exec_depend>
+  <exec_depend>modbus_tcp_rtu485_led</exec_depend>
   <exec_depend>robot_hw_ethercat</exec_depend>
   <exec_depend>robot_hw_canopen</exec_depend>
   <exec_depend>controller_manager</exec_depend>

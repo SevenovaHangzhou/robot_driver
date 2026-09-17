@@ -20,6 +20,21 @@ def module():
     return loaded
 
 
+@pytest.mark.parametrize("mock, expected", [("true", "False"), ("false", "True")])
+def test_led_default_does_not_access_gateway_in_mock(mock, expected):
+    from launch.actions import DeclareLaunchArgument
+    from launch.utilities import perform_substitutions
+
+    loaded = module()
+    context = LaunchContext()
+    context.launch_configurations["use_mock_hardware"] = mock
+    argument = next(
+        entity for entity in loaded.generate_launch_description().entities
+        if isinstance(entity, DeclareLaunchArgument) and entity.name == "start_led"
+    )
+    assert perform_substitutions(context, argument.default_value) == expected
+
+
 def _setup_launch(monkeypatch):
     loaded = module()
     events = []
