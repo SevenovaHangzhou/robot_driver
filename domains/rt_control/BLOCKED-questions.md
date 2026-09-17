@@ -2661,3 +2661,18 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   Robot Model owner 提供 frame/安装变换；取得 StatusCode 定义并实测周期后裁决 freshness、
   诊断与力控 admission。未闭合前 runtime gate 不放开，本项不授权 EtherCAT 启动、tare、
   reset、enable、运动或 SDO write。
+
+## BQ-150: LPMS-NAV3 三代机共线 CAN 与正式 IMU 输出准入 [OPEN/HIGH-RISK 2026-09-17]
+
+- ELECTRI-105 历史独立 CANable/can2/500 kbit/s/Node 1 静止验收不能代表三代机共线接入；
+  最新议题增补明确 IMU、头部陀螺仪与达妙头部电机共享物理 CAN，需要与 ELECTRI-120/122 联合确认。
+- 已迁入 `lpms_nav3_can` 只接收默认四 TPDO/heartbeat，删除 NMT Start 和旧宿主配置；构建依赖
+  不等于 runtime admission。production launch 与 alfa_v3 manifest 不增加活动 IMU 节点。
+- 尚缺：最终型号/EDS/DBC、完整帧标识符/Node ID/波特率、共线负载/时间同步、接口唯一配置
+  所有者、启动与断线/重启故障策略。接口改名不能作为共享总线准入证明。
+- 当前公共契约未冻结 IMU endpoint，默认只发布私有 topic；跨域 remap、坐标/轴向、安装 TF、
+  时间戳、磁场和协方差必须另行核验，不从标准 sensor_msgs 类型推导公共契约已通过。
+- 无 CAN 接口测试只验证配置拒绝、错误诊断和退出；当前本机跨进程 DDS 未通过，诊断测试用
+  同进程 intra-process。CAN 连接/收流/热插拔与当前基线实机仍待验。
+- 此项仅阻塞真实/共线运行和正式融合，不阻塞源码、native 编译与无硬件测试。
+  不授权宿主 CAN 配置、总线启动、NMT/SDO、reset、enable 或运动。
