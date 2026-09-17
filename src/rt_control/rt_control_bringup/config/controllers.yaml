@@ -9,6 +9,12 @@ controller_manager:
     rt_internal_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
+    right_force_sensor_broadcaster:
+      type: rt_force_torque_broadcaster/ForceTorqueBroadcaster
+
+    left_force_sensor_broadcaster:
+      type: rt_force_torque_broadcaster/ForceTorqueBroadcaster
+
     whole_body_jtc:
       type: joint_trajectory_controller/JointTrajectoryController
 

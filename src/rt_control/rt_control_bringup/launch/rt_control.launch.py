@@ -1,5 +1,7 @@
 from pathlib import Path
 import json
+import os
+import tempfile
 import uuid
 
 import yaml
@@ -14,7 +16,7 @@ from launch.actions import (
     RegisterEventHandler,
 )
 from launch.conditions import IfCondition
-from launch.event_handlers import OnProcessExit
+from launch.event_handlers import OnProcessExit, OnShutdown
 from launch.events import Shutdown
 from launch.substitutions import (
     Command,
@@ -31,6 +33,7 @@ from rt_control_bringup.hardware_composition import (
     variant_descriptor_path,
 )
 from x503_force_sensor.preop import load_sensor_spec, read_preop_snapshot
+from x503_force_sensor.snapshot import SnapshotState
 
 
 def _raise_required_spawner_failure(
@@ -68,6 +71,26 @@ def _start_next_spawner_or_stop(
     return on_exit
 
 
+def _write_controller_parameter_file(document: dict) -> Path:
+    descriptor, raw_path = tempfile.mkstemp(
+        ".yaml", "rt-control-force-torque-"
+    )
+    path = Path(raw_path)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            yaml.safe_dump(document, stream, sort_keys=True)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return path
+
+
+def _remove_controller_parameter_file(_context, *, path: str):
+    Path(path).unlink(missing_ok=True)
+    return []
+
+
 def _launch_setup(context):
     if LaunchConfiguration("start_x503_sdo_snapshot", default="false").perform(context) != "false":
         raise ValueError("Standalone SDO polling is disabled; X503 parameters are read once in PREOP")
@@ -94,7 +117,8 @@ def _launch_setup(context):
     validate_controller_compatibility(hardware_composition, controllers_path)
     x503_parameters = hardware_composition.x503_parameters()
     startup_id = uuid.uuid4().hex
-    preop_snapshot_json = ""
+    x503_controller_names = []
+    x503_parameter_file = None
     if x503_parameters["sensor_names"]:
         force_enabled = LaunchConfiguration("start_x503_force_sensor", default="true").perform(context)
         if force_enabled not in {"true", "false"}:
@@ -113,7 +137,34 @@ def _launch_setup(context):
                 specs, readback_config, startup_id=startup_id,
                 expected_responders=hardware_composition.ethercat.expected_responders,
                 mock=use_mock_hardware_value == "true")
-            preop_snapshot_json = json.dumps(snapshot)
+            snapshot_state = SnapshotState(
+                json.dumps(snapshot), startup_id,
+                dict(zip(
+                    x503_parameters["sensor_names"],
+                    x503_parameters["slave_positions"],
+                )),
+            )
+            controller_document = {}
+            for name, wrench_topic, raw_topic, frame_id in zip(
+                x503_parameters["sensor_names"],
+                x503_parameters["wrench_topics"],
+                x503_parameters["raw_topics"],
+                x503_parameters["frame_ids"],
+            ):
+                controller_name = f"{name}_broadcaster"
+                x503_controller_names.append(controller_name)
+                controller_document[controller_name] = {
+                    "ros__parameters": snapshot_state.controller_parameters(
+                        name,
+                        frame_id=frame_id,
+                        wrench_topic=wrench_topic,
+                        raw_topic=raw_topic,
+                        calibration_topic="/rt_control/x503b/calibration",
+                    )
+                }
+            x503_parameter_file = _write_controller_parameter_file(
+                controller_document
+            )
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_mock_hardware = use_mock_hardware_value
     ethercat_variant = LaunchConfiguration("ethercat_variant")
@@ -214,41 +265,24 @@ def _launch_setup(context):
         parameters=[rt_io_file],
         condition=IfCondition(start_bms),
     )
-    x503_nodes = []
-    if x503_parameters["sensor_names"]:
-        x503_nodes = [
-            Node(
-                package="x503_force_sensor",
-                executable="x503_wrench_bridge",
-                output="both",
-                parameters=[
-                    {
-                        **x503_parameters,
-                        "dynamic_joint_states_topic": (
-                            "/rt_internal_state_broadcaster/dynamic_joint_states"
-                        ),
-                        "calibration_topic": "/rt_control/x503b/calibration",
-                        "preop_snapshot_json": preop_snapshot_json,
-                        "startup_id": startup_id,
-                        "use_sim_time": use_sim_time,
-                    }
-                ],
-                condition=IfCondition(
-                    LaunchConfiguration("start_x503_force_sensor")
-                ),
-            ),
-        ]
-
     active_controller_names = (
         "joint_state_broadcaster",
         "rt_internal_state_broadcaster",
+        *x503_controller_names,
         "diff_drive_controller",
     )
     active_spawners = [
         Node(
             package="controller_manager",
             executable="spawner",
-            arguments=[name, "--controller-manager", "/controller_manager"],
+            arguments=[
+                name,
+                "--controller-manager", "/controller_manager",
+                *(
+                    ["--param-file", str(x503_parameter_file)]
+                    if name in x503_controller_names else []
+                ),
+            ],
             output="both",
         )
         for name in active_controller_names
@@ -301,6 +335,19 @@ def _launch_setup(context):
         )
     ]
 
+    cleanup_handlers = []
+    if x503_parameter_file is not None:
+        cleanup_handlers.append(
+            RegisterEventHandler(
+                OnShutdown(
+                    on_shutdown=OpaqueFunction(
+                        function=_remove_controller_parameter_file,
+                        kwargs={"path": str(x503_parameter_file)},
+                    )
+                )
+            )
+        )
+
     return [
         control_node,
         state_publisher,
@@ -310,7 +357,7 @@ def _launch_setup(context):
         rt_status_adapter,
         plc,
         bms,
-        *x503_nodes,
+        *cleanup_handlers,
         *spawner_handlers,
         active_spawners[0],
     ]

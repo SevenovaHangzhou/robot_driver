@@ -2644,3 +2644,20 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   对应记录的产物不得作为部署候选。
 - `native` 提升到 `main` 不要求先构建镜像，但不得带入宿主绝对路径、个人配置或
   不可复现的临时修改。本裁决不授权容器启动、总线访问、复位、使能或运动。
+
+## BQ-149: 三代机蓝点六维力传感器运行拓扑与闭环新鲜度 [OPEN/HIGH-RISK 2026-09-17]
+
+- 用户确认蓝点传感器晚于已组装双臂到货，未来左右臂从站链各串联一台；因此配置必须显式
+  支持 `none/bluepoint_dual`，缺件时不能阻塞现有 18 responder 双臂路径，也禁止自动探测降级。
+- 用户提供 ESI 的文件身份为 ACTI Vendor `0x000000A1`、P140000107 Product
+  `0x00008081`、Revision `0x00000002`。ESI 声明 RxPDO `0x1600` 8x32 bit、TxPDO
+  `0x1A00` 9x32 bit、SM sync 与 DC `0x0300`；这些是文件事实，不是实物/4 ms/1 kHz 验证。
+- V1.1 协议确认六维 DINT 比例为 `10000 raw = 1 N/N.m`、SampleCounter 为 1 ms、温度为
+  0.1 degC；未给出 StatusCode 位定义、sample 停滞容差、滤波设置或机械坐标图。不得猜测故障位、
+  freshness 阈值或 frame 方向。
+- 软件已登记完整 PDO、固定零输出且不开放 `0x2000 bit0` tare；`bluepoint_dual` 的 ring/frame
+  和 `calibration_valid` 保持 TBD/false。`none` 是默认选择，仍使用已确认 0..17 双臂布局。
+- 待蓝点到货：只读扫描左右分支枚举和总数，核对实物 identity/PDO/DC/WC/SampleCounter；由
+  Robot Model owner 提供 frame/安装变换；取得 StatusCode 定义并实测周期后裁决 freshness、
+  诊断与力控 admission。未闭合前 runtime gate 不放开，本项不授权 EtherCAT 启动、tare、
+  reset、enable、运动或 SDO write。

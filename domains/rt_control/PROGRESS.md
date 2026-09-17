@@ -165,3 +165,4 @@
 | 2026-09-16 | motion | [四舵轮最小二乘残差剔除与里程计隔离](docs/areas/motion/records/2026-09-16-swerve-slip-residual-rejection.md) | PARTIAL（T1；70条 Native/Mock 测试通过，实机阈值与打滑待验） |
 | 2026-09-16 | motion | [四舵轮机械限位内转向规划与输出门禁](docs/areas/motion/records/2026-09-16-swerve-bounded-steering-planner.md) | PARTIAL（T1；77条 Native/Mock 测试通过，逐轮限位与实机跟踪待验） |
 | 2026-09-16 | canopen-chassis | [四舵轮外置编码器 108/27 齿传动确认](docs/areas/canopen-chassis/records/2026-09-16-swerve-encoder-gearing-confirmation.md) | PARTIAL（T1；公式/配置回归通过，EDS、方向、零偏与实机待验） |
+| 2026-09-17 | ecat-axes | [六维力统一 C++ broadcaster 与三代机蓝点可选配置](docs/areas/ecat-axes/records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md) | PARTIAL（T1 Mock；X503/蓝点实机待验） |

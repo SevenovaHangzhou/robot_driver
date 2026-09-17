@@ -14,6 +14,8 @@ from .hardware_composition import (
 from .machine_profile import (
     BusLayout,
     GroupReference,
+    HardwareOption,
+    HardwareOptionSelection,
     MachineManifest,
     MachineProfileError,
     ModeGroup,
@@ -38,6 +40,8 @@ __all__ = [
     "variant_descriptor_path",
     "BusLayout",
     "GroupReference",
+    "HardwareOption",
+    "HardwareOptionSelection",
     "MachineManifest",
     "MachineProfileError",
     "ModeGroup",

@@ -62,6 +62,36 @@ aliases read 2/7; these are distinct from the absolute positions 0/17 above.
 
 Do not copy the old robot's Hub 0/13 positions, identity or OP/PREOP exceptions.
 State/DC handling, joint bindings and PDO/SDO qualification are still pending.
+
+## Blue Point / ACTI P140000107 ESI
+
+The user supplied `P140000107-1.0.1.1-ECXML.xml` on 2026-09-17 for the optional
+Gen3 wrist force/torque sensors.
+
+Original file SHA-256:
+`8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad`.
+
+The repository copy normalizes CRLF line endings; XML elements, attributes and
+values are unchanged. Repository copy SHA-256:
+`f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8`.
+
+Declared identity: Vendor `0x000000A1` (`ACTI`), Product `0x00008081`, Revision
+`0x00000002`, Type `P140000107`. The ESI declares RxPDO `0x1600` with eight
+32-bit entries (`0x2000..0x2007`) and TxPDO `0x1A00` with nine 32-bit entries
+(`0x4000..0x4008`). It advertises SM Synchron and DC `AssignActivate=0x0300`.
+
+The accompanying V1.1 protocol PDF has SHA-256
+`39432f1304b68af1839a3553b4581da92a3923306945e5985cdbae7d7689ae0c`.
+It documents `10000 raw = 1 N` for force, `10000 raw = 1 N.m` for torque,
+SampleCounter units of 1 ms, temperature in 0.1 degree C, and a tare rising edge
+on `0x2000 bit 0`. It does not define StatusCode bits, the seven additional ESI
+RxPDO fields, a closed-loop freshness threshold, or the installed coordinate
+frames. The runtime profile therefore fixes every RxPDO output at zero and does
+not expose tare.
+
+These are file facts only. The `bluepoint_dual` machine option remains draft
+until both devices are installed and their branch enumeration, identity, PDO,
+DC, SampleCounter behavior and Robot Model frames are verified read-only.
 The mapping above applies only to the observed arms-only bench; other physical
 profiles require their own scans. This asset is installed for review; no runtime
 descriptor selects or enables it yet. See BQ-146 and ecat-axes-20260912-03 for

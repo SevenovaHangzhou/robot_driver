@@ -236,11 +236,27 @@ class PhysicalLayout:
 
 
 @dataclass(frozen=True)
+class HardwareOptionSelection:
+    name: str
+    modules: tuple[str, ...]
+    ethercat_layout: BusLayout | None
+    pending_facts: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class HardwareOption:
+    name: str
+    default_selection: str
+    selections: Mapping[str, HardwareOptionSelection]
+
+
+@dataclass(frozen=True)
 class PhysicalProfile:
     name: str
     status: str
     modules: tuple[str, ...]
     allowed_scopes: tuple[str, ...]
+    hardware_options: Mapping[str, tuple[str, ...]]
     layout: PhysicalLayout
     pending_facts: tuple[str, ...]
 
@@ -279,6 +295,7 @@ class MachineManifest:
     status: str
     functional_modules: tuple[str, ...]
     modules: Mapping[str, ModuleSpec]
+    hardware_options: Mapping[str, HardwareOption]
     profiles: Mapping[str, PhysicalProfile]
     scopes: Mapping[str, ScopeSpec]
     controllers: Mapping[str, ControllerBinding]
@@ -290,6 +307,7 @@ class SelectedHardware:
     manifest_variant: str
     physical_profile: str
     control_scope: str
+    hardware_options: Mapping[str, str]
     physical_modules: tuple[str, ...]
     active_modules: tuple[str, ...]
     inactive_modules: tuple[str, ...]
@@ -645,15 +663,118 @@ def _parse_bus_layout(
     return BusLayout(status, master_id, positions, node_ids)
 
 
+def _parse_hardware_options(
+    raw_options: Any,
+    location: Sequence[object],
+    modules: Mapping[str, ModuleSpec],
+) -> dict[str, HardwareOption]:
+    options_mapping = _mapping(raw_options, location)
+    options: dict[str, HardwareOption] = {}
+    for raw_name, raw_option in options_mapping.items():
+        name = _string(raw_name, (*location, "<name>"), identifier=True)
+        option_location = (*location, name)
+        option = _mapping(raw_option, option_location)
+        _exact_keys(option, {"default_selection", "selections"}, option_location)
+        default_selection = _string(
+            option["default_selection"],
+            (*option_location, "default_selection"),
+            identifier=True,
+        )
+        raw_selections = _mapping(
+            option["selections"], (*option_location, "selections")
+        )
+        if not raw_selections:
+            raise MachineProfileError(
+                f"{_path((*option_location, 'selections'))} must not be empty"
+            )
+        selections: dict[str, HardwareOptionSelection] = {}
+        for raw_selection_name, raw_selection in raw_selections.items():
+            selection_name = _string(
+                raw_selection_name,
+                (*option_location, "selections", "<name>"),
+                identifier=True,
+            )
+            selection_location = (*option_location, "selections", selection_name)
+            selection = _mapping(raw_selection, selection_location)
+            _exact_keys(
+                selection,
+                {"modules", "ethercat_layout", "pending_facts"},
+                selection_location,
+            )
+            selected_modules = _string_list(
+                selection["modules"], (*selection_location, "modules")
+            )
+            if len(set(selected_modules)) != len(selected_modules):
+                raise MachineProfileError(
+                    f"{_path(selection_location)} contains duplicate module"
+                )
+            unknown = sorted(set(selected_modules) - set(modules))
+            if unknown:
+                raise MachineProfileError(
+                    f"{_path(selection_location)} references unknown module(s): {unknown}"
+                )
+            if any(
+                modules[module_name].role != "state_sensor_group"
+                for module_name in selected_modules
+            ):
+                raise MachineProfileError(
+                    f"{_path(selection_location)} optional modules must be state sensors"
+                )
+            raw_ethercat_layout = selection["ethercat_layout"]
+            ethercat_layout = None
+            if raw_ethercat_layout is not None:
+                if not selected_modules or any(
+                    modules[module_name].transport != "ethercat"
+                    for module_name in selected_modules
+                ):
+                    raise MachineProfileError(
+                        f"{_path(selection_location)} EtherCAT override requires "
+                        "EtherCAT sensor modules"
+                    )
+                ethercat_layout = _parse_bus_layout(
+                    raw_ethercat_layout,
+                    (*selection_location, "ethercat_layout"),
+                    transport="ethercat",
+                    has_transport=True,
+                )
+                master_ids = {
+                    modules[module_name].master_id for module_name in selected_modules
+                }
+                if len(master_ids) != 1 or ethercat_layout.master_id not in master_ids:
+                    raise MachineProfileError(
+                        f"{_path(selection_location)} EtherCAT master mismatch"
+                    )
+            elif selected_modules:
+                raise MachineProfileError(
+                    f"{_path(selection_location)} sensor modules require a layout override"
+                )
+            pending_facts = _parse_pending_facts(
+                selection["pending_facts"], (*selection_location, "pending_facts")
+            )
+            selections[selection_name] = HardwareOptionSelection(
+                selection_name, selected_modules, ethercat_layout, pending_facts
+            )
+        if default_selection not in selections:
+            raise MachineProfileError(
+                f"{_path(option_location)} default_selection is not declared"
+            )
+        options[name] = HardwareOption(name, default_selection, selections)
+    return options
+
+
 def _parse_profiles(
     raw_profiles: Any,
     location: Sequence[object],
     modules: Mapping[str, ModuleSpec],
+    hardware_options: Mapping[str, HardwareOption],
 ) -> dict[str, PhysicalProfile]:
     profiles_mapping = _mapping(raw_profiles, location)
     if not profiles_mapping:
         raise MachineProfileError(f"{_path(location)} must not be empty")
-    expected = {"status", "modules", "allowed_scopes", "layout", "pending_facts"}
+    expected = {
+        "status", "modules", "allowed_scopes", "hardware_options", "layout",
+        "pending_facts",
+    }
     profiles: dict[str, PhysicalProfile] = {}
     for raw_name, raw_profile in profiles_mapping.items():
         name = _string(raw_name, (*location, "<name>"), identifier=True)
@@ -695,6 +816,63 @@ def _parse_profiles(
             raise MachineProfileError(
                 f"{_path(profile_location)} allowed_scopes must be unique"
             )
+        raw_profile_options = _mapping(
+            profile["hardware_options"], (*profile_location, "hardware_options")
+        )
+        if set(raw_profile_options) != set(hardware_options):
+            raise MachineProfileError(
+                f"{_path(profile_location)} hardware_options must list every option"
+            )
+        allowed_options: dict[str, tuple[str, ...]] = {}
+        for option_name, raw_selections in raw_profile_options.items():
+            option = hardware_options[option_name]
+            selections = _string_list(
+                raw_selections, (*profile_location, "hardware_options", option_name)
+            )
+            if not selections or len(set(selections)) != len(selections):
+                raise MachineProfileError(
+                    f"{_path((*profile_location, 'hardware_options', option_name))} "
+                    "must contain unique selections"
+                )
+            unknown_selections = sorted(set(selections) - set(option.selections))
+            if unknown_selections:
+                raise MachineProfileError(
+                    f"{_path(profile_location)} references unknown option selections: "
+                    f"{unknown_selections}"
+                )
+            if option.default_selection not in selections:
+                raise MachineProfileError(
+                    f"{_path(profile_location)} must allow the default "
+                    f"{option_name} selection"
+                )
+            for selection_name in selections:
+                optional_modules = option.selections[selection_name].modules
+                combined_modules = set(selected_modules) | set(optional_modules)
+                for module_name in optional_modules:
+                    missing = sorted(
+                        set(modules[module_name].requires) - combined_modules
+                    )
+                    if missing:
+                        raise MachineProfileError(
+                            f"{_path(profile_location)} optional module {module_name!r} "
+                            f"requires module(s): {missing}"
+                        )
+                optional_master_ids = {
+                    modules[module_name].master_id
+                    for module_name in optional_modules
+                    if modules[module_name].transport == "ethercat"
+                }
+                base_master_ids = {
+                    modules[module_name].master_id
+                    for module_name in selected_modules
+                    if modules[module_name].transport == "ethercat"
+                }
+                if optional_master_ids and base_master_ids != optional_master_ids:
+                    raise MachineProfileError(
+                        f"{_path(profile_location)} optional EtherCAT modules must "
+                        "share one master with the profile"
+                    )
+            allowed_options[option_name] = selections
         layout = _mapping(profile["layout"], (*profile_location, "layout"))
         _exact_keys(
             layout,
@@ -739,6 +917,7 @@ def _parse_profiles(
             status=status,
             modules=selected_modules,
             allowed_scopes=allowed_scopes,
+            hardware_options=allowed_options,
             layout=PhysicalLayout(ethercat, canopen, damiao),
             pending_facts=pending_facts,
         )
@@ -993,6 +1172,7 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
         return
     expected_modules = {
         "arms",
+        "wrist_force_sensors",
         "updown",
         "swerve_chassis",
         "swerve_encoders",
@@ -1026,6 +1206,19 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
         raise MachineProfileError("alfa_v3 arms must contain 14 CSP and 2 PP actuators")
     if {group.mode_of_operation for group in arms.mode_groups} != {8, 1}:
         raise MachineProfileError("alfa_v3 arms mode assignments must be CSP=8 and PP=1")
+    force_sensors = manifest.modules["wrist_force_sensors"]
+    if (
+        force_sensors.role != "state_sensor_group"
+        or force_sensors.transport != "ethercat"
+        or force_sensors.master_id != 0
+        or force_sensors.instance_count != 2
+        or force_sensors.sensor_count != 2
+        or force_sensors.authority != "wrist_wrench"
+        or force_sensors.sensor_bindings != ("left_wrist", "right_wrist")
+    ):
+        raise MachineProfileError(
+            "alfa_v3 wrist force sensors must contain two EtherCAT state sensors"
+        )
     updown = manifest.modules["updown"]
     if (
         updown.transport != "ethercat"
@@ -1088,6 +1281,29 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
     for name, expected in expected_profile_modules.items():
         if manifest.profiles[name].modules != expected:
             raise MachineProfileError(f"alfa_v3 profile {name} has an unexpected module set")
+    if set(manifest.hardware_options) != {"force_sensors"}:
+        raise MachineProfileError("alfa_v3 requires the force_sensors hardware option")
+    force_option = manifest.hardware_options["force_sensors"]
+    if (
+        force_option.default_selection != "none"
+        or set(force_option.selections) != {"none", "bluepoint_dual"}
+        or force_option.selections["none"].modules
+        or force_option.selections["none"].ethercat_layout is not None
+        or force_option.selections["bluepoint_dual"].modules !=
+        ("wrist_force_sensors",)
+        or force_option.selections["bluepoint_dual"].ethercat_layout is None
+    ):
+        raise MachineProfileError("alfa_v3 force_sensors option is inconsistent")
+    dual_profiles = {"arms_only", "arms_updown", "full_robot"}
+    for profile_name, profile in manifest.profiles.items():
+        expected = (
+            ("none", "bluepoint_dual")
+            if profile_name in dual_profiles else ("none",)
+        )
+        if profile.hardware_options["force_sensors"] != expected:
+            raise MachineProfileError(
+                f"alfa_v3 profile {profile_name} has invalid force_sensors choices"
+            )
     if set(manifest.controllers) != {"swerve_chassis"}:
         raise MachineProfileError("alfa_v3 requires the swerve chassis controller binding")
     controller = manifest.controllers["swerve_chassis"]
@@ -1112,6 +1328,7 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         "status",
         "functional_modules",
         "modules",
+        "hardware_options",
         "profiles",
         "scopes",
         "owner_refs",
@@ -1156,7 +1373,13 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
             "functional_modules must contain actuator modules only: "
             f"{sensor_functional}"
         )
-    profiles = _parse_profiles(document["profiles"], (*root_location, "profiles"), modules)
+    hardware_options = _parse_hardware_options(
+        document["hardware_options"], (*root_location, "hardware_options"), modules
+    )
+    profiles = _parse_profiles(
+        document["profiles"], (*root_location, "profiles"), modules,
+        hardware_options,
+    )
     scopes = _parse_scopes(document["scopes"], (*root_location, "scopes"), modules)
     controllers = _parse_controllers(
         document.get("controllers", {}), (*root_location, "controllers"), modules, scopes
@@ -1174,6 +1397,7 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         status=status,
         functional_modules=functional_modules,
         modules=modules,
+        hardware_options=hardware_options,
         profiles=profiles,
         scopes=scopes,
         controllers=controllers,
@@ -1202,7 +1426,9 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
 
 
 def _runtime_blockers(
-    manifest: MachineManifest, profile: PhysicalProfile, scope: ScopeSpec
+    manifest: MachineManifest, profile: PhysicalProfile, scope: ScopeSpec,
+    active_modules: tuple[str, ...], layout: PhysicalLayout,
+    option_pending_facts: tuple[str, ...],
 ) -> tuple[str, ...]:
     blockers: list[str] = []
     if manifest.status != "ready":
@@ -1211,11 +1437,11 @@ def _runtime_blockers(
         blockers.append(f"profile {profile.name} status is {profile.status}")
     if profile.pending_facts:
         blockers.append(f"profile {profile.name} has pending facts")
-    active_modules = set(scope.enabled_modules)
+    active_module_names = set(active_modules)
     selected_group_keys = {
         (item.module, item.mode_group) for item in scope.actuator_groups
     }
-    for module_name in scope.enabled_modules:
+    for module_name in active_modules:
         module = manifest.modules[module_name]
         if module.status != "ready":
             blockers.append(f"module {module_name} status is {module.status}")
@@ -1238,12 +1464,12 @@ def _runtime_blockers(
             blockers.append(f"controller {controller.name} uses a draft config")
 
     transport_layouts = {
-        "ethercat": profile.layout.ethercat,
-        "canopen": profile.layout.canopen,
-        "damiao_can": profile.layout.damiao_can,
+        "ethercat": layout.ethercat,
+        "canopen": layout.canopen,
+        "damiao_can": layout.damiao_can,
     }
     active_transports = {
-        manifest.modules[name].transport for name in active_modules
+        manifest.modules[name].transport for name in active_module_names
     }
     for transport in sorted(active_transports):
         layout = transport_layouts[transport]
@@ -1253,6 +1479,8 @@ def _runtime_blockers(
             blockers.append("EtherCAT ring positions are TBD")
         if transport != "ethercat" and layout.node_ids is None:
             blockers.append(f"{transport} node IDs are TBD")
+    if option_pending_facts:
+        blockers.append("selected hardware option has pending facts")
     return tuple(dict.fromkeys(blockers))
 
 
@@ -1261,6 +1489,7 @@ def select_hardware(
     *,
     physical_profile: str,
     control_scope: str,
+    hardware_options: Mapping[str, str] | None = None,
     require_runtime_ready: bool = False,
 ) -> SelectedHardware:
     """Select an immutable hardware surface from a physical profile and scope."""
@@ -1281,8 +1510,36 @@ def select_hardware(
             f"{physical_profile!r}"
         )
 
-    active_modules = scope.enabled_modules
-    inactive_modules = tuple(name for name in profile.modules if name not in active_modules)
+    requested_options = dict(hardware_options or {})
+    unknown_options = sorted(set(requested_options) - set(manifest.hardware_options))
+    if unknown_options:
+        raise MachineProfileError(f"unknown hardware option(s): {unknown_options}")
+    selected_options: dict[str, str] = {}
+    optional_modules: list[str] = []
+    option_pending_facts: list[str] = []
+    selected_layout = profile.layout
+    for option_name, option in manifest.hardware_options.items():
+        selection_name = requested_options.get(option_name, option.default_selection)
+        if selection_name not in profile.hardware_options[option_name]:
+            raise MachineProfileError(
+                f"hardware option {option_name}={selection_name} is not allowed for "
+                f"physical profile {physical_profile}"
+            )
+        selection = option.selections[selection_name]
+        selected_options[option_name] = selection_name
+        optional_modules.extend(selection.modules)
+        option_pending_facts.extend(selection.pending_facts)
+        if selection.ethercat_layout is not None:
+            selected_layout = PhysicalLayout(
+                selection.ethercat_layout,
+                selected_layout.canopen,
+                selected_layout.damiao_can,
+            )
+    physical_modules = tuple((*profile.modules, *optional_modules))
+    if len(set(physical_modules)) != len(physical_modules):
+        raise MachineProfileError("selected hardware options duplicate a physical module")
+    active_modules = tuple((*scope.enabled_modules, *optional_modules))
+    inactive_modules = tuple(name for name in physical_modules if name not in active_modules)
     transports: list[str] = []
     for module_name in active_modules:
         transport = manifest.modules[module_name].transport
@@ -1294,9 +1551,9 @@ def select_hardware(
         if manifest.modules[name].transport == "ethercat"
     ]
     ethercat_master_id = ethercat_modules[0].master_id if ethercat_modules else None
-    ethercat_ring_positions = profile.layout.ethercat.positions
-    canopen_node_ids = profile.layout.canopen.node_ids
-    damiao_can_node_ids = profile.layout.damiao_can.node_ids
+    ethercat_ring_positions = selected_layout.ethercat.positions
+    canopen_node_ids = selected_layout.canopen.node_ids
+    damiao_can_node_ids = selected_layout.damiao_can.node_ids
     actuator_count = sum(manifest.modules[name].actuator_count for name in active_modules)
     mode_counts: dict[int, int] = {}
     group_counts: dict[str, int] = {}
@@ -1322,14 +1579,18 @@ def select_hardware(
             jtc_mode_counts[group.mode_of_operation] = (
                 jtc_mode_counts.get(group.mode_of_operation, 0) + group.count
             )
+    required_state_modules = tuple((*scope.required_state_modules, *optional_modules))
     state_sensor_count = sum(
-        manifest.modules[name].sensor_count for name in scope.required_state_modules
+        manifest.modules[name].sensor_count for name in required_state_modules
     )
     controllers = tuple(
         manifest.controllers[name]
         for name in active_modules if name in manifest.controllers
     )
-    blockers = _runtime_blockers(manifest, profile, scope)
+    blockers = _runtime_blockers(
+        manifest, profile, scope, active_modules, selected_layout,
+        tuple(option_pending_facts),
+    )
     if require_runtime_ready and blockers:
         raise MachineProfileError(
             "selected hardware is not runtime-ready: " + "; ".join(blockers)
@@ -1338,7 +1599,8 @@ def select_hardware(
         manifest_variant=manifest.variant,
         physical_profile=physical_profile,
         control_scope=control_scope,
-        physical_modules=profile.modules,
+        hardware_options=selected_options,
+        physical_modules=physical_modules,
         active_modules=active_modules,
         inactive_modules=inactive_modules,
         transports=tuple(transports),
@@ -1352,7 +1614,7 @@ def select_hardware(
         actuator_groups=scope.actuator_groups,
         jtc_groups=scope.jtc_groups,
         jtc_mode_counts=jtc_mode_counts,
-        required_state_modules=scope.required_state_modules,
+        required_state_modules=required_state_modules,
         state_sensor_count=state_sensor_count,
         controllers=controllers,
         validation_status="ready" if not blockers else "draft",
@@ -1365,6 +1627,8 @@ __all__ = [
     "BusLayout",
     "ControllerBinding",
     "GroupReference",
+    "HardwareOption",
+    "HardwareOptionSelection",
     "MachineManifest",
     "MachineProfileError",
     "ModeGroup",

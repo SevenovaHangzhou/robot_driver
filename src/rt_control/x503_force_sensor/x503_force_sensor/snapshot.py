@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import json
 
-from .bridge import CalibrationSnapshot, calibration_from_values
+from .calibration import calibration_from_values
 
 
 class SnapshotValidationError(ValueError):
@@ -29,7 +29,7 @@ class SnapshotState:
             if (document["schema_version"] != 1 or document["startup_id"] != startup_id
                     or document["source"] not in {"preop_sdo", "mock"}):
                 raise SnapshotValidationError("Snapshot belongs to another startup or source")
-            self._records, self._calibration, self._seen_op, self._invalid = {}, {}, set(), set()
+            self._records, self._calibration, self._invalid = {}, {}, set()
             for raw in document["sensors"]:
                 name, position, values = raw["sensor_name"], raw["slave_position"], raw["values"]
                 if (name not in expected_positions or name in self._records
@@ -56,23 +56,79 @@ class SnapshotState:
         except (KeyError, TypeError, ValueError, AttributeError) as error:
             raise SnapshotValidationError("Malformed startup snapshot") from error
 
-    def observe(self, name: str, *, al_state, link_up: bool) -> bool:
-        """Once an observed OP sensor goes offline, only a new startup may restore it."""
-        if name in self._invalid:
-            return False
-        if al_state == 8 and link_up is True:
-            self._seen_op.add(name)
-        elif name in self._seen_op:
-            self._invalid.add(name)
-            self._records[name]["values"]["snapshot_valid"] = "false"
-            self._records[name]["error"] = "Sensor left OP or link was lost; fresh PREOP initialization required"
-            return True
-        return False
-
-    def calibration(self, name: str) -> CalibrationSnapshot:
-        if name not in self._seen_op or name in self._invalid:
-            return CalibrationSnapshot(False, (), (), "unresolved")
-        return self._calibration[name]
-
-    def statuses(self) -> list[dict]:
-        return copy.deepcopy(list(self._records.values()))
+    def controller_parameters(
+        self,
+        name: str,
+        *,
+        frame_id: str,
+        wrench_topic: str,
+        raw_topic: str,
+        calibration_topic: str,
+    ) -> dict:
+        """Render immutable parameters for one C++ broadcaster instance."""
+        try:
+            record = self._records[name]
+            calibration = self._calibration[name]
+            position = record["slave_position"]
+            values = record["values"]
+        except (KeyError, TypeError) as error:
+            raise SnapshotValidationError("Unknown snapshot sensor") from error
+        for value in (name, frame_id, wrench_topic, raw_topic, calibration_topic):
+            if (
+                not isinstance(value, str)
+                or not value.strip()
+                or value != value.strip()
+                or "TBD" in value
+            ):
+                raise SnapshotValidationError(
+                    "Controller names, topics and frame must be explicit"
+                )
+        if values.get("validity_policy") != "sample_codes_in_range":
+            raise SnapshotValidationError(
+                "C++ broadcaster requires the approved X503 range policy"
+            )
+        try:
+            sample_code_min = int(values["sample_code_min"])
+            sample_code_max = int(values["sample_code_max"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise SnapshotValidationError("Invalid X503 sample-code range") from error
+        if not -2147483648 <= sample_code_min <= sample_code_max <= 2147483647:
+            raise SnapshotValidationError("Invalid X503 sample-code range")
+        valid = (
+            calibration.engineering_units_valid
+            and calibration.sample_validity_confirmed
+            and calibration.units == (5, 5, 5, 7, 7, 7)
+            and name not in self._invalid
+        )
+        decimals = list(calibration.decimals) if valid else []
+        units = list(calibration.units) if valid else []
+        scales = [10.0 ** (-decimal) for decimal in decimals] if valid else [1.0] * 6
+        parameters = {
+            "sensor_name": name,
+            "frame_id": frame_id,
+            "value_interfaces": [
+                f"{name}/channel_{index}_raw" for index in range(1, 7)
+            ],
+            "auxiliary_interfaces": [
+                f"{name}/sample_code_{index}_raw" for index in range(1, 7)
+            ],
+            "scale_factors": scales,
+            "validity_policy": "all_exact_in_range",
+            "minimum_auxiliary_value": sample_code_min,
+            "maximum_auxiliary_value": sample_code_max,
+            "calibration_valid": valid,
+            "startup_id": self.startup_id,
+            "snapshot_source": self.source,
+            "wrench_topic": wrench_topic,
+            "raw_topic": raw_topic,
+            "calibration_topic": calibration_topic,
+            "diagnostic_name": (
+                f"/robot/rt_control/x503b/{name}/calibration"
+            ),
+            "link_interface": "ethercat_master/link_up",
+            "al_state_interface": f"ethercat_slave_{position}/al_state",
+        }
+        if valid:
+            parameters["decimals"] = decimals
+            parameters["unit_codes"] = units
+        return parameters

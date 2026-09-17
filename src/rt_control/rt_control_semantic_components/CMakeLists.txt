@@ -36,6 +36,20 @@ if(BUILD_TESTING)
   target_link_libraries(test_cia402_axis
     rt_control_semantic_components
   )
+
+  ament_add_gtest(test_force_torque_sensor
+    test/test_force_torque_sensor.cpp
+  )
+  target_compile_features(test_force_torque_sensor PUBLIC cxx_std_17)
+  target_compile_options(test_force_torque_sensor PRIVATE
+    -Wall -Wextra -Wpedantic -Wconversion
+  )
+  target_include_directories(test_force_torque_sensor PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
+  target_link_libraries(test_force_torque_sensor
+    rt_control_semantic_components
+  )
 endif()
 
 ament_package()

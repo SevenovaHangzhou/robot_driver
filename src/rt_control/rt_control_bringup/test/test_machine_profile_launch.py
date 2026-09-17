@@ -58,6 +58,7 @@ def test_module_launch_declares_profile_scope_and_validation_arguments():
         "physical_profile",
         "control_scope",
         "validation_only",
+        "force_sensor_option",
     } <= declared
 
 
@@ -84,6 +85,20 @@ def test_static_arms_validation_returns_a_summary_without_creating_nodes(monkeyp
     assert "PP=2" in message
     assert "arms.gripper_pp=2" in message
     assert "ethercat_ring=" + ",".join(str(position) for position in range(18)) in message
+    assert "options=force_sensors:none" in message
+
+
+def test_dual_bluepoint_option_is_visible_and_keeps_ring_tbd(monkeypatch):
+    module = _launch_module()
+    monkeypatch.setattr(module, "get_package_share_directory", lambda _: str(BRINGUP_DIR))
+
+    actions = module._launch_setup(_context(force_sensor_option="bluepoint_dual"))
+
+    message = actions[0].msg[0].text
+    assert "options=force_sensors:bluepoint_dual" in message
+    assert "active=arms,wrist_force_sensors" in message
+    assert "state_sensors=2" in message
+    assert "ethercat_ring=TBD" in message
 
 
 def test_full_physical_profile_arms_scope_reports_inactive_modules(monkeypatch):

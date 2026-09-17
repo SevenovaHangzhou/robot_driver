@@ -30,25 +30,6 @@ def test_old_startup_snapshot_is_rejected():
         state(startup_id="different-start")
 
 
-def test_initial_non_op_does_not_activate_force_or_destroy_metadata():
-    cache = state()
-    cache.observe("right_force_sensor", al_state=2, link_up=True)
-    assert cache.calibration("right_force_sensor").valid is False
-    cache.observe("right_force_sensor", al_state=8, link_up=True)
-    assert cache.calibration("right_force_sensor").valid is True
-
-
-@pytest.mark.parametrize("al_state,link_up", [(2, True), (0, True), (8, False), (None, True)])
-def test_loss_after_op_permanently_invalidates_this_startup(al_state, link_up):
-    cache = state()
-    cache.observe("right_force_sensor", al_state=8, link_up=True)
-    assert cache.calibration("right_force_sensor").valid
-    assert cache.observe("right_force_sensor", al_state=al_state, link_up=link_up)
-    cache.observe("right_force_sensor", al_state=8, link_up=True)
-    assert cache.calibration("right_force_sensor").valid is False
-    assert cache.statuses()[0]["values"]["snapshot_valid"] == "false"
-
-
 @pytest.mark.parametrize("mutation", ["unit", "decimal", "position", "duplicate", "source"])
 def test_invalid_snapshot_cannot_create_valid_force(mutation):
     doc = copy.deepcopy(payload())
@@ -59,3 +40,66 @@ def test_invalid_snapshot_cannot_create_valid_force(mutation):
     elif mutation == "source": doc["source"] = "historical_cache"
     with pytest.raises(SnapshotValidationError):
         state(doc)
+
+
+def test_snapshot_renders_cpp_controller_parameters_without_runtime_device_access():
+    parameters = state().controller_parameters(
+        "right_force_sensor",
+        frame_id="right_ft_sensor_link",
+        wrench_topic="/rt_control/right_x503b/wrench",
+        raw_topic="/rt_control/right_x503b/raw",
+        calibration_topic="/rt_control/x503b/calibration",
+    )
+
+    assert parameters == {
+        "sensor_name": "right_force_sensor",
+        "frame_id": "right_ft_sensor_link",
+        "value_interfaces": [
+            f"right_force_sensor/channel_{index}_raw" for index in range(1, 7)
+        ],
+        "auxiliary_interfaces": [
+            f"right_force_sensor/sample_code_{index}_raw" for index in range(1, 7)
+        ],
+        "scale_factors": [0.1, 0.1, 0.1, 0.001, 0.001, 0.001],
+        "validity_policy": "all_exact_in_range",
+        "minimum_auxiliary_value": -999999,
+        "maximum_auxiliary_value": 999999,
+        "calibration_valid": True,
+        "startup_id": "this-start",
+        "snapshot_source": "preop_sdo",
+        "decimals": [1, 1, 1, 3, 3, 3],
+        "unit_codes": [5, 5, 5, 7, 7, 7],
+        "wrench_topic": "/rt_control/right_x503b/wrench",
+        "raw_topic": "/rt_control/right_x503b/raw",
+        "calibration_topic": "/rt_control/x503b/calibration",
+        "diagnostic_name": (
+            "/robot/rt_control/x503b/right_force_sensor/calibration"
+        ),
+        "link_interface": "ethercat_master/link_up",
+        "al_state_interface": "ethercat_slave_14/al_state",
+    }
+
+
+def test_invalid_mock_snapshot_uses_neutral_scales_and_cannot_publish_wrench():
+    document = payload()
+    document["source"] = "mock"
+    values = document["sensors"][0]["values"]
+    values["snapshot_valid"] = "false"
+    for key in [
+        *(f"decimal_{index}" for index in range(1, 7)),
+        *(f"unit_{index}" for index in range(1, 7)),
+    ]:
+        values.pop(key)
+
+    parameters = state(document).controller_parameters(
+        "right_force_sensor",
+        frame_id="right_ft_sensor_link",
+        wrench_topic="/rt_control/right_x503b/wrench",
+        raw_topic="/rt_control/right_x503b/raw",
+        calibration_topic="/rt_control/x503b/calibration",
+    )
+
+    assert parameters["calibration_valid"] is False
+    assert parameters["scale_factors"] == [1.0] * 6
+    assert "decimals" not in parameters
+    assert "unit_codes" not in parameters

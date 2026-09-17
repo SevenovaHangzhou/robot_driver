@@ -28,7 +28,7 @@ def test_validator_checks_every_profile_scope_pair():
 
     assert result.returncode == 0, result.stderr
     assert "5 physical profiles" in result.stdout
-    assert "10 profile/scope selections" in result.stdout
+    assert "18 profile/scope/option selections" in result.stdout
 
 
 def test_validator_requires_a_complete_selection_without_all():
@@ -65,6 +65,18 @@ def test_validator_reports_selected_arm_counts():
 
     assert result.returncode == 0, result.stderr
     assert "actuators=16" in result.stdout
+
+
+def test_validator_accepts_explicit_bluepoint_option_for_arm_profile():
+    result = _run(
+        "--manifest", str(MANIFEST),
+        "--physical-profile", "arms_only",
+        "--control-scope", "arms_only",
+        "--force-sensor-option", "bluepoint_dual",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "force_sensors=bluepoint_dual" in result.stdout
 
 
 def test_validator_is_an_installed_build_target():
