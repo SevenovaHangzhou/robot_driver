@@ -306,7 +306,7 @@ htmlcov
     def test_ci_workflow_must_preserve_governance_before_build(self):
         valid = """on:
   pull_request:
-  push:
+    types: [opened, synchronize, reopened]
 permissions:
   contents: read
 jobs:
@@ -327,6 +327,16 @@ jobs:
       - run: python3 tools/diff_legacy.py
 """
         self.assertEqual(repository_gate.check_ci_workflow_policy(valid), [])
+
+        redundant = valid.replace(
+            "    types: [opened, synchronize, reopened]\n",
+            "    types: [opened, synchronize, reopened, edited]\n"
+            "  push:\n"
+            "    branches: [main]\n",
+        )
+        findings = repository_gate.check_ci_workflow_policy(redundant)
+        self.assert_has(findings, "must not run on main push")
+        self.assert_has(findings, "must not run the full build for pull request edits")
 
         weakened = valid.replace("    needs: governance\n", "").replace(
             "      - run: colcon test --packages-up-to rt_control_bringup\n", ""
@@ -354,6 +364,34 @@ jobs:
             repository_gate.check_ci_workflow_policy(no_test_dependencies),
             "install ROS test dependencies",
         )
+
+    def test_pr_metadata_governance_runs_contract_only_for_edits(self):
+        valid = """on:
+  pull_request:
+    types: [edited]
+permissions:
+  contents: read
+concurrency:
+  group: pr-metadata-governance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  governance:
+    steps:
+      - run: python3 tools/pr_contract_gate.py --event-path event.json
+"""
+        self.assertEqual(
+            repository_gate.check_pr_metadata_workflow_policy(valid), []
+        )
+
+        unsafe = valid.replace(
+            "    types: [edited]", "    types: [opened, edited]"
+        ).replace(
+            "jobs:\n",
+            "jobs:\n  build:\n    steps:\n      - run: colcon build\n",
+        )
+        findings = repository_gate.check_pr_metadata_workflow_policy(unsafe)
+        self.assert_has(findings, "must run only for pull request edits")
+        self.assert_has(findings, "must not define a build job")
 
     def test_precommit_must_call_the_full_repository_gate(self):
         valid = """repos:
@@ -402,7 +440,7 @@ htmlcov
 """,
             ".github/workflows/rt-control-ci.yml": """on:
   pull_request:
-  push:
+    types: [opened, synchronize, reopened]
 permissions:
   contents: read
 jobs:
@@ -421,6 +459,19 @@ jobs:
       - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
       - run: python3 tools/diff_legacy.py
+""",
+            ".github/workflows/pr-metadata-governance.yml": """on:
+  pull_request:
+    types: [edited]
+permissions:
+  contents: read
+concurrency:
+  group: pr-metadata-governance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  governance:
+    steps:
+      - run: python3 tools/pr_contract_gate.py --event-path event.json
 """,
             "deps.repos": """repositories:
   src/vendor/robot_interfaces:

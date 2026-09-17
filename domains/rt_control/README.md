@@ -197,6 +197,13 @@ not authorize hardware access, a commit, or a push; both the root
 [`AGENTS.md`](../../AGENTS.md) and this domain's [AGENTS.md](AGENTS.md) still
 apply.
 
+The full workflow runs for PR code events (`opened`, `synchronize`, and
+`reopened`). Editing only the PR description runs the lightweight contract
+governance workflow and does not start or cancel a full ROS build. A PR merge
+does not repeat the same full workflow on `push(main)`. Repository policy still
+forbids direct pushes and required-check bypasses; administrators must enforce
+that policy with GitHub branch protection.
+
 After this workflow first succeeds, a repository administrator must configure
 the protected `main` branch to require the `governance` and `build` status
 checks and to disallow bypasses. Workflow files cannot enable GitHub branch

@@ -2,9 +2,7 @@ name: rt-control-ci
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited]
-  push:
-    branches: [main]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
