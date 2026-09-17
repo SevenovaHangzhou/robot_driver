@@ -1,0 +1,14 @@
+# Draft commissioning configuration. No physical interface is selected.
+/**:
+  ros__parameters:
+    can_interface: ""
+    node_id: 0
+    frame_id: ""
+    convert_to_ros_convention: false
+    require_heartbeat: true
+    # Historical independent-bench settings, not approved Gen3 limits.
+    poll_period_ms: 2
+    reconnect_period_ms: 1000
+    pdo_timeout_ms: 250
+    assembly_timeout_ms: 50
+    heartbeat_timeout_ms: 2500

@@ -12,7 +12,7 @@ writes: { reset: no, enable: no, motion: no, plc: no }
 verified: PARTIAL
 evidence:
   - "repository gate 与 PR contract 回归：22 passed"
-  - "tools/quality_gate.sh：283 passed、13 skipped、策略覆盖率 84%"
+  - "tools/quality_gate.sh：286 passed、13 skipped、策略覆盖率 84%"
   - "GitHub API: main Branch not protected (HTTP 404)"
 supersedes: []
 related: [TC-ST-01, TC-ST-02]
@@ -42,7 +42,7 @@ related: [TC-ST-01, TC-ST-02]
   2 passed。
 - `python3 -m pytest -q tools/tests/test_repository_gate.py tools/tests/test_pr_contract_gate.py`：
   22 passed。
-- `tools/quality_gate.sh`：283 passed、13 skipped，策略覆盖率 84%。
+- `tools/quality_gate.sh`：286 passed、13 skipped，策略覆盖率 84%。
 - workflow YAML 由 repository gate 使用 `yaml.BaseLoader` 解析并检查事件和 job 结构。
 - `gh api repos/SevenovaHangzhou/robot_driver/branches/main/protection`：HTTP 404，
   `Branch not protected`。

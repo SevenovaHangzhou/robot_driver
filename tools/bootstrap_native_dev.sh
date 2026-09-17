@@ -19,6 +19,7 @@ readonly -a runtime_packages=(
   robot_system_interfaces
   robot_interfaces_qos
   bms_node
+  lpms_nav3_can
   canopen_master_driver
   canopen_ros2_control
   control_api_adapter
