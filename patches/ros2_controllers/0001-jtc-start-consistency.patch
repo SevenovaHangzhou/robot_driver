@@ -120,7 +120,38 @@ index 8602883..195a415 100644
    // TODO(destogl): why is this here? Add comment or move
    if (!reset())
    {
-@@ -993,6 +1055,25 @@ controller_interface::CallbackReturn JointTrajectoryController::on_activate(
+@@ -837,11 +899,25 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+   // prepare hold_position_msg
+   init_hold_position_msg();
+ 
+-  // create subscriber and publishers
+-  joint_command_subscriber_ =
+-    get_node()->create_subscription<trajectory_msgs::msg::JointTrajectory>(
+-      "~/joint_trajectory", rclcpp::SystemDefaultsQoS(),
+-      std::bind(&JointTrajectoryController::topic_callback, this, std::placeholders::_1));
++  // The topic callback has no goal-response admission phase. When the
++  // first-point/feedback-age consistency gate is enabled, exposing this topic
++  // would create a command path that bypasses that gate. Keep the upstream
++  // topic behavior only for controllers that do not opt into the gate.
++  if (!params_.trajectory_start_consistency_check.enabled)
++  {
++    joint_command_subscriber_ =
++      get_node()->create_subscription<trajectory_msgs::msg::JointTrajectory>(
++        "~/joint_trajectory", rclcpp::SystemDefaultsQoS(),
++        std::bind(&JointTrajectoryController::topic_callback, this, std::placeholders::_1));
++  }
++  else
++  {
++    joint_command_subscriber_.reset();
++    RCLCPP_INFO(
++      logger,
++      "JTC_TOPIC_COMMAND_DISABLED reason=trajectory_start_consistency_check_enabled "
++      "command_interface=follow_joint_trajectory_action");
++  }
+ 
+   // State publisher
+   RCLCPP_INFO(logger, "Controller state will be published at %.2f Hz.", params_.state_publish_rate);
+@@ -993,6 +1069,25 @@ controller_interface::CallbackReturn JointTrajectoryController::on_activate(
        return CallbackReturn::ERROR;
      }
    }
@@ -146,7 +177,7 @@ index 8602883..195a415 100644
  
    traj_external_point_ptr_ = std::make_shared<Trajectory>();
    traj_msg_external_point_ptr_.writeFromNonRT(
-@@ -1055,6 +1136,9 @@ controller_interface::CallbackReturn JointTrajectoryController::on_activate(
+@@ -1055,6 +1150,9 @@ controller_interface::CallbackReturn JointTrajectoryController::on_activate(
  controller_interface::CallbackReturn JointTrajectoryController::on_deactivate(
    const rclcpp_lifecycle::State &)
  {
@@ -156,7 +187,7 @@ index 8602883..195a415 100644
    const auto active_goal = *rt_active_goal_.readFromNonRT();
    if (active_goal)
    {
-@@ -1266,10 +1350,115 @@ rclcpp_action::GoalResponse JointTrajectoryController::goal_received_callback(
+@@ -1266,10 +1364,115 @@ rclcpp_action::GoalResponse JointTrajectoryController::goal_received_callback(
      return rclcpp_action::GoalResponse::REJECT;
    }
  
@@ -311,3 +342,64 @@ index ec54363..2fc0f99 100644
    gains:
      __map_joints:
        p: {
+diff --git a/joint_trajectory_controller/test/test_trajectory_controller.cpp b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+index f879a4b..a7daca4 100644
+--- a/joint_trajectory_controller/test/test_trajectory_controller.cpp
++++ b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+@@ -54,6 +54,40 @@ using lifecycle_msgs::msg::State;
+ using test_trajectory_controllers::TrajectoryControllerTest;
+ using test_trajectory_controllers::TrajectoryControllerTestParameterized;
+ 
++TEST_F(TrajectoryControllerTest, topic_command_path_follows_start_consistency_admission_policy)
++{
++  rclcpp::executors::MultiThreadedExecutor executor;
++  SetUpTrajectoryController(
++    executor,
++    {
++      rclcpp::Parameter("trajectory_start_consistency_check.enabled", true),
++      rclcpp::Parameter(
++        "trajectory_start_consistency_check.position_tolerances",
++        std::vector<double>{0.1, 0.1, 0.1}),
++      rclcpp::Parameter(
++        "trajectory_start_consistency_check.feedback_age_state_interface",
++        "ethercat_domain/process_data_age_ms"),
++    });
++
++  const auto state = traj_controller_->get_node()->configure();
++  ASSERT_EQ(state.id(), State::PRIMARY_STATE_INACTIVE);
++  EXPECT_FALSE(traj_controller_->has_joint_command_subscriber());
++
++  executor.cancel();
++}
++
++TEST_F(TrajectoryControllerTest, topic_command_path_remains_available_without_start_consistency)
++{
++  rclcpp::executors::MultiThreadedExecutor executor;
++  SetUpTrajectoryController(executor);
++
++  const auto state = traj_controller_->get_node()->configure();
++  ASSERT_EQ(state.id(), State::PRIMARY_STATE_INACTIVE);
++  EXPECT_TRUE(traj_controller_->has_joint_command_subscriber());
++
++  executor.cancel();
++}
++
+ TEST_P(TrajectoryControllerTestParameterized, configure_state_ignores_commands)
+ {
+   rclcpp::executors::MultiThreadedExecutor executor;
+diff --git a/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp b/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp
+index 64ebf6f..140cd4e 100644
+--- a/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp
++++ b/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp
+@@ -183,6 +183,11 @@ public:
+     return has_active_trajectory() && traj_external_point_ptr_->has_nontrivial_msg();
+   }
+ 
++  bool has_joint_command_subscriber() const
++  {
++    return joint_command_subscriber_ != nullptr;
++  }
++
+   double get_cmd_timeout() { return cmd_timeout_; }
+ 
+   trajectory_msgs::msg::JointTrajectoryPoint get_state_feedback() { return state_current_; }

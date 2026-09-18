@@ -28,6 +28,13 @@
 > The `ar-Default-string` section below is retained unchanged as historical
 > evidence and no longer defines launcher identity.
 
+> **Legacy V3 test-host note (2026-09-18):** `ar@192.168.100.40`
+> (`ar-Default-string`, `5.15.0-1032-realtime`) is explicitly classified as an
+> old IPC used only for the sidecar V3 source/build/test deployment recorded in
+> `release-deploy-20260918-02`. It is not the approved active target, and the
+> sidecar deployment does not authorize changing `rt-control-current`, starting
+> hardware, resetting faults, enabling drives or sending motion.
+
 ## Active target: localhost (192.168.0.250)
 
 | Item | Approved current value |

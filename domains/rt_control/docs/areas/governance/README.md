@@ -25,9 +25,11 @@
 | F10 | 已归档 records 保留旧路径作为历史坐标 | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F3 | 有效 |
 | F11 | main 是稳定源码基线，普通源码 PR 不强制 Docker；源码稳定后由人工选择 SHA 封装，发布产物仍需完整镜像/容器证据 | [governance-20260915-01](records/2026-09-15-main-manual-docker-packaging.md)#F1-F3；BQ-148 | 有效 |
 | F12 | 完整 CI 只由代码相关 PR 事件触发；PR 描述编辑只跑 contract governance；PR 合并后的 main push 不重复全量构建 | [governance-20260917-01](records/2026-09-17-pr-ci-trigger-deduplication.md)#F1-F3 | 有效；GitHub main 分支保护待配置 |
+| F13 | Robot Model CI 校验必须 source 当前构建 overlay 后再运行 xacro/check_urdf | [governance-20260919-01](records/2026-09-19-v3-description-overlay-ci.md)#F1-F2 | PASS（T0 回归；PR CI 终态待确认） |
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [V3 Robot Model CI 使用构建 overlay](records/2026-09-19-v3-description-overlay-ci.md) — fix，PASS（T0）。
 - 2026-09-17 [PR CI 触发去重与描述编辑隔离](records/2026-09-17-pr-ci-trigger-deduplication.md) — decision，PARTIAL（T0）
 - 2026-09-15 [main 稳定源码与 Docker 人工封装解耦](records/2026-09-15-main-manual-docker-packaging.md) — decision，PASS（T0）
 - 2026-08-19 [根 README 补齐记录与测试体系导航](records/2026-08-19-root-readme-record-testing-navigation.md) — fix，PASS（T0）

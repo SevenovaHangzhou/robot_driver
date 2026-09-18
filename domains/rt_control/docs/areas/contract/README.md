@@ -28,7 +28,7 @@
 | 05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
 | 05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
 | 05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
-| 06#F1 | RT-Control 权威 robot_interfaces SHA 固定为 92d6ff2 | [contract-20260827-01](records/2026-08-27-robot-interfaces-main-pin.md)#F1 | 有效 |
+| 06#F1 | RT-Control 权威 robot_interfaces SHA 固定为 92d6ff2 | [contract-20260827-01](records/2026-08-27-robot-interfaces-main-pin.md)#F1 | 已由 12#F1 取代 |
 | 06#F2 | f699f45→92d6ff2 未改变 RT 三个公共包，只改变 Motion M-08 Action | [contract-20260827-01](records/2026-08-27-robot-interfaces-main-pin.md)#F2 | 有效 |
 | 07#F1 | ROS Domain 由部署显式配置为十进制 `0..232`，默认 `0` | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F1 | 有效；取代 BQ-128 固定 Domain 0 |
 | 07#F2 | 同一机器实例的五域必须使用同一 Domain，Domain 不是安全隔离 | [contract-20260828-01](records/2026-08-28-configurable-ros-domain.md)#F2 | 有效 |
@@ -38,9 +38,13 @@
 | 08#F3 | `lidar_main` 变更不新增公共接口、不改变 odom TF 所有权或实时控制参数 | [contract-20260902-01](records/2026-09-02-lidar-main-tf.md)#F3 | 有效 |
 | 09#F1 | diagnostics topology 从所选 hardware descriptors 派生；公共 status adapter 只消费稳定总线 summary，不持有固定电机数组 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F3 | PASS（T1 Docker/Mock） |
 | 10#F1 | pinned `ros2_canopen` 的完整零值 error-reset EMCY 文本归一化为 cleared；其它非空或格式漂移继续 fail closed | [contract-20260904-01](records/2026-09-04-cleared-emcy-readiness.md)#F1-F2 | PASS（T3 Native；PR CI/Docker 待完成） |
+| 11#F1 | V3 目标 FJT/rolling 固定为 7+7 CSP 臂轴，PP 夹爪独立；当前 V3 无轨迹 runtime，ELECTRI-102 旧 hash/4 ms/包络不得复用 | [V3 机械臂对接方案](records/2026-09-18-v3-arm-motion-integration-guide.md)#F1-F4 | UNVERIFIED（T0 方案；公共契约/runtime/HIL 待完成） |
+| 12#F1 | V3 实现 pin 为 robot_interfaces@9aa2693，rolling axis hash 固定为 f4c8ff8a...dee4，域内 mode result 不扩大跨域接口 | [V3 rolling 轴合同](records/2026-09-19-v3-rolling-axis-contract.md)#F1-F3 | PARTIAL（T1；上游 V3 注释和跨域联合验证待完成） |
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [V3 rolling 接口 pin 与轴集合身份](records/2026-09-19-v3-rolling-axis-contract.md) — feature，PARTIAL（T1）。
+- 2026-09-18 [V3 机械臂 RT-Control 与 Motion 对接方案](records/2026-09-18-v3-arm-motion-integration-guide.md) — decision，UNVERIFIED（T0；runtime/HIL 待完成）
 - 2026-09-04 [CANopen 零值 EMCY 归一化与 readiness 收口](records/2026-09-04-cleared-emcy-readiness.md) — corrective，PASS（T3 Native；PR CI/Docker 待完成）
 - 2026-09-02 [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](records/2026-09-02-lidar-main-tf.md) — feature，PARTIAL（T1；生产切换与消费者联合验证待完成）
 - 2026-08-19 [诊断拓扑组合与稳定摘要契约（未合并分支历史）](records/2026-08-19-diagnostic-composition-contract.md) — feature，历史 T1；当前由 09#F1 取代

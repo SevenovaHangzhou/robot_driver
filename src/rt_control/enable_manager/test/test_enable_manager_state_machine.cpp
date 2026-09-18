@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -31,7 +32,12 @@
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
+#include "rclcpp/executors/multi_threaded_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
+#include "robot_rt_control_interfaces/msg/rolling_joint_control_state.hpp"
+#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
+#include "robot_rt_control_interfaces/srv/set_joint_control_mode.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 
 namespace enable_manager
@@ -47,6 +53,8 @@ public:
   using Stage = EnableManagerController::Stage;
   using DriveState = EnableManagerController::DriveState;
   using SwitchResult = EnableManagerController::SwitchResult;
+  using ControlMode = EnableManagerController::ControlMode;
+  using ModeSwitchState = EnableManagerController::ModeSwitchState;
 
   static Phase phase(const Controller & c) {return c.phase_.load();}
   static Owner owner(const Controller & c) {return c.owner_.load();}
@@ -64,6 +72,41 @@ public:
   static const char * stageName(Stage s) {return EnableManagerController::stageName(s);}
   static const char * phaseName(Phase p) {return EnableManagerController::phaseName(p);}
   static SwitchResult switchJtc(Controller & c, bool a) {return c.switchJtc(a);}
+  static void setControlMode(Controller & c, ControlMode mode)
+  {
+    c.current_control_mode_.store(mode);
+  }
+  static ControlMode controlMode(const Controller & c)
+  {
+    return c.current_control_mode_.load();
+  }
+  static ControlMode detectControlMode(
+    const Controller & c,
+    const controller_manager_msgs::srv::ListControllers::Response & states)
+  {
+    return c.detectControlMode(states);
+  }
+  static ModeSwitchState classifyModeSwitchState(
+    const Controller & c,
+    const controller_manager_msgs::srv::ListControllers::Response & states,
+    ControlMode source, ControlMode target)
+  {
+    return c.classifyModeSwitchState(states, source, target);
+  }
+  static SwitchResult buildMotionControllerSwitchRequest(
+    const Controller & c,
+    const controller_manager_msgs::srv::ListControllers::Response & states,
+    bool activate_default,
+    controller_manager_msgs::srv::SwitchController::Request & request)
+  {
+    return c.buildMotionControllerSwitchRequest(states, activate_default, request);
+  }
+  static bool waitForControllerManagerServices(
+    Controller & c, std::chrono::milliseconds timeout)
+  {
+    return c.list_client_->wait_for_service(timeout) &&
+           c.switch_client_->wait_for_service(timeout);
+  }
   static bool isConfirmedDisableTerminal(
     const Controller & c, std::size_t axis, DriveState state)
   {
@@ -107,6 +150,24 @@ public:
   static void handleEnable(Controller & c, Req q, Res s) {c.handleEnable(q, s);}
   static void handleDisable(Controller & c, Req q, Res s) {c.handleDisable(q, s);}
   static void handleResetFault(Controller & c, Req q, Res s) {c.handleResetFault(q, s);}
+  using ModeReq = std::shared_ptr<EnableManagerController::ModeService::Request>;
+  using ModeRes = std::shared_ptr<EnableManagerController::ModeService::Response>;
+  static void handleSetMode(Controller & c, ModeReq q, ModeRes s)
+  {
+    c.handleSetMode(q, s);
+  }
+  static void handleJtcState(
+    Controller & c,
+    const control_msgs::msg::JointTrajectoryControllerState::SharedPtr & message)
+  {
+    c.handleJtcState(message);
+  }
+  static void handleRollingState(
+    Controller & c,
+    const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr & message)
+  {
+    c.handleRollingState(message);
+  }
 };
 
 namespace
@@ -118,7 +179,11 @@ using Owner = Access::Owner;
 using Stage = Access::Stage;
 using DriveState = Access::DriveState;
 using SwitchResult = Access::SwitchResult;
+using ControlMode = Access::ControlMode;
+using ModeSwitchState = Access::ModeSwitchState;
 using RtEnable = rt_control_interfaces::srv::RtEnable;
+using ModeService = robot_rt_control_interfaces::srv::SetJointControlMode;
+using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
 
 constexpr std::size_t kAxes = 14U;
 constexpr std::size_t kBatches = 5U;
@@ -217,6 +282,8 @@ public:
     controller_ = std::make_unique<EnableManagerController>();
     status_buffer_.fill(static_cast<double>(kSwSwitchOnDisabled));
     command_buffer_.fill(0.0);
+    position_buffer_.fill(0.0);
+    feedback_age_ms_ = 0.0;
   }
 
   void TearDown() override
@@ -278,7 +345,9 @@ public:
     command_handles_.clear();
     state_handles_.clear();
     command_handles_.reserve(kAxes);
-    state_handles_.reserve(kAxes);
+    const bool motion_mode =
+      controller_->state_interface_configuration().names.size() == kAxes * 2U + 1U;
+    state_handles_.reserve(motion_mode ? kAxes * 2U + 1U : kAxes);
 
     // The controller claims interfaces in kJointNames order, so build in that order.
     for (std::size_t axis = 0; axis < kAxes; ++axis) {
@@ -289,15 +358,26 @@ public:
       state_handles_.emplace_back(
         state_joint_name, "status_word", &status_buffer_[axis]);
     }
+    if (motion_mode) {
+      for (std::size_t axis = 0; axis < kAxes; ++axis) {
+        state_handles_.emplace_back(
+          kJointNames[axis], "position", &position_buffer_[axis]);
+      }
+      state_handles_.emplace_back(
+        "ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
+    }
 
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
     std::vector<hardware_interface::LoanedStateInterface> loaned_states;
     loaned_commands.reserve(kAxes);
-    loaned_states.reserve(kAxes);
+    loaned_states.reserve(state_handles_.size());
     for (const std::size_t axis : loan_order) {
       ASSERT_LT(axis, kAxes);
       loaned_commands.emplace_back(command_handles_[axis]);
       loaned_states.emplace_back(state_handles_[axis]);
+    }
+    for (std::size_t index = kAxes; index < state_handles_.size(); ++index) {
+      loaned_states.emplace_back(state_handles_[index]);
     }
     controller_->assign_interfaces(std::move(loaned_commands), std::move(loaned_states));
   }
@@ -317,6 +397,23 @@ public:
     ASSERT_EQ(Access::phase(*controller_), Phase::kStartupSanitizing);
     setAllStatus(kSwSwitchOnDisabled);
     ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200)) << "startup sanitize did not reach IDLE";
+    ASSERT_EQ(Access::owner(*controller_), Owner::kNone);
+  }
+
+  void bringUpMotionToIdle()
+  {
+    initAndConfigure(
+      "enable_manager_motion_test",
+        {
+          rclcpp::Parameter("motion_mode_switching", true),
+          rclcpp::Parameter(
+            "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
+          rclcpp::Parameter("mode_switch_maximum_sample_period_ms", 2),
+        });
+    activate();
+    ASSERT_EQ(Access::phase(*controller_), Phase::kStartupSanitizing);
+    setAllStatus(kSwSwitchOnDisabled);
+    ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
     ASSERT_EQ(Access::owner(*controller_), Owner::kNone);
   }
 
@@ -494,6 +591,8 @@ public:
   std::unique_ptr<EnableManagerController> controller_;
   std::array<double, kAxes> command_buffer_{};
   std::array<double, kAxes> status_buffer_{};
+  std::array<double, kAxes> position_buffer_{};
+  double feedback_age_ms_{0.0};
   std::vector<hardware_interface::CommandInterface> command_handles_;
   std::vector<hardware_interface::StateInterface> state_handles_;
   std::int64_t now_ns_{1000000000};
@@ -537,10 +636,226 @@ TEST_F(EnableManagerFixture, ClaimsFourteenControlAndStatusInterfaces)
   }
 }
 
+TEST_F(EnableManagerFixture, MotionModeClaimsFourteenPositionsAndFeedbackAge)
+{
+  initAndConfigure(
+    "enable_manager_motion_interfaces",
+      {
+        rclcpp::Parameter("motion_mode_switching", true),
+        rclcpp::Parameter(
+          "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))
+      });
+
+  const auto state_config = controller_->state_interface_configuration();
+  ASSERT_EQ(state_config.names.size(), kAxes * 2U + 1U);
+  for (std::size_t axis = 0U; axis < kAxes; ++axis) {
+    EXPECT_EQ(
+      state_config.names[axis], std::string(kJointNames[axis]) + "/status_word");
+    EXPECT_EQ(
+      state_config.names[kAxes + axis], std::string(kJointNames[axis]) + "/position");
+  }
+  EXPECT_EQ(state_config.names.back(), "ethercat_domain/process_data_age_ms");
+}
+
+TEST_F(EnableManagerFixture, DetectsAndClassifiesExclusiveMotionControllerModes)
+{
+  initAndConfigure(
+    "enable_manager_motion_modes",
+      {
+        rclcpp::Parameter("motion_mode_switching", true),
+        rclcpp::Parameter(
+          "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))
+      });
+  controller_manager_msgs::srv::ListControllers::Response states;
+  states.controller.resize(2U);
+  states.controller[0].name = "whole_body_jtc";
+  states.controller[1].name = "rolling_trajectory_controller";
+
+  states.controller[0].state = "active";
+  states.controller[1].state = "inactive";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kFjtReady);
+  EXPECT_EQ(
+    Access::classifyModeSwitchState(
+      *controller_, states, ControlMode::kRollingReady, ControlMode::kFjtReady),
+    ModeSwitchState::kTargetActive);
+
+  states.controller[0].state = "inactive";
+  states.controller[1].state = "active";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kRollingReady);
+
+  states.controller[0].state = "inactive";
+  states.controller[1].state = "inactive";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kDisabled);
+
+  states.controller[0].state = "active";
+  states.controller[1].state = "active";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kRestartRequired);
+}
+
+TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWriter)
+{
+  initAndConfigure(
+    "enable_manager_motion_switch_plan",
+      {
+        rclcpp::Parameter("motion_mode_switching", true),
+        rclcpp::Parameter(
+          "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))
+      });
+  controller_manager_msgs::srv::ListControllers::Response states;
+  states.controller.resize(2U);
+  states.controller[0].name = "whole_body_jtc";
+  states.controller[0].state = "inactive";
+  states.controller[1].name = "rolling_trajectory_controller";
+  states.controller[1].state = "active";
+
+  controller_manager_msgs::srv::SwitchController::Request activate;
+  EXPECT_EQ(
+    Access::buildMotionControllerSwitchRequest(*controller_, states, true, activate),
+    SwitchResult::kSuccess);
+  EXPECT_THAT(activate.activate_controllers, ::testing::ElementsAre("whole_body_jtc"));
+  EXPECT_THAT(
+    activate.deactivate_controllers,
+    ::testing::ElementsAre("rolling_trajectory_controller"));
+
+  controller_manager_msgs::srv::SwitchController::Request stop;
+  EXPECT_EQ(
+    Access::buildMotionControllerSwitchRequest(*controller_, states, false, stop),
+    SwitchResult::kSuccess);
+  EXPECT_TRUE(stop.activate_controllers.empty());
+  EXPECT_THAT(
+    stop.deactivate_controllers,
+    ::testing::ElementsAre("rolling_trajectory_controller"));
+}
+
+TEST_F(EnableManagerFixture, ModeServiceExecutesOneVerifiedStrictSwitchAndReplaysResult)
+{
+  bringUpMotionToIdle();
+  setAllStatus(kSwOperationEnabled);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setControlMode(*controller_, ControlMode::kFjtReady);
+  Access::setOwner(*controller_, Owner::kNone);
+
+  auto fake_manager = std::make_shared<rclcpp::Node>("fake_v3_mode_controller_manager");
+  std::mutex states_mutex;
+  controller_manager_msgs::srv::ListControllers::Response controller_states;
+  controller_states.controller.resize(2U);
+  controller_states.controller[0].name = "whole_body_jtc";
+  controller_states.controller[0].state = "active";
+  controller_states.controller[1].name = "rolling_trajectory_controller";
+  controller_states.controller[1].state = "inactive";
+  std::atomic_uint32_t list_calls{0U};
+  std::atomic_uint32_t switch_calls{0U};
+  std::atomic_bool strict_request_valid{false};
+
+  auto list_service = fake_manager->create_service<
+    controller_manager_msgs::srv::ListControllers>(
+    "/controller_manager/list_controllers",
+    [&states_mutex, &controller_states, &list_calls](
+      const std::shared_ptr<controller_manager_msgs::srv::ListControllers::Request>,
+      std::shared_ptr<controller_manager_msgs::srv::ListControllers::Response> response) {
+      ++list_calls;
+      std::lock_guard<std::mutex> lock(states_mutex);
+      *response = controller_states;
+    });
+  auto switch_service = fake_manager->create_service<
+    controller_manager_msgs::srv::SwitchController>(
+    "/controller_manager/switch_controller",
+    [&states_mutex, &controller_states, &switch_calls, &strict_request_valid, this](
+      const std::shared_ptr<controller_manager_msgs::srv::SwitchController::Request> request,
+      std::shared_ptr<controller_manager_msgs::srv::SwitchController::Response> response) {
+      ++switch_calls;
+      strict_request_valid.store(
+        request->strictness ==
+        controller_manager_msgs::srv::SwitchController::Request::STRICT &&
+        request->activate_controllers ==
+        std::vector<std::string>{"rolling_trajectory_controller"} &&
+        request->deactivate_controllers == std::vector<std::string>{"whole_body_jtc"});
+      {
+        std::lock_guard<std::mutex> lock(states_mutex);
+        controller_states.controller[0].state = "inactive";
+        controller_states.controller[1].state = "active";
+      }
+      auto rolling_state =
+      std::make_shared<robot_rt_control_interfaces::msg::RollingJointControlState>();
+      rolling_state->control_mode.value =
+      robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
+      rolling_state->controller_boot_id.uuid.fill(0xABU);
+      rolling_state->desired_positions.fill(0.0);
+      rolling_state->has_session = false;
+      Access::handleRollingState(*controller_, rolling_state);
+      response->ok = true;
+    });
+
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3U);
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  executor.add_node(fake_manager);
+  ASSERT_TRUE(
+    Access::waitForControllerManagerServices(*controller_, std::chrono::seconds(1)));
+  std::thread executor_thread([&executor]() {executor.spin();});
+
+  auto jtc_state =
+    std::make_shared<control_msgs::msg::JointTrajectoryControllerState>();
+  jtc_state->joint_names.assign(kJointNames.begin(), kJointNames.end());
+  jtc_state->output.positions.assign(kAxes, 0.0);
+  Access::handleJtcState(*controller_, jtc_state);
+
+  std::atomic_bool pump_running{true};
+  std::thread update_thread([this, &pump_running]() {
+      std::int64_t update_time_ns = 2000000000LL;
+      while (pump_running.load()) {
+        controller_->update(
+          rclcpp::Time(update_time_ns), rclcpp::Duration::from_nanoseconds(1000000LL));
+        update_time_ns += 1000000LL;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    });
+
+  auto request = std::make_shared<ModeService::Request>();
+  request->protocol_major = 1U;
+  request->protocol_minor = 0U;
+  request->client_instance_id.uuid.fill(0x41U);
+  request->request_id.uuid.fill(0x42U);
+  request->expected_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::FJT_READY;
+  request->target_mode.value =
+    robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
+  auto response = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, response);
+  auto replay = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, replay);
+
+  pump_running.store(false);
+  update_thread.join();
+  executor.cancel();
+  executor_thread.join();
+  executor.remove_node(fake_manager);
+  executor.remove_node(controller_->get_node()->get_node_base_interface());
+
+  EXPECT_TRUE(response->accepted);
+  EXPECT_EQ(response->result.value, ServiceResult::NONE);
+  EXPECT_TRUE(response->source_controller_deactivated);
+  EXPECT_TRUE(response->target_controller_activated);
+  EXPECT_FALSE(response->restart_required);
+  EXPECT_EQ(
+    response->mode.value,
+    robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY);
+  EXPECT_THAT(response->controller_boot_id.uuid, ::testing::Each(0xABU));
+  EXPECT_EQ(Access::controlMode(*controller_), ControlMode::kRollingReady);
+  EXPECT_TRUE(strict_request_valid.load());
+  EXPECT_EQ(switch_calls.load(), 1U);
+  EXPECT_GE(list_calls.load(), 2U);
+  EXPECT_EQ(replay->result.value, response->result.value);
+  EXPECT_EQ(switch_calls.load(), 1U);
+
+  (void)list_service;
+  (void)switch_service;
+}
+
 TEST_F(EnableManagerFixture, EnableOnlyCompletesEnableAndDisableWithoutControllerServices)
 {
-  initAndConfigure("enable_only_test", {
-    rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string(""))});
+  initAndConfigure(
+    "enable_only_test", {
+        rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string(""))});
   if (::testing::Test::HasFatalFailure()) {return;}
   activate();
   ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
@@ -556,42 +871,63 @@ TEST_F(EnableManagerFixture, EnableOnlyCompletesEnableAndDisableWithoutControlle
   ASSERT_TRUE(disabled_done);
   EXPECT_TRUE(disabled->response->ok) << disabled->response->stage;
   EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
-  for (std::size_t axis = 0; axis < kAxes; ++axis) {EXPECT_EQ(command(axis), kCwZero);}
-  EXPECT_FALSE(controller_->get_node()->set_parameter(
-    rclcpp::Parameter("enable_only", false)).successful);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    EXPECT_EQ(command(axis), kCwZero);
+  }
+  EXPECT_FALSE(
+    controller_->get_node()->set_parameter(
+      rclcpp::Parameter("enable_only", false)).successful);
 }
 
 TEST_F(EnableManagerFixture, ExplicitDisabledTerminalPolicyDoesNotNeedAnEmptyYamlArray)
 {
-  auto parameters = parametersWithFixtureTopology({
-    rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string("")),
-    rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled"))});
-  parameters.erase(std::remove_if(parameters.begin(), parameters.end(), [](const auto & p) {
-    return p.get_name() == "ready_to_switch_on_disable_terminal_joints";
-  }), parameters.end());
+  auto parameters = parametersWithFixtureTopology(
+      {
+        rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string("")),
+        rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled"))});
+  parameters.erase(
+    std::remove_if(
+      parameters.begin(), parameters.end(), [](const auto & p) {
+        return p.get_name() == "ready_to_switch_on_disable_terminal_joints";
+      }), parameters.end());
   rclcpp::NodeOptions options;
   options.parameter_overrides(parameters);
-  ASSERT_EQ(controller_->init("explicit_disabled_terminal", "", options),
+  ASSERT_EQ(
+    controller_->init("explicit_disabled_terminal", "", options),
     controller_interface::return_type::OK);
-  EXPECT_EQ(controller_->on_configure(rclcpp_lifecycle::State()),
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::SUCCESS);
 }
 
 TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExplicit)
 {
-  auto parameters = parametersWithFixtureTopology({
-    rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
-    rclcpp::Parameter("controller_switch_timeout", 0.0)});
-  parameters.erase(std::remove_if(parameters.begin(), parameters.end(), [](const auto & p) {
-    return p.get_name() == "ready_to_switch_on_disable_terminal_joints";
-  }), parameters.end());
+  auto parameters = parametersWithFixtureTopology(
+      {
+        rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
+        rclcpp::Parameter("controller_switch_timeout", 0.0)});
+  parameters.erase(
+    std::remove_if(
+      parameters.begin(), parameters.end(), [](const auto & p) {
+        return p.get_name() == "ready_to_switch_on_disable_terminal_joints";
+      }), parameters.end());
   rclcpp::NodeOptions options;
   options.parameter_overrides(parameters);
-  ASSERT_EQ(controller_->init("failed_terminal_policy", "", options), controller_interface::return_type::OK);
-  EXPECT_EQ(controller_->on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
-  controller_->get_node()->set_parameter(rclcpp::Parameter("disable_terminal_policy", std::string("joint_list")));
+  ASSERT_EQ(
+    controller_->init(
+      "failed_terminal_policy", "",
+      options), controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(
+      rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
+  controller_->get_node()->set_parameter(
+    rclcpp::Parameter(
+      "disable_terminal_policy",
+      std::string("joint_list")));
   controller_->get_node()->set_parameter(rclcpp::Parameter("controller_switch_timeout", 4.0));
-  EXPECT_EQ(controller_->on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
+  EXPECT_EQ(
+    controller_->on_configure(
+      rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
 }
 
 TEST_F(EnableManagerFixture, BatchTableCoversAllFourteenAxesExactlyOnce)

@@ -13,6 +13,7 @@ import yaml
 
 EXPECTED_DESCRIPTION_REVISION = "17f5bdc46b8f2580ee81aed919da7b404da3bdaf"
 EXPECTED_DESCRIPTION_TREE = "1b86f379f885ad2b979c30ffd09b8d79e738b9fa"
+EXPECTED_ROLLING_INTERFACE_REVISION = "9aa2693d7d3235958369272b7ce8c48592dd7e83"
 
 
 def validate(repository_root: Path) -> list[str]:
@@ -28,6 +29,13 @@ def validate(repository_root: Path) -> list[str]:
         repository_root
         / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
     )
+    dependency_path = repository_root / "deps.repos"
+    interface_lock_path = repository_root / "src/interfaces/source-lock.yaml"
+    arm_calibration_path = (
+        repository_root
+        / "src/rt_control/robot_hw_ethercat/config/machines/"
+        "alfa_v3_arm_motion_calibration.draft.yaml"
+    )
 
     try:
         source_lock = yaml.safe_load(source_lock_path.read_text(encoding="utf-8"))
@@ -35,6 +43,11 @@ def validate(repository_root: Path) -> list[str]:
         cmake = cmake_path.read_text(encoding="utf-8")
         package = package_path.read_text(encoding="utf-8")
         start = start_path.read_text(encoding="utf-8")
+        dependencies = yaml.safe_load(dependency_path.read_text(encoding="utf-8"))
+        interface_lock = yaml.safe_load(interface_lock_path.read_text(encoding="utf-8"))
+        arm_calibration = yaml.safe_load(
+            arm_calibration_path.read_text(encoding="utf-8")
+        )
     except (OSError, yaml.YAMLError) as error:
         return [f"V3 contract input could not be read: {error}"]
 
@@ -63,6 +76,8 @@ def validate(repository_root: Path) -> list[str]:
 
     if "launch/rt_control_module.launch.py" not in cmake:
         findings.append("V3 bringup must install the machine-profile launch")
+    if "launch/rt_control_arm_runtime.launch.py" not in cmake:
+        findings.append("V3 bringup must install the arm motion runtime launch")
     for retired_install in (
         "launch/rt_control.launch.py",
         "config/controllers.yaml",
@@ -80,6 +95,22 @@ def validate(repository_root: Path) -> list[str]:
         findings.append("V3 rt_control_start must default to static module validation")
     if "launch_file=rt_control.launch.py" in start:
         findings.append("V3 rt_control_start must not select the V2 launch")
+    if "launch_file=rt_control_arm_runtime.launch.py" not in start:
+        findings.append("V3 rt_control_start must expose the explicit arm runtime")
+    if "<exec_depend>rolling_trajectory_controller</exec_depend>" not in package:
+        findings.append("V3 bringup must depend on rolling_trajectory_controller")
+    interface_pin = (
+        dependencies.get("repositories", {})
+        .get("src/vendor/robot_interfaces", {})
+        .get("version")
+    )
+    if interface_pin != EXPECTED_ROLLING_INTERFACE_REVISION:
+        findings.append("V3 deps.repos must pin the rolling public interface revision")
+    if interface_lock.get("commit") != EXPECTED_ROLLING_INTERFACE_REVISION:
+        findings.append("V3 source-lock must match the rolling public interface revision")
+    calibration_axes = arm_calibration.get("axes", [])
+    if len(calibration_axes) != 14:
+        findings.append("V3 arm runtime must declare exactly 14 CSP calibration axes")
 
     safety = machine.get("safety_policy", {}).get("fault_dependencies", [])
     expected_safety = [

@@ -28,7 +28,7 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "92d6ff2ed0b45684d7da2170d96703ca8be569f4",
+        "commit": "9aa2693d7d3235958369272b7ce8c48592dd7e83",
         "contract_version": "0.7.0",
         "vendor_path": "src/vendor/robot_interfaces",
         "vendored_packages": list(public_packages),
@@ -51,7 +51,11 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
         path.relative_to(interface_root / "rt_control_interfaces").as_posix()
         for path in (interface_root / "rt_control_interfaces").glob("**/*")
         if path.is_file() and path.suffix in {".msg", ".srv", ".action"}
-    } == {"msg/PlcIoState.msg", "srv/RtEnable.srv"}
+    } == {
+        "msg/JointControlModeResult.msg",
+        "msg/PlcIoState.msg",
+        "srv/RtEnable.srv",
+    }
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:

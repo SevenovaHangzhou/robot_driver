@@ -40,6 +40,7 @@ DOMAIN_PACKAGES = {
     "rt_control_bringup",
     "rt_diagnostics",
     "rt_control_semantic_components",
+    "rolling_trajectory_controller",
     "swerve_driver",
     "rt_watchdog",
 }

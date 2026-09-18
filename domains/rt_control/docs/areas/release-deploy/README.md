@@ -15,6 +15,8 @@
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
 | 07#F1 | 三代机底盘 scope 显式绑定 swerve_controller 与四个必需外置编码器；只有静态控制计划，真实后端/标定未准入 | [ELECTRI-117 底盘模块控制器绑定](records/2026-09-13-swerve-controller-module-binding.md)#F1-F3 | UNVERIFIED（T0 配置；无实机/容器启动） |
+| V3-OLD-IPC-1 | `v3@1256885` 已旁路部署到旧工控机 `ar@192.168.100.40`，34 包/1697 测试/validation 通过；current link 未切换且未启动硬件 | [旧工控机 V3 旁路部署](records/2026-09-18-v3-old-ipc-sidecar-deployment.md)#F1-F3 | PARTIAL（T1；真实 runtime 不准入） |
+| V3-ARM-RUNTIME-1 | V3 机械臂运动入口显式选择，JTC/rolling 先 INACTIVE、enable_manager 后 ACTIVE；默认入口仍为 validation | [V3 arm runtime 入口](records/2026-09-19-v3-arm-runtime-entry.md)#F1-F3 | PARTIAL（T1 Mock；旧机/真实总线未验） |
 | PR25-INTEGRATION-1 | ELECTRI-118 已整合 main@8fc332f，保留 PREOP/CoE/Ti5 约束；32包完整镜像及旧机/三代机 Mock 有序退出通过 | [最新main集成与PR验证](records/2026-09-13-electri-118-pr-integration.md)#F1-F3 | PARTIAL（T1；新基线实机待验） |
 | 01#F1 | bringup 只选择并组合 EtherCAT/CANopen 两个 package-owned real/mock system，配置对齐在 Node 创建前 fail closed | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock） |
 | 01#F2 | ecat_icube 补丁顺序为 0001..0006，PR #16 fixed-PDO 0004 必须先于 HardwareInfo 0005/0006；ros2_canopen 为 0001..0005 | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F4 | PASS（冻结 SHA apply-check + Docker build） |
@@ -27,6 +29,8 @@
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [V3 机械臂运动 runtime 显式入口](records/2026-09-19-v3-arm-runtime-entry.md)：PARTIAL（T1 Mock；未部署）。
+- 2026-09-18 [V3 分支旁路部署到旧工控机](records/2026-09-18-v3-old-ipc-sidecar-deployment.md)：PARTIAL（T1；未切换/未启动硬件）。
 - 2026-09-18 [V3 专用分支、模型与 fail-closed 运行边界](records/2026-09-18-v3-branch-baseline.md)：PARTIAL（T1 validation；整机 runtime/实机待验）。
 - 2026-09-13 [ELECTRI-117 底盘模块控制器绑定](records/2026-09-13-swerve-controller-module-binding.md)：UNVERIFIED（T0，静态接入，实机门禁保留）。
 - 2026-09-13 [ELECTRI-118对齐PR25后的main与容器验证](records/2026-09-13-electri-118-pr-integration.md)：corrective，PARTIAL（T1）。
