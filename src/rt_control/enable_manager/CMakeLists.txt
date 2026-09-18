@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(enable_manager)
 
 find_package(ament_cmake REQUIRED)
+find_package(control_msgs REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(controller_manager_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
@@ -9,6 +10,8 @@ find_package(lifecycle_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
+find_package(robot_rt_control_interfaces REQUIRED)
+find_package(robot_system_interfaces REQUIRED)
 find_package(rt_control_interfaces REQUIRED)
 find_package(rt_control_semantic_components REQUIRED)
 
@@ -22,12 +25,15 @@ target_include_directories(enable_manager_controller PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 ament_target_dependencies(enable_manager_controller
+  control_msgs
   controller_interface
   controller_manager_msgs
   diagnostic_msgs
   pluginlib
   rclcpp
   robot_interfaces_qos
+  robot_rt_control_interfaces
+  robot_system_interfaces
   rt_control_interfaces
   rt_control_semantic_components
 )
@@ -55,8 +61,9 @@ install(FILES enable_manager_plugins.xml DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)
 ament_export_dependencies(
-  controller_interface controller_manager_msgs diagnostic_msgs lifecycle_msgs pluginlib rclcpp
-  robot_interfaces_qos rt_control_interfaces
+  control_msgs controller_interface controller_manager_msgs diagnostic_msgs lifecycle_msgs
+  pluginlib rclcpp robot_interfaces_qos robot_rt_control_interfaces robot_system_interfaces
+  rt_control_interfaces
   rt_control_semantic_components
 )
 
@@ -75,12 +82,15 @@ if(BUILD_TESTING)
     enable_manager_controller
   )
   ament_target_dependencies(test_enable_manager_state_machine
+    control_msgs
     controller_interface
     controller_manager_msgs
     diagnostic_msgs
     hardware_interface
     rclcpp
     robot_interfaces_qos
+    robot_rt_control_interfaces
+    robot_system_interfaces
     rt_control_interfaces
     rt_control_semantic_components
   )

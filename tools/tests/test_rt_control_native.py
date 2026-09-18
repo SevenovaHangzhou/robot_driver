@@ -187,7 +187,12 @@ class NativeLauncherContractTest(unittest.TestCase):
         stop = source.index("void EnableManagerController::handleNonRtFaultStop", start)
         body = source[start:stop]
         self.assertIn("ListControllers", body)
-        self.assertLess(body.index('controller.state != "active"'), body.index("SwitchController::Request"))
+        self.assertIn("buildMotionControllerSwitchRequest", body)
+        self.assertIn("registeredMotionControllerStateMatches", body)
+        self.assertLess(
+            body.index("list_future"),
+            body.index("buildMotionControllerSwitchRequest"),
+        )
         self.assertIn("return SwitchResult::kSuccess", body)
 
     def test_emergency_jtc_deactivate_only_runs_after_enable_requested_jtc(self):
