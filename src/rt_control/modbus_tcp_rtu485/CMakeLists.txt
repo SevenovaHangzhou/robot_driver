@@ -1,13 +1,23 @@
 cmake_minimum_required(VERSION 3.8)
-project(modbus_tcp_rtu485_led)
+project(modbus_tcp_rtu485)
 find_package(ament_cmake REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rt_control_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
+
 add_executable(led_strip_node src/led_strip_node.cpp)
 target_compile_features(led_strip_node PUBLIC cxx_std_17)
 target_compile_options(led_strip_node PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 ament_target_dependencies(led_strip_node rclcpp std_msgs)
-install(TARGETS led_strip_node DESTINATION lib/${PROJECT_NAME})
+
+add_executable(ultrasonic_node src/ultrasonic_node.cpp)
+target_compile_features(ultrasonic_node PUBLIC cxx_std_17)
+target_compile_options(ultrasonic_node PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
+ament_target_dependencies(
+  ultrasonic_node diagnostic_msgs rclcpp rt_control_interfaces std_msgs)
+
+install(TARGETS led_strip_node ultrasonic_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
 if(BUILD_TESTING)
@@ -18,11 +28,13 @@ if(BUILD_TESTING)
   target_compile_features(test_modbus_transport PRIVATE cxx_std_17)
   target_include_directories(test_modbus_transport PRIVATE src)
   target_link_libraries(test_modbus_transport Threads::Threads)
+  ament_target_dependencies(test_modbus_transport diagnostic_msgs)
   add_test(NAME modbus_transport COMMAND test_modbus_transport)
   set_tests_properties(modbus_transport PROPERTIES TIMEOUT 20)
-  add_test(NAME led_node_lifecycle
+  add_test(NAME node_lifecycle
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test/test_node_lifecycle.py
-    $<TARGET_FILE:led_strip_node> ${CMAKE_CURRENT_SOURCE_DIR}/config/led_strip.yaml)
-  set_tests_properties(led_node_lifecycle PROPERTIES TIMEOUT 30)
+    $<TARGET_FILE:led_strip_node> ${CMAKE_CURRENT_SOURCE_DIR}/config/led_strip.yaml
+    $<TARGET_FILE:ultrasonic_node> ${CMAKE_CURRENT_SOURCE_DIR}/config/ultrasonic.yaml)
+  set_tests_properties(node_lifecycle PROPERTIES TIMEOUT 30)
 endif()
 ament_package()

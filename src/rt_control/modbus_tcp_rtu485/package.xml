@@ -1,12 +1,14 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>modbus_tcp_rtu485_led</name>
+  <name>modbus_tcp_rtu485</name>
   <version>0.1.0</version>
-  <description>ROS 2 C++ driver for four WE-10x LED controllers through a Modbus TCP to RTU gateway.</description>
+  <description>ROS 2 drivers for Modbus RTU devices behind RS485-to-Ethernet gateways.</description>
   <maintainer email="1067564692@qq.com">gitaccountwbt</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>diagnostic_msgs</depend>
   <depend>rclcpp</depend>
+  <depend>rt_control_interfaces</depend>
   <depend>std_msgs</depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>

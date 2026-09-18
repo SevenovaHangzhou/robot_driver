@@ -11,6 +11,7 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>robot_description</exec_depend>
+  <exec_depend>modbus_tcp_rtu485</exec_depend>
   <exec_depend>robot_hw_ethercat</exec_depend>
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>enable_manager</exec_depend>

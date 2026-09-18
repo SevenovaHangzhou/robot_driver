@@ -266,14 +266,22 @@ def _launch_setup(context):
         parameters=[rt_io_file],
         condition=IfCondition(start_bms),
     )
-    # 灯带独立使用 Modbus TCP 网关，不占用整机 EtherCAT 控制接口。
+    # RS485 devices use independent gateway channels outside the ros2_control RT loop.
     led = Node(
-        package="modbus_tcp_rtu485_led",
+        package="modbus_tcp_rtu485",
         executable="led_strip_node",
         name="led_strip_node",
         output="both",
         parameters=[LaunchConfiguration("led_config")],
         condition=IfCondition(LaunchConfiguration("start_led")),
+    )
+    ultrasonic = Node(
+        package="modbus_tcp_rtu485",
+        executable="ultrasonic_node",
+        name="ultrasonic_node",
+        output="both",
+        parameters=[LaunchConfiguration("ultrasonic_config")],
+        condition=IfCondition(LaunchConfiguration("start_ultrasonic")),
     )
     active_controller_names = (
         "joint_state_broadcaster",
@@ -368,6 +376,7 @@ def _launch_setup(context):
         plc,
         bms,
         led,
+        ultrasonic,
         *cleanup_handlers,
         *spawner_handlers,
         active_spawners[0],
@@ -389,7 +398,18 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "led_config",
                 default_value=PathJoinSubstitution(
-                    [FindPackageShare("modbus_tcp_rtu485_led"), "config", "led_strip.yaml"]
+                    [FindPackageShare("modbus_tcp_rtu485"), "config", "led_strip.yaml"]
+                ),
+            ),
+            DeclareLaunchArgument(
+                "start_ultrasonic", default_value=PythonExpression(
+                    ["'", LaunchConfiguration("use_mock_hardware"), "' != 'true'"]
+                )
+            ),
+            DeclareLaunchArgument(
+                "ultrasonic_config",
+                default_value=PathJoinSubstitution(
+                    [FindPackageShare("modbus_tcp_rtu485"), "config", "ultrasonic.yaml"]
                 ),
             ),
             DeclareLaunchArgument(

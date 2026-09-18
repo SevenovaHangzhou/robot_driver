@@ -1,0 +1,7 @@
+led_strip_node:
+  ros__parameters:
+    gateway_ip: "192.168.1.12"
+    gateway_ports: [502, 502, 502, 502]
+    # 四个控制器共享 HC0/502，使用现场配置的独立 RTU 站号。
+    controller_addresses: [1, 2, 3, 4]
+    response_timeout_ms: 500
