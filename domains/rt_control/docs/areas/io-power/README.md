@@ -26,6 +26,7 @@ systemd unit（→ realtime-host）。
 | 06#F2 | `0xFFFD` 无目标发布 `+Inf`，诊断为 `OK/no_target`。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F2 | PARTIAL（离线通过；实机待验） |
 | 06#F3 | 默认四个 frame 仅表示 E08 通道，装车后必须用实测外参与 `base_link` TF 替换。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F3 | PARTIAL |
 | 06#F4 | E084F 一次 FC03 连读四个通道，按已确认配置同时测量；驱动不做逐路发射轮询。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F4 | PARTIAL（源码/离线；实机时序待验） |
+| 06#F5 | V3 安装独立 `rt_control_ultrasonic.launch.py`，双臂 runtime 不隐式启动采集，Mock 禁用硬件进程。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F5 | PARTIAL（离线/安装后 Mock 通过；实机待验） |
 
 ## 记录索引（倒序）
 

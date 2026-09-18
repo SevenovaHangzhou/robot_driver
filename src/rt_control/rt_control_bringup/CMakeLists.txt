@@ -23,6 +23,7 @@ install(
     launch/rt_control_module.launch.py
     launch/rt_control_enable_only.launch.py
     launch/rt_control_arm_runtime.launch.py
+    launch/rt_control_ultrasonic.launch.py
   DESTINATION share/${PROJECT_NAME}/launch
 )
 install(
@@ -51,6 +52,7 @@ if(BUILD_TESTING)
     test/test_machine_profile.py
   )
   ament_add_pytest_test(test_stationary_enable test/test_stationary_enable.py)
+  ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
   ament_add_pytest_test(
     test_arm_motion_runtime
     test/test_arm_motion_runtime.py
