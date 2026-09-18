@@ -1,9 +1,9 @@
 # io-power — PLC IO、真空执行与 BMS
 
 **范围**：PLC Modbus TCP 读写与寄存器映射、三路输出（左右电磁阀、真空泵）、
-真空建立反馈、BMS CAN 帧解析与电池状态发布、四路 Modbus LED IO。
+真空建立反馈、BMS CAN 帧解析与电池状态发布、Modbus LED IO 与四路超声波测距。
 **Owner 包/资产**：`src/rt_control/plc_node`、`src/rt_control/plc_io_modbus`、
-`src/rt_control/bms_node`、`src/rt_control/modbus_tcp_rtu485_led`。
+`src/rt_control/bms_node`、`src/rt_control/modbus_tcp_rtu485`。
 
 不属于本区：`/vacuum/grip` 等公共契约适配（→ contract）、CAN 接口宿主命名与
 systemd unit（→ realtime-host）。
@@ -19,9 +19,13 @@ systemd unit（→ realtime-host）。
 | 04#F1 | LED 颜色话题仅为域内工程输入，外部消费者需先审查公共契约。 | [io-power-20260916-01](records/2026-09-16-modbus-led-driver.md)#F1 | 有效 |
 | 04#F2 | LED 写入失败不自动重试，退出不发送关灯/复位命令，可能保持最后颜色。 | [io-power-20260916-01](records/2026-09-16-modbus-led-driver.md)#F2 | PARTIAL（退出源码/离线；硬件保持待验） |
 | 04#F3 | LED YAML 是用户配置而非现场验证证据，设备身份/地址/寄存器映射待验。 | [io-power-20260916-01](records/2026-09-16-modbus-led-driver.md)#F3 | PARTIAL |
+| 05#F1 | `modbus_tcp_rtu485` 同包拥有独立 LED 写节点与 E08 超声波只读节点，网络 IO 均不进入 ros2_control 实时环。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F1 | 有效 |
+| 05#F2 | E08 已在 `192.168.1.12:504`、unit 1 通过 FC03 `0x0106..0x0109` 实测，并成功发布四路 ROS 数据。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F2 | PARTIAL（T2 只读；长期稳定性待验） |
+| 05#F3 | 默认 frame ID 仅表示 E08 通道，四个物理安装位姿及 Robot Model TF 尚未冻结，不得推导方向语义。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F3 | PARTIAL |
 
 ## 记录索引（倒序）
 
+- 2026-09-17 [通用 Modbus RTU485 包与四路超声波驱动](records/2026-09-17-modbus-ultrasonic-driver.md) — feature，PARTIAL（T2 只读通信/ROS 发布通过；TF 与长期运行待验）
 - 2026-09-16 [四路 Modbus LED 驱动](records/2026-09-16-modbus-led-driver.md) — feature，PARTIAL（T1 离线；身份/寄存器/实机写入与退出保持待验）
 - 2026-09-14 [分立 IO 模块真空桥接](records/2026-09-14-discrete-analog-vacuum-bridge.md) — feature，PARTIAL（阈值 -80 kPa；实机吸附/释放闭环待验证）
 - 2026-09-04 [PLC 绑定接口切换为 eno1](records/2026-09-04-plc-interface-eno1.md) — fix，PARTIAL（未重启当前运行进程）
