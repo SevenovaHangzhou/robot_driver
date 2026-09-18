@@ -10,6 +10,7 @@ find_package(unique_identifier_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/JointControlModeResult.msg"
   "msg/PlcIoState.msg"
+  "msg/UltrasonicRange.msg"
   "srv/RtEnable.srv"
   DEPENDENCIES robot_rt_control_interfaces std_msgs unique_identifier_msgs
 )
