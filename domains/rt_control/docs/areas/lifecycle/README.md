@@ -16,9 +16,11 @@
 | 02#F1 | enable_manager 单元测试基线 = 36 用例 @ 3ff153d（a–f 六项）；行为修改须先过套件 | [lifecycle-20260814-02](records/2026-08-14-enable-manager-gtest.md)#F1 | 有效 |
 | 03#F1 | `Cia402Axis` 只绑定/解码接口；managed joints、批次、时序和 Ti5 终态由 enable_manager 显式配置并冻结 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F7 | PASS（T1 Docker/Mock） |
 | 04#F1 | 原位入口仅开放控制字，enable_only 省略 JTC 切换并保留驱动状态/故障/失能；16轴实测成功，默认运动栈不变 | [原位使能入口](records/2026-09-12-stationary-enable-entry.md) | PARTIAL（T1/T3，完整运动/交付待验） |
+| 05#F1 | V3 enable_manager 保持 16 轴 CiA402 管理，14 CSP motion registry 在 enable 后默认进入 FJT_READY，并与 rolling 严格互斥 | [V3 运动控制器切换](records/2026-09-19-v3-motion-controller-switching.md)#F1-F3 | PARTIAL（T1 Mock；真实故障/停机待验） |
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [V3 十六轴使能与运动控制器严格切换](records/2026-09-19-v3-motion-controller-switching.md)：PARTIAL，T1 Mock。
 - 2026-09-12 [16轴原位使能入口与显式终态策略](records/2026-09-12-stationary-enable-entry.md)：PARTIAL，真实使能/停机通过。
 - 2026-08-14 [enable_manager 状态机表驱动 gtest（ELECTRI-93）](records/2026-08-14-enable-manager-gtest.md) — feature，PASS（工控机实跑 36/36）
 - 2026-08-14 [/rt/disable 缺陷声称的日志取证：症状真实、机制误诊](records/2026-08-14-rt-disable-log-forensics.md) — investigation，PASS（T2 只读）

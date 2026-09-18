@@ -19,9 +19,11 @@ launch 结构与容器（→ release-deploy）。
 | F5 | HT-WS-HH270 厂家图纸已登记名义轮径、传动、安装包络和悬挂参数；数据保持 draft，不能替代逐轮有效半径、零位、硬限位和背隙标定 | [厂家机械图纸提取](records/2026-09-15-swerve-module-mechanical-drawing.md)#F1-F4 | UNVERIFIED（T0 图纸提取；厂家澄清/实测待完成） |
 | F6 | 四轮速度使用固定规模最小二乘残差剔除；同一异常轮从 twist 与位置里程计排除且恢复无补跳，阈值保持待标定；共模一致误差不可辨识 | [残差剔除记录](records/2026-09-16-swerve-slip-residual-rejection.md)#F1-F4 | PARTIAL（T1 Native/Mock；阈值和实机打滑待验） |
 | F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
+| F8 | V3 FJT/rolling 固定 7+7 CSP 轴序，PP 夹爪不进入运动 writer；初始周期为 1 ms、maximum 2 ms | [V3 双七轴运动 runtime](records/2026-09-19-v3-arm-fjt-rolling-runtime.md)#F1-F3 | PARTIAL（T1 Mock；标定/目标机/实机待验） |
 
 ## 记录索引（倒序）
 
+- [2026-09-19 V3 双七轴 FJT 与 rolling 实时控制](records/2026-09-19-v3-arm-fjt-rolling-runtime.md)
 - [2026-09-16 四舵轮机械限位内转向规划与输出门禁](records/2026-09-16-swerve-bounded-steering-planner.md)
 - [2026-09-16 四舵轮最小二乘残差剔除与里程计隔离](records/2026-09-16-swerve-slip-residual-rejection.md)
 - [2026-09-15 HT-WS-HH270 舵轮厂家机械图纸提取](records/2026-09-15-swerve-module-mechanical-drawing.md)

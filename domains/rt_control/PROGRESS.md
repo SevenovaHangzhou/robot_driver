@@ -170,3 +170,9 @@
 | 2026-09-17 | canopen-chassis | [LPMS-NAV3 CAN 外置 IMU 重新迁入 main 源码基线](docs/areas/canopen-chassis/records/2026-09-17-lpms-nav3-main-source-integration.md) | PARTIAL（ELECTRI-105；30条 Native 测试记录、13条 sanitizer；CAN 连接路径/跨进程 DDS/共线/实机待验） |
 | 2026-09-17 | governance | [PR CI 触发去重与描述编辑隔离](docs/areas/governance/records/2026-09-17-pr-ci-trigger-deduplication.md) | PARTIAL（T0；本地门禁通过；远端事件行为及 main 分支保护待完成） |
 | 2026-09-18 | release-deploy | [V3 专用分支、模型与 fail-closed 运行边界](docs/areas/release-deploy/records/2026-09-18-v3-branch-baseline.md) | PARTIAL（T1 validation；V3 模型/配置/诊断通过，整机 runtime 与实机待验） |
+| 2026-09-18 | release-deploy | [V3 分支旁路部署到旧工控机](docs/areas/release-deploy/records/2026-09-18-v3-old-ipc-sidecar-deployment.md) | PARTIAL（T1；34 包/1697 测试，未切换/未启动硬件） |
+| 2026-09-18 | contract | [V3 机械臂 RT-Control 与 Motion 对接方案](docs/areas/contract/records/2026-09-18-v3-arm-motion-integration-guide.md) | UNVERIFIED（T0；公共契约/runtime/HIL 待完成） |
+| 2026-09-19 | motion | [V3 双七轴 FJT 与 rolling 实时控制](docs/areas/motion/records/2026-09-19-v3-arm-fjt-rolling-runtime.md) | PARTIAL（T1 Mock；实机待验） |
+| 2026-09-19 | lifecycle | [V3 十六轴使能与运动控制器严格切换](docs/areas/lifecycle/records/2026-09-19-v3-motion-controller-switching.md) | PARTIAL（T1 Mock；真实故障/停机待验） |
+| 2026-09-19 | contract | [V3 rolling 接口 pin 与轴集合身份](docs/areas/contract/records/2026-09-19-v3-rolling-axis-contract.md) | PARTIAL（T1；上游语义待发布） |
+| 2026-09-19 | release-deploy | [V3 机械臂运动 runtime 显式入口](docs/areas/release-deploy/records/2026-09-19-v3-arm-runtime-entry.md) | PARTIAL（T1 Mock；未部署） |
