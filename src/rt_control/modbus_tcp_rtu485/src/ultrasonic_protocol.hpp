@@ -22,7 +22,7 @@ inline UltrasonicReading decode_ultrasonic(
   using diagnostic_msgs::msg::DiagnosticStatus;
   switch (raw) {
     case 0xFFFD:
-      return {std::numeric_limits<float>::infinity(), DiagnosticStatus::WARN, "no_target"};
+      return {std::numeric_limits<float>::infinity(), DiagnosticStatus::OK, "no_target"};
     case 0xFFFE:
       return {std::numeric_limits<float>::quiet_NaN(), DiagnosticStatus::WARN, "interference"};
     case 0xFFFF:

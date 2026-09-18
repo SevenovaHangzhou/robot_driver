@@ -27,6 +27,16 @@ def run_and_stop(command: list[str], environment: dict[str, str]) -> None:
             process.communicate()
 
 
+def require_rejected(
+    command: list[str], environment: dict[str, str], expected_message: bytes,
+) -> None:
+    result = subprocess.run(
+        command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=10,
+    )
+    if result.returncode != 1 or expected_message not in result.stdout:
+        raise RuntimeError(result.stdout.decode())
+
+
 def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultrasonic_config: str) -> None:
     with tempfile.TemporaryDirectory(prefix="robot-led-test-") as directory:
         environment = dict(
@@ -35,18 +45,22 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
             ROS_LOCALHOST_ONLY="1",
             ROS_LOG_DIR=str(Path(directory) / "ros-log"),
         )
-        invalid_led = subprocess.run(
-            [led_executable, "--ros-args", "-p", "response_timeout_ms:=0"],
-            env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=10,
+        require_rejected(
+            [led_executable, "--ros-args", "-p", "response_timeout_ms:=0"], environment,
+            b"response_timeout_ms must be",
         )
-        if invalid_led.returncode != 1 or b"response_timeout_ms must be" not in invalid_led.stdout:
-            raise RuntimeError(invalid_led.stdout.decode())
-        invalid_ultrasonic = subprocess.run(
-            [ultrasonic_executable, "--ros-args", "-p", "gateway_port:=0"],
-            env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=10,
+        require_rejected(
+            [ultrasonic_executable, "--ros-args", "-p", "gateway_port:=0"], environment,
+            b"gateway port must be",
         )
-        if invalid_ultrasonic.returncode != 1 or b"gateway port must be" not in invalid_ultrasonic.stdout:
-            raise RuntimeError(invalid_ultrasonic.stdout.decode())
+        require_rejected(
+            [ultrasonic_executable, "--ros-args", "-p", "max_range_m:=1.5"], environment,
+            b"max_range_m must be 3.5",
+        )
+        require_rejected(
+            [ultrasonic_executable, "--ros-args", "-p", "field_of_view_rad:=0.5"], environment,
+            b"field_of_view_rad must be 1.0471975512",
+        )
         for _ in range(2):
             run_and_stop(
                 [led_executable, "--ros-args", "--params-file", led_config], environment,
@@ -56,7 +70,10 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
                  "-p", "poll_enabled:=false"],
                 environment,
             )
-    print("PASS: invalid configs rejected; repeat starts and SIGINT exits; no hardware access")
+    print(
+        "PASS: invalid endpoint and A22 metadata rejected; repeat starts and SIGINT exits; "
+        "no hardware access"
+    )
 
 
 if __name__ == "__main__":

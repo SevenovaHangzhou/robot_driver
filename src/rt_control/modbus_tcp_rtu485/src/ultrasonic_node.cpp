@@ -13,9 +13,10 @@
 #include "diagnostic_msgs/msg/key_value.hpp"
 #include "modbus_transport.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "rt_control_interfaces/msg/ultrasonic_range.hpp"
+#include "sensor_msgs/msg/range.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "ultrasonic_protocol.hpp"
+#include "ultrasonic_range.hpp"
 
 namespace modbus_tcp_rtu485
 {
@@ -32,10 +33,15 @@ public:
     poll_enabled_ = declare_parameter("poll_enabled", true);
     min_range_m_ = declare_parameter("min_range_m", 0.01);
     max_range_m_ = declare_parameter("max_range_m", 3.5);
+    field_of_view_rad_ = declare_parameter("field_of_view_rad", 1.0471975512);
+    frame_ids_ = declare_parameter<std::vector<std::string>>(
+      "frame_ids",
+      {"ultrasonic_channel_1_link", "ultrasonic_channel_2_link",
+        "ultrasonic_channel_3_link", "ultrasonic_channel_4_link"});
     validate_parameters();
 
     for (size_t i = 0; i < range_publishers_.size(); ++i) {
-      range_publishers_[i] = create_publisher<rt_control_interfaces::msg::UltrasonicRange>(
+      range_publishers_[i] = create_publisher<sensor_msgs::msg::Range>(
         "ultrasonic/channel" + std::to_string(i + 1) + "/range", rclcpp::SensorDataQoS());
     }
     raw_publisher_ = create_publisher<std_msgs::msg::UInt16MultiArray>("ultrasonic/raw", 10);
@@ -55,10 +61,9 @@ private:
     if (poll_interval_ms_ < 20 || poll_interval_ms_ > 60000) {
       throw std::invalid_argument("poll_interval_ms must be 20..60000");
     }
-    if (!std::isfinite(min_range_m_) || !std::isfinite(max_range_m_) ||
-      min_range_m_ <= 0.0 || max_range_m_ <= min_range_m_) {
-      throw std::invalid_argument("range limits must be finite and 0 < min_range_m < max_range_m");
-    }
+    validate_ultrasonic_config(
+      frame_ids_, static_cast<float>(field_of_view_rad_),
+      static_cast<float>(min_range_m_), static_cast<float>(max_range_m_));
   }
 
   static diagnostic_msgs::msg::KeyValue key_value(std::string key, std::string value)
@@ -100,11 +105,11 @@ private:
 
   void poll()
   {
-    const auto stamp = now();
     try {
       const auto values = read_holding_registers_tcp(
         gateway_ip_, static_cast<uint16_t>(gateway_port_), ++transaction_id_,
         static_cast<uint8_t>(unit_id_), 0x0106, 4, response_timeout_ms_);
+      const auto stamp = now();
 
       std_msgs::msg::UInt16MultiArray raw_message;
       raw_message.data.assign(values.begin(), values.end());
@@ -115,14 +120,15 @@ private:
       for (size_t i = 0; i < values.size(); ++i) {
         const auto reading = decode_ultrasonic(
           values[i], static_cast<float>(min_range_m_), static_cast<float>(max_range_m_));
-        rt_control_interfaces::msg::UltrasonicRange range;
-        range.range = reading.range_m;
+        const auto range = make_range_message(
+          stamp, frame_ids_[i], reading, static_cast<float>(field_of_view_rad_),
+          static_cast<float>(min_range_m_), static_cast<float>(max_range_m_));
         range_publishers_[i]->publish(range);
         diagnostics.status.push_back(channel_diagnostic(i, values[i], reading));
       }
       diagnostic_publisher_->publish(diagnostics);
     } catch (const std::exception & error) {
-      publish_failure(stamp, error.what());
+      publish_failure(now(), error.what());
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 5000, "Ultrasonic read failed: %s", error.what());
     }
@@ -136,9 +142,11 @@ private:
   bool poll_enabled_{true};
   double min_range_m_{0.01};
   double max_range_m_{3.5};
+  double field_of_view_rad_{1.0471975512};
+  std::vector<std::string> frame_ids_;
   uint16_t transaction_id_{0};
   std::array<
-    rclcpp::Publisher<rt_control_interfaces::msg::UltrasonicRange>::SharedPtr,
+    rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr,
     4> range_publishers_{};
   rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr raw_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_publisher_;

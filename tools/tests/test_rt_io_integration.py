@@ -54,7 +54,6 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     } == {
         "msg/JointControlModeResult.msg",
         "msg/PlcIoState.msg",
-        "msg/UltrasonicRange.msg",
         "srv/RtEnable.srv",
     }
 
