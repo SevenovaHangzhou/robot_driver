@@ -66,3 +66,14 @@ def test_v3_branch_contract_requires_arm_runtime_not_only_validation():
     assert "rt_control_arm_runtime.launch.py" in contract
     assert "rolling_trajectory_controller" in contract
     assert "14 CSP" in contract or "fourteen CSP" in contract
+
+
+def test_ci_sources_the_built_overlay_before_expanding_the_v3_model():
+    workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text(
+        encoding="utf-8"
+    )
+    validation = workflow.split("- name: Validate shared robot description", 1)[1]
+    validation = validation.split("- name:", 1)[0]
+    assert validation.index("source install/setup.bash") < validation.index(
+        "xacro src/description/robot_description/urdf/robot.urdf.xacro"
+    )

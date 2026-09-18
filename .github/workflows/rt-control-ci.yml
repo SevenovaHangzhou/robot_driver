@@ -240,6 +240,7 @@ jobs:
         shell: bash
         run: |
           source /opt/ros/humble/setup.bash
+          source install/setup.bash
           xacro src/description/robot_description/urdf/robot.urdf.xacro \
             > /tmp/robot-description-ci.urdf
           check_urdf /tmp/robot-description-ci.urdf
