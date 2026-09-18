@@ -20,8 +20,9 @@ def module():
     return loaded
 
 
+@pytest.mark.parametrize("argument_name", ["start_led", "start_ultrasonic"])
 @pytest.mark.parametrize("mock, expected", [("true", "False"), ("false", "True")])
-def test_led_default_does_not_access_gateway_in_mock(mock, expected):
+def test_modbus_devices_do_not_access_gateway_in_mock(argument_name, mock, expected):
     from launch.actions import DeclareLaunchArgument
     from launch.utilities import perform_substitutions
 
@@ -30,7 +31,7 @@ def test_led_default_does_not_access_gateway_in_mock(mock, expected):
     context.launch_configurations["use_mock_hardware"] = mock
     argument = next(
         entity for entity in loaded.generate_launch_description().entities
-        if isinstance(entity, DeclareLaunchArgument) and entity.name == "start_led"
+        if isinstance(entity, DeclareLaunchArgument) and entity.name == argument_name
     )
     assert perform_substitutions(context, argument.default_value) == expected
 
@@ -99,6 +100,12 @@ def test_preop_snapshot_finishes_before_any_node_and_spawns_cpp_controllers(monk
     loaded._launch_setup(context)
     assert events[0][0] == "snapshot"
     nodes = [value for kind, value in events if kind == "node"]
+    modbus_nodes = {
+        node["executable"]: node
+        for node in nodes
+        if node["package"] == "modbus_tcp_rtu485"
+    }
+    assert set(modbus_nodes) == {"led_strip_node", "ultrasonic_node"}
     assert not any(n["executable"] == "x503_sdo_snapshot" for n in nodes)
     assert not any(n["executable"] == "x503_wrench_bridge" for n in nodes)
     spawners = [

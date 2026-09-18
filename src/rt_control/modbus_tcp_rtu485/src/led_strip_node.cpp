@@ -6,7 +6,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/color_rgba.hpp"
 
-namespace modbus_tcp_rtu485_led
+namespace modbus_tcp_rtu485
 {
 class LedStripNode final : public rclcpp::Node
 {
@@ -17,7 +17,7 @@ public:
     ports_ = declare_parameter("gateway_ports", std::vector<int64_t>{502, 503, 504, 505});
     addresses_ = declare_parameter("controller_addresses", std::vector<int64_t>{1, 1, 1, 1});
     response_timeout_ms_ = declare_parameter<int64_t>("response_timeout_ms", 500);
-    validate_config(gateway_ip_, ports_, addresses_, response_timeout_ms_);
+    validate_led_config(gateway_ip_, ports_, addresses_, response_timeout_ms_);
     for (size_t i = 0; i < 4; ++i) {
       subscriptions_[i] = create_subscription<std_msgs::msg::ColorRGBA>(
         "led" + std::to_string(i) + "/color", rclcpp::QoS(1),
@@ -46,13 +46,13 @@ private:
   uint16_t transaction_id_{0};
   std::array<rclcpp::Subscription<std_msgs::msg::ColorRGBA>::SharedPtr, 4> subscriptions_{};
 };
-}  // namespace modbus_tcp_rtu485_led
+}  // namespace modbus_tcp_rtu485
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   try {
-    rclcpp::spin(std::make_shared<modbus_tcp_rtu485_led::LedStripNode>());
+    rclcpp::spin(std::make_shared<modbus_tcp_rtu485::LedStripNode>());
   } catch (const std::exception & error) {
     RCLCPP_ERROR(rclcpp::get_logger("led_strip_node"), "%s", error.what());
     rclcpp::shutdown();

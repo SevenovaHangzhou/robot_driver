@@ -1,7 +1,0 @@
-led_strip_node:
-  ros__parameters:
-    gateway_ip: "192.168.1.12"
-    gateway_ports: [502, 503, 504, 505]
-    # 四路 RS485 相互独立；控制器保持出厂设置时，四路地址都为 1。
-    controller_addresses: [1, 1, 1, 1]
-    response_timeout_ms: 500

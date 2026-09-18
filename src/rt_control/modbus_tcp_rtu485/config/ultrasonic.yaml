@@ -1,0 +1,11 @@
+ultrasonic_node:
+  ros__parameters:
+    gateway_ip: "192.168.1.12"
+    # HC2 maps to TCP 504 and terminals A2+/B2-.
+    gateway_port: 504
+    unit_id: 1
+    response_timeout_ms: 500
+    poll_interval_ms: 300
+    poll_enabled: true
+    min_range_m: 0.01
+    max_range_m: 3.5
