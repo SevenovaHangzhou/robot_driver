@@ -22,9 +22,14 @@ systemd unit（→ realtime-host）。
 | 05#F1 | `modbus_tcp_rtu485` 同包拥有独立 LED 写节点与 E08 超声波只读节点，网络 IO 均不进入 ros2_control 实时环。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F1 | 有效 |
 | 05#F2 | E08 已在 `192.168.1.12:504`、unit 1 通过 FC03 `0x0106..0x0109` 实测，并成功发布四路 ROS 数据。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F2 | PARTIAL（T2 只读；长期稳定性待验） |
 | 05#F3 | 默认 frame ID 仅表示 E08 通道，四个物理安装位姿及 Robot Model TF 尚未冻结，不得推导方向语义。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F3 | PARTIAL |
+| 06#F1 | 四路话题改用 `sensor_msgs/Range`，固定 3.5 m、60 度元数据并使用同一批次完成时间。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F1 | PARTIAL（离线通过；标准消息实机待验） |
+| 06#F2 | `0xFFFD` 无目标发布 `+Inf`，诊断为 `OK/no_target`。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F2 | PARTIAL（离线通过；实机待验） |
+| 06#F3 | 默认四个 frame 仅表示 E08 通道，装车后必须用实测外参与 `base_link` TF 替换。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F3 | PARTIAL |
+| 06#F4 | E084F 一次 FC03 连读四个通道，按已确认配置同时测量；驱动不做逐路发射轮询。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F4 | PARTIAL（源码/离线；实机时序待验） |
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [四路超声波切换为标准 Range 接口](records/2026-09-19-ultrasonic-standard-range.md) — feature，PARTIAL（T1；标准消息/参数离线通过，实机与 TF 待验）
 - 2026-09-17 [通用 Modbus RTU485 包与四路超声波驱动](records/2026-09-17-modbus-ultrasonic-driver.md) — feature，PARTIAL（T2 只读通信/ROS 发布通过；TF 与长期运行待验）
 - 2026-09-16 [四路 Modbus LED 驱动](records/2026-09-16-modbus-led-driver.md) — feature，PARTIAL（T1 离线；身份/寄存器/实机写入与退出保持待验）
 - 2026-09-14 [分立 IO 模块真空桥接](records/2026-09-14-discrete-analog-vacuum-bridge.md) — feature，PARTIAL（阈值 -80 kPa；实机吸附/释放闭环待验证）

@@ -178,3 +178,4 @@
 | 2026-09-19 | contract | [V3 rolling 接口 pin 与轴集合身份](docs/areas/contract/records/2026-09-19-v3-rolling-axis-contract.md) | PARTIAL（T1；上游语义待发布） |
 | 2026-09-19 | release-deploy | [V3 机械臂运动 runtime 显式入口](docs/areas/release-deploy/records/2026-09-19-v3-arm-runtime-entry.md) | PARTIAL（T1 Mock；未部署） |
 | 2026-09-19 | governance | [V3 Robot Model CI 使用构建 overlay](docs/areas/governance/records/2026-09-19-v3-description-overlay-ci.md) | PASS（T0；完整 PR CI 重跑） |
+| 2026-09-19 | io-power | [四路超声波切换为标准 Range 接口](docs/areas/io-power/records/2026-09-19-ultrasonic-standard-range.md) | PARTIAL（T1；标准消息与固定参数离线通过，实机与 TF 待验） |

@@ -40,16 +40,18 @@ off/reset command, so the hardware can retain its last color.
 
 ## Ultrasonic node
 
-`ultrasonic_node` polls E08 holding registers `0x0106..0x0109` in one FC03
-request. The supplied configuration uses the verified endpoint
+`ultrasonic_node` reads E08 holding registers `0x0106..0x0109` in one FC03
+request, which triggers all four connected sensors in the E084F simultaneous
+measurement mode. The supplied configuration uses the verified endpoint
 `192.168.1.12:504`, RTU unit 1, a 300 ms poll interval and a 500 ms transaction
-deadline.
+deadline. A22 metadata is fixed and validated as a 3.5 m maximum range and a
+60-degree (`1.0471975512 rad`) field of view.
 
 Published topics:
 
 | Topic | Type | Meaning |
 | --- | --- | --- |
-| `ultrasonic/channel1/range` .. `channel4/range` | `rt_control_interfaces/msg/UltrasonicRange` | Per-channel range in metres; the custom message contains only `float32 range` |
+| `ultrasonic/channel1/range` .. `channel4/range` | `sensor_msgs/msg/Range` | Per-channel range, timestamp, frame, radiation type, field of view and range limits |
 | `ultrasonic/raw` | `std_msgs/msg/UInt16MultiArray` | Four unmodified E08 registers |
 | `ultrasonic/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Per-channel protocol state or gateway error |
 
@@ -58,7 +60,7 @@ Protocol values are mapped as follows:
 | Raw | Range message | Diagnostic |
 | --- | --- | --- |
 | normal millimetres | metres | `OK / ok` |
-| `0xFFFD` | positive infinity | `WARN / no_target` |
+| `0xFFFD` | positive infinity | `OK / no_target` |
 | `0xFFFE` | NaN | `WARN / interference` |
 | `0xFFFF` | NaN | `ERROR / sensor_timeout` |
 | `0xEEEE` | NaN | `ERROR / checksum_error` |
@@ -80,9 +82,11 @@ ros2 topic echo /ultrasonic/channel1/range
 ros2 topic echo /ultrasonic/diagnostics
 ```
 
-The custom range message intentionally carries only the measured range. Channel
-identity comes from the topic name; protocol and gateway failures are reported
-on `ultrasonic/diagnostics`.
+The four messages from one FC03 response share the response-completion timestamp.
+Default frames are channel identifiers only. Replace them with the installed
+sensor frame names and publish measured transforms to `base_link` before another
+domain uses the readings geometrically. Protocol and gateway failures are
+reported on `ultrasonic/diagnostics`.
 
 Direct communication check without ROS:
 

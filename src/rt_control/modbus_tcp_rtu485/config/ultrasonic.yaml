@@ -8,4 +8,12 @@ ultrasonic_node:
     poll_interval_ms: 300
     poll_enabled: true
     min_range_m: 0.01
+    # A22 is commissioned for the 3.5 m range and 60-degree field of view.
     max_range_m: 3.5
+    field_of_view_rad: 1.0471975512
+    # Channel identifiers only; replace after the base_link extrinsics are measured.
+    frame_ids:
+      - ultrasonic_channel_1_link
+      - ultrasonic_channel_2_link
+      - ultrasonic_channel_3_link
+      - ultrasonic_channel_4_link

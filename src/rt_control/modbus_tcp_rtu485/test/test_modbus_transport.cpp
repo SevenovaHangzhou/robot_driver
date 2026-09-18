@@ -1,5 +1,6 @@
 #include "modbus_transport.hpp"
 #include "ultrasonic_protocol.hpp"
+#include "ultrasonic_range.hpp"
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 
@@ -133,8 +134,9 @@ void ultrasonic_decode_tests()
   const auto valid = decode_ultrasonic(25, 0.01F, 3.5F);
   require(valid.status == "ok" && valid.diagnostic_level == DiagnosticStatus::OK &&
     std::fabs(valid.range_m - 0.025F) < 1.0e-6F, "Valid distance decode failed");
-  require(std::isinf(decode_ultrasonic(0xFFFD, 0.01F, 3.5F).range_m),
-    "No-target decode failed");
+  const auto no_target = decode_ultrasonic(0xFFFD, 0.01F, 3.5F);
+  require(std::isinf(no_target.range_m) && no_target.diagnostic_level == DiagnosticStatus::OK &&
+    no_target.status == "no_target", "No-target decode failed");
   require(decode_ultrasonic(0xFFFE, 0.01F, 3.5F).status == "interference",
     "Interference decode failed");
   require(decode_ultrasonic(0xFFFF, 0.01F, 3.5F).diagnostic_level == DiagnosticStatus::ERROR,
@@ -143,6 +145,46 @@ void ultrasonic_decode_tests()
     "Checksum decode failed");
   require(decode_ultrasonic(0, 0.01F, 3.5F).status == "out_of_range",
     "Out-of-range decode failed");
+}
+
+void ultrasonic_range_message_tests()
+{
+  constexpr float field_of_view_rad = 1.0471975512F;
+  const std::vector<std::string> frame_ids{
+    "ultrasonic_channel_1_link", "ultrasonic_channel_2_link",
+    "ultrasonic_channel_3_link", "ultrasonic_channel_4_link"};
+
+  validate_ultrasonic_config(frame_ids, field_of_view_rad, 0.01F, 3.5F);
+  rejects([&]() {validate_ultrasonic_config({}, field_of_view_rad, 0.01F, 3.5F);});
+  rejects([&]() {
+      validate_ultrasonic_config(
+        {"ultrasonic_channel_1_link", "", "ultrasonic_channel_3_link",
+          "ultrasonic_channel_4_link"}, field_of_view_rad, 0.01F, 3.5F);
+    });
+  rejects([&]() {validate_ultrasonic_config(frame_ids, 0.0F, 0.01F, 3.5F);});
+  rejects([&]() {validate_ultrasonic_config(frame_ids, field_of_view_rad, 0.01F, 1.5F);});
+
+  builtin_interfaces::msg::Time stamp;
+  stamp.sec = 42;
+  stamp.nanosec = 123456789U;
+  const auto message = make_range_message(
+    stamp, frame_ids[0], decode_ultrasonic(500, 0.01F, 3.5F),
+    field_of_view_rad, 0.01F, 3.5F);
+  require(message.header.stamp == stamp, "Range timestamp was not preserved");
+  require(message.header.frame_id == frame_ids[0], "Range frame_id was not preserved");
+  require(message.radiation_type == sensor_msgs::msg::Range::ULTRASOUND,
+    "Range radiation type must be ultrasound");
+  require(std::fabs(message.field_of_view - field_of_view_rad) < 1.0e-6F,
+    "Range field of view must be 60 degrees");
+  require(std::fabs(message.min_range - 0.01F) < 1.0e-6F, "Range minimum is incorrect");
+  require(std::fabs(message.max_range - 3.5F) < 1.0e-6F, "Range maximum is incorrect");
+  require(std::fabs(message.range - 0.5F) < 1.0e-6F, "Range distance is incorrect");
+
+  const auto no_target_message = make_range_message(
+    stamp, frame_ids[1], decode_ultrasonic(0xFFFD, 0.01F, 3.5F),
+    field_of_view_rad, 0.01F, 3.5F);
+  require(std::isinf(no_target_message.range) && no_target_message.range > 0.0F,
+    "No-target Range value must be positive infinity");
 }
 
 void timeout_tests()
@@ -169,6 +211,8 @@ int main()
     protocol_tests();
     std::cout << "ultrasonic decode\n";
     ultrasonic_decode_tests();
+    std::cout << "ultrasonic Range message\n";
+    ultrasonic_range_message_tests();
     std::cout << "timeouts\n";
     timeout_tests();
     std::cout << "PASS: Modbus read/write transport and ultrasonic decoding\n";
