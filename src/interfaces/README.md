@@ -11,10 +11,10 @@ including `robot_rt_control_interfaces`, `robot_system_interfaces`, and
 for repository gates and release evidence. Change the upstream contract first,
 then update the pin and all producers/consumers in one coordinated release.
 
-The current 0.7.0 pin is the immutable upstream `main` commit
-`92d6ff2ed0b45684d7da2170d96703ca8be569f4`. It includes the merged BQ-137
-wire-schema correction, Perception contract completeness, and the M-08
-standalone Motion stage extension. The RT-Control-owned public package trees are
-unchanged from `f699f45972ad15bbbbbb3da1a4894faf209144c9`; the newer pin keeps
-the whole robot on one authority SHA. Every producer and consumer must use this
-same SHA in one coordinated release.
+The current 0.7.0 pin is the immutable upstream commit
+`9aa2693d7d3235958369272b7ce8c48592dd7e83`. It preserves the previous V3
+authority commit and adds the public rolling-control messages, services, and
+QoS profiles. The V3 arm runtime freezes the 14-axis order as
+`right_joint1..7,left_joint1..7`; consumers must verify the published
+`axis_set_hash` before opening a rolling session. Every producer and consumer
+must use this same SHA and V3 axis contract in one coordinated release.

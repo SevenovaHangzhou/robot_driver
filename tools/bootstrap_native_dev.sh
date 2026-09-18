@@ -37,6 +37,7 @@ readonly -a runtime_packages=(
   enable_manager
   rt_diagnostics
   rt_control_semantic_components
+  rolling_trajectory_controller
   rt_force_torque_broadcaster
   swerve_driver
   rt_control_bringup
