@@ -5,7 +5,7 @@ title: V3 机械臂运动 runtime 显式入口
 date: 2026-09-19
 type: feature
 trigger: ELECTRI-102；V3 需要独立于 validation/enable-only 的运动入口
-commits: [feature/v3-arm-motion-runtime]
+commits: [6cc216ab73b74a598618c090d24e17cd90545918]
 env: native
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }

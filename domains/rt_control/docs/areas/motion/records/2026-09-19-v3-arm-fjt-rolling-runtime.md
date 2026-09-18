@@ -5,7 +5,10 @@ title: V3 双七轴 FJT 与 rolling 实时控制
 date: 2026-09-19
 type: feature
 trigger: ELECTRI-102；用户要求 V3 双臂可由 Motion 控制且接入实时 rolling
-commits: [feature/v3-arm-motion-runtime]
+commits:
+  - db2960b725e45b49e8c4694a3e8d95ef82eecd6b
+  - 7d2600ac7a4e91e6e30413e0bdcd8b30739a3ee1
+  - 6cc216ab73b74a598618c090d24e17cd90545918
 env: native
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }

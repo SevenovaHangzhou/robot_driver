@@ -5,7 +5,7 @@ title: V3 rolling 接口 pin 与轴集合身份
 date: 2026-09-19
 type: feature
 trigger: ELECTRI-102；V3 Motion/RT-Control 需要可抓取的 rolling wire schema
-commits: [feature/v3-arm-motion-runtime]
+commits: [db2960b725e45b49e8c4694a3e8d95ef82eecd6b]
 env: native
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }

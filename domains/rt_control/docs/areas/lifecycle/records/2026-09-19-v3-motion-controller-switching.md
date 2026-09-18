@@ -5,7 +5,7 @@ title: V3 十六轴使能与运动控制器严格切换
 date: 2026-09-19
 type: feature
 trigger: ELECTRI-102；V3 使能后必须交给 Motion，故障时停止当前 writer
-commits: [feature/v3-arm-motion-runtime]
+commits: [7d2600ac7a4e91e6e30413e0bdcd8b30739a3ee1]
 env: native
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }
