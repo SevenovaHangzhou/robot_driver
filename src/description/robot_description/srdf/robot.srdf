@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot name="alfa_robot_v3">
+  <group name="left_arm">
+    <chain base_link="arm_carriage" tip_link="left_tool0"/>
+  </group>
+  <group name="right_arm">
+    <chain base_link="arm_carriage" tip_link="right_tool0"/>
+  </group>
+  <group name="dual_arm">
+    <group name="left_arm"/>
+    <group name="right_arm"/>
+  </group>
+  <group name="dual_arm_with_updown">
+    <joint name="updown"/>
+    <group name="dual_arm"/>
+  </group>
+  <group name="whole">
+    <joint name="updown"/>
+    <joint name="head_joint"/>
+    <joint name="head_pitch_joint"/>
+    <group name="dual_arm"/>
+  </group>
+  <virtual_joint
+    name="world_to_base_footprint"
+    type="fixed"
+    parent_frame="world"
+    child_link="base_footprint"/>
+</robot>

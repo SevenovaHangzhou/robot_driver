@@ -345,6 +345,12 @@ jobs:
         self.assert_has(findings, "build job must depend on governance")
         self.assert_has(findings, "build job must run colcon test")
 
+        v3 = valid.replace(
+            "python3 tools/diff_legacy.py",
+            "python3 tools/check_v3_branch_contract.py",
+        )
+        self.assertEqual(repository_gate.check_ci_workflow_policy(v3), [])
+
         unprepared = valid.replace(
             "      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws "
             "tools/bootstrap_native_dev.sh prepare\n",

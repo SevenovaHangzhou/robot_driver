@@ -19,9 +19,21 @@ add_custom_target(
 )
 
 install(
-  DIRECTORY launch config urdf
-  DESTINATION share/${PROJECT_NAME}
-  PATTERN "__pycache__" EXCLUDE
+  FILES
+    launch/rt_control_module.launch.py
+    launch/rt_control_enable_only.launch.py
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+install(
+  DIRECTORY
+    config/machines
+  DESTINATION share/${PROJECT_NAME}/config
+)
+install(
+  FILES
+    config/alfa_v3_grippers.draft.yaml
+    config/bluepoint_force_sensors.draft.yaml
+  DESTINATION share/${PROJECT_NAME}/config
 )
 install(
   PROGRAMS
@@ -32,16 +44,6 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
-  find_package(launch_testing_ament_cmake REQUIRED)
-  ament_add_pytest_test(
-    test_hardware_composition_contract
-    test/test_hardware_composition_contract.py
-  )
-  ament_add_pytest_test(
-    test_hardware_composition_config
-    test/test_hardware_composition_config.py
-  )
-  ament_add_pytest_test(test_preop_snapshot_launch test/test_preop_snapshot_launch.py)
   ament_add_pytest_test(
     test_machine_profile
     test/test_machine_profile.py
@@ -54,13 +56,6 @@ if(BUILD_TESTING)
   ament_add_pytest_test(
     test_machine_profile_validator
     test/test_machine_profile_validator.py
-  )
-  # ELECTRI-77: mock cross-domain contract suite (TC-RO-01 / TC-RO-02).
-  # Requires an isolated ROS_DOMAIN_ID when run on a machine with a live
-  # ROS 2 graph (the repo tooling exports ROS_DOMAIN_ID=142 for this).
-  add_launch_test(
-    test/test_mock_contract.py
-    TIMEOUT 300
   )
 endif()
 

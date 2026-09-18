@@ -2676,3 +2676,20 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   同进程 intra-process。CAN 连接/收流/热插拔与当前基线实机仍待验。
 - 此项仅阻塞真实/共线运行和正式融合，不阻塞源码、native 编译与无硬件测试。
   不授权宿主 CAN 配置、总线启动、NMT/SDO、reset、enable 或运动。
+
+## BQ-151: V3 分模块总线准入与跨模块故障依赖 [RESOLVED/DESIGN 2026-09-17]
+
+- 用户裁决：physical profile 决定总线是否 required。未配置的总线状态为 `not_required`，
+  不得误报故障；profile 已配置但总线掉线/异常才是 fault。`arms_only` 明确允许底盘、
+  CANopen 外置编码器和达妙头部总线物理缺失。
+- 用户裁决：完整物理配置不再允许只使能局部模块；`full_robot` 只允许 `full` scope，
+  物理存在的执行器全部进入活动使能集合。相同原则应用于 `arms_updown`，不再允许其退化为
+  `arms_only` scope。本裁决取代 ELECTRI-118 早期“完整物理环存在但只使能机械臂/底盘”的设计。
+- 用户裁决：主动悬挂 fault 对 `swerve_chassis` 的反应是 `stop_and_inhibit`，即停止并阻止
+  底盘继续运动/重新准入；`swerve_chassis` fault 对 `arms` 的反应是 `stop`。反向关系未获授权，
+  不从机械臂 fault 自动推导底盘停车，也不从底盘 fault 自动推导 Updown/头部停机。
+- 软件合同：`alfa_v3.yaml` 是上述 physical profile、bus requirement 和 fault dependency 的
+  单一事实源。选择结果只返回当前活动模块之间适用的依赖；arms-only 不携带不存在底盘的故障链。
+- 当前仅完成配置/schema/静态验证。运行时 controller switching、enable_manager 受管资源和
+  diagnostics/readiness 的执行接线仍需后续实现并做 Mock/实机分级验证；本裁决不授权总线启动、
+  reset、enable、运动或任何设备写入。

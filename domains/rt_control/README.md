@@ -68,6 +68,17 @@ profile/mode 准入及增删设备流程见
 
 The legacy baseline `/home/kkozia/robot_driver@6bc94cd` is read-only and is not vendored in this repository. External source checkouts are declared in `deps.repos`.
 
+## V3 分支运行边界
+
+`v3` 分支使用 `robot_description/robot_v3_suction_chassis@17f5bdc` 的构建副本，
+硬件绑定选择其 gripper 变体以对应已确认的 14 CSP + 2 PP 双臂实物。默认安装入口
+`rt_control_start` 只运行 `alfa_v3` machine-profile validation，不创建硬件节点；真实双臂
+原位使能仍必须显式使用 `--enable-only`，并沿用其独立现场授权门禁。
+
+V3 安装包不包含二代 `rt_control.launch.py`、controllers.yaml、X503 PREOP 或履带
+diff-drive。源码暂时保留作迁移对照，但不构成受支持运行入口。当前整机 runtime 仍被主动
+悬挂、步科舵轮、外置编码器、Updown、头部和 PP 夹爪的待确认事实阻塞。
+
 Build the in-repository packages with:
 
 ```bash

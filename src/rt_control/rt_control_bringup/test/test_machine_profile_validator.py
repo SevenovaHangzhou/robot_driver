@@ -28,7 +28,7 @@ def test_validator_checks_every_profile_scope_pair():
 
     assert result.returncode == 0, result.stderr
     assert "5 physical profiles" in result.stdout
-    assert "18 profile/scope/option selections" in result.stdout
+    assert "8 profile/scope/option selections" in result.stdout
 
 
 def test_validator_requires_a_complete_selection_without_all():

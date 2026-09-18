@@ -10,40 +10,17 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>control_api_adapter</exec_depend>
   <exec_depend>robot_description</exec_depend>
-  <exec_depend>bms_node</exec_depend>
-  <exec_depend>lpms_nav3_can</exec_depend>
-  <exec_depend>modbus_tcp_rtu485_led</exec_depend>
   <exec_depend>robot_hw_ethercat</exec_depend>
-  <exec_depend>robot_hw_canopen</exec_depend>
   <exec_depend>controller_manager</exec_depend>
-  <exec_depend>diff_drive_controller</exec_depend>
   <exec_depend>enable_manager</exec_depend>
   <exec_depend>hardware_interface</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
-  <exec_depend>joint_trajectory_controller</exec_depend>
-  <exec_depend>gripper_controllers</exec_depend>
-  <exec_depend>swerve_driver</exec_depend>
-  <exec_depend>plc_io_modbus</exec_depend>
-  <exec_depend>rt_diagnostics</exec_depend>
-  <exec_depend>rt_force_torque_broadcaster</exec_depend>
-  <exec_depend>x503_force_sensor</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
-  <exec_depend>xacro</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <test_depend>launch</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>launch_ros</test_depend>
-  <test_depend>launch_testing</test_depend>
-  <test_depend>launch_testing_ament_cmake</test_depend>
-  <test_depend>launch_testing_ros</test_depend>
-  <test_depend>rclpy</test_depend>
-  <test_depend>diagnostic_msgs</test_depend>
-  <test_depend>sensor_msgs</test_depend>
-  <test_depend>robot_rt_control_interfaces</test_depend>
-  <test_depend>robot_interfaces_qos</test_depend>
-  <test_depend>robot_system_interfaces</test_depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

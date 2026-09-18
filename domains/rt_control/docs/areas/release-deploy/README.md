@@ -27,6 +27,7 @@
 
 ## 记录索引（倒序）
 
+- 2026-09-18 [V3 专用分支、模型与 fail-closed 运行边界](records/2026-09-18-v3-branch-baseline.md)：PARTIAL（T1 validation；整机 runtime/实机待验）。
 - 2026-09-13 [ELECTRI-117 底盘模块控制器绑定](records/2026-09-13-swerve-controller-module-binding.md)：UNVERIFIED（T0，静态接入，实机门禁保留）。
 - 2026-09-13 [ELECTRI-118对齐PR25后的main与容器验证](records/2026-09-13-electri-118-pr-integration.md)：corrective，PARTIAL（T1）。
 - 2026-09-12 [ELECTRI-118同步main与五处冲突解决](records/2026-09-12-electri-118-main-sync.md)：源码同步完成，最终发布验证待做。

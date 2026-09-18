@@ -21,6 +21,7 @@ _STATUSES = frozenset({"absent", "draft", "ready"})
 _TRANSPORTS = frozenset({"ethercat", "canopen", "damiao_can"})
 _ROLES = frozenset({"actuator", "actuator_group", "state_sensor_group"})
 _READINESS = frozenset({"full_scope", "partial_scope"})
+_FAULT_REACTIONS = frozenset({"stop", "stop_and_inhibit"})
 _TBD = "TBD"
 
 
@@ -289,16 +290,36 @@ class ControllerBinding:
 
 
 @dataclass(frozen=True)
+class FaultDependency:
+    source_module: str
+    affected_modules: tuple[str, ...]
+    reaction: str
+
+
+@dataclass(frozen=True)
+class RobotModelSpec:
+    package: str
+    xacro_file: str
+    srdf_file: str
+    joint_limits_file: str
+    initial_positions_file: str
+    end_effector: str
+    source_revision: str
+
+
+@dataclass(frozen=True)
 class MachineManifest:
     path: Path
     variant: str
     status: str
+    robot_model: RobotModelSpec
     functional_modules: tuple[str, ...]
     modules: Mapping[str, ModuleSpec]
     hardware_options: Mapping[str, HardwareOption]
     profiles: Mapping[str, PhysicalProfile]
     scopes: Mapping[str, ScopeSpec]
     controllers: Mapping[str, ControllerBinding]
+    fault_dependencies: tuple[FaultDependency, ...]
     owner_refs: Mapping[str, str]
 
 
@@ -312,6 +333,7 @@ class SelectedHardware:
     active_modules: tuple[str, ...]
     inactive_modules: tuple[str, ...]
     transports: tuple[str, ...]
+    bus_requirements: Mapping[str, str]
     ethercat_master_id: int | None
     ethercat_ring_positions: tuple[int, ...] | None
     canopen_node_ids: tuple[int, ...] | None
@@ -325,6 +347,7 @@ class SelectedHardware:
     required_state_modules: tuple[str, ...]
     state_sensor_count: int
     controllers: tuple[ControllerBinding, ...]
+    fault_dependencies: tuple[FaultDependency, ...]
     validation_status: str
     global_readiness: str
     runtime_blockers: tuple[str, ...]
@@ -336,6 +359,66 @@ def _parse_pending_facts(value: Any, location: Sequence[object]) -> tuple[str, .
     for index, item in enumerate(values):
         result.append(_string(item, (*location, index)))
     return tuple(result)
+
+
+def _package_relative_file(
+    value: Any, location: Sequence[object], suffix: str
+) -> str:
+    file_name = _string(value, location)
+    path = Path(file_name)
+    if (
+        path.is_absolute()
+        or len(path.parts) < 2
+        or any(part == ".." for part in path.parts)
+        or not file_name.endswith(suffix)
+    ):
+        raise MachineProfileError(
+            f"{_path(location)} must be a package-relative {suffix} file"
+        )
+    return file_name
+
+
+def _parse_robot_model(value: Any, location: Sequence[object]) -> RobotModelSpec:
+    model = _mapping(value, location)
+    _exact_keys(
+        model,
+        {
+            "package",
+            "xacro_file",
+            "srdf_file",
+            "joint_limits_file",
+            "initial_positions_file",
+            "end_effector",
+            "source_revision",
+        },
+        location,
+    )
+    source_revision = _string(model["source_revision"], (*location, "source_revision"))
+    if re.fullmatch(r"[0-9a-f]{40}", source_revision) is None:
+        raise MachineProfileError(
+            f"{_path((*location, 'source_revision'))} must be a full lowercase SHA"
+        )
+    return RobotModelSpec(
+        package=_string(model["package"], (*location, "package"), identifier=True),
+        xacro_file=_package_relative_file(
+            model["xacro_file"], (*location, "xacro_file"), ".xacro"
+        ),
+        srdf_file=_package_relative_file(
+            model["srdf_file"], (*location, "srdf_file"), ".srdf"
+        ),
+        joint_limits_file=_package_relative_file(
+            model["joint_limits_file"], (*location, "joint_limits_file"), ".yaml"
+        ),
+        initial_positions_file=_package_relative_file(
+            model["initial_positions_file"],
+            (*location, "initial_positions_file"),
+            ".yaml",
+        ),
+        end_effector=_string(
+            model["end_effector"], (*location, "end_effector"), identifier=True
+        ),
+        source_revision=source_revision,
+    )
 
 
 def _parse_mode_groups(value: Any, location: Sequence[object]) -> tuple[ModeGroup, ...]:
@@ -1167,15 +1250,92 @@ def _parse_controllers(
     return bindings
 
 
+def _parse_fault_dependencies(
+    raw_policy: Any,
+    location: Sequence[object],
+    modules: Mapping[str, ModuleSpec],
+) -> tuple[FaultDependency, ...]:
+    policy = _mapping(raw_policy, location)
+    _exact_keys(policy, {"fault_dependencies"}, location)
+    raw_dependencies = _list(
+        policy["fault_dependencies"], (*location, "fault_dependencies")
+    )
+    dependencies: list[FaultDependency] = []
+    seen: set[tuple[str, tuple[str, ...]]] = set()
+    for index, raw_dependency in enumerate(raw_dependencies):
+        dependency_location = (*location, "fault_dependencies", index)
+        dependency = _mapping(raw_dependency, dependency_location)
+        _exact_keys(
+            dependency,
+            {"source_module", "affected_modules", "reaction"},
+            dependency_location,
+        )
+        source = _string(
+            dependency["source_module"],
+            (*dependency_location, "source_module"),
+            identifier=True,
+        )
+        affected = _string_list(
+            dependency["affected_modules"],
+            (*dependency_location, "affected_modules"),
+        )
+        reaction = _string(
+            dependency["reaction"], (*dependency_location, "reaction")
+        )
+        if source not in modules:
+            raise MachineProfileError(
+                f"{_path(dependency_location)} references unknown source module {source!r}"
+            )
+        unknown = sorted(set(affected) - set(modules))
+        if unknown:
+            raise MachineProfileError(
+                f"{_path(dependency_location)} references unknown affected module(s): {unknown}"
+            )
+        if not affected or len(set(affected)) != len(affected) or source in affected:
+            raise MachineProfileError(
+                f"{_path(dependency_location)} affected_modules must be unique, nonempty, "
+                "and exclude the source"
+            )
+        if reaction not in _FAULT_REACTIONS:
+            raise MachineProfileError(
+                f"{_path(dependency_location)} reaction must be one of "
+                f"{sorted(_FAULT_REACTIONS)}"
+            )
+        for module_name in (source, *affected):
+            if modules[module_name].role == "state_sensor_group":
+                raise MachineProfileError(
+                    f"{_path(dependency_location)} fault dependencies require actuator modules"
+                )
+        key = (source, affected)
+        if key in seen:
+            raise MachineProfileError(
+                f"{_path(dependency_location)} duplicates a fault dependency"
+            )
+        seen.add(key)
+        dependencies.append(FaultDependency(source, affected, reaction))
+    return tuple(dependencies)
+
+
 def _validate_known_v3_contract(manifest: MachineManifest) -> None:
     if manifest.variant != "alfa_v3":
         return
+    if manifest.robot_model != RobotModelSpec(
+        package="robot_description",
+        xacro_file="urdf/robot_dual_gripper.urdf.xacro",
+        srdf_file="srdf/robot.srdf",
+        joint_limits_file="config/joint_limits_gripper.yaml",
+        initial_positions_file="config/initial_positions_gripper.yaml",
+        end_effector="gripper",
+        source_revision="17f5bdc46b8f2580ee81aed919da7b404da3bdaf",
+    ):
+        raise MachineProfileError("alfa_v3 robot model binding is inconsistent")
     expected_modules = {
         "arms",
         "wrist_force_sensors",
         "updown",
         "swerve_chassis",
         "swerve_encoders",
+        "active_suspension",
         "head_gimbal",
     }
     if set(manifest.modules) != expected_modules:
@@ -1253,6 +1413,21 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
         != ("front_left", "front_right", "rear_left", "rear_right")
     ):
         raise MachineProfileError("alfa_v3 chassis must have four steering-angle encoder sensors")
+    suspension = manifest.modules["active_suspension"]
+    if (
+        suspension.transport != "ethercat"
+        or suspension.master_id != 0
+        or suspension.instance_count != 1
+        or suspension.actuator_count != 1
+        or len(suspension.mode_groups) != 1
+        or suspension.mode_groups[0].name != "csp"
+        or suspension.mode_groups[0].count != 1
+        or suspension.mode_groups[0].mode_of_operation != 8
+        or dict(suspension.per_instance_mode_groups) != {"csp": 1}
+    ):
+        raise MachineProfileError(
+            "alfa_v3 active_suspension must contain one CSP actuator"
+        )
     head = manifest.modules["head_gimbal"]
     if (
         head.transport != "damiao_can"
@@ -1268,12 +1443,15 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
     expected_profile_modules = {
         "arms_only": ("arms",),
         "arms_updown": ("arms", "updown"),
-        "chassis_only": ("swerve_chassis", "swerve_encoders"),
+        "chassis_only": (
+            "swerve_chassis", "swerve_encoders", "active_suspension"
+        ),
         "full_robot": (
             "arms",
             "updown",
             "swerve_chassis",
             "swerve_encoders",
+            "active_suspension",
             "head_gimbal",
         ),
         "head_only": ("head_gimbal",),
@@ -1281,6 +1459,18 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
     for name, expected in expected_profile_modules.items():
         if manifest.profiles[name].modules != expected:
             raise MachineProfileError(f"alfa_v3 profile {name} has an unexpected module set")
+    expected_scopes = {
+        "arms_only": ("arms_only",),
+        "arms_updown": ("arms_updown",),
+        "chassis_only": ("chassis_only",),
+        "full_robot": ("full",),
+        "head_only": ("head_only",),
+    }
+    for name, expected in expected_scopes.items():
+        if manifest.profiles[name].allowed_scopes != expected:
+            raise MachineProfileError(
+                f"alfa_v3 profile {name} must enable every physically present actuator"
+            )
     if set(manifest.hardware_options) != {"force_sensors"}:
         raise MachineProfileError("alfa_v3 requires the force_sensors hardware option")
     force_option = manifest.hardware_options["force_sensors"]
@@ -1315,6 +1505,14 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
         or controller.required_state_modules != ("swerve_encoders",)
     ):
         raise MachineProfileError("alfa_v3 swerve controller binding is inconsistent")
+    expected_dependencies = (
+        FaultDependency(
+            "active_suspension", ("swerve_chassis",), "stop_and_inhibit"
+        ),
+        FaultDependency("swerve_chassis", ("arms",), "stop"),
+    )
+    if manifest.fault_dependencies != expected_dependencies:
+        raise MachineProfileError("alfa_v3 fault dependency policy is inconsistent")
 
 
 def load_machine_manifest(path: str | Path) -> MachineManifest:
@@ -1326,11 +1524,13 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         "schema_version",
         "robot_variant",
         "status",
+        "robot_model",
         "functional_modules",
         "modules",
         "hardware_options",
         "profiles",
         "scopes",
+        "safety_policy",
         "owner_refs",
     }
     _exact_keys(
@@ -1347,6 +1547,9 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         document["robot_variant"], (*root_location, "robot_variant"), identifier=True
     )
     status = _status(document["status"], (*root_location, "status"))
+    robot_model = _parse_robot_model(
+        document["robot_model"], (*root_location, "robot_model")
+    )
     functional_modules = _string_list(
         document["functional_modules"], (*root_location, "functional_modules")
     )
@@ -1384,6 +1587,9 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
     controllers = _parse_controllers(
         document.get("controllers", {}), (*root_location, "controllers"), modules, scopes
     )
+    fault_dependencies = _parse_fault_dependencies(
+        document["safety_policy"], (*root_location, "safety_policy"), modules
+    )
     owner_refs_raw = _mapping(document["owner_refs"], (*root_location, "owner_refs"))
     owner_refs: dict[str, str] = {}
     for raw_name, raw_owner in owner_refs_raw.items():
@@ -1395,12 +1601,14 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         path=manifest_path,
         variant=variant,
         status=status,
+        robot_model=robot_model,
         functional_modules=functional_modules,
         modules=modules,
         hardware_options=hardware_options,
         profiles=profiles,
         scopes=scopes,
         controllers=controllers,
+        fault_dependencies=fault_dependencies,
         owner_refs=owner_refs,
     )
     _validate_profile_scope_links(profiles, scopes)
@@ -1417,10 +1625,11 @@ def load_machine_manifest(path: str | Path) -> MachineManifest:
         "arms",
         "updown",
         "swerve_chassis",
+        "active_suspension",
         "head_gimbal",
     ):
         raise MachineProfileError(
-            "alfa_v3 functional_modules must contain the four functional modules"
+            "alfa_v3 functional_modules must contain the five actuator modules"
         )
     return manifest
 
@@ -1545,6 +1754,20 @@ def select_hardware(
         transport = manifest.modules[module_name].transport
         if transport not in transports:
             transports.append(transport)
+    bus_requirements = {
+        "ethercat": (
+            "not_required"
+            if selected_layout.ethercat.status == "absent" else "required"
+        ),
+        "canopen": (
+            "not_required"
+            if selected_layout.canopen.status == "absent" else "required"
+        ),
+        "damiao_can": (
+            "not_required"
+            if selected_layout.damiao_can.status == "absent" else "required"
+        ),
+    }
     ethercat_modules = [
         manifest.modules[name]
         for name in active_modules
@@ -1587,6 +1810,20 @@ def select_hardware(
         manifest.controllers[name]
         for name in active_modules if name in manifest.controllers
     )
+    active_module_names = set(active_modules)
+    selected_fault_dependencies: list[FaultDependency] = []
+    for dependency in manifest.fault_dependencies:
+        affected = tuple(
+            module_name
+            for module_name in dependency.affected_modules
+            if module_name in active_module_names
+        )
+        if dependency.source_module in active_module_names and affected:
+            selected_fault_dependencies.append(
+                FaultDependency(
+                    dependency.source_module, affected, dependency.reaction
+                )
+            )
     blockers = _runtime_blockers(
         manifest, profile, scope, active_modules, selected_layout,
         tuple(option_pending_facts),
@@ -1604,6 +1841,7 @@ def select_hardware(
         active_modules=active_modules,
         inactive_modules=inactive_modules,
         transports=tuple(transports),
+        bus_requirements=bus_requirements,
         ethercat_master_id=ethercat_master_id,
         ethercat_ring_positions=ethercat_ring_positions,
         canopen_node_ids=canopen_node_ids,
@@ -1617,6 +1855,7 @@ def select_hardware(
         required_state_modules=required_state_modules,
         state_sensor_count=state_sensor_count,
         controllers=controllers,
+        fault_dependencies=tuple(selected_fault_dependencies),
         validation_status="ready" if not blockers else "draft",
         global_readiness=scope.global_readiness,
         runtime_blockers=blockers,
@@ -1626,6 +1865,7 @@ def select_hardware(
 __all__ = [
     "BusLayout",
     "ControllerBinding",
+    "FaultDependency",
     "GroupReference",
     "HardwareOption",
     "HardwareOptionSelection",
@@ -1635,6 +1875,7 @@ __all__ = [
     "ModuleSpec",
     "PhysicalLayout",
     "PhysicalProfile",
+    "RobotModelSpec",
     "ScopeSpec",
     "SelectedHardware",
     "load_machine_manifest",

@@ -20,12 +20,15 @@ readonly -a runtime_packages=(
   robot_interfaces_qos
   bms_node
   lpms_nav3_can
+  modbus_tcp_rtu485_led
   canopen_master_driver
   canopen_ros2_control
   control_api_adapter
   ethercat_driver
   ethercat_generic_cia402_drive
   joint_trajectory_controller
+  gripper_controllers
+  plc_io_modbus
   plc_node
   robot_description
   rt_control_interfaces
@@ -33,7 +36,9 @@ readonly -a runtime_packages=(
   robot_hw_canopen
   enable_manager
   rt_diagnostics
-  x503_force_sensor
+  rt_control_semantic_components
+  rt_force_torque_broadcaster
+  swerve_driver
   rt_control_bringup
 )
 
@@ -423,7 +428,6 @@ build_workspace()
   verify_frozen_vendor_trees
   source_build_environment
   mkdir -p "${build_base}" "${install_base}" "${log_base}"
-  export X503_ETHERCAT_MANAGER_INCLUDE_DIR="${vendor_root}/ecat_icube/ethercat_manager/include"
 
   if (( $# > 0 )); then
     selection=("$@")

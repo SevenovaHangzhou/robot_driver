@@ -48,6 +48,31 @@ def test_safety_summary_requires_enabled_control_and_all_approved_sources() -> N
     assert summary.state == "READY"
 
 
+def test_canopen_not_required_summary_does_not_block_arms_only_readiness() -> None:
+    canopen = ComponentSnapshot(
+        name=CANOPEN_SUMMARY_NAME,
+        level=0,
+        fresh=True,
+        message="CANopen not required by selected physical profile",
+        values={"configured_nodes": "0"},
+    )
+    summary = build_safety_summary(
+        enable_manager=ok_component(
+            "/robot/rt_control/enable_manager",
+            state="ENABLED",
+            stage="success",
+        ),
+        ethercat=ok_component(ETHERCAT_SUMMARY_NAME),
+        canopen=canopen,
+        plc=PlcHealthSnapshot(connected=True, data_fresh=True),
+        bms=BatteryHealthSnapshot(present=True, fresh=True),
+    )
+
+    assert summary.canopen_ok
+    assert summary.safe_to_start_motion
+    assert summary.active_faults == ()
+
+
 def test_safety_summary_rejects_plc_remote_control_error() -> None:
     summary = build_safety_summary(
         enable_manager=ok_component(

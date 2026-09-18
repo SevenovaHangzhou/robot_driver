@@ -43,6 +43,16 @@ TEST(DiagnosticsTopologyTest, RejectsHardwareIdsThatCanFeedBackAsConfiguredCanNo
   EXPECT_THROW(topology.validate_hardware_id("11"), std::invalid_argument);
 }
 
+TEST(DiagnosticsTopologyTest, EmptyCanopenTopologyMeansNotRequired)
+{
+  const auto topology = DiagnosticsTopology::create(
+    {"axis_a"}, {0}, {}, {}, 1, {});
+
+  EXPECT_FALSE(topology.canopen_required());
+  EXPECT_TRUE(topology.canopen_node_ids().empty());
+  EXPECT_NO_THROW(topology.validate_hardware_id("robot-001"));
+}
+
 struct InvalidTopology
 {
   std::vector<std::string> joint_names;
@@ -83,7 +93,6 @@ INSTANTIATE_TEST_SUITE_P(
     InvalidTopology{{"a"}, {0}, {"force"}, {-1}, 2, {2}},
     InvalidTopology{{"a", "b"}, {0, 1}, {"force"}, {2}, 2, {2}},
     InvalidTopology{{"a"}, {0}, {}, {}, 0, {2}},
-    InvalidTopology{{"a"}, {0}, {}, {}, 1, {}},
     InvalidTopology{{"a"}, {0}, {}, {}, 1, {0}},
     InvalidTopology{{"a"}, {0}, {}, {}, 1, {128}},
     InvalidTopology{{"a"}, {0}, {}, {}, 1, {2, 2}}));

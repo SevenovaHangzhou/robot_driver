@@ -3,6 +3,7 @@ set -uo pipefail
 
 child_pid=""
 shutdown_started=0
+orderly_disable_required=0
 
 forward_shutdown() {
   if (( shutdown_started != 0 )); then
@@ -10,8 +11,10 @@ forward_shutdown() {
   fi
   shutdown_started=1
 
-  if ! ros2 run enable_manager rt_disable_once; then
-    echo "UNCLEAN_SHUTDOWN: orderly rt-control shutdown sequence did not complete" >&2
+  if (( orderly_disable_required != 0 )); then
+    if ! ros2 run enable_manager rt_disable_once; then
+      echo "UNCLEAN_SHUTDOWN: orderly rt-control shutdown sequence did not complete" >&2
+    fi
   fi
 
   if [[ -n "${child_pid}" ]] && kill -0 "${child_pid}" 2>/dev/null; then
@@ -21,9 +24,10 @@ forward_shutdown() {
 
 trap forward_shutdown INT TERM
 
-launch_file=rt_control.launch.py
+launch_file=rt_control_module.launch.py
 if [[ "${1:-}" == "--enable-only" ]]; then
   launch_file=rt_control_enable_only.launch.py
+  orderly_disable_required=1
   shift
 fi
 launch_command=(ros2 launch rt_control_bringup "${launch_file}" "$@")

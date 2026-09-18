@@ -34,6 +34,7 @@ public:
   const std::vector<EthercatAxis> & ethercat_axes() const noexcept;
   const std::vector<EthercatSensor> & ethercat_sensors() const noexcept;
   std::uint16_t ethercat_expected_responders() const noexcept;
+  bool canopen_required() const noexcept;
   const std::vector<std::uint8_t> & canopen_node_ids() const noexcept;
   void validate_hardware_id(const std::string & hardware_id) const;
 

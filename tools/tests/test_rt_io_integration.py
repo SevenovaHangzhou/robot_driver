@@ -158,13 +158,17 @@ def test_public_rt_control_interfaces_match_current_contract() -> None:
     assert status_params["readiness_publish_period_s"] == 1.0
 
 
-def test_public_control_enable_adapter_is_started_with_rt_control() -> None:
+def test_v3_validation_bringup_does_not_install_the_legacy_adapter_launch() -> None:
     launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
     bringup_manifest = (BRINGUP / "package.xml").read_text()
+    bringup_cmake = (BRINGUP / "CMakeLists.txt").read_text()
+    bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
     assert 'package="control_api_adapter"' in launch_text
     assert 'executable="control_enable_adapter"' in launch_text
-    assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
+    assert "<exec_depend>control_api_adapter</exec_depend>" not in bringup_manifest
+    assert "launch/rt_control.launch.py" not in bringup_cmake
+    assert "control_api_adapter" in bootstrap
     assert int(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY) == 1101
 
 

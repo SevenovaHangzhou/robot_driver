@@ -81,9 +81,6 @@ DiagnosticsTopology DiagnosticsTopology::create(
     ethercat_sensors.push_back({std::move(sensor_name), typed_position});
   }
 
-  if (canopen_node_ids.empty()) {
-    throw std::invalid_argument("CANopen diagnostic topology must contain at least one node");
-  }
   std::unordered_set<std::uint8_t> unique_node_ids;
   std::vector<std::uint8_t> typed_node_ids;
   typed_node_ids.reserve(canopen_node_ids.size());
@@ -134,6 +131,11 @@ std::uint16_t DiagnosticsTopology::ethercat_expected_responders() const noexcept
 const std::vector<std::uint8_t> & DiagnosticsTopology::canopen_node_ids() const noexcept
 {
   return canopen_node_ids_;
+}
+
+bool DiagnosticsTopology::canopen_required() const noexcept
+{
+  return !canopen_node_ids_.empty();
 }
 
 void DiagnosticsTopology::validate_hardware_id(const std::string & hardware_id) const

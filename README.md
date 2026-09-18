@@ -63,6 +63,7 @@ robot_driver/
 | --- | --- | --- |
 | `main` | RT-Control 稳定源码集成基线 | 普通源码 PR 不强制封装；稳定后人工封装 |
 | `native` | 原生增量开发主线 | 不强制封装，但实时、安全和质量要求不降低 |
+| `v3` | 三代机专用集成基线；V3 模型与模块化硬件合同，未闭合事实 fail-closed | 普通源码不强制封装；选定 SHA 后人工封装 |
 
 所有共享分支禁止直接 push，变更经 feature/bugfix 分支和 PR 合并。完整规则见
 [AGENTS.md](AGENTS.md) 与

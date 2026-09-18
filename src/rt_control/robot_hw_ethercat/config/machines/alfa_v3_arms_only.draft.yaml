@@ -64,36 +64,36 @@ branches:
       - physical_joint: J1
         ring_position: 1
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: left_joint1
       - physical_joint: J2
         ring_position: 2
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: left_joint2
       - physical_joint: J3
         ring_position: 3
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: left_joint3
         encoder_policy: single_turn
       - physical_joint: J4
         ring_position: 4
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: left_joint4
       - physical_joint: J5
         ring_position: 5
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: left_joint5
       - physical_joint: J6
         ring_position: 6
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: left_joint6
       - physical_joint: J7
         ring_position: 7
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: left_joint7
       - physical_joint: gripper
         ring_position: 8
         mode_of_operation: 1
-        robot_model_joint: TBD
+        robot_model_joint: left_moving_jaw_joint
         encoder_policy: multiturn_required
   right:
     connector: X3
@@ -103,36 +103,36 @@ branches:
       - physical_joint: J1
         ring_position: 9
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: right_joint1
       - physical_joint: J2
         ring_position: 10
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: right_joint2
       - physical_joint: J3
         ring_position: 11
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: right_joint3
       - physical_joint: J4
         ring_position: 12
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: right_joint4
         encoder_policy: single_turn
       - physical_joint: J5
         ring_position: 13
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: right_joint5
       - physical_joint: J6
         ring_position: 14
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: right_joint6
       - physical_joint: J7
         ring_position: 15
         mode_of_operation: 8
-        robot_model_joint: TBD
+        robot_model_joint: right_joint7
       - physical_joint: gripper
         ring_position: 16
         mode_of_operation: 1
-        robot_model_joint: TBD
+        robot_model_joint: right_moving_jaw_joint
         encoder_policy: multiturn_required
 
 drive_profiles:
@@ -140,7 +140,6 @@ drive_profiles:
   gripper_pp: config/grippers/zeroerr_pp.draft.yaml
 mechanical_parameters: TBD
 pending_facts:
-  - authoritative Robot Model joint names
   - drive PDO/SDO mapping, units, scaling, limits and calibration
   - coupler runtime state/DC and ESI display-version difference
   - runtime addressing, controllers and lifecycle qualification

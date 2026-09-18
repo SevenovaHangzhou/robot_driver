@@ -39,16 +39,28 @@ def _write_document(tmp_path: Path, document: dict) -> Path:
     return path
 
 
-def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
+def test_alfa_v3_manifest_exposes_the_five_actuator_modules_and_five_physical_profiles():
     module = _module()
 
     manifest = module.load_machine_manifest(MACHINE_PATH)
 
     assert manifest.variant == "alfa_v3"
+    assert manifest.robot_model.package == "robot_description"
+    assert manifest.robot_model.xacro_file == "urdf/robot_dual_gripper.urdf.xacro"
+    assert manifest.robot_model.srdf_file == "srdf/robot.srdf"
+    assert manifest.robot_model.joint_limits_file == "config/joint_limits_gripper.yaml"
+    assert manifest.robot_model.initial_positions_file == (
+        "config/initial_positions_gripper.yaml"
+    )
+    assert manifest.robot_model.end_effector == "gripper"
+    assert manifest.robot_model.source_revision == (
+        "17f5bdc46b8f2580ee81aed919da7b404da3bdaf"
+    )
     assert manifest.functional_modules == (
         "arms",
         "updown",
         "swerve_chassis",
+        "active_suspension",
         "head_gimbal",
     )
     assert set(manifest.modules) == {
@@ -57,6 +69,7 @@ def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
         "updown",
         "swerve_chassis",
         "swerve_encoders",
+        "active_suspension",
         "head_gimbal",
     }
     assert set(manifest.profiles) == {
@@ -87,6 +100,8 @@ def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
         "verified": False,
     }
     assert manifest.modules["head_gimbal"].transport == "damiao_can"
+    assert manifest.modules["active_suspension"].transport == "ethercat"
+    assert manifest.modules["active_suspension"].mode_groups[0].name == "csp"
     assert manifest.modules["arms"].mechanical_parameters == "TBD"
     assert manifest.modules["swerve_chassis"].mechanical_parameters == {
         "package": "rt_control_bringup",
@@ -103,13 +118,22 @@ def test_alfa_v3_manifest_exposes_the_four_modules_and_five_physical_profiles():
         "csp": 7,
         "gripper_pp": 1,
     }
-    assert manifest.profiles["full_robot"].allowed_scopes == (
-        "arms_only",
-        "arms_updown",
-        "chassis_only",
-        "full",
-        "head_only",
-    )
+    assert manifest.profiles["full_robot"].allowed_scopes == ("full",)
+    assert {
+        name: profile.allowed_scopes
+        for name, profile in manifest.profiles.items()
+    } == {
+        "arms_only": ("arms_only",),
+        "arms_updown": ("arms_updown",),
+        "chassis_only": ("chassis_only",),
+        "full_robot": ("full",),
+        "head_only": ("head_only",),
+    }
+    assert [(item.source_module, item.affected_modules, item.reaction)
+            for item in manifest.fault_dependencies] == [
+        ("active_suspension", ("swerve_chassis",), "stop_and_inhibit"),
+        ("swerve_chassis", ("arms",), "stop"),
+    ]
 
 
 def test_swerve_vendor_drawing_facts_do_not_replace_vehicle_calibration():
@@ -205,6 +229,12 @@ def test_arms_only_selection_derives_sixteen_actuators_with_fourteen_csp_and_two
     assert selected.required_state_modules == ()
     assert selected.validation_status == "draft"
     assert selected.hardware_options == {"force_sensors": "none"}
+    assert selected.bus_requirements == {
+        "ethercat": "required",
+        "canopen": "not_required",
+        "damiao_can": "not_required",
+    }
+    assert selected.fault_dependencies == ()
 
 
 def test_dual_bluepoint_option_adds_two_state_only_sensors_without_changing_actuators():
@@ -261,25 +291,18 @@ def test_instance_expansion_rejects_an_incorrect_per_arm_split(tmp_path: Path):
         module.load_machine_manifest(path)
 
 
-def test_full_physical_profile_can_control_arms_without_updown_or_chassis():
+@pytest.mark.parametrize(
+    "scope", ["arms_only", "arms_updown", "chassis_only", "head_only"]
+)
+def test_full_physical_profile_requires_full_scope(scope: str):
     module = _module()
 
-    selected = module.select_hardware(
-        MACHINE_PATH,
-        physical_profile="full_robot",
-        control_scope="arms_only",
-    )
-
-    assert selected.active_modules == ("arms",)
-    assert selected.inactive_modules == (
-        "updown",
-        "swerve_chassis",
-        "swerve_encoders",
-        "head_gimbal",
-    )
-    assert selected.actuator_count == 16
-    assert selected.required_state_modules == ()
-    assert selected.global_readiness == "partial_scope"
+    with pytest.raises(module.MachineProfileError, match="not allowed"):
+        module.select_hardware(
+            MACHINE_PATH,
+            physical_profile="full_robot",
+            control_scope=scope,
+        )
 
 
 def test_chassis_scope_requires_four_external_canopen_encoder_states():
@@ -291,17 +314,29 @@ def test_chassis_scope_requires_four_external_canopen_encoder_states():
         control_scope="chassis_only",
     )
 
-    assert selected.active_modules == ("swerve_chassis", "swerve_encoders")
-    assert selected.actuator_count == 8
-    assert selected.mode_counts == {8: 4, 9: 4}
+    assert selected.active_modules == (
+        "swerve_chassis", "swerve_encoders", "active_suspension"
+    )
+    assert selected.actuator_count == 9
+    assert selected.mode_counts == {8: 5, 9: 4}
     assert selected.required_state_modules == ("swerve_encoders",)
     assert selected.state_sensor_count == 4
     assert selected.group_counts == {
         "swerve_chassis.steering_csp": 4,
         "swerve_chassis.drive_csv": 4,
+        "active_suspension.csp": 1,
     }
     assert selected.canopen_node_ids is None
     assert selected.global_readiness == "partial_scope"
+    assert selected.bus_requirements == {
+        "ethercat": "required",
+        "canopen": "required",
+        "damiao_can": "not_required",
+    }
+    assert [(item.source_module, item.affected_modules, item.reaction)
+            for item in selected.fault_dependencies] == [
+        ("active_suspension", ("swerve_chassis",), "stop_and_inhibit")
+    ]
     assert [(binding.module, binding.name, binding.plugin, binding.package, binding.config_file)
             for binding in selected.controllers] == [
         ("swerve_chassis", "swerve_controller", "swerve_driver/SwerveController",
@@ -312,19 +347,31 @@ def test_chassis_scope_requires_four_external_canopen_encoder_states():
 
 def test_arm_only_scope_never_claims_swerve_controller():
     selected = _module().select_hardware(
-        MACHINE_PATH, physical_profile="full_robot", control_scope="arms_only"
+        MACHINE_PATH, physical_profile="arms_only", control_scope="arms_only"
     )
     assert selected.controllers == ()
 
 
-@pytest.mark.parametrize("control_scope", ["chassis_only", "full"])
-def test_full_physical_robot_selects_swerve_only_for_chassis_scopes(control_scope: str):
+def test_full_physical_robot_enables_every_physical_actuator_and_fault_dependency():
     selected = _module().select_hardware(
-        MACHINE_PATH, physical_profile="full_robot", control_scope=control_scope
+        MACHINE_PATH, physical_profile="full_robot", control_scope="full"
     )
 
     assert [binding.name for binding in selected.controllers] == ["swerve_controller"]
     assert selected.required_state_modules == ("swerve_encoders",)
+    assert selected.inactive_modules == ()
+    assert selected.actuator_count == 28
+    assert selected.mode_counts == {8: 20, 1: 2, 9: 4}
+    assert selected.bus_requirements == {
+        "ethercat": "required",
+        "canopen": "required",
+        "damiao_can": "required",
+    }
+    assert [(item.source_module, item.affected_modules, item.reaction)
+            for item in selected.fault_dependencies] == [
+        ("active_suspension", ("swerve_chassis",), "stop_and_inhibit"),
+        ("swerve_chassis", ("arms",), "stop"),
+    ]
 
 
 def test_swerve_controller_binding_requires_existing_module_and_encoder(tmp_path: Path):
@@ -337,6 +384,36 @@ def test_swerve_controller_binding_requires_existing_module_and_encoder(tmp_path
     document = _load_document()
     document["controllers"]["swerve_chassis"]["module"] = "missing_chassis"
     with pytest.raises(module.MachineProfileError, match="unknown module"):
+        module.load_machine_manifest(_write_document(tmp_path, document))
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("unknown_source", "unknown source module"),
+        ("sensor_affected", "require actuator modules"),
+        ("unknown_reaction", "reaction must be one of"),
+        ("duplicate", "duplicates a fault dependency"),
+    ],
+)
+def test_fault_dependency_policy_fails_closed(
+    tmp_path: Path, mutation: str, message: str
+):
+    module = _module()
+    document = _load_document()
+    dependencies = document["safety_policy"]["fault_dependencies"]
+    if mutation == "unknown_source":
+        dependencies[0]["source_module"] = "missing_module"
+    elif mutation == "sensor_affected":
+        dependencies[0]["affected_modules"] = ["swerve_encoders"]
+    elif mutation == "unknown_reaction":
+        dependencies[0]["reaction"] = "continue"
+    elif mutation == "duplicate":
+        dependencies.append(copy.deepcopy(dependencies[0]))
+    else:  # pragma: no cover - protects the test table itself
+        raise AssertionError(mutation)
+
+    with pytest.raises(module.MachineProfileError, match=message):
         module.load_machine_manifest(_write_document(tmp_path, document))
 
 
@@ -435,8 +512,8 @@ def test_full_scope_keeps_non_cia402_head_group_in_group_counts():
         control_scope="full",
     )
 
-    assert selected.actuator_count == 27
-    assert selected.mode_counts == {8: 19, 1: 2, 9: 4}
+    assert selected.actuator_count == 28
+    assert selected.mode_counts == {8: 20, 1: 2, 9: 4}
     assert selected.group_counts["head_gimbal.vendor_can"] == 2
 
 
@@ -549,7 +626,10 @@ def test_confirmed_arm_chain_assigns_j1_to_j7_csp_then_pp_gripper(
         range(first_position, first_position + 8)
     )
     assert [axis["mode_of_operation"] for axis in axes] == [8] * 7 + [1]
-    assert all(axis["robot_model_joint"] == "TBD" for axis in axes)
+    assert [axis["robot_model_joint"] for axis in axes] == [
+        *(f"{side}_joint{index}" for index in range(1, 8)),
+        f"{side}_moving_jaw_joint",
+    ]
 
 
 def test_confirmed_arm_inventory_matches_manifest_without_admitting_runtime():

@@ -86,6 +86,10 @@ def test_static_arms_validation_returns_a_summary_without_creating_nodes(monkeyp
     assert "arms.gripper_pp=2" in message
     assert "ethercat_ring=" + ",".join(str(position) for position in range(18)) in message
     assert "options=force_sensors:none" in message
+    assert "model=robot_description:urdf/robot_dual_gripper.urdf.xacro" in message
+    assert "end_effector=gripper" in message
+    assert "buses=ethercat:required,canopen:not_required,damiao_can:not_required" in message
+    assert "fault_dependencies=none" in message
 
 
 def test_dual_bluepoint_option_is_visible_and_keeps_ring_tbd(monkeypatch):
@@ -101,19 +105,14 @@ def test_dual_bluepoint_option_is_visible_and_keeps_ring_tbd(monkeypatch):
     assert "ethercat_ring=TBD" in message
 
 
-def test_full_physical_profile_arms_scope_reports_inactive_modules(monkeypatch):
+def test_full_physical_profile_rejects_partial_control_scope(monkeypatch):
     module = _launch_module()
     monkeypatch.setattr(module, "get_package_share_directory", lambda _: str(BRINGUP_DIR))
 
-    actions = module._launch_setup(
-        _context(physical_profile="full_robot", control_scope="arms_only")
-    )
-
-    message = actions[0].msg[0].text
-    assert "physical_profile=full_robot" in message
-    assert "control_scope=arms_only" in message
-    assert "inactive=updown,swerve_chassis,swerve_encoders,head_gimbal" in message
-    assert "controllers=none" in message
+    with pytest.raises(RuntimeError, match="not allowed"):
+        module._launch_setup(
+            _context(physical_profile="full_robot", control_scope="arms_only")
+        )
 
 
 def test_chassis_only_summary_lists_scoped_swerve_controller(monkeypatch):
@@ -126,6 +125,12 @@ def test_chassis_only_summary_lists_scoped_swerve_controller(monkeypatch):
     message = actions[0].msg[0].text
     assert "controllers=swerve_controller:swerve_driver/SwerveController" in message
     assert "state_sensors=4" in message
+    assert "active=swerve_chassis,swerve_encoders,active_suspension" in message
+    assert "buses=ethercat:required,canopen:required,damiao_can:not_required" in message
+    assert (
+        "fault_dependencies=active_suspension->swerve_chassis:stop_and_inhibit"
+        in message
+    )
     assert "status=draft" in message
 
 
@@ -184,6 +189,34 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
     cmake = CMAKE_PATH.read_text(encoding="utf-8")
     package = PACKAGE_PATH.read_text(encoding="utf-8")
 
-    assert "install(\n  DIRECTORY launch config urdf" in cmake
+    assert "launch/rt_control_module.launch.py" in cmake
+    assert "launch/rt_control_enable_only.launch.py" in cmake
+    assert "config/machines" in cmake
+    assert "launch/rt_control.launch.py" not in cmake
+    assert "test_preop_snapshot_launch" not in cmake
+    assert "test_mock_contract" not in cmake
     assert "<exec_depend>launch</exec_depend>" in package
     assert "<exec_depend>launch_ros</exec_depend>" in package
+    assert "<exec_depend>x503_force_sensor</exec_depend>" not in package
+    assert "<exec_depend>diff_drive_controller</exec_depend>" not in package
+    for independently_deployed_module in (
+        "bms_node",
+        "lpms_nav3_can",
+        "modbus_tcp_rtu485_led",
+        "robot_hw_canopen",
+        "swerve_driver",
+        "plc_io_modbus",
+        "rt_diagnostics",
+        "rt_force_torque_broadcaster",
+    ):
+        assert f"<exec_depend>{independently_deployed_module}</exec_depend>" not in package
+
+
+def test_installed_start_defaults_to_v3_validation_and_keeps_enable_explicit():
+    start = (BRINGUP_DIR / "scripts/rt_control_start").read_text(encoding="utf-8")
+
+    assert "launch_file=rt_control_module.launch.py" in start
+    assert 'if [[ "${1:-}" == "--enable-only" ]]' in start
+    assert "launch_file=rt_control_enable_only.launch.py" in start
+    assert "orderly_disable_required=1" in start
+    assert "launch_file=rt_control.launch.py" not in start

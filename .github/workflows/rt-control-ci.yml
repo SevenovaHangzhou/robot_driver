@@ -52,17 +52,9 @@ jobs:
     timeout-minutes: 30
     env:
       RT_CONTROL_NATIVE_WS: /tmp/rt-control-ci-ws
-      X503_ETHERCAT_MANAGER_INCLUDE_DIR: /tmp/rt-control-ci-ws/src/vendor/ecat_icube/ethercat_manager/include
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
-      - name: Checkout frozen legacy baseline
-        uses: actions/checkout@v4
-        with:
-          repository: SevenovaHangzhou/robot_driver
-          ref: 6bc94cd564361b9e4aa785af74683ecf13e258ce
-          path: .legacy/robot_driver
           persist-credentials: false
       - name: Install build tools
         shell: bash
@@ -117,12 +109,14 @@ jobs:
             robot_interfaces_qos
             bms_node
             lpms_nav3_can
+            modbus_tcp_rtu485_led
             canopen_master_driver
             canopen_ros2_control
             control_api_adapter
             ethercat_driver
             ethercat_generic_cia402_drive
             joint_trajectory_controller
+            gripper_controllers
             plc_io_modbus
             plc_node
             robot_description
@@ -131,7 +125,9 @@ jobs:
             robot_hw_canopen
             enable_manager
             rt_diagnostics
-            x503_force_sensor
+            rt_control_semantic_components
+            rt_force_torque_broadcaster
+            swerve_driver
             rt_control_bringup
           )
           mapfile -t dependency_paths < <(
@@ -163,12 +159,14 @@ jobs:
             robot_interfaces_qos \
             bms_node \
             lpms_nav3_can \
+            modbus_tcp_rtu485_led \
             canopen_master_driver \
             canopen_ros2_control \
             control_api_adapter \
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
+            gripper_controllers \
             plc_io_modbus \
             plc_node \
             robot_description \
@@ -177,7 +175,9 @@ jobs:
             robot_hw_canopen \
             enable_manager \
             rt_diagnostics \
-            x503_force_sensor \
+            rt_control_semantic_components \
+            rt_force_torque_broadcaster \
+            swerve_driver \
             rt_control_bringup
       - name: Install upstream controller test hardware
         shell: bash
@@ -212,12 +212,14 @@ jobs:
             robot_interfaces_qos \
             bms_node \
             lpms_nav3_can \
+            modbus_tcp_rtu485_led \
             canopen_master_driver \
             canopen_ros2_control \
             control_api_adapter \
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
+            gripper_controllers \
             plc_io_modbus \
             plc_node \
             robot_description \
@@ -226,7 +228,9 @@ jobs:
             robot_hw_canopen \
             enable_manager \
             rt_diagnostics \
-            x503_force_sensor \
+            rt_control_semantic_components \
+            rt_force_torque_broadcaster \
+            swerve_driver \
             rt_control_bringup
           colcon test-result --verbose
       - name: Validate shared robot description
@@ -236,8 +240,5 @@ jobs:
           xacro src/description/robot_description/urdf/robot.urdf.xacro \
             > /tmp/robot-description-ci.urdf
           check_urdf /tmp/robot-description-ci.urdf
-      - name: Enforce frozen EtherCAT migration gate
-        run: |
-          python3 tools/diff_legacy.py \
-            --legacy-root .legacy/robot_driver \
-            --target-root .
+      - name: Enforce V3 source and runtime boundary
+        run: python3 tools/check_v3_branch_contract.py

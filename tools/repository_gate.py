@@ -434,10 +434,14 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
         ("colcon build", "colcon build"),
         ("colcon test", "colcon test"),
         ("check_urdf", "check_urdf"),
-        ("tools/diff_legacy.py", "the frozen migration gate"),
     ):
         if required_command not in build_commands:
             findings.append(f"CI build job must run {description}")
+    if not any(
+        command in build_commands
+        for command in ("tools/diff_legacy.py", "tools/check_v3_branch_contract.py")
+    ):
+        findings.append("CI build job must run a branch-specific migration gate")
     return findings
 
 

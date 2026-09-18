@@ -55,7 +55,7 @@ robot_driver/
 | `hotfix/xxx` | 现场或演示前紧急修复 | 跟随其基线分支 |
 | `release/vx.y` | 版本冻结与发布准备 | 必须（从 `main` 切出） |
 
-### 3.2 `main` 与 `native` 的分工
+### 3.2 `main`、`native` 与 `v3` 的分工
 
 这是本仓库最重要的分支约定，完整规则见 [AGENTS.md](AGENTS.md) 分支与封装契约一节。
 
@@ -65,13 +65,17 @@ robot_driver/
 
 **`native`**：为敏捷开发保留，允许 `--symlink-install` 增量构建、宿主直跑和原生一键脚本，不要求容器封装。`native` 上的实时性、安全链、接口契约和质量门禁要求**与 `main` 完全相同**。
 
+**`v3`**：三代机专用集成基线。默认安装入口只能选择 V3 machine profile；二代 X503、
+履带 diff-drive 和 alfa_v1 启动面不得进入安装闭包。未完成 identity/PDO/机械标定的模块
+必须保持 draft/fail-closed，不得用 V3 分支名推导实机已可运行。
+
 `native` → `main` 的提升不要求补齐容器封装，但不得把宿主绝对路径、
 开发者本机配置或不可复现的临时修改带进 `main`。源码稳定后由人工选择明确的
 `main` SHA，单独完成镜像构建、容器验证和发布归档。
 
 ### 3.3 分支保护
 
-`main` 与 `native` 都开启：
+`main`、`native` 与 `v3` 都开启：
 
 - 禁止直接 push，全部通过 PR 合并；
 - 必须 CI 通过；
@@ -414,7 +418,7 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 | `platform-integration` | `docker/**`、`deploy/**`、`tools/**`、`.github/**` |
 | `interns` | write 权限，不得 approve 合并 |
 
-使用 CODEOWNERS 按路径分派评审。所有成员对 `main` 与 `native` 均无直接 push 权限。
+使用 CODEOWNERS 按路径分派评审。所有成员对 `main`、`native` 与 `v3` 均无直接 push 权限。
 
 ## 12. 必须暂停并请求裁决的情形
 
@@ -428,7 +432,7 @@ PEP 8；函数签名带类型注解；`black` + `isort` + `ruff`；测试用 `py
 
 ## 13. 禁止事项
 
-- 直接 push `main` 或 `native`；
+- 直接 push `main`、`native` 或 `v3`（本轮经用户明确授权的首次建分支除外）；
 - `--no-verify`、force push、擅自 amend 他人提交、改写共享历史；
 - 把多个无关任务塞进一个提交或一个 PR；
 - 提交密钥、证书私钥、凭据或客户敏感数据；

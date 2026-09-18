@@ -14,7 +14,7 @@ def test_lpms_is_built_without_being_enabled_in_production():
     manifest = ET.parse(PACKAGE / "package.xml").getroot()
     assert manifest.findtext("name") == "lpms_nav3_can"
     bringup = ET.parse(ROOT / "src/rt_control/rt_control_bringup/package.xml")
-    assert "lpms_nav3_can" in {
+    assert "lpms_nav3_can" not in {
         entry.text for entry in bringup.findall("exec_depend")
     }
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()

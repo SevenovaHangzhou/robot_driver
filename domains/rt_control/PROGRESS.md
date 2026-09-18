@@ -169,3 +169,4 @@
 | 2026-09-17 | ecat-axes | [六维力统一 C++ broadcaster 与三代机蓝点可选配置](docs/areas/ecat-axes/records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md) | PARTIAL（T1 Mock；X503/蓝点实机待验） |
 | 2026-09-17 | canopen-chassis | [LPMS-NAV3 CAN 外置 IMU 重新迁入 main 源码基线](docs/areas/canopen-chassis/records/2026-09-17-lpms-nav3-main-source-integration.md) | PARTIAL（ELECTRI-105；30条 Native 测试记录、13条 sanitizer；CAN 连接路径/跨进程 DDS/共线/实机待验） |
 | 2026-09-17 | governance | [PR CI 触发去重与描述编辑隔离](docs/areas/governance/records/2026-09-17-pr-ci-trigger-deduplication.md) | PARTIAL（T0；本地门禁通过；远端事件行为及 main 分支保护待完成） |
+| 2026-09-18 | release-deploy | [V3 专用分支、模型与 fail-closed 运行边界](docs/areas/release-deploy/records/2026-09-18-v3-branch-baseline.md) | PARTIAL（T1 validation；V3 模型/配置/诊断通过，整机 runtime 与实机待验） |

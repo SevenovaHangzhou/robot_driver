@@ -323,7 +323,10 @@ private:
         "expected_responders", std::to_string(topology_->ethercat_expected_responders())));
     array.status.push_back(std::move(ethercat_summary));
 
-    DiagnosticSummaryAccumulator canopen_summary_accumulator{"CANopen topology healthy"};
+    const bool canopen_required = topology_->canopen_required();
+    DiagnosticSummaryAccumulator canopen_summary_accumulator{
+      canopen_required ? "CANopen topology healthy" :
+      "CANopen not required by selected physical profile"};
     for (const auto node_id : topology_->canopen_node_ids()) {
       const auto hardware_id = std::to_string(node_id);
       const auto snapshot = canopen.find(hardware_id);

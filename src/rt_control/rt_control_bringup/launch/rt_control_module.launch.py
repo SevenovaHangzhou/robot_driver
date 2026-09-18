@@ -52,6 +52,19 @@ def _option_summary(options: dict[str, str]) -> str:
     return ",".join(f"{name}:{value}" for name, value in options.items()) or "none"
 
 
+def _bus_summary(requirements: dict[str, str]) -> str:
+    order = ("ethercat", "canopen", "damiao_can")
+    return ",".join(f"{name}:{requirements[name]}" for name in order)
+
+
+def _fault_dependency_summary(dependencies) -> str:
+    return ",".join(
+        f"{dependency.source_module}->{'+'.join(dependency.affected_modules)}:"
+        f"{dependency.reaction}"
+        for dependency in dependencies
+    ) or "none"
+
+
 def _manifest_path(robot_variant: str) -> Path:
     if not robot_variant or "/" in robot_variant or ".." in robot_variant:
         raise ValueError("robot_variant must be a package-owned identifier")
@@ -97,7 +110,10 @@ def _launch_setup(context):
         f"ELECTRI-118 validation: robot_variant={selected.manifest_variant} "
         f"physical_profile={selected.physical_profile} "
         f"control_scope={selected.control_scope} "
+        f"model={manifest.robot_model.package}:{manifest.robot_model.xacro_file} "
+        f"end_effector={manifest.robot_model.end_effector} "
         f"options={_option_summary(dict(selected.hardware_options))} "
+        f"buses={_bus_summary(dict(selected.bus_requirements))} "
         f"active={','.join(selected.active_modules)} "
         f"inactive={inactive} "
         f"actuators={selected.actuator_count} "
@@ -106,6 +122,7 @@ def _launch_setup(context):
         f"jtc_modes={_mode_summary(dict(selected.jtc_mode_counts))} "
         f"state_sensors={selected.state_sensor_count} "
         f"controllers={','.join(f'{binding.name}:{binding.plugin}' for binding in selected.controllers) or 'none'} "
+        f"fault_dependencies={_fault_dependency_summary(selected.fault_dependencies)} "
         f"ethercat_master={selected.ethercat_master_id} "
         f"ethercat_ring={_layout_summary(selected.ethercat_ring_positions)} "
         f"canopen_nodes={_layout_summary(selected.canopen_node_ids)} "
