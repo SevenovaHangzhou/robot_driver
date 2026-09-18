@@ -202,7 +202,6 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
     for independently_deployed_module in (
         "bms_node",
         "lpms_nav3_can",
-        "modbus_tcp_rtu485_led",
         "robot_hw_canopen",
         "swerve_driver",
         "plc_io_modbus",

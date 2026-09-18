@@ -97,8 +97,19 @@ mbpoll -v -m tcp -a 1 -0 -r 262 -c 4 -t 4:hex -1 -o 2 \
 
 ## Bringup and offline verification
 
+V3 installs an independent acquisition entry point:
+
+```bash
+ros2 launch rt_control_bringup rt_control_ultrasonic.launch.py
+```
+
+It starts only `ultrasonic_node`. Setting `use_mock_hardware:=true` creates no
+hardware acquisition process. `ultrasonic_config` accepts a commissioned YAML
+file. The V3 arm runtime does not implicitly start ultrasonic acquisition.
+
 `rt_control.launch.py` provides `start_led`, `led_config`, `start_ultrasonic`
-and `ultrasonic_config`. Both hardware nodes default off under mock hardware and
+and `ultrasonic_config` in the retained legacy source entry, which V3 does not
+install. Both hardware nodes default off under mock hardware and
 on for a real-hardware launch. Override either start argument when a device is
 absent or another client owns its gateway channel.
 

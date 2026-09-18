@@ -204,7 +204,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       robot_interfaces_qos \
       bms_node \
       lpms_nav3_can \
-      modbus_tcp_rtu485_led \
+      modbus_tcp_rtu485 \
       canopen_master_driver \
       canopen_ros2_control \
       control_api_adapter \
