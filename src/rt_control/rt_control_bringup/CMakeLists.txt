@@ -22,6 +22,7 @@ install(
   FILES
     launch/rt_control_module.launch.py
     launch/rt_control_enable_only.launch.py
+    launch/rt_control_arm_runtime.launch.py
   DESTINATION share/${PROJECT_NAME}/launch
 )
 install(
@@ -32,6 +33,7 @@ install(
 install(
   FILES
     config/alfa_v3_grippers.draft.yaml
+    config/alfa_v3_rolling_envelope.mock.yaml
     config/bluepoint_force_sensors.draft.yaml
   DESTINATION share/${PROJECT_NAME}/config
 )
@@ -49,6 +51,10 @@ if(BUILD_TESTING)
     test/test_machine_profile.py
   )
   ament_add_pytest_test(test_stationary_enable test/test_stationary_enable.py)
+  ament_add_pytest_test(
+    test_arm_motion_runtime
+    test/test_arm_motion_runtime.py
+  )
   ament_add_pytest_test(
     test_machine_profile_launch
     test/test_machine_profile_launch.py
