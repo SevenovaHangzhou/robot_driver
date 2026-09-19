@@ -1434,10 +1434,11 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
         or head.actuator_count != 2
         or head.instance_count != 2
         or len(head.mode_groups) != 1
-        or head.mode_groups[0].name != "vendor_can"
+        or head.mode_groups[0].name != "position_velocity"
         or head.mode_groups[0].count != 2
         or head.mode_groups[0].mode_of_operation is not None
-        or dict(head.per_instance_mode_groups) != {"vendor_can": 1}
+        or head.mode_groups[0].interface != "position"
+        or dict(head.per_instance_mode_groups) != {"position_velocity": 1}
     ):
         raise MachineProfileError("alfa_v3 head_gimbal must contain two actuators")
     expected_profile_modules = {
@@ -1494,8 +1495,8 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
             raise MachineProfileError(
                 f"alfa_v3 profile {profile_name} has invalid force_sensors choices"
             )
-    if set(manifest.controllers) != {"swerve_chassis"}:
-        raise MachineProfileError("alfa_v3 requires the swerve chassis controller binding")
+    if set(manifest.controllers) != {"swerve_chassis", "head_gimbal"}:
+        raise MachineProfileError("alfa_v3 requires swerve and DaMiao head controller bindings")
     controller = manifest.controllers["swerve_chassis"]
     if (
         controller.plugin != "swerve_driver/SwerveController"
@@ -1505,6 +1506,15 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
         or controller.required_state_modules != ("swerve_encoders",)
     ):
         raise MachineProfileError("alfa_v3 swerve controller binding is inconsistent")
+    head_controller = manifest.controllers["head_gimbal"]
+    if (
+        head_controller.plugin != "damiao_head_controller/HeadManagerController"
+        or head_controller.package != "damiao_head_controller"
+        or head_controller.name != "damiao_head_manager"
+        or head_controller.actuator_groups != ("position_velocity",)
+        or head_controller.required_state_modules
+    ):
+        raise MachineProfileError("alfa_v3 DaMiao head controller binding is inconsistent")
     expected_dependencies = (
         FaultDependency(
             "active_suspension", ("swerve_chassis",), "stop_and_inhibit"
