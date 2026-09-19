@@ -14,7 +14,10 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 09#F3 | 双达妙启动只读核对 ID、1 Mbit/s 代码、非零 CAN 看门狗；机械参数仍须现场确认 | [达妙手册寄存器只读准入校验](records/2026-09-19-damiao-manual-register-preflight.md)#F1 | PARTIAL（T1 离线测试；实机未验） |
+| 09#F1-F2 | 头部 CAN2 接入总装须显式选择配置：L2=`can2`/1 Mbit/s，头部 JTC 默认 inactive；旧两路不变 | [头部 CAN2 可选总装](records/2026-09-19-head-can-bringup-opt-in.md)#F1-F2 | UNVERIFIED（T0 静态；实机门禁仍受 BQ-150 限制） |
 | 07#F1 | 三代机底盘 scope 显式绑定 swerve_controller 与四个必需外置编码器；只有静态控制计划，真实后端/标定未准入 | [ELECTRI-117 底盘模块控制器绑定](records/2026-09-13-swerve-controller-module-binding.md)#F1-F3 | UNVERIFIED（T0 配置；无实机/容器启动） |
+| 08#F1 | 头部达妙硬件包 `robot_hw_can` 使用原生 SocketCAN，草案 owner_ref 更新但不放行生产启动 | [原生 CAN 头部插件](records/2026-09-19-native-can-head-hardware-plugin.md)#F1 | PARTIAL（T1 Native；共线与运动待验） |
 | PR25-INTEGRATION-1 | ELECTRI-118 已整合 main@8fc332f，保留 PREOP/CoE/Ti5 约束；32包完整镜像及旧机/三代机 Mock 有序退出通过 | [最新main集成与PR验证](records/2026-09-13-electri-118-pr-integration.md)#F1-F3 | PARTIAL（T1；新基线实机待验） |
 | 01#F1 | bringup 只选择并组合 EtherCAT/CANopen 两个 package-owned real/mock system，配置对齐在 Node 创建前 fail closed | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock） |
 | 01#F2 | ecat_icube 补丁顺序为 0001..0006，PR #16 fixed-PDO 0004 必须先于 HardwareInfo 0005/0006；ros2_canopen 为 0001..0005 | [release-deploy-20260903-01](records/2026-09-03-port-hardware-composition-to-main.md)#F4 | PASS（冻结 SHA apply-check + Docker build） |
@@ -27,6 +30,9 @@
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [达妙手册寄存器只读准入校验](records/2026-09-19-damiao-manual-register-preflight.md)：PARTIAL（T1 离线；未读实机）。
+- 2026-09-19 [头部原生 CAN opt-in 接入总装](records/2026-09-19-head-can-bringup-opt-in.md)：UNVERIFIED（静态集成；仍受 BQ-150 限制）。
+- 2026-09-19 [双达妙头部电机原生 CAN 硬件包](records/2026-09-19-native-can-head-hardware-plugin.md)：PARTIAL（T1，生产仍受 BQ-150 限制）。
 - 2026-09-13 [ELECTRI-117 底盘模块控制器绑定](records/2026-09-13-swerve-controller-module-binding.md)：UNVERIFIED（T0，静态接入，实机门禁保留）。
 - 2026-09-13 [ELECTRI-118对齐PR25后的main与容器验证](records/2026-09-13-electri-118-pr-integration.md)：corrective，PARTIAL（T1）。
 - 2026-09-12 [ELECTRI-118同步main与五处冲突解决](records/2026-09-12-electri-118-main-sync.md)：源码同步完成，最终发布验证待做。

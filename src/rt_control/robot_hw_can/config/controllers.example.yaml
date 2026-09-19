@@ -1,0 +1,21 @@
+controller_manager:
+  ros__parameters:
+    # Replace before use; shared-bus load and feedback timing are not approved yet.
+    update_rate: REPLACE_WITH_VERIFIED_RATE_HZ
+    damiao_joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    damiao_head_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+damiao_joint_state_broadcaster:
+  ros__parameters:
+    joints: [head_motor_1_joint, head_motor_2_joint]
+    interfaces: [position, velocity, effort]
+
+damiao_head_controller:
+  ros__parameters:
+    joints: [head_motor_1_joint, head_motor_2_joint]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+    allow_partial_joints_goal: false
+    open_loop_control: false

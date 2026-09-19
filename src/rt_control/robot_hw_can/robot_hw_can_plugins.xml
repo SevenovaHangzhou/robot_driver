@@ -1,0 +1,9 @@
+<library path="damiao_system">
+  <class name="robot_hw_can/DamiaoSystem"
+         type="robot_hw_can::DamiaoSystem"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Two-axis DaMiao position-velocity-mode system using native SocketCAN frames.
+    </description>
+  </class>
+</library>

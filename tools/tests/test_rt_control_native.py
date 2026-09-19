@@ -387,6 +387,18 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn('name "pciecan${port}"', body)
         self.assertIn("configure_can_interface can0", body)
         self.assertIn("configure_can_interface can1", body)
+        self.assertIn("zpcie_tmp2 name can2", body)
+        self.assertNotIn("zpcie_tmp2 name pciecan2", body)
+        self.assertIn("refusing to change its bitrate", body)
+        self.assertIn("ip link set dev can2 txqueuelen 128", body)
+        self.assertIn("ip link set dev can2 up", body)
+        self.assertNotIn("configure_can_interface can2", body)
+        self.assertLess(body.index("must already be at 1000000"), body.index('"${interface}" down'))
+        self.assertLess(
+            body.index("zpcie_tmp2 name can2"),
+            body.index('[[ -n "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]]', body.index("configure_can_interface can1")),
+        )
+        self.assertIn('[[ -n "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]]', body)
 
     def test_native_can_preflight_rejects_wrong_pcie_identity_and_waits_for_ready_links(self):
         finder_start = self.text.index("pcie_can_interface_for_port()")
@@ -406,7 +418,8 @@ class NativeLauncherContractTest(unittest.TestCase):
         self.assertIn("SECONDS + 5", verify)
         self.assertIn("flags & 0x1", verify)
         self.assertIn("can state ERROR-ACTIVE", verify)
-        self.assertIn("bitrate 500000", verify)
+        self.assertIn('local bitrate="${2:-500000}"', verify)
+        self.assertIn('"bitrate ${bitrate}"', verify)
         self.assertIn("qlen 128", verify)
         self.assertIn("return 0", verify)
 

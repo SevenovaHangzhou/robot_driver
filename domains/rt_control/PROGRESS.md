@@ -2,6 +2,9 @@
 
 | Task | Commit | Self-check result | Remaining issues |
 | --- | --- | --- | --- |
+| 双达妙头部 PDF 协议参数核验 | source: this change | PARTIAL — 启动只读核对每台电机 CAN ID、Master ID、1 Mbit/s 寄存器代码、非零 CAN 看门狗；11 项包测试与 286 项质量门禁通过，未触碰实机 | BQ-150 共线准入、机械零位/方向/限位/速度与实际看门狗时序仍未确认；不可从 PDF 示例填入生产安全参数。 |
+| 双达妙头部原生 CAN ros2_control 包 | source: this change | PARTIAL — `robot_hw_can` C++ SocketCAN SystemInterface、双电机协议/状态接口、Xacro/控制器模板；隔离构建及 11 项包测试、152 项聚焦测试、286 项质量门禁通过，未对实机发送使能或运动帧 | BQ-150 共线准入、Robot Model 关节/机械硬限位/方向及现场速度和时序参数未冻结；生产启动未接入。 |
+| 双达妙头部可选总装 | source: this change | UNVERIFIED — bringup Xacro、双关节头部控制器/状态广播器和原生 CAN2 opt-in 命名配置已接线；隔离构建及 165 项包测试通过，默认启动不加载头部电机 | 硬件插件仍要求两台电机同时切换控制模式；BQ-150 共线、机械参数与模型仍缺失；不授权 CAN 设备操作或运动。 |
 | X503 PREOP snapshot / CoE policy | `fix/x503-preop-snapshot` | PASS — [PREOP 一次读取与运行期 CoE 限制](docs/areas/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)：Python/launch 88 tests、84% coverage，工作台45 tests，内核策略2个编译测试，容器129 tests；实机24项全部PREOP读取、两侧力值有效，OP观察6000帧零SDO/CoE邮箱流量，最终停止失能 | 内部PDI、精度/TF、长期与运动验证未闭合；验证镜像为固定基线增量构建，工作台位于独立目录。 |
 | ELECTRI-94 Native dependency closure | `a069ab398b1617f2546d32dbce76b70e06ec2f92`, `d9b767d` | PASS — ecat_icube 0001..0007 在全新隔离 workspace 顺序应用；`RT_CONTROL_ETHERLAB_PREFIX` 与 `-DETHERLAB_DIR` 同值的 29 个生产闭包包构建通过，safe `env` 与 readelf/ldd 均确认运行时解析到同一 local `libethercat.so.1`；补充 test-only `hardware_interface_testing` 后 `colcon test-result --verbose` 为 1433 tests、0 failures、18 skipped；五个 `robot_interfaces_qos` profile smoke 与 `tools/quality_gate.sh`（211 tests）通过 | 旧 patched vendor 工作树不支持无条件原地增量 `prepare`，运维/CI 必须从 `deps.repos` 干净重建；本轮未构建 Docker、未启动 Native、未碰实机。 |
 | Joint5 reverse correction | source: this commit | PASS — `left_joint5` and `right_joint5` now use dedicated ZeroErr profiles that negate command/state position in the EtherCAT master coordinate layer; shared `zeroerr_j5.yaml` remains unreversed. `right_joint4` remains reversed via its dedicated profile. | Requires separately authorized, supervised low-speed direction checks. This code change does not authorize enable or motion. |
@@ -169,3 +172,4 @@
 | 2026-09-17 | ecat-axes | [六维力统一 C++ broadcaster 与三代机蓝点可选配置](docs/areas/ecat-axes/records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md) | PARTIAL（T1 Mock；X503/蓝点实机待验） |
 | 2026-09-17 | canopen-chassis | [LPMS-NAV3 CAN 外置 IMU 重新迁入 main 源码基线](docs/areas/canopen-chassis/records/2026-09-17-lpms-nav3-main-source-integration.md) | PARTIAL（ELECTRI-105；30条 Native 测试记录、13条 sanitizer；CAN 连接路径/跨进程 DDS/共线/实机待验） |
 | 2026-09-17 | governance | [PR CI 触发去重与描述编辑隔离](docs/areas/governance/records/2026-09-17-pr-ci-trigger-deduplication.md) | PARTIAL（T0；本地门禁通过；远端事件行为及 main 分支保护待完成） |
+| 2026-09-19 | release-deploy | [达妙手册寄存器只读准入校验](docs/areas/release-deploy/records/2026-09-19-damiao-manual-register-preflight.md) | PARTIAL（T1 离线；11 项包测试及 286 项门禁通过；实机/共线/机械标定待验） |

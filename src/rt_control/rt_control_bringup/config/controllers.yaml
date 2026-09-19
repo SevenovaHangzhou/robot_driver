@@ -21,6 +21,12 @@ controller_manager:
     diff_drive_controller:
       type: diff_drive_controller/DiffDriveController
 
+    damiao_head_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    damiao_joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
     enable_manager:
       type: enable_manager/EnableManagerController
 
@@ -99,6 +105,33 @@ whole_body_jtc:
     constraints:
       goal_time: 0.5
       stopped_velocity_tolerance: 0.01
+
+damiao_joint_state_broadcaster:
+  ros__parameters:
+    update_rate: 50
+    use_local_topics: true
+    publish_dynamic_joint_states: false
+    joints:
+      - head_motor_1_joint
+      - head_motor_2_joint
+    interfaces:
+      - position
+      - velocity
+      - effort
+
+damiao_head_controller:
+  ros__parameters:
+    joints:
+      - head_motor_1_joint
+      - head_motor_2_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    allow_partial_joints_goal: false
+    open_loop_control: false
+    set_last_command_interface_value_as_state_on_activation: false
 
 enable_manager:
   ros__parameters:

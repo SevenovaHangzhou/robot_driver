@@ -2405,6 +2405,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   500 kbit/s、txqueuelen 128。未知硬件占用保留名称、通道缺失或身份不符均 fail closed；
   不自动回退到 CANable2。该决策取代 BQ-100 对 native 入口的两只 USB 序列号绑定，并在
   当前双通道硬件在场条件下解除 BQ-121 的缺席阻塞。
+- 2026-09-19 更新：按用户要求，原生启动将 L2 固定命名为 `can2`，缺省仍保持 DOWN；
+  仅选择头部配置且 L2 已是 1 Mbit/s 时将其启动，不写入 L2 波特率。L3 仍为
+  `pciecan3` 并保持 DOWN。此更新只取代上文关于 L2 名称和启动条件的旧裁决。
 - Boundary：本裁决不等于 ELECTRI-104 完成。Docker/current-release 入口、可复现驱动安装、
   bus-off/restart、满载以及 24 h 导航负载 HIL 尚未验收；在这些证据完成前不得声明生产
   迁移完成，也不得关闭 ELECTRI-104。

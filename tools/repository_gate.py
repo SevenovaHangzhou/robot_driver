@@ -35,6 +35,7 @@ DOMAIN_PACKAGES = {
     "enable_manager",
     "plc_io_modbus",
     "plc_node",
+    "robot_hw_can",
     "robot_hw_canopen",
     "robot_hw_ethercat",
     "rt_control_bringup",

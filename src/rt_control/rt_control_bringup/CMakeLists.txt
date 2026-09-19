@@ -41,6 +41,7 @@ if(BUILD_TESTING)
     test_hardware_composition_config
     test/test_hardware_composition_config.py
   )
+  ament_add_pytest_test(test_head_can_integration test/test_head_can_integration.py)
   ament_add_pytest_test(test_preop_snapshot_launch test/test_preop_snapshot_launch.py)
   ament_add_pytest_test(
     test_machine_profile
