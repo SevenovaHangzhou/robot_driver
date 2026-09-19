@@ -29,6 +29,11 @@ if [[ "${1:-}" == "--enable-only" ]]; then
   launch_file=rt_control_enable_only.launch.py
   orderly_disable_required=1
   shift
+elif [[ "${1:-}" == "--arm-jtc" ]]; then
+  launch_file=rt_control_arm_runtime.launch.py
+  orderly_disable_required=1
+  shift
+  set -- jtc_only:=true "$@"
 elif [[ "${1:-}" == "--arm-runtime" ]]; then
   launch_file=rt_control_arm_runtime.launch.py
   orderly_disable_required=1

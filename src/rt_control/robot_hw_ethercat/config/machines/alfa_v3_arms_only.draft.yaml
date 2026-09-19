@@ -36,6 +36,8 @@ extra_responders:
 # Range/battery/reference validation is still pending; no fault-state override.
 encoder_policies:
   single_turn:
+    # User reports vendor confirmation: no battery on multi-turn encoders used as
+    # single-turn; J3/J4 can report 0x730F and need an explicit pre-enable reset.
     requires_multiturn_retention: false
     startup_battery_reset_codes: [0x730F]
     startup_reset_method: cia402_fault_reset

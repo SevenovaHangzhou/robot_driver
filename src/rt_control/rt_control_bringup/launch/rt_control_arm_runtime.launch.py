@@ -47,6 +47,8 @@ def _start_if_succeeded(next_action, reason: str):
 
 def setup(context):
     use_mock_hardware = _boolean(context, "use_mock_hardware")
+    jtc_only = _boolean(context, "jtc_only")
+    calibration_file = LaunchConfiguration("calibration_file").perform(context).strip()
     runtime = Path(tempfile.mkdtemp(prefix="alfa-v3-arm-runtime-"))
     bringup_share = Path(get_package_share_directory("rt_control_bringup"))
     build = build_arm_motion_runtime(
@@ -55,6 +57,8 @@ def setup(context):
         runtime_dir=runtime,
         use_mock_hardware=use_mock_hardware,
         bringup_share=bringup_share,
+        jtc_only=jtc_only,
+        calibration_file=calibration_file or None,
     )
     controller_config = runtime / "controllers.yaml"
     controller_config.write_text(
@@ -81,7 +85,7 @@ def setup(context):
         executable="spawner",
         arguments=[
             "whole_body_jtc",
-            "rolling_trajectory_controller",
+            *([] if jtc_only else ["rolling_trajectory_controller"]),
             "--inactive",
             "--controller-manager-timeout",
             "90",
@@ -101,7 +105,16 @@ def setup(context):
         output="both",
     )
 
-    return [
+    control_adapter = (
+        Node(
+            package="control_api_adapter",
+            executable="control_enable_adapter",
+            output="both",
+        )
+        if jtc_only else None
+    )
+
+    actions = [
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,
@@ -126,16 +139,33 @@ def setup(context):
         RegisterEventHandler(
             OnProcessExit(
                 target_action=lifecycle_loader,
-                on_exit=_shutdown_if_failed("V3 lifecycle controller loading failed"),
+                on_exit=(
+                    _start_if_succeeded(
+                        control_adapter, "V3 lifecycle controller loading failed"
+                    ) if control_adapter is not None else
+                    _shutdown_if_failed("V3 lifecycle controller loading failed")
+                ),
             )
         ),
     ]
+    if control_adapter is not None:
+        actions.append(
+            RegisterEventHandler(
+                OnProcessExit(
+                    target_action=control_adapter,
+                    on_exit=[EmitEvent(event=Shutdown(reason="V3 control enable adapter exited"))],
+                )
+            )
+        )
+    return actions
 
 
 def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
+            DeclareLaunchArgument("jtc_only", default_value="false"),
+            DeclareLaunchArgument("calibration_file", default_value=""),
             OpaqueFunction(function=setup),
         ]
     )
