@@ -170,7 +170,7 @@ Close::Request makeCloseRequest(
   return request;
 }
 
-Batch makeTrajectory(const Open::Response & open)
+Batch makeTrajectory(const Open::Response & open, double displacement = 0.05)
 {
   Batch batch;
   batch.protocol_major = Batch::PROTOCOL_MAJOR;
@@ -185,7 +185,7 @@ Batch makeTrajectory(const Open::Response & open)
   batch.points[1].time_from_session_start_ns = kTrajectoryDurationNs;
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     batch.points[0].positions[axis] = open.hold_positions[axis];
-    batch.points[1].positions[axis] = open.hold_positions[axis] + 0.05;
+    batch.points[1].positions[axis] = open.hold_positions[axis] + displacement;
     batch.points[0].velocities[axis] = 0.0;
     batch.points[1].velocities[axis] = 0.0;
   }
@@ -409,8 +409,20 @@ TEST(StatePublisherProvisionalTest, PublicStateExposesProvisionalSourceAndFileHa
       rclcpp::Time(0), rclcpp::Duration::from_nanoseconds(kCycleNs)),
     controller_interface::return_type::OK);
 
+  const Open::Response open = RollingControllerStateTestPeer::open(
+    controller,
+    makeOpenRequest(RollingControllerStateTestPeer::bootId(controller)));
+  ASSERT_TRUE(open.accepted);
+  RollingControllerStateTestPeer::submit(controller, makeTrajectory(open, 0.0));
+  ASSERT_EQ(
+    controller.update(
+      rclcpp::Time(0), rclcpp::Duration::from_nanoseconds(kCycleNs)),
+    controller_interface::return_type::OK);
+
   State state;
   ASSERT_TRUE(RollingControllerStateTestPeer::buildState(controller, state));
+  EXPECT_EQ(state.session_state.value, PublicSessionState::RUNNING);
+  EXPECT_TRUE(state.has_accepted_update);
   EXPECT_FALSE(state.test_only_limits);
   EXPECT_EQ(state.limits_source.value, PublicLimitsSource::PROVISIONAL);
   EXPECT_EQ(

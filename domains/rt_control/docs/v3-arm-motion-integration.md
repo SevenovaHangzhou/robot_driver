@@ -196,18 +196,21 @@ Mock，但尚未进入远端 V3 或旧工控机 release；临时 envelope 标记
 
 1. Motion cancel 自己的 FJT goal，并等待最终 result；
 2. `set_mode(expected=FJT_READY, target=ROLLING_READY)`；
-3. 校验 source controller 已停、rolling controller 已 active、boot ID 非零且
-   `restart_required=false`；
-4. `open` 时携带 protocol、client/request ID、boot ID 和新的 V3 axis hash；
-5. 使用 open 返回的 hold 与 `initial_replaceable_from_ns` 立即发送静止 prime suffix；
-6. 只有 state 的 `last_accepted_sequence` 到达本批 sequence 才算接受；
-7. 正常阶段持续发布完整 14 轴 future suffix；
-8. 退出时先 `close(REQUEST_STOP)`，等待同一 session 进入 `HOLDING`；
-9. 再 `close(FINALIZE)`，等待 `has_session=false`；
-10. `set_mode(expected=ROLLING_READY, target=FJT_READY)`。
+3. 校验 `accepted=true`、source controller 已停、rolling controller 已 active 且
+   `restart_required=false`；响应中的 boot ID 可能暂时为零；
+4. 等待本次切换之后发布的 `/rt/rolling_joint_control/state`：模式为 `ROLLING_READY`、
+   轴数为 14、boot ID 非零；超过客户端截止时间仍无状态时不得 `open` 或下发轨迹；
+5. `open` 携带 protocol、client/request ID、该状态的 boot ID 和 V3 axis hash；
+6. 使用 open 返回的 hold 与 `initial_replaceable_from_ns` 立即发送静止 prime suffix；
+7. 只有 state 的 `last_accepted_sequence` 到达本批 sequence 才算接受；
+8. 正常阶段持续发布完整 14 轴 future suffix，替换点应留出通信与状态采样余量；
+9. 退出时先 `close(REQUEST_STOP)`，等待同一 session 进入 `HOLDING`；
+10. 再 `close(FINALIZE)`，等待 `has_session=false`；
+11. `set_mode(expected=ROLLING_READY, target=FJT_READY)`。
 
 任何 boot/session/client 不匹配、超时、低水位、fault 或 restart-required 都必须丢弃旧
-session 和未确认 batch，禁止自动重放。
+session 和未确认 batch，禁止自动重放。切换后状态超时应进入明确的停止/恢复流程，
+不能把仅有 controller_manager 的 active 结果当作可开会话的证明。
 
 ### 6.4 Motion 的 future 生成责任
 

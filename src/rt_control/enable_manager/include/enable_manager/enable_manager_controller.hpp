@@ -224,8 +224,6 @@ private:
   std::uint8_t executeModeSwitch(
     ControlMode source, ControlMode target, ModeService::Response & response,
     std::uint64_t switch_started_ns);
-  bool waitForRollingActivationEvidence(
-    std::uint64_t not_before_ns, CommandSnapshot & snapshot);
   void convergeAfterUnsafeModeSwitch(bool restart_required);
   bool releaseModeOwnership() noexcept;
   void setModeResponse(
