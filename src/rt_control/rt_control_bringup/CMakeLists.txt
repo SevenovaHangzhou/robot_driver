@@ -23,6 +23,7 @@ install(
     launch/rt_control_module.launch.py
     launch/rt_control_enable_only.launch.py
     launch/rt_control_arm_runtime.launch.py
+    launch/rt_control_head_runtime.launch.py
     launch/rt_control_ultrasonic.launch.py
   DESTINATION share/${PROJECT_NAME}/launch
 )
@@ -31,6 +32,7 @@ install(
     config/machines
   DESTINATION share/${PROJECT_NAME}/config
 )
+install(DIRECTORY urdf DESTINATION share/${PROJECT_NAME})
 install(
   FILES
     config/alfa_v3_grippers.draft.yaml
@@ -58,6 +60,7 @@ if(BUILD_TESTING)
     test/test_arm_motion_runtime.py
   )
   ament_add_pytest_test(test_jtc_only_launch test/test_jtc_only_launch.py)
+  ament_add_pytest_test(test_v3_head_can_integration test/test_v3_head_can_integration.py)
   ament_add_pytest_test(
     test_machine_profile_launch
     test/test_machine_profile_launch.py

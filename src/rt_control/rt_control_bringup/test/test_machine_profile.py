@@ -357,7 +357,9 @@ def test_full_physical_robot_enables_every_physical_actuator_and_fault_dependenc
         MACHINE_PATH, physical_profile="full_robot", control_scope="full"
     )
 
-    assert [binding.name for binding in selected.controllers] == ["swerve_controller"]
+    assert [binding.name for binding in selected.controllers] == [
+        "swerve_controller", "damiao_head_manager"
+    ]
     assert selected.required_state_modules == ("swerve_encoders",)
     assert selected.inactive_modules == ()
     assert selected.actuator_count == 28
@@ -430,11 +432,11 @@ def test_controller_bindings_are_optional_for_other_v1_machine_variants(tmp_path
     assert selected.controllers == ()
 
 
-def test_alfa_v3_cannot_omit_its_swerve_controller_binding(tmp_path: Path):
+def test_alfa_v3_cannot_omit_its_motor_controller_bindings(tmp_path: Path):
     document = _load_document()
     del document["controllers"]
 
-    with pytest.raises(_module().MachineProfileError, match="swerve chassis controller"):
+    with pytest.raises(_module().MachineProfileError, match="controller bindings"):
         _module().load_machine_manifest(_write_document(tmp_path, document))
 
 
@@ -498,9 +500,15 @@ def test_head_only_has_no_ethercat_master_and_uses_damiao_can():
     assert selected.active_modules == ("head_gimbal",)
     assert selected.ethercat_master_id is None
     assert selected.ethercat_ring_positions == ()
-    assert selected.damiao_can_node_ids is None
+    assert selected.damiao_can_node_ids == (1, 2)
     assert selected.actuator_count == 2
     assert selected.transports == ("damiao_can",)
+    assert [(binding.name, binding.plugin, binding.package)
+            for binding in selected.controllers] == [
+        ("damiao_head_manager",
+         "damiao_head_controller/HeadManagerController",
+         "damiao_head_controller")
+    ]
 
 
 def test_full_scope_keeps_non_cia402_head_group_in_group_counts():
@@ -514,7 +522,7 @@ def test_full_scope_keeps_non_cia402_head_group_in_group_counts():
 
     assert selected.actuator_count == 28
     assert selected.mode_counts == {8: 20, 1: 2, 9: 4}
-    assert selected.group_counts["head_gimbal.vendor_can"] == 2
+    assert selected.group_counts["head_gimbal.position_velocity"] == 2
 
 
 def test_draft_profile_is_allowed_for_static_validation_but_rejected_for_runtime():
