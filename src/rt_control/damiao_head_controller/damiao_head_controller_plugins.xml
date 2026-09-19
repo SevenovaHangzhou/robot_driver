@@ -1,0 +1,8 @@
+<library path="damiao_head_manager">
+  <class
+    name="damiao_head_controller/HeadManagerController"
+    type="damiao_head_controller::HeadManagerController"
+    base_class_type="controller_interface::ControllerInterface">
+    <description>Lifecycle, fault-reset and diagnostics manager for the V3 DaMiao head.</description>
+  </class>
+</library>

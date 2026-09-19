@@ -1,5 +1,7 @@
 # rt-control implementation progress
 
+| 2026-09-19 | release-deploy | [V3 达妙头部非 JTC 位置速度运行链](docs/areas/release-deploy/records/2026-09-19-v3-damiao-head-runtime.md) | PARTIAL（T1；32 项头部包测试、92 项 bringup、55 项 V3 head/profile 测试；CAN/机械/full runtime 待验） |
+
 | Task | Commit | Self-check result | Remaining issues |
 | --- | --- | --- | --- |
 | X503 PREOP snapshot / CoE policy | `fix/x503-preop-snapshot` | PASS — [PREOP 一次读取与运行期 CoE 限制](docs/areas/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)：Python/launch 88 tests、84% coverage，工作台45 tests，内核策略2个编译测试，容器129 tests；实机24项全部PREOP读取、两侧力值有效，OP观察6000帧零SDO/CoE邮箱流量，最终停止失能 | 内部PDI、精度/TF、长期与运动验证未闭合；验证镜像为固定基线增量构建，工作台位于独立目录。 |

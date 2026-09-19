@@ -246,21 +246,36 @@ modules:
     actuator_count: 2
     sensor_count: 0
     mode_groups:
-      - name: vendor_can
+      - name: position_velocity
         count: 2
         mode_of_operation: null
-        interface: vendor_can
+        interface: position
         certified: false
     per_instance_mode_groups:
-      vendor_can: 1
+      position_velocity: 1
     authority: null
     requires: []
     sensor_bindings: []
-    hardware_identity: TBD
-    profile_ref: TBD
-    mechanical_parameters: TBD
+    hardware_identity:
+      manufacturer: DaMiao
+      model: DM-J4310-2EC_V1.1
+      can_ids: [1, 2]
+      master_ids: [17, 18]
+      verified: false
+    profile_ref:
+      hardware_package: robot_hw_can
+      controller_package: damiao_head_controller
+      hardware_xacro: urdf/damiao.ros2_control.xacro
+      controller_config: config/controllers.yaml
+      verified: false
+    mechanical_parameters:
+      robot_model_joints: [head_joint, head_pitch_joint]
+      limits_source: robot_description/config/joint_limits_gripper.yaml
+      zero: TBD
+      direction: TBD
+      verified: false
     pending_facts:
-      - DaMiao CAN IDs and motor limits
+      - installed motor limits and stored ACC/DEC/MAX_SPD readback
       - head gimbal mechanical zero and transmission parameters
 
 hardware_options:
@@ -360,7 +375,7 @@ profiles:
         node_ids: TBD
       damiao_can:
         status: draft
-        node_ids: TBD
+        node_ids: [1, 2]
     pending_facts:
       - complete EtherCAT ring order and responder identities
       - CANopen encoder bus identity and head-gimbal CAN wiring
@@ -382,7 +397,7 @@ profiles:
         node_ids: []
       damiao_can:
         status: draft
-        node_ids: TBD
+        node_ids: [1, 2]
     pending_facts:
       - DaMiao head-gimbal CAN wiring and IDs
 
@@ -429,7 +444,7 @@ scopes:
       - {module: swerve_chassis, mode_group: steering_csp}
       - {module: swerve_chassis, mode_group: drive_csv}
       - {module: active_suspension, mode_group: csp}
-      - {module: head_gimbal, mode_group: vendor_can}
+      - {module: head_gimbal, mode_group: position_velocity}
     jtc_groups:
       - {module: arms, mode_group: csp}
       - {module: updown, mode_group: csp}
@@ -439,7 +454,7 @@ scopes:
     enabled_modules: [head_gimbal]
     required_state_modules: []
     actuator_groups:
-      - {module: head_gimbal, mode_group: vendor_can}
+      - {module: head_gimbal, mode_group: position_velocity}
     jtc_groups: []
     global_readiness: partial_scope
 
@@ -461,9 +476,16 @@ controllers:
     config_file: config/controller.draft.yaml
     actuator_groups: [steering_csp, drive_csv]
     required_state_modules: [swerve_encoders]
+  head_gimbal:
+    module: head_gimbal
+    name: damiao_head_manager
+    plugin: damiao_head_controller/HeadManagerController
+    package: damiao_head_controller
+    config_file: config/controllers.yaml
+    actuator_groups: [position_velocity]
+    required_state_modules: []
 
 owner_refs:
   ethercat: robot_hw_ethercat
   canopen: robot_hw_canopen
-  # Existing head-protocol reference; independent of the planned chassis package name.
-  damiao_can: dm_swerve_driver
+  damiao_can: robot_hw_can

@@ -4,6 +4,7 @@ set -uo pipefail
 child_pid=""
 shutdown_started=0
 orderly_disable_required=0
+shutdown_command=(ros2 run enable_manager rt_disable_once)
 
 forward_shutdown() {
   if (( shutdown_started != 0 )); then
@@ -12,7 +13,7 @@ forward_shutdown() {
   shutdown_started=1
 
   if (( orderly_disable_required != 0 )); then
-    if ! ros2 run enable_manager rt_disable_once; then
+    if ! "${shutdown_command[@]}"; then
       echo "UNCLEAN_SHUTDOWN: orderly rt-control shutdown sequence did not complete" >&2
     fi
   fi
@@ -37,6 +38,11 @@ elif [[ "${1:-}" == "--arm-jtc" ]]; then
 elif [[ "${1:-}" == "--arm-runtime" ]]; then
   launch_file=rt_control_arm_runtime.launch.py
   orderly_disable_required=1
+  shift
+elif [[ "${1:-}" == "--head-runtime" ]]; then
+  launch_file=rt_control_head_runtime.launch.py
+  orderly_disable_required=1
+  shutdown_command=(ros2 run damiao_head_controller head_disable_once)
   shift
 fi
 launch_command=(ros2 launch rt_control_bringup "${launch_file}" "$@")
