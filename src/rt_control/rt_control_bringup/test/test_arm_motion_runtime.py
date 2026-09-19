@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 
@@ -25,7 +26,7 @@ if str(BRINGUP) not in sys.path:
     sys.path.insert(0, str(BRINGUP))
 
 
-def _build(tmp_path: Path, *, mock: bool = True):
+def _build(tmp_path: Path, *, mock: bool = True, jtc_only: bool = False):
     from rt_control_bringup.arm_motion_runtime import build_arm_motion_runtime
 
     return build_arm_motion_runtime(
@@ -33,6 +34,7 @@ def _build(tmp_path: Path, *, mock: bool = True):
         description_share=DESCRIPTION,
         runtime_dir=tmp_path,
         use_mock_hardware=mock,
+        jtc_only=jtc_only,
     )
 
 
@@ -115,6 +117,100 @@ def test_runtime_owns_motion_with_jtc_and_stages_rolling_inactive(tmp_path):
     assert set(enable["managed_joints"]) == set(MOTION_JOINTS + PP_JOINTS)
 
 
+def test_jtc_only_runtime_exposes_fourteen_csp_axes_without_rolling(tmp_path):
+    runtime = _build(tmp_path, jtc_only=True)
+    manager = runtime.controllers["controller_manager"]["ros__parameters"]
+    assert manager["whole_body_jtc"]["type"] == (
+        "joint_trajectory_controller/JointTrajectoryController"
+    )
+    assert "rolling_trajectory_controller" not in manager
+    assert "rolling_trajectory_controller" not in runtime.controllers
+    assert not (tmp_path / "alfa_v3_rolling_envelope.mock.yaml").exists()
+    jtc = runtime.controllers["whole_body_jtc"]["ros__parameters"]
+    assert tuple(jtc["joints"]) == MOTION_JOINTS
+    assert jtc["allow_partial_joints_goal"] is False
+    enable = runtime.controllers["enable_manager"]["ros__parameters"]
+    assert enable["enable_only"] is False
+    assert enable["motion_mode_switching"] is False
+    assert enable["jtc_name"] == "whole_body_jtc"
+    assert set(enable["managed_joints"]) == set(MOTION_JOINTS + PP_JOINTS)
+
+
+def test_verified_real_jtc_calibration_matches_confirmed_zero_and_direction(tmp_path):
+    from rt_control_bringup.arm_motion_runtime import build_arm_motion_runtime
+
+    hardware = tmp_path / "hardware"
+    shutil.copytree(HARDWARE / "config/machines", hardware / "config/machines")
+    calibration = hardware / "config/machines/alfa_v3_arm_motion_calibration.draft.yaml"
+    values = yaml.safe_load(calibration.read_text())
+    values["verified"] = True
+    for index, entry in enumerate(values["axes"]):
+        entry["direction"] = -1 if index % 2 else 1
+    values["branch_mapping_verified"] = False
+    calibration.write_text(yaml.safe_dump(values))
+    with pytest.raises(ValueError, match="branch mapping"):
+        build_arm_motion_runtime(
+            hardware_share=hardware,
+            description_share=DESCRIPTION,
+            runtime_dir=tmp_path / "wrong-branch",
+            use_mock_hardware=False,
+            jtc_only=True,
+            calibration_file=calibration,
+        )
+    values["branch_mapping_verified"] = True
+    calibration.write_text(yaml.safe_dump(values))
+    values["axes"][0]["direction"] = True
+    calibration.write_text(yaml.safe_dump(values))
+    with pytest.raises(ValueError, match="direction"):
+        build_arm_motion_runtime(
+            hardware_share=hardware,
+            description_share=DESCRIPTION,
+            runtime_dir=tmp_path / "boolean-sign",
+            use_mock_hardware=False,
+            jtc_only=True,
+            calibration_file=calibration,
+        )
+    values["axes"][0]["direction"] = 1
+    calibration.write_text(yaml.safe_dump(values))
+    result = build_arm_motion_runtime(
+        hardware_share=hardware,
+        description_share=DESCRIPTION,
+        runtime_dir=tmp_path / "real",
+        use_mock_hardware=False,
+        jtc_only=True,
+        calibration_file=calibration,
+    )
+    system = ET.fromstring(result.robot_description).find("ros2_control")
+    for entry in values["axes"]:
+        joint = system.find(f"joint[@name='{entry['joint_name']}']")
+        assert joint is not None
+        path = next(
+            item.text for item in joint.findall("param")
+            if item.attrib["name"] == "ec_module.slave_config"
+        )
+        profile = yaml.safe_load(Path(path).read_text())
+        target = profile["rpdo"][0]["channels"][0]
+        feedback = profile["tpdo"][0]["channels"][0]
+        assert target["offset"] == entry["zero_counts"]
+        assert target["factor"] * entry["direction"] > 0
+        assert feedback["factor"] * entry["direction"] > 0
+        assert feedback["offset"] == pytest.approx(
+            -entry["zero_counts"] * feedback["factor"]
+        )
+
+    values["axes"][0]["zero_counts"] += 1
+    calibration.write_text(yaml.safe_dump(values))
+    with pytest.raises(ValueError, match="zero_counts"):
+        build_arm_motion_runtime(
+            hardware_share=hardware,
+            description_share=DESCRIPTION,
+            runtime_dir=tmp_path / "mismatched",
+            use_mock_hardware=False,
+            jtc_only=True,
+            calibration_file=calibration,
+        )
+
+
 def test_v3_rolling_runtime_uses_one_kilohertz_guards_and_v3_axis_order(tmp_path):
     config = _build(tmp_path).controllers
     rolling = config["rolling_trajectory_controller"]["ros__parameters"]
@@ -148,7 +244,7 @@ def test_runtime_launch_and_start_entry_are_installed_explicitly():
     assert "<exec_depend>gripper_controllers</exec_depend>" not in package
 
 
-def test_calibration_draft_freezes_scale_and_zero_but_not_direction():
+def test_calibration_draft_uses_user_provisional_plus_one_without_motion_admission(tmp_path):
     calibration = yaml.safe_load(
         (
             HARDWARE
@@ -156,10 +252,14 @@ def test_calibration_draft_freezes_scale_and_zero_but_not_direction():
         ).read_text(encoding="utf-8")
     )
     assert calibration["verified"] is False
+    assert calibration["branch_mapping_verified"] is True
+    assert calibration["direction_status"] == "user_provisional_plus_one"
     assert calibration["output_counts_per_revolution"] == 524288
     assert calibration["external_transmission_ratio"] == 1.0
     axes = calibration["axes"]
     assert len(axes) == 14
     assert {axis["joint_name"] for axis in axes} == set(MOTION_JOINTS)
-    assert all(axis["direction"] == "TBD" for axis in axes)
+    assert all(type(axis["direction"]) is int and axis["direction"] == 1 for axis in axes)
     assert all(type(axis["zero_counts"]) is int for axis in axes)
+    with pytest.raises(ValueError, match="calibration is not verified"):
+        _build(tmp_path, mock=False, jtc_only=True)
