@@ -57,6 +57,7 @@ if(BUILD_TESTING)
     test_arm_motion_runtime
     test/test_arm_motion_runtime.py
   )
+  ament_add_pytest_test(test_jtc_only_launch test/test_jtc_only_launch.py)
   ament_add_pytest_test(
     test_machine_profile_launch
     test/test_machine_profile_launch.py

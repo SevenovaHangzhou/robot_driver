@@ -3,6 +3,9 @@ robot_variant: alfa_v3
 module: arms
 status: draft
 verified: false
+branch_mapping_verified: true
+# User-selected starting signs for low-speed direction trials, not a verified calibration.
+direction_status: user_provisional_plus_one
 position_object: 0x6064
 target_position_object: 0x607A
 output_counts_per_revolution: 524288
@@ -12,20 +15,20 @@ authorities:
   encoder_resolution: eRob_Rotary_Actuator_User_Manual_V3.39_section_9
   mechanical_zero: config/machines/alfa_v3_mechanical_zero.yaml
 axes:
-  - {joint_name: left_joint1, ring_position: 1, zero_counts: 21613, direction: TBD}
-  - {joint_name: left_joint2, ring_position: 2, zero_counts: 424470, direction: TBD}
-  - {joint_name: left_joint3, ring_position: 3, zero_counts: 369962, direction: TBD}
-  - {joint_name: left_joint4, ring_position: 4, zero_counts: 212362, direction: TBD}
-  - {joint_name: left_joint5, ring_position: 5, zero_counts: 262139, direction: TBD}
-  - {joint_name: left_joint6, ring_position: 6, zero_counts: 262141, direction: TBD}
-  - {joint_name: left_joint7, ring_position: 7, zero_counts: 117227, direction: TBD}
-  - {joint_name: right_joint1, ring_position: 9, zero_counts: 252125, direction: TBD}
-  - {joint_name: right_joint2, ring_position: 10, zero_counts: 312150, direction: TBD}
-  - {joint_name: right_joint3, ring_position: 11, zero_counts: 262141, direction: TBD}
-  - {joint_name: right_joint4, ring_position: 12, zero_counts: 465961, direction: TBD}
-  - {joint_name: right_joint5, ring_position: 13, zero_counts: 36412, direction: TBD}
-  - {joint_name: right_joint6, ring_position: 14, zero_counts: 61508, direction: TBD}
-  - {joint_name: right_joint7, ring_position: 15, zero_counts: 150512, direction: TBD}
+  - {joint_name: left_joint1, ring_position: 1, zero_counts: 21613, direction: 1}
+  - {joint_name: left_joint2, ring_position: 2, zero_counts: 424470, direction: 1}
+  - {joint_name: left_joint3, ring_position: 3, zero_counts: 369962, direction: 1}
+  - {joint_name: left_joint4, ring_position: 4, zero_counts: 212362, direction: 1}
+  - {joint_name: left_joint5, ring_position: 5, zero_counts: 262139, direction: 1}
+  - {joint_name: left_joint6, ring_position: 6, zero_counts: 262141, direction: 1}
+  - {joint_name: left_joint7, ring_position: 7, zero_counts: 117227, direction: 1}
+  - {joint_name: right_joint1, ring_position: 9, zero_counts: 252125, direction: 1}
+  - {joint_name: right_joint2, ring_position: 10, zero_counts: 312150, direction: 1}
+  - {joint_name: right_joint3, ring_position: 11, zero_counts: 262141, direction: 1}
+  - {joint_name: right_joint4, ring_position: 12, zero_counts: 465961, direction: 1}
+  - {joint_name: right_joint5, ring_position: 13, zero_counts: 36412, direction: 1}
+  - {joint_name: right_joint6, ring_position: 14, zero_counts: 61508, direction: 1}
+  - {joint_name: right_joint7, ring_position: 15, zero_counts: 150512, direction: 1}
 pending_facts:
   - verify every axis raw-count sign against the Robot Model positive direction
   - verify nonwrapping travel for left J3 and right J4 single-turn policy

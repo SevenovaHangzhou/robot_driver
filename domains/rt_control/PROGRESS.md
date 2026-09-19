@@ -179,3 +179,4 @@
 | 2026-09-19 | release-deploy | [V3 机械臂运动 runtime 显式入口](docs/areas/release-deploy/records/2026-09-19-v3-arm-runtime-entry.md) | PARTIAL（T1 Mock；未部署） |
 | 2026-09-19 | governance | [V3 Robot Model CI 使用构建 overlay](docs/areas/governance/records/2026-09-19-v3-description-overlay-ci.md) | PASS（T0；完整 PR CI 重跑） |
 | 2026-09-19 | io-power | [四路超声波切换为标准 Range 接口](docs/areas/io-power/records/2026-09-19-ultrasonic-standard-range.md) | PARTIAL（T1；标准消息与固定参数离线通过，实机与 TF 待验） |
+| 2026-09-19 | motion | [V3 JTC-only 旧工控机旁路与原位使能验证](docs/areas/motion/records/2026-09-19-v3-jtc-old-ipc-readonly.md) | PARTIAL（T3；16 轴原位使能/保持/失能通过；0x730F 厂商说明已记录，十四轴 +1 仅为未验证方向试验值） |

@@ -59,10 +59,13 @@ def _load_axes(hardware_share: Path) -> tuple[list[dict], dict[int, dict]]:
     return axes, zeros
 
 
-def _load_calibration(hardware_share: Path, *, require_verified: bool) -> dict[str, dict]:
+def _load_calibration(
+    hardware_share: Path, *, require_verified: bool, calibration_file: Path | None = None
+) -> dict[str, dict]:
     calibration = _load_yaml(
-        hardware_share
-        / "config/machines/alfa_v3_arm_motion_calibration.draft.yaml"
+        calibration_file
+        if calibration_file is not None
+        else hardware_share / "config/machines/alfa_v3_arm_motion_calibration.draft.yaml"
     )
     if calibration["output_counts_per_revolution"] != COUNTS_PER_REVOLUTION:
         raise ValueError("Unexpected V3 output encoder resolution")
@@ -73,7 +76,13 @@ def _load_calibration(hardware_share: Path, *, require_verified: bool) -> dict[s
     if require_verified:
         if calibration.get("verified") is not True:
             raise ValueError("V3 arm motion calibration is not verified")
-        if any(entry.get("direction") not in (-1, 1) for entry in entries):
+        if calibration.get("branch_mapping_verified") is not True:
+            raise ValueError("V3 arm branch mapping is not verified")
+        if any(
+            type(entry.get("direction")) is not int
+            or entry["direction"] not in (-1, 1)
+            for entry in entries
+        ):
             raise ValueError("Every V3 CSP direction must be verified as +1 or -1")
     return by_name
 
@@ -104,7 +113,9 @@ def _pp_hold_profile(template: dict) -> dict:
     return profile
 
 
-def _controller_config(envelope_path: Path, managed_joints: list[str]) -> dict:
+def _controller_config(
+    envelope_path: Path, managed_joints: list[str], *, jtc_only: bool = False
+) -> dict:
     one_degree = math.pi / 180.0
     half_degree = math.pi / 360.0
     manager = {
@@ -124,7 +135,7 @@ def _controller_config(envelope_path: Path, managed_joints: list[str]) -> dict:
         },
         "enable_manager": {"type": "enable_manager/EnableManagerController"},
     }
-    return {
+    config = {
         "controller_manager": {"ros__parameters": manager},
         "joint_state_broadcaster": {
             "ros__parameters": {
@@ -219,6 +230,14 @@ def _controller_config(envelope_path: Path, managed_joints: list[str]) -> dict:
             }
         },
     }
+    if jtc_only:
+        manager.pop("rolling_trajectory_controller")
+        config.pop("rolling_trajectory_controller")
+        enable = config["enable_manager"]["ros__parameters"]
+        enable["motion_mode_switching"] = False
+        enable["motion_controller_names"] = ["whole_body_jtc"]
+        enable["rolling_motion_controller"] = ""
+    return config
 
 
 def _expand_robot_model(description_share: Path, runtime_dir: Path) -> ET.Element:
@@ -253,14 +272,28 @@ def build_arm_motion_runtime(
     *,
     use_mock_hardware: bool = True,
     bringup_share=None,
+    jtc_only: bool = False,
+    calibration_file=None,
 ) -> ArmMotionRuntime:
     hardware_share = Path(hardware_share)
     description_share = Path(description_share)
     runtime_dir = Path(runtime_dir)
     axes, zeros = _load_axes(hardware_share)
     calibration = _load_calibration(
-        hardware_share, require_verified=not use_mock_hardware
+        hardware_share,
+        require_verified=not use_mock_hardware,
+        calibration_file=Path(calibration_file) if calibration_file else None,
     )
+    if not use_mock_hardware:
+        for axis in axes:
+            if axis["mode_of_operation"] != 8:
+                continue
+            entry = calibration[axis["robot_model_joint"]]
+            position = axis["ring_position"]
+            if entry["ring_position"] != position:
+                raise ValueError(f"V3 CSP ring_position mismatch: {axis['robot_model_joint']}")
+            if entry["zero_counts"] != zeros[position]["zero_counts"]:
+                raise ValueError(f"V3 CSP zero_counts mismatch: {axis['robot_model_joint']}")
     runtime_dir.mkdir(parents=True, exist_ok=True)
 
     robot = _expand_robot_model(description_share, runtime_dir)
@@ -351,8 +384,9 @@ def build_arm_motion_runtime(
         else Path(__file__).resolve().parents[1]
     ) / "config/alfa_v3_rolling_envelope.mock.yaml"
     envelope_path = runtime_dir / source_envelope.name
-    shutil.copyfile(source_envelope, envelope_path)
-    controllers = _controller_config(envelope_path, managed_joints)
+    if not jtc_only:
+        shutil.copyfile(source_envelope, envelope_path)
+    controllers = _controller_config(envelope_path, managed_joints, jtc_only=jtc_only)
     return ArmMotionRuntime(
         robot_description=ET.tostring(robot, encoding="unicode"),
         controllers=controllers,
