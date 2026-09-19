@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<robot name="damiao_head_control" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="damiao_head_system"
+    params="joint_1_name joint_2_name joint_1_min joint_1_max joint_2_min joint_2_max
+            joint_1_velocity_limit joint_2_velocity_limit can_interface:=can2
+            motor_1_can_id:=1 motor_1_master_id:=17
+            motor_2_can_id:=2 motor_2_master_id:=18
+            configure_timeout_ms feedback_timeout_ms disabled_poll_interval_ms
+            max_rx_frames_per_cycle use_mock_hardware:=false">
+    <ros2_control name="damiao_head" type="system">
+      <hardware>
+        <xacro:if value="${use_mock_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+          <param name="calculate_dynamics">true</param>
+        </xacro:if>
+        <xacro:unless value="${use_mock_hardware}">
+          <plugin>robot_hw_can/DamiaoSystem</plugin>
+          <param name="can_interface">${can_interface}</param>
+          <param name="configure_timeout_ms">${configure_timeout_ms}</param>
+          <param name="feedback_timeout_ms">${feedback_timeout_ms}</param>
+          <param name="disabled_poll_interval_ms">${disabled_poll_interval_ms}</param>
+          <param name="max_rx_frames_per_cycle">${max_rx_frames_per_cycle}</param>
+        </xacro:unless>
+      </hardware>
+
+      <joint name="${joint_1_name}">
+        <param name="can_id">${motor_1_can_id}</param>
+        <param name="master_id">${motor_1_master_id}</param>
+        <param name="velocity_limit">${joint_1_velocity_limit}</param>
+        <command_interface name="position">
+          <param name="min">${joint_1_min}</param>
+          <param name="max">${joint_1_max}</param>
+        </command_interface>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <state_interface name="fault_code"/>
+        <state_interface name="mos_temperature"/>
+        <state_interface name="motor_temperature"/>
+        <state_interface name="feedback_age_ms"/>
+        <state_interface name="enabled"/>
+      </joint>
+
+      <joint name="${joint_2_name}">
+        <param name="can_id">${motor_2_can_id}</param>
+        <param name="master_id">${motor_2_master_id}</param>
+        <param name="velocity_limit">${joint_2_velocity_limit}</param>
+        <command_interface name="position">
+          <param name="min">${joint_2_min}</param>
+          <param name="max">${joint_2_max}</param>
+        </command_interface>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <state_interface name="fault_code"/>
+        <state_interface name="mos_temperature"/>
+        <state_interface name="motor_temperature"/>
+        <state_interface name="feedback_age_ms"/>
+        <state_interface name="enabled"/>
+      </joint>
+    </ros2_control>
+  </xacro:macro>
+</robot>

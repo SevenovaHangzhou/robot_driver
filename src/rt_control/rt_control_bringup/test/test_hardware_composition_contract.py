@@ -53,6 +53,7 @@ PACKAGE_DIRS = {
     "robot_description": REPOSITORY_ROOT / "src/description/robot_description",
     "robot_hw_ethercat": REPOSITORY_ROOT / "src/rt_control/robot_hw_ethercat",
     "robot_hw_canopen": REPOSITORY_ROOT / "src/rt_control/robot_hw_canopen",
+    "robot_hw_can": REPOSITORY_ROOT / "src/rt_control/robot_hw_can",
     "rt_control_bringup": BRINGUP_DIR,
 }
 
@@ -164,6 +165,7 @@ def _run_bringup_xacro(
     tmp_path: Path,
     ethercat_variant: str = "alfa_v1",
     canopen_variant: str = "alfa_v1",
+    head_arguments: tuple[str, ...] = (),
 ) -> subprocess.CompletedProcess[str]:
     xacro = shutil.which("xacro")
     assert xacro is not None, "ROS 2 xacro must be installed to verify this contract"
@@ -183,6 +185,7 @@ def _run_bringup_xacro(
             f"ethercat_variant:={ethercat_variant}",
             f"canopen_variant:={canopen_variant}",
             f"canopen_authority_bus:={CANOPEN_BUS_CONFIG}",
+            *head_arguments,
         ],
         check=False,
         capture_output=True,
@@ -190,6 +193,31 @@ def _run_bringup_xacro(
         env=environment,
     )
     return result
+
+
+@pytest.mark.parametrize("mock, plugin", [
+    (True, "mock_components/GenericSystem"),
+    (False, "robot_hw_can/DamiaoSystem"),
+])
+def test_optional_head_expands_only_when_requested(tmp_path, mock, plugin):
+    arguments = (
+        "enable_head_can:=true", "head_joint_1_name:=head_a",
+        "head_joint_2_name:=head_b", "head_joint_1_min:=-0.1",
+        "head_joint_1_max:=0.1", "head_joint_2_min:=-0.2",
+        "head_joint_2_max:=0.2", "head_joint_1_velocity_limit:=0.1",
+        "head_joint_2_velocity_limit:=0.2", "head_configure_timeout_ms:=100",
+        "head_feedback_timeout_ms:=100", "head_disabled_poll_interval_ms:=100",
+        "head_max_rx_frames_per_cycle:=16",
+    )
+    result = _run_bringup_xacro(mock=mock, tmp_path=tmp_path, head_arguments=arguments)
+    assert result.returncode == 0, result.stderr
+    head = _systems(ET.fromstring(result.stdout))["damiao_head"]
+    assert head.find("./hardware/plugin").text == plugin
+    assert list(_joints(head)) == ["head_a", "head_b"]
+    if not mock:
+        assert _parameters(head.find("./hardware"))["can_interface"] == "can2"
+    assert _parameters(_joints(head)["head_a"])["can_id"] == "1"
+    assert _parameters(_joints(head)["head_b"])["master_id"] == "18"
 
 
 def _expand_bringup(*, mock: bool, tmp_path: Path) -> ET.Element:

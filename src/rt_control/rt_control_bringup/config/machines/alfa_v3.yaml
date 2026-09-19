@@ -396,5 +396,5 @@ controllers:
 owner_refs:
   ethercat: robot_hw_ethercat
   canopen: robot_hw_canopen
-  # Existing head-protocol reference; independent of the planned chassis package name.
-  damiao_can: dm_swerve_driver
+  # Native SocketCAN head hardware owner; runtime topology remains draft.
+  damiao_can: robot_hw_can

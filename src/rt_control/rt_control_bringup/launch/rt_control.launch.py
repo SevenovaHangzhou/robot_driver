@@ -33,6 +33,7 @@ from rt_control_bringup.hardware_composition import (
     validate_controller_compatibility,
     variant_descriptor_path,
 )
+from rt_control_bringup.head_can_config import load_head_can_config
 from x503_force_sensor.preop import load_sensor_spec, read_preop_snapshot
 from x503_force_sensor.snapshot import SnapshotState
 
@@ -92,6 +93,23 @@ def _remove_controller_parameter_file(_context, *, path: str):
     return []
 
 
+def _head_xacro_arguments(config):
+    parameters = {
+        "head_can_interface": config["can_interface"],
+        **{f"head_{key}": config[key] for key in (
+            "configure_timeout_ms", "feedback_timeout_ms",
+            "disabled_poll_interval_ms", "max_rx_frames_per_cycle",
+        )},
+    }
+    for index, joint in enumerate(config["joints"], 1):
+        for key in ("name", "min", "max", "velocity_limit"):
+            parameters[f"head_joint_{index}_{key}"] = joint[key]
+        for key in ("can_id", "master_id"):
+            parameters[f"head_motor_{index}_{key}"] = joint[key]
+    return [part for name, value in parameters.items()
+            for part in (f" {name}:=", str(value))]
+
+
 def _launch_setup(context):
     if LaunchConfiguration("start_x503_sdo_snapshot", default="false").perform(context) != "false":
         raise ValueError("Standalone SDO polling is disabled; X503 parameters are read once in PREOP")
@@ -116,6 +134,19 @@ def _launch_setup(context):
     )
     controllers_path = bringup_share / "config/controllers.yaml"
     validate_controller_compatibility(hardware_composition, controllers_path)
+    head_config_path = LaunchConfiguration("head_can_config", default="").perform(context)
+    head_config = None
+    if head_config_path:
+        head_config = load_head_can_config(
+            head_config_path,
+            occupied_names=[axis.joint_name for axis in hardware_composition.ethercat.axes]
+            + [node.joint_name for node in hardware_composition.canopen.nodes],
+        )
+        controller_config = yaml.safe_load(controllers_path.read_text(encoding="utf-8"))
+        head_names = [joint["name"] for joint in head_config["joints"]]
+        for controller in ("damiao_joint_state_broadcaster", "damiao_head_controller"):
+            if controller_config[controller]["ros__parameters"]["joints"] != head_names:
+                raise ValueError(f"{controller}.joints must match head CAN configuration")
     x503_parameters = hardware_composition.x503_parameters()
     startup_id = uuid.uuid4().hex
     x503_controller_names = []
@@ -194,6 +225,9 @@ def _launch_setup(context):
                     ethercat_variant,
                     " canopen_variant:=",
                     canopen_variant,
+                    " enable_head_can:=",
+                    "true" if head_config is not None else "false",
+                    *(_head_xacro_arguments(head_config) if head_config is not None else ()),
                 ]
             ),
             value_type=str,
@@ -280,6 +314,7 @@ def _launch_setup(context):
         "rt_internal_state_broadcaster",
         *x503_controller_names,
         "diff_drive_controller",
+        *(("damiao_joint_state_broadcaster",) if head_config is not None else ()),
     )
     active_spawners = [
         Node(
@@ -314,6 +349,16 @@ def _launch_setup(context):
         arguments=["enable_manager", "--controller-manager", "/controller_manager"],
         output="both",
     )
+    head_spawner = None
+    if head_config is not None:
+        head_spawner = Node(
+            package="controller_manager", executable="spawner",
+            arguments=[
+                "damiao_head_controller", "--inactive",
+                "--controller-manager", "/controller_manager",
+            ],
+            output="both",
+        )
 
     spawner_sequence = [
         *[
@@ -323,6 +368,8 @@ def _launch_setup(context):
             )
         ],
         ("whole_body_jtc", "configured INACTIVE", jtc_spawner),
+        *([("damiao_head_controller", "configured INACTIVE", head_spawner)]
+          if head_spawner is not None else []),
         ("enable_manager", "ACTIVE", enable_spawner),
     ]
     spawner_handlers = [
@@ -381,6 +428,7 @@ def generate_launch_description():
             DeclareLaunchArgument("use_mock_hardware", default_value="false"),
             DeclareLaunchArgument("ethercat_variant", default_value="alfa_v1"),
             DeclareLaunchArgument("canopen_variant", default_value="alfa_v1"),
+            DeclareLaunchArgument("head_can_config", default_value=""),
             DeclareLaunchArgument(
                 "start_led", default_value=PythonExpression(
                     ["'", LaunchConfiguration("use_mock_hardware"), "' != 'true'"]

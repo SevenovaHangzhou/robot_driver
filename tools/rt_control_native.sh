@@ -476,7 +476,7 @@ prepare_can_interfaces()
   local -a pcie_interfaces=()
   local -a sources=()
 
-  info "preparing PCIe-9140I L0 as CANopen/can0 and L1 as BMS/can1 at 500 kbit/s, txqueuelen 128"
+  info "preparing PCIe-9140I L0 CANopen/can0 and L1 BMS/can1 at 500 kbit/s"
   run_privileged modprobe "${expected_can_pci_driver}" ||
     fail "could not load ${expected_can_pci_driver}; check the installed PCIe CAN driver"
 
@@ -496,7 +496,11 @@ prepare_can_interfaces()
   done
 
   sources=("${pcie_interfaces[@]}")
-  for reserved in can0 can1 pciecan1 pciecan2 pciecan3 \
+  if [[ -n "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]]; then
+    ip -details link show dev "${pcie_interfaces[2]}" | grep -Fq 'bitrate 1000000' ||
+      fail "PCIe-9140I L2 must already be at 1000000 bit/s; refusing to change its bitrate"
+  fi
+  for reserved in can0 can1 can2 pciecan1 pciecan2 pciecan3 \
     zpcie_tmp0 zpcie_tmp1 zpcie_tmp2 zpcie_tmp3 bmscan_tmp; do
     [[ -e "/sys/class/net/${reserved}" ]] || continue
     for source in "${sources[@]}"; do
@@ -520,13 +524,31 @@ prepare_can_interfaces()
     fail "could not bind PCIe-9140I L0 to can0"
   run_privileged ip link set dev zpcie_tmp1 name can1 ||
     fail "could not bind PCIe-9140I L1 to BMS/can1"
-  for ((port = 2; port < expected_can_pci_ports; port++)); do
+  run_privileged ip link set dev zpcie_tmp2 name can2 ||
+    fail "could not bind PCIe-9140I L2 to can2"
+  for ((port = 3; port < expected_can_pci_ports; port++)); do
     run_privileged ip link set dev "zpcie_tmp${port}" name "pciecan${port}" ||
       fail "could not park PCIe-9140I L${port} as pciecan${port}"
   done
 
   configure_can_interface can0
   configure_can_interface can1
+  if [[ -n "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]]; then
+    run_privileged ip link set dev can2 txqueuelen 128 ||
+      fail "could not set can2 txqueuelen to 128"
+    run_privileged ip link set dev can2 up ||
+      fail "could not bring can2 up"
+  fi
+}
+
+verify_head_can_selection()
+{
+  [[ -n "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]] || return 0
+  [[ -f "${RT_CONTROL_HEAD_CAN_CONFIG}" ]] ||
+    fail "RT_CONTROL_HEAD_CAN_CONFIG must name an existing head CAN configuration"
+  runtime_env python3 -c \
+    'import sys; from rt_control_bringup.head_can_config import load_head_can_config; load_head_can_config(sys.argv[1])' \
+    "${RT_CONTROL_HEAD_CAN_CONFIG}" || fail "head CAN configuration rejected before changing any CAN interface"
 }
 
 run_privileged()
@@ -564,10 +586,11 @@ pcie_can_interface_for_port()
 configure_can_interface()
 {
   local interface="$1"
+  local bitrate="${2:-500000}"
   run_privileged ip link set dev "${interface}" down ||
     fail "could not bring ${interface} down for CAN configuration"
-  run_privileged ip link set dev "${interface}" type can bitrate 500000 ||
-    fail "could not set ${interface} to 500 kbit/s"
+  run_privileged ip link set dev "${interface}" type can bitrate "${bitrate}" ||
+    fail "could not set ${interface} to ${bitrate} bit/s"
   run_privileged ip link set dev "${interface}" txqueuelen 128 ||
     fail "could not set ${interface} txqueuelen to 128"
   run_privileged ip link set dev "${interface}" up ||
@@ -579,6 +602,7 @@ verify_can_link()
   local deadline=$((SECONDS + 5))
   local flags
   local interface="$1"
+  local bitrate="${2:-500000}"
   local last_error=""
   local output
   while true; do
@@ -591,8 +615,8 @@ verify_can_link()
         last_error="${interface} is not administratively UP"
       elif ! grep -Fq 'can state ERROR-ACTIVE' <<< "${output}"; then
         last_error="${interface} is not ERROR-ACTIVE"
-      elif ! grep -Fq 'bitrate 500000' <<< "${output}"; then
-        last_error="${interface} is not 500 kbit/s"
+      elif ! grep -Fq "bitrate ${bitrate}" <<< "${output}"; then
+        last_error="${interface} is not ${bitrate} bit/s"
       elif ! grep -Fq 'qlen 128' <<< "${output}"; then
         last_error="${interface} txqueuelen is not 128"
       else
@@ -610,6 +634,7 @@ verify_pcie_can_interface()
 {
   local interface="$1"
   local port="$2"
+  local bitrate="${3:-500000}"
   local expected_dev_id
   expected_dev_id="$(printf '0x%x' "${port}")"
   [[ "$(basename "$(readlink -f "/sys/class/net/${interface}/device/driver" 2>/dev/null)")" == "${expected_can_pci_driver}" ]] ||
@@ -620,7 +645,7 @@ verify_pcie_can_interface()
     fail "${interface} PCI device mismatch"
   [[ "$(< "/sys/class/net/${interface}/dev_id")" == "${expected_dev_id}" ]] ||
     fail "${interface} is not PCIe-9140I logical port L${port}"
-  verify_can_link "${interface}"
+  verify_can_link "${interface}" "${bitrate}"
 }
 
 verify_x503_identity_and_pdos()
@@ -730,6 +755,10 @@ launch_native()
 {
   local log_file
   local pid
+  local -a head_launch_args=()
+  if [[ -n "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]]; then
+    head_launch_args=("head_can_config:=${RT_CONTROL_HEAD_CAN_CONFIG}")
+  fi
   mkdir -p "${runtime_root}" "${runtime_log_root}"
   log_file="${runtime_log_root}/rt-control-$(date +%Y%m%d-%H%M%S).log"
   ln -sfn -- "${log_file}" "${latest_log_link}"
@@ -753,7 +782,7 @@ launch_native()
     PATH="${PATH}" \
     LD_LIBRARY_PATH="${LD_LIBRARY_PATH}" \
     taskset --cpu-list "${expected_housekeeping_cpuset}" \
-    "${installed_start}" > "${log_file}" 2>&1 < /dev/null &
+    "${installed_start}" "${head_launch_args[@]}" > "${log_file}" 2>&1 < /dev/null &
   pid=$!
   printf '%s\n' "${pid}" > "${pid_file}"
 }
@@ -1216,9 +1245,13 @@ start_native()
   if [[ "${authorization}" != "preauthorized" ]]; then
     confirm_start_authorization
   fi
+  verify_head_can_selection
   prepare_can_interfaces
   verify_pcie_can_interface can0 "${expected_canopen_can_pci_port}"
   verify_pcie_can_interface can1 "${expected_bms_can_pci_port}"
+  if [[ -n "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]]; then
+    verify_pcie_can_interface can2 2 1000000
+  fi
   prepare_ti5_pdo_assignments
   launch_native
   if ! (prepare_startup_realtime); then
@@ -1268,6 +1301,8 @@ start_and_enable_native()
 recover_power_loss_native()
 {
   local enable_response
+  [[ -z "${RT_CONTROL_HEAD_CAN_CONFIG:-}" ]] ||
+    fail "automatic power-loss recovery is not approved for head CAN; stop and use staged start"
   verify_target_identity
   verify_realtime_host
   verify_workspace
