@@ -1245,23 +1245,6 @@ const char * EnableManagerController::controllerNameForMode(
   return nullptr;
 }
 
-bool EnableManagerController::waitForRollingActivationEvidence(
-  std::uint64_t not_before_ns, CommandSnapshot & snapshot)
-{
-  const auto deadline = std::chrono::steady_clock::now() + mode_switch_timeout_;
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (
-      readCommandSnapshot(ControlMode::kRollingReady, snapshot) &&
-      snapshot.received_steady_ns >= not_before_ns &&
-      !isZeroIdentifier(snapshot.controller_boot_id))
-    {
-      return true;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  }
-  return false;
-}
-
 void EnableManagerController::convergeAfterUnsafeModeSwitch(bool require_restart)
 {
   restart_required_.store(require_restart, std::memory_order_release);
@@ -1389,12 +1372,13 @@ std::uint8_t EnableManagerController::executeModeSwitch(
   if (switch_ok && observed == ModeSwitchState::kTargetActive) {
     if (target == ControlMode::kRollingReady) {
       CommandSnapshot rolling_snapshot;
-      if (!waitForRollingActivationEvidence(switch_started_ns, rolling_snapshot)) {
-        release_switch();
-        convergeAfterUnsafeModeSwitch(true);
-        return ServiceResult::RESTART_REQUIRED;
+      if (
+        readCommandSnapshot(ControlMode::kRollingReady, rolling_snapshot) &&
+        rolling_snapshot.received_steady_ns >= switch_started_ns &&
+        !isZeroIdentifier(rolling_snapshot.controller_boot_id))
+      {
+        response.controller_boot_id.uuid = rolling_snapshot.controller_boot_id;
       }
-      response.controller_boot_id.uuid = rolling_snapshot.controller_boot_id;
     }
     current_control_mode_.store(target, std::memory_order_release);
     release_switch();

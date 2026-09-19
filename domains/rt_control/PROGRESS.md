@@ -175,6 +175,7 @@
 | 2026-09-18 | contract | [V3 机械臂 RT-Control 与 Motion 对接方案](docs/areas/contract/records/2026-09-18-v3-arm-motion-integration-guide.md) | UNVERIFIED（T0；公共契约/runtime/HIL 待完成） |
 | 2026-09-19 | motion | [V3 双七轴 FJT 与 rolling 实时控制](docs/areas/motion/records/2026-09-19-v3-arm-fjt-rolling-runtime.md) | PARTIAL（T1 Mock；实机待验） |
 | 2026-09-19 | lifecycle | [V3 十六轴使能与运动控制器严格切换](docs/areas/lifecycle/records/2026-09-19-v3-motion-controller-switching.md) | PARTIAL（T1 Mock；真实故障/停机待验） |
+| 2026-09-19 | lifecycle | [V3 rolling 激活握手与 provisional epoch 纠错](docs/areas/lifecycle/records/2026-09-19-v3-rolling-activation-handoff.md) | PARTIAL（T1 Native；两包 192 测试通过；二代实机验证仅作移植依据，V3 实机待验） |
 | 2026-09-19 | contract | [V3 rolling 接口 pin 与轴集合身份](docs/areas/contract/records/2026-09-19-v3-rolling-axis-contract.md) | PARTIAL（T1；上游语义待发布） |
 | 2026-09-19 | release-deploy | [V3 机械臂运动 runtime 显式入口](docs/areas/release-deploy/records/2026-09-19-v3-arm-runtime-entry.md) | PARTIAL（T1 Mock；未部署） |
 | 2026-09-19 | governance | [V3 Robot Model CI 使用构建 overlay](docs/areas/governance/records/2026-09-19-v3-description-overlay-ci.md) | PASS（T0；完整 PR CI 重跑） |

@@ -20,6 +20,7 @@
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [V3 rolling 激活握手与 provisional epoch 纠错](records/2026-09-19-v3-rolling-activation-handoff.md)：PARTIAL，T1 Native；V3 实机待验。
 - 2026-09-19 [V3 十六轴使能与运动控制器严格切换](records/2026-09-19-v3-motion-controller-switching.md)：PARTIAL，T1 Mock。
 - 2026-09-12 [16轴原位使能入口与显式终态策略](records/2026-09-12-stationary-enable-entry.md)：PARTIAL，真实使能/停机通过。
 - 2026-08-14 [enable_manager 状态机表驱动 gtest（ELECTRI-93）](records/2026-08-14-enable-manager-gtest.md) — feature，PASS（工控机实跑 36/36）

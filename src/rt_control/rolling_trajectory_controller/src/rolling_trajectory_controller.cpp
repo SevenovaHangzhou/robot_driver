@@ -1252,7 +1252,10 @@ bool RollingTrajectoryController::resetRtEpoch(std::uint64_t epoch) noexcept
   }
 
   StopTrajectory stop_trajectory;
-  if (!stop_trajectory.configure(envelope_, true)) {
+  if (!stop_trajectory.configure(
+      envelope_, envelope_.source == LimitsSource::kTestOnly,
+      envelope_.source == LimitsSource::kProvisional))
+  {
     return false;
   }
 

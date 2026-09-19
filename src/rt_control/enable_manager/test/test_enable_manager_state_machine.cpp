@@ -727,7 +727,7 @@ TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWr
     ::testing::ElementsAre("rolling_trajectory_controller"));
 }
 
-TEST_F(EnableManagerFixture, ModeServiceExecutesOneVerifiedStrictSwitchAndReplaysResult)
+TEST_F(EnableManagerFixture, ModeServiceDoesNotWaitForRollingStateAndReplaysResult)
 {
   bringUpMotionToIdle();
   setAllStatus(kSwOperationEnabled);
@@ -760,7 +760,7 @@ TEST_F(EnableManagerFixture, ModeServiceExecutesOneVerifiedStrictSwitchAndReplay
   auto switch_service = fake_manager->create_service<
     controller_manager_msgs::srv::SwitchController>(
     "/controller_manager/switch_controller",
-    [&states_mutex, &controller_states, &switch_calls, &strict_request_valid, this](
+    [&states_mutex, &controller_states, &switch_calls, &strict_request_valid](
       const std::shared_ptr<controller_manager_msgs::srv::SwitchController::Request> request,
       std::shared_ptr<controller_manager_msgs::srv::SwitchController::Response> response) {
       ++switch_calls;
@@ -775,14 +775,6 @@ TEST_F(EnableManagerFixture, ModeServiceExecutesOneVerifiedStrictSwitchAndReplay
         controller_states.controller[0].state = "inactive";
         controller_states.controller[1].state = "active";
       }
-      auto rolling_state =
-      std::make_shared<robot_rt_control_interfaces::msg::RollingJointControlState>();
-      rolling_state->control_mode.value =
-      robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
-      rolling_state->controller_boot_id.uuid.fill(0xABU);
-      rolling_state->desired_positions.fill(0.0);
-      rolling_state->has_session = false;
-      Access::handleRollingState(*controller_, rolling_state);
       response->ok = true;
     });
 
@@ -839,12 +831,13 @@ TEST_F(EnableManagerFixture, ModeServiceExecutesOneVerifiedStrictSwitchAndReplay
   EXPECT_EQ(
     response->mode.value,
     robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY);
-  EXPECT_THAT(response->controller_boot_id.uuid, ::testing::Each(0xABU));
+  EXPECT_THAT(response->controller_boot_id.uuid, ::testing::Each(0U));
   EXPECT_EQ(Access::controlMode(*controller_), ControlMode::kRollingReady);
   EXPECT_TRUE(strict_request_valid.load());
   EXPECT_EQ(switch_calls.load(), 1U);
   EXPECT_GE(list_calls.load(), 2U);
   EXPECT_EQ(replay->result.value, response->result.value);
+  EXPECT_EQ(replay->controller_boot_id.uuid, response->controller_boot_id.uuid);
   EXPECT_EQ(switch_calls.load(), 1U);
 
   (void)list_service;
