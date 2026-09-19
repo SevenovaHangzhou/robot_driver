@@ -166,7 +166,8 @@ jobs:
     container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
     timeout-minutes: 30
     env:
-      RT_CONTROL_NATIVE_WS: ${{ github.workspace }}/.ci/rt-control-ci-ws
+      RT_CONTROL_NATIVE_WS: /tmp/rt-control-ci-ws
+      RT_CONTROL_VENDOR_CACHE: ${{ github.workspace }}/.ci/vendor
       CCACHE_DIR: ${{ github.workspace }}/.ci/ccache
     steps:
       - uses: actions/checkout@v4
@@ -176,7 +177,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .ci/rt-control-ci-ws/src/vendor
+            .ci/vendor
             .ci/ccache
             .ci/apt
           key: rt-control-ci-${{ runner.os }}-${{ hashFiles('deps.repos', 'versions.env') }}
@@ -209,8 +210,15 @@ jobs:
         shell: bash
         run: |
           mkdir -p "${RT_CONTROL_NATIVE_WS}"
-          vcs import --shallow --retry 5 --workers 1 \
-            "${RT_CONTROL_NATIVE_WS}" < deps.repos
+          if [[ -d "${RT_CONTROL_VENDOR_CACHE}/robot_interfaces/.git" ]]; then
+            mkdir -p "${RT_CONTROL_NATIVE_WS}/src/vendor"
+            cp -a "${RT_CONTROL_VENDOR_CACHE}/." "${RT_CONTROL_NATIVE_WS}/src/vendor/"
+          else
+            vcs import --shallow --retry 5 --workers 1 \
+              "${RT_CONTROL_NATIVE_WS}" < deps.repos
+            mkdir -p "${RT_CONTROL_VENDOR_CACHE}"
+            cp -a "${RT_CONTROL_NATIVE_WS}/src/vendor/." "${RT_CONTROL_VENDOR_CACHE}/"
+          fi
           tools/bootstrap_native_dev.sh prepare
       - name: Install pinned IgH userspace dependency
         if: env.RT_CONTROL_CI_BASE_IMAGE == ''
