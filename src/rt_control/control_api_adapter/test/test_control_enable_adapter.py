@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PACKAGE_ROOT))
 
@@ -81,7 +83,8 @@ def test_disable_only_calls_rt_disable():
     assert not result.error.retryable
 
 
-def test_enable_resets_resettable_fault_before_enable():
+@pytest.mark.parametrize("joint_name", ["left_joint3", "right_joint4"])
+def test_enable_resets_v3_single_turn_battery_fault_before_enable(joint_name):
     services = FakeRtServices(
         {
             "reset_fault": RtServiceResult(ok=True, stage="success"),
@@ -89,7 +92,12 @@ def test_enable_resets_resettable_fault_before_enable():
         }
     )
     diagnostics = FakeDiagnostics(
-        DiagnosticSnapshot(state="FAILED", stage="fault_requires_reset")
+        DiagnosticSnapshot(
+            state="FAILED",
+            stage="fault_requires_reset",
+            failed_joint=joint_name,
+            failed_status_word=0x1208,
+        )
     )
     adapter = ControlEnableAdapterCore(services, diagnostics)
 
