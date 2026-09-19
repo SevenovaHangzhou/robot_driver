@@ -1,0 +1,50 @@
+name: rt-control-ci-base
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, v3]
+    paths:
+      - docker/rt-control-ci/Dockerfile
+      - patches/igh/**
+      - versions.env
+      - .github/workflows/rt-control-ci-base.yml
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read pinned EtherLab identity
+        id: versions
+        shell: bash
+        run: |
+          source versions.env
+          [[ "${IGH_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          echo "igh_version=${IGH_VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "igh_commit=${IGH_COMMIT}" >> "${GITHUB_OUTPUT}"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish pinned CI base
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/rt-control-ci/Dockerfile
+          push: true
+          build-args: |
+            IGH_VERSION=${{ steps.versions.outputs.igh_version }}
+            IGH_COMMIT=${{ steps.versions.outputs.igh_commit }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/robot-driver-rt-control-ci:humble-igh-${{ steps.versions.outputs.igh_commit }}
+          cache-from: type=gha,scope=rt-control-ci-base
+          cache-to: type=gha,mode=max,scope=rt-control-ci-base

@@ -11,23 +11,41 @@ concurrency:
   group: rt-control-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  RT_CONTROL_CI_BASE_IMAGE: ${{ vars.RT_CONTROL_CI_IMAGE || '' }}
+
+  # A repository variable can point at the published ROS+EtherLab base image.
+  # Until it is set, jobs retain the current public ROS image fallback.
+
 jobs:
   governance:
     runs-on: ubuntu-22.04
-    container: ros:humble-ros-base
+    container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Cache governance apt archives
+        uses: actions/cache@v4
+        with:
+          path: .ci/apt
+          key: rt-control-governance-apt-${{ runner.os }}-${{ hashFiles('pre-commit-config.yaml') }}
+          restore-keys: |
+            rt-control-governance-apt-${{ runner.os }}-
       - name: Trust the checked-out workspace inside the job container
         shell: bash
         run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
       - name: Install quality-gate tools
+        if: env.RT_CONTROL_CI_BASE_IMAGE == ''
         shell: bash
         run: |
+          mkdir -p "${GITHUB_WORKSPACE}/.ci/apt/partial"
+          apt_options=(
+            -o "Dir::Cache::archives=${GITHUB_WORKSPACE}/.ci/apt"
+          )
           apt-get update
-          apt-get install -y --no-install-recommends \
+          apt-get "${apt_options[@]}" install -y --no-install-recommends \
             python3-coverage \
             python3-pip \
             python3-pytest \
@@ -45,22 +63,135 @@ jobs:
         shell: bash
         run: python3 tools/pr_contract_gate.py --event-path "${GITHUB_EVENT_PATH}"
 
-  build:
-    needs: governance
+  scope:
+    name: Classify changed scope
     runs-on: ubuntu-22.04
-    container: ros:humble-ros-base
-    timeout-minutes: 30
-    env:
-      RT_CONTROL_NATIVE_WS: /tmp/rt-control-ci-ws
+    outputs:
+      head_only: ${{ steps.classify.outputs.head_only }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Install build tools
+          fetch-depth: 0
+      - id: classify
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          head_only=true
+          while IFS= read -r path; do
+            case "${path}" in
+              src/rt_control/robot_hw_can/*|\
+              src/rt_control/damiao_head_controller/*|\
+              src/rt_control/rt_control_bringup/launch/rt_control_head_runtime.launch.py|\
+              src/rt_control/rt_control_bringup/rt_control_bringup/head_can_config.py|\
+              src/rt_control/rt_control_bringup/rt_control_bringup/head_runtime.py|\
+              src/rt_control/rt_control_bringup/test/test_v3_head_can_integration.py|\
+              src/rt_control/rt_control_bringup/urdf/alfa_v3_head.ros2_control.xacro|\
+              src/rt_control/rt_control_bringup/config/machines/alfa_v3.yaml|\
+              src/rt_control/rt_control_bringup/rt_control_bringup/machine_profile.py|\
+              src/rt_control/rt_control_bringup/test/test_machine_profile.py|\
+              src/rt_control/rt_control_bringup/CMakeLists.txt|\
+              src/rt_control/rt_control_bringup/package.xml|\
+              domains/rt_control/docs/areas/release-deploy/*|\
+              domains/rt_control/PROGRESS.md)
+                ;;
+              *) head_only=false; break ;;
+            esac
+          done < <(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")
+          echo "head_only=${head_only}" >> "${GITHUB_OUTPUT}"
+
+  head-fast:
+    name: Head-only fast checks
+    needs: [governance, scope]
+    if: needs.scope.outputs.head_only == 'true'
+    runs-on: ubuntu-22.04
+    container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
+    timeout-minutes: 12
+    env:
+      HEAD_FAST_WS: ${{ github.workspace }}/.ci/head-fast-ws
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Cache head-only vendor checkout
+        uses: actions/cache@v4
+        with:
+          path: .ci/head-fast-ws/src/vendor
+          key: head-fast-vendor-${{ runner.os }}-${{ hashFiles('deps.repos') }}
+      - name: Install head-only build tools
+        if: env.RT_CONTROL_CI_BASE_IMAGE == ''
         shell: bash
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
+            build-essential \
+            python3-colcon-common-extensions \
+            python3-vcstool \
+            python3-yaml \
+            ros-humble-xacro
+      - name: Build and test head closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${HEAD_FAST_WS}"
+          vcs import --shallow --retry 5 --workers 1 \
+            "${HEAD_FAST_WS}" < deps.repos
+          source /opt/ros/humble/setup.bash
+          colcon build --symlink-install \
+            --base-paths src "${HEAD_FAST_WS}/src/vendor" \
+            --packages-select \
+            robot_rt_control_interfaces \
+            robot_system_interfaces \
+            robot_interfaces_qos \
+            rt_control_interfaces \
+            robot_description \
+            robot_hw_can \
+            damiao_head_controller
+          source install/setup.bash
+          colcon test --event-handlers console_direct+ \
+            --base-paths src "${HEAD_FAST_WS}/src/vendor" \
+            --packages-select robot_hw_can damiao_head_controller
+          colcon test-result --verbose
+          PYTHONPATH=src/rt_control/rt_control_bringup:${PYTHONPATH:-} \
+            python3 -m pytest -q \
+            src/rt_control/rt_control_bringup/test/test_v3_head_can_integration.py \
+            src/rt_control/rt_control_bringup/test/test_machine_profile.py
+
+  build:
+    needs: governance
+    runs-on: ubuntu-22.04
+    container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
+    timeout-minutes: 30
+    env:
+      RT_CONTROL_NATIVE_WS: ${{ github.workspace }}/.ci/rt-control-ci-ws
+      CCACHE_DIR: ${{ github.workspace }}/.ci/ccache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Cache CI dependencies and compiler artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .ci/rt-control-ci-ws/src/vendor
+            .ci/ccache
+            .ci/apt
+          key: rt-control-ci-${{ runner.os }}-${{ hashFiles('deps.repos', 'versions.env') }}
+          restore-keys: |
+            rt-control-ci-${{ runner.os }}-
+      - name: Install build tools
+        if: env.RT_CONTROL_CI_BASE_IMAGE == ''
+        shell: bash
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/.ci/apt/partial"
+          apt_options=(
+            -o "Dir::Cache::archives=${GITHUB_WORKSPACE}/.ci/apt"
+          )
+          apt-get update
+          apt-get "${apt_options[@]}" install -y --no-install-recommends \
             autoconf \
             automake \
             build-essential \
@@ -71,7 +202,9 @@ jobs:
             python3-colcon-common-extensions \
             python3-rosdep \
             python3-vcstool \
-            python3-yaml
+            python3-yaml \
+            ccache
+          mkdir -p "${GITHUB_WORKSPACE}/.ci/apt" "${CCACHE_DIR}"
       - name: Import frozen source dependencies
         shell: bash
         run: |
@@ -80,6 +213,7 @@ jobs:
             "${RT_CONTROL_NATIVE_WS}" < deps.repos
           tools/bootstrap_native_dev.sh prepare
       - name: Install pinned IgH userspace dependency
+        if: env.RT_CONTROL_CI_BASE_IMAGE == ''
         shell: bash
         run: |
           source versions.env
@@ -184,7 +318,8 @@ jobs:
             rolling_trajectory_controller \
             rt_force_torque_broadcaster \
             swerve_driver \
-            rt_control_bringup
+            rt_control_bringup \
+            --cmake-args -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Install upstream controller test hardware
         shell: bash
         run: |
