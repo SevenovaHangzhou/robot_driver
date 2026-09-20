@@ -4,14 +4,17 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG IGH_VERSION
 ARG IGH_COMMIT
+ARG PINOCCHIO_DEB_VERSION
 
 LABEL org.opencontainers.image.version="${IGH_VERSION}" \
       io.rt-control.igh.commit="${IGH_COMMIT}" \
+      io.rt-control.pinocchio.deb-version="${PINOCCHIO_DEB_VERSION}" \
       io.rt-control.igh.preserve-pdo-config="true"
 
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && test -n "${IGH_VERSION}" \
     && [[ "${IGH_COMMIT}" =~ ^[0-9a-f]{40}$ ]] \
+    && test -n "${PINOCCHIO_DEB_VERSION}" \
     && sed -i \
       -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
       -e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' \
@@ -23,6 +26,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       build-essential \
       ca-certificates \
       git \
+      libssl-dev \
       libtool \
       pkg-config \
       python3-colcon-common-extensions \
@@ -33,6 +37,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ros-humble-robot-state-publisher \
       ros-humble-ros2-control \
       ros-humble-ros2-controllers \
+      ros-humble-pinocchio="${PINOCCHIO_DEB_VERSION}" \
       ros-humble-xacro \
       util-linux \
     && test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher \
@@ -71,8 +76,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && igh_dc_patch_sha256="$(sha256sum \
       /tmp/0002-dc-offset-use-sent-application-time.patch | awk '{print $1}')" \
     && igh_preop_patch_sha256="$(sha256sum /tmp/0003-preop-only-coe.patch | awk '{print $1}')" \
-    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_DC_OFFSET_PATCH_SHA256=%s\nIGH_PREOP_COE_PATCH_SHA256=%s\n' \
-      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" "${igh_preop_patch_sha256}" \
+    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nPINOCCHIO_DEB_VERSION=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_DC_OFFSET_PATCH_SHA256=%s\nIGH_PREOP_COE_PATCH_SHA256=%s\n' \
+      "${IGH_VERSION}" "${IGH_COMMIT}" "${PINOCCHIO_DEB_VERSION}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" "${igh_preop_patch_sha256}" \
       > /usr/local/share/rt-control/dependency-versions.env \
     && ldconfig \
     && rm -rf /tmp/ethercat \
@@ -222,6 +227,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       rt_diagnostics \
       rt_control_semantic_components \
       rt_force_torque_broadcaster \
+      rt_arm_dynamics \
+      gravity_ff_controller \
       swerve_driver \
       rt_control_bringup \
     ) \
