@@ -30,6 +30,8 @@ RUN test -n "${IGH_VERSION}" && [[ "${IGH_COMMIT}" =~ ^[0-9a-f]{40}$ ]] \
       python3-vcstool \
       python3-yaml \
       ripgrep \
+      ros-humble-ros2-control \
+      ros-humble-ros2-controllers \
       ros-humble-xacro \
       shellcheck \
     && python3 -m pip install --no-cache-dir pre-commit==3.7.1 \
