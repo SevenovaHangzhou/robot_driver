@@ -9,9 +9,12 @@ int main(int argc, char ** argv)
   try {
     rclcpp::spin(lpms_nav3_can::make_node(rclcpp::NodeOptions{}));
   } catch (const std::exception & error) {
-    std::fprintf(stderr, "lpms_nav3_can_node: %s\n", error.what());
+    const bool shutdown_requested = !rclcpp::ok();
+    if (!shutdown_requested) {
+      std::fprintf(stderr, "lpms_nav3_can_node: %s\n", error.what());
+    }
     rclcpp::shutdown();
-    return 1;
+    return shutdown_requested ? 0 : 1;
   }
   rclcpp::shutdown();
   return 0;

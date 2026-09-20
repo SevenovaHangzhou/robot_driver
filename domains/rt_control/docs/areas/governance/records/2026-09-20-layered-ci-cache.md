@@ -13,6 +13,8 @@ verified: PARTIAL
 evidence:
   - "PR #44 run 35449639274: governance PASS 45 s, build PASS 12 min 1 s"
   - "PR #44 run 35480719551: full build PASS 16 min 15 s, ccache hit 17.68%"
+  - "PR #44 run 35481600633 attempt 1: cold split-cache build PASS 17 min 4 s"
+  - "PR #44 run 35481600633 attempt 2: ccache 475/475 hits; build job 9 min 5 s; LPMS exit test failed"
   - "tools/tests/test_ci_scope.py: 3 passed"
   - "tools/tests/test_ci_workflow.py: 2 passed"
   - "tools/tests/test_repository_gate.py -k ci_workflow: 1 passed"
@@ -65,7 +67,10 @@ CI 基础镜像仅用于构建环境复用，不是运行产品镜像，不改�
   相比本 PR 首轮 15 min 46 s 缩短 3 min 45 s。
 - 后续 run 35480719551 完整 build 通过但耗时 16 min 15 s；日志显示旧组合 cache
   命中主键后不保存本轮对象，ccache 仅 84/475（17.68%）命中。缓存已据此拆分，
-  拆分后的连续热缓存耗时仍待远端复测。
+  拆分后的冷缓存 attempt 1 为 17 min 4 s 并成功分别保存三类缓存。
+- 同一 SHA 热缓存 attempt 2 的 ccache 为 475/475（100%）命中，完整 build job 降至
+  9 min 5 s；完整测试被既有 LPMS 启动窗口 SIGINT 退出竞态阻断。该缺陷单独记录于
+  `canopen-chassis-20260920-01`，修复后终态仍待远端确认。
 
 当前提交的远端完整 CI、基础镜像实际发布和设置仓库变量后的计时仍待完成，因此本记录
 保持 PARTIAL。本记录不授权使能或运动。
