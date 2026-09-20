@@ -12,9 +12,11 @@ writes: { reset: no, enable: no, motion: no, plc: no }
 verified: PARTIAL
 evidence:
   - "PR #44 run 35449639274: governance PASS 45 s, build PASS 12 min 1 s"
+  - "PR #44 run 35480719551: full build PASS 16 min 15 s, ccache hit 17.68%"
   - "tools/tests/test_ci_scope.py: 3 passed"
+  - "tools/tests/test_ci_workflow.py: 2 passed"
   - "tools/tests/test_repository_gate.py -k ci_workflow: 1 passed"
-  - "tools/quality_gate.sh: 294 passed, 13 skipped, policy coverage 83%"
+  - "tools/quality_gate.sh: 297 passed, 13 skipped, policy coverage 83%"
   - "docker buildx build --check: no warnings"
   - "GitHub workflow YAML BaseLoader parse: PASS"
 supersedes: []
@@ -33,7 +35,9 @@ C++ 重编译存在重复开销。优化必须回答的核心问题是：缩短�
   对基础镜像输入变更时发布 ROS Humble、构建工具和固定 EtherLab userspace 镜像。
   镜像标签同时包含 EtherLab commit 与仓库 commit；主 CI 通过仓库变量
   `RT_CONTROL_CI_IMAGE` 选择该精确标签，未设置时保留公开 ROS 镜像回退路径。
-- 完整 `build` 缓存 vendor checkout、apt archives 和 ccache，并保持
+- 完整 `build` 分别缓存 vendor checkout、apt archives 和 ccache。vendor 使用依赖
+  pin 内容键；apt/ccache 使用每提交新键并从上一轮前缀恢复，避免 GitHub cache 主键
+  命中后不回写新增内容。完整门禁仍保持
   `governance -> build`、ROS test dependencies、完整 V3 package closure、URDF 和
   分支合同检查不变。
 - 新增可单测的 `tools/ci_scope.py`。只有头部 CAN hardware/controller 及五个专属
@@ -49,14 +53,19 @@ CI 基础镜像仅用于构建环境复用，不是运行产品镜像，不改�
 
 - `python3 -m pytest -q tools/tests/test_ci_scope.py`：3 passed，含 workflow 同款
   stdin/stdout CLI 调用。
+- `python3 -m pytest -q tools/tests/test_ci_workflow.py`：2 passed，覆盖三类缓存分离、
+  apt/ccache 可刷新键和基础镜像不可变标签。
 - `python3 -m pytest -q tools/tests/test_repository_gate.py -k ci_workflow`：1 passed，
   并用 RED 用例确认带条件的完整 build 会被拒绝。
-- `tools/quality_gate.sh`：294 passed、13 skipped，策略覆盖率 83%。
+- `tools/quality_gate.sh`：297 passed、13 skipped，策略覆盖率 83%。
 - `docker buildx build --check ... -f docker/rt-control-ci/Dockerfile .`：通过，
   no warnings。
 - 两个 GitHub workflow 使用 `yaml.BaseLoader` 解析通过，`git diff --check` 通过。
 - PR #44 在 vendor cache 边界修正后，回退镜像路径的完整 build 为 12 min 1 s，
   相比本 PR 首轮 15 min 46 s 缩短 3 min 45 s。
+- 后续 run 35480719551 完整 build 通过但耗时 16 min 15 s；日志显示旧组合 cache
+  命中主键后不保存本轮对象，ccache 仅 84/475（17.68%）命中。缓存已据此拆分，
+  拆分后的连续热缓存耗时仍待远端复测。
 
 当前提交的远端完整 CI、基础镜像实际发布和设置仓库变量后的计时仍待完成，因此本记录
 保持 PARTIAL。本记录不授权使能或运动。
@@ -67,8 +76,9 @@ CI 基础镜像仅用于构建环境复用，不是运行产品镜像，不改�
 - F2: `head-fast` 只作头部专属改动的提前反馈，不替代 `governance` 或完整 `build`。
 - F3: CI 基础镜像必须用包含 EtherLab commit 与仓库 commit 的精确标签；变量未配置时
   必须保留可工作的公开 ROS 镜像回退路径。
-- F4: vendor、apt 和 ccache 可以跨 CI run 复用，但依赖源身份仍由 `deps.repos` 和
-  `versions.env` 的完整 commit pin 决定。
+- F4: vendor 使用 pin 内容键；apt/ccache 使用每提交新键和前缀恢复以允许缓存演进。
+  缓存不改变依赖源身份，后者仍由 `deps.repos` 和 `versions.env` 的完整 commit pin
+  决定。
 
 ## 遗留
 
