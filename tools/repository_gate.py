@@ -408,6 +408,8 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     build = jobs.get("build")
     if not isinstance(governance, dict) or not isinstance(build, dict):
         return findings + ["CI workflow must define governance and build jobs"]
+    if "if" in build:
+        findings.append("CI full V3 build job must remain unconditional for every code PR")
     needs = build.get("needs")
     if needs != "governance" and not (
         isinstance(needs, list) and "governance" in needs

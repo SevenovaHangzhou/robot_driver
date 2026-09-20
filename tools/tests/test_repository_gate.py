@@ -345,6 +345,16 @@ jobs:
         self.assert_has(findings, "build job must depend on governance")
         self.assert_has(findings, "build job must run colcon test")
 
+        conditional = valid.replace(
+            "  build:\n    needs: governance\n",
+            "  build:\n    if: needs.scope.outputs.head_only != 'true'\n"
+            "    needs: governance\n",
+        )
+        self.assert_has(
+            repository_gate.check_ci_workflow_policy(conditional),
+            "full V3 build job must remain unconditional",
+        )
+
         v3 = valid.replace(
             "python3 tools/diff_legacy.py",
             "python3 tools/check_v3_branch_contract.py",
