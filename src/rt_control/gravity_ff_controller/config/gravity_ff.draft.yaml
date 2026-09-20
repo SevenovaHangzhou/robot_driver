@@ -1,0 +1,45 @@
+# Review-only V3 structure. Not referenced by rt_control_bringup.
+verified: false
+controllers:
+  right_gravity_ff:
+    joints: [right_joint1, right_joint2, right_joint3, right_joint4, right_joint5, right_joint6, right_joint7]
+    mode: shadow
+    scale: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    max_effort_nm: TBD
+    max_slew_nm_per_s: TBD
+    fault_slew_nm_per_s: 1000.0
+    robot_description: TBD
+    locked_joints: TBD
+    locked_positions: TBD
+    payload_frame: right_tool0
+  left_gravity_ff:
+    joints: [left_joint1, left_joint2, left_joint3, left_joint4, left_joint5, left_joint6, left_joint7]
+    mode: shadow
+    scale: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    max_effort_nm: TBD
+    max_slew_nm_per_s: TBD
+    fault_slew_nm_per_s: 1000.0
+    robot_description: TBD
+    locked_joints: TBD
+    locked_positions: TBD
+    payload_frame: left_tool0
+shared_model:
+  source_joint_parameters:
+    - {joint: joint1, model: "eRob170H160I-BHS-18ET[V3]", reduction_ratio: 160, input_inertia_g_mm2: 1545541, start_stop_peak_torque_nm: 647}
+    - {joint: joint2, model: "eRob170H160I-BHS-18ET[V3]", reduction_ratio: 160, input_inertia_g_mm2: 1545541, start_stop_peak_torque_nm: 647}
+    - {joint: joint3, model: "eRob142H160I-BHM-18ET[V4]", reduction_ratio: 160, input_inertia_g_mm2: 1273287, start_stop_peak_torque_nm: 484}
+    - {joint: joint4, model: "eRob142H120I-BHS-18ET[V4]", reduction_ratio: 120, input_inertia_g_mm2: 1273287, start_stop_peak_torque_nm: 459}
+    - {joint: joint5, model: "eRob110H120I-BHS-18ET[V6]", reduction_ratio: 120, input_inertia_g_mm2: 316600, start_stop_peak_torque_nm: 217}
+    - {joint: joint6, model: "eRob90H100I-BHS-18ET[V6]", reduction_ratio: 100, input_inertia_g_mm2: 147025, start_stop_peak_torque_nm: 107}
+    - {joint: joint7, model: "eRob70H100I-BS-18EN[V5]", reduction_ratio: 100, input_inertia_g_mm2: 50996, start_stop_peak_torque_nm: 36}
+  input_inertia_g_mm2: [1545541, 1545541, 1273287, 1273287, 316600, 147025, 50996]
+  reduction_ratio: [160, 160, 160, 120, 120, 100, 100]
+  source: 零差云控 eRob 参数表，含制动器版；型号代号含义待核实
+  gravity: [0.0, 0.0, -9.81]
+  payload: {mass_kg: TBD, com_xyz: TBD, inertia: TBD}
+  model_validation: {verified: false, urdf_sha256: TBD, source: MECHINE-35}
+effort_calibration:
+  # Replicate for all seven joints of each arm. Active rejects every false/TBD entry.
+  verified: [false, false, false, false, false, false, false]
+  permille_per_newton_metre: [TBD, TBD, TBD, TBD, TBD, TBD, TBD]
+  source: [TBD, TBD, TBD, TBD, TBD, TBD, TBD]

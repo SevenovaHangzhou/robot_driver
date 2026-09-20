@@ -37,6 +37,8 @@ The source layout follows the frozen rt_control implementation specification:
 - `src/interfaces/rt_control_interfaces`: 仅供本域使用的 `PlcIoState`、`RtEnable` 等私有接口。
 - `src/description/robot_description`: kinematics-only robot description.
 - `src/rt_control`: EtherCAT/CANopen configuration, bringup, enable/fault handling, and diagnostics packages.
+- `src/rt_control/rt_arm_dynamics`: reduced single-arm Pinocchio model and SI dynamics library.
+- `src/rt_control/gravity_ff_controller`: shadow/active gravity feedforward controller; V3 runtime admission remains closed.
 - `docker/rt-control` and `docker/compose.yaml`: rt-control image and current Compose deployment.
 - `tools`: migration and commissioning tools.
 - `hostsetup`: target-host setup assets.

@@ -3,7 +3,8 @@
 **范围**：whole_body_jtc 与 FJT 执行、diff_drive 底盘速度、控制器参数
 （`controllers.yaml`）、关节限位（`joint_limits.yaml`）、控制环频率配置。
 **Owner 包/资产**：`src/rt_control/rt_control_bringup` 的控制器/限位配置、
-`patches/ros2_controllers`。
+`patches/ros2_controllers`、`src/rt_control/rt_arm_dynamics`、
+`src/rt_control/gravity_ff_controller`。
 
 不属于本区：轨迹规划与任务编排（运控域，不在本仓库）、使能状态机（→ lifecycle）、
 launch 结构与容器（→ release-deploy）。
@@ -19,9 +20,11 @@ launch 结构与容器（→ release-deploy）。
 | F5 | HT-WS-HH270 厂家图纸已登记名义轮径、传动、安装包络和悬挂参数；数据保持 draft，不能替代逐轮有效半径、零位、硬限位和背隙标定 | [厂家机械图纸提取](records/2026-09-15-swerve-module-mechanical-drawing.md)#F1-F4 | UNVERIFIED（T0 图纸提取；厂家澄清/实测待完成） |
 | F6 | 四轮速度使用固定规模最小二乘残差剔除；同一异常轮从 twist 与位置里程计排除且恢复无补跳，阈值保持待标定；共模一致误差不可辨识 | [残差剔除记录](records/2026-09-16-swerve-slip-residual-rejection.md)#F1-F4 | PARTIAL（T1 Native/Mock；阈值和实机打滑待验） |
 | F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
+| F8 | 七轴重力前馈以 Pinocchio reduced model 输出 N.m，shadow 无命令，active 独占 effort 并受模型哈希/逐轴换算双门禁；未接默认启动面 | [ELECTRI-136 离线实现](records/2026-09-19-electri-136-gravity-feedforward-offline.md)#F1-F4 | PARTIAL（T1 Docker/Mock 定向测试；全量测试/镜像/实机待验） |
 
 ## 记录索引（倒序）
 
+- [2026-09-19 ELECTRI-136 七轴 CSP 重力前馈离线库与控制器](records/2026-09-19-electri-136-gravity-feedforward-offline.md)
 - [2026-09-16 四舵轮机械限位内转向规划与输出门禁](records/2026-09-16-swerve-bounded-steering-planner.md)
 - [2026-09-16 四舵轮最小二乘残差剔除与里程计隔离](records/2026-09-16-swerve-slip-residual-rejection.md)
 - [2026-09-15 HT-WS-HH270 舵轮厂家机械图纸提取](records/2026-09-15-swerve-module-mechanical-drawing.md)

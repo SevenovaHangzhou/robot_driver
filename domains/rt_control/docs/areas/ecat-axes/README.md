@@ -43,9 +43,11 @@ IgH 安装与宿主（→ realtime-host）。
 | 15#F1 | 用户零位已归档；14 CSP+2 PP 实际 OP、WC48/48、16轴使能/保持/失能成功，最终 Idle/PREOP；PP运动/限力尚未验证 | [原位使能实测](records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3；当前状态及模式以本记录为准） |
 | 16#F1 | Kinco 四转向 CSP/四驱动 CSV 已建立协议无关接口合同和八轴 fail-closed draft；未创建 identity/profile/runtime variant | [Kinco 舵轮合同草案](records/2026-09-16-kinco-swerve-contract-draft.md)#F1-F4 | UNVERIFIED（T0 配置；实机参数和运行待验） |
 | 17#F1 | X503 周期发布迁入共享 semantic component + C++ broadcaster；蓝点 `0xA1/0x8081@0x2` 作为三代机显式 `none/bluepoint_dual` option，默认不改变十八从站双臂布局 | [统一六维力发布与蓝点可选配置](records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md)#F1-F4 | PARTIAL（T1 Mock；X503/蓝点实机待验） |
+| 18#F1 | ZeroErr 60B2/6077/606C ESI 已归档；A/B/只上行均为不可启动草案，原始反馈 factor=1，60B2 factor=TBD；现有 profile 不变 | [ELECTRI-136 PDO 草案](records/2026-09-19-electri-136-zeroerr-ff-pdo-drafts.md)#F1-F4 | UNVERIFIED（T0；单位、assignment、时序和实机待验） |
 
 ## 记录索引（倒序）
 
+- 2026-09-19 [ELECTRI-136 零差 CSP 力矩偏置 ESI 与 PDO 草案](records/2026-09-19-electri-136-zeroerr-ff-pdo-drafts.md)：UNVERIFIED（T0；未接 runtime）。
 - 2026-09-17 [六维力统一 C++ broadcaster 与三代机蓝点可选配置](records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md)：PARTIAL（T1 Mock；实机待验）。
 - 2026-09-16 [Kinco 四舵轮 CSP/CSV 接口合同与八轴 draft](records/2026-09-16-kinco-swerve-contract-draft.md)：UNVERIFIED（T0，runtime gate 保持关闭）。
 - 2026-09-12 [X503 PREOP 一次快照与 CoE 状态限制](records/2026-09-12-x503-preop-snapshot.md) — fix，PASS（T3 不使能启动；OP 零邮箱流量）

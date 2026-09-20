@@ -1,0 +1,7 @@
+<library path="gravity_ff_controller">
+  <class name="gravity_ff_controller/GravityFeedforwardController"
+         type="gravity_ff_controller::GravityFeedforwardController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Shadow or active model gravity feedforward for CSP torque offset.</description>
+  </class>
+</library>

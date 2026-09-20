@@ -96,3 +96,15 @@ The mapping above applies only to the observed arms-only bench; other physical
 profiles require their own scans. This asset is installed for review; no runtime
 descriptor selects or enables it yet. See BQ-146 and ecat-axes-20260912-03 for
 the read-only evidence and remaining commissioning requirements.
+
+## ZeroErr Driver V3.2.0 ESI
+
+The user supplied `ZeroErr Driver_V3.2.0.xml` for ELECTRI-136, original SHA-256
+`67f7f1179e2c14c07ab1e3611116e33e4932f290551456f6317104e68e52372c`.
+The repository copy `ZeroErr_Driver_V3_2_0.xml` removes trailing whitespace and
+adds the final newline without changing XML data; its SHA-256 is
+`b0c1108829f725f29f5386b3be6a808355ef3369f96d50c776539f0dc9e27e15`.
+It declares vendor `0x5A65726F`, product `0x00029252`, revision `0x00000001`,
+CoE PDO assignment/configuration support, and mappable INT16 objects 0x60B2 and
+0x6077. These are ESI facts, not proof of firmware behavior or physical units.
+ELECTRI-136 adds review-only candidate maps; no runtime variant selects them.

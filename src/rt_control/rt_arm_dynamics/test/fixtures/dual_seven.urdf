@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!-- Synthetic dual 7-DoF fixture; masses are test-only and unrelated to V3. -->
+<robot name="synthetic_dual_seven">
+  <link name="base"/>
+  <link name="left_joint1"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="left_joint1" type="revolute"><parent link="base"/><child link="left_joint1"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="left_joint2"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="left_joint2" type="revolute"><parent link="left_joint1"/><child link="left_joint2"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="left_joint3"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="left_joint3" type="revolute"><parent link="left_joint2"/><child link="left_joint3"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="left_joint4"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="left_joint4" type="revolute"><parent link="left_joint3"/><child link="left_joint4"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="left_joint5"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="left_joint5" type="revolute"><parent link="left_joint4"/><child link="left_joint5"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="left_joint6"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="left_joint6" type="revolute"><parent link="left_joint5"/><child link="left_joint6"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="left_joint7"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="left_joint7" type="revolute"><parent link="left_joint6"/><child link="left_joint7"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="left_tool"/><joint name="left_tip" type="fixed"><parent link="left_joint7"/><child link="left_tool"/></joint>
+
+  <link name="right_joint1"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="right_joint1" type="revolute"><parent link="base"/><child link="right_joint1"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="right_joint2"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="right_joint2" type="revolute"><parent link="right_joint1"/><child link="right_joint2"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="right_joint3"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="right_joint3" type="revolute"><parent link="right_joint2"/><child link="right_joint3"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="right_joint4"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="right_joint4" type="revolute"><parent link="right_joint3"/><child link="right_joint4"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="right_joint5"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="right_joint5" type="revolute"><parent link="right_joint4"/><child link="right_joint5"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="right_joint6"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="right_joint6" type="revolute"><parent link="right_joint5"/><child link="right_joint6"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="right_joint7"><inertial><origin xyz="0.1 0 0"/><mass value="1"/><inertia ixx="0.02" iyy="0.02" izz="0.02" ixy="0" ixz="0" iyz="0"/></inertial></link>
+  <joint name="right_joint7" type="revolute"><parent link="right_joint6"/><child link="right_joint7"/><origin xyz="0.2 0 0"/><axis xyz="0 1 0"/><limit lower="-3" upper="3" effort="30" velocity="2"/></joint>
+  <link name="right_tool"/><joint name="right_tip" type="fixed"><parent link="right_joint7"/><child link="right_tool"/></joint>
+</robot>

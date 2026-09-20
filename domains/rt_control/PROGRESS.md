@@ -170,3 +170,4 @@
 | 2026-09-17 | canopen-chassis | [LPMS-NAV3 CAN 外置 IMU 重新迁入 main 源码基线](docs/areas/canopen-chassis/records/2026-09-17-lpms-nav3-main-source-integration.md) | PARTIAL（ELECTRI-105；30条 Native 测试记录、13条 sanitizer；CAN 连接路径/跨进程 DDS/共线/实机待验） |
 | 2026-09-17 | governance | [PR CI 触发去重与描述编辑隔离](docs/areas/governance/records/2026-09-17-pr-ci-trigger-deduplication.md) | PARTIAL（T0；本地门禁通过；远端事件行为及 main 分支保护待完成） |
 | 2026-09-18 | release-deploy | [V3 专用分支、模型与 fail-closed 运行边界](docs/areas/release-deploy/records/2026-09-18-v3-branch-baseline.md) | PARTIAL（T1 validation；V3 模型/配置/诊断通过，整机 runtime 与实机待验） |
+| 2026-09-19 | motion / ecat-axes | [ELECTRI-136 重力前馈离线实现](docs/areas/motion/records/2026-09-19-electri-136-gravity-feedforward-offline.md)、[PDO 草案](docs/areas/ecat-axes/records/2026-09-19-electri-136-zeroerr-ff-pdo-drafts.md) | PARTIAL（69 包全量构建；新库 14、控制器 23、硬件包 103 项通过；全量测试有 GUI 环境缺口，干净镜像下载停滞；默认 shadow、未接 runtime、实机/单位/模型待验） |

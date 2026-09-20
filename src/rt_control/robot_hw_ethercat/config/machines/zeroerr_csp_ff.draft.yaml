@@ -1,0 +1,39 @@
+# ELECTRI-136 design contract only. No runtime descriptor references this file.
+schema_version: 1
+verified: false
+device: {vendor_id: 0x5A65726F, product_id: 0x00029252, revision_id: 0x00000001}
+esi:
+  file: ZeroErr_Driver_V3_2_0.xml
+  original_sha256: 67f7f1179e2c14c07ab1e3611116e33e4932f290551456f6317104e68e52372c
+  repository_sha256: b0c1108829f725f29f5386b3be6a808355ef3369f96d50c776539f0dc9e27e15
+alternatives:
+  assignment_only_a:
+    preferred: true
+    loadable_with_current_stack: false
+    reason: GenericEcSlave can configure multiple PDOs, but current IgH paths either rewrite mappings or preserve both mapping and assignment; no assignment-only write path exists
+    rxpdo_assignment: [0x1600, 0x1618]
+    txpdo_assignment: [0x1A00, 0x1A11, 0x1A13]
+    optional_txpdo_assignment: [0x1A12]
+    bytes: {rx: 12, tx: 16, tx_with_optional_demand: 18}
+  remap_b:
+    preferred: false
+    loadable_after_calibration: true
+    profile: zeroerr_csp_ff_remap_b.draft.yaml
+    bytes: {rx: 12, tx: 16}
+  uplink_only_first_read:
+    preferred_for_first_commissioning_read: true
+    loadable_without_new_effort_calibration: true
+    inherited_runtime_blockers: [assign_activate, position_factor, position_offset, digital_output_default]
+    profile: zeroerr_csp_ff_uplink_only.draft.yaml
+    bytes: {rx: 10, tx: 16}
+effort_calibration:
+  verified: false
+  permille_per_newton_metre: TBD
+  source: TBD
+pending_facts:
+  - assignment-only implementation path or separately approved upstream change
+  - live assignment and mapping readback for alternative A
+  - 60B2/6077 permille basis and motor/output-side conversion
+  - 606C physical unit
+  - 60B2 CSP enable/brake timing and 605E fault-reaction behavior
+  - existing V3 CSP scaling and startup facts before the uplink-only profile can become runtime-loadable

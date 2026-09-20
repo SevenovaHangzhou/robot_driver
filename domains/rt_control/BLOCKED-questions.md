@@ -2693,3 +2693,33 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 当前仅完成配置/schema/静态验证。运行时 controller switching、enable_manager 受管资源和
   diagnostics/readiness 的执行接线仍需后续实现并做 Mock/实机分级验证；本裁决不授权总线启动、
   reset、enable、运动或任何设备写入。
+
+## BQ-152: ELECTRI-136 CSP 重力前馈实机准入事实 [OPEN/HIGH-RISK 2026-09-19]
+
+- 阶段一只完成离线库、控制器、Mock 与不可启动草案；默认 `shadow`，现有 V3 启动面不接入。
+  ELECTRI-135 与 MECHINE-35 未闭合，任何 active、PDO 写入、使能或运动均不在本轮授权内。
+- `0x60B2` Torque Offset 与 `0x6077` Torque Actual Value 的千分比基准尚未确认：需要明确以
+  额定电流还是额定力矩为基准、数值对应电机侧还是关节输出侧，并逐轴得到有来源的正有限
+  `permille_per_newton_metre`。active 对任一 `verified: false`/TBD 均拒绝配置。
+- `0x606C` Actual velocity 的物理单位未知。首次上行只导出 `velocity_actual_raw`；`0x6077`
+  只导出 `torque_actual_permille`，二者 factor=1，不冒充 SI 单位。
+- 需要实机确认 CSP 下 `0x60B2` 是否在使能瞬间生效，以及抱闸打开之前预装载是否已被驱动内部
+  接受。仅凭主站发帧、statusword 或本轮软件状态机不能形成该保证。
+- 抱闸释放/吸合延时的权威对象和值未知。厂商对象 `0x4602 Release Brake` 不在本任务使用范围；
+  不得从 `0x60FE`、通用 CiA402 或型号后缀推断抱闸时序。
+- MECHINE-35 尚未补齐关节模组质量。active 除换算门禁外还要求已验证的原始 URDF SHA-256 和
+  来源；现模型只允许 shadow。质量、质心、惯量不得在控制器配置中硬编码修补。
+- Robot Model 手臂 link 与 joint 同名。库仅在内存将 link `left/right_joint1..7` 临时改成
+  `left/right_link1..7`，关节名与源文件不变；上游 `robot_description` 仍需正式修复并联合迁移。
+- eRob 型号代号 `BHS/BHM/BS` 与 `ET/EN` 的权威含义待电气核对。输入端惯量、减速比与启停峰值
+  扭矩不据这些代号扩展为持续输出能力；启停峰值不直接用作重力前馈限幅。
+- ESI/GenericEcSlave 支持同一 SM 的多 PDO，但当前 IgH 路径不能只改 assignment 而保证不写 mapping：
+  普通路径会配置 mapping，`PreservePdoConfig` 则同时核对 mapping 与 assignment。首选方案 A 保持
+  不可启动合同；后续需要确定受支持的 assignment-only 方法，并对 `[1600,1618]` /
+  `[1A00,1A11,1A13]` 做实机只读回读和受控验证。
+- `0x605E` Fault reaction option code 的当前实机值未知。控制器在 Fault Reaction Active 期间保持
+  最后有效 60B2；真实驱动是否继续应用该偏置、保持多久以及制动行为取决于固件与 605E，须归档
+  当前值并做受控故障反应验证。软件保持行为不是机械安全保证。
+- 仅上行草案不新增力矩/速度换算 TBD，但仍继承现有 V3 CSP 的 assign_activate、位置比例/偏置和
+  60FE 默认值阻塞；这些事实未闭合前不得称为 runtime-loadable。第一次实机阶段仍按
+  “既有 CSP 准入闭合 -> 只增加上行 -> shadow -> 标定 -> active 逐轴”执行。

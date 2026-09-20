@@ -62,6 +62,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_x503_profiles test/test_x503_profiles.py)
   ament_add_pytest_test(test_x503_topology test/test_x503_topology.py)
   ament_add_pytest_test(test_bluepoint_profile test/test_bluepoint_profile.py)
+  ament_add_pytest_test(test_gravity_ff_drafts test/test_gravity_ff_drafts.py)
   ament_add_pytest_test(
     test_ethercat_hardware_variant
     test/test_ethercat_hardware_variant.py

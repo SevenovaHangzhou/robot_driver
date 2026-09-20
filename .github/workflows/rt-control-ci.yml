@@ -127,6 +127,8 @@ jobs:
             rt_diagnostics
             rt_control_semantic_components
             rt_force_torque_broadcaster
+            rt_arm_dynamics
+            gravity_ff_controller
             swerve_driver
             rt_control_bringup
           )
@@ -136,6 +138,10 @@ jobs:
               --paths-only \
               --packages-up-to "${rt_control_packages[@]}"
           )
+          source versions.env
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            "ros-humble-pinocchio=${PINOCCHIO_DEB_VERSION}"
           rosdep install --from-paths "${dependency_paths[@]}" \
             --ignore-src \
             --rosdistro humble \
@@ -177,6 +183,8 @@ jobs:
             rt_diagnostics \
             rt_control_semantic_components \
             rt_force_torque_broadcaster \
+            rt_arm_dynamics \
+            gravity_ff_controller \
             swerve_driver \
             rt_control_bringup
       - name: Install upstream controller test hardware
@@ -230,6 +238,8 @@ jobs:
             rt_diagnostics \
             rt_control_semantic_components \
             rt_force_torque_broadcaster \
+            rt_arm_dynamics \
+            gravity_ff_controller \
             swerve_driver \
             rt_control_bringup
           colcon test-result --verbose

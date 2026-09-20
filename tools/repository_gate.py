@@ -33,6 +33,7 @@ DOMAIN_PACKAGES = {
     "lpms_nav3_can",
     "control_api_adapter",
     "enable_manager",
+    "gravity_ff_controller",
     "plc_io_modbus",
     "plc_node",
     "robot_hw_canopen",
@@ -40,6 +41,7 @@ DOMAIN_PACKAGES = {
     "rt_control_bringup",
     "rt_diagnostics",
     "rt_control_semantic_components",
+    "rt_arm_dynamics",
     "swerve_driver",
     "rt_watchdog",
 }
@@ -140,6 +142,8 @@ def check_dependency_pins(deps_text: str, versions_text: str) -> list[str]:
         versions[key.strip()] = value.strip()
     if not FULL_SHA.fullmatch(versions.get("IGH_COMMIT", "")):
         findings.append("versions.env: IGH_COMMIT must be a full 40-character commit SHA")
+    if not re.fullmatch(r"[0-9][A-Za-z0-9.+:~_-]*", versions.get("PINOCCHIO_DEB_VERSION", "")):
+        findings.append("versions.env: PINOCCHIO_DEB_VERSION must be an exact Debian version")
     return findings
 
 

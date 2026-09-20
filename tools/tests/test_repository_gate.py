@@ -73,6 +73,7 @@ class RepositoryGateTest(unittest.TestCase):
 """
         valid_versions = """IGH_VERSION=stable-1.6
 IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
+PINOCCHIO_DEB_VERSION=4.0.0-2jammy.20260606.100000
 """
         self.assertEqual(repository_gate.check_dependency_pins(valid_deps, valid_versions), [])
 
@@ -82,6 +83,19 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
         )
         self.assert_has(findings, "must be a full 40-character commit SHA")
         self.assert_has(findings, "IGH_COMMIT must be a full 40-character commit SHA")
+
+        missing_pin = repository_gate.check_dependency_pins(
+            valid_deps,
+            valid_versions.replace(
+                "PINOCCHIO_DEB_VERSION=4.0.0-2jammy.20260606.100000\n", ""
+            ),
+        )
+        self.assert_has(missing_pin, "PINOCCHIO_DEB_VERSION must be an exact Debian version")
+        invalid_pin = repository_gate.check_dependency_pins(
+            valid_deps,
+            valid_versions.replace("4.0.0-2jammy.20260606.100000", "latest pin"),
+        )
+        self.assert_has(invalid_pin, "PINOCCHIO_DEB_VERSION must be an exact Debian version")
 
     def test_robot_interfaces_vendor_pin_matches_release_metadata(self):
         contract_sha = "0123456789abcdef0123456789abcdef01234567"
@@ -487,6 +501,7 @@ jobs:
 """,
             "versions.env": """IGH_VERSION=stable-1.6
 IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
+PINOCCHIO_DEB_VERSION=4.0.0-2jammy.20260606.100000
 """,
             "docker/compose.yaml": """services:
   rt-control:
