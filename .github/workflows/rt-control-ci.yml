@@ -23,11 +23,11 @@ jobs:
     container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
       - name: Cache governance apt archives
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .ci/apt
           key: rt-control-governance-apt-${{ runner.os }}-${{ hashFiles('pre-commit-config.yaml') }}
@@ -69,7 +69,7 @@ jobs:
     outputs:
       head_only: ${{ steps.classify.outputs.head_only }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -96,11 +96,11 @@ jobs:
     env:
       HEAD_FAST_WS: ${{ github.workspace }}/.ci/head-fast-ws
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
       - name: Cache head-only vendor checkout
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .ci/head-fast-ws/src/vendor
           key: head-fast-vendor-${{ runner.os }}-${{ hashFiles('deps.repos') }}
@@ -161,11 +161,11 @@ jobs:
       CCACHE_COMPRESS: "true"
       CCACHE_MAXSIZE: 1G
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
       - name: Cache CI dependencies and compiler artifacts
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .ci/vendor
