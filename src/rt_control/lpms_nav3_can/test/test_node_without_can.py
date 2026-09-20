@@ -62,7 +62,9 @@ def test_missing_interface_logs_failure_and_exits_cleanly_on_signal():
                 output += os.read(process.stdout.fileno(), 4096)
         assert b"lpms_absent is unavailable" in output
         process.send_signal(signal.SIGINT)
-        assert process.wait(timeout=5) == 0
+        remaining_output, _ = process.communicate(timeout=5)
+        output += remaining_output
+        assert process.returncode == 0, output.decode(errors="replace")
     finally:
         if process.poll() is None:
             process.kill()

@@ -18,9 +18,11 @@ LPMS-NAV3 CANopen 外置 IMU 的传感器协议适配。
 | F3 | 三代机四路舵角 provider 复用 Lely/ros2_canopen 主站，导出 position/feedback_age_ms 且无 command interface；硬件 profile 保持 draft/TBD | [CANopen 舵角 provider](records/2026-09-16-swerve-encoder-state-provider.md)#F1-F4 | PARTIAL（T1 单元/Mock；EDS、总线与实机待验） |
 | F4 | 四路外置编码器共用 108 齿回转齿圈与 27 齿小齿轮，编码器 4 圈对应舵轴 1 圈；该比例不属于转向电机传动 | [外置编码器齿比确认](records/2026-09-16-swerve-encoder-gearing-confirmation.md)#F1-F4 | PARTIAL（T1 公式/配置；方向、分辨率和实机待验） |
 | F5 | LPMS-NAV3 已迁入当前 main 源码基线并纳入构建；默认静态启动、私有 topic、只接收 CAN；不启用三代机共线或正式导航融合 | [LPMS-NAV3 源码接入](records/2026-09-17-lpms-nav3-main-source-integration.md)#F1-F4 | PARTIAL（T1 无接口/解码测试；连接路径、跨进程 DDS 与实机待验） |
+| F6 | LPMS 在 node 构造完成至 spin 建立窗口收到 SIGINT 时按正常停止返回 0；context 仍有效的配置/构造异常继续返回 1 | [LPMS 启动窗口 SIGINT 纠错](records/2026-09-20-lpms-startup-sigint-exit.md)#F1-F2 | PARTIAL（T1 Native；远端完整闭包待确认） |
 
 ## 记录索引（倒序）
 
+- [2026-09-20 LPMS 启动窗口 SIGINT 正常退出纠错](records/2026-09-20-lpms-startup-sigint-exit.md)
 - [2026-09-17 LPMS-NAV3 CAN 外置 IMU 重新迁入 main 源码基线](records/2026-09-17-lpms-nav3-main-source-integration.md)
 - [2026-09-16 四舵轮外置编码器 108/27 齿传动确认](records/2026-09-16-swerve-encoder-gearing-confirmation.md)
 - [2026-09-16 三代机四路 CANopen 舵角 state-only provider](records/2026-09-16-swerve-encoder-state-provider.md)
