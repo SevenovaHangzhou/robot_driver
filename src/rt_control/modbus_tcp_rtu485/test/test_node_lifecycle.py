@@ -64,6 +64,10 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
             b"gateway port must be",
         )
         require_rejected(
+            [ultrasonic_executable, "--ros-args", "-p", "unit_ids:=[1,2]"], environment,
+            b"E08 unit IDs 2..5 are reserved",
+        )
+        require_rejected(
             [ultrasonic_executable, "--ros-args", "-p", "max_range_m:=1.5"], environment,
             b"max_range_m must be 3.5",
         )

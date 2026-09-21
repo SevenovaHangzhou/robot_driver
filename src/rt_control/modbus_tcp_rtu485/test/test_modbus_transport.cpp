@@ -67,6 +67,7 @@ void parameter_and_encoding_tests()
   const std::vector<int64_t> units{1, 2, 3, 4, 5, 6};
   validate_led_config("127.0.0.1", ports, units, 500);
   validate_endpoint("127.0.0.1", 504, 1, 500);
+  validate_e08_unit_ids({1, 6});
   rejects([&]() {validate_led_config("bad-ip", ports, units, 500);});
   rejects([&]() {validate_led_config("127.0.0.1", {}, units, 500);});
   rejects([&]() {validate_led_config("127.0.0.1", ports, {}, 500);});
@@ -79,6 +80,9 @@ void parameter_and_encoding_tests()
   for (const auto value : {int64_t{-1}, int64_t{0}, int64_t{60001}}) {
     rejects([&]() {validate_endpoint("127.0.0.1", 502, 1, value);});
   }
+  rejects([]() {validate_e08_unit_ids({1});});
+  rejects([]() {validate_e08_unit_ids({1, 1});});
+  rejects([]() {validate_e08_unit_ids({1, 2});});
   require(brightness(-1) == 0 && brightness(2) == 255 && brightness(0.5F) == 128,
     "Brightness conversion failed");
   require(brightness(std::numeric_limits<float>::quiet_NaN()) == 0 &&
@@ -89,7 +93,10 @@ void parameter_and_encoding_tests()
     "Color request encoding failed");
   require(read_holding_request(1, 1, 0x0106, 4) == std::vector<uint8_t>({
       0, 1, 0, 0, 0, 6, 1, 3, 1, 6, 0, 4}),
-    "Ultrasonic request encoding failed");
+    "First E08 request encoding failed");
+  require(read_holding_request(2, 6, 0x0106, 2) == std::vector<uint8_t>({
+      0, 2, 0, 0, 0, 6, 6, 3, 1, 6, 0, 2}),
+    "Second E08 request encoding failed");
   rejects([]() {read_holding_request(1, 1, 0, 0);});
   rejects([]() {read_holding_request(1, 1, 0, 126);});
 }
@@ -153,14 +160,16 @@ void ultrasonic_range_message_tests()
   constexpr float field_of_view_rad = 1.0471975512F;
   const std::vector<std::string> frame_ids{
     "ultrasonic_channel_1_link", "ultrasonic_channel_2_link",
-    "ultrasonic_channel_3_link", "ultrasonic_channel_4_link"};
+    "ultrasonic_channel_3_link", "ultrasonic_channel_4_link",
+    "ultrasonic_channel_5_link", "ultrasonic_channel_6_link"};
 
   validate_ultrasonic_config(frame_ids, field_of_view_rad, 0.01F, 3.5F);
   rejects([&]() {validate_ultrasonic_config({}, field_of_view_rad, 0.01F, 3.5F);});
   rejects([&]() {
       validate_ultrasonic_config(
         {"ultrasonic_channel_1_link", "", "ultrasonic_channel_3_link",
-          "ultrasonic_channel_4_link"}, field_of_view_rad, 0.01F, 3.5F);
+          "ultrasonic_channel_4_link", "ultrasonic_channel_5_link",
+          "ultrasonic_channel_6_link"}, field_of_view_rad, 0.01F, 3.5F);
     });
   rejects([&]() {validate_ultrasonic_config(frame_ids, 0.0F, 0.01F, 3.5F);});
   rejects([&]() {validate_ultrasonic_config(frame_ids, field_of_view_rad, 0.01F, 1.5F);});

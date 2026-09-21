@@ -1,7 +1,7 @@
 # io-power — PLC IO、真空执行与 BMS
 
 **范围**：PLC Modbus TCP 读写与寄存器映射、三路输出（左右电磁阀、真空泵）、
-真空建立反馈、BMS CAN 帧解析与电池状态发布、Modbus LED IO 与四路超声波测距。
+真空建立反馈、BMS CAN 帧解析与电池状态发布、Modbus LED IO 与六路超声波测距。
 **Owner 包/资产**：`src/rt_control/plc_node`、`src/rt_control/plc_io_modbus`、
 `src/rt_control/bms_node`、`src/rt_control/modbus_tcp_rtu485`。
 
@@ -22,16 +22,20 @@ systemd unit（→ realtime-host）。
 | 05#F1 | `modbus_tcp_rtu485` 同包拥有独立 LED 写节点与 E08 超声波只读节点，网络 IO 均不进入 ros2_control 实时环。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F1 | 有效 |
 | 05#F2 | E08 已在 `192.168.1.12:504`、unit 1 通过 FC03 `0x0106..0x0109` 实测，并成功发布四路 ROS 数据。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F2 | PARTIAL（T2 只读；长期稳定性待验） |
 | 05#F3 | 默认 frame ID 仅表示 E08 通道，四个物理安装位姿及 Robot Model TF 尚未冻结，不得推导方向语义。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F3 | PARTIAL |
-| 06#F1 | 四路话题改用 `sensor_msgs/Range`，固定 3.5 m、60 度元数据并使用同一批次完成时间。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F1 | PARTIAL（离线通过；标准消息实机待验） |
+| 06#F1 | 四路话题改用 `sensor_msgs/Range`，固定 3.5 m、60 度元数据并使用同一批次完成时间。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F1 | 已由 08#F2/F3 扩展为六路 |
 | 06#F2 | `0xFFFD` 无目标发布 `+Inf`，诊断为 `OK/no_target`。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F2 | PARTIAL（离线通过；实机待验） |
-| 06#F3 | 默认四个 frame 仅表示 E08 通道，装车后必须用实测外参与 `base_link` TF 替换。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F3 | PARTIAL |
-| 06#F4 | E084F 一次 FC03 连读四个通道，按已确认配置同时测量；驱动不做逐路发射轮询。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F4 | PARTIAL（源码/离线；实机时序待验） |
+| 06#F3 | 默认四个 frame 仅表示 E08 通道，装车后必须用实测外参与 `base_link` TF 替换。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F3 | 已由 08#F2 扩展为六路 |
+| 06#F4 | E084F 一次 FC03 连读四个通道，按已确认配置同时测量；驱动不做逐路发射轮询。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F4 | 已由 08#F2/F3 扩展为双 E08 串行轮询 |
 | 06#F5 | V3 安装独立 `rt_control_ultrasonic.launch.py`，双臂 runtime 不隐式启动采集，Mock 禁用硬件进程。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F5 | PARTIAL（离线/安装后 Mock 通过；实机待验） |
 | 07#F1 | LED 驱动配置为六个控制器，共享 TCP 502，RTU 站号依次为 1..6。 | [io-power-20260920-01](records/2026-09-20-six-led-controllers.md)#F1 | PARTIAL（用户确认配置；实机未验证） |
 | 07#F2 | 六路域内颜色话题为 `led0/color`..`led5/color`，每路保持既有 RGBW/FC16 语义。 | [io-power-20260920-01](records/2026-09-20-six-led-controllers.md)#F2 | PASS（源码与离线构建） |
+| 08#F1 | 两台 E08 共用 TCP 504，驱动站号为 unit 1 和 unit 6；站号 2..5 为 E08 保留地址。 | [io-power-20260921-01](records/2026-09-21-dual-e08-six-ultrasonic.md)#F1 | PARTIAL（协议/离线；第二台实机待验） |
+| 08#F2 | 六路 A22 映射为 unit 1 的四路和 unit 6 的前两路，发布 `channel1..6`。 | [io-power-20260921-01](records/2026-09-21-dual-e08-six-ultrasonic.md)#F2 | PARTIAL（离线通过；实机待验） |
+| 08#F3 | 一个测量周期串行执行两次 FC03，均成功才发布同批六路数据。 | [io-power-20260921-01](records/2026-09-21-dual-e08-six-ultrasonic.md)#F3 | PARTIAL（离线通过；实机时序待验） |
 
 ## 记录索引（倒序）
 
+- 2026-09-21 [双 E08 接入六路 A22 超声波](records/2026-09-21-dual-e08-six-ultrasonic.md) — feature，PARTIAL（T1 离线；第二台 E08 与六路实机待验）
 - 2026-09-20 [Modbus LED 控制器由四路扩展为六路](records/2026-09-20-six-led-controllers.md) — feature，PARTIAL（离线构建通过；实机未验证）
 - 2026-09-19 [四路超声波切换为标准 Range 接口](records/2026-09-19-ultrasonic-standard-range.md) — feature，PARTIAL（T1；标准消息/参数离线通过，实机与 TF 待验）
 - 2026-09-17 [通用 Modbus RTU485 包与四路超声波驱动](records/2026-09-17-modbus-ultrasonic-driver.md) — feature，PARTIAL（T2 只读通信/ROS 发布通过；TF 与长期运行待验）

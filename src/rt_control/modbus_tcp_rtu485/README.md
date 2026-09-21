@@ -6,7 +6,7 @@ LED and ultrasonic nodes:
 
 ```text
 led_strip_node   -> TCP 502 -> WE-10x LED controllers
-ultrasonic_node  -> TCP 504 -> DYP-E084F-V2.0 -> four A22 sensors
+ultrasonic_node  -> TCP 504 -> two DYP-E084F-V2.0 adapters -> six A22 sensors
 ```
 
 Socket IO runs in normal ROS callbacks, outside the ros2_control real-time loop.
@@ -40,19 +40,20 @@ off/reset command, so the hardware can retain its last color.
 
 ## Ultrasonic node
 
-`ultrasonic_node` reads E08 holding registers `0x0106..0x0109` in one FC03
-request, which triggers all four connected sensors in the E084F simultaneous
-measurement mode. The supplied configuration uses the verified endpoint
-`192.168.1.12:504`, RTU unit 1, a 300 ms poll interval and a 500 ms transaction
-deadline. A22 metadata is fixed and validated as a 3.5 m maximum range and a
-60-degree (`1.0471975512 rad`) field of view.
+`ultrasonic_node` polls two E08 adapters sequentially through the same TCP 504
+gateway channel. It reads `0x0106..0x0109` from RTU unit 1 for channels 1..4,
+then `0x0106..0x0107` from RTU unit 6 for channels 5..6. E08 addresses 2..5 are
+reserved for sensor interfaces and are rejected by configuration validation.
+The supplied configuration uses `192.168.1.12:504`, a 300 ms poll interval and
+a 500 ms deadline per transaction. A22 metadata is fixed and validated as a
+3.5 m maximum range and a 60-degree (`1.0471975512 rad`) field of view.
 
 Published topics:
 
 | Topic | Type | Meaning |
 | --- | --- | --- |
-| `ultrasonic/channel1/range` .. `channel4/range` | `sensor_msgs/msg/Range` | Per-channel range, timestamp, frame, radiation type, field of view and range limits |
-| `ultrasonic/raw` | `std_msgs/msg/UInt16MultiArray` | Four unmodified E08 registers |
+| `ultrasonic/channel1/range` .. `channel6/range` | `sensor_msgs/msg/Range` | Per-channel range, timestamp, frame, radiation type, field of view and range limits |
+| `ultrasonic/raw` | `std_msgs/msg/UInt16MultiArray` | Six unmodified E08 registers, ordered by channel |
 | `ultrasonic/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Per-channel protocol state or gateway error |
 
 Protocol values are mapped as follows:
@@ -82,7 +83,7 @@ ros2 topic echo /ultrasonic/channel1/range
 ros2 topic echo /ultrasonic/diagnostics
 ```
 
-The four messages from one FC03 response share the response-completion timestamp.
+The six messages from one two-E08 poll cycle share the response-completion timestamp.
 Default frames are channel identifiers only. Replace them with the installed
 sensor frame names and publish measured transforms to `base_link` before another
 domain uses the readings geometrically. Protocol and gateway failures are
@@ -92,6 +93,8 @@ Direct communication check without ROS:
 
 ```bash
 mbpoll -v -m tcp -a 1 -0 -r 262 -c 4 -t 4:hex -1 -o 2 \
+  -p 504 192.168.1.12
+mbpoll -v -m tcp -a 6 -0 -r 262 -c 2 -t 4:hex -1 -o 2 \
   -p 504 192.168.1.12
 ```
 

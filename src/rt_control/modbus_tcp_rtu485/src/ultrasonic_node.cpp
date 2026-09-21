@@ -27,7 +27,7 @@ public:
   {
     gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.12"));
     gateway_port_ = declare_parameter<int64_t>("gateway_port", 504);
-    unit_id_ = declare_parameter<int64_t>("unit_id", 1);
+    unit_ids_ = declare_parameter<std::vector<int64_t>>("unit_ids", {1, 6});
     response_timeout_ms_ = declare_parameter<int64_t>("response_timeout_ms", 500);
     poll_interval_ms_ = declare_parameter<int64_t>("poll_interval_ms", 300);
     poll_enabled_ = declare_parameter("poll_enabled", true);
@@ -37,7 +37,8 @@ public:
     frame_ids_ = declare_parameter<std::vector<std::string>>(
       "frame_ids",
       {"ultrasonic_channel_1_link", "ultrasonic_channel_2_link",
-        "ultrasonic_channel_3_link", "ultrasonic_channel_4_link"});
+        "ultrasonic_channel_3_link", "ultrasonic_channel_4_link",
+        "ultrasonic_channel_5_link", "ultrasonic_channel_6_link"});
     validate_parameters();
 
     for (size_t i = 0; i < range_publishers_.size(); ++i) {
@@ -57,7 +58,10 @@ public:
 private:
   void validate_parameters() const
   {
-    validate_endpoint(gateway_ip_, gateway_port_, unit_id_, response_timeout_ms_);
+    validate_e08_unit_ids(unit_ids_);
+    for (const auto unit_id : unit_ids_) {
+      validate_endpoint(gateway_ip_, gateway_port_, unit_id, response_timeout_ms_);
+    }
     if (poll_interval_ms_ < 20 || poll_interval_ms_ > 60000) {
       throw std::invalid_argument("poll_interval_ms must be 20..60000");
     }
@@ -78,9 +82,13 @@ private:
     size_t index, uint16_t raw, const UltrasonicReading & reading) const
   {
     diagnostic_msgs::msg::DiagnosticStatus status;
+    const size_t e08_index = index / 4U;
+    const size_t e08_channel = index % 4U;
     status.level = reading.diagnostic_level;
     status.name = "ultrasonic/channel" + std::to_string(index + 1);
-    status.hardware_id = "DYP-E084F-V2.0/channel" + std::to_string(index + 1);
+    status.hardware_id =
+      "DYP-E084F-V2.0/unit" + std::to_string(unit_ids_[e08_index]) +
+      "/channel" + std::to_string(e08_channel + 1);
     status.message = reading.status;
     status.values.push_back(key_value("raw", std::to_string(raw)));
     if (std::isfinite(reading.range_m)) {
@@ -106,10 +114,18 @@ private:
   void poll()
   {
     try {
-      const auto values = read_holding_registers_tcp(
+      const auto first_values = read_holding_registers_tcp(
         gateway_ip_, static_cast<uint16_t>(gateway_port_), ++transaction_id_,
-        static_cast<uint8_t>(unit_id_), 0x0106, 4, response_timeout_ms_);
+        static_cast<uint8_t>(unit_ids_[0]), 0x0106, 4, response_timeout_ms_);
+      const auto second_values = read_holding_registers_tcp(
+        gateway_ip_, static_cast<uint16_t>(gateway_port_), ++transaction_id_,
+        static_cast<uint8_t>(unit_ids_[1]), 0x0106, 2, response_timeout_ms_);
       const auto stamp = now();
+
+      std::vector<uint16_t> values;
+      values.reserve(kUltrasonicChannelCount);
+      values.insert(values.end(), first_values.begin(), first_values.end());
+      values.insert(values.end(), second_values.begin(), second_values.end());
 
       std_msgs::msg::UInt16MultiArray raw_message;
       raw_message.data.assign(values.begin(), values.end());
@@ -136,7 +152,7 @@ private:
 
   std::string gateway_ip_;
   int64_t gateway_port_{504};
-  int64_t unit_id_{1};
+  std::vector<int64_t> unit_ids_{1, 6};
   int64_t response_timeout_ms_{500};
   int64_t poll_interval_ms_{300};
   bool poll_enabled_{true};
@@ -147,7 +163,7 @@ private:
   uint16_t transaction_id_{0};
   std::array<
     rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr,
-    4> range_publishers_{};
+    kUltrasonicChannelCount> range_publishers_{};
   rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr raw_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_publisher_;
   rclcpp::TimerBase::SharedPtr timer_;

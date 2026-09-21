@@ -4,6 +4,8 @@
 #include <sensor_msgs/msg/range.hpp>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -15,13 +17,29 @@ namespace modbus_tcp_rtu485
 {
 inline constexpr float kA22FieldOfViewRad = 1.0471975512F;
 inline constexpr float kA22MaxRangeM = 3.5F;
+inline constexpr size_t kUltrasonicChannelCount = 6U;
+
+inline void validate_e08_unit_ids(const std::vector<int64_t> & unit_ids)
+{
+  if (unit_ids.size() != 2U) {
+    throw std::invalid_argument("unit_ids requires two values");
+  }
+  if (unit_ids[0] == unit_ids[1]) {
+    throw std::invalid_argument("unit_ids must be unique");
+  }
+  for (const auto unit_id : unit_ids) {
+    if (unit_id >= 2 && unit_id <= 5) {
+      throw std::invalid_argument("E08 unit IDs 2..5 are reserved for sensor interfaces");
+    }
+  }
+}
 
 inline void validate_ultrasonic_config(
   const std::vector<std::string> & frame_ids, float field_of_view_rad,
   float min_range_m, float max_range_m)
 {
-  if (frame_ids.size() != 4U) {
-    throw std::invalid_argument("frame_ids requires four values");
+  if (frame_ids.size() != kUltrasonicChannelCount) {
+    throw std::invalid_argument("frame_ids requires six values");
   }
   for (const auto & frame_id : frame_ids) {
     if (frame_id.empty() || frame_id.front() == '/') {

@@ -3,7 +3,9 @@ ultrasonic_node:
     gateway_ip: "192.168.1.12"
     # HC2 maps to TCP 504 and terminals A2+/B2-.
     gateway_port: 504
-    unit_id: 1
+    # Two E08 adapters share HC2: four sensors on unit 1, two on unit 6.
+    # E08 addresses 2..5 are reserved for its sensor interfaces.
+    unit_ids: [1, 6]
     response_timeout_ms: 500
     poll_interval_ms: 300
     poll_enabled: true
@@ -17,3 +19,5 @@ ultrasonic_node:
       - ultrasonic_channel_2_link
       - ultrasonic_channel_3_link
       - ultrasonic_channel_4_link
+      - ultrasonic_channel_5_link
+      - ultrasonic_channel_6_link

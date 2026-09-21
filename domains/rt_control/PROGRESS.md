@@ -186,3 +186,4 @@
 | 2026-09-20 | governance | [V3 完整门禁保留下的分层 CI 与依赖缓存](docs/areas/governance/records/2026-09-20-layered-ci-cache.md) | PARTIAL（T0；回退镜像完整闭包已通过，缓存拆分热路径、基础镜像发布与变量启用待完成） |
 | 2026-09-20 | canopen-chassis | [LPMS 启动窗口 SIGINT 正常退出纠错](docs/areas/canopen-chassis/records/2026-09-20-lpms-startup-sigint-exit.md) | PARTIAL（T1；本地无 CAN 进程测试与 50 次重复通过，远端完整闭包待确认） |
 | 2026-09-20 | io-power | [Modbus LED 控制器由四路扩展为六路](docs/areas/io-power/records/2026-09-20-six-led-controllers.md) | PARTIAL（T1 离线；构建、六路参数和传输测试通过，实机未验证） |
+| 2026-09-21 | io-power | [双 E08 接入六路 A22 超声波](docs/areas/io-power/records/2026-09-21-dual-e08-six-ultrasonic.md) | PARTIAL（T1 离线；双站号请求与六路发布测试通过，第二台 E08 实机待验） |
