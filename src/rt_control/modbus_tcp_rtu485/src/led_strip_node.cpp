@@ -14,11 +14,13 @@ public:
   LedStripNode() : Node("led_strip_node")
   {
     gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.12"));
-    ports_ = declare_parameter("gateway_ports", std::vector<int64_t>{502, 503, 504, 505});
-    addresses_ = declare_parameter("controller_addresses", std::vector<int64_t>{1, 1, 1, 1});
+    ports_ = declare_parameter(
+      "gateway_ports", std::vector<int64_t>{502, 502, 502, 502, 502, 502});
+    addresses_ = declare_parameter(
+      "controller_addresses", std::vector<int64_t>{1, 2, 3, 4, 5, 6});
     response_timeout_ms_ = declare_parameter<int64_t>("response_timeout_ms", 500);
     validate_led_config(gateway_ip_, ports_, addresses_, response_timeout_ms_);
-    for (size_t i = 0; i < 4; ++i) {
+    for (size_t i = 0; i < kLedControllerCount; ++i) {
       subscriptions_[i] = create_subscription<std_msgs::msg::ColorRGBA>(
         "led" + std::to_string(i) + "/color", rclcpp::QoS(1),
         [this, i](std_msgs::msg::ColorRGBA::ConstSharedPtr message) {send_color(i, *message);});
@@ -44,7 +46,9 @@ private:
   std::vector<int64_t> ports_, addresses_;
   int64_t response_timeout_ms_{500};
   uint16_t transaction_id_{0};
-  std::array<rclcpp::Subscription<std_msgs::msg::ColorRGBA>::SharedPtr, 4> subscriptions_{};
+  std::array<
+    rclcpp::Subscription<std_msgs::msg::ColorRGBA>::SharedPtr,
+    kLedControllerCount> subscriptions_{};
 };
 }  // namespace modbus_tcp_rtu485
 

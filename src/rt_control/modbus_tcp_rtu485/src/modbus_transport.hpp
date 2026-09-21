@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -18,6 +19,7 @@
 namespace modbus_tcp_rtu485
 {
 using Deadline = std::chrono::steady_clock::time_point;
+inline constexpr size_t kLedControllerCount{6U};
 
 inline void validate_endpoint(
   const std::string & ip, int64_t port, int64_t unit, int64_t timeout_ms)
@@ -41,10 +43,10 @@ inline void validate_led_config(
   const std::string & ip, const std::vector<int64_t> & ports,
   const std::vector<int64_t> & addresses, int64_t timeout_ms)
 {
-  if (ports.size() != 4 || addresses.size() != 4) {
-    throw std::invalid_argument("gateway_ports and controller_addresses require four values");
+  if (ports.size() != kLedControllerCount || addresses.size() != kLedControllerCount) {
+    throw std::invalid_argument("gateway_ports and controller_addresses require six values");
   }
-  for (size_t i = 0; i < 4; ++i) {
+  for (size_t i = 0; i < kLedControllerCount; ++i) {
     validate_endpoint(ip, ports[i], addresses[i], timeout_ms);
   }
 }
