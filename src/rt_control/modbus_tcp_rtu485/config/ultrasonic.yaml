@@ -3,17 +3,23 @@ ultrasonic_node:
     gateway_ip: "192.168.1.12"
     # HC2 maps to TCP 504 and terminals A2+/B2-.
     gateway_port: 504
-    unit_id: 1
+    # Two E08 adapters share HC2, with four sensors on each unit.
+    # E08 addresses 2..5 are reserved for its sensor interfaces.
+    unit_ids: [1, 6]
     response_timeout_ms: 500
     poll_interval_ms: 300
     poll_enabled: true
     min_range_m: 0.01
-    # A22 is commissioned for the 3.5 m range and 60-degree field of view.
+    # Keep this metadata aligned with the A22 angle-level register (level 2 = 40 degrees).
     max_range_m: 3.5
-    field_of_view_rad: 1.0471975512
+    field_of_view_rad: 0.6981317008
     # Channel identifiers only; replace after the base_link extrinsics are measured.
     frame_ids:
       - ultrasonic_channel_1_link
       - ultrasonic_channel_2_link
       - ultrasonic_channel_3_link
       - ultrasonic_channel_4_link
+      - ultrasonic_channel_5_link
+      - ultrasonic_channel_6_link
+      - ultrasonic_channel_7_link
+      - ultrasonic_channel_8_link
