@@ -15,12 +15,12 @@ the same port while a node is running.
 
 ## LED node
 
-`led_strip_node` subscribes to `led0/color` through `led3/color` using
+`led_strip_node` subscribes to `led0/color` through `led5/color` using
 `std_msgs/msg/ColorRGBA`. RGB is normalized to `0.0..1.0`; alpha is the W
 channel. Each message writes WE-10x holding registers 40001..40004 with FC16.
 
-The supplied `led_strip.yaml` preserves the commissioned topology in which all
-four controllers share TCP 502 and use RTU addresses 1, 2, 3 and 4. Change it
+The supplied `led_strip.yaml` defines six controllers sharing TCP 502 and using
+RTU addresses 1 through 6. Change it
 only after checking the physical bus.
 
 ```bash

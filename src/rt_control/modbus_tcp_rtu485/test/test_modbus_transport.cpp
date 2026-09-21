@@ -63,7 +63,8 @@ std::vector<uint8_t> exchange_case(
 
 void parameter_and_encoding_tests()
 {
-  const std::vector<int64_t> ports{502, 503, 504, 505}, units{1, 1, 1, 1};
+  const std::vector<int64_t> ports{502, 502, 502, 502, 502, 502};
+  const std::vector<int64_t> units{1, 2, 3, 4, 5, 6};
   validate_led_config("127.0.0.1", ports, units, 500);
   validate_endpoint("127.0.0.1", 504, 1, 500);
   rejects([&]() {validate_led_config("bad-ip", ports, units, 500);});
