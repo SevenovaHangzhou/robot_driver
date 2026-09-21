@@ -50,6 +50,16 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
             b"response_timeout_ms must be",
         )
         require_rejected(
+            [
+                led_executable,
+                "--ros-args",
+                "-p",
+                "gateway_ports:=[502,502,502,502]",
+            ],
+            environment,
+            b"gateway_ports and controller_addresses require six values",
+        )
+        require_rejected(
             [ultrasonic_executable, "--ros-args", "-p", "gateway_port:=0"], environment,
             b"gateway port must be",
         )

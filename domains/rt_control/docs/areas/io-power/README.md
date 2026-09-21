@@ -27,9 +27,12 @@ systemd unit（→ realtime-host）。
 | 06#F3 | 默认四个 frame 仅表示 E08 通道，装车后必须用实测外参与 `base_link` TF 替换。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F3 | PARTIAL |
 | 06#F4 | E084F 一次 FC03 连读四个通道，按已确认配置同时测量；驱动不做逐路发射轮询。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F4 | PARTIAL（源码/离线；实机时序待验） |
 | 06#F5 | V3 安装独立 `rt_control_ultrasonic.launch.py`，双臂 runtime 不隐式启动采集，Mock 禁用硬件进程。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F5 | PARTIAL（离线/安装后 Mock 通过；实机待验） |
+| 07#F1 | LED 驱动配置为六个控制器，共享 TCP 502，RTU 站号依次为 1..6。 | [io-power-20260920-01](records/2026-09-20-six-led-controllers.md)#F1 | PARTIAL（用户确认配置；实机未验证） |
+| 07#F2 | 六路域内颜色话题为 `led0/color`..`led5/color`，每路保持既有 RGBW/FC16 语义。 | [io-power-20260920-01](records/2026-09-20-six-led-controllers.md)#F2 | PASS（源码与离线构建） |
 
 ## 记录索引（倒序）
 
+- 2026-09-20 [Modbus LED 控制器由四路扩展为六路](records/2026-09-20-six-led-controllers.md) — feature，PARTIAL（离线构建通过；实机未验证）
 - 2026-09-19 [四路超声波切换为标准 Range 接口](records/2026-09-19-ultrasonic-standard-range.md) — feature，PARTIAL（T1；标准消息/参数离线通过，实机与 TF 待验）
 - 2026-09-17 [通用 Modbus RTU485 包与四路超声波驱动](records/2026-09-17-modbus-ultrasonic-driver.md) — feature，PARTIAL（T2 只读通信/ROS 发布通过；TF 与长期运行待验）
 - 2026-09-16 [四路 Modbus LED 驱动](records/2026-09-16-modbus-led-driver.md) — feature，PARTIAL（T1 离线；身份/寄存器/实机写入与退出保持待验）
