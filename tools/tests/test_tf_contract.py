@@ -27,7 +27,7 @@ class TfContractTest(unittest.TestCase):
             source["repository"],
             "https://github.com/SevenovaHangzhou/robot_description.git",
         )
-        self.assertEqual(source["source_branch"], "feature/electri-136-inertial-import")
+        self.assertEqual(source["source_branch"], "V3")
         self.assertEqual(
             source["source_revision"],
             "11f6d906dcb4cd5abba7cd4693afc9bb34c6a81e",

@@ -25,9 +25,11 @@ launch 结构与容器（→ release-deploy）。
 | F10 | UR/Doosan 官方接口明确支持负载渐变，ABB 明确支持抓放工件负载切换；辨识、档案选择、时间渐变与实时承重估计须区分，不能据厂商 API 推导本机 60B2 准入 | [厂商负载调查](records/2026-09-24-electri-136-payload-vendor-survey.md)#F1-F4 | UNVERIFIED（仅公开资料调查，未实现/实机验证） |
 | F11 | 条件性 COM 换算对比：右臂 J1 采样差约 5.48N·m、解析上界约 5.94N·m，J7 约 0.82N·m，部分候选姿态符号改变；不是已确认实机误差 | [质心力矩敏感性](records/2026-09-24-electri-136-com-gravity-sensitivity.md)#F1-F3 | UNVERIFIED（离线数值交叉验证通过，机械来源/实机待验） |
 | F12 | 用户接受新机械数据作为待标定CAD初值，并授权每侧J1零位对齐的临时FK映射；16条惯性参数已进入模型，原始文件与矩阵保留 | [临时FK惯性合入](records/2026-09-25-electri-136-inertia-fk-integration.md)#F1-F3 | UNVERIFIED（数据已合入，hardware_verified仍为false） |
-| F13 | RT-Control副本、source-lock及机器绑定固定独立模型feature分支11f6d90，V3.1.1运动学与接口不变；两种末端共享新J1–J6，只有夹爪末端更新J7/活动件 | [临时FK惯性合入](records/2026-09-25-electri-136-inertia-fk-integration.md)#F1-F3 | UNVERIFIED（模型/bringup 122项、相关配置43项通过；插件/外部消费者/实机待验） |
+| F13 | RT-Control副本、source-lock及机器绑定固定独立模型V3分支11f6d90，V3.1.1运动学与接口不变；两种末端共享新J1–J6，只有夹爪末端更新J7/活动件 | [临时FK惯性合入](records/2026-09-25-electri-136-inertia-fk-integration.md)#F1-F3 | UNVERIFIED（模型/bringup 122项、相关配置43项通过；插件/外部消费者/实机待验） |
 
 ## 记录索引（倒序）
+
+- [2026-09-25 ELECTRI-136 模型分支重命名为V3](records/2026-09-25-electri-136-model-branch-v3.md)
 
 - [2026-09-25 ELECTRI-136 新机械惯性初值按授权临时FK映射合入](records/2026-09-25-electri-136-inertia-fk-integration.md)
 

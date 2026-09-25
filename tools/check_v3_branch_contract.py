@@ -40,7 +40,7 @@ def validate(repository_root: Path) -> list[str]:
 
     expected_source = {
         "repository": "https://github.com/SevenovaHangzhou/robot_description.git",
-        "source_branch": "feature/electri-136-inertial-import",
+        "source_branch": "V3",
         "source_revision": EXPECTED_DESCRIPTION_REVISION,
         "source_tree": EXPECTED_DESCRIPTION_TREE,
         "model_family": "alfa_v3",
