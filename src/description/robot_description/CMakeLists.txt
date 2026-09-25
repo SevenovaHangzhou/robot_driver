@@ -6,6 +6,10 @@ find_package(ament_cmake REQUIRED)
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(
+    test_electri136_inertial_mapping
+    test/test_electri136_inertial_mapping.py
+  )
+  ament_add_pytest_test(
     test_v3_description_semantics
     test/test_v3_description_semantics.py
   )

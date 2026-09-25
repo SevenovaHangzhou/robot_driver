@@ -2,10 +2,34 @@
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="robot_v3_end_effectors">
   <xacro:macro name="v3_gripper" params="side">
     <link name="${side}_link7">
+      <xacro:if value="${side == 'left'}">
+      <xacro:property name="fixed_mass" value="4.968" />
+      <xacro:property name="fixed_cx" value="0.00791768934263" />
+      <xacro:property name="fixed_cy" value="0.0540799104769" />
+      <xacro:property name="fixed_cz" value="0.0701258437238" />
+      <xacro:property name="fixed_ixx" value="0.0279908997017" />
+      <xacro:property name="fixed_ixy" value="0.00130496404675" />
+      <xacro:property name="fixed_ixz" value="-3.28935086884e-05" />
+      <xacro:property name="fixed_iyy" value="0.022648579088" />
+      <xacro:property name="fixed_iyz" value="0.00613871307241" />
+      <xacro:property name="fixed_izz" value="0.0190359642103" />
+      </xacro:if>
+      <xacro:unless value="${side == 'left'}">
+      <xacro:property name="fixed_mass" value="4.968" />
+      <xacro:property name="fixed_cx" value="0.00791767509113" />
+      <xacro:property name="fixed_cy" value="-0.0540798334135" />
+      <xacro:property name="fixed_cz" value="0.0701258512213" />
+      <xacro:property name="fixed_ixx" value="0.0279908999288" />
+      <xacro:property name="fixed_ixy" value="-0.0013049632645" />
+      <xacro:property name="fixed_ixz" value="-3.28923344296e-05" />
+      <xacro:property name="fixed_iyy" value="0.0226485772779" />
+      <xacro:property name="fixed_iyz" value="-0.00613871361202" />
+      <xacro:property name="fixed_izz" value="0.0190359657934" />
+      </xacro:unless>
       <inertial>
-        <origin xyz="-0.007153 0.051039 0.078079" rpy="0 0 0" />
-        <mass value="4.750" />
-        <inertia ixx="0.023047048" ixy="0.001195672" ixz="0.000201380" iyy="0.013186943" iyz="-0.004207234" izz="0.024017065" />
+        <origin xyz="${fixed_cx} ${fixed_cy} ${fixed_cz}" rpy="0 0 0" />
+        <mass value="${fixed_mass}" />
+        <inertia ixx="${fixed_ixx}" ixy="${fixed_ixy}" ixz="${fixed_ixz}" iyy="${fixed_iyy}" iyz="${fixed_iyz}" izz="${fixed_izz}" />
       </inertial>
       <visual>
         <material name="robot_v3_gray">
@@ -24,10 +48,34 @@
       </collision>
     </link>
     <link name="${side}_moving_jaw">
+      <xacro:if value="${side == 'left'}">
+      <xacro:property name="jaw_mass" value="0.086" />
+      <xacro:property name="jaw_cx" value="0.0312110612538" />
+      <xacro:property name="jaw_cy" value="-0.0474096878043" />
+      <xacro:property name="jaw_cz" value="0.109610525425" />
+      <xacro:property name="jaw_ixx" value="0.000118896982982" />
+      <xacro:property name="jaw_ixy" value="3.07524146586e-05" />
+      <xacro:property name="jaw_ixz" value="-6.87716451222e-05" />
+      <xacro:property name="jaw_iyy" value="0.000351487783728" />
+      <xacro:property name="jaw_iyz" value="-1.33502439253e-05" />
+      <xacro:property name="jaw_izz" value="0.00031015323329" />
+      </xacro:if>
+      <xacro:unless value="${side == 'left'}">
+      <xacro:property name="jaw_mass" value="0.086" />
+      <xacro:property name="jaw_cx" value="0.0312110359947" />
+      <xacro:property name="jaw_cy" value="0.0474097719652" />
+      <xacro:property name="jaw_cz" value="0.109610521055" />
+      <xacro:property name="jaw_ixx" value="0.00011889699562" />
+      <xacro:property name="jaw_ixy" value="-3.07524441807e-05" />
+      <xacro:property name="jaw_ixz" value="-6.87716525407e-05" />
+      <xacro:property name="jaw_iyy" value="0.000351487781911" />
+      <xacro:property name="jaw_iyz" value="1.33502310459e-05" />
+      <xacro:property name="jaw_izz" value="0.000310153222468" />
+      </xacro:unless>
       <inertial>
-        <origin xyz="-0.021670 0.021614 0.107390" rpy="0 0 0" />
-        <mass value="0.342" />
-        <inertia ixx="0.000402893" ixy="0.000112258" ixz="-0.000147231" iyy="0.001185610" iyz="-0.000064995" izz="0.001057162" />
+        <origin xyz="${jaw_cx} ${jaw_cy} ${jaw_cz}" rpy="0 0 0" />
+        <mass value="${jaw_mass}" />
+        <inertia ixx="${jaw_ixx}" ixy="${jaw_ixy}" ixz="${jaw_ixz}" iyy="${jaw_iyy}" iyz="${jaw_iyz}" izz="${jaw_izz}" />
       </inertial>
       <visual>
         <material name="robot_v3_gray">

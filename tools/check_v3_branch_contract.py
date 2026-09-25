@@ -11,8 +11,8 @@ from pathlib import Path
 import yaml
 
 
-EXPECTED_DESCRIPTION_REVISION = "ec69ca04297896c1296720324d23cdb8f80d9e63"
-EXPECTED_DESCRIPTION_TREE = "864dfff98fdd4cf54df35095232b38728c073c01"
+EXPECTED_DESCRIPTION_REVISION = "11f6d906dcb4cd5abba7cd4693afc9bb34c6a81e"
+EXPECTED_DESCRIPTION_TREE = "ff4bddfc25e56b88b85b124c7825038664922021"
 
 
 def validate(repository_root: Path) -> list[str]:
@@ -40,7 +40,7 @@ def validate(repository_root: Path) -> list[str]:
 
     expected_source = {
         "repository": "https://github.com/SevenovaHangzhou/robot_description.git",
-        "source_branch": "robot_v3_suction_chassis",
+        "source_branch": "feature/electri-136-inertial-import",
         "source_revision": EXPECTED_DESCRIPTION_REVISION,
         "source_tree": EXPECTED_DESCRIPTION_TREE,
         "model_family": "alfa_v3",

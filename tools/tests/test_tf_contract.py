@@ -27,14 +27,14 @@ class TfContractTest(unittest.TestCase):
             source["repository"],
             "https://github.com/SevenovaHangzhou/robot_description.git",
         )
-        self.assertEqual(source["source_branch"], "robot_v3_suction_chassis")
+        self.assertEqual(source["source_branch"], "feature/electri-136-inertial-import")
         self.assertEqual(
             source["source_revision"],
-            "ec69ca04297896c1296720324d23cdb8f80d9e63",
+            "11f6d906dcb4cd5abba7cd4693afc9bb34c6a81e",
         )
         self.assertEqual(
             source["source_tree"],
-            "864dfff98fdd4cf54df35095232b38728c073c01",
+            "ff4bddfc25e56b88b85b124c7825038664922021",
         )
         self.assertEqual(source["model_family"], "alfa_v3")
         self.assertEqual(source["default_end_effector"], "suction")

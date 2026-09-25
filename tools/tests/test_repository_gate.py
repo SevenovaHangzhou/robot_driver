@@ -66,7 +66,7 @@ class RepositoryGateTest(unittest.TestCase):
 
     def test_pinned_description_exports_preserve_bytes_without_final_newline(self):
         root = Path(__file__).resolve().parents[2]
-        self.assertEqual(len(repository_gate.DESCRIPTION_SOURCE_SHA256), 8)
+        self.assertEqual(len(repository_gate.DESCRIPTION_SOURCE_SHA256), 12)
         for path in repository_gate.DESCRIPTION_SOURCE_SHA256:
             with self.subTest(path=path):
                 text = (root / path).read_bytes().decode("utf-8")

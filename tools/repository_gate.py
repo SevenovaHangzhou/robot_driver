@@ -81,6 +81,14 @@ ROOT_DOMAIN_LEDGER_FILES = {"PROGRESS.md", "BLOCKED-questions.md"}
 # manifests hash the original exports, which have no final LF.
 # This is an exact-content exception, never a blanket model_sources exclusion.
 DESCRIPTION_SOURCE_SHA256 = {
+    "arm_inertial_20260924/export_report.json":
+        "839acfe17cc99dcaf0b25b76649cc5c89e5c1a6d333d528f6eb04995173b6d61",
+    "arm_inertial_20260924/parts.json":
+        "b3d9a7adf3fc986d360042d82ea75db7f6474a6eb851631cf3703fb234ca42a0",
+    "arm_inertial_20260924/robot.urdf":
+        "abdabe00eb1f79761fbe5603c4dff5e6b473e2f9429c36d0e436c9ed3f60942e",
+    "arm_inertial_20260924/user_model.json":
+        "ff535be98bf35aca993656211668d6e8a820e1b6c9350730191d7b6fc546fbc6",
     "head_chest_camera_20260921/export_report.json":
         "5e0ef289f4093946901e5ed10c1267bf6606ffd125855e61283a957b4d382b2f",
     "head_chest_camera_20260921/parts.json":

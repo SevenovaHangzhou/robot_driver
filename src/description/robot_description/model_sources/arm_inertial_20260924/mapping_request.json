@@ -1,0 +1,267 @@
+{
+  "issue": "ELECTRI-136",
+  "target_revision": "ec69ca04297896c1296720324d23cdb8f80d9e63",
+  "target_variant": "gripper",
+  "status": "requires_coordinate_evidence",
+  "required_convention": "p_target_m = R_target_from_source * p_source_m + t_target_m",
+  "accepted_alternative": "Re-export mass, COM and COM inertia directly in the target V3.1.1 link frames, with unchanged joint zero/axis/limits",
+  "note": "Joint origins listed below are relative to DIFFERENT parents and cannot be subtracted to obtain a transform.",
+  "mappings": [
+    {
+      "source_link": "left_link1",
+      "proposed_target_link": "left_link1",
+      "part_membership_confirmed": false,
+      "source_joint": "left_link1_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0.266 -0.29054221 0.2714005",
+        "rpy": "1.8325957 0 0"
+      },
+      "target_joint": "left_joint1",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.3089969 3.1415927",
+        "xyz": "0.32201385 -0.181 1.3500054"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "left_link2",
+      "proposed_target_link": "left_link2",
+      "part_membership_confirmed": false,
+      "source_joint": "left_link2_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "-0.00181 5.2471986e-10 0.15042",
+        "rpy": "1.5707963 -1.3089969 1.5707963"
+      },
+      "target_joint": "left_joint2",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.5707963 -3.1415927",
+        "xyz": "0.039999999 0 0.1512"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "left_link3",
+      "proposed_target_link": "left_link3",
+      "part_membership_confirmed": false,
+      "source_joint": "left_link3_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0.23761775 0.063669485 0",
+        "rpy": "0 -1.5707963 -2.8797933"
+      },
+      "target_joint": "left_joint3",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.5707963 3.1415927",
+        "xyz": "0.1795 0 -0.040000001"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "left_link4",
+      "proposed_target_link": "left_link4",
+      "part_membership_confirmed": false,
+      "source_joint": "left_link4_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "-4.248689e-05 -0.082999999 0.26",
+        "rpy": "1.5707963 0 0"
+      },
+      "target_joint": "left_joint4",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "1.5707963 -1.3089969 -3.1415927",
+        "xyz": "-1.2261866e-09 -0.068 0.3265"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "left_link5",
+      "proposed_target_link": "left_link5",
+      "part_membership_confirmed": false,
+      "source_joint": "left_link5_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0 0.241 -0.085700001",
+        "rpy": "-1.5707963 0 0"
+      },
+      "target_joint": "left_joint5",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "1.5707963 0 1.8325957",
+        "xyz": "0.22457775 0.060175428 0.068"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "left_link6",
+      "proposed_target_link": "left_link6",
+      "part_membership_confirmed": false,
+      "source_joint": "left_link6_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0 0.076500001 0.233",
+        "rpy": "1.5707963 0 0"
+      },
+      "target_joint": "left_joint6",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.5707963 -3.1415927",
+        "xyz": "0.061499999 0 0.2415"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "left_link7",
+      "proposed_target_link": "left_link7",
+      "part_membership_confirmed": false,
+      "source_joint": "left_link7_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0 0.0992 0.0755",
+        "rpy": "-1.5707963 0 0"
+      },
+      "target_joint": "left_joint7",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.5707963 3.1415927",
+        "xyz": "0.0993 0 -0.0615"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "left hand",
+      "proposed_target_link": "left_moving_jaw",
+      "part_membership_confirmed": false,
+      "source_joint": "left hand_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "-0.015000103 -0.11 0.12275",
+        "rpy": "-1.5707963 0 0"
+      },
+      "target_joint": "left_moving_jaw_joint",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 0 0",
+        "xyz": "0 0 0"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right_link1",
+      "proposed_target_link": "right_link1",
+      "part_membership_confirmed": false,
+      "source_joint": "right_link1_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0.266 0.29054221 0.2714005",
+        "rpy": "-1.8325957 0 0"
+      },
+      "target_joint": "right_joint1",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.3089969 0",
+        "xyz": "-0.33054221 -0.181 1.3500054"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right_link2",
+      "proposed_target_link": "right_link2",
+      "part_membership_confirmed": false,
+      "source_joint": "right_link2_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0 -5.2471986e-10 0.15042",
+        "rpy": "1.5707963 1.3089969 1.5707963"
+      },
+      "target_joint": "right_joint2",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 1.5707963 0",
+        "xyz": "0.039999999 0 0.1512"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right_link3",
+      "proposed_target_link": "right_link3",
+      "part_membership_confirmed": false,
+      "source_joint": "right_link3_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "-0.23761775 0.063669485 0.00181",
+        "rpy": "0 -1.5707963 -0.26179939"
+      },
+      "target_joint": "right_joint3",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.5707963 0",
+        "xyz": "-0.1795 0 -0.040000001"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right_link4",
+      "proposed_target_link": "right_link4",
+      "part_membership_confirmed": false,
+      "source_joint": "right_link4_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "4.248689e-05 0.082999999 0.26",
+        "rpy": "-1.5707963 0 0"
+      },
+      "target_joint": "right_joint4",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "1.5707963 1.3089969 0",
+        "xyz": "-1.2287747e-09 0.068 0.3265"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right_link5",
+      "proposed_target_link": "right_link5",
+      "part_membership_confirmed": false,
+      "source_joint": "right_link5_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0 -0.241 -0.085700001",
+        "rpy": "1.5707963 0 0"
+      },
+      "target_joint": "right_joint5",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "-1.5707963 0 1.3089969",
+        "xyz": "-0.22457775 0.060175428 0.068"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right_link6",
+      "proposed_target_link": "right_link6",
+      "part_membership_confirmed": false,
+      "source_joint": "right_link6_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0 -0.076500001 0.233",
+        "rpy": "-1.5707963 0 0"
+      },
+      "target_joint": "right_joint6",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 1.5707963 0",
+        "xyz": "0.061499999 0 0.2415"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right_link7",
+      "proposed_target_link": "right_link7",
+      "part_membership_confirmed": false,
+      "source_joint": "right_link7_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0 -0.0992 0.0755",
+        "rpy": "1.5707963 0 0"
+      },
+      "target_joint": "right_joint7",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 -1.5707963 0",
+        "xyz": "-0.0993 0 -0.0615"
+      },
+      "target_from_source_link": null
+    },
+    {
+      "source_link": "right hand",
+      "proposed_target_link": "right_moving_jaw",
+      "part_membership_confirmed": false,
+      "source_joint": "right hand_joint",
+      "source_joint_origin_in_source_parent": {
+        "xyz": "0.015000103 0.11 0.12275",
+        "rpy": "1.5707963 0 0"
+      },
+      "target_joint": "right_moving_jaw_joint",
+      "target_joint_origin_in_target_parent": {
+        "rpy": "0 0 0",
+        "xyz": "0 0 0"
+      },
+      "target_from_source_link": null
+    }
+  ]
+}

@@ -2744,3 +2744,10 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   不据此推断既有编码器偏置有效；台架需重新确认逻辑零位映射。
   未将新机械43.146kg/臂的初值写入运行URDF，前馈与实机准入仍关闭。
   详见 [V3.1.1模型迁移](docs/areas/motion/records/2026-09-25-electri-136-v311-model-migration.md)。
+- 同日用户授权“采用FK临时映射”：每侧对齐J1/link1零位frame，再用source/target零位FK计算
+  16个link变换。该裁决解除CAD初值必须等待机械变换矩阵的工作阻塞；不把临时映射当成实测。
+  新质量/COM/惯量现已进入robot_description模型提交11f6d906dcb4cd5abba7cd4693afc9bb34c6a81e，
+  驱动副本和版本锁同步；每臂七连杆43.146kg，含活动夹爪43.232kg。夹爪版更新link7/活动件，
+  吸盘末端保持原参数。`hardware_verified=false`、重力模型和力矩换算准入保持未验证。
+  本阶段只实现自重补偿；台架仍需确认零位、质量归属、力矩单位与方向及抱闸时序。
+  详见 [临时FK惯性合入](docs/areas/motion/records/2026-09-25-electri-136-inertia-fk-integration.md)。

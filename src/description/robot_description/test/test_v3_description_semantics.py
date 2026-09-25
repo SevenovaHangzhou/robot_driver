@@ -313,8 +313,8 @@ def test_dual_gripper_attachment_and_travel(side):
 
     fixed_body = links[f"{side}_link7"]
     moving_jaw = links[f"{side}_moving_jaw"]
-    assert float(fixed_body.find("inertial/mass").attrib["value"]) == 4.750
-    assert float(moving_jaw.find("inertial/mass").attrib["value"]) == 0.342
+    assert float(fixed_body.find("inertial/mass").attrib["value"]) == 4.968
+    assert float(moving_jaw.find("inertial/mass").attrib["value"]) == 0.086
     for link, mesh_name in ((fixed_body, "ee_fixed_body"), (moving_jaw, "moving_jaw")):
         for geometry in ("visual", "collision"):
             assert len(link.findall(geometry)) == 1

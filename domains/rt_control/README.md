@@ -72,11 +72,11 @@ The legacy baseline `/home/kkozia/robot_driver@6bc94cd` is read-only and is not 
 
 ## V3 分支运行边界
 
-当前 V3 源码使用 `robot_description/robot_v3_suction_chassis@ec69ca0`（V3.1.1）的构建副本，
+当前 V3 源码使用 `robot_description@11f6d90`（V3.1.1 + ELECTRI-136 临时FK惯性初值）的构建副本，
 硬件绑定仍选择其 gripper 变体以对应已确认的 14 CSP + 2 PP 双臂实物。V3.1.1 的 link 名称、
-机械零位、Updown 最高点零位及命名姿态随该模型导入；既有编码器/驱动零位不可直接视为已匹配，
-需按台架标定重新确认。2026-09-24 新机械质量/质心目前作为独立来源保存，尚待 source→target
-坐标映射，不包含在这个已发布模型 SHA 中。默认安装入口
+机械零位、Updown 最高点零位及命名姿态保持不变；既有编码器/驱动零位不可直接视为已匹配，
+需按台架标定重新确认。2026-09-24 新机械质量/质心已按用户授权的左右J1零位frame对齐和
+零位FK规则转换，写入双臂及夹爪惯性块；这些仍是未实机验证的CAD初值，gravity active准入不变。默认安装入口
 `rt_control_start` 只运行 `alfa_v3` machine-profile validation，不创建硬件节点；真实双臂
 原位使能仍必须显式使用 `--enable-only`，并沿用其独立现场授权门禁。
 
