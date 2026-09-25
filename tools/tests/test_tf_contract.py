@@ -10,7 +10,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTION = ROOT / "src/description/robot_description"
 ROBOT_XACRO = DESCRIPTION / "urdf/robot.urdf.xacro"
-ARM_XACRO = DESCRIPTION / "urdf/robot_v3_0_9.xacro"
+ARM_XACRO = DESCRIPTION / "urdf/robot_v3_1_1.xacro"
 CHASSIS_XACRO = DESCRIPTION / "urdf/robot_v3_chassis.xacro"
 SOURCE_LOCK = ROOT / "src/description/source-lock.yaml"
 BRINGUP_LAUNCH = ROOT / "src/rt_control/rt_control_bringup/launch/rt_control.launch.py"
@@ -30,11 +30,11 @@ class TfContractTest(unittest.TestCase):
         self.assertEqual(source["source_branch"], "robot_v3_suction_chassis")
         self.assertEqual(
             source["source_revision"],
-            "17f5bdc46b8f2580ee81aed919da7b404da3bdaf",
+            "ec69ca04297896c1296720324d23cdb8f80d9e63",
         )
         self.assertEqual(
             source["source_tree"],
-            "1b86f379f885ad2b979c30ffd09b8d79e738b9fa",
+            "864dfff98fdd4cf54df35095232b38728c073c01",
         )
         self.assertEqual(source["model_family"], "alfa_v3")
         self.assertEqual(source["default_end_effector"], "suction")
@@ -51,7 +51,10 @@ class TfContractTest(unittest.TestCase):
         self.assertEqual(base_joint.attrib["type"], "fixed")
         self.assertEqual(base_joint.find("parent").attrib["link"], "base_footprint")
         self.assertEqual(base_joint.find("child").attrib["link"], "base_link")
-        self.assertEqual(base_joint.find("origin").attrib["xyz"], "0.195 0.015 0.400")
+        self.assertEqual(
+            base_joint.find("origin").attrib["xyz"],
+            "0.190000002779484 -0.0000442724271391554 0.40000250599116",
+        )
 
     def test_v3_control_joint_names_are_present_in_the_model_sources(self):
         arms = ET.parse(ARM_XACRO).getroot()
@@ -62,8 +65,8 @@ class TfContractTest(unittest.TestCase):
         }
         self.assertTrue(expected_arms.issubset(joints))
         self.assertEqual(joints["updown"].attrib["type"], "prismatic")
-        self.assertEqual(joints["updown"].find("limit").attrib["lower"], "-0.5")
-        self.assertEqual(joints["updown"].find("limit").attrib["upper"], "0.5")
+        self.assertEqual(joints["updown"].find("limit").attrib["lower"], "-1")
+        self.assertEqual(joints["updown"].find("limit").attrib["upper"], "0")
 
         chassis = ET.parse(CHASSIS_XACRO).getroot()
         chassis_joints = {

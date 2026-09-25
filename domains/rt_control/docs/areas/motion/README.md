@@ -21,8 +21,19 @@ launch 结构与容器（→ release-deploy）。
 | F6 | 四轮速度使用固定规模最小二乘残差剔除；同一异常轮从 twist 与位置里程计排除且恢复无补跳，阈值保持待标定；共模一致误差不可辨识 | [残差剔除记录](records/2026-09-16-swerve-slip-residual-rejection.md)#F1-F4 | PARTIAL（T1 Native/Mock；阈值和实机打滑待验） |
 | F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
 | F8 | 七轴重力前馈以 Pinocchio reduced model 输出 N.m，shadow 无命令，active 独占 effort 并受模型哈希/逐轴换算双门禁；未接默认启动面 | [ELECTRI-136 离线实现](records/2026-09-19-electri-136-gravity-feedforward-offline.md)#F1-F4 | PARTIAL（T1 Docker/Mock 定向测试；全量测试/镜像/实机待验） |
+| F9 | 2026-09-24 机械重导的惯量必要条件与 JSON→URDF 转换通过 T0 检查，但左右质量属性/网格装配变换不一致，末端归属及公共模型迁移待决；不能据此验证或替换生产模型 | [机械参数核对](records/2026-09-24-electri-136-mechanical-inertia-review.md)#F1-F3 | UNVERIFIED（机械/模型所有者待确认，BQ-152 保持开放） |
+| F10 | UR/Doosan 官方接口明确支持负载渐变，ABB 明确支持抓放工件负载切换；辨识、档案选择、时间渐变与实时承重估计须区分，不能据厂商 API 推导本机 60B2 准入 | [厂商负载调查](records/2026-09-24-electri-136-payload-vendor-survey.md)#F1-F4 | UNVERIFIED（仅公开资料调查，未实现/实机验证） |
+| F11 | 条件性 COM 换算对比：右臂 J1 采样差约 5.48N·m、解析上界约 5.94N·m，J7 约 0.82N·m，部分候选姿态符号改变；不是已确认实机误差 | [质心力矩敏感性](records/2026-09-24-electri-136-com-gravity-sensitivity.md)#F1-F3 | UNVERIFIED（离线数值交叉验证通过，机械来源/实机待验） |
+| F12 | 用户接受新机械数据作为待标定CAD初值；已接收28源文件/16参数，并按后续裁决固定公共V3.1.1为目标；新惯性字段仍待坐标映射 | [候选来源接收](records/2026-09-25-electri-136-inertial-source-intake.md)#F1-F3；[基线迁移](records/2026-09-25-electri-136-v311-model-migration.md)#F1-F3 | UNVERIFIED（候选来源已接收，运行模型尚未采用新惯性值） |
+| F13 | RT-Control构建副本、source-lock、机器绑定及校验已同步公共V3.1.1 ec69ca0；保留draft/validation-only，机械初值坐标映射及台架/外部消费者验证仍待完成 | [V3.1.1迁移](records/2026-09-25-electri-136-v311-model-migration.md)#F1-F3 | UNVERIFIED（模型/bringup 115项、相关配置43项、质量门禁通过） |
 
 ## 记录索引（倒序）
+
+- [2026-09-25 ELECTRI-136 按用户选择迁移公共V3.1.1模型基线](records/2026-09-25-electri-136-v311-model-migration.md)
+- [2026-09-25 ELECTRI-136 新机械惯性初值来源接收与模型迁移边界](records/2026-09-25-electri-136-inertial-source-intake.md)
+- [2026-09-24 ELECTRI-136 质心装配疑点的重力力矩敏感性](records/2026-09-24-electri-136-com-gravity-sensitivity.md)
+- [2026-09-24 ELECTRI-136 商业机械臂负载切换、渐变与辨识调查](records/2026-09-24-electri-136-payload-vendor-survey.md)
+- [2026-09-24 ELECTRI-136 机械重导双臂惯性参数核对](records/2026-09-24-electri-136-mechanical-inertia-review.md)
 
 - [2026-09-19 ELECTRI-136 七轴 CSP 重力前馈离线库与控制器](records/2026-09-19-electri-136-gravity-feedforward-offline.md)
 - [2026-09-16 四舵轮机械限位内转向规划与输出门禁](records/2026-09-16-swerve-bounded-steering-planner.md)

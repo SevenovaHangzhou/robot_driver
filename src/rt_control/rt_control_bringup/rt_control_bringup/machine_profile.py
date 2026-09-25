@@ -1326,7 +1326,7 @@ def _validate_known_v3_contract(manifest: MachineManifest) -> None:
         joint_limits_file="config/joint_limits_gripper.yaml",
         initial_positions_file="config/initial_positions_gripper.yaml",
         end_effector="gripper",
-        source_revision="17f5bdc46b8f2580ee81aed919da7b404da3bdaf",
+        source_revision="ec69ca04297896c1296720324d23cdb8f80d9e63",
     ):
         raise MachineProfileError("alfa_v3 robot model binding is inconsistent")
     expected_modules = {

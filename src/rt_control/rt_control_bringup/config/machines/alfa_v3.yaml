@@ -8,7 +8,7 @@ robot_model:
   joint_limits_file: config/joint_limits_gripper.yaml
   initial_positions_file: config/initial_positions_gripper.yaml
   end_effector: gripper
-  source_revision: 17f5bdc46b8f2580ee81aed919da7b404da3bdaf
+  source_revision: ec69ca04297896c1296720324d23cdb8f80d9e63
 # EtherCAT branch coupler ESI: Inovance GR10-EC-6SW (corrected model spelling).
 # ESI declares two devices, 0x10F40931 and 0x10F40932, vendor 0x00100000.
 # Arm-bench scan and user wiring: X2 -> left (positions 1..8), X3 -> right (9..16).

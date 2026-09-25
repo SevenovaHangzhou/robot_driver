@@ -1,35 +1,48 @@
 # robot_description
 
-本分支 `robot_v3_suction_chassis` 默认提供“吸盘 + 主动悬挂舵轮”版本（26 个可动关节）。
+本分支 `robot_v3_suction_chassis` 默认提供“V3.1.1 双臂 + 吸盘 + 主动悬挂舵轮”版本（26 个可动关节）。
 直接加载 `urdf/robot.urdf`；可编辑入口为 `urdf/robot.urdf.xacro`，
 配套配置为 `config/initial_positions.yaml` 和 `config/joint_limits.yaml`。
 
 ## 1. 功能说明
 
 本仓库提供机器人 URDF/Xacro、SRDF、网格、初始关节位置和关节限位资产。
-`robot_v3` 分支保存 V3.0.9 描述语义，支持双夹爪与双吸盘两套末端，
-两版均集成四组独立转向/行走舵轮。
+双臂关节链和升降坐标采用 V3.1.1；模块化机身、主动悬挂底盘、双轴头部、
+双夹爪/双吸盘和 Tool0 沿用 Kkozia 分支，两版均集成四组独立转向/行走舵轮。
+头部相机、头部 MID-360 和胸部 ZED X 使用 2026-09-21 新 CAD 安装位置。
 
 ## 2. 输入输出
 
 - 输入：`urdf/robot.urdf.xacro` 及其包含的 V3 几何与末端文件；
   `end_effector` 参数可取 `suction`（默认）或 `gripper`，同时选择两侧末端。
 - 输出：展开后的 URDF、`srdf/robot.srdf`、初始位置和关节限位 YAML。
-- `base_footprint` 是地面参考，`base_link` 的实测安装偏移为
-  `[0.195, 0.015, 0.400]m`。
+- `base_footprint` 是四个零位轮轴中心的平均 XY 位置，并沿 Z 下移 `0.1m`
+  轮半径得到的地面旋转中心；`base_footprint → base_link` 为
+  `[0.1900000028, -0.0000442724, 0.4000025060]m`。
 - 按 ROS `base_link` 约定，`+Y` 一侧命名为 `left_*`，`-Y` 一侧命名为
   `right_*`。
-- 上游模型中原名 `right_joint5` 的 `+pi` 姿态定义为修正命名后
-  `left_joint5` 的逻辑零位；逻辑运动范围保持 `[-pi, +pi]`。
-- `left_joint7` 的逻辑零位定义为上一版模型的 `+pi` 腕部滚转位置，
-  使左右末端默认朝向一致；运动范围仍为 `[-pi, +pi]`。
-- `updown=0m` 为行程中点，逻辑范围为 `[-0.5m, +0.5m]`。
-- 默认初始姿态为左臂 `[150, 90, -5, 120, 0, 0, 0]°`、右臂
-  `[-150, -90, 5, -120, 0, 0, 0]°`。
+- 左右 J1～J7 的关节原点、轴向和 J1～J6 连杆资产来自 V3.1.1；
+  J7 机械末端由所选 Kkozia 夹爪/吸盘配置替换。机械原始零位已关于中轴面镜像，
+  不再对右 J1/J5 叠加180°逻辑零位偏移；镜像姿态统一满足 `right_jointN=-left_jointN`。
+- `updown=0m` 为最高点，逻辑范围为 `[-1m, 0m]`；实体 1m 行程未改变。
+- 默认初始（SRDF `home`）姿态为 `updown=-0.3m`，左臂
+  `[155, -105, 20, 90, -90, -40, 0]°`、右臂
+  `[-155, 105, -20, -90, 90, 40, 0]°`。
+- 第二初始（SRDF `second_home`）姿态为 `updown=-0.6m`，左臂
+  `[30, 80, 20, 90, 90, 60, 0]°`、右臂
+  `[-30, -80, -20, -90, -90, -60, 0]°`。
+- 卸货（SRDF `unloading`）姿态为 `updown=-0.3m`，左臂
+  `[130, -105, -180, 20, -90, -30, 0]°`、右臂
+  `[-130, 105, 180, -20, 90, 30, 0]°`。
+- 第二卸货（SRDF `second_unloading`）姿态为 `updown=-0.6m`，左臂
+  `[0, 100, 0, -45, 100, 45, 0]°`、右臂
+  `[0, -100, 0, 45, -100, -45, 0]°`。
+- 四个命名姿态中未列出的头部、悬挂、舵轮和夹爪关节均为0；完整数值合同见
+  `config/named_poses*.yaml`。
 - 夹爪版的 `left_moving_jaw_joint` 和 `right_moving_jaw_joint` 分别连接同侧
-  `*_joint7` 与 `*_moving_jaw`，沿父链接局部 `+X` 方向移动，范围为
+  `*_link7` 与 `*_moving_jaw`，沿父链接局部 `+X` 方向移动，范围为
   `[0, 0.080]m`，默认 `0m` 表示 CAD 闭合状态。
-- 现有 `left_tool0`、`right_tool0` 仍固定在同侧 `*_joint7` 的
+- 现有 `left_tool0`、`right_tool0` 仍固定在同侧 `*_link7` 的
   `[0, 0, 0.13585]m`；它们不随夹爪开合移动，也未重新定义为夹持中心或吸附面 TCP。
 
 SRDF 只定义五个规划组：
@@ -58,14 +71,14 @@ SRDF 只定义五个规划组：
 ### 双夹爪导入约定
 
 首次夹爪包的 `robot.urdf` 与 `robot_dual_gripper.urdf` 内容相同，以后者为来源。
-保留仓库已校核的机身坐标、左右侧、J5/J7 逻辑零位、升降与臂关节限位，
-只导入末端固定主体和移动夹爪。原有 46 个网格与输入包逐字节一致。
+保留 Kkozia 夹爪固定主体和移动夹爪，同时由 V3.1.1 提供双臂运动链；
+夹爪资产、行程和碰撞偏移不因机械臂升级而改变。
 
 | 输入链接或关节 | 仓库链接或关节 |
 | --- | --- |
-| `link_010` | `right_joint7` |
+| `link_010` | `right_link7` |
 | `left_moving_jaw` / `left_moving_jaw_joint` | `right_moving_jaw` / `right_moving_jaw_joint` |
-| `link_017` | `left_joint7` |
+| `link_017` | `left_link7` |
 | `right_moving_jaw` / `right_moving_jaw_joint` | `left_moving_jaw` / `left_moving_jaw_joint` |
 
 新增网格位于 `meshes/robot_v3/`，URDF 使用
@@ -84,7 +97,19 @@ SRDF 只定义五个规划组：
 
 吸盘包的 `robot.urdf` 与 `robot_dual_suction.urdf` 内容相同，以后者为来源。
 它将两侧末端整体替换为吸盘，并移除移动夹爪，使用相同的
-`link_010 → right_joint7`、`link_017 → left_joint7` 映射。
+`link_010 → right_link7`、`link_017 → left_link7` 映射。
+
+### 机械臂 link / joint 命名
+
+`robot_fixed_names.urdf` 修正了机械臂实体与关节同名的问题。控制接口继续使用
+`left_joint1..7` 和 `right_joint1..7`；对应实体改为 `left_link1..7` 和
+`right_link1..7`。每个关节连接前一级 `*_linkN` 与后一级 `*_linkN+1`，
+末端 `tool0` 和夹爪/吸盘主体连接 `*_link7`。该变更不改变坐标、零位、网格、
+质量或惯量。
+
+机械臂关节的 effort/velocity 同步采用该文件中的分级参数：J1/J2 为
+`647 / 1.309`，J3 为 `484 / 1.309`，J4 为 `459 / 1.749`，J5 为
+`217 / 2.618`，J6 为 `107 / 3.142`，J7 为 `36 / 3.142`。
 
 - 每侧质量：`2.618 kg`；质心：`[-0.000330, -0.000125, 0.070303]m`。
 - 网格：`meshes/robot_v3/suction_visual.stl` 与 `suction_collision.stl`。
@@ -114,15 +139,16 @@ SRDF 只定义五个规划组：
 
 装配按“轮胎最低点接地、立柱底面贴底盘上表面”对齐：
 
-- 保留 `base_footprint → base_link` 的 `[0.195, 0.015, 0.400]m`。
+- `base_footprint → base_link` 由四轮轴心和 `0.1m` 轮半径推导为
+  `[0.1900000028, -0.0000442724, 0.4000025060]m`。
 - `base_link → chassis_base` 为 `[-0.19, 0, -0.034415142]m`，无旋转；
   保留旧底盘的水平中心 `[0.005, 0.015]m`（相对 `base_footprint`）。
 - 源整机坐标到 `base_footprint` 的对齐平移为
   `[-0.001, 0.015, 0.25673805]m`。
 - 悬挂零位包含 `0.1565mm` 网格高度补偿；四轮最低点为 `z=0m`，底盘安装板
   下表面为 `z=0.320m`、上表面为 `z=0.332m`。
-- 上身整体抬高 `0.0142m`，使立柱底面与 `z=0.332m` 贴合；臂关节和升降
-  的相对变换、零位、限位不变。
+- Kkozia 上身保持原 `0.0142m` 安装抬升；双臂通过
+  `xyz=[0,0,-0.0142]m, yaw=90°` 的固定适配帧接入 V3.1.1 关节链。
 
 旧 `model_base` 中的 `part_038` 至 `part_046` 共九个固定底盘零件已从视觉和
 碰撞中移除。旧模型质量/惯量与网格按 `1200 kg/m³` 的积分结果一致；据此用
@@ -137,21 +163,29 @@ SRDF 只定义五个规划组：
 导出报告列出的四个未分配零件 `part_002`、`part_005`、`part_009`、`part_011`
 未进入源 URDF，本次也未额外补入。
 
-### 双自由度头部导入约定
+### 头部和胸部相机导入约定
 
-头部来自 `相机1.0.STEP` 的导出 URDF，定义集中在 `urdf/robot_v3_head.xacro`，
-五个网格位于 `meshes/head/`。旧 `part_021_solid_021.stl` 头部已从模型中替换。
+头部与胸部相机来自 `local_mub984qs_3132rb_urdf_stl` 的 2026-09-21 导出，
+定义集中在 `urdf/robot_v3_head.xacro`，运行时网格位于
+`meshes/head_chest_camera/`。源 `robot.urdf`、`parts.json`、`user_model.json`
+和 `export_report.json` 保存在 `model_sources/head_chest_camera_20260921/`。
 
-- `head_mount_fixed` 将底座固定到 `arm_carriage`，位置为 `[0.226, 0, 1.3806412]m`，
-  无旋转；10 mm 厚底座的下表面贴合原头部安装面 `z=1.3756412m`。
-- `head_joint` 保留为回转关节，连接 `head_mount → head_yaw`，物理转轴沿局部 `+Z`。
-- `head_pitch_joint` 连接 `head_yaw → head`，通过源文件的 `Rx(-pi/2)` 安装旋转，
-  将关节局部 `+Z` 轴变为回转支架的 `+Y` 俯仰轴。
-- 两轴零位、`[-1.57, 1.57]rad` 行程、effort=10 和 velocity=5 均沿用新头部源文件。
-  默认初始角度均为 0；新 CAD 的 `+X` 对齐机器人前方。
-- `head` 是承载俯仰支架、ZED X Wide 和 MID-360 的末级 link；未推断传感器光学坐标系。
-- 新头部总质量为 `0.47369491 kg`，沿用导出文件的网格估算质量、质心和惯量；
-  相机及雷达含 surface/shell 几何，这些数值不代表新增实测质量。
+- `head_mount_fixed` 将新 CAD 的偏航轴固定到 `arm_carriage`，零位为
+  `xyz=[0.267, 0, 1.4228]m, yaw=90deg`；接口名保持不变。
+- `head_joint` 连接 `head_mount → head_yaw`，`head_pitch_joint` 连接
+  `head_yaw → head`。两轴沿用源 `[-1.57, 1.57]rad` 行程、effort=10、velocity=5。
+- `head` 承载新头部相机和 MID-360；镜头表面零件从源 `up_and_down`
+  重新归入 `head`，使它们正确跟随偏航和俯仰。
+- `chest_camera_fixed` 将胸部 ZED X 固定到 `arm_carriage`，相机本体几何中心为
+  `[0.366, -3.92e-9, 1.11530000583]m`，局部 `+X` 朝机器人前方，并随
+  `updown` 升降。
+- CAD 中 `part_047/057` 头部双目视锥、`part_067` 雷达视场体和
+  `part_071/081` 胸部双目视锥是设计辅助几何，不进入 URDF 的 visual、
+  collision 或质量属性。
+- `head` 的 `1.00116361294 kg` 和 `chest_camera` 的 `0.137417570647 kg`
+  仅由保留的实体网格按 `1200 kg/m^3` 积分得到，仍需用实物数据替换。
+- 当前只提供机械安装 link，未定义厂商光学坐标系；外参标定完成后再增加
+  `*_optical_frame`。
 - `whole` 规划组同时包含回转与俯仰关节，仍保持原来的五个规划组。
 
 ## 3. 依赖模块
@@ -199,11 +233,12 @@ colcon test --packages-select robot_description
 colcon test-result --verbose
 ```
 
-测试覆盖 URDF 单树合法性、左右物理侧、J5/J7 零位矩阵等价、升降逻辑坐标、
+测试覆盖 URDF 单树合法性、左右物理侧、V3.1.1 双臂来源、升降逻辑坐标、
 默认姿态、关节限位、五组 SRDF、双夹爪所属侧与行程、末端坐标系稳定性、
 吸盘质量与碰撞偏移、两套模型的网格配置及可动关节 YAML 覆盖，
 并检查末端切换不改变共同的机器人结构。底盘测试还直接用 STL 顶点检查
-四轮零位接地、后轴伸出 150mm、转向后接地高度、安装面贴合、旧底盘移除和质量去重。
+四轮零位接地、四轮轴心平均值与 `base_footprint` 重合、后轴伸出 150mm、
+转向后接地高度、安装面贴合、旧底盘移除和质量去重。
 实机使用前仍需在 RViz 和实物上
 核对两侧末端安装、吸附面 TCP，以及夹爪运动方向和开合干涉。
 

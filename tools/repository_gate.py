@@ -8,6 +8,7 @@ deliberately deterministic and do not access hardware or the network.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 import subprocess
 import sys
@@ -76,6 +77,31 @@ REQUIRED_GOVERNANCE_FILES = (
     ".github/workflows/rt-control-ci.yml",
 )
 ROOT_DOMAIN_LEDGER_FILES = {"PROGRESS.md", "BLOCKED-questions.md"}
+# Byte-preserved CAD snapshots in robot_description@ec69ca0. Their upstream
+# manifests hash the original exports, which have no final LF.
+# This is an exact-content exception, never a blanket model_sources exclusion.
+DESCRIPTION_SOURCE_SHA256 = {
+    "head_chest_camera_20260921/export_report.json":
+        "5e0ef289f4093946901e5ed10c1267bf6606ffd125855e61283a957b4d382b2f",
+    "head_chest_camera_20260921/parts.json":
+        "6dfe8f2252486cc0d55aa3e1a8638cdd2af4649eae04363bb65f476f6fa0abb6",
+    "head_chest_camera_20260921/robot.urdf":
+        "22befb2b6c96dbf68093313d57f34f940d516e65592bb7a082b37500afdd7d7a",
+    "head_chest_camera_20260921/user_model.json":
+        "38668779617c7f8444b03598b500b6c7f8f519edf5e1bcd6b54ba242c79d4e1a",
+    "robot_v3_1_1/export_report.json":
+        "6f0e940bcfa8e019167cdc2ebe562c60571cbf0198e48d5b4773e09a276e3f9d",
+    "robot_v3_1_1/parts.json":
+        "9115e7b93b6f4b17b464ff1c62866d4460c2d76122266492b6b2bdb07bbb7058",
+    "robot_v3_1_1/robot.urdf":
+        "8293a59fd74b97d1af3636434cd853316039919be68bd52359fe2b038f2d998d",
+    "robot_v3_1_1/user_model.json":
+        "2e5b697a4d21d941a35d54e08f95ef807a56c8865b2dd97976a0df7b5db39593",
+}
+DESCRIPTION_SOURCE_SHA256 = {
+    f"src/description/robot_description/model_sources/{name}": digest
+    for name, digest in DESCRIPTION_SOURCE_SHA256.items()
+}
 
 
 def check_path(relative_path: str) -> list[str]:
@@ -105,7 +131,13 @@ def check_text(relative_path: str, text: str) -> list[str]:
     # Patch whitespace belongs to the upstream diff and is validated by
     # applying the patch to its pinned source revision. Other hygiene and
     # secret checks still apply to patch payloads.
-    if text and not text.endswith("\n"):
+    expected_digest = DESCRIPTION_SOURCE_SHA256.get(relative_path)
+    preserved_source = expected_digest is not None and hashlib.sha256(
+        text.encode("utf-8")
+    ).hexdigest() == expected_digest
+    if expected_digest is not None and not preserved_source:
+        findings.append(f"{relative_path}: immutable description source SHA-256 mismatch")
+    if text and not text.endswith("\n") and not preserved_source:
         findings.append(f"{relative_path}: missing newline at end of file")
     if MERGE_MARKER.search(text):
         findings.append(f"{relative_path}: merge-conflict marker found")

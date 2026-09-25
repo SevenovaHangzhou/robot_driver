@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <robot xmlns:xacro="http://wiki.ros.org/xacro" name="alfa_robot_v3">
   <!--
-    ALFA V3.0.9 geometry and kinematics entrypoint.
+    ALFA V3.1.1 arm/updown integration entrypoint.
     end_effector:=suction (default) or end_effector:=gripper selects both tools.
 
     This branch intentionally contains description assets only. Hardware
@@ -10,7 +10,7 @@
   -->
 
   <xacro:arg name="end_effector" default="suction" />
-  <xacro:include filename="$(find robot_description)/urdf/robot_v3_0_9.xacro"/>
+  <xacro:include filename="$(find robot_description)/urdf/robot_v3_1_1.xacro"/>
   <xacro:include filename="$(find robot_description)/urdf/robot_v3_chassis.xacro"/>
 
   <!-- Stable system-facing root frames. base_footprint is the ground reference;
@@ -19,7 +19,7 @@
   <joint name="base_footprint_to_base_link" type="fixed">
     <parent link="base_footprint"/>
     <child link="base_link"/>
-    <origin xyz="0.195 0.015 0.400" rpy="0 0 0"/>
+    <origin xyz="0.190000002779484 -0.0000442724271391554 0.40000250599116" rpy="0 0 0"/>
   </joint>
 
   <link name="base_link"/>

@@ -2,8 +2,8 @@ schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
 source_branch: robot_v3_suction_chassis
-source_revision: 17f5bdc46b8f2580ee81aed919da7b404da3bdaf
-source_tree: 1b86f379f885ad2b979c30ffd09b8d79e738b9fa
+source_revision: ec69ca04297896c1296720324d23cdb8f80d9e63
+source_tree: 864dfff98fdd4cf54df35095232b38728c073c01
 imported_path: src/description/robot_description
 model_family: alfa_v3
 default_end_effector: suction

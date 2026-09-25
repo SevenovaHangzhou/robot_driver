@@ -54,7 +54,7 @@ def test_alfa_v3_manifest_exposes_the_five_actuator_modules_and_five_physical_pr
     )
     assert manifest.robot_model.end_effector == "gripper"
     assert manifest.robot_model.source_revision == (
-        "17f5bdc46b8f2580ee81aed919da7b404da3bdaf"
+        "ec69ca04297896c1296720324d23cdb8f80d9e63"
     )
     assert manifest.functional_modules == (
         "arms",

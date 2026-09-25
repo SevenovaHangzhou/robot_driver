@@ -2723,3 +2723,24 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 仅上行草案不新增力矩/速度换算 TBD，但仍继承现有 V3 CSP 的 assign_activate、位置比例/偏置和
   60FE 默认值阻塞；这些事实未闭合前不得称为 runtime-loadable。第一次实机阶段仍按
   “既有 CSP 准入闭合 -> 只增加上行 -> shadow -> 标定 -> active 逐轴”执行。
+- 2026-09-24 收到 MECHINE-35 新机械导出（原始 URDF SHA-256
+  `abdabe00eb1f79761fbe5603c4dff5e6b473e2f9429c36d0e436c9ed3f60942e`）：
+  单臂七连杆质量增至 43.146kg，惯量必要条件及 JSON→URDF 转换通过离线检查；
+  但对应左右 STL 是 Rz(π) 装配，人工质心/惯量采用 y 反射，二者不一致。
+  若对应部件质量分布相同，右 link1 COM x 差 35.176mm；需机械方提供两侧原始质量属性，
+  不自行选择反射或旋转修值。link7/活动夹爪 4.968/0.086kg 的零件归属与模组分摊未知；
+  新关节名称、限位、坐标与部分轴线间距也不同于当前公共模型。因此只解除“未收到候选数据”，
+  不解除模型验证门禁。详见 [机械参数核对](docs/areas/motion/records/2026-09-24-electri-136-mechanical-inertia-review.md)。
+- 2026-09-25 用户允许上述机械数据作为台架标定前的近似初值继续推进；第一版只实现机械臂＋夹爪
+  自重补偿，工件动态负载暂不实现。来源原值已在独立 `robot_description` 工作树归档，
+  不擅自按镜像推导修正。该决定不要求机械先提供高精度质量/质心，但仍需明确坐标、单位和归属。
+  核对发现 RT-Control 锁定的 `17f5bdc` 与公共模型 `ec69ca0`（V3.1.1）的零位/Updown 等语义不同；
+  正式运行模型导入待确认目标版本和 source→target link 坐标变换，当前仅完成候选来源接收。
+  详见 [初值接收与迁移边界](docs/areas/motion/records/2026-09-25-electri-136-inertial-source-intake.md)。
+- 同日用户明确选择“迁移公共V3.1.1”。本工作树已同步公共模型
+  `ec69ca04297896c1296720324d23cdb8f80d9e63`、source-lock、机器绑定及相关校验，
+  因此目标版本选择已闭合；新惯性字段的 source→target link 坐标变换仍未闭合。
+  已发布模型的link名称、机械零位、Updown最高点零位和命名姿态随之导入，
+  不据此推断既有编码器偏置有效；台架需重新确认逻辑零位映射。
+  未将新机械43.146kg/臂的初值写入运行URDF，前馈与实机准入仍关闭。
+  详见 [V3.1.1模型迁移](docs/areas/motion/records/2026-09-25-electri-136-v311-model-migration.md)。

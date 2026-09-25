@@ -17,6 +17,10 @@ if(BUILD_TESTING)
     test_v3_head_semantics
     test/test_v3_head_semantics.py
   )
+  ament_add_pytest_test(
+    test_v3_1_1_integration
+    test/test_v3_1_1_integration.py
+  )
 endif()
 
 install(DIRECTORY urdf srdf meshes config DESTINATION share/${PROJECT_NAME})

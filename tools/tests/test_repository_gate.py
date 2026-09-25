@@ -64,6 +64,32 @@ class RepositoryGateTest(unittest.TestCase):
             "possible secret",
         )
 
+    def test_pinned_description_exports_preserve_bytes_without_final_newline(self):
+        root = Path(__file__).resolve().parents[2]
+        self.assertEqual(len(repository_gate.DESCRIPTION_SOURCE_SHA256), 8)
+        for path in repository_gate.DESCRIPTION_SOURCE_SHA256:
+            with self.subTest(path=path):
+                text = (root / path).read_bytes().decode("utf-8")
+                self.assertFalse(text.endswith("\n"))
+                self.assertEqual(repository_gate.check_text(path, text), [])
+                self.assert_has(
+                    repository_gate.check_text(path, text + "\n"),
+                    "immutable description source SHA-256 mismatch",
+                )
+
+    def test_description_export_exception_does_not_hide_changes_or_secrets(self):
+        path = next(iter(repository_gate.DESCRIPTION_SOURCE_SHA256))
+        findings = repository_gate.check_text(path, '"ghp_' + "a" * 32 + '"')
+        self.assert_has(findings, "SHA-256 mismatch")
+        self.assert_has(findings, "possible secret")
+        self.assert_has(findings, "newline at end of file")
+        self.assert_has(
+            repository_gate.check_text(
+                "src/description/robot_description/model_sources/unpinned.json", "{}"
+            ),
+            "newline at end of file",
+        )
+
     def test_dependency_sources_and_igh_commit_must_use_full_sha(self):
         valid_deps = """repositories:
   src/vendor/example:
