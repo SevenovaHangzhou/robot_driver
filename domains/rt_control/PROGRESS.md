@@ -187,3 +187,4 @@
 | 2026-09-20 | canopen-chassis | [LPMS 启动窗口 SIGINT 正常退出纠错](docs/areas/canopen-chassis/records/2026-09-20-lpms-startup-sigint-exit.md) | PARTIAL（T1；本地无 CAN 进程测试与 50 次重复通过，远端完整闭包待确认） |
 | 2026-09-20 | io-power | [Modbus LED 控制器由四路扩展为六路](docs/areas/io-power/records/2026-09-20-six-led-controllers.md) | PARTIAL（T1 离线；构建、六路参数和传输测试通过，实机未验证） |
 | 2026-09-21 | io-power | [双 E08 接入八路 A22 超声波](docs/areas/io-power/records/2026-09-21-dual-e08-eight-ultrasonic.md) | PARTIAL（T1 离线；双站号请求与八路发布测试通过，实机与声学串扰待验） |
+| 2026-09-25 | contract | [Web 操作台 V1 底盘摇杆驾驶与倒车雷达（Mock）](docs/areas/contract/records/2026-09-25-web-operator-v1-chassis-jog.md) | PASS（T1 Mock；136 项包测试含 Mock 闭环，首命令延迟 ≤ 100 ms；实机由 BQ-153/ELECTRI-142 阻塞） |

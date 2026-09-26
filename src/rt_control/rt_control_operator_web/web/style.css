@@ -1,0 +1,425 @@
+:root {
+  /* Three clearly separated dark layers: page < panel > card. */
+  --bg: #000000;
+  --panel: #2a2a2e;
+  --card: #0c0c0e;
+  --raised: #3c3c42;
+  --line: #45454c;
+  --text: #f5f5f7;
+  --muted: #9a9aa2;
+  --accent: #56dcff;
+  /* Drive-mode palette: cyan in leisure, coral orange in sport. Safety colours
+     (--bad for brake/near obstacles, --warn for warnings) never change. */
+  --drive: var(--accent);
+  --drive-hi: #9aeaff;
+  --drive-lo: #1fa9d6;
+  --drive-glow: rgba(86, 220, 255, 0.35);
+  --drive-ink: #041318;
+  --ok: #2ecc55;
+  --warn: #ffb547;
+  --bad: #ff5a5f;
+  --radius-panel: 26px;
+  --radius-card: 20px;
+  --stick: min(calc(100vw - 100px), 380px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Poppins", "PingFang SC", "HarmonyOS Sans SC", "Noto Sans CJK SC", system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+button { font: inherit; color: inherit; border: none; background: none; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; }
+svg { stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- top bar (phone-style status bar on the right) ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark {
+  flex: none; width: 22px; height: 22px; border-radius: 7px;
+  background: conic-gradient(from 210deg, var(--accent), #2d8cff, var(--accent));
+  box-shadow: 0 0 14px rgba(86, 220, 255, 0.45);
+}
+.brand-mark.big { width: 44px; height: 44px; border-radius: 14px; }
+.brand-name { font-weight: 700; letter-spacing: 0.08em; }
+
+.seg { display: flex; padding: 3px; border-radius: 999px; background: var(--panel); }
+.seg-item { padding: 6px 14px; border-radius: 999px; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.seg-item.active { background: var(--raised); color: var(--text); }
+
+.status-bar { display: flex; align-items: center; gap: 14px; font-size: 13px; }
+.sb-item { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
+.sb-item i { width: 7px; height: 7px; border-radius: 50%; background: var(--raised); }
+.sb-item b { font-weight: 500; }
+.sb-ok { color: var(--text); }
+.sb-ok i { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.sb-accent { color: var(--text); }
+.sb-accent i { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.sb-warn i { background: var(--warn); }
+.sb-bad i { background: var(--bad); }
+
+.battery { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.battery b { font-weight: 600; font-size: 14px; }
+.battery-shell {
+  position: relative; width: 28px; height: 14px; border-radius: 4px;
+  border: 1.5px solid var(--muted); padding: 1.5px;
+}
+.battery-shell::after {
+  content: ""; position: absolute; right: -4px; top: 3.5px; width: 2.5px; height: 4px;
+  border-radius: 0 2px 2px 0; background: var(--muted);
+}
+.battery-level { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--ok); transition: width 300ms; }
+.battery.low .battery-level { background: var(--warn); }
+.battery.critical .battery-level { background: var(--bad); }
+.battery.unknown .battery-level { width: 0 !important; }
+
+/* ---------- layout ---------- */
+main { flex: 1; padding: 0 14px 14px; }
+.view { display: none; }
+.view.active { display: grid; }
+
+#view-chassis {
+  gap: 12px;
+  grid-template-columns: 1fr;
+  grid-template-areas: "right" "drive";
+}
+.drive-panel { grid-area: drive; }
+.right-col { grid-area: right; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.panel {
+  background: var(--panel);
+  border-radius: var(--radius-panel);
+  padding: 12px;
+  min-width: 0;
+  border: 1px solid #34343a;
+}
+.card {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  padding: 14px;
+}
+
+@media (orientation: landscape) and (min-width: 700px) {
+  :root { --stick: min(calc(100dvh - 240px), 40vw, 520px); }
+  #view-chassis {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-areas: "drive right";
+    align-items: stretch;
+  }
+  /* Fit the chassis page exactly into the viewport: no page scrolling. */
+  body { height: 100vh; height: 100dvh; overflow: hidden; }
+  main { min-height: 0; display: flex; flex-direction: column; }
+  #view-chassis.active { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .drive-panel, .right-col { min-height: 0; }
+  .drive-card { min-height: 0; overflow: hidden; }
+  .radar-panel { flex: 1; display: flex; min-height: 0; }
+  .radar-panel .radar-card { flex: 1; min-height: 0; }
+  .radar { min-height: 0; max-height: none; }
+  #view-overview.active { overflow: auto; }
+}
+
+/* ---------- drive card ---------- */
+.drive-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  height: 100%;
+}
+.yaw-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.yaw-btn {
+  position: relative; overflow: hidden; flex: none;
+  width: 76px; height: 76px; border-radius: 50%;
+  background: var(--raised); color: var(--text);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  touch-action: none;
+  transition: box-shadow 120ms;
+}
+.yaw-btn svg { width: 34px; height: 34px; stroke-width: 3; position: relative; z-index: 1; }
+.yaw-btn span { font-size: 11px; color: var(--muted); position: relative; z-index: 1; }
+.yaw-btn .yaw-fill {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: var(--drive); opacity: 0; transition: opacity 80ms linear;
+}
+.yaw-btn.pressed { box-shadow: 0 0 0 3px var(--drive); }
+.yaw-btn.pressed span, .yaw-btn.active-cmd span { color: var(--text); }
+.yaw-btn:disabled { opacity: 0.35; }
+
+.readout { display: flex; gap: 12px; font-variant-numeric: tabular-nums; }
+.readout span { display: flex; flex-direction: column; align-items: center; }
+.readout em { font-style: normal; font-size: 11px; color: var(--muted); }
+.readout b { font-size: 15px; font-weight: 600; }
+
+.stick {
+  position: relative;
+  width: var(--stick); height: var(--stick);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #26262b 0%, #18181c 62%, #111114 100%);
+  box-shadow: inset 0 0 0 2px var(--line), inset 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 0 8px #151518;
+  touch-action: none;
+}
+.stick.disabled { opacity: 0.4; }
+.stick-ring {
+  position: absolute; inset: 18%; border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.stick-dead {
+  position: absolute; left: 50%; top: 50%;
+  width: 20%; height: 20%; transform: translate(-50%, -50%);
+  border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.axis { position: absolute; font-size: 11px; color: var(--muted); pointer-events: none; }
+.axis-x { top: 8px; left: 50%; transform: translateX(-50%); }
+.axis-y { left: 10px; top: 50%; transform: translateY(-50%); }
+.stick-ghost {
+  position: absolute; left: 50%; top: 50%;
+  width: 26%; height: 26%; margin: -13% 0 0 -13%;
+  border-radius: 50%;
+  border: 2px solid var(--drive);
+  opacity: 0; transition: opacity 150ms, transform 60ms linear;
+  pointer-events: none;
+}
+.stick-ghost.show { opacity: 0.5; }
+.stick-knob {
+  position: absolute; left: 50%; top: 50%;
+  width: 32%; height: 32%; margin: -16% 0 0 -16%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--drive-hi) 0%, var(--drive) 45%, var(--drive-lo) 100%);
+  box-shadow: 0 8px 22px var(--drive-glow), inset 0 -4px 10px rgba(0, 0, 0, 0.25);
+  transition: background 300ms;
+  pointer-events: none;
+  will-change: transform;
+}
+/* After release the knob tracks the executed (decelerating) command. */
+.stick-knob.follow { transition: transform 60ms linear; }
+.stick.disabled .stick-knob { background: var(--raised); box-shadow: none; }
+
+.hint { margin: 0; font-size: 12px; color: var(--muted); text-align: center; min-height: 1.2em; }
+
+/* ---------- ops panel (above the top view) ---------- */
+.ops-panel { padding: 8px; }
+.ops-row { display: flex; gap: 8px; align-items: stretch; }
+.op {
+  background: var(--card); border-radius: 16px; min-height: 56px;
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+}
+.gear-op { padding: 5px; gap: 4px; }
+.gear-btn {
+  height: 100%; min-height: 44px; padding: 0 14px; border-radius: 12px;
+  color: var(--muted); font-size: 14px; font-weight: 600; white-space: nowrap;
+  transition: background 150ms, color 150ms;
+}
+.gear-btn.active { background: var(--drive); color: var(--drive-ink); }
+.gear-op.locked .gear-btn:not(.active) { opacity: 0.35; }
+.state-op { flex: 1; min-width: 0; }
+.op-text { display: flex; flex-direction: column; min-width: 0; }
+.op-text b { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.op-text small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-op { justify-content: center; width: 56px; padding: 0; flex: none; }
+.icon-op svg { width: 22px; height: 22px; }
+.icon-op.muted { color: var(--muted); }
+.stop-op {
+  flex: none; flex-direction: column; justify-content: center; gap: 0;
+  padding: 0 18px; background: var(--bad); color: #fff; font-weight: 700; font-size: 15px; line-height: 1.15;
+  box-shadow: 0 6px 18px rgba(255, 90, 95, 0.3);
+  touch-action: manipulation;
+}
+.stop-op small { font-size: 10px; font-weight: 500; opacity: 0.85; }
+.stop-op:active { transform: scale(0.97); }
+
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--raised); flex: none; }
+.dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot.warn { background: var(--warn); }
+.dot.bad { background: var(--bad); }
+
+/* ---------- radar card ---------- */
+.radar-card { display: flex; flex-direction: column; width: 100%; }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-title { font-weight: 600; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.badge { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--panel); color: var(--warn); }
+.radar { flex: 1; width: 100%; min-height: 200px; max-height: 60vh; display: block; }
+
+.radar .grid line { stroke: rgba(255, 255, 255, 0.035); stroke-width: 1; }
+.radar .body-plate { fill: #1d1d22; stroke: #5c5c65; stroke-width: 1.4; }
+.radar .body-part { fill: #2d2d34; stroke: #6c6c75; stroke-width: 1; }
+.radar .body-hidden { fill: none; stroke: #6c6c75; stroke-width: 1; stroke-dasharray: 4 3; opacity: 0.7; }
+.radar .caster { fill: rgba(255, 255, 255, 0.035); stroke: #4a4a53; stroke-width: 1; }
+.radar .wheel { fill: #34343c; stroke: #8a8a93; stroke-width: 1.2; transition: fill 150ms, stroke 150ms; }
+.radar .wheel.active { fill: rgba(86, 220, 255, 0.25); stroke: var(--accent); }
+.radar .wheel-dir { stroke: var(--accent); stroke-width: 2.2; fill: none; }
+.radar .axis-dot { fill: #8a8a93; stroke: none; }
+.radar .base-mark circle { fill: none; stroke: var(--warn); stroke-width: 1.2; }
+.radar .base-mark line { stroke: var(--warn); stroke-width: 1; }
+.radar .base-mark text { fill: var(--warn); }
+.radar .front-mark { fill: var(--accent); stroke: none; }
+.radar .scale-bar line { stroke: var(--muted); stroke-width: 1.2; }
+.radar text.dim { font-size: 10px; fill: var(--muted); font-weight: 500; }
+.radar .band { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 1; }
+.radar .band.hit-1 { fill: var(--bad); stroke: var(--bad); }
+.radar .band.hit-2 { fill: var(--warn); stroke: var(--warn); }
+.radar .band.hit-3 { fill: var(--accent); stroke: var(--accent); fill-opacity: 0.85; }
+.radar .band.hit-4 { fill: var(--accent); stroke: var(--accent); fill-opacity: 0.55; }
+.radar .band.hit-5 { fill: var(--accent); stroke: var(--accent); fill-opacity: 0.3; }
+.radar .sensor.stale .band { stroke: rgba(255, 255, 255, 0.22); stroke-dasharray: 3 3; }
+.radar .wave { stroke: var(--accent); stroke-width: 1.5; fill: none; opacity: 0; }
+.radar .sensor.stale .wave { display: none; }
+.radar .sensor-dot { fill: var(--accent); stroke: none; }
+.radar .sensor.stale .sensor-dot { fill: #55555d; }
+.radar text { fill: var(--text); stroke: none; font-size: 15px; font-weight: 600; font-family: inherit; }
+.radar text.dist-1 { fill: var(--bad); }
+.radar text.dist-2 { fill: var(--warn); }
+.radar text.dist-none { fill: var(--muted); font-weight: 500; }
+.radar text.small { font-size: 10px; fill: var(--muted); font-weight: 400; }
+
+/* ---------- portrait ---------- */
+@media (orientation: portrait) {
+  :root { --stick: min(calc(100vw - 100px), 380px); }
+  .yaw-btn { width: 64px; height: 64px; }
+  .topbar { padding: 8px 10px; }
+  .brand-name, .brand-mark { display: none; }
+  .seg-item { padding: 6px 11px; }
+  .status-bar { gap: 8px; font-size: 12px; }
+  .state-op .op-text small { display: none; }
+  .radar { max-height: 30vh; min-height: 170px; }
+  .ops-row { flex-wrap: wrap; }
+  .state-op { order: 5; flex: 1 0 100%; min-height: 40px; }
+  .gear-op { flex: 1; }
+  .gear-btn { flex: 1; padding: 0 10px; }
+  .stop-op { padding: 0 12px; }
+}
+
+/* ---------- compact landscape phones ---------- */
+@media (orientation: landscape) and (max-height: 480px) {
+  :root { --stick: min(calc(100dvh - 176px), 42vw); }
+  .yaw-btn { width: 56px; height: 56px; }
+  .yaw-btn svg { width: 26px; height: 26px; }
+  .yaw-btn span { display: none; }
+  .topbar { padding: 4px 12px; }
+  main { padding: 0 10px 8px; }
+  #view-chassis { gap: 8px; }
+  .right-col { gap: 8px; }
+  .panel { padding: 7px; border-radius: 20px; }
+  .card { padding: 8px 10px; border-radius: 16px; }
+  .drive-card { gap: 4px; }
+  .readout b { font-size: 13px; }
+  .hint { display: none; }
+  .ops-panel { padding: 6px; }
+  .op { min-height: 46px; border-radius: 13px; }
+  .gear-btn { min-height: 36px; padding: 0 10px; font-size: 13px; }
+  .state-op .op-text small { display: none; }
+  .icon-op { width: 46px; }
+  .stop-op { padding: 0 14px; font-size: 14px; }
+  .card-head { display: none; }
+}
+
+/* ---------- overview ---------- */
+#view-overview { max-width: 760px; }
+.grid { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 0; }
+.grid dt { color: var(--muted); }
+.grid dd { margin: 0; font-variant-numeric: tabular-nums; }
+.notice { color: var(--muted); font-size: 12px; margin: 16px 0 0; }
+
+/* ---------- login / toast ---------- */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85);
+  display: flex; align-items: center; justify-content: center; z-index: 10;
+}
+.overlay.hidden { display: none; }
+.login-card {
+  display: flex; flex-direction: column; align-items: stretch; gap: 12px;
+  width: min(90vw, 360px); padding: 26px;
+  border: 1px solid var(--line);
+  -webkit-user-select: text; user-select: text;
+}
+.login-card .brand-mark { align-self: center; }
+.login-card h1 { font-size: 20px; margin: 0 0 6px; text-align: center; }
+.login-card label { font-size: 13px; color: var(--muted); }
+.login-card input {
+  min-height: 48px; padding: 0 14px; border-radius: 14px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 16px;
+}
+.pill-btn {
+  width: 100%; min-height: 48px; border-radius: 999px;
+  background: var(--accent); color: #041318; font-weight: 600; font-size: 16px;
+}
+.error { color: var(--bad); font-size: 13px; margin: 0; min-height: 1em; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom));
+  transform: translate(-50%, 20px); opacity: 0;
+  padding: 10px 18px; border-radius: 999px; background: var(--raised); color: var(--text);
+  font-size: 14px; transition: opacity 200ms, transform 200ms; pointer-events: none; z-index: 20;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.warn { color: var(--warn); }
+
+/* ---------- sport mode ---------- */
+body.sport {
+  --drive: #ff7a45;
+  --drive-hi: #ffc4a3;
+  --drive-lo: #e2472b;
+  --drive-glow: rgba(255, 122, 69, 0.45);
+  --drive-ink: #200600;
+}
+body.sport .gear-btn.active {
+  background: linear-gradient(135deg, #ffb347 0%, #ff7a45 45%, #ff4d6d 100%);
+  box-shadow: 0 0 16px rgba(255, 122, 69, 0.45);
+  font-style: italic;
+  letter-spacing: 0.04em;
+}
+body.sport .readout b { color: #ffb08a; }
+
+/* Rotating light ring around the stick, visible in sport mode only. */
+.stick::after {
+  content: "";
+  position: absolute; inset: -7px; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--drive) 70deg, transparent 140deg,
+    transparent 180deg, var(--drive) 250deg, transparent 320deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  opacity: 0; transition: opacity 400ms;
+  pointer-events: none;
+}
+body.sport .stick::after { opacity: 0.85; animation: sport-spin 3.2s linear infinite; }
+body.sport .stick.disabled::after { opacity: 0.25; animation-play-state: paused; }
+@keyframes sport-spin { to { transform: rotate(360deg); } }
+
+/* One-shot flash on the drive card when the gear changes. */
+.drive-card.gear-flash { animation: gear-flash 650ms ease-out; }
+@keyframes gear-flash {
+  0% { box-shadow: inset 0 0 0 0 transparent; }
+  25% { box-shadow: inset 0 0 0 2px var(--drive), inset 0 0 60px var(--drive-glow); }
+  100% { box-shadow: inset 0 0 0 0 transparent; }
+}
+
+.sport-tag {
+  display: none; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 800; font-style: italic; letter-spacing: 0.12em;
+  color: #200600; background: linear-gradient(135deg, #ffb347, #ff7a45 50%, #ff4d6d);
+}
+body.sport .sport-tag { display: inline-block; }
+
+@media (prefers-reduced-motion: reduce) {
+  body.sport .stick::after { animation: none; }
+  .drive-card.gear-flash { animation: none; }
+}

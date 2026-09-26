@@ -1,0 +1,46 @@
+# ELECTRI-109 Mock-only closed loop. Synthetic values, NOT physical chassis
+# calibration; the production swerve limits remain TBD. Module positions and
+# wheel radius are copied from the V3 Robot Model CAD (steering axes in
+# base_link, tyre radius 0.1 m) so the Mock matches the top view; they are
+# not calibration results.
+controller_manager:
+  ros__parameters:
+    update_rate: 250
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    swerve_controller:
+      type: swerve_driver/SwerveController
+
+swerve_controller:
+  ros__parameters:
+    calibration_verified: true
+    steering_joints: [caster04_joint, caster01_joint, caster03_joint, caster02_joint]
+    drive_joints: [wheel04_joint, wheel01_joint, wheel03_joint, wheel02_joint]
+    steering_encoders: [e0, e1, e2, e3]
+    module_x: [0.115, 0.115, -0.495, -0.495]
+    module_y: [0.305, -0.305, 0.305, -0.305]
+    wheel_radius: [0.1, 0.1, 0.1, 0.1]
+    steering_min: [-3.14159265358979, -3.14159265358979, -3.14159265358979, -3.14159265358979]
+    steering_max: [3.14159265358979, 3.14159265358979, 3.14159265358979, 3.14159265358979]
+    steering_limit_margin: [0.05, 0.05, 0.05, 0.05]
+    steering_limit_tolerance: [0.01, 0.01, 0.01, 0.01]
+    max_linear_speed: 0.3
+    max_angular_speed: 0.5
+    max_wheel_speed: 2.0
+    max_wheel_acceleration: 10.0
+    velocity_deadband: 0.001
+    max_encoder_difference: 0.2
+    max_update_period: 0.02
+    slip_residual_threshold: 0.1
+    alignment_threshold: 0.3
+    flip_hysteresis: 0.1
+    max_steering_slew: 5.0
+    translation_heading_epsilon: 0.000001
+    steering_angle_deadband: 0.001
+    feedback_timeout: 0.02
+    pose_covariance: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    twist_covariance: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+    imu_fallback_covariance_scale: 2.0
+    missing_module_covariance_scale: 4.0
+    slip_covariance_scale: 5.0
+    imu_enabled: false

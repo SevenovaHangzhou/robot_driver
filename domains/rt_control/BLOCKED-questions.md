@@ -2693,3 +2693,17 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 当前仅完成配置/schema/静态验证。运行时 controller switching、enable_manager 受管资源和
   diagnostics/readiness 的执行接线仍需后续实现并做 Mock/实机分级验证；本裁决不授权总线启动、
   reset、enable、运动或任何设备写入。
+
+## BQ-153: Web 操作台实机底盘点动与 N-04 `/cmd_vel_safe` 唯一生产者 [OPEN 2026-09-25]
+
+- 事实：`robot_interfaces@9aa2693` 的 `contract/endpoints.yaml` N-04 规定 `/cmd_vel_safe`
+  （`geometry_msgs/Twist`，Q_CONTROL，20–50 Hz，500 ms 看门狗）由 Motion 唯一生产，且底盘与
+  手臂互斥是 Motion 域内不变量，不得重新做成跨域接口。
+- 冲突：ELECTRI-109 Web 操作台需要维护场景下的底盘点动；操作台直接发布 `/cmd_vel_safe`
+  会违反 N-04 并绕过 Motion 互斥。
+- 用户裁决（2026-09-25）：V1 只接入 Mock，后端只发布 `swerve_controller` 私有 `~/cmd_vel`，
+  且只在不安装的测试 Mock launch 中使用；`rt_control_operator_web` 配置层拒绝
+  `/cmd_vel_safe`。实机路径选定为修改公共契约：在 N-04 增加与 Motion 互斥的受控维护生产者，
+  由 ELECTRI-142 在 `robot_interfaces` 推进并经 Motion 联合评审、全部生产/消费方原子升级。
+- 受阻范围：仅操作台实机底盘控制与任何生产 launch 接线。不阻塞 V1 源码、Mock 闭环和前端。
+- 本条不授权 `/cmd_vel_safe` 发布、总线启动、reset、enable 或运动。

@@ -42,6 +42,7 @@ DOMAIN_PACKAGES = {
     "rt_control_semantic_components",
     "rolling_trajectory_controller",
     "swerve_driver",
+    "rt_control_operator_web",
     "rt_watchdog",
 }
 SHARED_PACKAGE_PREFIXES = (

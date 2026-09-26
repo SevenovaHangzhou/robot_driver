@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#000000">
+  <title>ALFA 操作台</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">ALFA</span>
+      <nav class="seg" role="tablist">
+        <button class="seg-item active" data-view="chassis" type="button" role="tab">底盘</button>
+        <button class="seg-item" data-view="overview" type="button" role="tab">总览</button>
+      </nav>
+    </div>
+    <div class="status-bar">
+      <span id="conn" class="sb-item sb-bad"><i></i><b>未连接</b></span>
+      <span id="lease-chip" class="sb-item"><i></i><b>无控制权</b></span>
+      <span class="sport-tag" aria-label="运动档">SPORT</span>
+      <span id="battery" class="battery" aria-label="电量">
+        <b id="battery-pct">--</b>
+        <span class="battery-shell"><span id="battery-level" class="battery-level"></span></span>
+      </span>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-chassis" class="view active">
+      <div class="panel drive-panel">
+        <div class="card drive-card">
+          <div class="yaw-row">
+            <button class="yaw-btn" data-yaw="1" type="button" aria-label="逆时针旋转">
+              <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 15a13 13 0 1 1 -3.5 13"/><path d="M14 6v9h9"/></svg>
+              <span>逆时针</span>
+              <i class="yaw-fill"></i>
+            </button>
+            <div class="readout" aria-live="off">
+              <span><em>vx</em><b id="rd-vx">0.00</b></span>
+              <span><em>vy</em><b id="rd-vy">0.00</b></span>
+              <span><em>wz</em><b id="rd-wz">0.00</b></span>
+            </div>
+            <button class="yaw-btn" data-yaw="-1" type="button" aria-label="顺时针旋转">
+              <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M34 15a13 13 0 1 0 3.5 13"/><path d="M34 6v9h-9"/></svg>
+              <span>顺时针</span>
+              <i class="yaw-fill"></i>
+            </button>
+          </div>
+          <div id="stick" class="stick" aria-label="平移摇杆">
+            <div class="stick-ring"></div>
+            <div class="stick-dead"></div>
+            <span class="axis axis-x">前 +X</span>
+            <span class="axis axis-y">左 +Y</span>
+            <div id="stick-ghost" class="stick-ghost"></div>
+            <div id="stick-knob" class="stick-knob"></div>
+          </div>
+          <p id="drive-hint" class="hint">拖动摇杆平移（手指可拖出摇杆区域），按住旋转按钮原地旋转</p>
+        </div>
+      </div>
+
+      <div class="right-col">
+        <div class="panel ops-panel">
+          <div class="ops-row">
+            <div id="gear-op" class="op gear-op" role="radiogroup" aria-label="档位"></div>
+            <div class="op state-op">
+              <span id="ctrl-dot" class="dot"></span>
+              <div class="op-text"><b id="ctrl-state">控制器</b><small id="ctrl-detail">--</small></div>
+            </div>
+            <button id="mute" class="op icon-op" type="button" aria-label="提示音">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path id="mute-icon" d="M4 9h4l5-4v14l-5-4H4z M16 8.5a5 5 0 0 1 0 7 M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>
+            </button>
+            <button id="soft-stop" class="op stop-op" type="button">
+              <span>刹车</span><small>非急停</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel radar-panel">
+          <div class="card radar-card">
+            <div class="card-head">
+              <span class="card-title">底盘</span>
+              <span id="radar-badges" class="badges"></span>
+            </div>
+            <svg id="radar" class="radar" viewBox="-180 -200 360 400" role="img" aria-label="底盘俯视图与超声波"></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-overview" class="view">
+      <div class="panel">
+        <div class="card overview-card">
+          <dl class="grid">
+            <dt>连接</dt><dd id="ov-conn">--</dd>
+            <dt>控制器订阅</dt><dd id="ov-controller">--</dd>
+            <dt>控制器状态</dt><dd id="ov-state">--</dd>
+            <dt>控制权</dt><dd id="ov-lease">--</dd>
+            <dt>档位</dt><dd id="ov-gear">--</dd>
+            <dt>目标速度</dt><dd id="ov-target">--</dd>
+            <dt>执行速度</dt><dd id="ov-command">--</dd>
+            <dt>最近停止原因</dt><dd id="ov-stop">--</dd>
+            <dt>电量</dt><dd id="ov-battery">--</dd>
+            <dt>超声波映射</dt><dd id="ov-ultra">--</dd>
+          </dl>
+          <p class="notice">V1 仅接入 Mock 底盘控制器。进入“底盘”页自动获取控制权，离开或切到后台自动释放。“刹车”是软件减速停车，不是急停，急停请使用硬件急停按钮。超声波距离仅作显示，不参与停车。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="login" class="overlay">
+    <form id="login-form" class="card login-card">
+      <span class="brand-mark big" aria-hidden="true"></span>
+      <h1>ALFA 操作台</h1>
+      <label for="token">访问令牌</label>
+      <input id="token" type="password" autocomplete="current-password" required>
+      <button class="pill-btn" type="submit">连接</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

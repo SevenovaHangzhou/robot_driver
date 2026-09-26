@@ -1,0 +1,40 @@
+# ELECTRI-109 Mock-only operator configuration ("Mock，非实机值").
+# Gear speeds and motion limits are temporary Mock values; production values stay TBD.
+rt_control_operator_web:
+  ros__parameters:
+    bind_host: 127.0.0.1
+    port: 18109
+    command_topic: /swerve_controller/cmd_vel
+    controller_node: /swerve_controller
+    joint_states_topic: /joint_states
+    robot_description_topic: /robot_description
+    chassis_root_link: chassis_base
+    battery_topic: /battery_state
+    gear_names: [leisure, sport]
+    gear_linear_speeds: [0.05, 0.15]
+    gear_angular_speeds: [0.1, 0.3]
+    # [accel, decel, stop_decel, jerk]: m/s^2, m/s^2, m/s^2, m/s^3
+    linear_limits: [0.3, 0.5, 1.0, 2.0]
+    # [accel, decel, stop_decel, jerk]: rad/s^2, rad/s^2, rad/s^2, rad/s^3
+    angular_limits: [0.6, 1.0, 2.0, 4.0]
+    ultrasonic_topics:
+      - /ultrasonic/channel1/range
+      - /ultrasonic/channel2/range
+      - /ultrasonic/channel3/range
+      - /ultrasonic/channel4/range
+      - /ultrasonic/channel5/range
+      - /ultrasonic/channel6/range
+      - /ultrasonic/channel7/range
+      - /ultrasonic/channel8/range
+    # Schematic only: two probes 90 degrees apart at each corner. The real
+    # channel-to-position mapping is not yet confirmed.
+    ultrasonic_layout:
+      - front_left:front
+      - front_left:left
+      - front_right:front
+      - front_right:right
+      - rear_left:rear
+      - rear_left:left
+      - rear_right:rear
+      - rear_right:right
+    ultrasonic_layout_confirmed: false

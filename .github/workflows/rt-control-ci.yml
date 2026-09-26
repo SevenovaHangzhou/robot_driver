@@ -278,6 +278,7 @@ jobs:
             rolling_trajectory_controller
             rt_force_torque_broadcaster
             swerve_driver
+            rt_control_operator_web
             rt_control_bringup
           )
           mapfile -t dependency_paths < <(
@@ -332,6 +333,7 @@ jobs:
             rolling_trajectory_controller \
             rt_force_torque_broadcaster \
             swerve_driver \
+            rt_control_operator_web \
             rt_control_bringup \
             --cmake-args -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Report compiler cache
@@ -393,6 +395,7 @@ jobs:
             rolling_trajectory_controller \
             rt_force_torque_broadcaster \
             swerve_driver \
+            rt_control_operator_web \
             rt_control_bringup
           colcon test-result --verbose
       - name: Validate shared robot description

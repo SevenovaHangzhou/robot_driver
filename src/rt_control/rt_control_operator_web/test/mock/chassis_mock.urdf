@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<!--
+  ELECTRI-109 software-only Mock chassis hardware for the operator web closed loop.
+  NOT a robot_description artifact and NOT a physical chassis calibration.
+  Steering/drive joint names follow the V3 Robot Model (caster0N_joint /
+  wheel0N_joint) so the operator top view can bind them to the URDF meshes.
+  Encoders e0..e3 mimic the steering motors so the swerve controller's
+  encoder-consistency gate passes without real CANopen sensors.
+-->
+<robot name="operator_web_swerve_mock">
+  <link name="base"/>
+  <link name="caster04_joint_link"/>
+  <joint name="caster04_joint" type="continuous"><parent link="base"/><child link="caster04_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="wheel04_joint_link"/>
+  <joint name="wheel04_joint" type="continuous"><parent link="base"/><child link="wheel04_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="e0_link"/>
+  <joint name="e0" type="continuous"><parent link="base"/><child link="e0_link"/><axis xyz="0 0 1"/></joint>
+  <link name="caster01_joint_link"/>
+  <joint name="caster01_joint" type="continuous"><parent link="base"/><child link="caster01_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="wheel01_joint_link"/>
+  <joint name="wheel01_joint" type="continuous"><parent link="base"/><child link="wheel01_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="e1_link"/>
+  <joint name="e1" type="continuous"><parent link="base"/><child link="e1_link"/><axis xyz="0 0 1"/></joint>
+  <link name="caster03_joint_link"/>
+  <joint name="caster03_joint" type="continuous"><parent link="base"/><child link="caster03_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="wheel03_joint_link"/>
+  <joint name="wheel03_joint" type="continuous"><parent link="base"/><child link="wheel03_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="e2_link"/>
+  <joint name="e2" type="continuous"><parent link="base"/><child link="e2_link"/><axis xyz="0 0 1"/></joint>
+  <link name="caster02_joint_link"/>
+  <joint name="caster02_joint" type="continuous"><parent link="base"/><child link="caster02_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="wheel02_joint_link"/>
+  <joint name="wheel02_joint" type="continuous"><parent link="base"/><child link="wheel02_joint_link"/><axis xyz="0 0 1"/></joint>
+  <link name="e3_link"/>
+  <joint name="e3" type="continuous"><parent link="base"/><child link="e3_link"/><axis xyz="0 0 1"/></joint>
+  <ros2_control name="OperatorWebSwerveMock" type="system">
+    <hardware>
+      <plugin>mock_components/GenericSystem</plugin>
+      <param name="calculate_dynamics">true</param>
+    </hardware>
+    <joint name="caster04_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="wheel04_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <joint name="e0">
+      <param name="mimic">caster04_joint</param>
+      <param name="multiplier">1</param>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </joint>
+    <joint name="caster01_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="wheel01_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <joint name="e1">
+      <param name="mimic">caster01_joint</param>
+      <param name="multiplier">1</param>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </joint>
+    <joint name="caster03_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="wheel03_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <joint name="e2">
+      <param name="mimic">caster03_joint</param>
+      <param name="multiplier">1</param>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </joint>
+    <joint name="caster02_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">8</param></state_interface>
+    </joint>
+    <joint name="wheel02_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="velocity"><param name="initial_value">0</param></state_interface>
+      <state_interface name="status_word"><param name="initial_value">39</param></state_interface>
+      <state_interface name="mode_of_operation_display"><param name="initial_value">9</param></state_interface>
+    </joint>
+    <joint name="e3">
+      <param name="mimic">caster02_joint</param>
+      <param name="multiplier">1</param>
+      <state_interface name="position"><param name="initial_value">0</param></state_interface>
+      <state_interface name="feedback_age_ms"><param name="initial_value">0</param></state_interface>
+    </joint>
+    <sensor name="ethercat_domain">
+      <state_interface name="process_data_age_ms"><param name="initial_value">0</param></state_interface>
+    </sensor>
+  </ros2_control>
+</robot>

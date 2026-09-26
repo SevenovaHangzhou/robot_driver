@@ -4,7 +4,8 @@
 `robot_interfaces_qos`）与 `source-lock.yaml`、域私有接口（`rt_control_interfaces`）、
 公共适配器（enable/vacuum/status）、诊断归一化及 vendored RT-Control 契约视图。
 **Owner 包/资产**：`src/rt_control/control_api_adapter`、`src/interfaces/*`、
-`src/rt_control/rt_diagnostics`。
+`src/rt_control/rt_diagnostics`、
+`src/rt_control/rt_control_operator_web`（ELECTRI-109 Web 操作台）。
 
 不属于本区：契约 schema 本身的修改（权威源在 `robot_interfaces` 仓库，本区只做
 锁定升级）、PLC/BMS 节点实现（→ io-power）。
@@ -40,9 +41,15 @@
 | 10#F1 | pinned `ros2_canopen` 的完整零值 error-reset EMCY 文本归一化为 cleared；其它非空或格式漂移继续 fail closed | [contract-20260904-01](records/2026-09-04-cleared-emcy-readiness.md)#F1-F2 | PASS（T3 Native；PR CI/Docker 待完成） |
 | 11#F1 | V3 目标 FJT/rolling 固定为 7+7 CSP 臂轴，PP 夹爪独立；当前 V3 无轨迹 runtime，ELECTRI-102 旧 hash/4 ms/包络不得复用 | [V3 机械臂对接方案](records/2026-09-18-v3-arm-motion-integration-guide.md)#F1-F4 | UNVERIFIED（T0 方案；公共契约/runtime/HIL 待完成） |
 | 12#F1 | V3 实现 pin 为 robot_interfaces@9aa2693，rolling axis hash 固定为 f4c8ff8a...dee4，域内 mode result 不扩大跨域接口 | [V3 rolling 轴合同](records/2026-09-19-v3-rolling-axis-contract.md)#F1-F3 | PARTIAL（T1；上游 V3 注释和跨域联合验证待完成） |
+| 13#F1 | Web 操作台单租约、摇杆平移与旋转按钮互斥、33/50 ms 发送、200 ms 看门狗、50 Hz 发布 | [contract-20260925-01](records/2026-09-25-web-operator-v1-chassis-jog.md)#F1 | PASS（T1 Mock） |
+| 13#F2 | 停车由操作台 jerk 限制曲线减速到 0；软件停止更快但不是急停、不调用 `/rt/disable` | [contract-20260925-01](records/2026-09-25-web-operator-v1-chassis-jog.md)#F2 | PASS（T1 Mock） |
+| 13#F3 | 操作台 V1 禁止发布 `/cmd_vel_safe`；实机底盘路径由 BQ-153/ELECTRI-142 阻塞 | [contract-20260925-01](records/2026-09-25-web-operator-v1-chassis-jog.md)#F3 | 有效 |
+| 13#F4 | 超声波布局为示意未确认；距离与提示音仅作显示，不参与停车 | [contract-20260925-01](records/2026-09-25-web-operator-v1-chassis-jog.md)#F4 | 有效 |
+| 13#F5 | 操作台底盘俯视图由 `/robot_description` 运行时派生；V3 URDF 转向关节正方向（俯视顺时针）与 swerve_driver 相反，映射待确认 | [contract-20260925-01](records/2026-09-25-web-operator-v1-chassis-jog.md)#F5 | 有效 |
 
 ## 记录索引（倒序）
 
+- 2026-09-25 [Web 操作台 V1 底盘摇杆驾驶与倒车雷达（Mock）](records/2026-09-25-web-operator-v1-chassis-jog.md) — feature，PASS（T1 Mock；实机由 BQ-153 阻塞）
 - 2026-09-19 [V3 rolling 接口 pin 与轴集合身份](records/2026-09-19-v3-rolling-axis-contract.md) — feature，PARTIAL（T1）。
 - 2026-09-18 [V3 机械臂 RT-Control 与 Motion 对接方案](records/2026-09-18-v3-arm-motion-integration-guide.md) — decision，UNVERIFIED（T0；runtime/HIL 待完成）
 - 2026-09-04 [CANopen 零值 EMCY 归一化与 readiness 收口](records/2026-09-04-cleared-emcy-readiness.md) — corrective，PASS（T3 Native；PR CI/Docker 待完成）
