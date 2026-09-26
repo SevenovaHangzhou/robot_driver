@@ -13,7 +13,6 @@ ROBOT_XACRO = DESCRIPTION / "urdf/robot.urdf.xacro"
 ARM_XACRO = DESCRIPTION / "urdf/robot_v3_0_9.xacro"
 CHASSIS_XACRO = DESCRIPTION / "urdf/robot_v3_chassis.xacro"
 SOURCE_LOCK = ROOT / "src/description/source-lock.yaml"
-BRINGUP_LAUNCH = ROOT / "src/rt_control/rt_control_bringup/launch/rt_control.launch.py"
 BRINGUP_MANIFEST = ROOT / "src/rt_control/rt_control_bringup/package.xml"
 DOCKERFILE = ROOT / "docker/rt-control/Dockerfile"
 
@@ -100,12 +99,7 @@ class TfContractTest(unittest.TestCase):
             cmake,
         )
 
-    def test_bringup_owns_rsp_and_image_asserts_it_is_installed(self):
-        launch_text = BRINGUP_LAUNCH.read_text(encoding="utf-8")
-        self.assertIn('package="robot_state_publisher"', launch_text)
-        self.assertIn('executable="robot_state_publisher"', launch_text)
-        self.assertIn("parameters=[robot_description", launch_text)
-
+    def test_image_and_bringup_require_robot_state_publisher(self):
         manifest = ET.parse(BRINGUP_MANIFEST).getroot()
         exec_dependencies = {dep.text for dep in manifest.findall("exec_depend")}
         self.assertIn("robot_state_publisher", exec_dependencies)

@@ -20,9 +20,8 @@ def test_lpms_is_built_without_being_enabled_in_production():
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()
     assert workflow.count("lpms_nav3_can") == 3
     assert "lpms_nav3_can" in (ROOT / "tools/bootstrap_native_dev.sh").read_text()
-    for filename in ("rt_control.launch.py", "rt_control_module.launch.py"):
-        launch = ROOT / "src/rt_control/rt_control_bringup/launch" / filename
-        assert 'package="lpms_nav3_can"' not in launch.read_text()
+    launch = ROOT / "src/rt_control/rt_control_bringup/launch/rt_control_module.launch.py"
+    assert 'package="lpms_nav3_can"' not in launch.read_text()
 
 
 def test_lpms_config_and_launch_fail_closed():

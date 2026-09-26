@@ -156,3 +156,95 @@ colcon test-result --verbose
 Tests exercise the protocol state machine, raw PDO adapter and actual ROS Action
 client/server, including an Action-to-raw-PDO feedback round trip. None accesses
 an EtherCAT device. Offline success is not authorization to enable or move hardware.
+
+## Kinco Cyclic CSV/CSP Adapter
+
+`robot_hw_ethercat/KincoCyclicModeSlave` is an opt-in `EcSlave` plugin for a Kinco
+axis whose preconfigured cyclic PDO carries both CSV and CSP objects. Existing arm,
+Updown and fixed-mode profiles do not select it. It performs no SDO access or PDO
+remapping in OP and does not implement a second controlword writer: `control_word`
+is forwarded from the command interface owned by `enable_manager`.
+
+The adapter owns these runtime interfaces:
+
+| Direction | Interfaces |
+| --- | --- |
+| Commands | `position`, `velocity`, `mode_of_operation`, `control_word`, `write_sequence`, `write_mask` |
+| Drive states | `position`, `velocity`, `mode_of_operation_display`, `status_word` |
+| Handoff states | `feedback_age_ms`, `mode_switch_ready`, `mode_request_ack`, `command_fresh`, `mode_request_error`, `feedback_sequence`, `sent_sequence`, `feedback_sequence_at_send`, `sent_velocity` |
+
+`config/families.yaml` lists only interfaces backed by real PDO objects. The sequence/mask
+commands and nine handoff states above are adapter-derived; the future adapter-aware
+production Xacro must declare them explicitly. The current fail-closed draft does not
+generate a runtime system. `write_mask` selects velocity/position/mode with bits 1/2/4;
+positive exact-integer `write_sequence` values correlate the coordinator's writes with
+`sent_sequence` after the send hook. `feedback_sequence_at_send` captures the latest
+received PDO generation at that send, so mode acceptance requires a later observation.
+Sequence zero denotes ordinary executor writes without a coordinator acknowledgement;
+it must never be treated as a completed handoff.
+
+`mode_switch_ready` proves the actual raw position was written to `0x607A` in a
+completed send cycle while CSV remained selected and measured velocity was below
+the configured stationary threshold. Only then can a CSP request be emitted.
+`mode_request_ack` requires `0x6061` readback plus CiA 402 Operation Enabled state;
+an upper controller must wait for all four axes before releasing relative position
+commands. Returning to CSV writes zero velocity, invalidates the cached velocity
+command, waits for mode/state readback and one sent zero cycle, discards the next
+controller update so the acknowledgement is observable, and then requires a new finite
+velocity command. `command_fresh` reports that post-handoff admission.
+`mode_request_error` is a fail-closed latch for invalid mode/command, stale or lost
+process data, or an expired explicit mode-ack timeout.
+
+The 250 Hz controller path reads and writes only fixed-size scalar storage. The
+adapter uses the existing `onPdoCycleRead`, `onPdoCycleStart` and
+`onPdoCycleSent` hooks; it performs no service call, allocation, logging or bus
+mailbox operation in those hooks. Position/velocity conversion, valid ranges,
+stationary threshold, feedback timeout and mode-ack timeout are all mandatory
+profile values. There are no physical defaults.
+
+The minimal device mapping shape is shown below. It is deliberately nonrunnable:
+identity, PDO assignment indices, DC/watchdog support, calibration and every numeric
+limit/timeout remain `TBD` until checked against the actual drive and machine.
+The local Kinco FD manual confirms variable PDO mapping, cyclic mode values 8/9,
+`0x6061` display and statusword bit 12 semantics; it does not establish transition
+timing or the missing machine calibration.
+
+```yaml
+vendor_id: TBD
+product_id: TBD
+assign_activate: TBD
+use_slave_pdo_defaults: true
+kinco_cyclic_mode:
+  verified: false
+  mock_only: false
+  position_counts_per_unit: TBD
+  velocity_counts_per_unit: TBD
+  position_offset_counts: TBD
+  min_position: TBD
+  max_position: TBD
+  max_abs_velocity: TBD
+  stationary_velocity: TBD
+  feedback_timeout_seconds: TBD
+  mode_ack_timeout_seconds: TBD
+rpdo:
+  - index: TBD
+    channels:
+      - {index: 0x6040, sub_index: 0, type: uint16}
+      - {index: 0x607a, sub_index: 0, type: int32}
+      - {index: 0x60ff, sub_index: 0, type: int32}
+      - {index: 0x6060, sub_index: 0, type: int8}
+tpdo:
+  - index: TBD
+    channels:
+      - {index: 0x6041, sub_index: 0, type: uint16}
+      - {index: 0x6064, sub_index: 0, type: int32}
+      - {index: 0x606c, sub_index: 0, type: int32}
+      - {index: 0x6061, sub_index: 0, type: int8}
+```
+
+`test/fixtures/kinco_cyclic_mode_mock.yaml` is synthetic and requires the explicit
+module parameter `allow_mock_profile=true`; it is not installed. Production profiles
+must also set `use_slave_pdo_defaults: true`, which uses the pinned ICube/IgH preservation
+path and rejects runtime PDO assignment writes. The alfa_v3 swerve inventory remains
+`verified: false`, contains no device identity or ring position, and cannot produce a
+production variant. Runtime admission therefore remains closed.

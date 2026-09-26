@@ -1,0 +1,28 @@
+# ELECTRI-133 Tier A; RT-Control private action. See README.md for the protocol.
+# Desired finite SE(2) transform relative to the execution-start base frame.
+# x forward, y left (m), yaw positive counterclockwise about +z (rad).
+# hypot(dx,dy) <= 0.700 m; abs(dyaw) <= pi/12 rad (15 degrees).
+float64 dx
+float64 dy
+float64 dyaw
+rt_control_interfaces/ChassisMoveLimits limits
+# Required finite positive budget in seconds, <= server's configured maximum.
+# Measured on a monotonic clock from acceptance; includes alignment and settling.
+float64 max_duration
+# Opaque correlation only; echoed unchanged, including empty strings. No safety/lease validation.
+string corridor_token
+---
+uint16 SUCCEEDED=0
+uint16 CANCELED=1
+uint16 FAULTED=2
+uint16 TIMED_OUT=3
+# ROS terminal state: SUCCEEDED -> SUCCEEDED; CANCELED -> CANCELED;
+# FAULTED/TIMED_OUT -> ABORTED. Rejected goals have no action result.
+uint16 code
+# Exact token from this accepted goal, for every terminal outcome.
+string corridor_token
+rt_control_interfaces/ChassisMoveState state
+---
+# Exact token from this accepted goal, for every feedback sample.
+string corridor_token
+rt_control_interfaces/ChassisMoveState state

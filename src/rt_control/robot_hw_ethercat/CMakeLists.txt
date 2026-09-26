@@ -7,7 +7,9 @@ find_package(ethercat_generic_slave REQUIRED)
 find_package(ethercat_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 
-add_library(zeroerr_pp_slave SHARED src/zeroerr_pp_slave.cpp)
+add_library(zeroerr_pp_slave SHARED
+  src/zeroerr_pp_slave.cpp
+  src/kinco_cyclic_mode_slave.cpp)
 target_compile_features(zeroerr_pp_slave PUBLIC cxx_std_17)
 target_compile_options(zeroerr_pp_slave PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 target_include_directories(zeroerr_pp_slave PUBLIC
@@ -40,6 +42,7 @@ add_custom_target(
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(gripper_controllers REQUIRED)
+  find_package(hardware_interface REQUIRED)
   find_package(ethercat_generic_cia402_drive REQUIRED)
   ament_add_gtest(test_stationary_drive test/test_stationary_drive.cpp)
   target_compile_features(test_stationary_drive PUBLIC cxx_std_17)
@@ -51,6 +54,12 @@ if(BUILD_TESTING)
   target_link_libraries(test_zeroerr_pp_slave zeroerr_pp_slave)
   target_compile_definitions(test_zeroerr_pp_slave PRIVATE
     PP_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/pp_gripper.yaml")
+  ament_add_gtest(test_kinco_cyclic_mode_slave test/test_kinco_cyclic_mode_slave.cpp)
+  target_link_libraries(test_kinco_cyclic_mode_slave zeroerr_pp_slave)
+  target_compile_definitions(test_kinco_cyclic_mode_slave PRIVATE
+    KINCO_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/kinco_cyclic_mode_mock.yaml")
+  ament_add_gtest(test_kinco_generic_system test/test_kinco_generic_system.cpp)
+  ament_target_dependencies(test_kinco_generic_system hardware_interface)
   ament_add_gtest(test_pp_controller test/test_pp_controller.cpp)
   target_compile_features(test_pp_controller PRIVATE cxx_std_17)
   target_link_libraries(test_pp_controller zeroerr_pp_slave)

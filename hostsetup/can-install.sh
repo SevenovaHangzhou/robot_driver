@@ -15,6 +15,11 @@ if [[ ${EUID} -ne 0 ]]; then
   exit 1
 fi
 
+if [[ -e /etc/systemd/system/can0.service ]]; then
+  echo "legacy can0.service is still installed; retire it under separate host authorization" >&2
+  exit 1
+fi
+
 command -v ip >/dev/null
 command -v udevadm >/dev/null
 bash -n "${script_dir}/rt-control-can-names.sh"
@@ -25,20 +30,16 @@ install -o root -g root -m 0644 \
   "${script_dir}/rt-control-can-names.service" \
   /etc/systemd/system/rt-control-can-names.service
 install -o root -g root -m 0644 \
-  "${script_dir}/can0.service" /etc/systemd/system/can0.service
-install -o root -g root -m 0644 \
   "${script_dir}/can1.service" /etc/systemd/system/can1.service
 systemctl daemon-reload
-systemctl disable rt-control-can-names.service can0.service can1.service
+systemctl disable rt-control-can-names.service can1.service
 systemd-analyze verify \
   /etc/systemd/system/rt-control-can-names.service \
-  /etc/systemd/system/can0.service \
   /etc/systemd/system/can1.service
 
 if ${start_bus}; then
   /usr/local/sbin/rt-control-can-names --wait 30 --configure
-  ip -details -statistics link show can0
   ip -details -statistics link show can1
 else
-  echo "CAN units installed but not enabled at boot; rt-control launchers configure can0/can1 at start time"
+  echo "BMS CAN unit installed but not enabled at boot; V3 encoder CAN remains unconfigured"
 fi

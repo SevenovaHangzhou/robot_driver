@@ -1,8 +1,8 @@
 [Unit]
-Description=Bind rt-control and BMS CANable adapters by USB serial
+Description=Bind BMS CAN adapter by USB serial
 Wants=systemd-udev-settle.service
 After=systemd-udev-settle.service
-Before=can0.service can1.service
+Before=can1.service
 
 [Service]
 Type=oneshot

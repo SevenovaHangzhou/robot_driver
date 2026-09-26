@@ -99,8 +99,8 @@ def validate(path: Path) -> dict[str, Any]:
         raise ValidationError("Kinco swerve profile must remain unverified draft")
     if root["shared_system"] != "ecat_arms" or root["master_id"] != 0:
         raise ValidationError("swerve axes must use the shared EtherCAT master 0")
-    if root["driver_plugin"] != "ethercat_generic_plugins/EcCiA402Drive":
-        raise ValidationError("swerve axes must use the generic CiA402 drive plugin")
+    if root["driver_plugin"] != "robot_hw_ethercat/KincoCyclicModeSlave":
+        raise ValidationError("swerve axes must opt in to the Kinco cyclic-mode adapter")
     if root["requested_control_frequency_hz"] != 1000:
         raise ValidationError("swerve axes must preserve the shared 1 kHz control request")
     if root["dc_cycle_ns"] != TBD or root["pdo_watchdog_ms"] != TBD:

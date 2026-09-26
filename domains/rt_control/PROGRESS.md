@@ -1,5 +1,7 @@
 # rt-control implementation progress
 
+| 2026-09-24 | release-deploy | [旧履带运行链退役](docs/areas/release-deploy/records/2026-09-24-retire-track-runtime.md) | UNVERIFIED（T0；quality gate 207、V3 Python 98、共享 CANopen 补丁隔离 9 包/150 测试、Docker 39 包及无设备静态 validation 通过；实机/Mock 生命周期待验，V3 CAN 身份 TBD） |
+
 | 2026-09-19 | release-deploy | [V3 达妙头部非 JTC 位置速度运行链](docs/areas/release-deploy/records/2026-09-19-v3-damiao-head-runtime.md) | PARTIAL（T1；32 项头部包测试、92 项 bringup、55 项 V3 head/profile 测试；CAN/机械/full runtime 待验） |
 
 | Task | Commit | Self-check result | Remaining issues |
@@ -187,3 +189,5 @@
 | 2026-09-20 | canopen-chassis | [LPMS 启动窗口 SIGINT 正常退出纠错](docs/areas/canopen-chassis/records/2026-09-20-lpms-startup-sigint-exit.md) | PARTIAL（T1；本地无 CAN 进程测试与 50 次重复通过，远端完整闭包待确认） |
 | 2026-09-20 | io-power | [Modbus LED 控制器由四路扩展为六路](docs/areas/io-power/records/2026-09-20-six-led-controllers.md) | PARTIAL（T1 离线；构建、六路参数和传输测试通过，实机未验证） |
 | 2026-09-21 | io-power | [双 E08 接入八路 A22 超声波](docs/areas/io-power/records/2026-09-21-dual-e08-eight-ultrasonic.md) | PARTIAL（T1 离线；双站号请求与八路发布测试通过，实机与声学串扰待验） |
+| 2026-09-25 | motion | [ELECTRI-133 Tier A 相对运动、无设备 Mock 与 cyclic adapter 集成](docs/areas/motion/records/2026-09-25-tier-a-relative-move-mock.md) | PARTIAL（T1；271 项双包测试及 connected synthetic PDO handoff 通过；新交接路径为主会话自审，独立审查/真实 PDO/标定/IMU 仍待完成） |
+| 2026-09-25 | contract | [ELECTRI-133 Tier A RT 私有底盘协议](docs/areas/contract/records/2026-09-25-tier-a-private-chassis-protocol.md) | PARTIAL（T1；新增六个类型及域内消费者构建通过，无跨域或硬件准入） |

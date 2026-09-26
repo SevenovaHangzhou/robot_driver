@@ -137,7 +137,12 @@ def test_swerve_csp_csv_interface_contracts_match_controller_and_enable_ownershi
     }
     assert contracts["swerve_drive_csv"] == {
         "required_command_interfaces": [
+            {"name": "position", "index": 0x607A, "sub_index": 0, "type": "int32"},
             {"name": "velocity", "index": 0x60FF, "sub_index": 0, "type": "int32"},
+            {
+                "name": "mode_of_operation", "index": 0x6060,
+                "sub_index": 0, "type": "int8",
+            },
             {"name": "control_word", "index": 0x6040, "sub_index": 0, "type": "uint16"},
         ],
         "required_state_interfaces": [

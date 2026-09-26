@@ -212,19 +212,10 @@ apply_frozen_patches()
     patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
     src/vendor/ecat_icube
   apply_patch_once \
-    patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
+    patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
-    src/vendor/ros2_canopen
-  apply_patch_once \
-    patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
-    src/vendor/ros2_canopen
-  apply_patch_once \
-    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
-    src/vendor/ros2_canopen
-  apply_patch_once \
-    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
     patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
@@ -304,11 +295,8 @@ verify_frozen_vendor_trees()
     patches/ecat_icube/0012-fix-timing-source-lint.patch \
     patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch
   verify_patched_vendor_tree src/vendor/ros2_canopen \
-    patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
+    patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
-    patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
-    patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
-    patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \

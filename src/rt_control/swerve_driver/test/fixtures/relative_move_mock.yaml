@@ -1,0 +1,48 @@
+# ELECTRI-133 synthetic NO-DEVICE fixture. Not robot calibration or production defaults.
+chassis_relative_move_mock:
+  ros__parameters:
+    explicit_no_device_mock: true
+    base_frame: synthetic_base
+    module_x: [0.4, 0.4, -0.4, -0.4]
+    module_y: [0.3, -0.3, 0.3, -0.3]
+    wheel_radius: [0.1, 0.1, 0.1, 0.1]
+    steering_min: [-3.141592653589793, -3.141592653589793, -3.141592653589793, -3.141592653589793]
+    steering_max: [3.141592653589793, 3.141592653589793, 3.141592653589793, 3.141592653589793]
+    steering_margin: [0.05, 0.05, 0.05, 0.05]
+    steering_measurement_tolerance: [0.01, 0.01, 0.01, 0.01]
+    max_wheel_velocity: [3.0, 3.0, 3.0, 3.0]
+    max_wheel_acceleration: [5.0, 5.0, 5.0, 5.0]
+    max_translation_velocity: 0.2
+    max_translation_acceleration: 0.3
+    max_yaw_velocity: 0.4
+    max_yaw_acceleration: 0.5
+    max_steering_velocity: 2.0
+    max_steering_acceleration: 4.0
+    feedback_timeout: 0.1
+    imu_timeout: 0.1
+    imu_max_increment: 0.2
+    max_update_period: 0.1
+    stationary_wheel_velocity: 0.01
+    stationary_steering_velocity: 0.01
+    stationary_dwell: 0.02
+    alignment_tolerance: 0.02
+    alignment_dwell: 0.02
+    alignment_timeout: 5.0
+    steering_error: 0.15
+    steering_error_dwell: 0.02
+    encoder_difference: 0.1
+    position_tolerance: 0.001
+    velocity_tolerance: 0.01
+    settling_dwell: 0.03
+    settling_timeout: 1.0
+    slip_threshold: 0.05
+    slip_dwell: 0.02
+    pose_translation_tolerance: 0.01
+    pose_yaw_tolerance: 0.01
+    yaw_discrepancy: 0.02
+    switch_timeout: 1.0
+    stop_timeout: 3.0
+    max_goal_duration: 30.0
+    mock_update_period: 0.005
+    mock_initial_steering: [0.0, 0.0, 0.0, 0.0]
+    mock_initial_wheel_position: [0.0, 0.0, 0.0, 0.0]

@@ -99,7 +99,7 @@ int main(void) {
 
     def test_build_and_runtime_identity_include_the_offset_patch(self):
         for path in ["hostsetup/igh-install.sh", "hostsetup/verify-host.sh",
-                     "tools/rt_control_native.sh", "docker/rt-control/Dockerfile"]:
+                     "docker/rt-control/Dockerfile"]:
             text = (ROOT / path).read_text()
             self.assertTrue("IGH_DC_OFFSET_PATCH_SHA256" in text, path)
             self.assertTrue(PATCH.name in text, path)

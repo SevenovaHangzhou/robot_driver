@@ -87,6 +87,6 @@ int main(void) {
                                    "+#define EC_SYSTEM_TIME_TOLERANCE_NS 100000"])
 
     def test_unvalidated_experiment_is_not_in_default_builds(self):
-        for file in ["hostsetup/igh-install.sh", "tools/rt_control_native.sh",
-                     "hostsetup/verify-host.sh", "docker/rt-control/Dockerfile"]:
+        for file in ["hostsetup/igh-install.sh", "hostsetup/verify-host.sh",
+                     "docker/rt-control/Dockerfile"]:
             self.assertNotIn(PATCH.name, (ROOT / file).read_text(), file)

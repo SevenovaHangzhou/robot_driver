@@ -7,12 +7,16 @@ this directory is their single domain-level documentation and governance home.
 
 ## 新同事从这里开始
 
-- [一键启动](docs/one-command-start.md)：当前工控机上启动、自动使能、查看状态/日志和有序停止的最短说明。
-- [原生开发与运行](docs/native-development-workflow.md)：在目标机文件夹中增量编译、启动、显式使能和停止，不必每次重构镜像。
+旧履带的 `rt_control.launch.py`、原生/IPC 一键启动脚本和 CANopen 驱动配置已从
+V3 源码退役。以下历史操作文档仅用于阅读既有验收记录，不能作为当前启动指令；
+当前可用入口以本页“V3 分支运行边界”和安装的 `rt_control_start` 为准。
+
+- [一键启动（历史）](docs/one-command-start.md)：旧履带目标机操作记录，不适用于当前 V3 源码。
+- [原生开发与运行（历史）](docs/native-development-workflow.md)：旧履带原生包装器记录；源码构建可参考其中未退役的 bootstrap 用法。
 - [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
 - [V3 机械臂与运控对接方案](docs/v3-arm-motion-integration.md)：双七轴 FJT/rolling 目标接口、PP 夹爪边界、联调顺序与当前 validation-only 限制。
 - [硬件配置隔离分层与电机变体维护指南](docs/hardware-configuration-layering-and-motor-variants.md)：owner-local descriptor、双硬件组合、X503 sensor 与修改电机/模式的真实边界。
-- [新机部署与运行手册](docs/deployment-operations-runbook.md)：新机准入、镜像交付、宿主配置、Mock、生产启动、日常使用、故障恢复和回退。
+- [新机部署与运行手册（历史）](docs/deployment-operations-runbook.md)：旧机现场记录；当前 V3 不沿用其履带启停命令。
 - [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
 - [开发进度与联调准入](docs/integration-readiness-summary.md)：联调边界与剩余任务；接口清单以 vendored `robot_interfaces/contract/views/rt_control.md` 为准。
 - [PROGRESS.md](PROGRESS.md)：验证时间线索引；不能把构建或 Mock 结果当成实机验收。
@@ -41,6 +45,9 @@ The source layout follows the frozen rt_control implementation specification:
 - `docker/rt-control` and `docker/compose.yaml`: rt-control image and current Compose deployment.
 - `tools`: migration and commissioning tools.
 - `hostsetup`: target-host setup assets.
+
+`src/rt_control/robot_hw_canopen` 现仅保留 V3 舵轮外置编码器实现和未准入的配置草案；
+旧机履带 bus/EDS/variant 生成链、差速控制器配置与入口、对应原生/IPC 包装器已退役。
 
 ## 硬件配置分层与组合
 

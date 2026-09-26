@@ -16,6 +16,7 @@
 #include "realtime_tools/realtime_publisher.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "swerve_driver/control_core.hpp"
+#include "swerve_driver/chassis_runtime.hpp"
 #include "swerve_driver/odometry_covariance.hpp"
 
 namespace swerve_driver
@@ -40,6 +41,7 @@ private:
     int64_t received_ns{0};
     uint64_t generation{0};
     bool valid{false};
+    uint64_t navigation_generation{0};
   };
   struct ImuSample
   {
@@ -56,11 +58,15 @@ private:
   void accept_imu(const sensor_msgs::msg::Imu & message, uint64_t generation);
   void publish_diagnostics();
 
+  ChassisRuntimeFeedback read_runtime_feedback(double now);
+  bool write_runtime_output(const ChassisRuntimeOutput & output);
+  std::shared_ptr<ChassisRuntime> runtime_;
+  bool was_navigation_{false};
   CoreConfig config_;
   std::unique_ptr<ControlCore> core_;
   std::vector<std::string> command_names_, state_names_;
-  std::array<hardware_interface::LoanedCommandInterface *, 8> commands_{};
-  std::array<hardware_interface::LoanedStateInterface *, 37> states_{};
+  std::vector<hardware_interface::LoanedCommandInterface *> commands_;
+  std::vector<hardware_interface::LoanedStateInterface *> states_;
   std::array<OdometryCovariances, 8> covariances_{};
   realtime_tools::RealtimeBuffer<Command> command_buffer_;
   realtime_tools::RealtimeBuffer<ImuSample> imu_buffer_;

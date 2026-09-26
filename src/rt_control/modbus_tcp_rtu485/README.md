@@ -116,11 +116,9 @@ It starts only `ultrasonic_node`. Setting `use_mock_hardware:=true` creates no
 hardware acquisition process. `ultrasonic_config` accepts a commissioned YAML
 file. The V3 arm runtime does not implicitly start ultrasonic acquisition.
 
-`rt_control.launch.py` provides `start_led`, `led_config`, `start_ultrasonic`
-and `ultrasonic_config` in the retained legacy source entry, which V3 does not
-install. Both hardware nodes default off under mock hardware and
-on for a real-hardware launch. Override either start argument when a device is
-absent or another client owns its gateway channel.
+The legacy `rt_control.launch.py` entry and its track-drive options were retired from
+this source tree. V3 installs only the independent acquisition entry above; it
+still defaults to no hardware acquisition in mock mode.
 
 The transport validates the MBAP transaction, protocol, length, unit, function,
 exception response, FC16 acknowledgement and FC03 byte count. A single bounded

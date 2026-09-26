@@ -4,4 +4,9 @@
          base_class_type="ethercat_interface::EcSlave">
     <description>Opt-in calibrated ZeroErr PP gripper with acknowledged commands.</description>
   </class>
+  <class name="robot_hw_ethercat/KincoCyclicModeSlave"
+         type="robot_hw_ethercat::KincoCyclicModeSlave"
+         base_class_type="ethercat_interface::EcSlave">
+    <description>Opt-in Kinco cyclic CSV/CSP mode handoff with sent-cycle acknowledgement.</description>
+  </class>
 </library>
