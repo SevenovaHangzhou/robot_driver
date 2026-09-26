@@ -91,58 +91,8 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert bms["frame_timeout_s"] == 3.0
 
 
-def test_public_rt_control_interfaces_match_current_contract() -> None:
-    controllers = yaml.safe_load((BRINGUP / "config/controllers.yaml").read_text())
-    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
+def test_rt_io_public_parameters_match_current_contract() -> None:
     rt_io = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
-
-    expected_joints = [
-        "right_joint1",
-        "right_joint2",
-        "right_joint3",
-        "right_joint4",
-        "right_joint5",
-        "right_joint6",
-        "left_joint1",
-        "left_joint2",
-        "left_joint3",
-        "left_joint4",
-        "left_joint5",
-        "left_joint6",
-        "turn",
-        "updown",
-    ]
-
-    manager_params = controllers["controller_manager"]["ros__parameters"]
-    assert "whole_body_jtc" in manager_params
-    assert "dual_arm_jtc" not in manager_params
-    assert (
-        manager_params["rt_internal_state_broadcaster"]["type"]
-        == "joint_state_broadcaster/JointStateBroadcaster"
-    )
-
-    joint_state_params = controllers["joint_state_broadcaster"]["ros__parameters"]
-    assert joint_state_params["update_rate"] == 125
-    assert joint_state_params["joints"] == expected_joints
-    assert joint_state_params["interfaces"] == ["position"]
-    assert joint_state_params["publish_dynamic_joint_states"] is False
-
-    internal_state_params = controllers["rt_internal_state_broadcaster"]["ros__parameters"]
-    assert internal_state_params["update_rate"] == 50
-    assert internal_state_params["use_local_topics"] is True
-    assert internal_state_params["publish_dynamic_joint_states"] is True
-    assert "joints" not in internal_state_params
-    assert "interfaces" not in internal_state_params
-
-    jtc_params = controllers["whole_body_jtc"]["ros__parameters"]
-    assert jtc_params["joints"] == expected_joints
-    assert jtc_params["allow_partial_joints_goal"] is False
-
-    diff_drive_params = controllers["diff_drive_controller"]["ros__parameters"]
-    assert diff_drive_params["cmd_vel_timeout"] == 0.5
-    assert diff_drive_params["use_stamped_vel"] is False
-    assert '("/diff_drive_controller/cmd_vel_unstamped", "/cmd_vel_safe")' in launch_text
-    assert '"/cmd_vel"' not in launch_text
 
     bms_params = rt_io["bms_node"]["ros__parameters"]
     assert bms_params["battery_state_topic"] == "/battery_state"
@@ -163,13 +113,10 @@ def test_public_rt_control_interfaces_match_current_contract() -> None:
 
 
 def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
-    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
     bringup_manifest = (BRINGUP / "package.xml").read_text()
     bringup_cmake = (BRINGUP / "CMakeLists.txt").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
-    assert 'package="control_api_adapter"' in launch_text
-    assert 'executable="control_enable_adapter"' in launch_text
     assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
     assert 'executable="control_enable_adapter"' in (
         BRINGUP / "launch/rt_control_arm_runtime.launch.py"
@@ -179,8 +126,7 @@ def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
     assert int(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY) == 1101
 
 
-def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
-    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
+def test_public_vacuum_and_state_adapters_are_installed() -> None:
     adapter_cmake = (
         ROOT / "src/rt_control/control_api_adapter/CMakeLists.txt"
     ).read_text()
@@ -188,11 +134,6 @@ def test_public_vacuum_and_state_adapters_are_started_with_rt_control() -> None:
         ROOT / "src/rt_control/control_api_adapter/package.xml"
     ).read_text()
 
-    assert 'executable="vacuum_adapter"' in launch_text
-    assert 'executable="rt_status_adapter"' in launch_text
-    assert '"rt_internal_state_broadcaster"' in launch_text
-    assert '"/rt_internal_state_broadcaster/dynamic_joint_states"' in launch_text
-    assert "parameters=[rt_io_file, {\"use_sim_time\": use_sim_time}]" in launch_text
     assert "scripts/vacuum_adapter" in adapter_cmake
     assert "scripts/rt_status_adapter" in adapter_cmake
     assert "<exec_depend>robot_system_interfaces</exec_depend>" in adapter_manifest
@@ -204,15 +145,11 @@ def test_internal_dynamic_state_is_used_only_for_rt_diagnostics() -> None:
     diagnostics_source = (
         ROOT / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
     ).read_text()
-    native_launcher = (ROOT / "tools/rt_control_native.sh").read_text()
-    ipc_launcher = (ROOT / "tools/rt_control_ipc.sh").read_text()
 
     internal_topic = "/rt_internal_state_broadcaster/dynamic_joint_states"
     assert "declare_parameter<std::string>" in diagnostics_source
     assert '"dynamic_joint_states_topic"' in diagnostics_source
     assert internal_topic in diagnostics_source
-    assert internal_topic in native_launcher
-    assert internal_topic in ipc_launcher
 
 
 def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -> None:
@@ -283,23 +220,6 @@ def test_public_adapters_populate_the_vendored_shared_message_schemas() -> None:
     assert 'message.domain = "rt_control"' in status_source
     assert 'message.readiness_name = "rt_control"' in status_source
     assert "message.producer_instance_id = producer_instance_id" in status_source
-
-
-def test_main_launch_owns_both_nodes_with_safe_direct_launch_defaults() -> None:
-    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
-
-    assert '"RT_CONTROL_START_PLC", default_value="false"' in launch_text
-    assert '"RT_CONTROL_START_BMS", default_value="false"' in launch_text
-    assert 'package="plc_io_modbus"' in launch_text
-    assert 'package="plc_node"' not in launch_text
-    assert 'package="bms_node"' in launch_text
-    assert "rt_io.yaml" in launch_text
-
-
-def test_rt_io_nodes_are_not_respawned_during_container_shutdown() -> None:
-    launch_text = (BRINGUP / "launch/rt_control.launch.py").read_text()
-
-    assert "respawn=True" not in launch_text
 
 
 def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
@@ -390,10 +310,10 @@ def test_docker_build_contains_required_io_packages() -> None:
     assert "ros-humble-rmw-fastrtps-cpp" in dockerfile
     assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile
     assert "      util-linux \\\n" in dockerfile
-    assert "0004-name-canopen-master-loop-thread.patch" in dockerfile
+    assert "0001-shared-canopen-lifecycle.patch" in dockerfile
     assert "0005-use-component-parameters-for-ec-modules.patch" in dockerfile
     assert "0006-validate-component-module-parameters.patch" in dockerfile
-    assert "0005-derive-motor-topology-from-hardware-info.patch" in dockerfile
+    assert "0005-derive-motor-topology-from-hardware-info.patch" not in dockerfile
     assert "can_bus_guard" not in dockerfile
     assert not (ROOT / "src/rt_control/can_bus_guard").exists()
 
@@ -420,24 +340,24 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     naming_unit = (HOSTSETUP / "rt-control-can-names.service").read_text()
     installer = (HOSTSETUP / "can-install.sh").read_text()
     verifier = (HOSTSETUP / "verify-host.sh").read_text()
-    launcher = (ROOT / "tools/rt_control_ipc.sh").read_text()
 
     assert "Requires=rt-control-can-names.service" in can1_unit
     assert "After=rt-control-can-names.service" in can1_unit
     assert "ip link set dev can1 type can bitrate 500000" in can1_unit
     assert "ip link set dev can1 txqueuelen 128" in can1_unit
     assert "ip link set dev can1 up" in can1_unit
-    assert "Before=can0.service can1.service" in naming_unit
+    assert "Before=can1.service" in naming_unit
+    assert "Before=can0.service" not in naming_unit
     assert '"${script_dir}/can1.service" /etc/systemd/system/can1.service' in installer
-    assert "disable rt-control-can-names.service can0.service can1.service" in installer
+    assert '"${script_dir}/can0.service"' not in installer
+    assert "disable rt-control-can-names.service can1.service" in installer
     assert "/usr/local/sbin/rt-control-can-names --wait 30 --configure" in installer
     assert "rt-control-can-names.service must not be enabled at boot" in verifier
-    assert "can0.service must not be enabled at boot" in verifier
+    assert 'can0.service must not be enabled at boot' not in verifier
     assert "can1.service must not be enabled at boot" in verifier
-    assert 'can_setup_tool="${repository_root}/hostsetup/rt-control-can-names.sh"' in launcher
-    assert 'readonly expected_container_cpuset="0,2,4,6,8,10,12,14,16-27"' in launcher
-    assert 'RT_CONTROL_START_CPUSET="${expected_housekeeping_cpuset}"' in launcher
-    assert "pin_controller_update_thread" in launcher
-    assert "controller_manager_running_in_container" in launcher
-    assert '"${can_setup_tool}" --wait 30 --configure' in launcher
-    assert "/control/set_enabled" in launcher
+    assert 'legacy can0.service is still installed' in installer
+    assert 'legacy can0.service remains installed' in verifier
+    naming_script = (HOSTSETUP / "rt-control-can-names.sh").read_text()
+    assert 'verify_reserved_name_not_unknown can1' in naming_script
+    assert 'wait_for_serial "BMS/can1" "${BMS_SERIAL}"' in naming_script
+    assert "can0" not in naming_script

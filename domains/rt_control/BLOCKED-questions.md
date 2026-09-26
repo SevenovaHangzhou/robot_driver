@@ -2586,6 +2586,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   `axis_angle = encoder_angle × 27/108` 换算，即编码器 4 圈对应舵轴 1 圈。齿数不再是
   阻塞项，但 EDS、Node ID、0x6501/0x6502、方向和零偏仍未确认。108/27 不属于 Kinco
   电机传动，原先推导的电机总减速比 140:1 已撤回为 TBD。
+- 2026-09-24 用户确认旧 `can0` 宿主配置专供已退役履带；已从当前工作树移除
+  `can0.service`、旧 USB 固定命名和履带心跳验收。三代机编码器 CAN 接口/设备
+  将在实物接入后重新确认，现为 TBD，不复用旧 `can0` 身份或预置配置。
 - 当前控制器拒绝缺失/失效的必需反馈，不含自动切换电机编码器继续运动、NMT 恢复或重新使能。
   更宽松的降级运行策略尚未获得独立授权，不能从旧达妙自动恢复代码推导。
 - 实际 PDO/SDO、字段比例、机械标定、反馈/差异阈值、真实 Robot Model/关节名仍未确认。

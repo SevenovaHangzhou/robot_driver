@@ -1,5 +1,8 @@
 # rt-control 接手知识图谱
 
+> **历史架构阅读资料**：文中的履带 CANopen/diff-drive 与原生/IPC
+> 启动链已从当前 V3 源码退役；请以当前 V3 包与模块启动契约为准。
+
 本文面向第一次接手 rt-control 的开发、联调和运维同事。目标不是逐文件复述代码，而是回答四个问题：rt-control 管什么、代码从哪里读、一次命令怎样走到硬件、修改一处会影响哪里。
 
 本文是导航，不替代事实源。发生冲突时，应回到当前源码、[`BLOCKED-questions.md`](../BLOCKED-questions.md) 中已经裁决的事实，以及 [`PROGRESS.md`](../PROGRESS.md) 和实机验收记录。硬件参数、安全阈值和 CPU 配置不得凭本文推测。

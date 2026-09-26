@@ -7,8 +7,8 @@ config_root="${repo_root}/src/rt_control/robot_hw_ethercat/config/slaves"
 shutdown_patch="${repo_root}/patches/ecat_icube/0003-orderly-master-deactivation.patch"
 preserve_pdo_patch="${repo_root}/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch"
 igh_preserve_pdo_patch="${repo_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
-canopen_lifecycle_patch="${repo_root}/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch"
-canopen_quiescence_patch="${repo_root}/patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch"
+canopen_lifecycle_patch="${repo_root}/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch"
+canopen_rpdo_patch="${repo_root}/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch"
 shutdown_client="${repo_root}/src/rt_control/enable_manager/src/rt_disable_once.cpp"
 
 fail()
@@ -113,26 +113,30 @@ fixed_contains 'ec_pdo_list_equal' "${igh_preserve_pdo_patch}" ||
   fail "IgH must fail closed on a fixed PDO assignment mismatch"
 
 [[ -f "${canopen_lifecycle_patch}" ]] || fail "missing ${canopen_lifecycle_patch}"
-[[ -f "${canopen_quiescence_patch}" ]] || fail "missing ${canopen_quiescence_patch}"
+[[ -f "${canopen_rpdo_patch}" ]] || fail "missing ${canopen_rpdo_patch}"
 
 python3 - \
   "${canopen_lifecycle_patch}" \
-  "${canopen_quiescence_patch}" \
+  "${canopen_rpdo_patch}" \
   "${shutdown_client}" <<'PY'
 import sys
 from pathlib import Path
 
 lifecycle = Path(sys.argv[1]).read_text(encoding="utf-8")
-quiescence = Path(sys.argv[2]).read_text(encoding="utf-8")
+rpdo_patch = Path(sys.argv[2]).read_text(encoding="utf-8")
 shutdown = Path(sys.argv[3]).read_text(encoding="utf-8")
 
 deactivate = lifecycle.index("     this->deactivate(true);\n+    this->remove_from_master();")
 regression = lifecycle.index("EXPECT_CALL(*node_canopen_driver, deactivate(true))")
-cancel = quiescence.index("+  stop_callback_executor();")
-release = quiescence.index("   if (!device_container_->shutdown_drivers()")
+cancel = lifecycle.index("+  if (!stop_callback_executor())")
+release = lifecycle.index("+    if (!device_container_->shutdown_drivers())")
+rpdo = rpdo_patch.index("+      on_rpdo_received(data, id, std::chrono::steady_clock::now());")
 
-if not (deactivate >= 0 and regression >= 0 and cancel < release):
-    raise SystemExit("CANopen callback quiescence policy is incomplete or out of order")
+if not (deactivate >= 0 and regression >= 0 and cancel < release and rpdo >= 0):
+    raise SystemExit("CANopen lifecycle or RPDO receive policy is incomplete")
+for retired in ("canopen_402_driver/", "cia402_system.cpp", "Track node", "track motor"):
+    if retired in lifecycle:
+        raise SystemExit(f"retired CANopen motor behavior remains: {retired}")
 
 main = shutdown.index("int main(")
 disable_axes = shutdown.index("disableEthercatAxes(node, deadline)", main)
@@ -157,16 +161,14 @@ fixed_contains '0004-preserve-fixed-pdo-config.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the ecat fixed-PDO patch"
 fixed_contains '0001-preserve-verified-pdo-config.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the IgH fixed-PDO patch"
-fixed_contains '0003-quiesce-callbacks-before-driver-removal.patch' "${dockerfile}" ||
-  fail "Dockerfile must apply the CANopen callback-quiescence patch"
-fixed_contains '0004-name-canopen-master-loop-thread.patch' "${dockerfile}" ||
-  fail "Dockerfile must apply the CANopen master thread identity patch"
+fixed_contains '0001-shared-canopen-lifecycle.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the shared CANopen lifecycle patch"
+fixed_contains '0006-expose-rpdo-receive-hook.patch' "${dockerfile}" ||
+  fail "Dockerfile must apply the CANopen RPDO receive hook patch"
 fixed_contains '0005-use-component-parameters-for-ec-modules.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the typed EtherCAT HardwareInfo patch"
 fixed_contains '0006-validate-component-module-parameters.patch' "${dockerfile}" ||
   fail "Dockerfile must apply the strict EtherCAT module validation patch"
-fixed_contains '0005-derive-motor-topology-from-hardware-info.patch' "${dockerfile}" ||
-  fail "Dockerfile must apply the derived CANopen motor topology patch"
 
 if [[ -n "${ECAT_ICUBE_SOURCE:-}" ]]; then
   [[ -d "${ECAT_ICUBE_SOURCE}/.git" ]] ||

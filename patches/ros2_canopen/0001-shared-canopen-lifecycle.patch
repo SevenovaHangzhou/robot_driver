@@ -1,0 +1,735 @@
+diff --git a/canopen_core/include/canopen_core/device_container.hpp b/canopen_core/include/canopen_core/device_container.hpp
+index d2590dc..aeb8f04 100644
+--- a/canopen_core/include/canopen_core/device_container.hpp
++++ b/canopen_core/include/canopen_core/device_container.hpp
+@@ -63,12 +63,17 @@ public:
+     this->declare_parameter<std::string>("master_config", "");
+     this->declare_parameter<std::string>("bus_config", "");
+     this->declare_parameter<std::string>("master_bin", "");
++    this->declare_parameter<bool>("expose_mutating_ros_api", true);
++    this->get_parameter("expose_mutating_ros_api", expose_mutating_ros_api_);
+     client_cbg_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+-    init_driver_service_ = this->create_service<canopen_interfaces::srv::CONode>(
+-      "~/init_driver",
+-      std::bind(
+-        &DeviceContainer::on_init_driver, this, std::placeholders::_1, std::placeholders::_2),
+-      rmw_qos_profile_services_default, client_cbg_);
++    if (expose_mutating_ros_api_)
++    {
++      init_driver_service_ = this->create_service<canopen_interfaces::srv::CONode>(
++        "~/init_driver",
++        std::bind(
++          &DeviceContainer::on_init_driver, this, std::placeholders::_1, std::placeholders::_2),
++        rmw_qos_profile_services_default, client_cbg_);
++    }
+ 
+     this->loadNode_srv_.reset();
+     this->unloadNode_srv_.reset();
+@@ -201,6 +206,78 @@ public:
+    */
+   virtual size_t count_drivers() { return registered_drivers_.size(); }
+ 
++  /**
++   * @brief Request an NMT Stop broadcast for every node on the bus.
++   *
++   * @return true when the request was submitted to the active master.
++   */
++  virtual bool request_nmt_stop_all_nodes()
++  {
++    try
++    {
++      if (!can_master_ || !can_master_->get_master())
++      {
++        return false;
++      }
++      can_master_->get_master()->Command(lely::canopen::NmtCommand::STOP, 0);
++      return true;
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(this->get_logger(), "Failed to request all-node NMT Stop: %s", exception.what());
++      return false;
++    }
++  }
++
++  /**
++   * @brief Shutdown every registered driver while leaving the master running.
++   *
++   * @return true when every driver shutdown completed.
++   */
++  virtual bool shutdown_drivers()
++  {
++    bool success = true;
++    for (const auto & entry : registered_drivers_)
++    {
++      try
++      {
++        entry.second->shutdown();
++      }
++      catch (const std::exception & exception)
++      {
++        RCLCPP_ERROR(
++          this->get_logger(), "Failed to shutdown CANopen driver %u: %s", entry.first,
++          exception.what());
++        success = false;
++      }
++    }
++    return success;
++  }
++
++  /**
++   * @brief Stop and join only the CANopen master runtime.
++   *
++   * @return true when master shutdown completed or no master exists.
++   */
++  virtual bool shutdown_master()
++  {
++    if (!can_master_)
++    {
++      return true;
++    }
++    try
++    {
++      can_master_->shutdown();
++      return true;
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(
++        this->get_logger(), "Failed to shutdown CANopen master: %s", exception.what());
++      return false;
++    }
++  }
++
+   /**
+    * @brief Get node ids of all drivers with type
+    *
+@@ -281,6 +358,7 @@ protected:
+   std::string dcf_bin_;             ///< Cached value of .bin file parameter
+   std::string can_interface_name_;  ///< Cached value of can interface name
+   bool lifecycle_operation_;
++  bool expose_mutating_ros_api_{true};
+ 
+   // ROS Objects
+   std::weak_ptr<rclcpp::Executor> executor_;  ///< Pointer to ros executor instance
+diff --git a/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp b/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp
+index e1f4c73..f4b7a70 100644
+--- a/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp
++++ b/canopen_core/include/canopen_core/node_interfaces/node_canopen_driver.hpp
+@@ -76,6 +76,7 @@ protected:
+   std::string container_name_;
+   std::string eds_;
+   std::string bin_;
++  bool expose_mutating_ros_api_{true};
+ 
+   rclcpp::CallbackGroup::SharedPtr client_cbg_;
+   rclcpp::CallbackGroup::SharedPtr timer_cbg_;
+@@ -103,13 +104,13 @@ public:
+     std::shared_ptr<lely::ev::Executor> exec, std::shared_ptr<lely::canopen::AsyncMaster> master)
+   {
+     RCLCPP_DEBUG(node_->get_logger(), "set_master_start");
+-    if (!configured_.load())
++    if (activated_.load())
+     {
+-      throw DriverException("Set Master: driver is not configured");
++      throw DriverException("Set Master: driver is already activated");
+     }
+-    if (activated_.load())
++    if (initialised_.load() && !configured_.load())
+     {
+-      throw DriverException("Set Master: driver is not activated");
++      throw DriverException("Set Master: driver initialization is in progress");
+     }
+     this->exec_ = exec;
+     this->master_ = master;
+@@ -142,6 +143,8 @@ public:
+     node_->declare_parameter("node_id", 0);
+     node_->declare_parameter("non_transmit_timeout", 100);
+     node_->declare_parameter("config", "");
++    node_->declare_parameter("expose_mutating_ros_api", true);
++    node_->get_parameter("expose_mutating_ros_api", expose_mutating_ros_api_);
+     this->init(true);
+     this->initialised_.store(true);
+     RCLCPP_DEBUG(node_->get_logger(), "init_end");
+@@ -282,8 +285,8 @@ public:
+       throw DriverException("Deactivate: driver is not activated");
+     }
+     this->activated_.store(false);
+-    this->remove_from_master();
+     this->deactivate(true);
++    this->remove_from_master();
+     RCLCPP_DEBUG(node_->get_logger(), "deactivate_end");
+   }
+   /**
+diff --git a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+index 29ec237..c875ee2 100644
+--- a/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
++++ b/canopen_core/include/canopen_core/node_interfaces/node_canopen_master.hpp
+@@ -17,6 +17,9 @@
+ 
+ #include <yaml-cpp/yaml.h>
+ #include <atomic>
++#ifdef __linux__
++#include <pthread.h>
++#endif
+ #include <lely/coapp/master.hpp>
+ #include <lely/coapp/slave.hpp>
+ #include <lely/ev/exec.hpp>
+@@ -86,6 +89,7 @@ protected:
+   std::string master_bin_;
+   std::string can_interface_name_;
+   uint32_t timeout_;
++  bool expose_mutating_ros_api_{true};
+ 
+   std::thread spinner_;
+ 
+@@ -121,6 +125,8 @@ public:
+     node_->declare_parameter("node_id", 0);
+     node_->declare_parameter("non_transmit_timeout", 100);
+     node_->declare_parameter("config", "");
++    node_->declare_parameter("expose_mutating_ros_api", true);
++    node_->get_parameter("expose_mutating_ros_api", expose_mutating_ros_api_);
+     this->init(true);
+     this->initialised_.store(true);
+     RCLCPP_DEBUG(node_->get_logger(), "init_end");
+@@ -229,6 +235,9 @@ public:
+     this->spinner_ = std::thread(
+       [this]()
+       {
++#ifdef __linux__
++        (void)pthread_setname_np(pthread_self(), "rtcan-master");
++#endif
+         try
+         {
+           loop_->run();
+@@ -318,15 +327,15 @@ public:
+       throw MasterException("Cleanup: master is still active");
+     }
+     this->cleanup(true);
+-    io_guard_.reset();
+-    ctx_.reset();
+-    poll_.reset();
+-    loop_.reset();
+-
+-    exec_.reset();
+-    timer_.reset();
+-    ctrl_.reset();
++    sigset_.reset();
+     chan_.reset();
++    ctrl_.reset();
++    timer_.reset();
++    exec_.reset();
++    loop_.reset();
++    poll_.reset();
++    ctx_.reset();
++    io_guard_.reset();
+     this->configured_.store(false);
+     this->master_set_.store(false);
+   }
+diff --git a/canopen_core/src/device_container.cpp b/canopen_core/src/device_container.cpp
+index edfb7a3..95ea9a4 100644
+--- a/canopen_core/src/device_container.cpp
++++ b/canopen_core/src/device_container.cpp
+@@ -16,6 +16,8 @@
+ #include "canopen_core/device_container.hpp"
+ #include "canopen_core/device_container_error.hpp"
+ 
++#include <utility>
++
+ using namespace ros2_canopen;
+ 
+ void DeviceContainer::set_executor(const std::weak_ptr<rclcpp::Executor> executor)
+@@ -244,6 +246,8 @@ bool DeviceContainer::load_master()
+       params.push_back(rclcpp::Parameter("node_id", (int)node_id.value()));
+       params.push_back(rclcpp::Parameter("non_transmit_timeout", 100));
+       params.push_back(rclcpp::Parameter("config", config_->dump_device(*it)));
++      params.push_back(
++        rclcpp::Parameter("expose_mutating_ros_api", expose_mutating_ros_api_));
+ 
+       if (!this->load_component(
+             package_name.value(), driver_name.value(), node_id.value(), *it, params,
+@@ -253,6 +257,14 @@ bool DeviceContainer::load_master()
+         return false;
+       }
+ 
++      if (!expose_mutating_ros_api_ && can_master_->is_lifecycle())
++      {
++        RCLCPP_ERROR(
++          this->get_logger(),
++          "Restricted embedded mode does not support a lifecycle CANopen master");
++        can_master_.reset();
++        return false;
++      }
+       add_node_to_executor(can_master_->get_node_base_interface());
+       can_master_->init();
+       master_found = true;
+@@ -320,6 +332,8 @@ bool DeviceContainer::load_drivers()
+       params.push_back(rclcpp::Parameter("node_id", (int)node_id.value()));
+       params.push_back(rclcpp::Parameter("config", config_->dump_device(*it)));
+       params.push_back(rclcpp::Parameter("non_transmit_timeout", 100));
++      params.push_back(
++        rclcpp::Parameter("expose_mutating_ros_api", expose_mutating_ros_api_));
+ 
+       if (!this->load_component(
+             package_name.value(), driver_name.value(), node_id.value(), *it, params,
+@@ -331,6 +345,29 @@ bool DeviceContainer::load_drivers()
+           node_id.value(), it->c_str(), driver_name.value().c_str(), package_name.value().c_str());
+         return false;
+       }
++      if (!expose_mutating_ros_api_)
++      {
++        try
++        {
++          auto executor = can_master_->get_executor();
++          auto master = can_master_->get_master();
++          if (!executor || !master)
++          {
++            RCLCPP_ERROR(
++              this->get_logger(), "Direct master attachment returned an invalid master");
++            return false;
++          }
++          registered_drivers_.at(node_id.value())
++            ->set_master(std::move(executor), std::move(master));
++        }
++        catch (const std::exception & exception)
++        {
++          RCLCPP_ERROR(
++            this->get_logger(), "Direct master attachment failed for node %hu: %s",
++            node_id.value(), exception.what());
++          return false;
++        }
++      }
+       add_node_to_executor(registered_drivers_[node_id.value()]->get_node_base_interface());
+       registered_drivers_[node_id.value()]->init();
+     }
+@@ -342,6 +379,13 @@ bool DeviceContainer::load_manager()
+ {
+   if (this->lifecycle_operation_)
+   {
++    if (!expose_mutating_ros_api_)
++    {
++      RCLCPP_ERROR(
++        this->get_logger(),
++        "Restricted embedded mode refuses the lifecycle manager mutation surface");
++      return false;
++    }
+     RCLCPP_INFO(this->get_logger(), "Loading Manager Configuration.");
+     auto node_options = rclcpp::NodeOptions();
+     node_options.use_global_arguments(false);
+diff --git a/canopen_core/src/node_interfaces/node_canopen_driver.cpp b/canopen_core/src/node_interfaces/node_canopen_driver.cpp
+index 6668a0d..c30fe37 100644
+--- a/canopen_core/src/node_interfaces/node_canopen_driver.cpp
++++ b/canopen_core/src/node_interfaces/node_canopen_driver.cpp
+@@ -22,6 +22,11 @@ void ros2_canopen::node_interfaces::NodeCanopenDriver<rclcpp::Node>::demand_set_
+   {
+     throw ros2_canopen::DriverException("Set Master: driver is not configured");
+   }
++  if (master_set_.load())
++  {
++    RCLCPP_DEBUG(node_->get_logger(), "Master was attached in process; skipping init service");
++    return;
++  }
+   std::string init_service_name = container_name_ + "/init_driver";
+   RCLCPP_DEBUG(node_->get_logger(), "Service: %s", init_service_name.c_str());
+   rclcpp::Client<canopen_interfaces::srv::CONode>::SharedPtr demand_set_master_client;
+@@ -66,6 +71,11 @@ void ros2_canopen::node_interfaces::NodeCanopenDriver<
+   {
+     throw ros2_canopen::DriverException("Set Master: driver is not configured");
+   }
++  if (master_set_.load())
++  {
++    RCLCPP_DEBUG(node_->get_logger(), "Master was attached in process; skipping init service");
++    return;
++  }
+   std::string init_service_name = container_name_ + "/init_driver";
+   rclcpp::Client<canopen_interfaces::srv::CONode>::SharedPtr demand_set_master_client;
+   // demand_set_master_client;
+diff --git a/canopen_core/test/test_node_canopen_driver.cpp b/canopen_core/test/test_node_canopen_driver.cpp
+index fee5bee..9d1b49a 100644
+--- a/canopen_core/test/test_node_canopen_driver.cpp
++++ b/canopen_core/test/test_node_canopen_driver.cpp
+@@ -42,8 +42,10 @@ public:
+   FRIEND_TEST(NodeCanopenDriverTest, test_shutdown);
+ 
+   MockNodeCanopenDriver(rclcpp::Node * node) : NodeCanopenDriver<NODETYPE>(node) {}
++  using NodeCanopenDriver<NODETYPE>::deactivate;
+   MOCK_METHOD0_T(add_to_master, void());
+   MOCK_METHOD0_T(remove_from_master, void());
++  MOCK_METHOD1_T(deactivate, void(bool));
+ 
+   void DelegateToBase()
+   {
+@@ -125,6 +127,7 @@ TEST_F(NodeCanopenDriverTest, test_set_master)
+ 
+   node_canopen_driver->set_master(exec, master);
+   EXPECT_TRUE(node_canopen_driver->master_set_.load());
++  EXPECT_NO_THROW(node_canopen_driver->demand_set_master());
+ 
+   node_canopen_driver->configured_.store(true);
+   node_canopen_driver->activated_.store(true);
+@@ -133,8 +136,14 @@ TEST_F(NodeCanopenDriverTest, test_set_master)
+ 
+   node_canopen_driver->configured_.store(false);
+   node_canopen_driver->activated_.store(false);
++  node_canopen_driver->initialised_.store(true);
+ 
+   EXPECT_THROW(node_canopen_driver->set_master(exec, master), DriverException);
++
++  node_canopen_driver->initialised_.store(false);
++
++  EXPECT_NO_THROW(node_canopen_driver->set_master(exec, master));
++  EXPECT_TRUE(node_canopen_driver->master_set_.load());
+ }
+ 
+ TEST_F(NodeCanopenDriverTest, test_configure)
+@@ -223,6 +232,8 @@ TEST_F(NodeCanopenDriverTest, test_deactivate)
+   node_canopen_driver->master_set_.store(true);
+   node_canopen_driver->configured_.store(true);
+   node_canopen_driver->activated_.store(true);
++  InSequence ordered_shutdown;
++  EXPECT_CALL(*node_canopen_driver, deactivate(true)).Times(1).WillOnce(Return());
+   EXPECT_CALL(*node_canopen_driver, remove_from_master()).Times(1).WillOnce(Return());
+   node_canopen_driver->deactivate();
+   EXPECT_FALSE(node_canopen_driver->activated_.load());
+diff --git a/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp b/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp
+index 970bfed..16bf14d 100644
+--- a/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp
++++ b/canopen_master_driver/include/canopen_master_driver/node_interfaces/node_canopen_basic_master_impl.hpp
+@@ -109,6 +109,11 @@ void NodeCanopenBasicMaster<rclcpp::Node>::init(bool called_from_base)
+       &ros2_canopen::node_interfaces::NodeCanopenBasicMaster<rclcpp::Node>::on_sdo_read, this,
+       std::placeholders::_1, std::placeholders::_2));
+ 
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWriteID>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+@@ -127,6 +132,11 @@ void NodeCanopenBasicMaster<rclcpp_lifecycle::LifecycleNode>::init(bool called_f
+         rclcpp_lifecycle::LifecycleNode>::on_sdo_read,
+       this, std::placeholders::_1, std::placeholders::_2));
+ 
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWriteID>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+diff --git a/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp b/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp
+index 51e7f43..da13f62 100644
+--- a/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp
++++ b/canopen_master_driver/test/test_node_canopen_basic_master_ros.cpp
+@@ -17,6 +17,46 @@
+ #include "canopen_master_driver/node_interfaces/node_canopen_basic_master.hpp"
+ #include "gtest/gtest.h"
+ 
++TEST(NodeCanopenBasicMaster, restricted_mode_omits_sdo_write_service)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    options.parameter_overrides(
++      {rclcpp::Parameter("expose_mutating_ros_api", false)});
++    rclcpp::Node node("restricted_master", options);
++    ros2_canopen::node_interfaces::NodeCanopenBasicMaster<rclcpp::Node> interface(&node);
++    auto * base_interface =
++      static_cast<ros2_canopen::node_interfaces::NodeCanopenMasterInterface *>(&interface);
++    ASSERT_NO_THROW(base_interface->init());
++
++    const auto services =
++      node.get_service_names_and_types_by_node(node.get_name(), node.get_namespace());
++    EXPECT_EQ(services.count("/restricted_master/sdo_read"), 1U);
++    EXPECT_EQ(services.count("/restricted_master/sdo_write"), 0U);
++  }
++  rclcpp::shutdown();
++}
++
++TEST(NodeCanopenBasicMaster, standalone_mode_exposes_sdo_write_service_by_default)
++{
++  rclcpp::init(0, nullptr);
++  {
++    auto options = rclcpp::NodeOptions().use_global_arguments(false);
++    rclcpp::Node node("standalone_master", options);
++    ros2_canopen::node_interfaces::NodeCanopenBasicMaster<rclcpp::Node> interface(&node);
++    auto * base_interface =
++      static_cast<ros2_canopen::node_interfaces::NodeCanopenMasterInterface *>(&interface);
++    ASSERT_NO_THROW(base_interface->init());
++
++    const auto services =
++      node.get_service_names_and_types_by_node(node.get_name(), node.get_namespace());
++    EXPECT_EQ(services.count("/standalone_master/sdo_read"), 1U);
++    EXPECT_EQ(services.count("/standalone_master/sdo_write"), 1U);
++  }
++  rclcpp::shutdown();
++}
++
+ TEST(NodeCanopenBasicMaster, test_good_sequence_advanced)
+ {
+   rclcpp::init(0, nullptr);
+diff --git a/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp b/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp
+index b588829..392f8b4 100644
+--- a/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp
++++ b/canopen_proxy_driver/include/canopen_proxy_driver/node_interfaces/node_canopen_proxy_driver_impl.hpp
+@@ -37,13 +37,23 @@ void NodeCanopenProxyDriver<rclcpp::Node>::init(bool called_from_base)
+ {
+   nmt_state_publisher = this->node_->create_publisher<std_msgs::msg::String>(
+     std::string(this->node_->get_name()).append("/nmt_state").c_str(), 10);
++  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
++    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
++  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
++    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
++    std::bind(
++      &NodeCanopenProxyDriver<rclcpp::Node>::on_sdo_read, this, std::placeholders::_1,
++      std::placeholders::_2));
++
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   tpdo_subscriber = this->node_->create_subscription<canopen_interfaces::msg::COData>(
+     std::string(this->node_->get_name()).append("/tpdo").c_str(), 10,
+     std::bind(&NodeCanopenProxyDriver<rclcpp::Node>::on_tpdo, this, std::placeholders::_1));
+ 
+-  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
+-    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
+-
+   nmt_state_reset_service = this->node_->create_service<std_srvs::srv::Trigger>(
+     std::string(this->node_->get_name()).append("/nmt_reset_node").c_str(),
+     std::bind(
+@@ -56,12 +66,6 @@ void NodeCanopenProxyDriver<rclcpp::Node>::init(bool called_from_base)
+       &NodeCanopenProxyDriver<rclcpp::Node>::on_nmt_state_start, this, std::placeholders::_1,
+       std::placeholders::_2));
+ 
+-  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
+-    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
+-    std::bind(
+-      &NodeCanopenProxyDriver<rclcpp::Node>::on_sdo_read, this, std::placeholders::_1,
+-      std::placeholders::_2));
+-
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWrite>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+@@ -74,15 +78,25 @@ void NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::init(bool called_f
+ {
+   nmt_state_publisher = this->node_->create_publisher<std_msgs::msg::String>(
+     std::string(this->node_->get_name()).append("/nmt_state").c_str(), 10);
++  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
++    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
++  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
++    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
++    std::bind(
++      &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_sdo_read, this,
++      std::placeholders::_1, std::placeholders::_2));
++
++  if (!this->expose_mutating_ros_api_)
++  {
++    return;
++  }
++
+   tpdo_subscriber = this->node_->create_subscription<canopen_interfaces::msg::COData>(
+     std::string(this->node_->get_name()).append("/tpdo").c_str(), 10,
+     std::bind(
+       &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_tpdo, this,
+       std::placeholders::_1));
+ 
+-  rpdo_publisher = this->node_->create_publisher<canopen_interfaces::msg::COData>(
+-    std::string(this->node_->get_name()).append("/rpdo").c_str(), 10);
+-
+   nmt_state_reset_service = this->node_->create_service<std_srvs::srv::Trigger>(
+     std::string(this->node_->get_name()).append("/nmt_reset_node").c_str(),
+     std::bind(
+@@ -95,12 +109,6 @@ void NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::init(bool called_f
+       &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_nmt_state_start, this,
+       std::placeholders::_1, std::placeholders::_2));
+ 
+-  sdo_read_service = this->node_->create_service<canopen_interfaces::srv::CORead>(
+-    std::string(this->node_->get_name()).append("/sdo_read").c_str(),
+-    std::bind(
+-      &NodeCanopenProxyDriver<rclcpp_lifecycle::LifecycleNode>::on_sdo_read, this,
+-      std::placeholders::_1, std::placeholders::_2));
+-
+   sdo_write_service = this->node_->create_service<canopen_interfaces::srv::COWrite>(
+     std::string(this->node_->get_name()).append("/sdo_write").c_str(),
+     std::bind(
+diff --git a/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp b/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
+index f009ef6..ddb1d78 100644
+--- a/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
++++ b/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
+@@ -200,7 +200,7 @@ public:
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   CanopenSystem();
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+-  ~CanopenSystem();
++  ~CanopenSystem() noexcept override;
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   hardware_interface::CallbackReturn on_init(
+     const hardware_interface::HardwareInfo & info) override;
+@@ -223,6 +223,10 @@ public:
+   hardware_interface::CallbackReturn on_shutdown(
+     const rclcpp_lifecycle::State & previous_state) override;
+ 
++  CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
++  hardware_interface::CallbackReturn on_error(
++    const rclcpp_lifecycle::State & previous_state) override;
++
+   CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
+   hardware_interface::CallbackReturn on_activate(
+     const rclcpp_lifecycle::State & previous_state) override;
+@@ -249,7 +253,8 @@ protected:
+   std::unique_ptr<std::thread> init_thread_;
+ 
+   void spin();
+-  void clean();
++  virtual bool stop_callback_executor();
++  bool clean();
+ 
+ private:
+   void initDeviceContainer();
+diff --git a/canopen_ros2_control/src/canopen_system.cpp b/canopen_ros2_control/src/canopen_system.cpp
+index 7ea588b..fad7cfe 100644
+--- a/canopen_ros2_control/src/canopen_system.cpp
++++ b/canopen_ros2_control/src/canopen_system.cpp
+@@ -23,6 +23,7 @@
+ 
+ #include "canopen_ros2_control/canopen_system.hpp"
+ 
++#include <exception>
+ #include <limits>
+ #include <vector>
+ #include "hardware_interface/types/hardware_interface_type_values.hpp"
+@@ -38,24 +39,97 @@ namespace canopen_ros2_control
+ 
+ CanopenSystem::CanopenSystem() {}
+ 
+-void CanopenSystem::clean()
++bool CanopenSystem::clean()
+ {
+-  executor_->cancel();
+-  printf("Joining...");
+-  spin_thread_->join();
+-  printf("Joined!");
++  if (!device_container_ && !executor_ && !spin_thread_ && !init_thread_)
++  {
++    return true;
++  }
++
++  bool success = true;
++  if (device_container_ && !device_container_->request_nmt_stop_all_nodes())
++  {
++    RCLCPP_ERROR(kLogger, "CANopen terminal all-node NMT Stop request failed");
++    success = false;
++  }
++
++  if (!stop_callback_executor())
++  {
++    RCLCPP_ERROR(kLogger, "CANopen callback executor barrier failed");
++    // Driver callbacks may still be in flight. Keep the complete communication
++    // graph alive so lifecycle cleanup can be retried without reintroducing the
++    // callback/use-after-free race guarded by this barrier.
++    return false;
++  }
++
++  if (device_container_)
++  {
++    if (!device_container_->shutdown_drivers())
++    {
++      RCLCPP_ERROR(kLogger, "CANopen driver shutdown failed");
++      success = false;
++    }
++    if (!device_container_->shutdown_master())
++    {
++      RCLCPP_ERROR(kLogger, "CANopen master shutdown failed");
++      success = false;
++    }
++  }
+ 
+   device_container_.reset();
+   executor_.reset();
+ 
+-  init_thread_->join();
++  if (init_thread_ && init_thread_->joinable())
++  {
++    init_thread_->join();
++  }
+   init_thread_.reset();
+-
+-  executor_.reset();
+   spin_thread_.reset();
++  return success;
++}
++
++bool CanopenSystem::stop_callback_executor()
++{
++  bool success = true;
++  if (executor_)
++  {
++    try
++    {
++      executor_->cancel();
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(kLogger, "Failed to cancel CANopen callback executor: %s", exception.what());
++      success = false;
++    }
++  }
++
++  if (spin_thread_ && spin_thread_->joinable())
++  {
++    try
++    {
++      spin_thread_->join();
++    }
++    catch (const std::exception & exception)
++    {
++      RCLCPP_ERROR(kLogger, "Failed to join CANopen callback executor: %s", exception.what());
++      success = false;
++    }
++  }
++  return success;
+ }
+ 
+-CanopenSystem::~CanopenSystem() { clean(); }
++CanopenSystem::~CanopenSystem() noexcept
++{
++  if (!clean())
++  {
++    RCLCPP_FATAL(
++      kLogger,
++      "CanopenSystem destruction could not quiesce CANopen callbacks; terminating before "
++      "callback-owned state is destroyed");
++    std::terminate();
++  }
++}
+ 
+ hardware_interface::CallbackReturn CanopenSystem::on_init(
+   const hardware_interface::HardwareInfo & info)
+@@ -101,15 +175,19 @@ hardware_interface::CallbackReturn CanopenSystem::on_configure(
+ hardware_interface::CallbackReturn CanopenSystem::on_cleanup(
+   const rclcpp_lifecycle::State & previous_state)
+ {
+-  clean();
+-  return CallbackReturn::SUCCESS;
++  return clean() ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
+ }
+ 
+ hardware_interface::CallbackReturn CanopenSystem::on_shutdown(
+   const rclcpp_lifecycle::State & previous_state)
+ {
+-  clean();
+-  return CallbackReturn::SUCCESS;
++  return clean() ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
++}
++
++hardware_interface::CallbackReturn CanopenSystem::on_error(
++  const rclcpp_lifecycle::State & previous_state)
++{
++  return clean() ? CallbackReturn::SUCCESS : CallbackReturn::ERROR;
+ }
+ 
+ void CanopenSystem::spin()

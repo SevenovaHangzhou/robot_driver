@@ -1,5 +1,8 @@
 # rt-control 一键启动
 
+> **历史记录（旧履带）**：本页引用的 `tools/rt_control_ipc.sh` 已退役，
+> 不可按本页启动、使能或控制 V3。请查看当前 V3 启动契约和现场授权流程。
+
 > 当前目标身份已切换为 `user@localhost`（管理地址 `192.168.0.250`，内核
 > `6.8.1-1057-realtime`）。本轮按 Native-first 流程验证，暂不运行 Docker；本页的一键
 > Docker 路径在 PCIe CAN 迁移和发布验证完成前不得使用。脚本会访问真实

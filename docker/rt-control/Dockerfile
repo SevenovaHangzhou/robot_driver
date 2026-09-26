@@ -146,25 +146,13 @@ RUN git config --global http.version HTTP/1.1 \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
     && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-rt-control-lifecycle-and-emcy-stop.patch \
+      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
     && git -C src/vendor/ros2_canopen apply \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
-    && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
-    && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0003-quiesce-callbacks-before-driver-removal.patch \
-    && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
-    && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0004-name-canopen-master-loop-thread.patch \
-    && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
-    && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
     && git -C src/vendor/ros2_canopen apply \

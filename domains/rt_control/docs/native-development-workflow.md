@@ -1,5 +1,9 @@
 # rt-control 原生开发与运行
 
+> **历史记录（旧履带）**：`tools/rt_control_native.sh` 和
+> `tools/rt_control_native_oneclick.sh` 已退役；本页的实机启动/使能命令
+> 不适用于 V3。仅未退役的源码构建工具可按当前仓库契约使用。
+
 本文只适用于目标工控机 `user@localhost`（管理地址 `192.168.0.250`，内核
 `6.8.1-1057-realtime`）。目标是让日常源码修改通过
 `--symlink-install` 增量生效，不必为每次改动重构、导出和上传 Docker 镜像；Docker

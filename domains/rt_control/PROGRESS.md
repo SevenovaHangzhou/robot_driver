@@ -1,5 +1,7 @@
 # rt-control implementation progress
 
+| 2026-09-24 | release-deploy | [旧履带运行链退役](docs/areas/release-deploy/records/2026-09-24-retire-track-runtime.md) | UNVERIFIED（T0；quality gate 207、V3 Python 98、共享 CANopen 补丁隔离 9 包/150 测试、Docker 39 包及无设备静态 validation 通过；实机/Mock 生命周期待验，V3 CAN 身份 TBD） |
+
 | 2026-09-19 | release-deploy | [V3 达妙头部非 JTC 位置速度运行链](docs/areas/release-deploy/records/2026-09-19-v3-damiao-head-runtime.md) | PARTIAL（T1；32 项头部包测试、92 项 bringup、55 项 V3 head/profile 测试；CAN/机械/full runtime 待验） |
 
 | Task | Commit | Self-check result | Remaining issues |

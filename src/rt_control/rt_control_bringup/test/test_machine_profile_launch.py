@@ -211,6 +211,27 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
         assert f"<exec_depend>{independently_deployed_module}</exec_depend>" not in package
 
 
+def test_retired_track_runtime_is_absent_without_removing_swerve_encoder_support():
+    root = BRINGUP_DIR.parents[2]
+    canopen = root / "src/rt_control/robot_hw_canopen"
+    for path in (
+        BRINGUP_DIR / "launch/rt_control.launch.py",
+        BRINGUP_DIR / "config/controllers.yaml",
+        BRINGUP_DIR / "urdf/rt_control.urdf.xacro",
+        canopen / "config/bus.yml",
+        canopen / "variants/alfa_v1.yaml",
+        canopen / "urdf/canopen.ros2_control.xacro",
+        root / "tools/rt_control_native.sh",
+        root / "tools/rt_control_ipc.sh",
+    ):
+        assert not path.exists(), path
+    cmake = (canopen / "CMakeLists.txt").read_text(encoding="utf-8")
+    assert "add_library(swerve_encoder_system" in cmake
+    assert "validate_swerve_encoder_profile ALL" in cmake
+    assert "canopen_runtime_config" not in cmake
+    assert "DCFGEN_EXECUTABLE" not in cmake
+
+
 def test_installed_start_defaults_to_v3_validation_and_keeps_enable_explicit():
     start = (BRINGUP_DIR / "scripts/rt_control_start").read_text(encoding="utf-8")
 

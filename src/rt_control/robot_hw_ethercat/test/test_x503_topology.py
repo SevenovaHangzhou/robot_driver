@@ -10,8 +10,6 @@ XACRO_PATH = PACKAGE_DIR / "urdf/ecat.ros2_control.xacro"
 VARIANT_PATH = PACKAGE_DIR / "variants/alfa_v1.yaml"
 FAMILY_REGISTRY_PATH = PACKAGE_DIR / "config/families.yaml"
 DIAGNOSTICS_PATH = ROOT_DIR / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
-NATIVE_PATH = ROOT_DIR / "tools/rt_control_native.sh"
-IPC_PATH = ROOT_DIR / "tools/rt_control_ipc.sh"
 DOCKERFILE_PATH = ROOT_DIR / "docker/rt-control/Dockerfile"
 ECAT_PATCH_PATH = ROOT_DIR / "patches/ecat_icube/0004-preserve-fixed-pdo-config.patch"
 IGH_PATCH_PATH = ROOT_DIR / "patches/igh/0001-preserve-verified-pdo-config.patch"
@@ -105,10 +103,8 @@ def test_x503_ros_interfaces_are_state_only_and_present_in_mock():
     assert "force." not in xacro and "torque." not in xacro
 
 
-def test_diagnostics_and_startup_require_both_x503_devices():
+def test_diagnostics_uses_descriptor_owned_x503_names():
     diagnostics = DIAGNOSTICS_PATH.read_text(encoding="utf-8")
-    native = NATIVE_PATH.read_text(encoding="utf-8")
-    ipc = IPC_PATH.read_text(encoding="utf-8")
 
     assert '"ethercat_sensor_names"' in diagnostics
     assert '"ethercat_sensor_ring_positions"' in diagnostics
@@ -116,16 +112,6 @@ def test_diagnostics_and_startup_require_both_x503_devices():
     assert 'sensor.sensor_name + "/channel_1_raw"' in diagnostics
     assert '"right_force_sensor"' not in diagnostics
     assert '"left_force_sensor"' not in diagnostics
-    for script in (native, ipc):
-        assert "Slaves: 18" in script
-        assert "DST_X503" in script
-        assert "verify_x503_identity_and_pdos" in script
-        assert "Vendor Id:" in script
-        assert "Product code:" in script
-        assert "Revision number:" in script
-        assert "RxPDO[[:space:]]+0x1601" in script
-        assert "TxPDO[[:space:]]+0x1a00" in script
-    assert "EtherCAT Idle/Inactive 且 18 个从站全 PREOP" in ipc
 
 
 def test_fixed_pdo_policy_reaches_patched_igh_master():

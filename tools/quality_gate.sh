@@ -49,6 +49,5 @@ echo "NOTICE: informational coverage for remaining tools scripts (not gated):" >
 python3 -m coverage report --include='tools/diff_legacy.py,tools/rt_control_axis_state_check.py,tools/rt_control_thread_affinity.py,tools/release_test_runner.py,tools/scoped_tests.py,tools/rt_perf_capture.py' || true
 
 bash tools/check_ecat_sync_shutdown_policy.sh
-bash tools/check_rt_control_ipc_launcher_policy.sh
 
 echo "PASS: local robot_driver RT-Control quality gate"

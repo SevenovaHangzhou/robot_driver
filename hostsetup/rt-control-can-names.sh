@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly RT_CONTROL_SERIAL="004D00675230500720333159"
 readonly BMS_SERIAL="003000265230500720333159"
 readonly BITRATE="500000"
 readonly TXQUEUELEN="128"
@@ -13,11 +12,10 @@ usage() {
   cat <<'EOF'
 usage: rt-control-can-names [--wait SECONDS] [--configure]
 
-Bind the two fixed gs_usb SocketCAN adapters by USB serial:
-  can0: rt-control CANopen bus
+Bind the fixed BMS gs_usb SocketCAN adapter by USB serial:
   can1: BMS CAN bus
 
---wait waits for both fixed serials to appear.
+--wait waits for the BMS serial to appear.
 --configure also forces 500 kbit/s, txqueuelen 128 and UP.
 EOF
 }
@@ -107,11 +105,7 @@ verify_reserved_name_not_unknown() {
   [[ -e "/sys/class/net/${interface}" ]] || return
   actual_serial="$(udevadm info -q property -p "/sys/class/net/${interface}" |
     sed -n 's/^ID_SERIAL_SHORT=//p')"
-  case "${actual_serial}" in
-    "${RT_CONTROL_SERIAL}"|"${BMS_SERIAL}")
-      return 0
-      ;;
-  esac
+  [[ "${actual_serial}" == "${BMS_SERIAL}" ]] && return 0
   echo "${interface} already exists with unapproved USB serial ${actual_serial:-unknown}" >&2
   return 1
 }
@@ -162,34 +156,20 @@ verify_can_interface() {
   done
 }
 
-verify_reserved_name_not_unknown can0
 verify_reserved_name_not_unknown can1
 
-rt_interface="$(wait_for_serial "rt-control/can0" "${RT_CONTROL_SERIAL}")"
 bms_interface="$(wait_for_serial "BMS/can1" "${BMS_SERIAL}")"
-if [[ "${rt_interface}" == "${bms_interface}" ]]; then
-  echo "CAN serials unexpectedly resolved to the same interface" >&2
-  exit 1
-fi
 
-ip link set dev "${rt_interface}" down
 ip link set dev "${bms_interface}" down
-if [[ "${rt_interface}" != "rtcan_tmp" ]]; then
-  ip link set dev "${rt_interface}" name rtcan_tmp
-fi
 if [[ "${bms_interface}" != "bmscan_tmp" ]]; then
   ip link set dev "${bms_interface}" name bmscan_tmp
 fi
-ip link set dev rtcan_tmp name can0
 ip link set dev bmscan_tmp name can1
 
 if ${configure}; then
-  configure_can_interface can0
   configure_can_interface can1
 else
-  ip link set dev can0 up
   ip link set dev can1 up
 fi
 
-verify_can_interface can0 "${RT_CONTROL_SERIAL}" "rt-control/can0"
 verify_can_interface can1 "${BMS_SERIAL}" "BMS/can1"
