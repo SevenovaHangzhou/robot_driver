@@ -2567,6 +2567,23 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 ## BQ-145: 舵轮控制器真实硬件接入与启动组合 [OPEN/HIGH-RISK 2026-09-09]
 
+- 2026-09-25 ELECTRI-133 Tier A：新增 RT 私有相对运动协议、固定规模 planner/session 与
+  `chassis_relative_move_mock` 无设备执行入口；模拟 stationary CSV/CSP 回读与 Action 行为已验证。
+  后续已将该 session 以 opt-in 方式接入 `SwerveController` loaned interfaces 与
+  `KincoCyclicModeSlave`，并以四驱 synthetic PDO 验证 sent-cycle acknowledgement、全四轮
+  mode/status 回读、反向零速预置和命令 generation 隔离。真实 PDO assignment/identity、逐轮标定、
+  转向速度新鲜度、停车行为和 BQ-150 共线 IMU 仍阻塞；`enable_manager` 继续独占 controlword，
+  draft/production runtime gate 不放开。源码速度入口已按用户决定改为 `/cmd_vel`；公共
+  `robot_interfaces` 尚待用户提交新 endpoint，未原子升级前不得跨域部署。
+  详见 [Tier A 离线记录](docs/areas/motion/records/2026-09-25-tier-a-relative-move-mock.md)。
+
+- 2026-09-25 用户/厂商资料确认：Kinco FD 运行时支持 CSV(9) 与 CSP(8) 切换；本地
+  `V3-DOC-2026-014` 手册第 154 页明确 `0x6060` 请求模式和 `0x6061` 实际模式，
+  第 150 页列出包含目标位置/速度和模式对象的可变 PDO 映射。当前 blocker 不再表述为
+  “驱动器是否支持”，而是本机实际 PDO assignment/顺序、identity/环位、转换/标定、
+  物理切换时序和停止行为尚未实证。源码已实现 opt-in cyclic adapter 与 sent-cycle/
+  全四轮确认门禁，production profile 仍保持 draft。
+
 - 已完成：swerve_driver 算法、CSP/CSV ros2_control 插件、Mock 共享 manager 及增量容器测试。
 - 未完成代码接入：Kinco 实际从站 profile、CANopen state-only 编码器提供器，以及 scope-specific
   controller 列表/使能组合。不能仅安装新包就宣称三代机 launch 已可运行。

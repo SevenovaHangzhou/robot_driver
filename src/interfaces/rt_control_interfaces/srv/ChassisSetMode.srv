@@ -1,0 +1,16 @@
+# RT-Control private mode handoff. See README.md for admission and timeout rules.
+# ChassisState.MODE_NAVIGATION or MODE_OPERATION only.
+uint8 mode
+# Explicit caller confirmation; false rejects even an otherwise valid request.
+bool confirm
+---
+uint16 OK=0
+uint16 INVALID_REQUEST=1
+uint16 NOT_STATIONARY=2
+uint16 BUSY=3
+uint16 NOT_READY=4
+uint16 FAULT_LATCHED=5
+uint16 SWITCH_FAILED=6
+# OK means completed and readback-confirmed; never an asynchronous acceptance.
+uint16 code
+rt_control_interfaces/ChassisState state

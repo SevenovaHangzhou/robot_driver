@@ -1,0 +1,12 @@
+# RT-Control private software latch reset only. Never sends a drive/bus reset,
+# enables actuators, changes mode, clears calibration, or resumes/replays commands.
+bool confirm
+---
+uint16 OK=0
+uint16 INVALID_REQUEST=1
+uint16 NOT_STATIONARY=2
+uint16 BUSY=3
+uint16 CAUSE_PRESENT=4
+uint16 RESTART_REQUIRED=5
+uint16 code
+rt_control_interfaces/ChassisState state

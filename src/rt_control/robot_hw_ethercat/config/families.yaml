@@ -26,7 +26,9 @@ interface_contracts:
       - {name: mode_of_operation_display, index: 0x6061, sub_index: 0, type: int8, mock_initial_value: 8.0}
   swerve_drive_csv:
     required_command_interfaces:
+      - {name: position, index: 0x607a, sub_index: 0, type: int32}
       - {name: velocity, index: 0x60ff, sub_index: 0, type: int32}
+      - {name: mode_of_operation, index: 0x6060, sub_index: 0, type: int8}
       - {name: control_word, index: 0x6040, sub_index: 0, type: uint16}
     required_state_interfaces:
       - {name: position, index: 0x6064, sub_index: 0, type: int32, mock_initial_value: 0.0}

@@ -17,7 +17,9 @@ using CallbackReturn = controller_interface::CallbackReturn;
 bool positive(double value) {return std::isfinite(value) && value > 0.0;}
 bool enabled(double value)
 {
-  if (!std::isfinite(value) || value < 0.0 || value > 65535.0 || std::trunc(value) != value) {return false;}
+  if (!std::isfinite(value) || value < 0.0 || value > 65535.0 || std::trunc(value) != value) {
+    return false;
+  }
   return rt_control_semantic_components::Cia402Axis::decode_state(static_cast<uint16_t>(value)) ==
          rt_control_semantic_components::Cia402State::kOperationEnabled;
 }
@@ -48,6 +50,7 @@ int64_t SwerveController::steady_now() noexcept
 
 CallbackReturn SwerveController::on_init()
 {
+  ChassisRuntime::declare_parameters(get_node());
   auto_declare<bool>("calibration_verified", false);
   for (const auto * name : {"steering_joints", "drive_joints", "steering_encoders"}) {
     auto_declare<std::vector<std::string>>(name, {});
@@ -90,8 +93,9 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     }
     auto numbers = [this](const std::string & name, size_t size) {
         const auto values = get_node()->get_parameter(name).as_double_array();
-        if (values.size() != size || !std::all_of(values.begin(), values.end(),
-          [](double value) {return std::isfinite(value);}))
+        if (values.size() != size || !std::all_of(
+            values.begin(), values.end(),
+            [](double value) {return std::isfinite(value);}))
         {
           throw std::invalid_argument(name + " must contain finite values for every module");
         }
@@ -127,7 +131,9 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.setpoint.translation_heading_epsilon_rad = number("translation_heading_epsilon");
     config_.setpoint.steering_angle_deadband_rad = number("steering_angle_deadband");
     feedback_timeout_ = number("feedback_timeout");
-    if (!positive(feedback_timeout_)) {throw std::invalid_argument("feedback_timeout must be positive");}
+    if (!positive(feedback_timeout_)) {
+      throw std::invalid_argument("feedback_timeout must be positive");
+    }
     auto candidate = std::make_unique<ControlCore>(config_);
 
     const auto steer = get_node()->get_parameter("steering_joints").as_string_array();
@@ -135,10 +141,14 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     const auto encoders = get_node()->get_parameter("steering_encoders").as_string_array();
     std::set<std::string> used;
     for (const auto * list : {&steer, &drive, &encoders}) {
-      if (list->size() != 4) {throw std::invalid_argument("Exactly four ordered module names required");}
+      if (list->size() != 4) {
+        throw std::invalid_argument("Exactly four ordered module names required");
+      }
       for (const auto & name : *list) {
         if (name.empty() || name.find("TBD") != std::string::npos ||
-          name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != std::string::npos ||
+          name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
+          !=
+          std::string::npos ||
           !used.insert(name).second)
         {
           throw std::invalid_argument("Swerve joint/sensor names must be explicit and unique");
@@ -153,7 +163,9 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       for (const auto * field : {"position", "status_word", "mode_of_operation_display"}) {
         state_names_.push_back(steer[i] + "/" + field);
       }
-      for (const auto * field : {"position", "velocity", "status_word", "mode_of_operation_display"}) {
+      for (const auto * field :
+        {"position", "velocity", "status_word", "mode_of_operation_display"})
+      {
         state_names_.push_back(drive[i] + "/" + field);
       }
       state_names_.push_back(encoders[i] + "/position");
@@ -172,7 +184,11 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       covariances_[i] = make_odometry_covariances(
         covariance, (i & 1U) != 0, (i & 2U) != 0 ? 0U : 4U, (i & 4U) != 0);
       for (const auto * matrix : {&covariances_[i].pose, &covariances_[i].twist}) {
-        if (!std::all_of(matrix->begin(), matrix->end(), [](double value) {return std::isfinite(value);})) {
+        if (!std::all_of(
+            matrix->begin(), matrix->end(), [](double value) {
+              return std::isfinite(value);
+            }))
+        {
           throw std::invalid_argument("Swerve covariance overflow");
         }
       }
@@ -187,17 +203,41 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     {
       throw std::invalid_argument("IMU frame and validation limits must be configured");
     }
+    runtime_.reset();
+    if (get_node()->get_parameter("relative.enabled").as_bool()) {
+      runtime_ = std::make_shared<ChassisRuntime>(get_node(), config_);
+      for (size_t i = 0; i < 4; ++i) {
+        for (const auto * field :
+          {"position", "mode_of_operation", "write_sequence", "write_mask"})
+        {
+          command_names_.push_back(drive[i] + "/" + field);
+        }
+        for (const auto * field : {"velocity", "feedback_age_ms"}) {
+          state_names_.push_back(steer[i] + "/" + field);
+        }
+        for (const auto * field : {"feedback_age_ms", "feedback_sequence", "sent_sequence",
+            "feedback_sequence_at_send", "sent_velocity", "mode_request_error", "mode_request_ack"})
+        {
+          state_names_.push_back(drive[i] + "/" + field);
+        }
+      }
+    }
+    commands_.assign(command_names_.size(), nullptr);
+    states_.assign(state_names_.size(), nullptr);
     core_ = std::move(candidate);
     odometry_publisher_ = get_node()->create_publisher<nav_msgs::msg::Odometry>(
       "~/odom", robot_interfaces_qos::fast_state());
-    realtime_odometry_ = std::make_unique<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(odometry_publisher_);
+    realtime_odometry_ =
+      std::make_unique<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(
+      odometry_publisher_);
     realtime_odometry_->msg_.header.frame_id = "odom";
     realtime_odometry_->msg_.child_frame_id = "base_footprint";
     command_subscription_.reset();
     imu_subscription_.reset();
     diagnostic_publisher_ = get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       "~/diagnostics", robot_interfaces_qos::diagnostic());
-    diagnostic_timer_ = get_node()->create_wall_timer(std::chrono::milliseconds(100),
+    diagnostic_timer_ = get_node()->create_wall_timer(
+      std::chrono::milliseconds(100),
       [this]() {publish_diagnostics();});
     slipping_mask_.store(0U);
   } catch (const std::exception & error) {
@@ -208,7 +248,8 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
   return CallbackReturn::SUCCESS;
 }
 
-controller_interface::InterfaceConfiguration SwerveController::command_interface_configuration() const
+controller_interface::InterfaceConfiguration SwerveController::command_interface_configuration()
+const
 {
   return {controller_interface::interface_configuration_type::INDIVIDUAL, command_names_};
 }
@@ -223,7 +264,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
   if (!core_ || active_.load()) {return CallbackReturn::ERROR;}
   auto bind = [](const auto & names, auto & handles, auto & result) {
       if (names.size() != result.size() || handles.size() != result.size()) {return false;}
-      result.fill(nullptr);
+      std::fill(result.begin(), result.end(), nullptr);
       for (size_t i = 0; i < names.size(); ++i) {
         for (auto & handle : handles) {
           if (handle.get_name() == names[i]) {
@@ -235,23 +276,43 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
       }
       return true;
     };
-  if (!bind(command_names_, command_interfaces_, commands_) || !bind(state_names_, state_interfaces_, states_)) {
-    commands_.fill(nullptr);
-    states_.fill(nullptr);
+  if (!bind(
+      command_names_, command_interfaces_,
+      commands_) || !bind(state_names_, state_interfaces_, states_))
+  {
+    std::fill(commands_.begin(), commands_.end(), nullptr);
+    std::fill(states_.begin(), states_.end(), nullptr);
     return CallbackReturn::ERROR;
   }
   const auto feedback = read_feedback();
   if (!core_->activate(feedback)) {
     stop_outputs();
-    commands_.fill(nullptr);
-    states_.fill(nullptr);
+    std::fill(commands_.begin(), commands_.end(), nullptr);
+    std::fill(states_.begin(), states_.end(), nullptr);
     return CallbackReturn::ERROR;
   }
   try {
     ++generation_;
+    if (runtime_) {
+      const auto now = steady_now();
+      if (!runtime_->activate(
+          static_cast<double>(now) * 1e-9,
+          read_runtime_feedback(static_cast<double>(now) * 1e-9), static_cast<uint64_t>(now)))
+      {
+        throw std::runtime_error(
+                "Cyclic handoff requires healthy stationary CSV and actually sent zero velocity");
+      }
+      for (size_t i = 0; i < 4; ++i) {
+        commands_[8 + 4 * i]->set_value(states_[9 * i + 3]->get_value());
+        commands_[8 + 4 * i + 1]->set_value(9.0);
+        commands_[8 + 4 * i + 2]->set_value(0.0);
+        commands_[8 + 4 * i + 3]->set_value(0.0);
+      }
+      was_navigation_ = false;
+    }
     // Fresh subscriptions plus generation tags exclude queued callbacks from old activations.
     command_subscription_ = get_node()->create_subscription<geometry_msgs::msg::Twist>(
-      "~/cmd_vel", robot_interfaces_qos::control(),
+      "/cmd_vel", robot_interfaces_qos::control(),
       [this, generation = generation_](geometry_msgs::msg::Twist::ConstSharedPtr message) {
         accept_command(*message, generation);
       });
@@ -276,9 +337,10 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     active_.store(true);
   } catch (const std::exception & error) {
     stop_outputs();
+    if (runtime_) {runtime_->deactivate();}
     core_->deactivate();
-    commands_.fill(nullptr);
-    states_.fill(nullptr);
+    std::fill(commands_.begin(), commands_.end(), nullptr);
+    std::fill(states_.begin(), states_.end(), nullptr);
     command_subscription_.reset();
     imu_subscription_.reset();
     RCLCPP_ERROR(get_node()->get_logger(), "Swerve activation failed: %s", error.what());
@@ -290,7 +352,9 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
 ModuleFeedbackArray SwerveController::read_feedback() const
 {
   ModuleFeedbackArray result{};
-  auto recent = [this](double age) {return std::isfinite(age) && age >= 0.0 && age * 0.001 <= feedback_timeout_;};
+  auto recent = [this](double age) {
+      return std::isfinite(age) && age >= 0.0 && age * 0.001 <= feedback_timeout_;
+    };
   const bool bus_fresh = recent(states_[36]->get_value());
   for (size_t i = 0; i < 4; ++i) {
     const size_t offset = 9 * i;
@@ -298,7 +362,8 @@ ModuleFeedbackArray SwerveController::read_feedback() const
       states_[offset + 3]->get_value(), states_[offset + 4]->get_value(),
       bus_fresh && recent(states_[offset + 8]->get_value()),
       enabled(states_[offset + 1]->get_value()) && states_[offset + 2]->get_value() == 8.0 &&
-      enabled(states_[offset + 5]->get_value()) && states_[offset + 6]->get_value() == 9.0};
+      enabled(states_[offset + 5]->get_value()) && (states_[offset + 6]->get_value() == 9.0 ||
+      (runtime_ && states_[offset + 6]->get_value() == 8.0))};
   }
   return result;
 }
@@ -326,13 +391,25 @@ bool SwerveController::write_output(const ControlOutput & output)
 void SwerveController::stop_outputs()
 {
   for (size_t i = 0; i < 4; ++i) {
+    if (commands_.size() < 8 || states_.size() < 37) {return;}
     if (commands_[2 * i + 1]) {commands_[2 * i + 1]->set_value(0.0);}
+    if (runtime_) {
+      // Revoke sequence admission and retain the last CSP reference. Lifecycle owner
+      // handles drive disable; this controller never fabricates a controlword.
+      if (commands_[8 + 4 * i + 2]) {commands_[8 + 4 * i + 2]->set_value(0);}
+      if (commands_[8 + 4 * i + 3]) {commands_[8 + 4 * i + 3]->set_value(0);}
+      continue;
+    }
     if (commands_[2 * i] && states_[9 * i]) {
       double position = states_[9 * i]->get_value();
-      if (!std::isfinite(position) || position < config_.steering_min[i] || position > config_.steering_max[i]) {
+      if (!std::isfinite(position) || position < config_.steering_min[i] ||
+        position > config_.steering_max[i])
+      {
         position = core_->hold_positions()[i];
       }
-      if (std::isfinite(position) && position >= config_.steering_min[i] && position <= config_.steering_max[i]) {
+      if (std::isfinite(position) && position >= config_.steering_min[i] &&
+        position <= config_.steering_max[i])
+      {
         commands_[2 * i]->set_value(position);
       }
     }
@@ -347,9 +424,10 @@ CallbackReturn SwerveController::on_deactivate(const rclcpp_lifecycle::State &)
   command_subscription_.reset();
   imu_subscription_.reset();
   stop_outputs();
+  if (runtime_) {runtime_->deactivate();}
   if (core_) {core_->deactivate();}
-  commands_.fill(nullptr);
-  states_.fill(nullptr);
+  std::fill(commands_.begin(), commands_.end(), nullptr);
+  std::fill(states_.begin(), states_.end(), nullptr);
   release_interfaces();
   status_.store(ControlStatus::inactive);
   slipping_mask_.store(0U);
@@ -366,18 +444,28 @@ CallbackReturn SwerveController::on_cleanup(const rclcpp_lifecycle::State & stat
   diagnostic_publisher_.reset();
   realtime_odometry_.reset();
   odometry_publisher_.reset();
+  runtime_.reset();
   core_.reset();
   return CallbackReturn::SUCCESS;
 }
-CallbackReturn SwerveController::on_error(const rclcpp_lifecycle::State & state) {return on_cleanup(state);}
+CallbackReturn SwerveController::on_error(const rclcpp_lifecycle::State & state)
+{
+  return on_cleanup(state);
+}
 
-void SwerveController::accept_command(const geometry_msgs::msg::Twist & message, uint64_t generation)
+void SwerveController::accept_command(
+  const geometry_msgs::msg::Twist & message,
+  uint64_t generation)
 {
   std::lock_guard<std::mutex> guard(lifecycle_mutex_);
   if (!active_.load() || !ready_.load() || generation != generation_) {return;}
-  Command command{{message.linear.x, message.linear.y, message.angular.z}, steady_now(), generation_,
-    std::isfinite(message.linear.x) && std::isfinite(message.linear.y) && std::isfinite(message.angular.z) &&
+  Command command{{message.linear.x, message.linear.y, message.angular.z}, steady_now(),
+    generation_,
+    std::isfinite(message.linear.x) && std::isfinite(message.linear.y) && std::isfinite(
+      message.angular.z) &&
     message.linear.z == 0.0 && message.angular.x == 0.0 && message.angular.y == 0.0};
+  command.navigation_generation = runtime_ ? runtime_->navigation_generation() : 0;
+  if (runtime_ && command.navigation_generation == 0) {return;}
   command_buffer_.writeFromNonRT(command);
 }
 
@@ -389,26 +477,44 @@ void SwerveController::accept_imu(const sensor_msgs::msg::Imu & message, uint64_
   const auto & q = message.orientation;
   const double norm = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
   if (message.header.frame_id == imu_frame_ && std::isfinite(norm) && norm > 0.0 &&
-    std::abs(norm - 1.0) <= quaternion_tolerance_ && std::isfinite(message.orientation_covariance[0]) &&
+    std::abs(norm - 1.0) <= quaternion_tolerance_ && std::isfinite(
+      message.orientation_covariance[0]) &&
     message.orientation_covariance[0] >= 0.0 && std::isfinite(message.angular_velocity.z) &&
-    std::isfinite(message.angular_velocity_covariance[0]) && message.angular_velocity_covariance[0] >= 0.0)
+    std::isfinite(message.angular_velocity_covariance[0]) &&
+    message.angular_velocity_covariance[0] >= 0.0)
   {
-    sample.yaw = {std::atan2(2.0 * (q.w * q.z + q.x * q.y),
+    if (runtime_) {
+      const auto stamp = rclcpp::Time(
+        message.header.stamp,
+        get_node()->get_clock()->get_clock_type());
+      const double age = (get_node()->now() - stamp).seconds();
+      if (stamp.nanoseconds() <= 0 || !std::isfinite(age) || age < 0 || age > imu_timeout_) {
+        imu_buffer_.writeFromNonRT(sample); return;
+      }
+      // Preserve source age as well as local receipt; delayed IMU samples do not become fresh.
+      sample.received_ns -= static_cast<int64_t>(age * 1e9);
+    }
+    sample.yaw = {std::atan2(
+        2.0 * (q.w * q.z + q.x * q.y),
         norm * norm - 2.0 * (q.y * q.y + q.z * q.z)), message.angular_velocity.z};
     const auto previous = *imu_buffer_.readFromNonRT();
-    sample.valid = !previous.valid || !fresh(previous.received_ns, sample.received_ns, imu_timeout_) ||
+    sample.valid = !previous.valid ||
+      !fresh(previous.received_ns, sample.received_ns, imu_timeout_) ||
       std::abs(wrap_pi(sample.yaw.yaw_rad - previous.yaw.yaw_rad)) <= max_imu_yaw_step_;
   }
   imu_buffer_.writeFromNonRT(sample);
 }
 
-controller_interface::return_type SwerveController::update(const rclcpp::Time & time, const rclcpp::Duration & period)
+controller_interface::return_type SwerveController::update(
+  const rclcpp::Time & time,
+  const rclcpp::Duration & period)
 {
   if (!active_.load()) {return controller_interface::return_type::OK;}
   const auto now = steady_now();
   const auto feedback = read_feedback();
   const double dt = period.seconds();
-  const bool ready = core_->feedback_ready(feedback) && positive(dt) && dt <= config_.max_update_period;
+  const bool ready = core_->feedback_ready(feedback) && positive(dt) &&
+    dt <= config_.max_update_period;
   ready_.store(ready);
   if (!ready) {block_before_ns_ = now;}
   const auto command = *command_buffer_.readFromRT();
@@ -418,20 +524,35 @@ controller_interface::return_type SwerveController::update(const rclcpp::Time & 
   const auto imu = *imu_buffer_.readFromRT();
   const auto yaw = imu_enabled_ && imu.valid && imu.generation == generation_ &&
     fresh(imu.received_ns, now, imu_timeout_) ? std::optional<YawSample>(imu.yaw) : std::nullopt;
+  const bool navigation = !runtime_ || runtime_->navigation_open();
+  if (runtime_ && navigation && !was_navigation_) {block_before_ns_ = now;}
   try {
-    last_output_ = core_->update(feedback, command.speeds, command_fresh, dt, yaw);
+    // Odometry observes every mode; only the selected command owner can write targets.
+    last_output_ = core_->update(
+      feedback, command.speeds,
+      command_fresh && navigation && command.received_ns > block_before_ns_, dt, yaw);
   } catch (const std::exception &) {
-    ready_.store(false);
-    block_before_ns_ = now;
-    stop_outputs();
-    status_.store(ControlStatus::feedback_fault);
-    slipping_mask_.store(0U);
+    ready_.store(false); block_before_ns_ = now; stop_outputs();
+    status_.store(ControlStatus::feedback_fault); slipping_mask_.store(0U);
     return controller_interface::return_type::ERROR;
   }
-  if (last_output_.status == ControlStatus::steering_limit || last_output_.status == ControlStatus::invalid_command) {
+  if (runtime_) {
+    const auto out = runtime_->update(
+      static_cast<double>(now) * 1e-9, dt, time.nanoseconds(),
+      read_runtime_feedback(static_cast<double>(now) * 1e-9), last_output_,
+      static_cast<double>(command.received_ns) * 1e-9, command.navigation_generation,
+      command_fresh && command.received_ns > block_before_ns_);
+    was_navigation_ = navigation;
+    if (!write_runtime_output(out)) {
+      stop_outputs(); ready_.store(false); return controller_interface::return_type::ERROR;
+    }
+  }
+  if (last_output_.status == ControlStatus::steering_limit ||
+    last_output_.status == ControlStatus::invalid_command)
+  {
     block_before_ns_ = now;
   }
-  if (!write_output(last_output_)) {
+  if (!runtime_ && !write_output(last_output_)) {
     ready_.store(false);
     block_before_ns_ = now;
     status_.store(ControlStatus::steering_limit);
@@ -463,6 +584,82 @@ controller_interface::return_type SwerveController::update(const rclcpp::Time & 
     publish_elapsed_ = std::fmod(publish_elapsed_, 0.02);
   }
   return controller_interface::return_type::OK;
+}
+
+ChassisRuntimeFeedback SwerveController::read_runtime_feedback(double now)
+{
+  ChassisRuntimeFeedback out;
+  const auto modules = read_feedback();
+  const auto imu = *imu_buffer_.readFromRT();
+  out.move.imu_age = now - static_cast<double>(imu.received_ns) * 1e-9;
+  out.move.imu_yaw = imu.yaw.yaw_rad;
+  out.move.imu_valid = imu.valid && imu.generation == generation_;
+  const double bus_age = states_[36]->get_value() * 0.001;
+  out.move.age = bus_age;
+  out.move.bus_ok = std::isfinite(bus_age) && bus_age >= 0 && bus_age <= feedback_timeout_;
+  out.move.drives_ok = true;
+  auto sequence = [](double value) -> uint64_t {
+      return std::isfinite(value) && value >= 0 && value <= 9007199254740991.0 &&
+             std::trunc(value) == value ?
+             static_cast<uint64_t>(value) : 0;
+    };
+  for (size_t i = 0; i < 4; ++i) {
+    const size_t j = 9 * i, x = 37 + 9 * i;
+    out.move.positions[i] =
+    {modules[i].steering_position, modules[i].steering_angle, modules[i].wheel_position};
+    out.move.wheel_velocity[i] = modules[i].wheel_velocity;
+    out.move.steering_velocity[i] = states_[x]->get_value();
+    out.move.steering_mode[i] = states_[j + 2]->get_value() == 8 ? 8 : 0;
+    out.move.drive_mode[i] = states_[j + 6]->get_value() == 8 ? 8 : states_[j + 6]->get_value() ==
+      9 ? 9 : 0;
+    double age = bus_age;
+    bool valid = modules[i].valid && modules[i].enabled;
+    for (const auto index : {j + 8, x + 1, x + 2}) {
+      const double seconds = states_[index]->get_value() * 0.001;
+      valid = valid && std::isfinite(seconds) && seconds >= 0 && seconds <= feedback_timeout_;
+      age = std::max(age, seconds);
+    }
+    valid = valid && states_[x + 7]->get_value() == 0;
+    out.move.age = std::max(out.move.age, age);
+    out.move.drives_ok = out.move.drives_ok && valid;
+    const auto status = sequence(states_[j + 5]->get_value());
+    out.drives[i] = {modules[i].wheel_position, modules[i].wheel_velocity,
+      out.move.steering_velocity[i], now - age, sequence(states_[x + 3]->get_value()),
+      static_cast<uint16_t>(status <= 65535 ? status : 0),
+      static_cast<int8_t>(out.move.drive_mode[i]), valid, states_[x + 8]->get_value() == 1};
+    const auto sent = sequence(states_[x + 4]->get_value());
+    out.ack[i] = {sent > runtime_->wire_base() ? sent - runtime_->wire_base() : 0,
+      sent > runtime_->wire_base() ? sequence(states_[x + 5]->get_value()) : 0};
+    out.sent_velocity[i] = states_[x + 6]->get_value();
+  }
+  return out;
+}
+bool SwerveController::write_runtime_output(const ChassisRuntimeOutput & output)
+{
+  if (output.drive.inhibited) {return false;}
+  const auto & d = output.drive;
+  if (d.write_sequence > 9007199254740991ULL - runtime_->wire_base()) {return false;}
+  for (size_t i = 0; i < 4; ++i) {
+    const SteeringAngleLimits limits{config_.steering_min[i], config_.steering_max[i],
+      config_.steering_limit_margin[i], config_.steering_limit_tolerance[i]};
+    if (!steering_angle_within_limits(output.steering[i], limits) ||
+      (d.write_position && !std::isfinite(d.wheel_position[i])) ||
+      (d.write_velocity && !std::isfinite(d.wheel_velocity[i]))) {return false;}
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    commands_[2 * i]->set_value(output.steering[i]);
+    if (d.write_velocity) {commands_[2 * i + 1]->set_value(d.wheel_velocity[i]);}
+    const size_t x = 8 + 4 * i;
+    if (d.write_position) {commands_[x]->set_value(d.wheel_position[i]);}
+    if (d.write_mode) {commands_[x + 1]->set_value(d.requested_mode);}
+    const unsigned int mask = (d.write_velocity ? 1U : 0U) | (d.write_position ? 2U : 0U) |
+      (d.write_mode ? 4U : 0U);
+    commands_[x + 3]->set_value(mask);
+    commands_[x + 2]->set_value(
+      d.write_sequence ==
+      0 ? 0 : static_cast<double>(runtime_->wire_base() + d.write_sequence));
+  }
+  return true;
 }
 
 void SwerveController::publish_diagnostics()

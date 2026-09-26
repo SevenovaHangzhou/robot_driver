@@ -55,6 +55,12 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
         "msg/JointControlModeResult.msg",
         "msg/PlcIoState.msg",
         "srv/RtEnable.srv",
+        "action/ChassisRelativeMove.action",
+        "msg/ChassisMoveLimits.msg",
+        "msg/ChassisMoveState.msg",
+        "msg/ChassisState.msg",
+        "srv/ChassisSetMode.srv",
+        "srv/ChassisResetFault.srv",
     }
 
 

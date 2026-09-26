@@ -40,8 +40,12 @@
 | 10#F1 | pinned `ros2_canopen` 的完整零值 error-reset EMCY 文本归一化为 cleared；其它非空或格式漂移继续 fail closed | [contract-20260904-01](records/2026-09-04-cleared-emcy-readiness.md)#F1-F2 | PASS（T3 Native；PR CI/Docker 待完成） |
 | 11#F1 | V3 目标 FJT/rolling 固定为 7+7 CSP 臂轴，PP 夹爪独立；当前 V3 无轨迹 runtime，ELECTRI-102 旧 hash/4 ms/包络不得复用 | [V3 机械臂对接方案](records/2026-09-18-v3-arm-motion-integration-guide.md)#F1-F4 | UNVERIFIED（T0 方案；公共契约/runtime/HIL 待完成） |
 | 12#F1 | V3 实现 pin 为 robot_interfaces@9aa2693，rolling axis hash 固定为 f4c8ff8a...dee4，域内 mode result 不扩大跨域接口 | [V3 rolling 轴合同](records/2026-09-19-v3-rolling-axis-contract.md)#F1-F3 | PARTIAL（T1；上游 V3 注释和跨域联合验证待完成） |
+| 13#F1 | ELECTRI-133 新增六个 RT 私有 chassis 类型；真实 ROS action/service 验证由无设备 Mock 与 opt-in loaned-interface adapter 提供，不增加域外消费者或 production 准入 | [Tier A 私有协议](records/2026-09-25-tier-a-private-chassis-protocol.md)#F1-F3 | PARTIAL（T1；实机 PDO/标定/IMU 待验） |
+| 13#F4 | 本地舵轮速度入口唯一改为 `/cmd_vel`；公共契约与全部跨域消费者尚未锁定新 SHA，原子升级前不得部署 | [Tier A 私有协议](records/2026-09-25-tier-a-private-chassis-protocol.md)#F4 | BLOCKED（待 robot_interfaces 变更及联合验证） |
 
 ## 记录索引（倒序）
+
+- 2026-09-25 [ELECTRI-133 Tier A 私有底盘协议](records/2026-09-25-tier-a-private-chassis-protocol.md) — feature，PARTIAL（T1）。
 
 - 2026-09-19 [V3 rolling 接口 pin 与轴集合身份](records/2026-09-19-v3-rolling-axis-contract.md) — feature，PARTIAL（T1）。
 - 2026-09-18 [V3 机械臂 RT-Control 与 Motion 对接方案](records/2026-09-18-v3-arm-motion-integration-guide.md) — decision，UNVERIFIED（T0；runtime/HIL 待完成）

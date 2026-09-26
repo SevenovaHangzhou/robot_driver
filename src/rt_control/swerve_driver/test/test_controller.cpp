@@ -79,7 +79,7 @@ protected:
     client = std::make_shared<rclcpp::Node>("swerve_test_client");
     executor.add_node(client);
     publisher = client->create_publisher<geometry_msgs::msg::Twist>(
-      "/swerve_test/cmd_vel", robot_interfaces_qos::control());
+      "/cmd_vel", robot_interfaces_qos::control());
   }
 
   void TearDown() override {controller.on_deactivate(rclcpp_lifecycle::State{});}

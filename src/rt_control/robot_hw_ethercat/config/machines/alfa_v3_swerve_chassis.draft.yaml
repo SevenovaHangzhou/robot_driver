@@ -4,7 +4,7 @@ status: draft
 verified: false
 shared_system: ecat_arms
 master_id: 0
-driver_plugin: ethercat_generic_plugins/EcCiA402Drive
+driver_plugin: robot_hw_ethercat/KincoCyclicModeSlave
 requested_control_frequency_hz: 1000
 dc_cycle_ns: TBD
 pdo_watchdog_ms: TBD
@@ -100,7 +100,7 @@ axes:
 pending_facts:
   - actual Kinco FD model, ESI identity and revision
   - chassis_only and full_robot EtherCAT ring positions
-  - CSP and CSV PDO/SDO profiles with scaling and mode readback
+  - CSP/CSV switch adapter profile and calibrated handoff limits/timeouts
   - motor encoder resolution, electronic gearing, direction and static zero
   - DC support, watchdog range and 0x605E stop behavior
   - calibrated wheel radius, steering hard stops and transmission confirmation
