@@ -17,9 +17,11 @@
 | 03#F1 | `Cia402Axis` 只绑定/解码接口；managed joints、批次、时序和 Ti5 终态由 enable_manager 显式配置并冻结 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F7 | PASS（T1 Docker/Mock） |
 | 04#F1 | 原位入口仅开放控制字，enable_only 省略 JTC 切换并保留驱动状态/故障/失能；16轴实测成功，默认运动栈不变 | [原位使能入口](records/2026-09-12-stationary-enable-entry.md) | PARTIAL（T1/T3，完整运动/交付待验） |
 | 05#F1 | V3 enable_manager 保持 16 轴 CiA402 管理，14 CSP motion registry 在 enable 后默认进入 FJT_READY，并与 rolling 严格互斥 | [V3 运动控制器切换](records/2026-09-19-v3-motion-controller-switching.md)#F1-F3 | PARTIAL（T1 Mock；真实故障/停机待验） |
+| 06#F1 | `RtEnable.modules` 为空保持整管理器语义；同一 enable_manager 内部分模块请求拒绝；head_gimbal 由 `/rt/*` 转调 `/rt/head/*` | [lifecycle-20260926-01](records/2026-09-26-module-dispatch-step1.md)#F1-F3 | PARTIAL（T1；完整 Mock 运行环境/实机待验） |
 
 ## 记录索引（倒序）
 
+- 2026-09-26 [按功能模块分发使能/失能/复位（ELECTRI-150 第一步）](records/2026-09-26-module-dispatch-step1.md)：PARTIAL，T1。
 - 2026-09-19 [V3 rolling 激活握手与 provisional epoch 纠错](records/2026-09-19-v3-rolling-activation-handoff.md)：PARTIAL，T1 Native；V3 实机待验。
 - 2026-09-19 [V3 十六轴使能与运动控制器严格切换](records/2026-09-19-v3-motion-controller-switching.md)：PARTIAL，T1 Mock。
 - 2026-09-12 [16轴原位使能入口与显式终态策略](records/2026-09-12-stationary-enable-entry.md)：PARTIAL，真实使能/停机通过。

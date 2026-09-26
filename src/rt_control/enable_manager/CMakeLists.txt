@@ -71,6 +71,12 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gmock REQUIRED)
   find_package(hardware_interface REQUIRED)
 
+  ament_add_gmock(test_module_dispatch test/test_module_dispatch.cpp)
+  target_compile_features(test_module_dispatch PUBLIC cxx_std_17)
+  target_include_directories(test_module_dispatch PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
+
   ament_add_gmock(test_enable_manager_state_machine
     test/test_enable_manager_state_machine.cpp
   )

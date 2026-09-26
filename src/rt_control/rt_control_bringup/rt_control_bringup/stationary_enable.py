@@ -144,6 +144,9 @@ def build_stationary_enable(hardware_share, runtime_dir, *, use_mock_hardware=Fa
             "batch_timeout": 4.0, "disable_stage_timeout": 4.0,
             "fault_reset_timeout": 4.0, "inter_batch_delay": 0.2,
             "service_result_timeout_ms": 90000,
+            # BQ-154: same functional-module view as the arm runtime.
+            "owned_modules": ["arms"], "remote_module_name": "head_gimbal",
+            "remote_service_prefix": "/rt/head",
         }},
         "joint_state_broadcaster": {"ros__parameters": {"use_local_topics": True}},
         "rt_internal_state_broadcaster": {"ros__parameters": {"use_local_topics": True}},

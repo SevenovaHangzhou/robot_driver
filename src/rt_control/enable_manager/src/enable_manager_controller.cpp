@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <functional>
+#include <future>
 #include <iterator>
 #include <limits>
 #include <string_view>
@@ -61,6 +62,10 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
   auto_declare<std::string>("jtc_name", "whole_body_jtc");
+  // BQ-154 functional modules. Empty values keep the pre-BQ-154 behavior.
+  auto_declare<std::vector<std::string>>("owned_modules", {});
+  auto_declare<std::string>("remote_module_name", "");
+  auto_declare<std::string>("remote_service_prefix", "");
   auto_declare<bool>("enable_only", false);
   auto_declare<std::string>("disable_terminal_policy", "joint_list");
   auto_declare<bool>("motion_mode_switching", false);
@@ -149,6 +154,23 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     get_node()->get_parameter("controller_switch_timeout").as_double();
   const auto service_timeout = get_node()->get_parameter("service_result_timeout_ms").as_int();
   jtc_name_ = get_node()->get_parameter("jtc_name").as_string();
+  owned_modules_ = get_node()->get_parameter("owned_modules").as_string_array();
+  remote_module_name_ = get_node()->get_parameter("remote_module_name").as_string();
+  remote_service_prefix_ = get_node()->get_parameter("remote_service_prefix").as_string();
+  const std::string module_error =
+    validateModuleConfiguration(owned_modules_, remote_module_name_);
+  const bool remote_prefix_valid =
+    remote_module_name_.empty() ? remote_service_prefix_.empty() :
+    (remote_service_prefix_.size() > 1U && remote_service_prefix_.front() == '/' &&
+    remote_service_prefix_.back() != '/' && remote_service_prefix_ != "/rt");
+  if (!module_error.empty() || !remote_prefix_valid) {
+    RCLCPP_ERROR(
+      get_node()->get_logger(), "Invalid enable-manager module configuration: %s",
+      module_error.empty() ?
+      "remote_service_prefix must be an absolute name other than /rt and pair with "
+      "remote_module_name" : module_error.c_str());
+    return controller_interface::CallbackReturn::ERROR;
+  }
   enable_only_ = get_node()->get_parameter("enable_only").as_bool();
   motion_mode_switching_ =
     get_node()->get_parameter("motion_mode_switching").as_bool();
@@ -306,6 +328,15 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   switch_client_ = get_node()->create_client<controller_manager_msgs::srv::SwitchController>(
     "/controller_manager/switch_controller", rmw_qos_profile_services_default,
     worker_callback_group_);
+  remote_clients_.fill(nullptr);
+  if (!remote_module_name_.empty()) {
+    const std::array<const char *, 3U> suffixes{"/enable", "/disable", "/reset_fault"};
+    for (std::size_t index = 0U; index < suffixes.size(); ++index) {
+      remote_clients_[index] = get_node()->create_client<rt_control_interfaces::srv::RtEnable>(
+        remote_service_prefix_ + suffixes[index], rmw_qos_profile_services_default,
+        worker_callback_group_);
+    }
+  }
 
   diagnostics_publisher_ = get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
     "/diagnostics", robot_interfaces_qos::diagnostic());
@@ -767,9 +798,119 @@ controller_interface::return_type EnableManagerController::update(
 }
 
 void EnableManagerController::handleEnable(
-  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
+  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
   std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
 {
+  dispatchModules(Operation::kEnable, *request, *response);
+}
+
+void EnableManagerController::handleDisable(
+  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
+  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
+{
+  dispatchModules(Operation::kDisable, *request, *response);
+}
+
+void EnableManagerController::handleResetFault(
+  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
+  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
+{
+  dispatchModules(Operation::kReset, *request, *response);
+}
+
+void EnableManagerController::dispatchModules(
+  Operation operation, const rt_control_interfaces::srv::RtEnable::Request & request,
+  rt_control_interfaces::srv::RtEnable::Response & response)
+{
+  // One dispatch per operation type at a time; the local operation keeps its
+  // own concurrency guards underneath.
+  std::unique_lock<std::mutex> lock(
+    dispatch_mutexes_[static_cast<std::size_t>(operation)], std::try_to_lock);
+  if (!lock.owns_lock()) {
+    fillImmediateResponse(response, false, Stage::kOperationInProgress);
+    return;
+  }
+  const ModulePlan plan = planModules(owned_modules_, remote_module_name_, request.modules);
+  if (!plan.error.empty()) {
+    fillImmediateResponse(response, false, Stage::kSuccess);
+    response.stage = plan.error;
+    return;
+  }
+
+  std::vector<ModuleOutcome> outcomes;
+  rt_control_interfaces::srv::RtEnable::Response local;
+  if (plan.run_local) {
+    runLocalOperation(operation, local);
+    for (const auto & name : localModuleNames(owned_modules_)) {
+      outcomes.push_back(ModuleOutcome{name, local.ok, local.stage});
+    }
+  }
+  // Disable is always attempted on every selected module, even after a local failure.
+  if (plan.remote != RemoteSelection::kNone) {
+    bool skipped = false;
+    ModuleOutcome remote = callRemoteModule(operation, plan.remote, skipped);
+    if (!skipped) {
+      outcomes.push_back(std::move(remote));
+    }
+  }
+
+  const AggregateOutcome aggregate = aggregateOutcomes(outcomes);
+  if (plan.run_local) {
+    response = local;
+  } else {
+    fillImmediateResponse(response, aggregate.ok, Stage::kSuccess);
+  }
+  response.ok = aggregate.ok;
+  response.stage = aggregate.stage;
+  response.module_names.clear();
+  response.module_ok.clear();
+  response.module_stages.clear();
+  for (const auto & outcome : outcomes) {
+    response.module_names.push_back(outcome.name);
+    response.module_ok.push_back(outcome.ok);
+    response.module_stages.push_back(outcome.stage);
+  }
+}
+
+void EnableManagerController::runLocalOperation(
+  Operation operation, rt_control_interfaces::srv::RtEnable::Response & response)
+{
+  switch (operation) {
+    case Operation::kEnable: enableLocal(response); return;
+    case Operation::kDisable: disableLocal(response); return;
+    case Operation::kReset: resetLocal(response); return;
+  }
+}
+
+ModuleOutcome EnableManagerController::callRemoteModule(
+  Operation operation, RemoteSelection selection, bool & skipped)
+{
+  skipped = false;
+  const auto & client = remote_clients_[static_cast<std::size_t>(operation)];
+  if (client == nullptr || !client->wait_for_service(std::chrono::milliseconds(0))) {
+    if (selection == RemoteSelection::kIfAvailable) {
+      skipped = true;  // whole-robot request; the remote runtime is not loaded
+      return {};
+    }
+    return ModuleOutcome{remote_module_name_, false, kStageModuleUnavailable};
+  }
+  auto future = client->async_send_request(
+    std::make_shared<rt_control_interfaces::srv::RtEnable::Request>());
+  if (future.wait_for(service_result_timeout_) != std::future_status::ready) {
+    client->remove_pending_request(future);
+    return ModuleOutcome{remote_module_name_, false, kStageModuleServiceTimeout};
+  }
+  const auto result = future.get();
+  if (result == nullptr) {
+    return ModuleOutcome{remote_module_name_, false, kStageModuleUnavailable};
+  }
+  return ModuleOutcome{remote_module_name_, result->ok, result->stage};
+}
+
+void EnableManagerController::enableLocal(
+  rt_control_interfaces::srv::RtEnable::Response & response_ref)
+{
+  auto * response = &response_ref;
   bool expected_callback = false;
   if (!enable_callback_active_.compare_exchange_strong(expected_callback, true)) {
     fillImmediateResponse(*response, false, Stage::kOperationInProgress);
@@ -868,10 +1009,10 @@ void EnableManagerController::handleEnable(
   release_callback();
 }
 
-void EnableManagerController::handleDisable(
-  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
+void EnableManagerController::disableLocal(
+  rt_control_interfaces::srv::RtEnable::Response & response_ref)
 {
+  auto * response = &response_ref;
   bool expected_callback = false;
   if (!disable_callback_active_.compare_exchange_strong(expected_callback, true)) {
     fillImmediateResponse(*response, false, Stage::kOperationInProgress);
@@ -967,10 +1108,10 @@ void EnableManagerController::handleDisable(
   release_callback();
 }
 
-void EnableManagerController::handleResetFault(
-  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
+void EnableManagerController::resetLocal(
+  rt_control_interfaces::srv::RtEnable::Response & response_ref)
 {
+  auto * response = &response_ref;
   bool expected_callback = false;
   if (!reset_callback_active_.compare_exchange_strong(expected_callback, true)) {
     fillImmediateResponse(*response, false, Stage::kOperationInProgress);
@@ -1939,6 +2080,13 @@ void EnableManagerController::publishDiagnostics()
     "failed_status_word",
     std::to_string(last_failed_status_word_.load(std::memory_order_acquire)));
   add_value("stage", stageName(last_failure_stage_.load(std::memory_order_acquire)));
+  // BQ-154: which functional modules this manager's state represents.
+  std::string modules;
+  for (const auto & name : localModuleNames(owned_modules_)) {
+    modules += modules.empty() ? name : "," + name;
+  }
+  add_value("modules", modules);
+  add_value("remote_module", remote_module_name_);
   array.status.push_back(std::move(status));
   diagnostics_publisher_->publish(array);
 }

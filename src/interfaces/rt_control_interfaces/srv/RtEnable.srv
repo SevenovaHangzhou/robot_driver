@@ -1,6 +1,14 @@
+# Functional modules to operate on (BQ-154). Empty selects every module the
+# serving manager reaches, which preserves the pre-BQ-154 whole-manager meaning.
+string[] modules
 ---
 bool ok
 int8 failed_batch
 string failed_joint
 uint16 status_word
 string stage
+# Per-module outcome in execution order; empty when the request was rejected
+# before any module ran.
+string[] module_names
+bool[] module_ok
+string[] module_stages

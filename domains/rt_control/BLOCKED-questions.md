@@ -2693,3 +2693,18 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 当前仅完成配置/schema/静态验证。运行时 controller switching、enable_manager 受管资源和
   diagnostics/readiness 的执行接线仍需后续实现并做 Mock/实机分级验证；本裁决不授权总线启动、
   reset、enable、运动或任何设备写入。
+
+## BQ-154: 运行时按功能模块分区使能与复位 [RESOLVED/DESIGN 2026-09-26]
+
+- 用户裁决：允许在已启动的控制范围（control scope）内，按功能模块（`arms` / `updown` /
+  `swerve_chassis` / `active_suspension` / `head_gimbal`）分别使能、失能、复位。取代 BQ-151
+  中“完整物理配置不允许只使能局部模块”的条款；BQ-151 的物理配置、总线准入以及
+  “`full_robot` 只允许 `full` 控制范围”的启动规则不变。
+- 用户裁决：模块之间不设使能联锁。主动悬挂失能时底盘仍可使能、可运行，这是用户的明确决定；
+  悬挂失能后的高度保持和行驶安全属于硬件事实，未经本条确认。
+- 保留：BQ-151 的故障联动（主动悬挂故障 → 底盘 `stop_and_inhibit`；底盘故障 → 机械臂 `stop`）。
+- 接口：RT-Control 私有接口 `RtEnable.srv` 请求增加 `string[] modules`，留空表示全部（兼容现有
+  语义）；`/rt/enable`、`/rt/disable`、`/rt/reset_fault` 统一调度，`head_gimbal` 转调
+  `/rt/head/*`。对外公开的 `/control/set_enabled` 保持整机语义不变。
+- 使能、失能、复位由调用方决定是否二次确认；Web 操作台按用户决定不做二次确认，但要求持有控制权。
+- 实现由 ELECTRI-150 负责；本条不授权总线启动、reset、enable 或运动，实机测试另行授权。

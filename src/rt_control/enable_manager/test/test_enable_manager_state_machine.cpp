@@ -533,11 +533,13 @@ public:
     std::atomic_bool done{false};
   };
 
-  std::shared_ptr<PendingCall> callAsync(ServiceKind kind)
+  std::shared_ptr<PendingCall> callAsync(
+    ServiceKind kind, const std::vector<std::string> & modules = {})
   {
     auto pending = std::make_shared<PendingCall>();
     pending->response = std::make_shared<RtEnable::Response>();
     auto request = std::make_shared<RtEnable::Request>();
+    request->modules = modules;
     EnableManagerController * controller = controller_.get();
     pending->worker = std::thread(
       [kind, controller, pending, request]() {
@@ -2119,6 +2121,248 @@ TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
   std::sort(names.begin(), names.end());
   EXPECT_EQ(std::adjacent_find(names.begin(), names.end()), names.end())
     << "duplicate stage name";
+}
+
+// ---------------------------------------------------------------------------
+// BQ-154 / ELECTRI-150: functional-module dispatch
+// ---------------------------------------------------------------------------
+
+std::vector<rclcpp::Parameter> enableOnlyModuleParameters(
+  const std::vector<std::string> & owned, const std::string & remote,
+  const std::string & prefix)
+{
+  return {
+    rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string("")),
+    rclcpp::Parameter("owned_modules", owned),
+    rclcpp::Parameter("remote_module_name", remote),
+    rclcpp::Parameter("remote_service_prefix", prefix)};
+}
+
+TEST_F(EnableManagerFixture, EmptyModulesKeepLegacyWholeManagerBehavior)
+{
+  initAndConfigure("legacy_modules", enableOnlyModuleParameters({}, "", ""));
+  if (::testing::Test::HasFatalFailure()) {return;}
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  auto enabled = callAsync(ServiceKind::kEnable);
+  ASSERT_TRUE(pumpUntilDone(enabled));
+  join(enabled);
+  EXPECT_TRUE(enabled->response->ok) << enabled->response->stage;
+  EXPECT_EQ(enabled->response->stage, "success");
+  EXPECT_EQ(enabled->response->module_names, std::vector<std::string>{"managed_axes"});
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  auto disabled = callAsync(ServiceKind::kDisable);
+  ASSERT_TRUE(pumpUntilDone(disabled));
+  join(disabled);
+  EXPECT_TRUE(disabled->response->ok) << disabled->response->stage;
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+}
+
+TEST_F(EnableManagerFixture, PartialOwnedModuleRequestFailsClosedWithoutMotion)
+{
+  initAndConfigure(
+    "partial_modules", enableOnlyModuleParameters(
+      {"arms", "updown"}, "head_gimbal", "/rt/test_head_absent"));
+  if (::testing::Test::HasFatalFailure()) {return;}
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  for (const auto & modules : std::vector<std::vector<std::string>>{
+      {"arms"}, {"updown", "head_gimbal"}})
+  {
+    auto call = callAsync(ServiceKind::kEnable, modules);
+    ASSERT_TRUE(pumpUntilDone(call));
+    join(call);
+    EXPECT_FALSE(call->response->ok);
+    EXPECT_EQ(call->response->stage, "module_partition_unsupported");
+    EXPECT_TRUE(call->response->module_names.empty());
+    EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+    for (std::size_t axis = 0; axis < kAxes; ++axis) {
+      EXPECT_EQ(command(axis), kCwZero);
+    }
+  }
+  auto unknown = callAsync(ServiceKind::kReset, {"swerve_chassis"});
+  ASSERT_TRUE(pumpUntilDone(unknown));
+  join(unknown);
+  EXPECT_FALSE(unknown->response->ok);
+  EXPECT_EQ(unknown->response->stage, "module_not_managed");
+}
+
+TEST_F(EnableManagerFixture, AllOwnedModulesRunTheWholeManager)
+{
+  initAndConfigure(
+    "all_owned_modules", enableOnlyModuleParameters(
+      {"arms", "updown"}, "head_gimbal", "/rt/test_head_absent"));
+  if (::testing::Test::HasFatalFailure()) {return;}
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  auto enabled = callAsync(ServiceKind::kEnable, {"updown", "arms"});
+  ASSERT_TRUE(pumpUntilDone(enabled));
+  join(enabled);
+  EXPECT_TRUE(enabled->response->ok) << enabled->response->stage;
+  EXPECT_EQ(enabled->response->module_names, (std::vector<std::string>{"arms", "updown"}));
+  EXPECT_EQ(enabled->response->module_ok, (std::vector<bool>{true, true}));
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  // A whole-robot disable skips the absent remote module instead of failing.
+  auto disabled = callAsync(ServiceKind::kDisable);
+  ASSERT_TRUE(pumpUntilDone(disabled));
+  join(disabled);
+  EXPECT_TRUE(disabled->response->ok) << disabled->response->stage;
+  EXPECT_EQ(disabled->response->module_names, (std::vector<std::string>{"arms", "updown"}));
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+}
+
+TEST_F(EnableManagerFixture, ExplicitRemoteModuleWithoutServiceIsUnavailable)
+{
+  initAndConfigure(
+    "remote_absent", enableOnlyModuleParameters(
+      {"arms"}, "head_gimbal", "/rt/test_head_absent"));
+  if (::testing::Test::HasFatalFailure()) {return;}
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  auto call = callAsync(ServiceKind::kEnable, {"head_gimbal"});
+  ASSERT_TRUE(pumpUntilDone(call));
+  join(call);
+  EXPECT_FALSE(call->response->ok);
+  EXPECT_EQ(call->response->stage, "module_unavailable");
+  EXPECT_EQ(call->response->module_names, std::vector<std::string>{"head_gimbal"});
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+}
+
+TEST_F(EnableManagerFixture, RemoteModuleIsForwardedToItsOwnManager)
+{
+  initAndConfigure(
+    "remote_present", enableOnlyModuleParameters({"arms"}, "head_gimbal", "/rt/test_head"));
+  if (::testing::Test::HasFatalFailure()) {return;}
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+
+  auto fake_head = std::make_shared<rclcpp::Node>("fake_head_manager");
+  std::atomic_int enable_calls{0};
+  std::atomic_int disable_calls{0};
+  auto head_enable = fake_head->create_service<RtEnable>(
+    "/rt/test_head/enable",
+    [&enable_calls](
+      const std::shared_ptr<RtEnable::Request>, std::shared_ptr<RtEnable::Response> response) {
+      ++enable_calls;
+      response->ok = true;
+      response->stage = "success";
+    });
+  auto head_disable = fake_head->create_service<RtEnable>(
+    "/rt/test_head/disable",
+    [&disable_calls](
+      const std::shared_ptr<RtEnable::Request>, std::shared_ptr<RtEnable::Response> response) {
+      ++disable_calls;
+      response->ok = false;
+      response->stage = "disable_timeout";
+    });
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3U);
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  executor.add_node(fake_head);
+  std::thread executor_thread([&executor]() {executor.spin();});
+  auto probe = fake_head->create_client<RtEnable>("/rt/test_head/disable");
+  const auto discovery_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!probe->service_is_ready() && std::chrono::steady_clock::now() < discovery_deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+
+  // Head only: forwarded, local axes untouched.
+  auto head_only = callAsync(ServiceKind::kEnable, {"head_gimbal"});
+  const bool head_only_done = pumpUntilDone(head_only);
+  join(head_only);
+  EXPECT_TRUE(head_only_done);
+  EXPECT_TRUE(head_only->response->ok) << head_only->response->stage;
+  EXPECT_EQ(head_only->response->module_names, std::vector<std::string>{"head_gimbal"});
+  EXPECT_EQ(enable_calls.load(), 1);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+
+  // Whole-robot enable: local axes and the running head module.
+  auto whole = callAsync(ServiceKind::kEnable);
+  const bool whole_done = pumpUntilDone(whole);
+  join(whole);
+  EXPECT_TRUE(whole_done);
+  EXPECT_TRUE(whole->response->ok) << whole->response->stage;
+  EXPECT_EQ(whole->response->module_names, (std::vector<std::string>{"arms", "head_gimbal"}));
+  EXPECT_EQ(enable_calls.load(), 2);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+
+  // Disable is attempted on every module; a remote failure is reported per module.
+  auto disabled = callAsync(ServiceKind::kDisable, {"arms", "head_gimbal"});
+  const bool disabled_done = pumpUntilDone(disabled);
+  join(disabled);
+  EXPECT_TRUE(disabled_done);
+  EXPECT_FALSE(disabled->response->ok);
+  EXPECT_EQ(disabled->response->stage, "disable_timeout");
+  EXPECT_EQ(disabled->response->module_ok, (std::vector<bool>{true, false}));
+  EXPECT_EQ(disable_calls.load(), 1);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+
+  executor.cancel();
+  executor_thread.join();
+}
+
+TEST_F(EnableManagerFixture, UnresponsiveRemoteModuleTimesOutWithoutTouchingLocalAxes)
+{
+  initAndConfigure(
+    "remote_timeout", enableOnlyModuleParameters({"arms"}, "head_gimbal", "/rt/test_slow_head"));
+  if (::testing::Test::HasFatalFailure()) {return;}
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  auto fake_head = std::make_shared<rclcpp::Node>("fake_slow_head_manager");
+  auto head_reset = fake_head->create_service<RtEnable>(
+    "/rt/test_slow_head/reset_fault",
+    [](const std::shared_ptr<RtEnable::Request>, std::shared_ptr<RtEnable::Response> response) {
+      // Longer than service_result_timeout_ms (300 ms) in this fixture.
+      std::this_thread::sleep_for(std::chrono::milliseconds(800));
+      response->ok = true;
+      response->stage = "success";
+    });
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 3U);
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  executor.add_node(fake_head);
+  std::thread executor_thread([&executor]() {executor.spin();});
+  auto probe = fake_head->create_client<RtEnable>("/rt/test_slow_head/reset_fault");
+  const auto discovery_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!probe->service_is_ready() && std::chrono::steady_clock::now() < discovery_deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  auto call = callAsync(ServiceKind::kReset, {"head_gimbal"});
+  const bool done = pumpUntilDone(call);
+  join(call);
+  EXPECT_TRUE(done);
+  EXPECT_FALSE(call->response->ok);
+  EXPECT_EQ(call->response->stage, "module_service_timeout");
+  EXPECT_EQ(call->response->module_names, std::vector<std::string>{"head_gimbal"});
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+  executor.cancel();
+  executor_thread.join();
+}
+
+TEST_F(EnableManagerFixture, ConfigureRejectsInconsistentModuleParameters)
+{
+  const std::vector<std::vector<rclcpp::Parameter>> invalid{
+    enableOnlyModuleParameters({"arms", "arms"}, "", ""),
+    enableOnlyModuleParameters({"arms", "head_gimbal"}, "head_gimbal", "/rt/head"),
+    enableOnlyModuleParameters({"arms"}, "head_gimbal", ""),
+    enableOnlyModuleParameters({"arms"}, "head_gimbal", "/rt"),
+    enableOnlyModuleParameters({"arms"}, "head_gimbal", "rt/head"),
+    enableOnlyModuleParameters({"arms"}, "", "/rt/head"),
+  };
+  std::size_t index = 0U;
+  for (const auto & parameters : invalid) {
+    controller_ = std::make_unique<EnableManagerController>();
+    rclcpp::NodeOptions options;
+    auto all = parametersWithFixtureTopology(parameters);
+    addOrReplaceParameter(all, rclcpp::Parameter("update_rate", 1000));
+    options.parameter_overrides(all);
+    options.allow_undeclared_parameters(true);
+    options.automatically_declare_parameters_from_overrides(true);
+    ASSERT_EQ(
+      controller_->init("invalid_modules_" + std::to_string(index++), "", options),
+      controller_interface::return_type::OK);
+    EXPECT_EQ(
+      controller_->on_configure(rclcpp_lifecycle::State()),
+      controller_interface::CallbackReturn::ERROR) << "case " << index;
+  }
 }
 
 }  // namespace

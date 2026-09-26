@@ -113,6 +113,17 @@ def _pp_hold_profile(template: dict) -> dict:
     return profile
 
 
+# BQ-154: the arm runtime's enable_manager owns the whole ``arms`` functional
+# module (14 CSP + 2 PP axes) and forwards ``head_gimbal`` to the DaMiao head
+# manager's /rt/head services when that runtime is loaded. Names follow
+# ``functional_modules`` in config/machines/alfa_v3.yaml.
+ARM_RUNTIME_MODULES = {
+    "owned_modules": ["arms"],
+    "remote_module_name": "head_gimbal",
+    "remote_service_prefix": "/rt/head",
+}
+
+
 def _controller_config(
     envelope_path: Path, managed_joints: list[str], *, jtc_only: bool = False
 ) -> dict:
@@ -227,6 +238,7 @@ def _controller_config(
                 "mode_switch_stable_velocity_thresholds": [half_degree] * 14,
                 "mode_switch_takeover_tolerances": [half_degree] * 14,
                 "motion_joints": list(MOTION_JOINTS),
+                **ARM_RUNTIME_MODULES,
             }
         },
     }

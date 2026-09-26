@@ -31,6 +31,7 @@
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 #include "rt_control_semantic_components/cia402_axis.hpp"
+#include "enable_manager/module_dispatch.hpp"
 
 namespace enable_manager
 {
@@ -180,6 +181,19 @@ private:
   void handleResetFault(
     const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
     std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response);
+  // BQ-154: module dispatch around the whole-manager operations below.
+  enum class Operation : std::uint8_t {kEnable = 0U, kDisable = 1U, kReset = 2U};
+  using RtEnableClient = rclcpp::Client<rt_control_interfaces::srv::RtEnable>;
+  void dispatchModules(
+    Operation operation,
+    const rt_control_interfaces::srv::RtEnable::Request & request,
+    rt_control_interfaces::srv::RtEnable::Response & response);
+  void runLocalOperation(
+    Operation operation, rt_control_interfaces::srv::RtEnable::Response & response);
+  ModuleOutcome callRemoteModule(Operation operation, RemoteSelection selection, bool & skipped);
+  void enableLocal(rt_control_interfaces::srv::RtEnable::Response & response);
+  void disableLocal(rt_control_interfaces::srv::RtEnable::Response & response);
+  void resetLocal(rt_control_interfaces::srv::RtEnable::Response & response);
   void handleSetMode(
     const std::shared_ptr<ModeService::Request> request,
     std::shared_ptr<ModeService::Response> response);
@@ -321,6 +335,10 @@ private:
   double fault_reset_timeout_seconds_{4.0};
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
+  std::vector<std::string> owned_modules_;
+  std::string remote_module_name_;
+  std::string remote_service_prefix_;
+  std::array<std::mutex, 3U> dispatch_mutexes_{};
   std::string jtc_name_{"whole_body_jtc"};
   bool enable_only_{false};
   bool motion_mode_switching_{false};
@@ -358,6 +376,7 @@ private:
     rolling_state_subscription_;
   rclcpp::Client<controller_manager_msgs::srv::ListControllers>::SharedPtr list_client_;
   rclcpp::Client<controller_manager_msgs::srv::SwitchController>::SharedPtr switch_client_;
+  std::array<RtEnableClient::SharedPtr, 3U> remote_clients_{};
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
   rclcpp::TimerBase::SharedPtr worker_timer_;
   rclcpp::TimerBase::SharedPtr diagnostics_timer_;

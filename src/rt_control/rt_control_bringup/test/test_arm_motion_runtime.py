@@ -263,3 +263,20 @@ def test_calibration_draft_uses_user_provisional_plus_one_without_motion_admissi
     assert all(type(axis["zero_counts"]) is int for axis in axes)
     with pytest.raises(ValueError, match="calibration is not verified"):
         _build(tmp_path, mock=False, jtc_only=True)
+
+
+def test_arm_runtime_declares_bq154_functional_modules(tmp_path):
+    from rt_control_bringup.arm_motion_runtime import ARM_RUNTIME_MODULES
+
+    manifest = yaml.safe_load(
+        (Path(__file__).resolve().parents[1] / "config/machines/alfa_v3.yaml").read_text()
+    )
+    functional = set(manifest["functional_modules"])
+    assert set(ARM_RUNTIME_MODULES["owned_modules"]) <= functional
+    assert ARM_RUNTIME_MODULES["remote_module_name"] in functional
+    assert ARM_RUNTIME_MODULES["remote_module_name"] not in ARM_RUNTIME_MODULES["owned_modules"]
+    assert ARM_RUNTIME_MODULES["remote_service_prefix"] == "/rt/head"
+    build = _build(tmp_path)
+    enable = build.controllers["enable_manager"]["ros__parameters"]
+    for key, value in ARM_RUNTIME_MODULES.items():
+        assert enable[key] == value
