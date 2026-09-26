@@ -24,7 +24,7 @@ struct Drive
   std::vector<double> state = std::vector<double>(13, 0);
   std::vector<double> command{0.0, 0.0, 9.0, 15.0, 0.0, 0.0};
   std::array<std::array<uint8_t, 8>, 8> bytes{};
-  int32_t actual{100}, velocity{0};
+  int32_t actual{100}, velocity{0}, csp_residual{0};
   int8_t mode{9};
   bool refuse_mode{false}, skip_send{false}, complete{true};
   void setup()
@@ -67,7 +67,7 @@ struct Drive
       velocity = EC_READ_S32(bytes[2].data());
       actual += static_cast<int32_t>(std::llround(static_cast<double>(velocity) * 10.0 * dt));
     } else {
-      const auto next = EC_READ_S32(bytes[1].data());
+      const auto next = EC_READ_S32(bytes[1].data()) - csp_residual;
       velocity =
         static_cast<int32_t>(std::llround(static_cast<double>(next - actual) / (10.0 * dt)));
       actual = next;
@@ -107,7 +107,7 @@ std::vector<rclcpp::Parameter> runtime_parameters()
   params.emplace_back("relative.max_yaw_acceleration", 0.5);
   params.emplace_back("relative.max_wheel_velocity", std::vector<double>(4, 3));
   params.emplace_back("relative.max_wheel_acceleration", std::vector<double>(4, 5));
-  params.emplace_back("relative.seed_tolerance", std::vector<double>(4, 0.001));
+  params.emplace_back("relative.seed_tolerance", std::vector<double>(4, 0.005));
   for (const auto * p : {"enabled", "csv", "csp"}) {
     params.emplace_back(std::string("relative.") + p + "_mask", 0x006f);
     params.emplace_back(std::string("relative.") + p + "_value", 0x0027);
@@ -309,6 +309,31 @@ TEST_F(CyclicControllerTest, FullNavigationStopSentPreloadRelativeHoldReturnAndF
   }
   command(0.05); until([&]() {return drives[0].velocity > 0;});
 }
+TEST_F(CyclicControllerTest, ReverseHandoffPreservesHoldDespiteEncoderSettlingResidual)
+{
+  operation();
+  std::array<int32_t, 4> held{};
+  for (size_t i = 0; i < drives.size(); ++i) {
+    held[i] = EC_READ_S32(drives[i].bytes[1].data());
+    drives[i].csp_residual = 3; // 0.003 rad, within the synthetic 0.005 rad tolerance.
+  }
+  for (int i = 0; i < 20; ++i) {tick();}
+  for (size_t i = 0; i < drives.size(); ++i) {
+    ASSERT_EQ(drives[i].actual, held[i] - 3);
+  }
+  auto response = mode(1);
+  until([&]() {
+    for (size_t i = 0; i < drives.size(); ++i) {
+      if ((static_cast<unsigned>(drives[i].command[5]) & 2U) != 0) {
+        EXPECT_EQ(EC_READ_S32(drives[i].bytes[1].data()), held[i]);
+      }
+    }
+    return response.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+  });
+  EXPECT_EQ(response.get()->code, Runtime::SetMode::Response::OK);
+  for (const auto & drive : drives) {EXPECT_EQ(drive.mode, 9); EXPECT_EQ(drive.velocity, 0);}
+}
+
 TEST_F(CyclicControllerTest, PartialModeReadbackCannotReleaseRelativeMotion)
 {
   drives[3].refuse_mode = true;

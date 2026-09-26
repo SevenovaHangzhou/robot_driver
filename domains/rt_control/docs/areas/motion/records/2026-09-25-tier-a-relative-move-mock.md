@@ -197,6 +197,17 @@ unaffected consumer results). Parent logs: `/tmp/e133-parent-final-test.log` and
 
 ## 遗留
 
+PR #48 independent review found a reverse-handoff residual bug: after requesting CSV,
+the adapter replaced the held CSP command with actual feedback, so an allowed nonzero
+settling residual prevented exact sent-sequence acknowledgement. The correction latches
+the commanded raw hold through the reverse request/in-flight phase and preserves the
+masked position during CSV confirmation. Connected regression
+`ReverseHandoffPreservesHoldDespiteEncoderSettlingResidual` injects a three-count residual
+within explicit synthetic tolerance and checks unchanged hold plus successful CSV return.
+No-device container `e133-pr48-regression` rebuilt the three changed packages and tested
+the two runtime packages: 272 records, zero failures; repository quality gate PASS.
+Targeted independent recheck is pending for this correction.
+
 BQ-145/BQ-150: real identity/PDO assignment/ring positions, per-module
 conversion/calibration/limits, fresh steering velocities, physical mode/status acceptance,
 stop authority/behavior and shared-bus IMU readiness remain unproven. Runtime CSV/CSP

@@ -77,6 +77,7 @@ private:
   int32_t output_position_raw_{0};
   int32_t output_velocity_raw_{0};
   int32_t csp_seed_raw_{0};
+  int32_t csv_hold_raw_{0};
   uint16_t output_control_word_{0};
   int8_t output_mode_{0};
 

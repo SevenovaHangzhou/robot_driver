@@ -329,6 +329,7 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
         set_state(kModeRequestAck, 1.0);
       }
     } else {
+      output_position_raw_ = csv_hold_raw_;
       output_velocity_raw_ = 0;
       invalidate_velocity_command();
       if (mode_display_ == kCsv) {
@@ -358,6 +359,11 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
       output_mode_ = kCsp;
       mode_request_target_ = kCsp;
     } else if (mode_display_ == kCsp && desired == kCsv) {
+      if (!valid_position_command(csv_hold_raw_)) {
+        clear_handoff(true);
+        return;
+      }
+      output_position_raw_ = csv_hold_raw_;
       output_mode_ = kCsv;
       output_velocity_raw_ = 0;
       invalidate_velocity_command();
@@ -384,6 +390,12 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
     return;
   }
 
+  // The coordinator retains its held position until it observes the CSV acknowledgement.
+  // Preserve that command even after mode readback; actual position may have a valid
+  // settling residual and must not replace the exact value covered by the sent sequence.
+  if (pending_valid_ && (pending_mask_ & 2U) != 0) {
+    output_position_raw_ = pending_position_;
+  }
   int32_t target_velocity = 0;
   if (csv_post_ack_quarantine_) {
     csv_post_ack_quarantine_ = false;
