@@ -40,7 +40,7 @@ class ClassifyTest(unittest.TestCase):
 
     def test_mixed_changes_deduplicate_actions(self):
         plan = st.classify([
-            "src/rt_control/bms_node/bms_node/bms_node.py",
+            "src/rt_control/bms_node/src/bms_node.cpp",
             "src/rt_control/bms_node/package.xml",
             "domains/rt_control/PROGRESS.md",
         ])
