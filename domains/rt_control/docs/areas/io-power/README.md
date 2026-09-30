@@ -32,9 +32,14 @@ systemd unit（→ realtime-host）。
 | 08#F1 | 两台 E08 共用 TCP 504，驱动站号为 unit 1 和 unit 6；站号 2..5 为 E08 保留地址。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F1 | PARTIAL（协议/离线；第二台实机待验） |
 | 08#F2/F4 | 八路 A22 映射为 unit 1 和 unit 6 各四路，发布 `channel1..8`；ROS 视场角固定为 40 度，A22 角度等级 2 待实机配置。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F2-F4 | PARTIAL（离线通过；实机配置待验） |
 | 08#F3 | 一个测量周期串行执行两次四寄存器 FC03，均成功才发布同批八路数据；每台 E08 内四路仍同时触发。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F3 | PARTIAL（离线通过；实机时序与声学串扰待验） |
+| 10#F1 | BMS 只支持金凤凰 V1.1 C++ 查询路径：`0x18900140` 请求、`0x18904001` 响应。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F1 | PARTIAL（离线构建/测试；实机待验） |
+| 10#F2 | BMS `can1` 使用 250 kbit/s，CANopen `can0` 保持 500 kbit/s。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F2 | PARTIAL（配置/门禁；实机待验） |
+| 10#F3 | `/battery_state` 继续 5 s 发布，3 s 失联后 NaN/present=false。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F3 | PASS（源码/自动测试） |
+| 10#F4 | 金凤凰 PDF 未定义字节序，默认 auto 歧义拒绝；实机抓包前不冻结 big/little。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F4 | OPEN（实机待验） |
 
 ## 记录索引（倒序）
 
+- 2026-09-30 [金凤凰 BMS V1.1 C++ 驱动迁移](records/2026-09-30-golden-phoenix-bms-cpp.md) — feature，UNVERIFIED（T0；15 项 C++、26 项聚焦测试与 207 项质量门禁通过，实机待验）
 - 2026-09-21 [双 E08 接入八路 A22 超声波](records/2026-09-21-dual-e08-eight-ultrasonic.md) — feature，PARTIAL（T1 离线；八路实机与声学串扰待验）
 - 2026-09-20 [Modbus LED 控制器由四路扩展为六路](records/2026-09-20-six-led-controllers.md) — feature，PARTIAL（离线构建通过；实机未验证）
 - 2026-09-19 [四路超声波切换为标准 Range 接口](records/2026-09-19-ultrasonic-standard-range.md) — feature，PARTIAL（T1；标准消息/参数离线通过，实机与 TF 待验）

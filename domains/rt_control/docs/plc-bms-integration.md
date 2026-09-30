@@ -1,6 +1,6 @@
 # PLC / BMS 同容器集成说明
 
-更新时间：2026-07-28
+更新时间：2026-09-30
 
 ## 结论
 
@@ -8,16 +8,17 @@ PLC 与 BMS 已并入现有 `rt-control` 启动域，不再创建 `rt-io` 容器
 `rt-control` 服务，仍以安装后的 `rt_control_start` 作为容器 PID 1；PLC、BMS 与现有控制进程暂时共用同一
 `cpuset`。这是为近期联调接受的临时方案，不代表完成了 WCET、调度干扰或生产实时性验收。
 
-`can_bus_guard` 整包不进入本实现。BMS 是 SocketCAN 被动读取者，不负责创建、重命名、配置或独占 `can1`。
+`can_bus_guard` 整包不进入本实现。BMS C++ 节点通过宿主已准备好的 `can1` 查询金凤凰 BMS，不负责创建、
+重命名或修改链路位率。
 
 ## BMS 接口
 
-节点只接收标准数据帧 `0x3FC`：
+节点只支持金凤凰 CAN 协议 V1.1，使用 29 位扩展数据帧：
 
-| 数据 | 字节 | 换算 |
+| 方向 | CAN ID | 数据 |
 | --- | --- | --- |
-| 总电压 | byte 0-1，大端无符号数 | 原始值 × 0.1 V |
-| SOC | byte 4 | 百分数 ÷ 100，ROS 值域为 0.0-1.0 |
+| 上位机查询 | `0x18900140` | 8 字节全零，每 200 ms 一次 |
+| BMS 响应 | `0x18904001` | byte 0-1 总电压（0.1 V），byte 6-7 SOC（0.1%） |
 
 唯一发布接口为：
 
@@ -26,10 +27,13 @@ PLC 与 BMS 已并入现有 `rt-control` 启动域，不再创建 `rt-io` 容器
 | `/battery_state` | `sensor_msgs/msg/BatteryState` | 5 s | `voltage`、`percentage` |
 
 未使用的浮点字段发布 `NaN`，不再发布电流、容量、告警、中文 JSON 或独立 SOC 话题。超过 3 秒未收到有效
-`0x3FC` 时，`voltage` 和 `percentage` 均为 `NaN`，`present=false`，不会继续伪装旧值为新数据。
+`0x18904001` 时，`voltage` 和 `percentage` 均为 `NaN`，`present=false`，不会继续伪装旧值为新数据。
 
-宿主必须预先保证 `can1` 已命名、UP 且为 500 kbit/s。容器只有被动读取所需的 `NET_RAW`，没有
-`NET_ADMIN`，因此不会在容器内修改 CAN 位率或链路状态。
+协议 PDF 没有定义 16 位字段字节序。配置默认 `multi_byte_order: auto`，仅当 SOC 的 0..1000 原始值范围能唯一
+判定字节序时才接受并锁定；也可在抓包或厂家确认后显式配置 `big_endian` 或 `little_endian`。
+
+宿主必须预先保证 `can1` 已命名、UP 且为 250 kbit/s。容器只有 CAN 收发所需的 `NET_RAW`，没有
+`NET_ADMIN`，因此不会在容器内修改 CAN 位率或链路状态。CANopen `can0` 仍为 500 kbit/s。
 
 ## PLC 接口与映射
 
@@ -71,8 +75,9 @@ PLC 使用 Modbus TCP，默认 `192.168.1.88:502`、unit id `1`，在当前新�
 
 ## 启动与容器边界
 
-硬件参数的唯一仓库配置源是
-[`rt_io.yaml`](../../../src/rt_control/rt_control_bringup/config/rt_io.yaml)。普通源码 launch 默认关闭两个 IO
+PLC/适配器参数保留在
+[`rt_io.yaml`](../../../src/rt_control/rt_control_bringup/config/rt_io.yaml)，BMS 参数由 owner 包内
+[`bms_node.yaml`](../../../src/rt_control/bms_node/config/bms_node.yaml) 管理。普通源码 launch 默认关闭两个 IO
 节点，避免 Mock 或开发命令意外访问真实 PLC/CAN：
 
 ```bash
@@ -95,9 +100,9 @@ ros2 launch rt_control_bringup rt_control.launch.py \
 有序失能与信号转发链保持不变。
 
 PLC 与 BMS 节点各自处理普通 Modbus/CAN 断线并按配置重连，launch 不再对进程本身使用无条件 respawn。原因是
-ROS context 关停与 respawn 存在竞态：节点退出后可能在容器关停期间被重新拉起，导致 PID 1 无法结束。节点现在把
-`ExternalShutdownException` 作为正常退出并释放 socket；若 Python 进程意外崩溃，则保留错误证据并有序重启整个
-rt-control，不做容器内部的局部进程复活。
+ROS context 关停与 respawn 存在竞态：节点退出后可能在容器关停期间被重新拉起，导致 PID 1 无法结束。BMS C++
+节点在析构时关闭 CAN 描述符并等待读取线程退出；进程异常则保留错误证据并有序重启整个 rt-control，不做容器内部
+的局部进程复活。
 
 首次候选提交 `e4fed685bfa4485c210ad038c804a331b4801d88`（镜像
 `sha256:998c5a1e9e5f70f7e09f1f2a8c316bbc3714bd9815e68f6b870130a332542c06`）已通过功能读取，但因上述关停竞态在
@@ -119,6 +124,6 @@ ros2 service call /plc/right_solenoid std_srvs/srv/SetBool "{data: false}"
 ros2 service call /plc/vacuum_pump std_srvs/srv/SetBool "{data: true}"
 ```
 
-协议解析、位保留、命令/实际位回读、干净镜像、目标机 PLC/CAN 读取和三路输出均已验证。独立 BMS HMI 目视对照、
-左右实体身份、共用泵气路效果和真空传感器建立状态仍需 PLC / 电气人员在正式工艺联调中复核；不要把寄存器验证
-扩写为尚未观察的机械/气路验收。
+金凤凰协议解析和 C++ 线程退出已通过离线测试，但尚未在真实金凤凰 BMS 上完成查询响应、字节序和 HMI 数值对照。
+历史 `0x3FC/500 kbit/s` 实机证据不适用于新协议。左右实体身份、共用泵气路效果和真空传感器建立状态仍需 PLC /
+电气人员在正式工艺联调中复核；不要把离线构建或历史设备结果扩写为新电池实机验收。

@@ -20,7 +20,8 @@
 > 布尔吸附结果，不暴露压力值。
 
 > **PLC/BMS 发布边界：** 前序镜像已完成 PLC/BMS 读取、三路输出逐点 ON/OFF 和关停复测；本发布候选的一键启动仍会要求
-> `can1` 的批准序列号、UP/500 kbit/s 和 `0x3FC` 帧，并等待 `/plc/io_state`、`/battery_state` 有效后再自动使能。
+> `can1` 的批准身份、UP/250 kbit/s，并通过 `0x18900140` 查询获得金凤凰 BMS `0x18904001` 响应，再等待
+> `/plc/io_state`、`/battery_state` 有效后自动使能。新协议尚待实机验证。
 > 详细证据见 [PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。
 
 ## 启动
@@ -60,7 +61,7 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 
 1. 锁定当前账号、主机名、PREEMPT_RT 内核和隔离 CPU 14；
 2. 核对 `V0.10` 不可变 release 操作副本和本地 `rt-control:V0.10` 镜像是否存在；
-3. 核对 Docker、带 fixed-PDO 保护的 IgH、18 个 EtherCAT 位置（Hub 0/13、X503 14/15）、两只 CANable 序列号、500 kbit/s、Node 2/3 心跳和 BMS `0x3FC`；
+3. 核对 Docker、带 fixed-PDO 保护的 IgH、18 个 EtherCAT 位置、CANopen `can0=500 kbit/s`、BMS `can1=250 kbit/s`、Node 2/3 心跳和金凤凰 BMS 查询响应；
 4. 要求一次现场使能确认；
 5. 启动同一个 rt-control 容器，等待 controller、总线、PLC 状态和 BMS 电压/SOC ready；
 6. 自动调用 `/rt/enable`，确认 JTC active、EtherCAT OP 和 `/joint_states` 有数据。
