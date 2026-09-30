@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly BMS_SERIAL="003000265230500720333159"
-readonly BITRATE="500000"
+readonly BITRATE="250000"
 readonly TXQUEUELEN="128"
 
 wait_seconds=0
@@ -16,7 +16,7 @@ Bind the fixed BMS gs_usb SocketCAN adapter by USB serial:
   can1: BMS CAN bus
 
 --wait waits for the BMS serial to appear.
---configure also forces 500 kbit/s, txqueuelen 128 and UP.
+--configure also forces 250 kbit/s, txqueuelen 128 and UP.
 EOF
 }
 

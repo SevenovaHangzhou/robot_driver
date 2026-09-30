@@ -123,7 +123,7 @@ bms_serial="$(udevadm info -q property -p /sys/class/net/can1 |
 bms_output="$(ip -details -statistics link show can1)"
 grep -Fq 'state UP' <<< "${bms_output}" || fail "can1 is down"
 grep -Fq 'can state ERROR-ACTIVE' <<< "${bms_output}" || fail "can1 is not ERROR-ACTIVE"
-grep -Fq 'bitrate 500000' <<< "${bms_output}" || fail "can1 is not 500 kbit/s"
+grep -Fq 'bitrate 250000' <<< "${bms_output}" || fail "can1 is not 250 kbit/s"
 [[ "$(dpkg-query -W -f='${Version}' docker-ce)" == \
   "5:29.6.2-1~ubuntu.22.04~jammy" ]] || fail "Docker CE version drift"
 [[ "$(dpkg-query -W -f='${Version}' containerd.io)" == \
@@ -137,5 +137,5 @@ nvidia-smi --query-gpu=name,driver_version,pci.bus_id --format=csv,noheader
 printf '%s\n' \
   "PASS: realtime CPU14 isolation" \
   "PASS: IgH 1.6.10 with fixed-PDO verification, master ${ethercat_mac}, 18 slaves, zero lost frames" \
-  "PASS: can1 500 kbit/s on serial ${bms_can_serial}" \
+  "PASS: can1 250 kbit/s on serial ${bms_can_serial}" \
   "PASS: Docker/containerd frozen versions, healthy systemd and GPU boot log"
