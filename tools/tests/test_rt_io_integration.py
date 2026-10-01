@@ -70,7 +70,9 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     plc = yaml.safe_load(
         (ROOT / "src/rt_control/plc_io_modbus/config/plc_io_modbus.yaml").read_text()
     )["plc_io_modbus"]["ros__parameters"]
-    bms = document["bms_node"]["ros__parameters"]
+    bms = yaml.safe_load(
+        (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
+    )["bms_node"]["ros__parameters"]
 
     assert plc["digital"]["module"]["host"] == "192.168.1.12"
     assert plc["digital"]["inputs"]["infrared_laser"] == {"di_address": 0}
@@ -93,6 +95,12 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     for parameter_name in configured_hardware_parameters:
         assert f'declare_parameter("{parameter_name}"' in node_source
     assert bms["can_interface"] == "can1"
+    assert bms["protocol"] == "golden_phoenix_v1_1"
+    assert bms["can_bitrate"] == 250000
+    assert bms["bms_address"] == 1
+    assert bms["host_address"] == 64
+    assert bms["multi_byte_order"] == "auto"
+    assert bms["request_period_s"] == 0.2
     assert bms["publish_period_s"] == 5.0
     assert bms["frame_timeout_s"] == 3.0
 
@@ -100,7 +108,9 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
 def test_rt_io_public_parameters_match_current_contract() -> None:
     rt_io = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
 
-    bms_params = rt_io["bms_node"]["ros__parameters"]
+    bms_params = yaml.safe_load(
+        (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
+    )["bms_node"]["ros__parameters"]
     assert bms_params["battery_state_topic"] == "/battery_state"
     assert bms_params["publish_period_s"] == 5.0
 
@@ -177,7 +187,7 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
 
 
 def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
-    bms_source = (ROOT / "src/rt_control/bms_node/bms_node/bms_node.py").read_text()
+    bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
     vacuum_source = (
         ROOT / "src/rt_control/control_api_adapter/control_api_adapter/vacuum_adapter.py"
     ).read_text()
@@ -194,8 +204,8 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
         ROOT / "patches/ros2_controllers/0002-use-contract-qos-profiles.patch"
     ).read_text()
 
-    assert "from robot_interfaces_qos import state" in bms_source
-    assert "self.create_publisher(BatteryState, topic, state())" in bms_source
+    assert '#include "robot_interfaces_qos/profiles.hpp"' in bms_source
+    assert "topic, robot_interfaces_qos::state()" in bms_source
     assert "from robot_interfaces_qos import state" in vacuum_source
     assert "state()," in vacuum_source
     assert "from robot_interfaces_qos import diagnostic, latched, state" in status_source
@@ -328,15 +338,13 @@ def test_removed_duplicate_and_unused_ros_interfaces_do_not_return() -> None:
     plc_source = (
         ROOT / "src/rt_control/plc_node/plc_node/plc_node.py"
     ).read_text()
-    bms_source = (
-        ROOT / "src/rt_control/bms_node/bms_node/bms_node.py"
-    ).read_text()
+    bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
     bms_manifest = (ROOT / "src/rt_control/bms_node/package.xml").read_text()
 
     assert "create_subscription" not in plc_source
     assert '"/plc/command"' not in plc_source
     assert "/command" not in plc_source
-    assert bms_source.count("create_publisher") == 1
+    assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 1
     assert "can_bus_guard" not in bms_source
     assert "can_bus_guard" not in bms_manifest
 
@@ -349,7 +357,7 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
 
     assert "Requires=rt-control-can-names.service" in can1_unit
     assert "After=rt-control-can-names.service" in can1_unit
-    assert "ip link set dev can1 type can bitrate 500000" in can1_unit
+    assert "ip link set dev can1 type can bitrate 250000" in can1_unit
     assert "ip link set dev can1 txqueuelen 128" in can1_unit
     assert "ip link set dev can1 up" in can1_unit
     assert "Before=can1.service" in naming_unit
@@ -364,6 +372,7 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     assert 'legacy can0.service is still installed' in installer
     assert 'legacy can0.service remains installed' in verifier
     naming_script = (HOSTSETUP / "rt-control-can-names.sh").read_text()
+    assert 'readonly BITRATE="250000"' in naming_script
     assert 'verify_reserved_name_not_unknown can1' in naming_script
     assert 'wait_for_serial "BMS/can1" "${BMS_SERIAL}"' in naming_script
     assert "can0" not in naming_script

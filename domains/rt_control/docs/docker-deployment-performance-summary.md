@@ -66,7 +66,7 @@ flowchart LR
     H --> EC[16-position EtherCAT]
     H --> CAN[CANopen Node 2/3]
     P --> PLC[Modbus TCP PLC]
-    BM --> BCAN[CAN1 / 0x3FC]
+    BM --> BCAN[CAN1 250 kbit/s / 0x18900140 query / 0x18904001 response]
 ```
 
 容器已经实现：

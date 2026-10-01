@@ -191,3 +191,4 @@
 | 2026-09-21 | io-power | [双 E08 接入八路 A22 超声波](docs/areas/io-power/records/2026-09-21-dual-e08-eight-ultrasonic.md) | PARTIAL（T1 离线；双站号请求与八路发布测试通过，实机与声学串扰待验） |
 | 2026-09-25 | motion | [ELECTRI-133 Tier A 相对运动、无设备 Mock 与 cyclic adapter 集成](docs/areas/motion/records/2026-09-25-tier-a-relative-move-mock.md) | PARTIAL（T1；271 项双包测试及 connected synthetic PDO handoff 通过；新交接路径为主会话自审，独立审查/真实 PDO/标定/IMU 仍待完成） |
 | 2026-09-25 | contract | [ELECTRI-133 Tier A RT 私有底盘协议](docs/areas/contract/records/2026-09-25-tier-a-private-chassis-protocol.md) | PARTIAL（T1；新增六个类型及域内消费者构建通过，无跨域或硬件准入） |
+| 2026-09-30 | io-power | [金凤凰 BMS V1.1 C++ 驱动迁移](docs/areas/io-power/records/2026-09-30-golden-phoenix-bms-cpp.md) | UNVERIFIED（T0；15 项 C++/26 项聚焦/207 项质量门禁通过；can1 实机查询、字节序和 HMI 对照待验） |
