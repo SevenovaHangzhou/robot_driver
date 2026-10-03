@@ -392,7 +392,10 @@ def main(args=None) -> None:
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        executor.shutdown()
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            executor.shutdown()
+            node.destroy_node()
+            if rclpy.ok():
+                rclpy.shutdown()
+        except KeyboardInterrupt:
+            pass

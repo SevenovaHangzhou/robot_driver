@@ -13,6 +13,9 @@ find_package(diagnostic_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
+find_package(robot_rt_control_interfaces REQUIRED)
+find_package(robot_system_interfaces REQUIRED)
+find_package(unique_identifier_msgs REQUIRED)
 
 add_library(lpms_nav3_decoder src/decoder.cpp)
 target_compile_features(lpms_nav3_decoder PUBLIC cxx_std_17)
@@ -50,7 +53,10 @@ ament_target_dependencies(
   diagnostic_msgs
   rclcpp
   robot_interfaces_qos
+  robot_rt_control_interfaces
+  robot_system_interfaces
   sensor_msgs
+  unique_identifier_msgs
 )
 add_executable(lpms_nav3_can_node src/main.cpp)
 target_link_libraries(lpms_nav3_can_node lpms_nav3_node)
@@ -70,7 +76,9 @@ install(FILES README.md NOTICE.md DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(export_lpms_nav3_decoder HAS_LIBRARY_TARGET)
 ament_export_include_directories(include)
-ament_export_dependencies(diagnostic_msgs rclcpp robot_interfaces_qos sensor_msgs)
+ament_export_dependencies(
+  diagnostic_msgs rclcpp robot_interfaces_qos robot_rt_control_interfaces
+  robot_system_interfaces sensor_msgs unique_identifier_msgs)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
@@ -78,7 +86,9 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_node_without_can test/test_node_without_can.py TIMEOUT 60)
   ament_add_gtest(test_node test/test_node.cpp)
   target_link_libraries(test_node lpms_nav3_node)
-  ament_target_dependencies(test_node diagnostic_msgs rclcpp robot_interfaces_qos sensor_msgs)
+  ament_target_dependencies(
+    test_node diagnostic_msgs rclcpp robot_interfaces_qos
+    robot_rt_control_interfaces robot_system_interfaces sensor_msgs unique_identifier_msgs)
 
   ament_add_gtest(test_decoder test/test_decoder.cpp)
   target_compile_features(test_decoder PRIVATE cxx_std_17)

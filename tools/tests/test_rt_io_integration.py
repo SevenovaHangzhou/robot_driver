@@ -28,8 +28,8 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "9aa2693d7d3235958369272b7ce8c48592dd7e83",
-        "contract_version": "0.7.0",
+        "commit": "ea582c8a711874813d2ad7f0801b366bd32ab67e",
+        "contract_version": "1.0.0",
         "vendor_path": "src/vendor/robot_interfaces",
         "vendored_packages": list(public_packages),
     }
@@ -61,6 +61,7 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
         "msg/ChassisState.msg",
         "srv/ChassisSetMode.srv",
         "srv/ChassisResetFault.srv",
+        "srv/SetDigitalOutput.srv",
     }
 
 
@@ -75,22 +76,29 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     )["bms_node"]["ros__parameters"]
 
     assert plc["digital"]["module"]["host"] == "192.168.1.12"
-    assert plc["digital"]["inputs"]["infrared_laser"] == {"di_address": 0}
-    assert plc["digital"]["outputs"]["vacuum_pump_relay"]["do_address"] == 0
+    assert plc["digital"]["inputs"]["infrared_laser"] == {
+        "configured": False,
+        "active_high": True,
+        "di_address": 0,
+    }
+    assert plc["vacuum_system"]["configured"] is False
+    assert plc["digital"]["outputs"]["vacuum_pump_relay"]["do_address"] == -1
+    assert plc["digital"]["outputs"]["left_vacuum_valve"]["do_address"] == -1
+    assert plc["digital"]["outputs"]["right_vacuum_valve"]["do_address"] == -1
     assert plc["analog"]["module"]["host"] == "192.168.1.13"
-    vacuum_sensor = plc["analog"]["inputs"]["vacuum_sensor"]
-    assert vacuum_sensor["register"] == 0
-    assert vacuum_sensor["attached_threshold_kpa"] == -80.0
-    assert vacuum_sensor["released_threshold_kpa"] == 0.0
-    assert "outputs" not in plc
-    assert "vacuum_sensor" not in plc
+    left_sensor = plc["analog"]["inputs"]["left_vacuum_sensor"]
+    right_sensor = plc["analog"]["inputs"]["right_vacuum_sensor"]
+    assert left_sensor["register"] == -1
+    assert right_sensor["register"] == -1
+    assert left_sensor["sensor_id"] == "TBD"
+    assert right_sensor["sensor_id"] == "TBD"
     configured_hardware_parameters = (
         "digital.module.host",
         "digital.inputs.infrared_laser.di_address",
         "digital.outputs.vacuum_pump_relay.do_address",
+        "digital.outputs.left_vacuum_valve.do_address",
+        "digital.outputs.right_vacuum_valve.do_address",
         "analog.module.host",
-        "analog.inputs.vacuum_sensor.register",
-        "analog.inputs.vacuum_sensor.released_threshold_kpa",
     )
     for parameter_name in configured_hardware_parameters:
         assert f'declare_parameter("{parameter_name}"' in node_source
@@ -117,9 +125,13 @@ def test_rt_io_public_parameters_match_current_contract() -> None:
     vacuum_params = rt_io["vacuum_adapter"]["ros__parameters"]
     assert vacuum_params["vacuum_state_topic"] == "/vacuum/state"
     assert vacuum_params["pump_set_enabled_service"] == "/vacuum/pump/set_enabled"
-    assert vacuum_params["grip_action_name"] == "/vacuum/grip"
+    assert vacuum_params["valve_action_name"] == "/vacuum/valves/set"
+    assert vacuum_params["vacuum_event_topic"] == "/vacuum/events"
+    assert vacuum_params["left_valve_service"] == "/plc/vacuum_valve/left"
+    assert vacuum_params["right_valve_service"] == "/plc/vacuum_valve/right"
+    assert vacuum_params["attached_threshold_kpa"] == -60.0
+    assert vacuum_params["released_threshold_kpa"] == -1.0
     assert vacuum_params["publish_period_s"] == 0.05
-    assert vacuum_params["accepted_grip_profile_ids"] == ["default"]
 
     status_params = rt_io["rt_status_adapter"]["ros__parameters"]
     assert status_params["safety_state_topic"] == "/control/safety_state"
@@ -151,10 +163,13 @@ def test_public_vacuum_and_state_adapters_are_installed() -> None:
     ).read_text()
 
     assert "scripts/vacuum_adapter" in adapter_cmake
+    assert "scripts/module_state_adapter" in adapter_cmake
+    assert "scripts/position_action_adapter" in adapter_cmake
     assert "scripts/rt_status_adapter" in adapter_cmake
     assert "<exec_depend>robot_system_interfaces</exec_depend>" in adapter_manifest
     assert "<exec_depend>sensor_msgs</exec_depend>" in adapter_manifest
-    assert "<exec_depend>std_srvs</exec_depend>" in adapter_manifest
+    assert "<exec_depend>unique_identifier_msgs</exec_depend>" in adapter_manifest
+    assert "<exec_depend>std_srvs</exec_depend>" not in adapter_manifest
 
 
 def test_internal_dynamic_state_is_used_only_for_rt_diagnostics() -> None:

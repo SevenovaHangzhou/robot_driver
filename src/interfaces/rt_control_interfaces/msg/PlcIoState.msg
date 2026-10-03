@@ -1,13 +1,27 @@
 std_msgs/Header header
+bool hardware_configured
 bool connected
 bool data_fresh
-bool left_vacuum_established
-bool right_vacuum_established
-bool left_solenoid_on
-bool right_solenoid_on
+
+bool pump_output_valid
 bool vacuum_pump_on
-bool vacuum_pressure_valid
-float32 vacuum_pressure_kpa
-bool vacuum_released
+
+bool left_valve_output_valid
+bool left_solenoid_on
+bool right_valve_output_valid
+bool right_solenoid_on
+
+builtin_interfaces/Time left_pressure_stamp
+string left_pressure_sensor_id
+uint16 left_pressure_raw
+bool left_pressure_valid
+float32 left_pressure_kpa
+
+builtin_interfaces/Time right_pressure_stamp
+string right_pressure_sensor_id
+uint16 right_pressure_raw
+bool right_pressure_valid
+float32 right_pressure_kpa
+
 uint16 io_alarm
 string error

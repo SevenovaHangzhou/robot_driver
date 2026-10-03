@@ -17,6 +17,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PlcIoState.msg"
   "srv/ChassisSetMode.srv"
   "srv/ChassisResetFault.srv"
+  "srv/SetDigitalOutput.srv"
   "srv/RtEnable.srv"
   DEPENDENCIES builtin_interfaces robot_rt_control_interfaces std_msgs unique_identifier_msgs
 )

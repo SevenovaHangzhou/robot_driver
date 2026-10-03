@@ -5,11 +5,12 @@ import hashlib
 import re
 
 import yaml
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
 ROLLING = ROOT / "src/rt_control/rolling_trajectory_controller"
-EXPECTED_INTERFACE_SHA = "9aa2693d7d3235958369272b7ce8c48592dd7e83"
+EXPECTED_INTERFACE_SHA = "ea582c8a711874813d2ad7f0801b366bd32ab67e"
 EXPECTED_JOINTS = tuple(
     [f"right_joint{index}" for index in range(1, 8)]
     + [f"left_joint{index}" for index in range(1, 8)]
@@ -59,6 +60,23 @@ def test_v3_axis_set_hash_is_derived_from_the_documented_canonical_lines():
     encoded = bytes(int(value, 16) for value in re.findall(r"0x([0-9a-fA-F]+)U", block.group(1)))
     canonical = "".join(f"{name}:rad:rad/s\n" for name in EXPECTED_JOINTS).encode()
     assert encoded == hashlib.sha256(canonical).digest()
+
+
+def test_imported_public_axes_match_controller_names_and_digest():
+    registry = ROOT / "src/vendor/robot_interfaces/contract/endpoints.yaml"
+    if not registry.is_file():
+        pytest.skip("import deps.repos to verify the public/controller axis contract")
+    axes = yaml.safe_load(registry.read_text())["axis_sets"]["v3_dual_arm"]
+    assert tuple(axes["joint_names"]) == EXPECTED_JOINTS
+    assert axes["position_unit"] == "rad"
+    assert axes["velocity_unit"] == "rad/s"
+    canonical = "".join(f"{name}:rad:rad/s\n" for name in EXPECTED_JOINTS).encode()
+    assert axes["sha256"] == hashlib.sha256(canonical).hexdigest()
+    source = (ROLLING / "src/rolling_trajectory_controller.cpp").read_text()
+    values = re.search(r"kAxisSetHash\s*=\s*\{(.*?)\};", source, re.S)
+    assert values is not None
+    digest = bytes(int(v, 16) for v in re.findall(r"0x([0-9a-fA-F]+)U", values.group(1)))
+    assert axes["sha256"] == digest.hex()
 
 
 def test_v3_branch_contract_requires_arm_runtime_not_only_validation():

@@ -38,13 +38,17 @@ def test_plc_state_message_projects_confirmed_semantics() -> None:
         stamp=Time(sec=10),
     )
 
+    assert not message.hardware_configured
     assert message.connected
     assert message.data_fresh
-    assert message.left_vacuum_established
-    assert not message.right_vacuum_established
+    assert message.left_valve_output_valid
     assert not message.left_solenoid_on
+    assert message.right_valve_output_valid
     assert message.right_solenoid_on
+    assert message.pump_output_valid
     assert message.vacuum_pump_on
+    assert not message.left_pressure_valid
+    assert not message.right_pressure_valid
     assert message.io_alarm == 3
     assert message.header.frame_id == "plc"
 

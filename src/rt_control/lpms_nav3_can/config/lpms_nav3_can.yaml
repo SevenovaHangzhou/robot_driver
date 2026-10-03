@@ -12,3 +12,6 @@
     pdo_timeout_ms: 250
     assembly_timeout_ms: 50
     heartbeat_timeout_ms: 2500
+    imu_topic: "/imu/data"
+    diagnostics_topic: "~/diagnostics"
+    sensor_status_topic: "/rt_control/sensors/status"

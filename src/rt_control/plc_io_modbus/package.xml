@@ -9,8 +9,11 @@
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>rt_control_interfaces</depend>
+  <depend>robot_interfaces_qos</depend>
+  <depend>robot_rt_control_interfaces</depend>
+  <depend>robot_system_interfaces</depend>
   <depend>std_msgs</depend>
-  <depend>std_srvs</depend>
+  <depend>unique_identifier_msgs</depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
   <member_of_group>rosidl_interface_packages</member_of_group>
   <export>

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from ament_index_python.packages import get_package_share_directory
 import xacro
 import yaml
 
@@ -41,7 +42,11 @@ def build_head_runtime(
     controller_share: str | Path, use_mock_hardware: bool,
     bringup_share: str | Path | None = None,
 ) -> HeadRuntime:
-    root = Path(bringup_share) if bringup_share is not None else Path(__file__).resolve().parents[1]
+    root = (
+        Path(bringup_share)
+        if bringup_share is not None
+        else Path(get_package_share_directory("rt_control_bringup"))
+    )
     wrapper = root / "urdf/alfa_v3_head.ros2_control.xacro"
     document = xacro.process_file(
         str(wrapper),

@@ -2,7 +2,8 @@ repositories:
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git
-    version: 9aa2693d7d3235958369272b7ce8c48592dd7e83
+    # Review-only candidate from robot_interfaces PR #11; replace after dependency approval.
+    version: ea582c8a711874813d2ad7f0801b366bd32ab67e
   src/vendor/ecat_icube:
     type: git
     url: https://github.com/ICube-Robotics/ethercat_driver_ros2.git

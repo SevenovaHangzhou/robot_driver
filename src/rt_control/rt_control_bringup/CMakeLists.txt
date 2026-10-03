@@ -24,6 +24,7 @@ install(
     launch/rt_control_enable_only.launch.py
     launch/rt_control_arm_runtime.launch.py
     launch/rt_control_head_runtime.launch.py
+    launch/rt_control_interface_runtime.launch.py
     launch/rt_control_ultrasonic.launch.py
   DESTINATION share/${PROJECT_NAME}/launch
 )
@@ -38,6 +39,7 @@ install(
     config/alfa_v3_grippers.draft.yaml
     config/alfa_v3_rolling_envelope.mock.yaml
     config/bluepoint_force_sensors.draft.yaml
+    config/rt_io.yaml
   DESTINATION share/${PROJECT_NAME}/config
 )
 install(
@@ -55,6 +57,10 @@ if(BUILD_TESTING)
   )
   ament_add_pytest_test(test_stationary_enable test/test_stationary_enable.py)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
+  ament_add_pytest_test(
+    test_interface_runtime_launch
+    test/test_interface_runtime_launch.py
+  )
   ament_add_pytest_test(
     test_arm_motion_runtime
     test/test_arm_motion_runtime.py

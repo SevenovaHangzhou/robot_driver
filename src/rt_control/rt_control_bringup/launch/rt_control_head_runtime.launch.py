@@ -37,6 +37,10 @@ def setup(context):
         raise ValueError("head_can_config is required for the V3 head runtime")
     config = load_head_can_config(config_path)
     use_mock_hardware = _boolean(context, "use_mock_hardware")
+    publish_robot_state = (
+        _boolean(context, "publish_robot_state")
+        if "publish_robot_state" in context.launch_configurations else True
+    )
     bringup_share = Path(get_package_share_directory("rt_control_bringup"))
     build = build_head_runtime(
         config=config,
@@ -71,24 +75,27 @@ def setup(context):
                    "--controller-manager-timeout", "30"],
         output="both",
     )
-    return [
+    actions = [
         RegisterEventHandler(OnProcessExit(
             target_action=manager,
             on_exit=[EmitEvent(event=Shutdown(reason="V3 head controller manager exited"))],
         )),
         manager,
-        robot_state_publisher,
         position_loader,
         RegisterEventHandler(OnProcessExit(
             target_action=position_loader,
             on_exit=_start_if_succeeded(lifecycle_loader, "V3 head controller loading failed"),
         )),
     ]
+    if publish_robot_state:
+        actions.insert(2, robot_state_publisher)
+    return actions
 
 
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("head_can_config", default_value=""),
         DeclareLaunchArgument("use_mock_hardware", default_value="true"),
+        DeclareLaunchArgument("publish_robot_state", default_value="true"),
         OpaqueFunction(function=setup),
     ])

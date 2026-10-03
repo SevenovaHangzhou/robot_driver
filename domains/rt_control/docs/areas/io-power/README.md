@@ -5,7 +5,7 @@
 **Owner 包/资产**：`src/rt_control/plc_node`、`src/rt_control/plc_io_modbus`、
 `src/rt_control/bms_node`、`src/rt_control/modbus_tcp_rtu485`。
 
-不属于本区：`/vacuum/grip` 等公共契约适配（→ contract）、CAN 接口宿主命名与
+不属于本区：`/vacuum/valves/set` 等公共契约适配（→ contract）、CAN 接口宿主命名与
 systemd unit（→ realtime-host）。
 
 ## 冻结事实（当前有效）
@@ -15,8 +15,8 @@ systemd unit（→ realtime-host）。
 | 01#F1 | 输出 bit0=右阀、bit1=左阀、bit2=共用泵 | [io-power-20260817-01](records/2026-08-17-correct-solenoid-side-mapping.md)#F1 | 有效 |
 | 01#F2 | 本次未重新确认左右真空输入 bit，保持现状但仍需闭环复核 | [io-power-20260817-01](records/2026-08-17-correct-solenoid-side-mapping.md)#F2 | 有效 |
 | 02#F1 | 当前新工控机访问 `192.168.1.88:502` 的 PLC socket 固定绑定 `eno1`；旧 `enp4s0` 不再是活动配置。 | [io-power-20260904-01](records/2026-09-04-plc-interface-eno1.md)#F1 | PARTIAL（配置/测试通过；运行进程待授权重启） |
-| 03#F1 | 分立数字/模拟量模块通过既有 `/plc/*` 私有接口接入公共真空适配器；输出读回与模拟量吸附判定分离。 | [io-power-20260914-01](records/2026-09-14-discrete-analog-vacuum-bridge.md)#F1 | PARTIAL（源码/离线验证；待实机闭环） |
-| 04#F1 | LED 颜色话题仅为域内工程输入，外部消费者需先审查公共契约。 | [io-power-20260916-01](records/2026-09-16-modbus-led-driver.md)#F1 | 有效 |
+| 03#F1 | 分立数字/模拟量模块通过既有 `/plc/*` 私有接口接入公共真空适配器；输出读回与模拟量吸附判定分离。 | [io-power-20260914-01](records/2026-09-14-discrete-analog-vacuum-bridge.md)#F1 | 已由 11#F1 取代 |
+| 04#F1 | LED 颜色话题仅为域内工程输入，外部消费者需先审查公共契约。 | [io-power-20260916-01](records/2026-09-16-modbus-led-driver.md)#F1 | 已由 11#F3 取代 |
 | 04#F2 | LED 写入失败不自动重试，退出不发送关灯/复位命令，可能保持最后颜色。 | [io-power-20260916-01](records/2026-09-16-modbus-led-driver.md)#F2 | PARTIAL（退出源码/离线；硬件保持待验） |
 | 04#F3 | LED YAML 是用户配置而非现场验证证据，设备身份/地址/寄存器映射待验。 | [io-power-20260916-01](records/2026-09-16-modbus-led-driver.md)#F3 | PARTIAL |
 | 05#F1 | `modbus_tcp_rtu485` 同包拥有独立 LED 写节点与 E08 超声波只读节点，网络 IO 均不进入 ros2_control 实时环。 | [io-power-20260917-01](records/2026-09-17-modbus-ultrasonic-driver.md)#F1 | 有效 |
@@ -28,17 +28,22 @@ systemd unit（→ realtime-host）。
 | 06#F4 | E084F 一次 FC03 连读四个通道，按已确认配置同时测量；驱动不做逐路发射轮询。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F4 | 已由 08#F2/F3 扩展为双 E08 串行轮询 |
 | 06#F5 | V3 安装独立 `rt_control_ultrasonic.launch.py`，双臂 runtime 不隐式启动采集，Mock 禁用硬件进程。 | [io-power-20260919-01](records/2026-09-19-ultrasonic-standard-range.md)#F5 | PARTIAL（离线/安装后 Mock 通过；实机待验） |
 | 07#F1 | LED 驱动配置为六个控制器，共享 TCP 502，RTU 站号依次为 1..6。 | [io-power-20260920-01](records/2026-09-20-six-led-controllers.md)#F1 | PARTIAL（用户确认配置；实机未验证） |
-| 07#F2 | 六路域内颜色话题为 `led0/color`..`led5/color`，每路保持既有 RGBW/FC16 语义。 | [io-power-20260920-01](records/2026-09-20-six-led-controllers.md)#F2 | PASS（源码与离线构建） |
+| 07#F2 | 六路域内颜色话题为 `led0/color`..`led5/color`，每路保持既有 RGBW/FC16 语义。 | [io-power-20260920-01](records/2026-09-20-six-led-controllers.md)#F2 | 已由 11#F3 取代 |
 | 08#F1 | 两台 E08 共用 TCP 504，驱动站号为 unit 1 和 unit 6；站号 2..5 为 E08 保留地址。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F1 | PARTIAL（协议/离线；第二台实机待验） |
 | 08#F2/F4 | 八路 A22 映射为 unit 1 和 unit 6 各四路，发布 `channel1..8`；ROS 视场角固定为 40 度，A22 角度等级 2 待实机配置。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F2-F4 | PARTIAL（离线通过；实机配置待验） |
-| 08#F3 | 一个测量周期串行执行两次四寄存器 FC03，均成功才发布同批八路数据；每台 E08 内四路仍同时触发。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F3 | PARTIAL（离线通过；实机时序与声学串扰待验） |
+| 08#F3 | 一个测量周期串行执行两次四寄存器 FC03，均成功才发布同批八路数据；每台 E08 内四路仍同时触发。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F3 | 已由 11#F2 取代 |
 | 10#F1 | BMS 只支持金凤凰 V1.1 C++ 查询路径：`0x18900140` 请求、`0x18904001` 响应。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F1 | PARTIAL（离线构建/测试；实机待验） |
 | 10#F2 | BMS `can1` 使用 250 kbit/s，CANopen `can0` 保持 500 kbit/s。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F2 | PARTIAL（配置/门禁；实机待验） |
 | 10#F3 | `/battery_state` 继续 5 s 发布，3 s 失联后 NaN/present=false。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F3 | PASS（源码/自动测试） |
 | 10#F4 | 金凤凰 PDF 未定义字节序，默认 auto 歧义拒绝；实机抓包前不冻结 big/little。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F4 | OPEN（实机待验） |
+| 11#F1 | V3 真空软件按共用泵、左右独立阀和左右独立压力建模；映射缺失时 fail closed | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F1 | PARTIAL（T1；BQ-152） |
+| 11#F2 | 两台 E08 分别发布，单台失败不阻止另一台；Range 年龄 >2.5 s 过期 | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F2 | PASS（源码/无设备；实机时序待验） |
+| 11#F3 | LED 公共入口为完整 RGBW 服务，写确认不等于实际发光 | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F3 | PARTIAL（源码/协议；实机写待验） |
+| 11#F4 | 红外为开关量；BMS 本轮只读；IMU 失效策略归 Navigation | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F4 | PARTIAL（实物配置待补） |
 
 ## 记录索引（倒序）
 
+- 2026-10-02 [双侧真空与结构化传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md) — PARTIAL（T1；实物映射与实机验证待补）
 - 2026-09-30 [金凤凰 BMS V1.1 C++ 驱动迁移](records/2026-09-30-golden-phoenix-bms-cpp.md) — feature，UNVERIFIED（T0；15 项 C++、26 项聚焦测试与 207 项质量门禁通过，实机待验）
 - 2026-09-21 [双 E08 接入八路 A22 超声波](records/2026-09-21-dual-e08-eight-ultrasonic.md) — feature，PARTIAL（T1 离线；八路实机与声学串扰待验）
 - 2026-09-20 [Modbus LED 控制器由四路扩展为六路](records/2026-09-20-six-led-controllers.md) — feature，PARTIAL（离线构建通过；实机未验证）

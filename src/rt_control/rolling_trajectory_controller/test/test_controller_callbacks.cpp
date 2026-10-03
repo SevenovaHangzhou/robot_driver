@@ -367,6 +367,29 @@ TEST_F(ControllerCallbacksTest, OpenAdmissionAndRetryAreDeterministic)
   EXPECT_EQ(RollingControllerTestPeer::sessionState(*controller_), SessionState::kPriming);
 }
 
+TEST_F(ControllerCallbacksTest, RejectsLegacySixPlusSixTurnLiftAxisIdentity)
+{
+  // SHA-256 of V2 right_joint1..6,left_joint1..6,turn (rad/rad/s),updown (m/m/s).
+  // The payload has the same length as V3; axis count alone cannot admit it.
+  const std::array<std::uint8_t, 32> legacy_hash = {
+    0xc1U, 0xb5U, 0xbfU, 0x04U, 0x12U, 0xf2U, 0xa2U, 0x03U,
+    0xf9U, 0x46U, 0x71U, 0x62U, 0x01U, 0x80U, 0xb1U, 0xdcU,
+    0x4dU, 0x19U, 0x71U, 0xdbU, 0x67U, 0x10U, 0xa2U, 0xe9U,
+    0x72U, 0xfeU, 0x89U, 0xc3U, 0x00U, 0xf6U, 0x25U, 0x49U};
+  auto request = makeOpenRequest(RollingControllerTestPeer::bootId(*controller_));
+  request.axis_set_hash = legacy_hash;
+  const auto rejected = callOpen(request);
+  EXPECT_FALSE(rejected.accepted);
+  EXPECT_EQ(rejected.result.value, PublicServiceResult::AXIS_SET_MISMATCH);
+  EXPECT_EQ(RollingControllerTestPeer::sessionState(*controller_), SessionState::kNone);
+
+  request.axis_set_hash = kAxisSetHash;
+  const auto accepted = callOpen(request);
+  ASSERT_TRUE(accepted.accepted);
+  EXPECT_EQ(accepted.axis_set_hash, kAxisSetHash);
+  EXPECT_EQ(accepted.hold_positions.size(), 14U);
+}
+
 TEST_F(ControllerCallbacksTest, UpdateMappingPublishesOnlyCompleteAcceptedGenerations)
 {
   const Open::Response open = callOpen(

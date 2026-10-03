@@ -36,18 +36,18 @@ four TPDOs; old partial assemblies are discarded on the next incoming PDO after
 host-arrival based and is not proof that the four frames share a device timestamp.
 ROS timestamp is publication time, not hardware or kernel CAN capture time.
 
-## Private Topics
+## Topics
 
 | Topic | Type | QoS |
 | --- | --- | --- |
-| ~/data | sensor_msgs/msg/Imu | robot_interfaces_qos::fast_state (reliable) |
-| ~/mag | sensor_msgs/msg/MagneticField | fast_state (reliable) |
-| ~/diagnostics | diagnostic_msgs/msg/DiagnosticArray | diagnostic (reliable) |
+| `/imu/data` | sensor_msgs/msg/Imu | robot_interfaces_qos::fast_state (reliable) |
+| `~/mag` | sensor_msgs/msg/MagneticField | fast_state (reliable), RT-local commissioning only |
+| `~/diagnostics` | diagnostic_msgs/msg/DiagnosticArray | diagnostic (reliable), engineering diagnostics |
+| `/rt_control/sensors/status` | robot_rt_control_interfaces/msg/SensorStatusArray | state (reliable), cross-domain validity |
 
-These are commissioning/private endpoints, not newly frozen cross-domain contracts.
-Unlike the staging version's SensorDataQoS, publication uses the repository's
-named profiles. Explicit bench remaps can reproduce `/imu/data` and `/imu/mag`;
-production remapping/fusion requires a separately approved public contract.
+The IMU observation and structured validity status are public contract endpoints.
+The magnetic field remains an RT-local commissioning endpoint. Publication uses
+repository named QoS profiles.
 
 `convert_to_ros_convention=false` keeps LPMS axes after SI conversion. The optional
 legacy conversion negates acceleration and conjugates the quaternion; it does not

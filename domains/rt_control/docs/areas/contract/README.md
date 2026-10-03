@@ -17,7 +17,7 @@
 | 02#F1 | vendored 权威 RT-Control 视图固定 /joint_states=125 Hz | [contract-20260814-01](records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F1 | 有效 |
 | 02#F2 | src/interfaces 只保留域内私有接口，公共 schema 从 vendor 构建 | [contract-20260814-01](records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F2 | 有效 |
 | 02#F3 | 跨域 Topic 使用 robot_interfaces_qos 命名 profile | [contract-20260814-01](records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F3 | 有效 |
-| 02#F4 | /cmd_vel_safe QoS 由 Motion 与 RT-Control 原子升级 | [contract-20260814-01](records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F4 | 有效 |
+| 02#F4 | /cmd_vel_safe QoS 由 Motion 与 RT-Control 原子升级 | [contract-20260814-01](records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F4 | 已由 14#F3 取代 |
 | 03#F1 | ErrorInfo 是跨域公共载荷，code 唯一采用 uint32 DREE | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F1 | 有效 |
 | 03#F2 | 当前 DomainReadiness 为最终公共字段集并遵守一致性规则 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F2 | 有效 |
 | 03#F3 | 全部生产/消费域必须锁定同一接口 SHA 原子升级 | [contract-20260816-01](records/2026-08-16-bq137-shared-error-readiness.md)#F3 | 有效 |
@@ -41,10 +41,19 @@
 | 11#F1 | V3 目标 FJT/rolling 固定为 7+7 CSP 臂轴，PP 夹爪独立；当前 V3 无轨迹 runtime，ELECTRI-102 旧 hash/4 ms/包络不得复用 | [V3 机械臂对接方案](records/2026-09-18-v3-arm-motion-integration-guide.md)#F1-F4 | UNVERIFIED（T0 方案；公共契约/runtime/HIL 待完成） |
 | 12#F1 | V3 实现 pin 为 robot_interfaces@9aa2693，rolling axis hash 固定为 f4c8ff8a...dee4，域内 mode result 不扩大跨域接口 | [V3 rolling 轴合同](records/2026-09-19-v3-rolling-axis-contract.md)#F1-F3 | PARTIAL（T1；上游 V3 注释和跨域联合验证待完成） |
 | 13#F1 | ELECTRI-133 新增六个 RT 私有 chassis 类型；真实 ROS action/service 验证由无设备 Mock 与 opt-in loaned-interface adapter 提供，不增加域外消费者或 production 准入 | [Tier A 私有协议](records/2026-09-25-tier-a-private-chassis-protocol.md)#F1-F3 | PARTIAL（T1；实机 PDO/标定/IMU 待验） |
-| 13#F4 | 本地舵轮速度入口唯一改为 `/cmd_vel`；公共契约与全部跨域消费者尚未锁定新 SHA，原子升级前不得部署 | [Tier A 私有协议](records/2026-09-25-tier-a-private-chassis-protocol.md)#F4 | BLOCKED（待 robot_interfaces 变更及联合验证） |
+| 13#F4 | 本地舵轮速度入口唯一改为 `/cmd_vel`；公共契约与全部跨域消费者尚未锁定新 SHA，原子升级前不得部署 | [Tier A 私有协议](records/2026-09-25-tier-a-private-chassis-protocol.md)#F4 | 已由 14#F3 接口草案实现；发布仍受 14#F4 阻塞 |
+| 14#F1 | 新真空职责为 Autonomy 管泵、Motion 管左右阀，阀输出确认不等于吸牢 | [V3 公共接口实现](records/2026-10-02-v3-interface-contract-implementation.md)#F1 | PARTIAL（IDL/源码/Mock；实物待验） |
+| 14#F2 | PP、头部、升降使用位置 Action；未配置资源 fail closed | [V3 公共接口实现](records/2026-10-02-v3-interface-contract-implementation.md)#F2 | PARTIAL（T1；实物配置待补） |
+| 14#F3 | `/cmd_vel` 是当前唯一底盘入口，取消底盘与双臂/升降/PP跨组互斥 | [V3 公共接口实现](records/2026-10-02-v3-interface-contract-implementation.md)#F3 | PASS（契约/源码检查；联合运行待验） |
+| 14#F4 | 新 schema 已提交 PR #11；合并后的最终 main SHA 才能用于全部域原子升级 | [V3 公共接口实现](records/2026-10-02-v3-interface-contract-implementation.md)#F4 | BLOCKED（CI通过；等待两名批准/合并） |
 
 ## 记录索引（倒序）
 
+- 2026-10-03 [Rolling三代双七轴纠错与扩大复核](records/2026-10-03-rolling-v3-and-interface-audit.md) — PARTIAL；公共轴合同/未知输出/停稳判定已修正，完整软件缺口仍阻塞Ready。
+
+- 2026-10-03 [ELECTRI-174 依赖接口的 driver Draft](records/2026-10-03-interface-dependent-draft.md) — PARTIAL；更正前述完成边界，位置／保护执行接线仍未完成。
+
+- 2026-10-02 [V3 公共接口与适配器实现](records/2026-10-02-v3-interface-contract-implementation.md) — PARTIAL（T1；发布 SHA、全闭包与跨域 smoke 待完成）。
 - 2026-09-25 [ELECTRI-133 Tier A 私有底盘协议](records/2026-09-25-tier-a-private-chassis-protocol.md) — feature，PARTIAL（T1）。
 
 - 2026-09-19 [V3 rolling 接口 pin 与轴集合身份](records/2026-09-19-v3-rolling-axis-contract.md) — feature，PARTIAL（T1）。

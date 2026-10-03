@@ -40,8 +40,9 @@ def test_lpms_has_no_bus_write_or_host_deployment_configuration():
     assert "::write(" not in source
     assert "::send(" not in source
     assert "make_nmt_start_frame" not in source
-    assert '"~/data"' in source
+    assert '"imu_topic", "/imu/data"' in source
     assert '"~/mag"' in source
-    assert '"~/diagnostics"' in source
+    assert '"diagnostics_topic", "~/diagnostics"' in source
+    assert '"sensor_status_topic", "/rt_control/sensors/status"' in source
     assert not list((PACKAGE / "config").glob("*.service"))
     assert not list((PACKAGE / "config").glob("*.rules"))

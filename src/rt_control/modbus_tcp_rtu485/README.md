@@ -15,13 +15,15 @@ the same port while a node is running.
 
 ## LED node
 
-`led_strip_node` subscribes to `led0/color` through `led5/color` using
-`std_msgs/msg/ColorRGBA`. RGB is normalized to `0.0..1.0`; alpha is the W
-channel. Each message writes WE-10x holding registers 40001..40004 with FC16.
+`led_strip_node` provides `/led/set_rgbw` using
+`robot_rt_control_interfaces/srv/SetLedRgbw`. The request selects strip 0..5
+and supplies complete normalized red, green, blue and white values. Four zeros
+mean off. The service rejects non-finite or out-of-range values instead of
+clamping them. A successful result proves only that the Modbus write was
+acknowledged; the hardware has no light-output feedback.
 
 The supplied `led_strip.yaml` defines six controllers sharing TCP 502 and using
-RTU addresses 1 through 6. Change it
-only after checking the physical bus.
+RTU addresses 1 through 6. Change it only after checking the physical bus.
 
 ```bash
 ros2 run modbus_tcp_rtu485 led_strip_node --ros-args \
@@ -31,8 +33,8 @@ ros2 run modbus_tcp_rtu485 led_strip_node --ros-args \
 Example command, which writes real hardware:
 
 ```bash
-ros2 topic pub --once /led0/color std_msgs/msg/ColorRGBA \
-  '{r: 1.0, g: 0.0, b: 0.0, a: 0.0}'
+ros2 service call /led/set_rgbw robot_rt_control_interfaces/srv/SetLedRgbw \
+  '{strip_id: 0, red: 1.0, green: 0.0, blue: 0.0, white: 0.0}'
 ```
 
 Failed writes are logged and are not retried. Exit does not send an implicit
@@ -54,9 +56,10 @@ Published topics:
 
 | Topic | Type | Meaning |
 | --- | --- | --- |
-| `ultrasonic/channel1/range` .. `channel8/range` | `sensor_msgs/msg/Range` | Per-channel range, timestamp, frame, radiation type, field of view and range limits |
-| `ultrasonic/raw` | `std_msgs/msg/UInt16MultiArray` | Eight unmodified E08 registers, ordered by channel |
-| `ultrasonic/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Per-channel protocol state or gateway error |
+| `/ultrasonic/channel1/range` .. `channel8/range` | `sensor_msgs/msg/Range` | Per-channel range; each E08 uses its own read-completion time |
+| `/ultrasonic/unit1/raw`, `/ultrasonic/unit6/raw` | `std_msgs/msg/UInt16MultiArray` | Four unmodified registers from one successful E08 read |
+| `/rt_control/sensors/status` | `robot_rt_control_interfaces/msg/SensorStatusArray` | Per-channel validity, protocol state, communication failure and sample time |
+| `/ultrasonic/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Engineering diagnostics |
 
 Protocol values are mapped as follows:
 
@@ -69,8 +72,10 @@ Protocol values are mapped as follows:
 | `0xEEEE` | NaN | `ERROR / checksum_error` |
 
 Values outside configured `min_range_m..max_range_m` publish NaN with
-`WARN / out_of_range`. A TCP/Modbus failure publishes only an ERROR diagnostic;
-the node does not republish stale measurements as current data.
+`WARN / out_of_range`. Each E08 is attempted independently. A TCP/Modbus failure
+stops only that unit's four Range topics, publishes immediate structured failure
+state and does not republish stale measurements. Consumers treat a Range older
+than 2.5 seconds as stale.
 
 ```bash
 ros2 run modbus_tcp_rtu485 ultrasonic_node --ros-args \
@@ -80,12 +85,13 @@ ros2 run modbus_tcp_rtu485 ultrasonic_node --ros-args \
 Inspect data with:
 
 ```bash
-ros2 topic echo /ultrasonic/raw
+ros2 topic echo /ultrasonic/unit1/raw
 ros2 topic echo /ultrasonic/channel1/range
-ros2 topic echo /ultrasonic/diagnostics
+ros2 topic echo /rt_control/sensors/status
 ```
 
-The eight messages from one two-E08 poll cycle share the response-completion timestamp.
+The four messages from one E08 read share that request's response-completion
+timestamp. The two E08 reads are not presented as one synchronized sample.
 Default frames are channel identifiers only. Replace them with the installed
 sensor frame names and publish measured transforms to `base_link` before another
 domain uses the readings geometrically. Protocol and gateway failures are
