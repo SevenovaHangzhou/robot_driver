@@ -94,6 +94,10 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-10-03 | contract | [ELECTRI-174 依赖接口的 driver Draft 与软件缺口更正](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md) | PARTIAL（候选 pin；禁止合并部署，软件与实物缺口分列） |
+| 2026-10-02 | contract | [V3 公共接口与适配器实现](docs/areas/contract/records/2026-10-02-v3-interface-contract-implementation.md) | PARTIAL（T1；接口发布SHA/全闭包/跨域smoke待完成） |
+| 2026-10-02 | io-power | [双侧真空与结构化传感器接口](docs/areas/io-power/records/2026-10-02-dual-vacuum-and-sensor-interfaces.md) | PARTIAL（T1；实物映射待补） |
+| 2026-10-02 | motion | [PP头部升降位置Action适配](docs/areas/motion/records/2026-10-02-position-action-adapters.md) | PARTIAL（T1；实物参数/全闭包待完成） |
 | 2026-08-13 | governance | [建立功能区开发记录体系](docs/areas/governance/records/2026-08-13-establish-area-record-system.md) | UNVERIFIED |
 | 2026-08-13 | governance | [首版发布前测试用例目录](docs/areas/governance/records/2026-08-13-test-case-catalog-v1.md) | UNVERIFIED |
 | 2026-08-13 | governance | [文档矛盾修正与重复测试清理](docs/areas/governance/records/2026-08-13-doc-contradiction-and-test-dedup.md) | PASS |

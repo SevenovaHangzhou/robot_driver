@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import threading
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Callable, Protocol, Sequence
 
@@ -16,86 +17,99 @@ from .public_error import (
 LEFT = "left"
 RIGHT = "right"
 CHANNELS = (LEFT, RIGHT)
-GRIP = 1
-RELEASE = 2
-UNVERIFIED = 0
-ATTACHED_VERIFIED = 1
+TARGET_SUCTION = 1
+TARGET_RELEASE = 2
+OUTCOME_UNSPECIFIED = 0
+OUTCOME_CONFIRMED = 1
+OUTCOME_NOT_EXECUTED = 2
+OUTCOME_UNKNOWN = 3
+VACUUM_UNKNOWN = 0
+VACUUM_ATTACHED = 1
+VACUUM_INTERMEDIATE = 2
+VACUUM_RELEASED = 3
+
+
+@dataclass(frozen=True)
+class ChannelSnapshot:
+    channel: str
+    sensor_id: str = ""
+    pressure_stamp_sec: int = 0
+    pressure_stamp_nanosec: int = 0
+    pressure_raw: int = 0
+    pressure_valid: bool = False
+    pressure_kpa: float = math.nan
+    valve_valid: bool = False
+    valve_on: bool = False
 
 
 @dataclass(frozen=True)
 class PlcVacuumSnapshot:
+    hardware_configured: bool
     connected: bool
     data_fresh: bool
-    left_attached: bool
-    right_attached: bool
-    left_valve_open: bool
-    right_valve_open: bool
+    pump_valid: bool
     pump_enabled: bool
-    error: str = ""
-    vacuum_pressure_valid: bool = False
-    vacuum_pressure_kpa: float = math.nan
-    vacuum_released: bool = False
-
-    def channel_attached(self, channel: str) -> bool:
-        if channel == LEFT:
-            return self.left_attached
-        if channel == RIGHT:
-            return self.right_attached
-        raise ValueError(f"unsupported vacuum channel: {channel}")
-
-    def channel_valve_open(self, channel: str) -> bool:
-        if channel in CHANNELS:
-            # 公共消息保留历史字段名；单继电器硬件中它表示泵继电器命令状态。
-            return self.pump_enabled
-        raise ValueError(f"unsupported vacuum channel: {channel}")
-
-    @property
-    def any_possible_load_held(self) -> bool:
-        return (
-            self.left_attached
-            or self.right_attached
-        )
-
-
-@dataclass(frozen=True)
-class VacuumChannelStateData:
-    channel: str
-    attached: bool
-    pump_enabled: bool
-    valve_commanded_open: bool
-    data_fresh: bool
-
-
-@dataclass(frozen=True)
-class VacuumChannelResultData:
-    channel: str
-    command_accepted: bool
-    valve_actuation_completed: bool
-    verification_level: int
+    left: ChannelSnapshot
+    right: ChannelSnapshot
+    state_stamp_sec: int = 0
+    state_stamp_nanosec: int = 0
     error: str = ""
 
-
-@dataclass(frozen=True)
-class VacuumExecutionResult:
-    succeeded: bool
-    accepted: bool
-    overall_verification_level: int
-    error: ErrorInfoData
-    channel_results: tuple[VacuumChannelResultData, ...]
+    def channel(self, name: str) -> ChannelSnapshot:
+        if name == LEFT:
+            return self.left
+        if name == RIGHT:
+            return self.right
+        raise ValueError(f"unsupported vacuum channel: {name}")
 
 
 @dataclass(frozen=True)
 class PlcCommandResult:
-    success: bool
+    accepted: bool
+    outcome: int
+    observed_value: bool
+    observation_valid: bool
     message: str
     error_code: PublicErrorCode
 
 
 @dataclass(frozen=True)
-class PumpCommandResult:
-    accepted: bool
-    enabled: bool
+class OutputResultData:
+    resource_id: str
+    attempt_id: uuid.UUID
+    outcome: int
+    requested_value: bool
+    observed_value: bool
+    observation_valid: bool
+    started_ns: int
+    completed_ns: int
     error: ErrorInfoData
+
+
+@dataclass(frozen=True)
+class PumpExecutionResult:
+    accepted: bool
+    output: OutputResultData
+    error: ErrorInfoData
+
+
+@dataclass(frozen=True)
+class ValveExecutionResult:
+    accepted: bool
+    succeeded: bool
+    canceled: bool
+    request_id: bytes
+    channel_results: tuple[OutputResultData, ...]
+    error: ErrorInfoData
+
+
+@dataclass(frozen=True)
+class ValveContext:
+    request_id: bytes
+    attempt_id: uuid.UUID
+    target: int
+    completed_ns: int
+    confirmed: bool
 
 
 class VacuumIo(Protocol):
@@ -103,23 +117,6 @@ class VacuumIo(Protocol):
         ...
 
     def read_snapshot(self) -> PlcVacuumSnapshot:
-        ...
-
-    def wait_for_attachment(
-        self,
-        channels: Sequence[str],
-        timeout_s: float,
-        cancel_requested: Callable[[], bool],
-        state_callback: Callable[[PlcVacuumSnapshot], None],
-    ) -> PlcVacuumSnapshot:
-        ...
-
-    def wait_for_release(
-        self,
-        timeout_s: float,
-        cancel_requested: Callable[[], bool],
-        state_callback: Callable[[PlcVacuumSnapshot], None],
-    ) -> PlcVacuumSnapshot:
         ...
 
 
@@ -135,25 +132,24 @@ def normalize_channels(channels: Sequence[str]) -> tuple[str, ...]:
     return normalized
 
 
-def build_vacuum_channel_states(
-    snapshot: PlcVacuumSnapshot,
-) -> tuple[VacuumChannelStateData, VacuumChannelStateData]:
-    return (
-        VacuumChannelStateData(
-            channel=LEFT,
-            attached=snapshot.left_attached,
-            pump_enabled=snapshot.pump_enabled,
-            valve_commanded_open=snapshot.channel_valve_open(LEFT),
-            data_fresh=snapshot.connected and snapshot.data_fresh,
-        ),
-        VacuumChannelStateData(
-            channel=RIGHT,
-            attached=snapshot.right_attached,
-            pump_enabled=snapshot.pump_enabled,
-            valve_commanded_open=snapshot.channel_valve_open(RIGHT),
-            data_fresh=snapshot.connected and snapshot.data_fresh,
-        ),
-    )
+def classify_vacuum(
+    observation: ChannelSnapshot,
+    *,
+    data_fresh: bool,
+    attached_threshold_kpa: float = -60.0,
+    released_threshold_kpa: float = -1.0,
+) -> int:
+    if (
+        not data_fresh
+        or not observation.pressure_valid
+        or not math.isfinite(observation.pressure_kpa)
+    ):
+        return VACUUM_UNKNOWN
+    if observation.pressure_kpa <= attached_threshold_kpa:
+        return VACUUM_ATTACHED
+    if observation.pressure_kpa >= released_threshold_kpa:
+        return VACUUM_RELEASED
+    return VACUUM_INTERMEDIATE
 
 
 class VacuumAdapterCore:
@@ -161,416 +157,352 @@ class VacuumAdapterCore:
         self,
         io: VacuumIo,
         *,
-        grip_verify_timeout_s: float = 3.0,
-        release_verify_timeout_s: float = 3.0,
-        accepted_grip_profile_ids: Sequence[str] = ("default",),
+        attached_threshold_kpa: float = -60.0,
+        released_threshold_kpa: float = -1.0,
+        clock_ns: Callable[[], int] = time.time_ns,
     ) -> None:
-        if not math.isfinite(grip_verify_timeout_s) or grip_verify_timeout_s <= 0.0:
-            raise ValueError("grip_verify_timeout_s must be finite and greater than zero")
-        if not math.isfinite(release_verify_timeout_s) or release_verify_timeout_s <= 0.0:
-            raise ValueError("release_verify_timeout_s must be finite and greater than zero")
-        profiles = tuple(str(item).strip() for item in accepted_grip_profile_ids)
-        if not profiles or any(not item for item in profiles):
-            raise ValueError("accepted_grip_profile_ids must contain non-empty strings")
+        if not math.isfinite(attached_threshold_kpa):
+            raise ValueError("attached_threshold_kpa must be finite")
+        if not math.isfinite(released_threshold_kpa):
+            raise ValueError("released_threshold_kpa must be finite")
+        if attached_threshold_kpa >= released_threshold_kpa:
+            raise ValueError("attached threshold must be lower than released threshold")
         self._io = io
-        self._grip_verify_timeout_s = float(grip_verify_timeout_s)
-        self._release_verify_timeout_s = float(release_verify_timeout_s)
-        self._accepted_grip_profile_ids = frozenset(profiles)
-        self._operation_lock = threading.Lock()
-        self._active_operation = False
+        self.attached_threshold_kpa = float(attached_threshold_kpa)
+        self.released_threshold_kpa = float(released_threshold_kpa)
+        self._clock_ns = clock_ns
+        self._lock = threading.Lock()
+        self._active_channels: set[str] = set()
+        self._unknown_channels: set[str] = set()
+        self._pump_transaction_active = False
+        self._last_context: dict[str, ValveContext] = {}
+        self._last_pump_requested: bool | None = None
 
-    def set_pump_enabled(self, enabled: bool, reason: str = "") -> PumpCommandResult:
+    def channel_state(self, snapshot: PlcVacuumSnapshot, channel: str) -> int:
+        return classify_vacuum(
+            snapshot.channel(channel),
+            data_fresh=snapshot.hardware_configured and snapshot.data_fresh,
+            attached_threshold_kpa=self.attached_threshold_kpa,
+            released_threshold_kpa=self.released_threshold_kpa,
+        )
+
+    def last_context(self, channel: str) -> ValveContext | None:
+        with self._lock:
+            return self._last_context.get(channel)
+
+    def last_pump_requested(self) -> bool | None:
+        with self._lock:
+            return self._last_pump_requested
+
+    def set_pump_enabled(self, enabled: bool, reason: str = "") -> PumpExecutionResult:
         del reason
-        if not enabled:
-            with self._operation_lock:
-                if self._active_operation:
-                    return PumpCommandResult(
-                        False,
-                        True,
-                        error_info(
-                            PublicErrorCode.RT_OPERATION_IN_PROGRESS,
-                            "reject pump disable: active vacuum command is running",
-                        ),
-                    )
-            snapshot = self._io.read_snapshot()
-            if not snapshot.connected or not snapshot.data_fresh:
-                return PumpCommandResult(
-                    False,
-                    snapshot.pump_enabled,
-                    error_info(
-                        PublicErrorCode.RT_PLC_UNAVAILABLE,
-                        "reject pump disable: PLC vacuum state is unavailable or stale",
-                    ),
+        started_ns = self._clock_ns()
+        attempt_id = uuid.uuid4()
+        snapshot = self._io.read_snapshot()
+        with self._lock:
+            self._reconcile_unknown_locked(snapshot)
+            if self._pump_transaction_active or self._active_channels:
+                return self._pump_rejected(
+                    enabled,
+                    started_ns,
+                    attempt_id,
+                    PublicErrorCode.RT_OPERATION_IN_PROGRESS,
+                    "reject pump request: a vacuum output operation is running",
+                    snapshot,
                 )
-            if snapshot.any_possible_load_held:
-                return PumpCommandResult(
-                    False,
-                    True,
-                    error_info(
+            if not snapshot.hardware_configured:
+                return self._pump_rejected(
+                    enabled,
+                    started_ns,
+                    attempt_id,
+                    PublicErrorCode.RT_PLC_UNAVAILABLE,
+                    "reject pump request: vacuum hardware is not configured",
+                    snapshot,
+                )
+            if not enabled:
+                reason_text = self._pump_disable_rejection(snapshot)
+                if reason_text:
+                    return self._pump_rejected(
+                        enabled,
+                        started_ns,
+                        attempt_id,
                         PublicErrorCode.RT_POSSIBLE_LOAD_HELD,
-                        "reject pump disable: possible load is held by vacuum",
-                    ),
-                )
-
-        command = self._io.set_output("pump", enabled)
-        if not command.success:
-            return PumpCommandResult(
-                False,
-                not enabled,
-                error_info(
-                    command.error_code,
-                    f"pump command rejected: {command.message}",
-                ),
-            )
-        return PumpCommandResult(
-            True,
-            enabled,
-            error_info(
-                PublicErrorCode.SUCCESS,
-                f"pump {'enabled' if enabled else 'disabled'}",
-            ),
-        )
-
-    def execute_goal(
-        self,
-        command: int,
-        channels: Sequence[str],
-        grip_profile_id: str,
-        context: str,
-        feedback_callback: Callable[[tuple[VacuumChannelStateData, ...]], None]
-        | None = None,
-        cancel_requested: Callable[[], bool] | None = None,
-    ) -> VacuumExecutionResult:
-        del context
-        try:
-            selected_channels = normalize_channels(channels)
-        except ValueError as exc:
-            return VacuumExecutionResult(
-                False,
-                False,
-                UNVERIFIED,
-                error_info(PublicErrorCode.INVALID_GOAL, str(exc)),
-                (),
-            )
-
-        profile_id = str(grip_profile_id).strip()
-        if profile_id not in self._accepted_grip_profile_ids:
-            return VacuumExecutionResult(
-                False,
-                False,
-                UNVERIFIED,
-                error_info(
-                    PublicErrorCode.INVALID_GOAL,
-                    f"unsupported grip_profile_id: {profile_id or '<empty>'}",
-                ),
-                self._channel_results(
-                    selected_channels,
-                    command_accepted=False,
-                    valve_actuation_completed=False,
-                    verification_level=UNVERIFIED,
-                    error="unsupported grip_profile_id",
-                ),
-            )
-
-        if int(command) not in (GRIP, RELEASE):
-            return VacuumExecutionResult(
-                False,
-                False,
-                UNVERIFIED,
-                error_info(
-                    PublicErrorCode.INVALID_GOAL,
-                    f"unsupported vacuum command: {command}",
-                ),
-                self._channel_results(
-                    selected_channels,
-                    command_accepted=False,
-                    valve_actuation_completed=False,
-                    verification_level=UNVERIFIED,
-                    error="unsupported command",
-                ),
-            )
-
-        with self._operation_lock:
-            if self._active_operation:
-                return VacuumExecutionResult(
-                    False,
-                    False,
-                    UNVERIFIED,
-                    error_info(
-                        PublicErrorCode.RT_OPERATION_IN_PROGRESS,
-                        "another vacuum command is already running",
-                    ),
-                    self._channel_results(
-                        selected_channels,
-                        command_accepted=False,
-                        valve_actuation_completed=False,
-                        verification_level=UNVERIFIED,
-                        error="busy",
-                    ),
-                )
-            self._active_operation = True
+                        reason_text,
+                        snapshot,
+                    )
+            self._pump_transaction_active = True
 
         try:
-            is_cancel_requested = cancel_requested or (lambda: False)
-            if is_cancel_requested():
-                return self._canceled(selected_channels)
-            if int(command) == GRIP:
-                return self._execute_grip(
-                    selected_channels, feedback_callback, is_cancel_requested
-                )
-            return self._execute_release(
-                selected_channels, feedback_callback, is_cancel_requested
-            )
+            command = self._io.set_output("pump", enabled)
         finally:
-            with self._operation_lock:
-                self._active_operation = False
+            with self._lock:
+                self._pump_transaction_active = False
+        output = self._output_result("pump", enabled, started_ns, attempt_id, command)
+        if command.accepted:
+            with self._lock:
+                self._last_pump_requested = bool(enabled)
+        accepted = command.accepted
+        overall = output.error
+        return PumpExecutionResult(accepted, output, overall)
 
-    def _execute_grip(
+    def execute_valves(
         self,
-        selected_channels: tuple[str, ...],
-        feedback_callback: Callable[[tuple[VacuumChannelStateData, ...]], None] | None,
-        cancel_requested: Callable[[], bool],
-    ) -> VacuumExecutionResult:
-        pump_result = self._io.set_output("pump", True)
-        if not pump_result.success:
-            return VacuumExecutionResult(
-                False,
-                False,
-                UNVERIFIED,
-                error_info(
-                    pump_result.error_code,
-                    f"pump enable failed: {pump_result.message}",
-                ),
-                self._channel_results(
-                    selected_channels,
-                    command_accepted=False,
-                    valve_actuation_completed=False,
-                    verification_level=UNVERIFIED,
-                    error="pump enable failed",
-                ),
-            )
-
-        if cancel_requested():
-            return self._canceled(selected_channels)
-
-        snapshot = self._io.read_snapshot()
-        self._publish_feedback(snapshot, feedback_callback)
-        snapshot = self._io.wait_for_attachment(
-            selected_channels,
-            self._grip_verify_timeout_s,
-            cancel_requested,
-            lambda current: self._publish_feedback(current, feedback_callback),
-        )
-        self._publish_feedback(snapshot, feedback_callback)
-
-        if cancel_requested():
-            return self._canceled(selected_channels, snapshot)
-
-        if not snapshot.connected or not snapshot.data_fresh:
-            return self._attachment_failed(
-                selected_channels,
-                snapshot,
-                "PLC vacuum observation is unavailable or stale",
-                PublicErrorCode.RT_PLC_UNAVAILABLE,
-            )
-        missing = [
-            channel
-            for channel in selected_channels
-            if not snapshot.channel_attached(channel)
-        ]
-        if missing:
-            return self._attachment_failed(
-                selected_channels,
-                snapshot,
-                f"attachment not verified: {', '.join(missing)}",
-                PublicErrorCode.RT_VACUUM_NOT_ESTABLISHED,
-            )
-        return VacuumExecutionResult(
-            True,
-            True,
-            ATTACHED_VERIFIED,
-            error_info(PublicErrorCode.SUCCESS, ""),
-            tuple(
-                VacuumChannelResultData(
-                    channel=channel,
-                    command_accepted=True,
-                    valve_actuation_completed=True,
-                    verification_level=ATTACHED_VERIFIED,
-                    error="",
-                )
-                for channel in selected_channels
-            ),
-        )
-
-    def _execute_release(
-        self,
-        selected_channels: tuple[str, ...],
-        feedback_callback: Callable[[tuple[VacuumChannelStateData, ...]], None] | None,
-        cancel_requested: Callable[[], bool],
-    ) -> VacuumExecutionResult:
-        pump_result = self._io.set_output("pump", False)
-        if not pump_result.success:
-            return VacuumExecutionResult(
-                False,
-                False,
-                UNVERIFIED,
-                error_info(
-                    pump_result.error_code,
-                    f"pump release command failed: {pump_result.message}",
-                ),
-                self._channel_results(
-                    selected_channels,
-                    command_accepted=False,
-                    valve_actuation_completed=False,
-                    verification_level=UNVERIFIED,
-                    error="pump release command failed",
-                ),
-            )
-        if cancel_requested():
-            return self._canceled(selected_channels)
-
-        snapshot = self._io.read_snapshot()
-        self._publish_feedback(snapshot, feedback_callback)
-        snapshot = self._io.wait_for_release(
-            self._release_verify_timeout_s,
-            cancel_requested,
-            lambda current: self._publish_feedback(current, feedback_callback),
-        )
-        self._publish_feedback(snapshot, feedback_callback)
-        if cancel_requested():
-            return self._canceled(selected_channels, snapshot)
-        if not snapshot.connected or not snapshot.data_fresh or not snapshot.vacuum_pressure_valid:
-            return self._release_failed(
-                selected_channels,
-                snapshot,
-                "vacuum pressure observation is unavailable or stale",
-                PublicErrorCode.RT_PLC_UNAVAILABLE,
-            )
-        if not snapshot.vacuum_released:
-            return self._release_failed(
-                selected_channels,
-                snapshot,
-                f"release pressure not reached: {snapshot.vacuum_pressure_kpa:.3f} kPa",
-                PublicErrorCode.TIMEOUT,
-            )
-        return VacuumExecutionResult(
-            True,
-            True,
-            UNVERIFIED,
-            error_info(PublicErrorCode.SUCCESS, ""),
-            self._channel_results(
-                selected_channels,
-                command_accepted=True,
-                valve_actuation_completed=True,
-                verification_level=UNVERIFIED,
-                error="",
-            ),
-        )
-
-    def _release_failed(
-        self,
-        selected_channels: tuple[str, ...],
-        snapshot: PlcVacuumSnapshot,
-        error: str,
-        error_code: PublicErrorCode,
-    ) -> VacuumExecutionResult:
-        return VacuumExecutionResult(
-            False,
-            True,
-            UNVERIFIED,
-            error_info(error_code, error),
-            self._channel_results(
-                selected_channels,
-                command_accepted=True,
-                valve_actuation_completed=not snapshot.pump_enabled,
-                verification_level=UNVERIFIED,
-                error=error,
-            ),
-        )
-
-    def _canceled(
-        self,
-        selected_channels: tuple[str, ...],
-        snapshot: PlcVacuumSnapshot | None = None,
-    ) -> VacuumExecutionResult:
-        # 取消只停止本次软件等待。这里不自动关阀或共用泵，因为另一侧可能仍在持载。
-        current = snapshot if snapshot is not None else self._io.read_snapshot()
-        return VacuumExecutionResult(
-            False,
-            True,
-            UNVERIFIED,
-            error_info(PublicErrorCode.CANCELED, "vacuum action canceled"),
-            tuple(
-                VacuumChannelResultData(
-                    channel=channel,
-                    command_accepted=current.channel_valve_open(channel),
-                    valve_actuation_completed=current.channel_valve_open(channel),
-                    verification_level=UNVERIFIED,
-                    error="canceled; outputs left unchanged",
-                )
-                for channel in selected_channels
-            ),
-        )
-
-    def _attachment_failed(
-        self,
-        selected_channels: tuple[str, ...],
-        snapshot: PlcVacuumSnapshot,
-        error: str,
-        error_code: PublicErrorCode,
-    ) -> VacuumExecutionResult:
-        return VacuumExecutionResult(
-            False,
-            True,
-            UNVERIFIED,
-            error_info(error_code, error),
-            tuple(
-                VacuumChannelResultData(
-                    channel=channel,
-                    command_accepted=True,
-                    valve_actuation_completed=snapshot.channel_valve_open(channel),
-                    verification_level=UNVERIFIED,
-                    error=error,
-                )
-                for channel in selected_channels
-            ),
-        )
-
-    @staticmethod
-    def _channel_results(
-        selected_channels: tuple[str, ...],
+        target: int,
+        channels: Sequence[str],
+        request_id: bytes,
         *,
-        command_accepted: bool,
-        valve_actuation_completed: bool,
-        verification_level: int,
-        error: str,
-    ) -> tuple[VacuumChannelResultData, ...]:
-        return tuple(
-            VacuumChannelResultData(
-                channel=channel,
-                command_accepted=command_accepted,
-                valve_actuation_completed=valve_actuation_completed,
-                verification_level=verification_level,
-                error=error,
+        feedback_callback: Callable[[PlcVacuumSnapshot, int], None] | None = None,
+        cancel_requested: Callable[[], bool] | None = None,
+    ) -> ValveExecutionResult:
+        try:
+            selected = normalize_channels(channels)
+        except ValueError as exc:
+            return ValveExecutionResult(
+                False,
+                False,
+                False,
+                bytes(request_id),
+                (),
+                error_info(PublicErrorCode.INVALID_GOAL, str(exc)),
             )
-            for channel in selected_channels
+        if target not in (TARGET_SUCTION, TARGET_RELEASE):
+            return ValveExecutionResult(
+                False,
+                False,
+                False,
+                bytes(request_id),
+                (),
+                error_info(PublicErrorCode.INVALID_GOAL, f"unsupported valve target: {target}"),
+            )
+
+        snapshot = self._io.read_snapshot()
+        with self._lock:
+            self._reconcile_unknown_locked(snapshot)
+            if self._pump_transaction_active or any(
+                channel in self._active_channels for channel in selected
+            ):
+                return self._valve_rejected(
+                    selected,
+                    target,
+                    request_id,
+                    PublicErrorCode.RT_OPERATION_IN_PROGRESS,
+                    "one or more requested valve channels are busy",
+                    snapshot,
+                )
+            if not snapshot.hardware_configured or any(
+                not snapshot.channel(channel).valve_valid for channel in selected
+            ):
+                return self._valve_rejected(
+                    selected,
+                    target,
+                    request_id,
+                    PublicErrorCode.RT_PLC_UNAVAILABLE,
+                    "requested valve output state is unavailable or stale",
+                    snapshot,
+                )
+            if target == TARGET_SUCTION and (
+                not snapshot.pump_valid or not snapshot.pump_enabled
+            ):
+                return self._valve_rejected(
+                    selected,
+                    target,
+                    request_id,
+                    PublicErrorCode.RT_PUMP_UNAVAILABLE,
+                    "pump output is not valid and enabled",
+                    snapshot,
+                )
+            self._active_channels.update(selected)
+
+        canceled = False
+        results: list[OutputResultData] = []
+        is_canceled = cancel_requested or (lambda: False)
+        requested_value = target == TARGET_SUCTION
+        try:
+            for channel in selected:
+                if is_canceled():
+                    canceled = True
+                    results.append(
+                        self._not_executed(
+                            channel,
+                            requested_value,
+                            PublicErrorCode.CANCELED,
+                            "canceled before output write",
+                            snapshot.channel(channel),
+                        )
+                    )
+                    continue
+                started_ns = self._clock_ns()
+                attempt_id = uuid.uuid4()
+                command = self._io.set_output(channel, requested_value)
+                result = self._output_result(
+                    channel, requested_value, started_ns, attempt_id, command
+                )
+                results.append(result)
+                with self._lock:
+                    if result.outcome == OUTCOME_UNKNOWN:
+                        self._unknown_channels.add(channel)
+                    self._last_context[channel] = ValveContext(
+                        bytes(request_id),
+                        attempt_id,
+                        target,
+                        result.completed_ns,
+                        result.outcome == OUTCOME_CONFIRMED,
+                    )
+                snapshot = self._io.read_snapshot()
+                if feedback_callback is not None:
+                    feedback_callback(snapshot, 3)
+        finally:
+            with self._lock:
+                self._active_channels.difference_update(selected)
+
+        all_confirmed = bool(results) and all(
+            result.outcome == OUTCOME_CONFIRMED for result in results
+        )
+        if canceled:
+            overall_error = error_info(PublicErrorCode.CANCELED, "valve action canceled")
+        elif all_confirmed:
+            overall_error = error_info(PublicErrorCode.SUCCESS, "valve outputs confirmed")
+        elif any(result.outcome == OUTCOME_UNKNOWN for result in results):
+            overall_error = error_info(
+                PublicErrorCode.RT_PLC_UNAVAILABLE,
+                "one or more valve output results are unknown",
+            )
+        else:
+            overall_error = error_info(
+                PublicErrorCode.RT_PUMP_COMMAND_REJECTED,
+                "one or more valve outputs were not executed",
+            )
+        return ValveExecutionResult(
+            True,
+            all_confirmed,
+            canceled,
+            bytes(request_id),
+            tuple(results),
+            overall_error,
         )
 
-    @staticmethod
-    def _publish_feedback(
+    def _pump_disable_rejection(self, snapshot: PlcVacuumSnapshot) -> str:
+        if self._unknown_channels:
+            return "reject pump disable: a valve output result remains unknown"
+        if not snapshot.connected or not snapshot.data_fresh or not snapshot.pump_valid:
+            return "reject pump disable: PLC vacuum state is unavailable or stale"
+        for channel in CHANNELS:
+            observation = snapshot.channel(channel)
+            if not observation.valve_valid or observation.valve_on:
+                return f"reject pump disable: {channel} valve is not confirmed released"
+            if self.channel_state(snapshot, channel) != VACUUM_RELEASED:
+                return f"reject pump disable: {channel} pressure is not confirmed released"
+        return ""
+
+    def _reconcile_unknown_locked(self, snapshot: PlcVacuumSnapshot) -> None:
+        for channel in tuple(self._unknown_channels):
+            if snapshot.data_fresh and snapshot.channel(channel).valve_valid:
+                self._unknown_channels.remove(channel)
+
+    def _pump_rejected(
+        self,
+        enabled: bool,
+        started_ns: int,
+        attempt_id: uuid.UUID,
+        code: PublicErrorCode,
+        message: str,
         snapshot: PlcVacuumSnapshot,
-        feedback_callback: Callable[[tuple[VacuumChannelStateData, ...]], None]
-        | None,
-    ) -> None:
-        if feedback_callback is not None:
-            feedback_callback(build_vacuum_channel_states(snapshot))
+    ) -> PumpExecutionResult:
+        error = error_info(code, message)
+        output = OutputResultData(
+            "pump",
+            attempt_id,
+            OUTCOME_NOT_EXECUTED,
+            enabled,
+            snapshot.pump_enabled,
+            snapshot.pump_valid and snapshot.data_fresh,
+            started_ns,
+            self._clock_ns(),
+            error,
+        )
+        return PumpExecutionResult(False, output, error)
+
+    def _valve_rejected(
+        self,
+        channels: tuple[str, ...],
+        target: int,
+        request_id: bytes,
+        code: PublicErrorCode,
+        message: str,
+        snapshot: PlcVacuumSnapshot,
+    ) -> ValveExecutionResult:
+        error = error_info(code, message)
+        requested_value = target == TARGET_SUCTION
+        results = tuple(
+            OutputResultData(
+                channel,
+                uuid.uuid4(),
+                OUTCOME_NOT_EXECUTED,
+                requested_value,
+                snapshot.channel(channel).valve_on,
+                snapshot.channel(channel).valve_valid and snapshot.data_fresh,
+                self._clock_ns(),
+                self._clock_ns(),
+                error,
+            )
+            for channel in channels
+        )
+        return ValveExecutionResult(False, False, False, bytes(request_id), results, error)
+
+    def _not_executed(
+        self,
+        channel: str,
+        requested_value: bool,
+        code: PublicErrorCode,
+        message: str,
+        snapshot: ChannelSnapshot,
+    ) -> OutputResultData:
+        now_ns = self._clock_ns()
+        return OutputResultData(
+            channel,
+            uuid.uuid4(),
+            OUTCOME_NOT_EXECUTED,
+            requested_value,
+            snapshot.valve_on,
+            snapshot.valve_valid,
+            now_ns,
+            now_ns,
+            error_info(code, message),
+        )
+
+    def _output_result(
+        self,
+        resource_id: str,
+        requested_value: bool,
+        started_ns: int,
+        attempt_id: uuid.UUID,
+        command: PlcCommandResult,
+    ) -> OutputResultData:
+        error = error_info(command.error_code, command.message)
+        return OutputResultData(
+            resource_id,
+            attempt_id,
+            command.outcome,
+            requested_value,
+            command.observed_value,
+            command.observation_valid,
+            started_ns,
+            self._clock_ns(),
+            error,
+        )
 
 
 def main(args=None) -> None:
     import rclpy
-    from robot_rt_control_interfaces.action import VacuumGrip
-    from robot_rt_control_interfaces.msg import VacuumChannelFeedback, VacuumChannelResult
-    from robot_rt_control_interfaces.msg import VacuumChannelState, VacuumState
+    from robot_rt_control_interfaces.action import SetVacuumValves
+    from robot_rt_control_interfaces.msg import (
+        ObservationMeta,
+        OutputCommandResult,
+        OutputState,
+        VacuumChannelState,
+        VacuumState,
+        VacuumStateEvent,
+    )
     from robot_rt_control_interfaces.srv import SetPumpEnabled
     from rclpy.action import ActionServer, CancelResponse, GoalResponse
     from rclpy.callback_groups import ReentrantCallbackGroup
@@ -579,7 +511,16 @@ def main(args=None) -> None:
     from rclpy.qos import QoSProfile
     from robot_interfaces_qos import state
     from rt_control_interfaces.msg import PlcIoState
-    from std_srvs.srv import SetBool
+    from rt_control_interfaces.srv import SetDigitalOutput
+    from unique_identifier_msgs.msg import UUID
+
+    def set_uuid(message: UUID, value: bytes | uuid.UUID) -> None:
+        raw = value.bytes if isinstance(value, uuid.UUID) else bytes(value)
+        message.uuid = list(raw[:16].ljust(16, b"\0"))
+
+    def set_time(message, nanoseconds: int) -> None:
+        message.sec = int(nanoseconds // 1_000_000_000)
+        message.nanosec = int(nanoseconds % 1_000_000_000)
 
     class RosVacuumIo:
         def __init__(self, node: Node, callback_group: ReentrantCallbackGroup) -> None:
@@ -593,11 +534,20 @@ def main(args=None) -> None:
             self._condition = threading.Condition()
             self._latest_message = None
             self._latest_received_s: float | None = None
-            self._message_generation = 0
             self._clients = {
                 "pump": node.create_client(
-                    SetBool,
+                    SetDigitalOutput,
                     str(node.get_parameter("pump_service").value),
+                    callback_group=callback_group,
+                ),
+                LEFT: node.create_client(
+                    SetDigitalOutput,
+                    str(node.get_parameter("left_valve_service").value),
+                    callback_group=callback_group,
+                ),
+                RIGHT: node.create_client(
+                    SetDigitalOutput,
+                    str(node.get_parameter("right_valve_service").value),
                     callback_group=callback_group,
                 ),
             }
@@ -613,7 +563,6 @@ def main(args=None) -> None:
             with self._condition:
                 self._latest_message = message
                 self._latest_received_s = time.monotonic()
-                self._message_generation += 1
                 self._condition.notify_all()
 
         def set_output(self, output_name: str, enabled: bool) -> PlcCommandResult:
@@ -621,157 +570,145 @@ def main(args=None) -> None:
             if not client.wait_for_service(timeout_sec=self._service_timeout_s):
                 return PlcCommandResult(
                     False,
+                    OUTCOME_NOT_EXECUTED,
+                    False,
+                    False,
                     f"{output_name} PLC service unavailable",
                     PublicErrorCode.RT_PLC_UNAVAILABLE,
                 )
-            request = SetBool.Request()
-            request.data = bool(enabled)
+            request = SetDigitalOutput.Request()
+            request.enabled = bool(enabled)
             future = client.call_async(request)
             deadline = time.monotonic() + self._service_timeout_s
             while rclpy.ok() and not future.done() and time.monotonic() < deadline:
                 time.sleep(0.01)
             if not future.done():
                 return PlcCommandResult(
+                    True,
+                    OUTCOME_UNKNOWN,
+                    False,
                     False,
                     f"{output_name} PLC service timed out",
                     PublicErrorCode.RT_PLC_UNAVAILABLE,
                 )
-            exception = future.exception()
-            if exception is not None:
+            if future.exception() is not None or future.result() is None:
                 return PlcCommandResult(
+                    True,
+                    OUTCOME_UNKNOWN,
                     False,
-                    str(exception),
+                    False,
+                    str(future.exception() or "PLC service returned no response"),
                     PublicErrorCode.RT_PLC_UNAVAILABLE,
                 )
             response = future.result()
-            if response is None:
-                return PlcCommandResult(
-                    False,
-                    "PLC service returned no response",
-                    PublicErrorCode.RT_PLC_UNAVAILABLE,
-                )
-            success = bool(response.success)
+            outcome = int(response.outcome)
+            if outcome == OUTCOME_CONFIRMED:
+                code = PublicErrorCode.SUCCESS
+            elif outcome == OUTCOME_NOT_EXECUTED:
+                code = PublicErrorCode.RT_PUMP_COMMAND_REJECTED
+            else:
+                code = PublicErrorCode.RT_PLC_UNAVAILABLE
             return PlcCommandResult(
-                success,
+                bool(response.accepted),
+                outcome,
+                bool(response.observed_value),
+                bool(response.observation_valid),
                 str(response.message),
-                PublicErrorCode.SUCCESS
-                if success
-                else PublicErrorCode.RT_PUMP_COMMAND_REJECTED,
+                code,
             )
 
         def read_snapshot(self) -> PlcVacuumSnapshot:
             with self._condition:
-                return self._snapshot_locked()
-
-        def wait_for_attachment(
-            self,
-            channels: Sequence[str],
-            timeout_s: float,
-            cancel_requested: Callable[[], bool],
-            state_callback: Callable[[PlcVacuumSnapshot], None],
-        ) -> PlcVacuumSnapshot:
-            deadline = time.monotonic() + float(timeout_s)
-            with self._condition:
-                starting_generation = self._message_generation
-                while rclpy.ok():
-                    snapshot = self._snapshot_locked()
-                    state_callback(snapshot)
-                    if cancel_requested():
-                        return snapshot
-                    if (
-                        snapshot.connected
-                        and snapshot.data_fresh
-                        and self._message_generation > starting_generation
-                        and all(snapshot.channel_attached(channel) for channel in channels)
-                    ):
-                        return snapshot
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0.0:
-                        return snapshot
-                    self._condition.wait(timeout=min(0.1, remaining))
-            return self._snapshot_locked()
-
-        def wait_for_release(
-            self,
-            timeout_s: float,
-            cancel_requested: Callable[[], bool],
-            state_callback: Callable[[PlcVacuumSnapshot], None],
-        ) -> PlcVacuumSnapshot:
-            deadline = time.monotonic() + float(timeout_s)
-            with self._condition:
-                starting_generation = self._message_generation
-                while rclpy.ok():
-                    snapshot = self._snapshot_locked()
-                    state_callback(snapshot)
-                    if cancel_requested():
-                        return snapshot
-                    if (
-                        snapshot.connected
-                        and snapshot.data_fresh
-                        and self._message_generation > starting_generation
-                        and snapshot.vacuum_pressure_valid
-                        and snapshot.vacuum_released
-                    ):
-                        return snapshot
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0.0:
-                        return snapshot
-                    self._condition.wait(timeout=min(0.1, remaining))
-            return self._snapshot_locked()
-
-        def _snapshot_locked(self) -> PlcVacuumSnapshot:
-            message = self._latest_message
-            received = self._latest_received_s
-            if message is None or received is None:
-                return PlcVacuumSnapshot(False, False, False, False, False, False, False, "")
-            age_s = time.monotonic() - received
-            fresh_by_age = 0.0 <= age_s <= self._plc_state_timeout_s
-            return PlcVacuumSnapshot(
-                connected=bool(message.connected),
-                data_fresh=bool(message.data_fresh) and fresh_by_age,
-                left_attached=bool(message.left_vacuum_established),
-                right_attached=bool(message.right_vacuum_established),
-                left_valve_open=bool(message.left_solenoid_on),
-                right_valve_open=bool(message.right_solenoid_on),
-                pump_enabled=bool(message.vacuum_pump_on),
-                error=str(message.error),
-                vacuum_pressure_valid=bool(message.vacuum_pressure_valid),
-                vacuum_pressure_kpa=float(message.vacuum_pressure_kpa),
-                vacuum_released=bool(message.vacuum_released),
-            )
+                message = self._latest_message
+                received = self._latest_received_s
+                if message is None or received is None:
+                    return PlcVacuumSnapshot(
+                        False,
+                        False,
+                        False,
+                        False,
+                        False,
+                        ChannelSnapshot(LEFT),
+                        ChannelSnapshot(RIGHT),
+                    )
+                age_s = time.monotonic() - received
+                fresh_by_age = 0.0 <= age_s <= self._plc_state_timeout_s
+                return PlcVacuumSnapshot(
+                    bool(message.hardware_configured),
+                    bool(message.connected),
+                    fresh_by_age,
+                    bool(message.pump_output_valid) and fresh_by_age,
+                    bool(message.vacuum_pump_on),
+                    ChannelSnapshot(
+                        LEFT,
+                        str(message.left_pressure_sensor_id),
+                        int(message.left_pressure_stamp.sec),
+                        int(message.left_pressure_stamp.nanosec),
+                        int(message.left_pressure_raw),
+                        bool(message.left_pressure_valid) and fresh_by_age,
+                        float(message.left_pressure_kpa),
+                        bool(message.left_valve_output_valid) and fresh_by_age,
+                        bool(message.left_solenoid_on),
+                    ),
+                    ChannelSnapshot(
+                        RIGHT,
+                        str(message.right_pressure_sensor_id),
+                        int(message.right_pressure_stamp.sec),
+                        int(message.right_pressure_stamp.nanosec),
+                        int(message.right_pressure_raw),
+                        bool(message.right_pressure_valid) and fresh_by_age,
+                        float(message.right_pressure_kpa),
+                        bool(message.right_valve_output_valid) and fresh_by_age,
+                        bool(message.right_solenoid_on),
+                    ),
+                    int(message.header.stamp.sec),
+                    int(message.header.stamp.nanosec),
+                    str(message.error),
+                )
 
     class VacuumAdapterNode(Node):
         def __init__(self) -> None:
             super().__init__("vacuum_adapter")
             self.declare_parameter("plc_state_topic", "/plc/io_state")
             self.declare_parameter("vacuum_state_topic", "/vacuum/state")
+            self.declare_parameter("vacuum_event_topic", "/vacuum/events")
             self.declare_parameter("pump_set_enabled_service", "/vacuum/pump/set_enabled")
-            self.declare_parameter("grip_action_name", "/vacuum/grip")
+            self.declare_parameter("valve_action_name", "/vacuum/valves/set")
             self.declare_parameter("pump_service", "/plc/vacuum_pump")
+            self.declare_parameter("left_valve_service", "/plc/vacuum_valve/left")
+            self.declare_parameter("right_valve_service", "/plc/vacuum_valve/right")
             self.declare_parameter("publish_period_s", 0.05)
             self.declare_parameter("plc_service_timeout_s", 2.0)
             self.declare_parameter("plc_state_timeout_s", 1.5)
-            self.declare_parameter("grip_verify_timeout_s", 3.0)
-            self.declare_parameter("release_verify_timeout_s", 3.0)
-            self.declare_parameter("accepted_grip_profile_ids", ["default"])
+            self.declare_parameter("attached_threshold_kpa", -60.0)
+            self.declare_parameter("released_threshold_kpa", -1.0)
 
             self._callback_group = ReentrantCallbackGroup()
             self._io = RosVacuumIo(self, self._callback_group)
             self._core = VacuumAdapterCore(
                 self._io,
-                grip_verify_timeout_s=float(
-                    self.get_parameter("grip_verify_timeout_s").value
+                attached_threshold_kpa=float(
+                    self.get_parameter("attached_threshold_kpa").value
                 ),
-                release_verify_timeout_s=float(
-                    self.get_parameter("release_verify_timeout_s").value
+                released_threshold_kpa=float(
+                    self.get_parameter("released_threshold_kpa").value
                 ),
-                accepted_grip_profile_ids=list(
-                    self.get_parameter("accepted_grip_profile_ids").value
-                ),
+                clock_ns=lambda: self.get_clock().now().nanoseconds,
             )
+            self._producer_instance = uuid.uuid4()
+            self._event_sequence = 0
+            self._last_vacuum_states = {LEFT: VACUUM_UNKNOWN, RIGHT: VACUUM_UNKNOWN}
+            self._projection_lock = threading.Lock()
+            self._pressure_sequences = {LEFT: 0, RIGHT: 0}
+            self._last_pressure_stamps = {LEFT: (0, 0), RIGHT: (0, 0)}
             self._publisher = self.create_publisher(
                 VacuumState,
                 str(self.get_parameter("vacuum_state_topic").value),
+                state(),
+            )
+            self._event_publisher = self.create_publisher(
+                VacuumStateEvent,
+                str(self.get_parameter("vacuum_event_topic").value),
                 state(),
             )
             self._pump_service = self.create_service(
@@ -782,11 +719,11 @@ def main(args=None) -> None:
             )
             self._action_server = ActionServer(
                 self,
-                VacuumGrip,
-                str(self.get_parameter("grip_action_name").value),
+                SetVacuumValves,
+                str(self.get_parameter("valve_action_name").value),
                 execute_callback=self._execute_goal,
                 goal_callback=self._handle_goal,
-                cancel_callback=self._handle_cancel,
+                cancel_callback=lambda _: CancelResponse.ACCEPT,
                 callback_group=self._callback_group,
             )
             self._timer = self.create_timer(
@@ -799,49 +736,43 @@ def main(args=None) -> None:
             try:
                 normalize_channels(goal_request.channels)
             except ValueError as exc:
-                self.get_logger().error(f"reject /vacuum/grip goal: {exc}")
+                self.get_logger().error(f"reject valve goal: {exc}")
                 return GoalResponse.REJECT
-            if int(goal_request.command) not in (GRIP, RELEASE):
+            if int(goal_request.target) not in (TARGET_SUCTION, TARGET_RELEASE):
                 self.get_logger().error(
-                    f"reject /vacuum/grip goal: unsupported command {goal_request.command}"
+                    f"reject valve goal: unsupported target {goal_request.target}"
                 )
                 return GoalResponse.REJECT
             return GoalResponse.ACCEPT
 
-        def _handle_cancel(self, _goal_handle):
-            return CancelResponse.ACCEPT
-
         def _handle_set_pump_enabled(self, request, response):
             result = self._core.set_pump_enabled(bool(request.enabled), str(request.reason))
             response.accepted = result.accepted
-            response.enabled = result.enabled
+            self._fill_output_result(response.result, result.output)
             assign_error_info(response.error, result.error)
-            if result.accepted:
-                self.get_logger().info(result.error.message)
-            else:
-                self.get_logger().error(result.error.message)
             return response
 
         def _execute_goal(self, goal_handle):
-            goal = goal_handle.request
-            result = self._core.execute_goal(
-                int(goal.command),
-                list(goal.channels),
-                str(goal.grip_profile_id),
-                str(goal.context),
-                feedback_callback=lambda channels: self._publish_feedback(
-                    goal_handle, channels
+            request_id = bytes(goal_handle.request.request_id.uuid)
+            result = self._core.execute_valves(
+                int(goal_handle.request.target),
+                list(goal_handle.request.channels),
+                request_id,
+                feedback_callback=lambda snapshot, stage: self._publish_feedback(
+                    goal_handle, request_id, snapshot, stage
                 ),
                 cancel_requested=lambda: bool(goal_handle.is_cancel_requested),
             )
-            response = VacuumGrip.Result()
-            response.accepted = result.accepted
-            response.overall_verification_level = int(result.overall_verification_level)
+            response = SetVacuumValves.Result()
+            response.request_id = goal_handle.request.request_id
+            response.all_outputs_confirmed = result.succeeded
+            response.channel_results = []
+            for item in result.channel_results:
+                message = OutputCommandResult()
+                self._fill_output_result(message, item)
+                response.channel_results.append(message)
             assign_error_info(response.error, result.error)
-            response.channel_results = [
-                self._to_channel_result(item) for item in result.channel_results
-            ]
-            if result.error.code == PublicErrorCode.CANCELED:
+            if result.canceled:
                 goal_handle.canceled()
             elif result.succeeded:
                 goal_handle.succeed()
@@ -849,10 +780,12 @@ def main(args=None) -> None:
                 goal_handle.abort()
             return response
 
-        def _publish_feedback(self, goal_handle, channels) -> None:
-            feedback = VacuumGrip.Feedback()
-            feedback.channel_feedback = [
-                self._to_channel_feedback(item) for item in channels
+        def _publish_feedback(self, goal_handle, request_id, snapshot, stage) -> None:
+            feedback = SetVacuumValves.Feedback()
+            set_uuid(feedback.request_id, request_id)
+            feedback.execution_stage = int(stage)
+            feedback.channels = [
+                self._channel_message(snapshot, channel) for channel in goal_handle.request.channels
             ]
             goal_handle.publish_feedback(feedback)
 
@@ -861,44 +794,149 @@ def main(args=None) -> None:
             message = VacuumState()
             message.header.stamp = self.get_clock().now().to_msg()
             message.header.frame_id = "vacuum"
-            message.connected = snapshot.connected
-            message.data_fresh = snapshot.connected and snapshot.data_fresh
-            message.pump_enabled = snapshot.pump_enabled
+            set_uuid(message.producer_instance_id, self._producer_instance)
+            pump_requested = self._core.last_pump_requested()
+            self._fill_output_state(
+                message.pump,
+                snapshot.pump_enabled,
+                snapshot.pump_valid and snapshot.data_fresh,
+                snapshot.state_stamp_sec,
+                snapshot.state_stamp_nanosec,
+                pump_requested is not None,
+                "pump",
+                bool(pump_requested) if pump_requested is not None else False,
+            )
             message.channels = [
-                self._to_channel_state(item)
-                for item in build_vacuum_channel_states(snapshot)
+                self._channel_message(snapshot, LEFT),
+                self._channel_message(snapshot, RIGHT),
             ]
-            message.error = snapshot.error
             self._publisher.publish(message)
+            self._publish_events(snapshot, message.channels)
 
-        @staticmethod
-        def _to_channel_state(item: VacuumChannelStateData):
+        def _publish_events(self, snapshot, channels) -> None:
+            for message in channels:
+                previous = self._last_vacuum_states[message.channel]
+                current = int(message.vacuum_state)
+                if previous != current:
+                    event = VacuumStateEvent()
+                    event.header.stamp = self.get_clock().now().to_msg()
+                    event.header.frame_id = "vacuum"
+                    set_uuid(event.producer_instance_id, self._producer_instance)
+                    self._event_sequence += 1
+                    event.event_sequence = self._event_sequence
+                    event.channel = message.channel
+                    event.previous_state = previous
+                    event.current_state = current
+                    event.detected_at = event.header.stamp
+                    event.observation = message
+                    self._event_publisher.publish(event)
+                    self._last_vacuum_states[message.channel] = current
+
+        def _channel_message(self, snapshot, channel):
+            observation = snapshot.channel(channel)
             message = VacuumChannelState()
-            message.channel = item.channel
-            message.attached = item.attached
-            message.valve_commanded_open = item.valve_commanded_open
-            message.data_fresh = item.data_fresh
+            message.channel = channel
+            message.sensor_id = observation.sensor_id
+            message.pressure_kpa = observation.pressure_kpa
+            message.raw_value = float(observation.pressure_raw)
+            message.raw_unit = "mV"
+            message.pressure_observation.stamp.sec = observation.pressure_stamp_sec
+            message.pressure_observation.stamp.nanosec = observation.pressure_stamp_nanosec
+            message.pressure_observation.time_source = ObservationMeta.TIME_SOURCE_READ_COMPLETE
+            message.pressure_observation.valid = (
+                snapshot.hardware_configured
+                and snapshot.data_fresh
+                and observation.pressure_valid
+            )
+            set_uuid(
+                message.pressure_observation.source_instance_id,
+                self._producer_instance,
+            )
+            stamp = (observation.pressure_stamp_sec, observation.pressure_stamp_nanosec)
+            with self._projection_lock:
+                if stamp != (0, 0) and stamp != self._last_pressure_stamps[channel]:
+                    self._last_pressure_stamps[channel] = stamp
+                    self._pressure_sequences[channel] += 1
+                sequence = self._pressure_sequences[channel]
+            message.pressure_observation.sample_sequence = sequence
+            if message.pressure_observation.valid:
+                assign_error_info(
+                    message.pressure_observation.error,
+                    error_info(PublicErrorCode.SUCCESS, ""),
+                )
+            else:
+                assign_error_info(
+                    message.pressure_observation.error,
+                    error_info(
+                        PublicErrorCode.RT_PLC_UNAVAILABLE,
+                        snapshot.error or "pressure observation unavailable",
+                    ),
+                )
+            message.vacuum_state = self._core.channel_state(snapshot, channel)
+            context = self._core.last_context(channel)
+            self._fill_output_state(
+                message.valve,
+                observation.valve_on,
+                observation.valve_valid and snapshot.data_fresh,
+                snapshot.state_stamp_sec,
+                snapshot.state_stamp_nanosec,
+                context is not None,
+                channel,
+                context.target == TARGET_SUCTION if context is not None else False,
+            )
+            if context is not None:
+                message.last_request_known = True
+                set_uuid(message.last_request_id, context.request_id)
+                set_uuid(message.last_attempt_id, context.attempt_id)
+                message.last_valve_target = context.target
+                set_time(message.last_output_confirmed_at, context.completed_ns)
+                message.last_output_confirmation_valid = context.confirmed
             return message
 
-        @staticmethod
-        def _to_channel_feedback(item: VacuumChannelStateData):
-            message = VacuumChannelFeedback()
-            message.channel = item.channel
-            message.attached = item.attached
-            message.pump_enabled = item.pump_enabled
-            message.valve_commanded_open = item.valve_commanded_open
-            message.data_fresh = item.data_fresh
-            return message
+        def _fill_output_state(
+            self,
+            message,
+            observed_value,
+            observation_valid,
+            stamp_sec,
+            stamp_nanosec,
+            requested_known,
+            resource_id,
+            requested_value=False,
+        ) -> None:
+            del resource_id
+            message.requested_value_known = bool(requested_known)
+            message.requested_value = bool(requested_value)
+            message.observed_value = bool(observed_value)
+            message.observation.stamp.sec = int(stamp_sec)
+            message.observation.stamp.nanosec = int(stamp_nanosec)
+            message.observation.time_source = ObservationMeta.TIME_SOURCE_READ_COMPLETE
+            message.observation.valid = bool(observation_valid)
+            set_uuid(message.observation.source_instance_id, self._producer_instance)
+            assign_error_info(
+                message.observation.error,
+                error_info(
+                    PublicErrorCode.SUCCESS if observation_valid else PublicErrorCode.RT_PLC_UNAVAILABLE,
+                    "" if observation_valid else "output observation unavailable",
+                ),
+            )
 
-        @staticmethod
-        def _to_channel_result(item: VacuumChannelResultData):
-            message = VacuumChannelResult()
-            message.channel = item.channel
-            message.command_accepted = item.command_accepted
-            message.valve_actuation_completed = item.valve_actuation_completed
-            message.verification_level = int(item.verification_level)
-            message.error = item.error
-            return message
+        def _fill_output_result(self, message, item: OutputResultData) -> None:
+            message.resource_id = item.resource_id
+            set_uuid(message.attempt_id, item.attempt_id)
+            message.outcome = item.outcome
+            message.requested_value = item.requested_value
+            message.output.requested_value_known = True
+            message.output.requested_value = item.requested_value
+            message.output.observed_value = item.observed_value
+            set_time(message.started_at, item.started_ns)
+            set_time(message.completed_at, item.completed_ns)
+            message.output.observation.stamp = message.completed_at
+            message.output.observation.time_source = ObservationMeta.TIME_SOURCE_READ_COMPLETE
+            message.output.observation.valid = item.observation_valid
+            set_uuid(message.output.observation.source_instance_id, self._producer_instance)
+            assign_error_info(message.output.observation.error, item.error)
+            assign_error_info(message.error, item.error)
 
     rclpy.init(args=args)
     node = VacuumAdapterNode()
@@ -909,7 +947,10 @@ def main(args=None) -> None:
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        executor.shutdown()
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            executor.shutdown()
+            node.destroy_node()
+            if rclpy.ok():
+                rclpy.shutdown()
+        except KeyboardInterrupt:
+            pass

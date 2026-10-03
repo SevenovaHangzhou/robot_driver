@@ -3,19 +3,26 @@ project(modbus_tcp_rtu485)
 find_package(ament_cmake REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(robot_interfaces_qos REQUIRED)
+find_package(robot_rt_control_interfaces REQUIRED)
+find_package(robot_system_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(unique_identifier_msgs REQUIRED)
 
 add_executable(led_strip_node src/led_strip_node.cpp)
 target_compile_features(led_strip_node PUBLIC cxx_std_17)
 target_compile_options(led_strip_node PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
-ament_target_dependencies(led_strip_node rclcpp std_msgs)
+ament_target_dependencies(
+  led_strip_node rclcpp robot_rt_control_interfaces robot_system_interfaces)
 
 add_executable(ultrasonic_node src/ultrasonic_node.cpp)
 target_compile_features(ultrasonic_node PUBLIC cxx_std_17)
 target_compile_options(ultrasonic_node PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 ament_target_dependencies(
-  ultrasonic_node diagnostic_msgs rclcpp sensor_msgs std_msgs)
+  ultrasonic_node diagnostic_msgs rclcpp robot_interfaces_qos
+  robot_rt_control_interfaces robot_system_interfaces sensor_msgs std_msgs
+  unique_identifier_msgs)
 
 install(TARGETS led_strip_node ultrasonic_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})

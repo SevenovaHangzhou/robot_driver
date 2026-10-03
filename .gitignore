@@ -2,6 +2,8 @@ build/
 install/
 log/
 .colcon/
+# Imported dependency checkouts are reproducible from deps.repos, never committed.
+/src/vendor/
 *.pyc
 __pycache__/
 .coverage

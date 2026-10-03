@@ -60,17 +60,20 @@ def plc_state_message(
     message = PlcIoState()
     message.header.stamp = stamp
     message.header.frame_id = "plc"
+    # Legacy PLC has independent outputs but no left/right pressure channels required by V3.
+    message.hardware_configured = False
     message.connected = connected
     message.data_fresh = data_fresh
-    message.left_vacuum_established = snapshot.left_vacuum_established
-    message.right_vacuum_established = snapshot.right_vacuum_established
-    message.left_solenoid_on = snapshot.left_solenoid_on
-    message.right_solenoid_on = snapshot.right_solenoid_on
+    message.pump_output_valid = data_fresh
     message.vacuum_pump_on = snapshot.vacuum_pump_on
-    # 旧 PLC 没有模拟量压力输入，明确标记无效，避免释放 Action 把默认 0 当真值。
-    message.vacuum_pressure_valid = False
-    message.vacuum_pressure_kpa = float("nan")
-    message.vacuum_released = False
+    message.left_valve_output_valid = data_fresh
+    message.left_solenoid_on = snapshot.left_solenoid_on
+    message.right_valve_output_valid = data_fresh
+    message.right_solenoid_on = snapshot.right_solenoid_on
+    message.left_pressure_valid = False
+    message.left_pressure_kpa = float("nan")
+    message.right_pressure_valid = False
+    message.right_pressure_kpa = float("nan")
     message.io_alarm = snapshot.io_alarm
     message.error = error
     return message

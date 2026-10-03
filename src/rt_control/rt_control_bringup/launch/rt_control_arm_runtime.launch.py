@@ -48,6 +48,10 @@ def _start_if_succeeded(next_action, reason: str):
 def setup(context):
     use_mock_hardware = _boolean(context, "use_mock_hardware")
     jtc_only = _boolean(context, "jtc_only")
+    publish_robot_state = (
+        _boolean(context, "publish_robot_state")
+        if "publish_robot_state" in context.launch_configurations else True
+    )
     calibration_file = LaunchConfiguration("calibration_file").perform(context).strip()
     runtime = Path(tempfile.mkdtemp(prefix="alfa-v3-arm-runtime-"))
     bringup_share = Path(get_package_share_directory("rt_control_bringup"))
@@ -126,7 +130,6 @@ def setup(context):
             )
         ),
         manager,
-        robot_state_publisher,
         motion_loader,
         RegisterEventHandler(
             OnProcessExit(
@@ -148,6 +151,8 @@ def setup(context):
             )
         ),
     ]
+    if publish_robot_state:
+        actions.insert(2, robot_state_publisher)
     if control_adapter is not None:
         actions.append(
             RegisterEventHandler(
@@ -165,6 +170,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
             DeclareLaunchArgument("jtc_only", default_value="false"),
+            DeclareLaunchArgument("publish_robot_state", default_value="true"),
             DeclareLaunchArgument("calibration_file", default_value=""),
             OpaqueFunction(function=setup),
         ]

@@ -191,6 +191,8 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
 
     assert "launch/rt_control_module.launch.py" in cmake
     assert "launch/rt_control_enable_only.launch.py" in cmake
+    assert "launch/rt_control_interface_runtime.launch.py" in cmake
+    assert "config/rt_io.yaml" in cmake
     assert "config/machines" in cmake
     assert "launch/rt_control.launch.py" not in cmake
     assert "test_preop_snapshot_launch" not in cmake
@@ -200,11 +202,9 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
     assert "<exec_depend>x503_force_sensor</exec_depend>" not in package
     assert "<exec_depend>diff_drive_controller</exec_depend>" not in package
     for independently_deployed_module in (
-        "bms_node",
         "lpms_nav3_can",
         "robot_hw_canopen",
         "swerve_driver",
-        "plc_io_modbus",
         "rt_diagnostics",
         "rt_force_torque_broadcaster",
     ):

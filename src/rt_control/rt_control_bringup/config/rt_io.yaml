@@ -11,16 +11,53 @@ vacuum_adapter:
   ros__parameters:
     plc_state_topic: /plc/io_state
     vacuum_state_topic: /vacuum/state
+    vacuum_event_topic: /vacuum/events
     pump_set_enabled_service: /vacuum/pump/set_enabled
-    grip_action_name: /vacuum/grip
+    valve_action_name: /vacuum/valves/set
     pump_service: /plc/vacuum_pump
+    left_valve_service: /plc/vacuum_valve/left
+    right_valve_service: /plc/vacuum_valve/right
     publish_period_s: 0.05
     plc_service_timeout_s: 2.0
     plc_state_timeout_s: 1.5
-    grip_verify_timeout_s: 3.0
-    release_verify_timeout_s: 3.0
-    accepted_grip_profile_ids:
-      - default
+    attached_threshold_kpa: -60.0
+    released_threshold_kpa: -1.0
+
+position_action_adapter:
+  ros__parameters:
+    joint_state_topic: /joint_states
+    state_topic: /rt_control/motion/state
+    feedback_publish_period_s: 0.05
+    left_pp:
+      configured: false
+      command_topic: /left_gripper_controller/commands
+    right_pp:
+      configured: false
+      command_topic: /right_gripper_controller/commands
+    updown:
+      configured: false
+      command_topic: /updown_position_controller/commands
+    head:
+      configured: false
+      command_topic: /head_position_controller/commands
+
+module_state_adapter:
+  ros__parameters:
+    plc_state_topic: /plc/io_state
+    battery_state_topic: /battery_state
+    sensor_status_topic: /rt_control/sensors/status
+    motion_state_topic: /rt_control/motion/state
+    module_state_topic: /rt_control/modules/state
+    protective_stop_topic: /protective_stop/state
+    protective_stop_reset_service: /protective_stop/reset
+    publish_period_s: 1.0
+    plc_timeout_s: 1.5
+    battery_timeout_s: 6.0
+    ultrasonic_timeout_s: 2.5
+    motion_state_timeout_s: 0.5
+    edge:
+      installed: false
+      protection_enabled: false
 
 rt_status_adapter:
   ros__parameters:

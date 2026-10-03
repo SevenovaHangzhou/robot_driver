@@ -11,6 +11,8 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>robot_description</exec_depend>
+  <exec_depend>bms_node</exec_depend>
+  <exec_depend>plc_io_modbus</exec_depend>
   <exec_depend>modbus_tcp_rtu485</exec_depend>
   <exec_depend>robot_hw_ethercat</exec_depend>
   <exec_depend>robot_hw_can</exec_depend>

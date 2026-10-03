@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 ROLLING = ROOT / "src/rt_control/rolling_trajectory_controller"
-EXPECTED_INTERFACE_SHA = "9aa2693d7d3235958369272b7ce8c48592dd7e83"
+EXPECTED_INTERFACE_SHA = "f18caab1d6c94ff17584a470131786fb19f21562"
 EXPECTED_JOINTS = tuple(
     [f"right_joint{index}" for index in range(1, 8)]
     + [f"left_joint{index}" for index in range(1, 8)]

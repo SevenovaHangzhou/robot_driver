@@ -3,6 +3,7 @@
 #include "lpms_nav3_can/socket_can.hpp"
 #include "lpms_nav3_can/node.hpp"
 
+#include <builtin_interfaces/msg/time.hpp>
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <diagnostic_msgs/msg/key_value.hpp>
@@ -13,6 +14,11 @@
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/magnetic_field.hpp>
 #include "robot_interfaces_qos/profiles.hpp"
+#include "robot_rt_control_interfaces/msg/observation_meta.hpp"
+#include "robot_rt_control_interfaces/msg/sensor_status.hpp"
+#include "robot_rt_control_interfaces/msg/sensor_status_array.hpp"
+#include "robot_system_interfaces/msg/error_info.hpp"
+#include <unique_identifier_msgs/msg/uuid.hpp>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -26,6 +32,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -142,6 +149,11 @@ public:
     heartbeat_timeout_ = positive_duration(
       declare_parameter<std::int64_t>("heartbeat_timeout_ms", 2500),
       "heartbeat_timeout_ms");
+    const auto imu_topic = declare_parameter<std::string>("imu_topic", "/imu/data");
+    const auto diagnostics_topic =
+      declare_parameter<std::string>("diagnostics_topic", "~/diagnostics");
+    const auto sensor_status_topic =
+      declare_parameter<std::string>("sensor_status_topic", "/rt_control/sensors/status");
 
     if (can_interface_.empty() || can_interface_ == "TBD" ||
       can_interface_.size() >= IFNAMSIZ)
@@ -159,12 +171,16 @@ public:
       throw std::invalid_argument{"frame_id must be explicitly configured without a leading slash"};
     }
 
+    initialise_instance_id();
     imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>(
-      "~/data", robot_interfaces_qos::fast_state());
+      imu_topic, robot_interfaces_qos::fast_state());
     magnetic_field_publisher_ = create_publisher<sensor_msgs::msg::MagneticField>(
       "~/mag", robot_interfaces_qos::fast_state());
     diagnostics_publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
-      "~/diagnostics", robot_interfaces_qos::diagnostic());
+      diagnostics_topic, robot_interfaces_qos::diagnostic());
+    sensor_status_publisher_ =
+      create_publisher<robot_rt_control_interfaces::msg::SensorStatusArray>(
+      sensor_status_topic, robot_interfaces_qos::state());
 
     next_connect_attempt_ = SteadyClock::time_point::min();
     poll_timer_ = create_wall_timer(poll_period_, [this]() {poll_bus();});
@@ -179,6 +195,28 @@ public:
   }
 
 private:
+  void initialise_instance_id()
+  {
+    std::random_device random;
+    for (auto & byte : producer_instance_id_.uuid) {
+      byte = static_cast<std::uint8_t>(random());
+    }
+  }
+
+  static void fill_error(
+    robot_system_interfaces::msg::ErrorInfo & error, std::uint32_t code,
+    const std::string & message, bool retryable)
+  {
+    error.code = code;
+    error.message = message;
+    error.retryable = retryable;
+    error.severity = code == 0U ?
+      robot_system_interfaces::msg::ErrorInfo::OK :
+      robot_system_interfaces::msg::ErrorInfo::FAULT;
+    error.source = "rt_control";
+    error.detail = "";
+  }
+
   [[nodiscard]] std::uint8_t read_node_id()
   {
     const auto value = declare_parameter<std::int64_t>("node_id", 0);
@@ -350,6 +388,7 @@ private:
     auto imu_message = make_imu_message(sample);
     auto magnetic_field_message = make_magnetic_field_message(sample);
     const auto stamp = now();
+    last_sample_stamp_ = stamp;
     imu_message.header.stamp = stamp;
     imu_message.header.frame_id = frame_id_;
     magnetic_field_message.header = imu_message.header;
@@ -417,6 +456,37 @@ private:
     status.values.push_back(
       diagnostic_value("connect_attempts", std::to_string(connect_attempt_count_)));
     status.values.push_back(diagnostic_value("last_socket_error", last_socket_error_));
+
+    robot_rt_control_interfaces::msg::SensorStatusArray public_status;
+    public_status.header.stamp = array.header.stamp;
+    robot_rt_control_interfaces::msg::SensorStatus imu_status;
+    imu_status.sensor_id = "lpms_nav3";
+    imu_status.module_id = "lpms_nav3_can";
+    imu_status.data_topic = "/imu/data";
+    imu_status.observation.stamp = last_sample_stamp_;
+    imu_status.observation.time_source =
+      robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_PUBLICATION;
+    imu_status.observation.valid =
+      status.level == diagnostic_msgs::msg::DiagnosticStatus::OK;
+    imu_status.observation.source_instance_id = producer_instance_id_;
+    imu_status.observation.sample_sequence = published_sample_count_;
+    if (imu_status.observation.valid) {
+      imu_status.measurement_state =
+        robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_VALID;
+      fill_error(imu_status.observation.error, 0U, "", false);
+    } else {
+      imu_status.measurement_state = socket_.valid() ?
+        robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_STALE :
+        robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_COMMUNICATION_ERROR;
+      const std::uint32_t code = socket_.valid() ? 1140U : 1100U;
+      fill_error(imu_status.observation.error, code, status.message, true);
+      imu_status.fault_detected_at = array.header.stamp;
+      imu_status.fault_detected_time_valid = true;
+    }
+    imu_status.error = imu_status.observation.error;
+    public_status.sensors.push_back(std::move(imu_status));
+    sensor_status_publisher_->publish(public_status);
+
     array.status.push_back(std::move(status));
     diagnostics_publisher_->publish(array);
   }
@@ -448,9 +518,13 @@ private:
   std::uint64_t dropped_assembly_count_{0U};
   std::uint64_t connect_attempt_count_{0U};
   std::string last_socket_error_;
+  builtin_interfaces::msg::Time last_sample_stamp_;
+  unique_identifier_msgs::msg::UUID producer_instance_id_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr magnetic_field_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
+  rclcpp::Publisher<robot_rt_control_interfaces::msg::SensorStatusArray>::SharedPtr
+    sensor_status_publisher_;
   rclcpp::TimerBase::SharedPtr poll_timer_;
   rclcpp::TimerBase::SharedPtr diagnostics_timer_;
 };

@@ -2713,3 +2713,46 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 当前仅完成配置/schema/静态验证。运行时 controller switching、enable_manager 受管资源和
   diagnostics/readiness 的执行接线仍需后续实现并做 Mock/实机分级验证；本裁决不授权总线启动、
   reset、enable、运动或任何设备写入。
+
+## BQ-152: ELECTRI-152 V3 接口实物配置与后续功能 [OPEN/HIGH-RISK 2026-10-02]
+
+- 用户要求先完成可脱离实物的软件、接口、Mock 和 fail-closed 配置，全部完成后再集中确认实物
+  缺失项；不得在实现过程中用猜测值放开生产准入。
+- 用户 2026-10-02 决定：实物参数按“真空 → PP/升降/头部 → IMU/六维力”分批提供；每批事实
+  未闭合前对应模块继续 fail closed，不因其他批次未到而阻塞已具备事实的软件验证。
+- 用户 2026-10-02 决定：触边保持 `edge_installed=false`，安装后再补通道、电平和时延并执行
+  停车验收；当前不继续扩展为伪实物接线。
+- 用户 2026-10-02 决定：换电控制后续建立独立 Spec/Issue，当前只保留 BatteryState，不创建
+  BMS MOS 或接触器写入口。
+- 真空待补：共用泵及左右阀 DO 地址、左右压力 AI 地址／身份、真实量程／缩放／零偏、通断电
+  气路、I/O 失联／看门狗／断电后的输出和保压效果。软件已使用 `configured=false`、`-1/TBD`。
+- 触边待补：数量、位置、DI 地址、常开／常闭、有效电平、线断检测、轮询和最大停止延迟；硬件
+  预计一两个月后安装。当前状态必须为未安装，不能显示未触发；软件锁存／复位核心不代表全机停车已接线。
+- 执行器待补：左右 PP、Updown、头部的零位、行程、单位映射、到位容差、超时、位置反馈、
+  停止／保持、制动和失电行为；未闭合时各位置 Action `configured=false`。
+- 传感器待补：八路超声波安装外参和第二 E08 时序／串扰；红外数量、臂侧和有效电平；IMU 共线
+  CAN 身份、外参、内部融合、磁场影响和时间质量；左右六维力 ring/frame/标定/状态码/freshness。
+- BMS 待补：实机字节序与显示对照。Autonomy 编排换电所需的充／放电 MOS、接触器或整机电源
+  控制对象、供电影响、回读和恢复流程另立方案；当前不得启用任何写命令。
+- 后续功能：RT 本地闭环力控、换电控制、Motion 接管底盘同步运动分别为独立 Spec，不以现有
+  Wrench、BatteryState 或 `/cmd_vel` 接口声称已实现。
+- 本项不授权 Modbus 写、CAN 配置、总线启动、reset、enable 或运动。
+
+## BQ-153: robot_interfaces 发布基线与 driver pin 分叉 [BLOCKED/RELEASE 2026-10-02]
+
+- Evidence：`robot_driver main@2234eef` 固定 `robot_interfaces@9aa2693`，该提交包含 V3 Rolling
+  公共类型；`robot_interfaces/main@e9dde70` 从共同祖先 `92d6ff2` 合入 N-17，但未包含 Rolling
+  merge。直接基于 main 构建 driver 会缺失 `RollingServiceResult` 等类型。
+- 本地处理：ELECTRI-152 接口工作树以 `e9dde70` 为起点，机械导入并保留 `9aa2693` Rolling
+  合同，再叠加 V3 新接口；契约门禁、56 项测试和六包构建通过，后已提交接口 PR #11。
+- Blocker：公共接口 PR [#11](https://github.com/SevenovaHangzhou/robot_interfaces/pull/11) 已创建，
+  commit `f18caab1d6c94ff17584a470131786fb19f21562`；契约门禁与全包构建 CI 均通过，main
+  ruleset 仍要求至少两名批准。2026-10-03 用户要求在依赖评审期间继续推进 driver PR，允许
+  Draft 临时固定该已推送 head SHA 以重现构建；该候选不是已批准发布。
+  转为正式合并／跨域部署前，必须记录统一的最终接口 SHA 并重新验证。
+- Full-build boundary：本机还缺 `/usr/local/etherlab` 及 `ros2_control_test_assets`，因此默认
+  全闭包构建未完成；改动包已使用隔离 build/install 通过。
+- 软件完成边界更正：位置执行后端、停止确认、触边运行接线、多能力 readiness、六维力质量状态、
+  真空并发与时效、整机组合验证尚未全部完成。详见
+  [Draft 缺口清单](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md)。
+  这些是软件剩余工作，不应等待用户提供硬件参数才处理。
