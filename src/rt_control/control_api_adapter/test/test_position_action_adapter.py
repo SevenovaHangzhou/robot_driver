@@ -81,6 +81,13 @@ def test_target_requires_fresh_position_and_velocity_tolerance() -> None:
     assert not core.feedback_is_fresh(11.0)
 
 
+def test_position_only_feedback_cannot_prove_stopped_or_complete() -> None:
+    core = resource()
+    core.update_feedback((1.0,), (), 10.0, 20_000_000_000)
+    assert core.feedback_is_fresh(10.1)
+    assert not core.target_reached((1.0,), 10.1)
+
+
 def test_finish_clears_goal_and_reports_terminal_state() -> None:
     core = resource()
     assert core.state() == (EXECUTION_IDLE, None)

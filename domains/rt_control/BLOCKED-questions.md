@@ -2740,6 +2740,11 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 ## BQ-153: robot_interfaces 发布基线与 driver pin 分叉 [BLOCKED/RELEASE 2026-10-02]
 
+- 2026-10-03 扩大复核：当前候选已更新为 `ea582c8a711874813d2ad7f0801b366bd32ab67e`，
+  修正公共Rolling旧轴语义，与driver双七轴hash一致；未知输出锁存、位置停稳和CI环境问题
+  已作局部纠正，详见 [复核清单](docs/areas/contract/records/2026-10-03-rolling-v3-and-interface-audit.md)。
+  下述f18caab为前一候选，不是当前依赖；Draft仍未完成全部软件与硬件准入。
+
 - Evidence：`robot_driver main@2234eef` 固定 `robot_interfaces@9aa2693`，该提交包含 V3 Rolling
   公共类型；`robot_interfaces/main@e9dde70` 从共同祖先 `92d6ff2` 合入 N-17，但未包含 Rolling
   merge。直接基于 main 构建 driver 会缺失 `RollingServiceResult` 等类型。

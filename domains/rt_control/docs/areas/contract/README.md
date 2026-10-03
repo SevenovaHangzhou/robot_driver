@@ -49,6 +49,8 @@
 
 ## 记录索引（倒序）
 
+- 2026-10-03 [Rolling三代双七轴纠错与扩大复核](records/2026-10-03-rolling-v3-and-interface-audit.md) — PARTIAL；公共轴合同/未知输出/停稳判定已修正，完整软件缺口仍阻塞Ready。
+
 - 2026-10-03 [ELECTRI-174 依赖接口的 driver Draft](records/2026-10-03-interface-dependent-draft.md) — PARTIAL；更正前述完成边界，位置／保护执行接线仍未完成。
 
 - 2026-10-02 [V3 公共接口与适配器实现](records/2026-10-02-v3-interface-contract-implementation.md) — PARTIAL（T1；发布 SHA、全闭包与跨域 smoke 待完成）。

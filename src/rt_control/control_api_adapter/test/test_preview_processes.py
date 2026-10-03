@@ -7,7 +7,7 @@ import sys
 import time
 
 
-def test_preview_discovery_rejects_unconfigured_commands_and_exits(tmp_path):
+def test_preview_discovery_rejects_unconfigured_commands_and_exits(tmp_path, monkeypatch):
     import rclpy
     from rclpy.action import ActionClient
     from rclpy.context import Context
@@ -19,7 +19,11 @@ def test_preview_discovery_rejects_unconfigured_commands_and_exits(tmp_path):
 
     # Domain isolation is for the test graph, not a hardware authorization mechanism.
     domain = 180 + os.getpid() % 40
-    env = dict(os.environ, ROS_DOMAIN_ID=str(domain), ROS_LOCALHOST_ONLY="1")
+    # Parent and children must share transport policy as well as domain ID.
+    # CI may set ROS_LOCALHOST_ONLY=0; patch this process before initializing RMW.
+    monkeypatch.setenv("ROS_DOMAIN_ID", str(domain))
+    monkeypatch.setenv("ROS_LOCALHOST_ONLY", "1")
+    env = os.environ.copy()
     processes = []
     logs = []
     context = Context()

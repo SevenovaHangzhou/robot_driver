@@ -252,7 +252,7 @@ def test_pump_disable_rejects_open_or_unknown_valve_state() -> None:
     assert io.calls == []
 
 
-def test_unknown_write_blocks_pump_disable_until_fresh_readback_reconciles() -> None:
+def test_unknown_write_needs_explicit_output_confirmation_not_periodic_readback() -> None:
     io = FakeVacuumIo(snapshot())
     io.results[LEFT] = failed(OUTCOME_UNKNOWN)
     core = VacuumAdapterCore(io)
@@ -263,8 +263,17 @@ def test_unknown_write_blocks_pump_disable_until_fresh_readback_reconciles() -> 
     blocked = core.set_pump_enabled(False)
     assert not blocked.accepted
 
+    # Even a nominally fresh periodic sample may precede the timed-out write.
     io.state = snapshot(left=channel(LEFT, pressure=-1.0, valve_on=False, valve_valid=True))
+    calls_before = list(io.calls)
+    blocked_by_unknown = core.set_pump_enabled(False)
+    assert not blocked_by_unknown.accepted
+    assert io.calls == calls_before
+
+    # Only a new, caller-requested write with its own confirmation resolves it.
     io.results.pop(LEFT)
+    resolved = core.execute_valves(TARGET_RELEASE, [LEFT], bytes(16))
+    assert resolved.succeeded
     allowed = core.set_pump_enabled(False)
     assert allowed.accepted
 

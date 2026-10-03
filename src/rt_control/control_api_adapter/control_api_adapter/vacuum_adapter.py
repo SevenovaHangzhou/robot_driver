@@ -198,9 +198,8 @@ class VacuumAdapterCore:
         del reason
         started_ns = self._clock_ns()
         attempt_id = uuid.uuid4()
-        snapshot = self._io.read_snapshot()
         with self._lock:
-            self._reconcile_unknown_locked(snapshot)
+            snapshot = self._io.read_snapshot()
             if self._pump_transaction_active or self._active_channels:
                 return self._pump_rejected(
                     enabled,
@@ -275,9 +274,8 @@ class VacuumAdapterCore:
                 error_info(PublicErrorCode.INVALID_GOAL, f"unsupported valve target: {target}"),
             )
 
-        snapshot = self._io.read_snapshot()
         with self._lock:
-            self._reconcile_unknown_locked(snapshot)
+            snapshot = self._io.read_snapshot()
             if self._pump_transaction_active or any(
                 channel in self._active_channels for channel in selected
             ):
@@ -341,6 +339,8 @@ class VacuumAdapterCore:
                 with self._lock:
                     if result.outcome == OUTCOME_UNKNOWN:
                         self._unknown_channels.add(channel)
+                    elif result.outcome == OUTCOME_CONFIRMED:
+                        self._unknown_channels.discard(channel)
                     self._last_context[channel] = ValveContext(
                         bytes(request_id),
                         attempt_id,
@@ -394,10 +394,10 @@ class VacuumAdapterCore:
                 return f"reject pump disable: {channel} pressure is not confirmed released"
         return ""
 
-    def _reconcile_unknown_locked(self, snapshot: PlcVacuumSnapshot) -> None:
-        for channel in tuple(self._unknown_channels):
-            if snapshot.data_fresh and snapshot.channel(channel).valve_valid:
-                self._unknown_channels.remove(channel)
+    # A periodic PlcIoState currently has no per-output transaction identity.
+    # It cannot settle a timed-out write: it may predate a still-queued request.
+    # Retain the unknown latch until an explicit command returns CONFIRMED.
+    # This never issues a retry or changes outputs on its own.
 
     def _pump_rejected(
         self,

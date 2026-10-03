@@ -188,9 +188,13 @@ Mock，但尚未进入远端 V3 或旧工控机 release；临时 envelope 标记
 | Motion -> RT | `/rt/rolling_joint_control/close` | `CloseRollingJointSession` service |
 | RT -> Motion | `/rt/rolling_joint_control/state` | `RollingJointControlState` topic |
 
-本轮实现 pin `robot_interfaces@9aa2693`，包含这些 wire schema 和 QoS。该上游提交的消息注释
-仍沿用二代 14 轴语义，V3 轴语义暂由本文、runtime 固定顺序和 `axis_set_hash` 共同约束；
-正式跨域发布前必须在 `robot_interfaces` 更新注释/契约并让 Motion 与 RT-Control 原子升级。
+本实现评审分支固定 `robot_interfaces@ea582c8` 候选，公共 `axis_sets.v3_dual_arm`、
+RollingJointPoint、open 的 hold 数组和 state 的 desired 数组均统一为
+`right_joint1..7,left_joint1..7`，位置全部 rad、速度全部 rad/s。V3 轴哈希为
+`f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`。
+旧双六轴＋turn/updown 哈希必须被 open 拒绝，即使数组长度同为14也不兼容。
+字段布局与协议1.0未改变，不能只换hash后重放旧轨迹。候选尚未正式发布，Motion与RT仍须
+使用同一批准后的接口SHA原子升级。
 
 ### 6.3 建议会话流程
 

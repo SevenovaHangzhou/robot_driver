@@ -160,7 +160,7 @@ class PositionResourceCore:
             for actual, expected in zip(feedback.positions, target)
         ):
             return False
-        return not feedback.velocities or all(
+        return bool(feedback.velocities) and all(
             abs(value) <= self.velocity_tolerance for value in feedback.velocities
         )
 
@@ -387,6 +387,7 @@ def main(args=None) -> None:
             self._publish_command(name, target)
             deadline = time.monotonic() + resource.command_timeout_s
             settled = 0
+            last_settled_sample = None
             canceling = False
             active_target = target
             terminal_state = EXECUTION_FAULT
@@ -408,13 +409,17 @@ def main(args=None) -> None:
                     self._publish_command(name, active_target)
                     canceling = True
                     settled = 0
+                    last_settled_sample = current.received_monotonic
                 if not resource.feedback_is_fresh(now_monotonic):
                     terminal_state = EXECUTION_FAULT
                     terminal_error = (1130, "position feedback is unavailable or stale", True)
                     goal_handle.abort()
                     break
                 if resource.target_reached(active_target, now_monotonic):
-                    settled += 1
+                    sample_id = resource.feedback().received_monotonic
+                    if sample_id != last_settled_sample:
+                        settled += 1
+                        last_settled_sample = sample_id
                     if settled >= resource.settle_samples:
                         terminal_state = EXECUTION_HOLDING
                         if canceling:
@@ -477,9 +482,13 @@ def main(args=None) -> None:
             set_uuid(message.feedback_observation.source_instance_id, self._instance_id)
             state_value, goal_id = resource.state()
             message.execution_state = state_value
-            stopped = state_value in (EXECUTION_IDLE, EXECUTION_HOLDING)
-            message.stop_confirmed = stopped and message.feedback_observation.valid
-            message.stop_confirmation_valid = message.feedback_observation.valid
+            message.stop_confirmation_valid = (
+                message.feedback_observation.valid
+                and len(feedback.velocities) == len(resource.joint_names)
+            )
+            message.stop_confirmed = message.stop_confirmation_valid and all(
+                abs(value) <= resource.velocity_tolerance for value in feedback.velocities
+            )
             message.goal_known = goal_id is not None
             if goal_id is not None:
                 set_uuid(message.goal_id, goal_id)
