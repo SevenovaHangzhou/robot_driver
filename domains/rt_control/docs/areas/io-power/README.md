@@ -33,7 +33,7 @@ systemd unit（→ realtime-host）。
 | 08#F2/F4 | 八路 A22 映射为 unit 1 和 unit 6 各四路，发布 `channel1..8`；ROS 视场角固定为 40 度，A22 角度等级 2 待实机配置。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F2-F4 | PARTIAL（离线通过；实机配置待验） |
 | 08#F3 | 一个测量周期串行执行两次四寄存器 FC03，均成功才发布同批八路数据；每台 E08 内四路仍同时触发。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F3 | 已由 11#F2 取代 |
 | 10#F1 | BMS 只支持金凤凰 V1.1 C++ 查询路径：`0x18900140` 请求、`0x18904001` 响应。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F1 | PARTIAL（离线构建/测试；实机待验） |
-| 10#F2 | 旧 BMS USB-CAN 规划为 `can1`、250 kbit/s；现用 CAN 卡接口已由用户确认为 `can0`，旧主机命名脚本不适用。 | [双金凤凰电池流程](records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（接口口述确认；宿主启动配置待调整） |
+| 10#F2 | BMS `can1` 使用 250 kbit/s，CANopen `can0` 保持 500 kbit/s。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F2 | PARTIAL（配置/门禁；实机待验） |
 | 10#F3 | `/battery_state` 继续 5 s 发布，3 s 失联后 NaN/present=false。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F3 | PASS（源码/自动测试） |
 | 10#F4 | 金凤凰 PDF 未定义字节序，默认 auto 歧义拒绝；实机抓包前不冻结 big/little。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F4 | OPEN（实机待验） |
 | 11#F1 | V3 真空软件按共用泵、左右独立阀和左右独立压力建模；映射缺失时 fail closed | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F1 | PARTIAL（T1；BQ-152） |
@@ -41,12 +41,9 @@ systemd unit（→ realtime-host）。
 | 11#F3 | LED 公共入口为完整 RGBW 服务，写确认不等于实际发光 | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F3 | PARTIAL（源码/协议；实机写待验） |
 | 11#F4 | 红外为开关量；BMS 本轮只读；IMU 失效策略归 Navigation | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F4 | PARTIAL（实物配置待补） |
 | 12#F1 | LED 节点正常 SIGINT/SIGTERM 退出时六路写无色，捕获到致命异常时六路尽力写红色；SIGKILL、断电和通信失效不作保证。 | [LED 退出颜色策略](records/2026-10-05-led-exit-colors.md)#F1 | PARTIAL（源码/离线；实机待验） |
-| 13#F1 | 双电池 D9/K2 控制软件已接线但默认禁用；阈值、MOS 编码、实体 K2 驱动与回读未闭合前不可启用。 | [双金凤凰电池流程](records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（离线构建/测试；实机控制待验） |
-| 14#F1 | 当前 CAN 卡接口 `can0`；两地址 `0x90` 查询及人工并联放电由用户报告成功；S1 人工、K2 控制仍需实体接口验收。 | [双金凤凰电池流程](records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（0x90 帧证据；自动控制未验） |
 
 ## 记录索引（倒序）
 
-- 2026-10-09 [双金凤凰电池流程](records/2026-10-06-dual-golden-phoenix-power-flow.md) — CAN 卡 `can0`、人工并联与双地址 0x90 回复由用户确认；D9/K2 默认禁用，PARTIAL（40 项包测试；实体 K2 与安全参数待验）
 - 2026-10-05 [LED 正常与异常退出颜色策略](records/2026-10-05-led-exit-colors.md) — corrective，PARTIAL（离线构建/测试；实机退出写待验）
 - 2026-10-02 [双侧真空与结构化传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md) — PARTIAL（T1；实物映射与实机验证待补）
 - 2026-09-30 [金凤凰 BMS V1.1 C++ 驱动迁移](records/2026-09-30-golden-phoenix-bms-cpp.md) — feature，UNVERIFIED（T0；15 项 C++、26 项聚焦测试与 207 项质量门禁通过，实机待验）

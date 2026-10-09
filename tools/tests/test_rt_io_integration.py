@@ -102,21 +102,15 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     )
     for parameter_name in configured_hardware_parameters:
         assert f'declare_parameter("{parameter_name}"' in node_source
-    assert bms["transport"] == "socketcan"
-    assert bms["can_interface"] == "can0"
-    assert bms["expected_adapter_serial"] == ""
+    assert bms["can_interface"] == "can1"
     assert bms["protocol"] == "golden_phoenix_v1_1"
     assert bms["can_bitrate"] == 250000
-    assert bms["primary_bms_address"] == 1
-    assert bms["secondary_bms_address"] == 2
+    assert bms["bms_address"] == 1
     assert bms["host_address"] == 64
     assert bms["multi_byte_order"] == "auto"
     assert bms["request_period_s"] == 0.2
     assert bms["publish_period_s"] == 5.0
     assert bms["frame_timeout_s"] == 3.0
-    assert bms["automatic_discharge_control"] is False
-    assert bms["max_join_voltage_delta_v"] == -1.0
-    assert bms["max_join_current_a"] == -1.0
 
 
 def test_rt_io_public_parameters_match_current_contract() -> None:
@@ -227,7 +221,6 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
 
     assert '#include "robot_interfaces_qos/profiles.hpp"' in bms_source
     assert "topic, robot_interfaces_qos::state()" in bms_source
-    assert "secondary_topic, robot_interfaces_qos::state()" in bms_source
     assert "from robot_interfaces_qos import state" in vacuum_source
     assert "state()," in vacuum_source
     assert "from robot_interfaces_qos import diagnostic, latched, state" in status_source
@@ -366,10 +359,7 @@ def test_removed_duplicate_and_unused_ros_interfaces_do_not_return() -> None:
     assert "create_subscription" not in plc_source
     assert '"/plc/command"' not in plc_source
     assert "/command" not in plc_source
-    assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 2
-    assert 'declare_parameter<bool>("automatic_discharge_control", false)' in bms_source
-    assert "if (automatic_discharge_control_)" in bms_source
-    assert "relay_command_publisher_" in bms_source
+    assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 1
     assert "can_bus_guard" not in bms_source
     assert "can_bus_guard" not in bms_manifest
 

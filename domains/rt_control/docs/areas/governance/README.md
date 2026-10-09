@@ -30,6 +30,8 @@
 
 ## 记录索引（倒序）
 
+- 2026-10-09 [ELECTRI-131 从 PR #53 分离 BMS](records/2026-10-09-electri-131-pr53-split.md)：电池恢复 main 基线，其他模块源码保持原 head。
+
 - 2026-10-09 [程序优化 PR 提交前门禁与隔离验证](records/2026-10-09-program-optimization-pr-validation.md)：Issue #52；质量门禁、受影响包与 Mock 通过，完整 CI/实机待验。
 
 - 2026-09-20 [V3 完整门禁保留下的分层 CI 与依赖缓存](records/2026-09-20-layered-ci-cache.md) — decision，PARTIAL（T0）。

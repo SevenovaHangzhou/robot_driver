@@ -22,16 +22,6 @@ TEST(BmsProtocolTest, BuildsGoldenPhoenixExtendedIdentifiers)
     kResponseId);
 }
 
-TEST(BmsProtocolTest, BuildsPollPlanForBothAddresses)
-{
-  const auto ids = bms_node::make_dual_poll_ids(1U, 2U, 0x40U);
-  EXPECT_EQ(ids.front(), 0x18900140U);
-  EXPECT_EQ(ids[2], 0x18920140U);
-  EXPECT_EQ(ids[6], 0x18980140U);
-  EXPECT_EQ(ids[7], 0x18900240U);
-  EXPECT_EQ(ids.back(), 0x18980240U);
-}
-
 TEST(BmsProtocolTest, DecodesBigEndianVoltageAndSoc)
 {
   bms_node::GoldenPhoenixDecoder decoder{
@@ -127,52 +117,6 @@ TEST(BmsProtocolTest, ValidatesByteOrderParameter)
   EXPECT_EQ(
     bms_node::parse_byte_order("little_endian"), bms_node::ByteOrder::kLittleEndian);
   EXPECT_THROW(static_cast<void>(bms_node::parse_byte_order("native")), std::invalid_argument);
-}
-
-TEST(BmsProtocolTest, DecodesTwoAddressesAndExtendedStatus)
-{
-  bms_node::GoldenPhoenixPack primary{bms_node::ByteOrder::kBigEndian, 1U, 0x40U};
-  bms_node::GoldenPhoenixPack secondary{bms_node::ByteOrder::kBigEndian, 2U, 0x40U};
-  bms_node::PackState first;
-  bms_node::PackState second;
-  const std::array<std::uint8_t, 8U> total{
-    0x01U, 0xF4U, 0U, 0U, 0x75U, 0x30U, 0x03U, 0x20U};
-  const std::array<std::uint8_t, 8U> mos{0U, 0U, 1U, 0U, 0U, 0U, 0U, 0U};
-  const std::array<std::uint8_t, 8U> temperature{65U, 1U, 60U, 2U, 0U, 0U, 0U, 0U};
-  const std::array<std::uint8_t, 8U> count{3U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
-  const std::array<std::uint8_t, 8U> cells{
-    0U, 0x0CU, 0xE4U, 0x0CU, 0xEEU, 0x0CU, 0xF8U, 0U};
-
-  EXPECT_FALSE(secondary.ingest(second, 0x18904001U, total.data(), total.size(), 1.0));
-  ASSERT_TRUE(primary.ingest(first, 0x18904001U, total.data(), total.size(), 1.0));
-  ASSERT_TRUE(secondary.ingest(second, 0x18904002U, total.data(), total.size(), 1.0));
-  EXPECT_DOUBLE_EQ(*second.sample.voltage_v, 50.0);
-  EXPECT_DOUBLE_EQ(*second.sample.current_a, 0.0);
-  ASSERT_TRUE(secondary.ingest(second, 0x18934002U, mos.data(), mos.size(), 1.0));
-  ASSERT_TRUE(secondary.ingest(
-    second, 0x18924002U, temperature.data(), temperature.size(), 1.0));
-  ASSERT_TRUE(secondary.ingest(second, 0x18944002U, count.data(), count.size(), 1.0));
-  ASSERT_TRUE(secondary.ingest(second, 0x18954002U, cells.data(), cells.size(), 1.0));
-  EXPECT_EQ(second.discharge_mos_raw, 1U);
-  EXPECT_DOUBLE_EQ(*second.max_cell_temperature_c, 25.0);
-  EXPECT_DOUBLE_EQ(*second.min_cell_temperature_c, 20.0);
-  EXPECT_TRUE(second.cells_fresh(1.1, 1.0));
-  EXPECT_DOUBLE_EQ(*second.cell_voltage_v[0], 3.3);
-  secondary.begin_cell_scan(second);
-  EXPECT_FALSE(second.cells_fresh(1.1, 1.0));
-}
-
-TEST(BmsProtocolTest, RecognizesDefinedFaultsPerPack)
-{
-  bms_node::GoldenPhoenixPack decoder{bms_node::ByteOrder::kAuto, 2U, 0x40U};
-  bms_node::PackState pack;
-  std::array<std::uint8_t, 8U> faults{0U, 0U, 0U, 0xF0U, 0U, 0U, 0x80U, 0U};
-  ASSERT_TRUE(decoder.ingest(pack, 0x18984002U, faults.data(), faults.size(), 1.0));
-  EXPECT_FALSE(pack.has_fault());
-  faults[5] = 0x40U;
-  ASSERT_TRUE(decoder.ingest(pack, 0x18984002U, faults.data(), faults.size(), 2.0));
-  EXPECT_TRUE(pack.has_fault());
-  EXPECT_FALSE(pack.status_fresh(5.0, 1.0));
 }
 
 }  // namespace

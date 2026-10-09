@@ -94,6 +94,7 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-10-09 | governance | [ELECTRI-131 从 PR #53 分离 BMS](docs/areas/governance/records/2026-10-09-electri-131-pr53-split.md) | PARTIAL（电池恢复 main 基线；其余模块源码不变；质量门禁通过，拆分后 CI 待验） |
 | 2026-10-09 | lifecycle | [模式切换 CI 源状态刷新修复](docs/areas/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md) | PARTIAL（PR #53；65用例、30次150ms延迟回归和质量门禁通过；全仓CI待验） |
 | 2026-10-09 | governance | [程序优化 PR 提交前门禁与隔离验证](docs/areas/governance/records/2026-10-09-program-optimization-pr-validation.md) | PARTIAL（Issue #52；207 项质量测试、36+2 CTest 目标、头部20次Mock失能及双力状态/停机通过；完整CI/实机待验） |
 | 2026-10-08 | canopen-chassis | [LPMS 姿态与角速度协方差支持 YAML 配置](docs/areas/canopen-chassis/records/2026-10-08-lpms-configurable-covariance.md) | PARTIAL（T1；五个测试目标、20 GTest + 9 pytest、quality gate 通过；协方差标定与现场应用待验） |
@@ -201,8 +202,6 @@
 | 2026-09-25 | contract | [ELECTRI-133 Tier A RT 私有底盘协议](docs/areas/contract/records/2026-09-25-tier-a-private-chassis-protocol.md) | PARTIAL（T1；新增六个类型及域内消费者构建通过，无跨域或硬件准入） |
 | 2026-09-30 | io-power | [金凤凰 BMS V1.1 C++ 驱动迁移](docs/areas/io-power/records/2026-09-30-golden-phoenix-bms-cpp.md) | UNVERIFIED（T0；15 项 C++/26 项聚焦/207 项质量门禁通过；can1 实机查询、字节序和 HMI 对照待验） |
 | 2026-10-05 | io-power | [LED 正常与异常退出颜色策略](docs/areas/io-power/records/2026-10-05-led-exit-colors.md) | PARTIAL（T1；离线构建/测试通过，六路实机退出写与不可捕获故障外部监控待验） |
-| 2026-10-07 | io-power | [双金凤凰电池 D9/K2 控制路径](docs/areas/io-power/records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（T1；34 项 bms_node 测试通过，写控制默认禁用；实体 K2 与安全参数待验） |
-| 2026-10-09 | io-power | [双电池 CAN 卡与故障隔离流程](docs/areas/io-power/records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（T1；用户确认 CAN 卡 `can0`、人工并联放电及两地址 0x90 回复；代码允许非 USB CAN 卡，S1 仍人工、0x01 D9 和 0x02 D9/K2 故障路径，顺序双故障回归测试通过；自动控制默认禁用，K2 实体接口及安全参数待验） |
 
 | 2026-10-07 | ecat-axes | 用户要求直接修改现有蓝点配置：左 P140000100 台架位置 2，Revision 1，Rx 7000:01..08 / Tx 6000:01..09 | PARTIAL（只读 PREOP 身份/PDO 已确认；标量类型、单位、DC、frame 和右传感器待验，运行准入未开放） |
 

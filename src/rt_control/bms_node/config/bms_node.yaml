@@ -1,67 +1,14 @@
 bms_node:
   ros__parameters:
-    # Golden Phoenix V1.1 over the confirmed CAN card's Linux can0 interface.
-    # The host must bring can0 up at 250 kbit/s; this node does not configure it.
-    transport: socketcan
-    can_interface: can0
-    # Optional USB serial guard. Leave empty for a non-USB CAN card.
-    expected_adapter_serial: ""
+    can_interface: can1
     protocol: golden_phoenix_v1_1
     can_bitrate: 250000
-    # BMS addresses 0x01/0x02 and host address 0x40, written in decimal here.
-    primary_bms_address: 1
-    secondary_bms_address: 2
+    bms_address: 1
     host_address: 64
-    # "auto" rejects ambiguous byte order; set an explicit order after verification.
     multi_byte_order: auto
-
-    # Seconds. Each data ID for each battery is queried once per request_period_s.
     request_period_s: 0.2
-    # Maximum receive wait and delay before retrying a disconnected CAN interface.
     receive_timeout_s: 0.5
     reconnect_period_s: 2.0
-    # BatteryState publication interval and maximum age of reported status frames.
     publish_period_s: 5.0
     frame_timeout_s: 3.0
-
-    # false: monitoring only; no D9 MOS writes or K2/stop-load control topics.
-    # When enabled, 0x01 faults request D9=0 (S1 remains manual); 0x02 faults
-    # request D9=0 and K2 open after load-stop and low-current confirmation.
-    # Do not enable until the K2 driver, feedback, limits, and MOS mapping are verified.
-    automatic_discharge_control: false
-    # Control limits below are deliberately invalid placeholders, not safe defaults.
-    # Replace all of them with approved values before enabling automatic control.
-    # Maximum pack-voltage difference (V) to close K2 / to trip after closing.
-    max_join_voltage_delta_v: -1.0
-    max_trip_voltage_delta_v: -1.0
-    # Maximum absolute current (A) permitted before switching MOS or K2.
-    max_join_current_a: -1.0
-    # Allowed per-cell voltage (V) and temperature (degrees C) for both batteries.
-    min_cell_voltage_v: -1.0
-    max_cell_voltage_v: -1.0
-    min_cell_temperature_c: -1000.0
-    max_cell_temperature_c: -1000.0
-    # Required stable join window and post-close observation period (seconds).
-    join_stable_s: -1.0
-    secondary_observation_s: -1.0
-    # Maximum age of control feedback/status and D9/K2 response timeout (seconds).
-    control_status_timeout_s: -1.0
-    command_timeout_s: -1.0
-    # Raw 0x93 discharge-MOS byte for ON/OFF; verify against the actual BMS.
-    discharge_mos_on_raw: -1
-    discharge_mos_off_raw: -1
-
-    # All four control topics carry std_msgs/Bool and exist only when enabled.
-    # Node publishes K2 command: true=close, false=open. A separate hardware
-    # driver must operate K2; publishing this topic alone cannot switch it.
-    relay_command_topic: /bms/k2/command
-    # Node subscribes to actual K2 auxiliary-contact feedback: true=closed.
-    relay_feedback_topic: /bms/k2/closed
-    # Node publishes true to request high-power loads to stop.
-    loads_stop_request_topic: /bms/loads/stop_request
-    # Node subscribes to confirmation that those loads actually stopped.
-    loads_stopped_feedback_topic: /bms/loads/stopped
-
-    # Separate published BatteryState topics; values are not merged.
     battery_state_topic: /battery_state
-    secondary_battery_state_topic: /battery_state/secondary
