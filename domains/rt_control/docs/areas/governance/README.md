@@ -30,6 +30,8 @@
 
 ## 记录索引（倒序）
 
+- 2026-10-09 [程序优化 PR 提交前门禁与隔离验证](records/2026-10-09-program-optimization-pr-validation.md)：Issue #52；质量门禁、受影响包与 Mock 通过，完整 CI/实机待验。
+
 - 2026-09-20 [V3 完整门禁保留下的分层 CI 与依赖缓存](records/2026-09-20-layered-ci-cache.md) — decision，PARTIAL（T0）。
 - 2026-09-19 [V3 Robot Model CI 使用构建 overlay](records/2026-09-19-v3-description-overlay-ci.md) — fix，PASS（T0）。
 - 2026-09-17 [PR CI 触发去重与描述编辑隔离](records/2026-09-17-pr-ci-trigger-deduplication.md) — decision，PARTIAL（T0）

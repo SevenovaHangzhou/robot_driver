@@ -94,6 +94,8 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-10-09 | governance | [程序优化 PR 提交前门禁与隔离验证](docs/areas/governance/records/2026-10-09-program-optimization-pr-validation.md) | PARTIAL（Issue #52；207 项质量测试、36+2 CTest 目标、头部20次Mock失能及双力状态/停机通过；完整CI/实机待验） |
+| 2026-10-08 | canopen-chassis | [LPMS 姿态与角速度协方差支持 YAML 配置](docs/areas/canopen-chassis/records/2026-10-08-lpms-configurable-covariance.md) | PARTIAL（T1；五个测试目标、20 GTest + 9 pytest、quality gate 通过；协方差标定与现场应用待验） |
 | 2026-10-03 | contract | [Rolling三代双七轴纠错与扩大复核](docs/areas/contract/records/2026-10-03-rolling-v3-and-interface-audit.md) | PARTIAL（轴合同/未知输出/停稳判定回归通过；软件缺口与CI重跑待关闭） |
 | 2026-10-03 | contract | [ELECTRI-174 依赖接口的 driver Draft 与软件缺口更正](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md) | PARTIAL（候选 pin；禁止合并部署，软件与实物缺口分列） |
 | 2026-10-02 | contract | [V3 公共接口与适配器实现](docs/areas/contract/records/2026-10-02-v3-interface-contract-implementation.md) | PARTIAL（T1；接口发布SHA/全闭包/跨域smoke待完成） |
@@ -197,3 +199,30 @@
 | 2026-09-25 | motion | [ELECTRI-133 Tier A 相对运动、无设备 Mock 与 cyclic adapter 集成](docs/areas/motion/records/2026-09-25-tier-a-relative-move-mock.md) | PARTIAL（T1；271 项双包测试及 connected synthetic PDO handoff 通过；新交接路径为主会话自审，独立审查/真实 PDO/标定/IMU 仍待完成） |
 | 2026-09-25 | contract | [ELECTRI-133 Tier A RT 私有底盘协议](docs/areas/contract/records/2026-09-25-tier-a-private-chassis-protocol.md) | PARTIAL（T1；新增六个类型及域内消费者构建通过，无跨域或硬件准入） |
 | 2026-09-30 | io-power | [金凤凰 BMS V1.1 C++ 驱动迁移](docs/areas/io-power/records/2026-09-30-golden-phoenix-bms-cpp.md) | UNVERIFIED（T0；15 项 C++/26 项聚焦/207 项质量门禁通过；can1 实机查询、字节序和 HMI 对照待验） |
+| 2026-10-05 | io-power | [LED 正常与异常退出颜色策略](docs/areas/io-power/records/2026-10-05-led-exit-colors.md) | PARTIAL（T1；离线构建/测试通过，六路实机退出写与不可捕获故障外部监控待验） |
+| 2026-10-07 | io-power | [双金凤凰电池 D9/K2 控制路径](docs/areas/io-power/records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（T1；34 项 bms_node 测试通过，写控制默认禁用；实体 K2 与安全参数待验） |
+| 2026-10-09 | io-power | [双电池 CAN 卡与故障隔离流程](docs/areas/io-power/records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（T1；用户确认 CAN 卡 `can0`、人工并联放电及两地址 0x90 回复；代码允许非 USB CAN 卡，S1 仍人工、0x01 D9 和 0x02 D9/K2 故障路径，顺序双故障回归测试通过；自动控制默认禁用，K2 实体接口及安全参数待验） |
+
+| 2026-10-07 | ecat-axes | 用户要求直接修改现有蓝点配置：左 P140000100 台架位置 2，Revision 1，Rx 7000:01..08 / Tx 6000:01..09 | PARTIAL（只读 PREOP 身份/PDO 已确认；标量类型、单位、DC、frame 和右传感器待验，运行准入未开放） |
+
+| 2026-10-07 | ecat-axes | 用户要求双蓝点配置：台架左/右位置2/4，6 responder，右侧Revision1及PDO只读确认与左侧一致 | PARTIAL（配置/身份/PDO核对；完整拓扑、类型/单位、frame、DC及运行准入待验） |
+
+| 2026-10-07 | ecat-axes | 用户要求拆分左右蓝点配置为bluepoint_p140000100_left/right.yaml，分别位置2/4，更新broadcaster/manifest/registry引用 | PARTIAL（配置拆分；实际运行准入仍待验） |
+
+| 2026-10-07 | ecat-axes | [双P140000100 raw台架实际话题通信](docs/areas/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md) | PARTIAL（T3；DC/1ms双raw实际收流4956/4955条每5秒；退出回Idle/PREOP；单位/TF/新鲜度未验） |
+
+| 2026-10-07 | ecat-axes | [蓝点 YAML 九路命名状态实际读取](docs/areas/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md) | PARTIAL（T3；左右/state含六通道+状态/计数/温度，3秒2635/2634条，名称对应YAML且计数变化；单位/状态位/闭环新鲜度待验） |
+
+| 2026-10-07 | ecat-axes | 补充 rt_force_torque_broadcaster/README.md：双蓝点台架构建启动、YAML九路映射、实机话题读取命令及既有实测结果 | 文档完成（沿用已归档实测证据；原始通信通过，单位/标定及长期验收待确认） |
+
+| 2026-10-07 | ecat-axes | 用户要求按蓝点PDF V1.1替换左右PDO地址，移除PDF未定义状态码，启动检查按配置验证 | 配置/12测试通过；左右八个输入SDO均abort 0x06020000，当前布局实机不可用，旧成功证据不适用 |
+
+| 2026-10-07 | ecat-axes | PDF地址版台架节点实机启动核验 | 9包构建通过；启动被Force sensor 2 PDO layout mismatch拒绝，无新话题数据；左右实际6000/7000映射已再读确认 |
+
+| 2026-10-07 | ecat-axes | 按2026-09-10 DOCX V1.1恢复6000/7000九路映射，比例改为1e-5，状态/温度保留字段语义更新 | 12项配置测试通过；3.6.1.3协议与实机3.6.1.0适用性/标定待验，未重启实机 |
+
+| 2026-10-07 | ecat-axes | DOCX版双蓝点实机话题复测 | PARTIAL：9包构建；5秒双state各5005条、九项匹配、无倒退，正常停机；约500次/秒计数变化，左Mz文档暂算410.5Nm，物理值正常性未确认 |
+
+| 2026-10-09 | lifecycle | [达妙控制器响应生命周期修复](docs/areas/lifecycle/records/2026-10-09-damiao-controller-response-lifetime.md) | PARTIAL：编译安装、2测试目标及20次Mock失能通过；实机未重启；质量门禁受现有build_head/log_head生成物阻塞 |
+
+| 2026-10-09 | lifecycle | [达妙会话README与双轴0.2rad/s配置](docs/areas/lifecycle/records/2026-10-09-damiao-session-readme.md) | 文档归档、离线schema通过；新速度未重启加载；历史PI比较仍0.1rad/s |
