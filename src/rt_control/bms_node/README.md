@@ -64,11 +64,16 @@ readiness handshake. CAN reconnect waits do not suspend control ticks or relay-h
 publication. D9 write failures do not directly reset the connection. Every D9 OFF
 retry rechecks fresh load-stop and low-current feedback.
 
-Before D9 and while awaiting its ACK/MOS response, fresh K2-open feedback and an
-ON primary MOS remain required. An unexpected primary MOS OFF during joining or
+Before a command is sent, stale K2 or primary MOS feedback only pauses admission
+and resets the stable window; fresh unexpected K2 closure still latches a fault.
+After D9 has been sent, stale or unexpectedly closed K2 feedback aborts the handshake
+with a latched fault. An unexpected primary MOS OFF during joining or
 running enters `awaiting_primary_mos_isolation_policy`: request load stop and latch;
-do not choose a K2 isolation or supply-transfer policy. Phase changes emit WARN/ERROR
-logs; unchanged phases do not log every control tick.
+do not choose a K2 isolation or supply-transfer policy. This state returns early:
+later secondary faults do not enter the normal second-pack isolation path. The
+system owners must resolve this exception before enabling control.
+Normal phase progress emits INFO, fault-handling progress WARN, and fault/policy
+latches ERROR; unchanged phases do not log every control tick.
 
 Automatic control remains prohibited until the system owners settle controlled
 shutdown, K2 level/edge/debounce/heartbeat semantics, isolation after unexpected

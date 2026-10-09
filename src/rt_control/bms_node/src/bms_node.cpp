@@ -353,8 +353,14 @@ private:
       {
         RCLCPP_ERROR(get_logger(), "BMS control: %s -> %s; automatic recovery inhibited",
           discharge_phase_name(previous_phase), discharge_phase_name(phase));
-      } else {
+      } else if (phase == DischargePhase::kStoppingLoads ||
+        phase == DischargePhase::kStoppingSecondary ||
+        phase == DischargePhase::kStoppingPrimary || phase == DischargePhase::kOpeningRelay)
+      {
         RCLCPP_WARN(get_logger(), "BMS control: %s -> %s",
+          discharge_phase_name(previous_phase), discharge_phase_name(phase));
+      } else {
+        RCLCPP_INFO(get_logger(), "BMS control: %s -> %s",
           discharge_phase_name(previous_phase), discharge_phase_name(phase));
       }
     }

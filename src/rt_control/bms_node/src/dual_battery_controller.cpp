@@ -59,9 +59,12 @@ bool DualBatteryController::feedback_fresh(
          now_s >= *stamp && now_s - *stamp <= settings_.status_timeout_s;
 }
 
-bool DualBatteryController::healthy(const PackState & pack, const double now_s) const noexcept
+bool DualBatteryController::healthy(
+  const PackState & pack, const double now_s, const bool require_mos_fresh) const noexcept
 {
-  if (!pack.status_fresh(now_s, settings_.status_timeout_s) ||
+  if (!pack.sample.is_fresh(now_s, settings_.status_timeout_s) ||
+    !feedback_fresh(pack.fault_frame_s, now_s) ||
+    (require_mos_fresh && !feedback_fresh(pack.mos_frame_s, now_s)) ||
     !pack.cells_fresh(now_s, settings_.status_timeout_s) ||
     !feedback_fresh(pack.temperature_frame_s, now_s) ||
     !pack.max_cell_temperature_c || !pack.min_cell_temperature_c ||
@@ -152,9 +155,14 @@ DischargeAction DualBatteryController::update(const DischargeInputs & inputs)
     return DischargeAction::kStopLoads;
   }
 
-  const bool before_close = phase_ == DischargePhase::kWaitingForSecondary ||
-    phase_ == DischargePhase::kWaitingForJoinConditions ||
-    phase_ == DischargePhase::kWaitingForAck || phase_ == DischargePhase::kWaitingForMos;
+  const bool waiting_before_command = phase_ == DischargePhase::kWaitingForSecondary ||
+    phase_ == DischargePhase::kWaitingForJoinConditions;
+  const bool waiting_for_d9 = phase_ == DischargePhase::kWaitingForAck ||
+    phase_ == DischargePhase::kWaitingForMos;
+  const bool before_close = waiting_before_command || waiting_for_d9;
+  if (waiting_before_command && !join_interlocks(inputs)) {
+    stable_since_s_.reset();
+  }
   const bool expects_primary_supply = before_close ||
     phase_ == DischargePhase::kWaitingForRelayClosed ||
     phase_ == DischargePhase::kObservingSecondary || phase_ == DischargePhase::kRunning;
@@ -173,11 +181,15 @@ DischargeAction DualBatteryController::update(const DischargeInputs & inputs)
   const bool secondary_ok = healthy(inputs.secondary, inputs.now_s);
   primary_healthy_seen_ = primary_healthy_seen_ || primary_ok;
   secondary_healthy_seen_ = secondary_healthy_seen_ || secondary_ok;
+  // Before any command, a missing primary MOS readback blocks admission rather
+  // than faulting the supply. Other stale status and real BMS faults still latch.
   const bool primary_fault = inputs.primary.has_fault() ||
-    (primary_healthy_seen_ && !primary_ok);
+    (primary_healthy_seen_ && !healthy(inputs.primary, inputs.now_s, !waiting_before_command));
   bool secondary_fault = inputs.secondary.has_fault() ||
     (secondary_healthy_seen_ && !secondary_ok) ||
-    (before_close && !join_interlocks(inputs));
+    (waiting_for_d9 && !join_interlocks(inputs)) ||
+    (waiting_before_command && inputs.relay_closed == true &&
+    feedback_fresh(inputs.relay_feedback_s, inputs.now_s));
   const bool joining = phase_ == DischargePhase::kWaitingForAck ||
     phase_ == DischargePhase::kWaitingForMos ||
     phase_ == DischargePhase::kWaitingForRelayClosed ||
@@ -234,7 +246,7 @@ DischargeAction DualBatteryController::update(const DischargeInputs & inputs)
       }
       return DischargeAction::kNone;
     case DischargePhase::kWaitingForSecondary:
-      if (secondary_ok) {
+      if (secondary_ok && join_interlocks(inputs)) {
         phase_ = DischargePhase::kWaitingForJoinConditions;
       }
       return DischargeAction::kNone;

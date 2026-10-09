@@ -79,7 +79,8 @@ public:
   [[nodiscard]] bool secondary_faulted() const noexcept {return secondary_fault_;}
 
 private:
-  [[nodiscard]] bool healthy(const PackState & pack, double now_s) const noexcept;
+  [[nodiscard]] bool healthy(
+    const PackState & pack, double now_s, bool require_mos_fresh = true) const noexcept;
   [[nodiscard]] bool join_conditions(const DischargeInputs & inputs) const noexcept;
   [[nodiscard]] bool join_interlocks(const DischargeInputs & inputs) const noexcept;
   [[nodiscard]] bool loads_safe_to_switch(const DischargeInputs & inputs) const noexcept;

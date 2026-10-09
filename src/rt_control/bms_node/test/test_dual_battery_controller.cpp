@@ -464,4 +464,90 @@ TEST(DualBatteryControllerReviewTest, UndefinedOperatingStatesNeverEnableSeconda
   }
 }
 
+TEST(DualBatteryControllerReviewTest, MissingSecondaryRecoversFromIdleFeedbackGap)
+{
+  for (const bool mos_gap : {false, true}) {
+    auto config = settings();
+    config.status_timeout_s = 0.5;
+    bms_node::DualBatteryController controller{config};
+    auto primary = healthy_pack(1.0, 1U);
+    bms_node::PackState secondary;
+    auto inputs = inputs_for(primary, secondary, 1.0);
+    static_cast<void>(controller.update(inputs));
+    static_cast<void>(controller.update(inputs));
+    ASSERT_EQ(controller.phase(), bms_node::DischargePhase::kWaitingForSecondary);
+    primary = healthy_pack(2.0, 1U);
+    inputs.now_s = 2.0;
+    inputs.loads_stopped_s = 2.0;
+    if (mos_gap) {
+      primary.mos_frame_s = 1.0;
+      inputs.relay_feedback_s = 2.0;
+    }
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+    EXPECT_FALSE(controller.secondary_faulted());
+    for (int tick = 0; tick < 20; ++tick) {
+      inputs.now_s += 0.2;
+      primary = healthy_pack(inputs.now_s, 1U);
+      inputs.loads_stopped_s = inputs.now_s;
+      inputs.relay_feedback_s = inputs.now_s;
+      EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+      EXPECT_EQ(controller.phase(), bms_node::DischargePhase::kWaitingForSecondary);
+    }
+  }
+}
+
+TEST(DualBatteryControllerReviewTest, JoinWaitFeedbackGapResetsStabilityAndRecovers)
+{
+  for (const bool mos_gap : {false, true}) {
+    auto config = settings();
+    config.status_timeout_s = 0.5;
+    bms_node::DualBatteryController controller{config};
+    auto primary = healthy_pack(1.0, 1U);
+    auto secondary = healthy_pack(1.0, 0U);
+    secondary.sample.voltage_v = 52.0;
+    auto inputs = inputs_for(primary, secondary, 1.0);
+    reach_join_check(controller, inputs);
+    static_cast<void>(controller.update(inputs));
+    auto refresh = [&](const double now) {
+        primary = healthy_pack(now, 1U);
+        secondary = healthy_pack(now, 0U);
+        inputs.now_s = now;
+        inputs.loads_stopped_s = now;
+        inputs.relay_feedback_s = now;
+      };
+    refresh(2.0);
+    secondary.sample.voltage_v = 52.0;
+    if (mos_gap) {primary.mos_frame_s = 1.0;} else {inputs.relay_feedback_s = 1.0;}
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+    EXPECT_FALSE(controller.secondary_faulted());
+    EXPECT_EQ(controller.phase(), bms_node::DischargePhase::kWaitingForJoinConditions);
+    refresh(2.1);
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+    refresh(2.5);
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+    if (mos_gap) {primary.mos_frame_s = 1.0;} else {inputs.relay_feedback_s = 1.0;}
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+    refresh(2.8);
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+    refresh(3.2);
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kNone);
+    refresh(3.5);
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kEnableSecondary);
+  }
+}
+
+TEST(DualBatteryControllerReviewTest, FreshUnexpectedClosureStillFaultsWithAbsentSecondary)
+{
+  bms_node::DualBatteryController controller{settings()};
+  auto primary = healthy_pack(1.0, 1U);
+  bms_node::PackState secondary;
+  auto inputs = inputs_for(primary, secondary, 1.0);
+  static_cast<void>(controller.update(inputs));
+  static_cast<void>(controller.update(inputs));
+  ASSERT_EQ(controller.phase(), bms_node::DischargePhase::kWaitingForSecondary);
+  inputs.relay_closed = true;
+  EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kStopLoads);
+  EXPECT_TRUE(controller.secondary_faulted());
+}
+
 }  // namespace

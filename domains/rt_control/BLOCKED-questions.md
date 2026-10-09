@@ -2749,7 +2749,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 - 自动控制启用前必须裁决四项：受控退出；K2 电平/边沿、防抖与心跳失联语义；
   主电池 MOS 意外关闭后的隔离及供电保持；故障锁存后的停负载保持与恢复授权。
   K2 重试不在本轮猜测实现。主电池 MOS 意外关闭后软件只请求停负载并锁存，
-  禁止自行断开 K2 或自动转移负载。裁决责任：电气与 RT-Control 负责人。
+  禁止自行断开 K2 或自动转移负载。该等待策略状态提前返回，后续副电池故障
+  也不进入常规“第二块电池故障”隔离路径；负责人必须一并裁决此例外。
+  裁决责任：电气与 RT-Control 负责人。
   记录见 `docs/areas/io-power/records/2026-10-09-electri-131-bms-review.md`。
 - 后续功能：RT 本地闭环力控、换电控制、Motion 接管底盘同步运动分别为独立 Spec，不以现有
   Wrench、BatteryState 或 `/cmd_vel` 接口声称已实现。
