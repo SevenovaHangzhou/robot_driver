@@ -98,4 +98,18 @@ F08、F10、F11 延期。F12 在独立字节序修复 PR 中处理。
 质量门禁仍为 207 passed、13 skipped，门禁覆盖率 83%。
 日志：`/tmp/pr56-followup-build.log`、`/tmp/pr56-followup-test.log`、
 `/tmp/pr56-followup-results.log`、`/tmp/pr56-followup-quality.log`。
-上述数据为 rebase 前增量验证，rebase 后重新核对。
+上述数据为 rebase 前增量验证。
+
+## 新 main 基线复核
+
+PR #53 squash 合并为 `639a45c19dc9f3ab3374e45f54a88436839718b4`。
+PR #55 squash 合并为 `d1e4fad71312e167bcd3577db5b5c05b632b3e80`。
+本分支已 rebase 到后者。索引追加及协议测试冲突保留双方内容。
+
+- `protocol.cpp` 猜大端分支已删除。
+- `test_bms_protocol.cpp` 的 13 个测试等于原 #55/#56 测试集合的并集。
+- rebase 后隔离构建通过；5 个 CTest 目标、53 条汇总结果通过。
+- `tools/quality_gate.sh`：207 passed、13 skipped，门禁覆盖率 83%。
+- 证据：`/tmp/pr56-rebase-build.log`、`/tmp/pr56-final-test.log`、
+  `/tmp/pr56-final-results.log`、`/tmp/pr56-rebase-quality.log`。
+- 未执行实机操作；新 head CI 单独触发，禁止沿用旧 head 的成功状态。
