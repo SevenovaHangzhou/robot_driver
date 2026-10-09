@@ -48,3 +48,16 @@ TEST(RosConversionTest, LeavesUnknownCovariancesAtRosDefault)
     EXPECT_DOUBLE_EQ(value, 0.0);
   }
 }
+
+TEST(RosConversionTest, CopiesConfiguredCovariancesInRowMajorOrder)
+{
+  const std::array<double, 9U> orientation{
+    0.01, 0.002, 0.0, 0.002, 0.02, 0.0, 0.0, 0.0, 0.03};
+  const std::array<double, 9U> angular_velocity{
+    0.04, 0.0, 0.0, 0.0, 0.05, 0.003, 0.0, 0.003, 0.06};
+  const auto imu = lpms_nav3_can::make_imu_message(
+    lpms_nav3_can::ImuSample{}, orientation, angular_velocity);
+  EXPECT_EQ(imu.orientation_covariance, orientation);
+  EXPECT_EQ(imu.angular_velocity_covariance, angular_velocity);
+  EXPECT_EQ(imu.linear_acceleration_covariance, (std::array<double, 9U>{}));
+}

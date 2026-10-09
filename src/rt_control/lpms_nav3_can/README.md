@@ -52,7 +52,12 @@ repository named QoS profiles.
 `convert_to_ros_convention=false` keeps LPMS axes after SI conversion. The optional
 legacy conversion negates acceleration and conjugates the quaternion; it does not
 replace a measured mounting transform or dynamic axis-sign validation. Covariance
-arrays remain zero (unknown), not calibrated. Quaternion validity, magnetic
+arrays default to zero (unknown), not calibrated. `orientation_covariance` and
+`angular_velocity_covariance` are startup-only parameters containing nine finite
+numbers in row-major 3x3 order, in rad² and (rad/s)² respectively. Set them in the
+YAML using manufacturer or calibration evidence, then restart the node. Invalid
+lengths or non-finite values reject startup. Acceleration and magnetic covariance
+remain zero (unknown). Quaternion validity, magnetic
 calibration and extrinsics must be verified before navigation fusion.
 
 ## Build And Static Validation

@@ -5,6 +5,10 @@
     node_id: 0
     frame_id: ""
     convert_to_ros_convention: false
+    # Row-major 3x3 matrices: orientation in rad^2, angular velocity in (rad/s)^2.
+    # All zeros means unknown. Loaded at startup; restart after editing.
+    orientation_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    angular_velocity_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     require_heartbeat: true
     # Historical independent-bench settings, not approved Gen3 limits.
     poll_period_ms: 2
