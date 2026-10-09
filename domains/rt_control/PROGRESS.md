@@ -94,6 +94,7 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-10-09 | io-power | [ELECTRI-131 auto 字节序歧义修复](docs/areas/io-power/records/2026-10-09-electri-131-bms-byte-order.md) | PARTIAL（3 个 CTest/14 条汇总结果通过；实机字节序待确认） |
 | 2026-10-03 | contract | [Rolling三代双七轴纠错与扩大复核](docs/areas/contract/records/2026-10-03-rolling-v3-and-interface-audit.md) | PARTIAL（轴合同/未知输出/停稳判定回归通过；软件缺口与CI重跑待关闭） |
 | 2026-10-03 | contract | [ELECTRI-174 依赖接口的 driver Draft 与软件缺口更正](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md) | PARTIAL（候选 pin；禁止合并部署，软件与实物缺口分列） |
 | 2026-10-02 | contract | [V3 公共接口与适配器实现](docs/areas/contract/records/2026-10-02-v3-interface-contract-implementation.md) | PARTIAL（T1；接口发布SHA/全闭包/跨域smoke待完成） |

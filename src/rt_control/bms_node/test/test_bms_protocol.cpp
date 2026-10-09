@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <utility>
 
 namespace
 {
@@ -117,6 +118,49 @@ TEST(BmsProtocolTest, ValidatesByteOrderParameter)
   EXPECT_EQ(
     bms_node::parse_byte_order("little_endian"), bms_node::ByteOrder::kLittleEndian);
   EXPECT_THROW(static_cast<void>(bms_node::parse_byte_order("native")), std::invalid_argument);
+}
+
+TEST(BmsProtocolTest, EqualSocBytesNeverChooseAnOrderOrMutateTheSample)
+{
+  for (const std::uint8_t repeated : std::array<std::uint8_t, 4U>{0U, 1U, 2U, 3U}) {
+    bms_node::GoldenPhoenixDecoder decoder{bms_node::ByteOrder::kAuto, 0x01U, 0x40U};
+    bms_node::BmsSample sample{48.0, 0.5, 2.0};
+    const std::array<std::uint8_t, 8U> ambiguous{
+      0xF4U, 0x01U, 0x00U, 0x00U, 0x30U, 0x75U, repeated, repeated};
+    EXPECT_FALSE(decoder.ingest(sample, kResponseId, ambiguous.data(), ambiguous.size(), 3.0));
+    EXPECT_FALSE(decoder.resolved_order());
+    EXPECT_DOUBLE_EQ(*sample.voltage_v, 48.0);
+    EXPECT_DOUBLE_EQ(*sample.soc_fraction, 0.5);
+    EXPECT_DOUBLE_EQ(*sample.last_frame_s, 2.0);
+
+    auto unique = ambiguous;
+    unique[6] = 0x20U;
+    unique[7] = 0x03U;
+    ASSERT_TRUE(decoder.ingest(sample, kResponseId, unique.data(), unique.size(), 4.0));
+    EXPECT_EQ(decoder.resolved_order(), bms_node::ByteOrder::kLittleEndian);
+    EXPECT_DOUBLE_EQ(*sample.voltage_v, 50.0);
+    EXPECT_DOUBLE_EQ(*sample.soc_fraction, 0.8);
+
+    // Once uniquely resolved, repeated SOC bytes are ordinary valid samples.
+    ASSERT_TRUE(decoder.ingest(sample, kResponseId, ambiguous.data(), ambiguous.size(), 5.0));
+    EXPECT_DOUBLE_EQ(*sample.voltage_v, 50.0);
+    EXPECT_DOUBLE_EQ(*sample.soc_fraction, static_cast<double>(repeated) * 257.0 / 1000.0);
+  }
+}
+
+TEST(BmsProtocolTest, ExplicitByteOrdersStillAcceptZeroSoc)
+{
+  for (const auto order : {bms_node::ByteOrder::kBigEndian, bms_node::ByteOrder::kLittleEndian}) {
+    bms_node::GoldenPhoenixDecoder decoder{order, 0x01U, 0x40U};
+    bms_node::BmsSample sample;
+    std::array<std::uint8_t, 8U> payload{0x01U, 0xF4U, 0U, 0U, 0U, 0U, 0U, 0U};
+    if (order == bms_node::ByteOrder::kLittleEndian) {
+      std::swap(payload[0], payload[1]);
+    }
+    ASSERT_TRUE(decoder.ingest(sample, kResponseId, payload.data(), payload.size(), 1.0));
+    EXPECT_DOUBLE_EQ(*sample.voltage_v, 50.0);
+    EXPECT_DOUBLE_EQ(*sample.soc_fraction, 0.0);
+  }
 }
 
 }  // namespace

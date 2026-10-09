@@ -43,6 +43,8 @@ systemd unit（→ realtime-host）。
 
 ## 记录索引（倒序）
 
+- 2026-10-09 [ELECTRI-131 auto 字节序歧义修复](records/2026-10-09-electri-131-bms-byte-order.md) — PARTIAL；14 条离线测试汇总通过，实际设备字节序待确认。
+
 - 2026-10-02 [双侧真空与结构化传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md) — PARTIAL（T1；实物映射与实机验证待补）
 - 2026-09-30 [金凤凰 BMS V1.1 C++ 驱动迁移](records/2026-09-30-golden-phoenix-bms-cpp.md) — feature，UNVERIFIED（T0；15 项 C++、26 项聚焦测试与 207 项质量门禁通过，实机待验）
 - 2026-09-21 [双 E08 接入八路 A22 超声波](records/2026-09-21-dual-e08-eight-ultrasonic.md) — feature，PARTIAL（T1 离线；八路实机与声学串扰待验）
