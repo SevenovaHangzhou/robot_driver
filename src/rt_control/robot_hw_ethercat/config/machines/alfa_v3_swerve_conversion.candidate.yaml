@@ -1,0 +1,46 @@
+# Candidate calculations only; NOT a slave profile and NOT consumed by runtime.
+# Resolve each pending fact before populating kinco_cyclic_mode raw/SI fields.
+schema_version: 1
+module: swerve_chassis
+status: candidate
+verified: false
+runtime_enabled: false
+source:
+  catalog_id: V3-DOC-2026-014
+  sha256: 029f858f7e7a4ec1f1299ae47bb6c9d1dcee8de3ef035517e1479d7166d0125e
+  printed_pages: [107, 108, 154]
+  ratio_authority: user_confirmation_2026_10_07
+assumptions:
+  - N is effective raw position counts per motor revolution, not unmultiplied encoder lines.
+  - No additional electronic gearing or output-side scaling is active.
+  - EtherCAT 0x606C and 0x60FF use the manual DEC velocity formula; verify on the installed firmware.
+  - Position 0x6064 and target 0x607A use the same motor-side count scale; verify on the installed firmware.
+  - Direction and static zero are independently calibrated.
+formula:
+  position_counts_per_output_rad: sign * N * motor_turns_per_output_turn / (2*pi)
+  velocity_counts_per_output_rad_per_s: sign * N * motor_turns_per_output_turn * 60 * 512 / (2*pi*1875)
+axes:
+  drive:
+    motor_turns_per_output_turn: 27.48
+    position_counts_per_unit_per_N: 4.373577836165284
+    velocity_counts_per_unit_per_N: 71.65669926773201
+    effective_motor_counts_per_revolution: TBD
+    sign: TBD
+    position_offset_counts: TBD
+    position_counts_per_unit: TBD
+    velocity_counts_per_unit: TBD
+  steering:
+    motor_turns_per_output_turn: 140.0
+    position_counts_per_unit_per_N: 22.281692032865347
+    velocity_counts_per_unit_per_N: 365.06324226646586
+    effective_motor_counts_per_revolution: TBD
+    sign: TBD
+    position_offset_counts: TBD
+    position_counts_per_unit: TBD
+    velocity_counts_per_unit: TBD
+pending_facts:
+  - Per-motor effective position counts per revolution and electronic gearing.
+  - Actual position section lists 0x6063 while EtherCAT uses 0x6064; confirm position unit equivalence.
+  - Confirm the generic DEC velocity formula applies to EtherCAT CSV on the installed revision.
+  - Verify sign, zero, raw overflow limits and paired command/feedback scale.
+# External steering encoder 108/27 gearing is independent and is not multiplied here.

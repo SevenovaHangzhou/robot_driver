@@ -2567,6 +2567,17 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 ## BQ-145: 舵轮控制器真实硬件接入与启动组合 [OPEN/HIGH-RISK 2026-09-09]
 
+- 2026-10-07 用户指定软件目标±120°，随后确认机械硬限位±135°。
+  控制器草案steering_min/max设为±2.356194490192345 rad，margin为
+  0.2617993877991494 rad（15°），得到±120°目标区间；导航和Tier A共用。
+  零位/方向、限位传感器触发点和反馈容差仍须现场验证，生产准入不变。
+
+- 2026-10-07 用户确认安装机型行走总减速比 27.48:1、转向电机到舵轴总减速比
+  140:1，取代旧图纸选型17.68及转向总比TBD。机械配置已更新，外置编码器108/27
+  比例独立保留，不再乘入140。仅此不关闭原始计数换算：仍缺电机反馈分辨率、
+  速度对象原始单位、电子齿轮/输出侧缩放、符号与零偏。运行时
+  `position_counts_per_unit` / `velocity_counts_per_unit` 不得直接填入机械减速比。
+
 - 2026-09-25 ELECTRI-133 Tier A：新增 RT 私有相对运动协议、固定规模 planner/session 与
   `chassis_relative_move_mock` 无设备执行入口；模拟 stationary CSV/CSP 回读与 Action 行为已验证。
   后续已将该 session 以 opt-in 方式接入 `SwerveController` loaned interfaces 与
