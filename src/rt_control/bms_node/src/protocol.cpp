@@ -34,9 +34,6 @@ std::optional<ByteOrder> detect_order(const std::uint8_t * data) noexcept
   if (big_valid != little_valid) {
     return big_valid ? ByteOrder::kBigEndian : ByteOrder::kLittleEndian;
   }
-  if (big_valid && big_soc == little_soc) {
-    return ByteOrder::kBigEndian;
-  }
   return std::nullopt;
 }
 

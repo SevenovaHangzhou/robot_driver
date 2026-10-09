@@ -94,6 +94,7 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-10-09 | io-power | [ELECTRI-131 auto 字节序歧义修复](docs/areas/io-power/records/2026-10-09-electri-131-bms-byte-order.md) | PARTIAL（3 个 CTest/14 条汇总结果通过；实机字节序待确认） |
 | 2026-10-09 | governance | [ELECTRI-131 从 PR #53 分离 BMS](docs/areas/governance/records/2026-10-09-electri-131-pr53-split.md) | PARTIAL（电池恢复 main 基线；其余模块源码不变；质量门禁通过，拆分后 CI 待验） |
 | 2026-10-09 | lifecycle | [模式切换 CI 源状态刷新修复](docs/areas/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md) | PARTIAL（PR #53；65用例、30次150ms延迟回归和质量门禁通过；全仓CI待验） |
 | 2026-10-09 | governance | [程序优化 PR 提交前门禁与隔离验证](docs/areas/governance/records/2026-10-09-program-optimization-pr-validation.md) | PARTIAL（Issue #52；207 项质量测试、36+2 CTest 目标、头部20次Mock失能及双力状态/停机通过；完整CI/实机待验） |
