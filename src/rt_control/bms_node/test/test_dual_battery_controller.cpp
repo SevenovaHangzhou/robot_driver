@@ -550,4 +550,50 @@ TEST(DualBatteryControllerReviewTest, FreshUnexpectedClosureStillFaultsWithAbsen
   EXPECT_TRUE(controller.secondary_faulted());
 }
 
+TEST(DualBatteryControllerReviewTest, PrimaryMosGapAfterD9StillLatchesFault)
+{
+  auto config = settings();
+  config.status_timeout_s = 0.5;
+  config.stable_s = 0.1;
+  bms_node::DualBatteryController controller{config};
+  auto primary = healthy_pack(1.0, 1U);
+  auto secondary = healthy_pack(1.0, 0U);
+  auto inputs = inputs_for(primary, secondary, 1.0);
+  reach_join_check(controller, inputs);
+  static_cast<void>(controller.update(inputs));
+  inputs.now_s = 1.2;
+  ASSERT_EQ(controller.update(inputs), bms_node::DischargeAction::kEnableSecondary);
+  primary = healthy_pack(1.6, 1U);
+  secondary = healthy_pack(1.6, 0U);
+  primary.mos_frame_s = 1.0;
+  inputs.now_s = 1.6;
+  inputs.loads_stopped_s = 1.6;
+  inputs.relay_feedback_s = 1.6;
+  inputs.loads_stopped = false;
+  EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kStopLoads);
+  EXPECT_TRUE(controller.secondary_faulted());
+  EXPECT_EQ(controller.phase(), bms_node::DischargePhase::kStoppingLoads);
+}
+
+TEST(DualBatteryControllerReviewTest, WaitingStillLatchesNonMosStatusLossAndRealFaults)
+{
+  for (const bool fault_bit : {false, true}) {
+    auto config = settings();
+    config.status_timeout_s = 0.5;
+    bms_node::DualBatteryController controller{config};
+    auto primary = healthy_pack(1.0, 1U);
+    bms_node::PackState secondary;
+    auto inputs = inputs_for(primary, secondary, 1.0);
+    static_cast<void>(controller.update(inputs));
+    static_cast<void>(controller.update(inputs));
+    primary = healthy_pack(2.0, 1U);
+    if (fault_bit) {primary.fault_bytes[0] = 1U;} else {primary.sample.last_frame_s = 1.0;}
+    inputs.now_s = 2.0;
+    inputs.relay_feedback_s = 2.0;
+    inputs.loads_stopped_s = 2.0;
+    EXPECT_EQ(controller.update(inputs), bms_node::DischargeAction::kStopLoads);
+    EXPECT_EQ(controller.phase(), bms_node::DischargePhase::kStoppingLoads);
+  }
+}
+
 }  // namespace
