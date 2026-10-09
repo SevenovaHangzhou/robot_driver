@@ -11,6 +11,9 @@
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| 20261009-03#F1 | 模式切换成功路径测试持续提供 JTC 状态，保留生产新鲜度与停稳门禁 | [CI 源状态刷新修复](records/2026-10-09-mode-switch-ci-source-freshness.md)#F1-F2 | PARTIAL（65用例及30次延迟回归通过；全仓CI待验） |
+| 20261009-02#F1 | 头部会话已归档；两台临时配置速度0.2rad/s，历史PI比较0.1rad/s | [会话归档](records/2026-10-09-damiao-session-readme.md)#F1-F2 | PARTIAL（新速度未加载验证） |
+| 20261009#F1 | 达妙控制器切换保留 ListControllers 响应生命周期，20次Mock失能通过 | [响应生命周期修复](records/2026-10-09-damiao-controller-response-lifetime.md)#F1-F2 | PARTIAL（T1；实机待验） |
 | 01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |
 | 01#F2 | rt_disable_once 三阶段共享单一绝对 deadline 是已验证现状（29 例日志佐证），非缺陷 | [lifecycle-20260814-01](records/2026-08-14-rt-disable-log-forensics.md)#F2 | 有效 |
 | 02#F1 | enable_manager 单元测试基线 = 36 用例 @ 3ff153d（a–f 六项）；行为修改须先过套件 | [lifecycle-20260814-02](records/2026-08-14-enable-manager-gtest.md)#F1 | 有效 |
@@ -19,6 +22,12 @@
 | 05#F1 | V3 enable_manager 保持 16 轴 CiA402 管理，14 CSP motion registry 在 enable 后默认进入 FJT_READY，并与 rolling 严格互斥 | [V3 运动控制器切换](records/2026-09-19-v3-motion-controller-switching.md)#F1-F3 | PARTIAL（T1 Mock；真实故障/停机待验） |
 
 ## 记录索引（倒序）
+
+- 2026-10-09 [模式切换 CI 测试持续提供源控制器状态](records/2026-10-09-mode-switch-ci-source-freshness.md)：PR #53；单次快照对照复现，延迟回归30次通过。
+
+- 2026-10-09 [达妙头部通信与调参会话归档](records/2026-10-09-damiao-session-readme.md)：README整理与临时配置更新。
+
+- 2026-10-09 [达妙控制器切换响应生命周期修复](records/2026-10-09-damiao-controller-response-lifetime.md)：PARTIAL，Mock20次失能通过。
 
 - 2026-09-19 [V3 rolling 激活握手与 provisional epoch 纠错](records/2026-09-19-v3-rolling-activation-handoff.md)：PARTIAL，T1 Native；V3 实机待验。
 - 2026-09-19 [V3 十六轴使能与运动控制器严格切换](records/2026-09-19-v3-motion-controller-switching.md)：PARTIAL，T1 Mock。

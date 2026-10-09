@@ -9,7 +9,9 @@ import tempfile
 import time
 
 
-def run_and_stop(command: list[str], environment: dict[str, str]) -> None:
+def run_and_stop(
+    command: list[str], environment: dict[str, str], stop_signal: signal.Signals
+) -> None:
     process = subprocess.Popen(
         command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
     )
@@ -17,7 +19,7 @@ def run_and_stop(command: list[str], environment: dict[str, str]) -> None:
         time.sleep(0.5)
         if process.poll() is not None:
             raise RuntimeError(process.communicate()[0].decode())
-        process.send_signal(signal.SIGINT)
+        process.send_signal(stop_signal)
         output, _ = process.communicate(timeout=5)
         if process.returncode != 0:
             raise RuntimeError(output.decode())
@@ -50,6 +52,11 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
             b"response_timeout_ms must be",
         )
         require_rejected(
+            [led_executable, "--ros-args", "-p", "exit_response_timeout_ms:=0"],
+            environment,
+            b"exit_response_timeout_ms must be",
+        )
+        require_rejected(
             [
                 led_executable,
                 "--ros-args",
@@ -75,17 +82,27 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
             [ultrasonic_executable, "--ros-args", "-p", "field_of_view_rad:=0.5"], environment,
             b"field_of_view_rad must be 0.6981317008",
         )
-        for _ in range(2):
+        for stop_signal in (signal.SIGINT, signal.SIGTERM):
             run_and_stop(
-                [led_executable, "--ros-args", "--params-file", led_config], environment,
+                [
+                    led_executable,
+                    "--ros-args",
+                    "--params-file",
+                    led_config,
+                    "-p",
+                    "exit_color_enabled:=false",
+                ],
+                environment,
+                stop_signal,
             )
             run_and_stop(
                 [ultrasonic_executable, "--ros-args", "--params-file", ultrasonic_config,
                  "-p", "poll_enabled:=false"],
                 environment,
+                stop_signal,
             )
     print(
-        "PASS: invalid endpoint and A22 metadata rejected; repeat starts and SIGINT exits; "
+        "PASS: invalid endpoint and A22 metadata rejected; SIGINT/SIGTERM exits; "
         "no hardware access"
     )
 

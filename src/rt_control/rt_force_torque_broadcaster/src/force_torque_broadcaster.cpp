@@ -59,6 +59,7 @@ CallbackReturn ForceTorqueBroadcaster::on_init()
   auto_declare<std::int64_t>("minimum_auxiliary_value", 0);
   auto_declare<std::int64_t>("maximum_auxiliary_value", 0);
   auto_declare<bool>("calibration_valid", false);
+  auto_declare<std::string>("sensor_state_topic", "");
   return CallbackReturn::SUCCESS;
 }
 
@@ -76,6 +77,10 @@ CallbackReturn ForceTorqueBroadcaster::on_configure(
     frame_id_ = get_node()->get_parameter("frame_id").as_string();
     wrench_topic_ = get_node()->get_parameter("wrench_topic").as_string();
     raw_topic_ = get_node()->get_parameter("raw_topic").as_string();
+    sensor_state_topic_ = get_node()->get_parameter("sensor_state_topic").as_string();
+    if (!sensor_state_topic_.empty() && !configured_name(sensor_state_topic_)) {
+      throw std::invalid_argument("sensor_state_topic must be explicit when enabled");
+    }
     calibration_topic_ = get_node()->get_parameter("calibration_topic").as_string();
     diagnostic_name_ = get_node()->get_parameter("diagnostic_name").as_string();
     link_interface_name_ = get_node()->get_parameter("link_interface").as_string();
@@ -203,6 +208,22 @@ CallbackReturn ForceTorqueBroadcaster::on_configure(
       realtime_tools::RealtimePublisher<std_msgs::msg::Int32MultiArray>>(
       raw_publisher_);
     realtime_raw_publisher_->msg_.data.resize(kAxisCount);
+    if (!sensor_state_topic_.empty()) {
+      sensor_state_publisher_ = get_node()->create_publisher<control_msgs::msg::DynamicJointState>(
+        sensor_state_topic_, robot_interfaces_qos::fast_state());
+      realtime_sensor_state_publisher_ = std::make_unique<
+        realtime_tools::RealtimePublisher<control_msgs::msg::DynamicJointState>>(
+        sensor_state_publisher_);
+      auto & message = realtime_sensor_state_publisher_->msg_;
+      message.header.frame_id = frame_id_;
+      message.joint_names = {sensor_name_};
+      message.interface_values.resize(1U);
+      auto & fields = message.interface_values.front();
+      for (const auto & name : sensor_->get_state_interface_names()) {
+        fields.interface_names.push_back(name);
+      }
+      fields.values.resize(fields.interface_names.size());
+    }
     calibration_publisher_ =
       get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       calibration_topic_, robot_interfaces_qos::latched());
@@ -300,6 +321,21 @@ controller_interface::return_type ForceTorqueBroadcaster::update(
     }
     realtime_raw_publisher_->unlockAndPublish();
   }
+  if (
+    outcome.raw_valid && realtime_sensor_state_publisher_ != nullptr &&
+    realtime_sensor_state_publisher_->trylock())
+  {
+    auto & message = realtime_sensor_state_publisher_->msg_;
+    message.header.stamp = time;
+    auto & values = message.interface_values.front().values;
+    for (std::size_t index = 0U; index < kAxisCount; ++index) {
+      values[index] = sample->values[index];
+    }
+    for (std::size_t index = 0U; index < sample->auxiliary_count; ++index) {
+      values[kAxisCount + index] = sample->auxiliary[index];
+    }
+    realtime_sensor_state_publisher_->unlockAndPublish();
+  }
   if (outcome.wrench_valid && realtime_wrench_publisher_->trylock()) {
     auto & message = realtime_wrench_publisher_->msg_;
     message.header.stamp = time;
@@ -392,6 +428,8 @@ void ForceTorqueBroadcaster::publish_calibration()
 
 void ForceTorqueBroadcaster::clear_runtime_resources()
 {
+  realtime_sensor_state_publisher_.reset();
+  sensor_state_publisher_.reset();
   calibration_timer_.reset();
   calibration_publisher_.reset();
   realtime_raw_publisher_.reset();

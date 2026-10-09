@@ -2761,3 +2761,46 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   真空并发与时效、整机组合验证尚未全部完成。详见
   [Draft 缺口清单](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md)。
   这些是软件剩余工作，不应等待用户提供硬件参数才处理。
+
+## BQ-149 supplemental observation — left P140000100 bench [OPEN 2026-10-07]
+
+- 用户明确位置 2 为左侧，并要求直接修改现有配置，不新建独立 profile。
+- `ethercat slaves -p 2 -v`：P140000100-3.6.1.0-ECXML，Vendor 0xA1、Product 0x8081、Revision 1、Serial 0、PREOP/+。台架共4个 responder，不能作为完整双臂拓扑。
+- `ethercat pdos -p 2`：Rx 0x1600，0x7000:01..08；Tx 0x1A00，0x6000:01..09；每项32bit，总32B/36B。与归档 P140000107 Revision 2 的对象地址不同。
+- CLI XML 全部项显示UINT32，不能据此确认有符号力/温度或REAL语义。现有类型/比例/DC值仅为未验模板；calibration_valid/verified仍false，旧ESI/manual标为reference。右侧profile仍为占位且不得运行；实际右侧身份/PDO需要独立核验。
+- 左侧位置2仅适用当前台架；正式拓扑必须复扫，frame、类型/单位、StatusCode、新鲜度、DC仍待确认。本次未写SDO、未启动控制或使能。
+
+### BQ-149 dual-sensor bench update — 2026-10-07
+
+- 用户确认将位置2/4分别作为左/右力传感器，当前台架6个responder（耦合器主/子、2个ZeroErr、2个P140000100）。
+- 右侧只读 `ethercat slaves -p 4 -v` / `ethercat pdos -p 4`确认Vendor0xA1/Product0x8081/Revision1/Serial0及32B Rx7000:01..08、36B Tx6000:01..09，与左侧布局一致，可共用现有profile。
+- 该观察替代此前单传感器/右侧待确认记录；完整机型拓扑仍TBD，当前位置不外推到完整双臂。类型/单位/DC/frame/StatusCode/新鲜度待验；保持verified/calibration_valid=false，未启停总线或写SDO。
+
+- 后续用户允许拆分配置：现改用bluepoint_p140000100_left.yaml/right.yaml，位置分别2/4；原共享文件被两份配置替代，broadcaster和机型清单同步引用。此前要求不创建独立profile已被本轮授权取代，其他准入条件不变。
+
+### BQ-149 raw bench admission — 2026-10-07
+
+- 本轮用户明确要求实际话题通信；完成仅两台被动传感器的DC/1ms台架运行和订阅验证，raw侧可用，完整机型draft门禁保持。字段类型由两台SDO Info确认，不能再仅据CLI XML UINT32占位判断。
+- 实际left/right位置2/4均OP，5秒raw消息4956/4955条；电机1/3保持PREOP，退出全部PREOP、master Idle/Inactive。
+- 新入口calibration_valid固定false，未确认物理TF及工程单位时禁止有效wrench。左侧raw量级偏大；StatusCode/采样新鲜度/长期稳定性继续OPEN。该台架准入不授权电机使能、运动、tare或厂家参数写入。
+
+
+### BQ-149 named state readout — 2026-10-07
+
+用户要求按现有 YAML 获取具体接口数据。可选 sensor_state_topic 已接入现有
+broadcaster，左右 /state 发布九路完整配置名称与原始值。ROS_DOMAIN_ID=12 真实DC
+订阅3秒左右2635/2634条，采样计数持续变化；状态/温度原始值为0，语义与缩放不认定。
+13项C++、6项转换测试及207项质量门禁通过。实际话题读取通过，不关闭单位/TF/标定、
+状态位、闭环新鲜度门限及长期运行问题。详情见2026-10-07-bluepoint-raw-bench-topics记录。
+
+### BQ-149 PDF V1.1 selected layout — 2026-10-07
+
+用户明确要求将当前左右配置改为参考PDF地址。修改已完成；逐项只读确认两台P140000100对4000～4005/4007/4008:00均返回0x06020000对象不存在。未改设备PDO；启动前必须实际PDO与所选配置完全相符。当前配置不沿用旧映射实测通过标记，需要设备匹配协议或用户选择恢复实际映射。
+
+### BQ-149 updated DOCX — 2026-10-07
+
+新DOCX确认6000/7000对象、力/力矩100000对应1单位，StatusCode保留，Temper保留且未接PT1000时满量程。已更新配置和比例；温度换算不再认定raw/10。文档固件3.6.1.3-ECG与实机3.6.1.0不同，满量程数值/温度可用性及工程标定仍待验；不把当前零值认定为特定温度或故障状态。
+
+### BQ-149 DOCX live readout follow-up — 2026-10-07
+
+实机通信复测通过，5秒左右state各5005条，采样计数各变化2502次（约500次/秒）；独立1kHz新样本未确认。按DOCX比例暂算左Mz410.50758Nm超过选型资料120Nm，不能认定左侧物理数据正常；负载/零点/实际型号/固件比例仍待核查，未清零。温度/状态持续0为保留字段原始值，不确认温度可用性。

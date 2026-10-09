@@ -88,6 +88,10 @@ void parameter_and_encoding_tests()
   require(brightness(std::numeric_limits<float>::quiet_NaN()) == 0 &&
     brightness(std::numeric_limits<float>::infinity()) == 0,
     "Non-finite conversion failed");
+  require(led_exit_color(false) == std::array<uint8_t, 4>({0, 0, 0, 0}),
+    "Normal exit color must be off");
+  require(led_exit_color(true) == std::array<uint8_t, 4>({255, 0, 0, 0}),
+    "Abnormal exit color must be red");
   require(color_request(0x1234, 1, {255, 0, 128, 0}) == std::vector<uint8_t>({
       0x12, 0x34, 0, 0, 0, 15, 1, 0x10, 0, 0, 0, 4, 8, 0, 255, 0, 0, 0, 128, 0, 0}),
     "Color request encoding failed");
@@ -187,7 +191,7 @@ void ultrasonic_range_message_tests()
   require(message.radiation_type == sensor_msgs::msg::Range::ULTRASOUND,
     "Range radiation type must be ultrasound");
   require(std::fabs(message.field_of_view - field_of_view_rad) < 1.0e-6F,
-    "Range field of view must be 60 degrees");
+    "Range field of view must be 40 degrees");
   require(std::fabs(message.min_range - 0.01F) < 1.0e-6F, "Range minimum is incorrect");
   require(std::fabs(message.max_range - 3.5F) < 1.0e-6F, "Range maximum is incorrect");
   require(std::fabs(message.range - 0.5F) < 1.0e-6F, "Range distance is incorrect");

@@ -73,22 +73,25 @@ modules:
     sensor_bindings: [left_wrist, right_wrist]
     hardware_identity:
       package: robot_hw_ethercat
-      file: config/esi/P140000107-1.0.1.1-ECXML.xml
+      file: config/slaves/bluepoint_p140000100_left.yaml
+      right_file: config/slaves/bluepoint_p140000100_right.yaml
       vendor_id: 0x000000A1
       product_code: 0x00008081
-      revision_number: 0x00000002
+      revision_number: 0x00000001
       verified: false
     profile_ref:
       hardware:
         package: robot_hw_ethercat
-        file: config/slaves/bluepoint_p140000107.yaml
+        file: config/slaves/bluepoint_p140000100_left.yaml
+        right_file: config/slaves/bluepoint_p140000100_right.yaml
       broadcaster:
         package: rt_control_bringup
         file: config/bluepoint_force_sensors.draft.yaml
       verified: false
     mechanical_parameters: TBD
     pending_facts:
-      - left/right branch ring positions after both sensors are installed
+      - left/right P140000100 observed at positions 2/4 on six-responder bench; full-layout re-scan required
+      - P140000100 scalar types and engineering-unit scale
       - authoritative Robot Model frame IDs and installed sensor-axis orientation
       - live identity, fixed PDO, DC, status-code and sample-counter validation
 
@@ -293,7 +296,7 @@ hardware_options:
           master_id: 0
           ring_positions: TBD
         pending_facts:
-          - dual-sensor branch enumeration and total responder count
+          - full-machine branch enumeration and responder count; bench has 6 responders with sensors at 2/4
           - left/right frame IDs and mounting orientation
 
 profiles:

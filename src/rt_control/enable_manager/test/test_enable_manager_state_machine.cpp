@@ -792,9 +792,16 @@ TEST_F(EnableManagerFixture, ModeServiceDoesNotWaitForRollingStateAndReplaysResu
   Access::handleJtcState(*controller_, jtc_state);
 
   std::atomic_bool pump_running{true};
-  std::thread update_thread([this, &pump_running]() {
+  std::thread update_thread([this, &pump_running, &jtc_state]() {
+      // Model a delayed RT pump while the source controller keeps publishing.
+      // A single pre-request JTC sample expires after 100 ms on a busy CI runner.
+      while (pump_running.load() && Access::owner(*controller_) != Owner::kMode) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(150));
       std::int64_t update_time_ns = 2000000000LL;
       while (pump_running.load()) {
+        Access::handleJtcState(*controller_, jtc_state);
         controller_->update(
           rclcpp::Time(update_time_ns), rclcpp::Duration::from_nanoseconds(1000000LL));
         update_time_ns += 1000000LL;

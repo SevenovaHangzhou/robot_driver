@@ -26,6 +26,7 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -36,6 +37,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace lpms_nav3_can
 {
@@ -136,6 +138,8 @@ public:
     frame_id_ = declare_parameter<std::string>("frame_id", "");
     convert_to_ros_ = declare_parameter<bool>("convert_to_ros_convention", false);
     require_heartbeat_ = declare_parameter<bool>("require_heartbeat", true);
+    orientation_covariance_ = read_covariance("orientation_covariance");
+    angular_velocity_covariance_ = read_covariance("angular_velocity_covariance");
     poll_period_ = positive_duration(
       declare_parameter<std::int64_t>("poll_period_ms", 2), "poll_period_ms");
     reconnect_period_ = positive_duration(
@@ -385,7 +389,8 @@ private:
   void publish_sample(const ImuSample & raw_sample)
   {
     const auto sample = convert_to_ros_convention(raw_sample, convert_to_ros_);
-    auto imu_message = make_imu_message(sample);
+    auto imu_message = make_imu_message(
+      sample, orientation_covariance_, angular_velocity_covariance_);
     auto magnetic_field_message = make_magnetic_field_message(sample);
     const auto stamp = now();
     last_sample_stamp_ = stamp;
@@ -491,6 +496,25 @@ private:
     diagnostics_publisher_->publish(array);
   }
 
+  [[nodiscard]] std::array<double, 9U> read_covariance(const std::string & name)
+  {
+    rcl_interfaces::msg::ParameterDescriptor descriptor;
+    descriptor.read_only = true;
+    descriptor.description = "Row-major 3x3 covariance; all zeros means unknown";
+    const auto values = declare_parameter<std::vector<double>>(
+      name, std::vector<double>(9U, 0.0), descriptor);
+    if (values.size() != 9U ||
+      !std::all_of(values.begin(), values.end(), [](double value) {return std::isfinite(value);}))
+    {
+      throw std::invalid_argument{name + " must contain exactly 9 finite numbers"};
+    }
+    std::array<double, 9U> result{};
+    std::copy(values.begin(), values.end(), result.begin());
+    return result;
+  }
+
+  std::array<double, 9U> orientation_covariance_{};
+  std::array<double, 9U> angular_velocity_covariance_{};
   std::string can_interface_;
   std::string frame_id_;
   const std::uint8_t node_id_;
