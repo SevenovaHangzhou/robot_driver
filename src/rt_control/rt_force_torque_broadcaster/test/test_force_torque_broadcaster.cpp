@@ -245,10 +245,18 @@ TEST_F(ForceTorqueBroadcasterTest, RecoveredLinkNeverReusesInvalidatedCalibratio
 
   set_state("ethercat_slave_14/al_state", 2.0);
   update_once();
-  spin_until([&]() {return raw_count >= 2U;});
+  spin_until(
+    [&]() {
+      if (raw_count < 2U) {update_once();}
+      return raw_count >= 2U;
+    });
   set_state("ethercat_slave_14/al_state", 8.0);
   update_once();
-  spin_until([&]() {return raw_count >= 3U;});
+  spin_until(
+    [&]() {
+      if (raw_count < 3U) {update_once();}
+      return raw_count >= 3U;
+    });
   EXPECT_EQ(wrench_count, 1U);
 }
 
@@ -287,6 +295,39 @@ TEST_F(ForceTorqueBroadcasterTest, PluginIsDiscoverable)
   EXPECT_TRUE(
     loader.createSharedInstance(
       "rt_force_torque_broadcaster/ForceTorqueBroadcaster"));
+}
+
+TEST_F(ForceTorqueBroadcasterTest, NamedStatePreservesYamlOrderAndUnsignedAuxiliaryValues)
+{
+  controller.on_deactivate(rclcpp_lifecycle::State{});
+  controller.get_node()->set_parameters(
+    {
+      {"sensor_state_topic", "/test/sensor_state"},
+      {"validity_policy", "none"},
+      {"calibration_valid", false}});
+  ASSERT_EQ(controller.on_configure(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  bind_and_activate();
+  set_valid_frame();
+  set_state("right_force_sensor/channel_1_raw", -123.0);
+  set_state("right_force_sensor/sample_code_1_raw", 4294967295.0);
+  control_msgs::msg::DynamicJointState::SharedPtr state;
+  const auto subscription = client->create_subscription<control_msgs::msg::DynamicJointState>(
+    "/test/sensor_state", robot_interfaces_qos::fast_state(),
+    [&](control_msgs::msg::DynamicJointState::SharedPtr message) {state = message;});
+  spin_until([&]() {return subscription->get_publisher_count() > 0U;});
+  update_once();
+  spin_until([&]() {return state != nullptr;});
+  ASSERT_EQ(state->joint_names, (std::vector<std::string>{"right_force_sensor"}));
+  ASSERT_EQ(state->interface_values.size(), 1U);
+  const auto & fields = state->interface_values.front();
+  auto expected_names = controller.state_interface_configuration().names;
+  expected_names.resize(12U);
+  EXPECT_EQ(fields.interface_names, expected_names);
+  ASSERT_EQ(fields.values.size(), 12U);
+  EXPECT_DOUBLE_EQ(fields.values[0], -123.0);
+  EXPECT_DOUBLE_EQ(fields.values[6], 4294967295.0);
+  EXPECT_DOUBLE_EQ(fields.values[11], 5.0);
+  EXPECT_GT(state->header.stamp.sec, 0);
 }
 
 }  // namespace

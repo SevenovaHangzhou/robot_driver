@@ -1,4 +1,7 @@
-# Draft controller parameters for two Blue Point / ACTI P140000107 sensors.
+# Draft controller parameters for Blue Point / ACTI wrist sensors.
+# Left/right P140000100 at positions 2/4 on the 2026-10-07 six-responder bench.
+# PDO objects and scale follow DOCX V1.1 dated 2026-09-10; firmware match remains pending.
+# Engineering-unit scale, installed frames and long-run freshness remain unverified.
 # This is not a ros2_control parameter file and is never loaded while any TBD
 # remains. Runtime composition will render one controller section per sensor.
 schema_version: 1
@@ -9,11 +12,12 @@ sensors:
   - side: left
     controller_name: left_wrist_force_sensor_broadcaster
     sensor_name: left_wrist_force_sensor
-    profile: bluepoint_p140000107
-    ring_position: TBD
+    profile: bluepoint_p140000100_left
+    ring_position: 2
     frame_id: TBD
     wrench_topic: /rt_control/left_wrist/wrench
     raw_topic: /rt_control/left_wrist/raw
+    sensor_state_topic: /rt_control/left_wrist/state
     diagnostic_name: /robot/rt_control/bluepoint/left_wrist_force_sensor/calibration
     value_interfaces:
       - left_wrist_force_sensor/channel_1_raw
@@ -26,8 +30,8 @@ sensors:
       - left_wrist_force_sensor/status_code_raw
       - left_wrist_force_sensor/sample_counter_raw
       - left_wrist_force_sensor/temperature_raw
-    scale_factors: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
-    decimals: [4, 4, 4, 4, 4, 4]
+    scale_factors: [0.00001, 0.00001, 0.00001, 0.00001, 0.00001, 0.00001]
+    decimals: [5, 5, 5, 5, 5, 5]
     unit_codes: [5, 5, 5, 7, 7, 7]
     validity_policy: none
     calibration_valid: false
@@ -35,11 +39,12 @@ sensors:
   - side: right
     controller_name: right_wrist_force_sensor_broadcaster
     sensor_name: right_wrist_force_sensor
-    profile: bluepoint_p140000107
-    ring_position: TBD
+    profile: bluepoint_p140000100_right
+    ring_position: 4
     frame_id: TBD
     wrench_topic: /rt_control/right_wrist/wrench
     raw_topic: /rt_control/right_wrist/raw
+    sensor_state_topic: /rt_control/right_wrist/state
     diagnostic_name: /robot/rt_control/bluepoint/right_wrist_force_sensor/calibration
     value_interfaces:
       - right_wrist_force_sensor/channel_1_raw
@@ -52,14 +57,15 @@ sensors:
       - right_wrist_force_sensor/status_code_raw
       - right_wrist_force_sensor/sample_counter_raw
       - right_wrist_force_sensor/temperature_raw
-    scale_factors: [0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001]
-    decimals: [4, 4, 4, 4, 4, 4]
+    scale_factors: [0.00001, 0.00001, 0.00001, 0.00001, 0.00001, 0.00001]
+    decimals: [5, 5, 5, 5, 5, 5]
     unit_codes: [5, 5, 5, 7, 7, 7]
     validity_policy: none
     calibration_valid: false
     snapshot_source: fixed_protocol
 pending_facts:
-  - left/right absolute ring positions after installation
+  - re-scan both absolute ring positions when replacing the six-responder bench topology
+  - P140000100 engineering-unit scale confirmation
   - authoritative frame IDs and installed sensor-axis orientation
-  - live PDO/DC/sample-counter behavior and StatusCode semantics
+  - long-run DC/sample-counter behavior and reserved-field behavior
   - sample freshness policy for closed-loop force-control admission

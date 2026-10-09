@@ -192,6 +192,7 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
     assert "launch/rt_control_module.launch.py" in cmake
     assert "launch/rt_control_enable_only.launch.py" in cmake
     assert "launch/rt_control_interface_runtime.launch.py" in cmake
+    assert "launch/rt_control_force_sensors.launch.py" in cmake
     assert "config/rt_io.yaml" in cmake
     assert "config/machines" in cmake
     assert "launch/rt_control.launch.py" not in cmake
@@ -199,6 +200,7 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
     assert "test_mock_contract" not in cmake
     assert "<exec_depend>launch</exec_depend>" in package
     assert "<exec_depend>launch_ros</exec_depend>" in package
+    assert "<exec_depend>rt_force_torque_broadcaster</exec_depend>" in package
     assert "<exec_depend>x503_force_sensor</exec_depend>" not in package
     assert "<exec_depend>diff_drive_controller</exec_depend>" not in package
     for independently_deployed_module in (
@@ -206,7 +208,6 @@ def test_package_installs_machine_config_and_declares_launch_runtime_dependencie
         "robot_hw_canopen",
         "swerve_driver",
         "rt_diagnostics",
-        "rt_force_torque_broadcaster",
     ):
         assert f"<exec_depend>{independently_deployed_module}</exec_depend>" not in package
 

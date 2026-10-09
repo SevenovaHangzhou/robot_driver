@@ -3,6 +3,7 @@ project(rt_force_torque_broadcaster LANGUAGES CXX)
 
 find_package(ament_cmake REQUIRED)
 set(dependencies
+  control_msgs
   controller_interface
   diagnostic_msgs
   geometry_msgs

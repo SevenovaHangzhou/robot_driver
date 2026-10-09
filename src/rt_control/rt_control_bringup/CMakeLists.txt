@@ -20,6 +20,7 @@ add_custom_target(
 
 install(
   FILES
+    launch/rt_control_force_sensors.launch.py
     launch/rt_control_module.launch.py
     launch/rt_control_enable_only.launch.py
     launch/rt_control_arm_runtime.launch.py
@@ -51,6 +52,7 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_force_sensor_runtime test/test_force_sensor_runtime.py)
   ament_add_pytest_test(
     test_machine_profile
     test/test_machine_profile.py

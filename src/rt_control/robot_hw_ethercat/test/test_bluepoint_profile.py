@@ -1,11 +1,15 @@
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+import pytest
 import yaml
 
 
 PACKAGE = Path(__file__).resolve().parents[1]
-PROFILE = PACKAGE / "config/slaves/bluepoint_p140000107.yaml"
+PROFILES = {
+    side: PACKAGE / f"config/slaves/bluepoint_p140000100_{side}.yaml"
+    for side in ("left", "right")
+}
 ESI = PACKAGE / "config/esi/P140000107-1.0.1.1-ECXML.xml"
 FAMILIES = PACKAGE / "config/families.yaml"
 ALFA_V1 = PACKAGE / "variants/alfa_v1.yaml"
@@ -34,35 +38,42 @@ def test_bluepoint_esi_identity_and_pdo_layout_are_archived_exactly():
     ]
 
 
-def test_bluepoint_profile_is_state_only_and_preserves_the_complete_pdo_shape():
-    profile = yaml.safe_load(PROFILE.read_text(encoding="utf-8"))
+@pytest.mark.parametrize("side,position", [("left", 2), ("right", 4)])
+def test_bluepoint_profile_is_state_only_and_matches_the_user_selected_docx_layout(side, position):
+    profile = yaml.safe_load(PROFILES[side].read_text(encoding="utf-8"))
+    assert profile["metadata"]["side"] == side
+    assert profile["metadata"]["ring_positions"] == [position]
+    assert profile["metadata"]["observed_ring_position"] == position
+    assert profile["metadata"]["verified"] is False
 
     assert profile["vendor_id"] == 0xA1
     assert profile["product_id"] == 0x8081
     assert profile["assign_activate"] == 0x0300
     assert profile["use_slave_pdo_defaults"] is True
-    assert profile["metadata"]["revision_id"] == 2
-    assert profile["metadata"]["esi_original_sha256"] == (
+    assert profile["metadata"]["revision_id"] == 1
+    assert profile["metadata"]["reference_esi_original_sha256"] == (
         "8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad"
     )
-    assert profile["metadata"]["esi_sha256"] == (
+    assert profile["metadata"]["reference_esi_sha256"] == (
         "f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8"
     )
-    assert profile["metadata"]["manual_sha256"] == (
-        "39432f1304b68af1839a3553b4581da92a3923306945e5985cdbae7d7689ae0c"
+    assert profile["metadata"]["reference_manual_sha256"] == (
+        "9c275c21bb171a99cd814c2a041b8bc9b03774ef1034cac523104c1e63ab8cdf"
     )
+    assert profile["metadata"]["force_raw_per_newton"] == 100000
+    assert profile["metadata"]["torque_raw_per_newton_metre"] == 100000
+    assert profile["metadata"]["status_code_semantics"] == "reserved"
+    assert profile["metadata"]["temperature_raw_per_degree_celsius"] == "TBD"
     rpdo = profile["rpdo"][0]
     assert rpdo["index"] == 0x1600
-    assert [channel["index"] for channel in rpdo["channels"]] == list(
-        range(0x2000, 0x2008)
-    )
+    assert [channel["index"] for channel in rpdo["channels"]] == [0x7000] * 8
+    assert [channel["sub_index"] for channel in rpdo["channels"]] == list(range(1, 9))
     assert all(channel["default"] == 0 for channel in rpdo["channels"])
     assert all("command_interface" not in channel for channel in rpdo["channels"])
     tpdo = profile["tpdo"][0]
     assert tpdo["index"] == 0x1A00
-    assert [channel["index"] for channel in tpdo["channels"]] == list(
-        range(0x4000, 0x4009)
-    )
+    assert [channel["index"] for channel in tpdo["channels"]] == [0x6000] * 9
+    assert [channel["sub_index"] for channel in tpdo["channels"]] == list(range(1, 10))
     assert [channel.get("state_interface") for channel in tpdo["channels"]] == [
         *(f"channel_{index}_raw" for index in range(1, 7)),
         "status_code_raw",
@@ -73,11 +84,11 @@ def test_bluepoint_profile_is_state_only_and_preserves_the_complete_pdo_shape():
 
 def test_bluepoint_family_contract_is_separate_from_x503():
     registry = yaml.safe_load(FAMILIES.read_text(encoding="utf-8"))
-    family = registry["families"]["bluepoint_p140000107"]
+    family = registry["families"]["bluepoint_p140000100"]
     contract = registry["interface_contracts"][family["interface_contract"]]
 
     assert family == {
-        "identity_profile": "bluepoint_p140000107",
+        "identity_profile": "bluepoint_p140000100_left",
         "interface_contract": "bluepoint_wrench_input",
         "certified_modes": [],
     }
@@ -103,13 +114,13 @@ def test_bluepoint_broadcaster_draft_reuses_the_shared_cpp_plugin_fail_closed():
         "/rt_control/right_wrist/wrench",
     ]
     for sensor in document["sensors"]:
-        assert sensor["profile"] == "bluepoint_p140000107"
-        assert sensor["ring_position"] == "TBD"
+        assert sensor["profile"] == f"bluepoint_p140000100_{sensor['side']}"
+        assert sensor["ring_position"] == (2 if sensor["side"] == "left" else 4)
         assert sensor["frame_id"] == "TBD"
         assert sensor["calibration_valid"] is False
         assert sensor["snapshot_source"] == "fixed_protocol"
-        assert sensor["scale_factors"] == [0.0001] * 6
-        assert sensor["decimals"] == [4] * 6
+        assert sensor["scale_factors"] == [0.00001] * 6
+        assert sensor["decimals"] == [5] * 6
         assert sensor["unit_codes"] == [5, 5, 5, 7, 7, 7]
         assert sensor["validity_policy"] == "none"
         assert sensor["diagnostic_name"].startswith(
