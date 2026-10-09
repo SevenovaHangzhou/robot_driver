@@ -57,6 +57,12 @@ inline uint8_t brightness(float value)
   return static_cast<uint8_t>(std::lround(std::clamp(value, 0.0F, 1.0F) * 255.0F));
 }
 
+inline constexpr std::array<uint8_t, 4> led_exit_color(bool abnormal)
+{
+  return abnormal ? std::array<uint8_t, 4>{255U, 0U, 0U, 0U} :
+         std::array<uint8_t, 4>{0U, 0U, 0U, 0U};
+}
+
 inline std::vector<uint8_t> color_request(
   uint16_t transaction, uint8_t unit, const std::array<uint8_t, 4> & values)
 {

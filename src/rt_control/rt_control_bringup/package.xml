@@ -18,6 +18,7 @@
   <exec_depend>robot_hw_can</exec_depend>
   <exec_depend>damiao_head_controller</exec_depend>
   <exec_depend>controller_manager</exec_depend>
+  <exec_depend>rt_force_torque_broadcaster</exec_depend>
   <exec_depend>control_api_adapter</exec_depend>
   <exec_depend>enable_manager</exec_depend>
   <exec_depend>hardware_interface</exec_depend>

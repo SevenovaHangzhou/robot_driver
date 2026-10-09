@@ -24,7 +24,10 @@ acknowledged; the hardware has no light-output feedback.
 
 The supplied `led_strip.yaml` defines six controllers sharing TCP 502 and using
 RTU addresses 1 through 6. Change it only after checking the physical bus.
-
+```bash
+mbpoll -v -m tcp -a 1 -0 -r 4 -c 1 -t 4:hex -1 -o 2 \
+  -p 502 192.168.1.12
+```
 ```bash
 ros2 run modbus_tcp_rtu485 led_strip_node --ros-args \
   --params-file $(ros2 pkg prefix modbus_tcp_rtu485)/share/modbus_tcp_rtu485/config/led_strip.yaml
@@ -37,8 +40,41 @@ ros2 service call /led/set_rgbw robot_rt_control_interfaces/srv/SetLedRgbw \
   '{strip_id: 0, red: 1.0, green: 0.0, blue: 0.0, white: 0.0}'
 ```
 
-Failed writes are logged and are not retried. Exit does not send an implicit
-off/reset command, so the hardware can retain its last color.
+Failed service writes are logged and are not retried. With the default
+`exit_color_enabled:=true`, a graceful SIGINT/SIGTERM writes RGBW zero to all
+six controllers before exit. An uncaught exception escaping the node executor
+makes a best-effort write of red (`255,0,0,0`) to all six controllers before
+returning failure. Each controller is attempted independently. Exit writes use the
+separate `exit_response_timeout_ms` deadline (800 ms by default), bounding six
+sequential attempts when one or more RTU stations are offline.
+
+The abnormal-exit color cannot cover SIGKILL, process memory corruption, host
+power loss or loss of the gateway/RS485 path because the process cannot send a
+Modbus request in those cases. A separately supervised hardware or process
+watchdog is required if red indication must be guaranteed for those failures.
+Set `exit_color_enabled:=false` only for hardware-free tests or when an external
+owner provides the exit indication.
+
+### Six-controller field verification
+
+On 2026-10-05, all six WE-10x controllers on `192.168.1.12:502` were verified
+at RTU addresses 1 through 6. `strip_id` values 0 through 5 map to those
+addresses in the same order. Service writes were acknowledged and the
+corresponding outputs were observed on all six controllers.
+
+A graceful Ctrl+C (SIGINT) exit switched off all six strips, and a controlled
+caught-exception exit switched all six strips to red. The successful exit
+tests used a 800 ms per-controller deadline:
+
+```bash
+ros2 run modbus_tcp_rtu485 led_strip_node --ros-args \
+  --params-file $(ros2 pkg prefix modbus_tcp_rtu485)/share/modbus_tcp_rtu485/config/led_strip.yaml \
+  -p exit_response_timeout_ms:=800
+```
+
+This verifies the six-controller service-write, normal-exit and caught-exception
+paths on the installed bus. It does not cover SIGKILL, host power loss, process
+memory corruption, gateway failure or RS485 failure.
 
 ## Ultrasonic node
 

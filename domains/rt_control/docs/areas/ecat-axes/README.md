@@ -74,6 +74,8 @@ IgH 安装与宿主（→ realtime-host）。
 - 2026-09-02 [双 X503 接入 18 位运行拓扑](records/2026-09-02-add-dual-x503-profile-files.md) — feature，PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验）
 - 2026-08-19 [EtherCAT 硬件包接管变体 Xacro（未合并分支历史）](records/2026-08-19-hardware-owned-variant-xacro.md) — feature，历史 T1；当前由 02#F1 取代
 
+- 2026-10-07 [双 P140000100 台架原始话题实际通信](records/2026-10-07-bluepoint-raw-bench-topics.md) — feature，PARTIAL（T3；双 raw 收流与停机通过，单位/TF/新鲜度待验）
+
 ## 历史锚点（2026-08-13 前，未迁移）
 
 - PROGRESS.md 历史段：T-010、T-013、Joint5/ZeroErr/Ti5 极性三条散记

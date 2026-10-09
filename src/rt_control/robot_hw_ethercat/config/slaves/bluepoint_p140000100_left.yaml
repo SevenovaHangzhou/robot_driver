@@ -1,0 +1,81 @@
+# Blue Point left: PDO objects and semantics from protocol V1.1 DOCX (2026-09-10).
+# Document firmware 3.6.1.3 differs from observed 3.6.1.0; calibration remains unverified.
+# Rx reserved REAL fields are encoded as fixed-zero uint32 words (same 32-bit zero).
+metadata:
+  profile_kind: passive_force_torque_input_only
+  device_name: P140000100-3.6.1.0-ECXML
+  commercial_brand: Blue Point
+  esi_vendor_name: ACTI
+  revision_id: 0x00000001
+  verified: false
+  identity_source: live_preop_scan_2026_10_07
+  pdo_layout_source: manual_docx_2026_09_10_and_live_scan_2026_10_07
+  scalar_types_source: manual_docx_2026_09_10_and_live_sdo_info
+  raw_bench_dc_1ms_observed: false
+  side: left
+  observed_ring_position: 2
+  observed_bench_responder_count: 6
+  pending_facts:
+    - confirm manual firmware 3.6.1.3 semantics on observed 3.6.1.0
+    - P140000100 authoritative engineering-unit scale
+    - long-run DC timing and sample freshness validation
+    - installed left/right frames and full-machine topology
+  reference_esi_file: P140000107-1.0.1.1-ECXML.xml
+  reference_esi_original_sha256: 8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad
+  reference_esi_sha256: f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8
+  reference_manual_file: 六维力传感器-EtherCAT通讯协议V1.1(1).docx
+  reference_manual_date: 2026-09-10
+  reference_manual_firmware: P140000100-3.6.1.3-ECG
+  reference_manual_sha256: 9c275c21bb171a99cd814c2a041b8bc9b03774ef1034cac523104c1e63ab8cdf
+  sync_mode: dc_candidate
+  runtime_identity_readback_required: true
+  runtime_pdo_readback_required: true
+  status_code_semantics: reserved
+  sample_counter_unit_ms: 1
+  force_raw_per_newton: 100000
+  torque_raw_per_newton_metre: 100000
+  temperature_semantics: reserved_full_scale_when_pt1000_not_connected
+  temperature_raw_per_degree_celsius: TBD
+  tare_control_exposed: false
+  ring_positions: [2]
+  frame_ids: TBD
+
+vendor_id: 0x000000A1
+product_id: 0x00008081
+use_slave_pdo_defaults: true
+assign_activate: 0x0300
+
+# RxPDO mapping container remains 0x1600; object record is 0x7000.
+# ControlCode and all seven reserved REAL words remain zero; no command interfaces.
+rpdo:
+  - index: 0x1600
+    channels:
+      - {index: 0x7000, sub_index: 1, type: int32, default: 0}
+      - {index: 0x7000, sub_index: 2, type: uint32, default: 0}
+      - {index: 0x7000, sub_index: 3, type: uint32, default: 0}
+      - {index: 0x7000, sub_index: 4, type: uint32, default: 0}
+      - {index: 0x7000, sub_index: 5, type: uint32, default: 0}
+      - {index: 0x7000, sub_index: 6, type: uint32, default: 0}
+      - {index: 0x7000, sub_index: 7, type: uint32, default: 0}
+      - {index: 0x7000, sub_index: 8, type: uint32, default: 0}
+
+# TxPDO mapping container remains 0x1A00; object record is 0x6000.
+# StatusCode and Temper are reserved; publish raw values without interpreting them.
+tpdo:
+  - index: 0x1A00
+    channels:
+      - {index: 0x6000, sub_index: 1, type: int32, state_interface: channel_1_raw}
+      - {index: 0x6000, sub_index: 2, type: int32, state_interface: channel_2_raw}
+      - {index: 0x6000, sub_index: 3, type: int32, state_interface: channel_3_raw}
+      - {index: 0x6000, sub_index: 4, type: int32, state_interface: channel_4_raw}
+      - {index: 0x6000, sub_index: 5, type: int32, state_interface: channel_5_raw}
+      - {index: 0x6000, sub_index: 6, type: int32, state_interface: channel_6_raw}
+      - {index: 0x6000, sub_index: 7, type: uint32, state_interface: status_code_raw}
+      - {index: 0x6000, sub_index: 8, type: uint32, state_interface: sample_counter_raw}
+      - {index: 0x6000, sub_index: 9, type: int32, state_interface: temperature_raw}
+
+sm:
+  - {index: 0, type: output, pdo: ~, watchdog: disable}
+  - {index: 1, type: input, pdo: ~, watchdog: disable}
+  - {index: 2, type: output, pdo: rpdo, watchdog: enable}
+  - {index: 3, type: input, pdo: tpdo, watchdog: disable}

@@ -299,7 +299,8 @@ bool HeadManagerController::switch_position_controller(bool activate)
   }
   bool found = false;
   bool is_active = false;
-  for (const auto & controller : list_future.get()->controller) {
+  const auto list_response = list_future.get();
+  for (const auto & controller : list_response->controller) {
     if (controller.name == position_controller_name_) {
       found = true;
       is_active = controller.state == "active";

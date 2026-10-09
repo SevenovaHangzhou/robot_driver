@@ -5,7 +5,17 @@ namespace lpms_nav3_can
 
 sensor_msgs::msg::Imu make_imu_message(const ImuSample & sample)
 {
+  return make_imu_message(sample, {}, {});
+}
+
+sensor_msgs::msg::Imu make_imu_message(
+  const ImuSample & sample,
+  const std::array<double, 9U> & orientation_covariance,
+  const std::array<double, 9U> & angular_velocity_covariance)
+{
   sensor_msgs::msg::Imu message;
+  message.orientation_covariance = orientation_covariance;
+  message.angular_velocity_covariance = angular_velocity_covariance;
   message.orientation.w = sample.orientation_wxyz[0];
   message.orientation.x = sample.orientation_wxyz[1];
   message.orientation.y = sample.orientation_wxyz[2];

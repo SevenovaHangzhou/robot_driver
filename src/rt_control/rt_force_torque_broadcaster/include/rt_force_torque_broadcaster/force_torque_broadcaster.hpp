@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "controller_interface/controller_interface.hpp"
+#include "control_msgs/msg/dynamic_joint_state.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "geometry_msgs/msg/wrench_stamped.hpp"
 #include "rclcpp/publisher.hpp"
@@ -57,6 +58,7 @@ private:
   std::string frame_id_;
   std::string wrench_topic_;
   std::string raw_topic_;
+  std::string sensor_state_topic_;
   std::string calibration_topic_;
   std::string diagnostic_name_;
   std::string link_interface_name_;
@@ -74,6 +76,9 @@ private:
   std::unique_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>>
   realtime_wrench_publisher_;
   rclcpp::Publisher<std_msgs::msg::Int32MultiArray>::SharedPtr raw_publisher_;
+  rclcpp::Publisher<control_msgs::msg::DynamicJointState>::SharedPtr sensor_state_publisher_;
+  std::unique_ptr<realtime_tools::RealtimePublisher<control_msgs::msg::DynamicJointState>>
+  realtime_sensor_state_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<std_msgs::msg::Int32MultiArray>>
   realtime_raw_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr
