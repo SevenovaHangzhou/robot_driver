@@ -21,12 +21,12 @@ swerve_controller:
     # Vendor drawing nominal radius is 0.100 m. Keep per-wheel values TBD until
     # loaded rolling-radius calibration is complete.
     wheel_radius: [TBD, TBD, TBD, TBD]
-    # The vendor drawing shows NPN limit sensors but no numeric angle travel.
-    # Fill these only from confirmed hard-stop data and vehicle calibration.
-    steering_min: [TBD, TBD, TBD, TBD]
-    steering_max: [TBD, TBD, TBD, TBD]
-    # Command targets stay this far inside each physical endpoint.
-    steering_limit_margin: [TBD, TBD, TBD, TBD]
+    # User-confirmed physical steering endpoints: +/-135 deg at the output axis.
+    # A 15 deg inward margin implements the selected +/-120 deg software target range.
+    # Zero/direction and measurement tolerance still require commissioning.
+    steering_min: [-2.356194490192345, -2.356194490192345, -2.356194490192345, -2.356194490192345]
+    steering_max: [2.356194490192345, 2.356194490192345, 2.356194490192345, 2.356194490192345]
+    steering_limit_margin: [0.2617993877991494, 0.2617993877991494, 0.2617993877991494, 0.2617993877991494]
     # Read tolerance only; it never expands the commandable interval.
     steering_limit_tolerance: [TBD, TBD, TBD, TBD]
     max_linear_speed: TBD

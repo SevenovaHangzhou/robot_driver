@@ -12,6 +12,7 @@ launch 结构与容器（→ release-deploy）。
 
 | # | 事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
+| RATIO-1 | 安装机型行走总比27.48、转向总比140；外置编码器108/27独立，运行原始计数单位仍待确认 | [2026-10-07用户确认](records/2026-10-07-swerve-installed-ratios.md)#F1-F2 | 已确认机械比；运行换算待验 |
 | F1 | `diff_drive_controller.wheel_separation=0.95089496 m`，为用户明确要求的有效轮距参数 `1.9598 * 0.4852`；该值不等同于已实测物理轮距 | BQ-140；[2026-08-24 记录](records/2026-08-24-track-effective-separation-95089496mm.md) | 已裁决，待 T4 实车转向/里程计复验 |
 | F2 | 官方夹爪 controller 的 PP 扩展默认关闭；启用后按同序号反馈完成到位/取消，max_effort 使用 N，不接受无限力请求 | [PP Action 记录](records/2026-09-08-pp-gripper-action.md) | PARTIAL，实机待验 |
 | F3 | 三代机转向 CSP、驱动 CSV；外置编码器用于实际舵角观测与校验，不增加转向位置外环或运行中慢速修正 | [CSP 舵角决策](records/2026-09-08-swerve-csp-feedback-decision.md)；BQ-144 | 已裁决，待实现/实机验证 |
@@ -27,6 +28,8 @@ launch 结构与容器（→ release-deploy）。
 | F13 | 组合运行只保留一套 RSP，每关节状态与 TF 边保持唯一来源 | [位置 Action 适配](records/2026-10-02-position-action-adapters.md)#F4 | PARTIAL（入口已支持；完整组合待验） |
 
 ## 记录索引（倒序）
+
+- [2026-10-07 安装舵轮减速比与运行换算边界](records/2026-10-07-swerve-installed-ratios.md)：用户确认行走27.48、转向140；raw/SI比例待反馈单位闭合。
 
 - [2026-10-02 PP、头部、升降位置 Action 适配](records/2026-10-02-position-action-adapters.md) — PARTIAL（T1；实物参数/全闭包待完成）
 - [2026-09-25 ELECTRI-133 Tier A 相对运动核心、无设备 Mock 与 cyclic adapter 集成](records/2026-09-25-tier-a-relative-move-mock.md) — PARTIAL（T1；connected synthetic PDO 通过，真实 Kinco 切换仍阻塞）

@@ -144,17 +144,20 @@ def test_swerve_vendor_drawing_facts_do_not_replace_vehicle_calibration():
         "8feb1c75ce4258e551ba6fddc9b517d55e842fc32d7e7cffdc49d639ad916c1f"
     )
     assert mechanics["module"]["nominal_wheel_diameter_m"] == 0.2
-    assert mechanics["drive"]["selected_reducer_ratio"] == 17.68
+    assert mechanics["drive"]["selected_reducer_ratio"] == 27.48
+    assert mechanics["drive"]["reducer_rated_output_torque_nm"] == "TBD"
+    assert mechanics["drive"]["nominal_max_linear_speed_m_per_min"] == "TBD"
+    assert mechanics["drive"]["reducer_options_as_printed"][0]["ratio"] == 17.68
     assert mechanics["steering"]["steering_support_gear_teeth"] == 108
     assert mechanics["steering"]["external_encoder_pinion_gear_teeth"] == 27
     assert mechanics["steering"]["external_encoder_ring_gear_teeth"] == 108
     assert mechanics["steering"]["external_encoder_turns_per_axis_turn"] == 4.0
     assert mechanics["steering"]["external_encoder_gearing_verified"] is True
     assert mechanics["steering"]["reducer_ratio"] == 35.0
-    assert mechanics["steering"]["derived_motor_to_steering_axis_ratio"] == "TBD"
-    assert mechanics["steering"]["derived_ratio_verified"] is False
-    assert mechanics["steering"]["mechanical_min_angle_rad"] == "TBD"
-    assert mechanics["steering"]["mechanical_max_angle_rad"] == "TBD"
+    assert mechanics["steering"]["derived_motor_to_steering_axis_ratio"] == 140.0
+    assert mechanics["steering"]["derived_ratio_verified"] is True
+    assert mechanics["steering"]["mechanical_min_angle_rad"] == -2.356194490192345
+    assert mechanics["steering"]["mechanical_max_angle_rad"] == 2.356194490192345
     assert "per-module loaded effective wheel radius" in (
         mechanics["required_vehicle_calibration"]
     )
@@ -167,8 +170,14 @@ def test_swerve_vendor_drawing_facts_do_not_replace_vehicle_calibration():
     parameters = controller["swerve_controller"]["ros__parameters"]
     assert parameters["calibration_verified"] is False
     assert parameters["wheel_radius"] == ["TBD"] * 4
-    assert parameters["steering_min"] == ["TBD"] * 4
-    assert parameters["steering_max"] == ["TBD"] * 4
+    assert parameters["steering_min"] == [-2.356194490192345] * 4
+    assert parameters["steering_max"] == [2.356194490192345] * 4
+    assert parameters["steering_limit_margin"] == [0.2617993877991494] * 4
+    for low, high, margin in zip(parameters["steering_min"], parameters["steering_max"],
+                                 parameters["steering_limit_margin"]):
+        assert abs(low + margin - mechanics["steering"]["software_min_angle_rad"]) < 1e-12
+        assert abs(high - margin - mechanics["steering"]["software_max_angle_rad"]) < 1e-12
+    assert parameters["steering_limit_tolerance"] == ["TBD"] * 4
 
 
 def test_unverified_swerve_mechanics_remain_a_runtime_blocker(tmp_path: Path):
