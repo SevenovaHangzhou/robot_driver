@@ -33,7 +33,7 @@ systemd unit（→ realtime-host）。
 | 08#F2/F4 | 八路 A22 映射为 unit 1 和 unit 6 各四路，发布 `channel1..8`；ROS 视场角固定为 40 度，A22 角度等级 2 待实机配置。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F2-F4 | PARTIAL（离线通过；实机配置待验） |
 | 08#F3 | 一个测量周期串行执行两次四寄存器 FC03，均成功才发布同批八路数据；每台 E08 内四路仍同时触发。 | [io-power-20260921-01](records/2026-09-21-dual-e08-eight-ultrasonic.md)#F3 | 已由 11#F2 取代 |
 | 10#F1 | BMS 只支持金凤凰 V1.1 C++ 查询路径：`0x18900140` 请求、`0x18904001` 响应。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F1 | PARTIAL（离线构建/测试；实机待验） |
-| 10#F2 | BMS `can1` 使用 250 kbit/s，CANopen `can0` 保持 500 kbit/s。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F2 | PARTIAL（配置/门禁；实机待验） |
+| 10#F2 | 当前 CAN 卡接口由用户确认为 `can0`；旧 `can1` USB 命名脚本不适用。 | [双电池流程](records/2026-10-06-dual-golden-phoenix-power-flow.md) | PARTIAL（宿主配置待验） |
 | 10#F3 | `/battery_state` 继续 5 s 发布，3 s 失联后 NaN/present=false。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F3 | PASS（源码/自动测试） |
 | 10#F4 | 金凤凰 PDF 未定义字节序，默认 auto 歧义拒绝；实机抓包前不冻结 big/little。 | [io-power-20260930-01](records/2026-09-30-golden-phoenix-bms-cpp.md)#F4 | OPEN（实机待验） |
 | 11#F1 | V3 真空软件按共用泵、左右独立阀和左右独立压力建模；映射缺失时 fail closed | [双侧真空与传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F1 | PARTIAL（T1；BQ-152） |
@@ -47,6 +47,9 @@ systemd unit（→ realtime-host）。
 - 2026-10-09 [ELECTRI-131 auto 字节序歧义修复](records/2026-10-09-electri-131-bms-byte-order.md) — PARTIAL；14 条离线测试汇总通过，实际设备字节序待确认。
 
 - 2026-10-05 [LED 正常与异常退出颜色策略](records/2026-10-05-led-exit-colors.md) — corrective，PARTIAL（离线构建/测试；实机退出写待验）
+- 2026-10-09 [ELECTRI-131 BMS 评审修复与启用门禁](records/2026-10-09-electri-131-bms-review.md) — PARTIAL；离线构建与回归通过，自动控制仍禁止启用。
+- 2026-10-06 [双金凤凰电池流程](records/2026-10-06-dual-golden-phoenix-power-flow.md) — 双地址/D9/K2 软件设计及既有现场记录；不替代本轮实机验证。
+
 - 2026-10-02 [双侧真空与结构化传感器接口](records/2026-10-02-dual-vacuum-and-sensor-interfaces.md) — PARTIAL（T1；实物映射与实机验证待补）
 - 2026-09-30 [金凤凰 BMS V1.1 C++ 驱动迁移](records/2026-09-30-golden-phoenix-bms-cpp.md) — feature，UNVERIFIED（T0；15 项 C++、26 项聚焦测试与 207 项质量门禁通过，实机待验）
 - 2026-09-21 [双 E08 接入八路 A22 超声波](records/2026-09-21-dual-e08-eight-ultrasonic.md) — feature，PARTIAL（T1 离线；八路实机与声学串扰待验）

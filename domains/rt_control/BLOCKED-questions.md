@@ -2735,6 +2735,9 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   停车验收；当前不继续扩展为伪实物接线。
 - 用户 2026-10-02 决定：换电控制后续建立独立 Spec/Issue，当前只保留 BatteryState，不创建
   BMS MOS 或接触器写入口。
+- 用户后续明确授权 `bms_node` 增加 D9 与 K2 软件控制，并允许自定义 K2 命令/反馈话题；
+  该授权取代上一条的“不得创建写入口”，不等于已确认实体继电器输出、额定值、预充
+  或 MOS 状态编码。软件默认禁用写控制，参数无效时拒绝启用。
 - 真空待补：共用泵及左右阀 DO 地址、左右压力 AI 地址／身份、真实量程／缩放／零偏、通断电
   气路、I/O 失联／看门狗／断电后的输出和保压效果。软件已使用 `configured=false`、`-1/TBD`。
 - 触边待补：数量、位置、DI 地址、常开／常闭、有效电平、线断检测、轮询和最大停止延迟；硬件
@@ -2743,8 +2746,24 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   停止／保持、制动和失电行为；未闭合时各位置 Action `configured=false`。
 - 传感器待补：八路超声波安装外参和第二 E08 时序／串扰；红外数量、臂侧和有效电平；IMU 共线
   CAN 身份、外参、内部融合、磁场影响和时间质量；左右六维力 ring/frame/标定/状态码/freshness。
-- BMS 待补：实机字节序与显示对照。Autonomy 编排换电所需的充／放电 MOS、接触器或整机电源
-  控制对象、供电影响、回读和恢复流程另立方案；当前不得启用任何写命令。
+- BMS 待补：实机字节序与显示对照；K2 实体驱动、辅助触点、额定开断/预充、
+  D9 与 `0x93` 状态映射、压差/电流/单体/温度限值和负载停止反馈。双电池流程见
+  `docs/areas/io-power/records/2026-10-06-dual-golden-phoenix-power-flow.md`；上述事实未
+  闭合前不得把自动写控制配置为启用，充电 MOS 仍不由本包控制。
+- 用户 2026-10-09 确认：当前电池 CAN 卡在 Linux 上为 `can0`，无需先前 USB 适配器序列号；
+  `0x01` S1 人工开关不由程序操作，故障时软件请求 `D9=0`；`0x02` 故障时软件请求
+  `D9=0` 并断开 K2。用户报告两块电池人工并联放电已实测，未替代自动故障隔离验收。
+  仓库现有 `hostsetup/can1.service` 和 `rt-control-can-names.sh` 仍绑定旧 USB 设备，
+  不应直接用于当前 CAN 卡；新卡的宿主启动服务与身份保护待单独确认。
+- ELECTRI-131 / PR #53 评审裁决（2026-10-09）：F01、F03 检测、F06、F05、F04
+  话题校验、F02 的 D9 部分和 F09 日志独立修复。F08/F10/F11 延期，F12 单独修复。
+- 自动控制启用前必须裁决四项：受控退出；K2 电平/边沿、防抖与心跳失联语义；
+  主电池 MOS 意外关闭后的隔离及供电保持；故障锁存后的停负载保持与恢复授权。
+  K2 重试不在本轮猜测实现。主电池 MOS 意外关闭后软件只请求停负载并锁存，
+  禁止自行断开 K2 或自动转移负载。该等待策略状态提前返回，后续副电池故障
+  也不进入常规“第二块电池故障”隔离路径；负责人必须一并裁决此例外。
+  裁决责任：电气与 RT-Control 负责人。
+  记录见 `docs/areas/io-power/records/2026-10-09-electri-131-bms-review.md`。
 - 后续功能：RT 本地闭环力控、换电控制、Motion 接管底盘同步运动分别为独立 Spec，不以现有
   Wrench、BatteryState 或 `/cmd_vel` 接口声称已实现。
 - 本项不授权 Modbus 写、CAN 配置、总线启动、reset、enable 或运动。

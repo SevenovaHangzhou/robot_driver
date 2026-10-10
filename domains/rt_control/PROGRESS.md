@@ -101,6 +101,7 @@
 | 2026-10-09 | lifecycle | [模式切换 CI 源状态刷新修复](docs/areas/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md) | PARTIAL（PR #53；65用例、30次150ms延迟回归和质量门禁通过；全仓CI待验） |
 | 2026-10-09 | governance | [程序优化 PR 提交前门禁与隔离验证](docs/areas/governance/records/2026-10-09-program-optimization-pr-validation.md) | PARTIAL（Issue #52；207 项质量测试、36+2 CTest 目标、头部20次Mock失能及双力状态/停机通过；完整CI/实机待验） |
 | 2026-10-08 | canopen-chassis | [LPMS 姿态与角速度协方差支持 YAML 配置](docs/areas/canopen-chassis/records/2026-10-08-lpms-configurable-covariance.md) | PARTIAL（T1；五个测试目标、20 GTest + 9 pytest、quality gate 通过；协方差标定与现场应用待验） |
+| 2026-10-09 | io-power | [ELECTRI-131 BMS 评审修复](docs/areas/io-power/records/2026-10-09-electri-131-bms-review.md) | PARTIAL（命令前等待误锁存已纠正；5 个 CTest/53 条汇总结果通过；四项策略及后续副电池故障例外待裁决） |
 | 2026-10-03 | contract | [Rolling三代双七轴纠错与扩大复核](docs/areas/contract/records/2026-10-03-rolling-v3-and-interface-audit.md) | PARTIAL（轴合同/未知输出/停稳判定回归通过；软件缺口与CI重跑待关闭） |
 | 2026-10-03 | contract | [ELECTRI-174 依赖接口的 driver Draft 与软件缺口更正](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md) | PARTIAL（候选 pin；禁止合并部署，软件与实物缺口分列） |
 | 2026-10-02 | contract | [V3 公共接口与适配器实现](docs/areas/contract/records/2026-10-02-v3-interface-contract-implementation.md) | PARTIAL（T1；接口发布SHA/全闭包/跨域smoke待完成） |
