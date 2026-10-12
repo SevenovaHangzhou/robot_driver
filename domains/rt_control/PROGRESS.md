@@ -230,3 +230,5 @@
 | 2026-10-09 | lifecycle | [达妙控制器响应生命周期修复](docs/areas/lifecycle/records/2026-10-09-damiao-controller-response-lifetime.md) | PARTIAL：编译安装、2测试目标及20次Mock失能通过；实机未重启；质量门禁受现有build_head/log_head生成物阻塞 |
 
 | 2026-10-09 | lifecycle | [达妙会话README与双轴0.2rad/s配置](docs/areas/lifecycle/records/2026-10-09-damiao-session-readme.md) | 文档归档、离线schema通过；新速度未重启加载；历史PI比较仍0.1rad/s |
+
+| 2026-10-13 | governance | [固定格式工具与增量门禁](docs/areas/governance/records/2026-10-13-executable-code-style.md) | UNVERIFIED（T0；本地门禁通过，全包警告计数待验） |

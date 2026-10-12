@@ -17,7 +17,6 @@ from typing import Sequence
 
 import yaml
 
-
 FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 ROBOT_INTERFACES_PATH = "src/vendor/robot_interfaces"
@@ -580,6 +579,40 @@ def _check_syntax(relative_path: str, text: str) -> list[str]:
     return findings
 
 
+CXX_WARNING_OPTIONS = {"-Wall", "-Wextra", "-Wpedantic", "-Wconversion", "-Wshadow"}
+
+
+def check_cxx_warnings(relative_path: str, text: str) -> list[str]:
+    """Require a directory-wide warning baseline before any owned C++ target.
+
+    The intentionally restricted form also covers targets created inside loops
+    and ament test macros; vendor repositories are outside this policy.
+    """
+    if not relative_path.startswith("src/rt_control/") or not relative_path.endswith("CMakeLists.txt"):
+        return []
+    clean = re.sub(r"#\[\[.*?\]\]", "", text, flags=re.DOTALL)
+    clean = re.sub(r"#[^\n]*", "", clean)
+    target = re.search(r"\b(?:add_library|add_executable|ament_add_gtest)\s*\(", clean)
+    if target is None:
+        return []
+    prefix = clean[:target.start()]
+    # Only accept an unconditional directory baseline, not an option hidden in
+    # an inactive branch/function/loop. Keep this policy deliberately simple.
+    declarations = list(re.finditer(r"add_compile_options\s*\(([^()]*)\)", prefix, re.DOTALL))
+    valid = False
+    for declaration in declarations:
+        before = prefix[:declaration.start()]
+        opens = len(re.findall(r"\b(?:if|foreach|function|macro|while)\s*\(", before))
+        closes = len(re.findall(r"\b(?:endif|endforeach|endfunction|endmacro|endwhile)\s*\(", before))
+        if opens == closes and CXX_WARNING_OPTIONS <= set(declaration.group(1).split()):
+            valid = True
+    if not valid:
+        return [f"{relative_path}: owned C++ targets require directory warning baseline before targets"]
+    if re.search(r"-Wno-(?:all|extra|pedantic|conversion|shadow)\b|(?<!\w)-w\b", clean):
+        return [f"{relative_path}: owned C++ warning baseline must not be disabled"]
+    return []
+
+
 def collect_findings(repository_root: Path) -> list[str]:
     """Run every repository-level check and return stable, sorted findings."""
     files = _repository_files(repository_root)
@@ -606,6 +639,7 @@ def collect_findings(repository_root: Path) -> list[str]:
         texts[relative_path] = text
         findings.extend(check_text(relative_path, text))
         findings.extend(_check_syntax(relative_path, text))
+        findings.extend(check_cxx_warnings(relative_path, text))
         if relative_path.endswith("/package.xml"):
             findings.extend(check_manifest_dependencies(relative_path, text))
         if (

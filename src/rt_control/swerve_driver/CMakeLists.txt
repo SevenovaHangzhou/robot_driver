@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(swerve_driver LANGUAGES C CXX)
+# Uniform warnings for all owned targets, including ament test targets.
+add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+
 
 find_package(ament_cmake REQUIRED)
 set(dependencies controller_interface hardware_interface diagnostic_msgs geometry_msgs

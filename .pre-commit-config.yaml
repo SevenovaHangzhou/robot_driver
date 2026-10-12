@@ -5,7 +5,7 @@ repos:
   - repo: local
     hooks:
       - id: robot-quality-gate
-        name: robot monorepo quality gate
+        name: robot quality gate (including merge-base style checks)
         entry: tools/quality_gate.sh
         language: system
         pass_filenames: false

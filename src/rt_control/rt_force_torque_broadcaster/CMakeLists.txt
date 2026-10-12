@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(rt_force_torque_broadcaster LANGUAGES CXX)
+# Uniform warnings for all owned targets, including ament test targets.
+add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+
 
 find_package(ament_cmake REQUIRED)
 set(dependencies

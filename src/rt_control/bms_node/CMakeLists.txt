@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(bms_node)
+# Uniform warnings for all owned targets, including ament test targets.
+add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
