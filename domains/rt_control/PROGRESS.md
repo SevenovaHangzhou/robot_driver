@@ -232,3 +232,5 @@
 | 2026-10-09 | lifecycle | [达妙会话README与双轴0.2rad/s配置](docs/areas/lifecycle/records/2026-10-09-damiao-session-readme.md) | 文档归档、离线schema通过；新速度未重启加载；历史PI比较仍0.1rad/s |
 
 | 2026-10-13 | governance | [固定格式工具与增量门禁](docs/areas/governance/records/2026-10-13-executable-code-style.md) | UNVERIFIED（T0；本地门禁通过，全包警告计数待验） |
+
+| 2026-10-13 | governance | [语言与agent规范同步](docs/areas/governance/records/2026-10-13-agent-contract-sync.md) | UNVERIFIED（T0；224工具测试通过） |

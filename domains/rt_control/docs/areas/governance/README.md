@@ -61,3 +61,5 @@
 | 编号 | 冻结事实 | 来源 | 状态 |
 | --- | --- | --- | --- |
 | STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
+
+| CONTRACT-1 | 三档测试、语言分工、任务指派分支授权 | [governance-20261013-02](records/2026-10-13-agent-contract-sync.md)#F1-F3 | UNVERIFIED（T0文档） |
