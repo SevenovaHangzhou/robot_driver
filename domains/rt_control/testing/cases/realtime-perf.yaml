@@ -4,7 +4,7 @@ cases:
   - id: TC-RT-01
     title: cyclictest 30 分钟带压门禁
     purpose: 证明隔离 CPU14 上实时延迟满足冻结判据
-    area: realtime-host
+    area: platform
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: docker
@@ -26,7 +26,7 @@ cases:
   - id: TC-RT-02
     title: 控制环资源占用窗口
     purpose: 量化 CPU14 占用与 ros2_control_node 内存，对照 baseline 产出 delta
-    area: realtime-host
+    area: platform
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -55,7 +55,7 @@ cases:
   - id: TC-RT-03
     title: 总线错误增量窗口
     purpose: 证明观测窗口内 EtherCAT wc_error 与 CAN 错误计数无异常增长
-    area: ecat-axes
+    area: protocol
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -83,7 +83,7 @@ cases:
   - id: TC-RT-04
     title: 实时 CPU 污染检查
     purpose: 证明 CPU14 上无白名单外的 SCHED_FIFO/RR 线程
-    area: realtime-host
+    area: platform
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both

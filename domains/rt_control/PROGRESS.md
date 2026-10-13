@@ -234,3 +234,5 @@
 | 2026-10-13 | governance | [固定格式工具与增量门禁](docs/areas/governance/records/2026-10-13-executable-code-style.md) | UNVERIFIED（T0；本地门禁通过，全包警告计数待验） |
 
 | 2026-10-13 | governance | [语言与agent规范同步](docs/areas/governance/records/2026-10-13-agent-contract-sync.md) | UNVERIFIED（T0；224工具测试通过） |
+
+| 2026-10-13 | platform | [七个agent职责区划分](docs/areas/governance/records/2026-10-13-seven-agent-areas.md) | UNVERIFIED（T0；旧记录保留、源码不迁移） |

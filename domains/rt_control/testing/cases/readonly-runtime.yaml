@@ -4,7 +4,7 @@ cases:
   - id: TC-RO-01
     title: Mock 全图公共契约探测
     purpose: 证明公共契约端点的名称、类型、方向与 vendored RT-Control 契约视图完全一致
-    area: contract
+    area: integration
     risk: T1
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -27,7 +27,7 @@ cases:
   - id: TC-RO-02
     title: 已删除接口负向断言
     purpose: 证明契约文档第 6 节已删除接口不出现在 ROS graph 中
-    area: contract
+    area: integration
     risk: T1
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -47,7 +47,7 @@ cases:
   - id: TC-RO-03
     title: 启动排序与失败收敛
     purpose: 证明 whole_body_jtc spawner 失败时 launch 触发 Shutdown 而非带病运行
-    area: release-deploy
+    area: integration
     risk: T1
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: native
@@ -66,7 +66,7 @@ cases:
   - id: TC-RO-04
     title: 容器内接口探测
     purpose: 证明人工封装的发布镜像可在容器内复现 mock 契约探测
-    area: release-deploy
+    area: platform
     risk: T1
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: docker
@@ -88,7 +88,7 @@ cases:
   - id: TC-RO-05
     title: 实机只读诊断快照
     purpose: 采集 EtherCAT 主站/从站与 enable_manager 诊断基线读数，不做任何写入
-    area: contract
+    area: integration
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -112,7 +112,7 @@ cases:
   - id: TC-RO-06
     title: 实机状态频率实测
     purpose: 证明公共状态端点实测频率达到契约标称值
-    area: contract
+    area: integration
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -131,7 +131,7 @@ cases:
   - id: TC-RO-07
     title: CANopen 心跳间隔观察
     purpose: 证明主站与两履带节点心跳周期符合 1000 ms 配置
-    area: canopen-chassis
+    area: protocol
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both

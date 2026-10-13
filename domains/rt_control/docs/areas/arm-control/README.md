@@ -1,0 +1,26 @@
+# arm-control — 机械臂轨迹、头部控制与力反馈
+
+**范围**：机械臂轨迹、头部控制与力反馈。本区对应一个同名职责agent。
+
+**Owner路径**：rolling_trajectory_controller；rt_force_torque_broadcaster；x503_force_sensor；damiao_head_controller；patches/ros2_controllers。未写完整前缀的包位于`src/rt_control/`。
+
+**不属于本区**：EtherCAT/CAN协议与enable_manager归protocol；启动拼装归integration；config/machines归hw-config。
+
+更具体路径优先于整包归属；跨区改动按主责拆分事实并互引。源码位置本轮不变。
+
+## 冻结事实
+
+下列事实保留原始记录、日期和验证边界，不将旧实验平台结果外推到新主机。ID中的旧区名仅为历史来源坐标，不表示当前owner。已退役/过期条目仅留历史区，清单见划分decision。
+
+| 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
+| --- | --- | --- | --- |
+| ecat-axes/04#F1 | X503B raw shadow bridge 只消费 rt-control state frame；V1.6 已定义单位码 `5=N`、`7=N·m`，采样原码采用 `-999999..999999` 范围门禁，实际回读/TF 未完成时禁止 WrenchStamped | [ecat-axes-20260906-01](../ecat-axes/records/2026-09-06-electri-116-x503b-shadow-bridge.md)#F1-F3 | PARTIAL（T1；目标 SDO/实际参数/TF 待验） |
+| ecat-axes/17#F1 | X503 周期发布迁入共享 semantic component + C++ broadcaster。原行中的旧蓝点revision/布局描述归档，不作为当前实物身份 | [统一六维力发布与蓝点可选配置](../ecat-axes/records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md)#F1-F4 | PARTIAL（T1 Mock；X503/蓝点实机待验） |
+| lifecycle/20261009-02#F1 | 头部会话已归档；两台临时配置速度0.2rad/s，历史PI比较0.1rad/s | [会话归档](../lifecycle/records/2026-10-09-damiao-session-readme.md)#F1-F2 | PARTIAL（新速度未加载验证） |
+| lifecycle/20261009#F1 | 达妙控制器切换保留 ListControllers 响应生命周期，20次Mock失能通过 | [响应生命周期修复](../lifecycle/records/2026-10-09-damiao-controller-response-lifetime.md)#F1-F2 | PARTIAL（T1；实机待验） |
+| motion/F2 | 官方夹爪 controller 的 PP 扩展默认关闭；启用后按同序号反馈完成到位/取消，max_effort 使用 N，不接受无限力请求 | [PP Action 记录](../motion/records/2026-09-08-pp-gripper-action.md) | PARTIAL，实机待验 |
+| release-deploy/V3-HEAD-CAN-1 | V3 头部使用 `head_joint/head_pitch_joint`、非 JTC ForwardCommand + `/rt/head/*` manager；达妙 T 型由 ACC/DEC/MAX_SPD 承担，参数工具默认不写 flash | [V3 达妙头部非 JTC 位置速度运行链](../release-deploy/records/2026-09-19-v3-damiao-head-runtime.md)#F1-F4 | PARTIAL（T1 Mock；CAN/机械/整机 full runtime 待验） |
+
+## 跨区事实关联
+
+底层PREOP/PDO/semantic约束见[protocol](../protocol/README.md)；FJT/Rolling启动拼装见[integration](../integration/README.md)。本区负责controller实现，不扩大为硬件使能授权。

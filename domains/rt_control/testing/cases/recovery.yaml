@@ -4,7 +4,7 @@ cases:
   - id: TC-AR-01
     title: 急停触发后的恢复路径
     purpose: 证明急停/安全链动作后系统 fail-closed，且按既定流程可恢复
-    area: lifecycle
+    area: protocol
     risk: T3
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native
@@ -24,7 +24,7 @@ cases:
   - id: TC-AR-02
     title: EtherCAT 从站失联注入
     purpose: 证明单从站失联时诊断正确降级、无未定义行为，恢复后可重新收敛
-    area: ecat-axes
+    area: protocol
     risk: T3
     writes: { reset: yes, enable: no, motion: no, plc: no }
     env: native
@@ -44,7 +44,7 @@ cases:
   - id: TC-AR-03
     title: CANopen 总线无报文启动行为
     purpose: 登记已知缺陷：无总线报文时 controller_manager 启动阶段退出（BQ-132）
-    area: canopen-chassis
+    area: protocol
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -63,7 +63,7 @@ cases:
   - id: TC-AR-04
     title: PLC 断连与重连
     purpose: 证明 PLC 失联时 io_state 正确置 connected=false/data_fresh=false，重连后自恢复
-    area: io-power
+    area: peripheral-control
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -83,7 +83,7 @@ cases:
   - id: TC-AR-05
     title: BMS 缺席行为
     purpose: 登记已知部署约束：CANable 缺席阻塞 CAN unit（BQ-121），并验证 BMS 数据过期语义
-    area: io-power
+    area: peripheral-control
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both

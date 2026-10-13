@@ -1,3 +1,5 @@
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[arm-control](../arm-control/README.md)、[integration](../integration/README.md)、[protocol](../protocol/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+
 # lifecycle — 使能/失能/故障复位/停机收敛/断电恢复
 
 **范围**：14 轴分批使能状态机、失能与停机收敛、故障复位流程、断电恢复入口、

@@ -17,7 +17,7 @@ def make_case(**overrides):
         "id": "TC-XX-99",
         "title": "fixture",
         "purpose": "fixture",
-        "area": "governance",
+        "area": "platform",
         "risk": "T0",
         "writes": {"reset": False, "enable": False, "motion": False, "plc": False},
         "env": "both",
