@@ -4,7 +4,7 @@ cases:
   - id: TC-ST-01
     title: 仓库质量门禁全量
     purpose: 证明候选 commit 满足全部架构、卫生与策略约束
-    area: governance
+    area: platform
     risk: T0
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -25,7 +25,7 @@ cases:
   - id: TC-ST-02
     title: 全包构建与包内测试
     purpose: 证明 17 个包在候选 commit 上可构建、包内测试全过
-    area: governance
+    area: platform
     risk: T0
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: native
@@ -48,7 +48,7 @@ cases:
   - id: TC-ST-03
     title: 冻结基线语义比对
     purpose: 证明候选相对基线 6bc94cd 的全部语义差异均为已批准 overlay
-    area: governance
+    area: platform
     risk: T0
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -67,7 +67,7 @@ cases:
   - id: TC-ST-04
     title: 发布身份六元组一致性
     purpose: 证明源码 commit、公共契约 SHA、vendor SHA、IgH commit、镜像 label 与 digest 互相一致且可追溯
-    area: release-deploy
+    area: platform
     risk: T0
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: docker
@@ -92,7 +92,7 @@ cases:
   - id: TC-ST-05
     title: 干净候选 commit 镜像可复现构建
     purpose: 证明发布镜像仅由冻结候选构建，构建期校验全部通过
-    area: release-deploy
+    area: platform
     risk: T0
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: docker

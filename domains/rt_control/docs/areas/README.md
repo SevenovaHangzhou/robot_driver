@@ -1,46 +1,39 @@
-# RT-Control 功能区开发记录
+# RT-Control 功能区与开发记录
 
-本目录是 RT-Control 域按功能区组织的开发记录事实源。自 2026-08-13 起，所有开发、
-调试、验收和裁决落地事件必须在对应功能区留下一条记录；
-`domains/rt_control/PROGRESS.md` 自同日起降级为纯时间线索引，其 2026-08-13 之前的
-表格内容冻结为历史段，不迁移、不修改。
+本目录按七个agent职责组织当前owner和冻结事实。源码包位置本轮不变。
+调整决策与历史条目处置见 [划分decision](governance/records/2026-10-13-seven-agent-areas.md)。
 
-## 功能区划分
+## 当前七个功能区
 
-| 功能区 | 范围 | Owner 包/资产 |
+| 功能区/agent | Owner资产 | 特殊排除 |
 | --- | --- | --- |
-| [ecat-axes](ecat-axes/README.md) | EtherCAT 14 轴伺服：拓扑、slave profile、PDO/SDO、极性 | `robot_hw_ethercat`、`patches/ecat_icube` |
-| [canopen-chassis](canopen-chassis/README.md) | CANopen 履带底盘：bus 配置、EDS/DCF、换算、心跳 | `robot_hw_canopen`、`patches/ros2_canopen` |
-| [lifecycle](lifecycle/README.md) | 使能/失能/故障复位/停机收敛/断电恢复 | `enable_manager`（含 `rt_disable_once`） |
-| [motion](motion/README.md) | 轨迹与运动执行：JTC/FJT、底盘速度、控制器配置与限位 | `rt_control_bringup` 控制器配置、`patches/ros2_controllers` |
-| [io-power](io-power/README.md) | PLC IO、真空执行、BMS 电池状态 | `plc_node`、`bms_node` |
-| [contract](contract/README.md) | 公共契约与适配层：公共/私有接口、适配器、诊断归一化 | `control_api_adapter`、`src/interfaces/*`、`rt_diagnostics` |
-| [realtime-host](realtime-host/README.md) | 实时调度与宿主：CPU 隔离、内核、亲和性、cyclictest | `hostsetup/`、`tools/rt_cpu_contamination_check.sh`、`tools/rt_control_thread_affinity.py` |
-| [release-deploy](release-deploy/README.md) | 构建、镜像、发布物、目标机部署与回滚 | `docker/`、`tools/rt_control_ipc.sh`、`tools/rt_control_compose.sh`、`versions.env`、`deps.repos` |
-| [governance](governance/README.md) | 门禁、CI、测试体系、协作规则与本记录体系自身 | `tools/quality_gate.sh`、`tools/repository_gate.py`、`.github/workflows/`、各级 `AGENTS.md` |
+| [protocol](protocol/README.md) | robot_hw_ethercat、robot_hw_canopen、robot_hw_can、rt_control_semantic_components、enable_manager；ecat_icube/igh/ros2_canopen补丁 | config/machines、robot_hw_ethercat/variants归hw-config |
+| [hw-config](hw-config/README.md) | 各包config/machines、robot_hw_ethercat/variants、alfa_v3.yaml、src/description快照 | 公共模型权威仍在独立仓库 |
+| [integration](integration/README.md) | rt_control_bringup其余部分、control_api_adapter非真空部分、src/interfaces、rt_diagnostics | 机型配置归hw-config，真空适配器归peripheral-control |
+| [arm-control](arm-control/README.md) | rolling_trajectory_controller、rt_force_torque_broadcaster、x503_force_sensor、damiao_head_controller；ros2_controllers补丁 | 协议实现归protocol |
+| [chassis-control](chassis-control/README.md) | swerve_driver | 机型配置归hw-config，协议/编码器提供器归protocol |
+| [peripheral-control](peripheral-control/README.md) | plc_node、plc_io_modbus、modbus_tcp_rtu485、bms_node、lpms_nav3_can；vacuum_adapter及其专属测试 | 公共IDL归integration，config/machines归hw-config |
+| [platform](platform/README.md) | hostsetup、docker、tools、.github、deps.repos、versions.env、testing、各级AGENTS、协作规范及记录体系 | 工具归属不改变其检查对象的owner |
 
-历史迁移工作（T-001 一族）已关闭，不设功能区；其证据保留在
-`domains/rt_control/docs/baseline_report.md` 与 PROGRESS.md 历史段。
+未写完整路径的包均位于`src/rt_control/`，补丁位于`patches/`。
+更具体路径优先于包级范围。机型事实和标定目标归hw-config，但当前位置和运行行为不因文档划分自动迁移。
 
 ## 归属规则
 
-1. **每条记录唯一归属一个功能区**，按被改动资产的 owner 包判定，与仓库
-   "节点 owner 唯一" 原则一致。
-2. 跨区改动拆成多条记录，各自归属，互相以 `related` 字段引用。
-3. 拿不准归属时按主要改动落区，并在记录"背景"段说明取舍；禁止为省事新建功能区，
-   新增功能区必须先在 governance 区留 decision 记录。
+1. 每条新记录唯一归属一个当前功能区。
+2. 跨区工作按资产主责拆分事实并互引原始记录。协议/生命周期归protocol，运行拼装归integration，机型/标定归hw-config，宿主/构建归platform。
+3. 拿不准的归属提交用户裁决，不猜。新边界调整先在platform留decision。
+4. 旧记录不移动、不修改。新表引用旧记录时保留原记录id和路径，它们是历史来源坐标，不是现行区名。
+5. 旧事实和过期接口归档到旧区，不在新区冒充V3有效配置。本轮逐条迁移/归档清单保存在划分decision。
 
 ## 记录规则
 
-1. **一条记录 = 一次可验证的变更事件**：一次任务收尾、一次实机调试、一次
-   corrective、一次裁决落地，各写一条。不按 commit 拆分，也不把多次事件压进一条。
-2. 记录文件放在 `<area>/records/YYYY-MM-DD-<slug>.md`，格式必须使用
-   [TEMPLATE.md](TEMPLATE.md)：YAML frontmatter 字段齐全 + 五段正文标题不增不减。
-3. **记录合并后不可修改**。结论被推翻时写新记录并在 `supersedes` 字段指向旧记录；
-   旧记录原文保留。
-4. 每区 README 的"冻结事实"表是该区当前有效结论的唯一可变视图；记录合入时必须
-   同步维护：新增事实加行，被覆盖事实改状态并指向新来源。
-5. 验证状态如实填写：mock/静态层结论不得冒充实机结论；没有证据的写 `UNVERIFIED`，
-   后续实机验证补新记录。
-6. 小改动同样走此格式，但允许正文合计 15 行以内；必填的是 frontmatter 字段和
-   五个段标题，不是字数。
+1. 一条记录对应一次可验证变更事件，不按commit拆分。
+2. 新记录放`<area>/records/YYYY-MM-DD-<slug>.md`，使用[TEMPLATE.md](TEMPLATE.md)的完整frontmatter及五段正文。
+3. 合并后的记录不可修改；推翻结论用新记录及supersedes。
+4. 各区README冻结事实表是当前结论的可变视图，必须同步更新来源和状态。
+5. `PROGRESS.md`保持时间线索引，历史行不改；后续新增行使用七区名。
+6. 验证状态沿用既有规则。没有运行证据时写UNVERIFIED，不把静态/Mock当实机。
+7. 本次三个准备任务按用户明确要求在原治理区留记录；第三条decision是关闭旧区前的最后一次登记。后续治理工作归platform。
+
+历史区入口、九区到七区的对应关系及归档条目统一保存在[本次decision](governance/records/2026-10-13-seven-agent-areas.md)。历史来源链接必须可追溯，不为消除字符串命中而改写旧记录。

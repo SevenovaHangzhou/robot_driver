@@ -333,3 +333,7 @@ Git 审查：
 - 即将提交的内容无法追溯到明确任务、需求或裁决。
 
 本契约的目的不是阻止迭代，而是确保每次迭代都能回答：谁拥有事实、谁消费接口、失败时如何收尾、用什么证据证明没有破坏机器人。
+
+## 七个职责功能区
+
+当前owner为protocol、hw-config、integration、arm-control、chassis-control、peripheral-control、platform；精确路径和排除项见[功能区索引](docs/areas/README.md)。更具体路径优先；本轮只调整owner和事实索引，不迁移代码或改变安全/实时门禁。
