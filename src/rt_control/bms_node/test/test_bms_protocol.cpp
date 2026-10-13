@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "bms_node/protocol.hpp"
+#include "bms_node/protocol/protocol.hpp"
 
 #include <array>
 #include <cmath>

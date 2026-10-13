@@ -1,25 +1,24 @@
-#pragma once
+#include "modbus_tcp_rtu485/ros_conversion.hpp"
 
-#include <builtin_interfaces/msg/time.hpp>
-#include <sensor_msgs/msg/range.hpp>
-
-#include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <cmath>
-#include <stdexcept>
-#include <string>
-#include <vector>
-
-#include "ultrasonic_protocol.hpp"
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
 
 namespace modbus_tcp_rtu485
 {
-inline constexpr float kA22FieldOfViewRad = 0.6981317008F;
-inline constexpr float kA22MaxRangeM = 3.5F;
-inline constexpr size_t kUltrasonicChannelCount = 8U;
+uint8_t diagnostic_level(const UltrasonicReading & reading)
+{
+  using diagnostic_msgs::msg::DiagnosticStatus;
+  switch (reading.severity) {
+    case UltrasonicSeverity::ok:
+      return DiagnosticStatus::OK;
+    case UltrasonicSeverity::warning:
+      return DiagnosticStatus::WARN;
+    case UltrasonicSeverity::error:
+      return DiagnosticStatus::ERROR;
+  }
+  throw std::logic_error("Unknown ultrasonic severity");
+}
 
-inline void validate_e08_unit_ids(const std::vector<int64_t> & unit_ids)
+void validate_e08_unit_ids(const std::vector<int64_t> & unit_ids)
 {
   if (unit_ids.size() != 2U) {
     throw std::invalid_argument("unit_ids requires two values");
@@ -34,9 +33,9 @@ inline void validate_e08_unit_ids(const std::vector<int64_t> & unit_ids)
   }
 }
 
-inline void validate_ultrasonic_config(
-  const std::vector<std::string> & frame_ids, float field_of_view_rad,
-  float min_range_m, float max_range_m)
+void validate_ultrasonic_config(
+  const std::vector<std::string> & frame_ids, float field_of_view_rad, float min_range_m,
+  float max_range_m)
 {
   if (frame_ids.size() != kUltrasonicChannelCount) {
     throw std::invalid_argument("frame_ids requires eight values");
@@ -48,30 +47,29 @@ inline void validate_ultrasonic_config(
   }
   auto sorted_frame_ids = frame_ids;
   std::sort(sorted_frame_ids.begin(), sorted_frame_ids.end());
-  if (std::adjacent_find(sorted_frame_ids.begin(), sorted_frame_ids.end()) !=
-    sorted_frame_ids.end())
-  {
+  if (
+    std::adjacent_find(sorted_frame_ids.begin(), sorted_frame_ids.end()) !=
+    sorted_frame_ids.end()) {
     throw std::invalid_argument("frame_ids must be unique");
   }
-  if (!std::isfinite(field_of_view_rad) ||
-    std::fabs(field_of_view_rad - kA22FieldOfViewRad) > 1.0e-6F)
-  {
+  if (
+    !std::isfinite(field_of_view_rad) ||
+    std::fabs(field_of_view_rad - kA22FieldOfViewRad) > 1.0e-6F) {
     throw std::invalid_argument("field_of_view_rad must be 0.6981317008 (40 degrees)");
   }
   if (!std::isfinite(min_range_m) || min_range_m <= 0.0F) {
     throw std::invalid_argument("min_range_m must be finite and greater than zero");
   }
-  if (!std::isfinite(max_range_m) || std::fabs(max_range_m - kA22MaxRangeM) > 1.0e-6F ||
-    max_range_m <= min_range_m)
-  {
+  if (
+    !std::isfinite(max_range_m) || std::fabs(max_range_m - kA22MaxRangeM) > 1.0e-6F ||
+    max_range_m <= min_range_m) {
     throw std::invalid_argument("max_range_m must be 3.5 and greater than min_range_m");
   }
 }
 
-inline sensor_msgs::msg::Range make_range_message(
+sensor_msgs::msg::Range make_range_message(
   const builtin_interfaces::msg::Time & stamp, const std::string & frame_id,
-  const UltrasonicReading & reading, float field_of_view_rad,
-  float min_range_m, float max_range_m)
+  const UltrasonicReading & reading, float field_of_view_rad, float min_range_m, float max_range_m)
 {
   sensor_msgs::msg::Range message;
   message.header.stamp = stamp;

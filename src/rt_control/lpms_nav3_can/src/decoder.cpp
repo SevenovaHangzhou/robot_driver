@@ -1,4 +1,4 @@
-#include "lpms_nav3_can/decoder.hpp"
+#include "lpms_nav3_can/protocol/decoder.hpp"
 
 #include <cstddef>
 #include <cstdint>

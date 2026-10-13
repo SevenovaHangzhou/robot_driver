@@ -1,7 +1,7 @@
 #ifndef BMS_NODE__DUAL_BATTERY_CONTROLLER_HPP_
 #define BMS_NODE__DUAL_BATTERY_CONTROLLER_HPP_
 
-#include "bms_node/protocol.hpp"
+#include "bms_node/protocol/protocol.hpp"
 
 #include <cstdint>
 #include <optional>
