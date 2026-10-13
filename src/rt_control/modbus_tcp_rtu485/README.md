@@ -148,6 +148,14 @@ mbpoll -v -m tcp -a 6 -0 -r 262 -c 4 -t 4:hex -1 -o 2 \
 
 ## Bringup and offline verification
 
+The installed `modbus_transport` and `ultrasonic_decoder` library targets expose
+ROS-independent headers under `modbus_tcp_rtu485/protocol/`. Decoder results use
+`UltrasonicSeverity`; `ultrasonic_ros_conversion` maps that severity to ROS diagnostic
+levels and creates Range messages through `modbus_tcp_rtu485/ros_conversion.hpp`.
+Consumers of the exported CMake targets use the `modbus_tcp_rtu485::` namespace.
+The library gtests use existing vectors and fake IO injected at link time; they do
+not open sockets. The existing socketpair and node lifecycle tests remain enabled.
+
 V3 installs an independent acquisition entry point:
 
 ```bash

@@ -1,6 +1,6 @@
-#include "lpms_nav3_can/decoder.hpp"
+#include "lpms_nav3_can/protocol/decoder.hpp"
 #include "lpms_nav3_can/ros_conversion.hpp"
-#include "lpms_nav3_can/socket_can.hpp"
+#include "lpms_nav3_can/protocol/socket_can.hpp"
 #include "lpms_nav3_can/node.hpp"
 
 #include <builtin_interfaces/msg/time.hpp>

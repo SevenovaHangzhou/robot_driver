@@ -91,6 +91,11 @@ restrictions. Charging MOS is not controlled by this package.
 
 ## Build and test
 
+`bms_protocol` and `bms_can_transport` expose ROS-independent headers under
+`include/bms_node/protocol/`. Include `bms_node/protocol/protocol.hpp` or
+`bms_node/protocol/can_transport.hpp`; link the corresponding existing library target.
+The discharge controller and ROS node remain outside the protocol directory.
+
 ```bash
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install --packages-select bms_node

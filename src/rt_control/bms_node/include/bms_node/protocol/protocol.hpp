@@ -22,8 +22,7 @@ constexpr std::uint8_t kDefaultBmsAddress = 0x01U;
 constexpr std::uint8_t kSecondaryBmsAddress = 0x02U;
 constexpr std::uint8_t kDefaultHostAddress = 0x40U;
 
-enum class ByteOrder
-{
+enum class ByteOrder {
   kAuto,
   kBigEndian,
   kLittleEndian,
@@ -49,8 +48,7 @@ struct BatteryValues
   std::uint8_t data_id, std::uint8_t destination, std::uint8_t source) noexcept;
 
 [[nodiscard]] std::array<std::uint32_t, 14U> make_dual_poll_ids(
-  std::uint8_t primary_address, std::uint8_t secondary_address,
-  std::uint8_t host_address) noexcept;
+  std::uint8_t primary_address, std::uint8_t secondary_address, std::uint8_t host_address) noexcept;
 
 [[nodiscard]] ByteOrder parse_byte_order(std::string_view value);
 
@@ -61,8 +59,8 @@ public:
     ByteOrder configured_order, std::uint8_t bms_address, std::uint8_t host_address);
 
   [[nodiscard]] bool ingest(
-    BmsSample & sample, std::uint32_t can_id, const std::uint8_t * data,
-    std::size_t size, double now_s);
+    BmsSample & sample, std::uint32_t can_id, const std::uint8_t * data, std::size_t size,
+    double now_s);
 
   [[nodiscard]] std::optional<ByteOrder> resolved_order() const noexcept;
 
@@ -106,8 +104,8 @@ public:
   GoldenPhoenixPack(ByteOrder order, std::uint8_t bms_address, std::uint8_t host_address);
 
   [[nodiscard]] bool ingest(
-    PackState & state, std::uint32_t can_id, const std::uint8_t * data,
-    std::size_t size, double now_s);
+    PackState & state, std::uint32_t can_id, const std::uint8_t * data, std::size_t size,
+    double now_s);
   void begin_cell_scan(PackState & state) const noexcept;
 
 private:

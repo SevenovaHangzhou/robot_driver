@@ -51,8 +51,7 @@ private:
   ImuSample sample_{};
 };
 
-[[nodiscard]] ImuSample convert_to_ros_convention(
-  const ImuSample & sample, bool convert_to_ros);
+[[nodiscard]] ImuSample convert_to_ros_convention(const ImuSample & sample, bool convert_to_ros);
 
 }  // namespace lpms_nav3_can
 

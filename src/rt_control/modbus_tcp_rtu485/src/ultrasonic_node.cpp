@@ -12,7 +12,7 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "diagnostic_msgs/msg/key_value.hpp"
-#include "modbus_transport.hpp"
+#include "modbus_tcp_rtu485/protocol/modbus_transport.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/observation_meta.hpp"
@@ -21,8 +21,8 @@
 #include "robot_system_interfaces/msg/error_info.hpp"
 #include "sensor_msgs/msg/range.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
-#include "ultrasonic_protocol.hpp"
-#include "ultrasonic_range.hpp"
+#include "modbus_tcp_rtu485/protocol/ultrasonic_protocol.hpp"
+#include "modbus_tcp_rtu485/ros_conversion.hpp"
 #include "unique_identifier_msgs/msg/uuid.hpp"
 
 namespace modbus_tcp_rtu485
@@ -114,7 +114,7 @@ private:
     size_t index, uint16_t raw, const UltrasonicReading & reading) const
   {
     diagnostic_msgs::msg::DiagnosticStatus status;
-    status.level = reading.diagnostic_level;
+    status.level = diagnostic_level(reading);
     status.name = "ultrasonic/channel" + std::to_string(index + 1U);
     status.hardware_id = sensor_id(index);
     status.message = reading.status;
@@ -193,7 +193,7 @@ private:
         if (reading.status == "no_target") {
           state = robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_NO_TARGET;
           valid = true;
-        } else if (reading.diagnostic_level != diagnostic_msgs::msg::DiagnosticStatus::OK) {
+        } else if (diagnostic_level(reading) != diagnostic_msgs::msg::DiagnosticStatus::OK) {
           state = robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_INVALID;
           valid = false;
           code = 1140U;

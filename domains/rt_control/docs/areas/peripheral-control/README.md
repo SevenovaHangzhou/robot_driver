@@ -33,3 +33,4 @@
 | io-power/11#F2 | 两台 E08 分别发布，单台失败不阻止另一台；Range 年龄 >2.5 s 过期 | [双侧真空与传感器接口](../io-power/records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F2 | PASS（源码/无设备；实机时序待验） |
 | io-power/11#F3 | LED 公共入口为完整 RGBW 服务，写确认不等于实际发光 | [双侧真空与传感器接口](../io-power/records/2026-10-02-dual-vacuum-and-sensor-interfaces.md)#F3 | PARTIAL（源码/协议；实机写待验） |
 | io-power/12#F1 | LED 节点正常 SIGINT/SIGTERM 退出时六路写无色，捕获到致命异常时六路尽力写红色；SIGKILL、断电和通信失效不作保证。 | [LED 退出颜色策略](../io-power/records/2026-10-05-led-exit-colors.md)#F1 | PARTIAL（源码/离线；实机待验） |
+| peripheral-control-20261013-01#F1-F3 | 四个外设包的七个协议/传输库头位于 include/<pkg>/protocol，无 ROS include；ROS 转换独立，运行接口及控制行为未修改。 | [外设协议库拆分](records/2026-10-13-peripheral-protocol-library-split.md)#F1-F3 | PARTIAL（T0/T1；109 项四包测试通过，整机闭包与实机未验） |
