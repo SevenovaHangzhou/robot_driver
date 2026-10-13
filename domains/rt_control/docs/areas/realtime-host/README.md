@@ -1,3 +1,5 @@
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[platform](../platform/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+
 # realtime-host — 实时调度与宿主
 
 **范围**：CPU 隔离（isolcpus/nohz_full/CPU14）、PREEMPT_RT 内核、IgH 安装与模块参数、

@@ -1,3 +1,5 @@
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[peripheral-control](../peripheral-control/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+
 # io-power — PLC IO、真空执行与 BMS
 
 **范围**：PLC Modbus TCP 读写与寄存器映射、三路输出（左右电磁阀、真空泵）、

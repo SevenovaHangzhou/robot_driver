@@ -1,3 +1,5 @@
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[arm-control](../arm-control/README.md)、[chassis-control](../chassis-control/README.md)、[hw-config](../hw-config/README.md)、[integration](../integration/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+
 # motion — 轨迹与运动执行
 
 **范围**：whole_body_jtc 与 FJT 执行、diff_drive 底盘速度、控制器参数

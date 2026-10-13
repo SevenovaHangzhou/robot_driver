@@ -118,3 +118,7 @@ commit、镜像 label、镜像 digest），见 TC-ST-04。
 alfa-two 主机，仅作历史参考，不得用作当前主机 baseline——TC-RT-01 首次在当前
 主机通过后补登记。候选版本跑同口径用例产出 delta（指标、baseline 值、差值、判定）。
 delta 判定阈值已由 BQ-134 裁决，固化于 [thresholds.yaml](thresholds.yaml)。
+
+## 用例功能区归属
+
+用例area使用protocol、hw-config、integration、arm-control、chassis-control、peripheral-control、platform。按covers资产主责分配；跨包诊断/组合归integration，全域构建/时序/长稳门禁归platform。历史用例保留ID、covers、风险层级、授权位及命令，不借本次重划改变验收。

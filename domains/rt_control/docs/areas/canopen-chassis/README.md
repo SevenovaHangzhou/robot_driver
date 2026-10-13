@@ -1,3 +1,5 @@
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[hw-config](../hw-config/README.md)、[peripheral-control](../peripheral-control/README.md)、[protocol](../protocol/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+
 # canopen-chassis — CANopen 移动底盘与 CAN 传感器
 
 **范围**：CANopen 主站、两条履带（Node 2/3）及三代机四路外置舵角编码器的

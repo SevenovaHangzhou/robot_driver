@@ -4,7 +4,7 @@ cases:
   - id: TC-FM-01
     title: 14 轴低速 FJT 往返
     purpose: 证明完整 14 轴 FollowJointTrajectory 低速执行成功且首点误差在门限内
-    area: motion
+    area: integration
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: both
@@ -25,7 +25,7 @@ cases:
   - id: TC-FM-02
     title: 履带底盘低速速度指令
     purpose: 证明 /cmd_vel_safe 到两履带的执行与限速有效
-    area: motion
+    area: protocol
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: both
@@ -46,7 +46,7 @@ cases:
   - id: TC-FM-03
     title: PLC 三路输出与真空闭环
     purpose: 证明左右电磁阀、真空泵逐点开关与真空建立反馈、持箱保护有效
-    area: io-power
+    area: peripheral-control
     risk: T4
     writes: { reset: no, enable: no, motion: no, plc: yes }
     env: both
@@ -68,7 +68,7 @@ cases:
   - id: TC-FM-04
     title: FJT 首点误差拒绝边界
     purpose: 证明超出首点误差门限的 goal 被拒绝而不是带偏差执行
-    area: motion
+    area: integration
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: native
