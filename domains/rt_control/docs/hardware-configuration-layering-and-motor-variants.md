@@ -1,5 +1,7 @@
 # 硬件配置隔离分层与电机变体维护指南
 
+> 分层调整：目标架构将协议与硬件配置解耦为两层，由通用组合器组合。单位换算、方向和offset等机型/标定事实的目标owner为hw-config；本文件下文的slave profile归属描述仍记录当前实现。代码迁移为后续独立任务，本次不移动配置、不改变运行行为。详见[划分decision](areas/governance/records/2026-10-13-seven-agent-areas.md)。
+
 本文说明 ELECTRI-94 的 Franka 风格硬件分层、owner-local 电机注册表，以及修改电机
 型号、数量、地址、传动换算和控制模式时的真实影响范围。当前生产变体只有
 `alfa_v1`。当前拓扑是 18 位：Hub 0/13、14 个运动轴、右/左 X503 state-only sensor

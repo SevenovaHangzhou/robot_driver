@@ -1,8 +1,8 @@
 ---
 # id 格式：<area>-<YYYYMMDD>-<两位序号>，与文件名对应
 id: <area>-20260813-01
-# 八区之一：ecat-axes | canopen-chassis | lifecycle | motion | io-power |
-#           contract | realtime-host | release-deploy | governance
+# 七区之一：protocol | hw-config | integration | arm-control |
+#           chassis-control | peripheral-control | platform
 area: <area>
 title: <一句话标题>
 date: 2026-08-13

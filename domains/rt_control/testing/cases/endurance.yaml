@@ -4,7 +4,7 @@ cases:
   - id: TC-LS-01
     title: 30 分钟稳定运行
     purpose: 证明栈连续运行 30 分钟无退出、无错误增长、性能指标稳定
-    area: release-deploy
+    area: platform
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -25,7 +25,7 @@ cases:
   - id: TC-LS-02
     title: 使能保持与无命令静置
     purpose: 证明 14 轴使能后长时间无命令静置不掉使能、不漂移、不累积故障
-    area: lifecycle
+    area: protocol
     risk: T4
     writes: { reset: no, enable: yes, motion: no, plc: no }
     env: both

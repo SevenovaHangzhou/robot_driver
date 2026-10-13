@@ -4,7 +4,7 @@ cases:
   - id: TC-LC-01
     title: 启动前预检
     purpose: 证明宿主身份、总线接口与 CPU 隔离满足启动条件
-    area: release-deploy
+    area: platform
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: native
@@ -24,7 +24,7 @@ cases:
   - id: TC-LC-02
     title: 正常启动与停机收敛
     purpose: 证明栈可干净启动（不 enable）并有序停机，无 UNCLEAN_SHUTDOWN
-    area: release-deploy
+    area: integration
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
@@ -47,7 +47,7 @@ cases:
   - id: TC-LC-03
     title: 故障复位（两段式）
     purpose: 证明 /rt/reset_fault 先对 Fault 轴脉冲 0x0080、再走 staged 下行序列，不压缩流程
-    area: lifecycle
+    area: protocol
     risk: T3
     writes: { reset: yes, enable: no, motion: no, plc: no }
     env: both
@@ -67,7 +67,7 @@ cases:
   - id: TC-LC-04
     title: 14 轴分批使能与失能
     purpose: 证明 5 批次（3/3/3/3/2）使能全部到 Operation Enabled，失能收敛到冻结终态
-    area: lifecycle
+    area: protocol
     risk: T3
     writes: { reset: no, enable: yes, motion: no, plc: no }
     env: both
@@ -89,7 +89,7 @@ cases:
   - id: TC-LC-05
     title: 断电恢复入口
     purpose: 证明主接触器断电后 recover-power-loss 可一键恢复到可用状态
-    area: lifecycle
+    area: platform
     risk: T3
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native
@@ -109,7 +109,7 @@ cases:
   - id: TC-LC-06
     title: 异常残留后再启动
     purpose: 证明前次未干净退出的残留状态不阻塞下次启动收敛
-    area: lifecycle
+    area: integration
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
