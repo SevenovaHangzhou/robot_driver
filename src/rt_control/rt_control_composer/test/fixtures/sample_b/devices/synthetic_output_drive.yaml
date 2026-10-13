@@ -1,0 +1,16 @@
+schema_version: 1
+kind: device
+status: draft
+verified: false
+family: synthetic_position_family
+authorities:
+  source: Synthetic test data; not hardware facts
+pending_facts:
+- Synthetic only
+output_encoder_counts_per_revolution: 4096
+motor_encoder_counts_per_revolution: TBD
+reduction_ratio: 3.0
+rated_torque_nm: TBD
+peak_torque_nm: TBD
+rated_current_a: TBD
+torque_constant_nm_per_a: TBD

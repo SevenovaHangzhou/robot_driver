@@ -1,0 +1,72 @@
+schema_version: 1
+kind: manifest
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticC
+functional_modules:
+- can_fixture
+modules:
+  can_fixture:
+    role: actuator_group
+    transport: synthetic_can
+    config_file: machines/SyntheticC/can_fixture.yaml
+    actuator_count: 3
+    sensor_count: 0
+    mode_groups:
+    - name: mode_position_velocity
+      count: 3
+      mode_of_operation: TBD
+      interface: position
+      certified: false
+    device_refs:
+    - devices/synthetic_can_motor.yaml
+robot_model:
+  package: synthetic_model
+  variants:
+    gripper:
+      xacro_file: urdf/gripper.urdf.xacro
+      joint_limits_file: config/gripper_limits.yaml
+      initial_positions_file: config/gripper_initial.yaml
+    suction:
+      xacro_file: urdf/suction.urdf.xacro
+      joint_limits_file: config/suction_limits.yaml
+      initial_positions_file: config/suction_initial.yaml
+hardware_options:
+  accessory:
+    none:
+      modules: []
+      status: ready
+      pending_facts: []
+profiles:
+  bench:
+    status: draft
+    modules:
+    - can_fixture
+    allowed_scopes:
+    - bench
+    hardware_options:
+      accessory:
+      - none
+    pending_facts:
+    - Synthetic only
+scopes:
+  bench:
+    enabled_modules:
+    - can_fixture
+    required_state_modules: []
+    actuator_groups:
+    - module: can_fixture
+      mode_group: mode_position_velocity
+    jtc_groups: []
+    global_readiness: partial_scope
+owner_refs:
+  synthetic_can: synthetic_protocol_0
+layout:
+  ethercat:
+    cycle_hz: 1000
+  canopen:
+    sync_period_us: 4000

@@ -1,0 +1,20 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticA
+module: articulated_fixture
+spec:
+  axes:
+  - robot_model_joint: axis_1
+    zero_counts: 0
+  - robot_model_joint: axis_2
+    zero_counts: 0
+  - robot_model_joint: axis_3
+    zero_counts: 0
+  - robot_model_joint: axis_4
+    zero_counts: 0

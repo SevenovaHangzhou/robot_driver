@@ -1,0 +1,17 @@
+schema_version: 1
+kind: unit_deployment
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticC
+end_effector: gripper
+hardware_options:
+  accessory: none
+can_interfaces:
+  fixture: synthetic_bus
+ethercat:
+  master_id: 0
+host_id: synthetic_host

@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "safety policy",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "module_envelope.schema.json#/definitions/schema_version"
+    },
+    "kind": {
+      "$ref": "module_envelope.schema.json#/definitions/kind_safety_policy"
+    },
+    "robot_variant": {
+      "$ref": "module_envelope.schema.json#/definitions/robot_variant"
+    },
+    "status": {
+      "$ref": "module_envelope.schema.json#/definitions/status"
+    },
+    "verified": {
+      "$ref": "module_envelope.schema.json#/definitions/verified"
+    },
+    "authorities": {
+      "$ref": "module_envelope.schema.json#/definitions/authorities"
+    },
+    "pending_facts": {
+      "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+    },
+    "fault_dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_module": {
+            "type": "string",
+            "minLength": 1
+          },
+          "affected_modules": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reaction": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "source_module",
+          "affected_modules",
+          "reaction"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "robot_variant",
+    "status",
+    "verified",
+    "authorities",
+    "pending_facts",
+    "fault_dependencies"
+  ],
+  "additionalProperties": false
+}

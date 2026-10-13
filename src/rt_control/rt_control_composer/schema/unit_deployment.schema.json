@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "unit deployment",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "module_envelope.schema.json#/definitions/schema_version"
+    },
+    "kind": {
+      "$ref": "module_envelope.schema.json#/definitions/kind_unit_deployment"
+    },
+    "robot_variant": {
+      "$ref": "module_envelope.schema.json#/definitions/robot_variant"
+    },
+    "status": {
+      "$ref": "module_envelope.schema.json#/definitions/status"
+    },
+    "verified": {
+      "$ref": "module_envelope.schema.json#/definitions/verified"
+    },
+    "authorities": {
+      "$ref": "module_envelope.schema.json#/definitions/authorities"
+    },
+    "pending_facts": {
+      "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+    },
+    "end_effector": {
+      "enum": [
+        "gripper",
+        "suction"
+      ]
+    },
+    "hardware_options": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "can_interfaces": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "const": "TBD"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ethercat": {
+      "type": "object",
+      "properties": {
+        "master_id": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "TBD"
+            }
+          ]
+        }
+      },
+      "required": [
+        "master_id"
+      ],
+      "additionalProperties": false
+    },
+    "host_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "robot_variant",
+    "status",
+    "verified",
+    "authorities",
+    "pending_facts",
+    "end_effector",
+    "hardware_options",
+    "can_interfaces",
+    "ethercat",
+    "host_id"
+  ],
+  "additionalProperties": false
+}

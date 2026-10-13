@@ -1,0 +1,30 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticC
+module: can_fixture
+spec:
+  joints:
+  - robot_model_joint: pivot_1
+    can_id: 1
+    master_id: 17
+    device: synthetic_can_motor
+    direction: 1
+    mode: position_velocity
+  - robot_model_joint: pivot_2
+    can_id: 2
+    master_id: 18
+    device: synthetic_can_motor
+    direction: 1
+    mode: position_velocity
+  - robot_model_joint: pivot_3
+    can_id: 3
+    master_id: 19
+    device: synthetic_can_motor
+    direction: 1
+    mode: position_velocity

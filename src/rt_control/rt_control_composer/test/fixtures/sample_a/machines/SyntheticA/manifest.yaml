@@ -1,0 +1,79 @@
+schema_version: 1
+kind: manifest
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticA
+functional_modules:
+- articulated_fixture
+modules:
+  articulated_fixture:
+    role: actuator_group
+    transport: ethercat
+    config_file: machines/SyntheticA/articulated_fixture.yaml
+    actuator_count: 4
+    sensor_count: 0
+    mode_groups:
+    - name: mode_1
+      count: 1
+      mode_of_operation: 1
+      interface: position
+      certified: false
+    - name: mode_8
+      count: 3
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    device_refs:
+    - devices/synthetic_output_drive.yaml
+robot_model:
+  package: synthetic_model
+  variants:
+    gripper:
+      xacro_file: urdf/gripper.urdf.xacro
+      joint_limits_file: config/gripper_limits.yaml
+      initial_positions_file: config/gripper_initial.yaml
+    suction:
+      xacro_file: urdf/suction.urdf.xacro
+      joint_limits_file: config/suction_limits.yaml
+      initial_positions_file: config/suction_initial.yaml
+hardware_options:
+  accessory:
+    none:
+      modules: []
+      status: ready
+      pending_facts: []
+profiles:
+  bench:
+    status: draft
+    modules:
+    - articulated_fixture
+    allowed_scopes:
+    - bench
+    hardware_options:
+      accessory:
+      - none
+    pending_facts:
+    - Synthetic only
+scopes:
+  bench:
+    enabled_modules:
+    - articulated_fixture
+    required_state_modules: []
+    actuator_groups:
+    - module: articulated_fixture
+      mode_group: mode_1
+    - module: articulated_fixture
+      mode_group: mode_8
+    jtc_groups: []
+    global_readiness: partial_scope
+owner_refs:
+  ethercat: synthetic_protocol_0
+layout:
+  ethercat:
+    cycle_hz: 1000
+  canopen:
+    sync_period_us: 4000

@@ -1,0 +1,12 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticB
+module: encoder_fixture
+spec:
+  axes: []

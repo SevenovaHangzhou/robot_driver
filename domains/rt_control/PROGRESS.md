@@ -236,3 +236,5 @@
 | 2026-10-13 | governance | [语言与agent规范同步](docs/areas/governance/records/2026-10-13-agent-contract-sync.md) | UNVERIFIED（T0；224工具测试通过） |
 
 | 2026-10-13 | platform | [七个agent职责区划分](docs/areas/governance/records/2026-10-13-seven-agent-areas.md) | UNVERIFIED（T0；旧记录保留、源码不迁移） |
+
+| 2026-10-13 | integration | [KKOZIA-5 M0b 两包骨架、九份 schema 与离线校验](docs/areas/integration/records/2026-10-13-kkozia-5-m0b-composer-skeleton-and-schemas.md) | UNVERIFIED（T0；两包构建、152 pytest；A0/运行验证待完成） |
