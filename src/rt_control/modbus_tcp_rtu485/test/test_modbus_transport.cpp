@@ -1,6 +1,6 @@
-#include "modbus_transport.hpp"
-#include "ultrasonic_protocol.hpp"
-#include "ultrasonic_range.hpp"
+#include "modbus_tcp_rtu485/protocol/modbus_transport.hpp"
+#include "modbus_tcp_rtu485/protocol/ultrasonic_protocol.hpp"
+#include "modbus_tcp_rtu485/ros_conversion.hpp"
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 
@@ -144,14 +144,19 @@ void ultrasonic_decode_tests()
 {
   using diagnostic_msgs::msg::DiagnosticStatus;
   const auto valid = decode_ultrasonic(25, 0.01F, 3.5F);
-  require(valid.status == "ok" && valid.diagnostic_level == DiagnosticStatus::OK &&
-    std::fabs(valid.range_m - 0.025F) < 1.0e-6F, "Valid distance decode failed");
+  require(
+    valid.status == "ok" && diagnostic_level(valid) == DiagnosticStatus::OK &&
+      std::fabs(valid.range_m - 0.025F) < 1.0e-6F,
+    "Valid distance decode failed");
   const auto no_target = decode_ultrasonic(0xFFFD, 0.01F, 3.5F);
-  require(std::isinf(no_target.range_m) && no_target.diagnostic_level == DiagnosticStatus::OK &&
-    no_target.status == "no_target", "No-target decode failed");
+  require(
+    std::isinf(no_target.range_m) && diagnostic_level(no_target) == DiagnosticStatus::OK &&
+      no_target.status == "no_target",
+    "No-target decode failed");
   require(decode_ultrasonic(0xFFFE, 0.01F, 3.5F).status == "interference",
     "Interference decode failed");
-  require(decode_ultrasonic(0xFFFF, 0.01F, 3.5F).diagnostic_level == DiagnosticStatus::ERROR,
+  require(
+    diagnostic_level(decode_ultrasonic(0xFFFF, 0.01F, 3.5F)) == DiagnosticStatus::ERROR,
     "Timeout decode failed");
   require(decode_ultrasonic(0xEEEE, 0.01F, 3.5F).status == "checksum_error",
     "Checksum decode failed");

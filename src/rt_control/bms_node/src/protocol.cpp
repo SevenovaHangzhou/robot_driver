@@ -1,4 +1,4 @@
-#include "bms_node/protocol.hpp"
+#include "bms_node/protocol/protocol.hpp"
 
 #include <cmath>
 #include <limits>

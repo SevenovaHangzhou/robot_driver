@@ -7,6 +7,11 @@ bitrate, interface configuration or TF. Reconnect only reopens the receive socke
 
 ## Integration Status
 
+The `lpms_nav3_decoder` and `lpms_nav3_socket_can` libraries expose headers at
+`lpms_nav3_can/protocol/decoder.hpp` and `lpms_nav3_can/protocol/socket_can.hpp`.
+These headers have no ROS dependencies. ROS message conversion remains in
+`lpms_nav3_can/ros_conversion.hpp` and the `lpms_nav3_ros_conversion` target.
+
 Source builds in native/CI and is an installed bringup dependency, but is not
 started by production launch. The standalone launch defaults to static validation.
 No physical interface, Node ID or frame is selected by default. `can0/can1` are

@@ -1,8 +1,8 @@
 #include "bms_node/node.hpp"
 
-#include "bms_node/can_transport.hpp"
+#include "bms_node/protocol/can_transport.hpp"
 #include "bms_node/dual_battery_controller.hpp"
-#include "bms_node/protocol.hpp"
+#include "bms_node/protocol/protocol.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 #include "std_msgs/msg/bool.hpp"

@@ -1,4 +1,4 @@
-#include "lpms_nav3_can/socket_can.hpp"
+#include "lpms_nav3_can/protocol/socket_can.hpp"
 
 #include <array>
 #include <cstdint>

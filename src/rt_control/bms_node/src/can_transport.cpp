@@ -1,4 +1,4 @@
-#include "bms_node/can_transport.hpp"
+#include "bms_node/protocol/can_transport.hpp"
 
 #include <linux/can.h>
 

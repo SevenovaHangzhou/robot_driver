@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "modbus_client.hpp"
+#include "plc_io_modbus/protocol/modbus_client.hpp"
 #include "plc_io_modbus/msg/vacuum_sensor_state.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
