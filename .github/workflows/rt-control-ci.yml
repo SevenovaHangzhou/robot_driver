@@ -52,9 +52,16 @@ jobs:
             python3-pip \
             python3-pytest \
             python3-yaml \
+            python3-jsonschema \
             ripgrep \
             shellcheck
           python3 -m pip install --no-cache-dir pre-commit==3.7.1
+      - name: Install and verify Draft 7 validator
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-jsonschema
+          python3 -c "import jsonschema; assert jsonschema.__version__.startswith('3.2.')"
       - name: Install pinned incremental style tools
         shell: bash
         run: |
@@ -127,9 +134,16 @@ jobs:
             python3-pytest \
             python3-vcstool \
             python3-yaml \
+            python3-jsonschema \
             ros-humble-ros2-control \
             ros-humble-ros2-controllers \
             ros-humble-xacro
+      - name: Install and verify Draft 7 validator
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-jsonschema
+          python3 -c "import jsonschema; assert jsonschema.__version__.startswith('3.2.')"
       - name: Build and test head closure
         shell: bash
         run: |
@@ -219,8 +233,15 @@ jobs:
             python3-rosdep \
             python3-vcstool \
             python3-yaml \
+            python3-jsonschema \
             ccache
           mkdir -p "${GITHUB_WORKSPACE}/.ci/apt" "${CCACHE_DIR}"
+      - name: Install and verify Draft 7 validator
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-jsonschema
+          python3 -c "import jsonschema; assert jsonschema.__version__.startswith('3.2.')"
       - name: Import frozen source dependencies
         shell: bash
         run: |
@@ -288,6 +309,8 @@ jobs:
             rolling_trajectory_controller
             rt_force_torque_broadcaster
             swerve_driver
+            rt_control_composer
+            rt_control_machine_config
             rt_control_bringup
           )
           mapfile -t dependency_paths < <(
@@ -342,6 +365,8 @@ jobs:
             rolling_trajectory_controller \
             rt_force_torque_broadcaster \
             swerve_driver \
+            rt_control_composer \
+            rt_control_machine_config \
             rt_control_bringup \
             --cmake-args -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Report compiler cache
@@ -403,6 +428,8 @@ jobs:
             rolling_trajectory_controller \
             rt_force_torque_broadcaster \
             swerve_driver \
+            rt_control_composer \
+            rt_control_machine_config \
             rt_control_bringup
           colcon test-result --verbose
       - name: Validate shared robot description

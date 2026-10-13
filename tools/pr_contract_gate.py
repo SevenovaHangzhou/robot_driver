@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import sys
+import subprocess
 from pathlib import Path
 from typing import Sequence
 
@@ -72,7 +73,32 @@ def validate_body(body: str) -> list[str]:
     return findings
 
 
-def validate_event(event_path: Path) -> list[str]:
+def safety_policy_warnings(body: str, paths: Sequence[str]) -> list[str]:
+    """R9: reminders are not proof of human approval and do not block a PR."""
+    if not any(Path(path).name == "safety_policy.yaml" for path in paths):
+        return []
+    visible = _visible_text(body)
+    section = _section_body(visible, "安全策略变更")
+    if section is None or not re.search(r"^Confirmed-by:[ \t]*[^ \t\r\n].*$", section, re.MULTILINE):
+        return ["R9: safety_policy.yaml changed; add ## 安全策略变更 and Confirmed-by: "
+                "to the PR body. CODEOWNERS human approval is still required."]
+    return []
+
+
+def changed_policy_paths(repository_root: Path, base: str, head: str) -> list[str]:
+    """Diff the PR head against its merge base; no-renames includes both names."""
+    merge_base = subprocess.run(
+        ["git", "merge-base", base, head], cwd=repository_root, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+    output = subprocess.run(
+        ["git", "diff", "--name-only", "--no-renames", "-z", merge_base, head, "--"],
+        cwd=repository_root, check=True, capture_output=True, text=True,
+    ).stdout
+    return [path for path in output.split("\0") if path]
+
+
+def validate_event(event_path: Path, repository_root: Path | None = None) -> list[str]:
     try:
         event = json.loads(event_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -81,6 +107,15 @@ def validate_event(event_path: Path) -> list[str]:
     body = pull_request.get("body") if isinstance(pull_request, dict) else None
     if not isinstance(body, str):
         return ["GitHub event does not contain pull_request.body"]
+    base = pull_request.get("base", {}).get("sha")
+    head = pull_request.get("head", {}).get("sha")
+    if base and head:
+        try:
+            paths = changed_policy_paths(repository_root or Path.cwd(), base, head)
+        except subprocess.CalledProcessError:
+            return ["R9: cannot inspect PR merge-base; fetch both PR head and base history"]
+        for warning in safety_policy_warnings(body, paths):
+            print(f"WARNING: {warning}", file=sys.stderr)
     return validate_body(body)
 
 

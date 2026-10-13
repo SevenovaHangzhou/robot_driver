@@ -237,3 +237,5 @@
 
 | 2026-10-13 | platform | [七个agent职责区划分](docs/areas/governance/records/2026-10-13-seven-agent-areas.md) | UNVERIFIED（T0；旧记录保留、源码不迁移） |
 | 2026-10-13 | peripheral-control | [四包外设协议库拆分](docs/areas/peripheral-control/records/2026-10-13-peripheral-protocol-library-split.md) | PARTIAL（KKOZIA-3；T0/T1；四包109项测试、8项相关launch测试与质量门禁通过；整机闭包/实机未验；M0a已合入） |
+
+| 2026-10-13 | platform | [M1 包注册、四层门禁与 jsonschema 发布身份](docs/areas/platform/records/2026-10-13-m1-layer-gates.md) | UNVERIFIED（KKOZIA-6；T0；记录 ID 待分配，M0b 候选叠加门禁通过，main 两包待合入） |

@@ -4,10 +4,12 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG IGH_VERSION
 ARG IGH_COMMIT
+ARG PYTHON3_JSONSCHEMA_VERSION
 
 LABEL org.opencontainers.image.version="${IGH_VERSION}" \
       io.rt-control.igh.commit="${IGH_COMMIT}" \
-      io.rt-control.igh.preserve-pdo-config="true"
+      io.rt-control.igh.preserve-pdo-config="true" \
+      org.sevenova.rt-control.deps.python3-jsonschema="${PYTHON3_JSONSCHEMA_VERSION}"
 
 RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && test -n "${IGH_VERSION}" \
@@ -27,6 +29,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       pkg-config \
       python3-colcon-common-extensions \
       python3-rosdep \
+      python3-jsonschema \
       python3-vcstool \
       ros-humble-diagnostic-updater \
       ros-humble-rmw-fastrtps-cpp \
@@ -35,6 +38,9 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ros-humble-ros2-controllers \
       ros-humble-xacro \
       util-linux \
+    && installed_jsonschema="$(dpkg-query -W -f='${Version}' python3-jsonschema)" \
+    && [[ "${installed_jsonschema}" == 3.2.* ]] \
+    && test "${installed_jsonschema}" = "${PYTHON3_JSONSCHEMA_VERSION}" \
     && test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher \
     && rm -rf /var/lib/apt/lists/*
 
@@ -206,11 +212,16 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       rt_control_interfaces \
       robot_hw_ethercat \
       robot_hw_canopen \
+      robot_hw_can \
+      damiao_head_controller \
       enable_manager \
       rt_diagnostics \
       rt_control_semantic_components \
+      rolling_trajectory_controller \
       rt_force_torque_broadcaster \
       swerve_driver \
+      rt_control_composer \
+      rt_control_machine_config \
       rt_control_bringup \
     ) \
     && mapfile -t rt_control_dependency_paths < <( \

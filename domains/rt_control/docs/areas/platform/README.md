@@ -38,5 +38,14 @@
 | governance/F14 | head-fast 只提供提前反馈，所有代码 PR 仍无条件执行完整 V3 build；CI 基础镜像使用精确标签且保留公开 ROS 回退 | [governance-20260920-01](../governance/records/2026-09-20-layered-ci-cache.md)#F1-F4 | PARTIAL（基础镜像发布与变量启用待完成） |
 | governance/STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](../governance/records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
 | governance/CONTRACT-1 | 三档测试、语言分工、任务指派分支授权 | [governance-20261013-02](../governance/records/2026-10-13-agent-contract-sync.md)#F1-F3 | UNVERIFIED（T0文档） |
-
 | AREA-1 | 七区owner、历史冻结与目标分层，代码迁移另立任务 | [划分decision](../governance/records/2026-10-13-seven-agent-areas.md)#F1-F4 | UNVERIFIED（T0文档与索引） |
+| KKOZIA-6（记录 ID 待分配） | 四层逐条基线、jsonschema 3.2.x 标签一致性、ADR-17 合并授权；BQ-154 保持 OPEN | [M1 待登记记录](records/2026-10-13-m1-layer-gates.md)#F1-F4 | UNVERIFIED（T0；依赖 M0b，分支保护待配置） |
+
+## 人工镜像封装入口（M1）
+
+选定源码 SHA 并获得封装授权后，运行 `tools/build_rt_control_image.sh APPROVED_TAG`。
+包装器在 Dockerfile 基础镜像内查询当前 apt 候选，不锁 Ubuntu 补丁版本；安装版本必须
+为 3.2.x 并与 `org.sevenova.rt-control.deps.python3-jsonschema` 标签一致。
+直接调用 Dockerfile 时也必须提供 `PYTHON3_JSONSCHEMA_VERSION` build-arg；旧的
+Compose build 没有该参数时会被构建断言拒绝，应改用此包装器完成镜像封装。
+本任务没有执行镜像构建或启动生产容器。
