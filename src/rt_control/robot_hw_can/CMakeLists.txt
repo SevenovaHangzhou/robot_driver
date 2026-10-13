@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(robot_hw_can)
+# Uniform warnings for all owned targets, including ament test targets.
+add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+
 
 find_package(ament_cmake REQUIRED)
 find_package(hardware_interface REQUIRED)

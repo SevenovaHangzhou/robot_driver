@@ -1,0 +1,2 @@
+# clang-format and git-clang-format must use major 14 (Ubuntu 22.04).
+ruff==0.11.13

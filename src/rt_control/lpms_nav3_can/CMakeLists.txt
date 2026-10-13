@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 project(lpms_nav3_can)
+# Uniform warnings for all owned targets, including ament test targets.
+add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 option(ENABLE_COVERAGE "Enable GCC/Clang coverage instrumentation" OFF)

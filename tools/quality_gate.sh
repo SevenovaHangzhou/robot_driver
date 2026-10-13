@@ -20,6 +20,7 @@ if ! python3 -c 'import coverage, yaml' >/dev/null 2>&1; then
 fi
 
 python3 tools/repository_gate.py
+python3 tools/style_gate.py
 
 mapfile -t shell_files < <(
   git ls-files --cached --others --exclude-standard -- \

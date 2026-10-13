@@ -55,3 +55,9 @@
 - PROGRESS.md 历史段：T-GOV-001/002、T-DOC-001/002
 - `collaboration-and-commit-standards.md`（第 9.5 节五层测试要求、第 10 节 CI）
 - 相关 Linear：ELECTRI-74（测试体系设计）
+
+## 2026-10-13 增量风格事实
+
+| 编号 | 冻结事实 | 来源 | 状态 |
+| --- | --- | --- | --- |
+| STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
