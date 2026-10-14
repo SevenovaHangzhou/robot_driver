@@ -1,0 +1,54 @@
+{
+  "baseline": {
+    "candidate_sha": "5d8c9bd410c6be3d12f1d38790ae5be153874c0f",
+    "main_kind": "isolated candidate main, not remote merged main"
+  },
+  "cases": {
+    "direction": {
+      "branch": "rehearsal/kkozia-19-direction",
+      "command": "git diff --name-only main",
+      "files": [
+        "src/rt_control/rt_control_machine_config/machines/Alfa_V3/arms.yaml"
+      ],
+      "by_package": {
+        "rt_control_machine_config": 1
+      },
+      "integration_files": 0,
+      "mock_offline_compose": "PASS"
+    },
+    "existing-model-axis": {
+      "branch": "rehearsal/kkozia-19-existing-model-axis",
+      "command": "git diff --name-only main",
+      "files": [
+        "src/description/robot_description/urdf/robot_dual_gripper.urdf.xacro",
+        "src/rt_control/enable_manager/config/Alfa_V3_enable_policy.yaml",
+        "src/rt_control/rolling_trajectory_controller/config/Alfa_V3_arm_tolerances.yaml",
+        "src/rt_control/rt_control_machine_config/machines/Alfa_V3/arms.yaml",
+        "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml",
+        "src/rt_control/rt_control_machine_config/units/Alfa_V3-01/arms_zero.yaml"
+      ],
+      "by_package": {
+        "robot_description": 1,
+        "enable_manager": 1,
+        "rolling_trajectory_controller": 1,
+        "rt_control_machine_config": 3
+      },
+      "integration_files": 0,
+      "mock_offline_compose": "PASS"
+    },
+    "new-device-same-family": {
+      "branch": "rehearsal/kkozia-19-new-device-same-family",
+      "command": "git diff --name-only main",
+      "files": [
+        "src/rt_control/rt_control_machine_config/devices/synthetic_rehearsal_device.yaml",
+        "src/rt_control/rt_control_machine_config/machines/Alfa_V3/arms.yaml",
+        "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml"
+      ],
+      "by_package": {
+        "rt_control_machine_config": 3
+      },
+      "integration_files": 0,
+      "mock_offline_compose": "PASS"
+    }
+  }
+}

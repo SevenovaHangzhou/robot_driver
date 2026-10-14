@@ -1,0 +1,24 @@
+{
+  "arm": {
+    "offline_real_compose": "REJECTED",
+    "reason": "Arm motion calibration is not verified",
+    "hardware_preflight": "NOT_EXECUTED"
+  },
+  "arm-jtc": {
+    "offline_real_compose": "REJECTED",
+    "reason": "Arm motion calibration is not verified",
+    "hardware_preflight": "NOT_EXECUTED"
+  },
+  "stationary": {
+    "offline_real_compose": "PASS",
+    "hardware_preflight": "NOT_EXECUTED"
+  },
+  "head": {
+    "offline_real_compose": "PASS",
+    "hardware_preflight": "NOT_EXECUTED"
+  },
+  "force": {
+    "offline_real_compose": "PASS",
+    "hardware_preflight": "NOT_EXECUTED"
+  }
+}

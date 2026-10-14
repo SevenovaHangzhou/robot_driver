@@ -10,7 +10,9 @@ env: native
 risk: T0
 writes: {reset: no, enable: no, motion: no, plc: no}
 verified: PARTIAL
-evidence: []
+evidence:
+  - ../attachments/composer-defaults/rehearsals.json
+  - ../attachments/composer-defaults/actual-unit-admission.json
 supersedes: []
 related: [integration-20261014-01, integration-20261014-02, integration-20261014-03, BQ-154]
 ---
@@ -42,15 +44,20 @@ related: [integration-20261014-01, integration-20261014-02, integration-20261014
 
 ## 验证
 
+- 头部参数确认后实际real离线compose通过；stationary/force-bench也通过，arm与arm-jtc仍按
+  verified:false拒绝。所有结果未执行真实preflight，见实际单机JSON附件。
 - 前置PR67源码CI已通过；[CI](https://github.com/SevenovaHangzhou/robot_driver/actions/runs/38545780780)。
   不代替本增量CI，前置原位/force T1验证缺口保留。
 - 新隔离目录11包构建通过；10个受影响包实际colcon test通过：712 tests、0 errors、0 failures、0 skipped。
 - 34个离线/入口用例通过，十份golden规范化零差异。四入口的新测试确保compose/preflight顺序，
   预检拒绝时Node未构造；独立JTC输出仍由冻结case检验。
 - tools/check_v3_branch_contract.py通过：模型/接口锁定身份、14CSP、安全依赖、V3默认validation入口保持。
-- 工具质量门禁先前通过243 passed、13 skipped；最终CLI/文档更新后再次执行并在PR记录结果。
-- 迁移演练在候选集成树的独立本地main基线上执行；最终包级diff与限制在后续证据附件登记。
-  本地候选main不冒充远端已合并main。
+- 最终工具质量门禁通过243 passed、13 skipped；无新未豁免违规，固定样式工具通过。
+  无参数validate_config_files.py检查已安装数据包全部devices/machines/units信封，通过；不读evidence。
+- 三项演练实际执行git diff --name-only main并按包统计：方向1个machine文件；新增轴3个数据文件
+  （arms+manifest+unit zero）、两策略、1模型；同族新设备3个数据文件。三例offline mock compose通过，
+  integration文件均0。新增轴的单机zero是安全覆盖必需字段，比机型设计清单额外触碰units，未规避校验。
+  演练main是候选5d8c9bd独立基线，不冒充远端已合并main；演练改动不推送、不部署。
 
 本记录不授权使能或运动。
 
