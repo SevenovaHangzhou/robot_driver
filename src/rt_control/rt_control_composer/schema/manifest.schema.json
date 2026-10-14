@@ -178,6 +178,10 @@
             "unit_module": {
               "type": "string",
               "minLength": 1
+            },
+            "can_interface_key": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [
@@ -562,6 +566,31 @@
                 "joint_limits_file"
               ],
               "additionalProperties": false
+            },
+            "preserve_controller_file": {
+              "type": "boolean"
+            },
+            "minimal_robot": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "base_link": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "name",
+                "base_link"
+              ],
+              "additionalProperties": false
+            },
+            "robot_name": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [

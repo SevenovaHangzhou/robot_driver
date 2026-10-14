@@ -1,5 +1,3 @@
-# SPEC v1.1; baseline source: origin/main 1c4ee5c. No whole-package exemptions.
-# R6 scans production frequency literals; schema, tests and value forwarding are not sources.
 layers:
   hw_config:
   - rt_control_machine_config
@@ -42,22 +40,6 @@ baseline_violations:
   line: 13
   text: 'update_rate: 50'
   expires: M6
-- rule: R2
-  source_package: damiao_head_controller
-  target_package: robot_hw_can
-  dependency_type: '#include'
-  file: src/rt_control/damiao_head_controller/include/damiao_head_controller/head_manager_core.hpp
-  line: 6
-  text: '#include "robot_hw_can/head_state_machine.hpp"'
-  expires: M4c
-- rule: R2
-  source_package: damiao_head_controller
-  target_package: robot_hw_can
-  dependency_type: depend
-  file: src/rt_control/damiao_head_controller/package.xml
-  line: 16
-  text: <depend>robot_hw_can</depend>
-  expires: M4c
 - rule: R6
   source_package: robot_hw_ethercat
   target_package: ''
@@ -112,7 +94,8 @@ baseline_violations:
   dependency_type: frequency-literal
   file: src/rt_control/rt_control_bringup/rt_control_bringup/force_sensor_runtime.py
   line: 114
-  text: 'controllers = {"controller_manager": {"ros__parameters": {"update_rate": 1000}}}'
+  text: 'controllers = {"controller_manager": {"ros__parameters": {"update_rate":
+    1000}}}'
   expires: M6
 - rule: R6
   source_package: rt_control_bringup
@@ -138,11 +121,3 @@ baseline_violations:
   line: 5
   text: 'update_rate: 250'
   expires: M6
-- rule: R2
-  source_package: damiao_head_controller
-  target_package: robot_hw_can
-  dependency_type: find_package
-  file: src/rt_control/damiao_head_controller/CMakeLists.txt
-  line: 15
-  text: find_package(robot_hw_can
-  expires: M4c

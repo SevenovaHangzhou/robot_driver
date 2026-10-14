@@ -1,0 +1,124 @@
+{
+  "controllers": {
+    "damiao_head_manager": {
+      "claimed_interfaces": [
+        "damiao_head_control/enable_request",
+        "damiao_head_control/reset_generation"
+      ],
+      "state": "active",
+      "type": "damiao_head_controller/HeadManagerController"
+    },
+    "head_position_controller": {
+      "claimed_interfaces": [],
+      "state": "inactive",
+      "type": "forward_command_controller/ForwardCommandController"
+    },
+    "joint_state_broadcaster": {
+      "claimed_interfaces": [],
+      "state": "active",
+      "type": "joint_state_broadcaster/JointStateBroadcaster"
+    }
+  },
+  "interfaces": {
+    "command": {
+      "damiao_head_control/enable_request": {
+        "available": true,
+        "claimed": true
+      },
+      "damiao_head_control/reset_generation": {
+        "available": true,
+        "claimed": true
+      },
+      "head_joint/position": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/position": {
+        "available": true,
+        "claimed": false
+      }
+    },
+    "state": {
+      "damiao_head_control/fault_latched": {
+        "available": true,
+        "claimed": false
+      },
+      "damiao_head_control/handled_reset_generation": {
+        "available": true,
+        "claimed": false
+      },
+      "damiao_head_control/motion_allowed": {
+        "available": true,
+        "claimed": false
+      },
+      "damiao_head_control/phase": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/effort": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/enabled": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/fault_code": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/feedback_age_ms": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/mos_temperature": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/motor_temperature": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/position": {
+        "available": true,
+        "claimed": false
+      },
+      "head_joint/velocity": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/effort": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/enabled": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/fault_code": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/feedback_age_ms": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/mos_temperature": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/motor_temperature": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/position": {
+        "available": true,
+        "claimed": false
+      },
+      "head_pitch_joint/velocity": {
+        "available": true,
+        "claimed": false
+      }
+    }
+  }
+}

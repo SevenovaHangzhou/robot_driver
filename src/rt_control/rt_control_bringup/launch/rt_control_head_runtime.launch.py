@@ -28,64 +28,97 @@ def _start_if_succeeded(next_action, reason):
         if event.returncode:
             return [EmitEvent(event=Shutdown(reason=reason))]
         return [next_action]
+
     return handler
 
 
 def setup(context):
     config_path = LaunchConfiguration("head_can_config").perform(context).strip()
-    if not config_path:
-        raise ValueError("head_can_config is required for the V3 head runtime")
-    config = load_head_can_config(config_path)
+    composer = LaunchConfiguration("use_composer", default="false").perform(context) == "true"
     use_mock_hardware = _boolean(context, "use_mock_hardware")
     publish_robot_state = (
         _boolean(context, "publish_robot_state")
-        if "publish_robot_state" in context.launch_configurations else True
+        if "publish_robot_state" in context.launch_configurations
+        else True
     )
     bringup_share = Path(get_package_share_directory("rt_control_bringup"))
-    build = build_head_runtime(
-        config=config,
-        description_share=get_package_share_directory("robot_description"),
-        hardware_share=get_package_share_directory("robot_hw_can"),
-        controller_share=get_package_share_directory("damiao_head_controller"),
-        bringup_share=bringup_share,
-        use_mock_hardware=use_mock_hardware,
-    )
     runtime = Path(tempfile.mkdtemp(prefix="alfa-v3-head-runtime-"))
+    if composer:
+        from rt_control_composer.compose import compose, preflight
+
+        if config_path:
+            raise ValueError(
+                "Composer consumes machine/unit head configuration, not head_can_config"
+            )
+        build = compose(
+            robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
+            machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
+            physical_profile="head_only",
+            control_scope="head_only",
+            runtime_dir=runtime,
+            use_mock_hardware=use_mock_hardware,
+        )
+        preflight(build)
+        order = build.controller_order
+    else:
+        if not config_path:
+            raise ValueError("head_can_config is required for the V3 head runtime")
+        config = load_head_can_config(config_path)
+        build = build_head_runtime(
+            config=config,
+            description_share=get_package_share_directory("robot_description"),
+            hardware_share=get_package_share_directory("robot_hw_can"),
+            controller_share=get_package_share_directory("damiao_head_controller"),
+            bringup_share=bringup_share,
+            use_mock_hardware=use_mock_hardware,
+        )
+        order = {
+            "inactive": ["head_position_controller"],
+            "active": ["joint_state_broadcaster", "damiao_head_manager"],
+        }
     controller_config = runtime / "controllers.yaml"
     controller_config.write_text(
         yaml.safe_dump(build.controllers, sort_keys=False), encoding="utf-8"
     )
     manager = Node(
-        package="controller_manager", executable="ros2_control_node",
+        package="controller_manager",
+        executable="ros2_control_node",
         parameters=[{"robot_description": build.robot_description}, str(controller_config)],
         output="both",
     )
     robot_state_publisher = Node(
-        package="robot_state_publisher", executable="robot_state_publisher",
-        parameters=[{"robot_description": build.robot_description}], output="both",
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        parameters=[{"robot_description": build.robot_description}],
+        output="both",
     )
     position_loader = Node(
-        package="controller_manager", executable="spawner",
-        arguments=["head_position_controller", "--inactive", "--controller-manager-timeout", "30"],
+        package="controller_manager",
+        executable="spawner",
+        arguments=[*order["inactive"], "--inactive", "--controller-manager-timeout", "30"],
         output="both",
     )
     lifecycle_loader = Node(
-        package="controller_manager", executable="spawner",
-        arguments=["joint_state_broadcaster", "damiao_head_manager",
-                   "--controller-manager-timeout", "30"],
+        package="controller_manager",
+        executable="spawner",
+        arguments=[*order["active"], "--controller-manager-timeout", "30"],
         output="both",
     )
     actions = [
-        RegisterEventHandler(OnProcessExit(
-            target_action=manager,
-            on_exit=[EmitEvent(event=Shutdown(reason="V3 head controller manager exited"))],
-        )),
+        RegisterEventHandler(
+            OnProcessExit(
+                target_action=manager,
+                on_exit=[EmitEvent(event=Shutdown(reason="V3 head controller manager exited"))],
+            )
+        ),
         manager,
         position_loader,
-        RegisterEventHandler(OnProcessExit(
-            target_action=position_loader,
-            on_exit=_start_if_succeeded(lifecycle_loader, "V3 head controller loading failed"),
-        )),
+        RegisterEventHandler(
+            OnProcessExit(
+                target_action=position_loader,
+                on_exit=_start_if_succeeded(lifecycle_loader, "V3 head controller loading failed"),
+            )
+        ),
     ]
     if publish_robot_state:
         actions.insert(2, robot_state_publisher)
@@ -93,9 +126,14 @@ def setup(context):
 
 
 def generate_launch_description():
-    return LaunchDescription([
-        DeclareLaunchArgument("head_can_config", default_value=""),
-        DeclareLaunchArgument("use_mock_hardware", default_value="true"),
-        DeclareLaunchArgument("publish_robot_state", default_value="true"),
-        OpaqueFunction(function=setup),
-    ])
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument("head_can_config", default_value=""),
+            DeclareLaunchArgument("use_mock_hardware", default_value="true"),
+            DeclareLaunchArgument("use_composer", default_value="false", choices=["true", "false"]),
+            DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
+            DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
+            DeclareLaunchArgument("publish_robot_state", default_value="true"),
+            OpaqueFunction(function=setup),
+        ]
+    )

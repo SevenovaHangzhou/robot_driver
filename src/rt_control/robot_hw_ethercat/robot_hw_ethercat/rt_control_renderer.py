@@ -27,8 +27,8 @@ def _private_validate(data, filename):
 
 
 def validate_module(module: Mapping, data: Mapping) -> Mapping:
-    schema = (
-        "kinco_module.schema.json" if data["spec"].get("family") == "kinco" else "arms.schema.json"
+    schema = {"kinco": "kinco_module.schema.json", "bluepoint": "force.schema.json"}.get(
+        data["spec"].get("family"), "arms.schema.json"
     )
     return {**deepcopy(dict(data)), "spec": _private_validate(data["spec"], schema)}
 
@@ -85,6 +85,10 @@ def render(request: Mapping) -> Mapping:
         from .kinco_renderer import render as render_kinco
 
         return render_kinco(request, _share(), validate_module, validate_unit)
+    if machine["spec"].get("family") == "bluepoint":
+        from .force_renderer import render as render_force
+
+        return render_force(request, _share(), validate_module)
     unit = request["unit"]
     module = request["module"]
     spec = validate_module(module, machine)["spec"]
@@ -268,6 +272,10 @@ def render(request: Mapping) -> Mapping:
 def preflight(expected_topology: Mapping, *, run=None) -> None:
     """Reproduce the old stationary checks. Motion has no new admission preflight."""
     topology = expected_topology
+    if topology.get("kind") == "passive_force_bench":
+        from .force_renderer import preflight as force_preflight
+
+        return force_preflight(topology, run=run)
     topology = {
         **topology,
         "responders": sorted(topology["responders"], key=lambda item: item["ring_position"]),

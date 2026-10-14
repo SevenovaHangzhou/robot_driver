@@ -23,9 +23,6 @@
         }
       },
       "additionalProperties": false,
-      "required": [
-        "control_frequency"
-      ],
       "properties": {
         "control_frequency": {
           "type": "number",
@@ -71,17 +68,29 @@
       "type": "object",
       "additionalProperties": {
         "type": "array",
-        "items": {"type": "string", "minLength": 1}
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "resource_claims": {
       "type": "array",
-      "items": {"type": "string", "minLength": 1},
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "uniqueItems": true
     },
     "expected_topology": {
       "type": "object",
       "description": "Protocol-owned topology; validated by its private schema."
+    },
+    "controller_parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      }
     }
   },
   "required": [

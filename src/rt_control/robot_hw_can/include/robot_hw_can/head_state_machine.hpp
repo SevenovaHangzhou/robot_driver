@@ -6,19 +6,12 @@
 #include <cstdint>
 #include <optional>
 
+#include "rt_control_semantic_components/head_phase.hpp"
+
 namespace robot_hw_can
 {
 
-enum class HeadPhase : std::uint8_t
-{
-  disabled = 0U,
-  enabling = 1U,
-  enabled = 2U,
-  disabling = 3U,
-  reset_disabling = 4U,
-  resetting = 5U,
-  fault_latched = 6U,
-};
+using rt_control_semantic_components::HeadPhase;
 
 struct MotorStatus
 {
@@ -41,12 +34,10 @@ class HeadStateMachine
 {
 public:
   HeadStateMachine(
-    std::chrono::nanoseconds feedback_timeout,
-    std::chrono::nanoseconds transition_timeout);
+    std::chrono::nanoseconds feedback_timeout, std::chrono::nanoseconds transition_timeout);
 
   [[nodiscard]] HeadActions step(
-    std::chrono::nanoseconds now, bool enable_requested,
-    std::uint64_t reset_generation,
+    std::chrono::nanoseconds now, bool enable_requested, std::uint64_t reset_generation,
     const std::array<MotorStatus, 2U> & motors);
   [[nodiscard]] HeadPhase phase() const noexcept;
   [[nodiscard]] bool fault_latched() const noexcept;
@@ -55,8 +46,7 @@ public:
 
 private:
   [[nodiscard]] bool all_fresh(
-    std::chrono::nanoseconds now,
-    const std::array<MotorStatus, 2U> & motors) const noexcept;
+    std::chrono::nanoseconds now, const std::array<MotorStatus, 2U> & motors) const noexcept;
   [[nodiscard]] bool all_received_after_transition(
     const std::array<MotorStatus, 2U> & motors) const noexcept;
   void transition(HeadPhase phase, std::chrono::nanoseconds now) noexcept;

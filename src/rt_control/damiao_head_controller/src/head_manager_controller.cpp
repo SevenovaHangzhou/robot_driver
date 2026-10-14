@@ -29,9 +29,9 @@ using CallbackReturn = controller_interface::CallbackReturn;
 [[nodiscard]] std::uint64_t exact_generation(double value)
 {
   constexpr double kMaximumExactInteger{9007199254740991.0};
-  if (!std::isfinite(value) || value < 0.0 || value > kMaximumExactInteger ||
-    std::trunc(value) != value)
-  {
+  if (
+    !std::isfinite(value) || value < 0.0 || value > kMaximumExactInteger ||
+    std::trunc(value) != value) {
     throw std::runtime_error{"DaMiao reset generation is not an exact nonnegative integer"};
   }
   return static_cast<std::uint64_t>(value);
@@ -64,34 +64,31 @@ CallbackReturn HeadManagerController::on_configure(const rclcpp_lifecycle::State
   try {
     joint_names_ = get_node()->get_parameter("joints").as_string_array();
     control_name_ = get_node()->get_parameter("control_name").as_string();
-    position_controller_name_ =
-      get_node()->get_parameter("position_controller_name").as_string();
+    position_controller_name_ = get_node()->get_parameter("position_controller_name").as_string();
     service_prefix_ = get_node()->get_parameter("service_prefix").as_string();
     const auto service_timeout_ms = get_node()->get_parameter("service_timeout_ms").as_int();
     const auto switch_timeout_ms =
       get_node()->get_parameter("controller_switch_timeout_ms").as_int();
     diagnostic_feedback_timeout_ms_ =
       get_node()->get_parameter("diagnostic_feedback_timeout_ms").as_double();
-    if (joint_names_.size() != 2U || joint_names_[0].empty() || joint_names_[1].empty() ||
+    if (
+      joint_names_.size() != 2U || joint_names_[0].empty() || joint_names_[1].empty() ||
       joint_names_[0] == joint_names_[1] || control_name_.empty() ||
       position_controller_name_.empty() || service_prefix_.empty() ||
       service_prefix_.front() != '/' || service_timeout_ms <= 0 || switch_timeout_ms <= 0 ||
-      !std::isfinite(diagnostic_feedback_timeout_ms_) || diagnostic_feedback_timeout_ms_ <= 0.0)
-    {
+      !std::isfinite(diagnostic_feedback_timeout_ms_) || diagnostic_feedback_timeout_ms_ <= 0.0) {
       throw std::invalid_argument{"invalid DaMiao head-manager topology or timeout"};
     }
     service_timeout_ = std::chrono::milliseconds{service_timeout_ms};
     controller_switch_timeout_ = std::chrono::milliseconds{switch_timeout_ms};
-    command_names_ = {
-      control_name_ + "/enable_request", control_name_ + "/reset_generation"};
+    command_names_ = {control_name_ + "/enable_request", control_name_ + "/reset_generation"};
     state_names_ = {
       control_name_ + "/phase", control_name_ + "/fault_latched",
       control_name_ + "/handled_reset_generation", control_name_ + "/motion_allowed"};
     for (const auto & joint : joint_names_) {
-      for (const char * interface : {
-          "position", "velocity", "effort", "fault_code", "mos_temperature",
-          "motor_temperature", "feedback_age_ms", "enabled"})
-      {
+      for (const char * interface :
+           {"position", "velocity", "effort", "fault_code", "mos_temperature", "motor_temperature",
+            "feedback_age_ms", "enabled"}) {
         state_names_.push_back(joint + "/" + interface);
       }
     }
@@ -102,18 +99,18 @@ CallbackReturn HeadManagerController::on_configure(const rclcpp_lifecycle::State
       get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
     enable_service_ = get_node()->create_service<EnableService>(
       service_prefix_ + "/enable",
-      std::bind(&HeadManagerController::handle_enable, this, std::placeholders::_1,
-        std::placeholders::_2),
+      std::bind(
+        &HeadManagerController::handle_enable, this, std::placeholders::_1, std::placeholders::_2),
       rmw_qos_profile_services_default, service_callback_group_);
     disable_service_ = get_node()->create_service<EnableService>(
       service_prefix_ + "/disable",
-      std::bind(&HeadManagerController::handle_disable, this, std::placeholders::_1,
-        std::placeholders::_2),
+      std::bind(
+        &HeadManagerController::handle_disable, this, std::placeholders::_1, std::placeholders::_2),
       rmw_qos_profile_services_default, service_callback_group_);
     reset_service_ = get_node()->create_service<EnableService>(
       service_prefix_ + "/reset_fault",
-      std::bind(&HeadManagerController::handle_reset, this, std::placeholders::_1,
-        std::placeholders::_2),
+      std::bind(
+        &HeadManagerController::handle_reset, this, std::placeholders::_1, std::placeholders::_2),
       rmw_qos_profile_services_default, service_callback_group_);
     list_client_ = get_node()->create_client<ListControllers>(
       "/controller_manager/list_controllers", rmw_qos_profile_services_default,
@@ -130,7 +127,8 @@ CallbackReturn HeadManagerController::on_configure(const rclcpp_lifecycle::State
       std::chrono::seconds{1}, std::bind(&HeadManagerController::publish_diagnostics, this),
       worker_callback_group_);
   } catch (const std::exception & error) {
-    RCLCPP_ERROR(get_node()->get_logger(), "DaMiao head manager configuration rejected: %s", error.what());
+    RCLCPP_ERROR(
+      get_node()->get_logger(), "DaMiao head manager configuration rejected: %s", error.what());
     return CallbackReturn::ERROR;
   }
   return CallbackReturn::SUCCESS;
@@ -142,14 +140,16 @@ HeadManagerController::command_interface_configuration() const
   return {controller_interface::interface_configuration_type::INDIVIDUAL, command_names_};
 }
 
-controller_interface::InterfaceConfiguration HeadManagerController::state_interface_configuration() const
+controller_interface::InterfaceConfiguration HeadManagerController::state_interface_configuration()
+  const
 {
   return {controller_interface::interface_configuration_type::INDIVIDUAL, state_names_};
 }
 
 bool HeadManagerController::bind_interfaces()
 {
-  if (command_interfaces_.size() != commands_.size() || state_interfaces_.size() != states_.size()) {
+  if (
+    command_interfaces_.size() != commands_.size() || state_interfaces_.size() != states_.size()) {
     return false;
   }
   commands_.fill(nullptr);
@@ -190,9 +190,9 @@ CallbackReturn HeadManagerController::on_activate(const rclcpp_lifecycle::State 
   }
   try {
     const double phase_value = states_[0]->get_value();
-    if (!std::isfinite(phase_value) || phase_value < 0.0 || phase_value > 6.0 ||
-      std::trunc(phase_value) != phase_value)
-    {
+    if (
+      !std::isfinite(phase_value) || phase_value < 0.0 || phase_value > 6.0 ||
+      std::trunc(phase_value) != phase_value) {
       throw std::runtime_error{"DaMiao head phase state is invalid"};
     }
     requested_enable_.store(false, std::memory_order_release);
@@ -206,7 +206,8 @@ CallbackReturn HeadManagerController::on_activate(const rclcpp_lifecycle::State 
     active_.store(true, std::memory_order_release);
   } catch (const std::exception & error) {
     release_handles();
-    RCLCPP_ERROR(get_node()->get_logger(), "DaMiao head manager activation failed: %s", error.what());
+    RCLCPP_ERROR(
+      get_node()->get_logger(), "DaMiao head manager activation failed: %s", error.what());
     return CallbackReturn::ERROR;
   }
   return CallbackReturn::SUCCESS;
@@ -222,13 +223,11 @@ controller_interface::return_type HeadManagerController::update(
     const double phase_value = states_[0]->get_value();
     const double fault_value = states_[1]->get_value();
     const double motion_value = states_[3]->get_value();
-    if (!std::isfinite(phase_value) || phase_value < 0.0 || phase_value > 6.0 ||
-      std::trunc(phase_value) != phase_value || !exact_flag(fault_value) ||
-      !exact_flag(motion_value))
-    {
+    const auto phase = rt_control_semantic_components::decode_head_phase(phase_value);
+    if (!phase || !exact_flag(fault_value) || !exact_flag(motion_value)) {
       return controller_interface::return_type::ERROR;
     }
-    phase_.store(static_cast<std::uint8_t>(phase_value), std::memory_order_release);
+    phase_.store(static_cast<std::uint8_t>(*phase), std::memory_order_release);
     fault_latched_.store(fault_value == 1.0, std::memory_order_release);
     motion_allowed_.store(motion_value == 1.0, std::memory_order_release);
     handled_reset_generation_.store(
@@ -244,9 +243,9 @@ controller_interface::return_type HeadManagerController::update(
           encode_double(states_[state_index]->get_value()), std::memory_order_release);
       }
     }
-    if (fault_latched_.load(std::memory_order_acquire) &&
-      position_controller_active_.load(std::memory_order_acquire))
-    {
+    if (
+      fault_latched_.load(std::memory_order_acquire) &&
+      position_controller_active_.load(std::memory_order_acquire)) {
       fault_stop_requested_.store(true, std::memory_order_release);
     }
   } catch (const std::exception &) {
@@ -259,8 +258,7 @@ HeadSnapshot HeadManagerController::snapshot() const noexcept
 {
   return HeadSnapshot{
     static_cast<HeadPhase>(phase_.load(std::memory_order_acquire)),
-    fault_latched_.load(std::memory_order_acquire),
-    motion_allowed_.load(std::memory_order_acquire),
+    fault_latched_.load(std::memory_order_acquire), motion_allowed_.load(std::memory_order_acquire),
     handled_reset_generation_.load(std::memory_order_acquire)};
 }
 
@@ -288,9 +286,9 @@ bool HeadManagerController::wait_for_result(
 
 bool HeadManagerController::switch_position_controller(bool activate)
 {
-  if (!list_client_->wait_for_service(controller_switch_timeout_) ||
-    !switch_client_->wait_for_service(controller_switch_timeout_))
-  {
+  if (
+    !list_client_->wait_for_service(controller_switch_timeout_) ||
+    !switch_client_->wait_for_service(controller_switch_timeout_)) {
     return false;
   }
   auto list_future = list_client_->async_send_request(std::make_shared<ListControllers::Request>());
@@ -323,10 +321,11 @@ bool HeadManagerController::switch_position_controller(bool activate)
   request->strictness = SwitchController::Request::STRICT;
   request->activate_asap = true;
   request->timeout.sec = static_cast<std::int32_t>(controller_switch_timeout_.count() / 1000);
-  request->timeout.nanosec = static_cast<std::uint32_t>(
-    (controller_switch_timeout_.count() % 1000) * 1000000);
+  request->timeout.nanosec =
+    static_cast<std::uint32_t>((controller_switch_timeout_.count() % 1000) * 1000000);
   auto switch_future = switch_client_->async_send_request(request);
-  const bool success = switch_future.wait_for(controller_switch_timeout_) == std::future_status::ready &&
+  const bool success =
+    switch_future.wait_for(controller_switch_timeout_) == std::future_status::ready &&
     switch_future.get()->ok;
   if (success) {
     position_controller_active_.store(activate, std::memory_order_release);
@@ -335,17 +334,17 @@ bool HeadManagerController::switch_position_controller(bool activate)
 }
 
 void HeadManagerController::handle_enable(
-  const std::shared_ptr<EnableService::Request>,
-  std::shared_ptr<EnableService::Response> response)
+  const std::shared_ptr<EnableService::Request>, std::shared_ptr<EnableService::Response> response)
 {
   Operation expected{Operation::none};
-  if (!active_.load(std::memory_order_acquire) ||
-    !operation_.compare_exchange_strong(expected, Operation::enable))
-  {
-    fill_response(*response, false, active_.load() ? "operation_in_progress" : "controller_inactive");
+  if (
+    !active_.load(std::memory_order_acquire) ||
+    !operation_.compare_exchange_strong(expected, Operation::enable)) {
+    fill_response(
+      *response, false, active_.load() ? "operation_in_progress" : "controller_inactive");
     return;
   }
-  const auto release = [this]() {operation_.store(Operation::none, std::memory_order_release);};
+  const auto release = [this]() { operation_.store(Operation::none, std::memory_order_release); };
   if (assess_enable(snapshot()) == OperationResult::success && switch_position_controller(true)) {
     fill_response(*response, true, "already_enabled");
     release();
@@ -375,14 +374,14 @@ void HeadManagerController::handle_enable(
 }
 
 void HeadManagerController::handle_disable(
-  const std::shared_ptr<EnableService::Request>,
-  std::shared_ptr<EnableService::Response> response)
+  const std::shared_ptr<EnableService::Request>, std::shared_ptr<EnableService::Response> response)
 {
   Operation expected{Operation::none};
-  if (!active_.load(std::memory_order_acquire) ||
-    !operation_.compare_exchange_strong(expected, Operation::disable))
-  {
-    fill_response(*response, false, active_.load() ? "operation_in_progress" : "controller_inactive");
+  if (
+    !active_.load(std::memory_order_acquire) ||
+    !operation_.compare_exchange_strong(expected, Operation::disable)) {
+    fill_response(
+      *response, false, active_.load() ? "operation_in_progress" : "controller_inactive");
     return;
   }
   const bool controller_stopped = switch_position_controller(false);
@@ -390,20 +389,21 @@ void HeadManagerController::handle_disable(
   const bool disabled = wait_for_result(Operation::disable);
   fill_response(
     *response, controller_stopped && disabled,
-    !controller_stopped ? "position_controller_deactivate_failed" :
-    (snapshot().fault_latched ? "fault_requires_reset" : (disabled ? "success" : "disable_timeout")));
+    !controller_stopped ? "position_controller_deactivate_failed"
+                        : (snapshot().fault_latched ? "fault_requires_reset"
+                                                    : (disabled ? "success" : "disable_timeout")));
   operation_.store(Operation::none, std::memory_order_release);
 }
 
 void HeadManagerController::handle_reset(
-  const std::shared_ptr<EnableService::Request>,
-  std::shared_ptr<EnableService::Response> response)
+  const std::shared_ptr<EnableService::Request>, std::shared_ptr<EnableService::Response> response)
 {
   Operation expected{Operation::none};
-  if (!active_.load(std::memory_order_acquire) ||
-    !operation_.compare_exchange_strong(expected, Operation::reset))
-  {
-    fill_response(*response, false, active_.load() ? "operation_in_progress" : "controller_inactive");
+  if (
+    !active_.load(std::memory_order_acquire) ||
+    !operation_.compare_exchange_strong(expected, Operation::reset)) {
+    fill_response(
+      *response, false, active_.load() ? "operation_in_progress" : "controller_inactive");
     return;
   }
   if (!switch_position_controller(false)) {
@@ -446,8 +446,8 @@ void HeadManagerController::publish_diagnostics()
   status.hardware_id = "alfa-v3-head";
   bool stale = false;
   for (std::size_t motor{0U}; motor < 2U; ++motor) {
-    const double age = decode_double(
-      diagnostic_value_bits_[motor * 4U + 3U].load(std::memory_order_acquire));
+    const double age =
+      decode_double(diagnostic_value_bits_[motor * 4U + 3U].load(std::memory_order_acquire));
     stale = stale || !std::isfinite(age) || age < 0.0 || age > diagnostic_feedback_timeout_ms_;
   }
   const HeadSnapshot current = snapshot();
@@ -462,16 +462,19 @@ void HeadManagerController::publish_diagnostics()
     const std::string prefix = joint_names_[motor] + ".";
     status.values.push_back(key_value(
       prefix + "fault_code", std::to_string(decode_double(
-        diagnostic_value_bits_[offset].load(std::memory_order_acquire)))));
+                               diagnostic_value_bits_[offset].load(std::memory_order_acquire)))));
     status.values.push_back(key_value(
-      prefix + "mos_temperature_c", std::to_string(decode_double(
-        diagnostic_value_bits_[offset + 1U].load(std::memory_order_acquire)))));
+      prefix + "mos_temperature_c",
+      std::to_string(
+        decode_double(diagnostic_value_bits_[offset + 1U].load(std::memory_order_acquire)))));
     status.values.push_back(key_value(
-      prefix + "motor_temperature_c", std::to_string(decode_double(
-        diagnostic_value_bits_[offset + 2U].load(std::memory_order_acquire)))));
+      prefix + "motor_temperature_c",
+      std::to_string(
+        decode_double(diagnostic_value_bits_[offset + 2U].load(std::memory_order_acquire)))));
     status.values.push_back(key_value(
-      prefix + "feedback_age_ms", std::to_string(decode_double(
-        diagnostic_value_bits_[offset + 3U].load(std::memory_order_acquire)))));
+      prefix + "feedback_age_ms",
+      std::to_string(
+        decode_double(diagnostic_value_bits_[offset + 3U].load(std::memory_order_acquire)))));
   }
   array.status.push_back(std::move(status));
   diagnostics_publisher_->publish(array);
@@ -535,5 +538,4 @@ double HeadManagerController::decode_double(std::uint64_t bits) noexcept
 }  // namespace damiao_head_controller
 
 PLUGINLIB_EXPORT_CLASS(
-  damiao_head_controller::HeadManagerController,
-  controller_interface::ControllerInterface)
+  damiao_head_controller::HeadManagerController, controller_interface::ControllerInterface)

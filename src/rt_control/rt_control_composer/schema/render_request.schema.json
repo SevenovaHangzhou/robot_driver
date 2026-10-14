@@ -147,6 +147,10 @@
         "unit_module": {
           "type": "string",
           "minLength": 1
+        },
+        "can_interface_key": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -233,6 +237,10 @@
       "items": {
         "$ref": "module_envelope.schema.json"
       }
+    },
+    "hardware_system_id": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "required": [

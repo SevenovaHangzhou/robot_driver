@@ -1,0 +1,27 @@
+{
+  "arm": {
+    "offline_compose": "REJECTED",
+    "reason": "Arm motion calibration is not verified",
+    "preflight": "NOT_EXECUTED"
+  },
+  "arm-jtc": {
+    "offline_compose": "REJECTED",
+    "reason": "Arm motion calibration is not verified",
+    "preflight": "NOT_EXECUTED"
+  },
+  "stationary": {
+    "offline_compose": "PASS",
+    "preflight": "NOT_EXECUTED",
+    "hardware_certification": "NOT_ESTABLISHED"
+  },
+  "head": {
+    "offline_compose": "REJECTED",
+    "reason": "D-b: head_gimbal configuration is not verified",
+    "preflight": "NOT_EXECUTED"
+  },
+  "force": {
+    "offline_compose": "PASS",
+    "preflight": "NOT_EXECUTED",
+    "hardware_certification": "NOT_ESTABLISHED"
+  }
+}

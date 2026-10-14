@@ -3,11 +3,39 @@ kind: machine_module
 status: draft
 verified: false
 authorities:
-  source: rt_control_bringup/config/machines/alfa_v3.yaml
+  source: "damiao_head_controller/README.md \xA74"
+  confirmation_person: TBD
+  confirmation_date: TBD
 pending_facts:
-- installed motor limits and stored ACC/DEC/MAX_SPD readback
-- head gimbal mechanical zero and transmission parameters
+- 'D-b: real configuration confirmation person/date'
+- model positive direction and mechanical zero
 robot_variant: Alfa_V3
 module: head_gimbal
 spec:
-  migration_pending: true
+  configure_timeout_ms: 100
+  feedback_timeout_ms: 50
+  transition_timeout_ms: 250
+  command_rate_hz: 250.0
+  disabled_poll_interval_ms: 20
+  max_rx_frames_per_cycle: 32
+  family: damiao
+  joints:
+  - can_id: 1
+    master_id: 17
+    velocity_limit: 0.2
+    acceleration_krad_s2: 2.0
+    deceleration_krad_s2: -2.0
+    maximum_speed_rad_s: 600.0
+    robot_model_joint: head_joint
+    device: devices/damiao_dm_j4310_2ec_v1_1.yaml
+    direction: TBD
+  - can_id: 2
+    master_id: 18
+    velocity_limit: 0.2
+    acceleration_krad_s2: 2.0
+    deceleration_krad_s2: -2.0
+    maximum_speed_rad_s: 600.0
+    robot_model_joint: head_pitch_joint
+    device: devices/damiao_dm_j4310_2ec_v1_1.yaml
+    direction: TBD
+master_system: damiao_head

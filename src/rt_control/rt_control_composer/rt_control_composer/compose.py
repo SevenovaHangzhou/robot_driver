@@ -3,6 +3,7 @@
 from copy import deepcopy
 from pathlib import Path
 import xml.etree.ElementTree as ET
+import uuid
 
 from ament_index_python.packages import get_package_share_directory
 import xacro
@@ -32,6 +33,8 @@ def compose(
     jtc_only=False,
     require_manifest_ready=False,
     package_share=get_package_share_directory,
+    sync_mode="",
+    startup_id=None,
 ):
     """All filesystem writes belong here; no bus command or preflight runs here."""
     runtime = Path(runtime_dir)
@@ -59,8 +62,13 @@ def compose(
         "joints": [joint.attrib["name"] for joint in model_robot.findall("joint")],
         "joint_limits": yaml.safe_load((model_share / variant["joint_limits_file"]).read_text()),
     }
+    if "robot_name" in scope:
+        model_robot.attrib["name"] = scope["robot_name"]
     naming = load_yaml(integration_share / "config/interface_naming.yaml")
-    if mode == "stationary_enable":
+    if "minimal_robot" in scope:
+        robot = ET.Element("robot", name=scope["minimal_robot"]["name"])
+        ET.SubElement(robot, "link", name=scope["minimal_robot"]["base_link"])
+    elif mode == "stationary_enable":
         robot = ET.Element(
             "robot", name=naming["stationary_robot_name"].format(robot_variant=robot_variant)
         )
@@ -68,6 +76,7 @@ def compose(
     else:
         robot = model_robot
     rendered = []
+    bus_rates = []
     rendered_modules = {}
     for name, machine in data["modules"].items():
         module = manifest["modules"][name]
@@ -78,6 +87,7 @@ def compose(
             layout["cycle_hz"] if "cycle_hz" in layout else 1_000_000 / layout["sync_period_us"]
         )
         bus_cycle = scope.get("ethercat_cycle_hz_override", bus_cycle)
+        bus_rates.append(bus_cycle)
         request = {
             "module": module,
             "machine": machine,
@@ -89,6 +99,7 @@ def compose(
             "bus_cycle_hz": bus_cycle,
             "runtime_dir": str(runtime),
             "render_mode": mode,
+            "hardware_system_id": scope.get("hardware_system_id", machine["master_system"]),
             "transport_layout": layout,
             "peer_machines": [
                 peer
@@ -97,6 +108,8 @@ def compose(
                 and peer.get("master_system") == machine.get("master_system")
             ],
         }
+        if sync_mode:
+            request["sync_mode"] = sync_mode
         result = render_checked(renderer, request, schemas, config_root)
         if "hardware_system_id" in scope:
             result = {**result, "hardware_system_id": scope["hardware_system_id"]}
@@ -151,9 +164,13 @@ def compose(
             name for name in order["inactive"] if bindings[name]["role"] != "rolling"
         ]
     selected_names = order["inactive"] + order["active"]
+    if startup_id is None and any(
+        bindings[name]["role"] == "sensor_broadcaster" for name in selected_names
+    ):
+        startup_id = "force-bench-" + str(uuid.uuid4())
     defaults = load_yaml(integration_share / "config/controller_defaults.yaml")
     manager = {
-        "update_rate": rendered[0][1]["hardware_params"]["control_frequency"],
+        "update_rate": bus_rates[0],
         **defaults["controller_manager"],
     }
     controllers = {"controller_manager": {"ros__parameters": manager}}
@@ -207,6 +224,26 @@ def compose(
             parameters = deepcopy(defaults[role][mode])
             if role == "joint_state" and motion is not None:
                 parameters["joints"] = list(motion["joints"])
+        elif role == "sensor_broadcaster":
+            owner_result = rendered_modules[binding["module"]]
+            parameters = deepcopy(owner_result["controller_parameters"][name])
+            machine_sensor = next(
+                item
+                for item in data["modules"][binding["module"]]["spec"]["sensors"]
+                if item["controller_name"] == name
+            )
+            context = {
+                **machine_sensor,
+                "family": data["modules"][binding["module"]]["spec"]["family"],
+            }
+            parameters.update(
+                wrench_topic=naming["wrench"].format(**context),
+                raw_topic=naming["raw"].format(**context),
+                sensor_state_topic=naming["state"].format(**context),
+                diagnostic_name=naming["sensor_calibration"].format(**context),
+                calibration_topic=naming["family_calibration"].format(**context),
+                startup_id=startup_id,
+            )
         elif role == "external":
             share = Path(package_share(binding["package"]))
             source = yaml.safe_load(resolve_share_path(share, binding["config_file"]).read_text())
@@ -214,6 +251,14 @@ def compose(
         else:
             raise ValueError(f"Unsupported controller binding role: {role}")
         controllers[name] = {"ros__parameters": parameters}
+    if scope.get("preserve_controller_file", False):
+        binding = next(
+            bindings[name] for name in selected_names if bindings[name]["role"] == "external"
+        )
+        share = Path(package_share(binding["package"]))
+        controllers = yaml.safe_load(resolve_share_path(share, binding["config_file"]).read_text())
+    elif "minimal_robot" in scope:
+        manager.pop("thread_priority", None)
     # fault_dependencies remain owned by the separate machine safety policy. These
     # migrated entry points did not emit them; validation does not add runtime fields.
     robot_description = ET.tostring(robot, encoding="unicode")

@@ -1,0 +1,14 @@
+schema_version: 1
+kind: device
+status: draft
+verified: false
+authorities:
+  source: "damiao_head_controller/README.md \xA71; session readback, not model authority"
+pending_facts:
+- model-rated parameters and applicability
+- D-b
+family: damiao
+reduction_ratio: TBD
+rated_torque_nm: TBD
+spec:
+  model: DM-J4310-2EC_V1.1

@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "configure_timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "feedback_timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "transition_timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "disabled_poll_interval_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "command_rate_hz": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1000
+    },
+    "max_rx_frames_per_cycle": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    },
+    "family": {
+      "const": "damiao"
+    },
+    "joints": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "robot_model_joint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "can_id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 15
+          },
+          "master_id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2047
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  -1,
+                  1
+                ]
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "velocity_limit": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "acceleration_krad_s2": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "deceleration_krad_s2": {
+            "type": "number",
+            "exclusiveMaximum": 0
+          },
+          "maximum_speed_rad_s": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "robot_model_joint",
+          "can_id",
+          "master_id",
+          "device",
+          "direction",
+          "velocity_limit",
+          "acceleration_krad_s2",
+          "deceleration_krad_s2",
+          "maximum_speed_rad_s"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "configure_timeout_ms",
+    "feedback_timeout_ms",
+    "transition_timeout_ms",
+    "disabled_poll_interval_ms",
+    "command_rate_hz",
+    "max_rx_frames_per_cycle",
+    "family",
+    "joints"
+  ],
+  "additionalProperties": false
+}

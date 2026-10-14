@@ -2,7 +2,7 @@
 
 本包管理三代机两台达妙头部电机的使能、失能和故障复位，是 ros2_control 控制器插件，不能作为独立电机节点直接运行。只启动头部专用入口即可，不需要启动全机器人控制系统。
 
-控制链为：ROS2 位置话题 → ForwardCommandController → robot_hw_can/DamiaoSystem → SocketCAN → 电机。位置速度闭环在电机内部执行；ROS2 不计算电机位置/速度 PI。
+控制链为：ROS2 位置话题 → ForwardCommandController → 头部协议 owner 的 ros2_control 硬件插件 → SocketCAN → 电机。位置速度闭环在电机内部执行；ROS2 不计算电机位置/速度 PI。
 
 ## 1. 本次台架与实机事实
 
@@ -110,26 +110,15 @@ joints:
 
 ## 5. 编译
 
-在 robot_driver 根目录的新终端中，仅加载ROS基础环境，再构建以下包。当前工作区vendor实际位于 src/src/vendor；其他工作区需按实际路径调整。
+在已导入冻结依赖的工作区中，按集成入口的依赖闭包构建头部运行包。控制器只直接依赖共享 semantic components。
 
 ```bash
-# 从你的 robot_driver 仓库根目录执行。
 source /opt/ros/humble/setup.bash
 colcon --log-base log_head build \
   --build-base build_head --install-base install_head \
   --symlink-install --executor sequential \
-  --base-paths \
-    src/interfaces/rt_control_interfaces \
-    src/src/vendor/robot_interfaces/qos \
-    src/src/vendor/robot_interfaces/robot_system_interfaces \
-    src/src/vendor/robot_interfaces/robot_rt_control_interfaces \
-    src/description/robot_description \
-    src/rt_control/robot_hw_can \
-    src/rt_control/damiao_head_controller \
-    src/rt_control/rt_control_bringup \
-  --packages-select robot_interfaces_qos robot_system_interfaces \
-    robot_rt_control_interfaces rt_control_interfaces robot_description \
-    robot_hw_can damiao_head_controller rt_control_bringup
+  --base-paths src \
+  --packages-up-to rt_control_bringup
 ```
 
 依赖controller_manager、forward_command_controller、joint_state_broadcaster、robot_state_publisher等已安装的Humble包。本例使用独立输出目录；不要把build_head/install_head/log_head等生成物提交到Git。它们目前会被全仓质量检查扫描，应在归档/提交前处理生成物忽略策略。

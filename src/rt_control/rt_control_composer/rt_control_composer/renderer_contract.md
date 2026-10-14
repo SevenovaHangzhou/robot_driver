@@ -65,13 +65,26 @@ from calibration. Owners that require a deployed bus consume this Mapping.
 `unit` may be `None` only when unnecessary. `bus_cycle_hz` already
 includes an explicit scope override. `runtime_dir` only generates path strings.
 
+`hardware_system_id` is optionally supplied in the request after scope selection,
+so the protocol owner can distinguish a bench topology from an installed system.
+The result still carries the selected system identity.
+
+Optional result `controller_parameters` carries owner-specific sensor parameter
+values. Integration adds topics/startup identity and controller bindings. No
+protocol owner declares ROS launch nodes or activation order.
+
+The renderer's head CAN parameters preserve the expanded old Xacro fields;
+there is no EtherCAT-style `control_frequency` parameter in that system. The
+shared hardware parameter schema therefore does not require that field for all
+transports. EtherCAT owners continue to supply it from `bus_cycle_hz`.
+
 The result requires all of:
 
 | Key | Meaning |
 | --- | --- |
 | `hardware_system_id` | Module `master_system`, with explicit scope override |
 | `hardware_plugin` | Owner plugin identifier |
-| `hardware_params` | Includes `control_frequency = bus_cycle_hz` |
+| `hardware_params` | Protocol-owned parameters; EtherCAT includes `control_frequency = bus_cycle_hz`; head CAN keeps its old parameter set |
 | `joints` | Ordered standard-library `ElementTree.Element` list |
 | `sensors` | Ordered standard-library `ElementTree.Element` list |
 | `gpios` (optional) | Ordered standard-library `ElementTree.Element` list; absent means empty |

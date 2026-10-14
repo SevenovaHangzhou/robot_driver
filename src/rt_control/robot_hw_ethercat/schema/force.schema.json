@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "family": {
+      "const": "bluepoint"
+    },
+    "bench_extra_responders": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "sensors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "side": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ring_position": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "profile": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "frame_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "binding": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sensor_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "controller_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "side",
+          "ring_position",
+          "profile",
+          "frame_id",
+          "binding",
+          "sensor_name",
+          "controller_name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "full_ring_positions": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    }
+  },
+  "required": [
+    "family",
+    "bench_extra_responders",
+    "sensors",
+    "full_ring_positions"
+  ],
+  "additionalProperties": false
+}

@@ -142,6 +142,40 @@ cases:
       runtime/right_j5.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
       runtime/right_j6.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
       runtime/right_j7.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+  head-mock:
+    use_mock_hardware: true
+    sync_mode: ''
+    startup_id: force-bench-synthetic-golden
+    outputs:
+      controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
+      controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
+      robot_description.xml: a97097dc8f49fa327aa71cd0666efdbcdf633e7cac7d8200fcbaca27192f5a2f
+  head-real:
+    use_mock_hardware: false
+    sync_mode: ''
+    startup_id: force-bench-synthetic-golden
+    outputs:
+      controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
+      controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
+      robot_description.xml: 2d953412144902e1c1c6dc168167c576b2fa7a495f248da9fffaddb9884898b2
+  force-mock:
+    use_mock_hardware: true
+    sync_mode: dc
+    startup_id: force-bench-synthetic-golden
+    outputs:
+      controller_order.yaml: 1d2c82fe9b087ff2f97d5af716147c8868123cb0346eff9b058058328de40283
+      controllers.yaml: a054db84ef36b43170ef08b996395dcc6eb258495bc3350257be474b19ee4f43
+      robot_description.xml: c0dcfe16e5ef48317a96c7831fff92b56e4200da71e0e812811d59ad6acce9d3
+  force-real:
+    use_mock_hardware: false
+    sync_mode: dc
+    startup_id: force-bench-synthetic-golden
+    outputs:
+      controller_order.yaml: 1d2c82fe9b087ff2f97d5af716147c8868123cb0346eff9b058058328de40283
+      controllers.yaml: a054db84ef36b43170ef08b996395dcc6eb258495bc3350257be474b19ee4f43
+      robot_description.xml: f0b4c5e7b1ecad1811bd8699e557c333d335b03e04369b45c9b2f359bc0bb1f9
+      runtime/bluepoint_p140000100_left.yaml: a89d480f88836252d2f5a6234a957ac99b2418c267a2cfebee0fd8afde99c8de
+      runtime/bluepoint_p140000100_right.yaml: a0ae57d867cd2c45ec807bf66f4b8b2a31c01d2a0ab13dcf1281baa11033f892
 inputs:
   src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arm_motion_calibration.draft.yaml: 587ea4634c15eb8bcc5c0c2b82694762a0508ba8b48cebe434014176ad56e285
   src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml: 3d8ce4a179b7cb6212bb026a8ae981c2f431546bd7d939fd371522335f590053
@@ -170,9 +204,23 @@ inputs:
   src/rt_control/rt_control_bringup/launch/rt_control_arm_runtime.launch.py: 78979ef51545ac3c013efa3300067bada3aad8294003b76a3511a1e079a9411f
   src/rt_control/rt_control_bringup/launch/rt_control_enable_only.launch.py: 28b6ee41858559901ea59dfd4c5a1a025af0971de5aa703201334b5ade62f14d
   src/rt_control/rt_control_bringup/config/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
+  src/rt_control/rt_control_bringup/rt_control_bringup/head_runtime.py: f45e858a57d1ce5df181d6fa9647db65dea143942a9a6c6ad91b583f0eed2241
+  src/rt_control/rt_control_bringup/rt_control_bringup/head_can_config.py: c4adc3bf8c30b9bc69fa46fbea1f4fcb9c9ab4a18167d9891bdb3b6401eb630e
+  src/rt_control/rt_control_bringup/rt_control_bringup/force_sensor_runtime.py: 7e5f1e52e284bb3fa8c3698e8b89998809de7088ee00f95d5497059ff0adb392
+  src/rt_control/rt_control_bringup/urdf/alfa_v3_head.ros2_control.xacro: 9420444a6ee49afe4e8eda35e0d7ddf04050d253dde366ca32880922f45855b7
+  src/rt_control/robot_hw_can/urdf/damiao.ros2_control.xacro: bda6124fe436d3d33ee0963a32083f65f2629691b62f3330c3891b315bc2e8d2
+  src/rt_control/damiao_head_controller/config/controllers.yaml: c1a354ce5cbf97ea15ceeb56e5538276f78ae9570883c2859d8cee6a32f7b84d
+  src/rt_control/rt_control_bringup/test/test_v3_head_can_integration.py: a767d4c4751eb79115e8a7f14507be1e5246c9210138042f07891fe8ca4683ae
+  src/rt_control/rt_control_bringup/config/bluepoint_force_sensors.draft.yaml: 8f6c6aafe802d66c23e1fe0270bc370919a9eba42dcabd30b5ab739c658b4497
+  src/rt_control/robot_hw_ethercat/config/slaves/bluepoint_p140000100_left.yaml: 2451d53f907a7849a7bb20fb2fc23b141046917dbd6f852ea8753fc7dfc0c24a
+  src/rt_control/robot_hw_ethercat/config/slaves/bluepoint_p140000100_right.yaml: fd5c463dc27fda4e1be8efd17bac046559fac9d62f5aa3eda40136a56a2af325
 test_calibration_sha256: 939e153be7a2f4ff235cfbd8117100e16b8f1d214de36233471b509d1bce7117
 rename_map:
   alfa_v3_stationary_enable: Alfa_V3_stationary_enable
   alfa_v3_rolling_envelope.mock.yaml: Alfa_V3_arm_envelope.mock.yaml
   <RUNTIME_DIR>/alfa_v3_rolling_envelope.mock.yaml: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
   runtime/alfa_v3_rolling_envelope.mock.yaml: runtime/Alfa_V3_arm_envelope.mock.yaml
+head_force_generation_command: python3 test/golden/generate_head_force_baseline.py
+  --baseline <READ_ONLY_BASELINE> --output test/golden
+head_config_sha256: 9d2366183422d6d2e0df0df99fc1553072c90e7e599d66bdbcad17621ddcc9f5
+force_cli_sha256: eda02f96dfbb8768a4690a353986636e9886cbbf7e3c30eb0bfb5f0ed8605df2

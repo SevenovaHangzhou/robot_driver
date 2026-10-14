@@ -23,6 +23,8 @@
 
 | arm-control-20261014-01#F1–F3 | 显式批次/容差/包络保留旧数值与顺序，provisional 不冒充实测 | [显式手臂策略](records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；策略/金样验证通过，实机未验） |
 
+| integration-20261014-03#F1–F4 | 控制包只依赖共享HeadPhase；控制器集合/参数保持，D-b不准入新真实头部 | [第四步记录](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（头部T1等价；实机未验） |
+
 ## 跨区事实关联
 
 底层PREOP/PDO/semantic约束见[protocol](../protocol/README.md)；FJT/Rolling启动拼装见[integration](../integration/README.md)。本区负责controller实现，不扩大为硬件使能授权。
