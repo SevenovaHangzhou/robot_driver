@@ -1,0 +1,54 @@
+hardware_system_id: synthetic_master
+hardware_plugin: synthetic_protocol/System
+hardware_params:
+  control_frequency: 1000
+joints:
+- tag: joint
+  attrib:
+    name: axis_1
+  text: null
+  children:
+  - tag: state_interface
+    attrib:
+      name: position
+    text: null
+    children:
+    - tag: param
+      attrib:
+        name: scale
+      text: '1.0'
+      children: []
+sensors:
+- tag: sensor
+  attrib:
+    name: sensor_1
+  text: null
+  children:
+  - tag: state_interface
+    attrib:
+      name: position
+    text: null
+    children:
+    - tag: param
+      attrib:
+        name: scale
+      text: '1.0'
+      children: []
+gpios:
+- tag: gpio
+  attrib:
+    name: control_1
+  text: null
+  children:
+  - tag: command_interface
+    attrib:
+      name: enable
+    text: null
+    children: []
+runtime_files:
+  axis_1.yaml: 'synthetic: true
+
+    '
+managed_joints:
+- axis_1
+expected_topology: {}

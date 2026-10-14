@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "controllers",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "module_envelope.schema.json#/definitions/schema_version"
+    },
+    "kind": {
+      "$ref": "module_envelope.schema.json#/definitions/kind_controllers"
+    },
+    "robot_variant": {
+      "$ref": "module_envelope.schema.json#/definitions/robot_variant"
+    },
+    "status": {
+      "$ref": "module_envelope.schema.json#/definitions/status"
+    },
+    "verified": {
+      "$ref": "module_envelope.schema.json#/definitions/verified"
+    },
+    "authorities": {
+      "$ref": "module_envelope.schema.json#/definitions/authorities"
+    },
+    "pending_facts": {
+      "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+    },
+    "controllers": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "plugin": {
+              "type": "string",
+              "minLength": 1
+            },
+            "package": {
+              "type": "string",
+              "minLength": 1
+            },
+            "config_file": {
+              "$ref": "module_envelope.schema.json#/definitions/share_path"
+            },
+            "actuator_groups": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required_state_modules": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "module",
+            "name",
+            "plugin",
+            "package",
+            "config_file",
+            "actuator_groups",
+            "required_state_modules"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "robot_variant",
+    "status",
+    "verified",
+    "authorities",
+    "pending_facts",
+    "controllers"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "device",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "module_envelope.schema.json#/definitions/schema_version"
+    },
+    "kind": {
+      "$ref": "module_envelope.schema.json#/definitions/kind_device"
+    },
+    "status": {
+      "$ref": "module_envelope.schema.json#/definitions/status"
+    },
+    "verified": {
+      "$ref": "module_envelope.schema.json#/definitions/verified"
+    },
+    "authorities": {
+      "$ref": "module_envelope.schema.json#/definitions/authorities"
+    },
+    "pending_facts": {
+      "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "output_encoder_counts_per_revolution": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "motor_encoder_counts_per_revolution": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "reduction_ratio": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "rated_torque_nm": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "peak_torque_nm": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "rated_current_a": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "torque_constant_nm_per_a": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "drive_motor_turns_per_wheel_turn": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "steering_motor_turns_per_axis_turn": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "external_encoder_ring_teeth": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "pinion_teeth": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "nominal_wheel_radius_m": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "status",
+    "verified",
+    "authorities",
+    "pending_facts",
+    "family"
+  ],
+  "additionalProperties": false,
+  "description": "Device facts are model-level: robot_variant and module belong to machine/unit envelopes, not device models. Required physical fields are selected by the protocol renderer and render_mode."
+}

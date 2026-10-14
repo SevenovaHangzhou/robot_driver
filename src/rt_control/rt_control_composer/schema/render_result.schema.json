@@ -1,0 +1,392 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "render result",
+  "type": "object",
+  "properties": {
+    "hardware_system_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hardware_plugin": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hardware_params": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "control_frequency"
+      ],
+      "properties": {
+        "control_frequency": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "joints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/xml_joint"
+      }
+    },
+    "sensors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/xml_sensor"
+      }
+    },
+    "gpios": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/xml_gpio"
+      }
+    },
+    "runtime_files": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "module_envelope.schema.json#/definitions/share_path"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "managed_joints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expected_topology": {
+      "type": "object",
+      "description": "Protocol-owned topology; validated by its private schema."
+    }
+  },
+  "required": [
+    "hardware_system_id",
+    "hardware_plugin",
+    "hardware_params",
+    "joints",
+    "sensors",
+    "runtime_files",
+    "managed_joints",
+    "expected_topology"
+  ],
+  "additionalProperties": false,
+  "description": "Validation projection only: render returns ET.Element objects. M2d composer projection preserves tag/attrib/text/children and rejects non-whitespace tail, namespaces and non-param non-whitespace text before this schema. No fields are discarded. Missing gpios means an empty list.",
+  "definitions": {
+    "xml_param": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "param"
+        },
+        "attrib": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "text": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 0
+        }
+      },
+      "required": [
+        "tag",
+        "attrib",
+        "text",
+        "children"
+      ],
+      "additionalProperties": false
+    },
+    "xml_interface": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "tag": {
+              "const": "command_interface"
+            },
+            "attrib": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "text": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^\\s*$"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/xml_param"
+              }
+            }
+          },
+          "required": [
+            "tag",
+            "attrib",
+            "text",
+            "children"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "tag": {
+              "const": "state_interface"
+            },
+            "attrib": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "text": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^\\s*$"
+            },
+            "children": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/xml_param"
+              }
+            }
+          },
+          "required": [
+            "tag",
+            "attrib",
+            "text",
+            "children"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "xml_joint": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "joint"
+        },
+        "attrib": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\s*$"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/xml_param"
+              },
+              {
+                "$ref": "#/definitions/xml_interface"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "attrib",
+        "text",
+        "children"
+      ],
+      "additionalProperties": false
+    },
+    "xml_sensor": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "sensor"
+        },
+        "attrib": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\s*$"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/xml_param"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "tag": {
+                    "const": "state_interface"
+                  },
+                  "attrib": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "text": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\s*$"
+                  },
+                  "children": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/xml_param"
+                    }
+                  }
+                },
+                "required": [
+                  "tag",
+                  "attrib",
+                  "text",
+                  "children"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "attrib",
+        "text",
+        "children"
+      ],
+      "additionalProperties": false
+    },
+    "xml_gpio": {
+      "type": "object",
+      "properties": {
+        "tag": {
+          "const": "gpio"
+        },
+        "attrib": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\s*$"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/definitions/xml_param"
+              },
+              {
+                "$ref": "#/definitions/xml_interface"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "tag",
+        "attrib",
+        "text",
+        "children"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
