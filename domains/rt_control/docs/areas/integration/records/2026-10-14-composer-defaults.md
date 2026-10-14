@@ -46,6 +46,9 @@ related: [integration-20261014-01, integration-20261014-02, integration-20261014
 
 - 头部参数确认后实际real离线compose通过；stationary/force-bench也通过，arm与arm-jtc仍按
   verified:false拒绝。所有结果未执行真实preflight，见实际单机JSON附件。
+- 最新远端提交f4dd6af的完整构建/测试通过：2107 tests、0 errors、0 failures、23 skipped；
+  最后V3契约step未source ROS/overlay导致ament_index_python导入失败，整体CI失败。
+  已只补该step的bash/source环境，校验逻辑不变；修复后本地契约通过，远端待验证。
 - 前置PR67源码CI已通过；[CI](https://github.com/SevenovaHangzhou/robot_driver/actions/runs/38545780780)。
   不代替本增量CI，前置原位/force T1验证缺口保留。
 - 新隔离目录11包构建通过；10个受影响包实际colcon test通过：712 tests、0 errors、0 failures、0 skipped。

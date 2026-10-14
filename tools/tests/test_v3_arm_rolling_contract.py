@@ -86,6 +86,14 @@ def test_v3_branch_contract_requires_arm_runtime_not_only_validation():
     assert "14 CSP" in contract or "fourteen CSP" in contract
 
 
+def test_ci_sources_overlay_before_v3_installed_config_validation():
+    workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()
+    step = workflow.split("- name: Enforce V3 source and runtime boundary", 1)[1]
+    assert "shell: bash" in step
+    assert step.index("source /opt/ros/humble/setup.bash") < step.index("source install/setup.bash")
+    assert step.index("source install/setup.bash") < step.index("python3 tools/check_v3_branch_contract.py")
+
+
 def test_ci_sources_the_built_overlay_before_expanding_the_v3_model():
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text(
         encoding="utf-8"
