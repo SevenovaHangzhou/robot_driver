@@ -3,12 +3,29 @@ kind: machine_module
 status: draft
 verified: false
 authorities:
-  source: rt_control_bringup/config/machines/alfa_v3.yaml
+  source: robot_hw_canopen/config/machines/alfa_v3_swerve_encoders.draft.yaml
 pending_facts:
-- CANopen node IDs and CiA 406 EDS/PDO mapping
-- device support and timing verification for 4 ms SYNC-triggered TPDO
-- encoder resolution, gear ratio, zero and backlash calibration
+- actual encoder model and authority EDS
+- CAN interface and unique master/node IDs
+- 0x6004/0x6501/0x6502 readback and TPDO mapping
+- external encoder direction and installation offsets
+- heartbeat, feedback age and discontinuity acceptance thresholds
 robot_variant: Alfa_V3
 module: swerve_encoders
+master_system: canopen_swerve_encoders
 spec:
-  migration_pending: true
+  assembly: devices/ht_ws_hh270_q750.yaml
+  profile: cia406_encoder
+  nodes:
+  - resource_name: front_left_steering_encoder
+    node_id: TBD
+    device: devices/brt_encoder_model_tbd.yaml
+  - resource_name: front_right_steering_encoder
+    node_id: TBD
+    device: devices/brt_encoder_model_tbd.yaml
+  - resource_name: rear_left_steering_encoder
+    node_id: TBD
+    device: devices/brt_encoder_model_tbd.yaml
+  - resource_name: rear_right_steering_encoder
+    node_id: TBD
+    device: devices/brt_encoder_model_tbd.yaml

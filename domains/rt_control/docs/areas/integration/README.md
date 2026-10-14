@@ -35,6 +35,8 @@
 
 | integration-20261013-01#F1–F4 | M0b 两包及九份 Draft 7 草案；模块私有 spec、设备 TBD、XML/GPIO 投影契约与离线 YAML 边界；不改变运行入口 | [M0b schema 与骨架](records/2026-10-13-kkozia-5-m0b-composer-skeleton-and-schemas.md) | UNVERIFIED（T0；A0/运行验证待完成） |
 
+| integration-20261014-02#F1–F4 | 底盘离线双总线组合、共享主站合并、真实缺项拒绝与联合测试迁移 | [第三步底盘组合](records/2026-10-14-chassis-offline-composition.md) | UNVERIFIED（T0；五包576 tests通过，实机/新CI待验） |
+
 ## 跨区事实关联
 
 | 当前来源坐标 | 事实 | 原始记录 | 验证状态 |

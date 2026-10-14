@@ -139,18 +139,10 @@ baseline_violations:
   text: 'update_rate: 250'
   expires: M6
 - rule: R2
-  source_package: swerve_driver
-  target_package: robot_hw_ethercat
-  dependency_type: test_depend
-  file: src/rt_control/swerve_driver/package.xml
-  line: 26
-  text: <test_depend>robot_hw_ethercat</test_depend>
-  expires: M3d
-- rule: R2
-  source_package: swerve_driver
-  target_package: robot_hw_ethercat
-  dependency_type: '#include'
-  file: src/rt_control/swerve_driver/test/test_cyclic_controller.cpp
-  line: 10
-  text: '#include "robot_hw_ethercat/kinco_cyclic_mode_slave.hpp"'
-  expires: M3d
+  source_package: damiao_head_controller
+  target_package: robot_hw_can
+  dependency_type: find_package
+  file: src/rt_control/damiao_head_controller/CMakeLists.txt
+  line: 15
+  text: find_package(robot_hw_can
+  expires: M4c

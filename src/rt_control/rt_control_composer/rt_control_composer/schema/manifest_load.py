@@ -45,7 +45,7 @@ def load_machine(
         if module["module"] != name or module["robot_variant"] != robot_variant:
             raise ValueError(f"Module envelope mismatch: {name}")
         modules[name] = module
-        calibration_path = unit_dir / f"{name}_zero.yaml"
+        calibration_path = resolve_share_path(unit_dir, entry.get("unit_file", f"{name}_zero.yaml"))
         # Missing calibration is explicit None; only the protocol owner decides if it is required.
         calibrations[name] = (
             load(calibration_path, "unit_calibration_envelope.schema.json")
@@ -53,7 +53,7 @@ def load_machine(
             else None
         )
         if calibrations[name] is not None and (
-            calibrations[name]["module"] != name
+            calibrations[name]["module"] != entry.get("unit_module", name)
             or calibrations[name]["robot_variant"] != robot_variant
         ):
             raise ValueError(f"Calibration envelope mismatch: {name}")

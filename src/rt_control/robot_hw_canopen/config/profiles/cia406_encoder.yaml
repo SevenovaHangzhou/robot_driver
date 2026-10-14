@@ -1,0 +1,15 @@
+plugin: robot_hw_canopen/SwerveEncoderSystem
+node_driver:
+  class: ros2_canopen::ProxyDriver
+  package: canopen_proxy_driver
+master_driver:
+  class: ros2_canopen::MasterDriver
+  package: canopen_master_driver
+position_pdo:
+  index: 24580
+  subindex: 0
+  bit_length: 32
+  signed: false
+state_interfaces:
+- position
+- feedback_age_ms

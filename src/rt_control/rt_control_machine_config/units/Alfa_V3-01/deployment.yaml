@@ -10,7 +10,15 @@ robot_variant: Alfa_V3
 end_effector: gripper
 hardware_options:
   force_sensors: none
-can_interfaces: {}
+can_interfaces:
+  swerve_encoders: TBD
 ethercat:
   master_id: 0
 host_id: TBD
+canopen:
+  master_node_id: TBD
+  eds_files:
+    front_left_steering_encoder: TBD
+    front_right_steering_encoder: TBD
+    rear_left_steering_encoder: TBD
+    rear_right_steering_encoder: TBD

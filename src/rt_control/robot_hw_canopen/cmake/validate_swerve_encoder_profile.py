@@ -77,9 +77,7 @@ def _unique_mapping(loader, node, deep=False):
     return result
 
 
-UniqueKeyLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping
-)
+UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
 
 
 def _mapping(value: Any, context: str) -> dict[str, Any]:
@@ -102,6 +100,30 @@ def validate(path: Path) -> dict[str, Any]:
     except (OSError, yaml.YAMLError) as error:
         raise ValidationError(f"cannot load {path}: {error}") from error
     root = _mapping(document, path.name)
+    if "module" not in root:
+        _exact_keys(
+            root,
+            {"plugin", "node_driver", "master_driver", "position_pdo", "state_interfaces"},
+            path.name,
+        )
+        if root["plugin"] != "robot_hw_canopen/SwerveEncoderSystem" or root["position_pdo"] != {
+            "index": 0x6004,
+            "subindex": 0,
+            "bit_length": 32,
+            "signed": False,
+        }:
+            raise ValidationError("Encoder protocol plugin or unsigned position PDO is incorrect")
+        if root["state_interfaces"] != ["position", "feedback_age_ms"]:
+            raise ValidationError("Encoder protocol state interfaces are incorrect")
+        if root["node_driver"] != {
+            "class": "ros2_canopen::ProxyDriver",
+            "package": "canopen_proxy_driver",
+        } or root["master_driver"] != {
+            "class": "ros2_canopen::MasterDriver",
+            "package": "canopen_master_driver",
+        }:
+            raise ValidationError("Encoder protocol driver ownership is incorrect")
+        return root
     _exact_keys(root, ROOT_KEYS, path.name)
     if root["schema_version"] != 1 or root["module"] != "swerve_encoders":
         raise ValidationError("profile identity must be schema 1 swerve_encoders")
@@ -149,12 +171,13 @@ def validate(path: Path) -> dict[str, Any]:
         for field, expected in CONFIRMED_GEARING.items():
             if node[field] != expected:
                 raise ValidationError(
-                    f"nodes[{index}] must use confirmed external encoder gearing "
-                    f"{field}={expected}"
+                    f"nodes[{index}] must use confirmed external encoder gearing {field}={expected}"
                 )
     pending = root["pending_facts"]
-    if type(pending) is not list or not pending or not all(
-        type(item) is str and item.strip() == item and item for item in pending
+    if (
+        type(pending) is not list
+        or not pending
+        or not all(type(item) is str and item.strip() == item and item for item in pending)
     ):
         raise ValidationError("pending_facts must contain explicit unresolved facts")
     return root
@@ -169,10 +192,12 @@ def main() -> int:
     except ValidationError as error:
         print(f"CANopen swerve encoder draft validation failed: {error}", file=sys.stderr)
         return 1
-    print(
-        f"validated {profile['module']} draft: {len(profile['nodes'])} nodes, "
-        f"sync_period_us={profile['sync_period_us']}"
-    )
+    if "module" in profile:
+        print(
+            f"validated {profile['module']} draft: {len(profile['nodes'])} nodes, sync_period_us={profile['sync_period_us']}"
+        )
+    else:
+        print("validated CiA406 protocol profile")
     return 0
 
 

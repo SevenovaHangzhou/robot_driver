@@ -2,7 +2,7 @@
 
 Only exact, counted baseline occurrences are exempt. Tests are included for
 API dependencies; R5–R7 inspect production code/configuration, not test data.
-R2/R3 Python imports and CMake dependencies remain the M2 follow-up.
+R2/R3 cover XML, C++ includes, Python imports and literal CMake find_package.
 """
 
 from __future__ import annotations
@@ -164,7 +164,7 @@ def dependency_violations(
         rule = None
         if target == DATA_PACKAGE and kind != "exec_depend":
             rule = "R4"
-        elif kind not in {"import", "find_package"}:
+        else:
             if layers.get(source) == "control" and layers.get(target) == "protocol":
                 if target != "rt_control_semantic_components":
                     rule = "R2"

@@ -1,0 +1,67 @@
+identity:
+  vendor_id: TBD
+  product_code: TBD
+  revision_number: TBD
+driver_plugin: robot_hw_ethercat/KincoCyclicModeSlave
+velocity_dec:
+  numerator: 512
+  denominator: 1875
+  base_unit: rpm
+authorities:
+  velocity_dec: V3-DOC-2026-014 p.107/108/154
+  mock: test/fixtures/kinco_cyclic_mode_mock.yaml
+adapter:
+  stationary_velocity: TBD
+  feedback_timeout_seconds: TBD
+  mode_ack_timeout_seconds: TBD
+dc_cycle_ns: TBD
+assign_activate: TBD
+mock_identity: {vendor_id: 1, product_code: 2, assign_activate: 0}
+pdo_watchdog_ms: TBD
+driver_config:
+  vendor_id: TBD
+  product_id: TBD
+  assign_activate: TBD
+  use_slave_pdo_defaults: true
+  rpdo:
+  - index: 5632
+    channels:
+    - index: 24640
+      sub_index: 0
+      type: uint16
+    - index: 24698
+      sub_index: 0
+      type: int32
+    - index: 24831
+      sub_index: 0
+      type: int32
+    - index: 24672
+      sub_index: 0
+      type: int8
+  tpdo:
+  - index: 6656
+    channels:
+    - index: 24641
+      sub_index: 0
+      type: uint16
+    - index: 24676
+      sub_index: 0
+      type: int32
+    - index: 24684
+      sub_index: 0
+      type: int32
+    - index: 24673
+      sub_index: 0
+      type: int8
+mock_adapter:
+  verified: true
+  mock_only: true
+  position_counts_per_unit: 1000.0
+  velocity_counts_per_unit: 100.0
+  position_offset_counts: 100.0
+  min_position: -2.0
+  max_position: 2.0
+  max_abs_velocity: 4.0
+  stationary_velocity: 0.02
+  feedback_timeout_seconds: 0.5
+  mode_ack_timeout_seconds: 0.2

@@ -27,25 +27,29 @@ def _private_validate(data, filename):
 
 
 def validate_module(module: Mapping, data: Mapping) -> Mapping:
-    return {**deepcopy(dict(data)), "spec": _private_validate(data["spec"], "arms.schema.json")}
+    schema = (
+        "kinco_module.schema.json" if data["spec"].get("family") == "kinco" else "arms.schema.json"
+    )
+    return {**deepcopy(dict(data)), "spec": _private_validate(data["spec"], schema)}
 
 
 def validate_unit(module: Mapping, data: Mapping | None) -> Mapping:
     if data is None:
         raise ValueError("An output-encoder zero capture is required")
-    return {
-        **deepcopy(dict(data)),
-        "spec": _private_validate(data["spec"], "arms_zero.schema.json"),
-    }
+    schema = "kinco_unit.schema.json" if "modules" in data["spec"] else "arms_zero.schema.json"
+    return {**deepcopy(dict(data)), "spec": _private_validate(data["spec"], schema)}
 
 
 def validate_device(data: Mapping, *, render_mode: str) -> Mapping:
     """Only output resolution is required for CSP and hold-only PP position scaling."""
-    value = data.get("output_encoder_counts_per_revolution")
+    field = (
+        "motor_encoder_counts_per_revolution"
+        if data["family"] == "kinco"
+        else "output_encoder_counts_per_revolution"
+    )
+    value = data.get(field)
     if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
-        raise ValueError(
-            "Required output_encoder_counts_per_revolution must be positive and finite"
-        )
+        raise ValueError(f"Required {field} must be positive and finite")
     return deepcopy(dict(data))
 
 
@@ -77,6 +81,10 @@ def position_factors(counts, direction, zero_counts):
 def render(request: Mapping) -> Mapping:
     """Render content only. The registry owns the shared request/result envelope."""
     machine = request["machine"]
+    if machine["spec"].get("family") == "kinco":
+        from .kinco_renderer import render as render_kinco
+
+        return render_kinco(request, _share(), validate_module, validate_unit)
     unit = request["unit"]
     module = request["module"]
     spec = validate_module(module, machine)["spec"]
@@ -221,21 +229,9 @@ def render(request: Mapping) -> Mapping:
         ],
         "preflight_required": stationary,
     }
-    sensors = []
-    health = {
-        "ethercat_domain": {"process_data_age_ms": 0},
-        "ethercat_master": {
-            "link_up": 1,
-            "slaves_responding": len(expected["responders"]),
-            "wc_error_count": 0,
-        },
-    }
-    health.update({f"ethercat_slave_{axis['ring_position']}": {"al_state": 8} for _, axis in axes})
-    for name, interfaces in health.items():
-        sensor = ET.Element("sensor", name=name)
-        for interface, initial in interfaces.items():
-            _interface(sensor, "state_interface", interface, initial if mock else None)
-        sensors.append(sensor)
+    from .master_health import sensors as health_sensors
+
+    sensors = health_sensors(request, [axis for _, axis in axes])
     hardware_params = {}
     if mock and not stationary:
         hardware_params["calculate_dynamics"] = "false"
@@ -272,6 +268,10 @@ def render(request: Mapping) -> Mapping:
 def preflight(expected_topology: Mapping, *, run=None) -> None:
     """Reproduce the old stationary checks. Motion has no new admission preflight."""
     topology = expected_topology
+    topology = {
+        **topology,
+        "responders": sorted(topology["responders"], key=lambda item: item["ring_position"]),
+    }
     if not topology["preflight_required"]:
         return
     execute = subprocess.check_output if run is None else run

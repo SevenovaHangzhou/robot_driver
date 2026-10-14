@@ -1,0 +1,6 @@
+families:
+  brt_encoder:
+    profile: cia406_encoder
+  swerve_assembly:
+    profiles: {}
+    certified_modes: []

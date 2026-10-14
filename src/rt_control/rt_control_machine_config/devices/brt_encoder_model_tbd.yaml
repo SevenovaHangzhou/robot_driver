@@ -1,0 +1,13 @@
+schema_version: 1
+kind: device
+status: draft
+verified: false
+authorities:
+  source: robot_hw_canopen/config/machines/alfa_v3_swerve_encoders.draft.yaml
+pending_facts:
+- encoder model
+- counts per revolution
+- distinguishable revolutions
+family: brt_encoder
+counts_per_revolution: TBD
+distinguishable_revolutions: TBD

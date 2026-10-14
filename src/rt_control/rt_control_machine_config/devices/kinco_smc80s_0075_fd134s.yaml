@@ -1,0 +1,19 @@
+schema_version: 1
+kind: device
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3_swerve_mechanics.draft.yaml:drive
+pending_facts:
+- effective motor-side raw position counts including electronic gearing
+- live identity and calibration
+family: kinco
+motor_encoder_counts_per_revolution: TBD
+spec:
+  motor_model_as_printed: SMC80S-0075-30WAK-5DCH
+  servo_driver_model_as_printed: FD134S-CB-000
+  rated_power_w_as_printed: 750
+  rated_voltage_v_as_printed: 48
+  rated_speed_rpm_as_printed: 3000
+  rated_current_a_as_printed: 22.44
+  rated_torque_nm_as_printed: 2.387

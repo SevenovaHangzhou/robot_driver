@@ -254,8 +254,16 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
 
 def test_data_files_pass_existing_validator(shares):
     root = shares["rt_control_machine_config"]
+    manifest = load_yaml(next((root / "machines").glob("*/manifest.yaml")))
+    model_files = {
+        scope["mock_robot_model"]["joint_limits_file"]
+        for scope in manifest["scopes"].values()
+        if "mock_robot_model" in scope
+    }
     for directory in ("devices", "machines", "units"):
         for path in (root / directory).rglob("*.yaml"):
+            if path.relative_to(root).as_posix() in model_files:
+                continue  # Robot model inputs use their owner loader, not machine envelopes.
             value = load_yaml(path)
             kind = value["kind"]
             schema = {

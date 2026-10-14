@@ -141,7 +141,11 @@ modules:
       geometry
     - complete per-module wheel radius, zero, limit, backlash and threshold calibration
     config_file: machines/Alfa_V3/swerve_chassis.yaml
-    device_refs: []
+    device_refs:
+    - devices/kinco_smc60s_0040_fd124s.yaml
+    - devices/kinco_smc80s_0075_fd134s.yaml
+    - devices/ht_ws_hh270_q750.yaml
+    unit_file: swerve_calibration.yaml
   swerve_encoders:
     role: state_sensor_group
     transport: canopen
@@ -162,7 +166,11 @@ modules:
     - device support and timing verification for 4 ms SYNC-triggered TPDO
     - encoder resolution, gear ratio, zero and backlash calibration
     config_file: machines/Alfa_V3/swerve_encoders.yaml
-    device_refs: []
+    device_refs:
+    - devices/brt_encoder_model_tbd.yaml
+    - devices/ht_ws_hh270_q750.yaml
+    unit_file: swerve_calibration.yaml
+    unit_module: swerve_chassis
   head_gimbal:
     role: actuator_group
     transport: damiao_can
@@ -408,7 +416,6 @@ scopes:
     enabled_modules:
     - swerve_chassis
     - swerve_encoders
-    - active_suspension
     required_state_modules:
     - swerve_encoders
     actuator_groups:
@@ -416,10 +423,18 @@ scopes:
       mode_group: steering_csp
     - module: swerve_chassis
       mode_group: drive_csv
-    - module: active_suspension
-      mode_group: csp
     jtc_groups: []
     global_readiness: partial_scope
+    render_mode: normal
+    controller_order:
+      inactive:
+      - swerve_controller
+      active: []
+    policies: []
+    mock_robot_model:
+      package: rt_control_machine_config
+      xacro_file: machines/Alfa_V3/chassis.mock.urdf
+      joint_limits_file: machines/Alfa_V3/chassis.mock.limits.yaml
   full:
     enabled_modules:
     - arms

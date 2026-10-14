@@ -156,6 +156,19 @@
           "const": "TBD"
         }
       ]
+    },
+    "spec": {
+      "type": "object",
+      "description": "Owner-private model facts, checked by the selected protocol owner."
+    },
+    "external_encoder_pinion_teeth": {
+      "$ref": "module_envelope.schema.json#/definitions/positive_integer"
+    },
+    "counts_per_revolution": {
+      "$ref": "module_envelope.schema.json#/definitions/positive_integer"
+    },
+    "distinguishable_revolutions": {
+      "$ref": "module_envelope.schema.json#/definitions/positive_integer"
     }
   },
   "required": [

@@ -5,6 +5,8 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+ament_python_install_package(${PROJECT_NAME})
 find_package(canopen_ros2_control REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -35,12 +37,12 @@ pluginlib_export_plugin_description_file(
 set(SWERVE_ENCODER_PROFILE_VALIDATOR
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/validate_swerve_encoder_profile.py")
 set(SWERVE_ENCODER_DRAFT_PROFILE
-  "${CMAKE_CURRENT_SOURCE_DIR}/config/machines/alfa_v3_swerve_encoders.draft.yaml")
+  "${CMAKE_CURRENT_SOURCE_DIR}/config/profiles/cia406_encoder.yaml")
 add_custom_target(
   validate_swerve_encoder_profile ALL
   COMMAND "${Python3_EXECUTABLE}" "${SWERVE_ENCODER_PROFILE_VALIDATOR}"
     --profile "${SWERVE_ENCODER_DRAFT_PROFILE}"
-  COMMENT "Validating fail-closed alfa_v3 swerve encoder draft"
+  COMMENT "Validating owner CiA406 encoder protocol profile"
   VERBATIM)
 
 install(TARGETS swerve_encoder_feedback swerve_encoder_system
@@ -48,7 +50,9 @@ install(TARGETS swerve_encoder_feedback swerve_encoder_system
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
 install(FILES robot_hw_canopen_plugins.xml DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY config/machines DESTINATION share/${PROJECT_NAME}/config)
+install(DIRECTORY config/machines config/profiles DESTINATION share/${PROJECT_NAME}/config)
+install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.schema.json")
 install(PROGRAMS cmake/validate_swerve_encoder_profile.py
   DESTINATION lib/${PROJECT_NAME})
 
