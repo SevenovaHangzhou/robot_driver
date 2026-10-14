@@ -155,28 +155,24 @@ void operator delete[](void * memory, std::size_t, std::align_val_t) noexcept
   std::free(memory);
 }
 
-void * operator new(
-  std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
+void * operator new(std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
 {
   countAllocation();
   return allocateAligned(size, static_cast<std::size_t>(alignment));
 }
 
-void * operator new[](
-  std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
+void * operator new[](std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept
 {
   countAllocation();
   return allocateAligned(size, static_cast<std::size_t>(alignment));
 }
 
-void operator delete(
-  void * memory, std::align_val_t, const std::nothrow_t &) noexcept
+void operator delete(void * memory, std::align_val_t, const std::nothrow_t &) noexcept
 {
   std::free(memory);
 }
 
-void operator delete[](
-  void * memory, std::align_val_t, const std::nothrow_t &) noexcept
+void operator delete[](void * memory, std::align_val_t, const std::nothrow_t &) noexcept
 {
   std::free(memory);
 }
@@ -222,8 +218,7 @@ public:
 
   static SessionState sessionState(const RollingTrajectoryController & controller)
   {
-    return static_cast<SessionState>(
-      controller.rt_session_state_.load(std::memory_order_acquire));
+    return static_cast<SessionState>(controller.rt_session_state_.load(std::memory_order_acquire));
   }
 
   static StopReason stopReason(const RollingTrajectoryController & controller)
@@ -279,8 +274,7 @@ public:
     return controller.rejected_count_;
   }
 
-  static std::uint64_t invariantFailureCount(
-    const RollingTrajectoryController & controller)
+  static std::uint64_t invariantFailureCount(const RollingTrajectoryController & controller)
   {
     return controller.invariant_failure_count_.load(std::memory_order_acquire);
   }
@@ -297,10 +291,9 @@ using PublicSessionState = robot_rt_control_interfaces::msg::RollingSessionState
 
 constexpr std::uint64_t kCycleNs = 4'000'000U;
 constexpr std::array<std::uint8_t, 32> kAxisSetHash = {
-  0xf4U, 0xc8U, 0xffU, 0x8aU, 0x32U, 0x18U, 0x3dU, 0x17U,
-  0x33U, 0x03U, 0x24U, 0x94U, 0x60U, 0x0cU, 0x9fU, 0x5dU,
-  0x1eU, 0x7eU, 0x62U, 0x56U, 0x73U, 0xa4U, 0xadU, 0x51U,
-  0x55U, 0x6bU, 0x3aU, 0xc6U, 0xc3U, 0x5aU, 0xdeU, 0xe4U};
+  0xf4U, 0xc8U, 0xffU, 0x8aU, 0x32U, 0x18U, 0x3dU, 0x17U, 0x33U, 0x03U, 0x24U,
+  0x94U, 0x60U, 0x0cU, 0x9fU, 0x5dU, 0x1eU, 0x7eU, 0x62U, 0x56U, 0x73U, 0xa4U,
+  0xadU, 0x51U, 0x55U, 0x6bU, 0x3aU, 0xc6U, 0xc3U, 0x5aU, 0xdeU, 0xe4U};
 
 unique_identifier_msgs::msg::UUID makeUuid(std::uint8_t seed)
 {
@@ -338,8 +331,7 @@ Close::Request makeCloseRequest(
   return request;
 }
 
-Batch makeTrajectory(
-  const Open::Response & open, std::uint64_t duration_ns, double displacement)
+Batch makeTrajectory(const Open::Response & open, std::uint64_t duration_ns, double displacement)
 {
   Batch batch;
   batch.protocol_major = Batch::PROTOCOL_MAJOR;
@@ -362,21 +354,15 @@ Batch makeTrajectory(
 }
 
 Batch makeReplacement(
-  const Open::Response & open, std::uint64_t sequence,
-  std::uint64_t replace_from_ns, std::uint64_t duration_ns,
-  double original_displacement, double replacement_displacement)
+  const Open::Response & open, std::uint64_t sequence, std::uint64_t replace_from_ns,
+  std::uint64_t duration_ns, double original_displacement, double replacement_displacement)
 {
   CubicHermite original;
-  EXPECT_TRUE(
-    buildCubicHermite(
-      0.0, 0.0, original_displacement, 0.0,
-      static_cast<double>(duration_ns) * 1.0e-9, original));
+  EXPECT_TRUE(buildCubicHermite(
+    0.0, 0.0, original_displacement, 0.0, static_cast<double>(duration_ns) * 1.0e-9, original));
   ScalarKinematicState splice;
-  EXPECT_TRUE(
-    sampleCubicHermite(
-      original,
-      static_cast<double>(replace_from_ns) / static_cast<double>(duration_ns),
-      splice));
+  EXPECT_TRUE(sampleCubicHermite(
+    original, static_cast<double>(replace_from_ns) / static_cast<double>(duration_ns), splice));
 
   Batch batch;
   batch.protocol_major = Batch::PROTOCOL_MAJOR;
@@ -392,16 +378,14 @@ Batch makeReplacement(
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     batch.points[0].positions[axis] = open.hold_positions[axis] + splice.position;
     batch.points[0].velocities[axis] = splice.velocity;
-    batch.points[1].positions[axis] =
-      open.hold_positions[axis] + replacement_displacement;
+    batch.points[1].positions[axis] = open.hold_positions[axis] + replacement_displacement;
     batch.points[1].velocities[axis] = 0.0;
   }
   return batch;
 }
 
 Batch makeHoldWindow(
-  const Open::Response & open, std::uint64_t sequence,
-  std::uint64_t replace_from_ns)
+  const Open::Response & open, std::uint64_t sequence, std::uint64_t replace_from_ns)
 {
   constexpr std::size_t kPointCount = 6U;
   constexpr std::uint64_t kKnotIntervalNs = 100'000'000U;
@@ -424,15 +408,13 @@ Batch makeHoldWindow(
   return batch;
 }
 
-std::uint64_t percentileNanoseconds(
-  std::vector<std::uint64_t> samples, double percentile)
+std::uint64_t percentileNanoseconds(std::vector<std::uint64_t> samples, double percentile)
 {
   if (samples.empty()) {
     return 0U;
   }
   std::sort(samples.begin(), samples.end());
-  const double scaled_index =
-    percentile * static_cast<double>(samples.size() - 1U);
+  const double scaled_index = percentile * static_cast<double>(samples.size() - 1U);
   const std::size_t index = static_cast<std::size_t>(std::ceil(scaled_index));
   return samples[index];
 }
@@ -463,20 +445,15 @@ protected:
       state_handles_.emplace_back(kJointNames[axis], "position", &actual_positions_[axis]);
     }
     feedback_age_ms_ = 12.0;
-    state_handles_.emplace_back(
-      "ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
+    state_handles_.emplace_back("ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
 
     auto options = rclcpp::NodeOptions();
     options.parameter_overrides(
-        {
-          rclcpp::Parameter("configuration_source", "test_only"),
-          rclcpp::Parameter("allow_test_only_configuration", true),
-          rclcpp::Parameter(
-            "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-          rclcpp::Parameter(
-            "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-          rclcpp::Parameter(
-            "takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
+      {rclcpp::Parameter("configuration_source", "test_only"),
+       rclcpp::Parameter("allow_test_only_configuration", true),
+       rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+       rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+       rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
     controller_ = std::make_unique<RollingTrajectoryController>();
     ASSERT_EQ(
       controller_->init("test_rt_update_controller", "", options),
@@ -515,11 +492,9 @@ protected:
   }
 
   controller_interface::return_type update(
-    std::int64_t period_ns =
-    static_cast<std::int64_t>(kCycleNs))
+    std::int64_t period_ns = static_cast<std::int64_t>(kCycleNs))
   {
-    return controller_->update(
-      rclcpp::Time(0), rclcpp::Duration::from_nanoseconds(period_ns));
+    return controller_->update(rclcpp::Time(0), rclcpp::Duration::from_nanoseconds(period_ns));
   }
 
   std::array<double, kAxisCount> command_positions_{};
@@ -535,14 +510,12 @@ TEST_F(RtUpdateTest, PrimeActivatesAtTimeZeroThenSamplesTheCubic)
   const std::array<double, kAxisCount> initial_commands = command_positions_;
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(response, 500'000'000U, 0.02));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, 500'000'000U, 0.02));
 
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
-    << "invariant_stage=" << static_cast<unsigned int>(
-    RollingControllerRtTestPeer::invariantStage(*controller_));
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
+    << "invariant_stage="
+    << static_cast<unsigned int>(RollingControllerRtTestPeer::invariantStage(*controller_));
   EXPECT_EQ(RollingControllerRtTestPeer::activeGeneration(*controller_), 1U);
   EXPECT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), 0U);
   EXPECT_EQ(command_positions_, initial_commands);
@@ -554,9 +527,7 @@ TEST_F(RtUpdateTest, PrimeActivatesAtTimeZeroThenSamplesTheCubic)
   ScalarKinematicState expected;
   ASSERT_TRUE(sampleCubicHermite(segment, 0.008, expected));
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    EXPECT_NEAR(
-      command_positions_[axis], initial_commands[axis] + expected.position,
-      1.0e-15);
+    EXPECT_NEAR(command_positions_[axis], initial_commands[axis] + expected.position, 1.0e-15);
     EXPECT_TRUE(std::isfinite(command_positions_[axis]));
   }
 }
@@ -578,18 +549,16 @@ TEST_F(RtUpdateTest, RunningSuffixReplacementSwitchesGenerationWithoutRestarting
   RollingControllerRtTestPeer::submit(
     *controller_,
     makeReplacement(
-      response, 2U, replace_from_ns, duration_ns,
-      original_displacement, replacement_displacement));
+      response, 2U, replace_from_ns, duration_ns, original_displacement, replacement_displacement));
   EXPECT_EQ(RollingControllerRtTestPeer::activeGeneration(*controller_), 1U);
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   EXPECT_EQ(RollingControllerRtTestPeer::activeGeneration(*controller_), 2U);
   EXPECT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), 2U * kCycleNs);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
-    << "stop_reason=" << static_cast<unsigned int>(
-    RollingControllerRtTestPeer::stopReason(*controller_)) <<
-    ", invariant_stage=" << static_cast<unsigned int>(
-    RollingControllerRtTestPeer::invariantStage(*controller_));
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
+    << "stop_reason="
+    << static_cast<unsigned int>(RollingControllerRtTestPeer::stopReason(*controller_))
+    << ", invariant_stage="
+    << static_cast<unsigned int>(RollingControllerRtTestPeer::invariantStage(*controller_));
   EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kNone);
 
   for (std::size_t cycle = 0U; cycle < 4U; ++cycle) {
@@ -598,22 +567,17 @@ TEST_F(RtUpdateTest, RunningSuffixReplacementSwitchesGenerationWithoutRestarting
   ASSERT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), 24'000'000U);
 
   CubicHermite original;
-  ASSERT_TRUE(
-    buildCubicHermite(
-      0.0, 0.0, original_displacement, 0.0, 0.5, original));
+  ASSERT_TRUE(buildCubicHermite(0.0, 0.0, original_displacement, 0.0, 0.5, original));
   ScalarKinematicState splice;
   ASSERT_TRUE(sampleCubicHermite(original, 0.04, splice));
   CubicHermite replacement;
-  ASSERT_TRUE(
-    buildCubicHermite(
-      splice.position, splice.velocity, replacement_displacement, 0.0,
-      0.48, replacement));
+  ASSERT_TRUE(buildCubicHermite(
+    splice.position, splice.velocity, replacement_displacement, 0.0, 0.48, replacement));
   ScalarKinematicState expected;
   ASSERT_TRUE(sampleCubicHermite(replacement, 4.0 / 480.0, expected));
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     EXPECT_NEAR(
-      command_positions_[axis], response.hold_positions[axis] + expected.position,
-      1.0e-15);
+      command_positions_[axis], response.hold_positions[axis] + expected.position, 1.0e-15);
     EXPECT_TRUE(std::isfinite(command_positions_[axis]));
   }
 }
@@ -622,14 +586,12 @@ TEST_F(RtUpdateTest, CloseBeforePrimeStopsAtHoldAndCanBeFinalized)
 {
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  const Close::Response stopping = RollingControllerRtTestPeer::close(
-    *controller_, makeCloseRequest(response, 60U));
+  const Close::Response stopping =
+    RollingControllerRtTestPeer::close(*controller_, makeCloseRequest(response, 60U));
   ASSERT_TRUE(stopping.accepted);
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kGracefulClose);
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
+  EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kGracefulClose);
 
   const Close::Response finalized = RollingControllerRtTestPeer::close(
     *controller_, makeCloseRequest(response, 61U, Close::Request::FINALIZE));
@@ -644,50 +606,38 @@ TEST_F(RtUpdateTest, LowWaterEqualityStopsBeforeTheShortBufferCanExhaust)
   constexpr std::uint64_t low_water_boundary_ns = duration_ns - scheduling_guard_ns;
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(response, duration_ns, 0.0));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, duration_ns, 0.0));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  while (
-    RollingControllerRtTestPeer::executionTime(*controller_) < low_water_boundary_ns)
-  {
+  while (RollingControllerRtTestPeer::executionTime(*controller_) < low_water_boundary_ns) {
     ASSERT_EQ(update(), controller_interface::return_type::OK);
   }
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::executionTime(*controller_), low_water_boundary_ns);
+  EXPECT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), low_water_boundary_ns);
 
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
   EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kLowWater);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::executionTime(*controller_), low_water_boundary_ns);
+  EXPECT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), low_water_boundary_ns);
 }
 
 TEST_F(RtUpdateTest, ClockAnomalyUsesNominalStepsInsteadOfTheBadPeriod)
 {
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(response, 500'000'000U, 0.1));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, 500'000'000U, 0.1));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   for (std::size_t cycle = 0U; cycle < 10U; ++cycle) {
     ASSERT_EQ(update(), controller_interface::return_type::OK);
   }
-  const std::uint64_t execution_before =
-    RollingControllerRtTestPeer::executionTime(*controller_);
+  const std::uint64_t execution_before = RollingControllerRtTestPeer::executionTime(*controller_);
   const auto command_before = command_positions_;
 
   ASSERT_EQ(update(9'000'000), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kClockAnomaly);
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
+  EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kClockAnomaly);
   EXPECT_EQ(command_positions_, command_before);
 
   ASSERT_EQ(update(100'000'000), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::executionTime(*controller_),
-    execution_before + kCycleNs);
+  EXPECT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), execution_before + kCycleNs);
   for (double command : command_positions_) {
     EXPECT_TRUE(std::isfinite(command));
   }
@@ -697,20 +647,17 @@ TEST_F(RtUpdateTest, BoundedPeriodJitterAdvancesWithoutClockAnomaly)
 {
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(response, 500'000'000U, 0.0));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, 500'000'000U, 0.0));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
 
-  constexpr std::array<std::int64_t, 6U> kPeriodsNs = {
-    3'000'000, 5'000'000, 4'000'000, 7'000'000, 1'000'000, 4'000'000};
+  constexpr std::array<std::int64_t, 6U> kPeriodsNs = {3'000'000, 5'000'000, 4'000'000,
+                                                       7'000'000, 1'000'000, 4'000'000};
   std::uint64_t expected_execution_ns = 0U;
   for (const std::int64_t period_ns : kPeriodsNs) {
     ASSERT_EQ(update(period_ns), controller_interface::return_type::OK);
     expected_execution_ns += static_cast<std::uint64_t>(period_ns);
-    EXPECT_EQ(
-      RollingControllerRtTestPeer::executionTime(*controller_), expected_execution_ns);
-    EXPECT_EQ(
-      RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+    EXPECT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), expected_execution_ns);
+    EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
     EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kNone);
   }
 }
@@ -723,28 +670,21 @@ TEST_F(RtUpdateTest, NonPositivePeriodsLatchTheSameClockAnomaly)
   for (const std::int64_t invalid_period : invalid_periods) {
     const Open::Response response = open(open_seed++);
     ASSERT_TRUE(response.accepted);
-    RollingControllerRtTestPeer::submit(
-      *controller_, makeTrajectory(response, 500'000'000U, 0.1));
+    RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, 500'000'000U, 0.1));
     ASSERT_EQ(update(), controller_interface::return_type::OK);
     ASSERT_EQ(update(), controller_interface::return_type::OK);
 
     ASSERT_EQ(update(invalid_period), controller_interface::return_type::OK);
-    EXPECT_EQ(
-      RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
-    EXPECT_EQ(
-      RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kClockAnomaly);
-    for (std::size_t cycle = 0U;
-      cycle < 100U &&
-      RollingControllerRtTestPeer::sessionState(*controller_) == SessionState::kStopping;
-      ++cycle)
-    {
+    EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
+    EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kClockAnomaly);
+    for (std::size_t cycle = 0U; cycle < 100U && RollingControllerRtTestPeer::sessionState(
+                                                   *controller_) == SessionState::kStopping;
+         ++cycle) {
       ASSERT_EQ(update(), controller_interface::return_type::OK);
     }
-    ASSERT_EQ(
-      RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
+    ASSERT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
     const Close::Response finalized = RollingControllerRtTestPeer::close(
-      *controller_,
-      makeCloseRequest(response, close_seed++, Close::Request::FINALIZE));
+      *controller_, makeCloseRequest(response, close_seed++, Close::Request::FINALIZE));
     ASSERT_TRUE(finalized.accepted);
     ASSERT_TRUE(finalized.completed);
   }
@@ -754,8 +694,7 @@ TEST_F(RtUpdateTest, MovingGracefulCloseStopsContinuouslyAndRejectsLaterUpdates)
 {
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(response, 500'000'000U, 0.1));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, 500'000'000U, 0.1));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   for (std::size_t cycle = 0U; cycle < 10U; ++cycle) {
     ASSERT_EQ(update(), controller_interface::return_type::OK);
@@ -764,38 +703,31 @@ TEST_F(RtUpdateTest, MovingGracefulCloseStopsContinuouslyAndRejectsLaterUpdates)
   const std::uint64_t execution_before_stop =
     RollingControllerRtTestPeer::executionTime(*controller_);
 
-  const Close::Response stopping = RollingControllerRtTestPeer::close(
-    *controller_, makeCloseRequest(response, 180U));
+  const Close::Response stopping =
+    RollingControllerRtTestPeer::close(*controller_, makeCloseRequest(response, 180U));
   ASSERT_TRUE(stopping.accepted);
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   EXPECT_EQ(command_positions_, command_before_stop);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::executionTime(*controller_), execution_before_stop);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kGracefulClose);
+  EXPECT_EQ(RollingControllerRtTestPeer::executionTime(*controller_), execution_before_stop);
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
+  EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kGracefulClose);
 
   Batch rejected = makeTrajectory(response, 500'000'000U, 0.2);
   rejected.sequence = 2U;
   RollingControllerRtTestPeer::submit(*controller_, rejected);
   EXPECT_EQ(
-    RollingControllerRtTestPeer::lastReject(*controller_),
-    RejectCode::kSessionNotAccepting);
+    RollingControllerRtTestPeer::lastReject(*controller_), RejectCode::kSessionNotAccepting);
 
-  for (std::size_t cycle = 0U;
-    cycle < 100U &&
-    RollingControllerRtTestPeer::sessionState(*controller_) == SessionState::kStopping;
-    ++cycle)
-  {
+  for (std::size_t cycle = 0U; cycle < 100U && RollingControllerRtTestPeer::sessionState(
+                                                 *controller_) == SessionState::kStopping;
+       ++cycle) {
     ASSERT_EQ(update(), controller_interface::return_type::OK);
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
       EXPECT_TRUE(std::isfinite(command_positions_[axis]));
       EXPECT_GE(command_positions_[axis], command_before_stop[axis]);
     }
   }
-  ASSERT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
+  ASSERT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
   const Close::Response finalized = RollingControllerRtTestPeer::close(
     *controller_, makeCloseRequest(response, 181U, Close::Request::FINALIZE));
   EXPECT_TRUE(finalized.accepted);
@@ -806,39 +738,31 @@ TEST_F(RtUpdateTest, UpdateTimeoutStopsEvenWithAPlentifulOldFuture)
 {
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(response, 500'000'000U, 0.1));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, 500'000'000U, 0.1));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   RollingControllerRtTestPeer::expireAcceptedUpdate(*controller_);
 
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kUpdateTimeout);
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kStopping);
+  EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kUpdateTimeout);
 }
 
 TEST_F(RtUpdateTest, TimedOutSessionCanFinalizeAndOpenAFreshSession)
 {
   const Open::Response first = open(90U);
   ASSERT_TRUE(first.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(first, 500'000'000U, 0.0));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(first, 500'000'000U, 0.0));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   ASSERT_EQ(update(), controller_interface::return_type::OK);
   RollingControllerRtTestPeer::expireAcceptedUpdate(*controller_);
-  for (std::size_t cycle = 0U;
-    cycle < 100U &&
-    RollingControllerRtTestPeer::sessionState(*controller_) != SessionState::kHolding;
-    ++cycle)
-  {
+  for (std::size_t cycle = 0U; cycle < 100U && RollingControllerRtTestPeer::sessionState(
+                                                 *controller_) != SessionState::kHolding;
+       ++cycle) {
     ASSERT_EQ(update(), controller_interface::return_type::OK);
   }
-  ASSERT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
-  ASSERT_EQ(
-    RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kUpdateTimeout);
+  ASSERT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
+  ASSERT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kUpdateTimeout);
 
   const Close::Response finalized = RollingControllerRtTestPeer::close(
     *controller_, makeCloseRequest(first, 190U, Close::Request::FINALIZE));
@@ -848,11 +772,9 @@ TEST_F(RtUpdateTest, TimedOutSessionCanFinalizeAndOpenAFreshSession)
   const Open::Response second = open(91U);
   ASSERT_TRUE(second.accepted);
   EXPECT_NE(second.session_id, first.session_id);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(second, 500'000'000U, 0.0));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(second, 500'000'000U, 0.0));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
   EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kNone);
 }
 
@@ -862,10 +784,8 @@ TEST_F(RtUpdateTest, PrimeTimeoutStopsAtTheOriginalHold)
   ASSERT_TRUE(open().accepted);
   RollingControllerRtTestPeer::expirePrime(*controller_);
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kPrimeTimeout);
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kHolding);
+  EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kPrimeTimeout);
   EXPECT_EQ(command_positions_, initial_commands);
 }
 
@@ -873,8 +793,7 @@ TEST_F(RtUpdateTest, UpdatePathDoesNotAllocate)
 {
   const Open::Response response = open();
   ASSERT_TRUE(response.accepted);
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeTrajectory(response, 500'000'000U, 0.05));
+  RollingControllerRtTestPeer::submit(*controller_, makeTrajectory(response, 500'000'000U, 0.05));
   const std::uint64_t before = tracked_allocation_count;
   track_allocations = true;
   for (std::size_t cycle = 0U; cycle < 100U; ++cycle) {
@@ -899,22 +818,20 @@ TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFifty
     cycle_count = static_cast<std::uint64_t>(parsed);
   }
   const bool realtime = []() {
-      const char * value = std::getenv("E102_SOAK_REALTIME");
-      return value != nullptr && std::string(value) == "1";
-    }();
+    const char * value = std::getenv("E102_SOAK_REALTIME");
+    return value != nullptr && std::string(value) == "1";
+  }();
 
   const Open::Response response = open(100U);
   ASSERT_TRUE(response.accepted);
   std::uint64_t next_sequence = 1U;
-  RollingControllerRtTestPeer::submit(
-    *controller_, makeHoldWindow(response, next_sequence++, 0U));
+  RollingControllerRtTestPeer::submit(*controller_, makeHoldWindow(response, next_sequence++, 0U));
   ASSERT_EQ(RollingControllerRtTestPeer::lastReject(*controller_), RejectCode::kNone);
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  ASSERT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+  ASSERT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
 
-  const std::size_t expected_batch_count = static_cast<std::size_t>(
-    (cycle_count * 30U) / 250U + 2U);
+  const std::size_t expected_batch_count =
+    static_cast<std::size_t>((cycle_count * 30U) / 250U + 2U);
   std::vector<std::uint64_t> update_durations_ns;
   std::vector<std::uint64_t> validation_durations_ns;
   std::vector<std::uint64_t> callback_to_rt_ns;
@@ -943,10 +860,9 @@ TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFifty
       const auto validation_start = std::chrono::steady_clock::now();
       RollingControllerRtTestPeer::submit(*controller_, batch);
       const auto validation_end = std::chrono::steady_clock::now();
-      validation_durations_ns.push_back(
-        static_cast<std::uint64_t>(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(
-            validation_end - validation_start).count()));
+      validation_durations_ns.push_back(static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(validation_end - validation_start)
+          .count()));
       last_submission_time = validation_end;
       submission_pending = true;
       ++published_batches;
@@ -955,8 +871,7 @@ TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFifty
         ++late_replace_count;
       }
       if (reject != RejectCode::kNone) {
-        failure_reason = "batch_rejected_code=" +
-          std::to_string(static_cast<unsigned int>(reject));
+        failure_reason = "batch_rejected_code=" + std::to_string(static_cast<unsigned int>(reject));
         break;
       }
     }
@@ -968,15 +883,12 @@ TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFifty
     const auto update_end = std::chrono::steady_clock::now();
     track_allocations = false;
     allocation_count += tracked_allocation_count - allocations_before;
-    update_durations_ns.push_back(
-      static_cast<std::uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(
-          update_end - update_start).count()));
+    update_durations_ns.push_back(static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::nanoseconds>(update_end - update_start).count()));
     if (submission_pending) {
-      callback_to_rt_ns.push_back(
-        static_cast<std::uint64_t>(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(
-            update_end - last_submission_time).count()));
+      callback_to_rt_ns.push_back(static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(update_end - last_submission_time)
+          .count()));
       submission_pending = false;
     }
     if (update_result != controller_interface::return_type::OK) {
@@ -989,11 +901,10 @@ TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFifty
     }
     if (
       RollingControllerRtTestPeer::sessionState(*controller_) != SessionState::kRunning ||
-      RollingControllerRtTestPeer::stopReason(*controller_) != StopReason::kNone)
-    {
-      failure_reason = "unexpected_stop_reason=" + std::to_string(
-        static_cast<unsigned int>(
-          RollingControllerRtTestPeer::stopReason(*controller_)));
+      RollingControllerRtTestPeer::stopReason(*controller_) != StopReason::kNone) {
+      failure_reason =
+        "unexpected_stop_reason=" + std::to_string(static_cast<unsigned int>(
+                                      RollingControllerRtTestPeer::stopReason(*controller_)));
       break;
     }
     for (const double command : command_positions_) {
@@ -1018,24 +929,17 @@ TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFifty
   track_allocations = false;
   const auto wall_end = std::chrono::steady_clock::now();
 
-  const std::uint64_t update_p50_ns =
-    percentileNanoseconds(update_durations_ns, 0.50);
-  const std::uint64_t update_p99_ns =
-    percentileNanoseconds(update_durations_ns, 0.99);
-  const std::uint64_t update_p999_ns =
-    percentileNanoseconds(update_durations_ns, 0.999);
-  const std::uint64_t validation_p50_ns =
-    percentileNanoseconds(validation_durations_ns, 0.50);
-  const std::uint64_t validation_p99_ns =
-    percentileNanoseconds(validation_durations_ns, 0.99);
-  const std::uint64_t validation_p999_ns =
-    percentileNanoseconds(validation_durations_ns, 0.999);
-  const std::uint64_t visibility_p999_ns =
-    percentileNanoseconds(callback_to_rt_ns, 0.999);
+  const std::uint64_t update_p50_ns = percentileNanoseconds(update_durations_ns, 0.50);
+  const std::uint64_t update_p99_ns = percentileNanoseconds(update_durations_ns, 0.99);
+  const std::uint64_t update_p999_ns = percentileNanoseconds(update_durations_ns, 0.999);
+  const std::uint64_t validation_p50_ns = percentileNanoseconds(validation_durations_ns, 0.50);
+  const std::uint64_t validation_p99_ns = percentileNanoseconds(validation_durations_ns, 0.99);
+  const std::uint64_t validation_p999_ns = percentileNanoseconds(validation_durations_ns, 0.999);
+  const std::uint64_t visibility_p999_ns = percentileNanoseconds(callback_to_rt_ns, 0.999);
   const std::uint64_t wall_duration_ms = static_cast<std::uint64_t>(
     std::chrono::duration_cast<std::chrono::milliseconds>(wall_end - wall_start).count());
-  const bool passed = failure_reason.empty() &&
-    update_durations_ns.size() == static_cast<std::size_t>(cycle_count);
+  const bool passed =
+    failure_reason.empty() && update_durations_ns.size() == static_cast<std::size_t>(cycle_count);
 
   if (const char * report_path = std::getenv("E102_SOAK_REPORT")) {
     std::ofstream report(report_path, std::ios::out | std::ios::trunc);
@@ -1048,14 +952,13 @@ TEST_F(RtUpdateTest, TenHertzKnotsAtThirtyHertzRemainStableAtFakeTwoHundredFifty
            << "  \"realtime\": " << (realtime ? "true" : "false") << ",\n"
            << "  \"cycles_requested\": " << cycle_count << ",\n"
            << "  \"cycles_completed\": " << update_durations_ns.size() << ",\n"
-           << "  \"simulated_duration_ns\": "
-           << update_durations_ns.size() * kCycleNs << ",\n"
+           << "  \"simulated_duration_ns\": " << update_durations_ns.size() * kCycleNs << ",\n"
            << "  \"wall_duration_ms\": " << wall_duration_ms << ",\n"
            << "  \"published_batches\": " << published_batches << ",\n"
-           << "  \"accepted_batches\": "
-           << RollingControllerRtTestPeer::acceptedCount(*controller_) << ",\n"
-           << "  \"rejected_batches\": "
-           << RollingControllerRtTestPeer::rejectedCount(*controller_) << ",\n"
+           << "  \"accepted_batches\": " << RollingControllerRtTestPeer::acceptedCount(*controller_)
+           << ",\n"
+           << "  \"rejected_batches\": " << RollingControllerRtTestPeer::rejectedCount(*controller_)
+           << ",\n"
            << "  \"late_replace_count\": " << late_replace_count << ",\n"
            << "  \"rt_allocation_count\": " << allocation_count << ",\n"
            << "  \"invariant_failure_count\": "
@@ -1091,28 +994,25 @@ TEST_F(RtUpdateTest, ConcurrentOpenPublicationAndRtConsumptionRemainCoherent)
   std::atomic_bool producer_done{false};
   std::atomic<std::uint64_t> update_errors{0U};
   std::thread rt_thread([&]() {
-      rt_ready.store(true, std::memory_order_release);
-      while (!start.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
-      }
+    rt_ready.store(true, std::memory_order_release);
+    while (!start.load(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
+    if (update() != controller_interface::return_type::OK) {
+      update_errors.fetch_add(1U, std::memory_order_relaxed);
+    }
+    while (!prime_published.load(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
+    std::size_t cycle = 1U;
+    while (cycle < 20U && (!producer_done.load(std::memory_order_acquire) || cycle < 10U)) {
       if (update() != controller_interface::return_type::OK) {
         update_errors.fetch_add(1U, std::memory_order_relaxed);
       }
-      while (!prime_published.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
-      }
-      std::size_t cycle = 1U;
-      while (
-        cycle < 20U &&
-        (!producer_done.load(std::memory_order_acquire) || cycle < 10U))
-      {
-        if (update() != controller_interface::return_type::OK) {
-          update_errors.fetch_add(1U, std::memory_order_relaxed);
-        }
-        ++cycle;
-        std::this_thread::yield();
-      }
-    });
+      ++cycle;
+      std::this_thread::yield();
+    }
+  });
 
   while (!rt_ready.load(std::memory_order_acquire)) {
     std::this_thread::yield();
@@ -1123,8 +1023,8 @@ TEST_F(RtUpdateTest, ConcurrentOpenPublicationAndRtConsumptionRemainCoherent)
     prime_published.store(true, std::memory_order_release);
     producer_done.store(true, std::memory_order_release);
     rt_thread.join();
-    FAIL() << "concurrent open was rejected with code " <<
-      static_cast<unsigned int>(response.result.value);
+    FAIL() << "concurrent open was rejected with code "
+           << static_cast<unsigned int>(response.result.value);
   }
   Batch prime = makeTrajectory(response, 500'000'000U, 0.05);
   RollingControllerRtTestPeer::submit(*controller_, prime);
@@ -1141,12 +1041,11 @@ TEST_F(RtUpdateTest, ConcurrentOpenPublicationAndRtConsumptionRemainCoherent)
   if (RollingControllerRtTestPeer::sessionState(*controller_) == SessionState::kPriming) {
     ASSERT_EQ(update(), controller_interface::return_type::OK);
   }
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
-    << "stop_reason=" << static_cast<unsigned int>(
-    RollingControllerRtTestPeer::stopReason(*controller_)) <<
-    ", invariant_stage=" << static_cast<unsigned int>(
-    RollingControllerRtTestPeer::invariantStage(*controller_));
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
+    << "stop_reason="
+    << static_cast<unsigned int>(RollingControllerRtTestPeer::stopReason(*controller_))
+    << ", invariant_stage="
+    << static_cast<unsigned int>(RollingControllerRtTestPeer::invariantStage(*controller_));
   EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kNone);
   EXPECT_GE(RollingControllerRtTestPeer::activeGeneration(*controller_), 1U);
   for (const double command : command_positions_) {
@@ -1163,55 +1062,56 @@ TEST_F(RtUpdateTest, ConcurrentRunningReplacementNeverTurnsAProtocolRejectIntoAS
   RollingControllerRtTestPeer::submit(
     *controller_, makeTrajectory(response, duration_ns, displacement));
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  ASSERT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+  ASSERT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning);
+
+  constexpr std::size_t max_rt_cycles = 100U;
+  // The unpaced RT thread can advance its entire virtual-time budget while the
+  // producer is descheduled. Keep publication ahead of that budget; a snapshot
+  // arriving behind the RT boundary must still trigger the production stop.
+  const std::uint64_t replacement_boundary_ns =
+    RollingControllerRtTestPeer::replaceableFrom(*controller_) + max_rt_cycles * kCycleNs;
+  ASSERT_LT(replacement_boundary_ns, duration_ns);
 
   std::atomic_bool start{false};
   std::atomic_bool producer_done{false};
   std::atomic<std::uint64_t> update_errors{0U};
   std::thread rt_thread([&]() {
-      while (!start.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
+    while (!start.load(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
+    std::size_t cycle = 0U;
+    while (cycle < max_rt_cycles &&
+           (!producer_done.load(std::memory_order_acquire) || cycle < 40U)) {
+      if (update() != controller_interface::return_type::OK) {
+        update_errors.fetch_add(1U, std::memory_order_relaxed);
       }
-      std::size_t cycle = 0U;
-      while (
-        cycle < 100U &&
-        (!producer_done.load(std::memory_order_acquire) || cycle < 40U))
-      {
-        if (update() != controller_interface::return_type::OK) {
-          update_errors.fetch_add(1U, std::memory_order_relaxed);
-        }
-        ++cycle;
-        std::this_thread::yield();
-      }
-    });
+      ++cycle;
+      std::this_thread::yield();
+    }
+  });
 
   start.store(true, std::memory_order_release);
   for (std::uint64_t sequence = 2U; sequence <= 80U; ++sequence) {
-    const std::uint64_t replace_from_ns =
-      RollingControllerRtTestPeer::replaceableFrom(*controller_);
-    if (replace_from_ns >= duration_ns) {
-      break;
-    }
     RollingControllerRtTestPeer::submit(
       *controller_,
       makeReplacement(
-        response, sequence, replace_from_ns, duration_ns,
-        displacement, displacement));
+        response, sequence, replacement_boundary_ns, duration_ns, displacement, displacement));
     std::this_thread::yield();
   }
   producer_done.store(true, std::memory_order_release);
   rt_thread.join();
+  // Consume the final publication if the producer was scheduled only after
+  // the RT thread exhausted its virtual-time budget.
+  ASSERT_EQ(update(), controller_interface::return_type::OK);
 
   EXPECT_EQ(update_errors.load(std::memory_order_relaxed), 0U);
-  EXPECT_EQ(
-    RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
-    << "stop_reason=" << static_cast<unsigned int>(
-    RollingControllerRtTestPeer::stopReason(*controller_)) <<
-    ", invariant_stage=" << static_cast<unsigned int>(
-    RollingControllerRtTestPeer::invariantStage(*controller_));
+  EXPECT_EQ(RollingControllerRtTestPeer::sessionState(*controller_), SessionState::kRunning)
+    << "stop_reason="
+    << static_cast<unsigned int>(RollingControllerRtTestPeer::stopReason(*controller_))
+    << ", invariant_stage="
+    << static_cast<unsigned int>(RollingControllerRtTestPeer::invariantStage(*controller_));
   EXPECT_EQ(RollingControllerRtTestPeer::stopReason(*controller_), StopReason::kNone);
-  EXPECT_GE(RollingControllerRtTestPeer::activeGeneration(*controller_), 1U);
+  EXPECT_GE(RollingControllerRtTestPeer::activeGeneration(*controller_), 2U);
   for (const double command : command_positions_) {
     EXPECT_TRUE(std::isfinite(command));
   }

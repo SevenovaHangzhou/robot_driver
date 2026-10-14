@@ -46,6 +46,12 @@ related: [integration-20261014-01, integration-20261014-02, integration-20261014
 
 - 头部参数确认后实际real离线compose通过；stationary/force-bench也通过，arm与arm-jtc仍按
   verified:false拒绝。所有结果未执行真实preflight，见实际单机JSON附件。
+- b1ba303下一轮CI的rolling并发测试触发kSnapshotLateBoundary；RT测试线程无墙钟节拍，可在
+  producer被调度前推进完整400ms虚拟时间，原测试使用最早边界没有留发布/消费预算。
+  仅修测试为覆盖其100周期虚拟预算的替换边界，并消费最终发布；保留并发线程、停止断言，
+  加强activeGeneration>=2确保真正消费替换。生产控制器、迟到停止条件及安全数值不改。
+  修复用例连续10次通过，完整rt_update 15项通过，质量门禁245 passed/13 skipped。
+- #65/#66/#67已按用户明确批准与各自CI成功结果顺序合并；本增量#68需修复后的CI成功再合并。
 - 最新远端提交f4dd6af的完整构建/测试通过：2107 tests、0 errors、0 failures、23 skipped；
   最后V3契约step未source ROS/overlay导致ament_index_python导入失败，整体CI失败。
   已只补该step的bash/source环境，校验逻辑不变；修复后本地契约通过，远端待验证。
