@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 from collections import Counter
 from dataclasses import asdict, dataclass
+import hashlib
 from pathlib import PurePosixPath
 import re
 import xml.etree.ElementTree as ET
@@ -71,13 +72,13 @@ def package_inventory(texts: dict[str, str]) -> dict[str, str]:
     return packages
 
 
-def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[str]]:
+def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[dict], list[str]]:
     try:
         policy = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        return {}, [], [f"{CONFIG}: R1 invalid YAML: {exc}"]
+        return {}, [], [], [f"{CONFIG}: R1 invalid YAML: {exc}"]
     if not isinstance(policy, dict) or not isinstance(policy.get("layers"), dict):
-        return {}, [], [f"{CONFIG}: R1 layers must be a mapping"]
+        return {}, [], [], [f"{CONFIG}: R1 layers must be a mapping"]
     findings = []
     mapping: dict[str, str] = {}
     if set(policy["layers"]) != LAYERS:
@@ -92,8 +93,16 @@ def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[str]]:
             mapping[package] = layer
     baselines = policy.get("baseline_violations", [])
     if not isinstance(baselines, list):
-        return mapping, [], findings + [f"{CONFIG}: baseline_violations must be a list"]
-    return mapping, baselines, findings
+        return mapping, [], [], findings + [f"{CONFIG}: baseline_violations must be a list"]
+    exclusions = policy.get("frequency_scope_exclusions", [])
+    if not isinstance(exclusions, list):
+        return (
+            mapping,
+            baselines,
+            [],
+            findings + [f"{CONFIG}: frequency_scope_exclusions must be a list"],
+        )
+    return mapping, baselines, exclusions, findings
 
 
 def python_dependencies(text: str) -> list[tuple[str, str, int, str]]:
@@ -180,7 +189,9 @@ def production_file(path: str) -> bool:
     return not ({"test", "tests", "fixtures", "schema"} & set(parts))
 
 
-def content_violations(path: str, text: str, package: str) -> list[Violation]:
+def content_violations(
+    path: str, text: str, package: str, *, frequency_excluded=False
+) -> list[Violation]:
     file = PurePosixPath(path)
     violations = []
     source = file.suffix in SOURCE_SUFFIXES
@@ -207,6 +218,7 @@ def content_violations(path: str, text: str, package: str) -> list[Violation]:
             )
         if (
             not allowed_frequency
+            and not frequency_excluded
             and file.suffix in SOURCE_SUFFIXES | {".yaml", ".yml", ".xacro"}
             and not line.lstrip().startswith(("#", "//", "<!--"))
             and FREQUENCY.search(line)
@@ -262,7 +274,18 @@ def apply_baselines(violations: list[Violation], baselines: list[dict]) -> list[
 
 
 def check_layers(texts: dict[str, str]) -> list[str]:
-    layers, baselines, findings = read_policy(texts.get(CONFIG, ""))
+    layers, baselines, exclusions, findings = read_policy(texts.get(CONFIG, ""))
+    frozen_frequency_paths = set()
+    for entry in exclusions:
+        if not isinstance(entry, dict) or set(entry) != {"file", "sha256", "reason"}:
+            findings.append(f"{CONFIG}: invalid frequency scope exclusion")
+            continue
+        path = entry["file"]
+        source = texts.get(path)
+        if source is None or hashlib.sha256(source.encode("utf-8")).hexdigest() != entry["sha256"]:
+            findings.append(f"{CONFIG}: R6 excluded frozen asset is missing or changed: {path}")
+            continue
+        frozen_frequency_paths.add(path)
     inventory = package_inventory(texts)
     actual = set(inventory.values())
     for path in texts:
@@ -283,7 +306,11 @@ def check_layers(texts: dict[str, str]) -> list[str]:
         package = inventory.get(path.split("/")[2])
         if package is not None:
             violations.extend(dependency_violations(path, text, package, layers))
-            violations.extend(content_violations(path, text, package))
+            violations.extend(
+                content_violations(
+                    path, text, package, frequency_excluded=path in frozen_frequency_paths
+                )
+            )
     return findings + apply_baselines(violations, baselines)
 
 

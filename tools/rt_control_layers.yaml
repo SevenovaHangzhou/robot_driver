@@ -23,12 +23,9 @@ layers:
   - modbus_tcp_rtu485
   - plc_io_modbus
   - plc_node
-baseline_violations:
-- rule: R6
-  source_package: robot_hw_ethercat
-  target_package: ''
-  dependency_type: frequency-literal
-  file: src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro
-  line: 425
-  text: <param name="control_frequency">1000</param>
-  expires: M6
+baseline_violations: []
+frequency_scope_exclusions:
+- file: src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro
+  sha256: 06c0cca8e79b70a632c82eeab6290de74510992d7e9eacb8c812f11e66b01e97
+  reason: User explicitly approved excluding this frozen V2 asset from V3 A3/baseline
+    acceptance; retain original bytes. Other rules still apply.

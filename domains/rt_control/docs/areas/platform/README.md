@@ -41,7 +41,7 @@
 | AREA-1 | 七区owner、历史冻结与目标分层，代码迁移另立任务 | [划分decision](../governance/records/2026-10-13-seven-agent-areas.md)#F1-F4 | UNVERIFIED（T0文档与索引） |
 | platform-20261014-01 | 四层逐条基线、jsonschema 3.2.x 标签一致性、ADR-17 合并授权；BQ-154 保持 OPEN | [M1 平台记录](records/2026-10-13-m1-layer-gates.md)#F1-F4 | UNVERIFIED（T0；CI schema 安装测试失败，本地最小修复及两包 153 tests 通过；修复后的 CI 待验证，镜像及分支保护未验证） |
 
-| platform-20261014-02#F1–F2 | 后续20PR的bringup触碰率目标≤30%，基线待合并；冻结V2周期精确例外保留 | [迁移观察指标](records/2026-10-14-composer-observation-baseline.md) | UNVERIFIED（起点pending_merge，非验收指标） |
+| platform-20261014-02#F1–F2 | 后续20PR的bringup触碰率目标≤30%，基线待合并；V2冻结文件哈希例外获批，V3基线清空 | [迁移观察指标](records/2026-10-14-composer-observation-baseline.md) | UNVERIFIED（起点pending_merge，非验收指标） |
 
 ## 人工镜像封装入口（M1）
 

@@ -52,6 +52,8 @@ related: [integration-20261014-01, integration-20261014-02, integration-20261014
 - 34个离线/入口用例通过，十份golden规范化零差异。四入口的新测试确保compose/preflight顺序，
   预检拒绝时Node未构造；独立JTC输出仍由冻结case检验。
 - tools/check_v3_branch_contract.py通过：模型/接口锁定身份、14CSP、安全依赖、V3默认validation入口保持。
+- 用户批准范围例外后，最终质量门禁通过244 passed、13 skipped；新增用例验证冻结文件改动时
+  哈希与周期检查同时拒绝。原11包/712 tests的实现未变，不重跑未受影响的包级套件。
 - 最终工具质量门禁通过243 passed、13 skipped；无新未豁免违规，固定样式工具通过。
   无参数validate_config_files.py检查已安装数据包全部devices/machines/units信封，通过；不读evidence。
 - 三项演练实际执行git diff --name-only main并按包统计：方向1个machine文件；新增轴3个数据文件
@@ -66,12 +68,14 @@ related: [integration-20261014-01, integration-20261014-02, integration-20261014
 - F1: 用户已批准五个默认入口与当前头部参数；审批不解除手臂/底盘/拓扑的未确认事实。
 - F2: 默认入口已迁移，golden值/顺序与旧行为一致；未执行设备预检、使能或运动。
 - F3: 旧V3实现退役，V2描述符和既有硬件行为保持；缺项不能用fixture补生产值。
+- F4: 用户已批准冻结V2文件排除V3频率验收，V3基线清空；哈希约束防止排除范围接受文件改动。
 
 ## 遗留
 
-- A3与“清空baseline”和冻结V2保护存在一处冲突：ecat.ros2_control.xacro仍有原周期字面量1000。
-  本任务明确不改V2，保留该单条精确baseline；不移到隐蔽豁免字段，不宣称baseline清空或A3全通过。
-  所有其它迁移baseline已移除，repository gate的未豁免违规为0。
+- 用户随后批准冻结V2 Xacro排除本次V3 A3/清空基线验收。V3 baseline_violations现为空；
+  该单一文件在frequency_scope_exclusions公开登记路径、SHA-256与授权理由。
+  只有内容哈希不变才排除R6；若文件改动，冻结检查和周期字面量检查都失败，其它规则始终继续检查。
+  这不是全包豁免，V2原文件未改动。
 - 直接关键词grep会包含合法变量转发、schema、fixtures与冻结golden；R5/R6生产规则的结果和字面量
   证据独立报告，不通过删除字段或改golden消除命中。
 - 第二步原位和第四步force T1未闭环；用户允许继续开发，不作为根因裁定或PASS。

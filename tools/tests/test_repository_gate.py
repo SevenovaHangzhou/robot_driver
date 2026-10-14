@@ -658,6 +658,25 @@ def test_layer_rules_accept_valid_input_and_reject_new_violations(rule, path, ac
     assert any(rule in finding for finding in findings), findings
 
 
+def test_approved_frequency_scope_exclusion_requires_unchanged_asset():
+    import hashlib
+    texts = layer_fixture()
+    path = "src/rt_control/bus/urdf/frozen.xacro"
+    original = '<param name="control_frequency">1000</param>'
+    texts[path] = original
+    policy = yaml.safe_load(texts[layer_gate.CONFIG])
+    policy["frequency_scope_exclusions"] = [{
+        "file": path, "sha256": hashlib.sha256(original.encode()).hexdigest(),
+        "reason": "Synthetic approved frozen asset",
+    }]
+    texts[layer_gate.CONFIG] = yaml.safe_dump(policy)
+    assert layer_gate.check_layers(texts) == []
+    texts[path] = original.replace("1000", "2000")
+    findings = layer_gate.check_layers(texts)
+    assert any("frozen asset is missing or changed" in item for item in findings)
+    assert any("frequency-literal" in item for item in findings)
+
+
 def test_baseline_only_allows_the_recorded_occurrence():
     texts = layer_fixture()
     path = "src/rt_control/motor/src/node.cpp"
