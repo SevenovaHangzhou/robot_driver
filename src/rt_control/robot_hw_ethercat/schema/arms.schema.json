@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "extra_responders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ring_position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "profile": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "identity_key": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "ring_position",
+          "profile",
+          "identity_key"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "branches": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "type": "string",
+            "minLength": 1
+          },
+          "main_esc_port": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "axes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "physical_joint": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "ring_position": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "mode_of_operation": {
+                  "enum": [
+                    8,
+                    1
+                  ]
+                },
+                "robot_model_joint": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "device": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "direction": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "enum": [
+                        -1,
+                        1
+                      ]
+                    },
+                    {
+                      "const": "TBD"
+                    }
+                  ]
+                },
+                "encoder_policy": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "physical_joint",
+                "ring_position",
+                "mode_of_operation",
+                "robot_model_joint",
+                "device",
+                "direction"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "connector",
+          "main_esc_port",
+          "axes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "drive_profiles": {
+      "type": "object",
+      "properties": {
+        "csp": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "gripper_pp": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      },
+      "required": [
+        "csp",
+        "gripper_pp"
+      ],
+      "additionalProperties": false
+    },
+    "branch_mapping_verified": {
+      "type": "boolean"
+    },
+    "direction_status": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "extra_responders",
+    "branches",
+    "drive_profiles",
+    "branch_mapping_verified",
+    "direction_status"
+  ],
+  "additionalProperties": false
+}

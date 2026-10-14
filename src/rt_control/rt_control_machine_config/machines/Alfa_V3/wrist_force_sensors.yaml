@@ -1,0 +1,26 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/bluepoint_force_sensors.draft.yaml
+pending_facts:
+- re-scan both absolute ring positions when replacing the six-responder bench topology
+- P140000100 engineering-unit scale confirmation
+- authoritative frame IDs and installed sensor-axis orientation
+- long-run DC/sample-counter behavior and reserved-field behavior
+- sample freshness policy for closed-loop force-control admission
+- positions 2/4 apply only to the six-responder bench; full-machine positions remain TBD
+robot_variant: Alfa_V3
+module: wrist_force_sensors
+master_system: ecat_arms
+spec:
+  sensors:
+  - side: left
+    ring_position: 2
+    profile: bluepoint_p140000100
+    frame_id: TBD
+  - side: right
+    ring_position: 4
+    profile: bluepoint_p140000100
+    frame_id: TBD

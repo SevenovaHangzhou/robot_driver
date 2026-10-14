@@ -1,0 +1,13 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3.yaml
+pending_facts:
+- EtherCAT ring position and device identity
+- PDO/SDO profile and mechanical limits
+robot_variant: Alfa_V3
+module: updown
+spec:
+  migration_pending: true

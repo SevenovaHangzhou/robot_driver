@@ -1,9 +1,178 @@
+source_commit: b7650e1e7e88f0ed53794fa8e772b443d21d996a
+generation_command: python3 test/golden/generate_baseline.py --baseline <READ_ONLY_BASELINE>
+  --output test/golden
+cases:
+  arm-mock:
+    use_mock_hardware: true
+    jtc_only: false
+    outputs:
+      controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
+      controllers.yaml: 4f11e44d2720dee9be55d3106398bffdd587f46f7d515c42ce468ef933ef02f3
+      robot_description.xml: 30b535ea86071d355d37f2f7ae7081e09fb37bae0f65261b0599fbc1601cff2c
+      runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
+      runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
+      runtime/left_joint2.yaml: ec684d9e1378ab57215aa4cd947cea1d7fb67fa5d2003c705bd880f41796a474
+      runtime/left_joint3.yaml: 035b8e031781d68c9c9f55c3544f2956372d1bff5e642b52ea26739e4386b1a8
+      runtime/left_joint4.yaml: 82d10a32d093207137b14f02cd6e0050b64d3b326c3780f7999084f1e9571ad1
+      runtime/left_joint5.yaml: 4897538b410537b2c16242aaf670ef73d15fa990a95f18e85997ce70273b7af1
+      runtime/left_joint6.yaml: b5f7001cc8f532d490ab08c5cb12eb9ecc759ad14842805dbb5d016ae64523bd
+      runtime/left_joint7.yaml: 603ca61f87716da1fa0d48ed6c8642e396d07404bceb2e474ff7116575947cb2
+      runtime/left_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/right_joint1.yaml: 79c1232897d9506858c66d5c9ba7545c6baaa4f626e3d4e663010c1aed03b8b6
+      runtime/right_joint2.yaml: 47b3aba7f4ad411b127ab69c7648b6e4ed3a929cf1eec447a735af1995eb61f0
+      runtime/right_joint3.yaml: b5f7001cc8f532d490ab08c5cb12eb9ecc759ad14842805dbb5d016ae64523bd
+      runtime/right_joint4.yaml: 5dc1174842bc562f77c97728ad6f7fefd561d0b71d26fa2a55e024a4d84be9e3
+      runtime/right_joint5.yaml: 0d03fc9ea2604fc577bc807863046c6cfbf998e02df7800d7afa44a8a320812e
+      runtime/right_joint6.yaml: dd8ca14e522eb365d257041d446bbc5dc3478fe5fd809b0157020a6de02353b7
+      runtime/right_joint7.yaml: 018d394ffbe0093dea47dc92e4e7bcada7467dcb7308a40ab93a09620e677bc4
+      runtime/right_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+  arm-real:
+    use_mock_hardware: false
+    jtc_only: false
+    outputs:
+      controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
+      controllers.yaml: 4f11e44d2720dee9be55d3106398bffdd587f46f7d515c42ce468ef933ef02f3
+      robot_description.xml: 4778d7df7b3bfa0908cd9b2f1c396e680620650bf35206c223af94b318e25b13
+      runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
+      runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
+      runtime/left_joint2.yaml: 82697c21188122827e04f57344ab7f96054dee08b3ae0fc2ac2c63b3e1ea0ada
+      runtime/left_joint3.yaml: 035b8e031781d68c9c9f55c3544f2956372d1bff5e642b52ea26739e4386b1a8
+      runtime/left_joint4.yaml: 11f056a2b3916985fd46c6bb2905e4ca11c76ea05fc089fd92eb7533a8e8a1bd
+      runtime/left_joint5.yaml: 4897538b410537b2c16242aaf670ef73d15fa990a95f18e85997ce70273b7af1
+      runtime/left_joint6.yaml: ad80cf39b9b73055575d9df76a8e98200703242d5c9044717a77cc8d7d7dbf23
+      runtime/left_joint7.yaml: 603ca61f87716da1fa0d48ed6c8642e396d07404bceb2e474ff7116575947cb2
+      runtime/left_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/right_joint1.yaml: 2c1d528dac0f9552b1439dd6bac06339b9f9233b79a54bc454fe3d529576520e
+      runtime/right_joint2.yaml: 47b3aba7f4ad411b127ab69c7648b6e4ed3a929cf1eec447a735af1995eb61f0
+      runtime/right_joint3.yaml: ad80cf39b9b73055575d9df76a8e98200703242d5c9044717a77cc8d7d7dbf23
+      runtime/right_joint4.yaml: 5dc1174842bc562f77c97728ad6f7fefd561d0b71d26fa2a55e024a4d84be9e3
+      runtime/right_joint5.yaml: d70cd11b9ac99a2fab1a87d3f6f32ab2a4cce046dd215559aa6861c2bd04f2e4
+      runtime/right_joint6.yaml: dd8ca14e522eb365d257041d446bbc5dc3478fe5fd809b0157020a6de02353b7
+      runtime/right_joint7.yaml: 2a58c49061a43c7fa82b2bc5087ed5dea777bfbcb1bd2400f0eb3b30adc980cb
+      runtime/right_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+  arm-mock-jtc:
+    use_mock_hardware: true
+    jtc_only: true
+    outputs:
+      controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
+      controllers.yaml: 6e4fa4ca4ed8c63d99e455f6867f0e65d595705dfb9e056477dfdd5e7fbeef44
+      robot_description.xml: 30b535ea86071d355d37f2f7ae7081e09fb37bae0f65261b0599fbc1601cff2c
+      runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
+      runtime/left_joint2.yaml: ec684d9e1378ab57215aa4cd947cea1d7fb67fa5d2003c705bd880f41796a474
+      runtime/left_joint3.yaml: 035b8e031781d68c9c9f55c3544f2956372d1bff5e642b52ea26739e4386b1a8
+      runtime/left_joint4.yaml: 82d10a32d093207137b14f02cd6e0050b64d3b326c3780f7999084f1e9571ad1
+      runtime/left_joint5.yaml: 4897538b410537b2c16242aaf670ef73d15fa990a95f18e85997ce70273b7af1
+      runtime/left_joint6.yaml: b5f7001cc8f532d490ab08c5cb12eb9ecc759ad14842805dbb5d016ae64523bd
+      runtime/left_joint7.yaml: 603ca61f87716da1fa0d48ed6c8642e396d07404bceb2e474ff7116575947cb2
+      runtime/left_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/right_joint1.yaml: 79c1232897d9506858c66d5c9ba7545c6baaa4f626e3d4e663010c1aed03b8b6
+      runtime/right_joint2.yaml: 47b3aba7f4ad411b127ab69c7648b6e4ed3a929cf1eec447a735af1995eb61f0
+      runtime/right_joint3.yaml: b5f7001cc8f532d490ab08c5cb12eb9ecc759ad14842805dbb5d016ae64523bd
+      runtime/right_joint4.yaml: 5dc1174842bc562f77c97728ad6f7fefd561d0b71d26fa2a55e024a4d84be9e3
+      runtime/right_joint5.yaml: 0d03fc9ea2604fc577bc807863046c6cfbf998e02df7800d7afa44a8a320812e
+      runtime/right_joint6.yaml: dd8ca14e522eb365d257041d446bbc5dc3478fe5fd809b0157020a6de02353b7
+      runtime/right_joint7.yaml: 018d394ffbe0093dea47dc92e4e7bcada7467dcb7308a40ab93a09620e677bc4
+      runtime/right_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+  arm-real-jtc:
+    use_mock_hardware: false
+    jtc_only: true
+    outputs:
+      controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
+      controllers.yaml: 6e4fa4ca4ed8c63d99e455f6867f0e65d595705dfb9e056477dfdd5e7fbeef44
+      robot_description.xml: 4778d7df7b3bfa0908cd9b2f1c396e680620650bf35206c223af94b318e25b13
+      runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
+      runtime/left_joint2.yaml: 82697c21188122827e04f57344ab7f96054dee08b3ae0fc2ac2c63b3e1ea0ada
+      runtime/left_joint3.yaml: 035b8e031781d68c9c9f55c3544f2956372d1bff5e642b52ea26739e4386b1a8
+      runtime/left_joint4.yaml: 11f056a2b3916985fd46c6bb2905e4ca11c76ea05fc089fd92eb7533a8e8a1bd
+      runtime/left_joint5.yaml: 4897538b410537b2c16242aaf670ef73d15fa990a95f18e85997ce70273b7af1
+      runtime/left_joint6.yaml: ad80cf39b9b73055575d9df76a8e98200703242d5c9044717a77cc8d7d7dbf23
+      runtime/left_joint7.yaml: 603ca61f87716da1fa0d48ed6c8642e396d07404bceb2e474ff7116575947cb2
+      runtime/left_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/right_joint1.yaml: 2c1d528dac0f9552b1439dd6bac06339b9f9233b79a54bc454fe3d529576520e
+      runtime/right_joint2.yaml: 47b3aba7f4ad411b127ab69c7648b6e4ed3a929cf1eec447a735af1995eb61f0
+      runtime/right_joint3.yaml: ad80cf39b9b73055575d9df76a8e98200703242d5c9044717a77cc8d7d7dbf23
+      runtime/right_joint4.yaml: 5dc1174842bc562f77c97728ad6f7fefd561d0b71d26fa2a55e024a4d84be9e3
+      runtime/right_joint5.yaml: d70cd11b9ac99a2fab1a87d3f6f32ab2a4cce046dd215559aa6861c2bd04f2e4
+      runtime/right_joint6.yaml: dd8ca14e522eb365d257041d446bbc5dc3478fe5fd809b0157020a6de02353b7
+      runtime/right_joint7.yaml: 2a58c49061a43c7fa82b2bc5087ed5dea777bfbcb1bd2400f0eb3b30adc980cb
+      runtime/right_moving_jaw_joint.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+  stationary-mock:
+    use_mock_hardware: true
+    jtc_only: false
+    outputs:
+      controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
+      controllers.yaml: 4e484fcd1d549d33e0c8249670e86346e39c815732b59273ea85bb611f2d4488
+      robot_description.xml: 307bcaeaa1058dbde3446290a258cca7abc0c721896427c3e8a96a84f30e6013
+      runtime/left_gripper.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/left_j1.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j2.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j3.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j4.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j5.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j6.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j7.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_gripper.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/right_j1.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j2.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j3.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j4.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j5.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j6.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j7.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+  stationary-real:
+    use_mock_hardware: false
+    jtc_only: false
+    outputs:
+      controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
+      controllers.yaml: 4e484fcd1d549d33e0c8249670e86346e39c815732b59273ea85bb611f2d4488
+      robot_description.xml: db0e765d9694a1a6571f09dfbdc6186c6d1eab997a6c56077bf944bb96934387
+      runtime/left_gripper.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/left_j1.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j2.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j3.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j4.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j5.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j6.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/left_j7.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_gripper.yaml: 9dec64c9503741250b65ffcaab98b85ef4ed78bae56f2de58c3db51f5a6ed9f5
+      runtime/right_j1.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j2.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j3.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j4.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j5.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j6.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+      runtime/right_j7.yaml: 84eab7988db2f974e864ce59d176f297ee9e318b8ee26921b68312ff43b8e17e
+inputs:
+  src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arm_motion_calibration.draft.yaml: 587ea4634c15eb8bcc5c0c2b82694762a0508ba8b48cebe434014176ad56e285
+  src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml: 3d8ce4a179b7cb6212bb026a8ae981c2f431546bd7d939fd371522335f590053
+  src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_mechanical_zero.yaml: 277d990519210101b19a6ec822507e7d5d84b7ec09a4324679aea0442c1bfe8f
+  src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_protocol_readback.yaml: b7ff1720b210eedbdacfd95364be8602265fb31b2378e73460387aff1c95a2a0
+  src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_swerve_chassis.draft.yaml: e6ccb75e63317ba8e00bf9b80983f4a149b1571c3e73077062cd009231964229
+  src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_swerve_conversion.candidate.yaml: 83fa3af5d8429dd3e27872b89918efdb26c44aa0e1f40450bb391167cce895f3
+  src/rt_control/robot_hw_ethercat/config/machines/zeroerr_csp.draft.yaml: 88d89118598b23c519ff7fdcf42786ec9a1edca3057da17897bb13e8acd54b11
+  src/rt_control/robot_hw_ethercat/config/machines/zeroerr_stationary.yaml: de1b72c6804ab5ce5590a055a76a0936593114d783cfb44fa675969fd26394aa
+  src/description/robot_description/urdf/robot.urdf: b8b9cc03c6677a4795de29263856b7e53ced4a2d4807d678cf8d40c79f95022e
+  src/description/robot_description/urdf/robot.urdf.xacro: ad77f291b3aa70d3d59eee71895354a71dfef1e24572198b650463755e1e946e
+  src/description/robot_description/urdf/robot_dual_gripper.urdf.xacro: 30f81ef8af3617c5d342db2a66766056ad250d18b7593c02cfa659556e08201c
+  src/description/robot_description/urdf/robot_dual_suction.urdf.xacro: f0eeab1061fd83e529ad82507063d2fb10199e8894a7feacd96c8a6319177b10
+  src/description/robot_description/urdf/robot_v3_0_9.xacro: 77eeb397b62f7bcc3d9ef3a843d98d45cafca251edd59cedf4dc5bd3bfc1a176
+  src/description/robot_description/urdf/robot_v3_chassis.xacro: dc3caed9eb41f8c54295bcdcbb71714225f2b4a79d6c7c5d512c5aae0d271e25
+  src/description/robot_description/urdf/robot_v3_end_effectors.xacro: 1447e12d7d6df41b8d72138d9ab7ee3f340f8b5547e777933caf22e80a0e3e24
+  src/description/robot_description/urdf/robot_v3_head.xacro: 059c12bc1d09421957cac124292424a1a723c5e9fe3a393a7b6e7ef1e50ea99c
+  src/description/robot_description/config/initial_positions.yaml: 0d09edf76b9061815c3243549105b696f2366fa13f07e93f1f09bbd3af1df99f
+  src/description/robot_description/config/initial_positions_gripper.yaml: cfacd5c8fc95d5ed7e1ecaa8c26cbdc3d2c280235b8ba460523a8dee936f296f
+  src/description/robot_description/config/initial_positions_suction.yaml: 0d09edf76b9061815c3243549105b696f2366fa13f07e93f1f09bbd3af1df99f
+  src/description/robot_description/config/joint_limits.yaml: ca9c1ef546ba74d6c8e79c52afa5284f2051d4deeb75095db1e638575a19e4e4
+  src/description/robot_description/config/joint_limits_gripper.yaml: da7557777dc52c0a7c1367ed3ffcba30aa891bd04a7387820ba28435d050c4bc
+  src/description/robot_description/config/joint_limits_suction.yaml: ca9c1ef546ba74d6c8e79c52afa5284f2051d4deeb75095db1e638575a19e4e4
+  src/rt_control/rt_control_bringup/rt_control_bringup/arm_motion_runtime.py: d40f1eaf9eeeefb00ab7f85ecca48e75a5c8af75887402285a646d52dcce61a4
+  src/rt_control/rt_control_bringup/rt_control_bringup/stationary_enable.py: 9a074705f08fcea569ab23c6b8743df075bfe59bf555b28cb432bd53dae54899
+  src/rt_control/rt_control_bringup/launch/rt_control_arm_runtime.launch.py: 78979ef51545ac3c013efa3300067bada3aad8294003b76a3511a1e079a9411f
+  src/rt_control/rt_control_bringup/launch/rt_control_enable_only.launch.py: 28b6ee41858559901ea59dfd4c5a1a025af0971de5aa703201334b5ade62f14d
+  src/rt_control/rt_control_bringup/config/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
+test_calibration_sha256: 939e153be7a2f4ff235cfbd8117100e16b8f1d214de36233471b509d1bce7117
 rename_map:
-  identifiers:
-    - old: alfa_v3_stationary_enable
-      new: Alfa_V3_stationary_enable
-  relative_paths:
-    - old: alfa_v3_rolling_envelope.mock.yaml
-      new: Alfa_V3_arm_envelope.mock.yaml
-    - old: <RUNTIME_DIR>/<joint>.yaml
-      new: <RUNTIME_DIR>/<joint>.yaml
+  alfa_v3_stationary_enable: Alfa_V3_stationary_enable
+  alfa_v3_rolling_envelope.mock.yaml: Alfa_V3_arm_envelope.mock.yaml
+  <RUNTIME_DIR>/alfa_v3_rolling_envelope.mock.yaml: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
+  runtime/alfa_v3_rolling_envelope.mock.yaml: runtime/Alfa_V3_arm_envelope.mock.yaml

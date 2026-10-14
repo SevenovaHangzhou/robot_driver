@@ -1,0 +1,17 @@
+schema_version: 1
+kind: safety_policy
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3.yaml:safety_policy
+pending_facts: []
+robot_variant: Alfa_V3
+fault_dependencies:
+- source_module: active_suspension
+  affected_modules:
+  - swerve_chassis
+  reaction: stop_and_inhibit
+- source_module: swerve_chassis
+  affected_modules:
+  - arms
+  reaction: stop

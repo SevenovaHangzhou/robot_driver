@@ -1,0 +1,272 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "joints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "jtc": {
+      "type": "object",
+      "properties": {
+        "command_interfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "state_interfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_partial_joints_goal": {
+          "type": "boolean"
+        },
+        "open_loop_control": {
+          "type": "boolean"
+        },
+        "set_last_command_interface_value_as_state_on_activation": {
+          "type": "boolean"
+        },
+        "trajectory_start_consistency_check": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "position_tolerances": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "feedback_age_state_interface": {
+              "type": "string"
+            },
+            "max_feedback_age_ms": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "enabled",
+            "position_tolerances",
+            "feedback_age_state_interface",
+            "max_feedback_age_ms"
+          ],
+          "additionalProperties": false
+        },
+        "state_publish_rate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "goal_time": {
+              "type": "number",
+              "minimum": 0
+            },
+            "stopped_velocity_tolerance": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "goal_time",
+            "stopped_velocity_tolerance"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "command_interfaces",
+        "state_interfaces",
+        "allow_partial_joints_goal",
+        "open_loop_control",
+        "set_last_command_interface_value_as_state_on_activation",
+        "trajectory_start_consistency_check",
+        "state_publish_rate",
+        "constraints"
+      ],
+      "additionalProperties": false
+    },
+    "rolling": {
+      "type": "object",
+      "properties": {
+        "configuration_source": {
+          "type": "string"
+        },
+        "allow_test_only_configuration": {
+          "type": "boolean"
+        },
+        "allow_provisional_configuration": {
+          "type": "boolean"
+        },
+        "buffer_capacity": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_horizon_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "required_initial_horizon_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "update_timeout_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replace_lead_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "state_publish_period_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prime_timeout_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nominal_controller_period_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maximum_controller_period_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "one_cycle_detection_guard_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stop_time_growth_guard_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "non_rt_to_rt_visibility_guard_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "period_quantization_guard_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_feedback_age_limit_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "takeover_tolerances": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "splice_position_tolerances": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "splice_velocity_tolerances": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "required": [
+        "configuration_source",
+        "allow_test_only_configuration",
+        "allow_provisional_configuration",
+        "buffer_capacity",
+        "max_horizon_ms",
+        "required_initial_horizon_ms",
+        "update_timeout_ms",
+        "replace_lead_ms",
+        "state_publish_period_ms",
+        "prime_timeout_ms",
+        "nominal_controller_period_ms",
+        "maximum_controller_period_ms",
+        "one_cycle_detection_guard_ms",
+        "stop_time_growth_guard_ms",
+        "non_rt_to_rt_visibility_guard_ms",
+        "period_quantization_guard_ms",
+        "open_feedback_age_limit_ms",
+        "takeover_tolerances",
+        "splice_position_tolerances",
+        "splice_velocity_tolerances"
+      ],
+      "additionalProperties": false
+    },
+    "enable_manager": {
+      "type": "object",
+      "properties": {
+        "mode_switch_source_state_max_age_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode_switch_stable_interval_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode_switch_maximum_sample_period_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode_switch_timeout_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode_switch_feedback_age_limit_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mode_switch_stable_velocity_thresholds": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "mode_switch_takeover_tolerances": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "required": [
+        "mode_switch_source_state_max_age_ms",
+        "mode_switch_stable_interval_count",
+        "mode_switch_maximum_sample_period_ms",
+        "mode_switch_timeout_ms",
+        "mode_switch_feedback_age_limit_ms",
+        "mode_switch_stable_velocity_thresholds",
+        "mode_switch_takeover_tolerances"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "joints",
+    "jtc",
+    "rolling",
+    "enable_manager"
+  ],
+  "additionalProperties": false,
+  "description": "Draft 7 validates shape and numeric values. X7b validates every per-joint array length against joints and controller bindings; Draft 7 cannot express equality of dynamic array lengths."
+}

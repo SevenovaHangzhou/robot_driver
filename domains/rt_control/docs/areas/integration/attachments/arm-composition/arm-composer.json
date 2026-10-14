@@ -1,0 +1,444 @@
+{
+  "controllers": {
+    "enable_manager": {
+      "claimed_interfaces": [
+        "left_joint1/control_word",
+        "left_joint2/control_word",
+        "left_joint3/control_word",
+        "left_joint4/control_word",
+        "left_joint5/control_word",
+        "left_joint6/control_word",
+        "left_joint7/control_word",
+        "left_moving_jaw_joint/control_word",
+        "right_joint1/control_word",
+        "right_joint2/control_word",
+        "right_joint3/control_word",
+        "right_joint4/control_word",
+        "right_joint5/control_word",
+        "right_joint6/control_word",
+        "right_joint7/control_word",
+        "right_moving_jaw_joint/control_word"
+      ],
+      "state": "active",
+      "type": "enable_manager/EnableManagerController"
+    },
+    "joint_state_broadcaster": {
+      "claimed_interfaces": [],
+      "state": "active",
+      "type": "joint_state_broadcaster/JointStateBroadcaster"
+    },
+    "rolling_trajectory_controller": {
+      "claimed_interfaces": [],
+      "state": "inactive",
+      "type": "rolling_trajectory_controller/RollingTrajectoryController"
+    },
+    "rt_internal_state_broadcaster": {
+      "claimed_interfaces": [],
+      "state": "active",
+      "type": "joint_state_broadcaster/JointStateBroadcaster"
+    },
+    "whole_body_jtc": {
+      "claimed_interfaces": [],
+      "state": "inactive",
+      "type": "joint_trajectory_controller/JointTrajectoryController"
+    }
+  },
+  "interfaces": {
+    "command": {
+      "left_joint1/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "left_joint1/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint2/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "left_joint2/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint3/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "left_joint3/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint4/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "left_joint4/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint5/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "left_joint5/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint6/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "left_joint6/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint7/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "left_joint7/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_moving_jaw_joint/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint1/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint1/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint2/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint2/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint3/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint3/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint4/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint4/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint5/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint5/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint6/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint6/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint7/control_word": {
+        "available": true,
+        "claimed": true
+      },
+      "right_joint7/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_moving_jaw_joint/control_word": {
+        "available": true,
+        "claimed": true
+      }
+    },
+    "state": {
+      "ethercat_domain/process_data_age_ms": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_master/link_up": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_master/slaves_responding": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_master/wc_error_count": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_1/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_10/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_11/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_12/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_13/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_14/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_15/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_16/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_2/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_3/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_4/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_5/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_6/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_7/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_8/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "ethercat_slave_9/al_state": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint1/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint1/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint1/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint2/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint2/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint2/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint3/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint3/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint3/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint4/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint4/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint4/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint5/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint5/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint5/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint6/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint6/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint6/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint7/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint7/position": {
+        "available": true,
+        "claimed": false
+      },
+      "left_joint7/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "left_moving_jaw_joint/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "left_moving_jaw_joint/position_raw": {
+        "available": true,
+        "claimed": false
+      },
+      "left_moving_jaw_joint/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint1/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint1/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint1/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint2/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint2/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint2/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint3/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint3/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint3/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint4/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint4/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint4/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint5/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint5/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint5/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint6/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint6/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint6/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint7/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint7/position": {
+        "available": true,
+        "claimed": false
+      },
+      "right_joint7/status_word": {
+        "available": true,
+        "claimed": false
+      },
+      "right_moving_jaw_joint/digital_inputs": {
+        "available": true,
+        "claimed": false
+      },
+      "right_moving_jaw_joint/position_raw": {
+        "available": true,
+        "claimed": false
+      },
+      "right_moving_jaw_joint/status_word": {
+        "available": true,
+        "claimed": false
+      }
+    }
+  }
+}

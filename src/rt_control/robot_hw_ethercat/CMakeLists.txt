@@ -5,6 +5,8 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+ament_python_install_package(${PROJECT_NAME})
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(ethercat_generic_slave REQUIRED)
 find_package(ethercat_interface REQUIRED)
@@ -81,6 +83,8 @@ if(BUILD_TESTING)
 endif()
 
 install(DIRECTORY urdf config variants DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.schema.json")
 install(DIRECTORY include/ DESTINATION include)
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
 install(TARGETS zeroerr_pp_slave EXPORT export_zeroerr_pp_slave

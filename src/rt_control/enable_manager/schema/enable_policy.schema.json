@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "managed_joints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "disable_terminal_policy": {
+      "enum": [
+        "switch_on_disabled",
+        "ready_to_switch_on"
+      ]
+    },
+    "batch_timeout": {
+      "type": "number",
+      "minimum": 0
+    },
+    "disable_stage_timeout": {
+      "type": "number",
+      "minimum": 0
+    },
+    "fault_reset_timeout": {
+      "type": "number",
+      "minimum": 0
+    },
+    "inter_batch_delay": {
+      "type": "number",
+      "minimum": 0
+    },
+    "controller_switch_timeout": {
+      "type": "number",
+      "minimum": 0
+    },
+    "service_result_timeout_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "enable_batches": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "ready_to_switch_on_disable_terminal_joints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "runtime_views": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "parameter_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "managed_joints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "enable_batches": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "parameter_names"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "managed_joints",
+    "disable_terminal_policy",
+    "batch_timeout",
+    "disable_stage_timeout",
+    "fault_reset_timeout",
+    "inter_batch_delay",
+    "controller_switch_timeout",
+    "service_result_timeout_ms",
+    "enable_batches",
+    "ready_to_switch_on_disable_terminal_joints"
+  ],
+  "additionalProperties": false
+}

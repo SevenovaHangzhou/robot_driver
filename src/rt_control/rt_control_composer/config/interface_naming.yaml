@@ -1,0 +1,7 @@
+wrench: /rt_control/{binding}/wrench
+raw: /rt_control/{binding}/raw
+state: /rt_control/{binding}/state
+sensor_calibration: /robot/rt_control/{family}/{sensor_name}/calibration
+family_calibration: /rt_control/{family}/calibration
+stationary_robot_name: '{robot_variant}_stationary_enable'
+stationary_base_link: enable_test_base

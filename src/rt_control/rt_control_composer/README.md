@@ -1,13 +1,44 @@
 # RT-Control composer
 
-KKOZIA-5 / SPEC v1.1 M0b: nine Draft 7 schemas, offline YAML validation,
-renderer API 1 contract, and synthetic A/B/C fixtures. This package provides
-no compose implementation or launch entry. A0 approval is pending review.
+The package provides offline composition, nine installed Draft 7 schemas,
+renderer API 1 validation, and frozen comparisons with the old entry points.
+ROS 2 Humble and Python 3.10 are the supported runtime.
 
-The schemas install in `share/rt_control_composer/schema`. The validator uses
-ament index lookup, never a source-tree fallback or network schema fetch.
-Tests remain in the source tree and validate installed schemas. Protocol
-packages consume schema resources but must not import composer Python code.
+`compose()` accepts `robot_variant`, `machine_unit`, `physical_profile`,
+`control_scope`, `runtime_dir`, `use_mock_hardware`, and `jtc_only`. It loads
+machine data, deployment and explicit owner policies through package shares.
+It returns a `Composed` handoff and writes only validated output files below
+`runtime_dir`. It does not access devices or invoke preflight.
+
+`preflight(composed)` invokes each selected owner's preflight once per merged
+hardware system. Mock returns without invoking an owner. The caller must run
+real preflight before constructing any ROS Node. This API is not authorization
+to access hardware.
+
+## Data and ownership
+
+- Machine data has no code API dependency. Consumers read installed assets.
+- `owner_refs[transport]` chooses the protocol package dynamically.
+- The registry validates the shared request envelope and XML result projection.
+- Protocol owners validate private module/calibration facts and render fragments.
+- Enable batches and numerical policies come from their explicit owner files.
+- Policy batches are flattened to ROS parameter names/sizes without changing order.
+- Motion arrays retain policy order; the composer does not derive tolerances.
+- The machine safety policy is returned unchanged in `Composed.safety_policy`.
+  Migrated entries do not add new safety-policy parameters to old output files.
+
+The manifest's optional `policy_refs` identify a package, file and schema.
+Scope `render_mode` and `controller_order` identify the output view and explicit
+activation order. Controller `role` selects integration wiring without plugin
+name dispatch. Request `deployment` separates bus/host data from calibration.
+Result `actuator_groups` and opaque `resource_claims` support cross-file binding
+and duplicate-resource checks without inspecting protocol-private fields.
+
+The shared definitions and their consumers are in
+`rt_control_composer/renderer_contract.md`. Schema references stay inside the
+installed store. No network resolver or source-tree fallback is provided.
+
+## Validation and runtime admission
 
 ```bash
 ros2 run rt_control_composer validate_config_files.py \
@@ -15,40 +46,33 @@ ros2 run rt_control_composer validate_config_files.py \
   machines/Example/manifest.yaml
 ```
 
-Use `--schema-package <owner>` for an installed owner-private schema. Inputs
-are relative to the selected input package share. The validator rejects
-symlink escape, absolute paths, parent traversal, duplicate/merge keys,
-anchors/aliases, multiple documents, and non-finite numbers. Quote timestamps
-so YAML does not turn them into non-JSON objects. This boundary is for machine
-configuration and policies only; protocol profiles and model configuration
-retain their owner loaders.
+Use `--schema-package` for an owner-private schema. The machine/policy YAML
+boundary rejects duplicate/merge keys, anchors/aliases, multiple documents,
+non-finite numbers and package-share escape. Observation archives cannot be
+referenced as runtime inputs. Protocol profiles retain their owner loader,
+including permitted non-finite PDO defaults. Model files retain their owner
+loader, including permitted anchors and merge keys.
 
-Common envelope definitions live in `module_envelope.schema.json`; each root
-lists its own properties and rejects unknown top-level fields. `spec` is an
-explicit owner-private object in module/calibration envelopes and must also
-be checked by the selected owner's private schema. Device models require the
-six model-level envelope fields plus `family`; machine and unit documents
-add `robot_variant`, and module/calibration envelopes also require `module`.
-Physical device properties are optional positive values or explicit `TBD`.
+Shape validation does not certify a real device. `draft`, `verified: false`
+and `TBD` remain representable. On migrated scopes, the protocol owner applies
+old entry checks plus its required fields. Manifest readiness is enforced only
+for a manifest-validation request or a profile marked ready. Inactive draft
+modules are not passed to a protocol renderer.
 
-`x-share-relative-path` marks package-share path strings in schemas. The
-validator checks these without reading referenced files; owner schemas must
-mark private path fields too. Cross-package references retain their explicit
-package owner. The supplied share root applies to the input package; external
-package existence and cross-file reference closure remain M2d checks.
+## Equivalence and verification limits
 
-Schema success is structural validation, not runtime admission. In particular,
-`draft`, `verified: false`, and `TBD` are representable. The protocol renderer
-checks render-mode required facts, and M2d implements the approved readiness
-policy. No schema default invents a hardware fact, enable batch or tolerance.
+The six old outputs in `test/golden/` come from a separate, pinned old checkout.
+They include runtime profiles, robot description, controller parameters and
+spawner order. The manifest records source and output hashes and exact renames.
+After freezing, implementation differences must be fixed in the implementation.
 
-`render_result.schema.json` validates the composer's XML projection, not raw
-Element objects. The projection implementation and actual renderer adapters
-belong to M2d and subsequent protocol migration issues. See the installed
-`rt_control_composer/renderer_contract.md` for that boundary.
+Canonical comparison permits XML canonicalization, YAML key sorting, the
+runtime-directory placeholder, and complete-value/file renames in that map.
+It does not remove fields, reorder elements/lists or normalize numeric values.
+Real fixtures use isolated test calibration and do not certify production data.
 
-The fixtures under `test/fixtures/sample_{a,b,c}` use package-share directory
-layouts and synthetic facts. `test/fixture_index.yaml` binds each input to its
-schema; `test/conformance/` holds request/result projection examples and the
-future renderer suite contract. `test/golden/` is excluded from R5 (ADR-19).
-The draft rename map is the only golden data; no output baseline was generated.
+The two migrated launch entries remain opt-in, with `use_composer` false by
+default. The old `calibration_file` argument applies to the old arm entry;
+the new entry consumes machine/unit envelopes. Switching defaults or deleting
+old assets requires the later acceptance stop. Mock verification, CI and real
+hardware validation are reported separately in the domain records.

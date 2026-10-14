@@ -1,0 +1,9 @@
+identities:
+  coupler_main:
+    vendor_id: 1048576
+    product_code: 284428593
+    revision_number: 65536
+  coupler_subdevice:
+    vendor_id: 1048576
+    product_code: 284428594
+    revision_number: 65536

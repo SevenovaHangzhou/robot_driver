@@ -1,0 +1,16 @@
+schema_version: 1
+kind: unit_deployment
+status: draft
+verified: false
+authorities:
+  source: robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml
+pending_facts:
+- host identity
+robot_variant: Alfa_V3
+end_effector: gripper
+hardware_options:
+  force_sensors: none
+can_interfaces: {}
+ethercat:
+  master_id: 0
+host_id: TBD
