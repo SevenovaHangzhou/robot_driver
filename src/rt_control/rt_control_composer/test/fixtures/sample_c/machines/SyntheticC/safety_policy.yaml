@@ -1,0 +1,10 @@
+schema_version: 1
+kind: safety_policy
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticC
+fault_dependencies: []

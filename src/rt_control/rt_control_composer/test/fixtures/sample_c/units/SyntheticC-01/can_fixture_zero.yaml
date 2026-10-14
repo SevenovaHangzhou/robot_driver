@@ -1,0 +1,18 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticC
+module: can_fixture
+spec:
+  axes:
+  - robot_model_joint: pivot_1
+    zero_counts: 0
+  - robot_model_joint: pivot_2
+    zero_counts: 0
+  - robot_model_joint: pivot_3
+    zero_counts: 0

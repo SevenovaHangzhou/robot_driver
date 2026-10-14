@@ -1,0 +1,44 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticA
+module: articulated_fixture
+spec:
+  extra_responders:
+  - ring_position: 0
+    profile: synthetic_branch
+  axes:
+  - physical_joint: axis_1
+    robot_model_joint: axis_1
+    ring_position: 2
+    mode_of_operation: 8
+    role: axis
+    device: synthetic_output_drive
+    direction: 1
+  - physical_joint: axis_2
+    robot_model_joint: axis_2
+    ring_position: 5
+    mode_of_operation: 8
+    role: axis
+    device: synthetic_output_drive
+    direction: 1
+  - physical_joint: axis_3
+    robot_model_joint: axis_3
+    ring_position: 7
+    mode_of_operation: 8
+    role: axis
+    device: synthetic_output_drive
+    direction: 1
+  - physical_joint: axis_4
+    robot_model_joint: axis_4
+    ring_position: 9
+    mode_of_operation: 1
+    role: axis
+    device: synthetic_output_drive
+    direction: 1
+master_system: synthetic_master_a

@@ -1,0 +1,231 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "render request",
+  "type": "object",
+  "properties": {
+    "module": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transport": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config_file": {
+          "$ref": "module_envelope.schema.json#/definitions/share_path"
+        },
+        "status": {
+          "$ref": "module_envelope.schema.json#/definitions/status"
+        },
+        "instance_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "TBD"
+            }
+          ]
+        },
+        "actuator_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "TBD"
+            }
+          ]
+        },
+        "sensor_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "const": "TBD"
+            }
+          ]
+        },
+        "mode_groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "count": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "const": "TBD"
+                  }
+                ]
+              },
+              "mode_of_operation": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "const": "TBD"
+                  }
+                ]
+              },
+              "interface": {
+                "type": "string",
+                "minLength": 1
+              },
+              "certified": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name",
+              "count",
+              "mode_of_operation",
+              "interface",
+              "certified"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "per_instance_mode_groups": {
+          "type": "object",
+          "patternProperties": {
+            "^.+$": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "device_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "module_envelope.schema.json#/definitions/share_path"
+          }
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "sensor_bindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "pending_facts": {
+          "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+        }
+      },
+      "required": [
+        "role",
+        "transport",
+        "config_file",
+        "actuator_count",
+        "sensor_count",
+        "mode_groups",
+        "device_refs"
+      ],
+      "additionalProperties": false
+    },
+    "machine": {
+      "$ref": "module_envelope.schema.json"
+    },
+    "devices": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "$ref": "device.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "$ref": "unit_calibration_envelope.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "robot_model": {
+      "type": "object",
+      "properties": {
+        "joint_limits": {
+          "type": "object"
+        },
+        "joints": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "joint_limits"
+      ],
+      "additionalProperties": false
+    },
+    "use_mock_hardware": {
+      "type": "boolean"
+    },
+    "bus_cycle_hz": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "runtime_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sync_mode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "render_mode": {
+      "enum": [
+        "normal",
+        "stationary_enable"
+      ]
+    }
+  },
+  "required": [
+    "module",
+    "machine",
+    "devices",
+    "unit",
+    "robot_model",
+    "use_mock_hardware",
+    "bus_cycle_hz",
+    "runtime_dir",
+    "render_mode"
+  ],
+  "additionalProperties": false
+}

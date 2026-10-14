@@ -33,6 +33,8 @@
 | release-deploy/01#F1 | bringup 只选择并组合 EtherCAT/CANopen 两个 package-owned real/mock system，配置对齐在 Node 创建前 fail closed | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock） |
 | release-deploy/04#F1 | swerve_driver 已进入 bringup 构建闭包，但未加入生产启动；增量容器测试不替代真实后端及整机验收 | [舵轮包集成](../release-deploy/records/2026-09-09-swerve-package-integration.md) | PARTIAL（T1 增量容器） |
 
+| integration-20261013-01#F1–F4 | M0b 两包及九份 Draft 7 草案；模块私有 spec、设备 TBD、XML/GPIO 投影契约与离线 YAML 边界；不改变运行入口 | [M0b schema 与骨架](records/2026-10-13-kkozia-5-m0b-composer-skeleton-and-schemas.md) | UNVERIFIED（T0；A0/运行验证待完成） |
+
 ## 跨区事实关联
 
 控制器实现见[arm-control](../arm-control/README.md)；生命周期见[protocol](../protocol/README.md)；机型组合输入见[hw-config](../hw-config/README.md)。同一原始记录跨资产事实按对应区引用。

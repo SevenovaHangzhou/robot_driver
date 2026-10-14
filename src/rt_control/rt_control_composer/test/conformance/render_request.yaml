@@ -1,0 +1,109 @@
+module:
+  role: actuator_group
+  transport: ethercat
+  config_file: machines/SyntheticA/articulated_fixture.yaml
+  actuator_count: 4
+  sensor_count: 0
+  mode_groups:
+  - name: mode_1
+    count: 1
+    mode_of_operation: 1
+    interface: position
+    certified: false
+  - name: mode_8
+    count: 3
+    mode_of_operation: 8
+    interface: position
+    certified: false
+  device_refs:
+  - devices/synthetic_output_drive.yaml
+machine:
+  schema_version: 1
+  kind: machine_module
+  status: draft
+  verified: false
+  authorities:
+    source: Synthetic test data; never production facts
+  pending_facts:
+  - Synthetic only
+  robot_variant: SyntheticA
+  module: articulated_fixture
+  spec:
+    extra_responders:
+    - ring_position: 0
+      profile: synthetic_branch
+    axes:
+    - physical_joint: axis_1
+      robot_model_joint: axis_1
+      ring_position: 2
+      mode_of_operation: 8
+      role: axis
+      device: synthetic_output_drive
+      direction: 1
+    - physical_joint: axis_2
+      robot_model_joint: axis_2
+      ring_position: 5
+      mode_of_operation: 8
+      role: axis
+      device: synthetic_output_drive
+      direction: 1
+    - physical_joint: axis_3
+      robot_model_joint: axis_3
+      ring_position: 7
+      mode_of_operation: 8
+      role: axis
+      device: synthetic_output_drive
+      direction: 1
+    - physical_joint: axis_4
+      robot_model_joint: axis_4
+      ring_position: 9
+      mode_of_operation: 1
+      role: axis
+      device: synthetic_output_drive
+      direction: 1
+  master_system: synthetic_master_a
+devices:
+  synthetic_output_drive:
+    schema_version: 1
+    kind: device
+    status: draft
+    verified: false
+    family: synthetic_position_family
+    authorities:
+      source: Synthetic test data; not hardware facts
+    pending_facts:
+    - Synthetic only
+    output_encoder_counts_per_revolution: 4096
+    motor_encoder_counts_per_revolution: TBD
+    reduction_ratio: 3.0
+    rated_torque_nm: TBD
+    peak_torque_nm: TBD
+    rated_current_a: TBD
+    torque_constant_nm_per_a: TBD
+unit:
+  schema_version: 1
+  kind: unit_calibration
+  status: draft
+  verified: false
+  authorities:
+    source: Synthetic test data; never production facts
+  pending_facts:
+  - Synthetic only
+  robot_variant: SyntheticA
+  module: articulated_fixture
+  spec:
+    axes:
+    - robot_model_joint: axis_1
+      zero_counts: 0
+    - robot_model_joint: axis_2
+      zero_counts: 0
+    - robot_model_joint: axis_3
+      zero_counts: 0
+    - robot_model_joint: axis_4
+      zero_counts: 0
+robot_model:
+  joint_limits: {}
+use_mock_hardware: true
+bus_cycle_hz: 1000
+runtime_dir: /synthetic/runtime
+render_mode: normal

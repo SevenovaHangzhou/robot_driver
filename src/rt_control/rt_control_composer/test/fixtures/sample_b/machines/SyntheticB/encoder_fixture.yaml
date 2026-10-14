@@ -1,0 +1,18 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticB
+module: encoder_fixture
+spec:
+  nodes:
+  - resource_name: angle_1
+    node_id: 1
+    device: synthetic_angle_sensor
+  - resource_name: angle_2
+    node_id: 2
+    device: synthetic_angle_sensor

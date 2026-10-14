@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "module envelope",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "#/definitions/schema_version"
+    },
+    "kind": {
+      "$ref": "#/definitions/kind_machine_module"
+    },
+    "robot_variant": {
+      "$ref": "#/definitions/robot_variant"
+    },
+    "module": {
+      "$ref": "#/definitions/module"
+    },
+    "status": {
+      "$ref": "#/definitions/status"
+    },
+    "verified": {
+      "$ref": "#/definitions/verified"
+    },
+    "authorities": {
+      "$ref": "#/definitions/authorities"
+    },
+    "pending_facts": {
+      "$ref": "#/definitions/pending_facts"
+    },
+    "master_system": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spec": {
+      "type": "object",
+      "description": "Owner-private fields; validated by the selected protocol renderer."
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "robot_variant",
+    "module",
+    "status",
+    "verified",
+    "authorities",
+    "pending_facts",
+    "spec"
+  ],
+  "additionalProperties": false,
+  "definitions": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "robot_variant": {
+      "type": "string",
+      "minLength": 1
+    },
+    "module": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "ready"
+      ]
+    },
+    "verified": {
+      "type": "boolean"
+    },
+    "authorities": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "pending_facts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "share_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\r\\n]+$",
+      "x-share-relative-path": true
+    },
+    "positive_number": {
+      "anyOf": [
+        {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "positive_integer": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        {
+          "const": "TBD"
+        }
+      ]
+    },
+    "kind_manifest": {
+      "const": "manifest"
+    },
+    "kind_controllers": {
+      "const": "controllers"
+    },
+    "kind_safety_policy": {
+      "const": "safety_policy"
+    },
+    "kind_machine_module": {
+      "const": "machine_module"
+    },
+    "kind_device": {
+      "const": "device"
+    },
+    "kind_unit_deployment": {
+      "const": "unit_deployment"
+    },
+    "kind_unit_calibration": {
+      "const": "unit_calibration"
+    }
+  }
+}

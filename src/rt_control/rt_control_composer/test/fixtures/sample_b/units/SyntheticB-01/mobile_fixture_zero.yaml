@@ -1,0 +1,20 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticB
+module: mobile_fixture
+spec:
+  axes:
+  - robot_model_joint: steer_1
+    zero_counts: 0
+  - robot_model_joint: steer_2
+    zero_counts: 0
+  - robot_model_joint: drive_1
+    zero_counts: 0
+  - robot_model_joint: drive_2
+    zero_counts: 0

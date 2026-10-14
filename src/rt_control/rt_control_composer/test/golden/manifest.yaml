@@ -1,0 +1,9 @@
+rename_map:
+  identifiers:
+    - old: alfa_v3_stationary_enable
+      new: Alfa_V3_stationary_enable
+  relative_paths:
+    - old: alfa_v3_rolling_envelope.mock.yaml
+      new: Alfa_V3_arm_envelope.mock.yaml
+    - old: <RUNTIME_DIR>/<joint>.yaml
+      new: <RUNTIME_DIR>/<joint>.yaml

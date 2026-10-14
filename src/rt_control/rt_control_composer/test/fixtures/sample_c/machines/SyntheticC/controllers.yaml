@@ -1,0 +1,19 @@
+schema_version: 1
+kind: controllers
+status: draft
+verified: false
+authorities:
+  source: Synthetic test data; never production facts
+pending_facts:
+- Synthetic only
+robot_variant: SyntheticC
+controllers:
+  can_fixture:
+    module: can_fixture
+    name: controller_can_fixture
+    plugin: synthetic_control/Controller
+    package: synthetic_control
+    config_file: config/controller.yaml
+    actuator_groups:
+    - mode_position_velocity
+    required_state_modules: []

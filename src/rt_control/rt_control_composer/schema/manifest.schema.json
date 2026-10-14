@@ -1,0 +1,612 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "manifest",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "module_envelope.schema.json#/definitions/schema_version"
+    },
+    "kind": {
+      "$ref": "module_envelope.schema.json#/definitions/kind_manifest"
+    },
+    "robot_variant": {
+      "$ref": "module_envelope.schema.json#/definitions/robot_variant"
+    },
+    "status": {
+      "$ref": "module_envelope.schema.json#/definitions/status"
+    },
+    "verified": {
+      "$ref": "module_envelope.schema.json#/definitions/verified"
+    },
+    "authorities": {
+      "$ref": "module_envelope.schema.json#/definitions/authorities"
+    },
+    "pending_facts": {
+      "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+    },
+    "functional_modules": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "modules": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "minLength": 1
+            },
+            "transport": {
+              "type": "string",
+              "minLength": 1
+            },
+            "config_file": {
+              "$ref": "module_envelope.schema.json#/definitions/share_path"
+            },
+            "status": {
+              "$ref": "module_envelope.schema.json#/definitions/status"
+            },
+            "instance_count": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "actuator_count": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "sensor_count": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "mode_groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "count": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "const": "TBD"
+                      }
+                    ]
+                  },
+                  "mode_of_operation": {
+                    "anyOf": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "const": "TBD"
+                      }
+                    ]
+                  },
+                  "interface": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "certified": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "count",
+                  "mode_of_operation",
+                  "interface",
+                  "certified"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "per_instance_mode_groups": {
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "const": "TBD"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "device_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "module_envelope.schema.json#/definitions/share_path"
+              }
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "sensor_bindings": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "pending_facts": {
+              "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+            }
+          },
+          "required": [
+            "role",
+            "transport",
+            "config_file",
+            "actuator_count",
+            "sensor_count",
+            "mode_groups",
+            "device_refs"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "robot_model": {
+      "type": "object",
+      "properties": {
+        "package": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variants": {
+          "type": "object",
+          "properties": {
+            "gripper": {
+              "type": "object",
+              "properties": {
+                "xacro_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                },
+                "srdf_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                },
+                "joint_limits_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                },
+                "initial_positions_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                }
+              },
+              "required": [
+                "xacro_file",
+                "joint_limits_file",
+                "initial_positions_file"
+              ],
+              "additionalProperties": false
+            },
+            "suction": {
+              "type": "object",
+              "properties": {
+                "xacro_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                },
+                "srdf_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                },
+                "joint_limits_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                },
+                "initial_positions_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                }
+              },
+              "required": [
+                "xacro_file",
+                "joint_limits_file",
+                "initial_positions_file"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "gripper",
+            "suction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "package",
+        "variants"
+      ],
+      "additionalProperties": false
+    },
+    "hardware_options": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "object",
+          "patternProperties": {
+            "^.+$": {
+              "type": "object",
+              "properties": {
+                "modules": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "status": {
+                  "$ref": "module_envelope.schema.json#/definitions/status"
+                },
+                "pending_facts": {
+                  "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+                }
+              },
+              "required": [
+                "modules",
+                "status",
+                "pending_facts"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "profiles": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "$ref": "module_envelope.schema.json#/definitions/status"
+            },
+            "modules": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "allowed_scopes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "hardware_options": {
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "layout": {
+              "type": "object",
+              "patternProperties": {
+                "^.+$": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "draft",
+                        "ready",
+                        "absent"
+                      ]
+                    },
+                    "master_id": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "const": "TBD"
+                        }
+                      ]
+                    },
+                    "ring_positions": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        {
+                          "const": "TBD"
+                        }
+                      ]
+                    },
+                    "node_ids": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        {
+                          "const": "TBD"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "pending_facts": {
+              "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+            }
+          },
+          "required": [
+            "status",
+            "modules",
+            "allowed_scopes",
+            "hardware_options",
+            "pending_facts"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "scopes": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "object",
+          "properties": {
+            "enabled_modules": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required_state_modules": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "actuator_groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "mode_group": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "module",
+                  "mode_group"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "jtc_groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "module": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "mode_group": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "module",
+                  "mode_group"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "global_readiness": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ethercat_cycle_hz_override": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "bq_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "hardware_system_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "enabled_modules",
+            "required_state_modules",
+            "actuator_groups",
+            "jtc_groups",
+            "global_readiness"
+          ],
+          "additionalProperties": false,
+          "dependencies": {
+            "ethercat_cycle_hz_override": [
+              "bq_ref"
+            ],
+            "bq_ref": [
+              "ethercat_cycle_hz_override"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "owner_refs": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "layout": {
+      "type": "object",
+      "patternProperties": {
+        "^.+$": {
+          "type": "object",
+          "properties": {
+            "cycle_hz": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "sync_period_us": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "ethercat": {
+          "type": "object",
+          "properties": {
+            "cycle_hz": {
+              "$ref": "module_envelope.schema.json#/definitions/positive_integer"
+            }
+          },
+          "required": [
+            "cycle_hz"
+          ],
+          "additionalProperties": false
+        },
+        "canopen": {
+          "type": "object",
+          "properties": {
+            "sync_period_us": {
+              "$ref": "module_envelope.schema.json#/definitions/positive_integer"
+            }
+          },
+          "required": [
+            "sync_period_us"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "robot_variant",
+    "status",
+    "verified",
+    "authorities",
+    "pending_facts",
+    "functional_modules",
+    "modules",
+    "robot_model",
+    "hardware_options",
+    "profiles",
+    "scopes",
+    "owner_refs",
+    "layout"
+  ],
+  "additionalProperties": false
+}

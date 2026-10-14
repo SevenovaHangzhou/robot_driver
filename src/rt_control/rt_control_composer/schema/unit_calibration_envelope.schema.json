@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "unit calibration envelope",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "$ref": "module_envelope.schema.json#/definitions/schema_version"
+    },
+    "kind": {
+      "$ref": "module_envelope.schema.json#/definitions/kind_unit_calibration"
+    },
+    "robot_variant": {
+      "$ref": "module_envelope.schema.json#/definitions/robot_variant"
+    },
+    "module": {
+      "$ref": "module_envelope.schema.json#/definitions/module"
+    },
+    "status": {
+      "$ref": "module_envelope.schema.json#/definitions/status"
+    },
+    "verified": {
+      "$ref": "module_envelope.schema.json#/definitions/verified"
+    },
+    "authorities": {
+      "$ref": "module_envelope.schema.json#/definitions/authorities"
+    },
+    "pending_facts": {
+      "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+    },
+    "master_system": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spec": {
+      "type": "object",
+      "description": "Owner-private calibration fields; no derived values."
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "robot_variant",
+    "module",
+    "status",
+    "verified",
+    "authorities",
+    "pending_facts",
+    "spec"
+  ],
+  "additionalProperties": false
+}
