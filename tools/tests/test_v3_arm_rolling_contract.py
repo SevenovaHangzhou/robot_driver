@@ -32,10 +32,10 @@ def test_rolling_package_is_in_source_and_runtime_closure():
     assert (ROLLING / "rolling_trajectory_controller_plugins.xml").is_file()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text(encoding="utf-8")
-    repository_gate = (ROOT / "tools/repository_gate.py").read_text(encoding="utf-8")
+    from tools.repository_gate import domain_packages
     assert "rolling_trajectory_controller" in bootstrap
     assert workflow.count("rolling_trajectory_controller") >= 3
-    assert '"rolling_trajectory_controller"' in repository_gate
+    assert "rolling_trajectory_controller" in domain_packages(ROOT)
 
 
 def test_rolling_core_uses_v3_fixed_axis_order_without_turn_or_updown():

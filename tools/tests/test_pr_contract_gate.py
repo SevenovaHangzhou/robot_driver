@@ -77,3 +77,52 @@ Implements the repository quality gate.
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_safety_policy_text_is_a_reminder_not_human_approval():
+    body = PullRequestContractGateTest().valid_body()
+    paths = ["src/rt_control/rt_control_machine_config/machines/demo/safety_policy.yaml"]
+    assert pr_contract_gate.safety_policy_warnings(body, []) == []
+    assert pr_contract_gate.safety_policy_warnings(body, paths)
+    assert pr_contract_gate.validate_body(body) == []
+    body += "\n## 安全策略变更\nConfirmed-by: reviewer\n"
+    assert pr_contract_gate.safety_policy_warnings(body, paths) == []
+
+
+def test_policy_diff_uses_merge_base_and_includes_add_modify_delete_and_rename(tmp_path):
+    import subprocess
+
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=tmp_path, check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def commit(message):
+        git("add", ".")
+        git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+            "commit", "-qm", message)
+        return git("rev-parse", "HEAD")
+
+    git("init", "-q")
+    for directory in ["modify", "delete", "rename"]:
+        (tmp_path / directory).mkdir()
+        (tmp_path / directory / "safety_policy.yaml").write_text("safe: true\n")
+    ancestor = commit("initial")
+    git("checkout", "-qb", "pr")
+    (tmp_path / "added").mkdir()
+    (tmp_path / "added/safety_policy.yaml").write_text("safe: true\n")
+    (tmp_path / "modify/safety_policy.yaml").write_text("safe: false\n")
+    git("rm", "delete/safety_policy.yaml")
+    git("mv", "rename/safety_policy.yaml", "rename/moved.yaml")
+    head = commit("policy changes")
+    git("checkout", "--detach", ancestor)
+    (tmp_path / "base-only").mkdir()
+    (tmp_path / "base-only/safety_policy.yaml").write_text("safe: true\n")
+    base = commit("base advanced")
+    paths = pr_contract_gate.changed_policy_paths(tmp_path, base, head)
+    assert set(paths) == {"added/safety_policy.yaml", "modify/safety_policy.yaml",
+                          "delete/safety_policy.yaml", "rename/safety_policy.yaml", "rename/moved.yaml"}
+    event = tmp_path / "event.json"
+    event.write_text(json.dumps({"pull_request": {
+        "body": PullRequestContractGateTest().valid_body(), "base": {"sha": base}, "head": {"sha": head},
+    }}))
+    assert pr_contract_gate.validate_event(event, tmp_path) == []

@@ -2834,3 +2834,17 @@ broadcaster，左右 /state 发布九路完整配置名称与原始值。ROS_DOM
 ### BQ-149 DOCX live readout follow-up — 2026-10-07
 
 实机通信复测通过，5秒左右state各5005条，采样计数各变化2502次（约500次/秒）；独立1kHz新样本未确认。按DOCX比例暂算左Mz410.50758Nm超过选型资料120Nm，不能认定左侧物理数据正常；负载/零点/实际型号/固件比例仍待核查，未清零。温度/状态持续0为保留字段原始值，不确认温度可用性。
+
+
+## BQ-154 — 原位使能入口 250 Hz 与 EtherCAT 主环 1 kHz 不一致 [OPEN 2026-10-13]
+
+- 来源：KKOZIA-6 / KKOZIA-2 SPEC v1.1 §6、§11；编号由 issue 指定。
+- 事实：`src/rt_control/rt_control_bringup/rt_control_bringup/stationary_enable.py:95,135`
+  使用 250 Hz；2026-09-12 T3 实测成功（ecat-axes/15#F1，
+  `docs/areas/ecat-axes/records/2026-09-12-gen3-stationary-enable.md`）。手臂运动入口
+  `arm_motion_runtime.py:122,311` 与 `robot_hw_ethercat/urdf/ecat.ros2_control.xacro:425`
+  为 1 kHz。该历史结果不证明 1 kHz 原位使能已通过。
+- 问题：并入 1 kHz（需单独授权及 T3 复验），还是长期保留 scope 级覆盖？
+- 迁移期处理：清单保留 `scopes.arms_stationary_enable.ethercat_cycle_hz_override: 250`
+  与 `bq_ref: BQ-154`，输出与金样零差异；本次仅登记，不修改旧入口或运行周期。
+- 解除条件：用户裁定；若统一周期，还须取得 T3 授权并登记实机复验记录。

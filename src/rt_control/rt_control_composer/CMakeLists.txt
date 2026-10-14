@@ -4,7 +4,9 @@ project(rt_control_composer)
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 
-install(DIRECTORY schema DESTINATION share/${PROJECT_NAME})
+# Copy schemas even with --symlink-install: the resolver confines refs to installed files.
+install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.schema.json" PATTERN "README.md")
 install(FILES rt_control_composer/renderer_contract.md
   DESTINATION share/${PROJECT_NAME}/rt_control_composer)
 install(FILES README.md DESTINATION share/${PROJECT_NAME})

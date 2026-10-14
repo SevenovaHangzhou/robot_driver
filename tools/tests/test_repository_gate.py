@@ -7,7 +7,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+import yaml
+
 from tools import repository_gate
+from tools import rt_control_layer_gate as layer_gate
 
 
 class RepositoryGateTest(unittest.TestCase):
@@ -532,6 +536,10 @@ vendored_packages:
 """,
             "tools/example.py": "print('ok')\n",
         }
+        files["tools/rt_control_layers.yaml"] = yaml.safe_dump({
+            "layers": {name: [] for name in layer_gate.LAYERS}, "baseline_violations": []})
+        files[".github/CODEOWNERS"] = (
+            "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n")
         for relative_path, content in files.items():
             path = root / relative_path
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -601,3 +609,78 @@ vendored_packages:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def layer_fixture():
+    layers = {
+        "hw_config": ["rt_control_machine_config"],
+        "integration": ["rt_control_composer"],
+        "protocol": ["bus", "rt_control_semantic_components"],
+        "control": ["motor", "bms_node"],
+    }
+    texts = {layer_gate.CONFIG: yaml.safe_dump({"layers": layers, "baseline_violations": []})}
+    for packages in layers.values():
+        for package in packages:
+            texts[f"src/rt_control/{package}/package.xml"] = f"<package><name>{package}</name></package>"
+    return texts
+
+
+@pytest.mark.parametrize("rule,path,accepted,rejected", [
+    ("R1", "new_package/package.xml", "", "<package><name>new_package</name></package>"),
+    ("R2", "motor/src/node.cpp", '#include "rt_control_semantic_components/a.hpp"',
+     '#include "bus/a.hpp"'),
+    ("R3", "bus/package.xml", "<package><name>bus</name></package>",
+     "<package><name>bus</name><test_depend>motor</test_depend></package>"),
+    ("R4", "motor/package.xml",
+     "<package><name>motor</name><exec_depend>rt_control_machine_config</exec_depend></package>",
+     "<package><name>motor</name><depend>rt_control_machine_config</depend></package>"),
+    ("R5", "rt_control_composer/rt_control_composer/compose.py", 'name = "synthetic"',
+     'name = "AlFa_V3"'),
+    ("R6", "rt_control_composer/rt_control_composer/compose.py", 'cfg = {"update_rate": rate}',
+     'cfg = {"update_rate": 1000}'),
+    ("R7", "bus/rt_control_renderer.py", 'path = "devices/motor.yaml"',
+     'path = "evidence/observation.yaml"'),
+    ("R8", "bms_node/include/bms_node/protocol/decoder.hpp", "#include <cstdint>",
+     "#include <std_msgs/msg/header.hpp>"),
+])
+def test_layer_rules_accept_valid_input_and_reject_new_violations(rule, path, accepted, rejected):
+    texts = layer_fixture()
+    path = "src/rt_control/" + path
+    if accepted:
+        texts[path] = accepted
+    assert layer_gate.check_layers(texts) == []
+    texts[path] = rejected
+    findings = layer_gate.check_layers(texts)
+    assert any(rule in finding for finding in findings), findings
+
+
+def test_baseline_only_allows_the_recorded_occurrence():
+    texts = layer_fixture()
+    path = "src/rt_control/motor/src/node.cpp"
+    snippet = '#include "bus/a.hpp"'
+    texts[path] = snippet
+    policy = yaml.safe_load(texts[layer_gate.CONFIG])
+    policy["baseline_violations"] = [{
+        "rule": "R2", "source_package": "motor", "target_package": "bus",
+        "dependency_type": "#include", "file": path, "line": 1, "text": snippet, "expires": "M3d",
+    }]
+    texts[layer_gate.CONFIG] = yaml.safe_dump(policy)
+    assert layer_gate.check_layers(texts) == []
+    texts[path] += "\n" + snippet
+    assert any("R2" in finding for finding in layer_gate.check_layers(texts))
+
+
+@pytest.mark.parametrize("rule,path,accepted,rejected", [
+    ("R9", ".github/CODEOWNERS",
+     "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n", ""),
+    ("R10", "docker/rt-control/Dockerfile",
+     'RUN apt-get install python3-jsonschema\nLABEL org.sevenova.rt-control.deps.python3-jsonschema="3.2.0"',
+     "RUN apt-get install python3-jsonschema=3.2.0-0ubuntu2"),
+])
+def test_release_rules_accept_valid_input_and_reject_violations(rule, path, accepted, rejected):
+    texts = {".github/CODEOWNERS": (
+        "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n")}
+    texts[path] = accepted
+    assert layer_gate.check_release_policy(texts) == []
+    texts[path] = rejected
+    assert any(rule in finding for finding in layer_gate.check_release_policy(texts))

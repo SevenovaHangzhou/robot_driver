@@ -75,6 +75,8 @@ robot_driver/
 
 ### 3.3 分支保护
 
+KKOZIA-2 子 issue 的 PR 由架构师在 CI 通过后合并（2026-10-13 用户授权），`safety_policy.yaml` 除外。
+
 `main`、`native` 与 `v3` 都开启：
 
 - 禁止直接 push，全部通过 PR 合并；
@@ -202,6 +204,8 @@ pre-commit install
 `domains/rt_control/BLOCKED-questions.md`，不要猜。
 
 ## 6. Pull Request 规范
+
+KKOZIA-2 子 issue 的 PR 由架构师在 CI 通过后合并（2026-10-13 用户授权），`safety_policy.yaml` 除外。
 
 ### 6.1 标题
 
@@ -397,7 +401,7 @@ Python 使用 **3.10**；禁止依赖 3.11 及以上才有的语法或标准库�
 - 不得放宽已有断言来让失败变成通过。需求改变时按新对外行为更新已有测试，并记录依据。
 - 三档决定新增测试方式，不改变适用的安全、实时、硬件授权及验证分级门禁。
 
-仓库工具链覆盖率门禁：门禁集（`tools/repository_gate.py`、`tools/pr_contract_gate.py`）合并覆盖率 ≥80%，由 `quality_gate.sh` 强制；其余 `tools/**` Python 脚本的覆盖率在门禁输出中打印可见但暂不设阈值（现状：`diff_legacy` 63%、`rt_control_axis_state_check` 69%、`rt_control_thread_affinity` 0%，2026-08-13 实测），提升覆盖与纳入门禁属独立任务。测试收集使用 pytest（同时收集 unittest 类与模块级测试函数，防止静默漏收）。测试场景按上述风险档与实际对外行为选择；生命周期路径只适用于存在对应生命周期的对象。
+仓库工具链覆盖率门禁：门禁集（`tools/repository_gate.py`、`tools/pr_contract_gate.py`、`tools/rt_control_layer_gate.py`）合并覆盖率 ≥80%，由 `quality_gate.sh` 强制；其余 `tools/**` Python 脚本的覆盖率在门禁输出中打印可见但暂不设阈值（现状：`diff_legacy` 63%、`rt_control_axis_state_check` 69%、`rt_control_thread_affinity` 0%，2026-08-13 实测），提升覆盖与纳入门禁属独立任务。测试收集使用 pytest（同时收集 unittest 类与模块级测试函数，防止静默漏收）。测试场景按上述风险档与实际对外行为选择；生命周期路径只适用于存在对应生命周期的对象。
 
 **测试通过与实机验证是两件事**，不得混写。
 

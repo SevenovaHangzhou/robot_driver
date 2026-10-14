@@ -17,6 +17,20 @@ from typing import Sequence
 
 import yaml
 
+if __package__:
+    from . import rt_control_layer_gate
+else:
+    import rt_control_layer_gate
+
+
+def domain_packages(repository_root: Path) -> set[str]:
+    """Include rt_control_composer and rt_control_machine_config once registered."""
+    texts = {p.relative_to(repository_root).as_posix(): p.read_text(encoding="utf-8")
+             for p in repository_root.glob("src/rt_control/*/package.xml")}
+    return set(rt_control_layer_gate.package_inventory(texts).values())
+
+
+DOMAIN_PACKAGES = domain_packages(Path(__file__).resolve().parents[1])
 FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 ROBOT_INTERFACES_PATH = "src/vendor/robot_interfaces"
@@ -27,22 +41,6 @@ ROBOT_INTERFACES_PACKAGES = [
     "robot_interfaces_qos",
 ]
 GENERATED_PARTS = {"build", "install", "log", ".colcon", "__pycache__"}
-DOMAIN_PACKAGES = {
-    "bms_node",
-    "lpms_nav3_can",
-    "control_api_adapter",
-    "enable_manager",
-    "plc_io_modbus",
-    "plc_node",
-    "robot_hw_canopen",
-    "robot_hw_ethercat",
-    "rt_control_bringup",
-    "rt_diagnostics",
-    "rt_control_semantic_components",
-    "rolling_trajectory_controller",
-    "swerve_driver",
-    "rt_watchdog",
-}
 SHARED_PACKAGE_PREFIXES = (
     "src/description/robot_description/",
     "src/interfaces/",
@@ -209,7 +207,8 @@ def _dependency_names(root: ET.Element) -> set[str]:
     return names
 
 
-def check_manifest_dependencies(relative_path: str, xml_text: str) -> list[str]:
+def check_manifest_dependencies(relative_path: str, xml_text: str,
+                                packages: set[str] | None = None) -> list[str]:
     """Enforce the shared -> feature -> bringup dependency direction."""
     try:
         root = ET.fromstring(xml_text)
@@ -219,7 +218,7 @@ def check_manifest_dependencies(relative_path: str, xml_text: str) -> list[str]:
     dependencies = _dependency_names(root)
     findings: list[str] = []
     if relative_path.startswith(SHARED_PACKAGE_PREFIXES):
-        for dependency in sorted(dependencies & DOMAIN_PACKAGES):
+        for dependency in sorted(dependencies & (DOMAIN_PACKAGES if packages is None else packages)):
             findings.append(
                 f"{relative_path}: shared package must not depend on domain package {dependency}"
             )
@@ -623,6 +622,7 @@ def collect_findings(repository_root: Path) -> list[str]:
         if required_path not in file_set:
             findings.append(f"{required_path}: required governance file is missing")
 
+    packages = domain_packages(repository_root)
     texts: dict[str, str] = {}
     for relative_path in files:
         findings.extend(check_path(relative_path))
@@ -641,7 +641,7 @@ def collect_findings(repository_root: Path) -> list[str]:
         findings.extend(_check_syntax(relative_path, text))
         findings.extend(check_cxx_warnings(relative_path, text))
         if relative_path.endswith("/package.xml"):
-            findings.extend(check_manifest_dependencies(relative_path, text))
+            findings.extend(check_manifest_dependencies(relative_path, text, packages))
         if (
             relative_path.startswith("src/description/robot_description/")
             and PurePosixPath(relative_path).suffix in {".xacro", ".urdf", ".srdf"}
@@ -673,6 +673,8 @@ def collect_findings(repository_root: Path) -> list[str]:
         )
     if ".pre-commit-config.yaml" in texts:
         findings.extend(check_precommit_policy(texts[".pre-commit-config.yaml"]))
+    findings.extend(rt_control_layer_gate.check_layers(texts))
+    findings.extend(rt_control_layer_gate.check_release_policy(texts))
     return sorted(set(findings))
 
 
