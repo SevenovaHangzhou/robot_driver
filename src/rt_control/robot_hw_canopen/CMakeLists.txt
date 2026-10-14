@@ -50,7 +50,7 @@ install(TARGETS swerve_encoder_feedback swerve_encoder_system
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
 install(FILES robot_hw_canopen_plugins.xml DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY config/machines config/profiles DESTINATION share/${PROJECT_NAME}/config)
+install(DIRECTORY config/profiles DESTINATION share/${PROJECT_NAME}/config)
 install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.schema.json")
 install(PROGRAMS cmake/validate_swerve_encoder_profile.py

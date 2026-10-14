@@ -20,21 +20,15 @@ def validate(repository_root: Path) -> list[str]:
     findings: list[str] = []
     source_lock_path = repository_root / "src/description/source-lock.yaml"
     machine_path = (
-        repository_root
-        / "src/rt_control/rt_control_bringup/config/machines/alfa_v3.yaml"
+        repository_root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml"
     )
     cmake_path = repository_root / "src/rt_control/rt_control_bringup/CMakeLists.txt"
     package_path = repository_root / "src/rt_control/rt_control_bringup/package.xml"
-    start_path = (
-        repository_root
-        / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
-    )
+    start_path = repository_root / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
     dependency_path = repository_root / "deps.repos"
     interface_lock_path = repository_root / "src/interfaces/source-lock.yaml"
     arm_calibration_path = (
-        repository_root
-        / "src/rt_control/robot_hw_ethercat/config/machines/"
-        "alfa_v3_arm_motion_calibration.draft.yaml"
+        repository_root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/arms.yaml"
     )
 
     try:
@@ -45,9 +39,7 @@ def validate(repository_root: Path) -> list[str]:
         start = start_path.read_text(encoding="utf-8")
         dependencies = yaml.safe_load(dependency_path.read_text(encoding="utf-8"))
         interface_lock = yaml.safe_load(interface_lock_path.read_text(encoding="utf-8"))
-        arm_calibration = yaml.safe_load(
-            arm_calibration_path.read_text(encoding="utf-8")
-        )
+        arm_calibration = yaml.safe_load(arm_calibration_path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as error:
         return [f"V3 contract input could not be read: {error}"]
 
@@ -66,14 +58,23 @@ def validate(repository_root: Path) -> list[str]:
     model = machine.get("robot_model", {})
     expected_model = {
         "package": "robot_description",
-        "xacro_file": "urdf/robot_dual_gripper.urdf.xacro",
-        "end_effector": "gripper",
         "source_revision": EXPECTED_DESCRIPTION_REVISION,
     }
     for key, expected in expected_model.items():
         if model.get(key) != expected:
             findings.append(f"alfa_v3 robot_model.{key} must be {expected!r}")
 
+    deployment = yaml.safe_load(
+        (
+            repository_root
+            / "src/rt_control/rt_control_machine_config/units/Alfa_V3-01/deployment.yaml"
+        ).read_text()
+    )
+    if (
+        deployment["end_effector"] != "gripper"
+        or model["variants"]["gripper"]["xacro_file"] != "urdf/robot_dual_gripper.urdf.xacro"
+    ):
+        findings.append("V3 deployment must retain the selected gripper model")
     if "launch/rt_control_module.launch.py" not in cmake:
         findings.append("V3 bringup must install the machine-profile launch")
     if "launch/rt_control_arm_runtime.launch.py" not in cmake:
@@ -88,9 +89,7 @@ def validate(repository_root: Path) -> list[str]:
             findings.append(f"V3 bringup must not install/test {retired_install}")
     for retired_dependency in ("x503_force_sensor", "diff_drive_controller"):
         if f"<exec_depend>{retired_dependency}</exec_depend>" in package:
-            findings.append(
-                f"V3 bringup must not depend on {retired_dependency}"
-            )
+            findings.append(f"V3 bringup must not depend on {retired_dependency}")
     if "launch_file=rt_control_module.launch.py" not in start:
         findings.append("V3 rt_control_start must default to static module validation")
     if "launch_file=rt_control.launch.py" in start:
@@ -100,19 +99,27 @@ def validate(repository_root: Path) -> list[str]:
     if "<exec_depend>rolling_trajectory_controller</exec_depend>" not in package:
         findings.append("V3 bringup must depend on rolling_trajectory_controller")
     interface_pin = (
-        dependencies.get("repositories", {})
-        .get("src/vendor/robot_interfaces", {})
-        .get("version")
+        dependencies.get("repositories", {}).get("src/vendor/robot_interfaces", {}).get("version")
     )
     if interface_pin != EXPECTED_ROLLING_INTERFACE_REVISION:
         findings.append("V3 deps.repos must pin the rolling public interface revision")
     if interface_lock.get("commit") != EXPECTED_ROLLING_INTERFACE_REVISION:
         findings.append("V3 source-lock must match the rolling public interface revision")
-    calibration_axes = arm_calibration.get("axes", [])
+    calibration_axes = [
+        axis
+        for branch in arm_calibration["spec"]["branches"].values()
+        for axis in branch["axes"]
+        if axis["mode_of_operation"] == 8
+    ]
     if len(calibration_axes) != 14:
         findings.append("V3 arm runtime must declare exactly 14 CSP calibration axes")
 
-    safety = machine.get("safety_policy", {}).get("fault_dependencies", [])
+    safety = yaml.safe_load(
+        (
+            repository_root
+            / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/safety_policy.yaml"
+        ).read_text()
+    )["fault_dependencies"]
     expected_safety = [
         {
             "source_module": "active_suspension",
@@ -127,9 +134,7 @@ def validate(repository_root: Path) -> list[str]:
     ]
     if safety != expected_safety:
         findings.append("V3 fault dependency policy does not match BQ-151")
-    if machine.get("profiles", {}).get("full_robot", {}).get("allowed_scopes") != [
-        "full"
-    ]:
+    if machine.get("profiles", {}).get("full_robot", {}).get("allowed_scopes") != ["full"]:
         findings.append("full_robot must allow only the full control scope")
     return findings
 
@@ -145,9 +150,17 @@ def main() -> int:
     root = args.repository_root.resolve()
     findings = validate(root)
     validator = root / "src/rt_control/rt_control_bringup/scripts/validate_machine_profile.py"
-    manifest = root / "src/rt_control/rt_control_bringup/config/machines/alfa_v3.yaml"
+    manifest = root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml"
     result = subprocess.run(
-        [sys.executable, str(validator), "--manifest", str(manifest), "--all"],
+        [
+            sys.executable,
+            str(validator),
+            "--manifest",
+            str(manifest),
+            "--unit",
+            "Alfa_V3-01",
+            "--all",
+        ],
         capture_output=True,
         text=True,
         check=False,

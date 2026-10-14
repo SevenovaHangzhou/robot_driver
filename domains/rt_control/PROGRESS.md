@@ -245,4 +245,5 @@
 | 2026-10-14 | hw-config | [手臂事实分离](docs/areas/hw-config/records/2026-10-14-arm-fact-separation.md) | UNVERIFIED（T0；schema/来源对齐；型号、标定与完整拓扑待确认） |
 | 2026-10-14 | integration | [底盘离线组合与联合测试迁移](docs/areas/integration/records/2026-10-14-chassis-offline-composition.md) | UNVERIFIED（第三步；五包576 tests、质量门禁243 passed/13 skipped；手臂金样保留；真实TBD拒绝，新CI待验） |
 | 2026-10-14 | integration | [头部/力传感离线迁移与停止点三](docs/areas/integration/records/2026-10-14-head-force-composition.md) | PARTIAL（第四步；十份golden零差异、484 tests无失败、头部T1等价；force/原位T1缺口、D-b和第五步批准待完成） |
+| 2026-10-14 | integration | [组合器默认入口切换与V3删旧](docs/areas/integration/records/2026-10-14-composer-defaults.md) | PARTIAL（第五步；用户批准全部默认与头部参数，712 tests无失败；V3基线清空、冻结V2哈希例外获批；T1与新CI/实机未闭环） |
 | 2026-10-14 | arm-control | [显式手臂策略](docs/areas/arm-control/records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；数值/顺序/金样对齐；包络未实测） |

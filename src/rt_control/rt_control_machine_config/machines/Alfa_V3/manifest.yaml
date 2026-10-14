@@ -498,6 +498,7 @@ scopes:
       - damiao_head_manager
     preserve_controller_file: true
     robot_name: alfa_v3_head_control
+    parameter_view: head_state
   arms_stationary_enable:
     enabled_modules:
     - arms

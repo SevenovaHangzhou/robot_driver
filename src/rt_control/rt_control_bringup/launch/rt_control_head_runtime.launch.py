@@ -3,7 +3,6 @@
 from pathlib import Path
 import tempfile
 
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, EmitEvent, OpaqueFunction, RegisterEventHandler
 from launch.event_handlers import OnProcessExit
@@ -12,8 +11,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import yaml
 
-from rt_control_bringup.head_can_config import load_head_can_config
-from rt_control_bringup.head_runtime import build_head_runtime
+from rt_control_composer.compose import compose, preflight
 
 
 def _boolean(context, name):
@@ -33,49 +31,23 @@ def _start_if_succeeded(next_action, reason):
 
 
 def setup(context):
-    config_path = LaunchConfiguration("head_can_config").perform(context).strip()
-    composer = LaunchConfiguration("use_composer", default="false").perform(context) == "true"
     use_mock_hardware = _boolean(context, "use_mock_hardware")
     publish_robot_state = (
         _boolean(context, "publish_robot_state")
         if "publish_robot_state" in context.launch_configurations
         else True
     )
-    bringup_share = Path(get_package_share_directory("rt_control_bringup"))
-    runtime = Path(tempfile.mkdtemp(prefix="alfa-v3-head-runtime-"))
-    if composer:
-        from rt_control_composer.compose import compose, preflight
-
-        if config_path:
-            raise ValueError(
-                "Composer consumes machine/unit head configuration, not head_can_config"
-            )
-        build = compose(
-            robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
-            machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
-            physical_profile="head_only",
-            control_scope="head_only",
-            runtime_dir=runtime,
-            use_mock_hardware=use_mock_hardware,
-        )
-        preflight(build)
-        order = build.controller_order
-    else:
-        if not config_path:
-            raise ValueError("head_can_config is required for the V3 head runtime")
-        config = load_head_can_config(config_path)
-        build = build_head_runtime(
-            config=config,
-            description_share=get_package_share_directory("robot_description"),
-            hardware_share=get_package_share_directory("robot_hw_can"),
-            controller_share=get_package_share_directory("damiao_head_controller"),
-            bringup_share=bringup_share,
-            use_mock_hardware=use_mock_hardware,
-        )
-        order = {
-            "inactive": ["head_position_controller"],
-            "active": ["joint_state_broadcaster", "damiao_head_manager"],
-        }
+    runtime = Path(tempfile.mkdtemp(prefix="rt-control-head-runtime-"))
+    build = compose(
+        robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
+        machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
+        physical_profile="head_only",
+        control_scope="head_only",
+        runtime_dir=runtime,
+        use_mock_hardware=use_mock_hardware,
+    )
+    preflight(build)
+    order = build.controller_order
     controller_config = runtime / "controllers.yaml"
     controller_config.write_text(
         yaml.safe_dump(build.controllers, sort_keys=False), encoding="utf-8"
@@ -128,9 +100,7 @@ def setup(context):
 def generate_launch_description():
     return LaunchDescription(
         [
-            DeclareLaunchArgument("head_can_config", default_value=""),
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
-            DeclareLaunchArgument("use_composer", default_value="false", choices=["true", "false"]),
             DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             DeclareLaunchArgument("publish_robot_state", default_value="true"),

@@ -1,111 +1,53 @@
 #!/usr/bin/env python3
-"""Validate an ELECTRI-118 machine manifest without touching hardware."""
-
-from __future__ import annotations
+"""Validate machine/unit selections without rendering or accessing hardware."""
 
 import argparse
-import itertools
 from pathlib import Path
 import sys
 
+from ament_index_python.packages import get_package_share_directory
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-if str(PACKAGE_ROOT) not in sys.path:
-    sys.path.insert(0, str(PACKAGE_ROOT))
-
-# ``ament_cmake_python`` installs the package below the prefix's
-# ``local/lib/python*/dist-packages`` directory. Keep the validator directly
-# executable from an installed prefix as well as from the source tree.
-INSTALL_PREFIX = Path(__file__).resolve().parents[2]
-for python_path in sorted(INSTALL_PREFIX.glob("local/lib/python*/dist-packages")):
-    if python_path.is_dir() and str(python_path) not in sys.path:
-        sys.path.insert(0, str(python_path))
-
-from rt_control_bringup.machine_profile import (  # noqa: E402
-    MachineProfileError,
-    load_machine_manifest,
-    select_hardware,
-)
+from rt_control_composer.manifest import validate_selection
+from rt_control_composer.schema.primitives import load_and_validate
 
 
-def _arguments() -> argparse.Namespace:
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--all", action="store_true", dest="all_selections")
+    parser.add_argument("--unit", required=True)
+    parser.add_argument("--all", action="store_true")
     parser.add_argument("--physical-profile")
     parser.add_argument("--control-scope")
-    parser.add_argument("--force-sensor-option")
-    parser.add_argument(
-        "--require-runtime-ready",
-        action="store_true",
-        help="reject draft/TBD hardware facts instead of only inspecting them",
-    )
-    return parser.parse_args()
-
-
-def _validate_all(manifest, *, require_runtime_ready: bool) -> int:
-    selections = 0
-    for profile in manifest.profiles.values():
-        for scope_name in profile.allowed_scopes:
-            option_names = tuple(manifest.hardware_options)
-            allowed = [profile.hardware_options[name] for name in option_names]
-            for option_values in itertools.product(*allowed):
-                select_hardware(
-                    manifest,
-                    physical_profile=profile.name,
-                    control_scope=scope_name,
-                    hardware_options=dict(zip(option_names, option_values)),
-                    require_runtime_ready=require_runtime_ready,
-                )
-                selections += 1
-    print(
-        f"validated {manifest.variant}: {len(manifest.modules)} modules, "
-        f"{len(manifest.profiles)} physical profiles, {selections} "
-        "profile/scope/option selections"
-    )
-    return 0
-
-
-def main() -> int:
-    arguments = _arguments()
+    parser.add_argument("--require-runtime-ready", action="store_true")
+    args = parser.parse_args()
     try:
-        manifest = load_machine_manifest(arguments.manifest)
-        if arguments.all_selections:
-            if (
-                arguments.physical_profile
-                or arguments.control_scope
-                or arguments.force_sensor_option
-            ):
-                raise MachineProfileError(
-                    "--all cannot be combined with --physical-profile or --control-scope"
-                )
-            return _validate_all(
-                manifest, require_runtime_ready=arguments.require_runtime_ready
-            )
-        if not arguments.physical_profile or not arguments.control_scope:
-            raise MachineProfileError(
-                "--physical-profile and --control-scope are required unless --all is used"
-            )
-        selected = select_hardware(
-            manifest,
-            physical_profile=arguments.physical_profile,
-            control_scope=arguments.control_scope,
-            hardware_options={
-                "force_sensors": arguments.force_sensor_option or "none"
-            },
-            require_runtime_ready=arguments.require_runtime_ready,
+        root = args.manifest.resolve().parents[2]
+        schemas = Path(get_package_share_directory("rt_control_composer")) / "schema"
+        manifest = load_and_validate(args.manifest, "manifest.schema.json", schemas, root)
+        pairs = (
+            [
+                (profile, scope)
+                for profile, entry in manifest["profiles"].items()
+                for scope in entry["allowed_scopes"]
+            ]
+            if args.all
+            else [(args.physical_profile, args.control_scope)]
         )
-        print(
-            f"validated {manifest.variant}/{selected.physical_profile}/"
-            f"{selected.control_scope}: actuators={selected.actuator_count} "
-            + " ".join(
-                f"{name}={value}"
-                for name, value in selected.hardware_options.items()
+        if not args.all and not all(pairs[0]):
+            parser.error("--physical-profile and --control-scope are required unless --all is used")
+        for profile, scope in pairs:
+            validate_selection(
+                robot_variant=manifest["robot_variant"],
+                machine_unit=args.unit,
+                physical_profile=profile,
+                control_scope=scope,
+                require_runtime_ready=args.require_runtime_ready,
+                config_share=root,
             )
-        )
+        print(f"Validated {len(pairs)} profile/scope selections for {args.unit}")
         return 0
-    except (MachineProfileError, OSError, ValueError) as error:
-        print(f"ERROR: {error}", file=sys.stderr)
+    except (ValueError, OSError, LookupError) as error:
+        print(f"Configuration rejected: {error}", file=sys.stderr)
         return 1
 
 

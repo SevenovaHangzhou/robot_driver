@@ -130,7 +130,7 @@ if(BUILD_TESTING)
   )
   target_compile_definitions(
     test_envelope_loader PRIVATE
-    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../rt_control_bringup/config/alfa_v3_rolling_envelope.mock.yaml\""
+    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/config/Alfa_V3_arm_envelope.mock.yaml\""
   )
   target_include_directories(test_envelope_loader PRIVATE include)
   target_link_libraries(test_envelope_loader rolling_trajectory_core)
@@ -155,7 +155,7 @@ if(BUILD_TESTING)
   target_include_directories(test_controller_lifecycle PRIVATE include)
   target_compile_definitions(
     test_controller_lifecycle PRIVATE
-    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../rt_control_bringup/config/alfa_v3_rolling_envelope.mock.yaml\""
+    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/config/Alfa_V3_arm_envelope.mock.yaml\""
   )
   ament_target_dependencies(
     test_controller_lifecycle controller_interface hardware_interface rclcpp
@@ -242,7 +242,7 @@ if(BUILD_TESTING)
   target_include_directories(test_state_publisher PRIVATE include)
   target_compile_definitions(
     test_state_publisher PRIVATE
-    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../rt_control_bringup/config/alfa_v3_rolling_envelope.mock.yaml\""
+    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/config/Alfa_V3_arm_envelope.mock.yaml\""
   )
   ament_target_dependencies(
     test_state_publisher

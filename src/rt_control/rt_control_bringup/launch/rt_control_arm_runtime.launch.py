@@ -3,7 +3,6 @@
 from pathlib import Path
 import tempfile
 
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -17,7 +16,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import yaml
 
-from rt_control_bringup.arm_motion_runtime import build_arm_motion_runtime
+from rt_control_composer.compose import compose, preflight
 
 
 def _boolean(context, name: str) -> bool:
@@ -53,48 +52,18 @@ def setup(context):
         if "publish_robot_state" in context.launch_configurations
         else True
     )
-    calibration_file = LaunchConfiguration("calibration_file").perform(context).strip()
-    runtime = Path(tempfile.mkdtemp(prefix="alfa-v3-arm-runtime-"))
-    bringup_share = Path(get_package_share_directory("rt_control_bringup"))
-    if LaunchConfiguration("use_composer", default="false").perform(context) == "true":
-        from rt_control_composer.compose import compose, preflight
-
-        if calibration_file:
-            raise ValueError(
-                "The composer uses machine/unit envelopes; select a verified machine configuration"
-            )
-        build = compose(
-            robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
-            machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
-            physical_profile="arms_only",
-            control_scope="arms_only",
-            runtime_dir=runtime,
-            use_mock_hardware=use_mock_hardware,
-            jtc_only=jtc_only,
-        )
-        preflight(build)
-        controller_order = build.controller_order
-    else:
-        build = build_arm_motion_runtime(
-            hardware_share=get_package_share_directory("robot_hw_ethercat"),
-            description_share=get_package_share_directory("robot_description"),
-            runtime_dir=runtime,
-            use_mock_hardware=use_mock_hardware,
-            bringup_share=bringup_share,
-            jtc_only=jtc_only,
-            calibration_file=calibration_file or None,
-        )
-        controller_order = {
-            "inactive": [
-                "whole_body_jtc",
-                *([] if jtc_only else ["rolling_trajectory_controller"]),
-            ],
-            "active": [
-                "joint_state_broadcaster",
-                "rt_internal_state_broadcaster",
-                "enable_manager",
-            ],
-        }
+    runtime = Path(tempfile.mkdtemp(prefix="rt-control-arm-runtime-"))
+    build = compose(
+        robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
+        machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
+        physical_profile="arms_only",
+        control_scope="arms_only",
+        runtime_dir=runtime,
+        use_mock_hardware=use_mock_hardware,
+        jtc_only=jtc_only,
+    )
+    preflight(build)
+    controller_order = build.controller_order
     controller_config = runtime / "controllers.yaml"
     controller_config.write_text(
         yaml.safe_dump(build.controllers, sort_keys=False), encoding="utf-8"
@@ -193,12 +162,10 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
-            DeclareLaunchArgument("use_composer", default_value="false", choices=["true", "false"]),
             DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             DeclareLaunchArgument("jtc_only", default_value="false"),
             DeclareLaunchArgument("publish_robot_state", default_value="true"),
-            DeclareLaunchArgument("calibration_file", default_value=""),
             OpaqueFunction(function=setup),
         ]
     )

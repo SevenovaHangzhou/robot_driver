@@ -160,6 +160,9 @@ jobs:
             robot_interfaces_qos \
             rt_control_interfaces \
             robot_description \
+            rt_control_semantic_components \
+            rt_control_composer \
+            rt_control_machine_config \
             robot_hw_can \
             damiao_head_controller
           source install/setup.bash
@@ -167,10 +170,10 @@ jobs:
             --base-paths src "${HEAD_FAST_WS}/src/vendor" \
             --packages-select robot_hw_can damiao_head_controller
           colcon test-result --verbose
-          PYTHONPATH=src/rt_control/rt_control_bringup:${PYTHONPATH:-} \
+          COMPOSER_SCHEMA_DIR=${GITHUB_WORKSPACE}/install/rt_control_composer/share/rt_control_composer/schema \
             python3 -m pytest -q \
-            src/rt_control/rt_control_bringup/test/test_v3_head_can_integration.py \
-            src/rt_control/rt_control_bringup/test/test_machine_profile.py
+            src/rt_control/rt_control_composer/test/test_head_force.py \
+            src/rt_control/rt_control_composer/test/test_config_contract.py
 
   build:
     needs: governance
@@ -441,4 +444,8 @@ jobs:
             > /tmp/robot-description-ci.urdf
           check_urdf /tmp/robot-description-ci.urdf
       - name: Enforce V3 source and runtime boundary
-        run: python3 tools/check_v3_branch_contract.py
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          python3 tools/check_v3_branch_contract.py

@@ -19,3 +19,8 @@ families:
   swerve_assembly:
     profiles: {}
     certified_modes: []
+  bluepoint:
+    profiles:
+      passive: bluepoint_p140000100
+    certified_modes: []
+    interface_contract: bluepoint_wrench_input

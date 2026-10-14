@@ -591,6 +591,10 @@
             "robot_name": {
               "type": "string",
               "minLength": 1
+            },
+            "parameter_view": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [

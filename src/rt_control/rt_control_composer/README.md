@@ -71,8 +71,14 @@ runtime-directory placeholder, and complete-value/file renames in that map.
 It does not remove fields, reorder elements/lists or normalize numeric values.
 Real fixtures use isolated test calibration and do not certify production data.
 
-The two migrated launch entries remain opt-in, with `use_composer` false by
-default. The old `calibration_file` argument applies to the old arm entry;
-the new entry consumes machine/unit envelopes. Switching defaults or deleting
-old assets requires the later acceptance stop. Mock verification, CI and real
-hardware validation are reported separately in the domain records.
+The four runtime launch entries (including the independent JTC-only arm view)
+now use the composer by default after the user's stop-point approval. The
+`use_composer`, old `calibration_file` and old `head_can_config` switches are
+removed. Machine/unit assets own runtime selection and calibration; the signal
+gate retains its shutdown sequence and chooses only an entry point.
+
+The old builders and their tests are retired after freezing all ten outputs.
+Head protocol parameters are recorded as user-confirmed; the direction/model
+zero and other missing hardware facts remain explicit. Real arm calibration
+still rejects when unverified. Mock verification, CI and real hardware
+validation remain separate in the domain records.

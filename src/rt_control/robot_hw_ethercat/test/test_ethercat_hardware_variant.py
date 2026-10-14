@@ -16,10 +16,6 @@ VARIANT_PATH = PACKAGE_DIR / "variants/alfa_v1.yaml"
 PROFILE_DIR = PACKAGE_DIR / "config/slaves"
 FAMILY_REGISTRY_PATH = PACKAGE_DIR / "config/families.yaml"
 VALIDATOR_PATH = PACKAGE_DIR / "scripts/validate_ethercat_variants.py"
-SWERVE_DRAFT_PATH = (
-    PACKAGE_DIR / "config/machines/alfa_v3_swerve_chassis.draft.yaml"
-)
-SWERVE_VALIDATOR_PATH = PACKAGE_DIR / "scripts/validate_kinco_swerve_draft.py"
 CMAKE_PATH = PACKAGE_DIR / "CMakeLists.txt"
 XACRO_NAMESPACE = "http://www.ros.org/wiki/xacro"
 ECAT_JOINTS = (
@@ -103,15 +99,6 @@ def _validate(
     )
 
 
-def _validate_swerve(path: Path = SWERVE_DRAFT_PATH) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["python3", str(SWERVE_VALIDATOR_PATH), "--profile", str(path)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-
 def test_swerve_csp_csv_interface_contracts_match_controller_and_enable_ownership():
     contracts = _load_family_registry()["interface_contracts"]
 
@@ -122,16 +109,25 @@ def test_swerve_csp_csv_interface_contracts_match_controller_and_enable_ownershi
         ],
         "required_state_interfaces": [
             {
-                "name": "position", "index": 0x6064, "sub_index": 0,
-                "type": "int32", "mock_initial_value": 0.0,
+                "name": "position",
+                "index": 0x6064,
+                "sub_index": 0,
+                "type": "int32",
+                "mock_initial_value": 0.0,
             },
             {
-                "name": "status_word", "index": 0x6041, "sub_index": 0,
-                "type": "uint16", "mock_initial_value": 64.0,
+                "name": "status_word",
+                "index": 0x6041,
+                "sub_index": 0,
+                "type": "uint16",
+                "mock_initial_value": 64.0,
             },
             {
-                "name": "mode_of_operation_display", "index": 0x6061,
-                "sub_index": 0, "type": "int8", "mock_initial_value": 8.0,
+                "name": "mode_of_operation_display",
+                "index": 0x6061,
+                "sub_index": 0,
+                "type": "int8",
+                "mock_initial_value": 8.0,
             },
         ],
     }
@@ -140,27 +136,41 @@ def test_swerve_csp_csv_interface_contracts_match_controller_and_enable_ownershi
             {"name": "position", "index": 0x607A, "sub_index": 0, "type": "int32"},
             {"name": "velocity", "index": 0x60FF, "sub_index": 0, "type": "int32"},
             {
-                "name": "mode_of_operation", "index": 0x6060,
-                "sub_index": 0, "type": "int8",
+                "name": "mode_of_operation",
+                "index": 0x6060,
+                "sub_index": 0,
+                "type": "int8",
             },
             {"name": "control_word", "index": 0x6040, "sub_index": 0, "type": "uint16"},
         ],
         "required_state_interfaces": [
             {
-                "name": "position", "index": 0x6064, "sub_index": 0,
-                "type": "int32", "mock_initial_value": 0.0,
+                "name": "position",
+                "index": 0x6064,
+                "sub_index": 0,
+                "type": "int32",
+                "mock_initial_value": 0.0,
             },
             {
-                "name": "velocity", "index": 0x606C, "sub_index": 0,
-                "type": "int32", "mock_initial_value": 0.0,
+                "name": "velocity",
+                "index": 0x606C,
+                "sub_index": 0,
+                "type": "int32",
+                "mock_initial_value": 0.0,
             },
             {
-                "name": "status_word", "index": 0x6041, "sub_index": 0,
-                "type": "uint16", "mock_initial_value": 64.0,
+                "name": "status_word",
+                "index": 0x6041,
+                "sub_index": 0,
+                "type": "uint16",
+                "mock_initial_value": 64.0,
             },
             {
-                "name": "mode_of_operation_display", "index": 0x6061,
-                "sub_index": 0, "type": "int8", "mock_initial_value": 9.0,
+                "name": "mode_of_operation_display",
+                "index": 0x6061,
+                "sub_index": 0,
+                "type": "int8",
+                "mock_initial_value": 9.0,
             },
         ],
     }
@@ -170,47 +180,10 @@ def test_swerve_csp_csv_interface_contracts_match_controller_and_enable_ownershi
     )
 
 
-def test_kinco_swerve_draft_is_ordered_and_fully_fail_closed():
-    profile = yaml.safe_load(SWERVE_DRAFT_PATH.read_text(encoding="utf-8"))
-    result = _validate_swerve()
-
-    assert result.returncode == 0, result.stderr
-    assert profile["status"] == "draft"
-    assert profile["verified"] is False
-    assert profile["master_id"] == 0
-    assert [axis["module"] for axis in profile["axes"]] == [
-        "front_left", "front_right", "rear_left", "rear_right",
-        "front_left", "front_right", "rear_left", "rear_right",
-    ]
-    assert [axis["role"] for axis in profile["axes"]] == ["steering"] * 4 + ["drive"] * 4
-    assert [axis["mode_of_operation"] for axis in profile["axes"]] == [8] * 4 + [9] * 4
-    assert [axis["interface_contract"] for axis in profile["axes"]] == (
-        ["swerve_steering_csp"] * 4 + ["swerve_drive_csv"] * 4
-    )
-    assert all(
-        axis[field] == "TBD"
-        for axis in profile["axes"]
-        for field in ("joint_name", "ring_position", "family", "profile")
-    )
-
-
-def test_kinco_swerve_draft_rejects_partially_guessed_ring_position(tmp_path: Path):
-    profile = yaml.safe_load(SWERVE_DRAFT_PATH.read_text(encoding="utf-8"))
-    profile["axes"][0]["ring_position"] = 0
-    path = tmp_path / "alfa_v3_swerve_chassis.draft.yaml"
-    path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
-
-    result = _validate_swerve(path)
-
-    assert result.returncode != 0
-    assert "must remain TBD" in result.stderr
-
-
-def test_cmake_builds_and_installs_kinco_swerve_draft_validator():
+def test_cmake_builds_and_installs_kinco_protocol_validator():
     cmake = CMAKE_PATH.read_text(encoding="utf-8")
-
     assert "validate_kinco_swerve_draft ALL" in cmake
-    assert "alfa_v3_swerve_chassis.draft.yaml" in cmake
+    assert "config/profiles/kinco_fd_cyclic.yaml" in cmake
     assert "scripts/validate_kinco_swerve_draft.py" in cmake
     assert "install(DIRECTORY urdf config variants" in cmake
 
@@ -233,7 +206,7 @@ def _expand(
   <xacro:include filename="{XACRO_PATH}"/>
   <xacro:rt_control_ethercat_system
     variant="{variant}"
-    use_mock_hardware="{'true' if mock else 'false'}"/>
+    use_mock_hardware="{"true" if mock else "false"}"/>
 </robot>
 """,
         encoding="utf-8",
@@ -259,9 +232,7 @@ def _system(result: subprocess.CompletedProcess[str]) -> ET.Element:
     return systems[0]
 
 
-def _assert_validation_rejected(
-    *, variant_file: Path, profile_dir: Path, message: str
-) -> None:
+def _assert_validation_rejected(*, variant_file: Path, profile_dir: Path, message: str) -> None:
     result = _validate(variant_file=variant_file, profile_dir=profile_dir)
     assert result.returncode != 0
     assert message in result.stderr
@@ -285,12 +256,16 @@ def test_descriptor_has_the_frozen_public_schema_and_topology() -> None:
         {"ring_position": 0},
         {"ring_position": 13},
     ]
-    assert tuple(
-        (sensor["sensor_name"], sensor["ring_position"], sensor["profile"])
-        for sensor in descriptor["sensors"]
-    ) == X503_SENSORS
+    assert (
+        tuple(
+            (sensor["sensor_name"], sensor["ring_position"], sensor["profile"])
+            for sensor in descriptor["sensors"]
+        )
+        == X503_SENSORS
+    )
     assert all(
-        set(sensor) == {
+        set(sensor)
+        == {
             "sensor_name",
             "family",
             "ring_position",
@@ -303,11 +278,10 @@ def test_descriptor_has_the_frozen_public_schema_and_topology() -> None:
         for sensor in descriptor["sensors"]
     )
     assert tuple(axis["joint_name"] for axis in descriptor["axes"]) == ECAT_JOINTS
-    assert tuple(axis["ring_position"] for axis in descriptor["axes"]) == (
-        ECAT_RING_POSITIONS
-    )
+    assert tuple(axis["ring_position"] for axis in descriptor["axes"]) == (ECAT_RING_POSITIONS)
     assert all(
-        tuple(axis) == (
+        tuple(axis)
+        == (
             "joint_name",
             "family",
             "ring_position",
@@ -327,9 +301,9 @@ def test_strict_validator_accepts_the_production_descriptor() -> None:
 def test_family_registry_reuses_profile_device_identity_without_profile_tags() -> None:
     registry = _load_family_registry()
     families = registry["families"]
-    descriptor_families = {
-        axis["family"] for axis in _load_descriptor()["axes"]
-    } | {sensor["family"] for sensor in _load_descriptor()["sensors"]}
+    descriptor_families = {axis["family"] for axis in _load_descriptor()["axes"]} | {
+        sensor["family"] for sensor in _load_descriptor()["sensors"]
+    }
 
     assert registry["schema_version"] == 1
     assert descriptor_families <= set(families)
@@ -356,35 +330,21 @@ def test_family_public_interface_contract_matches_xacro_expansion(
         family = registry["families"][axis["family"]]
         contract = registry["interface_contracts"][family["interface_contract"]]
         assert tuple(
-            interface.attrib["name"]
-            for interface in joint.findall("command_interface")
-        ) == tuple(
-            interface["name"]
-            for interface in contract["required_command_interfaces"]
-        )
+            interface.attrib["name"] for interface in joint.findall("command_interface")
+        ) == tuple(interface["name"] for interface in contract["required_command_interfaces"])
         assert tuple(
-            interface.attrib["name"]
-            for interface in joint.findall("state_interface")
-        ) == tuple(
-            interface["name"]
-            for interface in contract["required_state_interfaces"]
-        )
+            interface.attrib["name"] for interface in joint.findall("state_interface")
+        ) == tuple(interface["name"] for interface in contract["required_state_interfaces"])
 
     for sensor_registration in descriptor["sensors"]:
-        sensor = system.find(
-            f"sensor[@name='{sensor_registration['sensor_name']}']"
-        )
+        sensor = system.find(f"sensor[@name='{sensor_registration['sensor_name']}']")
         assert sensor is not None
         family = registry["families"][sensor_registration["family"]]
         contract = registry["interface_contracts"][family["interface_contract"]]
         assert sensor.findall("command_interface") == []
         assert tuple(
-            interface.attrib["name"]
-            for interface in sensor.findall("state_interface")
-        ) == tuple(
-            interface["name"]
-            for interface in contract["required_state_interfaces"]
-        )
+            interface.attrib["name"] for interface in sensor.findall("state_interface")
+        ) == tuple(interface["name"] for interface in contract["required_state_interfaces"])
 
 
 @pytest.mark.parametrize(
@@ -396,9 +356,7 @@ def test_family_public_interface_contract_matches_xacro_expansion(
     ),
     ids=("scalar", "axis-sequence", "sensor-sequence"),
 )
-def test_duplicate_yaml_mapping_key_is_rejected(
-    duplicate_text: str, tmp_path: Path
-) -> None:
+def test_duplicate_yaml_mapping_key_is_rejected(duplicate_text: str, tmp_path: Path) -> None:
     variant_file = tmp_path / "alfa_v1.yaml"
     variant_file.write_text(
         VARIANT_PATH.read_text(encoding="utf-8") + duplicate_text,
@@ -426,9 +384,7 @@ def test_duplicate_axis_identity_is_rejected_by_validator_and_xacro(
     descriptor["axes"][1][field] = descriptor["axes"][0][field]
     variant_file = _write_variant(tmp_path / "variants", descriptor)
 
-    _assert_validation_rejected(
-        variant_file=variant_file, profile_dir=PROFILE_DIR, message=message
-    )
+    _assert_validation_rejected(variant_file=variant_file, profile_dir=PROFILE_DIR, message=message)
     expansion = _expand(
         variant="alfa_v1",
         mock=False,
@@ -441,9 +397,7 @@ def test_duplicate_axis_identity_is_rejected_by_validator_and_xacro(
 
 def test_axis_and_extra_responder_cannot_share_a_ring_position(tmp_path: Path) -> None:
     descriptor = _load_descriptor()
-    descriptor["extra_responders"][1]["ring_position"] = descriptor["axes"][0][
-        "ring_position"
-    ]
+    descriptor["extra_responders"][1]["ring_position"] = descriptor["axes"][0]["ring_position"]
     variant_file = _write_variant(tmp_path / "variants", descriptor)
 
     _assert_validation_rejected(
@@ -475,9 +429,7 @@ def test_duplicate_sensor_identity_is_rejected_by_validator_and_xacro(
     descriptor["sensors"][1][field] = descriptor["sensors"][0][field]
     variant_file = _write_variant(tmp_path / "variants", descriptor)
 
-    _assert_validation_rejected(
-        variant_file=variant_file, profile_dir=PROFILE_DIR, message=message
-    )
+    _assert_validation_rejected(variant_file=variant_file, profile_dir=PROFILE_DIR, message=message)
     expansion = _expand(
         variant="alfa_v1",
         mock=False,
@@ -524,9 +476,7 @@ def test_unknown_axis_registration_is_rejected_by_validator_and_xacro(
     descriptor["axes"][0][field] = value
     variant_file = _write_variant(tmp_path / "variants", descriptor)
 
-    _assert_validation_rejected(
-        variant_file=variant_file, profile_dir=PROFILE_DIR, message=message
-    )
+    _assert_validation_rejected(variant_file=variant_file, profile_dir=PROFILE_DIR, message=message)
     expansion = _expand(
         variant="alfa_v1",
         mock=False,
@@ -550,9 +500,7 @@ def test_axis_family_must_match_the_profile_device_identity(
 ) -> None:
     descriptor = _load_descriptor()
     axis = next(
-        candidate
-        for candidate in descriptor["axes"]
-        if candidate["joint_name"] == joint_name
+        candidate for candidate in descriptor["axes"] if candidate["joint_name"] == joint_name
     )
     axis["family"] = wrong_family
     variant_file = _write_variant(tmp_path / "variants", descriptor)
@@ -636,9 +584,7 @@ def test_family_profile_must_expose_each_required_pdo_interface_binding(
         if candidate.get(interface_key) == interface_name
     )
     channel[binding_field] = wrong_value
-    profile_path.write_text(
-        yaml.safe_dump(profile, sort_keys=False), encoding="utf-8"
-    )
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
 
     _assert_validation_rejected(
         variant_file=VARIANT_PATH,
@@ -675,13 +621,9 @@ def test_every_profile_mode_copy_must_match_the_descriptor(
             if channel["index"] == 0x6060
         )
     entry[value_key] = 9
-    profile_path.write_text(
-        yaml.safe_dump(profile, sort_keys=False), encoding="utf-8"
-    )
+    profile_path.write_text(yaml.safe_dump(profile, sort_keys=False), encoding="utf-8")
 
-    _assert_validation_rejected(
-        variant_file=VARIANT_PATH, profile_dir=profile_dir, message=message
-    )
+    _assert_validation_rejected(variant_file=VARIANT_PATH, profile_dir=profile_dir, message=message)
     expansion = _expand(
         variant="alfa_v1",
         mock=False,
@@ -714,27 +656,22 @@ def test_alfa_v1_preserves_stable_system_axis_and_sensor_contract(
         sensor.attrib["name"]
         for sensor in system.findall("sensor")
         if sensor.attrib["name"].startswith("ethercat_slave_")
-    } == {
-        f"ethercat_slave_{position}"
-        for position in (*ECAT_RING_POSITIONS[:-2], 14, 15, 16, 17)
-    }
+    } == {f"ethercat_slave_{position}" for position in (*ECAT_RING_POSITIONS[:-2], 14, 15, 16, 17)}
     for sensor_name, ring_position, profile in X503_SENSORS:
         sensor = system.find(f"sensor[@name='{sensor_name}']")
         assert sensor is not None
-        assert tuple(
-            interface.attrib["name"]
-            for interface in sensor.findall("state_interface")
-        ) == X503_STATE_INTERFACES
+        assert (
+            tuple(interface.attrib["name"] for interface in sensor.findall("state_interface"))
+            == X503_STATE_INTERFACES
+        )
         assert sensor.findall("command_interface") == []
         if mock:
             assert sensor.find("param[@name='ec_module.position']") is None
         else:
-            assert sensor.findtext("param[@name='ec_module.position']") == str(
-                ring_position
+            assert sensor.findtext("param[@name='ec_module.position']") == str(ring_position)
+            assert (
+                Path(sensor.findtext("param[@name='ec_module.slave_config']") or "").stem == profile
             )
-            assert Path(
-                sensor.findtext("param[@name='ec_module.slave_config']") or ""
-            ).stem == profile
     master = system.find("sensor[@name='ethercat_master']")
     assert master is not None
     assert master.findtext(
@@ -742,17 +679,15 @@ def test_alfa_v1_preserves_stable_system_axis_and_sensor_contract(
     ) == ("18" if mock else None)
     if mock:
         assert all(
-            joint.find("param[@name='ec_module.mode_of_operation']") is None
-            for joint in joints
+            joint.find("param[@name='ec_module.mode_of_operation']") is None for joint in joints
         )
     else:
-        assert tuple(
-            int(joint.findtext("param[@name='ec_module.position']"))
-            for joint in joints
-        ) == ECAT_RING_POSITIONS
+        assert (
+            tuple(int(joint.findtext("param[@name='ec_module.position']")) for joint in joints)
+            == ECAT_RING_POSITIONS
+        )
         assert all(
-            joint.findtext("param[@name='ec_module.mode_of_operation']") == "8"
-            for joint in joints
+            joint.findtext("param[@name='ec_module.mode_of_operation']") == "8" for joint in joints
         )
 
 
@@ -763,18 +698,13 @@ def test_descriptor_is_the_only_axis_registration_table() -> None:
     assert "variants/" not in xacro_source
     assert all(joint_name not in xacro_source for joint_name in ECAT_JOINTS)
     assert all(
-        sensor_name not in xacro_source
-        for sensor_name, _ring_position, _profile in X503_SENSORS
+        sensor_name not in xacro_source for sensor_name, _ring_position, _profile in X503_SENSORS
     )
 
 
 @pytest.mark.parametrize("mock", (False, True), ids=("real", "mock"))
-def test_unknown_ethercat_variant_fails_closed_during_expansion(
-    mock: bool, tmp_path: Path
-) -> None:
-    result = _expand(
-        variant="not_a_production_variant", mock=mock, tmp_path=tmp_path
-    )
+def test_unknown_ethercat_variant_fails_closed_during_expansion(mock: bool, tmp_path: Path) -> None:
+    result = _expand(variant="not_a_production_variant", mock=mock, tmp_path=tmp_path)
 
     assert result.returncode != 0
     assert "not_a_production_variant" in result.stderr
@@ -784,9 +714,7 @@ def test_unknown_ethercat_variant_fails_closed_during_expansion(
     "variant",
     ("../alfa_v1", "/tmp/alfa_v1", "Alfa_v1", "alfa-v1"),
 )
-def test_public_xacro_rejects_variant_path_syntax(
-    variant: str, tmp_path: Path
-) -> None:
+def test_public_xacro_rejects_variant_path_syntax(variant: str, tmp_path: Path) -> None:
     result = _expand(variant=variant, mock=True, tmp_path=tmp_path)
 
     assert result.returncode != 0

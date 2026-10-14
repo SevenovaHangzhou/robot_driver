@@ -33,8 +33,8 @@ controllers:
     module: arms
     name: left_gripper_controller
     plugin: forward_command_controller/ForwardCommandController
-    package: rt_control_bringup
-    config_file: config/alfa_v3_grippers.draft.yaml
+    package: control_api_adapter
+    config_file: config/Alfa_V3_grippers.draft.yaml
     actuator_groups:
     - gripper_pp
     required_state_modules: []
@@ -42,8 +42,8 @@ controllers:
     module: arms
     name: right_gripper_controller
     plugin: forward_command_controller/ForwardCommandController
-    package: rt_control_bringup
-    config_file: config/alfa_v3_grippers.draft.yaml
+    package: control_api_adapter
+    config_file: config/Alfa_V3_grippers.draft.yaml
     actuator_groups:
     - gripper_pp
     required_state_modules: []

@@ -4,7 +4,8 @@ joint_state:
   normal:
     update_rate: 125
     publish_dynamic_joint_states: false
-    interfaces: [position]
+    interfaces:
+    - position
   stationary_enable:
     use_local_topics: true
 internal_state:
@@ -16,3 +17,7 @@ internal_state:
     use_local_topics: true
 spawner_timeout_seconds: 90
 publish_robot_state: true
+parameter_views:
+  head_state:
+    joint_state_broadcaster:
+      update_rate: 50

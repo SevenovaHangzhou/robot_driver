@@ -10,7 +10,7 @@
 ## 先记住的六件事
 
 1. rt-control 负责执行，不负责任务规划。正常业务命令方向是 `motion → rt-control`，工位、箱子、抓取策略和行为树不应进入本域。
-2. 250 Hz 控制环完全留在 rt-control 容器内；上层通过轨迹、速度和生命周期接口交互。
+2. 1 kHz 主控制环完全留在 rt-control 容器内；上层通过轨迹、速度和生命周期接口交互。原位使能 scope 仍按 BQ-154 保留 250 Hz。
 3. `/rt/enable` 管理 14 个 EtherCAT 轴和 `whole_body_jtc`；Updown 是第 14 轴并与 Turn 同属第五使能批次。两条履带仍属于 CANopen，硬件和底盘控制器在进程启动时激活，不受该服务门控。
 4. 生产容器启动本身就会访问真实 EtherCAT，并激活 CANopen 硬件、初始化/设置模式/预置目标；CAN 驱动可能进入运行或激磁状态。它不能当作普通软件 smoke test，也不能只按“通信检查”授权。
 5. 当前没有独立 `rt_watchdog`，也没有 motion/autonomy heartbeat 或“上层失联后全机自动停机”接口。FJT 与 `/cmd_vel_safe` 各自遵循不同的取消/超时语义。
@@ -48,7 +48,7 @@ rt-control 接收的是“已经规划并校验过的执行目标”，不应接
 | 运维/监督 → rt-control | 普通控制启停公共入口 | `/control/set_enabled` | `enabled=true` 可自动清一次 resettable fault 后调用 `/rt/enable`；`enabled=false` 只调用 `/rt/disable`；不是急停或 STO。 |
 | 运维/RT 内部 → rt-control | 真空泵启停 | `/vacuum/pump/set_enabled` | 活动真空动作、PLC 不新鲜、任一通道 attached 或阀仍开时拒绝普通停泵。 |
 | rt-control 内部/诊断 | 14 个 EtherCAT 轴使能、失能、整组复位 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault` | 三者请求为空，返回明确的成功、失败批次、关节、状态字和阶段；通常由公共适配层或启动脚本调用。 |
-| rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 配置值 100 Hz 被 250 Hz 调度量化为实频 125 Hz；仅导出 14 个 EtherCAT 机械轴，履带状态不进入公共 `/joint_states`。 |
+| rt-control → 上层 | 控制关节位置、轨迹反馈与结果 | `/joint_states`、FJT feedback/result | `/joint_states` 为 125 Hz，当前运动集合是右七轴再左七轴；PP夹爪不进入运动 writer。 |
 | rt-control → 导航/视觉 | 原始轮速里程计和本体 TF | `/wheel/odom`、`/tf`、`/tf_static` | `/wheel/odom` 约 50 Hz；RSP 提供 `base_footprint → base_link → 本体/传感器`（含 `lidar_main`）；最终 `/odom` 与唯一 `odom → base_footprint` 属于导航域，`map → odom` 不属于本域。 |
 | rt-control → 上层 | 真空、安全和就绪摘要 | `/vacuum/state`、`/control/safety_state`、`/rt_control/readiness` | 真空状态无 `pressure_pa`；安全/就绪聚合 enable_manager、EtherCAT、CANopen node2/3、PLC fresh、BMS fresh。 |
 | rt-control → 运维/上层 | 统一硬件、使能和故障状态 | `/diagnostics` | 当前约 1 Hz，多发布者；消费者应按 `status.name` 聚合，不能假设一条消息包含完整状态树。 |
@@ -129,7 +129,7 @@ flowchart TD
     D[Docker ENTRYPOINT<br/>source ROS 与工作区] --> P[rt_control_start 作为 PID 1]
     P --> L[ros2 launch rt_control.launch.py]
     L --> X[展开共享模型 + real/mock ros2_control xacro]
-    X --> CM[controller_manager<br/>250 Hz / FIFO 80]
+    X --> CM[controller_manager<br/>1 kHz / FIFO 80]
     L --> RSP[robot_state_publisher]
     L --> DIAG[rt_diagnostics]
     CM --> A[JSB / diff-drive<br/>启动即 ACTIVE]
@@ -155,7 +155,7 @@ flowchart TD
 
 ```text
 14 轴：motion → FJT action → patched JTC → position command
-       → EtherCATDriver / CiA402 drives → 250 Hz PDO
+       → EtherCATDriver / CiA402 drives → 1 kHz 主环 PDO
 
 底盘：motion/Nav2 → /cmd_vel_safe → diff_drive_controller → 两侧履带 velocity
        → Cia402System → CANopen node 2/3
@@ -185,7 +185,7 @@ stateDiagram-v2
     RESETTING --> FAILED: 复位失败
 ```
 
-五个使能批次依次是：右 J1–J3、左 J1–J3、右 J4–J6、左 J4–J6、Turn + Updown。service 回调只提交请求，真正的状态机由 250 Hz `update()` 推进。建议按以下函数路径阅读：
+V3使能策略显式列出16个单轴批次，按环位顺序；原二代五批次仅用于阅读历史记录。service 回调只提交请求，状态机由实时 `update()` 推进；主环1 kHz，原位scope按BQ-154保留250 Hz。建议按以下函数路径阅读：
 
 1. `on_configure()`：建立三个 service、controller switch client 和诊断定时器。
 2. `on_activate()`：清理旧状态并进入启动清理。
@@ -227,7 +227,7 @@ docker stop / SIGTERM
 | `generate_launch_description()` | 全域如何总装、哪些 controller 以什么状态启动？ | [`rt_control.launch.py`](../../../src/rt_control/rt_control_bringup/launch/rt_control.launch.py) |
 | `EnableManagerController::on_configure()` | service、controller switch client 和诊断怎样建立？ | [`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
 | `EnableManagerController::on_activate()` | 启动时怎样进入 `STARTUP_SANITIZING` 并清理旧状态？ | 同上 |
-| `EnableManagerController::update()` | 非实时请求怎样由 250 Hz 状态机推进？ | 同上 |
+| `EnableManagerController::update()` | 非实时请求怎样由实时状态机推进？ | 同上 |
 | `handleEnable/Disable/ResetFault()` | 三个生命周期 service 怎样接收、拒绝或抢占请求？ | 同上 |
 | `updateEnable()` | 五批 14 轴使能怎样逐步完成并激活 JTC？ | 同上 |
 | `updateDownward()` / `startEmergency()` | 正常失能、使能回滚和运行中故障怎样收敛？ | 同上 |

@@ -3,7 +3,6 @@
 from pathlib import Path
 import tempfile
 
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction, RegisterEventHandler, EmitEvent
 from launch.events import Shutdown
@@ -12,41 +11,24 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import yaml
 
-from rt_control_bringup.stationary_enable import build_stationary_enable, verify_stationary_bus
+from rt_control_composer.compose import compose, preflight
 
 
 def setup(context):
     mock = LaunchConfiguration("use_mock_hardware").perform(context)
     if mock not in ("true", "false"):
         raise ValueError("use_mock_hardware must be true or false")
-    composer = LaunchConfiguration("use_composer", default="false").perform(context) == "true"
-    runtime = Path(tempfile.mkdtemp(prefix="alfa-v3-enable-"))
-    if composer:
-        from rt_control_composer.compose import compose, preflight
-
-        build = compose(
-            robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
-            machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
-            physical_profile="arms_only",
-            control_scope="arms_stationary_enable",
-            runtime_dir=runtime,
-            use_mock_hardware=mock == "true",
-        )
-        preflight(build)
-        controller_order = build.controller_order["active"]
-    else:
-        if mock == "false":
-            verify_stationary_bus()
-        build = build_stationary_enable(
-            get_package_share_directory("robot_hw_ethercat"),
-            runtime,
-            use_mock_hardware=mock == "true",
-        )
-        controller_order = [
-            "joint_state_broadcaster",
-            "rt_internal_state_broadcaster",
-            "enable_manager",
-        ]
+    runtime = Path(tempfile.mkdtemp(prefix="rt-control-enable-"))
+    build = compose(
+        robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
+        machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
+        physical_profile="arms_only",
+        control_scope="arms_stationary_enable",
+        runtime_dir=runtime,
+        use_mock_hardware=mock == "true",
+    )
+    preflight(build)
+    controller_order = build.controller_order["active"]
     config = runtime / "controllers.yaml"
     config.write_text(yaml.safe_dump(build.controllers, sort_keys=False), encoding="utf-8")
     manager = Node(
@@ -84,7 +66,6 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
-            DeclareLaunchArgument("use_composer", default_value="false", choices=["true", "false"]),
             DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             OpaqueFunction(function=setup),

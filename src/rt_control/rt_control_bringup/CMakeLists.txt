@@ -8,17 +8,6 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 ament_python_install_package(${PROJECT_NAME})
 
-add_custom_target(
-  validate_machine_profile ALL
-  COMMAND
-    ${Python3_EXECUTABLE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/validate_machine_profile.py
-    --manifest ${CMAKE_CURRENT_SOURCE_DIR}/config/machines/alfa_v3.yaml
-    --all
-  COMMENT "Validating ELECTRI-118 machine profiles and control scopes"
-  VERBATIM
-)
-
 install(
   FILES
     launch/rt_control_force_sensors.launch.py
@@ -31,16 +20,7 @@ install(
   DESTINATION share/${PROJECT_NAME}/launch
 )
 install(
-  DIRECTORY
-    config/machines
-  DESTINATION share/${PROJECT_NAME}/config
-)
-install(DIRECTORY urdf DESTINATION share/${PROJECT_NAME})
-install(
   FILES
-    config/alfa_v3_grippers.draft.yaml
-    config/alfa_v3_rolling_envelope.mock.yaml
-    config/bluepoint_force_sensors.draft.yaml
     config/rt_io.yaml
   DESTINATION share/${PROJECT_NAME}/config
 )
@@ -63,30 +43,11 @@ if(BUILD_TESTING)
   target_compile_definitions(test_cyclic_controller PRIVATE
     KINCO_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/../robot_hw_ethercat/test/fixtures/kinco_cyclic_mode_mock.yaml")
   find_package(ament_cmake_pytest REQUIRED)
-  ament_add_pytest_test(test_force_sensor_runtime test/test_force_sensor_runtime.py)
-  ament_add_pytest_test(
-    test_machine_profile
-    test/test_machine_profile.py
-  )
-  ament_add_pytest_test(test_stationary_enable test/test_stationary_enable.py)
+  ament_add_pytest_test(test_composer_entries test/test_composer_entries.py)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
   ament_add_pytest_test(
     test_interface_runtime_launch
     test/test_interface_runtime_launch.py
-  )
-  ament_add_pytest_test(
-    test_arm_motion_runtime
-    test/test_arm_motion_runtime.py
-  )
-  ament_add_pytest_test(test_jtc_only_launch test/test_jtc_only_launch.py)
-  ament_add_pytest_test(test_v3_head_can_integration test/test_v3_head_can_integration.py)
-  ament_add_pytest_test(
-    test_machine_profile_launch
-    test/test_machine_profile_launch.py
-  )
-  ament_add_pytest_test(
-    test_machine_profile_validator
-    test/test_machine_profile_validator.py
   )
 endif()
 
