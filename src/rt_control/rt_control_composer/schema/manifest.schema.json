@@ -497,6 +497,38 @@
             "hardware_system_id": {
               "type": "string",
               "minLength": 1
+            },
+            "render_mode": {
+              "enum": [
+                "normal",
+                "stationary_enable"
+              ]
+            },
+            "controller_order": {
+              "type": "object",
+              "properties": {
+                "active": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "inactive": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "active",
+                "inactive"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
@@ -588,6 +620,30 @@
           ],
           "additionalProperties": false
         }
+      }
+    },
+    "policy_refs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "package": {
+            "type": "string",
+            "minLength": 1
+          },
+          "file": {
+            "$ref": "module_envelope.schema.json#/definitions/share_path"
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "package",
+          "file"
+        ],
+        "additionalProperties": false
       }
     }
   },

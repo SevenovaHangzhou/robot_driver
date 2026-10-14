@@ -37,4 +37,8 @@
 
 ## 跨区事实关联
 
+| 当前来源坐标 | 事实 | 原始记录 | 验证状态 |
+| --- | --- | --- | --- |
+| integration-20261014-01#F1–F5 | 手臂四层离线组合、六份金样、opt-in 入口；手臂 Mock 状态/占用等价，原位 Mock 查询待闭环 | [第二步组合记录](records/2026-10-14-arm-offline-composition.md) | PARTIAL（T0/T1；默认旧入口，实机未验） |
+
 控制器实现见[arm-control](../arm-control/README.md)；生命周期见[protocol](../protocol/README.md)；机型组合输入见[hw-config](../hw-config/README.md)。同一原始记录跨资产事实按对应区引用。

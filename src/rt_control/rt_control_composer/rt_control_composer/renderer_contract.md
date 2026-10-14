@@ -59,7 +59,10 @@ this document does not introduce an additional global admission gate.
 The required request keys are `module`, `machine`, `devices`, `unit`,
 `robot_model` (including `joint_limits`), `use_mock_hardware`, `bus_cycle_hz`,
 `runtime_dir`, and `render_mode` (`normal` or `stationary_enable`). `sync_mode`
-is optional. `unit` may be `None` only when unnecessary. `bus_cycle_hz` already
+and `deployment` are optional. `deployment` references the existing
+`unit_deployment.schema.json` and carries host/bus deployment facts separately
+from calibration. Owners that require a deployed bus consume this Mapping.
+`unit` may be `None` only when unnecessary. `bus_cycle_hz` already
 includes an explicit scope override. `runtime_dir` only generates path strings.
 
 The result requires all of:
@@ -76,8 +79,22 @@ The result requires all of:
 | `managed_joints` | Axes exposing `control_word`; EtherCAT ring order, otherwise declared input order |
 | `expected_topology` | Owner topology for separate read-only preflight |
 
-The renderer validates the pure Mapping request against
-`render_request.schema.json`. The composer alone projects result Elements to
+Optional result `actuator_groups` maps declared group names to ordered resource
+names. Optional `resource_claims` contains opaque owner-generated strings that
+must be unique within a hardware system. These fields allow X7b and X3/X9
+without integration inspecting owner-private device fields. A renderer used by
+policy composition supplies both fields; older projection fixtures may omit them.
+
+Manifest `policy_refs` names owner package/file/schema data. Scope `render_mode`
+and `controller_order` select explicit output views. Controller `role` selects
+integration wiring without plugin-name dispatch. These optional shared fields
+express existing selection and policy facts; they do not derive new policies.
+
+The composer registry validates the pure Mapping request against
+`render_request.schema.json` once before invoking the selected owner. The owner
+validates its private module, calibration and required device facts. This keeps
+the shared envelope at the integration boundary without a protocol dependency
+on composer code. The composer alone projects result Elements to
 `{tag, attrib, text, children}` before validating `render_result.schema.json`.
 M2d implements this in `renderer_registry.py`; conformance reuses that function.
 Protocol packages must neither implement the projection nor import composer.

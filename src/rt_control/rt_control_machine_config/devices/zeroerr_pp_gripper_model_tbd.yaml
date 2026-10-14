@@ -1,0 +1,17 @@
+schema_version: 1
+kind: device
+status: draft
+verified: false
+authorities:
+  source: eRob_Rotary_Actuator_User_Manual_V3.39_section_9
+  output_encoder_counts_per_revolution: eRob_Rotary_Actuator_User_Manual_V3.39_section_9
+pending_facts:
+- gripper actuator model
+- reduction ratio and rated/peak parameters
+family: zeroerr
+output_encoder_counts_per_revolution: 524288
+reduction_ratio: TBD
+rated_torque_nm: TBD
+peak_torque_nm: TBD
+rated_current_a: TBD
+torque_constant_nm_per_a: TBD

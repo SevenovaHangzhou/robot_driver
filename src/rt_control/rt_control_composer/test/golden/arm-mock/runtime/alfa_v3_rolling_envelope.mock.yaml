@@ -1,0 +1,163 @@
+metadata:
+  schema_version: 1
+  limits_source: provisional
+  status: ESTIMATED_NOT_MEASURED
+  estimation_method: V3 Robot Model position bounds with mock-only low-speed dynamics
+  owner: Sevenova RT-Control
+  commissioning_schedule: domains/rt_control/docs/v3-arm-motion-integration.md
+  warning: THIS FILE DOES NOT REPLACE BENCH MEASUREMENT; it is accepted only by mock runtime.
+axes:
+  - name: right_joint1
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: right_joint2
+    position_lower: -1.8325957145940461
+    position_upper: 1.8325957145940461
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: right_joint3
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: right_joint4
+    position_lower: -2.53072742
+    position_upper: 2.53072742
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: right_joint5
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: right_joint6
+    position_lower: -1.91986218
+    position_upper: 1.91986218
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: right_joint7
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: left_joint1
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: left_joint2
+    position_lower: -1.8325957145940461
+    position_upper: 1.8325957145940461
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: left_joint3
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: left_joint4
+    position_lower: -2.53072742
+    position_upper: 2.53072742
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: left_joint5
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: left_joint6
+    position_lower: -1.91986218
+    position_upper: 1.91986218
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01
+  - name: left_joint7
+    position_lower: -3.14159265
+    position_upper: 3.14159265
+    velocity_positive: 0.1
+    velocity_negative: 0.1
+    acceleration_positive: 0.2
+    acceleration_negative: 0.2
+    stop_acceleration_positive: 0.2
+    stop_acceleration_negative: 0.2
+    position_margin_lower: 0.01
+    position_margin_upper: 0.01

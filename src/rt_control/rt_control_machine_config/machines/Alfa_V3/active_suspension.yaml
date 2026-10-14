@@ -1,0 +1,15 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3.yaml
+pending_facts:
+- EtherCAT ring position, live identity, firmware and fixed PDO layout
+- transmission, position scaling, direction and mechanical zero
+- electrical and mechanical travel limits, brake and power-loss behavior
+- low-speed following, stop and inhibit validation with the chassis
+robot_variant: Alfa_V3
+module: active_suspension
+spec:
+  migration_pending: true

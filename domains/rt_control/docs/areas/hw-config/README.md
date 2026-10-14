@@ -28,6 +28,8 @@
 | release-deploy/02#F1 | ELECTRI-118 machine manifest 统一登记三代机模块、五个 physical profile 和 control scope；当前为静态 draft，TBD 不得进入真实启动 | [release-deploy-20260907-01](../release-deploy/records/2026-09-07-electri-118-machine-profiles.md)#F1-F5 | UNVERIFIED（T0 静态） |
 | release-deploy/03#F1 | owner_refs 按硬件协议登记，底盘包更名不删除头部 damiao_can；4 ms SYNC 为设计约束而非实机时序结论 | [舵轮关联修复](../release-deploy/records/2026-09-08-swerve-owner-reference-corrective.md)#F1 | UNVERIFIED（T0 配置回归通过） |
 
+| hw-config-20261014-01#F1–F3 | 设备/机型/单机事实分离；型号与额定参数不猜值；台架腕部环位不外推全机 | [手臂事实分离](records/2026-10-14-arm-fact-separation.md) | UNVERIFIED（T0；schema/对齐通过，实机未验） |
+
 ## 跨区事实关联
 
 协议与驱动事实见[protocol](../protocol/README.md)，启动拼装见[integration](../integration/README.md)。当前源码与目标两层归属的差异见划分decision。

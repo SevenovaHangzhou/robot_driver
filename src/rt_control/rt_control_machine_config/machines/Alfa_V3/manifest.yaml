@@ -1,0 +1,505 @@
+schema_version: 1
+kind: manifest
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3.yaml
+pending_facts: []
+robot_variant: Alfa_V3
+functional_modules:
+- arms
+- updown
+- swerve_chassis
+- active_suspension
+- head_gimbal
+modules:
+  arms:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 2
+    actuator_count: 16
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 14
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    - name: gripper_pp
+      count: 2
+      mode_of_operation: 1
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 7
+      gripper_pp: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - ZeroErr PDO/SDO profile for CSP and PP drives
+    - arm and gripper mechanical limits and transmission parameters
+    config_file: machines/Alfa_V3/arms.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml
+    - devices/zeroerr_pp_gripper_model_tbd.yaml
+  wrist_force_sensors:
+    role: state_sensor_group
+    transport: ethercat
+    status: draft
+    instance_count: 2
+    actuator_count: 0
+    sensor_count: 2
+    mode_groups: []
+    per_instance_mode_groups: {}
+    requires: []
+    sensor_bindings:
+    - left_wrist
+    - right_wrist
+    pending_facts:
+    - left/right P140000100 observed at positions 2/4 on six-responder bench; full-layout
+      re-scan required
+    - P140000100 scalar types and engineering-unit scale
+    - authoritative Robot Model frame IDs and installed sensor-axis orientation
+    - live identity, fixed PDO, DC, status-code and sample-counter validation
+    config_file: machines/Alfa_V3/wrist_force_sensors.yaml
+    device_refs: []
+  updown:
+    role: actuator
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 1
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 1
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - EtherCAT ring position and device identity
+    - PDO/SDO profile and mechanical limits
+    config_file: machines/Alfa_V3/updown.yaml
+    device_refs: []
+  active_suspension:
+    role: actuator
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 1
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 1
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - EtherCAT ring position, live identity, firmware and fixed PDO layout
+    - transmission, position scaling, direction and mechanical zero
+    - electrical and mechanical travel limits, brake and power-loss behavior
+    - low-speed following, stop and inhibit validation with the chassis
+    config_file: machines/Alfa_V3/active_suspension.yaml
+    device_refs: []
+  swerve_chassis:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 4
+    actuator_count: 8
+    sensor_count: 0
+    mode_groups:
+    - name: steering_csp
+      count: 4
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    - name: drive_csv
+      count: 4
+      mode_of_operation: 9
+      interface: velocity
+      certified: false
+    per_instance_mode_groups:
+      steering_csp: 1
+      drive_csv: 1
+    requires:
+    - swerve_encoders
+    sensor_bindings: []
+    pending_facts:
+    - Kinco FD EtherCAT identity, PDO/SDO mapping and watchdog
+    - EtherCAT ring positions and motor-side encoder relationship
+    - confirm drawing ambiguities, steering hard-stop angles and installed module
+      geometry
+    - complete per-module wheel radius, zero, limit, backlash and threshold calibration
+    config_file: machines/Alfa_V3/swerve_chassis.yaml
+    device_refs: []
+  swerve_encoders:
+    role: state_sensor_group
+    transport: canopen
+    status: draft
+    instance_count: 4
+    actuator_count: 0
+    sensor_count: 4
+    mode_groups: []
+    per_instance_mode_groups: {}
+    requires: []
+    sensor_bindings:
+    - front_left
+    - front_right
+    - rear_left
+    - rear_right
+    pending_facts:
+    - CANopen node IDs and CiA 406 EDS/PDO mapping
+    - device support and timing verification for 4 ms SYNC-triggered TPDO
+    - encoder resolution, gear ratio, zero and backlash calibration
+    config_file: machines/Alfa_V3/swerve_encoders.yaml
+    device_refs: []
+  head_gimbal:
+    role: actuator_group
+    transport: damiao_can
+    status: draft
+    instance_count: 2
+    actuator_count: 2
+    sensor_count: 0
+    mode_groups:
+    - name: position_velocity
+      count: 2
+      mode_of_operation: TBD
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      position_velocity: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - installed motor limits and stored ACC/DEC/MAX_SPD readback
+    - head gimbal mechanical zero and transmission parameters
+    config_file: machines/Alfa_V3/head_gimbal.yaml
+    device_refs: []
+robot_model:
+  package: robot_description
+  source_revision: 17f5bdc46b8f2580ee81aed919da7b404da3bdaf
+  variants:
+    gripper:
+      xacro_file: urdf/robot_dual_gripper.urdf.xacro
+      joint_limits_file: config/joint_limits_gripper.yaml
+      initial_positions_file: config/initial_positions_gripper.yaml
+      srdf_file: srdf/robot.srdf
+    suction:
+      xacro_file: urdf/robot_dual_suction.urdf.xacro
+      joint_limits_file: config/joint_limits_suction.yaml
+      initial_positions_file: config/initial_positions_suction.yaml
+      srdf_file: srdf/robot.srdf
+hardware_options:
+  force_sensors:
+    none:
+      modules: []
+      status: ready
+      pending_facts: []
+    bluepoint_dual:
+      modules:
+      - wrist_force_sensors
+      status: draft
+      pending_facts:
+      - full-machine branch enumeration and responder count; bench has 6 responders
+        with sensors at 2/4
+      - left/right frame IDs and mounting orientation
+profiles:
+  arms_only:
+    status: draft
+    modules:
+    - arms
+    allowed_scopes:
+    - arms_only
+    - arms_stationary_enable
+    hardware_options:
+      force_sensors:
+      - none
+      - bluepoint_dual
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - runtime descriptor and controller bindings for the confirmed physical arm axes
+    - Inovance GR10-EC-6SW runtime state/DC qualification and ESI display-version
+      difference
+  arms_updown:
+    status: draft
+    modules:
+    - arms
+    - updown
+    allowed_scopes:
+    - arms_updown
+    hardware_options:
+      force_sensors:
+      - none
+      - bluepoint_dual
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - physical EtherCAT ring layout with Updown connected
+  chassis_only:
+    status: draft
+    modules:
+    - swerve_chassis
+    - swerve_encoders
+    - active_suspension
+    allowed_scopes:
+    - chassis_only
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: draft
+        node_ids: TBD
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - physical EtherCAT ring layout for the chassis bench
+    - active suspension drive position and mechanical commissioning facts
+  full_robot:
+    status: draft
+    modules:
+    - arms
+    - updown
+    - swerve_chassis
+    - swerve_encoders
+    - active_suspension
+    - head_gimbal
+    allowed_scopes:
+    - full
+    hardware_options:
+      force_sensors:
+      - none
+      - bluepoint_dual
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: draft
+        node_ids: TBD
+      damiao_can:
+        status: draft
+        node_ids:
+        - 1
+        - 2
+    pending_facts:
+    - complete EtherCAT ring order and responder identities
+    - CANopen encoder bus identity and head-gimbal CAN wiring
+    - active suspension identity, PDO and installed mechanical calibration
+  head_only:
+    status: draft
+    modules:
+    - head_gimbal
+    allowed_scopes:
+    - head_only
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: absent
+        master_id: null
+        ring_positions: []
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: draft
+        node_ids:
+        - 1
+        - 2
+    pending_facts:
+    - DaMiao head-gimbal CAN wiring and IDs
+scopes:
+  arms_only:
+    enabled_modules:
+    - arms
+    required_state_modules: []
+    actuator_groups:
+    - module: arms
+      mode_group: csp
+    - module: arms
+      mode_group: gripper_pp
+    jtc_groups:
+    - module: arms
+      mode_group: csp
+    global_readiness: partial_scope
+    render_mode: normal
+    controller_order:
+      inactive:
+      - whole_body_jtc
+      - rolling_trajectory_controller
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
+  arms_updown:
+    enabled_modules:
+    - arms
+    - updown
+    required_state_modules: []
+    actuator_groups:
+    - module: arms
+      mode_group: csp
+    - module: arms
+      mode_group: gripper_pp
+    - module: updown
+      mode_group: csp
+    jtc_groups:
+    - module: arms
+      mode_group: csp
+    - module: updown
+      mode_group: csp
+    global_readiness: partial_scope
+  chassis_only:
+    enabled_modules:
+    - swerve_chassis
+    - swerve_encoders
+    - active_suspension
+    required_state_modules:
+    - swerve_encoders
+    actuator_groups:
+    - module: swerve_chassis
+      mode_group: steering_csp
+    - module: swerve_chassis
+      mode_group: drive_csv
+    - module: active_suspension
+      mode_group: csp
+    jtc_groups: []
+    global_readiness: partial_scope
+  full:
+    enabled_modules:
+    - arms
+    - updown
+    - swerve_chassis
+    - swerve_encoders
+    - active_suspension
+    - head_gimbal
+    required_state_modules:
+    - swerve_encoders
+    actuator_groups:
+    - module: arms
+      mode_group: csp
+    - module: arms
+      mode_group: gripper_pp
+    - module: updown
+      mode_group: csp
+    - module: swerve_chassis
+      mode_group: steering_csp
+    - module: swerve_chassis
+      mode_group: drive_csv
+    - module: active_suspension
+      mode_group: csp
+    - module: head_gimbal
+      mode_group: position_velocity
+    jtc_groups:
+    - module: arms
+      mode_group: csp
+    - module: updown
+      mode_group: csp
+    global_readiness: full_scope
+  head_only:
+    enabled_modules:
+    - head_gimbal
+    required_state_modules: []
+    actuator_groups:
+    - module: head_gimbal
+      mode_group: position_velocity
+    jtc_groups: []
+    global_readiness: partial_scope
+  arms_stationary_enable:
+    enabled_modules:
+    - arms
+    required_state_modules: []
+    actuator_groups:
+    - module: arms
+      mode_group: csp
+    - module: arms
+      mode_group: gripper_pp
+    jtc_groups:
+    - module: arms
+      mode_group: csp
+    global_readiness: partial_scope
+    ethercat_cycle_hz_override: 250
+    bq_ref: BQ-154
+    render_mode: stationary_enable
+    controller_order:
+      inactive: []
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
+owner_refs:
+  ethercat: robot_hw_ethercat
+  canopen: robot_hw_canopen
+  damiao_can: robot_hw_can
+layout:
+  ethercat:
+    cycle_hz: 1000
+  canopen:
+    sync_period_us: 4000
+policy_refs:
+  enable:
+    package: enable_manager
+    file: config/Alfa_V3_enable_policy.yaml
+    schema: enable_policy.schema.json
+  motion:
+    package: rolling_trajectory_controller
+    file: config/Alfa_V3_arm_tolerances.yaml
+    schema: arm_tolerances.schema.json
+  envelope:
+    package: rolling_trajectory_controller
+    file: config/Alfa_V3_arm_envelope.mock.yaml

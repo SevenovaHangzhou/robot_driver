@@ -1,0 +1,13 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3.yaml
+pending_facts:
+- installed motor limits and stored ACC/DEC/MAX_SPD readback
+- head gimbal mechanical zero and transmission parameters
+robot_variant: Alfa_V3
+module: head_gimbal
+spec:
+  migration_pending: true

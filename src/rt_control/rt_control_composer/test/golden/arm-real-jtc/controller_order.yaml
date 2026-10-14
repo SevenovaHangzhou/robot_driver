@@ -1,0 +1,6 @@
+inactive:
+- whole_body_jtc
+active:
+- joint_state_broadcaster
+- rt_internal_state_broadcaster
+- enable_manager

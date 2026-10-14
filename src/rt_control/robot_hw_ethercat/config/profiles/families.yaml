@@ -1,0 +1,9 @@
+schema_version: 1
+families:
+  zeroerr:
+    profiles:
+      csp: zeroerr_cia402_csp
+      gripper_pp: zeroerr_cia402_stationary
+    certified_modes:
+    - 8
+    - 1

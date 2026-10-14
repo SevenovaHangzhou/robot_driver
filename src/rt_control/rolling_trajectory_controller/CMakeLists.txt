@@ -289,6 +289,8 @@ install(
   RUNTIME DESTINATION bin
 )
 install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY config schema DESTINATION share/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.yaml" PATTERN "*.schema.json")
 install(
   FILES rolling_trajectory_controller_plugins.xml
   DESTINATION share/${PROJECT_NAME}

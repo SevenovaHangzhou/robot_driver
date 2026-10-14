@@ -32,6 +32,8 @@
 | lifecycle/05#F1 | V3 enable_manager 保持 16 轴 CiA402 管理，14 CSP motion registry 在 enable 后默认进入 FJT_READY，并与 rolling 严格互斥 | [V3 运动控制器切换](../lifecycle/records/2026-09-19-v3-motion-controller-switching.md)#F1-F3 | PARTIAL（T1 Mock；真实故障/停机待验） |
 | release-deploy/2026-09-24#F1 | 旧履带启动、差速控制、Leadshine CANopen 生成链及宿主 can0 已移除；上游补丁仅保留共享生命周期/RPDO 与 Lely 队列修复，编码器 CAN 身份仍 TBD | [旧履带运行链退役](../release-deploy/records/2026-09-24-retire-track-runtime.md)#F1-F2 | UNVERIFIED（T0；隔离 9 包/150 测试、Docker 39 包与无设备静态 validation 通过；实机运行待验） |
 
+| protocol-20261014-01#F1–F3 | 离线 renderer、输出侧编码器换算、数据驱动原位预检；无新增运动入口总线检查 | [EtherCAT renderer](records/2026-10-14-ethercat-renderer.md) | UNVERIFIED（T0；conformance/既有测试通过，实机未验） |
+
 ## 跨区事实关联
 
 力反馈发布链见[arm-control](../arm-control/README.md)；机型/标定事实见[hw-config](../hw-config/README.md)。X503 PREOP准入属于本区，发布转换属于arm-control。

@@ -1,0 +1,15 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3.yaml
+pending_facts:
+- Kinco FD EtherCAT identity, PDO/SDO mapping and watchdog
+- EtherCAT ring positions and motor-side encoder relationship
+- confirm drawing ambiguities, steering hard-stop angles and installed module geometry
+- complete per-module wheel radius, zero, limit, backlash and threshold calibration
+robot_variant: Alfa_V3
+module: swerve_chassis
+spec:
+  migration_pending: true

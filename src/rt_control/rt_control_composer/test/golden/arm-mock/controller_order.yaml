@@ -1,0 +1,7 @@
+inactive:
+- whole_body_jtc
+- rolling_trajectory_controller
+active:
+- joint_state_broadcaster
+- rt_internal_state_broadcaster
+- enable_manager

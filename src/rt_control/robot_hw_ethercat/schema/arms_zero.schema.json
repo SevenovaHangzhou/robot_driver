@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "confirmed_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "captured_utc": {
+      "type": "string",
+      "minLength": 1
+    },
+    "external_transmission_ratio": {
+      "type": "number"
+    },
+    "position_object": {
+      "type": "integer"
+    },
+    "axes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ring_position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "zero_counts": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          },
+          "digital_outputs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "ring_position",
+          "zero_counts",
+          "digital_outputs"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "confirmed_by",
+    "captured_utc",
+    "external_transmission_ratio",
+    "position_object",
+    "axes"
+  ],
+  "additionalProperties": false
+}

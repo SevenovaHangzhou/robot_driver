@@ -175,6 +175,9 @@
         }
       ]
     },
+    "deployment": {
+      "$ref": "unit_deployment.schema.json"
+    },
     "robot_model": {
       "type": "object",
       "properties": {

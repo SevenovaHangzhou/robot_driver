@@ -67,6 +67,18 @@
         "minLength": 1
       }
     },
+    "actuator_groups": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string", "minLength": 1}
+      }
+    },
+    "resource_claims": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
     "expected_topology": {
       "type": "object",
       "description": "Protocol-owned topology; validated by its private schema."

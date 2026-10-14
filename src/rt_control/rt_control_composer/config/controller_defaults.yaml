@@ -1,0 +1,18 @@
+controller_manager:
+  thread_priority: 80
+joint_state:
+  normal:
+    update_rate: 125
+    publish_dynamic_joint_states: false
+    interfaces: [position]
+  stationary_enable:
+    use_local_topics: true
+internal_state:
+  normal:
+    update_rate: 50
+    use_local_topics: true
+    publish_dynamic_joint_states: true
+  stationary_enable:
+    use_local_topics: true
+spawner_timeout_seconds: 90
+publish_robot_state: true

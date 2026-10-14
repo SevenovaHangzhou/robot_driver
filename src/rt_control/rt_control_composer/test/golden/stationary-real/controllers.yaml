@@ -1,0 +1,77 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 250
+    thread_priority: 80
+    enable_manager:
+      type: enable_manager/EnableManagerController
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    rt_internal_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+enable_manager:
+  ros__parameters:
+    managed_joints:
+    - left_j1
+    - left_j2
+    - left_j3
+    - left_j4
+    - left_j5
+    - left_j6
+    - left_j7
+    - left_gripper
+    - right_j1
+    - right_j2
+    - right_j3
+    - right_j4
+    - right_j5
+    - right_j6
+    - right_j7
+    - right_gripper
+    enable_batch_joint_names:
+    - left_j1
+    - left_j2
+    - left_j3
+    - left_j4
+    - left_j5
+    - left_j6
+    - left_j7
+    - left_gripper
+    - right_j1
+    - right_j2
+    - right_j3
+    - right_j4
+    - right_j5
+    - right_j6
+    - right_j7
+    - right_gripper
+    enable_batch_sizes:
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    disable_terminal_policy: switch_on_disabled
+    enable_only: true
+    jtc_name: ''
+    batch_timeout: 4.0
+    disable_stage_timeout: 4.0
+    fault_reset_timeout: 4.0
+    inter_batch_delay: 0.2
+    service_result_timeout_ms: 90000
+joint_state_broadcaster:
+  ros__parameters:
+    use_local_topics: true
+rt_internal_state_broadcaster:
+  ros__parameters:
+    use_local_topics: true
