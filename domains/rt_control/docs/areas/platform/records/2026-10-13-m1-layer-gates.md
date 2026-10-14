@@ -65,8 +65,29 @@ KKOZIA-6 为四层迁移提供离线门禁和构建注册，不迁移运行入�
 - 初次全工具测试发现 rolling 清单测试依赖旧代码字面量，已机械改为检查派生包集合；
   不放宽该包必须注册的断言。
 
+- 2026-10-14 接手检查 PR #64 的实际 CI（远端 HEAD `5ced6214a2536e62127cf8649128964ad0be65d9`）：
+  两项 governance 与范围分类通过；build 作业完成构建，在测试阶段失败。
+  [CI 日志](https://github.com/SevenovaHangzhou/robot_driver/actions/runs/38501935335/job/115650971398)
+  汇总 2175 tests、0 errors、134 failures、23 skipped。
+  其中 133 项 pytest 失败均为 `Schema symlink escapes installed directory`，
+  另 1 项是 CTest 的 `config_contract` 汇总失败，不是第二个独立缺陷。
+- 在独立工作树用 `colcon build --symlink-install` 复现同一 schema 越界错误。
+  ament 将 schema 文件链接到源码，违反已安装 schema 目录的解析边界。
+  最小修复：schema 的 `install(DIRECTORY ...)` 增加 `FILES_MATCHING`，
+  使用 Humble ament 的原生复制路径。九份 schema、解析器、拒绝条件及门禁规则不变。
+- 修复后在新的隔离 build/install 目录执行两包 `colcon build --symlink-install`、
+  `colcon test --packages-select rt_control_composer rt_control_machine_config --return-code-on-test-failure`、
+  `colcon test-result --verbose`：PASS，153 tests、0 errors、0 failures、0 skipped。
+  复用原有 152 项 pytest，包括已安装 share 的 CLI 校验及符号链接越界拒绝。
+  Python 3.10.12、pytest 6.2.5、jsonschema 3.2.0；没有新增测试或修改宿主。
+- 本次 `tools/quality_gate.sh`：PASS，239 passed、13 skipped；两组要求的覆盖率均 85%。
+  本地缺 ruff、clang-format、shellcheck，脚本明确提示由 CI 强制检查。
+- 增量复用旧 install 时，旧 schema 链接仍在，测试仍拒绝越界。
+  本次通过结果来自干净的隔离 build/install，不宣称旧安装目录自动迁移通过。
+  本次修复随提交交付；CI 尚未验证修复。完整镜像与实机未验证。
+
 2026-10-14 首次续作修正文档编号、日期和索引；随后 M0b 合入，合并 main 时保留
-PROGRESS 两侧追加记录。在实际合并分支重跑必要质量门禁，无代码修正或新增测试。
+PROGRESS 两侧追加记录。上述接手检查只修实际 CI 的安装失败。
 
 本记录不授权使能或运动。
 
@@ -80,7 +101,7 @@ PROGRESS 两侧追加记录。在实际合并分支重跑必要质量门禁，�
 
 ## 遗留
 
-- M0b 已合入并同步；本地质量门禁通过。完整 CI 结果随 PR #64 交付。
+- M0b 已合入并同步；PR #64 原提交在 schema 安装测试失败。最小修复及两包测试通过，修复后的 CI 待验证。
 - 12 处周期字面量和 4 个依赖位置已逐条登记；请架构师核对摘要数量差异。
 - GitHub CODEOWNERS 邮箱解析与分支保护强制批准需独立核对/管理员配置。
 - 不构建生产镜像，不部署、不运行硬件；T2 及以上未执行。若 BQ-154 裁定统一，

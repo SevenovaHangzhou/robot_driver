@@ -39,7 +39,7 @@
 | governance/STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](../governance/records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
 | governance/CONTRACT-1 | 三档测试、语言分工、任务指派分支授权 | [governance-20261013-02](../governance/records/2026-10-13-agent-contract-sync.md)#F1-F3 | UNVERIFIED（T0文档） |
 | AREA-1 | 七区owner、历史冻结与目标分层，代码迁移另立任务 | [划分decision](../governance/records/2026-10-13-seven-agent-areas.md)#F1-F4 | UNVERIFIED（T0文档与索引） |
-| platform-20261014-01 | 四层逐条基线、jsonschema 3.2.x 标签一致性、ADR-17 合并授权；BQ-154 保持 OPEN | [M1 平台记录](records/2026-10-13-m1-layer-gates.md)#F1-F4 | UNVERIFIED（T0；M0b 已同步、质量门禁通过；镜像验证及分支保护待完成） |
+| platform-20261014-01 | 四层逐条基线、jsonschema 3.2.x 标签一致性、ADR-17 合并授权；BQ-154 保持 OPEN | [M1 平台记录](records/2026-10-13-m1-layer-gates.md)#F1-F4 | UNVERIFIED（T0；CI schema 安装测试失败，本地最小修复及两包 153 tests 通过；修复后的 CI 待验证，镜像及分支保护未验证） |
 
 ## 人工镜像封装入口（M1）
 
