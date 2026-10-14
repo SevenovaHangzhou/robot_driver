@@ -3,7 +3,6 @@
 from pathlib import Path
 import tempfile
 
-from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -18,7 +17,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 import yaml
 
-from rt_control_bringup.force_sensor_runtime import build_force_sensor_runtime
+from rt_control_composer.compose import compose, preflight
 
 
 def setup(context):
@@ -26,29 +25,17 @@ def setup(context):
     if raw_mock not in ("true", "false"):
         raise ValueError("use_mock_hardware must be true or false")
     runtime = Path(tempfile.mkdtemp(prefix="bluepoint-raw-bench-"))
-    if LaunchConfiguration("use_composer", default="false").perform(context) == "true":
-        from rt_control_composer.compose import compose, preflight
-
-        build = compose(
-            robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
-            machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
-            physical_profile="force_bench",
-            control_scope="force_bench",
-            runtime_dir=runtime,
-            use_mock_hardware=raw_mock == "true",
-            sync_mode=LaunchConfiguration("sync_mode").perform(context),
-        )
-        preflight(build)
-        controller_names = build.controller_order["active"]
-    else:
-        build = build_force_sensor_runtime(
-            hardware_share=get_package_share_directory("robot_hw_ethercat"),
-            bringup_share=get_package_share_directory("rt_control_bringup"),
-            runtime_dir=runtime,
-            use_mock_hardware=raw_mock == "true",
-            sync_mode=LaunchConfiguration("sync_mode").perform(context),
-        )
-        controller_names = build.controller_names
+    build = compose(
+        robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
+        machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
+        physical_profile="force_bench",
+        control_scope="force_bench",
+        runtime_dir=runtime,
+        use_mock_hardware=raw_mock == "true",
+        sync_mode=LaunchConfiguration("sync_mode").perform(context),
+    )
+    preflight(build)
+    controller_names = build.controller_order["active"]
     config = runtime / "controllers.yaml"
     config.write_text(yaml.safe_dump(build.controllers, sort_keys=False))
     manager = Node(
@@ -93,7 +80,6 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
-            DeclareLaunchArgument("use_composer", default_value="false", choices=["true", "false"]),
             DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             DeclareLaunchArgument(

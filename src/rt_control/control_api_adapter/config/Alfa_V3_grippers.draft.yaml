@@ -1,0 +1,18 @@
+position_action_adapter:
+  ros__parameters:
+    left_pp:
+      configured: false
+      command_topic: /left_gripper_controller/commands
+      minimum_position: TBD
+      maximum_position: TBD
+      tolerance: TBD
+      feedback_timeout_s: TBD
+      command_timeout_s: TBD
+    right_pp:
+      configured: false
+      command_topic: /right_gripper_controller/commands
+      minimum_position: TBD
+      maximum_position: TBD
+      tolerance: TBD
+      feedback_timeout_s: TBD
+      command_timeout_s: TBD

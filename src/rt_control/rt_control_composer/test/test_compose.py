@@ -275,10 +275,8 @@ def test_data_files_pass_existing_validator(shares):
             validate_data(value, schema + ".schema.json", PACKAGE / "schema", root)
 
 
-def test_policy_values_equal_current_old_constants():
-    # Allowed only in tests: the old module is a value oracle, never a runtime dependency.
-    sys.path.insert(0, str(RT / "rt_control_bringup"))
-    from rt_control_bringup.arm_motion_runtime import _controller_config, MOTION_JOINTS
+def test_policy_values_equal_frozen_old_output():
+    # The frozen old output remains the value oracle after retiring old code.
 
     policy = load_yaml(
         RT
@@ -290,8 +288,8 @@ def test_policy_values_equal_current_old_constants():
             + "_arm_tolerances.yaml"
         )
     )
-    old = _controller_config(Path("synthetic.yaml"), [])
-    assert policy["joints"] == list(MOTION_JOINTS)
+    old = load_yaml(GOLDEN / "arm-mock/controllers.yaml")
+    assert policy["joints"] == old["whole_body_jtc"]["ros__parameters"]["joints"]
     expected_jtc = deepcopy(old["whole_body_jtc"]["ros__parameters"])
     expected_jtc.pop("joints")
     assert policy["jtc"] == expected_jtc

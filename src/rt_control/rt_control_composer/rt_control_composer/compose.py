@@ -257,6 +257,10 @@ def compose(
         )
         share = Path(package_share(binding["package"]))
         controllers = yaml.safe_load(resolve_share_path(share, binding["config_file"]).read_text())
+        controllers["controller_manager"]["ros__parameters"]["update_rate"] = bus_rates[0]
+        if "parameter_view" in scope:
+            for name, values in defaults["parameter_views"][scope["parameter_view"]].items():
+                controllers[name]["ros__parameters"].update(deepcopy(values))
     elif "minimal_robot" in scope:
         manager.pop("thread_priority", None)
     # fault_dependencies remain owned by the separate machine safety policy. These

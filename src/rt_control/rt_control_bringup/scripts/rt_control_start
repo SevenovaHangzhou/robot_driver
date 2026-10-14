@@ -39,6 +39,9 @@ elif [[ "${1:-}" == "--arm-runtime" ]]; then
   launch_file=rt_control_arm_runtime.launch.py
   orderly_disable_required=1
   shift
+elif [[ "${1:-}" == "--force-sensors" ]]; then
+  launch_file=rt_control_force_sensors.launch.py
+  shift
 elif [[ "${1:-}" == "--head-runtime" ]]; then
   launch_file=rt_control_head_runtime.launch.py
   orderly_disable_required=1

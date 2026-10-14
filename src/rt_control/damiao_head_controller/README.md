@@ -60,7 +60,7 @@ candump -t a can2
 
 ## 4. 硬件运行配置
 
-本次临时文件为 /tmp/damiao-head-runtime/head_can.draft.yaml。/tmp中的配置、脚本和数据不是永久部署资产，请在需要长期使用时另行归档。以下为本次配置示例，位置范围和时序仍需要现场验证：
+本次临时文件为 /tmp/damiao-head-runtime/head_can.draft.yaml。当前运行入口消费已安装的机型/单机数据包；下列历史示例的参数已由用户在迁移任务中确认并登记。修改部署必须更新数据包并重新启动唯一实例。位置范围和模型方向仍按各自owner事实处理：
 
 ```yaml
 can_interface: can2
@@ -141,8 +141,7 @@ ROS_DOMAIN_ID隔离发现域；ROS_LOCALHOST_ONLY=1仅本机通信、0允许网�
 
 ```bash
 ros2 run rt_control_bringup rt_control_start --head-runtime \
-  head_can_config:=/tmp/damiao-head-runtime/head_can.draft.yaml \
-  use_mock_hardware:=false
+  machine_unit:=Alfa_V3-01 use_mock_hardware:=false
 ```
 
 Mock使用 use_mock_hardware:=true，不代表实机通过。启动时管理器和状态发布器ACTIVE、位置控制器INACTIVE，不会自动使能；硬件初始化会发送失能并以当前反馈位置初始化保持命令。

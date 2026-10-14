@@ -39,8 +39,8 @@ add_custom_target(
     ${Python3_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/scripts/validate_kinco_swerve_draft.py
     --profile
-    ${CMAKE_CURRENT_SOURCE_DIR}/config/machines/alfa_v3_swerve_chassis.draft.yaml
-  COMMENT "Validating fail-closed alfa_v3 Kinco swerve draft"
+    ${CMAKE_CURRENT_SOURCE_DIR}/config/profiles/kinco_fd_cyclic.yaml
+  COMMENT "Validating owner Kinco cyclic protocol profile"
   VERBATIM
 )
 

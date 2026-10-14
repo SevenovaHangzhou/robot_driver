@@ -1,16 +1,17 @@
 # 硬件配置隔离分层与电机变体维护指南
 
-> 分层调整：目标架构将协议与硬件配置解耦为两层，由通用组合器组合。单位换算、方向和offset等机型/标定事实的目标owner为hw-config；本文件下文的slave profile归属描述仍记录当前实现。代码迁移为后续独立任务，本次不移动配置、不改变运行行为。详见[划分decision](areas/governance/records/2026-10-13-seven-agent-areas.md)。
+> V3 迁移状态：硬件配置（devices/machines/units 纯数据）→ integration 组合与公共边界校验；protocol owner 管 profile、私有校验、渲染与预检；control owner 管策略。V3 四个 runtime launch（含 arm-jtc 模式）已按用户批准默认使用 rt_control_composer，旧 V3 builder/config 退役。以下 `alfa_v1` 内容保留为冻结二代资产说明，不作为 V3 工程事实。
+>
+> V3 当前入口：`rt_control_machine_config/machines/Alfa_V3/manifest.yaml`、`units/Alfa_V3-01/deployment.yaml`。方向在 machines，零位在 units，型号计数在 devices；enable/trajectory 策略由各控制 owner 的安装数据提供。观测 evidence 不作运行输入。修改影响演练与未验证项见第五步记录。
 
 本文说明 ELECTRI-94 的 Franka 风格硬件分层、owner-local 电机注册表，以及修改电机
 型号、数量、地址、传动换算和控制模式时的真实影响范围。当前生产变体只有
 `alfa_v1`。当前拓扑是 18 位：Hub 0/13、14 个运动轴、右/左 X503 state-only sensor
 14/15、Turn 16 与 Updown 17。
 
-ELECTRI-118 另增三代机的组合 manifest
-`src/rt_control/rt_control_bringup/config/machines/alfa_v3.yaml`。它目前是 draft，
-只登记模块、物理 profile 和控制范围，不改变 `alfa_v1` 生产选择，也不承载尚未确认的
-PDO/SDO、环位、身份或机械参数。可用 `validate_machine_profile.py --all` 做无硬件静态校验。
+V3 组合清单已迁到纯数据包，并从单机 deployment 选择末端和选装。
+清单验证入口保持无硬件节点；五个获批 runtime 入口由组合器离线生成输出，真实预检在 Node 创建前执行。
+实际手臂标定仍为 draft，头部参数已由用户确认；底盘和全机传感拓扑缺项不因默认切换而解除。
 
 本文不是实机操作授权。修改 PDO/SDO、控制模式、比例、方向或电机数量后，必须按风险
 重新执行静态检查、Mock、容器和 HIL/实机门禁；软件状态不能替代急停、STO、驱动器

@@ -111,7 +111,17 @@ def test_four_frozen_head_force_cases(shares, tmp_path, case):
     assert load_yaml(runtime / "controllers.yaml") == result.controllers
 
 
-def test_head_actual_production_config_rejects_d_b(shares, tmp_path):
+def test_head_confirmation_is_recorded_and_unconfirmed_data_is_rejected(shares, tmp_path):
+    path = (
+        shares["rt_control_machine_config"]
+        / "machines"
+        / arguments(shares, "head")["robot_variant"]
+        / "head_gimbal.yaml"
+    )
+    values = load_yaml(path)
+    assert values["verified"] is True and values["authorities"]["confirmation_person"] == "user"
+    values["verified"] = False
+    path.write_text(yaml.safe_dump(values))
     with pytest.raises(ValueError, match="D-b"):
         compose(**arguments(shares, "head"), runtime_dir=tmp_path / "real", use_mock_hardware=False)
     assert not (tmp_path / "real").exists()

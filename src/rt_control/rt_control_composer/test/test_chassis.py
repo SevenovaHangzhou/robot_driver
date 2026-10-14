@@ -54,8 +54,7 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     manifest = load_yaml(
         next((shares["rt_control_machine_config"] / "machines").glob("*/manifest.yaml"))
     )
-    legacy = load_yaml(RT / "robot_hw_ethercat/config/machines/alfa_v3_swerve_chassis.draft.yaml")
-    assert manifest["layout"]["ethercat"]["cycle_hz"] == legacy["requested_control_frequency_hz"]
+    assert manifest["layout"]["ethercat"]["cycle_hz"] == 1000
     assert bus["master"]["sync_period"] == manifest["layout"]["canopen"]["sync_period_us"]
     assert (
         result.controllers["controller_manager"]["ros__parameters"]["update_rate"]

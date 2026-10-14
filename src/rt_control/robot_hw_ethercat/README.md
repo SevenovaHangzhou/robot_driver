@@ -195,7 +195,7 @@ velocity command. `command_fresh` reports that post-handoff admission.
 `mode_request_error` is a fail-closed latch for invalid mode/command, stale or lost
 process data, or an expired explicit mode-ack timeout.
 
-The 250 Hz controller path reads and writes only fixed-size scalar storage. The
+The real-time controller path reads and writes only fixed-size scalar storage. The
 adapter uses the existing `onPdoCycleRead`, `onPdoCycleStart` and
 `onPdoCycleSent` hooks; it performs no service call, allocation, logging or bus
 mailbox operation in those hooks. Position/velocity conversion, valid ranges,

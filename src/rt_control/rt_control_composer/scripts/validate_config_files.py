@@ -19,18 +19,41 @@ from rt_control_composer.schema.primitives import (
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--share-package", required=True, help="Package owning the YAML input")
-    parser.add_argument("--schema-package", default="rt_control_composer")
     parser.add_argument(
-        "--schema", required=True, help="Filename within the installed schema directory"
+        "--share-package", default="rt_control_machine_config", help="Package owning the YAML input"
     )
-    parser.add_argument("files", nargs="+", help="YAML paths relative to the input package share")
+    parser.add_argument("--schema-package", default="rt_control_composer")
+    parser.add_argument("--schema", help="Filename within the installed schema directory")
+    parser.add_argument("files", nargs="*", help="YAML paths relative to the input package share")
     args = parser.parse_args()
     from ament_index_python.packages import get_package_share_directory
 
     try:
         share_root = Path(get_package_share_directory(args.share_package))
         schema_dir = Path(get_package_share_directory(args.schema_package)) / "schema"
+        if args.files and not args.schema:
+            parser.error("--schema is required when explicit files are supplied")
+        if not args.files:
+            model_files = set()
+            for manifest_file in (share_root / "machines").glob("*/manifest.yaml"):
+                manifest = load_yaml(manifest_file)
+                for scope in manifest["scopes"].values():
+                    if "mock_robot_model" in scope:
+                        model_files.add(scope["mock_robot_model"]["joint_limits_file"])
+            schemas = {
+                "machine_module": "module_envelope",
+                "unit_calibration": "unit_calibration_envelope",
+            }
+            for directory in ("devices", "machines", "units"):
+                for path in sorted((share_root / directory).rglob("*.yaml")):
+                    name = path.relative_to(share_root).as_posix()
+                    if name in model_files:
+                        continue
+                    document = load_yaml(path)
+                    kind = document["kind"]
+                    schema = schemas.get(kind, kind) + ".schema.json"
+                    validate_data(document, schema, schema_dir, share_root)
+                    print(f"PASS: {name} ({schema})")
         for name in args.files:
             path = resolve_share_path(share_root, name)
             load_and_validate(path, args.schema, schema_dir, share_root)

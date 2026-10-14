@@ -1,13 +1,14 @@
 schema_version: 1
 kind: machine_module
 status: draft
-verified: false
+verified: true
 authorities:
   source: "damiao_head_controller/README.md \xA74"
-  confirmation_person: TBD
-  confirmation_date: TBD
+  confirmation_person: user
+  confirmation_date: '2026-10-14'
+  confirmation_scope: User confirmed listed IDs/profile parameters and approved all
+    five default entries in this task session
 pending_facts:
-- 'D-b: real configuration confirmation person/date'
 - model positive direction and mechanical zero
 robot_variant: Alfa_V3
 module: head_gimbal

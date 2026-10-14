@@ -39,6 +39,8 @@
 
 | integration-20261014-03#F1–F4 | 头部/力传感离线组合、十份金样、共享HeadPhase与停止点三报告 | [第四步与准入报告](records/2026-10-14-head-force-composition.md) | PARTIAL（头部T1等价；force/原位T1未闭环，默认旧入口） |
 
+| integration-20261014-04#F1–F3 | 用户批准五个默认入口与头部参数；旧V3删旧，V2周期baseline单条例外保留 | [第五步默认切换](records/2026-10-14-composer-defaults.md) | PARTIAL（712 tests通过；T1缺口与最终CI/实机未闭环） |
+
 ## 跨区事实关联
 
 | 当前来源坐标 | 事实 | 原始记录 | 验证状态 |
