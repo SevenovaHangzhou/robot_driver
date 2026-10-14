@@ -41,7 +41,9 @@ related: [integration-20261014-01, BQ-154]
 - 同硬件 id 合并，master health 在协议 owner 处只产生一次；peer_machines 提供同系统上下文。
   transport_layout 传递各总线参数；bus_cycle_hz 从显式 cycle 或 SYNC period 计算。
   unit_file/unit_module 显式引用同一单机标定，避免复制编码器标定。
-- cyclic 联合测试移到 bringup，文件字节不变，TIMEOUT 90 不变，KINCO_FIXTURE 来源不变。
+- cyclic 联合测试移到 bringup，断言与 TIMEOUT 90 不变，KINCO_FIXTURE 来源不变。
+  首次字节不变迁移触发远端“新路径”格式门禁；补做 clang-format 14 纯格式修正，
+  与原文件经同一 formatter 的输出逐字节相等。
   两个辅助头仍供 swerve 其他测试使用，保留共享内容，bringup 测试直接引用，不建立副本。
 - swerve package.xml/CMake 删除 protocol 测试依赖；R2/R3 增加 Python import 与 CMake
   find_package 检查。移除两处旧底盘 baseline，精确登记已有头部 find_package 到第四步。
@@ -65,7 +67,9 @@ related: [integration-20261014-01, BQ-154]
 - 清单 cycle_hz 与旧 validate_kinco_swerve_draft 的 1000 Hz 要求一致性用例通过。
 - `tools/quality_gate.sh`：243 passed、13 skipped；repository gate 无新违规；两组覆盖率85%/86%。
   ruff 0.11.13 格式与检查通过；shellcheck 本地无，由 CI 强制检查。
-- grep 两协议包没有 composer 引用。删除 cyclic 源文件前后字节比较通过。
+- grep 两协议包没有 composer 引用。迁移前后格式化输出比较通过，断言与超时保留。
+- 首次第三步远端 governance 因迁移路径的 C++ 格式检查失败，build 跳过。
+  纯格式修正后本地质量门禁再次通过，修复后的远端 CI 待完成。
 - 第二步 [PR65 CI](https://github.com/SevenovaHangzhou/robot_driver/actions/runs/38526655395) 已通过；
   不代替本次第三步 CI，也不闭合第二步的原位 T1 阻塞。
 
