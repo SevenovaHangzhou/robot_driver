@@ -18,6 +18,7 @@ controllers:
     - drive_csv
     required_state_modules:
     - swerve_encoders
+    role: external
   head_gimbal:
     module: head_gimbal
     name: damiao_head_manager

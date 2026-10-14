@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "family": {
+      "const": "kinco"
+    },
+    "assembly": {
+      "type": "string",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "axes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "module_position": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "steering",
+              "drive"
+            ]
+          },
+          "robot_model_joint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ring_position": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  -1,
+                  1
+                ]
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "mode_of_operation": {
+            "enum": [
+              8,
+              9
+            ]
+          },
+          "interface_contract": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mock_joint_name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "module_position",
+          "role",
+          "robot_model_joint",
+          "ring_position",
+          "device",
+          "direction",
+          "mode_of_operation",
+          "interface_contract",
+          "mock_joint_name"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "module_coordinates": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "family",
+    "assembly",
+    "profile",
+    "axes",
+    "module_coordinates"
+  ],
+  "additionalProperties": false
+}

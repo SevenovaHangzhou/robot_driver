@@ -140,6 +140,13 @@
         },
         "pending_facts": {
           "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+        },
+        "unit_file": {
+          "$ref": "module_envelope.schema.json#/definitions/share_path"
+        },
+        "unit_module": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -217,6 +224,15 @@
         "normal",
         "stationary_enable"
       ]
+    },
+    "transport_layout": {
+      "type": "object"
+    },
+    "peer_machines": {
+      "type": "array",
+      "items": {
+        "$ref": "module_envelope.schema.json"
+      }
     }
   },
   "required": [

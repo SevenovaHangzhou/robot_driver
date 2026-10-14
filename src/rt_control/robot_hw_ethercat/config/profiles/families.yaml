@@ -7,3 +7,15 @@ families:
     certified_modes:
     - 8
     - 1
+  kinco:
+    profiles:
+      cyclic: kinco_fd_cyclic
+    certified_modes:
+    - 8
+    - 9
+    interface_contracts:
+    - swerve_steering_csp
+    - swerve_drive_csv
+  swerve_assembly:
+    profiles: {}
+    certified_modes: []

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 project(rt_control_bringup)
+add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
@@ -51,6 +52,16 @@ install(
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(swerve_driver REQUIRED)
+  find_package(robot_hw_ethercat REQUIRED)
+  ament_add_gtest(test_cyclic_controller test/test_cyclic_controller.cpp TIMEOUT 90)
+  target_compile_features(test_cyclic_controller PUBLIC cxx_std_17)
+  target_include_directories(test_cyclic_controller PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../swerve_driver/test)
+  ament_target_dependencies(test_cyclic_controller swerve_driver robot_hw_ethercat)
+  target_compile_definitions(test_cyclic_controller PRIVATE
+    KINCO_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/../robot_hw_ethercat/test/fixtures/kinco_cyclic_mode_mock.yaml")
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_force_sensor_runtime test/test_force_sensor_runtime.py)
   ament_add_pytest_test(

@@ -87,6 +87,42 @@
           "const": "TBD"
         }
       ]
+    },
+    "canopen": {
+      "type": "object",
+      "properties": {
+        "master_node_id": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 127
+            },
+            {
+              "const": "TBD"
+            }
+          ]
+        },
+        "eds_files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "master_config": {
+          "type": "string",
+          "minLength": 1
+        },
+        "master_bin": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "master_node_id",
+        "eds_files"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

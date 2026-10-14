@@ -6,6 +6,10 @@
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-jsonschema</exec_depend>
   <depend>canopen_ros2_control</depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>

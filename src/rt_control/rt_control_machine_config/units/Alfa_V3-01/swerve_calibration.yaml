@@ -1,0 +1,48 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: new record; no measured calibration
+pending_facts:
+- per-module loaded effective wheel radius
+- motor-derived steering zero offset
+- external encoder installation offset and direction
+- physical hard-stop angles, command margin and measurement tolerance
+- bidirectional steering backlash and repeatability
+- installed module coordinates and steering-axis-to-contact-patch offset
+- motor/external encoder disagreement threshold
+- steering slew, wheel acceleration and alignment thresholds
+- least-squares slip residual and odometry covariance scales
+robot_variant: Alfa_V3
+module: swerve_chassis
+spec:
+  modules:
+  - module_position: front_left
+    effective_wheel_radius_m: TBD
+    steering_zero_counts: TBD
+    drive_zero_counts: TBD
+    external_encoder_direction: TBD
+    external_encoder_installation_offset_rad: TBD
+    backlash_rad: TBD
+  - module_position: front_right
+    effective_wheel_radius_m: TBD
+    steering_zero_counts: TBD
+    drive_zero_counts: TBD
+    external_encoder_direction: TBD
+    external_encoder_installation_offset_rad: TBD
+    backlash_rad: TBD
+  - module_position: rear_left
+    effective_wheel_radius_m: TBD
+    steering_zero_counts: TBD
+    drive_zero_counts: TBD
+    external_encoder_direction: TBD
+    external_encoder_installation_offset_rad: TBD
+    backlash_rad: TBD
+  - module_position: rear_right
+    effective_wheel_radius_m: TBD
+    steering_zero_counts: TBD
+    drive_zero_counts: TBD
+    external_encoder_direction: TBD
+    external_encoder_installation_offset_rad: TBD
+    backlash_rad: TBD

@@ -171,6 +171,13 @@
             },
             "pending_facts": {
               "$ref": "module_envelope.schema.json#/definitions/pending_facts"
+            },
+            "unit_file": {
+              "$ref": "module_envelope.schema.json#/definitions/share_path"
+            },
+            "unit_module": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [
@@ -527,6 +534,32 @@
               "required": [
                 "active",
                 "inactive"
+              ],
+              "additionalProperties": false
+            },
+            "policies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mock_robot_model": {
+              "type": "object",
+              "properties": {
+                "package": {
+                  "type": "string"
+                },
+                "xacro_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                },
+                "joint_limits_file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                }
+              },
+              "required": [
+                "package",
+                "xacro_file",
+                "joint_limits_file"
               ],
               "additionalProperties": false
             }

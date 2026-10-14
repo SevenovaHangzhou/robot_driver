@@ -243,4 +243,5 @@
 | 2026-10-14 | integration | [手臂四层离线组合与 opt-in 入口](docs/areas/integration/records/2026-10-14-arm-offline-composition.md) | PARTIAL（原 KKOZIA-7/8/9/10；六份金样零差异、受影响包测试通过、手臂 T1 状态/占用等价；原位 T1 查询未闭环，默认旧入口、镜像与实机未验） |
 | 2026-10-14 | protocol | [EtherCAT 离线 renderer](docs/areas/protocol/records/2026-10-14-ethercat-renderer.md) | UNVERIFIED（T0；既有测试与合成预检通过；无总线操作） |
 | 2026-10-14 | hw-config | [手臂事实分离](docs/areas/hw-config/records/2026-10-14-arm-fact-separation.md) | UNVERIFIED（T0；schema/来源对齐；型号、标定与完整拓扑待确认） |
+| 2026-10-14 | integration | [底盘离线组合与联合测试迁移](docs/areas/integration/records/2026-10-14-chassis-offline-composition.md) | UNVERIFIED（第三步；五包576 tests、质量门禁243 passed/13 skipped；手臂金样保留；真实TBD拒绝，新CI待验） |
 | 2026-10-14 | arm-control | [显式手臂策略](docs/areas/arm-control/records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；数值/顺序/金样对齐；包络未实测） |

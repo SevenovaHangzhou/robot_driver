@@ -1,0 +1,19 @@
+schema_version: 1
+kind: device
+status: draft
+verified: false
+authorities:
+  source: rt_control_bringup/config/machines/alfa_v3_swerve_mechanics.draft.yaml:steering
+pending_facts:
+- effective motor-side raw position counts including electronic gearing
+- live identity and calibration
+family: kinco
+motor_encoder_counts_per_revolution: TBD
+spec:
+  motor_model_as_printed: SMC60S-0040-30QAK-5DSU
+  servo_driver_model_as_printed: FD124S-CB-005
+  rated_power_w_as_printed: 400
+  rated_voltage_v_as_printed: 48
+  rated_speed_rpm_as_printed: 3000
+  rated_current_a_as_printed: 1.27
+  rated_torque_nm_as_printed: 11.95

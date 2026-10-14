@@ -3,13 +3,104 @@ kind: machine_module
 status: draft
 verified: false
 authorities:
-  source: rt_control_bringup/config/machines/alfa_v3.yaml
+  source: robot_hw_ethercat/config/machines/alfa_v3_swerve_chassis.draft.yaml
 pending_facts:
-- Kinco FD EtherCAT identity, PDO/SDO mapping and watchdog
-- EtherCAT ring positions and motor-side encoder relationship
-- confirm drawing ambiguities, steering hard-stop angles and installed module geometry
-- complete per-module wheel radius, zero, limit, backlash and threshold calibration
+- actual Kinco FD model, ESI identity and revision
+- chassis_only and full_robot EtherCAT ring positions
+- CSP/CSV switch adapter profile and calibrated handoff limits/timeouts
+- motor encoder resolution, electronic gearing, direction and static zero
+- DC support, watchdog range and 0x605E stop behavior
+- calibrated wheel radius, steering hard stops and transmission confirmation
 robot_variant: Alfa_V3
 module: swerve_chassis
+master_system: ecat_arms
 spec:
-  migration_pending: true
+  family: kinco
+  assembly: devices/ht_ws_hh270_q750.yaml
+  profile: kinco_fd_cyclic
+  axes:
+  - module_position: front_left
+    role: steering
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc60s_0040_fd124s.yaml
+    direction: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    mock_joint_name: s0
+  - module_position: front_right
+    role: steering
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc60s_0040_fd124s.yaml
+    direction: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    mock_joint_name: s1
+  - module_position: rear_left
+    role: steering
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc60s_0040_fd124s.yaml
+    direction: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    mock_joint_name: s2
+  - module_position: rear_right
+    role: steering
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc60s_0040_fd124s.yaml
+    direction: TBD
+    mode_of_operation: 8
+    interface_contract: swerve_steering_csp
+    mock_joint_name: s3
+  - module_position: front_left
+    role: drive
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc80s_0075_fd134s.yaml
+    direction: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    mock_joint_name: d0
+  - module_position: front_right
+    role: drive
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc80s_0075_fd134s.yaml
+    direction: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    mock_joint_name: d1
+  - module_position: rear_left
+    role: drive
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc80s_0075_fd134s.yaml
+    direction: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    mock_joint_name: d2
+  - module_position: rear_right
+    role: drive
+    robot_model_joint: TBD
+    ring_position: TBD
+    device: devices/kinco_smc80s_0075_fd134s.yaml
+    direction: TBD
+    mode_of_operation: 9
+    interface_contract: swerve_drive_csv
+    mock_joint_name: d3
+  module_coordinates:
+    front_left:
+      x: TBD
+      y: TBD
+    front_right:
+      x: TBD
+      y: TBD
+    rear_left:
+      x: TBD
+      y: TBD
+    rear_right:
+      x: TBD
+      y: TBD

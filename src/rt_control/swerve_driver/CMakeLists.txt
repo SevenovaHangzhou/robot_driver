@@ -63,12 +63,6 @@ if(BUILD_TESTING)
     "SWERVE_RELATIVE_MOCK_BINARY=$<TARGET_FILE:chassis_relative_move_mock>"
     "SWERVE_RELATIVE_MOCK_CONFIG=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/relative_move_mock.yaml")
   find_package(controller_manager REQUIRED)
-  find_package(robot_hw_ethercat REQUIRED)
-  ament_add_gtest(test_cyclic_controller test/test_cyclic_controller.cpp TIMEOUT 90)
-  target_link_libraries(test_cyclic_controller swerve_controller)
-  ament_target_dependencies(test_cyclic_controller robot_hw_ethercat)
-  target_compile_definitions(test_cyclic_controller PRIVATE
-    KINCO_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/../robot_hw_ethercat/test/fixtures/kinco_cyclic_mode_mock.yaml")
   foreach(test kinematics odometry odometry_covariance control_core relative_move_planner relative_move_session chassis_mode_handoff)
     ament_add_gtest(test_${test} test/test_${test}.cpp)
     target_link_libraries(test_${test} swerve_math)

@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "module_position": {
+            "type": "string",
+            "minLength": 1
+          },
+          "effective_wheel_radius_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "steering_zero_counts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "drive_zero_counts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "external_encoder_direction": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  -1,
+                  1
+                ]
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "external_encoder_installation_offset_rad": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          },
+          "backlash_rad": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "TBD"
+              }
+            ]
+          }
+        },
+        "required": [
+          "module_position",
+          "effective_wheel_radius_m",
+          "steering_zero_counts",
+          "drive_zero_counts",
+          "external_encoder_direction",
+          "external_encoder_installation_offset_rad",
+          "backlash_rad"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "modules"
+  ],
+  "additionalProperties": false
+}

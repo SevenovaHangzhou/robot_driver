@@ -48,6 +48,9 @@ def compose(
     model = manifest["robot_model"]
     model_share = Path(package_share(model["package"]))
     variant = model["variants"][deployment["end_effector"]]
+    if use_mock_hardware and "mock_robot_model" in scope:
+        variant = scope["mock_robot_model"]
+        model_share = Path(package_share(variant["package"]))
     # Model files are loaded by their owner convention: anchors and merge keys are valid here.
     model_robot = ET.fromstring(
         xacro.process_file(str(model_share / variant["xacro_file"])).toxml()
@@ -70,9 +73,11 @@ def compose(
         module = manifest["modules"][name]
         transport = module["transport"]
         renderer = select_renderer(manifest["owner_refs"], transport)
-        bus_cycle = scope.get(
-            "ethercat_cycle_hz_override", manifest["layout"][transport]["cycle_hz"]
+        layout = manifest["layout"][transport]
+        bus_cycle = (
+            layout["cycle_hz"] if "cycle_hz" in layout else 1_000_000 / layout["sync_period_us"]
         )
+        bus_cycle = scope.get("ethercat_cycle_hz_override", bus_cycle)
         request = {
             "module": module,
             "machine": machine,
@@ -84,6 +89,13 @@ def compose(
             "bus_cycle_hz": bus_cycle,
             "runtime_dir": str(runtime),
             "render_mode": mode,
+            "transport_layout": layout,
+            "peer_machines": [
+                peer
+                for peer_name, peer in data["modules"].items()
+                if manifest["modules"][peer_name]["transport"] == transport
+                and peer.get("master_system") == machine.get("master_system")
+            ],
         }
         result = render_checked(renderer, request, schemas, config_root)
         if "hardware_system_id" in scope:
@@ -122,11 +134,16 @@ def compose(
         path = resolve_share_path(share, reference["file"])
         return load_and_validate(path, reference["schema"], share / "schema", share)
 
-    enable = policy("enable")
-    view = enable["runtime_views"][mode]
-    selected_enable = {**enable, **view}
-    enable_partition(selected_enable, managed)
-    motion = policy("motion") if mode != "stationary_enable" else None
+    policies = scope.get(
+        "policies", ["enable", "motion"] if mode != "stationary_enable" else ["enable"]
+    )
+    selected_enable = view = None
+    if "enable" in policies:
+        enable = policy("enable")
+        view = enable["runtime_views"][mode]
+        selected_enable = {**enable, **view}
+        enable_partition(selected_enable, managed)
+    motion = policy("motion") if "motion" in policies else None
     order = deepcopy(scope["controller_order"])
     bindings = {entry["name"]: entry for entry in data["controllers"].values()}
     if jtc_only:
@@ -190,6 +207,10 @@ def compose(
             parameters = deepcopy(defaults[role][mode])
             if role == "joint_state" and motion is not None:
                 parameters["joints"] = list(motion["joints"])
+        elif role == "external":
+            share = Path(package_share(binding["package"]))
+            source = yaml.safe_load(resolve_share_path(share, binding["config_file"]).read_text())
+            parameters = deepcopy(source[name]["ros__parameters"])
         else:
             raise ValueError(f"Unsupported controller binding role: {role}")
         controllers[name] = {"ros__parameters": parameters}
