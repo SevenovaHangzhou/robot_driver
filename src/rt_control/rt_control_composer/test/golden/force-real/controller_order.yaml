@@ -1,0 +1,4 @@
+inactive: []
+active:
+- left_wrist_force_sensor_broadcaster
+- right_wrist_force_sensor_broadcaster

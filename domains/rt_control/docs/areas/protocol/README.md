@@ -34,6 +34,8 @@
 
 | protocol-20261014-01#F1–F3 | 离线 renderer、输出侧编码器换算、数据驱动原位预检；无新增运动入口总线检查 | [EtherCAT renderer](records/2026-10-14-ethercat-renderer.md) | UNVERIFIED（T0；conformance/既有测试通过，实机未验） |
 
+| integration-20261014-03#F1–F4 | 头部协议Mapping/被动力传感渲染与独立只读预检，HeadPhase迁入semantic | [第四步记录](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（离线/Mock证据；真实未验） |
+
 ## 跨区事实关联
 
 力反馈发布链见[arm-control](../arm-control/README.md)；机型/标定事实见[hw-config](../hw-config/README.md)。X503 PREOP准入属于本区，发布转换属于arm-control。

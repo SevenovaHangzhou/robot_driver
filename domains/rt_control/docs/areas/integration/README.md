@@ -37,6 +37,8 @@
 
 | integration-20261014-02#F1–F4 | 底盘离线双总线组合、共享主站合并、真实缺项拒绝与联合测试迁移 | [第三步底盘组合](records/2026-10-14-chassis-offline-composition.md) | UNVERIFIED（T0；五包576 tests通过，实机/新CI待验） |
 
+| integration-20261014-03#F1–F4 | 头部/力传感离线组合、十份金样、共享HeadPhase与停止点三报告 | [第四步与准入报告](records/2026-10-14-head-force-composition.md) | PARTIAL（头部T1等价；force/原位T1未闭环，默认旧入口） |
+
 ## 跨区事实关联
 
 | 当前来源坐标 | 事实 | 原始记录 | 验证状态 |

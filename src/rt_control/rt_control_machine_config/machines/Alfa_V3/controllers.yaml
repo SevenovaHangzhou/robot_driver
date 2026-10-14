@@ -28,6 +28,7 @@ controllers:
     actuator_groups:
     - position_velocity
     required_state_modules: []
+    role: external
   left_gripper:
     module: arms
     name: left_gripper_controller
@@ -99,3 +100,31 @@ controllers:
     - gripper_pp
     required_state_modules: []
     role: internal_state
+  head_head_position_controller:
+    module: head_gimbal
+    name: head_position_controller
+    plugin: forward_command_controller/ForwardCommandController
+    package: damiao_head_controller
+    config_file: config/controllers.yaml
+    actuator_groups:
+    - position_velocity
+    required_state_modules: []
+    role: external
+  left_wrist_force_sensor_broadcaster:
+    module: wrist_force_sensors
+    name: left_wrist_force_sensor_broadcaster
+    plugin: rt_force_torque_broadcaster/ForceTorqueBroadcaster
+    package: rt_force_torque_broadcaster
+    config_file: config/force_bench.yaml
+    actuator_groups: []
+    required_state_modules: []
+    role: sensor_broadcaster
+  right_wrist_force_sensor_broadcaster:
+    module: wrist_force_sensors
+    name: right_wrist_force_sensor_broadcaster
+    plugin: rt_force_torque_broadcaster/ForceTorqueBroadcaster
+    package: rt_force_torque_broadcaster
+    config_file: config/force_bench.yaml
+    actuator_groups: []
+    required_state_modules: []
+    role: sensor_broadcaster

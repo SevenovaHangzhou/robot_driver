@@ -10,7 +10,8 @@ pending_facts:
 - authoritative frame IDs and installed sensor-axis orientation
 - long-run DC/sample-counter behavior and reserved-field behavior
 - sample freshness policy for closed-loop force-control admission
-- positions 2/4 apply only to the six-responder bench; full-machine positions remain TBD
+- positions 2/4 apply only to the six-responder bench; full-machine positions remain
+  TBD
 robot_variant: Alfa_V3
 module: wrist_force_sensors
 master_system: ecat_arms
@@ -20,7 +21,20 @@ spec:
     ring_position: 2
     profile: bluepoint_p140000100
     frame_id: TBD
+    binding: left_wrist
+    sensor_name: left_wrist_force_sensor
+    controller_name: left_wrist_force_sensor_broadcaster
   - side: right
     ring_position: 4
     profile: bluepoint_p140000100
     frame_id: TBD
+    binding: right_wrist
+    sensor_name: right_wrist_force_sensor
+    controller_name: right_wrist_force_sensor_broadcaster
+  family: bluepoint
+  bench_extra_responders:
+  - 0
+  - 1
+  - 3
+  - 5
+  full_ring_positions: TBD

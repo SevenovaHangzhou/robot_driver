@@ -3,12 +3,12 @@
 
 #include <cstdint>
 
-#include "robot_hw_can/head_state_machine.hpp"
+#include "rt_control_semantic_components/head_phase.hpp"
 
 namespace damiao_head_controller
 {
 
-using robot_hw_can::HeadPhase;
+using rt_control_semantic_components::HeadPhase;
 
 struct HeadSnapshot
 {
@@ -18,15 +18,13 @@ struct HeadSnapshot
   std::uint64_t handled_reset_generation{0U};
 };
 
-enum class OperationResult : std::uint8_t
-{
+enum class OperationResult : std::uint8_t {
   pending,
   success,
   fault,
 };
 
-enum class DiagnosticLevel : std::uint8_t
-{
+enum class DiagnosticLevel : std::uint8_t {
   ok = 0U,
   warn = 1U,
   error = 2U,

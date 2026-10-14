@@ -116,7 +116,9 @@ def sample_request(shares):
     return request
 
 
-@pytest.mark.parametrize("case", list(BASELINE["cases"]))
+@pytest.mark.parametrize(
+    "case", [name for name in BASELINE["cases"] if name.startswith(("arm-", "stationary-"))]
+)
 def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
     facts = BASELINE["cases"][case]
     baseline = GOLDEN / case

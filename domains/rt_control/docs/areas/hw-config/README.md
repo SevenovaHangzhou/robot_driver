@@ -30,6 +30,8 @@
 
 | hw-config-20261014-01#F1–F3 | 设备/机型/单机事实分离；型号与额定参数不猜值；台架腕部环位不外推全机 | [手臂事实分离](records/2026-10-14-arm-fact-separation.md) | UNVERIFIED（T0；schema/对齐通过，实机未验） |
 
+| integration-20261014-03#F1–F4 | head配置按README示例保持draft；确认人/日期、方向/零位、全机力传感拓扑仍TBD | [停止点三报告](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（离线准入检查；实际确认待补） |
+
 ## 跨区事实关联
 
 协议与驱动事实见[protocol](../protocol/README.md)，启动拼装见[integration](../integration/README.md)。当前源码与目标两层归属的差异见划分decision。

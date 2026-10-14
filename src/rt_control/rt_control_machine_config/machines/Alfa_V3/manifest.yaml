@@ -192,7 +192,9 @@ modules:
     - installed motor limits and stored ACC/DEC/MAX_SPD readback
     - head gimbal mechanical zero and transmission parameters
     config_file: machines/Alfa_V3/head_gimbal.yaml
-    device_refs: []
+    device_refs:
+    - devices/damiao_dm_j4310_2ec_v1_1.yaml
+    can_interface_key: head
 robot_model:
   package: robot_description
   source_revision: 17f5bdc46b8f2580ee81aed919da7b404da3bdaf
@@ -371,6 +373,17 @@ profiles:
         - 2
     pending_facts:
     - DaMiao head-gimbal CAN wiring and IDs
+  force_bench:
+    status: draft
+    modules:
+    - wrist_force_sensors
+    allowed_scopes:
+    - force_bench
+    hardware_options:
+      force_sensors:
+      - none
+    pending_facts:
+    - bench-only raw data; full topology unconfirmed
 scopes:
   arms_only:
     enabled_modules:
@@ -475,6 +488,16 @@ scopes:
       mode_group: position_velocity
     jtc_groups: []
     global_readiness: partial_scope
+    render_mode: normal
+    policies: []
+    controller_order:
+      inactive:
+      - head_position_controller
+      active:
+      - joint_state_broadcaster
+      - damiao_head_manager
+    preserve_controller_file: true
+    robot_name: alfa_v3_head_control
   arms_stationary_enable:
     enabled_modules:
     - arms
@@ -497,6 +520,24 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+  force_bench:
+    enabled_modules:
+    - wrist_force_sensors
+    required_state_modules: []
+    actuator_groups: []
+    jtc_groups: []
+    global_readiness: partial_scope
+    render_mode: normal
+    policies: []
+    hardware_system_id: bluepoint_raw_bench
+    minimal_robot:
+      name: bluepoint_raw_bench
+      base_link: force_bench_base
+    controller_order:
+      inactive: []
+      active:
+      - left_wrist_force_sensor_broadcaster
+      - right_wrist_force_sensor_broadcaster
 owner_refs:
   ethercat: robot_hw_ethercat
   canopen: robot_hw_canopen
@@ -506,6 +547,8 @@ layout:
     cycle_hz: 1000
   canopen:
     sync_period_us: 4000
+  damiao_can:
+    cycle_hz: 1000
 policy_refs:
   enable:
     package: enable_manager

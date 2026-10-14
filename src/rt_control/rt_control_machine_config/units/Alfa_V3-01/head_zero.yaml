@@ -1,0 +1,12 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: new record; no model zero confirmation
+pending_facts:
+- head zero referenced to Robot Model
+robot_variant: Alfa_V3
+module: head_gimbal
+spec:
+  zero_rad: TBD
