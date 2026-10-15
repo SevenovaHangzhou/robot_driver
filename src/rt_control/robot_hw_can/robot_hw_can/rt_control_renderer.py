@@ -23,11 +23,8 @@ def _validate(data, file):
 
 def validate_module(module: Mapping, data: Mapping) -> Mapping:
     spec = _validate(data["spec"], "head.schema.json")
-    if [joint["robot_model_joint"] for joint in spec["joints"]] != [
-        "head_joint",
-        "head_pitch_joint",
-    ]:
-        raise ValueError("Head joints must retain the declared model order")
+    if spec["control_name"] in {joint["robot_model_joint"] for joint in spec["joints"]}:
+        raise ValueError("Control GPIO and joint names must be distinct")
     for key in ("can_id", "master_id", "robot_model_joint"):
         values = [joint[key] for joint in spec["joints"]]
         if len(set(values)) != len(values):
@@ -115,7 +112,7 @@ def render(request: Mapping) -> Mapping:
         ):
             _param(ET.SubElement(joint, "state_interface", name=name), "initial_value", 0.0)
         joints.append(joint)
-    control = ET.Element("gpio", name="damiao_head_control")
+    control = ET.Element("gpio", name=spec["control_name"])
     for name in ("enable_request", "reset_generation"):
         _param(ET.SubElement(control, "command_interface", name=name), "initial_value", 0.0)
     for name in ("phase", "fault_latched", "handled_reset_generation", "motion_allowed"):
@@ -134,6 +131,10 @@ def render(request: Mapping) -> Mapping:
             for group in request["module"]["mode_groups"]
         },
         "resource_claims": [f"can:{entry['can_id']}" for entry in spec["joints"]],
+        "parameter_exports": {
+            "joint_names": [entry["robot_model_joint"] for entry in spec["joints"]],
+            "control_name": spec["control_name"],
+        },
         "runtime_files": {},
         "expected_topology": {"preflight_required": False},
     }

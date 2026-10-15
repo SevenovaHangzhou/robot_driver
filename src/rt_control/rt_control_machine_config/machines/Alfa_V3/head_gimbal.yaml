@@ -13,6 +13,7 @@ pending_facts:
 robot_variant: Alfa_V3
 module: head_gimbal
 spec:
+  control_name: damiao_head_control
   configure_timeout_ms: 100
   feedback_timeout_ms: 50
   transition_timeout_ms: 250

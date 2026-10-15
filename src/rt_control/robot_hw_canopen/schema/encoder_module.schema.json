@@ -16,6 +16,10 @@
       "items": {
         "type": "object",
         "properties": {
+          "module_position": {
+            "type": "string",
+            "minLength": 1
+          },
           "resource_name": {
             "type": "string",
             "minLength": 1
@@ -37,6 +41,7 @@
           }
         },
         "required": [
+          "module_position",
           "resource_name",
           "node_id",
           "device"

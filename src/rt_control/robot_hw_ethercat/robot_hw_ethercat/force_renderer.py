@@ -29,6 +29,7 @@ def render(request, share, validate_module):
     if not mock and request.get("sync_mode", "") not in ("sm", "dc"):
         raise ValueError("Real force bench requires explicit sync_mode sm or dc")
     sensors, files, parameters, profiles = [], {}, {}, []
+    contexts = {}
     count = len(spec["sensors"]) + len(spec["bench_extra_responders"])
 
     def state_sensor(name, values):
@@ -87,7 +88,14 @@ def render(request, share, validate_module):
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
             }.items():
                 _param(component, "ec_module." + key, value)
-        parameters[item["controller_name"]] = {
+        controller_name = item["controller_name"]
+        if controller_name in parameters:
+            raise ValueError("Duplicate force sensor controller binding")
+        contexts[controller_name] = {
+            "binding": item["binding"], "sensor_name": item["sensor_name"],
+            "family": spec["family"],
+        }
+        parameters[controller_name] = {
             "sensor_name": item["sensor_name"],
             "value_interfaces": [
                 item["sensor_name"] + "/" + name
@@ -141,6 +149,7 @@ def render(request, share, validate_module):
         "actuator_groups": {},
         "runtime_files": files,
         "controller_parameters": parameters,
+        "controller_context": contexts,
         "expected_topology": {
             "kind": "passive_force_bench",
             "master_id": params["master_id"],

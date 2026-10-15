@@ -41,6 +41,8 @@
 
 | integration-20261014-04#F1–F4 | 用户批准五个默认入口与头部参数；旧V3删旧，V3基线清空，冻结V2文件哈希范围例外获批 | [第五步默认切换](records/2026-10-14-composer-defaults.md) | PARTIAL（712 tests通过；T1缺口与最终CI/实机未闭环） |
 
+| integration-20261015-01#F1–F4 | 底盘事实公共绑定、头部名称注入与力传感器私有结构隔离 | [ELECTRI-183 公共参数绑定](records/2026-10-15-electri-183-public-bindings.md) | UNVERIFIED（T0 定向测试；运行与实机未验） |
+
 ## 跨区事实关联
 
 | 当前来源坐标 | 事实 | 原始记录 | 验证状态 |

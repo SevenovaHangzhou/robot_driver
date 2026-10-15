@@ -62,6 +62,9 @@ def render(request: Mapping) -> Mapping:
     deployment = request["deployment"]
     mock = request["use_mock_hardware"]
     calibration = {item["module_position"]: item for item in unit["spec"]["modules"]}
+    if len(calibration) != len(unit["spec"]["modules"]):
+        raise ValueError("Duplicate encoder calibration module_position")
+    encoder_names = {}
     assembly = request["devices"][spec["assembly"]]
     bus = {
         "options": {"dcf_path": request["runtime_dir"]},
@@ -76,7 +79,12 @@ def render(request: Mapping) -> Mapping:
     for item in spec["nodes"]:
         device = request["devices"][item["device"]]
         name = item["resource_name"]
-        position = name.removesuffix("_steering_encoder")
+        position = item["module_position"]
+        if position in encoder_names or name in encoder_names.values():
+            raise ValueError("Duplicate encoder resource or module_position")
+        if position not in calibration:
+            raise ValueError("Missing encoder module calibration")
+        encoder_names[position] = name
         values = {
             "node_id": item["node_id"],
             "counts_per_revolution": device["counts_per_revolution"],
@@ -160,6 +168,7 @@ def render(request: Mapping) -> Mapping:
         "sensors": sensors,
         "managed_joints": [],
         "actuator_groups": {},
+        "parameter_exports": {"steering_encoders": encoder_names},
         "resource_claims": claims,
         "runtime_files": {"canopen_bus.yaml": yaml.safe_dump(bus, sort_keys=False)},
         "expected_topology": {

@@ -34,6 +34,25 @@ name dispatch. Request `deployment` separates bus/host data from calibration.
 Result `actuator_groups` and opaque `resource_claims` support cross-file binding
 and duplicate-resource checks without inspecting protocol-private fields.
 
+The composer binds controller hardware facts through
+`scope.controller_parameter_bindings`. Each parameter selects a module and a
+public `parameter_exports` key. Keyed exports follow the scope's explicit
+`instance_order`; they never follow EtherCAT enumeration or calibration file
+order. Missing keys, duplicate facts in a controller policy, unknown resources,
+and real-path `TBD` values are rejected before output files are written.
+
+Chassis joint/encoder names, installed module x/y coordinates (metres, in the
+controller's chassis coordinate frame) and effective wheel radii come from the
+machine/unit data. Controller policy retains control limits and thresholds.
+Unknown geometry remains `TBD`, including on the mock path. Mock composition
+alone does not qualify the draft controller for activation.
+
+Head joint names and control GPIO name come from the head module and are bound
+to all three controller configurations. The protocol still supports the existing
+two-motor/one-control-GPIO system; this change does not widen its motor count.
+Force topic naming consumes the public `controller_context` result, not an
+owner-private module `spec`.
+
 The shared definitions and their consumers are in
 `rt_control_composer/renderer_contract.md`. Schema references stay inside the
 installed store. No network resolver or source-tree fallback is provided.

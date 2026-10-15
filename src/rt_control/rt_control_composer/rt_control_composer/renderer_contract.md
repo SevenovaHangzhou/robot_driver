@@ -70,8 +70,28 @@ so the protocol owner can distinguish a bench topology from an installed system.
 The result still carries the selected system identity.
 
 Optional result `controller_parameters` carries owner-specific sensor parameter
-values. Integration adds topics/startup identity and controller bindings. No
-protocol owner declares ROS launch nodes or activation order.
+values. For each force broadcaster, `controller_context[controller_name]` carries
+`binding`, `sensor_name`, and `family`. These are the public inputs to integration's
+topic templates. Integration never reads private `machine.spec` fields.
+No protocol owner declares ROS launch nodes or activation order.
+
+Optional result `parameter_exports` maps export names to scalar values, lists,
+or instance-keyed scalar mappings. Scope `controller_parameter_bindings` maps
+controller parameter names to `{module, export, resource_kind?}` references.
+`resource_kind` is `joints`, `sensors`, or `gpios` and requires exported names to
+exist in that module's rendered resources. Each binding set uses `parameters`
+and, for keyed exports, `instance_order`. The instance order must cover exactly
+the export's keys. Controllers cannot also declare the bound parameter in their
+policy file, even with the same value. Real `TBD` and non-finite values reject
+composition before writing output. Only selected modules and controllers can
+participate. Exports remain module-local when hardware systems are merged.
+
+The cyclic drive owner exports `steering_joints`/`drive_joints` keyed by module
+position, plus `module_x`, `module_y`, and `wheel_radius` from unit calibration.
+Coordinates are metres in the controller's chassis frame. The encoder owner
+exports `steering_encoders` using explicit node `module_position`, independent
+of sensor naming. The CAN pair owner exports `joint_names` and `control_name`.
+These are additive API 1 fields; installed schemas and owners ship together.
 
 The renderer's head CAN parameters preserve the expanded old Xacro fields;
 there is no EtherCAT-style `control_frequency` parameter in that system. The

@@ -11,6 +11,12 @@
             "type": "string",
             "minLength": 1
           },
+          "module_x_m": {
+            "anyOf": [{"type": "number"}, {"const": "TBD"}]
+          },
+          "module_y_m": {
+            "anyOf": [{"type": "number"}, {"const": "TBD"}]
+          },
           "effective_wheel_radius_m": {
             "anyOf": [
               {
@@ -78,6 +84,8 @@
         },
         "required": [
           "module_position",
+          "module_x_m",
+          "module_y_m",
           "effective_wheel_radius_m",
           "steering_zero_counts",
           "drive_zero_counts",

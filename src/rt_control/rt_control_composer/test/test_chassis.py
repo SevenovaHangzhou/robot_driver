@@ -126,6 +126,7 @@ def test_sample_b_owner_adapter_and_read_only_contract(shares, monkeypatch):
         {
             **template,
             "role": axis["role"],
+            "module_position": axis["physical_joint"].split("_")[-1],
             "robot_model_joint": axis["robot_model_joint"],
             "ring_position": axis["ring_position"],
             "direction": axis["direction"],
