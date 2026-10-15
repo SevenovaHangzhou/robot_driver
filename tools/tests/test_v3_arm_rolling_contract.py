@@ -86,6 +86,17 @@ def test_v3_branch_contract_requires_arm_runtime_not_only_validation():
     assert "14 CSP" in contract or "fourteen CSP" in contract
 
 
+def test_ci_runs_upstream_jtc_once_after_other_package_tests():
+    workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()
+    step = workflow.split("- name: Test\n", 1)[1].split("- name:", 1)[0]
+    assert step.count("colcon test --event-handlers") == 2
+    first, second = step.split("colcon test --event-handlers console_direct+ --executor sequential", 1)
+    assert "--packages-skip joint_trajectory_controller" in first
+    assert "--packages-select joint_trajectory_controller" in second
+    assert second.index("--packages-select joint_trajectory_controller") < second.index("colcon test-result --verbose")
+    assert "--retest" not in step and "--ctest-args" not in step
+
+
 def test_ci_sources_overlay_before_v3_installed_config_validation():
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()
     step = workflow.split("- name: Enforce V3 source and runtime boundary", 1)[1]
