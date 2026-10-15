@@ -9,6 +9,7 @@ from ament_index_python.packages import get_package_share_directory
 import xacro
 import yaml
 
+from .bindings import bind_parameters
 from .model import Composed
 from .renderer_registry import render_checked, select_renderer
 from .schema.cross_checks import (
@@ -227,15 +228,7 @@ def compose(
         elif role == "sensor_broadcaster":
             owner_result = rendered_modules[binding["module"]]
             parameters = deepcopy(owner_result["controller_parameters"][name])
-            machine_sensor = next(
-                item
-                for item in data["modules"][binding["module"]]["spec"]["sensors"]
-                if item["controller_name"] == name
-            )
-            context = {
-                **machine_sensor,
-                "family": data["modules"][binding["module"]]["spec"]["family"],
-            }
+            context = owner_result["controller_context"][name]
             parameters.update(
                 wrench_topic=naming["wrench"].format(**context),
                 raw_topic=naming["raw"].format(**context),
@@ -263,6 +256,14 @@ def compose(
                 controllers[name]["ros__parameters"].update(deepcopy(values))
     elif "minimal_robot" in scope:
         manager.pop("thread_priority", None)
+    parameter_bindings = scope.get("controller_parameter_bindings", {})
+    if not set(parameter_bindings).issubset(selected_names):
+        raise ValueError("Parameter binding references an unselected controller")
+    for name in selected_names:
+        controllers[name]["ros__parameters"] = bind_parameters(
+            parameter_bindings.get(name, {}), controllers[name]["ros__parameters"],
+            rendered_modules, mock=use_mock_hardware,
+        )
     # fault_dependencies remain owned by the separate machine safety policy. These
     # migrated entry points did not emit them; validation does not add runtime fields.
     robot_description = ET.tostring(robot, encoding="unicode")

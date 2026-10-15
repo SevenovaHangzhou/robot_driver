@@ -2,6 +2,11 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "control_name": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
     "configure_timeout_ms": {
       "type": "integer",
       "minimum": 1,
@@ -107,6 +112,7 @@
     }
   },
   "required": [
+    "control_name",
     "configure_timeout_ms",
     "feedback_timeout_ms",
     "transition_timeout_ms",

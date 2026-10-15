@@ -144,12 +144,12 @@ hardware_interface::CallbackReturn DamiaoSystem::on_init(
               "timeouts/rate must be positive, command rate at most 1000 Hz, and RX bound [1,256]"};
     }
     const auto & control = info.gpios[0];
-    if (control.name != "damiao_head_control" ||
+    if (
+      control.name.empty() ||
       interface_names(control.command_interfaces) != kControlCommandInterfaces ||
       control.command_interfaces.size() != kControlCommandInterfaces.size() ||
       interface_names(control.state_interfaces) != kControlStateInterfaces ||
-      control.state_interfaces.size() != kControlStateInterfaces.size())
-    {
+      control.state_interfaces.size() != kControlStateInterfaces.size()) {
       throw std::invalid_argument{"DaMiao head control GPIO interfaces do not match the contract"};
     }
 
@@ -157,7 +157,11 @@ hardware_interface::CallbackReturn DamiaoSystem::on_init(
     motors_.reserve(info.joints.size());
     std::set<std::uint16_t> can_ids;
     std::set<std::uint16_t> master_ids;
+    std::set<std::string> resource_names{control.name};
     for (const auto & joint : info.joints) {
+      if (joint.name.empty() || !resource_names.insert(joint.name).second) {
+        throw std::invalid_argument{"DaMiao resource names must be nonempty and unique"};
+      }
       if (interface_names(joint.state_interfaces) != kStateInterfaces ||
         joint.state_interfaces.size() != kStateInterfaces.size() ||
         joint.command_interfaces.size() != 1U ||

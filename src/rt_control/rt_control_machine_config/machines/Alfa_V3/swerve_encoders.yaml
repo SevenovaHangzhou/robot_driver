@@ -18,14 +18,18 @@ spec:
   profile: cia406_encoder
   nodes:
   - resource_name: front_left_steering_encoder
+    module_position: front_left
     node_id: TBD
     device: devices/brt_encoder_model_tbd.yaml
   - resource_name: front_right_steering_encoder
+    module_position: front_right
     node_id: TBD
     device: devices/brt_encoder_model_tbd.yaml
   - resource_name: rear_left_steering_encoder
+    module_position: rear_left
     node_id: TBD
     device: devices/brt_encoder_model_tbd.yaml
   - resource_name: rear_right_steering_encoder
+    module_position: rear_right
     node_id: TBD
     device: devices/brt_encoder_model_tbd.yaml

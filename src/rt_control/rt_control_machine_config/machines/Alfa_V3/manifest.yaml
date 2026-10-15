@@ -443,6 +443,31 @@ scopes:
       inactive:
       - swerve_controller
       active: []
+    controller_parameter_bindings:
+      swerve_controller:
+        instance_order: [front_left, front_right, rear_left, rear_right]
+        parameters:
+          steering_joints:
+            module: swerve_chassis
+            export: steering_joints
+            resource_kind: joints
+          drive_joints:
+            module: swerve_chassis
+            export: drive_joints
+            resource_kind: joints
+          steering_encoders:
+            module: swerve_encoders
+            export: steering_encoders
+            resource_kind: sensors
+          module_x:
+            module: swerve_chassis
+            export: module_x
+          module_y:
+            module: swerve_chassis
+            export: module_y
+          wheel_radius:
+            module: swerve_chassis
+            export: wheel_radius
     policies: []
     mock_robot_model:
       package: rt_control_machine_config
@@ -497,6 +522,29 @@ scopes:
       - joint_state_broadcaster
       - damiao_head_manager
     preserve_controller_file: true
+    controller_parameter_bindings:
+      joint_state_broadcaster:
+        parameters:
+          joints:
+            module: head_gimbal
+            export: joint_names
+            resource_kind: joints
+      head_position_controller:
+        parameters:
+          joints:
+            module: head_gimbal
+            export: joint_names
+            resource_kind: joints
+      damiao_head_manager:
+        parameters:
+          joints:
+            module: head_gimbal
+            export: joint_names
+            resource_kind: joints
+          control_name:
+            module: head_gimbal
+            export: control_name
+            resource_kind: gpios
     robot_name: alfa_v3_head_control
     parameter_view: head_state
   arms_stationary_enable:

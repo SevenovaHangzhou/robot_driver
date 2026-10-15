@@ -11,6 +11,12 @@
             "type": "string",
             "minLength": 1
           },
+          "module_x_m": {
+            "anyOf": [{"type": "number"}, {"const": "TBD"}]
+          },
+          "module_y_m": {
+            "anyOf": [{"type": "number"}, {"const": "TBD"}]
+          },
           "effective_wheel_radius_m": {
             "anyOf": [
               {

@@ -5,36 +5,6 @@ controller_manager:
 swerve_controller:
   ros__parameters:
     calibration_verified: false
-    steering_joints:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    drive_joints:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    steering_encoders:
-    - front_left_steering_encoder
-    - front_right_steering_encoder
-    - rear_left_steering_encoder
-    - rear_right_steering_encoder
-    module_x:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    module_y:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    wheel_radius:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
     steering_min:
     - -2.356194490192345
     - -2.356194490192345

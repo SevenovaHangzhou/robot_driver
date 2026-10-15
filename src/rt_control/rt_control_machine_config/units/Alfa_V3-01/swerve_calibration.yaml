@@ -19,6 +19,8 @@ module: swerve_chassis
 spec:
   modules:
   - module_position: front_left
+    module_x_m: TBD
+    module_y_m: TBD
     effective_wheel_radius_m: TBD
     steering_zero_counts: TBD
     drive_zero_counts: TBD
@@ -26,6 +28,8 @@ spec:
     external_encoder_installation_offset_rad: TBD
     backlash_rad: TBD
   - module_position: front_right
+    module_x_m: TBD
+    module_y_m: TBD
     effective_wheel_radius_m: TBD
     steering_zero_counts: TBD
     drive_zero_counts: TBD
@@ -33,6 +37,8 @@ spec:
     external_encoder_installation_offset_rad: TBD
     backlash_rad: TBD
   - module_position: rear_left
+    module_x_m: TBD
+    module_y_m: TBD
     effective_wheel_radius_m: TBD
     steering_zero_counts: TBD
     drive_zero_counts: TBD
@@ -40,6 +46,8 @@ spec:
     external_encoder_installation_offset_rad: TBD
     backlash_rad: TBD
   - module_position: rear_right
+    module_x_m: TBD
+    module_y_m: TBD
     effective_wheel_radius_m: TBD
     steering_zero_counts: TBD
     drive_zero_counts: TBD

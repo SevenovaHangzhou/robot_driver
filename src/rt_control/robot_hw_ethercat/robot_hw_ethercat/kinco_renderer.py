@@ -81,6 +81,8 @@ def missing_facts(request, profile):
         for module in unit["spec"]["modules"]:
             for key in (
                 "effective_wheel_radius_m",
+                "module_x_m",
+                "module_y_m",
                 "steering_zero_counts",
                 "drive_zero_counts",
                 "backlash_rad",
@@ -101,6 +103,16 @@ def render(request, share, validate_module, validate_unit):
     if not mock and missing:
         raise ValueError("Missing real chassis facts: " + ", ".join(missing))
     calibrations = {module["module_position"]: module for module in unit["spec"]["modules"]}
+    if len(calibrations) != len(unit["spec"]["modules"]):
+        raise ValueError("Duplicate chassis calibration module_position")
+    for calibration in calibrations.values():
+        radius = calibration["effective_wheel_radius_m"]
+        if radius != "TBD" and (not math.isfinite(radius) or radius <= 0):
+            raise ValueError("Effective wheel radius must be positive and finite")
+    exports = {"steering_joints": {}, "drive_joints": {}}
+    for target, source in (("wheel_radius", "effective_wheel_radius_m"),
+                           ("module_x", "module_x_m"), ("module_y", "module_y_m")):
+        exports[target] = {key: item[source] for key, item in calibrations.items()}
     assembly = request["devices"][spec["assembly"]]
     families = yaml.safe_load((share / "config/profiles/families.yaml").read_text())["families"]
     for reference in request["module"]["device_refs"]:
@@ -129,6 +141,10 @@ def render(request, share, validate_module, validate_unit):
             if mock and axis["robot_model_joint"] == "TBD"
             else axis["robot_model_joint"]
         )
+        exported = exports[axis["role"] + "_joints"]
+        if axis["module_position"] in exported:
+            raise ValueError("Duplicate chassis axis role/module_position")
+        exported[axis["module_position"]] = name
         joint = ET.Element("joint", name=name)
         for interface in COMMANDS:
             element = ET.SubElement(joint, "command_interface", name=interface)
@@ -247,6 +263,7 @@ def render(request, share, validate_module, validate_unit):
         "joints": joints,
         "sensors": health_sensors(request, axes),
         "managed_joints": managed,
+        "parameter_exports": exports,
         "actuator_groups": groups,
         "resource_claims": [f"ring:{item['ring_position']}" for item in responders],
         "runtime_files": runtime_files,

@@ -84,6 +84,30 @@ TEST(DamiaoSystemTest, ExportsStandardControllerInterfacesWithoutOpeningCan)
   EXPECT_DOUBLE_EQ(commands[3].get_value(), 0.0);
 }
 
+TEST(DamiaoSystemTest, AcceptsConfiguredNamesAndRejectsDuplicateResources)
+{
+  auto info = valid_info();
+  info.joints[0].name = "test_yaw";
+  info.joints[1].name = "test_pitch";
+  info.gpios[0].name = "test_pair_control";
+  DamiaoSystem system;
+  ASSERT_EQ(system.on_init(info), hardware_interface::CallbackReturn::SUCCESS);
+  const auto commands = system.export_command_interfaces();
+  EXPECT_EQ(commands[0].get_name(), "test_yaw/position");
+  EXPECT_EQ(commands[2].get_name(), "test_pair_control/enable_request");
+  EXPECT_EQ(
+    system.prepare_command_mode_switch({"test_yaw/position", "test_pitch/position"}, {}),
+    hardware_interface::return_type::OK);
+  info.joints[1].name = info.joints[0].name;
+  EXPECT_EQ(system.on_init(info), hardware_interface::CallbackReturn::ERROR);
+  info = valid_info();
+  info.gpios[0].name = info.joints[0].name;
+  EXPECT_EQ(system.on_init(info), hardware_interface::CallbackReturn::ERROR);
+  info = valid_info();
+  info.gpios[0].name.clear();
+  EXPECT_EQ(system.on_init(info), hardware_interface::CallbackReturn::ERROR);
+}
+
 TEST(DamiaoSystemTest, RejectsPartialControllerClaims)
 {
   DamiaoSystem system;
