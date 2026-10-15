@@ -3,22 +3,16 @@
 from copy import deepcopy
 from pathlib import Path
 import xml.etree.ElementTree as ET
-import uuid
 
 from ament_index_python.packages import get_package_share_directory
 import xacro
 import yaml
 
 from .bindings import bind_parameters
-from .model import Composed
+from .model import ARTIFACT, Composed
+from .parameter_sources import controller_parameters
 from .renderer_registry import render_checked, select_renderer
-from .schema.cross_checks import (
-    enable_partition,
-    manifest_links,
-    merge_systems,
-    motion_binding,
-    runtime_admission,
-)
+from .schema.cross_checks import manifest_links, merge_systems, runtime_admission
 from .schema.manifest_load import load_machine
 from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
@@ -37,7 +31,7 @@ def compose(
     sync_mode="",
     startup_id=None,
 ):
-    """All filesystem writes belong here; no bus command or preflight runs here."""
+    """Pure composition: returns every output file as text; no writes, bus command or preflight."""
     runtime = Path(runtime_dir)
     integration_share = Path(package_share("rt_control_composer"))
     schemas = integration_share / "schema"
@@ -148,109 +142,55 @@ def compose(
         path = resolve_share_path(share, reference["file"])
         return load_and_validate(path, reference["schema"], share / "schema", share)
 
-    policies = scope.get(
-        "policies", ["enable", "motion"] if mode != "stationary_enable" else ["enable"]
-    )
-    selected_enable = view = None
-    if "enable" in policies:
-        enable = policy("enable")
-        view = enable["runtime_views"][mode]
-        selected_enable = {**enable, **view}
-        enable_partition(selected_enable, managed)
-    motion = policy("motion") if "motion" in policies else None
+    selected_policies = scope.get("policies", [])
+    policies = {name: policy(name) for name in selected_policies}
     order = deepcopy(scope["controller_order"])
     bindings = {entry["name"]: entry for entry in data["controllers"].values()}
     if jtc_only:
+        if "jtc_only_excluded" not in scope:
+            raise ValueError("The selected scope does not declare a jtc_only view")
         order["inactive"] = [
-            name for name in order["inactive"] if bindings[name]["role"] != "rolling"
+            name for name in order["inactive"] if name not in scope["jtc_only_excluded"]
         ]
     selected_names = order["inactive"] + order["active"]
-    if startup_id is None and any(
-        bindings[name]["role"] == "sensor_broadcaster" for name in selected_names
-    ):
-        startup_id = "force-bench-" + str(uuid.uuid4())
+    unknown = set(selected_names).difference(bindings)
+    if unknown:
+        raise ValueError(f"Controller order references unknown controllers: {sorted(unknown)}")
     defaults = load_yaml(integration_share / "config/controller_defaults.yaml")
     manager = {
         "update_rate": bus_rates[0],
         **defaults["controller_manager"],
     }
     controllers = {"controller_manager": {"ros__parameters": manager}}
-    trajectory_names = [name for name in selected_names if bindings[name]["role"] == "trajectory"]
-    rolling_names = [name for name in selected_names if bindings[name]["role"] == "rolling"]
-    if motion is not None:
-        trajectory_binding = bindings[trajectory_names[0]]
-        group_result = rendered_modules[trajectory_binding["module"]]
-        bound = [
-            joint
-            for group in trajectory_binding["actuator_groups"]
-            for joint in group_result["actuator_groups"][group]
-        ]
-        motion_binding(motion, bound)
+    runtime_parameters = {}
+    environment = {
+        "context": {"mode": mode},
+        "policies": policies,
+        "policy_refs": manifest.get("policy_refs", {}),
+        "package_share": package_share,
+        "rendered_modules": rendered_modules,
+        "selected": selected_names,
+        "tags": {name: bindings[name].get("tags", []) for name in selected_names},
+        "naming": naming,
+        "runtime_values": {"startup_id": startup_id},
+        "runtime_parameters": runtime_parameters,
+        "runtime_dir": str(runtime),
+        "runtime_files": runtime_files,
+        "managed_joints": managed,
+    }
     for name in selected_names:
         binding = bindings[name]
         manager[name] = {"type": binding["plugin"]}
-        role = binding["role"]
-        if role == "enable":
-            parameters = {key: selected_enable[key] for key in view["parameter_names"]}
-            parameters.update(
-                managed_joints=selected_enable["managed_joints"],
-                enable_batch_joint_names=[
-                    joint for batch in selected_enable["enable_batches"] for joint in batch
-                ],
-                enable_batch_sizes=[len(batch) for batch in selected_enable["enable_batches"]],
-                enable_only=mode == "stationary_enable",
-                jtc_name=trajectory_names[0] if trajectory_names else "",
-            )
-            if motion is not None:
-                parameters.update(
-                    motion_mode_switching=bool(rolling_names),
-                    motion_controller_names=trajectory_names + rolling_names,
-                    default_motion_controller=trajectory_names[0],
-                    rolling_motion_controller=rolling_names[0] if rolling_names else "",
-                    motion_joints=list(motion["joints"]),
-                    **deepcopy(motion["enable_manager"]),
-                )
-        elif role == "trajectory":
-            parameters = {"joints": list(motion["joints"]), **deepcopy(motion["jtc"])}
-        elif role == "rolling":
-            reference = manifest["policy_refs"]["envelope"]
-            share = Path(package_share(reference["package"]))
-            envelope = resolve_share_path(share, reference["file"])
-            runtime_files[envelope.name] = envelope.read_text()
-            parameters = {
-                **deepcopy(motion["rolling"]),
-                "envelope_file": str(runtime / envelope.name),
-            }
-        elif role in ("joint_state", "internal_state"):
-            parameters = deepcopy(defaults[role][mode])
-            if role == "joint_state" and motion is not None:
-                parameters["joints"] = list(motion["joints"])
-        elif role == "sensor_broadcaster":
-            owner_result = rendered_modules[binding["module"]]
-            parameters = deepcopy(owner_result["controller_parameters"][name])
-            context = owner_result["controller_context"][name]
-            parameters.update(
-                wrench_topic=naming["wrench"].format(**context),
-                raw_topic=naming["raw"].format(**context),
-                sensor_state_topic=naming["state"].format(**context),
-                diagnostic_name=naming["sensor_calibration"].format(**context),
-                calibration_topic=naming["family_calibration"].format(**context),
-                startup_id=startup_id,
-            )
-        elif role == "external":
-            share = Path(package_share(binding["package"]))
-            source = yaml.safe_load(resolve_share_path(share, binding["config_file"]).read_text())
-            parameters = deepcopy(source[name]["ros__parameters"])
-        else:
-            raise ValueError(f"Unsupported controller binding role: {role}")
-        controllers[name] = {"ros__parameters": parameters}
-    if scope.get("preserve_controller_file", False):
-        binding = next(
-            bindings[name] for name in selected_names if bindings[name]["role"] == "external"
-        )
-        share = Path(package_share(binding["package"]))
-        controllers = yaml.safe_load(resolve_share_path(share, binding["config_file"]).read_text())
+        environment["context"] = {"mode": mode, "controller": name}
+        controllers[name] = {
+            "ros__parameters": controller_parameters(name, binding, environment)
+        }
+    if "controller_file" in scope:
+        reference = scope["controller_file"]
+        share = Path(package_share(reference["package"]))
+        controllers = yaml.safe_load(resolve_share_path(share, reference["file"]).read_text())
         controllers["controller_manager"]["ros__parameters"]["update_rate"] = bus_rates[0]
+        runtime_parameters.clear()
         if "parameter_view" in scope:
             for name, values in defaults["parameter_views"][scope["parameter_view"]].items():
                 controllers[name]["ros__parameters"].update(deepcopy(values))
@@ -267,22 +207,18 @@ def compose(
     # fault_dependencies remain owned by the separate machine safety policy. These
     # migrated entry points did not emit them; validation does not add runtime fields.
     robot_description = ET.tostring(robot, encoding="unicode")
-    # Validate all paths before writing any output, including collisions with launch outputs.
-    reserved = {"controllers.yaml", "controller_order.yaml", "robot_description.xml"}
+    # Paths are validated here; writing belongs to the explicit deploy-time artifact step.
+    reserved = {"controllers.yaml", "controller_order.yaml", "robot_description.xml", ARTIFACT}
     if reserved.intersection(runtime_files):
         raise ValueError("Owner runtime path collides with an integration output")
-    paths = {name: resolve_share_path(runtime, name) for name in runtime_files}
-    runtime.mkdir(parents=True, exist_ok=True)
-    for name, text in runtime_files.items():
-        paths[name].parent.mkdir(parents=True, exist_ok=True)
-        paths[name].write_text(text, encoding="utf-8")
-    (runtime / "robot_description.xml").write_text(robot_description, encoding="utf-8")
-    (runtime / "controllers.yaml").write_text(
-        yaml.safe_dump(controllers, sort_keys=False), encoding="utf-8"
-    )
-    (runtime / "controller_order.yaml").write_text(
-        yaml.safe_dump(order, sort_keys=False), encoding="utf-8"
-    )
+    for name in runtime_files:
+        resolve_share_path(runtime, name)
+    files = {
+        **runtime_files,
+        "robot_description.xml": robot_description,
+        "controllers.yaml": yaml.safe_dump(controllers, sort_keys=False),
+        "controller_order.yaml": yaml.safe_dump(order, sort_keys=False),
+    }
     return Composed(
         robot_description,
         controllers,
@@ -291,6 +227,8 @@ def compose(
         systems,
         use_mock_hardware,
         data["safety_policy"],
+        files,
+        runtime_parameters,
     )
 
 

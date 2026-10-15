@@ -20,6 +20,7 @@ robot_variant: Alfa_V3
 module: arms
 master_system: ecat_arms
 spec:
+  family: zeroerr
   extra_responders:
   - ring_position: 0
     profile: inovance_gr10_coupler

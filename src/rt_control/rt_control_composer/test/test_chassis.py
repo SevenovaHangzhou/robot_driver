@@ -50,7 +50,7 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     assert [len(system.findall("joint")) for system in systems] == [8, 0]
     assert len(systems[1].findall("sensor")) == 4
     assert not systems[1].findall(".//command_interface")
-    bus = yaml.safe_load((result.runtime_dir / "canopen_bus.yaml").read_text())
+    bus = yaml.safe_load(result.files["canopen_bus.yaml"])
     manifest = load_yaml(
         next((shares["rt_control_machine_config"] / "machines").glob("*/manifest.yaml"))
     )

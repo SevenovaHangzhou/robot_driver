@@ -1,0 +1,5 @@
+schema_version: 1
+# Master startup policy consumed by the patched ICube EthercatDriver. Values are
+# unchanged from the renderer literals they replace; they are not new tuning.
+startup_bus_timeout_ms: 70000
+preload_timeout_ms: 5000

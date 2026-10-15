@@ -87,36 +87,6 @@ def runtime_admission(data, mock, require_manifest_ready=False):
             raise ValueError("Manifest runtime blockers: " + ", ".join(blockers))
 
 
-def enable_partition(policy, managed):
-    names = policy["managed_joints"]
-    batches = policy["enable_batches"]
-    flattened = [name for batch in batches for name in batch]
-    require_unique(names, "policy managed joint")
-    require_unique(flattened, "enable batch joint")
-    if (
-        any(not batch for batch in batches)
-        or set(names) != set(managed)
-        or set(flattened) != set(names)
-    ):
-        raise ValueError("Enable policy must partition exactly the current managed joints")
-
-
-def motion_binding(policy, groups):
-    joints = policy["joints"]
-    require_unique(joints, "motion policy joint")
-    if set(joints) != set(groups):
-        raise ValueError("Motion policy joints do not match controller actuator groups")
-
-    def arrays(value):
-        if isinstance(value, dict):
-            for name, child in value.items():
-                if name.endswith(("tolerances", "thresholds")) and len(child) != len(joints):
-                    raise ValueError(f"Per-joint array length mismatch: {name}")
-                arrays(child)
-
-    arrays(policy)
-
-
 def merge_systems(rendered):
     """Equal hardware IDs merge without normalizing conflicting owner parameters."""
     systems = {}

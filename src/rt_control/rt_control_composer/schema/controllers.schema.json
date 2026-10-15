@@ -63,9 +63,220 @@
                 "minLength": 1
               }
             },
-            "role": {
-              "type": "string",
-              "minLength": 1
+            "tags": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "parameters": {
+              "type": "array",
+              "description": "Ordered declarative sources; each item has exactly one source kind.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "when_policy": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "yaml": {
+                    "type": "object",
+                    "properties": {
+                      "package": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "file": {
+                        "$ref": "module_envelope.schema.json#/definitions/share_path"
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "package",
+                      "file",
+                      "path"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "policy": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "overlay": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "keys_from": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "transform": {
+                        "enum": [
+                          "flatten",
+                          "lengths"
+                        ]
+                      },
+                      "match": {
+                        "enum": [
+                          "managed_joints",
+                          "actuator_groups"
+                        ]
+                      },
+                      "partition": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "controllers": {
+                    "type": "object",
+                    "properties": {
+                      "tag": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "select": {
+                        "enum": [
+                          "first",
+                          "all",
+                          "any"
+                        ]
+                      },
+                      "default": {
+                        "type": "string"
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "tag",
+                      "select",
+                      "as"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "owner_parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                    "additionalProperties": false
+                  },
+                  "topics": {
+                    "type": "object",
+                    "properties": {
+                      "templates": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "additionalProperties": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    },
+                    "required": [
+                      "templates"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "runtime": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "enum": [
+                          "startup_id"
+                        ]
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "as"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "policy_file": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "as"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "oneOf": [
+                  {
+                    "required": [
+                      "yaml"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "policy"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "controllers"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "owner_parameters"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "topics"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "runtime"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "policy_file"
+                    ]
+                  }
+                ],
+                "additionalProperties": false
+              }
             }
           },
           "required": [
