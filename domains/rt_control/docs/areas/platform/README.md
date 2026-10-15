@@ -43,6 +43,8 @@
 
 | platform-20261014-02#F1–F2 | 后续20PR的bringup触碰率目标≤30%，基线待合并；V2冻结文件哈希例外获批，V3基线清空 | [迁移观察指标](records/2026-10-14-composer-observation-baseline.md) | UNVERIFIED（起点pending_merge，非验收指标） |
 
+| platform-20261014-03#F1–F4 | 四层源码迁移合并main c220e5e；后续20PR观察窗口实际起点，T1/实机缺口保留 | [合并验证证据](records/2026-10-14-composer-merged-evidence.md) | PARTIAL（源码CI全部适用检查通过；无实机/部署） |
+
 ## 人工镜像封装入口（M1）
 
 选定源码 SHA 并获得封装授权后，运行 `tools/build_rt_control_image.sh APPROVED_TAG`。
