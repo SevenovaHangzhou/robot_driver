@@ -341,3 +341,25 @@ def preflight(expected_topology: Mapping, *, run=None) -> None:
             raise RuntimeError("Axis is faulted or already controlled")
         if error != 0 and error not in axis["allowed_errors"]:
             raise RuntimeError(f"Unqualified error 0x{error:04x}")
+
+    def upload(ring, index, subindex, kind):
+        return int(
+            output(
+                "upload", "-m", master_id, "-p", str(ring), "-t", kind, hex(index), str(subindex)
+            ).split()[-1],
+            0,
+        )
+
+    for check in topology.get("pdo_checks", []):
+        ring = check["ring_position"]
+        for index, expected in check["objects"].items():
+            index = int(index)
+            kind = "uint16" if index in (0x1C12, 0x1C13) else "uint32"
+            if upload(ring, index, 0, "uint8") != len(expected) or [
+                upload(ring, index, sub, kind) for sub in range(1, len(expected) + 1)
+            ] != list(expected):
+                raise RuntimeError(f"Slave {ring} saved PDO 0x{index:04x} differs from the profile")
+    for window in topology.get("position_windows", []):
+        actual = upload(window["ring_position"], 0x6064, 0, "int32")
+        if not window["raw_min"] <= actual <= window["raw_max"]:
+            raise RuntimeError(f"Slave {window['ring_position']} starts outside its position range")

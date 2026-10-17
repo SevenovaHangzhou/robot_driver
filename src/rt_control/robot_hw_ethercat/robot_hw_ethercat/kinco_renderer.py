@@ -45,6 +45,23 @@ def conversion_factors(counts, ratio, sign, velocity_dec):
     return position, velocity
 
 
+_BITS = {"uint8": 8, "int8": 8, "uint16": 16, "int16": 16, "uint32": 32, "int32": 32}
+
+
+def _pdo_objects(driver_config):
+    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs."""
+    objects = {}
+    for assign, direction in ((0x1C12, "rpdo"), (0x1C13, "tpdo")):
+        pdos = driver_config[direction]
+        objects[assign] = [pdo["index"] for pdo in pdos]
+        for pdo in pdos:
+            objects[pdo["index"]] = [
+                (channel["index"] << 16) | (channel["sub_index"] << 8) | _BITS[channel["type"]]
+                for channel in pdo["channels"]
+            ]
+    return objects
+
+
 def _param(parent, key, value):
     ET.SubElement(parent, "param", name=key).text = str(value)
 
@@ -131,6 +148,7 @@ def render(request, share, validate_module, validate_unit):
     if len(axes) != request["module"]["actuator_count"]:
         raise ValueError("Axis count differs from declared module")
     joints, managed, runtime_files, responders = [], [], {}, []
+    preflight_axes, pdo_checks, position_windows = [], [], []
     groups = {group["name"]: [] for group in request["module"]["mode_groups"]}
     for axis in axes:
         device = request["devices"][axis["device"]]
@@ -254,13 +272,27 @@ def render(request, share, validate_module, validate_unit):
                 groups[group["name"]].append(name)
         if type(axis["ring_position"]) is int:
             responders.append({"ring_position": axis["ring_position"], **profile["identity"]})
+        if not mock:
+            ring = axis["ring_position"]
+            # Read-only admission: disabled and unfaulted, saved PDOs match, steering in range.
+            preflight_axes.append({"ring_position": ring, "allowed_errors": []})
+            pdo_checks.append({"ring_position": ring, "objects": _pdo_objects(profile["driver_config"])})
+            if axis["role"] == "steering":
+                ends = sorted(
+                    adapter[key] * adapter["position_counts_per_unit"]
+                    + adapter["position_offset_counts"]
+                    for key in ("min_position", "max_position")
+                )
+                position_windows.append({"ring_position": ring, "raw_min": ends[0], "raw_max": ends[1]})
     topology = {
         "master_id": request["deployment"]["ethercat"]["master_id"],
         "responders": responders,
-        "axes": [],
+        "axes": preflight_axes,
         "branches": [],
         "internal_ports": [],
-        "preflight_required": False,
+        "pdo_checks": pdo_checks,
+        "position_windows": position_windows,
+        "preflight_required": not mock,
     }
     from .master_health import sensors as health_sensors
 
