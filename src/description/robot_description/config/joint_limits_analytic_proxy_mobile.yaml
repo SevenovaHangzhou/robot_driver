@@ -1,0 +1,117 @@
+metadata:
+  schema_version: 1
+  robot: alfa_v3
+  model_revision: analytic-proxy-mobile
+  end_effector: suction
+  status: design_description_requires_hardware_validation
+  source: robot_v3.2.2 geometry with reviewed V3.1.1 joint semantics
+  fixed_names_source: robot_fixed_names.urdf
+  end_effector_source: robot_v3.2.2_integrated_link7
+  chassis_source: mechanical_958c49d
+  head_source: model_sources/head_chest_camera_20260921/robot.urdf
+  warning: Position limits and logical zero semantics follow the reviewed V3.1.1 contract.
+    Geometry and inertials come from V3.2.2; hardware validation remains required.
+  side_semantics: left_is_positive_y
+joints:
+  updown:
+    type: prismatic
+    lower_position_m: -1.0
+    upper_position_m: 0.0
+    coordinate_semantics: -1.0m_is_lowest_0.0m_is_highest
+  head_joint:
+    type: revolute
+    lower_position_rad: -1.57
+    upper_position_rad: 1.57
+  head_pitch_joint:
+    type: revolute
+    lower_position_rad: -1.57
+    upper_position_rad: 1.57
+  left_joint1: &id001
+    type: revolute
+    lower_position_rad: -3.14159265
+    upper_position_rad: 3.14159265
+    max_effort: 647
+    max_velocity_rad_s: 1.309
+  left_joint2: &id002
+    type: revolute
+    lower_position_rad: -1.8325957145940461
+    upper_position_rad: 1.8325957145940461
+    max_effort: 647
+    max_velocity_rad_s: 1.309
+  left_joint3: &id003
+    type: revolute
+    lower_position_rad: -3.14159265
+    upper_position_rad: 3.14159265
+    max_effort: 484
+    max_velocity_rad_s: 1.309
+  left_joint4: &id004
+    type: revolute
+    lower_position_rad: -2.53072742
+    upper_position_rad: 2.53072742
+    max_effort: 459
+    max_velocity_rad_s: 1.749
+  left_joint5: &id005
+    type: revolute
+    lower_position_rad: -3.14159265
+    upper_position_rad: 3.14159265
+    max_effort: 217
+    max_velocity_rad_s: 2.618
+  left_joint6: &id006
+    type: revolute
+    lower_position_rad: -1.91986218
+    upper_position_rad: 1.91986218
+    max_effort: 107
+    max_velocity_rad_s: 3.142
+  left_joint7: &id007
+    type: revolute
+    lower_position_rad: -3.14159265
+    upper_position_rad: 3.14159265
+    max_effort: 36
+    max_velocity_rad_s: 3.142
+  right_joint1: *id001
+  right_joint2: *id002
+  right_joint3: *id003
+  right_joint4: *id004
+  right_joint5: *id005
+  right_joint6: *id006
+  right_joint7: *id007
+  steer1_joint:
+    type: revolute
+    max_effort: 10.0
+    max_velocity_rad_s: 5.0
+    lower_position_rad: -2.356194490192345
+    upper_position_rad: 2.356194490192345
+  wheel1_joint:
+    type: continuous
+    max_effort: 10.0
+    max_velocity_rad_s: 31.4
+  steer2_joint:
+    type: revolute
+    max_effort: 10.0
+    max_velocity_rad_s: 5.0
+    lower_position_rad: -2.356194490192345
+    upper_position_rad: 2.356194490192345
+  wheel2_joint:
+    type: continuous
+    max_effort: 10.0
+    max_velocity_rad_s: 31.4
+  steer3_joint:
+    type: revolute
+    max_effort: 10.0
+    max_velocity_rad_s: 5.0
+    lower_position_rad: -2.356194490192345
+    upper_position_rad: 2.356194490192345
+  wheel3_joint:
+    type: continuous
+    max_effort: 10.0
+    max_velocity_rad_s: 31.4
+  steer4_joint:
+    type: revolute
+    max_effort: 10.0
+    max_velocity_rad_s: 5.0
+    lower_position_rad: -2.356194490192345
+    upper_position_rad: 2.356194490192345
+  wheel4_joint:
+    type: continuous
+    max_effort: 10.0
+    max_velocity_rad_s: 31.4

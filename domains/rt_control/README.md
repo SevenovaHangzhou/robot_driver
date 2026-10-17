@@ -78,8 +78,9 @@ The legacy baseline `/home/kkozia/robot_driver@6bc94cd` is read-only and is not 
 
 ## V3 分支运行边界
 
-`v3` 分支使用 `robot_description/robot_v3_suction_chassis@17f5bdc` 的构建副本，
-硬件绑定选择其 gripper 变体以对应已确认的 14 CSP + 2 PP 双臂实物。默认安装入口
+`v3` 分支使用 `robot_description/feature/electri-127-deployed-mobile-model@c49e8ed`
+的构建副本（研华底盘台架部署模型），硬件绑定选择其 `mobile_proxy` 变体：14 CSP 双臂、
+Updown、头部和四舵轮。该模型没有夹爪关节，PP 夹爪暂不参与组合（ELECTRI-127）。默认安装入口
 `rt_control_start` 只运行 `alfa_v3` machine-profile validation，不创建硬件节点；真实双臂
 原位使能仍必须显式使用 `--enable-only`，并沿用其独立现场授权门禁。
 

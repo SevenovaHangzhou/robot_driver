@@ -41,6 +41,7 @@ ROBOT_INTERFACES_PACKAGES = [
     "robot_interfaces_qos",
 ]
 GENERATED_PARTS = {"build", "install", "log", ".colcon", "__pycache__"}
+IMPORTED_DESCRIPTION_PREFIX = "src/description/robot_description/"
 SHARED_PACKAGE_PREFIXES = (
     "src/description/robot_description/",
     "src/interfaces/",
@@ -101,7 +102,13 @@ def check_text(relative_path: str, text: str) -> list[str]:
     # Patch whitespace belongs to the upstream diff and is validated by
     # applying the patch to its pinned source revision. Other hygiene and
     # secret checks still apply to patch payloads.
-    if text and not text.endswith("\n"):
+    # The imported Robot Model keeps the pinned upstream bytes (source-lock source_tree);
+    # adding a newline here would change the deployed model hash.
+    if (
+        text
+        and not text.endswith("\n")
+        and not relative_path.startswith(IMPORTED_DESCRIPTION_PREFIX)
+    ):
         findings.append(f"{relative_path}: missing newline at end of file")
     if MERGE_MARKER.search(text):
         findings.append(f"{relative_path}: merge-conflict marker found")

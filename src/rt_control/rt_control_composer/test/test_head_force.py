@@ -84,7 +84,7 @@ def test_four_frozen_head_force_cases(shares, tmp_path, case):
         # isolated in the test model share and never changes production model facts.
         model = tmp_path / "model"
         shutil.copytree(shares["robot_description"], model)
-        limits = model / "config/joint_limits_gripper.yaml"
+        limits = model / "config/joint_limits_analytic_proxy_mobile.yaml"
         values = yaml.safe_load(limits.read_text())
         root = values["joints"]
         for joint in config["joints"]:
@@ -190,7 +190,7 @@ def test_head_sample_c_adapter_is_offline(shares, tmp_path, monkeypatch):
         "deployment": load_yaml(next((data / "units").glob("*/deployment.yaml"))),
         "robot_model": {
             "joint_limits": yaml.safe_load(
-                (shares["robot_description"] / "config/joint_limits_gripper.yaml").read_text()
+                (shares["robot_description"] / "config/joint_limits_analytic_proxy_mobile.yaml").read_text()
             )
         },
         "use_mock_hardware": True,

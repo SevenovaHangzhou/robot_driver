@@ -1,212 +1,131 @@
 # robot_description
 
-本分支 `robot_v3_suction_chassis` 默认提供“吸盘 + 主动悬挂舵轮”版本（26 个可动关节）。
-直接加载 `urdf/robot.urdf`；可编辑入口为 `urdf/robot.urdf.xacro`，
-配套配置为 `config/initial_positions.yaml` 和 `config/joint_limits.yaml`。
+> 本分支在 `feat/v3-analytic-proxy`（e189bdb）上加入研华底盘台架已部署的底盘修正（ELECTRI-127）。
+> **当前底盘入口：`urdf/robot_analytic_proxy_mobile.urdf`**，不是下文保留的旧默认入口。
+> `base_footprint → base_link` 为 `xyz=[0,0,0.32]`、`yaw=+π/2`；新车头 `+X` 对应原 `base_link −Y`。
+> 四个 `steer*_joint` 的 origin yaw 为 `−π/2`，局部轴不变；转向 q 限位为 ±135°。
+> 四个 `wheel*_joint` 为 continuous，速度上限 **31.4 rad/s**。
+> 电机原码方向、标定零偏和总线配置属于控制部署，不包含在本模型快照中。
+> 部署入口 SHA-256：`bba180d064ff4fe672b9b3fdfa7e8e8fd1bc9d1cac4f7cbc13c751ebd0fbff1c`。
 
-## 1. 功能说明
 
-本仓库提供机器人 URDF/Xacro、SRDF、网格、初始关节位置和关节限位资产。
-`robot_v3` 分支保存 V3.0.9 描述语义，支持双夹爪与双吸盘两套末端，
-两版均集成四组独立转向/行走舵轮。
+`robot_v3_suction_chassis` 当前默认提供 V3.2.2 整机几何与惯量、V3.1.1
+逻辑零位/方向/限位和地面 `base_footprint` 的生产描述。
 
-## 2. 输入输出
+## 默认模型
 
-- 输入：`urdf/robot.urdf.xacro` 及其包含的 V3 几何与末端文件；
-  `end_effector` 参数可取 `suction`（默认）或 `gripper`，同时选择两侧末端。
-- 输出：展开后的 URDF、`srdf/robot.srdf`、初始位置和关节限位 YAML。
-- `base_footprint` 是地面参考，`base_link` 的实测安装偏移为
-  `[0.195, 0.015, 0.400]m`。
-- 按 ROS `base_link` 约定，`+Y` 一侧命名为 `left_*`，`-Y` 一侧命名为
-  `right_*`。
-- 上游模型中原名 `right_joint5` 的 `+pi` 姿态定义为修正命名后
-  `left_joint5` 的逻辑零位；逻辑运动范围保持 `[-pi, +pi]`。
-- `left_joint7` 的逻辑零位定义为上一版模型的 `+pi` 腕部滚转位置，
-  使左右末端默认朝向一致；运动范围仍为 `[-pi, +pi]`。
-- `updown=0m` 为行程中点，逻辑范围为 `[-0.5m, +0.5m]`。
-- 默认初始姿态为左臂 `[150, 90, -5, 120, 0, 0, 0]°`、右臂
-  `[-150, -90, 5, -120, 0, 0, 0]°`。
-- 夹爪版的 `left_moving_jaw_joint` 和 `right_moving_jaw_joint` 分别连接同侧
-  `*_joint7` 与 `*_moving_jaw`，沿父链接局部 `+X` 方向移动，范围为
-  `[0, 0.080]m`，默认 `0m` 表示 CAD 闭合状态。
-- 现有 `left_tool0`、`right_tool0` 仍固定在同侧 `*_joint7` 的
-  `[0, 0, 0.13585]m`；它们不随夹爪开合移动，也未重新定义为夹持中心或吸附面 TCP。
+- 入口：`urdf/robot.urdf.xacro`
+- 直接加载：`urdf/robot.urdf`
+- SRDF：`srdf/robot.srdf`
+- 初始位置：`config/initial_positions.yaml`
+- 关节限位：`config/joint_limits.yaml`
+- 命名姿态：`config/named_poses.yaml`
 
-SRDF 只定义五个规划组：
+模型只有 17 个运动关节：Updown、头部 yaw/pitch 和双臂 14 轴。
+V3.2.2 原始包没有舵轮、行走轮和主动悬挂关节，因此生产描述也不再声明这些
+自由度。V3.2.2 原始模型不额外安装旧 V3.1.1 吸盘网格；左右 `tool0` 是直接
+挂在 `link7` 局部 `+Z` 方向 `0.151m` 的无几何语义帧，不增加运动自由度。
 
-- `left_arm`
-- `right_arm`
-- `dual_arm`
-- `dual_arm_with_updown`
-- `whole`
+## 根坐标
 
-两套末端共用这五个规划组。夹爪版共含 28 个可动关节：14 个臂关节、
-1 个立柱升降关节、2 个头部关节、2 个夹爪关节、1 个主动悬挂关节和
-8 个底盘转向/轮关节。吸盘版不含夹爪 link/joint，共 26 个可动关节；
-真空通断不建模为运动关节。
-下游状态发布方需要提供所选版本的全部关节位置。夹爪和底盘关节不加入这五个
-规划组；硬件接口与控制器配置由对应软件包维护。
+`base_footprint` 是唯一物理根和地面接触参考。`base_link` 位于其正上方：
 
-两套末端定义集中在 `urdf/robot_v3_end_effectors.xacro`，共用机身、机械臂、
-零位和限位。下游加载时需同时选择对应配置：
+```text
+base_footprint -> base_link: xyz=[0, 0, 0.335]m, rpy=[0, 0, 0]
+```
 
-| 末端 | Xacro 入口 | 初始位置 | 关节限位 |
-| --- | --- | --- | --- |
-| 双夹爪 | `urdf/robot_dual_gripper.urdf.xacro` | `config/initial_positions_gripper.yaml` | `config/joint_limits_gripper.yaml` |
-| 双吸盘 | `urdf/robot_dual_suction.urdf.xacro` | `config/initial_positions_suction.yaml` | `config/joint_limits_suction.yaml` |
+SRDF 使用 `map → base_footprint` planar virtual joint 表达底盘 `x/y/yaw`；
+这些量不进入实体关节状态或关节轨迹控制器。
 
-### 双夹爪导入约定
+## 零位与限位
 
-首次夹爪包的 `robot.urdf` 与 `robot_dual_gripper.urdf` 内容相同，以后者为来源。
-保留仓库已校核的机身坐标、左右侧、J5/J7 逻辑零位、升降与臂关节限位，
-只导入末端固定主体和移动夹爪。原有 46 个网格与输入包逐字节一致。
+外观、碰撞网格和质量属性来自 V3.2.2。控制接口仍使用冻结的 V3.1.1
+逻辑关节名和限位。为了让既有姿态数值直接复用，V3.2.2 原始零位被适配为：
 
-| 输入链接或关节 | 仓库链接或关节 |
-| --- | --- |
-| `link_010` | `right_joint7` |
-| `left_moving_jaw` / `left_moving_jaw_joint` | `right_moving_jaw` / `right_moving_jaw_joint` |
-| `link_017` | `left_joint7` |
-| `right_moving_jaw` / `right_moving_jaw_joint` | `left_moving_jaw` / `left_moving_jaw_joint` |
+- 左 J1：原始角 = 逻辑角 - 90°
+- 右 J1：原始角 = 逻辑角 + 90°
+- 左 J5：原始角 = 逻辑角 + 90°
+- 右 J5：原始角 = 逻辑角 - 90°
+- Updown：原始位置 = -逻辑位置
 
-新增网格位于 `meshes/robot_v3/`，URDF 使用
-`package://robot_description/meshes/robot_v3/` 路径和统一的
-`scale="0.001 0.001 0.001"`，将毫米转换为米：
+这些变换已经固化到 URDF joint origin/axis，下游继续发送 V3.1.1 逻辑角，不得
+再重复施加偏移。
 
-- `ee_fixed_body_visual.stl`、`ee_fixed_body_collision.stl`：固定主体视觉与碰撞网格。
-- `moving_jaw_visual.stl`、`moving_jaw_collision.stl`：移动夹爪视觉与碰撞网格。
+双臂限位保持：J1 ±180°、J2 ±105°、J3 ±180°、J4 ±145°、J5 ±180°、
+J6 ±110°、J7 ±180°；Updown 为 `[-1,0]m`，`0m` 是最高点。
 
-每侧固定主体质量为 `4.750 kg`，移动夹爪质量为 `0.342 kg`，质心与惯量沿用
-输入 URDF。固定主体碰撞网格保留输入的 `[-0.040201, -0.071594, 0]m` 偏移，
-不能按视觉网格的零偏移处理。夹爪的行程、effort、velocity、damping、friction
-均为输入包描述值，尚需实机核对；曲柄与连杆的闭环运动约束未建模。
+## 关键姿态
 
-### 双吸盘导入约定
+- 第一初始：Updown `-0.3m`，左臂 `[155,-105,20,90,-90,-40,0]°`，右臂取相反数。
+- 第二初始：Updown `-0.6m`，左臂 `[30,80,20,90,90,60,0]°`，右臂取相反数。
+- 第一放置：Updown `-0.3m`，左臂 `[140,-100,-180,20,-90,-20,0]°`，右臂取相反数。
+- 第二放置：Updown `-0.6m`，左臂 `[0,100,0,-30,100,30,0]°`，右臂取相反数。
 
-吸盘包的 `robot.urdf` 与 `robot_dual_suction.urdf` 内容相同，以后者为来源。
-它将两侧末端整体替换为吸盘，并移除移动夹爪，使用相同的
-`link_010 → right_joint7`、`link_017 → left_joint7` 映射。
+完整精度数值见 `config/named_poses.yaml`。
 
-- 每侧质量：`2.618 kg`；质心：`[-0.000330, -0.000125, 0.070303]m`。
-- 网格：`meshes/robot_v3/suction_visual.stl` 与 `suction_collision.stl`。
-- 视觉原点：`[0, 0, 0]m`；碰撞原点：`[-0.158443333, -0.088374996, 0]m`。
-- 质心惯量沿用输入文件，网格统一使用 ROS 包路径和 `0.001` 毫米缩放。
+## 临时解析代理模型
 
-### 主动悬挂四舵轮底盘导入约定
+需要闭式解析 IK 的仿真与规划任务可以显式加载：
 
-主动悬挂来自 2026-09-12 的整机 `robot.urdf` 导出。该文件的
-`base_link.stl` 同时聚合上车体和固定底盘，不能直接接入现有语义模型；
-公共 `urdf/robot_v3_chassis.xacro` 因此保留已校核的 `chassis_base` 底板，
-只迁移主动悬挂承载件和四组新舵轮。9 个新网格位于
-`meshes/active_suspension/`，从源米制 STL 转为毫米制 STL，URDF 继续统一使用
-`scale="0.001 0.001 0.001"`。
+```bash
+xacro $(ros2 pkg prefix robot_description)/share/robot_description/urdf/robot_analytic_proxy.urdf.xacro
+```
 
-源 `Link_29` / `Joint_29` 分别映射为 `active_suspension_carriage` /
-`active_suspension_joint`。源关节沿局部 `+Z` 轴移动，逻辑范围为
-`[-0.15, 0]m`；`0m` 是 CAD 收回零位，`-0.15m` 是最大伸出位置。
-前侧两组舵轮固定连接 `chassis_base`，后侧两组共同随悬挂承载件移动。
+对应姿态文件为 `config/named_poses_analytic_proxy.yaml`，参数清单为
+`config/analytic_proxy_manifest.json`。该模型以 V3.2.2 生产描述为基础，仅理想化
+左右 J3/J4/J5/J7 的毫米级装配原点，使肩、肘、腕轴组满足解析 IK 的共点假设；
+网格、惯量、关节方向、限位、`base_footprint` 和 `tool0=151mm` 均保持不变。
 
-| 舵轮编号 | 物理位置（+X 前、+Y 左） | 源 link | 父 link | 转向关节 | 行走轮关节 |
-| --- | --- | --- | --- | --- | --- |
-| 01 | 右前 | `Link_27/28` | `chassis_base` | `caster01_joint` | `wheel01_joint` |
-| 02 | 右后 | `Link_30/31` | `active_suspension_carriage` | `caster02_joint` | `wheel02_joint` |
-| 03 | 左后 | `Link_32/33` | `active_suspension_carriage` | `caster03_joint` | `wheel03_joint` |
-| 04 | 左前 | `Link_21/22` | `chassis_base` | `caster04_joint` | `wheel04_joint` |
+该入口仅供临时算法开发和仿真，不是真机标定结果，也不会替换默认
+`urdf/robot.urdf.xacro`。实机与正式交付必须继续使用机械部门确认后的生产模型。
 
-装配按“轮胎最低点接地、立柱底面贴底盘上表面”对齐：
+## 四舵轮与 IMU 整机代理入口
 
-- 保留 `base_footprint → base_link` 的 `[0.195, 0.015, 0.400]m`。
-- `base_link → chassis_base` 为 `[-0.19, 0, -0.034415142]m`，无旋转；
-  保留旧底盘的水平中心 `[0.005, 0.015]m`（相对 `base_footprint`）。
-- 源整机坐标到 `base_footprint` 的对齐平移为
-  `[-0.001, 0.015, 0.25673805]m`。
-- 悬挂零位包含 `0.1565mm` 网格高度补偿；四轮最低点为 `z=0m`，底盘安装板
-  下表面为 `z=0.320m`、上表面为 `z=0.332m`。
-- 上身整体抬高 `0.0142m`，使立柱底面与 `z=0.332m` 贴合；臂关节和升降
-  的相对变换、零位、限位不变。
+`urdf/robot_analytic_proxy_mobile.urdf` 在解析代理上身基础上，接入用户选定的
+`local_munsrkg7_6rqaj1_urdf_stl` 新机械底座与四舵轮。它包含 25 个运动关节、
+30 个 link，使用 `config/initial_positions_analytic_proxy_mobile.yaml` 与
+`config/joint_limits_analytic_proxy_mobile.yaml`。
 
-旧 `model_base` 中的 `part_038` 至 `part_046` 共九个固定底盘零件已从视觉和
-碰撞中移除。旧模型质量/惯量与网格按 `1200 kg/m³` 的积分结果一致；据此用
-平行轴定理从原总成扣除旧底盘 `48.9719861146 kg`，将剩余上身质量由
-`79.116973 kg` 调整为 `30.1449868854 kg`，同步更新质心和惯量。
-固定底板、主动悬挂承载件及四组舵轮质量合计 `55.40394687 kg`，沿用各自
-输入 URDF 的质量属性。
-这些属性来自 CAD/网格估算，不是新增的实测质量。
+- 上身所有 link、joint（含机械臂八处代理原点、头部和 Tool0）相对 `base_link`
+  保持原代理模型定义。
+- `base_link` 的碰撞和惯量采用新机械来源；可视网格 `part_001_solid_001.stl`
+  使用之前 V3.2.2 的带罩壳版本，以遮住轮子。该罩壳仅用于外观，不作为新增碰撞或质量。
+  四组 `steer1..4` / `wheel1..4` 的几何、惯量、轴和旋转中心按源文件保留；关节类型、转向零位及限位按本页顶部的部署修正。
+- `base_footprint → base_link` 为 `[0,0,0.32]m`、yaw `+π/2`，基于源轮心高度 -0.22m 与
+  名义轮半径 0.10m；四轮网格最低点距地面约 0.34mm（网格离散误差）。
+- `base_link → imu_link` 为 `[0.403,0,0]m`、RPY `[0,0,0]`，依据用户此前明确
+  确认，且父坐标正是本次新机械底座的来源。IMU 只增加坐标系，不虚构外形和惯量。
+- 本次选定的新机械底盘没有独立主动悬挂关节。
 
-本次保留新输入的八个 `revolute` 关节、`[-3.14159, 3.14159]rad` 限位和零初始位置，
-包括四个行走轮；因此当前描述不提供行走轮无限连续旋转。
-导出报告列出的四个未分配零件 `part_002`、`part_005`、`part_009`、`part_011`
-未进入源 URDF，本次也未额外补入。
+来源、原文件 SHA256 和 IMU 确认记录位于 `model_sources/mechanical_958c49d/`；
+组合策略见 `config/analytic_proxy_mobile_manifest.json`。重新生成入口和配置：
 
-### 双自由度头部导入约定
+```bash
+python3 tools/build_analytic_proxy_mobile.py
+```
 
-头部来自 `相机1.0.STEP` 的导出 URDF，定义集中在 `urdf/robot_v3_head.xacro`，
-五个网格位于 `meshes/head/`。旧 `part_021_solid_021.stl` 头部已从模型中替换。
+这是供查看与规划使用的组合模型，机械臂仍为实验性解析代理；上身与新底座装配
+需机械复核。IMU 设备 ENU/NED 输出约定不由该安装 TF 定义。原生产入口保持独立。
 
-- `head_mount_fixed` 将底座固定到 `arm_carriage`，位置为 `[0.226, 0, 1.3806412]m`，
-  无旋转；10 mm 厚底座的下表面贴合原头部安装面 `z=1.3756412m`。
-- `head_joint` 保留为回转关节，连接 `head_mount → head_yaw`，物理转轴沿局部 `+Z`。
-- `head_pitch_joint` 连接 `head_yaw → head`，通过源文件的 `Rx(-pi/2)` 安装旋转，
-  将关节局部 `+Z` 轴变为回转支架的 `+Y` 俯仰轴。
-- 两轴零位、`[-1.57, 1.57]rad` 行程、effort=10 和 velocity=5 均沿用新头部源文件。
-  默认初始角度均为 0；新 CAD 的 `+X` 对齐机器人前方。
-- `head` 是承载俯仰支架、ZED X Wide 和 MID-360 的末级 link；未推断传感器光学坐标系。
-- 新头部总质量为 `0.47369491 kg`，沿用导出文件的网格估算质量、质心和惯量；
-  相机及雷达含 surface/shell 几何，这些数值不代表新增实测质量。
-- `whole` 规划组同时包含回转与俯仰关节，仍保持原来的五个规划组。
+## 来源与已知边界
 
-## 3. 依赖模块
+V3.2.2 原始导出保存在 `model_sources/robot_v3_2_2/`，来源哈希见
+`config/v3_2_2_source_manifest.json`。原始导出报告仍提示 16 个未分配 CAD part；
+这些 part 未被原始 URDF 引用，也未被生产入口强行补入。
 
-- ROS 2 Humble
-- `ament_cmake`
-- `xacro`
-- 测试时需要 `ament_cmake_pytest` 和 `check_urdf`
+`urdf/robot_v3_2_2.urdf` 保留机械原始关节命名和通用限位，仅用于来源审查；
+运行时必须使用默认生产入口。
 
-## 4. 编译方式
+## 构建与测试
 
 ```bash
 source /opt/ros/humble/setup.bash
-colcon build --packages-select robot_description --symlink-install
-```
-
-## 5. 启动方式
-
-本仓库只提供描述资产，不拥有整机启动入口。由 bringup 或 MoveIt 配置包加载：
-
-```text
-share/robot_description/urdf/robot.urdf.xacro
-share/robot_description/srdf/robot.srdf
-```
-
-展开吸盘版：
-
-```bash
+colcon build --packages-select robot_description
 source install/setup.bash
-xacro "$(ros2 pkg prefix --share robot_description)/urdf/robot_dual_suction.urdf.xacro" -o robot_dual_suction.urdf
-```
-
-也可在公共入口传入 `end_effector:=gripper`。未指定参数时加载吸盘版。
-
-修改 Xacro 后需同步本分支的直接加载文件；测试会检查两者一致：
-
-```bash
-xacro urdf/robot.urdf.xacro -o urdf/robot.urdf
-```
-
-## 6. 测试方式
-
-```bash
 colcon test --packages-select robot_description
 colcon test-result --verbose
 ```
 
-测试覆盖 URDF 单树合法性、左右物理侧、J5/J7 零位矩阵等价、升降逻辑坐标、
-默认姿态、关节限位、五组 SRDF、双夹爪所属侧与行程、末端坐标系稳定性、
-吸盘质量与碰撞偏移、两套模型的网格配置及可动关节 YAML 覆盖，
-并检查末端切换不改变共同的机器人结构。底盘测试还直接用 STL 顶点检查
-四轮零位接地、后轴伸出 150mm、转向后接地高度、安装面贴合、旧底盘移除和质量去重。
-实机使用前仍需在 RViz 和实物上
-核对两侧末端安装、吸附面 TCP，以及夹爪运动方向和开合干涉。
-
-## 7. 负责人
-
-运控与机器人描述负责人共同维护；机械安装、编码器方向和实机零位仍需对应负责人验收。
+测试检查来源哈希、单树根坐标、17轴清单、V3.1.1限位、四套姿态到原始
+V3.2.2几何的等价映射、Tool0固定链、SRDF引用和安装后mesh解析；代理模型
+额外检查只修改约定原点、三组轴共点和第三放置位15轴合同。

@@ -76,13 +76,6 @@ spec:
         robot_model_joint: left_joint7
         device: devices/zeroerr_erob_model_tbd.yaml
         direction: 1
-      - physical_joint: gripper
-        ring_position: 8
-        mode_of_operation: 1
-        robot_model_joint: left_moving_jaw_joint
-        encoder_policy: multiturn_required
-        device: devices/zeroerr_pp_gripper_model_tbd.yaml
-        direction: TBD
     right:
       connector: X3
       main_esc_port: 1
@@ -130,13 +123,6 @@ spec:
         robot_model_joint: right_joint7
         device: devices/zeroerr_erob_model_tbd.yaml
         direction: 1
-      - physical_joint: gripper
-        ring_position: 16
-        mode_of_operation: 1
-        robot_model_joint: right_moving_jaw_joint
-        encoder_policy: multiturn_required
-        device: devices/zeroerr_pp_gripper_model_tbd.yaml
-        direction: TBD
   drive_profiles:
     csp: zeroerr_cia402_csp
     gripper_pp: zeroerr_cia402_stationary

@@ -11,8 +11,8 @@ from pathlib import Path
 import yaml
 
 
-EXPECTED_DESCRIPTION_REVISION = "17f5bdc46b8f2580ee81aed919da7b404da3bdaf"
-EXPECTED_DESCRIPTION_TREE = "1b86f379f885ad2b979c30ffd09b8d79e738b9fa"
+EXPECTED_DESCRIPTION_REVISION = "c49e8ed4c4ee60bf9aecd61548b9848856bc1769"
+EXPECTED_DESCRIPTION_TREE = "ec4a8c4c7a89f1c988bf1891337ab6f707804320"
 EXPECTED_ROLLING_INTERFACE_REVISION = "ea582c8a711874813d2ad7f0801b366bd32ab67e"
 
 
@@ -45,7 +45,7 @@ def validate(repository_root: Path) -> list[str]:
 
     expected_source = {
         "repository": "https://github.com/SevenovaHangzhou/robot_description.git",
-        "source_branch": "robot_v3_suction_chassis",
+        "source_branch": "feature/electri-127-deployed-mobile-model",
         "source_revision": EXPECTED_DESCRIPTION_REVISION,
         "source_tree": EXPECTED_DESCRIPTION_TREE,
         "model_family": "alfa_v3",
@@ -70,11 +70,13 @@ def validate(repository_root: Path) -> list[str]:
             / "src/rt_control/rt_control_machine_config/units/Alfa_V3-01/deployment.yaml"
         ).read_text()
     )
+    # ELECTRI-127: the unit deploys the Advantech mobile model; it has no gripper joints.
     if (
-        deployment["end_effector"] != "gripper"
-        or model["variants"]["gripper"]["xacro_file"] != "urdf/robot_dual_gripper.urdf.xacro"
+        deployment["end_effector"] != "mobile_proxy"
+        or model["variants"].get("mobile_proxy", {}).get("xacro_file")
+        != "urdf/robot_analytic_proxy_mobile.urdf"
     ):
-        findings.append("V3 deployment must retain the selected gripper model")
+        findings.append("V3 deployment must select the deployed mobile model")
     if "launch/rt_control_module.launch.py" not in cmake:
         findings.append("V3 bringup must install the machine-profile launch")
     if "launch/rt_control_arm_runtime.launch.py" not in cmake:

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "model_revision": "robot_v3.2.2-analytic-proxy",
+  "experimental": true,
+  "hardware_authoritative": false,
+  "base_model": "robot_v3.2.2-suction",
+  "runtime_entry": "urdf/robot_analytic_proxy.urdf.xacro",
+  "named_poses": "config/named_poses_analytic_proxy.yaml",
+  "purpose": "Temporary planning and simulation model with idealized intersecting shoulder, elbow, and wrist axes for closed-form analytic IK.",
+  "joint_origin_overrides_m": {
+    "left_joint3": [0.23761775, 0.063669485, -0.04949],
+    "left_joint4": [0.0, 0.085000001, 0.26],
+    "left_joint5": [0.0, -0.241, -0.085],
+    "left_joint7": [0.0, 0.0992, -0.0905],
+    "right_joint3": [-0.23761775, 0.063669485, -0.065],
+    "right_joint4": [0.0, -0.085000001, 0.26],
+    "right_joint5": [0.0, 0.241, -0.085],
+    "right_joint7": [0.0, -0.0992, -0.0905]
+  },
+  "retained_from_production": [
+    "visual meshes",
+    "collision meshes",
+    "mass and inertia",
+    "joint names, axes, limits, effort, and velocity",
+    "base_footprint and planar SRDF semantics",
+    "151 mm Tool0 frames"
+  ],
+  "validation": {
+    "random_fk_ik_samples_per_arm": 256,
+    "maximum_ik_position_error_m": 5.8e-8,
+    "average_analytic_ik_us_left": 13.1,
+    "average_analytic_ik_us_right": 12.5,
+    "wall_90cm_pipeline_success": "9/11"
+  }
+}

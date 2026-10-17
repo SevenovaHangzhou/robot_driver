@@ -180,15 +180,15 @@ def test_x9_merges_two_modules_and_rejects_parameter_conflict(shares):
             ("synthetic_owner", ETHERCAT.render(chassis_request)),
         ]
     )
-    assert len(combined) == 1 and len(combined[0]["result"]["joints"]) == 24
-    assert len(combined[0]["result"]["expected_topology"]["responders"]) == 26
+    assert len(combined) == 1 and len(combined[0]["result"]["joints"]) == 22
+    assert len(combined[0]["result"]["expected_topology"]["responders"]) == 24
     health = [
         element
         for element in combined[0]["result"]["sensors"]
         if element.attrib["name"] == "ethercat_master"
     ]
     assert len(health) == 1
-    assert health[0].find("state_interface[@name='slaves_responding']/param").text == "26"
+    assert health[0].find("state_interface[@name='slaves_responding']/param").text == "24"
     request = request_for_module(shares, "swerve_chassis")
     left, right = deepcopy(request), deepcopy(request)
     for current, suffix, positions in (

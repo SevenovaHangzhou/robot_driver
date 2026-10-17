@@ -57,6 +57,12 @@ class RepositoryGateTest(unittest.TestCase):
         self.assert_has(findings, "merge-conflict marker")
         self.assert_has(findings, "trailing whitespace")
         self.assert_has(findings, "newline at end of file")
+        self.assertEqual(
+            repository_gate.check_text(
+                "src/description/robot_description/urdf/model.urdf", "<robot/>"
+            ),
+            [],
+        )
 
         self.assertEqual(
             repository_gate.check_text("patches/vendor/change.patch", "+context with space \n"),

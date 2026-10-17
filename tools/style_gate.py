@@ -48,6 +48,8 @@ def find_tool(names, version, root, required):
 
 def check(root, base, required=False):
     merge_base, names, added = changed_files(root, base)
+    # The imported Robot Model keeps pinned upstream bytes; its owner repository styles it.
+    names = [p for p in names if not p.startswith("src/description/robot_description/")]
     print(f"Style merge base: {merge_base}")
     python = [p for p in names if is_python(root, p)]
     cpp = [p for p in names if Path(p).suffix in CPP_SUFFIXES]

@@ -9,9 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTION = ROOT / "src/description/robot_description"
-ROBOT_XACRO = DESCRIPTION / "urdf/robot.urdf.xacro"
-ARM_XACRO = DESCRIPTION / "urdf/robot_v3_0_9.xacro"
-CHASSIS_XACRO = DESCRIPTION / "urdf/robot_v3_chassis.xacro"
+MOBILE_URDF = DESCRIPTION / "urdf/robot_analytic_proxy_mobile.urdf"
 SOURCE_LOCK = ROOT / "src/description/source-lock.yaml"
 BRINGUP_MANIFEST = ROOT / "src/rt_control/rt_control_bringup/package.xml"
 DOCKERFILE = ROOT / "docker/rt-control/Dockerfile"
@@ -26,20 +24,20 @@ class TfContractTest(unittest.TestCase):
             source["repository"],
             "https://github.com/SevenovaHangzhou/robot_description.git",
         )
-        self.assertEqual(source["source_branch"], "robot_v3_suction_chassis")
+        self.assertEqual(source["source_branch"], "feature/electri-127-deployed-mobile-model")
         self.assertEqual(
             source["source_revision"],
-            "17f5bdc46b8f2580ee81aed919da7b404da3bdaf",
+            "c49e8ed4c4ee60bf9aecd61548b9848856bc1769",
         )
         self.assertEqual(
             source["source_tree"],
-            "1b86f379f885ad2b979c30ffd09b8d79e738b9fa",
+            "ec4a8c4c7a89f1c988bf1891337ab6f707804320",
         )
         self.assertEqual(source["model_family"], "alfa_v3")
         self.assertEqual(source["default_end_effector"], "suction")
 
     def test_v3_robot_model_roots_at_base_footprint(self):
-        robot = ET.parse(ROBOT_XACRO).getroot()
+        robot = ET.parse(MOBILE_URDF).getroot()
         links = {link.attrib["name"] for link in robot.findall("link")}
         joints = {joint.attrib["name"]: joint for joint in robot.findall("joint")}
 
@@ -50,54 +48,49 @@ class TfContractTest(unittest.TestCase):
         self.assertEqual(base_joint.attrib["type"], "fixed")
         self.assertEqual(base_joint.find("parent").attrib["link"], "base_footprint")
         self.assertEqual(base_joint.find("child").attrib["link"], "base_link")
-        self.assertEqual(base_joint.find("origin").attrib["xyz"], "0.195 0.015 0.400")
+        # Deployed chassis frame: new forward +X is the old base_link -Y.
+        self.assertEqual(base_joint.find("origin").attrib["xyz"], "0 0 0.32")
+        self.assertEqual(base_joint.find("origin").attrib["rpy"], "0 0 1.5707963267948966")
 
     def test_v3_control_joint_names_are_present_in_the_model_sources(self):
-        arms = ET.parse(ARM_XACRO).getroot()
-        joints = {joint.attrib["name"]: joint for joint in arms.findall("joint")}
-        expected_arms = {
+        robot = ET.parse(MOBILE_URDF).getroot()
+        joints = {joint.attrib["name"]: joint for joint in robot.findall("joint")}
+        expected = {
+            "updown",
+            "head_joint",
+            "head_pitch_joint",
             *(f"right_joint{index}" for index in range(1, 8)),
             *(f"left_joint{index}" for index in range(1, 8)),
+            *(f"steer{index}_joint" for index in range(1, 5)),
+            *(f"wheel{index}_joint" for index in range(1, 5)),
         }
-        self.assertTrue(expected_arms.issubset(joints))
+        moving = {name for name, joint in joints.items() if joint.attrib["type"] != "fixed"}
+        self.assertEqual(moving, expected)
         self.assertEqual(joints["updown"].attrib["type"], "prismatic")
-        self.assertEqual(joints["updown"].find("limit").attrib["lower"], "-0.5")
-        self.assertEqual(joints["updown"].find("limit").attrib["upper"], "0.5")
-
-        chassis = ET.parse(CHASSIS_XACRO).getroot()
-        chassis_joints = {
-            joint.attrib["name"]: joint for joint in chassis.findall("joint")
-        }
-        suspension = chassis_joints["active_suspension_joint"]
-        self.assertEqual(suspension.attrib["type"], "prismatic")
-        self.assertEqual(suspension.find("parent").attrib["link"], "chassis_base")
-        self.assertEqual(
-            suspension.find("child").attrib["link"],
-            "active_suspension_carriage",
-        )
-        self.assertEqual(suspension.find("axis").attrib["xyz"], "0 0 1")
-        self.assertEqual(suspension.find("limit").attrib["lower"], "-0.15")
-        self.assertEqual(suspension.find("limit").attrib["upper"], "0")
+        for index in range(1, 5):
+            self.assertEqual(joints[f"wheel{index}_joint"].attrib["type"], "continuous")
+            limit = joints[f"steer{index}_joint"].find("limit").attrib
+            self.assertEqual(limit["lower"], "-2.356194490192345")
+            self.assertEqual(limit["upper"], "2.356194490192345")
 
     def test_v3_model_assets_and_variants_are_installed_by_the_package(self):
         for relative_path in (
+            "urdf/robot_analytic_proxy_mobile.urdf",
             "urdf/robot_dual_suction.urdf.xacro",
-            "urdf/robot_dual_gripper.urdf.xacro",
             "srdf/robot.srdf",
+            "config/joint_limits_analytic_proxy_mobile.yaml",
+            "config/initial_positions_analytic_proxy_mobile.yaml",
             "config/joint_limits_suction.yaml",
-            "config/joint_limits_gripper.yaml",
-            "meshes/active_suspension/active_suspension_carriage.stl",
-            "meshes/chassis/part_001_solid_001.stl",
-            "meshes/head/part_001_part.stl",
-            "meshes/robot_v3/suction_visual.stl",
         ):
             self.assertTrue((DESCRIPTION / relative_path).is_file(), relative_path)
+        robot = ET.parse(MOBILE_URDF).getroot()
+        for mesh in robot.iter("mesh"):
+            path = mesh.attrib["filename"].replace("package://robot_description/", "")
+            self.assertTrue((DESCRIPTION / path).is_file(), path)
 
         cmake = (DESCRIPTION / "CMakeLists.txt").read_text(encoding="utf-8")
-        self.assertIn(
-            "install(DIRECTORY urdf srdf meshes config DESTINATION share/${PROJECT_NAME})",
-            cmake,
-        )
+        self.assertIn("install(DIRECTORY urdf srdf meshes config DESTINATION", cmake)
+        self.assertIn("model_sources/mechanical_958c49d", cmake)
 
     def test_image_and_bringup_require_robot_state_publisher(self):
         manifest = ET.parse(BRINGUP_MANIFEST).getroot()

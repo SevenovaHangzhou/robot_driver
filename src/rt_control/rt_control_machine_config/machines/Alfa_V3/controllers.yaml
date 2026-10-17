@@ -33,34 +33,7 @@ controllers:
     actuator_groups:
     - position_velocity
     required_state_modules: []
-    tags: []
-    parameters:
-    - yaml:
-        package: damiao_head_controller
-        file: config/controllers.yaml
-        path: '{controller}.ros__parameters'
-  left_gripper:
-    module: arms
-    name: left_gripper_controller
-    plugin: forward_command_controller/ForwardCommandController
-    package: control_api_adapter
-    config_file: config/Alfa_V3_grippers.draft.yaml
-    actuator_groups:
-    - gripper_pp
-    required_state_modules: []
-    tags: []
-    parameters: []
-  right_gripper:
-    module: arms
-    name: right_gripper_controller
-    plugin: forward_command_controller/ForwardCommandController
-    package: control_api_adapter
-    config_file: config/Alfa_V3_grippers.draft.yaml
-    actuator_groups:
-    - gripper_pp
-    required_state_modules: []
-    tags: []
-    parameters: []
+    role: external
   whole_body_jtc:
     module: arms
     name: whole_body_jtc
@@ -109,7 +82,6 @@ controllers:
     config_file: config/Alfa_V3_enable_policy.yaml
     actuator_groups:
     - csp
-    - gripper_pp
     required_state_modules: []
     tags:
     - enable
@@ -184,7 +156,6 @@ controllers:
     config_file: config/controller_defaults.yaml
     actuator_groups:
     - csp
-    - gripper_pp
     required_state_modules: []
     tags: []
     parameters:
@@ -205,7 +176,6 @@ controllers:
     config_file: config/controller_defaults.yaml
     actuator_groups:
     - csp
-    - gripper_pp
     required_state_modules: []
     tags: []
     parameters:
