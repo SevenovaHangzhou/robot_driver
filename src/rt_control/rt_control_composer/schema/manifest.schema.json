@@ -639,6 +639,16 @@
                 "type": "string",
                 "minLength": 1
               }
+            },
+            "policy_overrides": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "staged_hardware_activation": {
+              "type": "boolean"
             }
           },
           "required": [

@@ -215,3 +215,39 @@ def test_x9_merges_two_modules_and_rejects_parameter_conflict(shares):
     conflict["hardware_params"]["control_frequency"] += 1
     with pytest.raises(ValueError, match="Conflicting"):
         merge_systems([("synthetic_owner", a), ("synthetic_owner", conflict)])
+
+
+def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "out")
+    params = result.controllers["enable_manager"]["ros__parameters"]
+    steering = [f"steer{n}_joint" for n in range(1, 5)]
+    drive = [f"wheel{n}_joint" for n in range(1, 5)]
+    # Hardware (ring) order for managed joints; steering batches before drive batches.
+    assert params["managed_joints"] == [j for pair in zip(drive, steering) for j in pair]
+    assert params["enable_batch_joint_names"] == steering + drive
+    assert params["enable_batch_sizes"] == [2, 2, 2, 2]
+    assert params["expected_modes"] == [9, 8] * 4
+    assert params["jtc_name"] == "swerve_controller"
+    assert params["ready_state_interfaces"] == [f"steering_encoder_{n}/ready" for n in range(1, 5)]
+    assert params["ready_hold_time"] == 0.05
+    assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
+    assert result.controller_order == {
+        "inactive": ["swerve_controller"],
+        "active": ["joint_state_broadcaster", "enable_manager"],
+    }
+
+
+def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "out")
+    order = list(result.hardware_activation_order)
+    assert order == ["canopen_swerve_encoders", "ecat_arms"]
+    manager = result.controllers["controller_manager"]["ros__parameters"]
+    assert manager["hardware_components_initial_state"] == {"unconfigured": order}
+    lifecycle = yaml.safe_load(result.files["lifecycle.yaml"])
+    assert lifecycle["hardware_activation_order"] == order
+    assert lifecycle["motion_controllers"] == ["swerve_controller"]
+    assert lifecycle["lifecycle_controllers"] == ["joint_state_broadcaster", "enable_manager"]
+    names = {item["name"]: item for item in lifecycle["capabilities"]}
+    assert names["chassis_velocity"]["topic"] == "/cmd_vel"
+    assert names["chassis_velocity"]["controller"] == "swerve_controller"
+    assert names["enable"]["service"] == "/control/set_enabled"

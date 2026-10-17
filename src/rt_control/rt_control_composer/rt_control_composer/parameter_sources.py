@@ -19,7 +19,10 @@ KINDS = (
     "topics",
     "runtime",
     "policy_file",
+    "state_ready",
 )
+# A source that resolves to nothing contributes no parameter (keeps unrelated outputs unchanged).
+_SKIP = object()
 
 
 def _lookup(value, path, context):
@@ -28,6 +31,14 @@ def _lookup(value, path, context):
             raise ValueError(f"Missing parameter source path: {path}")
         value = value[part]
     return deepcopy(value)
+
+
+def _has(value, path, context):
+    for part in path.format(**context).split("."):
+        if not isinstance(value, dict) or part not in value:
+            return False
+        value = value[part]
+    return True
 
 
 def _transform(value, transform):
@@ -89,6 +100,8 @@ def _policy(source, env, binding, label):
         keys = _lookup(base, source["keys_from"], env["context"])
         value = {key: deepcopy(base[key]) for key in keys}
     elif "path" in source:
+        if source.get("optional") and not _has(base, source["path"], env["context"]):
+            return _SKIP
         value = _lookup(base, source["path"], env["context"])
     else:
         value = base
@@ -105,7 +118,9 @@ def _controllers(source, env):
         return bool(names)
     if select == "first":
         if names:
-            return names[0]
+            return source["format"].format(name=names[0]) if "format" in source else names[0]
+        if source.get("optional"):
+            return _SKIP
         if "default" in source:
             return source["default"]
         raise ValueError(f"No selected controller has tag {source['tag']}")
@@ -144,6 +159,9 @@ def _evaluate(kind, source, name, binding, env):
             raise ValueError(f"Duplicate runtime path: {path.name}")
         env["runtime_files"][path.name] = path.read_text()
         return str(Path(env["runtime_dir"]) / path.name)
+    if kind == "state_ready":
+        # Required state sources gate enabling through their "ready" state interfaces.
+        return env.get("state_ready", []) or _SKIP
     raise ValueError(f"Unsupported parameter source: {kind}")
 
 
@@ -160,7 +178,7 @@ def controller_parameters(name, binding, env):
         if kind == "policy" and source[kind]["name"] not in env["policies"]:
             raise ValueError(f"{name} references unselected policy {source[kind]['name']}")
         value = _evaluate(kind, source[kind], name, binding, env)
-        if kind == "runtime" and value is None:
+        if value is _SKIP or (kind == "runtime" and value is None):
             continue
         target = source[kind].get("as") if isinstance(source[kind], dict) else None
         if target is not None:
