@@ -44,7 +44,7 @@ def materialize(result):
 
 
 def arguments(shares, family):
-    deployment = next((shares["rt_control_machine_config"] / "units").glob("*/deployment.yaml"))
+    deployment = (shares["rt_control_machine_config"] / "units/Alfa_V3-01/deployment.yaml")
     variant = load_yaml(deployment)["robot_variant"]
     scope = "head_only" if family == "head" else "force_bench"
     return dict(
@@ -187,7 +187,7 @@ def test_head_sample_c_adapter_is_offline(shares, tmp_path, monkeypatch):
         "machine": load_yaml(data / descriptor["config_file"]),
         "devices": {path: load_yaml(data / path) for path in descriptor["device_refs"]},
         "unit": load_yaml(next((data / "units").glob("*/head_zero.yaml"))),
-        "deployment": load_yaml(next((data / "units").glob("*/deployment.yaml"))),
+        "deployment": load_yaml((data / "units/Alfa_V3-01/deployment.yaml")),
         "robot_model": {
             "joint_limits": yaml.safe_load(
                 (shares["robot_description"] / "config/joint_limits_analytic_proxy_mobile.yaml").read_text()

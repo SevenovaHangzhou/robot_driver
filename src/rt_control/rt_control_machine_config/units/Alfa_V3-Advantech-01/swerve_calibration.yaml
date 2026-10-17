@@ -1,8 +1,10 @@
 schema_version: 1
 kind: unit_calibration
-status: draft
-verified: false
+status: ready
+verified: true
 authorities:
+  verification: ring, direction, zero, coordinates and encoder offsets exercised on the Advantech bench
+    with enable and motion (ELECTRI-127, 2026-10-14..16); backlash is pending and not consumed
   source: ELECTRI-127 Advantech chassis bench deployed profile.runtime.yaml / controllers.runtime.yaml
     (base 946ec110)
   module_xy: control frame base_footprint; +X is the user-defined new forward (old base_link -Y), metres
@@ -15,7 +17,7 @@ authorities:
     counts preserved
 pending_facts:
 - physical hard-stop angles, command margin and measurement tolerance
-- bidirectional steering backlash and repeatability
+- bidirectional steering backlash and repeatability (scheduled with IMU variance calibration)
 - steering-axis-to-contact-patch offset
 - motor/external encoder disagreement threshold
 - steering slew, wheel acceleration and alignment thresholds

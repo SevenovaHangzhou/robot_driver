@@ -108,7 +108,6 @@ def missing_facts(request, profile):
                 "module_y_m",
                 "steering_zero_counts",
                 "drive_zero_counts",
-                "backlash_rad",
             ):
                 fields[module["module_position"] + "." + key] = module[key]
     return [
@@ -297,6 +296,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "branches": [],
         "internal_ports": [],
         "kind": "cia402_topology",
+        "ethercat_mac": None if mock else request["deployment"].get("host", {}).get("ethercat_mac"),
         "pdo_checks": pdo_checks,
         "position_windows": position_windows,
         "preflight_required": not mock,

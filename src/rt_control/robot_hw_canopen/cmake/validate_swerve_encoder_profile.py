@@ -16,6 +16,9 @@ def validate(path):
         "position_pdo",
         "state_interfaces",
         "ready_feedback_age_ms",
+        "master_settings",
+        "node_settings",
+        "tpdo2_disabled_cob_id_base",
     }:
         raise ValueError("Encoder protocol profile has missing or unknown fields")
     if profile["plugin"] != "robot_hw_canopen/SwerveEncoderSystem":
@@ -29,6 +32,9 @@ def validate(path):
         raise ValueError("Encoder position PDO must be unsigned 0x6004:00/32")
     if profile["state_interfaces"] != ["position", "feedback_age_ms", "ready"]:
         raise ValueError("Encoder states must remain position, feedback_age_ms and ready")
+    master = profile["master_settings"]
+    if master.get("start_all_nodes") is not False or master.get("reset_all_nodes") is not False:
+        raise ValueError("Broadcast NMT start/reset of all nodes is not admitted")
     age = profile["ready_feedback_age_ms"]
     if not isinstance(age, (int, float)) or isinstance(age, bool) or not 0 < age < 1000:
         raise ValueError("ready_feedback_age_ms must be a positive millisecond value")

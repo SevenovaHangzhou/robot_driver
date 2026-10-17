@@ -1,8 +1,9 @@
 schema_version: 1
 kind: machine_module
-status: draft
-verified: false
+status: ready
+verified: true
 authorities:
+  verification: exercised on the Advantech chassis bench with enable and motion (ELECTRI-127, 2026-10-14..16)
   source: robot_hw_ethercat/config/machines/alfa_v3_swerve_chassis.draft.yaml
   field_facts: ELECTRI-127 Advantech chassis bench, deployed profile.runtime.yaml (base 946ec110), 2026-10-14..16
   ring_position: live eight-slave enumeration; even rings drive, odd rings steering

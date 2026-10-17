@@ -1,0 +1,36 @@
+schema_version: 1
+kind: unit_deployment
+status: ready
+verified: true
+authorities:
+  host: Advantech MIC-770V3W chassis bench, read back 2026-10-14..17 (ELECTRI-127)
+  ethercat_mac: IgH master 0 attached device
+  can: USB CAN adapter serial 003000265230500720333159 on can0 at 500 kbit/s; master node 127;
+    node 1 (IMU) shares the bus
+  realtime: rt_cpu 7 isolated (isolcpus/nohz_full); IgH run_on_cpu=7; housekeeping 0-6,8-19
+pending_facts: []
+robot_variant: Alfa_V3
+end_effector: mobile_proxy
+hardware_options:
+  force_sensors: none
+can_interfaces:
+  swerve_encoders: can0
+ethercat:
+  master_id: 0
+host_id: user-MIC-770V3W
+host:
+  hostname: user-MIC-770V3W
+  ethercat_mac: cc:82:7f:c4:d3:0f
+  can_usb_serials:
+    can0: '003000265230500720333159'
+  rt_cpu: 7
+  housekeeping_cpus: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+canopen:
+  master_node_id: 127
+  bitrate_kbps: 500
+  bundle_dir: /var/lib/rt-control/canopen/Alfa_V3-Advantech-01
+  eds_files:
+    steering_encoder_1: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+    steering_encoder_2: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+    steering_encoder_3: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+    steering_encoder_4: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds

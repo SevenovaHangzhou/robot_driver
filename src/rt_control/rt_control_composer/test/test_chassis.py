@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from pathlib import Path
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 
@@ -33,7 +34,7 @@ def shares(monkeypatch):
 
 def arguments(shares):
     config = shares["rt_control_machine_config"]
-    path = next((config / "units").glob("*/deployment.yaml"))
+    path = (config / "units/Alfa_V3-Advantech-01/deployment.yaml")
     return dict(
         robot_variant=load_yaml(path)["robot_variant"],
         machine_unit=path.parent.name,
@@ -71,26 +72,36 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     )
 
 
-def test_real_chassis_lists_missing_facts_before_any_output(shares, tmp_path):
-    target = tmp_path / "real"
-    with pytest.raises(ValueError, match="Missing real chassis facts") as error:
-        compose(**arguments(shares), runtime_dir=target, use_mock_hardware=False)
-    for required in ("backlash_rad", "verified"):
-        assert required in str(error.value)
-    # Field-confirmed unit facts are no longer reported as missing.
-    for confirmed in (
-        "motor_encoder_counts_per_revolution",
-        "ring_position",
-        "direction",
-        "steering_zero_counts",
-        "module_x_m",
-        "identity",
-        "effective_wheel_radius_m",
-        "stationary_velocity",
-        "max_abs_velocity_rad_s",
-    ):
-        assert confirmed not in str(error.value)
-    assert not target.exists()
+def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    systems = {system["result"]["hardware_system_id"]: system["result"] for system in result.systems}
+    ecat = systems["ecat_arms"]["expected_topology"]
+    assert ecat["preflight_required"] and ecat["ethercat_mac"] == "cc:82:7f:c4:d3:0f"
+    assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(8))
+    assert [window["ring_position"] for window in ecat["position_windows"]] == [1, 3, 5, 7]
+    can = systems["canopen_swerve_encoders"]
+    bundle = "/var/lib/rt-control/canopen/Alfa_V3-Advantech-01"
+    assert can["hardware_params"]["bus_config"] == bundle + "/bus.yml"
+    assert can["expected_topology"]["can_usb_serial"] == "003000265230500720333159"
+    bus = yaml.safe_load(result.files["canopen_bus.yaml"])
+    assert bus["options"]["dcf_path"] == bundle and bus["master"]["baudrate"] == 500
+    assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
+    assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
+    lifecycle = result.lifecycle
+    assert lifecycle["host"]["rt_cpu"] == 7
+    assert lifecycle["bus_locks"] == ["can-can0", "ethercat-master-0"]
+
+
+def test_real_chassis_without_deployment_bundle_is_rejected(shares, tmp_path):
+    copied = dict(shares)
+    copied["rt_control_machine_config"] = tmp_path / "config"
+    shutil.copytree(shares["rt_control_machine_config"], copied["rt_control_machine_config"])
+    path = copied["rt_control_machine_config"] / "units/Alfa_V3-Advantech-01/deployment.yaml"
+    deployment = yaml.safe_load(path.read_text())
+    deployment["canopen"]["bundle_dir"] = "TBD"
+    path.write_text(yaml.safe_dump(deployment, sort_keys=False))
+    with pytest.raises(ValueError, match="Missing real encoder facts.*bundle_dir"):
+        compose(**arguments(copied), runtime_dir=tmp_path / "real", use_mock_hardware=False)
 
 
 def test_kinco_position_and_velocity_roundtrips():
@@ -107,8 +118,10 @@ def request_for_module(shares, name):
     config = shares["rt_control_machine_config"]
     manifest = load_yaml(next((config / "machines").glob("*/manifest.yaml")))
     entry = manifest["modules"][name]
-    deployment = load_yaml(next((config / "units").glob("*/deployment.yaml")))
-    unit_dir = next((config / "units").glob("*/deployment.yaml")).parent
+    # The chassis lives on the Advantech bench unit; arm calibration on Alfa_V3-01.
+    unit = "Alfa_V3-Advantech-01" if entry["transport"] == "canopen" or name == "swerve_chassis" else "Alfa_V3-01"
+    deployment = load_yaml(config / f"units/{unit}/deployment.yaml")
+    unit_dir = config / f"units/{unit}"
     return {
         "module": entry,
         "machine": load_yaml(config / entry["config_file"]),
@@ -163,6 +176,7 @@ def test_sample_b_owner_adapter_and_read_only_contract(shares, monkeypatch):
     )
     assert not sensor_result["managed_joints"] and not sensor_result["joints"]
     encoders["use_mock_hardware"] = False
+    encoders["deployment"] = {**encoders["deployment"], "can_interfaces": {"swerve_encoders": "TBD"}}
     with pytest.raises(ValueError, match="Missing real encoder facts"):
         CANOPEN.render(encoders)
 

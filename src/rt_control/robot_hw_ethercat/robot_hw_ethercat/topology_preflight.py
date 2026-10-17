@@ -21,6 +21,9 @@ def preflight(expected_topology, *, run=None):
         return execute(["ethercat", *arguments], text=True, timeout=10)
 
     master = output("master", "-m", master_id)
+    mac = topology.get("ethercat_mac")
+    if mac and f"{mac} (attached)" not in master:
+        raise RuntimeError(f"EtherCAT master {master_id} is not attached to {mac}")
     if not re.search(r"Active:\s+no", master) or not re.search(
         rf"Slaves:\s+{len(topology['responders'])}\b", master
     ):
