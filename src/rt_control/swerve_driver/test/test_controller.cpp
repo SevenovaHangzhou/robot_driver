@@ -290,6 +290,13 @@ TEST_F(SwerveControllerTest, LocalReceiveTimeoutStopsWithoutAnotherMessage)
   send(1.0);
   const auto expired = std::chrono::steady_clock::now() + std::chrono::milliseconds(550);
   spin_until([&]() {return std::chrono::steady_clock::now() >= expired;});
+  // An ordinary timeout ramps the wheels down at the wheel acceleration limit, never upward.
+  double previous = std::abs(commands[1]);
+  for (int cycle = 0; cycle < 5000 && std::abs(commands[1]) > 0.0; ++cycle) {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    EXPECT_LE(std::abs(commands[1]), previous);
+    previous = std::abs(commands[1]);
+  }
   expect_stopped();
 }
 

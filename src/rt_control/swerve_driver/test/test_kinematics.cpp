@@ -434,3 +434,42 @@ TEST(SwerveKinematicsTest, MeasurementToleranceNeverExpandsCommandRange)
 
 }  // namespace
 }  // namespace swerve_driver
+
+namespace swerve_driver
+{
+TEST(SwerveSetpointGeneratorTest, SteeringRateRampsUpAndRampsDownBeforeLatching)
+{
+  SwerveSetpointParameters parameters{kPi, 0.1, 0.6};
+  parameters.maximum_steering_acceleration_radps2 = 0.6;
+  SwerveSetpointGenerator generator{parameters};
+  std::array<SwerveModuleState, kSwerveModuleCount> desired{};
+  std::array<double, kSwerveModuleCount> measured{};
+  desired.fill(SwerveModuleState{1.0, 1.0});
+  constexpr double dt{0.004};
+  double previous_target{0.0};
+  double previous_rate{0.0};
+  for (int cycle{0}; cycle < 400; ++cycle) {
+    const auto setpoint = generator.generate(desired, measured, dt);
+    const double rate{(setpoint.modules[0].target_angle_rad - previous_target) / dt};
+    EXPECT_LE(rate, 0.6 + 1e-9);
+    EXPECT_LE(std::abs(rate - previous_rate), 0.6 * dt + 1e-9);
+    previous_rate = rate;
+    previous_target = setpoint.modules[0].target_angle_rad;
+  }
+  EXPECT_GT(previous_rate, 0.5);
+  // Holding keeps decelerating at the same limit and then latches the reached target.
+  std::array<bool, kSwerveModuleCount> holding{};
+  holding.fill(true);
+  for (int cycle{0}; cycle < 400; ++cycle) {
+    const auto setpoint = generator.generate(desired, measured, dt, holding);
+    const double rate{(setpoint.modules[0].target_angle_rad - previous_target) / dt};
+    EXPECT_GE(rate, -1e-12);
+    EXPECT_LE(previous_rate - rate, 0.6 * dt + 1e-9);
+    previous_rate = rate;
+    previous_target = setpoint.modules[0].target_angle_rad;
+  }
+  EXPECT_DOUBLE_EQ(previous_rate, 0.0);
+  const auto latched = generator.generate(desired, measured, dt, holding);
+  EXPECT_DOUBLE_EQ(latched.modules[0].target_angle_rad, previous_target);
+}
+}  // namespace swerve_driver
