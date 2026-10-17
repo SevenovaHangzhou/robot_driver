@@ -47,7 +47,7 @@ def config(tmp_path, monkeypatch):
 
 def test_chassis_binds_facts_by_instance_after_bus_and_calibration_reordering(config, tmp_path):
     root, args = config
-    path = root / "units/Alfa_V3-01/swerve_calibration.yaml"
+    path = root / "units/Alfa_V3-Advantech-01/swerve_calibration.yaml"
     unit = load(path)
     for index, item in enumerate(unit["spec"]["modules"]):
         item.update(
@@ -73,14 +73,14 @@ def test_chassis_binds_facts_by_instance_after_bus_and_calibration_reordering(co
     encoders["spec"]["nodes"][0]["resource_name"] = "angle_sensor_a"
     encoders["spec"]["nodes"].reverse()
     save(path, encoders)
-    path = root / "units/Alfa_V3-01/deployment.yaml"
+    path = root / "units/Alfa_V3-Advantech-01/deployment.yaml"
     deployment = load(path)
     deployment["canopen"]["eds_files"]["angle_sensor_a"] = deployment["canopen"]["eds_files"].pop(
         old_name
     )
     save(path, deployment)
     result = compose(
-        **args,
+        **{**args, "machine_unit": "Alfa_V3-Advantech-01"},
         physical_profile="chassis_only",
         control_scope="chassis_only",
         runtime_dir=tmp_path / "out",

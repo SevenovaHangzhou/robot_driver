@@ -1,15 +1,15 @@
 schema_version: 1
 kind: machine_module
-status: draft
-verified: false
+status: ready
+verified: true
 authorities:
+  verification: exercised on the Advantech chassis bench with enable and motion (ELECTRI-127, 2026-10-14..16)
   source: robot_hw_canopen/config/machines/alfa_v3_swerve_encoders.draft.yaml
   node_id: 'user: steering encoders nodes 11/12/13/14 for modules 1..4; node 1 is the IMU on the same
     bus'
   eds: robot_hw_canopen/config/eds/BRT-Multi-turn-V1.0.compat.eds (vendor original retained)
 pending_facts:
 - heartbeat, feedback age and discontinuity acceptance thresholds
-- multi-turn wrap handling (distinguishable_revolutions) is not consumed by SwerveEncoderSystem yet
 robot_variant: Alfa_V3
 module: swerve_encoders
 master_system: canopen_swerve_encoders

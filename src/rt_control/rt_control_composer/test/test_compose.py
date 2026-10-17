@@ -46,7 +46,7 @@ def materialize(result):
 
 def inputs(shares, *, stationary=False, verified=False):
     data = shares["rt_control_machine_config"]
-    deployment_path = next((data / "units").glob("*/deployment.yaml"))
+    deployment_path = (data / "units/Alfa_V3-01/deployment.yaml")
     deployment = load_yaml(deployment_path)
     manifest = load_yaml(data / "machines" / deployment["robot_variant"] / "manifest.yaml")
     mode = "stationary_enable" if stationary else "normal"
@@ -122,7 +122,7 @@ def sample_request(shares):
         ],
     }
     request["unit"]["verified"] = True
-    request["deployment"] = load_yaml(next((data / "units").glob("*/deployment.yaml")))
+    request["deployment"] = load_yaml((data / "units/Alfa_V3-01/deployment.yaml"))
     return request
 
 
