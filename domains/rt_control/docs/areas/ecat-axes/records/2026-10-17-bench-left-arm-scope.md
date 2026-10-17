@@ -31,7 +31,8 @@ port1(X3) 断开，EBUS port2→子分支器 8；7 轴身份与 `zeroerr_cia402_
   主分支器在 0，子分支器在 8。方向为 `TBD`，`branch_mapping_verified: false`。
 - `manifest.yaml`：新增模块 `bench_left_arm`、物理配置 `bench_left_arm`
   （ring 0..8）、scope `bench_left_arm_stationary_enable`。该 scope 的渲染模式为
-  stationary_enable，周期 250 Hz（BQ-154），分步激活硬件，不含运动控制器。
+  stationary_enable，分步激活硬件，不含运动控制器。初版照抄 `arms_stationary_enable` 的 250 Hz（BQ-154）覆盖；
+  用户 2026-10-17 决定台架 scope 使用 1 kHz 主周期，已去掉该覆盖。
   另新增 `policy_refs.bench_left_arm_enable`。该模块不列入 `functional_modules`。
 - `enable_manager/config/Alfa_V3_bench_left_arm_enable_policy.yaml`：用 `enable_groups`
   按模块和模式组生成每批 1 轴的批次，时序值与手臂策略相同。
@@ -68,7 +69,7 @@ port1(X3) 断开，EBUS port2→子分支器 8；7 轴身份与 `zeroerr_cia402_
   与软件无关。
 
 - F5: 18:15 换掉 J1–J2 线缆。换线后不再断链，清零 ESC 计数 120 s 后仍全为 0。
-- F6: 拉 OP（scope 运行入口，250 Hz，驱动保持禁能），从 launch 开始计时：主站 0.73 s 激活，
+- F6: 拉 OP（scope 运行入口，当时为 250 Hz，驱动保持禁能），从 launch 开始计时：主站 0.73 s 激活，
   7 个驱动逐个进 OP，第 7 个在 25.89 s 进入。每个驱动 PREOP→OP 耗时依次为 5.75/5.81/1.86/5.79/3.97/0.78/0.77 s。
   J1、J2、J4 报 `Slave did not sync after 5000 ms`，DC 同步等待是主要耗时。
 - F7: 启动线程交接给周期线程的时刻，总线出现一次 0 从站应答，随后 3559 个 datagram UNMATCHED，
