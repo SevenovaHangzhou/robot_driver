@@ -131,3 +131,31 @@ def test_bench_calibration_stays_in_the_bench_unit():
     zero = load_yaml(root / ZERO)
     assert zero["spec"]["confirmed_by"] == "user"
     assert [axis["ring_position"] for axis in zero["spec"]["axes"]] == list(range(1, 8))
+
+
+MODEL_JOINTS = [f"left_joint{index}" for index in range(1, 8)]
+
+
+def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_path):
+    selection = {**arguments(shares, confirmed=True), "control_scope": "bench_left_arm"}
+    result = compose(**selection, runtime_dir=tmp_path / "mock")
+    assert result.systems[0]["result"]["managed_joints"] == MODEL_JOINTS
+    assert result.lifecycle["motion_controllers"] == ["left_arm_jtc"]
+    jtc = result.controllers["left_arm_jtc"]["ros__parameters"]
+    assert jtc["joints"] == MODEL_JOINTS and jtc["command_interfaces"] == ["position"]
+    assert jtc["trajectory_start_consistency_check"]["enabled"] is True
+    enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["enable_only"] is False and enable["jtc_name"] == "left_arm_jtc"
+    assert enable["motion_mode_switching"] is False
+    assert {
+        "name": "arm_joint_trajectory",
+        "topic": "/left_arm_jtc/follow_joint_trajectory",
+        "type": "control_msgs/action/FollowJointTrajectory",
+        "controller": "left_arm_jtc",
+    } in result.lifecycle["capabilities"]
+
+
+def test_motion_scope_real_mode_stays_closed_until_directions_are_verified(shares, tmp_path):
+    selection = {**arguments(shares, confirmed=True), "control_scope": "bench_left_arm"}
+    with pytest.raises(ValueError, match="calibration is not verified"):
+        compose(**selection, runtime_dir=tmp_path / "real", use_mock_hardware=False)

@@ -291,6 +291,7 @@ profiles:
     - bench_left_arm
     allowed_scopes:
     - bench_left_arm_stationary_enable
+    - bench_left_arm
     hardware_options:
       force_sensors:
       - none
@@ -649,6 +650,34 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+  # Single-arm bench motion: the operator console sends FollowJointTrajectory goals to
+  # left_arm_jtc after enable. Real mode stays fail-closed until the axis directions are verified.
+  bench_left_arm:
+    enabled_modules:
+    - bench_left_arm
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_left_arm
+      mode_group: csp
+    jtc_groups:
+    - module: bench_left_arm
+      mode_group: csp
+    global_readiness: partial_scope
+    render_mode: normal
+    policies:
+    - enable
+    - motion
+    policy_overrides:
+      enable: bench_left_arm_enable
+      motion: bench_left_arm_motion
+    staged_hardware_activation: true
+    controller_order:
+      inactive:
+      - left_arm_jtc
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
   force_bench:
     enabled_modules:
     - wrist_force_sensors
@@ -691,6 +720,10 @@ policy_refs:
     package: enable_manager
     file: config/Alfa_V3_bench_left_arm_enable_policy.yaml
     schema: enable_policy.schema.json
+  bench_left_arm_motion:
+    package: rolling_trajectory_controller
+    file: config/Alfa_V3_bench_left_arm_motion.yaml
+    schema: arm_tolerances.schema.json
   motion:
     package: rolling_trajectory_controller
     file: config/Alfa_V3_arm_tolerances.yaml
