@@ -636,8 +636,7 @@ scopes:
       mode_group: csp
     jtc_groups: []
     global_readiness: partial_scope
-    ethercat_cycle_hz_override: 250
-    bq_ref: BQ-154
+    # User decision 2026-10-17: the bench scope runs the 1 kHz main cycle (no BQ-154 override).
     render_mode: stationary_enable
     policies:
     - enable

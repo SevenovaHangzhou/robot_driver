@@ -97,7 +97,7 @@ def test_mock_scope_is_enable_only_with_staged_hardware(shares, tmp_path):
     assert result.lifecycle["bus_locks"] == ["ethercat-master-0"]
     assert result.staged_hardware_activation and "lifecycle.yaml" in result.files
     manager = result.controllers["controller_manager"]["ros__parameters"]
-    assert manager["update_rate"] == 250
+    assert manager["update_rate"] == 1000
     assert manager["hardware_components_initial_state"] == {"unconfigured": ["ecat_arms"]}
     enable = result.controllers["enable_manager"]["ros__parameters"]
     assert enable["managed_joints"] == JOINTS
