@@ -225,6 +225,9 @@ apply_frozen_patches()
     patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
+    patches/ros2_canopen/0007-expose-nmt-state-hook.patch \
+    src/vendor/ros2_canopen
+  apply_patch_once \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     src/vendor/ros2_controllers
   apply_patch_once \
@@ -301,7 +304,8 @@ verify_frozen_vendor_trees()
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
-    patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch
+    patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
+    patches/ros2_canopen/0007-expose-nmt-state-hook.patch
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch \

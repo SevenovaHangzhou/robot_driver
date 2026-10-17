@@ -31,3 +31,17 @@ def test_native_and_manual_docker_use_the_shared_patch_without_motor_overlay():
         assert "canopen_402_driver/" not in text
         assert "cia402_system.cpp" not in text
         assert "Track node" not in text
+
+
+NMT_PATCH = ROOT / "patches/ros2_canopen/0007-expose-nmt-state-hook.patch"
+
+
+def test_nmt_hook_patch_keeps_default_storage_and_follows_rpdo_hook():
+    text = NMT_PATCH.read_text(encoding="utf-8")
+    assert "virtual void on_nmt_state_changed(canopen::NmtState nmt_state, uint8_t id);" in text
+    assert "canopen_data_[id].nmt_state.set_state(nmt_state);" in text
+    assert "auto nmt_state_cb = [this]" in text
+    for relative_path in ("tools/bootstrap_native_dev.sh", "docker/rt-control/Dockerfile"):
+        source = (ROOT / relative_path).read_text(encoding="utf-8")
+        rpdo = source.index("0006-expose-rpdo-receive-hook.patch")
+        assert source.index("0007-expose-nmt-state-hook.patch", rpdo) > rpdo
