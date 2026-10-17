@@ -33,7 +33,12 @@ controllers:
     actuator_groups:
     - position_velocity
     required_state_modules: []
-    role: external
+    tags: []
+    parameters:
+    - yaml:
+        package: damiao_head_controller
+        file: config/controllers.yaml
+        path: '{controller}.ros__parameters'
   whole_body_jtc:
     module: arms
     name: whole_body_jtc
