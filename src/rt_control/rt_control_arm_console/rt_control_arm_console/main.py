@@ -32,7 +32,7 @@ def parse_arguments(argv=None):
     )
     parser.add_argument("--config", type=Path, default=share / "config/console.yaml")
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
-    parser.add_argument("--joint-state-topic", default="/joint_state_broadcaster/joint_states")
+    parser.add_argument("--joint-state-topic", default="/joint_states")
     parser.add_argument("--web-dir", type=Path, default=share / "web")
     return parser.parse_args(argv)
 

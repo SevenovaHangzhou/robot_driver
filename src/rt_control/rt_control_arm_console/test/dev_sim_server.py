@@ -28,13 +28,12 @@ class SimulatedArm:
         self.generation = 0
         self.lock = threading.Lock()
 
-    def send(self, joints, points, done):
+    def send(self, joints, points, done, start):
         with self.lock:
             self.generation += 1
             generation = self.generation
 
         def play():
-            start = time.monotonic()
             for point in points:
                 while time.monotonic() - start < point.time:
                     time.sleep(0.002)

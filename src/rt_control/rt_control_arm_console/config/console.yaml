@@ -21,3 +21,5 @@ start_tolerance_deg: 0.5
 sample_period_s: 0.01
 # A stop trajectory joins the running motion this far ahead (< 1 deg at 30 deg/s).
 stop_lead_s: 0.02
+# Trajectory t = 0 (header.stamp) is this far after sending; covers transport delay.
+start_delay_s: 0.05

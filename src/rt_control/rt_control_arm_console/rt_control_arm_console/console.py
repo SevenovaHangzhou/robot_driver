@@ -43,6 +43,7 @@ class ConsoleConfig:
     start_tolerance: float  # rad; must stay below the JTC start-consistency tolerance
     sample_period: float  # s between trajectory points
     stop_lead: float  # s; the stop trajectory joins the running one this far ahead
+    start_delay: float  # s; trajectory t = 0 is this far after the send time
 
     def gear(self, name: str) -> Gear:
         for gear in self.gears:
@@ -74,22 +75,30 @@ def config_from_mapping(document: Mapping) -> ConsoleConfig:
         start_tolerance=radians(float(document["start_tolerance_deg"])),
         sample_period=float(document["sample_period_s"]),
         stop_lead=float(document["stop_lead_s"]),
+        start_delay=float(document["start_delay_s"]),
     )
-    if not 0.0 < config.sample_period <= 0.1 or not 0.0 < config.stop_lead <= 0.1:
-        raise ValueError("sample_period_s and stop_lead_s must be in (0, 0.1]")
+    for name in ("sample_period", "stop_lead", "start_delay"):
+        if not 0.0 < getattr(config, name) <= 0.1:
+            raise ValueError(f"{name}_s must be in (0, 0.1]")
     if config.limit_margin < 0.0 or config.max_feedback_age <= 0.0:
         raise ValueError("limit_margin_deg must be >= 0 and max_feedback_age_s > 0")
     return config
 
 
 class Driver(Protocol):
-    """Implemented by the ROS bridge."""
+    """Implemented by the ROS bridge.
+
+    ``start`` is the monotonic time of trajectory t = 0. The driver stamps the
+    trajectory with it, so a stop can continue the running motion on the same
+    timeline instead of the controller's receive time.
+    """
 
     def send(
         self,
         joints: Sequence[str],
         points: Sequence[TrajectoryPoint],
         done: Callable[[bool, str], None],
+        start: float,
     ) -> None: ...
 
     def cancel(self) -> None: ...
@@ -100,8 +109,12 @@ class _Execution:
     kind: str  # "move" | "stop"
     plan: Plan
     gear: Gear
-    started: float  # monotonic time of t = 0 of ``plan``
-    time_offset: float = 0.0  # trajectory time of plan t = 0
+    started: float  # monotonic time of trajectory t = 0 (the stamp)
+    time_offset: float = 0.0  # trajectory time of ``plan`` t = 0
+
+    def plan_time(self, now: float) -> float:
+        return max(now - self.started - self.time_offset, 0.0)
+
     label: str = ""
 
 
@@ -278,7 +291,8 @@ class ArmConsole:
             plan = plan_move(start, goal, self._limits(gear, start, goal))
             if plan.duration <= 0.0:
                 raise ConsoleError("no_motion", "目标与当前位置相同")
-            execution = _Execution("move", plan, gear, self._clock(), 0.0, label)
+            started = self._clock() + self.config.start_delay
+            execution = _Execution("move", plan, gear, started, 0.0, label)
             self._execution = execution
             self._last_result = ""
         self._send(execution, plan.points(self.config.sample_period))
@@ -297,26 +311,28 @@ class ArmConsole:
             execution = self._execution
             if execution is None or execution.kind == "stop":
                 return {"stopping": execution is not None}
-            now = self._clock()
-            elapsed = now - execution.started + self.config.stop_lead
-            stop = plan_stop(execution.plan, elapsed, execution.gear.limits)
+            # Same timeline (stamp) as the move. The stop trajectory starts one sample
+            # in the past with the move's own points, so the controller continues inside
+            # it and never interpolates from its receive-time state. Braking starts at
+            # ``cut``, ``stop_lead`` ahead of now.
+            period = self.config.sample_period
+            now = execution.plan_time(self._clock())
+            cut = now + self.config.stop_lead
+            stop = plan_stop(execution.plan, cut, execution.gear.limits)
             stopping = _Execution(
-                "stop",
-                stop,
-                execution.gear,
-                now + self.config.stop_lead,
-                self.config.stop_lead,
-                execution.label,
+                "stop", stop, execution.gear, execution.started, cut, execution.label
             )
             self._execution = stopping
-        points = [
+            count = max(int(math.ceil((cut - max(now - period, 0.0)) / period)), 1)
+            prefix = [execution.plan.state(cut - (count - i) * period) for i in range(count)]
+        points = [point for point in prefix if point.time >= 0.0] + [
             TrajectoryPoint(
-                point.time + stopping.time_offset,
+                point.time + cut,
                 point.positions,
                 point.velocities,
                 point.accelerations,
             )
-            for point in stop.points(self.config.sample_period)
+            for point in stop.points(period)
         ]
         self._send(stopping, points)
         return {"stopping": True, "duration_s": stop.duration}
@@ -335,7 +351,7 @@ class ArmConsole:
                 self._driver.cancel()  # fall back to the controller's hold
 
         try:
-            self._driver.send(self.joint_names, points, done)
+            self._driver.send(self.joint_names, points, done, execution.started)
         except Exception as exc:  # noqa: BLE001 - report, never leave a phantom execution
             done(False, str(exc))
             raise ConsoleError("send_failed", f"轨迹发送失败：{exc}") from exc
@@ -386,15 +402,15 @@ class ArmConsole:
             execution = self._execution
             moving = None
             if execution is not None:
-                elapsed = now - execution.started
+                elapsed = execution.plan_time(now)
                 moving = {
                     "kind": execution.kind,
                     "label": execution.label,
-                    "elapsed_s": max(elapsed, 0.0),
+                    "elapsed_s": elapsed,
                     "duration_s": execution.plan.duration,
                     "target": dict(zip(self.joint_names, execution.plan.target)),
                     "commanded": dict(
-                        zip(self.joint_names, execution.plan.state(max(elapsed, 0.0)).positions)
+                        zip(self.joint_names, execution.plan.state(elapsed).positions)
                     ),
                 }
             ready = None if self.model is None else self._motion_ready()

@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from rt_control_arm_console.console import ArmConsole, ConsoleError, config_from_mapping  # noqa: E402
 from rt_control_arm_console.model import ModelError, load_arm_model, resolve_mesh  # noqa: E402
 from rt_control_arm_console.poses import PoseStore  # noqa: E402
+from rt_control_arm_console.trajectory import plan_move  # noqa: E402
 
 CONFIG = {
     "gears": {
@@ -32,6 +33,7 @@ CONFIG = {
     "start_tolerance_deg": 0.5,
     "sample_period_s": 0.01,
     "stop_lead_s": 0.02,
+    "start_delay_s": 0.05,
 }
 JOINTS = ["left_joint1", "left_joint2"]
 URDF = """<robot name="r">
@@ -63,10 +65,12 @@ class Clock:
 class Driver:
     def __init__(self):
         self.sent = []
+        self.starts = []
         self.cancelled = 0
 
-    def send(self, joints, points, done):
+    def send(self, joints, points, done, start):
         self.sent.append((tuple(joints), list(points), done))
+        self.starts.append(start)
 
     def cancel(self):
         self.cancelled += 1
@@ -193,9 +197,20 @@ def test_stop_joins_the_running_motion_and_reports_the_result(setup):
     console.update(feedback_at=clock.now)
     assert console.stop()["stopping"] is True
     _, stop_points, stop_done = driver.sent[1]
-    assert stop_points[0].time == pytest.approx(0.02)
-    expected = driver.sent[0][1][0]  # sanity: the stop starts on the original line
-    assert stop_points[0].positions[1] == pytest.approx(expected.positions[1])
+    # Same timeline as the move (start delay 0.05 s). The stop starts one sample in
+    # the past on the move's own points; braking starts 0.02 s ahead of now.
+    assert driver.starts == [pytest.approx(100.05)] * 2
+    now, cut = 1.0 - 0.05, 1.0 - 0.05 + 0.02
+    assert stop_points[0].time <= now - 0.01 + 1e-9
+    times = [point.time for point in stop_points]
+    assert all(b > a for a, b in zip(times, times[1:]))
+    console_plan = console._execution  # noqa: SLF001 - white-box check of the joined line
+    for point in stop_points:
+        if point.time < cut - 1e-9:
+            reference = plan_move((0.0, 0.2), (0.8, 0.2), console.config.gear("sport").limits)
+            assert point.positions[0] == pytest.approx(reference.state(point.time).positions[0])
+    assert console_plan.kind == "stop"
+    assert any(abs(point.time - cut) < 1e-9 for point in stop_points)
     assert stop_points[-1].velocities == (0.0, 0.0)
     move_done(False, "preempted")  # superseded: ignored
     assert console.status("s1")["moving"]["kind"] == "stop"

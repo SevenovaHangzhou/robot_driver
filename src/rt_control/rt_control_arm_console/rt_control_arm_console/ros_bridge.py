@@ -15,6 +15,7 @@ from rcl_interfaces.srv import GetParameters
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.duration import Duration as RosDuration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from robot_rt_control_interfaces.srv import SetControlEnabled
@@ -191,11 +192,15 @@ class RosBridge(Node):
         joints: Sequence[str],
         points: Sequence[TrajectoryPoint],
         done: Callable[[bool, str], None],
+        start: float,
     ) -> None:
         action = self._action
         if action is None or not action.server_is_ready():
             raise RuntimeError("轨迹 action 不可用")
         goal = FollowJointTrajectory.Goal()
+        # Explicit start time: the controller and the console share one timeline.
+        stamp = self.get_clock().now() + RosDuration(seconds=start - time.monotonic())
+        goal.trajectory.header.stamp = stamp.to_msg()
         goal.trajectory.joint_names = list(joints)
         for point in points:
             goal.trajectory.points.append(

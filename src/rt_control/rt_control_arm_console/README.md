@@ -9,7 +9,7 @@
   - `/rt/capabilities` 中的 `arm_joint_trajectory`（FollowJointTrajectory action）；
   - `/control/set_enabled`；
   - `/controller_manager/list_controllers` 与参数读取；
-  - `/joint_state_broadcaster/joint_states`、`/diagnostics`。
+  - `/joint_states`、`/diagnostics`。
 - 操作台不写驱动控制字，不切换控制器，不自动使能，不复位故障。
 - 所有检查在服务端执行。浏览器只提交目标。
 - “停止”是软件平滑停车，不是急停。
