@@ -5,7 +5,6 @@ verified: false
 authorities:
   source: machines/Alfa_V3/arms.yaml left branch + read-only EtherCAT scan 2026-10-17 (ar-Default-string)
 pending_facts:
-- user confirmation that the bench bus order is physical J1..J7
 - verify every axis raw-count sign against the Robot Model positive direction
 - 'PP Halt policy: live firmware has no 0x605D object'
 - verified nonwrapping single-turn range for J3
@@ -75,5 +74,5 @@ spec:
   drive_profiles:
     csp: zeroerr_cia402_csp
     gripper_pp: zeroerr_cia402_stationary
-  branch_mapping_verified: false
+  branch_mapping_verified: true
   direction_status: unverified_bench

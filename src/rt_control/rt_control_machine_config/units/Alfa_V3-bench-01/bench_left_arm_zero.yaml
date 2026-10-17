@@ -1,16 +1,15 @@
 schema_version: 1
 kind: unit_calibration
 status: draft
-verified: false
+verified: true
 authorities:
   source: read-only 0x6064/0x60FE upload 2026-10-17 on bench host ar-Default-string
-pending_facts:
-- user confirmation that the captured pose is the mechanical zero
+pending_facts: []
 robot_variant: Alfa_V3
 module: bench_left_arm
-# Candidate capture only. The owner rejects stationary enable until confirmed_by is user.
+# User confirmed on 2026-10-17 that this pose is the mechanical zero.
 spec:
-  confirmed_by: pending
+  confirmed_by: user
   captured_utc: '2026-10-17T08:58:45+00:00'
   external_transmission_ratio: 1.0
   position_object: 24676

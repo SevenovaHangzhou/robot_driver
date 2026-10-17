@@ -37,12 +37,12 @@ def shares(tmp_path, monkeypatch):
     return lookup
 
 
-def arguments(shares, *, confirmed):
-    if confirmed:
-        # Test-only confirmation; the installed capture stays pending.
+def arguments(shares, *, confirmed=True):
+    if not confirmed:
+        # Test-only regression: an unconfirmed capture must keep the owner gate closed.
         path = shares["rt_control_machine_config"] / ZERO
         zero = load_yaml(path)
-        zero["spec"]["confirmed_by"] = "user"
+        zero["spec"]["confirmed_by"] = "pending"
         path.write_text(yaml.safe_dump(zero, sort_keys=False))
     return dict(**SELECTION, package_share=lambda name: str(shares[name]))
 
@@ -125,8 +125,9 @@ def test_real_topology_matches_the_bench_scan(shares, tmp_path):
         preflight(result, run=scan(topology_ports=((2, "EBUS", 8), (1, "MII", 1))))
 
 
-def test_production_unit_does_not_carry_bench_calibration():
+def test_bench_calibration_stays_in_the_bench_unit():
     root = RT / "rt_control_machine_config"
     assert not (root / "units/Alfa_V3-01/bench_left_arm_zero.yaml").exists()
     zero = load_yaml(root / ZERO)
-    assert zero["spec"]["confirmed_by"] != "user" and zero["verified"] is False
+    assert zero["spec"]["confirmed_by"] == "user"
+    assert [axis["ring_position"] for axis in zero["spec"]["axes"]] == list(range(1, 8))

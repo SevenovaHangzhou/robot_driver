@@ -315,7 +315,7 @@ profiles:
         status: absent
         node_ids: []
     pending_facts:
-    - bench bus order confirmed only by a read-only scan; physical J order pending user confirmation
+    - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
   arms_updown:
     status: draft
     modules:
