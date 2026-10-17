@@ -1,0 +1,37 @@
+{
+  "entry": "urdf/robot_analytic_proxy_mobile.urdf",
+  "experimental": true,
+  "hardware_authoritative": false,
+  "upper_body_source": "urdf/robot_analytic_proxy.urdf.xacro",
+  "upper_body_baseline_commit": "cdbe27a8ab2ce01b06444661522b1713eeb3357e",
+  "base_and_wheel_source": "model_sources/mechanical_958c49d/robot.urdf",
+  "source_sha256": "958c49d7889827c9f520ac858783da62ca5ad249eaac765d7d761bd51e543b09",
+  "base_height_m": 0.32,
+  "nominal_wheel_radius_m": 0.1,
+  "wheel_max_velocity_rad_s": 31.4,
+  "steering_zero_heading_base_rad": -1.5707963267948966,
+  "control_frame": "base_footprint",
+  "base_link_yaw_in_control_frame_rad": 1.5707963267948966,
+  "steering_zero_heading_evidence": "User confirmed mechanical zero toward original vehicle right; clockwise90deg about base_link +Z viewed from above.",
+  "imu_parent": "base_link",
+  "imu_xyz_m": [
+    0.403,
+    0,
+    0
+  ],
+  "imu_rpy_rad": [
+    0,
+    0,
+    0
+  ],
+  "imu_evidence": "model_sources/mechanical_958c49d/imu-frame-confirmation.md",
+  "base_visual_shell": "model_sources/robot_v3_2_2/meshes/part_001_solid_001.stl",
+  "composition": "Use mechanical base inertia/collision and wheel links/joints; restore the previous enclosed base visual mesh only. Retain every analytic upper-body link and joint relative to base_link.",
+  "limitations": [
+    "Hybrid visualization/planning model; upper-body to new base assembly needs physical review.",
+    "No independent active suspension in the selected mechanical source.",
+    "No IMU shape/mass invented; driver ENU/NED convention is not specified here.",
+    "User-confirmed wheel continuous joints and steering q limits +/-135 deg; steering zero rotated clockwise90deg about base_link Z. Source axes and pivot positions retained. Controller heading offsets, calibration and operating limits require alignment to this zero reference.",
+    "Wheel velocity limit is user-confirmed 31.4 rad/s; source effort and non-wheel velocity limits remain unverified. Model changes do not constitute hardware commissioning."
+  ]
+}

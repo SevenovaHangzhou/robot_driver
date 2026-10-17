@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "source_directory": "local_mub984qs_3132rb_urdf_stl",
+  "source_snapshot": "model_sources/head_chest_camera_20260921",
+  "source_files_sha256": {
+    "export_report.json": "5e0ef289f4093946901e5ed10c1267bf6606ffd125855e61283a957b4d382b2f",
+    "parts.json": "6dfe8f2252486cc0d55aa3e1a8638cdd2af4649eae04363bb65f476f6fa0abb6",
+    "robot.urdf": "22befb2b6c96dbf68093313d57f34f940d516e65592bb7a082b37500afdd7d7a",
+    "user_model.json": "38668779617c7f8444b03598b500b6c7f8f519edf5e1bcd6b54ba242c79d4e1a"
+  },
+  "mesh_directory": "meshes/head_chest_camera",
+  "parent_link": "arm_carriage",
+  "head": {
+    "mount_joint": "head_mount_fixed",
+    "mount_xyz_m": [0.267, 0.0, 1.4228],
+    "mount_rpy_rad": [0.0, 0.0, 1.57079632679],
+    "yaw_joint": "head_joint",
+    "pitch_joint": "head_pitch_joint",
+    "physical_parts": [
+      "part_046", "part_048", "part_049", "part_050", "part_051", "part_052",
+      "part_058", "part_059", "part_060", "part_061", "part_062", "part_068",
+      "part_069"
+    ],
+    "mass_parts": ["part_046", "part_068", "part_069"]
+  },
+  "chest_camera": {
+    "link": "chest_camera",
+    "joint": "chest_camera_fixed",
+    "body_center_xyz_in_arm_carriage_m": [0.366, -3.92e-09, 1.11530000583],
+    "forward_axis": "+X",
+    "physical_parts": [
+      "part_070", "part_072", "part_073", "part_074", "part_075", "part_076",
+      "part_082", "part_083", "part_084", "part_085", "part_086"
+    ],
+    "mass_parts": ["part_070"]
+  },
+  "excluded_design_helpers": {
+    "head_stereo_frusta": ["part_047", "part_057"],
+    "head_lidar_field": ["part_067"],
+    "chest_stereo_frusta": ["part_071", "part_081"]
+  },
+  "mass_density_kg_m3": 1200.0,
+  "limitations": [
+    "Mass properties are mesh estimates, not measured hardware values.",
+    "Camera optical frames require calibration and are not defined."
+  ]
+}

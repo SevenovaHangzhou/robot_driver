@@ -1,0 +1,35 @@
+metadata:
+  schema_version: 1
+  robot: alfa_v3
+  model_revision: analytic-proxy-mobile
+  end_effector: suction
+  side_semantics: left_is_positive_y
+  arm_source: robot_v3.2.2
+  integration_policy: analytic_upper_body_with_mechanical_958c49d_base
+  chassis_source: mechanical_958c49d
+initial_positions:
+  updown: -0.3
+  head_joint: 0.0
+  head_pitch_joint: 0.0
+  left_joint1: 2.70526034059121
+  left_joint2: -1.832595714594046
+  left_joint3: 0.34906585039887
+  left_joint4: 1.5707963267949
+  left_joint5: -1.5707963267949
+  left_joint6: -0.69813170079773
+  left_joint7: 0.0
+  right_joint1: -2.70526034059121
+  right_joint2: 1.832595714594046
+  right_joint3: -0.34906585039887
+  right_joint4: -1.5707963267949
+  right_joint5: 1.5707963267949
+  right_joint6: 0.69813170079773
+  right_joint7: 0.0
+  steer1_joint: 0.0
+  wheel1_joint: 0.0
+  steer2_joint: 0.0
+  wheel2_joint: 0.0
+  steer3_joint: 0.0
+  wheel3_joint: 0.0
+  steer4_joint: 0.0
+  wheel4_joint: 0.0
