@@ -44,6 +44,17 @@ driver_config:
     sub_index: 0
     type: int8
     value: 8
+  # 0x605E fault reaction (user 2026-10-17): quick-stop ramp, then disable; the eRob closes
+  # its brake on disable. Applies to communication loss (0xA000) while enabled.
+  - index: 24670
+    sub_index: 0
+    type: int16
+    value: 2
+  # 0x6085 quick-stop deceleration 40 deg/s^2 (user 2026-10-17) = 58254 output counts/s^2.
+  - index: 24709
+    sub_index: 0
+    type: uint32
+    value: 58254
   rpdo:
   - index: 5632
     channels:
