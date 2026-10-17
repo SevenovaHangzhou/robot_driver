@@ -1,4 +1,5 @@
-// Robot Model view: measured pose (solid) and target pose (translucent ghost).
+// Robot Model view: the whole vehicle at the measured pose (solid) and the controlled
+// arm at the target pose (translucent ghost).
 import * as THREE from "./vendor/three.module.min.js";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import URDFLoader from "./vendor/URDFLoader.js";
@@ -24,7 +25,7 @@ export class ArmViewer {
     const sun = new THREE.DirectionalLight(0xffffff, 1.6);
     sun.position.set(2, -3, 4);
     this.scene.add(sun);
-    const grid = new THREE.GridHelper(2, 20, 0x45454c, 0x2a2a2e);
+    const grid = new THREE.GridHelper(4, 40, 0x45454c, 0x2a2a2e);
     grid.rotation.x = Math.PI / 2;
     this.scene.add(grid);
     this.scene.add(new THREE.AxesHelper(0.15));
@@ -48,8 +49,22 @@ export class ArmViewer {
     this.camera.updateProjectionMatrix();
   }
 
-  async load(urdf) {
-    const [measured, ghost] = await Promise.all([parse(urdf, MEASURED), parse(urdf, GHOST)]);
+  async load(urdf, armLinks = []) {
+    // The ghost only needs the arm: skip the other meshes there (they are tens of MB).
+    const keep = new Set(armLinks);
+    const armMeshes = keep.size ? meshesOf(urdf, keep) : null;
+    // Frame again once every mesh is in: the first frame may come before large meshes load.
+    const [measured, ghost] = await Promise.all([
+      parse(urdf, MEASURED, null, (robot) => this.frame(robot)),
+      parse(urdf, GHOST, armMeshes),
+    ]);
+    if (keep.size) {
+      ghost.traverse((child) => {
+        if (child.isURDFVisual && !(child.parent && keep.has(child.parent.urdfName))) {
+          child.visible = false;
+        }
+      });
+    }
     this.measured = measured;
     this.ghost = ghost;
     this.scene.add(measured, ghost);
@@ -57,14 +72,18 @@ export class ArmViewer {
   }
 
   frame(robot) {
+    // Fit the bounding sphere into the narrower of the vertical and horizontal fields of view.
     const box = new THREE.Box3().setFromObject(robot);
     if (box.isEmpty()) return;
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3()).length();
-    this.controls.target.copy(center);
-    this.camera.position.copy(center).add(new THREE.Vector3(0.9, -1.1, 0.6).multiplyScalar(size));
-    this.camera.near = size / 100;
-    this.camera.far = size * 20;
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    const vertical = THREE.MathUtils.degToRad(this.camera.fov);
+    const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * this.camera.aspect);
+    const distance = (sphere.radius / Math.sin(Math.min(vertical, horizontal) / 2)) * 1.05;
+    const direction = new THREE.Vector3(0.9, -1.1, 0.6).normalize();
+    this.controls.target.copy(sphere.center);
+    this.camera.position.copy(sphere.center).addScaledVector(direction, distance);
+    this.camera.near = distance / 100;
+    this.camera.far = distance * 20;
     this.camera.updateProjectionMatrix();
   }
 
@@ -84,10 +103,29 @@ function apply(robot, values) {
   }
 }
 
-function parse(urdf, style) {
+function meshesOf(urdf, links) {
+  const xml = new DOMParser().parseFromString(urdf, "text/xml");
+  const files = new Set();
+  for (const link of xml.querySelectorAll("robot > link")) {
+    if (!links.has(link.getAttribute("name"))) continue;
+    for (const mesh of link.querySelectorAll("visual mesh")) files.add(mesh.getAttribute("filename"));
+  }
+  return files;
+}
+
+function parse(urdf, style, onlyMeshes, onAllLoaded = null) {
   return new Promise((resolve) => {
     const manager = new THREE.LoadingManager();
     const loader = new URDFLoader(manager);
+    if (onlyMeshes) {
+      loader.loadMeshCb = (path, meshManager, material, done) => {
+        if (!onlyMeshes.has(path)) {
+          done(null); // not part of the ghost
+          return;
+        }
+        loader.defaultMeshLoader(path, meshManager, material, done);
+      };
+    }
     const material = new THREE.MeshStandardMaterial(style);
     let robot = null;
     let settled = false;
@@ -97,7 +135,10 @@ function parse(urdf, style) {
       if (!settled) resolve(robot);
       settled = true;
     };
-    manager.onLoad = finish;
+    manager.onLoad = () => {
+      finish();
+      if (onAllLoaded) onAllLoaded(robot);
+    };
     robot = loader.parse(urdf, "");
     // A model without mesh files never triggers onLoad.
     setTimeout(finish, 4000);

@@ -23,7 +23,6 @@
       <span id="conn-chip" class="chip bad">未连接</span>
       <span id="enable-chip" class="chip">--</span>
       <span id="ctrl-chip" class="chip">控制器 --</span>
-      <button id="lease-btn" class="chip button" type="button">获取控制权</button>
     </div>
   </header>
 
@@ -35,10 +34,13 @@
     </section>
 
     <section class="panel side">
-      <div class="card row">
-        <button id="enable-btn" type="button" class="primary">使能</button>
-        <button id="disable-btn" type="button">失能</button>
-        <nav id="gears" class="seg"></nav>
+      <div class="card controls">
+        <div class="control-buttons">
+          <button id="lease-btn" type="button" class="lease">获取控制权</button>
+          <button id="enable-btn" type="button" class="primary">使能</button>
+          <button id="disable-btn" type="button">失能</button>
+        </div>
+        <div id="gears" class="gears"></div>
       </div>
 
       <div class="card">
@@ -61,6 +63,15 @@
           <button type="submit">保存当前位姿</button>
         </form>
         <ul id="poses" class="poses"></ul>
+        <div class="sequence">
+          <div class="card-head"><h2>位姿序列</h2><small id="sequence-count" class="hint-inline"></small></div>
+          <ol id="sequence" class="sequence-list"></ol>
+          <p id="sequence-empty" class="hint">在上方位姿上点“+ 序列”按顺序加入，可重复加入。</p>
+          <div class="row">
+            <button id="sequence-run" type="button" class="primary wide">依次执行</button>
+            <button id="sequence-clear" type="button" class="wide">清空</button>
+          </div>
+        </div>
       </div>
     </section>
   </main>

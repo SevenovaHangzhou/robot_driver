@@ -59,12 +59,13 @@ input { background: var(--card); min-width: 0; flex: 1; }
 .chip.button { color: var(--text); }
 
 .layout {
-  display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 12px;
+  /* Model view about 45 % of the width; controls get the rest. */
+  display: grid; grid-template-columns: minmax(0, 9fr) minmax(460px, 11fr); gap: 12px;
   padding: 0 12px 12px; height: calc(100% - 56px);
 }
 @media (max-width: 960px) {
   .layout { grid-template-columns: 1fr; height: auto; }
-  .viewer-panel { height: 55vh; }
+  .viewer-panel { height: 42vh; }
 }
 .panel { background: var(--panel); border-radius: 22px; padding: 10px; }
 .viewer-panel { position: relative; min-height: 320px; }
@@ -85,6 +86,27 @@ input { background: var(--card); min-width: 0; flex: 1; }
 .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .card.row { margin-top: 0; }
+
+/* Control card: lease / enable / disable on the left, gear switch on the right. */
+.controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.control-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+button.lease.mine { border-color: var(--ok); color: var(--ok); }
+button.lease.other { border-color: var(--warn); color: var(--warn); }
+
+/* Gear switch: pill with a sliding knob, gear name below. */
+.gears { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.gear-switch {
+  position: relative; width: 64px; height: 34px; padding: 0; border-radius: 999px;
+  background: var(--raised); border: 1px solid var(--line); transition: background 0.25s ease;
+}
+.gear-switch .knob {
+  position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); transition: transform 0.25s ease;
+}
+.gear-switch.on { background: var(--sport); border-color: transparent; }
+.gear-switch.on .knob { transform: translateX(30px); }
+.gear-label { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
+.gear-label.sport { color: var(--sport); }
 
 .seg { display: flex; margin-left: auto; background: var(--raised); border-radius: 12px; padding: 3px; }
 .seg button { border: none; background: transparent; padding: 6px 12px; border-radius: 9px; }
@@ -110,6 +132,18 @@ input { background: var(--card); min-width: 0; flex: 1; }
 .poses li { display: flex; gap: 8px; align-items: center; background: var(--panel); border-radius: 10px; padding: 6px 8px; }
 .poses li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .poses li small { color: var(--muted); }
+
+.sequence { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.hint-inline { color: var(--muted); font-size: 12px; }
+.sequence-list { margin: 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-wrap: wrap; gap: 6px; }
+.sequence-list li {
+  counter-increment: step; display: flex; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 13px;
+}
+.sequence-list li::before { content: counter(step); color: var(--muted); font-size: 12px; }
+.sequence-list li.current { border-color: var(--accent); color: var(--accent); }
+.sequence-list li.done { opacity: 0.5; }
+.sequence-list button.remove { padding: 0 7px; border-radius: 999px; line-height: 18px; }
 
 .login { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); z-index: 10; }
 .login-card { display: flex; flex-direction: column; gap: 12px; width: min(360px, 90vw); }

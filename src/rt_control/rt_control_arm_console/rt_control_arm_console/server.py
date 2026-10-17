@@ -12,6 +12,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
+import os
 from pathlib import Path
 import secrets
 import threading
@@ -80,8 +81,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         if length is not None:
             self.send_header("Content-Length", str(length))
-        self.send_header("Cache-Control", "no-store")
-        for name, value in {**SECURITY_HEADERS, **(extra or {})}.items():
+        headers = {"Cache-Control": "no-store", **SECURITY_HEADERS, **(extra or {})}
+        for name, value in headers.items():
             self.send_header(name, value)
         self.end_headers()
 
@@ -102,17 +103,21 @@ class Handler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         return origin is None or urlsplit(origin).netloc == self.headers.get("Host")
 
-    def _file(self, path: Optional[Path]) -> None:
+    def _file(self, path: Optional[Path], cache: bool = False) -> None:
         if path is None or not path.is_file():
             self._json(HTTPStatus.NOT_FOUND, {"error": "not_found"})
             return
         data = path.read_bytes()
         kind = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        self._headers(HTTPStatus.OK, kind, len(data))
+        # Whole-vehicle meshes are tens of MB; let the browser keep them for an hour.
+        extra = {"Cache-Control": "private, max-age=3600"} if cache else None
+        self._headers(HTTPStatus.OK, kind, len(data), extra)
         self.wfile.write(data)
 
     def _static(self, relative: str) -> Optional[Path]:
-        path = (self.server.web_dir / relative).resolve()
+        # Contain the lexical path, not the symlink target: a symlink install points every
+        # installed asset back into the source tree, and resolve() would reject all of them.
+        path = Path(os.path.normpath(self.server.web_dir / relative))
         return path if path.is_relative_to(self.server.web_dir) else None
 
     # ------------------------------------------------------------------ GET
@@ -126,7 +131,9 @@ class Handler(BaseHTTPRequestHandler):
             if self._session() is None:
                 self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required"})
                 return
-            self._file(resolve_mesh(path[len(MESH_URL_PREFIX) :], self.server.share_lookup))
+            self._file(
+                resolve_mesh(path[len(MESH_URL_PREFIX) :], self.server.share_lookup), cache=True
+            )
         elif path == "/api/info":
             if self._session() is None:
                 self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required"})
@@ -234,6 +241,8 @@ class Handler(BaseHTTPRequestHandler):
             return console.stop()
         elif path == "/api/goto_pose":
             return console.goto_pose(session, body["name"], body["gear"])
+        elif path == "/api/run_sequence":
+            return console.run_sequence(session, body["names"], body["gear"])
         elif path == "/api/save_pose":
             console.save_pose(session, body["name"], bool(body.get("overwrite", False)))
         elif path == "/api/delete_pose":
