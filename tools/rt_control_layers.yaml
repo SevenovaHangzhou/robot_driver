@@ -6,6 +6,7 @@ layers:
   - rt_control_bringup
   - control_api_adapter
   - rt_diagnostics
+  - rt_control_arm_console
   protocol:
   - robot_hw_ethercat
   - robot_hw_canopen
