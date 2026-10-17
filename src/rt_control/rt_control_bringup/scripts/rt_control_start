@@ -42,6 +42,19 @@ elif [[ "${1:-}" == "--arm-runtime" ]]; then
 elif [[ "${1:-}" == "--force-sensors" ]]; then
   launch_file=rt_control_force_sensors.launch.py
   shift
+elif [[ "${1:-}" == "--scope" ]]; then
+  # Generic staged scope runtime; the lifecycle plan in runtime_dir drives teardown.
+  if [[ -z "${2:-}" ]]; then
+    echo "BOOT_ERROR: --scope requires a control scope name" >&2
+    exit 2
+  fi
+  scope_name="$2"
+  shift 2
+  runtime_dir="$(mktemp -d "${TMPDIR:-/tmp}/rt-scope-${scope_name}-XXXXXX")"
+  launch_file=rt_control_scope_runtime.launch.py
+  orderly_disable_required=1
+  shutdown_command=(ros2 run rt_control_bringup scope_shutdown "${runtime_dir}")
+  set -- control_scope:="${scope_name}" runtime_dir:="${runtime_dir}" "$@"
 elif [[ "${1:-}" == "--head-runtime" ]]; then
   launch_file=rt_control_head_runtime.launch.py
   orderly_disable_required=1

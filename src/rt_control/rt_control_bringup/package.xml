@@ -23,6 +23,11 @@
   <exec_depend>rt_force_torque_broadcaster</exec_depend>
   <exec_depend>control_api_adapter</exec_depend>
   <exec_depend>enable_manager</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>robot_hw_canopen</exec_depend>
+  <exec_depend>swerve_driver</exec_depend>
+  <exec_depend>rt_control_interfaces</exec_depend>
+  <exec_depend>controller_manager_msgs</exec_depend>
   <exec_depend>hardware_interface</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
