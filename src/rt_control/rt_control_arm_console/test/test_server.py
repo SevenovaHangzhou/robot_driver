@@ -1,0 +1,105 @@
+"""HTTP front: login, same-origin, status stream and command routing. No ROS."""
+
+import http.client
+import json
+from pathlib import Path
+import sys
+import threading
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from rt_control_arm_console.server import ConsoleServer  # noqa: E402
+from test_console import JOINTS, setup  # noqa: E402, F401
+
+WEB = Path(__file__).resolve().parents[1] / "web"
+
+
+@pytest.fixture
+def server(setup):  # noqa: F811
+    console, driver, _ = setup
+    instance = ConsoleServer(
+        ("127.0.0.1", 0),
+        console,
+        "secret",
+        WEB,
+        lambda _: "/nonexistent",
+        lambda enabled: {"accepted": True, "enabled": enabled, "message": ""},
+    )
+    thread = threading.Thread(target=instance.serve_forever, daemon=True)
+    thread.start()
+    yield instance, console, driver
+    instance.stopping.set()
+    instance.shutdown()
+    instance.server_close()
+
+
+def request(server, method, path, body=None, cookie=None, origin=None):
+    connection = http.client.HTTPConnection(*server.server_address, timeout=5)
+    headers = {"Content-Type": "application/json"}
+    if cookie:
+        headers["Cookie"] = cookie
+    if origin:
+        headers["Origin"] = origin
+    connection.request(method, path, json.dumps(body) if body is not None else None, headers)
+    response = connection.getresponse()
+    return response, response.read()
+
+
+def login(server):
+    response, _ = request(server, "POST", "/api/login", {"token": "secret"})
+    assert response.status == 200
+    return response.getheader("Set-Cookie").split(";")[0]
+
+
+def test_commands_require_login_and_same_origin(server):
+    instance, _, driver = server
+    response, _ = request(instance, "POST", "/api/stop", {})
+    assert response.status == 401
+    response, _ = request(instance, "GET", "/api/info")
+    assert response.status == 401
+    cookie = login(instance)
+    response, _ = request(instance, "POST", "/api/stop", {}, cookie, origin="http://evil.example")
+    assert response.status == 403
+    response, body = request(instance, "GET", "/static/../server.py", cookie=cookie)
+    assert response.status == 404
+
+
+def test_info_events_and_execute(server):
+    instance, console, driver = server
+    cookie = login(instance)
+    response, body = request(instance, "GET", "/api/info", cookie=cookie)
+    info = json.loads(body)
+    assert [joint["name"] for joint in info["joints"]] == JOINTS
+    assert info["urdf"].startswith("<robot")
+    connection = http.client.HTTPConnection(*instance.server_address, timeout=5)
+    connection.request("GET", "/api/events", headers={"Cookie": cookie})
+    stream = connection.getresponse()
+    line = stream.fp.readline().decode()
+    status = json.loads(line[len("data: ") :])
+    assert status["positions"]["left_joint2"] == pytest.approx(0.2)
+    connection.close()
+    # The fixture lease belongs to another session: this browser must acquire first.
+    response, body = request(
+        instance,
+        "POST",
+        "/api/execute",
+        {"target": {"left_joint1": 0.4, "left_joint2": 0.2}, "gear": "leisure"},
+        cookie,
+    )
+    assert response.status == 409 and json.loads(body)["error"] == "lease_required"
+    console.release("s1")
+    response, _ = request(instance, "POST", "/api/acquire", {}, cookie)
+    assert response.status == 200
+    response, body = request(
+        instance,
+        "POST",
+        "/api/execute",
+        {"target": {"left_joint1": 0.4, "left_joint2": 0.2}, "gear": "leisure"},
+        cookie,
+    )
+    assert response.status == 200, body
+    assert len(driver.sent) == 1
+    response, body = request(instance, "POST", "/api/enable", {"enabled": True}, cookie)
+    assert response.status == 409  # moving

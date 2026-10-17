@@ -1,0 +1,16 @@
+schema_version: 1
+kind: unit_deployment
+status: draft
+verified: false
+authorities:
+  source: read-only EtherCAT scan 2026-10-17 on bench host ar-Default-string (192.168.100.40)
+pending_facts:
+- host identity
+robot_variant: Alfa_V3
+end_effector: mobile_proxy
+hardware_options:
+  force_sensors: none
+can_interfaces: {}
+ethercat:
+  master_id: 0
+host_id: TBD

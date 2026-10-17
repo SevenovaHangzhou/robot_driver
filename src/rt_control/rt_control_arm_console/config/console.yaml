@@ -1,0 +1,25 @@
+# Arm console motion policy (ELECTRI-127, user decision 2026-10-17).
+# Gear limits act on the joint with the largest move; all joints arrive together.
+# Acceleration = 2 x velocity (user). Jerk: the acceleration ramp lasts 0.25 s.
+gears:
+  leisure:
+    label: 休闲
+    velocity_deg_s: 10.0
+    acceleration_deg_s2: 20.0
+    jerk_deg_s3: 80.0
+  sport:
+    label: 运动
+    velocity_deg_s: 30.0
+    acceleration_deg_s2: 60.0
+    jerk_deg_s3: 240.0
+# Targets stay this far inside each Robot Model position limit.
+limit_margin_deg: 2.0
+# Planning and execution need joint feedback younger than this.
+max_feedback_age_s: 0.2
+# Below the left_arm_jtc start-consistency tolerance (1 deg).
+start_tolerance_deg: 0.5
+sample_period_s: 0.01
+# A stop trajectory joins the running motion this far ahead (< 1 deg at 30 deg/s).
+stop_lead_s: 0.02
+# Trajectory t = 0 (header.stamp) is this far after sending; covers transport delay.
+start_delay_s: 0.05

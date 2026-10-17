@@ -1,0 +1,35 @@
+# Single-arm bench enable policy: one joint per batch in bus order, as in the arm policy.
+# Joints come from the rendered bench_left_arm module. Timing values equal
+# Alfa_V3_enable_policy.yaml; the bench has the same ZeroErr drives.
+disable_terminal_policy: switch_on_disabled
+batch_timeout: 4.0
+disable_stage_timeout: 4.0
+fault_reset_timeout: 4.0
+inter_batch_delay: 0.2
+controller_switch_timeout: 4.0
+service_result_timeout_ms: 90000
+enable_groups:
+- module: bench_left_arm
+  mode_group: csp
+  batch_size: 1
+ready_to_switch_on_disable_terminal_joints: []
+runtime_views:
+  normal:
+    enable_only: false
+    parameter_names:
+    - disable_terminal_policy
+    - batch_timeout
+    - disable_stage_timeout
+    - fault_reset_timeout
+    - inter_batch_delay
+    - controller_switch_timeout
+    - service_result_timeout_ms
+  stationary_enable:
+    enable_only: true
+    parameter_names:
+    - disable_terminal_policy
+    - batch_timeout
+    - disable_stage_timeout
+    - fault_reset_timeout
+    - inter_batch_delay
+    - service_result_timeout_ms

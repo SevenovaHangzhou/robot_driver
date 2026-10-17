@@ -1,0 +1,129 @@
+:root {
+  /* Same palette as the chassis console: page < panel > card. */
+  --bg: #09090b;
+  --panel: #2a2a2e;
+  --card: #0c0c0e;
+  --raised: #3c3c42;
+  --line: #45454c;
+  --text: #f5f5f7;
+  --muted: #9a9aa2;
+  --accent: #56dcff;
+  --sport: #ff8a5c;
+  --ok: #2ecc55;
+  --warn: #ffb547;
+  --bad: #ff5a5f;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "PingFang SC", "HarmonyOS Sans SC", "Noto Sans CJK SC", system-ui, sans-serif;
+  font-size: 15px;
+}
+
+button, input {
+  font: inherit;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+button { cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #041318; border-color: transparent; font-weight: 600; }
+button.danger { background: var(--bad); color: #fff; border-color: transparent; font-weight: 700; }
+button.small { padding: 4px 10px; font-size: 13px; }
+button.wide { flex: 1; padding: 12px; }
+input { background: var(--card); min-width: 0; flex: 1; }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 16px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-mark { width: 12px; height: 12px; border-radius: 4px; background: var(--accent); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line);
+  font-size: 13px; color: var(--muted);
+}
+.chip.ok { color: var(--ok); border-color: var(--ok); }
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+.chip.bad { color: var(--bad); border-color: var(--bad); }
+.chip.button { color: var(--text); }
+
+.layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 12px;
+  padding: 0 12px 12px; height: calc(100% - 56px);
+}
+@media (max-width: 960px) {
+  .layout { grid-template-columns: 1fr; height: auto; }
+  .viewer-panel { height: 55vh; }
+}
+.panel { background: var(--panel); border-radius: 22px; padding: 10px; }
+.viewer-panel { position: relative; min-height: 320px; }
+.viewer { position: absolute; inset: 10px; border-radius: 16px; overflow: hidden; background: var(--card); }
+.viewer canvas { width: 100%; height: 100%; display: block; }
+.legend {
+  position: absolute; left: 22px; bottom: 20px; display: flex; gap: 8px; align-items: center;
+  font-size: 13px; color: var(--muted);
+}
+.sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; margin-left: 8px; }
+.sw.measured { background: #c9ccd6; }
+.sw.ghost { background: rgba(86, 220, 255, 0.45); }
+.overlay-msg { position: absolute; left: 0; right: 0; top: 45%; text-align: center; color: var(--muted); }
+
+.side { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+.card { background: var(--card); border-radius: 16px; padding: 12px; }
+.card h2 { margin: 0; font-size: 15px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.card.row { margin-top: 0; }
+
+.seg { display: flex; margin-left: auto; background: var(--raised); border-radius: 12px; padding: 3px; }
+.seg button { border: none; background: transparent; padding: 6px 12px; border-radius: 9px; }
+.seg button.active { background: var(--accent); color: #041318; font-weight: 600; }
+.seg button.active.sport { background: var(--sport); }
+
+.joints { display: flex; flex-direction: column; gap: 6px; }
+.joint { display: grid; grid-template-columns: 74px 1fr 70px; gap: 4px 8px; align-items: center; }
+.joint label { font-size: 13px; color: var(--muted); }
+.joint input[type="range"] { width: 100%; padding: 0; accent-color: var(--accent); background: none; border: none; }
+.joint input[type="number"] { width: 70px; padding: 4px 6px; font-size: 13px; text-align: right; flex: none; }
+.joint .meta { grid-column: 2 / 4; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+.joint.changed label { color: var(--accent); }
+
+.hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; min-height: 1em; }
+.error { color: var(--bad); font-size: 13px; }
+
+.progress { margin-top: 8px; height: 22px; border-radius: 8px; background: var(--raised); position: relative; overflow: hidden; }
+.progress i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); opacity: 0.55; }
+.progress span { position: relative; padding-left: 8px; font-size: 13px; line-height: 22px; }
+
+.poses { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.poses li { display: flex; gap: 8px; align-items: center; background: var(--panel); border-radius: 10px; padding: 6px 8px; }
+.poses li span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poses li small { color: var(--muted); }
+
+.login { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); z-index: 10; }
+.login-card { display: flex; flex-direction: column; gap: 12px; width: min(360px, 90vw); }
+.login-card h1 { font-size: 18px; margin: 0 0 4px; }
+
+dialog { border: none; padding: 0; background: transparent; color: var(--text); }
+dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+dialog .card { width: min(460px, 92vw); border: 1px solid var(--line); }
+.confirm-table { width: 100%; font-size: 13px; border-collapse: collapse; margin-top: 8px; }
+.confirm-table td { padding: 2px 4px; text-align: right; }
+.confirm-table td:first-child { text-align: left; color: var(--muted); }
+
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; max-width: 90vw; z-index: 20;
+}
+.toast.bad { border-color: var(--bad); color: var(--bad); }

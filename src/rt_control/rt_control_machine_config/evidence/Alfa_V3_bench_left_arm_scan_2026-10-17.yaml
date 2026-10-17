@@ -1,0 +1,96 @@
+# Observations only. These are neither approved operating limits nor startup writes.
+schema_version: 1
+runtime_configuration: false
+captured_utc: '2026-10-17T08:58:45+00:00'
+host: ar-Default-string
+master_id: 0
+physical_profile: bench_left_arm
+igh_preserve_pdo_patch_sha256: b83b5837d3748fb7f5c15d4066e3cfc753347dd2f20f16fd0f43585d2f9a1438
+before_and_after: {master_active: false, master_phase: Idle, responders: 9, al_state: PREOP}
+responders:
+- {ring_position: 0, name: GR10-EC-6SW(IN,X2,X3)_1.4.2.0, vendor_id: 0x00100000, product_code: 0x10f40931}
+- {ring_position: 8, name: GR10-EC-6SW(X4,X5,X6)_1.4.2.0, vendor_id: 0x00100000, product_code: 0x10f40932}
+drives:
+  positions: [1, 2, 3, 4, 5, 6, 7]
+  vendor_id: 0x5a65726f
+  product_code: 0x00029252
+  revision_number: 0x00000001
+  software_versions:
+    '150403170': [1, 2, 3, 4, 5, 6]
+    '550403170': [7]
+main_coupler_ports:
+  0: {link: up, next: master}
+  1: {link: down, connector: X3}
+  2: {link: up, type: EBUS, next: 8}
+  3: {link: up, connector: X2, next: 1}
+chain_end: {position: 7, port_1: down}
+readback:
+  # ring_position: [statusword 0x6041, error 0x603F, controlword 0x6040, mode 0x6061, 0x6064, 0x60FE]
+  1: [0x0000, 0x0000, 0x0000, 8, 21641, 1]
+  2: [0x0000, 0x0000, 0x0000, 8, 247, 1]
+  3: [0x1000, 0x0000, 0x0000, 8, 212348, 1]
+  4: [0x0000, 0x0000, 0x0000, 8, 262138, 1]
+  5: [0x0000, 0x0000, 0x0000, 8, 262131, 1]
+  6: [0x0000, 0x0000, 0x0000, 8, 262131, 1]
+  7: [0x0000, 0x0000, 0x0000, 8, 150487, 1]
+link_fault:
+  # dmesg 15:00:49..18:09:22 (+08:00), master Idle; present before and after the IgH reinstall.
+  dropouts: 340
+  responders_during_dropout: [0, 1, 8]
+  interval_s: {min: 18.5, median: 24.0, max: 205.0}
+  outage_s: {median: 1.5, max: 6.64}
+  observed_during_dropout: {position_1_port_1: link down}
+  esc_counters_18_10_46:
+    # 0x0300 invalid/RX-error per port, 0x0310 lost link per port
+    position_1_port_1: {invalid: 0x22, rx_error: 0xff, lost_link: 0xff}
+    position_2_port_0: {invalid: 0xff, rx_error: 0xff, lost_link: 0xff}
+    positions_3_to_7_port_0: {rx_error: 0x00, lost_link: 0x00}
+  conclusion: J1-J2 segment (cable/connector); J2 kept power and its link to J3
+link_fault_after_cable_swap:
+  swapped: '2026-10-17T18:15:24+08:00'
+  esc_counters_cleared: '2026-10-17T18:16:54+08:00'
+  esc_counters_after_120_s: all zero
+  dropouts_since_swap: 0
+op_bringup_2026_10_17_18_19:
+  # scope bench_left_arm_stationary_enable, 250 Hz, drives disabled; seconds from launch start
+  master_activated: 0.73
+  drive_op: {1: 6.82, 2: 12.63, 3: 14.49, 4: 20.33, 5: 24.29, 6: 25.12, 7: 25.89}
+  per_drive_preop_to_op_s: {1: 5.75, 2: 5.81, 3: 1.86, 4: 5.79, 5: 3.97, 6: 0.78, 7: 0.77}
+  dc_sync_timeouts_5000_ms: [1, 2, 4]
+  handoff_rescan:
+    # At the startup-thread -> cyclic-update handoff (wall +25.95 s): 0 responding,
+    # 3559 datagrams unmatched, bus re-scan 11448 ms; ESC counters stayed zero.
+    wc_error_count_after: 1872
+  steady_state_60_s: {frame_loss: 0.0, new_wc_errors: 0, joint_states_hz: 250.0}
+  status_word: 0x1250
+  update_thread: pinned to CPU14 after the startup thread exited
+power_cycle_21_09:
+  # Drives power-cycled by the user; 0x603F 0xA000 on positions 2/4/5/6 cleared.
+  raw_0x6064_after: {1: 262148, 2: 262142, 3: 494139, 4: 262148, 5: 262141, 6: 262142, 7: 157491}
+op_bringup_2026_10_17_21_12_1khz_prepinned:
+  # 1 kHz, update thread pinned to CPU14 0.73 s after launch (before activation); seconds from launch
+  update_thread_pinned: 0.73
+  startup_thread: {appears: 0.80, exits: 3.90}
+  master_activated: 0.81
+  drive_op: {1: 1.33, 2: 1.74, 3: 2.20, 4: 2.62, 5: 3.08, 6: 3.49, 7: 3.91}
+  per_drive_s: [0.41, 0.46]
+  dc_sync_timeouts: none
+  handoff_rescan: none
+  activation_datagrams: {timed_out: 1, unmatched: 1}
+  steady_state_60_s: {frame_loss: 0.0, wc_error_count: 0, joint_states_hz: 1000.0}
+  status_word: 0x1250
+zero_readback_2026_10_17_21_18:
+  # Drives in OP (disabled); user: drive zero 2^18 = mechanical = Robot Model zero for all axes.
+  raw_0x6064: {1: 262148, 2: 262144, 3: 494140, 4: 262152, 5: 262140, 6: 262143, 7: 157490}
+  offset_from_2_18_deg: {3: 159.3, 7: -71.9}
+stationary_enable_2026_10_17_1khz:
+  # Field request by the user; /rt/enable -> 10 s hold -> /rt/disable; no position command interface.
+  modes_0x6060: {1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8}
+  enable_call_s: 1.256
+  enabled_status_word: 0x1637
+  hold_s: 10.0
+  max_abs_position_delta_counts: {1: 7, 2: 10, 3: 11, 4: 9, 5: 13, 6: 15, 7: 13}
+  disable_call_s: 0.010
+  after_disable_status_word: 0x1250
+  wc_error_count: 0
+  new_dmesg_lines: 0

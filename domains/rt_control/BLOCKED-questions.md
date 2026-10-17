@@ -2848,3 +2848,5 @@ broadcaster，左右 /state 发布九路完整配置名称与原始值。ROS_DOM
 - 迁移期处理：清单保留 `scopes.arms_stationary_enable.ethercat_cycle_hz_override: 250`
   与 `bq_ref: BQ-154`，输出与金样零差异；本次仅登记，不修改旧入口或运行周期。
 - 解除条件：用户裁定；若统一周期，还须取得 T3 授权并登记实机复验记录。
+- 2026-10-17 进展：用户决定单臂台架 scope `bench_left_arm_stationary_enable` 使用 1 kHz 主周期，
+  不再继承本覆盖（记录 ecat-axes-20261017-01）；`arms_stationary_enable` 保持 250 Hz，本问题对其仍 OPEN。
