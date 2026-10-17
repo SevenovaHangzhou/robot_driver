@@ -278,7 +278,11 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
     clear_handoff(false);
     return;
   }
-  if (!feedback_fresh(now) || (mode_display_ != kCsp && mode_display_ != kCsv)) {
+  // Mode 0 is the drive's display before enable; the startup mode is written with the enable.
+  const bool startup_mode_pending = mode_display_ == 0;
+  if (
+    !feedback_fresh(now) ||
+    (!startup_mode_pending && mode_display_ != kCsp && mode_display_ != kCsv)) {
     startup_seed_sent_ = false;
     clear_handoff(true);
     return;
@@ -290,7 +294,7 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   if (!startup_seed_sent_) {
     output_position_raw_ = actual_position_raw_;
     output_velocity_raw_ = 0;
-    output_mode_ = mode_display_;
+    output_mode_ = startup_mode_pending ? startup_mode_ : mode_display_;
     startup_seed_pending_ = true;
     invalidate_velocity_command();
     return;
@@ -307,9 +311,28 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
     return;
   }
   if (!operation_enabled()) {
+    startup_mode_waiting_ = false;
     clear_handoff(false);
     return;
   }
+  if (startup_mode_pending) {
+    // Enabled but not yet confirmed: keep the seeded hold/zero in the startup mode.
+    if (!startup_mode_waiting_) {
+      startup_mode_waiting_ = true;
+      startup_mode_wait_started_ = now;
+    }
+    if (
+      desired != startup_mode_ ||
+      std::chrono::duration<double>(now - startup_mode_wait_started_).count() >
+        mode_ack_timeout_seconds_) {
+      clear_handoff(true);
+      return;
+    }
+    output_mode_ = startup_mode_;
+    invalidate_velocity_command();
+    return;
+  }
+  startup_mode_waiting_ = false;
 
   if (mode_request_in_flight_) {
     if (desired != mode_request_target_ ||
@@ -435,7 +458,7 @@ void KincoCyclicModeSlave::onPdoCycleSent()
   if (startup_seed_pending_ && have_position_ && have_velocity_ && have_mode_) {
     startup_seed_pending_ = false;
     startup_seed_sent_ = true;
-    if (mode_display_ == kCsv) {
+    if (mode_display_ == kCsv || (mode_display_ == 0 && startup_mode_ == kCsv)) {
       csv_requires_fresh_command_ = true;
       invalidate_velocity_command();
     }
@@ -474,6 +497,7 @@ void KincoCyclicModeSlave::set_state_is_operational(bool operational)
     startup_seed_pending_ = false;
     startup_seed_sent_ = false;
     error_latched_ = false;
+    startup_mode_waiting_ = false;
     clear_handoff(false);
     set_state(kFeedbackAge, std::numeric_limits<double>::infinity());
     invalidate_velocity_command();

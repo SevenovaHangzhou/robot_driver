@@ -21,6 +21,7 @@ struct SwerveEncoderAxisConfig
   std::uint32_t pinion_gear_teeth{0U};
   int direction{0};
   double installation_offset_rad{0.0};
+  std::uint32_t encoder_revolutions{0U};
 };
 
 struct SwerveEncoderSample

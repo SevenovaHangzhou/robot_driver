@@ -83,6 +83,9 @@ private:
 
   std::chrono::steady_clock::time_point last_complete_feedback_{};
   std::chrono::steady_clock::time_point mode_request_started_{};
+  // Kinco reports 0x6061=0 until it is enabled in the requested 0x6060 mode.
+  std::chrono::steady_clock::time_point startup_mode_wait_started_{};
+  bool startup_mode_waiting_{false};
   bool read_hook_seen_{false};
   bool cycle_complete_{false};
   bool have_position_{false};
