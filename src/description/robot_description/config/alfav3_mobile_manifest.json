@@ -1,0 +1,85 @@
+{
+  "entry": "urdf/robot_alfav3_mobile.urdf",
+  "srdf": "srdf/robot_alfav3_mobile.srdf",
+  "joint_limits": "config/joint_limits_alfav3_mobile.yaml",
+  "base_entry": "urdf/robot_analytic_proxy_mobile.urdf",
+  "arm_source": "model_sources/alfav3_arms_1011_4/robot.urdf",
+  "arm_carriage_mount": {
+    "xyz_m": [
+      0.266,
+      0.0,
+      0.36515
+    ],
+    "rpy_rad": [
+      3.141592653589793,
+      0.0,
+      0.0
+    ],
+    "evidence": "fit of both J1 axis lines to the previous model; residual 4.7 um / 1.5 urad"
+  },
+  "arm_zero": "Alfav3 export zero = mechanical zero = drive zero (2^18 counts), user-confirmed 2026-10-17",
+  "arm_limits_deg": {
+    "1": 180.0,
+    "2": 105.0,
+    "3": 180.0,
+    "4": 145.0,
+    "5": 180.0,
+    "6": 110.0,
+    "7": 180.0
+  },
+  "tool0": {
+    "parent": "<side>_link7",
+    "z_m": "flange (tool_fixed z) + 0.151",
+    "orientation": "link7"
+  },
+  "previous_model_pose_of_alfav3_zero_deg": {
+    "left": [
+      90,
+      -15,
+      180,
+      0,
+      90,
+      0,
+      0
+    ],
+    "right": [
+      -90,
+      15,
+      -180,
+      0,
+      -90,
+      0,
+      0
+    ]
+  },
+  "axis_sign_vs_previous": {
+    "left": [
+      "+",
+      "+",
+      "-",
+      "+",
+      "+",
+      "+",
+      "+"
+    ],
+    "right": [
+      "+",
+      "+",
+      "-",
+      "-",
+      "+",
+      "+",
+      "+"
+    ]
+  },
+  "removed": [
+    "named poses",
+    "initial positions",
+    "SRDF group_state entries"
+  ],
+  "limitations": [
+    "Arm inertials come from the SolidWorks export and are not hardware validated.",
+    "Arm effort/velocity limits are carried over from the previous model and remain unverified.",
+    "Joint-space values of the previous model do not apply; consumers must migrate."
+  ]
+}
