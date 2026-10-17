@@ -13,3 +13,6 @@ position_pdo:
 state_interfaces:
 - position
 - feedback_age_ms
+- ready
+# Ready also requires a frame newer than this (5 SYNC periods at 4 ms).
+ready_feedback_age_ms: 20.0

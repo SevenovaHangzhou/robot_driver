@@ -141,6 +141,9 @@
                       "partition": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "optional": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -166,6 +169,13 @@
                         "type": "string"
                       },
                       "as": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "optional": {
+                        "type": "boolean"
+                      },
+                      "format": {
                         "type": "string",
                         "minLength": 1
                       }
@@ -236,6 +246,19 @@
                       "as"
                     ],
                     "additionalProperties": false
+                  },
+                  "state_ready": {
+                    "type": "object",
+                    "properties": {
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "as"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "oneOf": [
@@ -273,7 +296,38 @@
                     "required": [
                       "policy_file"
                     ]
+                  },
+                  {
+                    "required": [
+                      "state_ready"
+                    ]
                   }
+                ],
+                "additionalProperties": false
+              }
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "topic": {
+                    "type": "string",
+                    "pattern": "^/"
+                  },
+                  "type": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "topic",
+                  "type"
                 ],
                 "additionalProperties": false
               }

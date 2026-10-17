@@ -18,7 +18,15 @@ controllers:
     - drive_csv
     required_state_modules:
     - swerve_encoders
-    tags: []
+    # Activated by enable_manager after every batch is confirmed; reports latched faults.
+    tags:
+    - enable_target
+    - fault_reporting
+    # Public operator capability provided while this controller is active.
+    capabilities:
+    - name: chassis_velocity
+      topic: /cmd_vel
+      type: geometry_msgs/msg/Twist
     parameters:
     - yaml:
         package: swerve_driver
@@ -51,6 +59,7 @@ controllers:
     tags:
     - trajectory
     - motion
+    - enable_target
     parameters:
     - policy:
         name: motion
@@ -119,10 +128,23 @@ controllers:
         path: runtime_views.{mode}.enable_only
         as: enable_only
     - controllers:
-        tag: trajectory
+        tag: enable_target
         select: first
         default: ''
         as: jtc_name
+    - policy:
+        name: enable
+        path: expected_modes
+        as: expected_modes
+        optional: true
+    - state_ready:
+        as: ready_state_interfaces
+    - controllers:
+        tag: fault_reporting
+        select: first
+        format: /{name}/fault_stop
+        optional: true
+        as: motion_fault_topic
     - when_policy: motion
       controllers:
         tag: rolling

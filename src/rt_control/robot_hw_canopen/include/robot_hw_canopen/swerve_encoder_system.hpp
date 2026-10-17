@@ -37,11 +37,14 @@ protected:
   void on_rpdo_received(
     ros2_canopen::COData data, std::uint8_t id,
     std::chrono::steady_clock::time_point received_at) override;
+  void on_nmt_state_changed(canopen::NmtState nmt_state, std::uint8_t id) override;
 
 private:
   std::unique_ptr<SwerveEncoderFeedback> feedback_;
   std::array<double, kSwerveEncoderCount> position_rad_{};
   std::array<double, kSwerveEncoderCount> feedback_age_ms_{};
+  std::array<double, kSwerveEncoderCount> ready_{};
+  double ready_feedback_age_ms_{0.0};
 };
 
 }  // namespace robot_hw_canopen

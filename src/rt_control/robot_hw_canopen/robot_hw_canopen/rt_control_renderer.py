@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 import json
 from pathlib import Path
+import subprocess
 import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
@@ -156,6 +157,7 @@ def render(request: Mapping) -> Mapping:
             master_config=deployment["canopen"]["master_config"],
             master_bin=deployment["canopen"]["master_bin"],
             can_interface_name=deployment["can_interfaces"][machine["module"]],
+            ready_feedback_age_ms=profile["ready_feedback_age_ms"],
         )
     return {
         "hardware_system_id": machine["master_system"],
@@ -170,10 +172,23 @@ def render(request: Mapping) -> Mapping:
         "runtime_files": {"canopen_bus.yaml": yaml.safe_dump(bus, sort_keys=False)},
         "expected_topology": {
             "node_ids": [item["node_id"] for item in spec["nodes"]],
-            "preflight_required": False,
+            "can_interface": None if mock else deployment["can_interfaces"][machine["module"]],
+            "preflight_required": not mock,
         },
     }
 
 
 def preflight(expected_topology: Mapping, *, run=None) -> None:
-    """No new CAN device check is introduced by this draft migration."""
+    """Read-only: the CAN interface must already be up and error-active; no frame is sent."""
+    if not expected_topology.get("preflight_required"):
+        return
+    execute = subprocess.check_output if run is None else run
+    interface = expected_topology["can_interface"]
+    link = json.loads(
+        execute(["ip", "-details", "-json", "link", "show", interface], text=True, timeout=5)
+    )[0]
+    if "UP" not in link.get("flags", []):
+        raise RuntimeError(f"CAN interface {interface} is not up")
+    state = link.get("linkinfo", {}).get("info_data", {}).get("state")
+    if state != "ERROR-ACTIVE":
+        raise RuntimeError(f"CAN interface {interface} is not error-active: {state}")

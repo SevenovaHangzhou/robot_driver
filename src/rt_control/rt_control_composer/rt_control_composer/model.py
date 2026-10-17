@@ -1,6 +1,6 @@
 """Immutable handoff from offline composition to artifact writing, launch and preflight."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 ARTIFACT = "artifact.yaml"
@@ -19,3 +19,8 @@ class Composed:
     files: dict
     # Controller -> {parameter: runtime key}; values are supplied per start, not stored.
     runtime_parameters: dict
+    # State-only systems first, actuator systems after; teardown runs in reverse.
+    hardware_activation_order: tuple = ()
+    staged_hardware_activation: bool = False
+    # Activation order, controller groups, bus locks, capabilities (see lifecycle.yaml).
+    lifecycle: dict = field(default_factory=dict)

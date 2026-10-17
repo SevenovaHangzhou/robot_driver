@@ -42,6 +42,28 @@ elif [[ "${1:-}" == "--arm-runtime" ]]; then
 elif [[ "${1:-}" == "--force-sensors" ]]; then
   launch_file=rt_control_force_sensors.launch.py
   shift
+elif [[ "${1:-}" == "--scope" ]]; then
+  # Generic staged scope runtime; the artifact's lifecycle plan drives the teardown.
+  if [[ -z "${2:-}" ]]; then
+    echo "BOOT_ERROR: --scope requires a control scope name" >&2
+    exit 2
+  fi
+  scope_name="$2"
+  shift 2
+  generated_dir="${RT_CONTROL_GENERATED_DIR:-}"
+  for argument in "$@"; do
+    if [[ "${argument}" == generated_dir:=* ]]; then
+      generated_dir="${argument#generated_dir:=}"
+    fi
+  done
+  if [[ -z "${generated_dir}" ]]; then
+    echo "BOOT_ERROR: --scope requires generated_dir:=<artifact> or RT_CONTROL_GENERATED_DIR" >&2
+    exit 2
+  fi
+  launch_file=rt_control_scope_runtime.launch.py
+  orderly_disable_required=1
+  shutdown_command=(ros2 run rt_control_bringup scope_shutdown "${generated_dir}")
+  set -- control_scope:="${scope_name}" generated_dir:="${generated_dir}" "$@"
 elif [[ "${1:-}" == "--head-runtime" ]]; then
   launch_file=rt_control_head_runtime.launch.py
   orderly_disable_required=1

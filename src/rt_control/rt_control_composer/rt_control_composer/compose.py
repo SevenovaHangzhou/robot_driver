@@ -12,7 +12,12 @@ from .bindings import bind_parameters
 from .model import ARTIFACT, Composed
 from .parameter_sources import controller_parameters
 from .renderer_registry import render_checked, select_renderer
-from .schema.cross_checks import manifest_links, merge_systems, runtime_admission
+from .schema.cross_checks import (
+    manifest_links,
+    merge_systems,
+    resolve_enable_groups,
+    runtime_admission,
+)
 from .schema.manifest_load import load_machine
 from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
@@ -112,6 +117,13 @@ def compose(
         rendered_modules[name] = result
     systems = merge_systems(rendered)
     managed = [name for system in systems for name in system["result"]["managed_joints"]]
+    # Lifecycle "active" of a sensor system is a precondition for actuators, never readiness.
+    hardware_order = [
+        system["result"]["hardware_system_id"]
+        for state_only in (True, False)
+        for system in systems
+        if (not system["result"]["managed_joints"]) == state_only
+    ]
     runtime_files = {}
     for system in systems:
         result = system["result"]
@@ -143,7 +155,11 @@ def compose(
         return load_and_validate(path, reference["schema"], share / "schema", share)
 
     selected_policies = scope.get("policies", [])
-    policies = {name: policy(name) for name in selected_policies}
+    overrides = scope.get("policy_overrides", {})
+    policies = {name: policy(overrides.get(name, name)) for name in selected_policies}
+    for loaded in policies.values():
+        if "enable_groups" in loaded:
+            resolve_enable_groups(loaded, manifest["modules"], rendered_modules, managed)
     order = deepcopy(scope["controller_order"])
     bindings = {entry["name"]: entry for entry in data["controllers"].values()}
     if jtc_only:
@@ -161,6 +177,10 @@ def compose(
         "update_rate": bus_rates[0],
         **defaults["controller_manager"],
     }
+    staged = bool(scope.get("staged_hardware_activation", False))
+    if staged:
+        # The scope launcher activates each system in hardware_order after its owner preflight.
+        manager["hardware_components_initial_state"] = {"unconfigured": list(hardware_order)}
     controllers = {"controller_manager": {"ros__parameters": manager}}
     runtime_parameters = {}
     environment = {
@@ -177,6 +197,12 @@ def compose(
         "runtime_dir": str(runtime),
         "runtime_files": runtime_files,
         "managed_joints": managed,
+        "state_ready": [
+            f"{sensor.attrib['name']}/ready"
+            for module in scope["required_state_modules"]
+            for sensor in rendered_modules[module].get("sensors", [])
+            if sensor.find("state_interface[@name='ready']") is not None
+        ],
     }
     for name in selected_names:
         binding = bindings[name]
@@ -208,7 +234,13 @@ def compose(
     # migrated entry points did not emit them; validation does not add runtime fields.
     robot_description = ET.tostring(robot, encoding="unicode")
     # Paths are validated here; writing belongs to the explicit deploy-time artifact step.
-    reserved = {"controllers.yaml", "controller_order.yaml", "robot_description.xml", ARTIFACT}
+    reserved = {
+        "controllers.yaml",
+        "controller_order.yaml",
+        "robot_description.xml",
+        "lifecycle.yaml",
+        ARTIFACT,
+    }
     if reserved.intersection(runtime_files):
         raise ValueError("Owner runtime path collides with an integration output")
     for name in runtime_files:
@@ -219,6 +251,38 @@ def compose(
         "controllers.yaml": yaml.safe_dump(controllers, sort_keys=False),
         "controller_order.yaml": yaml.safe_dump(order, sort_keys=False),
     }
+    params_of = [s["result"]["hardware_params"] for s in systems]
+    lifecycle = {
+        "control_scope": control_scope,
+        "use_mock_hardware": use_mock_hardware,
+        "staged_hardware_activation": staged,
+        "hardware_activation_order": list(hardware_order),
+        "motion_controllers": list(order["inactive"]),
+        "lifecycle_controllers": list(order["active"]),
+        # One process owns an IgH master or a CAN interface at a time (supervisor locks).
+        "bus_locks": sorted(
+            {f"ethercat-master-{p['master_id']}" for p in params_of if "master_id" in p}
+            | {f"can-{p['can_interface_name']}" for p in params_of if "can_interface_name" in p}
+        ),
+        # Operator-visible capabilities; the scope runtime publishes them on /rt/capabilities.
+        "capabilities": [
+            {**deepcopy(item), "controller": name}
+            for name in selected_names
+            for item in bindings[name].get("capabilities", [])
+        ]
+        + (
+            [{"name": "enable", "service": "/control/set_enabled", "type": "SetControlEnabled"}]
+            if any("enable" in bindings[name].get("tags", []) for name in selected_names)
+            else []
+        ),
+        "hardware": [
+            {"name": s["result"]["hardware_system_id"], "plugin": s["result"]["hardware_plugin"]}
+            for s in systems
+        ],
+    }
+    if staged:
+        # Consumed by the generic scope launcher and its orderly shutdown.
+        files["lifecycle.yaml"] = yaml.safe_dump(lifecycle, sort_keys=False)
     return Composed(
         robot_description,
         controllers,
@@ -229,6 +293,9 @@ def compose(
         data["safety_policy"],
         files,
         runtime_parameters,
+        tuple(hardware_order),
+        staged,
+        lifecycle,
     )
 
 

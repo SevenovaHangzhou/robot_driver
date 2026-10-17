@@ -66,6 +66,7 @@ if(BUILD_TESTING)
     test_swerve_encoder_system canopen_ros2_control hardware_interface rclcpp)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_brt_eds_compat test/test_brt_eds_compat.py)
+  ament_add_pytest_test(test_canopen_preflight test/test_canopen_preflight.py)
 endif()
 
 ament_export_targets(export_swerve_encoder_feedback HAS_LIBRARY_TARGET)

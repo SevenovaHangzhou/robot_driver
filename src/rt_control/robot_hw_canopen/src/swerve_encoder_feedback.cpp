@@ -96,7 +96,21 @@ bool SwerveEncoderFeedback::observe(
   }
   slot.raw_position.store(raw_position, std::memory_order_relaxed);
   slot.received_steady_ns.store(received_steady_ns, std::memory_order_relaxed);
+  slot.sample_epoch.store(
+    slot.nmt_epoch.load(std::memory_order_acquire), std::memory_order_relaxed);
   slot.sequence.store(sequence + 2U, std::memory_order_release);
+  return true;
+}
+
+bool SwerveEncoderFeedback::observe_nmt(std::uint8_t node_id, bool operational) noexcept
+{
+  const std::size_t axis{axis_for_node(node_id)};
+  if (axis == kSwerveEncoderCount) {
+    return false;
+  }
+  if (!operational) {
+    slots_[axis].nmt_epoch.fetch_add(1U, std::memory_order_acq_rel);
+  }
   return true;
 }
 
@@ -125,6 +139,7 @@ SwerveEncoderSample SwerveEncoderFeedback::sample_axis(
 {
   std::uint32_t raw_position{0U};
   std::int64_t received_steady_ns{0};
+  std::uint32_t sample_epoch{0U};
   bool coherent{false};
   const auto & slot = slots_[axis];
   for (unsigned int attempt{0U}; attempt < kSnapshotAttempts; ++attempt) {
@@ -134,13 +149,16 @@ SwerveEncoderSample SwerveEncoderFeedback::sample_axis(
     }
     raw_position = slot.raw_position.load(std::memory_order_relaxed);
     received_steady_ns = slot.received_steady_ns.load(std::memory_order_relaxed);
+    sample_epoch = slot.sample_epoch.load(std::memory_order_relaxed);
     const std::uint64_t after{slot.sequence.load(std::memory_order_acquire)};
     if (before == after) {
       coherent = true;
       break;
     }
   }
-  if (!coherent || received_steady_ns <= 0 || now_steady_ns < received_steady_ns) {
+  if (
+    !coherent || received_steady_ns <= 0 || now_steady_ns < received_steady_ns ||
+    sample_epoch != slot.nmt_epoch.load(std::memory_order_acquire)) {
     return invalid_sample();
   }
 

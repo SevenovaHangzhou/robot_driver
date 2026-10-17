@@ -17,6 +17,7 @@ install(
     launch/rt_control_head_runtime.launch.py
     launch/rt_control_interface_runtime.launch.py
     launch/rt_control_ultrasonic.launch.py
+    launch/rt_control_scope_runtime.launch.py
   DESTINATION share/${PROJECT_NAME}/launch
 )
 install(
@@ -28,6 +29,9 @@ install(
   PROGRAMS
     scripts/rt_control_start
     scripts/validate_machine_profile.py
+    scripts/scope_hardware_start
+    scripts/scope_shutdown
+    scripts/scope_capabilities
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -45,6 +49,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_composer_entries test/test_composer_entries.py)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
+  ament_add_pytest_test(test_scope_lifecycle test/test_scope_lifecycle.py)
   ament_add_pytest_test(
     test_interface_runtime_launch
     test/test_interface_runtime_launch.py
