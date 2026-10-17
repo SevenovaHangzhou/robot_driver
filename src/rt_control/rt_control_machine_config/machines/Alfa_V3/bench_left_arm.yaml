@@ -1,7 +1,7 @@
 schema_version: 1
 kind: machine_module
 status: draft
-verified: false
+verified: true
 authorities:
   source: machines/Alfa_V3/arms.yaml left branch + read-only EtherCAT scan 2026-10-17 (ar-Default-string)
   direction: user 2026-10-17 against robot_alfav3_mobile.urdf (4d4ad9a); J2/J3 reversed, others +1

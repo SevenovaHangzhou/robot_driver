@@ -159,10 +159,17 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     } in result.lifecycle["capabilities"]
 
 
-def test_motion_scope_real_mode_stays_closed_until_directions_are_verified(shares, tmp_path):
+def test_motion_scope_real_mode_uses_confirmed_directions_and_stop_parameters(shares, tmp_path):
     selection = {**arguments(shares, confirmed=True), "control_scope": "bench_left_arm"}
-    with pytest.raises(ValueError, match="calibration is not verified"):
-        compose(**selection, runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    result = compose(**selection, runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    signs, sdos = [], []
+    for joint in MODEL_JOINTS:
+        profile = yaml.safe_load(result.files[f"{joint}.yaml"])
+        signs.append(1 if profile["tpdo"][0]["channels"][0]["factor"] > 0 else -1)
+        sdos.append({entry["index"]: entry["value"] for entry in profile["sdo"]})
+    assert signs == [1, -1, -1, 1, 1, 1, 1]
+    # CSP, fault reaction = quick-stop ramp then disable, quick-stop deceleration 40 deg/s^2.
+    assert sdos == [{0x6060: 8, 0x605E: 2, 0x6085: 58254}] * 7
 
 
 def test_bench_directions_follow_the_alfav3_model():
