@@ -83,3 +83,14 @@ zero_readback_2026_10_17_21_18:
   # Drives in OP (disabled); user: drive zero 2^18 = mechanical = Robot Model zero for all axes.
   raw_0x6064: {1: 262148, 2: 262144, 3: 494140, 4: 262152, 5: 262140, 6: 262143, 7: 157490}
   offset_from_2_18_deg: {3: 159.3, 7: -71.9}
+stationary_enable_2026_10_17_1khz:
+  # Field request by the user; /rt/enable -> 10 s hold -> /rt/disable; no position command interface.
+  modes_0x6060: {1: 8, 2: 8, 3: 8, 4: 8, 5: 8, 6: 8, 7: 8}
+  enable_call_s: 1.256
+  enabled_status_word: 0x1637
+  hold_s: 10.0
+  max_abs_position_delta_counts: {1: 7, 2: 10, 3: 11, 4: 9, 5: 13, 6: 15, 7: 13}
+  disable_call_s: 0.010
+  after_disable_status_word: 0x1250
+  wc_error_count: 0
+  new_dmesg_lines: 0

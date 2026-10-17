@@ -7,8 +7,8 @@ type: feature
 trigger: ELECTRI-127；用户 2026-10-17 要求在台架工控机部署 #80，并为单臂无夹爪连接补一个 scope，不破坏分层
 commits: [feature/electri-127-bench-left-arm-scope]
 env: native
-risk: T0
-writes: {reset: no, enable: no, motion: no, plc: no, esc_diag_counters: cleared}
+risk: T3
+writes: {reset: no, enable: yes, motion: no, plc: no, esc_diag_counters: cleared}
 verified: PARTIAL
 evidence: [src/rt_control/rt_control_machine_config/evidence/Alfa_V3_bench_left_arm_scan_2026-10-17.yaml]
 supersedes: []
@@ -87,8 +87,10 @@ port1(X3) 断开，EBUS port2→子分支器 8；7 轴身份与 `zeroerr_cia402_
 - F11: 用户 21:18 确认：驱动零位为 2^18（524288 的中值），等于机械零位，也等于 URDF 零位，J1..J7 全部适用。
   零位文件改为 7 轴均为 262144。当时读数：J1/J2/J4/J5/J6 偏离 2^18 不超过 8 counts，J3 约 +159°，J7 约 −72°
   （这两个轴当时不在零位姿态）。
-
-## 遗留
+- F12: 用户现场要求使能。7 轴均为 CSP（0x6060=8），没有 PP。1 kHz 下 `/rt/enable` 用时 1.256 s
+  （每批 1 轴，批间隔 0.2 s），7 轴状态字都是 0x1637（Operation Enabled），原地保持 10 s。
+  保持期间位置最大偏移 7–15 counts（不超过 0.01°）。之后 `/rt/disable` 用时 0.010 s，状态字回到 0x1250，
+  WKC 错误为 0，dmesg 无新消息。这次没有命令过位置，不算运动验证。
 
 - 分别归因 F10 的提速和重扫消失（1 kHz 不预绑、250 Hz 预绑各测一次）；把预绑核做进正式启动流程。
 - 缩短 DC 同步等待（J1/J2/J4 各 5 s 超时）：核对 SYNC0 周期、shift 与驱动的 DC 窗口。
