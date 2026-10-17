@@ -16,6 +16,7 @@ kinco_cyclic_mode:
   stationary_velocity: 0.02
   feedback_timeout_seconds: 0.5
   mode_ack_timeout_seconds: 0.2
+  takeover_tolerance: 0.01
 rpdo:
   - index: 0x1600
     channels:

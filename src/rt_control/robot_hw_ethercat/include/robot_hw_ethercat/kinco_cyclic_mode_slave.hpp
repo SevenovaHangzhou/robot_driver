@@ -86,6 +86,10 @@ private:
   // Kinco reports 0x6061=0 until it is enabled in the requested 0x6060 mode.
   std::chrono::steady_clock::time_point startup_mode_wait_started_{};
   bool startup_mode_waiting_{false};
+  // No-producer hold: CSP outputs this latched raw target until a controller takes over.
+  int32_t hold_position_raw_{0};
+  bool position_owned_{false};
+  double takeover_tolerance_{0.0};
   bool read_hook_seen_{false};
   bool cycle_complete_{false};
   bool have_position_{false};

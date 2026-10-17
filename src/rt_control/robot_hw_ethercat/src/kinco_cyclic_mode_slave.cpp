@@ -62,14 +62,15 @@ bool KincoCyclicModeSlave::setupSlave(
     stationary_velocity_ = kinco["stationary_velocity"].as<double>();
     feedback_timeout_seconds_ = kinco["feedback_timeout_seconds"].as<double>();
     mode_ack_timeout_seconds_ = kinco["mode_ack_timeout_seconds"].as<double>();
-    if (!finite_positive(std::abs(position_counts_per_unit_)) ||
+    takeover_tolerance_ = kinco["takeover_tolerance"].as<double>();
+    if (
+      !finite_positive(std::abs(position_counts_per_unit_)) ||
       !finite_positive(std::abs(velocity_counts_per_unit_)) ||
       !std::isfinite(position_offset_counts_) || !std::isfinite(min_position_) ||
       !std::isfinite(max_position_) || min_position_ >= max_position_ ||
       !finite_positive(max_abs_velocity_) || !finite_positive(stationary_velocity_) ||
       stationary_velocity_ > max_abs_velocity_ || !finite_positive(feedback_timeout_seconds_) ||
-      !finite_positive(mode_ack_timeout_seconds_))
-    {
+      !finite_positive(mode_ack_timeout_seconds_) || !finite_positive(takeover_tolerance_)) {
       return false;
     }
     const double raw_min = min_position_ * position_counts_per_unit_ + position_offset_counts_;
@@ -295,6 +296,8 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
     output_position_raw_ = actual_position_raw_;
     output_velocity_raw_ = 0;
     output_mode_ = startup_mode_pending ? startup_mode_ : mode_display_;
+    hold_position_raw_ = actual_position_raw_;
+    position_owned_ = false;
     startup_seed_pending_ = true;
     invalidate_velocity_command();
     return;
@@ -311,6 +314,9 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
     return;
   }
   if (!operation_enabled()) {
+    // The enable transition starts from the last disabled position; no producer owns it yet.
+    hold_position_raw_ = actual_position_raw_;
+    position_owned_ = false;
     startup_mode_waiting_ = false;
     clear_handoff(false);
     return;
@@ -329,10 +335,16 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
       return;
     }
     output_mode_ = startup_mode_;
+    output_position_raw_ = hold_position_raw_;
     invalidate_velocity_command();
     return;
   }
   startup_mode_waiting_ = false;
+  if (mode_display_ != kCsp) {
+    // Leaving CSP ends position ownership; a later CSP takeover is checked again.
+    position_owned_ = false;
+    hold_position_raw_ = actual_position_raw_;
+  }
 
   if (mode_request_in_flight_) {
     if (desired != mode_request_target_ ||
@@ -347,6 +359,9 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
       output_position_raw_ = csp_seed_raw_;
       set_state(kModeSwitchReady, csp_preseed_sent_ ? 1.0 : 0.0);
       if (mode_display_ == kCsp) {
+        // The coordinator supplied the exact stationary seed: it owns CSP from here.
+        position_owned_ = true;
+        hold_position_raw_ = csp_seed_raw_;
         mode_request_in_flight_ = false;
         csp_preseed_sent_ = false;
         set_state(kModeRequestAck, 1.0);
@@ -403,13 +418,28 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   set_state(kModeSwitchReady, 1.0);
   set_state(kModeRequestAck, 1.0);
   if (desired == kCsp) {
-    int32_t target = 0;
-    if (valid_position_command(target)) {
-      output_position_raw_ = target;
-      set_state(kCommandFresh, 1.0);
-    } else {
-      set_state(kModeRequestError, 1.0);
+    output_position_raw_ = hold_position_raw_;
+    const double value = (*command_interface_ptr_)[commands_[kPosition]];
+    // NaN before takeover means no producer: keep the latched hold, not an error.
+    if (std::isnan(value) && !position_owned_) {
+      return;
     }
+    int32_t target = 0;
+    if (!valid_position_command(target)) {
+      set_state(kModeRequestError, 1.0);
+      return;
+    }
+    if (
+      !position_owned_ &&
+      std::abs(static_cast<double>(target) - static_cast<double>(hold_position_raw_)) >
+        takeover_tolerance_ * std::abs(position_counts_per_unit_)) {
+      clear_handoff(true);
+      return;
+    }
+    position_owned_ = true;
+    hold_position_raw_ = target;
+    output_position_raw_ = target;
+    set_state(kCommandFresh, 1.0);
     return;
   }
 
@@ -498,6 +528,7 @@ void KincoCyclicModeSlave::set_state_is_operational(bool operational)
     startup_seed_sent_ = false;
     error_latched_ = false;
     startup_mode_waiting_ = false;
+    position_owned_ = false;
     clear_handoff(false);
     set_state(kFeedbackAge, std::numeric_limits<double>::infinity());
     invalidate_velocity_command();

@@ -14,12 +14,14 @@ authorities:
   feedback_timeout_seconds: ELECTRI-127 deployed fixed-mode runtime value
   stationary_velocity: user 2026-10-17, joint units; drive 0.01 m/s at r=0.1 m = 0.1 rad/s, steering 0.01 rad/s
   mode_ack_timeout_seconds: user 2026-10-17 30 s
+  takeover_tolerance: deployed field value 0.1 deg (first controller target vs enable hold)
 adapter:
   stationary_velocity:
     steering: 0.01
     drive: 0.1
   feedback_timeout_seconds: 0.2
   mode_ack_timeout_seconds: 30.0
+  takeover_tolerance: 0.0017453292519943296
 dc_cycle_ns: 1000000
 assign_activate: 768
 mock_identity: {vendor_id: 1, product_code: 2, assign_activate: 0}
@@ -71,3 +73,4 @@ mock_adapter:
   stationary_velocity: 0.02
   feedback_timeout_seconds: 0.5
   mode_ack_timeout_seconds: 0.2
+  takeover_tolerance: 0.01

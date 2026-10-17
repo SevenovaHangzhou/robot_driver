@@ -44,12 +44,15 @@ related: [integration-20261014-02, integration-20261015-01]
   迁入 BRT EDS 厂家原件与兼容文件（`6502` 改 UNSIGNED32，五个 DS406 对象移入可选）及测试。
 - KincoCyclicModeSlave：禁能时 `6061=0` 允许初始化，启动模式随使能写入；回读确认前保持原位/零速，
   超过模式确认超时锁存错误。
+- KincoCyclicModeSlave 无人接管保持：禁能/启动时锁存当前位置；使能后 CSP 指令为 NaN 时输出锁存位置
+  （此前每周期跟随实测位置，不形成保持），首个指令须在 `takeover_tolerance`（0.1°）内，否则锁存错误；
+  CSV→CSP 交接完成即视为已接管。渲染器把位置/速度指令初值设为 NaN（此前 mock 路径为 0）。
 
 ## 验证
 
 - `colcon test --packages-select swerve_driver`：163 tests，0 failures。
 - `colcon test --packages-select robot_hw_canopen`：17 tests，0 failures。
-- `test_kinco_cyclic_mode_slave`：9/10 通过；插件注册表用例失败，原因是本地底层安装的插件 XML 损坏，与本次无关。
+- `test_kinco_cyclic_mode_slave`：11/12 通过；插件注册表用例失败，原因是本地底层安装的插件 XML 损坏，与本次无关。
 - robot_hw_ethercat Python 测试：54 passed。
 - composer `test_chassis/test_boundary_bindings/test_compose/test_head_force` 与 EDS 测试（源码 PYTHONPATH）：41 passed。
 - 真实路径离线组合只剩 `verified` 与背隙缺项。

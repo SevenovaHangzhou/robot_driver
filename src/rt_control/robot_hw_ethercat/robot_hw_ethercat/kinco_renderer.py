@@ -159,11 +159,15 @@ def render(request, share, validate_module, validate_unit):
         joint = ET.Element("joint", name=name)
         for interface in COMMANDS:
             element = ET.SubElement(joint, "command_interface", name=interface)
-            _param(
-                element,
-                "initial_value",
-                axis["mode_of_operation"] if interface == "mode_of_operation" else 0,
+            # Motion targets start as "no producer" (NaN); 0 would be a real target.
+            initial = (
+                axis["mode_of_operation"]
+                if interface == "mode_of_operation"
+                else "nan"
+                if interface in ("position", "velocity")
+                else 0
             )
+            _param(element, "initial_value", initial)
         for interface in STATES:
             element = ET.SubElement(joint, "state_interface", name=interface)
             if mock:
