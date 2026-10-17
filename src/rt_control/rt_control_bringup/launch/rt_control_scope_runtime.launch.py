@@ -69,12 +69,6 @@ def setup(context):
         arguments=[str(runtime)],
         output="both",
     )
-    motion = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[*order["inactive"], "--inactive", "--controller-manager-timeout", "120"],
-        output="both",
-    )
     lifecycle = Node(
         package="controller_manager",
         executable="spawner",
@@ -91,6 +85,24 @@ def setup(context):
         arguments=[str(runtime)],
         output="both",
     )
+    # An enable-only scope has no motion controllers; the spawner needs at least one name.
+    staged = []
+    after_hardware = lifecycle
+    if order["inactive"]:
+        motion = Node(
+            package="controller_manager",
+            executable="spawner",
+            arguments=[*order["inactive"], "--inactive", "--controller-manager-timeout", "120"],
+            output="both",
+        )
+        staged.append(
+            RegisterEventHandler(
+                OnProcessExit(
+                    target_action=motion, on_exit=_then([lifecycle], "motion load failed")
+                )
+            )
+        )
+        after_hardware = motion
     return [
         RegisterEventHandler(
             OnProcessExit(
@@ -100,12 +112,11 @@ def setup(context):
         ),
         RegisterEventHandler(
             OnProcessExit(
-                target_action=hardware, on_exit=_then([motion], "hardware activation failed")
+                target_action=hardware,
+                on_exit=_then([after_hardware], "hardware activation failed"),
             )
         ),
-        RegisterEventHandler(
-            OnProcessExit(target_action=motion, on_exit=_then([lifecycle], "motion load failed"))
-        ),
+        *staged,
         RegisterEventHandler(
             OnProcessExit(
                 target_action=lifecycle,
