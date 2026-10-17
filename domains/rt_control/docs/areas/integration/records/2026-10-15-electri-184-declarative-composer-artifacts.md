@@ -74,6 +74,24 @@ owner 用 `family ==` 分派。用户批准全部修改。
 - F3: 过期、被改、选择项不同或缺失的生成物在预检和创建 Node 之前拒绝。
 - F4: EtherCAT 设备族与预检由注册表数据选择；主站超时取自协议 profile，数值不变。
 
+## CI 退出失败追查（2026-10-17）
+
+PR #71 两轮失败均发生在 `test_preview_processes` 的退出码断言。同一用例的
+CTest 与 pytest XML 被各计一次，汇总显示两个 failure。新增诊断后，在单核运行中
+复现 `position_action_adapter` 退出码 -11（SIGSEGV）。启用 faulthandler 和
+`MALLOC_PERTURB_=165` 后，堆栈定位到 `destroy_node → destroy_publisher`。
+
+修复让 SIGINT/SIGTERM 仅设置退出标记；主线程停止执行器，显式销毁四个
+ActionServer，再销毁节点，最后关闭 ROS context。重复信号不打断清理。
+回归检查包裹真实 ROS 对象验证此顺序，不放宽必须正常退出的断言。
+将同一检查用于旧代码，确定性报 `context closed before executor drained`；
+修复后 SIGINT/SIGTERM 通过。测试增加子进程名称、PID、退出码和 faulthandler。
+
+定向验证：双核限制及 `MALLOC_PERTURB_=165` 下，control_api_adapter 全部
+46 项测试通过。另在单核重复实验中出现过发现阶段超时，当时三个进程均正常退出；
+未将该现象归因于本次段错误，也未增加超时或忽略退出失败。
+远端 CI 验证待推送后执行。未操作硬件。
+
 ## 遗留
 
 - 部署流程新增一步：部署或改配置后必须运行 `compose_artifact`；Mock 开发同样需要。

@@ -166,6 +166,8 @@ class PositionResourceCore:
 
 
 def main(args=None) -> None:
+    import signal
+
     import rclpy
     from robot_interfaces_qos import state
     from robot_rt_control_interfaces.action import MoveAxis, MoveHead
@@ -175,6 +177,7 @@ def main(args=None) -> None:
     from rclpy.callback_groups import ReentrantCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
+    from rclpy.signals import SignalHandlerOptions
     from sensor_msgs.msg import JointState
     from std_msgs.msg import Float64MultiArray
 
@@ -231,6 +234,14 @@ def main(args=None) -> None:
                 self._head_server("head", "/head/move"),
             ]
             self._timer = self.create_timer(0.1, self._publish_resource_states)
+
+        def destroy_node(self):
+            # Humble Node.destroy_node() does not destroy action server waitables.
+            # Release them while the node and its ROS context are still valid.
+            for server in self._servers:
+                server.destroy()
+            self._servers.clear()
+            return super().destroy_node()
 
         def _common_parameters(self, name: str) -> dict:
             self.declare_parameter(name + ".command_timeout_s", math.nan)
@@ -504,19 +515,36 @@ def main(args=None) -> None:
             for resource in self._resources.values():
                 self._state_publisher.publish(self._state_message(resource))
 
-    rclpy.init(args=args)
-    node = PositionActionAdapter()
-    executor = MultiThreadedExecutor(num_threads=6)
-    executor.add_node(node)
+    shutdown_requested = False
+
+    def request_shutdown(_signum, _frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+
+    previous_handlers = {
+        signum: signal.signal(signum, request_shutdown)
+        for signum in (signal.SIGINT, signal.SIGTERM)
+    }
+    node = executor = None
     try:
-        executor.spin()
+        # The default rclpy signal thread shuts down the context before callbacks
+        # and publishers are released. Keep teardown on this thread instead.
+        rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+        node = PositionActionAdapter()
+        executor = MultiThreadedExecutor(num_threads=6)
+        executor.add_node(node)
+        while rclpy.ok() and not shutdown_requested:
+            executor.spin_once(timeout_sec=0.1)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         try:
-            executor.shutdown()
-            node.destroy_node()
+            if executor is not None:
+                executor.shutdown()
+            if node is not None:
+                node.destroy_node()
             if rclpy.ok():
                 rclpy.shutdown()
-        except KeyboardInterrupt:
-            pass
+        finally:
+            for signum, handler in previous_handlers.items():
+                signal.signal(signum, handler)
