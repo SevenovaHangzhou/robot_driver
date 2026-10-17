@@ -8,8 +8,8 @@ trigger: ELECTRI-127；用户 2026-10-17 要求在台架工控机部署 #80，�
 commits: [feature/electri-127-bench-left-arm-scope]
 env: native
 risk: T0
-writes: {reset: no, enable: no, motion: no, plc: no}
-verified: UNVERIFIED
+writes: {reset: no, enable: no, motion: no, plc: no, esc_diag_counters: cleared}
+verified: PARTIAL
 evidence: [src/rt_control/rt_control_machine_config/evidence/Alfa_V3_bench_left_arm_scan_2026-10-17.yaml]
 supersedes: []
 related: [ecat-axes-20260912-04, chassis-control-20261017-01]
@@ -60,8 +60,27 @@ port1(X3) 断开，EBUS port2→子分支器 8；7 轴身份与 `zeroerr_cia402_
 - F1: 台架 9 位拓扑见 evidence；主分支器 port3→1、port2→8，port1 断开。
 - F2: J1..J6 固件 150403170，J7 为 550403170；`0x60FE=1`。
 
+- F3: 用户于 2026-10-17 确认台架总线顺序为物理 J1..J7，零位候选姿态即机械零位，
+  `confirmed_by` 改为 `user`。
+- F4: J1–J2 链路间歇断开。Idle 下 dmesg 记录 340 次，间隔 18.5–205 s（中位 24 s），
+  每次约 1.5 s，只剩 0/1/8 三个从站在线。J1 port1 与 J2 port0 的 RX 错误和 lost link 计数都已饱和（0xFF），
+  J3..J7 port0 为 0。结论：故障在 J1–J2 段线缆或接头，不是 J2 掉电。IgH 重装前后都有，
+  与软件无关。
+
+- F5: 18:15 换掉 J1–J2 线缆。换线后不再断链，清零 ESC 计数 120 s 后仍全为 0。
+- F6: 拉 OP（scope 运行入口，250 Hz，驱动保持禁能），从 launch 开始计时：主站 0.73 s 激活，
+  7 个驱动逐个进 OP，第 7 个在 25.89 s 进入。每个驱动 PREOP→OP 耗时依次为 5.75/5.81/1.86/5.79/3.97/0.78/0.77 s。
+  J1、J2、J4 报 `Slave did not sync after 5000 ms`，DC 同步等待是主要耗时。
+- F7: 启动线程交接给周期线程的时刻，总线出现一次 0 从站应答，随后 3559 个 datagram UNMATCHED，
+  并重新扫描 11.4 s。期间 ESC 计数保持 0，所以这是主站时序问题，不是链路问题。恢复后保持 OP，
+  60 s 内无丢帧，WKC 计数不再增长，`/joint_states` 250 Hz，状态字 0x1250（Switch On Disabled）。
+- F8: 启动线程退出前，`rt_control_thread_affinity.py` 会看到两个 FIFO80 线程并拒绝执行。
+  所以周期线程要在交接之后再绑到 CPU14。
+
 ## 遗留
 
-- 用户确认台架 J1..J7 物理顺序和零位姿态后，才能把 `confirmed_by` 改为 `user`。
+- 查交接时刻的重扫：确认是不是周期线程交接时未绑核（当时在 CPU18）导致；必要时在交接前完成绑核后再复测。
+- 缩短 DC 同步等待（J1/J2/J4 各 5 s 超时）：核对 SYNC0 周期、shift 与驱动的 DC 窗口。
+- J4 原始计数在 262138–262143 之间，紧贴 2^18；需确认 J4 单圈/多圈策略和回绕处理。
 - 主机身份 `host_id`，以及驱动器在 OP 下的状态字行为（PREOP 下读到 `0x0000`）待核对。
 - 仓库 `hostsetup/igh-install.sh` 的 EtherCAT MAC 写死为另一台 IPC，多主机部署需要单独处理。

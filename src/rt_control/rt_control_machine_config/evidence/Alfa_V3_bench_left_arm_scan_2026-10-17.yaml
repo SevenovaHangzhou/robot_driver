@@ -33,3 +33,34 @@ readback:
   5: [0x0000, 0x0000, 0x0000, 8, 262131, 1]
   6: [0x0000, 0x0000, 0x0000, 8, 262131, 1]
   7: [0x0000, 0x0000, 0x0000, 8, 150487, 1]
+link_fault:
+  # dmesg 15:00:49..18:09:22 (+08:00), master Idle; present before and after the IgH reinstall.
+  dropouts: 340
+  responders_during_dropout: [0, 1, 8]
+  interval_s: {min: 18.5, median: 24.0, max: 205.0}
+  outage_s: {median: 1.5, max: 6.64}
+  observed_during_dropout: {position_1_port_1: link down}
+  esc_counters_18_10_46:
+    # 0x0300 invalid/RX-error per port, 0x0310 lost link per port
+    position_1_port_1: {invalid: 0x22, rx_error: 0xff, lost_link: 0xff}
+    position_2_port_0: {invalid: 0xff, rx_error: 0xff, lost_link: 0xff}
+    positions_3_to_7_port_0: {rx_error: 0x00, lost_link: 0x00}
+  conclusion: J1-J2 segment (cable/connector); J2 kept power and its link to J3
+link_fault_after_cable_swap:
+  swapped: '2026-10-17T18:15:24+08:00'
+  esc_counters_cleared: '2026-10-17T18:16:54+08:00'
+  esc_counters_after_120_s: all zero
+  dropouts_since_swap: 0
+op_bringup_2026_10_17_18_19:
+  # scope bench_left_arm_stationary_enable, 250 Hz, drives disabled; seconds from launch start
+  master_activated: 0.73
+  drive_op: {1: 6.82, 2: 12.63, 3: 14.49, 4: 20.33, 5: 24.29, 6: 25.12, 7: 25.89}
+  per_drive_preop_to_op_s: {1: 5.75, 2: 5.81, 3: 1.86, 4: 5.79, 5: 3.97, 6: 0.78, 7: 0.77}
+  dc_sync_timeouts_5000_ms: [1, 2, 4]
+  handoff_rescan:
+    # At the startup-thread -> cyclic-update handoff (wall +25.95 s): 0 responding,
+    # 3559 datagrams unmatched, bus re-scan 11448 ms; ESC counters stayed zero.
+    wc_error_count_after: 1872
+  steady_state_60_s: {frame_loss: 0.0, new_wc_errors: 0, joint_states_hz: 250.0}
+  status_word: 0x1250
+  update_thread: pinned to CPU14 after the startup thread exited
