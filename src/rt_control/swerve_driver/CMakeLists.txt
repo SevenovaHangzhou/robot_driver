@@ -6,7 +6,8 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
 set(dependencies controller_interface hardware_interface diagnostic_msgs geometry_msgs
-  nav_msgs sensor_msgs pluginlib rclcpp realtime_tools robot_interfaces_qos rt_control_semantic_components)
+  nav_msgs sensor_msgs std_msgs pluginlib rclcpp realtime_tools robot_interfaces_qos
+  rt_control_semantic_components)
 foreach(dependency IN LISTS dependencies)
   find_package(${dependency} REQUIRED)
 endforeach()

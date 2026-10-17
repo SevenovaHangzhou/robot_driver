@@ -58,6 +58,9 @@ CallbackReturn SwerveController::on_init()
   auto_declare<bool>("calibration_verified", false);
   auto_declare<std::vector<double>>("steering_to_yaw_sign", {1.0, 1.0, 1.0, 1.0});
   auto_declare<double>("max_steering_acceleration", std::numeric_limits<double>::infinity());
+  auto_declare<double>("fault_stop_speed", 0.01);
+  auto_declare<double>("fault_stop_hold", 0.05);
+  auto_declare<double>("fault_stop_timeout", 2.0);
   for (const auto * name : {"steering_joints", "drive_joints", "steering_encoders"}) {
     auto_declare<std::vector<std::string>>(name, {});
   }
@@ -145,6 +148,14 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.setpoint.translation_heading_epsilon_rad = number("translation_heading_epsilon");
     config_.setpoint.steering_angle_deadband_rad = number("steering_angle_deadband");
     feedback_timeout_ = number("feedback_timeout");
+    fault_stop_speed_ = number("fault_stop_speed");
+    fault_stop_hold_ = number("fault_stop_hold");
+    fault_stop_timeout_ = number("fault_stop_timeout");
+    if (
+      !positive(fault_stop_speed_) || !std::isfinite(fault_stop_hold_) || fault_stop_hold_ < 0.0 ||
+      !positive(fault_stop_timeout_)) {
+      throw std::invalid_argument("fault stop speed/hold/timeout must be configured");
+    }
     if (!positive(feedback_timeout_)) {
       throw std::invalid_argument("feedback_timeout must be positive");
     }
@@ -250,6 +261,14 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     imu_subscription_.reset();
     diagnostic_publisher_ = get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       "~/diagnostics", robot_interfaces_qos::diagnostic());
+    // Latched, reliable: enable_manager subscribes and performs the ordered disable.
+    fault_stop_publisher_ = get_node()->create_publisher<std_msgs::msg::Bool>(
+      "~/fault_stop", rclcpp::QoS(1).reliable().transient_local());
+    fault_stop_timer_ = get_node()->create_wall_timer(std::chrono::milliseconds(20), [this]() {
+      std_msgs::msg::Bool message;
+      message.data = active_.load() && fault_stop_ready_.load();
+      fault_stop_publisher_->publish(message);
+    });
     diagnostic_timer_ = get_node()->create_wall_timer(
       std::chrono::milliseconds(100),
       [this]() {publish_diagnostics();});
@@ -348,6 +367,8 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     }
     status_.store(last_output_.status);
     slipping_mask_.store(0U);
+    fault_latched_.store(false);
+    fault_stop_ready_.store(false);
     ready_.store(true);
     active_.store(true);
   } catch (const std::exception & error) {
@@ -469,6 +490,8 @@ CallbackReturn SwerveController::on_cleanup(const rclcpp_lifecycle::State & stat
   imu_subscription_.reset();
   diagnostic_timer_.reset();
   diagnostic_publisher_.reset();
+  fault_stop_timer_.reset();
+  fault_stop_publisher_.reset();
   realtime_odometry_.reset();
   odometry_publisher_.reset();
   runtime_.reset();
@@ -561,6 +584,7 @@ controller_interface::return_type SwerveController::update(
   } catch (const std::exception &) {
     ready_.store(false); block_before_ns_ = now; stop_outputs();
     status_.store(ControlStatus::feedback_fault); slipping_mask_.store(0U);
+    track_fault(ControlStatus::feedback_fault, feedback, now);
     return controller_interface::return_type::ERROR;
   }
   if (runtime_) {
@@ -588,9 +612,16 @@ controller_interface::return_type SwerveController::update(
     block_before_ns_ = now;
     status_.store(ControlStatus::steering_limit);
     slipping_mask_.store(0U);
+    track_fault(ControlStatus::steering_limit, feedback, now);
     return controller_interface::return_type::ERROR;
   }
   status_.store(last_output_.status);
+  track_fault(last_output_.status, feedback, now);
+  if (fault_latched_.load()) {
+    // A latched fault never resumes motion, even if feedback recovers.
+    ready_.store(false);
+    block_before_ns_ = now;
+  }
   unsigned int slipping_mask{0U};
   for (size_t i = 0; i < last_output_.slipping_modules.size(); ++i) {
     if (last_output_.slipping_modules[i]) {slipping_mask |= 1U << i;}
@@ -692,6 +723,41 @@ bool SwerveController::write_runtime_output(const ChassisRuntimeOutput & output)
       0 ? 0 : static_cast<double>(runtime_->wire_base() + d.write_sequence));
   }
   return true;
+}
+
+void SwerveController::track_fault(
+  ControlStatus status, const ModuleFeedbackArray & feedback, int64_t now)
+{
+  const bool fault = status == ControlStatus::feedback_fault ||
+                     status == ControlStatus::steering_hold_fault ||
+                     status == ControlStatus::steering_limit;
+  if (fault && !fault_latched_.load()) {
+    fault_latched_.store(true);
+    fault_since_ns_ = now;
+    wheels_stopped_since_ns_ = 0;
+  }
+  if (!fault_latched_.load() || fault_stop_ready_.load()) {
+    return;
+  }
+  bool stopped = true, measurable = true;
+  for (size_t i = 0; i < 4; ++i) {
+    const double speed = feedback[i].wheel_velocity * config_.wheel_radius[i];
+    measurable = measurable && std::isfinite(speed);
+    stopped = stopped && std::isfinite(speed) && std::abs(speed) <= fault_stop_speed_;
+  }
+  if (!stopped) {
+    wheels_stopped_since_ns_ = 0;
+  }
+  if (stopped && wheels_stopped_since_ns_ == 0) {
+    wheels_stopped_since_ns_ = now;
+  }
+  const double held = stopped ? static_cast<double>(now - wheels_stopped_since_ns_) * 1e-9 : 0.0;
+  const double elapsed = static_cast<double>(now - fault_since_ns_) * 1e-9;
+  // Disable only after the wheels are stopped; without wheel feedback, or after the timeout,
+  // waiting longer cannot make the stop safer.
+  if ((stopped && held >= fault_stop_hold_) || !measurable || elapsed >= fault_stop_timeout_) {
+    fault_stop_ready_.store(true);
+  }
 }
 
 void SwerveController::publish_diagnostics()

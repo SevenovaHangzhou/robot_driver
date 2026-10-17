@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include "std_msgs/msg/bool.hpp"
+
 #include <array>
 #include <algorithm>
 #include <chrono>
@@ -104,6 +106,13 @@ protected:
     });
   }
 
+  void send_without_wait(double vx)
+  {
+    geometry_msgs::msg::Twist msg;
+    msg.linear.x = vx;
+    publisher->publish(msg);
+  }
+
   void state(const std::string & name, double value)
   {
     const auto names = controller.state_interface_configuration().names;
@@ -137,13 +146,24 @@ TEST_F(SwerveControllerTest, RosCommandProducesCspAndCsvTargets)
   }
 }
 
-TEST_F(SwerveControllerTest, EncoderLossStopsWithoutReplayingOldCommandOnRecovery)
+TEST_F(SwerveControllerTest, EncoderLossLatchesUntilReactivation)
 {
   send(1.0);
   state("e2/feedback_age_ms", 100.0);
   expect_stopped();
+  // ELECTRI-127: encoder loss is a motion fault; recovery alone never resumes motion.
   state("e2/feedback_age_ms", 0.0);
   expect_stopped();
+  send_without_wait(1.0);
+  for (int cycle = 0; cycle < 20; ++cycle) {
+    executor.spin_some();
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+  }
+  EXPECT_DOUBLE_EQ(commands[1], 0.0);
+  // A new activation (after the operator re-enables) clears the latch.
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  bind();
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
   send(1.0);
   EXPECT_GT(commands[1], 0.0);
 }
@@ -283,6 +303,36 @@ TEST_F(SwerveControllerTest, InvalidRosCommandAndMotorFaultStopTheChassis)
   send(1.0);
   state("d1/status_word", 0x0008);
   expect_stopped();
+}
+
+TEST_F(SwerveControllerTest, MotionFaultLatchesAndReportsStopOnlyAfterWheelsStop)
+{
+  bool fault_stop = false;
+  auto subscription = client->create_subscription<std_msgs::msg::Bool>(
+    "/swerve_test/fault_stop", rclcpp::QoS(1).reliable().transient_local(),
+    [&](std_msgs::msg::Bool::SharedPtr message) { fault_stop = message->data; });
+  send(1.0);
+  state("d1/status_word", 0x0008);
+  state("d0/velocity", 5.0);  // wheel 1 still turning: no ordered-disable request yet
+  const auto spin_for = [&](int milliseconds) {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(milliseconds);
+    while (std::chrono::steady_clock::now() < end) {
+      controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+      executor.spin_some();
+    }
+  };
+  spin_for(150);
+  EXPECT_FALSE(fault_stop);
+  state("d0/velocity", 0.0);
+  spin_for(150);
+  EXPECT_TRUE(fault_stop);
+  // Recovered feedback and a fresh command never resume motion while latched.
+  state("d1/status_word", 0x0027);
+  send_without_wait(1.0);
+  spin_for(50);
+  for (size_t i = 0; i < 4; ++i) {
+    EXPECT_DOUBLE_EQ(commands[2 * i + 1], 0.0);
+  }
 }
 
 TEST_F(SwerveControllerTest, LocalReceiveTimeoutStopsWithoutAnotherMessage)

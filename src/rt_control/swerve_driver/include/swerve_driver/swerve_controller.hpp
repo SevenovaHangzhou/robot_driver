@@ -11,6 +11,7 @@
 #include "controller_interface/controller_interface.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "realtime_tools/realtime_buffer.hpp"
 #include "realtime_tools/realtime_publisher.hpp"
@@ -76,6 +77,13 @@ private:
   realtime_tools::RealtimeBuffer<ImuSample> imu_buffer_;
   std::atomic_bool active_{false}, ready_{false};
   std::atomic<ControlStatus> status_{ControlStatus::inactive};
+  // Motion fault: latched until deactivation; ready for ordered disable once wheels stopped.
+  void track_fault(ControlStatus status, const ModuleFeedbackArray & feedback, int64_t now);
+  std::atomic_bool fault_latched_{false}, fault_stop_ready_{false};
+  int64_t fault_since_ns_{0}, wheels_stopped_since_ns_{0};
+  double fault_stop_speed_{0.01}, fault_stop_hold_{0.05}, fault_stop_timeout_{2.0};
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr fault_stop_publisher_;
+  rclcpp::TimerBase::SharedPtr fault_stop_timer_;
   std::atomic<unsigned int> slipping_mask_{0U};
   std::mutex lifecycle_mutex_;
   uint64_t generation_{0};
