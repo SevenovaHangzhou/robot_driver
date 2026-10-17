@@ -75,6 +75,13 @@
           "mock_joint_name": {
             "type": "string",
             "minLength": 1
+          },
+          "model_heading_sign": {
+            "type": "integer",
+            "enum": [
+              -1,
+              1
+            ]
           }
         },
         "required": [
@@ -90,47 +97,13 @@
         ],
         "additionalProperties": false
       }
-    },
-    "module_coordinates": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "x": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "const": "TBD"
-              }
-            ]
-          },
-          "y": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "const": "TBD"
-              }
-            ]
-          }
-        },
-        "required": [
-          "x",
-          "y"
-        ],
-        "additionalProperties": false
-      }
     }
   },
   "required": [
     "family",
     "assembly",
     "profile",
-    "axes",
-    "module_coordinates"
+    "axes"
   ],
   "additionalProperties": false
 }

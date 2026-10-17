@@ -5,10 +5,36 @@ renderer API 1 validation, and frozen comparisons with the old entry points.
 ROS 2 Humble and Python 3.10 are the supported runtime.
 
 `compose()` accepts `robot_variant`, `machine_unit`, `physical_profile`,
-`control_scope`, `runtime_dir`, `use_mock_hardware`, and `jtc_only`. It loads
-machine data, deployment and explicit owner policies through package shares.
-It returns a `Composed` handoff and writes only validated output files below
-`runtime_dir`. It does not access devices or invoke preflight.
+`control_scope`, `runtime_dir`, `use_mock_hardware`, `jtc_only` and `sync_mode`.
+It loads machine data, deployment and explicit owner policies through package
+shares. It is pure: `Composed.files` holds every output as text, with paths that
+point into `runtime_dir`. It writes nothing, accesses no device and runs no preflight.
+
+## Deploy-time artifacts
+
+The explicit command below is the only writer. Run it once per deployed
+selection, and again after changing any installed configuration:
+
+```bash
+ros2 run rt_control_composer compose_artifact --output /abs/dir \
+  --robot-variant Alfa_V3 --machine-unit Alfa_V3-01 \
+  --physical-profile arms_only --control-scope arms_only --mock
+```
+
+The directory receives the composed files and `artifact.yaml` (selection and
+SHA-256 per file). The command stages beside the target and swaps by rename.
+It refuses to replace a directory that is not an artifact.
+
+Runtime launch entries take `generated_dir:=/abs/dir` (default from
+`RT_CONTROL_GENERATED_DIR`) and call `load_artifact()`. It rejects a missing
+manifest, a different selection, a modified, missing or extra file, and stale
+output: it recomposes in memory from the installed configuration and compares
+every file. Each rejection prints the exact regeneration command. Launch
+writes no configuration.
+
+Per-start values are not stored. A `runtime` parameter source records
+`Composed.runtime_parameters`; launch supplies values with node-scoped
+`--ros-args -p <controller>:<parameter>:=<value>` arguments. Missing values reject.
 
 `preflight(composed)` invokes each selected owner's preflight once per merged
 hardware system. Mock returns without invoking an owner. The caller must run
@@ -29,10 +55,33 @@ to access hardware.
 
 The manifest's optional `policy_refs` identify a package, file and schema.
 Scope `render_mode` and `controller_order` identify the output view and explicit
-activation order. Controller `role` selects integration wiring without plugin
-name dispatch. Request `deployment` separates bus/host data from calibration.
+activation order. Scope `policies` lists the selected policies explicitly;
+`jtc_only_excluded` declares the JTC-only view; `controller_file` selects an
+owner file as the complete controller output. Request `deployment` separates bus/host data from calibration.
 Result `actuator_groups` and opaque `resource_claims` support cross-file binding
 and duplicate-resource checks without inspecting protocol-private fields.
+
+## Declarative controller parameters
+
+Each `controllers.yaml` entry lists ordered `parameters` sources and selection
+`tags`. The composer contains no controller-type branches. Source kinds:
+
+| Kind | Result |
+| --- | --- |
+| `yaml` | Subtree of an owner YAML file at `path` |
+| `policy` | Selected policy value: `path`, `overlay`, `keys_from`, `transform` (`flatten`, `lengths`) |
+| `controllers` | Names of selected controllers with a `tag`: `first`, `all` or `any` |
+| `owner_parameters` | Renderer `controller_parameters[controller]` |
+| `topics` | `interface_naming` templates formatted with renderer `controller_context` |
+| `runtime` | Per-start value, supplied at launch |
+| `policy_file` | Copies a referenced policy file into the output and yields its path |
+
+`{mode}` and `{controller}` expand in paths. `when_policy` skips a source when
+that policy is not selected. Policy checks `match: managed_joints`,
+`match: actuator_groups` and `partition` keep the previous consistency rules.
+Two sources for one parameter, an unselected policy, a missing path or a
+source without exactly one kind reject composition. Adding a controller type
+adds data only.
 
 The composer binds controller hardware facts through
 `scope.controller_parameter_bindings`. Each parameter selects a module and a

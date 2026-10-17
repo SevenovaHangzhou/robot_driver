@@ -1,7 +1,6 @@
 """V3 dual-seven-axis FJT/rolling runtime; PP grippers remain hold-only."""
 
 from pathlib import Path
-import tempfile
 
 from launch import LaunchDescription
 from launch.actions import (
@@ -12,11 +11,11 @@ from launch.actions import (
 )
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration
 from launch_ros.actions import Node
-import yaml
 
-from rt_control_composer.compose import compose, preflight
+from rt_control_composer.artifact import load_artifact, runtime_arguments
+from rt_control_composer.compose import preflight
 
 
 def _boolean(context, name: str) -> bool:
@@ -52,22 +51,18 @@ def setup(context):
         if "publish_robot_state" in context.launch_configurations
         else True
     )
-    runtime = Path(tempfile.mkdtemp(prefix="rt-control-arm-runtime-"))
-    build = compose(
+    build = load_artifact(
+        LaunchConfiguration("generated_dir").perform(context),
         robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
         machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
         physical_profile="arms_only",
         control_scope="arms_only",
-        runtime_dir=runtime,
         use_mock_hardware=use_mock_hardware,
         jtc_only=jtc_only,
     )
     preflight(build)
     controller_order = build.controller_order
-    controller_config = runtime / "controllers.yaml"
-    controller_config.write_text(
-        yaml.safe_dump(build.controllers, sort_keys=False), encoding="utf-8"
-    )
+    controller_config = Path(build.runtime_dir) / "controllers.yaml"
 
     manager = Node(
         package="controller_manager",
@@ -76,6 +71,7 @@ def setup(context):
             {"robot_description": build.robot_description},
             str(controller_config),
         ],
+        arguments=runtime_arguments(build, {}),
         output="both",
     )
     robot_state_publisher = Node(
@@ -166,6 +162,11 @@ def generate_launch_description():
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             DeclareLaunchArgument("jtc_only", default_value="false"),
             DeclareLaunchArgument("publish_robot_state", default_value="true"),
+            DeclareLaunchArgument(
+                "generated_dir",
+                default_value=EnvironmentVariable("RT_CONTROL_GENERATED_DIR", default_value=""),
+                description="Absolute artifact directory from compose_artifact",
+            ),
             OpaqueFunction(function=setup),
         ]
     )

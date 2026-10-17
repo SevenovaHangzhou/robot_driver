@@ -9,12 +9,14 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
+from .profiles import master_parameters
+
 
 def _param(parent, name, value):
     ET.SubElement(parent, "param", name=name).text = str(value)
 
 
-def render(request, share, validate_module):
+def render(request, share, validate_module, validate_unit, validate_device):
     machine = validate_module(request["module"], request["machine"])
     spec = machine["spec"]
     mock = request["use_mock_hardware"]
@@ -132,8 +134,7 @@ def render(request, share, validate_module):
     params = {
         "master_id": request["deployment"]["ethercat"]["master_id"],
         "control_frequency": request["bus_cycle_hz"],
-        "startup_bus_timeout_ms": 70000,
-        "preload_timeout_ms": 5000,
+        **master_parameters(share),
     }
     if mock:
         params.update(calculate_dynamics="false", mock_sensor_commands="false")

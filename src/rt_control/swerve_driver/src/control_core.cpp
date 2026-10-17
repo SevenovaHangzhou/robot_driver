@@ -58,20 +58,26 @@ ControlCore::ControlCore(const CoreConfig & config)
 : config_(config), setpoints_(setpoint_parameters(config))
 {
   validate(config_);
-  last_motor_positions_.fill(std::numeric_limits<double>::quiet_NaN());
-  output_.steering_position = last_motor_positions_;
+  last_steering_targets_.fill(std::numeric_limits<double>::quiet_NaN());
+  output_.steering_position = last_steering_targets_;
 }
 
-void ControlCore::remember_positions(const ModuleFeedbackArray & feedback) noexcept
+bool ControlCore::hold_deviation(
+  const ModuleFeedbackArray & feedback, const std::array<bool, 4> & holding) const noexcept
 {
   for (size_t i = 0; i < 4; ++i) {
-    const auto position = feedback[i].steering_position;
-    if (feedback[i].valid && steering_angle_within_limits(
-        position, steering_limits(config_, i)))
-    {
-      last_motor_positions_[i] = position;
+    const auto & sample = feedback[i];
+    if (
+      holding[i] && sample.enabled && measurement_valid(sample) &&
+      std::isfinite(last_steering_targets_[i]) &&
+      (std::abs(sample.steering_position - last_steering_targets_[i]) >
+         config_.max_encoder_difference ||
+       std::abs(sample.steering_angle - last_steering_targets_[i]) >
+         config_.max_encoder_difference)) {
+      return true;
     }
   }
+  return false;
 }
 
 bool ControlCore::measurement_valid(const ModuleFeedback & f) const noexcept
@@ -118,11 +124,16 @@ std::array<SwerveModulePosition, 4> ControlCore::positions(const ModuleFeedbackA
 bool ControlCore::activate(const ModuleFeedbackArray & feedback)
 {
   active_ = false;
-  remember_positions(feedback);
+  // A successful new activation is the only place feedback initializes the hold.
   if (!feedback_ready(feedback)) {return false;}
+  for (size_t i = 0; i < 4; ++i) {
+    last_steering_targets_[i] = feedback[i].steering_position;
+  }
+  holding_modules_.fill(true);
+  hold_fault_latched_ = false;
   previous_positions_ = positions(feedback);
   odometry_.emplace(config_.locations, yaw_, previous_positions_, output_.pose);
-  setpoints_.reset();
+  setpoints_.reset(last_steering_targets_);
   previous_speeds_.fill(0.0);
   imu_fallback_ = true;
   output_ = stop(feedback, ControlStatus::command_timeout);
@@ -206,11 +217,49 @@ void ControlCore::observe(const ModuleFeedbackArray & feedback, std::optional<Ya
 
 ControlOutput ControlCore::stop(const ModuleFeedbackArray & feedback, ControlStatus status)
 {
-  remember_positions(feedback);
-  output_.steering_position = last_motor_positions_;
+  holding_modules_.fill(true);
+  if (active_ && hold_deviation(feedback, holding_modules_)) {
+    hold_fault_latched_ = true;
+  }
+  output_.steering_position = last_steering_targets_;
   output_.drive_velocity.fill(0.0);
   previous_speeds_.fill(0.0);
-  setpoints_.reset();
+  setpoints_.reset(last_steering_targets_);
+  output_.status = active_ && hold_fault_latched_ ? ControlStatus::steering_hold_fault : status;
+  return output_;
+}
+
+ControlOutput ControlCore::ramp_stop(
+  const ModuleFeedbackArray & feedback, ControlStatus status, double dt)
+{
+  if (!positive(dt) || dt > config_.max_update_period) {
+    return stop(feedback, status);
+  }
+  std::array<SwerveModuleState, 4> desired{};
+  std::array<double, 4> angles{};
+  std::array<bool, 4> holding{};
+  holding.fill(true);
+  for (size_t i = 0; i < 4; ++i) {
+    desired[i] = {0.0, last_steering_targets_[i]};
+    angles[i] = feedback[i].steering_angle;
+  }
+  const auto targets = setpoints_.generate(desired, angles, dt, holding);
+  std::array<double, 4> next_targets{};
+  for (size_t i = 0; i < 4; ++i) {
+    next_targets[i] = targets.modules[i].target_angle_rad;
+    if (!steering_angle_within_limits(next_targets[i], steering_limits(config_, i))) {
+      return stop(feedback, ControlStatus::steering_limit);
+    }
+  }
+  last_steering_targets_ = next_targets;
+  holding_modules_ = holding;
+  output_.steering_position = next_targets;
+  const auto max_step = config_.max_wheel_acceleration * dt;
+  for (size_t i = 0; i < 4; ++i) {
+    const double slower = std::max(0.0, std::abs(previous_speeds_[i]) - max_step);
+    previous_speeds_[i] = std::copysign(slower, previous_speeds_[i]);
+    output_.drive_velocity[i] = previous_speeds_[i] / config_.wheel_radius[i];
+  }
   output_.status = status;
   return output_;
 }
@@ -219,10 +268,18 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
   bool command_fresh, double dt, std::optional<YawSample> imu)
 {
   if (!active_) {return stop(feedback, ControlStatus::inactive);}
-  remember_positions(feedback);
+  if (hold_fault_latched_) {
+    return stop(feedback, ControlStatus::steering_hold_fault);
+  }
   observe(feedback, imu);
   if (!feedback_ready(feedback)) {return stop(feedback, ControlStatus::feedback_fault);}
-  if (!command_fresh) {return stop(feedback, ControlStatus::command_timeout);}
+  if (hold_deviation(feedback, holding_modules_)) {
+    hold_fault_latched_ = true;
+    return stop(feedback, ControlStatus::steering_hold_fault);
+  }
+  if (!command_fresh) {
+    return ramp_stop(feedback, ControlStatus::command_timeout, dt);
+  }
   if (!positive(dt) || dt > config_.max_update_period || !std::isfinite(command.vx_mps) ||
     !std::isfinite(command.vy_mps) || !std::isfinite(command.omega_radps))
   {
@@ -242,18 +299,37 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
       return std::abs(state.speed_mps) < config_.velocity_deadband;
     }))
   {
-    return stop(feedback, ControlStatus::running);
+    return ramp_stop(feedback, ControlStatus::running, dt);
+  }
+  std::array<bool, 4> holding{};
+  for (size_t i = 0; i < 4; ++i) {
+    holding[i] = std::abs(desired[i].speed_mps) < config_.velocity_deadband;
+    if (holding[i]) {
+      desired[i].angle_rad = last_steering_targets_[i];
+      desired[i].speed_mps = 0.0;
+    }
+  }
+  if (hold_deviation(feedback, holding)) {
+    hold_fault_latched_ = true;
+    return stop(feedback, ControlStatus::steering_hold_fault);
   }
   desaturate_wheel_speeds(desired, config_.max_wheel_speed);
-  const auto targets = setpoints_.generate(desired, angles, dt);
+  const auto targets = setpoints_.generate(desired, angles, dt, holding);
   const auto max_step = config_.max_wheel_acceleration * dt;
+  std::array<double, 4> next_targets{};
   for (size_t i = 0; i < 4; ++i) {
-    const auto target = std::abs(desired[i].speed_mps) < config_.velocity_deadband ?
-      feedback[i].steering_position : targets.modules[i].target_angle_rad;
+    // Holding modules receive the generator's ramp-to-latch target, never a measurement.
+    const auto target = targets.modules[i].target_angle_rad;
     if (!steering_angle_within_limits(target, steering_limits(config_, i))) {
       return stop(feedback, ControlStatus::steering_limit);
     }
-    output_.steering_position[i] = target;
+    next_targets[i] = target;
+  }
+  // Commit the complete target array only after all four targets are valid.
+  last_steering_targets_ = next_targets;
+  holding_modules_ = holding;
+  output_.steering_position = next_targets;
+  for (size_t i = 0; i < 4; ++i) {
     previous_speeds_[i] = targets.gated ? 0.0 : std::clamp(targets.modules[i].speed_mps,
       previous_speeds_[i] - max_step, previous_speeds_[i] + max_step);
     output_.drive_velocity[i] = previous_speeds_[i] / config_.wheel_radius[i];

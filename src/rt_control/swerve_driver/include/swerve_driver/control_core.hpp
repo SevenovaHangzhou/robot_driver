@@ -32,10 +32,15 @@ struct ModuleFeedback
 using ModuleFeedbackArray = std::array<ModuleFeedback, 4>;
 
 struct YawSample {double yaw_rad; double rate_radps;};
-enum class ControlStatus
-{
-  inactive, running, alignment_gated, command_timeout,
-  feedback_fault, invalid_command, steering_limit
+enum class ControlStatus {
+  inactive,
+  running,
+  alignment_gated,
+  command_timeout,
+  feedback_fault,
+  invalid_command,
+  steering_limit,
+  steering_hold_fault
 };
 
 struct ControlOutput
@@ -57,27 +62,32 @@ public:
   bool activate(const ModuleFeedbackArray & feedback);
   void deactivate() noexcept;
   bool feedback_ready(const ModuleFeedbackArray & feedback) const noexcept;
-  const std::array<double, 4> & hold_positions() const noexcept {return last_motor_positions_;}
+  const std::array<double, 4> & hold_positions() const noexcept { return last_steering_targets_; }
+  bool hold_fault_latched() const noexcept { return hold_fault_latched_; }
   ControlOutput update(const ModuleFeedbackArray & feedback, ChassisSpeeds command,
     bool command_fresh, double dt, std::optional<YawSample> imu = std::nullopt);
 
 private:
   bool measurement_valid(const ModuleFeedback & feedback) const noexcept;
   bool module_ready(const ModuleFeedback & feedback, std::size_t index) const noexcept;
-  void remember_positions(const ModuleFeedbackArray & feedback) noexcept;
+  bool hold_deviation(
+    const ModuleFeedbackArray & feedback, const std::array<bool, 4> & holding) const noexcept;
   std::array<SwerveModulePosition, 4> positions(const ModuleFeedbackArray & feedback) const;
   void observe(const ModuleFeedbackArray & feedback, std::optional<YawSample> imu);
   ControlOutput stop(const ModuleFeedbackArray & feedback, ControlStatus status);
+  // Ordinary stop: ramp steering rate and wheel speed down, then latch the reached targets.
+  ControlOutput ramp_stop(const ModuleFeedbackArray & feedback, ControlStatus status, double dt);
 
   CoreConfig config_;
   SwerveSetpointGenerator setpoints_;
   std::optional<SwerveOdometry> odometry_;
   std::array<SwerveModulePosition, 4> previous_positions_{};
   std::array<double, 4> previous_speeds_{};
-  std::array<double, 4> last_motor_positions_{};
+  std::array<double, 4> last_steering_targets_{};
+  std::array<bool, 4> holding_modules_{};
   ControlOutput output_;
   double yaw_{0.0}, last_imu_yaw_{0.0};
-  bool active_{false}, imu_fallback_{true};
+  bool active_{false}, imu_fallback_{true}, hold_fault_latched_{false};
 };
 }  // namespace swerve_driver
 #endif  // SWERVE_DRIVER__CONTROL_CORE_HPP_

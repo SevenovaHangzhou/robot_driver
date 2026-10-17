@@ -4,6 +4,8 @@ status: draft
 verified: false
 authorities:
   source: HT-WS-HH270-17.68-Q750-Z400 + user confirmations 2026-09-16/2026-10-07
+  max_abs_velocity: user 2026-10-17 steering 35 deg/s; drive 2 m/s at nominal radius 0.1 m = 20 rad/s
+  drive_position_range: continuous wheel has no physical limit; +/-49000 rad keeps raw counts inside int32 at 43735.78 counts/rad
 pending_facts:
 - per-module loaded effective wheel radius
 - motor-derived steering zero offset
@@ -26,9 +28,10 @@ spec:
     mechanical_max_angle_rad: 2.356194490192345
     software_min_angle_rad: -2.0943951023931953
     software_max_angle_rad: 2.0943951023931953
+    max_abs_velocity_rad_s: 0.6108652381980153
   drive:
-    min_position_rad: TBD
-    max_position_rad: TBD
+    min_position_rad: -49000.0
+    max_position_rad: 49000.0
+    max_abs_velocity_rad_s: 20.0
   drive_motor_model: SMC80S-0075-30WAK-5DCH
   steering_motor_model: SMC60S-0040-30QAK-5DSU
-  max_abs_velocity_rad_s: TBD

@@ -2,6 +2,11 @@ controller_manager:
   ros__parameters:
     swerve_controller:
       type: swerve_driver/SwerveController
+# Exercised values: ELECTRI-127 Advantech bench (controllers.runtime.yaml on 946ec110),
+# except user 2026-10-17: max_linear_speed/max_wheel_speed 2 m/s, max_wheel_acceleration 2 m/s^2
+# (both wheel-surface units), max_steering_slew 35 deg/s, max_steering_acceleration 35 deg/s^2.
+# PLACEHOLDER (user 2026-10-17): covariance/IMU values are uncalibrated; replace after the
+# joint backlash + IMU variance calibration. Do not treat published odometry covariance as measured.
 swerve_controller:
   ros__parameters:
     calibration_verified: false
@@ -21,43 +26,44 @@ swerve_controller:
     - 0.2617993877991494
     - 0.2617993877991494
     steering_limit_tolerance:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    max_linear_speed: TBD
-    max_angular_speed: TBD
-    max_wheel_speed: TBD
-    max_wheel_acceleration: TBD
-    velocity_deadband: TBD
-    max_encoder_difference: TBD
-    max_update_period: TBD
-    slip_residual_threshold: TBD
-    alignment_threshold: TBD
-    flip_hysteresis: TBD
-    max_steering_slew: TBD
-    translation_heading_epsilon: TBD
-    steering_angle_deadband: TBD
-    feedback_timeout: TBD
+    - 0.0017453292519943296
+    - 0.0017453292519943296
+    - 0.0017453292519943296
+    - 0.0017453292519943296
+    max_linear_speed: 2.0
+    max_angular_speed: 0.8
+    max_wheel_speed: 2.0
+    max_wheel_acceleration: 2.0
+    velocity_deadband: 0.001
+    max_encoder_difference: 0.017453292519943295
+    max_update_period: 0.2
+    slip_residual_threshold: 1.0
+    alignment_threshold: 0.017453292519943295
+    flip_hysteresis: 0.05235987755982989
+    max_steering_slew: 0.6108652381980153
+    max_steering_acceleration: 0.6108652381980153
+    translation_heading_epsilon: 1e-06
+    steering_angle_deadband: 0.0017453292519943296
+    feedback_timeout: 0.2
     pose_covariance:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    - TBD
+    - 0.01
+    - 0.01
+    - 1000000.0
+    - 1000000.0
+    - 1000000.0
+    - 0.05
     twist_covariance:
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    - TBD
-    imu_fallback_covariance_scale: TBD
-    missing_module_covariance_scale: TBD
-    slip_covariance_scale: TBD
+    - 0.01
+    - 0.01
+    - 1000000.0
+    - 1000000.0
+    - 1000000.0
+    - 0.05
+    imu_fallback_covariance_scale: 2.0
+    missing_module_covariance_scale: 2.0
+    slip_covariance_scale: 4.0
     imu_enabled: false
-    imu_frame_id: TBD
-    imu_timeout: TBD
-    max_imu_yaw_step: TBD
-    quaternion_norm_tolerance: TBD
+    imu_frame_id: imu_link
+    imu_timeout: 0.1
+    max_imu_yaw_step: 0.1
+    quaternion_norm_tolerance: 0.01

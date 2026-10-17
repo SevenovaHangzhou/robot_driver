@@ -142,6 +142,23 @@ integration prerequisites. This change does not publish a new cross-domain `/rt`
 endpoint or change the frozen robot_interfaces contract. It also does not add
 grippers to the legacy JTC or enable_manager's old-machine joint list.
 
+## Composer Renderer Families
+
+`robot_hw_ethercat.rt_control_renderer` is the owner entry for composer API 1.
+It dispatches by data only:
+
+- `config/profiles/renderer_families.yaml` maps a module spec `family` to a
+  renderer module and its private module/unit schemas.
+- The same file maps the result topology `kind` to a read-only preflight module.
+- `config/profiles/families.yaml` declares, per device family, the position-count
+  fact that the real path requires (`position_counts_field`).
+- `config/profiles/ethercat_master.yaml` holds the master startup policy
+  (`startup_bus_timeout_ms`, `preload_timeout_ms`) for every family.
+
+A new device family adds a registry row, schemas and a renderer module. The
+entry module and the composer are unchanged. Every module spec must declare
+`family`; an unregistered family rejects composition.
+
 ## Offline Tests
 
 After importing frozen dependencies and applying patches in bootstrap order:

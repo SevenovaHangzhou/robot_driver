@@ -587,9 +587,6 @@
                 "additionalProperties": false
               }
             },
-            "preserve_controller_file": {
-              "type": "boolean"
-            },
             "minimal_robot": {
               "type": "object",
               "properties": {
@@ -615,6 +612,33 @@
             "parameter_view": {
               "type": "string",
               "minLength": 1
+            },
+            "controller_file": {
+              "type": "object",
+              "description": "Use this owner file as the complete controller parameter output.",
+              "properties": {
+                "package": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "file": {
+                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                }
+              },
+              "required": [
+                "package",
+                "file"
+              ],
+              "additionalProperties": false
+            },
+            "jtc_only_excluded": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           },
           "required": [

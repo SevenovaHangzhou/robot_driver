@@ -1,0 +1,19 @@
+schema_version: 1
+# Module spec `family` selects a renderer module in this package plus its private
+# schemas. Adding a family adds a row and a module; the dispatch code is unchanged.
+families:
+  zeroerr:
+    module: arm_renderer
+    module_schema: arms.schema.json
+    unit_schema: arms_zero.schema.json
+  kinco:
+    module: kinco_renderer
+    module_schema: kinco_module.schema.json
+    unit_schema: kinco_unit.schema.json
+  bluepoint:
+    module: force_renderer
+    module_schema: force.schema.json
+# expected_topology.kind selects the read-only preflight implementation.
+preflight:
+  cia402_topology: topology_preflight
+  passive_force_bench: force_renderer

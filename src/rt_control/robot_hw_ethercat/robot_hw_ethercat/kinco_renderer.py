@@ -7,6 +7,8 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
+from .profiles import master_parameters
+
 COMMANDS = (
     "position",
     "velocity",
@@ -58,7 +60,11 @@ def missing_facts(request, profile):
         "deployment.ethercat.master_id": request["deployment"]["ethercat"]["master_id"],
     }
     fields.update({"profile.identity." + key: value for key, value in profile["identity"].items()})
-    fields.update({"profile.adapter." + key: value for key, value in profile["adapter"].items()})
+    for key, value in profile["adapter"].items():
+        if isinstance(value, dict):
+            fields.update({f"profile.adapter.{key}.{role}": item for role, item in value.items()})
+        else:
+            fields["profile.adapter." + key] = value
     fields.update(
         {
             "profile." + key: profile[key]
@@ -66,10 +72,10 @@ def missing_facts(request, profile):
         }
     )
     assembly = request["devices"][spec["assembly"]]
-    fields["assembly.max_abs_velocity_rad_s"] = assembly["spec"]["max_abs_velocity_rad_s"]
-    fields.update(
-        {"assembly.drive." + key: value for key, value in assembly["spec"]["drive"].items()}
-    )
+    for role in ("steering", "drive"):
+        fields.update(
+            {f"assembly.{role}.{key}": value for key, value in assembly["spec"][role].items()}
+        )
     for axis in spec["axes"]:
         label = f"{axis['module_position']}.{axis['role']}"
         for key in ("ring_position", "robot_model_joint", "direction"):
@@ -93,7 +99,7 @@ def missing_facts(request, profile):
     ]
 
 
-def render(request, share, validate_module, validate_unit):
+def render(request, share, validate_module, validate_unit, validate_device):
     machine = validate_module(request["module"], request["machine"])
     unit = validate_unit(request["module"], request["unit"])
     spec = machine["spec"]
@@ -109,7 +115,7 @@ def render(request, share, validate_module, validate_unit):
         radius = calibration["effective_wheel_radius_m"]
         if radius != "TBD" and (not math.isfinite(radius) or radius <= 0):
             raise ValueError("Effective wheel radius must be positive and finite")
-    exports = {"steering_joints": {}, "drive_joints": {}}
+    exports = {"steering_joints": {}, "drive_joints": {}, "steering_to_yaw_sign": {}}
     for target, source in (("wheel_radius", "effective_wheel_radius_m"),
                            ("module_x", "module_x_m"), ("module_y", "module_y_m")):
         exports[target] = {key: item[source] for key, item in calibrations.items()}
@@ -145,14 +151,25 @@ def render(request, share, validate_module, validate_unit):
         if axis["module_position"] in exported:
             raise ValueError("Duplicate chassis axis role/module_position")
         exported[axis["module_position"]] = name
+        if axis["role"] == "steering":
+            # Robot-model q to chassis heading; a model fact, not controller policy.
+            # ROS declares the controller parameter as a double array.
+            sign = axis.get("model_heading_sign", "TBD")
+            exports["steering_to_yaw_sign"][axis["module_position"]] = (
+                sign if sign == "TBD" else float(sign)
+            )
         joint = ET.Element("joint", name=name)
         for interface in COMMANDS:
             element = ET.SubElement(joint, "command_interface", name=interface)
-            _param(
-                element,
-                "initial_value",
-                axis["mode_of_operation"] if interface == "mode_of_operation" else 0,
+            # Motion targets start as "no producer" (NaN); 0 would be a real target.
+            initial = (
+                axis["mode_of_operation"]
+                if interface == "mode_of_operation"
+                else "nan"
+                if interface in ("position", "velocity")
+                else 0
             )
+            _param(element, "initial_value", initial)
         for interface in STATES:
             element = ET.SubElement(joint, "state_interface", name=interface)
             if mock:
@@ -208,8 +225,11 @@ def render(request, share, validate_module, validate_unit):
                 ],
                 "min_position": minimum,
                 "max_position": maximum,
-                "max_abs_velocity": assembly["spec"]["max_abs_velocity_rad_s"],
-                **profile["adapter"],
+                "max_abs_velocity": bounds["max_abs_velocity_rad_s"],
+                **{
+                    key: value[role] if isinstance(value, dict) else value
+                    for key, value in profile["adapter"].items()
+                },
             }
             config.update(
                 vendor_id=profile["identity"]["vendor_id"],
@@ -242,6 +262,7 @@ def render(request, share, validate_module, validate_unit):
         "axes": [],
         "branches": [],
         "internal_ports": [],
+        "kind": "cia402_topology",
         "preflight_required": False,
     }
     from .master_health import sensors as health_sensors
@@ -249,8 +270,7 @@ def render(request, share, validate_module, validate_unit):
     params = {
         "master_id": topology["master_id"],
         "control_frequency": request["bus_cycle_hz"],
-        "startup_bus_timeout_ms": 70000,
-        "preload_timeout_ms": 5000,
+        **master_parameters(share),
     }
     if mock:
         params = {"calculate_dynamics": "false", **params}

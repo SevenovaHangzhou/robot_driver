@@ -34,6 +34,15 @@ def shares(tmp_path, monkeypatch):
     return lookup
 
 
+def materialize(result):
+    """Compose is pure; the tests write its files to compare with frozen output trees."""
+    for name, text in result.files.items():
+        path = Path(result.runtime_dir) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    return result
+
+
 def arguments(shares, family):
     deployment = next((shares["rt_control_machine_config"] / "units").glob("*/deployment.yaml"))
     variant = load_yaml(deployment)["robot_variant"]
@@ -84,13 +93,13 @@ def test_four_frozen_head_force_cases(shares, tmp_path, case):
         limits.write_text(yaml.safe_dump(values))
         shares["robot_description"] = model
     runtime = tmp_path / "output"
-    result = compose(
+    result = materialize(compose(
         **args,
         runtime_dir=runtime,
         use_mock_hardware=facts["use_mock_hardware"],
         sync_mode=facts["sync_mode"],
         startup_id=facts["startup_id"],
-    )
+    ))
     snapshot = tmp_path / "snapshot"
     for path in runtime.rglob("*"):
         if not path.is_file():

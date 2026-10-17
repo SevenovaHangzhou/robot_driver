@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <set>
 #include <stdexcept>
 #include "pluginlib/class_list_macros.hpp"
@@ -37,6 +38,8 @@ const char * status_name(ControlStatus status)
     case ControlStatus::feedback_fault: return "feedback_fault";
     case ControlStatus::invalid_command: return "invalid_command";
     case ControlStatus::steering_limit: return "steering_limit";
+    case ControlStatus::steering_hold_fault:
+      return "steering_hold_fault";
   }
   return "unknown";
 }
@@ -51,7 +54,10 @@ int64_t SwerveController::steady_now() noexcept
 CallbackReturn SwerveController::on_init()
 {
   ChassisRuntime::declare_parameters(get_node());
+  last_steering_commands_.fill(std::numeric_limits<double>::quiet_NaN());
   auto_declare<bool>("calibration_verified", false);
+  auto_declare<std::vector<double>>("steering_to_yaw_sign", {1.0, 1.0, 1.0, 1.0});
+  auto_declare<double>("max_steering_acceleration", std::numeric_limits<double>::infinity());
   for (const auto * name : {"steering_joints", "drive_joints", "steering_encoders"}) {
     auto_declare<std::vector<std::string>>(name, {});
   }
@@ -102,6 +108,13 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
         return values;
       };
     auto number = [this](const char * name) {return get_node()->get_parameter(name).as_double();};
+    const auto yaw_signs = numbers("steering_to_yaw_sign", 4);
+    for (size_t i = 0; i < 4; ++i) {
+      if (yaw_signs[i] != -1.0 && yaw_signs[i] != 1.0) {
+        throw std::invalid_argument("steering_to_yaw_sign must be exactly +/-1");
+      }
+      steering_to_yaw_sign_[i] = yaw_signs[i];
+    }
     const auto x = numbers("module_x", 4);
     const auto y = numbers("module_y", 4);
     const auto radius = numbers("wheel_radius", 4);
@@ -128,6 +141,7 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.setpoint.alignment_threshold_rad = number("alignment_threshold");
     config_.setpoint.flip_hysteresis_rad = number("flip_hysteresis");
     config_.setpoint.maximum_steering_slew_radps = number("max_steering_slew");
+    config_.setpoint.maximum_steering_acceleration_radps2 = number("max_steering_acceleration");
     config_.setpoint.translation_heading_epsilon_rad = number("translation_heading_epsilon");
     config_.setpoint.steering_angle_deadband_rad = number("steering_angle_deadband");
     feedback_timeout_ = number("feedback_timeout");
@@ -284,6 +298,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     std::fill(states_.begin(), states_.end(), nullptr);
     return CallbackReturn::ERROR;
   }
+  last_steering_commands_.fill(std::numeric_limits<double>::quiet_NaN());
   const auto feedback = read_feedback();
   if (!core_->activate(feedback)) {
     stop_outputs();
@@ -358,12 +373,16 @@ ModuleFeedbackArray SwerveController::read_feedback() const
   const bool bus_fresh = recent(states_[36]->get_value());
   for (size_t i = 0; i < 4; ++i) {
     const size_t offset = 9 * i;
-    result[i] = {states_[offset]->get_value(), states_[offset + 7]->get_value(),
-      states_[offset + 3]->get_value(), states_[offset + 4]->get_value(),
+    result[i] = {
+      states_[offset]->get_value() * steering_to_yaw_sign_[i],
+      states_[offset + 7]->get_value(),
+      states_[offset + 3]->get_value(),
+      states_[offset + 4]->get_value(),
       bus_fresh && recent(states_[offset + 8]->get_value()),
       enabled(states_[offset + 1]->get_value()) && states_[offset + 2]->get_value() == 8.0 &&
-      enabled(states_[offset + 5]->get_value()) && (states_[offset + 6]->get_value() == 9.0 ||
-      (runtime_ && states_[offset + 6]->get_value() == 8.0))};
+        enabled(states_[offset + 5]->get_value()) &&
+        (states_[offset + 6]->get_value() == 9.0 ||
+         (runtime_ && states_[offset + 6]->get_value() == 8.0))};
   }
   return result;
 }
@@ -382,7 +401,9 @@ bool SwerveController::write_output(const ControlOutput & output)
     }
   }
   for (size_t i = 0; i < 4; ++i) {
-    commands_[2 * i]->set_value(output.steering_position[i]);
+    const double position = output.steering_position[i] * steering_to_yaw_sign_[i];
+    commands_[2 * i]->set_value(position);
+    last_steering_commands_[i] = position;
     commands_[2 * i + 1]->set_value(output.drive_velocity[i]);
   }
   return true;
@@ -400,17 +421,23 @@ void SwerveController::stop_outputs()
       if (commands_[8 + 4 * i + 3]) {commands_[8 + 4 * i + 3]->set_value(0);}
       continue;
     }
-    if (commands_[2 * i] && states_[9 * i]) {
-      double position = states_[9 * i]->get_value();
-      if (!std::isfinite(position) || position < config_.steering_min[i] ||
-        position > config_.steering_max[i])
-      {
-        position = core_->hold_positions()[i];
+    if (commands_[2 * i]) {
+      // Keep the last written target; measurement jitter must not become a new target.
+      const SteeringAngleLimits limits{
+        config_.steering_min[i], config_.steering_max[i], config_.steering_limit_margin[i],
+        config_.steering_limit_tolerance[i]};
+      double position = last_steering_commands_[i];
+      if (
+        !std::isfinite(position) ||
+        !steering_angle_within_limits(position * steering_to_yaw_sign_[i], limits)) {
+        position =
+          states_[9 * i] ? states_[9 * i]->get_value() : std::numeric_limits<double>::quiet_NaN();
       }
-      if (std::isfinite(position) && position >= config_.steering_min[i] &&
-        position <= config_.steering_max[i])
-      {
+      if (
+        std::isfinite(position) &&
+        steering_angle_within_limits(position * steering_to_yaw_sign_[i], limits)) {
         commands_[2 * i]->set_value(position);
+        last_steering_commands_[i] = position;
       }
     }
   }
@@ -513,8 +540,8 @@ controller_interface::return_type SwerveController::update(
   const auto now = steady_now();
   const auto feedback = read_feedback();
   const double dt = period.seconds();
-  const bool ready = core_->feedback_ready(feedback) && positive(dt) &&
-    dt <= config_.max_update_period;
+  const bool ready = !core_->hold_fault_latched() && core_->feedback_ready(feedback) &&
+                     positive(dt) && dt <= config_.max_update_period;
   ready_.store(ready);
   if (!ready) {block_before_ns_ = now;}
   const auto command = *command_buffer_.readFromRT();
@@ -546,6 +573,10 @@ controller_interface::return_type SwerveController::update(
     if (!write_runtime_output(out)) {
       stop_outputs(); ready_.store(false); return controller_interface::return_type::ERROR;
     }
+  }
+  if (last_output_.status == ControlStatus::steering_hold_fault) {
+    ready_.store(false);
+    block_before_ns_ = now;
   }
   if (last_output_.status == ControlStatus::steering_limit ||
     last_output_.status == ControlStatus::invalid_command)
@@ -608,7 +639,7 @@ ChassisRuntimeFeedback SwerveController::read_runtime_feedback(double now)
     out.move.positions[i] =
     {modules[i].steering_position, modules[i].steering_angle, modules[i].wheel_position};
     out.move.wheel_velocity[i] = modules[i].wheel_velocity;
-    out.move.steering_velocity[i] = states_[x]->get_value();
+    out.move.steering_velocity[i] = states_[x]->get_value() * steering_to_yaw_sign_[i];
     out.move.steering_mode[i] = states_[j + 2]->get_value() == 8 ? 8 : 0;
     out.move.drive_mode[i] = states_[j + 6]->get_value() == 8 ? 8 : states_[j + 6]->get_value() ==
       9 ? 9 : 0;
@@ -647,7 +678,8 @@ bool SwerveController::write_runtime_output(const ChassisRuntimeOutput & output)
       (d.write_velocity && !std::isfinite(d.wheel_velocity[i]))) {return false;}
   }
   for (size_t i = 0; i < 4; ++i) {
-    commands_[2 * i]->set_value(output.steering[i]);
+    commands_[2 * i]->set_value(output.steering[i] * steering_to_yaw_sign_[i]);
+    last_steering_commands_[i] = output.steering[i] * steering_to_yaw_sign_[i];
     if (d.write_velocity) {commands_[2 * i + 1]->set_value(d.wheel_velocity[i]);}
     const size_t x = 8 + 4 * i;
     if (d.write_position) {commands_[x]->set_value(d.wheel_position[i]);}
@@ -674,7 +706,8 @@ void SwerveController::publish_diagnostics()
   const bool slip_detected{slipping_mask != 0U};
   item.name = get_node()->get_name();
   item.hardware_id = "swerve_chassis";
-  const bool error = status == ControlStatus::feedback_fault ||
+  const bool error =
+    status == ControlStatus::feedback_fault || status == ControlStatus::steering_hold_fault ||
     status == ControlStatus::steering_limit || status == ControlStatus::invalid_command;
   item.message = slip_detected && !error ? "wheel_slip" : status_name(status);
   item.level = error ? item.ERROR :

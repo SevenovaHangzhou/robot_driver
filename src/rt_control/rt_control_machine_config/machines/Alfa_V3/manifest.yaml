@@ -150,10 +150,10 @@ modules:
     per_instance_mode_groups: {}
     requires: []
     sensor_bindings:
-    - front_left
-    - front_right
-    - rear_left
-    - rear_right
+    - module_1
+    - module_2
+    - module_3
+    - module_4
     pending_facts:
     - CANopen node IDs and CiA 406 EDS/PDO mapping
     - device support and timing verification for 4 ms SYNC-triggered TPDO
@@ -390,6 +390,9 @@ scopes:
       mode_group: csp
     global_readiness: partial_scope
     render_mode: normal
+    policies:
+    - enable
+    - motion
     controller_order:
       inactive:
       - whole_body_jtc
@@ -398,6 +401,8 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+    jtc_only_excluded:
+    - rolling_trajectory_controller
   arms_updown:
     enabled_modules:
     - arms
@@ -434,7 +439,7 @@ scopes:
       active: []
     controller_parameter_bindings:
       swerve_controller:
-        instance_order: [front_left, front_right, rear_left, rear_right]
+        instance_order: [module_1, module_2, module_3, module_4]
         parameters:
           steering_joints:
             module: swerve_chassis
@@ -457,6 +462,9 @@ scopes:
           wheel_radius:
             module: swerve_chassis
             export: wheel_radius
+          steering_to_yaw_sign:
+            module: swerve_chassis
+            export: steering_to_yaw_sign
     policies: []
     mock_robot_model:
       package: rt_control_machine_config
@@ -508,7 +516,9 @@ scopes:
       active:
       - joint_state_broadcaster
       - damiao_head_manager
-    preserve_controller_file: true
+    controller_file:
+      package: damiao_head_controller
+      file: config/controllers.yaml
     controller_parameter_bindings:
       joint_state_broadcaster:
         parameters:
@@ -548,6 +558,8 @@ scopes:
     ethercat_cycle_hz_override: 250
     bq_ref: BQ-154
     render_mode: stationary_enable
+    policies:
+    - enable
     controller_order:
       inactive: []
       active:

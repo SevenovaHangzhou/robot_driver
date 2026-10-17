@@ -4,12 +4,15 @@ families:
     profiles:
       csp: zeroerr_cia402_csp
       gripper_pp: zeroerr_cia402_stationary
+    # Device fact required for position scaling on the real path.
+    position_counts_field: output_encoder_counts_per_revolution
     certified_modes:
     - 8
     - 1
   kinco:
     profiles:
       cyclic: kinco_fd_cyclic
+    position_counts_field: motor_encoder_counts_per_revolution
     certified_modes:
     - 8
     - 9

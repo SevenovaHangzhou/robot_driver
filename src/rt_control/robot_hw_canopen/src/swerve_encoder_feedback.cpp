@@ -149,10 +149,17 @@ SwerveEncoderSample SwerveEncoderFeedback::sample_axis(
     kTwoPi * static_cast<double>(config.pinion_gear_teeth) /
     (static_cast<double>(config.counts_per_revolution) *
     static_cast<double>(config.ring_gear_teeth))};
-  const double position{
-    static_cast<double>(config.direction) *
-    static_cast<double>(raw_position) * radians_per_count -
+  double position{
+    static_cast<double>(config.direction) * static_cast<double>(raw_position) * radians_per_count -
     config.installation_offset_rad};
+  if (config.encoder_revolutions > 0U) {
+    const auto range =
+      static_cast<std::uint64_t>(config.counts_per_revolution) * config.encoder_revolutions;
+    if (raw_position >= range) {
+      return invalid_sample();
+    }
+    position = std::remainder(position, static_cast<double>(range) * radians_per_count);
+  }
   const double age{
     static_cast<double>(now_steady_ns - received_steady_ns) /
     kNanosecondsPerMillisecond};

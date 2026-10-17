@@ -58,7 +58,9 @@ this document does not introduce an additional global admission gate.
 
 The required request keys are `module`, `machine`, `devices`, `unit`,
 `robot_model` (including `joint_limits`), `use_mock_hardware`, `bus_cycle_hz`,
-`runtime_dir`, and `render_mode` (`normal` or `stationary_enable`). `sync_mode`
+`runtime_dir`, and `render_mode` (`normal` or `stationary_enable`). An
+EtherCAT result topology carries `kind`; the owner registry maps it to a
+read-only preflight implementation. `sync_mode`
 and `deployment` are optional. `deployment` references the existing
 `unit_deployment.schema.json` and carries host/bus deployment facts separately
 from calibration. Owners that require a deployed bus consume this Mapping.
@@ -119,8 +121,9 @@ without integration inspecting owner-private device fields. A renderer used by
 policy composition supplies both fields; older projection fixtures may omit them.
 
 Manifest `policy_refs` names owner package/file/schema data. Scope `render_mode`
-and `controller_order` select explicit output views. Controller `role` selects
-integration wiring without plugin-name dispatch. These optional shared fields
+and `controller_order` select explicit output views. Controller `tags` and
+declarative `parameters` sources replace the former `role` wiring; integration
+has no controller-type or plugin-name dispatch. These optional shared fields
 express existing selection and policy facts; they do not derive new policies.
 
 The composer registry validates the pure Mapping request against
