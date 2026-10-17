@@ -222,6 +222,9 @@ def compose(
             ]
             if ready:
                 parameters["ready_state_interfaces"] = ready
+            if motion_names:
+                # The motion controller's latched fault triggers the ordered disable.
+                parameters["motion_fault_topic"] = f"/{motion_names[0]}/fault_stop"
             if motion is not None:
                 parameters.update(
                     motion_mode_switching=bool(rolling_names),

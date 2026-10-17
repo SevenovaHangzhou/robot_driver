@@ -31,6 +31,7 @@
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 #include "rt_control_semantic_components/cia402_axis.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 namespace enable_manager
 {
@@ -109,6 +110,7 @@ private:
     kModeMismatch,
     kModeNotConfirmed,
     kStateSourcesNotReady,
+    kMotionFault,
     kFaultDetected,
     kUnexpectedDriveState,
     kDisableTimeout,
@@ -269,6 +271,7 @@ private:
   bool modePending(std::size_t axis) const noexcept;
   void failEnable(Stage stage, std::ptrdiff_t axis, std::int64_t now_ns);
   bool stateSourcesReady() const noexcept;
+  void handleMotionFault();
 
   std::atomic_bool active_{false};
   std::atomic<Phase> phase_{Phase::kInactive};
@@ -323,6 +326,10 @@ private:
   double ready_hold_seconds_{0.05};
   std::int64_t ready_since_ns_{-1};
   bool state_sources_qualified_{false};
+  // Set by the motion controller's latched fault_stop topic; consumed by the worker.
+  std::atomic_bool motion_fault_request_{false};
+  std::atomic_bool motion_fault_pending_{false};
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr motion_fault_subscription_;
   std::vector<std::uint8_t> reset_targets_;
   std::vector<rt_control_semantic_components::Cia402Axis> cia402_axes_;
   std::size_t current_batch_{0U};

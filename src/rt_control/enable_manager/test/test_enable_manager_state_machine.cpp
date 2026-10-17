@@ -125,6 +125,7 @@ public:
   // controller_manager round trip the callbacks require.
   static void setEnableRequest(Controller & c, bool v) {c.enable_request_.store(v);}
   static void setDisableRequest(Controller & c, bool v) {c.disable_request_.store(v);}
+  static void setMotionFaultPending(Controller & c, bool v) { c.motion_fault_pending_.store(v); }
   static void setResetRequest(Controller & c, bool v) {c.reset_request_.store(v);}
   static bool enableHardwareReady(const Controller & c)
   {
@@ -2133,7 +2134,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
 {
-  const std::array<Stage, 21> all{
+  const std::array<Stage, 22> all{
     Stage::kSuccess,
     Stage::kAlreadyEnabled,
     Stage::kAlreadyDisabled,
@@ -2146,6 +2147,7 @@ TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
     Stage::kModeMismatch,
     Stage::kModeNotConfirmed,
     Stage::kStateSourcesNotReady,
+    Stage::kMotionFault,
     Stage::kFaultDetected,
     Stage::kUnexpectedDriveState,
     Stage::kDisableTimeout,
@@ -2235,6 +2237,30 @@ TEST_F(ReadyGateFixture, SourceLostDuringEnablingRollsBack)
   ready_buffer_[0] = 0.0;
   callUpdate();
   EXPECT_EQ(Access::failureStage(*controller_), Stage::kStateSourcesNotReady);
+}
+
+TEST_F(EnableManagerFixture, MotionFaultDisablesInOrderAndEndsFailed)
+{
+  bringUpToIdle();
+  setAllStatus(kSwOperationEnabled);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setOwner(*controller_, Owner::kDisable);
+  // The worker has deactivated the motion controller after the wheels stopped.
+  Access::setMotionFaultPending(*controller_, true);
+  Access::setDisableRequest(*controller_, true);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+  ASSERT_EQ(Access::phase(*controller_), Phase::kDisabling);
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kMotionFault);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    EXPECT_EQ(command(axis), kCwSwitchOn) << "ordered disable, not quick stop";
+  }
+  for (unsigned i = 0; i < 20 && Access::phase(*controller_) != Phase::kFailed; ++i) {
+    stepDriveResponses();
+    callUpdate();
+  }
+  EXPECT_EQ(Access::phase(*controller_), Phase::kFailed);
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kMotionFault);
 }
 
 class FixedModeFixture : public EnableManagerFixture
