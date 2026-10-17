@@ -27,7 +27,8 @@
     "end_effector": {
       "enum": [
         "gripper",
-        "suction"
+        "suction",
+        "mobile_proxy"
       ]
     },
     "hardware_options": {

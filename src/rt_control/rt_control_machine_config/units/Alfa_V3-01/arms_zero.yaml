@@ -34,9 +34,6 @@ spec:
   - ring_position: 7
     zero_counts: 117227
     digital_outputs: 1
-  - ring_position: 8
-    zero_counts: 222142
-    digital_outputs: 1
   - ring_position: 9
     zero_counts: 252125
     digital_outputs: 1
@@ -57,7 +54,4 @@ spec:
     digital_outputs: 1
   - ring_position: 15
     zero_counts: 150512
-    digital_outputs: 1
-  - ring_position: 16
-    zero_counts: 292159
     digital_outputs: 1

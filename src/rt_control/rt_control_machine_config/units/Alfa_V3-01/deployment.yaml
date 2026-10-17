@@ -7,7 +7,7 @@ authorities:
 pending_facts:
 - host identity
 robot_variant: Alfa_V3
-end_effector: gripper
+end_effector: mobile_proxy
 hardware_options:
   force_sensors: none
 can_interfaces:

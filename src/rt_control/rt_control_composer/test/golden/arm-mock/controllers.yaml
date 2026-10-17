@@ -1,174 +1,24 @@
 controller_manager:
   ros__parameters:
-    update_rate: 1000
-    thread_priority: 80
-    joint_state_broadcaster:
-      type: joint_state_broadcaster/JointStateBroadcaster
-    rt_internal_state_broadcaster:
-      type: joint_state_broadcaster/JointStateBroadcaster
-    whole_body_jtc:
-      type: joint_trajectory_controller/JointTrajectoryController
-    rolling_trajectory_controller:
-      type: rolling_trajectory_controller/RollingTrajectoryController
     enable_manager:
       type: enable_manager/EnableManagerController
-joint_state_broadcaster:
-  ros__parameters:
-    update_rate: 125
-    publish_dynamic_joint_states: false
-    joints:
-    - right_joint1
-    - right_joint2
-    - right_joint3
-    - right_joint4
-    - right_joint5
-    - right_joint6
-    - right_joint7
-    - left_joint1
-    - left_joint2
-    - left_joint3
-    - left_joint4
-    - left_joint5
-    - left_joint6
-    - left_joint7
-    interfaces:
-    - position
-rt_internal_state_broadcaster:
-  ros__parameters:
-    update_rate: 50
-    use_local_topics: true
-    publish_dynamic_joint_states: true
-whole_body_jtc:
-  ros__parameters:
-    joints:
-    - right_joint1
-    - right_joint2
-    - right_joint3
-    - right_joint4
-    - right_joint5
-    - right_joint6
-    - right_joint7
-    - left_joint1
-    - left_joint2
-    - left_joint3
-    - left_joint4
-    - left_joint5
-    - left_joint6
-    - left_joint7
-    command_interfaces:
-    - position
-    state_interfaces:
-    - position
-    allow_partial_joints_goal: false
-    open_loop_control: false
-    set_last_command_interface_value_as_state_on_activation: false
-    trajectory_start_consistency_check:
-      enabled: true
-      position_tolerances:
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      - 0.017453292519943295
-      feedback_age_state_interface: ethercat_domain/process_data_age_ms
-      max_feedback_age_ms: 500.0
-    state_publish_rate: 50.0
-    constraints:
-      goal_time: 0.5
-      stopped_velocity_tolerance: 0.01
-rolling_trajectory_controller:
-  ros__parameters:
-    configuration_source: provisional
-    allow_test_only_configuration: false
-    allow_provisional_configuration: true
-    envelope_file: <RUNTIME_DIR>/alfa_v3_rolling_envelope.mock.yaml
-    buffer_capacity: 64
-    max_horizon_ms: 600
-    required_initial_horizon_ms: 500
-    update_timeout_ms: 200
-    replace_lead_ms: 4
-    state_publish_period_ms: 20
-    prime_timeout_ms: 100
-    nominal_controller_period_ms: 1
-    maximum_controller_period_ms: 2
-    one_cycle_detection_guard_ms: 1
-    stop_time_growth_guard_ms: 1
-    non_rt_to_rt_visibility_guard_ms: 1
-    period_quantization_guard_ms: 1
-    open_feedback_age_limit_ms: 500.0
-    takeover_tolerances:
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    - 0.008726646259971648
-    splice_position_tolerances:
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    - 0.01
-    splice_velocity_tolerances:
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
-    - 0.03
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    rolling_trajectory_controller:
+      type: rolling_trajectory_controller/RollingTrajectoryController
+    rt_internal_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    thread_priority: 80
+    update_rate: 1000
+    whole_body_jtc:
+      type: joint_trajectory_controller/JointTrajectoryController
 enable_manager:
   ros__parameters:
-    managed_joints:
-    - left_joint1
-    - left_joint2
-    - left_joint3
-    - left_joint4
-    - left_joint5
-    - left_joint6
-    - left_joint7
-    - left_moving_jaw_joint
-    - right_joint1
-    - right_joint2
-    - right_joint3
-    - right_joint4
-    - right_joint5
-    - right_joint6
-    - right_joint7
-    - right_moving_jaw_joint
+    batch_timeout: 4.0
+    controller_switch_timeout: 4.0
+    default_motion_controller: whole_body_jtc
+    disable_stage_timeout: 4.0
+    disable_terminal_policy: switch_on_disabled
     enable_batch_joint_names:
     - left_joint1
     - left_joint2
@@ -177,7 +27,6 @@ enable_manager:
     - left_joint5
     - left_joint6
     - left_joint7
-    - left_moving_jaw_joint
     - right_joint1
     - right_joint2
     - right_joint3
@@ -185,7 +34,6 @@ enable_manager:
     - right_joint5
     - right_joint6
     - right_joint7
-    - right_moving_jaw_joint
     enable_batch_sizes:
     - 1
     - 1
@@ -201,28 +49,29 @@ enable_manager:
     - 1
     - 1
     - 1
-    - 1
-    - 1
-    disable_terminal_policy: switch_on_disabled
     enable_only: false
-    jtc_name: whole_body_jtc
-    motion_mode_switching: true
-    motion_controller_names:
-    - whole_body_jtc
-    - rolling_trajectory_controller
-    default_motion_controller: whole_body_jtc
-    rolling_motion_controller: rolling_trajectory_controller
-    batch_timeout: 4.0
-    disable_stage_timeout: 4.0
     fault_reset_timeout: 4.0
     inter_batch_delay: 0.2
-    controller_switch_timeout: 4.0
-    service_result_timeout_ms: 90000
+    jtc_name: whole_body_jtc
+    managed_joints:
+    - left_joint1
+    - left_joint2
+    - left_joint3
+    - left_joint4
+    - left_joint5
+    - left_joint6
+    - left_joint7
+    - right_joint1
+    - right_joint2
+    - right_joint3
+    - right_joint4
+    - right_joint5
+    - right_joint6
+    - right_joint7
+    mode_switch_feedback_age_limit_ms: 500.0
+    mode_switch_maximum_sample_period_ms: 2
     mode_switch_source_state_max_age_ms: 100
     mode_switch_stable_interval_count: 5
-    mode_switch_maximum_sample_period_ms: 2
-    mode_switch_timeout_ms: 500
-    mode_switch_feedback_age_limit_ms: 500.0
     mode_switch_stable_velocity_thresholds:
     - 0.008726646259971648
     - 0.008726646259971648
@@ -253,6 +102,10 @@ enable_manager:
     - 0.008726646259971648
     - 0.008726646259971648
     - 0.008726646259971648
+    mode_switch_timeout_ms: 500
+    motion_controller_names:
+    - whole_body_jtc
+    - rolling_trajectory_controller
     motion_joints:
     - right_joint1
     - right_joint2
@@ -268,3 +121,144 @@ enable_manager:
     - left_joint5
     - left_joint6
     - left_joint7
+    motion_mode_switching: true
+    rolling_motion_controller: rolling_trajectory_controller
+    service_result_timeout_ms: 90000
+joint_state_broadcaster:
+  ros__parameters:
+    interfaces:
+    - position
+    joints:
+    - right_joint1
+    - right_joint2
+    - right_joint3
+    - right_joint4
+    - right_joint5
+    - right_joint6
+    - right_joint7
+    - left_joint1
+    - left_joint2
+    - left_joint3
+    - left_joint4
+    - left_joint5
+    - left_joint6
+    - left_joint7
+    publish_dynamic_joint_states: false
+    update_rate: 125
+rolling_trajectory_controller:
+  ros__parameters:
+    allow_provisional_configuration: true
+    allow_test_only_configuration: false
+    buffer_capacity: 64
+    configuration_source: provisional
+    envelope_file: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
+    max_horizon_ms: 600
+    maximum_controller_period_ms: 2
+    nominal_controller_period_ms: 1
+    non_rt_to_rt_visibility_guard_ms: 1
+    one_cycle_detection_guard_ms: 1
+    open_feedback_age_limit_ms: 500.0
+    period_quantization_guard_ms: 1
+    prime_timeout_ms: 100
+    replace_lead_ms: 4
+    required_initial_horizon_ms: 500
+    splice_position_tolerances:
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    - 0.01
+    splice_velocity_tolerances:
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    - 0.03
+    state_publish_period_ms: 20
+    stop_time_growth_guard_ms: 1
+    takeover_tolerances:
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    - 0.008726646259971648
+    update_timeout_ms: 200
+rt_internal_state_broadcaster:
+  ros__parameters:
+    publish_dynamic_joint_states: true
+    update_rate: 50
+    use_local_topics: true
+whole_body_jtc:
+  ros__parameters:
+    allow_partial_joints_goal: false
+    command_interfaces:
+    - position
+    constraints:
+      goal_time: 0.5
+      stopped_velocity_tolerance: 0.01
+    joints:
+    - right_joint1
+    - right_joint2
+    - right_joint3
+    - right_joint4
+    - right_joint5
+    - right_joint6
+    - right_joint7
+    - left_joint1
+    - left_joint2
+    - left_joint3
+    - left_joint4
+    - left_joint5
+    - left_joint6
+    - left_joint7
+    open_loop_control: false
+    set_last_command_interface_value_as_state_on_activation: false
+    state_interfaces:
+    - position
+    state_publish_rate: 50.0
+    trajectory_start_consistency_check:
+      enabled: true
+      feedback_age_state_interface: ethercat_domain/process_data_age_ms
+      max_feedback_age_ms: 500.0
+      position_tolerances:
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295
+      - 0.017453292519943295

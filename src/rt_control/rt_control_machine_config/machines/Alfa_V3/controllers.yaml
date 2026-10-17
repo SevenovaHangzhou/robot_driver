@@ -29,24 +29,6 @@ controllers:
     - position_velocity
     required_state_modules: []
     role: external
-  left_gripper:
-    module: arms
-    name: left_gripper_controller
-    plugin: forward_command_controller/ForwardCommandController
-    package: control_api_adapter
-    config_file: config/Alfa_V3_grippers.draft.yaml
-    actuator_groups:
-    - gripper_pp
-    required_state_modules: []
-  right_gripper:
-    module: arms
-    name: right_gripper_controller
-    plugin: forward_command_controller/ForwardCommandController
-    package: control_api_adapter
-    config_file: config/Alfa_V3_grippers.draft.yaml
-    actuator_groups:
-    - gripper_pp
-    required_state_modules: []
   whole_body_jtc:
     module: arms
     name: whole_body_jtc
@@ -75,7 +57,6 @@ controllers:
     config_file: config/Alfa_V3_enable_policy.yaml
     actuator_groups:
     - csp
-    - gripper_pp
     required_state_modules: []
     role: enable
   joint_state_broadcaster:
@@ -86,7 +67,6 @@ controllers:
     config_file: config/controller_defaults.yaml
     actuator_groups:
     - csp
-    - gripper_pp
     required_state_modules: []
     role: joint_state
   rt_internal_state_broadcaster:
@@ -97,7 +77,6 @@ controllers:
     config_file: config/controller_defaults.yaml
     actuator_groups:
     - csp
-    - gripper_pp
     required_state_modules: []
     role: internal_state
   head_head_position_controller:
