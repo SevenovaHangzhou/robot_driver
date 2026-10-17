@@ -18,6 +18,7 @@
   <depend>robot_system_interfaces</depend>
   <depend>rt_control_interfaces</depend>
   <depend>rt_control_semantic_components</depend>
+  <depend>std_msgs</depend>
   <test_depend>ament_cmake_gmock</test_depend>
   <test_depend>hardware_interface</test_depend>
   <export>

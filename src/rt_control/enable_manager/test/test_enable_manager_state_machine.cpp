@@ -125,6 +125,7 @@ public:
   // controller_manager round trip the callbacks require.
   static void setEnableRequest(Controller & c, bool v) {c.enable_request_.store(v);}
   static void setDisableRequest(Controller & c, bool v) {c.disable_request_.store(v);}
+  static void setMotionFaultPending(Controller & c, bool v) { c.motion_fault_pending_.store(v); }
   static void setResetRequest(Controller & c, bool v) {c.reset_request_.store(v);}
   static bool enableHardwareReady(const Controller & c)
   {
@@ -381,6 +382,14 @@ public:
           kJointNames[axis], "mode_of_operation_display", &mode_buffer_[axis]);
       }
     }
+    const auto ready_names =
+      controller_->get_node()->get_parameter("ready_state_interfaces").as_string_array();
+    for (std::size_t source = 0; source < ready_names.size(); ++source) {
+      const auto slash = ready_names[source].find('/');
+      state_handles_.emplace_back(
+        ready_names[source].substr(0, slash), ready_names[source].substr(slash + 1U),
+        &ready_buffer_[source]);
+    }
 
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
     std::vector<hardware_interface::LoanedStateInterface> loaned_states;
@@ -608,6 +617,7 @@ public:
   std::array<double, kAxes> status_buffer_{};
   std::array<double, kAxes> position_buffer_{};
   std::array<double, kAxes> mode_buffer_{};
+  std::array<double, 4> ready_buffer_{};
   double feedback_age_ms_{0.0};
   std::vector<hardware_interface::CommandInterface> command_handles_;
   std::vector<hardware_interface::StateInterface> state_handles_;
@@ -2124,7 +2134,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
 {
-  const std::array<Stage, 20> all{
+  const std::array<Stage, 22> all{
     Stage::kSuccess,
     Stage::kAlreadyEnabled,
     Stage::kAlreadyDisabled,
@@ -2136,6 +2146,8 @@ TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
     Stage::kEnableInvalidState,
     Stage::kModeMismatch,
     Stage::kModeNotConfirmed,
+    Stage::kStateSourcesNotReady,
+    Stage::kMotionFault,
     Stage::kFaultDetected,
     Stage::kUnexpectedDriveState,
     Stage::kDisableTimeout,
@@ -2156,6 +2168,99 @@ TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
   std::sort(names.begin(), names.end());
   EXPECT_EQ(std::adjacent_find(names.begin(), names.end()), names.end())
     << "duplicate stage name";
+}
+
+class ReadyGateFixture : public EnableManagerFixture
+{
+public:
+  void bringUpWithReadySources()
+  {
+    initAndConfigure(
+      "ready_gate_enable",
+      {rclcpp::Parameter(
+         "ready_state_interfaces", std::vector<std::string>{"encoder_1/ready", "encoder_2/ready"}),
+       rclcpp::Parameter("ready_hold_time", 0.05),
+       rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
+       rclcpp::Parameter(
+         "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{})});
+    activate();
+    setAllStatus(kSwSwitchOnDisabled);
+    ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+    Access::setOwner(*controller_, Owner::kEnable);
+    Access::setEnableRequest(*controller_, true);
+    callUpdate();
+  }
+  bool allCommandsZero()
+  {
+    for (std::size_t axis = 0; axis < kAxes; ++axis) {
+      if (command(axis) != 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+};
+
+TEST_F(ReadyGateFixture, FirstBatchWaitsUntilSourcesStayReadyForHoldTime)
+{
+  bringUpWithReadySources();
+  ready_buffer_[0] = 1.0;
+  updateTimes(20);
+  EXPECT_TRUE(allCommandsZero()) << "one source not ready must keep every drive disabled";
+  ready_buffer_[1] = 1.0;
+  updateTimes(30);
+  EXPECT_TRUE(allCommandsZero()) << "ready for less than ready_hold_time";
+  ready_buffer_[1] = 0.0;
+  updateTimes(1);
+  ready_buffer_[1] = 1.0;
+  updateTimes(45);
+  EXPECT_TRUE(allCommandsZero()) << "a dropout restarts the hold window";
+  updateTimes(10);
+  EXPECT_EQ(command(0), 6) << "first batch starts after a continuous 50 ms";
+}
+
+TEST_F(ReadyGateFixture, SourcesNeverReadyFailWithoutEnablingAnyDrive)
+{
+  bringUpWithReadySources();
+  advance(kBatchTimeout);
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kStateSourcesNotReady);
+  EXPECT_TRUE(allCommandsZero());
+}
+
+TEST_F(ReadyGateFixture, SourceLostDuringEnablingRollsBack)
+{
+  bringUpWithReadySources();
+  ready_buffer_[0] = ready_buffer_[1] = 1.0;
+  updateTimes(60);
+  ASSERT_EQ(command(0), 6);
+  ready_buffer_[0] = 0.0;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kStateSourcesNotReady);
+}
+
+TEST_F(EnableManagerFixture, MotionFaultDisablesInOrderAndEndsFailed)
+{
+  bringUpToIdle();
+  setAllStatus(kSwOperationEnabled);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setOwner(*controller_, Owner::kDisable);
+  // The worker has deactivated the motion controller after the wheels stopped.
+  Access::setMotionFaultPending(*controller_, true);
+  Access::setDisableRequest(*controller_, true);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+  ASSERT_EQ(Access::phase(*controller_), Phase::kDisabling);
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kMotionFault);
+  ASSERT_EQ(callUpdate(), controller_interface::return_type::OK);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) {
+    EXPECT_EQ(command(axis), kCwSwitchOn) << "ordered disable, not quick stop";
+  }
+  for (unsigned i = 0; i < 20 && Access::phase(*controller_) != Phase::kFailed; ++i) {
+    stepDriveResponses();
+    callUpdate();
+  }
+  EXPECT_EQ(Access::phase(*controller_), Phase::kFailed);
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kMotionFault);
 }
 
 class FixedModeFixture : public EnableManagerFixture
