@@ -1,7 +1,7 @@
 identity:
-  vendor_id: TBD
-  product_code: TBD
-  revision_number: TBD
+  vendor_id: 6820200
+  product_code: 4604997
+  revision_number: 505
 driver_plugin: robot_hw_ethercat/KincoCyclicModeSlave
 velocity_dec:
   numerator: 512
@@ -10,18 +10,24 @@ velocity_dec:
 authorities:
   velocity_dec: V3-DOC-2026-014 p.107/108/154
   mock: test/fixtures/kinco_cyclic_mode_mock.yaml
+  identity_dc_watchdog: ELECTRI-127 Advantech bench live readback on all eight chassis drives (2026-10-14..16); watchdog 100 ms is the read-back value
+  feedback_timeout_seconds: ELECTRI-127 deployed fixed-mode runtime value
+  stationary_velocity: user 2026-10-17, joint units; drive 0.01 m/s at r=0.1 m = 0.1 rad/s, steering 0.01 rad/s
+  mode_ack_timeout_seconds: user 2026-10-17 30 s
 adapter:
-  stationary_velocity: TBD
-  feedback_timeout_seconds: TBD
-  mode_ack_timeout_seconds: TBD
-dc_cycle_ns: TBD
-assign_activate: TBD
+  stationary_velocity:
+    steering: 0.01
+    drive: 0.1
+  feedback_timeout_seconds: 0.2
+  mode_ack_timeout_seconds: 30.0
+dc_cycle_ns: 1000000
+assign_activate: 768
 mock_identity: {vendor_id: 1, product_code: 2, assign_activate: 0}
-pdo_watchdog_ms: TBD
+pdo_watchdog_ms: 100
 driver_config:
-  vendor_id: TBD
-  product_id: TBD
-  assign_activate: TBD
+  vendor_id: 6820200
+  product_id: 4604997
+  assign_activate: 768
   use_slave_pdo_defaults: true
   rpdo:
   - index: 5632

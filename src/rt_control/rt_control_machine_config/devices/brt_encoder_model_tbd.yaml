@@ -4,10 +4,10 @@ status: draft
 verified: false
 authorities:
   source: robot_hw_canopen/config/machines/alfa_v3_swerve_encoders.draft.yaml
+  counts: SDO 6501=65536, 6502=16 (UNSIGNED32), 6000=0 scaling off on nodes 11..14 (2026-10-14); BRT protocol
+    v2.6 p14
 pending_facts:
 - encoder model
-- counts per revolution
-- distinguishable revolutions
 family: brt_encoder
-counts_per_revolution: TBD
-distinguishable_revolutions: TBD
+counts_per_revolution: 65536
+distinguishable_revolutions: 16

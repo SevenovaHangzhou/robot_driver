@@ -1,0 +1,25 @@
+original: BRT-Multi-turn-V1.0.eds
+original_sha256: 8ed45c23f567868c79903c77dde65ffa1bdb20d5078418d07a32065ea7fb6a53
+compatibility_file: BRT-Multi-turn-V1.0.compat.eds
+compatibility_sha256: fb8c81911b72672e80cc0c8ac110bfb4c746ab0e815977202f5d29409a42c809
+applicability:
+  vendor_id: 65535
+  product_code: 16
+  revision: 131073
+  observed_node_ids:
+  - 11
+  - 12
+  - 13
+  - 14
+  firmware_version: unknown
+changes:
+- object: 0x6502:00
+  from: UNSIGNED16
+  to: UNSIGNED32
+  evidence: all4 SDO replies4302650010000000; BRT protocol v2.6 printed p14 specifiesUnsigned32
+- section: MandatoryObjects/OptionalObjects
+  change: move6000,6004,6500,6501,6502 into OptionalObjects for Lely301 classification;
+    retain all objects and application-profile requirements
+unchanged: all object access rights, defaults, PDO mappings, identity values and other
+  types
+hardware_writes: false

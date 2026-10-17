@@ -62,7 +62,7 @@ def test_chassis_binds_facts_by_instance_after_bus_and_calibration_reordering(co
     machine = load(path)
     renamed = machine["spec"]["axes"][0]
     old_joint = renamed["mock_joint_name"]
-    renamed["mock_joint_name"] = "test_steering_a"
+    renamed["mock_joint_name"] = renamed["robot_model_joint"] = "test_steering_a"
     model = root / "machines/Alfa_V3/chassis.mock.urdf"
     model.write_text(model.read_text().replace(old_joint, renamed["mock_joint_name"]))
     machine["spec"]["axes"].reverse()

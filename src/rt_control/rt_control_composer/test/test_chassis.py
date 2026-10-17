@@ -75,14 +75,21 @@ def test_real_chassis_lists_missing_facts_before_any_output(shares, tmp_path):
     target = tmp_path / "real"
     with pytest.raises(ValueError, match="Missing real chassis facts") as error:
         compose(**arguments(shares), runtime_dir=target, use_mock_hardware=False)
-    for required in (
-        "motor_encoder_counts_per_revolution",
-        "identity",
-        "ring_position",
-        "steering_zero_counts",
-        "verified",
-    ):
+    for required in ("backlash_rad", "verified"):
         assert required in str(error.value)
+    # Field-confirmed unit facts are no longer reported as missing.
+    for confirmed in (
+        "motor_encoder_counts_per_revolution",
+        "ring_position",
+        "direction",
+        "steering_zero_counts",
+        "module_x_m",
+        "identity",
+        "effective_wheel_radius_m",
+        "stationary_velocity",
+        "max_abs_velocity_rad_s",
+    ):
+        assert confirmed not in str(error.value)
     assert not target.exists()
 
 
@@ -194,6 +201,7 @@ def test_x9_merges_two_modules_and_rejects_parameter_conflict(shares):
         for axis, position in zip(current["machine"]["spec"]["axes"], positions):
             axis["ring_position"] = position
             axis["mock_joint_name"] += "_" + suffix
+            axis["robot_model_joint"] += "_" + suffix
     peers = [left["machine"], right["machine"]]
     left["peer_machines"] = right["peer_machines"] = peers
     a, b = ETHERCAT.render(left), ETHERCAT.render(right)

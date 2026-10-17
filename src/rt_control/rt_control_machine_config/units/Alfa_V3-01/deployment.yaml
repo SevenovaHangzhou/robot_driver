@@ -20,7 +20,7 @@ host_id: TBD
 canopen:
   master_node_id: TBD
   eds_files:
-    front_left_steering_encoder: TBD
-    front_right_steering_encoder: TBD
-    rear_left_steering_encoder: TBD
-    rear_right_steering_encoder: TBD
+    steering_encoder_1: TBD
+    steering_encoder_2: TBD
+    steering_encoder_3: TBD
+    steering_encoder_4: TBD
