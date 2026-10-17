@@ -1,19 +1,19 @@
 <robot name="swerve_mock">
   <link name="base" />
-  <link name="s0_link" />
-  <joint name="s0" type="continuous"><parent link="base" /><child link="s0_link" /><axis xyz="0 0 1" /></joint>
-  <link name="d0_link" />
-  <joint name="d0" type="continuous"><parent link="base" /><child link="d0_link" /><axis xyz="0 0 1" /></joint>
-  <link name="s1_link" />
-  <joint name="s1" type="continuous"><parent link="base" /><child link="s1_link" /><axis xyz="0 0 1" /></joint>
-  <link name="d1_link" />
-  <joint name="d1" type="continuous"><parent link="base" /><child link="d1_link" /><axis xyz="0 0 1" /></joint>
-  <link name="s2_link" />
-  <joint name="s2" type="continuous"><parent link="base" /><child link="s2_link" /><axis xyz="0 0 1" /></joint>
-  <link name="d2_link" />
-  <joint name="d2" type="continuous"><parent link="base" /><child link="d2_link" /><axis xyz="0 0 1" /></joint>
-  <link name="s3_link" />
-  <joint name="s3" type="continuous"><parent link="base" /><child link="s3_link" /><axis xyz="0 0 1" /></joint>
-  <link name="d3_link" />
-  <joint name="d3" type="continuous"><parent link="base" /><child link="d3_link" /><axis xyz="0 0 1" /></joint>
+  <link name="steer1" />
+  <joint name="steer1_joint" type="continuous"><parent link="base" /><child link="steer1" /><axis xyz="0 0 1" /></joint>
+  <link name="wheel1" />
+  <joint name="wheel1_joint" type="continuous"><parent link="base" /><child link="wheel1" /><axis xyz="0 0 1" /></joint>
+  <link name="steer2" />
+  <joint name="steer2_joint" type="continuous"><parent link="base" /><child link="steer2" /><axis xyz="0 0 1" /></joint>
+  <link name="wheel2" />
+  <joint name="wheel2_joint" type="continuous"><parent link="base" /><child link="wheel2" /><axis xyz="0 0 1" /></joint>
+  <link name="steer3" />
+  <joint name="steer3_joint" type="continuous"><parent link="base" /><child link="steer3" /><axis xyz="0 0 1" /></joint>
+  <link name="wheel3" />
+  <joint name="wheel3_joint" type="continuous"><parent link="base" /><child link="wheel3" /><axis xyz="0 0 1" /></joint>
+  <link name="steer4" />
+  <joint name="steer4_joint" type="continuous"><parent link="base" /><child link="steer4" /><axis xyz="0 0 1" /></joint>
+  <link name="wheel4" />
+  <joint name="wheel4_joint" type="continuous"><parent link="base" /><child link="wheel4" /><axis xyz="0 0 1" /></joint>
   </robot>

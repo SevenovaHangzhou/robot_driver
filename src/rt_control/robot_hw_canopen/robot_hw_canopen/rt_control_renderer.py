@@ -94,13 +94,10 @@ def render(request: Mapping) -> Mapping:
             "installation_offset_rad": calibration[position][
                 "external_encoder_installation_offset_rad"
             ],
+            # Multi-turn counter range; the decoder unwraps the counter rollover.
+            "encoder_revolutions": device["distinguishable_revolutions"],
         }
         missing += [name + "." + key for key, value in values.items() if value == "TBD"]
-        missing += (
-            [name + ".distinguishable_revolutions"]
-            if device["distinguishable_revolutions"] == "TBD"
-            else []
-        )
         sensor = ET.Element("sensor", name=name)
         for interface in profile["state_interfaces"]:
             element = ET.SubElement(sensor, "state_interface", name=interface)

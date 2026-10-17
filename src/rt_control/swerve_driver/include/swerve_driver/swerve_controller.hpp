@@ -62,6 +62,10 @@ private:
   bool write_runtime_output(const ChassisRuntimeOutput & output);
   std::shared_ptr<ChassisRuntime> runtime_;
   bool was_navigation_{false};
+  // Robot-model joint q -> chassis-plane steering heading (bound from the chassis renderer).
+  std::array<double, 4> steering_to_yaw_sign_{{1.0, 1.0, 1.0, 1.0}};
+  // Model-joint positions last successfully written to the steering command interfaces.
+  std::array<double, 4> last_steering_commands_{};
   CoreConfig config_;
   std::unique_ptr<ControlCore> core_;
   std::vector<std::string> command_names_, state_names_;

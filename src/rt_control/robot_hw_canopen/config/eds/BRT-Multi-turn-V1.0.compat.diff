@@ -1,0 +1,32 @@
+--- BRT-Multi-turn-V1.0.eds
++++ BRT-Multi-turn-V1.0.compat.eds
+@@ -2 +2 @@
+-FileName=BRT_Single_turn_encoder_V1.0.eds
++FileName=BRT-Multi-turn-V1.0.compat.eds
+@@ -6 +6 @@
+-Description=BRT_Encoder
++Description=Local BRT compatibility derivative; not a vendor release
+@@ -12 +12 @@
+-ModifiedBy=BRT
++ModifiedBy=RT-Control compatibility review
+@@ -51 +51 @@
+-SupportedObjects=8
++SupportedObjects=3
+@@ -55,5 +54,0 @@
+-4=0x6000
+-5=0x6004
+-6=0x6500
+-7=0x6501
+-8=0x6502
+@@ -157 +152 @@
+-DataType=0x0006
++DataType=0x0007
+@@ -163 +158 @@
+-SupportedObjects=28
++SupportedObjects=33
+@@ -191,0 +187,5 @@
++29=0x6000
++30=0x6004
++31=0x6500
++32=0x6501
++33=0x6502

@@ -50,7 +50,7 @@ install(TARGETS swerve_encoder_feedback swerve_encoder_system
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
 install(FILES robot_hw_canopen_plugins.xml DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY config/profiles DESTINATION share/${PROJECT_NAME}/config)
+install(DIRECTORY config/profiles config/eds DESTINATION share/${PROJECT_NAME}/config)
 install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.schema.json")
 install(PROGRAMS cmake/validate_swerve_encoder_profile.py
@@ -64,6 +64,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_swerve_encoder_system swerve_encoder_system)
   ament_target_dependencies(
     test_swerve_encoder_system canopen_ros2_control hardware_interface rclcpp)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_brt_eds_compat test/test_brt_eds_compat.py)
 endif()
 
 ament_export_targets(export_swerve_encoder_feedback HAS_LIBRARY_TARGET)

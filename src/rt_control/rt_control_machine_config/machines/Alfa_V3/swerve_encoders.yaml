@@ -4,12 +4,12 @@ status: draft
 verified: false
 authorities:
   source: robot_hw_canopen/config/machines/alfa_v3_swerve_encoders.draft.yaml
+  node_id: 'user: steering encoders nodes 11/12/13/14 for modules 1..4; node 1 is the IMU on the same
+    bus'
+  eds: robot_hw_canopen/config/eds/BRT-Multi-turn-V1.0.compat.eds (vendor original retained)
 pending_facts:
-- actual encoder model and authority EDS
-- CAN interface and unique master/node IDs
-- 0x6004/0x6501/0x6502 readback and TPDO mapping
-- external encoder direction and installation offsets
 - heartbeat, feedback age and discontinuity acceptance thresholds
+- multi-turn wrap handling (distinguishable_revolutions) is not consumed by SwerveEncoderSystem yet
 robot_variant: Alfa_V3
 module: swerve_encoders
 master_system: canopen_swerve_encoders
@@ -17,19 +17,19 @@ spec:
   assembly: devices/ht_ws_hh270_q750.yaml
   profile: cia406_encoder
   nodes:
-  - resource_name: front_left_steering_encoder
-    module_position: front_left
-    node_id: TBD
+  - resource_name: steering_encoder_1
+    module_position: module_1
+    node_id: 11
     device: devices/brt_encoder_model_tbd.yaml
-  - resource_name: front_right_steering_encoder
-    module_position: front_right
-    node_id: TBD
+  - resource_name: steering_encoder_2
+    module_position: module_2
+    node_id: 12
     device: devices/brt_encoder_model_tbd.yaml
-  - resource_name: rear_left_steering_encoder
-    module_position: rear_left
-    node_id: TBD
+  - resource_name: steering_encoder_3
+    module_position: module_3
+    node_id: 13
     device: devices/brt_encoder_model_tbd.yaml
-  - resource_name: rear_right_steering_encoder
-    module_position: rear_right
-    node_id: TBD
+  - resource_name: steering_encoder_4
+    module_position: module_4
+    node_id: 14
     device: devices/brt_encoder_model_tbd.yaml

@@ -103,6 +103,7 @@ void validate_hardware_parameters(const hardware_interface::HardwareInfo & info)
   for (const auto & item : sensor.parameters) {
     parameter_names.insert(item.first);
   }
+  parameter_names.erase("encoder_revolutions");
   if (parameter_names != kAxisParameterNames) {
     throw std::invalid_argument{"swerve encoder sensor parameters do not match the contract"};
   }
@@ -116,8 +117,15 @@ void validate_hardware_parameters(const hardware_interface::HardwareInfo & info)
     throw std::invalid_argument{"swerve encoder node ID exceeds uint8 range"};
   }
   return {
-    static_cast<std::uint8_t>(node_id), counts, ring_teeth, pinion_teeth,
-    direction, parse_double(sensor, "installation_offset_rad")};
+    static_cast<std::uint8_t>(node_id),
+    counts,
+    ring_teeth,
+    pinion_teeth,
+    direction,
+    parse_double(sensor, "installation_offset_rad"),
+    sensor.parameters.count("encoder_revolutions")
+      ? parse_integer<std::uint32_t>(sensor, "encoder_revolutions")
+      : 0U};
 }
 
 }  // namespace

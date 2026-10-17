@@ -4,11 +4,11 @@ status: draft
 verified: false
 authorities:
   source: rt_control_bringup/config/machines/alfa_v3_swerve_mechanics.draft.yaml:drive
+  counts: user confirmed G7 motor; 6410:03=10000 read back on rings 0/2/4/6 (2026-10-14)
 pending_facts:
-- effective motor-side raw position counts including electronic gearing
 - live identity and calibration
 family: kinco
-motor_encoder_counts_per_revolution: TBD
+motor_encoder_counts_per_revolution: 10000
 spec:
   motor_model_as_printed: SMC80S-0075-30WAK-5DCH
   servo_driver_model_as_printed: FD134S-CB-000

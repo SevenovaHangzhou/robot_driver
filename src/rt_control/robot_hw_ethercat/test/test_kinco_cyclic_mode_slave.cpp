@@ -140,6 +140,65 @@ TEST(KincoCyclicModeSlave, StartupSeedsActualRawPositionInCsvBeforeReportingInit
   EXPECT_DOUBLE_EQ(rig.states[7], 1.0);
 }
 
+TEST(KincoCyclicModeSlave, DisabledModeZeroWritesStartupModeUntilEnabledReadbackConfirms)
+{
+  Rig rig;
+  rig.setup();
+  // Kinco reports 0x6061=0 while switch-on disabled; the startup mode goes out with the seed.
+  rig.cycle(0, 350, 0, 0x0040);
+  EXPECT_TRUE(rig.slave.initialized());
+  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 350);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
+  // Enabled but not yet confirmed: zero velocity in the startup mode, no error latch.
+  rig.commands[1] = 1.5;
+  rig.cycle(0, 350, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+  // Confirmed CSV still requires a fresh velocity command before motion.
+  rig.cycle(9, 350, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
+  rig.commands[1] = 1.5;
+  rig.cycle(9, 350, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 150);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+}
+
+TEST(KincoCyclicModeSlave, CspHoldsWithoutProducerAndChecksFirstTakeover)
+{
+  Rig rig("" KINCO_FIXTURE, 8);
+  rig.commands[0] = std::numeric_limits<double>::quiet_NaN();
+  rig.setup();
+  rig.cycle(8, 350, 0, 0x0040);  // disabled: seed and latch the hold
+  rig.cycle(8, 352, 0, 0x0027);  // enabled, no producer yet
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 350);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+  rig.cycle(8, 352, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 350);
+  // A target 0.05 rad (50 counts) away from the hold is rejected and latched.
+  rig.commands[0] = 0.30;
+  rig.cycle(8, 352, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 350);
+  EXPECT_DOUBLE_EQ(rig.states[8], 1.0);
+}
+
+TEST(KincoCyclicModeSlave, CspTakeoverWithinToleranceThenFollowsController)
+{
+  Rig rig("" KINCO_FIXTURE, 8);
+  rig.commands[0] = std::numeric_limits<double>::quiet_NaN();
+  rig.setup();
+  rig.cycle(8, 350, 0, 0x0040);
+  rig.cycle(8, 350, 0, 0x0027);
+  rig.commands[0] = 0.255;  // 355 counts, within 0.01 rad of the hold
+  rig.cycle(8, 350, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 355);
+  rig.commands[0] = 0.4;  // owned: normal tracking, no takeover window
+  rig.cycle(8, 355, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 500);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+}
+
 TEST(KincoCyclicModeSlave, CsvToCspRequiresStationaryExactPreseedSentBeforeModeRequest)
 {
   Rig rig;

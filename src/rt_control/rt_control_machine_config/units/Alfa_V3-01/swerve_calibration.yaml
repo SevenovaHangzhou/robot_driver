@@ -3,14 +3,20 @@ kind: unit_calibration
 status: draft
 verified: false
 authorities:
-  source: new record; no measured calibration
+  source: ELECTRI-127 Advantech chassis bench deployed profile.runtime.yaml / controllers.runtime.yaml
+    (base 946ec110)
+  module_xy: control frame base_footprint; +X is the user-defined new forward (old base_link -Y), metres
+  steering_zero_counts: four-axis inward 135 deg plus enabled-CSP zero capture; module 1 transferred to
+    replacement drive from encoder 11
+  drive_zero_counts: continuous wheel keeps raw-count origin; 0 is a software offset, not a wheel phase
+    calibration
+  effective_wheel_radius_m: deployed value 0.1 m (nominal); four-wheel 50 mm command test travelled 50.003 mm
+  external_encoder: direction/offset negated with the user steering-direction correction 2026-10-16; zero
+    counts preserved
 pending_facts:
-- per-module loaded effective wheel radius
-- motor-derived steering zero offset
-- external encoder installation offset and direction
 - physical hard-stop angles, command margin and measurement tolerance
 - bidirectional steering backlash and repeatability
-- installed module coordinates and steering-axis-to-contact-patch offset
+- steering-axis-to-contact-patch offset
 - motor/external encoder disagreement threshold
 - steering slew, wheel acceleration and alignment thresholds
 - least-squares slip residual and odometry covariance scales
@@ -18,39 +24,39 @@ robot_variant: Alfa_V3
 module: swerve_chassis
 spec:
   modules:
-  - module_position: front_left
-    module_x_m: TBD
-    module_y_m: TBD
-    effective_wheel_radius_m: TBD
-    steering_zero_counts: TBD
-    drive_zero_counts: TBD
-    external_encoder_direction: TBD
-    external_encoder_installation_offset_rad: TBD
+  - module_position: module_1
+    module_x_m: -0.305
+    module_y_m: 0.305
+    effective_wheel_radius_m: 0.1
+    steering_zero_counts: 46212
+    drive_zero_counts: 0
+    external_encoder_direction: -1
+    external_encoder_installation_offset_rad: -0.07118492631211457
     backlash_rad: TBD
-  - module_position: front_right
-    module_x_m: TBD
-    module_y_m: TBD
-    effective_wheel_radius_m: TBD
-    steering_zero_counts: TBD
-    drive_zero_counts: TBD
-    external_encoder_direction: TBD
-    external_encoder_installation_offset_rad: TBD
+  - module_position: module_2
+    module_x_m: 0.305
+    module_y_m: 0.305
+    effective_wheel_radius_m: 0.1
+    steering_zero_counts: -3394086
+    drive_zero_counts: 0
+    external_encoder_direction: -1
+    external_encoder_installation_offset_rad: -2.1915319248055973
     backlash_rad: TBD
-  - module_position: rear_left
-    module_x_m: TBD
-    module_y_m: TBD
-    effective_wheel_radius_m: TBD
-    steering_zero_counts: TBD
-    drive_zero_counts: TBD
-    external_encoder_direction: TBD
-    external_encoder_installation_offset_rad: TBD
+  - module_position: module_3
+    module_x_m: -0.305
+    module_y_m: -0.305
+    effective_wheel_radius_m: 0.1
+    steering_zero_counts: -3430317
+    drive_zero_counts: 0
+    external_encoder_direction: -1
+    external_encoder_installation_offset_rad: -0.9971827011120579
     backlash_rad: TBD
-  - module_position: rear_right
-    module_x_m: TBD
-    module_y_m: TBD
-    effective_wheel_radius_m: TBD
-    steering_zero_counts: TBD
-    drive_zero_counts: TBD
-    external_encoder_direction: TBD
-    external_encoder_installation_offset_rad: TBD
+  - module_position: module_4
+    module_x_m: 0.305
+    module_y_m: -0.305
+    effective_wheel_radius_m: 0.1
+    steering_zero_counts: 2967074
+    drive_zero_counts: 0
+    external_encoder_direction: -1
+    external_encoder_installation_offset_rad: -23.973339374474527
     backlash_rad: TBD

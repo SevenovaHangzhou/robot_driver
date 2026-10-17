@@ -157,10 +157,10 @@ modules:
     per_instance_mode_groups: {}
     requires: []
     sensor_bindings:
-    - front_left
-    - front_right
-    - rear_left
-    - rear_right
+    - module_1
+    - module_2
+    - module_3
+    - module_4
     pending_facts:
     - CANopen node IDs and CiA 406 EDS/PDO mapping
     - device support and timing verification for 4 ms SYNC-triggered TPDO
@@ -450,7 +450,7 @@ scopes:
       active: []
     controller_parameter_bindings:
       swerve_controller:
-        instance_order: [front_left, front_right, rear_left, rear_right]
+        instance_order: [module_1, module_2, module_3, module_4]
         parameters:
           steering_joints:
             module: swerve_chassis
@@ -473,6 +473,9 @@ scopes:
           wheel_radius:
             module: swerve_chassis
             export: wheel_radius
+          steering_to_yaw_sign:
+            module: swerve_chassis
+            export: steering_to_yaw_sign
     policies: []
     mock_robot_model:
       package: rt_control_machine_config

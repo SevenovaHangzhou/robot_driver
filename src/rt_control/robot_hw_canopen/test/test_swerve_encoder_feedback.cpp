@@ -118,6 +118,30 @@ TEST(SwerveEncoderFeedbackTest, InitialOrFutureDatedFeedbackIsInvalid)
   EXPECT_FALSE(future.valid);
   EXPECT_TRUE(std::isinf(future.feedback_age_ms));
 }
+TEST(SwerveEncoderFeedbackTest, MultiTurnCounterWrapStaysContinuous)
+{
+  // Module 4 field calibration: zero sits 48372 counts below the 16-turn counter wrap.
+  auto config = valid_config();
+  for (auto & axis : config) {
+    axis.counts_per_revolution = 65536U;
+    axis.ring_gear_teeth = 108U;
+    axis.pinion_gear_teeth = 27U;
+    axis.direction = -1;
+    axis.installation_offset_rad = -23.973339374474527;
+    axis.encoder_revolutions = 16U;
+  }
+  SwerveEncoderFeedback feedback{config};
+  ASSERT_TRUE(feedback.observe(1U, 0x6004U, 0U, 1048500U, 1000000LL));
+  const auto before = feedback.sample(2000000LL)[0];
+  ASSERT_TRUE(feedback.observe(1U, 0x6004U, 0U, 100U, 3000000LL));
+  const auto after = feedback.sample(4000000LL)[0];
+  ASSERT_TRUE(before.valid && after.valid);
+  const double per_count{2.0 * kPi * 27.0 / (65536.0 * 108.0)};
+  EXPECT_NEAR(after.position_rad - before.position_rad, -176.0 * per_count, 1e-9);
+  // Counts outside the declared multi-turn range are not silently folded.
+  ASSERT_TRUE(feedback.observe(1U, 0x6004U, 0U, 1048576U, 5000000LL));
+  EXPECT_FALSE(feedback.sample(6000000LL)[0].valid);
+}
 
 }  // namespace
 }  // namespace robot_hw_canopen

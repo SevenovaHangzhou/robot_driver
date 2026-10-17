@@ -2,6 +2,7 @@
 #define SWERVE_DRIVER__SWERVE_KINEMATICS_HPP_
 
 #include <array>
+#include <limits>
 #include <cstddef>
 #include <optional>
 
@@ -82,6 +83,8 @@ struct SwerveSetpointParameters {
   double translation_heading_epsilon_rad{1e-6};
   double steering_angle_deadband_rad{0.0};
   std::array<SteeringAngleLimits, kSwerveModuleCount> angle_limits{};
+  // Infinite keeps the legacy velocity-step profile; finite values ramp steering rate.
+  double maximum_steering_acceleration_radps2{std::numeric_limits<double>::infinity()};
 };
 
 class SwerveSetpointGenerator final {
@@ -90,15 +93,17 @@ public:
 
   [[nodiscard]] AlignmentResult generate(
     const std::array<SwerveModuleState, kSwerveModuleCount> & desired,
-    const std::array<double, kSwerveModuleCount> & measured_angles_rad,
-    double dt_seconds);
+    const std::array<double, kSwerveModuleCount> & measured_angles_rad, double dt_seconds,
+    const std::array<bool, kSwerveModuleCount> & hold_modules = {});
   void reset() noexcept;
+  void reset(const std::array<double, kSwerveModuleCount> & targets) noexcept;
 
 private:
   SwerveSetpointParameters parameters_;
   std::array<bool, kSwerveModuleCount> reversed_{};
   std::optional<bool> translation_reversed_;
   std::array<std::optional<double>, kSwerveModuleCount> previous_targets_{};
+  std::array<double, kSwerveModuleCount> steering_rates_{};
 };
 
 [[nodiscard]] double wrap_pi(double angle_rad) noexcept;

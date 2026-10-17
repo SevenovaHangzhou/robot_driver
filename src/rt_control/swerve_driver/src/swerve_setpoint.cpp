@@ -34,6 +34,11 @@ SwerveSetpointGenerator::SwerveSetpointGenerator(
   {
     throw std::invalid_argument{"maximum steering slew must be finite and positive"};
   }
+  if (
+    std::isnan(parameters_.maximum_steering_acceleration_radps2) ||
+    parameters_.maximum_steering_acceleration_radps2 <= 0.0) {
+    throw std::invalid_argument{"maximum steering acceleration must be positive"};
+  }
   if (!finite(parameters_.translation_heading_epsilon_rad) ||
     parameters_.translation_heading_epsilon_rad < 0.0 ||
     parameters_.translation_heading_epsilon_rad >= kPi / 2.0)
@@ -57,15 +62,16 @@ SwerveSetpointGenerator::SwerveSetpointGenerator(
 
 AlignmentResult SwerveSetpointGenerator::generate(
   const std::array<SwerveModuleState, kSwerveModuleCount> & desired,
-  const std::array<double, kSwerveModuleCount> & measured_angles_rad,
-  double dt_seconds)
+  const std::array<double, kSwerveModuleCount> & measured_angles_rad, double dt_seconds,
+  const std::array<bool, kSwerveModuleCount> & hold_modules)
 {
   if (!finite(dt_seconds) || dt_seconds <= 0.0) {
     throw std::invalid_argument{"setpoint period must be finite and positive"};
   }
 
   AlignmentResult result{};
-  const double maximum_step{parameters_.maximum_steering_slew_radps * dt_seconds};
+  const double maximum_rate{parameters_.maximum_steering_slew_radps};
+  const double rate_step{parameters_.maximum_steering_acceleration_radps2 * dt_seconds};
   std::array<double, kSwerveModuleCount> planning_angles{};
   double common_heading{0.0};
   double maximum_speed{-1.0};
@@ -140,6 +146,22 @@ AlignmentResult SwerveSetpointGenerator::generate(
   }
 
   for (std::size_t index{0U}; index < result.modules.size(); ++index) {
+    if (hold_modules[index]) {
+      if (!previous_targets_[index].has_value()) {
+        previous_targets_[index] = desired[index].angle_rad;
+        steering_rates_[index] = 0.0;
+      }
+      // Ramp an in-flight steering rate to zero, then latch the reached target.
+      const double rate = steering_rates_[index];
+      const double slower = std::max(0.0, std::abs(rate) - rate_step);
+      steering_rates_[index] = std::copysign(slower, rate);
+      *previous_targets_[index] += steering_rates_[index] * dt_seconds;
+      const double hold = *previous_targets_[index];
+      result.modules[index] = {0.0, hold, hold - planning_angles[index], reversed_[index]};
+      result.maximum_error_rad =
+        std::max(result.maximum_error_rad, std::abs(result.modules[index].error_rad));
+      continue;
+    }
     OptimizedModuleState optimized;
     if (global_translation_branch) {
       const double target_angle{*(translation_reversed ?
@@ -156,13 +178,28 @@ AlignmentResult SwerveSetpointGenerator::generate(
 
     if (!previous_targets_[index].has_value()) {
       previous_targets_[index] = planning_angles[index];
+      steering_rates_[index] = 0.0;
     }
     double target_delta{optimized.target_angle_rad - *previous_targets_[index]};
     if (std::abs(target_delta) < parameters_.steering_angle_deadband_rad) {
       target_delta = 0.0;
     }
-    const double limited_target = *previous_targets_[index] +
-      std::clamp(target_delta, -maximum_step, maximum_step);
+    // Trapezoidal rate: never faster than the slew limit or the braking distance allows.
+    const double braking_rate{
+      target_delta == 0.0
+        ? 0.0
+        : std::sqrt(
+            2.0 * parameters_.maximum_steering_acceleration_radps2 * std::abs(target_delta))};
+    const double wanted_rate{std::copysign(std::min(maximum_rate, braking_rate), target_delta)};
+    const double previous_rate{steering_rates_[index]};
+    double rate{std::clamp(wanted_rate, previous_rate - rate_step, previous_rate + rate_step)};
+    double step{rate * dt_seconds};
+    if (target_delta != 0.0 && step / target_delta > 1.0) {
+      step = target_delta;
+      rate = step / dt_seconds;
+    }
+    steering_rates_[index] = rate;
+    const double limited_target = *previous_targets_[index] + step;
     previous_targets_[index] = limited_target;
 
     result.modules[index] = optimized;
@@ -181,11 +218,21 @@ AlignmentResult SwerveSetpointGenerator::generate(
   return result;
 }
 
+void SwerveSetpointGenerator::reset(const std::array<double, kSwerveModuleCount> & targets) noexcept
+{
+  reset();
+  for (std::size_t i{0U}; i < targets.size(); ++i) {
+    previous_targets_[i] = targets[i];
+  }
+  steering_rates_.fill(0.0);
+}
+
 void SwerveSetpointGenerator::reset() noexcept
 {
   reversed_.fill(false);
   translation_reversed_.reset();
   previous_targets_.fill(std::nullopt);
+  steering_rates_.fill(0.0);
 }
 
 }  // namespace swerve_driver
