@@ -47,7 +47,7 @@ def arguments(shares, *, confirmed=True):
     return dict(**SELECTION, package_share=lambda name: str(shares[name]))
 
 
-def scan(topology_ports=((2, "EBUS", 8), (3, "MII", 1)), slaves=9):
+def scan(topology_ports=((2, "EBUS", 8), (3, "MII", 1)), slaves=9, errors=None, faulted=()):
     """Text in the IgH CLI format recorded by the 2026-10-17 bench scan."""
     identities = {0: (0x00100000, 0x10F40931), 8: (0x00100000, 0x10F40932)}
     identities.update({ring: (0x5A65726F, 0x00029252) for ring in range(1, 8)})
@@ -72,7 +72,11 @@ def scan(topology_ports=((2, "EBUS", 8), (3, "MII", 1)), slaves=9):
                     )
                 blocks.append(block)
             return "".join(blocks)
-        return "0x0000 0\n"
+        index, ring = int(command[-2], 16), int(command[command.index("-p") + 1])
+        value = (errors or {}).get(ring, 0) if index == 0x603F else 0
+        if index == 0x6041:
+            value = 0x0208 if ring in faulted else 0x0250
+        return f"0x{value:04x} {value}\n"
 
     return run
 
@@ -165,3 +169,34 @@ def test_bench_directions_follow_the_alfav3_model():
     module = load_yaml(RT / "rt_control_machine_config/machines/Alfa_V3/bench_left_arm.yaml")
     directions = [axis["direction"] for axis in module["spec"]["branches"]["left"]["axes"]]
     assert directions == [1, -1, -1, 1, 1, 1, 1]
+
+
+def test_startup_accepts_the_master_left_op_code_and_only_j3_battery_code(shares, tmp_path):
+    result = compose(
+        **arguments(shares, confirmed=True),
+        runtime_dir=tmp_path / "real",
+        use_mock_hardware=False,
+    )
+    axes = result.systems[0]["result"]["expected_topology"]["axes"]
+    assert [axis["allowed_errors"] for axis in axes] == [
+        [0x730F, 0xA000] if axis["ring_position"] == 3 else [0xA000] for axis in axes
+    ]
+    preflight(result, run=scan(errors={1: 0xA000, 3: 0x730F, 7: 0xA000}))
+    with pytest.raises(RuntimeError, match="Unqualified error 0x730f"):
+        preflight(result, run=scan(errors={2: 0x730F}))
+    with pytest.raises(RuntimeError, match="Unqualified error 0x8500"):
+        preflight(result, run=scan(errors={5: 0x8500}))
+
+
+def test_faulted_axis_passes_only_with_a_declared_startup_code(shares, tmp_path):
+    result = compose(
+        **arguments(shares, confirmed=True),
+        runtime_dir=tmp_path / "real",
+        use_mock_hardware=False,
+    )
+    # Recorded 2026-10-17: after an orderly stop J1 reads 0x6041=0x0208, 0x603F=0xA000.
+    preflight(result, run=scan(errors={1: 0xA000}, faulted={1}))
+    with pytest.raises(RuntimeError, match="faulted with unqualified error 0x0000"):
+        preflight(result, run=scan(faulted={4}))
+    with pytest.raises(RuntimeError, match="faulted with unqualified error 0x8500"):
+        preflight(result, run=scan(errors={4: 0x8500}, faulted={4}))

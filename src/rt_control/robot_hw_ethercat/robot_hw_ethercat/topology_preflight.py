@@ -72,8 +72,12 @@ def preflight(expected_topology, *, run=None):
             )
 
         status, error = value(0x6041), value(0x603F)
-        if status & 8 or status & 0x6F == 0x27 or value(0x6040) != 0:
-            raise RuntimeError("Axis is faulted or already controlled")
+        if status & 0x6F == 0x27 or value(0x6040) != 0:
+            raise RuntimeError("Axis is already controlled")
+        # A Fault is accepted only with a declared startup code (e.g. 0xA000 after the master
+        # left OP); enable_manager must clear it with a CiA402 fault reset before enabling.
+        if status & 8 and error not in axis["allowed_errors"]:
+            raise RuntimeError(f"Axis is faulted with unqualified error 0x{error:04x}")
         if error != 0 and error not in axis["allowed_errors"]:
             raise RuntimeError(f"Unqualified error 0x{error:04x}")
 

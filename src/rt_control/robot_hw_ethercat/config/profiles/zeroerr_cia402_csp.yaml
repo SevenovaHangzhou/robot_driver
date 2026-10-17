@@ -2,6 +2,15 @@ identity:
   vendor_id: 1516597871
   product_code: 168530
   revision_number: 1
+# Codes a drive latches without entering Fault when the master leaves OP. 0xA000 (manual 7.2.27,
+# EtherCAT communication abnormal) is left by every orderly stop, so startup accepts it (user
+# decision 2026-10-17). If the status word shows Fault, enable_manager clears it with one
+# CiA402 fault reset; no other code is accepted here.
+startup_reset:
+  codes:
+  - 40960
+  method: cia402_fault_reset
+  owner: enable_manager
 encoder_policies:
   single_turn:
     requires_multiturn_retention: false
