@@ -79,3 +79,7 @@ op_bringup_2026_10_17_21_12_1khz_prepinned:
   activation_datagrams: {timed_out: 1, unmatched: 1}
   steady_state_60_s: {frame_loss: 0.0, wc_error_count: 0, joint_states_hz: 1000.0}
   status_word: 0x1250
+zero_readback_2026_10_17_21_18:
+  # Drives in OP (disabled); user: drive zero 2^18 = mechanical = Robot Model zero for all axes.
+  raw_0x6064: {1: 262148, 2: 262144, 3: 494140, 4: 262152, 5: 262140, 6: 262143, 7: 157490}
+  offset_from_2_18_deg: {3: 159.3, 7: -71.9}

@@ -3,35 +3,36 @@ kind: unit_calibration
 status: draft
 verified: true
 authorities:
-  source: read-only 0x6064/0x60FE upload 2026-10-17 on bench host ar-Default-string
+  source: user 2026-10-17 21:18 (+08:00); drive zero 2^18 = mechanical zero = Robot Model zero for J1..J7
 pending_facts: []
 robot_variant: Alfa_V3
 module: bench_left_arm
-# User confirmed on 2026-10-17 that this pose is the mechanical zero.
+# The user set every drive zero (2^18, mid of 524288 counts) at the mechanical zero, which is
+# also the Robot Model zero. Raw 0x6064 readback is kept in evidence, not used here.
 spec:
   confirmed_by: user
-  captured_utc: '2026-10-17T08:58:45+00:00'
+  captured_utc: '2026-10-17T13:18:07+00:00'
   external_transmission_ratio: 1.0
   position_object: 24676
   axes:
   - ring_position: 1
-    zero_counts: 21641
+    zero_counts: 262144
     digital_outputs: 1
   - ring_position: 2
-    zero_counts: 247
+    zero_counts: 262144
     digital_outputs: 1
   - ring_position: 3
-    zero_counts: 212348
+    zero_counts: 262144
     digital_outputs: 1
   - ring_position: 4
-    zero_counts: 262138
+    zero_counts: 262144
     digital_outputs: 1
   - ring_position: 5
-    zero_counts: 262131
+    zero_counts: 262144
     digital_outputs: 1
   - ring_position: 6
-    zero_counts: 262131
+    zero_counts: 262144
     digital_outputs: 1
   - ring_position: 7
-    zero_counts: 150487
+    zero_counts: 262144
     digital_outputs: 1
