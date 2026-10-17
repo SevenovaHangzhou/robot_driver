@@ -46,6 +46,9 @@ public:
     std::uint8_t node_id, std::uint16_t index, std::uint8_t subindex,
     std::uint32_t raw_position, std::int64_t received_steady_ns) noexcept;
 
+  // Boot-up, pre-operational, stop or reset voids the node's samples until a new frame.
+  bool observe_nmt(std::uint8_t node_id, bool operational) noexcept;
+
   [[nodiscard]] std::array<SwerveEncoderSample, kSwerveEncoderCount> sample(
     std::int64_t now_steady_ns) const noexcept;
 
@@ -55,6 +58,9 @@ private:
     std::atomic<std::uint64_t> sequence{0U};
     std::atomic<std::uint32_t> raw_position{0U};
     std::atomic<std::int64_t> received_steady_ns{0};
+    // Incremented on every non-operational NMT report; samples from older epochs are void.
+    std::atomic<std::uint32_t> nmt_epoch{0U};
+    std::atomic<std::uint32_t> sample_epoch{0U};
   };
 
   [[nodiscard]] std::size_t axis_for_node(std::uint8_t node_id) const noexcept;

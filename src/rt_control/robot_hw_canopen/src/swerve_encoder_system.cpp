@@ -28,9 +28,9 @@ const std::set<std::string> kAxisParameterNames{
   "pinion_gear_teeth",
   "direction",
   "installation_offset_rad"};
-const std::set<std::string> kStateInterfaceNames{"position", "feedback_age_ms"};
-const std::array<const char *, 4U> kHardwareParameterNames{
-  "bus_config", "master_config", "master_bin", "can_interface_name"};
+const std::set<std::string> kStateInterfaceNames{"position", "feedback_age_ms", "ready"};
+const std::array<const char *, 5U> kHardwareParameterNames{
+  "bus_config", "master_config", "master_bin", "can_interface_name", "ready_feedback_age_ms"};
 
 [[nodiscard]] const std::string & required_parameter(
   const hardware_interface::ComponentInfo & sensor, const char * name)
@@ -97,7 +97,7 @@ void validate_hardware_parameters(const hardware_interface::HardwareInfo & info)
     sensor.state_interfaces.size() != kStateInterfaceNames.size())
   {
     throw std::invalid_argument{
-            "swerve encoder sensors require position and feedback_age_ms states"};
+      "swerve encoder sensors require position, feedback_age_ms and ready states"};
   }
   std::set<std::string> parameter_names;
   for (const auto & item : sensor.parameters) {
@@ -167,7 +167,16 @@ hardware_interface::CallbackReturn SwerveEncoderSystem::on_init(
     {
       return hardware_interface::CallbackReturn::ERROR;
     }
+    const std::string & age_text{info.hardware_parameters.at("ready_feedback_age_ms")};
+    std::size_t consumed{0U};
+    ready_feedback_age_ms_ = std::stod(age_text, &consumed);
+    if (
+      consumed != age_text.size() || !std::isfinite(ready_feedback_age_ms_) ||
+      ready_feedback_age_ms_ <= 0.0) {
+      throw std::invalid_argument{"ready_feedback_age_ms must be finite and positive"};
+    }
     feedback_ = std::move(feedback);
+    ready_.fill(0.0);
     position_rad_.fill(std::numeric_limits<double>::quiet_NaN());
     feedback_age_ms_.fill(std::numeric_limits<double>::infinity());
     return hardware_interface::CallbackReturn::SUCCESS;
@@ -182,11 +191,12 @@ std::vector<hardware_interface::StateInterface>
 SwerveEncoderSystem::export_state_interfaces()
 {
   std::vector<hardware_interface::StateInterface> result;
-  result.reserve(2U * kSwerveEncoderCount);
+  result.reserve(3U * kSwerveEncoderCount);
   for (std::size_t index{0U}; index < kSwerveEncoderCount; ++index) {
     result.emplace_back(info_.sensors[index].name, "position", &position_rad_[index]);
     result.emplace_back(
       info_.sensors[index].name, "feedback_age_ms", &feedback_age_ms_[index]);
+    result.emplace_back(info_.sensors[index].name, "ready", &ready_[index]);
   }
   return result;
 }
@@ -209,6 +219,9 @@ hardware_interface::return_type SwerveEncoderSystem::read(
   for (std::size_t index{0U}; index < samples.size(); ++index) {
     position_rad_[index] = samples[index].position_rad;
     feedback_age_ms_[index] = samples[index].feedback_age_ms;
+    // Ready: a frame received after the latest non-operational NMT report, and fresh.
+    ready_[index] =
+      samples[index].valid && samples[index].feedback_age_ms <= ready_feedback_age_ms_ ? 1.0 : 0.0;
   }
   return hardware_interface::return_type::OK;
 }
@@ -217,6 +230,14 @@ hardware_interface::return_type SwerveEncoderSystem::write(
   const rclcpp::Time &, const rclcpp::Duration &)
 {
   return hardware_interface::return_type::OK;
+}
+
+void SwerveEncoderSystem::on_nmt_state_changed(canopen::NmtState nmt_state, std::uint8_t id)
+{
+  // Only the lock-free feedback is touched here; the base map is not mutated off-loop.
+  if (feedback_) {
+    static_cast<void>(feedback_->observe_nmt(id, nmt_state == canopen::NmtState::START));
+  }
 }
 
 void SwerveEncoderSystem::on_rpdo_received(

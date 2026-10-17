@@ -22,10 +22,9 @@ namespace
   info.type = "system";
   info.hardware_class_type = "robot_hw_canopen/SwerveEncoderSystem";
   info.hardware_parameters = {
-    {"bus_config", "/tmp/swerve-encoders.yml"},
-    {"master_config", "/tmp/master.dcf"},
-    {"master_bin", "/tmp/master.bin"},
-    {"can_interface_name", "can0"},
+    {"bus_config", "/tmp/swerve-encoders.yml"}, {"master_config", "/tmp/master.dcf"},
+    {"master_bin", "/tmp/master.bin"},          {"can_interface_name", "can0"},
+    {"ready_feedback_age_ms", "20.0"},
   };
   const std::array<std::string, kSwerveEncoderCount> names{
     "front_left_steering_encoder", "front_right_steering_encoder",
@@ -36,7 +35,8 @@ namespace
     sensor.type = "sensor";
     sensor.state_interfaces = {
       hardware_interface::InterfaceInfo{"position"},
-      hardware_interface::InterfaceInfo{"feedback_age_ms"}};
+      hardware_interface::InterfaceInfo{"feedback_age_ms"},
+      hardware_interface::InterfaceInfo{"ready"}};
     sensor.parameters = {
       {"node_id", std::to_string(index + 1U)},
       {"counts_per_revolution", "10000"},
@@ -59,6 +59,7 @@ public:
   {
     on_rpdo_received(data, id, received_at);
   }
+  void nmt(canopen::NmtState state, std::uint8_t id) { on_nmt_state_changed(state, id); }
 };
 
 TEST(SwerveEncoderSystemTest, ExportsExactlyFourReadOnlyEncoderPairs)
@@ -74,19 +75,19 @@ TEST(SwerveEncoderSystemTest, ExportsExactlyFourReadOnlyEncoderPairs)
   }
 
   EXPECT_TRUE(commands.empty());
-  EXPECT_EQ(states.size(), 2U * kSwerveEncoderCount);
-  EXPECT_EQ(names, (std::set<std::string>{
-    "front_left_steering_encoder/position",
-    "front_left_steering_encoder/feedback_age_ms",
-    "front_right_steering_encoder/position",
-    "front_right_steering_encoder/feedback_age_ms",
-    "rear_left_steering_encoder/position",
-    "rear_left_steering_encoder/feedback_age_ms",
-    "rear_right_steering_encoder/position",
-    "rear_right_steering_encoder/feedback_age_ms"}));
-  for (std::size_t index{0U}; index < states.size(); index += 2U) {
+  EXPECT_EQ(states.size(), 3U * kSwerveEncoderCount);
+  EXPECT_EQ(
+    names, (std::set<std::string>{
+             "front_left_steering_encoder/position", "front_left_steering_encoder/feedback_age_ms",
+             "front_left_steering_encoder/ready", "front_right_steering_encoder/position",
+             "front_right_steering_encoder/feedback_age_ms", "front_right_steering_encoder/ready",
+             "rear_left_steering_encoder/position", "rear_left_steering_encoder/feedback_age_ms",
+             "rear_left_steering_encoder/ready", "rear_right_steering_encoder/position",
+             "rear_right_steering_encoder/feedback_age_ms", "rear_right_steering_encoder/ready"}));
+  for (std::size_t index{0U}; index < states.size(); index += 3U) {
     EXPECT_TRUE(std::isnan(states[index].get_value()));
     EXPECT_TRUE(std::isinf(states[index + 1U].get_value()));
+    EXPECT_DOUBLE_EQ(states[index + 2U].get_value(), 0.0);
   }
 }
 
@@ -125,9 +126,10 @@ TEST(SwerveEncoderSystemTest, RpdoHookUpdatesObjectValueAndReceiveAge)
   ASSERT_EQ(
     system.read(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.001)),
     hardware_interface::return_type::OK);
-  EXPECT_NEAR(states[4].get_value(), 0.1 * 3.14159265358979323846 - 0.1, 1e-12);
-  EXPECT_TRUE(std::isfinite(states[5].get_value()));
-  EXPECT_GE(states[5].get_value(), 0.0);
+  EXPECT_NEAR(states[6].get_value(), 0.1 * 3.14159265358979323846 - 0.1, 1e-12);
+  EXPECT_TRUE(std::isfinite(states[7].get_value()));
+  EXPECT_GE(states[7].get_value(), 0.0);
+  EXPECT_DOUBLE_EQ(states[8].get_value(), 1.0);
 }
 
 TEST(SwerveEncoderSystemTest, WrongRpdoObjectDoesNotFabricateFeedback)
@@ -147,6 +149,39 @@ TEST(SwerveEncoderSystemTest, WrongRpdoObjectDoesNotFabricateFeedback)
 
   EXPECT_TRUE(std::isnan(states[0].get_value()));
   EXPECT_TRUE(std::isinf(states[1].get_value()));
+}
+TEST(SwerveEncoderSystemTest, BootUpVoidsSamplesUntilANewFrameAndStaleIsNotReady)
+{
+  InspectableSwerveEncoderSystem system;
+  ASSERT_EQ(system.on_init(valid_info()), hardware_interface::CallbackReturn::SUCCESS);
+  auto states = system.export_state_interfaces();
+  ros2_canopen::COData data;
+  data.index_ = kSwerveEncoderPositionIndex;
+  data.subindex_ = kSwerveEncoderPositionSubindex;
+  data.data_ = 1000U;
+  const auto read = [&]() {
+    return system.read(rclcpp::Time{}, rclcpp::Duration::from_seconds(0.001));
+  };
+  system.inject(data, 1U, std::chrono::steady_clock::now());
+  ASSERT_EQ(read(), hardware_interface::return_type::OK);
+  EXPECT_DOUBLE_EQ(states[2].get_value(), 1.0);
+  // Boot-up (node restart) voids the held sample: no stale position survives.
+  system.nmt(canopen::NmtState::BOOTUP, 1U);
+  ASSERT_EQ(read(), hardware_interface::return_type::OK);
+  EXPECT_TRUE(std::isnan(states[0].get_value()));
+  EXPECT_DOUBLE_EQ(states[2].get_value(), 0.0);
+  system.nmt(canopen::NmtState::START, 1U);
+  ASSERT_EQ(read(), hardware_interface::return_type::OK);
+  EXPECT_DOUBLE_EQ(states[2].get_value(), 0.0);
+  system.inject(data, 1U, std::chrono::steady_clock::now());
+  ASSERT_EQ(read(), hardware_interface::return_type::OK);
+  EXPECT_TRUE(std::isfinite(states[0].get_value()));
+  EXPECT_DOUBLE_EQ(states[2].get_value(), 1.0);
+  // A frame older than ready_feedback_age_ms is valid feedback but not ready.
+  system.inject(data, 1U, std::chrono::steady_clock::now() - std::chrono::milliseconds(50));
+  ASSERT_EQ(read(), hardware_interface::return_type::OK);
+  EXPECT_TRUE(std::isfinite(states[0].get_value()));
+  EXPECT_DOUBLE_EQ(states[2].get_value(), 0.0);
 }
 
 }  // namespace
