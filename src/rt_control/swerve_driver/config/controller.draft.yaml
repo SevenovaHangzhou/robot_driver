@@ -45,6 +45,10 @@ swerve_controller:
     translation_heading_epsilon: 1e-06
     steering_angle_deadband: 0.0017453292519943296
     feedback_timeout: 0.2
+    # Motion fault: latched; ordered disable once all wheels <= 0.01 m/s for 50 ms (or 2 s).
+    fault_stop_speed: 0.01
+    fault_stop_hold: 0.05
+    fault_stop_timeout: 2.0
     pose_covariance:
     - 0.01
     - 0.01
