@@ -8,7 +8,7 @@ cases:
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
       controllers.yaml: 8c2d097971bf34883942373011a3d914360c92a9a9e3a86d09a54493631a4918
-      robot_description.xml: 841f3d433a6d9935760b6bc057f5afcbdf651618c916ec63f7dde15768da3db4
+      robot_description.xml: c297da361528afb5c4dd254c578f48961a0509340f7b129b08e7359bb137acd9
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
       runtime/left_joint2.yaml: ec684d9e1378ab57215aa4cd947cea1d7fb67fa5d2003c705bd880f41796a474
@@ -30,7 +30,7 @@ cases:
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
       controllers.yaml: 8c2d097971bf34883942373011a3d914360c92a9a9e3a86d09a54493631a4918
-      robot_description.xml: 1c7b9e0baabfb053ac7dff192ae802dfa6043c515aeb83735361aa8b983817e9
+      robot_description.xml: ddb064f54e58f14b679f4d7ccc9d83ef3d2a104694d895575130f630159d167f
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
       runtime/left_joint2.yaml: 82697c21188122827e04f57344ab7f96054dee08b3ae0fc2ac2c63b3e1ea0ada
@@ -52,7 +52,7 @@ cases:
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
       controllers.yaml: e16ea9832869e30c6e035b149d0838da46f0c666148c5be4d873fdf8a3225d97
-      robot_description.xml: 841f3d433a6d9935760b6bc057f5afcbdf651618c916ec63f7dde15768da3db4
+      robot_description.xml: c297da361528afb5c4dd254c578f48961a0509340f7b129b08e7359bb137acd9
       runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
       runtime/left_joint2.yaml: ec684d9e1378ab57215aa4cd947cea1d7fb67fa5d2003c705bd880f41796a474
       runtime/left_joint3.yaml: 035b8e031781d68c9c9f55c3544f2956372d1bff5e642b52ea26739e4386b1a8
@@ -73,7 +73,7 @@ cases:
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
       controllers.yaml: e16ea9832869e30c6e035b149d0838da46f0c666148c5be4d873fdf8a3225d97
-      robot_description.xml: 1c7b9e0baabfb053ac7dff192ae802dfa6043c515aeb83735361aa8b983817e9
+      robot_description.xml: ddb064f54e58f14b679f4d7ccc9d83ef3d2a104694d895575130f630159d167f
       runtime/left_joint1.yaml: 2d9d7dd01a5203121951eac8d53ec406389461267504e25976e28d4a0c4b24f3
       runtime/left_joint2.yaml: 82697c21188122827e04f57344ab7f96054dee08b3ae0fc2ac2c63b3e1ea0ada
       runtime/left_joint3.yaml: 035b8e031781d68c9c9f55c3544f2956372d1bff5e642b52ea26739e4386b1a8
@@ -137,7 +137,7 @@ cases:
     outputs:
       controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
       controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
-      robot_description.xml: 958f1987bb3eb716126bd38cbd90869cac3e14190d6364651851e71b7bc33145
+      robot_description.xml: 11e5ba6729ef98f4389bcb2e4eae887198ad990770ec0451d05eea80321d8122
   head-real:
     use_mock_hardware: false
     sync_mode: ''
@@ -145,7 +145,7 @@ cases:
     outputs:
       controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
       controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
-      robot_description.xml: 87db14d120b0088b7f509017da68f9349509547d45f201bccefa415785fb1550
+      robot_description.xml: 94b4290bd107f9b7efbb0b6ea9ec0fa0582b80d6d8b6192cdea8e856a02d924e
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
@@ -213,9 +213,9 @@ head_force_generation_command: python3 test/golden/generate_head_force_baseline.
 head_config_sha256: 9d2366183422d6d2e0df0df99fc1553072c90e7e599d66bdbcad17621ddcc9f5
 force_cli_sha256: eda02f96dfbb8768a4690a353986636e9886cbbf7e3c30eb0bfb5f0ed8605df2
 model_switch_regeneration:
-  robot_description_revision: c49e8ed4c4ee60bf9aecd61548b9848856bc1769
-  reason: 'ELECTRI-127 user decision 2026-10-17: pin the deployed Advantech mobile model; gripper entry
-    and PP gripper axes removed'
+  robot_description_revision: 4d4ad9a86e395d843c0dd4c2f8f035373ca50a2d
+  reason: 'ELECTRI-127 user decision 2026-10-17: Alfav3 dual arms on the deployed mobile model
+    (robot_alfav3_mobile.urdf); arm zero = Alfav3 export zero, no named poses/initial positions'
   method: composer output written only where the canonical form differs from the previous freeze; YAML
     stored in canonical form; legacy-builder equivalence was proven at source_commit
   cases:

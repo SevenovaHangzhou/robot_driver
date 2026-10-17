@@ -214,13 +214,13 @@ modules:
     can_interface_key: head
 robot_model:
   package: robot_description
-  source_revision: c49e8ed4c4ee60bf9aecd61548b9848856bc1769
+  source_revision: 4d4ad9a86e395d843c0dd4c2f8f035373ca50a2d
   variants:
+    # Alfav3 dual arms on the deployed mobile base; no named poses or initial positions (user 2026-10-17).
     mobile_proxy:
-      xacro_file: urdf/robot_analytic_proxy_mobile.urdf
-      joint_limits_file: config/joint_limits_analytic_proxy_mobile.yaml
-      initial_positions_file: config/initial_positions_analytic_proxy_mobile.yaml
-      srdf_file: srdf/robot.srdf
+      xacro_file: urdf/robot_alfav3_mobile.urdf
+      joint_limits_file: config/joint_limits_alfav3_mobile.yaml
+      srdf_file: srdf/robot_alfav3_mobile.srdf
     suction:
       xacro_file: urdf/robot_dual_suction.urdf.xacro
       joint_limits_file: config/joint_limits_suction.yaml
