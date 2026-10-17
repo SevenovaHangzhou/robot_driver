@@ -1053,7 +1053,11 @@ TEST_F(RtUpdateTest, ConcurrentOpenPublicationAndRtConsumptionRemainCoherent)
   }
 }
 
-TEST_F(RtUpdateTest, ConcurrentRunningReplacementNeverTurnsAProtocolRejectIntoAStop)
+// Disabled (ELECTRI-127, user decision 2026-10-17): the assertion that a replacement becomes
+// active depends on OS scheduling of two unpaced threads and fails intermittently on CI
+// (activeGeneration 1 vs 2). The stop/no-stop protocol is still covered by the
+// deterministic replacement tests above.
+TEST_F(RtUpdateTest, DISABLED_ConcurrentRunningReplacementNeverTurnsAProtocolRejectIntoAStop)
 {
   constexpr std::uint64_t duration_ns = 500'000'000U;
   constexpr double displacement = 0.05;
