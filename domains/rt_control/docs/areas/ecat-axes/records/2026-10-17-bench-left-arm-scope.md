@@ -8,7 +8,7 @@ trigger: ELECTRI-127；用户 2026-10-17 要求在台架工控机部署 #80，�
 commits: [feature/electri-127-bench-left-arm-scope]
 env: native
 risk: T3
-writes: {reset: no, enable: yes, motion: no, plc: no, esc_diag_counters: cleared}
+writes: {reset: yes, enable: yes, motion: no, plc: no, esc_diag_counters: cleared}
 verified: PARTIAL
 evidence: [src/rt_control/rt_control_machine_config/evidence/Alfa_V3_bench_left_arm_scan_2026-10-17.yaml]
 supersedes: []
@@ -98,9 +98,19 @@ port1(X3) 断开，EBUS port2→子分支器 8；7 轴身份与 `zeroerr_cia402_
   预检只放行编码器电池码，所以下一次启动会被拒绝；需要裁定处理方式（断电、PREOP 下 SDO 故障复位，或把 0xA000 列为
   启动可复位码交给 enable_manager）。
 
+- F15: 用户决定 0xA000 视为启动可复位码。ZeroErr 两份 profile 增加 `startup_reset.codes: [40960]`，
+  渲染器把它并入每轴 `allowed_errors`（J3 另有 0x730F）。实机发现有序停止后 J1 不只是留码，而是处于故障态
+  （0x6041=0x0208），所以预检改为：已使能或控制字非零仍拒绝；故障态只有在 0x603F 属于声明码时才放行；
+  其余非零错误码仍拒绝。实机复测：J1 故障 + 0xA000 下预检通过，3.93 s 进 OP，enable_manager 报 failed，
+  `/rt/reset_fault` 成功后 J1 变为 0x1250（Switch On Disabled），enable_manager 回到 operational，全程未使能。
+  这次有序停止后 7 轴均无 0xA000，可见该码是否锁存不固定。
+- F16: 同次运行中，主机上另有他人的 mock `ros2_control_node`（Domain 91），本地预绑核脚本误选了它，
+  本栈周期线程未在交接前绑到 CPU14，交接时再次出现 AL 状态报文超时与 2304 个 UNMATCHED，WKC 累计 989 后不再增长。
+  这从反面支持“交接前绑核可消除交接扰动”（F10）。脚本已改为只匹配本栈产物路径。
+
 ## 遗留
 
-- 0xA000 启动处理方式待用户裁定（F14）。
+- 把交接前绑核做进正式启动流程（F10/F16），不再依赖本地脚本。
 - 分别归因 F10 的提速和重扫消失（1 kHz 不预绑、250 Hz 预绑各测一次）；把预绑核做进正式启动流程。
 - 缩短 DC 同步等待（J1/J2/J4 各 5 s 超时）：核对 SYNC0 周期、shift 与驱动的 DC 窗口。
 - J3 是单圈不回绕策略，零位在 2^18 时回绕点在 ±180°，当时 J3 在 +159°，距回绕点约 21°；需确认 J3 的实际运动范围。
