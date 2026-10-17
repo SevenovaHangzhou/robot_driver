@@ -53,7 +53,7 @@ install(FILES robot_hw_canopen_plugins.xml DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY config/profiles config/eds DESTINATION share/${PROJECT_NAME}/config)
 install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.schema.json")
-install(PROGRAMS cmake/validate_swerve_encoder_profile.py
+install(PROGRAMS cmake/validate_swerve_encoder_profile.py scripts/generate_canopen_bundle
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
