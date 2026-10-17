@@ -1,0 +1,35 @@
+# Observations only. These are neither approved operating limits nor startup writes.
+schema_version: 1
+runtime_configuration: false
+captured_utc: '2026-10-17T08:58:45+00:00'
+host: ar-Default-string
+master_id: 0
+physical_profile: bench_left_arm
+igh_preserve_pdo_patch_sha256: b83b5837d3748fb7f5c15d4066e3cfc753347dd2f20f16fd0f43585d2f9a1438
+before_and_after: {master_active: false, master_phase: Idle, responders: 9, al_state: PREOP}
+responders:
+- {ring_position: 0, name: GR10-EC-6SW(IN,X2,X3)_1.4.2.0, vendor_id: 0x00100000, product_code: 0x10f40931}
+- {ring_position: 8, name: GR10-EC-6SW(X4,X5,X6)_1.4.2.0, vendor_id: 0x00100000, product_code: 0x10f40932}
+drives:
+  positions: [1, 2, 3, 4, 5, 6, 7]
+  vendor_id: 0x5a65726f
+  product_code: 0x00029252
+  revision_number: 0x00000001
+  software_versions:
+    '150403170': [1, 2, 3, 4, 5, 6]
+    '550403170': [7]
+main_coupler_ports:
+  0: {link: up, next: master}
+  1: {link: down, connector: X3}
+  2: {link: up, type: EBUS, next: 8}
+  3: {link: up, connector: X2, next: 1}
+chain_end: {position: 7, port_1: down}
+readback:
+  # ring_position: [statusword 0x6041, error 0x603F, controlword 0x6040, mode 0x6061, 0x6064, 0x60FE]
+  1: [0x0000, 0x0000, 0x0000, 8, 21641, 1]
+  2: [0x0000, 0x0000, 0x0000, 8, 247, 1]
+  3: [0x1000, 0x0000, 0x0000, 8, 212348, 1]
+  4: [0x0000, 0x0000, 0x0000, 8, 262138, 1]
+  5: [0x0000, 0x0000, 0x0000, 8, 262131, 1]
+  6: [0x0000, 0x0000, 0x0000, 8, 262131, 1]
+  7: [0x0000, 0x0000, 0x0000, 8, 150487, 1]

@@ -36,6 +36,30 @@ modules:
     config_file: machines/Alfa_V3/arms.yaml
     device_refs:
     - devices/zeroerr_erob_model_tbd.yaml
+  # Bench assembly of one arm without its gripper; not a functional module of the robot.
+  bench_left_arm:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 7
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 7
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 7
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - ZeroErr PDO/SDO profile for CSP drives
+    - arm mechanical limits and transmission parameters
+    config_file: machines/Alfa_V3/bench_left_arm.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml
   wrist_force_sensors:
     role: state_sensor_group
     transport: ethercat
@@ -261,6 +285,37 @@ profiles:
     - runtime descriptor and controller bindings for the confirmed physical arm axes
     - Inovance GR10-EC-6SW runtime state/DC qualification and ESI display-version
       difference
+  bench_left_arm:
+    status: draft
+    modules:
+    - bench_left_arm
+    allowed_scopes:
+    - bench_left_arm_stationary_enable
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - bench bus order confirmed only by a read-only scan; physical J order pending user confirmation
   arms_updown:
     status: draft
     modules:
@@ -572,6 +627,29 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+  bench_left_arm_stationary_enable:
+    enabled_modules:
+    - bench_left_arm
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_left_arm
+      mode_group: csp
+    jtc_groups: []
+    global_readiness: partial_scope
+    ethercat_cycle_hz_override: 250
+    bq_ref: BQ-154
+    render_mode: stationary_enable
+    policies:
+    - enable
+    policy_overrides:
+      enable: bench_left_arm_enable
+    staged_hardware_activation: true
+    controller_order:
+      inactive: []
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
   force_bench:
     enabled_modules:
     - wrist_force_sensors
@@ -609,6 +687,10 @@ policy_refs:
   chassis_enable:
     package: enable_manager
     file: config/Alfa_V3_chassis_enable_policy.yaml
+    schema: enable_policy.schema.json
+  bench_left_arm_enable:
+    package: enable_manager
+    file: config/Alfa_V3_bench_left_arm_enable_policy.yaml
     schema: enable_policy.schema.json
   motion:
     package: rolling_trajectory_controller
