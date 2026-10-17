@@ -2,6 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "family": {
+      "const": "zeroerr"
+    },
     "extra_responders": {
       "type": "array",
       "items": {
@@ -138,6 +141,7 @@
     }
   },
   "required": [
+    "family",
     "extra_responders",
     "branches",
     "drive_profiles",

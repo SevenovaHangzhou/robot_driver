@@ -399,6 +399,9 @@ scopes:
       mode_group: csp
     global_readiness: partial_scope
     render_mode: normal
+    policies:
+    - enable
+    - motion
     controller_order:
       inactive:
       - whole_body_jtc
@@ -407,6 +410,8 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+    jtc_only_excluded:
+    - rolling_trajectory_controller
   arms_updown:
     enabled_modules:
     - arms
@@ -521,7 +526,9 @@ scopes:
       active:
       - joint_state_broadcaster
       - damiao_head_manager
-    preserve_controller_file: true
+    controller_file:
+      package: damiao_head_controller
+      file: config/controllers.yaml
     controller_parameter_bindings:
       joint_state_broadcaster:
         parameters:
@@ -563,6 +570,8 @@ scopes:
     ethercat_cycle_hz_override: 250
     bq_ref: BQ-154
     render_mode: stationary_enable
+    policies:
+    - enable
     controller_order:
       inactive: []
       active:

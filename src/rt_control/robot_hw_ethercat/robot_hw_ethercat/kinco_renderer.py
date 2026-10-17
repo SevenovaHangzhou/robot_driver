@@ -7,6 +7,8 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
+from .profiles import master_parameters
+
 COMMANDS = (
     "position",
     "velocity",
@@ -93,7 +95,7 @@ def missing_facts(request, profile):
     ]
 
 
-def render(request, share, validate_module, validate_unit):
+def render(request, share, validate_module, validate_unit, validate_device):
     machine = validate_module(request["module"], request["machine"])
     unit = validate_unit(request["module"], request["unit"])
     spec = machine["spec"]
@@ -242,6 +244,7 @@ def render(request, share, validate_module, validate_unit):
         "axes": [],
         "branches": [],
         "internal_ports": [],
+        "kind": "cia402_topology",
         "preflight_required": False,
     }
     from .master_health import sensors as health_sensors
@@ -249,8 +252,7 @@ def render(request, share, validate_module, validate_unit):
     params = {
         "master_id": topology["master_id"],
         "control_frequency": request["bus_cycle_hz"],
-        "startup_bus_timeout_ms": 70000,
-        "preload_timeout_ms": 5000,
+        **master_parameters(share),
     }
     if mock:
         params = {"calculate_dynamics": "false", **params}

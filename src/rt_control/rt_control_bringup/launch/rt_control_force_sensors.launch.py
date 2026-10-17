@@ -1,7 +1,7 @@
 """Raw-only dual Blue Point bench; no motor plugins or enable controllers."""
 
 from pathlib import Path
-import tempfile
+import uuid
 
 from launch import LaunchDescription
 from launch.actions import (
@@ -13,35 +13,35 @@ from launch.actions import (
 )
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration
 from launch_ros.actions import Node
-import yaml
 
-from rt_control_composer.compose import compose, preflight
+from rt_control_composer.artifact import load_artifact, runtime_arguments
+from rt_control_composer.compose import preflight
 
 
 def setup(context):
     raw_mock = LaunchConfiguration("use_mock_hardware").perform(context)
     if raw_mock not in ("true", "false"):
         raise ValueError("use_mock_hardware must be true or false")
-    runtime = Path(tempfile.mkdtemp(prefix="bluepoint-raw-bench-"))
-    build = compose(
+    build = load_artifact(
+        LaunchConfiguration("generated_dir").perform(context),
         robot_variant=LaunchConfiguration("robot_variant", default="Alfa_V3").perform(context),
         machine_unit=LaunchConfiguration("machine_unit", default="Alfa_V3-01").perform(context),
         physical_profile="force_bench",
         control_scope="force_bench",
-        runtime_dir=runtime,
         use_mock_hardware=raw_mock == "true",
         sync_mode=LaunchConfiguration("sync_mode").perform(context),
     )
     preflight(build)
     controller_names = build.controller_order["active"]
-    config = runtime / "controllers.yaml"
-    config.write_text(yaml.safe_dump(build.controllers, sort_keys=False))
+    config = Path(build.runtime_dir) / "controllers.yaml"
+    startup_arguments = runtime_arguments(build, {"startup_id": f"force-bench-{uuid.uuid4()}"})
     manager = Node(
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[{"robot_description": build.robot_description}, str(config)],
+        arguments=startup_arguments,
         output="screen",
     )
     loader = Node(
@@ -84,6 +84,11 @@ def generate_launch_description():
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             DeclareLaunchArgument(
                 "sync_mode", default_value="", description="Required for real hardware: sm or dc"
+            ),
+            DeclareLaunchArgument(
+                "generated_dir",
+                default_value=EnvironmentVariable("RT_CONTROL_GENERATED_DIR", default_value=""),
+                description="Absolute artifact directory from compose_artifact",
             ),
             OpaqueFunction(function=setup),
         ]

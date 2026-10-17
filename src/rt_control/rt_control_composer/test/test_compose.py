@@ -35,6 +35,15 @@ def shares(tmp_path, monkeypatch):
     return lookup
 
 
+def materialize(result):
+    """Compose is pure; the tests write its files to compare with frozen output trees."""
+    for name, text in result.files.items():
+        path = Path(result.runtime_dir) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    return result
+
+
 def inputs(shares, *, stationary=False, verified=False):
     data = shares["rt_control_machine_config"]
     deployment_path = next((data / "units").glob("*/deployment.yaml"))
@@ -84,6 +93,7 @@ def sample_request(shares):
         for axis in request["machine"]["spec"]["axes"]
     ]
     request["machine"]["spec"] = {
+        "family": source["spec"]["family"],
         "extra_responders": [{**source["spec"]["extra_responders"][0], "ring_position": 0}],
         "branches": {"synthetic": {"connector": "synthetic", "main_esc_port": 3, "axes": axes}},
         "drive_profiles": source["spec"]["drive_profiles"],
@@ -132,7 +142,7 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
         shares, stationary=case.startswith("stationary"), verified=not facts["use_mock_hardware"]
     )
     runtime = tmp_path / "runtime"
-    result = compose(**arguments, runtime_dir=runtime, **facts_subset(facts))
+    result = materialize(compose(**arguments, runtime_dir=runtime, **facts_subset(facts)))
     assert load_yaml(runtime / "controllers.yaml") == result.controllers
     # File layout is explicit: three launch outputs and every remaining runtime file.
     snapshot = tmp_path / "snapshot"
@@ -201,19 +211,24 @@ def test_required_tbd_rejects_real_and_mock_uses_no_guessed_scaling(shares, tmp_
     compose(**arguments, runtime_dir=tmp_path / "mock")
 
 
-def test_owner_conversion_roundtrip_and_reduction_ratio_independence():
+def test_owner_conversion_roundtrip_and_reduction_ratio_independence(shares):
     for direction in (1, -1):
         factors = OWNER.position_factors(4096, direction, 123)
         counts = factors["command_offset"] + factors["command_factor"] * 0.75
         assert counts * factors["feedback_factor"] + factors["feedback_offset"] == pytest.approx(
             0.75
         )
+    data = shares["rt_control_machine_config"]
+    manifest = load_yaml(next((data / "machines").glob("*/manifest.yaml")))
+    reference = manifest["modules"]["arms"]["device_refs"][0]
     device = {
-        "family": "synthetic",
+        "family": load_yaml(data / reference)["family"],
         "output_encoder_counts_per_revolution": 4096,
         "reduction_ratio": "TBD",
     }
     assert OWNER.validate_device(device, render_mode="normal") == device
+    with pytest.raises(ValueError, match="declares no position count field"):
+        OWNER.validate_device({**device, "family": "unregistered"}, render_mode="normal")
 
 
 def test_shared_system_conflicts_and_preflight_once(monkeypatch):
@@ -250,7 +265,7 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
     monkeypatch.setattr(module, "select_renderer", lambda *args: Renderer())
     from rt_control_composer.model import Composed
 
-    preflight(Composed("", {}, {}, Path("."), systems, False, {}))
+    preflight(Composed("", {}, {}, Path("."), systems, False, {}, {}, {}))
     assert len(calls) == 1
 
 

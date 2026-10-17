@@ -18,7 +18,12 @@ controllers:
     - drive_csv
     required_state_modules:
     - swerve_encoders
-    role: external
+    tags: []
+    parameters:
+    - yaml:
+        package: swerve_driver
+        file: config/controller.draft.yaml
+        path: '{controller}.ros__parameters'
   head_gimbal:
     module: head_gimbal
     name: damiao_head_manager
@@ -28,7 +33,12 @@ controllers:
     actuator_groups:
     - position_velocity
     required_state_modules: []
-    role: external
+    tags: []
+    parameters:
+    - yaml:
+        package: damiao_head_controller
+        file: config/controllers.yaml
+        path: '{controller}.ros__parameters'
   left_gripper:
     module: arms
     name: left_gripper_controller
@@ -38,6 +48,8 @@ controllers:
     actuator_groups:
     - gripper_pp
     required_state_modules: []
+    tags: []
+    parameters: []
   right_gripper:
     module: arms
     name: right_gripper_controller
@@ -47,6 +59,8 @@ controllers:
     actuator_groups:
     - gripper_pp
     required_state_modules: []
+    tags: []
+    parameters: []
   whole_body_jtc:
     module: arms
     name: whole_body_jtc
@@ -56,7 +70,18 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
-    role: trajectory
+    tags:
+    - trajectory
+    - motion
+    parameters:
+    - policy:
+        name: motion
+        path: joints
+        as: joints
+        match: actuator_groups
+    - policy:
+        name: motion
+        path: jtc
   rolling_trajectory_controller:
     module: arms
     name: rolling_trajectory_controller
@@ -66,7 +91,16 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
-    role: rolling
+    tags:
+    - rolling
+    - motion
+    parameters:
+    - policy:
+        name: motion
+        path: rolling
+    - policy_file:
+        name: envelope
+        as: envelope_file
   enable_manager:
     module: arms
     name: enable_manager
@@ -77,7 +111,71 @@ controllers:
     - csp
     - gripper_pp
     required_state_modules: []
-    role: enable
+    tags:
+    - enable
+    parameters:
+    - policy:
+        name: enable
+        overlay: runtime_views.{mode}
+        keys_from: parameter_names
+    - policy:
+        name: enable
+        overlay: runtime_views.{mode}
+        path: managed_joints
+        as: managed_joints
+        match: managed_joints
+        partition: enable_batches
+    - policy:
+        name: enable
+        overlay: runtime_views.{mode}
+        path: enable_batches
+        transform: flatten
+        as: enable_batch_joint_names
+    - policy:
+        name: enable
+        overlay: runtime_views.{mode}
+        path: enable_batches
+        transform: lengths
+        as: enable_batch_sizes
+    - policy:
+        name: enable
+        path: runtime_views.{mode}.enable_only
+        as: enable_only
+    - controllers:
+        tag: trajectory
+        select: first
+        default: ''
+        as: jtc_name
+    - when_policy: motion
+      controllers:
+        tag: rolling
+        select: any
+        as: motion_mode_switching
+    - when_policy: motion
+      controllers:
+        tag: motion
+        select: all
+        as: motion_controller_names
+    - when_policy: motion
+      controllers:
+        tag: trajectory
+        select: first
+        as: default_motion_controller
+    - when_policy: motion
+      controllers:
+        tag: rolling
+        select: first
+        default: ''
+        as: rolling_motion_controller
+    - when_policy: motion
+      policy:
+        name: motion
+        path: joints
+        as: motion_joints
+    - when_policy: motion
+      policy:
+        name: motion
+        path: enable_manager
   joint_state_broadcaster:
     module: arms
     name: joint_state_broadcaster
@@ -88,7 +186,17 @@ controllers:
     - csp
     - gripper_pp
     required_state_modules: []
-    role: joint_state
+    tags: []
+    parameters:
+    - yaml:
+        package: rt_control_composer
+        file: config/controller_defaults.yaml
+        path: joint_state.{mode}
+    - when_policy: motion
+      policy:
+        name: motion
+        path: joints
+        as: joints
   rt_internal_state_broadcaster:
     module: arms
     name: rt_internal_state_broadcaster
@@ -99,7 +207,12 @@ controllers:
     - csp
     - gripper_pp
     required_state_modules: []
-    role: internal_state
+    tags: []
+    parameters:
+    - yaml:
+        package: rt_control_composer
+        file: config/controller_defaults.yaml
+        path: internal_state.{mode}
   head_head_position_controller:
     module: head_gimbal
     name: head_position_controller
@@ -109,7 +222,12 @@ controllers:
     actuator_groups:
     - position_velocity
     required_state_modules: []
-    role: external
+    tags: []
+    parameters:
+    - yaml:
+        package: damiao_head_controller
+        file: config/controllers.yaml
+        path: '{controller}.ros__parameters'
   left_wrist_force_sensor_broadcaster:
     module: wrist_force_sensors
     name: left_wrist_force_sensor_broadcaster
@@ -118,7 +236,19 @@ controllers:
     config_file: config/force_bench.yaml
     actuator_groups: []
     required_state_modules: []
-    role: sensor_broadcaster
+    tags: []
+    parameters:
+    - owner_parameters: {}
+    - topics:
+        templates:
+          wrench_topic: wrench
+          raw_topic: raw
+          sensor_state_topic: state
+          diagnostic_name: sensor_calibration
+          calibration_topic: family_calibration
+    - runtime:
+        key: startup_id
+        as: startup_id
   right_wrist_force_sensor_broadcaster:
     module: wrist_force_sensors
     name: right_wrist_force_sensor_broadcaster
@@ -127,4 +257,16 @@ controllers:
     config_file: config/force_bench.yaml
     actuator_groups: []
     required_state_modules: []
-    role: sensor_broadcaster
+    tags: []
+    parameters:
+    - owner_parameters: {}
+    - topics:
+        templates:
+          wrench_topic: wrench
+          raw_topic: raw
+          sensor_state_topic: state
+          diagnostic_name: sensor_calibration
+          calibration_topic: family_calibration
+    - runtime:
+        key: startup_id
+        as: startup_id
