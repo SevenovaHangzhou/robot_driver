@@ -279,6 +279,9 @@ def compose(
             {"name": s["result"]["hardware_system_id"], "plugin": s["result"]["hardware_plugin"]}
             for s in systems
         ],
+        # Realtime CPU layout and identity of this unit's host (deployment data).
+        "host": deepcopy(deployment.get("host", {})),
+        "transports": sorted({system["owner"] for system in systems}),
     }
     if staged:
         # Consumed by the generic scope launcher and its orderly shutdown.

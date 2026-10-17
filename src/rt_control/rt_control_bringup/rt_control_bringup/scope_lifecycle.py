@@ -230,6 +230,89 @@ def capabilities_main(argv=None):
     return 0
 
 
+def _cpus(text):
+    values = set()
+    for piece in text.strip().split(","):
+        if piece:
+            ends = piece.split("-")
+            values.update(range(int(ends[0]), int(ends[-1]) + 1))
+    return values
+
+
+def qualify_realtime(runtime_dir, lifecycle, *, activated, proc=Path("/proc"), timeout=5.0):
+    """Pin the owned manager's FIFO update thread (and CAN loop) to the RT CPU.
+
+    Only threads of the ros2_control_node started with this artifact are touched. The IgH
+    kernel thread is checked (kthread_bind forbids rebinding) and given FIFO 79.
+    """
+    host = lifecycle.get("host") or {}
+    if lifecycle["use_mock_hardware"] or not host:
+        return None
+    rt_cpu, housekeeping = host["rt_cpu"], set(host["housekeeping_cpus"])
+    if rt_cpu in housekeeping:
+        raise RuntimeError("rt_cpu must not be a housekeeping CPU")
+    if rt_cpu not in _cpus(Path("/sys/devices/system/cpu/isolated").read_text()):
+        raise RuntimeError(f"RT CPU {rt_cpu} is not isolated on this host")
+    marker = str(runtime_dir).encode()
+    managers = []
+    for path in proc.glob("[0-9]*"):
+        try:
+            command = (path / "cmdline").read_bytes()
+        except (FileNotFoundError, PermissionError):
+            continue
+        if b"ros2_control_node" in command and marker in command:
+            managers.append(int(path.name))
+    if len(managers) != 1:
+        raise RuntimeError(f"expected one controller manager for {runtime_dir}, found {managers}")
+    pid = managers[0]
+    deadline = time.monotonic() + timeout
+    while True:
+        tids = [int(item.name) for item in (proc / str(pid) / "task").iterdir()]
+        update = []
+        for tid in tids:
+            try:
+                if os.sched_getscheduler(tid) == os.SCHED_FIFO and os.sched_getparam(tid).sched_priority == 80:
+                    update.append(tid)
+            except ProcessLookupError:
+                continue
+        if len(update) == 1:
+            break
+        if time.monotonic() >= deadline:
+            raise RuntimeError("exactly one FIFO80 controller update thread required")
+        time.sleep(0.05)
+    can_threads = []
+    for tid in tids:
+        try:
+            name = (proc / str(pid) / "task" / str(tid) / "comm").read_text().strip()
+            realtime = tid == update[0] or name == "rtcan-master"
+            if name == "rtcan-master":
+                can_threads.append(tid)
+            os.sched_setaffinity(tid, {rt_cpu} if realtime else housekeeping)
+        except (ProcessLookupError, FileNotFoundError):
+            if tid == update[0]:
+                raise
+    if not activated:
+        print(f"RT_SCOPE_RT_CHECK manager={pid} update={update[0]} cpu={rt_cpu}", flush=True)
+        return {"manager": pid, "update": update[0], "can": can_threads}
+    if "robot_hw_canopen" in lifecycle.get("transports", []) and len(can_threads) != 1:
+        raise RuntimeError("exactly one rtcan-master thread required")
+    if "robot_hw_ethercat" in lifecycle.get("transports", []):
+        if Path("/sys/module/ec_master/parameters/run_on_cpu").read_text().strip() != str(rt_cpu):
+            raise RuntimeError("IgH run_on_cpu differs from the unit rt_cpu")
+        kernel = []
+        for path in proc.glob("[0-9]*"):
+            try:
+                if (path / "comm").read_text().strip() == "EtherCAT-OP":
+                    kernel.append(int(path.name))
+            except (FileNotFoundError, PermissionError):
+                continue
+        if len(kernel) != 1 or os.sched_getaffinity(kernel[0]) != {rt_cpu}:
+            raise RuntimeError("IgH EtherCAT-OP thread must be bound to the RT CPU")
+        os.sched_setscheduler(kernel[0], os.SCHED_FIFO, os.sched_param(79))
+    print(f"RT_SCOPE_RT_CHECK manager={pid} update={update[0]} cpu={rt_cpu}", flush=True)
+    return {"manager": pid, "update": update[0], "can": can_threads}
+
+
 def hardware_start_main(argv=None):
     import sys
 
@@ -237,7 +320,10 @@ def hardware_start_main(argv=None):
     lifecycle = load_lifecycle(runtime_dir)
     backend = RosLifecycleBackend(timeout=120.0, node_name="rt_scope_hardware_start")
     try:
+        # Scheduling is qualified before and after hardware activation (threads appear late).
+        qualify_realtime(runtime_dir, lifecycle, activated=False)
         activate_hardware(backend, lifecycle)
+        qualify_realtime(runtime_dir, lifecycle, activated=True)
         print("RT_SCOPE_HARDWARE_ACTIVE_DISABLED", flush=True)
         return 0
     finally:

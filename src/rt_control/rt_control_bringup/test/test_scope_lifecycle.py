@@ -135,3 +135,11 @@ def test_capability_document_is_derived_from_the_lifecycle_plan():
     assert document["schema_version"] == 1
     assert document["control_scope"] == "chassis_only"
     assert document["capabilities"][0]["topic"] == "/cmd_vel"
+
+
+def test_realtime_qualification_is_skipped_for_mock_and_rejects_shared_rt_cpu(tmp_path):
+    plan = {"use_mock_hardware": True, "host": {"rt_cpu": 7, "housekeeping_cpus": [7]}}
+    assert lifecycle.qualify_realtime(tmp_path, plan, activated=True) is None
+    plan["use_mock_hardware"] = False
+    with pytest.raises(RuntimeError, match="housekeeping"):
+        lifecycle.qualify_realtime(tmp_path, plan, activated=True)
