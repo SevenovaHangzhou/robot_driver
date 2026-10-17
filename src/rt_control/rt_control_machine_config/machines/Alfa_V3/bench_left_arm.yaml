@@ -4,7 +4,7 @@ status: draft
 verified: true
 authorities:
   source: machines/Alfa_V3/arms.yaml left branch + read-only EtherCAT scan 2026-10-17 (ar-Default-string)
-  direction: user 2026-10-17 against robot_alfav3_mobile.urdf (4d4ad9a); J2/J3 reversed, others +1
+  direction: user 2026-10-17 against robot_alfav3_mobile.urdf (4d4ad9a); J3 reversed, others +1 (J2 corrected after the first console motion)
 pending_facts:
 - 'PP Halt policy: live firmware has no 0x605D object'
 - verified nonwrapping single-turn range for J3
@@ -39,7 +39,7 @@ spec:
         mode_of_operation: 8
         robot_model_joint: left_joint2
         device: devices/zeroerr_erob_model_tbd.yaml
-        direction: -1
+        direction: 1
       - physical_joint: J3
         ring_position: 3
         mode_of_operation: 8
