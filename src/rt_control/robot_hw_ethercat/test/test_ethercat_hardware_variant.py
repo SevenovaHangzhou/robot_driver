@@ -738,3 +738,51 @@ def test_mutating_descriptor_changes_expansion_without_editing_xacro(
     )
 
     assert system.find("joint[@name='registered_test_joint']") is not None
+
+
+def test_kinco_preflight_rejects_a_drive_whose_saved_pdo_differs():
+    from robot_hw_ethercat.kinco_renderer import _pdo_objects
+    from robot_hw_ethercat.topology_preflight import preflight
+    import yaml as _yaml
+
+    profile = _yaml.safe_load((PACKAGE_DIR / "config/profiles/kinco_fd_cyclic.yaml").read_text())
+    objects = _pdo_objects(profile["driver_config"])
+    assert objects[0x1600] == [0x60400010, 0x607A0020, 0x60FF0020, 0x60600008]
+    assert objects[0x1A00] == [0x60410010, 0x60640020, 0x606C0020, 0x60610008]
+    topology = {
+        "kind": "cia402_topology",
+        "master_id": 0,
+        "responders": [
+            {"ring_position": 0, "vendor_id": 1, "product_code": 2, "revision_number": 3}
+        ],
+        "axes": [{"ring_position": 0, "allowed_errors": []}],
+        "branches": [],
+        "internal_ports": [],
+        "pdo_checks": [{"ring_position": 0, "objects": objects}],
+        "position_windows": [{"ring_position": 0, "raw_min": -100, "raw_max": 100}],
+        "preflight_required": True,
+    }
+    # Deployed fixed-mode layout: 6040, 6060, 607A (three entries, mode in the middle).
+    saved = dict(objects)
+    saved[0x1600] = [0x60400010, 0x60600008, 0x607A0020]
+
+    def run(argv, **_):
+        if argv[1] == "master":
+            return "Active: no\nSlaves: 1\n"
+        if argv[1] == "slaves":
+            return (
+                "=== Master 0, Slave 0 ===\nVendor Id: 0x00000001\nProduct code: 0x00000002\n"
+                "Revision number: 0x00000003\nState: PREOP\n"
+            )
+        index, subindex = int(argv[-2], 16), int(argv[-1])
+        if index in (0x6041, 0x603F, 0x6040):
+            return "0x0040 64" if index == 0x6041 else "0x0000 0"
+        if index == 0x6064:
+            return "0x00000000 0"
+        values = saved[index]
+        return f"0x0 {len(values) if subindex == 0 else values[subindex - 1]}"
+
+    with pytest.raises(RuntimeError, match="saved PDO 0x1600"):
+        preflight(topology, run=run)
+    saved[0x1600] = objects[0x1600]
+    preflight(topology, run=run)
