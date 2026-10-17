@@ -576,23 +576,43 @@
                     "type": "array",
                     "minItems": 1,
                     "uniqueItems": true,
-                    "items": {"type": "string", "minLength": 1}
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
                   },
                   "parameters": {
                     "type": "object",
                     "additionalProperties": {
                       "type": "object",
                       "properties": {
-                        "module": {"type": "string", "minLength": 1},
-                        "export": {"type": "string", "minLength": 1},
-                        "resource_kind": {"enum": ["joints", "sensors", "gpios"]}
+                        "module": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "export": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "resource_kind": {
+                          "enum": [
+                            "joints",
+                            "sensors",
+                            "gpios"
+                          ]
+                        }
                       },
-                      "required": ["module", "export"],
+                      "required": [
+                        "module",
+                        "export"
+                      ],
                       "additionalProperties": false
                     }
                   }
                 },
-                "required": ["parameters"],
+                "required": [
+                  "parameters"
+                ],
                 "additionalProperties": false
               }
             },
@@ -622,6 +642,10 @@
               "minLength": 1
             },
             "parameter_view": {
+              "type": "string",
+              "minLength": 1
+            },
+            "enable_policy": {
               "type": "string",
               "minLength": 1
             }

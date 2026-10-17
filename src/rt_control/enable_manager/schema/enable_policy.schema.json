@@ -88,10 +88,42 @@
         ],
         "additionalProperties": false
       }
+    },
+    "enable_groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mode_group": {
+            "type": "string",
+            "minLength": 1
+          },
+          "batch_size": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "module",
+          "mode_group",
+          "batch_size"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "mode_confirmation": {
+      "enum": [
+        "none",
+        "startup"
+      ]
     }
   },
   "required": [
-    "managed_joints",
     "disable_terminal_policy",
     "batch_timeout",
     "disable_stage_timeout",
@@ -99,8 +131,20 @@
     "inter_batch_delay",
     "controller_switch_timeout",
     "service_result_timeout_ms",
-    "enable_batches",
     "ready_to_switch_on_disable_terminal_joints"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "anyOf": [
+    {
+      "required": [
+        "managed_joints",
+        "enable_batches"
+      ]
+    },
+    {
+      "required": [
+        "enable_groups"
+      ]
+    }
+  ]
 }

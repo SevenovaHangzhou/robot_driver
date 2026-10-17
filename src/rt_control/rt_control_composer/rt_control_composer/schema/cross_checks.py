@@ -87,6 +87,33 @@ def runtime_admission(data, mock, require_manifest_ready=False):
             raise ValueError("Manifest runtime blockers: " + ", ".join(blockers))
 
 
+def resolve_enable_groups(policy, modules, rendered_modules, managed):
+    """Expand module/mode-group batches into joints; return fixed startup modes per joint."""
+    batches, modes = [], {}
+    for group in policy.pop("enable_groups"):
+        module = group["module"]
+        if module not in rendered_modules:
+            raise ValueError(f"Enable group references an unselected module: {module}")
+        mode_groups = {entry["name"]: entry for entry in modules[module]["mode_groups"]}
+        if group["mode_group"] not in mode_groups:
+            raise ValueError(f"Unknown enable mode group: {module}.{group['mode_group']}")
+        joints = rendered_modules[module]["actuator_groups"][group["mode_group"]]
+        if not joints:
+            raise ValueError(f"Empty enable group: {module}.{group['mode_group']}")
+        size = group["batch_size"]
+        batches += [joints[index : index + size] for index in range(0, len(joints), size)]
+        for joint in joints:
+            if joint in modes:
+                raise ValueError(f"Joint appears in two enable groups: {joint}")
+            modes[joint] = mode_groups[group["mode_group"]]["mode_of_operation"]
+    # Managed order follows the hardware (bus) order; batches keep the policy order.
+    policy["managed_joints"] = [name for name in managed if name in modes]
+    policy["enable_batches"] = batches
+    if policy.pop("mode_confirmation", "none") != "startup":
+        return None
+    return [modes[name] for name in policy["managed_joints"]]
+
+
 def enable_partition(policy, managed):
     names = policy["managed_joints"]
     batches = policy["enable_batches"]

@@ -14,6 +14,7 @@ from .model import Composed
 from .renderer_registry import render_checked, select_renderer
 from .schema.cross_checks import (
     enable_partition,
+    resolve_enable_groups,
     manifest_links,
     merge_systems,
     motion_binding,
@@ -152,10 +153,15 @@ def compose(
         "policies", ["enable", "motion"] if mode != "stationary_enable" else ["enable"]
     )
     selected_enable = view = None
+    expected_modes = None
     if "enable" in policies:
-        enable = policy("enable")
+        enable = policy(scope.get("enable_policy", "enable"))
         view = enable["runtime_views"][mode]
         selected_enable = {**enable, **view}
+        if "enable_groups" in selected_enable:
+            expected_modes = resolve_enable_groups(
+                selected_enable, manifest["modules"], rendered_modules, managed
+            )
         enable_partition(selected_enable, managed)
     motion = policy("motion") if "motion" in policies else None
     order = deepcopy(scope["controller_order"])
@@ -177,6 +183,8 @@ def compose(
     controllers = {"controller_manager": {"ros__parameters": manager}}
     trajectory_names = [name for name in selected_names if bindings[name]["role"] == "trajectory"]
     rolling_names = [name for name in selected_names if bindings[name]["role"] == "rolling"]
+    # A motion-role controller (e.g. swerve) is activated by enable_manager like a JTC.
+    motion_names = [name for name in selected_names if bindings[name]["role"] == "motion"]
     if motion is not None:
         trajectory_binding = bindings[trajectory_names[0]]
         group_result = rendered_modules[trajectory_binding["module"]]
@@ -199,8 +207,12 @@ def compose(
                 ],
                 enable_batch_sizes=[len(batch) for batch in selected_enable["enable_batches"]],
                 enable_only=mode == "stationary_enable",
-                jtc_name=trajectory_names[0] if trajectory_names else "",
+                jtc_name=(trajectory_names + motion_names)[0]
+                if trajectory_names + motion_names
+                else "",
             )
+            if expected_modes is not None:
+                parameters["expected_modes"] = expected_modes
             if motion is not None:
                 parameters.update(
                     motion_mode_switching=bool(rolling_names),
@@ -237,7 +249,7 @@ def compose(
                 calibration_topic=naming["family_calibration"].format(**context),
                 startup_id=startup_id,
             )
-        elif role == "external":
+        elif role in ("external", "motion"):
             share = Path(package_share(binding["package"]))
             source = yaml.safe_load(resolve_share_path(share, binding["config_file"]).read_text())
             parameters = deepcopy(source[name]["ros__parameters"])

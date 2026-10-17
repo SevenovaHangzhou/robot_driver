@@ -215,3 +215,20 @@ def test_x9_merges_two_modules_and_rejects_parameter_conflict(shares):
     conflict["hardware_params"]["control_frequency"] += 1
     with pytest.raises(ValueError, match="Conflicting"):
         merge_systems([("synthetic_owner", a), ("synthetic_owner", conflict)])
+
+
+def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "out")
+    params = result.controllers["enable_manager"]["ros__parameters"]
+    steering = [f"steer{n}_joint" for n in range(1, 5)]
+    drive = [f"wheel{n}_joint" for n in range(1, 5)]
+    # Hardware (ring) order for managed joints; steering batches before drive batches.
+    assert params["managed_joints"] == [j for pair in zip(drive, steering) for j in pair]
+    assert params["enable_batch_joint_names"] == steering + drive
+    assert params["enable_batch_sizes"] == [2, 2, 2, 2]
+    assert params["expected_modes"] == [9, 8] * 4
+    assert params["jtc_name"] == "swerve_controller"
+    assert result.controller_order == {
+        "inactive": ["swerve_controller"],
+        "active": ["joint_state_broadcaster", "enable_manager"],
+    }
