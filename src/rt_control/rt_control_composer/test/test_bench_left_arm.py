@@ -159,3 +159,9 @@ def test_motion_scope_real_mode_stays_closed_until_directions_are_verified(share
     selection = {**arguments(shares, confirmed=True), "control_scope": "bench_left_arm"}
     with pytest.raises(ValueError, match="calibration is not verified"):
         compose(**selection, runtime_dir=tmp_path / "real", use_mock_hardware=False)
+
+
+def test_bench_directions_follow_the_alfav3_model():
+    module = load_yaml(RT / "rt_control_machine_config/machines/Alfa_V3/bench_left_arm.yaml")
+    directions = [axis["direction"] for axis in module["spec"]["branches"]["left"]["axes"]]
+    assert directions == [1, -1, -1, 1, 1, 1, 1]
