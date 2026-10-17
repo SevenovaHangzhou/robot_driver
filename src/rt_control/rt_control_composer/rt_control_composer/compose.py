@@ -119,6 +119,18 @@ def compose(
         rendered_modules[name] = result
     systems = merge_systems(rendered)
     managed = [name for system in systems for name in system["result"]["managed_joints"]]
+    # Lifecycle "active" of a sensor system is a precondition for actuators, never readiness.
+    hardware_order = [
+        system["result"]["hardware_system_id"]
+        for state_only in (True, False)
+        for system in systems
+        if (not system["result"]["managed_joints"]) == state_only
+    ]
+    claims = [
+        f"{system['owner']}:{system['result']['hardware_system_id']}/{claim}"
+        for system in systems
+        for claim in system["result"].get("resource_claims", [])
+    ]
     runtime_files = {}
     for system in systems:
         result = system["result"]
@@ -180,6 +192,10 @@ def compose(
         "update_rate": bus_rates[0],
         **defaults["controller_manager"],
     }
+    staged = bool(scope.get("staged_hardware_activation", False))
+    if staged:
+        # The launcher activates each system in hardware_order after its owner preflight.
+        manager["hardware_components_initial_state"] = {"unconfigured": list(hardware_order)}
     controllers = {"controller_manager": {"ros__parameters": manager}}
     trajectory_names = [name for name in selected_names if bindings[name]["role"] == "trajectory"]
     rolling_names = [name for name in selected_names if bindings[name]["role"] == "rolling"]
@@ -292,7 +308,12 @@ def compose(
     # migrated entry points did not emit them; validation does not add runtime fields.
     robot_description = ET.tostring(robot, encoding="unicode")
     # Validate all paths before writing any output, including collisions with launch outputs.
-    reserved = {"controllers.yaml", "controller_order.yaml", "robot_description.xml"}
+    reserved = {
+        "controllers.yaml",
+        "controller_order.yaml",
+        "robot_description.xml",
+        "lifecycle.yaml",
+    }
     if reserved.intersection(runtime_files):
         raise ValueError("Owner runtime path collides with an integration output")
     paths = {name: resolve_share_path(runtime, name) for name in runtime_files}
@@ -307,6 +328,33 @@ def compose(
     (runtime / "controller_order.yaml").write_text(
         yaml.safe_dump(order, sort_keys=False), encoding="utf-8"
     )
+    lifecycle = {
+        "control_scope": control_scope,
+        "use_mock_hardware": use_mock_hardware,
+        "staged_hardware_activation": staged,
+        "hardware_activation_order": list(hardware_order),
+        "motion_controllers": list(order["inactive"]),
+        "lifecycle_controllers": list(order["active"]),
+        "resource_claims": claims,
+        # One process owns an IgH master or a CAN interface at a time (supervisor locks).
+        "bus_locks": sorted(
+            {
+                f"ethercat-master-{params['master_id']}"
+                for params in (s["result"]["hardware_params"] for s in systems)
+                if "master_id" in params
+            }
+            | {
+                f"can-{params['can_interface_name']}"
+                for params in (s["result"]["hardware_params"] for s in systems)
+                if "can_interface_name" in params
+            }
+        ),
+    }
+    if staged:
+        # Consumed by the generic scope launcher and its orderly shutdown.
+        (runtime / "lifecycle.yaml").write_text(
+            yaml.safe_dump(lifecycle, sort_keys=False), encoding="utf-8"
+        )
     return Composed(
         robot_description,
         controllers,
@@ -315,6 +363,10 @@ def compose(
         systems,
         use_mock_hardware,
         data["safety_policy"],
+        tuple(hardware_order),
+        tuple(claims),
+        staged,
+        lifecycle,
     )
 
 

@@ -648,6 +648,9 @@
             "enable_policy": {
               "type": "string",
               "minLength": 1
+            },
+            "staged_hardware_activation": {
+              "type": "boolean"
             }
           },
           "required": [

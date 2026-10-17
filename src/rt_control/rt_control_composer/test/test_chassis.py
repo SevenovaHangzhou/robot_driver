@@ -235,3 +235,15 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
         "inactive": ["swerve_controller"],
         "active": ["joint_state_broadcaster", "enable_manager"],
     }
+
+
+def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "out")
+    order = list(result.hardware_activation_order)
+    assert order == ["canopen_swerve_encoders", "ecat_arms"]
+    manager = result.controllers["controller_manager"]["ros__parameters"]
+    assert manager["hardware_components_initial_state"] == {"unconfigured": order}
+    lifecycle = yaml.safe_load((tmp_path / "out/lifecycle.yaml").read_text())
+    assert lifecycle["hardware_activation_order"] == order
+    assert lifecycle["motion_controllers"] == ["swerve_controller"]
+    assert lifecycle["lifecycle_controllers"] == ["joint_state_broadcaster", "enable_manager"]

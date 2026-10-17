@@ -175,6 +175,10 @@ def merge_systems(rendered):
                 raise ValueError(f"Duplicate runtime file: {path}")
             merged["runtime_files"][path] = text
         for key, value in result["expected_topology"].items():
+            if key not in merged["expected_topology"]:
+                # Owner-specific checks (e.g. saved-PDO verification) from one merged module.
+                merged["expected_topology"][key] = deepcopy(value)
+                continue
             previous = merged["expected_topology"][key]
             if isinstance(value, list):
                 previous.extend(deepcopy(value))
