@@ -336,6 +336,24 @@ def compose(
         "motion_controllers": list(order["inactive"]),
         "lifecycle_controllers": list(order["active"]),
         "resource_claims": claims,
+        # Operator-visible capabilities; the scope runtime publishes them on /rt/capabilities.
+        "capabilities": [
+            {**deepcopy(item), "controller": name}
+            for name in selected_names
+            for item in bindings[name].get("capabilities", [])
+        ]
+        + (
+            [{"name": "enable", "service": "/control/set_enabled", "type": "SetControlEnabled"}]
+            if any(bindings[name]["role"] == "enable" for name in selected_names)
+            else []
+        ),
+        "hardware": [
+            {
+                "name": s["result"]["hardware_system_id"],
+                "plugin": s["result"]["hardware_plugin"],
+            }
+            for s in systems
+        ],
         # One process owns an IgH master or a CAN interface at a time (supervisor locks).
         "bus_locks": sorted(
             {

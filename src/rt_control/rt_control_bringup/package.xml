@@ -24,6 +24,7 @@
   <exec_depend>control_api_adapter</exec_depend>
   <exec_depend>enable_manager</exec_depend>
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
   <exec_depend>robot_hw_canopen</exec_depend>
   <exec_depend>swerve_driver</exec_depend>
   <exec_depend>rt_control_interfaces</exec_depend>

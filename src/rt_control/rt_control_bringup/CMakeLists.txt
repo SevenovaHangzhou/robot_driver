@@ -31,6 +31,7 @@ install(
     scripts/validate_machine_profile.py
     scripts/scope_hardware_start
     scripts/scope_shutdown
+    scripts/scope_capabilities
   DESTINATION lib/${PROJECT_NAME}
 )
 

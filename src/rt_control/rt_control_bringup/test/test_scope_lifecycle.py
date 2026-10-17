@@ -114,3 +114,17 @@ def test_scope_launch_locks_then_preflights_before_any_node(monkeypatch, tmp_pat
     with pytest.raises(RuntimeError, match="synthetic preflight"):
         module.setup(context)
     assert calls == [("compose", "chassis_only"), ("lock", ("ethercat-master-0",)), ("preflight",)]
+
+
+def test_capability_document_is_derived_from_the_lifecycle_plan():
+    document = lifecycle.capability_document(
+        {
+            "control_scope": "chassis_only",
+            "use_mock_hardware": False,
+            "capabilities": [{"name": "chassis_velocity", "topic": "/cmd_vel"}],
+            "hardware": [{"name": "ecat", "plugin": "ethercat_driver/EthercatDriver"}],
+        }
+    )
+    assert document["schema_version"] == 1
+    assert document["control_scope"] == "chassis_only"
+    assert document["capabilities"][0]["topic"] == "/cmd_vel"

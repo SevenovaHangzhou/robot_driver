@@ -66,6 +66,32 @@
             "role": {
               "type": "string",
               "minLength": 1
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "topic": {
+                    "type": "string",
+                    "pattern": "^/"
+                  },
+                  "type": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "topic",
+                  "type"
+                ],
+                "additionalProperties": false
+              }
             }
           },
           "required": [

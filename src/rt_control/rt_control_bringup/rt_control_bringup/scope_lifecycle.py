@@ -186,6 +186,50 @@ class RosLifecycleBackend:
         self.rclpy.shutdown()
 
 
+CAPABILITIES_TOPIC = "/rt/capabilities"
+
+
+def capability_document(lifecycle):
+    """Stable JSON contract for operator UIs; no hardware-component name matching needed."""
+    return {
+        "schema_version": 1,
+        "control_scope": lifecycle["control_scope"],
+        "use_mock_hardware": lifecycle["use_mock_hardware"],
+        "capabilities": lifecycle.get("capabilities", []),
+        "hardware": lifecycle.get("hardware", []),
+    }
+
+
+def capabilities_main(argv=None):
+    import json
+    import sys
+
+    import rclpy
+    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+    from std_msgs.msg import String
+
+    runtime_dir = (argv if argv is not None else sys.argv[1:])[0]
+    document = capability_document(load_lifecycle(runtime_dir))
+    rclpy.init()
+    node = rclpy.create_node("rt_scope_capabilities")
+    qos = QoSProfile(
+        depth=1, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL
+    )
+    publisher = node.create_publisher(String, CAPABILITIES_TOPIC, qos)
+    message = String()
+    message.data = json.dumps(document, sort_keys=True)
+    publisher.publish(message)
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+    return 0
+
+
 def hardware_start_main(argv=None):
     import sys
 

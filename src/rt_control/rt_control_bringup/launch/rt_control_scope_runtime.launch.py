@@ -84,6 +84,13 @@ def setup(context):
     adapter = Node(
         package="control_api_adapter", executable="control_enable_adapter", output="both"
     )
+    # Published only once the stack is loaded: presence means the scope runtime is up.
+    capabilities = Node(
+        package="rt_control_bringup",
+        executable="scope_capabilities",
+        arguments=[str(runtime)],
+        output="both",
+    )
     return [
         RegisterEventHandler(
             OnProcessExit(
@@ -100,7 +107,13 @@ def setup(context):
             OnProcessExit(target_action=motion, on_exit=_then(lifecycle, "motion load failed"))
         ),
         RegisterEventHandler(
-            OnProcessExit(target_action=lifecycle, on_exit=_then(adapter, "lifecycle load failed"))
+            OnProcessExit(
+                target_action=lifecycle,
+                on_exit=lambda event, context: (
+                    _then(adapter, "lifecycle load failed")(event, context)
+                    + ([capabilities] if not event.returncode else [])
+                ),
+            )
         ),
         RegisterEventHandler(
             OnProcessExit(

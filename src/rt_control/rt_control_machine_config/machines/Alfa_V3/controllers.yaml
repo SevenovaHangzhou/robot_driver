@@ -19,6 +19,11 @@ controllers:
     required_state_modules:
     - swerve_encoders
     role: motion
+    # Public operator capability provided while this controller is active.
+    capabilities:
+    - name: chassis_velocity
+      topic: /cmd_vel
+      type: geometry_msgs/msg/Twist
   head_gimbal:
     module: head_gimbal
     name: damiao_head_manager

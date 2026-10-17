@@ -52,7 +52,9 @@ def test_launch_contains_only_the_ultrasonic_node(monkeypatch):
     assert nodes[0]["name"] == "ultrasonic_node"
     context = LaunchContext()
     context.launch_configurations["ultrasonic_config"] = "/tmp/test-ultrasonic.yaml"
-    assert perform_substitutions(context, [nodes[0]["parameters"][0]]) == "/tmp/test-ultrasonic.yaml"
+    assert (
+        perform_substitutions(context, [nodes[0]["parameters"][0]]) == "/tmp/test-ultrasonic.yaml"
+    )
     arguments = {
         entity.name for entity in description.entities if isinstance(entity, DeclareLaunchArgument)
     }
