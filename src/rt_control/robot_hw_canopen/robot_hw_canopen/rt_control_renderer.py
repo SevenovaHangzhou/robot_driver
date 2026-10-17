@@ -156,6 +156,7 @@ def render(request: Mapping) -> Mapping:
             master_config=deployment["canopen"]["master_config"],
             master_bin=deployment["canopen"]["master_bin"],
             can_interface_name=deployment["can_interfaces"][machine["module"]],
+            ready_feedback_age_ms=profile["ready_feedback_age_ms"],
         )
     return {
         "hardware_system_id": machine["master_system"],

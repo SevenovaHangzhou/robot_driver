@@ -15,6 +15,7 @@ def validate(path):
         "master_driver",
         "position_pdo",
         "state_interfaces",
+        "ready_feedback_age_ms",
     }:
         raise ValueError("Encoder protocol profile has missing or unknown fields")
     if profile["plugin"] != "robot_hw_canopen/SwerveEncoderSystem":
@@ -26,8 +27,11 @@ def validate(path):
         "signed": False,
     }:
         raise ValueError("Encoder position PDO must be unsigned 0x6004:00/32")
-    if profile["state_interfaces"] != ["position", "feedback_age_ms"]:
-        raise ValueError("Encoder states must remain position and feedback_age_ms")
+    if profile["state_interfaces"] != ["position", "feedback_age_ms", "ready"]:
+        raise ValueError("Encoder states must remain position, feedback_age_ms and ready")
+    age = profile["ready_feedback_age_ms"]
+    if not isinstance(age, (int, float)) or isinstance(age, bool) or not 0 < age < 1000:
+        raise ValueError("ready_feedback_age_ms must be a positive millisecond value")
     if profile["node_driver"] != {
         "class": "ros2_canopen::ProxyDriver",
         "package": "canopen_proxy_driver",
