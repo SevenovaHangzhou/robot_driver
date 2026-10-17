@@ -1,0 +1,41 @@
+diff --git a/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp b/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
+--- a/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
++++ b/canopen_ros2_control/include/canopen_ros2_control/canopen_system.hpp
+@@ -257,6 +257,9 @@ protected:
+   virtual void on_rpdo_received(
+     ros2_canopen::COData data, uint8_t id, std::chrono::steady_clock::time_point received_at);
+ 
++  CANOPEN_ROS2_CONTROL__VISIBILITY_PUBLIC
++  virtual void on_nmt_state_changed(canopen::NmtState nmt_state, uint8_t id);
++
+   void spin();
+   virtual bool stop_callback_executor();
+   bool clean();
+diff --git a/canopen_ros2_control/src/canopen_system.cpp b/canopen_ros2_control/src/canopen_system.cpp
+--- a/canopen_ros2_control/src/canopen_system.cpp
++++ b/canopen_ros2_control/src/canopen_system.cpp
+@@ -204,6 +204,11 @@ void CanopenSystem::on_rpdo_received(
+   canopen_data_[id].set_rpdo_data(data);
+ }
+ 
++void CanopenSystem::on_nmt_state_changed(canopen::NmtState nmt_state, uint8_t id)
++{
++  canopen_data_[id].nmt_state.set_state(nmt_state);
++}
++
+ void CanopenSystem::initDeviceContainer()
+ {
+   std::string tmp_master_bin = (info_.hardware_parameters["master_bin"] == "\"\"")
+@@ -219,8 +224,10 @@ void CanopenSystem::initDeviceContainer()
+   {
+     auto proxy_driver = std::static_pointer_cast<ros2_canopen::ProxyDriver>(it->second);
+ 
+-    auto nmt_state_cb = [&](canopen::NmtState nmt_state, uint8_t id)
+-    { canopen_data_[id].nmt_state.set_state(nmt_state); };
++    auto nmt_state_cb = [this](canopen::NmtState nmt_state, uint8_t id)
++    {
++      on_nmt_state_changed(nmt_state, id);
++    };
+     // register callback
+     proxy_driver->register_nmt_state_cb(nmt_state_cb);
+ 
