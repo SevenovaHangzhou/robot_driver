@@ -213,6 +213,15 @@ def compose(
             )
             if expected_modes is not None:
                 parameters["expected_modes"] = expected_modes
+            # Lifecycle "active" is not readiness: required state modules gate enabling.
+            ready = [
+                f"{sensor.attrib['name']}/ready"
+                for module in scope["required_state_modules"]
+                for sensor in rendered_modules[module].get("sensors", [])
+                if sensor.find("state_interface[@name='ready']") is not None
+            ]
+            if ready:
+                parameters["ready_state_interfaces"] = ready
             if motion is not None:
                 parameters.update(
                     motion_mode_switching=bool(rolling_names),

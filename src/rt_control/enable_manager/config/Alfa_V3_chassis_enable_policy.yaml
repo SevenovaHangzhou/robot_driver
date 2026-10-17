@@ -7,6 +7,8 @@ fault_reset_timeout: 4.0
 inter_batch_delay: 0.2
 controller_switch_timeout: 4.0
 service_result_timeout_ms: 30000
+# Required state sources (scope required_state_modules) must stay ready this long first.
+ready_hold_time: 0.05
 enable_groups:
 - module: swerve_chassis
   mode_group: steering_csp
@@ -26,3 +28,4 @@ runtime_views:
     - inter_batch_delay
     - controller_switch_timeout
     - service_result_timeout_ms
+    - ready_hold_time

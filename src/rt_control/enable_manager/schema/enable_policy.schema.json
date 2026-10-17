@@ -121,6 +121,10 @@
         "none",
         "startup"
       ]
+    },
+    "ready_hold_time": {
+      "type": "number",
+      "minimum": 0
     }
   },
   "required": [
