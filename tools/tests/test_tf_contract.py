@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTION = ROOT / "src/description/robot_description"
-MOBILE_URDF = DESCRIPTION / "urdf/robot_analytic_proxy_mobile.urdf"
+MOBILE_URDF = DESCRIPTION / "urdf/robot_alfav3_mobile.urdf"
 SOURCE_LOCK = ROOT / "src/description/source-lock.yaml"
 BRINGUP_MANIFEST = ROOT / "src/rt_control/rt_control_bringup/package.xml"
 DOCKERFILE = ROOT / "docker/rt-control/Dockerfile"
@@ -24,14 +24,14 @@ class TfContractTest(unittest.TestCase):
             source["repository"],
             "https://github.com/SevenovaHangzhou/robot_description.git",
         )
-        self.assertEqual(source["source_branch"], "feature/electri-127-deployed-mobile-model")
+        self.assertEqual(source["source_branch"], "feature/electri-127-alfav3-arms")
         self.assertEqual(
             source["source_revision"],
-            "c49e8ed4c4ee60bf9aecd61548b9848856bc1769",
+            "4d4ad9a86e395d843c0dd4c2f8f035373ca50a2d",
         )
         self.assertEqual(
             source["source_tree"],
-            "ec4a8c4c7a89f1c988bf1891337ab6f707804320",
+            "35153ff9d486c5ccf380387b9dd89c16347225da",
         )
         self.assertEqual(source["model_family"], "alfa_v3")
         self.assertEqual(source["default_end_effector"], "suction")
@@ -75,11 +75,10 @@ class TfContractTest(unittest.TestCase):
 
     def test_v3_model_assets_and_variants_are_installed_by_the_package(self):
         for relative_path in (
-            "urdf/robot_analytic_proxy_mobile.urdf",
+            "urdf/robot_alfav3_mobile.urdf",
             "urdf/robot_dual_suction.urdf.xacro",
-            "srdf/robot.srdf",
-            "config/joint_limits_analytic_proxy_mobile.yaml",
-            "config/initial_positions_analytic_proxy_mobile.yaml",
+            "srdf/robot_alfav3_mobile.srdf",
+            "config/joint_limits_alfav3_mobile.yaml",
             "config/joint_limits_suction.yaml",
         ):
             self.assertTrue((DESCRIPTION / relative_path).is_file(), relative_path)
@@ -91,6 +90,7 @@ class TfContractTest(unittest.TestCase):
         cmake = (DESCRIPTION / "CMakeLists.txt").read_text(encoding="utf-8")
         self.assertIn("install(DIRECTORY urdf srdf meshes config DESTINATION", cmake)
         self.assertIn("model_sources/mechanical_958c49d", cmake)
+        self.assertIn("model_sources/alfav3_arms_1011_4", cmake)
 
     def test_image_and_bringup_require_robot_state_publisher(self):
         manifest = ET.parse(BRINGUP_MANIFEST).getroot()
