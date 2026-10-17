@@ -96,8 +96,7 @@ private:
   };
   using DriveState = rt_control_semantic_components::Cia402State;
 
-  enum class Stage : std::uint8_t
-  {
+  enum class Stage : std::uint8_t {
     kSuccess,
     kAlreadyEnabled,
     kAlreadyDisabled,
@@ -107,6 +106,8 @@ private:
     kPreemptedByDisable,
     kEnableBatchTimeout,
     kEnableInvalidState,
+    kModeMismatch,
+    kModeNotConfirmed,
     kFaultDetected,
     kUnexpectedDriveState,
     kDisableTimeout,
@@ -262,6 +263,10 @@ private:
   bool allAxesInState(DriveState state) const;
   std::int8_t firstAxisNotInState(DriveState state) const;
   void refreshStatusWords();
+  void refreshModes();
+  bool modeConfirmed(std::size_t axis) const noexcept;
+  bool modePending(std::size_t axis) const noexcept;
+  void failEnable(Stage stage, std::size_t axis, std::int64_t now_ns);
 
   std::atomic_bool active_{false};
   std::atomic<Phase> phase_{Phase::kInactive};
@@ -271,6 +276,7 @@ private:
   std::atomic_bool reset_request_{false};
   std::atomic_bool enable_hardware_ready_{false};
   std::atomic_bool jtc_activate_failed_request_{false};
+  std::atomic_bool jtc_activated_request_{false};
   std::atomic_bool emergency_jtc_deactivate_request_{false};
   std::atomic_bool jtc_deactivation_required_{false};
   std::atomic_bool restart_required_{false};
@@ -296,12 +302,19 @@ private:
   std::atomic<std::int8_t> last_failed_batch_{-1};
   std::atomic<std::int8_t> last_failed_joint_{-1};
   std::atomic<std::uint16_t> last_failed_status_word_{0U};
+  // 256 denotes an invalid/unavailable mode sample; 0 remains a real pending mode.
+  std::atomic<std::int16_t> last_failed_mode_{256};
+  std::atomic<std::int16_t> last_expected_mode_{0};
 
   std::vector<std::string> joint_names_;
   std::vector<std::string> motion_joint_names_;
   std::vector<std::vector<std::size_t>> enable_batches_;
   std::vector<std::uint8_t> ready_to_switch_on_disable_terminal_;
   std::vector<std::uint16_t> status_words_;
+  std::vector<std::int16_t> expected_modes_;
+  std::vector<std::int16_t> actual_modes_;
+  std::vector<std::size_t> mode_state_indices_;
+  std::vector<std::uint8_t> mode_confirmed_;
   std::vector<std::uint8_t> reset_targets_;
   std::vector<rt_control_semantic_components::Cia402Axis> cia402_axes_;
   std::size_t current_batch_{0U};
