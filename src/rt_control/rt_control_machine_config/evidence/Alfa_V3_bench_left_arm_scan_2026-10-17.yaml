@@ -64,3 +64,18 @@ op_bringup_2026_10_17_18_19:
   steady_state_60_s: {frame_loss: 0.0, new_wc_errors: 0, joint_states_hz: 250.0}
   status_word: 0x1250
   update_thread: pinned to CPU14 after the startup thread exited
+power_cycle_21_09:
+  # Drives power-cycled by the user; 0x603F 0xA000 on positions 2/4/5/6 cleared.
+  raw_0x6064_after: {1: 262148, 2: 262142, 3: 494139, 4: 262148, 5: 262141, 6: 262142, 7: 157491}
+op_bringup_2026_10_17_21_12_1khz_prepinned:
+  # 1 kHz, update thread pinned to CPU14 0.73 s after launch (before activation); seconds from launch
+  update_thread_pinned: 0.73
+  startup_thread: {appears: 0.80, exits: 3.90}
+  master_activated: 0.81
+  drive_op: {1: 1.33, 2: 1.74, 3: 2.20, 4: 2.62, 5: 3.08, 6: 3.49, 7: 3.91}
+  per_drive_s: [0.41, 0.46]
+  dc_sync_timeouts: none
+  handoff_rescan: none
+  activation_datagrams: {timed_out: 1, unmatched: 1}
+  steady_state_60_s: {frame_loss: 0.0, wc_error_count: 0, joint_states_hz: 1000.0}
+  status_word: 0x1250
