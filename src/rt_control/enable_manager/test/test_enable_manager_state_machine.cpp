@@ -57,6 +57,11 @@ public:
   using ModeSwitchState = EnableManagerController::ModeSwitchState;
 
   static Phase phase(const Controller & c) {return c.phase_.load();}
+  static Stage failureStage(const Controller & c) { return c.last_failure_stage_.load(); }
+  static int failureActualMode(const Controller & c) { return c.last_failed_mode_.load(); }
+  static int failureExpectedMode(const Controller & c) { return c.last_expected_mode_.load(); }
+  static void activationSucceeded(Controller & c) { c.jtc_activated_request_.store(true); }
+  static void activationFailed(Controller & c) { c.jtc_activate_failed_request_.store(true); }
   static Owner owner(const Controller & c) {return c.owner_.load();}
   static std::size_t currentBatch(const Controller & c) {return c.current_batch_;}
   static bool restartRequired(const Controller & c) {return c.restart_required_.load();}
@@ -283,6 +288,7 @@ public:
     status_buffer_.fill(static_cast<double>(kSwSwitchOnDisabled));
     command_buffer_.fill(0.0);
     position_buffer_.fill(0.0);
+    mode_buffer_.fill(0.0);
     feedback_age_ms_ = 0.0;
   }
 
@@ -347,7 +353,9 @@ public:
     command_handles_.reserve(kAxes);
     const bool motion_mode =
       controller_->state_interface_configuration().names.size() == kAxes * 2U + 1U;
-    state_handles_.reserve(motion_mode ? kAxes * 2U + 1U : kAxes);
+    const bool fixed_modes =
+      !controller_->get_node()->get_parameter("expected_modes").as_integer_array().empty();
+    state_handles_.reserve(motion_mode ? kAxes * 2U + 1U : fixed_modes ? kAxes * 2U : kAxes);
 
     // The controller claims interfaces in kJointNames order, so build in that order.
     for (std::size_t axis = 0; axis < kAxes; ++axis) {
@@ -365,6 +373,13 @@ public:
       }
       state_handles_.emplace_back(
         "ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
+    }
+
+    if (fixed_modes) {
+      for (std::size_t axis = 0; axis < kAxes; ++axis) {
+        state_handles_.emplace_back(
+          kJointNames[axis], "mode_of_operation_display", &mode_buffer_[axis]);
+      }
     }
 
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
@@ -592,6 +607,7 @@ public:
   std::array<double, kAxes> command_buffer_{};
   std::array<double, kAxes> status_buffer_{};
   std::array<double, kAxes> position_buffer_{};
+  std::array<double, kAxes> mode_buffer_{};
   double feedback_age_ms_{0.0};
   std::vector<hardware_interface::CommandInterface> command_handles_;
   std::vector<hardware_interface::StateInterface> state_handles_;
@@ -2108,13 +2124,27 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
 {
-  const std::array<Stage, 18> all{
-    Stage::kSuccess, Stage::kAlreadyEnabled, Stage::kAlreadyDisabled, Stage::kAlreadyClear,
-    Stage::kOperationInProgress, Stage::kControllerInactive, Stage::kPreemptedByDisable,
-    Stage::kEnableBatchTimeout, Stage::kEnableInvalidState, Stage::kFaultDetected,
-    Stage::kUnexpectedDriveState, Stage::kDisableTimeout, Stage::kFaultRequiresReset,
-    Stage::kFaultResetTimeout, Stage::kJtcActivateFailed, Stage::kJtcDeactivateFailed,
-    Stage::kControllerUpdateTimeout, Stage::kRestartRequired};
+  const std::array<Stage, 20> all{
+    Stage::kSuccess,
+    Stage::kAlreadyEnabled,
+    Stage::kAlreadyDisabled,
+    Stage::kAlreadyClear,
+    Stage::kOperationInProgress,
+    Stage::kControllerInactive,
+    Stage::kPreemptedByDisable,
+    Stage::kEnableBatchTimeout,
+    Stage::kEnableInvalidState,
+    Stage::kModeMismatch,
+    Stage::kModeNotConfirmed,
+    Stage::kFaultDetected,
+    Stage::kUnexpectedDriveState,
+    Stage::kDisableTimeout,
+    Stage::kFaultRequiresReset,
+    Stage::kFaultResetTimeout,
+    Stage::kJtcActivateFailed,
+    Stage::kJtcDeactivateFailed,
+    Stage::kControllerUpdateTimeout,
+    Stage::kRestartRequired};
 
   std::vector<std::string> names;
   for (const Stage stage : all) {
@@ -2126,6 +2156,281 @@ TEST(StageNameTest, EveryStageHasANonEmptyDistinctName)
   std::sort(names.begin(), names.end());
   EXPECT_EQ(std::adjacent_find(names.begin(), names.end()), names.end())
     << "duplicate stage name";
+}
+
+class FixedModeFixture : public EnableManagerFixture
+{
+public:
+  void bringUpFixed()
+  {
+    initAndConfigure(
+      "fixed_mode_enable",
+      {rclcpp::Parameter("expected_modes", std::vector<std::int64_t>(kAxes, 8)),
+       rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
+       rclcpp::Parameter(
+         "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{})});
+    activate();
+    ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+    Access::setOwner(*controller_, Owner::kEnable);
+    Access::setEnableRequest(*controller_, true);
+    callUpdate();
+  }
+  void firstBatchEnabled()
+  {
+    bringUpFixed();
+    for (auto axis : {0U, 1U, 2U}) {
+      setStatus(axis, kSwOperationEnabled);
+    }
+  }
+  void finishRollback()
+  {
+    for (unsigned i = 0; i < 20 && Access::phase(*controller_) != Phase::kIdle; ++i) {
+      stepDriveResponses();
+      callUpdate();
+    }
+    EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+  }
+};
+
+TEST_F(FixedModeFixture, EnabledModeZeroKeepsEnableWordButDoesNotCompleteBatch)
+{
+  firstBatchEnabled();
+  updateTimes(10);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabling);
+  EXPECT_EQ(Access::currentBatch(*controller_), 0U);
+  EXPECT_FALSE(Access::enableHardwareReady(*controller_));
+  for (auto axis : {0U, 1U, 2U}) {
+    EXPECT_EQ(command(axis), 15);
+  }
+  mode_buffer_[0] = 8;
+  mode_buffer_[1] = 8;
+  callUpdate();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabling);
+  mode_buffer_[2] = 8;
+  callUpdate();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kInterBatchDelay);
+}
+
+TEST_F(FixedModeFixture, ModeTimeoutReportsOriginalModeJointAndStatusAfterRollback)
+{
+  firstBatchEnabled();
+  mode_buffer_[0] = mode_buffer_[1] = 8;
+  callUpdate();
+  advance(kBatchTimeout);
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeNotConfirmed);
+  EXPECT_EQ(Access::failureActualMode(*controller_), 0);
+  EXPECT_EQ(Access::failureExpectedMode(*controller_), 8);
+  EXPECT_EQ(command(2), 7);
+  finishRollback();
+  const auto & slot = Access::enableResult(*controller_);
+  EXPECT_EQ(Access::slotStage(slot), Stage::kModeNotConfirmed);
+  EXPECT_EQ(Access::slotFailedJoint(slot), 2);
+  EXPECT_EQ(Access::slotStatusWord(slot), kSwOperationEnabled);
+  EXPECT_EQ(Access::failureActualMode(*controller_), 0);
+}
+
+TEST_F(FixedModeFixture, WrongModeFailsImmediatelyAndReportsObservedMode)
+{
+  firstBatchEnabled();
+  mode_buffer_[1] = 9;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+  EXPECT_EQ(Access::failureActualMode(*controller_), 9);
+  EXPECT_EQ(command(1), 7);
+  finishRollback();
+  EXPECT_EQ(Access::slotFailedJoint(Access::enableResult(*controller_)), 1);
+}
+
+TEST_F(FixedModeFixture, InvalidModeSampleIsNotTreatedAsPendingZero)
+{
+  firstBatchEnabled();
+  mode_buffer_[0] = std::numeric_limits<double>::quiet_NaN();
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+  EXPECT_EQ(Access::failureActualMode(*controller_), 256);
+}
+
+TEST_F(FixedModeFixture, IndividuallyConfirmedAxisCannotRevertWhileItsBatchWaits)
+{
+  firstBatchEnabled();
+  mode_buffer_[0] = 8;
+  callUpdate();
+  mode_buffer_[0] = 0;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+  EXPECT_EQ(command(0), 7);
+}
+
+TEST_F(FixedModeFixture, InterBatchDelayChecksPreviouslyConfirmedModeAndEnableState)
+{
+  firstBatchEnabled();
+  mode_buffer_.fill(8);
+  callUpdate();
+  ASSERT_EQ(Access::phase(*controller_), Phase::kInterBatchDelay);
+  setStatus(1, kSwSwitchedOn);
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kUnexpectedDriveState);
+  EXPECT_NE(Access::phase(*controller_), Phase::kInterBatchDelay);
+}
+
+TEST_F(FixedModeFixture, InterBatchModeChangeFailsWithoutWaitingForNextBatch)
+{
+  firstBatchEnabled();
+  mode_buffer_.fill(8);
+  callUpdate();
+  ASSERT_EQ(Access::phase(*controller_), Phase::kInterBatchDelay);
+  mode_buffer_[1] = 9;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+}
+
+TEST_F(FixedModeFixture, AllModesMustMatchBeforeControllerActivationIsRequested)
+{
+  bringUpFixed();
+  mode_buffer_.fill(8);
+  for (unsigned i = 0; i < 400 && Access::phase(*controller_) != Phase::kJtcActivating; ++i) {
+    stepDriveResponses();
+    callUpdate();
+  }
+  ASSERT_EQ(Access::phase(*controller_), Phase::kJtcActivating);
+  EXPECT_TRUE(Access::enableHardwareReady(*controller_));
+  Access::activationSucceeded(*controller_);
+  callUpdate();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  EXPECT_TRUE(Access::slotOk(Access::enableResult(*controller_)));
+}
+
+TEST_F(FixedModeFixture, ModeChangeDuringActivationWinsOverConcurrentActivationSuccess)
+{
+  bringUpFixed();
+  setAllStatus(kSwOperationEnabled);
+  mode_buffer_.fill(8);
+  Access::setPhase(*controller_, Phase::kJtcActivating);
+  Access::activationSucceeded(*controller_);
+  mode_buffer_[4] = 0;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+  EXPECT_EQ(command(0), kCwQuickStop);
+  EXPECT_FALSE(Access::slotOk(Access::enableResult(*controller_)));
+}
+
+TEST_F(FixedModeFixture, EnableLossDuringActivationTriggersImmediateStop)
+{
+  bringUpFixed();
+  setAllStatus(kSwOperationEnabled);
+  mode_buffer_.fill(8);
+  Access::setPhase(*controller_, Phase::kJtcActivating);
+  setStatus(3, kSwSwitchedOn);
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kUnexpectedDriveState);
+  EXPECT_EQ(command(0), kCwQuickStop);
+}
+
+TEST_F(FixedModeFixture, EnabledModeChangeIsStoppedWithActualModeDiagnostic)
+{
+  bringUpFixed();
+  setAllStatus(kSwOperationEnabled);
+  mode_buffer_.fill(8);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setOwner(*controller_, Owner::kNone);
+  mode_buffer_[5] = 9;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+  EXPECT_EQ(Access::failureActualMode(*controller_), 9);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+}
+
+TEST_F(FixedModeFixture, ARealControllerActivationFailureIsNotRetriedOrHidden)
+{
+  bringUpFixed();
+  setAllStatus(kSwOperationEnabled);
+  mode_buffer_.fill(8);
+  Access::setPhase(*controller_, Phase::kJtcActivating);
+  Access::activationFailed(*controller_);
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kJtcActivateFailed);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kRollback);
+}
+
+TEST_F(EnableManagerFixture, FixedModeConfigRejectsLengthZeroAndOutOfInt8Range)
+{
+  for (const auto & modes :
+       {std::vector<std::int64_t>{8}, std::vector<std::int64_t>(kAxes, 0),
+        std::vector<std::int64_t>(kAxes, 128), std::vector<std::int64_t>(kAxes, -129)}) {
+    EnableManagerController c;
+    rclcpp::NodeOptions opts;
+    opts.parameter_overrides(
+      parametersWithFixtureTopology({rclcpp::Parameter("expected_modes", modes)}));
+    opts.allow_undeclared_parameters(true);
+    opts.automatically_declare_parameters_from_overrides(true);
+    ASSERT_EQ(c.init("bad_expected_modes", "", opts), controller_interface::return_type::OK);
+    EXPECT_EQ(
+      c.on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
+  }
+}
+
+TEST_F(FixedModeFixture, ExpectedModePolicyIsFrozenAndBindingsAreValidated)
+{
+  bringUpFixed();
+  const auto result = controller_->get_node()->set_parameters_atomically(
+    {rclcpp::Parameter("expected_modes", std::vector<std::int64_t>(kAxes, 9))});
+  EXPECT_FALSE(result.successful);
+  controller_->on_deactivate(rclcpp_lifecycle::State());
+  controller_->release_interfaces();
+  // Missing mode loans cannot silently fall back to status-word-only checking.
+  std::vector<hardware_interface::LoanedCommandInterface> cmds;
+  std::vector<hardware_interface::LoanedStateInterface> states;
+  for (size_t i = 0; i < kAxes; ++i) {
+    cmds.emplace_back(command_handles_[i]);
+    states.emplace_back(state_handles_[i]);
+  }
+  controller_->assign_interfaces(std::move(cmds), std::move(states));
+  EXPECT_EQ(
+    controller_->on_activate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+}
+
+TEST_F(EnableManagerFixture, SwerveActivationMakesExactlyOneSwitchRequest)
+{
+  initAndConfigure(
+    "single_switch_test", {rclcpp::Parameter("jtc_name", std::string("swerve_controller"))});
+  activate();
+  setAllStatus(kSwOperationEnabled);
+  Access::setPhase(*controller_, Phase::kJtcActivating);
+  auto manager = std::make_shared<rclcpp::Node>("single_switch_manager");
+  std::atomic<int> calls{0};
+  auto service = manager->create_service<controller_manager_msgs::srv::SwitchController>(
+    "/controller_manager/switch_controller",
+    [&calls](
+      const std::shared_ptr<controller_manager_msgs::srv::SwitchController::Request>,
+      std::shared_ptr<controller_manager_msgs::srv::SwitchController::Response> reply) {
+      ++calls;
+      reply->ok = false;
+    });
+  auto list = manager->create_service<controller_manager_msgs::srv::ListControllers>(
+    "/controller_manager/list_controllers",
+    [](
+      const std::shared_ptr<controller_manager_msgs::srv::ListControllers::Request>,
+      std::shared_ptr<controller_manager_msgs::srv::ListControllers::Response> reply) {
+      controller_manager_msgs::msg::ControllerState state;
+      state.name = "swerve_controller";
+      state.state = "inactive";
+      reply->controller.push_back(state);
+    });
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(manager);
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  std::thread spin([&] { executor.spin(); });
+  const bool available =
+    Access::waitForControllerManagerServices(*controller_, std::chrono::seconds(2));
+  auto result = available ? Access::switchJtc(*controller_, true) : SwitchResult::kAmbiguous;
+  executor.cancel();
+  spin.join();
+  EXPECT_TRUE(available);
+  EXPECT_EQ(result, SwitchResult::kFailed);
+  EXPECT_EQ(calls.load(), 1);
 }
 
 }  // namespace
