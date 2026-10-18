@@ -144,3 +144,49 @@ def test_run_sequence_route_reports_console_checks(server):
     )
     assert response.status == 409 and "第 1 个" in json.loads(body)["message"]
     assert not driver.sent
+
+
+def test_audit_log_records_commands_without_secrets(setup, tmp_path):  # noqa: F811
+    from rt_control_arm_console.audit import AuditLog
+
+    console, _, _ = setup
+    path = tmp_path / "audit" / "audit.jsonl"
+    instance = ConsoleServer(
+        ("127.0.0.1", 0),
+        console,
+        "secret",
+        WEB,
+        lambda _: "/nonexistent",
+        lambda enabled: {"accepted": False, "enabled": False, "message": "drives faulted"},
+        AuditLog(path),
+    )
+    thread = threading.Thread(target=instance.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, _ = request(instance, "POST", "/api/login", {"token": "wrong"})
+        assert response.status == 401
+        cookie = login(instance)
+        request(instance, "POST", "/api/stop", {}, cookie)
+        console.release("s1")
+        request(instance, "POST", "/api/acquire", {}, cookie)
+        response, _ = request(
+            instance, "POST", "/api/enable", {"enabled": True, "extra": "x"}, cookie
+        )
+        assert response.status == 409
+    finally:
+        instance.stopping.set()
+        instance.shutdown()
+        instance.server_close()
+    entries = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [(e["action"], e["ok"]) for e in entries] == [
+        ("login", False),
+        ("login", True),
+        ("stop", True),
+        ("acquire", True),
+        ("enable", False),
+    ]
+    assert entries[-1]["args"] == {"enabled": True} and entries[-1]["error"] == "enable_rejected"
+    assert entries[-1]["message"] == "drives faulted"
+    text = path.read_text()
+    assert "secret" not in text and cookie.split("=", 1)[1] not in text
+    assert len(entries[1]["session"]) == 8 and entries[1]["session"] == entries[2]["session"]

@@ -58,6 +58,13 @@
 
 运行栈必须使用发布 `arm_joint_trajectory` 能力的 scope，例如 `bench_left_arm`。
 
+## 操作审计日志
+
+每个操作请求（登录、取得/释放控制权、预览、执行、停止、去位姿、序列、保存/删除位姿、使能/失能）
+追加一行 JSON 到 `~/.ros/log/rt_control_arm_console/audit.jsonl`（`--audit-log` 改路径，空字符串关闭）。
+内容：时间、`ROS_DOMAIN_ID`、操作、参数（目标、档位、位姿名、使能）、结果与拒绝原因、会话摘要（8 位哈希）、客户端地址。
+不写令牌和会话值；写失败不影响操作。Runtime-LOG 按 ROS 域和时间把它们归入运行时间线。
+
 ## 浏览器库
 
 `web/vendor/` 内为离线使用的 three.js 与 urdf-loader，来源和许可证见 `web/vendor/README.md`。
