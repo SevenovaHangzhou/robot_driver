@@ -125,7 +125,8 @@ def test_scope_launch_reads_artifact_locks_then_preflights_before_any_node(monke
 
 @pytest.mark.parametrize(
     "inactive, expected",
-    [([], ["lifecycle"]), (["swerve_controller"], ["motion", "lifecycle"])],
+    # Field tuning (ELECTRI-127) runs only when motion controllers exist to be tuned.
+    [([], ["lifecycle"]), (["swerve_controller"], ["motion", "tuning", "lifecycle"])],
 )
 def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
     monkeypatch, inactive, expected
@@ -154,6 +155,8 @@ def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
         if kwargs["executable"] == "spawner":
             spawners.append("motion" if "--inactive" in kwargs["arguments"] else "lifecycle")
             assert kwargs["arguments"][0] in [*inactive, "enable_manager"]
+        if kwargs["executable"] == "scope_operator_tuning":
+            spawners.append("tuning")
         return real_node(**kwargs)
 
     monkeypatch.setattr(module, "Node", node)

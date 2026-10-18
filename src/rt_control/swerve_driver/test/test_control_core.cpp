@@ -37,7 +37,11 @@ protected:
   ModuleFeedbackArray feedback{};
   void SetUp() override
   {
-    for (auto & module : feedback) {module.valid = true; module.enabled = true;}
+    for (auto & module : feedback) {
+      module.valid = true;
+      module.enabled = true;
+      module.encoder_valid = true;
+    }
     ASSERT_TRUE(core.activate(feedback));
   }
 };
@@ -64,22 +68,57 @@ TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)
   }
 }
 
-TEST_F(ControlCoreTest, ExternalAngleGatesDriveWithoutCorrectingMotorZero)
+TEST_F(ControlCoreTest, ExternalEncoderOnlyMonitorsAndGatingUsesTheMotorAngle)
 {
+  // An external offset within max_encoder_difference neither gates the wheels nor moves
+  // the motor-based targets (ELECTRI-127: the external encoder is a monitor).
   for (auto & module : feedback) {module.steering_angle = 0.15;}
+  ControlOutput result;
   for (int cycle = 0; cycle < 100; ++cycle) {
-    const auto result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
-    if (cycle > 10) {
-      for (const auto target : result.steering_position) {EXPECT_NEAR(target, 0.0, 1e-12);}
+    result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
+    for (const auto target : result.steering_position) {
+      EXPECT_NEAR(target, 0.0, 1e-12);
     }
   }
+  EXPECT_EQ(result.status, ControlStatus::running);
+  for (const auto speed : result.drive_velocity) {
+    EXPECT_GT(speed, 0.0);
+  }
+  // A motor angle beyond the alignment threshold gates; the wheels ramp down, no step.
+  const double before{result.drive_velocity[0]};
   for (auto & module : feedback) {
     module.steering_angle = 0.5;
     module.steering_position = 0.5;
   }
-  const auto result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
+  result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
   EXPECT_EQ(result.status, ControlStatus::alignment_gated);
+  EXPECT_LT(result.drive_velocity[0], before);
+  EXPECT_GT(result.drive_velocity[0], 0.0);
+  for (int cycle = 0; cycle < 100; ++cycle) {
+    result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
+  }
   for (const auto speed : result.drive_velocity) {EXPECT_DOUBLE_EQ(speed, 0.0);}
+}
+
+TEST_F(ControlCoreTest, ExternalEncoderMismatchFaultsOnlyAfterTheMonitorWindow)
+{
+  // 0.3 rad from the motor angle exceeds max_encoder_difference (0.2 rad).
+  feedback[1].steering_angle = 0.3;
+  ControlOutput result;
+  for (int cycle = 0; cycle < 12; ++cycle) {  // 48 ms, inside the 50 ms window
+    result = core.update(feedback, {}, false, 0.004);
+    EXPECT_NE(result.status, ControlStatus::feedback_fault);
+  }
+  result = core.update(feedback, {}, false, 0.004);  // 52 ms
+  EXPECT_EQ(result.status, ControlStatus::feedback_fault);
+}
+
+TEST_F(ControlCoreTest, IsolatedInvalidEncoderSamplesDoNotAccumulate)
+{
+  for (int cycle = 0; cycle < 100; ++cycle) {
+    feedback[3].encoder_valid = cycle % 2 == 0;  // every other sample lost
+    EXPECT_NE(core.update(feedback, {}, false, 0.004).status, ControlStatus::feedback_fault);
+  }
 }
 
 TEST_F(ControlCoreTest, AnyInvalidFeedbackStopsAllDriveWheelsAndHoldsLastTargets)
@@ -97,6 +136,8 @@ TEST_F(ControlCoreTest, RejectedSteeringJumpCannotPolluteOdometryBeforeStop)
 {
   for (auto & module : feedback) {module.wheel_position = 1.0;}
   feedback[2].wheel_position = 10.0;
+  // The hold is judged on the motor-derived angle; the encoder agrees with the motor.
+  feedback[2].steering_position = 2.0;
   feedback[2].steering_angle = 2.0;
 
   const auto result = core.update(feedback, {}, false, 0.004);
@@ -123,11 +164,12 @@ TEST_F(ControlCoreTest, StaleCommandsAndBadTimingNeverProduceMotion)
       true, 0.004).status, ControlStatus::invalid_command);
 }
 
-TEST_F(ControlCoreTest, OdometryUsesWheelMotionAndExternalSteering)
+TEST_F(ControlCoreTest, OdometryUsesWheelMotionAndMotorSteering)
 {
+  // Odometry heading comes from the motor-derived angle (1 kHz, synchronous with wheels).
   for (auto & module : feedback) {
-    module.steering_position = 1.5;
-    module.steering_angle = kPi / 2.0;
+    module.steering_position = kPi / 2.0;
+    module.steering_angle = 1.5;
   }
   ASSERT_TRUE(core.activate(feedback));
   for (auto & module : feedback) {

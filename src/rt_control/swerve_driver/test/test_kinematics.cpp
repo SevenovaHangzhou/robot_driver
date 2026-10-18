@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <stdexcept>
+#include <vector>
 
 #include "swerve_driver/swerve_kinematics.hpp"
 #include "swerve_driver/swerve_odometry.hpp"
@@ -471,5 +472,96 @@ TEST(SwerveSetpointGeneratorTest, SteeringRateRampsUpAndRampsDownBeforeLatching)
   EXPECT_DOUBLE_EQ(previous_rate, 0.0);
   const auto latched = generator.generate(desired, measured, dt, holding);
   EXPECT_DOUBLE_EQ(latched.modules[0].target_angle_rad, previous_target);
+}
+}  // namespace swerve_driver
+
+namespace swerve_driver
+{
+namespace
+{
+// Drives one generator towards ``goal`` for ``steps`` 1 ms cycles with perfect tracking and
+// returns the commanded angle history of module 0.
+std::vector<double> run_steering(
+  SwerveSetpointGenerator & generator, std::array<double, kSwerveModuleCount> & angles, double goal,
+  int steps)
+{
+  std::vector<double> history;
+  for (int step = 0; step < steps; ++step) {
+    std::array<SwerveModuleState, kSwerveModuleCount> desired{};
+    for (auto & state : desired) {
+      state = {0.5, goal};
+    }
+    const auto result = generator.generate(desired, angles, 0.001);
+    for (auto & angle : angles) {
+      angle = result.modules[0].target_angle_rad;
+    }
+    history.push_back(angles[0]);
+  }
+  return history;
+}
+
+SwerveSetpointParameters s_curve_parameters()
+{
+  SwerveSetpointParameters parameters{kPi, 0.1, 35.0 * kPi / 180.0};
+  parameters.maximum_steering_acceleration_radps2 = 20.0 * kPi / 180.0;
+  parameters.maximum_steering_jerk_radps3 = 100.0 * kPi / 180.0;
+  parameters.angle_limits.fill(SteeringAngleLimits{-2.4, 2.4, 0.0, 0.05});
+  return parameters;
+}
+}  // namespace
+
+TEST(SwerveKinematicsTest, JerkLimitedSteeringRespectsLimitsAndArrivesAtRest)
+{
+  // ELECTRI-127: S-curve steering; acceleration ramps instead of stepping.
+  const auto parameters = s_curve_parameters();
+  SwerveSetpointGenerator generator{parameters};
+  std::array<double, kSwerveModuleCount> angles{};
+  generator.reset(angles);
+  const double goal{45.0 * kPi / 180.0};
+  const auto history = run_steering(generator, angles, goal, 4000);
+  double previous_rate{0.0};
+  double peak_rate{0.0};
+  double peak_acceleration{0.0};
+  for (std::size_t i = 1; i < history.size(); ++i) {
+    const double rate{(history[i] - history[i - 1]) / 0.001};
+    peak_rate = std::max(peak_rate, std::abs(rate));
+    peak_acceleration = std::max(peak_acceleration, std::abs(rate - previous_rate) / 0.001);
+    previous_rate = rate;
+    EXPECT_LE(history[i], goal + 1e-12);  // never passes the goal
+  }
+  EXPECT_LE(peak_rate, parameters.maximum_steering_slew_radps * (1.0 + 1e-9));
+  // Finite differences of a trapezoidal position integration: allow one jerk step of slack.
+  EXPECT_LE(
+    peak_acceleration, parameters.maximum_steering_acceleration_radps2 +
+                         parameters.maximum_steering_jerk_radps3 * 0.001);
+  EXPECT_NEAR(history.back(), goal, 1e-6);
+  // Arrival is smooth: within 1e-5 rad of the goal the rate is already tiny (no step to 0).
+  const auto near = std::find_if(
+    history.begin() + 1, history.end(), [goal](double angle) { return goal - angle < 1e-5; });
+  ASSERT_NE(near, history.end());
+  EXPECT_LT((*near - *(near - 1)) / 0.001, 0.01);
+}
+
+TEST(SwerveKinematicsTest, JerkLimitedSteeringFollowsAGoalChangeWithoutOvershoot)
+{
+  SwerveSetpointGenerator generator{s_curve_parameters()};
+  std::array<double, kSwerveModuleCount> angles{};
+  generator.reset(angles);
+  run_steering(generator, angles, 45.0 * kPi / 180.0, 1200);
+  const auto history = run_steering(generator, angles, -30.0 * kPi / 180.0, 6000);
+  for (const auto angle : history) {
+    EXPECT_GE(angle, -30.0 * kPi / 180.0 - 1e-12);
+  }
+  EXPECT_NEAR(history.back(), -30.0 * kPi / 180.0, 1e-6);
+}
+
+TEST(SwerveKinematicsTest, JerkLimitNeedsAFiniteAccelerationLimit)
+{
+  SwerveSetpointParameters parameters{kPi, 0.1, 1.0};
+  parameters.maximum_steering_jerk_radps3 = 1.0;  // acceleration still unlimited
+  EXPECT_THROW(SwerveSetpointGenerator{parameters}, std::invalid_argument);
+  parameters.maximum_steering_acceleration_radps2 = 1.0;
+  parameters.maximum_steering_jerk_radps3 = 0.0;
+  EXPECT_THROW(SwerveSetpointGenerator{parameters}, std::invalid_argument);
 }
 }  // namespace swerve_driver

@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Installed entry point; logic lives in rt_control_bringup.operator_tuning."""
+
+import sys
+
+from rt_control_bringup.operator_tuning import main
+
+sys.exit(main())

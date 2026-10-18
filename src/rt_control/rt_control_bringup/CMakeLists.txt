@@ -32,6 +32,7 @@ install(
     scripts/scope_hardware_start
     scripts/scope_shutdown
     scripts/scope_capabilities
+    scripts/scope_operator_tuning
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -50,6 +51,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_composer_entries test/test_composer_entries.py)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
   ament_add_pytest_test(test_scope_lifecycle test/test_scope_lifecycle.py)
+  ament_add_pytest_test(test_operator_tuning test/test_operator_tuning.py)
   ament_add_pytest_test(
     test_interface_runtime_launch
     test/test_interface_runtime_launch.py

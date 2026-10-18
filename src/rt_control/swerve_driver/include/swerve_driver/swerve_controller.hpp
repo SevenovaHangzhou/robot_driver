@@ -81,11 +81,23 @@ private:
   void track_fault(ControlStatus status, const ModuleFeedbackArray & feedback, int64_t now);
   std::atomic_bool fault_latched_{false}, fault_stop_ready_{false};
   int64_t fault_since_ns_{0}, wheels_stopped_since_ns_{0};
+  // First latched fault, for diagnostics: status and per-module feedback reasons
+  // (4 bits per module: 1 stale, 2 not enabled/mode, 4 encoder vs motor > limit, 8 non-finite).
+  std::atomic<int> fault_status_code_{-1};
+  std::atomic<uint32_t> fault_module_bits_{0U};
+  std::atomic<int32_t> fault_max_difference_mdeg_{0};
+  // Largest |measurement - steering target| at the latch (motor and external encoder), mdeg.
+  std::atomic<int32_t> fault_target_deviation_mdeg_{0};
+  std::atomic<int> fault_target_module_{0};
   double fault_stop_speed_{0.01}, fault_stop_hold_{0.05}, fault_stop_timeout_{2.0};
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr fault_stop_publisher_;
   rclcpp::TimerBase::SharedPtr fault_stop_timer_;
   std::atomic<unsigned int> slipping_mask_{0U};
   std::mutex lifecycle_mutex_;
+  // Operator-tunable steering motion (user 2026-10-18): checked against hard limits on set,
+  // applied at the next activation (the console only changes them while disabled).
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr steering_parameter_callback_;
+  bool apply_steering_motion_parameters();
   uint64_t generation_{0};
   int64_t block_before_ns_{0};
   double feedback_timeout_{0.0}, publish_elapsed_{0.0};

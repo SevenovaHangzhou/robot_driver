@@ -61,6 +61,14 @@ CallbackReturn SwerveController::on_init()
   auto_declare<double>("fault_stop_speed", 0.01);
   auto_declare<double>("fault_stop_hold", 0.05);
   auto_declare<double>("fault_stop_timeout", 2.0);
+  // External encoder monitor window (user 2026-10-18): sustained inconsistency only.
+  auto_declare<double>("encoder_fault_window", 0.05);
+  // Hard caps for operator-tuned steering motion (user 2026-10-18: speed at most 45 deg/s).
+  auto_declare<double>("max_steering_slew_limit", 0.7853981633974483);
+  auto_declare<double>("max_steering_acceleration_limit", 1.5707963267948966);
+  // S-curve steering (user 2026-10-18): jerk limit; infinity keeps the trapezoidal profile.
+  auto_declare<double>("max_steering_jerk", std::numeric_limits<double>::infinity());
+  auto_declare<double>("max_steering_jerk_limit", 17.453292519943297);
   for (const auto * name : {"steering_joints", "drive_joints", "steering_encoders"}) {
     auto_declare<std::vector<std::string>>(name, {});
   }
@@ -82,6 +90,42 @@ CallbackReturn SwerveController::on_init()
   }
   auto_declare<bool>("imu_enabled", false);
   auto_declare<std::string>("imu_frame_id", "");
+  // Registered after every declaration: declaring a parameter also runs this check.
+  steering_parameter_callback_ = get_node()->add_on_set_parameters_callback(
+    [this](const std::vector<rclcpp::Parameter> & parameters) {
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      for (const auto & parameter : parameters) {
+        const auto & name = parameter.get_name();
+        if (name == "alignment_threshold") {
+          const double value = parameter.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE
+                                 ? parameter.as_double()
+                                 : std::numeric_limits<double>::quiet_NaN();
+          if (!std::isfinite(value) || value <= 0.0 || value > M_PI / 2.0) {
+            result.successful = false;
+            result.reason = "alignment_threshold must be in (0, pi/2] rad";
+          }
+          continue;
+        }
+        const char * limit_name = name == "max_steering_slew" ? "max_steering_slew_limit"
+                                  : name == "max_steering_acceleration"
+                                    ? "max_steering_acceleration_limit"
+                                  : name == "max_steering_jerk" ? "max_steering_jerk_limit"
+                                                                : nullptr;
+        if (!limit_name) {
+          continue;
+        }
+        const double limit = get_node()->get_parameter(limit_name).as_double();
+        const double value = parameter.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE
+                               ? parameter.as_double()
+                               : std::numeric_limits<double>::quiet_NaN();
+        if (!std::isfinite(value) || value <= 0.0 || value > limit) {
+          result.successful = false;
+          result.reason = name + " must be in (0, " + std::to_string(limit) + "] rad";
+        }
+      }
+      return result;
+    });
   return CallbackReturn::SUCCESS;
 }
 
@@ -139,12 +183,14 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.max_wheel_acceleration = number("max_wheel_acceleration");
     config_.velocity_deadband = number("velocity_deadband");
     config_.max_encoder_difference = number("max_encoder_difference");
+    config_.encoder_fault_window = number("encoder_fault_window");
     config_.max_update_period = number("max_update_period");
     config_.slip_residual_threshold = number("slip_residual_threshold");
     config_.setpoint.alignment_threshold_rad = number("alignment_threshold");
     config_.setpoint.flip_hysteresis_rad = number("flip_hysteresis");
     config_.setpoint.maximum_steering_slew_radps = number("max_steering_slew");
     config_.setpoint.maximum_steering_acceleration_radps2 = number("max_steering_acceleration");
+    config_.setpoint.maximum_steering_jerk_radps3 = number("max_steering_jerk");
     config_.setpoint.translation_heading_epsilon_rad = number("translation_heading_epsilon");
     config_.setpoint.steering_angle_deadband_rad = number("steering_angle_deadband");
     feedback_timeout_ = number("feedback_timeout");
@@ -291,6 +337,53 @@ controller_interface::InterfaceConfiguration SwerveController::state_interface_c
   return {controller_interface::interface_configuration_type::INDIVIDUAL, state_names_};
 }
 
+bool SwerveController::apply_steering_motion_parameters()
+{
+  const double slew = get_node()->get_parameter("max_steering_slew").as_double();
+  const double acceleration = get_node()->get_parameter("max_steering_acceleration").as_double();
+  const double jerk = get_node()->get_parameter("max_steering_jerk").as_double();
+  const double alignment = get_node()->get_parameter("alignment_threshold").as_double();
+  if (
+    slew == config_.setpoint.maximum_steering_slew_radps &&
+    acceleration == config_.setpoint.maximum_steering_acceleration_radps2 &&
+    jerk == config_.setpoint.maximum_steering_jerk_radps3 &&
+    alignment == config_.setpoint.alignment_threshold_rad) {
+    return true;
+  }
+  if (!(alignment > 0.0 && alignment <= M_PI / 2.0)) {
+    return false;
+  }
+  if (!(jerk > 0.0 && jerk <= get_node()->get_parameter("max_steering_jerk_limit").as_double())) {
+    return false;
+  }
+  if (
+    !(slew > 0.0 && slew <= get_node()->get_parameter("max_steering_slew_limit").as_double()) ||
+    !(acceleration > 0.0 &&
+      acceleration <= get_node()->get_parameter("max_steering_acceleration_limit").as_double())) {
+    return false;
+  }
+  auto config = config_;
+  config.setpoint.maximum_steering_slew_radps = slew;
+  config.setpoint.maximum_steering_acceleration_radps2 = acceleration;
+  config.setpoint.maximum_steering_jerk_radps3 = jerk;
+  config.setpoint.alignment_threshold_rad = alignment;
+  try {
+    auto candidate = std::make_unique<ControlCore>(config);
+    core_ = std::move(candidate);
+    config_ = config;
+  } catch (const std::exception & error) {
+    RCLCPP_ERROR(get_node()->get_logger(), "steering motion parameters rejected: %s", error.what());
+    return false;
+  }
+  RCLCPP_INFO(
+    get_node()->get_logger(),
+    "steering motion: slew %.1f deg/s, acceleration %.1f deg/s^2, jerk %.1f deg/s^3, "
+    "alignment gate %.1f deg",
+    slew * 180.0 / M_PI, acceleration * 180.0 / M_PI, jerk * 180.0 / M_PI,
+    alignment * 180.0 / M_PI);
+  return true;
+}
+
 CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
 {
   std::lock_guard<std::mutex> guard(lifecycle_mutex_);
@@ -318,6 +411,11 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     return CallbackReturn::ERROR;
   }
   last_steering_commands_.fill(std::numeric_limits<double>::quiet_NaN());
+  if (!apply_steering_motion_parameters()) {
+    std::fill(commands_.begin(), commands_.end(), nullptr);
+    std::fill(states_.begin(), states_.end(), nullptr);
+    return CallbackReturn::ERROR;
+  }
   const auto feedback = read_feedback();
   if (!core_->activate(feedback)) {
     stop_outputs();
@@ -399,11 +497,12 @@ ModuleFeedbackArray SwerveController::read_feedback() const
       states_[offset + 7]->get_value(),
       states_[offset + 3]->get_value(),
       states_[offset + 4]->get_value(),
-      bus_fresh && recent(states_[offset + 8]->get_value()),
+      bus_fresh,
       enabled(states_[offset + 1]->get_value()) && states_[offset + 2]->get_value() == 8.0 &&
         enabled(states_[offset + 5]->get_value()) &&
         (states_[offset + 6]->get_value() == 9.0 ||
-         (runtime_ && states_[offset + 6]->get_value() == 8.0))};
+         (runtime_ && states_[offset + 6]->get_value() == 8.0)),
+      recent(states_[offset + 8]->get_value())};
   }
   return result;
 }
@@ -735,6 +834,48 @@ void SwerveController::track_fault(
     fault_latched_.store(true);
     fault_since_ns_ = now;
     wheels_stopped_since_ns_ = 0;
+    uint32_t bits = 0U;
+    double max_difference = 0.0;
+    for (size_t i = 0; i < 4; ++i) {
+      const auto & f = feedback[i];
+      const double difference = std::abs(f.steering_position - f.steering_angle);
+      const bool finite = std::isfinite(f.steering_position) && std::isfinite(f.steering_angle) &&
+                          std::isfinite(f.wheel_position) && std::isfinite(f.wheel_velocity);
+      uint32_t module = 0U;
+      if (!f.valid) {
+        module |= 1U;
+      }
+      if (!f.enabled) {
+        module |= 2U;
+      }
+      if (finite && difference > config_.max_encoder_difference) {
+        module |= 4U;
+      }
+      if (!finite) {
+        module |= 8U;
+      }
+      if (finite) {
+        max_difference = std::max(max_difference, difference);
+      }
+      bits |= module << (4U * i);
+    }
+    double worst = 0.0;
+    int worst_module = 0;
+    for (size_t i = 0; i < 4; ++i) {
+      const double target = last_output_.steering_position[i];
+      for (const double measured : {feedback[i].steering_position, feedback[i].steering_angle}) {
+        const double deviation = std::abs(measured - target);
+        if (std::isfinite(deviation) && deviation > worst) {
+          worst = deviation;
+          worst_module = static_cast<int>(i) + 1;
+        }
+      }
+    }
+    fault_target_deviation_mdeg_.store(static_cast<int32_t>(worst * 180000.0 / M_PI));
+    fault_target_module_.store(worst_module);
+    fault_status_code_.store(static_cast<int>(status));
+    fault_module_bits_.store(bits);
+    fault_max_difference_mdeg_.store(static_cast<int32_t>(max_difference * 180000.0 / M_PI));
   }
   if (!fault_latched_.load() || fault_stop_ready_.load()) {
     return;
@@ -778,6 +919,50 @@ void SwerveController::publish_diagnostics()
   item.message = slip_detected && !error ? "wheel_slip" : status_name(status);
   item.level = error ? item.ERROR :
     (slip_detected || status != ControlStatus::running ? item.WARN : item.OK);
+  if (fault_latched_.load()) {
+    const int code = fault_status_code_.load();
+    const uint32_t bits = fault_module_bits_.load();
+    std::string modules;
+    for (size_t i = 0; i < 4; ++i) {
+      const uint32_t m = (bits >> (4U * i)) & 0xFU;
+      if (m == 0U) {
+        continue;
+      }
+      if (!modules.empty()) {
+        modules += ' ';
+      }
+      modules += "module_" + std::to_string(i + 1) + ':';
+      if (m & 1U) {
+        modules += "stale,";
+      }
+      if (m & 2U) {
+        modules += "not_enabled_or_mode,";
+      }
+      if (m & 4U) {
+        modules += "encoder_difference,";
+      }
+      if (m & 8U) {
+        modules += "non_finite,";
+      }
+    }
+    diagnostic_msgs::msg::KeyValue latched;
+    latched.key = "latched_fault";
+    latched.value = code < 0 ? "unknown" : status_name(static_cast<ControlStatus>(code));
+    item.values.push_back(latched);
+    diagnostic_msgs::msg::KeyValue detail;
+    detail.key = "latched_fault_modules";
+    detail.value = modules.empty() ? "none" : modules;
+    item.values.push_back(detail);
+    diagnostic_msgs::msg::KeyValue difference;
+    difference.key = "latched_fault_max_encoder_difference_mdeg";
+    difference.value = std::to_string(fault_max_difference_mdeg_.load());
+    item.values.push_back(difference);
+    diagnostic_msgs::msg::KeyValue deviation;
+    deviation.key = "latched_fault_target_deviation_mdeg";
+    deviation.value = "module_" + std::to_string(fault_target_module_.load()) + ":" +
+                      std::to_string(fault_target_deviation_mdeg_.load());
+    item.values.push_back(deviation);
+  }
   diagnostic_msgs::msg::KeyValue slip_value;
   slip_value.key = "slip_detected";
   slip_value.value = slip_detected ? "true" : "false";
