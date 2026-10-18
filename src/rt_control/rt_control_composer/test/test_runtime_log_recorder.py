@@ -74,6 +74,7 @@ def test_disabled_or_absent_recorder_changes_nothing(shares, tmp_path):
     disabled = build(shares, tmp_path / "b")
     assert absent.files == disabled.files
     assert RECORDER_NAME not in absent.files["controllers.yaml"]
+    assert "runtime_log_trace" not in absent.files["controllers.yaml"]
     assert "recorder_controllers" not in absent.lifecycle
 
 
@@ -102,6 +103,7 @@ def test_enabled_recorder_records_every_state_interface_outside_controller_order
     assert result.controller_order == baseline.controller_order
     assert result.files["controller_order.yaml"] == baseline.files["controller_order.yaml"]
     assert result.files["robot_description.xml"] == baseline.files["robot_description.xml"]
+    assert controllers["enable_manager"]["ros__parameters"].pop("runtime_log_trace") is True
     del controllers[RECORDER_NAME]
     del controllers["controller_manager"]["ros__parameters"][RECORDER_NAME]
     assert controllers == yaml.safe_load(baseline.files["controllers.yaml"])

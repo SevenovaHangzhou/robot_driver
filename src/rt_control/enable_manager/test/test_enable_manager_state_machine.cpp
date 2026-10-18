@@ -21,17 +21,23 @@
 #include <chrono>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
 #include "enable_manager/enable_manager_controller.hpp"
 
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
+#include "lifecycle_msgs/msg/state.hpp"
 #include "rclcpp/executors/multi_threaded_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
@@ -2546,3 +2552,93 @@ int main(int argc, char ** argv)
   ::testing::InitGoogleMock(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+namespace enable_manager
+{
+namespace
+{
+// Latest committed cycle of a Runtime-LOG segment: {field name -> value}.
+std::map<std::string, double> latestTraceCycle(const std::string & name, std::uint32_t * state)
+{
+  std::map<std::string, double> values;
+  const int fd = shm_open(name.c_str(), O_RDONLY, 0);
+  if (fd < 0) {
+    return values;
+  }
+  runtime_log::SegmentHeader header{};
+  if (pread(fd, &header, sizeof(header), 0) != static_cast<ssize_t>(sizeof(header))) {
+    close(fd);
+    return values;
+  }
+  std::uint64_t head = 0U;
+  pread(fd, &head, sizeof(head), 64);
+  *state = header.writer_state;
+  std::vector<double> slot(header.field_count);
+  const off_t offset =
+    static_cast<off_t>(header.header_size + (head % header.slot_count) * header.slot_size + 24U);
+  pread(fd, slot.data(), slot.size() * sizeof(double), offset);
+  for (std::uint32_t i = 0; i < header.field_count; ++i) {
+    char field[runtime_log::kFieldNameMax] = {};
+    pread(
+      fd, field, sizeof(field) - 1U,
+      static_cast<off_t>(runtime_log::kFieldTableOffset + runtime_log::kFieldEntry * i));
+    values[field] = slot[i];
+  }
+  close(fd);
+  return values;
+}
+
+TEST_F(EnableManagerFixture, RuntimeLogTraceFollowsTheStateMachine)
+{
+  initAndConfigure(
+    "trace_test",
+    {rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string("")),
+     rclcpp::Parameter("runtime_log_trace", true)});
+  if (::testing::Test::HasFatalFailure()) {
+    return;
+  }
+  const std::string segment = "/runtime-log." + std::to_string(getpid()) + ".trace_test";
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  std::uint32_t state = 0U;
+  auto cycle = latestTraceCycle(segment, &state);
+  ASSERT_EQ(cycle.size(), 22U);
+  EXPECT_EQ(state, 1U);  // active
+  EXPECT_EQ(cycle["phase"], static_cast<double>(Phase::kIdle));
+  EXPECT_EQ(cycle["last_failure_stage"], 0.0);
+  auto enabled = callAsync(ServiceKind::kEnable);
+  ASSERT_TRUE(pumpUntilDone(enabled));
+  join(enabled);
+  ASSERT_TRUE(enabled->response->ok);
+  updateTimes(2);
+  cycle = latestTraceCycle(segment, &state);
+  EXPECT_EQ(cycle["phase"], static_cast<double>(Phase::kEnabled));
+  auto disabled = callAsync(ServiceKind::kDisable);
+  ASSERT_TRUE(pumpUntilDone(disabled));
+  join(disabled);
+  updateTimes(2);
+  EXPECT_EQ(latestTraceCycle(segment, &state)["phase"], static_cast<double>(Phase::kIdle));
+  ASSERT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  latestTraceCycle(segment, &state);
+  EXPECT_EQ(state, 2U);  // inactive
+  shm_unlink(segment.c_str());
+}
+
+TEST_F(EnableManagerFixture, RuntimeLogTraceIsOffByDefault)
+{
+  initAndConfigure(
+    "trace_off_test",
+    {rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string(""))});
+  if (::testing::Test::HasFatalFailure()) {
+    return;
+  }
+  std::uint32_t state = 0U;
+  EXPECT_TRUE(
+    latestTraceCycle("/runtime-log." + std::to_string(getpid()) + ".trace_off_test", &state)
+      .empty());
+}
+
+}  // namespace
+}  // namespace enable_manager
