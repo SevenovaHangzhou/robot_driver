@@ -523,6 +523,9 @@ scopes:
           steering_to_yaw_sign:
             module: swerve_chassis
             export: steering_to_yaw_sign
+          calibration_verified:
+            module: swerve_chassis
+            export: calibration_verified
     policies:
     - enable
     policy_overrides:

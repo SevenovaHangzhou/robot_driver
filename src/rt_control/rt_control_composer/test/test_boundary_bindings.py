@@ -101,7 +101,17 @@ def test_chassis_binds_facts_by_instance_after_bus_and_calibration_reordering(co
         assert params[role + "_joints"] == [
             axes[item["module_position"], role] for item in expected
         ]
-    assert params["calibration_verified"] is False
+    # Bound from the verified chassis data and unit calibration, not a controller default.
+    assert params["calibration_verified"] is True
+    unit["verified"] = False
+    save(root / "units/Alfa_V3-Advantech-01/swerve_calibration.yaml", unit)
+    mock = compose(
+        **{**args, "machine_unit": "Alfa_V3-Advantech-01"},
+        physical_profile="chassis_only",
+        control_scope="chassis_only",
+        runtime_dir=tmp_path / "unverified",
+    )
+    assert mock.controllers["swerve_controller"]["ros__parameters"]["calibration_verified"] is False
 
 
 def test_head_renaming_reaches_hardware_and_all_controllers(config, tmp_path):
