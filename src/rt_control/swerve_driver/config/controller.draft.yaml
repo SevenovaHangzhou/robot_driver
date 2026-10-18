@@ -9,7 +9,6 @@ controller_manager:
 # joint backlash + IMU variance calibration. Do not treat published odometry covariance as measured.
 swerve_controller:
   ros__parameters:
-    calibration_verified: false
     steering_min:
     - -2.356194490192345
     - -2.356194490192345

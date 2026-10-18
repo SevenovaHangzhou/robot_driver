@@ -132,8 +132,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if radius != "TBD" and (not math.isfinite(radius) or radius <= 0):
             raise ValueError("Effective wheel radius must be positive and finite")
     exports = {"steering_joints": {}, "drive_joints": {}, "steering_to_yaw_sign": {}}
-    for target, source in (("wheel_radius", "effective_wheel_radius_m"),
-                           ("module_x", "module_x_m"), ("module_y", "module_y_m")):
+    # The controller refuses to configure unless the chassis data and the unit
+    # calibration are both verified; this is the single source of that flag.
+    exports["calibration_verified"] = machine["verified"] is True and unit["verified"] is True
+    for target, source in (
+        ("wheel_radius", "effective_wheel_radius_m"),
+        ("module_x", "module_x_m"),
+        ("module_y", "module_y_m"),
+    ):
         exports[target] = {key: item[source] for key, item in calibrations.items()}
     assembly = request["devices"][spec["assembly"]]
     families = yaml.safe_load((share / "config/profiles/families.yaml").read_text())["families"]
