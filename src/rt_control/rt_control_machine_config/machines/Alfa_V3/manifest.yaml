@@ -214,7 +214,7 @@ modules:
     can_interface_key: head
 robot_model:
   package: robot_description
-  source_revision: 4d4ad9a86e395d843c0dd4c2f8f035373ca50a2d
+  source_revision: 5ec6b653d7b72f9d25fecea4d71e5d640ce468ca
   variants:
     # Alfav3 dual arms on the deployed mobile base; no named poses or initial positions (user 2026-10-17).
     mobile_proxy:

@@ -213,7 +213,7 @@ head_force_generation_command: python3 test/golden/generate_head_force_baseline.
 head_config_sha256: 9d2366183422d6d2e0df0df99fc1553072c90e7e599d66bdbcad17621ddcc9f5
 force_cli_sha256: eda02f96dfbb8768a4690a353986636e9886cbbf7e3c30eb0bfb5f0ed8605df2
 model_switch_regeneration:
-  robot_description_revision: 4d4ad9a86e395d843c0dd4c2f8f035373ca50a2d
+  robot_description_revision: 5ec6b653d7b72f9d25fecea4d71e5d640ce468ca
   reason: 'ELECTRI-127 user decision 2026-10-17: Alfav3 dual arms on the deployed mobile model
     (robot_alfav3_mobile.urdf); arm zero = Alfav3 export zero, no named poses/initial positions'
   method: composer output written only where the canonical form differs from the previous freeze; YAML

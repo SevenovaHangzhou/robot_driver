@@ -27,6 +27,11 @@ MOUNT_XYZ = (0.266, 0.0, 0.36515)
 MOUNT_RPY = (math.pi, 0.0, 0.0)
 # User-confirmed 2026-10-17: symmetric about the Alfav3 zero.
 LIMITS_DEG = {1: 180.0, 2: 105.0, 3: 180.0, 4: 145.0, 5: 180.0, 6: 110.0, 7: 180.0}
+# Joints whose export axis is negated so that +q = drive encoder count increasing (CiA 402 positive).
+# User-confirmed 2026-10-18 on the left-arm bench (Alfa_V3-bench-01): with the export axis, left J3 and
+# J6 turned the right way in the model but +q was the encoder's negative direction. Right arm: not
+# verified on hardware, export axis kept.
+AXIS_FLIP = {"left": (3, 6), "right": ()}
 # tool0 keeps its previous physical pose: 151 mm beyond the flange along link7 +Z, same orientation.
 TOOL0_BEYOND_FLANGE_M = 0.151
 
@@ -106,6 +111,9 @@ def build():
                 joint.find("origin").set("rpy", fmt(matrix_rpy(matrix[:3, :3])))
             if joint.get("type") == "revolute":
                 index = int(name[-1])
+                if index in AXIS_FLIP[side]:
+                    axis = joint.find("axis")
+                    axis.set("xyz", " ".join(format(-float(v) + 0.0, "g") for v in axis.get("xyz").split()))
                 old = previous.find(f"joint[@name='{name}']/limit")
                 limit = joint.find("limit")
                 limit.set("lower", repr(-math.radians(LIMITS_DEG[index])))
@@ -159,7 +167,10 @@ def build():
         "tool0": {"parent": "<side>_link7", "z_m": "flange (tool_fixed z) + 0.151", "orientation": "link7"},
         "previous_model_pose_of_alfav3_zero_deg": {"left": [90, -15, 180, 0, 90, 0, 0],
                                                    "right": [-90, 15, -180, 0, -90, 0, 0]},
-        "axis_sign_vs_previous": {"left": ["+", "+", "-", "+", "+", "+", "+"],
+        "axis_flip_vs_export": {side: list(AXIS_FLIP[side]) for side in SIDES},
+        "axis_flip_evidence": "left J3/J6: +q = encoder count increasing, user-confirmed 2026-10-18 on "
+                              "Alfa_V3-bench-01; right arm not verified on hardware",
+        "axis_sign_vs_previous": {"left": ["+", "+", "+", "+", "+", "-", "+"],
                                   "right": ["+", "+", "-", "-", "+", "+", "+"]},
         "removed": ["named poses", "initial positions", "SRDF group_state entries"],
         "limitations": [
