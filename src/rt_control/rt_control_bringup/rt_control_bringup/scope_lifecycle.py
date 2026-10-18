@@ -61,7 +61,14 @@ def shutdown_sequence(backend, lifecycle, log=print):
     for label, operation in (
         ("motion_inactive", lambda: backend.quiesce(lifecycle["motion_controllers"])),
         ("drives_disabled", backend.disable),
-        ("controllers_inactive", lambda: backend.quiesce(lifecycle["lifecycle_controllers"])),
+        # The optional recorder stops with the lifecycle controllers, after the drives are disabled,
+        # so the disable itself is still recorded.
+        (
+            "controllers_inactive",
+            lambda: backend.quiesce(
+                lifecycle["lifecycle_controllers"] + lifecycle.get("recorder_controllers", [])
+            ),
+        ),
     ):
         try:
             ok = bool(operation())
@@ -271,7 +278,10 @@ def qualify_realtime(runtime_dir, lifecycle, *, activated, proc=Path("/proc"), t
         update = []
         for tid in tids:
             try:
-                if os.sched_getscheduler(tid) == os.SCHED_FIFO and os.sched_getparam(tid).sched_priority == 80:
+                if (
+                    os.sched_getscheduler(tid) == os.SCHED_FIFO
+                    and os.sched_getparam(tid).sched_priority == 80
+                ):
                     update.append(tid)
             except ProcessLookupError:
                 continue

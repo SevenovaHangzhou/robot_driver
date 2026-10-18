@@ -14,3 +14,6 @@ can_interfaces: {}
 ethercat:
   master_id: 0
 host_id: TBD
+runtime_log_recorder:
+  enabled: true
+  slots: 2000

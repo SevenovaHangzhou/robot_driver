@@ -55,6 +55,17 @@ def test_shutdown_disables_before_lifecycle_and_cleans_hardware_in_reverse():
     ]
 
 
+def test_optional_recorder_stops_after_the_drives_are_disabled():
+    backend = Backend()
+    plan = {**PLAN, "recorder_controllers": ["runtime_log_recorder"]}
+    assert lifecycle.shutdown_sequence(backend, plan, log=lambda _: None)
+    assert backend.calls[:3] == [
+        ("quiesce", ("swerve_controller",)),
+        ("disable",),
+        ("quiesce", ("joint_state_broadcaster", "enable_manager", "runtime_log_recorder")),
+    ]
+
+
 def test_failed_disable_is_reported_and_claimed_hardware_is_not_deactivated():
     backend = Backend(
         fail={("disable",), ("quiesce", ("joint_state_broadcaster", "enable_manager"))}
