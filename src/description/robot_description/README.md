@@ -107,6 +107,27 @@ python3 tools/build_analytic_proxy_mobile.py
 这是供查看与规划使用的组合模型，机械臂仍为实验性解析代理；上身与新底座装配
 需机械复核。IMU 设备 ENU/NED 输出约定不由该安装 TF 定义。原生产入口保持独立。
 
+## Alfav3 双臂整机入口
+
+**入口：`urdf/robot_alfav3_mobile.urdf`**，SRDF：`srdf/robot_alfav3_mobile.srdf`，
+关节限位：`config/joint_limits_alfav3_mobile.yaml`，清单：`config/alfav3_mobile_manifest.json`。
+
+- 双臂来自 `model_sources/alfav3_arms_1011_4`（SolidWorks 导出，已去掉中文包名并改为本仓库命名）。
+  导出的 `base_link` 即 `arm_carriage` 躯干（42.8 kg vs 42.3 kg），只用于确定安装位置：
+  Alfav3 `base_link → arm_carriage` 为 `xyz=[0.266, 0, 0.36515]m`、`rpy=[π, 0, 0]`，
+  由两侧 J1 轴线拟合（残差 4.7 µm / 1.5 µrad）。
+- 零位：Alfav3 导出零位 = 机械零位 = 驱动 2^18 计数零位。它对应旧入口的
+  左臂 `[90, -15, 180, 0, 90, 0, 0]°`、右臂 `[-90, 15, -180, 0, -90, 0, 0]°`；
+  相对旧入口，左 J3、右 J3/J4 轴向相反。旧入口的姿态数值不能直接用于新入口。
+- 限位以新零位为中心对称；effort/velocity 沿用旧入口，未经实机验证。
+- `left|right_tool_link` 是导出的法兰件（link7 +Z 98.7 mm）；`left|right_tool0` 在 link7 +Z
+  `98.7 + 151 mm` 处，姿态与 link7 相同，与旧入口 tool0 物理位姿一致。
+- 视觉网格保持导出原始字节；碰撞网格为生成的包络（base_link 与 link1–5 用 CoACD 凸分解，
+  link6/link7/tool_link 用单凸包，凸块外扩 1 mm），全部视觉顶点都在包络内。
+- 质量与惯量来自导出，与旧入口差异较大，未经实机验证。
+- 重新生成：`tools/import_alfav3_arms.py <导出目录>`（需 coacd/trimesh，开发工具），
+  然后 `python3 tools/build_alfav3_mobile.py`。
+
 ## 来源与已知边界
 
 V3.2.2 原始导出保存在 `model_sources/robot_v3_2_2/`，来源哈希见

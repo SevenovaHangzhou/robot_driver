@@ -11,6 +11,13 @@
 
 ### Added
 
+- 新增 `urdf/robot_alfav3_mobile.urdf`：在已部署移动整机上把双臂替换为 Alfav3 导出模型
+  （`model_sources/alfav3_arms_1011_4`，2026-10-16 SolidWorks 导出），底盘、Updown、头部和 IMU 不变。
+  关节/连杆沿用 `left|right_joint1..7`、`left|right_link1..7` 命名，新增 `left|right_tool_link`（法兰件），
+  `left|right_tool0` 保持原物理位姿（法兰外 151 mm）。双臂零位为 Alfav3 导出零位（即驱动 2^18 零位），
+  限位按新零位对称：J1/J3/J5/J7 ±180°、J2 ±105°、J4 ±145°、J6 ±110°。视觉网格为原始导出，
+  碰撞网格为 CoACD 凸分解/凸包并外扩 1 mm 的包络。新入口不提供命名姿态与初始位置，SRDF 去掉 group_state。
+  这是破坏性变更：旧入口的关节空间数值不适用于新入口。
 - 引入机械导出的 V3.2.2 原始模型、65 个低模网格和来源哈希；新增
   `base_footprint` 地面根，`base_link` 固定在其上方 `0.335m`。
 - 增加 V3.2.2 来源与生产入口回归测试，检查单树、根坐标、17个可动关节、

@@ -229,8 +229,7 @@
             },
             "required": [
               "xacro_file",
-              "joint_limits_file",
-              "initial_positions_file"
+              "joint_limits_file"
             ],
             "additionalProperties": false
           },

@@ -2,6 +2,15 @@ identity:
   vendor_id: 1516597871
   product_code: 168530
   revision_number: 1
+# Codes a drive latches without entering Fault when the master leaves OP. 0xA000 (manual 7.2.27,
+# EtherCAT communication abnormal) is left by every orderly stop, so startup accepts it (user
+# decision 2026-10-17). If the status word shows Fault, enable_manager clears it with one
+# CiA402 fault reset; no other code is accepted here.
+startup_reset:
+  codes:
+  - 40960
+  method: cia402_fault_reset
+  owner: enable_manager
 encoder_policies:
   single_turn:
     requires_multiturn_retention: false
@@ -35,6 +44,17 @@ driver_config:
     sub_index: 0
     type: int8
     value: 8
+  # 0x605E fault reaction (user 2026-10-17): quick-stop ramp, then disable; the eRob closes
+  # its brake on disable. Applies to communication loss (0xA000) while enabled.
+  - index: 24670
+    sub_index: 0
+    type: int16
+    value: 2
+  # 0x6085 quick-stop deceleration 40 deg/s^2 (user 2026-10-17) = 58254 output counts/s^2.
+  - index: 24709
+    sub_index: 0
+    type: uint32
+    value: 58254
   rpdo:
   - index: 5632
     channels:

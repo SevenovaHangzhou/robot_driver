@@ -149,7 +149,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
             {
                 "ring_position": axis["ring_position"],
                 **record["identity"],
-                "allowed_errors": policy.get("startup_battery_reset_codes", []),
+                # Profile-wide startup codes (e.g. 0xA000 after the master left OP) plus the
+                # battery codes of the axis encoder policy; enable_manager owns the CiA402 reset.
+                "allowed_errors": sorted(
+                    {
+                        *record.get("startup_reset", {}).get("codes", []),
+                        *policy.get("startup_battery_reset_codes", []),
+                    }
+                ),
             }
         )
     responders = []

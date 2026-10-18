@@ -9,6 +9,14 @@ sdo:
   sub_index: 0
   type: int8
   value: 8
+- index: 24670
+  sub_index: 0
+  type: int16
+  value: 2
+- index: 24709
+  sub_index: 0
+  type: uint32
+  value: 58254
 rpdo:
 - index: 5632
   channels:

@@ -10,7 +10,7 @@ authorities:
   direction: 'user real-motion corrections 2026-10-16: reverse all four drive and all four steering axes'
   model_heading_sign: steerN_joint origin rpy (pi, 0, -pi/2) flips the joint axis to -Z, so heading = -q
   robot_model_joint: deployed model robot_analytic_proxy_mobile.urdf sha256 bba180d0...fbff1c (robot_description
-    8e6ddb7)
+    8e6ddb7); base/steer/wheel elements carried unchanged into robot_alfav3_mobile.urdf (4d4ad9a)
 pending_facts:
 - Kinco ESI identity/revision, DC and watchdog belong to the protocol profile, not this file
 - CSP/CSV switch adapter profile and calibrated handoff limits/timeouts

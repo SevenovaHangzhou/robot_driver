@@ -1,9 +1,9 @@
 schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
-source_branch: feature/electri-127-deployed-mobile-model
-source_revision: c49e8ed4c4ee60bf9aecd61548b9848856bc1769
-source_tree: ec4a8c4c7a89f1c988bf1891337ab6f707804320
+source_branch: feature/electri-127-alfav3-arms
+source_revision: 4d4ad9a86e395d843c0dd4c2f8f035373ca50a2d
+source_tree: 35153ff9d486c5ccf380387b9dd89c16347225da
 imported_path: src/description/robot_description
 model_family: alfa_v3
 default_end_effector: suction
