@@ -12,6 +12,7 @@ from ament_index_python.packages import get_package_share_directory
 import rclpy
 import yaml
 
+from .audit import DEFAULT_AUDIT, AuditLog
 from .console import ArmConsole, config_from_mapping
 from .ros_bridge import RosBridge, spin_in_background
 from .server import ConsoleServer
@@ -34,6 +35,11 @@ def parse_arguments(argv=None):
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
     parser.add_argument("--joint-state-topic", default="/joint_states")
     parser.add_argument("--web-dir", type=Path, default=share / "web")
+    parser.add_argument(
+        "--audit-log",
+        default=str(DEFAULT_AUDIT),
+        help="append-only JSON-lines operator audit log; empty string disables it",
+    )
     return parser.parse_args(argv)
 
 
@@ -62,6 +68,7 @@ def main(argv=None) -> None:
         arguments.web_dir,
         get_package_share_directory,
         bridge.set_enabled,
+        AuditLog(Path(arguments.audit_log).expanduser() if arguments.audit_log else None),
     )
 
     def shutdown(*_):

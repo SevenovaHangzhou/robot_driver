@@ -20,6 +20,7 @@ import time
 from typing import Callable, Optional
 from urllib.parse import urlsplit
 
+from .audit import AuditLog
 from .console import ArmConsole, ConsoleError
 from .model import MESH_URL_PREFIX, resolve_mesh
 
@@ -50,6 +51,7 @@ class ConsoleServer(ThreadingHTTPServer):
         web_dir: Path,
         share_lookup: Callable[[str], str],
         set_enabled: Callable[[bool], dict],
+        audit: Optional[AuditLog] = None,
     ) -> None:
         if not token:
             raise ValueError("an access token is required")
@@ -61,6 +63,7 @@ class ConsoleServer(ThreadingHTTPServer):
         self.web_dir = web_dir.resolve()
         self.share_lookup = share_lookup
         self.set_enabled = set_enabled
+        self.audit = audit or AuditLog(None)
         self.sessions: set[str] = set()
         self.lock = threading.Lock()
         self.stopping = threading.Event()
@@ -201,17 +204,42 @@ class Handler(BaseHTTPRequestHandler):
         if session is None:
             self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required", "message": "请先登录"})
             return
+        action = path.removeprefix("/api/")
+        audit = self.server.audit
+        client = self.client_address[0] if self.client_address else ""
         try:
-            self._json(HTTPStatus.OK, {"ok": True, **(self._command(path, session, body) or {})})
+            result = self._command(path, session, body) or {}
         except ConsoleError as exc:
+            audit.record(
+                action,
+                body,
+                ok=False,
+                error=exc.code,
+                message=exc.message,
+                session=session,
+                client=client,
+            )
             self._json(
                 HTTPStatus.CONFLICT, {"ok": False, "error": exc.code, "message": exc.message}
             )
+            return
         except (KeyError, TypeError, ValueError) as exc:
+            audit.record(
+                action,
+                body,
+                ok=False,
+                error="bad_request",
+                message=str(exc),
+                session=session,
+                client=client,
+            )
             self._json(
                 HTTPStatus.BAD_REQUEST,
                 {"ok": False, "error": "bad_request", "message": f"请求参数无效：{exc}"},
             )
+            return
+        audit.record(action, body, ok=True, session=session, client=client)
+        self._json(HTTPStatus.OK, {"ok": True, **result})
 
     def _login(self, body: dict) -> None:
         token = body.get("token")
@@ -219,9 +247,15 @@ class Handler(BaseHTTPRequestHandler):
             token.encode("utf-8"), self.server.token
         ):
             time.sleep(LOGIN_FAILURE_DELAY_S)
+            self.server.audit.record(
+                "login", {}, ok=False, error="auth_failed", client=self.client_address[0]
+            )
             self._json(HTTPStatus.UNAUTHORIZED, {"error": "auth_failed", "message": "令牌无效"})
             return
         session = secrets.token_urlsafe(24)
+        self.server.audit.record(
+            "login", {}, ok=True, session=session, client=self.client_address[0]
+        )
         with self.server.lock:
             self.server.sessions.add(session)
         cookie = f"{COOKIE}={session}; HttpOnly; SameSite=Strict; Path=/"
