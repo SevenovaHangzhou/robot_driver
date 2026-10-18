@@ -22,6 +22,23 @@ from .schema.manifest_load import load_machine
 from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
 
+RECORDER_NAME = "runtime_log_recorder"
+RECORDER_PLUGIN = "runtime_log_recorder/RecorderController"
+
+
+def recorded_state_interfaces(robot):
+    """Every state interface of every ros2_control system, in description order."""
+    names = []
+    for system in robot.findall("ros2_control"):
+        for element in system:
+            if element.tag in ("joint", "sensor", "gpio"):
+                names.extend(
+                    f"{element.attrib['name']}/{state.attrib['name']}"
+                    for state in element.findall("state_interface")
+                )
+    return names
+
+
 def compose(
     *,
     robot_variant,
@@ -232,6 +249,18 @@ def compose(
         )
     # fault_dependencies remain owned by the separate machine safety policy. These
     # migrated entry points did not emit them; validation does not add runtime fields.
+    recorders = []
+    recorder = deployment.get("runtime_log_recorder", {})
+    if recorder.get("enabled") and staged:
+        # Optional, outside controller_order: a missing plugin or failed load never blocks the scope.
+        recorders = [RECORDER_NAME]
+        controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] = {"type": RECORDER_PLUGIN}
+        controllers[RECORDER_NAME] = {
+            "ros__parameters": {
+                "interfaces": recorded_state_interfaces(robot),
+                "slots": recorder.get("slots", 2000),
+            }
+        }
     robot_description = ET.tostring(robot, encoding="unicode")
     # Paths are validated here; writing belongs to the explicit deploy-time artifact step.
     reserved = {
@@ -259,6 +288,7 @@ def compose(
         "hardware_activation_order": list(hardware_order),
         "motion_controllers": list(order["inactive"]),
         "lifecycle_controllers": list(order["active"]),
+        **({"recorder_controllers": recorders} if recorders else {}),
         # One process owns an IgH master or a CAN interface at a time (supervisor locks).
         "bus_locks": sorted(
             {f"ethercat-master-{p['master_id']}" for p in params_of if "master_id" in p}

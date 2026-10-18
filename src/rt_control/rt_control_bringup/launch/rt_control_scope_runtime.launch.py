@@ -85,6 +85,20 @@ def setup(context):
         arguments=[str(runtime)],
         output="both",
     )
+    # Optional Runtime-LOG recorder: own spawner, started after the lifecycle controllers; its
+    # exit (including a missing plugin) is not watched, so it can never stop the scope.
+    recorder_names = build.lifecycle.get("recorder_controllers", [])
+    after_lifecycle = [adapter, capabilities]
+    if recorder_names:
+        after_lifecycle.append(
+            Node(
+                package="controller_manager",
+                executable="spawner",
+                exec_name="runtime_log_recorder_spawner",
+                arguments=[*recorder_names, "--controller-manager-timeout", "30"],
+                output="both",
+            )
+        )
     # An enable-only scope has no motion controllers; the spawner needs at least one name.
     staged = []
     after_hardware = lifecycle
@@ -135,7 +149,7 @@ def setup(context):
         RegisterEventHandler(
             OnProcessExit(
                 target_action=lifecycle,
-                on_exit=_then([adapter, capabilities], "lifecycle load failed"),
+                on_exit=_then(after_lifecycle, "lifecycle load failed"),
             )
         ),
         RegisterEventHandler(
