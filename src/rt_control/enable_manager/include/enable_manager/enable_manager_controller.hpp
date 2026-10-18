@@ -31,6 +31,7 @@
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 #include "rt_control_semantic_components/cia402_axis.hpp"
+#include "rt_control_semantic_components/runtime_log_shm_ring.hpp"
 #include "std_msgs/msg/bool.hpp"
 
 namespace enable_manager
@@ -243,6 +244,33 @@ private:
   SwitchResult switchJtc(bool activate);
   void handleNonRtFaultStop();
   void publishDiagnostics();
+  void configureTrace();
+  void writeTrace(std::int64_t now_ns, std::int64_t period_ns);
+
+  // Runtime-LOG trace fields, in the order writeTrace() writes them (enum values as numbers).
+  static constexpr std::array<const char *, 22> kTraceFields = {
+    "phase",
+    "owner",
+    "current_batch",
+    "downward_stage",
+    "control_mode",
+    "stage_deadline_remaining_ms",
+    "last_failure_stage",
+    "last_failed_batch",
+    "last_failed_joint",
+    "last_failed_status_word",
+    "primary_failure_stage",
+    "primary_failed_batch",
+    "primary_failed_joint",
+    "motion_fault_pending",
+    "enable_request",
+    "disable_request",
+    "reset_request",
+    "switch_in_progress",
+    "restart_required",
+    "state_sources_qualified",
+    "enable_hardware_ready",
+    "jtc_deactivate_failed"};
 
   void publishResult(
     ResultSlot & slot, bool ok, Stage stage, std::int8_t failed_batch = -1,
@@ -338,6 +366,7 @@ private:
   bool enable_preempt_requested_{false};
   Owner interrupted_owner_{Owner::kNone};
   std::atomic_bool jtc_deactivate_failed_{false};
+  runtime_log::ShmRingWriter trace_;
   Stage primary_failure_stage_{Stage::kSuccess};
   std::int8_t primary_failed_batch_{-1};
   std::int8_t primary_failed_joint_{-1};

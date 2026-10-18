@@ -24,6 +24,7 @@ from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
 RECORDER_NAME = "runtime_log_recorder"
 RECORDER_PLUGIN = "runtime_log_recorder/RecorderController"
+ENABLE_MANAGER_PLUGIN = "enable_manager/EnableManagerController"
 
 
 def recorded_state_interfaces(robot):
@@ -263,6 +264,10 @@ def compose(
                 "slots": recorder.get("slots", 2000),
             }
         }
+        # The enable manager writes its own state-machine trace next to the recorder segment.
+        for name in selected_names:
+            if bindings[name]["plugin"] == ENABLE_MANAGER_PLUGIN:
+                controllers[name]["ros__parameters"]["runtime_log_trace"] = True
     robot_description = ET.tostring(robot, encoding="unicode")
     # Paths are validated here; writing belongs to the explicit deploy-time artifact step.
     reserved = {

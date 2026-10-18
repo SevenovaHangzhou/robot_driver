@@ -68,6 +68,8 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::string>("jtc_name", "whole_body_jtc");
   auto_declare<bool>("enable_only", false);
   auto_declare<std::string>("disable_terminal_policy", "joint_list");
+  // Runtime-LOG: copy the state machine into a shared-memory ring every cycle (optional).
+  auto_declare<bool>("runtime_log_trace", false);
   auto_declare<bool>("motion_mode_switching", false);
   auto_declare<std::vector<std::string>>("motion_joints", {});
   auto_declare<std::vector<std::string>>(
@@ -384,7 +386,66 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     rolling_command_snapshot_ = CommandSnapshot{};
   }
   topology_parameters_frozen_.store(true, std::memory_order_release);
+  configureTrace();
   return controller_interface::CallbackReturn::SUCCESS;
+}
+
+void EnableManagerController::configureTrace()
+{
+  // Non-real-time: create, pre-fault and lock the segment. Failure only disables the trace.
+  trace_.close();
+  if (!get_node()->get_parameter("runtime_log_trace").as_bool()) {
+    return;
+  }
+  const std::vector<std::string> fields(kTraceFields.begin(), kTraceFields.end());
+  const std::string segment =
+    "/runtime-log." + std::to_string(::getpid()) + "." + get_node()->get_name();
+  std::string error;
+  if (!trace_.create(
+        segment, get_node()->get_name(), "enable_manager state machine", fields, 2000U, &error)) {
+    RCLCPP_WARN(get_node()->get_logger(), "RUNTIME_LOG_TRACE_DISABLED %s", error.c_str());
+    return;
+  }
+  RCLCPP_INFO(
+    get_node()->get_logger(), "RUNTIME_LOG_TRACE_CONFIGURED segment=%s fields=%zu", segment.c_str(),
+    fields.size());
+}
+
+void EnableManagerController::writeTrace(std::int64_t now_ns, std::int64_t period_ns)
+{
+  // Real-time: fixed-size copy of relaxed loads; no allocation, lock or system call.
+  if (!trace_.ok()) {
+    return;
+  }
+  double * v = trace_.begin();
+  const auto load = [](const auto & value) {
+    return static_cast<double>(value.load(std::memory_order_relaxed));
+  };
+  std::size_t i = 0U;
+  v[i++] = static_cast<double>(phase_.load(std::memory_order_relaxed));
+  v[i++] = static_cast<double>(owner_.load(std::memory_order_relaxed));
+  v[i++] = static_cast<double>(current_batch_);
+  v[i++] = static_cast<double>(downward_stage_);
+  v[i++] = static_cast<double>(current_control_mode_.load(std::memory_order_relaxed));
+  v[i++] = stage_deadline_ns_ == 0 ? std::numeric_limits<double>::quiet_NaN()
+                                   : static_cast<double>(stage_deadline_ns_ - now_ns) * 1e-6;
+  v[i++] = static_cast<double>(last_failure_stage_.load(std::memory_order_relaxed));
+  v[i++] = load(last_failed_batch_);
+  v[i++] = load(last_failed_joint_);
+  v[i++] = load(last_failed_status_word_);
+  v[i++] = static_cast<double>(primary_failure_stage_);
+  v[i++] = static_cast<double>(primary_failed_batch_);
+  v[i++] = static_cast<double>(primary_failed_joint_);
+  v[i++] = load(motion_fault_pending_);
+  v[i++] = load(enable_request_);
+  v[i++] = load(disable_request_);
+  v[i++] = load(reset_request_);
+  v[i++] = load(switch_in_progress_);
+  v[i++] = load(restart_required_);
+  v[i++] = static_cast<double>(state_sources_qualified_);
+  v[i++] = load(enable_hardware_ready_);
+  v[i++] = load(jtc_deactivate_failed_);
+  trace_.commit(now_ns, period_ns);
 }
 
 rcl_interfaces::msg::SetParametersResult
@@ -688,6 +749,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   owner_.store(Owner::kInternal, std::memory_order_release);
   phase_.store(Phase::kStartupSanitizing, std::memory_order_release);
   active_.store(true, std::memory_order_release);
+  trace_.set_state(runtime_log::WriterState::kActive);
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -701,11 +763,12 @@ controller_interface::CallbackReturn EnableManagerController::on_deactivate(
   owner_.store(Owner::kInternal, std::memory_order_release);
   current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
   releaseCia402Interfaces();
+  trace_.set_state(runtime_log::WriterState::kInactive);
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
 controller_interface::return_type EnableManagerController::update(
-  const rclcpp::Time & time, const rclcpp::Duration &)
+  const rclcpp::Time & time, const rclcpp::Duration & period)
 {
   if (!active_.load(std::memory_order_acquire)) {
     return controller_interface::return_type::OK;
@@ -884,6 +947,7 @@ controller_interface::return_type EnableManagerController::update(
       break;
   }
 
+  writeTrace(now_ns, period.nanoseconds());
   return controller_interface::return_type::OK;
 }
 
