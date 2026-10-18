@@ -88,6 +88,15 @@ bool KincoCyclicModeSlave::setupSlave(
       return false;
     }
     startup_mode_ = static_cast<int8_t>(startup);
+    // Fixed mode (default, like the fixed-mode plugin): the axis always runs its startup mode
+    // and the mode command is ignored. Runtime CSP<->CSV switching needs mode_switching=true.
+    const auto switching = parameters.find("mode_switching");
+    if (
+      switching != parameters.end() && switching->second != "true" &&
+      switching->second != "false") {
+      return false;
+    }
+    mode_switching_ = switching != parameters.end() && switching->second == "true";
 
     const std::array<std::string, kCommandCount> command_names{
       "position", "velocity", "mode_of_operation", "control_word", "write_sequence", "write_mask"};
@@ -227,9 +236,18 @@ void KincoCyclicModeSlave::onPdoCycleRead(bool complete)
   if (complete) {
     last_complete_feedback_ = std::chrono::steady_clock::now();
     set_state(kFeedbackAge, 0.0);
+    incomplete_cycles_ = 0U;
   } else {
-    startup_seed_sent_ = false;
-    clear_handoff(true);
+    // Field 2026-10-18: single frames are corrupted/unmatched while power stages switch on.
+    // Up to kMaxRideThroughCycles consecutive lost cycles repeat the last outputs (the drive
+    // watchdog is 100 ms); beyond that the handoff ends strictly, as in the fixed-mode plugin.
+    if (incomplete_cycles_ < 255U) {
+      ++incomplete_cycles_;
+    }
+    if (!startup_seed_sent_ || incomplete_cycles_ > kMaxRideThroughCycles) {
+      startup_seed_sent_ = false;
+      clear_handoff(true);
+    }
     set_state(kFeedbackAge, std::numeric_limits<double>::infinity());
   }
 }
@@ -257,11 +275,17 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   }
   if ((pending_mask_ & 4U) != 0) {pending_valid_ = pending_mode_ != 0 && pending_valid_;}
   const uint16_t requested_word = requested_control_word();
-  output_control_word_ = complete && is_operational_ ? requested_word : 0U;
+  const bool ride_through = !complete && is_operational_ && startup_seed_sent_ &&
+                            incomplete_cycles_ <= kMaxRideThroughCycles;
+  output_control_word_ = (complete || ride_through) && is_operational_ ? requested_word : 0U;
   if (!startup_seed_sent_ && (output_control_word_ & 0x008fU) == 0x000fU) {
     output_control_word_ = 0x0007U;
   }
-  output_position_raw_ = have_position_ ? actual_position_raw_ : 0;
+  // Never fall back to the live actual position: it jitters, and a target that follows it
+  // lets an enabled CSP axis drift. Every path sends the latched hold unless a branch below
+  // takes one deliberate reading (seed, disabled, CSV->CSP stationary seed) or a command.
+  output_position_raw_ =
+    hold_known_ ? hold_position_raw_ : (have_position_ ? actual_position_raw_ : 0);
   output_velocity_raw_ = 0;
   output_mode_ = have_mode_ && (mode_display_ == kCsp || mode_display_ == kCsv) ?
     mode_display_ : startup_mode_;
@@ -270,6 +294,12 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   set_state(kCommandFresh, 0.0);
 
   if (!complete) {
+    if (ride_through) {
+      // Repeat the last outputs; the position output above is already the hold.
+      output_velocity_raw_ = last_sent_velocity_raw_;
+      output_mode_ = last_sent_mode_;
+      return;
+    }
     startup_seed_sent_ = false;
     clear_handoff(true);
     return;
@@ -297,18 +327,39 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
     output_velocity_raw_ = 0;
     output_mode_ = startup_mode_pending ? startup_mode_ : mode_display_;
     hold_position_raw_ = actual_position_raw_;
+    hold_known_ = true;
     position_owned_ = false;
     startup_seed_pending_ = true;
     invalidate_velocity_command();
     return;
   }
 
+  const bool enable_requested = (requested_control_word() & 0x008FU) == 0x000FU;
+  if (!operation_enabled()) {
+    // While disabled the hold tracks the drive, so the enable latches the last disabled
+    // reading. As in the fixed-mode plugin, a latched error ends only when the drive is
+    // disabled and enable is no longer requested; the next enable starts clean.
+    hold_position_raw_ = actual_position_raw_;
+    hold_known_ = true;
+    output_position_raw_ = hold_position_raw_;
+    if (!enable_requested) {
+      error_latched_ = false;
+    }
+  }
   if (error_latched_) {
+    // Fixed-mode behaviour: keep the latched hold and inhibit operation (0x0007), so the
+    // drive leaves Operation Enabled and the enable manager sees the failure.
     set_state(kModeRequestError, 1.0);
+    inhibit_operation();
     return;
   }
 
-  const int desired = requested_mode();
+  // Fixed mode: always the startup mode. Switching: NaN (no producer) keeps the startup
+  // mode; any other value must be CSP or CSV.
+  int desired = startup_mode_;
+  if (mode_switching_ && !std::isnan((*command_interface_ptr_)[commands_[kMode]])) {
+    desired = requested_mode();
+  }
   if (desired != kCsp && desired != kCsv) {
     clear_handoff(true);
     return;
@@ -341,9 +392,9 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   }
   startup_mode_waiting_ = false;
   if (mode_display_ != kCsp) {
-    // Leaving CSP ends position ownership; a later CSP takeover is checked again.
+    // Leaving CSP ends position ownership; a later CSP takeover is checked again. The hold is
+    // not refreshed here: a CSV->CSP switch takes its own stationary seed.
     position_owned_ = false;
-    hold_position_raw_ = actual_position_raw_;
   }
 
   if (mode_request_in_flight_) {
@@ -419,21 +470,31 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   set_state(kModeRequestAck, 1.0);
   if (desired == kCsp) {
     output_position_raw_ = hold_position_raw_;
+    // Fixed-mode takeover rule: until a controller owns the axis, the drive must stay within
+    // the takeover tolerance of the enable hold, and the first command must lie within the
+    // same tolerance of the current measurement.
+    const double tolerance_counts = takeover_tolerance_ * std::abs(position_counts_per_unit_);
+    if (
+      !position_owned_ && std::abs(
+                            static_cast<double>(actual_position_raw_) -
+                            static_cast<double>(hold_position_raw_)) > tolerance_counts) {
+      clear_handoff(true);
+      inhibit_operation();
+      return;
+    }
     const double value = (*command_interface_ptr_)[commands_[kPosition]];
     // NaN before takeover means no producer: keep the latched hold, not an error.
     if (std::isnan(value) && !position_owned_) {
       return;
     }
     int32_t target = 0;
-    if (!valid_position_command(target)) {
-      set_state(kModeRequestError, 1.0);
-      return;
-    }
     if (
-      !position_owned_ &&
-      std::abs(static_cast<double>(target) - static_cast<double>(hold_position_raw_)) >
-        takeover_tolerance_ * std::abs(position_counts_per_unit_)) {
+      !valid_position_command(target) ||
+      (!position_owned_ &&
+       std::abs(static_cast<double>(target) - static_cast<double>(actual_position_raw_)) >
+         tolerance_counts)) {
       clear_handoff(true);
+      inhibit_operation();
       return;
     }
     position_owned_ = true;
@@ -475,6 +536,8 @@ void KincoCyclicModeSlave::onPdoCycleSent()
     return;
   }
   set_state(kSentVelocity, output_velocity_raw_ / velocity_counts_per_unit_);
+  last_sent_velocity_raw_ = output_velocity_raw_;
+  last_sent_mode_ = output_mode_;
   if (pending_valid_ && !error_latched_ && operation_enabled() &&
     pending_sequence_ > sent_sequence_ && feedback_sequence_ != 0 &&
     ((pending_mask_ & 1U) == 0 || pending_velocity_ == output_velocity_raw_) &&
@@ -529,6 +592,8 @@ void KincoCyclicModeSlave::set_state_is_operational(bool operational)
     error_latched_ = false;
     startup_mode_waiting_ = false;
     position_owned_ = false;
+    hold_known_ = false;
+    incomplete_cycles_ = 0U;
     clear_handoff(false);
     set_state(kFeedbackAge, std::numeric_limits<double>::infinity());
     invalidate_velocity_command();
@@ -586,6 +651,14 @@ uint16_t KincoCyclicModeSlave::requested_control_word() const noexcept
 {
   const double value = (*command_interface_ptr_)[commands_[kControlWord]];
   return exact_integer(value, 65535.0) ? static_cast<uint16_t>(value) : 0U;
+}
+
+void KincoCyclicModeSlave::inhibit_operation() noexcept
+{
+  if ((output_control_word_ & 0x008FU) == 0x000FU) {
+    output_control_word_ = 0x0007U;
+  }
+  output_velocity_raw_ = 0;
 }
 
 void KincoCyclicModeSlave::clear_handoff(bool error) noexcept

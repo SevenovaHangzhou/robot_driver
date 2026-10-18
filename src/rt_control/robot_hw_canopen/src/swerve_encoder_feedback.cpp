@@ -12,7 +12,6 @@ namespace
 
 constexpr double kTwoPi{6.28318530717958647692};
 constexpr double kNanosecondsPerMillisecond{1000000.0};
-constexpr unsigned int kSnapshotAttempts{3U};
 
 [[nodiscard]] SwerveEncoderSample invalid_sample() noexcept
 {
@@ -58,10 +57,8 @@ void validate_axis(
 }  // namespace
 
 static_assert(
-  std::atomic<std::uint64_t>::is_always_lock_free &&
-  std::atomic<std::int64_t>::is_always_lock_free &&
-  std::atomic<std::uint32_t>::is_always_lock_free,
-  "swerve encoder snapshots must remain lock-free");
+  std::atomic<std::uint8_t>::is_always_lock_free && std::atomic<std::uint32_t>::is_always_lock_free,
+  "swerve encoder triple buffers must remain lock-free");
 
 SwerveEncoderFeedback::SwerveEncoderFeedback(
   std::array<SwerveEncoderAxisConfig, kSwerveEncoderCount> config)
@@ -86,19 +83,14 @@ bool SwerveEncoderFeedback::observe(
     return false;
   }
 
+  // Single writer: fill the back buffer, then publish it as the fresh middle buffer.
   auto & slot = slots_[axis];
-  std::uint64_t sequence{slot.sequence.load(std::memory_order_acquire)};
-  if ((sequence & 1U) != 0U ||
-    !slot.sequence.compare_exchange_strong(
-      sequence, sequence + 1U, std::memory_order_acq_rel, std::memory_order_acquire))
-  {
-    return false;
-  }
-  slot.raw_position.store(raw_position, std::memory_order_relaxed);
-  slot.received_steady_ns.store(received_steady_ns, std::memory_order_relaxed);
-  slot.sample_epoch.store(
-    slot.nmt_epoch.load(std::memory_order_acquire), std::memory_order_relaxed);
-  slot.sequence.store(sequence + 2U, std::memory_order_release);
+  slot.frames[slot.back] = {
+    raw_position, received_steady_ns, slot.nmt_epoch.load(std::memory_order_acquire)};
+  slot.back = static_cast<std::uint8_t>(
+    slot.middle.exchange(
+      static_cast<std::uint8_t>(slot.back | kFreshBit), std::memory_order_acq_rel) &
+    kIndexMask);
   return true;
 }
 
@@ -137,29 +129,28 @@ std::size_t SwerveEncoderFeedback::axis_for_node(std::uint8_t node_id) const noe
 SwerveEncoderSample SwerveEncoderFeedback::sample_axis(
   std::size_t axis, std::int64_t now_steady_ns) const noexcept
 {
-  std::uint32_t raw_position{0U};
-  std::int64_t received_steady_ns{0};
-  std::uint32_t sample_epoch{0U};
-  bool coherent{false};
+  // Single reader: take the newest published buffer if there is one; otherwise keep the
+  // current front buffer. Staleness is judged by age only.
   const auto & slot = slots_[axis];
-  for (unsigned int attempt{0U}; attempt < kSnapshotAttempts; ++attempt) {
-    const std::uint64_t before{slot.sequence.load(std::memory_order_acquire)};
-    if ((before & 1U) != 0U) {
-      continue;
-    }
-    raw_position = slot.raw_position.load(std::memory_order_relaxed);
-    received_steady_ns = slot.received_steady_ns.load(std::memory_order_relaxed);
-    sample_epoch = slot.sample_epoch.load(std::memory_order_relaxed);
-    const std::uint64_t after{slot.sequence.load(std::memory_order_acquire)};
-    if (before == after) {
-      coherent = true;
-      break;
-    }
+  if ((slot.middle.load(std::memory_order_acquire) & kFreshBit) != 0U) {
+    slot.front = static_cast<std::uint8_t>(
+      slot.middle.exchange(slot.front, std::memory_order_acq_rel) & kIndexMask);
+    slot.has_frame = true;
   }
-  if (
-    !coherent || received_steady_ns <= 0 || now_steady_ns < received_steady_ns ||
-    sample_epoch != slot.nmt_epoch.load(std::memory_order_acquire)) {
+  if (!slot.has_frame) {
     return invalid_sample();
+  }
+  const Frame frame = slot.frames[slot.front];
+  const std::uint32_t raw_position{frame.raw_position};
+  if (
+    frame.received_steady_ns <= 0 ||
+    frame.nmt_epoch != slot.nmt_epoch.load(std::memory_order_acquire)) {
+    return invalid_sample();
+  }
+  // A frame stored after the reader took ``now`` is fresh (age 0), not invalid.
+  const std::int64_t received_steady_ns{frame.received_steady_ns};
+  if (now_steady_ns < received_steady_ns) {
+    now_steady_ns = received_steady_ns;
   }
 
   const auto & config = config_[axis];
