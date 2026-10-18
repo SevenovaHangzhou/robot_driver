@@ -1,6 +1,5 @@
 """Console admission checks, poses and Robot Model handling with a fake driver. No ROS."""
 
-import math
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
@@ -97,21 +96,23 @@ def setup(tmp_path):
     return console, driver, clock
 
 
-def test_arm_view_keeps_the_controlled_branch_at_its_robot_pose():
+def test_browser_view_shows_the_whole_robot_and_names_the_arm_links():
     model = load_arm_model(URDF, JOINTS)
     robot = ET.fromstring(model.browser_urdf)
     assert model.root_link == "mount"
-    assert {j.get("name") for j in robot.findall("joint")} == {"console_world_to_mount", *JOINTS}
+    assert model.arm_links == ("l1", "l2")
+    assert {j.get("name") for j in robot.findall("joint")} == {"fix", *JOINTS, "right"}
     assert {link.get("name") for link in robot.findall("link")} == {
-        "console_world",
+        "world",
         "mount",
         "l1",
+        "other",
         "l2",
     }
-    assert [m.get("filename") for m in robot.iter("mesh")] == ["/mesh/pkg/meshes/l2.stl"]
-    origin = robot.find("joint[@name='console_world_to_mount']/origin")
-    assert [float(v) for v in origin.get("xyz").split()] == pytest.approx([0, 0, 1])
-    assert abs(float(origin.get("rpy").split()[0])) == pytest.approx(math.pi, abs=1e-6)
+    assert sorted(m.get("filename") for m in robot.iter("mesh")) == [
+        "/mesh/pkg/meshes/l2.stl",
+        "/mesh/pkg/meshes/mount.stl",
+    ]
     assert robot.find(".//collision") is None and robot.find("ros2_control") is None
     with pytest.raises(ModelError, match="missing"):
         load_arm_model(URDF, ["left_joint9"])
@@ -239,3 +240,95 @@ def test_poses_save_list_and_goto(setup, tmp_path):
     reloaded = PoseStore(tmp_path / "poses.json", JOINTS)
     assert [pose["name"] for pose in reloaded.list()] == ["抓取位"]
     assert PoseStore(tmp_path / "poses.json", ["other"]).list() == []
+
+
+def test_mesh_lookup_accepts_symlink_installed_meshes(tmp_path):
+    source = tmp_path / "src/meshes"
+    source.mkdir(parents=True)
+    (source / "a.stl").write_bytes(b"solid a")
+    share = tmp_path / "install/share/pkg/meshes"
+    share.mkdir(parents=True)
+    (share / "a.stl").symlink_to(source / "a.stl")  # what colcon --symlink-install produces
+
+    def lookup(_package):
+        return tmp_path / "install/share/pkg"
+
+    found = resolve_mesh("pkg/meshes/a.stl", lookup)
+    assert found is not None and found.read_bytes() == b"solid a"
+    assert resolve_mesh("pkg/../src/meshes/a.stl", lookup) is None
+
+
+def _sequence_console(setup):
+    console, driver, clock = setup
+    console._spawn = lambda job: job()  # noqa: SLF001 - run the next step synchronously
+    console.update(enable_at=clock.now + 100, controller_at=clock.now + 100)
+    console.save_pose("s1", "A", overwrite=False)  # (0.0, 0.2)
+    console.update(positions={"left_joint1": 0.5, "left_joint2": 0.2})
+    console.save_pose("s1", "B", overwrite=False)  # (0.5, 0.2)
+    return console, driver, clock
+
+
+def _arrive(console, driver, clock, index, success=True):
+    """Report the trajectory ``index`` as finished at its last point."""
+    _, points, done = driver.sent[index]
+    clock.now += 0.1
+    console.update(positions=dict(zip(JOINTS, points[-1].positions)), feedback_at=clock.now)
+    done(success, "" if success else "aborted")
+
+
+def test_sequence_visits_poses_in_order_with_repeats(setup):
+    console, driver, clock = _sequence_console(setup)
+    assert console.run_sequence("s1", ["A", "B", "A"], "leisure") == {"total": 3}
+    status = console.status("s1")
+    assert status["sequence"] == {"names": ["A", "B", "A"], "index": 0, "total": 3}
+    assert status["moving"]["label"] == "1/3 A"
+    for index, goal in enumerate([(0.0, 0.2), (0.5, 0.2), (0.0, 0.2)]):
+        assert driver.sent[index][1][-1].positions == pytest.approx(goal)
+        _arrive(console, driver, clock, index)
+    assert len(driver.sent) == 3
+    status = console.status("s1")
+    assert status["sequence"] is None and status["moving"] is None
+    assert status["last_result"] == "序列完成（3 个位姿）"
+
+
+def test_sequence_skips_a_pose_that_is_already_reached(setup):
+    console, driver, clock = _sequence_console(setup)  # currently at B
+    console.run_sequence("s1", ["B", "A"], "leisure")
+    assert len(driver.sent) == 1
+    assert driver.sent[0][1][-1].positions == pytest.approx((0.0, 0.2))
+    assert console.status("s1")["moving"]["label"] == "2/2 A"
+
+
+def test_stop_cancels_the_rest_of_the_sequence(setup):
+    console, driver, clock = _sequence_console(setup)
+    console.run_sequence("s1", ["A", "B"], "leisure")
+    clock.now += 0.5
+    console.update(feedback_at=clock.now)
+    assert console.stop()["stopping"] is True
+    assert console.status("s1")["sequence"] is None
+    driver.sent[1][2](True, "")  # stop finished
+    assert len(driver.sent) == 2
+    assert console.status("s1")["last_result"] == "已停止"
+
+
+def test_failed_step_aborts_the_sequence(setup):
+    console, driver, clock = _sequence_console(setup)
+    console.run_sequence("s1", ["A", "B"], "leisure")
+    _arrive(console, driver, clock, 0, success=False)
+    status = console.status("s1")
+    assert status["sequence"] is None and len(driver.sent) == 1
+    assert status["last_result"].startswith("序列中止（1/2 A）")
+
+
+def test_sequence_checks_every_pose_before_moving(setup):
+    console, driver, _ = _sequence_console(setup)
+    with pytest.raises(ConsoleError, match="第 2 个"):
+        console.run_sequence("s1", ["A", "缺失"], "leisure")
+    with pytest.raises(ConsoleError, match="至少一个"):
+        console.run_sequence("s1", [], "leisure")
+    with pytest.raises(ConsoleError, match="控制权"):
+        console.run_sequence("s2", ["A"], "leisure")
+    console.update(enable_state="IDLE")
+    with pytest.raises(ConsoleError, match="未使能"):
+        console.run_sequence("s1", ["A"], "leisure")
+    assert not driver.sent and console.status("s1")["sequence"] is None

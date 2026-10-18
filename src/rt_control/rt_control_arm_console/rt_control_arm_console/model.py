@@ -1,8 +1,9 @@
-"""Robot Model access for the console: joint limits and a browser copy of the arm.
+"""Robot Model access for the console: joint limits and a browser copy of the robot.
 
 The console never keeps its own geometry. It reads the URDF that the running
-controller_manager was started with, takes the subtree that carries the
-controlled joints and rewrites ``package://`` mesh URIs to console URLs.
+controller_manager was started with, keeps every link and joint (visuals only) so the
+arm is shown on the whole vehicle, names the links that move with the controlled
+joints, and rewrites ``package://`` mesh URIs to console URLs.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ class ArmModel:
     joints: tuple[JointLimit, ...]
     root_link: str
     browser_urdf: str
+    arm_links: tuple[str, ...] = ()  # links moved by the controlled joints (target preview)
 
 
 def load_arm_model(urdf: str, joints: Sequence[str]) -> ArmModel:
@@ -60,105 +62,47 @@ def load_arm_model(urdf: str, joints: Sequence[str]) -> ArmModel:
             raise ModelError(f"joint limit invalid in the Robot Model: {name}")
         limits.append(JointLimit(name, *values))
     root = elements[joints[0]].find("parent").get("link")
-    return ArmModel(tuple(limits), root, _arm_view(robot, root, set(joints)))
+    return ArmModel(tuple(limits), root, _robot_view(robot), _arm_links(robot, root, set(joints)))
 
 
-def _arm_view(robot: ET.Element, root: str, controlled: set[str]) -> str:
-    """Controlled branch below ``root`` and everything after it, placed as in the robot.
+def _robot_view(robot: ET.Element) -> str:
+    """Every link and joint of the Robot Model, visuals only, for the browser.
 
-    Sibling branches of ``root`` (other arm, head) and the visuals of ``root`` itself
-    are left out. A fixed joint from ``console_world`` gives ``root`` its zero-pose
-    placement in the robot root frame, so the arm keeps its real orientation.
+    Collision geometry, ros2_control and simulator tags are dropped; joints that the
+    console does not command stay at their zero position in the browser.
     """
+    result = ET.Element("robot", name=robot.get("name", "robot") + "_console_view")
+    for element in robot:
+        if element.tag in ("material", "joint"):
+            result.append(element)
+        elif element.tag == "link":
+            copy = ET.fromstring(ET.tostring(element))
+            for collision in copy.findall("collision"):
+                copy.remove(collision)
+            result.append(copy)
+    for mesh in result.iter("mesh"):
+        mesh.set("filename", mesh_url(mesh.get("filename", "")))
+    return ET.tostring(result, encoding="unicode")
+
+
+def _arm_links(robot: ET.Element, root: str, controlled: set[str]) -> tuple[str, ...]:
+    """Links below ``root`` on branches that carry a controlled joint (the moving arm)."""
     children: dict[str, list[ET.Element]] = {}
-    parent_joint: dict[str, ET.Element] = {}
     for joint in robot.findall("joint"):
         children.setdefault(joint.find("parent").get("link"), []).append(joint)
-        parent_joint[joint.find("child").get("link")] = joint
-    links = {link.get("name"): link for link in robot.findall("link")}
 
     def carries_controlled(joint: ET.Element) -> bool:
         if joint.get("name") in controlled:
             return True
         return any(carries_controlled(j) for j in children.get(joint.find("child").get("link"), []))
 
-    result = ET.Element("robot", name=robot.get("name", "robot") + "_console_view")
-    for material in robot.findall("material"):
-        result.append(material)
-    ET.SubElement(result, "link", name="console_world")
-    placement = ET.SubElement(result, "joint", name="console_world_to_" + root, type="fixed")
-    ET.SubElement(placement, "parent", link="console_world")
-    ET.SubElement(placement, "child", link=root)
-    xyz, rpy = _decompose(_root_pose(root, parent_joint))
-    ET.SubElement(
-        placement,
-        "origin",
-        xyz=" ".join(f"{v:.9g}" for v in xyz),
-        rpy=" ".join(f"{v:.9g}" for v in rpy),
-    )
-    ET.SubElement(result, "link", name=root)
-    pending = [joint for joint in children.get(root, []) if carries_controlled(joint)]
+    links, pending = [], [j for j in children.get(root, []) if carries_controlled(j)]
     while pending:
-        joint = pending.pop()
+        joint = pending.pop(0)
         name = joint.find("child").get("link")
-        link = links.get(name)
-        if link is None:
-            raise ModelError(f"link missing from the Robot Model: {name}")
-        copy = ET.fromstring(ET.tostring(link))
-        for collision in copy.findall("collision"):
-            copy.remove(collision)
-        result.extend((joint, copy))
+        links.append(name)
         pending.extend(children.get(name, []))
-    for mesh in result.iter("mesh"):
-        mesh.set("filename", mesh_url(mesh.get("filename", "")))
-    return ET.tostring(result, encoding="unicode")
-
-
-Matrix = list[list[float]]
-
-
-def _origin(joint: ET.Element) -> Matrix:
-    origin = joint.find("origin")
-    xyz = [
-        float(v) for v in (origin.get("xyz", "0 0 0") if origin is not None else "0 0 0").split()
-    ]
-    rpy = [
-        float(v) for v in (origin.get("rpy", "0 0 0") if origin is not None else "0 0 0").split()
-    ]
-    roll, pitch, yaw = rpy
-    cr, sr, cp, sp = math.cos(roll), math.sin(roll), math.cos(pitch), math.sin(pitch)
-    cy, sy = math.cos(yaw), math.sin(yaw)
-    return [
-        [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr, xyz[0]],
-        [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr, xyz[1]],
-        [-sp, cp * sr, cp * cr, xyz[2]],
-        [0.0, 0.0, 0.0, 1.0],
-    ]
-
-
-def _multiply(a: Matrix, b: Matrix) -> Matrix:
-    return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]
-
-
-def _root_pose(link: str, parent_joint: dict[str, ET.Element]) -> Matrix:
-    """Pose of ``link`` in the robot root frame with every joint at zero."""
-    pose = [[float(i == j) for j in range(4)] for i in range(4)]
-    while link in parent_joint:
-        joint = parent_joint[link]
-        pose = _multiply(_origin(joint), pose)
-        link = joint.find("parent").get("link")
-    return pose
-
-
-def _decompose(pose: Matrix) -> tuple[list[float], list[float]]:
-    pitch = math.asin(max(-1.0, min(1.0, -pose[2][0])))
-    if abs(math.cos(pitch)) > 1e-9:
-        roll = math.atan2(pose[2][1], pose[2][2])
-        yaw = math.atan2(pose[1][0], pose[0][0])
-    else:  # gimbal lock: put the whole rotation into yaw
-        roll = 0.0
-        yaw = math.atan2(-pose[0][1], pose[1][1])
-    return [pose[0][3], pose[1][3], pose[2][3]], [roll, pitch, yaw]
+    return tuple(links)
 
 
 def mesh_url(filename: str) -> str:
@@ -178,7 +122,9 @@ def resolve_mesh(url_path: str, share_lookup: ShareLookup) -> Optional[Path]:
         share = Path(share_lookup(parts[0])).resolve()
     except Exception:  # noqa: BLE001 - unknown package means "not found"
         return None
-    path = share.joinpath(*parts[1:]).resolve()
+    # Parts exclude "", "." and "..", so the lexical path stays inside the share. It is not
+    # resolved: a symlink install points installed meshes back into the source tree.
+    path = share.joinpath(*parts[1:])
     if not path.is_relative_to(share) or not path.is_file():
         return None
     return path

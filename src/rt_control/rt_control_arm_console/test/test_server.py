@@ -103,3 +103,44 @@ def test_info_events_and_execute(server):
     assert len(driver.sent) == 1
     response, body = request(instance, "POST", "/api/enable", {"enabled": True}, cookie)
     assert response.status == 409  # moving
+
+
+def test_static_assets_are_served_from_a_symlink_install(setup, tmp_path):  # noqa: F811
+    console, _, _ = setup
+    web = tmp_path / "share/web"
+    web.mkdir(parents=True)
+    for name in ("index.html", "style.css"):
+        (web / name).symlink_to(WEB / name)  # what colcon --symlink-install produces
+    (tmp_path / "secret.txt").write_text("outside")
+    instance = ConsoleServer(
+        ("127.0.0.1", 0),
+        console,
+        "secret",
+        web,
+        lambda _: "/nonexistent",
+        lambda enabled: {"accepted": True, "enabled": enabled, "message": ""},
+    )
+    thread = threading.Thread(target=instance.serve_forever, daemon=True)
+    thread.start()
+    try:
+        response, body = request(instance, "GET", "/static/style.css")
+        assert response.status == 200 and body == (WEB / "style.css").read_bytes()
+        response, _ = request(instance, "GET", "/static/../../secret.txt")
+        assert response.status == 404
+    finally:
+        instance.stopping.set()
+        instance.shutdown()
+        instance.server_close()
+
+
+def test_run_sequence_route_reports_console_checks(server):
+    instance, console, driver = server
+    console.release("s1")  # the shared fixture holds the lease for session "s1"
+    cookie = login(instance)
+    response, _ = request(instance, "POST", "/api/acquire", {}, cookie)
+    assert response.status == 200
+    response, body = request(
+        instance, "POST", "/api/run_sequence", {"names": ["没有"], "gear": "leisure"}, cookie
+    )
+    assert response.status == 409 and "第 1 个" in json.loads(body)["message"]
+    assert not driver.sent

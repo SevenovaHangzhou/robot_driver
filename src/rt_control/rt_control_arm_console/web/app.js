@@ -12,8 +12,9 @@ const state = {
   gear: null,
   target: {}, // rad, per joint
   edited: false, // true once the operator moved a slider since the last sync
-  pending: null, // {kind: "target"|"pose", name?}
+  pending: null, // {kind: "target"}
   poses: [],
+  sequence: [], // pose names, in execution order (repeats allowed)
 };
 let viewer = null;
 let events = null;
@@ -83,28 +84,61 @@ async function loadInfo() {
   buildGears();
   buildJoints();
   renderPoses(info.poses);
-  $("model-msg").textContent = "正在加载模型…";
-  await viewer.load(info.urdf);
+  renderSequence();
+  $("model-msg").textContent = "正在加载整车模型…";
+  await viewer.load(info.urdf, info.arm_links || []);
   $("model-msg").hidden = true;
 }
 
 // ------------------------------------------------------------------ controls
 function buildGears() {
-  const nav = $("gears");
-  nav.replaceChildren(...state.info.gears.map((gear, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = `${gear.label} ${Math.round(gear.velocity_deg_s)}°/s`;
-    button.dataset.gear = gear.name;
-    if (index > 0) button.classList.add("sport");
-    button.addEventListener("click", () => { state.gear = gear.name; markGear(); });
-    return button;
-  }));
+  const gears = state.info.gears;
+  const container = $("gears");
+  if (gears.length === 2) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.id = "gear-switch";
+    toggle.className = "gear-switch";
+    toggle.setAttribute("role", "switch");
+    toggle.innerHTML = '<span class="knob"></span>';
+    toggle.addEventListener("click", () => {
+      state.gear = state.gear === gears[0].name ? gears[1].name : gears[0].name;
+      markGear();
+    });
+    const label = document.createElement("span");
+    label.id = "gear-label";
+    label.className = "gear-label";
+    container.replaceChildren(toggle, label);
+  } else {
+    const nav = document.createElement("nav");
+    nav.className = "seg";
+    nav.append(...gears.map((gear) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = gear.label;
+      button.dataset.gear = gear.name;
+      button.addEventListener("click", () => { state.gear = gear.name; markGear(); });
+      return button;
+    }));
+    container.replaceChildren(nav);
+  }
   markGear();
 }
 
 function markGear() {
-  for (const button of $("gears").children) {
+  const gears = state.info.gears;
+  const gear = gears.find((item) => item.name === state.gear) || gears[0];
+  const toggle = $("gear-switch");
+  if (toggle) {
+    const second = gear.name === gears[1].name;
+    toggle.setAttribute("aria-checked", String(second));
+    toggle.classList.toggle("on", second);
+    toggle.title = `${gears[0].label} / ${gears[1].label}`;
+    $("gear-label").textContent = gear.label;
+    $("gear-label").classList.toggle("sport", second);
+    return;
+  }
+  for (const button of $("gears").querySelectorAll("button")) {
     button.classList.toggle("active", button.dataset.gear === state.gear);
   }
 }
@@ -191,13 +225,13 @@ function renderTargets() {
 $("sync-btn").addEventListener("click", syncTargets);
 
 // ------------------------------------------------------------------ motion
-async function openConfirm(kind, name = "") {
+async function openConfirm(kind) {
   if (!targetComplete()) return;
   const preview = await guarded(() => post("/api/preview", { target: state.target, gear: state.gear }));
   if (!preview) return;
   const gear = state.info.gears.find((item) => item.name === state.gear);
-  state.pending = { kind, name };
-  $("confirm-title").textContent = kind === "pose" ? `到达位姿「${name}」` : "发送到目标";
+  state.pending = { kind };
+  $("confirm-title").textContent = "发送到目标";
   $("confirm-body").textContent =
     `${gear.label}档 · 预计 ${preview.duration_s.toFixed(1)} s · 最大关节变化 ` +
     `${preview.max_delta_deg.toFixed(1)}°（S 型曲线，各轴同时到达）`;
@@ -216,11 +250,7 @@ $("confirm").addEventListener("close", async () => {
   const pending = state.pending;
   state.pending = null;
   if ($("confirm").returnValue !== "ok" || !pending) return;
-  if (pending.kind === "pose") {
-    await guarded(() => post("/api/goto_pose", { name: pending.name, gear: state.gear }));
-  } else {
-    await guarded(() => post("/api/execute", { target: state.target, gear: state.gear }));
-  }
+  await guarded(() => post("/api/execute", { target: state.target, gear: state.gear }));
 });
 
 $("send-btn").addEventListener("click", () => openConfirm("target"));
@@ -253,13 +283,22 @@ function renderPoses(poses) {
     saved.textContent = (pose.saved_at || "").slice(5, 16).replace("T", " ");
     const go = document.createElement("button");
     go.type = "button";
-    go.className = "small primary";
+    go.className = "small primary motion";
     go.textContent = "到达";
-    go.addEventListener("click", () => {
+    go.addEventListener("click", async () => {
+      // Saved poses go straight to execution; the server keeps every motion check.
       Object.assign(state.target, pose.joints);
       state.edited = true;
       renderTargets();
-      openConfirm("pose", pose.name);
+      await guarded(() => post("/api/goto_pose", { name: pose.name, gear: state.gear }));
+    });
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "small add";
+    add.textContent = "+ 序列";
+    add.addEventListener("click", () => {
+      state.sequence.push(pose.name);
+      renderSequence();
     });
     const remove = document.createElement("button");
     remove.type = "button";
@@ -270,11 +309,59 @@ function renderPoses(poses) {
         guarded(() => post("/api/delete_pose", { name: pose.name }));
       }
     });
-    item.append(label, saved, go, remove);
+    item.append(label, saved, go, add, remove);
     return item;
   }));
+  // Drop deleted poses from the sequence being edited.
+  const names = new Set(poses.map((pose) => pose.name));
+  const kept = state.sequence.filter((name) => names.has(name));
+  if (kept.length !== state.sequence.length) {
+    state.sequence = kept;
+    renderSequence();
+  }
   updateButtons();
 }
+
+function renderSequence() {
+  const running = state.status && state.status.sequence;
+  const names = running ? running.names : state.sequence;
+  $("sequence").replaceChildren(...names.map((name, index) => {
+    const item = document.createElement("li");
+    const label = document.createElement("span");
+    label.textContent = name;
+    item.append(label);
+    if (running) {
+      item.classList.toggle("done", index < running.index);
+      item.classList.toggle("current", index === running.index);
+    } else {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "small remove";
+      remove.textContent = "×";
+      remove.title = "移出序列";
+      remove.addEventListener("click", () => {
+        state.sequence.splice(index, 1);
+        renderSequence();
+      });
+      item.append(remove);
+    }
+    return item;
+  }));
+  $("sequence-empty").hidden = names.length > 0;
+  $("sequence-count").textContent = running
+    ? `执行中 ${Math.min(running.index + 1, running.total)} / ${running.total}`
+    : names.length ? `${names.length} 个位姿` : "";
+  updateButtons();
+}
+
+$("sequence-run").addEventListener("click", async () => {
+  if (!state.sequence.length) return;
+  await guarded(() => post("/api/run_sequence", { names: state.sequence, gear: state.gear }));
+});
+$("sequence-clear").addEventListener("click", () => {
+  state.sequence = [];
+  renderSequence();
+});
 
 // ------------------------------------------------------------------ lease / enable
 $("lease-btn").addEventListener("click", () => {
@@ -301,7 +388,11 @@ function setChip(id, text, kind = "") {
 
 function onStatus(status) {
   const wasMoving = Boolean(state.status && state.status.moving);
+  const sequenceChanged =
+    JSON.stringify((state.status && state.status.sequence) || null) !==
+    JSON.stringify(status.sequence || null);
   state.status = status;
+  if (sequenceChanged) renderSequence();
   if (status.poses) renderPoses(status.poses);
   if (!state.info) return;
   // After a move (or stop) the sliders follow the measured pose again.
@@ -317,7 +408,7 @@ function onStatus(status) {
   $("mock-chip").hidden = status.mock !== true;
   const lease = { you: "释放控制权", other: "他人控制中", none: "获取控制权" }[status.lease];
   $("lease-btn").textContent = lease;
-  $("lease-btn").className = `chip button ${status.lease === "you" ? "ok" : status.lease === "other" ? "warn" : ""}`;
+  $("lease-btn").className = `lease ${status.lease === "you" ? "mine" : status.lease === "other" ? "other" : ""}`;
   if (viewer) viewer.setMeasured(status.positions);
   renderTargets();
   renderProgress(status.moving);
@@ -344,7 +435,8 @@ function updateButtons() {
   const busy = status && status.enable.busy;
   const ready = status && status.motion_ready && mine && !moving;
   $("send-btn").disabled = !ready || !state.info;
-  $("stop-btn").disabled = !moving;
+  const sequencing = Boolean(status && status.sequence);
+  $("stop-btn").disabled = !moving && !sequencing;
   $("sync-btn").disabled = moving;
   $("enable-btn").disabled = !mine || moving || busy || (status && status.enable.state === "ENABLED");
   $("disable-btn").disabled = !mine || moving || busy || (status && status.enable.state !== "ENABLED");
@@ -352,6 +444,9 @@ function updateButtons() {
   for (const row of $("joints").children) {
     for (const input of row.querySelectorAll("input")) input.disabled = moving;
   }
-  for (const button of $("poses").querySelectorAll("button.primary")) button.disabled = !ready;
-  for (const button of $("poses").querySelectorAll("button:not(.primary)")) button.disabled = !mine;
+  for (const button of $("poses").querySelectorAll("button.motion")) button.disabled = !ready || sequencing;
+  for (const button of $("poses").querySelectorAll("button.add")) button.disabled = sequencing;
+  for (const button of $("poses").querySelectorAll("button:not(.motion):not(.add)")) button.disabled = !mine;
+  $("sequence-run").disabled = !ready || sequencing || !state.sequence.length;
+  $("sequence-clear").disabled = sequencing || !state.sequence.length;
 }

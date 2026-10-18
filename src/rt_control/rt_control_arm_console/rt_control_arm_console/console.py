@@ -19,6 +19,7 @@ from .trajectory import Limits, Plan, TrajectoryPoint, plan_move, plan_stop
 
 LEASE_TIMEOUT_S = 3.0
 STATE_STALE_S = 2.5
+MAX_SEQUENCE = 50
 
 
 class ConsoleError(Exception):
@@ -141,6 +142,7 @@ class ArmConsole:
         driver: Driver,
         pose_path,
         clock: Callable[[], float] = time.monotonic,
+        spawn: Optional[Callable[[Callable[[], None]], None]] = None,
     ) -> None:
         self.config = config
         self.controller = controller
@@ -157,6 +159,10 @@ class ArmConsole:
         self._lease: Optional[str] = None
         self._lease_seen = -math.inf
         self._enable_busy = False
+        # Pose sequence run by the server: {"session", "names", "gear", "index"}.
+        self._sequence: Optional[dict] = None
+        # The next sequence step starts outside the driver's completion callback.
+        self._spawn = spawn or (lambda job: threading.Thread(target=job, daemon=True).start())
 
     # ------------------------------------------------------------------ inputs
     def set_model(self, model: ArmModel) -> None:
@@ -305,11 +311,86 @@ class ArmConsole:
             raise ConsoleError("bad_pose", str(exc)) from exc
         return self.execute(session, dict(zip(self.joint_names, values)), gear_name, name)
 
+    def run_sequence(self, session: str, names: Sequence[str], gear_name: str) -> dict:
+        """Go to saved poses one after another; every step passes the normal checks.
+
+        All poses are validated first. A stop, a failed step, a lost lease or a lost
+        enable ends the sequence; poses equal to the current position are skipped.
+        """
+        if not isinstance(names, (list, tuple)) or not names:
+            raise ConsoleError("bad_sequence", "请选择至少一个位姿")
+        if len(names) > MAX_SEQUENCE:
+            raise ConsoleError("bad_sequence", f"序列最多 {MAX_SEQUENCE} 个位姿")
+        with self._lock:
+            self._require_lease(session)
+            if self._execution is not None or self._sequence is not None:
+                raise ConsoleError("busy", "上一段运动尚未结束")
+            reason = self._motion_ready()
+            if reason:
+                raise ConsoleError("not_ready", reason)
+            self.config.gear(gear_name)
+            for index, name in enumerate(names, start=1):
+                try:
+                    values = self._pose_store().get(name)
+                except PoseError as exc:
+                    raise ConsoleError("bad_pose", f"第 {index} 个：{exc}") from exc
+                try:
+                    self._check_target(dict(zip(self.joint_names, values)))
+                except ConsoleError as exc:
+                    raise ConsoleError(exc.code, f"第 {index} 个「{name}」：{exc.message}") from exc
+            self._sequence = {
+                "session": session,
+                "names": tuple(str(name) for name in names),
+                "gear": gear_name,
+                "index": 0,
+            }
+            self._last_result = ""
+        self._sequence_step()
+        return {"total": len(names)}
+
+    def _sequence_step(self) -> None:
+        while True:
+            with self._lock:
+                sequence = self._sequence
+                if sequence is None:
+                    return
+                total = len(sequence["names"])
+                if sequence["index"] >= total:
+                    self._sequence = None
+                    self._last_result = f"序列完成（{total} 个位姿）"
+                    return
+                index, name = sequence["index"], sequence["names"][sequence["index"]]
+            label = f"{index + 1}/{total} {name}"
+            try:
+                values = self._pose_store().get(name)
+                self.execute(
+                    sequence["session"],
+                    dict(zip(self.joint_names, values)),
+                    sequence["gear"],
+                    label,
+                )
+                return  # the completion callback advances the sequence
+            except (ConsoleError, PoseError) as exc:
+                with self._lock:
+                    if self._sequence is not sequence:
+                        return
+                    if isinstance(exc, ConsoleError) and exc.code == "no_motion":
+                        sequence["index"] += 1  # already there: next pose
+                        continue
+                    self._sequence = None
+                    message = exc.message if isinstance(exc, ConsoleError) else str(exc)
+                    self._last_result = f"序列中止（{label}）：{message}"
+                return
+
     def stop(self) -> dict:
         """Smooth stop on the current line; any authenticated client may request it."""
         with self._lock:
+            cancelled = self._sequence is not None
+            self._sequence = None
             execution = self._execution
             if execution is None or execution.kind == "stop":
+                if cancelled and execution is None:
+                    self._last_result = "序列已取消"
                 return {"stopping": execution is not None}
             # Same timeline (stamp) as the move. The stop trajectory starts one sample
             # in the past with the move's own points, so the controller continues inside
@@ -339,6 +420,7 @@ class ArmConsole:
 
     def _send(self, execution: _Execution, points) -> None:
         def done(success: bool, message: str) -> None:
+            advance = False
             with self._lock:
                 if self._execution is not execution:
                     return  # superseded (e.g. by a stop)
@@ -347,8 +429,18 @@ class ArmConsole:
                     self._last_result = "已停止" if success else f"停止失败：{message}"
                 else:
                     self._last_result = "已到达" if success else f"运动未完成：{message}"
+                    sequence = self._sequence
+                    if sequence is not None:
+                        if success:
+                            sequence["index"] += 1
+                            advance = True
+                        else:
+                            self._sequence = None
+                            self._last_result = f"序列中止（{execution.label}）：{message}"
             if not success and execution.kind == "stop":
                 self._driver.cancel()  # fall back to the controller's hold
+            if advance:
+                self._spawn(self._sequence_step)
 
         try:
             self._driver.send(self.joint_names, points, done, execution.started)
@@ -439,6 +531,13 @@ class ArmConsole:
                 "motion_ready": ready is None and feedback_fresh,
                 "not_ready_reason": ready or ("" if feedback_fresh else "关节反馈超时"),
                 "moving": moving,
+                "sequence": None
+                if self._sequence is None
+                else {
+                    "names": list(self._sequence["names"]),
+                    "index": self._sequence["index"],
+                    "total": len(self._sequence["names"]),
+                },
                 "last_result": self._last_result,
             }
 
@@ -463,4 +562,5 @@ class ArmConsole:
                     for g in self.config.gears
                 ],
                 "poses": self.poses.list() if self.poses else [],
+                "arm_links": list(self.model.arm_links) if self.model else [],
             }
