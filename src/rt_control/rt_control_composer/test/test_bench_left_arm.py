@@ -172,6 +172,44 @@ def test_motion_scope_real_mode_uses_confirmed_directions_and_stop_parameters(sh
     assert sdos == [{0x6060: 8, 0x605E: 2, 0x6085: 58254}] * 7
 
 
+@pytest.mark.parametrize("mock", [False, True])
+def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
+    import math
+    import xml.etree.ElementTree as ET
+
+    selection = {**arguments(shares, confirmed=True), "control_scope": "bench_left_arm"}
+    result = compose(**selection, runtime_dir=tmp_path / "diag", use_mock_hardware=mock)
+    robot = ET.fromstring(result.robot_description)
+    for joint in MODEL_JOINTS:
+        profile = yaml.safe_load(result.files[f"{joint}.yaml"])
+        channels = profile["tpdo"][0]["channels"]
+        assert [(c["index"], c["type"], c["state_interface"]) for c in channels] == [
+            (0x6064, "int32", "position"),
+            (0x60FD, "uint32", "digital_inputs"),
+            (0x6041, "uint16", "status_word"),
+            (0x606C, "int32", "velocity"),
+            (0x6077, "int16", "torque_permille"),
+            (0x603F, "uint16", "error_code"),
+        ]
+        assert all("scale" not in channel for channel in channels)
+        # 18 bytes of TxPDO, well inside the 76-byte 0x1A00 limit.
+        sizes = {"int32": 4, "uint32": 4, "int16": 2, "uint16": 2}
+        assert sum(sizes[c["type"]] for c in channels) == 18
+        position, velocity, torque = channels[0], channels[3], channels[4]
+        assert math.isclose(velocity["factor"], position["factor"]) and "offset" not in velocity
+        assert torque["factor"] == 1.0 and "factor" not in channels[5]
+        element = robot.find(f"ros2_control/joint[@name='{joint}']")
+        states = [state.attrib["name"] for state in element.findall("state_interface")]
+        assert states == [
+            "position",
+            "digital_inputs",
+            "status_word",
+            "velocity",
+            "torque_permille",
+            "error_code",
+        ]
+
+
 def test_bench_directions_follow_the_alfav3_model():
     module = load_yaml(RT / "rt_control_machine_config/machines/Alfa_V3/bench_left_arm.yaml")
     directions = [axis["direction"] for axis in module["spec"]["branches"]["left"]["axes"]]

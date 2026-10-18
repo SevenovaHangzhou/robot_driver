@@ -72,7 +72,8 @@ spec:
         device: devices/zeroerr_erob_model_tbd.yaml
         direction: 1
   drive_profiles:
-    csp: zeroerr_cia402_csp
+    # Diagnostic feedback (velocity, torque, error code) for the Runtime-LOG black box (2026-10-19).
+    csp: zeroerr_cia402_csp_diag
     gripper_pp: zeroerr_cia402_stationary
   branch_mapping_verified: true
   direction_status: user_confirmed_2026_10_18_encoder_positive
