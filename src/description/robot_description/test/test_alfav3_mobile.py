@@ -20,6 +20,8 @@ MANIFEST = json.loads((ROOT / "config/alfav3_mobile_manifest.json").read_text())
 SIDES = ("left", "right")
 PREFIX = "package://robot_description/model_sources/alfav3_arms_1011_4/"
 LIMITS_DEG = {1: 180, 2: 105, 3: 180, 4: 145, 5: 180, 6: 110, 7: 180}
+# +q = drive encoder increasing; left J3/J6 confirmed on the bench 2026-10-18, right arm unverified.
+AXIS_FLIP = {"left": (3, 6), "right": ()}
 
 
 def canonical(element):
@@ -132,7 +134,10 @@ def test_arm_links_and_joints_from_source():
             name = f"{side}_joint{index}"
             joint, src, old = (m.find(f"joint[@name='{name}']") for m in (entry, source, previous))
             assert joint.get("type") == "revolute"
-            assert canonical(joint.find("axis")) == canonical(src.find("axis"))
+            axis = np.array([float(v) for v in joint.find("axis").get("xyz").split()])
+            source_axis = np.array([float(v) for v in src.find("axis").get("xyz").split()])
+            sign = -1.0 if index in AXIS_FLIP[side] else 1.0
+            assert np.allclose(axis, sign * source_axis), name
             limit = joint.find("limit")
             assert math.isclose(float(limit.get("lower")), -math.radians(LIMITS_DEG[index]))
             assert math.isclose(float(limit.get("upper")), math.radians(LIMITS_DEG[index]))
@@ -192,5 +197,6 @@ def test_tree_meshes_configs_and_srdf():
         for key in ("link1", "link2", "base_link", "tip_link", "link"):
             if key in element.attrib and element.tag != "virtual_joint":
                 assert element.get(key) in links, (element.tag, element.get(key))
+    assert MANIFEST["axis_flip_vs_export"] == {side: list(AXIS_FLIP[side]) for side in SIDES}
     for name in ("named_poses_alfav3_mobile.yaml", "initial_positions_alfav3_mobile.yaml"):
         assert not (ROOT / "config" / name).exists()

@@ -11,8 +11,8 @@ from pathlib import Path
 import yaml
 
 
-EXPECTED_DESCRIPTION_REVISION = "4d4ad9a86e395d843c0dd4c2f8f035373ca50a2d"
-EXPECTED_DESCRIPTION_TREE = "35153ff9d486c5ccf380387b9dd89c16347225da"
+EXPECTED_DESCRIPTION_REVISION = "5ec6b653d7b72f9d25fecea4d71e5d640ce468ca"
+EXPECTED_DESCRIPTION_TREE = "4706b7a18d7359f5752bb6473068866af3cb8050"
 EXPECTED_ROLLING_INTERFACE_REVISION = "ea582c8a711874813d2ad7f0801b366bd32ab67e"
 
 
@@ -45,7 +45,7 @@ def validate(repository_root: Path) -> list[str]:
 
     expected_source = {
         "repository": "https://github.com/SevenovaHangzhou/robot_description.git",
-        "source_branch": "feature/electri-127-alfav3-arms",
+        "source_branch": "feature/electri-127-alfav3-left-j3-j6-axis",
         "source_revision": EXPECTED_DESCRIPTION_REVISION,
         "source_tree": EXPECTED_DESCRIPTION_TREE,
         "model_family": "alfa_v3",

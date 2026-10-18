@@ -52,14 +52,22 @@
       0
     ]
   },
+  "axis_flip_vs_export": {
+    "left": [
+      3,
+      6
+    ],
+    "right": []
+  },
+  "axis_flip_evidence": "left J3/J6: +q = encoder count increasing, user-confirmed 2026-10-18 on Alfa_V3-bench-01; right arm not verified on hardware",
   "axis_sign_vs_previous": {
     "left": [
       "+",
       "+",
+      "+",
+      "+",
+      "+",
       "-",
-      "+",
-      "+",
-      "+",
       "+"
     ],
     "right": [

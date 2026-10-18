@@ -9,6 +9,11 @@
 
 ## Unreleased
 
+### Changed
+
+- `robot_alfav3_mobile.urdf`：左 J3、J6 关节轴取反，使正角度 = 驱动编码器计数增大方向
+  （2026-10-18 左臂台架实机确认）。零位和限位不变；这两个关节的已有姿态数值要取反。右臂未验证，不变。
+
 ### Added
 
 - 新增 `urdf/robot_alfav3_mobile.urdf`：在已部署移动整机上把双臂替换为 Alfav3 导出模型
