@@ -225,9 +225,7 @@ def compose(
         binding = bindings[name]
         manager[name] = {"type": binding["plugin"]}
         environment["context"] = {"mode": mode, "controller": name}
-        controllers[name] = {
-            "ros__parameters": controller_parameters(name, binding, environment)
-        }
+        controllers[name] = {"ros__parameters": controller_parameters(name, binding, environment)}
     if "controller_file" in scope:
         reference = scope["controller_file"]
         share = Path(package_share(reference["package"]))
@@ -244,8 +242,10 @@ def compose(
         raise ValueError("Parameter binding references an unselected controller")
     for name in selected_names:
         controllers[name]["ros__parameters"] = bind_parameters(
-            parameter_bindings.get(name, {}), controllers[name]["ros__parameters"],
-            rendered_modules, mock=use_mock_hardware,
+            parameter_bindings.get(name, {}),
+            controllers[name]["ros__parameters"],
+            rendered_modules,
+            mock=use_mock_hardware,
         )
     # fault_dependencies remain owned by the separate machine safety policy. These
     # migrated entry points did not emit them; validation does not add runtime fields.
@@ -254,7 +254,9 @@ def compose(
     if recorder.get("enabled") and staged:
         # Optional, outside controller_order: a missing plugin or failed load never blocks the scope.
         recorders = [RECORDER_NAME]
-        controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] = {"type": RECORDER_PLUGIN}
+        controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] = {
+            "type": RECORDER_PLUGIN
+        }
         controllers[RECORDER_NAME] = {
             "ros__parameters": {
                 "interfaces": recorded_state_interfaces(robot),

@@ -278,7 +278,10 @@ def qualify_realtime(runtime_dir, lifecycle, *, activated, proc=Path("/proc"), t
         update = []
         for tid in tids:
             try:
-                if os.sched_getscheduler(tid) == os.SCHED_FIFO and os.sched_getparam(tid).sched_priority == 80:
+                if (
+                    os.sched_getscheduler(tid) == os.SCHED_FIFO
+                    and os.sched_getparam(tid).sched_priority == 80
+                ):
                     update.append(tid)
             except ProcessLookupError:
                 continue

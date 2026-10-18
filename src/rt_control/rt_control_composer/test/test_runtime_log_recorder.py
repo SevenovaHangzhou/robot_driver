@@ -78,14 +78,18 @@ def test_disabled_or_absent_recorder_changes_nothing(shares, tmp_path):
 
 
 @pytest.mark.parametrize("mock", [True, False])
-def test_enabled_recorder_records_every_state_interface_outside_controller_order(shares, tmp_path, mock):
+def test_enabled_recorder_records_every_state_interface_outside_controller_order(
+    shares, tmp_path, mock
+):
     set_recorder(shares, None)
     # Same runtime_dir for both: real mode embeds it in the description; compose writes nothing.
     baseline = build(shares, tmp_path, mock)
     set_recorder(shares, {"enabled": True, "slots": 3000})
     result = build(shares, tmp_path, mock)
     controllers = yaml.safe_load(result.files["controllers.yaml"])
-    assert controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] == {"type": RECORDER_PLUGIN}
+    assert controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] == {
+        "type": RECORDER_PLUGIN
+    }
     parameters = controllers[RECORDER_NAME]["ros__parameters"]
     assert parameters["slots"] == 3000
     assert parameters["interfaces"] == state_interfaces(result.robot_description)

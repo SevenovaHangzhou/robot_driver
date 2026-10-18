@@ -119,9 +119,7 @@ def setup(context):
         )
         staged.append(
             RegisterEventHandler(
-                OnProcessExit(
-                    target_action=motion, on_exit=_then([tuning], "motion load failed")
-                )
+                OnProcessExit(target_action=motion, on_exit=_then([tuning], "motion load failed"))
             )
         )
         staged.append(
