@@ -30,7 +30,12 @@ struct Drive
   void setup()
   {
     std::unordered_map<std::string, std::string> params{
-      {"slave_config", KINCO_FIXTURE}, {"allow_mock_profile", "true"}, {"mode_of_operation", "9"}};
+      {"slave_config", KINCO_FIXTURE},
+      {"allow_mock_profile", "true"},
+      {"mode_of_operation", "9"},
+      // Relative moves switch CSV<->CSP at runtime, which the Kinco plugin only allows
+      // when explicitly enabled (default: fixed startup mode, ELECTRI-127).
+      {"mode_switching", "true"}};
     const std::vector<std::string> commands{"position",     "velocity",       "mode_of_operation",
                                             "control_word", "write_sequence", "write_mask"};
     const std::vector<std::string> states{
