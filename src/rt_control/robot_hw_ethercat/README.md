@@ -88,6 +88,13 @@ sent. The cycle hooks in `patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch
 propagate the master's existing WC result before update and at output preparation.
 Rebuild all EtherCAT packages together because the EcSlave virtual interface changes.
 
+`patches/ecat_icube/0014-mirror-rpdo-commands.patch` lets an RxPDO channel declare
+`mirror_state_interface: <name>`: after each cycle's write the channel reads back what the outgoing
+frame carries and stores it, converted to interface units (`(raw - offset) / factor`), in that state
+interface. It covers every write path (controller command, plugin preload/hold, defaults), and
+integer truncation is reported exactly. The bench profile `zeroerr_cia402_csp_diag` mirrors the
+target position (`target_position`) and control word (`control_word_sent`) for Runtime-LOG.
+
 ## Integration Status
 
 `rt_control_start --enable-only` now provides a separate stationary enable test.
