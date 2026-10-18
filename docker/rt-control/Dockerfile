@@ -151,6 +151,10 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     && git -C src/vendor/ros2_canopen apply \

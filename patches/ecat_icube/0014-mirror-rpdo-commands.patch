@@ -1,0 +1,157 @@
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp b/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
+index f83d834..755a4f3 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
+@@ -263,6 +263,12 @@ void GenericEcSlave::setup_interface_mapping()
+         channel.interface_index = std::stoi(
+           paramters_["command_interface/" + channel.interface_name]);
+       }
++      if (!channel.mirror_interface_name.empty() &&
++        paramters_.find("state_interface/" + channel.mirror_interface_name) != paramters_.end())
++      {
++        channel.mirror_interface_index = std::stoi(
++          paramters_["state_interface/" + channel.mirror_interface_name]);
++      }
+     }
+ 
+     channel.setup_interface_ptrs(state_interface_ptr_, command_interface_ptr_);
+diff --git a/ethercat_interface/include/ethercat_interface/ec_pdo_channel_manager.hpp b/ethercat_interface/include/ethercat_interface/ec_pdo_channel_manager.hpp
+index a3dcbd1..2eb0f37 100644
+--- a/ethercat_interface/include/ethercat_interface/ec_pdo_channel_manager.hpp
++++ b/ethercat_interface/include/ethercat_interface/ec_pdo_channel_manager.hpp
+@@ -47,29 +47,36 @@ public:
+ 
+   ec_pdo_entry_info_t get_pdo_entry_info() {return {index, sub_index, type2bits(data_type)};}
+ 
+-  double ec_read(uint8_t * domain_address)
++  double read_raw(uint8_t * domain_address) const
+   {
++    double raw;
+     if (data_type == "uint8") {
+-      last_value = static_cast<double>(EC_READ_U8(domain_address));
++      raw = static_cast<double>(EC_READ_U8(domain_address));
+     } else if (data_type == "int8") {
+-      last_value = static_cast<double>(EC_READ_S8(domain_address));
++      raw = static_cast<double>(EC_READ_S8(domain_address));
+     } else if (data_type == "uint16") {
+-      last_value = static_cast<double>(EC_READ_U16(domain_address));
++      raw = static_cast<double>(EC_READ_U16(domain_address));
+     } else if (data_type == "int16") {
+-      last_value = static_cast<double>(EC_READ_S16(domain_address));
++      raw = static_cast<double>(EC_READ_S16(domain_address));
+     } else if (data_type == "uint32") {
+-      last_value = static_cast<double>(EC_READ_U32(domain_address));
++      raw = static_cast<double>(EC_READ_U32(domain_address));
+     } else if (data_type == "int32") {
+-      last_value = static_cast<double>(EC_READ_S32(domain_address));
++      raw = static_cast<double>(EC_READ_S32(domain_address));
+     } else if (data_type == "uint64") {
+-      last_value = static_cast<double>(EC_READ_U64(domain_address));
++      raw = static_cast<double>(EC_READ_U64(domain_address));
+     } else if (data_type == "int64") {
+-      last_value = static_cast<double>(EC_READ_S64(domain_address));
++      raw = static_cast<double>(EC_READ_S64(domain_address));
+     } else if (data_type == "bool") {
+-      last_value = (EC_READ_U8(domain_address) & data_mask) ? 1 : 0;
++      raw = (EC_READ_U8(domain_address) & data_mask) ? 1 : 0;
+     } else {
+-      last_value = static_cast<double>(EC_READ_U8(domain_address) & data_mask);
++      raw = static_cast<double>(EC_READ_U8(domain_address) & data_mask);
+     }
++    return raw;
++  }
++
++  double ec_read(uint8_t * domain_address)
++  {
++    last_value = read_raw(domain_address);
+     last_raw_value = last_value;
+     last_value = factor * last_value + offset;
+     return last_value;
+@@ -126,6 +133,15 @@ public:
+           ec_write(domain_address, default_value);
+         }
+       }
++      // Mirror what the outgoing frame now carries (read back, so integer truncation and
++      // values kept from earlier cycles are reported exactly), in interface units.
++      if (mirror_interface_index >= 0 && state_interface_ptr_ != nullptr &&
++        static_cast<size_t>(mirror_interface_index) < state_interface_ptr_->size())
++      {
++        const double raw = read_raw(domain_address);
++        state_interface_ptr_->at(mirror_interface_index) =
++          factor != 0.0 ? (raw - offset) / factor : raw;
++      }
+     }
+   }
+ 
+@@ -159,6 +175,10 @@ public:
+       if (channel_config["default"]) {
+         default_value = channel_config["default"].as<double>();
+       }
++      // optional state interface that reports the value actually sent
++      if (channel_config["mirror_state_interface"]) {
++        mirror_interface_name = channel_config["mirror_state_interface"].as<std::string>();
++      }
+ 
+     } else if (pdo_type == TPDO) {
+       // interface name
+@@ -212,6 +232,8 @@ public:
+   uint8_t data_mask = 255;
+   double default_value = std::numeric_limits<double>::quiet_NaN();
+   int interface_index = -1;
++  std::string mirror_interface_name;
++  int mirror_interface_index = -1;
+   double last_value = std::numeric_limits<double>::quiet_NaN();
+   double last_raw_value = std::numeric_limits<double>::quiet_NaN();
+   bool allow_ec_write = true;
+diff --git a/ethercat_interface/test/test_ec_pdo_channel_manager.cpp b/ethercat_interface/test/test_ec_pdo_channel_manager.cpp
+index c57adac..a3ed05b 100644
+--- a/ethercat_interface/test/test_ec_pdo_channel_manager.cpp
++++ b/ethercat_interface/test/test_ec_pdo_channel_manager.cpp
+@@ -143,3 +143,47 @@ TEST(TestEcPdoChannelManager, EcReadWriteBoolMask5)
+   pdo_manager.ec_write(buffer, 5);
+   ASSERT_EQ(EC_READ_U8(buffer), 5);
+ }
++
++TEST(TestEcPdoChannelManager, MirrorsTheValueActuallySent)
++{
++  const char channel_config[] =
++    R"(
++      {index: 0x607A, sub_index: 0, type: int32, command_interface: position,
++       mirror_state_interface: target_position, default: .nan, factor: 2, offset: 10}
++    )";
++  YAML::Node config = YAML::Load(channel_config);
++  ethercat_interface::EcPdoChannelManager pdo_manager;
++  pdo_manager.pdo_type = ethercat_interface::PdoType::RPDO;
++  pdo_manager.load_from_config(config);
++  ASSERT_EQ(pdo_manager.mirror_interface_name, "target_position");
++
++  const double nan = std::numeric_limits<double>::quiet_NaN();
++  std::vector<double> state_interfaces = {nan, nan};
++  std::vector<double> command_interfaces = {1.3};
++  pdo_manager.setup_interface_ptrs(&state_interfaces, &command_interfaces);
++  pdo_manager.interface_index = 0;
++  pdo_manager.mirror_interface_index = 1;
++  uint8_t domain[8] = {0};
++
++  // 2 * 1.3 + 10 = 12.6 is written as int32 12: the mirror reports what the frame carries.
++  pdo_manager.ec_update(domain);
++  EXPECT_EQ(EC_READ_S32(domain), 12);
++  EXPECT_DOUBLE_EQ(state_interfaces[1], 1.0);
++
++  // No command and no default: nothing is written, the frame keeps 12.
++  command_interfaces[0] = nan;
++  pdo_manager.ec_update(domain);
++  EXPECT_DOUBLE_EQ(state_interfaces[1], 1.0);
++
++  // A plugin override (e.g. holding the preloaded position) is mirrored as well.
++  pdo_manager.override_command = true;
++  pdo_manager.default_value = 30;
++  pdo_manager.ec_update(domain);
++  EXPECT_DOUBLE_EQ(state_interfaces[1], 10.0);
++
++  // Unmapped mirror: nothing touched.
++  pdo_manager.mirror_interface_index = -1;
++  state_interfaces[1] = -1.0;
++  pdo_manager.ec_update(domain);
++  EXPECT_DOUBLE_EQ(state_interfaces[1], -1.0);
++}

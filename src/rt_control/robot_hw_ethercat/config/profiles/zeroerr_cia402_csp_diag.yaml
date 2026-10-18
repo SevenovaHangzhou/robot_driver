@@ -5,6 +5,8 @@
 # hardware check. `scale` is consumed by the renderer and never reaches the driver:
 #   velocity  -> output-side rad/s (position factor, no offset, with the axis direction)
 #   direction -> raw value times the axis direction (torque in per mille of rated torque)
+# RxPDO mirrors (patch ecat_icube 0014): target_position / control_word_sent report the values the
+# outgoing frame actually carries (including the plugin's preload/hold), in interface units.
 identity:
   vendor_id: 1516597871
   product_code: 168530
@@ -70,11 +72,13 @@ driver_config:
       type: int32
       default: .nan
       command_interface: position
+      mirror_state_interface: target_position
     - index: 24640
       sub_index: 0
       type: uint16
       command_interface: control_word
       default: 0
+      mirror_state_interface: control_word_sent
   tpdo:
   - index: 6656
     channels:

@@ -39,12 +39,17 @@ BASE_STATES = {"position", "position_raw", "digital_inputs", "status_word"}
 
 
 def _render_diagnostic_channels(joint, profile, factors, direction, mock):
-    """Extra TxPDO feedback declared by the profile becomes joint state interfaces.
+    """Extra TxPDO feedback and RxPDO mirrors declared by the profile become joint state interfaces.
 
     `scale` (renderer-only): velocity = output-side rad/s with the axis direction, direction = raw
     value times the axis direction. Without verified position factors a velocity channel is kept
     raw (counts/s); the scale key never reaches the driver configuration.
     """
+    for pdo in profile.get("rpdo", []):
+        for channel in pdo["channels"]:
+            mirror = channel.get("mirror_state_interface")
+            if mirror:
+                _interface(joint, "state_interface", mirror, 0.0 if mock else None)
     for pdo in profile.get("tpdo", []):
         for channel in pdo["channels"]:
             scale = channel.pop("scale", None)

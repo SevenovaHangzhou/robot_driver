@@ -204,10 +204,14 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
             "position",
             "digital_inputs",
             "status_word",
+            "target_position",
+            "control_word_sent",
             "velocity",
             "torque_permille",
             "error_code",
         ]
+        mirrors = [c.get("mirror_state_interface") for c in profile["rpdo"][0]["channels"]]
+        assert mirrors == ["target_position", "control_word_sent"]
 
 
 def test_bench_directions_follow_the_alfav3_model():
