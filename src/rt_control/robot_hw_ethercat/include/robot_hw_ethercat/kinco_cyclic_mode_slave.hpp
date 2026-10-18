@@ -54,6 +54,7 @@ private:
   int requested_mode() const noexcept;
   uint16_t requested_control_word() const noexcept;
   void clear_handoff(bool error) noexcept;
+  void inhibit_operation() noexcept;
   void set_state(State state, double value) noexcept;
   void invalidate_velocity_command() noexcept;
 
@@ -88,6 +89,12 @@ private:
   bool startup_mode_waiting_{false};
   // No-producer hold: CSP outputs this latched raw target until a controller takes over.
   int32_t hold_position_raw_{0};
+  bool hold_known_{false};
+  static constexpr uint8_t kMaxRideThroughCycles{5U};
+  uint8_t incomplete_cycles_{0U};
+  int32_t last_sent_velocity_raw_{0};
+  int8_t last_sent_mode_{0};
+  bool mode_switching_{false};
   bool position_owned_{false};
   double takeover_tolerance_{0.0};
   bool read_hook_seen_{false};

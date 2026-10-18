@@ -59,7 +59,8 @@ install(PROGRAMS cmake/validate_swerve_encoder_profile.py scripts/generate_canop
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_swerve_encoder_feedback test/test_swerve_encoder_feedback.cpp)
-  target_link_libraries(test_swerve_encoder_feedback swerve_encoder_feedback)
+  find_package(Threads REQUIRED)
+  target_link_libraries(test_swerve_encoder_feedback swerve_encoder_feedback Threads::Threads)
   ament_add_gtest(test_swerve_encoder_system test/test_swerve_encoder_system.cpp)
   target_link_libraries(test_swerve_encoder_system swerve_encoder_system)
   ament_target_dependencies(

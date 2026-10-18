@@ -38,10 +38,14 @@ struct TemporaryProfile
 
 struct Rig
 {
-  explicit Rig(const std::string & profile = KINCO_FIXTURE, int startup_mode = 9)
-  : profile_path(profile), states(13, 0.0), commands{
-      0.25, std::numeric_limits<double>::quiet_NaN(), static_cast<double>(startup_mode), 0x000f,
-      0.0, 0.0}
+  explicit Rig(
+    const std::string & profile = KINCO_FIXTURE, int startup_mode = 9, bool switching = false)
+  : profile_path(profile), states(13, 0.0), commands{0.25,
+                                                     std::numeric_limits<double>::quiet_NaN(),
+                                                     static_cast<double>(startup_mode),
+                                                     0x000f,
+                                                     0.0,
+                                                     0.0}
   {
     parameters = {
       {"slave_config", profile_path}, {"allow_mock_profile", "true"},
@@ -56,6 +60,10 @@ struct Rig
       {"command_interface/write_sequence", "4"}, {"command_interface/write_mask", "5"},
       {"state_interface/feedback_sequence", "9"}, {"state_interface/sent_sequence", "10"},
       {"state_interface/feedback_sequence_at_send", "11"}, {"state_interface/sent_velocity", "12"}};
+    if (switching) {
+      // Runtime CSP<->CSV switching is opt-in; the default is the fixed startup mode.
+      parameters["mode_switching"] = "true";
+    }
   }
 
   void setup()
@@ -201,7 +209,7 @@ TEST(KincoCyclicModeSlave, CspTakeoverWithinToleranceThenFollowsController)
 
 TEST(KincoCyclicModeSlave, CsvToCspRequiresStationaryExactPreseedSentBeforeModeRequest)
 {
-  Rig rig;
+  Rig rig(KINCO_FIXTURE, 9, true);
   rig.setup();
   rig.cycle();
   rig.commands[0] = 0.25;
@@ -238,7 +246,7 @@ TEST(KincoCyclicModeSlave, CsvToCspRequiresStationaryExactPreseedSentBeforeModeR
 
 TEST(KincoCyclicModeSlave, CspToCsvSendsZeroDiscardsStaleAndRequiresPostAckCommand)
 {
-  Rig rig(KINCO_FIXTURE, 8);
+  Rig rig(KINCO_FIXTURE, 8, true);
   rig.setup();
   rig.cycle(8);
   rig.commands[0] = 0.30;
@@ -275,15 +283,19 @@ TEST(KincoCyclicModeSlave, CspToCsvSendsZeroDiscardsStaleAndRequiresPostAckComma
 
 TEST(KincoCyclicModeSlave, RejectsInvalidModesCommandsAndOutOfRangeValues)
 {
+  Rig switching(KINCO_FIXTURE, 9, true);
+  switching.setup();
+  switching.cycle();
+  switching.commands[2] = 7.0;
+  switching.commands[1] = 1.0;
+  switching.cycle();
+  EXPECT_EQ(EC_READ_S8(switching.bytes(0x6060)), 9);
+  EXPECT_EQ(EC_READ_S32(switching.bytes(0x60ff)), 0);
+  EXPECT_DOUBLE_EQ(switching.states[8], 1.0);
+
   Rig rig;
   rig.setup();
   rig.cycle();
-  rig.commands[2] = 7.0;
-  rig.commands[1] = 1.0;
-  rig.cycle();
-  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
-  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
-  EXPECT_DOUBLE_EQ(rig.states[8], 1.0);
 
   rig.commands[2] = 9.0;
   rig.commands[1] = 4.01;
@@ -312,6 +324,22 @@ TEST(KincoCyclicModeSlave, IncompleteDataAndLifecycleLossClearReadinessAndOutput
   rig.cycle();
   ASSERT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 100);
 
+  // Up to five consecutive lost cycles repeat the last outputs (field 2026-10-18: single
+  // frames are lost while power stages switch on); the drive stays enabled.
+  for (int lost = 0; lost < 5; ++lost) {
+    rig.cycle(9, 350, 0, 0x0027, false);
+    EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 100);
+    EXPECT_EQ(EC_READ_U16(rig.bytes(0x6040)), 0x000f);
+    EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+  }
+  rig.cycle();
+  EXPECT_TRUE(rig.slave.initialized());
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 100);
+
+  // The sixth consecutive lost cycle ends the handoff strictly.
+  for (int lost = 0; lost < 5; ++lost) {
+    rig.cycle(9, 350, 0, 0x0027, false);
+  }
   rig.cycle(9, 350, 0, 0x0027, false);
   EXPECT_FALSE(rig.slave.initialized());
   EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
@@ -343,7 +371,7 @@ TEST(KincoCyclicModeSlave, ChannelOrderingDoesNotChangeSameCycleModeAndPositionO
   config["tpdo"][0]["channels"] = reversed(config["tpdo"][0]["channels"]);
   TemporaryProfile file;
   std::ofstream(file.path.data()) << config;
-  Rig rig(file.path.data());
+  Rig rig(file.path.data(), 9, true);
   rig.setup();
   rig.cycle();
   rig.commands[0] = 0.25;
@@ -361,7 +389,7 @@ TEST(KincoCyclicModeSlave, DelayedReadbackExpiresExplicitModeTimeoutAndLatchesSa
   config["kinco_cyclic_mode"]["mode_ack_timeout_seconds"] = 0.001;
   TemporaryProfile file;
   std::ofstream(file.path.data()) << config;
-  Rig rig(file.path.data());
+  Rig rig(file.path.data(), 9, true);
   rig.setup();
   rig.cycle();
   rig.commands[0] = 0.25;
@@ -381,6 +409,77 @@ TEST(KincoCyclicModeSlave, DelayedReadbackExpiresExplicitModeTimeoutAndLatchesSa
   rig.cycle(9);
   EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
   EXPECT_DOUBLE_EQ(rig.states[8], 1.0);
+}
+
+TEST(KincoCyclicModeSlave, FixedModeIgnoresTheModeCommand)
+{
+  Rig rig;
+  rig.setup();
+  rig.cycle();
+  // No producer of the mode command (NaN) and an explicit different mode are both ignored.
+  rig.commands[2] = std::numeric_limits<double>::quiet_NaN();
+  rig.commands[1] = 1.0;
+  rig.cycle();
+  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 100);
+  rig.commands[2] = 8.0;
+  rig.cycle();
+  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 100);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+}
+
+TEST(KincoCyclicModeSlave, EnabledAxisNeverFollowsTheMeasurementAfterAnError)
+{
+  Rig rig(KINCO_FIXTURE, 8);
+  rig.commands[0] = std::numeric_limits<double>::quiet_NaN();
+  rig.setup();
+  rig.cycle(8, 350, 0, 0x0040);
+  rig.cycle(8, 350, 0, 0x0027);
+  rig.commands[0] = 0.30;  // 50 counts from the measurement: takeover rejected
+  rig.cycle(8, 350, 0, 0x0027);
+  EXPECT_DOUBLE_EQ(rig.states[8], 1.0);
+  // The axis is pushed: the target stays the latched hold and operation is inhibited.
+  for (int32_t pushed : {360, 375, 400}) {
+    rig.cycle(8, pushed, 0, 0x0027);
+    EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 350);
+    EXPECT_EQ(EC_READ_U16(rig.bytes(0x6040)), 0x0007);
+  }
+}
+
+TEST(KincoCyclicModeSlave, DriftBeforeTakeoverLatchesAndClearsOnlyAfterDisable)
+{
+  Rig rig(KINCO_FIXTURE, 8);
+  rig.commands[0] = std::numeric_limits<double>::quiet_NaN();
+  rig.setup();
+  rig.cycle(8, 350, 0, 0x0040);
+  rig.cycle(8, 350, 0, 0x0027);
+  // No producer yet, but the axis moved 20 counts (> 0.01 rad) from the enable hold.
+  rig.cycle(8, 370, 0, 0x0027);
+  EXPECT_DOUBLE_EQ(rig.states[8], 1.0);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 350);
+  EXPECT_EQ(EC_READ_U16(rig.bytes(0x6040)), 0x0007);
+  // Disabled while enable is still requested: the error stays latched.
+  rig.cycle(8, 370, 0, 0x0040);
+  EXPECT_DOUBLE_EQ(rig.states[8], 1.0);
+  // Enable no longer requested and the drive disabled: clean again, hold re-latched.
+  rig.commands[3] = 0x0000;
+  rig.cycle(8, 370, 0, 0x0040);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 370);
+}
+
+TEST(KincoCyclicModeSlave, FirstCommandIsCheckedAgainstTheMeasurementNotTheHold)
+{
+  Rig rig(KINCO_FIXTURE, 8);
+  rig.commands[0] = std::numeric_limits<double>::quiet_NaN();
+  rig.setup();
+  rig.cycle(8, 350, 0, 0x0040);
+  rig.cycle(8, 358, 0, 0x0027);  // settled 8 counts from the hold, within tolerance
+  rig.commands[0] = 0.266;       // raw 366: 8 counts from the measurement, 16 from the hold
+  rig.cycle(8, 358, 0, 0x0027);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 366);
 }
 
 TEST(KincoCyclicModeSlave, MockProfileRequiresExplicitOptInAndMalformedProfilesFailClosed)

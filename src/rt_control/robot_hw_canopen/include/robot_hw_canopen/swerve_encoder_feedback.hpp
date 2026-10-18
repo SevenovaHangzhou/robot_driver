@@ -53,14 +53,28 @@ public:
     std::int64_t now_steady_ns) const noexcept;
 
 private:
+  // One writer (the CANopen receive thread) and one reader (the controller update) per axis.
+  // Triple buffer: the writer fills its back buffer and publishes it by swapping it with the
+  // middle buffer; the reader takes the middle buffer by swapping it with its front buffer.
+  // Neither side waits or retries, and the reader always holds one complete sample.
+  struct Frame
+  {
+    std::uint32_t raw_position{0U};
+    std::int64_t received_steady_ns{0};
+    std::uint32_t nmt_epoch{0U};
+  };
+  static constexpr std::uint8_t kIndexMask{0x3U};
+  static constexpr std::uint8_t kFreshBit{0x4U};
   struct Slot
   {
-    std::atomic<std::uint64_t> sequence{0U};
-    std::atomic<std::uint32_t> raw_position{0U};
-    std::atomic<std::int64_t> received_steady_ns{0};
-    // Incremented on every non-operational NMT report; samples from older epochs are void.
+    std::array<Frame, 3> frames{};
+    // Shared between writer and reader; mutable because sample() is a const observer.
+    mutable std::atomic<std::uint8_t> middle{1U};  // buffer index | kFreshBit when unread
+    std::uint8_t back{0U};                         // writer-owned
+    mutable std::uint8_t front{2U};                // reader-owned
+    mutable bool has_frame{false};                 // reader-owned
+    // Incremented on every non-operational NMT report; frames from older epochs are void.
     std::atomic<std::uint32_t> nmt_epoch{0U};
-    std::atomic<std::uint32_t> sample_epoch{0U};
   };
 
   [[nodiscard]] std::size_t axis_for_node(std::uint8_t node_id) const noexcept;
