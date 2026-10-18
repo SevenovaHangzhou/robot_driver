@@ -35,6 +35,31 @@ def position_factors(counts, direction, zero_counts):
     }
 
 
+BASE_STATES = {"position", "position_raw", "digital_inputs", "status_word"}
+
+
+def _render_diagnostic_channels(joint, profile, factors, direction, mock):
+    """Extra TxPDO feedback declared by the profile becomes joint state interfaces.
+
+    `scale` (renderer-only): velocity = output-side rad/s with the axis direction, direction = raw
+    value times the axis direction. Without verified position factors a velocity channel is kept
+    raw (counts/s); the scale key never reaches the driver configuration.
+    """
+    for pdo in profile.get("tpdo", []):
+        for channel in pdo["channels"]:
+            scale = channel.pop("scale", None)
+            name = channel.get("state_interface")
+            if not name or name in BASE_STATES:
+                continue
+            _interface(joint, "state_interface", name, 0.0 if mock else None)
+            if scale == "velocity" and factors is not None:
+                channel["factor"] = factors["feedback_factor"]
+            elif scale == "direction":
+                channel["factor"] = float(direction)
+            elif scale not in (None, "velocity"):
+                raise ValueError(f"Unknown channel scale {scale!r} for {name}")
+
+
 def render(request, share, validate_module, validate_unit, validate_device):
     """Render content only. The registry owns the shared request/result envelope."""
     machine = request["machine"]
@@ -108,13 +133,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
         )
         _interface(joint, "state_interface", "digital_inputs", 0 if mock else None)
         _interface(joint, "state_interface", "status_word", 64 if mock else None)
+        factors = None
+        direction = 1 if mock or stationary else axis.get("direction", 1)
         if (
             not stationary
             and mode == 8
             and "output_encoder_counts_per_revolution" in device
             and device["output_encoder_counts_per_revolution"] != "TBD"
         ):
-            direction = 1 if mock else axis["direction"]
             factors = position_factors(
                 device["output_encoder_counts_per_revolution"], direction, raw_zero
             )
@@ -129,6 +155,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 factor=factors["feedback_factor"],
                 offset=factors["feedback_offset"],
             )
+        _render_diagnostic_channels(joint, profile, factors, direction, mock)
         relative = name + ".yaml"
         runtime_files[relative] = yaml.safe_dump(profile, sort_keys=False)
         if not mock:
