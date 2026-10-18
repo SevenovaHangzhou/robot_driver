@@ -167,7 +167,7 @@ def test_motion_scope_real_mode_uses_confirmed_directions_and_stop_parameters(sh
         profile = yaml.safe_load(result.files[f"{joint}.yaml"])
         signs.append(1 if profile["tpdo"][0]["channels"][0]["factor"] > 0 else -1)
         sdos.append({entry["index"]: entry["value"] for entry in profile["sdo"]})
-    assert signs == [1, 1, -1, 1, 1, 1, 1]
+    assert signs == [1, 1, -1, 1, 1, -1, 1]
     # CSP, fault reaction = quick-stop ramp then disable, quick-stop deceleration 40 deg/s^2.
     assert sdos == [{0x6060: 8, 0x605E: 2, 0x6085: 58254}] * 7
 
@@ -175,7 +175,7 @@ def test_motion_scope_real_mode_uses_confirmed_directions_and_stop_parameters(sh
 def test_bench_directions_follow_the_alfav3_model():
     module = load_yaml(RT / "rt_control_machine_config/machines/Alfa_V3/bench_left_arm.yaml")
     directions = [axis["direction"] for axis in module["spec"]["branches"]["left"]["axes"]]
-    assert directions == [1, 1, -1, 1, 1, 1, 1]
+    assert directions == [1, 1, -1, 1, 1, -1, 1]
 
 
 def test_startup_accepts_the_master_left_op_code_and_only_j3_battery_code(shares, tmp_path):
