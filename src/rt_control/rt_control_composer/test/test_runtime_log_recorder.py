@@ -94,7 +94,7 @@ def test_enabled_recorder_records_every_state_interface_outside_controller_order
         assert "ethercat_slave_7/al_state" in parameters["interfaces"]
     assert result.lifecycle["recorder_controllers"] == [RECORDER_NAME]
     # Everything else is identical to the scope without the recorder.
-    assert result.order == baseline.order
+    assert result.controller_order == baseline.controller_order
     assert result.files["controller_order.yaml"] == baseline.files["controller_order.yaml"]
     assert result.files["robot_description.xml"] == baseline.files["robot_description.xml"]
     del controllers[RECORDER_NAME]
