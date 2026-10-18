@@ -45,6 +45,7 @@ readonly -a runtime_packages=(
   rt_control_composer
   rt_control_machine_config
   rt_control_bringup
+  rt_control_operator_web
 )
 
 info()

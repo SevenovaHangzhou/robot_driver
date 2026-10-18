@@ -315,6 +315,7 @@ jobs:
             rt_control_composer
             rt_control_machine_config
             rt_control_bringup
+            rt_control_operator_web
           )
           mapfile -t dependency_paths < <(
             colcon list \
@@ -371,6 +372,7 @@ jobs:
             rt_control_composer \
             rt_control_machine_config \
             rt_control_bringup \
+            rt_control_operator_web \
             --cmake-args -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Report compiler cache
         if: always()
@@ -434,6 +436,7 @@ jobs:
             rt_control_composer \
             rt_control_machine_config \
             rt_control_bringup \
+            rt_control_operator_web \
             --packages-skip joint_trajectory_controller
           # Upstream JTC tests use wall-clock sleeps and tight publication windows.
           # Run the unchanged suite alone after other packages to avoid cross-package load.
