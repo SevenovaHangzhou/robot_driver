@@ -150,6 +150,12 @@ TEST_F(SwerveControllerTest, EncoderLossLatchesUntilReactivation)
 {
   send(1.0);
   state("e2/feedback_age_ms", 100.0);
+  // The external encoder is a monitor: inside the 50 ms window motion continues.
+  for (int cycle = 0; cycle < 12; ++cycle) {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+  }
+  EXPECT_GT(std::abs(commands[1]), 0.0);
+  expect_stopped();
   expect_stopped();
   // ELECTRI-127: encoder loss is a motion fault; recovery alone never resumes motion.
   state("e2/feedback_age_ms", 0.0);
@@ -413,4 +419,23 @@ TEST_F(SwerveControllerTest, FailedActivationCanBeCleanedUpSafely)
   EXPECT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::ERROR);
   controller.release_interfaces();
   EXPECT_EQ(controller.on_cleanup(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+}
+
+TEST_F(SwerveControllerTest, SteeringMotionParametersAreCappedAndAppliedOnActivation)
+{
+  // ELECTRI-127: operator-tunable steering motion is checked against hard caps when set.
+  auto node = controller.get_node();
+  EXPECT_FALSE(node->set_parameter({"max_steering_slew", 11.0}).successful);
+  EXPECT_FALSE(node->set_parameter({"max_steering_jerk", 0.0}).successful);
+  EXPECT_FALSE(node->set_parameter({"alignment_threshold", 2.0}).successful);
+  EXPECT_TRUE(node->set_parameter({"max_steering_slew", 2.0}).successful);
+  EXPECT_TRUE(node->set_parameter({"max_steering_acceleration", 4.0}).successful);
+  EXPECT_TRUE(node->set_parameter({"max_steering_jerk", 10.0}).successful);
+  EXPECT_TRUE(node->set_parameter({"alignment_threshold", 1.5}).successful);
+  // Applied at the next activation (the console only changes them while disabled).
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  bind();
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  send(1.0);
+  EXPECT_GT(commands[1], 0.0);
 }

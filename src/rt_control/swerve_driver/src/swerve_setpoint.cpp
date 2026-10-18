@@ -39,6 +39,14 @@ SwerveSetpointGenerator::SwerveSetpointGenerator(
     parameters_.maximum_steering_acceleration_radps2 <= 0.0) {
     throw std::invalid_argument{"maximum steering acceleration must be positive"};
   }
+  if (
+    std::isnan(parameters_.maximum_steering_jerk_radps3) ||
+    parameters_.maximum_steering_jerk_radps3 <= 0.0 ||
+    (finite(parameters_.maximum_steering_jerk_radps3) &&
+     !finite(parameters_.maximum_steering_acceleration_radps2))) {
+    throw std::invalid_argument{
+      "maximum steering jerk must be positive and needs a finite acceleration limit"};
+  }
   if (!finite(parameters_.translation_heading_epsilon_rad) ||
     parameters_.translation_heading_epsilon_rad < 0.0 ||
     parameters_.translation_heading_epsilon_rad >= kPi / 2.0)
@@ -150,12 +158,17 @@ AlignmentResult SwerveSetpointGenerator::generate(
       if (!previous_targets_[index].has_value()) {
         previous_targets_[index] = desired[index].angle_rad;
         steering_rates_[index] = 0.0;
+        steering_accelerations_[index] = 0.0;
       }
       // Ramp an in-flight steering rate to zero, then latch the reached target.
-      const double rate = steering_rates_[index];
-      const double slower = std::max(0.0, std::abs(rate) - rate_step);
-      steering_rates_[index] = std::copysign(slower, rate);
-      *previous_targets_[index] += steering_rates_[index] * dt_seconds;
+      if (finite(parameters_.maximum_steering_jerk_radps3)) {
+        *previous_targets_[index] += jerk_limited_stop(index, dt_seconds);
+      } else {
+        const double rate = steering_rates_[index];
+        const double slower = std::max(0.0, std::abs(rate) - rate_step);
+        steering_rates_[index] = std::copysign(slower, rate);
+        *previous_targets_[index] += steering_rates_[index] * dt_seconds;
+      }
       const double hold = *previous_targets_[index];
       result.modules[index] = {0.0, hold, hold - planning_angles[index], reversed_[index]};
       result.maximum_error_rad =
@@ -179,10 +192,21 @@ AlignmentResult SwerveSetpointGenerator::generate(
     if (!previous_targets_[index].has_value()) {
       previous_targets_[index] = planning_angles[index];
       steering_rates_[index] = 0.0;
+      steering_accelerations_[index] = 0.0;
     }
     double target_delta{optimized.target_angle_rad - *previous_targets_[index]};
     if (std::abs(target_delta) < parameters_.steering_angle_deadband_rad) {
       target_delta = 0.0;
+    }
+    if (finite(parameters_.maximum_steering_jerk_radps3)) {
+      const double limited_target =
+        *previous_targets_[index] + jerk_limited_step(index, target_delta, dt_seconds);
+      previous_targets_[index] = limited_target;
+      result.modules[index] = optimized;
+      result.modules[index].target_angle_rad = limited_target;
+      result.modules[index].speed_mps *= std::max(0.0, std::cos(optimized.error_rad));
+      result.maximum_error_rad = std::max(result.maximum_error_rad, std::abs(optimized.error_rad));
+      continue;
     }
     // Trapezoidal rate: never faster than the slew limit or the braking distance allows.
     const double braking_rate{
@@ -233,6 +257,103 @@ void SwerveSetpointGenerator::reset() noexcept
   translation_reversed_.reset();
   previous_targets_.fill(std::nullopt);
   steering_rates_.fill(0.0);
+  steering_accelerations_.fill(0.0);
+}
+
+namespace
+{
+// Distance travelled until rest when braking now from rate v >= 0 with acceleration a,
+// using jerk J and deceleration at most A: ramp the acceleration down to -a_p, hold it,
+// then ramp back to zero so the module arrives with zero rate and zero acceleration.
+double stopping_distance(double v, double a, double A, double J) noexcept
+{
+  if (v <= 0.0 && a <= 0.0) {
+    return 0.0;
+  }
+  if (a < 0.0 && a * a / (2.0 * J) >= v) {
+    // Already decelerating hard enough: only the remaining ramp of a up to zero.
+    const double t{-a / J};
+    return std::max(0.0, v * t + a * t * t / 2.0 + J * t * t * t / 6.0);
+  }
+  const double peak{std::min(A, std::sqrt(J * v + a * a / 2.0))};
+  const double t1{(a + peak) / J};
+  const double v1{v + a * t1 - J * t1 * t1 / 2.0};
+  const double d1{v * t1 + a * t1 * t1 / 2.0 - J * t1 * t1 * t1 / 6.0};
+  const double t2{std::max(0.0, (v1 - peak * peak / (2.0 * J)) / peak)};
+  const double d2{v1 * t2 - peak * t2 * t2 / 2.0};
+  const double d3{peak * peak * peak / (6.0 * J * J)};
+  return d1 + d2 + d3;
+}
+}  // namespace
+
+double SwerveSetpointGenerator::jerk_limited_step(
+  std::size_t index, double delta, double dt_seconds) noexcept
+{
+  const double A{parameters_.maximum_steering_acceleration_radps2};
+  const double J{parameters_.maximum_steering_jerk_radps3};
+  const double maximum_rate{parameters_.maximum_steering_slew_radps};
+  // Work in the goal direction: v and a are positive when moving towards the goal.
+  const double direction{delta >= 0.0 ? 1.0 : -1.0};
+  const double remaining{std::abs(delta)};
+  double v{steering_rates_[index] * direction};
+  double a{steering_accelerations_[index] * direction};
+  if (remaining == 0.0 && v == 0.0 && a == 0.0) {
+    return 0.0;
+  }
+  const double jerk_step{J * dt_seconds};
+  // Candidate: accelerate towards the goal, easing into the rate limit without overshoot.
+  const double rate_room{std::max(maximum_rate - v, 0.0)};
+  const double cruise_acceleration{std::min(A, std::sqrt(2.0 * J * rate_room))};
+  double next_a{std::clamp(cruise_acceleration, a - jerk_step, a + jerk_step)};
+  double next_v{v + next_a * dt_seconds};
+  double step{(v + next_v) / 2.0 * dt_seconds};
+  if (stopping_distance(next_v, next_a, A, J) > remaining - step) {
+    // Brake: the stop from the candidate state would not fit any more.
+    next_a = std::max(a - jerk_step, -A);
+    next_v = v + next_a * dt_seconds;
+    step = (v + std::max(next_v, 0.0)) / 2.0 * dt_seconds;
+  }
+  if (next_v <= 0.0 && v >= 0.0 && remaining <= step + 1e-12) {
+    // Arrived at rest.
+    next_v = 0.0;
+    next_a = 0.0;
+    step = remaining;
+  } else if (step >= remaining) {
+    // Never pass the goal; the residual rate here is below one jerk step of braking.
+    step = remaining;
+    next_v = 0.0;
+    next_a = 0.0;
+  }
+  next_v = std::clamp(next_v, -maximum_rate, maximum_rate);
+  steering_rates_[index] = next_v * direction;
+  steering_accelerations_[index] = next_a * direction;
+  return step * direction;
+}
+
+double SwerveSetpointGenerator::jerk_limited_stop(std::size_t index, double dt_seconds) noexcept
+{
+  const double maximum_acceleration{parameters_.maximum_steering_acceleration_radps2};
+  const double jerk{parameters_.maximum_steering_jerk_radps3};
+  double rate{steering_rates_[index]};
+  double acceleration{steering_accelerations_[index]};
+  if (rate == 0.0) {
+    steering_accelerations_[index] = 0.0;
+    return 0.0;
+  }
+  const double wanted_acceleration{
+    std::copysign(std::min(maximum_acceleration, std::sqrt(2.0 * jerk * std::abs(rate))), -rate)};
+  acceleration = std::clamp(
+    wanted_acceleration, acceleration - jerk * dt_seconds, acceleration + jerk * dt_seconds);
+  const double next{rate + acceleration * dt_seconds};
+  if (next * rate <= 0.0) {
+    rate = 0.0;
+    acceleration = 0.0;
+  } else {
+    rate = next;
+  }
+  steering_rates_[index] = rate;
+  steering_accelerations_[index] = acceleration;
+  return rate * dt_seconds;
 }
 
 }  // namespace swerve_driver

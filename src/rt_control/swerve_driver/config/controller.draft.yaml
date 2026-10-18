@@ -37,10 +37,14 @@ swerve_controller:
     max_encoder_difference: 0.017453292519943295
     max_update_period: 0.2
     slip_residual_threshold: 1.0
-    alignment_threshold: 0.017453292519943295
+    # User 2026-10-18: no alignment wait; wheel speed is scaled by cos(steering error)
+    # per module. 90 deg only gates impossible errors. Operator-tunable (0, 90] deg.
+    alignment_threshold: 1.5707963267948966
     flip_hysteresis: 0.05235987755982989
     max_steering_slew: 0.6108652381980153
     max_steering_acceleration: 0.6108652381980153
+    # S-curve steering, user 2026-10-18: 100 deg/s^3 (operator-tunable, cap 1000 deg/s^3).
+    max_steering_jerk: 1.7453292519943295
     translation_heading_epsilon: 1e-06
     steering_angle_deadband: 0.0017453292519943296
     feedback_timeout: 0.2

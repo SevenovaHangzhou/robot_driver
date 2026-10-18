@@ -19,15 +19,20 @@ struct CoreConfig
   double max_wheel_acceleration{0.0}, velocity_deadband{0.0};
   double max_encoder_difference{0.0}, max_update_period{0.0};
   double slip_residual_threshold{0.0};
+  // External encoder monitor: invalid, out of range or > max_encoder_difference from the
+  // motor-derived angle for longer than this window raises feedback_fault (seconds).
+  double encoder_fault_window{0.05};
   SwerveSetpointParameters setpoint{};
 };
 
 struct ModuleFeedback
 {
-  // Motor-derived output-axis angle and external output-axis angle stay separate.
+  // Motor-derived output-axis angle (control, hold, odometry) and the external output-axis
+  // angle (monitor only: startup reference and plausibility) stay separate.
   double steering_position{0.0}, steering_angle{0.0};
   double wheel_position{0.0}, wheel_velocity{0.0};
-  bool valid{false}, enabled{false};
+  // valid: drive feedback fresh. encoder_valid: external encoder sample fresh.
+  bool valid{false}, enabled{false}, encoder_valid{false};
 };
 using ModuleFeedbackArray = std::array<ModuleFeedback, 4>;
 
@@ -70,6 +75,9 @@ public:
 private:
   bool measurement_valid(const ModuleFeedback & feedback) const noexcept;
   bool module_ready(const ModuleFeedback & feedback, std::size_t index) const noexcept;
+  bool encoder_consistent(const ModuleFeedback & feedback, std::size_t index) const noexcept;
+  // Returns true when an external encoder stayed inconsistent longer than the window.
+  bool encoder_monitor_tripped(const ModuleFeedbackArray & feedback, double dt) noexcept;
   bool hold_deviation(
     const ModuleFeedbackArray & feedback, const std::array<bool, 4> & holding) const noexcept;
   std::array<SwerveModulePosition, 4> positions(const ModuleFeedbackArray & feedback) const;
@@ -85,6 +93,7 @@ private:
   std::array<double, 4> previous_speeds_{};
   std::array<double, 4> last_steering_targets_{};
   std::array<bool, 4> holding_modules_{};
+  std::array<double, 4> encoder_bad_time_{};
   ControlOutput output_;
   double yaw_{0.0}, last_imu_yaw_{0.0};
   bool active_{false}, imu_fallback_{true}, hold_fault_latched_{false};

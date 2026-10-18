@@ -89,6 +89,14 @@ def setup(context):
     staged = []
     after_hardware = lifecycle
     if order["inactive"]:
+        # Field tuning (operator console) is applied after the motion controllers load and
+        # before the enable manager can enable anything.
+        tuning = Node(
+            package="rt_control_bringup",
+            executable="scope_operator_tuning",
+            arguments=[str(runtime)],
+            output="both",
+        )
         motion = Node(
             package="controller_manager",
             executable="spawner",
@@ -98,7 +106,14 @@ def setup(context):
         staged.append(
             RegisterEventHandler(
                 OnProcessExit(
-                    target_action=motion, on_exit=_then([lifecycle], "motion load failed")
+                    target_action=motion, on_exit=_then([tuning], "motion load failed")
+                )
+            )
+        )
+        staged.append(
+            RegisterEventHandler(
+                OnProcessExit(
+                    target_action=tuning, on_exit=_then([lifecycle], "operator tuning failed")
                 )
             )
         )

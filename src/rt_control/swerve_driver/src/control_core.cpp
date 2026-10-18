@@ -25,12 +25,12 @@ SwerveSetpointParameters setpoint_parameters(const CoreConfig & config)
 }
 void validate(const CoreConfig & c)
 {
-  if (!positive(c.max_linear_speed) || !positive(c.max_angular_speed) ||
+  if (
+    !positive(c.max_linear_speed) || !positive(c.max_angular_speed) ||
     !positive(c.max_wheel_speed) || !positive(c.max_wheel_acceleration) ||
     !positive(c.max_encoder_difference) || !positive(c.max_update_period) ||
     !positive(c.velocity_deadband) || !positive(c.slip_residual_threshold) ||
-    !(c.max_angular_speed * c.max_update_period < kPi))
-  {
+    !positive(c.encoder_fault_window) || !(c.max_angular_speed * c.max_update_period < kPi)) {
     throw std::invalid_argument("Swerve limits and timing must be explicitly configured");
   }
   std::array<SwerveModuleMeasurement, 4> sample{};
@@ -70,10 +70,9 @@ bool ControlCore::hold_deviation(
     if (
       holding[i] && sample.enabled && measurement_valid(sample) &&
       std::isfinite(last_steering_targets_[i]) &&
-      (std::abs(sample.steering_position - last_steering_targets_[i]) >
-         config_.max_encoder_difference ||
-       std::abs(sample.steering_angle - last_steering_targets_[i]) >
-         config_.max_encoder_difference)) {
+      // The hold is judged on the motor-derived angle: synchronous, no gear backlash.
+      std::abs(sample.steering_position - last_steering_targets_[i]) >
+        config_.max_encoder_difference) {
       return true;
     }
   }
@@ -82,8 +81,29 @@ bool ControlCore::hold_deviation(
 
 bool ControlCore::measurement_valid(const ModuleFeedback & f) const noexcept
 {
-  return f.valid && std::isfinite(f.steering_position) && std::isfinite(f.steering_angle) &&
-         std::isfinite(f.wheel_position) && std::isfinite(f.wheel_velocity);
+  return f.valid && std::isfinite(f.steering_position) && std::isfinite(f.wheel_position) &&
+         std::isfinite(f.wheel_velocity);
+}
+
+bool ControlCore::encoder_consistent(const ModuleFeedback & f, size_t index) const noexcept
+{
+  return f.encoder_valid && std::isfinite(f.steering_angle) &&
+         std::abs(f.steering_position - f.steering_angle) <= config_.max_encoder_difference &&
+         steering_measurement_within_tolerance(f.steering_angle, steering_limits(config_, index));
+}
+
+bool ControlCore::encoder_monitor_tripped(const ModuleFeedbackArray & feedback, double dt) noexcept
+{
+  bool tripped = false;
+  for (size_t i = 0; i < 4; ++i) {
+    if (encoder_consistent(feedback[i], i)) {
+      encoder_bad_time_[i] = 0.0;
+    } else {
+      encoder_bad_time_[i] += positive(dt) ? dt : 0.0;
+      tripped = tripped || encoder_bad_time_[i] > config_.encoder_fault_window;
+    }
+  }
+  return tripped;
 }
 
 bool ControlCore::module_ready(const ModuleFeedback & f, size_t index) const noexcept
@@ -92,9 +112,7 @@ bool ControlCore::module_ready(const ModuleFeedback & f, size_t index) const noe
   return measurement_valid(f) && f.enabled &&
          std::isfinite(f.wheel_position * config_.wheel_radius[index]) &&
          std::isfinite(f.wheel_velocity * config_.wheel_radius[index]) &&
-         std::abs(f.steering_position - f.steering_angle) <= config_.max_encoder_difference &&
-         steering_angle_within_limits(f.steering_position, limits) &&
-         steering_measurement_within_tolerance(f.steering_angle, limits);
+         steering_angle_within_limits(f.steering_position, limits);
 }
 
 bool ControlCore::feedback_ready(const ModuleFeedbackArray & feedback) const noexcept
@@ -110,12 +128,20 @@ std::array<SwerveModulePosition, 4> ControlCore::positions(const ModuleFeedbackA
   std::array<SwerveModulePosition, 4> result{};
   for (size_t i = 0; i < 4; ++i) {
     const auto limits = steering_limits(config_, i);
-    const bool angle_valid = steering_measurement_within_tolerance(
-      feedback[i].steering_angle, limits);
-    result[i] = {feedback[i].wheel_position * config_.wheel_radius[i],
-      angle_valid ? clamp_steering_measurement_to_safe_range(
-        feedback[i].steering_angle, limits) : feedback[i].steering_angle,
-      module_ready(feedback[i], i) && angle_valid};
+    // Odometry heading uses the motor-derived angle (1 kHz, synchronous with the wheels).
+    const bool angle_valid =
+      steering_measurement_within_tolerance(feedback[i].steering_position, limits);
+    // A holding module whose angle left its latched target (a rejected steering jump) is
+    // excluded, so the cycle that latches the hold fault cannot pollute the pose.
+    const bool hold_consistent =
+      !(holding_modules_[i] && active_ && std::isfinite(last_steering_targets_[i]) &&
+        std::abs(feedback[i].steering_position - last_steering_targets_[i]) >
+          config_.max_encoder_difference);
+    result[i] = {
+      feedback[i].wheel_position * config_.wheel_radius[i],
+      angle_valid ? clamp_steering_measurement_to_safe_range(feedback[i].steering_position, limits)
+                  : feedback[i].steering_position,
+      module_ready(feedback[i], i) && angle_valid && hold_consistent};
     result[i].valid = result[i].valid && std::isfinite(result[i].distance_m);
   }
   return result;
@@ -126,6 +152,13 @@ bool ControlCore::activate(const ModuleFeedbackArray & feedback)
   active_ = false;
   // A successful new activation is the only place feedback initializes the hold.
   if (!feedback_ready(feedback)) {return false;}
+  for (size_t i = 0; i < 4; ++i) {
+    // Activation needs the external encoder to confirm the motor angle once (startup reference).
+    if (!encoder_consistent(feedback[i], i)) {
+      return false;
+    }
+  }
+  encoder_bad_time_.fill(0.0);
   for (size_t i = 0; i < 4; ++i) {
     last_steering_targets_[i] = feedback[i].steering_position;
   }
@@ -241,7 +274,7 @@ ControlOutput ControlCore::ramp_stop(
   holding.fill(true);
   for (size_t i = 0; i < 4; ++i) {
     desired[i] = {0.0, last_steering_targets_[i]};
-    angles[i] = feedback[i].steering_angle;
+    angles[i] = feedback[i].steering_position;
   }
   const auto targets = setpoints_.generate(desired, angles, dt, holding);
   std::array<double, 4> next_targets{};
@@ -273,6 +306,9 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
   }
   observe(feedback, imu);
   if (!feedback_ready(feedback)) {return stop(feedback, ControlStatus::feedback_fault);}
+  if (encoder_monitor_tripped(feedback, dt)) {
+    return stop(feedback, ControlStatus::feedback_fault);
+  }
   if (hold_deviation(feedback, holding_modules_)) {
     hold_fault_latched_ = true;
     return stop(feedback, ControlStatus::steering_hold_fault);
@@ -293,7 +329,9 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
   }
   command.omega_radps = std::clamp(command.omega_radps, -config_.max_angular_speed, config_.max_angular_speed);
   std::array<double, 4> angles{};
-  for (size_t i = 0; i < 4; ++i) {angles[i] = feedback[i].steering_angle;}
+  for (size_t i = 0; i < 4; ++i) {
+    angles[i] = feedback[i].steering_position;
+  }
   auto desired = inverse_kinematics(discretize(command, dt), config_.locations, angles, config_.velocity_deadband);
   if (std::all_of(desired.begin(), desired.end(), [this](const auto & state) {
       return std::abs(state.speed_mps) < config_.velocity_deadband;
@@ -330,8 +368,10 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
   holding_modules_ = holding;
   output_.steering_position = next_targets;
   for (size_t i = 0; i < 4; ++i) {
-    previous_speeds_[i] = targets.gated ? 0.0 : std::clamp(targets.modules[i].speed_mps,
-      previous_speeds_[i] - max_step, previous_speeds_[i] + max_step);
+    // A gated module ramps its wheel down with the wheel acceleration limit (no speed step).
+    const double wanted{targets.gated ? 0.0 : targets.modules[i].speed_mps};
+    previous_speeds_[i] =
+      std::clamp(wanted, previous_speeds_[i] - max_step, previous_speeds_[i] + max_step);
     output_.drive_velocity[i] = previous_speeds_[i] / config_.wheel_radius[i];
   }
   output_.status = targets.gated ? ControlStatus::alignment_gated : ControlStatus::running;

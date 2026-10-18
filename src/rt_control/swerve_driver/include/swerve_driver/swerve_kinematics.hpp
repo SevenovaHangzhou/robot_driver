@@ -85,6 +85,9 @@ struct SwerveSetpointParameters {
   std::array<SteeringAngleLimits, kSwerveModuleCount> angle_limits{};
   // Infinite keeps the legacy velocity-step profile; finite values ramp steering rate.
   double maximum_steering_acceleration_radps2{std::numeric_limits<double>::infinity()};
+  // Infinite keeps the trapezoidal profile; finite values limit the change of steering
+  // acceleration (S-curve), which removes the acceleration steps that hit gear backlash.
+  double maximum_steering_jerk_radps3{std::numeric_limits<double>::infinity()};
 };
 
 class SwerveSetpointGenerator final {
@@ -104,6 +107,11 @@ private:
   std::optional<bool> translation_reversed_;
   std::array<std::optional<double>, kSwerveModuleCount> previous_targets_{};
   std::array<double, kSwerveModuleCount> steering_rates_{};
+  std::array<double, kSwerveModuleCount> steering_accelerations_{};
+  // One jerk-limited step toward a goal ``delta`` away; updates rate and acceleration.
+  double jerk_limited_step(std::size_t index, double delta, double dt_seconds) noexcept;
+  // Jerk-limited ramp of an in-flight rate to zero (hold); returns the step.
+  double jerk_limited_stop(std::size_t index, double dt_seconds) noexcept;
 };
 
 [[nodiscard]] double wrap_pi(double angle_rad) noexcept;
