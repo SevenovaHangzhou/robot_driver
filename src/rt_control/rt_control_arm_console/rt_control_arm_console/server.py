@@ -24,6 +24,13 @@ from .audit import AuditLog
 from .console import ArmConsole, ConsoleError
 from .model import MESH_URL_PREFIX, resolve_mesh
 
+RESET_OK_STAGES = {"success", "already_clear"}
+RESET_HINTS = {
+    "restart_required": "控制器状态无法确认，需要重启控制栈（工控机上 arm restart）",
+    "operation_in_progress": "另一项操作进行中，稍后再试",
+    "fault_reset_timeout": "复位后仍有轴未回到禁止合闸，检查首故障轴和实体安全链",
+    "preempted_by_disable": "被失能请求打断，稍后再试",
+}
 MAX_BODY_BYTES = 16 * 1024
 STATUS_PERIOD_S = 0.05
 LOGIN_FAILURE_DELAY_S = 1.0
@@ -52,6 +59,7 @@ class ConsoleServer(ThreadingHTTPServer):
         share_lookup: Callable[[str], str],
         set_enabled: Callable[[bool], dict],
         audit: Optional[AuditLog] = None,
+        reset_fault: Optional[Callable[[], dict]] = None,
     ) -> None:
         if not token:
             raise ValueError("an access token is required")
@@ -64,6 +72,7 @@ class ConsoleServer(ThreadingHTTPServer):
         self.share_lookup = share_lookup
         self.set_enabled = set_enabled
         self.audit = audit or AuditLog(None)
+        self.reset_fault = reset_fault
         self.sessions: set[str] = set()
         self.lock = threading.Lock()
         self.stopping = threading.Event()
@@ -292,6 +301,22 @@ class Handler(BaseHTTPRequestHandler):
                 console.end_enable()
             if not result["accepted"]:
                 raise ConsoleError("enable_rejected", result["message"] or "使能请求被拒绝")
+            return result
+        elif path == "/api/reset_fault":
+            if self.server.reset_fault is None:
+                raise ConsoleError("reset_unavailable", "故障复位不可用")
+            console.begin_enable(session)
+            try:
+                result = self.server.reset_fault()
+            finally:
+                console.end_enable()
+            if not result["ok"] or result["stage"] not in RESET_OK_STAGES:
+                hint = RESET_HINTS.get(result["stage"], "")
+                joint = f"，关节 {result['failed_joint']}" if result.get("failed_joint") else ""
+                raise ConsoleError(
+                    "reset_rejected",
+                    f"故障复位未完成：{result['stage']}{joint}。{hint}".rstrip("。") + "。",
+                )
             return result
         else:
             raise ConsoleError("not_found", "未知操作")

@@ -378,6 +378,11 @@ $("disable-btn").addEventListener("click", async () => {
   const result = await guarded(() => post("/api/enable", { enabled: false }));
   if (result) toast("已失能");
 });
+$("reset-btn").addEventListener("click", async () => {
+  if (!confirm("确认故障复位？\n只清除驱动故障并回到“禁止合闸”，不会使能，也不会运动。\n请先确认故障原因（急停、掉线、碰撞等）已经排除。")) return;
+  const result = await guarded(() => post("/api/reset_fault"));
+  if (result) toast("故障已复位，可以重新使能");
+});
 
 // ------------------------------------------------------------------ status
 function setChip(id, text, kind = "") {
@@ -400,7 +405,7 @@ function onStatus(status) {
   setChip("conn-chip", status.feedback_fresh ? "反馈正常" : "反馈超时", status.feedback_fresh ? "ok" : "bad");
   const enable = status.enable;
   const enableText = { ENABLED: "已使能", IDLE: "未使能", DISCONNECTED: "使能管理未连接" }[enable.state]
-    || `${enable.state} ${enable.stage}`;
+    || (enable.state === "FAILED" ? `故障（${enable.stage}）` : `${enable.state} ${enable.stage}`);
   setChip("enable-chip", enable.busy ? "使能切换中…" : enableText,
     enable.state === "ENABLED" ? "ok" : enable.state === "IDLE" ? "" : "warn");
   setChip("ctrl-chip", `${status.controller.name || "控制器"} ${status.controller.active ? "激活" : "未激活"}`,
@@ -440,6 +445,9 @@ function updateButtons() {
   $("sync-btn").disabled = moving;
   $("enable-btn").disabled = !mine || moving || busy || (status && status.enable.state === "ENABLED");
   $("disable-btn").disabled = !mine || moving || busy || (status && status.enable.state !== "ENABLED");
+  // Only offered when enable_manager reports FAILED; enable_manager still decides.
+  $("reset-btn").disabled = !mine || moving || busy || !(status && status.enable.state === "FAILED");
+  $("reset-btn").hidden = !(status && status.enable.state === "FAILED");
   $("pose-form").querySelector("button").disabled = !mine || moving || !(status && status.feedback_fresh);
   for (const row of $("joints").children) {
     for (const input of row.querySelectorAll("input")) input.disabled = moving;
