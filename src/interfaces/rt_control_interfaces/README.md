@@ -41,6 +41,14 @@ claim. Rejected goals have no result and cannot replace the active goal's token;
 a subsequent goal receives only its own token. String handling stays outside the
 fixed-size execution core.
 
+## Swerve execution state
+
+`SwerveExecutionState` is published by `swerve_driver/SwerveController` on
+`~/execution_state` (about 100 Hz, only while the controller is active) for RT-Control
+commissioning and offline analysis. It is read-only and never a command input. Field
+semantics are in the message file. Navigation must not depend on it until it is promoted
+to a public `robot_interfaces` contract.
+
 ## Admission and limits
 
 A goal requests the transform `(dx, dy, dyaw)` of the base origin relative to its

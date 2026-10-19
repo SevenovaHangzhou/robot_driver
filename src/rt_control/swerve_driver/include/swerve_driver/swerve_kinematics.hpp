@@ -101,8 +101,32 @@ public:
   void reset() noexcept;
   void reset(const std::array<double, kSwerveModuleCount> & targets) noexcept;
 
+  // Read-only state after the last generate()/reset(), module order 1..4.
+  // Goal: final target of the kinematic solution (hold target for holding modules); NaN after
+  // reset(). Rates/accelerations: the steering profile's current values.
+  [[nodiscard]] const std::array<double, kSwerveModuleCount> & goal_angles() const noexcept
+  {
+    return goal_angles_;
+  }
+  [[nodiscard]] const std::array<double, kSwerveModuleCount> & steering_rates() const noexcept
+  {
+    return steering_rates_;
+  }
+  [[nodiscard]] const std::array<double, kSwerveModuleCount> & steering_accelerations()
+    const noexcept
+  {
+    return steering_accelerations_;
+  }
+  [[nodiscard]] const std::array<bool, kSwerveModuleCount> & reversed() const noexcept
+  {
+    return reversed_;
+  }
+
 private:
   SwerveSetpointParameters parameters_;
+  std::array<double, kSwerveModuleCount> goal_angles_{
+    std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
+    std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()};
   std::array<bool, kSwerveModuleCount> reversed_{};
   std::optional<bool> translation_reversed_;
   std::array<std::optional<double>, kSwerveModuleCount> previous_targets_{};

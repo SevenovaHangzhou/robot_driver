@@ -15,6 +15,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ChassisState.msg"
   "msg/JointControlModeResult.msg"
   "msg/PlcIoState.msg"
+  "msg/SwerveExecutionState.msg"
   "srv/ChassisSetMode.srv"
   "srv/ChassisResetFault.srv"
   "srv/SetDigitalOutput.srv"

@@ -303,6 +303,11 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       odometry_publisher_);
     realtime_odometry_->msg_.header.frame_id = "odom";
     realtime_odometry_->msg_.child_frame_id = "base_footprint";
+    // Read-only execution state (RT-Control private), fixed-size: no realtime allocation.
+    execution_publisher_ = get_node()->create_publisher<ExecutionState>(
+      "~/execution_state", robot_interfaces_qos::fast_state());
+    realtime_execution_ =
+      std::make_unique<realtime_tools::RealtimePublisher<ExecutionState>>(execution_publisher_);
     command_subscription_.reset();
     imu_subscription_.reset();
     diagnostic_publisher_ = get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
@@ -459,6 +464,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     command_buffer_.writeFromNonRT(Command{});
     imu_buffer_.writeFromNonRT(ImuSample{});
     publish_elapsed_ = 0.0;
+    execution_elapsed_ = 0.0;
     last_output_ = core_->update(feedback, {}, false, 0.004);
     if (!write_output(last_output_)) {
       throw std::runtime_error{"Swerve activation produced an unsafe output"};
@@ -593,6 +599,8 @@ CallbackReturn SwerveController::on_cleanup(const rclcpp_lifecycle::State & stat
   fault_stop_publisher_.reset();
   realtime_odometry_.reset();
   odometry_publisher_.reset();
+  realtime_execution_.reset();
+  execution_publisher_.reset();
   runtime_.reset();
   core_.reset();
   return CallbackReturn::SUCCESS;
@@ -744,7 +752,43 @@ controller_interface::return_type SwerveController::update(
     realtime_odometry_->unlockAndPublish();
     publish_elapsed_ = std::fmod(publish_elapsed_, 0.02);
   }
+  execution_elapsed_ += positive(dt) ? dt : 0.0;
+  if (execution_elapsed_ >= 0.01) {
+    publish_execution(time, feedback, !runtime_ || navigation);
+  }
   return controller_interface::return_type::OK;
+}
+
+void SwerveController::publish_execution(
+  const rclcpp::Time & time, const ModuleFeedbackArray & feedback, bool core_owns_output)
+{
+  static_assert(
+    static_cast<int>(ControlStatus::inactive) == ExecutionState::STATUS_INACTIVE &&
+      static_cast<int>(ControlStatus::steering_hold_fault) ==
+        ExecutionState::STATUS_STEERING_HOLD_FAULT,
+    "ControlStatus and SwerveExecutionState status values must stay aligned");
+  // Non-blocking: if the publishing thread still holds the buffer, skip this cycle.
+  if (!realtime_execution_ || !realtime_execution_->trylock()) {
+    return;
+  }
+  auto & message = realtime_execution_->msg_;
+  const auto execution = core_->execution();
+  message.stamp = time;
+  message.status = static_cast<uint8_t>(last_output_.status);
+  message.core_owns_output = core_owns_output;
+  for (size_t i = 0; i < 4; ++i) {
+    message.measured_steering_angle[i] = feedback[i].steering_position;
+    message.goal_steering_angle[i] = execution[i].goal_angle;
+    message.profile_steering_angle[i] = last_output_.steering_position[i];
+    message.profile_steering_rate[i] = execution[i].profile_rate;
+    message.profile_steering_acceleration[i] = execution[i].profile_acceleration;
+    message.commanded_wheel_speed[i] = execution[i].commanded_speed;
+    message.measured_wheel_speed[i] = feedback[i].wheel_velocity * config_.wheel_radius[i];
+    message.reversed[i] = execution[i].reversed;
+    message.holding[i] = execution[i].holding;
+  }
+  realtime_execution_->unlockAndPublish();
+  execution_elapsed_ = std::fmod(execution_elapsed_, 0.01);
 }
 
 ChassisRuntimeFeedback SwerveController::read_runtime_feedback(double now)

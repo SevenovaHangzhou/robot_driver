@@ -174,6 +174,20 @@ bool ControlCore::activate(const ModuleFeedbackArray & feedback)
   return true;
 }
 
+ExecutionArray ControlCore::execution() const noexcept
+{
+  ExecutionArray result{};
+  const auto & goals = setpoints_.goal_angles();
+  const auto & rates = setpoints_.steering_rates();
+  const auto & accelerations = setpoints_.steering_accelerations();
+  const auto & reversed = setpoints_.reversed();
+  for (size_t i = 0; i < 4; ++i) {
+    result[i] = {goals[i],    rates[i],           accelerations[i], previous_speeds_[i],
+                 reversed[i], holding_modules_[i]};
+  }
+  return result;
+}
+
 void ControlCore::deactivate() noexcept
 {
   active_ = false;

@@ -428,5 +428,55 @@ TEST_F(ControlCoreTest, ADeadbandModuleDeviationStopsAllModulesAndLatches)
     EXPECT_DOUBLE_EQ(velocity, 0.0);
   }
 }
+TEST_F(ControlCoreTest, ExecutionStateReportsGoalProfileSpeedAndHold)
+{
+  // Activation: every module holds its startup angle with zero rate and speed.
+  auto execution = core.execution();
+  for (const auto & module : execution) {
+    EXPECT_TRUE(module.holding);
+    EXPECT_DOUBLE_EQ(module.goal_angle, 0.0);
+    EXPECT_DOUBLE_EQ(module.profile_rate, 0.0);
+    EXPECT_DOUBLE_EQ(module.commanded_speed, 0.0);
+  }
+  // Pure +y translation: goal +pi/2, the profile steps at the 5 rad/s slew (gated, wheels 0).
+  auto result = core.update(feedback, {0.0, 0.5, 0.0}, true, 0.004);
+  execution = core.execution();
+  for (size_t i = 0; i < 4; ++i) {
+    EXPECT_FALSE(execution[i].holding);
+    EXPECT_FALSE(execution[i].reversed);
+    EXPECT_NEAR(execution[i].goal_angle, kPi / 2.0, 1e-12);
+    EXPECT_NEAR(execution[i].profile_rate, 5.0, 1e-12);
+    EXPECT_NEAR(result.steering_position[i], 5.0 * 0.004, 1e-12);
+    EXPECT_NEAR(execution[i].profile_acceleration, 5.0 / 0.004, 1e-9);
+    EXPECT_DOUBLE_EQ(execution[i].commanded_speed, 0.0);
+  }
+  // Aligned forward drive: the commanded surface speed ramps at 10 m/s^2 (0.04 m/s per cycle).
+  core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
+  for (auto & module : feedback) {
+    module.steering_position = 0.0;
+  }
+  core.deactivate();
+  ASSERT_TRUE(core.activate(feedback));
+  result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
+  execution = core.execution();
+  for (size_t i = 0; i < 4; ++i) {
+    EXPECT_NEAR(execution[i].commanded_speed, 0.04, 1e-12);
+    EXPECT_NEAR(result.drive_velocity[i], 0.04 / 0.1, 1e-12);
+  }
+  // Command timeout: the wheels ramp down and every module holds its latched target.
+  core.update(feedback, {}, false, 0.004);
+  execution = core.execution();
+  for (const auto & module : execution) {
+    EXPECT_TRUE(module.holding);
+    EXPECT_DOUBLE_EQ(module.goal_angle, 0.0);
+    EXPECT_NEAR(module.commanded_speed, 0.0, 1e-12);
+  }
+  // Deactivation clears the goal (no stale target is reported).
+  core.deactivate();
+  for (const auto & module : core.execution()) {
+    EXPECT_TRUE(std::isnan(module.goal_angle));
+  }
+}
+
 }  // namespace
 }  // namespace swerve_driver

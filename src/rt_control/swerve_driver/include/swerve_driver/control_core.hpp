@@ -60,6 +60,16 @@ struct ControlOutput
   bool slip_detected{false};
 };
 
+// Per-module execution state of the last update (read-only; module order 1..4).
+struct ModuleExecution
+{
+  double goal_angle{0.0}, profile_rate{0.0}, profile_acceleration{0.0};
+  // Commanded wheel-surface speed (m/s) including the ramp to stop.
+  double commanded_speed{0.0};
+  bool reversed{false}, holding{false};
+};
+using ExecutionArray = std::array<ModuleExecution, 4>;
+
 class ControlCore
 {
 public:
@@ -69,6 +79,8 @@ public:
   bool feedback_ready(const ModuleFeedbackArray & feedback) const noexcept;
   const std::array<double, 4> & hold_positions() const noexcept { return last_steering_targets_; }
   bool hold_fault_latched() const noexcept { return hold_fault_latched_; }
+  // Allocation-free; safe to call from the realtime update after update().
+  ExecutionArray execution() const noexcept;
   ControlOutput update(const ModuleFeedbackArray & feedback, ChassisSpeeds command,
     bool command_fresh, double dt, std::optional<YawSample> imu = std::nullopt);
 

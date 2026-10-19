@@ -15,6 +15,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "realtime_tools/realtime_buffer.hpp"
 #include "realtime_tools/realtime_publisher.hpp"
+#include "rt_control_interfaces/msg/swerve_execution_state.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "swerve_driver/control_core.hpp"
 #include "swerve_driver/chassis_runtime.hpp"
@@ -100,7 +101,7 @@ private:
   bool apply_steering_motion_parameters();
   uint64_t generation_{0};
   int64_t block_before_ns_{0};
-  double feedback_timeout_{0.0}, publish_elapsed_{0.0};
+  double feedback_timeout_{0.0}, publish_elapsed_{0.0}, execution_elapsed_{0.0};
   double imu_timeout_{0.0}, max_imu_yaw_step_{0.0}, quaternion_tolerance_{0.0};
   bool imu_enabled_{false};
   std::string imu_frame_;
@@ -109,6 +110,11 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>> realtime_odometry_;
+  using ExecutionState = rt_control_interfaces::msg::SwerveExecutionState;
+  rclcpp::Publisher<ExecutionState>::SharedPtr execution_publisher_;
+  std::unique_ptr<realtime_tools::RealtimePublisher<ExecutionState>> realtime_execution_;
+  void publish_execution(
+    const rclcpp::Time & time, const ModuleFeedbackArray & feedback, bool core_owns_output);
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_publisher_;
   rclcpp::TimerBase::SharedPtr diagnostic_timer_;
 };
