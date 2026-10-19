@@ -1,0 +1,70 @@
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller.cpp b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+index 23aab7ba..5577412e 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller.cpp
++++ b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+@@ -1688,6 +1688,20 @@ bool JointTrajectoryController::validate_trajectory_msg(
+     return false;
+   }
+ 
++  // The first update() after a new trajectory sorts and fills every point in the realtime
++  // thread (about 0.6 us per point on the bench IPC). Bound that work here, outside the loop.
++  if (
++    params_.max_trajectory_points > 0 &&
++    trajectory.points.size() > static_cast<size_t>(params_.max_trajectory_points))
++  {
++    RCLCPP_ERROR(
++      get_node()->get_logger(),
++      "Trajectory has %zu points, more than max_trajectory_points (%ld). Resample it to fewer "
++      "points (the controller interpolates between points) or split it into several goals.",
++      trajectory.points.size(), static_cast<long>(params_.max_trajectory_points));
++    return false;
++  }
++
+   const auto trajectory_start_time = static_cast<rclcpp::Time>(trajectory.header.stamp);
+   // If the starting time it set to 0.0, it means the controller should start it now.
+   // Otherwise we check if the trajectory ends before the current time,
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+index 5a8bf41a..fd8cdd7a 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
++++ b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+@@ -44,6 +44,16 @@ joint_trajectory_controller:
+     default_value: false,
+     description: "Allow joint goals defining trajectory for only some joints.",
+   }
++  max_trajectory_points: {
++    type: int,
++    default_value: 2000,
++    description: "Reject incoming trajectories with more points than this. The first update after a
++      new trajectory processes every point in the realtime loop, so very long trajectories overrun
++      the control period. 0 disables the limit.",
++    validation: {
++      gt_eq<>: [0],
++    }
++  }
+   open_loop_control: {
+     type: bool,
+     default_value: false,
+diff --git a/joint_trajectory_controller/test/test_trajectory_controller.cpp b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+index a7daca4b..30d9c985 100644
+--- a/joint_trajectory_controller/test/test_trajectory_controller.cpp
++++ b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+@@ -1339,6 +1339,19 @@ TEST_P(TrajectoryControllerTestParameterized, invalid_message)
+   traj_msg.points.clear();
+   EXPECT_FALSE(traj_controller_->validate_trajectory_msg(traj_msg));
+ 
++  // Point count limit (max_trajectory_points, default 2000)
++  traj_msg = good_traj_msg;
++  traj_msg.points.resize(2000, good_traj_msg.points[0]);
++  for (size_t i = 0; i < traj_msg.points.size(); ++i)
++  {
++    traj_msg.points[i].time_from_start =
++      rclcpp::Duration::from_seconds(0.25 + 0.01 * static_cast<double>(i));
++  }
++  EXPECT_TRUE(traj_controller_->validate_trajectory_msg(traj_msg));
++  traj_msg.points.push_back(traj_msg.points.back());
++  traj_msg.points.back().time_from_start = rclcpp::Duration::from_seconds(0.25 + 0.01 * 2000);
++  EXPECT_FALSE(traj_controller_->validate_trajectory_msg(traj_msg));
++
+   // No position data
+   traj_msg = good_traj_msg;
+   traj_msg.points[0].positions.clear();

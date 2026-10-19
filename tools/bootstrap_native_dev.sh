@@ -240,6 +240,9 @@ apply_frozen_patches()
   apply_patch_once \
     patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
     src/vendor/ros2_controllers
+  apply_patch_once \
+    patches/ros2_controllers/0004-limit-trajectory-points.patch \
+    src/vendor/ros2_controllers
 }
 
 verify_patched_vendor_tree()
@@ -314,7 +317,8 @@ verify_frozen_vendor_trees()
   verify_patched_vendor_tree src/vendor/ros2_controllers \
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
-    patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch
+    patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
+    patches/ros2_controllers/0004-limit-trajectory-points.patch
 }
 
 prepare_sources()
