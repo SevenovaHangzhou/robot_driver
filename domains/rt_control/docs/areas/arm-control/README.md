@@ -22,6 +22,7 @@
 | release-deploy/V3-HEAD-CAN-1 | V3 头部使用 `head_joint/head_pitch_joint`、非 JTC ForwardCommand + `/rt/head/*` manager；达妙 T 型由 ACC/DEC/MAX_SPD 承担，参数工具默认不写 flash | [V3 达妙头部非 JTC 位置速度运行链](../release-deploy/records/2026-09-19-v3-damiao-head-runtime.md)#F1-F4 | PARTIAL（T1 Mock；CAN/机械/整机 full runtime 待验） |
 
 | arm-control-20261014-01#F1–F3 | 显式批次/容差/包络保留旧数值与顺序，provisional 不冒充实测 | [显式手臂策略](records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；策略/金样验证通过，实机未验） |
+| arm-control-20261019-01#F1–F3 | JTC 在非实时回调拒绝超过 `max_trajectory_points`（默认 2000）的轨迹；2000 点时新轨迹周期约 1.17 ms | [JTC 点数上限](records/2026-10-19-jtc-max-trajectory-points.md) | PARTIAL（T1 mock；台架未发轨迹） |
 
 | integration-20261014-03#F1–F4 | 控制包只依赖共享HeadPhase；控制器集合/参数保持，D-b不准入新真实头部 | [第四步记录](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（头部T1等价；实机未验） |
 

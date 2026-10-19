@@ -182,7 +182,11 @@ RUN git config --global http.version HTTP/1.1 \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
+    && git -C src/vendor/ros2_controllers apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch \
+    && git -C src/vendor/ros2_controllers apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 ENV RT_CONTROL_ECAT_CONTINUOUS_HANDOFF="1"
