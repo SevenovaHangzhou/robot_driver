@@ -190,3 +190,63 @@ def test_audit_log_records_commands_without_secrets(setup, tmp_path):  # noqa: F
     text = path.read_text()
     assert "secret" not in text and cookie.split("=", 1)[1] not in text
     assert len(entries[1]["session"]) == 8 and entries[1]["session"] == entries[2]["session"]
+
+
+def test_fault_reset_requires_the_lease_and_reports_enable_manager_stage(setup, tmp_path):  # noqa: F811
+    from rt_control_arm_console.audit import AuditLog
+
+    console, _, _ = setup
+    replies = [
+        {"ok": True, "stage": "success", "failed_joint": "", "status_word": 0},
+        {"ok": False, "stage": "restart_required", "failed_joint": "", "status_word": 0},
+    ]
+    calls = []
+
+    def reset_fault():
+        calls.append(1)
+        return replies[len(calls) - 1]
+
+    path = tmp_path / "audit.jsonl"
+    instance = ConsoleServer(
+        ("127.0.0.1", 0),
+        console,
+        "secret",
+        WEB,
+        lambda _: "/nonexistent",
+        lambda enabled: {"accepted": True, "enabled": enabled, "message": ""},
+        AuditLog(path),
+        reset_fault,
+    )
+    thread = threading.Thread(target=instance.serve_forever, daemon=True)
+    thread.start()
+    try:
+        cookie = login(instance)
+        response, body = request(instance, "POST", "/api/reset_fault", {}, cookie)
+        assert response.status == 409 and not calls  # the fixture lease belongs to session "s1"
+        console.release("s1")
+        request(instance, "POST", "/api/acquire", {}, cookie)
+        response, body = request(instance, "POST", "/api/reset_fault", {}, cookie)
+        assert response.status == 200 and json.loads(body)["stage"] == "success"
+        response, body = request(instance, "POST", "/api/reset_fault", {}, cookie)
+        reply = json.loads(body)
+        assert response.status == 409 and reply["error"] == "reset_rejected"
+        assert "restart_required" in reply["message"] and "arm restart" in reply["message"]
+    finally:
+        instance.stopping.set()
+        instance.shutdown()
+        instance.server_close()
+    actions = [
+        (e["action"], e["ok"])
+        for e in map(json.loads, path.read_text().splitlines())
+        if e["action"] == "reset_fault"
+    ]
+    assert actions == [("reset_fault", False), ("reset_fault", True), ("reset_fault", False)]
+
+
+def test_fault_reset_is_unavailable_without_a_backend(server):
+    instance, console, _ = server
+    cookie = login(instance)
+    console.release("s1")
+    request(instance, "POST", "/api/acquire", {}, cookie)
+    response, body = request(instance, "POST", "/api/reset_fault", {}, cookie)
+    assert response.status == 409 and json.loads(body)["error"] == "reset_unavailable"

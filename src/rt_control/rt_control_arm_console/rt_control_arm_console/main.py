@@ -69,6 +69,7 @@ def main(argv=None) -> None:
         get_package_share_directory,
         bridge.set_enabled,
         AuditLog(Path(arguments.audit_log).expanduser() if arguments.audit_log else None),
+        bridge.reset_fault,
     )
 
     def shutdown(*_):
