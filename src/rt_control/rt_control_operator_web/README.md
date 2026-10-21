@@ -30,6 +30,10 @@
 
 1. 加载工作区环境，设置与运行栈相同的 `ROS_DOMAIN_ID`（1–232），并使用 `ROS_LOCALHOST_ONLY=1`
    或只含 127.0.0.1 的 UDP DDS 配置。
+   - 如果运行栈本身对局域网可见（例如导航在其他进程用默认 DDS 配置接入），只用回环的网页无法与运行栈通信。
+     此时设置 `RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS=1`，并使用与运行栈相同的 DDS 配置。
+   - 打开该开关后，同一 Domain 的局域网主机都能看到底盘话题，也能发送 `/cmd_vel`。
+     Domain 必须为非默认值，同一时间只允许一个 `/cmd_vel` 发送方。
 2. 令牌文件权限 0600，路径写入环境变量 `RT_OPERATOR_WEB_TOKEN_FILE`。
 3. 启动：
 
