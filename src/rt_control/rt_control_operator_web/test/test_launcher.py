@@ -49,3 +49,15 @@ def test_dds_must_stay_on_loopback(tmp_path):
     ):
         with pytest.raises(ValueError, match="DDS"):
             check_dds(environ)
+
+
+def test_lan_dds_requires_explicit_opt_in(tmp_path):
+    lan = tmp_path / "lan.xml"
+    lan.write_text(LOOPBACK.format(address="192.168.1.2"))
+    environ = {"ROS_DOMAIN_ID": "173", "FASTRTPS_DEFAULT_PROFILES_FILE": str(lan)}
+    for value in ("", "0", "true"):
+        with pytest.raises(ValueError, match="DDS"):
+            check_dds({**environ, "RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS": value})
+    check_dds({**environ, "RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS": "1"})
+    with pytest.raises(ValueError, match="ROS_DOMAIN_ID"):
+        check_dds({"ROS_DOMAIN_ID": "0", "RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS": "1"})

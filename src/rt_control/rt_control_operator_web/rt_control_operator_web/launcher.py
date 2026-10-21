@@ -1,7 +1,8 @@
 """Entry point of the chassis operator console. Never starts hardware or enables axes.
 
 Checks before any ROS node exists: an explicit ROS domain, localhost-only DDS (or the
-explicit loopback UDP profile), explicit non-realtime CPUs and a readable token file.
+explicit loopback UDP profile, or the explicit LAN opt-in), explicit non-realtime CPUs and a
+readable token file.
 """
 
 from __future__ import annotations
@@ -39,6 +40,10 @@ def check_dds(environ=os.environ) -> None:
     if not domain.isdecimal() or not 1 <= int(domain) <= 232:
         raise ValueError("set an explicit isolated ROS_DOMAIN_ID in 1..232")
     if environ.get("ROS_LOCALHOST_ONLY") == "1":
+        return
+    if environ.get("RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS") == "1":
+        # Explicit deployment opt-in when the chassis runtime itself is LAN-visible on this
+        # isolated domain; a loopback-only console cannot reach a LAN-visible runtime.
         return
     profile = environ.get("FASTRTPS_DEFAULT_PROFILES_FILE", "")
     if not profile:
