@@ -40,6 +40,9 @@ LIMIT_PARAMETERS = (
     "max_steering_acceleration_limit",
     "max_steering_jerk_limit",
 )
+# Configure-time drive mode of the swerve controller (read only here). Older controllers do
+# not declare these; the console then shows the mode as unknown.
+DRIVE_MODE_PARAMETERS = ("drive_mode", "align_first_threshold", "align_first_release")
 STALE_S = 2.5
 
 
@@ -192,7 +195,9 @@ class ChassisConnection:
         self.request(
             "steering_params",
             self.swerve_client,
-            GetParameters.Request(names=[*STEERING_PARAMETERS, *LIMIT_PARAMETERS]),
+            GetParameters.Request(
+                names=[*STEERING_PARAMETERS, *LIMIT_PARAMETERS, *DRIVE_MODE_PARAMETERS]
+            ),
             self.received_steering,
         )
 
@@ -232,16 +237,22 @@ class ChassisConnection:
 
     def received_steering(self, response):
         names = [*STEERING_PARAMETERS, *LIMIT_PARAMETERS]
-        if len(response.values) != len(names):
+        if len(response.values) != len(names) + len(DRIVE_MODE_PARAMETERS):
             return
         values = {name: math.degrees(v.double_value) for name, v in zip(names, response.values)}
+        mode, enter, release = response.values[len(names) :]
+        drive = {
+            "drive_mode": mode.string_value or None,
+            "align_first_threshold": math.degrees(enter.double_value) or None,
+            "align_first_release": math.degrees(release.double_value) or None,
+        }
         # An unlimited jerk (trapezoidal profile) is reported as None; JSON has no infinity.
         if values["max_steering_jerk"] == math.inf:
             values["max_steering_jerk"] = None
         if not all(v is None or (math.isfinite(v) and v > 0) for v in values.values()):
             return
         with self.lock:
-            self.steering_motion = values
+            self.steering_motion = {**values, **drive}
             self.steering_motion_at = time.monotonic()
 
     # ------------------------------------------------------------------ status
