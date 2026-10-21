@@ -51,7 +51,15 @@ function status(message) {
     $('steering-current').textContent=`当前：速度 ${steering.max_steering_slew.toFixed(1)} °/s · 加速度 ${steering.max_steering_acceleration.toFixed(1)} °/s² · 加加速度 ${jerk}`;
     $('steering-limit').textContent=`上限 ${steering.max_steering_slew_limit.toFixed(0)} °/s · ${steering.max_steering_acceleration_limit.toFixed(0)} °/s² · ${steering.max_steering_jerk_limit.toFixed(0)} °/s³`;
     $('steering-jerk').max=steering.max_steering_jerk_limit.toFixed(0);
-    $('steering-current').textContent+=` · 对齐门限 ${steering.alignment_threshold.toFixed(0)}°`;
+    const alignFirst=steering.drive_mode==='align_first';
+    $('drive-mode').textContent=alignFirst?'先对齐后走':steering.drive_mode==='steer_while_driving'?'边转边走':'未知（控制器未提供）';
+    $('drive-mode-detail').textContent=alignFirst&&steering.align_first_threshold&&steering.align_first_release
+      ?`任一舵轮误差 >${steering.align_first_threshold.toFixed(0)}° 时四轮停驱，全部 ≤${steering.align_first_release.toFixed(0)}° 后一起恢复；切换模式需修改配置并重启底盘程序`
+      :steering.drive_mode==='steer_while_driving'?'舵轮转向时行走轮按 cos(角度误差) 降速继续行驶；切换模式需修改配置并重启底盘程序':'';
+    $('steering-current').textContent+=alignFirst&&steering.align_first_threshold
+      ?` · 对齐门限 ${steering.align_first_threshold.toFixed(0)}°/恢复 ${steering.align_first_release.toFixed(0)}°`
+      :` · 对齐门限 ${steering.alignment_threshold.toFixed(0)}°`;
+    $('steering-align-label').textContent=alignFirst?'对齐门限 °（当前模式不生效，仅边转边走模式使用）':'对齐门限 °（90 = 不等待对齐）';
     const tuning=backend.steering_tuning||{};
     $('steering-source').textContent=tuning.source==='field'?`来源：现场调参（${tuning.updated_at}）`:tuning.source==='invalid'?`来源：现场调参文件无效（${tuning.updated_at}）`:'来源：默认值';
     $('steering-slew').max=steering.max_steering_slew_limit.toFixed(1);$('steering-accel').max=steering.max_steering_acceleration_limit.toFixed(1);
