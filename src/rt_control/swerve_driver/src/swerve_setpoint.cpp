@@ -23,6 +23,12 @@ SwerveSetpointGenerator::SwerveSetpointGenerator(
   {
     throw std::invalid_argument{"alignment threshold must be finite and nonnegative"};
   }
+  if (
+    !std::isnan(parameters_.alignment_release_rad) &&
+    (!finite(parameters_.alignment_release_rad) || parameters_.alignment_release_rad < 0.0 ||
+     parameters_.alignment_release_rad > parameters_.alignment_threshold_rad)) {
+    throw std::invalid_argument{"alignment release must be in [0, alignment threshold]"};
+  }
   if (!finite(parameters_.flip_hysteresis_rad) ||
     parameters_.flip_hysteresis_rad < 0.0 ||
     parameters_.flip_hysteresis_rad >= kPi / 2.0)
@@ -233,7 +239,13 @@ AlignmentResult SwerveSetpointGenerator::generate(
       result.maximum_error_rad, std::abs(optimized.error_rad));
   }
 
-  result.gated = result.maximum_error_rad > parameters_.alignment_threshold_rad;
+  // All four modules gate together. Enter above the threshold; once gated, release only
+  // when every module is within the release angle (hysteresis avoids stop/start chatter).
+  const double release{
+    std::isnan(parameters_.alignment_release_rad) ? parameters_.alignment_threshold_rad
+                                                  : parameters_.alignment_release_rad};
+  gated_ = result.maximum_error_rad > (gated_ ? release : parameters_.alignment_threshold_rad);
+  result.gated = gated_;
   if (result.gated) {
     for (auto & module : result.modules) {
       module.speed_mps = 0.0;
@@ -258,6 +270,7 @@ void SwerveSetpointGenerator::reset() noexcept
   previous_targets_.fill(std::nullopt);
   steering_rates_.fill(0.0);
   steering_accelerations_.fill(0.0);
+  gated_ = false;
 }
 
 namespace

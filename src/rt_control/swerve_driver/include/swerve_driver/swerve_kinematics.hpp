@@ -88,6 +88,10 @@ struct SwerveSetpointParameters {
   // Infinite keeps the trapezoidal profile; finite values limit the change of steering
   // acceleration (S-curve), which removes the acceleration steps that hit gear backlash.
   double maximum_steering_jerk_radps3{std::numeric_limits<double>::infinity()};
+  // Gate hysteresis (last member: keeps existing aggregate initialisers valid). Once gated,
+  // wheels stay stopped until every module error is at most this value. NaN releases at
+  // alignment_threshold_rad (no hysteresis, legacy behaviour).
+  double alignment_release_rad{std::numeric_limits<double>::quiet_NaN()};
 };
 
 class SwerveSetpointGenerator final {
@@ -108,6 +112,7 @@ private:
   std::array<std::optional<double>, kSwerveModuleCount> previous_targets_{};
   std::array<double, kSwerveModuleCount> steering_rates_{};
   std::array<double, kSwerveModuleCount> steering_accelerations_{};
+  bool gated_{false};
   // One jerk-limited step toward a goal ``delta`` away; updates rate and acceleration.
   double jerk_limited_step(std::size_t index, double delta, double dt_seconds) noexcept;
   // Jerk-limited ramp of an in-flight rate to zero (hold); returns the step.

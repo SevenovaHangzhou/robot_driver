@@ -89,6 +89,13 @@ CallbackReturn SwerveController::on_init()
     auto_declare<double>(name, 0.0);
   }
   auto_declare<bool>("imu_enabled", false);
+  // Drive mode, read at configure (user 2026-10-21). align_first: all four wheels stay
+  // stopped while any module error exceeds align_first_threshold and restart only once every
+  // module is within align_first_release. steer_while_driving: cos(error) scaling with the
+  // operator-tunable alignment_threshold gate.
+  auto_declare<std::string>("drive_mode", "align_first");
+  auto_declare<double>("align_first_threshold", 0.08726646259971647);  // 5 deg
+  auto_declare<double>("align_first_release", 0.05235987755982988);    // 3 deg
   auto_declare<std::string>("imu_frame_id", "");
   // Registered after every declaration: declaring a parameter also runs this check.
   steering_parameter_callback_ = get_node()->add_on_set_parameters_callback(
@@ -186,7 +193,30 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.encoder_fault_window = number("encoder_fault_window");
     config_.max_update_period = number("max_update_period");
     config_.slip_residual_threshold = number("slip_residual_threshold");
-    config_.setpoint.alignment_threshold_rad = number("alignment_threshold");
+    const auto drive_mode = get_node()->get_parameter("drive_mode").as_string();
+    if (drive_mode == "align_first") {
+      const double enter = number("align_first_threshold");
+      const double release = number("align_first_release");
+      if (!(release > 0.0 && release <= enter && enter <= M_PI / 2.0)) {
+        throw std::invalid_argument(
+          "align_first needs 0 < align_first_release <= align_first_threshold <= pi/2");
+      }
+      align_first_ = true;
+      config_.setpoint.alignment_threshold_rad = enter;
+      config_.setpoint.alignment_release_rad = release;
+    } else if (drive_mode == "steer_while_driving") {
+      align_first_ = false;
+      config_.setpoint.alignment_threshold_rad = number("alignment_threshold");
+      config_.setpoint.alignment_release_rad = std::numeric_limits<double>::quiet_NaN();
+    } else {
+      throw std::invalid_argument("drive_mode must be align_first or steer_while_driving");
+    }
+    RCLCPP_INFO(
+      get_node()->get_logger(), "drive_mode %s: gate %.1f deg, release %.1f deg",
+      drive_mode.c_str(), config_.setpoint.alignment_threshold_rad * 180.0 / M_PI,
+      (align_first_ ? config_.setpoint.alignment_release_rad
+                    : config_.setpoint.alignment_threshold_rad) *
+        180.0 / M_PI);
     config_.setpoint.flip_hysteresis_rad = number("flip_hysteresis");
     config_.setpoint.maximum_steering_slew_radps = number("max_steering_slew");
     config_.setpoint.maximum_steering_acceleration_radps2 = number("max_steering_acceleration");
@@ -342,7 +372,10 @@ bool SwerveController::apply_steering_motion_parameters()
   const double slew = get_node()->get_parameter("max_steering_slew").as_double();
   const double acceleration = get_node()->get_parameter("max_steering_acceleration").as_double();
   const double jerk = get_node()->get_parameter("max_steering_jerk").as_double();
-  const double alignment = get_node()->get_parameter("alignment_threshold").as_double();
+  // The operator-tuned alignment_threshold only applies to steer_while_driving.
+  const double alignment = align_first_
+                             ? config_.setpoint.alignment_threshold_rad
+                             : get_node()->get_parameter("alignment_threshold").as_double();
   if (
     slew == config_.setpoint.maximum_steering_slew_radps &&
     acceleration == config_.setpoint.maximum_steering_acceleration_radps2 &&
