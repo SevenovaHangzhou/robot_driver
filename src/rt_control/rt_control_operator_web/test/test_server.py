@@ -376,8 +376,8 @@ def test_module_op_unavailable_without_backend():
 
 
 def make_steering_server(calls):
-    async def steering(slew, accel, jerk, alignment):
-        calls.append(("set", slew, accel, jerk, alignment))
+    async def steering(slew, accel, jerk, alignment, release):
+        calls.append(("set", slew, accel, jerk, alignment, release))
         return {"ok": True, "message": "saved"}
 
     async def defaults():
@@ -420,7 +420,8 @@ STEERING = {
     "slew_deg_s": 30,
     "accel_deg_s2": 20,
     "jerk_deg_s3": 100,
-    "alignment_deg": 90,
+    "alignment_deg": 5,
+    "release_deg": 3,
 }
 
 
@@ -438,7 +439,7 @@ def test_steering_parameters_need_the_lease_and_the_token_again() -> None:
         assert (await next_of(ws, "steering_params_result"))["message"] == "restored"
 
     calls = run_steering(scenario)
-    assert calls == [("set", 30.0, 20.0, 100.0, 90.0), ("defaults",)]
+    assert calls == [("set", 30.0, 20.0, 100.0, 5.0, 3.0), ("defaults",)]
 
 
 def test_steering_parameters_unavailable_without_backend() -> None:

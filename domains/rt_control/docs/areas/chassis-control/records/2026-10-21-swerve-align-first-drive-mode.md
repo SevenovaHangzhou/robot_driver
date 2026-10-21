@@ -7,7 +7,7 @@ type: feature
 trigger: ELECTRI-127；用户 2026-10-21 口头需求（同事反馈边转边走影响较大）
 commits: [feature/electri-127-swerve-align-first]
 env: native
-risk: T1
+risk: T2
 writes: { reset: no, enable: no, motion: no, plc: no }
 verified: UNVERIFIED
 evidence: []
@@ -29,8 +29,11 @@ related: [chassis-control-20261018-02]
   - `align_first_release`：0.0524 rad（3°）。停驱后，四个模块误差都不大于该值时才恢复驱动；
     5°/3° 回差避免在门限附近反复启停。
 - 判断在起步和行驶中都生效；未进入门限时仍按 `cos(误差)` 降速。
-- `steer_while_driving` 保持原行为：`alignment_threshold`（1.5708 rad，网页可调），无回差。
-  `align_first` 模式下网页调节的 `alignment_threshold` 不生效。
+- `steer_while_driving` 保持原行为：`alignment_threshold`（1.5708 rad），无回差。
+- 两种模式的门限都可现场调参，下次使能生效：`align_first_threshold`、`align_first_release`
+  加入控制器参数校验（(0, π/2]，释放角不大于进入角）、`scope_operator_tuning` 白名单和网页调参文件。
+- 网页显示当前模式：`align_first` 显示“对齐模式”（对齐门限 + 恢复门限），
+  `steer_while_driving` 显示“连续模式”（对齐门限）。模式本身只显示，不能在网页切换。
 - `SwerveSetpointParameters` 新增末尾字段 `alignment_release_rad`，NaN 表示无回差（原行为）。
 - `config/controller.draft.yaml` 写入上述默认值。
 
@@ -42,7 +45,13 @@ related: [chassis-control-20261018-02]
 - `colcon test --packages-select swerve_driver`：171 tests，0 failures。新增
   `AlignFirstGateHoldsAllWheelsUntilRelease`：4° 驱动、6° 四轮停驱、4° 保持停驱、2° 恢复、
   释放角大于进入角时拒绝。
-- `tools/quality_gate.sh`：PASS。
+- `tools/quality_gate.sh`：PASS；`rt_control_operator_web` 125 passed；`rt_control_bringup -k tuning` 8 passed。
+
+已验证（T2，研华，底盘未使能）：
+
+- 启动日志 `drive_mode align_first: gate 5.0 deg, release 3.0 deg`。
+- 网页改为 6°/4°：控制器参数与调参文件一致，`alignment_threshold` 保持 90°；恢复默认后参数回到
+  5°/3°，调参文件删除。
 
 未验证：
 
