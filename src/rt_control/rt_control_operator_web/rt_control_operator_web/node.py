@@ -40,9 +40,8 @@ LIMIT_PARAMETERS = (
     "max_steering_acceleration_limit",
     "max_steering_jerk_limit",
 )
-# Configure-time drive mode of the swerve controller (read only here). Older controllers do
-# not declare these; the console then shows the mode as unknown.
-DRIVE_MODE_PARAMETERS = ("drive_mode", "align_first_threshold", "align_first_release")
+# Configure-time drive mode of the swerve controller (shown only, never set here).
+DRIVE_MODE_PARAMETERS = ("drive_mode",)
 STALE_S = 2.5
 
 
@@ -240,12 +239,7 @@ class ChassisConnection:
         if len(response.values) != len(names) + len(DRIVE_MODE_PARAMETERS):
             return
         values = {name: math.degrees(v.double_value) for name, v in zip(names, response.values)}
-        mode, enter, release = response.values[len(names) :]
-        drive = {
-            "drive_mode": mode.string_value or None,
-            "align_first_threshold": math.degrees(enter.double_value) or None,
-            "align_first_release": math.degrees(release.double_value) or None,
-        }
+        drive = {"drive_mode": response.values[len(names)].string_value or None}
         # An unlimited jerk (trapezoidal profile) is reported as None; JSON has no infinity.
         if values["max_steering_jerk"] == math.inf:
             values["max_steering_jerk"] = None
@@ -402,17 +396,22 @@ class ChassisConnection:
             with self.lock:
                 self.busy = False
 
-    async def set_steering(self, slew_deg, accel_deg, jerk_deg, alignment_deg):
+    async def set_steering(self, slew_deg, accel_deg, jerk_deg, alignment_deg, release_deg=0.0):
         status = self.status()
         if not status["can_tune_steering"]:
             raise TeleopError("steering_locked", "只能在底盘未使能时修改转向参数")
         limits = status["steering"]
-        checks = (
+        # alignment_deg/release_deg belong to the running drive mode; the other mode keeps its
+        # current values so the saved file is always a complete snapshot.
+        align_mode = limits.get("drive_mode") == "align_first"
+        checks = [
             (slew_deg, limits["max_steering_slew_limit"], "转向速度", "°/s"),
             (accel_deg, limits["max_steering_acceleration_limit"], "转向加速度", "°/s²"),
             (jerk_deg, limits["max_steering_jerk_limit"], "转向加加速度", "°/s³"),
             (alignment_deg, 90.0, "对齐门限", "°"),
-        )
+        ]
+        if align_mode:
+            checks.append((release_deg, alignment_deg, "恢复门限", "°（不大于对齐门限）"))
         for value, limit, label, unit in checks:
             if not 0 < value <= limit:
                 raise TeleopError("steering_out_of_range", f"{label}须在 0–{limit:.0f}{unit}")
@@ -420,11 +419,24 @@ class ChassisConnection:
             "max_steering_slew": math.radians(slew_deg),
             "max_steering_acceleration": math.radians(accel_deg),
             "max_steering_jerk": math.radians(jerk_deg),
-            "alignment_threshold": math.radians(alignment_deg),
+            "alignment_threshold": math.radians(
+                limits["alignment_threshold"] if align_mode else alignment_deg
+            ),
+            "align_first_threshold": math.radians(
+                alignment_deg if align_mode else limits["align_first_threshold"]
+            ),
+            "align_first_release": math.radians(
+                release_deg if align_mode else limits["align_first_release"]
+            ),
         }
+        gate = (
+            f"对齐门限 {alignment_deg:.0f}°/恢复 {release_deg:.0f}°"
+            if align_mode
+            else f"对齐门限 {alignment_deg:.0f}°"
+        )
         message = (
             f"转向参数已保存：{slew_deg:.1f}°/s，{accel_deg:.1f}°/s²，{jerk_deg:.0f}°/s³，"
-            f"对齐门限 {alignment_deg:.0f}°，下次使能生效（重启后保留）"
+            f"{gate}，下次使能生效（重启后保留）"
         )
         return await self.apply_steering(values, "set", message, persist=True)
 

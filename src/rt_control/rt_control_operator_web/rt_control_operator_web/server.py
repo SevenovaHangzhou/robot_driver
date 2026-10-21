@@ -271,7 +271,9 @@ class OperatorServer:
                 if not hmac.compare_digest(request.token.encode("utf-8"), self._token):
                     await asyncio.sleep(self._auth_failure_delay)
                     raise TeleopError("token_mismatch", "令牌确认失败，转向参数未修改")
-                result = await self._steering_operation(request.x, request.y, request.z, request.w)
+                result = await self._steering_operation(
+                    request.x, request.y, request.z, request.w, request.release
+                )
                 await ws.send_json({"type": "steering_params_result", **dict(result)})
                 return
             elif request.type == "steering_defaults":

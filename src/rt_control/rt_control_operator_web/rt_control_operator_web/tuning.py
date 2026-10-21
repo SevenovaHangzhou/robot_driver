@@ -22,6 +22,8 @@ STEERING_PARAMETERS = (
     "max_steering_acceleration",
     "max_steering_jerk",
     "alignment_threshold",
+    "align_first_threshold",
+    "align_first_release",
 )
 
 
