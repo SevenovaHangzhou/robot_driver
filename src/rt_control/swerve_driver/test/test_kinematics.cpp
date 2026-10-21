@@ -344,6 +344,34 @@ TEST(SwerveKinematicsTest, SteeringSlewPrecedesAlignmentGate)
   }
 }
 
+TEST(SwerveKinematicsTest, AlignFirstGateHoldsAllWheelsUntilRelease)
+{
+  constexpr double kDeg{kPi / 180.0};
+  SwerveSetpointParameters parameters{};
+  parameters.alignment_threshold_rad = 5.0 * kDeg;
+  parameters.alignment_release_rad = 3.0 * kDeg;
+  parameters.maximum_steering_slew_radps = 10.0;
+  SwerveSetpointGenerator generator{parameters};
+  std::array<SwerveModuleState, kSwerveModuleCount> desired{};
+  desired.fill(SwerveModuleState{1.0, 0.0});
+  std::array<double, kSwerveModuleCount> measured{};
+  auto step = [&](double module0_error_deg) {
+    measured.fill(0.0);
+    measured[0] = -module0_error_deg * kDeg;  // only module 1 lags
+    return generator.generate(desired, measured, 0.001);
+  };
+  EXPECT_FALSE(step(4.0).gated);   // below the 5 deg entry: drive (cos-scaled)
+  const auto entered = step(6.0);  // one module above 5 deg stops all four wheels
+  EXPECT_TRUE(entered.gated);
+  for (const auto & module : entered.modules) {
+    EXPECT_DOUBLE_EQ(module.speed_mps, 0.0);
+  }
+  EXPECT_TRUE(step(4.0).gated);                   // inside the hysteresis band: still waiting
+  EXPECT_FALSE(step(2.0).gated);                  // every module within 3 deg: wheels restart
+  parameters.alignment_release_rad = 6.0 * kDeg;  // release above entry is rejected
+  EXPECT_THROW(SwerveSetpointGenerator{parameters}, std::invalid_argument);
+}
+
 TEST(SwerveKinematicsTest, SteeringSlewStaysInsideLimitsNearPiBoundary)
 {
   SwerveSetpointGenerator generator{
