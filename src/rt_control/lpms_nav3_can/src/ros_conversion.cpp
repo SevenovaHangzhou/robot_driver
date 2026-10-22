@@ -29,12 +29,14 @@ sensor_msgs::msg::Imu make_imu_message(
   return message;
 }
 
-sensor_msgs::msg::MagneticField make_magnetic_field_message(const ImuSample & sample)
+sensor_msgs::msg::Imu make_bias_corrected_gyro_message(const ImuSample & sample)
 {
-  sensor_msgs::msg::MagneticField message;
-  message.magnetic_field.x = sample.magnetic_field_t[0];
-  message.magnetic_field.y = sample.magnetic_field_t[1];
-  message.magnetic_field.z = sample.magnetic_field_t[2];
+  sensor_msgs::msg::Imu message;
+  message.orientation_covariance[0] = -1.0;
+  message.linear_acceleration_covariance[0] = -1.0;
+  message.angular_velocity.x = sample.angular_velocity_bias_corrected_radps[0];
+  message.angular_velocity.y = sample.angular_velocity_bias_corrected_radps[1];
+  message.angular_velocity.z = sample.angular_velocity_bias_corrected_radps[2];
   return message;
 }
 

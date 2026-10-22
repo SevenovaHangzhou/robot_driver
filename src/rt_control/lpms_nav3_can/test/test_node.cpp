@@ -110,3 +110,16 @@ TEST_F(LpmsCovarianceParameterTest, RejectsWrongLengthsAndNonFiniteValues)
     }
   }
 }
+
+TEST_F(LpmsCovarianceParameterTest, SharedRobotBusNeedsExplicitReceiveOnlyOptIn)
+{
+  // can0 is a reserved robot bus: refused by default, accepted receive-only when the
+  // deployment opts in. Construction never touches the interface beyond a lookup.
+  auto overrides = std::vector<rclcpp::Parameter>{
+    {"node_id", 1}, {"can_interface", "can0"}, {"frame_id", "imu_link"}};
+  options.parameter_overrides(overrides);
+  EXPECT_THROW(lpms_nav3_can::make_node(options), std::invalid_argument);
+  overrides.emplace_back("allow_shared_interface", true);
+  options.parameter_overrides(overrides);
+  EXPECT_NO_THROW(lpms_nav3_can::make_node(options));
+}

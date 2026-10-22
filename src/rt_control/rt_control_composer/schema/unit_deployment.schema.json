@@ -139,6 +139,40 @@
       ],
       "additionalProperties": false
     },
+    "chassis_imu": {
+      "description": "Optional chassis IMU, observation only (publishes /imu/data; not in a control loop). Started by the scope runtime on real hardware when the profile includes swerve_chassis.",
+      "type": "object",
+      "properties": {
+        "driver": {
+          "enum": [
+            "lpms_nav3_can"
+          ]
+        },
+        "can_interface": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,14}$"
+        },
+        "node_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 127
+        },
+        "frame_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "shared_bus_receive_only": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "driver",
+        "can_interface",
+        "node_id",
+        "frame_id"
+      ],
+      "additionalProperties": false
+    },
     "runtime_log_recorder": {
       "description": "Optional Runtime-LOG 1 kHz recorder (runtime_log_recorder/RecorderController, built on the host from the Runtime-LOG repository). Loaded by its own non-fatal spawner after the lifecycle controllers.",
       "type": "object",

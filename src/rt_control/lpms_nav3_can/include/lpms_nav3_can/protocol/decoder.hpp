@@ -22,7 +22,9 @@ struct ImuSample
 {
   std::array<double, 3U> linear_acceleration_mps2{};
   std::array<double, 3U> angular_velocity_radps{};
-  std::array<double, 3U> magnetic_field_t{};
+  // Channels 7..9 of the default TPDO mapping: static-bias-calibrated gyro (rad/s).
+  // Channels 4..6 (angular_velocity_radps) carry the axis-alignment-calibrated gyro.
+  std::array<double, 3U> angular_velocity_bias_corrected_radps{};
   std::array<double, 4U> orientation_wxyz{};
   std::array<double, 3U> euler_rad{};
 };

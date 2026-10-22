@@ -10,13 +10,15 @@ ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "src/rt_control/lpms_nav3_can"
 
 
-def test_lpms_is_built_without_being_enabled_in_production():
+def test_lpms_is_started_only_through_a_deployment_declared_sensor_node():
     manifest = ET.parse(PACKAGE / "package.xml").getroot()
     assert manifest.findtext("name") == "lpms_nav3_can"
     bringup = ET.parse(ROOT / "src/rt_control/rt_control_bringup/package.xml")
-    assert "lpms_nav3_can" not in {
-        entry.text for entry in bringup.findall("exec_depend")
-    }
+    assert "lpms_nav3_can" in {entry.text for entry in bringup.findall("exec_depend")}
+    # The scope runtime starts it from the artifact's sensor_nodes, never by a fixed name.
+    scope = ROOT / "src/rt_control/rt_control_bringup/launch/rt_control_scope_runtime.launch.py"
+    assert "lpms_nav3_can" not in scope.read_text()
+    assert 'build.lifecycle.get("sensor_nodes", [])' in scope.read_text()
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()
     assert workflow.count("lpms_nav3_can") == 3
     assert "lpms_nav3_can" in (ROOT / "tools/bootstrap_native_dev.sh").read_text()
@@ -41,7 +43,8 @@ def test_lpms_has_no_bus_write_or_host_deployment_configuration():
     assert "::send(" not in source
     assert "make_nmt_start_frame" not in source
     assert '"imu_topic", "/imu/data"' in source
-    assert '"~/mag"' in source
+    assert '"~/gyro_bias_corrected"' in source
+    assert '"allow_shared_interface", false' in source
     assert '"diagnostics_topic", "~/diagnostics"' in source
     assert '"sensor_status_topic", "/rt_control/sensors/status"' in source
     assert not list((PACKAGE / "config").glob("*.service"))

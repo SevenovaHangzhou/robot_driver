@@ -25,6 +25,15 @@ host:
     can0: '003000265230500720333159'
   rt_cpu: 7
   housekeeping_cpus: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+# LPMS-NAV3 on can0 node 1 (shares the encoder bus; read only). Channel layout read back with the
+# vendor host tool by the sensor team, 2026-10-19. Observation only: not fed to the controller.
+# Mounting orientation of imu_link is the robot model's; field axis check pending.
+chassis_imu:
+  driver: lpms_nav3_can
+  can_interface: can0
+  node_id: 1
+  frame_id: imu_link
+  shared_bus_receive_only: true
 canopen:
   master_node_id: 127
   bitrate_kbps: 500

@@ -12,7 +12,6 @@ namespace
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kStandardGravityMps2 = 9.80665;
 constexpr double kDegreesToRadians = kPi / 180.0;
-constexpr double kMicroteslaToTesla = 1.0e-6;
 constexpr std::uint8_t kAllPdosReceived = 0x0fU;
 
 [[nodiscard]] std::int32_t read_signed_le16(
@@ -95,15 +94,17 @@ DecodeResult Decoder::consume(const CanFrame & frame)
     sample_.angular_velocity_radps[0] = scaled_value(frame.data, 3U, angular_velocity_scale);
   } else if (pdo_bit == 0x02U) {
     constexpr double angular_velocity_scale = 0.1 * kDegreesToRadians;
-    constexpr double magnetic_field_scale = 0.01 * kMicroteslaToTesla;
     sample_.angular_velocity_radps[1] = scaled_value(frame.data, 0U, angular_velocity_scale);
     sample_.angular_velocity_radps[2] = scaled_value(frame.data, 1U, angular_velocity_scale);
-    sample_.magnetic_field_t[0] = scaled_value(frame.data, 2U, magnetic_field_scale);
-    sample_.magnetic_field_t[1] = scaled_value(frame.data, 3U, magnetic_field_scale);
+    sample_.angular_velocity_bias_corrected_radps[0] =
+      scaled_value(frame.data, 2U, angular_velocity_scale);
+    sample_.angular_velocity_bias_corrected_radps[1] =
+      scaled_value(frame.data, 3U, angular_velocity_scale);
   } else if (pdo_bit == 0x04U) {
-    constexpr double magnetic_field_scale = 0.01 * kMicroteslaToTesla;
+    constexpr double angular_velocity_scale = 0.1 * kDegreesToRadians;
     constexpr double euler_scale = 0.01 * kDegreesToRadians;
-    sample_.magnetic_field_t[2] = scaled_value(frame.data, 0U, magnetic_field_scale);
+    sample_.angular_velocity_bias_corrected_radps[2] =
+      scaled_value(frame.data, 0U, angular_velocity_scale);
     sample_.euler_rad[0] = scaled_value(frame.data, 1U, euler_scale);
     sample_.euler_rad[1] = scaled_value(frame.data, 2U, euler_scale);
     sample_.euler_rad[2] = scaled_value(frame.data, 3U, euler_scale);

@@ -23,6 +23,8 @@ from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
 
 RECORDER_NAME = "runtime_log_recorder"
+IMU_PARAMS = "sensor_chassis_imu.yaml"
+IMU_DRIVERS = {"lpms_nav3_can": ("lpms_nav3_can", "lpms_nav3_can_node")}
 RECORDER_PLUGIN = "runtime_log_recorder/RecorderController"
 ENABLE_MANAGER_PLUGIN = "enable_manager/EnableManagerController"
 
@@ -38,6 +40,34 @@ def recorded_state_interfaces(robot):
                     for state in element.findall("state_interface")
                 )
     return names
+
+
+def chassis_imu_sensor(deployment, modules, robot, *, staged, use_mock_hardware):
+    """Optional chassis IMU sidecar (observation only; not part of any control loop).
+
+    Returns (files, sensor_nodes). Real hardware only: the mock stack has no CAN bus.
+    """
+    imu = deployment.get("chassis_imu")
+    if not imu or not staged or use_mock_hardware or "swerve_chassis" not in modules:
+        return {}, []
+    package, executable = IMU_DRIVERS[imu["driver"]]
+    links = {link.attrib["name"] for link in robot.findall("link")}
+    if imu["frame_id"] not in links:
+        raise ValueError(f"chassis_imu frame_id {imu['frame_id']} is not a robot model link")
+    shared = imu["can_interface"] in set(deployment.get("can_interfaces", {}).values())
+    if shared and not imu.get("shared_bus_receive_only", False):
+        raise ValueError("chassis_imu shares a CAN bus with another owner: declare receive-only")
+    parameters = {
+        "can_interface": imu["can_interface"],
+        "node_id": imu["node_id"],
+        "frame_id": imu["frame_id"],
+        "allow_shared_interface": shared,
+        "convert_to_ros_convention": False,
+        "require_heartbeat": True,
+    }
+    text = yaml.safe_dump({"/**": {"ros__parameters": parameters}}, sort_keys=False)
+    node = {"name": "chassis_imu", "package": package, "executable": executable}
+    return {IMU_PARAMS: text}, [{**node, "parameters": IMU_PARAMS}]
 
 
 def compose(
@@ -275,6 +305,7 @@ def compose(
         "controller_order.yaml",
         "robot_description.xml",
         "lifecycle.yaml",
+        IMU_PARAMS,
         ARTIFACT,
     }
     if reserved.intersection(runtime_files):
@@ -287,6 +318,10 @@ def compose(
         "controllers.yaml": yaml.safe_dump(controllers, sort_keys=False),
         "controller_order.yaml": yaml.safe_dump(order, sort_keys=False),
     }
+    sensor_files, sensor_nodes = chassis_imu_sensor(
+        deployment, data["modules"], robot, staged=staged, use_mock_hardware=use_mock_hardware
+    )
+    files.update(sensor_files)
     params_of = [s["result"]["hardware_params"] for s in systems]
     lifecycle = {
         "control_scope": control_scope,
@@ -296,6 +331,8 @@ def compose(
         "motion_controllers": list(order["inactive"]),
         "lifecycle_controllers": list(order["active"]),
         **({"recorder_controllers": recorders} if recorders else {}),
+        # Observation-only sidecars started after the lifecycle controllers (non-fatal).
+        **({"sensor_nodes": sensor_nodes} if sensor_nodes else {}),
         # One process owns an IgH master or a CAN interface at a time (supervisor locks).
         "bus_locks": sorted(
             {f"ethercat-master-{p['master_id']}" for p in params_of if "master_id" in p}

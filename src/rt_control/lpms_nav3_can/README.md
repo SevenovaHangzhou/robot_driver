@@ -12,11 +12,13 @@ The `lpms_nav3_decoder` and `lpms_nav3_socket_can` libraries expose headers at
 These headers have no ROS dependencies. ROS message conversion remains in
 `lpms_nav3_can/ros_conversion.hpp` and the `lpms_nav3_ros_conversion` target.
 
-Source builds in native/CI and is an installed bringup dependency, but is not
-started by production launch. The standalone launch defaults to static validation.
-No physical interface, Node ID or frame is selected by default. `can0/can1` are
-rejected without an override. An interface name alone is not a hardware identity
-or proof that a bus is dedicated: the commissioning operator must verify it.
+The generic scope runtime starts this node only when the unit deployment declares
+`chassis_imu` (see `rt_control_composer`); the composer renders its parameters. The
+standalone launch defaults to static validation. No physical interface, Node ID or
+frame is selected by default. `can0/can1` are rejected unless
+`allow_shared_interface:=true`, which declares receive-only use of a bus owned by
+another process (on the Advantech chassis: the CANopen master on `can0`). An interface
+name alone is not a hardware identity: the deployment checks the USB adapter serial.
 
 The historical 2026-08-28 independent CANable bench used 500 kbit/s, Node 1 and
 four TPDOs at approximately 100 Hz; it does not qualify Gen3 shared CAN. The shared
@@ -30,28 +32,35 @@ All IDs below are standard classic CAN data frames, offset by configured Node ID
 | Base ID | Payload |
 | --- | --- |
 | 0x180 | acceleration XYZ (0.001 g/LSB), gyro X (0.1 deg/s/LSB) |
-| 0x280 | gyro YZ, magnetic field XY (0.01 uT/LSB) |
-| 0x380 | magnetic field Z, Euler XYZ (0.01 deg/LSB) |
+| 0x280 | gyro YZ, bias-calibrated gyro XY (0.1 deg/s/LSB) |
+| 0x380 | bias-calibrated gyro Z, Euler XYZ (0.01 deg/LSB) |
 | 0x480 | quaternion WXYZ (0.0001/LSB) |
 | 0x700 | heartbeat, including the observed zero-padded DLC=8 form |
 
-Conversion is g to m/s², deg/s to rad/s, and uT to tesla. A sample requires all
-four TPDOs; old partial assemblies are discarded on the next incoming PDO after
-`assembly_timeout_ms`. No device sample counter is available, so assembly is
-host-arrival based and is not proof that the four frames share a device timestamp.
-ROS timestamp is publication time, not hardware or kernel CAN capture time.
+Channel layout (host-tool configuration read back by the sensor team, 2026-10-19):
+channels 1..3 calibrated acceleration, 4..6 axis-alignment-calibrated gyro, 7..9
+static-bias-calibrated gyro, 10..12 Euler roll/pitch/yaw, 13..16 quaternion WXYZ.
+`/imu/data` carries channels 4..6; channels 7..9 go to `~/gyro_bias_corrected`.
+
+Conversion is g to m/s² and deg/s to rad/s. A sample requires all four TPDOs; old
+partial assemblies are discarded on the next incoming PDO after `assembly_timeout_ms`.
+No device sample counter is available, so assembly is host-arrival based and is not
+proof that the four frames share a device timestamp. The header stamp is the kernel
+SocketCAN receive time (`SO_TIMESTAMPNS`, CLOCK_REALTIME) of the first TPDO of the
+sample; if a frame carries no kernel stamp the publication time is used and counted
+in `publication_stamped_samples`. The 16-bit gyro resolution is 0.1 deg/s.
 
 ## Topics
 
 | Topic | Type | QoS |
 | --- | --- | --- |
 | `/imu/data` | sensor_msgs/msg/Imu | robot_interfaces_qos::fast_state (reliable) |
-| `~/mag` | sensor_msgs/msg/MagneticField | fast_state (reliable), RT-local commissioning only |
+| `~/gyro_bias_corrected` | sensor_msgs/msg/Imu (angular velocity only) | fast_state (reliable), RT-local commissioning only |
 | `~/diagnostics` | diagnostic_msgs/msg/DiagnosticArray | diagnostic (reliable), engineering diagnostics |
 | `/rt_control/sensors/status` | robot_rt_control_interfaces/msg/SensorStatusArray | state (reliable), cross-domain validity |
 
 The IMU observation and structured validity status are public contract endpoints.
-The magnetic field remains an RT-local commissioning endpoint. Publication uses
+The bias-calibrated gyro remains an RT-local commissioning endpoint. Publication uses
 repository named QoS profiles.
 
 `convert_to_ros_convention=false` keeps LPMS axes after SI conversion. The optional
@@ -61,9 +70,9 @@ arrays default to zero (unknown), not calibrated. `orientation_covariance` and
 `angular_velocity_covariance` are startup-only parameters containing nine finite
 numbers in row-major 3x3 order, in rad² and (rad/s)² respectively. Set them in the
 YAML using manufacturer or calibration evidence, then restart the node. Invalid
-lengths or non-finite values reject startup. Acceleration and magnetic covariance
-remain zero (unknown). Quaternion validity, magnetic
-calibration and extrinsics must be verified before navigation fusion.
+lengths or non-finite values reject startup. Acceleration covariance
+remain zero (unknown). Quaternion validity
+and extrinsics must be verified before navigation fusion.
 
 ## Build And Static Validation
 

@@ -26,6 +26,7 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>robot_hw_canopen</exec_depend>
+  <exec_depend>lpms_nav3_can</exec_depend>
   <exec_depend>swerve_driver</exec_depend>
   <exec_depend>rt_control_interfaces</exec_depend>
   <exec_depend>controller_manager_msgs</exec_depend>

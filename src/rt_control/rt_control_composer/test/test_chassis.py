@@ -265,3 +265,43 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     assert names["chassis_velocity"]["topic"] == "/cmd_vel"
     assert names["chassis_velocity"]["controller"] == "swerve_controller"
     assert names["enable"]["service"] == "/control/set_enabled"
+
+
+def test_chassis_imu_is_an_observation_only_sidecar_on_real_hardware(shares, tmp_path):
+    from rt_control_composer.compose import IMU_PARAMS, chassis_imu_sensor
+
+    real = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    assert real.lifecycle["sensor_nodes"] == [
+        {
+            "name": "chassis_imu",
+            "package": "lpms_nav3_can",
+            "executable": "lpms_nav3_can_node",
+            "parameters": IMU_PARAMS,
+        }
+    ]
+    parameters = yaml.safe_load(real.files[IMU_PARAMS])["/**"]["ros__parameters"]
+    assert parameters["can_interface"] == "can0"
+    assert parameters["node_id"] == 1
+    assert parameters["frame_id"] == "imu_link"
+    # can0 is the encoder bus: the IMU reads it, never owns it (no extra bus lock).
+    assert parameters["allow_shared_interface"] is True
+    assert real.lifecycle["bus_locks"] == ["can-can0", "ethercat-master-0"]
+    # The IMU stays outside the controllers: the swerve controller keeps imu_enabled false.
+    swerve = real.controllers["swerve_controller"]["ros__parameters"]
+    assert swerve["imu_enabled"] is False
+    mock = compose(**arguments(shares), runtime_dir=tmp_path / "mock")
+    assert "sensor_nodes" not in mock.lifecycle and IMU_PARAMS not in mock.files
+
+    robot = ET.fromstring(real.robot_description)
+    deployment = {"can_interfaces": {"swerve_encoders": "can0"}}
+    imu = {"driver": "lpms_nav3_can", "can_interface": "can0", "node_id": 1}
+    with pytest.raises(ValueError, match="not a robot model link"):
+        chassis_imu_sensor(
+            {**deployment, "chassis_imu": {**imu, "frame_id": "nowhere"}},
+            {"swerve_chassis": {}}, robot, staged=True, use_mock_hardware=False,
+        )
+    with pytest.raises(ValueError, match="declare receive-only"):
+        chassis_imu_sensor(
+            {**deployment, "chassis_imu": {**imu, "frame_id": "imu_link"}},
+            {"swerve_chassis": {}}, robot, staged=True, use_mock_hardware=False,
+        )

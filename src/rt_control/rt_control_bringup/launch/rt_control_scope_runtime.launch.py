@@ -99,6 +99,17 @@ def setup(context):
                 output="both",
             )
         )
+    # Observation-only sensor sidecars (e.g. the chassis IMU): unwatched, so their exit never
+    # stops the scope; parameters come from the artifact.
+    for sensor in build.lifecycle.get("sensor_nodes", []):
+        after_lifecycle.append(
+            Node(
+                package=sensor["package"],
+                executable=sensor["executable"],
+                parameters=[str(runtime / sensor["parameters"])],
+                output="both",
+            )
+        )
     # An enable-only scope has no motion controllers; the spawner needs at least one name.
     staged = []
     after_hardware = lifecycle
