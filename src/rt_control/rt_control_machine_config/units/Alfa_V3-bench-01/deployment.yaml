@@ -4,8 +4,10 @@ status: draft
 verified: false
 authorities:
   source: read-only EtherCAT scan 2026-10-17 on bench host ar-Default-string (192.168.100.40)
-pending_facts:
-- host identity
+  host: ar-Default-string, read back 2026-10-22 (ELECTRI-127)
+  realtime: rt_cpu 14 isolated (isolcpus=domain,managed_irq,14 nohz_full=14 rcu_nocbs=14); IgH run_on_cpu=14;
+    SMT off (odd CPUs offline), housekeeping = online CPUs except 14, same set as RT_CONTROL_START_CPUSET
+pending_facts: []
 robot_variant: Alfa_V3
 end_effector: mobile_proxy
 hardware_options:
@@ -13,7 +15,14 @@ hardware_options:
 can_interfaces: {}
 ethercat:
   master_id: 0
-host_id: TBD
+host_id: ar-Default-string
+# Realtime CPU layout: the scope runtime pins the controller update thread to rt_cpu before
+# hardware activation and gives the IgH EtherCAT-OP thread FIFO 79 (needs CAP_SYS_NICE).
+host:
+  hostname: ar-Default-string
+  ethercat_mac: 8c:59:3c:14:ff:d3
+  rt_cpu: 14
+  housekeeping_cpus: [0, 2, 4, 6, 8, 10, 12, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
 runtime_log_recorder:
   enabled: true
   slots: 2000
