@@ -184,7 +184,8 @@ TEST(DecoderTest, ConvertsLpmsCoordinatesToRosConventions)
 
   EXPECT_EQ(converted.linear_acceleration_mps2, (std::array<double, 3U>{-1.0, 2.0, -3.0}));
   EXPECT_EQ(converted.angular_velocity_radps, sample.angular_velocity_radps);
-  EXPECT_EQ(converted.angular_velocity_bias_corrected_radps, sample.angular_velocity_bias_corrected_radps);
+  EXPECT_EQ(
+    converted.angular_velocity_bias_corrected_radps, sample.angular_velocity_bias_corrected_radps);
   EXPECT_EQ(converted.orientation_wxyz, (std::array<double, 4U>{0.5, -0.1, 0.2, -0.3}));
   EXPECT_EQ(converted.euler_rad, sample.euler_rad);
 }
@@ -202,7 +203,8 @@ TEST(DecoderTest, LeavesSampleUnchangedWhenConversionIsDisabled)
 
   EXPECT_EQ(converted.linear_acceleration_mps2, sample.linear_acceleration_mps2);
   EXPECT_EQ(converted.angular_velocity_radps, sample.angular_velocity_radps);
-  EXPECT_EQ(converted.angular_velocity_bias_corrected_radps, sample.angular_velocity_bias_corrected_radps);
+  EXPECT_EQ(
+    converted.angular_velocity_bias_corrected_radps, sample.angular_velocity_bias_corrected_radps);
   EXPECT_EQ(converted.orientation_wxyz, sample.orientation_wxyz);
   EXPECT_EQ(converted.euler_rad, sample.euler_rad);
 }

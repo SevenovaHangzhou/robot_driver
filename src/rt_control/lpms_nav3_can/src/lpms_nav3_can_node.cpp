@@ -171,8 +171,8 @@ public:
     }
     if (is_reserved_robot_interface(can_interface_) && !allow_shared_interface_) {
       throw std::invalid_argument{
-              "refusing reserved interface " + can_interface_ +
-              "; set allow_shared_interface for receive-only use of a shared bus"};
+        "refusing reserved interface " + can_interface_ +
+        "; set allow_shared_interface for receive-only use of a shared bus"};
     }
     if (frame_id_.empty() || frame_id_ == "TBD" || frame_id_.front() == '/' ||
       frame_id_.find_first_of(" \t\r\n") != std::string::npos)
@@ -279,12 +279,11 @@ private:
 
     // Kernel receive timestamps (CLOCK_REALTIME) stamp each sample at its first TPDO.
     const int enable_timestamps = 1;
-    if (::setsockopt(
+    if (
+      ::setsockopt(
         candidate.get(), SOL_SOCKET, SO_TIMESTAMPNS, &enable_timestamps,
-        static_cast<socklen_t>(sizeof(enable_timestamps))) != 0)
-    {
-      record_socket_error(
-        "failed to enable SO_TIMESTAMPNS: " + std::string{std::strerror(errno)});
+        static_cast<socklen_t>(sizeof(enable_timestamps))) != 0) {
+      record_socket_error("failed to enable SO_TIMESTAMPNS: " + std::string{std::strerror(errno)});
       return;
     }
 
@@ -417,8 +416,7 @@ private:
     msghdr & header) noexcept
   {
     for (cmsghdr * item = CMSG_FIRSTHDR(&header); item != nullptr;
-      item = CMSG_NXTHDR(&header, item))
-    {
+         item = CMSG_NXTHDR(&header, item)) {
       if (item->cmsg_level == SOL_SOCKET && item->cmsg_type == SCM_TIMESTAMPNS) {
         timespec value{};
         std::memcpy(&value, CMSG_DATA(item), sizeof(value));
@@ -524,9 +522,10 @@ private:
     imu_status.module_id = "lpms_nav3_can";
     imu_status.data_topic = "/imu/data";
     imu_status.observation.stamp = last_sample_stamp_;
-    imu_status.observation.time_source = publication_stamp_count_ == 0U ?
-      robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_HOST_RECEIVE :
-      robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_PUBLICATION;
+    imu_status.observation.time_source =
+      publication_stamp_count_ == 0U
+        ? robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_HOST_RECEIVE
+        : robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_PUBLICATION;
     imu_status.observation.valid =
       status.level == diagnostic_msgs::msg::DiagnosticStatus::OK;
     imu_status.observation.source_instance_id = producer_instance_id_;
