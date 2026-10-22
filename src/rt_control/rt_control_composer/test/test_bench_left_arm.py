@@ -250,3 +250,14 @@ def test_faulted_axis_passes_only_with_a_declared_startup_code(shares, tmp_path)
         preflight(result, run=scan(faulted={4}))
     with pytest.raises(RuntimeError, match="faulted with unqualified error 0x8500"):
         preflight(result, run=scan(errors={4: 0x8500}, faulted={4}))
+
+
+def test_real_artifact_carries_the_bench_realtime_cpu_layout(shares, tmp_path):
+    # Without `host` the scope runtime skipped the pre-activation pinning of the update thread
+    # (2026-10-22 dual-arm handoff burst); the bench now declares its isolated CPU and housekeeping set.
+    selection = {**arguments(shares, confirmed=True), "control_scope": "bench_left_arm"}
+    result = compose(**selection, runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    host = result.lifecycle["host"]
+    assert host["rt_cpu"] == 14 and host["hostname"] == "ar-Default-string"
+    assert 14 not in host["housekeeping_cpus"]
+    assert sorted(host["housekeeping_cpus"]) == [0, 2, 4, 6, 8, 10, 12, *range(16, 28)]
