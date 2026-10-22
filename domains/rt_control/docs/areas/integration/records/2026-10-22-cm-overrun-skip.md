@@ -9,7 +9,7 @@ commits: [feature/electri-127-cm-overrun-skip]
 env: native
 risk: T3
 writes: {reset: no, enable: no, motion: no, plc: no}
-verified: PARTIAL
+verified: PASS
 evidence: []
 supersedes: []
 related: [integration-20261019-01]
@@ -66,10 +66,25 @@ related: [integration-20261019-01]
   | 本节点 | 1002 | 101.0 ms ×1 | 0 |
 
   本节点在非实时定时器打出一条 WARN：“1 overrun(s) skipped 100 missed cycle(s)”。
-- 台架：待做——取消钉核复现条件下双臂启动应无连发，并打出一次“跳过约 6600 个周期”的 WARN；新旧节点各 600 s A/B。
+- 台架复现条件（双臂 scope，不钉核、无 host，更新线程在 CPU8）用本节点启动：
+  - WARN “1 overrun(s) skipped 7093 missed cycle(s)”；
+  - 主站发送错误、丢帧计数无新增，15 个从站 OP，enable_manager IDLE（无锁存故障）；
+  - 同样条件下，上游节点两次启动都把总线冲垮。
+- 台架 600 s A/B（双臂 scope，CPU14，失能、无人操作，Runtime-LOG `tools/ab_jitter.sh` / `ab_analyze.py`）：
+
+  | 组 | 配置 | 标准差 µs | 偏差 p99 / p99.9 / 最大 µs | > 50 µs | 丢帧 / 发送错误 |
+  | --- | --- | --- | --- | --- | --- |
+  | A | 上游节点，`early_pin.py` 钉核，无 host | 0.543 | 4 / 4 / 9 | 0 | 0 / 0 |
+  | B | 上游节点，host 官方钉核 | 0.573 | 4 / 5 / 9 | 0 | 0 / 0 |
+  | C | 本节点，host 官方钉核 | 0.517 | 4 / 4 / 9 | 0 | 0 / 0 |
+
+  C 组启动时本节点跳过 6603 个周期（激活期间被锁挡住的部分）。
+- C 组有 242 次周期中途约 2 µs 的内核线程打断，全部落在同一个 0.5 s 相位上。同一次启动里，关掉操作台和重启操作台后各测 120 s，都是 0 次，尾部指标不变。
+  这与操作台每 0.5 s 轮询 controller_manager 服务、偶尔与更新线程争锁的解释一致，与本节点无关；记为后续观察项。
 
 ## 结论与冻结事实
 
 - F1: Humble 2.53.1 `ros2_control_node` 无落后处理；激活期间 `resources_lock_` 挡住 read/write，解锁后补跑。（源码 + 台架发送轨迹）
 - F2: 左臂 scope 的“正常”依赖更新线程与维护线程同核同优先级，不是设计保证。（台架对照）
-- F3: 新节点落后时跳拍，不补跑（mock 实测：上游补跑 100 个周期，本节点 0 个）；台架效果与 A/B 待补。
+- F3: 新节点落后时跳拍，不补跑（mock：上游补跑 100 个周期，本节点 0 个；台架：不钉核双臂启动跳过 7093 个周期，总线无异常）。
+- F4: 台架 600 s A/B 尾部指标与基线相同，无超过 50 µs 的周期。
