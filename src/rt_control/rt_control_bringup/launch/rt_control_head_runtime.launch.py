@@ -48,7 +48,7 @@ def setup(context):
     order = build.controller_order
     controller_config = Path(build.runtime_dir) / "controllers.yaml"
     manager = Node(
-        package="controller_manager",
+        package="rt_control_bringup",
         executable="ros2_control_node",
         parameters=[{"robot_description": build.robot_description}, str(controller_config)],
         arguments=runtime_arguments(build, {}),

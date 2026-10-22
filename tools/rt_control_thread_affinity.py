@@ -73,6 +73,10 @@ def process_cmdline(pid: int) -> str:
         return ""
 
 
+# Upstream controller_manager node, or rt_control_bringup's build of it (overrun management).
+CONTROL_NODE_PACKAGES = ("controller_manager", "rt_control_bringup")
+
+
 def find_ros2_control_pid() -> int | None:
     matches: list[int] = []
     for entry in Path("/proc").iterdir():
@@ -80,13 +84,16 @@ def find_ros2_control_pid() -> int | None:
             continue
         pid = int(entry.name)
         command = Path(process_cmdline(pid).split(" ", 1)[0])
-        if command.name != "ros2_control_node" or command.parent.name != "controller_manager":
+        if command.name != "ros2_control_node" or command.parent.name not in CONTROL_NODE_PACKAGES:
             continue
         try:
             executable = Path(str(Path(f"/proc/{pid}/exe").readlink()).removesuffix(" (deleted)"))
         except FileNotFoundError:
             continue
-        if executable.name == "ros2_control_node" and executable.parent.name == "controller_manager":
+        if (
+            executable.name == "ros2_control_node"
+            and executable.parent.name in CONTROL_NODE_PACKAGES
+        ):
             matches.append(pid)
     if len(matches) > 1:
         raise RuntimeError(f"multiple ros2_control_node processes found: {matches}")
