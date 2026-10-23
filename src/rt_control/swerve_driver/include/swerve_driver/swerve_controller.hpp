@@ -103,6 +103,8 @@ private:
   double feedback_timeout_{0.0}, publish_elapsed_{0.0};
   double imu_timeout_{0.0}, max_imu_yaw_step_{0.0}, quaternion_tolerance_{0.0};
   bool imu_enabled_{false};
+  // drive_mode (configure-time): align_first stops the wheels until all four modules align.
+  bool align_first_{true};
   std::string imu_frame_;
   ControlOutput last_output_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr command_subscription_;

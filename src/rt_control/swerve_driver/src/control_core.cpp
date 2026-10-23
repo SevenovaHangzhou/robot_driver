@@ -23,6 +23,19 @@ SwerveSetpointParameters setpoint_parameters(const CoreConfig & config)
   }
   return parameters;
 }
+BodyShaperLimits body_limits(const CoreConfig & config)
+{
+  BodyShaperLimits limits;
+  limits.acceleration = config.max_body_acceleration;
+  limits.jerk = config.max_body_jerk;
+  double radius{0.0};
+  for (const auto & location : config.locations) {
+    radius = std::max(radius, std::hypot(location.x, location.y));
+  }
+  // Invalid geometry is reported by validate(); keep the shaper constructible.
+  limits.rotation_radius_m = positive(radius) ? radius : 1.0;
+  return limits;
+}
 void validate(const CoreConfig & c)
 {
   if (
@@ -55,7 +68,7 @@ void validate(const CoreConfig & c)
 }  // namespace
 
 ControlCore::ControlCore(const CoreConfig & config)
-: config_(config), setpoints_(setpoint_parameters(config))
+: config_(config), setpoints_(setpoint_parameters(config)), body_shaper_(body_limits(config))
 {
   validate(config_);
   last_steering_targets_.fill(std::numeric_limits<double>::quiet_NaN());
@@ -168,6 +181,7 @@ bool ControlCore::activate(const ModuleFeedbackArray & feedback)
   odometry_.emplace(config_.locations, yaw_, previous_positions_, output_.pose);
   setpoints_.reset(last_steering_targets_);
   previous_speeds_.fill(0.0);
+  body_shaper_.reset();
   imu_fallback_ = true;
   output_ = stop(feedback, ControlStatus::command_timeout);
   active_ = true;
@@ -178,6 +192,7 @@ void ControlCore::deactivate() noexcept
 {
   active_ = false;
   previous_speeds_.fill(0.0);
+  body_shaper_.reset();
   setpoints_.reset();
 }
 
@@ -257,6 +272,8 @@ ControlOutput ControlCore::stop(const ModuleFeedbackArray & feedback, ControlSta
   output_.steering_position = last_steering_targets_;
   output_.drive_velocity.fill(0.0);
   previous_speeds_.fill(0.0);
+  body_shaper_.reset();
+  body_alignment_waiting_ = true;
   setpoints_.reset(last_steering_targets_);
   output_.status = active_ && hold_fault_latched_ ? ControlStatus::steering_hold_fault : status;
   return output_;
@@ -314,6 +331,9 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
     return stop(feedback, ControlStatus::steering_hold_fault);
   }
   if (!command_fresh) {
+    // Wheels ramp down on their own limit; a later command restarts the S-curve at rest.
+    body_shaper_.reset();
+    body_alignment_waiting_ = true;
     return ramp_stop(feedback, ControlStatus::command_timeout, dt);
   }
   if (!positive(dt) || dt > config_.max_update_period || !std::isfinite(command.vx_mps) ||
@@ -332,16 +352,42 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
   for (size_t i = 0; i < 4; ++i) {
     angles[i] = feedback[i].steering_position;
   }
-  auto desired = inverse_kinematics(discretize(command, dt), config_.locations, angles, config_.velocity_deadband);
-  if (std::all_of(desired.begin(), desired.end(), [this](const auto & state) {
-      return std::abs(state.speed_mps) < config_.velocity_deadband;
-    }))
-  {
+  // Apply the existing deadband to the requested command, not to the smooth ramp: clipping
+  // the first/last ramp samples would introduce speed steps or prevent low-speed starts.
+  const bool smoothing = body_shaper_.enabled();
+  auto requested =
+    inverse_kinematics(command, config_.locations, angles, config_.velocity_deadband);
+  const bool zero_request = std::all_of(requested.begin(), requested.end(), [this](const auto & s) {
+    return std::abs(s.speed_mps) < config_.velocity_deadband;
+  });
+  if (smoothing && zero_request) {
+    command = {};
+  }
+  const bool waiting = smoothing && body_alignment_waiting_;
+  if (waiting && zero_request) {
+    return ramp_stop(feedback, ControlStatus::running, dt);
+  }
+  // In an alignment wait, plan steering from the raw target but keep all drive targets zero.
+  // Once stopped and aligned, start the velocity trajectory from exactly zero on the next tick.
+  const auto shaped = waiting ? command : body_shaper_.step(command, dt);
+  if (!body_shaper_.valid()) {
+    return stop(feedback, ControlStatus::invalid_command);
+  }
+  const double ramp_deadband = smoothing && !waiting ? 1e-12 : config_.velocity_deadband;
+  auto desired =
+    inverse_kinematics(discretize(shaped, dt), config_.locations, angles, ramp_deadband);
+  if (std::all_of(desired.begin(), desired.end(), [ramp_deadband](const auto & state) {
+        return std::abs(state.speed_mps) < ramp_deadband;
+      })) {
+    if (zero_request) {
+      body_shaper_.reset();
+      body_alignment_waiting_ = true;
+    }
     return ramp_stop(feedback, ControlStatus::running, dt);
   }
   std::array<bool, 4> holding{};
   for (size_t i = 0; i < 4; ++i) {
-    holding[i] = std::abs(desired[i].speed_mps) < config_.velocity_deadband;
+    holding[i] = std::abs(desired[i].speed_mps) < ramp_deadband;
     if (holding[i]) {
       desired[i].angle_rad = last_steering_targets_[i];
       desired[i].speed_mps = 0.0;
@@ -369,12 +415,22 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
   output_.steering_position = next_targets;
   for (size_t i = 0; i < 4; ++i) {
     // A gated module ramps its wheel down with the wheel acceleration limit (no speed step).
-    const double wanted{targets.gated ? 0.0 : targets.modules[i].speed_mps};
+    const double wanted{targets.gated || waiting ? 0.0 : targets.modules[i].speed_mps};
     previous_speeds_[i] =
       std::clamp(wanted, previous_speeds_[i] - max_step, previous_speeds_[i] + max_step);
     output_.drive_velocity[i] = previous_speeds_[i] / config_.wheel_radius[i];
   }
-  output_.status = targets.gated ? ControlStatus::alignment_gated : ControlStatus::running;
+  // Alignment stops retain the established wheel acceleration limit, rather than waiting
+  // for the comfort ramp. No jerk guarantee applies across this stop/hold boundary.
+  if (smoothing && (targets.gated || waiting)) {
+    body_shaper_.reset();
+    body_alignment_waiting_ = targets.gated || std::any_of(
+                                                 previous_speeds_.begin(), previous_speeds_.end(),
+                                                 [](double v) { return v != 0.0; });
+  }
+  output_.status = targets.gated || (waiting && body_alignment_waiting_)
+                     ? ControlStatus::alignment_gated
+                     : ControlStatus::running;
   return output_;
 }
 }  // namespace swerve_driver

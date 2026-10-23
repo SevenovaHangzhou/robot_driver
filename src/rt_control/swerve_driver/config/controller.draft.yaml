@@ -33,12 +33,23 @@ swerve_controller:
     max_angular_speed: 0.8
     max_wheel_speed: 2.0
     max_wheel_acceleration: 2.0
+    # Chassis twist S-curve enabled for the Advantech deployment (2026-10-23).
+    # Initial tuning values; actual stopping distance still needs operator acceptance.
+    # Both limits must be finite positive to enable, or both .inf to preserve old behaviour.
+    # Norm limits on (vx, vy, omega*R); R is the farthest module radius. Units m/s^2, m/s^3.
+    max_body_acceleration: 1.0
+    max_body_jerk: 4.0
     velocity_deadband: 0.001
     max_encoder_difference: 0.017453292519943295
     max_update_period: 0.2
     slip_residual_threshold: 1.0
-    # User 2026-10-18: no alignment wait; wheel speed is scaled by cos(steering error)
-    # per module. 90 deg only gates impossible errors. Operator-tunable (0, 90] deg.
+    # User 2026-10-21: align_first (default) stops all four wheels while any module is more
+    # than 5 deg off and restarts them once every module is within 3 deg.
+    # steer_while_driving restores the 2026-10-18 behaviour: cos(steering error) scaling with
+    # the alignment_threshold gate (operator-tunable (0, 90] deg; ignored in align_first).
+    drive_mode: align_first
+    align_first_threshold: 0.08726646259971647
+    align_first_release: 0.05235987755982988
     alignment_threshold: 1.5707963267948966
     flip_hysteresis: 0.05235987755982989
     max_steering_slew: 0.6108652381980153

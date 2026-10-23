@@ -68,6 +68,9 @@ CallbackReturn SwerveController::on_init()
   auto_declare<double>("max_steering_acceleration_limit", 1.5707963267948966);
   // S-curve steering (user 2026-10-18): jerk limit; infinity keeps the trapezoidal profile.
   auto_declare<double>("max_steering_jerk", std::numeric_limits<double>::infinity());
+  // Chassis twist S-curve (user 2026-10-22), wheel-rim units; infinity disables it.
+  auto_declare<double>("max_body_acceleration", std::numeric_limits<double>::infinity());
+  auto_declare<double>("max_body_jerk", std::numeric_limits<double>::infinity());
   auto_declare<double>("max_steering_jerk_limit", 17.453292519943297);
   for (const auto * name : {"steering_joints", "drive_joints", "steering_encoders"}) {
     auto_declare<std::vector<std::string>>(name, {});
@@ -89,6 +92,13 @@ CallbackReturn SwerveController::on_init()
     auto_declare<double>(name, 0.0);
   }
   auto_declare<bool>("imu_enabled", false);
+  // Drive mode, read at configure (user 2026-10-21). align_first: all four wheels stay
+  // stopped while any module error exceeds align_first_threshold and restart only once every
+  // module is within align_first_release. steer_while_driving: cos(error) scaling with the
+  // operator-tunable alignment_threshold gate.
+  auto_declare<std::string>("drive_mode", "align_first");
+  auto_declare<double>("align_first_threshold", 0.08726646259971647);  // 5 deg
+  auto_declare<double>("align_first_release", 0.05235987755982988);    // 3 deg
   auto_declare<std::string>("imu_frame_id", "");
   // Registered after every declaration: declaring a parameter also runs this check.
   steering_parameter_callback_ = get_node()->add_on_set_parameters_callback(
@@ -97,13 +107,15 @@ CallbackReturn SwerveController::on_init()
       result.successful = true;
       for (const auto & parameter : parameters) {
         const auto & name = parameter.get_name();
-        if (name == "alignment_threshold") {
+        if (
+          name == "alignment_threshold" || name == "align_first_threshold" ||
+          name == "align_first_release") {
           const double value = parameter.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE
                                  ? parameter.as_double()
                                  : std::numeric_limits<double>::quiet_NaN();
           if (!std::isfinite(value) || value <= 0.0 || value > M_PI / 2.0) {
             result.successful = false;
-            result.reason = "alignment_threshold must be in (0, pi/2] rad";
+            result.reason = name + " must be in (0, pi/2] rad";
           }
           continue;
         }
@@ -184,9 +196,34 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.velocity_deadband = number("velocity_deadband");
     config_.max_encoder_difference = number("max_encoder_difference");
     config_.encoder_fault_window = number("encoder_fault_window");
+    config_.max_body_acceleration = number("max_body_acceleration");
+    config_.max_body_jerk = number("max_body_jerk");
     config_.max_update_period = number("max_update_period");
     config_.slip_residual_threshold = number("slip_residual_threshold");
-    config_.setpoint.alignment_threshold_rad = number("alignment_threshold");
+    const auto drive_mode = get_node()->get_parameter("drive_mode").as_string();
+    if (drive_mode == "align_first") {
+      const double enter = number("align_first_threshold");
+      const double release = number("align_first_release");
+      if (!(release > 0.0 && release <= enter && enter <= M_PI / 2.0)) {
+        throw std::invalid_argument(
+          "align_first needs 0 < align_first_release <= align_first_threshold <= pi/2");
+      }
+      align_first_ = true;
+      config_.setpoint.alignment_threshold_rad = enter;
+      config_.setpoint.alignment_release_rad = release;
+    } else if (drive_mode == "steer_while_driving") {
+      align_first_ = false;
+      config_.setpoint.alignment_threshold_rad = number("alignment_threshold");
+      config_.setpoint.alignment_release_rad = std::numeric_limits<double>::quiet_NaN();
+    } else {
+      throw std::invalid_argument("drive_mode must be align_first or steer_while_driving");
+    }
+    RCLCPP_INFO(
+      get_node()->get_logger(), "drive_mode %s: gate %.1f deg, release %.1f deg",
+      drive_mode.c_str(), config_.setpoint.alignment_threshold_rad * 180.0 / M_PI,
+      (align_first_ ? config_.setpoint.alignment_release_rad
+                    : config_.setpoint.alignment_threshold_rad) *
+        180.0 / M_PI);
     config_.setpoint.flip_hysteresis_rad = number("flip_hysteresis");
     config_.setpoint.maximum_steering_slew_radps = number("max_steering_slew");
     config_.setpoint.maximum_steering_acceleration_radps2 = number("max_steering_acceleration");
@@ -206,6 +243,11 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       throw std::invalid_argument("feedback_timeout must be positive");
     }
     auto candidate = std::make_unique<ControlCore>(config_);
+    RCLCPP_INFO(
+      get_node()->get_logger(),
+      "body velocity shaping: %s, acceleration %.3f m/s^2, jerk %.3f m/s^3",
+      std::isfinite(config_.max_body_acceleration) ? "enabled" : "disabled",
+      config_.max_body_acceleration, config_.max_body_jerk);
 
     const auto steer = get_node()->get_parameter("steering_joints").as_string_array();
     const auto drive = get_node()->get_parameter("drive_joints").as_string_array();
@@ -342,15 +384,28 @@ bool SwerveController::apply_steering_motion_parameters()
   const double slew = get_node()->get_parameter("max_steering_slew").as_double();
   const double acceleration = get_node()->get_parameter("max_steering_acceleration").as_double();
   const double jerk = get_node()->get_parameter("max_steering_jerk").as_double();
-  const double alignment = get_node()->get_parameter("alignment_threshold").as_double();
+  // Each drive mode has its own operator-tunable gate; the mode itself is fixed at configure.
+  const double alignment =
+    get_node()
+      ->get_parameter(align_first_ ? "align_first_threshold" : "alignment_threshold")
+      .as_double();
+  const double release = align_first_ ? get_node()->get_parameter("align_first_release").as_double()
+                                      : std::numeric_limits<double>::quiet_NaN();
+  const bool same_release =
+    release == config_.setpoint.alignment_release_rad ||
+    (std::isnan(release) && std::isnan(config_.setpoint.alignment_release_rad));
   if (
     slew == config_.setpoint.maximum_steering_slew_radps &&
     acceleration == config_.setpoint.maximum_steering_acceleration_radps2 &&
     jerk == config_.setpoint.maximum_steering_jerk_radps3 &&
-    alignment == config_.setpoint.alignment_threshold_rad) {
+    alignment == config_.setpoint.alignment_threshold_rad && same_release) {
     return true;
   }
   if (!(alignment > 0.0 && alignment <= M_PI / 2.0)) {
+    return false;
+  }
+  if (align_first_ && !(release > 0.0 && release <= alignment)) {
+    RCLCPP_ERROR(get_node()->get_logger(), "align_first_release must be in (0, threshold]");
     return false;
   }
   if (!(jerk > 0.0 && jerk <= get_node()->get_parameter("max_steering_jerk_limit").as_double())) {
@@ -367,6 +422,7 @@ bool SwerveController::apply_steering_motion_parameters()
   config.setpoint.maximum_steering_acceleration_radps2 = acceleration;
   config.setpoint.maximum_steering_jerk_radps3 = jerk;
   config.setpoint.alignment_threshold_rad = alignment;
+  config.setpoint.alignment_release_rad = release;
   try {
     auto candidate = std::make_unique<ControlCore>(config);
     core_ = std::move(candidate);
@@ -378,9 +434,9 @@ bool SwerveController::apply_steering_motion_parameters()
   RCLCPP_INFO(
     get_node()->get_logger(),
     "steering motion: slew %.1f deg/s, acceleration %.1f deg/s^2, jerk %.1f deg/s^3, "
-    "alignment gate %.1f deg",
-    slew * 180.0 / M_PI, acceleration * 180.0 / M_PI, jerk * 180.0 / M_PI,
-    alignment * 180.0 / M_PI);
+    "alignment gate %.1f deg, release %.1f deg",
+    slew * 180.0 / M_PI, acceleration * 180.0 / M_PI, jerk * 180.0 / M_PI, alignment * 180.0 / M_PI,
+    (align_first_ ? release : alignment) * 180.0 / M_PI);
   return true;
 }
 

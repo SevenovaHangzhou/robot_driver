@@ -32,11 +32,13 @@
     </div></div>
     <div class="panel"><div class="card steering-card">
       <div class="card-head"><span class="card-title">转向运动参数</span><span id="steering-limit" class="hint"></span></div>
+      <div class="steering-row"><span>底盘运动模式</span><strong id="drive-mode">--</strong></div>
       <p id="steering-current" class="hint">当前：--</p>
       <div class="steering-row"><label for="steering-slew">速度 °/s</label><input id="steering-slew" type="number" step="1" min="1"></div>
       <div class="steering-row"><label for="steering-accel">加速度 °/s²</label><input id="steering-accel" type="number" step="1" min="1"></div>
       <div class="steering-row"><label for="steering-jerk">加加速度 °/s³（S 曲线）</label><input id="steering-jerk" type="number" step="10" min="1"></div>
-      <div class="steering-row"><label for="steering-align">对齐门限 °（90 = 不等待对齐）</label><input id="steering-align" type="number" step="1" min="1" max="90"></div>
+      <div class="steering-row"><label id="steering-align-label" for="steering-align">对齐门限 °</label><input id="steering-align" type="number" step="0.5" min="0.5" max="90"></div>
+      <div id="steering-release-row" class="steering-row" style="display:none"><label for="steering-release">恢复门限 °（不大于对齐门限）</label><input id="steering-release" type="number" step="0.5" min="0.5" max="90"></div>
       <div class="steering-row"><label for="steering-token">确认令牌</label><input id="steering-token" type="password" autocomplete="off"></div>
       <button id="steering-apply" class="op" type="button" disabled>应用并保存（下次使能生效）</button>
       <button id="steering-defaults" class="op" type="button" disabled>恢复默认</button>
