@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "swerve_driver/body_velocity_shaper.hpp"
 #include "swerve_driver/swerve_kinematics.hpp"
 #include "swerve_driver/swerve_odometry.hpp"
 
@@ -370,6 +371,89 @@ TEST(SwerveKinematicsTest, AlignFirstGateHoldsAllWheelsUntilRelease)
   EXPECT_FALSE(step(2.0).gated);                  // every module within 3 deg: wheels restart
   parameters.alignment_release_rad = 6.0 * kDeg;  // release above entry is rejected
   EXPECT_THROW(SwerveSetpointGenerator{parameters}, std::invalid_argument);
+}
+
+TEST(SwerveKinematicsTest, BodyShaperKeepsDirectionAndLimits)
+{
+  BodyShaperLimits limits;
+  limits.acceleration = 1.0;
+  limits.jerk = 4.0;
+  limits.rotation_radius_m = 0.5;
+  BodyVelocityShaper shaper{limits};
+  const ChassisSpeeds target{0.2, 0.1, 0.4};  // omega * R = 0.2
+  constexpr double dt{0.001};
+  std::array<double, 3> previous_a{};
+  double previous_speed{0.0};
+  ChassisSpeeds shaped{};
+  for (int k = 0; k < 2000; ++k) {
+    shaped = shaper.step(target, dt);
+    // Collinear with the target: vx : vy : omega stay fixed, so module angles stay fixed.
+    EXPECT_NEAR(shaped.vy_mps * target.vx_mps, shaped.vx_mps * target.vy_mps, 1e-12);
+    EXPECT_NEAR(shaped.omega_radps * target.vx_mps, shaped.vx_mps * target.omega_radps, 1e-12);
+    const auto & a = shaper.acceleration();
+    EXPECT_LE(std::hypot(a[0], a[1], a[2]), limits.acceleration + 1e-9);
+    EXPECT_TRUE(shaper.valid());
+    EXPECT_LE(
+      std::hypot(a[0] - previous_a[0], a[1] - previous_a[1], a[2] - previous_a[2]),
+      limits.jerk * dt + 1e-9);
+    const double speed = std::hypot(shaped.vx_mps, shaped.vy_mps, shaped.omega_radps * 0.5);
+    EXPECT_GE(speed, previous_speed - 1e-12);  // monotonic, no overshoot
+    EXPECT_LE(speed, std::hypot(0.2, 0.1, 0.2) + 1e-12);
+    previous_speed = speed;
+    previous_a = a;
+  }
+  EXPECT_NEAR(shaped.vx_mps, 0.2, 1e-9);
+  EXPECT_NEAR(shaped.omega_radps, 0.4, 1e-9);
+  for (int k = 0; k < 2000; ++k) {
+    shaped = shaper.step(ChassisSpeeds{}, dt);
+    EXPECT_NEAR(shaped.vy_mps * target.vx_mps, shaped.vx_mps * target.vy_mps, 1e-12);
+  }
+  EXPECT_NEAR(std::hypot(shaped.vx_mps, shaped.vy_mps, shaped.omega_radps), 0.0, 1e-12);
+  // Small final corrections also start from zero without a seed-speed step.
+  shaper.reset();
+  shaped = shaper.step(ChassisSpeeds{0.0, 0.0, 0.006}, dt);
+  EXPECT_GT(shaped.omega_radps, 0.0);
+  EXPECT_LE(shaped.omega_radps * 0.5, 0.5 * limits.jerk * dt * dt);
+  for (int k = 0; k < 1000; ++k) {
+    shaped = shaper.step(ChassisSpeeds{0.0, 0.0, 0.006}, dt);
+  }
+  EXPECT_NEAR(shaped.omega_radps, 0.006, 1e-12);
+  // Reversal (+0.3 -> -0.3 m/s) passes through zero without an acceleration step.
+  shaper.reset();
+  for (int k = 0; k < 2000; ++k) {
+    (void)shaper.step(ChassisSpeeds{0.3, 0.0, 0.0}, dt);
+  }
+  previous_a = shaper.acceleration();
+  for (int k = 0; k < 3000; ++k) {
+    shaped = shaper.step(ChassisSpeeds{-0.3, 0.0, 0.0}, dt);
+    const auto & a = shaper.acceleration();
+    EXPECT_LE(std::abs(a[0] - previous_a[0]), limits.jerk * dt + 1e-9);
+    previous_a = a;
+  }
+  EXPECT_NEAR(shaped.vx_mps, -0.3, 1e-9);
+  // Continuous retargeting, including zero commands, at typical command update rates.
+  previous_a = shaper.acceleration();
+  for (int k = 0; k < 4000; ++k) {
+    const double phase = static_cast<double>(k / 40) * 0.17;
+    const ChassisSpeeds moving =
+      k % 500 < 100
+        ? ChassisSpeeds{}
+        : ChassisSpeeds{0.3 * std::sin(phase), 0.2 * std::cos(phase), 0.4 * std::sin(2 * phase)};
+    const double period = k % 2 == 0 ? 0.0008 : 0.0012;
+    shaped = shaper.step(moving, period);
+    ASSERT_TRUE(shaper.valid());
+    const auto & a = shaper.acceleration();
+    EXPECT_LE(std::hypot(a[0], a[1], a[2]), limits.acceleration + 1e-9);
+    EXPECT_LE(
+      std::hypot(a[0] - previous_a[0], a[1] - previous_a[1], a[2] - previous_a[2]),
+      limits.jerk * period + 1e-8);
+    previous_a = a;
+  }
+  (void)shaper.step({std::numeric_limits<double>::quiet_NaN(), 0, 0}, dt);
+  EXPECT_FALSE(shaper.valid());
+  shaper.reset();
+  EXPECT_TRUE(shaper.valid());
+  EXPECT_THROW((BodyVelocityShaper{BodyShaperLimits{0.0}}), std::invalid_argument);
 }
 
 TEST(SwerveKinematicsTest, SteeringSlewStaysInsideLimitsNearPiBoundary)

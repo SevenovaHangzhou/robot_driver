@@ -33,6 +33,12 @@ swerve_controller:
     max_angular_speed: 0.8
     max_wheel_speed: 2.0
     max_wheel_acceleration: 2.0
+    # Chassis twist S-curve enabled for the Advantech deployment (2026-10-23).
+    # Initial tuning values; actual stopping distance still needs operator acceptance.
+    # Both limits must be finite positive to enable, or both .inf to preserve old behaviour.
+    # Norm limits on (vx, vy, omega*R); R is the farthest module radius. Units m/s^2, m/s^3.
+    max_body_acceleration: 1.0
+    max_body_jerk: 4.0
     velocity_deadband: 0.001
     max_encoder_difference: 0.017453292519943295
     max_update_period: 0.2

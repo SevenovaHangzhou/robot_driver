@@ -68,6 +68,9 @@ CallbackReturn SwerveController::on_init()
   auto_declare<double>("max_steering_acceleration_limit", 1.5707963267948966);
   // S-curve steering (user 2026-10-18): jerk limit; infinity keeps the trapezoidal profile.
   auto_declare<double>("max_steering_jerk", std::numeric_limits<double>::infinity());
+  // Chassis twist S-curve (user 2026-10-22), wheel-rim units; infinity disables it.
+  auto_declare<double>("max_body_acceleration", std::numeric_limits<double>::infinity());
+  auto_declare<double>("max_body_jerk", std::numeric_limits<double>::infinity());
   auto_declare<double>("max_steering_jerk_limit", 17.453292519943297);
   for (const auto * name : {"steering_joints", "drive_joints", "steering_encoders"}) {
     auto_declare<std::vector<std::string>>(name, {});
@@ -193,6 +196,8 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.velocity_deadband = number("velocity_deadband");
     config_.max_encoder_difference = number("max_encoder_difference");
     config_.encoder_fault_window = number("encoder_fault_window");
+    config_.max_body_acceleration = number("max_body_acceleration");
+    config_.max_body_jerk = number("max_body_jerk");
     config_.max_update_period = number("max_update_period");
     config_.slip_residual_threshold = number("slip_residual_threshold");
     const auto drive_mode = get_node()->get_parameter("drive_mode").as_string();
@@ -238,6 +243,11 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       throw std::invalid_argument("feedback_timeout must be positive");
     }
     auto candidate = std::make_unique<ControlCore>(config_);
+    RCLCPP_INFO(
+      get_node()->get_logger(),
+      "body velocity shaping: %s, acceleration %.3f m/s^2, jerk %.3f m/s^3",
+      std::isfinite(config_.max_body_acceleration) ? "enabled" : "disabled",
+      config_.max_body_acceleration, config_.max_body_jerk);
 
     const auto steer = get_node()->get_parameter("steering_joints").as_string_array();
     const auto drive = get_node()->get_parameter("drive_joints").as_string_array();
