@@ -92,10 +92,8 @@ CallbackReturn SwerveController::on_init()
     auto_declare<double>(name, 0.0);
   }
   auto_declare<bool>("imu_enabled", false);
-  // Drive mode, read at configure (user 2026-10-21). align_first: all four wheels stay
-  // stopped while any module error exceeds align_first_threshold and restart only once every
-  // module is within align_first_release. steer_while_driving: cos(error) scaling with the
-  // operator-tunable alignment_threshold gate.
+  // Startup mode is read at configure; runtime switches use the public stopped-only service.
+  // align_first gates all four wheels together; steer_while_driving retains cosine scaling.
   auto_declare<std::string>("drive_mode", "align_first");
   auto_declare<double>("align_first_threshold", 0.08726646259971647);  // 5 deg
   auto_declare<double>("align_first_release", 0.05235987755982988);    // 3 deg
@@ -107,6 +105,20 @@ CallbackReturn SwerveController::on_init()
       result.successful = true;
       for (const auto & parameter : parameters) {
         const auto & name = parameter.get_name();
+        if (name == "drive_mode") {
+          std::lock_guard<std::mutex> guard(lifecycle_mutex_);
+          if (core_ || active_.load()) {
+            result.successful = false;
+            result.reason = "drive_mode is a startup default; use /control/set_chassis_align_first";
+          } else if (
+            parameter.get_type() != rclcpp::ParameterType::PARAMETER_STRING ||
+            (parameter.as_string() != "align_first" &&
+             parameter.as_string() != "steer_while_driving")) {
+            result.successful = false;
+            result.reason = "drive_mode must be align_first or steer_while_driving";
+          }
+          continue;
+        }
         if (
           name == "alignment_threshold" || name == "align_first_threshold" ||
           name == "align_first_release") {
@@ -338,6 +350,18 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     commands_.assign(command_names_.size(), nullptr);
     states_.assign(state_names_.size(), nullptr);
     core_ = std::move(candidate);
+    mode_pending_.store(0);
+    mode_stationary_since_ns_ = 0;
+    published_mode_.reset();
+    mode_publisher_ = get_node()->create_publisher<std_msgs::msg::Bool>(
+      "/rt_control/chassis/align_first", robot_interfaces_qos::latched());
+    mode_service_ = get_node()->create_service<ModeService>(
+      "/control/set_chassis_align_first",
+      [this](
+        ModeServer::SharedPtr service, std::shared_ptr<rmw_request_id_t> header,
+        ModeService::Request::SharedPtr request) { request_drive_mode(service, header, request); });
+    mode_timer_ =
+      get_node()->create_wall_timer(std::chrono::milliseconds(20), [this]() { mode_timer(); });
     odometry_publisher_ = get_node()->create_publisher<nav_msgs::msg::Odometry>(
       "~/odom", robot_interfaces_qos::fast_state());
     realtime_odometry_ =
@@ -362,6 +386,9 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       [this]() {publish_diagnostics();});
     slipping_mask_.store(0U);
   } catch (const std::exception & error) {
+    mode_timer_.reset();
+    mode_service_.reset();
+    mode_publisher_.reset();
     core_.reset();
     RCLCPP_ERROR(get_node()->get_logger(), "Swerve configuration rejected: %s", error.what());
     return CallbackReturn::ERROR;
@@ -384,7 +411,7 @@ bool SwerveController::apply_steering_motion_parameters()
   const double slew = get_node()->get_parameter("max_steering_slew").as_double();
   const double acceleration = get_node()->get_parameter("max_steering_acceleration").as_double();
   const double jerk = get_node()->get_parameter("max_steering_jerk").as_double();
-  // Each drive mode has its own operator-tunable gate; the mode itself is fixed at configure.
+  // Each runtime mode has its own gate. Reload operator tuning only at activation.
   const double alignment =
     get_node()
       ->get_parameter(align_first_ ? "align_first_threshold" : "alignment_threshold")
@@ -408,13 +435,19 @@ bool SwerveController::apply_steering_motion_parameters()
     RCLCPP_ERROR(get_node()->get_logger(), "align_first_release must be in (0, threshold]");
     return false;
   }
-  if (!(jerk > 0.0 && jerk <= get_node()->get_parameter("max_steering_jerk_limit").as_double())) {
+  // A mode-only reload must preserve already-configured unlimited acceleration/jerk.
+  // New tuning values still obey the operator caps and the ControlCore constructor checks.
+  if (
+    jerk != config_.setpoint.maximum_steering_jerk_radps3 &&
+    !(jerk > 0.0 && jerk <= get_node()->get_parameter("max_steering_jerk_limit").as_double())) {
     return false;
   }
   if (
-    !(slew > 0.0 && slew <= get_node()->get_parameter("max_steering_slew_limit").as_double()) ||
-    !(acceleration > 0.0 &&
-      acceleration <= get_node()->get_parameter("max_steering_acceleration_limit").as_double())) {
+    (slew != config_.setpoint.maximum_steering_slew_radps &&
+     !(slew > 0.0 && slew <= get_node()->get_parameter("max_steering_slew_limit").as_double())) ||
+    (acceleration != config_.setpoint.maximum_steering_acceleration_radps2 &&
+     !(acceleration > 0.0 &&
+       acceleration <= get_node()->get_parameter("max_steering_acceleration_limit").as_double()))) {
     return false;
   }
   auto config = config_;
@@ -624,6 +657,7 @@ CallbackReturn SwerveController::on_deactivate(const rclcpp_lifecycle::State &)
   std::lock_guard<std::mutex> guard(lifecycle_mutex_);
   active_.store(false);
   ready_.store(false);
+  mode_stationary_since_ns_ = 0;
   command_subscription_.reset();
   imu_subscription_.reset();
   stop_outputs();
@@ -643,6 +677,21 @@ CallbackReturn SwerveController::on_cleanup(const rclcpp_lifecycle::State & stat
   std::lock_guard<std::mutex> guard(lifecycle_mutex_);
   command_subscription_.reset();
   imu_subscription_.reset();
+  mode_timer_.reset();
+  mode_pending_.store(0);
+  if (mode_response_) {
+    ModeService::Response response;
+    response.success = false;
+    response.message = "Controller cleanup; mode result not confirmed";
+    try {
+      mode_response_->service->send_response(mode_response_->header, response);
+    } catch (const std::exception & error) {
+      RCLCPP_WARN(get_node()->get_logger(), "mode cleanup response failed: %s", error.what());
+    }
+    mode_response_.reset();
+  }
+  mode_service_.reset();
+  mode_publisher_.reset();
   diagnostic_timer_.reset();
   diagnostic_publisher_.reset();
   fault_stop_timer_.reset();
@@ -777,6 +826,7 @@ controller_interface::return_type SwerveController::update(
     ready_.store(false);
     block_before_ns_ = now;
   }
+  process_drive_mode(feedback, command, command_fresh, navigation, now);
   unsigned int slipping_mask{0U};
   for (size_t i = 0; i < last_output_.slipping_modules.size(); ++i) {
     if (last_output_.slipping_modules[i]) {slipping_mask |= 1U << i;}

@@ -29,7 +29,7 @@ from rclpy.signals import SignalHandlerOptions
 from robot_rt_control_interfaces.srv import SetControlEnabled
 import robot_interfaces_qos
 from rt_control_interfaces.srv import RtEnable
-from std_msgs.msg import String
+from std_msgs.msg import Bool, String
 
 from .config import build_config, load_token
 from .teleop import PUBLISH_RATE_HZ, DriveArbiter, TeleopError
@@ -40,7 +40,7 @@ LIMIT_PARAMETERS = (
     "max_steering_acceleration_limit",
     "max_steering_jerk_limit",
 )
-# Configure-time drive mode of the swerve controller (shown only, never set here).
+# Startup default, used only as a fallback for controllers without the runtime mode topic.
 DRIVE_MODE_PARAMETERS = ("drive_mode",)
 STALE_S = 2.5
 
@@ -97,6 +97,18 @@ class ChassisConnection:
         self.capability = None
         self.steering_motion = {}
         self.steering_motion_at = -math.inf
+        self.runtime_mode = None
+        self.runtime_mode_at = -math.inf
+        node.create_subscription(
+            Bool,
+            "/rt_control/chassis/align_first",
+            self.received_mode,
+            QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+        )
         controller = node.config.controller_node
         node.create_subscription(
             String,
@@ -234,6 +246,11 @@ class ChassisConnection:
             with self.lock:
                 self.managed = list(response.values[0].string_array_value)
 
+    def received_mode(self, message):
+        with self.lock:
+            self.runtime_mode = "align_first" if message.data else "steer_while_driving"
+            self.runtime_mode_at = time.monotonic()
+
     def received_steering(self, response):
         names = [*STEERING_PARAMETERS, *LIMIT_PARAMETERS]
         if len(response.values) != len(names) + len(DRIVE_MODE_PARAMETERS):
@@ -282,6 +299,10 @@ class ChassisConnection:
             else:
                 reason = "已使能" if self.enabled else "未使能"
             steering = dict(self.steering_motion) if now - self.steering_motion_at < 5.0 else {}
+            if steering and self.runtime_mode_at != -math.inf:
+                steering["drive_mode"] = (
+                    self.runtime_mode if now - self.runtime_mode_at < STALE_S else None
+                )
             return {
                 "backend_kind": self.kind if now - self.hardware_at < STALE_S else "disconnected",
                 "software_test_only": self.software_test_only,
@@ -303,6 +324,7 @@ class ChassisConnection:
                 and self.state in ("IDLE", "FAILED")
                 and not self.busy
                 and bool(steering)
+                and steering.get("drive_mode") in ("align_first", "steer_while_driving")
                 and self.tuning is not None,
                 "steering": steering,
                 "steering_tuning": self.tuning.source()

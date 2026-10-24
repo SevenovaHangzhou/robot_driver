@@ -52,6 +52,7 @@ function status(message) {
     $('steering-limit').textContent=`上限 ${steering.max_steering_slew_limit.toFixed(0)} °/s · ${steering.max_steering_acceleration_limit.toFixed(0)} °/s² · ${steering.max_steering_jerk_limit.toFixed(0)} °/s³`;
     $('steering-jerk').max=steering.max_steering_jerk_limit.toFixed(0);
     const alignFirst=steering.drive_mode==='align_first';
+    if(state.alignMode!==undefined&&state.alignMode!==alignFirst){state.steeringEdited=false;$('steering-token').value='';}
     state.alignMode=alignFirst;
     $('drive-mode').textContent=alignFirst?'对齐模式':steering.drive_mode==='steer_while_driving'?'连续模式':'未知';
     const fmt=v=>Number(v.toFixed(1)).toString();

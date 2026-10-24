@@ -14,6 +14,7 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
+| chassis-control-20261024-01 | 保持使能时通过公共候选服务停稳切换模式；运动中拒绝、保留执行历史 | [运行时模式切换](records/2026-10-24-chassis-mode-switch.md) | PARTIAL（T3；研华未使能启动/接口通过，真实切换与契约发布待验） |
 | chassis-control-20261022-01 | 整车速度在逆运动学前可选 S 曲线；保护停车保留原策略；研华已按1.0/4.0启动至IDLE | [整车速度 S 曲线](records/2026-10-22-chassis-twist-scurve.md) | PARTIAL（T3；未使能启动通过，实车响应/导航联调待验） |
 | integration-20261014-02#F1–F4 | 底盘CSP/CSV与编码器只读边界保持；cyclic跨包测试移至integration | [第三步底盘组合](../integration/records/2026-10-14-chassis-offline-composition.md) | UNVERIFIED（T0；构建/测试通过，真实参数待补） |
 | contract/14#F3 | `/cmd_vel` 是当前唯一底盘入口，取消底盘与双臂/升降/PP跨组互斥 | [V3 公共接口实现](../contract/records/2026-10-02-v3-interface-contract-implementation.md)#F3 | PASS（契约/源码检查；联合运行待验） |

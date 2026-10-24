@@ -75,6 +75,10 @@ public:
   bool feedback_ready(const ModuleFeedbackArray & feedback) const noexcept;
   const std::array<double, 4> & hold_positions() const noexcept { return last_steering_targets_; }
   bool hold_fault_latched() const noexcept { return hold_fault_latched_; }
+  bool mode_switch_feedback_ready(const ModuleFeedbackArray & feedback) const noexcept;
+  bool switch_alignment_policy(
+    const ModuleFeedbackArray & feedback, double stationary_speed, double threshold,
+    double release) noexcept;
   ControlOutput update(const ModuleFeedbackArray & feedback, ChassisSpeeds command,
     bool command_fresh, double dt, std::optional<YawSample> imu = std::nullopt);
 

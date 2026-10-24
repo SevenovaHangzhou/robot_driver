@@ -27,6 +27,37 @@ parameters or wheel torque-feedforward calculation. Legacy gain parameters are
 rejected rather than silently accepted. Kinco's internal loops are tuned through
 the hardware configuration/commissioning process, not by this controller.
 
+## Runtime Drive Mode (Public Contract Candidate R-IN-18 / R-OUT-28)
+
+Navigation may switch modes while the controller stays enabled, after stopping:
+
+```bash
+ros2 service call /control/set_chassis_align_first std_srvs/srv/SetBool '{data: true}'
+ros2 service call /control/set_chassis_align_first std_srvs/srv/SetBool '{data: false}'
+ros2 topic echo /rt_control/chassis/align_first std_msgs/msg/Bool
+```
+
+`true` selects alignment-first; `false` selects continuous steering. Navigation must
+continue publishing fresh zero velocity until the service confirms success. Motion,
+stale/invalid feedback, non-navigation ownership and latched faults reject the request;
+the service never queues a switch until the robot later stops. Wheel references must
+be zero and measured rim speeds must satisfy the existing `fault_stop_speed` /
+`fault_stop_hold` window. Steering and velocity histories are preserved.
+
+The service returns only after an RT cycle confirms the mode. On false/timeout/lost
+response, keep zero velocity and check fresh actual mode state before explicitly
+requesting again. Do not interpret the human-readable response message as admission.
+After success send a new velocity command: pre-switch locally received commands are
+excluded. The mode topic is latched, published on change and at 1 Hz; it is not an
+enable or standstill signal.
+
+`drive_mode` is a startup parameter, writable only before configure;
+after configure its value is not the current runtime mode and parameter writes are rejected. Ordinary deactivate/activate preserves the
+runtime selection; configure or process restart restores the startup default. The web
+console follows the actual mode topic. These standard-type endpoints are registered
+as a local candidate in the independent interfaces repository; contract release and
+producer/consumer rollout remain required before production use.
+
 ## Chassis Velocity S-Curve
 
 Optional `max_body_acceleration` and `max_body_jerk` limit the norm of acceleration

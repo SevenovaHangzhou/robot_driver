@@ -8,6 +8,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <thread>
 #include <vector>
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
@@ -127,6 +128,152 @@ protected:
     for (size_t i = 0; i < 4; ++i) {EXPECT_DOUBLE_EQ(commands[2 * i + 1], 0.0);}
   }
 };
+
+TEST_F(SwerveControllerTest, ModeSwitchRejectsMovingAndConfirmsStoppedMode)
+{
+  using Service = std_srvs::srv::SetBool;
+  auto mode_client = client->create_client<Service>("/control/set_chassis_align_first");
+  ASSERT_TRUE(mode_client->wait_for_service(std::chrono::seconds(1)));
+  std::optional<bool> mode;
+  auto subscription = client->create_subscription<std_msgs::msg::Bool>(
+    "/rt_control/chassis/align_first", robot_interfaces_qos::latched(),
+    [&](std_msgs::msg::Bool::SharedPtr m) { mode = m->data; });
+  auto tick = [&]() {
+    executor.spin_some();
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  };
+  auto switch_mode = [&](bool align) {
+    auto request = std::make_shared<Service::Request>();
+    request->data = align;
+    auto future = mode_client->async_send_request(request);
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready &&
+           std::chrono::steady_clock::now() < end) {
+      tick();
+    }
+    EXPECT_EQ(future.wait_for(std::chrono::seconds(0)), std::future_status::ready);
+    return future.wait_for(std::chrono::seconds(0)) == std::future_status::ready
+             ? future.get()->success
+             : false;
+  };
+  auto stop_and_wait = [&]() {
+    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+    while (std::chrono::steady_clock::now() < end) {
+      send_without_wait(0.0);
+      tick();
+    }
+  };
+  send(0.3);
+  EXPECT_FALSE(switch_mode(false));
+  spin_until([&]() { return mode.has_value(); });
+  EXPECT_TRUE(*mode);
+  stop_and_wait();
+  // Zero reference alone is insufficient if actual wheel feedback still reports motion.
+  state("d0/velocity", 1.0);
+  EXPECT_FALSE(switch_mode(false));
+  state("d0/velocity", 0.0);
+  stop_and_wait();
+  const auto before = commands;
+  EXPECT_TRUE(switch_mode(false));
+  spin_until([&]() { return mode && !*mode; });
+  EXPECT_EQ(commands, before);
+  // The parameter remains a startup default, rather than falsely reporting runtime success.
+  EXPECT_FALSE(
+    controller.get_node()->set_parameter({"drive_mode", "steer_while_driving"}).successful);
+  send(0.3, 0.05);  // ~9.5 deg error: between the alignment and continuous-mode gates
+  EXPECT_GT(std::abs(commands[1]), 0.0);
+  stop_and_wait();
+  EXPECT_TRUE(switch_mode(true));
+  spin_until([&]() { return mode && *mode; });
+  geometry_msgs::msg::Twist command;
+  command.linear.x = 0.3;
+  command.linear.y = 0.05;
+  for (int i = 0; i < 20; ++i) {
+    publisher->publish(command);
+    tick();
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    EXPECT_DOUBLE_EQ(commands[2 * i + 1], 0.0);
+  }
+}
+
+TEST_F(SwerveControllerTest, ModeRequestExpiresWithoutLateApplication)
+{
+  using Service = std_srvs::srv::SetBool;
+  auto mode_client = client->create_client<Service>("/control/set_chassis_align_first");
+  ASSERT_TRUE(mode_client->wait_for_service(std::chrono::seconds(1)));
+  std::optional<bool> mode;
+  auto subscription = client->create_subscription<std_msgs::msg::Bool>(
+    "/rt_control/chassis/align_first", robot_interfaces_qos::latched(),
+    [&](std_msgs::msg::Bool::SharedPtr m) { mode = m->data; });
+  auto request = std::make_shared<Service::Request>();
+  request->data = false;
+  auto future = mode_client->async_send_request(request);
+  // No RT cycles: the deferred callback must not block the executor or later apply silently.
+  spin_until(
+    [&]() { return future.wait_for(std::chrono::seconds(0)) == std::future_status::ready; });
+  EXPECT_FALSE(future.get()->success);
+  EXPECT_TRUE(mode.value_or(false));
+  for (int i = 0; i < 100; ++i) {
+    send_without_wait(0.0);
+    executor.spin_some();
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+  }
+  EXPECT_TRUE(mode.value_or(false));
+  expect_stopped();
+}
+
+TEST_F(SwerveControllerTest, RuntimeModeSurvivesReactivationWithBodyShaping)
+{
+  using Service = std_srvs::srv::SetBool;
+  ASSERT_EQ(controller.on_cleanup(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  EXPECT_TRUE(controller.get_node()->set_parameter({"drive_mode", "align_first"}).successful);
+  controller.get_node()->set_parameters({{"max_body_acceleration", 1.0}, {"max_body_jerk", 4.0}});
+  ASSERT_EQ(controller.on_configure(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  bind();
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  spin_until([&]() { return publisher->get_subscription_count() == 1; });
+  auto mode_client = client->create_client<Service>("/control/set_chassis_align_first");
+  ASSERT_TRUE(mode_client->wait_for_service(std::chrono::seconds(1)));
+  std::optional<bool> mode;
+  auto subscription = client->create_subscription<std_msgs::msg::Bool>(
+    "/rt_control/chassis/align_first", robot_interfaces_qos::latched(),
+    [&](std_msgs::msg::Bool::SharedPtr msg) { mode = msg->data; });
+  const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+  while (std::chrono::steady_clock::now() < end) {
+    send_without_wait(0.0);
+    executor.spin_some();
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  }
+  auto request = std::make_shared<Service::Request>();
+  request->data = false;
+  auto future = mode_client->async_send_request(request);
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+  });
+  ASSERT_TRUE(future.get()->success);
+  spin_until([&]() { return mode && !*mode; });
+  EXPECT_EQ(controller.get_node()->get_parameter("drive_mode").as_string(), "align_first");
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  bind();
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  expect_stopped();
+  geometry_msgs::msg::Twist command;
+  command.linear.x = 0.3;
+  command.linear.y = 0.05;
+  for (int i = 0; i < 50; ++i) {
+    publisher->publish(command);
+    executor.spin_some();
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+  }
+  EXPECT_FALSE(mode.value_or(true));
+  EXPECT_GT(
+    std::abs(commands[1]),
+    0.0);  // continuous gate remains effective, even though startup says align
+}
 
 TEST_F(SwerveControllerTest, ClaimsEightMotionInterfacesAndNoControlWord)
 {

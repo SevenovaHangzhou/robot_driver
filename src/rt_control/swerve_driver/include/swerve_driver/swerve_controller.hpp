@@ -6,12 +6,14 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 #include "controller_interface/controller_interface.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "std_srvs/srv/set_bool.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "realtime_tools/realtime_buffer.hpp"
 #include "realtime_tools/realtime_publisher.hpp"
@@ -51,6 +53,50 @@ private:
     uint64_t generation{0};
     bool valid{false};
   };
+  using ModeService = std_srvs::srv::SetBool;
+  using ModeServer = rclcpp::Service<ModeService>;
+  enum class ModeResult {
+    Applied,
+    NotReady,
+    FeedbackInvalid,
+    NotStopped,
+    Expired,
+    NotNavigation,
+    FreshZeroRequired,
+    InvalidParameters
+  };
+  struct ModeRequest
+  {
+    uint64_t sequence{0}, generation{0};
+    int64_t deadline_ns{0};
+    double threshold{0.0}, release{0.0};
+    bool align_first{true};
+  };
+  struct ModeResponse
+  {
+    ModeServer::SharedPtr service;
+    rmw_request_id_t header;
+    ModeRequest request;
+  };
+  void request_drive_mode(
+    ModeServer::SharedPtr service, std::shared_ptr<rmw_request_id_t> header,
+    ModeService::Request::SharedPtr request);
+  void mode_timer();
+  void process_drive_mode(
+    const ModuleFeedbackArray & feedback, const Command & command, bool command_fresh,
+    bool navigation, int64_t now);
+  static const char * mode_result_text(ModeResult result) noexcept;
+  realtime_tools::RealtimeBuffer<ModeRequest> mode_request_buffer_;
+  std::atomic<uint64_t> mode_pending_{0}, mode_completed_{0};
+  std::atomic<ModeResult> mode_result_{ModeResult::NotReady};
+  uint64_t mode_sequence_{0};                  // non-RT, protected by lifecycle_mutex_
+  int64_t mode_stationary_since_ns_{0};        // RT only
+  std::optional<ModeResponse> mode_response_;  // non-RT, lifecycle_mutex_
+  ModeServer::SharedPtr mode_service_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr mode_publisher_;
+  rclcpp::TimerBase::SharedPtr mode_timer_;
+  std::optional<bool> published_mode_;
+  int64_t mode_published_at_ns_{0};
   static int64_t steady_now() noexcept;
   ModuleFeedbackArray read_feedback() const;
   [[nodiscard]] bool write_output(const ControlOutput & output);
@@ -103,8 +149,8 @@ private:
   double feedback_timeout_{0.0}, publish_elapsed_{0.0};
   double imu_timeout_{0.0}, max_imu_yaw_step_{0.0}, quaternion_tolerance_{0.0};
   bool imu_enabled_{false};
-  // drive_mode (configure-time): align_first stops the wheels until all four modules align.
-  bool align_first_{true};
+  // Startup default is configured by drive_mode; runtime changes occur only at an RT boundary.
+  std::atomic_bool align_first_{true};
   std::string imu_frame_;
   ControlOutput last_output_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr command_subscription_;

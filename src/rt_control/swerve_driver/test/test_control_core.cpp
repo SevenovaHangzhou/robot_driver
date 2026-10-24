@@ -58,6 +58,51 @@ TEST(ControlConfiguration, UnspecifiedGeometryCannotActivate)
   EXPECT_THROW(ControlCore{config}, std::invalid_argument);
 }
 
+TEST(ControlCoreModeSwitch, PreservesSteeringHistoryAndRejectsWheelMotion)
+{
+  auto config = synthetic_config();
+  config.setpoint.maximum_steering_acceleration_radps2 = 2.0;
+  config.setpoint.maximum_steering_jerk_radps3 = 10.0;
+  ControlCore baseline{config}, switched{config};
+  ModuleFeedbackArray feedback{};
+  for (auto & m : feedback) {
+    m.valid = m.enabled = m.encoder_valid = true;
+  }
+  ASSERT_TRUE(baseline.activate(feedback));
+  ASSERT_TRUE(switched.activate(feedback));
+  for (int i = 0; i < 12; ++i) {
+    const auto a = baseline.update(feedback, {0.0, 0.3, 0.0}, true, 0.004);
+    const auto b = switched.update(feedback, {0.0, 0.3, 0.0}, true, 0.004);
+    ASSERT_EQ(a.steering_position, b.steering_position);
+    ASSERT_EQ(a.status, ControlStatus::alignment_gated);
+    for (size_t j = 0; j < 4; ++j) {
+      feedback[j].steering_position = feedback[j].steering_angle = a.steering_position[j];
+    }
+  }
+  feedback[0].wheel_velocity = 1.0;
+  EXPECT_FALSE(switched.switch_alignment_policy(
+    feedback, 0.01, 0.3, std::numeric_limits<double>::quiet_NaN()));
+  feedback[0].wheel_velocity = 0.0;
+  feedback[0].encoder_valid = false;
+  EXPECT_FALSE(switched.mode_switch_feedback_ready(feedback));
+  EXPECT_FALSE(switched.switch_alignment_policy(
+    feedback, 0.01, 0.3, std::numeric_limits<double>::quiet_NaN()));
+  feedback[0].encoder_valid = true;
+  // Identical policy update must not reset an in-flight steering S-curve or branch history.
+  ASSERT_TRUE(switched.switch_alignment_policy(
+    feedback, 0.01, 0.3, std::numeric_limits<double>::quiet_NaN()));
+  for (int i = 0; i < 12; ++i) {
+    const auto a = baseline.update(feedback, {}, true, 0.004);
+    const auto b = switched.update(feedback, {}, true, 0.004);
+    EXPECT_EQ(a.steering_position, b.steering_position);
+    EXPECT_EQ(a.drive_velocity, b.drive_velocity);
+    for (size_t j = 0; j < 4; ++j) {
+      feedback[j].steering_position = feedback[j].steering_angle = a.steering_position[j];
+    }
+  }
+  EXPECT_FALSE(switched.switch_alignment_policy(feedback, 0.01, 0.1, 0.2));
+}
+
 TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)
 {
   const auto result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);

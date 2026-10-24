@@ -7,7 +7,7 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 find_package(ament_cmake REQUIRED)
 find_package(ruckig REQUIRED)
 set(dependencies controller_interface hardware_interface diagnostic_msgs geometry_msgs
-  nav_msgs sensor_msgs std_msgs pluginlib rclcpp realtime_tools robot_interfaces_qos
+  nav_msgs sensor_msgs std_msgs std_srvs pluginlib rclcpp realtime_tools robot_interfaces_qos
   rt_control_semantic_components)
 foreach(dependency IN LISTS dependencies)
   find_package(${dependency} REQUIRED)
@@ -19,7 +19,7 @@ add_library(swerve_math SHARED
   src/odometry_covariance.cpp src/control_core.cpp src/body_velocity_shaper.cpp
   src/relative_move_planner.cpp src/relative_move_session.cpp src/chassis_mode_handoff.cpp)
 target_link_libraries(swerve_math PUBLIC ruckig::ruckig)
-add_library(swerve_controller SHARED src/swerve_controller.cpp src/chassis_runtime.cpp)
+add_library(swerve_controller SHARED src/swerve_controller.cpp src/drive_mode_service.cpp src/chassis_runtime.cpp)
 target_link_libraries(swerve_controller PUBLIC swerve_math)
 ament_target_dependencies(swerve_controller PUBLIC ${dependencies})
 

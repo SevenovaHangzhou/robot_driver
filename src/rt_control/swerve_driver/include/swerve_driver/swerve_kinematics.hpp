@@ -104,6 +104,8 @@ public:
     const std::array<bool, kSwerveModuleCount> & hold_modules = {});
   void reset() noexcept;
   void reset(const std::array<double, kSwerveModuleCount> & targets) noexcept;
+  // Called at a stopped control-cycle boundary; preserves every trajectory/branch state.
+  bool set_alignment_policy(double threshold, double release) noexcept;
 
 private:
   SwerveSetpointParameters parameters_;

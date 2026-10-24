@@ -254,6 +254,18 @@ AlignmentResult SwerveSetpointGenerator::generate(
   return result;
 }
 
+bool SwerveSetpointGenerator::set_alignment_policy(double threshold, double release) noexcept
+{
+  if (
+    !finite(threshold) || threshold <= 0.0 || threshold > kPi / 2.0 ||
+    (!std::isnan(release) && (!finite(release) || release <= 0.0 || release > threshold))) {
+    return false;
+  }
+  parameters_.alignment_threshold_rad = threshold;
+  parameters_.alignment_release_rad = release;
+  return true;
+}
+
 void SwerveSetpointGenerator::reset(const std::array<double, kSwerveModuleCount> & targets) noexcept
 {
   reset();

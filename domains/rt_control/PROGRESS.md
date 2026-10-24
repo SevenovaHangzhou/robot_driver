@@ -1,5 +1,7 @@
 # rt-control implementation progress
 
+| 2026-10-24 | chassis-control | [停稳运行时模式切换](docs/areas/chassis-control/records/2026-10-24-chassis-mode-switch.md) | PARTIAL：本地177项控制器测试、研华309项软件测试通过；已联调部署至IDLE，新接口和网页正常；真实使能后切换与正式契约发布待验 |
+
 | 2026-10-23 | chassis-control | [整车速度 S 曲线](docs/areas/chassis-control/records/2026-10-22-chassis-twist-scurve.md) | PARTIAL：研华独立构建及173项无设备测试通过，1.0/4.0已配置并启动至IDLE；实车响应、停车距离和导航联调待验 |
 
 | 2026-10-07 | motion | [安装舵轮减速比与换算边界](docs/areas/motion/records/2026-10-07-swerve-installed-ratios.md) | PARTIAL：机械比更新为27.48/140；运行raw/SI比例缺反馈单位和电子齿轮事实，未写设备 |

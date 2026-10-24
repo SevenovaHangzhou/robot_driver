@@ -196,6 +196,43 @@ void ControlCore::deactivate() noexcept
   setpoints_.reset();
 }
 
+bool ControlCore::mode_switch_feedback_ready(const ModuleFeedbackArray & feedback) const noexcept
+{
+  if (!active_ || hold_fault_latched_ || !feedback_ready(feedback)) {
+    return false;
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    if (!encoder_consistent(feedback[i], i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool ControlCore::switch_alignment_policy(
+  const ModuleFeedbackArray & feedback, double stationary_speed, double threshold,
+  double release) noexcept
+{
+  if (!mode_switch_feedback_ready(feedback) || !positive(stationary_speed)) {
+    return false;
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    const double measured = feedback[i].wheel_velocity * config_.wheel_radius[i];
+    if (
+      previous_speeds_[i] != 0.0 || !std::isfinite(measured) ||
+      std::abs(measured) > stationary_speed) {
+      return false;
+    }
+  }
+  if (!setpoints_.set_alignment_policy(threshold, release)) {
+    return false;
+  }
+  config_.setpoint.alignment_threshold_rad = threshold;
+  config_.setpoint.alignment_release_rad = release;
+  // No reset: preserve steering derivatives, branch/gate latches, holds and body shaper.
+  return true;
+}
+
 void ControlCore::observe(const ModuleFeedbackArray & feedback, std::optional<YawSample> imu)
 {
   if (!odometry_) {return;}
