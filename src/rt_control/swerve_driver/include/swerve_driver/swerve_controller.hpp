@@ -18,6 +18,7 @@
 #include "realtime_tools/realtime_buffer.hpp"
 #include "realtime_tools/realtime_publisher.hpp"
 #include "sensor_msgs/msg/imu.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
 #include "swerve_driver/control_core.hpp"
 #include "swerve_driver/chassis_runtime.hpp"
 #include "swerve_driver/odometry_covariance.hpp"
@@ -155,6 +156,11 @@ private:
   ControlOutput last_output_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr command_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_;
+  // Control-axis feedback, independent of URDF joint numbering and heading signs.
+  rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr chassis_feedback_publisher_;
+  std::unique_ptr<realtime_tools::RealtimePublisher<sensor_msgs::msg::JointState>> realtime_feedback_;
+  std::array<double, 4> published_steering_{};
+  int64_t feedback_published_ns_{0};
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>> realtime_odometry_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_publisher_;

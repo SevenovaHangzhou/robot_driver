@@ -43,11 +43,11 @@ swerve_controller:
     max_encoder_difference: 0.017453292519943295
     max_update_period: 0.2
     slip_residual_threshold: 1.0
-    # User 2026-10-21: align_first (default) stops all four wheels while any module is more
+    # User 2026-10-21: align_first stops all four wheels while any module is more
     # than 5 deg off and restarts them once every module is within 3 deg.
     # steer_while_driving restores the 2026-10-18 behaviour: cos(steering error) scaling with
     # the alignment_threshold gate (operator-tunable (0, 90] deg; ignored in align_first).
-    drive_mode: align_first
+    drive_mode: steer_while_driving
     align_first_threshold: 0.08726646259971647
     align_first_release: 0.05235987755982988
     alignment_threshold: 1.5707963267948966

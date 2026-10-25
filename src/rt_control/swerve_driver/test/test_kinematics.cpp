@@ -676,4 +676,27 @@ TEST(SwerveKinematicsTest, JerkLimitNeedsAFiniteAccelerationLimit)
   parameters.maximum_steering_jerk_radps3 = 0.0;
   EXPECT_THROW(SwerveSetpointGenerator{parameters}, std::invalid_argument);
 }
+TEST(SwerveKinematicsTest, PureTranslationKeepsAlreadyAlignedEquivalentBranches)
+{
+  SwerveSetpointParameters p{5.*kPi/180.,3.*kPi/180.,1000.};
+  p.alignment_release_rad=3.*kPi/180.;
+  SwerveSetpointGenerator generator{p};
+  const double heading=77.*kPi/180.;
+  std::array<double,kSwerveModuleCount> measured{heading-kPi,heading,heading,heading-kPi};
+  generator.reset(measured);
+  std::array<SwerveModuleState,kSwerveModuleCount> desired;
+  for(size_t i=0;i<4;++i) {desired[i]={.3,heading+(i%2 ? 1.e-4 : -1.e-4)};}
+  auto curved=generator.generate(desired,measured,.01);
+  ASSERT_FALSE(curved.gated);
+  ASSERT_TRUE(curved.modules[0].reversed);ASSERT_FALSE(curved.modules[1].reversed);
+  for(size_t i=0;i<4;++i) {measured[i]=curved.modules[i].target_angle_rad;}
+  desired.fill(SwerveModuleState{.3,heading});
+  const auto straight=generator.generate(desired,measured,.01);
+  EXPECT_FALSE(straight.gated);
+  for(size_t i=0;i<4;++i) {
+    EXPECT_EQ(straight.modules[i].reversed,curved.modules[i].reversed);
+    EXPECT_LT(std::abs(straight.modules[i].target_angle_rad-measured[i]),.001);
+    EXPECT_NEAR(straight.modules[i].speed_mps*std::cos(straight.modules[i].target_angle_rad),.3*std::cos(heading),1.e-7);
+  }
+}
 }  // namespace swerve_driver

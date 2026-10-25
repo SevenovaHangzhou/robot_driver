@@ -94,7 +94,7 @@ CallbackReturn SwerveController::on_init()
   auto_declare<bool>("imu_enabled", false);
   // Startup mode is read at configure; runtime switches use the public stopped-only service.
   // align_first gates all four wheels together; steer_while_driving retains cosine scaling.
-  auto_declare<std::string>("drive_mode", "align_first");
+  auto_declare<std::string>("drive_mode", "steer_while_driving");
   auto_declare<double>("align_first_threshold", 0.08726646259971647);  // 5 deg
   auto_declare<double>("align_first_release", 0.05235987755982988);    // 3 deg
   auto_declare<std::string>("imu_frame_id", "");
@@ -369,6 +369,16 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
       odometry_publisher_);
     realtime_odometry_->msg_.header.frame_id = "odom";
     realtime_odometry_->msg_.child_frame_id = "base_footprint";
+    chassis_feedback_publisher_=get_node()->create_publisher<sensor_msgs::msg::JointState>(
+      "/rt_control/chassis/joint_states",rclcpp::SensorDataQoS());
+    realtime_feedback_=std::make_unique<realtime_tools::RealtimePublisher<sensor_msgs::msg::JointState>>(
+      chassis_feedback_publisher_);
+    auto & state=realtime_feedback_->msg_;
+    state.header.frame_id="base_footprint";
+    state.name={"module_1_steering","module_2_steering","module_3_steering","module_4_steering",
+      "module_1_wheel","module_2_wheel","module_3_wheel","module_4_wheel"};
+    state.position.resize(8);state.velocity.resize(8);feedback_published_ns_=0;
+
     command_subscription_.reset();
     imu_subscription_.reset();
     diagnostic_publisher_ = get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
@@ -696,6 +706,7 @@ CallbackReturn SwerveController::on_cleanup(const rclcpp_lifecycle::State & stat
   diagnostic_publisher_.reset();
   fault_stop_timer_.reset();
   fault_stop_publisher_.reset();
+  realtime_feedback_.reset();chassis_feedback_publisher_.reset();
   realtime_odometry_.reset();
   odometry_publisher_.reset();
   runtime_.reset();
@@ -767,6 +778,24 @@ controller_interface::return_type SwerveController::update(
   const auto now = steady_now();
   const auto feedback = read_feedback();
   const double dt = period.seconds();
+  const int64_t feedback_ns=time.nanoseconds();
+  const bool feedback_fresh=core_->feedback_ready(feedback);
+  if(!feedback_fresh || feedback_ns<feedback_published_ns_) {feedback_published_ns_=0;}
+  if(feedback_fresh && realtime_feedback_ &&
+    (feedback_published_ns_==0 || feedback_ns-feedback_published_ns_>=10000000) && realtime_feedback_->trylock()) {
+    auto & message=realtime_feedback_->msg_;message.header.stamp=time;
+    const double feedback_dt=static_cast<double>(feedback_ns-feedback_published_ns_)*1.e-9;
+    for(size_t i=0;i<4;++i) {
+      message.position[i]=feedback[i].steering_position;
+      message.position[i+4]=feedback[i].wheel_position;
+      message.velocity[i]=feedback_published_ns_>0 && feedback_dt>0 && feedback_dt<.3 ?
+        (feedback[i].steering_position-published_steering_[i])/feedback_dt : 0.;
+      message.velocity[i+4]=feedback[i].wheel_velocity;
+      published_steering_[i]=feedback[i].steering_position;
+    }
+    feedback_published_ns_=feedback_ns;realtime_feedback_->unlockAndPublish();
+  }
+
   const bool ready = !core_->hold_fault_latched() && core_->feedback_ready(feedback) &&
                      positive(dt) && dt <= config_.max_update_period;
   ready_.store(ready);

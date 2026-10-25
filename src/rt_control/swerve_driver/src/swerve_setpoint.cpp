@@ -135,7 +135,24 @@ AlignmentResult SwerveSetpointGenerator::generate(
       }
     }
   }
-  const bool global_translation_branch{all_forward_feasible || all_reverse_feasible};
+  // Entering exactly zero yaw rate must not flip already aligned wheel axes
+  // by pi. A mixed forward/reverse layout is an equivalent pure translation.
+  // Keep it only inside the release tolerance; initial, unaligned crab targets
+  // still select one common feasible branch as before.
+  const bool mixed_branches = std::any_of(reversed_.begin(), reversed_.end(),
+    [](bool value) {return value;}) && std::any_of(reversed_.begin(), reversed_.end(),
+    [](bool value) {return !value;});
+  const double continuation_release = finite(parameters_.alignment_release_rad) ?
+    parameters_.alignment_release_rad : parameters_.alignment_threshold_rad;
+  const double continuation_tolerance = std::min({3.0 * kPi / 180.0,
+    continuation_release, parameters_.alignment_threshold_rad});
+  bool equivalent_layout = translation_requested && mixed_branches;
+  for (const double angle : planning_angles) {
+    equivalent_layout = equivalent_layout &&
+      std::abs(std::remainder(angle - common_heading, kPi)) <= continuation_tolerance;
+  }
+  const bool global_translation_branch{
+    (all_forward_feasible || all_reverse_feasible) && !equivalent_layout};
   bool translation_reversed{false};
   if (global_translation_branch) {
     if (!all_forward_feasible) {

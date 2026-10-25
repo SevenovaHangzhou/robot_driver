@@ -53,3 +53,7 @@
 直接调用 Dockerfile 时也必须提供 `PYTHON3_JSONSCHEMA_VERSION` build-arg；旧的
 Compose build 没有该参数时会被构建断言拒绝，应改用此包装器完成镜像封装。
 本任务没有执行镜像构建或启动生产容器。
+
+## 2026-10-25 部署准备
+
+[独立实机环境入口与两套组合](records/2026-10-25-independent-runtime-environment.md)：环境脚本不加载仿真；算法快照归仿真仓库；实机准入未扩大。

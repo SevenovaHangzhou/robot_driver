@@ -6,6 +6,11 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
 find_package(ruckig REQUIRED)
+get_target_property(ruckig_library ruckig::ruckig IMPORTED_LOCATION_NONE)
+if(ruckig_library)
+  get_filename_component(RUCKIG_LIBRARY_DIRECTORY "${ruckig_library}" DIRECTORY)
+  ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/ruckig_library.dsv.in")
+endif()
 set(dependencies controller_interface hardware_interface diagnostic_msgs geometry_msgs
   nav_msgs sensor_msgs std_msgs std_srvs pluginlib rclcpp realtime_tools robot_interfaces_qos
   rt_control_semantic_components)

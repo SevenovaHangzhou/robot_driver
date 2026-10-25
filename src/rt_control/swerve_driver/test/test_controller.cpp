@@ -586,3 +586,45 @@ TEST_F(SwerveControllerTest, SteeringMotionParametersAreCappedAndAppliedOnActiva
   send(1.0);
   EXPECT_GT(commands[1], 0.0);
 }
+
+TEST_F(SwerveControllerTest,StartupDefaultIsContinuous)
+{
+  Controller fresh;
+  ASSERT_EQ(fresh.init("swerve_default_mode_test"),controller_interface::return_type::OK);
+  EXPECT_EQ(fresh.get_node()->get_parameter("drive_mode").as_string(),"steer_while_driving");
+}
+
+TEST_F(SwerveControllerTest, PublishesControlAxisFeedbackAndSuppressesStaleSamples)
+{
+  sensor_msgs::msg::JointState::SharedPtr sample;
+  size_t count=0;
+  auto sub=client->create_subscription<sensor_msgs::msg::JointState>(
+    "/rt_control/chassis/joint_states",rclcpp::SensorDataQoS(),
+    [&](sensor_msgs::msg::JointState::SharedPtr msg) {sample=msg;++count;});
+  for(size_t i=0;i<4;++i) {
+    states[9*i]=.002*(i+1);states[9*i+7]=.002*(i+1);
+    states[9*i+3]=.25*(i+1);states[9*i+4]=i+1.;
+  }
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(),rclcpp::Duration::from_seconds(.004));
+    return sample!=nullptr;
+  });
+  ASSERT_EQ(sample->name.size(),8U);ASSERT_EQ(sample->velocity.size(),8U);
+  EXPECT_EQ(sample->header.frame_id,"base_footprint");
+  for(size_t i=0;i<4;++i) {
+    EXPECT_EQ(sample->name[i],"module_"+std::to_string(i+1)+"_steering");
+    EXPECT_NEAR(sample->position[i],.002*(i+1),1.e-10);
+    EXPECT_NEAR(sample->position[i+4],.25*(i+1),1.e-10);
+    EXPECT_NEAR(sample->velocity[i+4],i+1.,1.e-10);
+  }
+  states[36]=1000.;
+  const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(50);
+  while(std::chrono::steady_clock::now()<deadline) {
+    controller.update(controller.get_node()->now(),rclcpp::Duration::from_seconds(.004));executor.spin_some();
+  }
+  const auto before=count;
+  for(int i=0;i<20;++i) {
+    controller.update(controller.get_node()->now(),rclcpp::Duration::from_seconds(.004));executor.spin_some();
+  }
+  EXPECT_EQ(count,before);
+}

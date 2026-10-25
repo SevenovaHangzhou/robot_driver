@@ -1,5 +1,7 @@
 # rt-control implementation progress
 
+| 2026-10-25 | platform | [独立实机环境入口](docs/areas/platform/records/2026-10-25-independent-runtime-environment.md) | PARTIAL：环境加载与只读拒绝检查通过；未操作硬件，质量门禁缺 jsonschema，正式部署待验 |
+
 | 2026-10-24 | chassis-control | [停稳运行时模式切换](docs/areas/chassis-control/records/2026-10-24-chassis-mode-switch.md) | PARTIAL：本地177项控制器测试、研华309项软件测试通过；已联调部署至IDLE，新接口和网页正常；真实使能后切换与正式契约发布待验 |
 
 | 2026-10-23 | chassis-control | [整车速度 S 曲线](docs/areas/chassis-control/records/2026-10-22-chassis-twist-scurve.md) | PARTIAL：研华独立构建及173项无设备测试通过，1.0/4.0已配置并启动至IDLE；实车响应、停车距离和导航联调待验 |
@@ -255,3 +257,5 @@
 | 2026-10-15 | integration | [ELECTRI-183 公共参数绑定与跨层耦合修复](docs/areas/integration/records/2026-10-15-electri-183-public-bindings.md) | UNVERIFIED（T0；定向组合测试与头部接口测试通过，运行/实机未验） |
 | 2026-10-14 | platform | [四层源码合并证据与观察起点](docs/areas/platform/records/2026-10-14-composer-merged-evidence.md) | PARTIAL（main c220e5e；完整CI41包/2107 tests无失败；后续20PR观察起点已登记，T1/实机缺口保留） |
 | 2026-10-14 | arm-control | [显式手臂策略](docs/areas/arm-control/records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；数值/顺序/金样对齐；包络未实测） |
+
+- 2026-10-25 · chassis-control · [导航运行模式本地集成与控制轴反馈](docs/areas/chassis-control/records/2026-10-25-navigation-runtime-modes.md)：单包构建、11/11 mock 测试组通过；无硬件操作。
