@@ -44,6 +44,7 @@ class Request:
     yaw: int = 0
     z: float = 0.0
     w: float = 0.0
+    release: float = 0.0
     gear: str = ""
     op: str = ""
     modules: tuple[str, ...] = ()
@@ -87,6 +88,8 @@ def parse_request(raw: str) -> Request:
             y=_number(document.get("accel_deg_s2"), "accel_deg_s2"),
             z=_number(document.get("jerk_deg_s3"), "jerk_deg_s3"),
             w=_number(document.get("alignment_deg"), "alignment_deg"),
+            # Only the align drive mode has a release angle; absent means not applicable.
+            release=_number(document.get("release_deg", 0.0), "release_deg"),
         )
     if kind == "steering_defaults":
         return Request(type=kind, token=_short_string(document.get("token"), "token"))

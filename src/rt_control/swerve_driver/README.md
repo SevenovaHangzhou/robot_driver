@@ -27,6 +27,35 @@ parameters or wheel torque-feedforward calculation. Legacy gain parameters are
 rejected rather than silently accepted. Kinco's internal loops are tuned through
 the hardware configuration/commissioning process, not by this controller.
 
+## Chassis Velocity S-Curve
+
+Optional `max_body_acceleration` and `max_body_jerk` limit the norm of acceleration
+and jerk of `(vx, vy, omega * R)`, where `R` is the largest module distance from the
+body origin. Units are m/s² and m/s³. Both parameters are read during configure;
+set both to finite positive values to enable, or both to `.inf` to retain the
+existing behaviour. The template enables 1.0 m/s² and 4.0 m/s³ for the authorized
+Advantech deployment; these are initial tuning values, with real stopping distance
+and navigation interaction still awaiting operator acceptance. No new command topic is introduced.
+
+The implementation uses Ruckig's fixed three-axis velocity interface before
+inverse kinematics. Component limits are the norm limits divided by √3. Phase
+synchronization preserves ratios for collinear states, including starts from rest;
+arbitrary moving retargets use time synchronization when phase synchronization is
+not possible. There is no nonzero startup seed. Steering is planned while wheels
+wait at zero, and acceleration starts only after the alignment gate releases.
+
+Normal zero-velocity commands use the same S-curve to stop. The 500 ms command
+watchdog, alignment stops, and invalid-feedback stops retain their existing stop
+policies; they are not delayed to preserve comfort jerk bounds. Cosine compensation,
+wheel-speed saturation and per-wheel acceleration limits still apply downstream,
+so the body shaper is not a guarantee of exact wheel coordination in every transient.
+Odometry continues to use measured wheel feedback, never the smoothed command.
+
+For reference only, a local simulation using 1.0 m/s² and 4.0 m/s³ stops from
+0.3 m/s in approximately 0.77 s over 0.115 m. These are software results, not measured
+hardware stopping performance. Navigation must account for the resulting delay and
+stopping distance. Persistent rotation still requires command/feedback diagnosis.
+
 ## Hardware Interface Contract
 
 | Component | Commands claimed | States consumed |

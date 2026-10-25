@@ -1,5 +1,7 @@
 # rt-control implementation progress
 
+| 2026-10-23 | chassis-control | [整车速度 S 曲线](docs/areas/chassis-control/records/2026-10-22-chassis-twist-scurve.md) | PARTIAL：研华独立构建及173项无设备测试通过，1.0/4.0已配置并启动至IDLE；实车响应、停车距离和导航联调待验 |
+
 | 2026-10-07 | motion | [安装舵轮减速比与换算边界](docs/areas/motion/records/2026-10-07-swerve-installed-ratios.md) | PARTIAL：机械比更新为27.48/140；运行raw/SI比例缺反馈单位和电子齿轮事实，未写设备 |
 
 | 2026-09-24 | release-deploy | [旧履带运行链退役](docs/areas/release-deploy/records/2026-09-24-retire-track-runtime.md) | UNVERIFIED（T0；quality gate 207、V3 Python 98、共享 CANopen 补丁隔离 9 包/150 测试、Docker 39 包及无设备静态 validation 通过；实机/Mock 生命周期待验，V3 CAN 身份 TBD） |

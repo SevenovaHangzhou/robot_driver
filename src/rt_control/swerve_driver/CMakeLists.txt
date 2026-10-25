@@ -5,6 +5,7 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 
 find_package(ament_cmake REQUIRED)
+find_package(ruckig REQUIRED)
 set(dependencies controller_interface hardware_interface diagnostic_msgs geometry_msgs
   nav_msgs sensor_msgs std_msgs pluginlib rclcpp realtime_tools robot_interfaces_qos
   rt_control_semantic_components)
@@ -15,8 +16,9 @@ endforeach()
 option(SWERVE_ENABLE_COVERAGE "Instrument swerve targets for GCC coverage" OFF)
 add_library(swerve_math SHARED
   src/swerve_kinematics.cpp src/swerve_odometry.cpp src/swerve_setpoint.cpp
-  src/odometry_covariance.cpp src/control_core.cpp
+  src/odometry_covariance.cpp src/control_core.cpp src/body_velocity_shaper.cpp
   src/relative_move_planner.cpp src/relative_move_session.cpp src/chassis_mode_handoff.cpp)
+target_link_libraries(swerve_math PUBLIC ruckig::ruckig)
 add_library(swerve_controller SHARED src/swerve_controller.cpp src/chassis_runtime.cpp)
 target_link_libraries(swerve_controller PUBLIC swerve_math)
 ament_target_dependencies(swerve_controller PUBLIC ${dependencies})
@@ -54,7 +56,7 @@ install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(FILES LICENSE NOTICE.md README.md DESTINATION share/${PROJECT_NAME})
 ament_export_targets(export_swerve_driver HAS_LIBRARY_TARGET)
-ament_export_dependencies(${dependencies} rclcpp_action rcl_interfaces rt_control_interfaces)
+ament_export_dependencies(${dependencies} rclcpp_action rcl_interfaces rt_control_interfaces ruckig)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)

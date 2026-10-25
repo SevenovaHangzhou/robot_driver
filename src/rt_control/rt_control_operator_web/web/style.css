@@ -733,7 +733,7 @@ button:disabled {opacity:.4;cursor:not-allowed}
 /* ELECTRI-127: fault reset and steering motion card */
 .reset-op { margin-top: 10px; background: var(--warn); color: #1a1200; }
 .steering-card .steering-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0; }
-.steering-card .steering-row label { color: var(--muted); font-size: 14px; }
+.steering-card .steering-row label, .steering-card .steering-row > span { color: var(--muted); font-size: 14px; }
 .steering-card input { width: 120px; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; font: inherit; }
 .steering-card .op { width: 100%; margin-top: 8px; }
 [hidden] { display: none !important; }

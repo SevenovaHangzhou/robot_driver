@@ -2,7 +2,9 @@
 #define SWERVE_DRIVER__CONTROL_CORE_HPP_
 
 #include <array>
+#include <limits>
 #include <optional>
+#include "swerve_driver/body_velocity_shaper.hpp"
 #include "swerve_driver/swerve_odometry.hpp"
 
 namespace swerve_driver
@@ -22,6 +24,10 @@ struct CoreConfig
   // External encoder monitor: invalid, out of range or > max_encoder_difference from the
   // motor-derived angle for longer than this window raises feedback_fault (seconds).
   double encoder_fault_window{0.05};
+  // Chassis twist S-curve before inverse kinematics (wheel-rim units, see BodyShaperLimits).
+  // Infinite acceleration disables it; max_wheel_acceleration stays the per-wheel backstop.
+  double max_body_acceleration{std::numeric_limits<double>::infinity()};
+  double max_body_jerk{std::numeric_limits<double>::infinity()};
   SwerveSetpointParameters setpoint{};
 };
 
@@ -88,6 +94,8 @@ private:
 
   CoreConfig config_;
   SwerveSetpointGenerator setpoints_;
+  BodyVelocityShaper body_shaper_;
+  bool body_alignment_waiting_{true};
   std::optional<SwerveOdometry> odometry_;
   std::array<SwerveModulePosition, 4> previous_positions_{};
   std::array<double, 4> previous_speeds_{};

@@ -68,6 +68,93 @@ TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)
   }
 }
 
+TEST(ControlCoreBodyShaper, GatedStartWaitsThenRampsOnTheSCurve)
+{
+  auto config = synthetic_config();
+  config.max_body_acceleration = 1.0;
+  config.max_body_jerk = 4.0;
+  ControlCore core{config};
+  ModuleFeedbackArray feedback{};
+  for (auto & module : feedback) {
+    module.valid = module.enabled = module.encoder_valid = true;
+  }
+  ASSERT_TRUE(core.activate(feedback));
+  // Lateral command from rest: modules at 0 rad must first steer to pi/2 (gated, no drive).
+  const ChassisSpeeds lateral{0.0, 0.3, 0.0};
+  auto result = core.update(feedback, lateral, true, 0.004);
+  EXPECT_EQ(result.status, ControlStatus::alignment_gated);
+  for (const auto speed : result.drive_velocity) {
+    EXPECT_DOUBLE_EQ(speed, 0.0);
+  }
+  // Steering reaches the target: drive starts from exactly zero, without a seed step.
+  for (auto & module : feedback) {
+    module.steering_position = module.steering_angle = kPi / 2.0;
+  }
+  double previous{0.0}, previous_step{0.0};
+  for (int cycle = 0; cycle < 400; ++cycle) {
+    result = core.update(feedback, lateral, true, 0.004);
+    ASSERT_EQ(result.status, ControlStatus::running);
+    const double speed = std::abs(result.drive_velocity[0]) * 0.1;  // wheel radius 0.1 m
+    EXPECT_GE(speed, previous - 1e-12);
+    // Check the actual CSV command differences, including the first ramp sample.
+    EXPECT_LE(std::abs((speed - previous) - previous_step), 4.0 * 0.004 * 0.004 + 1e-9);
+    for (size_t i = 1; i < 4; ++i) {
+      EXPECT_NEAR(std::abs(result.drive_velocity[i]), std::abs(result.drive_velocity[0]), 1e-12);
+    }
+    previous_step = speed - previous;
+    previous = speed;
+  }
+  EXPECT_NEAR(previous, 0.3, 1e-6);
+  // Zero command uses the same ramp down, not an instantaneous stop or indefinite tail.
+  for (int cycle = 0; cycle < 400; ++cycle) {
+    result = core.update(feedback, {}, true, 0.004);
+    ASSERT_EQ(result.status, ControlStatus::running);
+    const double speed = std::abs(result.drive_velocity[0]) * 0.1;
+    EXPECT_LE(speed, previous + 1e-12);
+    EXPECT_LE(std::abs((speed - previous) - previous_step), 4.0 * 0.004 * 0.004 + 1e-9);
+    previous_step = speed - previous;
+    previous = speed;
+  }
+  EXPECT_NEAR(previous, 0.0, 1e-12);
+  // A small navigation correction must eventually pass the input deadband and move.
+  for (int cycle = 0; cycle < 250; ++cycle) {
+    result = core.update(feedback, {0.0, 0.002, 0.0}, true, 0.004);
+  }
+  EXPECT_NEAR(std::abs(result.drive_velocity[0]) * 0.1, 0.002, 1e-9);
+  // Moving retarget with lagging steering: wait until all drive commands are zero, then
+  // restart from rest. The body ramp must not advance secretly while alignment gates it.
+  bool gated = false;
+  for (int cycle = 0; cycle < 600; ++cycle) {
+    result = core.update(feedback, {0.3, 0.0, 0.0}, true, 0.004);
+    gated |= result.status == ControlStatus::alignment_gated;
+  }
+  EXPECT_TRUE(gated);
+  EXPECT_EQ(result.status, ControlStatus::alignment_gated);
+  for (const auto speed : result.drive_velocity) {
+    EXPECT_DOUBLE_EQ(speed, 0.0);
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    feedback[i].steering_position = feedback[i].steering_angle = result.steering_position[i];
+  }
+  previous = previous_step = 0.0;
+  for (int cycle = 0; cycle < 400; ++cycle) {
+    result = core.update(feedback, {0.3, 0.0, 0.0}, true, 0.004);
+    ASSERT_EQ(result.status, ControlStatus::running);
+    const double speed = std::abs(result.drive_velocity[0]) * 0.1;
+    EXPECT_LE(std::abs((speed - previous) - previous_step), 4.0 * 0.004 * 0.004 + 1e-9);
+    previous_step = speed - previous;
+    previous = speed;
+  }
+  EXPECT_NEAR(previous, 0.3, 1e-6);
+  for (int cycle = 0; cycle < 50; ++cycle) {
+    result = core.update(feedback, lateral, false, 0.004);
+    EXPECT_EQ(result.status, ControlStatus::command_timeout);
+  }
+  for (const auto speed : result.drive_velocity) {
+    EXPECT_DOUBLE_EQ(speed, 0.0);
+  }
+}
+
 TEST_F(ControlCoreTest, ExternalEncoderOnlyMonitorsAndGatingUsesTheMotorAngle)
 {
   // An external offset within max_encoder_difference neither gates the wheels nor moves
