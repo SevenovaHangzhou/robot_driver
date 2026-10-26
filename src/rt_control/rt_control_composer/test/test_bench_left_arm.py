@@ -140,22 +140,37 @@ def test_bench_calibration_stays_in_the_bench_unit():
 MODEL_JOINTS = [f"left_joint{index}" for index in range(1, 8)]
 
 
-def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_path):
-    selection = {**arguments(shares, confirmed=True), "control_scope": "bench_left_arm"}
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_motion_scope_exposes_the_arm_trajectory_capability(shares, tmp_path, side):
+    scope = f"bench_{side}_arm"
+    controller = f"{side}_arm_jtc"
+    joints = [f"{side}_joint{index}" for index in range(1, 8)]
+    selection = {
+        **arguments(shares, confirmed=True),
+        "physical_profile": scope,
+        "control_scope": scope,
+    }
     result = compose(**selection, runtime_dir=tmp_path / "mock")
-    assert result.systems[0]["result"]["managed_joints"] == MODEL_JOINTS
-    assert result.lifecycle["motion_controllers"] == ["left_arm_jtc"]
-    jtc = result.controllers["left_arm_jtc"]["ros__parameters"]
-    assert jtc["joints"] == MODEL_JOINTS and jtc["command_interfaces"] == ["position"]
+    assert result.systems[0]["result"]["managed_joints"] == joints
+    manifest = load_yaml(shares["rt_control_machine_config"] / "machines/Alfa_V3/manifest.yaml")
+    topology = result.systems[0]["result"]["expected_topology"]
+    assert manifest["profiles"][scope]["layout"]["ethercat"]["ring_positions"] == [
+        entry["ring_position"] for entry in topology["responders"]
+    ]
+    assert result.lifecycle["motion_controllers"] == [controller]
+    jtc = result.controllers[controller]["ros__parameters"]
+    assert jtc["joints"] == joints and jtc["command_interfaces"] == ["position"]
     assert jtc["trajectory_start_consistency_check"]["enabled"] is True
     enable = result.controllers["enable_manager"]["ros__parameters"]
-    assert enable["enable_only"] is False and enable["jtc_name"] == "left_arm_jtc"
+    assert enable["managed_joints"] == joints
+    assert enable["enable_batch_joint_names"] == joints
+    assert enable["enable_only"] is False and enable["jtc_name"] == controller
     assert enable["motion_mode_switching"] is False
     assert {
         "name": "arm_joint_trajectory",
-        "topic": "/left_arm_jtc/follow_joint_trajectory",
+        "topic": f"/{controller}/follow_joint_trajectory",
         "type": "control_msgs/action/FollowJointTrajectory",
-        "controller": "left_arm_jtc",
+        "controller": controller,
     } in result.lifecycle["capabilities"]
 
 
@@ -261,3 +276,58 @@ def test_real_artifact_carries_the_bench_realtime_cpu_layout(shares, tmp_path):
     assert host["rt_cpu"] == 14 and host["hostname"] == "ar-Default-string"
     assert 14 not in host["housekeeping_cpus"]
     assert sorted(host["housekeeping_cpus"]) == [0, 2, 4, 6, 8, 10, 12, *range(16, 28)]
+
+
+def right_scan(calls, count=18, right_first=9, sensor_product=0x8081, active=False):
+    identities = {
+        0: (0x00100000, 0x10F40931, 0x10000),
+        17: (0x00100000, 0x10F40932, 0x10000),
+        8: (0xA1, 0x8081, 1),
+        16: (0xA1, 0x8081, 1),
+        **{ring: (0x5A65726F, 0x29252, 1) for ring in [*range(1, 8), *range(9, 16)]},
+    }
+
+    def run(command, **_):
+        calls.append(command[1])
+        if command[1] == "master":
+            return f"Active: {'yes' if active else 'no'}\nSlaves: {count}\n"
+        assert command[1] == "slaves", "Motion topology preflight must not access SDO"
+        blocks = []
+        for ring, (vendor, product, revision) in sorted(identities.items()):
+            if ring == 8:
+                product = sensor_product
+            block = (
+                f"=== Master 0, Slave {ring} ===\nState: PREOP\n"
+                f"Vendor Id: 0x{vendor:08x}\nProduct code: 0x{product:08x}\n"
+                f"Revision number: 0x{revision:08x}\n"
+            )
+            if ring == 0:
+                block += f" 1 MII up open yes {right_first}\n 2 EBUS up open yes 17\n"
+            blocks.append(block)
+        return "".join(blocks)
+
+    return run
+
+
+def test_right_motion_requires_the_live_branch_layout_without_sdo(shares, tmp_path):
+    selection = {
+        **arguments(shares),
+        "physical_profile": "bench_right_arm",
+        "control_scope": "bench_right_arm",
+    }
+    result = compose(**selection, runtime_dir=tmp_path / "right", use_mock_hardware=False)
+    topology = result.systems[0]["result"]["expected_topology"]
+    assert [axis["ring_position"] for axis in topology["axes"]] == list(range(9, 16))
+    assert topology["branches"] == [{"main_esc_port": 1, "downstream": 9}]
+    calls = []
+
+    preflight(result, run=right_scan(calls))
+    assert calls == ["master", "slaves"]
+    for execute, message in [
+        (right_scan(calls, count=9), "responder count"),
+        (right_scan(calls, right_first=1), "Branch wiring"),
+        (right_scan(calls, sensor_product=0), "slave identity"),
+        (right_scan(calls, active=True), "inactive master"),
+    ]:
+        with pytest.raises(RuntimeError, match=message):
+            preflight(result, run=execute)

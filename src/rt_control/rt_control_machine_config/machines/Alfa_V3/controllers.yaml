@@ -294,3 +294,29 @@ controllers:
     - runtime:
         key: startup_id
         as: startup_id
+  right_arm_jtc:
+    module: bench_right_arm
+    name: right_arm_jtc
+    plugin: joint_trajectory_controller/JointTrajectoryController
+    package: rolling_trajectory_controller
+    config_file: config/Alfa_V3_bench_right_arm_motion.yaml
+    actuator_groups:
+    - csp
+    required_state_modules: []
+    tags:
+    - trajectory
+    - motion
+    - enable_target
+    capabilities:
+    - name: arm_joint_trajectory
+      topic: /right_arm_jtc/follow_joint_trajectory
+      type: control_msgs/action/FollowJointTrajectory
+    parameters:
+    - policy:
+        name: motion
+        path: joints
+        as: joints
+        match: actuator_groups
+    - policy:
+        name: motion
+        path: jtc

@@ -5,7 +5,7 @@ import subprocess
 
 
 def preflight(expected_topology, *, run=None):
-    """Reproduce the old stationary checks. Motion has no new admission preflight."""
+    """Validate declared topology; only full preflight reads drive objects via SDO."""
     topology = {
         **expected_topology,
         "responders": sorted(
@@ -54,6 +54,8 @@ def preflight(expected_topology, *, run=None):
         )
         if not match or int(match.group(1)) != branch["downstream"]:
             raise RuntimeError("Branch wiring differs from the declared layout")
+    if topology.get("topology_only", False):
+        return
     for axis in topology["axes"]:
 
         def value(index):

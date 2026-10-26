@@ -253,3 +253,6 @@
 | 2026-10-15 | integration | [ELECTRI-183 公共参数绑定与跨层耦合修复](docs/areas/integration/records/2026-10-15-electri-183-public-bindings.md) | UNVERIFIED（T0；定向组合测试与头部接口测试通过，运行/实机未验） |
 | 2026-10-14 | platform | [四层源码合并证据与观察起点](docs/areas/platform/records/2026-10-14-composer-merged-evidence.md) | PARTIAL（main c220e5e；完整CI41包/2107 tests无失败；后续20PR观察起点已登记，T1/实机缺口保留） |
 | 2026-10-14 | arm-control | [显式手臂策略](docs/areas/arm-control/records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；数值/顺序/金样对齐；包络未实测） |
+| 2026-10-26 | hw-config | [独立右臂 scope 与 18121](docs/areas/hw-config/records/2026-10-26-bench-right-arm-scope.md) | 已被 [物理映射纠正](docs/areas/hw-config/records/2026-10-26-right-arm-physical-mapping-correction.md) 覆盖：原 9 responder 配置未经现场枚举确认，错误把左臂 1..7 标为右臂 |
+| 2026-10-26 | hw-config | [右臂物理映射纠正](docs/areas/hw-config/records/2026-10-26-right-arm-physical-mapping-correction.md) | PARTIAL（T2：18 responder，左1..7 / 右9..15；修正安装/4包构建/本地282项通过，远端6项旧模型快照断言在修正前后相同；最新运行是传感器台架，18121未运行，右臂反馈待授权切换验证） |
+| 2026-10-26 | hw-config | [右臂启动与实时反馈验证](docs/areas/hw-config/records/2026-10-26-right-arm-scope-runtime-verification.md) | PARTIAL（T3；用户授权退出传感器栈后启动成功，初始IDLE；运行参数右9..15、439帧ROS/41帧SSE差≤0.002747°；18121已可用，外部后续使能为ENABLED，agent未复位/使能/运动） |

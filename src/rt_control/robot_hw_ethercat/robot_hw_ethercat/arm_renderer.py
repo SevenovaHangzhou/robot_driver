@@ -220,8 +220,10 @@ def render(request, share, validate_module, validate_unit, validate_device):
             if item["identity_key"] == "coupler_subdevice"
         ],
         "kind": "cia402_topology",
-        "preflight_required": stationary,
+        "preflight_required": stationary or spec.get("topology_preflight", False),
     }
+    if spec.get("topology_preflight", False) and not stationary:
+        expected["topology_only"] = True
     from .master_health import sensors as health_sensors
 
     sensors = health_sensors(request, [axis for _, axis in axes])

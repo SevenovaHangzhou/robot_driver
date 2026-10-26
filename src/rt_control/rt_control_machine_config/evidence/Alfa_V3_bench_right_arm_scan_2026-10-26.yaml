@@ -1,0 +1,24 @@
+observation_date: '2026-10-26'
+host: ar-Default-string
+source: ethercat master -m 0; ethercat slaves -m 0 -v
+access: cached master/slave information only; no SDO, reset, enable or motion
+master_active: true
+responder_count: 18
+main_coupler_ports:
+  1: {connector: X3, next_slave: 9, physical_branch: right_arm}
+  2: {connector: internal_EBUS, next_slave: 17}
+  3: {connector: X2, next_slave: 1, physical_branch: left_arm}
+responders:
+  - {position: 0, device: main_coupler, vendor_id: 0x00100000, product_code: 0x10f40931, revision: 0x00010000}
+  - {positions: [1, 2, 3, 4, 5, 6, 7], device: left_arm_drives, vendor_id: 0x5a65726f, product_code: 0x00029252, revision: 1}
+  - {position: 8, device: left_wrist_force_sensor, vendor_id: 0x000000a1, product_code: 0x00008081, revision: 1}
+  - {positions: [9, 10, 11, 12, 13, 14, 15], device: right_arm_drives, vendor_id: 0x5a65726f, product_code: 0x00029252, revision: 1}
+  - {position: 16, device: right_wrist_force_sensor, vendor_id: 0x000000a1, product_code: 0x00008081, revision: 1}
+  - {position: 17, device: coupler_subdevice, vendor_id: 0x00100000, product_code: 0x10f40932, revision: 0x00010000}
+identity_limitations:
+  - All cached serial numbers are zero; identity alone cannot distinguish left/right.
+  - Branch ownership uses confirmed X2-left/X3-right wiring, live NextSlave values and user observation.
+correction:
+  previous_right_mapping: [1, 2, 3, 4, 5, 6, 7]
+  correct_right_mapping: [9, 10, 11, 12, 13, 14, 15]
+  runtime_reactivation_required: true

@@ -1,0 +1,19 @@
+--- a/tools-local/arm
++++ b/tools-local/arm
+@@ -3 +3 @@
+-#   arm start [left|dual]    启动控制栈（不使能）+ 操作台 + guard；left=左臂 7 轴，dual=双臂 14 轴
++#   arm start [left|right|dual]    启动控制栈（不使能）+ 操作台 + guard；left=左臂 7 轴，right=右臂 7 轴，dual=双臂 14 轴
+@@ -5 +5 @@
+-#   arm restart [left|dual]  先停再启（使能管理器"失败"后要用它恢复）；不写则沿用上次的选择
++#   arm restart [left|right|dual]  先停再启（使能管理器"失败"后要用它恢复）；不写则沿用上次的选择
+@@ -17 +17 @@
+-SCOPE_FILE=$TOOLS/scope   # remembers left|dual for stop/status/console
++SCOPE_FILE=$TOOLS/scope   # remembers left|right|dual for stop/status/console
+@@ -19 +19 @@
+-select_scope() {  # $1 = left|dual|"" (keep the remembered one)
++select_scope() {  # $1 = left|right|dual|"" (keep the remembered one)
+@@ -22,0 +23 @@
++    right) SCOPE=bench_right_arm; JTC=right_arm_jtc; POSES=$WS/console_poses_right.json ;;
+@@ -24 +25 @@
+-    *) echo "scope 只能是 left 或 dual"; exit 2 ;;
++    *) echo "scope 只能是 left、right 或 dual"; exit 2 ;;

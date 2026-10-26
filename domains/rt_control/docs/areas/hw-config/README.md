@@ -32,6 +32,12 @@
 
 | integration-20261014-03#F1–F4 | head配置按README示例保持draft；确认人/日期、方向/零位、全机力传感拓扑仍TBD | [停止点三报告](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（离线准入检查；实际确认待补） |
 
+| hw-config-20261026-01#F1–F3 | 原独立右臂 9 responder 假设未经实扫确认；F1 及物理反馈结论已由 02 纠正，保留历史 | [右臂 scope](records/2026-10-26-bench-right-arm-scope.md) | 已覆盖；不作为当前接线依据 |
+
+| hw-config-20261026-02#F1–F4 | 实扫18 responder：X2左1..7、X3右9..15、蓝点8/16、耦合器0/17；右臂scope仅管理9..15并检查缓存拓扑 | [右臂物理映射纠正](records/2026-10-26-right-arm-physical-mapping-correction.md) | PARTIAL（T2 只读；后续运行反馈验证见03） |
+
+| hw-config-20261026-03#F1–F4 | 授权退出传感器占用后右臂scope成功启动；运行参数9..15、右OP/左PREOP；18121与ROS实时反馈一致 | [右臂运行反馈验证](records/2026-10-26-right-arm-scope-runtime-verification.md) | PARTIAL（T3；启动/反馈通过，agent未复位/使能/运动；后续外部操作为ENABLED） |
+
 ## 跨区事实关联
 
 协议与驱动事实见[protocol](../protocol/README.md)，启动拼装见[integration](../integration/README.md)。当前源码与目标两层归属的差异见划分decision。

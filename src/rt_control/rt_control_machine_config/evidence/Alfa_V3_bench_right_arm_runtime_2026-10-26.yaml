@@ -1,0 +1,47 @@
+observation_date: '2026-10-26'
+host: ar-Default-string
+scope: bench_right_arm
+physical_profile: bench_right_arm
+run: arm-20261026-134603
+console_url: http://192.168.100.40:18121/
+authorization: user explicitly allowed stopping the sensor bench and starting the right-arm scope
+agent_actions:
+  sensor_bench_stop: handled SIGINT to sensor-only controller after launch ignored SIGINT
+  right_scope_start: arm start right
+  fault_reset: false
+  enable: false
+  motion: false
+before_start:
+  master_active: false
+  responders: 18
+  all_slaves_preop: true
+startup:
+  exit_code: 0
+  artifact_files: 11
+  enable_manager_state: IDLE
+live_readback:
+  source: controller_manager robot_description parameter, ROS subscriptions, console SSE, cached EtherCAT slaves
+  managed_joints:
+    right_joint1: 9
+    right_joint2: 10
+    right_joint3: 11
+    right_joint4: 12
+    right_joint5: 13
+    right_joint6: 14
+    right_joint7: 15
+  right_drive_states: OP
+  left_drive_states: PREOP
+  force_sensor_states: PREOP
+  ros_joint_state_samples: 439
+  ros_timestamps_advancing: true
+  console_sse_samples: 41
+  console_mock: false
+  console_feedback_fresh: true
+  max_ros_sse_difference_deg: 0.002747
+  hardware: {ecat_arms: active}
+  trajectory_controller: {right_arm_jtc: active}
+  observed_enable_manager_state: ENABLED
+  enable_state_note: external enable and trajectory requests appeared after startup; none were sent by this task
+limits:
+  - This verifies the live right-arm feedback binding and console data path.
+  - Physical per-axis movement, direction and calibration were not commissioned by this task.
