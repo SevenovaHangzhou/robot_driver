@@ -9,6 +9,8 @@
 `domains/rt_control/AGENTS.md` 定义实时域更严格的专属规则，可以细化但不得放宽根契约。
 公共接口变更必须在独立 `robot_interfaces` 仓库列出并通知全部受影响域，不得把其实现拉进本仓库。
 
+架构、分层、编码与测试规则以 ARCHITECTURE.md 为准；本文件与其冲突时以 ARCHITECTURE.md 为准。
+
 ## 2. 开始任务前
 
 1. 阅读根 `README.md`，确认 RT-Control 责任边界和共享资产所有权。
