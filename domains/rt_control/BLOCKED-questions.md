@@ -20,4 +20,33 @@
 
 ## 条目
 
-（暂无）
+## D-001 — 头部使能并入 enable_manager，待实机验证 [OPEN]
+
+- 问题：达妙头部的使能、失能、清错已由 enable_manager 以"握手式设备"方式负责，原
+  `damiao_head_controller` 与 `/rt/head/*` 删除（PR #110，arch-s7）。软件测试与 mock 启停已通过，
+  实机行为尚未验证。
+- 证据：PR #110 的验证记录（enable_manager 98 项测试，含 10 项握手设备用例；head_only mock 启停）。
+- 影响范围：只阻塞 #110 及其后续 PR 的合并与头部实机使用；不影响双臂、底盘。
+- 待验证项：启动后 IDLE 且两台未使能；`/rt/enable` 两台使能并激活位置控制器；`/rt/disable`
+  先停位置控制器再失能；故障锁存进入 FAILED、`/rt/reset_fault` 回到 IDLE；使能中 SIGTERM 先失能再退出。
+- 裁决：用户 2026-10-29 要求合并后实机测试；结论待填。
+
+## D-002 — 统一三份 SocketCAN 实现 [OPEN]
+
+- 问题：`robot_hw_can`（达妙，跑在 ros2_control 实时 read/write 中）、`bms_node`（29 位扩展帧，
+  失败后重连）、`lpms_nav3_can`（只收、拒绝 can0/can1）各自实现打开、过滤、收发。
+- 证据：架构梳理差异表（2026-10-29 会话）；`robot_hw_can/src/socketcan.cpp`、`bms_node/src/bms_node.cpp:245`、
+  `lpms_nav3_can/src/lpms_nav3_can_node.cpp:245`。
+- 影响范围：不阻塞现有功能；属于 `ARCHITECTURE.md` 第 5 步（抽 infra 库）。
+- 裁决：用户 2026-10-29：统一关闭"接收自身发出的帧"；共用部分抽成公共库，后续再做。
+  抽取范围、`can0/can1` 保留检查是否进公共库，动手前再确认；涉及实时路径，需要实机验证。
+
+## D-003 — 统一两个 Modbus TCP 客户端 [OPEN]
+
+- 问题：`plc_io_modbus`（长连接、固定 1 s 超时、getaddrinfo、FC01–06）与 `modbus_tcp_rtu485`
+  （每次请求重连、可配置超时、只接受 IPv4）各自实现连接、收发与报头校验。
+- 证据：架构梳理差异表（2026-10-29 会话）；`plc_io_modbus/src/modbus_client.cpp`、
+  `modbus_tcp_rtu485/src/modbus_transport.cpp`。
+- 影响范围：不阻塞现有功能；属于 `ARCHITECTURE.md` 第 5 步。`plc_io_modbus` 负责写真空泵与阀，改动需实机验证。
+- 裁决：用户 2026-10-29：统一为长连接；超时可配置；地址解析统一用 getaddrinfo；后续再做。
+
