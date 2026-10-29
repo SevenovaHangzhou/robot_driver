@@ -302,6 +302,8 @@ def compose(
         "control_scope": control_scope,
         "use_mock_hardware": use_mock_hardware,
         "staged_hardware_activation": staged,
+        # Whether the scope launcher also runs robot_state_publisher for this model view.
+        "publish_robot_state": bool(scope.get("publish_robot_state", False)),
         "hardware_activation_order": list(hardware_order),
         "motion_controllers": list(order["inactive"]),
         "lifecycle_controllers": list(order["active"]),

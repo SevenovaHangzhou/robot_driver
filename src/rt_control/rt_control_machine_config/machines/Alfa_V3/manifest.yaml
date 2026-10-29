@@ -610,6 +610,7 @@ scopes:
     robot_name: alfa_v3_head_control
     parameter_view: head_state
     staged_hardware_activation: true
+    publish_robot_state: true
   arms_stationary_enable:
     enabled_modules:
     - arms

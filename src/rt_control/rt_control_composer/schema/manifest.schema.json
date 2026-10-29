@@ -648,6 +648,9 @@
             },
             "staged_hardware_activation": {
               "type": "boolean"
+            },
+            "publish_robot_state": {
+              "type": "boolean"
             }
           },
           "required": [

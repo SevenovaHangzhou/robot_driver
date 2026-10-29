@@ -15,6 +15,7 @@ lifecycle_controllers:
 - enable_manager
 motion_controllers:
 - head_position_controller
+publish_robot_state: true
 staged_hardware_activation: true
 transports:
 - robot_hw_can
