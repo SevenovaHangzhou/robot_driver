@@ -53,7 +53,7 @@ ros2 run rt_control_composer compose_artifact --output /abs/dir --robot-variant 
 
 | 文件 | 内容 |
 | --- | --- |
-| [BLOCKED-questions.md](BLOCKED-questions.md) | 已裁决和待裁决的硬件、接口、安全事实（权威约束；后续裁决可能取代早期条目） |
+| [BLOCKED-questions.md](BLOCKED-questions.md) | 阻塞问题与用户裁决（2026-10-29 重新开始，写入前须用户确认；旧条目见 git 历史） |
 | [PROGRESS.md](PROGRESS.md) | 验证时间线索引 |
 | [docs/areas/](docs/areas/README.md) | 7 个功能区的冻结事实表与开发记录 |
 | [docs/areas-archive/](docs/areas-archive/) | 2026-10-13 前 9 个旧功能区的记录（只读归档） |
