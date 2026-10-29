@@ -491,8 +491,7 @@ EnableManagerController::validateTopologyParameterUpdate(
       parameter.get_name() == "motion_controller_names" ||
       parameter.get_name() == "default_motion_controller" ||
       parameter.get_name() == "rolling_motion_controller" ||
-      parameter.get_name() == "handshake_devices" ||
-      parameter.get_name() == "diagnostic_joints" ||
+      parameter.get_name() == "handshake_devices" || parameter.get_name() == "diagnostic_joints" ||
       parameter.get_name() == "diagnostic_joint_interfaces") {
       if (topology_parameters_frozen_.load(std::memory_order_acquire)) {
         result.successful = false;
@@ -524,11 +523,9 @@ bool EnableManagerController::configureTopology()
   auto explicit_mask = topology_parameters_explicit_mask_.load(std::memory_order_acquire);
   const auto device_names = get_node()->get_parameter("handshake_devices").as_string_array();
   if (
-    std::any_of(device_names.begin(), device_names.end(), [](const auto & name) {
-      return name.empty();
-    }) ||
-    std::set<std::string>(device_names.begin(), device_names.end()).size() != device_names.size())
-  {
+    std::any_of(
+      device_names.begin(), device_names.end(), [](const auto & name) { return name.empty(); }) ||
+    std::set<std::string>(device_names.begin(), device_names.end()).size() != device_names.size()) {
     RCLCPP_ERROR(get_node()->get_logger(), "handshake_devices must be unique nonempty names");
     return false;
   }
@@ -675,15 +672,13 @@ bool EnableManagerController::configureTopology()
 controller_interface::CallbackReturn EnableManagerController::on_activate(
   const rclcpp_lifecycle::State &)
 {
-  const std::size_t expected_state_count = cia402_axes_.size() + expected_modes_.size() +
-                                           ready_state_names_.size() +
-                                           (motion_mode_switching_ ? kMotionAxisCount + 1U : 0U) +
-                                           handshake_devices_.size() * 4U +
-                                           diagnostic_state_names_.size();
+  const std::size_t expected_state_count =
+    cia402_axes_.size() + expected_modes_.size() + ready_state_names_.size() +
+    (motion_mode_switching_ ? kMotionAxisCount + 1U : 0U) + handshake_devices_.size() * 4U +
+    diagnostic_state_names_.size();
   if (
     command_interfaces_.size() != cia402_axes_.size() + handshake_devices_.size() * 2U ||
-    state_interfaces_.size() != expected_state_count)
-  {
+    state_interfaces_.size() != expected_state_count) {
     RCLCPP_ERROR(
       get_node()->get_logger(),
       "Unexpected enable-manager command or state interface count");
@@ -760,8 +755,8 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   }
 
   for (std::size_t source = 0; source < diagnostic_state_names_.size(); ++source) {
-    const auto match = std::find_if(
-      state_interfaces_.begin(), state_interfaces_.end(), [&](const auto & interface) {
+    const auto match =
+      std::find_if(state_interfaces_.begin(), state_interfaces_.end(), [&](const auto & interface) {
         return interface.get_name() == diagnostic_state_names_[source];
       });
     if (match == state_interfaces_.end()) {
@@ -917,8 +912,7 @@ controller_interface::return_type EnableManagerController::update(
     }
     if (phase != Phase::kEmergencyQuickStop && !allDevicesEnabled()) {
       startEmergency(
-        anyDeviceFaulted() ? Stage::kFaultDetected : Stage::kUnexpectedDriveState, -1, 0U,
-        now_ns);
+        anyDeviceFaulted() ? Stage::kFaultDetected : Stage::kUnexpectedDriveState, -1, 0U, now_ns);
       phase = Phase::kEmergencyQuickStop;
     }
   }
@@ -2275,7 +2269,7 @@ void EnableManagerController::publishDiagnostics()
   for (const auto & device : handshake_devices_) {
     const auto device_status = device->status();
     const bool device_fault = !device_status.valid || device_status.fault_latched ||
-      device_status.phase == HandshakeDevice::Phase::fault_latched;
+                              device_status.phase == HandshakeDevice::Phase::fault_latched;
     if (device_fault) {
       status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
       status.message = device_status.valid ? "device fault latched" : "device state invalid";
@@ -2538,8 +2532,7 @@ void EnableManagerController::finishDownward()
     current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
     if (any_fault) {
       publishResult(
-        disable_result_, false, Stage::kFaultRequiresReset, -1, first_fault,
-        first_fault_status);
+        disable_result_, false, Stage::kFaultRequiresReset, -1, first_fault, first_fault_status);
       recordFailure(Stage::kFaultRequiresReset, -1, first_fault, first_fault_status);
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else if (jtc_deactivate_failed_.load(std::memory_order_acquire)) {
@@ -2955,30 +2948,30 @@ void EnableManagerController::startDeviceResets() noexcept
 
 bool EnableManagerController::anyDeviceFaulted() const noexcept
 {
-  return std::any_of(
-    handshake_devices_.begin(), handshake_devices_.end(),
-    [](const auto & device) {return device->faulted();});
+  return std::any_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->faulted();
+  });
 }
 
 bool EnableManagerController::allDevicesEnabled() const noexcept
 {
-  return std::all_of(
-    handshake_devices_.begin(), handshake_devices_.end(),
-    [](const auto & device) {return device->enabled();});
+  return std::all_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->enabled();
+  });
 }
 
 bool EnableManagerController::allDevicesDisabledOrFaulted() const noexcept
 {
-  return std::all_of(
-    handshake_devices_.begin(), handshake_devices_.end(),
-    [](const auto & device) {return device->disabled() || device->faulted();});
+  return std::all_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->disabled() || device->faulted();
+  });
 }
 
 bool EnableManagerController::allDeviceResetsComplete() const noexcept
 {
-  return std::all_of(
-    handshake_devices_.begin(), handshake_devices_.end(),
-    [](const auto & device) {return device->reset_complete();});
+  return std::all_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->reset_complete();
+  });
 }
 
 void EnableManagerController::setControlWord(

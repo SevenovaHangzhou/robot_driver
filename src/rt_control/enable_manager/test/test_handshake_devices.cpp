@@ -25,16 +25,16 @@ public:
   using Stage = Controller::Stage;
   using ResultSlot = Controller::ResultSlot;
 
-  static Phase phase(const Controller & c) {return c.phase_.load();}
-  static Stage failureStage(const Controller & c) {return c.last_failure_stage_.load();}
-  static void requestEnable(Controller & c) {c.enable_request_.store(true);}
-  static void requestDisable(Controller & c) {c.disable_request_.store(true);}
-  static void requestReset(Controller & c) {c.reset_request_.store(true);}
-  static void activationSucceeded(Controller & c) {c.jtc_activated_request_.store(true);}
-  static bool hardwareReady(const Controller & c) {return c.enable_hardware_ready_.load();}
-  static const ResultSlot & enableResult(const Controller & c) {return c.enable_result_;}
-  static const ResultSlot & disableResult(const Controller & c) {return c.disable_result_;}
-  static const ResultSlot & resetResult(const Controller & c) {return c.reset_result_;}
+  static Phase phase(const Controller & c) { return c.phase_.load(); }
+  static Stage failureStage(const Controller & c) { return c.last_failure_stage_.load(); }
+  static void requestEnable(Controller & c) { c.enable_request_.store(true); }
+  static void requestDisable(Controller & c) { c.disable_request_.store(true); }
+  static void requestReset(Controller & c) { c.reset_request_.store(true); }
+  static void activationSucceeded(Controller & c) { c.jtc_activated_request_.store(true); }
+  static bool hardwareReady(const Controller & c) { return c.enable_hardware_ready_.load(); }
+  static const ResultSlot & enableResult(const Controller & c) { return c.enable_result_; }
+  static const ResultSlot & disableResult(const Controller & c) { return c.disable_result_; }
+  static const ResultSlot & resetResult(const Controller & c) { return c.reset_result_; }
 };
 
 namespace
@@ -133,7 +133,8 @@ public:
     rclcpp::NodeOptions options;
     options.parameter_overrides(parameters);
     controller_ = std::make_unique<EnableManagerController>();
-    ASSERT_EQ(controller_->init("handshake_test", "", options), controller_interface::return_type::OK);
+    ASSERT_EQ(
+      controller_->init("handshake_test", "", options), controller_interface::return_type::OK);
     ASSERT_EQ(
       controller_->on_configure(rclcpp_lifecycle::State()),
       controller_interface::CallbackReturn::SUCCESS);
@@ -148,8 +149,7 @@ public:
     commands_.emplace_back("head_control", "reset_generation", &plugin_.reset_generation);
     states_.emplace_back("head_control", "phase", &plugin_.phase);
     states_.emplace_back("head_control", "fault_latched", &plugin_.fault_latched);
-    states_.emplace_back(
-      "head_control", "handled_reset_generation", &plugin_.handled_generation);
+    states_.emplace_back("head_control", "handled_reset_generation", &plugin_.handled_generation);
     states_.emplace_back("head_control", "motion_allowed", &plugin_.motion_allowed);
     states_.emplace_back("head_yaw", "fault_code", &fault_code_);
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
@@ -190,10 +190,18 @@ public:
   void stepDrive()
   {
     switch (static_cast<std::uint16_t>(control_word_)) {
-      case 0x0006U: status_word_ = kSwReadyToSwitchOn; break;
-      case 0x0007U: status_word_ = kSwSwitchedOn; break;
-      case 0x000FU: status_word_ = kSwOperationEnabled; break;
-      default: status_word_ = kSwSwitchOnDisabled; break;
+      case 0x0006U:
+        status_word_ = kSwReadyToSwitchOn;
+        break;
+      case 0x0007U:
+        status_word_ = kSwSwitchedOn;
+        break;
+      case 0x000FU:
+        status_word_ = kSwOperationEnabled;
+        break;
+      default:
+        status_word_ = kSwSwitchOnDisabled;
+        break;
     }
   }
 
@@ -226,9 +234,8 @@ TEST_F(HandshakeFixture, DeviceOnlyManagerClaimsOnlyDeviceAndDiagnosticInterface
   EXPECT_EQ(
     controller_->state_interface_configuration().names,
     (std::vector<std::string>{
-      "head_control/phase", "head_control/fault_latched",
-      "head_control/handled_reset_generation", "head_control/motion_allowed",
-      "head_yaw/fault_code"}));
+      "head_control/phase", "head_control/fault_latched", "head_control/handled_reset_generation",
+      "head_control/motion_allowed", "head_yaw/fault_code"}));
 }
 
 TEST_F(HandshakeFixture, StartupWithDisabledDeviceReachesIdle)
