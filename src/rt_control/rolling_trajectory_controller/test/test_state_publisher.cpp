@@ -224,16 +224,11 @@ protected:
 
     auto options = rclcpp::NodeOptions();
     options.parameter_overrides(
-        {
-          rclcpp::Parameter("configuration_source", "test_only"),
-    testJointsParameter(),
-          rclcpp::Parameter("allow_test_only_configuration", true),
-          rclcpp::Parameter(
-            "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-          rclcpp::Parameter(
-            "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-          rclcpp::Parameter(
-            "takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
+      {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
+       rclcpp::Parameter("allow_test_only_configuration", true),
+       rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+       rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+       rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
     controller_ = std::make_unique<RollingTrajectoryController>();
     ASSERT_EQ(
       controller_->init("test_rolling_state", "", options),
@@ -362,18 +357,13 @@ TEST(StatePublisherProvisionalTest, PublicStateExposesProvisionalSourceAndFileHa
   }
   auto options = rclcpp::NodeOptions();
   options.parameter_overrides(
-      {
-        rclcpp::Parameter("configuration_source", "provisional"),
-    testJointsParameter(),
-        rclcpp::Parameter("allow_test_only_configuration", false),
-        rclcpp::Parameter("allow_provisional_configuration", true),
-        rclcpp::Parameter("envelope_file", ROLLING_PROVISIONAL_ENVELOPE_PATH),
-        rclcpp::Parameter(
-          "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-        rclcpp::Parameter(
-          "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-        rclcpp::Parameter(
-          "takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
+    {rclcpp::Parameter("configuration_source", "provisional"), testJointsParameter(),
+     rclcpp::Parameter("allow_test_only_configuration", false),
+     rclcpp::Parameter("allow_provisional_configuration", true),
+     rclcpp::Parameter("envelope_file", ROLLING_PROVISIONAL_ENVELOPE_PATH),
+     rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+     rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+     rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount, 0.125))});
   RollingTrajectoryController controller;
   ASSERT_EQ(
     controller.init("test_provisional_state", "", options),

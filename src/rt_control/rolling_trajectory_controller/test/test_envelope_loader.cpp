@@ -105,7 +105,8 @@ TEST(EnvelopeLoader, LoadsExactFourteenAxisProvisionalArtifactAndHashesRawBytes)
 {
   DynamicEnvelope envelope;
   std::string error;
-  ASSERT_TRUE(loadProvisionalEnvelope(kProvisionalEnvelopePath.string(), kTestJointNames, envelope, error))
+  ASSERT_TRUE(
+    loadProvisionalEnvelope(kProvisionalEnvelopePath.string(), kTestJointNames, envelope, error))
     << error;
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(envelope.source, LimitsSource::kProvisional);
@@ -141,7 +142,8 @@ TEST(EnvelopeLoader, RejectsEveryMissingAxisFieldWithoutFallback)
     envelope.source = LimitsSource::kProduction;
     envelope.limits_version.fill(0xffU);
     std::string error;
-    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), kTestJointNames, envelope, error)) << field;
+    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), kTestJointNames, envelope, error))
+      << field;
     EXPECT_EQ(envelope.source, LimitsSource::kUnspecified) << field;
     EXPECT_EQ(
       envelope.limits_version, (std::array<std::uint8_t, 32>{})) << field;
@@ -179,9 +181,8 @@ TEST(EnvelopeLoader, MissingFileFailsClosed)
   DynamicEnvelope envelope;
   envelope.source = LimitsSource::kProduction;
   std::string error;
-  EXPECT_FALSE(
-    loadProvisionalEnvelope(
-      "/tmp/e102-envelope-that-does-not-exist.yaml", kTestJointNames, envelope, error));
+  EXPECT_FALSE(loadProvisionalEnvelope(
+    "/tmp/e102-envelope-that-does-not-exist.yaml", kTestJointNames, envelope, error));
   EXPECT_EQ(envelope.source, LimitsSource::kUnspecified);
   EXPECT_FALSE(error.empty());
 }
