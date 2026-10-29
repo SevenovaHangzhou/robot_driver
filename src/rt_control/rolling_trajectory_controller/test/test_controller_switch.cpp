@@ -18,6 +18,7 @@
 #include "pluginlib/class_loader.hpp"
 #include "rclcpp/executors/single_threaded_executor.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rolling_test_joints.hpp"
 #include "rolling_trajectory_controller/rolling_trajectory_controller.hpp"
 #include "rolling_trajectory_controller/rolling_types.hpp"
 
@@ -40,7 +41,7 @@ public:
   {
     controller_interface::InterfaceConfiguration configuration;
     configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-    for (const char * joint : kJointNames) {
+    for (const std::string & joint : kTestJointNames) {
       configuration.names.emplace_back(std::string(joint) + "/position");
     }
     return configuration;
@@ -50,7 +51,7 @@ public:
   {
     controller_interface::InterfaceConfiguration configuration;
     configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
-    for (const char * joint : kJointNames) {
+    for (const std::string & joint : kTestJointNames) {
       configuration.names.emplace_back(std::string(joint) + "/position");
     }
     return configuration;
@@ -168,7 +169,7 @@ std::string makeMockUrdf()
   urdf << "<?xml version=\"1.0\"?><robot name=\"rolling_switch_test\">";
   urdf << "<ros2_control name=\"mock_arms\" type=\"system\"><hardware>";
   urdf << "<plugin>mock_components/GenericSystem</plugin></hardware>";
-  for (const char * joint : kJointNames) {
+  for (const std::string & joint : kTestJointNames) {
     urdf << "<joint name=\"" << joint << "\">";
     urdf << "<command_interface name=\"position\"/>";
     urdf << "<state_interface name=\"position\">";
@@ -224,6 +225,7 @@ TEST(RollingControllerSwitch, StrictSwitchNeverDoubleClaimsPositionCommands)
   rolling->get_node()->set_parameters(
       {
         rclcpp::Parameter("configuration_source", "test_only"),
+    testJointsParameter(),
         rclcpp::Parameter("allow_test_only_configuration", true),
         rclcpp::Parameter(
           "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),

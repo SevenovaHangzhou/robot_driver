@@ -111,6 +111,11 @@ controllers:
     parameters:
     - policy:
         name: motion
+        path: joints
+        as: joints
+        match: actuator_groups
+    - policy:
+        name: motion
         path: rolling
     - policy_file:
         name: envelope

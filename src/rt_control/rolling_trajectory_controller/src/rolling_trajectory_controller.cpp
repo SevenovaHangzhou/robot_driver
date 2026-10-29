@@ -39,8 +39,9 @@ constexpr std::int64_t kDefaultMaximumControllerPeriodMs = 8;
 constexpr std::int64_t kDefaultSchedulingGuardMs = 4;
 constexpr double kDefaultOpenFeedbackAgeLimitMs = 500.0;
 
-constexpr std::array<std::string_view, 21> kManagedParameterNames = {
+constexpr std::array<std::string_view, 22> kManagedParameterNames = {
   "configuration_source",
+  "joints",
   "allow_test_only_configuration",
   "allow_provisional_configuration",
   "envelope_file",
@@ -80,14 +81,6 @@ bool millisecondsToNanoseconds(std::int64_t milliseconds, std::uint64_t & nanose
   nanoseconds = value * kNanosecondsPerMillisecond;
   return true;
 }
-
-// SHA-256 of one UTF-8 line per axis, including the final newline:
-// "<joint_name>:rad:rad/s\n" in kJointNames order.
-constexpr std::array<std::uint8_t, 32> kAxisSetHash = {
-  0xf4U, 0xc8U, 0xffU, 0x8aU, 0x32U, 0x18U, 0x3dU, 0x17U,
-  0x33U, 0x03U, 0x24U, 0x94U, 0x60U, 0x0cU, 0x9fU, 0x5dU,
-  0x1eU, 0x7eU, 0x62U, 0x56U, 0x73U, 0xa4U, 0xadU, 0x51U,
-  0x55U, 0x6bU, 0x3aU, 0xc6U, 0xc3U, 0x5aU, 0xdeU, 0xe4U};
 
 constexpr std::array<std::uint8_t, 32> kTestOnlyLimitsVersion = {
   0xa1U, 0xc3U, 0x34U, 0x03U, 0xa1U, 0x37U, 0x0eU, 0xf8U,
@@ -203,6 +196,7 @@ DynamicEnvelope makeTestOnlyEnvelope() noexcept
 controller_interface::CallbackReturn RollingTrajectoryController::on_init()
 {
   auto_declare<std::string>("configuration_source", "unconfigured");
+  auto_declare<std::vector<std::string>>("joints", {});
   auto_declare<bool>("allow_test_only_configuration", false);
   auto_declare<bool>("allow_provisional_configuration", false);
   auto_declare<std::string>("envelope_file", "");
@@ -250,6 +244,11 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_init()
 bool RollingTrajectoryController::loadRuntimeConfiguration(std::string & error)
 {
   RuntimeConfiguration candidate;
+  if (!parseJointNames(
+      get_node()->get_parameter("joints").as_string_array(), candidate.joints, error))
+  {
+    return false;
+  }
   const std::int64_t capacity = get_node()->get_parameter("buffer_capacity").as_int();
   if (capacity < 2 || capacity > static_cast<std::int64_t>(kTransportMaxPoints)) {
     error = "buffer_capacity must be in [2, 256]";
@@ -377,8 +376,8 @@ RollingTrajectoryController::command_interface_configuration() const
   controller_interface::InterfaceConfiguration configuration;
   configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
   configuration.names.reserve(kAxisCount);
-  for (const char * joint : kJointNames) {
-    configuration.names.emplace_back(std::string(joint) + "/position");
+  for (const std::string & joint : runtime_configuration_.joints) {
+    configuration.names.emplace_back(joint + "/position");
   }
   return configuration;
 }
@@ -389,8 +388,8 @@ RollingTrajectoryController::state_interface_configuration() const
   controller_interface::InterfaceConfiguration configuration;
   configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
   configuration.names.reserve(kAxisCount + 1U);
-  for (const char * joint : kJointNames) {
-    configuration.names.emplace_back(std::string(joint) + "/position");
+  for (const std::string & joint : runtime_configuration_.joints) {
+    configuration.names.emplace_back(joint + "/position");
   }
   configuration.names.emplace_back(kFeedbackAgeInterface);
   return configuration;
@@ -426,6 +425,8 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
     return controller_interface::CallbackReturn::ERROR;
   }
 
+  axis_set_hash_ = computeAxisSetHash(runtime_configuration_.joints);
+
   BufferConfiguration buffer_configuration;
   buffer_configuration.capacity = runtime_configuration_.buffer_capacity;
   buffer_configuration.required_initial_horizon_ns =
@@ -445,7 +446,9 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
     envelope_ = makeTestOnlyEnvelope();
   } else {
     std::string envelope_error;
-    if (!loadProvisionalEnvelope(envelope_file, envelope_, envelope_error)) {
+    if (!loadProvisionalEnvelope(
+        envelope_file, runtime_configuration_.joints, envelope_, envelope_error))
+    {
       RCLCPP_ERROR(
         get_node()->get_logger(), "Failed to load provisional rolling envelope: %s",
         envelope_error.c_str());
@@ -551,7 +554,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   std::array<double, kAxisCount> source_commands{};
   std::array<double, kAxisCount> actual_positions{};
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    const std::string expected_name = std::string(kJointNames[axis]) + "/position";
+    const std::string expected_name = runtime_configuration_.joints[axis] + "/position";
     if (
       command_interfaces_[axis].get_name() != expected_name ||
       state_interfaces_[axis].get_name() != expected_name)
@@ -1171,7 +1174,7 @@ bool RollingTrajectoryController::buildPublicState(StateMessage & state)
   state.pending_generation_valid = pending_valid;
   state.test_only_limits = envelope_.source == LimitsSource::kTestOnly;
   state.limits_source.value = static_cast<std::uint8_t>(envelope_.source);
-  state.axis_set_hash = kAxisSetHash;
+  state.axis_set_hash = axis_set_hash_;
   state.limits_version = envelope_.limits_version;
   state.active_generation = view.active_generation;
   state.validation_base_generation = buffer_.validationBaseGeneration();
@@ -1579,7 +1582,7 @@ void RollingTrajectoryController::handleOpen(
     setOpenError(*response, ServiceResultMessage::WRONG_CLIENT);
     return;
   }
-  if (request->axis_set_hash != kAxisSetHash) {
+  if (request->axis_set_hash != axis_set_hash_) {
     setOpenError(*response, ServiceResultMessage::AXIS_SET_MISMATCH);
     return;
   }
@@ -1670,7 +1673,7 @@ void RollingTrajectoryController::handleOpen(
   response->client_instance_id = request->client_instance_id;
   response->session_id.uuid = identity.session_id;
   response->session_state.value = SessionStateMessage::PRIMING;
-  response->axis_set_hash = kAxisSetHash;
+  response->axis_set_hash = axis_set_hash_;
   response->limits_version = envelope_.limits_version;
   response->limits_source.value = static_cast<std::uint8_t>(envelope_.source);
   response->capability_bits = kCapabilityBits;

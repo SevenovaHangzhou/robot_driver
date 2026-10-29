@@ -27,6 +27,7 @@
 #include "robot_rt_control_interfaces/srv/close_rolling_joint_session.hpp"
 #include "robot_rt_control_interfaces/srv/open_rolling_joint_session.hpp"
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
+#include "rolling_trajectory_controller/axis_set.hpp"
 #include "rolling_trajectory_controller/limit_checker.hpp"
 #include "rolling_trajectory_controller/rolling_buffer.hpp"
 #include "rolling_trajectory_controller/rolling_snapshot.hpp"
@@ -140,6 +141,7 @@ private:
     std::array<double, kAxisCount> takeover_tolerances{};
     std::array<double, kAxisCount> splice_position_tolerances{};
     std::array<double, kAxisCount> splice_velocity_tolerances{};
+    JointNames joints{};
   };
 
   static constexpr const char * kFeedbackAgeInterface =
@@ -196,6 +198,7 @@ private:
   std::array<std::atomic<std::uint64_t>, kAxisCount> desired_position_bits_{};
   std::array<std::atomic<std::uint64_t>, kAxisCount> desired_velocity_bits_{};
   std::atomic<std::uint64_t> feedback_age_bits_{0U};
+  AxisSetHash axis_set_hash_{};
   DynamicEnvelope envelope_{};
   RuntimeConfiguration runtime_configuration_{};
   RollingBuffer buffer_{};

@@ -26,6 +26,7 @@
 #include "robot_rt_control_interfaces/msg/rolling_session_state.hpp"
 #include "robot_rt_control_interfaces/srv/close_rolling_joint_session.hpp"
 #include "robot_rt_control_interfaces/srv/open_rolling_joint_session.hpp"
+#include "rolling_test_joints.hpp"
 #include "rolling_trajectory_controller/rolling_snapshot.hpp"
 #include "rolling_trajectory_controller/rolling_trajectory_controller.hpp"
 #include "rolling_trajectory_controller/rolling_types.hpp"
@@ -181,8 +182,8 @@ protected:
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
       actual_positions_[axis] = static_cast<double>(axis) * 0.25;
       command_positions_[axis] = actual_positions_[axis] + 0.01;
-      command_handles_.emplace_back(kJointNames[axis], "position", &command_positions_[axis]);
-      state_handles_.emplace_back(kJointNames[axis], "position", &actual_positions_[axis]);
+      command_handles_.emplace_back(kTestJointNames[axis], "position", &command_positions_[axis]);
+      state_handles_.emplace_back(kTestJointNames[axis], "position", &actual_positions_[axis]);
     }
     feedback_age_ms_ = 12.0;
     state_handles_.emplace_back(
@@ -192,6 +193,7 @@ protected:
     options.parameter_overrides(
         {
           rclcpp::Parameter("configuration_source", "test_only"),
+    testJointsParameter(),
           rclcpp::Parameter("allow_test_only_configuration", true),
           rclcpp::Parameter("buffer_capacity", std::int64_t{32}),
           rclcpp::Parameter("max_horizon_ms", std::int64_t{700}),

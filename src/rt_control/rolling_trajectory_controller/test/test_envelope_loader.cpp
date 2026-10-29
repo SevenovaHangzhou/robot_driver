@@ -12,6 +12,7 @@
 #include <system_error>
 #include <vector>
 
+#include "rolling_test_joints.hpp"
 #include "rolling_trajectory_controller/envelope_loader.hpp"
 #include "rolling_trajectory_controller/limit_checker.hpp"
 #include "rolling_trajectory_controller/rolling_types.hpp"
@@ -104,7 +105,7 @@ TEST(EnvelopeLoader, LoadsExactFourteenAxisProvisionalArtifactAndHashesRawBytes)
 {
   DynamicEnvelope envelope;
   std::string error;
-  ASSERT_TRUE(loadProvisionalEnvelope(kProvisionalEnvelopePath.string(), envelope, error))
+  ASSERT_TRUE(loadProvisionalEnvelope(kProvisionalEnvelopePath.string(), kTestJointNames, envelope, error))
     << error;
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(envelope.source, LimitsSource::kProvisional);
@@ -140,7 +141,7 @@ TEST(EnvelopeLoader, RejectsEveryMissingAxisFieldWithoutFallback)
     envelope.source = LimitsSource::kProduction;
     envelope.limits_version.fill(0xffU);
     std::string error;
-    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), envelope, error)) << field;
+    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), kTestJointNames, envelope, error)) << field;
     EXPECT_EQ(envelope.source, LimitsSource::kUnspecified) << field;
     EXPECT_EQ(
       envelope.limits_version, (std::array<std::uint8_t, 32>{})) << field;
@@ -166,7 +167,7 @@ TEST(EnvelopeLoader, RejectsWrongSourceAxisOrderUnknownFieldsAndInvalidNumbers)
     TemporaryEnvelope file(invalid);
     DynamicEnvelope envelope;
     std::string error;
-    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), envelope, error))
+    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), kTestJointNames, envelope, error))
       << mutation.first;
     EXPECT_EQ(envelope.source, LimitsSource::kUnspecified) << mutation.first;
     EXPECT_FALSE(error.empty()) << mutation.first;
@@ -180,7 +181,7 @@ TEST(EnvelopeLoader, MissingFileFailsClosed)
   std::string error;
   EXPECT_FALSE(
     loadProvisionalEnvelope(
-      "/tmp/e102-envelope-that-does-not-exist.yaml", envelope, error));
+      "/tmp/e102-envelope-that-does-not-exist.yaml", kTestJointNames, envelope, error));
   EXPECT_EQ(envelope.source, LimitsSource::kUnspecified);
   EXPECT_FALSE(error.empty());
 }

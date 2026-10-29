@@ -313,6 +313,7 @@ def test_policy_values_equal_frozen_old_output():
     assert policy["jtc"] == expected_jtc
     expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
     expected_rolling.pop("envelope_file")
+    assert expected_rolling.pop("joints") == policy["joints"]
     assert policy["rolling"] == expected_rolling
     assert policy["enable_manager"] == {
         key: value

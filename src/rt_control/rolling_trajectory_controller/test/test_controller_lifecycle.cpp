@@ -15,6 +15,7 @@
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "rolling_test_joints.hpp"
 #include "rolling_trajectory_controller/rolling_trajectory_controller.hpp"
 #include "rolling_trajectory_controller/rolling_types.hpp"
 
@@ -29,6 +30,7 @@ std::vector<rclcpp::Parameter> makeValidTestOnlyParameters()
 {
   return {
     rclcpp::Parameter("configuration_source", "test_only"),
+    testJointsParameter(),
     rclcpp::Parameter("allow_test_only_configuration", true),
     rclcpp::Parameter(
       "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
@@ -76,8 +78,8 @@ protected:
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
       actual_positions_[axis] = static_cast<double>(axis) * 0.25;
       command_positions_[axis] = actual_positions_[axis] + 0.01;
-      command_handles_.emplace_back(kJointNames[axis], "position", &command_positions_[axis]);
-      state_handles_.emplace_back(kJointNames[axis], "position", &actual_positions_[axis]);
+      command_handles_.emplace_back(kTestJointNames[axis], "position", &command_positions_[axis]);
+      state_handles_.emplace_back(kTestJointNames[axis], "position", &actual_positions_[axis]);
     }
     feedback_age_ms_ = 12.0;
     state_handles_.emplace_back(
@@ -142,10 +144,10 @@ TEST_F(ControllerLifecycleTest, ClaimsFourteenPositionPairsAndTheSharedFeedbackA
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     EXPECT_EQ(
       command_configuration.names[axis],
-      std::string(kJointNames[axis]) + "/position");
+      kTestJointNames[axis] + "/position");
     EXPECT_EQ(
       state_configuration.names[axis],
-      std::string(kJointNames[axis]) + "/position");
+      kTestJointNames[axis] + "/position");
   }
   EXPECT_EQ(
     state_configuration.names.back(),
@@ -165,6 +167,7 @@ TEST_F(ControllerLifecycleTest, ConfigurationRefusesImplicitOrUnapprovedTestThre
   auto options = rclcpp::NodeOptions();
   options.parameter_overrides({
     rclcpp::Parameter("configuration_source", "test_only"),
+    testJointsParameter(),
     rclcpp::Parameter("allow_test_only_configuration", false),
     rclcpp::Parameter(
       "takeover_tolerances",
@@ -187,7 +190,12 @@ TEST_F(ControllerLifecycleTest, RuntimeParametersAreFrozenAfterConfigure)
 
 TEST_F(ControllerLifecycleTest, InvalidRuntimeParameterMatrixFailsConfigureWithoutClamping)
 {
+  std::vector<std::string> short_joints(kTestJointNames.begin(), kTestJointNames.end() - 1);
+  std::vector<std::string> duplicate_joints(kTestJointNames.begin(), kTestJointNames.end());
+  duplicate_joints.back() = duplicate_joints.front();
   const std::vector<rclcpp::Parameter> invalid_parameters = {
+    rclcpp::Parameter("joints", short_joints),
+    rclcpp::Parameter("joints", duplicate_joints),
     rclcpp::Parameter("buffer_capacity", std::int64_t{1}),
     rclcpp::Parameter("buffer_capacity", std::int64_t{257}),
     rclcpp::Parameter("max_horizon_ms", std::int64_t{499}),
