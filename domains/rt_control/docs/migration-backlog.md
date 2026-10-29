@@ -11,8 +11,8 @@
 | [x] | A 死活不分 | `robot_hw_ethercat/urdf/ecat.ros2_control.xacro`、`variants/alfa_v1.yaml`、`config/slaves/*`（二代）只被测试/golden 引用 | 1.4 |
 | [x] | A | `plc_node` 与 `plc_io_modbus` 均产出 `PlcIoState`，均无生产入口 | 1.4、3 复用 |
 | [ ] | A | `rt_control_interface_runtime.launch.py` 自称 draft preview | 1.4 |
-| [ ] | A | `onboarding-knowledge-map.md` 自称历史却是推荐入口 | 1.4 |
-| [ ] | A | `docs/areas/` 9 旧区 + 7 新区共存 | 1.4 |
+| [x] | A | `onboarding-knowledge-map.md` 自称历史却是推荐入口（arch-s3d：移入域 README 的历史资料段） | 1.4 |
+| [x] | A | `docs/areas/` 9 旧区 + 7 新区共存（arch-s3d：旧区移至 `docs/areas-archive/`） | 1.4 |
 | [ ] | B 多处落地 | `rolling_types.hpp` 的 `kJointNames[14]` 硬编码机型事实 | 1.1、1.2 |
 | [ ] | B | `enable_manager/config/Alfa_V3_*`、`rolling_trajectory_controller/config/Alfa_V3_*`、`control_api_adapter/config/Alfa_V3_grippers.draft.yaml` 带机型名 | 1.1 |
 | [ ] | B | `controllers.yaml` 的 `authorities.source` 指向不存在的 `rt_control_bringup/config/machines/alfa_v3.yaml` | 1.2 |
@@ -152,9 +152,9 @@
 
 | 完成 | 文件 | 处置 |
 | --- | --- | --- |
-| [ ] | 根 `README.md` | 保留，删分支模型表；仓库结构图改为六层视图 |
-| [ ] | 域 `README.md` | 重写为一屏地图（§0 需求 4）；"新同事从这里开始"里 5 份标注"历史"的文档移出入口 |
-| [ ] | `docs/areas/` 9 旧区 | 归档到 `docs/archive/`，从索引移除 |
+| [x] | 根 `README.md` | 保留，删分支模型表；仓库结构图改为六层视图（分支表 arch-s2 已删；六层视图放在域 README，包改名后再同步根结构图） |
+| [x] | 域 `README.md` | 重写为一屏地图（§0 需求 4）；"新同事从这里开始"里 5 份标注"历史"的文档移出入口 |
+| [x] | `docs/areas/` 9 旧区 | 归档到 `docs/archive/`，从索引移除（实际为同层级 `docs/areas-archive/`，保持旧记录内相对链接有效） |
 | [ ] | `docs/areas/` 7 新区 | 归属按 §5a 包表重排；记录规则改为"行为/硬件事实变更才记" |
 | [ ] | `BLOCKED-questions.md` 2852 行 | 按模块拆为 `docs/decisions/<module>.md`，只保留仍生效的裁决；已被取代的归档 |
-| [ ] | `PROGRESS.md` | 改为只索引实机验证记录，不再每 PR 一行 |
+| [x] | `PROGRESS.md` | 改为只索引实机验证记录，不再每 PR 一行（规则已改，历史行不动） |

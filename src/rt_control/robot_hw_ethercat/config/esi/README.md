@@ -56,7 +56,7 @@ Vendor `0x5A65726F`, Product `0x00029252`, Revision `0x00000001`, Serial `0`.
 These identical identities cannot distinguish J1..J7 from the gripper. The user
 subsequently confirmed both chains as J1..J7 followed by the gripper: the physical
 mapping and requested CSP/PP modes are recorded in
-[`alfa_v3_arms_only.draft.yaml`](../machines/alfa_v3_arms_only.draft.yaml).
+[`alfa_v3_arms_only.draft.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/70c831cdd5f1/src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml).
 Formal Robot Model names and runtime drive profiles remain TBD. Main/sub-device stored
 aliases read 2/7; these are distinct from the absolute positions 0/17 above.
 

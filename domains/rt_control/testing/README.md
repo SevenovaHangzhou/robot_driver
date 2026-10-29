@@ -5,7 +5,7 @@ schema 和发布门禁映射；`cases/` 按分类存放用例。运行器（runn
 baseline 工具是后续子任务，落地前用例按 `status` 字段人工执行、机器记录。
 
 体系设计背景与裁决见
-[governance-20260813-02](../docs/areas/governance/records/2026-08-13-test-case-catalog-v1.md)；
+[governance-20260813-02](../docs/areas-archive/governance/records/2026-08-13-test-case-catalog-v1.md)；
 Linear 任务：ELECTRI-74。
 
 ## 风险分层：授权边界决定层级

@@ -2472,7 +2472,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 - 2026-09-12 更新：用户授权每次启动在 PREOP 完成实际参数确认，OP 后禁止 SDO 读写。
   两侧实读小数位 `[1,1,1,3,3,3]`、单位码 `[5,5,5,7,7,7]` 已验证；
-  [ecat-axes-20260912-01](docs/areas/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)
+  [ecat-axes-20260912-01](docs/areas-archive/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)
   记录本次快照、主站 CoE 限制及不使能验证。FT frame 使用已有配置，现场 TF/测量标定
   和 sample-code 新鲜度问题仍未闭合；不因本次单位读回而宣称全部事项解决。
 
@@ -2586,7 +2586,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   转向速度新鲜度、停车行为和 BQ-150 共线 IMU 仍阻塞；`enable_manager` 继续独占 controlword，
   draft/production runtime gate 不放开。源码速度入口已按用户决定改为 `/cmd_vel`；公共
   `robot_interfaces` 尚待用户提交新 endpoint，未原子升级前不得跨域部署。
-  详见 [Tier A 离线记录](docs/areas/motion/records/2026-09-25-tier-a-relative-move-mock.md)。
+  详见 [Tier A 离线记录](docs/areas-archive/motion/records/2026-09-25-tier-a-relative-move-mock.md)。
 
 - 2026-09-25 用户/厂商资料确认：Kinco FD 运行时支持 CSV(9) 与 CSP(8) 切换；本地
   `V3-DOC-2026-014` 手册第 154 页明确 `0x6060` 请求模式和 `0x6061` 实际模式，
@@ -2748,7 +2748,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   CAN 身份、外参、内部融合、磁场影响和时间质量；左右六维力 ring/frame/标定/状态码/freshness。
 - BMS 待补：实机字节序与显示对照；K2 实体驱动、辅助触点、额定开断/预充、
   D9 与 `0x93` 状态映射、压差/电流/单体/温度限值和负载停止反馈。双电池流程见
-  `docs/areas/io-power/records/2026-10-06-dual-golden-phoenix-power-flow.md`；上述事实未
+  `docs/areas-archive/io-power/records/2026-10-06-dual-golden-phoenix-power-flow.md`；上述事实未
   闭合前不得把自动写控制配置为启用，充电 MOS 仍不由本包控制。
 - 用户 2026-10-09 确认：当前电池 CAN 卡在 Linux 上为 `can0`，无需先前 USB 适配器序列号；
   `0x01` S1 人工开关不由程序操作，故障时软件请求 `D9=0`；`0x02` 故障时软件请求
@@ -2763,7 +2763,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   禁止自行断开 K2 或自动转移负载。该等待策略状态提前返回，后续副电池故障
   也不进入常规“第二块电池故障”隔离路径；负责人必须一并裁决此例外。
   裁决责任：电气与 RT-Control 负责人。
-  记录见 `docs/areas/io-power/records/2026-10-09-electri-131-bms-review.md`。
+  记录见 `docs/areas-archive/io-power/records/2026-10-09-electri-131-bms-review.md`。
 - 后续功能：RT 本地闭环力控、换电控制、Motion 接管底盘同步运动分别为独立 Spec，不以现有
   Wrench、BatteryState 或 `/cmd_vel` 接口声称已实现。
 - 本项不授权 Modbus 写、CAN 配置、总线启动、reset、enable 或运动。
@@ -2772,7 +2772,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
 
 - 2026-10-03 扩大复核：当前候选已更新为 `ea582c8a711874813d2ad7f0801b366bd32ab67e`，
   修正公共Rolling旧轴语义，与driver双七轴hash一致；未知输出锁存、位置停稳和CI环境问题
-  已作局部纠正，详见 [复核清单](docs/areas/contract/records/2026-10-03-rolling-v3-and-interface-audit.md)。
+  已作局部纠正，详见 [复核清单](docs/areas-archive/contract/records/2026-10-03-rolling-v3-and-interface-audit.md)。
   下述f18caab为前一候选，不是当前依赖；Draft仍未完成全部软件与硬件准入。
 
 - Evidence：`robot_driver main@2234eef` 固定 `robot_interfaces@9aa2693`，该提交包含 V3 Rolling
@@ -2789,7 +2789,7 @@ Only tasks listed under each question are blocked. Unrelated tasks continue in u
   全闭包构建未完成；改动包已使用隔离 build/install 通过。
 - 软件完成边界更正：位置执行后端、停止确认、触边运行接线、多能力 readiness、六维力质量状态、
   真空并发与时效、整机组合验证尚未全部完成。详见
-  [Draft 缺口清单](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md)。
+  [Draft 缺口清单](docs/areas-archive/contract/records/2026-10-03-interface-dependent-draft.md)。
   这些是软件剩余工作，不应等待用户提供硬件参数才处理。
 
 ## BQ-149 supplemental observation — left P140000100 bench [OPEN 2026-10-07]
@@ -2841,7 +2841,7 @@ broadcaster，左右 /state 发布九路完整配置名称与原始值。ROS_DOM
 - 来源：KKOZIA-6 / KKOZIA-2 SPEC v1.1 §6、§11；编号由 issue 指定。
 - 事实：`src/rt_control/rt_control_bringup/rt_control_bringup/stationary_enable.py:95,135`
   使用 250 Hz；2026-09-12 T3 实测成功（ecat-axes/15#F1，
-  `docs/areas/ecat-axes/records/2026-09-12-gen3-stationary-enable.md`）。手臂运动入口
+  `docs/areas-archive/ecat-axes/records/2026-09-12-gen3-stationary-enable.md`）。手臂运动入口
   `arm_motion_runtime.py:122,311` 与 `robot_hw_ethercat/urdf/ecat.ros2_control.xacro:425`
   为 1 kHz。该历史结果不证明 1 kHz 原位使能已通过。
 - 问题：并入 1 kHz（需单独授权及 T3 复验），还是长期保留 scope 级覆盖？

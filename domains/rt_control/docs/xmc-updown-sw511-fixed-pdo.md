@@ -16,7 +16,7 @@
 | DC AssignActivate | `0x0300` |
 | PDO 能力 | `PdoAssign=false`、`PdoConfig=false`，不得重映射 |
 
-主站运行配置由 [`xmc_updown_sw511.yaml`](../../../src/rt_control/robot_hw_ethercat/config/slaves/xmc_updown_sw511.yaml) 直接描述，并由 [`ecat.ros2_control.xacro`](../../../src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro) 在当前 18 位拓扑的 position 17 实例化（历史 16 位拓扑为 position 15）。IgH/ICube 这条路径不需要把 XML 复制进类似 TwinCAT 的 ESI 目录；XML 仅作为供应商资料和差异证据保存。
+主站运行配置由 [`xmc_updown_sw511.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/robot_hw_ethercat/config/slaves/xmc_updown_sw511.yaml) 直接描述，并由 [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro) 在当前 18 位拓扑的 position 17 实例化（历史 16 位拓扑为 position 15）。IgH/ICube 这条路径不需要把 XML 复制进类似 TwinCAT 的 ESI 目录；XML 仅作为供应商资料和差异证据保存。
 
 ## 固定 RxPDO `0x1600`（主站到驱动器）
 

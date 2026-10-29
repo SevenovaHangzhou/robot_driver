@@ -112,7 +112,7 @@ production configurations. `verified: false` and TBD fields deliberately block
 setup. The existing alfa_v3 physical-profile/control-scope static gate stays closed.
 
 The arms-only physical inventory is recorded in
-[`config/machines/alfa_v3_arms_only.draft.yaml`](config/machines/alfa_v3_arms_only.draft.yaml):
+[`config/machines/alfa_v3_arms_only.draft.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/70c831cdd5f1/src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml):
 left X2 positions 1..7 are J1..J7 in CSP and position 8 is the PP gripper; right
 X3 positions 9..15 are J1..J7 in CSP and position 16 is the PP gripper. Coupler
 positions 0/17 are non-motion responders. Identities and positions came from the
@@ -120,7 +120,7 @@ read-only scan, and joint order came from the user's confirmation. This file is
 an installed commissioning inventory, not a registered runtime variant.
 
 Current maps and selected SDO values are preserved in
-[`alfa_v3_protocol_readback.yaml`](config/machines/alfa_v3_protocol_readback.yaml).
+[`alfa_v3_protocol_readback.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/70c831cdd5f1/src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_protocol_readback.yaml).
 Both grippers currently report mode 8. The CSP draft preserves the directly
 read 10-byte maps; the PP draft proposes an 8-byte RxPDO and 14-byte TxPDO remap.
 No remap or mode change has been sent to the drives.

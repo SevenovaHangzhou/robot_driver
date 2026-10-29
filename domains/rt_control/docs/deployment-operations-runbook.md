@@ -362,7 +362,7 @@ journalctl -b -u rt-control-can-names.service -u can0.service
 
 `ethercat slaves -v` 的拓扑一致只是一层检查。生产启动前还应把四个 Ti5 的身份、固件和 ESI 版本与 Phase A 冻结记录逐一比对。任何差异都停在授权的只读归档和厂商/架构评审，不进入生产容器启动；不要现场把 YAML 的 `uint32` 猜改为 `uint16`。若需要 SDO upload 证明对象宽度，它属于 L2 总线请求，必须保存原始回包并单独授权。
 
-[`canopen_sdo_archive.sh`](../../../tools/canopen_sdo_archive.sh) 虽然只做 SDO upload，不写对象字典，但仍会主动向总线发送请求，需要另行取得通信授权。
+[`canopen_sdo_archive.sh`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/tools/canopen_sdo_archive.sh) 虽然只做 SDO upload，不写对象字典，但仍会主动向总线发送请求，需要另行取得通信授权。
 
 ## 8. Phase G：创建生产容器并完成最终实时门禁（L1/L2）
 
@@ -714,4 +714,4 @@ GRUB、内核、IgH、CAN 和 Docker 回退都属于 L1/L2 维护操作，必须
 - 明确固定并验证生产 RMW/DDS 网卡边界；当前 loopback-only CycloneDDS XML 尚不能证明实际网络隔离；
 - 通用新机 profile、全离线宿主 bootstrap、自动镜像发布、readiness/healthcheck 和自动 rollback。
 
-当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[双 X503 18 位运行拓扑记录](areas/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md)（13 轴/15 位历史拓扑证据；后续 16 位记录同样不覆盖当前 18 位环）和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
+当前证据入口：[`PROGRESS.md`](../PROGRESS.md)、[双 X503 18 位运行拓扑记录](areas-archive/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md)、[XMC SW 5.11 固定 PDO 映射](xmc-updown-sw511-fixed-pdo.md)、[XMC 首次整组使能记录](xmc-updown-enable-commissioning-20260727.md)、[CANopen 有序清理与 EtherCAT 同步容忍复测](canopen-shutdown-sync-tolerance-commissioning-20260727.md)、[14 轴 FJT 最小低速运动记录](fjt-14axis-low-speed-commissioning-20260727.md)、[`host-setup-record.md`](host-setup-record.md)、[`ethercat_enable_disable_commissioning.md`](ethercat_enable_disable_commissioning.md)（13 轴/15 位历史拓扑证据；后续 16 位记录同样不覆盖当前 18 位环）和 [`canopen_drive_adaptation.md`](canopen_drive_adaptation.md)。代码结构和接口关系见 [接手知识图谱](onboarding-knowledge-map.md)。
