@@ -28,9 +28,9 @@ std::optional<bool> exact_flag(double value) noexcept
 std::optional<std::uint64_t> exact_generation(double value) noexcept
 {
   constexpr double kMaximumExactInteger{9007199254740991.0};
-  if (!std::isfinite(value) || value < 0.0 || value > kMaximumExactInteger ||
-    std::trunc(value) != value)
-  {
+  if (
+    !std::isfinite(value) || value < 0.0 || value > kMaximumExactInteger ||
+    std::trunc(value) != value) {
     return std::nullopt;
   }
   return static_cast<std::uint64_t>(value);
@@ -45,8 +45,7 @@ std::uint32_t pack(bool valid, bool fault, bool motion, HandshakeDevice::Phase p
 
 }  // namespace
 
-HandshakeDevice::HandshakeDevice(std::string gpio)
-: gpio_(std::move(gpio)) {}
+HandshakeDevice::HandshakeDevice(std::string gpio) : gpio_(std::move(gpio)) {}
 
 std::vector<std::string> HandshakeDevice::command_interface_names() const
 {
@@ -116,8 +115,8 @@ bool HandshakeDevice::baseline() noexcept
 
 void HandshakeDevice::read() noexcept
 {
-  const auto phase = rt_control_semantic_components::decode_head_phase(
-    states_[kPhase]->get_value());
+  const auto phase =
+    rt_control_semantic_components::decode_head_phase(states_[kPhase]->get_value());
   const auto fault = exact_flag(states_[kFault]->get_value());
   const auto motion = exact_flag(states_[kMotionAllowed]->get_value());
   const auto generation = exact_generation(states_[kHandledGeneration]->get_value());

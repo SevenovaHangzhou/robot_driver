@@ -36,7 +36,7 @@ public:
 
   explicit HandshakeDevice(std::string gpio);
 
-  [[nodiscard]] const std::string & name() const noexcept {return gpio_;}
+  [[nodiscard]] const std::string & name() const noexcept { return gpio_; }
   [[nodiscard]] std::vector<std::string> command_interface_names() const;
   [[nodiscard]] std::vector<std::string> state_interface_names() const;
 
@@ -50,7 +50,7 @@ public:
   void read() noexcept;
   void write() noexcept;
 
-  void request_enable(bool enable) noexcept {enable_requested_ = enable;}
+  void request_enable(bool enable) noexcept { enable_requested_ = enable; }
   void start_reset() noexcept;
 
   // An unreadable sample counts as a fault: the conservative reaction is to stop.
