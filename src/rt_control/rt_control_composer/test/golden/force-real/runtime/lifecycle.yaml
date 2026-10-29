@@ -1,0 +1,19 @@
+bus_locks:
+- ethercat-master-0
+capabilities: []
+control_scope: force_bench
+hardware:
+- name: bluepoint_raw_bench
+  plugin: ethercat_driver/EthercatDriver
+hardware_activation_order:
+- bluepoint_raw_bench
+host: {}
+lifecycle_controllers:
+- left_wrist_force_sensor_broadcaster
+- right_wrist_force_sensor_broadcaster
+motion_controllers: []
+publish_robot_state: false
+staged_hardware_activation: true
+transports:
+- robot_hw_ethercat
+use_mock_hardware: false

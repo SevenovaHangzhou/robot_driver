@@ -34,14 +34,19 @@ ros2 run rt_control_composer compose_artifact --output /abs/dir --robot-variant 
 
 ## 启动入口（`rt_control_start`，容器 PID 1）
 
-| 参数 | launch | 说明 |
+除默认的静态校验外，所有运行入口都是通用分阶段 scope 入口 `rt_control_scope_runtime.launch.py`：
+先加总线锁、跑 owner preflight，再按顺序激活硬件、加载控制器；停机统一走
+`scope_shutdown`（停运动控制器 → `/rt/disable` → 停其余控制器 → 硬件退出）。
+
+| 参数 | 等同于 | 说明 |
 | --- | --- | --- |
 | （无） | `rt_control_module.launch.py` | 只做 machine-profile 校验，不创建硬件节点 |
-| `--scope <scope>` | `rt_control_scope_runtime.launch.py` | 通用入口；仅限声明 `staged_hardware_activation` 的 scope（`chassis_only`、`bench_left_arm`、`bench_left_arm_stationary_enable`、`head_only`） |
-| `--enable-only` | `rt_control_enable_only.launch.py` | 双臂原位使能 |
-| `--arm-runtime` / `--arm-jtc` | `rt_control_arm_runtime.launch.py` | 双臂运动（rolling / 仅 JTC） |
-| `--head-runtime` | 同 `--scope head_only` | 头部云台；使能由 `enable_manager` 负责，操作见 [达妙头部](../../src/rt_control/robot_hw_can/docs/damiao_head.md) |
-| `--force-sensors` | `rt_control_force_sensors.launch.py` | 腕部力传感器台架 |
+| `--scope <scope>` | — | 通用入口；scope 需声明 `staged_hardware_activation` |
+| `--arm-runtime` | `--scope arms_only` | 双臂运动（JTC + rolling），发布 RSP |
+| `--arm-jtc` | `--scope arms_only jtc_only:=true` | 双臂仅 JTC |
+| `--enable-only` | `--scope arms_stationary_enable physical_profile:=arms_only` | 双臂原位使能（250 Hz） |
+| `--head-runtime` | `--scope head_only` | 头部云台，使能由 `enable_manager` 负责，见 [达妙头部](../../src/rt_control/robot_hw_can/docs/damiao_head.md) |
+| `--force-sensors` | `--scope force_bench` | 腕部力传感器台架，实机需 `sync_mode:=sm|dc` |
 
 任何非 mock 启动都会访问真实总线，需按根 `AGENTS.md` 第 5 节单独授权。容器与发布见 [`docker/README.md`](../../docker/README.md)。
 

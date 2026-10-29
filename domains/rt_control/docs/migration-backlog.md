@@ -22,7 +22,7 @@
 | [ ] | C | 3 个协议包 renderer 各自复制 `_share/_validate/_param/validate_*` | 3 |
 | [ ] | C | CiA402 状态字解码在 5 个包各写一份；`semantic_components` 未成为唯一出口 | 1.1、3 |
 | [ ] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份 | 3 |
-| [ ] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown | 3、§2"新增启动模式" |
+| [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
 | [ ] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件 | 3 硬指标 |
 | [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行、`manifest.yaml` 736 行 | 3 硬指标 |
 | [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |

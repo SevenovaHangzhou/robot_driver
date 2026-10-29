@@ -234,7 +234,7 @@ docker stop / SIGTERM
 | `updateReset()` | 整组 Fault Reset 怎样发上升沿并确认？ | 同上 |
 | `validate_trajectory_start()` | 14 轴 FJT 如何按轴校验首点和 EtherCAT 反馈年龄？ | [`0001-jtc-start-consistency.patch`](../../../patches/ros2_controllers/0001-jtc-start-consistency.patch) |
 | `RtDiagnosticsNode::publishSnapshot()` | 多路硬件状态如何变成 1 Hz 诊断树？ | [`rt_diagnostics_node.cpp`](../../../src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp) |
-| `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](../../../src/rt_control/enable_manager/src/rt_disable_once.cpp) |
+| `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/enable_manager/src/rt_disable_once.cpp) |
 
 ## 4. 按任务找代码
 

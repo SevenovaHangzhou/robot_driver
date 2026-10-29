@@ -459,6 +459,8 @@ scopes:
       - enable_manager
     jtc_only_excluded:
     - rolling_trajectory_controller
+    staged_hardware_activation: true
+    publish_robot_state: true
   arms_updown:
     enabled_modules:
     - arms
@@ -633,6 +635,7 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+    staged_hardware_activation: true
   bench_left_arm_stationary_enable:
     enabled_modules:
     - bench_left_arm
@@ -701,6 +704,7 @@ scopes:
       active:
       - left_wrist_force_sensor_broadcaster
       - right_wrist_force_sensor_broadcaster
+    staged_hardware_activation: true
 owner_refs:
   ethercat: robot_hw_ethercat
   canopen: robot_hw_canopen
