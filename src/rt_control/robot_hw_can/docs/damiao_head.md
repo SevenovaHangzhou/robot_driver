@@ -1,4 +1,6 @@
-# damiao_head_controller：达妙头部通信、运行与调参
+# 达妙头部：通信、运行与调参
+
+> 2026-10-29（arch-s7）起，头部使能/失能/清错由 `enable_manager` 统一负责（握手式设备），原 `damiao_head_controller` 包已删除。§6、§7 已按新入口改写；其余章节的硬件事实与报文不变。
 
 本包管理三代机两台达妙头部电机的使能、失能和故障复位，是 ros2_control 控制器插件，不能作为独立电机节点直接运行。只启动头部专用入口即可，不需要启动全机器人控制系统。
 
@@ -144,18 +146,18 @@ ROS_DOMAIN_ID隔离发现域；ROS_LOCALHOST_ONLY=1仅本机通信、0允许网�
 ros2 run rt_control_composer compose_artifact --output /abs/head-real \
   --robot-variant Alfa_V3 --machine-unit Alfa_V3-01 \
   --physical-profile head_only --control-scope head_only --real
-ros2 run rt_control_bringup rt_control_start --head-runtime \
+ros2 run rt_control_bringup rt_control_start --scope head_only \
   machine_unit:=Alfa_V3-01 use_mock_hardware:=false generated_dir:=/abs/head-real
 ```
 
 启动入口只读取并校验该目录；目录缺失、内容被修改或与当前安装配置不一致时拒绝启动并给出重新生成命令。
 
-Mock使用 use_mock_hardware:=true，不代表实机通过。启动时管理器和状态发布器ACTIVE、位置控制器INACTIVE，不会自动使能；硬件初始化会发送失能并以当前反馈位置初始化保持命令。
+`--head-runtime` 仍可用，等同于 `--scope head_only`。Mock使用 use_mock_hardware:=true，不代表实机通过。启动时 enable_manager 和状态发布器ACTIVE、位置控制器INACTIVE，不会自动使能；硬件初始化会发送失能并以当前反馈位置初始化保持命令。若启动时头部已处于故障锁存，enable_manager 进入 FAILED，需先清错。
 
 另一个已加载相同环境的终端检查：
 
 ```bash
-ros2 service list --no-daemon | grep /rt/head
+ros2 service list --no-daemon | grep /rt/
 ros2 control list_controllers
 ros2 topic echo /joint_states --once
 ```
@@ -165,10 +167,10 @@ ros2 topic echo /joint_states --once
 三个生命周期服务都是 rt_control_interfaces/srv/RtEnable，空请求，返回ok、failed_batch、failed_joint、status_word、stage。
 
 ```bash
-ros2 service call /rt/head/enable rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/enable rt_control_interfaces/srv/RtEnable '{}'
 ```
 
-等待ok:true，管理器确认两台使能后激活位置控制器。仅使能不会执行额外角度目标。
+等待ok:true，enable_manager 确认头部插件回报"已使能且允许运动"后激活位置控制器。仅使能不会执行额外角度目标。
 
 ```bash
 # 示例：确认范围、方向和保持位置后才能发送
@@ -189,13 +191,13 @@ ros2 topic echo /joint_states
 ros2 topic echo /diagnostics --once
 
 # 清错：不是话题；停止位置控制、请求失能，再清除并等待失能终态
-ros2 service call /rt/head/reset_fault rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable '{}'
 
 # 结束控制：先失能，再在启动终端Ctrl+C
-ros2 service call /rt/head/disable rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable '{}'
 ```
 
-到位后仍使能保持。查看反馈终端的Ctrl+C只停止查看。清错不会自动重新使能，故障根因未消除可能再报错。诊断名称为 /robot/rt_control/damiao_head/summary，发布在 /diagnostics；重点查看phase、fault_latched、motion_allowed及两台feedback_age_ms。
+到位后仍使能保持。查看反馈终端的Ctrl+C只停止查看。清错不会自动重新使能，故障根因未消除可能再报错；没有故障时清错直接返回 already_clear。诊断名称为 /robot/rt_control/enable_manager，发布在 /diagnostics；重点查看 `damiao_head_control.phase`（0 失能、2 使能、6 故障锁存）、`damiao_head_control.fault_latched`、`damiao_head_control.motion_allowed` 及两台的 `<joint>/feedback_age_ms`。
 
 ## 8. CAN ID、Master ID及报文示例
 

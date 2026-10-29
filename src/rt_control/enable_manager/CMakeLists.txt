@@ -21,6 +21,7 @@ find_package(std_msgs REQUIRED)
 
 add_library(enable_manager_controller SHARED
   src/enable_manager_controller.cpp
+  src/handshake_device.cpp
 )
 target_compile_features(enable_manager_controller PUBLIC cxx_std_17)
 target_compile_options(enable_manager_controller PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
@@ -102,6 +103,11 @@ if(BUILD_TESTING)
     rt_control_interfaces
     rt_control_semantic_components
   )
+
+  ament_add_gmock(test_handshake_devices test/test_handshake_devices.cpp)
+  target_compile_features(test_handshake_devices PUBLIC cxx_std_17)
+  target_link_libraries(test_handshake_devices enable_manager_controller)
+  ament_target_dependencies(test_handshake_devices hardware_interface rclcpp)
 endif()
 
 ament_package()

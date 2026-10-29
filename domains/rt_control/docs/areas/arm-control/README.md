@@ -2,7 +2,7 @@
 
 **范围**：机械臂轨迹、头部控制与力反馈。本区对应一个同名职责agent。
 
-**Owner路径**：rolling_trajectory_controller；rt_force_torque_broadcaster；x503_force_sensor；damiao_head_controller；patches/ros2_controllers。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：rolling_trajectory_controller；rt_force_torque_broadcaster；x503_force_sensor；patches/ros2_controllers。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：EtherCAT/CAN协议与enable_manager归protocol；启动拼装归integration；config/machines归hw-config。
 

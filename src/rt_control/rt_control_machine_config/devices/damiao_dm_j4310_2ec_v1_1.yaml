@@ -3,7 +3,7 @@ kind: device
 status: draft
 verified: false
 authorities:
-  source: "damiao_head_controller/README.md \xA71; session readback, not model authority"
+  source: "robot_hw_can/docs/damiao_head.md \xA71; session readback, not model authority"
 pending_facts:
 - model-rated parameters and applicability
 - D-b

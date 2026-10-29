@@ -163,12 +163,11 @@ jobs:
             rt_control_semantic_components \
             rt_control_composer \
             rt_control_machine_config \
-            robot_hw_can \
-            damiao_head_controller
+            robot_hw_can
           source install/setup.bash
           colcon test --event-handlers console_direct+ \
             --base-paths src "${HEAD_FAST_WS}/src/vendor" \
-            --packages-select robot_hw_can damiao_head_controller
+            --packages-select robot_hw_can
           colcon test-result --verbose
           COMPOSER_SCHEMA_DIR=${GITHUB_WORKSPACE}/install/rt_control_composer/share/rt_control_composer/schema \
             python3 -m pytest -q \
@@ -304,7 +303,6 @@ jobs:
             robot_hw_ethercat
             robot_hw_canopen
             robot_hw_can
-            damiao_head_controller
             enable_manager
             rt_diagnostics
             rt_control_semantic_components
@@ -360,7 +358,6 @@ jobs:
             robot_hw_ethercat \
             robot_hw_canopen \
             robot_hw_can \
-            damiao_head_controller \
             enable_manager \
             rt_diagnostics \
             rt_control_semantic_components \
@@ -423,7 +420,6 @@ jobs:
             robot_hw_ethercat \
             robot_hw_canopen \
             robot_hw_can \
-            damiao_head_controller \
             enable_manager \
             rt_diagnostics \
             rt_control_semantic_components \

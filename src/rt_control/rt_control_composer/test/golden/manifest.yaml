@@ -135,17 +135,19 @@ cases:
     sync_mode: ''
     startup_id: force-bench-synthetic-golden
     outputs:
-      controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
-      controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
+      controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
+      controllers.yaml: 6113bf62fe5996abd9f89e6e0cdc65e270b1214e1e264bcae6d38cb416ef7cfc
       robot_description.xml: 2963e76c652e281d60439fbf164be40747a2e001a65b9228fc64c978b7ddf33b
+      runtime/lifecycle.yaml: 5143637b9e77b3e7664f399296e92d294c5c0f11af5d401584385ade609b694c
   head-real:
     use_mock_hardware: false
     sync_mode: ''
     startup_id: force-bench-synthetic-golden
     outputs:
-      controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
-      controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
+      controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
+      controllers.yaml: 6113bf62fe5996abd9f89e6e0cdc65e270b1214e1e264bcae6d38cb416ef7cfc
       robot_description.xml: 5439c0dadc959229919bdb88ed70be564756f077b96914a8312c46212020ec2c
+      runtime/lifecycle.yaml: 9dbcbbb3bbbb2ecb1c2dcb44a82a97bc55235cd4af8911f2411cf1aebadfa410
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
@@ -235,3 +237,14 @@ rolling_joints_regeneration:
   cases:
   - arm-mock
   - arm-real
+head_enable_manager_regeneration:
+  reason: 'arch-s7 user decision 2026-10-29: the DaMiao head is enabled by enable_manager as a
+    handshake device; damiao_head_controller/HeadManagerController is removed and head_only runs
+    under the staged scope runtime'
+  method: compose output written only where the canonical form differs; the differences are
+    the manager (damiao_head_manager replaced by enable_manager with the same 5 s operation and
+    1 s switch timing), hardware_components_initial_state for staged activation, and the new
+    runtime/lifecycle.yaml
+  cases:
+  - head-mock
+  - head-real

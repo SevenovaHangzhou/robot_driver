@@ -9,11 +9,12 @@ ROS 侧只发送最终位置目标和速度上限。
 - 逻辑关节固定为 `head_joint` 和 `head_pitch_joint`，对应 V3 Robot Model 的 yaw/pitch。
 - 总线固定为 PCIe L2 的 `can2`，当前记录的 CAN ID 是 `1/2`，Master ID 是 `0x11/0x12`。
 - 正常位置命令由 `forward_command_controller/ForwardCommandController` 转发；
-  `damiao_head_controller/HeadManagerController` 独占 `damiao_head_control/enable_request`
-  和 `reset_generation`，提供 `/rt/head/enable`、`/rt/head/disable`、
-  `/rt/head/reset_fault`，并负责故障锁存、清错和 `/diagnostics`。
-- 位置控制器启动时保持 inactive。只有 manager 先确认两台电机都返回本次使能后的 `ERR=1`，
-  才激活位置控制器；位置控制器停止后，manager 才确认两台 `ERR=0`。
+  `enable_manager` 把 `damiao_head_control` 作为握手式设备，独占 `enable_request` 和
+  `reset_generation`，通过 `/rt/enable`、`/rt/disable`、`/rt/reset_fault` 完成使能、失能、清错，
+  故障锁存与诊断并入 enable_manager 的 `/diagnostics`（arch-s7）。操作手册见
+  [docs/damiao_head.md](docs/damiao_head.md)。
+- 位置控制器启动时保持 inactive。只有插件回报两台电机均已使能且允许运动，enable_manager
+  才激活位置控制器；失能时先停位置控制器，再撤销使能请求并等待插件回报已失能。
 - 普通位置帧的发送频率由 `command_rate_hz` 限制，默认设计目标为 250 Hz；使能、失能、清错和
   故障停车帧不受普通位置命令降频影响。
 

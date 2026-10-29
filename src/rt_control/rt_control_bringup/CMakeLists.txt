@@ -26,7 +26,6 @@ install(
     launch/rt_control_module.launch.py
     launch/rt_control_enable_only.launch.py
     launch/rt_control_arm_runtime.launch.py
-    launch/rt_control_head_runtime.launch.py
     launch/rt_control_interface_runtime.launch.py
     launch/rt_control_ultrasonic.launch.py
     launch/rt_control_scope_runtime.launch.py
