@@ -219,7 +219,6 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       joint_trajectory_controller \
       gripper_controllers \
       plc_io_modbus \
-      plc_node \
       robot_description \
       rt_control_interfaces \
       robot_hw_ethercat \

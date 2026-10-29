@@ -67,7 +67,7 @@ cases:
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/plc_node/**"]
+    covers: ["src/rt_control/plc_io_modbus/**"]
     traces: [domains/rt_control/docs/plc-bms-integration.md]
     preconditions: 断连方式为拔网线/关 PLC 电源，不改软件配置；现场授权
     entry: |
