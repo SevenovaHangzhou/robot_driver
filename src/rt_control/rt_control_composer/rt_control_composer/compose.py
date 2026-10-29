@@ -169,8 +169,9 @@ def compose(
     def policy(name):
         reference = manifest["policy_refs"][name]
         share = Path(package_share(reference["package"]))
+        schema_share = Path(package_share(reference.get("schema_package", reference["package"])))
         path = resolve_share_path(share, reference["file"])
-        return load_and_validate(path, reference["schema"], share / "schema", share)
+        return load_and_validate(path, reference["schema"], schema_share / "schema", share)
 
     selected_policies = scope.get("policies", [])
     overrides = scope.get("policy_overrides", {})

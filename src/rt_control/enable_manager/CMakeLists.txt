@@ -62,8 +62,8 @@ install(TARGETS enable_manager_controller
 )
 install(TARGETS rt_disable_once DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY config schema DESTINATION share/${PROJECT_NAME}
-  FILES_MATCHING PATTERN "*.yaml" PATTERN "*.schema.json")
+install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.schema.json")
 install(FILES enable_manager_plugins.xml DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)

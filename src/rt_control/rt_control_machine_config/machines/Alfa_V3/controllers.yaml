@@ -3,7 +3,7 @@ kind: controllers
 status: draft
 verified: false
 authorities:
-  source: rt_control_bringup/config/machines/alfa_v3.yaml + config/alfa_v3_grippers.draft.yaml
+  source: migrated from the removed rt_control_bringup/config/machines/alfa_v3.yaml (see git history)
 pending_facts: []
 robot_variant: Alfa_V3
 controllers:
@@ -52,7 +52,7 @@ controllers:
     name: whole_body_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
     package: rolling_trajectory_controller
-    config_file: config/Alfa_V3_arm_tolerances.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
     actuator_groups:
     - csp
     required_state_modules: []
@@ -75,7 +75,7 @@ controllers:
     name: left_arm_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
     package: rolling_trajectory_controller
-    config_file: config/Alfa_V3_bench_left_arm_motion.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_bench_left_arm_motion.yaml
     actuator_groups:
     - csp
     required_state_modules: []
@@ -101,7 +101,7 @@ controllers:
     name: rolling_trajectory_controller
     plugin: rolling_trajectory_controller/RollingTrajectoryController
     package: rolling_trajectory_controller
-    config_file: config/Alfa_V3_arm_tolerances.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
     actuator_groups:
     - csp
     required_state_modules: []
@@ -120,7 +120,7 @@ controllers:
     name: enable_manager
     plugin: enable_manager/EnableManagerController
     package: enable_manager
-    config_file: config/Alfa_V3_enable_policy.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml
     actuator_groups:
     - csp
     required_state_modules: []

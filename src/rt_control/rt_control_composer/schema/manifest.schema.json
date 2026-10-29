@@ -756,6 +756,10 @@
           "schema": {
             "type": "string",
             "minLength": 1
+          },
+          "schema_package": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [

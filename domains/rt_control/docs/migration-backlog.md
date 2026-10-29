@@ -14,8 +14,8 @@
 | [x] | A | `onboarding-knowledge-map.md` 自称历史却是推荐入口（arch-s3d：移入域 README 的历史资料段） | 1.4 |
 | [x] | A | `docs/areas/` 9 旧区 + 7 新区共存（arch-s3d：旧区移至 `docs/areas-archive/`） | 1.4 |
 | [ ] | B 多处落地 | `rolling_types.hpp` 的 `kJointNames[14]` 硬编码机型事实 | 1.1、1.2 |
-| [ ] | B | `enable_manager/config/Alfa_V3_*`、`rolling_trajectory_controller/config/Alfa_V3_*`、`control_api_adapter/config/Alfa_V3_grippers.draft.yaml` 带机型名 | 1.1 |
-| [ ] | B | `controllers.yaml` 的 `authorities.source` 指向不存在的 `rt_control_bringup/config/machines/alfa_v3.yaml` | 1.2 |
+| [x] | B | `enable_manager/config/Alfa_V3_*`、`rolling_trajectory_controller/config/Alfa_V3_*`、`control_api_adapter/config/Alfa_V3_grippers.draft.yaml` 带机型名 | 1.1 |
+| [x] | B | `controllers.yaml` 的 `authorities.source` 指向不存在的 `rt_control_bringup/config/machines/alfa_v3.yaml` | 1.2 |
 | [ ] | B | 改一个关节需触碰约 20 个非测试文件 | 0 需求 1 |
 | [ ] | C 重复 | 3 套 Modbus TCP 客户端（`plc_io_modbus`、`modbus_tcp_rtu485`、`plc_node`） | 3 |
 | [ ] | C | 3 套 SocketCAN 封装（`robot_hw_can`、`bms_node`、`lpms_nav3_can`） | 3 |
@@ -28,6 +28,7 @@
 | [ ] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
 | [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试 | 1.5、4.6 |
 | [ ] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个 | 1.3 |
+| [ ] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除 | 1.4、1.2 |
 | [ ] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明 | 1.4 |
 | [ ] | F | `robot_description` 内多份展开 `.urdf` 与多套 `joint_limits_*`/`named_poses_*` 变体并存 | 1.1、4.5 |
 | [ ] | 6 重复校验 | `load_artifact` 运行时重新 compose 比对每个文件 | 1.6 |
