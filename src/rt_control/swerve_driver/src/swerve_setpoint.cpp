@@ -151,8 +151,12 @@ AlignmentResult SwerveSetpointGenerator::generate(
     equivalent_layout = equivalent_layout &&
       std::abs(std::remainder(angle - common_heading, kPi)) <= continuation_tolerance;
   }
+  // Continuous mode uses the same bounded, hysteretic per-wheel optimizer for
+  // pure translation and tiny nonzero yaw. Do not force a pi flip at that boundary.
+  // Align-first retains its common translation branch policy.
+  const bool continuous = std::abs(parameters_.alignment_threshold_rad - kPi / 2.0) <= 1e-9;
   const bool global_translation_branch{
-    (all_forward_feasible || all_reverse_feasible) && !equivalent_layout};
+    !continuous && (all_forward_feasible || all_reverse_feasible) && !equivalent_layout};
   bool translation_reversed{false};
   if (global_translation_branch) {
     if (!all_forward_feasible) {
@@ -211,6 +215,8 @@ AlignmentResult SwerveSetpointGenerator::generate(
         parameters_.flip_hysteresis_rad, parameters_.angle_limits[index]);
     }
     reversed_[index] = optimized.reversed;
+    selected_goals_[index] = optimized.target_angle_rad;
+    selected_errors_[index] = optimized.error_rad;
 
     if (!previous_targets_[index].has_value()) {
       previous_targets_[index] = planning_angles[index];
@@ -300,6 +306,7 @@ void SwerveSetpointGenerator::reset() noexcept
   steering_rates_.fill(0.0);
   steering_accelerations_.fill(0.0);
   gated_ = false;
+  selected_goals_.fill(0.0); selected_errors_.fill(0.0);
 }
 
 namespace

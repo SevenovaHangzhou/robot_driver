@@ -1,4 +1,7 @@
+- 2026-10-29: ELECTRI-127 内部参考状态与连续分支保持配套导航 v3.0.3_test 发布；公共机保留现有改动、仅增量构建 swerve_driver，详见 [记录补充](docs/areas/chassis-control/records/2026-10-28-execution-reference-jitter.md)。
 # rt-control implementation progress
+
+| 2026-10-28 | chassis-control | [连续分支/只读参考](docs/areas/chassis-control/records/2026-10-28-execution-reference-jitter.md) | PARTIAL：本机源码构建与无设备验证，实机待复测 |
 
 | 2026-10-25 | platform | [独立实机环境入口](docs/areas/platform/records/2026-10-25-independent-runtime-environment.md) | PARTIAL：环境加载与只读拒绝检查通过；未操作硬件，质量门禁缺 jsonschema，正式部署待验 |
 

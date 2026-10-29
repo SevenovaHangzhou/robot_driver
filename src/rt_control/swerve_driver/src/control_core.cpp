@@ -470,4 +470,52 @@ ControlOutput ControlCore::update(const ModuleFeedbackArray & feedback, ChassisS
                      : ControlStatus::running;
   return output_;
 }
+ExecutionStateWire::Data ControlCore::execution_state(
+  const ModuleFeedbackArray & feedback, double stamp, double sequence,
+  const std::array<int, 4> & ids) const noexcept
+{
+  using W = ExecutionStateWire;
+  W::Data d{};
+  d[W::Version]=1; d[W::Stamp]=stamp; d[W::Sequence]=sequence;
+  d[W::Ready]=active_ && feedback_ready(feedback) && !hold_fault_latched_;
+  d[W::Status]=static_cast<int>(output_.status);
+  d[W::Gated]=setpoints_.gated_; d[W::Waiting]=body_alignment_waiting_;
+  d[W::TranslationBranch]=setpoints_.translation_reversed_.has_value() ?
+    (*setpoints_.translation_reversed_ ? 1.0 : 0.0) : -1.0;
+  const double r=body_shaper_.limits_.rotation_radius_m;
+  for (std::size_t j=0;j<3;++j) {
+    const double scale=j==2 ? r : 1.;
+    d[W::BodyVelocity+j]=body_shaper_.input_.current_velocity[j]/scale;
+    d[W::BodyAcceleration+j]=body_shaper_.input_.current_acceleration[j]/scale;
+  }
+  d[W::MeasuredTwist]=output_.measured_twist.vx_mps;
+  d[W::MeasuredTwist+1]=output_.measured_twist.vy_mps;
+  d[W::MeasuredTwist+2]=output_.measured_twist.omega_radps;
+  const auto & p=setpoints_.parameters_;
+  d[W::SteeringSpeed]=p.maximum_steering_slew_radps;
+  d[W::SteeringAcceleration]=p.maximum_steering_acceleration_radps2;
+  d[W::SteeringJerk]=p.maximum_steering_jerk_radps3;
+  d[W::BodyAccelerationLimit]=config_.max_body_acceleration;
+  d[W::BodyJerk]=config_.max_body_jerk; d[W::WheelAcceleration]=config_.max_wheel_acceleration;
+  d[W::WheelSpeed]=config_.max_wheel_speed;
+  d[W::Gate]=p.alignment_threshold_rad;
+  d[W::Release]=std::isfinite(p.alignment_release_rad) ? p.alignment_release_rad : p.alignment_threshold_rad;
+  d[W::FlipHysteresis]=p.flip_hysteresis_rad;
+  for(std::size_t i=0;i<4;++i) {
+    const auto k=W::Modules+W::Stride*i;
+    d[k+W::Id]=ids[i]; d[k+W::Angle]=feedback[i].steering_position;
+    d[k+W::WheelVelocity]=feedback[i].wheel_velocity*config_.wheel_radius[i];
+    d[k+W::ReferenceAngle]=setpoints_.previous_targets_[i].value_or(last_steering_targets_[i]);
+    d[k+W::ReferenceRate]=setpoints_.steering_rates_[i];
+    d[k+W::ReferenceAcceleration]=setpoints_.steering_accelerations_[i];
+    d[k+W::ReferenceWheelVelocity]=previous_speeds_[i];
+    d[k+W::Reversed]=setpoints_.reversed_[i];d[k+W::Holding]=holding_modules_[i];
+    d[k+W::Goal]=setpoints_.selected_goals_[i];d[k+W::Error]=setpoints_.selected_errors_[i];
+    d[k+W::Minimum]=config_.steering_min[i]+config_.steering_limit_margin[i];
+    d[k+W::Maximum]=config_.steering_max[i]-config_.steering_limit_margin[i];
+    d[k+W::Radius]=config_.wheel_radius[i];d[k+W::X]=config_.locations[i].x;
+    d[k+W::Y]=config_.locations[i].y;
+  }
+  return d;
+}
 }  // namespace swerve_driver

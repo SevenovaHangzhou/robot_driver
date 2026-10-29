@@ -11,6 +11,7 @@
 #include <vector>
 #include "controller_interface/controller_interface.hpp"
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_srvs/srv/set_bool.hpp"
@@ -161,6 +162,10 @@ private:
   std::unique_ptr<realtime_tools::RealtimePublisher<sensor_msgs::msg::JointState>> realtime_feedback_;
   std::array<double, 4> published_steering_{};
   int64_t feedback_published_ns_{0};
+  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr execution_state_publisher_;
+  std::unique_ptr<realtime_tools::RealtimePublisher<std_msgs::msg::Float64MultiArray>> realtime_execution_state_;
+  int64_t execution_state_published_ns_{0};
+  std::uint64_t execution_state_sequence_{0};
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>> realtime_odometry_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_publisher_;

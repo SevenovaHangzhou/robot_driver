@@ -28,3 +28,7 @@
 
 默认连续模式与只读控制轴反馈见 [开发记录](records/2026-10-25-navigation-runtime-modes.md)。
 Mock 11/11 组通过，未执行实机启用/运动，不替代硬件验收。
+
+## 2026-10-28 本机抖动修复
+
+[连续分支与执行参考记录](records/2026-10-28-execution-reference-jitter.md)：本机源码和无设备验证，未部署公共机。

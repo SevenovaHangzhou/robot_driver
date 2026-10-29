@@ -700,3 +700,41 @@ TEST(SwerveKinematicsTest, PureTranslationKeepsAlreadyAlignedEquivalentBranches)
   }
 }
 }  // namespace swerve_driver
+
+namespace swerve_driver {
+TEST(SwerveContinuousBranch, TinyYawToTranslationDoesNotForceMixedWheelsToFlip)
+{
+  SwerveSetpointParameters p;
+  p.alignment_threshold_rad=p.alignment_release_rad=kPi/2;
+  p.flip_hysteresis_rad=3*kPi/180;
+  p.maximum_steering_slew_radps=35*kPi/180;
+  p.maximum_steering_acceleration_radps2=35*kPi/180;
+  p.maximum_steering_jerk_radps3=100*kPi/180;
+  p.angle_limits.fill({-135*kPi/180,135*kPi/180,15*kPi/180,.1*kPi/180});
+  for(double delta : {0.,2.,3.,4.,6.5}) {
+    SwerveSetpointGenerator g(p);
+    std::array<double,4> a{89.95*kPi/180,-90.04*kPi/180,-89.98*kPi/180,90.01*kPi/180};
+    g.reset(a);std::array<SwerveModuleState,4> u;
+    for(std::size_t i=0;i<4;++i) {u[i]={.45,(90.+.01*static_cast<double>(i))*kPi/180};}
+    const auto first=g.generate(u,a,.001);
+    for(auto & v:u) {v={.45,(90.+delta)*kPi/180};}
+    const auto next=g.generate(u,a,.001);
+    EXPECT_FALSE(next.gated);
+    EXPECT_LT(next.maximum_error_rad,7*kPi/180);
+    for(std::size_t i=0;i<4;++i) {EXPECT_EQ(next.modules[i].reversed,first.modules[i].reversed);}
+  }
+}
+TEST(SwerveContinuousBranch, UnavailableBranchCanStillSwitchAndGate)
+{
+  SwerveSetpointParameters p;
+  p.alignment_threshold_rad=p.alignment_release_rad=kPi/2;
+  p.angle_limits.fill({-135*kPi/180,135*kPi/180,15*kPi/180,.1*kPi/180});
+  SwerveSetpointGenerator g(p);
+  std::array<double,4> a;a.fill(119*kPi/180);g.reset(a);
+  std::array<SwerveModuleState,4> u;u.fill({.2,119*kPi/180});
+  EXPECT_FALSE(g.generate(u,a,.001).gated);u.fill({.2,121*kPi/180});
+  const auto next=g.generate(u,a,.001);
+  EXPECT_TRUE(next.gated);
+  for(const auto & m:next.modules) {EXPECT_TRUE(m.reversed);EXPECT_EQ(m.speed_mps,0.);}
+}
+}

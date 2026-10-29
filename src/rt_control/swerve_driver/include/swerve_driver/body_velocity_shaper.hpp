@@ -34,6 +34,7 @@ public:
   }
 
 private:
+  friend class ControlCore;  // Fixed-size read-only execution snapshot.
   BodyShaperLimits limits_;
   ruckig::Ruckig<3> generator_;
   ruckig::InputParameter<3> input_;

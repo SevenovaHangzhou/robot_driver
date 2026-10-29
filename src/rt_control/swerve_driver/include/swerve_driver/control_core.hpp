@@ -5,6 +5,7 @@
 #include <limits>
 #include <optional>
 #include "swerve_driver/body_velocity_shaper.hpp"
+#include "swerve_driver/execution_state.hpp"
 #include "swerve_driver/swerve_odometry.hpp"
 
 namespace swerve_driver
@@ -79,6 +80,9 @@ public:
   bool switch_alignment_policy(
     const ModuleFeedbackArray & feedback, double stationary_speed, double threshold,
     double release) noexcept;
+  ExecutionStateWire::Data execution_state(
+    const ModuleFeedbackArray & feedback, double ros_stamp, double sequence,
+    const std::array<int, 4> & module_ids) const noexcept;
   ControlOutput update(const ModuleFeedbackArray & feedback, ChassisSpeeds command,
     bool command_fresh, double dt, std::optional<YawSample> imu = std::nullopt);
 

@@ -108,6 +108,8 @@ public:
   bool set_alignment_policy(double threshold, double release) noexcept;
 
 private:
+  friend class ControlCore;  // Fixed-size read-only execution snapshot.
+  std::array<double, kSwerveModuleCount> selected_goals_{}, selected_errors_{};
   SwerveSetpointParameters parameters_;
   std::array<bool, kSwerveModuleCount> reversed_{};
   std::optional<bool> translation_reversed_;

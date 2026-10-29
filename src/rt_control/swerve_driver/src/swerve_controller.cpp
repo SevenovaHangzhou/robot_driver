@@ -378,6 +378,13 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     state.name={"module_1_steering","module_2_steering","module_3_steering","module_4_steering",
       "module_1_wheel","module_2_wheel","module_3_wheel","module_4_wheel"};
     state.position.resize(8);state.velocity.resize(8);feedback_published_ns_=0;
+    execution_state_publisher_=get_node()->create_publisher<std_msgs::msg::Float64MultiArray>(
+      "/rt_control/chassis/execution_state",rclcpp::SensorDataQoS());
+    realtime_execution_state_=std::make_unique<realtime_tools::RealtimePublisher<std_msgs::msg::Float64MultiArray>>(
+      execution_state_publisher_);
+    realtime_execution_state_->msg_.data.resize(swerve_driver::ExecutionStateWire::Size);
+    execution_state_published_ns_=0; execution_state_sequence_=0;
+
 
     command_subscription_.reset();
     imu_subscription_.reset();
@@ -702,6 +709,7 @@ CallbackReturn SwerveController::on_cleanup(const rclcpp_lifecycle::State & stat
   }
   mode_service_.reset();
   mode_publisher_.reset();
+  realtime_execution_state_.reset(); execution_state_publisher_.reset();
   diagnostic_timer_.reset();
   diagnostic_publisher_.reset();
   fault_stop_timer_.reset();
@@ -861,6 +869,20 @@ controller_interface::return_type SwerveController::update(
     if (last_output_.slipping_modules[i]) {slipping_mask |= 1U << i;}
   }
   slipping_mask_.store(slipping_mask);
+  // Preallocated, try-lock only. DDS serialization runs in RealtimePublisher's worker.
+  // Publish faults too, so consumers invalidate an earlier good reference immediately.
+  ++execution_state_sequence_;
+  if (feedback_ns<execution_state_published_ns_) {execution_state_published_ns_=0;}
+  if (realtime_execution_state_ &&
+    (execution_state_published_ns_==0 || feedback_ns-execution_state_published_ns_>=10000000) &&
+    realtime_execution_state_->trylock()) {
+    auto data=core_->execution_state(feedback,time.seconds(),
+      static_cast<double>(execution_state_sequence_),{1,2,3,4});
+    data[swerve_driver::ExecutionStateWire::Ready]=data[swerve_driver::ExecutionStateWire::Ready] &&
+      !fault_latched_.load() && navigation;
+    std::copy(data.begin(),data.end(),realtime_execution_state_->msg_.data.begin());
+    execution_state_published_ns_=feedback_ns;realtime_execution_state_->unlockAndPublish();
+  }
   publish_elapsed_ += positive(dt) ? dt : 0.0;
   if (publish_elapsed_ >= 0.02 && realtime_odometry_->trylock()) {
     auto & message = realtime_odometry_->msg_;
