@@ -32,13 +32,10 @@ std::vector<rclcpp::Parameter> makeValidTestOnlyParameters()
     rclcpp::Parameter("configuration_source", "test_only"),
     testJointsParameter(),
     rclcpp::Parameter("allow_test_only_configuration", true),
+    rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
+    rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
     rclcpp::Parameter(
-      "splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-    rclcpp::Parameter(
-      "splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-    rclcpp::Parameter(
-      "takeover_tolerances",
-      std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))};
+      "takeover_tolerances", std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))};
 }
 
 void replaceParameter(
@@ -142,12 +139,8 @@ TEST_F(ControllerLifecycleTest, ClaimsFourteenPositionPairsAndTheSharedFeedbackA
   ASSERT_EQ(command_configuration.names.size(), kAxisCount);
   ASSERT_EQ(state_configuration.names.size(), kAxisCount + 1U);
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    EXPECT_EQ(
-      command_configuration.names[axis],
-      kTestJointNames[axis] + "/position");
-    EXPECT_EQ(
-      state_configuration.names[axis],
-      kTestJointNames[axis] + "/position");
+    EXPECT_EQ(command_configuration.names[axis], kTestJointNames[axis] + "/position");
+    EXPECT_EQ(state_configuration.names[axis], kTestJointNames[axis] + "/position");
   }
   EXPECT_EQ(
     state_configuration.names.back(),
@@ -165,13 +158,11 @@ TEST_F(ControllerLifecycleTest, ConfigurationRefusesImplicitOrUnapprovedTestThre
     controller_interface::CallbackReturn::ERROR);
 
   auto options = rclcpp::NodeOptions();
-  options.parameter_overrides({
-    rclcpp::Parameter("configuration_source", "test_only"),
-    testJointsParameter(),
-    rclcpp::Parameter("allow_test_only_configuration", false),
-    rclcpp::Parameter(
-      "takeover_tolerances",
-      std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))});
+  options.parameter_overrides(
+    {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
+     rclcpp::Parameter("allow_test_only_configuration", false),
+     rclcpp::Parameter(
+       "takeover_tolerances", std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))});
   RollingTrajectoryController unapproved;
   ASSERT_EQ(
     unapproved.init("unapproved_rolling_controller", "", options),
@@ -210,12 +201,9 @@ TEST_F(ControllerLifecycleTest, InvalidRuntimeParameterMatrixFailsConfigureWitho
     rclcpp::Parameter("maximum_controller_period_ms", std::int64_t{3}),
     rclcpp::Parameter("one_cycle_detection_guard_ms", std::int64_t{0}),
     rclcpp::Parameter("one_cycle_detection_guard_ms", std::int64_t{500}),
-    rclcpp::Parameter(
-      "open_feedback_age_limit_ms", std::numeric_limits<double>::quiet_NaN()),
-    rclcpp::Parameter(
-      "takeover_tolerances", std::vector<double>(kAxisCount - 1U, 0.1)),
-    rclcpp::Parameter(
-      "splice_position_tolerances", std::vector<double>(kAxisCount, -0.1)),
+    rclcpp::Parameter("open_feedback_age_limit_ms", std::numeric_limits<double>::quiet_NaN()),
+    rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount - 1U, 0.1)),
+    rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, -0.1)),
     rclcpp::Parameter(
       "splice_velocity_tolerances",
       std::vector<double>(kAxisCount, std::numeric_limits<double>::infinity()))};

@@ -450,8 +450,7 @@ protected:
 
     auto options = rclcpp::NodeOptions();
     options.parameter_overrides(
-      {rclcpp::Parameter("configuration_source", "test_only"),
-    testJointsParameter(),
+      {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
        rclcpp::Parameter("allow_test_only_configuration", true),
        rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
        rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
