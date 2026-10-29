@@ -255,7 +255,7 @@ docker stop / SIGTERM
 
 ### 30 分钟建立全貌
 
-1. 读根 [`README.md`](../../../README.md)、根 [`AGENTS.md`](../../../AGENTS.md) 和本域 [`AGENTS.md`](../AGENTS.md)，先确定边界和安全规则。
+1. 读根 [`README.md`](../../../README.md)、根 [`AGENTS.md`](../../../AGENTS.md) 和 [`ARCHITECTURE.md`](../../../ARCHITECTURE.md)，先确定边界和安全规则。
 2. 读本页前四节，建立接口、包依赖、启动和关停模型。
 3. 读 `rt_control.launch.py`、`controllers.yaml` 和三个 ros2_control xacro，理解总装。
 4. 读 `RtEnable.srv`，然后浏览 enable manager、XMC SW 5.11 profile 和 diagnostics。

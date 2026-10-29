@@ -72,7 +72,7 @@ cases:
     env: docker
     env_note: 生产镜像 BUILD_TESTING=OFF，容器内只做接口探测不跑包测试
     covers: ["docker/**"]
-    traces: [collaboration-and-commit-standards.md]
+    traces: [docker/README.md]
     preconditions: 候选镜像已构建；容器以 mock 参数启动，不映射任何总线设备
     entry: |
       docker run --rm <image> bash -lc 'source /opt/rt_control_ws/install/setup.bash && \

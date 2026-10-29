@@ -441,9 +441,8 @@ jobs:
             "README.md": "# robot_driver\n",
             "AGENTS.md": "# Contract\n",
             "ARCHITECTURE.md": "# Architecture\n",
-            "collaboration-and-commit-standards.md": "# Collaboration\n",
+            ".github/CONTRIBUTING.md": "# Contributing\n",
             "domains/rt_control/README.md": "# rt-control\n",
-            "domains/rt_control/AGENTS.md": "# rt-control contract\n",
             "domains/rt_control/PROGRESS.md": "# rt-control progress\n",
             "domains/rt_control/BLOCKED-questions.md": "# rt-control blockers\n",
             ".pre-commit-config.yaml": """repos:
