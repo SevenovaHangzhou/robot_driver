@@ -8,7 +8,7 @@
 
 | 完成 | 类别 | 项 | 违反条款 |
 | --- | --- | --- | --- |
-| [ ] | A 死活不分 | `robot_hw_ethercat/urdf/ecat.ros2_control.xacro`、`variants/alfa_v1.yaml`、`config/slaves/*`（二代）只被测试/golden 引用 | 1.4 |
+| [x] | A 死活不分 | `robot_hw_ethercat/urdf/ecat.ros2_control.xacro`、`variants/alfa_v1.yaml`、`config/slaves/*`（二代）只被测试/golden 引用 | 1.4 |
 | [ ] | A | `plc_node` 与 `plc_io_modbus` 均产出 `PlcIoState`，均无生产入口 | 1.4、3 复用 |
 | [ ] | A | `rt_control_interface_runtime.launch.py` 自称 draft preview | 1.4 |
 | [ ] | A | `onboarding-knowledge-map.md` 自称历史却是推荐入口 | 1.4 |

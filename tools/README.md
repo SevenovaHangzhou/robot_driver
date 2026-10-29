@@ -64,7 +64,6 @@ bash tools/check_ecat_sync_shutdown_policy.sh
 
 补丁要在 `deps.repos` 指定的上游提交上 `git apply --check`，并构建/测试受影响的上游包；用隔离临时工作区，不污染源码。
 CANopen 生成物从权威 EDS 重建，不手改 `.bin/.dcf`。
-`tools/diff_legacy.py` 只在用户明确要求对照遗留基线时使用。
 
 ## Launch、脚本
 

@@ -334,7 +334,7 @@ jobs:
       - run: colcon build --packages-up-to rt_control_bringup
       - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
-      - run: python3 tools/diff_legacy.py
+      - run: python3 tools/check_v3_branch_contract.py
 """
         self.assertEqual(repository_gate.check_ci_workflow_policy(valid), [])
 
@@ -365,11 +365,11 @@ jobs:
             "full V3 build job must remain unconditional",
         )
 
-        v3 = valid.replace(
-            "python3 tools/diff_legacy.py",
-            "python3 tools/check_v3_branch_contract.py",
+        ungated = valid.replace("      - run: python3 tools/check_v3_branch_contract.py\n", "")
+        self.assert_has(
+            repository_gate.check_ci_workflow_policy(ungated),
+            "branch-specific migration gate",
         )
-        self.assertEqual(repository_gate.check_ci_workflow_policy(v3), [])
 
         unprepared = valid.replace(
             "      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws "
@@ -484,7 +484,7 @@ jobs:
       - run: colcon build --packages-up-to rt_control_bringup
       - run: colcon test --packages-up-to rt_control_bringup
       - run: check_urdf robot.urdf
-      - run: python3 tools/diff_legacy.py
+      - run: python3 tools/check_v3_branch_contract.py
 """,
             ".github/workflows/pr-metadata-governance.yml": """on:
   pull_request:

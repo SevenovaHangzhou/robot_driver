@@ -61,7 +61,7 @@ cases:
       - 退出码 0（未批准语义差异数为 0）
     evidence: 比对 stdout 存档
     cleanup: 无
-    status: automated
+    status: retired
     v010_gate: run
 
   - id: TC-ST-04

@@ -3,7 +3,6 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-config_root="${repo_root}/src/rt_control/robot_hw_ethercat/config/slaves"
 shutdown_patch="${repo_root}/patches/ecat_icube/0003-orderly-master-deactivation.patch"
 preserve_pdo_patch="${repo_root}/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch"
 igh_preserve_pdo_patch="${repo_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
@@ -17,17 +16,6 @@ fail()
   exit 1
 }
 
-fixed_line_count()
-{
-  local expected="$1"
-  local file="$2"
-  if command -v rg >/dev/null 2>&1; then
-    rg -Fxc -- "${expected}" "${file}" || true
-  else
-    grep -Fxc -- "${expected}" "${file}" || true
-  fi
-}
-
 fixed_contains()
 {
   local expected="$1"
@@ -38,47 +26,6 @@ fixed_contains()
     grep -Fq -- "${expected}" "${file}"
   fi
 }
-
-assert_sync_limit()
-{
-  local file="$1"
-  local type="$2"
-  local expected="  - {index: 0x10f1, sub_index: 2, type: ${type}, value: 250}"
-  local count
-
-  count="$(fixed_line_count "${expected}" "${file}")"
-  [[ "${count}" == "1" ]] ||
-    fail "$(basename "${file}") must contain exactly one ${expected}"
-}
-
-assert_passive_profile_has_no_startup_sdo()
-{
-  local file="$1"
-  local count
-  count="$(fixed_line_count 'sdo:' "${file}")"
-  [[ "${count:-0}" == "0" ]] ||
-    fail "$(basename "${file}") is passive but configures startup SDO writes"
-}
-
-for profile in \
-  left_j6.yaml \
-  right_j6.yaml \
-  turn.yaml \
-  xmc_updown_sw511.yaml \
-  zeroerr_j1.yaml \
-  zeroerr_j4.yaml \
-  zeroerr_j5.yaml
-do
-  assert_sync_limit "${config_root}/${profile}" uint16
-done
-
-for profile in ti5_j2.yaml ti5_j3.yaml
-do
-  assert_sync_limit "${config_root}/${profile}" uint32
-done
-
-assert_passive_profile_has_no_startup_sdo "${config_root}/x503_right.yaml"
-assert_passive_profile_has_no_startup_sdo "${config_root}/x503_left.yaml"
 
 [[ -f "${shutdown_patch}" ]] || fail "missing ${shutdown_patch}"
 
@@ -208,4 +155,4 @@ if [[ -n "${IGH_SOURCE:-}" ]]; then
   rm -rf -- "${igh_scratch}"
 fi
 
-echo "PASS: EtherCAT motion sync tolerance, passive-SDO exclusion, fixed-PDO verification, and ordered shutdown policy"
+echo "PASS: EtherCAT fixed-PDO verification and ordered shutdown policy"
