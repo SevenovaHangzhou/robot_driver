@@ -245,8 +245,7 @@ bool RollingTrajectoryController::loadRuntimeConfiguration(std::string & error)
 {
   RuntimeConfiguration candidate;
   if (!parseJointNames(
-      get_node()->get_parameter("joints").as_string_array(), candidate.joints, error))
-  {
+        get_node()->get_parameter("joints").as_string_array(), candidate.joints, error)) {
     return false;
   }
   const std::int64_t capacity = get_node()->get_parameter("buffer_capacity").as_int();
@@ -447,8 +446,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   } else {
     std::string envelope_error;
     if (!loadProvisionalEnvelope(
-        envelope_file, runtime_configuration_.joints, envelope_, envelope_error))
-    {
+          envelope_file, runtime_configuration_.joints, envelope_, envelope_error)) {
       RCLCPP_ERROR(
         get_node()->get_logger(), "Failed to load provisional rolling envelope: %s",
         envelope_error.c_str());
