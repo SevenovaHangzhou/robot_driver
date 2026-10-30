@@ -92,7 +92,7 @@ flowchart TD
 | `robot_hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](https://github.com/SevenovaHangzhou/robot_driver/tree/43d4c648bca8/src/rt_control/robot_hw_ethercat/config/slaves) |
 | `robot_hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/config/bus.yml) |
 | `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/enable_manager/include/enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
-| `rt_diagnostics` | EtherCAT、CANopen 和使能状态怎样形成统一诊断？ | [`rt_diagnostics_node.cpp`](../../../src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp) |
+| `rt_diagnostics` | EtherCAT、CANopen 和使能状态怎样形成统一诊断？ | `rt_diagnostics_node.cpp`（包已删除，arch-b3） |
 | `rt_control_bringup` | 哪些节点和控制器以什么顺序启动？ | [`rt_control.launch.py`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/rt_control_bringup/launch/rt_control.launch.py)、[`controllers.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/rt_control_bringup/config/controllers.yaml) |
 | 上游窄补丁 | 为什么只看本仓库源码还解释不了生产行为？ | [`deps.repos`](../../../deps.repos)、[`patches`](../../../patches)、[`Dockerfile`](../../../docker/rt-control/Dockerfile) |
 | 容器与宿主 | 镜像、CPU、DDS、设备和退出语义怎样落地？ | [`compose.yaml`](../../../docker/compose.yaml)、[`rt_control_start`](../../../src/rt_control/rt_control_bringup/scripts/rt_control_start)、[`hostsetup`](../../../hostsetup) |
@@ -233,7 +233,7 @@ docker stop / SIGTERM
 | `updateDownward()` / `startEmergency()` | 正常失能、使能回滚和运行中故障怎样收敛？ | 同上 |
 | `updateReset()` | 整组 Fault Reset 怎样发上升沿并确认？ | 同上 |
 | `validate_trajectory_start()` | 14 轴 FJT 如何按轴校验首点和 EtherCAT 反馈年龄？ | [`0001-jtc-start-consistency.patch`](../../../patches/ros2_controllers/0001-jtc-start-consistency.patch) |
-| `RtDiagnosticsNode::publishSnapshot()` | 多路硬件状态如何变成 1 Hz 诊断树？ | [`rt_diagnostics_node.cpp`](../../../src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp) |
+| `RtDiagnosticsNode::publishSnapshot()` | 多路硬件状态如何变成 1 Hz 诊断树？ | `rt_diagnostics_node.cpp`（包已删除，arch-b3） |
 | `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/enable_manager/src/rt_disable_once.cpp) |
 
 ## 4. 按任务找代码

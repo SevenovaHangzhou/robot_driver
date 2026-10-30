@@ -28,7 +28,7 @@ cases:
     risk: T3
     writes: { reset: yes, enable: no, motion: no, plc: no }
     env: native
-    covers: ["src/rt_control/robot_hw_ethercat/**", "src/rt_control/rt_diagnostics/**"]
+    covers: ["src/rt_control/robot_hw_ethercat/**"]
     traces: ["BQ-117"]
     preconditions: 注入方式（断电单从站/断链）需先裁决并单独授权；禁止在带载状态注入
     entry: |
