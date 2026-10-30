@@ -183,6 +183,22 @@ TEST(ClientTest, TimeoutClosesSoALateReplyIsNeverReadAsTheNextResponse)
   EXPECT_EQ(server.accepted(), 2);
 }
 
+TEST(ClientTest, PerCallTimeoutOverridesTheDefault)
+{
+  Server server([](int fd, int) {
+    Bytes request = read_request(fd);
+    std::this_thread::sleep_for(200ms);
+    send_all(fd, reply_to(request, {0x01, 0x01, 0x01}));
+    read_request(fd);
+  });
+  infra_modbus::Client client("127.0.0.1", server.port(), 2000ms);
+  const auto start = std::chrono::steady_clock::now();
+  EXPECT_THROW(client.transact(1, kReadCoil, 50ms), std::runtime_error);
+  EXPECT_LT(std::chrono::steady_clock::now() - start, 1000ms);
+  EXPECT_FALSE(client.connected());
+  EXPECT_THROW(client.transact(1, kReadCoil, 0ms), std::invalid_argument);
+}
+
 TEST(ClientTest, MismatchedTransactionOrFunctionClosesTheConnection)
 {
   Server server([](int fd, int connection) {

@@ -63,10 +63,19 @@ bool Client::connected() const noexcept
 
 std::vector<std::uint8_t> Client::transact(std::uint8_t unit, const std::vector<std::uint8_t> & pdu)
 {
+  return transact(unit, pdu, timeout_);
+}
+
+std::vector<std::uint8_t> Client::transact(
+  std::uint8_t unit, const std::vector<std::uint8_t> & pdu, std::chrono::milliseconds timeout)
+{
   if (pdu.empty() || pdu.size() > 253U) {
     throw std::invalid_argument{"Modbus PDU must be 1..253 bytes"};
   }
-  const auto deadline = Clock::now() + timeout_;
+  if (timeout.count() <= 0) {
+    throw std::invalid_argument{"Modbus timeout must be positive"};
+  }
+  const auto deadline = Clock::now() + timeout;
   try {
     if (descriptor_ < 0) {
       connect(deadline);
