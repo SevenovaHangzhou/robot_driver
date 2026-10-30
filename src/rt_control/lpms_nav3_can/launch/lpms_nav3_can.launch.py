@@ -23,7 +23,6 @@ def _setup(context):
         or not interface
         or interface == "TBD"
         or len(interface) >= 16
-        or interface in {"can0", "can1"}
         or type(node_id) is not int
         or not 1 <= node_id <= 127
         or not isinstance(frame, str)
