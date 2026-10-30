@@ -23,15 +23,9 @@ install(TARGETS ros2_control_node DESTINATION lib/${PROJECT_NAME})
 install(
   FILES
     launch/rt_control_module.launch.py
-    launch/rt_control_interface_runtime.launch.py
     launch/rt_control_ultrasonic.launch.py
     launch/rt_control_scope_runtime.launch.py
   DESTINATION share/${PROJECT_NAME}/launch
-)
-install(
-  FILES
-    config/rt_io.yaml
-  DESTINATION share/${PROJECT_NAME}/config
 )
 install(
   PROGRAMS
@@ -63,10 +57,6 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
   ament_add_pytest_test(test_scope_lifecycle test/test_scope_lifecycle.py)
   ament_add_pytest_test(test_operator_tuning test/test_operator_tuning.py)
-  ament_add_pytest_test(
-    test_interface_runtime_launch
-    test/test_interface_runtime_launch.py
-  )
 endif()
 
 ament_package()
