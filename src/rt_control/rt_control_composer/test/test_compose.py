@@ -276,6 +276,11 @@ def test_data_files_pass_existing_validator(shares):
         scope["mock_robot_model"]["joint_limits_file"]
         for scope in manifest["scopes"].values()
         if "mock_robot_model" in scope
+    } | {
+        # A scope controller file is a complete ROS parameter document, not a machine envelope.
+        scope["controller_file"]["file"]
+        for scope in manifest["scopes"].values()
+        if scope.get("controller_file", {}).get("package") == "rt_control_machine_config"
     }
     # Owner policies have no machine envelope; each is validated by its owner's schema.
     policies = {ref["file"]: ref for ref in manifest["policy_refs"].values()}

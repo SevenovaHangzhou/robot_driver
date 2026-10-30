@@ -34,7 +34,6 @@ readonly -a runtime_packages=(
   robot_hw_ethercat
   robot_hw_canopen
   robot_hw_can
-  damiao_head_controller
   enable_manager
   rt_diagnostics
   rt_control_semantic_components

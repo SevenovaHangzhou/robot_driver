@@ -580,10 +580,10 @@ scopes:
       - head_position_controller
       active:
       - joint_state_broadcaster
-      - damiao_head_manager
+      - enable_manager
     controller_file:
-      package: damiao_head_controller
-      file: config/controllers.yaml
+      package: rt_control_machine_config
+      file: machines/Alfa_V3/head_controllers.yaml
     controller_parameter_bindings:
       joint_state_broadcaster:
         parameters:
@@ -597,18 +597,20 @@ scopes:
             module: head_gimbal
             export: joint_names
             resource_kind: joints
-      damiao_head_manager:
+      enable_manager:
         parameters:
-          joints:
+          handshake_devices:
+            module: head_gimbal
+            export: handshake_devices
+            resource_kind: gpios
+          diagnostic_joints:
             module: head_gimbal
             export: joint_names
             resource_kind: joints
-          control_name:
-            module: head_gimbal
-            export: control_name
-            resource_kind: gpios
     robot_name: alfa_v3_head_control
     parameter_view: head_state
+    staged_hardware_activation: true
+    publish_robot_state: true
   arms_stationary_enable:
     enabled_modules:
     - arms

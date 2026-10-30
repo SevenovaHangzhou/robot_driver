@@ -1,36 +1,45 @@
 controller_manager:
   ros__parameters:
-    update_rate: 1000
-    joint_state_broadcaster:
-      type: joint_state_broadcaster/JointStateBroadcaster
+    enable_manager:
+      type: enable_manager/EnableManagerController
+    hardware_components_initial_state:
+      unconfigured:
+      - damiao_head
     head_position_controller:
       type: forward_command_controller/ForwardCommandController
-    damiao_head_manager:
-      type: damiao_head_controller/HeadManagerController
-joint_state_broadcaster:
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    update_rate: 1000
+enable_manager:
   ros__parameters:
-    update_rate: 50
+    batch_timeout: 5.0
+    controller_switch_timeout: 1.0
+    diagnostic_joint_interfaces:
+    - fault_code
+    - mos_temperature
+    - motor_temperature
+    - feedback_age_ms
+    diagnostic_joints:
+    - head_joint
+    - head_pitch_joint
+    disable_stage_timeout: 5.0
+    fault_reset_timeout: 5.0
+    handshake_devices:
+    - damiao_head_control
+    jtc_name: head_position_controller
+head_position_controller:
+  ros__parameters:
+    interface_name: position
     joints:
     - head_joint
     - head_pitch_joint
+joint_state_broadcaster:
+  ros__parameters:
     interfaces:
     - position
     - velocity
     - effort
-head_position_controller:
-  ros__parameters:
     joints:
     - head_joint
     - head_pitch_joint
-    interface_name: position
-damiao_head_manager:
-  ros__parameters:
-    joints:
-    - head_joint
-    - head_pitch_joint
-    control_name: damiao_head_control
-    position_controller_name: head_position_controller
-    service_prefix: /rt/head
-    service_timeout_ms: 5000
-    controller_switch_timeout_ms: 1000
-    diagnostic_feedback_timeout_ms: 100.0
+    update_rate: 50

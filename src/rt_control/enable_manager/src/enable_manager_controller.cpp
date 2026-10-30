@@ -58,6 +58,9 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::int64_t>>("enable_batch_sizes", {});
   auto_declare<std::vector<std::string>>(
     "ready_to_switch_on_disable_terminal_joints", {});
+  auto_declare<std::vector<std::string>>("handshake_devices", {});
+  auto_declare<std::vector<std::string>>("diagnostic_joints", {});
+  auto_declare<std::vector<std::string>>("diagnostic_joint_interfaces", {});
 
   auto_declare<double>("batch_timeout", 4.0);
   auto_declare<double>("disable_stage_timeout", 4.0);
@@ -116,6 +119,10 @@ EnableManagerController::command_interface_configuration() const
     const auto & names = axis.get_command_interface_names();
     configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
+  for (const auto & device : handshake_devices_) {
+    const auto names = device->command_interface_names();
+    configuration.names.insert(configuration.names.end(), names.begin(), names.end());
+  }
   return configuration;
 }
 
@@ -144,6 +151,12 @@ EnableManagerController::state_interface_configuration() const
   }
   configuration.names.insert(
     configuration.names.end(), ready_state_names_.begin(), ready_state_names_.end());
+  for (const auto & device : handshake_devices_) {
+    const auto names = device->state_interface_names();
+    configuration.names.insert(configuration.names.end(), names.begin(), names.end());
+  }
+  configuration.names.insert(
+    configuration.names.end(), diagnostic_state_names_.begin(), diagnostic_state_names_.end());
   return configuration;
 }
 
@@ -191,6 +204,18 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     return controller_interface::CallbackReturn::ERROR;
   }
   ready_state_indices_.assign(ready_state_names_.size(), 0U);
+  diagnostic_state_names_.clear();
+  const auto diagnostic_joints = get_node()->get_parameter("diagnostic_joints").as_string_array();
+  const auto diagnostic_interfaces =
+    get_node()->get_parameter("diagnostic_joint_interfaces").as_string_array();
+  for (const auto & joint : diagnostic_joints) {
+    for (const auto & interface : diagnostic_interfaces) {
+      diagnostic_state_names_.push_back(joint + "/" + interface);
+    }
+  }
+  diagnostic_state_indices_.assign(diagnostic_state_names_.size(), 0U);
+  diagnostic_state_bits_ =
+    std::make_unique<std::atomic<std::uint64_t>[]>(diagnostic_state_names_.size());
   actual_modes_.assign(modes.size(), 256);
   mode_state_indices_.assign(modes.size(), 0U);
   mode_confirmed_.assign(modes.size(), 0U);
@@ -465,7 +490,9 @@ EnableManagerController::validateTopologyParameterUpdate(
       parameter.get_name() == "motion_joints" ||
       parameter.get_name() == "motion_controller_names" ||
       parameter.get_name() == "default_motion_controller" ||
-      parameter.get_name() == "rolling_motion_controller") {
+      parameter.get_name() == "rolling_motion_controller" ||
+      parameter.get_name() == "handshake_devices" || parameter.get_name() == "diagnostic_joints" ||
+      parameter.get_name() == "diagnostic_joint_interfaces") {
       if (topology_parameters_frozen_.load(std::memory_order_acquire)) {
         result.successful = false;
         result.reason = "enable-manager controller policy is already configured";
@@ -494,6 +521,29 @@ EnableManagerController::validateTopologyParameterUpdate(
 bool EnableManagerController::configureTopology()
 {
   auto explicit_mask = topology_parameters_explicit_mask_.load(std::memory_order_acquire);
+  const auto device_names = get_node()->get_parameter("handshake_devices").as_string_array();
+  if (
+    std::any_of(
+      device_names.begin(), device_names.end(), [](const auto & name) { return name.empty(); }) ||
+    std::set<std::string>(device_names.begin(), device_names.end()).size() != device_names.size()) {
+    RCLCPP_ERROR(get_node()->get_logger(), "handshake_devices must be unique nonempty names");
+    return false;
+  }
+  handshake_devices_.clear();
+  for (const auto & name : device_names) {
+    handshake_devices_.push_back(std::make_unique<HandshakeDevice>(name));
+  }
+  // ROS parameter YAML cannot carry typed empty arrays, so a device-only manager is
+  // expressed by giving none of the CiA402 topology parameters.
+  if (!handshake_devices_.empty() && explicit_mask == 0U) {
+    joint_names_.clear();
+    enable_batches_.clear();
+    ready_to_switch_on_disable_terminal_.clear();
+    status_words_.clear();
+    reset_targets_.clear();
+    cia402_axes_.clear();
+    return true;
+  }
   const auto terminal_policy = get_node()->get_parameter("disable_terminal_policy").as_string();
   if (terminal_policy == "switch_on_disabled") {
     if (!get_node()->get_parameter("ready_to_switch_on_disable_terminal_joints").as_string_array().
@@ -622,13 +672,13 @@ bool EnableManagerController::configureTopology()
 controller_interface::CallbackReturn EnableManagerController::on_activate(
   const rclcpp_lifecycle::State &)
 {
-  const std::size_t expected_state_count = cia402_axes_.size() + expected_modes_.size() +
-                                           ready_state_names_.size() +
-                                           (motion_mode_switching_ ? kMotionAxisCount + 1U : 0U);
+  const std::size_t expected_state_count =
+    cia402_axes_.size() + expected_modes_.size() + ready_state_names_.size() +
+    (motion_mode_switching_ ? kMotionAxisCount + 1U : 0U) + handshake_devices_.size() * 4U +
+    diagnostic_state_names_.size();
   if (
-    command_interfaces_.size() != cia402_axes_.size() ||
-    state_interfaces_.size() != expected_state_count)
-  {
+    command_interfaces_.size() != cia402_axes_.size() + handshake_devices_.size() * 2U ||
+    state_interfaces_.size() != expected_state_count) {
     RCLCPP_ERROR(
       get_node()->get_logger(),
       "Unexpected enable-manager command or state interface count");
@@ -641,11 +691,14 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
     const bool state_bound = axis.assign_loaned_state_interfaces(state_interfaces_);
     interfaces_bound = interfaces_bound && command_bound && state_bound;
   }
+  for (auto & device : handshake_devices_) {
+    interfaces_bound = interfaces_bound && device->bind(command_interfaces_, state_interfaces_);
+  }
   if (!interfaces_bound) {
     releaseCia402Interfaces();
     RCLCPP_ERROR(
       get_node()->get_logger(),
-      "CiA402 interfaces must match each configured joint exactly once");
+      "CiA402 and handshake interfaces must match each configured joint and device exactly once");
     return controller_interface::CallbackReturn::ERROR;
   }
   if (motion_mode_switching_) {
@@ -700,6 +753,32 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
       return controller_interface::CallbackReturn::ERROR;
     }
   }
+
+  for (std::size_t source = 0; source < diagnostic_state_names_.size(); ++source) {
+    const auto match =
+      std::find_if(state_interfaces_.begin(), state_interfaces_.end(), [&](const auto & interface) {
+        return interface.get_name() == diagnostic_state_names_[source];
+      });
+    if (match == state_interfaces_.end()) {
+      releaseCia402Interfaces();
+      RCLCPP_ERROR(
+        get_node()->get_logger(), "Missing diagnostic state %s",
+        diagnostic_state_names_[source].c_str());
+      return controller_interface::CallbackReturn::ERROR;
+    }
+    diagnostic_state_indices_[source] =
+      static_cast<std::size_t>(std::distance(state_interfaces_.begin(), match));
+  }
+  for (auto & device : handshake_devices_) {
+    if (!device->baseline()) {
+      releaseCia402Interfaces();
+      RCLCPP_ERROR(
+        get_node()->get_logger(), "Handshake device %s reports an invalid state",
+        device->name().c_str());
+      return controller_interface::CallbackReturn::ERROR;
+    }
+  }
+  device_stage_ = false;
 
   setAllControlWords(0x0000U);
   enable_request_.store(false, std::memory_order_release);
@@ -759,6 +838,10 @@ controller_interface::CallbackReturn EnableManagerController::on_deactivate(
   active_.store(false, std::memory_order_release);
   mode_abort_requested_.store(true, std::memory_order_release);
   setAllControlWords(0x0000U);
+  for (auto & device : handshake_devices_) {
+    device->request_enable(false);
+    device->write();
+  }
   phase_.store(Phase::kInactive, std::memory_order_release);
   owner_.store(Owner::kInternal, std::memory_order_release);
   current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
@@ -776,6 +859,14 @@ controller_interface::return_type EnableManagerController::update(
 
   refreshStatusWords();
   refreshModes();
+  for (auto & device : handshake_devices_) {
+    device->read();
+  }
+  for (std::size_t index = 0; index < diagnostic_state_names_.size(); ++index) {
+    diagnostic_state_bits_[index].store(
+      encodeDouble(state_interfaces_[diagnostic_state_indices_[index]].get_value()),
+      std::memory_order_relaxed);
+  }
   if (motion_mode_switching_) {
     const std::size_t motion_offset = cia402_axes_.size();
     actual_sample_version_.fetch_add(1U, std::memory_order_acq_rel);
@@ -819,6 +910,11 @@ controller_interface::return_type EnableManagerController::update(
         break;
       }
     }
+    if (phase != Phase::kEmergencyQuickStop && !allDevicesEnabled()) {
+      startEmergency(
+        anyDeviceFaulted() ? Stage::kFaultDetected : Stage::kUnexpectedDriveState, -1, 0U, now_ns);
+      phase = Phase::kEmergencyQuickStop;
+    }
   }
 
   switch (phase) {
@@ -830,8 +926,11 @@ controller_interface::return_type EnableManagerController::update(
       break;
     case Phase::kIdle:
       setAllControlWords(0x0000U);
+      requestDevicesEnable(false);
       if (enable_request_.exchange(false, std::memory_order_acq_rel)) {
         current_batch_ = 0U;
+        // A device-only manager has no CiA402 batch and starts with the device stage.
+        device_stage_ = enable_batches_.empty();
         ready_since_ns_ = -1;
         state_sources_qualified_ = ready_state_indices_.empty();
         enable_preempt_requested_ = false;
@@ -847,7 +946,7 @@ controller_interface::return_type EnableManagerController::update(
         phase_.store(Phase::kEnabling, std::memory_order_release);
       } else if (reset_request_.exchange(false, std::memory_order_acq_rel)) {
         std::fill(reset_targets_.begin(), reset_targets_.end(), 0U);
-        bool has_fault = false;
+        bool has_fault = anyDeviceFaulted();
         for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
           reset_targets_[axis] = isFaultState(decodeState(status_words_[axis]));
           has_fault = has_fault || reset_targets_[axis];
@@ -857,6 +956,7 @@ controller_interface::return_type EnableManagerController::update(
           publishResult(reset_result_, true, Stage::kAlreadyClear);
           owner_.store(Owner::kNone, std::memory_order_release);
         } else {
+          startDeviceResets();
           setAllControlWords(0x0000U);
           phase_.store(Phase::kResetLow, std::memory_order_release);
         }
@@ -924,11 +1024,12 @@ controller_interface::return_type EnableManagerController::update(
       break;
     case Phase::kFailed:
       setAllControlWords(0x0000U);
+      requestDevicesEnable(false);
       if (disable_request_.exchange(false, std::memory_order_acq_rel)) {
         startDownward(Phase::kDisabling, now_ns);
       } else if (reset_request_.exchange(false, std::memory_order_acq_rel)) {
         std::fill(reset_targets_.begin(), reset_targets_.end(), 0U);
-        bool has_fault = false;
+        bool has_fault = anyDeviceFaulted();
         for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
           reset_targets_[axis] = isFaultState(decodeState(status_words_[axis]));
           has_fault = has_fault || reset_targets_[axis];
@@ -939,6 +1040,7 @@ controller_interface::return_type EnableManagerController::update(
           phase_.store(Phase::kIdle, std::memory_order_release);
           owner_.store(Owner::kNone, std::memory_order_release);
         } else {
+          startDeviceResets();
           phase_.store(Phase::kResetLow, std::memory_order_release);
         }
       }
@@ -947,6 +1049,9 @@ controller_interface::return_type EnableManagerController::update(
       break;
   }
 
+  for (auto & device : handshake_devices_) {
+    device->write();
+  }
   writeTrace(now_ns, period.nanoseconds());
   return controller_interface::return_type::OK;
 }
@@ -2161,6 +2266,24 @@ void EnableManagerController::publishDiagnostics()
   add_value("failed_actual_mode", actual_mode == 256 ? "unavailable" : std::to_string(actual_mode));
   add_value(
     "failed_expected_mode", std::to_string(last_expected_mode_.load(std::memory_order_acquire)));
+  for (const auto & device : handshake_devices_) {
+    const auto device_status = device->status();
+    const bool device_fault = !device_status.valid || device_status.fault_latched ||
+                              device_status.phase == HandshakeDevice::Phase::fault_latched;
+    if (device_fault) {
+      status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+      status.message = device_status.valid ? "device fault latched" : "device state invalid";
+    }
+    const std::string prefix = device->name() + ".";
+    add_value(prefix + "phase", std::to_string(static_cast<int>(device_status.phase)));
+    add_value(prefix + "fault_latched", device_status.fault_latched ? "true" : "false");
+    add_value(prefix + "motion_allowed", device_status.motion_allowed ? "true" : "false");
+  }
+  for (std::size_t index = 0; index < diagnostic_state_names_.size(); ++index) {
+    add_value(
+      diagnostic_state_names_[index],
+      std::to_string(decodeDouble(diagnostic_state_bits_[index].load(std::memory_order_relaxed))));
+  }
   array.status.push_back(std::move(status));
   diagnostics_publisher_->publish(array);
 }
@@ -2220,6 +2343,12 @@ void EnableManagerController::updateDownward(std::int64_t now_ns)
   bool all_nonfault_terminal = true;
   bool any_fault = false;
   std::int8_t first_nonterminal = -1;
+
+  requestDevicesEnable(false);
+  for (const auto & device : handshake_devices_) {
+    any_fault = any_fault || device->faulted();
+    all_nonfault_terminal = all_nonfault_terminal && (device->disabled() || device->faulted());
+  }
 
   for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
@@ -2342,6 +2471,7 @@ void EnableManagerController::startEmergency(
 
 void EnableManagerController::updateEmergencyQuickStop(std::int64_t now_ns)
 {
+  requestDevicesEnable(false);
   bool any_operation_enabled = false;
   for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
@@ -2362,8 +2492,8 @@ void EnableManagerController::updateEmergencyQuickStop(std::int64_t now_ns)
 void EnableManagerController::finishDownward()
 {
   const Phase completed_phase = phase_.load(std::memory_order_acquire);
-  bool any_fault = false;
-  bool all_terminal = true;
+  bool any_fault = anyDeviceFaulted();
+  bool all_terminal = allDevicesDisabledOrFaulted();
   std::int8_t first_fault = -1;
   std::int8_t first_nonterminal = -1;
   for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
@@ -2381,12 +2511,15 @@ void EnableManagerController::finishDownward()
     }
   }
 
+  // A faulted handshake device has no CiA402 index or status word.
+  const std::uint16_t first_fault_status = first_fault >= 0 ? status_words_[first_fault] : 0U;
+
   if (completed_phase == Phase::kStartupSanitizing) {
     current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
     if (primary_failure_stage_ != Stage::kSuccess) {
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else if (any_fault) {
-      recordFailure(Stage::kFaultRequiresReset, -1, first_fault, status_words_[first_fault]);
+      recordFailure(Stage::kFaultRequiresReset, -1, first_fault, first_fault_status);
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else {
       phase_.store(Phase::kIdle, std::memory_order_release);
@@ -2399,9 +2532,8 @@ void EnableManagerController::finishDownward()
     current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
     if (any_fault) {
       publishResult(
-        disable_result_, false, Stage::kFaultRequiresReset, -1, first_fault,
-        status_words_[first_fault]);
-      recordFailure(Stage::kFaultRequiresReset, -1, first_fault, status_words_[first_fault]);
+        disable_result_, false, Stage::kFaultRequiresReset, -1, first_fault, first_fault_status);
+      recordFailure(Stage::kFaultRequiresReset, -1, first_fault, first_fault_status);
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else if (jtc_deactivate_failed_.load(std::memory_order_acquire)) {
       publishResult(disable_result_, false, Stage::kJtcDeactivateFailed);
@@ -2539,6 +2671,12 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
       return;
     }
   }
+  if (anyDeviceFaulted()) {
+    disable_request_.store(false, std::memory_order_release);
+    startEmergency(Stage::kFaultDetected, -1, 0U, now_ns);
+    updateEmergencyQuickStop(now_ns);
+    return;
+  }
   // A confirmed individual axis cannot go back to pending while another axis
   // is still enabling, nor during the inter-batch delay.
   for (std::size_t axis = 0; axis < mode_confirmed_.size(); ++axis) {
@@ -2599,6 +2737,11 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
       stage_deadline_ns_ = now_ns + static_cast<std::int64_t>(batch_timeout_seconds_ * 1e9);
       phase_.store(Phase::kEnabling, std::memory_order_release);
     }
+    return;
+  }
+
+  if (device_stage_) {
+    updateDeviceEnable(now_ns);
     return;
   }
 
@@ -2674,6 +2817,9 @@ void EnableManagerController::updateEnable(std::int64_t now_ns)
       owner_.store(Owner::kDisable, std::memory_order_release);
       primary_failure_stage_ = Stage::kSuccess;
       startDownward(Phase::kDisabling, now_ns);
+    } else if (current_batch_ + 1U == enable_batches_.size() && !handshake_devices_.empty()) {
+      device_stage_ = true;
+      stage_deadline_ns_ = now_ns + static_cast<std::int64_t>(batch_timeout_seconds_ * 1e9);
     } else if (current_batch_ + 1U == enable_batches_.size()) {
       // Publish phase before signalling the service thread that hardware is ready.
       phase_.store(Phase::kJtcActivating, std::memory_order_release);
@@ -2721,7 +2867,7 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
     return;
   }
 
-  bool all_reset_targets_left_fault = true;
+  bool all_reset_targets_left_fault = allDeviceResetsComplete();
   std::int8_t first_pending = -1;
   for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
@@ -2756,6 +2902,78 @@ void EnableManagerController::updateReset(std::int64_t now_ns)
   }
 }
 
+void EnableManagerController::updateDeviceEnable(std::int64_t now_ns)
+{
+  for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
+    if (decodeState(status_words_[axis]) != DriveState::kOperationEnabled) {
+      failEnable(Stage::kUnexpectedDriveState, static_cast<std::ptrdiff_t>(axis), now_ns);
+      return;
+    }
+    setControlWord(axis, 0x000FU);
+  }
+  if (enable_preempt_requested_) {
+    disable_request_.store(false, std::memory_order_release);
+    publishResult(enable_result_, false, Stage::kPreemptedByDisable);
+    owner_.store(Owner::kDisable, std::memory_order_release);
+    primary_failure_stage_ = Stage::kSuccess;
+    startDownward(Phase::kDisabling, now_ns);
+    return;
+  }
+  requestDevicesEnable(true);
+  if (allDevicesEnabled()) {
+    device_stage_ = false;
+    // Publish phase before signalling the service thread that hardware is ready.
+    phase_.store(Phase::kJtcActivating, std::memory_order_release);
+    enable_hardware_ready_.store(true, std::memory_order_release);
+  } else if (now_ns >= stage_deadline_ns_) {
+    failEnable(Stage::kEnableBatchTimeout, -1, now_ns);
+  }
+}
+
+void EnableManagerController::requestDevicesEnable(bool enable) noexcept
+{
+  for (auto & device : handshake_devices_) {
+    device->request_enable(enable);
+  }
+}
+
+void EnableManagerController::startDeviceResets() noexcept
+{
+  for (auto & device : handshake_devices_) {
+    if (device->faulted()) {
+      device->start_reset();
+    }
+  }
+}
+
+bool EnableManagerController::anyDeviceFaulted() const noexcept
+{
+  return std::any_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->faulted();
+  });
+}
+
+bool EnableManagerController::allDevicesEnabled() const noexcept
+{
+  return std::all_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->enabled();
+  });
+}
+
+bool EnableManagerController::allDevicesDisabledOrFaulted() const noexcept
+{
+  return std::all_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->disabled() || device->faulted();
+  });
+}
+
+bool EnableManagerController::allDeviceResetsComplete() const noexcept
+{
+  return std::all_of(handshake_devices_.begin(), handshake_devices_.end(), [](const auto & device) {
+    return device->reset_complete();
+  });
+}
+
 void EnableManagerController::setControlWord(
   std::size_t axis, std::uint16_t control_word)
 {
@@ -2773,6 +2991,9 @@ void EnableManagerController::releaseCia402Interfaces() noexcept
 {
   for (auto & axis : cia402_axes_) {
     axis.release_interfaces();
+  }
+  for (auto & device : handshake_devices_) {
+    device->release();
   }
 }
 

@@ -35,7 +35,7 @@
 | [ ] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA | 1.6 |
 | [ ] | A | `rt_diagnostics` 无生产入口且含二代履带诊断 | 1.4 |
 | [ ] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用 | 1.4 |
-| [ ] | B | `damiao_head_controller` 是 `enable_manager` 的第二份实现 | 1.1、3 |
+| [x] | B | `damiao_head_controller` 是 `enable_manager` 的第二份实现（arch-s7：头部作为握手式设备并入 enable_manager，包删除；待实机验证） | 1.1、3 |
 | [ ] | B | `semantic_components` 混入 `runtime_log_shm_ring`（infra）和 `head_phase`（协议专属） | 1.1、1.3 |
 | [ ] | C | 四个控制器包共同重复骨架（见 §5a 末） | 3 |
 | [ ] | C | `rt_disable_once` 与 `head_disable_once` 同一件事两种写法 | 3 |
@@ -57,7 +57,7 @@
 | [ ] | `robot_hw_can` | protocol | 保留 | `hw_can_damiao` | 健康。`socketcan.cpp` 作为 `infra_socketcan` 种子。 |
 | [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | 名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，只供 enable_manager）→ infra；`head_phase.hpp`（达妙专属）→ `hw_can_damiao`。留 `cia402_axis`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
 | [ ] | `enable_manager` | control | 拆 | `ctrl_enable_manager` | 2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
-| [ ] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
+| [x] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
 | [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | `rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
 | [ ] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | 内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
 | [ ] | `rt_force_torque_broadcaster` | control | 保留 | `ctrl_force_torque_broadcaster` | 健康。 |

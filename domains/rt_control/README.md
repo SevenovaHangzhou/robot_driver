@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | hw_config | `rt_control_machine_config` | 机型 manifest、模块、设备、台套（零位/标定/部署）数据，无代码 |
 | protocol | `robot_hw_ethercat` `robot_hw_canopen` `robot_hw_can` `rt_control_semantic_components` | 总线/设备适配、renderer、CiA402 语义封装 |
-| control | `enable_manager` `rolling_trajectory_controller` `swerve_driver` `damiao_head_controller` `rt_force_torque_broadcaster` `x503_force_sensor` | 使能状态机与各控制器/广播器 |
+| control | `enable_manager` `rolling_trajectory_controller` `swerve_driver` `rt_force_torque_broadcaster` `x503_force_sensor` | 使能状态机与各控制器/广播器 |
 | periph | `bms_node` `lpms_nav3_can` `modbus_tcp_rtu485` `plc_io_modbus` | 独立外设节点（BMS、IMU、LED/超声、PLC IO） |
 | integration | `rt_control_composer` `rt_control_bringup` `control_api_adapter` `rt_diagnostics` `rt_control_operator_web` `rt_control_arm_console` | 离线组合、启动入口、公共适配、诊断、操作网页 |
 
@@ -37,10 +37,10 @@ ros2 run rt_control_composer compose_artifact --output /abs/dir --robot-variant 
 | 参数 | launch | 说明 |
 | --- | --- | --- |
 | （无） | `rt_control_module.launch.py` | 只做 machine-profile 校验，不创建硬件节点 |
-| `--scope <scope>` | `rt_control_scope_runtime.launch.py` | 通用入口；仅限声明 `staged_hardware_activation` 的 scope（`chassis_only`、`bench_left_arm`、`bench_left_arm_stationary_enable`） |
+| `--scope <scope>` | `rt_control_scope_runtime.launch.py` | 通用入口；仅限声明 `staged_hardware_activation` 的 scope（`chassis_only`、`bench_left_arm`、`bench_left_arm_stationary_enable`、`head_only`） |
 | `--enable-only` | `rt_control_enable_only.launch.py` | 双臂原位使能 |
 | `--arm-runtime` / `--arm-jtc` | `rt_control_arm_runtime.launch.py` | 双臂运动（rolling / 仅 JTC） |
-| `--head-runtime` | `rt_control_head_runtime.launch.py` | 头部云台 |
+| `--head-runtime` | 同 `--scope head_only` | 头部云台；使能由 `enable_manager` 负责，操作见 [达妙头部](../../src/rt_control/robot_hw_can/docs/damiao_head.md) |
 | `--force-sensors` | `rt_control_force_sensors.launch.py` | 腕部力传感器台架 |
 
 任何非 mock 启动都会访问真实总线，需按根 `AGENTS.md` 第 5 节单独授权。容器与发布见 [`docker/README.md`](../../docker/README.md)。

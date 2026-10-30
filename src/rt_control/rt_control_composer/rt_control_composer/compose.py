@@ -223,22 +223,31 @@ def compose(
             if sensor.find("state_interface[@name='ready']") is not None
         ],
     }
-    for name in selected_names:
-        binding = bindings[name]
-        manager[name] = {"type": binding["plugin"]}
-        environment["context"] = {"mode": mode, "controller": name}
-        controllers[name] = {"ros__parameters": controller_parameters(name, binding, environment)}
     if "controller_file" in scope:
+        # The owner file is the complete controller output; binding parameters are not computed.
         reference = scope["controller_file"]
         share = Path(package_share(reference["package"]))
         controllers = yaml.safe_load(resolve_share_path(share, reference["file"]).read_text())
         controllers["controller_manager"]["ros__parameters"]["update_rate"] = bus_rates[0]
+        if staged:
+            # Staged activation needs the hardware to start unconfigured in every view.
+            controllers["controller_manager"]["ros__parameters"][
+                "hardware_components_initial_state"
+            ] = deepcopy(manager["hardware_components_initial_state"])
         runtime_parameters.clear()
         if "parameter_view" in scope:
             for name, values in defaults["parameter_views"][scope["parameter_view"]].items():
                 controllers[name]["ros__parameters"].update(deepcopy(values))
-    elif "minimal_robot" in scope:
-        manager.pop("thread_priority", None)
+    else:
+        for name in selected_names:
+            binding = bindings[name]
+            manager[name] = {"type": binding["plugin"]}
+            environment["context"] = {"mode": mode, "controller": name}
+            controllers[name] = {
+                "ros__parameters": controller_parameters(name, binding, environment)
+            }
+        if "minimal_robot" in scope:
+            manager.pop("thread_priority", None)
     parameter_bindings = scope.get("controller_parameter_bindings", {})
     if not set(parameter_bindings).issubset(selected_names):
         raise ValueError("Parameter binding references an unselected controller")
@@ -293,6 +302,8 @@ def compose(
         "control_scope": control_scope,
         "use_mock_hardware": use_mock_hardware,
         "staged_hardware_activation": staged,
+        # Whether the scope launcher also runs robot_state_publisher for this model view.
+        "publish_robot_state": bool(scope.get("publish_robot_state", False)),
         "hardware_activation_order": list(hardware_order),
         "motion_controllers": list(order["inactive"]),
         "lifecycle_controllers": list(order["active"]),

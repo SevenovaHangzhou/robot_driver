@@ -32,21 +32,6 @@ controllers:
         package: swerve_driver
         file: config/controller.draft.yaml
         path: '{controller}.ros__parameters'
-  head_gimbal:
-    module: head_gimbal
-    name: damiao_head_manager
-    plugin: damiao_head_controller/HeadManagerController
-    package: damiao_head_controller
-    config_file: config/controllers.yaml
-    actuator_groups:
-    - position_velocity
-    required_state_modules: []
-    tags: []
-    parameters:
-    - yaml:
-        package: damiao_head_controller
-        file: config/controllers.yaml
-        path: '{controller}.ros__parameters'
   whole_body_jtc:
     module: arms
     name: whole_body_jtc
@@ -246,16 +231,16 @@ controllers:
     module: head_gimbal
     name: head_position_controller
     plugin: forward_command_controller/ForwardCommandController
-    package: damiao_head_controller
-    config_file: config/controllers.yaml
+    package: forward_command_controller
+    config_file: machines/Alfa_V3/head_controllers.yaml
     actuator_groups:
     - position_velocity
     required_state_modules: []
     tags: []
     parameters:
     - yaml:
-        package: damiao_head_controller
-        file: config/controllers.yaml
+        package: rt_control_machine_config
+        file: machines/Alfa_V3/head_controllers.yaml
         path: '{controller}.ros__parameters'
   left_wrist_force_sensor_broadcaster:
     module: wrist_force_sensors

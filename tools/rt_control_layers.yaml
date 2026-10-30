@@ -18,7 +18,6 @@ layers:
   - rolling_trajectory_controller
   - rt_force_torque_broadcaster
   - x503_force_sensor
-  - damiao_head_controller
   - swerve_driver
   - bms_node
   - lpms_nav3_can

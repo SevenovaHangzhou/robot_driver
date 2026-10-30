@@ -12,7 +12,6 @@ BRINGUP = Path(__file__).resolve().parents[1]
 SCOPES = {
     "arm_runtime": ("arms_only", "arms_only"),
     "enable_only": ("arms_only", "arms_stationary_enable"),
-    "head_runtime": ("head_only", "head_only"),
     "force_sensors": ("force_bench", "force_bench"),
 }
 

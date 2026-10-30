@@ -1,5 +1,5 @@
-inactive:
-- head_position_controller
 active:
 - joint_state_broadcaster
-- damiao_head_manager
+- enable_manager
+inactive:
+- head_position_controller

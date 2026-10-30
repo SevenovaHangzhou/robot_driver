@@ -51,6 +51,9 @@ def setup(context):
         # Bus ownership first, then read-only owner checks, before any Node exists.
         _HELD_LOCKS.extend(acquire_bus_locks(build.lifecycle["bus_locks"]))
     preflight(build)
+    publish_robot_state = build.lifecycle.get("publish_robot_state", False)
+    if context.launch_configurations.get("publish_robot_state"):
+        publish_robot_state = _boolean(context, "publish_robot_state")
     runtime = Path(build.runtime_dir)
     order = build.controller_order
     manager = Node(
@@ -130,7 +133,20 @@ def setup(context):
             )
         )
         after_hardware = motion
+    robot_state = (
+        [
+            Node(
+                package="robot_state_publisher",
+                executable="robot_state_publisher",
+                parameters=[{"robot_description": build.robot_description}],
+                output="both",
+            )
+        ]
+        if publish_robot_state
+        else []
+    )
     return [
+        *robot_state,
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,
@@ -167,6 +183,11 @@ def generate_launch_description():
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
             DeclareLaunchArgument("control_scope", default_value="chassis_only"),
             DeclareLaunchArgument("physical_profile", default_value=""),
+            DeclareLaunchArgument(
+                "publish_robot_state",
+                default_value="",
+                description="true/false overrides the scope's publish_robot_state",
+            ),
             DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             DeclareLaunchArgument(
