@@ -116,7 +116,7 @@ bool HandshakeDevice::baseline() noexcept
 void HandshakeDevice::read() noexcept
 {
   const auto phase =
-    rt_control_semantic_components::decode_head_phase(states_[kPhase]->get_value());
+    rt_control_semantic_components::decode_handshake_phase(states_[kPhase]->get_value());
   const auto fault = exact_flag(states_[kFault]->get_value());
   const auto motion = exact_flag(states_[kMotionAllowed]->get_value());
   const auto generation = exact_generation(states_[kHandledGeneration]->get_value());

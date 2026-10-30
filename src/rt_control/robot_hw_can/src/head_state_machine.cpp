@@ -53,7 +53,7 @@ HeadActions HeadStateMachine::step(
   const bool transition_timed_out = now - transition_started_at_ > transition_timeout_;
 
   switch (phase_) {
-    case HeadPhase::disabled:
+    case HandshakePhase::disabled:
       if (any_fault(motors)) {
         return latch_fault();
       }
@@ -61,28 +61,28 @@ HeadActions HeadStateMachine::step(
         handled_reset_generation_ = reset_generation;
       }
       if (enable_requested && fresh && all_status(motors, 0U)) {
-        transition(HeadPhase::enabling, now);
+        transition(HandshakePhase::enabling, now);
         return HeadActions{true, true, true, false, false, false};
       }
       return {};
 
-    case HeadPhase::enabling:
+    case HandshakePhase::enabling:
       if (!enable_requested) {
-        transition(HeadPhase::disabling, now);
+        transition(HandshakePhase::disabling, now);
         return HeadActions{false, false, false, true, false, false};
       }
       if (!fresh || any_fault(motors) || transition_timed_out) {
         return latch_fault();
       }
       if (all_received_after_transition(motors) && all_status(motors, 1U)) {
-        transition(HeadPhase::enabled, now);
+        transition(HandshakePhase::enabled, now);
         return HeadActions{true, true, false, false, false, true};
       }
       return HeadActions{false, true, true, false, false, false};
 
-    case HeadPhase::enabled:
+    case HandshakePhase::enabled:
       if (!enable_requested) {
-        transition(HeadPhase::disabling, now);
+        transition(HandshakePhase::disabling, now);
         return HeadActions{false, false, false, true, false, false};
       }
       if (!fresh || any_fault(motors) || !all_status(motors, 1U)) {
@@ -90,40 +90,40 @@ HeadActions HeadStateMachine::step(
       }
       return HeadActions{false, false, false, false, false, true};
 
-    case HeadPhase::disabling:
+    case HandshakePhase::disabling:
       if (!fresh || any_fault(motors) || transition_timed_out) {
         return latch_fault();
       }
       if (all_received_after_transition(motors) && all_status(motors, 0U)) {
-        transition(HeadPhase::disabled, now);
+        transition(HandshakePhase::disabled, now);
         return {};
       }
       return HeadActions{false, false, false, true, false, false};
 
-    case HeadPhase::fault_latched:
+    case HandshakePhase::fault_latched:
       if (!enable_requested && reset_generation != handled_reset_generation_) {
         pending_reset_generation_ = reset_generation;
-        transition(HeadPhase::reset_disabling, now);
+        transition(HandshakePhase::reset_disabling, now);
         return HeadActions{false, false, false, true, false, false};
       }
       return HeadActions{false, false, false, true, false, false};
 
-    case HeadPhase::reset_disabling:
+    case HandshakePhase::reset_disabling:
       if (enable_requested || !fresh || transition_timed_out) {
         return latch_fault();
       }
       if (all_received_after_transition(motors) && none_enabled(motors)) {
-        transition(HeadPhase::resetting, now);
+        transition(HandshakePhase::resetting, now);
         return HeadActions{false, false, false, false, true, false};
       }
       return HeadActions{false, false, false, true, false, false};
 
-    case HeadPhase::resetting:
+    case HandshakePhase::resetting:
       if (enable_requested || !fresh || transition_timed_out) {
         return latch_fault();
       }
       if (all_received_after_transition(motors) && all_status(motors, 0U)) {
-        phase_ = HeadPhase::disabled;
+        phase_ = HandshakePhase::disabled;
         fault_latched_ = false;
         handled_reset_generation_ = pending_reset_generation_;
         return {};
@@ -133,7 +133,7 @@ HeadActions HeadStateMachine::step(
   return latch_fault();
 }
 
-HeadPhase HeadStateMachine::phase() const noexcept
+HandshakePhase HeadStateMachine::phase() const noexcept
 {
   return phase_;
 }
@@ -171,7 +171,7 @@ bool HeadStateMachine::all_received_after_transition(
     });
 }
 
-void HeadStateMachine::transition(HeadPhase phase, std::chrono::nanoseconds now) noexcept
+void HeadStateMachine::transition(HandshakePhase phase, std::chrono::nanoseconds now) noexcept
 {
   phase_ = phase;
   transition_started_at_ = now;
@@ -179,7 +179,7 @@ void HeadStateMachine::transition(HeadPhase phase, std::chrono::nanoseconds now)
 
 HeadActions HeadStateMachine::latch_fault() noexcept
 {
-  phase_ = HeadPhase::fault_latched;
+  phase_ = HandshakePhase::fault_latched;
   fault_latched_ = true;
   return HeadActions{false, false, false, true, false, false};
 }

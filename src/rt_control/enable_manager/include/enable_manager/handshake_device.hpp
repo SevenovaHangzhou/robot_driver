@@ -9,7 +9,7 @@
 
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
-#include "rt_control_semantic_components/head_phase.hpp"
+#include "rt_control_semantic_components/handshake_phase.hpp"
 
 namespace enable_manager
 {
@@ -24,7 +24,7 @@ namespace enable_manager
 class HandshakeDevice
 {
 public:
-  using Phase = rt_control_semantic_components::HeadPhase;
+  using Phase = rt_control_semantic_components::HandshakePhase;
 
   struct Status
   {

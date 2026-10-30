@@ -6,12 +6,12 @@
 #include <cstdint>
 #include <optional>
 
-#include "rt_control_semantic_components/head_phase.hpp"
+#include "rt_control_semantic_components/handshake_phase.hpp"
 
 namespace robot_hw_can
 {
 
-using rt_control_semantic_components::HeadPhase;
+using rt_control_semantic_components::HandshakePhase;
 
 struct MotorStatus
 {
@@ -39,7 +39,7 @@ public:
   [[nodiscard]] HeadActions step(
     std::chrono::nanoseconds now, bool enable_requested, std::uint64_t reset_generation,
     const std::array<MotorStatus, 2U> & motors);
-  [[nodiscard]] HeadPhase phase() const noexcept;
+  [[nodiscard]] HandshakePhase phase() const noexcept;
   [[nodiscard]] bool fault_latched() const noexcept;
   [[nodiscard]] std::uint64_t handled_reset_generation() const noexcept;
   [[nodiscard]] HeadActions force_fault() noexcept;
@@ -49,13 +49,13 @@ private:
     std::chrono::nanoseconds now, const std::array<MotorStatus, 2U> & motors) const noexcept;
   [[nodiscard]] bool all_received_after_transition(
     const std::array<MotorStatus, 2U> & motors) const noexcept;
-  void transition(HeadPhase phase, std::chrono::nanoseconds now) noexcept;
+  void transition(HandshakePhase phase, std::chrono::nanoseconds now) noexcept;
   [[nodiscard]] HeadActions latch_fault() noexcept;
 
   std::chrono::nanoseconds feedback_timeout_;
   std::chrono::nanoseconds transition_timeout_;
   std::chrono::nanoseconds transition_started_at_{0};
-  HeadPhase phase_{HeadPhase::disabled};
+  HandshakePhase phase_{HandshakePhase::disabled};
   bool fault_latched_{false};
   std::uint64_t handled_reset_generation_{0U};
   std::uint64_t pending_reset_generation_{0U};

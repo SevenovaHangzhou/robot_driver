@@ -491,15 +491,15 @@ hardware_interface::return_type DamiaoSystem::write(const rclcpp::Time &, const 
         motor.status,
         steady_nanoseconds(motor.received_at)};
     }
-    const HeadPhase previous_phase = state_machine_->phase();
+    const HandshakePhase previous_phase = state_machine_->phase();
     HeadActions actions = state_machine_->step(
       now_ns, enable_request_ == 1.0,
       static_cast<std::uint64_t>(reset_generation_), statuses);
     if (state_machine_->phase() != previous_phase) {
       special_rate_limiter_->reset();
-      if (state_machine_->phase() == HeadPhase::enabling ||
-        state_machine_->phase() == HeadPhase::enabled)
-      {
+      if (
+        state_machine_->phase() == HandshakePhase::enabling ||
+        state_machine_->phase() == HandshakePhase::enabled) {
         command_rate_limiter_->reset();
       }
     }
@@ -535,9 +535,9 @@ hardware_interface::return_type DamiaoSystem::write(const rclcpp::Time &, const 
             motor.can_id, static_cast<float>(motor.command),
             static_cast<float>(motor.velocity_limit)));
       }
-    } else if (state_machine_->phase() == HeadPhase::disabled &&
-      now - last_disabled_poll_at_ >= std::chrono::milliseconds{disabled_poll_interval_ms_})
-    {
+    } else if (
+      state_machine_->phase() == HandshakePhase::disabled &&
+      now - last_disabled_poll_at_ >= std::chrono::milliseconds{disabled_poll_interval_ms_}) {
       send_special(SpecialCommand::disable);
       last_disabled_poll_at_ = now;
     }
@@ -663,7 +663,7 @@ void DamiaoSystem::send_disable() noexcept
 void DamiaoSystem::update_control_states() noexcept
 {
   if (!state_machine_.has_value()) {
-    phase_state_ = static_cast<double>(static_cast<std::uint8_t>(HeadPhase::disabled));
+    phase_state_ = static_cast<double>(static_cast<std::uint8_t>(HandshakePhase::disabled));
     fault_latched_state_ = 0.0;
     handled_reset_generation_state_ = 0.0;
     motion_allowed_state_ = 0.0;
@@ -673,7 +673,7 @@ void DamiaoSystem::update_control_states() noexcept
   fault_latched_state_ = state_machine_->fault_latched() ? 1.0 : 0.0;
   handled_reset_generation_state_ =
     static_cast<double>(state_machine_->handled_reset_generation());
-  motion_allowed_state_ = state_machine_->phase() == HeadPhase::enabled ? 1.0 : 0.0;
+  motion_allowed_state_ = state_machine_->phase() == HandshakePhase::enabled ? 1.0 : 0.0;
 }
 
 bool DamiaoSystem::all_position_interfaces(const std::vector<std::string> & interfaces) const
