@@ -202,8 +202,8 @@ def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
     assert service["environment"]["RT_CONTROL_START_CPUSET"].startswith(
         "${RT_CONTROL_START_CPUSET:?"
     )
-    assert service["environment"]["RT_CONTROL_START_PLC"] == "true"
-    assert service["environment"]["RT_CONTROL_START_BMS"] == "true"
+    assert "RT_CONTROL_START_PLC" not in service["environment"]
+    assert "RT_CONTROL_START_BMS" not in service["environment"]
     assert "command" not in service
     assert "entrypoint" not in service
 

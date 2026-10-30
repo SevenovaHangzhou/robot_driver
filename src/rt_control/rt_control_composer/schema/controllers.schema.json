@@ -46,9 +46,6 @@
               "type": "string",
               "minLength": 1
             },
-            "config_file": {
-              "$ref": "module_envelope.schema.json#/definitions/share_path"
-            },
             "actuator_groups": {
               "type": "array",
               "items": {
@@ -338,7 +335,6 @@
             "name",
             "plugin",
             "package",
-            "config_file",
             "actuator_groups",
             "required_state_modules"
           ],

@@ -66,7 +66,7 @@ class SelectionTest(unittest.TestCase):
     def test_gate_selection_includes_run_and_reference_only(self):
         cases, _ = rtr.load_cases(CASES_DIR)
         selected = rtr.select_cases(cases, gate="v010")
-        self.assertEqual(len(selected), 23)
+        self.assertEqual(len(selected), 22)
         self.assertTrue(all(c["v010_gate"] in ("run", "reference") for c in selected))
 
     def test_tier_selection_filters_by_risk(self):
@@ -283,7 +283,7 @@ class CliTest(unittest.TestCase):
             self.assertEqual(rc, 1)
             report = json.loads(out.read_text())
             self.assertEqual(report["summary"]["gate_verdict"], "INCOMPLETE")
-            self.assertEqual(report["summary"]["total"], 23)
+            self.assertEqual(report["summary"]["total"], 22)
             self.assertIn("INCOMPLETE", summary.read_text())
 
             base, cand, dout = tmp / "b.yaml", tmp / "c.yaml", tmp / "d.json"
