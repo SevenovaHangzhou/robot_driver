@@ -142,7 +142,7 @@ cases:
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
-      controllers.yaml: d9975c73f3346445c17d0a6adf8780f0f1f5101a4f32ac9def7810a93228d2a0
+      controllers.yaml: 751b989f93b62fa681b854ecb1c35b2e78a5bbf167e23805ceaa2628dd6ed342
       robot_description.xml: 84054f6e8e02bdf01707a08d0d7417095ae489a0402a1ff375d87304cb89926b
       runtime/lifecycle.yaml: ce9e24554fde6f312aaaa5007c69073bd417893b6a075e0e4fa2fcacd3a32d49
   head-real:
@@ -151,7 +151,7 @@ cases:
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
-      controllers.yaml: d9975c73f3346445c17d0a6adf8780f0f1f5101a4f32ac9def7810a93228d2a0
+      controllers.yaml: 751b989f93b62fa681b854ecb1c35b2e78a5bbf167e23805ceaa2628dd6ed342
       robot_description.xml: 7ba5b72d923b775a7febf8907bd6dec68927fa95106dc9894d3830d6f67de893
       runtime/lifecycle.yaml: 5f71bd7f0fc1273c63d10e5f0a4a6a06cec30c86f2db16bc649861eb3e8fcfbd
   force-mock:
@@ -281,5 +281,14 @@ bench_integration_regeneration:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+  - head-mock
+  - head-real
+head_thread_priority_regeneration:
+  reason: 'arch-fix-head-thread-priority 2026-10-30: scopes with a complete controller_file now carry
+    controller_defaults thread_priority 80; the scope runtime realtime check requires one FIFO 80
+    update thread and refused head_only on the bench'
+  method: compose output written only where the canonical form differs; head cases differ only in
+    controller_manager.ros__parameters.thread_priority
+  cases:
   - head-mock
   - head-real
