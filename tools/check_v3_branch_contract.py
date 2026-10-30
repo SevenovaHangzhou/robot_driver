@@ -49,7 +49,7 @@ def validate(repository_root: Path) -> list[str]:
         "source_revision": EXPECTED_DESCRIPTION_REVISION,
         "source_tree": EXPECTED_DESCRIPTION_TREE,
         "model_family": "alfa_v3",
-        "default_end_effector": "suction",
+        "default_end_effector": "mobile_proxy",
     }
     for key, expected in expected_source.items():
         if source_lock.get(key) != expected:

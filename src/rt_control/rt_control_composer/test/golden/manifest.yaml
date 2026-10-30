@@ -142,8 +142,8 @@ cases:
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
-      controllers.yaml: 6113bf62fe5996abd9f89e6e0cdc65e270b1214e1e264bcae6d38cb416ef7cfc
-      robot_description.xml: 2963e76c652e281d60439fbf164be40747a2e001a65b9228fc64c978b7ddf33b
+      controllers.yaml: d9975c73f3346445c17d0a6adf8780f0f1f5101a4f32ac9def7810a93228d2a0
+      robot_description.xml: 84054f6e8e02bdf01707a08d0d7417095ae489a0402a1ff375d87304cb89926b
       runtime/lifecycle.yaml: ce9e24554fde6f312aaaa5007c69073bd417893b6a075e0e4fa2fcacd3a32d49
   head-real:
     use_mock_hardware: false
@@ -151,8 +151,8 @@ cases:
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
-      controllers.yaml: 6113bf62fe5996abd9f89e6e0cdc65e270b1214e1e264bcae6d38cb416ef7cfc
-      robot_description.xml: 5439c0dadc959229919bdb88ed70be564756f077b96914a8312c46212020ec2c
+      controllers.yaml: d9975c73f3346445c17d0a6adf8780f0f1f5101a4f32ac9def7810a93228d2a0
+      robot_description.xml: 7ba5b72d923b775a7febf8907bd6dec68927fa95106dc9894d3830d6f67de893
       runtime/lifecycle.yaml: 5f71bd7f0fc1273c63d10e5f0a4a6a06cec30c86f2db16bc649861eb3e8fcfbd
   force-mock:
     use_mock_hardware: true
@@ -220,7 +220,7 @@ rename_map:
   runtime/alfa_v3_rolling_envelope.mock.yaml: runtime/Alfa_V3_arm_envelope.mock.yaml
 head_force_generation_command: python3 test/golden/generate_head_force_baseline.py --baseline <READ_ONLY_BASELINE>
   --output test/golden
-head_config_sha256: 9d2366183422d6d2e0df0df99fc1553072c90e7e599d66bdbcad17621ddcc9f5
+head_config_sha256: 3955daac7178f00ab3a3ad66488e763cfa4a0c72f6a175142c8dfb6844aac22e
 force_cli_sha256: eda02f96dfbb8768a4690a353986636e9886cbbf7e3c30eb0bfb5f0ed8605df2
 model_switch_regeneration:
   robot_description_revision: 5ec6b653d7b72f9d25fecea4d71e5d640ce468ca
@@ -274,10 +274,12 @@ bench_integration_regeneration:
     main 12a83dd (tree adc9512, PR #7 there: unified J2 limits, arm collision meshes)'
   method: compose output written only where the canonical form differs; arm cases differ only in
     robot_description.xml; force cases keep the historical six-responder bench through the test
-    fixture and are unchanged; head cases are not regenerated because the new model renames
-    head_joint/head_pitch_joint to H1_joint/H2_joint and the head mapping is an open decision
+    fixture and are unchanged; head cases differ in robot_description.xml and the joint names,
+    head_joint/head_pitch_joint -> H1_joint (yaw)/H2_joint (pitch) per user 2026-10-30
   cases:
   - arm-mock
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+  - head-mock
+  - head-real

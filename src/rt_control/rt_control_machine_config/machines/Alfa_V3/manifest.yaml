@@ -268,11 +268,6 @@ robot_model:
       xacro_file: urdf/robot_alfav3_mobile.urdf
       joint_limits_file: config/joint_limits_alfav3_mobile.yaml
       srdf_file: srdf/robot_alfav3_mobile.srdf
-    suction:
-      xacro_file: urdf/robot_dual_suction.urdf.xacro
-      joint_limits_file: config/joint_limits_suction.yaml
-      initial_positions_file: config/initial_positions_suction.yaml
-      srdf_file: srdf/robot.srdf
 hardware_options:
   force_sensors:
     none:

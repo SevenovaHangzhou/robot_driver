@@ -6,5 +6,5 @@ source_revision: 12a83dd0a008b2e1046b86053cd3a47592307acb
 source_tree: adc951282e0c6746ca21d55014d649481f3a000d
 imported_path: src/description/robot_description
 model_family: alfa_v3
-default_end_effector: suction
+default_end_effector: mobile_proxy
 status: design_description_requires_hardware_validation
