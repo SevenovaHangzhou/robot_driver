@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>infra_modbus</name>
+  <version>0.1.0</version>
+  <description>Long-connection Modbus TCP client shared by RT-Control peripherals (no ROS dependency).</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
