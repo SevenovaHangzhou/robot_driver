@@ -249,8 +249,6 @@ def compose(
             controllers[name] = {
                 "ros__parameters": controller_parameters(name, binding, environment)
             }
-        if "minimal_robot" in scope:
-            manager.pop("thread_priority", None)
     parameter_bindings = scope.get("controller_parameter_bindings", {})
     if not set(parameter_bindings).issubset(selected_names):
         raise ValueError("Parameter binding references an unselected controller")

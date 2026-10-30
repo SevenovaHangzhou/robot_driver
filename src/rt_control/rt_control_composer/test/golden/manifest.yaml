@@ -160,7 +160,7 @@ cases:
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 1d2c82fe9b087ff2f97d5af716147c8868123cb0346eff9b058058328de40283
-      controllers.yaml: c0f957c1981904baff2dad2f32eab932e4469697181c0520e0dc43b7671ca90d
+      controllers.yaml: 522969a54a901581a1e86049a737ebbc59e65f173d6290cf1d4fa7e9e673e606
       robot_description.xml: c0dcfe16e5ef48317a96c7831fff92b56e4200da71e0e812811d59ad6acce9d3
       runtime/lifecycle.yaml: db1e31c75ad2dac95a42b8fae6cd4e7254535387a63f49765a6656cf65d6577b
   force-real:
@@ -169,7 +169,7 @@ cases:
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 1d2c82fe9b087ff2f97d5af716147c8868123cb0346eff9b058058328de40283
-      controllers.yaml: c0f957c1981904baff2dad2f32eab932e4469697181c0520e0dc43b7671ca90d
+      controllers.yaml: 522969a54a901581a1e86049a737ebbc59e65f173d6290cf1d4fa7e9e673e606
       robot_description.xml: f0b4c5e7b1ecad1811bd8699e557c333d335b03e04369b45c9b2f359bc0bb1f9
       runtime/bluepoint_p140000100_left.yaml: a89d480f88836252d2f5a6234a957ac99b2418c267a2cfebee0fd8afde99c8de
       runtime/bluepoint_p140000100_right.yaml: a0ae57d867cd2c45ec807bf66f4b8b2a31c01d2a0ab13dcf1281baa11033f892
@@ -292,3 +292,12 @@ head_thread_priority_regeneration:
   cases:
   - head-mock
   - head-real
+force_thread_priority_regeneration:
+  reason: 'arch-fix-force-thread-priority 2026-10-30: minimal_robot scopes keep controller_defaults
+    thread_priority 80; the scope runtime realtime check requires one FIFO 80 update thread, and the
+    user kept force_bench as the V3 bluepoint raw bench'
+  method: compose output written only where the canonical form differs; force cases differ only in
+    controller_manager.ros__parameters.thread_priority
+  cases:
+  - force-mock
+  - force-real
