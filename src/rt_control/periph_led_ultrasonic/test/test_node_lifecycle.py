@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import select
 import signal
 import subprocess
 import sys
@@ -16,13 +17,18 @@ def run_and_stop(
         command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
     )
     try:
-        time.sleep(0.5)
-        if process.poll() is not None:
-            raise RuntimeError(process.communicate()[0].decode())
+        # Signal only after construction finished: a signal during startup is a different case.
+        startup = b""
+        deadline = time.monotonic() + 10.0
+        while b"ready:" not in startup:
+            if process.poll() is not None or time.monotonic() > deadline:
+                raise RuntimeError((startup + process.stdout.read()).decode())
+            if select.select([process.stdout], [], [], 0.1)[0]:
+                startup += os.read(process.stdout.fileno(), 4096)
         process.send_signal(stop_signal)
         output, _ = process.communicate(timeout=5)
         if process.returncode != 0:
-            raise RuntimeError(output.decode())
+            raise RuntimeError((startup + output).decode())
     finally:
         if process.poll() is None:
             process.kill()
@@ -46,6 +52,7 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
             ROS_DOMAIN_ID="143",
             ROS_LOCALHOST_ONLY="1",
             ROS_LOG_DIR=str(Path(directory) / "ros-log"),
+            RCUTILS_LOGGING_BUFFERED_STREAM="0",
         )
         require_rejected(
             [led_executable, "--ros-args", "-p", "response_timeout_ms:=0"], environment,
