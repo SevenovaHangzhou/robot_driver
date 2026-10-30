@@ -1,4 +1,6 @@
 source_commit: b7650e1e7e88f0ed53794fa8e772b443d21d996a
+# One-shot generators that read the legacy builders at source_commit; removed after the
+# goldens were frozen (last version: git show f7bc5b1:src/rt_control/rt_control_composer/test/golden/generate_baseline.py).
 generation_command: python3 test/golden/generate_baseline.py --baseline <READ_ONLY_BASELINE> --output
   test/golden
 cases:
@@ -218,6 +220,7 @@ rename_map:
   alfa_v3_rolling_envelope.mock.yaml: Alfa_V3_arm_envelope.mock.yaml
   <RUNTIME_DIR>/alfa_v3_rolling_envelope.mock.yaml: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
   runtime/alfa_v3_rolling_envelope.mock.yaml: runtime/Alfa_V3_arm_envelope.mock.yaml
+# Removed one-shot generator; last version: git show 70c831c:src/rt_control/rt_control_composer/test/golden/generate_head_force_baseline.py
 head_force_generation_command: python3 test/golden/generate_head_force_baseline.py --baseline <READ_ONLY_BASELINE>
   --output test/golden
 head_config_sha256: 3955daac7178f00ab3a3ad66488e763cfa4a0c72f6a175142c8dfb6844aac22e
