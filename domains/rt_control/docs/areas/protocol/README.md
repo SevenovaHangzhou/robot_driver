@@ -2,9 +2,9 @@
 
 **范围**：总线协议、驱动插件与生命周期。本区对应一个同名职责agent。
 
-**Owner路径**：src/rt_control/robot_hw_ethercat（总线胶水、从站插件、协议profile、ESI）；robot_hw_canopen；robot_hw_can；rt_control_semantic_components；ctrl_enable_manager；patches/ecat_icube、patches/igh、patches/ros2_canopen。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：src/rt_control/hw_ethercat（总线胶水、从站插件、协议profile、ESI）；hw_canopen；hw_can_damiao；hw_semantic_components；ctrl_enable_manager；patches/ecat_icube、patches/igh、patches/ros2_canopen。未写完整前缀的包位于`src/rt_control/`。
 
-**不属于本区**：各包config/machines、robot_hw_ethercat/variants及机型标定归hw-config；控制算法归arm-control/chassis-control；hostsetup归platform。
+**不属于本区**：各包config/machines、hw_ethercat/variants及机型标定归hw-config；控制算法归arm-control/chassis-control；hostsetup归platform。
 
 更具体路径优先于整包归属；跨区改动按主责拆分事实并互引。源码位置本轮不变。
 

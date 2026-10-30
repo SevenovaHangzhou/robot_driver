@@ -24,7 +24,7 @@ ForceTorqueProcessorConfig x503_config(bool calibration_valid = true)
     calibration_valid};
 }
 
-rt_control_semantic_components::ForceTorqueSample x503_sample()
+hw_semantic_components::ForceTorqueSample x503_sample()
 {
   return {{100.0, 200.0, 300.0, 1000.0, 2000.0, 3000.0}, {0.0, 1.0, 2.0, 3.0, 4.0, 5.0}, 6U};
 }

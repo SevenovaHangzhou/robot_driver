@@ -2,7 +2,7 @@
 
 **范围**：机型事实、标定与模型快照。本区对应一个同名职责agent。
 
-**Owner路径**：各包config/machines/**；src/rt_control/robot_hw_ethercat/variants/**；整机清单alfa_v3.yaml；src/description/**快照同步。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：各包config/machines/**；src/rt_control/hw_ethercat/variants/**；整机清单alfa_v3.yaml；src/description/**快照同步。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：协议实现、ESI与通用从站profile归protocol；公共模型权威仍在独立仓库，不在本区私改。
 

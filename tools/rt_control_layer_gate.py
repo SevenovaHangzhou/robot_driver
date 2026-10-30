@@ -181,7 +181,7 @@ def dependency_violations(
             rule = "R12"
         else:
             if layers.get(source) == "control" and layers.get(target) == "protocol":
-                if target != "rt_control_semantic_components":
+                if target != "hw_semantic_components":
                     rule = "R2"
             elif layers.get(source) == "protocol" and layers.get(target) == "control":
                 rule = "R3"

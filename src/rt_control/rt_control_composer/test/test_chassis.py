@@ -16,17 +16,17 @@ from rt_control_composer.schema.primitives import load_yaml
 
 PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
-for owner in ("robot_hw_ethercat", "robot_hw_canopen"):
+for owner in ("hw_ethercat", "hw_canopen"):
     sys.path.insert(0, str(RT / owner))
-from robot_hw_ethercat import rt_control_renderer as ETHERCAT
-from robot_hw_ethercat.kinco_renderer import conversion_factors
-from robot_hw_canopen import rt_control_renderer as CANOPEN
+from hw_ethercat import rt_control_renderer as ETHERCAT
+from hw_ethercat.kinco_renderer import conversion_factors
+from hw_canopen import rt_control_renderer as CANOPEN
 
 
 @pytest.fixture
 def shares(monkeypatch):
-    monkeypatch.setattr(ETHERCAT, "_share", lambda: RT / "robot_hw_ethercat")
-    monkeypatch.setattr(CANOPEN, "_share", lambda: RT / "robot_hw_canopen")
+    monkeypatch.setattr(ETHERCAT, "_share", lambda: RT / "hw_ethercat")
+    monkeypatch.setattr(CANOPEN, "_share", lambda: RT / "hw_canopen")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["robot_description"] = RT.parent / "description/robot_description"
     return lookup

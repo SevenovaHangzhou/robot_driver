@@ -33,7 +33,7 @@
 
 ## D-002 — 统一三份 SocketCAN 实现 [OPEN]
 
-- 问题：`robot_hw_can`（达妙，跑在 ros2_control 实时 read/write 中）、`periph_bms`（29 位扩展帧，
+- 问题：`hw_can_damiao`（达妙，跑在 ros2_control 实时 read/write 中）、`periph_bms`（29 位扩展帧，
   失败后重连）、`periph_imu_lpms`（只收、拒绝 can0/can1）各自实现打开、过滤、收发。
 - 证据：架构梳理差异表（2026-10-29 会话）；`robot_hw_can/src/socketcan.cpp`、`bms_node/src/bms_node.cpp:245`、
   `lpms_nav3_can/src/lpms_nav3_can_node.cpp:245`。

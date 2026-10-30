@@ -19,14 +19,14 @@
   <exec_depend>periph_bms</exec_depend>
   <exec_depend>periph_plc_io</exec_depend>
   <exec_depend>periph_led_ultrasonic</exec_depend>
-  <exec_depend>robot_hw_ethercat</exec_depend>
-  <exec_depend>robot_hw_can</exec_depend>
+  <exec_depend>hw_ethercat</exec_depend>
+  <exec_depend>hw_can_damiao</exec_depend>
   <exec_depend>ctrl_force_torque_broadcaster</exec_depend>
   <exec_depend>control_api_adapter</exec_depend>
   <exec_depend>ctrl_enable_manager</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
-  <exec_depend>robot_hw_canopen</exec_depend>
+  <exec_depend>hw_canopen</exec_depend>
   <exec_depend>ctrl_swerve</exec_depend>
   <exec_depend>rt_control_interfaces</exec_depend>
   <exec_depend>controller_manager_msgs</exec_depend>

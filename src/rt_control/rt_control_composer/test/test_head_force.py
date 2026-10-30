@@ -16,10 +16,10 @@ PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
 GOLDEN = PACKAGE / "test/golden"
 MANIFEST = load_yaml(GOLDEN / "manifest.yaml")
-for owner in ("robot_hw_can", "robot_hw_ethercat"):
+for owner in ("hw_can_damiao", "hw_ethercat"):
     sys.path.insert(0, str(RT / owner))
-from robot_hw_can import rt_control_renderer as HEAD
-from robot_hw_ethercat import rt_control_renderer as FORCE
+from hw_can_damiao import rt_control_renderer as HEAD
+from hw_ethercat import rt_control_renderer as FORCE
 
 
 @pytest.fixture
@@ -34,8 +34,8 @@ def shares(tmp_path, monkeypatch):
         sensor["ring_position"] = position
     force["spec"]["bench_extra_responders"] = [0, 1, 3, 5]
     force_path.write_text(yaml.safe_dump(force, sort_keys=False))
-    monkeypatch.setattr(HEAD, "_share", lambda: RT / "robot_hw_can")
-    monkeypatch.setattr(FORCE, "_share", lambda: RT / "robot_hw_ethercat")
+    monkeypatch.setattr(HEAD, "_share", lambda: RT / "hw_can_damiao")
+    monkeypatch.setattr(FORCE, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["rt_control_machine_config"] = data
     lookup["robot_description"] = RT.parent / "description/robot_description"
@@ -149,7 +149,7 @@ def test_force_compose_never_runs_read_only_cli(shares, tmp_path, monkeypatch):
     def denied(*args, **kwargs):
         pytest.fail("Offline compose accessed ethercat CLI")
 
-    from robot_hw_ethercat import force_renderer
+    from hw_ethercat import force_renderer
 
     monkeypatch.setattr(force_renderer.subprocess, "run", denied)
     compose(

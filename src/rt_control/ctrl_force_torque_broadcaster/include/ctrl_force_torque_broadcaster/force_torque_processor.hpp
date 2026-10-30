@@ -10,7 +10,7 @@
 #include <optional>
 #include <stdexcept>
 
-#include "rt_control_semantic_components/force_torque_sensor.hpp"
+#include "hw_semantic_components/force_torque_sensor.hpp"
 
 namespace ctrl_force_torque_broadcaster
 {
@@ -43,8 +43,7 @@ public:
   explicit ForceTorqueProcessor(ForceTorqueProcessorConfig config) : config_(config)
   {
     if (
-      config_.auxiliary_count >
-      rt_control_semantic_components::ForceTorqueSensor::kMaximumAuxiliaryCount) {
+      config_.auxiliary_count > hw_semantic_components::ForceTorqueSensor::kMaximumAuxiliaryCount) {
       throw std::invalid_argument("invalid force/torque auxiliary interface count");
     }
     if (!std::all_of(
@@ -60,7 +59,7 @@ public:
   }
 
   ForceTorqueOutcome process(
-    const rt_control_semantic_components::ForceTorqueSample & sample, const double link_up,
+    const hw_semantic_components::ForceTorqueSample & sample, const double link_up,
     const double al_state) noexcept
   {
     ForceTorqueOutcome outcome;

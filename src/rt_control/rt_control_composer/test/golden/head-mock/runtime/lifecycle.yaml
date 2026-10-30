@@ -18,5 +18,5 @@ motion_controllers:
 publish_robot_state: true
 staged_hardware_activation: true
 transports:
-- robot_hw_can
+- hw_can_damiao
 use_mock_hardware: true

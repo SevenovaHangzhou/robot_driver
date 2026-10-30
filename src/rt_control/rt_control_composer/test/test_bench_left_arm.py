@@ -12,8 +12,8 @@ from rt_control_composer.schema.primitives import load_yaml
 
 PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
-sys.path.insert(0, str(RT / "robot_hw_ethercat"))
-from robot_hw_ethercat import rt_control_renderer as OWNER
+sys.path.insert(0, str(RT / "hw_ethercat"))
+from hw_ethercat import rt_control_renderer as OWNER
 
 UNIT = "Alfa_V3-bench-01"
 ZERO = f"units/{UNIT}/bench_left_arm_zero.yaml"
@@ -30,7 +30,7 @@ SELECTION = dict(
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
     shutil.copytree(RT / "rt_control_machine_config", data)
-    monkeypatch.setattr(OWNER, "_share", lambda: RT / "robot_hw_ethercat")
+    monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["rt_control_machine_config"] = data
     lookup["robot_description"] = RT.parent / "description/robot_description"

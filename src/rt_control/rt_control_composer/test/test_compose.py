@@ -20,15 +20,15 @@ PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
 GOLDEN = PACKAGE / "test/golden"
 BASELINE = yaml.safe_load((GOLDEN / "manifest.yaml").read_text())
-sys.path.insert(0, str(RT / "robot_hw_ethercat"))
-from robot_hw_ethercat import rt_control_renderer as OWNER
+sys.path.insert(0, str(RT / "hw_ethercat"))
+from hw_ethercat import rt_control_renderer as OWNER
 
 
 @pytest.fixture
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
     shutil.copytree(RT / "rt_control_machine_config", data)
-    monkeypatch.setattr(OWNER, "_share", lambda: RT / "robot_hw_ethercat")
+    monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["rt_control_machine_config"] = data
     lookup["robot_description"] = RT.parent / "description/robot_description"
@@ -443,12 +443,12 @@ class DenyIntegration(importlib.abc.MetaPathFinder):
         if fullname == 'rt_control_composer' or fullname.startswith('rt_control_composer.'):
             raise RuntimeError('Protocol imported integration')
 sys.meta_path.insert(0, DenyIntegration())
-from robot_hw_ethercat import rt_control_renderer
+from hw_ethercat import rt_control_renderer
 assert rt_control_renderer.RENDERER_API_VERSION == 1
 """
     env = {
         **os.environ,
-        "PYTHONPATH": str(RT / "robot_hw_ethercat") + os.pathsep + os.environ["PYTHONPATH"],
+        "PYTHONPATH": str(RT / "hw_ethercat") + os.pathsep + os.environ["PYTHONPATH"],
     }
     result = subprocess.run(
         [sys.executable, "-c", code], env=env, text=True, capture_output=True, check=False

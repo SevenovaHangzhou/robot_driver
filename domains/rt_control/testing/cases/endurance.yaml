@@ -29,7 +29,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: yes, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/ctrl_enable_manager/**", "src/rt_control/robot_hw_ethercat/**"]
+    covers: ["src/rt_control/ctrl_enable_manager/**", "src/rt_control/hw_ethercat/**"]
     traces: [domains/rt_control/docs/plc-bms-commissioning-20260728.md]
     preconditions: TC-LC-04 通过；静置窗口 ≥ 30 分钟；现场授权并全程值守
     entry: |

@@ -12,10 +12,10 @@ layers:
   - rt_control_arm_console
   - rt_control_operator_web
   protocol:
-  - robot_hw_ethercat
-  - robot_hw_canopen
-  - robot_hw_can
-  - rt_control_semantic_components
+  - hw_ethercat
+  - hw_canopen
+  - hw_can_damiao
+  - hw_semantic_components
   control:
   - ctrl_enable_manager
   - ctrl_rolling_trajectory

@@ -7,7 +7,7 @@ authorities:
   source: robot_hw_canopen/config/machines/alfa_v3_swerve_encoders.draft.yaml
   node_id: 'user: steering encoders nodes 11/12/13/14 for modules 1..4; node 1 is the IMU on the same
     bus'
-  eds: robot_hw_canopen/config/eds/BRT-Multi-turn-V1.0.compat.eds (vendor original retained)
+  eds: hw_canopen/config/eds/BRT-Multi-turn-V1.0.compat.eds (vendor original retained)
 pending_facts:
 - heartbeat, feedback age and discontinuity acceptance thresholds
 robot_variant: Alfa_V3

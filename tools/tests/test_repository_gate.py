@@ -147,7 +147,7 @@ vendored_packages:
         )
 
         semantic_dependency = manifest.replace(
-            "rt_control_bringup", "rt_control_semantic_components"
+            "rt_control_bringup", "hw_semantic_components"
         )
         self.assert_has(
             repository_gate.check_manifest_dependencies(
@@ -631,7 +631,7 @@ def layer_fixture():
         "infra": ["ring"],
         "hw_config": ["rt_control_machine_config"],
         "integration": ["rt_control_composer"],
-        "protocol": ["bus", "rt_control_semantic_components"],
+        "protocol": ["bus", "hw_semantic_components"],
         "control": ["motor"],
         "periph": ["periph_bms"],
     }
@@ -644,14 +644,14 @@ def layer_fixture():
 
 @pytest.mark.parametrize("rule,path,accepted,rejected", [
     ("R1", "new_package/package.xml", "", "<package><name>new_package</name></package>"),
-    ("R2", "motor/src/node.cpp", '#include "rt_control_semantic_components/a.hpp"',
+    ("R2", "motor/src/node.cpp", '#include "hw_semantic_components/a.hpp"',
      '#include "bus/a.hpp"'),
     ("R3", "bus/package.xml", "<package><name>bus</name></package>",
      "<package><name>bus</name><test_depend>motor</test_depend></package>"),
-    ("R2", "motor/tool.py", "from rt_control_semantic_components import status", "import bus"),
-    ("R2", "motor/CMakeLists.txt", "find_package(rt_control_semantic_components REQUIRED)", "find_package(bus REQUIRED)"),
-    ("R3", "bus/tool.py", "import rt_control_semantic_components", "from motor import policy"),
-    ("R3", "bus/CMakeLists.txt", "find_package(rt_control_semantic_components REQUIRED)", "find_package(motor REQUIRED)"),
+    ("R2", "motor/tool.py", "from hw_semantic_components import status", "import bus"),
+    ("R2", "motor/CMakeLists.txt", "find_package(hw_semantic_components REQUIRED)", "find_package(bus REQUIRED)"),
+    ("R3", "bus/tool.py", "import hw_semantic_components", "from motor import policy"),
+    ("R3", "bus/CMakeLists.txt", "find_package(hw_semantic_components REQUIRED)", "find_package(motor REQUIRED)"),
     ("R4", "motor/package.xml",
      "<package><name>motor</name><exec_depend>rt_control_machine_config</exec_depend></package>",
      "<package><name>motor</name><depend>rt_control_machine_config</depend></package>"),
@@ -663,10 +663,10 @@ def layer_fixture():
      'path = "evidence/observation.yaml"'),
     ("R8", "periph_bms/include/periph_bms/protocol/decoder.hpp", "#include <cstdint>",
      "#include <std_msgs/msg/header.hpp>"),
-    ("R11", "ring/include/ring/ring.hpp", "#include <cstdint>", '#include "rt_control_semantic_components/a.hpp"'),
+    ("R11", "ring/include/ring/ring.hpp", "#include <cstdint>", '#include "hw_semantic_components/a.hpp"'),
     ("R12", "periph_bms/package.xml", "<package><name>periph_bms</name><depend>ring</depend></package>",
      "<package><name>periph_bms</name><depend>motor</depend></package>"),
-    ("R12", "motor/src/node.cpp", '#include "rt_control_semantic_components/a.hpp"',
+    ("R12", "motor/src/node.cpp", '#include "hw_semantic_components/a.hpp"',
      '#include "periph_bms/a.hpp"'),
     ("R11", "ring/package.xml", "<package><name>ring</name></package>",
      "<package><name>ring</name><depend>motor</depend></package>"),

@@ -1,8 +1,0 @@
-#!/usr/bin/env python3
-"""Installed entry point; logic lives in robot_hw_canopen.bundle."""
-
-import sys
-
-from robot_hw_canopen.bundle import main
-
-sys.exit(main())

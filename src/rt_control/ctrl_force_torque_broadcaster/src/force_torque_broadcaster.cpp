@@ -111,7 +111,7 @@ CallbackReturn ForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::Stat
     }
     std::array<std::string, kAxisCount> value_interfaces;
     std::copy(value_names.begin(), value_names.end(), value_interfaces.begin());
-    auto candidate_sensor = std::make_unique<rt_control_semantic_components::ForceTorqueSensor>(
+    auto candidate_sensor = std::make_unique<hw_semantic_components::ForceTorqueSensor>(
       std::move(value_interfaces), auxiliary_names);
 
     if (
