@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "rt_control_semantic_components/runtime_log_shm_ring.hpp"
+#include "infra_shm_ring/shm_ring.hpp"
 
 namespace
 {

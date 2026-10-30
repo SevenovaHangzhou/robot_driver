@@ -1,4 +1,6 @@
 layers:
+  infra:
+  - infra_shm_ring
   hw_config:
   - rt_control_machine_config
   integration:

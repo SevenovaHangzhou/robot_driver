@@ -1,4 +1,4 @@
-"""Offline four-layer policy (SPEC v1.1 R1–R10).
+"""Offline layer policy (SPEC v1.1 R1–R10, plus R11: infra depends on no domain package).
 
 Only exact, counted baseline occurrences are exempt. Tests are included for
 API dependencies; R5–R7 inspect production code/configuration, not test data.
@@ -21,7 +21,7 @@ CONFIG = "tools/rt_control_layers.yaml"
 PREFIX = "src/rt_control/"
 DATA_PACKAGE = "rt_control_machine_config"
 COMPOSER = "rt_control_composer"
-LAYERS = {"hw_config", "integration", "protocol", "control"}
+LAYERS = {"infra", "hw_config", "integration", "protocol", "control"}
 SOURCE_SUFFIXES = {".py", ".cpp", ".hpp", ".h", ".cc", ".cxx"}
 PERIPHERALS = {"bms_node", "lpms_nav3_can", "modbus_tcp_rtu485", "plc_io_modbus"}
 PRODUCT_NAMES = re.compile(
@@ -82,7 +82,7 @@ def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[dict], list
     findings = []
     mapping: dict[str, str] = {}
     if set(policy["layers"]) != LAYERS:
-        findings.append(f"{CONFIG}: R1 requires exactly the four declared layers")
+        findings.append(f"{CONFIG}: R1 requires exactly the five declared layers")
     for layer, packages in policy["layers"].items():
         if not isinstance(packages, list) or any(not isinstance(p, str) for p in packages):
             findings.append(f"{CONFIG}: R1 {layer} must be a package list")
@@ -173,6 +173,8 @@ def dependency_violations(
         rule = None
         if target == DATA_PACKAGE and kind != "exec_depend":
             rule = "R4"
+        elif layers.get(source) == "infra" and layers.get(target, "infra") != "infra":
+            rule = "R11"
         else:
             if layers.get(source) == "control" and layers.get(target) == "protocol":
                 if target != "rt_control_semantic_components":
