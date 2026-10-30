@@ -33,7 +33,10 @@ def validate(repository_root: Path) -> list[str]:
 
     try:
         source_lock = yaml.safe_load(source_lock_path.read_text(encoding="utf-8"))
-        machine = yaml.safe_load(machine_path.read_text(encoding="utf-8"))
+        sys.path.insert(0, str(repository_root / "src/rt_control/integ_composer"))
+        from integ_composer.schema.manifest_load import read_manifest
+
+        machine = read_manifest(machine_path)
         cmake = cmake_path.read_text(encoding="utf-8")
         package = package_path.read_text(encoding="utf-8")
         start = start_path.read_text(encoding="utf-8")

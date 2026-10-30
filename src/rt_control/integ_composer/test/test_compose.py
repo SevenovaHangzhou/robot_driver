@@ -15,6 +15,7 @@ from integ_composer.compose import compose, preflight
 from integ_composer.renderer_registry import project, render_checked, select_renderer
 from integ_composer.schema.cross_checks import merge_systems
 from integ_composer.schema.primitives import load_yaml, validate_data
+from integ_composer.schema.manifest_load import read_manifest
 
 PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
@@ -48,7 +49,7 @@ def inputs(shares, *, stationary=False, verified=False):
     data = shares["hwcfg_machines"]
     deployment_path = (data / "units/Alfa_V3-01/deployment.yaml")
     deployment = load_yaml(deployment_path)
-    manifest = load_yaml(data / "machines" / deployment["robot_variant"] / "manifest.yaml")
+    manifest = read_manifest(data / "machines" / deployment["robot_variant"] / "manifest.yaml")
     mode = "stationary_enable" if stationary else "normal"
     scope_name = next(
         name for name, scope in manifest["scopes"].items() if scope.get("render_mode") == mode
@@ -85,7 +86,7 @@ def sample_request(shares):
     request = load_yaml(PACKAGE / "test/conformance/render_request.yaml")
     arguments = inputs(shares)
     data = shares["hwcfg_machines"]
-    manifest = load_yaml(data / "machines" / arguments["robot_variant"] / "manifest.yaml")
+    manifest = read_manifest(data / "machines" / arguments["robot_variant"] / "manifest.yaml")
     name = manifest["scopes"][arguments["control_scope"]]["enabled_modules"][0]
     source = load_yaml(data / manifest["modules"][name]["config_file"])
     axes = [
@@ -198,7 +199,7 @@ def test_real_calibration_rejected_while_mock_is_offline(shares, tmp_path, monke
 def test_required_tbd_rejects_real_and_mock_uses_no_guessed_scaling(shares, tmp_path):
     arguments = inputs(shares, verified=True)
     data = shares["hwcfg_machines"]
-    manifest = load_yaml(data / "machines" / arguments["robot_variant"] / "manifest.yaml")
+    manifest = read_manifest(data / "machines" / arguments["robot_variant"] / "manifest.yaml")
     reference = manifest["modules"][
         manifest["scopes"][arguments["control_scope"]]["enabled_modules"][0]
     ]["device_refs"][0]
@@ -219,7 +220,7 @@ def test_owner_conversion_roundtrip_and_reduction_ratio_independence(shares):
             0.75
         )
     data = shares["hwcfg_machines"]
-    manifest = load_yaml(next((data / "machines").glob("*/manifest.yaml")))
+    manifest = read_manifest(next((data / "machines").glob("*/manifest.yaml")))
     reference = manifest["modules"]["arms"]["device_refs"][0]
     device = {
         "family": load_yaml(data / reference)["family"],
@@ -271,7 +272,7 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
 
 def test_data_files_pass_existing_validator(shares):
     root = shares["hwcfg_machines"]
-    manifest = load_yaml(next((root / "machines").glob("*/manifest.yaml")))
+    manifest = read_manifest(next((root / "machines").glob("*/manifest.yaml")))
     model_files = {
         scope["mock_robot_model"]["joint_limits_file"]
         for scope in manifest["scopes"].values()
@@ -287,9 +288,9 @@ def test_data_files_pass_existing_validator(shares):
     for directory in ("devices", "machines", "units"):
         for path in (root / directory).rglob("*.yaml"):
             relative = path.relative_to(root).as_posix()
-            if relative in model_files:
-                continue  # Robot model inputs use their owner loader, not machine envelopes.
-            value = load_yaml(path)
+            if relative in model_files or path.parent.name == "manifest":
+                continue  # Model inputs use their owner loader; manifest parts merge below.
+            value = read_manifest(path) if path.name == "manifest.yaml" else load_yaml(path)
             if relative in policies:
                 ref = policies[relative]
                 if "schema" in ref:

@@ -1,0 +1,248 @@
+# modules of the Alfa_V3 manifest; merged by integ_composer read_manifest() via manifest.yaml parts.
+modules:
+  arms:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 2
+    actuator_count: 14
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 14
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 7
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - ZeroErr PDO/SDO profile for CSP and PP drives
+    - arm and gripper mechanical limits and transmission parameters
+    config_file: machines/Alfa_V3/arms.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml
+  # Bench assembly of one arm without its gripper; not a functional module of the robot.
+  bench_left_arm:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 7
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 7
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 7
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - ZeroErr PDO/SDO profile for CSP drives
+    - arm mechanical limits and transmission parameters
+    config_file: machines/Alfa_V3/bench_left_arm.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml
+  # Bench assembly of both arms without grippers; not a functional module of the robot.
+  bench_dual_arm:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 14
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 14
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 14
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - right arm encoder direction per joint
+    - ZeroErr PDO/SDO profile for CSP drives
+    - arm mechanical limits and transmission parameters
+    config_file: machines/Alfa_V3/bench_dual_arm.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml
+  wrist_force_sensors:
+    role: state_sensor_group
+    transport: ethercat
+    status: draft
+    instance_count: 2
+    actuator_count: 0
+    sensor_count: 2
+    mode_groups: []
+    per_instance_mode_groups: {}
+    requires: []
+    sensor_bindings:
+    - left_wrist
+    - right_wrist
+    pending_facts:
+    - left/right P140000100 observed at positions 2/4 on six-responder bench; full-layout
+      re-scan required
+    - P140000100 scalar types and engineering-unit scale
+    - authoritative Robot Model frame IDs and installed sensor-axis orientation
+    - live identity, fixed PDO, DC, status-code and sample-counter validation
+    config_file: machines/Alfa_V3/wrist_force_sensors.yaml
+    device_refs: []
+  updown:
+    role: actuator
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 1
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 1
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - EtherCAT ring position and device identity
+    - PDO/SDO profile and mechanical limits
+    config_file: machines/Alfa_V3/updown.yaml
+    device_refs: []
+  active_suspension:
+    role: actuator
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 1
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 1
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - EtherCAT ring position, live identity, firmware and fixed PDO layout
+    - transmission, position scaling, direction and mechanical zero
+    - electrical and mechanical travel limits, brake and power-loss behavior
+    - low-speed following, stop and inhibit validation with the chassis
+    config_file: machines/Alfa_V3/active_suspension.yaml
+    device_refs: []
+  swerve_chassis:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 4
+    actuator_count: 8
+    sensor_count: 0
+    mode_groups:
+    - name: steering_csp
+      count: 4
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    - name: drive_csv
+      count: 4
+      mode_of_operation: 9
+      interface: velocity
+      certified: false
+    per_instance_mode_groups:
+      steering_csp: 1
+      drive_csv: 1
+    requires:
+    - swerve_encoders
+    sensor_bindings: []
+    pending_facts:
+    - Kinco FD EtherCAT identity, PDO/SDO mapping and watchdog
+    - EtherCAT ring positions and motor-side encoder relationship
+    - confirm drawing ambiguities, steering hard-stop angles and installed module
+      geometry
+    - complete per-module wheel radius, zero, limit, backlash and threshold calibration
+    config_file: machines/Alfa_V3/swerve_chassis.yaml
+    device_refs:
+    - devices/kinco_smc60s_0040_fd124s.yaml
+    - devices/kinco_smc80s_0075_fd134s.yaml
+    - devices/ht_ws_hh270_q750.yaml
+    unit_file: swerve_calibration.yaml
+  swerve_encoders:
+    role: state_sensor_group
+    transport: canopen
+    status: draft
+    instance_count: 4
+    actuator_count: 0
+    sensor_count: 4
+    mode_groups: []
+    per_instance_mode_groups: {}
+    requires: []
+    sensor_bindings:
+    - module_1
+    - module_2
+    - module_3
+    - module_4
+    pending_facts:
+    - CANopen node IDs and CiA 406 EDS/PDO mapping
+    - device support and timing verification for 4 ms SYNC-triggered TPDO
+    - encoder resolution, gear ratio, zero and backlash calibration
+    config_file: machines/Alfa_V3/swerve_encoders.yaml
+    device_refs:
+    - devices/brt_encoder_model_tbd.yaml
+    - devices/ht_ws_hh270_q750.yaml
+    unit_file: swerve_calibration.yaml
+    unit_module: swerve_chassis
+  head_gimbal:
+    role: actuator_group
+    transport: damiao_can
+    status: draft
+    instance_count: 2
+    actuator_count: 2
+    sensor_count: 0
+    mode_groups:
+    - name: position_velocity
+      count: 2
+      mode_of_operation: TBD
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      position_velocity: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - installed motor limits and stored ACC/DEC/MAX_SPD readback
+    - head gimbal transmission parameters and model positive direction
+    config_file: machines/Alfa_V3/head_gimbal.yaml
+    device_refs:
+    - devices/damiao_dm_j4310_2ec_v1_1.yaml
+    can_interface_key: head
+  bench_right_arm:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 7
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 7
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 7
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - right arm CSP firmware and runtime qualification; inherited from the dual-arm bench
+    config_file: machines/Alfa_V3/bench_right_arm.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml

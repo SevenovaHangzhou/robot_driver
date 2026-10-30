@@ -8,6 +8,7 @@ from jsonschema import ValidationError
 from jsonschema.exceptions import RefResolutionError, SchemaError
 import yaml
 
+from integ_composer.schema.manifest_load import read_manifest
 from integ_composer.schema.primitives import (
     ConfigError as ConfigError,
     load_and_validate,
@@ -36,7 +37,7 @@ def main() -> int:
         if not args.files:
             model_files = set()
             for manifest_file in (share_root / "machines").glob("*/manifest.yaml"):
-                manifest = load_yaml(manifest_file)
+                manifest = read_manifest(manifest_file)
                 for scope in manifest["scopes"].values():
                     if "mock_robot_model" in scope:
                         model_files.add(scope["mock_robot_model"]["joint_limits_file"])
@@ -47,16 +48,20 @@ def main() -> int:
             for directory in ("devices", "machines", "units"):
                 for path in sorted((share_root / directory).rglob("*.yaml")):
                     name = path.relative_to(share_root).as_posix()
-                    if name in model_files:
+                    # Manifest parts are validated as part of their merged manifest.
+                    if name in model_files or path.parent.name == "manifest":
                         continue
-                    document = load_yaml(path)
+                    document = read_manifest(path) if path.name == "manifest.yaml" else load_yaml(path)
                     kind = document["kind"]
                     schema = schemas.get(kind, kind) + ".schema.json"
                     validate_data(document, schema, schema_dir, share_root)
                     print(f"PASS: {name} ({schema})")
         for name in args.files:
             path = resolve_share_path(share_root, name)
-            load_and_validate(path, args.schema, schema_dir, share_root)
+            if path.name == "manifest.yaml":
+                validate_data(read_manifest(path), args.schema, schema_dir, share_root)
+            else:
+                load_and_validate(path, args.schema, schema_dir, share_root)
             print(f"PASS: {name} ({args.schema})")
     except (
         ValueError,

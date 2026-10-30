@@ -10,6 +10,7 @@ import yaml
 
 from integ_composer.bindings import bind_parameters
 from integ_composer.compose import compose
+from integ_composer.schema.manifest_load import read_manifest
 from hw_can_damiao import rt_control_renderer as CAN
 from hw_canopen import rt_control_renderer as CANOPEN
 from hw_ethercat import rt_control_renderer as ETHERCAT
@@ -136,7 +137,7 @@ def test_head_renaming_reaches_hardware_and_all_controllers(config, tmp_path):
             }
         },
     )
-    manifest = load(machine_dir / "manifest.yaml")
+    manifest = read_manifest(machine_dir / "manifest.yaml")
     manifest["scopes"]["head_only"]["mock_robot_model"] = {
         "package": "hwcfg_machines",
         "xacro_file": "machines/Alfa_V3/test.urdf",

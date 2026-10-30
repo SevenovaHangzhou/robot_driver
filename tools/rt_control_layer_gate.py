@@ -207,6 +207,7 @@ def content_violations(
         return violations
     allowed_frequency = (
         file.match(f"{PREFIX}{DATA_PACKAGE}/machines/*/manifest.yaml")
+        or file.match(f"{PREFIX}{DATA_PACKAGE}/machines/*/manifest/*.yaml")
         or path == f"{PREFIX}{COMPOSER}/config/controller_defaults.yaml"
     )
     for number, line in enumerate(text.splitlines(), 1):
