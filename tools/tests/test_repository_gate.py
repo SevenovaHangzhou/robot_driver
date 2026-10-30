@@ -440,6 +440,7 @@ jobs:
         files = {
             "README.md": "# robot_driver\n",
             "AGENTS.md": "# Contract\n",
+            "ARCHITECTURE.md": "# Architecture\n",
             "collaboration-and-commit-standards.md": "# Collaboration\n",
             "domains/rt_control/README.md": "# rt-control\n",
             "domains/rt_control/AGENTS.md": "# rt-control contract\n",

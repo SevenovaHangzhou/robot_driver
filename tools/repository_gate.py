@@ -61,6 +61,7 @@ SKIP_TEXT_SUFFIXES = {".stl", ".bin", ".dcf"}
 REQUIRED_GOVERNANCE_FILES = (
     "README.md",
     "AGENTS.md",
+    "ARCHITECTURE.md",
     "collaboration-and-commit-standards.md",
     ".dockerignore",
     "domains/rt_control/README.md",
