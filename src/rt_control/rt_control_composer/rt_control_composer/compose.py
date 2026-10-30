@@ -229,6 +229,9 @@ def compose(
         share = Path(package_share(reference["package"]))
         controllers = yaml.safe_load(resolve_share_path(share, reference["file"]).read_text())
         controllers["controller_manager"]["ros__parameters"]["update_rate"] = bus_rates[0]
+        controllers["controller_manager"]["ros__parameters"]["thread_priority"] = manager[
+            "thread_priority"
+        ]
         if staged:
             # Staged activation needs the hardware to start unconfigured in every view.
             controllers["controller_manager"]["ros__parameters"][
