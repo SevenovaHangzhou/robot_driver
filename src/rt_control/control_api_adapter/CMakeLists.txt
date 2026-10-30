@@ -5,8 +5,6 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 
 ament_python_install_package(${PROJECT_NAME})
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME}
-  FILES_MATCHING PATTERN "*.yaml")
 
 install(PROGRAMS
   scripts/control_enable_adapter
