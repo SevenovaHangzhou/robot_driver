@@ -12,7 +12,8 @@ robot_variant: Alfa_V3
 end_effector: mobile_proxy
 hardware_options:
   force_sensors: none
-can_interfaces: {}
+can_interfaces:
+  head: can2  # CANable2 serial 2062366E3945 via slcand, 1 Mbit/s, DaMiao IDs 1/2 (user 2026-10-30)
 ethercat:
   master_id: 0
 host_id: ar-Default-string
