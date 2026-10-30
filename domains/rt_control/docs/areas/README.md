@@ -12,7 +12,7 @@
 | [integration](integration/README.md) | rt_control_bringup其余部分、control_api_adapter非真空部分、src/interfaces | 机型配置归hw-config，真空适配器归peripheral-control |
 | [arm-control](arm-control/README.md) | rolling_trajectory_controller、rt_force_torque_broadcaster、x503_force_sensor；ros2_controllers补丁 | 协议实现归protocol |
 | [chassis-control](chassis-control/README.md) | swerve_driver | 机型配置归hw-config，协议/编码器提供器归protocol |
-| [peripheral-control](peripheral-control/README.md) | plc_io_modbus、modbus_tcp_rtu485、bms_node、lpms_nav3_can；vacuum_adapter及其专属测试 | 公共IDL归integration，config/machines归hw-config |
+| [peripheral-control](peripheral-control/README.md) | plc_io_modbus、modbus_tcp_rtu485、bms_node、lpms_nav3_can | 公共IDL归integration，config/machines归hw-config |
 | [platform](platform/README.md) | hostsetup、docker、tools、.github、deps.repos、versions.env、testing、各级AGENTS、协作规范及记录体系 | 工具归属不改变其检查对象的owner |
 
 未写完整路径的包均位于`src/rt_control/`，补丁位于`patches/`。

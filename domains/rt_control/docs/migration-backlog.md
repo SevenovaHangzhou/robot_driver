@@ -10,7 +10,7 @@
 | --- | --- | --- | --- |
 | [x] | A 死活不分 | `robot_hw_ethercat/urdf/ecat.ros2_control.xacro`、`variants/alfa_v1.yaml`、`config/slaves/*`（二代）只被测试/golden 引用 | 1.4 |
 | [x] | A | `plc_node` 与 `plc_io_modbus` 均产出 `PlcIoState`，均无生产入口 | 1.4、3 复用 |
-| [ ] | A | `rt_control_interface_runtime.launch.py` 自称 draft preview | 1.4 |
+| [x] | A | `rt_control_interface_runtime.launch.py` 自称 draft preview（arch-b2：用户 2026-10-30 裁定删除，连同 `rt_io.yaml`、`joint_limits.yaml`） | 1.4 |
 | [x] | A | `onboarding-knowledge-map.md` 自称历史却是推荐入口（arch-s3d：移入域 README 的历史资料段） | 1.4 |
 | [x] | A | `docs/areas/` 9 旧区 + 7 新区共存（arch-s3d：旧区移至 `docs/areas-archive/`） | 1.4 |
 | [x] | B 多处落地 | `rolling_types.hpp` 的 `kJointNames[14]` 硬编码机型事实（arch-s6：用户 2026-10-29 裁定关节名只写在 machine_config；控制器改读 `joints` 参数，轴集合哈希按配置计算，对现有关节名与原协议常量逐字节一致） | 1.1、1.2 |
@@ -24,7 +24,7 @@
 | [ ] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份 | 3 |
 | [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
 | [ ] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件 | 3 硬指标 |
-| [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行、`manifest.yaml` 736 行 | 3 硬指标 |
+| [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行 | 3 硬指标 |
 | [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
 | [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试 | 1.5、4.6 |
 | [ ] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个 | 1.3 |
@@ -34,7 +34,7 @@
 | [ ] | 6 重复校验 | `load_artifact` 运行时重新 compose 比对每个文件 | 1.6 |
 | [ ] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA | 1.6 |
 | [x] | A | `rt_diagnostics` 无生产入口且含二代履带诊断（arch-b3：用户 2026-10-30 裁定先删除旧实现，重写待需求明确后另做） | 1.4 |
-| [ ] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用 | 1.4 |
+| [x] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用（arch-b2：vacuum/position_action/module_state/status 四个适配器删除，只留 `control_enable_adapter`） | 1.4 |
 | [x] | B | `damiao_head_controller` 是 `enable_manager` 的第二份实现（arch-s7：头部作为握手式设备并入 enable_manager，包删除；待实机验证） | 1.1、3 |
 | [ ] | B | `semantic_components` 混入 `runtime_log_shm_ring`（infra）和 `head_phase`（用户 2026-10-30 修正：`head_phase` 是握手式使能设备的通用阶段语义，改名 `HandshakePhase` 留在本包；`runtime_log_shm_ring` 按 §3 例外移入 `infra_shm_ring`） | 1.1、1.3 |
 | [ ] | C | 四个控制器包共同重复骨架（见 §5a 末） | 3 |
@@ -69,7 +69,7 @@
 | [x] | `plc_node` | periph | **删** | — | 与 `plc_io_modbus` 重复，Python 版，无生产入口。 |
 | [ ] | `rt_control_composer` | integration | 保留 | `integ_composer` | 纯函数 + schema 齐全，结构好。`compose()` 单函数 300 行拆为加载→校验→渲染→绑定→输出五段。测试反向 import bringup 要改。 |
 | [ ] | `rt_control_bringup` | integration | 瘦身 | `integ_bringup` | 5 个旧 launch 删，只留 `scope_runtime`；`rt_control_start` 6 个 `--xxx` 收敛为 `--scope`；`ros2_control_node.cpp` 是上游 fork（188 行）→ 改补丁或论证；`rt_io.yaml`、`joint_limits.yaml` 只被 draft 入口用。 |
-| [ ] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | 5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
+| [ ] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；剩余：改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
 | [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；剩余：按 V3 需求重写）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
 | [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | 两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
 | [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。 |

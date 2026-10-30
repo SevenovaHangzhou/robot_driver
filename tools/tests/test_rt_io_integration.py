@@ -60,7 +60,6 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:
-    document = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
     node_source = (ROOT / "src/rt_control/plc_io_modbus/src/node.cpp").read_text()
     plc = yaml.safe_load(
         (ROOT / "src/rt_control/plc_io_modbus/config/plc_io_modbus.yaml").read_text()
@@ -113,31 +112,12 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert bms["max_join_current_a"] == -1.0
 
 
-def test_rt_io_public_parameters_match_current_contract() -> None:
-    rt_io = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
-
+def test_bms_public_parameters_match_current_contract() -> None:
     bms_params = yaml.safe_load(
         (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
     )["bms_node"]["ros__parameters"]
     assert bms_params["battery_state_topic"] == "/battery_state"
     assert bms_params["publish_period_s"] == 5.0
-
-    vacuum_params = rt_io["vacuum_adapter"]["ros__parameters"]
-    assert vacuum_params["vacuum_state_topic"] == "/vacuum/state"
-    assert vacuum_params["pump_set_enabled_service"] == "/vacuum/pump/set_enabled"
-    assert vacuum_params["valve_action_name"] == "/vacuum/valves/set"
-    assert vacuum_params["vacuum_event_topic"] == "/vacuum/events"
-    assert vacuum_params["left_valve_service"] == "/plc/vacuum_valve/left"
-    assert vacuum_params["right_valve_service"] == "/plc/vacuum_valve/right"
-    assert vacuum_params["attached_threshold_kpa"] == -60.0
-    assert vacuum_params["released_threshold_kpa"] == -1.0
-    assert vacuum_params["publish_period_s"] == 0.05
-
-    status_params = rt_io["rt_status_adapter"]["ros__parameters"]
-    assert status_params["safety_state_topic"] == "/control/safety_state"
-    assert status_params["readiness_topic"] == "/rt_control/readiness"
-    assert status_params["safety_publish_period_s"] == 0.1
-    assert status_params["readiness_publish_period_s"] == 1.0
 
 
 def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
@@ -154,22 +134,6 @@ def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
     assert int(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY) == 1101
 
 
-def test_public_vacuum_and_state_adapters_are_installed() -> None:
-    adapter_cmake = (
-        ROOT / "src/rt_control/control_api_adapter/CMakeLists.txt"
-    ).read_text()
-    adapter_manifest = (
-        ROOT / "src/rt_control/control_api_adapter/package.xml"
-    ).read_text()
-
-    assert "scripts/vacuum_adapter" in adapter_cmake
-    assert "scripts/module_state_adapter" in adapter_cmake
-    assert "scripts/position_action_adapter" in adapter_cmake
-    assert "scripts/rt_status_adapter" in adapter_cmake
-    assert "<exec_depend>robot_system_interfaces</exec_depend>" in adapter_manifest
-    assert "<exec_depend>sensor_msgs</exec_depend>" in adapter_manifest
-    assert "<exec_depend>unique_identifier_msgs</exec_depend>" in adapter_manifest
-    assert "<exec_depend>std_srvs</exec_depend>" not in adapter_manifest
 
 
 def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -> None:
@@ -192,12 +156,6 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
 
 def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
-    vacuum_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/vacuum_adapter.py"
-    ).read_text()
-    status_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py"
-    ).read_text()
     enable_source = (
         ROOT / "src/rt_control/enable_manager/src/enable_manager_controller.cpp"
     ).read_text()
@@ -208,9 +166,6 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     assert '#include "robot_interfaces_qos/profiles.hpp"' in bms_source
     assert "topic, robot_interfaces_qos::state()" in bms_source
     assert "secondary_topic, robot_interfaces_qos::state()" in bms_source
-    assert "from robot_interfaces_qos import state" in vacuum_source
-    assert "state()," in vacuum_source
-    assert "from robot_interfaces_qos import diagnostic, latched, state" in status_source
     assert "robot_interfaces_qos::diagnostic()" in enable_source
     assert "robot_interfaces_qos::control()" in controller_patch
     assert controller_patch.count("robot_interfaces_qos::fast_state()") == 2
@@ -221,22 +176,15 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     )
 
 
-def test_public_adapters_populate_the_vendored_shared_message_schemas() -> None:
+def test_public_errors_populate_the_vendored_shared_message_schema() -> None:
     public_error_source = (
         ROOT / "src/rt_control/control_api_adapter/control_api_adapter/public_error.py"
-    ).read_text()
-    status_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py"
     ).read_text()
 
     assert "message.code = int(value.code)" in public_error_source
     assert "message.code = str(int(value.code))" not in public_error_source
     assert "message.source = value.origin" in public_error_source
     assert 'message.detail = ""' in public_error_source
-    assert "def populate_domain_readiness(" in status_source
-    assert 'message.domain = "rt_control"' in status_source
-    assert 'message.readiness_name = "rt_control"' in status_source
-    assert "message.producer_instance_id = producer_instance_id" in status_source
 
 
 def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
