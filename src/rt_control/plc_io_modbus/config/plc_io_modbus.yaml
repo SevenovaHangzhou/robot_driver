@@ -5,6 +5,7 @@ plc_io_modbus:
         host: "192.168.1.12"
         port: 502
         unit_id: 1
+        timeout_ms: 1000
       inputs:
         infrared_laser:
           # Installed side/count/active level are not yet frozen for the V3 public interface.
@@ -25,6 +26,7 @@ plc_io_modbus:
         host: "192.168.1.13"
         port: 502
         unit_id: 1
+        timeout_ms: 1000
       inputs:
         # Both channels retain the documented ZSE30A conversion as a reviewable template.
         # Registers and installed sensor identities remain fail-closed.

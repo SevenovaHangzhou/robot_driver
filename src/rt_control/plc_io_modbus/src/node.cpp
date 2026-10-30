@@ -6,11 +6,12 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <random>
 #include <stdexcept>
 #include <string>
 
-#include "plc_io_modbus/protocol/modbus_client.hpp"
+#include "infra_modbus/client.hpp"
 #include "plc_io_modbus/msg/vacuum_sensor_state.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
@@ -37,7 +38,33 @@ struct ModuleConfig
   std::string host;
   int port;
   int unit_id;
+  int timeout_ms;
 };
+
+uint16_t read_uint16_be(const uint8_t * data)
+{
+  return static_cast<uint16_t>((data[0] << 8) | data[1]);
+}
+
+// One FC01-06 request: `value` is the count for reads and the written value for writes.
+// Errors keep their type (device exception vs transport) and gain the request context.
+std::vector<uint8_t> request(
+  infra_modbus::Client & client, const ModuleConfig & config, uint8_t function, uint16_t address,
+  uint16_t value)
+{
+  const auto context = "FC=" + std::to_string(function) + " address=" + std::to_string(address) +
+                       " value/count=" + std::to_string(value) + ": ";
+  try {
+    return client.transact(
+      static_cast<uint8_t>(config.unit_id),
+      {function, static_cast<uint8_t>(address >> 8), static_cast<uint8_t>(address),
+       static_cast<uint8_t>(value >> 8), static_cast<uint8_t>(value)});
+  } catch (const infra_modbus::ModbusException & error) {
+    throw infra_modbus::ModbusException(context + error.what());
+  } catch (const std::exception & error) {
+    throw std::runtime_error(context + error.what());
+  }
+}
 
 struct PressureConfig
 {
@@ -69,9 +96,11 @@ public:
     declare_parameter("digital.module.host", "192.168.1.12");
     declare_parameter("digital.module.port", 502);
     declare_parameter("digital.module.unit_id", 1);
+    declare_parameter("digital.module.timeout_ms", 1000);
     declare_parameter("analog.module.host", "192.168.1.13");
     declare_parameter("analog.module.port", 502);
     declare_parameter("analog.module.unit_id", 1);
+    declare_parameter("analog.module.timeout_ms", 1000);
     const double poll_period_seconds = declare_parameter("poll_period", 0.2);
 
     infrared_configured_ = declare_parameter("digital.inputs.infrared_laser.configured", false);
@@ -90,6 +119,12 @@ public:
     }
     digital_config_ = read_module_config("digital.module", "DI/DO");
     analog_config_ = read_module_config("analog.module", "AI/AO");
+    digital_client_.emplace(
+      digital_config_.host, static_cast<uint16_t>(digital_config_.port),
+      std::chrono::milliseconds(digital_config_.timeout_ms));
+    analog_client_.emplace(
+      analog_config_.host, static_cast<uint16_t>(analog_config_.port),
+      std::chrono::milliseconds(analog_config_.timeout_ms));
     validate_parameters();
     initialise_instance_id();
 
@@ -167,9 +202,9 @@ private:
       throw std::invalid_argument(prefix + ".host must not be empty");
     }
     return ModuleConfig{
-      name, host,
-      read_integer_parameter(prefix + ".port", 1, 65535),
-      read_integer_parameter(prefix + ".unit_id", 0, 255)};
+      name, host, read_integer_parameter(prefix + ".port", 1, 65535),
+      read_integer_parameter(prefix + ".unit_id", 0, 255),
+      read_integer_parameter(prefix + ".timeout_ms", 1, 60000)};
   }
 
   PressureConfig read_pressure_config(const std::string & side) const
@@ -210,11 +245,6 @@ private:
     }
   }
 
-  void ensure_connected(ModbusClient & client, const ModuleConfig & config)
-  {
-    client.connect(config.host, config.port, config.unit_id);
-  }
-
   rclcpp::Service<SetDigitalOutput>::SharedPtr create_output_service(
     const std::string & service_name, const std::string & address_parameter, bool * state)
   {
@@ -243,16 +273,15 @@ private:
     bool write_may_have_occurred = false;
     try {
       const int address = read_integer_parameter(address_parameter, 0, 65535);
-      ensure_connected(digital_client_, digital_config_);
       if (read_single_bit(kReadCoils, static_cast<uint16_t>(address)) != enabled) {
         const uint16_t output_value = enabled ? kCoilOn : kCoilOff;
         write_may_have_occurred = true;
-        const auto reply = digital_client_.request(
-          kWriteSingleCoil, static_cast<uint16_t>(address), output_value);
-        if (reply.size() != 5 ||
-          ModbusClient::read_uint16_be(reply.data() + 1) != address ||
-          ModbusClient::read_uint16_be(reply.data() + 3) != output_value)
-        {
+        const auto reply = request(
+          *digital_client_, digital_config_, kWriteSingleCoil, static_cast<uint16_t>(address),
+          output_value);
+        if (
+          reply.size() != 5 || read_uint16_be(reply.data() + 1) != address ||
+          read_uint16_be(reply.data() + 3) != output_value) {
           throw std::runtime_error("coil write echo mismatch");
         }
       }
@@ -266,7 +295,7 @@ private:
       response.message = service_name + (enabled ? "=ON verified" : "=OFF verified");
       digital_error_.clear();
     } catch (const std::exception & error) {
-      digital_client_.close();
+      digital_client_->close();
       response.outcome = write_may_have_occurred ?
         SetDigitalOutput::Response::OUTCOME_UNKNOWN :
         SetDigitalOutput::Response::OUTCOME_NOT_EXECUTED;
@@ -279,7 +308,7 @@ private:
 
   bool read_single_bit(uint8_t function, uint16_t address)
   {
-    const auto reply = digital_client_.request(function, address, 1);
+    const auto reply = request(*digital_client_, digital_config_, function, address, 1);
     if (reply.size() != 3 || reply[1] != 1) {
       throw std::runtime_error("invalid single-bit response");
     }
@@ -303,7 +332,6 @@ private:
       return;
     }
     try {
-      ensure_connected(digital_client_, digital_config_);
       if (infrared_configured_) {
         read_and_publish_laser();
       } else {
@@ -320,7 +348,7 @@ private:
       digital_fresh_ = true;
       digital_error_.clear();
     } catch (const std::exception & error) {
-      digital_client_.close();
+      digital_client_->close();
       pump_output_valid_ = false;
       left_valve_output_valid_ = false;
       right_valve_output_valid_ = false;
@@ -351,13 +379,12 @@ private:
     }
 
     try {
-      ensure_connected(analog_client_, analog_config_);
       left_pressure_ = read_pressure(read_pressure_config("left"));
       right_pressure_ = read_pressure(read_pressure_config("right"));
       analog_connected_ = true;
       analog_error_.clear();
     } catch (const std::exception & error) {
-      analog_client_.close();
+      analog_client_->close();
       analog_error_ = error.what();
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000, "AI/AO module poll failed: %s", error.what());
@@ -369,12 +396,13 @@ private:
   PressureSample read_pressure(const PressureConfig & config)
   {
     PressureSample sample;
-    const auto reply = analog_client_.request(
-      kReadInputRegisters, static_cast<uint16_t>(config.address), 1);
+    const auto reply = request(
+      *analog_client_, analog_config_, kReadInputRegisters, static_cast<uint16_t>(config.address),
+      1);
     if (reply.size() != 4 || reply[1] != 2) {
       throw std::runtime_error("invalid analog input response for " + config.channel);
     }
-    sample.raw = ModbusClient::read_uint16_be(reply.data() + 2);
+    sample.raw = read_uint16_be(reply.data() + 2);
     sample.pressure_kpa = static_cast<float>(
       (sample.raw - config.raw_at_zero_kpa) * config.full_scale_kpa /
       (config.raw_at_full_scale - config.raw_at_zero_kpa));
@@ -507,8 +535,8 @@ private:
 
   ModuleConfig digital_config_;
   ModuleConfig analog_config_;
-  ModbusClient digital_client_;
-  ModbusClient analog_client_;
+  std::optional<infra_modbus::Client> digital_client_;
+  std::optional<infra_modbus::Client> analog_client_;
   bool vacuum_configured_{false};
   bool infrared_configured_{false};
   bool infrared_active_high_{true};
