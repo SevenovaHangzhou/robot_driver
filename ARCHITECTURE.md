@@ -52,7 +52,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 - 下层不得依赖上层；`infra` 不依赖任何域包、不含 ROS 节点、不含策略、不含机型。
 - control 只经 `rt_control_semantic_components` 依赖 protocol：该包定义硬件层与控制器共用的状态/命令接口语义（CiA402 状态字、握手式使能阶段、力传感器），控制器不直接依赖具体协议包（`tools/rt_control_layer_gate.py` R2 已执行）。
-- 测试与 golden 生成脚本同样遵守方向（当前 `composer/test/golden/generate_baseline.py` 反向 import `bringup`，属违反）。
+- 测试与 golden 生成脚本同样遵守方向。
 - 包名用统一前缀表达所属层，看名字即知层，门禁按前缀检查。具体前缀词与存量包重命名映射表另行讨论（open item）。
 
 ### 1.4 死活分明
