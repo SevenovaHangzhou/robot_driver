@@ -54,7 +54,11 @@ def compose(
     sync_mode="",
     startup_id=None,
 ):
-    """Pure composition: returns every output file as text; no writes, bus command or preflight."""
+    """Pure composition: returns every output file as text; no writes, bus command or preflight.
+
+    Stages: load and validate -> model skeleton -> per-module rendering -> hardware systems in
+    the description -> controller parameters -> output files and lifecycle.
+    """
     runtime = Path(runtime_dir)
     integration_share = Path(package_share("rt_control_composer"))
     schemas = integration_share / "schema"
@@ -64,8 +68,77 @@ def compose(
     )
     manifest_links(data, config_root)
     runtime_admission(data, use_mock_hardware, require_manifest_ready)
+    naming = load_yaml(integration_share / "config/interface_naming.yaml")
+    robot, robot_model = _robot_skeleton(
+        data, robot_variant, use_mock_hardware, naming, package_share
+    )
+    systems, rendered_modules, bus_rates = _render_modules(
+        data, robot_model, runtime, use_mock_hardware, sync_mode, schemas, config_root
+    )
+    runtime_files = _attach_systems(robot, systems, data["scope"]["render_mode"], robot_model)
+    managed = [name for system in systems for name in system["result"]["managed_joints"]]
+    # Lifecycle "active" of a sensor system is a precondition for actuators, never readiness.
+    hardware_order = [
+        system["result"]["hardware_system_id"]
+        for state_only in (True, False)
+        for system in systems
+        if (not system["result"]["managed_joints"]) == state_only
+    ]
+    staged = bool(data["scope"].get("staged_hardware_activation", False))
+    controllers, order, runtime_parameters, selected_names, bindings = _controllers(
+        data,
+        package_share=package_share,
+        defaults=load_yaml(integration_share / "config/controller_defaults.yaml"),
+        naming=naming,
+        rendered_modules=rendered_modules,
+        managed=managed,
+        hardware_order=hardware_order,
+        bus_rates=bus_rates,
+        staged=staged,
+        jtc_only=jtc_only,
+        use_mock_hardware=use_mock_hardware,
+        runtime=runtime,
+        runtime_files=runtime_files,
+        startup_id=startup_id,
+    )
+    recorders = _add_recorder(
+        controllers, data["deployment"], robot, staged, selected_names, bindings
+    )
+    robot_description = ET.tostring(robot, encoding="unicode")
+    files = _output_files(runtime, runtime_files, robot_description, controllers, order)
+    lifecycle = _lifecycle(
+        data,
+        control_scope,
+        use_mock_hardware,
+        staged,
+        hardware_order,
+        order,
+        recorders,
+        systems,
+        selected_names,
+        bindings,
+    )
+    if staged:
+        # Consumed by the generic scope launcher and its orderly shutdown.
+        files["lifecycle.yaml"] = yaml.safe_dump(lifecycle, sort_keys=False)
+    return Composed(
+        robot_description,
+        controllers,
+        order,
+        runtime,
+        systems,
+        use_mock_hardware,
+        files,
+        runtime_parameters,
+        tuple(hardware_order),
+        staged,
+        lifecycle,
+    )
+
+
+def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_share):
+    """Description root for the scope view, plus the model joints and limits owners check."""
     manifest, scope, deployment = data["manifest"], data["scope"], data["deployment"]
-    mode = scope["render_mode"]
     model = manifest["robot_model"]
     model_share = Path(package_share(model["package"]))
     variant = model["variants"][deployment["end_effector"]]
@@ -82,17 +155,22 @@ def compose(
     }
     if "robot_name" in scope:
         model_robot.attrib["name"] = scope["robot_name"]
-    naming = load_yaml(integration_share / "config/interface_naming.yaml")
     if "minimal_robot" in scope:
         robot = ET.Element("robot", name=scope["minimal_robot"]["name"])
         ET.SubElement(robot, "link", name=scope["minimal_robot"]["base_link"])
-    elif mode == "stationary_enable":
+    elif scope["render_mode"] == "stationary_enable":
         robot = ET.Element(
             "robot", name=naming["stationary_robot_name"].format(robot_variant=robot_variant)
         )
         ET.SubElement(robot, "link", name=naming["stationary_base_link"])
     else:
         robot = model_robot
+    return robot, robot_model
+
+
+def _render_modules(data, robot_model, runtime, use_mock_hardware, sync_mode, schemas, config_root):
+    """Ask each module's protocol owner for its fragments; merge modules sharing a system."""
+    manifest, scope, deployment = data["manifest"], data["scope"], data["deployment"]
     rendered = []
     bus_rates = []
     rendered_modules = {}
@@ -116,7 +194,7 @@ def compose(
             "use_mock_hardware": use_mock_hardware,
             "bus_cycle_hz": bus_cycle,
             "runtime_dir": str(runtime),
-            "render_mode": mode,
+            "render_mode": scope["render_mode"],
             "hardware_system_id": scope.get("hardware_system_id", machine["master_system"]),
             "transport_layout": layout,
             "peer_machines": [
@@ -133,15 +211,11 @@ def compose(
             result = {**result, "hardware_system_id": scope["hardware_system_id"]}
         rendered.append((manifest["owner_refs"][transport], result))
         rendered_modules[name] = result
-    systems = merge_systems(rendered)
-    managed = [name for system in systems for name in system["result"]["managed_joints"]]
-    # Lifecycle "active" of a sensor system is a precondition for actuators, never readiness.
-    hardware_order = [
-        system["result"]["hardware_system_id"]
-        for state_only in (True, False)
-        for system in systems
-        if (not system["result"]["managed_joints"]) == state_only
-    ]
+    return merge_systems(rendered), rendered_modules, bus_rates
+
+
+def _attach_systems(robot, systems, mode, robot_model):
+    """Append one ros2_control element per system; return the owners' runtime files."""
     runtime_files = {}
     for system in systems:
         result = system["result"]
@@ -165,6 +239,29 @@ def compose(
             if path in runtime_files:
                 raise ValueError(f"Duplicate runtime path: {path}")
             runtime_files[path] = text
+    return runtime_files
+
+
+def _controllers(
+    data,
+    *,
+    package_share,
+    defaults,
+    naming,
+    rendered_modules,
+    managed,
+    hardware_order,
+    bus_rates,
+    staged,
+    jtc_only,
+    use_mock_hardware,
+    runtime,
+    runtime_files,
+    startup_id,
+):
+    """controllers.yaml content, controller order and per-start runtime parameter keys."""
+    manifest, scope = data["manifest"], data["scope"]
+    mode = scope["render_mode"]
 
     def policy(name):
         reference = manifest["policy_refs"][name]
@@ -191,12 +288,10 @@ def compose(
     unknown = set(selected_names).difference(bindings)
     if unknown:
         raise ValueError(f"Controller order references unknown controllers: {sorted(unknown)}")
-    defaults = load_yaml(integration_share / "config/controller_defaults.yaml")
     manager = {
         "update_rate": bus_rates[0],
         **defaults["controller_manager"],
     }
-    staged = bool(scope.get("staged_hardware_activation", False))
     if staged:
         # The scope launcher activates each system in hardware_order after its owner preflight.
         manager["hardware_components_initial_state"] = {"unconfigured": list(hardware_order)}
@@ -261,25 +356,30 @@ def compose(
         )
     # fault_dependencies remain owned by the separate machine safety policy. These
     # migrated entry points did not emit them; validation does not add runtime fields.
-    recorders = []
+    return controllers, order, runtime_parameters, selected_names, bindings
+
+
+def _add_recorder(controllers, deployment, robot, staged, selected_names, bindings):
+    """Optional Runtime-LOG recorder entries; returns the recorder controller names."""
     recorder = deployment.get("runtime_log_recorder", {})
-    if recorder.get("enabled") and staged:
-        # Optional, outside controller_order: a missing plugin or failed load never blocks the scope.
-        recorders = [RECORDER_NAME]
-        controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] = {
-            "type": RECORDER_PLUGIN
+    if not (recorder.get("enabled") and staged):
+        return []
+    # Optional, outside controller_order: a missing plugin or failed load never blocks the scope.
+    controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] = {"type": RECORDER_PLUGIN}
+    controllers[RECORDER_NAME] = {
+        "ros__parameters": {
+            "interfaces": recorded_state_interfaces(robot),
+            "slots": recorder.get("slots", 2000),
         }
-        controllers[RECORDER_NAME] = {
-            "ros__parameters": {
-                "interfaces": recorded_state_interfaces(robot),
-                "slots": recorder.get("slots", 2000),
-            }
-        }
-        # The enable manager writes its own state-machine trace next to the recorder segment.
-        for name in selected_names:
-            if bindings[name]["plugin"] == ENABLE_MANAGER_PLUGIN:
-                controllers[name]["ros__parameters"]["runtime_log_trace"] = True
-    robot_description = ET.tostring(robot, encoding="unicode")
+    }
+    # The enable manager writes its own state-machine trace next to the recorder segment.
+    for name in selected_names:
+        if bindings[name]["plugin"] == ENABLE_MANAGER_PLUGIN:
+            controllers[name]["ros__parameters"]["runtime_log_trace"] = True
+    return [RECORDER_NAME]
+
+
+def _output_files(runtime, runtime_files, robot_description, controllers, order):
     # Paths are validated here; writing belongs to the explicit deploy-time artifact step.
     reserved = {
         "controllers.yaml",
@@ -292,14 +392,30 @@ def compose(
         raise ValueError("Owner runtime path collides with an integration output")
     for name in runtime_files:
         resolve_share_path(runtime, name)
-    files = {
+    return {
         **runtime_files,
         "robot_description.xml": robot_description,
         "controllers.yaml": yaml.safe_dump(controllers, sort_keys=False),
         "controller_order.yaml": yaml.safe_dump(order, sort_keys=False),
     }
+
+
+def _lifecycle(
+    data,
+    control_scope,
+    use_mock_hardware,
+    staged,
+    hardware_order,
+    order,
+    recorders,
+    systems,
+    selected_names,
+    bindings,
+):
+    """lifecycle.yaml: activation order, controller groups, bus locks, capabilities, host."""
+    scope, deployment = data["scope"], data["deployment"]
     params_of = [s["result"]["hardware_params"] for s in systems]
-    lifecycle = {
+    return {
         "control_scope": control_scope,
         "use_mock_hardware": use_mock_hardware,
         "staged_hardware_activation": staged,
@@ -333,22 +449,6 @@ def compose(
         "host": deepcopy(deployment.get("host", {})),
         "transports": sorted({system["owner"] for system in systems}),
     }
-    if staged:
-        # Consumed by the generic scope launcher and its orderly shutdown.
-        files["lifecycle.yaml"] = yaml.safe_dump(lifecycle, sort_keys=False)
-    return Composed(
-        robot_description,
-        controllers,
-        order,
-        runtime,
-        systems,
-        use_mock_hardware,
-        files,
-        runtime_parameters,
-        tuple(hardware_order),
-        staged,
-        lifecycle,
-    )
 
 
 def preflight(composed, *, run=None):

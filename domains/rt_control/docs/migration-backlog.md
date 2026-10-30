@@ -40,7 +40,7 @@
 | [ ] | C | 四个控制器包共同重复骨架（见 §5a 末） | 3 |
 | [x] | C | `rt_disable_once` 与 `head_disable_once` 同一件事两种写法（#110 头部并入 enable_manager、#111 删除 `rt_disable_once`，两者均已不存在） | 3 |
 | [ ] | C | `rt_control_bringup/ros2_control_node.cpp` fork 上游 main | 3、§6 窄补丁 |
-| [ ] | D | `composer.compose()` 单函数 300 行 | 4.3 |
+| [x] | D | `composer.compose()` 单函数 300 行（arch-d1：拆为加载校验→模型骨架→模块渲染→挂接硬件系统→控制器参数→输出与 lifecycle；1404 个组合输出逐字节不变） | 4.3 |
 | [x] | D | `swerve_controller.cpp` 1042 行；`relative_move` 与控制器同包；mock 在 `src/`（arch-b1：用户 2026-10-30 裁定删除整个 relative 扩展——relative_move、ChassisRuntime、chassis_mode_handoff 与 6 个 IDL；`swerve_controller.cpp` 降至 893 行，mock 随之删除） | 3 硬指标、1.4、4.6 |
 
 ## 5a. 逐包处置表（基于 `43d4c64`）
