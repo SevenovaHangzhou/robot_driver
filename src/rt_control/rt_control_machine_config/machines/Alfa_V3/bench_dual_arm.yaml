@@ -1,0 +1,146 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: true
+authorities:
+  source: bench_left_arm.yaml (left branch) + arms.yaml right branch + read-only EtherCAT scan 2026-10-22 (ar-Default-string)
+  topology: cached SII/ports 2026-10-24 - X2/port3 -> left1..7 -> BluePoint8; X3/port1 -> right9..15 -> BluePoint16; port2 -> sub-coupler17
+  ring_order: user-confirmed right J1..J7 order retained; BluePoint insertion shifts right J1..J7 from8..14 to9..15
+  encoder_policy: user 2026-10-24 confirms right J3/J4 single-turn; 0x730F may be reset at disabled startup
+  direction: left confirmed 2026-10-18; right all +1 confirmed by user per joint 2026-10-22; direction unchanged by ring migration
+pending_facts:
+- BluePoint sensors at rings8/16 are topology-only; force PDO/driver integration deferred
+- right arm drive firmware (torque-sensor PDO not yet verified on the right drives)
+- 'PP Halt policy: live firmware has no 0x605D object'
+- measured nonwrapping single-turn travel for left J3 and right J3/J4 (single-turn use confirmed by user)
+- coupler runtime state/DC and ESI display-version difference
+robot_variant: Alfa_V3
+module: bench_dual_arm
+master_system: ecat_arms
+# Bench assembly of both seven-axis arms without grippers: left on the main coupler X2,
+# right on X3. BluePoint sensors are passive tails at8/16; sub-coupler is17.
+spec:
+  family: zeroerr
+  extra_responders:
+  - ring_position: 0
+    profile: inovance_gr10_coupler
+    identity_key: coupler_main
+  - ring_position: 8
+    profile: bench_arms_observers
+    identity_key: bluepoint_p140000100
+  - ring_position: 16
+    profile: bench_arms_observers
+    identity_key: bluepoint_p140000100
+  - ring_position: 17
+    profile: inovance_gr10_coupler
+    identity_key: coupler_subdevice
+  branches:
+    left:
+      connector: X2
+      main_esc_port: 3
+      axes:
+      - physical_joint: J1
+        ring_position: 1
+        mode_of_operation: 8
+        robot_model_joint: left_joint1
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J2
+        ring_position: 2
+        mode_of_operation: 8
+        robot_model_joint: left_joint2
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J3
+        ring_position: 3
+        mode_of_operation: 8
+        robot_model_joint: left_joint3
+        # User-confirmed 18ET model; independent raw output torque feedback.
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J4
+        ring_position: 4
+        mode_of_operation: 8
+        robot_model_joint: left_joint4
+        # User-confirmed 18ET model; independent raw output torque feedback.
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J5
+        ring_position: 5
+        mode_of_operation: 8
+        robot_model_joint: left_joint5
+        # User-confirmed 18ET model; independent raw output torque feedback.
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J6
+        ring_position: 6
+        mode_of_operation: 8
+        robot_model_joint: left_joint6
+        # User-confirmed 18ET model; independent raw output torque feedback.
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J7
+        ring_position: 7
+        mode_of_operation: 8
+        robot_model_joint: left_joint7
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+    right:
+      connector: X3
+      main_esc_port: 1
+      axes:
+      - physical_joint: J1
+        ring_position: 9
+        mode_of_operation: 8
+        robot_model_joint: right_joint1
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J2
+        ring_position: 10
+        mode_of_operation: 8
+        robot_model_joint: right_joint2
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J3
+        ring_position: 11
+        mode_of_operation: 8
+        robot_model_joint: right_joint3
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J4
+        ring_position: 12
+        mode_of_operation: 8
+        robot_model_joint: right_joint4
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J5
+        ring_position: 13
+        mode_of_operation: 8
+        robot_model_joint: right_joint5
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J6
+        ring_position: 14
+        mode_of_operation: 8
+        robot_model_joint: right_joint6
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J7
+        ring_position: 15
+        mode_of_operation: 8
+        robot_model_joint: right_joint7
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+  drive_profiles:
+    # Diagnostic feedback (velocity, torque, error code) for the Runtime-LOG black box.
+    csp: zeroerr_cia402_csp_diag
+    gripper_pp: zeroerr_cia402_stationary
+  branch_mapping_verified: true
+  direction_status: user_confirmed_left_2026_10_18_right_2026_10_22

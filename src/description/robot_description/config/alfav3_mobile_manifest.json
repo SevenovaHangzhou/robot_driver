@@ -2,8 +2,6 @@
   "entry": "urdf/robot_alfav3_mobile.urdf",
   "srdf": "srdf/robot_alfav3_mobile.srdf",
   "joint_limits": "config/joint_limits_alfav3_mobile.yaml",
-  "base_entry": "urdf/robot_analytic_proxy_mobile.urdf",
-  "arm_source": "model_sources/alfav3_arms_1011_4/robot.urdf",
   "arm_carriage_mount": {
     "xyz_m": [
       0.266,
@@ -17,15 +15,28 @@
     ],
     "evidence": "fit of both J1 axis lines to the previous model; residual 4.7 um / 1.5 urad"
   },
-  "arm_zero": "Alfav3 export zero = mechanical zero = drive zero (2^18 counts), user-confirmed 2026-10-17",
+  "arm_zero": "Alfav3 export zero with explicit model offsets; hardware calibration is separate",
+  "model_zero_offset_deg": {
+    "left_joint5": 180.0
+  },
+  "model_zero_offset_convention": "q_export = axis_sign_vs_export * q_model + offset_deg; left J5 axis unchanged",
+  "model_zero_offset_evidence": "left J5 +180 deg and right J5 restored by 9994680; metadata corrected to match the existing URDF",
   "arm_limits_deg": {
-    "1": 180.0,
-    "2": 105.0,
-    "3": 180.0,
-    "4": 145.0,
-    "5": 180.0,
-    "6": 110.0,
-    "7": 180.0
+    "1": 160.0,
+    "2": {"lower": -92.0, "upper": 122.0},
+    "3": 160.0,
+    "4": 150.0,
+    "5": 160.0,
+    "6": 135.0,
+    "7": 160.0
+  },
+  "arm_limits_convention": "Scalar values are symmetric +/- degrees; lower/upper objects are signed bounds, identical on both arms.",
+  "arm_actuator_specs": "config/alfav3_arm_module_specs.json",
+  "arm_actuator_source_revision": "68705a2eb370845e9476776b72b7620e5d0d9316",
+  "arm_dynamics": {
+    "friction": 0.0,
+    "damping": 0.0,
+    "status": "V3 placeholders; not identified"
   },
   "tool0": {
     "parent": "<side>_link7",
@@ -87,7 +98,65 @@
   ],
   "limitations": [
     "Arm inertials come from the SolidWorks export and are not hardware validated.",
-    "Arm effort/velocity limits are carried over from the previous model and remain unverified.",
+    "Arm effort is startup/stop peak torque, not continuous rated torque; scalar caps do not enforce thermal/duty-cycle limits.",
+    "Arm friction/damping are zero placeholders from V3, not identified hardware parameters.",
     "Joint-space values of the previous model do not apply; consumers must migrate."
-  ]
+  ],
+  "archived_sources": {
+    "tag": "backup/before-single-model-20261020",
+    "commit": "3126c2f0716eaefc13d6bfbbf955027125156950",
+    "base_entry": "urdf/robot_analytic_proxy_mobile.urdf",
+    "arm_source": "model_sources/alfav3_arms_1011_4/robot.urdf",
+    "generator": "tools/build_alfav3_mobile.py"
+  },
+  "maintenance": "Single maintained URDF; legacy generators and original source models are in archived_sources.",
+  "head_and_upper_base": {
+    "source": "总装1011++6/urdf/总装1011++6.urdf",
+    "source_sha256": "62b0b6bf61803d3deddc9699a072ebb83b071492c7565d18c8fc28382d879da7",
+    "source_base_link_maps_to": "arm_carriage; mobile base_link and updown retained",
+    "source_base_in_arm_carriage": {
+      "xyz_m": [
+        0.266,
+        0.0,
+        0.36515
+      ],
+      "rpy_rad": [
+        3.141592653589793,
+        0,
+        0
+      ]
+    },
+    "head_links": [
+      "H1_Link",
+      "H2_Link",
+      "Leye_link",
+      "Reye_Link",
+      "mid360_Link"
+    ],
+    "head_limits_rad": [
+      -3.141592653589793,
+      3.141592653589793
+    ],
+    "head_effort_nm": 10,
+    "head_velocity_rad_s": 5,
+    "head_caps_note": "Position limits requested 2026-10-24; effort and speed retained from prior head, not actuator identification.",
+    "eye_links": "Massless, visual-only sight ranges; no collision geometry.",
+    "mid360": {
+      "source_inertial": "<inertial>\n      <origin xyz=\"-2.3816781880015E-11 7.90368063299876E-09 0.584355121999665\" rpy=\"0 0 0\" />\n      <mass value=\"37530.9779588344\" />\n      <inertia ixx=\"62610.6812819352\" ixy=\"5.33966563970609E-09\" ixz=\"-6.0572347138077E-10\" iyy=\"62610.6812811808\" iyz=\"-6.03319201718292E-10\" izz=\"105696.902590375\" />\n    </inertial>",
+      "mass_kg": 0.375,
+      "inertia_method": "uniform bounding box proxy; not measured",
+      "bounds_m": [
+        [
+          -0.03243692219257355,
+          -0.03243692219257355,
+          -0.04699999839067459
+        ],
+        [
+          0.03243692219257355,
+          0.06199999898672104,
+          0.013097099959850311
+        ]
+      ]
+    }
+  }
 }

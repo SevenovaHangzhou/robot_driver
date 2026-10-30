@@ -1,9 +1,9 @@
 """Robot Model access for the console: joint limits and a browser copy of the robot.
 
-The console never keeps its own geometry. It reads the URDF that the running
-controller_manager was started with, keeps every link and joint (visuals only) so the
-arm is shown on the whole vehicle, names the links that move with the controlled
-joints, and rewrites ``package://`` mesh URIs to console URLs.
+Control limits come from the running controller_manager. A selected authoritative
+description share can supply the browser geometry without changing those limits.
+Both views retain every link and joint, name the controlled arm links, and rewrite
+``package://`` mesh URIs to console URLs.
 """
 
 from __future__ import annotations
@@ -40,11 +40,17 @@ class ArmModel:
     arm_links: tuple[str, ...] = ()  # links moved by the controlled joints (target preview)
 
 
-def load_arm_model(urdf: str, joints: Sequence[str]) -> ArmModel:
+def load_arm_model(
+    urdf: str, joints: Sequence[str], *, mesh_prefix: str = MESH_URL_PREFIX
+) -> ArmModel:
     try:
         robot = ET.fromstring(urdf)
     except ET.ParseError as exc:
         raise ModelError(f"robot_description is not valid XML: {exc}") from exc
+    if not joints:
+        if not robot.findall("link"):
+            raise ModelError("browser model has no links")
+        return ArmModel((), "", _robot_view(robot, mesh_prefix), ())
     elements = {joint.get("name"): joint for joint in robot.findall("joint")}
     limits = []
     for name in joints:
@@ -62,10 +68,12 @@ def load_arm_model(urdf: str, joints: Sequence[str]) -> ArmModel:
             raise ModelError(f"joint limit invalid in the Robot Model: {name}")
         limits.append(JointLimit(name, *values))
     root = elements[joints[0]].find("parent").get("link")
-    return ArmModel(tuple(limits), root, _robot_view(robot), _arm_links(robot, root, set(joints)))
+    return ArmModel(
+        tuple(limits), root, _robot_view(robot, mesh_prefix), _arm_links(robot, root, set(joints))
+    )
 
 
-def _robot_view(robot: ET.Element) -> str:
+def _robot_view(robot: ET.Element, mesh_prefix: str = MESH_URL_PREFIX) -> str:
     """Every link and joint of the Robot Model, visuals only, for the browser.
 
     Collision geometry, ros2_control and simulator tags are dropped; joints that the
@@ -81,7 +89,7 @@ def _robot_view(robot: ET.Element) -> str:
                 copy.remove(collision)
             result.append(copy)
     for mesh in result.iter("mesh"):
-        mesh.set("filename", mesh_url(mesh.get("filename", "")))
+        mesh.set("filename", mesh_url(mesh.get("filename", ""), mesh_prefix))
     return ET.tostring(result, encoding="unicode")
 
 
@@ -105,10 +113,10 @@ def _arm_links(robot: ET.Element, root: str, controlled: set[str]) -> tuple[str,
     return tuple(links)
 
 
-def mesh_url(filename: str) -> str:
+def mesh_url(filename: str, prefix: str = MESH_URL_PREFIX) -> str:
     if not filename.startswith("package://"):
         raise ModelError(f"only package:// mesh URIs are supported: {filename!r}")
-    return MESH_URL_PREFIX + filename[len("package://") :]
+    return prefix + filename[len("package://") :]
 
 
 def resolve_mesh(url_path: str, share_lookup: ShareLookup) -> Optional[Path]:

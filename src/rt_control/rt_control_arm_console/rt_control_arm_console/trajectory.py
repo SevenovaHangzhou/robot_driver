@@ -158,6 +158,37 @@ class Plan:
         return result
 
 
+    def bounded_points(self, period: float, max_points: int) -> list[TrajectoryPoint]:
+        """Bound FJT size while retaining each constant-jerk phase boundary.
+
+        q/v/a at both endpoints let JTC spline interpolation reproduce each cubic
+        phase. Short trajectories retain their original sampling.
+        """
+        if not math.isfinite(period) or period <= 0:
+            raise ValueError("sample period must be positive and finite")
+        if isinstance(max_points, bool) or not isinstance(max_points, int) or max_points < 2:
+            raise ValueError("max_points must be an integer >= 2")
+        count = max(int(math.ceil(self.duration / period - 1e-9)), 1) + 1
+        if count <= max_points:
+            return self.points(period)
+        phases = self.profile.segments
+        if max_points <= len(phases) + 1:
+            raise ValueError("point budget cannot preserve phase boundaries")
+        # Reserve one interval for rounding up each phase's interval count.
+        step = max(period, self.duration / (max_points - 1 - len(phases)))
+        result = [self.state(0.0)]
+        start = 0.0
+        for duration, _ in phases:
+            intervals = max(1, int(math.ceil(duration / step)))
+            for i in range(1, intervals + 1):
+                result.append(self.state(start + duration * i / intervals))
+            start += duration
+        result[-1] = self.state(self.duration)
+        if len(result) > max_points:
+            raise ValueError("trajectory exceeds point budget")
+        return result
+
+
 def _rest(point: TrajectoryPoint):
     zeros = tuple(0.0 for _ in point.positions)
     return point.positions, zeros, zeros

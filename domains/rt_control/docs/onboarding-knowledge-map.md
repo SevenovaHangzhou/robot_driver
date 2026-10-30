@@ -87,7 +87,7 @@ flowchart TD
 
 | 节点 | 它回答的问题 | 第一个阅读入口 |
 | --- | --- | --- |
-| `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot.urdf.xacro`](../../../src/description/robot_description/urdf/robot.urdf.xacro) |
+| `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot_alfav3_mobile.urdf`](../../../src/description/robot_description/urdf/robot_alfav3_mobile.urdf) |
 | `rt_control_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/rt_control_interfaces/srv/RtEnable.srv) |
 | `robot_hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](https://github.com/SevenovaHangzhou/robot_driver/tree/43d4c648bca8/src/rt_control/robot_hw_ethercat/config/slaves) |
 | `robot_hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/config/bus.yml) |
@@ -110,7 +110,7 @@ flowchart TD
 
 | 事实 | 当前权威入口 | 不应放在哪里 |
 | --- | --- | --- |
-| link/joint、TF、几何、惯量、机器人固有关节范围 | `robot_description/urdf/robot.urdf.xacro` | EtherCAT/CAN 配置、业务域的模型副本。 |
+| link/joint、TF、几何、惯量、机器人固有关节范围 | `robot_description/urdf/robot_alfav3_mobile.urdf` | EtherCAT/CAN 配置、业务域的模型副本。 |
 | EtherCAT 环位置、PDO/SDO、缩放与驱动 profile | `robot_hw_ethercat` 的 xacro 和 `config/slaves/*.yaml` | `robot_description`、motion 规划参数。 |
 | CAN 节点、EDS、运行模式和总线参数 | `robot_hw_canopen/config/bus.yml`、权威 EDS 和 CAN xacro | controller 临时参数、手工生成物。 |
 | controller 集合、频率、关节集合和运行时约束 | `rt_control_bringup/config/controllers.yaml` | 上层域的重复 controller 配置。 |

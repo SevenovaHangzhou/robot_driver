@@ -1,0 +1,60 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: true
+authorities:
+  topology: right ring indices shifted +1 after BluePoint insertion 2026-10-24; original zero_counts retained
+  source: left - user 2026-10-17 21:18 (+08:00); right - user 2026-10-22, motor zero = Robot Model zero
+pending_facts: []
+robot_variant: Alfa_V3
+module: bench_dual_arm
+# Every drive zero (2^18, mid of 524288 counts) is the mechanical zero, which is also the
+# Robot Model zero (left: confirmed 2026-10-17; right: confirmed by the user 2026-10-22).
+spec:
+  confirmed_by: user
+  captured_utc: '2026-10-22T00:00:00+00:00'
+  external_transmission_ratio: 1.0
+  position_object: 24676
+  axes:
+  - ring_position: 1
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 2
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 3
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 4
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 5
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 6
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 7
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 9
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 10
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 11
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 12
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 13
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 14
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 15
+    zero_counts: 262144
+    digital_outputs: 1

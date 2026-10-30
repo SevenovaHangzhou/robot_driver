@@ -26,6 +26,14 @@ from robot_hw_ethercat import rt_control_renderer as FORCE
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "data"
     shutil.copytree(RT / "rt_control_machine_config", data)
+    # Frozen equivalence and CLI recordings describe the historical six-responder
+    # bench, independently of the current machine's physical wiring.
+    force_path = data / "machines/Alfa_V3/wrist_force_sensors.yaml"
+    force = load_yaml(force_path)
+    for sensor, position in zip(force["spec"]["sensors"], (2, 4)):
+        sensor["ring_position"] = position
+    force["spec"]["bench_extra_responders"] = [0, 1, 3, 5]
+    force_path.write_text(yaml.safe_dump(force, sort_keys=False))
     monkeypatch.setattr(HEAD, "_share", lambda: RT / "robot_hw_can")
     monkeypatch.setattr(FORCE, "_share", lambda: RT / "robot_hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}

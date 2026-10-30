@@ -96,6 +96,44 @@ def setup(tmp_path):
     return console, driver, clock
 
 
+def test_vacuum_pressure_is_independent_and_expires_without_motion_effects(setup):
+    console, driver, clock = setup
+    assert all(not sample["valid"] for sample in console.status("s1")["vacuum_pressure"].values())
+    console.update_vacuum_pressure("left", -42.3, True)
+    console.update_vacuum_pressure("right", -0.8, True)
+    readings = console.status("s1")["vacuum_pressure"]
+    assert readings["left"]["pressure_kpa"] == -42.3
+    assert readings["right"]["pressure_kpa"] == -0.8
+    clock.now += 0.8
+    console.update_vacuum_pressure("right", -10.0, True)
+    clock.now += 0.3
+    readings = console.status("s1")["vacuum_pressure"]
+    assert readings["left"] == {
+        "pressure_kpa": None, "valid": False, "error": "stale", "unit": "kPa"
+    }
+    assert readings["right"]["pressure_kpa"] == -10.0
+    console.update_vacuum_pressure("left", 0.0, True)
+    assert console.status("s1")["vacuum_pressure"]["left"]["valid"]
+    assert not driver.sent
+    assert driver.cancelled == 0
+
+
+@pytest.mark.parametrize("pressure,valid,error,unit,expected", [
+    (-1.0, False, "modbus_timeout", "kPa", "modbus_timeout"),
+    (float("nan"), True, "", "kPa", "non_finite"),
+    (float("inf"), True, "", "kPa", "non_finite"),
+    (-1.0, True, "", "MPa", "invalid_unit"),
+])
+def test_vacuum_pressure_invalid_samples_hide_previous_number(setup, pressure, valid, error, unit, expected):
+    console, _, _ = setup
+    console.update_vacuum_pressure("left", -50.0, True)
+    console.update_vacuum_pressure("left", pressure, valid, error, unit)
+    sample = console.status("s1")["vacuum_pressure"]["left"]
+    assert sample["pressure_kpa"] is None
+    assert not sample["valid"]
+    assert sample["error"] == expected
+
+
 def test_browser_view_shows_the_whole_robot_and_names_the_arm_links():
     model = load_arm_model(URDF, JOINTS)
     robot = ET.fromstring(model.browser_urdf)
@@ -280,7 +318,10 @@ def test_sequence_visits_poses_in_order_with_repeats(setup):
     console, driver, clock = _sequence_console(setup)
     assert console.run_sequence("s1", ["A", "B", "A"], "leisure") == {"total": 3}
     status = console.status("s1")
-    assert status["sequence"] == {"names": ["A", "B", "A"], "index": 0, "total": 3}
+    assert status["sequence"] == {"names": ["A", "B", "A"], "index": 0, "total": 3,
+                                   "dwell_s": 0.0, "dwelling": False, "dwell_remaining_s": 0.0,
+                                   "steps": [{"name": name, "gear": "leisure", "dwell_s": 0.0}
+                                             for name in ["A", "B", "A"]]}
     assert status["moving"]["label"] == "1/3 A"
     for index, goal in enumerate([(0.0, 0.2), (0.5, 0.2), (0.0, 0.2)]):
         assert driver.sent[index][1][-1].positions == pytest.approx(goal)
@@ -332,3 +373,173 @@ def test_sequence_checks_every_pose_before_moving(setup):
     with pytest.raises(ConsoleError, match="未使能"):
         console.run_sequence("s1", ["A"], "leisure")
     assert not driver.sent and console.status("s1")["sequence"] is None
+
+
+def _dwell_console(setup):
+    console, driver, clock = _sequence_console(setup)
+    jobs = []
+    console._spawn = jobs.append
+
+    def wait(seconds):
+        clock.now += seconds
+        console.touch('s1')
+        console.update(feedback_at=clock.now, enable_at=clock.now, controller_at=clock.now)
+
+    console._wait = wait
+    return console, driver, clock, jobs
+
+
+@pytest.mark.parametrize('dwell', [2, 8])
+def test_dwell_waits_full_two_seconds_and_includes_final_pose(setup, dwell):
+    console, driver, clock, jobs = _dwell_console(setup)
+    console.run_sequence('s1', ['A', 'B'], 'leisure', dwell)
+    _arrive(console, driver, clock, 0)
+    arrived = clock.now
+    state = console.status('s1')['sequence']
+    assert state['dwelling'] and state['dwell_remaining_s'] == dwell
+    assert len(driver.sent) == 1
+    times = []
+    wait = console._wait
+
+    def inspect(seconds):
+        assert len(driver.sent) == 1
+        times.append(clock.now)
+        wait(seconds)
+
+    console._wait = inspect
+    jobs.pop(0)()
+    assert times and clock.now - arrived >= dwell
+    assert len(driver.sent) == 2
+    console._wait = wait
+    _arrive(console, driver, clock, 1)
+    assert console.status('s1')['sequence']['dwelling']
+    jobs.pop(0)()
+    assert console.status('s1')['sequence'] is None
+
+
+def test_already_reached_pose_still_dwells(setup):
+    console, driver, clock, jobs = _dwell_console(setup)
+    console.run_sequence('s1', ['B', 'A'], 'leisure', 2)
+    assert not driver.sent
+    assert console.status('s1')['sequence']['dwelling']
+    jobs.pop(0)()
+    assert len(driver.sent) == 1 and clock.now >= 102
+
+
+def test_stop_during_dwell_and_old_worker_cannot_advance_new_sequence(setup):
+    console, driver, clock, jobs = _dwell_console(setup)
+    console.run_sequence('s1', ['A', 'B'], 'leisure', 2)
+    _arrive(console, driver, clock, 0)
+    old_job = jobs.pop(0)
+    assert console.stop() == {'stopping': False}
+    console.run_sequence('s1', ['B'], 'leisure', 2)
+    old_job()
+    assert len(driver.sent) == 2
+    assert console.status('s1')['sequence']['index'] == 0
+
+
+@pytest.mark.parametrize('failure', ['stop', 'lease', 'feedback', 'enable', 'controller'])
+def test_dwell_interruption_sends_no_next_motion(setup, failure):
+    console, driver, clock, jobs = _dwell_console(setup)
+    console.run_sequence('s1', ['A', 'B'], 'leisure', 2)
+    _arrive(console, driver, clock, 0)
+
+    def fail(seconds):
+        clock.now += seconds
+        if failure == 'stop':
+            console.stop()
+        elif failure == 'lease':
+            console.release('s1')
+        elif failure == 'feedback':
+            console.update(feedback_at=clock.now - 1)
+        elif failure == 'enable':
+            console.update(enable_state='IDLE')
+        else:
+            console.update(controller_active=False)
+
+    console._wait = fail
+    jobs.pop(0)()
+    assert len(driver.sent) == 1
+    assert console.status('s1')['sequence'] is None
+
+
+@pytest.mark.parametrize('value', [True, -2, '2', None, float('nan'), float('inf')])
+def test_invalid_dwell_rejected_before_motion(setup, value):
+    console, driver, _, _ = _dwell_console(setup)
+    with pytest.raises(ConsoleError, match='停留时间'):
+        console.run_sequence('s1', ['A'], 'leisure', value)
+    assert not driver.sent
+
+
+def test_dwell_blocks_manual_move_and_enable_change(setup):
+    console, driver, clock, jobs = _dwell_console(setup)
+    console.run_sequence('s1', ['A', 'B'], 'leisure', 2)
+    _arrive(console, driver, clock, 0)
+    with pytest.raises(ConsoleError, match='序列'):
+        console.goto_pose('s1', 'B', 'leisure')
+    with pytest.raises(ConsoleError, match='序列'):
+        console.begin_enable('s1')
+    console.stop()
+    jobs.pop(0)()
+    assert len(driver.sent) == 1
+
+
+def test_low_speed_sequence_advances_within_controller_point_budget(setup):
+    from copy import deepcopy
+    console, driver, clock, jobs = _dwell_console(setup)
+    cfg = deepcopy(CONFIG)
+    cfg['gears']['leisure'].update(velocity_deg_s=0.2, acceleration_deg_s2=0.4, jerk_deg_s3=1.6)
+    console.config = config_from_mapping(cfg)
+    original_send = driver.send
+
+    def bounded_send(joints, points, done, start):
+        assert len(points) <= 2000  # Same admission limit as deployed JTC.
+        original_send(joints, points, done, start)
+
+    driver.send = bounded_send
+    console.run_sequence('s1', ['A', 'B', 'A'], 'leisure', 2)
+    for i in range(3):
+        assert len(driver.sent) == i + 1
+        _arrive(console, driver, clock, i)
+        jobs.pop(0)()
+    assert console.status('s1')['sequence'] is None
+    assert console.status('s1')['last_result'] == '序列完成（3 个位姿）'
+
+
+def test_sequence_uses_each_steps_speed_and_dwell_including_final(setup):
+    console, driver, clock, jobs = _dwell_console(setup)
+    steps = [{"name": "A", "gear": "leisure", "dwell_s": 0.3},
+             {"name": "B", "gear": "sport", "dwell_s": 1.7}]
+    console.run_sequence("s1", [], "", steps=steps)
+    assert console._execution.gear.name == "leisure"
+    steps[1]["gear"] = "leisure"  # Request mutation cannot change the running sequence.
+    _arrive(console, driver, clock, 0)
+    assert console.status("s1")["sequence"]["dwell_remaining_s"] == pytest.approx(0.3)
+    arrived = clock.now
+    jobs.pop(0)()
+    assert clock.now - arrived == pytest.approx(0.3)
+    assert console._execution.gear.name == "sport"
+    _arrive(console, driver, clock, 1)
+    assert console.status("s1")["sequence"]["dwell_remaining_s"] == pytest.approx(1.7)
+    arrived = clock.now
+    jobs.pop(0)()
+    assert clock.now - arrived == pytest.approx(1.7)
+    assert console.status("s1")["sequence"] is None
+    assert len(driver.sent) == 2
+
+
+@pytest.mark.parametrize("bad_step", [
+    {"name": "B", "gear": "missing", "dwell_s": 0},
+    {"name": "B", "gear": "sport", "dwell_s": -0.1},
+    {"name": "missing", "gear": "sport", "dwell_s": 0},
+    {"name": "B", "gear": "sport", "dwell_s": float("nan")},
+    {"name": "B", "gear": "sport", "dwell_s": True},
+    {"name": "B"}, None,
+])
+def test_invalid_later_step_rejects_entire_sequence_before_motion(setup, bad_step):
+    console, driver, _, _ = _dwell_console(setup)
+    with pytest.raises(ConsoleError):
+        console.run_sequence("s1", [], "", steps=[
+            {"name": "A", "gear": "leisure", "dwell_s": 0}, bad_step])
+    assert not driver.sent
+    assert console.status("s1")["sequence"] is None
