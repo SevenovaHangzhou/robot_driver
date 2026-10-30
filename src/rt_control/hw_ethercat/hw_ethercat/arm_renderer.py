@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from infra_renderer import xml_param
 import yaml
 
 from .profiles import master_parameters
@@ -14,14 +15,10 @@ def _profile(share, name):
     return yaml.safe_load((share / "config/profiles" / (name + ".yaml")).read_text())
 
 
-def _param(parent, name, value):
-    ET.SubElement(parent, "param", name=name).text = str(value)
-
-
 def _interface(parent, kind, name, initial=None):
     element = ET.SubElement(parent, kind, name=name)
     if initial is not None:
-        _param(element, "initial_value", initial)
+        xml_param(element, "initial_value", initial)
 
 
 def position_factors(counts, direction, zero_counts):
@@ -175,7 +172,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "mode_of_operation": mode,
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
             }.items():
-                _param(joint, "ec_module." + key, value)
+                xml_param(joint, "ec_module." + key, value)
         joints.append(joint)
         policy = (
             record["encoder_policies"][axis["encoder_policy"]] if "encoder_policy" in axis else {}

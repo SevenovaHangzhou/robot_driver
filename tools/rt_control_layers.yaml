@@ -1,6 +1,7 @@
 layers:
   infra:
   - infra_modbus
+  - infra_renderer
   - infra_shm_ring
   - infra_socketcan
   hw_config:

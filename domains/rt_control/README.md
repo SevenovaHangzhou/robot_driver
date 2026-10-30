@@ -7,7 +7,7 @@
 
 | 层 | 包 | 一句话 |
 | --- | --- | --- |
-| infra | `infra_modbus` `infra_shm_ring` `infra_socketcan` | 不依赖任何域包的共享叶子库（Modbus TCP 长连接客户端、Runtime-LOG 共享内存环、SocketCAN 收发） |
+| infra | `infra_modbus` `infra_renderer` `infra_shm_ring` `infra_socketcan` | 不依赖任何域包的共享叶子库（Modbus TCP 长连接客户端、协议渲染器的 schema 校验与 XML 参数、Runtime-LOG 共享内存环、SocketCAN 收发） |
 | hw_config | `hwcfg_machines` | 机型 manifest、模块、设备、台套（零位/标定/部署）数据，无代码 |
 | protocol | `hw_ethercat` `hw_canopen` `hw_can_damiao` `hw_semantic_components` | 总线/设备适配、renderer、CiA402 语义封装 |
 | control | `ctrl_enable_manager` `ctrl_rolling_trajectory` `ctrl_swerve` `ctrl_force_torque_broadcaster` | 使能状态机与各控制器/广播器 |
