@@ -72,7 +72,7 @@
 | [x] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；arch-r5 已改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
 | [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；剩余：按 V3 需求重写）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
 | [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | 两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
-| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。 |
+| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架；arch-c5 已建：`validated_spec`、`xml_param`，`_share` 因测试替换与包专属而保留）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。 |
 
 净效果：24 包 → 删 1（`plc_node`）、合 3 为 1（web×2、head→enable_manager）、并入 1（x503）、重做 1（`rt_diagnostics`）、新增 infra 5–6，最终 25–26 包，每包职责单一。
 

@@ -9,7 +9,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
-from jsonschema import Draft7Validator
+from infra_renderer import validated_spec, xml_param
 import yaml
 
 RENDERER_API_VERSION = 1
@@ -19,20 +19,14 @@ def _share():
     return Path(get_package_share_directory("hw_canopen"))
 
 
-def _validate(data, name):
-    schema = json.loads((_share() / "schema" / name).read_text())
-    Draft7Validator(schema).validate(data)
-    return deepcopy(dict(data))
-
-
 def validate_module(module: Mapping, data: Mapping) -> Mapping:
-    return {**deepcopy(dict(data)), "spec": _validate(data["spec"], "encoder_module.schema.json")}
+    return validated_spec(data, _share() / "schema/encoder_module.schema.json")
 
 
 def validate_unit(module: Mapping, data: Mapping | None) -> Mapping:
     if data is None:
         raise ValueError("External encoder calibration is required")
-    return {**deepcopy(dict(data)), "spec": _validate(data["spec"], "encoder_unit.schema.json")}
+    return validated_spec(data, _share() / "schema/encoder_unit.schema.json")
 
 
 def validate_device(data: Mapping, *, render_mode: str) -> Mapping:
@@ -44,10 +38,6 @@ def validate_device(data: Mapping, *, render_mode: str) -> Mapping:
     if missing:
         raise ValueError("Required encoder facts: " + ", ".join(missing))
     return deepcopy(dict(data))
-
-
-def _param(parent, name, value):
-    ET.SubElement(parent, "param", name=name).text = str(value)
 
 
 def render(request: Mapping) -> Mapping:
@@ -110,10 +100,10 @@ def render(request: Mapping) -> Mapping:
         for interface in profile["state_interfaces"]:
             element = ET.SubElement(sensor, "state_interface", name=interface)
             if mock:
-                _param(element, "initial_value", 0)
+                xml_param(element, "initial_value", 0)
         if not mock:
             for key, value in values.items():
-                _param(sensor, key, value)
+                xml_param(sensor, key, value)
         sensors.append(sensor)
         if type(item["node_id"]) is int:
             claims.append(f"node:{item['node_id']}")

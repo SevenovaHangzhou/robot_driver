@@ -2,12 +2,11 @@
 
 from collections.abc import Mapping
 from copy import deepcopy
-import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
-from jsonschema import Draft7Validator
+from infra_renderer import validated_spec, xml_param
 
 RENDERER_API_VERSION = 1
 
@@ -16,37 +15,29 @@ def _share():
     return Path(get_package_share_directory("hw_can_damiao"))
 
 
-def _validate(data, file):
-    Draft7Validator(json.loads((_share() / "schema" / file).read_text())).validate(data)
-    return deepcopy(dict(data))
-
-
 def validate_module(module: Mapping, data: Mapping) -> Mapping:
-    spec = _validate(data["spec"], "head.schema.json")
+    machine = validated_spec(data, _share() / "schema/head.schema.json")
+    spec = machine["spec"]
     if spec["control_name"] in {joint["robot_model_joint"] for joint in spec["joints"]}:
         raise ValueError("Control GPIO and joint names must be distinct")
     for key in ("can_id", "master_id", "robot_model_joint"):
         values = [joint[key] for joint in spec["joints"]]
         if len(set(values)) != len(values):
             raise ValueError(f"Head {key} must be unique")
-    return {**deepcopy(dict(data)), "spec": spec}
+    return machine
 
 
 def validate_unit(module: Mapping, data: Mapping | None) -> Mapping:
     # The current head protocol reads the device's established zero; no new offset is applied.
     if data is None:
         return {}
-    return {**deepcopy(dict(data)), "spec": _validate(data["spec"], "head_zero.schema.json")}
+    return validated_spec(data, _share() / "schema/head_zero.schema.json")
 
 
 def validate_device(data: Mapping, *, render_mode: str) -> Mapping:
     if data["family"] != "damiao":
         raise ValueError("Head device must use the declared protocol family")
     return deepcopy(dict(data))
-
-
-def _param(parent, name, value):
-    ET.SubElement(parent, "param", name=name).text = str(value)
 
 
 def render(request: Mapping) -> Mapping:
@@ -92,14 +83,14 @@ def render(request: Mapping) -> Mapping:
             "deceleration_krad_s2",
             "maximum_speed_rad_s",
         ):
-            _param(joint, key, entry[key])
+            xml_param(joint, key, entry[key])
         bound = limits[entry["robot_model_joint"]]
         lower, upper = bound["lower_position_rad"], bound["upper_position_rad"]
         if lower >= upper:
             raise ValueError("Head model limits require min < max")
         command = ET.SubElement(joint, "command_interface", name="position")
-        _param(command, "min", lower)
-        _param(command, "max", upper)
+        xml_param(command, "min", lower)
+        xml_param(command, "max", upper)
         for name in (
             "position",
             "velocity",
@@ -110,13 +101,13 @@ def render(request: Mapping) -> Mapping:
             "feedback_age_ms",
             "enabled",
         ):
-            _param(ET.SubElement(joint, "state_interface", name=name), "initial_value", 0.0)
+            xml_param(ET.SubElement(joint, "state_interface", name=name), "initial_value", 0.0)
         joints.append(joint)
     control = ET.Element("gpio", name=spec["control_name"])
     for name in ("enable_request", "reset_generation"):
-        _param(ET.SubElement(control, "command_interface", name=name), "initial_value", 0.0)
+        xml_param(ET.SubElement(control, "command_interface", name=name), "initial_value", 0.0)
     for name in ("phase", "fault_latched", "handled_reset_generation", "motion_allowed"):
-        _param(ET.SubElement(control, "state_interface", name=name), "initial_value", 0.0)
+        xml_param(ET.SubElement(control, "state_interface", name=name), "initial_value", 0.0)
     # This protocol does not consume an EtherCAT-style control_frequency parameter.
     return {
         "hardware_system_id": machine["master_system"],
