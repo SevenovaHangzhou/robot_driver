@@ -25,7 +25,7 @@
 | [ ] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown | 3、§2"新增启动模式" |
 | [ ] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件 | 3 硬指标 |
 | [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行、`manifest.yaml` 736 行 | 3 硬指标 |
-| [ ] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
+| [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
 | [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试 | 1.5、4.6 |
 | [ ] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个 | 1.3 |
 | [ ] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除 | 1.4、1.2 |
@@ -157,5 +157,5 @@
 | [x] | 域 `README.md` | 重写为一屏地图（§0 需求 4）；"新同事从这里开始"里 5 份标注"历史"的文档移出入口 |
 | [x] | `docs/areas/` 9 旧区 | 归档到 `docs/archive/`，从索引移除（实际为同层级 `docs/areas-archive/`，保持旧记录内相对链接有效） |
 | [ ] | `docs/areas/` 7 新区 | 归属按 §5a 包表重排；记录规则改为"行为/硬件事实变更才记" |
-| [ ] | `BLOCKED-questions.md` 2852 行 | 按模块拆为 `docs/decisions/<module>.md`，只保留仍生效的裁决；已被取代的归档 |
+| [x] | `BLOCKED-questions.md` 2852 行（arch-s5：用户裁定改为备份后清空、重新记录，写入前须确认；不再按模块拆分） | 按模块拆为 `docs/decisions/<module>.md`，只保留仍生效的裁决；已被取代的归档 |
 | [x] | `PROGRESS.md` | 改为只索引实机验证记录，不再每 PR 一行（规则已改，历史行不动） |
