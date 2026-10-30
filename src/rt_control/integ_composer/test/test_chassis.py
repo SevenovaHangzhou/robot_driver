@@ -1,0 +1,267 @@
+"""Chassis composition and synthetic sample B; no CAN or EtherCAT devices."""
+
+from copy import deepcopy
+from pathlib import Path
+import shutil
+import sys
+import xml.etree.ElementTree as ET
+
+import pytest
+import yaml
+
+from integ_composer.compose import compose
+from integ_composer.renderer_registry import render_checked
+from integ_composer.schema.cross_checks import merge_systems
+from integ_composer.schema.primitives import load_yaml
+
+PACKAGE = Path(__file__).resolve().parents[1]
+RT = PACKAGE.parent
+for owner in ("hw_ethercat", "hw_canopen"):
+    sys.path.insert(0, str(RT / owner))
+from hw_ethercat import rt_control_renderer as ETHERCAT
+from hw_ethercat.kinco_renderer import conversion_factors
+from hw_canopen import rt_control_renderer as CANOPEN
+
+
+@pytest.fixture
+def shares(monkeypatch):
+    monkeypatch.setattr(ETHERCAT, "_share", lambda: RT / "hw_ethercat")
+    monkeypatch.setattr(CANOPEN, "_share", lambda: RT / "hw_canopen")
+    lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
+    lookup["robot_description"] = RT.parent / "description/robot_description"
+    return lookup
+
+
+def arguments(shares):
+    config = shares["hwcfg_machines"]
+    path = (config / "units/Alfa_V3-Advantech-01/deployment.yaml")
+    return dict(
+        robot_variant=load_yaml(path)["robot_variant"],
+        machine_unit=path.parent.name,
+        physical_profile="chassis_only",
+        control_scope="chassis_only",
+        package_share=lambda name: str(shares[name]),
+    )
+
+
+def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "out")
+    systems = ET.fromstring(result.robot_description).findall("ros2_control")
+    assert len(systems) == 2
+    assert [len(system.findall("joint")) for system in systems] == [8, 0]
+    assert len(systems[1].findall("sensor")) == 4
+    assert not systems[1].findall(".//command_interface")
+    bus = yaml.safe_load(result.files["canopen_bus.yaml"])
+    manifest = load_yaml(
+        next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml"))
+    )
+    assert manifest["layout"]["ethercat"]["cycle_hz"] == 1000
+    assert bus["master"]["sync_period"] == manifest["layout"]["canopen"]["sync_period_us"]
+    assert (
+        result.controllers["controller_manager"]["ros__parameters"]["update_rate"]
+        == manifest["layout"]["ethercat"]["cycle_hz"]
+    )
+    binding = load_yaml(
+        next((shares["hwcfg_machines"] / "machines").glob("*/controllers.yaml"))
+    )["controllers"]["swerve_chassis"]
+    assert binding["required_state_modules"] == ["swerve_encoders"]
+    assert result.controller_order["inactive"] == [binding["name"]]
+    assert all(
+        "control_word" in [child.attrib["name"] for child in joint.findall("command_interface")]
+        for joint in systems[0].findall("joint")
+    )
+
+
+def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    systems = {system["result"]["hardware_system_id"]: system["result"] for system in result.systems}
+    ecat = systems["ecat_arms"]["expected_topology"]
+    assert ecat["preflight_required"] and ecat["ethercat_mac"] == "cc:82:7f:c4:d3:0f"
+    assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(8))
+    assert [window["ring_position"] for window in ecat["position_windows"]] == [1, 3, 5, 7]
+    can = systems["canopen_swerve_encoders"]
+    bundle = "/var/lib/rt-control/canopen/Alfa_V3-Advantech-01"
+    assert can["hardware_params"]["bus_config"] == bundle + "/bus.yml"
+    assert can["expected_topology"]["can_usb_serial"] == "003000265230500720333159"
+    bus = yaml.safe_load(result.files["canopen_bus.yaml"])
+    assert bus["options"]["dcf_path"] == bundle and bus["master"]["baudrate"] == 500
+    assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
+    assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
+    lifecycle = result.lifecycle
+    assert lifecycle["host"]["rt_cpu"] == 7
+    assert lifecycle["bus_locks"] == ["can-can0", "ethercat-master-0"]
+
+
+def test_real_chassis_without_deployment_bundle_is_rejected(shares, tmp_path):
+    copied = dict(shares)
+    copied["hwcfg_machines"] = tmp_path / "config"
+    shutil.copytree(shares["hwcfg_machines"], copied["hwcfg_machines"])
+    path = copied["hwcfg_machines"] / "units/Alfa_V3-Advantech-01/deployment.yaml"
+    deployment = yaml.safe_load(path.read_text())
+    deployment["canopen"]["bundle_dir"] = "TBD"
+    path.write_text(yaml.safe_dump(deployment, sort_keys=False))
+    with pytest.raises(ValueError, match="Missing real encoder facts.*bundle_dir"):
+        compose(**arguments(copied), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+
+
+def test_kinco_position_and_velocity_roundtrips():
+    dec = {"numerator": 512, "denominator": 1875}
+    for counts in (4096, 65536):
+        for ratio in (27.48, 140.0):
+            for sign in (-1, 1):
+                position, velocity = conversion_factors(counts, ratio, sign, dec)
+                assert ((0.75 * position + 123) - 123) / position == pytest.approx(0.75)
+                assert (-0.4 * velocity) / velocity == pytest.approx(-0.4)
+
+
+def request_for_module(shares, name):
+    config = shares["hwcfg_machines"]
+    manifest = load_yaml(next((config / "machines").glob("*/manifest.yaml")))
+    entry = manifest["modules"][name]
+    # The chassis lives on the Advantech bench unit; arm calibration on Alfa_V3-01.
+    unit = "Alfa_V3-Advantech-01" if entry["transport"] == "canopen" or name == "swerve_chassis" else "Alfa_V3-01"
+    deployment = load_yaml(config / f"units/{unit}/deployment.yaml")
+    unit_dir = config / f"units/{unit}"
+    return {
+        "module": entry,
+        "machine": load_yaml(config / entry["config_file"]),
+        "devices": {reference: load_yaml(config / reference) for reference in entry["device_refs"]},
+        "unit": load_yaml(unit_dir / entry.get("unit_file", f"{name}_zero.yaml")),
+        "deployment": deployment,
+        "robot_model": {"joint_limits": {}},
+        "use_mock_hardware": True,
+        "bus_cycle_hz": manifest["layout"]["ethercat"]["cycle_hz"],
+        "runtime_dir": "/synthetic/output",
+        "render_mode": "normal",
+        "transport_layout": manifest["layout"][entry["transport"]],
+    }
+
+
+def test_sample_b_owner_adapter_and_read_only_contract(shares, monkeypatch):
+    request = request_for_module(shares, "swerve_chassis")
+    sample = load_yaml(PACKAGE / "test/fixtures/sample_b/machines/SyntheticB/mobile_fixture.yaml")
+    template = request["machine"]["spec"]["axes"][0]
+    request["machine"]["module"] = sample["module"]
+    request["machine"]["spec"]["axes"] = [
+        {
+            **template,
+            "role": axis["role"],
+            "module_position": axis["physical_joint"].split("_")[-1],
+            "robot_model_joint": axis["robot_model_joint"],
+            "ring_position": axis["ring_position"],
+            "direction": axis["direction"],
+            "mode_of_operation": axis["mode_of_operation"],
+            "interface_contract": "swerve_steering_csp"
+            if axis["role"] == "steering"
+            else "swerve_drive_csv",
+        }
+        for axis in sample["spec"]["axes"]
+    ]
+    request["module"]["actuator_count"] = len(sample["spec"]["axes"])
+
+    def denied(*args, **kwargs):
+        pytest.fail("Renderer performed a write or device command")
+
+    monkeypatch.setattr(Path, "write_text", denied)
+    result = render_checked(
+        ETHERCAT, request, PACKAGE / "schema", shares["hwcfg_machines"]
+    )
+    assert len(result["joints"]) == len(sample["spec"]["axes"])
+    assert result["managed_joints"] == [
+        axis["robot_model_joint"] for axis in sample["spec"]["axes"]
+    ]
+    encoders = request_for_module(shares, "swerve_encoders")
+    sensor_result = render_checked(
+        CANOPEN, encoders, PACKAGE / "schema", shares["hwcfg_machines"]
+    )
+    assert not sensor_result["managed_joints"] and not sensor_result["joints"]
+    encoders["use_mock_hardware"] = False
+    encoders["deployment"] = {**encoders["deployment"], "can_interfaces": {"swerve_encoders": "TBD"}}
+    with pytest.raises(ValueError, match="Missing real encoder facts"):
+        CANOPEN.render(encoders)
+
+
+def test_x9_merges_two_modules_and_rejects_parameter_conflict(shares):
+    arm_request = request_for_module(shares, "arms")
+    chassis_request = request_for_module(shares, "swerve_chassis")
+    for position, axis in enumerate(chassis_request["machine"]["spec"]["axes"], start=18):
+        axis["ring_position"] = position
+    peers = [arm_request["machine"], chassis_request["machine"]]
+    arm_request["peer_machines"] = chassis_request["peer_machines"] = peers
+    combined = merge_systems(
+        [
+            ("synthetic_owner", ETHERCAT.render(arm_request)),
+            ("synthetic_owner", ETHERCAT.render(chassis_request)),
+        ]
+    )
+    assert len(combined) == 1 and len(combined[0]["result"]["joints"]) == 22
+    assert len(combined[0]["result"]["expected_topology"]["responders"]) == 24
+    health = [
+        element
+        for element in combined[0]["result"]["sensors"]
+        if element.attrib["name"] == "ethercat_master"
+    ]
+    assert len(health) == 1
+    assert health[0].find("state_interface[@name='slaves_responding']/param").text == "24"
+    request = request_for_module(shares, "swerve_chassis")
+    left, right = deepcopy(request), deepcopy(request)
+    for current, suffix, positions in (
+        (left, "first", range(1, 5)),
+        (right, "second", range(5, 9)),
+    ):
+        current["machine"]["module"] = suffix
+        current["module"]["actuator_count"] = 4
+        current["machine"]["spec"]["axes"] = current["machine"]["spec"]["axes"][:4]
+        for axis, position in zip(current["machine"]["spec"]["axes"], positions):
+            axis["ring_position"] = position
+            axis["mock_joint_name"] += "_" + suffix
+            axis["robot_model_joint"] += "_" + suffix
+    peers = [left["machine"], right["machine"]]
+    left["peer_machines"] = right["peer_machines"] = peers
+    a, b = ETHERCAT.render(left), ETHERCAT.render(right)
+    merged = merge_systems([("synthetic_owner", a), ("synthetic_owner", b)])
+    assert len(merged) == 1
+    assert len(merged[0]["result"]["joints"]) == 8
+    assert len(merged[0]["result"]["expected_topology"]["responders"]) == 8
+    names = [element.attrib["name"] for element in merged[0]["result"]["sensors"]]
+    assert len(names) == len(set(names))
+    conflict = deepcopy(b)
+    conflict["hardware_params"]["control_frequency"] += 1
+    with pytest.raises(ValueError, match="Conflicting"):
+        merge_systems([("synthetic_owner", a), ("synthetic_owner", conflict)])
+
+
+def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "out")
+    params = result.controllers["enable_manager"]["ros__parameters"]
+    steering = [f"steer{n}_joint" for n in range(1, 5)]
+    drive = [f"wheel{n}_joint" for n in range(1, 5)]
+    # Hardware (ring) order for managed joints; steering batches before drive batches.
+    assert params["managed_joints"] == [j for pair in zip(drive, steering) for j in pair]
+    assert params["enable_batch_joint_names"] == steering + drive
+    assert params["enable_batch_sizes"] == [2, 2, 2, 2]
+    assert params["expected_modes"] == [9, 8] * 4
+    assert params["jtc_name"] == "swerve_controller"
+    assert params["ready_state_interfaces"] == [f"steering_encoder_{n}/ready" for n in range(1, 5)]
+    assert params["ready_hold_time"] == 0.05
+    assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
+    assert result.controller_order == {
+        "inactive": ["swerve_controller"],
+        "active": ["joint_state_broadcaster", "enable_manager"],
+    }
+
+
+def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "out")
+    order = list(result.hardware_activation_order)
+    assert order == ["canopen_swerve_encoders", "ecat_arms"]
+    manager = result.controllers["controller_manager"]["ros__parameters"]
+    assert manager["hardware_components_initial_state"] == {"unconfigured": order}
+    lifecycle = yaml.safe_load(result.files["lifecycle.yaml"])
+    assert lifecycle["hardware_activation_order"] == order
+    assert lifecycle["motion_controllers"] == ["swerve_controller"]
+    assert lifecycle["lifecycle_controllers"] == ["joint_state_broadcaster", "enable_manager"]
+    names = {item["name"]: item for item in lifecycle["capabilities"]}
+    assert names["chassis_velocity"]["topic"] == "/cmd_vel"
+    assert names["chassis_velocity"]["controller"] == "swerve_controller"
+    assert names["enable"]["service"] == "/control/set_enabled"

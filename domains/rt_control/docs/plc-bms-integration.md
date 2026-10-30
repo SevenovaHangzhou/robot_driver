@@ -81,7 +81,7 @@ PLC 参数由 owner 包内
 节点，避免 Mock 或开发命令意外访问真实 PLC/CAN：
 
 ```bash
-ros2 launch rt_control_bringup rt_control.launch.py \
+ros2 launch integ_bringup rt_control.launch.py \
   use_mock_hardware:=true \
   start_plc:=false \
   start_bms:=false
@@ -90,7 +90,7 @@ ros2 launch rt_control_bringup rt_control.launch.py \
 需要明确直连硬件时才传入：
 
 ```bash
-ros2 launch rt_control_bringup rt_control.launch.py \
+ros2 launch integ_bringup rt_control.launch.py \
   start_plc:=true \
   start_bms:=true
 ```

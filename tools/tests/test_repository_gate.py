@@ -136,7 +136,7 @@ vendored_packages:
 <package format="3">
   <name>robot_description</name>
   <version>0.1.0</version>
-  <exec_depend>rt_control_bringup</exec_depend>
+  <exec_depend>integ_bringup</exec_depend>
 </package>
 """
         self.assert_has(
@@ -147,7 +147,7 @@ vendored_packages:
         )
 
         semantic_dependency = manifest.replace(
-            "rt_control_bringup", "hw_semantic_components"
+            "integ_bringup", "hw_semantic_components"
         )
         self.assert_has(
             repository_gate.check_manifest_dependencies(
@@ -164,13 +164,13 @@ vendored_packages:
             repository_gate.check_manifest_dependencies(
                 "src/rt_control/ctrl_enable_manager/package.xml", feature_manifest
             ),
-            "feature package must not depend on rt_control_bringup",
+            "feature package must not depend on integ_bringup",
         )
 
     def test_robot_description_ignores_comments_but_rejects_domain_data(self):
         comment_only = """<?xml version="1.0"?>
 <robot name="robot">
-  <!-- ros2_control belongs to rt_control_bringup. -->
+  <!-- ros2_control belongs to integ_bringup. -->
   <link name="base_link"/>
 </robot>
 """
@@ -257,13 +257,13 @@ vendored_packages:
     def test_dockerfile_must_keep_the_signal_gate_as_direct_command(self):
         valid = """FROM ros:humble-ros-base
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
-CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
+CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]
 """
         self.assertEqual(repository_gate.check_dockerfile_policy(valid), [])
 
         bypassed = valid.replace(
-            'CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]',
-            'CMD ["ros2", "launch", "rt_control_bringup", "rt_control.launch.py"]',
+            'CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]',
+            'CMD ["ros2", "launch", "integ_bringup", "rt_control.launch.py"]',
         )
         self.assert_has(
             repository_gate.check_dockerfile_policy(bypassed),
@@ -272,10 +272,10 @@ CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
 
         commented_bypass = (
             valid.replace(
-                'CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]',
-                '# CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]',
+                'CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]',
+                '# CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]',
             )
-            + 'CMD ["ros2", "launch", "rt_control_bringup", "rt_control.launch.py"]\n'
+            + 'CMD ["ros2", "launch", "integ_bringup", "rt_control.launch.py"]\n'
         )
         self.assert_has(
             repository_gate.check_dockerfile_policy(commented_bypass),
@@ -334,8 +334,8 @@ jobs:
       - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
       - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
       - run: rosdep install --dependency-types test
-      - run: colcon build --packages-up-to rt_control_bringup
-      - run: colcon test --packages-up-to rt_control_bringup
+      - run: colcon build --packages-up-to integ_bringup
+      - run: colcon test --packages-up-to integ_bringup
       - run: check_urdf robot.urdf
       - run: python3 tools/check_v3_branch_contract.py
 """
@@ -357,7 +357,7 @@ jobs:
         )
 
         weakened = valid.replace("    needs: governance\n", "").replace(
-            "      - run: colcon test --packages-up-to rt_control_bringup\n", ""
+            "      - run: colcon test --packages-up-to integ_bringup\n", ""
         )
         findings = repository_gate.check_ci_workflow_policy(weakened)
         self.assert_has(findings, "build job must depend on governance")
@@ -490,8 +490,8 @@ jobs:
       - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
       - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
       - run: rosdep install --dependency-types test
-      - run: colcon build --packages-up-to rt_control_bringup
-      - run: colcon test --packages-up-to rt_control_bringup
+      - run: colcon build --packages-up-to integ_bringup
+      - run: colcon test --packages-up-to integ_bringup
       - run: check_urdf robot.urdf
       - run: python3 tools/check_v3_branch_contract.py
 """,
@@ -525,7 +525,7 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
 """,
             "docker/rt-control/Dockerfile": """FROM ros:humble-ros-base
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
-CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
+CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]
 """,
             "src/description/robot_description/package.xml": """<package format="3">
   <name>robot_description</name>
@@ -630,7 +630,7 @@ def layer_fixture():
     layers = {
         "infra": ["ring"],
         "hw_config": ["hwcfg_machines"],
-        "integration": ["rt_control_composer"],
+        "integration": ["integ_composer"],
         "protocol": ["bus", "hw_semantic_components"],
         "control": ["motor"],
         "periph": ["periph_bms"],
@@ -655,9 +655,9 @@ def layer_fixture():
     ("R4", "motor/package.xml",
      "<package><name>motor</name><exec_depend>hwcfg_machines</exec_depend></package>",
      "<package><name>motor</name><depend>hwcfg_machines</depend></package>"),
-    ("R5", "rt_control_composer/rt_control_composer/compose.py", 'name = "synthetic"',
+    ("R5", "integ_composer/integ_composer/compose.py", 'name = "synthetic"',
      'name = "AlFa_V3"'),
-    ("R6", "rt_control_composer/rt_control_composer/compose.py", 'cfg = {"update_rate": rate}',
+    ("R6", "integ_composer/integ_composer/compose.py", 'cfg = {"update_rate": rate}',
      'cfg = {"update_rate": 1000}'),
     ("R7", "bus/rt_control_renderer.py", 'path = "devices/motor.yaml"',
      'path = "evidence/observation.yaml"'),

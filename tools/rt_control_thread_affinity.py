@@ -73,8 +73,8 @@ def process_cmdline(pid: int) -> str:
         return ""
 
 
-# Upstream controller_manager node, or rt_control_bringup's build of it (overrun management).
-CONTROL_NODE_PACKAGES = ("controller_manager", "rt_control_bringup")
+# Upstream controller_manager node, or integ_bringup's build of it (overrun management).
+CONTROL_NODE_PACKAGES = ("controller_manager", "integ_bringup")
 
 
 def find_ros2_control_pid() -> int | None:

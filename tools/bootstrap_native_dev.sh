@@ -23,7 +23,7 @@ readonly -a runtime_packages=(
   periph_led_ultrasonic
   canopen_master_driver
   canopen_ros2_control
-  control_api_adapter
+  integ_api_adapter
   ethercat_driver
   ethercat_generic_cia402_drive
   joint_trajectory_controller
@@ -39,9 +39,9 @@ readonly -a runtime_packages=(
   ctrl_rolling_trajectory
   ctrl_force_torque_broadcaster
   ctrl_swerve
-  rt_control_composer
+  integ_composer
   hwcfg_machines
-  rt_control_bringup
+  integ_bringup
   rt_control_operator_web
 )
 

@@ -22,7 +22,7 @@
 - 默认值来自部署产物（`<generated_dir>/controllers.yaml`）。
 - 网页修改写入 `/var/lib/rt-control/tuning/<machine_unit>/swerve_controller.yaml`，并在同目录
   `history.jsonl` 追加记录。`machine_unit` 取自 `<generated_dir>/artifact.yaml`。
-- 底盘运行栈启动时由 `rt_control_bringup` 的 `scope_operator_tuning` 应用该文件；控制器按上限校验。
+- 底盘运行栈启动时由 `integ_bringup` 的 `scope_operator_tuning` 应用该文件；控制器按上限校验。
 - “恢复默认”删除现场调参文件，并把参数设回默认值。
 - 未给出 `--generated-dir` 时，转向参数只读。
 

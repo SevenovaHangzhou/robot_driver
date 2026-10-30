@@ -8,7 +8,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: both
-    covers: ["src/rt_control/rt_control_bringup/config/**", "src/rt_control/hw_ethercat/**"]
+    covers: ["src/rt_control/integ_bringup/config/**", "src/rt_control/hw_ethercat/**"]
     traces: [domains/rt_control/docs/fjt-14axis-low-speed-commissioning-20260727.md]
     preconditions: TC-LC-04 通过；机械空间确认无碰撞风险；现场授权
     entry: |
@@ -29,7 +29,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: both
-    covers: ["src/rt_control/hw_canopen/**", "src/rt_control/rt_control_bringup/config/**"]
+    covers: ["src/rt_control/hw_canopen/**", "src/rt_control/integ_bringup/config/**"]
     traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 整机架高或场地隔离；现场授权
     entry: |
@@ -50,7 +50,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: no, motion: no, plc: yes }
     env: both
-    covers: ["src/rt_control/periph_plc_io/**", "src/rt_control/control_api_adapter/**"]
+    covers: ["src/rt_control/periph_plc_io/**", "src/rt_control/integ_api_adapter/**"]
     traces: [domains/rt_control/docs/plc-bms-commissioning-20260728.md]
     preconditions: PLC 192.168.1.88:502 可达；现场授权
     entry: |
@@ -72,7 +72,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: native
-    covers: ["src/rt_control/rt_control_bringup/config/**"]
+    covers: ["src/rt_control/integ_bringup/config/**"]
     traces: [domains/rt_control/docs/docker-deployment-performance-summary.md]
     preconditions: TC-FM-01 通过；现场授权
     entry: |

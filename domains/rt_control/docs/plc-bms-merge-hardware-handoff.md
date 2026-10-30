@@ -76,14 +76,14 @@ git diff --check
 - `src/rt_control/periph_bms/`
 - `src/rt_control/plc_node/`
 - `src/interfaces/rt_control_interfaces/msg/PlcIoState.msg`
-- `src/rt_control/rt_control_bringup/config/rt_io.yaml`
+- `src/rt_control/integ_bringup/config/rt_io.yaml`
 - `tools/tests/test_rt_io_integration.py`
 - `domains/rt_control/docs/plc-bms-integration.md`
 
 主要修改：
 
-- `src/rt_control/rt_control_bringup/launch/rt_control.launch.py`
-- `src/rt_control/rt_control_bringup/package.xml`
+- `src/rt_control/integ_bringup/launch/rt_control.launch.py`
+- `src/rt_control/integ_bringup/package.xml`
 - `docker/rt-control/Dockerfile`
 - `docker/compose.yaml`
 - `tools/rt_control_ipc.sh`
@@ -97,12 +97,12 @@ git diff --check
 
 已完成且通过：
 
-- `rt_control_interfaces`、`periph_bms`、`plc_node`、`rt_control_bringup` 受影响包构建；
+- `rt_control_interfaces`、`periph_bms`、`plc_node`、`integ_bringup` 受影响包构建；
 - BMS/PLC 共 47 项测试，0 failure；
 - `ament_flake8`，17 个相关 Python 文件无问题；
 - `tools/quality_gate.sh`：26 项仓库测试通过，分支覆盖率 84%；
 - `RT_CONTROL_CPUSET=14 tools/rt_control_compose.sh config`；
-- `ros2 launch rt_control_bringup rt_control.launch.py --show-args`；
+- `ros2 launch integ_bringup rt_control.launch.py --show-args`；
 - `git diff --check`。
 
 复跑建议：

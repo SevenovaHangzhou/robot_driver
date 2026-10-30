@@ -48,9 +48,9 @@ rg -n "<changed-interface-or-field>" src docker tools domains
 ## 机型配置与组合
 
 ```bash
-python3 src/rt_control/rt_control_bringup/scripts/validate_machine_profile.py \
+python3 src/rt_control/integ_bringup/scripts/validate_machine_profile.py \
   --manifest <manifest> --all
-ros2 run rt_control_composer compose_artifact --output /tmp/<dir> --robot-variant <v> \
+ros2 run integ_composer compose_artifact --output /tmp/<dir> --robot-variant <v> \
   --machine-unit <u> --physical-profile <p> --control-scope <s> --mock
 ```
 

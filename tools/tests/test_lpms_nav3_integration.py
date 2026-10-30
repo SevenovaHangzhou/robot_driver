@@ -13,14 +13,14 @@ PACKAGE = ROOT / "src/rt_control/periph_imu_lpms"
 def test_lpms_is_built_without_being_enabled_in_production():
     manifest = ET.parse(PACKAGE / "package.xml").getroot()
     assert manifest.findtext("name") == "periph_imu_lpms"
-    bringup = ET.parse(ROOT / "src/rt_control/rt_control_bringup/package.xml")
+    bringup = ET.parse(ROOT / "src/rt_control/integ_bringup/package.xml")
     assert "periph_imu_lpms" not in {
         entry.text for entry in bringup.findall("exec_depend")
     }
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()
     assert workflow.count("periph_imu_lpms") == 3
     assert "periph_imu_lpms" in (ROOT / "tools/bootstrap_native_dev.sh").read_text()
-    launch = ROOT / "src/rt_control/rt_control_bringup/launch/rt_control_module.launch.py"
+    launch = ROOT / "src/rt_control/integ_bringup/launch/rt_control_module.launch.py"
     assert 'package="periph_imu_lpms"' not in launch.read_text()
 
 

@@ -120,7 +120,7 @@ colcon --log-base log_head build \
   --build-base build_head --install-base install_head \
   --symlink-install --executor sequential \
   --base-paths src \
-  --packages-up-to rt_control_bringup
+  --packages-up-to integ_bringup
 ```
 
 依赖controller_manager、forward_command_controller、joint_state_broadcaster、robot_state_publisher等已安装的Humble包。本例使用独立输出目录；不要把build_head/install_head/log_head等生成物提交到Git。它们目前会被全仓质量检查扫描，应在归档/提交前处理生成物忽略策略。
@@ -143,10 +143,10 @@ ROS_DOMAIN_ID隔离发现域；ROS_LOCALHOST_ONLY=1仅本机通信、0允许网�
 
 ```bash
 # Once per deployment, and after changing installed configuration:
-ros2 run rt_control_composer compose_artifact --output /abs/head-real \
+ros2 run integ_composer compose_artifact --output /abs/head-real \
   --robot-variant Alfa_V3 --machine-unit Alfa_V3-01 \
   --physical-profile head_only --control-scope head_only --real
-ros2 run rt_control_bringup rt_control_start --scope head_only \
+ros2 run integ_bringup rt_control_start --scope head_only \
   machine_unit:=Alfa_V3-01 use_mock_hardware:=false generated_dir:=/abs/head-real
 ```
 

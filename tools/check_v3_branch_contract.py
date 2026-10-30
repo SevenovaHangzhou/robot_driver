@@ -22,9 +22,9 @@ def validate(repository_root: Path) -> list[str]:
     machine_path = (
         repository_root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/manifest.yaml"
     )
-    cmake_path = repository_root / "src/rt_control/rt_control_bringup/CMakeLists.txt"
-    package_path = repository_root / "src/rt_control/rt_control_bringup/package.xml"
-    start_path = repository_root / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
+    cmake_path = repository_root / "src/rt_control/integ_bringup/CMakeLists.txt"
+    package_path = repository_root / "src/rt_control/integ_bringup/package.xml"
+    start_path = repository_root / "src/rt_control/integ_bringup/scripts/rt_control_start"
     dependency_path = repository_root / "deps.repos"
     interface_lock_path = repository_root / "src/interfaces/source-lock.yaml"
     arm_calibration_path = (
@@ -155,7 +155,7 @@ def main() -> int:
     args = parser.parse_args()
     root = args.repository_root.resolve()
     findings = validate(root)
-    validator = root / "src/rt_control/rt_control_bringup/scripts/validate_machine_profile.py"
+    validator = root / "src/rt_control/integ_bringup/scripts/validate_machine_profile.py"
     manifest = root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/manifest.yaml"
     result = subprocess.run(
         [

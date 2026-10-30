@@ -8,7 +8,7 @@ preserve_pdo_patch="${repo_root}/patches/ecat_icube/0004-preserve-fixed-pdo-conf
 igh_preserve_pdo_patch="${repo_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
 canopen_lifecycle_patch="${repo_root}/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch"
 canopen_rpdo_patch="${repo_root}/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch"
-shutdown_client="${repo_root}/src/rt_control/rt_control_bringup/rt_control_bringup/scope_lifecycle.py"
+shutdown_client="${repo_root}/src/rt_control/integ_bringup/integ_bringup/scope_lifecycle.py"
 
 fail()
 {

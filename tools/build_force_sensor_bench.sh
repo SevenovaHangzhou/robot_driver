@@ -47,11 +47,11 @@ colcon --log-base "${bench_root}/log" build \
     "${repo_root}/src/rt_control/hw_semantic_components" \
     "${repo_root}/src/rt_control/ctrl_force_torque_broadcaster" \
     "${repo_root}/src/rt_control/hw_ethercat" \
-    "${repo_root}/src/rt_control/rt_control_bringup" \
+    "${repo_root}/src/rt_control/integ_bringup" \
   --build-base "${bench_root}/build" --install-base "${bench_root}/install" \
   --packages-select robot_interfaces_qos ethercat_interface ethercat_driver \
     ethercat_generic_slave ethercat_generic_cia402_drive \
     hw_semantic_components ctrl_force_torque_broadcaster \
-    hw_ethercat rt_control_bringup \
+    hw_ethercat integ_bringup \
   --cmake-args -DBUILD_TESTING=OFF
 printf 'Built raw force bench. Source %s/install/setup.bash before launching.\n' "${bench_root}"

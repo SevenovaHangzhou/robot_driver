@@ -21,7 +21,7 @@ import yaml
 CONFIG = "tools/rt_control_layers.yaml"
 PREFIX = "src/rt_control/"
 DATA_PACKAGE = "hwcfg_machines"
-COMPOSER = "rt_control_composer"
+COMPOSER = "integ_composer"
 LAYERS = {"infra", "hw_config", "integration", "protocol", "control", "periph"}
 SOURCE_SUFFIXES = {".py", ".cpp", ".hpp", ".h", ".cc", ".cxx"}
 PRODUCT_NAMES = re.compile(

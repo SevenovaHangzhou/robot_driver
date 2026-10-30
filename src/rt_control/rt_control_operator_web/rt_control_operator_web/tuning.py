@@ -15,7 +15,7 @@ from typing import Mapping, Optional
 
 import yaml
 
-# Same location and whitelist as rt_control_bringup.operator_tuning.
+# Same location and whitelist as integ_bringup.operator_tuning.
 TUNING_ROOT = Path("/var/lib/rt-control/tuning")
 STEERING_PARAMETERS = (
     "max_steering_slew",

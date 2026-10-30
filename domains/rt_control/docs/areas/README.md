@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | [protocol](protocol/README.md) | hw_ethercat、hw_canopen、hw_can_damiao、hw_semantic_components、ctrl_enable_manager；ecat_icube/igh/ros2_canopen补丁 | config/machines、hw_ethercat/variants归hw-config |
 | [hw-config](hw-config/README.md) | 各包config/machines、hw_ethercat/variants、alfa_v3.yaml、src/description快照 | 公共模型权威仍在独立仓库 |
-| [integration](integration/README.md) | rt_control_bringup其余部分、control_api_adapter非真空部分、src/interfaces | 机型配置归hw-config，真空适配器归peripheral-control |
+| [integration](integration/README.md) | integ_bringup其余部分、integ_api_adapter非真空部分、src/interfaces | 机型配置归hw-config，真空适配器归peripheral-control |
 | [arm-control](arm-control/README.md) | ctrl_rolling_trajectory、ctrl_force_torque_broadcaster；ros2_controllers补丁 | 协议实现归protocol |
 | [chassis-control](chassis-control/README.md) | ctrl_swerve | 机型配置归hw-config，协议/编码器提供器归protocol |
 | [peripheral-control](peripheral-control/README.md) | periph_plc_io、periph_led_ultrasonic、periph_bms、periph_imu_lpms | 公共IDL归integration，config/machines归hw-config |

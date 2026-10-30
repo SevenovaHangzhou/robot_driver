@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""Generate one deploy-time composition artifact; launch only reads and verifies it."""
+
+import argparse
+import sys
+
+from integ_composer.artifact import write_artifact
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", required=True, help="absolute artifact directory")
+    parser.add_argument("--robot-variant", required=True)
+    parser.add_argument("--machine-unit", required=True)
+    parser.add_argument("--physical-profile", required=True)
+    parser.add_argument("--control-scope", required=True)
+    hardware = parser.add_mutually_exclusive_group(required=True)
+    hardware.add_argument("--mock", dest="use_mock_hardware", action="store_true")
+    hardware.add_argument("--real", dest="use_mock_hardware", action="store_false")
+    parser.add_argument("--jtc-only", action="store_true")
+    parser.add_argument("--sync-mode", default="", choices=["", "sm", "dc"])
+    args = parser.parse_args(argv)
+    try:
+        composed = write_artifact(
+            args.output,
+            robot_variant=args.robot_variant,
+            machine_unit=args.machine_unit,
+            physical_profile=args.physical_profile,
+            control_scope=args.control_scope,
+            use_mock_hardware=args.use_mock_hardware,
+            jtc_only=args.jtc_only,
+            sync_mode=args.sync_mode,
+        )
+    except ValueError as error:
+        print(f"FAIL: {error}", file=sys.stderr)
+        return 1
+    print(f"PASS: wrote {len(composed.files)} files to {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

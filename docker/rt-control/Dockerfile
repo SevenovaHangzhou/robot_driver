@@ -213,7 +213,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       periph_led_ultrasonic \
       canopen_master_driver \
       canopen_ros2_control \
-      control_api_adapter \
+      integ_api_adapter \
       ethercat_driver \
       ethercat_generic_cia402_drive \
       joint_trajectory_controller \
@@ -229,9 +229,9 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ctrl_rolling_trajectory \
       ctrl_force_torque_broadcaster \
       ctrl_swerve \
-      rt_control_composer \
+      integ_composer \
       hwcfg_machines \
-      rt_control_bringup \
+      integ_bringup \
     ) \
     && mapfile -t rt_control_dependency_paths < <( \
       colcon list --base-paths src --paths-only \
@@ -260,4 +260,4 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
 
 COPY docker/rt-control/entrypoint.sh /rt-control-entrypoint.sh
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
-CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
+CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]

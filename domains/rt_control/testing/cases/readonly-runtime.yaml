@@ -9,11 +9,11 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     env_note: mock 不含 CANopen 硬件后端，/wheel/odom 只断言存在与类型，频率归 TC-RO-06
-    covers: ["src/rt_control/control_api_adapter/**", "src/interfaces/**", "src/rt_control/rt_control_bringup/**"]
+    covers: ["src/rt_control/integ_api_adapter/**", "src/interfaces/**", "src/rt_control/integ_bringup/**"]
     traces: [src/vendor/robot_interfaces/contract/views/rt_control.md, "BQ-132"]
     preconditions: 无硬件；BQ-132 决定无总线路径必须走 mock
     entry: |
-      ros2 launch rt_control_bringup rt_control.launch.py use_mock_hardware:=true &
+      ros2 launch integ_bringup rt_control.launch.py use_mock_hardware:=true &
       # 稳定后逐项比对（launch_testing 化为后续子任务）：
       ros2 topic list -t ; ros2 service list -t ; ros2 action list -t
     pass:
@@ -51,11 +51,11 @@ cases:
     risk: T1
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: native
-    covers: ["src/rt_control/rt_control_bringup/launch/**"]
-    traces: [src/rt_control/rt_control_bringup/launch/rt_control.launch.py]
+    covers: ["src/rt_control/integ_bringup/launch/**"]
+    traces: [src/rt_control/integ_bringup/launch/rt_control.launch.py]
     preconditions: mock 模式；人为使 JTC spawner 失败（如临时指向不存在控制器配置）
     entry: |
-      ros2 launch rt_control_bringup rt_control.launch.py use_mock_hardware:=true
+      ros2 launch integ_bringup rt_control.launch.py use_mock_hardware:=true
     pass:
       - JTC spawner 非零退出时 enable_manager 不启动且 launch 整体 Shutdown
     evidence: launch 日志存档
@@ -76,7 +76,7 @@ cases:
     preconditions: 候选镜像已构建；容器以 mock 参数启动，不映射任何总线设备
     entry: |
       docker run --rm <image> bash -lc 'source /opt/rt_control_ws/install/setup.bash && \
-        ros2 launch rt_control_bringup rt_control.launch.py use_mock_hardware:=true & sleep 20 && \
+        ros2 launch integ_bringup rt_control.launch.py use_mock_hardware:=true & sleep 20 && \
         ros2 topic list -t && ros2 service list -t && ros2 action list -t'
     pass:
       - 与 TC-RO-01/02 同判据

@@ -24,7 +24,7 @@ else:
 
 
 def domain_packages(repository_root: Path) -> set[str]:
-    """Include rt_control_composer and hwcfg_machines once registered."""
+    """Include integ_composer and hwcfg_machines once registered."""
     texts = {p.relative_to(repository_root).as_posix(): p.read_text(encoding="utf-8")
              for p in repository_root.glob("src/rt_control/*/package.xml")}
     return set(rt_control_layer_gate.package_inventory(texts).values())
@@ -231,11 +231,11 @@ def check_manifest_dependencies(relative_path: str, xml_text: str,
             )
     if (
         relative_path.startswith("src/rt_control/")
-        and not relative_path.startswith("src/rt_control/rt_control_bringup/")
-        and "rt_control_bringup" in dependencies
+        and not relative_path.startswith("src/rt_control/integ_bringup/")
+        and "integ_bringup" in dependencies
     ):
         findings.append(
-            f"{relative_path}: feature package must not depend on rt_control_bringup"
+            f"{relative_path}: feature package must not depend on integ_bringup"
         )
     return findings
 
@@ -327,7 +327,7 @@ def check_dockerfile_policy(dockerfile_text: str) -> list[str]:
     """Keep rt_control_start as the direct container command."""
     findings: list[str] = []
     entrypoint = 'ENTRYPOINT ["/rt-control-entrypoint.sh"]'
-    command = 'CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]'
+    command = 'CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]'
     active_lines = [
         line.strip()
         for line in dockerfile_text.splitlines()
