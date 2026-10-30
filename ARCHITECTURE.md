@@ -51,6 +51,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 ```
 
 - 下层不得依赖上层；`infra` 不依赖任何域包、不含 ROS 节点、不含策略、不含机型。
+- control 只经 `rt_control_semantic_components` 依赖 protocol：该包定义硬件层与控制器共用的状态/命令接口语义（CiA402 状态字、握手式使能阶段、力传感器），控制器不直接依赖具体协议包（`tools/rt_control_layer_gate.py` R2 已执行）。
 - 测试与 golden 生成脚本同样遵守方向（当前 `composer/test/golden/generate_baseline.py` 反向 import `bringup`，属违反）。
 - 包名用统一前缀表达所属层，看名字即知层，门禁按前缀检查。具体前缀词与存量包重命名映射表另行讨论（open item）。
 
@@ -108,7 +109,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 | 新增一个控制器 | `ctrl_<name>` 新包 + `controllers.yaml` 数据条目 | `arch_check layers` + `arch_check refs` |
 | 新增一个外设节点 | `periph_<name>` 新包 | `arch_check layers` + `arch_check duplicates` |
 | 新增一个启动模式 | manifest `scopes`（不新增 launch 文件） | `arch_check compose …` |
-| 抽一个共享库 | `infra_<name>` 新包，≥ 2 调用方 | `arch_check layers` + `arch_check duplicates` |
+| 抽一个共享库 | `infra_<name>` 新包，进库条件见 §3 | `arch_check layers` + `arch_check duplicates` |
 | 修改公共契约 | `robot_interfaces` 仓库 → `deps.repos` pin | 既有流程 |
 | 任何改动提交前 | — | `arch_check all` + `run_scoped_tests.sh` |
 
@@ -120,7 +121,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 | --- | --- | --- |
 | 单文件上限 | C++ ≤ 1000 行、Python ≤ 600 行、YAML ≤ 400 行 | 门禁；存量超限按 §7 顺序消化 |
 | 复用三级 | 上游 → infra → 自写；第二份拷贝即抽取 | 人工审查 + 门禁查重复实现清单 |
-| infra 进库条件 | ≥ 2 个现有调用方 | 人工审查 |
+| infra 进库条件 | ≥ 2 个现有调用方；或是与仓库外程序共享的二进制/内存布局约定（如 Runtime-LOG 共享内存环），此时本仓库调用方可只有 1 个 | 人工审查 |
 | 状态标记 | 每包/配置/入口必须有 `status` | 门禁 |
 | 跨包引用 | 只允许 §1.2 四种 | 门禁（扩展现有 layer gate） |
 | 机型名出现位置 | 仅 `machine_config` 与 `units` | 门禁（现有 PRODUCT_NAMES 规则扩到全层） |
