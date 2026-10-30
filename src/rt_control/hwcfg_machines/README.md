@@ -12,4 +12,4 @@ not a confirmed serial number. No hardware values or production policies are
 provided by this skeleton. Hardware-configuration owners populate these
 assets after A0. Only share assets are installed; there is no code API.
 
-Schemas are owned by `rt_control_composer` and the relevant protocol packages.
+Schemas are owned by `integ_composer` and the relevant protocol packages.

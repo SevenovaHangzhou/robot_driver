@@ -122,7 +122,7 @@ flowchart TD
 | hardware plugins | 解析和严格校验 `HardwareInfo`，执行总线生命周期和失败收尾；CANopen 嵌入路径关闭旁路写 API | `alfa_v1` 名称、固定 joint/ring/node 清单 |
 | `hw_semantic_components` | `control_word`/`status_word` 类型化绑定与 CiA402 状态解码 | topology、mode、批次、时序和总线生命周期 |
 | `controllers.yaml` / `enable_manager` | controller joint/interface、managed joints、使能批次、时序和 Ti5 终态策略 | PDO、EDS、环位和 Node ID |
-| `rt_control_bringup` | 变体选择、双 system 总装、启动/停机顺序；从所选 descriptor 派生诊断参数 | 第二份 hardware topology 或隐式 safety 默认值 |
+| `integ_bringup` | 变体选择、双 system 总装、启动/停机顺序；从所选 descriptor 派生诊断参数 | 第二份 hardware topology 或隐式 safety 默认值 |
 | `rt_diagnostics` | 消费派生 topology，归一化详细状态并发布稳定总线摘要 | 硬件 plugin 配置和电机安全决策 |
 
 `enable_manager` 的 managed joints、批次和终态 policy 必须由 owner 显式配置；缺失时应
@@ -168,7 +168,7 @@ Robot Model 仍按各自 owner 管理。这是“owner-local registry + alignmen
 | CANopen joint、Node、side、profile 与 activation mode 注册 | `src/rt_control/hw_canopen/variants/alfa_v1.yaml` |
 | CANopen real/mock schema 与 `HardwareInfo` 映射规则 | `src/rt_control/hw_canopen/urdf/canopen.ros2_control.xacro` |
 | CANopen EDS、heartbeat、比例和 DCF 输入 | `src/rt_control/hw_canopen/config/bus.yml`、`config/eds/` |
-| JTC/JSB/diff-drive joint、interface 和 enable policy | `src/rt_control/rt_control_bringup/config/controllers.yaml` |
+| JTC/JSB/diff-drive joint、interface 和 enable policy | `src/rt_control/integ_bringup/config/controllers.yaml` |
 | 诊断预期 topology | 无独立配置；bringup 从上述两份 selected descriptor 派生 |
 | logical joint 名称、类型和模型 | 独立 `robot_description` 权威仓库；本仓库是固定构建副本 |
 

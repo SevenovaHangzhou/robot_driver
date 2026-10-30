@@ -304,7 +304,7 @@ sudo docker run -d \
   -e ROS_DOMAIN_ID=142 \
   -e RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
   "rt-control:${release_sha}" \
-  /opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start \
+  /opt/rt_control_ws/install/lib/integ_bringup/rt_control_start \
   use_mock_hardware:=true
 ```
 

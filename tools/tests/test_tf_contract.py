@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTION = ROOT / "src/description/robot_description"
 MOBILE_URDF = DESCRIPTION / "urdf/robot_alfav3_mobile.urdf"
 SOURCE_LOCK = ROOT / "src/description/source-lock.yaml"
-BRINGUP_MANIFEST = ROOT / "src/rt_control/rt_control_bringup/package.xml"
+BRINGUP_MANIFEST = ROOT / "src/rt_control/integ_bringup/package.xml"
 DOCKERFILE = ROOT / "docker/rt-control/Dockerfile"
 
 

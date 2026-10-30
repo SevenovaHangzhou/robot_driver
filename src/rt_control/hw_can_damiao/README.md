@@ -100,7 +100,7 @@ colcon test-result --verbose
 V3 head-only Mock 入口：
 
 ```bash
-ros2 launch rt_control_bringup rt_control_head_runtime.launch.py \
+ros2 launch integ_bringup rt_control_head_runtime.launch.py \
   head_can_config:=/absolute/path/to/head.yaml use_mock_hardware:=true
 ```
 

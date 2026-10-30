@@ -27,7 +27,7 @@ python3 tools/style_gate.py
 mapfile -t shell_files < <(
   git ls-files --cached --others --exclude-standard -- \
     '*.sh' \
-    'src/rt_control/rt_control_bringup/scripts/rt_control_start'
+    'src/rt_control/integ_bringup/scripts/rt_control_start'
 )
 if (( ${#shell_files[@]} > 0 )); then
   bash -n "${shell_files[@]}"

@@ -6,9 +6,9 @@ layers:
   hw_config:
   - hwcfg_machines
   integration:
-  - rt_control_composer
-  - rt_control_bringup
-  - control_api_adapter
+  - integ_composer
+  - integ_bringup
+  - integ_api_adapter
   - rt_control_arm_console
   - rt_control_operator_web
   protocol:

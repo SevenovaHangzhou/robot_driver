@@ -2,7 +2,7 @@
 
 **范围**：启动组合、接口适配与诊断。本区对应一个同名职责agent。
 
-**Owner路径**：rt_control_bringup其余部分；control_api_adapter；src/interfaces/**。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：integ_bringup其余部分；integ_api_adapter；src/interfaces/**。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：config/machines及alfa_v3.yaml归hw-config；控制器实现归其控制区。
 

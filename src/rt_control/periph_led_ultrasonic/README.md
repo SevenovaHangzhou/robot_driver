@@ -160,7 +160,7 @@ not open sockets. The existing socketpair and node lifecycle tests remain enable
 V3 installs an independent acquisition entry point:
 
 ```bash
-ros2 launch rt_control_bringup rt_control_ultrasonic.launch.py
+ros2 launch integ_bringup rt_control_ultrasonic.launch.py
 ```
 
 It starts only `ultrasonic_node`. Setting `use_mock_hardware:=true` creates no
@@ -181,14 +181,14 @@ Build and test with external artifact directories:
 ```bash
 source /opt/ros/humble/setup.bash
 colcon --log-base /tmp/modbus-rtu485-log build \
-  --base-paths src/rt_control/periph_led_ultrasonic src/rt_control/rt_control_bringup \
+  --base-paths src/rt_control/periph_led_ultrasonic src/rt_control/integ_bringup \
   --build-base /tmp/modbus-rtu485-build \
   --install-base /tmp/modbus-rtu485-install \
-  --packages-select periph_led_ultrasonic rt_control_bringup
+  --packages-select periph_led_ultrasonic integ_bringup
 colcon --log-base /tmp/modbus-rtu485-log test \
   --build-base /tmp/modbus-rtu485-build \
   --install-base /tmp/modbus-rtu485-install \
-  --packages-select periph_led_ultrasonic rt_control_bringup
+  --packages-select periph_led_ultrasonic integ_bringup
 colcon test-result --test-result-base /tmp/modbus-rtu485-build --verbose
 ```
 

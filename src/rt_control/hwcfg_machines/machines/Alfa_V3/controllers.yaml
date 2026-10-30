@@ -217,14 +217,14 @@ controllers:
     module: arms
     name: joint_state_broadcaster
     plugin: joint_state_broadcaster/JointStateBroadcaster
-    package: rt_control_composer
+    package: integ_composer
     actuator_groups:
     - csp
     required_state_modules: []
     tags: []
     parameters:
     - yaml:
-        package: rt_control_composer
+        package: integ_composer
         file: config/controller_defaults.yaml
         path: joint_state.{mode}
     - when_policy: motion
@@ -236,14 +236,14 @@ controllers:
     module: arms
     name: rt_internal_state_broadcaster
     plugin: joint_state_broadcaster/JointStateBroadcaster
-    package: rt_control_composer
+    package: integ_composer
     actuator_groups:
     - csp
     required_state_modules: []
     tags: []
     parameters:
     - yaml:
-        package: rt_control_composer
+        package: integ_composer
         file: config/controller_defaults.yaml
         path: internal_state.{mode}
   head_head_position_controller:

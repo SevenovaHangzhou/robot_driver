@@ -1,5 +1,5 @@
 // Hardware-only Modbus bridge. Public cross-domain interfaces are provided by
-// control_api_adapter; this node owns the serialised socket transactions.
+// integ_api_adapter; this node owns the serialised socket transactions.
 #include <array>
 #include <chrono>
 #include <cmath>

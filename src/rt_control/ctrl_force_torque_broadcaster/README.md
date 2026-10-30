@@ -40,7 +40,7 @@ StatusCode标为保留，不按故障状态解析。Temper也标为保留，注�
 
 - [机型模块](../hwcfg_machines/machines/Alfa_V3/wrist_force_sensors.yaml)
 - [从站 PDO profile](../hw_ethercat/config/profiles/bluepoint_p140000100.yaml)
-- 台架启动：`rt_control_start --force-sensors`（即 `--scope force_bench`，入口见 [scope runtime](../rt_control_bringup/launch/rt_control_scope_runtime.launch.py)）
+- 台架启动：`rt_control_start --force-sensors`（即 `--scope force_bench`，入口见 [scope runtime](../integ_bringup/launch/rt_control_scope_runtime.launch.py)）
 
 设备身份为 Vendor `0xA1`、Product `0x8081`、Revision `1`。
 RxPDO `0x1600` 映射 `0x7000:01..08`，TxPDO `0x1A00` 映射 `0x6000:01..09`。
@@ -65,7 +65,7 @@ export ROS_DOMAIN_ID=12
 已确认接线且 master0 空闲时，启动真实通信：
 
 ```bash
-ros2 launch rt_control_bringup rt_control_force_sensors.launch.py \
+ros2 launch integ_bringup rt_control_force_sensors.launch.py \
   use_mock_hardware:=false sync_mode:=dc
 ```
 

@@ -29,7 +29,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     env_note: native 走 rt_control_native.sh start/stop；docker 走 rt_control_ipc.sh，判据相同
-    covers: ["src/rt_control/rt_control_bringup/**", "src/rt_control/ctrl_enable_manager/**"]
+    covers: ["src/rt_control/integ_bringup/**", "src/rt_control/ctrl_enable_manager/**"]
     traces: [domains/rt_control/docs/canopen-shutdown-sync-tolerance-commissioning-20260727.md]
     preconditions: TC-LC-01 通过；现场授权（确认短语 START_RT_CONTROL_NATIVE）
     entry: |
@@ -113,7 +113,7 @@ cases:
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/rt_control_bringup/**", "tools/rt_control_native.sh"]
+    covers: ["src/rt_control/integ_bringup/**", "tools/rt_control_native.sh"]
     traces: []
     preconditions: 人为制造残留（kill -9 栈进程组）；现场授权
     entry: |

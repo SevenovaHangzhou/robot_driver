@@ -7,12 +7,12 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BRINGUP = ROOT / "src/rt_control/rt_control_bringup"
+BRINGUP = ROOT / "src/rt_control/integ_bringup"
 HOSTSETUP = ROOT / "hostsetup"
 COMPOSE_WRAPPER = ROOT / "tools/rt_control_compose.sh"
-sys.path.insert(0, str(ROOT / "src/rt_control/control_api_adapter"))
+sys.path.insert(0, str(ROOT / "src/rt_control/integ_api_adapter"))
 
-from control_api_adapter.public_error import PublicErrorCode
+from integ_api_adapter.public_error import PublicErrorCode
 
 
 def test_public_and_private_interface_packages_have_distinct_ownership() -> None:
@@ -125,12 +125,12 @@ def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
     bringup_cmake = (BRINGUP / "CMakeLists.txt").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
-    assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
+    assert "<exec_depend>integ_api_adapter</exec_depend>" in bringup_manifest
     assert 'executable="control_enable_adapter"' in (
         BRINGUP / "launch/rt_control_scope_runtime.launch.py"
     ).read_text()
     assert "launch/rt_control.launch.py" not in bringup_cmake
-    assert "control_api_adapter" in bootstrap
+    assert "integ_api_adapter" in bootstrap
     assert int(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY) == 1101
 
 
@@ -145,10 +145,10 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
 
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
     assert "      robot_system_interfaces \\\n" in dockerfile
-    assert "      control_api_adapter \\\n" in dockerfile
+    assert "      integ_api_adapter \\\n" in dockerfile
     assert "\n  robot_rt_control_interfaces\n" in bootstrap
     assert "\n  robot_system_interfaces\n" in bootstrap
-    assert "\n  control_api_adapter\n" in bootstrap
+    assert "\n  integ_api_adapter\n" in bootstrap
     assert "test -d src/vendor/robot_interfaces/robot_rt_control_interfaces" in dockerfile
     assert "test -d src/vendor/robot_interfaces/robot_system_interfaces" in dockerfile
     assert "src/vendor/robot_interfaces" in bootstrap
@@ -178,7 +178,7 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
 
 def test_public_errors_populate_the_vendored_shared_message_schema() -> None:
     public_error_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/public_error.py"
+        ROOT / "src/rt_control/integ_api_adapter/integ_api_adapter/public_error.py"
     ).read_text()
 
     assert "message.code = int(value.code)" in public_error_source
@@ -270,7 +270,7 @@ def test_docker_build_contains_required_io_packages() -> None:
 
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
     assert "      periph_bms \\\n" in dockerfile
-    assert "      control_api_adapter \\\n" in dockerfile
+    assert "      integ_api_adapter \\\n" in dockerfile
     assert "      periph_plc_io \\\n" in dockerfile
     assert "ros-humble-rmw-fastrtps-cpp" in dockerfile
     assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile

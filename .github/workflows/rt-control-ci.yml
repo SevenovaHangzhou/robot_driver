@@ -207,7 +207,7 @@ jobs:
             periph_led_ultrasonic
             canopen_master_driver
             canopen_ros2_control
-            control_api_adapter
+            integ_api_adapter
             ethercat_driver
             ethercat_generic_cia402_drive
             joint_trajectory_controller
@@ -223,9 +223,9 @@ jobs:
             ctrl_rolling_trajectory
             ctrl_force_torque_broadcaster
             ctrl_swerve
-            rt_control_composer
+            integ_composer
             hwcfg_machines
-            rt_control_bringup
+            integ_bringup
             rt_control_operator_web
           )
           mapfile -t dependency_paths < <(
@@ -261,7 +261,7 @@ jobs:
             periph_led_ultrasonic \
             canopen_master_driver \
             canopen_ros2_control \
-            control_api_adapter \
+            integ_api_adapter \
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
@@ -277,9 +277,9 @@ jobs:
             ctrl_rolling_trajectory \
             ctrl_force_torque_broadcaster \
             ctrl_swerve \
-            rt_control_composer \
+            integ_composer \
             hwcfg_machines \
-            rt_control_bringup \
+            integ_bringup \
             rt_control_operator_web \
             --cmake-args -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Report compiler cache
@@ -322,7 +322,7 @@ jobs:
             periph_led_ultrasonic \
             canopen_master_driver \
             canopen_ros2_control \
-            control_api_adapter \
+            integ_api_adapter \
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
@@ -338,9 +338,9 @@ jobs:
             ctrl_rolling_trajectory \
             ctrl_force_torque_broadcaster \
             ctrl_swerve \
-            rt_control_composer \
+            integ_composer \
             hwcfg_machines \
-            rt_control_bringup \
+            integ_bringup \
             rt_control_operator_web \
             --packages-skip joint_trajectory_controller
           # Upstream JTC tests use wall-clock sleeps and tight publication windows.

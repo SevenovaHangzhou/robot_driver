@@ -7,7 +7,7 @@ import rt_control_thread_affinity as affinity
 
 
 def test_rt_control_bringup_controller_node_is_found():
-    controller = "/opt/rt_control_ws/install/lib/rt_control_bringup/ros2_control_node"
+    controller = "/opt/rt_control_ws/install/lib/integ_bringup/ros2_control_node"
     with (
         patch.object(affinity.Path, "iterdir", return_value=[Path("/proc/10")]),
         patch.object(affinity, "process_cmdline", return_value=controller + " --ros-args"),
