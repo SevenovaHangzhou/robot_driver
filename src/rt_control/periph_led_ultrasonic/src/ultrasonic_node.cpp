@@ -71,6 +71,9 @@ public:
       timer_ =
         create_wall_timer(std::chrono::milliseconds(poll_interval_ms_), [this]() { poll(); });
     }
+    RCLCPP_INFO(
+      get_logger(), "ready: %s:%ld polling %s", gateway_ip_.c_str(),
+      static_cast<long>(gateway_port_), poll_enabled_ ? "on" : "off");
   }
 
 private:

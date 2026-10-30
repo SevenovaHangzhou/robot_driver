@@ -50,6 +50,7 @@ public:
                        robot_rt_control_interfaces::srv::SetLedRgbw::Response::SharedPtr response) {
         set_color(*request, *response);
       });
+    RCLCPP_INFO(get_logger(), "ready: %s", service_name_.c_str());
   }
 
   void set_normal_exit_color() noexcept { set_all_exit_colors(led_exit_color(false), "off"); }
