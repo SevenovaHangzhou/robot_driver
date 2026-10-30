@@ -27,7 +27,7 @@ C++ 改动还要人工检查实时路径的分配、锁、阻塞、单位/符号
 ## robot_description 构建副本
 
 ```bash
-xacro src/description/robot_description/urdf/robot.urdf.xacro > /tmp/robot-description-review.urdf
+xacro src/description/robot_description/urdf/robot_alfav3_mobile.urdf > /tmp/robot-description-review.urdf
 check_urdf /tmp/robot-description-review.urdf
 colcon build --symlink-install --packages-select robot_description
 ```

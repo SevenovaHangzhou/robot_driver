@@ -1,0 +1,335 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="alfa_robot_v3">
+  <compiler angle="radian" inertiafromgeom="false" fusestatic="false" />
+  <option timestep="0.001" integrator="implicitfast" />
+  <asset>
+    <mesh name="description_mesh_000" content_type="model/obj" file="../mujoco/meshes/base_link_40a9069b4500.obj" inertia="shell" />
+    <mesh name="description_mesh_001" content_type="model/stl" file="../mesh/chassis/part_049_solid_049.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_002" content_type="model/stl" file="../mesh/chassis/base_link.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_003" content_type="model/stl" file="../mesh/chassis/part_048_solid_048.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_004" content_type="model/stl" file="../mesh/chassis/part_072_solid_072.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_005" content_type="model/stl" file="../mesh/chassis/part_073_solid_073.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_006" content_type="model/stl" file="../mesh/chassis/part_071_solid_071.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_007" content_type="model/stl" file="../mesh/chassis/part_068_solid_068.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_008" content_type="model/stl" file="../mesh/chassis/part_067_solid_067.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_009" content_type="model/stl" file="../mesh/chassis/part_069_solid_069.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_010" content_type="model/stl" file="../mesh/chassis/part_070_solid_070.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_011" content_type="model/stl" file="../mesh/chassis/part_074_solid_074.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_012" content_type="model/stl" file="../mesh/chassis/part_001_solid_001.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_013" content_type="model/stl" file="../mesh/chassis/part_061_solid_061.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_014" content_type="model/stl" file="../mesh/chassis/part_062_solid_062.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_015" content_type="model/stl" file="../mesh/chassis/part_059_solid_059.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_016" content_type="model/stl" file="../mesh/chassis/part_060_solid_060.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_017" content_type="model/stl" file="../mesh/chassis/part_065_solid_065.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_018" content_type="model/stl" file="../mesh/chassis/part_066_solid_066.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_019" content_type="model/stl" file="../mesh/chassis/part_063_solid_063.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_020" content_type="model/stl" file="../mesh/chassis/part_064_solid_064.stl" scale="0.001 0.001 0.001" inertia="shell" />
+    <mesh name="description_mesh_021" content_type="model/stl" file="../mesh/arms/visual/left_link1.STL" inertia="shell" />
+    <mesh name="description_mesh_042" content_type="model/stl" file="../mesh/arms/visual/left_link2.STL" inertia="shell" />
+    <mesh name="description_mesh_063" content_type="model/stl" file="../mesh/arms/visual/left_link3.STL" inertia="shell" />
+    <mesh name="description_mesh_084" content_type="model/stl" file="../mesh/arms/visual/left_link4.STL" inertia="shell" />
+    <mesh name="description_mesh_105" content_type="model/stl" file="../mesh/arms/visual/left_link5.STL" inertia="shell" />
+    <mesh name="description_mesh_126" content_type="model/stl" file="../mesh/arms/visual/left_link6.STL" inertia="shell" />
+    <mesh name="description_mesh_128" content_type="model/stl" file="../mesh/arms/visual/left_link7.STL" inertia="shell" />
+    <mesh name="description_mesh_130" content_type="model/stl" file="../mesh/arms/visual/left_tool_link.STL" inertia="shell" />
+    <mesh name="description_mesh_131" content_type="model/stl" file="../mesh/arms/collision/left_tool_link.STL" inertia="shell" />
+    <mesh name="description_mesh_132" content_type="model/stl" file="../mesh/arms/visual/right_link1.STL" inertia="shell" />
+    <mesh name="description_mesh_153" content_type="model/stl" file="../mesh/arms/visual/right_link2.STL" inertia="shell" />
+    <mesh name="description_mesh_174" content_type="model/stl" file="../mesh/arms/visual/right_link3.STL" inertia="shell" />
+    <mesh name="description_mesh_195" content_type="model/stl" file="../mesh/arms/visual/right_link4.STL" inertia="shell" />
+    <mesh name="description_mesh_216" content_type="model/stl" file="../mesh/arms/visual/right_link5.STL" inertia="shell" />
+    <mesh name="description_mesh_237" content_type="model/stl" file="../mesh/arms/visual/right_link6.STL" inertia="shell" />
+    <mesh name="description_mesh_239" content_type="model/stl" file="../mesh/arms/visual/right_link7.STL" inertia="shell" />
+    <mesh name="description_mesh_241" content_type="model/stl" file="../mesh/arms/visual/right_tool_link.STL" inertia="shell" />
+    <mesh name="description_mesh_242" content_type="model/stl" file="../mesh/arms/collision/right_tool_link.STL" inertia="shell" />
+    <mesh name="description_mesh_243" content_type="model/stl" file="../mesh/head/H1_Link.STL" inertia="shell" />
+    <mesh name="description_mesh_244" content_type="model/stl" file="../mesh/head/H2_Link.STL" inertia="shell" />
+    <mesh name="description_mesh_245" content_type="model/stl" file="../mesh/head/Leye_link.STL" inertia="shell" />
+    <mesh name="description_mesh_246" content_type="model/stl" file="../mesh/head/Reye_Link.STL" inertia="shell" />
+    <mesh name="description_mesh_247" content_type="model/stl" file="../mesh/head/mid360_Link.STL" inertia="shell" />
+    <mesh name="motion_collision_left_link1" file="../mesh/arms/collision/left_link1.STL" inertia="shell" />
+    <mesh name="motion_collision_left_link2" file="../mesh/arms/collision/left_link2.STL" inertia="shell" />
+    <mesh name="motion_collision_left_link3" file="../mesh/arms/collision/left_link3.STL" inertia="shell" />
+    <mesh name="motion_collision_left_link4" file="../mesh/arms/collision/left_link4.STL" inertia="shell" />
+    <mesh name="motion_collision_left_link5" file="../mesh/arms/collision/left_link5.STL" inertia="shell" />
+    <mesh name="motion_collision_left_link6" file="../mesh/arms/collision/left_link6.STL" inertia="shell" />
+    <mesh name="motion_collision_left_link7" file="../mesh/arms/collision/left_link7.STL" inertia="shell" />
+    <mesh name="motion_collision_right_link1" file="../mesh/arms/collision/right_link1.STL" inertia="shell" />
+    <mesh name="motion_collision_right_link2" file="../mesh/arms/collision/right_link2.STL" inertia="shell" />
+    <mesh name="motion_collision_right_link3" file="../mesh/arms/collision/right_link3.STL" inertia="shell" />
+    <mesh name="motion_collision_right_link4" file="../mesh/arms/collision/right_link4.STL" inertia="shell" />
+    <mesh name="motion_collision_right_link5" file="../mesh/arms/collision/right_link5.STL" inertia="shell" />
+    <mesh name="motion_collision_right_link6" file="../mesh/arms/collision/right_link6.STL" inertia="shell" />
+    <mesh name="motion_collision_right_link7" file="../mesh/arms/collision/right_link7.STL" inertia="shell" />
+  </asset>
+  <worldbody>
+    <body name="base_footprint">
+      <body name="base_link" pos="0 0 0.32" quat="0.70710678118654757 0 0 0.70710678118654746">
+        <inertial pos="-0.058828565 -0.00039444606 0.47566224" mass="595.66605" fullinertia="164.43872999999999 161.58372 67.060691000000006 -0.017014143999999998 -14.66085 -0.093258543999999999" />
+        <geom pos="0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_001" quat="1 0 0 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_002" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_003" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_004" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_005" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_006" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_007" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_008" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_009" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_010" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_011" />
+        <geom pos="0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_001" quat="1 0 0 0" rgba="0.5 0.5 0.5 0" />
+        <geom type="mesh" contype="1" conaffinity="1" mesh="description_mesh_012" pos="0 0 0" quat="1 0 0 0" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_003" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_004" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_005" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_006" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_007" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_008" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_009" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_010" rgba="0.5 0.5 0.5 0" />
+        <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_011" rgba="0.5 0.5 0.5 0" />
+        <body name="arm_carriage" pos="0.174 0 1.68" quat="-2.3205103333142417e-08 0.99999999999999978 0 0">
+          <inertial pos="0.23694464536324472 5.3146263483262798e-07 0.32700563330509558" mass="43.0078185286443" fullinertia="0.63759977963518499 0.70396791298062 0.69916395166026601 -8.3557303861840444e-06 0.0047018981246112496 3.7826666151282119e-06" />
+          <joint name="updown" type="slide" range="-1 0" actuatorfrcrange="-10 10" axis="0 0 -1" />
+          <geom pos="0.26600000000000001 0 0.36514999999999997" quat="6.123233995736766e-17 1 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" density="0" mesh="description_mesh_000" />
+          <geom pos="0.26600000000000001 0 0.36514999999999997" quat="6.123233995736766e-17 1 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_000" />
+          <body name="left_link1" pos="0.266 -0.43659 0.24817" quat="0.60876264323689999 0.79335240857970735 0 0">
+            <inertial pos="0.0167019608491421 -1.09353720545435E-05 -0.0153326614277168" mass="9.07481905082967" fullinertia="0.029471206911341499 0.025830606810741098 0.0263764953015133 -3.5179401879470201e-06 -8.8730208219315402e-06 -6.9463896117537498e-06" />
+            <joint name="left_joint1" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-647 647" axis="0 0 1" />
+            <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_021" pos="0 0 0" />
+            <body name="left_link2" quat="0.7933524085796444 0.60876264323698193 0 0" pos="0 0 0">
+              <inertial pos="0.00106830958672921 0.159107638951996 -6.22026791941011E-06" mass="3.96874158477096" fullinertia="0.025872316601430599 0.016193853015202399 0.015865503517127601 -2.5466784170661699e-06 2.8211604761570401e-07 -1.5250446420936901e-06" />
+              <joint name="left_joint2" range="-1.6057029118347832 2.129301687433082" actuatorfrcrange="-647 647" axis="1 0 0" />
+              <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_042" />
+              <body name="left_link3" pos="0 0.506 0" quat="0.70710548251123628 -0.70710807985947355 0 0">
+                <inertial pos="1.24608341445231E-06 -0.00557550339207835 -0.0578820102147597" mass="4.33246057402105" fullinertia="0.027952080977607902 0.0284183906539653 0.011634184442963699 2.0383479348636399e-06 -7.1841157009293596e-06 0.0037851497997838401" />
+                <joint name="left_joint3" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-484 484" axis="0 0 1" />
+                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_063" pos="0 0 0" quat="1 0 0 0" />
+                <body name="left_link4" quat="0.70710678118654624 0.70710678118654879 0 0" pos="0 0 0">
+                  <inertial pos="3.87270931906381E-06 0.173728387157024 0.000608709011414632" mass="1.70321151354429" fullinertia="0.0065396083132424898 0.0041582579936392796 0.0059460279726052502 -1.7890828552187101e-08 3.1494464895074399e-07 -2.2690051970341599e-05" />
+                  <joint name="left_joint4" range="-2.6179938779914944 2.6179938779914944" actuatorfrcrange="-459 459" axis="0 0 1" />
+                  <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.792157 0.819608 0.933333 1" density="0" mesh="description_mesh_084" />
+                  <body name="left_link5" pos="0 0.474 0" quat="4.3297802811774584e-17 -4.3297802811774744e-17 0.70710678118654624 0.70710678118654879">
+                    <inertial pos="-1.0010323548415E-06 0.0265777126870703 -0.121767873752312" mass="2.41099999111593" fullinertia="0.0067903230830627503 0.0059831483832908103 0.0031063976499829402 -2.4743394380697803e-07 -7.32580385794537e-07 0.00084880868178132296" />
+                    <joint name="left_joint5" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-204 204" axis="0 0 1" />
+                    <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.792157 0.819608 0.933333 1" density="0" mesh="description_mesh_105" pos="0 0 0" />
+                    <body name="left_link6" quat="0.70710678118654624 0.70710678118654879 0 0" pos="0 0 0">
+                      <inertial pos="-7.60956609568986E-06 0.00865716317679044 0.0029407174200955" mass="0.407406369214039" fullinertia="0.00032209520517394597 0.00034919531586117397 0.00028980265670917399 -1.14023708690454e-07 2.22074452516147e-07 3.2676404773399101e-05" />
+                      <joint name="left_joint6" range="-2.356194490192345 2.356194490192345" actuatorfrcrange="-107 107" axis="0 0 -1" />
+                      <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" density="0" mesh="description_mesh_126" pos="0 0 0" quat="1 0 0 0" />
+                      <body name="left_link7" quat="0.70710678118654624 -0.70710678118654879 0 0" pos="0 0 0">
+                        <inertial pos="-1.60151749084569E-08 0.000666340802764065 0.0613410751617196" mass="0.240119996534154" fullinertia="0.000119701908945489 0.00012281749484770001 0.00015593734811141001 -6.7560532728473597e-11 -4.6165760926669899e-11 6.9580134621098001e-07" />
+                        <joint name="left_joint7" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-36 36" axis="0 0 1" />
+                        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_128" pos="0 0 0" quat="1 0 0 0" />
+                        <body name="left_tool_link" pos="0 0 0.0986999999999811" quat="0.70710678118654624 0.70710678118654879 0 0">
+                          <inertial pos="8.58519688801129E-06 0.081233681181446 1.90706116676154E-06" mass="2.76858828258591" fullinertia="0.0027613553396766501 0.0125778356061976 0.010109485285016701 -6.6734239535914901e-08 -9.42574221818903e-09 1.9443904638773001e-08" />
+                          <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="1 0.94902 0.909804 1" density="0" mesh="description_mesh_130" />
+                          <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_131" />
+                        </body>
+                        <body name="left_tool0" pos="0.0 0.0 0.2497" quat="1 0 0 0">
+                          <site name="left_ee" pos="0 0 0" size="0.009" group="2" rgba="0.15 0.55 1 1" />
+                        </body>
+                        <geom name="motion_collision_left_link7" type="mesh" mesh="motion_collision_left_link7" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                      </body>
+                      <geom name="motion_collision_left_link6" type="mesh" mesh="motion_collision_left_link6" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                    </body>
+                    <geom name="motion_collision_left_link5" type="mesh" mesh="motion_collision_left_link5" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                  </body>
+                  <geom name="motion_collision_left_link4" type="mesh" mesh="motion_collision_left_link4" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                </body>
+                <geom name="motion_collision_left_link3" type="mesh" mesh="motion_collision_left_link3" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+              </body>
+              <geom name="motion_collision_left_link2" type="mesh" mesh="motion_collision_left_link2" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+            </body>
+            <geom name="motion_collision_left_link1" type="mesh" mesh="motion_collision_left_link1" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+          </body>
+          <body name="right_link1" pos="0.266 0.436591143748 0.24816575561" quat="0.60876142900873897 -0.79335334029122118 0 0">
+            <inertial pos="0.0167018835721799 -1.09750281560572E-05 -0.0153326320440225" mass="9.0748055498765" fullinertia="0.029471170318124101 0.025830556396999601 0.026376441428176699 -3.4998226943235902e-06 -8.8968727303430808e-06 -6.95919435676155e-06" />
+            <joint name="right_joint1" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-647 647" axis="0 0 1" />
+            <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_132" pos="0 0 0" />
+            <body name="right_link2" quat="0.56098552679692981 -0.4304593345768789 -0.56098552679693281 0.43045933457687896" pos="0 0 0">
+              <inertial pos="6.19011958091775E-06 -0.159107596371285 -0.00106836459257154" mass="3.96874956085377" fullinertia="0.0158655264734242 0.016193872891197 0.025872339295099901 -1.5199665805871799e-06 2.8179655016814602e-07 -2.5371284952645902e-06" />
+              <joint name="right_joint2" range="-1.6057029118347832 2.129301687433082" actuatorfrcrange="-647 647" axis="0 0 -1" />
+              <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_153" />
+              <body name="right_link3" pos="0 -0.506000000045022 0" quat="0.49999999999999817 0.5 0.5 -0.50000000000000178">
+                <inertial pos="-1.25336350936811E-06 0.00557543862883625 -0.0578818391305252" mass="4.33246818012089" fullinertia="0.0279520979729889 0.028418409573254901 0.0116342114235482 2.0370158053218499e-06 7.1916592524993396e-06 -0.0037851374064702499" />
+                <joint name="right_joint3" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-484 484" axis="0 0 1" />
+                <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_174" pos="0 0 0" quat="1 0 0 0" />
+                <body name="right_link4" quat="0.70710678118654624 -0.70710678118654879 0 0" pos="0 0 0">
+                  <inertial pos="-3.73094621897163E-06 -0.168683191034818 -0.00138367847675491" mass="1.75414464028597" fullinertia="0.0066888832824416903 0.0043075327745481897 0.0062426105714940196 -1.6808906050825602e-08 -3.1491937667244101e-07 2.26895294730388e-05" />
+                  <joint name="right_joint4" range="-2.6179938779914944 2.6179938779914944" actuatorfrcrange="-459 459" axis="0 0 1" />
+                  <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.792157 0.819608 0.933333 1" density="0" mesh="description_mesh_195" />
+                  <body name="right_link5" pos="0 -0.474000000000003 0" quat="-0.7071067811865841 -0.70710678118651094 7.5604429156381771e-27 -1.462460215437043e-13">
+                    <inertial pos="-1.00108166339874E-06 0.0265777126717754 -0.121767873701321" mass="2.41099998951338" fullinertia="0.0067903230599723197 0.0059831483640880503 0.0031063976465026998 -2.4743280297604701e-07 -7.3258341319747499e-07 0.00084880867311598097" />
+                    <joint name="right_joint5" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-204 204" axis="0 0 1" />
+                    <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.792157 0.819608 0.933333 1" density="0" mesh="description_mesh_216" pos="0 0 0" quat="1 0 0 0" />
+                    <body name="right_link6" quat="0.70710678118654624 -0.70710678118654879 0 0" pos="0 0 0">
+                      <inertial pos="-7.6096085913635E-06 -0.00865716315083431 -0.00294071723347034" mass="0.407406370801042" fullinertia="0.00032209520622170703 0.00034919531724264801 0.00028980265696663401 1.1402344643293001e-07 -2.22076115559917e-07 3.2676405015697897e-05" />
+                      <joint name="right_joint6" range="-2.356194490192345 2.356194490192345" actuatorfrcrange="-107 107" axis="0 0 1" />
+                      <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="1 1 1 1" density="0" mesh="description_mesh_237" pos="0 0 0" quat="1 0 0 0" />
+                      <body name="right_link7" quat="0.7071067811865499 0.70710678118654513 0 0" pos="0 0 0">
+                        <inertial pos="-1.44286110281833E-08 0.000666340423370881 0.0613410743572911" mass="0.240120014902697" fullinertia="0.000119701915432366 0.00012281750583433899 0.000155937361248393 -6.5513590314879399e-11 -4.1790624516053101e-11 6.95800507308111e-07" />
+                        <joint name="right_joint7" range="-2.792526803190927 2.792526803190927" actuatorfrcrange="-36 36" axis="0 0 1" />
+                        <geom type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_239" pos="0 0 0" quat="1 0 0 0" />
+                        <body name="right_tool_link" pos="0 0 0.0986999999999769" quat="0.7071067811865499 -0.70710678118654513 0 0">
+                          <inertial pos="8.58519688667903E-06 -0.0812336811814462 -1.90706116720563E-06" mass="2.76858828258601" fullinertia="0.0027613553396767798 0.0125778356061982 0.0101094852850172 6.6734239493583794e-08 9.4257422240431295e-09 1.9443904636661999e-08" />
+                          <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_241" />
+                          <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_242" />
+                        </body>
+                        <body name="right_tool0" pos="0.0 0.0 0.2497" quat="1 0 0 0">
+                          <site name="right_ee" pos="0 0 0" size="0.009" group="2" rgba="1 0.25 0.12 1" />
+                        </body>
+                        <geom name="motion_collision_right_link7" type="mesh" mesh="motion_collision_right_link7" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                      </body>
+                      <geom name="motion_collision_right_link6" type="mesh" mesh="motion_collision_right_link6" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                    </body>
+                    <geom name="motion_collision_right_link5" type="mesh" mesh="motion_collision_right_link5" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                  </body>
+                  <geom name="motion_collision_right_link4" type="mesh" mesh="motion_collision_right_link4" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+                </body>
+                <geom name="motion_collision_right_link3" type="mesh" mesh="motion_collision_right_link3" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+              </body>
+              <geom name="motion_collision_right_link2" type="mesh" mesh="motion_collision_right_link2" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+            </body>
+            <geom name="motion_collision_right_link1" type="mesh" mesh="motion_collision_right_link1" pos="0 0 0" quat="1 0 0 0" group="0" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" />
+          </body>
+          <body name="H1_Link" pos="0.26699999999999902 0 0.36514999999999997" quat="6.123233995736766e-17 1 0 0">
+            <inertial pos="-0.0193101466822019 -0.00462200038728198 0.2299480657906" mass="0.279891410655859" fullinertia="8.2419706958236294e-05 0.00013468682798952199 9.7451643143552601e-05 -8.6073578094126902e-07 2.7131871422783899e-06 6.7719480165385103e-07" />
+            <joint name="H1_joint" range="-3.141592653589793 3.141592653589793" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_243" pos="0 0 0" />
+            <geom quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_243" pos="0 0 0" />
+            <body name="H2_Link" pos="0 0 0.24625009252407" quat="0.70710678118654624 0.70710678118654879 0 0">
+              <inertial pos="-0.0152089027887525 0.0422440779975193 0.000136722359139303" mass="1.51565299644841" fullinertia="0.0017695557924900401 0.0012073921627625301 0.0017176200871382599 9.1652712271924895e-05 -5.0393452583865302e-08 -6.9993087952142899e-07" />
+              <joint name="H2_joint" range="-3.141592653589793 3.141592653589793" actuatorfrcrange="-10 10" axis="0 0 1" />
+              <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_244" pos="0 0 0" />
+              <geom quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_244" pos="0 0 0" />
+              <body name="Leye_link" pos="0.012866 0.11171 -0.06" quat="0.70710548251123628 -0.70710807985947355 0 0">
+                <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.85098 1 0.258824 0.15" density="0" mesh="description_mesh_245" pos="0 0 0" />
+              </body>
+              <body name="Reye_Link" pos="0.012866 0.11171 0.06" quat="0.70710548251123628 -0.70710807985947355 0 0">
+                <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.85098 1 0.258824 0.15" density="0" mesh="description_mesh_246" pos="0 0 0" />
+              </body>
+              <body name="mid360_Link" pos="0.03857 0.066019 0" quat="0.69445725102369127 -0.69445980191229484 0.13314435823754572 -0.13314386917190779">
+                <inertial pos="0 0.014781538397073746 -0.01695144921541214" mass="0.375" fullinertia="0.00039156229099928004 0.00024438365360815451 0.00041021711772289311 0 0 0" />
+                <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.792157 0.819608 0.933333 1" density="0" mesh="description_mesh_247" pos="0 0 0" />
+                <geom quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_247" pos="0 0 0" />
+              </body>
+            </body>
+          </body>
+        </body>
+        <body name="steer1" pos="0.305 0.305 0.01" quat="-1.640848592499956e-08 0.70710678118654746 -0.70710678118654735 1.6408485924999557e-08">
+          <inertial pos="0 -0.00049602482 0.12712431" mass="0.67282569" fullinertia="0.0052806640999999996 0.0048283205000000003 0.0015774071999999999 0 0 3.4333552999999997e-05" />
+          <joint name="steer1_joint" range="-2.356194490192345 2.356194490192345" actuatorfrcrange="-10 10" axis="0 0 1" />
+          <geom pos="-0.305 0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_013" />
+          <geom pos="-0.305 0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_013" rgba="0.5 0.5 0.5 0" />
+          <body name="wheel1" pos="0 -0.03 0.23" quat="0.70710679065997395 0.70710677171312097 0 0">
+            <inertial pos="3.5386183e-09 3.8364939e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
+            <joint name="wheel1_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <geom pos="-0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_014" />
+            <geom pos="-0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_014" rgba="0.5 0.5 0.5 0" />
+          </body>
+        </body>
+        <body name="steer2" pos="0.305 -0.305 0.01" quat="-1.640848592499956e-08 0.70710678118654746 -0.70710678118654735 1.6408485924999557e-08">
+          <inertial pos="0 -0.00049602482 0.12712431" mass="0.67282569" fullinertia="0.0052806640999999996 0.0048283205000000003 0.0015774071999999999 0 0 3.4333552999999997e-05" />
+          <joint name="steer2_joint" range="-2.356194490192345 2.356194490192345" actuatorfrcrange="-10 10" axis="0 0 1" />
+          <geom pos="-0.305 -0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_015" />
+          <geom pos="-0.305 -0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_015" rgba="0.5 0.5 0.5 0" />
+          <body name="wheel2" pos="0 -0.03 0.23" quat="0.70710679065997395 0.70710677171312097 0 0">
+            <inertial pos="3.5386188e-09 3.8364939e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
+            <joint name="wheel2_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <geom pos="-0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_016" />
+            <geom pos="-0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_016" rgba="0.5 0.5 0.5 0" />
+          </body>
+        </body>
+        <body name="steer3" pos="-0.305 0.305 -0.01" quat="-1.640848592499956e-08 0.70710678118654746 -0.70710678118654735 1.6408485924999557e-08">
+          <inertial pos="0 -0.00049602482 0.10712431" mass="0.67282569" fullinertia="0.0052806640999999996 0.0048283205000000003 0.0015774071999999999 0 0 3.4333552999999997e-05" />
+          <joint name="steer3_joint" range="-2.356194490192345 2.356194490192345" actuatorfrcrange="-10 10" axis="0 0 1" />
+          <geom pos="0.305 0.305 -0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_017" />
+          <geom pos="0.305 0.305 -0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_017" rgba="0.5 0.5 0.5 0" />
+          <body name="wheel3" pos="0 -0.03 0.21" quat="0.70710679065997395 0.70710677171312097 0 0">
+            <inertial pos="-3.538619e-09 3.8364972e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
+            <joint name="wheel3_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <geom pos="0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_018" />
+            <geom pos="0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_018" rgba="0.5 0.5 0.5 0" />
+          </body>
+        </body>
+        <body name="steer4" pos="-0.305 -0.305 0.01" quat="-1.640848592499956e-08 0.70710678118654746 -0.70710678118654735 1.6408485924999557e-08">
+          <inertial pos="0 -0.00049602482 0.12712431" mass="0.67282569" fullinertia="0.0052806640999999996 0.0048283205000000003 0.0015774071999999999 0 0 3.4333552999999997e-05" />
+          <joint name="steer4_joint" range="-2.356194490192345 2.356194490192345" actuatorfrcrange="-10 10" axis="0 0 1" />
+          <geom pos="0.305 -0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_019" />
+          <geom pos="0.305 -0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_019" rgba="0.5 0.5 0.5 0" />
+          <body name="wheel4" pos="0 -0.03 0.23" quat="0.70710679065997395 0.70710677171312097 0 0">
+            <inertial pos="-3.5386178e-09 3.8364883e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
+            <joint name="wheel4_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <geom pos="0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_020" />
+            <geom pos="0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_020" rgba="0.5 0.5 0.5 0" />
+          </body>
+        </body>
+        <body name="imu_link" pos="0.403 0 0" quat="1 0 0 0" />
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="updown_motor" joint="updown" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="steer1_joint_motor" joint="steer1_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="wheel1_joint_motor" joint="wheel1_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="steer2_joint_motor" joint="steer2_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="wheel2_joint_motor" joint="wheel2_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="steer3_joint_motor" joint="steer3_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="wheel3_joint_motor" joint="wheel3_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="steer4_joint_motor" joint="steer4_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="wheel4_joint_motor" joint="wheel4_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="left_joint1_motor" joint="left_joint1" gear="1" ctrllimited="true" ctrlrange="-647.0 647.0" forcelimited="true" forcerange="-647.0 647.0" />
+    <motor name="left_joint2_motor" joint="left_joint2" gear="1" ctrllimited="true" ctrlrange="-647.0 647.0" forcelimited="true" forcerange="-647.0 647.0" />
+    <motor name="left_joint3_motor" joint="left_joint3" gear="1" ctrllimited="true" ctrlrange="-484.0 484.0" forcelimited="true" forcerange="-484.0 484.0" />
+    <motor name="left_joint4_motor" joint="left_joint4" gear="1" ctrllimited="true" ctrlrange="-459.0 459.0" forcelimited="true" forcerange="-459.0 459.0" />
+    <motor name="left_joint5_motor" joint="left_joint5" gear="1" ctrllimited="true" ctrlrange="-204.0 204.0" forcelimited="true" forcerange="-204.0 204.0" />
+    <motor name="left_joint6_motor" joint="left_joint6" gear="1" ctrllimited="true" ctrlrange="-107.0 107.0" forcelimited="true" forcerange="-107.0 107.0" />
+    <motor name="left_joint7_motor" joint="left_joint7" gear="1" ctrllimited="true" ctrlrange="-36.0 36.0" forcelimited="true" forcerange="-36.0 36.0" />
+    <motor name="right_joint1_motor" joint="right_joint1" gear="1" ctrllimited="true" ctrlrange="-647.0 647.0" forcelimited="true" forcerange="-647.0 647.0" />
+    <motor name="right_joint2_motor" joint="right_joint2" gear="1" ctrllimited="true" ctrlrange="-647.0 647.0" forcelimited="true" forcerange="-647.0 647.0" />
+    <motor name="right_joint3_motor" joint="right_joint3" gear="1" ctrllimited="true" ctrlrange="-484.0 484.0" forcelimited="true" forcerange="-484.0 484.0" />
+    <motor name="right_joint4_motor" joint="right_joint4" gear="1" ctrllimited="true" ctrlrange="-459.0 459.0" forcelimited="true" forcerange="-459.0 459.0" />
+    <motor name="right_joint5_motor" joint="right_joint5" gear="1" ctrllimited="true" ctrlrange="-204.0 204.0" forcelimited="true" forcerange="-204.0 204.0" />
+    <motor name="right_joint6_motor" joint="right_joint6" gear="1" ctrllimited="true" ctrlrange="-107.0 107.0" forcelimited="true" forcerange="-107.0 107.0" />
+    <motor name="right_joint7_motor" joint="right_joint7" gear="1" ctrllimited="true" ctrlrange="-36.0 36.0" forcelimited="true" forcerange="-36.0 36.0" />
+    <motor name="H1_joint_motor" joint="H1_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+    <motor name="H2_joint_motor" joint="H2_joint" gear="1" ctrllimited="true" ctrlrange="-10.0 10.0" forcelimited="true" forcerange="-10.0 10.0" />
+  </actuator>
+  <contact>
+    <exclude body1="base_footprint" body2="base_link" />
+    <exclude body1="base_link" body2="arm_carriage" />
+    <exclude body1="base_link" body2="steer1" />
+    <exclude body1="steer1" body2="wheel1" />
+    <exclude body1="base_link" body2="steer2" />
+    <exclude body1="steer2" body2="wheel2" />
+    <exclude body1="base_link" body2="steer3" />
+    <exclude body1="steer3" body2="wheel3" />
+    <exclude body1="base_link" body2="steer4" />
+    <exclude body1="steer4" body2="wheel4" />
+    <exclude body1="base_link" body2="imu_link" />
+    <exclude body1="arm_carriage" body2="left_link1" />
+    <exclude body1="left_link1" body2="left_link2" />
+    <exclude body1="left_link2" body2="left_link3" />
+    <exclude body1="left_link3" body2="left_link4" />
+    <exclude body1="left_link4" body2="left_link5" />
+    <exclude body1="left_link5" body2="left_link6" />
+    <exclude body1="left_link6" body2="left_link7" />
+    <exclude body1="left_link7" body2="left_tool_link" />
+    <exclude body1="left_link7" body2="left_tool0" />
+    <exclude body1="arm_carriage" body2="right_link1" />
+    <exclude body1="right_link1" body2="right_link2" />
+    <exclude body1="right_link2" body2="right_link3" />
+    <exclude body1="right_link3" body2="right_link4" />
+    <exclude body1="right_link4" body2="right_link5" />
+    <exclude body1="right_link5" body2="right_link6" />
+    <exclude body1="right_link6" body2="right_link7" />
+    <exclude body1="right_link7" body2="right_tool_link" />
+    <exclude body1="right_link7" body2="right_tool0" />
+    <exclude body1="arm_carriage" body2="H1_Link" />
+    <exclude body1="H1_Link" body2="H2_Link" />
+    <exclude body1="H2_Link" body2="Leye_link" />
+    <exclude body1="H2_Link" body2="Reye_Link" />
+    <exclude body1="H2_Link" body2="mid360_Link" />
+  </contact>
+</mujoco>

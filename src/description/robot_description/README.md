@@ -1,154 +1,94 @@
 # robot_description
 
-> 本分支在 `feat/v3-analytic-proxy`（e189bdb）上加入研华底盘台架已部署的底盘修正（ELECTRI-127）。
-> **当前底盘入口：`urdf/robot_analytic_proxy_mobile.urdf`**，不是下文保留的旧默认入口。
-> `base_footprint → base_link` 为 `xyz=[0,0,0.32]`、`yaw=+π/2`；新车头 `+X` 对应原 `base_link −Y`。
-> 四个 `steer*_joint` 的 origin yaw 为 `−π/2`，局部轴不变；转向 q 限位为 ±135°。
-> 四个 `wheel*_joint` 为 continuous，速度上限 **31.4 rad/s**。
-> 电机原码方向、标定零偏和总线配置属于控制部署，不包含在本模型快照中。
-> 部署入口 SHA-256：`bba180d064ff4fe672b9b3fdfa7e8e8fd1bc9d1cac4f7cbc13c751ebd0fbff1c`。
+本仓库只维护一套模型：V3.2.2 移动底盘/升降 + Alfav3 双臂 + 总装1011++6 上身基座及头部。
+当前模型基于 Rerun 中展示的 `main 3126c2f` 模型，双臂沿用当前 URDF 的零位和对齐 V3 的执行器参数。
 
+**唯一 URDF 入口：[urdf/robot_alfav3_mobile.urdf](urdf/robot_alfav3_mobile.urdf)。**
+保留这个文件名，以便已有下游入口继续使用。它不是历史文件 `robot_v3_2_2.urdf`。
 
-`robot_v3_suction_chassis` 当前默认提供 V3.2.2 整机几何与惯量、V3.1.1
-逻辑零位/方向/限位和地面 `base_footprint` 的生产描述。
+## 运控手臂碰撞体（2026-10-27）
 
-## 默认模型
+左右 `link1`～`link7` 的碰撞 STL 来自用户提供的 `robot_urdf_stl_20261027`，以共同 `arm_carriage` 和各模型零位求固定刚体转换后导入当前 link 坐标。外观、关节轴/原点/零位、惯性、工具碰撞和 TCP 均未随之替换；双 J2 仍为 −92°～+122°。
 
-- 入口：`urdf/robot.urdf.xacro`
-- 直接加载：`urdf/robot.urdf`
-- SRDF：`srdf/robot.srdf`
-- 初始位置：`config/initial_positions.yaml`
-- 关节限位：`config/joint_limits.yaml`
-- 命名姿态：`config/named_poses.yaml`
+转换来源、14组矩阵、文件哈希和顶点核对见 `config/arm_collision_import.json`，复现工具为 `tools/import_motion_collision.py <源目录>`。零位最大 STL 浮点误差约 1.5e-8 m；同关节角下两套运动链并非完全等价，J2=90°/122°时最大碰撞顶点差约 1.105/1.367 mm。本变更未验证全姿态碰撞安全裕量。
 
-模型只有 17 个运动关节：Updown、头部 yaw/pitch 和双臂 14 轴。
-V3.2.2 原始包没有舵轮、行走轮和主动悬挂关节，因此生产描述也不再声明这些
-自由度。V3.2.2 原始模型不额外安装旧 V3.1.1 吸盘网格；左右 `tool0` 是直接
-挂在 `link7` 局部 `+Z` 方向 `0.151m` 的无几何语义帧，不增加运动自由度。
+URDF/Rerun保留导入的原始三角面外形。MuJoCo派生模型同步引用这些网格，但其网格接触采用凸包近似，会填充凹陷，不能当成与FCL/原始STL完全一致的碰撞结果。
 
-## 根坐标
+## 文件
 
-`base_footprint` 是唯一物理根和地面接触参考。`base_link` 位于其正上方：
+| 路径 | 用途 |
+| --- | --- |
+| `urdf/robot_alfav3_mobile.urdf` | 唯一模型定义，可直接编辑 |
+| `srdf/robot_alfav3_mobile.srdf` | 规划组和碰撞排除，不含旧命名姿态 |
+| `config/joint_limits_alfav3_mobile.yaml` | 当前模型关节限位，与 URDF 保持一致 |
+| `config/alfav3_arm_module_specs.json` | eRob 执行器参数、额定/峰值口径和来源 |
+| `config/alfav3_mobile_manifest.json` | 模型约定、零位偏移和历史来源 |
+| `config/mesh_assets.json` | 58 个必需网格及 SHA-256 校验值 |
+| `mesh/` | URDF 引用的 58 个原始网格，按部件和 visual/collision 分类 |
+| `mujoco/robot.xml`、`mujoco/scene.xml` | MuJoCo 机器人及场景入口 |
+| `mujoco/meshes/` | XML 引用的转换网格（200 个 STL） |
+| `test/test_current_model.py` | 单树、网格、限位、惯性、零位与 SRDF 校验 |
+
+2026-10-23 按仓库全部 URDF/XML 的实际引用清理：删除旧 `meshes/` 下 81 个未引用 STL（86.6 MiB）及其空目录，移除 `model_sources/` 下与正式入口完全相同的 URDF 副本。`config/mesh_assets.json` 记录原始 URDF 网格；MuJoCo 转换网格由 XML 引用。
+
+网格统一放在 `mesh/`，URDF 的 `package://robot_description/mesh/…` URI、MuJoCo XML、资产清单、安装配置与生成工具同步使用以下结构：
 
 ```text
-base_footprint -> base_link: xyz=[0, 0, 0.335]m, rpy=[0, 0, 0]
+mesh/
+├── chassis/          # 底盘、转向与车轮，20 个 STL
+├── torso/            # 总装1011++6 上身基座，1 个 STL（米）
+├── head/             # H1/H2、左右眼视距和 mid360，5 个 STL（米）
+└── arms/
+    ├── visual/       # 双臂视觉，16 个 STL
+    └── collision/    # 双臂碰撞，16 个 STL
 ```
 
-SRDF 使用 `map → base_footprint` planar virtual joint 表达底盘 `x/y/yaw`；
-这些量不进入实体关节状态或关节轨迹控制器。
+原 V3 底座的 `part_001_solid_001.stl` 在 `chassis/` 中命名为 `base_link.stl`，避免与另一来源的同名文件冲突。资产校验值保留不变。
+这次清理没有改变 URDF、SRDF、网格、关节限位数值或动力学参数。
 
-## 零位与限位
+## 1011++6 上身和头部替换（2026-10-24）
 
-外观、碰撞网格和质量属性来自 V3.2.2。控制接口仍使用冻结的 V3.1.1
-逻辑关节名和限位。为了让既有姿态数值直接复用，V3.2.2 原始零位被适配为：
+源文件 `../总装1011++6/urdf/总装1011++6.urdf` 中的 `base_link` 是上身肩部基座，对应本模型的 `arm_carriage`。其网格、质量和惯量替换原升降架上的上身组件，沿用装配变换 `xyz=[0.266,0,0.36515] m`、`rpy=[π,0,0]`；移动底盘 `base_link`、升降和双臂关节变换保持原值。源 STL 已以米为单位，不加旧网格的 0.001 缩放。
 
-- 左 J1：原始角 = 逻辑角 - 90°
-- 右 J1：原始角 = 逻辑角 + 90°
-- 左 J5：原始角 = 逻辑角 + 90°
-- 右 J5：原始角 = 逻辑角 - 90°
-- Updown：原始位置 = -逻辑位置
+旧 `head_yaw/head` 和 `head_joint/head_pitch_joint` 已替换为 `H1_Link/H2_Link` 和 `H1_joint/H2_joint`，接入 `Leye_link`、`Reye_Link`、`mid360_Link` 及其固定关节。H1/H2 范围均为 ±180°，effort=10 N·m、velocity=5 rad/s 沿用旧头部配置。当前共 35 个 link、25 个活动关节。
 
-这些变换已经固化到 URDF joint origin/axis，下游继续发送 V3.1.1 逻辑角，不得
-再重复施加偏移。
+左右眼按无质量视距范围处理，仅作半透明视觉显示，无惯性或碰撞几何。mid360 质量按用户指定为 0.375 kg；源传感器质心与惯量异常，当前采用网格包围盒的均匀实体近似，待实测替换。来源摘要、原始 mid360 惯性数据及近似方法见 `config/alfav3_mobile_manifest.json`。
 
-双臂限位保持：J1 ±180°、J2 ±105°、J3 ±180°、J4 ±145°、J5 ±180°、
-J6 ±110°、J7 ±180°；Updown 为 `[-1,0]m`，`0m` 是最高点。
+## 零位和参数
 
-## 关键姿态
+- 模型零位为全部关节角/位移为 0；`updown=0 m` 是升降上端点。
+- 左 J5 的模型零位绕自身 +Z 轴偏转 180°：`q5_export = q5_model + π`；右 J5 保持导出零位。正方向不变。
+- 左 J3/J6 轴向已按台架确认结果取反；右臂编码器零位和方向仍需实机校验。
+- 双臂角度限位：J1/J3/J5/J7 ±160°、左右 J2 均为 −92°～+122°、J4 ±150°、J6 ±135°。
+- 双臂 effort：`[647,647,484,459,204,107,36] N·m`，表示启停峰值扭矩，不是连续额定值。
+- 双臂速度：按 `[12.5,12.5,12.5,16.7,30,30,30] rpm` 换算；J5 连续额定扭矩为 87 N·m。
+- 14 个臂关节的 `friction=0`、`damping=0` 是未辨识占位值。
+- `*_tool_link` 承载末端质量，`*_tool0` 为无质量 TCP，位于 link7 的 +Z 方向 0.2497 m。
+- 包含 `imu_link` 和头部雷达 `mid360_Link`。模型中的末端、质量和惯量不能替代实机装配确认或动力学标定。
 
-- 第一初始：Updown `-0.3m`，左臂 `[155,-105,20,90,-90,-40,0]°`，右臂取相反数。
-- 第二初始：Updown `-0.6m`，左臂 `[30,80,20,90,90,60,0]°`，右臂取相反数。
-- 第一放置：Updown `-0.3m`，左臂 `[140,-100,-180,20,-90,-20,0]°`，右臂取相反数。
-- 第二放置：Updown `-0.6m`，左臂 `[0,100,0,-30,100,30,0]°`，右臂取相反数。
+## 修改与验证
 
-完整精度数值见 `config/named_poses.yaml`。
-
-## 临时解析代理模型
-
-需要闭式解析 IK 的仿真与规划任务可以显式加载：
-
-```bash
-xacro $(ros2 pkg prefix robot_description)/share/robot_description/urdf/robot_analytic_proxy.urdf.xacro
-```
-
-对应姿态文件为 `config/named_poses_analytic_proxy.yaml`，参数清单为
-`config/analytic_proxy_manifest.json`。该模型以 V3.2.2 生产描述为基础，仅理想化
-左右 J3/J4/J5/J7 的毫米级装配原点，使肩、肘、腕轴组满足解析 IK 的共点假设；
-网格、惯量、关节方向、限位、`base_footprint` 和 `tool0=151mm` 均保持不变。
-
-该入口仅供临时算法开发和仿真，不是真机标定结果，也不会替换默认
-`urdf/robot.urdf.xacro`。实机与正式交付必须继续使用机械部门确认后的生产模型。
-
-## 四舵轮与 IMU 整机代理入口
-
-`urdf/robot_analytic_proxy_mobile.urdf` 在解析代理上身基础上，接入用户选定的
-`local_munsrkg7_6rqaj1_urdf_stl` 新机械底座与四舵轮。它包含 25 个运动关节、
-30 个 link，使用 `config/initial_positions_analytic_proxy_mobile.yaml` 与
-`config/joint_limits_analytic_proxy_mobile.yaml`。
-
-- 上身所有 link、joint（含机械臂八处代理原点、头部和 Tool0）相对 `base_link`
-  保持原代理模型定义。
-- `base_link` 的碰撞和惯量采用新机械来源；可视网格 `part_001_solid_001.stl`
-  使用之前 V3.2.2 的带罩壳版本，以遮住轮子。该罩壳仅用于外观，不作为新增碰撞或质量。
-  四组 `steer1..4` / `wheel1..4` 的几何、惯量、轴和旋转中心按源文件保留；关节类型、转向零位及限位按本页顶部的部署修正。
-- `base_footprint → base_link` 为 `[0,0,0.32]m`、yaw `+π/2`，基于源轮心高度 -0.22m 与
-  名义轮半径 0.10m；四轮网格最低点距地面约 0.34mm（网格离散误差）。
-- `base_link → imu_link` 为 `[0.403,0,0]m`、RPY `[0,0,0]`，依据用户此前明确
-  确认，且父坐标正是本次新机械底座的来源。IMU 只增加坐标系，不虚构外形和惯量。
-- 本次选定的新机械底盘没有独立主动悬挂关节。
-
-来源、原文件 SHA256 和 IMU 确认记录位于 `model_sources/mechanical_958c49d/`；
-组合策略见 `config/analytic_proxy_mobile_manifest.json`。重新生成入口和配置：
-
-```bash
-python3 tools/build_analytic_proxy_mobile.py
-```
-
-这是供查看与规划使用的组合模型，机械臂仍为实验性解析代理；上身与新底座装配
-需机械复核。IMU 设备 ENU/NED 输出约定不由该安装 TF 定义。原生产入口保持独立。
-
-## Alfav3 双臂整机入口
-
-**入口：`urdf/robot_alfav3_mobile.urdf`**，SRDF：`srdf/robot_alfav3_mobile.srdf`，
-关节限位：`config/joint_limits_alfav3_mobile.yaml`，清单：`config/alfav3_mobile_manifest.json`。
-
-- 双臂来自 `model_sources/alfav3_arms_1011_4`（SolidWorks 导出，已去掉中文包名并改为本仓库命名）。
-  导出的 `base_link` 即 `arm_carriage` 躯干（42.8 kg vs 42.3 kg），只用于确定安装位置：
-  Alfav3 `base_link → arm_carriage` 为 `xyz=[0.266, 0, 0.36515]m`、`rpy=[π, 0, 0]`，
-  由两侧 J1 轴线拟合（残差 4.7 µm / 1.5 µrad）。
-- 零位：Alfav3 导出零位 = 机械零位 = 驱动 2^18 计数零位。它对应旧入口的
-  左臂 `[90, -15, 180, 0, 90, 0, 0]°`、右臂 `[-90, 15, -180, 0, -90, 0, 0]°`；
-  相对旧入口，左 J6、右 J3/J4 轴向相反。旧入口的姿态数值不能直接用于新入口。
-- 关节正方向 = 驱动编码器计数增大方向。左 J3、J6 的导出轴与此相反，入口里取反
-  （2026-10-18 左臂台架实机确认）。右臂未经实机验证，保持导出轴。
-- 限位以新零位为中心对称；effort/velocity 沿用旧入口，未经实机验证。
-- `left|right_tool_link` 是导出的法兰件（link7 +Z 98.7 mm）；`left|right_tool0` 在 link7 +Z
-  `98.7 + 151 mm` 处，姿态与 link7 相同，与旧入口 tool0 物理位姿一致。
-- 视觉网格保持导出原始字节；碰撞网格为生成的包络（base_link 与 link1–5 用 CoACD 凸分解，
-  link6/link7/tool_link 用单凸包，凸块外扩 1 mm），全部视觉顶点都在包络内。
-- 质量与惯量来自导出，与旧入口差异较大，未经实机验证。
-- 重新生成：`tools/import_alfav3_arms.py <导出目录>`（需 coacd/trimesh，开发工具），
-  然后 `python3 tools/build_alfav3_mobile.py`。
-
-## 来源与已知边界
-
-V3.2.2 原始导出保存在 `model_sources/robot_v3_2_2/`，来源哈希见
-`config/v3_2_2_source_manifest.json`。原始导出报告仍提示 16 个未分配 CAD part；
-这些 part 未被原始 URDF 引用，也未被生产入口强行补入。
-
-`urdf/robot_v3_2_2.urdf` 保留机械原始关节命名和通用限位，仅用于来源审查；
-运行时必须使用默认生产入口。
-
-## 构建与测试
+直接编辑当前 URDF，并同步相关限位 YAML/清单。历史生成器依赖已归档的多个模型，已移出当前分支，避免重新生成时覆盖当前模型。
+若修改网格，应更新 `config/mesh_assets.json` 对应校验值。
 
 ```bash
 source /opt/ros/humble/setup.bash
+python3 -m pytest -q test
 colcon build --packages-select robot_description
-source install/setup.bash
 colcon test --packages-select robot_description
 colcon test-result --verbose
 ```
 
-测试检查来源哈希、单树根坐标、17轴清单、V3.1.1限位、四套姿态到原始
-V3.2.2几何的等价映射、Tool0固定链、SRDF引用和安装后mesh解析；代理模型
-额外检查只修改约定原点、三组轴共点和第三放置位15轴合同。
+## 完整备份
+
+清理前完整版本：`3126c2f0716eaefc13d6bfbbf955027125156950`。
+GitHub 和 Gitea 均保留标签 **`backup/before-single-model-20261020`**。
+旧 V3/V3.1.1、解析代理模型、历史 Xacro、姿态、生成脚本与源模型全部可在该标签中找到。
+
+独立取回备份，不影响当前工作区：
+
+```bash
+git worktree add --detach ../robot_description-archive backup/before-single-model-20261020
+```
+
+本次仓库清理不修改工控机部署或硬件编码器标定。

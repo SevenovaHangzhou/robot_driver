@@ -143,14 +143,17 @@ class ArmConsole:
         pose_path,
         clock: Callable[[], float] = time.monotonic,
         spawn: Optional[Callable[[Callable[[], None]], None]] = None,
+        wait: Callable[[float], None] = time.sleep,
     ) -> None:
         self.config = config
         self.controller = controller
         self._driver = driver
         self._pose_path = pose_path
         self._clock = clock
+        self._wait = wait
         self._lock = threading.RLock()
         self.robot = Robot()
+        self._vacuum_pressure: dict[str, dict] = {}
         self.model: Optional[ArmModel] = None
         self.model_error = "等待机器人模型"
         self.poses: Optional[PoseStore] = None
@@ -182,6 +185,39 @@ class ArmConsole:
         with self._lock:
             for key, value in values.items():
                 setattr(self.robot, key, value)
+
+    def update_vacuum_pressure(
+        self, side: str, pressure_kpa: float, valid: bool, error: str = "", unit: str = "kPa"
+    ) -> None:
+        """Display-only telemetry; conversion and validity belong to the IO node."""
+        if side not in ("left", "right"):
+            raise ValueError("unknown vacuum sensor side")
+        if unit != "kPa":
+            valid, error = False, "invalid_unit"
+        elif not math.isfinite(pressure_kpa):
+            valid, error = False, "non_finite"
+        with self._lock:
+            self._vacuum_pressure[side] = {
+                "pressure_kpa": pressure_kpa if valid else None,
+                "valid": bool(valid),
+                "error": "" if valid else (error or "invalid"),
+                "received_at": self._clock(),
+            }
+
+    def _vacuum_pressure_status(self, now: float) -> dict:
+        result = {}
+        for side in ("left", "right"):
+            sample = self._vacuum_pressure.get(side)
+            error = "waiting" if sample is None else (
+                "stale" if now - sample["received_at"] > 1.0 else sample["error"]
+            )
+            result[side] = {
+                "pressure_kpa": sample["pressure_kpa"] if not error else None,
+                "valid": not bool(error),
+                "error": error,
+                "unit": "kPa",
+            }
+        return result
 
     # ------------------------------------------------------------------ lease
     def touch(self, session: str) -> None:
@@ -282,12 +318,13 @@ class ArmConsole:
             }
 
     def execute(
-        self, session: str, target: Mapping[str, float], gear_name: str, label: str = ""
+        self, session: str, target: Mapping[str, float], gear_name: str, label: str = "",
+        *, _sequence: Optional[dict] = None,
     ) -> dict:
         with self._lock:
             self._require_lease(session)
-            if self._execution is not None:
-                raise ConsoleError("busy", "上一段运动尚未结束")
+            if self._execution is not None or self._sequence is not _sequence:
+                raise ConsoleError("busy", "上一段运动或序列尚未结束")
             reason = self._motion_ready()
             if reason:
                 raise ConsoleError("not_ready", reason)
@@ -301,7 +338,8 @@ class ArmConsole:
             execution = _Execution("move", plan, gear, started, 0.0, label)
             self._execution = execution
             self._last_result = ""
-        self._send(execution, plan.points(self.config.sample_period))
+        # Deployed left_arm_jtc max_trajectory_points=2000 (controller log verified).
+        self._send(execution, plan.bounded_points(self.config.sample_period, 2000))
         return {"duration_s": plan.duration}
 
     def goto_pose(self, session: str, name: str, gear_name: str) -> dict:
@@ -311,16 +349,37 @@ class ArmConsole:
             raise ConsoleError("bad_pose", str(exc)) from exc
         return self.execute(session, dict(zip(self.joint_names, values)), gear_name, name)
 
-    def run_sequence(self, session: str, names: Sequence[str], gear_name: str) -> dict:
+    def run_sequence(
+        self, session: str, names: Sequence[str], gear_name: str, dwell_s: float = 0.0,
+        *, steps: Optional[Sequence[dict]] = None,
+    ) -> dict:
         """Go to saved poses one after another; every step passes the normal checks.
 
         All poses are validated first. A stop, a failed step, a lost lease or a lost
-        enable ends the sequence; poses equal to the current position are skipped.
+        enable ends the sequence. Already-reached poses also receive the selected dwell.
+        Dwell starts at successful completion and includes the final pose.
         """
-        if not isinstance(names, (list, tuple)) or not names:
+        # Normalize legacy uniform sequences and per-step requests before any motion.
+        if steps is None:
+            if not isinstance(names, (list, tuple)):
+                raise ConsoleError("bad_sequence", "序列位姿必须是列表")
+            steps = [{"name": name, "gear": gear_name, "dwell_s": dwell_s} for name in names]
+        if not isinstance(steps, (list, tuple)) or not steps:
             raise ConsoleError("bad_sequence", "请选择至少一个位姿")
-        if len(names) > MAX_SEQUENCE:
+        if len(steps) > MAX_SEQUENCE:
             raise ConsoleError("bad_sequence", f"序列最多 {MAX_SEQUENCE} 个位姿")
+        normalized = []
+        for index, step in enumerate(steps, start=1):
+            if (not isinstance(step, dict) or not isinstance(step.get("name"), str)
+                    or not isinstance(step.get("gear"), str)):
+                raise ConsoleError("bad_sequence", f"第 {index} 段需要位姿名称和档位")
+            dwell = step.get("dwell_s", 0)
+            if (isinstance(dwell, bool) or not isinstance(dwell, (int, float))
+                    or not math.isfinite(dwell) or dwell < 0):
+                raise ConsoleError("bad_dwell", f"第 {index} 段停留时间必须为非负有限秒数")
+            self.config.gear(step["gear"])
+            normalized.append({"name": step["name"], "gear": step["gear"], "dwell_s": float(dwell)})
+        names = [step["name"] for step in normalized]
         with self._lock:
             self._require_lease(session)
             if self._execution is not None or self._sequence is not None:
@@ -328,7 +387,6 @@ class ArmConsole:
             reason = self._motion_ready()
             if reason:
                 raise ConsoleError("not_ready", reason)
-            self.config.gear(gear_name)
             for index, name in enumerate(names, start=1):
                 try:
                     values = self._pose_store().get(name)
@@ -341,46 +399,77 @@ class ArmConsole:
             self._sequence = {
                 "session": session,
                 "names": tuple(str(name) for name in names),
-                "gear": gear_name,
+                "gear": normalized[0]["gear"],
+                "steps": normalized,
                 "index": 0,
+                "dwell_s": normalized[0]["dwell_s"],
+                "wait_until": None,
             }
             self._last_result = ""
-        self._sequence_step()
+            sequence = self._sequence
+        self._sequence_step(sequence)
         return {"total": len(names)}
 
-    def _sequence_step(self) -> None:
-        while True:
-            with self._lock:
-                sequence = self._sequence
-                if sequence is None:
-                    return
-                total = len(sequence["names"])
-                if sequence["index"] >= total:
-                    self._sequence = None
-                    self._last_result = f"序列完成（{total} 个位姿）"
-                    return
-                index, name = sequence["index"], sequence["names"][sequence["index"]]
+    def _sequence_step(self, sequence: dict) -> None:
+        # Keep identity validation and submission atomic with respect to stop/new run.
+        with self._lock:
+            if self._sequence is not sequence:
+                return
+            total = len(sequence["names"])
+            if sequence["index"] >= total:
+                self._sequence = None
+                self._last_result = f"序列完成（{total} 个位姿）"
+                return
+            index, name = sequence["index"], sequence["names"][sequence["index"]]
+            step = sequence["steps"][index]
+            sequence["gear"] = step["gear"]
+            sequence["dwell_s"] = step["dwell_s"]
             label = f"{index + 1}/{total} {name}"
             try:
                 values = self._pose_store().get(name)
                 self.execute(
-                    sequence["session"],
-                    dict(zip(self.joint_names, values)),
-                    sequence["gear"],
-                    label,
+                    sequence["session"], dict(zip(self.joint_names, values)),
+                    sequence["gear"], label, _sequence=sequence,
                 )
-                return  # the completion callback advances the sequence
-            except (ConsoleError, PoseError) as exc:
-                with self._lock:
-                    if self._sequence is not sequence:
-                        return
-                    if isinstance(exc, ConsoleError) and exc.code == "no_motion":
-                        sequence["index"] += 1  # already there: next pose
-                        continue
-                    self._sequence = None
-                    message = exc.message if isinstance(exc, ConsoleError) else str(exc)
-                    self._last_result = f"序列中止（{label}）：{message}"
                 return
+            except (ConsoleError, PoseError) as exc:
+                if self._sequence is not sequence:
+                    return
+                if isinstance(exc, ConsoleError) and exc.code == "no_motion":
+                    self._sequence_arrived(sequence)
+                    return
+                self._sequence = None
+                message = exc.message if isinstance(exc, ConsoleError) else str(exc)
+                self._last_result = f"序列中止（{label}）：{message}"
+
+    def _sequence_arrived(self, sequence: dict) -> None:
+        # Called with the lock held, only after success or an already-reached pose.
+        sequence["wait_until"] = self._clock() + sequence["dwell_s"]
+        self._spawn(lambda: self._sequence_continue(sequence))
+
+    def _sequence_continue(self, sequence: dict) -> None:
+        while True:
+            with self._lock:
+                if self._sequence is not sequence:
+                    return
+                try:
+                    self._require_lease(sequence["session"])
+                    reason = self._motion_ready()
+                    if reason:
+                        raise ConsoleError("not_ready", reason)
+                    self._measured()
+                except ConsoleError as exc:
+                    self._sequence = None
+                    self._last_result = f"序列中止：{exc.message}"
+                    return
+                remaining = sequence["wait_until"] - self._clock()
+                if remaining <= 0:
+                    sequence["index"] += 1
+                    sequence["wait_until"] = None
+                    self._sequence_step(sequence)
+                    return
+            # Non-RT worker; no lock held while waiting. Stop invalidates identity.
+            self._wait(min(remaining, 0.1))
 
     def stop(self) -> dict:
         """Smooth stop on the current line; any authenticated client may request it."""
@@ -420,7 +509,6 @@ class ArmConsole:
 
     def _send(self, execution: _Execution, points) -> None:
         def done(success: bool, message: str) -> None:
-            advance = False
             with self._lock:
                 if self._execution is not execution:
                     return  # superseded (e.g. by a stop)
@@ -432,15 +520,12 @@ class ArmConsole:
                     sequence = self._sequence
                     if sequence is not None:
                         if success:
-                            sequence["index"] += 1
-                            advance = True
+                            self._sequence_arrived(sequence)
                         else:
                             self._sequence = None
                             self._last_result = f"序列中止（{execution.label}）：{message}"
             if not success and execution.kind == "stop":
                 self._driver.cancel()  # fall back to the controller's hold
-            if advance:
-                self._spawn(self._sequence_step)
 
         try:
             self._driver.send(self.joint_names, points, done, execution.started)
@@ -451,8 +536,8 @@ class ArmConsole:
     def save_pose(self, session: str, name: str, overwrite: bool) -> None:
         with self._lock:
             self._require_lease(session)
-            if self._execution is not None:
-                raise ConsoleError("busy", "运动中不能保存位姿")
+            if self._execution is not None or self._sequence is not None:
+                raise ConsoleError("busy", "运动或序列中不能保存位姿")
             positions = self._measured()
         try:
             self._pose_store().save(name, positions, overwrite=overwrite)
@@ -475,8 +560,8 @@ class ArmConsole:
     def begin_enable(self, session: str) -> None:
         with self._lock:
             self._require_lease(session)
-            if self._execution is not None:
-                raise ConsoleError("busy", "运动中不能切换使能")
+            if self._execution is not None or self._sequence is not None:
+                raise ConsoleError("busy", "运动或序列中不能切换使能")
             if self._enable_busy:
                 raise ConsoleError("busy", "正在切换使能")
             self._enable_busy = True
@@ -514,6 +599,7 @@ class ArmConsole:
                 else "other",
                 "model_error": self.model_error,
                 "feedback_fresh": feedback_fresh,
+                "vacuum_pressure": self._vacuum_pressure_status(now),
                 "positions": {n: robot.positions.get(n) for n in self.joint_names},
                 "enable": {
                     "state": robot.enable_state
@@ -535,8 +621,12 @@ class ArmConsole:
                 if self._sequence is None
                 else {
                     "names": list(self._sequence["names"]),
+                    "steps": [dict(step) for step in self._sequence["steps"]],
                     "index": self._sequence["index"],
                     "total": len(self._sequence["names"]),
+                    "dwell_s": self._sequence["dwell_s"],
+                    "dwelling": self._sequence["wait_until"] is not None,
+                    "dwell_remaining_s": max(0.0, (self._sequence["wait_until"] or now) - now),
                 },
                 "last_result": self._last_result,
             }

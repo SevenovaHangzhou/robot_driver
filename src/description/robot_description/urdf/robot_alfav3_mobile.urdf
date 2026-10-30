@@ -8,406 +8,23 @@
   </joint>
   <link name="arm_carriage">
     <inertial>
-      <origin xyz="0.23241894 1.4548597e-09 0.35398238" rpy="0 0 0" />
-      <mass value="42.349928" />
-      <inertia ixx="1.461624" iyy="1.1919986" izz="1.2166646" ixy="0.00047758911" ixz="0.028235631" iyz="-2.4308674e-08" />
+      <origin xyz="0.23694464536324472 5.3146263483262798e-07 0.32700563330509558" rpy="3.1415926535897931 0 0" />
+      <mass value="43.0078185286443" />
+      <inertia ixx="0.637599779635185" ixy="8.35573038618462E-06" ixz="-0.00470189812461125" iyy="0.70396791298062" iyz="3.7826666151288E-06" izz="0.699163951660266" />
     </inertial>
     <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <origin xyz="0.26600000000000001 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_014_surface_shell_014.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/torso/base_link.STL" />
       </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_004_surface_shell_004.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_003_solid_003.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_058_solid_058.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_050_solid_050.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_002_solid_002.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_005_surface_shell_005.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_015_surface_shell_015.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_018_surface_shell_018.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_008_surface_shell_008.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_006_surface_shell_006.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_009_surface_shell_009.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_016_surface_shell_016.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_019_surface_shell_019.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_017_surface_shell_017.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_007_surface_shell_007.stl" scale="0.001 0.001 0.001" />
-      </geometry>
+      <material name="base_link_material">
+        <color rgba="1 1 1 1" />
+      </material>
     </visual>
     <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <origin xyz="0.26600000000000001 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_014_surface_shell_014.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_004_surface_shell_004.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_003_solid_003.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_058_solid_058.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_050_solid_050.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_002_solid_002.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_005_surface_shell_005.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_015_surface_shell_015.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_018_surface_shell_018.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_008_surface_shell_008.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_006_surface_shell_006.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_009_surface_shell_009.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_016_surface_shell_016.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_019_surface_shell_019.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_017_surface_shell_017.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_007_surface_shell_007.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-  </link>
-  <link name="head_yaw">
-    <inertial>
-      <origin xyz="-0.017162676 -0.0055771162 0.02718393" rpy="0 0 0" />
-      <mass value="0.072317618" />
-      <inertia ixx="5.6695638e-05" iyy="4.4027791e-05" izz="4.9804167e-05" ixy="-1.1455479e-06" ixz="4.6539858e-06" iyz="1.5137677e-06" />
-    </inertial>
-    <visual>
-      <origin xyz="-0.441 0 -1.5041" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_047_solid_047.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="-0.441 0 -1.5041" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_047_solid_047.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-  </link>
-  <link name="head">
-    <inertial>
-      <origin xyz="0.011403312 0.052498 -0.013964383" rpy="0 0 0" />
-      <mass value="6.925078" />
-      <inertia ixx="0.58208657" iyy="0.090423591" izz="0.6242853" ixy="0.16278386" ixz="-1.9637467e-05" iyz="-2.3007969e-05" />
-    </inertial>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_025_surface_shell_025.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_035_surface_shell_035.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_045_solid_045.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_024_solid_024.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_046_solid_046.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_036_surface_shell_036.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_026_surface_shell_026.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_028_surface_shell_028.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_030_surface_shell_030.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_040_surface_shell_040.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_029_surface_shell_029.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_027_surface_shell_027.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_038_surface_shell_038.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_037_surface_shell_037.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_039_surface_shell_039.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_025_surface_shell_025.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_035_surface_shell_035.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_045_solid_045.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_024_solid_024.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_046_solid_046.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_036_surface_shell_036.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_026_surface_shell_026.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_028_surface_shell_028.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_030_surface_shell_030.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_040_surface_shell_040.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_029_surface_shell_029.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_027_surface_shell_027.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_038_surface_shell_038.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_037_surface_shell_037.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.419 1.5481 -0.01393364" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_039_surface_shell_039.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/torso/base_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -418,20 +35,6 @@
     <axis xyz="0 0 -1" />
     <limit lower="-1" upper="0" effort="10" velocity="5" />
   </joint>
-  <joint name="head_joint" type="revolute">
-    <origin xyz="0.267 0 0.1759" rpy="-3.1415927 0 0" />
-    <parent link="arm_carriage" />
-    <child link="head_yaw" />
-    <axis xyz="0 0 1" />
-    <limit lower="-1.57" upper="1.57" effort="10" velocity="5" />
-  </joint>
-  <joint name="head_pitch_joint" type="revolute">
-    <origin xyz="-0.022 0.01393364 0.044" rpy="-1.5707963 0 0" />
-    <parent link="head_yaw" />
-    <child link="head" />
-    <axis xyz="0 0 1" />
-    <limit lower="-1.57" upper="1.57" effort="10" velocity="5" />
-  </joint>
   <link name="base_link">
     <inertial>
       <origin xyz="-0.058828565 -0.00039444606 0.47566224" rpy="0 0 0" />
@@ -441,133 +44,133 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_049_solid_049.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_049_solid_049.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/robot_v3_2_2/meshes/part_001_solid_001.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/base_link.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_048_solid_048.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_048_solid_048.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_072_solid_072.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_072_solid_072.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_073_solid_073.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_073_solid_073.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_071_solid_071.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_071_solid_071.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_068_solid_068.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_068_solid_068.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_067_solid_067.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_067_solid_067.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_069_solid_069.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_069_solid_069.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_070_solid_070.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_070_solid_070.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_074_solid_074.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_074_solid_074.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_049_solid_049.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_049_solid_049.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_001_solid_001.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_001_solid_001.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_048_solid_048.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_048_solid_048.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_072_solid_072.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_072_solid_072.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_073_solid_073.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_073_solid_073.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_071_solid_071.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_071_solid_071.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_068_solid_068.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_068_solid_068.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_067_solid_067.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_067_solid_067.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_069_solid_069.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_069_solid_069.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_070_solid_070.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_070_solid_070.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_074_solid_074.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_074_solid_074.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -580,13 +183,13 @@
     <visual>
       <origin xyz="-0.305 0.305 0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_061_solid_061.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_061_solid_061.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="-0.305 0.305 0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_061_solid_061.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_061_solid_061.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -599,13 +202,13 @@
     <visual>
       <origin xyz="-0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_062_solid_062.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_062_solid_062.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="-0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_062_solid_062.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_062_solid_062.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -618,13 +221,13 @@
     <visual>
       <origin xyz="-0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_059_solid_059.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_059_solid_059.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="-0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_059_solid_059.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_059_solid_059.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -637,13 +240,13 @@
     <visual>
       <origin xyz="-0.305 -0.22 0.275" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_060_solid_060.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_060_solid_060.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="-0.305 -0.22 0.275" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_060_solid_060.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_060_solid_060.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -656,13 +259,13 @@
     <visual>
       <origin xyz="0.305 0.305 -0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_065_solid_065.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_065_solid_065.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="0.305 0.305 -0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_065_solid_065.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_065_solid_065.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -675,13 +278,13 @@
     <visual>
       <origin xyz="0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_066_solid_066.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_066_solid_066.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_066_solid_066.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_066_solid_066.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -694,13 +297,13 @@
     <visual>
       <origin xyz="0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_063_solid_063.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_063_solid_063.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_063_solid_063.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_063_solid_063.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -713,13 +316,13 @@
     <visual>
       <origin xyz="0.305 -0.22 0.275" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_064_solid_064.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_064_solid_064.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="0.305 -0.22 0.275" rpy="1.5707963 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/mechanical_958c49d/meshes/part_064_solid_064.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/part_064_solid_064.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
   </link>
@@ -794,7 +397,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_link1.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_link1.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -803,7 +406,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_link1.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_link1.STL" />
       </geometry>
     </collision>
   </link>
@@ -816,7 +419,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_link2.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_link2.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -825,7 +428,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_link2.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_link2.STL" />
       </geometry>
     </collision>
   </link>
@@ -838,7 +441,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_link3.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_link3.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -847,7 +450,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_link3.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_link3.STL" />
       </geometry>
     </collision>
   </link>
@@ -860,7 +463,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_link4.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_link4.STL" />
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
@@ -869,7 +472,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_link4.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_link4.STL" />
       </geometry>
     </collision>
   </link>
@@ -882,7 +485,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_link5.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_link5.STL" />
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
@@ -891,7 +494,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_link5.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_link5.STL" />
       </geometry>
     </collision>
   </link>
@@ -904,7 +507,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_link6.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_link6.STL" />
       </geometry>
       <material name="">
         <color rgba="1 1 1 1" />
@@ -913,7 +516,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_link6.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_link6.STL" />
       </geometry>
     </collision>
   </link>
@@ -926,7 +529,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_link7.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_link7.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -935,7 +538,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_link7.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_link7.STL" />
       </geometry>
     </collision>
   </link>
@@ -948,7 +551,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/left_tool_link.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/left_tool_link.STL" />
       </geometry>
       <material name="">
         <color rgba="1 0.949019607843137 0.909803921568627 1" />
@@ -957,7 +560,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/left_tool_link.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/left_tool_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -966,49 +569,56 @@
     <parent link="arm_carriage" />
     <child link="left_link1" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="647" velocity="1.309" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="647" velocity="1.3089969389957472" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint2" type="revolute">
     <origin xyz="0 0 0" rpy="1.309 0 0" />
     <parent link="left_link1" />
     <child link="left_link2" />
     <axis xyz="1 0 0" />
-    <limit lower="-1.8325957145940461" upper="1.8325957145940461" effort="647" velocity="1.309" />
+    <limit lower="-1.6057029118347832" upper="2.129301687433082" effort="647" velocity="1.3089969389957472" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint3" type="revolute">
     <origin xyz="0 0.506 0" rpy="-1.5708 0 0" />
     <parent link="left_link2" />
     <child link="left_link3" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="484" velocity="1.309" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="484" velocity="1.3089969389957472" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint4" type="revolute">
     <origin xyz="0 0 0" rpy="1.5707963267949 0 0" />
     <parent link="left_link3" />
     <child link="left_link4" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="1.749" />
+    <limit lower="-2.6179938779914944" upper="2.6179938779914944" effort="459" velocity="1.7488199104983182" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint5" type="revolute">
-    <origin xyz="0 0.474 0" rpy="-1.5707963267949 0 0" />
+    <origin xyz="0 0.474 0" rpy="-1.5707963267949 3.141592653589793 0" />
     <parent link="left_link4" />
     <child link="left_link5" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="217" velocity="2.618" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="204" velocity="3.1415926535897927" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint6" type="revolute">
     <origin xyz="0 0 0" rpy="1.5707963267949 0 0" />
     <parent link="left_link5" />
     <child link="left_link6" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="3.142" />
+    <limit lower="-2.356194490192345" upper="2.356194490192345" effort="107" velocity="3.1415926535897927" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint7" type="revolute">
     <origin xyz="0 0 0" rpy="-1.5707963267949 0 0" />
     <parent link="left_link6" />
     <child link="left_link7" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="36" velocity="3.142" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="36" velocity="3.1415926535897927" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_tool_fixed" type="fixed">
     <origin xyz="0 0 0.0986999999999811" rpy="1.5707963267949 0 0" />
@@ -1031,7 +641,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_link1.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_link1.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -1040,7 +650,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_link1.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_link1.STL" />
       </geometry>
     </collision>
   </link>
@@ -1053,7 +663,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_link2.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_link2.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -1062,7 +672,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_link2.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_link2.STL" />
       </geometry>
     </collision>
   </link>
@@ -1075,7 +685,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_link3.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_link3.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -1084,7 +694,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_link3.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_link3.STL" />
       </geometry>
     </collision>
   </link>
@@ -1097,7 +707,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_link4.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_link4.STL" />
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
@@ -1106,7 +716,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_link4.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_link4.STL" />
       </geometry>
     </collision>
   </link>
@@ -1119,7 +729,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_link5.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_link5.STL" />
       </geometry>
       <material name="">
         <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
@@ -1128,7 +738,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_link5.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_link5.STL" />
       </geometry>
     </collision>
   </link>
@@ -1141,7 +751,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_link6.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_link6.STL" />
       </geometry>
       <material name="">
         <color rgba="1 1 1 1" />
@@ -1150,7 +760,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_link6.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_link6.STL" />
       </geometry>
     </collision>
   </link>
@@ -1163,7 +773,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_link7.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_link7.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -1172,7 +782,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_link7.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_link7.STL" />
       </geometry>
     </collision>
   </link>
@@ -1185,7 +795,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/visual/right_tool_link.STL" />
+        <mesh filename="package://robot_description/mesh/arms/visual/right_tool_link.STL" />
       </geometry>
       <material name="">
         <color rgba="0.866666666666667 0.909803921568627 1 1" />
@@ -1194,7 +804,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/model_sources/alfav3_arms_1011_4/meshes/collision/right_tool_link.STL" />
+        <mesh filename="package://robot_description/mesh/arms/collision/right_tool_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -1203,49 +813,56 @@
     <parent link="arm_carriage" />
     <child link="right_link1" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="647" velocity="1.309" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="647" velocity="1.3089969389957472" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint2" type="revolute">
     <origin xyz="0 0 0" rpy="-1.5707963267949 -0.261799387799151 1.5707963267949" />
     <parent link="right_link1" />
     <child link="right_link2" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.8325957145940461" upper="1.8325957145940461" effort="647" velocity="1.309" />
+    <limit lower="-1.6057029118347832" upper="2.129301687433082" effort="647" velocity="1.3089969389957472" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint3" type="revolute">
     <origin xyz="0 -0.506000000045022 0" rpy="1.5707963267949 1.5707963267949 0" />
     <parent link="right_link2" />
     <child link="right_link3" />
-    <axis xyz="0 0 -1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="484" velocity="1.309" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="484" velocity="1.3089969389957472" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint4" type="revolute">
     <origin xyz="0 0 0" rpy="-1.5707963267949 0 0" />
     <parent link="right_link3" />
     <child link="right_link4" />
-    <axis xyz="0 0 -1" />
-    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="1.749" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.6179938779914944" upper="2.6179938779914944" effort="459" velocity="1.7488199104983182" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint5" type="revolute">
-    <origin xyz="0 -0.474000000000003 0" rpy="1.5707963267949 0 0" />
+    <origin xyz="0 -0.474000000000003 0" rpy="-1.570796326795 3.14159265359 3.14159265359" />
     <parent link="right_link4" />
     <child link="right_link5" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="217" velocity="2.618" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="204" velocity="3.1415926535897927" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint6" type="revolute">
     <origin xyz="0 0 0" rpy="-1.5707963267949 0 0" />
     <parent link="right_link5" />
     <child link="right_link6" />
     <axis xyz="0 0 1" />
-    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="3.142" />
+    <limit lower="-2.356194490192345" upper="2.356194490192345" effort="107" velocity="3.1415926535897927" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint7" type="revolute">
     <origin xyz="0 0 0" rpy="1.57079632679489 0 0" />
     <parent link="right_link6" />
     <child link="right_link7" />
     <axis xyz="0 0 1" />
-    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="36" velocity="3.142" />
+    <limit lower="-2.792526803190927" upper="2.792526803190927" effort="36" velocity="3.1415926535897927" />
+    <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_tool_fixed" type="fixed">
     <origin xyz="0 0 0.0986999999999769" rpy="-1.57079632679489 0 0" />
@@ -1258,5 +875,125 @@
     <origin xyz="0.0 0.0 0.2497" rpy="0 0 0" />
     <parent link="right_link7" />
     <child link="right_tool0" />
+  </joint>
+  <link name="H1_Link">
+    <inertial>
+      <origin xyz="-0.0193101466822019 -0.00462200038728198 0.2299480657906" rpy="0 0 0" />
+      <mass value="0.279891410655859" />
+      <inertia ixx="8.24197069582363E-05" ixy="-8.60735780941269E-07" ixz="2.71318714227839E-06" iyy="0.000134686827989522" iyz="6.77194801653851E-07" izz="9.74516431435526E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/H1_Link.STL" />
+      </geometry>
+      <material name="H1_Link_material">
+        <color rgba="0.866666666666667 0.909803921568627 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/H1_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="H2_Link">
+    <inertial>
+      <origin xyz="-0.0152089027887525 0.0422440779975193 0.000136722359139303" rpy="0 0 0" />
+      <mass value="1.51565299644841" />
+      <inertia ixx="0.00176955579249004" ixy="9.16527122719249E-05" ixz="-5.03934525838653E-08" iyy="0.00120739216276253" iyz="-6.99930879521429E-07" izz="0.00171762008713826" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/H2_Link.STL" />
+      </geometry>
+      <material name="H2_Link_material">
+        <color rgba="0.866666666666667 0.909803921568627 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/H2_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="Leye_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/Leye_link.STL" />
+      </geometry>
+      <material name="Leye_link_material">
+        <color rgba="0.850980392156863 1 0.258823529411765 0.15" />
+      </material>
+    </visual>
+  </link>
+  <link name="Reye_Link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/Reye_Link.STL" />
+      </geometry>
+      <material name="Reye_Link_material">
+        <color rgba="0.850980392156863 1 0.258823529411765 0.15" />
+      </material>
+    </visual>
+  </link>
+  <link name="mid360_Link">
+    <inertial>
+      <origin xyz="0 0.014781538397073746 -0.01695144921541214" rpy="0 0 0" />
+      <mass value="0.375" />
+      <inertia ixx="0.00039156229099928004" ixy="0" ixz="0" iyy="0.0002443836536081545" iyz="0" izz="0.0004102171177228931" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/mid360_Link.STL" />
+      </geometry>
+      <material name="mid360_Link_material">
+        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/head/mid360_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="H1_joint" type="revolute">
+    <origin xyz="0.26699999999999902 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
+    <parent link="arm_carriage" />
+    <child link="H1_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="10" velocity="5" />
+  </joint>
+  <joint name="H2_joint" type="revolute">
+    <origin xyz="0 0 0.24625009252407" rpy="1.5707963267949 0 0" />
+    <parent link="H1_Link" />
+    <child link="H2_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-3.141592653589793" upper="3.141592653589793" effort="10" velocity="5" />
+  </joint>
+  <joint name="Leye_joint" type="fixed">
+    <origin xyz="0.012866 0.11171 -0.06" rpy="-1.5708 0 0" />
+    <parent link="H2_Link" />
+    <child link="Leye_link" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <joint name="Reye_joint" type="fixed">
+    <origin xyz="0.012866 0.11171 0.06" rpy="-1.5708 0 0" />
+    <parent link="H2_Link" />
+    <child link="Reye_Link" />
+    <axis xyz="0 0 0" />
+  </joint>
+  <joint name="mid360_joint" type="fixed">
+    <origin xyz="0.03857 0.066019 0" rpy="-1.5708 0 -0.37885" />
+    <parent link="H2_Link" />
+    <child link="mid360_Link" />
+    <axis xyz="0 0 0" />
   </joint>
 </robot>

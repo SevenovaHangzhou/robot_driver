@@ -6,6 +6,7 @@ issued after token login, a same-origin check and the console's own checks.
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -22,7 +23,7 @@ from urllib.parse import urlsplit
 
 from .audit import AuditLog
 from .console import ArmConsole, ConsoleError
-from .model import MESH_URL_PREFIX, resolve_mesh
+from .model import MESH_URL_PREFIX, ModelError, load_arm_model, resolve_mesh
 
 RESET_OK_STAGES = {"success", "already_clear"}
 RESET_HINTS = {
@@ -60,11 +61,30 @@ class ConsoleServer(ThreadingHTTPServer):
         set_enabled: Callable[[bool], dict],
         audit: Optional[AuditLog] = None,
         reset_fault: Optional[Callable[[], dict]] = None,
+        view_model_share: Optional[Path] = None,
+        vacuum=None,
     ) -> None:
         if not token:
             raise ValueError("an access token is required")
         if not (web_dir / "index.html").is_file():
             raise ValueError(f"missing web asset: {web_dir / 'index.html'}")
+        self.view_model_share = view_model_share.resolve() if view_model_share is not None else None
+        self.view_model_text = None
+        self.view_mesh_prefix = None
+        self.view_model_metadata = None
+        if self.view_model_share is not None:
+            entry = self.view_model_share / "urdf/robot_alfav3_mobile.urdf"
+            data = entry.read_bytes()
+            self.view_model_text = data.decode("utf-8")
+            manifest = self.view_model_share / "config/mesh_assets.json"
+            manifest_data = manifest.read_bytes() if manifest.is_file() else b""
+            digest = hashlib.sha256(data + manifest_data).hexdigest()
+            self.view_mesh_prefix = f"/view-mesh/{digest}/"
+            self.view_model_metadata = {
+                "entry": "urdf/robot_alfav3_mobile.urdf",
+                "urdf_sha256": hashlib.sha256(data).hexdigest(),
+                "assets_version": digest,
+            }
         super().__init__(address, Handler)
         self.console = console
         self.token = token.encode("utf-8")
@@ -73,9 +93,15 @@ class ConsoleServer(ThreadingHTTPServer):
         self.set_enabled = set_enabled
         self.audit = audit or AuditLog(None)
         self.reset_fault = reset_fault
+        self.vacuum = vacuum
         self.sessions: set[str] = set()
         self.lock = threading.Lock()
         self.stopping = threading.Event()
+
+    def view_share_lookup(self, package: str) -> str:
+        if package == "robot_description" and self.view_model_share is not None:
+            return str(self.view_model_share)
+        return self.share_lookup(package)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -139,6 +165,16 @@ class Handler(BaseHTTPRequestHandler):
             self._file(self.server.web_dir / "index.html")
         elif path.startswith("/static/"):
             self._file(self._static(path[len("/static/") :]))
+        elif self.server.view_mesh_prefix and path.startswith(self.server.view_mesh_prefix):
+            if self._session() is None:
+                self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required"})
+                return
+            self._file(
+                resolve_mesh(
+                    path[len(self.server.view_mesh_prefix) :], self.server.view_share_lookup
+                ),
+                cache=True,
+            )
         elif path.startswith(MESH_URL_PREFIX):
             if self._session() is None:
                 self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required"})
@@ -151,13 +187,38 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required"})
                 return
             console = self.server.console
+            model = console.model
+            if self.server.view_model_text is not None:
+                try:
+                    model = load_arm_model(
+                        self.server.view_model_text,
+                        console.joint_names,
+                        mesh_prefix=self.server.view_mesh_prefix,
+                    )
+                except (ModelError, ValueError, AttributeError, IndexError) as exc:
+                    self._json(
+                        HTTPStatus.SERVICE_UNAVAILABLE,
+                        {"error": "view_model_unavailable", "message": str(exc)},
+                    )
+                    return
             self._json(
                 HTTPStatus.OK,
                 {
                     **console.static_info(),
-                    "urdf": console.model.browser_urdf if console.model else None,
+                    "urdf": model.browser_urdf if model else None,
+                    "arm_links": list(model.arm_links) if model else [],
+                    "view_model": self.server.view_model_metadata,
                 },
             )
+        elif path == "/api/vacuum":
+            if self._session() is None:
+                self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required"})
+                return
+            state = self.server.vacuum.status() if self.server.vacuum is not None else {
+                "configured": False, "valid": False, "busy": False,
+                "outputs": {}, "message": "未配置真空控制工具",
+            }
+            self._json(HTTPStatus.OK, state)
         elif path == "/api/events":
             self._events()
         else:
@@ -272,7 +333,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _command(self, path: str, session: str, body: dict) -> Optional[dict]:
         console = self.server.console
-        if path == "/api/acquire":
+        if path == "/api/vacuum":
+            if self.server.vacuum is None:
+                raise ConsoleError("vacuum_unavailable", "未配置真空控制工具")
+            status = console.status(session)
+            if status["lease"] != "you":
+                raise ConsoleError("lease_required", "请先获取控制权")
+            if status["moving"] or status["sequence"] or status["enable"]["busy"]:
+                raise ConsoleError("busy", "请等待当前运动、序列或使能操作结束")
+            return self.server.vacuum.set_output(
+                body["output"], body["enabled"], body["expected"]
+            )
+        elif path == "/api/acquire":
             console.acquire(session)
         elif path == "/api/release":
             console.release(session)
@@ -285,7 +357,10 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/goto_pose":
             return console.goto_pose(session, body["name"], body["gear"])
         elif path == "/api/run_sequence":
-            return console.run_sequence(session, body["names"], body["gear"])
+            return console.run_sequence(
+                session, body.get("names", []), body.get("gear", ""), body.get("dwell_s", 0),
+                steps=body.get("steps"),
+            )
         elif path == "/api/save_pose":
             console.save_pose(session, body["name"], bool(body.get("overwrite", False)))
         elif path == "/api/delete_pose":

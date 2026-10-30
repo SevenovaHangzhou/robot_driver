@@ -1,0 +1,38 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: true
+authorities:
+  topology: 2026-10-26 live scan retains original dual-arm right positions9..15; confirmed zero counts
+    unchanged
+  source: bench_dual_arm_zero.yaml right axes; user-confirmed 2026-10-22 zero counts retained
+pending_facts: []
+robot_variant: Alfa_V3
+module: bench_right_arm
+spec:
+  confirmed_by: user
+  captured_utc: '2026-10-22T00:00:00+00:00'
+  external_transmission_ratio: 1.0
+  position_object: 24676
+  axes:
+  - ring_position: 9
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 10
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 11
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 12
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 13
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 14
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 15
+    zero_counts: 262144
+    digital_outputs: 1

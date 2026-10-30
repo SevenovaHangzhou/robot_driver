@@ -4,7 +4,7 @@
 # this mapping is 18 B). Used by the bench module first; other modules switch after their own
 # hardware check. `scale` is consumed by the renderer and never reaches the driver:
 #   velocity  -> output-side rad/s (position factor, no offset, with the axis direction)
-#   direction -> raw value times the axis direction (torque in per mille of rated torque)
+#   direction -> raw value times the axis direction (0x6077 in per mille of rated current; communication manual v1.10 8.2.97)
 # RxPDO mirrors (patch ecat_icube 0014): target_position / control_word_sent report the values the
 # outgoing frame actually carries (including the plugin's preload/hold), in interface units.
 identity:

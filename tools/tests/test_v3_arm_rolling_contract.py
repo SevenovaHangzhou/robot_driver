@@ -89,5 +89,5 @@ def test_ci_sources_the_built_overlay_before_expanding_the_v3_model():
     validation = workflow.split("- name: Validate shared robot description", 1)[1]
     validation = validation.split("- name:", 1)[0]
     assert validation.index("source install/setup.bash") < validation.index(
-        "xacro src/description/robot_description/urdf/robot.urdf.xacro"
+        "xacro src/description/robot_description/urdf/robot_alfav3_mobile.urdf"
     )

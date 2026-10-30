@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "manual": "eRob机器人关节模组用户手册_V3.44.pdf",
+  "manual_sha256": "73e138369aa2780c980e0652008c8311c95d26ac3b4142ce2f05afdc1bf0e7b5",
+  "applies_to": [
+    "left",
+    "right"
+  ],
+  "effort_policy": "output-side startup/stop peak torque; not continuous rated or momentary shock torque",
+  "velocity_policy": "published output-side peak rpm * 2*pi/60; no second gearbox conversion",
+  "version_status": "110H V6 explicitly listed; other supplied revision suffixes not individually verified by these tables",
+  "limitations": "Independent scalar caps do not enforce duty cycle, temperature or torque-speed envelope. Tables retain latest specifications; version-specific drawings take precedence.",
+  "joints": {
+    "joint1": {
+      "model": "erob170H160I-BS-18EN(V3)",
+      "ratio_label": 160,
+      "startup_stop_peak_torque_nm": 647,
+      "rated_torque_nm": 294,
+      "average_load_torque_max_nm": 451,
+      "momentary_shock_torque_max_nm": 1180,
+      "output_peak_rpm": 12.5,
+      "urdf_effort_nm": 647,
+      "urdf_velocity_rad_s": 1.3089969389957472,
+      "table": "2-4 (C)",
+      "printed_page": 5,
+      "pdf_page": 16
+    },
+    "joint2": {
+      "model": "erob170H160I-BS-18EN(V3)",
+      "ratio_label": 160,
+      "startup_stop_peak_torque_nm": 647,
+      "rated_torque_nm": 294,
+      "average_load_torque_max_nm": 451,
+      "momentary_shock_torque_max_nm": 1180,
+      "output_peak_rpm": 12.5,
+      "urdf_effort_nm": 647,
+      "urdf_velocity_rad_s": 1.3089969389957472,
+      "table": "2-4 (C)",
+      "printed_page": 5,
+      "pdf_page": 16
+    },
+    "joint3": {
+      "model": "erob142H160I-BHM-18ET(V4)",
+      "ratio_label": 160,
+      "startup_stop_peak_torque_nm": 484,
+      "rated_torque_nm": 178,
+      "average_load_torque_max_nm": 281,
+      "momentary_shock_torque_max_nm": 892,
+      "output_peak_rpm": 12.5,
+      "urdf_effort_nm": 484,
+      "urdf_velocity_rad_s": 1.3089969389957472,
+      "table": "2-4 (C)",
+      "printed_page": 5,
+      "pdf_page": 16
+    },
+    "joint4": {
+      "model": "erob142H120I-BHS-18ET(V4)",
+      "ratio_label": 120,
+      "startup_stop_peak_torque_nm": 459,
+      "rated_torque_nm": 178,
+      "average_load_torque_max_nm": 281,
+      "momentary_shock_torque_max_nm": 892,
+      "output_peak_rpm": 16.7,
+      "urdf_effort_nm": 459,
+      "urdf_velocity_rad_s": 1.7488199104983182,
+      "table": "2-4 (C)",
+      "printed_page": 5,
+      "pdf_page": 16
+    },
+    "joint5": {
+      "model": "erob110H100I-BHS-18ET(V6)",
+      "ratio_label": 100,
+      "startup_stop_peak_torque_nm": 204,
+      "rated_torque_nm": 87,
+      "average_load_torque_max_nm": 140,
+      "momentary_shock_torque_max_nm": 369,
+      "output_peak_rpm": 30,
+      "urdf_effort_nm": 204,
+      "urdf_velocity_rad_s": 3.1415926535897927,
+      "table": "2-3 (B)",
+      "printed_page": 4,
+      "pdf_page": 15
+    },
+    "joint6": {
+      "model": "erob90H100I-BHS-18ET(V6)",
+      "ratio_label": 100,
+      "startup_stop_peak_torque_nm": 107,
+      "rated_torque_nm": 52,
+      "average_load_torque_max_nm": 64,
+      "momentary_shock_torque_max_nm": 191,
+      "output_peak_rpm": 30,
+      "urdf_effort_nm": 107,
+      "urdf_velocity_rad_s": 3.1415926535897927,
+      "table": "2-3 (B)",
+      "printed_page": 4,
+      "pdf_page": 15
+    },
+    "joint7": {
+      "model": "erob70H100I-BS-18EN(V5)",
+      "ratio_label": 100,
+      "startup_stop_peak_torque_nm": 36,
+      "rated_torque_nm": 10,
+      "average_load_torque_max_nm": 14,
+      "momentary_shock_torque_max_nm": 70,
+      "output_peak_rpm": 30,
+      "urdf_effort_nm": 36,
+      "urdf_velocity_rad_s": 3.1415926535897927,
+      "table": "2-2 (A)",
+      "printed_page": 3,
+      "pdf_page": 14
+    }
+  }
+}

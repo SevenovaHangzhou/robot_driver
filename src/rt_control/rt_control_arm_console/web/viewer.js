@@ -65,6 +65,9 @@ export class ArmViewer {
         }
       });
     }
+    for (const previous of [this.measured, this.ghost]) {
+      if (previous) this.scene.remove(previous);
+    }
     this.measured = measured;
     this.ghost = ghost;
     this.scene.add(measured, ghost);

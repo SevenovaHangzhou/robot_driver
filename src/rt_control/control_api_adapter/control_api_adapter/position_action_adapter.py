@@ -279,7 +279,7 @@ def main(args=None) -> None:
             )
             return PositionResourceCore(
                 name,
-                ("head_joint", "head_pitch_joint"),
+                ("H1_joint", "H2_joint"),
                 **self._common_parameters(name),
             )
 

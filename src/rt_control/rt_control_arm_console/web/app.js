@@ -1,5 +1,8 @@
 // Arm console page. The server checks every command; this page only proposes targets.
 import { ArmViewer } from "./viewer.js";
+import { CompletionSound } from "./completion-sound.mjs";
+import { VacuumControls } from "./vacuum-controls.mjs";
+import { VacuumPressure } from "./vacuum-pressure.mjs";
 
 const $ = (id) => document.getElementById(id);
 const DEG = 180 / Math.PI;
@@ -14,10 +17,18 @@ const state = {
   edited: false, // true once the operator moved a slider since the last sync
   pending: null, // {kind: "target"}
   poses: [],
-  sequence: [], // pose names, in execution order (repeats allowed)
+  sequence: [], // {name, gear, dwell_s}, in execution order (repeats allowed)
 };
 let viewer = null;
 let events = null;
+let loadedModelKey = null;
+const completionAudio = new Audio('/static/action-complete.mp3');
+completionAudio.preload = 'auto';
+const completionSound = new CompletionSound(completionAudio, (message) => toast(message, true));
+const vacuumControls = new VacuumControls($("vacuum-panel"));
+const vacuumPressure = new VacuumPressure($("vacuum-pressure"));
+document.addEventListener('click', () => completionSound.unlock(), { capture: true });
+document.addEventListener('keydown', () => completionSound.unlock(), { capture: true });
 
 async function post(path, body = {}) {
   const response = await fetch(path, {
@@ -64,18 +75,24 @@ $("login-form").addEventListener("submit", async (event) => {
 });
 
 async function start() {
+  vacuumControls.start();
   viewer = new ArmViewer($("viewer"));
   await loadInfo();
   events = new EventSource("/api/events");
   events.onmessage = (message) => onStatus(JSON.parse(message.data));
-  events.onerror = () => setChip("conn-chip", "连接中断", "bad");
+  events.onerror = () => {
+    completionSound.reset();
+    vacuumControls.setAccess(null);
+    vacuumPressure.disconnect();
+    setChip("conn-chip", "连接中断", "bad");
+  };
 }
 
 async function loadInfo() {
   const response = await fetch("/api/info");
   if (response.status === 401) { location.reload(); return; }
   const info = await response.json();
-  if (!info.urdf || !info.joints.length) {
+  if (!response.ok || !info.urdf) {
     setTimeout(loadInfo, 2000);
     return;
   }
@@ -85,16 +102,36 @@ async function loadInfo() {
   buildJoints();
   renderPoses(info.poses);
   renderSequence();
-  $("model-msg").textContent = "正在加载整车模型…";
-  await viewer.load(info.urdf, info.arm_links || []);
-  $("model-msg").hidden = true;
+  const modelKey = info.urdf + JSON.stringify(info.arm_links || []);
+  if (modelKey !== loadedModelKey) {
+    $("model-msg").textContent = "正在加载整车模型…";
+    $("model-msg").hidden = false;
+    await viewer.load(info.urdf, info.arm_links || []);
+    loadedModelKey = modelKey;
+    renderTargets();
+  }
+  $("model-msg").textContent = "模型已加载，等待关节数据";
+  $("model-msg").hidden = info.joints.length > 0;
+  if (!info.joints.length) setTimeout(loadInfo, 2000);
 }
 
 // ------------------------------------------------------------------ controls
 function buildGears() {
   const gears = state.info.gears;
   const container = $("gears");
-  if (gears.length === 2) {
+  if (gears.length > 4) {
+    const select = document.createElement("select");
+    select.id = "gear-select";
+    select.setAttribute("aria-label", "运动速度");
+    select.replaceChildren(...[...gears].sort((a, b) => a.velocity_deg_s - b.velocity_deg_s).map((gear) => {
+      const option = document.createElement("option");
+      option.value = gear.name;
+      option.textContent = gear.label;
+      return option;
+    }));
+    select.addEventListener("change", () => { state.gear = select.value; markGear(); });
+    container.replaceChildren(select);
+  } else if (gears.length === 2) {
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.id = "gear-switch";
@@ -128,6 +165,8 @@ function buildGears() {
 function markGear() {
   const gears = state.info.gears;
   const gear = gears.find((item) => item.name === state.gear) || gears[0];
+  const select = $("gear-select");
+  if (select) select.value = gear.name;
   const toggle = $("gear-switch");
   if (toggle) {
     const second = gear.name === gears[1].name;
@@ -297,7 +336,10 @@ function renderPoses(poses) {
     add.className = "small add";
     add.textContent = "+ 序列";
     add.addEventListener("click", () => {
-      state.sequence.push(pose.name);
+      const dwell = defaultDwell();
+      if (dwell === null) return;
+      if (state.sequence.length >= 50) return toast("序列最多 50 个位姿", true);
+      state.sequence.push({ name: pose.name, gear: state.gear, dwell_s: dwell });
       renderSequence();
     });
     const remove = document.createElement("button");
@@ -314,7 +356,7 @@ function renderPoses(poses) {
   }));
   // Drop deleted poses from the sequence being edited.
   const names = new Set(poses.map((pose) => pose.name));
-  const kept = state.sequence.filter((name) => names.has(name));
+  const kept = state.sequence.filter((step) => names.has(step.name));
   if (kept.length !== state.sequence.length) {
     state.sequence = kept;
     renderSequence();
@@ -324,12 +366,39 @@ function renderPoses(poses) {
 
 function renderSequence() {
   const running = state.status && state.status.sequence;
-  const names = running ? running.names : state.sequence;
-  $("sequence").replaceChildren(...names.map((name, index) => {
+  const steps = running ? running.steps : state.sequence;
+  $("sequence").replaceChildren(...steps.map((step, index) => {
     const item = document.createElement("li");
     const label = document.createElement("span");
-    label.textContent = name;
-    item.append(label);
+    label.textContent = step.name;
+    label.className = "sequence-name";
+    const speed = document.createElement("select");
+    speed.setAttribute("aria-label", `第 ${index + 1} 段速度`);
+    speed.replaceChildren(...[...state.info.gears].sort((a, b) => a.velocity_deg_s - b.velocity_deg_s).map((gear) => {
+      const option = document.createElement("option");
+      option.value = gear.name;
+      option.textContent = gear.label;
+      return option;
+    }));
+    speed.value = step.gear;
+    speed.disabled = Boolean(running);
+    speed.addEventListener("change", () => { step.gear = speed.value; });
+    const dwellLabel = document.createElement("label");
+    dwellLabel.textContent = "停留 ";
+    const dwell = document.createElement("input");
+    dwell.type = "number";
+    dwell.min = "0";
+    dwell.step = "0.1";
+    dwell.value = String(step.dwell_s);
+    dwell.setAttribute("aria-label", `第 ${index + 1} 段停留秒数`);
+    dwell.disabled = Boolean(running);
+    dwell.addEventListener("change", () => {
+      const value = Number(dwell.value);
+      if (dwell.value.trim() && Number.isFinite(value) && value >= 0) step.dwell_s = value;
+      else { dwell.value = String(step.dwell_s); toast("停留时间必须为非负有限秒数", true); }
+    });
+    dwellLabel.append(dwell, " 秒");
+    item.append(label, speed, dwellLabel);
     if (running) {
       item.classList.toggle("done", index < running.index);
       item.classList.toggle("current", index === running.index);
@@ -347,16 +416,31 @@ function renderSequence() {
     }
     return item;
   }));
-  $("sequence-empty").hidden = names.length > 0;
+  $("sequence-empty").hidden = steps.length > 0;
   $("sequence-count").textContent = running
-    ? `执行中 ${Math.min(running.index + 1, running.total)} / ${running.total}`
-    : names.length ? `${names.length} 个位姿` : "";
+    ? `${running.dwelling ? `停留中 ${running.dwell_remaining_s.toFixed(1)}s` : "执行中"} ${Math.min(running.index + 1, running.total)} / ${running.total}`
+    : steps.length ? `${steps.length} 个位姿` : "";
   updateButtons();
 }
 
 $("sequence-run").addEventListener("click", async () => {
   if (!state.sequence.length) return;
-  await guarded(() => post("/api/run_sequence", { names: state.sequence, gear: state.gear }));
+  await guarded(() => post("/api/run_sequence", { steps: state.sequence }));
+});
+function defaultDwell() {
+  const input = $("sequence-dwell");
+  const value = Number(input.value);
+  if (!input.value.trim() || !Number.isFinite(value) || value < 0) {
+    toast("停留时间必须为非负有限秒数", true);
+    return null;
+  }
+  return value;
+}
+$("sequence-apply").addEventListener("click", () => {
+  const dwell = defaultDwell();
+  if (dwell === null) return;
+  state.sequence = state.sequence.map((step) => ({ ...step, gear: state.gear, dwell_s: dwell }));
+  renderSequence();
 });
 $("sequence-clear").addEventListener("click", () => {
   state.sequence = [];
@@ -392,6 +476,9 @@ function setChip(id, text, kind = "") {
 }
 
 function onStatus(status) {
+  vacuumPressure.update(status.vacuum_pressure);
+  vacuumControls.setAccess(status);
+  completionSound.update(status);
   const wasMoving = Boolean(state.status && state.status.moving);
   const sequenceChanged =
     JSON.stringify((state.status && state.status.sequence) || null) !==
@@ -456,5 +543,62 @@ function updateButtons() {
   for (const button of $("poses").querySelectorAll("button.add")) button.disabled = sequencing;
   for (const button of $("poses").querySelectorAll("button:not(.motion):not(.add)")) button.disabled = !mine;
   $("sequence-run").disabled = !ready || sequencing || !state.sequence.length;
+  $("sequence-dwell").disabled = sequencing;
+  $("sequence-apply").disabled = sequencing || !state.sequence.length;
   $("sequence-clear").disabled = sequencing || !state.sequence.length;
 }
+
+// Saved test presets: prepare the existing editor only. Execution stays manual.
+(async () => {
+  const { preparePreset } = await import("./sequence-presets.mjs");
+  const response = await fetch("/static/sequence-presets.json", { cache: "no-store" });
+  if (!response.ok) throw new Error("测试序列预设读取失败");
+  const catalog = await response.json();
+  const list = $("sequence");
+  const row = document.createElement("div");
+  row.className = "row";
+  const select = document.createElement("select");
+  select.id = "test-sequence-preset";
+  select.setAttribute("aria-label", "测试序列预设");
+  const groups = new Map();
+  for (const preset of catalog.presets) {
+    const groupName = preset.group || "其他预设";
+    if (!groups.has(groupName)) {
+      const group = document.createElement("optgroup");
+      group.label = groupName;
+      groups.set(groupName, group);
+      select.append(group);
+    }
+    const option = document.createElement("option");
+    option.value = preset.id;
+    option.textContent = preset.label;
+    option.disabled = Boolean(preset.blocked_reason);
+    if (preset.blocked_reason) option.title = preset.blocked_reason;
+    groups.get(groupName).append(option);
+  }
+  select.value = "j2-settled-three-rounds";
+  const load = document.createElement("button");
+  load.type = "button";
+  load.id = "test-sequence-load";
+  load.textContent = "载入序列（不执行）";
+  load.addEventListener("click", () => {
+    try {
+      if (!state.info || !state.status) throw new Error("请先登录并等待操作台状态更新");
+      const prepared = preparePreset(catalog, select.value, state.poses, state.status, state.info.gears);
+      state.sequence = prepared.names.map((name) => ({ name, gear: prepared.gear, dwell_s: prepared.dwell_s }));
+      state.gear = prepared.gear;
+      $("sequence-dwell").value = String(prepared.dwell_s);
+      buildGears();
+      renderSequence();
+      toast(`已载入：${prepared.gear}，${prepared.names.length} 个位姿，${prepared.dwell_s ? `每点停留 ${prepared.dwell_s} 秒` : "连续执行"}；核对后再点“依次执行”`);
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+  row.append(select, load);
+  const note = document.createElement("p");
+  note.className = "hint";
+  note.textContent = "载入会自动设置档位和停留时间，不会立即运动。T4整组：13个位姿、三轮，每点停留8秒，最终返回零位；请选择“T4：整组三轮自动执行”。原T4分步选项仍为每点2秒。";
+  list.parentNode.insertBefore(row, list);
+  list.parentNode.insertBefore(note, list);
+})().catch((error) => toast(`测试序列入口不可用：${error.message}`, true));
