@@ -24,7 +24,7 @@ bool enabled(double value)
   if (!std::isfinite(value) || value < 0.0 || value > 65535.0 || std::trunc(value) != value) {
     return false;
   }
-  return hw_semantic_components::Cia402Axis::decode_state(static_cast<uint16_t>(value)) ==
+  return hw_semantic_components::decode_cia402_state(static_cast<uint16_t>(value)) ==
          hw_semantic_components::Cia402State::kOperationEnabled;
 }
 bool fresh(int64_t received, int64_t now, double limit)

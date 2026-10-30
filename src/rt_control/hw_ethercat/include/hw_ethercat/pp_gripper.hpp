@@ -6,6 +6,8 @@
 #include <limits>
 #include <stdexcept>
 
+#include "hw_semantic_components/cia402_state.hpp"
+
 namespace hw_ethercat
 {
 // Values are internal ros2_control state, not a public ROS message contract.
@@ -115,7 +117,7 @@ public:
     }
 
     if (
-      (feedback.status_word & 0x0008U) == 0 && (feedback.status_word & 0x006fU) != 0x0027U &&
+      (feedback.status_word & 0x0008U) == 0 && !operation_enabled(feedback.status_word) &&
       output_.state != PpState::fault) {
       output_.sequence = request.sequence;
       output_.target = feedback.actual_position;
@@ -123,7 +125,7 @@ public:
       return compose(feedback.control_word);
     }
 
-    const bool healthy = (feedback.status_word & 0x006fU) == 0x0027U && feedback.mode == 1 &&
+    const bool healthy = operation_enabled(feedback.status_word) && feedback.mode == 1 &&
                          std::isfinite(feedback.velocity) && std::isfinite(now) &&
                          now >= last_time_ && (feedback.control_word & 0x0170U) == 0;
     last_time_ = now;
@@ -213,6 +215,11 @@ public:
   }
 
 private:
+  static bool operation_enabled(uint16_t status_word) noexcept
+  {
+    return hw_semantic_components::decode_cia402_state(status_word) ==
+           hw_semantic_components::Cia402State::kOperationEnabled;
+  }
   static bool positive(double value) noexcept { return std::isfinite(value) && value > 0.0; }
   static bool raw_position_valid(double value) noexcept
   {

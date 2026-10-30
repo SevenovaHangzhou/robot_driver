@@ -229,12 +229,24 @@ TEST(Cia402AxisTest, DecodesEveryCia402PowerDriveState)
   }};
 
   for (const auto & [status_word, expected] : states) {
-    EXPECT_EQ(Cia402Axis::decode_state(status_word), expected) << status_word;
+    EXPECT_EQ(decode_cia402_state(status_word), expected) << status_word;
     // Bits outside the CiA402 state masks must not change the decoded state.
-    EXPECT_EQ(Cia402Axis::decode_state(static_cast<std::uint16_t>(status_word | 0xFF90U)), expected)
+    EXPECT_EQ(decode_cia402_state(static_cast<std::uint16_t>(status_word | 0xFF90U)), expected)
       << status_word;
   }
-  EXPECT_EQ(Cia402Axis::decode_state(0x0001U), State::kUnknown);
+  EXPECT_EQ(decode_cia402_state(0x0001U), State::kUnknown);
+}
+
+TEST(Cia402AxisTest, OperationEnabledIsExactlyTheMaskedStatusWord0x27)
+{
+  // hw_ethercat plugins replaced their own `(status & 0x6f) == 0x27` with this decoder.
+  for (std::uint32_t word = 0U; word <= 0xFFFFU; ++word) {
+    const auto status_word = static_cast<std::uint16_t>(word);
+    EXPECT_EQ(
+      decode_cia402_state(status_word) == Cia402State::kOperationEnabled,
+      (status_word & 0x006FU) == 0x0027U)
+      << status_word;
+  }
 }
 
 TEST(Cia402AxisTest, DecodesTheBoundStatusInterface)

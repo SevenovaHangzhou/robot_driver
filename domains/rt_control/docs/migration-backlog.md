@@ -20,7 +20,7 @@
 | [x] | C 重复 | 3 套 Modbus TCP 客户端（`plc_io_modbus`、`modbus_tcp_rtu485`、`plc_node`）（`plc_node` 已删；#130、#131 统一到 `infra_modbus`） | 3 |
 | [x] | C | 3 套 SocketCAN 封装（`robot_hw_can`、`bms_node`、`lpms_nav3_can`）（#128 统一到 `infra_socketcan`） | 3 |
 | [ ] | C | 3 个协议包 renderer 各自复制 `_share/_validate/_param/validate_*` | 3 |
-| [ ] | C | CiA402 状态字解码在 5 个包各写一份；`semantic_components` 未成为唯一出口 | 1.1、3 |
+| [ ] | C | CiA402 状态字解码在 5 个包各写一份；`semantic_components` 未成为唯一出口（arch-c3：C++ 全部经 `hw_semantic_components/cia402_state.hpp`；离线 Python 预检 `topology_preflight.py` 仍自写一行，待台架验证后合入） | 1.1、3 |
 | [ ] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份 | 3 |
 | [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
 | [ ] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件 | 3 硬指标 |
@@ -55,7 +55,7 @@
 | [ ] | `robot_hw_ethercat` | protocol | 先删后改名 | `hw_ethercat` | （二代残留已删；x503 已删；arch-r3 已改名；剩余：renderer 骨架抽 infra）最杂：二代残留（xacro、`variants/`、`config/slaves/`、681 行 `validate_ethercat_variants.py`）约占 40%；3 个 renderer 各自复制 `_param`；吸收 `x503_force_sensor` 为 `tools/x503/`。 |
 | [ ] | `robot_hw_canopen` | protocol | 保留 | `hw_canopen` | （arch-r3 已改名；剩余：EDS 生成源头标注）健康。EDS `.compat.*` 三件套按 §4.5 标注生成源头。 |
 | [x] | `robot_hw_can` | protocol | 保留 | `hw_can_damiao` | （arch-r3 已改名；SocketCAN 已由 #128 下沉 infra）健康。`socketcan.cpp` 作为 `infra_socketcan` 种子。 |
-| [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | （#120、#121 已瘦身；arch-r3 已改名；剩余：CiA402 唯一出口）名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
+| [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | （#120、#121 已瘦身；arch-r3 已改名；arch-c3 CiA402 唯一出口待台架验证）名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
 | [ ] | `enable_manager` | control | 拆 | `ctrl_enable_manager` | （arch-r2 已改名；剩余：拆分）2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
 | [x] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
 | [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | （arch-r2 已改名；剩余：拆分、去 OpenSSL）`rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
