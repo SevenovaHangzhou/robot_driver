@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "infra_socketcan/socket.hpp"
 #include "robot_hw_can/protocol.hpp"
 
 namespace robot_hw_can
@@ -14,7 +15,6 @@ class SocketCan final
 {
 public:
   SocketCan() noexcept = default;
-  ~SocketCan() noexcept;
 
   SocketCan(const SocketCan &) = delete;
   SocketCan & operator=(const SocketCan &) = delete;
@@ -27,7 +27,7 @@ public:
   [[nodiscard]] bool wait_readable(int timeout_ms) const;
 
 private:
-  int descriptor_{-1};
+  infra_socketcan::Socket socket_;
 };
 
 }  // namespace robot_hw_can

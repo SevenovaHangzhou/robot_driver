@@ -3,7 +3,6 @@
 #include <array>
 #include <cstdint>
 #include <stdexcept>
-#include <string_view>
 
 namespace lpms_nav3_can
 {
@@ -31,11 +30,6 @@ std::array<can_filter, 5U> make_can_filters(const std::uint8_t node_id)
     can_filter{0x480U + node, exact_standard_data_mask},
     can_filter{0x700U + node, exact_standard_data_mask},
   };
-}
-
-bool is_reserved_robot_interface(const std::string_view interface_name) noexcept
-{
-  return interface_name == "can0" || interface_name == "can1";
 }
 
 }  // namespace lpms_nav3_can

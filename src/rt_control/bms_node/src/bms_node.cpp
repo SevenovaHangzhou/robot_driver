@@ -3,15 +3,12 @@
 #include "bms_node/protocol/can_transport.hpp"
 #include "bms_node/dual_battery_controller.hpp"
 #include "bms_node/protocol/protocol.hpp"
+#include "infra_socketcan/socket.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 #include "std_msgs/msg/bool.hpp"
 
-#include <linux/can/raw.h>
 #include <net/if.h>
-#include <poll.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <array>
@@ -230,7 +227,7 @@ private:
     return static_cast<std::uint8_t>(value);
   }
 
-  int connect_can()
+  infra_socketcan::Socket connect_can()
   {
     if (!expected_adapter_serial_.empty()) {
       std::ifstream serial_file{
@@ -242,43 +239,23 @@ private:
         RCLCPP_WARN(
           get_logger(), "CAN interface %s does not match configured adapter serial",
           can_interface_.c_str());
-        return -1;
+        return {};
       }
     }
-    const unsigned int index = if_nametoindex(can_interface_.c_str());
-    if (index == 0U) {
-      RCLCPP_WARN(get_logger(), "CAN interface %s is unavailable", can_interface_.c_str());
-      return -1;
-    }
-    const int descriptor = ::socket(
-      PF_CAN, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, CAN_RAW);
-    if (descriptor < 0) {
-      RCLCPP_WARN(get_logger(), "CAN socket open failed: %s", std::strerror(errno));
-      return -1;
-    }
-    std::array<can_filter, 16U> filters{};
+    std::vector<can_filter> filters(response_ids_.size());
     for (std::size_t i = 0U; i < filters.size(); ++i) {
       filters[i] = make_response_filter(response_ids_[i]);
     }
-    if (::setsockopt(descriptor, SOL_CAN_RAW, CAN_RAW_FILTER, filters.data(),
-      static_cast<socklen_t>(sizeof(filters))) != 0)
-    {
-      RCLCPP_WARN(get_logger(), "CAN filter setup failed: %s", std::strerror(errno));
-      ::close(descriptor);
-      return -1;
-    }
-    sockaddr_can address{};
-    address.can_family = AF_CAN;
-    address.can_ifindex = static_cast<int>(index);
-    if (::bind(descriptor, reinterpret_cast<const sockaddr *>(&address),
-      sizeof(address)) != 0)
-    {
-      RCLCPP_WARN(get_logger(), "CAN bind failed: %s", std::strerror(errno));
-      ::close(descriptor);
-      return -1;
+    infra_socketcan::Socket socket;
+    try {
+      socket.open(can_interface_, filters);
+    } catch (const std::exception & error) {
+      RCLCPP_WARN(
+        get_logger(), "CAN connect to %s failed: %s", can_interface_.c_str(), error.what());
+      return {};
     }
     RCLCPP_INFO(get_logger(), "connected to %s", can_interface_.c_str());
-    return descriptor;
+    return socket;
   }
 
   void wait_until(const std::chrono::steady_clock::time_point deadline)
@@ -288,9 +265,9 @@ private:
   }
 
   bool send_discharge_command(
-    const int descriptor, const std::uint8_t address, const bool enabled)
+    const infra_socketcan::Socket & socket, const std::uint8_t address, const bool enabled)
   {
-    if (descriptor < 0) {
+    if (!socket.is_open()) {
       RCLCPP_ERROR_THROTTLE(
         get_logger(), *get_clock(), 5000, "BMS D9 not sent: CAN is disconnected");
       return false;
@@ -300,11 +277,9 @@ private:
       make_can_id(kDischargeMosDataId, address, host_address_);
     command.len = 8U;
     command.data[0U] = enabled ? 1U : 0U;
-    if (::write(descriptor, &command, sizeof(command)) !=
-      static_cast<ssize_t>(sizeof(command)))
-    {
-      RCLCPP_ERROR(get_logger(), "BMS D9 write failed for 0x%02x: %s",
-        address, std::strerror(errno));
+    if (const int result = socket.send(command); result != 0) {
+      RCLCPP_ERROR(
+        get_logger(), "BMS D9 write failed for 0x%02x: %s", address, std::strerror(-result));
       return false;
     }
     return true;
@@ -319,7 +294,7 @@ private:
     publisher->publish(message);
   }
 
-  void update_discharge_control(const int descriptor)
+  void update_discharge_control(const infra_socketcan::Socket & socket)
   {
     PackState primary;
     PackState secondary;
@@ -384,13 +359,13 @@ private:
         publish_bool(loads_stop_publisher_, true);
         return;
       case DischargeAction::kEnableSecondary:
-        static_cast<void>(send_discharge_command(descriptor, secondary_address_, true));
+        static_cast<void>(send_discharge_command(socket, secondary_address_, true));
         return;
       case DischargeAction::kDisableSecondary:
-        static_cast<void>(send_discharge_command(descriptor, secondary_address_, false));
+        static_cast<void>(send_discharge_command(socket, secondary_address_, false));
         return;
       case DischargeAction::kDisablePrimary:
-        static_cast<void>(send_discharge_command(descriptor, primary_address_, false));
+        static_cast<void>(send_discharge_command(socket, primary_address_, false));
         return;
       case DischargeAction::kCloseRelay:
         publish_bool(relay_command_publisher_, true);
@@ -403,7 +378,7 @@ private:
 
   void reader_loop()
   {
-    int descriptor = -1;
+    infra_socketcan::Socket socket;
     std::size_t request_index = 0U;
     auto next_connect = std::chrono::steady_clock::now();
     auto next_request = next_connect;
@@ -411,37 +386,33 @@ private:
     const auto request_spacing = seconds_to_duration(
       request_period_s_ / static_cast<double>(request_ids_.size()));
     auto disconnect = [&]() {
-        ::close(descriptor);
-        descriptor = -1;
-        next_connect = std::chrono::steady_clock::now() +
-          seconds_to_duration(reconnect_period_s_);
-        RCLCPP_WARN(get_logger(), "BMS CAN connection lost; control remains active");
-      };
+      socket.close();
+      next_connect = std::chrono::steady_clock::now() + seconds_to_duration(reconnect_period_s_);
+      RCLCPP_WARN(get_logger(), "BMS CAN connection lost; control remains active");
+    };
     while (!stop_.load()) {
       const auto now = std::chrono::steady_clock::now();
       // One thread owns the socket. Control has its own deadline, even offline.
       // A D9 write failure does not reset transport or postpone the next tick.
       if (automatic_discharge_control_ && now >= next_control) {
-        update_discharge_control(descriptor);
+        update_discharge_control(socket);
         next_control = now + seconds_to_duration(request_period_s_);
       }
-      if (descriptor < 0 && now >= next_connect) {
-        descriptor = connect_can();
+      if (!socket.is_open() && now >= next_connect) {
+        socket = connect_can();
         next_connect = now + seconds_to_duration(reconnect_period_s_);
         request_index = 0U;
         next_request = now;
       }
-      if (descriptor < 0) {
+      if (!socket.is_open()) {
         wait_until(automatic_discharge_control_ ?
           std::min(next_connect, next_control) : next_connect);
         continue;
       }
       if (now >= next_request) {
         const can_frame query = make_query_frame(request_ids_[request_index]);
-        if (::write(descriptor, &query, sizeof(query)) !=
-          static_cast<ssize_t>(sizeof(query)))
-        {
-          RCLCPP_WARN(get_logger(), "BMS query failed: %s", std::strerror(errno));
+        if (const int result = socket.send(query); result != 0) {
+          RCLCPP_WARN(get_logger(), "BMS query failed: %s", std::strerror(-result));
           disconnect();
           continue;
         }
@@ -453,22 +424,16 @@ private:
       const double remaining_s = std::chrono::duration<double>(
         deadline - std::chrono::steady_clock::now()).count();
       const double wait_s = std::max(0.001, std::min(receive_timeout_s_, remaining_s));
-      pollfd event{descriptor, POLLIN, 0};
-      const int result = ::poll(&event, 1, static_cast<int>(std::ceil(wait_s * 1000.0)));
-      if (result == 0 || (result < 0 && errno == EINTR)) {
+      const int readable = socket.wait_readable(static_cast<int>(std::ceil(wait_s * 1000.0)));
+      if (readable == 0 || readable == -EINTR) {
         continue;
       }
-      if (result < 0 || (event.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+      if (readable < 0) {
         disconnect();
         continue;
       }
-      if ((event.revents & POLLIN) == 0) {
-        continue;
-      }
       can_frame frame{};
-      if (::read(descriptor, &frame, sizeof(frame)) !=
-        static_cast<ssize_t>(sizeof(frame)))
-      {
+      if (socket.receive(frame) != 1) {
         disconnect();
         continue;
       }
@@ -489,9 +454,6 @@ private:
       std::lock_guard<std::mutex> lock{state_mutex_};
       static_cast<void>(primary_decoder_->ingest(primary_, id, data, size, stamp));
       static_cast<void>(secondary_decoder_->ingest(secondary_, id, data, size, stamp));
-    }
-    if (descriptor >= 0) {
-      ::close(descriptor);
     }
   }
 
