@@ -134,15 +134,6 @@ def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
     assert int(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY) == 1101
 
 
-def test_internal_dynamic_state_is_used_only_for_rt_diagnostics() -> None:
-    diagnostics_source = (
-        ROOT / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
-    ).read_text()
-
-    internal_topic = "/rt_internal_state_broadcaster/dynamic_joint_states"
-    assert "declare_parameter<std::string>" in diagnostics_source
-    assert '"dynamic_joint_states_topic"' in diagnostics_source
-    assert internal_topic in diagnostics_source
 
 
 def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -> None:
@@ -168,9 +159,6 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     enable_source = (
         ROOT / "src/rt_control/enable_manager/src/enable_manager_controller.cpp"
     ).read_text()
-    diagnostics_source = (
-        ROOT / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
-    ).read_text()
     controller_patch = (
         ROOT / "patches/ros2_controllers/0002-use-contract-qos-profiles.patch"
     ).read_text()
@@ -179,7 +167,6 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     assert "topic, robot_interfaces_qos::state()" in bms_source
     assert "secondary_topic, robot_interfaces_qos::state()" in bms_source
     assert "robot_interfaces_qos::diagnostic()" in enable_source
-    assert "robot_interfaces_qos::diagnostic()" in diagnostics_source
     assert "robot_interfaces_qos::control()" in controller_patch
     assert controller_patch.count("robot_interfaces_qos::fast_state()") == 2
     assert "diff_drive_controller/test/test_diff_drive_controller.cpp" in controller_patch

@@ -225,7 +225,6 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       robot_hw_canopen \
       robot_hw_can \
       enable_manager \
-      rt_diagnostics \
       rt_control_semantic_components \
       rolling_trajectory_controller \
       rt_force_torque_broadcaster \

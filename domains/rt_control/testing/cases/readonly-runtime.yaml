@@ -92,7 +92,7 @@ cases:
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/rt_diagnostics/**"]
+    covers: ["src/rt_control/enable_manager/**", "src/rt_control/robot_hw_ethercat/**"]
     traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 栈已由值守人员启动（本用例不启动栈）；仅订阅
     entry: |
