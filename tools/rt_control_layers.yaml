@@ -5,7 +5,6 @@ layers:
   - rt_control_composer
   - rt_control_bringup
   - control_api_adapter
-  - rt_diagnostics
   - rt_control_arm_console
   - rt_control_operator_web
   protocol:
