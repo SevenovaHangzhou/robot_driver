@@ -44,13 +44,6 @@ ament_target_dependencies(enable_manager_controller
   std_msgs
 )
 
-add_executable(rt_disable_once src/rt_disable_once.cpp)
-target_compile_features(rt_disable_once PUBLIC cxx_std_17)
-target_compile_options(rt_disable_once PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
-ament_target_dependencies(
-  rt_disable_once controller_manager_msgs lifecycle_msgs rclcpp rt_control_interfaces
-)
-
 pluginlib_export_plugin_description_file(
   controller_interface enable_manager_plugins.xml
 )
@@ -61,7 +54,6 @@ install(TARGETS enable_manager_controller
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-install(TARGETS rt_disable_once DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.schema.json")

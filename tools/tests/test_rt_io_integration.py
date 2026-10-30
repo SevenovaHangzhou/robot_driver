@@ -153,7 +153,7 @@ def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
 
     assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
     assert 'executable="control_enable_adapter"' in (
-        BRINGUP / "launch/rt_control_arm_runtime.launch.py"
+        BRINGUP / "launch/rt_control_scope_runtime.launch.py"
     ).read_text()
     assert "launch/rt_control.launch.py" not in bringup_cmake
     assert "control_api_adapter" in bootstrap

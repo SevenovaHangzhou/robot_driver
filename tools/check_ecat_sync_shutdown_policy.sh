@@ -8,7 +8,7 @@ preserve_pdo_patch="${repo_root}/patches/ecat_icube/0004-preserve-fixed-pdo-conf
 igh_preserve_pdo_patch="${repo_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
 canopen_lifecycle_patch="${repo_root}/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch"
 canopen_rpdo_patch="${repo_root}/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch"
-shutdown_client="${repo_root}/src/rt_control/enable_manager/src/rt_disable_once.cpp"
+shutdown_client="${repo_root}/src/rt_control/rt_control_bringup/rt_control_bringup/scope_lifecycle.py"
 
 fail()
 {
@@ -85,20 +85,17 @@ for retired in ("canopen_402_driver/", "cia402_system.cpp", "Track node", "track
     if retired in lifecycle:
         raise SystemExit(f"retired CANopen motor behavior remains: {retired}")
 
-main = shutdown.index("int main(")
-disable_axes = shutdown.index("disableEthercatAxes(node, deadline)", main)
-quiesce_controllers = shutdown.index("quiesceEthercatControllers(node, deadline)", main)
-deactivate_hardware = shutdown.index("deactivateEthercatHardware(node, deadline)", main)
-if not disable_axes < quiesce_controllers < deactivate_hardware:
-    raise SystemExit("full-stack shutdown must disable axes, quiesce controllers, then deactivate EtherCAT")
-for required in (
-    'std::chrono::seconds(30)',
-    '"enable_manager", "rt_internal_state_broadcaster", "joint_state_broadcaster"',
-    'kEthercatHardwareName[] = "ecat_arms"',
-    'PRIMARY_STATE_INACTIVE',
-):
-    if required not in shutdown:
-        raise SystemExit(f"shutdown orchestration policy is missing: {required}")
+# Every staged scope stops through scope_lifecycle.shutdown_sequence: motion controllers,
+# then the drive disable, then the remaining controllers, and hardware only afterwards.
+sequence = shutdown[shutdown.index("def shutdown_sequence("):shutdown.index("class RosLifecycleBackend")]
+order = [sequence.index(f'"{label}"') for label in (
+    "motion_inactive", "drives_disabled", "controllers_inactive")]
+if order != sorted(order):
+    raise SystemExit("scope shutdown must stop motion, disable drives, then quiesce controllers")
+if sequence.index("controllers_inactive") > sequence.index("hardware_state(name, INACTIVE)"):
+    raise SystemExit("scope shutdown must deactivate hardware only after the controllers")
+if "if results[-1]:" not in sequence:
+    raise SystemExit("hardware must stay up while controllers may still claim its interfaces")
 PY
 
 dockerfile="${repo_root}/docker/rt-control/Dockerfile"

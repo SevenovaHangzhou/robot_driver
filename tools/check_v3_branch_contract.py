@@ -79,10 +79,14 @@ def validate(repository_root: Path) -> list[str]:
         findings.append("V3 deployment must select the deployed mobile model")
     if "launch/rt_control_module.launch.py" not in cmake:
         findings.append("V3 bringup must install the machine-profile launch")
-    if "launch/rt_control_arm_runtime.launch.py" not in cmake:
-        findings.append("V3 bringup must install the arm motion runtime launch")
+    if "launch/rt_control_scope_runtime.launch.py" not in cmake:
+        findings.append("V3 bringup must install the staged scope runtime launch")
     for retired_install in (
         "launch/rt_control.launch.py",
+        "launch/rt_control_arm_runtime.launch.py",
+        "launch/rt_control_enable_only.launch.py",
+        "launch/rt_control_force_sensors.launch.py",
+        "launch/rt_control_head_runtime.launch.py",
         "config/controllers.yaml",
         "test_preop_snapshot_launch",
         "test_mock_contract",
@@ -96,7 +100,7 @@ def validate(repository_root: Path) -> list[str]:
         findings.append("V3 rt_control_start must default to static module validation")
     if "launch_file=rt_control.launch.py" in start:
         findings.append("V3 rt_control_start must not select the V2 launch")
-    if "launch_file=rt_control_arm_runtime.launch.py" not in start:
+    if 'exec "$0" --scope arms_only "$@"' not in start:
         findings.append("V3 rt_control_start must expose the explicit arm runtime")
     if "<exec_depend>rolling_trajectory_controller</exec_depend>" not in package:
         findings.append("V3 bringup must depend on rolling_trajectory_controller")

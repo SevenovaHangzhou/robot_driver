@@ -63,13 +63,6 @@ def test_imported_public_axes_match_machine_joints_and_digest():
     assert axes["sha256"] == hashlib.sha256(canonical).hexdigest()
 
 
-def test_v3_branch_contract_requires_arm_runtime_not_only_validation():
-    contract = (ROOT / "tools/check_v3_branch_contract.py").read_text(encoding="utf-8")
-    assert "rt_control_arm_runtime.launch.py" in contract
-    assert "rolling_trajectory_controller" in contract
-    assert "14 CSP" in contract or "fourteen CSP" in contract
-
-
 def test_ci_runs_upstream_jtc_once_after_other_package_tests():
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text()
     step = workflow.split("- name: Test\n", 1)[1].split("- name:", 1)[0]

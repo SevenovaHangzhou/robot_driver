@@ -2,6 +2,9 @@ controller_manager:
   ros__parameters:
     enable_manager:
       type: enable_manager/EnableManagerController
+    hardware_components_initial_state:
+      unconfigured:
+      - ecat_arms
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
     rt_internal_state_broadcaster:
