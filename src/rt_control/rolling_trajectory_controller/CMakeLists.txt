@@ -20,6 +20,7 @@ find_package(yaml_cpp_vendor REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 add_library(rolling_trajectory_core
+  src/axis_set.cpp
   src/cubic_hermite.cpp
   src/envelope_loader.cpp
   src/limit_checker.cpp

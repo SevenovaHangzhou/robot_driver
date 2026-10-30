@@ -13,7 +13,7 @@
 | [ ] | A | `rt_control_interface_runtime.launch.py` 自称 draft preview | 1.4 |
 | [x] | A | `onboarding-knowledge-map.md` 自称历史却是推荐入口（arch-s3d：移入域 README 的历史资料段） | 1.4 |
 | [x] | A | `docs/areas/` 9 旧区 + 7 新区共存（arch-s3d：旧区移至 `docs/areas-archive/`） | 1.4 |
-| [ ] | B 多处落地 | `rolling_types.hpp` 的 `kJointNames[14]` 硬编码机型事实。**需裁决**（arch-s4 发现）：`rolling_trajectory_controller.cpp` 的 `kAxisSetHash` 是按这 14 个名字和顺序计算的 rolling 协议轴集合身份，属于与 motion 域约定的协议事实；改成参数会改变公共协议语义，须先在 `robot_interfaces` 定义轴集合来源 | 1.1、1.2 |
+| [x] | B 多处落地 | `rolling_types.hpp` 的 `kJointNames[14]` 硬编码机型事实（arch-s6：用户 2026-10-29 裁定关节名只写在 machine_config；控制器改读 `joints` 参数，轴集合哈希按配置计算，对现有关节名与原协议常量逐字节一致） | 1.1、1.2 |
 | [x] | B | `enable_manager/config/Alfa_V3_*`、`rolling_trajectory_controller/config/Alfa_V3_*`、`control_api_adapter/config/Alfa_V3_grippers.draft.yaml` 带机型名 | 1.1 |
 | [x] | B | `controllers.yaml` 的 `authorities.source` 指向不存在的 `rt_control_bringup/config/machines/alfa_v3.yaml` | 1.2 |
 | [ ] | B | 改一个关节需触碰约 20 个非测试文件 | 0 需求 1 |

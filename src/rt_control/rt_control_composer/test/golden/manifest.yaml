@@ -7,7 +7,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: 8c2d097971bf34883942373011a3d914360c92a9a9e3a86d09a54493631a4918
+      controllers.yaml: 2f9248ae9e275f1a5eec41da4603e5d36660f0aeca74eacecd101607745f3571
       robot_description.xml: a6a3e09db065238a2cded89532ef843d108a37f739b9e4547100010d801977f2
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -29,7 +29,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: 8c2d097971bf34883942373011a3d914360c92a9a9e3a86d09a54493631a4918
+      controllers.yaml: 2f9248ae9e275f1a5eec41da4603e5d36660f0aeca74eacecd101607745f3571
       robot_description.xml: 3f1ae8333d85b00f99c17b8b3c544db8919f524f2d9a80e8cb721251cc87ca48
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -227,3 +227,11 @@ model_switch_regeneration:
   - stationary-real
   - head-mock
   - head-real
+rolling_joints_regeneration:
+  reason: 'arch-s6 user decision 2026-10-29: rolling controller joint names come only from machine_config
+    (policy motion.joints); the controller no longer hard-codes them'
+  method: only the rolling_trajectory_controller.ros__parameters.joints key was added; every other value
+    is unchanged and was checked by canonical comparison before regeneration
+  cases:
+  - arm-mock
+  - arm-real
