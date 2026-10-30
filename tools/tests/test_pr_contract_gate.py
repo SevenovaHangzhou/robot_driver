@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
 def test_safety_policy_text_is_a_reminder_not_human_approval():
     body = PullRequestContractGateTest().valid_body()
-    paths = ["src/rt_control/rt_control_machine_config/machines/demo/safety_policy.yaml"]
+    paths = ["src/rt_control/hwcfg_machines/machines/demo/safety_policy.yaml"]
     assert pr_contract_gate.safety_policy_warnings(body, []) == []
     assert pr_contract_gate.safety_policy_warnings(body, paths)
     assert pr_contract_gate.validate_body(body) == []

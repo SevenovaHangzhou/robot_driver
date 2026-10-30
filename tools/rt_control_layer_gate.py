@@ -20,7 +20,7 @@ import yaml
 
 CONFIG = "tools/rt_control_layers.yaml"
 PREFIX = "src/rt_control/"
-DATA_PACKAGE = "rt_control_machine_config"
+DATA_PACKAGE = "hwcfg_machines"
 COMPOSER = "rt_control_composer"
 LAYERS = {"infra", "hw_config", "integration", "protocol", "control", "periph"}
 SOURCE_SUFFIXES = {".py", ".cpp", ".hpp", ".h", ".cc", ".cxx"}
@@ -334,7 +334,7 @@ def check_release_policy(texts: dict[str, str]) -> list[str]:
             if re.search(r"(?<![\w.-])python3-jsonschema\s*=", text):
                 findings.append(f"{path}: R10 python3-jsonschema must not pin an apt version")
     owners = texts.get(".github/CODEOWNERS", "")
-    pattern = "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml"
+    pattern = "/src/rt_control/hwcfg_machines/**/safety_policy.yaml"
     if not any(line.split() == [pattern, "kkozia188@gmail.com"] for line in owners.splitlines()):
         findings.append(".github/CODEOWNERS: R9 safety policy requires the designated human owner")
     return findings

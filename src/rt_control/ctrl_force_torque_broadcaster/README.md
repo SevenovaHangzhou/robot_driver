@@ -38,7 +38,7 @@ StatusCode标为保留，不按故障状态解析。Temper也标为保留，注�
 
 配置来源：
 
-- [机型模块](../rt_control_machine_config/machines/Alfa_V3/wrist_force_sensors.yaml)
+- [机型模块](../hwcfg_machines/machines/Alfa_V3/wrist_force_sensors.yaml)
 - [从站 PDO profile](../hw_ethercat/config/profiles/bluepoint_p140000100.yaml)
 - 台架启动：`rt_control_start --force-sensors`（即 `--scope force_bench`，入口见 [scope runtime](../rt_control_bringup/launch/rt_control_scope_runtime.launch.py)）
 

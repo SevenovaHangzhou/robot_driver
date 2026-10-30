@@ -62,7 +62,7 @@ def compose(
     runtime = Path(runtime_dir)
     integration_share = Path(package_share("rt_control_composer"))
     schemas = integration_share / "schema"
-    config_root = Path(package_share("rt_control_machine_config"))
+    config_root = Path(package_share("hwcfg_machines"))
     data = load_machine(
         config_root, schemas, robot_variant, machine_unit, physical_profile, control_scope
     )

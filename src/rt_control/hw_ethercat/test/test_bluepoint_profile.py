@@ -6,7 +6,7 @@ import yaml
 
 PACKAGE = Path(__file__).resolve().parents[1]
 PROFILE = PACKAGE / "config/profiles/bluepoint_p140000100.yaml"
-MACHINE = PACKAGE.parent / "rt_control_machine_config/machines/Alfa_V3/wrist_force_sensors.yaml"
+MACHINE = PACKAGE.parent / "hwcfg_machines/machines/Alfa_V3/wrist_force_sensors.yaml"
 ESI = PACKAGE / "config/esi/P140000107-1.0.1.1-ECXML.xml"
 
 

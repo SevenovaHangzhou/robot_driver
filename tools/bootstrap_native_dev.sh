@@ -40,7 +40,7 @@ readonly -a runtime_packages=(
   ctrl_force_torque_broadcaster
   ctrl_swerve
   rt_control_composer
-  rt_control_machine_config
+  hwcfg_machines
   rt_control_bringup
   rt_control_operator_web
 )

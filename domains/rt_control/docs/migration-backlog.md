@@ -51,7 +51,7 @@
 | --- | --- | --- | --- | --- | --- |
 | [ ] | `robot_description` | 共享 | 保留 | 不改 | 构建副本内有 4 份展开 `.urdf`、4 套 `joint_limits_*`、3 套 `named_poses_*`、5 个 `*_manifest.json`；生成物不入库，本仓库只留一个 pin。 |
 | [ ] | `rt_control_interfaces` | 共享 | 保留 | 不改 | 健康。9 个 IDL 均为 V3 在用。 |
-| [ ] | `rt_control_machine_config` | hw_config | 保留 | `hwcfg_machines` | 结构对；114 处 draft/TBD/verified:false；`manifest.yaml` 736 行按 module 拆文件，manifest 只留索引。 |
+| [ ] | `rt_control_machine_config` | hw_config | 保留 | `hwcfg_machines` | （arch-r4 已改名；剩余：manifest 按模块拆分）结构对；114 处 draft/TBD/verified:false；`manifest.yaml` 736 行按 module 拆文件，manifest 只留索引。 |
 | [ ] | `robot_hw_ethercat` | protocol | 先删后改名 | `hw_ethercat` | （二代残留已删；x503 已删；arch-r3 已改名；剩余：renderer 骨架抽 infra）最杂：二代残留（xacro、`variants/`、`config/slaves/`、681 行 `validate_ethercat_variants.py`）约占 40%；3 个 renderer 各自复制 `_param`；吸收 `x503_force_sensor` 为 `tools/x503/`。 |
 | [ ] | `robot_hw_canopen` | protocol | 保留 | `hw_canopen` | （arch-r3 已改名；剩余：EDS 生成源头标注）健康。EDS `.compat.*` 三件套按 §4.5 标注生成源头。 |
 | [x] | `robot_hw_can` | protocol | 保留 | `hw_can_damiao` | （arch-r3 已改名；SocketCAN 已由 #128 下沉 infra）健康。`socketcan.cpp` 作为 `infra_socketcan` 种子。 |

@@ -31,7 +31,7 @@ FORCE = dict(ARMS, physical_profile="force_bench", control_scope="force_bench")
 def shares(tmp_path, monkeypatch):
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["robot_description"] = RT.parent / "description/robot_description"
-    for name in ("rt_control_machine_config", "ctrl_enable_manager", "hw_ethercat"):
+    for name in ("hwcfg_machines", "ctrl_enable_manager", "hw_ethercat"):
         target = tmp_path / "share" / name
         shutil.copytree(RT / name, target, ignore=shutil.ignore_patterns("test", "src"))
         lookup[name] = target
@@ -107,7 +107,7 @@ def test_load_uses_the_artifact_as_written_without_recomposing(shares, tmp_path)
     output = tmp_path / "arms"
     written = write_artifact(output, package_share=share_of(shares), **ARMS)
     # Installed configuration changes take effect only after the artifact is regenerated.
-    policy = shares["rt_control_machine_config"] / "machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml"
+    policy = shares["hwcfg_machines"] / "machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml"
     policy.write_text(policy.read_text().replace("batch_timeout: 4.0", "batch_timeout: 5.0"))
     assert load_artifact(output, **ARMS).files == written.files
 

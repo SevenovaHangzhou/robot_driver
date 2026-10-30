@@ -20,7 +20,7 @@ def validate(repository_root: Path) -> list[str]:
     findings: list[str] = []
     source_lock_path = repository_root / "src/description/source-lock.yaml"
     machine_path = (
-        repository_root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml"
+        repository_root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/manifest.yaml"
     )
     cmake_path = repository_root / "src/rt_control/rt_control_bringup/CMakeLists.txt"
     package_path = repository_root / "src/rt_control/rt_control_bringup/package.xml"
@@ -28,7 +28,7 @@ def validate(repository_root: Path) -> list[str]:
     dependency_path = repository_root / "deps.repos"
     interface_lock_path = repository_root / "src/interfaces/source-lock.yaml"
     arm_calibration_path = (
-        repository_root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/arms.yaml"
+        repository_root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/arms.yaml"
     )
 
     try:
@@ -67,7 +67,7 @@ def validate(repository_root: Path) -> list[str]:
     deployment = yaml.safe_load(
         (
             repository_root
-            / "src/rt_control/rt_control_machine_config/units/Alfa_V3-01/deployment.yaml"
+            / "src/rt_control/hwcfg_machines/units/Alfa_V3-01/deployment.yaml"
         ).read_text()
     )
     # ELECTRI-127: the unit deploys the Alfav3 dual arms on the Advantech mobile base; no gripper joints.
@@ -123,7 +123,7 @@ def validate(repository_root: Path) -> list[str]:
     safety = yaml.safe_load(
         (
             repository_root
-            / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/safety_policy.yaml"
+            / "src/rt_control/hwcfg_machines/machines/Alfa_V3/safety_policy.yaml"
         ).read_text()
     )["fault_dependencies"]
     expected_safety = [
@@ -156,7 +156,7 @@ def main() -> int:
     root = args.repository_root.resolve()
     findings = validate(root)
     validator = root / "src/rt_control/rt_control_bringup/scripts/validate_machine_profile.py"
-    manifest = root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml"
+    manifest = root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/manifest.yaml"
     result = subprocess.run(
         [
             sys.executable,

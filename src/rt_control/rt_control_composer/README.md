@@ -111,7 +111,7 @@ installed store. No network resolver or source-tree fallback is provided.
 
 ```bash
 ros2 run rt_control_composer validate_config_files.py \
-  --share-package rt_control_machine_config --schema manifest.schema.json \
+  --share-package hwcfg_machines --schema manifest.schema.json \
   machines/Example/manifest.yaml
 ```
 

@@ -29,10 +29,10 @@ SELECTION = dict(
 @pytest.fixture
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
-    shutil.copytree(RT / "rt_control_machine_config", data)
+    shutil.copytree(RT / "hwcfg_machines", data)
     monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
-    lookup["rt_control_machine_config"] = data
+    lookup["hwcfg_machines"] = data
     lookup["robot_description"] = RT.parent / "description/robot_description"
     return lookup
 
@@ -40,7 +40,7 @@ def shares(tmp_path, monkeypatch):
 def arguments(shares, *, confirmed=True):
     if not confirmed:
         # Test-only regression: an unconfirmed capture must keep the owner gate closed.
-        path = shares["rt_control_machine_config"] / ZERO
+        path = shares["hwcfg_machines"] / ZERO
         zero = load_yaml(path)
         zero["spec"]["confirmed_by"] = "pending"
         path.write_text(yaml.safe_dump(zero, sort_keys=False))
@@ -131,7 +131,7 @@ def test_real_topology_matches_the_bench_scan(shares, tmp_path):
 
 
 def test_bench_calibration_stays_in_the_bench_unit():
-    root = RT / "rt_control_machine_config"
+    root = RT / "hwcfg_machines"
     assert not (root / "units/Alfa_V3-01/bench_left_arm_zero.yaml").exists()
     zero = load_yaml(root / ZERO)
     assert zero["spec"]["confirmed_by"] == "user"
@@ -223,7 +223,7 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
 
 
 def test_bench_directions_follow_the_alfav3_model():
-    module = load_yaml(RT / "rt_control_machine_config/machines/Alfa_V3/bench_left_arm.yaml")
+    module = load_yaml(RT / "hwcfg_machines/machines/Alfa_V3/bench_left_arm.yaml")
     directions = [axis["direction"] for axis in module["spec"]["branches"]["left"]["axes"]]
     # Joint positive = encoder count increasing on every axis; the model axis carries any flip.
     assert directions == [1] * 7

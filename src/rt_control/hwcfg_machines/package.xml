@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>rt_control_machine_config</name>
+  <name>hwcfg_machines</name>
   <version>0.1.0</version>
   <description>Machine and unit data assets for RT-Control.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
