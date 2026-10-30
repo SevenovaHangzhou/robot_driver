@@ -10,7 +10,7 @@
 | [protocol](protocol/README.md) | robot_hw_ethercat、robot_hw_canopen、robot_hw_can、rt_control_semantic_components、enable_manager；ecat_icube/igh/ros2_canopen补丁 | config/machines、robot_hw_ethercat/variants归hw-config |
 | [hw-config](hw-config/README.md) | 各包config/machines、robot_hw_ethercat/variants、alfa_v3.yaml、src/description快照 | 公共模型权威仍在独立仓库 |
 | [integration](integration/README.md) | rt_control_bringup其余部分、control_api_adapter非真空部分、src/interfaces | 机型配置归hw-config，真空适配器归peripheral-control |
-| [arm-control](arm-control/README.md) | rolling_trajectory_controller、rt_force_torque_broadcaster、x503_force_sensor；ros2_controllers补丁 | 协议实现归protocol |
+| [arm-control](arm-control/README.md) | rolling_trajectory_controller、rt_force_torque_broadcaster；ros2_controllers补丁 | 协议实现归protocol |
 | [chassis-control](chassis-control/README.md) | swerve_driver | 机型配置归hw-config，协议/编码器提供器归protocol |
 | [peripheral-control](peripheral-control/README.md) | plc_io_modbus、modbus_tcp_rtu485、bms_node、lpms_nav3_can | 公共IDL归integration，config/machines归hw-config |
 | [platform](platform/README.md) | hostsetup、docker、tools、.github、deps.repos、versions.env、testing、各级AGENTS、协作规范及记录体系 | 工具归属不改变其检查对象的owner |
