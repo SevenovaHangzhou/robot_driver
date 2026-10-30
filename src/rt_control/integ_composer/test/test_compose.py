@@ -3,6 +3,7 @@
 from copy import deepcopy
 import filecmp
 from hashlib import sha256
+import importlib.util
 from pathlib import Path
 import shutil
 import sys
@@ -20,6 +21,11 @@ from integ_composer.schema.manifest_load import read_manifest
 PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
 GOLDEN = PACKAGE / "test/golden"
+_SPEC = importlib.util.spec_from_file_location(
+    "config_validator", PACKAGE / "scripts/validate_config_files.py"
+)
+VALIDATOR = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(VALIDATOR)
 BASELINE = yaml.safe_load((GOLDEN / "manifest.yaml").read_text())
 sys.path.insert(0, str(RT / "hw_ethercat"))
 from hw_ethercat import rt_control_renderer as OWNER
@@ -272,37 +278,9 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
 
 def test_data_files_pass_existing_validator(shares):
     root = shares["hwcfg_machines"]
-    manifest = read_manifest(next((root / "machines").glob("*/manifest.yaml")))
-    model_files = {
-        scope["mock_robot_model"]["joint_limits_file"]
-        for scope in manifest["scopes"].values()
-        if "mock_robot_model" in scope
-    } | {
-        # A scope controller file is a complete ROS parameter document, not a machine envelope.
-        scope["controller_file"]["file"]
-        for scope in manifest["scopes"].values()
-        if scope.get("controller_file", {}).get("package") == "hwcfg_machines"
-    }
-    # Owner policies have no machine envelope; each is validated by its owner's schema.
-    policies = {ref["file"]: ref for ref in manifest["policy_refs"].values()}
-    for directory in ("devices", "machines", "units"):
-        for path in (root / directory).rglob("*.yaml"):
-            relative = path.relative_to(root).as_posix()
-            if relative in model_files or path.parent.name == "manifest":
-                continue  # Model inputs use their owner loader; manifest parts merge below.
-            value = read_manifest(path) if path.name == "manifest.yaml" else load_yaml(path)
-            if relative in policies:
-                ref = policies[relative]
-                if "schema" in ref:
-                    owner = shares[ref.get("schema_package", ref["package"])]
-                    validate_data(value, ref["schema"], owner / "schema", root)
-                continue
-            kind = value["kind"]
-            schema = {
-                "machine_module": "module_envelope",
-                "unit_calibration": "unit_calibration_envelope",
-            }.get(kind, kind)
-            validate_data(value, schema + ".schema.json", PACKAGE / "schema", root)
+    passed = VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    assert "PASS: machines/Alfa_V3/manifest.yaml (manifest.schema.json)" in passed
+    assert any(line.startswith("PASS: units/") for line in passed)
 
 
 def test_policy_values_equal_frozen_old_output():
