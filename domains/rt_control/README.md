@@ -28,7 +28,7 @@ V3 源码退役。以下历史操作文档仅用于阅读既有验收记录，�
 
 Domain records:
 
-- [AGENTS.md](AGENTS.md): rt-control architecture, safety, validation, and AI rules.
+- [AGENTS.md](../../AGENTS.md) and [ARCHITECTURE.md](../../ARCHITECTURE.md): safety, authorization, architecture, and AI rules (repository root).
 - [PROGRESS.md](PROGRESS.md): implementation and verification history.
 - [BLOCKED-questions.md](BLOCKED-questions.md): adjudicated and unresolved domain facts.
 - [docs/](docs/): onboarding, deployment, design evidence, commissioning notes, and host records.
@@ -214,8 +214,7 @@ coverage, and the frozen EtherCAT shutdown policy. GitHub Actions reruns the
 same gate with ShellCheck mandatory, validates completion of the pull request
 contract, and then builds and tests the ROS workspace. Local hook success does
 not authorize hardware access, a commit, or a push; both the root
-[`AGENTS.md`](../../AGENTS.md) and this domain's [AGENTS.md](AGENTS.md) still
-apply.
+[`AGENTS.md`](../../AGENTS.md) still applies.
 
 The full workflow runs for PR code events (`opened`, `synchronize`, and
 `reopened`). Editing only the PR description runs the lightweight contract

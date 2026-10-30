@@ -54,20 +54,15 @@ robot_driver/
 ├─ hostsetup/               # 实时域宿主安装与验收
 ├─ patches/                 # 冻结上游窄补丁
 ├─ tools/                   # 构建、启动、门禁、测试 runner 和运维工具
-└─ collaboration-and-commit-standards.md
+├─ AGENTS.md                # 安全底线、授权与交付（开工必读）
+└─ ARCHITECTURE.md          # 架构、分层、编码与测试规范（开工必读）
 ```
 
-## 分支模型
+## 分支
 
-| 分支 | 定位 | Docker 要求 |
-| --- | --- | --- |
-| `main` | RT-Control 稳定源码集成基线 | 普通源码 PR 不强制封装；稳定后人工封装 |
-| `native` | 原生增量开发主线 | 不强制封装，但实时、安全和质量要求不降低 |
-| `v3` | 三代机专用集成基线；V3 模型与模块化硬件合同，未闭合事实 fail-closed | 普通源码不强制封装；选定 SHA 后人工封装 |
-
-所有共享分支禁止直接 push，变更经 feature/bugfix 分支和 PR 合并。完整规则见
-[AGENTS.md](AGENTS.md) 与
-[协作提交规范](collaboration-and-commit-standards.md)。
+`main` 是唯一长期分支，也是 V3 主线；禁止直接 push，变更经工作分支和 PR 合并。
+普通源码 PR 不要求 Docker 封装，源码稳定后由人工封装（见 [docker/README.md](docker/README.md)）。
+流程细则见 [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)。
 
 ## 文档入口
 
@@ -98,6 +93,6 @@ python3 tools/release_test_runner.py plan --gate v010
 增量内环不能替代提交/PR 前的仓库质量门禁；发布身份、自动执行、人工结果合并和 baseline
 delta 的完整用法见 [发布前测试体系](domains/rt_control/testing/README.md)。接口、硬件包或
 启动路径变更还必须按
-[RT-Control AGENTS.md](domains/rt_control/AGENTS.md) 构建和测试全部受影响包。
+[tools/README.md](tools/README.md) 构建和测试全部受影响包。
 只有 Docker/Compose 变更或人工封装/发布任务需要容器证据；没有目标机或实机证据时
 仍必须明确记录为未验证，不得从源码检查推导运行结论。

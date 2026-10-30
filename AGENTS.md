@@ -1,191 +1,97 @@
-# robot_driver RT-Control AI 协作与提交契约
+# robot_driver Agent 契约
 
-## 1. 适用范围
+本仓库是半人形拆码垛机器人的 **RT-Control 实时控制域**。开工前只需读两份文件：本文件和
+[`ARCHITECTURE.md`](ARCHITECTURE.md)。架构、分层、编码与测试以 `ARCHITECTURE.md` 为准；
+本文件管安全底线、授权和交付。两者冲突时，架构问题以 `ARCHITECTURE.md` 为准，安全与授权问题以本文件为准。
 
-本文适用于整个 `robot_driver` 仓库，定义 RT-Control 域的架构、安全、质量和 Git 底线。
-本仓库不保存 Perception、Motion、Autonomy 或 Gateway 的实现；这些域只作为公共契约的
-生产者、消费者和联合评审方出现。
+按需查阅：流程（分支、提交、PR、Issue、评审）见 [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md)；
+各类改动的验证命令见 [`tools/README.md`](tools/README.md)；容器、宿主与发布见
+[`docker/README.md`](docker/README.md)、[`hostsetup/README.md`](hostsetup/README.md)。
 
-`domains/rt_control/AGENTS.md` 定义实时域更严格的专属规则，可以细化但不得放宽根契约。
-公共接口变更必须在独立 `robot_interfaces` 仓库列出并通知全部受影响域，不得把其实现拉进本仓库。
+## 1. 域边界
 
-架构、分层、编码与测试规则以 ARCHITECTURE.md 为准；本文件与其冲突时以 ARCHITECTURE.md 为准。
+- RT-Control 只负责硬件适配、轨迹/速度/IO 执行、生命周期、故障处理和状态反馈。任务编排、感知、
+  Nav2、MoveIt2、Gateway 属于外部域，本仓库不得实现或直接引用其内部库。
+- 外部业务命令必须按公共契约经责任域到达 RT-Control，不得新增外部域直控硬件的旁路。实时控制环不得跨容器。
+- 公共接口的权威源是独立 `robot_interfaces` 仓库，本仓库以 `deps.repos` 固定完整 SHA 导入，
+  `src/interfaces/source-lock.yaml` 必须一致；禁止在本仓库复制或修改公共 schema。新跨域命令先改公共契约
+  （调用方向、超时、取消、幂等、错误语义），再更新 pin。`rt_control_interfaces` 只供本域使用。
+- Robot Model 的权威源是独立 `robot_description` 仓库；`src/description/robot_description` 是构建副本，
+  不得形成独立模型分支。link/joint 名称、TF、轴向、零位、限位、mesh 尺寸变更是破坏性公共变更。
+- 删除、重命名或改变公共字段类型、单位、坐标系、终态与错误语义均为破坏性变更；没有消费者迁移和原子发布方案不得合并。
 
-## 2. 开始任务前
+## 2. 事实与裁决
 
-1. 阅读根 `README.md`，确认 RT-Control 责任边界和共享资产所有权。
-2. 阅读 `domains/rt_control/README.md`、`AGENTS.md`、`PROGRESS.md` 和 `BLOCKED-questions.md`。
-3. 阅读目标包的 manifest、构建文件、实现、配置、测试和直接消费者；不只看被点名的单个文件。
-4. 执行 `git status --short --branch`，区分用户已有改动与本任务改动，并确认是否涉及人工 Docker 封装或发布（决定是否适用第 4 节的封装要求）。
-5. 写明任务/需求号、所属域、目标包、跨域消费者、运行阶段和风险等级。
-6. 跨域接口相关变更先导入 `deps.repos`，再读
-   `src/vendor/robot_interfaces/contract/views/rt_control.md` 的冻结基线。
+- 不得猜测硬件 ID、对象字典、单位/比例/方向、CPU 拓扑、标定、运动/安全阈值或现场路径。
+  缺少权威事实时写 `TBD`，只阻塞受影响范围，并记录到 `domains/rt_control/BLOCKED-questions.md`。
+- `BLOCKED-questions.md` 中的已裁决项是本域权威约束。新需求与既有裁决冲突时停止相关实现并请求裁决，不得静默覆盖。
 
-### 2.1 当前路径路由
+## 3. 实时与安全底线
 
-| 变更路径/内容 | 必读附加契约 | 主要联合评审 |
-| --- | --- | --- |
-| `src/rt_control/**`、`docker/rt-control/**`、`hostsetup/**`、上游补丁/工具 | `domains/rt_control/AGENTS.md` | rt-control；模型/公共接口变更时通知外部消费者 |
-| `src/description/robot_description/**` | 根契约第 5.1 节 | Robot Model + rt-control；破坏性变更通知外部消费域 |
-| `deps.repos` 的 `robot_interfaces` pin、`src/interfaces/source-lock.yaml` | 独立 `robot_interfaces` 权威契约 | 接口所有者 + 全部跨域生产者/消费者 |
-| `src/interfaces/rt_control_interfaces/**` | `domains/rt_control/AGENTS.md` | RT-Control 域内生产者/消费者 |
-| `docker/compose.yaml`、`deploy/**`、DDS/发布配置 | `domains/rt_control/AGENTS.md` | RT-Control + 平台/集成 |
-
-`tools/**`、`docs/**` 和 `.github/**` 按实际管理的对象归属，不因其位于根目录就自动视为公共资产。
-
-## 3. RT-Control 架构底线
-
-- RT-Control 只负责硬件适配、轨迹/速度/IO 执行、生命周期、故障处理和状态反馈；实时控制环不得跨容器。
-- 任务编排、感知、Nav2、MoveIt2 和 Gateway 均属于外部域，本仓库不得实现或直接引用其内部库。
-- 外部业务命令必须按公共契约经责任域到达 RT-Control，不得新增 Autonomy/Gateway 直控硬件的旁路。
-- 包是编译边界，公共/私有接口是依赖边界，容器是部署边界；不得借 DDS 可发现性破坏域边界。
-
-跨域变更必须先定义调用方向、数据所有者、单位/坐标系/时间戳、超时、取消、幂等、错误码、重启和版本兼容语义。禁止以共享可写目录、对方内部库或新的私有 RPC 绕过冻结契约。
-
-## 4. 分支与封装契约
-
-仓库使用三条长期分支，责任不同：
-
-| 分支 | 定位 | Docker 封装 |
-| --- | --- | --- |
-| `main` | RT-Control 稳定源码集成基线 | **不强制**：源码稳定后由人工单独发起封装 |
-| `native` | 敏捷开发主线，源码增量迭代 | **不强制**：允许原生构建与宿主直跑 |
-| `v3` | 三代机专用集成基线；不得恢复二代默认启动面 | **不强制**：源码稳定后由人工单独发起封装 |
-
-### 4.1 `main` 是稳定源码基线
-
-普通源码 PR 进入 `main` 不再要求同步构建 Docker 镜像或提供容器启动证据。
-它仍必须通过适用的源码构建、单测、契约、Mock、实时/安全和生命周期门禁，
-且不得依赖开发者本机绝对路径、未记录环境或不可复现的人工源码修改。
-
-Dockerfile、Compose 和容器启动入口继续保留为发布资产，但不得默认声称与
-`main` HEAD 同步。只有人工封装任务明确记录 source SHA、镜像身份并完成容器验证后，
-该镜像才是部署候选。改动 `docker/**`、Compose、镜像依赖或正式发布资产时，
-仍须执行对应的镜像/容器门禁。
-
-### 4.2 `native` 为敏捷开发分支
-
-`native` 允许 `--symlink-install` 增量构建、宿主直跑和原生一键启动脚本，不要求容器封装。
-
-`native` 与 `main` 完全同等的要求：实时性与调度隔离、硬安全链与软件不越界、域责任边界与依赖方向、冻结的域间接口、共享 Robot Model 与 interfaces 的所有权、密钥与敏感数据禁令、`tools/quality_gate.sh` 及域级门禁、提交与自审格式。
-
-不得以“`native` 是开发分支”为由降低上述任何一项。
-
-### 4.3 `native` → `main` 的提升
-
-从 `native` 提升到 `main` 不要求补齐容器封装，但必须确认没有把宿主绝对路径、
-开发者本机配置或不可复现的临时修改带进 `main`。需要发布时，由人工从选定的
-`main` source SHA 单独执行封装、验证和归档。
-
-三条分支都禁止直接 push、force push 和改写共享历史；全部变更经 PR 合并。`v3` 首次建立经用户本轮明确授权直接推送，后续按共享分支规则管理。人的协作流程细则见 `collaboration-and-commit-standards.md`。
-
-## 5. 共享包与权威事实源
-
-### 5.1 Robot Model
-
-Robot Model 的权威源是独立 `robot_description` 仓库；
-`src/description/robot_description` 是 RT-Control 的构建副本，不得形成独立模型分支。
-
-- 所有消费域必须使用同一版本/哈希的发行 artifact，禁止复制 URDF/mesh 后私有修改。
-- URDF/Xacro 只保存机器人固有的运动学、几何、惯量、碰撞、坐标系和物理硬限位。
-- PDO/SDO、驱动插件、控制器增益、规划参数、工位、抓取/放置/拍照位与现场标定不得进基准 description。
-- link/joint 名称、TF 父子关系、轴向、零位、限制或 mesh 尺寸变更属于破坏性公共变更，必须联合验证所有消费者。
-
-### 5.2 Interfaces
-
-域间接口的权威事实源是独立 `robot_interfaces` 契约仓库的
-`contract/endpoints.yaml` 和可编译 `robot_*_interfaces` 包。本仓库以 `deps.repos`
-固定完整 SHA，将其导入 `src/vendor/robot_interfaces`；禁止在本仓库复制或修改公共
-schema。`src/interfaces/source-lock.yaml` 必须与该 pin 一致。
-
-`src/interfaces/rt_control_interfaces` 只保存 RT-Control 域内 msg/srv/action 定义，不得被
-其他域依赖。删除、重命名或改变公共字段类型、单位、坐标系、终态与错误语义均是破坏性变更；
-没有消费者迁移和原子发布方案不得合并。RT 接口视图来自 vendored
-`contract/views/rt_control.md`，必须与公共契约同批更新。
-
-## 6. 配置、密钥和安全
-
-- 不得猜测硬件 ID、对象字典、单位/比例/方向、CPU 拓扑、标定、工位、运动/安全阈值或现场路径。缺少权威事实时只阻塞受影响范围，记录到所属域的 `BLOCKED-questions.md`。
-- 代码、镜像、Git、日志和文档不得包含 token、私钥、证书私钥、密码、代理凭据或客户敏感数据。
-- 容器默认最小权限；扩大 device、capability、网络、宿主写权限或 Docker socket 必须有明确需求、威胁评审和联合签核。
+- 1 kHz 及其他实时路径禁止无界循环、阻塞 IO、文件/网络访问、动态参数查询、日志刷屏，以及每周期不受控的
+  内存分配、锁竞争或容器增长。非实时回调与实时更新之间用预分配、有界的通信方式。
+- 以下裁决不得被变相恢复：
+  - 不新增独立 `rt_watchdog` 包；
+  - 不恢复 motion/autonomy 心跳、原始 CAN 旁路监听器或另一套独立总线超时判定；
+  - 不做 CANopen 节点的自动局部 NMT 恢复，故障恢复走完整 rt-control 重启；
+  - 不为 CPU 绑核、总线设备、对象字典或安全阈值提供猜测性默认值。
 - 软件诊断不得代替急停、安全继电器、STO、驱动器保护和机械限位。
-- 编译、mock、仿真和离线校验不得写成“实机验证通过”。
+- 执行器相关变更必须检查 configure/activate/deactivate/cleanup/error、信号退出、通信中断和部分设备未就绪，
+  最终状态必须可解释且保守。
 
-## 7. 通用变更流程
+## 4. 上游与补丁
 
-1. 界定所属域、目标文件、直接/跨域消费者和明确不改的内容。
-2. 从权威源码、冻结依赖、图纸/设备文档、已裁决问题或实测记录取证。
-3. 动手前在 Issue 用几行文字定义验收条件，不要求先写测试代码；再做保持依赖方向的最小变更。
-4. 按 `collaboration-and-commit-standards.md` 第 9.5 节三档决定新增测试；生命周期场景仅用于有生命周期的对象。
-5. 逐行审查工作树与暂存区，排除用户无关改动、生成物、调试旁路、敏感信息和未解释大文件。
-6. 更新所属域的 `PROGRESS.md` 与必要文档，如实记录已验证、未验证和剩余风险。
+- 上游源码只通过 `deps.repos` 的完整 commit SHA 锁定，禁止把上游仓库复制进本仓库。
+- `patches/` 下每个补丁只解决一个问题，保持最小差异，能对冻结提交 `git apply --check`。
+  不得借补丁重写 CiA 402、controller_manager 或 ros2_control 的通用行为。
+- 更新上游 SHA 时重新验证全部相关补丁、构建和行为。不得直接编辑构建目录里的上游或生成文件。
 
-用户已有改动必须保留。未经明确授权，不得通过 `git checkout --`、`git reset --hard`、清理工作树、覆盖文件或改写历史处理它们。
+## 5. 硬件与宿主授权
 
-## 8. 验证与提交底线
+代码任务不构成硬件授权。以下动作每一项都需要用户针对该动作的单独明确授权：
+上电、使能、运动、写 SDO、启停总线、启动生产 Compose、运行 `hostsetup` 或任何 root 脚本、修改宿主机。
+没有授权时只做静态检查。生产容器必须以安装后的 `rt_control_start` 作为 PID 1；Compose 一律通过
+`tools/rt_control_compose.sh` 调用，`RT_CONTROL_CPUSET` 与 `RT_CONTROL_START_CPUSET` 必须来自目标机验证，
+不设仓库默认值。不得扩大 `privileged`、device、capability、网络暴露、宿主写权限或 Docker socket。
 
-所有变更至少执行：
+## 6. 验证分级
 
-```bash
-git status --short --branch
-git diff --check
-git diff --stat
-git diff
-git diff --cached --check
-git diff --cached
-tools/quality_gate.sh
-```
+验证按级升级，前一级失败不得进入后一级；每级结论只能写成该级：
 
-还必须执行所属域 `AGENTS.md` 要求的适用包构建、单测、契约、mock/仿真或
-HIL/实机门禁。公共模型或接口变更必须扩大到全部消费者，不得只验证修改者自己的包。
-仅当变更涉及 Docker/Compose、镜像依赖，或用户明确发起人工封装/发布时，
-才要求镜像构建与容器内启动证据；分支名本身不触发该要求。
+| 级 | 内容 |
+| --- | --- |
+| 1 | 静态检查与配置/schema 校验 |
+| 2 | 受影响包构建与自动化测试 |
+| 3 | `use_mock_hardware:=true` 的加载、生命周期和停机 |
+| 4 | 容器 config/镜像构建/无硬件启动（仅 Docker/Compose 变更或人工封装/发布时必做） |
+| 5 | 断动力或不使能的现场通信 |
+| 6 | 有急停、隔离区、限速、监护人和回退方案的上电低速验证 |
+| 7 | 完整生产验收 |
 
-提交或推送只在用户明确要求时执行。在任务系统里把 Issue 派给某个 agent，即视为授权该 agent 在自己的分支上提交、推送并开 PR；合并由人完成。此授权不包括打 tag、上传发布物或硬件操作。禁止直接推 main、强推、改写共享历史和 `--no-verify` 的规定不变。被授权后仍必须：
+编译、mock、仿真和离线校验不得写成"实机验证通过"。
 
-- 使用可追溯的 Conventional Commit 信息和任务/需求号；
-- 提交前重新审查暂存区，推送前核对 remote、branch 和提交范围；
-- 禁止 `--no-verify`、强制推送、擅自 amend 他人提交、改写共享历史或把多个无关任务塞入一个提交；
-- 推送后报告远端分支、提交 SHA、实际验证和未验证项。
+## 7. 提交与交付
 
-## 9. 必须暂停并请求裁决的情形
+- 每次提交前：`git status --short --branch`、`git diff --check`、逐行审查 `git diff` 与 `git diff --cached`
+  （含 `??` 未跟踪文件），再跑 `tools/quality_gate.sh` 和 [`tools/README.md`](tools/README.md) 中对应改动类型的命令。
+- 提交、推送、开 PR 只在用户明确要求时执行。在任务系统里把 Issue 派给某个 agent，即视为授权它在自己的分支上
+  提交、推送并开 PR；合并由人完成。此授权不含打 tag、上传发布物或硬件操作。
+- KKOZIA-2 子 issue 的 PR 由架构师在 CI 通过后合并（2026-10-13 用户授权），`safety_policy.yaml` 除外。
+- 禁止：直接推 `main`、`--no-verify`、force push、改写共享历史、擅自 amend 他人提交、把无关任务塞进一个提交；
+  提交密钥、凭据、构建产物、日志、`__pycache__`、未解释的大文件；用 `git checkout --`、`git reset --hard`
+  或清理工作树处理用户已有改动。
+- 行为变更或硬件事实变更合并时，在 `domains/rt_control/docs/areas/<area>/records/` 新增一条记录
+  （格式见该目录 `TEMPLATE.md`），实机验证还要在 `domains/rt_control/PROGRESS.md` 追加一行。纯结构/文档变更不记。
+- 推送后报告远端分支、提交 SHA、实际验证和未验证项。PR 描述按 `.github/pull_request_template.md` 填写。
 
-- 新需求与根契约、域契约、冻结接口或已裁决问题冲突；
+## 8. 必须暂停并请求裁决
+
+- 新需求与本文件、`ARCHITECTURE.md`、冻结接口或已裁决问题冲突；
 - 需要猜测硬件、标定、安全或资源分配事实；
-- 破坏性修改 Robot Model/跨域接口，但消费者、迁移和发布顺序不明；
-- 需要扩大容器、设备、外网、Docker socket 或宿主权限；
-- 需要运行 root 脚本、修改宿主机、启停总线、写设备、使能或驱动实机，但没有对该动作的单独授权；
-- 用户改动与任务重叠且无法安全合并；
+- 破坏性修改 Robot Model 或跨域接口，但消费者、迁移和发布顺序不明；
+- 需要扩大容器、设备、网络、Docker socket 或宿主权限；
+- 需要第 5 节中任何未获单独授权的动作；
+- 用户已有改动与任务重叠且无法安全合并；
 - 适用的构建/测试失败，或验证环境不足以支持当前完成声明。
 
-## 10. 交付自审格式
-
-```text
-变更范围：
-- 任务/需求：
-- 所属域/公共资产：
-- 文件/包：
-- 明确未修改：
-
-架构审查：
-- 目标分支：main/native
-- 域边界与依赖方向：PASS/FAIL
-- Robot Model/接口兼容性：PASS/FAIL/N/A
-- Docker/发布封装影响（普通源码变更可 N/A）：PASS/FAIL/N/A
-- 安全、生命周期与失败收尾：PASS/FAIL/N/A
-
-验证证据：
-- <实际执行的命令>：PASS/FAIL
-
-未验证与剩余风险：
-- <未执行项、原因、需要谁在什么条件下完成>
-
-Git 审查：
-- 无关改动：YES/NO
-- 生成物或敏感信息：YES/NO
-- 是否允许提交/推送：YES/NO（依据）
-```
-
-## 七个职责功能区
-
-当前owner为protocol、hw-config、integration、arm-control、chassis-control、peripheral-control、platform；精确路径和排除项见[功能区索引](domains/rt_control/docs/areas/README.md)。更具体路径优先；本轮只调整owner和事实索引，不迁移代码或改变安全/实时门禁。
+**接口先冻结，责任边界不越界，证据可追溯，未验证就写未验证。**
