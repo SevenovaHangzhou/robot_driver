@@ -1,5 +1,6 @@
 #include "lpms_nav3_can/protocol/decoder.hpp"
 #include "lpms_nav3_can/ros_conversion.hpp"
+#include "infra_socketcan/socket.hpp"
 #include "lpms_nav3_can/protocol/socket_can.hpp"
 #include "lpms_nav3_can/node.hpp"
 
@@ -8,7 +9,6 @@
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <diagnostic_msgs/msg/key_value.hpp>
 #include <linux/can.h>
-#include <linux/can/raw.h>
 #include <net/if.h>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
@@ -19,8 +19,6 @@
 #include "robot_rt_control_interfaces/msg/sensor_status_array.hpp"
 #include "robot_system_interfaces/msg/error_info.hpp"
 #include <unique_identifier_msgs/msg/uuid.hpp>
-#include <sys/socket.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <array>
@@ -45,50 +43,6 @@ namespace
 {
 
 using SteadyClock = std::chrono::steady_clock;
-
-class SocketHandle
-{
-public:
-  SocketHandle() = default;
-  explicit SocketHandle(const int fd) noexcept
-  : fd_(fd)
-  {}
-
-  ~SocketHandle()
-  {
-    reset();
-  }
-
-  SocketHandle(const SocketHandle &) = delete;
-  SocketHandle & operator=(const SocketHandle &) = delete;
-
-  SocketHandle(SocketHandle && other) noexcept
-  : fd_(std::exchange(other.fd_, -1))
-  {}
-
-  SocketHandle & operator=(SocketHandle && other) noexcept
-  {
-    if (this != &other) {
-      reset();
-      fd_ = std::exchange(other.fd_, -1);
-    }
-    return *this;
-  }
-
-  void reset(const int fd = -1) noexcept
-  {
-    if (fd_ >= 0) {
-      ::close(fd_);
-    }
-    fd_ = fd;
-  }
-
-  [[nodiscard]] int get() const noexcept {return fd_;}
-  [[nodiscard]] bool valid() const noexcept {return fd_ >= 0;}
-
-private:
-  int fd_{-1};
-};
 
 [[nodiscard]] std::chrono::milliseconds positive_duration(
   const std::int64_t value, const char * const parameter_name)
@@ -236,7 +190,7 @@ private:
   void try_connect()
   {
     const auto current_time = SteadyClock::now();
-    if (socket_.valid() || current_time < next_connect_attempt_) {
+    if (socket_.is_open() || current_time < next_connect_attempt_) {
       return;
     }
     next_connect_attempt_ = current_time + reconnect_period_;
@@ -250,36 +204,16 @@ private:
       return;
     }
 
-    SocketHandle candidate{
-      ::socket(PF_CAN, SOCK_RAW | SOCK_NONBLOCK | SOCK_CLOEXEC, CAN_RAW)};
-    if (!candidate.valid()) {
-      record_socket_error("failed to create CAN_RAW socket: " + std::string{std::strerror(errno)});
-      return;
-    }
-
     const auto filters = make_can_filters(node_id_);
-    if (::setsockopt(
-        candidate.get(), SOL_CAN_RAW, CAN_RAW_FILTER, filters.data(),
-        static_cast<socklen_t>(sizeof(filters))) != 0)
-    {
-      record_socket_error("failed to configure CAN filters: " + std::string{std::strerror(errno)});
-      return;
-    }
-
-    sockaddr_can address{};
-    address.can_family = AF_CAN;
-    address.can_ifindex = static_cast<int>(interface_index);
-    if (::bind(
-        candidate.get(), reinterpret_cast<const sockaddr *>(&address),
-        static_cast<socklen_t>(sizeof(address))) != 0)
-    {
-      record_socket_error(
-        "failed to bind " + can_interface_ + ": " + std::strerror(errno));
+    infra_socketcan::Socket candidate;
+    try {
+      candidate.open(can_interface_, {filters.begin(), filters.end()});
+    } catch (const std::exception & error) {
+      record_socket_error("failed to open " + can_interface_ + ": " + error.what());
       return;
     }
 
     socket_ = std::move(candidate);
-    bound_interface_index_ = interface_index;
     decoder_.reset();
     has_partial_assembly_ = false;
     has_sample_ = false;
@@ -292,8 +226,7 @@ private:
 
   void disconnect(std::string reason)
   {
-    socket_.reset();
-    bound_interface_index_ = 0U;
+    socket_.close();
     decoder_.reset();
     has_partial_assembly_ = false;
     has_sample_ = false;
@@ -305,29 +238,31 @@ private:
 
   void poll_bus()
   {
-    if (!socket_.valid()) {
+    if (!socket_.is_open()) {
       try_connect();
       return;
     }
     const unsigned int current_interface_index = if_nametoindex(can_interface_.c_str());
-    if (current_interface_index == 0U || current_interface_index != bound_interface_index_) {
+    if (
+      current_interface_index == 0U ||
+      static_cast<int>(current_interface_index) != socket_.interface_index()) {
       disconnect("SocketCAN interface disappeared or was replaced: " + can_interface_);
       return;
     }
 
     for (std::size_t iteration = 0U; iteration < 256U; ++iteration) {
       can_frame raw_frame{};
-      const auto bytes_read = ::recv(socket_.get(), &raw_frame, sizeof(raw_frame), MSG_DONTWAIT);
-      if (bytes_read < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-          return;
-        }
-        disconnect("SocketCAN receive failed: " + std::string{std::strerror(errno)});
+      const int received = socket_.receive(raw_frame);
+      if (received == 0) {
         return;
       }
-      if (bytes_read != static_cast<ssize_t>(sizeof(raw_frame))) {
+      if (received == -EIO) {
         ++malformed_frame_count_;
         continue;
+      }
+      if (received < 0) {
+        disconnect("SocketCAN receive failed: " + std::string{std::strerror(-received)});
+        return;
       }
 
       CanFrame frame;
@@ -415,7 +350,7 @@ private:
     const double sample_age = has_sample_ ? age_ms(last_sample_time_, current_time) : -1.0;
     const double heartbeat_age =
       has_heartbeat_ ? age_ms(last_heartbeat_time_, current_time) : -1.0;
-    if (!socket_.valid()) {
+    if (!socket_.is_open()) {
       status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
       status.message = "SocketCAN interface unavailable";
     } else if (!has_sample_) {
@@ -426,8 +361,7 @@ private:
       status.message = "TPDO data stale";
     } else if (
       require_heartbeat_ &&
-      (!has_heartbeat_ || heartbeat_age > static_cast<double>(heartbeat_timeout_.count())))
-    {
+      (!has_heartbeat_ || heartbeat_age > static_cast<double>(heartbeat_timeout_.count()))) {
       status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
       status.message = "CANopen heartbeat missing or stale";
     } else if (require_heartbeat_ && heartbeat_state_ != 0x05U) {
@@ -440,7 +374,8 @@ private:
 
     status.values.push_back(diagnostic_value("can_interface", can_interface_));
     status.values.push_back(diagnostic_value("node_id", std::to_string(node_id_)));
-    status.values.push_back(diagnostic_value("socket_connected", socket_.valid() ? "true" : "false"));
+    status.values.push_back(
+      diagnostic_value("socket_connected", socket_.is_open() ? "true" : "false"));
     status.values.push_back(diagnostic_value("sample_age_ms", std::to_string(sample_age)));
     status.values.push_back(diagnostic_value("heartbeat_age_ms", std::to_string(heartbeat_age)));
     status.values.push_back(
@@ -475,10 +410,11 @@ private:
         robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_VALID;
       fill_error(imu_status.observation.error, 0U, "", false);
     } else {
-      imu_status.measurement_state = socket_.valid() ?
-        robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_STALE :
-        robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_COMMUNICATION_ERROR;
-      const std::uint32_t code = socket_.valid() ? 1140U : 1100U;
+      imu_status.measurement_state =
+        socket_.is_open()
+          ? robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_STALE
+          : robot_rt_control_interfaces::msg::SensorStatus::MEASUREMENT_COMMUNICATION_ERROR;
+      const std::uint32_t code = socket_.is_open() ? 1140U : 1100U;
       fill_error(imu_status.observation.error, code, status.message, true);
       imu_status.fault_detected_at = array.header.stamp;
       imu_status.fault_detected_time_valid = true;
@@ -521,8 +457,7 @@ private:
   std::chrono::milliseconds pdo_timeout_{250};
   std::chrono::milliseconds assembly_timeout_{50};
   std::chrono::milliseconds heartbeat_timeout_{2500};
-  SocketHandle socket_;
-  unsigned int bound_interface_index_{0U};
+  infra_socketcan::Socket socket_;
   SteadyClock::time_point next_connect_attempt_{};
   SteadyClock::time_point last_sample_time_{};
   SteadyClock::time_point last_heartbeat_time_{};
