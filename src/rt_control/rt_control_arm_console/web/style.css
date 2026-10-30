@@ -50,6 +50,19 @@ input { background: var(--card); min-width: 0; flex: 1; }
 .brand { display: flex; align-items: center; gap: 8px; }
 .brand-mark { width: 12px; height: 12px; border-radius: 4px; background: var(--accent); }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.topbar-status { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-left: auto; flex-wrap: wrap; }
+.vacuum-pressure { display: flex; gap: 16px; margin-left: auto; }
+.pressure-reading { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.pressure-label, .pressure-unit { font-size: 12px; color: var(--muted); }
+.pressure-value { display: inline-block; min-width: 5ch; text-align: right; font-size: 18px; font-variant-numeric: tabular-nums; color: var(--accent); }
+.pressure-status { font-size: 12px; color: var(--warn); }
+.pressure-status:empty { display: none; }
+.pressure-reading.unavailable .pressure-value { color: var(--muted); }
+@media (max-width: 700px) {
+  .topbar-status { width: 100%; gap: 10px; }
+  .topbar-status .chips { width: 100%; }
+  .vacuum-pressure { flex-wrap: wrap; justify-content: flex-end; gap: 8px 16px; }
+}
 .chip {
   padding: 4px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line);
   font-size: 13px; color: var(--muted);
@@ -94,6 +107,21 @@ input { background: var(--card); min-width: 0; flex: 1; }
 button.lease.mine { border-color: var(--ok); color: var(--ok); }
 button.lease.other { border-color: var(--warn); color: var(--warn); }
 
+.vacuum-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.vacuum-buttons button { display: grid; gap: 5px; padding: 11px 6px; text-align: center; }
+.vacuum-buttons button span { font-weight: 600; white-space: nowrap; }
+.vacuum-buttons button strong { font-size: 15px; }
+.vacuum-buttons button small { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.vacuum-buttons button.on { border-color: var(--ok); }
+.vacuum-buttons button.on strong { color: var(--ok); }
+.vacuum-buttons button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.vacuum-buttons button:active:not(:disabled) { transform: translateY(1px); }
+.vacuum-panel .error { color: var(--bad); }
+@media (max-width: 380px) {
+  .vacuum-buttons { gap: 5px; }
+  .vacuum-buttons button { font-size: 13px; }
+}
+
 /* Gear switch: pill with a sliding knob, gear name below. */
 .gears { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .gear-switch {
@@ -136,10 +164,10 @@ button.lease.other { border-color: var(--warn); color: var(--warn); }
 
 .sequence { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
 .hint-inline { color: var(--muted); font-size: 12px; }
-.sequence-list { margin: 0; padding: 0; list-style: none; counter-reset: step; display: flex; flex-wrap: wrap; gap: 6px; }
+.sequence-list { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 6px; }
 .sequence-list li {
   counter-increment: step; display: flex; align-items: center; gap: 6px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 13px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; flex-wrap: wrap;
 }
 .sequence-list li::before { content: counter(step); color: var(--muted); font-size: 12px; }
 .sequence-list li.current { border-color: var(--accent); color: var(--accent); }
@@ -162,3 +190,8 @@ dialog .card { width: min(460px, 92vw); border: 1px solid var(--line); }
   border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; max-width: 90vw; z-index: 20;
 }
 .toast.bad { border-color: var(--bad); color: var(--bad); }
+
+.sequence-name { flex: 1 1 120px; overflow-wrap: anywhere; }
+.sequence-list input, #sequence-dwell { width: 80px; }
+.sequence-list select { max-width: 180px; }
+.sequence-list label { white-space: nowrap; }

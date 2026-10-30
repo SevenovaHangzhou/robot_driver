@@ -6,14 +6,15 @@ authorities:
   source: machines/Alfa_V3/arms.yaml left branch + read-only EtherCAT scan 2026-10-17 (ar-Default-string)
   direction: user 2026-10-18 - all +1, joint positive = encoder count increasing; robot_alfav3_mobile.urdf (5ec6b65) flips the left J3/J6 export axis so the model still matches the arm
 pending_facts:
+- BluePoint sensors at rings8/16 are topology-only; force PDO/driver integration deferred
 - 'PP Halt policy: live firmware has no 0x605D object'
 - verified nonwrapping single-turn range for J3
 - coupler runtime state/DC and ESI display-version difference
 robot_variant: Alfa_V3
 module: bench_left_arm
 master_system: ecat_arms
-# Bench assembly: one seven-axis arm on the main coupler X2, no gripper drive, nothing on X3.
-# The sub-coupler on the main coupler EBUS port 2 therefore enumerates directly after J7.
+# Left-arm control on the currently connected dual-arm bench (18 responders).
+# Right drives9..15 and BluePoint8/16 remain unmanaged in PREOP; sub-coupler is17.
 spec:
   family: zeroerr
   extra_responders:
@@ -21,6 +22,33 @@ spec:
     profile: inovance_gr10_coupler
     identity_key: coupler_main
   - ring_position: 8
+    profile: bench_arms_observers
+    identity_key: bluepoint_p140000100
+  - ring_position: 9
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 10
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 11
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 12
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 13
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 14
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 15
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 16
+    profile: bench_arms_observers
+    identity_key: bluepoint_p140000100
+  - ring_position: 17
     profile: inovance_gr10_coupler
     identity_key: coupler_subdevice
   branches:
@@ -44,6 +72,8 @@ spec:
         ring_position: 3
         mode_of_operation: 8
         robot_model_joint: left_joint3
+        # User-confirmed 18ET model; independent raw output torque feedback.
+        csp_profile: zeroerr_cia402_csp_torque_sensor
         encoder_policy: single_turn
         device: devices/zeroerr_erob_model_tbd.yaml
         direction: 1
@@ -51,18 +81,24 @@ spec:
         ring_position: 4
         mode_of_operation: 8
         robot_model_joint: left_joint4
+        # User-confirmed 18ET model; independent raw output torque feedback.
+        csp_profile: zeroerr_cia402_csp_torque_sensor
         device: devices/zeroerr_erob_model_tbd.yaml
         direction: 1
       - physical_joint: J5
         ring_position: 5
         mode_of_operation: 8
         robot_model_joint: left_joint5
+        # User-confirmed 18ET model; independent raw output torque feedback.
+        csp_profile: zeroerr_cia402_csp_torque_sensor
         device: devices/zeroerr_erob_model_tbd.yaml
         direction: 1
       - physical_joint: J6
         ring_position: 6
         mode_of_operation: 8
         robot_model_joint: left_joint6
+        # User-confirmed 18ET; dual-encoder calculated torque and raw difference.
+        csp_profile: zeroerr_cia402_csp_torque_encoder
         device: devices/zeroerr_erob_model_tbd.yaml
         direction: 1
       - physical_joint: J7

@@ -29,3 +29,11 @@
 ## 跨区事实关联
 
 底层PREOP/PDO/semantic约束见[protocol](../protocol/README.md)；FJT/Rolling启动拼装见[integration](../integration/README.md)。本区负责controller实现，不扩大为硬件使能授权。
+
+[arm-control-20261023-05](records/2026-10-23-dpi-tool-preset-groups.md)#F1-F3：新增吸盘装配T0/T2/T4六个大组，保留旧预设；静态/API验收，不授权运动，实际新采集待用户执行（PARTIAL，T2）。
+
+[arm-control-20261023-06](records/2026-10-23-dpi-j6-measurement-sequences.md)#F1-F3：新增⑦J6已建模吸盘自重换向诊断及⑧固定姿态准备；不自动加载外力矩，0x2241待准备（PARTIAL，T2）。
+
+[arm-control-20261024-01](records/2026-10-24-vacuum-web-controls.md)#F1-F3：临时真空三按钮复用现场脚本，右阀00、左阀01、泵02；网页轮询只读，开关不自动联动。105项测试与浏览器模拟通过，实际读回三路OFF，实机开关待验（PARTIAL，T2）。
+
+[arm-control-20261027-01](records/2026-10-27-vacuum-pressure-display.md)#F1-F3：操作台右上角消费左右压力 ROS 话题，AI0=左、AI1=右，显示换算后的 kPa 表压；单路无效或超过 1 秒未更新清除数字，与泵阀和运动准入独立。107 项包测试、构建、质量门禁及真实页面只读验收通过（PASS，T2）。

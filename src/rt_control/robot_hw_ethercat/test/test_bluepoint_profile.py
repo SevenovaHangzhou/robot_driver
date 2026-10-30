@@ -27,7 +27,7 @@ def test_bluepoint_esi_identity_and_pdo_layout_are_archived_exactly():
     ]
 
 
-@pytest.mark.parametrize("side,position", [("left", 2), ("right", 4)])
+@pytest.mark.parametrize("side,position", [("left", 8), ("right", 16)])
 def test_bluepoint_profile_is_state_only_and_matches_the_user_selected_docx_layout(side, position):
     record = yaml.safe_load(PROFILE.read_text())
     profile = record["driver_config"]

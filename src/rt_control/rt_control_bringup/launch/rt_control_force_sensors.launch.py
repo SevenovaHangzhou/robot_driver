@@ -38,7 +38,7 @@ def setup(context):
     config = Path(build.runtime_dir) / "controllers.yaml"
     startup_arguments = runtime_arguments(build, {"startup_id": f"force-bench-{uuid.uuid4()}"})
     manager = Node(
-        package="controller_manager",
+        package="rt_control_bringup",
         executable="ros2_control_node",
         parameters=[{"robot_description": build.robot_description}, str(config)],
         arguments=startup_arguments,
@@ -63,7 +63,7 @@ def setup(context):
         return []
 
     return [
-        LogInfo(msg=f"BluePoint raw bench: mock={raw_mock}, left=2/right=4; wrench disabled"),
+        LogInfo(msg=f"BluePoint raw bench: mock={raw_mock}; topology from artifact; wrench disabled"),
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,

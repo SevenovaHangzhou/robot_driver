@@ -60,6 +60,31 @@ modules:
     config_file: machines/Alfa_V3/bench_left_arm.yaml
     device_refs:
     - devices/zeroerr_erob_model_tbd.yaml
+  # Bench assembly of both arms without grippers; not a functional module of the robot.
+  bench_dual_arm:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 14
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 14
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 14
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - right arm encoder direction per joint
+    - ZeroErr PDO/SDO profile for CSP drives
+    - arm mechanical limits and transmission parameters
+    config_file: machines/Alfa_V3/bench_dual_arm.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml
   wrist_force_sensors:
     role: state_sensor_group
     transport: ethercat
@@ -212,6 +237,28 @@ modules:
     device_refs:
     - devices/damiao_dm_j4310_2ec_v1_1.yaml
     can_interface_key: head
+  bench_right_arm:
+    role: actuator_group
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 7
+    sensor_count: 0
+    mode_groups:
+    - name: csp
+      count: 7
+      mode_of_operation: 8
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      csp: 7
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - right arm CSP firmware and runtime qualification; inherited from the dual-arm bench
+    config_file: machines/Alfa_V3/bench_right_arm.yaml
+    device_refs:
+    - devices/zeroerr_erob_model_tbd.yaml
 robot_model:
   package: robot_description
   source_revision: 5ec6b653d7b72f9d25fecea4d71e5d640ce468ca
@@ -309,6 +356,56 @@ profiles:
         - 6
         - 7
         - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
+  bench_dual_arm:
+    status: draft
+    modules:
+    - bench_dual_arm
+    allowed_scopes:
+    - bench_dual_arm_stationary_enable
+    - bench_dual_arm
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
       canopen:
         status: absent
         node_ids: []
@@ -433,6 +530,47 @@ profiles:
       - none
     pending_facts:
     - bench-only raw data; full topology unconfirmed
+  bench_right_arm:
+    status: draft
+    modules:
+    - bench_right_arm
+    allowed_scopes:
+    - bench_right_arm_stationary_enable
+    - bench_right_arm
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
 scopes:
   arms_only:
     enabled_modules:
@@ -681,6 +819,55 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+  bench_dual_arm_stationary_enable:
+    enabled_modules:
+    - bench_dual_arm
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_dual_arm
+      mode_group: csp
+    jtc_groups: []
+    global_readiness: partial_scope
+    render_mode: stationary_enable
+    policies:
+    - enable
+    policy_overrides:
+      enable: bench_dual_arm_enable
+    staged_hardware_activation: true
+    controller_order:
+      inactive: []
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
+  # Dual-arm bench motion: the operator console sends 14-joint FollowJointTrajectory goals to
+  # dual_arm_jtc after enable. The right arm directions are provisional until checked per joint.
+  bench_dual_arm:
+    enabled_modules:
+    - bench_dual_arm
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_dual_arm
+      mode_group: csp
+    jtc_groups:
+    - module: bench_dual_arm
+      mode_group: csp
+    global_readiness: partial_scope
+    render_mode: normal
+    policies:
+    - enable
+    - motion
+    policy_overrides:
+      enable: bench_dual_arm_enable
+      motion: bench_dual_arm_motion
+    staged_hardware_activation: true
+    controller_order:
+      inactive:
+      - dual_arm_jtc
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
   force_bench:
     enabled_modules:
     - wrist_force_sensors
@@ -699,6 +886,53 @@ scopes:
       active:
       - left_wrist_force_sensor_broadcaster
       - right_wrist_force_sensor_broadcaster
+  bench_right_arm_stationary_enable:
+    enabled_modules:
+    - bench_right_arm
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_right_arm
+      mode_group: csp
+    jtc_groups: []
+    global_readiness: partial_scope
+    render_mode: stationary_enable
+    policies:
+    - enable
+    policy_overrides:
+      enable: bench_right_arm_enable
+    staged_hardware_activation: true
+    controller_order:
+      inactive: []
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
+  bench_right_arm:
+    enabled_modules:
+    - bench_right_arm
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_right_arm
+      mode_group: csp
+    jtc_groups:
+    - module: bench_right_arm
+      mode_group: csp
+    global_readiness: partial_scope
+    render_mode: normal
+    policies:
+    - enable
+    - motion
+    policy_overrides:
+      enable: bench_right_arm_enable
+      motion: bench_right_arm_motion
+    staged_hardware_activation: true
+    controller_order:
+      inactive:
+      - right_arm_jtc
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
 owner_refs:
   ethercat: robot_hw_ethercat
   canopen: robot_hw_canopen
@@ -727,6 +961,14 @@ policy_refs:
     package: rolling_trajectory_controller
     file: config/Alfa_V3_bench_left_arm_motion.yaml
     schema: arm_tolerances.schema.json
+  bench_dual_arm_enable:
+    package: enable_manager
+    file: config/Alfa_V3_bench_dual_arm_enable_policy.yaml
+    schema: enable_policy.schema.json
+  bench_dual_arm_motion:
+    package: rolling_trajectory_controller
+    file: config/Alfa_V3_bench_dual_arm_motion.yaml
+    schema: arm_tolerances.schema.json
   motion:
     package: rolling_trajectory_controller
     file: config/Alfa_V3_arm_tolerances.yaml
@@ -734,3 +976,11 @@ policy_refs:
   envelope:
     package: rolling_trajectory_controller
     file: config/Alfa_V3_arm_envelope.mock.yaml
+  bench_right_arm_enable:
+    package: enable_manager
+    file: config/Alfa_V3_bench_right_arm_enable_policy.yaml
+    schema: enable_policy.schema.json
+  bench_right_arm_motion:
+    package: rolling_trajectory_controller
+    file: config/Alfa_V3_bench_right_arm_motion.yaml
+    schema: arm_tolerances.schema.json

@@ -47,10 +47,11 @@ def arguments(shares, *, confirmed=True):
     return dict(**SELECTION, package_share=lambda name: str(shares[name]))
 
 
-def scan(topology_ports=((2, "EBUS", 8), (3, "MII", 1)), slaves=9, errors=None, faulted=()):
-    """Text in the IgH CLI format recorded by the 2026-10-17 bench scan."""
-    identities = {0: (0x00100000, 0x10F40931), 8: (0x00100000, 0x10F40932)}
-    identities.update({ring: (0x5A65726F, 0x00029252) for ring in range(1, 8)})
+def scan(topology_ports=((1, "MII", 9), (2, "EBUS", 17), (3, "MII", 1)), slaves=18, errors=None, faulted=()):
+    """Connected dual arms plus two passive BluePoint tails, cached SII scan 2026-10-24."""
+    identities = {0: (0x00100000, 0x10F40931), 17: (0x00100000, 0x10F40932),
+                  8: (0xA1, 0x8081), 16: (0xA1, 0x8081)}
+    identities.update({ring: (0x5A65726F, 0x00029252) for ring in [*range(1, 8), *range(9, 16)]})
 
     def run(command, **_):
         assert command[0] == "ethercat" and command[1] in {"master", "slaves", "upload"}
@@ -59,7 +60,7 @@ def scan(topology_ports=((2, "EBUS", 8), (3, "MII", 1)), slaves=9, errors=None, 
         if command[1] == "slaves":
             blocks = []
             for ring, (vendor, product) in sorted(identities.items()):
-                revision = 0x00010000 if ring in (0, 8) else 0x00000001
+                revision = 0x00010000 if ring in (0, 17) else 0x00000001
                 block = (
                     f"=== Master 0, Slave {ring} ===\nState: PREOP\n"
                     f"Vendor Id:       0x{vendor:08x}\nProduct code:    0x{product:08x}\n"
@@ -118,13 +119,13 @@ def test_real_topology_matches_the_bench_scan(shares, tmp_path):
         use_mock_hardware=False,
     )
     topology = result.systems[0]["result"]["expected_topology"]
-    assert [item["ring_position"] for item in topology["responders"]] == list(range(9))
+    assert [item["ring_position"] for item in topology["responders"]] == list(range(18))
     assert topology["branches"] == [{"main_esc_port": 3, "downstream": 1}]
-    assert topology["internal_ports"] == [{"main_esc_port": 2, "downstream": 8}]
+    assert topology["internal_ports"] == [{"main_esc_port": 2, "downstream": 17}]
     assert topology["preflight_required"] is True
     preflight(result, run=scan())
     with pytest.raises(RuntimeError, match="responder count"):
-        preflight(result, run=scan(slaves=18))
+        preflight(result, run=scan(slaves=17))
     with pytest.raises(RuntimeError, match="Branch wiring"):
         preflight(result, run=scan(topology_ports=((2, "EBUS", 8), (1, "MII", 1))))
 
@@ -183,6 +184,8 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
     for joint in MODEL_JOINTS:
         profile = yaml.safe_load(result.files[f"{joint}.yaml"])
         channels = profile["tpdo"][0]["channels"]
+        sensor = joint in {f"left_joint{i}" for i in range(3, 7)}
+        encoder = joint == "left_joint6"
         assert [(c["index"], c["type"], c["state_interface"]) for c in channels] == [
             (0x6064, "int32", "position"),
             (0x60FD, "uint32", "digital_inputs"),
@@ -190,11 +193,13 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
             (0x606C, "int32", "velocity"),
             (0x6077, "int16", "torque_permille"),
             (0x603F, "uint16", "error_code"),
-        ]
+        ] + ([(0x3B69, "int32", "sensor_torque_mnm")] if sensor else []) + ([(0x2241, "int32", "dual_encoder_difference_counts")] if encoder else [])
         assert all("scale" not in channel for channel in channels)
-        # 18 bytes of TxPDO, well inside the 76-byte 0x1A00 limit.
+        # 18/22/26 bytes of TxPDO, inside the 76-byte 0x1A00 limit.
         sizes = {"int32": 4, "uint32": 4, "int16": 2, "uint16": 2}
-        assert sum(sizes[c["type"]] for c in channels) == 18
+        assert sum(sizes[c["type"]] for c in channels) == (26 if encoder else 22 if sensor else 18)
+        if sensor:
+            assert "factor" not in channels[-1] and "offset" not in channels[-1]
         position, velocity, torque = channels[0], channels[3], channels[4]
         assert math.isclose(velocity["factor"], position["factor"]) and "offset" not in velocity
         assert torque["factor"] == 1.0 and "factor" not in channels[5]
@@ -209,7 +214,10 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
             "velocity",
             "torque_permille",
             "error_code",
-        ]
+        ] + (["sensor_torque_mnm"] if sensor else []) + (["dual_encoder_difference_counts"] if encoder else [])
+        recorder = result.controllers["runtime_log_recorder"]["ros__parameters"]["interfaces"]
+        assert (f"{joint}/sensor_torque_mnm" in recorder) is sensor
+        assert (f"{joint}/dual_encoder_difference_counts" in recorder) is encoder
         mirrors = [c.get("mirror_state_interface") for c in profile["rpdo"][0]["channels"]]
         assert mirrors == ["target_position", "control_word_sent"]
 

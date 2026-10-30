@@ -14,6 +14,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(trajectory test/test_trajectory.py TIMEOUT 60)
   ament_add_pytest_test(console test/test_console.py TIMEOUT 60)
   ament_add_pytest_test(server test/test_server.py TIMEOUT 60)
+  ament_add_pytest_test(vacuum_control test/test_vacuum_control.py TIMEOUT 60)
+  ament_add_pytest_test(server_vacuum test/test_server_vacuum.py TIMEOUT 60)
 endif()
 
 ament_package()

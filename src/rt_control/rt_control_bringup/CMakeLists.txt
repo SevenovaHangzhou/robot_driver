@@ -8,6 +8,18 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 ament_python_install_package(${PROJECT_NAME})
 
+# Controller manager node: ros2_control 2.53.1 ros2_control_node with Jazzy's overrun management
+# (skip missed ticks instead of running them back to back). Same executable name as upstream.
+find_package(controller_manager REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(realtime_tools REQUIRED)
+add_executable(ros2_control_node src/ros2_control_node.cpp)
+target_compile_features(ros2_control_node PUBLIC cxx_std_17)
+target_include_directories(ros2_control_node PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+ament_target_dependencies(ros2_control_node controller_manager rclcpp realtime_tools)
+install(TARGETS ros2_control_node DESTINATION lib/${PROJECT_NAME})
+
 install(
   FILES
     launch/rt_control_force_sensors.launch.py
@@ -38,6 +50,10 @@ install(
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_control_loop_timing test/test_control_loop_timing.cpp)
+  target_compile_features(test_control_loop_timing PUBLIC cxx_std_17)
+  target_include_directories(test_control_loop_timing PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include)
   find_package(swerve_driver REQUIRED)
   find_package(robot_hw_ethercat REQUIRED)
   ament_add_gtest(test_cyclic_controller test/test_cyclic_controller.cpp TIMEOUT 90)

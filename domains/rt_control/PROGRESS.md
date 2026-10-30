@@ -251,3 +251,15 @@
 | 2026-10-15 | integration | [ELECTRI-183 公共参数绑定与跨层耦合修复](docs/areas/integration/records/2026-10-15-electri-183-public-bindings.md) | UNVERIFIED（T0；定向组合测试与头部接口测试通过，运行/实机未验） |
 | 2026-10-14 | platform | [四层源码合并证据与观察起点](docs/areas/platform/records/2026-10-14-composer-merged-evidence.md) | PARTIAL（main c220e5e；完整CI41包/2107 tests无失败；后续20PR观察起点已登记，T1/实机缺口保留） |
 | 2026-10-14 | arm-control | [显式手臂策略](docs/areas/arm-control/records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；数值/顺序/金样对齐；包络未实测） |
+
+- 2026-10-21：R2S-VIEW-MODEL-20261021 本地源码与远端18121网页显示已接入用户指定 robot_description 5538a00，仅重载空闲网页、guard保持；78项操作台测试及真实目录67个可视网格HTTP/哈希校验通过，控制运动参数保留。权威模型现存1条零位测试失败、全仓门禁缺jsonschema、实机与WebGL视觉未验，见[记录](docs/areas/arm-control/records/2026-10-21-console-latest-view-model.md)。
+
+- 2026-10-23：DPI-TOOL-GROUPS-20261023 静态新增吸盘装配T0/T2/T4六个大组，58项现场位姿校验及S曲线限点通过；无重启/运动，全仓门禁受既有jsonschema版本阻塞。见[记录](docs/areas/arm-control/records/2026-10-23-dpi-tool-preset-groups.md)。
+
+- 2026-10-23：DPI-J6-MEASUREMENT-SEQUENCES-20261023 静态新增⑦J6吸盘自重正负重力三轮及⑧固定姿态准备，60项预设与轨迹限点校验通过；工具质量不重复计入；0x2241和独立加载待准备，无重启/运动。见[记录](docs/areas/arm-control/records/2026-10-23-dpi-j6-measurement-sequences.md)。
+
+- 2026-10-23：J6 0x2241专用26B PDO已部署，有序重启后保持IDLE；10036帧未使能OP同步通道验证通过，0xA000停机记录未清，未复位/使能/运动。见[记录](docs/areas/hw-config/records/2026-10-23-j6-dual-encoder-pdo.md)。
+
+- 2026-10-24：机械臂 18121 操作台增加真空泵及左右阀三个手动开关，复用现场 vacuum 脚本；本地/工控机各 105 tests 和浏览器模拟六次开关通过，真实网页只读三路均 OFF，仅重启空闲 Web，未使能/运动/写输出。见[记录](docs/areas/arm-control/records/2026-10-24-vacuum-web-controls.md)（PARTIAL，T2；实机开关待验）。
+
+| 2026-10-27 | arm-control | [操作台双路真空表压](docs/areas/arm-control/records/2026-10-27-vacuum-pressure-display.md) | PASS（T2）：右上角显示左右压力 ROS 换算值；107 项包测试、构建、质量门禁和真实页面只读验收通过，未写设备 |
