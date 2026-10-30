@@ -21,8 +21,8 @@ class ClassifyTest(unittest.TestCase):
         self.assertIn("tools/quality_gate.sh", plan["actions"])
 
     def test_single_package_change_selects_reverse_dependencies(self):
-        plan = st.classify(["src/rt_control/plc_io_modbus/src/node.cpp"])
-        self.assertTrue(any("--packages-above plc_io_modbus" in a for a in plan["actions"]))
+        plan = st.classify(["src/rt_control/periph_plc_io/src/node.cpp"])
+        self.assertTrue(any("--packages-above periph_plc_io" in a for a in plan["actions"]))
         self.assertFalse(plan["full"])
 
     def test_private_interface_change_selects_private_package_only(self):
@@ -40,26 +40,26 @@ class ClassifyTest(unittest.TestCase):
 
     def test_mixed_changes_deduplicate_actions(self):
         plan = st.classify([
-            "src/rt_control/bms_node/src/bms_node.cpp",
-            "src/rt_control/bms_node/package.xml",
+            "src/rt_control/periph_bms/src/bms_node.cpp",
+            "src/rt_control/periph_bms/package.xml",
             "domains/rt_control/PROGRESS.md",
         ])
         colcon = [a for a in plan["actions"] if "colcon" in a]
         self.assertEqual(len(colcon), 1)
-        self.assertIn("--packages-above bms_node", colcon[0])
+        self.assertIn("--packages-above periph_bms", colcon[0])
 
 
 class AffectedCasesTest(unittest.TestCase):
     def test_plc_change_maps_to_covering_cases(self):
         cases = st.load_case_covers(CASES_DIR)
-        affected = st.affected_cases(["src/rt_control/plc_io_modbus/src/node.cpp"], cases)
+        affected = st.affected_cases(["src/rt_control/periph_plc_io/src/node.cpp"], cases)
         self.assertIn("TC-FM-03", affected)
         self.assertIn("TC-AR-04", affected)
         self.assertNotIn("TC-RT-01", affected)
 
     def test_glob_matcher_handles_double_star(self):
-        self.assertTrue(st.glob_match("src/rt_control/plc_io_modbus/**", "src/rt_control/plc_io_modbus/a/b.py"))
-        self.assertFalse(st.glob_match("src/rt_control/plc_io_modbus/**", "src/rt_control/bms_node/x.py"))
+        self.assertTrue(st.glob_match("src/rt_control/periph_plc_io/**", "src/rt_control/periph_plc_io/a/b.py"))
+        self.assertFalse(st.glob_match("src/rt_control/periph_plc_io/**", "src/rt_control/periph_bms/x.py"))
         self.assertTrue(st.glob_match("deps.repos", "deps.repos"))
 
 

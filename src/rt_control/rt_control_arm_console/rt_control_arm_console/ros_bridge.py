@@ -12,7 +12,7 @@ from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
 from controller_manager_msgs.srv import ListControllers
 from diagnostic_msgs.msg import DiagnosticArray
-from plc_io_modbus.msg import VacuumSensorState
+from periph_plc_io.msg import VacuumSensorState
 from rcl_interfaces.srv import GetParameters
 import rclpy
 from rclpy.action import ActionClient

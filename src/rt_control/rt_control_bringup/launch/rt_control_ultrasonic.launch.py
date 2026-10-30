@@ -15,11 +15,11 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "ultrasonic_config",
                 default_value=PathJoinSubstitution(
-                    [FindPackageShare("modbus_tcp_rtu485"), "config", "ultrasonic.yaml"]
+                    [FindPackageShare("periph_led_ultrasonic"), "config", "ultrasonic.yaml"]
                 ),
             ),
             Node(
-                package="modbus_tcp_rtu485",
+                package="periph_led_ultrasonic",
                 executable="ultrasonic_node",
                 name="ultrasonic_node",
                 output="both",

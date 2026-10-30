@@ -16,9 +16,9 @@
   <exec_depend>robot_description</exec_depend>
   <exec_depend>rt_control_composer</exec_depend>
   <exec_depend>rt_control_machine_config</exec_depend>
-  <exec_depend>bms_node</exec_depend>
-  <exec_depend>plc_io_modbus</exec_depend>
-  <exec_depend>modbus_tcp_rtu485</exec_depend>
+  <exec_depend>periph_bms</exec_depend>
+  <exec_depend>periph_plc_io</exec_depend>
+  <exec_depend>periph_led_ultrasonic</exec_depend>
   <exec_depend>robot_hw_ethercat</exec_depend>
   <exec_depend>robot_hw_can</exec_depend>
   <exec_depend>rt_force_torque_broadcaster</exec_depend>

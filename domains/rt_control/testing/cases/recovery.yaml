@@ -67,7 +67,7 @@ cases:
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/plc_io_modbus/**"]
+    covers: ["src/rt_control/periph_plc_io/**"]
     traces: [domains/rt_control/docs/plc-bms-integration.md]
     preconditions: 断连方式为拔网线/关 PLC 电源，不改软件配置；现场授权
     entry: |
@@ -87,7 +87,7 @@ cases:
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/bms_node/**", "hostsetup/**"]
+    covers: ["src/rt_control/periph_bms/**", "hostsetup/**"]
     traces: ["BQ-121"]
     preconditions: BQ-121 当前 OPEN/DEPLOYMENT
     entry: |

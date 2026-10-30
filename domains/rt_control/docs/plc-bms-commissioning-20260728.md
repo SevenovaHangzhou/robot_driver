@@ -59,7 +59,7 @@ ID，禁止把它随意指向开发工作区。
 
 修复版实测 `/plc/io_state` 为 `connected=true`、`data_fresh=true`、三路输出关闭、两路真空未建立、报警字 0；发布
 频率为 2 Hz。`/bms/battery_state` 能从 CAN1 标准帧 `0x3FC` 得到有效数据，复测样本为 `48.6 V`、SOC `0.23`、
-`present=true`，发布频率为 0.2 Hz。CAN1 为 500 kbit/s、ERROR-ACTIVE，只有 `bms_node` 发布该 ROS 话题。
+`present=true`，发布频率为 0.2 Hz。CAN1 为 500 kbit/s、ERROR-ACTIVE，只有 `periph_bms` 发布该 ROS 话题。
 
 目标机实扫 RMW 为 `rmw_fastrtps_cpp`。TF 同时验证了静态 `base_footprint → base_link` 的精确高度 `0.202094 m`，
 以及可查询的组合变换 `odom → base_link`；该变换没有恢复已删除的 `world` 父节点。

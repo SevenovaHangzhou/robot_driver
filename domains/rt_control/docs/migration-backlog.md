@@ -62,10 +62,10 @@
 | [ ] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | （arch-b1 已删 relative 扩展；剩余：改名）内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
 | [ ] | `rt_force_torque_broadcaster` | control | 保留 | `ctrl_force_torque_broadcaster` | 健康。 |
 | [x] | `x503_force_sensor` | control | ~~并入 `hw_ethercat`~~ **删** | — | X503 PREOP 标定/SDO 快照脚本，纯协议工具。arch-b4：用户 2026-10-30 裁定 X503 只用于二代机，连同 `robot_hw_ethercat/config/x503b_readback.yaml` 删除。 |
-| [ ] | `bms_node` | periph | 保留 | `periph_bms` | `protocol/` 子目录无 rclcpp，健康。SocketCAN 下沉 infra。`dual_battery_controller` 是策略不是监控，但 opt-in 默认关，记一笔不动。 |
-| [ ] | `lpms_nav3_can` | periph | 保留 | `periph_imu_lpms` | 健康。SocketCAN 下沉 infra。 |
-| [ ] | `modbus_tcp_rtu485` | periph | 保留 | `periph_led_ultrasonic` | 健康。现名是传输不是职责；Modbus 客户端下沉 infra。 |
-| [ ] | `plc_io_modbus` | periph | 保留 | `periph_plc_io` | 健康。Modbus 客户端下沉 infra。 |
+| [x] | `bms_node` | periph | 保留 | `periph_bms` | （arch-r1 已改名，传输层已下沉 infra）`protocol/` 子目录无 rclcpp，健康。SocketCAN 下沉 infra。`dual_battery_controller` 是策略不是监控，但 opt-in 默认关，记一笔不动。 |
+| [x] | `lpms_nav3_can` | periph | 保留 | `periph_imu_lpms` | （arch-r1 已改名，传输层已下沉 infra）健康。SocketCAN 下沉 infra。 |
+| [x] | `modbus_tcp_rtu485` | periph | 保留 | `periph_led_ultrasonic` | （arch-r1 已改名，传输层已下沉 infra）健康。现名是传输不是职责；Modbus 客户端下沉 infra。 |
+| [x] | `plc_io_modbus` | periph | 保留 | `periph_plc_io` | （arch-r1 已改名，传输层已下沉 infra）健康。Modbus 客户端下沉 infra。 |
 | [x] | `plc_node` | periph | **删** | — | 与 `plc_io_modbus` 重复，Python 版，无生产入口。 |
 | [ ] | `rt_control_composer` | integration | 保留 | `integ_composer` | 纯函数 + schema 齐全，结构好。`compose()` 单函数 300 行拆为加载→校验→渲染→绑定→输出五段。测试反向 import bringup 要改。 |
 | [ ] | `rt_control_bringup` | integration | 瘦身 | `integ_bringup` | 5 个旧 launch 删，只留 `scope_runtime`；`rt_control_start` 6 个 `--xxx` 收敛为 `--scope`；`ros2_control_node.cpp` 是上游 fork（188 行）→ 改补丁或论证；`rt_io.yaml`、`joint_limits.yaml` 只被 draft 入口用。 |

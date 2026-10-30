@@ -208,9 +208,9 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       robot_rt_control_interfaces \
       robot_system_interfaces \
       robot_interfaces_qos \
-      bms_node \
-      lpms_nav3_can \
-      modbus_tcp_rtu485 \
+      periph_bms \
+      periph_imu_lpms \
+      periph_led_ultrasonic \
       canopen_master_driver \
       canopen_ros2_control \
       control_api_adapter \
@@ -218,7 +218,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ethercat_generic_cia402_drive \
       joint_trajectory_controller \
       gripper_controllers \
-      plc_io_modbus \
+      periph_plc_io \
       robot_description \
       rt_control_interfaces \
       robot_hw_ethercat \

@@ -50,7 +50,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: no, motion: no, plc: yes }
     env: both
-    covers: ["src/rt_control/plc_io_modbus/**", "src/rt_control/control_api_adapter/**"]
+    covers: ["src/rt_control/periph_plc_io/**", "src/rt_control/control_api_adapter/**"]
     traces: [domains/rt_control/docs/plc-bms-commissioning-20260728.md]
     preconditions: PLC 192.168.1.88:502 可达；现场授权
     entry: |

@@ -38,7 +38,7 @@
 
 右上角显示左、右真空表压，单位 kPa，保留一位小数。读取
 `/plc_io/vacuum/left`、`/plc_io/vacuum/right` 的
-`plc_io_modbus/msg/VacuumSensorState.pressure_kpa`，不在浏览器重复换算或自动归零。
+`periph_plc_io/msg/VacuumSensorState.pressure_kpa`，不在浏览器重复换算或自动归零。
 现场已确认 AI0=左、AI1=右，ZSE30A 的大气压为 0 kPa，真空为负值。
 传感器有效标志为假、单位错误、非有限值或超过 1 秒未收到消息时清除数字并显示原因；
 网页事件流断开或停滞 1 秒也清除数字。两路独立判定，未收到压力不阻止机械臂操作。
