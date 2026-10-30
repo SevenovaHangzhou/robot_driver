@@ -8,8 +8,10 @@ authorities:
   confirmation_date: '2026-10-14'
   confirmation_scope: User confirmed listed IDs/profile parameters and approved all
     five default entries in this task session
+# Mechanical zero is the motor encoder zero for both joints (user 2026-10-30; bench readback
+# H1 -0.0029 rad, H2 -0.0002 rad at the confirmed zero pose).
 pending_facts:
-- model positive direction and mechanical zero
+- model positive direction
 robot_variant: Alfa_V3
 module: head_gimbal
 spec:

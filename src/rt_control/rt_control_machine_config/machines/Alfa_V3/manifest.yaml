@@ -232,7 +232,7 @@ modules:
     sensor_bindings: []
     pending_facts:
     - installed motor limits and stored ACC/DEC/MAX_SPD readback
-    - head gimbal mechanical zero and transmission parameters
+    - head gimbal transmission parameters and model positive direction
     config_file: machines/Alfa_V3/head_gimbal.yaml
     device_refs:
     - devices/damiao_dm_j4310_2ec_v1_1.yaml
