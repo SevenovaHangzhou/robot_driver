@@ -19,7 +19,7 @@
 | [ ] | B | 改一个关节需触碰约 20 个非测试文件 | 0 需求 1 |
 | [x] | C 重复 | 3 套 Modbus TCP 客户端（`plc_io_modbus`、`modbus_tcp_rtu485`、`plc_node`）（`plc_node` 已删；#130、#131 统一到 `infra_modbus`） | 3 |
 | [x] | C | 3 套 SocketCAN 封装（`robot_hw_can`、`bms_node`、`lpms_nav3_can`）（#128 统一到 `infra_socketcan`） | 3 |
-| [ ] | C | 3 个协议包 renderer 各自复制 `_share/_validate/_param/validate_*` | 3 |
+| [x] | C | 3 个协议包 renderer 各自复制 `_share/_validate/_param/validate_*`（#148 `infra_renderer`） | 3 |
 | [ ] | C | CiA402 状态字解码在 5 个包各写一份；`semantic_components` 未成为唯一出口 | 1.1、3 |
 | [ ] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份 | 3 |
 | [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
@@ -52,8 +52,8 @@
 | [ ] | `robot_description` | 共享 | 保留 | 不改 | 构建副本内有 4 份展开 `.urdf`、4 套 `joint_limits_*`、3 套 `named_poses_*`、5 个 `*_manifest.json`；生成物不入库，本仓库只留一个 pin。 |
 | [ ] | `rt_control_interfaces` | 共享 | 保留 | 不改 | 健康。9 个 IDL 均为 V3 在用。 |
 | [x] | `rt_control_machine_config` | hw_config | 保留 | `hwcfg_machines` | （arch-r4 已改名；arch-d2 manifest 已拆分）结构对；114 处 draft/TBD/verified:false；`manifest.yaml` 736 行按 module 拆文件，manifest 只留索引。 |
-| [ ] | `robot_hw_ethercat` | protocol | 先删后改名 | `hw_ethercat` | （二代残留已删；x503 已删；arch-r3 已改名；剩余：renderer 骨架抽 infra）最杂：二代残留（xacro、`variants/`、`config/slaves/`、681 行 `validate_ethercat_variants.py`）约占 40%；3 个 renderer 各自复制 `_param`；吸收 `x503_force_sensor` 为 `tools/x503/`。 |
-| [ ] | `robot_hw_canopen` | protocol | 保留 | `hw_canopen` | （arch-r3 已改名；剩余：EDS 生成源头标注）健康。EDS `.compat.*` 三件套按 §4.5 标注生成源头。 |
+| [x] | `robot_hw_ethercat` | protocol | 先删后改名 | `hw_ethercat` | （二代残留已删；x503 已删；arch-r3 已改名；#148 renderer 骨架已抽 infra）最杂：二代残留（xacro、`variants/`、`config/slaves/`、681 行 `validate_ethercat_variants.py`）约占 40%；3 个 renderer 各自复制 `_param`；吸收 `x503_force_sensor` 为 `tools/x503/`。 |
+| [x] | `robot_hw_canopen` | protocol | 保留 | `hw_canopen` | （arch-r3 已改名；arch-d3 EDS 兼容件标注为原件 + diff 派生并由测试校验）健康。EDS `.compat.*` 三件套按 §4.5 标注生成源头。 |
 | [x] | `robot_hw_can` | protocol | 保留 | `hw_can_damiao` | （arch-r3 已改名；SocketCAN 已由 #128 下沉 infra）健康。`socketcan.cpp` 作为 `infra_socketcan` 种子。 |
 | [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | （#120、#121 已瘦身；arch-r3 已改名；剩余：CiA402 唯一出口）名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
 | [ ] | `enable_manager` | control | 拆 | `ctrl_enable_manager` | （arch-r2 已改名；剩余：拆分）2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
@@ -72,7 +72,7 @@
 | [x] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；arch-r5 已改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
 | [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；剩余：按 V3 需求重写）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
 | [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | 两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
-| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。 |
+| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架；arch-c5 已建：`validated_spec`、`xml_param`，`_share` 因测试替换与包专属而保留）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。 |
 
 净效果：24 包 → 删 1（`plc_node`）、合 3 为 1（web×2、head→enable_manager）、并入 1（x503）、重做 1（`rt_diagnostics`）、新增 infra 5–6，最终 25–26 包，每包职责单一。
 

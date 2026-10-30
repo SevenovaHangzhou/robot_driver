@@ -10,7 +10,7 @@
   <depend>infra_socketcan</depend>
   <depend>hw_semantic_components</depend>
   <exec_depend>ament_index_python</exec_depend>
-  <exec_depend>python3-jsonschema</exec_depend>
+  <exec_depend>infra_renderer</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
