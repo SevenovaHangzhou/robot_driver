@@ -17,7 +17,6 @@
 #include "realtime_tools/realtime_publisher.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include "swerve_driver/control_core.hpp"
-#include "swerve_driver/chassis_runtime.hpp"
 #include "swerve_driver/odometry_covariance.hpp"
 
 namespace swerve_driver
@@ -42,7 +41,6 @@ private:
     int64_t received_ns{0};
     uint64_t generation{0};
     bool valid{false};
-    uint64_t navigation_generation{0};
   };
   struct ImuSample
   {
@@ -59,10 +57,6 @@ private:
   void accept_imu(const sensor_msgs::msg::Imu & message, uint64_t generation);
   void publish_diagnostics();
 
-  ChassisRuntimeFeedback read_runtime_feedback(double now);
-  bool write_runtime_output(const ChassisRuntimeOutput & output);
-  std::shared_ptr<ChassisRuntime> runtime_;
-  bool was_navigation_{false};
   // Robot-model joint q -> chassis-plane steering heading (bound from the chassis renderer).
   std::array<double, 4> steering_to_yaw_sign_{{1.0, 1.0, 1.0, 1.0}};
   // Model-joint positions last successfully written to the steering command interfaces.
