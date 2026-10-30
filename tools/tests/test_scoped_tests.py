@@ -21,8 +21,8 @@ class ClassifyTest(unittest.TestCase):
         self.assertIn("tools/quality_gate.sh", plan["actions"])
 
     def test_single_package_change_selects_reverse_dependencies(self):
-        plan = st.classify(["src/rt_control/plc_node/plc_node/plc_logic.py"])
-        self.assertTrue(any("--packages-above plc_node" in a for a in plan["actions"]))
+        plan = st.classify(["src/rt_control/plc_io_modbus/src/node.cpp"])
+        self.assertTrue(any("--packages-above plc_io_modbus" in a for a in plan["actions"]))
         self.assertFalse(plan["full"])
 
     def test_private_interface_change_selects_private_package_only(self):
@@ -52,14 +52,14 @@ class ClassifyTest(unittest.TestCase):
 class AffectedCasesTest(unittest.TestCase):
     def test_plc_change_maps_to_covering_cases(self):
         cases = st.load_case_covers(CASES_DIR)
-        affected = st.affected_cases(["src/rt_control/plc_node/plc_node/plc_node.py"], cases)
+        affected = st.affected_cases(["src/rt_control/plc_io_modbus/src/node.cpp"], cases)
         self.assertIn("TC-FM-03", affected)
         self.assertIn("TC-AR-04", affected)
         self.assertNotIn("TC-RT-01", affected)
 
     def test_glob_matcher_handles_double_star(self):
-        self.assertTrue(st.glob_match("src/rt_control/plc_node/**", "src/rt_control/plc_node/a/b.py"))
-        self.assertFalse(st.glob_match("src/rt_control/plc_node/**", "src/rt_control/bms_node/x.py"))
+        self.assertTrue(st.glob_match("src/rt_control/plc_io_modbus/**", "src/rt_control/plc_io_modbus/a/b.py"))
+        self.assertFalse(st.glob_match("src/rt_control/plc_io_modbus/**", "src/rt_control/bms_node/x.py"))
         self.assertTrue(st.glob_match("deps.repos", "deps.repos"))
 
 

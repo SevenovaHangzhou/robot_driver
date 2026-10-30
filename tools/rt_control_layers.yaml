@@ -24,6 +24,5 @@ layers:
   - lpms_nav3_can
   - modbus_tcp_rtu485
   - plc_io_modbus
-  - plc_node
 baseline_violations: []
 frequency_scope_exclusions: []

@@ -2,7 +2,7 @@
 
 **范围**：PLC、真空、灯带、超声波、电池与IMU。本区对应一个同名职责agent。
 
-**Owner路径**：plc_node；plc_io_modbus；modbus_tcp_rtu485；bms_node；lpms_nav3_can；control_api_adapter中的vacuum_adapter及其专属测试。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：plc_io_modbus；modbus_tcp_rtu485；bms_node；lpms_nav3_can；control_api_adapter中的vacuum_adapter及其专属测试。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：各包config/machines归hw-config；公共IDL归integration；宿主设备配置归platform。
 

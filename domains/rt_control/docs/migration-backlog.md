@@ -9,7 +9,7 @@
 | 完成 | 类别 | 项 | 违反条款 |
 | --- | --- | --- | --- |
 | [x] | A 死活不分 | `robot_hw_ethercat/urdf/ecat.ros2_control.xacro`、`variants/alfa_v1.yaml`、`config/slaves/*`（二代）只被测试/golden 引用 | 1.4 |
-| [ ] | A | `plc_node` 与 `plc_io_modbus` 均产出 `PlcIoState`，均无生产入口 | 1.4、3 复用 |
+| [x] | A | `plc_node` 与 `plc_io_modbus` 均产出 `PlcIoState`，均无生产入口 | 1.4、3 复用 |
 | [ ] | A | `rt_control_interface_runtime.launch.py` 自称 draft preview | 1.4 |
 | [ ] | A | `onboarding-knowledge-map.md` 自称历史却是推荐入口 | 1.4 |
 | [ ] | A | `docs/areas/` 9 旧区 + 7 新区共存 | 1.4 |
@@ -65,7 +65,7 @@
 | [ ] | `lpms_nav3_can` | periph | 保留 | `periph_imu_lpms` | 健康。SocketCAN 下沉 infra。 |
 | [ ] | `modbus_tcp_rtu485` | periph | 保留 | `periph_led_ultrasonic` | 健康。现名是传输不是职责；Modbus 客户端下沉 infra。 |
 | [ ] | `plc_io_modbus` | periph | 保留 | `periph_plc_io` | 健康。Modbus 客户端下沉 infra。 |
-| [ ] | `plc_node` | periph | **删** | — | 与 `plc_io_modbus` 重复，Python 版，无生产入口。 |
+| [x] | `plc_node` | periph | **删** | — | 与 `plc_io_modbus` 重复，Python 版，无生产入口。 |
 | [ ] | `rt_control_composer` | integration | 保留 | `integ_composer` | 纯函数 + schema 齐全，结构好。`compose()` 单函数 300 行拆为加载→校验→渲染→绑定→输出五段。测试反向 import bringup 要改。 |
 | [ ] | `rt_control_bringup` | integration | 瘦身 | `integ_bringup` | 5 个旧 launch 删，只留 `scope_runtime`；`rt_control_start` 6 个 `--xxx` 收敛为 `--scope`；`ros2_control_node.cpp` 是上游 fork（188 行）→ 改补丁或论证；`rt_io.yaml`、`joint_limits.yaml` 只被 draft 入口用。 |
 | [ ] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | 5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
