@@ -11,6 +11,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(infra_socketcan REQUIRED)
 find_package(Threads REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -48,6 +49,7 @@ target_link_libraries(bms_node_component
   bms_protocol bms_dual_battery_controller bms_can_transport Threads::Threads)
 ament_target_dependencies(
   bms_node_component
+  infra_socketcan
   rclcpp
   robot_interfaces_qos
   sensor_msgs

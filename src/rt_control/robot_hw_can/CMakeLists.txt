@@ -7,6 +7,7 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 find_package(rt_control_semantic_components REQUIRED)
+find_package(infra_socketcan REQUIRED)
 ament_python_install_package(${PROJECT_NAME})
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -18,7 +19,7 @@ add_library(damiao_protocol SHARED
   src/protocol.cpp
   src/socketcan.cpp)
 target_compile_features(damiao_protocol PUBLIC cxx_std_17)
-ament_target_dependencies(damiao_protocol PUBLIC rt_control_semantic_components)
+ament_target_dependencies(damiao_protocol PUBLIC infra_socketcan rt_control_semantic_components)
 target_compile_options(damiao_protocol PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 target_include_directories(damiao_protocol PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -67,5 +68,5 @@ if(BUILD_TESTING)
 endif()
 
 ament_export_targets(export_robot_hw_can HAS_LIBRARY_TARGET)
-ament_export_dependencies(hardware_interface pluginlib rclcpp rt_control_semantic_components)
+ament_export_dependencies(hardware_interface infra_socketcan pluginlib rclcpp rt_control_semantic_components)
 ament_package()
