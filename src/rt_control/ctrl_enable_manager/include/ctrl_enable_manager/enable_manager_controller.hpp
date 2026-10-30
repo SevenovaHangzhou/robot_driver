@@ -31,7 +31,7 @@
 #include "ctrl_enable_manager/handshake_device.hpp"
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
-#include "rt_control_semantic_components/cia402_axis.hpp"
+#include "hw_semantic_components/cia402_axis.hpp"
 #include "infra_shm_ring/shm_ring.hpp"
 #include "std_msgs/msg/bool.hpp"
 
@@ -94,7 +94,7 @@ private:
     kAllInactive,
     kAmbiguous
   };
-  using DriveState = rt_control_semantic_components::Cia402State;
+  using DriveState = hw_semantic_components::Cia402State;
 
   enum class Stage : std::uint8_t {
     kSuccess,
@@ -359,7 +359,7 @@ private:
   std::atomic_bool motion_fault_pending_{false};
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr motion_fault_subscription_;
   std::vector<std::uint8_t> reset_targets_;
-  std::vector<rt_control_semantic_components::Cia402Axis> cia402_axes_;
+  std::vector<hw_semantic_components::Cia402Axis> cia402_axes_;
   std::vector<std::unique_ptr<HandshakeDevice>> handshake_devices_;
   bool device_stage_{false};
   // Extra state values copied into diagnostics: <diagnostic_joints>/<diagnostic_joint_interfaces>.

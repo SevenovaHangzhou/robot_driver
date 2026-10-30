@@ -132,7 +132,7 @@ git diff --check
 ```
 
 注意：在只包含仓库本体的局部 `--base-paths` 下使用 `--packages-up-to rt_control_bringup`，会尝试重编既有
-`robot_hw_canopen`，若 vendor `lely_core_libraries` 未加载会在无关依赖阶段失败。局部复核使用上面的
+`hw_canopen`，若 vendor `lely_core_libraries` 未加载会在无关依赖阶段失败。局部复核使用上面的
 `--packages-select`；正式 Docker 构建会按 `deps.repos` 导入完整 vendor 依赖。
 
 本机没有 ShellCheck，质量门禁只报告本地 notice；提交前应在安装 ShellCheck 的环境或 CI 再跑一次。

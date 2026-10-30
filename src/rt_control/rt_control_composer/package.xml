@@ -12,9 +12,9 @@
   <exec_depend>xacro</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>rt_control_machine_config</exec_depend>
-  <test_depend>robot_hw_can</test_depend>
-  <test_depend>robot_hw_canopen</test_depend>
-  <test_depend>robot_hw_ethercat</test_depend>
+  <test_depend>hw_can_damiao</test_depend>
+  <test_depend>hw_canopen</test_depend>
+  <test_depend>hw_ethercat</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <export>
     <build_type>ament_cmake</build_type>

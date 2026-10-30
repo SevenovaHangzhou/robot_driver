@@ -30,7 +30,7 @@ canopen:
   bitrate_kbps: 500
   bundle_dir: /var/lib/rt-control/canopen/Alfa_V3-Advantech-01
   eds_files:
-    steering_encoder_1: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
-    steering_encoder_2: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
-    steering_encoder_3: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
-    steering_encoder_4: robot_hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+    steering_encoder_1: hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+    steering_encoder_2: hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+    steering_encoder_3: hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+    steering_encoder_4: hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds

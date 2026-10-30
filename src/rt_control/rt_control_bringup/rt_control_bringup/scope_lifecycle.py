@@ -304,9 +304,9 @@ def qualify_realtime(runtime_dir, lifecycle, *, activated, proc=Path("/proc"), t
     if not activated:
         print(f"RT_SCOPE_RT_CHECK manager={pid} update={update[0]} cpu={rt_cpu}", flush=True)
         return {"manager": pid, "update": update[0], "can": can_threads}
-    if "robot_hw_canopen" in lifecycle.get("transports", []) and len(can_threads) != 1:
+    if "hw_canopen" in lifecycle.get("transports", []) and len(can_threads) != 1:
         raise RuntimeError("exactly one rtcan-master thread required")
-    if "robot_hw_ethercat" in lifecycle.get("transports", []):
+    if "hw_ethercat" in lifecycle.get("transports", []):
         if Path("/sys/module/ec_master/parameters/run_on_cpu").read_text().strip() != str(rt_cpu):
             raise RuntimeError("IgH run_on_cpu differs from the unit rt_cpu")
         kernel = []

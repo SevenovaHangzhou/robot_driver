@@ -8,7 +8,7 @@ find_package(ament_cmake REQUIRED)
 find_package(ruckig REQUIRED)
 set(dependencies controller_interface hardware_interface diagnostic_msgs geometry_msgs
   nav_msgs sensor_msgs std_msgs pluginlib rclcpp realtime_tools robot_interfaces_qos
-  rt_control_semantic_components)
+  hw_semantic_components)
 foreach(dependency IN LISTS dependencies)
   find_package(${dependency} REQUIRED)
 endforeach()

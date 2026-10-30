@@ -10,9 +10,9 @@ import yaml
 
 from rt_control_composer.bindings import bind_parameters
 from rt_control_composer.compose import compose
-from robot_hw_can import rt_control_renderer as CAN
-from robot_hw_canopen import rt_control_renderer as CANOPEN
-from robot_hw_ethercat import rt_control_renderer as ETHERCAT
+from hw_can_damiao import rt_control_renderer as CAN
+from hw_canopen import rt_control_renderer as CANOPEN
+from hw_ethercat import rt_control_renderer as ETHERCAT
 
 RT = Path(__file__).resolve().parents[2]
 
@@ -33,9 +33,9 @@ def config(tmp_path, monkeypatch):
     shares["rt_control_machine_config"] = root
     shares["robot_description"] = RT.parent / "description/robot_description"
     for owner, name in (
-        (CAN, "robot_hw_can"),
-        (CANOPEN, "robot_hw_canopen"),
-        (ETHERCAT, "robot_hw_ethercat"),
+        (CAN, "hw_can_damiao"),
+        (CANOPEN, "hw_canopen"),
+        (ETHERCAT, "hw_ethercat"),
     ):
         monkeypatch.setattr(owner, "_share", lambda name=name: RT / name)
     return root, dict(

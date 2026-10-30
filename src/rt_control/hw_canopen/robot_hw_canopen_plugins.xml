@@ -1,0 +1,9 @@
+<library path="swerve_encoder_system">
+  <class name="hw_canopen/SwerveEncoderSystem"
+         type="hw_canopen::SwerveEncoderSystem"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      Four-channel CANopen absolute steering encoder state provider.
+    </description>
+  </class>
+</library>

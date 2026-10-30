@@ -19,7 +19,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
-      runtime/lifecycle.yaml: b72a42534eebb1b2a6a7acf887b555a038096604d6c24bbdad56913dea6174bc
+      runtime/lifecycle.yaml: 88c03404a27ee39464d3158961c599a2ef41e9d7f12701e15d74d76c4a054b76
       runtime/right_joint1.yaml: efdb52938291169ec65d58bc29a5ec7ec5778c9e38bdd5d50901ee7a11969a40
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
@@ -42,7 +42,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
-      runtime/lifecycle.yaml: 3647830fd4f67668f39e45409a78d9a3187d374024c0cfe782faf6756ca38e03
+      runtime/lifecycle.yaml: f2b59532fd142c2a6ab82796caec6a2e605d21980de3e9fe0c54ef74aa1a3525
       runtime/right_joint1.yaml: b82d418782e40764434793437cd049870b7be7dc93e1172502060d073096f5cc
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
@@ -64,7 +64,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
-      runtime/lifecycle.yaml: 2c4d187813c433c3cf2b57b0f7c794de7f2a900d30dfa5fe9f1d868e6d71c2f6
+      runtime/lifecycle.yaml: 42770965f04cd0dc60ddd5423e4e954078324595ab2b017c1f060ac09e589b1e
       runtime/right_joint1.yaml: efdb52938291169ec65d58bc29a5ec7ec5778c9e38bdd5d50901ee7a11969a40
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
@@ -86,7 +86,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
-      runtime/lifecycle.yaml: 489ad9b7153549d3a3c8611c1392862b719bfc419f4a000167bfefebd185e4c5
+      runtime/lifecycle.yaml: 9c554ad2fa47de744d330fd251ce0f8cf839e855a7ce8f7f8b34909ea64991a2
       runtime/right_joint1.yaml: b82d418782e40764434793437cd049870b7be7dc93e1172502060d073096f5cc
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
@@ -108,7 +108,7 @@ cases:
       runtime/left_j5.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j6.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j7.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
-      runtime/lifecycle.yaml: 2ca8557e0d2a9894a7cdf5f5d20c15ea6005d812b7e313f09e072ce72dd50ec4
+      runtime/lifecycle.yaml: b6de94c7c71e911d527a4c3540ca3294e200d888af611121ff6833d1cddecf35
       runtime/right_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j3.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -130,7 +130,7 @@ cases:
       runtime/left_j5.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j6.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j7.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
-      runtime/lifecycle.yaml: eb846dca75d59137288e82d4bd62b4dfad6bcc5d4cecaefeb0a1d18a8ca802a9
+      runtime/lifecycle.yaml: 5f73ff49d8b67aefc8e416fba3ec139a15f6bd14f7b261648656f8d9632e6bba
       runtime/right_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j3.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -146,7 +146,7 @@ cases:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
       controllers.yaml: f733e5efe173d01887c0752c5724b95134e5df390ffda5f07c0ebf1bdf3eb0fb
       robot_description.xml: 84054f6e8e02bdf01707a08d0d7417095ae489a0402a1ff375d87304cb89926b
-      runtime/lifecycle.yaml: ce9e24554fde6f312aaaa5007c69073bd417893b6a075e0e4fa2fcacd3a32d49
+      runtime/lifecycle.yaml: 843617dc1b2576b8b6360ddc6d91adff7709137990ec55dc9dd30e7640ff111a
   head-real:
     use_mock_hardware: false
     sync_mode: ''
@@ -154,8 +154,8 @@ cases:
     outputs:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
       controllers.yaml: f733e5efe173d01887c0752c5724b95134e5df390ffda5f07c0ebf1bdf3eb0fb
-      robot_description.xml: 7ba5b72d923b775a7febf8907bd6dec68927fa95106dc9894d3830d6f67de893
-      runtime/lifecycle.yaml: 5f71bd7f0fc1273c63d10e5f0a4a6a06cec30c86f2db16bc649861eb3e8fcfbd
+      robot_description.xml: 2ad88f9f804c07642d73538b345e317a96a384980e85c96ce64f290326943947
+      runtime/lifecycle.yaml: 3c21a286eb6206cb0b897a755f6f9bd55efe27321d6ce8316e0dc2210233924a
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
@@ -164,7 +164,7 @@ cases:
       controller_order.yaml: 1d2c82fe9b087ff2f97d5af716147c8868123cb0346eff9b058058328de40283
       controllers.yaml: 978e8d37592ed06cdd47bead2ba26103557f72d56c0a8e32d07814635653a41f
       robot_description.xml: c0dcfe16e5ef48317a96c7831fff92b56e4200da71e0e812811d59ad6acce9d3
-      runtime/lifecycle.yaml: db1e31c75ad2dac95a42b8fae6cd4e7254535387a63f49765a6656cf65d6577b
+      runtime/lifecycle.yaml: da960d81e49360bd2bc793d4ad873deb89fd0d493b69e454459fb8e0a7676d2a
   force-real:
     use_mock_hardware: false
     sync_mode: dc
@@ -175,7 +175,7 @@ cases:
       robot_description.xml: f0b4c5e7b1ecad1811bd8699e557c333d335b03e04369b45c9b2f359bc0bb1f9
       runtime/bluepoint_p140000100_left.yaml: a89d480f88836252d2f5a6234a957ac99b2418c267a2cfebee0fd8afde99c8de
       runtime/bluepoint_p140000100_right.yaml: a0ae57d867cd2c45ec807bf66f4b8b2a31c01d2a0ab13dcf1281baa11033f892
-      runtime/lifecycle.yaml: ea3a482f1e63fa02e88cf1a8a73de1bda363c7b4b964072f061ff3ed32550654
+      runtime/lifecycle.yaml: 8a6ae9bf065df98aaa7ff831b5fd15319007d4792f9a63aab3a20231757d53ae
 inputs:
   src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arm_motion_calibration.draft.yaml: 587ea4634c15eb8bcc5c0c2b82694762a0508ba8b48cebe434014176ad56e285
   src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml: 3d8ce4a179b7cb6212bb026a8ae981c2f431546bd7d939fd371522335f590053
@@ -310,6 +310,23 @@ ctrl_rename_regeneration:
   method: only controller plugin type strings changed (enable_manager/ -> ctrl_enable_manager/, rolling_trajectory_controller/
     -> ctrl_rolling_trajectory/, rt_force_torque_broadcaster/ -> ctrl_force_torque_broadcaster/); controller
     instance names are unchanged
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
+  - head-mock
+  - head-real
+  - force-mock
+  - force-real
+hw_rename_regeneration:
+  reason: 'arch-r3 2026-10-30: protocol packages renamed to the hw_ prefix (ARCHITECTURE §5a); pluginlib
+    class names and owner names follow the package'
+  method: only hardware plugin names (robot_hw_ethercat/, robot_hw_can/ -> hw_ethercat/, hw_can_damiao/)
+    in robot_description.xml and controllers.yaml and the owner names in lifecycle.yaml transports changed;
+    legacy source paths recorded at source_commit are unchanged
   cases:
   - arm-mock
   - arm-real

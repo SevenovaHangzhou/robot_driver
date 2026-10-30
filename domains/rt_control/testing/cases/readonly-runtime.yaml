@@ -92,7 +92,7 @@ cases:
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/ctrl_enable_manager/**", "src/rt_control/robot_hw_ethercat/**"]
+    covers: ["src/rt_control/ctrl_enable_manager/**", "src/rt_control/hw_ethercat/**"]
     traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 栈已由值守人员启动（本用例不启动栈）；仅订阅
     entry: |
@@ -136,8 +136,8 @@ cases:
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/robot_hw_canopen/**"]
-    traces: [tools/canopen_heartbeat_watch.sh, src/rt_control/robot_hw_canopen/config/bus.yml]
+    covers: ["src/rt_control/hw_canopen/**"]
+    traces: [tools/canopen_heartbeat_watch.sh, src/rt_control/hw_canopen/config/bus.yml]
     preconditions: can0 UP；栈运行中
     entry: |
       tools/canopen_heartbeat_watch.sh --interface can0 --duration 60

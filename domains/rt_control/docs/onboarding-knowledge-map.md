@@ -89,8 +89,8 @@ flowchart TD
 | --- | --- | --- |
 | `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot_alfav3_mobile.urdf`](../../../src/description/robot_description/urdf/robot_alfav3_mobile.urdf) |
 | `rt_control_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/rt_control_interfaces/srv/RtEnable.srv) |
-| `robot_hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](https://github.com/SevenovaHangzhou/robot_driver/tree/43d4c648bca8/src/rt_control/robot_hw_ethercat/config/slaves) |
-| `robot_hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/config/bus.yml) |
+| `hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](https://github.com/SevenovaHangzhou/robot_driver/tree/43d4c648bca8/src/rt_control/hw_ethercat/config/slaves) |
+| `hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/hw_canopen/config/bus.yml) |
 | `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/ctrl_enable_manager/include/ctrl_enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp) |
 | `rt_diagnostics` | EtherCAT、CANopen 和使能状态怎样形成统一诊断？ | `rt_diagnostics_node.cpp`（包已删除，arch-b3） |
 | `rt_control_bringup` | 哪些节点和控制器以什么顺序启动？ | [`rt_control.launch.py`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/rt_control_bringup/launch/rt_control.launch.py)、[`controllers.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/rt_control_bringup/config/controllers.yaml) |
@@ -111,7 +111,7 @@ flowchart TD
 | 事实 | 当前权威入口 | 不应放在哪里 |
 | --- | --- | --- |
 | link/joint、TF、几何、惯量、机器人固有关节范围 | `robot_description/urdf/robot_alfav3_mobile.urdf` | EtherCAT/CAN 配置、业务域的模型副本。 |
-| EtherCAT 环位置、PDO/SDO、缩放与驱动 profile | `robot_hw_ethercat` 的 xacro 和 `config/slaves/*.yaml` | `robot_description`、motion 规划参数。 |
+| EtherCAT 环位置、PDO/SDO、缩放与驱动 profile | `hw_ethercat` 的 xacro 和 `config/slaves/*.yaml` | `robot_description`、motion 规划参数。 |
 | CAN 节点、EDS、运行模式和总线参数 | `robot_hw_canopen/config/bus.yml`、权威 EDS 和 CAN xacro | controller 临时参数、手工生成物。 |
 | controller 集合、频率、关节集合和运行时约束 | `rt_control_bringup/config/controllers.yaml` | 上层域的重复 controller 配置。 |
 | 上游版本和行为改动 | `deps.repos`、`versions.env`、`patches/*` | 未锁定的现场源码副本。 |
@@ -241,7 +241,7 @@ docker stop / SIGTERM
 | 要做的事 | 先看哪里 | 直接影响 | 需要联查 |
 | --- | --- | --- | --- |
 | 修改 link/joint、TF、几何或关节固有属性 | `robot_description` | 所有模型消费者 | motion、perception、rt-control 的联合模型验证。 |
-| 修改 14 轴映射/PDO/驱动参数 | `robot_hw_ethercat` | EtherCAT 插件、enable manager、diagnostics | 冻结 profile、上游补丁、迁移差异和实机分级验收。 |
+| 修改 14 轴映射/PDO/驱动参数 | `hw_ethercat` | EtherCAT 插件、enable manager、diagnostics | 冻结 profile、上游补丁、迁移差异和实机分级验收。 |
 | 修改使能、失能、Fault Reset | `enable_manager` | 14 轴、JTC 生命周期、停机路径 | `rt_disable_once`、诊断、mock 与实机故障路径。 |
 | 修改 14 轴轨迹准入 | `controllers.yaml` + JTC patch | motion 的 FJT 调用 | 完整性、逐轴首点误差、反馈新鲜度、取消与结果语义。 |
 | 修改 Updown | `xmc_updown_sw511.yaml` + EtherCAT xacro + JTC/limits | motion 和 EtherCAT slave 17 | 固定 PDO、SI/counts 换算、CSP 周期、第五批使能和整组故障语义。 |

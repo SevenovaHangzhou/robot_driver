@@ -935,9 +935,9 @@ scopes:
       - rt_internal_state_broadcaster
       - enable_manager
 owner_refs:
-  ethercat: robot_hw_ethercat
-  canopen: robot_hw_canopen
-  damiao_can: robot_hw_can
+  ethercat: hw_ethercat
+  canopen: hw_canopen
+  damiao_can: hw_can_damiao
 layout:
   ethercat:
     cycle_hz: 1000

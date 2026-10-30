@@ -6,7 +6,7 @@ capabilities:
 control_scope: head_only
 hardware:
 - name: damiao_head
-  plugin: robot_hw_can/DamiaoSystem
+  plugin: hw_can_damiao/DamiaoSystem
 hardware_activation_order:
 - damiao_head
 host: {}
@@ -18,5 +18,5 @@ motion_controllers:
 publish_robot_state: true
 staged_hardware_activation: true
 transports:
-- robot_hw_can
+- hw_can_damiao
 use_mock_hardware: false

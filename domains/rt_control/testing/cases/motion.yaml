@@ -8,7 +8,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: both
-    covers: ["src/rt_control/rt_control_bringup/config/**", "src/rt_control/robot_hw_ethercat/**"]
+    covers: ["src/rt_control/rt_control_bringup/config/**", "src/rt_control/hw_ethercat/**"]
     traces: [domains/rt_control/docs/fjt-14axis-low-speed-commissioning-20260727.md]
     preconditions: TC-LC-04 通过；机械空间确认无碰撞风险；现场授权
     entry: |
@@ -29,7 +29,7 @@ cases:
     risk: T4
     writes: { reset: no, enable: yes, motion: yes, plc: no }
     env: both
-    covers: ["src/rt_control/robot_hw_canopen/**", "src/rt_control/rt_control_bringup/config/**"]
+    covers: ["src/rt_control/hw_canopen/**", "src/rt_control/rt_control_bringup/config/**"]
     traces: [src/vendor/robot_interfaces/contract/views/rt_control.md]
     preconditions: 整机架高或场地隔离；现场授权
     entry: |

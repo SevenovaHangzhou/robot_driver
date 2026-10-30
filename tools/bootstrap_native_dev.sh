@@ -31,11 +31,11 @@ readonly -a runtime_packages=(
   periph_plc_io
   robot_description
   rt_control_interfaces
-  robot_hw_ethercat
-  robot_hw_canopen
-  robot_hw_can
+  hw_ethercat
+  hw_canopen
+  hw_can_damiao
   ctrl_enable_manager
-  rt_control_semantic_components
+  hw_semantic_components
   ctrl_rolling_trajectory
   ctrl_force_torque_broadcaster
   ctrl_swerve

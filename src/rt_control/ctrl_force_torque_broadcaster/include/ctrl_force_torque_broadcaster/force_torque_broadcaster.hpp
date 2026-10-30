@@ -16,7 +16,7 @@
 #include "rclcpp/publisher.hpp"
 #include "rclcpp/timer.hpp"
 #include "realtime_tools/realtime_publisher.hpp"
-#include "rt_control_semantic_components/force_torque_sensor.hpp"
+#include "hw_semantic_components/force_torque_sensor.hpp"
 #include "ctrl_force_torque_broadcaster/force_torque_processor.hpp"
 #include "std_msgs/msg/int32_multi_array.hpp"
 
@@ -40,7 +40,7 @@ private:
   void publish_calibration();
   void clear_runtime_resources();
 
-  std::unique_ptr<rt_control_semantic_components::ForceTorqueSensor> sensor_;
+  std::unique_ptr<hw_semantic_components::ForceTorqueSensor> sensor_;
   std::unique_ptr<ForceTorqueProcessor> processor_;
   std::vector<std::string> state_interface_names_;
   hardware_interface::LoanedStateInterface * link_interface_{nullptr};

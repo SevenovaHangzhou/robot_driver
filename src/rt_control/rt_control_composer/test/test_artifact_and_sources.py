@@ -13,9 +13,9 @@ from rt_control_composer.model import ARTIFACT
 from rt_control_composer.parameter_sources import controller_parameters
 
 RT = Path(__file__).resolve().parents[2]
-for owner in ("robot_hw_ethercat", "robot_hw_canopen", "robot_hw_can"):
+for owner in ("hw_ethercat", "hw_canopen", "hw_can_damiao"):
     sys.path.insert(0, str(RT / owner))
-from robot_hw_ethercat import rt_control_renderer as ETHERCAT  # noqa: E402
+from hw_ethercat import rt_control_renderer as ETHERCAT  # noqa: E402
 
 ARMS = dict(
     robot_variant="Alfa_V3",
@@ -31,11 +31,11 @@ FORCE = dict(ARMS, physical_profile="force_bench", control_scope="force_bench")
 def shares(tmp_path, monkeypatch):
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["robot_description"] = RT.parent / "description/robot_description"
-    for name in ("rt_control_machine_config", "ctrl_enable_manager", "robot_hw_ethercat"):
+    for name in ("rt_control_machine_config", "ctrl_enable_manager", "hw_ethercat"):
         target = tmp_path / "share" / name
         shutil.copytree(RT / name, target, ignore=shutil.ignore_patterns("test", "src"))
         lookup[name] = target
-    monkeypatch.setattr(ETHERCAT, "_share", lambda: lookup["robot_hw_ethercat"])
+    monkeypatch.setattr(ETHERCAT, "_share", lambda: lookup["hw_ethercat"])
     return lookup
 
 
@@ -204,11 +204,11 @@ def test_two_sources_for_one_parameter_are_rejected():
 
 def test_ethercat_family_is_selected_by_registry_data(shares, monkeypatch):
     calls = []
-    module = types.ModuleType("robot_hw_ethercat.synthetic_renderer")
+    module = types.ModuleType("hw_ethercat.synthetic_renderer")
     module.render = lambda request, *args: calls.append(request["machine"]["spec"]["family"]) or {}
     module.preflight = lambda topology, run=None: calls.append(topology["kind"])
     monkeypatch.setitem(sys.modules, module.__name__, module)
-    path = shares["robot_hw_ethercat"] / "config/profiles/renderer_families.yaml"
+    path = shares["hw_ethercat"] / "config/profiles/renderer_families.yaml"
     registry = yaml.safe_load(path.read_text())
     request = {"machine": {"spec": {"family": "synthetic"}}}
     with pytest.raises(ValueError, match="Unregistered EtherCAT renderer family"):
@@ -224,7 +224,7 @@ def test_ethercat_family_is_selected_by_registry_data(shares, monkeypatch):
 
 
 def test_master_timeouts_come_from_the_protocol_profile(shares, tmp_path):
-    profile = shares["robot_hw_ethercat"] / "config/profiles/ethercat_master.yaml"
+    profile = shares["hw_ethercat"] / "config/profiles/ethercat_master.yaml"
     values = yaml.safe_load(profile.read_text())
     values["preload_timeout_ms"] = 6000
     profile.write_text(yaml.safe_dump(values))

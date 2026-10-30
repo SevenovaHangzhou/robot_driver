@@ -28,7 +28,7 @@ cases:
     risk: T3
     writes: { reset: yes, enable: no, motion: no, plc: no }
     env: native
-    covers: ["src/rt_control/robot_hw_ethercat/**"]
+    covers: ["src/rt_control/hw_ethercat/**"]
     traces: ["BQ-117"]
     preconditions: 注入方式（断电单从站/断链）需先裁决并单独授权；禁止在带载状态注入
     entry: |
@@ -48,7 +48,7 @@ cases:
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/robot_hw_canopen/**"]
+    covers: ["src/rt_control/hw_canopen/**"]
     traces: ["BQ-132"]
     preconditions: BQ-132 当前 BLOCKED；本用例在裁决闭环前固定为已知 FAIL 登记项
     entry: |

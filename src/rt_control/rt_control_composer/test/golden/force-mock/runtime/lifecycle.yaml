@@ -15,5 +15,5 @@ motion_controllers: []
 publish_robot_state: false
 staged_hardware_activation: true
 transports:
-- robot_hw_ethercat
+- hw_ethercat
 use_mock_hardware: true

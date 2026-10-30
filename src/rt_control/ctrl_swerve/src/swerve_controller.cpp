@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include "pluginlib/class_list_macros.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
-#include "rt_control_semantic_components/cia402_axis.hpp"
+#include "hw_semantic_components/cia402_axis.hpp"
 
 namespace ctrl_swerve
 {
@@ -24,8 +24,8 @@ bool enabled(double value)
   if (!std::isfinite(value) || value < 0.0 || value > 65535.0 || std::trunc(value) != value) {
     return false;
   }
-  return rt_control_semantic_components::Cia402Axis::decode_state(static_cast<uint16_t>(value)) ==
-         rt_control_semantic_components::Cia402State::kOperationEnabled;
+  return hw_semantic_components::Cia402Axis::decode_state(static_cast<uint16_t>(value)) ==
+         hw_semantic_components::Cia402State::kOperationEnabled;
 }
 bool fresh(int64_t received, int64_t now, double limit)
 {

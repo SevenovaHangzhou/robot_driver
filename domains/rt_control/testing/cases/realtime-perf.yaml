@@ -59,7 +59,7 @@ cases:
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/robot_hw_ethercat/**", "src/rt_control/robot_hw_canopen/**"]
+    covers: ["src/rt_control/hw_ethercat/**", "src/rt_control/hw_canopen/**"]
     traces: [domains/rt_control/docs/docker-deployment-performance-summary.md]
     preconditions: 栈运行中；窗口与 TC-RT-02 同步执行
     entry: |

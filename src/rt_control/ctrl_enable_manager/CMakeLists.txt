@@ -17,7 +17,7 @@ find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_rt_control_interfaces REQUIRED)
 find_package(robot_system_interfaces REQUIRED)
 find_package(rt_control_interfaces REQUIRED)
-find_package(rt_control_semantic_components REQUIRED)
+find_package(hw_semantic_components REQUIRED)
 find_package(std_msgs REQUIRED)
 
 add_library(enable_manager_controller SHARED
@@ -42,7 +42,7 @@ ament_target_dependencies(enable_manager_controller
   robot_rt_control_interfaces
   robot_system_interfaces
   rt_control_interfaces
-  rt_control_semantic_components
+  hw_semantic_components
   std_msgs
 )
 
@@ -66,7 +66,7 @@ ament_export_dependencies(
   control_msgs controller_interface controller_manager_msgs diagnostic_msgs infra_shm_ring lifecycle_msgs
   pluginlib rclcpp robot_interfaces_qos robot_rt_control_interfaces robot_system_interfaces
   rt_control_interfaces
-  rt_control_semantic_components
+  hw_semantic_components
   std_msgs
 )
 
@@ -95,7 +95,7 @@ if(BUILD_TESTING)
     robot_rt_control_interfaces
     robot_system_interfaces
     rt_control_interfaces
-    rt_control_semantic_components
+    hw_semantic_components
   )
 
   ament_add_gmock(test_handshake_devices test/test_handshake_devices.cpp)

@@ -630,7 +630,7 @@ bool EnableManagerController::configureTopology()
     candidate_ready_terminal[axis->second] = 1U;
   }
 
-  std::vector<rt_control_semantic_components::Cia402Axis> candidate_axes;
+  std::vector<hw_semantic_components::Cia402Axis> candidate_axes;
   candidate_axes.reserve(managed_joints.size());
   for (const auto & joint : managed_joints) {
     candidate_axes.emplace_back(joint);
@@ -3035,7 +3035,7 @@ void EnableManagerController::publishModeResult(const ModeService::Response & re
 
 EnableManagerController::DriveState EnableManagerController::decodeState(std::uint16_t status_word)
 {
-  return rt_control_semantic_components::Cia402Axis::decode_state(status_word);
+  return hw_semantic_components::Cia402Axis::decode_state(status_word);
 }
 
 bool EnableManagerController::isFaultState(DriveState state)

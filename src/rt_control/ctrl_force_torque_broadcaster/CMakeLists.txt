@@ -15,7 +15,7 @@ set(dependencies
   rclcpp
   realtime_tools
   robot_interfaces_qos
-  rt_control_semantic_components
+  hw_semantic_components
   std_msgs
 )
 foreach(dependency IN LISTS dependencies)
@@ -65,7 +65,7 @@ if(BUILD_TESTING)
     ${CMAKE_CURRENT_SOURCE_DIR}/include
   )
   ament_target_dependencies(test_force_torque_processor
-    rt_control_semantic_components
+    hw_semantic_components
   )
 
   ament_add_gtest(test_force_torque_broadcaster
