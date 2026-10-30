@@ -8,7 +8,7 @@ import sys
 from ament_index_python.packages import get_package_share_directory
 
 from integ_composer.manifest import validate_selection
-from integ_composer.schema.primitives import load_and_validate
+from integ_composer.schema.manifest_load import load_manifest
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
     try:
         root = args.manifest.resolve().parents[2]
         schemas = Path(get_package_share_directory("integ_composer")) / "schema"
-        manifest = load_and_validate(args.manifest, "manifest.schema.json", schemas, root)
+        manifest = load_manifest(args.manifest, schemas, root)
         pairs = (
             [
                 (profile, scope)

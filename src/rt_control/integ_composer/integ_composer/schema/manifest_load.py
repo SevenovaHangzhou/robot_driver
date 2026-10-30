@@ -2,7 +2,27 @@
 
 from pathlib import Path
 
-from .primitives import load_and_validate, resolve_share_path
+from .primitives import load_and_validate, load_yaml, resolve_share_path, validate_data
+
+
+def read_manifest(path):
+    """manifest.yaml merged with the part files it lists under `parts` (not validated)."""
+    path = Path(path)
+    manifest = load_yaml(path)
+    for part in manifest.pop("parts", []):
+        piece = load_yaml(resolve_share_path(path.parent, part))
+        repeated = set(piece) & set(manifest)
+        if repeated:
+            raise ValueError(f"Manifest part {part} repeats {sorted(repeated)}")
+        manifest.update(piece)
+    return manifest
+
+
+def load_manifest(path, schema_dir, share_root):
+    """The merged manifest, validated as one document."""
+    manifest = read_manifest(path)
+    validate_data(manifest, "manifest.schema.json", schema_dir, share_root)
+    return manifest
 
 
 def load_machine(
@@ -15,7 +35,7 @@ def load_machine(
     def load(path, schema):
         return load_and_validate(path, schema, schema_dir, root)
 
-    manifest = load(machine_dir / "manifest.yaml", "manifest.schema.json")
+    manifest = load_manifest(machine_dir / "manifest.yaml", schema_dir, root)
     deployment = load(unit_dir / "deployment.yaml", "unit_deployment.schema.json")
     if (
         manifest["robot_variant"] != deployment["robot_variant"]

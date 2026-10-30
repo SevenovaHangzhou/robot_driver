@@ -1,0 +1,285 @@
+# profiles of the Alfa_V3 manifest; merged by integ_composer read_manifest() via manifest.yaml parts.
+profiles:
+  arms_only:
+    status: draft
+    modules:
+    - arms
+    allowed_scopes:
+    - arms_only
+    - arms_stationary_enable
+    hardware_options:
+      force_sensors:
+      - none
+      - bluepoint_dual
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - runtime descriptor and controller bindings for the confirmed physical arm axes
+    - Inovance GR10-EC-6SW runtime state/DC qualification and ESI display-version
+      difference
+  bench_left_arm:
+    status: draft
+    modules:
+    - bench_left_arm
+    allowed_scopes:
+    - bench_left_arm_stationary_enable
+    - bench_left_arm
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
+  bench_dual_arm:
+    status: draft
+    modules:
+    - bench_dual_arm
+    allowed_scopes:
+    - bench_dual_arm_stationary_enable
+    - bench_dual_arm
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
+  arms_updown:
+    status: draft
+    modules:
+    - arms
+    - updown
+    allowed_scopes:
+    - arms_updown
+    hardware_options:
+      force_sensors:
+      - none
+      - bluepoint_dual
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - physical EtherCAT ring layout with Updown connected
+  chassis_only:
+    status: draft
+    modules:
+    - swerve_chassis
+    - swerve_encoders
+    - active_suspension
+    allowed_scopes:
+    - chassis_only
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: draft
+        node_ids: TBD
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - physical EtherCAT ring layout for the chassis bench
+    - active suspension drive position and mechanical commissioning facts
+  full_robot:
+    status: draft
+    modules:
+    - arms
+    - updown
+    - swerve_chassis
+    - swerve_encoders
+    - active_suspension
+    - head_gimbal
+    allowed_scopes:
+    - full
+    hardware_options:
+      force_sensors:
+      - none
+      - bluepoint_dual
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions: TBD
+      canopen:
+        status: draft
+        node_ids: TBD
+      damiao_can:
+        status: draft
+        node_ids:
+        - 1
+        - 2
+    pending_facts:
+    - complete EtherCAT ring order and responder identities
+    - CANopen encoder bus identity and head-gimbal CAN wiring
+    - active suspension identity, PDO and installed mechanical calibration
+  head_only:
+    status: draft
+    modules:
+    - head_gimbal
+    allowed_scopes:
+    - head_only
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: absent
+        master_id: null
+        ring_positions: []
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: draft
+        node_ids:
+        - 1
+        - 2
+    pending_facts:
+    - DaMiao head-gimbal CAN wiring and IDs
+  force_bench:
+    status: draft
+    modules:
+    - wrist_force_sensors
+    allowed_scopes:
+    - force_bench
+    hardware_options:
+      force_sensors:
+      - none
+    pending_facts:
+    - bench-only raw data; full topology unconfirmed
+  bench_right_arm:
+    status: draft
+    modules:
+    - bench_right_arm
+    allowed_scopes:
+    - bench_right_arm_stationary_enable
+    - bench_right_arm
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
