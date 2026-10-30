@@ -12,6 +12,7 @@
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "diagnostic_msgs/msg/key_value.hpp"
+#include "infra_modbus/client.hpp"
 #include "modbus_tcp_rtu485/protocol/modbus_transport.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
@@ -48,6 +49,9 @@ public:
         "ultrasonic_channel_5_link", "ultrasonic_channel_6_link",
         "ultrasonic_channel_7_link", "ultrasonic_channel_8_link"});
     validate_parameters();
+    client_ = std::make_unique<infra_modbus::Client>(
+      gateway_ip_, static_cast<uint16_t>(gateway_port_),
+      std::chrono::milliseconds(response_timeout_ms_));
     initialise_instance_id();
 
     for (size_t i = 0; i < range_publishers_.size(); ++i) {
@@ -76,7 +80,7 @@ private:
   {
     validate_e08_unit_ids(unit_ids_);
     for (const auto unit_id : unit_ids_) {
-      validate_endpoint(gateway_ip_, gateway_port_, unit_id, response_timeout_ms_);
+      validate_endpoint(gateway_port_, unit_id, response_timeout_ms_);
     }
     if (poll_interval_ms_ < 20 || poll_interval_ms_ > 60000) {
       throw std::invalid_argument("poll_interval_ms must be 20..60000");
@@ -171,9 +175,10 @@ private:
   {
     const size_t channel_offset = module_index * 4U;
     try {
-      const auto values = read_holding_registers_tcp(
-        gateway_ip_, static_cast<uint16_t>(gateway_port_), ++transaction_id_,
-        static_cast<uint8_t>(unit_ids_[module_index]), 0x0106, 4, response_timeout_ms_);
+      const auto values = parse_holding_reply(
+        client_->transact(
+          static_cast<uint8_t>(unit_ids_[module_index]), read_holding_pdu(0x0106, 4)),
+        4);
       const auto stamp = now();
       std_msgs::msg::UInt16MultiArray raw_message;
       raw_message.data.assign(values.begin(), values.end());
@@ -245,7 +250,7 @@ private:
   double max_range_m_{3.5};
   double field_of_view_rad_{0.6981317008};
   std::vector<std::string> frame_ids_;
-  uint16_t transaction_id_{0};
+  std::unique_ptr<infra_modbus::Client> client_;
   unique_identifier_msgs::msg::UUID producer_instance_id_;
   std::array<uint64_t, kUltrasonicChannelCount> sample_sequences_{};
   std::array<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr, kUltrasonicChannelCount>

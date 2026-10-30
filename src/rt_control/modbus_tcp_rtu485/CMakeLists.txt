@@ -5,6 +5,7 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(infra_modbus REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_rt_control_interfaces REQUIRED)
@@ -30,14 +31,14 @@ target_link_libraries(led_strip_node modbus_transport)
 target_compile_features(led_strip_node PUBLIC cxx_std_17)
 target_compile_options(led_strip_node PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 ament_target_dependencies(
-  led_strip_node rclcpp robot_rt_control_interfaces robot_system_interfaces)
+  led_strip_node infra_modbus rclcpp robot_rt_control_interfaces robot_system_interfaces)
 
 add_executable(ultrasonic_node src/ultrasonic_node.cpp)
 target_link_libraries(ultrasonic_node modbus_transport ultrasonic_ros_conversion)
 target_compile_features(ultrasonic_node PUBLIC cxx_std_17)
 target_compile_options(ultrasonic_node PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 ament_target_dependencies(
-  ultrasonic_node diagnostic_msgs rclcpp robot_interfaces_qos
+  ultrasonic_node diagnostic_msgs infra_modbus rclcpp robot_interfaces_qos
   robot_rt_control_interfaces robot_system_interfaces sensor_msgs std_msgs
   unique_identifier_msgs)
 
@@ -56,17 +57,11 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_ultrasonic_decoder test/test_ultrasonic_decoder.cpp)
   target_link_libraries(test_ultrasonic_decoder ultrasonic_decoder)
-  ament_add_gtest(test_modbus_transport_library test/test_modbus_transport_library.cpp)
-  target_link_libraries(test_modbus_transport_library modbus_transport)
-  # Inject fake syscalls at link time; the library under test is the production archive.
-  set_property(TARGET test_modbus_transport_library APPEND_STRING PROPERTY LINK_FLAGS
-    " -Wl,--wrap=send,--wrap=recv,--wrap=poll")
-  find_package(Threads REQUIRED)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   enable_testing()
   add_executable(test_modbus_transport test/test_modbus_transport.cpp)
   target_compile_features(test_modbus_transport PRIVATE cxx_std_17)
-  target_link_libraries(test_modbus_transport Threads::Threads modbus_transport ultrasonic_ros_conversion)
+  target_link_libraries(test_modbus_transport modbus_transport ultrasonic_ros_conversion)
   ament_target_dependencies(test_modbus_transport diagnostic_msgs sensor_msgs)
   add_test(NAME modbus_transport COMMAND test_modbus_transport)
   set_tests_properties(modbus_transport PROPERTIES TIMEOUT 20)

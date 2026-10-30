@@ -1,11 +1,14 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <chrono>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "infra_modbus/client.hpp"
 #include "modbus_tcp_rtu485/protocol/modbus_transport.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "robot_rt_control_interfaces/srv/set_led_rgbw.hpp"
@@ -28,9 +31,18 @@ public:
       declare_parameter<int64_t>("exit_response_timeout_ms", 100);
     service_name_ = declare_parameter("service_name", std::string("/led/set_rgbw"));
     exit_color_enabled_ = declare_parameter("exit_color_enabled", true);
-    validate_led_config(gateway_ip_, ports_, addresses_, response_timeout_ms_);
+    validate_led_config(ports_, addresses_, response_timeout_ms_);
     if (exit_response_timeout_ms_ < 1 || exit_response_timeout_ms_ > 60000) {
       throw std::invalid_argument("exit_response_timeout_ms must be 1..60000");
+    }
+    // One long-lived connection per gateway port; controllers on the same port share it.
+    for (const auto port : ports_) {
+      const auto key = static_cast<uint16_t>(port);
+      if (clients_.count(key) == 0U) {
+        clients_.emplace(
+          key, std::make_unique<infra_modbus::Client>(
+                 gateway_ip_, key, std::chrono::milliseconds(response_timeout_ms_)));
+      }
     }
     if (service_name_.empty()) {
       throw std::invalid_argument("service_name must not be empty");
@@ -97,10 +109,8 @@ private:
       brightness(request.white)};
     try {
       const auto index = static_cast<size_t>(request.strip_id);
-      send_color_tcp(
-        gateway_ip_, static_cast<uint16_t>(ports_[index]),
-        color_request(++transaction_id_, static_cast<uint8_t>(addresses_[index]), values),
-        response_timeout_ms_);
+      check_color_ack(clients_.at(static_cast<uint16_t>(ports_[index]))
+                        ->transact(static_cast<uint8_t>(addresses_[index]), color_pdu(values)));
       response.write_acknowledged = true;
       fill_error(response.error, 0U, "LED write acknowledged", false);
     } catch (const std::exception & error) {
@@ -119,10 +129,10 @@ private:
     }
     for (size_t index = 0; index < kLedControllerCount; ++index) {
       try {
-        send_color_tcp(
-          gateway_ip_, static_cast<uint16_t>(ports_[index]),
-          color_request(++transaction_id_, static_cast<uint8_t>(addresses_[index]), values),
-          exit_response_timeout_ms_);
+        check_color_ack(clients_.at(static_cast<uint16_t>(ports_[index]))
+                          ->transact(
+                            static_cast<uint8_t>(addresses_[index]), color_pdu(values),
+                            std::chrono::milliseconds(exit_response_timeout_ms_)));
       } catch (const std::exception & error) {
         RCLCPP_ERROR(
           get_logger(), "Failed to set LED %zu to %s during exit: %s",
@@ -138,7 +148,7 @@ private:
   int64_t response_timeout_ms_{500};
   int64_t exit_response_timeout_ms_{100};
   bool exit_color_enabled_{true};
-  uint16_t transaction_id_{0};
+  std::map<uint16_t, std::unique_ptr<infra_modbus::Client>> clients_;
   rclcpp::Service<robot_rt_control_interfaces::srv::SetLedRgbw>::SharedPtr service_;
 };
 }  // namespace modbus_tcp_rtu485
