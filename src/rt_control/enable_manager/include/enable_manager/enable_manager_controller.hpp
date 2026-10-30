@@ -28,6 +28,7 @@
 #include "robot_rt_control_interfaces/msg/rolling_joint_control_state.hpp"
 #include "robot_rt_control_interfaces/srv/set_joint_control_mode.hpp"
 #include "robot_system_interfaces/msg/error_info.hpp"
+#include "enable_manager/handshake_device.hpp"
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 #include "rt_control_semantic_components/cia402_axis.hpp"
@@ -298,6 +299,14 @@ private:
   bool modeConfirmed(std::size_t axis) const noexcept;
   bool modePending(std::size_t axis) const noexcept;
   void failEnable(Stage stage, std::ptrdiff_t axis, std::int64_t now_ns);
+  // Handshake devices join after the last CiA402 batch and leave with every downward path.
+  void updateDeviceEnable(std::int64_t now_ns);
+  void requestDevicesEnable(bool enable) noexcept;
+  void startDeviceResets() noexcept;
+  bool anyDeviceFaulted() const noexcept;
+  bool allDevicesEnabled() const noexcept;
+  bool allDevicesDisabledOrFaulted() const noexcept;
+  bool allDeviceResetsComplete() const noexcept;
   bool stateSourcesReady() const noexcept;
   void handleMotionFault();
 
@@ -360,6 +369,12 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr motion_fault_subscription_;
   std::vector<std::uint8_t> reset_targets_;
   std::vector<rt_control_semantic_components::Cia402Axis> cia402_axes_;
+  std::vector<std::unique_ptr<HandshakeDevice>> handshake_devices_;
+  bool device_stage_{false};
+  // Extra state values copied into diagnostics: <diagnostic_joints>/<diagnostic_joint_interfaces>.
+  std::vector<std::string> diagnostic_state_names_;
+  std::vector<std::size_t> diagnostic_state_indices_;
+  std::unique_ptr<std::atomic<std::uint64_t>[]> diagnostic_state_bits_;
   std::size_t current_batch_{0U};
   std::uint8_t downward_stage_{0U};
   std::int64_t stage_deadline_ns_{0};

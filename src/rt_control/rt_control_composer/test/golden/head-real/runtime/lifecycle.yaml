@@ -1,0 +1,22 @@
+bus_locks: []
+capabilities:
+- name: enable
+  service: /control/set_enabled
+  type: SetControlEnabled
+control_scope: head_only
+hardware:
+- name: damiao_head
+  plugin: robot_hw_can/DamiaoSystem
+hardware_activation_order:
+- damiao_head
+host: {}
+lifecycle_controllers:
+- joint_state_broadcaster
+- enable_manager
+motion_controllers:
+- head_position_controller
+publish_robot_state: true
+staged_hardware_activation: true
+transports:
+- robot_hw_can
+use_mock_hardware: false

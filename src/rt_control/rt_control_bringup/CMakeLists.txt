@@ -22,11 +22,7 @@ install(TARGETS ros2_control_node DESTINATION lib/${PROJECT_NAME})
 
 install(
   FILES
-    launch/rt_control_force_sensors.launch.py
     launch/rt_control_module.launch.py
-    launch/rt_control_enable_only.launch.py
-    launch/rt_control_arm_runtime.launch.py
-    launch/rt_control_head_runtime.launch.py
     launch/rt_control_interface_runtime.launch.py
     launch/rt_control_ultrasonic.launch.py
     launch/rt_control_scope_runtime.launch.py
@@ -64,7 +60,6 @@ if(BUILD_TESTING)
   target_compile_definitions(test_cyclic_controller PRIVATE
     KINCO_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/../robot_hw_ethercat/test/fixtures/kinco_cyclic_mode_mock.yaml")
   find_package(ament_cmake_pytest REQUIRED)
-  ament_add_pytest_test(test_composer_entries test/test_composer_entries.py)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
   ament_add_pytest_test(test_scope_lifecycle test/test_scope_lifecycle.py)
   ament_add_pytest_test(test_operator_tuning test/test_operator_tuning.py)

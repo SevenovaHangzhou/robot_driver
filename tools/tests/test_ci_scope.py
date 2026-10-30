@@ -17,11 +17,13 @@ def _module():
 def test_head_scope_accepts_only_head_owned_paths():
     paths = [
         "src/rt_control/robot_hw_can/src/protocol.cpp",
-        "src/rt_control/damiao_head_controller/src/head_manager_controller.cpp",
-        "src/rt_control/rt_control_bringup/launch/rt_control_head_runtime.launch.py",
-        "src/rt_control/rt_control_bringup/rt_control_bringup/head_runtime.py",
+        "src/rt_control/robot_hw_can/docs/damiao_head.md",
     ]
     assert _module().is_head_only(paths)
+    # enable_manager is shared with the arms, so it always takes the full build.
+    assert not _module().is_head_only(
+        ["src/rt_control/enable_manager/src/handshake_device.cpp"]
+    )
 
 
 def test_head_scope_rejects_empty_shared_and_ci_changes():

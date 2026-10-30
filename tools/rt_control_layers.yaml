@@ -18,16 +18,10 @@ layers:
   - rolling_trajectory_controller
   - rt_force_torque_broadcaster
   - x503_force_sensor
-  - damiao_head_controller
   - swerve_driver
   - bms_node
   - lpms_nav3_can
   - modbus_tcp_rtu485
   - plc_io_modbus
-  - plc_node
 baseline_violations: []
-frequency_scope_exclusions:
-- file: src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro
-  sha256: 06c0cca8e79b70a632c82eeab6290de74510992d7e9eacb8c812f11e66b01e97
-  reason: User explicitly approved excluding this frozen V2 asset from V3 A3/baseline
-    acceptance; retain original bytes. Other rules still apply.
+frequency_scope_exclusions: []

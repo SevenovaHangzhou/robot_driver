@@ -86,16 +86,16 @@ bool readPositive(
 }
 
 bool parseAxis(
-  const YAML::Node & node, std::size_t index, AxisEnvelope & axis,
-  std::string & error)
+  const YAML::Node & node, std::size_t index, const std::string & expected_name,
+  AxisEnvelope & axis, std::string & error)
 {
   const std::string context = "axes[" + std::to_string(index) + "]";
   if (!hasExactKeys(node, kAxisKeys, context, error)) {
     return false;
   }
   const std::string name = node["name"].as<std::string>();
-  if (name != kJointNames[index]) {
-    error = context + ".name must be '" + kJointNames[index] + "', got '" + name + "'";
+  if (name != expected_name) {
+    error = context + ".name must be '" + expected_name + "', got '" + name + "'";
     return false;
   }
   return
@@ -155,7 +155,7 @@ bool validateMetadata(const YAML::Node & metadata, std::string & error)
 }  // namespace
 
 bool loadProvisionalEnvelope(
-  const std::string & path, DynamicEnvelope & envelope,
+  const std::string & path, const JointNames & joints, DynamicEnvelope & envelope,
   std::string & error) noexcept
 {
   envelope = DynamicEnvelope{};
@@ -199,7 +199,7 @@ bool loadProvisionalEnvelope(
       return false;
     }
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-      if (!parseAxis(axes[axis], axis, candidate.axes[axis], error)) {
+      if (!parseAxis(axes[axis], axis, joints[axis], candidate.axes[axis], error)) {
         return false;
       }
     }

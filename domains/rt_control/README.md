@@ -1,230 +1,81 @@
-# rt-control 域
+# RT-Control 域地图
 
-This directory owns the development contract and operating notes for the ROS 2
-Humble real-time control domain in the dedicated `robot_driver` repository. The runtime
-source and deployment assets remain in their technical top-level directories;
-this directory is their single domain-level documentation and governance home.
+开工必读只有根 [`AGENTS.md`](../../AGENTS.md) 与 [`ARCHITECTURE.md`](../../ARCHITECTURE.md)。本页是一屏导航，
+不是事实源；硬件值、裁决和验证结论以下表"记录"列出的文件为准。
 
-## 新同事从这里开始
+## 包与层（`src/rt_control/`）
 
-旧履带的 `rt_control.launch.py`、原生/IPC 一键启动脚本和 CANopen 驱动配置已从
-V3 源码退役。以下历史操作文档仅用于阅读既有验收记录，不能作为当前启动指令；
-当前可用入口以本页“V3 分支运行边界”和安装的 `rt_control_start` 为准。
+| 层 | 包 | 一句话 |
+| --- | --- | --- |
+| hw_config | `rt_control_machine_config` | 机型 manifest、模块、设备、台套（零位/标定/部署）数据，无代码 |
+| protocol | `robot_hw_ethercat` `robot_hw_canopen` `robot_hw_can` `rt_control_semantic_components` | 总线/设备适配、renderer、CiA402 语义封装 |
+| control | `enable_manager` `rolling_trajectory_controller` `swerve_driver` `rt_force_torque_broadcaster` `x503_force_sensor` | 使能状态机与各控制器/广播器 |
+| periph | `bms_node` `lpms_nav3_can` `modbus_tcp_rtu485` `plc_io_modbus` | 独立外设节点（BMS、IMU、LED/超声、PLC IO） |
+| integration | `rt_control_composer` `rt_control_bringup` `control_api_adapter` `rt_diagnostics` `rt_control_operator_web` `rt_control_arm_console` | 离线组合、启动入口、公共适配、诊断、操作网页 |
 
-- [一键启动（历史）](docs/one-command-start.md)：旧履带目标机操作记录，不适用于当前 V3 源码。
-- [原生开发与运行（历史）](docs/native-development-workflow.md)：旧履带原生包装器记录；源码构建可参考其中未退役的 bootstrap 用法。
-- [接手知识图谱](docs/onboarding-knowledge-map.md)：域边界、包依赖、启动/执行/故障/关停链、按任务找代码和推荐阅读顺序。
-- [V3 机械臂与运控对接方案](docs/v3-arm-motion-integration.md)：双七轴 FJT/rolling 目标接口、PP 夹爪边界、联调顺序与当前 validation-only 限制。
-- [硬件配置隔离分层与电机变体维护指南](docs/hardware-configuration-layering-and-motor-variants.md)：owner-local descriptor、双硬件组合、X503 sensor 与修改电机/模式的真实边界。
-- [新机部署与运行手册（历史）](docs/deployment-operations-runbook.md)：旧机现场记录；当前 V3 不沿用其履带启停命令。
-- [Docker 部署与性能验证](docs/docker-deployment-performance-summary.md)：当前工控机上的镜像、功能、重要配置、性能结论和通信风险。
-- [开发进度与联调准入](docs/integration-readiness-summary.md)：联调边界与剩余任务；接口清单以 vendored `robot_interfaces/contract/views/rt_control.md` 为准。
-- [PROGRESS.md](PROGRESS.md)：验证时间线索引；不能把构建或 Mock 结果当成实机验收。
-- [BLOCKED-questions.md](BLOCKED-questions.md)：已裁决和仍开放的硬件、接口与安全事实；注意后续裁决可能取代早期记录。
+共享：`src/description/robot_description`（Robot Model 构建副本）、`src/interfaces/rt_control_interfaces`（域内 IDL）、
+`src/vendor/robot_interfaces`（由 `deps.repos` 导入的公共契约，不入库）。包的去留与改名计划见
+[迁移待办](docs/migration-backlog.md) §5a。
 
-专题与历史文档（PLC/BMS、XMC、CANopen 验收记录、后续修改计划等）不再在此逐一罗列，
-按功能区索引见 [docs/areas/](docs/areas/README.md) 各区"历史锚点"；
-发布前测试体系与用例目录见 [testing/](testing/README.md)。
+## 数据流
 
-Domain records:
-
-- [AGENTS.md](AGENTS.md): rt-control architecture, safety, validation, and AI rules.
-- [PROGRESS.md](PROGRESS.md): implementation and verification history.
-- [BLOCKED-questions.md](BLOCKED-questions.md): adjudicated and unresolved domain facts.
-- [docs/](docs/): onboarding, deployment, design evidence, commissioning notes, and host records.
-- [docs/areas/](docs/areas/README.md): per-functional-area development records and frozen facts.
-- [testing/](testing/README.md): pre-release test tiers, categories, and case catalog.
-
-The source layout follows the frozen rt_control implementation specification:
-
-- `src/vendor/robot_interfaces`: 从固定 SHA 导入的公共接口、契约视图与命名 QoS 包。
-- `src/interfaces/source-lock.yaml`: 与 `deps.repos` 一致的公共契约身份元数据。
-- `src/interfaces/rt_control_interfaces`: 仅供本域使用的 `PlcIoState`、`RtEnable` 等私有接口。
-- `src/description/robot_description`: kinematics-only robot description.
-- `src/rt_control`: EtherCAT/CANopen configuration, bringup, enable/fault handling, and diagnostics packages.
-- `docker/rt-control` and `docker/compose.yaml`: rt-control image and current Compose deployment.
-- `tools`: migration and commissioning tools.
-- `hostsetup`: target-host setup assets.
-
-`src/rt_control/robot_hw_canopen` 现仅保留 V3 舵轮外置编码器实现和未准入的配置草案；
-旧机履带 bus/EDS/variant 生成链、差速控制器配置与入口、对应原生/IPC 包装器已退役。
-
-## 硬件配置分层与组合
-
-ELECTRI-105 的 [LPMS-NAV3 CAN IMU 驱动](../../src/rt_control/lpms_nav3_can/README.md)
-已进入源码构建闭包，但未加入生产启动。其独立 launch 默认为静态校验、输出私有 topic，
-三代机共线 CAN 与跨域导航融合仍受 BQ-150 准入限制。
-
-ELECTRI-94 采用 owner-local registry 与 semantic component 分层，同时保留多设备组合：
-`rt_control_bringup` 在一个 `controller_manager` 中组合独立的 EtherCAT `ecat_arms`
-与 CANopen `canopen_mobile_axes` system。bringup 只负责 variant 选择、总装、启动顺序和
-controller 对齐；功能包不得反向依赖 bringup。
-
-- `robot_description` 拥有 logical joint、几何和物理硬限位；
-- `robot_hw_ethercat` 的 `alfa_v1` descriptor 拥有 14 个 motion axes、右/左 X503
-  state-only sensors、两个 Hub responders 及其 18 位注册；
-- `robot_hw_canopen` descriptor 拥有履带 Node 2/3、mode 3、side/profile 注册，并与
-  `bus.yml` 严格对齐；
-- `rt_control_semantic_components` 只封装 loaned interface 绑定、读写和 CiA402 解码；
-- `enable_manager` 显式拥有 managed joints、批次、时序和 Ti5 失能终态策略；
-- diagnostics topology 从本次选择的 descriptors 派生，公共 status adapter 只消费稳定
-  总线 summary，不维护第二份电机清单。
-
-本设计不是把 Robot Model、PDO/SDO 和 safety policy 合并成 strict SSOT。详细所有权、
-profile/mode 准入及增删设备流程见
-[硬件配置维护指南](docs/hardware-configuration-layering-and-motor-variants.md)。
-
-The legacy baseline `/home/kkozia/robot_driver@6bc94cd` is read-only and is not vendored in this repository. External source checkouts are declared in `deps.repos`.
-
-## V3 分支运行边界
-
-`v3` 分支使用 `robot_description/feature/electri-127-alfav3-left-j3-j6-axis@5ec6b65`
-的构建副本（研华底盘台架部署模型 + Alfav3 双臂），硬件绑定选择其 `mobile_proxy` 变体（`robot_alfav3_mobile.urdf`）：14 CSP 双臂、
-Updown、头部和四舵轮。该模型没有夹爪关节，PP 夹爪暂不参与组合（ELECTRI-127）。默认安装入口
-`rt_control_start` 只运行 `alfa_v3` machine-profile validation，不创建硬件节点；真实双臂
-原位使能仍必须显式使用 `--enable-only`，并沿用其独立现场授权门禁。
-
-V3 安装包不包含二代 `rt_control.launch.py`、controllers.yaml、X503 PREOP 或履带
-diff-drive。源码暂时保留作迁移对照，但不构成受支持运行入口。当前整机 runtime 仍被主动
-悬挂、步科舵轮、外置编码器、Updown、头部和 PP 夹爪的待确认事实阻塞。
-
-Build the in-repository packages with:
-
-```bash
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install
+```text
+rt_control_machine_config ──> rt_control_composer ──> 各 protocol 包 renderer ──> artifact 目录 ──> rt_control_start
+   (manifest/module/unit)       (校验 + 组合，纯函数)     (ros2_control 片段)       (compose_artifact)      (launch + PID 1)
 ```
 
-For the draft third-generation modular hardware manifest, run a hardware-free
-static validation of every declared physical-profile/control-scope pair:
-
 ```bash
-python3 src/rt_control/rt_control_bringup/scripts/validate_machine_profile.py \
-  --manifest src/rt_control/rt_control_bringup/config/machines/alfa_v3.yaml --all
+ros2 run rt_control_composer compose_artifact --output /abs/dir --robot-variant Alfa_V3 \
+  --machine-unit <unit> --physical-profile <profile> --control-scope <scope> [--mock]
 ```
 
-The corresponding launch entry is
-`rt_control_module.launch.py`; `validation_only` defaults to `true`. It reports
-the selected module and actuator/mode counts without creating ROS hardware
-nodes. A runtime request is rejected until the manifest's TBD identities,
-layouts, mappings, and calibration facts are completed and independently
-verified. CI or a release gate can enforce the same condition directly with
-`--require-runtime-ready`.
+台套：`Alfa_V3-01`、`Alfa_V3-Advantech-01`、`Alfa_V3-bench-01`。scope 定义在
+`rt_control_machine_config/machines/Alfa_V3/manifest.yaml`。
 
-`chassis_only` and `full` now select the existing
-`swerve_driver/SwerveController` draft config together with four required
-CANopen steering encoders. Other scopes do not claim that controller. The
-selection is still static: motor PDOs and encoder state providers must be
-implemented in their shared hardware-owner packages before any runtime launch.
+## 启动入口（`rt_control_start`，容器 PID 1）
 
-For example, the current arm-bench check is:
+除默认的静态校验外，所有运行入口都是通用分阶段 scope 入口 `rt_control_scope_runtime.launch.py`：
+先加总线锁、跑 owner preflight，再按顺序激活硬件、加载控制器；停机统一走
+`scope_shutdown`（停运动控制器 → `/rt/disable` → 停其余控制器 → 硬件退出）。
 
-```bash
-ros2 launch rt_control_bringup rt_control_module.launch.py \
-  robot_variant:=alfa_v3 physical_profile:=arms_only \
-  control_scope:=arms_only validation_only:=true
-```
+| 参数 | 等同于 | 说明 |
+| --- | --- | --- |
+| （无） | `rt_control_module.launch.py` | 只做 machine-profile 校验，不创建硬件节点 |
+| `--scope <scope>` | — | 通用入口；scope 需声明 `staged_hardware_activation` |
+| `--arm-runtime` | `--scope arms_only` | 双臂运动（JTC + rolling），发布 RSP |
+| `--arm-jtc` | `--scope arms_only jtc_only:=true` | 双臂仅 JTC |
+| `--enable-only` | `--scope arms_stationary_enable physical_profile:=arms_only` | 双臂原位使能（250 Hz） |
+| `--head-runtime` | `--scope head_only` | 头部云台，使能由 `enable_manager` 负责，见 [达妙头部](../../src/rt_control/robot_hw_can/docs/damiao_head.md) |
+| `--force-sensors` | `--scope force_bench` | 腕部力传感器台架，实机需 `sync_mode:=sm|dc` |
 
-蓝点腕部六维力传感器是独立硬件选项，不增加第六个 physical profile。缺货期默认
-`force_sensor_option:=none`，继续表示已确认的十八从站双臂环；仅做静态审查时可显式选择：
+任何非 mock 启动都会访问真实总线，需按根 `AGENTS.md` 第 5 节单独授权。容器与发布见 [`docker/README.md`](../../docker/README.md)。
 
-```bash
-ros2 launch rt_control_bringup rt_control_module.launch.py \
-  robot_variant:=alfa_v3 physical_profile:=arms_only \
-  control_scope:=arms_only force_sensor_option:=bluepoint_dual \
-  validation_only:=true
-```
+## 改什么去哪
 
-后者当前输出 `ethercat_ring=TBD` 且 `status=draft`。它不自动探测、不能在缺失任一传感器时
-降级，也不能在 ring position、Robot Model frame 和 sample freshness 未确认前用于真实启动。
+改动类型与唯一位置见 [`ARCHITECTURE.md`](../../ARCHITECTURE.md) §2；验证命令见 [`tools/README.md`](../../tools/README.md)。
 
-完整设备到货后只控制机械臂时，把 `physical_profile` 换为 `full_robot`，仍保持
-`control_scope:=arms_only`；该组合会保留完整物理布局校验，但不会把 Updown、舵轮或
-头部云台加入活动控制集合。
+## 记录
 
-目标工控机 `user@localhost`（管理地址 `192.168.0.250`）的日常开发使用独立工作区
-`/home/user/rt-control-dev`，由
-[`bootstrap_native_dev.sh`](../../tools/bootstrap_native_dev.sh) 管理冻结依赖和增量构建，
-由 [`rt_control_native.sh`](../../tools/rt_control_native.sh) 管理真实硬件进程。原生运行与
-Docker 运行互斥；Docker 继续作为里程碑发布、回归和交付载体。详见
-[原生开发与运行](docs/native-development-workflow.md)。
+| 文件 | 内容 |
+| --- | --- |
+| [BLOCKED-questions.md](BLOCKED-questions.md) | 阻塞问题与用户裁决（2026-10-29 重新开始，写入前须用户确认；旧条目见 git 历史） |
+| [PROGRESS.md](PROGRESS.md) | 验证时间线索引 |
+| [docs/areas/](docs/areas/README.md) | 7 个功能区的冻结事实表与开发记录 |
+| [docs/areas-archive/](docs/areas-archive/) | 2026-10-13 前 9 个旧功能区的记录（只读归档） |
+| [testing/](testing/README.md) | 发布前测试分层、用例目录与 runner |
+| [docs/v3-arm-motion-integration.md](docs/v3-arm-motion-integration.md) | V3 双臂与运控对接方案 |
+| [docs/hardware-configuration-layering-and-motor-variants.md](docs/hardware-configuration-layering-and-motor-variants.md) | 硬件配置分层与电机变体（部分内容描述二代 descriptor） |
 
-Build or expand the rt-control image configuration only after exporting the
-target host's validated container and startup CPU sets:
+### 历史资料（不作为当前操作依据）
 
-```bash
-export RT_CONTROL_CPUSET=<validated-isolated-cpu-list>
-export RT_CONTROL_START_CPUSET=<validated-housekeeping-only-cpu-list>
-export RT_CONTROL_ROS_DOMAIN_ID=<本机器实例统一的 0..232>
-tools/rt_control_compose.sh config
-tools/rt_control_compose.sh build rt-control
-```
-
-Starting the production service activates the real CANopen hardware path and
-may put those drives into an operational/energized state even before
-`/rt/enable`; it also accesses real EtherCAT. Follow the staged authorization,
-inspection, startup, and shutdown procedure in the
-[deployment and operations runbook](docs/deployment-operations-runbook.md);
-do not treat `up` as a hardware-free smoke test.
-
-The wrapper reads the pinned IgH version and full commit from `versions.env`.
-In a Git checkout it tags the image with the current repository commit. For an
-audited non-Git release export it requires both `RT_CONTROL_PROJECT_ROOT` and an
-explicit full `RT_CONTROL_IMAGE_TAG`; the current-IPC launcher supplies the
-locked values and does not infer them from the directory contents. The dependency identity
-is also stored in the image labels and
-`/usr/local/share/rt-control/dependency-versions.env`. The wrapper intentionally
-has no default CPU set.
-
-The supported container command is the installed `rt_control_start` signal
-gate. It waits up to 30 seconds for `/rt/disable` before forwarding an orderly
-shutdown to ROS. The image executes the installed file directly so it remains
-PID 1; do not wrap it in `ros2 run` when overriding the container command.
-Starting `ros2 launch rt_control_bringup rt_control.launch.py` directly also
-bypasses that clean-shutdown guarantee.
-
-For hardware-free controller loading checks, use the isolated Mock recipe in
-the [deployment and operations runbook](docs/deployment-operations-runbook.md).
-It keeps the production `rt_control_start` shutdown gate, selects
-`use_mock_hardware:=true`, uses a separate ROS domain, and does not map the
-EtherCAT device. The production default remains `false`. If GitHub access alone
-needs the host proxy during an image build, set `RT_CONTROL_BUILD_PROXY` to a
-host-reachable proxy URL for that invocation; the value is scoped to the
-source-import layer and is not stored as a runtime environment variable.
-
-## Development quality gate
-
-Install the local hook dependencies once on an Ubuntu 22.04 development host:
-
-```bash
-sudo apt-get install python3-coverage python3-pip python3-yaml shellcheck
-python3 -m pip install --user pre-commit==3.7.1
-python3 -m pre_commit install
-```
-
-Run the same repository gate manually at any time:
-
-```bash
-tools/quality_gate.sh
-```
-
-The hook checks repository architecture, dependency pins, forbidden generated
-artifacts, YAML/XML/Python syntax, shell syntax, policy tests with at least 80%
-coverage, and the frozen EtherCAT shutdown policy. GitHub Actions reruns the
-same gate with ShellCheck mandatory, validates completion of the pull request
-contract, and then builds and tests the ROS workspace. Local hook success does
-not authorize hardware access, a commit, or a push; both the root
-[`AGENTS.md`](../../AGENTS.md) and this domain's [AGENTS.md](AGENTS.md) still
-apply.
-
-The full workflow runs for PR code events (`opened`, `synchronize`, and
-`reopened`). Editing only the PR description runs the lightweight contract
-governance workflow and does not start or cancel a full ROS build. A PR merge
-does not repeat the same full workflow on `push(main)`. Repository policy still
-forbids direct pushes and required-check bypasses; administrators must enforce
-that policy with GitHub branch protection.
-
-After this workflow first succeeds, a repository administrator must configure
-the protected `main` branch to require the `governance` and `build` status
-checks and to disallow bypasses. Workflow files cannot enable GitHub branch
-protection by themselves.
+二代/旧机记录，仅用于追溯：
+[接手知识图谱](docs/onboarding-knowledge-map.md)、
+[一键启动](docs/one-command-start.md)、
+[原生开发与运行](docs/native-development-workflow.md)、
+[新机部署与运行手册](docs/deployment-operations-runbook.md)、
+[宿主安装记录](docs/host-setup-record.md)、
+[联调准入摘要](docs/integration-readiness-summary.md)、
+[后续修改计划](docs/follow-up-modification-plan.md)、
+[PLC/BMS 合并交接](docs/plc-bms-merge-hardware-handoff.md)、
+[迁移基线报告](docs/baseline_report.md)，
+以及 `docs/` 下带日期的调试/验收记录。

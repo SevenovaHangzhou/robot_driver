@@ -219,13 +219,11 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       joint_trajectory_controller \
       gripper_controllers \
       plc_io_modbus \
-      plc_node \
       robot_description \
       rt_control_interfaces \
       robot_hw_ethercat \
       robot_hw_canopen \
       robot_hw_can \
-      damiao_head_controller \
       enable_manager \
       rt_diagnostics \
       rt_control_semantic_components \

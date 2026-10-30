@@ -8,7 +8,6 @@ PACKAGE = Path(__file__).resolve().parents[1]
 PROFILE = PACKAGE / "config/profiles/bluepoint_p140000100.yaml"
 MACHINE = PACKAGE.parent / "rt_control_machine_config/machines/Alfa_V3/wrist_force_sensors.yaml"
 ESI = PACKAGE / "config/esi/P140000107-1.0.1.1-ECXML.xml"
-ALFA_V1 = PACKAGE / "variants/alfa_v1.yaml"
 
 
 def test_bluepoint_esi_identity_and_pdo_layout_are_archived_exactly():
@@ -99,23 +98,3 @@ def test_bluepoint_broadcaster_draft_reuses_the_shared_cpp_plugin_fail_closed():
     assert record["decimals"] == [5] * 6
     assert record["broadcaster"]["validity_policy"] == "none"
     assert record["broadcaster"]["snapshot_source"] == "fixed_protocol"
-    assert yaml.safe_load(ALFA_V1.read_text())["sensors"] == [
-        {
-            "sensor_name": "right_force_sensor",
-            "family": "x503",
-            "ring_position": 14,
-            "profile": "x503_right",
-            "wrench_topic": "/rt_control/right_x503b/wrench",
-            "raw_topic": "/rt_control/right_x503b/raw",
-            "frame_id": "right_ft_sensor_link",
-        },
-        {
-            "sensor_name": "left_force_sensor",
-            "family": "x503",
-            "ring_position": 15,
-            "profile": "x503_left",
-            "wrench_topic": "/rt_control/left_x503b/wrench",
-            "raw_topic": "/rt_control/left_x503b/raw",
-            "frame_id": "left_ft_sensor_link",
-        },
-    ]

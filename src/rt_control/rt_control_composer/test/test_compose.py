@@ -276,12 +276,26 @@ def test_data_files_pass_existing_validator(shares):
         scope["mock_robot_model"]["joint_limits_file"]
         for scope in manifest["scopes"].values()
         if "mock_robot_model" in scope
+    } | {
+        # A scope controller file is a complete ROS parameter document, not a machine envelope.
+        scope["controller_file"]["file"]
+        for scope in manifest["scopes"].values()
+        if scope.get("controller_file", {}).get("package") == "rt_control_machine_config"
     }
+    # Owner policies have no machine envelope; each is validated by its owner's schema.
+    policies = {ref["file"]: ref for ref in manifest["policy_refs"].values()}
     for directory in ("devices", "machines", "units"):
         for path in (root / directory).rglob("*.yaml"):
-            if path.relative_to(root).as_posix() in model_files:
+            relative = path.relative_to(root).as_posix()
+            if relative in model_files:
                 continue  # Robot model inputs use their owner loader, not machine envelopes.
             value = load_yaml(path)
+            if relative in policies:
+                ref = policies[relative]
+                if "schema" in ref:
+                    owner = shares[ref.get("schema_package", ref["package"])]
+                    validate_data(value, ref["schema"], owner / "schema", root)
+                continue
             kind = value["kind"]
             schema = {
                 "machine_module": "module_envelope",
@@ -293,15 +307,9 @@ def test_data_files_pass_existing_validator(shares):
 def test_policy_values_equal_frozen_old_output():
     # The frozen old output remains the value oracle after retiring old code.
 
+    manifest_path = next((RT / "rt_control_machine_config/machines").glob("*/manifest.yaml"))
     policy = load_yaml(
-        RT
-        / "rolling_trajectory_controller/config"
-        / (
-            load_yaml(next((RT / "rt_control_machine_config/machines").glob("*/manifest.yaml")))[
-                "robot_variant"
-            ]
-            + "_arm_tolerances.yaml"
-        )
+        RT / "rt_control_machine_config" / load_yaml(manifest_path)["policy_refs"]["motion"]["file"]
     )
     old = load_yaml(GOLDEN / "arm-mock/controllers.yaml")
     assert policy["joints"] == old["whole_body_jtc"]["ros__parameters"]["joints"]
@@ -310,6 +318,7 @@ def test_policy_values_equal_frozen_old_output():
     assert policy["jtc"] == expected_jtc
     expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
     expected_rolling.pop("envelope_file")
+    assert expected_rolling.pop("joints") == policy["joints"]
     assert policy["rolling"] == expected_rolling
     assert policy["enable_manager"] == {
         key: value

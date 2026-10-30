@@ -1,6 +1,6 @@
 # robot_driver 架构规范
 
-本文是 `robot_driver` 后续一切结构性改动的裁判。与 `AGENTS.md`、`collaboration-and-commit-standards.md` 冲突时，架构与编码问题以本文为准；实时、安全、硬件事实、上游补丁与 PR 门禁的既有底线不因本文放宽（§6）。
+本文是 `robot_driver` 后续一切结构性改动的裁判。与 `AGENTS.md` 冲突时，架构与编码问题以本文为准；实时、安全、硬件事实、上游补丁与 PR 门禁的既有底线不因本文放宽（§6）。
 
 迁移待办（§5 现状违反清单、§5a 逐包处置表、§8 被取代条款）不在本文，见 [`domains/rt_control/docs/migration-backlog.md`](domains/rt_control/docs/migration-backlog.md)；本文提到的 §5、§5a、§8 与清单 A–F 均指该文件。
 
@@ -195,7 +195,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 - 一个 PR 对应 `domains/rt_control/docs/migration-backlog.md` 里的一项或一组同类项，标题写明对应项。
 - 结构变更 PR 不改行为：改前改后 `arch_check compose` 对每个 scope 的输出逐字节一致（`arch_check` 未实现前，用 `compose_artifact` 生成到临时目录做 diff）。
 - 行为变更 PR（删 relative_move、重做 rt_diagnostics、删 draft 适配器）单独开，PR 描述第一行写"行为变更"，列出被删除的 topic/service/action。
-- 每个 PR 在描述中写清：对应 backlog 项、改前/改后验证命令及结果、未验证项。按 `PI-RT-control/AGENTS.md` 的固定汇报格式。
+- 每个 PR 在描述中写清：对应 backlog 项、改前/改后验证命令及结果、未验证项。PR 顶部摘要格式见 `.github/CONTRIBUTING.md` §3。
 - 遇到 §6 列出的底线、硬件事实、或规范没覆盖的情况：停下来问，不猜。
 - 发现规范本身有错或不可执行：改规范（独立 PR）而不是绕过。
 
@@ -204,7 +204,6 @@ integration（composer、bringup、适配层、诊断、操作面）
 以下动作完成后必须停下等用户确认，不自动进入下一步：
 
 - §7 步骤 1 的 PR 开出后；
-- §7 步骤 2（AGENTS 瘦身）的改动清单列出后、动手前；
 - 每个行为变更 PR 动手前；
 - 任何需要删除 ≥ 1000 行代码的 PR 动手前；
 - `arch_check` 首版实现完成、接入 `quality_gate.sh` 前（因为会让现状全红，需要先定 baseline 策略：按 §5 清单逐项消化，不做豁免清单）。
@@ -214,5 +213,5 @@ integration（composer、bringup、适配层、诊断、操作面）
 - 工作树：`repos/features/ARCH-spec-v1`
 - 分支：`feature/arch-spec-v1`
 - 后续迁移 PR 按步骤编号：`feature/arch-s2-agents-slim`、`feature/arch-s3-dead-code`、`feature/arch-s4-config-ownership`、`feature/arch-s5-infra-<lib>`、`feature/arch-s6-split-<pkg>`、`feature/arch-s7-arch-check`。
-- 偏离说明：`PI-RT-control/AGENTS.md` 要求工作树引用 Linear Issue；本轮用户明确不走 Linear，分支名以 `arch-` 前缀代替 Linear ID。若后续补建 Issue，分支改名为 `feature/<linear-id>-arch-…`。
+- 偏离说明：控制工作区约定要求工作树引用 Linear Issue；本轮用户明确不走 Linear，分支名以 `arch-` 前缀代替 Linear ID。若后续补建 Issue，分支改名为 `feature/<linear-id>-arch-…`。
 - 基线：`main` @ `43d4c64` 或更新的 `origin/main`；开工前先 fetch 并记录实际 base SHA。

@@ -24,16 +24,6 @@ ament_target_dependencies(zeroerr_pp_slave ethercat_generic_slave ethercat_inter
 pluginlib_export_plugin_description_file(ethercat_interface ethercat_plugins.xml)
 
 add_custom_target(
-  validate_ethercat_variants ALL
-  COMMAND
-    ${Python3_EXECUTABLE}
-    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/validate_ethercat_variants.py
-    --variants-dir ${CMAKE_CURRENT_SOURCE_DIR}/variants
-    --profile-dir ${CMAKE_CURRENT_SOURCE_DIR}/config/slaves
-  COMMENT "Validating EtherCAT variant, family, and slave-profile contracts"
-  VERBATIM
-)
-add_custom_target(
   validate_kinco_swerve_draft ALL
   COMMAND
     ${Python3_EXECUTABLE}
@@ -72,17 +62,10 @@ if(BUILD_TESTING)
     PP_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/pp_gripper.yaml")
   ament_target_dependencies(test_pp_controller gripper_controllers)
   find_package(ament_cmake_pytest REQUIRED)
-  ament_add_pytest_test(test_ti5_polarity_profiles test/test_ti5_polarity_profiles.py)
-  ament_add_pytest_test(test_x503_profiles test/test_x503_profiles.py)
-  ament_add_pytest_test(test_x503_topology test/test_x503_topology.py)
   ament_add_pytest_test(test_bluepoint_profile test/test_bluepoint_profile.py)
-  ament_add_pytest_test(
-    test_ethercat_hardware_variant
-    test/test_ethercat_hardware_variant.py
-  )
 endif()
 
-install(DIRECTORY urdf config variants DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
   FILES_MATCHING PATTERN "*.schema.json")
 install(DIRECTORY include/ DESTINATION include)
@@ -93,7 +76,6 @@ ament_export_targets(export_zeroerr_pp_slave HAS_LIBRARY_TARGET)
 ament_export_dependencies(ethercat_generic_slave ethercat_interface pluginlib)
 install(
   PROGRAMS
-    scripts/validate_ethercat_variants.py
     scripts/validate_kinco_swerve_draft.py
   DESTINATION lib/${PROJECT_NAME}
 )

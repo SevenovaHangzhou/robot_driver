@@ -14,23 +14,23 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
-| canopen-chassis/F3 | 三代机四路舵角 provider 复用 Lely/ros2_canopen 主站，导出 position/feedback_age_ms 且无 command interface；硬件 profile 保持 draft/TBD | [CANopen 舵角 provider](../canopen-chassis/records/2026-09-16-swerve-encoder-state-provider.md)#F1-F4 | PARTIAL（T1 单元/Mock；EDS、总线与实机待验） |
-| ecat-axes/X503-PREOP-1 | 两侧单位/小数位每次初始化只在 PREOP 读取一次，OP 用本次快照与 PDO；离开 OP 或断链后快照失效。主站拒绝非 PREOP CoE 请求。 | [ecat-axes-20260912-01](../ecat-axes/records/2026-09-12-x503-preop-snapshot.md)#F1-F4 | PASS（T3不使能；PDI固件根因、长期/运动未闭环） |
-| ecat-axes/TI5-PDO-1 | 四份Ti5 profile保留已校验PDO，失败在外层终止；三轮映射abort为0，PDO阶段由4.224秒降至约3.454秒，最终新配置保留、14轴失能无故障位。 | [ecat-axes-20260909-03](../ecat-axes/records/2026-09-09-electri-97-ti5-preserved-pdo.md)#F1-F4 | PASS（T3失能启动；DC/长期/运动未闭环） |
-| ecat-axes/DC-HANDOFF-1 | Native 用短期周期维护覆盖初始化返回至正常 read 接管；三轮交接窗口最大间隔4.005/4.018/4.019 ms，双X503无0x001A、接管后WKC完整。 | [ecat-axes-20260909-01](../ecat-axes/records/2026-09-09-electri-97-continuous-handoff.md)#F1-F4 | PASS（T3三轮暖启动；初始DC等待、长期/运动未关闭） |
-| ecat-axes/DC-TIME-1 | ICube application_time 四条路径统一使用 CLOCK_MONOTONIC uptime 纳秒；三轮时基单变量测试仍有启动等待及 X503 0x001A 瞬态。 | [ecat-axes-20260908-01](../ecat-axes/records/2026-09-08-electri-97-monotonic-application-time.md)#F1-F2 | PARTIAL（T3 Native） |
-| ecat-axes/01#F2 | 两份 profile 均锁定实机 identity `0x00000503/0x26483052@0x00020111`、fixed RxPDO `0x1601` 与 TxPDO `0x1A00`（25×DINT/100 bytes），必须保留校验而非重写 | [ecat-axes-20260902-01](../ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md)#F2 | PARTIAL（补丁链通过；实机 OP 待验） |
-| ecat-axes/01#F3 | X503 仅提供 raw state interface，不进入 14 轴使能、JTC 或公共 `/joint_states` | [ecat-axes-20260902-01](../ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md)#F3 | PASS（静态/Mock） |
-| ecat-axes/05#F1 | PP 夹爪可选模块按已发送 PDO 与同序号反馈握手；旧 CSP profile 不变，TBD 和实机准入继续阻塞 | [PP 夹爪记录](../ecat-axes/records/2026-09-08-zeroerr-pp-gripper.md)#F1 | PARTIAL（T1 离线/增量容器） |
-| ecat-axes/06#F1 | GR10-EC-6SW ESI 声明两个 JunctionSlave 设备，ID/端口说明已归档；实物身份与十八从站数量已在 07#F1 核验 | [汇川 ESI 记录](../ecat-axes/records/2026-09-12-inovance-gr10-esi.md) | T0 文件事实；T2 进展见 07#F1 |
-| ecat-axes/15#F1 | 用户零位已归档；14 CSP+2 PP 实际 OP、WC48/48、16轴使能/保持/失能成功，最终 Idle/PREOP；PP运动/限力尚未验证 | [原位使能实测](../ecat-axes/records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3；当前状态及模式以本记录为准） |
-| lifecycle/20261009-03#F1 | 模式切换成功路径测试持续提供 JTC 状态，保留生产新鲜度与停稳门禁 | [CI 源状态刷新修复](../lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md)#F1-F2 | PARTIAL（65用例及30次延迟回归通过；全仓CI待验） |
-| lifecycle/01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](../lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |
-| lifecycle/01#F2 | rt_disable_once 三阶段共享单一绝对 deadline 是已验证现状（29 例日志佐证），非缺陷 | [lifecycle-20260814-01](../lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F2 | 有效 |
-| lifecycle/02#F1 | enable_manager 单元测试基线 = 36 用例 @ 3ff153d（a–f 六项）；行为修改须先过套件 | [lifecycle-20260814-02](../lifecycle/records/2026-08-14-enable-manager-gtest.md)#F1 | 有效 |
-| lifecycle/03#F1 | `Cia402Axis` 只绑定/解码接口；managed joints、批次、时序和 Ti5 终态由 enable_manager 显式配置并冻结 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F7 | PASS（T1 Docker/Mock） |
-| lifecycle/05#F1 | V3 enable_manager 保持 16 轴 CiA402 管理，14 CSP motion registry 在 enable 后默认进入 FJT_READY，并与 rolling 严格互斥 | [V3 运动控制器切换](../lifecycle/records/2026-09-19-v3-motion-controller-switching.md)#F1-F3 | PARTIAL（T1 Mock；真实故障/停机待验） |
-| release-deploy/2026-09-24#F1 | 旧履带启动、差速控制、Leadshine CANopen 生成链及宿主 can0 已移除；上游补丁仅保留共享生命周期/RPDO 与 Lely 队列修复，编码器 CAN 身份仍 TBD | [旧履带运行链退役](../release-deploy/records/2026-09-24-retire-track-runtime.md)#F1-F2 | UNVERIFIED（T0；隔离 9 包/150 测试、Docker 39 包与无设备静态 validation 通过；实机运行待验） |
+| canopen-chassis/F3 | 三代机四路舵角 provider 复用 Lely/ros2_canopen 主站，导出 position/feedback_age_ms 且无 command interface；硬件 profile 保持 draft/TBD | [CANopen 舵角 provider](../../areas-archive/canopen-chassis/records/2026-09-16-swerve-encoder-state-provider.md)#F1-F4 | PARTIAL（T1 单元/Mock；EDS、总线与实机待验） |
+| ecat-axes/X503-PREOP-1 | 两侧单位/小数位每次初始化只在 PREOP 读取一次，OP 用本次快照与 PDO；离开 OP 或断链后快照失效。主站拒绝非 PREOP CoE 请求。 | [ecat-axes-20260912-01](../../areas-archive/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)#F1-F4 | PASS（T3不使能；PDI固件根因、长期/运动未闭环） |
+| ecat-axes/TI5-PDO-1 | 四份Ti5 profile保留已校验PDO，失败在外层终止；三轮映射abort为0，PDO阶段由4.224秒降至约3.454秒，最终新配置保留、14轴失能无故障位。 | [ecat-axes-20260909-03](../../areas-archive/ecat-axes/records/2026-09-09-electri-97-ti5-preserved-pdo.md)#F1-F4 | PASS（T3失能启动；DC/长期/运动未闭环） |
+| ecat-axes/DC-HANDOFF-1 | Native 用短期周期维护覆盖初始化返回至正常 read 接管；三轮交接窗口最大间隔4.005/4.018/4.019 ms，双X503无0x001A、接管后WKC完整。 | [ecat-axes-20260909-01](../../areas-archive/ecat-axes/records/2026-09-09-electri-97-continuous-handoff.md)#F1-F4 | PASS（T3三轮暖启动；初始DC等待、长期/运动未关闭） |
+| ecat-axes/DC-TIME-1 | ICube application_time 四条路径统一使用 CLOCK_MONOTONIC uptime 纳秒；三轮时基单变量测试仍有启动等待及 X503 0x001A 瞬态。 | [ecat-axes-20260908-01](../../areas-archive/ecat-axes/records/2026-09-08-electri-97-monotonic-application-time.md)#F1-F2 | PARTIAL（T3 Native） |
+| ecat-axes/01#F2 | 两份 profile 均锁定实机 identity `0x00000503/0x26483052@0x00020111`、fixed RxPDO `0x1601` 与 TxPDO `0x1A00`（25×DINT/100 bytes），必须保留校验而非重写 | [ecat-axes-20260902-01](../../areas-archive/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md)#F2 | PARTIAL（补丁链通过；实机 OP 待验） |
+| ecat-axes/01#F3 | X503 仅提供 raw state interface，不进入 14 轴使能、JTC 或公共 `/joint_states` | [ecat-axes-20260902-01](../../areas-archive/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md)#F3 | PASS（静态/Mock） |
+| ecat-axes/05#F1 | PP 夹爪可选模块按已发送 PDO 与同序号反馈握手；旧 CSP profile 不变，TBD 和实机准入继续阻塞 | [PP 夹爪记录](../../areas-archive/ecat-axes/records/2026-09-08-zeroerr-pp-gripper.md)#F1 | PARTIAL（T1 离线/增量容器） |
+| ecat-axes/06#F1 | GR10-EC-6SW ESI 声明两个 JunctionSlave 设备，ID/端口说明已归档；实物身份与十八从站数量已在 07#F1 核验 | [汇川 ESI 记录](../../areas-archive/ecat-axes/records/2026-09-12-inovance-gr10-esi.md) | T0 文件事实；T2 进展见 07#F1 |
+| ecat-axes/15#F1 | 用户零位已归档；14 CSP+2 PP 实际 OP、WC48/48、16轴使能/保持/失能成功，最终 Idle/PREOP；PP运动/限力尚未验证 | [原位使能实测](../../areas-archive/ecat-axes/records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3；当前状态及模式以本记录为准） |
+| lifecycle/20261009-03#F1 | 模式切换成功路径测试持续提供 JTC 状态，保留生产新鲜度与停稳门禁 | [CI 源状态刷新修复](../../areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md)#F1-F2 | PARTIAL（65用例及30次延迟回归通过；全仓CI待验） |
+| lifecycle/01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](../../areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |
+| lifecycle/01#F2 | rt_disable_once 三阶段共享单一绝对 deadline 是已验证现状（29 例日志佐证），非缺陷 | [lifecycle-20260814-01](../../areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F2 | 有效 |
+| lifecycle/02#F1 | enable_manager 单元测试基线 = 36 用例 @ 3ff153d（a–f 六项）；行为修改须先过套件 | [lifecycle-20260814-02](../../areas-archive/lifecycle/records/2026-08-14-enable-manager-gtest.md)#F1 | 有效 |
+| lifecycle/03#F1 | `Cia402Axis` 只绑定/解码接口；managed joints、批次、时序和 Ti5 终态由 enable_manager 显式配置并冻结 | [release-deploy-20260903-01](../../areas-archive/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F7 | PASS（T1 Docker/Mock） |
+| lifecycle/05#F1 | V3 enable_manager 保持 16 轴 CiA402 管理，14 CSP motion registry 在 enable 后默认进入 FJT_READY，并与 rolling 严格互斥 | [V3 运动控制器切换](../../areas-archive/lifecycle/records/2026-09-19-v3-motion-controller-switching.md)#F1-F3 | PARTIAL（T1 Mock；真实故障/停机待验） |
+| release-deploy/2026-09-24#F1 | 旧履带启动、差速控制、Leadshine CANopen 生成链及宿主 can0 已移除；上游补丁仅保留共享生命周期/RPDO 与 Lely 队列修复，编码器 CAN 身份仍 TBD | [旧履带运行链退役](../../areas-archive/release-deploy/records/2026-09-24-retire-track-runtime.md)#F1-F2 | UNVERIFIED（T0；隔离 9 包/150 测试、Docker 39 包与无设备静态 validation 通过；实机运行待验） |
 
 | protocol-20261014-01#F1–F3 | 离线 renderer、输出侧编码器换算、数据驱动原位预检；无新增运动入口总线检查 | [EtherCAT renderer](records/2026-10-14-ethercat-renderer.md) | UNVERIFIED（T0；conformance/既有测试通过，实机未验） |
 

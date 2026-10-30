@@ -2,15 +2,15 @@
 
 | 2026-10-23 | chassis-control | [整车速度 S 曲线](docs/areas/chassis-control/records/2026-10-22-chassis-twist-scurve.md) | PARTIAL：研华独立构建及173项无设备测试通过，1.0/4.0已配置并启动至IDLE；实车响应、停车距离和导航联调待验 |
 
-| 2026-10-07 | motion | [安装舵轮减速比与换算边界](docs/areas/motion/records/2026-10-07-swerve-installed-ratios.md) | PARTIAL：机械比更新为27.48/140；运行raw/SI比例缺反馈单位和电子齿轮事实，未写设备 |
+| 2026-10-07 | motion | [安装舵轮减速比与换算边界](docs/areas-archive/motion/records/2026-10-07-swerve-installed-ratios.md) | PARTIAL：机械比更新为27.48/140；运行raw/SI比例缺反馈单位和电子齿轮事实，未写设备 |
 
-| 2026-09-24 | release-deploy | [旧履带运行链退役](docs/areas/release-deploy/records/2026-09-24-retire-track-runtime.md) | UNVERIFIED（T0；quality gate 207、V3 Python 98、共享 CANopen 补丁隔离 9 包/150 测试、Docker 39 包及无设备静态 validation 通过；实机/Mock 生命周期待验，V3 CAN 身份 TBD） |
+| 2026-09-24 | release-deploy | [旧履带运行链退役](docs/areas-archive/release-deploy/records/2026-09-24-retire-track-runtime.md) | UNVERIFIED（T0；quality gate 207、V3 Python 98、共享 CANopen 补丁隔离 9 包/150 测试、Docker 39 包及无设备静态 validation 通过；实机/Mock 生命周期待验，V3 CAN 身份 TBD） |
 
-| 2026-09-19 | release-deploy | [V3 达妙头部非 JTC 位置速度运行链](docs/areas/release-deploy/records/2026-09-19-v3-damiao-head-runtime.md) | PARTIAL（T1；32 项头部包测试、92 项 bringup、55 项 V3 head/profile 测试；CAN/机械/full runtime 待验） |
+| 2026-09-19 | release-deploy | [V3 达妙头部非 JTC 位置速度运行链](docs/areas-archive/release-deploy/records/2026-09-19-v3-damiao-head-runtime.md) | PARTIAL（T1；32 项头部包测试、92 项 bringup、55 项 V3 head/profile 测试；CAN/机械/full runtime 待验） |
 
 | Task | Commit | Self-check result | Remaining issues |
 | --- | --- | --- | --- |
-| X503 PREOP snapshot / CoE policy | `fix/x503-preop-snapshot` | PASS — [PREOP 一次读取与运行期 CoE 限制](docs/areas/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)：Python/launch 88 tests、84% coverage，工作台45 tests，内核策略2个编译测试，容器129 tests；实机24项全部PREOP读取、两侧力值有效，OP观察6000帧零SDO/CoE邮箱流量，最终停止失能 | 内部PDI、精度/TF、长期与运动验证未闭合；验证镜像为固定基线增量构建，工作台位于独立目录。 |
+| X503 PREOP snapshot / CoE policy | `fix/x503-preop-snapshot` | PASS — [PREOP 一次读取与运行期 CoE 限制](docs/areas-archive/ecat-axes/records/2026-09-12-x503-preop-snapshot.md)：Python/launch 88 tests、84% coverage，工作台45 tests，内核策略2个编译测试，容器129 tests；实机24项全部PREOP读取、两侧力值有效，OP观察6000帧零SDO/CoE邮箱流量，最终停止失能 | 内部PDI、精度/TF、长期与运动验证未闭合；验证镜像为固定基线增量构建，工作台位于独立目录。 |
 | ELECTRI-94 Native dependency closure | `a069ab398b1617f2546d32dbce76b70e06ec2f92`, `d9b767d` | PASS — ecat_icube 0001..0007 在全新隔离 workspace 顺序应用；`RT_CONTROL_ETHERLAB_PREFIX` 与 `-DETHERLAB_DIR` 同值的 29 个生产闭包包构建通过，safe `env` 与 readelf/ldd 均确认运行时解析到同一 local `libethercat.so.1`；补充 test-only `hardware_interface_testing` 后 `colcon test-result --verbose` 为 1433 tests、0 failures、18 skipped；五个 `robot_interfaces_qos` profile smoke 与 `tools/quality_gate.sh`（211 tests）通过 | 旧 patched vendor 工作树不支持无条件原地增量 `prepare`，运维/CI 必须从 `deps.repos` 干净重建；本轮未构建 Docker、未启动 Native、未碰实机。 |
 | Joint5 reverse correction | source: this commit | PASS — `left_joint5` and `right_joint5` now use dedicated ZeroErr profiles that negate command/state position in the EtherCAT master coordinate layer; shared `zeroerr_j5.yaml` remains unreversed. `right_joint4` remains reversed via its dedicated profile. | Requires separately authorized, supervised low-speed direction checks. This code change does not authorize enable or motion. |
 | ZeroErr position transform request | `4dfdc03cecd5f93d89e73618acf3b2de457cb135`, `61082c60e280ced4f09aee8e16baef094dd6bd0c`, plus this correction | PASS — `right_joint4`, `right_joint5`, and `left_joint5` use dedicated profiles that negate only position command/state; no `0x607E` is written and shared `zeroerr_j4.yaml`/`zeroerr_j5.yaml` remain unchanged. Profile-isolation and ±90° transform tests, Xacro expansion, `robot_hw_ethercat` build/CTest and repository gate checks pass. | Requires separately authorized, supervised low-speed direction checks. This code change does not authorize enable or motion. |
@@ -98,116 +98,116 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
-| 2026-10-09 | io-power | [ELECTRI-131 auto 字节序歧义修复](docs/areas/io-power/records/2026-10-09-electri-131-bms-byte-order.md) | PARTIAL（3 个 CTest/14 条汇总结果通过；实机字节序待确认） |
-| 2026-10-09 | governance | [ELECTRI-131 从 PR #53 分离 BMS](docs/areas/governance/records/2026-10-09-electri-131-pr53-split.md) | PARTIAL（电池恢复 main 基线；其余模块源码不变；质量门禁通过，拆分后 CI 待验） |
-| 2026-10-09 | lifecycle | [模式切换 CI 源状态刷新修复](docs/areas/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md) | PARTIAL（PR #53；65用例、30次150ms延迟回归和质量门禁通过；全仓CI待验） |
-| 2026-10-09 | governance | [程序优化 PR 提交前门禁与隔离验证](docs/areas/governance/records/2026-10-09-program-optimization-pr-validation.md) | PARTIAL（Issue #52；207 项质量测试、36+2 CTest 目标、头部20次Mock失能及双力状态/停机通过；完整CI/实机待验） |
-| 2026-10-08 | canopen-chassis | [LPMS 姿态与角速度协方差支持 YAML 配置](docs/areas/canopen-chassis/records/2026-10-08-lpms-configurable-covariance.md) | PARTIAL（T1；五个测试目标、20 GTest + 9 pytest、quality gate 通过；协方差标定与现场应用待验） |
-| 2026-10-09 | io-power | [ELECTRI-131 BMS 评审修复](docs/areas/io-power/records/2026-10-09-electri-131-bms-review.md) | PARTIAL（命令前等待误锁存已纠正；5 个 CTest/53 条汇总结果通过；四项策略及后续副电池故障例外待裁决） |
-| 2026-10-03 | contract | [Rolling三代双七轴纠错与扩大复核](docs/areas/contract/records/2026-10-03-rolling-v3-and-interface-audit.md) | PARTIAL（轴合同/未知输出/停稳判定回归通过；软件缺口与CI重跑待关闭） |
-| 2026-10-03 | contract | [ELECTRI-174 依赖接口的 driver Draft 与软件缺口更正](docs/areas/contract/records/2026-10-03-interface-dependent-draft.md) | PARTIAL（候选 pin；禁止合并部署，软件与实物缺口分列） |
-| 2026-10-02 | contract | [V3 公共接口与适配器实现](docs/areas/contract/records/2026-10-02-v3-interface-contract-implementation.md) | PARTIAL（T1；接口发布SHA/全闭包/跨域smoke待完成） |
-| 2026-10-02 | io-power | [双侧真空与结构化传感器接口](docs/areas/io-power/records/2026-10-02-dual-vacuum-and-sensor-interfaces.md) | PARTIAL（T1；实物映射待补） |
-| 2026-10-02 | motion | [PP头部升降位置Action适配](docs/areas/motion/records/2026-10-02-position-action-adapters.md) | PARTIAL（T1；实物参数/全闭包待完成） |
-| 2026-08-13 | governance | [建立功能区开发记录体系](docs/areas/governance/records/2026-08-13-establish-area-record-system.md) | UNVERIFIED |
-| 2026-08-13 | governance | [首版发布前测试用例目录](docs/areas/governance/records/2026-08-13-test-case-catalog-v1.md) | UNVERIFIED |
-| 2026-08-13 | governance | [文档矛盾修正与重复测试清理](docs/areas/governance/records/2026-08-13-doc-contradiction-and-test-dedup.md) | PASS |
-| 2026-08-13 | governance | [ELECTRI-89 中低优先清理](docs/areas/governance/records/2026-08-13-historical-annotations-and-nav-cleanup.md) | PASS |
-| 2026-08-13 | governance | [修复门禁测试收集缺口并修订覆盖率口径](docs/areas/governance/records/2026-08-13-pytest-collection-and-coverage-scope.md) | PASS |
-| 2026-08-13 | governance | [首版测试 runner、JSON 报告与 baseline v0 登记](docs/areas/governance/records/2026-08-13-release-test-runner-v1.md) | PASS |
-| 2026-08-13 | governance | [BQ-134 性能阈值裁决落地](docs/areas/governance/records/2026-08-13-bq134-thresholds.md) | PASS |
-| 2026-08-13 | contract | [/joint_states 频率裁决为实测 125 Hz](docs/areas/contract/records/2026-08-13-joint-states-125hz.md) | PASS |
-| 2026-08-13 | governance | [增量测试 scope resolver](docs/areas/governance/records/2026-08-13-scoped-tests.md) | PASS |
-| 2026-08-14 | governance | [T2 性能采集脚本化](docs/areas/governance/records/2026-08-13-rt-perf-capture.md) | PASS |
-| 2026-08-14 | lifecycle | [/rt/disable 日志取证：症状真实、机制误诊](docs/areas/lifecycle/records/2026-08-14-rt-disable-log-forensics.md) | PASS |
-| 2026-08-14 | lifecycle | [enable_manager 状态机表驱动 gtest](docs/areas/lifecycle/records/2026-08-14-enable-manager-gtest.md) | PASS |
-| 2026-08-14 | contract | [公共接口改为固定 SHA vendoring 并采用命名 QoS](docs/areas/contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md) | PASS（合并受 BQ-137 阻塞） |
-| 2026-08-14 | governance | [清空根 docs 并建立公共接口 vendor 门禁](docs/areas/governance/records/2026-08-14-root-docs-and-vendor-governance.md) | PASS |
-| 2026-08-16 | contract | [BQ-137 跨域错误与 readiness 语义裁决落地](docs/areas/contract/records/2026-08-16-bq137-shared-error-readiness.md) | PASS（发布待 PR #6 最终 SHA 与全域迁移） |
-| 2026-08-17 | contract | [robot_interfaces 回填最终 main SHA](docs/areas/contract/records/2026-08-17-robot-interfaces-final-main-pin.md) | PASS（T0；发布仍待镜像与全域同 SHA smoke） |
-| 2026-08-17 | io-power | [纠正左右电磁阀输出映射](docs/areas/io-power/records/2026-08-17-correct-solenoid-side-mapping.md) | PASS（T4；输入映射与新镜像待验证） |
-| 2026-08-17 | contract | [Native QoS 运行依赖闭包与 fail-closed 启动门禁](docs/areas/contract/records/2026-08-17-native-qos-runtime-closure.md) | PASS（T3；最终 stopped/Idle/PREOP） |
-| 2026-08-19 | governance | [根 README 补齐记录与测试体系导航](docs/areas/governance/records/2026-08-19-root-readme-record-testing-navigation.md) | PASS（T0） |
-| 2026-08-21 | canopen-chassis | [履带主动轮半径与轮距更正](docs/areas/canopen-chassis/records/2026-08-21-track-mechanics-1044mm-19598mm.md) | PASS（T0；自动测试/镜像/Mock；T4 实车比例待验证） |
-| 2026-08-21 | realtime-host | [ZLG PCIe-9140I native CAN 预检迁移](docs/areas/realtime-host/records/2026-08-21-zlg-pcie-can-native-preflight.md) | PARTIAL（ELECTRI-104；native 双总线已观测，Docker/24 h HIL 待完成） |
-| 2026-08-24 | motion | [履带有效轮距调整为 0.95089496 m](docs/areas/motion/records/2026-08-24-track-effective-separation-95089496mm.md) | PASS（T1；自动测试/镜像/Mock；T4 实车转向与里程计待验证） |
-| 2026-08-27 | contract | [robot_interfaces 权威 SHA 同步至 92d6ff2](docs/areas/contract/records/2026-08-27-robot-interfaces-main-pin.md) | PASS（T1；RT schema 不变，Motion/Autonomy 需同 SHA 原子升级） |
-| 2026-08-28 | contract | [ROS Domain 由部署显式配置](docs/areas/contract/records/2026-08-28-configurable-ros-domain.md) | PASS（T1；默认/显式/非法值、镜像与无硬件 Mock） |
-| 2026-09-02 | contract | [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](docs/areas/contract/records/2026-09-02-lidar-main-tf.md) | PARTIAL（T1；工控机源树/独立镜像已验证，生产切换与消费者联合验证待完成） |
-| 2026-09-02 | ecat-axes | [双 X503 接入 18 位运行拓扑](docs/areas/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md) | PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验） |
-| 2026-09-03 | release-deploy | [将 ELECTRI-94 硬件配置分层移植到双 X503 main](docs/areas/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md) | PASS（T1 Docker/Mock；CI 与 18 位实机待验） |
-| 2026-09-04 | realtime-host | [当前工控机真实硬件身份锁迁移](docs/areas/realtime-host/records/2026-09-04-current-ipc-identity.md) | PARTIAL（T2 身份/总线只读；新 main Native doctor/受控使能待验） |
-| 2026-09-04 | ecat-axes | [Hub 0/13 运行态门禁修正](docs/areas/ecat-axes/records/2026-09-04-hub-runtime-state-gate.md) | PARTIAL（T2 现场事实；新 main 复验待维护窗口） |
-| 2026-09-04 | realtime-host | [Native 运行线程门禁修正](docs/areas/realtime-host/records/2026-09-04-native-runtime-thread-gates.md) | PARTIAL（本地门禁；FIFO79 目标机复验待维护窗口） |
-| 2026-09-04 | io-power | [PLC 绑定接口切换为 eno1](docs/areas/io-power/records/2026-09-04-plc-interface-eno1.md) | PARTIAL（配置/测试；当前 PLC 未重启） |
-| 2026-09-04 | realtime-host | [ktimers procfs 身份判定纠错](docs/areas/realtime-host/records/2026-09-04-ktimers-procfs-corrective.md) | PASS（T3 Native；CPU14/FIFO79 与受控使能已验证，PR CI/Docker 待完成） |
-| 2026-09-04 | contract | [CANopen 零值 EMCY 归一化与 readiness 收口](docs/areas/contract/records/2026-09-04-cleared-emcy-readiness.md) | PASS（T3 Native；两轮 readiness HEALTHY/READY，PR CI/Docker 待完成） |
-| 2026-09-06 | ecat-axes | [ELECTRI-116 X503B raw shadow采集与只读单位元数据桥](docs/areas/ecat-axes/records/2026-09-06-electri-116-x503b-shadow-bridge.md) | PARTIAL（T1；目标 SDO/单位语义/validity/TF 与 main CI 待完成） |
-| 2026-09-08 | realtime-host | [ELECTRI-97 启动实时配置前置与 hrtimer 构建前提](docs/areas/realtime-host/records/2026-09-08-electri-97-startup-realtime-order.md) | PARTIAL（T3；三轮不使能启动通过，最终 stopped/全 PREOP/14轴使能位0；DC 启动等待及 Ti5 故障未解决） |
-| 2026-09-08 | ecat-axes | [ELECTRI-97 应用时间统一与单变量复测](docs/areas/ecat-axes/records/2026-09-08-electri-97-monotonic-application-time.md) | PARTIAL（T3；四项回归及五项 PDO 测试通过；首次 OP 56.284/30.524/36.004秒，X503 瞬态仍存在） |
-| 2026-09-08 | realtime-host | [ELECTRI-97 DC 配对与初始化线程实时作用域](docs/areas/realtime-host/records/2026-09-08-electri-97-dc-offset-and-startup-scope.md) | PARTIAL（T3；233项本地门禁及目标驱动21项测试通过；两组各三轮无使能启动，最新57.284/16.644/14.164秒；仍有X503瞬态与约68.5ms循环交接空档） |
-| 2026-09-09 | ecat-axes | [ELECTRI-97 初始化至正常循环连续收发](docs/areas/ecat-axes/records/2026-09-09-electri-97-continuous-handoff.md) | PARTIAL（交接T3三轮通过：最大发送间隔由69.906ms降至4.005/4.018/4.019ms，双X503无失步；237项本地门禁及目标相关C++测试通过。最终stopped/全PREOP/14轴失能；初始DC等待与Ti5锁存故障仍存在） |
-| 2026-09-09 | ecat-axes | [ELECTRI-97 启动阶段计时](docs/areas/ecat-axes/records/2026-09-09-electri-97-startup-stage-timing.md) | PASS（T3测量；263项门禁、工具覆盖91%。三轮非DC约11.5秒，DC为5.83/21.25/16.74秒；双X503无0x001A、交接保持连续，最终stopped/全PREOP/14轴失能。参数及二进制未改变，耗时问题仍未关闭） |
-| 2026-09-09 | realtime-host | [ELECTRI-97 初始offset 100us候选](docs/areas/realtime-host/records/2026-09-09-electri-97-offset-trigger-100us-candidate.md) | PASS（离线构建/回归及3轮失能启动）；候选全OP 17.684/15.084/16.244秒，前后1 ms基线22.644/25.524秒。WKC48/48、X503无错误，B2/B3各1条UNMATCHED；比较条件不同，性能因果/长期/使能工况UNVERIFIED。已恢复基线模块及元数据，最终14轴失能且无故障位、18从站PREOP。 |
-| 2026-09-09 | ecat-axes | [ELECTRI-97 Ti5保留PDO及失败传播](docs/areas/ecat-axes/records/2026-09-09-electri-97-ti5-preserved-pdo.md) | PASS（T3失能启动）；修正PreservePdoConfig失败仍继续配置，四份Ti5 profile启用校验保留。三轮PDO 3.456/3.453/3.455秒，比基线4.224秒减少约0.77秒，映射abort 8→0；全OP 13.724/16.084/25.484秒，DC仍波动且首轮OP后读到16.931 us。新模块/配置保留，最终stopped/18 PREOP/14轴失能无故障位。构建、配置包51项汇总及质量门禁通过；持续DC、1 kHz、使能/运动/Docker未验。 |
-| 2026-09-10 | ecat-axes | [ELECTRI-97 默认启动周期纠错](docs/areas/ecat-axes/records/2026-09-10-electri-97-startup-rate-correction.md) | PARTIAL（T3）；补齐 Xacro control_frequency 250→1000，修复回退后的源码/库不一致，首轮 OP 6.821秒，无5秒DC超时，16节点1ms同相，控制WKC不完整0；最终18 PREOP/14轴失能无故障。未验冷启动、长期、运动及Docker。 |
-| 2026-09-10 | ecat-axes | [ELECTRI-97 main容器封装](docs/areas/ecat-axes/records/2026-09-10-electri-97-main-packaging.md) | PASS（T1）；Docker补齐0001..0011/1kHz/显式核参数，JSB保持契约125Hz。完整镜像、隔离Mock安装入口/14关节/有序退出0通过，279项含ShellCheck门禁及925语义迁移比较通过；未验实机Docker、冷启动、长期和运动。 |
-| 2026-09-11 | ecat-axes | [Ti5启动分配与安装配置恢复](docs/areas/ecat-axes/records/2026-09-11-ti5-assignment-recovery.md) | PARTIAL（T3）；修复Native启动前分配/缓存/安装profile检查与进程误识别，288项门禁通过。标准oneclick恢复使能交付，14轴使能/WKC48；本轮OP19.121s且仍有DC告警/UNMATCHED，未验掉电重复性。 |
-| 2026-09-12 | ecat-axes | [X503 PREOP 参数快照与主站 CoE 限制](docs/areas/ecat-axes/records/2026-09-12-x503-preop-snapshot.md) | PASS（T3不使能）；两侧24项各读一次、WKC48/48，OP6000帧零SDO/CoE邮箱流量，最终停止失能。容器129项测试通过，PDI根因与长期/运动验证未闭合。 |
-| 2026-09-07 | release-deploy | [ELECTRI-118 三代机模块化物理 Profile 与控制范围校验骨架](docs/areas/release-deploy/records/2026-09-07-electri-118-machine-profiles.md) | UNVERIFIED（T0 静态配置；真实硬件接入待后续） |
-| 2026-09-08 | ecat-axes | [ELECTRI-118 零差 PP 夹爪适配与限力](docs/areas/ecat-axes/records/2026-09-08-zeroerr-pp-gripper.md) | PARTIAL（T1 离线/增量容器；标定与实机待验） |
-| 2026-09-08 | motion | [ELECTRI-118 官方夹爪 PP Action 扩展](docs/areas/motion/records/2026-09-08-pp-gripper-action.md) | PARTIAL（T1 Action/PDO 闭环；全量交付镜像与实机待验） |
-| 2026-09-08 | motion | [舵轮保留转向 CSP 与外置舵角观测](docs/areas/motion/records/2026-09-08-swerve-csp-feedback-decision.md) | UNVERIFIED（设计已裁决；运行实现/实机待验） |
-| 2026-09-08 | release-deploy | [舵轮更名设计的头部协议关联修复](docs/areas/release-deploy/records/2026-09-08-swerve-owner-reference-corrective.md) | UNVERIFIED（44 项配置测试通过；底盘运行实现待迁移） |
-| 2026-09-09 | motion | [swerve_driver 算法与 CSP/CSV 控制器源码迁移](docs/areas/motion/records/2026-09-09-swerve-controller-migration.md) | PARTIAL（T1 Native/容器；真实后端、启动组合与实机待完成） |
-| 2026-09-09 | release-deploy | [swerve_driver 构建闭包与增量容器验证](docs/areas/release-deploy/records/2026-09-09-swerve-package-integration.md) | PARTIAL（T1；未替换生产服务） |
-| 2026-09-12 | release-deploy | [三代机开发快照部署至测试主机](docs/areas/release-deploy/records/2026-09-12-gen3-test-host-deployment.md) | PARTIAL（30 包构建，282 条测试记录通过；未启动真实总线） |
-| 2026-09-12 | ecat-axes | [汇川 GR10-EC-6SW 双设备 ESI 归档](docs/areas/ecat-axes/records/2026-09-12-inovance-gr10-esi.md) | UNVERIFIED（文件/安装校验通过；实物与拓扑待验） |
-| 2026-09-12 | ecat-axes | [三代机双臂 X2/X3 接线与十八从站扫描](docs/areas/ecat-axes/records/2026-09-12-gen3-arm-branch-scan.md) | PARTIAL（T2 只读；左 1..8、右 9..16、分支器 0/17；链内关节绑定待确认） |
-| 2026-09-12 | ecat-axes | [双臂 J1..J7 与夹爪物理轴序确认](docs/areas/ecat-axes/records/2026-09-12-gen3-arm-axis-order.md) | UNVERIFIED（T0 配置；左 CSP 1..7/PP 8，右 CSP 9..15/PP 16；正式运行绑定待完成） |
-| 2026-09-12 | ecat-axes | [零差 CSP/PP 协议核验与类型/对齐修正](docs/areas/ecat-axes/records/2026-09-12-gen3-zeroerr-protocol.md) | PARTIAL（656 次只读；signed 6072/14-byte PP TxPDO 修正；605D/电池问题待核实） |
-| 2026-09-12 | ecat-axes | [J3/J4 单圈策略与夹爪补电池后复查](docs/areas/ecat-axes/records/2026-09-12-gen3-encoder-usage-policy.md) | PARTIAL（32 次只读；夹爪 7314，负载编码器复位未执行） |
-| 2026-09-12 | ecat-axes | [左夹爪单次编码器复位后 Fault 持续](docs/areas/ecat-axes/records/2026-09-12-left-gripper-encoder-reset.md) | PARTIAL（左 2242 写入一次，7314 清除；Fault 持续，右侧暂停） |
-| 2026-09-12 | ecat-axes | [左夹爪一次普通清错未退出 Fault](docs/areas/ecat-axes/records/2026-09-12-left-gripper-fault-reset.md) | PARTIAL（6040 三次写入成功，但仍 Fault；右侧条件未满足） |
-| 2026-09-12 | ecat-axes | [上位机重置编码器后双夹爪普通清错](docs/areas/ecat-axes/records/2026-09-12-grippers-post-vendor-fault-reset.md) | PARTIAL（两侧各一次，置位回读 80，但均未退出 Fault） |
-| 2026-09-12 | ecat-axes | [用户重新上电后双夹爪故障解除](docs/areas/ecat-axes/records/2026-09-12-grippers-power-cycle-recovery.md) | PARTIAL（只读确认全部 Fault 位为 0；夹爪错误寄存器清除，未再次清错） |
-| 2026-09-12 | ecat-axes | [三代机机械零位与14 CSP+2 PP原位使能](docs/areas/ecat-axes/records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3，全16轴使能/保持/失能通过；WC48/48，最终Idle/PREOP） |
-| 2026-09-12 | lifecycle | [原位使能入口和显式终态策略](docs/areas/lifecycle/records/2026-09-12-stationary-enable-entry.md) | PARTIAL（62条状态机测试；Mock和实际有序退出通过，运动栈不变） |
-| 2026-09-12 | release-deploy | [ELECTRI-118同步最新main并解决冲突](docs/areas/release-deploy/records/2026-09-12-electri-118-main-sync.md) | UNVERIFIED（五个冲突文件已解决；124项配置回归通过，新基线全量构建/实机待验） |
-| 2026-09-13 | release-deploy | [ELECTRI-118对齐PR25后的main并准备新PR](docs/areas/release-deploy/records/2026-09-13-electri-118-pr-integration.md) | PARTIAL（T1；三处文本冲突与记录重号已处理，32包完整镜像、旧机/三代机Mock有序退出、166项配置回归及215条功能包测试记录通过；新基线实机待验） |
-| 2026-09-14 | io-power | [分立 IO 模块真空桥接](docs/areas/io-power/records/2026-09-14-discrete-analog-vacuum-bridge.md) | PARTIAL（T1 离线构建/测试；实机吸附、释放与 Docker 待验） |
-| 2026-09-13 | release-deploy | [ELECTRI-117 四舵轮控制器接入三代机模块选择](docs/areas/release-deploy/records/2026-09-13-swerve-controller-module-binding.md) | UNVERIFIED（T0；58项配置测试、静态安装校验与质量门禁通过；运行/容器/实机待验） |
-| 2026-09-15 | motion | [HT-WS-HH270 舵轮厂家机械图纸参数提取](docs/areas/motion/records/2026-09-15-swerve-module-mechanical-drawing.md) | UNVERIFIED（T0；图纸参数和歧义已登记，厂家确认与整车标定待完成） |
-| 2026-09-15 | governance | [main 稳定源码与 Docker 人工封装解耦](docs/areas/governance/records/2026-09-15-main-manual-docker-packaging.md) | PASS（T0；普通源码 PR 不强制镜像，人工封装/发布门禁保留） |
-| 2026-09-16 | canopen-chassis | [三代机四路 CANopen 舵角 state-only provider](docs/areas/canopen-chassis/records/2026-09-16-swerve-encoder-state-provider.md) | PARTIAL（T1；核心/provider/补丁闭包与 draft 接入通过，真实 EDS/总线/标定待验） |
-| 2026-09-16 | ecat-axes | [Kinco 四舵轮 CSP/CSV 接口合同与八轴 draft](docs/areas/ecat-axes/records/2026-09-16-kinco-swerve-contract-draft.md) | UNVERIFIED（T0；配置回归通过，identity/profile/环位/实机待验） |
-| 2026-09-16 | motion | [四舵轮最小二乘残差剔除与里程计隔离](docs/areas/motion/records/2026-09-16-swerve-slip-residual-rejection.md) | PARTIAL（T1；70条 Native/Mock 测试通过，实机阈值与打滑待验） |
-| 2026-09-16 | motion | [四舵轮机械限位内转向规划与输出门禁](docs/areas/motion/records/2026-09-16-swerve-bounded-steering-planner.md) | PARTIAL（T1；77条 Native/Mock 测试通过，逐轮限位与实机跟踪待验） |
-| 2026-09-16 | canopen-chassis | [四舵轮外置编码器 108/27 齿传动确认](docs/areas/canopen-chassis/records/2026-09-16-swerve-encoder-gearing-confirmation.md) | PARTIAL（T1；公式/配置回归通过，EDS、方向、零偏与实机待验） |
-| 2026-09-16 | io-power | [四路 Modbus LED 驱动与离线验证](docs/areas/io-power/records/2026-09-16-modbus-led-driver.md) | PARTIAL（Issue #31；T1 两包构建、通信测试及140项bringup回归；实机/整机Mock待验） |
-| 2026-09-17 | ecat-axes | [六维力统一 C++ broadcaster 与三代机蓝点可选配置](docs/areas/ecat-axes/records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md) | PARTIAL（T1 Mock；X503/蓝点实机待验） |
-| 2026-09-17 | canopen-chassis | [LPMS-NAV3 CAN 外置 IMU 重新迁入 main 源码基线](docs/areas/canopen-chassis/records/2026-09-17-lpms-nav3-main-source-integration.md) | PARTIAL（ELECTRI-105；30条 Native 测试记录、13条 sanitizer；CAN 连接路径/跨进程 DDS/共线/实机待验） |
-| 2026-09-17 | governance | [PR CI 触发去重与描述编辑隔离](docs/areas/governance/records/2026-09-17-pr-ci-trigger-deduplication.md) | PARTIAL（T0；本地门禁通过；远端事件行为及 main 分支保护待完成） |
-| 2026-09-17 | io-power | [通用 Modbus RTU485 包与四路超声波驱动](docs/areas/io-power/records/2026-09-17-modbus-ultrasonic-driver.md) | PARTIAL（T2 只读通信与 ROS 发布通过；TF、长期运行及完整发布闭包待验） |
-| 2026-09-18 | release-deploy | [V3 专用分支、模型与 fail-closed 运行边界](docs/areas/release-deploy/records/2026-09-18-v3-branch-baseline.md) | PARTIAL（T1 validation；V3 模型/配置/诊断通过，整机 runtime 与实机待验） |
-| 2026-09-18 | release-deploy | [V3 分支旁路部署到旧工控机](docs/areas/release-deploy/records/2026-09-18-v3-old-ipc-sidecar-deployment.md) | PARTIAL（T1；34 包/1697 测试，未切换/未启动硬件） |
-| 2026-09-18 | contract | [V3 机械臂 RT-Control 与 Motion 对接方案](docs/areas/contract/records/2026-09-18-v3-arm-motion-integration-guide.md) | UNVERIFIED（T0；公共契约/runtime/HIL 待完成） |
-| 2026-09-19 | motion | [V3 双七轴 FJT 与 rolling 实时控制](docs/areas/motion/records/2026-09-19-v3-arm-fjt-rolling-runtime.md) | PARTIAL（T1 Mock；实机待验） |
-| 2026-09-19 | lifecycle | [V3 十六轴使能与运动控制器严格切换](docs/areas/lifecycle/records/2026-09-19-v3-motion-controller-switching.md) | PARTIAL（T1 Mock；真实故障/停机待验） |
-| 2026-09-19 | lifecycle | [V3 rolling 激活握手与 provisional epoch 纠错](docs/areas/lifecycle/records/2026-09-19-v3-rolling-activation-handoff.md) | PARTIAL（T1 Native；两包 192 测试通过；二代实机验证仅作移植依据，V3 实机待验） |
-| 2026-09-19 | contract | [V3 rolling 接口 pin 与轴集合身份](docs/areas/contract/records/2026-09-19-v3-rolling-axis-contract.md) | PARTIAL（T1；上游语义待发布） |
-| 2026-09-19 | release-deploy | [V3 机械臂运动 runtime 显式入口](docs/areas/release-deploy/records/2026-09-19-v3-arm-runtime-entry.md) | PARTIAL（T1 Mock；未部署） |
-| 2026-09-19 | governance | [V3 Robot Model CI 使用构建 overlay](docs/areas/governance/records/2026-09-19-v3-description-overlay-ci.md) | PASS（T0；完整 PR CI 重跑） |
-| 2026-09-19 | io-power | [四路超声波切换为标准 Range 接口](docs/areas/io-power/records/2026-09-19-ultrasonic-standard-range.md) | PARTIAL（T1；标准消息与固定参数离线通过，实机与 TF 待验） |
-| 2026-09-19 | motion | [V3 JTC-only 旧工控机旁路与原位使能验证](docs/areas/motion/records/2026-09-19-v3-jtc-old-ipc-readonly.md) | PARTIAL（T3；16 轴原位使能/保持/失能通过；0x730F 厂商说明已记录，十四轴 +1 仅为未验证方向试验值） |
-| 2026-09-20 | governance | [V3 完整门禁保留下的分层 CI 与依赖缓存](docs/areas/governance/records/2026-09-20-layered-ci-cache.md) | PARTIAL（T0；回退镜像完整闭包已通过，缓存拆分热路径、基础镜像发布与变量启用待完成） |
-| 2026-09-20 | canopen-chassis | [LPMS 启动窗口 SIGINT 正常退出纠错](docs/areas/canopen-chassis/records/2026-09-20-lpms-startup-sigint-exit.md) | PARTIAL（T1；本地无 CAN 进程测试与 50 次重复通过，远端完整闭包待确认） |
-| 2026-09-20 | io-power | [Modbus LED 控制器由四路扩展为六路](docs/areas/io-power/records/2026-09-20-six-led-controllers.md) | PARTIAL（T1 离线；构建、六路参数和传输测试通过，实机未验证） |
-| 2026-09-21 | io-power | [双 E08 接入八路 A22 超声波](docs/areas/io-power/records/2026-09-21-dual-e08-eight-ultrasonic.md) | PARTIAL（T1 离线；双站号请求与八路发布测试通过，实机与声学串扰待验） |
-| 2026-09-25 | motion | [ELECTRI-133 Tier A 相对运动、无设备 Mock 与 cyclic adapter 集成](docs/areas/motion/records/2026-09-25-tier-a-relative-move-mock.md) | PARTIAL（T1；271 项双包测试及 connected synthetic PDO handoff 通过；新交接路径为主会话自审，独立审查/真实 PDO/标定/IMU 仍待完成） |
-| 2026-09-25 | contract | [ELECTRI-133 Tier A RT 私有底盘协议](docs/areas/contract/records/2026-09-25-tier-a-private-chassis-protocol.md) | PARTIAL（T1；新增六个类型及域内消费者构建通过，无跨域或硬件准入） |
-| 2026-09-30 | io-power | [金凤凰 BMS V1.1 C++ 驱动迁移](docs/areas/io-power/records/2026-09-30-golden-phoenix-bms-cpp.md) | UNVERIFIED（T0；15 项 C++/26 项聚焦/207 项质量门禁通过；can1 实机查询、字节序和 HMI 对照待验） |
-| 2026-10-05 | io-power | [LED 正常与异常退出颜色策略](docs/areas/io-power/records/2026-10-05-led-exit-colors.md) | PARTIAL（T1；离线构建/测试通过，六路实机退出写与不可捕获故障外部监控待验） |
+| 2026-10-09 | io-power | [ELECTRI-131 auto 字节序歧义修复](docs/areas-archive/io-power/records/2026-10-09-electri-131-bms-byte-order.md) | PARTIAL（3 个 CTest/14 条汇总结果通过；实机字节序待确认） |
+| 2026-10-09 | governance | [ELECTRI-131 从 PR #53 分离 BMS](docs/areas-archive/governance/records/2026-10-09-electri-131-pr53-split.md) | PARTIAL（电池恢复 main 基线；其余模块源码不变；质量门禁通过，拆分后 CI 待验） |
+| 2026-10-09 | lifecycle | [模式切换 CI 源状态刷新修复](docs/areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md) | PARTIAL（PR #53；65用例、30次150ms延迟回归和质量门禁通过；全仓CI待验） |
+| 2026-10-09 | governance | [程序优化 PR 提交前门禁与隔离验证](docs/areas-archive/governance/records/2026-10-09-program-optimization-pr-validation.md) | PARTIAL（Issue #52；207 项质量测试、36+2 CTest 目标、头部20次Mock失能及双力状态/停机通过；完整CI/实机待验） |
+| 2026-10-08 | canopen-chassis | [LPMS 姿态与角速度协方差支持 YAML 配置](docs/areas-archive/canopen-chassis/records/2026-10-08-lpms-configurable-covariance.md) | PARTIAL（T1；五个测试目标、20 GTest + 9 pytest、quality gate 通过；协方差标定与现场应用待验） |
+| 2026-10-09 | io-power | [ELECTRI-131 BMS 评审修复](docs/areas-archive/io-power/records/2026-10-09-electri-131-bms-review.md) | PARTIAL（命令前等待误锁存已纠正；5 个 CTest/53 条汇总结果通过；四项策略及后续副电池故障例外待裁决） |
+| 2026-10-03 | contract | [Rolling三代双七轴纠错与扩大复核](docs/areas-archive/contract/records/2026-10-03-rolling-v3-and-interface-audit.md) | PARTIAL（轴合同/未知输出/停稳判定回归通过；软件缺口与CI重跑待关闭） |
+| 2026-10-03 | contract | [ELECTRI-174 依赖接口的 driver Draft 与软件缺口更正](docs/areas-archive/contract/records/2026-10-03-interface-dependent-draft.md) | PARTIAL（候选 pin；禁止合并部署，软件与实物缺口分列） |
+| 2026-10-02 | contract | [V3 公共接口与适配器实现](docs/areas-archive/contract/records/2026-10-02-v3-interface-contract-implementation.md) | PARTIAL（T1；接口发布SHA/全闭包/跨域smoke待完成） |
+| 2026-10-02 | io-power | [双侧真空与结构化传感器接口](docs/areas-archive/io-power/records/2026-10-02-dual-vacuum-and-sensor-interfaces.md) | PARTIAL（T1；实物映射待补） |
+| 2026-10-02 | motion | [PP头部升降位置Action适配](docs/areas-archive/motion/records/2026-10-02-position-action-adapters.md) | PARTIAL（T1；实物参数/全闭包待完成） |
+| 2026-08-13 | governance | [建立功能区开发记录体系](docs/areas-archive/governance/records/2026-08-13-establish-area-record-system.md) | UNVERIFIED |
+| 2026-08-13 | governance | [首版发布前测试用例目录](docs/areas-archive/governance/records/2026-08-13-test-case-catalog-v1.md) | UNVERIFIED |
+| 2026-08-13 | governance | [文档矛盾修正与重复测试清理](docs/areas-archive/governance/records/2026-08-13-doc-contradiction-and-test-dedup.md) | PASS |
+| 2026-08-13 | governance | [ELECTRI-89 中低优先清理](docs/areas-archive/governance/records/2026-08-13-historical-annotations-and-nav-cleanup.md) | PASS |
+| 2026-08-13 | governance | [修复门禁测试收集缺口并修订覆盖率口径](docs/areas-archive/governance/records/2026-08-13-pytest-collection-and-coverage-scope.md) | PASS |
+| 2026-08-13 | governance | [首版测试 runner、JSON 报告与 baseline v0 登记](docs/areas-archive/governance/records/2026-08-13-release-test-runner-v1.md) | PASS |
+| 2026-08-13 | governance | [BQ-134 性能阈值裁决落地](docs/areas-archive/governance/records/2026-08-13-bq134-thresholds.md) | PASS |
+| 2026-08-13 | contract | [/joint_states 频率裁决为实测 125 Hz](docs/areas-archive/contract/records/2026-08-13-joint-states-125hz.md) | PASS |
+| 2026-08-13 | governance | [增量测试 scope resolver](docs/areas-archive/governance/records/2026-08-13-scoped-tests.md) | PASS |
+| 2026-08-14 | governance | [T2 性能采集脚本化](docs/areas-archive/governance/records/2026-08-13-rt-perf-capture.md) | PASS |
+| 2026-08-14 | lifecycle | [/rt/disable 日志取证：症状真实、机制误诊](docs/areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md) | PASS |
+| 2026-08-14 | lifecycle | [enable_manager 状态机表驱动 gtest](docs/areas-archive/lifecycle/records/2026-08-14-enable-manager-gtest.md) | PASS |
+| 2026-08-14 | contract | [公共接口改为固定 SHA vendoring 并采用命名 QoS](docs/areas-archive/contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md) | PASS（合并受 BQ-137 阻塞） |
+| 2026-08-14 | governance | [清空根 docs 并建立公共接口 vendor 门禁](docs/areas-archive/governance/records/2026-08-14-root-docs-and-vendor-governance.md) | PASS |
+| 2026-08-16 | contract | [BQ-137 跨域错误与 readiness 语义裁决落地](docs/areas-archive/contract/records/2026-08-16-bq137-shared-error-readiness.md) | PASS（发布待 PR #6 最终 SHA 与全域迁移） |
+| 2026-08-17 | contract | [robot_interfaces 回填最终 main SHA](docs/areas-archive/contract/records/2026-08-17-robot-interfaces-final-main-pin.md) | PASS（T0；发布仍待镜像与全域同 SHA smoke） |
+| 2026-08-17 | io-power | [纠正左右电磁阀输出映射](docs/areas-archive/io-power/records/2026-08-17-correct-solenoid-side-mapping.md) | PASS（T4；输入映射与新镜像待验证） |
+| 2026-08-17 | contract | [Native QoS 运行依赖闭包与 fail-closed 启动门禁](docs/areas-archive/contract/records/2026-08-17-native-qos-runtime-closure.md) | PASS（T3；最终 stopped/Idle/PREOP） |
+| 2026-08-19 | governance | [根 README 补齐记录与测试体系导航](docs/areas-archive/governance/records/2026-08-19-root-readme-record-testing-navigation.md) | PASS（T0） |
+| 2026-08-21 | canopen-chassis | [履带主动轮半径与轮距更正](docs/areas-archive/canopen-chassis/records/2026-08-21-track-mechanics-1044mm-19598mm.md) | PASS（T0；自动测试/镜像/Mock；T4 实车比例待验证） |
+| 2026-08-21 | realtime-host | [ZLG PCIe-9140I native CAN 预检迁移](docs/areas-archive/realtime-host/records/2026-08-21-zlg-pcie-can-native-preflight.md) | PARTIAL（ELECTRI-104；native 双总线已观测，Docker/24 h HIL 待完成） |
+| 2026-08-24 | motion | [履带有效轮距调整为 0.95089496 m](docs/areas-archive/motion/records/2026-08-24-track-effective-separation-95089496mm.md) | PASS（T1；自动测试/镜像/Mock；T4 实车转向与里程计待验证） |
+| 2026-08-27 | contract | [robot_interfaces 权威 SHA 同步至 92d6ff2](docs/areas-archive/contract/records/2026-08-27-robot-interfaces-main-pin.md) | PASS（T1；RT schema 不变，Motion/Autonomy 需同 SHA 原子升级） |
+| 2026-08-28 | contract | [ROS Domain 由部署显式配置](docs/areas-archive/contract/records/2026-08-28-configurable-ros-domain.md) | PASS（T1；默认/显式/非法值、镜像与无硬件 Mock） |
+| 2026-09-02 | contract | [新增 base_link 下 lidar_main 固定 TF 与毫米制 STL](docs/areas-archive/contract/records/2026-09-02-lidar-main-tf.md) | PARTIAL（T1；工控机源树/独立镜像已验证，生产切换与消费者联合验证待完成） |
+| 2026-09-02 | ecat-axes | [双 X503 接入 18 位运行拓扑](docs/areas-archive/ecat-axes/records/2026-09-02-add-dual-x503-profile-files.md) | PARTIAL（离线构建/测试通过；实机 OP/WC/raw 待验） |
+| 2026-09-03 | release-deploy | [将 ELECTRI-94 硬件配置分层移植到双 X503 main](docs/areas-archive/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md) | PASS（T1 Docker/Mock；CI 与 18 位实机待验） |
+| 2026-09-04 | realtime-host | [当前工控机真实硬件身份锁迁移](docs/areas-archive/realtime-host/records/2026-09-04-current-ipc-identity.md) | PARTIAL（T2 身份/总线只读；新 main Native doctor/受控使能待验） |
+| 2026-09-04 | ecat-axes | [Hub 0/13 运行态门禁修正](docs/areas-archive/ecat-axes/records/2026-09-04-hub-runtime-state-gate.md) | PARTIAL（T2 现场事实；新 main 复验待维护窗口） |
+| 2026-09-04 | realtime-host | [Native 运行线程门禁修正](docs/areas-archive/realtime-host/records/2026-09-04-native-runtime-thread-gates.md) | PARTIAL（本地门禁；FIFO79 目标机复验待维护窗口） |
+| 2026-09-04 | io-power | [PLC 绑定接口切换为 eno1](docs/areas-archive/io-power/records/2026-09-04-plc-interface-eno1.md) | PARTIAL（配置/测试；当前 PLC 未重启） |
+| 2026-09-04 | realtime-host | [ktimers procfs 身份判定纠错](docs/areas-archive/realtime-host/records/2026-09-04-ktimers-procfs-corrective.md) | PASS（T3 Native；CPU14/FIFO79 与受控使能已验证，PR CI/Docker 待完成） |
+| 2026-09-04 | contract | [CANopen 零值 EMCY 归一化与 readiness 收口](docs/areas-archive/contract/records/2026-09-04-cleared-emcy-readiness.md) | PASS（T3 Native；两轮 readiness HEALTHY/READY，PR CI/Docker 待完成） |
+| 2026-09-06 | ecat-axes | [ELECTRI-116 X503B raw shadow采集与只读单位元数据桥](docs/areas-archive/ecat-axes/records/2026-09-06-electri-116-x503b-shadow-bridge.md) | PARTIAL（T1；目标 SDO/单位语义/validity/TF 与 main CI 待完成） |
+| 2026-09-08 | realtime-host | [ELECTRI-97 启动实时配置前置与 hrtimer 构建前提](docs/areas-archive/realtime-host/records/2026-09-08-electri-97-startup-realtime-order.md) | PARTIAL（T3；三轮不使能启动通过，最终 stopped/全 PREOP/14轴使能位0；DC 启动等待及 Ti5 故障未解决） |
+| 2026-09-08 | ecat-axes | [ELECTRI-97 应用时间统一与单变量复测](docs/areas-archive/ecat-axes/records/2026-09-08-electri-97-monotonic-application-time.md) | PARTIAL（T3；四项回归及五项 PDO 测试通过；首次 OP 56.284/30.524/36.004秒，X503 瞬态仍存在） |
+| 2026-09-08 | realtime-host | [ELECTRI-97 DC 配对与初始化线程实时作用域](docs/areas-archive/realtime-host/records/2026-09-08-electri-97-dc-offset-and-startup-scope.md) | PARTIAL（T3；233项本地门禁及目标驱动21项测试通过；两组各三轮无使能启动，最新57.284/16.644/14.164秒；仍有X503瞬态与约68.5ms循环交接空档） |
+| 2026-09-09 | ecat-axes | [ELECTRI-97 初始化至正常循环连续收发](docs/areas-archive/ecat-axes/records/2026-09-09-electri-97-continuous-handoff.md) | PARTIAL（交接T3三轮通过：最大发送间隔由69.906ms降至4.005/4.018/4.019ms，双X503无失步；237项本地门禁及目标相关C++测试通过。最终stopped/全PREOP/14轴失能；初始DC等待与Ti5锁存故障仍存在） |
+| 2026-09-09 | ecat-axes | [ELECTRI-97 启动阶段计时](docs/areas-archive/ecat-axes/records/2026-09-09-electri-97-startup-stage-timing.md) | PASS（T3测量；263项门禁、工具覆盖91%。三轮非DC约11.5秒，DC为5.83/21.25/16.74秒；双X503无0x001A、交接保持连续，最终stopped/全PREOP/14轴失能。参数及二进制未改变，耗时问题仍未关闭） |
+| 2026-09-09 | realtime-host | [ELECTRI-97 初始offset 100us候选](docs/areas-archive/realtime-host/records/2026-09-09-electri-97-offset-trigger-100us-candidate.md) | PASS（离线构建/回归及3轮失能启动）；候选全OP 17.684/15.084/16.244秒，前后1 ms基线22.644/25.524秒。WKC48/48、X503无错误，B2/B3各1条UNMATCHED；比较条件不同，性能因果/长期/使能工况UNVERIFIED。已恢复基线模块及元数据，最终14轴失能且无故障位、18从站PREOP。 |
+| 2026-09-09 | ecat-axes | [ELECTRI-97 Ti5保留PDO及失败传播](docs/areas-archive/ecat-axes/records/2026-09-09-electri-97-ti5-preserved-pdo.md) | PASS（T3失能启动）；修正PreservePdoConfig失败仍继续配置，四份Ti5 profile启用校验保留。三轮PDO 3.456/3.453/3.455秒，比基线4.224秒减少约0.77秒，映射abort 8→0；全OP 13.724/16.084/25.484秒，DC仍波动且首轮OP后读到16.931 us。新模块/配置保留，最终stopped/18 PREOP/14轴失能无故障位。构建、配置包51项汇总及质量门禁通过；持续DC、1 kHz、使能/运动/Docker未验。 |
+| 2026-09-10 | ecat-axes | [ELECTRI-97 默认启动周期纠错](docs/areas-archive/ecat-axes/records/2026-09-10-electri-97-startup-rate-correction.md) | PARTIAL（T3）；补齐 Xacro control_frequency 250→1000，修复回退后的源码/库不一致，首轮 OP 6.821秒，无5秒DC超时，16节点1ms同相，控制WKC不完整0；最终18 PREOP/14轴失能无故障。未验冷启动、长期、运动及Docker。 |
+| 2026-09-10 | ecat-axes | [ELECTRI-97 main容器封装](docs/areas-archive/ecat-axes/records/2026-09-10-electri-97-main-packaging.md) | PASS（T1）；Docker补齐0001..0011/1kHz/显式核参数，JSB保持契约125Hz。完整镜像、隔离Mock安装入口/14关节/有序退出0通过，279项含ShellCheck门禁及925语义迁移比较通过；未验实机Docker、冷启动、长期和运动。 |
+| 2026-09-11 | ecat-axes | [Ti5启动分配与安装配置恢复](docs/areas-archive/ecat-axes/records/2026-09-11-ti5-assignment-recovery.md) | PARTIAL（T3）；修复Native启动前分配/缓存/安装profile检查与进程误识别，288项门禁通过。标准oneclick恢复使能交付，14轴使能/WKC48；本轮OP19.121s且仍有DC告警/UNMATCHED，未验掉电重复性。 |
+| 2026-09-12 | ecat-axes | [X503 PREOP 参数快照与主站 CoE 限制](docs/areas-archive/ecat-axes/records/2026-09-12-x503-preop-snapshot.md) | PASS（T3不使能）；两侧24项各读一次、WKC48/48，OP6000帧零SDO/CoE邮箱流量，最终停止失能。容器129项测试通过，PDI根因与长期/运动验证未闭合。 |
+| 2026-09-07 | release-deploy | [ELECTRI-118 三代机模块化物理 Profile 与控制范围校验骨架](docs/areas-archive/release-deploy/records/2026-09-07-electri-118-machine-profiles.md) | UNVERIFIED（T0 静态配置；真实硬件接入待后续） |
+| 2026-09-08 | ecat-axes | [ELECTRI-118 零差 PP 夹爪适配与限力](docs/areas-archive/ecat-axes/records/2026-09-08-zeroerr-pp-gripper.md) | PARTIAL（T1 离线/增量容器；标定与实机待验） |
+| 2026-09-08 | motion | [ELECTRI-118 官方夹爪 PP Action 扩展](docs/areas-archive/motion/records/2026-09-08-pp-gripper-action.md) | PARTIAL（T1 Action/PDO 闭环；全量交付镜像与实机待验） |
+| 2026-09-08 | motion | [舵轮保留转向 CSP 与外置舵角观测](docs/areas-archive/motion/records/2026-09-08-swerve-csp-feedback-decision.md) | UNVERIFIED（设计已裁决；运行实现/实机待验） |
+| 2026-09-08 | release-deploy | [舵轮更名设计的头部协议关联修复](docs/areas-archive/release-deploy/records/2026-09-08-swerve-owner-reference-corrective.md) | UNVERIFIED（44 项配置测试通过；底盘运行实现待迁移） |
+| 2026-09-09 | motion | [swerve_driver 算法与 CSP/CSV 控制器源码迁移](docs/areas-archive/motion/records/2026-09-09-swerve-controller-migration.md) | PARTIAL（T1 Native/容器；真实后端、启动组合与实机待完成） |
+| 2026-09-09 | release-deploy | [swerve_driver 构建闭包与增量容器验证](docs/areas-archive/release-deploy/records/2026-09-09-swerve-package-integration.md) | PARTIAL（T1；未替换生产服务） |
+| 2026-09-12 | release-deploy | [三代机开发快照部署至测试主机](docs/areas-archive/release-deploy/records/2026-09-12-gen3-test-host-deployment.md) | PARTIAL（30 包构建，282 条测试记录通过；未启动真实总线） |
+| 2026-09-12 | ecat-axes | [汇川 GR10-EC-6SW 双设备 ESI 归档](docs/areas-archive/ecat-axes/records/2026-09-12-inovance-gr10-esi.md) | UNVERIFIED（文件/安装校验通过；实物与拓扑待验） |
+| 2026-09-12 | ecat-axes | [三代机双臂 X2/X3 接线与十八从站扫描](docs/areas-archive/ecat-axes/records/2026-09-12-gen3-arm-branch-scan.md) | PARTIAL（T2 只读；左 1..8、右 9..16、分支器 0/17；链内关节绑定待确认） |
+| 2026-09-12 | ecat-axes | [双臂 J1..J7 与夹爪物理轴序确认](docs/areas-archive/ecat-axes/records/2026-09-12-gen3-arm-axis-order.md) | UNVERIFIED（T0 配置；左 CSP 1..7/PP 8，右 CSP 9..15/PP 16；正式运行绑定待完成） |
+| 2026-09-12 | ecat-axes | [零差 CSP/PP 协议核验与类型/对齐修正](docs/areas-archive/ecat-axes/records/2026-09-12-gen3-zeroerr-protocol.md) | PARTIAL（656 次只读；signed 6072/14-byte PP TxPDO 修正；605D/电池问题待核实） |
+| 2026-09-12 | ecat-axes | [J3/J4 单圈策略与夹爪补电池后复查](docs/areas-archive/ecat-axes/records/2026-09-12-gen3-encoder-usage-policy.md) | PARTIAL（32 次只读；夹爪 7314，负载编码器复位未执行） |
+| 2026-09-12 | ecat-axes | [左夹爪单次编码器复位后 Fault 持续](docs/areas-archive/ecat-axes/records/2026-09-12-left-gripper-encoder-reset.md) | PARTIAL（左 2242 写入一次，7314 清除；Fault 持续，右侧暂停） |
+| 2026-09-12 | ecat-axes | [左夹爪一次普通清错未退出 Fault](docs/areas-archive/ecat-axes/records/2026-09-12-left-gripper-fault-reset.md) | PARTIAL（6040 三次写入成功，但仍 Fault；右侧条件未满足） |
+| 2026-09-12 | ecat-axes | [上位机重置编码器后双夹爪普通清错](docs/areas-archive/ecat-axes/records/2026-09-12-grippers-post-vendor-fault-reset.md) | PARTIAL（两侧各一次，置位回读 80，但均未退出 Fault） |
+| 2026-09-12 | ecat-axes | [用户重新上电后双夹爪故障解除](docs/areas-archive/ecat-axes/records/2026-09-12-grippers-power-cycle-recovery.md) | PARTIAL（只读确认全部 Fault 位为 0；夹爪错误寄存器清除，未再次清错） |
+| 2026-09-12 | ecat-axes | [三代机机械零位与14 CSP+2 PP原位使能](docs/areas-archive/ecat-axes/records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3，全16轴使能/保持/失能通过；WC48/48，最终Idle/PREOP） |
+| 2026-09-12 | lifecycle | [原位使能入口和显式终态策略](docs/areas-archive/lifecycle/records/2026-09-12-stationary-enable-entry.md) | PARTIAL（62条状态机测试；Mock和实际有序退出通过，运动栈不变） |
+| 2026-09-12 | release-deploy | [ELECTRI-118同步最新main并解决冲突](docs/areas-archive/release-deploy/records/2026-09-12-electri-118-main-sync.md) | UNVERIFIED（五个冲突文件已解决；124项配置回归通过，新基线全量构建/实机待验） |
+| 2026-09-13 | release-deploy | [ELECTRI-118对齐PR25后的main并准备新PR](docs/areas-archive/release-deploy/records/2026-09-13-electri-118-pr-integration.md) | PARTIAL（T1；三处文本冲突与记录重号已处理，32包完整镜像、旧机/三代机Mock有序退出、166项配置回归及215条功能包测试记录通过；新基线实机待验） |
+| 2026-09-14 | io-power | [分立 IO 模块真空桥接](docs/areas-archive/io-power/records/2026-09-14-discrete-analog-vacuum-bridge.md) | PARTIAL（T1 离线构建/测试；实机吸附、释放与 Docker 待验） |
+| 2026-09-13 | release-deploy | [ELECTRI-117 四舵轮控制器接入三代机模块选择](docs/areas-archive/release-deploy/records/2026-09-13-swerve-controller-module-binding.md) | UNVERIFIED（T0；58项配置测试、静态安装校验与质量门禁通过；运行/容器/实机待验） |
+| 2026-09-15 | motion | [HT-WS-HH270 舵轮厂家机械图纸参数提取](docs/areas-archive/motion/records/2026-09-15-swerve-module-mechanical-drawing.md) | UNVERIFIED（T0；图纸参数和歧义已登记，厂家确认与整车标定待完成） |
+| 2026-09-15 | governance | [main 稳定源码与 Docker 人工封装解耦](docs/areas-archive/governance/records/2026-09-15-main-manual-docker-packaging.md) | PASS（T0；普通源码 PR 不强制镜像，人工封装/发布门禁保留） |
+| 2026-09-16 | canopen-chassis | [三代机四路 CANopen 舵角 state-only provider](docs/areas-archive/canopen-chassis/records/2026-09-16-swerve-encoder-state-provider.md) | PARTIAL（T1；核心/provider/补丁闭包与 draft 接入通过，真实 EDS/总线/标定待验） |
+| 2026-09-16 | ecat-axes | [Kinco 四舵轮 CSP/CSV 接口合同与八轴 draft](docs/areas-archive/ecat-axes/records/2026-09-16-kinco-swerve-contract-draft.md) | UNVERIFIED（T0；配置回归通过，identity/profile/环位/实机待验） |
+| 2026-09-16 | motion | [四舵轮最小二乘残差剔除与里程计隔离](docs/areas-archive/motion/records/2026-09-16-swerve-slip-residual-rejection.md) | PARTIAL（T1；70条 Native/Mock 测试通过，实机阈值与打滑待验） |
+| 2026-09-16 | motion | [四舵轮机械限位内转向规划与输出门禁](docs/areas-archive/motion/records/2026-09-16-swerve-bounded-steering-planner.md) | PARTIAL（T1；77条 Native/Mock 测试通过，逐轮限位与实机跟踪待验） |
+| 2026-09-16 | canopen-chassis | [四舵轮外置编码器 108/27 齿传动确认](docs/areas-archive/canopen-chassis/records/2026-09-16-swerve-encoder-gearing-confirmation.md) | PARTIAL（T1；公式/配置回归通过，EDS、方向、零偏与实机待验） |
+| 2026-09-16 | io-power | [四路 Modbus LED 驱动与离线验证](docs/areas-archive/io-power/records/2026-09-16-modbus-led-driver.md) | PARTIAL（Issue #31；T1 两包构建、通信测试及140项bringup回归；实机/整机Mock待验） |
+| 2026-09-17 | ecat-axes | [六维力统一 C++ broadcaster 与三代机蓝点可选配置](docs/areas-archive/ecat-axes/records/2026-09-17-force-torque-cpp-broadcaster-and-bluepoint-option.md) | PARTIAL（T1 Mock；X503/蓝点实机待验） |
+| 2026-09-17 | canopen-chassis | [LPMS-NAV3 CAN 外置 IMU 重新迁入 main 源码基线](docs/areas-archive/canopen-chassis/records/2026-09-17-lpms-nav3-main-source-integration.md) | PARTIAL（ELECTRI-105；30条 Native 测试记录、13条 sanitizer；CAN 连接路径/跨进程 DDS/共线/实机待验） |
+| 2026-09-17 | governance | [PR CI 触发去重与描述编辑隔离](docs/areas-archive/governance/records/2026-09-17-pr-ci-trigger-deduplication.md) | PARTIAL（T0；本地门禁通过；远端事件行为及 main 分支保护待完成） |
+| 2026-09-17 | io-power | [通用 Modbus RTU485 包与四路超声波驱动](docs/areas-archive/io-power/records/2026-09-17-modbus-ultrasonic-driver.md) | PARTIAL（T2 只读通信与 ROS 发布通过；TF、长期运行及完整发布闭包待验） |
+| 2026-09-18 | release-deploy | [V3 专用分支、模型与 fail-closed 运行边界](docs/areas-archive/release-deploy/records/2026-09-18-v3-branch-baseline.md) | PARTIAL（T1 validation；V3 模型/配置/诊断通过，整机 runtime 与实机待验） |
+| 2026-09-18 | release-deploy | [V3 分支旁路部署到旧工控机](docs/areas-archive/release-deploy/records/2026-09-18-v3-old-ipc-sidecar-deployment.md) | PARTIAL（T1；34 包/1697 测试，未切换/未启动硬件） |
+| 2026-09-18 | contract | [V3 机械臂 RT-Control 与 Motion 对接方案](docs/areas-archive/contract/records/2026-09-18-v3-arm-motion-integration-guide.md) | UNVERIFIED（T0；公共契约/runtime/HIL 待完成） |
+| 2026-09-19 | motion | [V3 双七轴 FJT 与 rolling 实时控制](docs/areas-archive/motion/records/2026-09-19-v3-arm-fjt-rolling-runtime.md) | PARTIAL（T1 Mock；实机待验） |
+| 2026-09-19 | lifecycle | [V3 十六轴使能与运动控制器严格切换](docs/areas-archive/lifecycle/records/2026-09-19-v3-motion-controller-switching.md) | PARTIAL（T1 Mock；真实故障/停机待验） |
+| 2026-09-19 | lifecycle | [V3 rolling 激活握手与 provisional epoch 纠错](docs/areas-archive/lifecycle/records/2026-09-19-v3-rolling-activation-handoff.md) | PARTIAL（T1 Native；两包 192 测试通过；二代实机验证仅作移植依据，V3 实机待验） |
+| 2026-09-19 | contract | [V3 rolling 接口 pin 与轴集合身份](docs/areas-archive/contract/records/2026-09-19-v3-rolling-axis-contract.md) | PARTIAL（T1；上游语义待发布） |
+| 2026-09-19 | release-deploy | [V3 机械臂运动 runtime 显式入口](docs/areas-archive/release-deploy/records/2026-09-19-v3-arm-runtime-entry.md) | PARTIAL（T1 Mock；未部署） |
+| 2026-09-19 | governance | [V3 Robot Model CI 使用构建 overlay](docs/areas-archive/governance/records/2026-09-19-v3-description-overlay-ci.md) | PASS（T0；完整 PR CI 重跑） |
+| 2026-09-19 | io-power | [四路超声波切换为标准 Range 接口](docs/areas-archive/io-power/records/2026-09-19-ultrasonic-standard-range.md) | PARTIAL（T1；标准消息与固定参数离线通过，实机与 TF 待验） |
+| 2026-09-19 | motion | [V3 JTC-only 旧工控机旁路与原位使能验证](docs/areas-archive/motion/records/2026-09-19-v3-jtc-old-ipc-readonly.md) | PARTIAL（T3；16 轴原位使能/保持/失能通过；0x730F 厂商说明已记录，十四轴 +1 仅为未验证方向试验值） |
+| 2026-09-20 | governance | [V3 完整门禁保留下的分层 CI 与依赖缓存](docs/areas-archive/governance/records/2026-09-20-layered-ci-cache.md) | PARTIAL（T0；回退镜像完整闭包已通过，缓存拆分热路径、基础镜像发布与变量启用待完成） |
+| 2026-09-20 | canopen-chassis | [LPMS 启动窗口 SIGINT 正常退出纠错](docs/areas-archive/canopen-chassis/records/2026-09-20-lpms-startup-sigint-exit.md) | PARTIAL（T1；本地无 CAN 进程测试与 50 次重复通过，远端完整闭包待确认） |
+| 2026-09-20 | io-power | [Modbus LED 控制器由四路扩展为六路](docs/areas-archive/io-power/records/2026-09-20-six-led-controllers.md) | PARTIAL（T1 离线；构建、六路参数和传输测试通过，实机未验证） |
+| 2026-09-21 | io-power | [双 E08 接入八路 A22 超声波](docs/areas-archive/io-power/records/2026-09-21-dual-e08-eight-ultrasonic.md) | PARTIAL（T1 离线；双站号请求与八路发布测试通过，实机与声学串扰待验） |
+| 2026-09-25 | motion | [ELECTRI-133 Tier A 相对运动、无设备 Mock 与 cyclic adapter 集成](docs/areas-archive/motion/records/2026-09-25-tier-a-relative-move-mock.md) | PARTIAL（T1；271 项双包测试及 connected synthetic PDO handoff 通过；新交接路径为主会话自审，独立审查/真实 PDO/标定/IMU 仍待完成） |
+| 2026-09-25 | contract | [ELECTRI-133 Tier A RT 私有底盘协议](docs/areas-archive/contract/records/2026-09-25-tier-a-private-chassis-protocol.md) | PARTIAL（T1；新增六个类型及域内消费者构建通过，无跨域或硬件准入） |
+| 2026-09-30 | io-power | [金凤凰 BMS V1.1 C++ 驱动迁移](docs/areas-archive/io-power/records/2026-09-30-golden-phoenix-bms-cpp.md) | UNVERIFIED（T0；15 项 C++/26 项聚焦/207 项质量门禁通过；can1 实机查询、字节序和 HMI 对照待验） |
+| 2026-10-05 | io-power | [LED 正常与异常退出颜色策略](docs/areas-archive/io-power/records/2026-10-05-led-exit-colors.md) | PARTIAL（T1；离线构建/测试通过，六路实机退出写与不可捕获故障外部监控待验） |
 
 | 2026-10-07 | ecat-axes | 用户要求直接修改现有蓝点配置：左 P140000100 台架位置 2，Revision 1，Rx 7000:01..08 / Tx 6000:01..09 | PARTIAL（只读 PREOP 身份/PDO 已确认；标量类型、单位、DC、frame 和右传感器待验，运行准入未开放） |
 
@@ -215,9 +215,9 @@
 
 | 2026-10-07 | ecat-axes | 用户要求拆分左右蓝点配置为bluepoint_p140000100_left/right.yaml，分别位置2/4，更新broadcaster/manifest/registry引用 | PARTIAL（配置拆分；实际运行准入仍待验） |
 
-| 2026-10-07 | ecat-axes | [双P140000100 raw台架实际话题通信](docs/areas/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md) | PARTIAL（T3；DC/1ms双raw实际收流4956/4955条每5秒；退出回Idle/PREOP；单位/TF/新鲜度未验） |
+| 2026-10-07 | ecat-axes | [双P140000100 raw台架实际话题通信](docs/areas-archive/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md) | PARTIAL（T3；DC/1ms双raw实际收流4956/4955条每5秒；退出回Idle/PREOP；单位/TF/新鲜度未验） |
 
-| 2026-10-07 | ecat-axes | [蓝点 YAML 九路命名状态实际读取](docs/areas/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md) | PARTIAL（T3；左右/state含六通道+状态/计数/温度，3秒2635/2634条，名称对应YAML且计数变化；单位/状态位/闭环新鲜度待验） |
+| 2026-10-07 | ecat-axes | [蓝点 YAML 九路命名状态实际读取](docs/areas-archive/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md) | PARTIAL（T3；左右/state含六通道+状态/计数/温度，3秒2635/2634条，名称对应YAML且计数变化；单位/状态位/闭环新鲜度待验） |
 
 | 2026-10-07 | ecat-axes | 补充 rt_force_torque_broadcaster/README.md：双蓝点台架构建启动、YAML九路映射、实机话题读取命令及既有实测结果 | 文档完成（沿用已归档实测证据；原始通信通过，单位/标定及长期验收待确认） |
 
@@ -229,15 +229,15 @@
 
 | 2026-10-07 | ecat-axes | DOCX版双蓝点实机话题复测 | PARTIAL：9包构建；5秒双state各5005条、九项匹配、无倒退，正常停机；约500次/秒计数变化，左Mz文档暂算410.5Nm，物理值正常性未确认 |
 
-| 2026-10-09 | lifecycle | [达妙控制器响应生命周期修复](docs/areas/lifecycle/records/2026-10-09-damiao-controller-response-lifetime.md) | PARTIAL：编译安装、2测试目标及20次Mock失能通过；实机未重启；质量门禁受现有build_head/log_head生成物阻塞 |
+| 2026-10-09 | lifecycle | [达妙控制器响应生命周期修复](docs/areas-archive/lifecycle/records/2026-10-09-damiao-controller-response-lifetime.md) | PARTIAL：编译安装、2测试目标及20次Mock失能通过；实机未重启；质量门禁受现有build_head/log_head生成物阻塞 |
 
-| 2026-10-09 | lifecycle | [达妙会话README与双轴0.2rad/s配置](docs/areas/lifecycle/records/2026-10-09-damiao-session-readme.md) | 文档归档、离线schema通过；新速度未重启加载；历史PI比较仍0.1rad/s |
+| 2026-10-09 | lifecycle | [达妙会话README与双轴0.2rad/s配置](docs/areas-archive/lifecycle/records/2026-10-09-damiao-session-readme.md) | 文档归档、离线schema通过；新速度未重启加载；历史PI比较仍0.1rad/s |
 
-| 2026-10-13 | governance | [固定格式工具与增量门禁](docs/areas/governance/records/2026-10-13-executable-code-style.md) | UNVERIFIED（T0；本地门禁通过，全包警告计数待验） |
+| 2026-10-13 | governance | [固定格式工具与增量门禁](docs/areas-archive/governance/records/2026-10-13-executable-code-style.md) | UNVERIFIED（T0；本地门禁通过，全包警告计数待验） |
 
-| 2026-10-13 | governance | [语言与agent规范同步](docs/areas/governance/records/2026-10-13-agent-contract-sync.md) | UNVERIFIED（T0；224工具测试通过） |
+| 2026-10-13 | governance | [语言与agent规范同步](docs/areas-archive/governance/records/2026-10-13-agent-contract-sync.md) | UNVERIFIED（T0；224工具测试通过） |
 
-| 2026-10-13 | platform | [七个agent职责区划分](docs/areas/governance/records/2026-10-13-seven-agent-areas.md) | UNVERIFIED（T0；旧记录保留、源码不迁移） |
+| 2026-10-13 | platform | [七个agent职责区划分](docs/areas-archive/governance/records/2026-10-13-seven-agent-areas.md) | UNVERIFIED（T0；旧记录保留、源码不迁移） |
 | 2026-10-13 | peripheral-control | [四包外设协议库拆分](docs/areas/peripheral-control/records/2026-10-13-peripheral-protocol-library-split.md) | PARTIAL（KKOZIA-3；T0/T1；四包109项测试、8项相关launch测试与质量门禁通过；整机闭包/实机未验；M0a已合入） |
 
 | 2026-10-14 | platform | [M1 包注册、四层门禁与 jsonschema 发布身份](docs/areas/platform/records/2026-10-13-m1-layer-gates.md) | UNVERIFIED（KKOZIA-6；T0；platform-20261014-01；远端 CI schema 安装测试失败，本地最小修复后两包 153 tests 通过、质量门禁 239 passed/13 skipped；修复后的 CI 待验证，镜像未构建） |

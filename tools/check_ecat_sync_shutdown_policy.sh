@@ -3,29 +3,17 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-config_root="${repo_root}/src/rt_control/robot_hw_ethercat/config/slaves"
 shutdown_patch="${repo_root}/patches/ecat_icube/0003-orderly-master-deactivation.patch"
 preserve_pdo_patch="${repo_root}/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch"
 igh_preserve_pdo_patch="${repo_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
 canopen_lifecycle_patch="${repo_root}/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch"
 canopen_rpdo_patch="${repo_root}/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch"
-shutdown_client="${repo_root}/src/rt_control/enable_manager/src/rt_disable_once.cpp"
+shutdown_client="${repo_root}/src/rt_control/rt_control_bringup/rt_control_bringup/scope_lifecycle.py"
 
 fail()
 {
   echo "FAIL: $*" >&2
   exit 1
-}
-
-fixed_line_count()
-{
-  local expected="$1"
-  local file="$2"
-  if command -v rg >/dev/null 2>&1; then
-    rg -Fxc -- "${expected}" "${file}" || true
-  else
-    grep -Fxc -- "${expected}" "${file}" || true
-  fi
 }
 
 fixed_contains()
@@ -38,47 +26,6 @@ fixed_contains()
     grep -Fq -- "${expected}" "${file}"
   fi
 }
-
-assert_sync_limit()
-{
-  local file="$1"
-  local type="$2"
-  local expected="  - {index: 0x10f1, sub_index: 2, type: ${type}, value: 250}"
-  local count
-
-  count="$(fixed_line_count "${expected}" "${file}")"
-  [[ "${count}" == "1" ]] ||
-    fail "$(basename "${file}") must contain exactly one ${expected}"
-}
-
-assert_passive_profile_has_no_startup_sdo()
-{
-  local file="$1"
-  local count
-  count="$(fixed_line_count 'sdo:' "${file}")"
-  [[ "${count:-0}" == "0" ]] ||
-    fail "$(basename "${file}") is passive but configures startup SDO writes"
-}
-
-for profile in \
-  left_j6.yaml \
-  right_j6.yaml \
-  turn.yaml \
-  xmc_updown_sw511.yaml \
-  zeroerr_j1.yaml \
-  zeroerr_j4.yaml \
-  zeroerr_j5.yaml
-do
-  assert_sync_limit "${config_root}/${profile}" uint16
-done
-
-for profile in ti5_j2.yaml ti5_j3.yaml
-do
-  assert_sync_limit "${config_root}/${profile}" uint32
-done
-
-assert_passive_profile_has_no_startup_sdo "${config_root}/x503_right.yaml"
-assert_passive_profile_has_no_startup_sdo "${config_root}/x503_left.yaml"
 
 [[ -f "${shutdown_patch}" ]] || fail "missing ${shutdown_patch}"
 
@@ -138,20 +85,17 @@ for retired in ("canopen_402_driver/", "cia402_system.cpp", "Track node", "track
     if retired in lifecycle:
         raise SystemExit(f"retired CANopen motor behavior remains: {retired}")
 
-main = shutdown.index("int main(")
-disable_axes = shutdown.index("disableEthercatAxes(node, deadline)", main)
-quiesce_controllers = shutdown.index("quiesceEthercatControllers(node, deadline)", main)
-deactivate_hardware = shutdown.index("deactivateEthercatHardware(node, deadline)", main)
-if not disable_axes < quiesce_controllers < deactivate_hardware:
-    raise SystemExit("full-stack shutdown must disable axes, quiesce controllers, then deactivate EtherCAT")
-for required in (
-    'std::chrono::seconds(30)',
-    '"enable_manager", "rt_internal_state_broadcaster", "joint_state_broadcaster"',
-    'kEthercatHardwareName[] = "ecat_arms"',
-    'PRIMARY_STATE_INACTIVE',
-):
-    if required not in shutdown:
-        raise SystemExit(f"shutdown orchestration policy is missing: {required}")
+# Every staged scope stops through scope_lifecycle.shutdown_sequence: motion controllers,
+# then the drive disable, then the remaining controllers, and hardware only afterwards.
+sequence = shutdown[shutdown.index("def shutdown_sequence("):shutdown.index("class RosLifecycleBackend")]
+order = [sequence.index(f'"{label}"') for label in (
+    "motion_inactive", "drives_disabled", "controllers_inactive")]
+if order != sorted(order):
+    raise SystemExit("scope shutdown must stop motion, disable drives, then quiesce controllers")
+if sequence.index("controllers_inactive") > sequence.index("hardware_state(name, INACTIVE)"):
+    raise SystemExit("scope shutdown must deactivate hardware only after the controllers")
+if "if results[-1]:" not in sequence:
+    raise SystemExit("hardware must stay up while controllers may still claim its interfaces")
 PY
 
 dockerfile="${repo_root}/docker/rt-control/Dockerfile"
@@ -208,4 +152,4 @@ if [[ -n "${IGH_SOURCE:-}" ]]; then
   rm -rf -- "${igh_scratch}"
 fi
 
-echo "PASS: EtherCAT motion sync tolerance, passive-SDO exclusion, fixed-PDO verification, and ordered shutdown policy"
+echo "PASS: EtherCAT fixed-PDO verification and ordered shutdown policy"

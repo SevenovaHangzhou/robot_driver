@@ -38,10 +38,9 @@ StatusCode标为保留，不按故障状态解析。Temper也标为保留，注�
 
 配置来源：
 
-- [双传感器 YAML](../rt_control_bringup/config/bluepoint_force_sensors.draft.yaml)
-- [左从站 PDO 配置](../robot_hw_ethercat/config/slaves/bluepoint_p140000100_left.yaml)
-- [右从站 PDO 配置](../robot_hw_ethercat/config/slaves/bluepoint_p140000100_right.yaml)
-- [台架启动入口](../rt_control_bringup/launch/rt_control_force_sensors.launch.py)
+- [机型模块](../rt_control_machine_config/machines/Alfa_V3/wrist_force_sensors.yaml)
+- [从站 PDO profile](../robot_hw_ethercat/config/profiles/bluepoint_p140000100.yaml)
+- 台架启动：`rt_control_start --force-sensors`（即 `--scope force_bench`，入口见 [scope runtime](../rt_control_bringup/launch/rt_control_scope_runtime.launch.py)）
 
 设备身份为 Vendor `0xA1`、Product `0x8081`、Revision `1`。
 RxPDO `0x1600` 映射 `0x7000:01..08`，TxPDO `0x1A00` 映射 `0x6000:01..09`。
@@ -160,7 +159,7 @@ Idle，所有从站回到 PREOP。九路版本构建成功，13 项 C++ 测试�
 温度字段未定义可用换算；状态码为保留字段，0不能解释为已确认的无故障状态。
 短时计数变化不等于已完成闭环新鲜度、长期 DC 稳定性或整机运行验收。
 
-详细证据见[实机通信记录](../../../domains/rt_control/docs/areas/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md)。
+详细证据见[实机通信记录](../../../domains/rt_control/docs/areas-archive/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md)。
 
 
 ## DOCX 配置复测结果（2026-10-07）

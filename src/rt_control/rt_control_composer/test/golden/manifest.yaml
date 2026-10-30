@@ -7,7 +7,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: 8c2d097971bf34883942373011a3d914360c92a9a9e3a86d09a54493631a4918
+      controllers.yaml: 44b32019682a20a8b911d079518a3dd731b75a5bc6e9c8278062478448377a25
       robot_description.xml: a6a3e09db065238a2cded89532ef843d108a37f739b9e4547100010d801977f2
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -17,6 +17,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
+      runtime/lifecycle.yaml: b72a42534eebb1b2a6a7acf887b555a038096604d6c24bbdad56913dea6174bc
       runtime/right_joint1.yaml: efdb52938291169ec65d58bc29a5ec7ec5778c9e38bdd5d50901ee7a11969a40
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
@@ -29,7 +30,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: 8c2d097971bf34883942373011a3d914360c92a9a9e3a86d09a54493631a4918
+      controllers.yaml: 44b32019682a20a8b911d079518a3dd731b75a5bc6e9c8278062478448377a25
       robot_description.xml: 3f1ae8333d85b00f99c17b8b3c544db8919f524f2d9a80e8cb721251cc87ca48
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -39,6 +40,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
+      runtime/lifecycle.yaml: 3647830fd4f67668f39e45409a78d9a3187d374024c0cfe782faf6756ca38e03
       runtime/right_joint1.yaml: b82d418782e40764434793437cd049870b7be7dc93e1172502060d073096f5cc
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
@@ -51,7 +53,7 @@ cases:
     jtc_only: true
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
-      controllers.yaml: e16ea9832869e30c6e035b149d0838da46f0c666148c5be4d873fdf8a3225d97
+      controllers.yaml: c9fc3ba06c5844c6c1700400a9c62d67e275271e14bc92054b48c28580a1cc5c
       robot_description.xml: a6a3e09db065238a2cded89532ef843d108a37f739b9e4547100010d801977f2
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: fb6c6f703a89442ddfb0c115f20ce675f44b4c23d7da584fb49985c734f13b5c
@@ -60,6 +62,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
+      runtime/lifecycle.yaml: 2c4d187813c433c3cf2b57b0f7c794de7f2a900d30dfa5fe9f1d868e6d71c2f6
       runtime/right_joint1.yaml: efdb52938291169ec65d58bc29a5ec7ec5778c9e38bdd5d50901ee7a11969a40
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 1c55aa9d7681835e3771196ffc2f8369927f94c9e19c1ccb2b92ca83ae8a21d9
@@ -72,7 +75,7 @@ cases:
     jtc_only: true
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
-      controllers.yaml: e16ea9832869e30c6e035b149d0838da46f0c666148c5be4d873fdf8a3225d97
+      controllers.yaml: c9fc3ba06c5844c6c1700400a9c62d67e275271e14bc92054b48c28580a1cc5c
       robot_description.xml: 3f1ae8333d85b00f99c17b8b3c544db8919f524f2d9a80e8cb721251cc87ca48
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: 16af3c87a9067327a50095b9d88c18dbc4c96cb80c241406f0d5c35cbe48d563
@@ -81,6 +84,7 @@ cases:
       runtime/left_joint5.yaml: 5dd36fc78989030f928fb566e7915f9919b1555e4379df6fc77e0c3e47b55511
       runtime/left_joint6.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
       runtime/left_joint7.yaml: 839eb2a8d7adc0268b1e2485df3ba041be628e563dd4374a370cc3a5ea4a70bf
+      runtime/lifecycle.yaml: 489ad9b7153549d3a3c8611c1392862b719bfc419f4a000167bfefebd185e4c5
       runtime/right_joint1.yaml: b82d418782e40764434793437cd049870b7be7dc93e1172502060d073096f5cc
       runtime/right_joint2.yaml: 425db08a7e9187f2582b0e55696bee6493829749e5209a98f7f641fdc9235012
       runtime/right_joint3.yaml: 686b4f9fba99c5c6e777370f87f852e17f196eafeed1265a9872947e8c9df9df
@@ -93,7 +97,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
-      controllers.yaml: 4682087709260bd3b83a6576fd5a3eb507974e05f3e5da7115aef04013ec81d9
+      controllers.yaml: bbce005d6288b9ea888cda8638850ab7dbf399226d00ab74373a208970c283b2
       robot_description.xml: bd3108d1fae036cbcdb990b105e7eb7d727bef954b1ae1fc0b07d52196d46e65
       runtime/left_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -102,6 +106,7 @@ cases:
       runtime/left_j5.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j6.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j7.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
+      runtime/lifecycle.yaml: 2ca8557e0d2a9894a7cdf5f5d20c15ea6005d812b7e313f09e072ce72dd50ec4
       runtime/right_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j3.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -114,7 +119,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
-      controllers.yaml: 4682087709260bd3b83a6576fd5a3eb507974e05f3e5da7115aef04013ec81d9
+      controllers.yaml: bbce005d6288b9ea888cda8638850ab7dbf399226d00ab74373a208970c283b2
       robot_description.xml: d553e80cc3f773429c6c162a78282b204ddc0e137f2e7ee5f1f7aa02499a8a78
       runtime/left_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -123,6 +128,7 @@ cases:
       runtime/left_j5.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j6.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j7.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
+      runtime/lifecycle.yaml: eb846dca75d59137288e82d4bd62b4dfad6bcc5d4cecaefeb0a1d18a8ca802a9
       runtime/right_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/right_j3.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -135,35 +141,39 @@ cases:
     sync_mode: ''
     startup_id: force-bench-synthetic-golden
     outputs:
-      controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
-      controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
+      controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
+      controllers.yaml: 6113bf62fe5996abd9f89e6e0cdc65e270b1214e1e264bcae6d38cb416ef7cfc
       robot_description.xml: 2963e76c652e281d60439fbf164be40747a2e001a65b9228fc64c978b7ddf33b
+      runtime/lifecycle.yaml: ce9e24554fde6f312aaaa5007c69073bd417893b6a075e0e4fa2fcacd3a32d49
   head-real:
     use_mock_hardware: false
     sync_mode: ''
     startup_id: force-bench-synthetic-golden
     outputs:
-      controller_order.yaml: 0cccf9583270a617cc85925df7a691ce0527c7914265af55ffc113fc0d7ec57d
-      controllers.yaml: 978ea0f92834f2b3e431252e6754477503b5b5c0f6fa0110ab0eedf0cb1314ec
+      controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
+      controllers.yaml: 6113bf62fe5996abd9f89e6e0cdc65e270b1214e1e264bcae6d38cb416ef7cfc
       robot_description.xml: 5439c0dadc959229919bdb88ed70be564756f077b96914a8312c46212020ec2c
+      runtime/lifecycle.yaml: 5f71bd7f0fc1273c63d10e5f0a4a6a06cec30c86f2db16bc649861eb3e8fcfbd
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 1d2c82fe9b087ff2f97d5af716147c8868123cb0346eff9b058058328de40283
-      controllers.yaml: a054db84ef36b43170ef08b996395dcc6eb258495bc3350257be474b19ee4f43
+      controllers.yaml: c0f957c1981904baff2dad2f32eab932e4469697181c0520e0dc43b7671ca90d
       robot_description.xml: c0dcfe16e5ef48317a96c7831fff92b56e4200da71e0e812811d59ad6acce9d3
+      runtime/lifecycle.yaml: db1e31c75ad2dac95a42b8fae6cd4e7254535387a63f49765a6656cf65d6577b
   force-real:
     use_mock_hardware: false
     sync_mode: dc
     startup_id: force-bench-synthetic-golden
     outputs:
       controller_order.yaml: 1d2c82fe9b087ff2f97d5af716147c8868123cb0346eff9b058058328de40283
-      controllers.yaml: a054db84ef36b43170ef08b996395dcc6eb258495bc3350257be474b19ee4f43
+      controllers.yaml: c0f957c1981904baff2dad2f32eab932e4469697181c0520e0dc43b7671ca90d
       robot_description.xml: f0b4c5e7b1ecad1811bd8699e557c333d335b03e04369b45c9b2f359bc0bb1f9
       runtime/bluepoint_p140000100_left.yaml: a89d480f88836252d2f5a6234a957ac99b2418c267a2cfebee0fd8afde99c8de
       runtime/bluepoint_p140000100_right.yaml: a0ae57d867cd2c45ec807bf66f4b8b2a31c01d2a0ab13dcf1281baa11033f892
+      runtime/lifecycle.yaml: ea3a482f1e63fa02e88cf1a8a73de1bda363c7b4b964072f061ff3ed32550654
 inputs:
   src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arm_motion_calibration.draft.yaml: 587ea4634c15eb8bcc5c0c2b82694762a0508ba8b48cebe434014176ad56e285
   src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_arms_only.draft.yaml: 3d8ce4a179b7cb6212bb026a8ae981c2f431546bd7d939fd371522335f590053
@@ -227,3 +237,37 @@ model_switch_regeneration:
   - stationary-real
   - head-mock
   - head-real
+rolling_joints_regeneration:
+  reason: 'arch-s6 user decision 2026-10-29: rolling controller joint names come only from machine_config
+    (policy motion.joints); the controller no longer hard-codes them'
+  method: only the rolling_trajectory_controller.ros__parameters.joints key was added; every other value
+    is unchanged and was checked by canonical comparison before regeneration
+  cases:
+  - arm-mock
+  - arm-real
+head_enable_manager_regeneration:
+  reason: 'arch-s7 user decision 2026-10-29: the DaMiao head is enabled by enable_manager as a
+    handshake device; damiao_head_controller/HeadManagerController is removed and head_only runs
+    under the staged scope runtime'
+  method: compose output written only where the canonical form differs; the differences are
+    the manager (damiao_head_manager replaced by enable_manager with the same 5 s operation and
+    1 s switch timing), hardware_components_initial_state for staged activation, and the new
+    runtime/lifecycle.yaml (publish_robot_state true, as the removed head launch did)
+  cases:
+  - head-mock
+  - head-real
+staged_scope_regeneration:
+  reason: 'arch-s8 user decision 2026-10-29: arms_only, arms_stationary_enable and force_bench run
+    under the staged scope runtime; the dedicated arm, enable-only and force launches are removed'
+  method: compose output written only where the canonical form differs; the differences are
+    controller_manager hardware_components_initial_state (hardware starts unconfigured and is
+    activated after preflight) and the new runtime/lifecycle.yaml; every other value is unchanged
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
+  - force-mock
+  - force-real

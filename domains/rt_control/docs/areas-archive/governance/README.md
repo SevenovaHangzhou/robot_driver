@@ -1,0 +1,67 @@
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[platform](../../areas/platform/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+
+# governance — 门禁、CI、测试体系与协作规则
+
+**范围**：仓库门禁与策略测试、CI 工作流、pre-commit、协作与提交规范、
+发布前测试体系（用例模板、runner、报告、baseline）、本开发记录体系自身。
+**Owner 包/资产**：`tools/quality_gate.sh`、`tools/repository_gate.py`、
+`tools/pr_contract_gate.py`、`tools/diff_legacy.py`、`tools/tests/`、
+`.github/workflows/`、`.pre-commit-config.yaml`、各级 `AGENTS.md`、
+`collaboration-and-commit-standards.md`、`domains/rt_control/docs/areas/`。
+
+不属于本区：具体功能的验证记录（归各功能区，即使证据由门禁产生）。
+
+## 冻结事实（当前有效）
+
+| # | 事实 | 来源 | 状态 |
+| --- | --- | --- | --- |
+| F1 | 开发记录按 9 功能区组织，规则见 areas/README.md | [governance-20260813-01](records/2026-08-13-establish-area-record-system.md)#F1 | 有效 |
+| F2 | 记录格式为 TEMPLATE.md：frontmatter + 五段正文，合并后不可改，推翻用 supersedes | [governance-20260813-01](records/2026-08-13-establish-area-record-system.md)#F2 | 有效 |
+| F3 | PROGRESS.md 自 2026-08-13 起降级为时间线索引，历史段冻结 | [governance-20260813-01](records/2026-08-13-establish-area-record-system.md)#F3 | 有效 |
+| F4 | 冻结 REQ 表原件确认丢失，不重建；需求追溯坐标改用 `<记录id>#F<n>` | [governance-20260813-01](records/2026-08-13-establish-area-record-system.md)#F4 | 有效 |
+| F5 | 测试风险分层 T0–T4，发布门禁自动部分只到 T2 | [governance-20260813-02](records/2026-08-13-test-case-catalog-v1.md)#F1 | 有效 |
+| F6 | 用例 ID 规则 `TC-<分类码>-<NN>`，不复用 | [governance-20260813-02](records/2026-08-13-test-case-catalog-v1.md)#F2 | 有效 |
+| F7 | V0.10 最小门禁 = v010_gate run 全过 + reference 全部给出历史坐标 | [governance-20260813-02](records/2026-08-13-test-case-catalog-v1.md)#F3 | 有效 |
+| F8 | 根 docs 必须为空，协作规范位于仓库根，接口视图来自 vendor | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F1 | 有效；取代 governance-20260813-04#F1 |
+| F9 | source-lock 发布身份必须与 deps.repos 的 robot_interfaces pin 一致 | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F2 | 有效 |
+| F10 | 已归档 records 保留旧路径作为历史坐标 | [governance-20260814-01](records/2026-08-14-root-docs-and-vendor-governance.md)#F3 | 有效 |
+| F11 | main 是稳定源码基线，普通源码 PR 不强制 Docker；源码稳定后由人工选择 SHA 封装，发布产物仍需完整镜像/容器证据 | [governance-20260915-01](records/2026-09-15-main-manual-docker-packaging.md)#F1-F3；BQ-148 | 有效 |
+| F12 | 完整 CI 只由代码相关 PR 事件触发；PR 描述编辑只跑 contract governance；PR 合并后的 main push 不重复全量构建 | [governance-20260917-01](records/2026-09-17-pr-ci-trigger-deduplication.md)#F1-F3 | 有效；GitHub main 分支保护待配置 |
+| F13 | Robot Model CI 校验必须 source 当前构建 overlay 后再运行 xacro/check_urdf | [governance-20260919-01](records/2026-09-19-v3-description-overlay-ci.md)#F1-F2 | PASS（T0 回归；PR CI 终态待确认） |
+| F14 | head-fast 只提供提前反馈，所有代码 PR 仍无条件执行完整 V3 build；CI 基础镜像使用精确标签且保留公开 ROS 回退 | [governance-20260920-01](records/2026-09-20-layered-ci-cache.md)#F1-F4 | PARTIAL（基础镜像发布与变量启用待完成） |
+
+## 记录索引（倒序）
+
+- 2026-10-09 [ELECTRI-131 从 PR #53 分离 BMS](records/2026-10-09-electri-131-pr53-split.md)：电池恢复 main 基线，其他模块源码保持原 head。
+
+- 2026-10-09 [程序优化 PR 提交前门禁与隔离验证](records/2026-10-09-program-optimization-pr-validation.md)：Issue #52；质量门禁、受影响包与 Mock 通过，完整 CI/实机待验。
+
+- 2026-09-20 [V3 完整门禁保留下的分层 CI 与依赖缓存](records/2026-09-20-layered-ci-cache.md) — decision，PARTIAL（T0）。
+- 2026-09-19 [V3 Robot Model CI 使用构建 overlay](records/2026-09-19-v3-description-overlay-ci.md) — fix，PASS（T0）。
+- 2026-09-17 [PR CI 触发去重与描述编辑隔离](records/2026-09-17-pr-ci-trigger-deduplication.md) — decision，PARTIAL（T0）
+- 2026-09-15 [main 稳定源码与 Docker 人工封装解耦](records/2026-09-15-main-manual-docker-packaging.md) — decision，PASS（T0）
+- 2026-08-19 [根 README 补齐记录与测试体系导航](records/2026-08-19-root-readme-record-testing-navigation.md) — fix，PASS（T0）
+- 2026-08-14 [清空根 docs 并建立公共接口 vendor 门禁](records/2026-08-14-root-docs-and-vendor-governance.md) — decision，PASS（T0）
+- 2026-08-14 [T2 性能采集脚本化（ELECTRI-80 脚本部分）](records/2026-08-13-rt-perf-capture.md) — feature，PASS（T0）
+- 2026-08-13 [增量测试 scope resolver（ELECTRI-81）](records/2026-08-13-scoped-tests.md) — feature，PASS（T0）
+- 2026-08-13 [BQ-134 性能阈值裁决落地](records/2026-08-13-bq134-thresholds.md) — decision，PASS（T0）
+- 2026-08-13 [首版测试 runner、JSON 报告与 baseline v0 登记（ELECTRI-76）](records/2026-08-13-release-test-runner-v1.md) — feature，PASS（T0）
+- 2026-08-13 [修复门禁测试收集缺口并修订覆盖率口径（ELECTRI-78）](records/2026-08-13-pytest-collection-and-coverage-scope.md) — fix，PASS（T0）
+- 2026-08-13 [ELECTRI-89 中低优先清理：historical 标注、导航收敛与孤儿文件删除](records/2026-08-13-historical-annotations-and-nav-cleanup.md) — fix，PASS（T0）
+- 2026-08-13 [文档矛盾修正与重复测试清理](records/2026-08-13-doc-contradiction-and-test-dedup.md) — fix，PASS（T0）
+- 2026-08-13 [首版发布前测试用例目录（7 分类 33 用例）](records/2026-08-13-test-case-catalog-v1.md) — feature，UNVERIFIED→随 PR 合入生效
+- 2026-08-13 [建立功能区开发记录体系](records/2026-08-13-establish-area-record-system.md) — decision，UNVERIFIED→随 PR 合入生效
+
+## 历史锚点（2026-08-13 前，未迁移）
+
+- PROGRESS.md 历史段：T-GOV-001/002、T-DOC-001/002
+- `collaboration-and-commit-standards.md`（第 9.5 节五层测试要求、第 10 节 CI）
+- 相关 Linear：ELECTRI-74（测试体系设计）
+
+## 2026-10-13 增量风格事实
+
+| 编号 | 冻结事实 | 来源 | 状态 |
+| --- | --- | --- | --- |
+| STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
+
+| CONTRACT-1 | 三档测试、语言分工、任务指派分支授权 | [governance-20261013-02](records/2026-10-13-agent-contract-sync.md)#F1-F3 | UNVERIFIED（T0文档） |
