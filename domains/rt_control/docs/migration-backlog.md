@@ -31,7 +31,7 @@
 | [x] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除（arch-cleanup：已删除） | 1.4、1.2 |
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |
 | [ ] | F | `robot_description` 内多份展开 `.urdf` 与多套 `joint_limits_*`/`named_poses_*` 变体并存 | 1.1、4.5 |
-| [ ] | 6 重复校验 | `load_artifact` 运行时重新 compose 比对每个文件 | 1.6 |
+| [x] | 6 重复校验 | `load_artifact` 运行时重新 compose 比对每个文件（arch-b5：用户 2026-10-30 裁定删除；artifact 自带运行时参数键与 preflight 拓扑，启动只校验哈希） | 1.6 |
 | [ ] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA | 1.6 |
 | [x] | A | `rt_diagnostics` 无生产入口且含二代履带诊断（arch-b3：用户 2026-10-30 裁定先删除旧实现，重写待需求明确后另做） | 1.4 |
 | [x] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用（arch-b2：vacuum/position_action/module_state/status 四个适配器删除，只留 `control_enable_adapter`） | 1.4 |

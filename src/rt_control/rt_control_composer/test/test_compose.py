@@ -265,7 +265,7 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
     monkeypatch.setattr(module, "select_renderer", lambda *args: Renderer())
     from rt_control_composer.model import Composed
 
-    preflight(Composed("", {}, {}, Path("."), systems, False, {}, {}, {}))
+    preflight(Composed("", {}, {}, Path("."), systems, False, {}, {}))
     assert len(calls) == 1
 
 

@@ -14,7 +14,6 @@ class Composed:
     runtime_dir: Path
     systems: tuple
     use_mock_hardware: bool
-    safety_policy: dict
     # Relative path -> text for every output; the artifact step alone writes them.
     files: dict
     # Controller -> {parameter: runtime key}; values are supplied per start, not stored.

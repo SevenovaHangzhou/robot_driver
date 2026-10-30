@@ -59,9 +59,19 @@ def test_artifact_round_trip_reads_without_writing(shares, tmp_path, monkeypatch
 
     monkeypatch.setattr(Path, "write_text", denied)
     monkeypatch.setattr(Path, "mkdir", denied)
-    loaded = load_artifact(output, package_share=share_of(shares), **ARMS)
+    loaded = load_artifact(output, **ARMS)
     assert loaded.files == written.files
     assert Path(loaded.runtime_dir) == output
+    assert loaded.robot_description == written.robot_description
+    assert loaded.controllers == written.controllers
+    assert loaded.controller_order == written.controller_order
+    assert loaded.runtime_parameters == written.runtime_parameters
+    assert loaded.lifecycle == written.lifecycle
+    assert loaded.hardware_activation_order == written.hardware_activation_order
+    assert loaded.staged_hardware_activation == written.staged_hardware_activation
+    assert [s["result"]["expected_topology"] for s in loaded.systems] == [
+        s["result"]["expected_topology"] for s in written.systems
+    ]
 
 
 @pytest.mark.parametrize("damage", ["modified", "extra", "missing_manifest"])
@@ -78,18 +88,28 @@ def test_damaged_artifact_is_rejected(shares, tmp_path, damage):
         (output / ARTIFACT).unlink()
         match = "compose_artifact"
     with pytest.raises(ValueError, match=match):
-        load_artifact(output, package_share=share_of(shares), **ARMS)
+        load_artifact(output, **ARMS)
 
 
-def test_stale_artifact_and_selection_mismatch_are_rejected(shares, tmp_path):
+def test_selection_mismatch_and_older_schema_are_rejected(shares, tmp_path):
     output = tmp_path / "arms"
     write_artifact(output, package_share=share_of(shares), **ARMS)
     with pytest.raises(ValueError, match="selection differs in \\['jtc_only'\\]"):
-        load_artifact(output, package_share=share_of(shares), **ARMS, jtc_only=True)
+        load_artifact(output, **ARMS, jtc_only=True)
+    manifest = yaml.safe_load((output / ARTIFACT).read_text())
+    manifest["schema_version"] = 1
+    (output / ARTIFACT).write_text(yaml.safe_dump(manifest))
+    with pytest.raises(ValueError, match="Unsupported composition artifact.*compose_artifact"):
+        load_artifact(output, **ARMS)
+
+
+def test_load_uses_the_artifact_as_written_without_recomposing(shares, tmp_path):
+    output = tmp_path / "arms"
+    written = write_artifact(output, package_share=share_of(shares), **ARMS)
+    # Installed configuration changes take effect only after the artifact is regenerated.
     policy = shares["rt_control_machine_config"] / "machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml"
     policy.write_text(policy.read_text().replace("batch_timeout: 4.0", "batch_timeout: 5.0"))
-    with pytest.raises(ValueError, match=r"stale .*controllers\.yaml.*compose_artifact"):
-        load_artifact(output, package_share=share_of(shares), **ARMS)
+    assert load_artifact(output, **ARMS).files == written.files
 
 
 def test_artifact_paths_and_replacement_rules(shares, tmp_path):
