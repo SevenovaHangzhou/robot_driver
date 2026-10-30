@@ -1,4 +1,4 @@
-> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[hw-config](../hw-config/README.md)、[peripheral-control](../peripheral-control/README.md)、[protocol](../protocol/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[hw-config](../../areas/hw-config/README.md)、[peripheral-control](../../areas/peripheral-control/README.md)、[protocol](../../areas/protocol/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
 
 # canopen-chassis — CANopen 移动底盘与 CAN 传感器
 

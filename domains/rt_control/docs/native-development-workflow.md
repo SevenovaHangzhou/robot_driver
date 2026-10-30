@@ -108,7 +108,7 @@ Ti5 PreservePdoConfig 会拒绝不符合 `1601/1A01` 的在线布局，换驱动
 
 当前失能暖启动记录为 6.821/6.381 秒；冷启动、长期抖动及使能运动未据此验收，
 两次停机的 X503 `0x001A` 仍有待处理。详细记录见
-[启动周期纠错](areas/ecat-axes/records/2026-09-10-electri-97-startup-rate-correction.md)。
+[启动周期纠错](areas-archive/ecat-axes/records/2026-09-10-electri-97-startup-rate-correction.md)。
 
 ```bash
 cd /home/user/rt-control-dev/robot

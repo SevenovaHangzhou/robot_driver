@@ -41,8 +41,8 @@ RT-Control 不负责：
 
 ```text
 robot_driver/
-├─ domains/rt_control/      # 实时域规则、进度时间线、阻塞问题和验收记录
-│  ├─ docs/areas/           # 按 7 个职责功能区组织的开发记录与冻结事实索引
+├─ domains/rt_control/      # 域地图、进度时间线、阻塞问题和验收记录
+│  ├─ docs/areas/           # 7 个功能区的开发记录与冻结事实（旧 9 区在 docs/areas-archive/）
 │  └─ testing/              # 发布前测试分层、用例目录、runner 与 baseline
 ├─ src/
 │  ├─ description/          # robot_description 构建副本
@@ -68,12 +68,11 @@ robot_driver/
 
 | 文档 | 内容 |
 | --- | --- |
-| [domains/rt_control/README.md](domains/rt_control/README.md) | RT-Control 构建、运行与验收入口 |
-| [domains/rt_control/docs/areas/README.md](domains/rt_control/docs/areas/README.md) | 7 个职责功能区的开发记录、归属规则与冻结事实索引 |
+| [domains/rt_control/README.md](domains/rt_control/README.md) | 域地图：包与层、数据流、启动入口、记录位置 |
+| [domains/rt_control/docs/areas/README.md](domains/rt_control/docs/areas/README.md) | 7 个功能区的开发记录、归属规则与冻结事实 |
 | [domains/rt_control/testing/README.md](domains/rt_control/testing/README.md) | 发布前测试分层、用例、runner 与 baseline |
 | `src/vendor/robot_interfaces/contract/views/rt_control.md` | 固定 SHA 中的 RT-Control 公共契约视图 |
-| [domains/rt_control/docs/one-command-start.md](domains/rt_control/docs/one-command-start.md) | 一键启动与接口速查 |
-| [domains/rt_control/PROGRESS.md](domains/rt_control/PROGRESS.md) | 2026-08-13 起的验证时间线索引 |
+| [domains/rt_control/PROGRESS.md](domains/rt_control/PROGRESS.md) | 验证时间线索引 |
 | [domains/rt_control/BLOCKED-questions.md](domains/rt_control/BLOCKED-questions.md) | 已裁决和待裁决问题 |
 
 ## 本地质量门禁

@@ -159,7 +159,7 @@ Idle，所有从站回到 PREOP。九路版本构建成功，13 项 C++ 测试�
 温度字段未定义可用换算；状态码为保留字段，0不能解释为已确认的无故障状态。
 短时计数变化不等于已完成闭环新鲜度、长期 DC 稳定性或整机运行验收。
 
-详细证据见[实机通信记录](../../../domains/rt_control/docs/areas/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md)。
+详细证据见[实机通信记录](../../../domains/rt_control/docs/areas-archive/ecat-axes/records/2026-10-07-bluepoint-raw-bench-topics.md)。
 
 
 ## DOCX 配置复测结果（2026-10-07）

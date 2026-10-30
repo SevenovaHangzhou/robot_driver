@@ -362,7 +362,7 @@ Docker build context 由 `.dockerignore` 排除 `.git`、本地 `build/install/l
 当前移植以 `main@b80f6c1` 为底，完整保留 PR #16 的 18 位拓扑，并由 descriptor
 独立登记 14 个 motion axes、两台 X503 sensors 和两个 Hub responders。完整候选镜像
 构建 29 个包；镜像 ID、365 项 in-image 测试、隔离 Mock 与停机证据见
-[`release-deploy-20260903-01`](areas/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)。
+[`release-deploy-20260903-01`](areas-archive/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)。
 
 该候选镜像来自未提交 worktree，只是 T1 验证证据。必须在提交/CI 后以最终 SHA 重建，
 且 PR #16 要求的 18 位不使能实机 OP/WC/X503 raw 检查仍未由本次移植完成。
