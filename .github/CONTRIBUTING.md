@@ -4,7 +4,7 @@
 
 ## 1. 分支
 
-- `main` 是唯一长期分支，也是 V3 主线。禁止直接 push，全部经 PR 合并；必须 CI 通过、至少一名 reviewer approve；禁止 force push 和改写共享历史。
+- `main` 是唯一长期分支，也是 V3 主线。禁止直接 push，全部经 PR 合并；必须 CI 门禁（governance）通过、至少一名 reviewer approve；禁止 force push 和改写共享历史。
 - 工作分支：`feature/<id>-<slug>`、`bugfix/<id>-<slug>`、`hotfix/<id>-<slug>`、`release/vX.Y`。`<id>` 用 Linear ID；无 Issue 的治理任务用 `arch-` 等任务前缀。小写、连字符分词，禁止 `tmp`、`wip`、`test` 这类无信息名称。
 - 涉及 Robot Model、`src/interfaces`、Compose、部署配置或安全边界的 PR 需要核心负责人 approve。
 
@@ -60,11 +60,16 @@ PR 描述中写 `Closes`/`Related to` 关联 Issue；跨域任务先在 `robot_i
 
 | 事件 | 执行 |
 | --- | --- |
-| PR opened / synchronize / reopened | `rt-control-ci`：`governance`（pre-commit = `tools/quality_gate.sh` + PR 契约门禁）与完整 `build` |
+| PR opened / synchronize / reopened / labeled | `rt-control-ci`：`governance`（pre-commit = `tools/quality_gate.sh` + PR 契约门禁），合并只等它 |
+| PR 带 `full-ci` 标签 | 另跑完整 `build`（干净环境：上游依赖、补丁、IgH、全量构建与测试） |
+| 每晚 02:00（北京时间）、手动触发 | 在 `main` 上跑完整 `build`；失败时由提交者第二天修复 |
 | PR edited | `pr-metadata-governance`：只校验 PR 契约 |
-| push(main) | 不重复运行；以合并前检查为准 |
+| push(main) | 不运行 |
 
-本地通过 `pre-commit install` 调用同一门禁；未安装 hook 不构成豁免。普通源码 CI 不构建生产镜像。
+用户 2026-10-30 选定方案 A：PR 只等快速门禁，完整构建改为每晚。改动构建配置、包清单
+（`package.xml`/`CMakeLists.txt`/`deps.repos`/`patches/`/`docker/`/`.github/`/`tools/bootstrap_native_dev.sh`）
+的 PR 应打 `full-ci` 标签或由作者本地完成对应构建。本地通过 `pre-commit install` 调用同一门禁；
+未安装 hook 不构成豁免。普通源码 CI 不构建生产镜像。
 
 ## 6. 权限
 

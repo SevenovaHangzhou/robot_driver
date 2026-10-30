@@ -35,7 +35,7 @@
 | governance/F11 | main 是稳定源码基线，普通源码 PR 不强制 Docker；源码稳定后由人工选择 SHA 封装，发布产物仍需完整镜像/容器证据 | [governance-20260915-01](../../areas-archive/governance/records/2026-09-15-main-manual-docker-packaging.md)#F1-F3；BQ-148 | 有效 |
 | governance/F12 | 完整 CI 只由代码相关 PR 事件触发；PR 描述编辑只跑 contract governance；PR 合并后的 main push 不重复全量构建 | [governance-20260917-01](../../areas-archive/governance/records/2026-09-17-pr-ci-trigger-deduplication.md)#F1-F3 | 有效；GitHub main 分支保护待配置 |
 | governance/F13 | Robot Model CI 校验必须 source 当前构建 overlay 后再运行 xacro/check_urdf | [governance-20260919-01](../../areas-archive/governance/records/2026-09-19-v3-description-overlay-ci.md)#F1-F2 | PASS（T0 回归；PR CI 终态待确认） |
-| governance/F14 | head-fast 只提供提前反馈，所有代码 PR 仍无条件执行完整 V3 build；CI 基础镜像使用精确标签且保留公开 ROS 回退 | [governance-20260920-01](../../areas-archive/governance/records/2026-09-20-layered-ci-cache.md)#F1-F4 | PARTIAL（基础镜像发布与变量启用待完成） |
+| governance/F14 | ~~head-fast 只提供提前反馈，所有代码 PR 仍无条件执行完整 V3 build~~（用户 2026-10-30 方案 A 取代：PR 只跑 governance，完整 build 每晚/手动/`full-ci` 标签触发，head-fast 删除）；CI 基础镜像使用精确标签且保留公开 ROS 回退 | [governance-20260920-01](../../areas-archive/governance/records/2026-09-20-layered-ci-cache.md)#F1-F4 | PARTIAL（基础镜像发布与变量启用待完成） |
 | governance/STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](../../areas-archive/governance/records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
 | governance/CONTRACT-1 | 三档测试、语言分工、任务指派分支授权 | [governance-20261013-02](../../areas-archive/governance/records/2026-10-13-agent-contract-sync.md)#F1-F3 | UNVERIFIED（T0文档） |
 | AREA-1 | 七区owner、历史冻结与目标分层，代码迁移另立任务 | [划分decision](../../areas-archive/governance/records/2026-10-13-seven-agent-areas.md)#F1-F4 | UNVERIFIED（T0文档与索引） |
