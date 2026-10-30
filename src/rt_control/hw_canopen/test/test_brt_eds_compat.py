@@ -1,6 +1,7 @@
 """Compatibility changes are limited to measured width and tool classification."""
 
 import configparser
+import difflib
 import hashlib
 from pathlib import Path
 
@@ -49,3 +50,13 @@ def test_object_inventory_preserved_without_duplicates():
     original, compat = read(ORIGINAL), read(COMPAT)
     assert inventory(original) == inventory(compat)
     assert int(compat["MandatoryObjects"]["supportedobjects"]) == 3
+
+
+def _lf_lines(name):
+    return (ROOT / name).read_bytes().decode().replace("\r\n", "\n").splitlines(keepends=True)
+
+
+def test_compat_file_is_the_vendor_original_plus_the_recorded_diff():
+    # The compatibility EDS is derived: vendor original (hash-locked) + compat.diff.
+    diff = difflib.unified_diff(_lf_lines(ORIGINAL), _lf_lines(COMPAT), ORIGINAL, COMPAT, n=0)
+    assert "".join(diff) == (ROOT / "BRT-Multi-turn-V1.0.compat.diff").read_text()

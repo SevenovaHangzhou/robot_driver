@@ -6,4 +6,4 @@
 - 为适配Lely的CiA301严格分类，将五个DS406对象从MandatoryObjects移到OptionalObjects。对象仍全部保留，不改变设备行规对它们的要求。
 - 对象默认值、访问权限、PDO映射及其他类型不变。分辨率65536、16圈范围和标定偏置由实机配置单独记录，不将当前读数伪装成厂家默认值。
 
-差异见同目录compat.diff，来源和哈希见compat.yaml。生成DCF仍使用严格检查，不使用no-strict。
+兼容件是派生文件：厂家原件（SHA256 锁定）+ 同目录 `compat.diff`（按 LF 行、0 行上下文的统一 diff）。修改时先改 `compat.diff` 与 `compat.yaml` 的 `changes`，再按 diff 重新生成兼容件（保留原件的 CRLF 行尾）；`test_brt_eds_compat.py` 校验三者一致。来源和哈希见compat.yaml。生成DCF仍使用严格检查，不使用no-strict。
