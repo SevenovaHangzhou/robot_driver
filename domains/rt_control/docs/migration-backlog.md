@@ -27,7 +27,7 @@
 | [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行 | 3 硬指标 |
 | [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
 | [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试 | 1.5、4.6 |
-| [ ] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个 | 1.3 |
+| [x] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个（arch-f1：两个一次性历史生成脚本删除——它们读取的是 `source_commit` 旧检出的 bringup；补齐 `robot_hw_can`、`robot_hw_canopen` 测试依赖） | 1.3 |
 | [x] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除（arch-cleanup：已删除） | 1.4、1.2 |
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |
 | [ ] | F | `robot_description` 内多份展开 `.urdf` 与多套 `joint_limits_*`/`named_poses_*` 变体并存 | 1.1、4.5 |
