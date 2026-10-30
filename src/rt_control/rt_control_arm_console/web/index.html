@@ -19,10 +19,24 @@
   <header class="topbar">
     <div class="brand"><span class="brand-mark"></span><b>ALFA</b><span>左臂</span>
       <span id="mock-chip" class="chip" hidden>Mock · 非实机</span></div>
-    <div class="chips">
+    <div class="topbar-status">
+      <div class="chips">
       <span id="conn-chip" class="chip bad">未连接</span>
       <span id="enable-chip" class="chip">--</span>
       <span id="ctrl-chip" class="chip">控制器 --</span>
+      </div>
+      <div id="vacuum-pressure" class="vacuum-pressure" role="group" aria-label="真空压力，表压">
+        <div class="pressure-reading" data-pressure="left" title="AI0 · 左侧真空表压">
+          <span class="pressure-label">左真空</span>
+          <span><strong class="pressure-value">—</strong> <span class="pressure-unit">kPa</span></span>
+          <small class="pressure-status">等待数据</small>
+        </div>
+        <div class="pressure-reading" data-pressure="right" title="AI1 · 右侧真空表压">
+          <span class="pressure-label">右真空</span>
+          <span><strong class="pressure-value">—</strong> <span class="pressure-unit">kPa</span></span>
+          <small class="pressure-status">等待数据</small>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -43,6 +57,18 @@
         </div>
         <div id="gears" class="gears"></div>
       </div>
+
+      <section id="vacuum-panel" class="card vacuum-panel" aria-labelledby="vacuum-title">
+        <div class="card-head"><h2 id="vacuum-title">真空控制</h2>
+          <span id="vacuum-chip" class="chip">等待读取</span></div>
+        <div class="vacuum-buttons">
+          <button type="button" data-vacuum="pump" disabled><span>真空泵</span><strong>未知</strong><small>等待读取</small></button>
+          <button type="button" data-vacuum="left" disabled><span>左臂阀</span><strong>未知</strong><small>等待读取</small></button>
+          <button type="button" data-vacuum="right" disabled><span>右臂阀</span><strong>未知</strong><small>等待读取</small></button>
+        </div>
+        <p id="vacuum-message" class="hint" role="status" aria-live="polite">登录后读取开关状态</p>
+        <p class="hint">三个开关独立控制；开启状态不代表已吸附。</p>
+      </section>
 
       <div class="card">
         <div class="card-head"><h2>关节目标</h2>
@@ -66,6 +92,12 @@
         <ul id="poses" class="poses"></ul>
         <div class="sequence">
           <div class="card-head"><h2>位姿序列</h2><small id="sequence-count" class="hint-inline"></small></div>
+          <div class="row">
+            <label for="sequence-dwell">新增段默认停留（秒）</label>
+            <input id="sequence-dwell" type="number" min="0" step="0.1" value="0">
+            <button id="sequence-apply" type="button">当前速度和停留应用到全部段</button>
+          </div>
+          <p class="hint">每段速度用于前往该位姿；停留从到位后开始，最后一段也停留。每段可单独修改。</p>
           <ol id="sequence" class="sequence-list"></ol>
           <p id="sequence-empty" class="hint">在上方位姿上点“+ 序列”按顺序加入，可重复加入。</p>
           <div class="row">

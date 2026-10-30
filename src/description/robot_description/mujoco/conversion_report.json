@@ -1,0 +1,19 @@
+{
+  "source": "urdf/robot_alfav3_mobile.urdf",
+  "source_sha256": "beb734cb900489b5792182364bfad3ae60c826a832e3860fad20bf16714b61b3",
+  "mujoco_version": "3.15.0",
+  "nq": 25,
+  "nv": 25,
+  "nu": 25,
+  "base": "fixed base_footprint; all URDF moving joints retained",
+  "contacts": true,
+  "collision_group": 0,
+  "visual_group": 1,
+  "collision_visible": false,
+  "contact_exclusions": "directly connected URDF parent/child links",
+  "actuators": "direct force/torque motors; URDF effort limits",
+  "velocity_limits": "URDF velocity limits are not enforced by MuJoCo",
+  "planar_collision_proxies": [],
+  "convex_collision_components": [],
+  "arm_collision_import": "config/arm_collision_import.json"
+}

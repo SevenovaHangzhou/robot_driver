@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import partial
 import threading
 import time
 from typing import Callable, Optional, Sequence
@@ -11,6 +12,7 @@ from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
 from controller_manager_msgs.srv import ListControllers
 from diagnostic_msgs.msg import DiagnosticArray
+from plc_io_modbus.msg import VacuumSensorState
 from rcl_interfaces.srv import GetParameters
 import rclpy
 from rclpy.action import ActionClient
@@ -67,6 +69,14 @@ class RosBridge(Node):
         self.create_subscription(
             DiagnosticArray, "/diagnostics", self._diagnostics, 10, callback_group=self._group
         )
+        # Latest display sample only; best effort also matches reliable publishers.
+        pressure_qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
+        for side in ("left", "right"):
+            self.create_subscription(
+                VacuumSensorState, f"/plc_io/vacuum/{side}",
+                partial(self._vacuum_pressure, side),
+                pressure_qos, callback_group=self._group,
+            )
         self._enable = self.create_client(
             SetControlEnabled, "/control/set_enabled", callback_group=self._group
         )
@@ -175,6 +185,12 @@ class RosBridge(Node):
         )
 
     # ------------------------------------------------------------------ feedback
+    def _vacuum_pressure(self, side: str, message: VacuumSensorState) -> None:
+        if self.console is not None:
+            self.console.update_vacuum_pressure(
+                side, message.pressure_kpa, message.valid, message.error, message.unit
+            )
+
     def _joint_states(self, message: JointState) -> None:
         if self.console is None or len(message.name) != len(message.position):
             return
@@ -220,7 +236,7 @@ class RosBridge(Node):
         def accepted(future) -> None:
             handle = future.result()
             if not handle.accepted:
-                done(False, "控制器拒绝轨迹（起点不一致或参数不符）")
+                done(False, "控制器拒绝轨迹（请查JTC日志：点数上限、起点一致性或参数校验）")
                 return
             with self._lock:
                 self._goal = handle

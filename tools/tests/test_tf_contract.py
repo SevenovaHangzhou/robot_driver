@@ -24,17 +24,17 @@ class TfContractTest(unittest.TestCase):
             source["repository"],
             "https://github.com/SevenovaHangzhou/robot_description.git",
         )
-        self.assertEqual(source["source_branch"], "feature/electri-127-alfav3-left-j3-j6-axis")
+        self.assertEqual(source["source_branch"], "main")
         self.assertEqual(
             source["source_revision"],
-            "5ec6b653d7b72f9d25fecea4d71e5d640ce468ca",
+            "12a83dd0a008b2e1046b86053cd3a47592307acb",
         )
         self.assertEqual(
             source["source_tree"],
-            "4706b7a18d7359f5752bb6473068866af3cb8050",
+            "adc951282e0c6746ca21d55014d649481f3a000d",
         )
         self.assertEqual(source["model_family"], "alfa_v3")
-        self.assertEqual(source["default_end_effector"], "suction")
+        self.assertEqual(source["default_end_effector"], "mobile_proxy")
 
     def test_v3_robot_model_roots_at_base_footprint(self):
         robot = ET.parse(MOBILE_URDF).getroot()
@@ -57,8 +57,8 @@ class TfContractTest(unittest.TestCase):
         joints = {joint.attrib["name"]: joint for joint in robot.findall("joint")}
         expected = {
             "updown",
-            "head_joint",
-            "head_pitch_joint",
+            "H1_joint",
+            "H2_joint",
             *(f"right_joint{index}" for index in range(1, 8)),
             *(f"left_joint{index}" for index in range(1, 8)),
             *(f"steer{index}_joint" for index in range(1, 5)),
@@ -76,10 +76,8 @@ class TfContractTest(unittest.TestCase):
     def test_v3_model_assets_and_variants_are_installed_by_the_package(self):
         for relative_path in (
             "urdf/robot_alfav3_mobile.urdf",
-            "urdf/robot_dual_suction.urdf.xacro",
             "srdf/robot_alfav3_mobile.srdf",
             "config/joint_limits_alfav3_mobile.yaml",
-            "config/joint_limits_suction.yaml",
         ):
             self.assertTrue((DESCRIPTION / relative_path).is_file(), relative_path)
         robot = ET.parse(MOBILE_URDF).getroot()
@@ -88,9 +86,7 @@ class TfContractTest(unittest.TestCase):
             self.assertTrue((DESCRIPTION / path).is_file(), path)
 
         cmake = (DESCRIPTION / "CMakeLists.txt").read_text(encoding="utf-8")
-        self.assertIn("install(DIRECTORY urdf srdf meshes config DESTINATION", cmake)
-        self.assertIn("model_sources/mechanical_958c49d", cmake)
-        self.assertIn("model_sources/alfav3_arms_1011_4", cmake)
+        self.assertIn("install(DIRECTORY urdf srdf config mesh DESTINATION", cmake)
 
     def test_image_and_bringup_require_robot_state_publisher(self):
         manifest = ET.parse(BRINGUP_MANIFEST).getroot()

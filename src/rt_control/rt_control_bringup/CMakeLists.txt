@@ -44,15 +44,6 @@ if(BUILD_TESTING)
   target_compile_features(test_control_loop_timing PUBLIC cxx_std_17)
   target_include_directories(test_control_loop_timing PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  find_package(swerve_driver REQUIRED)
-  find_package(robot_hw_ethercat REQUIRED)
-  ament_add_gtest(test_cyclic_controller test/test_cyclic_controller.cpp TIMEOUT 90)
-  target_compile_features(test_cyclic_controller PUBLIC cxx_std_17)
-  target_include_directories(test_cyclic_controller PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../swerve_driver/test)
-  ament_target_dependencies(test_cyclic_controller swerve_driver robot_hw_ethercat)
-  target_compile_definitions(test_cyclic_controller PRIVATE
-    KINCO_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/../robot_hw_ethercat/test/fixtures/kinco_cyclic_mode_mock.yaml")
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
   ament_add_pytest_test(test_scope_lifecycle test/test_scope_lifecycle.py)

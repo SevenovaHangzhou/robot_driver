@@ -6,7 +6,7 @@ command_rate_hz: 250.0
 disabled_poll_interval_ms: 20
 max_rx_frames_per_cycle: 32
 joints:
-- name: head_joint
+- name: H1_joint
   can_id: 1
   master_id: 17
   min: -1.57
@@ -15,7 +15,7 @@ joints:
   acceleration_krad_s2: 0.025
   deceleration_krad_s2: -0.05
   maximum_speed_rad_s: 20.0
-- name: head_pitch_joint
+- name: H2_joint
   can_id: 2
   master_id: 18
   min: -1.0

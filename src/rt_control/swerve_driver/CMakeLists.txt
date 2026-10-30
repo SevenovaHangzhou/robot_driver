@@ -16,28 +16,13 @@ endforeach()
 option(SWERVE_ENABLE_COVERAGE "Instrument swerve targets for GCC coverage" OFF)
 add_library(swerve_math SHARED
   src/swerve_kinematics.cpp src/swerve_odometry.cpp src/swerve_setpoint.cpp
-  src/odometry_covariance.cpp src/control_core.cpp src/body_velocity_shaper.cpp
-  src/relative_move_planner.cpp src/relative_move_session.cpp src/chassis_mode_handoff.cpp)
+  src/odometry_covariance.cpp src/control_core.cpp src/body_velocity_shaper.cpp)
 target_link_libraries(swerve_math PUBLIC ruckig::ruckig)
-add_library(swerve_controller SHARED src/swerve_controller.cpp src/chassis_runtime.cpp)
+add_library(swerve_controller SHARED src/swerve_controller.cpp)
 target_link_libraries(swerve_controller PUBLIC swerve_math)
 ament_target_dependencies(swerve_controller PUBLIC ${dependencies})
 
-find_package(rclcpp_action REQUIRED)
-find_package(rcl_interfaces REQUIRED)
-find_package(rt_control_interfaces REQUIRED)
-ament_target_dependencies(swerve_controller PUBLIC rclcpp_action rt_control_interfaces)
-# A separate executable/library with no hardware/plugin dependency. Never loaded by production launch.
-add_library(swerve_relative_move_mock SHARED src/relative_move_mock_node.cpp)
-target_link_libraries(swerve_relative_move_mock PUBLIC swerve_math)
-ament_target_dependencies(swerve_relative_move_mock PUBLIC rclcpp rclcpp_action rcl_interfaces geometry_msgs rt_control_interfaces)
-add_executable(chassis_relative_move_mock src/relative_move_mock_main.cpp)
-target_link_libraries(chassis_relative_move_mock swerve_relative_move_mock)
-install(TARGETS swerve_relative_move_mock chassis_relative_move_mock
-  ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION lib/${PROJECT_NAME})
-install(FILES test/fixtures/relative_move_mock.yaml DESTINATION share/${PROJECT_NAME}/test)
-
-foreach(target swerve_math swerve_controller swerve_relative_move_mock)
+foreach(target swerve_math swerve_controller)
   target_compile_features(${target} PUBLIC cxx_std_17)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
   target_include_directories(${target} PUBLIC
@@ -56,24 +41,15 @@ install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 install(FILES LICENSE NOTICE.md README.md DESTINATION share/${PROJECT_NAME})
 ament_export_targets(export_swerve_driver HAS_LIBRARY_TARGET)
-ament_export_dependencies(${dependencies} rclcpp_action rcl_interfaces rt_control_interfaces ruckig)
+ament_export_dependencies(${dependencies} ruckig)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
-  find_package(ament_cmake_pytest REQUIRED)
-  ament_add_pytest_test(test_relative_move_mock_process test/test_relative_move_mock_process.py
-    TIMEOUT 40 ENV
-    "SWERVE_RELATIVE_MOCK_BINARY=$<TARGET_FILE:chassis_relative_move_mock>"
-    "SWERVE_RELATIVE_MOCK_CONFIG=${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/relative_move_mock.yaml")
   find_package(controller_manager REQUIRED)
-  foreach(test kinematics odometry odometry_covariance control_core relative_move_planner relative_move_session chassis_mode_handoff)
+  foreach(test kinematics odometry odometry_covariance control_core)
     ament_add_gtest(test_${test} test/test_${test}.cpp)
     target_link_libraries(test_${test} swerve_math)
   endforeach()
-  ament_add_gtest(test_relative_move_mock test/test_relative_move_mock.cpp TIMEOUT 120)
-  target_link_libraries(test_relative_move_mock swerve_relative_move_mock)
-  target_compile_definitions(test_relative_move_mock PRIVATE
-    SWERVE_RELATIVE_MOCK_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/relative_move_mock.yaml")
   ament_add_gtest(test_controller test/test_controller.cpp)
   target_link_libraries(test_controller swerve_controller)
   ament_add_gtest(test_controller_manager test/test_controller_manager.cpp)

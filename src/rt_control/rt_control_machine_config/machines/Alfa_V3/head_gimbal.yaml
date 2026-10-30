@@ -28,7 +28,7 @@ spec:
     acceleration_krad_s2: 2.0
     deceleration_krad_s2: -2.0
     maximum_speed_rad_s: 600.0
-    robot_model_joint: head_joint
+    robot_model_joint: H1_joint  # yaw (user 2026-10-30)
     device: devices/damiao_dm_j4310_2ec_v1_1.yaml
     direction: TBD
   - can_id: 2
@@ -37,7 +37,7 @@ spec:
     acceleration_krad_s2: 2.0
     deceleration_krad_s2: -2.0
     maximum_speed_rad_s: 600.0
-    robot_model_joint: head_pitch_joint
+    robot_model_joint: H2_joint  # pitch (user 2026-10-30)
     device: devices/damiao_dm_j4310_2ec_v1_1.yaml
     direction: TBD
 master_system: damiao_head

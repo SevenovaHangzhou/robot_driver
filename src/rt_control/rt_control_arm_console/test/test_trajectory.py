@@ -84,3 +84,41 @@ def test_stop_near_the_end_never_passes_the_target():
     assert stop.target[0] <= DEG(30) + 1e-12
     assert stop.target[0] == pytest.approx(DEG(30))
     assert plan_stop(plan, plan.duration + 1.0, SPORT).duration == 0.0
+import math
+import pytest
+from rt_control_arm_console.trajectory import Limits,plan_move
+
+@pytest.mark.parametrize('speed',[2,5,10])
+@pytest.mark.parametrize('angle',[-170,-90,30,90,170])
+def test_bounded_spline_preserves_path_and_phase_boundaries(speed,angle):
+    plan=plan_move([0.,.1],[math.radians(angle),.2],Limits(*map(math.radians,[speed,2*speed,8*speed])))
+    points=plan.bounded_points(.01,2000)
+    assert len(points)<=2000
+    assert points[0]==plan.state(0)
+    assert points[-1]==plan.state(plan.duration)
+    assert all(a.time<b.time for a,b in zip(points,points[1:]))
+    original_count=math.ceil(plan.duration/.01-1e-9)+1
+    if original_count<=2000:
+        assert points==plan.points(.01)
+        return
+    t=0
+    for duration,_ in plan.profile.segments:
+        t+=duration
+        assert any(abs(p.time-t)<1e-10 for p in points)
+    # Hermite quintic reconstruction from q/v/a endpoints, as used by JTC.
+    for a,b in zip(points,points[1:]):
+        h=b.time-a.time
+        for joint in range(2):
+            c0=a.positions[joint];c1=h*a.velocities[joint];c2=h*h*a.accelerations[joint]/2
+            x=b.positions[joint]-c0-c1-c2
+            y=h*b.velocities[joint]-c1-2*c2
+            z=h*h*b.accelerations[joint]-2*c2
+            c3=10*x-4*y+z/2;c4=-15*x+7*y-z;c5=6*x-3*y+z/2
+            for u in [.25,.5,.75]:
+                q=c0+c1*u+c2*u**2+c3*u**3+c4*u**4+c5*u**5
+                assert q==pytest.approx(plan.state(a.time+h*u).positions[joint],abs=2e-12)
+
+def test_j4_low2_regression():
+    plan=plan_move([0.],[math.radians(-90)],Limits(*map(math.radians,[2,4,16])))
+    assert len(plan.points(.01))>4500
+    assert len(plan.bounded_points(.01,2000))<=2000

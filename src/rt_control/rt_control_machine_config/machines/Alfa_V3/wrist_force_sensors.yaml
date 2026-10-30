@@ -3,29 +3,29 @@ kind: machine_module
 status: draft
 verified: false
 authorities:
-  source: rt_control_bringup/config/bluepoint_force_sensors.draft.yaml
+  source: live EtherCAT identity and PDO readback 2026-10-24 on ar-Default-string
 pending_facts:
-- re-scan both absolute ring positions when replacing the six-responder bench topology
+- re-scan both absolute ring positions after any physical topology change
 - P140000100 engineering-unit scale confirmation
 - authoritative frame IDs and installed sensor-axis orientation
 - long-run DC/sample-counter behavior and reserved-field behavior
 - sample freshness policy for closed-loop force-control admission
-- positions 2/4 apply only to the six-responder bench; full-machine positions remain
-  TBD
+- positions 8/16 apply to the observed eighteen-responder dual-arm layout only;
+  complete robot topology remains TBD
 robot_variant: Alfa_V3
 module: wrist_force_sensors
 master_system: ecat_arms
 spec:
   sensors:
   - side: left
-    ring_position: 2
+    ring_position: 8
     profile: bluepoint_p140000100
     frame_id: TBD
     binding: left_wrist
     sensor_name: left_wrist_force_sensor
     controller_name: left_wrist_force_sensor_broadcaster
   - side: right
-    ring_position: 4
+    ring_position: 16
     profile: bluepoint_p140000100
     frame_id: TBD
     binding: right_wrist
@@ -35,6 +35,18 @@ spec:
   bench_extra_responders:
   - 0
   - 1
+  - 2
   - 3
+  - 4
   - 5
+  - 6
+  - 7
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 17
   full_ring_positions: TBD

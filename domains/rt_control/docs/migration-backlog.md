@@ -41,7 +41,7 @@
 | [ ] | C | `rt_disable_once` 与 `head_disable_once` 同一件事两种写法 | 3 |
 | [ ] | C | `rt_control_bringup/ros2_control_node.cpp` fork 上游 main | 3、§6 窄补丁 |
 | [ ] | D | `composer.compose()` 单函数 300 行 | 4.3 |
-| [ ] | D | `swerve_controller.cpp` 1042 行；`relative_move` 与控制器同包；mock 在 `src/` | 3 硬指标、1.4、4.6 |
+| [x] | D | `swerve_controller.cpp` 1042 行；`relative_move` 与控制器同包；mock 在 `src/`（arch-b1：用户 2026-10-30 裁定删除整个 relative 扩展——relative_move、ChassisRuntime、chassis_mode_handoff 与 6 个 IDL；`swerve_controller.cpp` 降至 893 行，mock 随之删除） | 3 硬指标、1.4、4.6 |
 
 ## 5a. 逐包处置表（基于 `43d4c64`）
 
@@ -59,7 +59,7 @@
 | [ ] | `enable_manager` | control | 拆 | `ctrl_enable_manager` | 2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
 | [x] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
 | [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | `rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
-| [ ] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | 内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
+| [ ] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | （arch-b1 已删 relative 扩展；剩余：改名）内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
 | [ ] | `rt_force_torque_broadcaster` | control | 保留 | `ctrl_force_torque_broadcaster` | 健康。 |
 | [ ] | `x503_force_sensor` | control | 并入 `hw_ethercat` | — | X503 PREOP 标定/SDO 快照脚本，纯协议工具。 |
 | [ ] | `bms_node` | periph | 保留 | `periph_bms` | `protocol/` 子目录无 rclcpp，健康。SocketCAN 下沉 infra。`dual_battery_controller` 是策略不是监控，但 opt-in 默认关，记一笔不动。 |

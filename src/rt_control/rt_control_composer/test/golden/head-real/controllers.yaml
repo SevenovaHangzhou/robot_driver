@@ -20,8 +20,8 @@ enable_manager:
     - motor_temperature
     - feedback_age_ms
     diagnostic_joints:
-    - head_joint
-    - head_pitch_joint
+    - H1_joint
+    - H2_joint
     disable_stage_timeout: 5.0
     fault_reset_timeout: 5.0
     handshake_devices:
@@ -31,8 +31,8 @@ head_position_controller:
   ros__parameters:
     interface_name: position
     joints:
-    - head_joint
-    - head_pitch_joint
+    - H1_joint
+    - H2_joint
 joint_state_broadcaster:
   ros__parameters:
     interfaces:
@@ -40,6 +40,6 @@ joint_state_broadcaster:
     - velocity
     - effort
     joints:
-    - head_joint
-    - head_pitch_joint
+    - H1_joint
+    - H2_joint
     update_rate: 50
