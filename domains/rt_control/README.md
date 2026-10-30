@@ -7,6 +7,7 @@
 
 | 层 | 包 | 一句话 |
 | --- | --- | --- |
+| infra | `infra_shm_ring` | 不依赖任何域包的共享叶子库（Runtime-LOG 共享内存环） |
 | hw_config | `rt_control_machine_config` | 机型 manifest、模块、设备、台套（零位/标定/部署）数据，无代码 |
 | protocol | `robot_hw_ethercat` `robot_hw_canopen` `robot_hw_can` `rt_control_semantic_components` | 总线/设备适配、renderer、CiA402 语义封装 |
 | control | `enable_manager` `rolling_trajectory_controller` `swerve_driver` `rt_force_torque_broadcaster` `x503_force_sensor` | 使能状态机与各控制器/广播器 |

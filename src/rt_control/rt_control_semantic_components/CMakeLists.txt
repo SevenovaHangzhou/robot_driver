@@ -40,17 +40,6 @@ if(BUILD_TESTING)
     rt_control_semantic_components
   )
 
-  # Runtime-LOG shared-memory format copy: must match the frozen v1 sample.
-  ament_add_gtest(test_runtime_log_shm_ring
-    test/test_runtime_log_shm_ring.cpp
-  )
-  target_compile_features(test_runtime_log_shm_ring PUBLIC cxx_std_17)
-  target_compile_options(test_runtime_log_shm_ring PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
-  target_compile_definitions(test_runtime_log_shm_ring PRIVATE
-    RUNTIME_LOG_GOLDEN="${CMAKE_CURRENT_SOURCE_DIR}/test/data/shm_format_v1.bin"
-  )
-  target_link_libraries(test_runtime_log_shm_ring rt_control_semantic_components)
-
   ament_add_gtest(test_force_torque_sensor
     test/test_force_torque_sensor.cpp
   )

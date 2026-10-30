@@ -32,7 +32,7 @@
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "rt_control_interfaces/srv/rt_enable.hpp"
 #include "rt_control_semantic_components/cia402_axis.hpp"
-#include "rt_control_semantic_components/runtime_log_shm_ring.hpp"
+#include "infra_shm_ring/shm_ring.hpp"
 #include "std_msgs/msg/bool.hpp"
 
 namespace enable_manager

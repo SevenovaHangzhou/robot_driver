@@ -5,6 +5,7 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 
 find_package(ament_cmake REQUIRED)
+find_package(infra_shm_ring REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(controller_manager_msgs REQUIRED)
@@ -34,6 +35,7 @@ ament_target_dependencies(enable_manager_controller
   controller_interface
   controller_manager_msgs
   diagnostic_msgs
+  infra_shm_ring
   pluginlib
   rclcpp
   robot_interfaces_qos
@@ -61,7 +63,7 @@ install(FILES enable_manager_plugins.xml DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)
 ament_export_dependencies(
-  control_msgs controller_interface controller_manager_msgs diagnostic_msgs lifecycle_msgs
+  control_msgs controller_interface controller_manager_msgs diagnostic_msgs infra_shm_ring lifecycle_msgs
   pluginlib rclcpp robot_interfaces_qos robot_rt_control_interfaces robot_system_interfaces
   rt_control_interfaces
   rt_control_semantic_components

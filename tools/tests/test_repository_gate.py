@@ -619,6 +619,7 @@ if __name__ == "__main__":
 
 def layer_fixture():
     layers = {
+        "infra": ["ring"],
         "hw_config": ["rt_control_machine_config"],
         "integration": ["rt_control_composer"],
         "protocol": ["bus", "rt_control_semantic_components"],
@@ -652,6 +653,9 @@ def layer_fixture():
      'path = "evidence/observation.yaml"'),
     ("R8", "bms_node/include/bms_node/protocol/decoder.hpp", "#include <cstdint>",
      "#include <std_msgs/msg/header.hpp>"),
+    ("R11", "ring/include/ring/ring.hpp", "#include <cstdint>", '#include "rt_control_semantic_components/a.hpp"'),
+    ("R11", "ring/package.xml", "<package><name>ring</name></package>",
+     "<package><name>ring</name><depend>motor</depend></package>"),
 ])
 def test_layer_rules_accept_valid_input_and_reject_new_violations(rule, path, accepted, rejected):
     texts = layer_fixture()
