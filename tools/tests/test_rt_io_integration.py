@@ -157,7 +157,7 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
 def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     bms_source = (ROOT / "src/rt_control/periph_bms/src/bms_node.cpp").read_text()
     enable_source = (
-        ROOT / "src/rt_control/enable_manager/src/enable_manager_controller.cpp"
+        ROOT / "src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp"
     ).read_text()
     controller_patch = (
         ROOT / "patches/ros2_controllers/0002-use-contract-qos-profiles.patch"

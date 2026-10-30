@@ -102,8 +102,8 @@ def validate(repository_root: Path) -> list[str]:
         findings.append("V3 rt_control_start must not select the V2 launch")
     if 'exec "$0" --scope arms_only "$@"' not in start:
         findings.append("V3 rt_control_start must expose the explicit arm runtime")
-    if "<exec_depend>rolling_trajectory_controller</exec_depend>" not in package:
-        findings.append("V3 bringup must depend on rolling_trajectory_controller")
+    if "<exec_depend>ctrl_rolling_trajectory</exec_depend>" not in package:
+        findings.append("V3 bringup must depend on ctrl_rolling_trajectory")
     interface_pin = (
         dependencies.get("repositories", {}).get("src/vendor/robot_interfaces", {}).get("version")
     )

@@ -1,7 +1,7 @@
 controller_manager:
   ros__parameters:
     enable_manager:
-      type: enable_manager/EnableManagerController
+      type: ctrl_enable_manager/EnableManagerController
     hardware_components_initial_state:
       unconfigured:
       - damiao_head

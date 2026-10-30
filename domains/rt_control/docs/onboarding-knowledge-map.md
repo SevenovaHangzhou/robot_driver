@@ -91,7 +91,7 @@ flowchart TD
 | `rt_control_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/rt_control_interfaces/srv/RtEnable.srv) |
 | `robot_hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](https://github.com/SevenovaHangzhou/robot_driver/tree/43d4c648bca8/src/rt_control/robot_hw_ethercat/config/slaves) |
 | `robot_hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/robot_hw_canopen/config/bus.yml) |
-| `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/enable_manager/include/enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
+| `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/ctrl_enable_manager/include/ctrl_enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp) |
 | `rt_diagnostics` | EtherCAT、CANopen 和使能状态怎样形成统一诊断？ | `rt_diagnostics_node.cpp`（包已删除，arch-b3） |
 | `rt_control_bringup` | 哪些节点和控制器以什么顺序启动？ | [`rt_control.launch.py`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/rt_control_bringup/launch/rt_control.launch.py)、[`controllers.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/rt_control_bringup/config/controllers.yaml) |
 | 上游窄补丁 | 为什么只看本仓库源码还解释不了生产行为？ | [`deps.repos`](../../../deps.repos)、[`patches`](../../../patches)、[`Dockerfile`](../../../docker/rt-control/Dockerfile) |
@@ -225,7 +225,7 @@ docker stop / SIGTERM
 | 符号 | 阅读它能回答什么 | 文件 |
 | --- | --- | --- |
 | `generate_launch_description()` | 全域如何总装、哪些 controller 以什么状态启动？ | [`rt_control.launch.py`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/rt_control_bringup/launch/rt_control.launch.py) |
-| `EnableManagerController::on_configure()` | service、controller switch client 和诊断怎样建立？ | [`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
+| `EnableManagerController::on_configure()` | service、controller switch client 和诊断怎样建立？ | [`enable_manager_controller.cpp`](../../../src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp) |
 | `EnableManagerController::on_activate()` | 启动时怎样进入 `STARTUP_SANITIZING` 并清理旧状态？ | 同上 |
 | `EnableManagerController::update()` | 非实时请求怎样由实时状态机推进？ | 同上 |
 | `handleEnable/Disable/ResetFault()` | 三个生命周期 service 怎样接收、拒绝或抢占请求？ | 同上 |
@@ -234,7 +234,7 @@ docker stop / SIGTERM
 | `updateReset()` | 整组 Fault Reset 怎样发上升沿并确认？ | 同上 |
 | `validate_trajectory_start()` | 14 轴 FJT 如何按轴校验首点和 EtherCAT 反馈年龄？ | [`0001-jtc-start-consistency.patch`](../../../patches/ros2_controllers/0001-jtc-start-consistency.patch) |
 | `RtDiagnosticsNode::publishSnapshot()` | 多路硬件状态如何变成 1 Hz 诊断树？ | `rt_diagnostics_node.cpp`（包已删除，arch-b3） |
-| `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/enable_manager/src/rt_disable_once.cpp) |
+| `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/ctrl_enable_manager/src/rt_disable_once.cpp) |
 
 ## 4. 按任务找代码
 

@@ -41,7 +41,7 @@ class RepositoryGateTest(unittest.TestCase):
                     repository_gate.check_path(path),
                     "must live under domains/<domain>/",
                 )
-        self.assertEqual(repository_gate.check_path("src/rt_control/enable_manager/package.xml"), [])
+        self.assertEqual(repository_gate.check_path("src/rt_control/ctrl_enable_manager/package.xml"), [])
         self.assert_has(
             repository_gate.check_path("docs/README.md"),
             "root docs directory must remain empty",
@@ -157,12 +157,12 @@ vendored_packages:
             "shared package must not depend on domain package",
         )
 
-        feature_manifest = manifest.replace("robot_description", "enable_manager").replace(
-            "src/description/robot_description", "src/rt_control/enable_manager"
+        feature_manifest = manifest.replace("robot_description", "ctrl_enable_manager").replace(
+            "src/description/robot_description", "src/rt_control/ctrl_enable_manager"
         )
         self.assert_has(
             repository_gate.check_manifest_dependencies(
-                "src/rt_control/enable_manager/package.xml", feature_manifest
+                "src/rt_control/ctrl_enable_manager/package.xml", feature_manifest
             ),
             "feature package must not depend on rt_control_bringup",
         )

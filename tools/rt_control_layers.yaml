@@ -17,10 +17,10 @@ layers:
   - robot_hw_can
   - rt_control_semantic_components
   control:
-  - enable_manager
-  - rolling_trajectory_controller
-  - rt_force_torque_broadcaster
-  - swerve_driver
+  - ctrl_enable_manager
+  - ctrl_rolling_trajectory
+  - ctrl_force_torque_broadcaster
+  - ctrl_swerve
   periph:
   - periph_bms
   - periph_imu_lpms

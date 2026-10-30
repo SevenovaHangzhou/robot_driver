@@ -31,7 +31,7 @@ FORCE = dict(ARMS, physical_profile="force_bench", control_scope="force_bench")
 def shares(tmp_path, monkeypatch):
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["robot_description"] = RT.parent / "description/robot_description"
-    for name in ("rt_control_machine_config", "enable_manager", "robot_hw_ethercat"):
+    for name in ("rt_control_machine_config", "ctrl_enable_manager", "robot_hw_ethercat"):
         target = tmp_path / "share" / name
         shutil.copytree(RT / name, target, ignore=shutil.ignore_patterns("test", "src"))
         lookup[name] = target
