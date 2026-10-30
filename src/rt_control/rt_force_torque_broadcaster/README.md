@@ -38,9 +38,8 @@ StatusCode标为保留，不按故障状态解析。Temper也标为保留，注�
 
 配置来源：
 
-- [双传感器 YAML](../rt_control_bringup/config/bluepoint_force_sensors.draft.yaml)
-- [左从站 PDO 配置](../robot_hw_ethercat/config/slaves/bluepoint_p140000100_left.yaml)
-- [右从站 PDO 配置](../robot_hw_ethercat/config/slaves/bluepoint_p140000100_right.yaml)
+- [机型模块](../rt_control_machine_config/machines/Alfa_V3/wrist_force_sensors.yaml)
+- [从站 PDO profile](../robot_hw_ethercat/config/profiles/bluepoint_p140000100.yaml)
 - [台架启动入口](../rt_control_bringup/launch/rt_control_force_sensors.launch.py)
 
 设备身份为 Vendor `0xA1`、Product `0x8081`、Revision `1`。
