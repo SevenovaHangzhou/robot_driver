@@ -61,7 +61,7 @@
 | [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | `rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
 | [ ] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | （arch-b1 已删 relative 扩展；剩余：改名）内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
 | [ ] | `rt_force_torque_broadcaster` | control | 保留 | `ctrl_force_torque_broadcaster` | 健康。 |
-| [ ] | `x503_force_sensor` | control | 并入 `hw_ethercat` | — | X503 PREOP 标定/SDO 快照脚本，纯协议工具。 |
+| [x] | `x503_force_sensor` | control | ~~并入 `hw_ethercat`~~ **删** | — | X503 PREOP 标定/SDO 快照脚本，纯协议工具。arch-b4：用户 2026-10-30 裁定 X503 只用于二代机，连同 `robot_hw_ethercat/config/x503b_readback.yaml` 删除。 |
 | [ ] | `bms_node` | periph | 保留 | `periph_bms` | `protocol/` 子目录无 rclcpp，健康。SocketCAN 下沉 infra。`dual_battery_controller` 是策略不是监控，但 opt-in 默认关，记一笔不动。 |
 | [ ] | `lpms_nav3_can` | periph | 保留 | `periph_imu_lpms` | 健康。SocketCAN 下沉 infra。 |
 | [ ] | `modbus_tcp_rtu485` | periph | 保留 | `periph_led_ultrasonic` | 健康。现名是传输不是职责；Modbus 客户端下沉 infra。 |
