@@ -266,6 +266,10 @@ int main(int argc, char ** argv)
   try {
     rclcpp::spin(std::make_shared<periph_led_ultrasonic::UltrasonicNode>());
   } catch (const std::exception & error) {
+    // A stop requested while starting invalidates the context: that is an orderly stop.
+    if (!rclcpp::ok()) {
+      return 0;
+    }
     RCLCPP_ERROR(rclcpp::get_logger("ultrasonic_node"), "%s", error.what());
     rclcpp::shutdown();
     return 1;

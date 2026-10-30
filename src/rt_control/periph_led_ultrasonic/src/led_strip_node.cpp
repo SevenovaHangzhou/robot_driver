@@ -149,6 +149,13 @@ int main(int argc, char ** argv)
     rclcpp::spin(node);
     node->set_normal_exit_color();
   } catch (const std::exception & error) {
+    // A stop requested while starting invalidates the context: that is an orderly stop.
+    if (!rclcpp::ok()) {
+      if (node) {
+        node->set_normal_exit_color();
+      }
+      return 0;
+    }
     if (node) {
       node->set_abnormal_exit_color();
     }
