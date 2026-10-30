@@ -7,6 +7,7 @@
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>diagnostic_msgs</depend>
+  <depend>infra_modbus</depend>
   <depend>rclcpp</depend>
   <depend>robot_interfaces_qos</depend>
   <depend>robot_rt_control_interfaces</depend>

@@ -10,8 +10,9 @@ ultrasonic_node  -> TCP 504 -> two DYP-E084F-V2.0 adapters -> eight A22 sensors
 ```
 
 Socket IO runs in normal ROS callbacks, outside the ros2_control real-time loop.
-The gateway permits one TCP client per channel, so another tool must not hold
-the same port while a node is running.
+Each node keeps one long-lived TCP connection per gateway channel (`infra_modbus`).
+The gateway permits one TCP client per channel, so another tool cannot use the
+same port while a node is running; stop the node first.
 
 ## LED node
 
@@ -170,9 +171,10 @@ The legacy `rt_control.launch.py` entry and its track-drive options were retired
 this source tree. V3 installs only the independent acquisition entry above; it
 still defaults to no hardware acquisition in mock mode.
 
-The transport validates the MBAP transaction, protocol, length, unit, function,
-exception response, FC16 acknowledgement and FC03 byte count. A single bounded
-deadline covers connect, partial send and fragmented receive.
+`infra_modbus` validates the MBAP transaction, protocol, length, unit, function and
+exception response; this package checks the FC16 acknowledgement and FC03 byte count.
+One bounded deadline covers a reconnect, partial send and fragmented receive. Any
+failure closes the connection and the next request reconnects; nothing is retried.
 
 Build and test with external artifact directories:
 
