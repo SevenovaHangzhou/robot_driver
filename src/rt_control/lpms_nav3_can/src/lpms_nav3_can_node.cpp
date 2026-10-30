@@ -164,11 +164,6 @@ public:
     {
       throw std::invalid_argument{"can_interface must be explicitly configured"};
     }
-    if (is_reserved_robot_interface(can_interface_)) {
-      throw std::invalid_argument{
-              "refusing reserved interface " + can_interface_ +
-              "; shared Gen3 CAN admission is not implemented"};
-    }
     if (frame_id_.empty() || frame_id_ == "TBD" || frame_id_.front() == '/' ||
       frame_id_.find_first_of(" \t\r\n") != std::string::npos)
     {

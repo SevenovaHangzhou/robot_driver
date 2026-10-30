@@ -30,8 +30,6 @@ def _command(*parameters):
     [
         ([], "node_id must be in [1, 127]"),
         (["node_id:=1"], "can_interface must be explicitly configured"),
-        (["node_id:=1", "can_interface:=can0"], "refusing reserved interface"),
-        (["node_id:=1", "can_interface:=can1"], "refusing reserved interface"),
         (["node_id:=1", "can_interface:=lpms_absent"], "frame_id must be explicitly configured"),
         (
             ["node_id:=1", "can_interface:=lpms_absent", "frame_id:=/imu_link"],

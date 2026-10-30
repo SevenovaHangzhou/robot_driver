@@ -14,8 +14,8 @@ These headers have no ROS dependencies. ROS message conversion remains in
 
 Source builds in native/CI and is an installed bringup dependency, but is not
 started by production launch. The standalone launch defaults to static validation.
-No physical interface, Node ID or frame is selected by default. `can0/can1` are
-rejected without an override. An interface name alone is not a hardware identity
+No physical interface, Node ID or frame is selected by default; which interface the IMU
+uses is a per-host deployment fact, not a rule in this node. An interface name alone is not a hardware identity
 or proof that a bus is dedicated: the commissioning operator must verify it.
 
 The historical 2026-08-28 independent CANable bench used 500 kbit/s, Node 1 and
