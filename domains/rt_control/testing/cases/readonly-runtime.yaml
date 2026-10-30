@@ -105,7 +105,9 @@ cases:
       - wc_error_count 读数记录为窗口基线
     evidence: 三个 echo 输出存档并登记 wc_error_count 基线值
     cleanup: 无（只读）
-    status: manual
+    # 判据来自已删除的 rt_diagnostics（#118）与 #117 删除的 readiness/safety_state 话题，
+    # 且按二代 18 从站拓扑书写；V3 诊断聚合器重写后另立新用例。
+    status: retired
     v010_gate: run
 
   - id: TC-RO-06

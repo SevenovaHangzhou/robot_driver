@@ -13,7 +13,6 @@ controllers:
     name: controller_can_fixture
     plugin: synthetic_control/Controller
     package: synthetic_control
-    config_file: config/controller.yaml
     actuator_groups:
     - mode_position_velocity
     required_state_modules: []
