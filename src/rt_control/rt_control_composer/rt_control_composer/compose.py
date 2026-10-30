@@ -24,7 +24,7 @@ from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
 RECORDER_NAME = "runtime_log_recorder"
 RECORDER_PLUGIN = "runtime_log_recorder/RecorderController"
-ENABLE_MANAGER_PLUGIN = "enable_manager/EnableManagerController"
+ENABLE_MANAGER_PLUGIN = "ctrl_enable_manager/EnableManagerController"
 
 
 def recorded_state_interfaces(robot):

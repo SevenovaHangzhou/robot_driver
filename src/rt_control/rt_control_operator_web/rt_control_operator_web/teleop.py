@@ -6,7 +6,7 @@ velocity profile that is actually published. Every public method is
 thread-safe because the web event loop and the ROS publish timer call it from
 different threads.
 
-Why the profile lives here: ``swerve_driver`` stops the drives in the same
+Why the profile lives here: ``ctrl_swerve`` stops the drives in the same
 cycle when it receives a zero Twist, so a released stick must be ramped down
 by the command producer to keep the handling smooth.
 """

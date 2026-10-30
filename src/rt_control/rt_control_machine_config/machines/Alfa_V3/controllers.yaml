@@ -10,8 +10,8 @@ controllers:
   swerve_chassis:
     module: swerve_chassis
     name: swerve_controller
-    plugin: swerve_driver/SwerveController
-    package: swerve_driver
+    plugin: ctrl_swerve/SwerveController
+    package: ctrl_swerve
     actuator_groups:
     - steering_csp
     - drive_csv
@@ -28,14 +28,14 @@ controllers:
       type: geometry_msgs/msg/Twist
     parameters:
     - yaml:
-        package: swerve_driver
+        package: ctrl_swerve
         file: config/controller.draft.yaml
         path: '{controller}.ros__parameters'
   whole_body_jtc:
     module: arms
     name: whole_body_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
-    package: rolling_trajectory_controller
+    package: ctrl_rolling_trajectory
     actuator_groups:
     - csp
     required_state_modules: []
@@ -57,7 +57,7 @@ controllers:
     module: bench_left_arm
     name: left_arm_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
-    package: rolling_trajectory_controller
+    package: ctrl_rolling_trajectory
     actuator_groups:
     - csp
     required_state_modules: []
@@ -83,7 +83,7 @@ controllers:
     module: bench_dual_arm
     name: dual_arm_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
-    package: rolling_trajectory_controller
+    package: ctrl_rolling_trajectory
     actuator_groups:
     - csp
     required_state_modules: []
@@ -107,8 +107,8 @@ controllers:
   rolling_trajectory_controller:
     module: arms
     name: rolling_trajectory_controller
-    plugin: rolling_trajectory_controller/RollingTrajectoryController
-    package: rolling_trajectory_controller
+    plugin: ctrl_rolling_trajectory/RollingTrajectoryController
+    package: ctrl_rolling_trajectory
     actuator_groups:
     - csp
     required_state_modules: []
@@ -130,8 +130,8 @@ controllers:
   enable_manager:
     module: arms
     name: enable_manager
-    plugin: enable_manager/EnableManagerController
-    package: enable_manager
+    plugin: ctrl_enable_manager/EnableManagerController
+    package: ctrl_enable_manager
     actuator_groups:
     - csp
     required_state_modules: []
@@ -263,8 +263,8 @@ controllers:
   left_wrist_force_sensor_broadcaster:
     module: wrist_force_sensors
     name: left_wrist_force_sensor_broadcaster
-    plugin: rt_force_torque_broadcaster/ForceTorqueBroadcaster
-    package: rt_force_torque_broadcaster
+    plugin: ctrl_force_torque_broadcaster/ForceTorqueBroadcaster
+    package: ctrl_force_torque_broadcaster
     actuator_groups: []
     required_state_modules: []
     tags: []
@@ -283,8 +283,8 @@ controllers:
   right_wrist_force_sensor_broadcaster:
     module: wrist_force_sensors
     name: right_wrist_force_sensor_broadcaster
-    plugin: rt_force_torque_broadcaster/ForceTorqueBroadcaster
-    package: rt_force_torque_broadcaster
+    plugin: ctrl_force_torque_broadcaster/ForceTorqueBroadcaster
+    package: ctrl_force_torque_broadcaster
     actuator_groups: []
     required_state_modules: []
     tags: []
@@ -304,7 +304,7 @@ controllers:
     module: bench_right_arm
     name: right_arm_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
-    package: rolling_trajectory_controller
+    package: ctrl_rolling_trajectory
     actuator_groups:
     - csp
     required_state_modules: []

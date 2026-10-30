@@ -4,9 +4,9 @@ controller_manager:
       unconfigured:
       - bluepoint_raw_bench
     left_wrist_force_sensor_broadcaster:
-      type: rt_force_torque_broadcaster/ForceTorqueBroadcaster
+      type: ctrl_force_torque_broadcaster/ForceTorqueBroadcaster
     right_wrist_force_sensor_broadcaster:
-      type: rt_force_torque_broadcaster/ForceTorqueBroadcaster
+      type: ctrl_force_torque_broadcaster/ForceTorqueBroadcaster
     thread_priority: 80
     update_rate: 1000
 left_wrist_force_sensor_broadcaster:

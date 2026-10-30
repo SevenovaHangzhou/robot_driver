@@ -949,37 +949,37 @@ policy_refs:
   enable:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml
-    schema_package: enable_manager
+    schema_package: ctrl_enable_manager
     schema: enable_policy.schema.json
   chassis_enable:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_chassis_enable_policy.yaml
-    schema_package: enable_manager
+    schema_package: ctrl_enable_manager
     schema: enable_policy.schema.json
   bench_left_arm_enable:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_bench_left_arm_enable_policy.yaml
-    schema_package: enable_manager
+    schema_package: ctrl_enable_manager
     schema: enable_policy.schema.json
   bench_left_arm_motion:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_bench_left_arm_motion.yaml
-    schema_package: rolling_trajectory_controller
+    schema_package: ctrl_rolling_trajectory
     schema: arm_tolerances.schema.json
   bench_dual_arm_enable:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_bench_dual_arm_enable_policy.yaml
-    schema_package: enable_manager
+    schema_package: ctrl_enable_manager
     schema: enable_policy.schema.json
   bench_dual_arm_motion:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_bench_dual_arm_motion.yaml
-    schema_package: rolling_trajectory_controller
+    schema_package: ctrl_rolling_trajectory
     schema: arm_tolerances.schema.json
   motion:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
-    schema_package: rolling_trajectory_controller
+    schema_package: ctrl_rolling_trajectory
     schema: arm_tolerances.schema.json
   envelope:
     package: rt_control_machine_config
@@ -987,10 +987,10 @@ policy_refs:
   bench_right_arm_enable:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_bench_right_arm_enable_policy.yaml
-    schema_package: enable_manager
+    schema_package: ctrl_enable_manager
     schema: enable_policy.schema.json
   bench_right_arm_motion:
     package: rt_control_machine_config
     file: machines/Alfa_V3/policies/Alfa_V3_bench_right_arm_motion.yaml
-    schema_package: rolling_trajectory_controller
+    schema_package: ctrl_rolling_trajectory
     schema: arm_tolerances.schema.json

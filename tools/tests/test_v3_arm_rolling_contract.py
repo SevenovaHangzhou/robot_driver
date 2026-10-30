@@ -8,7 +8,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ROLLING = ROOT / "src/rt_control/rolling_trajectory_controller"
+ROLLING = ROOT / "src/rt_control/ctrl_rolling_trajectory"
 EXPECTED_INTERFACE_SHA = "ea582c8a711874813d2ad7f0801b366bd32ab67e"
 EXPECTED_JOINTS = tuple(
     [f"right_joint{index}" for index in range(1, 8)]
@@ -32,9 +32,9 @@ def test_rolling_package_is_in_source_and_runtime_closure():
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text(encoding="utf-8")
     from tools.repository_gate import domain_packages
-    assert "rolling_trajectory_controller" in bootstrap
-    assert workflow.count("rolling_trajectory_controller") >= 3
-    assert "rolling_trajectory_controller" in domain_packages(ROOT)
+    assert "ctrl_rolling_trajectory" in bootstrap
+    assert workflow.count("ctrl_rolling_trajectory") >= 3
+    assert "ctrl_rolling_trajectory" in domain_packages(ROOT)
 
 
 def _machine_motion_joints():

@@ -8,7 +8,7 @@ cases:
     risk: T3
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native
-    covers: ["src/rt_control/enable_manager/**"]
+    covers: ["src/rt_control/ctrl_enable_manager/**"]
     traces: [domains/rt_control/docs/deployment-operations-runbook.md]
     preconditions: 现场授权；急停按钮与安全链物理功能已由电气验收确认（软件不替代安全链）
     entry: |

@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ctrl_enable_manager</name>
+  <version>0.1.0</version>
+  <description>CiA402 enable and disable controller package.</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>control_msgs</depend>
+  <depend>controller_interface</depend>
+  <depend>controller_manager_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+  <depend>infra_shm_ring</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>robot_interfaces_qos</depend>
+  <depend>robot_rt_control_interfaces</depend>
+  <depend>robot_system_interfaces</depend>
+  <depend>rt_control_interfaces</depend>
+  <depend>rt_control_semantic_components</depend>
+  <depend>std_msgs</depend>
+  <test_depend>ament_cmake_gmock</test_depend>
+  <test_depend>hardware_interface</test_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+    <controller_interface plugin="${prefix}/enable_manager_plugins.xml"/>
+  </export>
+</package>

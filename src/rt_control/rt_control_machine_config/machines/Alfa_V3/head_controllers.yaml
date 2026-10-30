@@ -7,7 +7,7 @@ controller_manager:
     head_position_controller:
       type: forward_command_controller/ForwardCommandController
     enable_manager:
-      type: enable_manager/EnableManagerController
+      type: ctrl_enable_manager/EnableManagerController
 joint_state_broadcaster:
   ros__parameters:
     interfaces:

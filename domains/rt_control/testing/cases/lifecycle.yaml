@@ -29,7 +29,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     env_note: native 走 rt_control_native.sh start/stop；docker 走 rt_control_ipc.sh，判据相同
-    covers: ["src/rt_control/rt_control_bringup/**", "src/rt_control/enable_manager/**"]
+    covers: ["src/rt_control/rt_control_bringup/**", "src/rt_control/ctrl_enable_manager/**"]
     traces: [domains/rt_control/docs/canopen-shutdown-sync-tolerance-commissioning-20260727.md]
     preconditions: TC-LC-01 通过；现场授权（确认短语 START_RT_CONTROL_NATIVE）
     entry: |
@@ -51,7 +51,7 @@ cases:
     risk: T3
     writes: { reset: yes, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/enable_manager/**"]
+    covers: ["src/rt_control/ctrl_enable_manager/**"]
     traces: [PROGRESS.md 历史段 "T-IF-RT-003 (reset staged-disable corrective)"]
     preconditions: 栈运行中；存在或人为保留的 Fault 轴；现场授权
     entry: |
@@ -71,7 +71,7 @@ cases:
     risk: T3
     writes: { reset: no, enable: yes, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/enable_manager/**"]
+    covers: ["src/rt_control/ctrl_enable_manager/**"]
     traces: [tools/rt_control_axis_state_check.py, "BQ-115", "BQ-126"]
     preconditions: TC-LC-02 通过后的运行栈；现场授权（确认短语 ENABLE_RT_CONTROL_NATIVE）
     entry: |
@@ -93,7 +93,7 @@ cases:
     risk: T3
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native
-    covers: ["tools/rt_control_native.sh", "src/rt_control/enable_manager/**"]
+    covers: ["tools/rt_control_native.sh", "src/rt_control/ctrl_enable_manager/**"]
     traces: [domains/rt_control/docs/native-development-workflow.md, "domains/rt_control/docs/follow-up-modification-plan.md（historical，来源论证）"]
     preconditions: 现场断电复位完成；现场授权（确认短语 RECOVER_RT_CONTROL）
     entry: |

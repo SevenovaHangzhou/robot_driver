@@ -224,11 +224,11 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       robot_hw_ethercat \
       robot_hw_canopen \
       robot_hw_can \
-      enable_manager \
+      ctrl_enable_manager \
       rt_control_semantic_components \
-      rolling_trajectory_controller \
-      rt_force_torque_broadcaster \
-      swerve_driver \
+      ctrl_rolling_trajectory \
+      ctrl_force_torque_broadcaster \
+      ctrl_swerve \
       rt_control_composer \
       rt_control_machine_config \
       rt_control_bringup \
