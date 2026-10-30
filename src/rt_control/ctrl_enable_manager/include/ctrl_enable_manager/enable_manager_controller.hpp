@@ -165,8 +165,6 @@ private:
   static const char * phaseName(Phase phase);
   static bool isFaultState(DriveState state);
   static std::uint64_t steadyNowNs() noexcept;
-  static std::uint64_t encodeDouble(double value) noexcept;
-  static double decodeDouble(std::uint64_t bits) noexcept;
   static bool isZeroIdentifier(const std::array<std::uint8_t, 16U> & identifier) noexcept;
   bool isConfirmedDisableTerminal(std::size_t axis, DriveState state) const;
   bool configureTopology();
@@ -320,8 +318,10 @@ private:
   std::atomic_bool mode_callback_active_{false};
   std::atomic_bool mode_abort_requested_{false};
   std::atomic<ControlMode> current_control_mode_{ControlMode::kDisabled};
-  std::array<std::atomic<std::uint64_t>, kMotionAxisCount> actual_position_bits_{};
-  std::atomic<std::uint64_t> actual_feedback_age_bits_{0U};
+  // Realtime writers and service readers share these; the doubles must stay lock-free.
+  static_assert(std::atomic<double>::is_always_lock_free);
+  std::array<std::atomic<double>, kMotionAxisCount> actual_sample_positions_{};
+  std::atomic<double> actual_sample_feedback_age_ms_{0.0};
   std::atomic<std::uint64_t> actual_sample_time_ns_{0U};
   std::atomic<std::uint64_t> actual_sample_sequence_{0U};
   std::atomic<std::uint64_t> actual_sample_version_{0U};
@@ -365,7 +365,7 @@ private:
   // Extra state values copied into diagnostics: <diagnostic_joints>/<diagnostic_joint_interfaces>.
   std::vector<std::string> diagnostic_state_names_;
   std::vector<std::size_t> diagnostic_state_indices_;
-  std::unique_ptr<std::atomic<std::uint64_t>[]> diagnostic_state_bits_;
+  std::unique_ptr<std::atomic<double>[]> diagnostic_state_values_;
   std::size_t current_batch_{0U};
   std::uint8_t downward_stage_{0U};
   std::int64_t stage_deadline_ns_{0};

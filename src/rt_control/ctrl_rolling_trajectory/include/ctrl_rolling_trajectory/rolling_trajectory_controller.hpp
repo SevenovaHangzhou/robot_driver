@@ -144,8 +144,6 @@ private:
 
   static Identifier generateIdentifier() noexcept;
   static std::uint64_t steadyNowNs() noexcept;
-  static std::uint64_t encodeDouble(double value) noexcept;
-  static double decodeDouble(std::uint64_t bits) noexcept;
   static bool isZeroIdentifier(const Identifier & identifier) noexcept;
   static bool sameOpenRequest(
     const OpenService::Request & lhs, const OpenService::Request & rhs) noexcept;
@@ -187,10 +185,12 @@ private:
     const JointPoint & desired, std::uint64_t & duration_ns) const noexcept;
 
   std::array<double, kAxisCount> hold_positions_{};
-  std::array<std::atomic<std::uint64_t>, kAxisCount> observed_position_bits_{};
-  std::array<std::atomic<std::uint64_t>, kAxisCount> desired_position_bits_{};
-  std::array<std::atomic<std::uint64_t>, kAxisCount> desired_velocity_bits_{};
-  std::atomic<std::uint64_t> feedback_age_bits_{0U};
+  // Realtime writers and service readers share these; the doubles must stay lock-free.
+  static_assert(std::atomic<double>::is_always_lock_free);
+  std::array<std::atomic<double>, kAxisCount> observed_positions_{};
+  std::array<std::atomic<double>, kAxisCount> desired_positions_{};
+  std::array<std::atomic<double>, kAxisCount> desired_velocities_{};
+  std::atomic<double> observed_feedback_age_ms_{0.0};
   AxisSetHash axis_set_hash_{};
   DynamicEnvelope envelope_{};
   RuntimeConfiguration runtime_configuration_{};

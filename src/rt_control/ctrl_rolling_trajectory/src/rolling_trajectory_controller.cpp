@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <limits>
 #include <string>
@@ -469,11 +468,11 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   last_mode_result_ = ModeResultMessage{};
   last_mode_result_sequence_ = 0U;
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    observed_position_bits_[axis].store(encodeDouble(0.0), std::memory_order_relaxed);
-    desired_position_bits_[axis].store(encodeDouble(0.0), std::memory_order_relaxed);
-    desired_velocity_bits_[axis].store(encodeDouble(0.0), std::memory_order_relaxed);
+    observed_positions_[axis].store(0.0, std::memory_order_relaxed);
+    desired_positions_[axis].store(0.0, std::memory_order_relaxed);
+    desired_velocities_[axis].store(0.0, std::memory_order_relaxed);
   }
-  feedback_age_bits_.store(encodeDouble(0.0), std::memory_order_relaxed);
+  observed_feedback_age_ms_.store(0.0, std::memory_order_relaxed);
   rt_session_state_.store(
     static_cast<std::uint8_t>(SessionState::kNone), std::memory_order_relaxed);
   stop_reason_.store(static_cast<std::uint8_t>(StopReason::kNone), std::memory_order_relaxed);
@@ -604,13 +603,11 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   has_accepted_update_.store(false, std::memory_order_release);
   initial_handoff_gate_.clear(std::memory_order_release);
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    observed_position_bits_[axis].store(
-      encodeDouble(actual_positions[axis]), std::memory_order_release);
-    desired_position_bits_[axis].store(
-      encodeDouble(source_commands[axis]), std::memory_order_release);
-    desired_velocity_bits_[axis].store(encodeDouble(0.0), std::memory_order_release);
+    observed_positions_[axis].store(actual_positions[axis], std::memory_order_release);
+    desired_positions_[axis].store(source_commands[axis], std::memory_order_release);
+    desired_velocities_[axis].store(0.0, std::memory_order_release);
   }
-  feedback_age_bits_.store(encodeDouble(feedback_age_ms), std::memory_order_release);
+  observed_feedback_age_ms_.store(feedback_age_ms, std::memory_order_release);
   state_publisher_->on_activate();
   active_.store(true, std::memory_order_release);
   return controller_interface::CallbackReturn::SUCCESS;
@@ -656,11 +653,10 @@ controller_interface::return_type RollingTrajectoryController::update(
   RtStateVersionGuard state_version(rt_state_version_);
 
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    observed_position_bits_[axis].store(
-      encodeDouble(state_interfaces_[axis].get_value()), std::memory_order_release);
+    observed_positions_[axis].store(state_interfaces_[axis].get_value(), std::memory_order_release);
   }
-  feedback_age_bits_.store(
-    encodeDouble(state_interfaces_[kAxisCount].get_value()), std::memory_order_release);
+  observed_feedback_age_ms_.store(
+    state_interfaces_[kAxisCount].get_value(), std::memory_order_release);
 
   const std::int64_t period_ns = period.nanoseconds();
   SessionState state = SessionState::kNone;
@@ -807,21 +803,6 @@ std::uint64_t RollingTrajectoryController::steadyNowNs() noexcept
   return nanoseconds < 0 ? 0U : static_cast<std::uint64_t>(nanoseconds);
 }
 
-std::uint64_t RollingTrajectoryController::encodeDouble(double value) noexcept
-{
-  std::uint64_t bits = 0U;
-  static_assert(sizeof(bits) == sizeof(value));
-  std::memcpy(&bits, &value, sizeof(bits));
-  return bits;
-}
-
-double RollingTrajectoryController::decodeDouble(std::uint64_t bits) noexcept
-{
-  double value = 0.0;
-  std::memcpy(&value, &bits, sizeof(value));
-  return value;
-}
-
 bool RollingTrajectoryController::isZeroIdentifier(const Identifier & identifier) noexcept
 {
   return std::all_of(
@@ -945,10 +926,9 @@ bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noex
     candidate.has_accepted_update = has_accepted_update_.load(std::memory_order_acquire);
     candidate.desired.time_ns = candidate.execution_time_ns;
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-      candidate.desired.positions[axis] =
-        decodeDouble(desired_position_bits_[axis].load(std::memory_order_acquire));
+      candidate.desired.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
       candidate.desired.velocities[axis] =
-        decodeDouble(desired_velocity_bits_[axis].load(std::memory_order_acquire));
+        desired_velocities_[axis].load(std::memory_order_acquire);
     }
 
     const std::uint64_t version_after = rt_state_version_.load(std::memory_order_acquire);
@@ -1150,8 +1130,7 @@ bool RollingTrajectoryController::resetRtEpoch(std::uint64_t epoch) noexcept
 
   JointPoint hold;
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    hold.positions[axis] =
-      decodeDouble(desired_position_bits_[axis].load(std::memory_order_acquire));
+    hold.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
     hold.velocities[axis] = 0.0;
   }
   if (!desiredIsValid(hold)) {
@@ -1375,10 +1354,8 @@ bool RollingTrajectoryController::writeRtDesired() noexcept
   }
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     command_interfaces_[axis].set_value(rt_desired_.positions[axis]);
-    desired_position_bits_[axis].store(
-      encodeDouble(rt_desired_.positions[axis]), std::memory_order_release);
-    desired_velocity_bits_[axis].store(
-      encodeDouble(rt_desired_.velocities[axis]), std::memory_order_release);
+    desired_positions_[axis].store(rt_desired_.positions[axis], std::memory_order_release);
+    desired_velocities_[axis].store(rt_desired_.velocities[axis], std::memory_order_release);
   }
   rt_state_session_epoch_.store(rt_observed_session_epoch_, std::memory_order_release);
   rt_accepted_arrival_time_ns_.store(rt_last_accepted_arrival_ns_, std::memory_order_release);
@@ -1482,7 +1459,7 @@ void RollingTrajectoryController::handleOpen(
     return;
   }
 
-  const double feedback_age_ms = decodeDouble(feedback_age_bits_.load(std::memory_order_acquire));
+  const double feedback_age_ms = observed_feedback_age_ms_.load(std::memory_order_acquire);
   if (
     !std::isfinite(feedback_age_ms) || feedback_age_ms < 0.0 ||
     feedback_age_ms > runtime_configuration_.open_feedback_age_limit_ms) {
@@ -1492,9 +1469,8 @@ void RollingTrajectoryController::handleOpen(
 
   std::array<double, kAxisCount> hold_positions{};
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    const double hold = decodeDouble(desired_position_bits_[axis].load(std::memory_order_acquire));
-    const double actual =
-      decodeDouble(observed_position_bits_[axis].load(std::memory_order_acquire));
+    const double hold = desired_positions_[axis].load(std::memory_order_acquire);
+    const double actual = observed_positions_[axis].load(std::memory_order_acquire);
     const AxisEnvelope & limits = envelope_.axes[axis];
     const double safe_lower = limits.position_lower + limits.position_margin_lower;
     const double safe_upper = limits.position_upper - limits.position_margin_upper;
