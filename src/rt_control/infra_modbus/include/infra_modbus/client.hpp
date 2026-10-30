@@ -36,6 +36,9 @@ public:
   // and throws std::runtime_error, so a late reply can never be read as the next response;
   // the next call reconnects. An exception response throws ModbusException and keeps it open.
   std::vector<std::uint8_t> transact(std::uint8_t unit, const std::vector<std::uint8_t> & pdu);
+  // Same, with a different timeout for this call only (e.g. a short best-effort write on exit).
+  std::vector<std::uint8_t> transact(
+    std::uint8_t unit, const std::vector<std::uint8_t> & pdu, std::chrono::milliseconds timeout);
   void close() noexcept;
   [[nodiscard]] bool connected() const noexcept;
 
