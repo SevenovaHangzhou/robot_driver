@@ -33,7 +33,7 @@ def shares(monkeypatch):
 
 
 def arguments(shares):
-    config = shares["rt_control_machine_config"]
+    config = shares["hwcfg_machines"]
     path = (config / "units/Alfa_V3-Advantech-01/deployment.yaml")
     return dict(
         robot_variant=load_yaml(path)["robot_variant"],
@@ -53,7 +53,7 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     assert not systems[1].findall(".//command_interface")
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
     manifest = load_yaml(
-        next((shares["rt_control_machine_config"] / "machines").glob("*/manifest.yaml"))
+        next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml"))
     )
     assert manifest["layout"]["ethercat"]["cycle_hz"] == 1000
     assert bus["master"]["sync_period"] == manifest["layout"]["canopen"]["sync_period_us"]
@@ -62,7 +62,7 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
         == manifest["layout"]["ethercat"]["cycle_hz"]
     )
     binding = load_yaml(
-        next((shares["rt_control_machine_config"] / "machines").glob("*/controllers.yaml"))
+        next((shares["hwcfg_machines"] / "machines").glob("*/controllers.yaml"))
     )["controllers"]["swerve_chassis"]
     assert binding["required_state_modules"] == ["swerve_encoders"]
     assert result.controller_order["inactive"] == [binding["name"]]
@@ -94,9 +94,9 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
 
 def test_real_chassis_without_deployment_bundle_is_rejected(shares, tmp_path):
     copied = dict(shares)
-    copied["rt_control_machine_config"] = tmp_path / "config"
-    shutil.copytree(shares["rt_control_machine_config"], copied["rt_control_machine_config"])
-    path = copied["rt_control_machine_config"] / "units/Alfa_V3-Advantech-01/deployment.yaml"
+    copied["hwcfg_machines"] = tmp_path / "config"
+    shutil.copytree(shares["hwcfg_machines"], copied["hwcfg_machines"])
+    path = copied["hwcfg_machines"] / "units/Alfa_V3-Advantech-01/deployment.yaml"
     deployment = yaml.safe_load(path.read_text())
     deployment["canopen"]["bundle_dir"] = "TBD"
     path.write_text(yaml.safe_dump(deployment, sort_keys=False))
@@ -115,7 +115,7 @@ def test_kinco_position_and_velocity_roundtrips():
 
 
 def request_for_module(shares, name):
-    config = shares["rt_control_machine_config"]
+    config = shares["hwcfg_machines"]
     manifest = load_yaml(next((config / "machines").glob("*/manifest.yaml")))
     entry = manifest["modules"][name]
     # The chassis lives on the Advantech bench unit; arm calibration on Alfa_V3-01.
@@ -164,7 +164,7 @@ def test_sample_b_owner_adapter_and_read_only_contract(shares, monkeypatch):
 
     monkeypatch.setattr(Path, "write_text", denied)
     result = render_checked(
-        ETHERCAT, request, PACKAGE / "schema", shares["rt_control_machine_config"]
+        ETHERCAT, request, PACKAGE / "schema", shares["hwcfg_machines"]
     )
     assert len(result["joints"]) == len(sample["spec"]["axes"])
     assert result["managed_joints"] == [
@@ -172,7 +172,7 @@ def test_sample_b_owner_adapter_and_read_only_contract(shares, monkeypatch):
     ]
     encoders = request_for_module(shares, "swerve_encoders")
     sensor_result = render_checked(
-        CANOPEN, encoders, PACKAGE / "schema", shares["rt_control_machine_config"]
+        CANOPEN, encoders, PACKAGE / "schema", shares["hwcfg_machines"]
     )
     assert not sensor_result["managed_joints"] and not sensor_result["joints"]
     encoders["use_mock_hardware"] = False

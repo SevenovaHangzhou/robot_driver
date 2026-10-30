@@ -38,7 +38,7 @@ def test_rolling_package_is_in_source_and_runtime_closure():
 
 
 def _machine_motion_joints():
-    config = ROOT / "src/rt_control/rt_control_machine_config"
+    config = ROOT / "src/rt_control/hwcfg_machines"
     manifest = yaml.safe_load((config / "machines/Alfa_V3/manifest.yaml").read_text())
     policy = yaml.safe_load((config / manifest["policy_refs"]["motion"]["file"]).read_text())
     return tuple(policy["joints"])

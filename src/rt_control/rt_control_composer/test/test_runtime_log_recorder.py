@@ -29,16 +29,16 @@ SELECTION = dict(
 @pytest.fixture
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
-    shutil.copytree(RT / "rt_control_machine_config", data)
+    shutil.copytree(RT / "hwcfg_machines", data)
     monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
-    lookup["rt_control_machine_config"] = data
+    lookup["hwcfg_machines"] = data
     lookup["robot_description"] = RT.parent / "description/robot_description"
     return lookup
 
 
 def set_recorder(shares, value):
-    path = shares["rt_control_machine_config"] / DEPLOYMENT
+    path = shares["hwcfg_machines"] / DEPLOYMENT
     deployment = load_yaml(path)
     if value is None:
         deployment.pop("runtime_log_recorder", None)

@@ -27,10 +27,10 @@ from hw_ethercat import rt_control_renderer as OWNER
 @pytest.fixture
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
-    shutil.copytree(RT / "rt_control_machine_config", data)
+    shutil.copytree(RT / "hwcfg_machines", data)
     monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
-    lookup["rt_control_machine_config"] = data
+    lookup["hwcfg_machines"] = data
     lookup["robot_description"] = RT.parent / "description/robot_description"
     return lookup
 
@@ -45,7 +45,7 @@ def materialize(result):
 
 
 def inputs(shares, *, stationary=False, verified=False):
-    data = shares["rt_control_machine_config"]
+    data = shares["hwcfg_machines"]
     deployment_path = (data / "units/Alfa_V3-01/deployment.yaml")
     deployment = load_yaml(deployment_path)
     manifest = load_yaml(data / "machines" / deployment["robot_variant"] / "manifest.yaml")
@@ -84,7 +84,7 @@ def sample_request(shares):
     """Explicit owner adapter for synthetic sample A; no production calibration."""
     request = load_yaml(PACKAGE / "test/conformance/render_request.yaml")
     arguments = inputs(shares)
-    data = shares["rt_control_machine_config"]
+    data = shares["hwcfg_machines"]
     manifest = load_yaml(data / "machines" / arguments["robot_variant"] / "manifest.yaml")
     name = manifest["scopes"][arguments["control_scope"]]["enabled_modules"][0]
     source = load_yaml(data / manifest["modules"][name]["config_file"])
@@ -197,7 +197,7 @@ def test_real_calibration_rejected_while_mock_is_offline(shares, tmp_path, monke
 
 def test_required_tbd_rejects_real_and_mock_uses_no_guessed_scaling(shares, tmp_path):
     arguments = inputs(shares, verified=True)
-    data = shares["rt_control_machine_config"]
+    data = shares["hwcfg_machines"]
     manifest = load_yaml(data / "machines" / arguments["robot_variant"] / "manifest.yaml")
     reference = manifest["modules"][
         manifest["scopes"][arguments["control_scope"]]["enabled_modules"][0]
@@ -218,7 +218,7 @@ def test_owner_conversion_roundtrip_and_reduction_ratio_independence(shares):
         assert counts * factors["feedback_factor"] + factors["feedback_offset"] == pytest.approx(
             0.75
         )
-    data = shares["rt_control_machine_config"]
+    data = shares["hwcfg_machines"]
     manifest = load_yaml(next((data / "machines").glob("*/manifest.yaml")))
     reference = manifest["modules"]["arms"]["device_refs"][0]
     device = {
@@ -270,7 +270,7 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
 
 
 def test_data_files_pass_existing_validator(shares):
-    root = shares["rt_control_machine_config"]
+    root = shares["hwcfg_machines"]
     manifest = load_yaml(next((root / "machines").glob("*/manifest.yaml")))
     model_files = {
         scope["mock_robot_model"]["joint_limits_file"]
@@ -280,7 +280,7 @@ def test_data_files_pass_existing_validator(shares):
         # A scope controller file is a complete ROS parameter document, not a machine envelope.
         scope["controller_file"]["file"]
         for scope in manifest["scopes"].values()
-        if scope.get("controller_file", {}).get("package") == "rt_control_machine_config"
+        if scope.get("controller_file", {}).get("package") == "hwcfg_machines"
     }
     # Owner policies have no machine envelope; each is validated by its owner's schema.
     policies = {ref["file"]: ref for ref in manifest["policy_refs"].values()}
@@ -307,9 +307,9 @@ def test_data_files_pass_existing_validator(shares):
 def test_policy_values_equal_frozen_old_output():
     # The frozen old output remains the value oracle after retiring old code.
 
-    manifest_path = next((RT / "rt_control_machine_config/machines").glob("*/manifest.yaml"))
+    manifest_path = next((RT / "hwcfg_machines/machines").glob("*/manifest.yaml"))
     policy = load_yaml(
-        RT / "rt_control_machine_config" / load_yaml(manifest_path)["policy_refs"]["motion"]["file"]
+        RT / "hwcfg_machines" / load_yaml(manifest_path)["policy_refs"]["motion"]["file"]
     )
     old = load_yaml(GOLDEN / "arm-mock/controllers.yaml")
     assert policy["joints"] == old["whole_body_jtc"]["ros__parameters"]["joints"]
@@ -346,7 +346,7 @@ def test_sample_a_conformance_is_read_only_and_keeps_unknown_xml(shares, monkeyp
 
     monkeypatch.setattr(Path, "write_text", deny_write)
     monkeypatch.setattr(OWNER.subprocess, "check_output", deny_write)
-    result = render_checked(OWNER, request, PACKAGE / "schema", shares["rt_control_machine_config"])
+    result = render_checked(OWNER, request, PACKAGE / "schema", shares["hwcfg_machines"])
     assert request == before
     assert len(result["joints"]) == request["module"]["actuator_count"]
     assert [element.attrib["name"] for element in result["joints"]] == result["managed_joints"]
@@ -368,7 +368,7 @@ def test_sample_a_conformance_is_read_only_and_keeps_unknown_xml(shares, monkeyp
             projection,
             "render_result.schema.json",
             PACKAGE / "schema",
-            shares["rt_control_machine_config"],
+            shares["hwcfg_machines"],
         )
 
 

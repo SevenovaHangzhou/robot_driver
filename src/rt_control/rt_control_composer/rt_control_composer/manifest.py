@@ -19,7 +19,7 @@ def validate_selection(
     package_share=get_package_share_directory,
 ):
     root = (
-        Path(package_share("rt_control_machine_config"))
+        Path(package_share("hwcfg_machines"))
         if config_share is None
         else Path(config_share)
     )

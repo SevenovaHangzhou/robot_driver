@@ -8,7 +8,7 @@
 | 层 | 包 | 一句话 |
 | --- | --- | --- |
 | infra | `infra_modbus` `infra_shm_ring` `infra_socketcan` | 不依赖任何域包的共享叶子库（Modbus TCP 长连接客户端、Runtime-LOG 共享内存环、SocketCAN 收发） |
-| hw_config | `rt_control_machine_config` | 机型 manifest、模块、设备、台套（零位/标定/部署）数据，无代码 |
+| hw_config | `hwcfg_machines` | 机型 manifest、模块、设备、台套（零位/标定/部署）数据，无代码 |
 | protocol | `hw_ethercat` `hw_canopen` `hw_can_damiao` `hw_semantic_components` | 总线/设备适配、renderer、CiA402 语义封装 |
 | control | `ctrl_enable_manager` `ctrl_rolling_trajectory` `ctrl_swerve` `ctrl_force_torque_broadcaster` | 使能状态机与各控制器/广播器 |
 | periph | `periph_bms` `periph_imu_lpms` `periph_led_ultrasonic` `periph_plc_io` | 独立外设节点（BMS、IMU、LED/超声、PLC IO） |
@@ -21,7 +21,7 @@
 ## 数据流
 
 ```text
-rt_control_machine_config ──> rt_control_composer ──> 各 protocol 包 renderer ──> artifact 目录 ──> rt_control_start
+hwcfg_machines ──> rt_control_composer ──> 各 protocol 包 renderer ──> artifact 目录 ──> rt_control_start
    (manifest/module/unit)       (校验 + 组合，纯函数)     (ros2_control 片段)       (compose_artifact)      (launch + PID 1)
 ```
 
@@ -31,7 +31,7 @@ ros2 run rt_control_composer compose_artifact --output /abs/dir --robot-variant 
 ```
 
 台套：`Alfa_V3-01`、`Alfa_V3-Advantech-01`、`Alfa_V3-bench-01`。scope 定义在
-`rt_control_machine_config/machines/Alfa_V3/manifest.yaml`。
+`hwcfg_machines/machines/Alfa_V3/manifest.yaml`。
 
 ## 启动入口（`rt_control_start`，容器 PID 1）
 

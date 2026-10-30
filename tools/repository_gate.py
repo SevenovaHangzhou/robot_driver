@@ -24,7 +24,7 @@ else:
 
 
 def domain_packages(repository_root: Path) -> set[str]:
-    """Include rt_control_composer and rt_control_machine_config once registered."""
+    """Include rt_control_composer and hwcfg_machines once registered."""
     texts = {p.relative_to(repository_root).as_posix(): p.read_text(encoding="utf-8")
              for p in repository_root.glob("src/rt_control/*/package.xml")}
     return set(rt_control_layer_gate.package_inventory(texts).values())

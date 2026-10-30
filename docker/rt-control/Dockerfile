@@ -230,7 +230,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ctrl_force_torque_broadcaster \
       ctrl_swerve \
       rt_control_composer \
-      rt_control_machine_config \
+      hwcfg_machines \
       rt_control_bringup \
     ) \
     && mapfile -t rt_control_dependency_paths < <( \

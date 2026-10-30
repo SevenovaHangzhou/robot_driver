@@ -15,7 +15,7 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>robot_description</exec_depend>
   <exec_depend>rt_control_composer</exec_depend>
-  <exec_depend>rt_control_machine_config</exec_depend>
+  <exec_depend>hwcfg_machines</exec_depend>
   <exec_depend>periph_bms</exec_depend>
   <exec_depend>periph_plc_io</exec_depend>
   <exec_depend>periph_led_ultrasonic</exec_depend>

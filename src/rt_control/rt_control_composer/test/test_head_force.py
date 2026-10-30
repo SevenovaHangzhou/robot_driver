@@ -25,7 +25,7 @@ from hw_ethercat import rt_control_renderer as FORCE
 @pytest.fixture
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "data"
-    shutil.copytree(RT / "rt_control_machine_config", data)
+    shutil.copytree(RT / "hwcfg_machines", data)
     # Frozen equivalence and CLI recordings describe the historical six-responder
     # bench, independently of the current machine's physical wiring.
     force_path = data / "machines/Alfa_V3/wrist_force_sensors.yaml"
@@ -37,7 +37,7 @@ def shares(tmp_path, monkeypatch):
     monkeypatch.setattr(HEAD, "_share", lambda: RT / "hw_can_damiao")
     monkeypatch.setattr(FORCE, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
-    lookup["rt_control_machine_config"] = data
+    lookup["hwcfg_machines"] = data
     lookup["robot_description"] = RT.parent / "description/robot_description"
     return lookup
 
@@ -52,7 +52,7 @@ def materialize(result):
 
 
 def arguments(shares, family):
-    deployment = (shares["rt_control_machine_config"] / "units/Alfa_V3-01/deployment.yaml")
+    deployment = (shares["hwcfg_machines"] / "units/Alfa_V3-01/deployment.yaml")
     variant = load_yaml(deployment)["robot_variant"]
     scope = "head_only" if family == "head" else "force_bench"
     return dict(
@@ -79,7 +79,7 @@ def test_four_frozen_head_force_cases(shares, tmp_path, case):
     args = arguments(shares, family)
     if family == "head":
         config = load_yaml(GOLDEN / "head_config.yaml")
-        data = shares["rt_control_machine_config"]
+        data = shares["hwcfg_machines"]
         path = data / "machines" / args["robot_variant"] / "head_gimbal.yaml"
         module = load_yaml(path)
         module["verified"] = True
@@ -130,7 +130,7 @@ def test_four_frozen_head_force_cases(shares, tmp_path, case):
 
 def test_head_confirmation_is_recorded_and_unconfirmed_data_is_rejected(shares, tmp_path):
     path = (
-        shares["rt_control_machine_config"]
+        shares["hwcfg_machines"]
         / "machines"
         / arguments(shares, "head")["robot_variant"]
         / "head_gimbal.yaml"
@@ -186,7 +186,7 @@ def test_force_preflight_uses_recorded_cli_and_rejects_mismatch(shares, tmp_path
 def test_head_sample_c_adapter_is_offline(shares, tmp_path, monkeypatch):
     from rt_control_composer.renderer_registry import render_checked
 
-    data = shares["rt_control_machine_config"]
+    data = shares["hwcfg_machines"]
     args = arguments(shares, "head")
     manifest = load_yaml(data / "machines" / args["robot_variant"] / "manifest.yaml")
     descriptor = manifest["modules"]["head_gimbal"]

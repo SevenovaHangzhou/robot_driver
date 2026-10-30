@@ -20,7 +20,7 @@ from rt_control_composer.schema.primitives import (
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--share-package", default="rt_control_machine_config", help="Package owning the YAML input"
+        "--share-package", default="hwcfg_machines", help="Package owning the YAML input"
     )
     parser.add_argument("--schema-package", default="rt_control_composer")
     parser.add_argument("--schema", help="Filename within the installed schema directory")

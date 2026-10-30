@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(rt_control_machine_config)
+project(hwcfg_machines)
 
 find_package(ament_cmake REQUIRED)
 

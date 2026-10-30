@@ -21,7 +21,7 @@
 ### 1.1 唯一拥有者
 
 - 硬件事实（PDO/SDO、状态字、模式号、EDS/ESI、波特率）只在协议包。
-- 机型事实（轴数、关节名、顺序、模块组合、几何）只在 `rt_control_machine_config`。
+- 机型事实（轴数、关节名、顺序、模块组合、几何）只在 `hwcfg_machines`。
 - 台套事实（零位、标定、部署）只在 `units/<unit>/`。
 - 策略事实（使能批次、限幅、容差）只在策略拥有者包，但**不得带机型名**；机型选择哪份策略由 `machine_config` 的 manifest 引用。
 - 公共契约只在 vendored `robot_interfaces`；域内接口只在 `rt_control_interfaces`。

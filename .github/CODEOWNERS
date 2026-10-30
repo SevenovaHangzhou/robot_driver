@@ -1,4 +1,4 @@
 # R9: human approval must also be required by the GitHub branch protection rule.
 # Text in a PR body does not establish approval. Include moves outside the data package.
 **/safety_policy.yaml kkozia188@gmail.com
-/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com
+/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com

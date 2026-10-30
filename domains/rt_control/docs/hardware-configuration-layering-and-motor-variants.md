@@ -2,7 +2,7 @@
 
 > V3 迁移状态：硬件配置（devices/machines/units 纯数据）→ integration 组合与公共边界校验；protocol owner 管 profile、私有校验、渲染与预检；control owner 管策略。V3 四个 runtime launch（含 arm-jtc 模式）已按用户批准默认使用 rt_control_composer，旧 V3 builder/config 退役。以下 `alfa_v1` 内容保留为冻结二代资产说明，不作为 V3 工程事实。
 >
-> V3 当前入口：`rt_control_machine_config/machines/Alfa_V3/manifest.yaml`、`units/Alfa_V3-01/deployment.yaml`。方向在 machines，零位在 units，型号计数在 devices；enable/trajectory 策略由各控制 owner 的安装数据提供。观测 evidence 不作运行输入。修改影响演练与未验证项见第五步记录。
+> V3 当前入口：`hwcfg_machines/machines/Alfa_V3/manifest.yaml`、`units/Alfa_V3-01/deployment.yaml`。方向在 machines，零位在 units，型号计数在 devices；enable/trajectory 策略由各控制 owner 的安装数据提供。观测 evidence 不作运行输入。修改影响演练与未验证项见第五步记录。
 
 本文说明 ELECTRI-94 的 Franka 风格硬件分层、owner-local 电机注册表，以及修改电机
 型号、数量、地址、传动换算和控制模式时的真实影响范围。当前生产变体只有

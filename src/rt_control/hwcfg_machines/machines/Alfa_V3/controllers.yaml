@@ -257,7 +257,7 @@ controllers:
     tags: []
     parameters:
     - yaml:
-        package: rt_control_machine_config
+        package: hwcfg_machines
         file: machines/Alfa_V3/head_controllers.yaml
         path: '{controller}.ros__parameters'
   left_wrist_force_sensor_broadcaster:

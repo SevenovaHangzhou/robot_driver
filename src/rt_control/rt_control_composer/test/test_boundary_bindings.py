@@ -28,9 +28,9 @@ def save(path, value):
 @pytest.fixture
 def config(tmp_path, monkeypatch):
     root = tmp_path / "facts"
-    shutil.copytree(RT / "rt_control_machine_config", root)
+    shutil.copytree(RT / "hwcfg_machines", root)
     shares = {path.name: path for path in RT.iterdir() if path.is_dir()}
-    shares["rt_control_machine_config"] = root
+    shares["hwcfg_machines"] = root
     shares["robot_description"] = RT.parent / "description/robot_description"
     for owner, name in (
         (CAN, "hw_can_damiao"),
@@ -138,7 +138,7 @@ def test_head_renaming_reaches_hardware_and_all_controllers(config, tmp_path):
     )
     manifest = load(machine_dir / "manifest.yaml")
     manifest["scopes"]["head_only"]["mock_robot_model"] = {
-        "package": "rt_control_machine_config",
+        "package": "hwcfg_machines",
         "xacro_file": "machines/Alfa_V3/test.urdf",
         "joint_limits_file": "machines/Alfa_V3/test.limits.yaml",
     }

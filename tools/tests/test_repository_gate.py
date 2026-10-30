@@ -554,7 +554,7 @@ vendored_packages:
         files["tools/rt_control_layers.yaml"] = yaml.safe_dump({
             "layers": {name: [] for name in layer_gate.LAYERS}, "baseline_violations": []})
         files[".github/CODEOWNERS"] = (
-            "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n")
+            "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n")
         for relative_path, content in files.items():
             path = root / relative_path
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -629,7 +629,7 @@ if __name__ == "__main__":
 def layer_fixture():
     layers = {
         "infra": ["ring"],
-        "hw_config": ["rt_control_machine_config"],
+        "hw_config": ["hwcfg_machines"],
         "integration": ["rt_control_composer"],
         "protocol": ["bus", "hw_semantic_components"],
         "control": ["motor"],
@@ -653,8 +653,8 @@ def layer_fixture():
     ("R3", "bus/tool.py", "import hw_semantic_components", "from motor import policy"),
     ("R3", "bus/CMakeLists.txt", "find_package(hw_semantic_components REQUIRED)", "find_package(motor REQUIRED)"),
     ("R4", "motor/package.xml",
-     "<package><name>motor</name><exec_depend>rt_control_machine_config</exec_depend></package>",
-     "<package><name>motor</name><depend>rt_control_machine_config</depend></package>"),
+     "<package><name>motor</name><exec_depend>hwcfg_machines</exec_depend></package>",
+     "<package><name>motor</name><depend>hwcfg_machines</depend></package>"),
     ("R5", "rt_control_composer/rt_control_composer/compose.py", 'name = "synthetic"',
      'name = "AlFa_V3"'),
     ("R6", "rt_control_composer/rt_control_composer/compose.py", 'cfg = {"update_rate": rate}',
@@ -719,14 +719,14 @@ def test_baseline_only_allows_the_recorded_occurrence():
 
 @pytest.mark.parametrize("rule,path,accepted,rejected", [
     ("R9", ".github/CODEOWNERS",
-     "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n", ""),
+     "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n", ""),
     ("R10", "docker/rt-control/Dockerfile",
      'RUN apt-get install python3-jsonschema\nLABEL org.sevenova.rt-control.deps.python3-jsonschema="3.2.0"',
      "RUN apt-get install python3-jsonschema=3.2.0-0ubuntu2"),
 ])
 def test_release_rules_accept_valid_input_and_reject_violations(rule, path, accepted, rejected):
     texts = {".github/CODEOWNERS": (
-        "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n")}
+        "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n")}
     texts[path] = accepted
     assert layer_gate.check_release_policy(texts) == []
     texts[path] = rejected
