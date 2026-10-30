@@ -7,6 +7,7 @@
 #include <set>
 #include <stdexcept>
 
+#include "hw_semantic_components/cia402_state.hpp"
 #include "pluginlib/class_list_macros.hpp"
 
 namespace hw_ethercat
@@ -625,7 +626,8 @@ bool KincoCyclicModeSlave::feedback_fresh(std::chrono::steady_clock::time_point 
 
 bool KincoCyclicModeSlave::operation_enabled() const noexcept
 {
-  return (status_word_ & 0x006fU) == 0x0027U;
+  return hw_semantic_components::decode_cia402_state(status_word_) ==
+         hw_semantic_components::Cia402State::kOperationEnabled;
 }
 
 bool KincoCyclicModeSlave::valid_position_command(int32_t & raw) const noexcept

@@ -10,6 +10,7 @@ ament_python_install_package(${PROJECT_NAME})
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(ethercat_generic_slave REQUIRED)
 find_package(ethercat_interface REQUIRED)
+find_package(hw_semantic_components REQUIRED)
 find_package(pluginlib REQUIRED)
 
 add_library(zeroerr_pp_slave SHARED
@@ -20,7 +21,8 @@ target_compile_options(zeroerr_pp_slave PRIVATE -Wall -Wextra -Wpedantic -Wconve
 target_include_directories(zeroerr_pp_slave PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-ament_target_dependencies(zeroerr_pp_slave ethercat_generic_slave ethercat_interface pluginlib)
+ament_target_dependencies(
+  zeroerr_pp_slave ethercat_generic_slave ethercat_interface hw_semantic_components pluginlib)
 pluginlib_export_plugin_description_file(ethercat_interface ethercat_plugins.xml)
 
 add_custom_target(
@@ -45,6 +47,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_pp_gripper test/test_pp_gripper.cpp)
   target_include_directories(test_pp_gripper PRIVATE include)
   target_compile_features(test_pp_gripper PRIVATE cxx_std_17)
+  ament_target_dependencies(test_pp_gripper hw_semantic_components)
   ament_add_gtest(test_zeroerr_pp_slave test/test_zeroerr_pp_slave.cpp)
   target_link_libraries(test_zeroerr_pp_slave zeroerr_pp_slave)
   target_compile_definitions(test_zeroerr_pp_slave PRIVATE
@@ -73,7 +76,7 @@ install(FILES README.md DESTINATION share/${PROJECT_NAME})
 install(TARGETS zeroerr_pp_slave EXPORT export_zeroerr_pp_slave
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 ament_export_targets(export_zeroerr_pp_slave HAS_LIBRARY_TARGET)
-ament_export_dependencies(ethercat_generic_slave ethercat_interface pluginlib)
+ament_export_dependencies(ethercat_generic_slave ethercat_interface hw_semantic_components pluginlib)
 install(
   PROGRAMS
     scripts/validate_kinco_swerve_draft.py

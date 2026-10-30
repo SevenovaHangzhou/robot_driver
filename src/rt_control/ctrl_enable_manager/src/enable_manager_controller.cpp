@@ -3035,7 +3035,7 @@ void EnableManagerController::publishModeResult(const ModeService::Response & re
 
 EnableManagerController::DriveState EnableManagerController::decodeState(std::uint16_t status_word)
 {
-  return hw_semantic_components::Cia402Axis::decode_state(status_word);
+  return hw_semantic_components::decode_cia402_state(status_word);
 }
 
 bool EnableManagerController::isFaultState(DriveState state)
