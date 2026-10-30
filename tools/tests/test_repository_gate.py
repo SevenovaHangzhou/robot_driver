@@ -632,7 +632,8 @@ def layer_fixture():
         "hw_config": ["rt_control_machine_config"],
         "integration": ["rt_control_composer"],
         "protocol": ["bus", "rt_control_semantic_components"],
-        "control": ["motor", "bms_node"],
+        "control": ["motor"],
+        "periph": ["periph_bms"],
     }
     texts = {layer_gate.CONFIG: yaml.safe_dump({"layers": layers, "baseline_violations": []})}
     for packages in layers.values():
@@ -660,9 +661,13 @@ def layer_fixture():
      'cfg = {"update_rate": 1000}'),
     ("R7", "bus/rt_control_renderer.py", 'path = "devices/motor.yaml"',
      'path = "evidence/observation.yaml"'),
-    ("R8", "bms_node/include/bms_node/protocol/decoder.hpp", "#include <cstdint>",
+    ("R8", "periph_bms/include/periph_bms/protocol/decoder.hpp", "#include <cstdint>",
      "#include <std_msgs/msg/header.hpp>"),
     ("R11", "ring/include/ring/ring.hpp", "#include <cstdint>", '#include "rt_control_semantic_components/a.hpp"'),
+    ("R12", "periph_bms/package.xml", "<package><name>periph_bms</name><depend>ring</depend></package>",
+     "<package><name>periph_bms</name><depend>motor</depend></package>"),
+    ("R12", "motor/src/node.cpp", '#include "rt_control_semantic_components/a.hpp"',
+     '#include "periph_bms/a.hpp"'),
     ("R11", "ring/package.xml", "<package><name>ring</name></package>",
      "<package><name>ring</name><depend>motor</depend></package>"),
 ])

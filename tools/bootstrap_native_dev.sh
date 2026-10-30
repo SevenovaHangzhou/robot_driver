@@ -18,9 +18,9 @@ readonly -a runtime_packages=(
   robot_rt_control_interfaces
   robot_system_interfaces
   robot_interfaces_qos
-  bms_node
-  lpms_nav3_can
-  modbus_tcp_rtu485
+  periph_bms
+  periph_imu_lpms
+  periph_led_ultrasonic
   canopen_master_driver
   canopen_ros2_control
   control_api_adapter
@@ -28,7 +28,7 @@ readonly -a runtime_packages=(
   ethercat_generic_cia402_drive
   joint_trajectory_controller
   gripper_controllers
-  plc_io_modbus
+  periph_plc_io
   robot_description
   rt_control_interfaces
   robot_hw_ethercat

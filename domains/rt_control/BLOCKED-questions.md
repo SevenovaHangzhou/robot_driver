@@ -33,8 +33,8 @@
 
 ## D-002 — 统一三份 SocketCAN 实现 [OPEN]
 
-- 问题：`robot_hw_can`（达妙，跑在 ros2_control 实时 read/write 中）、`bms_node`（29 位扩展帧，
-  失败后重连）、`lpms_nav3_can`（只收、拒绝 can0/can1）各自实现打开、过滤、收发。
+- 问题：`robot_hw_can`（达妙，跑在 ros2_control 实时 read/write 中）、`periph_bms`（29 位扩展帧，
+  失败后重连）、`periph_imu_lpms`（只收、拒绝 can0/can1）各自实现打开、过滤、收发。
 - 证据：架构梳理差异表（2026-10-29 会话）；`robot_hw_can/src/socketcan.cpp`、`bms_node/src/bms_node.cpp:245`、
   `lpms_nav3_can/src/lpms_nav3_can_node.cpp:245`。
 - 影响范围：不阻塞现有功能；属于 `ARCHITECTURE.md` 第 5 步（抽 infra 库）。
@@ -45,19 +45,19 @@
     （`CAN_RAW_LOOPBACK`）保持开启，便于 `candump` 排查。
   - 公共库 `infra_socketcan` 只管传输（打开、过滤、绑定、非阻塞收发、等待、接口序号）；
     重连策略、过滤器构造、协议解码留在各包；打开失败抛异常，收发与等待返回状态、不抛异常。
-  - `can0/can1` 保留检查不进公共库，从 `lpms_nav3_can` 删除：接口归属是台套部署事实。
+  - `can0/can1` 保留检查不进公共库，从 `periph_imu_lpms` 删除：接口归属是台套部署事实。
 
 ## D-003 — 统一两个 Modbus TCP 客户端 [OPEN]
 
-- 问题：`plc_io_modbus`（长连接、固定 1 s 超时、getaddrinfo、FC01–06）与 `modbus_tcp_rtu485`
+- 问题：`periph_plc_io`（长连接、固定 1 s 超时、getaddrinfo、FC01–06）与 `periph_led_ultrasonic`
   （每次请求重连、可配置超时、只接受 IPv4）各自实现连接、收发与报头校验。
 - 证据：架构梳理差异表（2026-10-29 会话）；`plc_io_modbus/src/modbus_client.cpp`、
   `modbus_tcp_rtu485/src/modbus_transport.cpp`。
-- 影响范围：不阻塞现有功能；属于 `ARCHITECTURE.md` 第 5 步。`plc_io_modbus` 负责写真空泵与阀，改动需实机验证。
+- 影响范围：不阻塞现有功能；属于 `ARCHITECTURE.md` 第 5 步。`periph_plc_io` 负责写真空泵与阀，改动需实机验证。
 - 裁决：用户 2026-10-29：统一为长连接；超时可配置；地址解析统一用 getaddrinfo；后续再做。
 - 细化裁决（用户 2026-10-30）：
-  - `modbus_tcp_rtu485` 每次请求重连只是当初为了写得简单，网关可以长连接。
+  - `periph_led_ultrasonic` 每次请求重连只是当初为了写得简单，网关可以长连接。
   - 任何错误（含超时）都关闭连接，下一次请求再连，避免迟到回复被下一次请求读到。
-  - 读写都不自动重试（与 `plc_io_modbus` 现状一致；写操作结果未知时不得假装成功）。
-  - getaddrinfo 加 `AI_NUMERICHOST`，只接受数字地址；超时按端点配置，`plc_io_modbus` 默认仍为 1 s。
+  - 读写都不自动重试（与 `periph_plc_io` 现状一致；写操作结果未知时不得假装成功）。
+  - getaddrinfo 加 `AI_NUMERICHOST`，只接受数字地址；超时按端点配置，`periph_plc_io` 默认仍为 1 s。
 

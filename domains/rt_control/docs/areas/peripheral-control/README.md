@@ -2,7 +2,7 @@
 
 **范围**：PLC、真空、灯带、超声波、电池与IMU。本区对应一个同名职责agent。
 
-**Owner路径**：plc_io_modbus；modbus_tcp_rtu485；bms_node；lpms_nav3_can。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：periph_plc_io；periph_led_ultrasonic；periph_bms；periph_imu_lpms。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：各包config/machines归hw-config；公共IDL归integration；宿主设备配置归platform。
 
@@ -19,7 +19,7 @@
 | canopen-chassis/F7 | LPMS 姿态与角速度协方差支持启动时 YAML 配置，每项九个有限数、默认零，按行写入消息 | [LPMS 协方差配置](../../areas-archive/canopen-chassis/records/2026-10-08-lpms-configurable-covariance.md)#F1-F2 | PARTIAL（T1 参数/转换测试；标定与现场应用待验） |
 | contract/14#F1 | 新真空职责为 Autonomy 管泵、Motion 管左右阀，阀输出确认不等于吸牢 | [V3 公共接口实现](../../areas-archive/contract/records/2026-10-02-v3-interface-contract-implementation.md)#F1 | PARTIAL（IDL/源码/Mock；实物待验） |
 | io-power/04#F3 | LED YAML 是用户配置而非现场验证证据，设备身份/地址/寄存器映射待验。 | [io-power-20260916-01](../../areas-archive/io-power/records/2026-09-16-modbus-led-driver.md)#F3 | PARTIAL |
-| io-power/05#F1 | `modbus_tcp_rtu485` 同包拥有独立 LED 写节点与 E08 超声波只读节点，网络 IO 均不进入 ros2_control 实时环。 | [io-power-20260917-01](../../areas-archive/io-power/records/2026-09-17-modbus-ultrasonic-driver.md)#F1 | 有效 |
+| io-power/05#F1 | `periph_led_ultrasonic` 同包拥有独立 LED 写节点与 E08 超声波只读节点，网络 IO 均不进入 ros2_control 实时环。 | [io-power-20260917-01](../../areas-archive/io-power/records/2026-09-17-modbus-ultrasonic-driver.md)#F1 | 有效 |
 | io-power/06#F1 | 四路话题改用 `sensor_msgs/Range`，固定 3.5 m、60 度元数据并使用同一批次完成时间。 | [io-power-20260919-01](../../areas-archive/io-power/records/2026-09-19-ultrasonic-standard-range.md)#F1 | 已由 08#F2/F3 扩展为八路 |
 | io-power/06#F2 | `0xFFFD` 无目标发布 `+Inf`，诊断为 `OK/no_target`。 | [io-power-20260919-01](../../areas-archive/io-power/records/2026-09-19-ultrasonic-standard-range.md)#F2 | PARTIAL（离线通过；实机待验） |
 | io-power/06#F3 | 默认四个 frame 仅表示 E08 通道，装车后必须用实测外参与 `base_link` TF 替换。 | [io-power-20260919-01](../../areas-archive/io-power/records/2026-09-19-ultrasonic-standard-range.md)#F3 | 已由 08#F2 扩展为八路 |

@@ -21,9 +21,10 @@ layers:
   - rolling_trajectory_controller
   - rt_force_torque_broadcaster
   - swerve_driver
-  - bms_node
-  - lpms_nav3_can
-  - modbus_tcp_rtu485
-  - plc_io_modbus
+  periph:
+  - periph_bms
+  - periph_imu_lpms
+  - periph_led_ultrasonic
+  - periph_plc_io
 baseline_violations: []
 frequency_scope_exclusions: []

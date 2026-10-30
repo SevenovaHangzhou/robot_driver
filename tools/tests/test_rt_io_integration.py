@@ -60,12 +60,12 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:
-    node_source = (ROOT / "src/rt_control/plc_io_modbus/src/node.cpp").read_text()
+    node_source = (ROOT / "src/rt_control/periph_plc_io/src/node.cpp").read_text()
     plc = yaml.safe_load(
-        (ROOT / "src/rt_control/plc_io_modbus/config/plc_io_modbus.yaml").read_text()
+        (ROOT / "src/rt_control/periph_plc_io/config/plc_io_modbus.yaml").read_text()
     )["plc_io_modbus"]["ros__parameters"]
     bms = yaml.safe_load(
-        (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
+        (ROOT / "src/rt_control/periph_bms/config/bms_node.yaml").read_text()
     )["bms_node"]["ros__parameters"]
 
     assert plc["digital"]["module"]["host"] == "192.168.1.12"
@@ -114,7 +114,7 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
 
 def test_bms_public_parameters_match_current_contract() -> None:
     bms_params = yaml.safe_load(
-        (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
+        (ROOT / "src/rt_control/periph_bms/config/bms_node.yaml").read_text()
     )["bms_node"]["ros__parameters"]
     assert bms_params["battery_state_topic"] == "/battery_state"
     assert bms_params["publish_period_s"] == 5.0
@@ -155,7 +155,7 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
 
 
 def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
-    bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
+    bms_source = (ROOT / "src/rt_control/periph_bms/src/bms_node.cpp").read_text()
     enable_source = (
         ROOT / "src/rt_control/enable_manager/src/enable_manager_controller.cpp"
     ).read_text()
@@ -269,9 +269,9 @@ def test_docker_build_contains_required_io_packages() -> None:
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
 
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
-    assert "      bms_node \\\n" in dockerfile
+    assert "      periph_bms \\\n" in dockerfile
     assert "      control_api_adapter \\\n" in dockerfile
-    assert "      plc_io_modbus \\\n" in dockerfile
+    assert "      periph_plc_io \\\n" in dockerfile
     assert "ros-humble-rmw-fastrtps-cpp" in dockerfile
     assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile
     assert "      util-linux \\\n" in dockerfile
@@ -284,8 +284,8 @@ def test_docker_build_contains_required_io_packages() -> None:
 
 
 def test_bms_keeps_its_battery_and_opt_in_discharge_interfaces() -> None:
-    bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
-    bms_manifest = (ROOT / "src/rt_control/bms_node/package.xml").read_text()
+    bms_source = (ROOT / "src/rt_control/periph_bms/src/bms_node.cpp").read_text()
+    bms_manifest = (ROOT / "src/rt_control/periph_bms/package.xml").read_text()
 
     assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 2
     assert 'declare_parameter<bool>("automatic_discharge_control", false)' in bms_source

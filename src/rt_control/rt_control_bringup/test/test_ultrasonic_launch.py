@@ -23,7 +23,7 @@ def load_launch():
 
 def test_v3_installs_the_independent_ultrasonic_entry():
     assert "launch/rt_control_ultrasonic.launch.py" in (BRINGUP / "CMakeLists.txt").read_text()
-    assert "<exec_depend>modbus_tcp_rtu485</exec_depend>" in (BRINGUP / "package.xml").read_text()
+    assert "<exec_depend>periph_led_ultrasonic</exec_depend>" in (BRINGUP / "package.xml").read_text()
 
 
 @pytest.mark.parametrize("mock, expected", [("true", False), ("false", True)])
@@ -47,7 +47,7 @@ def test_launch_contains_only_the_ultrasonic_node(monkeypatch):
     monkeypatch.setattr(loaded, "Node", record_node)
     description = loaded.generate_launch_description()
     assert len(nodes) == 1
-    assert nodes[0]["package"] == "modbus_tcp_rtu485"
+    assert nodes[0]["package"] == "periph_led_ultrasonic"
     assert nodes[0]["executable"] == "ultrasonic_node"
     assert nodes[0]["name"] == "ultrasonic_node"
     context = LaunchContext()
