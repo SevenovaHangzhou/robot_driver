@@ -4,7 +4,7 @@ set -uo pipefail
 child_pid=""
 shutdown_started=0
 orderly_disable_required=0
-shutdown_command=(ros2 run enable_manager rt_disable_once)
+shutdown_command=()
 
 forward_shutdown() {
   if (( shutdown_started != 0 )); then
@@ -26,22 +26,19 @@ forward_shutdown() {
 trap forward_shutdown INT TERM
 
 launch_file=rt_control_module.launch.py
+# Named entries are aliases of the generic staged scope runtime.
 if [[ "${1:-}" == "--enable-only" ]]; then
-  launch_file=rt_control_enable_only.launch.py
-  orderly_disable_required=1
   shift
+  exec "$0" --scope arms_stationary_enable physical_profile:=arms_only "$@"
 elif [[ "${1:-}" == "--arm-jtc" ]]; then
-  launch_file=rt_control_arm_runtime.launch.py
-  orderly_disable_required=1
   shift
-  set -- jtc_only:=true "$@"
+  exec "$0" --scope arms_only jtc_only:=true "$@"
 elif [[ "${1:-}" == "--arm-runtime" ]]; then
-  launch_file=rt_control_arm_runtime.launch.py
-  orderly_disable_required=1
   shift
+  exec "$0" --scope arms_only "$@"
 elif [[ "${1:-}" == "--force-sensors" ]]; then
-  launch_file=rt_control_force_sensors.launch.py
   shift
+  exec "$0" --scope force_bench "$@"
 elif [[ "${1:-}" == "--scope" ]]; then
   # Generic staged scope runtime; the artifact's lifecycle plan drives the teardown.
   if [[ -z "${2:-}" ]]; then
@@ -65,10 +62,9 @@ elif [[ "${1:-}" == "--scope" ]]; then
   shutdown_command=(ros2 run rt_control_bringup scope_shutdown "${generated_dir}")
   set -- control_scope:="${scope_name}" generated_dir:="${generated_dir}" "$@"
 elif [[ "${1:-}" == "--head-runtime" ]]; then
-  launch_file=rt_control_head_runtime.launch.py
-  orderly_disable_required=1
-  shutdown_command=(ros2 run damiao_head_controller head_disable_once)
+  # The head is driven by enable_manager under the generic staged scope runtime.
   shift
+  exec "$0" --scope head_only "$@"
 fi
 launch_command=(ros2 launch rt_control_bringup "${launch_file}" "$@")
 if [[ -n "${RT_CONTROL_START_CPUSET:-}" ]]; then

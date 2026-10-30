@@ -184,6 +184,45 @@ def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
     assert sorted(spawners) == sorted(expected)
 
 
+@pytest.mark.parametrize(
+    "declared,override,expected",
+    [(False, "", False), (True, "", True), (True, "false", False), (False, "true", True)],
+)
+def test_scope_launch_runs_robot_state_publisher_as_the_scope_declares(
+    monkeypatch, declared, override, expected
+):
+    path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
+    spec = importlib.util.spec_from_file_location("scope_launch", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(
+        module,
+        "load_artifact",
+        lambda directory, **_: SimpleNamespace(
+            staged_hardware_activation=True,
+            lifecycle={"bus_locks": [], "publish_robot_state": declared},
+            controller_order={"inactive": [], "active": ["enable_manager"]},
+            robot_description="<robot name='synthetic'/>",
+            runtime_dir=Path(directory),
+            runtime_parameters={},
+        ),
+    )
+    monkeypatch.setattr(module, "preflight", lambda _: None)
+    context = LaunchContext()
+    context.launch_configurations.update(
+        use_mock_hardware="true",
+        control_scope="synthetic",
+        physical_profile="",
+        robot_variant="Alfa_V3",
+        machine_unit="Alfa_V3-01",
+        generated_dir="/synthetic/artifact",
+        publish_robot_state=override,
+    )
+    actions = module.setup(context)
+    executables = [getattr(action, "node_executable", None) for action in actions]
+    assert ("robot_state_publisher" in executables) == expected
+
+
 def test_capability_document_is_derived_from_the_lifecycle_plan():
     document = lifecycle.capability_document(
         {

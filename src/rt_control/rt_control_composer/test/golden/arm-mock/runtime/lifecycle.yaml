@@ -1,0 +1,25 @@
+bus_locks:
+- ethercat-master-0
+capabilities:
+- name: enable
+  service: /control/set_enabled
+  type: SetControlEnabled
+control_scope: arms_only
+hardware:
+- name: ecat_arms
+  plugin: mock_components/GenericSystem
+hardware_activation_order:
+- ecat_arms
+host: {}
+lifecycle_controllers:
+- joint_state_broadcaster
+- rt_internal_state_broadcaster
+- enable_manager
+motion_controllers:
+- whole_body_jtc
+- rolling_trajectory_controller
+publish_robot_state: true
+staged_hardware_activation: true
+transports:
+- robot_hw_ethercat
+use_mock_hardware: true

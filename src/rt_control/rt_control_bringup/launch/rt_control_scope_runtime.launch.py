@@ -1,6 +1,7 @@
 """Generic scope runtime: artifact, bus locks, owner preflight, staged hardware, controllers."""
 
 from pathlib import Path
+import uuid
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, EmitEvent, OpaqueFunction, RegisterEventHandler
@@ -19,6 +20,13 @@ _HELD_LOCKS = []
 
 def _boolean(context, name):
     value = LaunchConfiguration(name).perform(context)
+    if value not in {"true", "false"}:
+        raise ValueError(f"{name} must be true or false")
+    return value == "true"
+
+
+def _optional_boolean(context, name, default):
+    value = context.launch_configurations.get(name) or default
     if value not in {"true", "false"}:
         raise ValueError(f"{name} must be true or false")
     return value == "true"
@@ -44,6 +52,8 @@ def setup(context):
         physical_profile=profile,
         control_scope=scope,
         use_mock_hardware=use_mock_hardware,
+        jtc_only=_optional_boolean(context, "jtc_only", "false"),
+        sync_mode=context.launch_configurations.get("sync_mode", ""),
     )
     if not build.staged_hardware_activation:
         raise ValueError(f"scope {scope} does not declare staged_hardware_activation")
@@ -51,6 +61,11 @@ def setup(context):
         # Bus ownership first, then read-only owner checks, before any Node exists.
         _HELD_LOCKS.extend(acquire_bus_locks(build.lifecycle["bus_locks"]))
     preflight(build)
+    publish_robot_state = _optional_boolean(
+        context,
+        "publish_robot_state",
+        "true" if build.lifecycle.get("publish_robot_state", False) else "false",
+    )
     runtime = Path(build.runtime_dir)
     order = build.controller_order
     manager = Node(
@@ -60,7 +75,8 @@ def setup(context):
             {"robot_description": build.robot_description},
             str(runtime / "controllers.yaml"),
         ],
-        arguments=runtime_arguments(build, {}),
+        # Per-start values the scope declares; unrequested keys are ignored.
+        arguments=runtime_arguments(build, {"startup_id": f"{scope}-{uuid.uuid4()}"}),
         output="both",
     )
     hardware = Node(
@@ -130,7 +146,20 @@ def setup(context):
             )
         )
         after_hardware = motion
+    robot_state = (
+        [
+            Node(
+                package="robot_state_publisher",
+                executable="robot_state_publisher",
+                parameters=[{"robot_description": build.robot_description}],
+                output="both",
+            )
+        ]
+        if publish_robot_state
+        else []
+    )
     return [
+        *robot_state,
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,
@@ -167,6 +196,15 @@ def generate_launch_description():
             DeclareLaunchArgument("use_mock_hardware", default_value="true"),
             DeclareLaunchArgument("control_scope", default_value="chassis_only"),
             DeclareLaunchArgument("physical_profile", default_value=""),
+            DeclareLaunchArgument("jtc_only", default_value="false"),
+            DeclareLaunchArgument(
+                "sync_mode", default_value="", description="EtherCAT force bench: sm or dc"
+            ),
+            DeclareLaunchArgument(
+                "publish_robot_state",
+                default_value="",
+                description="true/false overrides the scope's publish_robot_state",
+            ),
             DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
             DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
             DeclareLaunchArgument(

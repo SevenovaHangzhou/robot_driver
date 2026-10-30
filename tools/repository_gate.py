@@ -62,10 +62,9 @@ REQUIRED_GOVERNANCE_FILES = (
     "README.md",
     "AGENTS.md",
     "ARCHITECTURE.md",
-    "collaboration-and-commit-standards.md",
+    ".github/CONTRIBUTING.md",
     ".dockerignore",
     "domains/rt_control/README.md",
-    "domains/rt_control/AGENTS.md",
     "domains/rt_control/PROGRESS.md",
     "domains/rt_control/BLOCKED-questions.md",
     ".pre-commit-config.yaml",
@@ -446,10 +445,7 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     ):
         if required_command not in build_commands:
             findings.append(f"CI build job must run {description}")
-    if not any(
-        command in build_commands
-        for command in ("tools/diff_legacy.py", "tools/check_v3_branch_contract.py")
-    ):
+    if "tools/check_v3_branch_contract.py" not in build_commands:
         findings.append("CI build job must run a branch-specific migration gate")
     return findings
 

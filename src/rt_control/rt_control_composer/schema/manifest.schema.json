@@ -648,6 +648,9 @@
             },
             "staged_hardware_activation": {
               "type": "boolean"
+            },
+            "publish_robot_state": {
+              "type": "boolean"
             }
           },
           "required": [
@@ -754,6 +757,10 @@
             "$ref": "module_envelope.schema.json#/definitions/share_path"
           },
           "schema": {
+            "type": "string",
+            "minLength": 1
+          },
+          "schema_package": {
             "type": "string",
             "minLength": 1
           }

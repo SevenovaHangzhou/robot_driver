@@ -2,6 +2,9 @@ controller_manager:
   ros__parameters:
     enable_manager:
       type: enable_manager/EnableManagerController
+    hardware_components_initial_state:
+      unconfigured:
+      - ecat_arms
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
     rolling_trajectory_controller:
@@ -152,6 +155,21 @@ rolling_trajectory_controller:
     buffer_capacity: 64
     configuration_source: provisional
     envelope_file: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
+    joints:
+    - right_joint1
+    - right_joint2
+    - right_joint3
+    - right_joint4
+    - right_joint5
+    - right_joint6
+    - right_joint7
+    - left_joint1
+    - left_joint2
+    - left_joint3
+    - left_joint4
+    - left_joint5
+    - left_joint6
+    - left_joint7
     max_horizon_ms: 600
     maximum_controller_period_ms: 2
     nominal_controller_period_ms: 1

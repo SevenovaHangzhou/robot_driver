@@ -152,12 +152,11 @@ def test_head_renaming_reaches_hardware_and_all_controllers(config, tmp_path):
     system = ET.fromstring(result.robot_description).find("ros2_control")
     assert [joint.attrib["name"] for joint in system.findall("joint")] == names
     assert system.find("gpio").attrib["name"] == "test_pair_control"
-    for name in ("joint_state_broadcaster", "head_position_controller", "damiao_head_manager"):
+    for name in ("joint_state_broadcaster", "head_position_controller"):
         assert result.controllers[name]["ros__parameters"]["joints"] == names
-    assert (
-        result.controllers["damiao_head_manager"]["ros__parameters"]["control_name"]
-        == "test_pair_control"
-    )
+    manager = result.controllers["enable_manager"]["ros__parameters"]
+    assert manager["handshake_devices"] == ["test_pair_control"]
+    assert manager["diagnostic_joints"] == names
 
 
 def test_force_private_spec_can_change_without_composer_changes(config, tmp_path, monkeypatch):

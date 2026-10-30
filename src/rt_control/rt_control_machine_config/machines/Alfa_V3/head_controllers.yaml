@@ -1,0 +1,34 @@
+# Complete controller view of the head_only scope. Joint, GPIO and diagnostic names are
+# bound from the head_gimbal module exports by the manifest's controller_parameter_bindings.
+controller_manager:
+  ros__parameters:
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    head_position_controller:
+      type: forward_command_controller/ForwardCommandController
+    enable_manager:
+      type: enable_manager/EnableManagerController
+joint_state_broadcaster:
+  ros__parameters:
+    interfaces:
+    - position
+    - velocity
+    - effort
+head_position_controller:
+  ros__parameters:
+    interface_name: position
+enable_manager:
+  ros__parameters:
+    # The DaMiao plugin runs the enable sequence; the manager only requests it and,
+    # once confirmed, activates the position controller.
+    jtc_name: head_position_controller
+    diagnostic_joint_interfaces:
+    - fault_code
+    - mos_temperature
+    - motor_temperature
+    - feedback_age_ms
+    # Former head-manager timing: 5 s per operation, 1 s controller switch.
+    batch_timeout: 5.0
+    disable_stage_timeout: 5.0
+    fault_reset_timeout: 5.0
+    controller_switch_timeout: 1.0

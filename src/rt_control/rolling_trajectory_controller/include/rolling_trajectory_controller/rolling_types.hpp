@@ -15,11 +15,6 @@ inline constexpr std::size_t kTransportMaxPoints = 256U;
 inline constexpr std::uint16_t kProtocolMajor = 1U;
 inline constexpr std::uint16_t kProtocolMinor = 0U;
 
-inline constexpr std::array<const char *, kAxisCount> kJointNames = {
-  "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
-  "right_joint6", "right_joint7", "left_joint1", "left_joint2", "left_joint3",
-  "left_joint4", "left_joint5", "left_joint6", "left_joint7"};
-
 using Identifier = std::array<std::uint8_t, 16>;
 
 enum class RejectCode : std::uint8_t

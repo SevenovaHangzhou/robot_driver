@@ -14,24 +14,24 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
-| contract/02#F1 | vendored 权威 RT-Control 视图固定 /joint_states=125 Hz | [contract-20260814-01](../contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F1 | 有效 |
-| contract/02#F2 | src/interfaces 只保留域内私有接口，公共 schema 从 vendor 构建 | [contract-20260814-01](../contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F2 | 有效 |
-| contract/02#F3 | 跨域 Topic 使用 robot_interfaces_qos 命名 profile | [contract-20260814-01](../contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F3 | 有效 |
-| contract/03#F1 | ErrorInfo 是跨域公共载荷，code 唯一采用 uint32 DREE | [contract-20260816-01](../contract/records/2026-08-16-bq137-shared-error-readiness.md)#F1 | 有效 |
-| contract/03#F2 | 当前 DomainReadiness 为最终公共字段集并遵守一致性规则 | [contract-20260816-01](../contract/records/2026-08-16-bq137-shared-error-readiness.md)#F2 | 有效 |
-| contract/09#F1 | diagnostics topology 从所选 hardware descriptors 派生；公共 status adapter 只消费稳定总线 summary，不持有固定电机数组 | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F3 | PASS（T1 Docker/Mock） |
-| contract/10#F1 | pinned `ros2_canopen` 的完整零值 error-reset EMCY 文本归一化为 cleared；其它非空或格式漂移继续 fail closed | [contract-20260904-01](../contract/records/2026-09-04-cleared-emcy-readiness.md)#F1-F2 | PASS（T3 Native；PR CI/Docker 待完成） |
-| contract/13#F1 | ELECTRI-133 新增六个 RT 私有 chassis 类型；真实 ROS action/service 验证由无设备 Mock 与 opt-in loaned-interface adapter 提供，不增加域外消费者或 production 准入 | [Tier A 私有协议](../contract/records/2026-09-25-tier-a-private-chassis-protocol.md)#F1-F3 | PARTIAL（T1；实机 PDO/标定/IMU 待验） |
-| contract/14#F2 | PP、头部、升降使用位置 Action；未配置资源 fail closed | [V3 公共接口实现](../contract/records/2026-10-02-v3-interface-contract-implementation.md)#F2 | PARTIAL（T1；实物配置待补） |
-| lifecycle/04#F1 | 原位入口仅开放控制字，enable_only 省略 JTC 切换并保留驱动状态/故障/失能；16轴实测成功，默认运动栈不变 | [原位使能入口](../lifecycle/records/2026-09-12-stationary-enable-entry.md) | PARTIAL（T1/T3，完整运动/交付待验） |
-| motion/F8 | V3 FJT/rolling 固定 7+7 CSP 轴序，PP 夹爪不进入运动 writer；初始周期为 1 ms、maximum 2 ms | [V3 双七轴运动 runtime](../motion/records/2026-09-19-v3-arm-fjt-rolling-runtime.md)#F1-F3 | PARTIAL（T1 Mock；标定/目标机/实机待验） |
-| motion/F11 | PP、头部、升降采用绝对位置 Action；缺少实物限位/停止保持时不准入 | [位置 Action 适配](../motion/records/2026-10-02-position-action-adapters.md)#F1-F2 | PARTIAL（T1；BQ-152） |
-| motion/F12 | 不实现底盘与双臂/升降/PP跨组互斥；同资源 writer 和 FJT/Rolling 互斥保留 | [位置 Action 适配](../motion/records/2026-10-02-position-action-adapters.md)#F3 | PASS（源码/契约；联合运行待验） |
-| motion/F13 | 组合运行只保留一套 RSP，每关节状态与 TF 边保持唯一来源 | [位置 Action 适配](../motion/records/2026-10-02-position-action-adapters.md)#F4 | PARTIAL（入口已支持；完整组合待验） |
-| release-deploy/07#F1 | 三代机底盘 scope 显式绑定 swerve_controller 与四个必需外置编码器；只有静态控制计划，真实后端/标定未准入 | [ELECTRI-117 底盘模块控制器绑定](../release-deploy/records/2026-09-13-swerve-controller-module-binding.md)#F1-F3 | UNVERIFIED（T0 配置；无实机/容器启动） |
-| release-deploy/V3-ARM-RUNTIME-1 | V3 机械臂运动入口显式选择，JTC/rolling 先 INACTIVE、enable_manager 后 ACTIVE；默认入口仍为 validation | [V3 arm runtime 入口](../release-deploy/records/2026-09-19-v3-arm-runtime-entry.md)#F1-F3 | PARTIAL（T1 Mock；旧机/真实总线未验） |
-| release-deploy/01#F1 | bringup 只选择并组合 EtherCAT/CANopen 两个 package-owned real/mock system，配置对齐在 Node 创建前 fail closed | [release-deploy-20260903-01](../release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock） |
-| release-deploy/04#F1 | swerve_driver 已进入 bringup 构建闭包，但未加入生产启动；增量容器测试不替代真实后端及整机验收 | [舵轮包集成](../release-deploy/records/2026-09-09-swerve-package-integration.md) | PARTIAL（T1 增量容器） |
+| contract/02#F1 | vendored 权威 RT-Control 视图固定 /joint_states=125 Hz | [contract-20260814-01](../../areas-archive/contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F1 | 有效 |
+| contract/02#F2 | src/interfaces 只保留域内私有接口，公共 schema 从 vendor 构建 | [contract-20260814-01](../../areas-archive/contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F2 | 有效 |
+| contract/02#F3 | 跨域 Topic 使用 robot_interfaces_qos 命名 profile | [contract-20260814-01](../../areas-archive/contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F3 | 有效 |
+| contract/03#F1 | ErrorInfo 是跨域公共载荷，code 唯一采用 uint32 DREE | [contract-20260816-01](../../areas-archive/contract/records/2026-08-16-bq137-shared-error-readiness.md)#F1 | 有效 |
+| contract/03#F2 | 当前 DomainReadiness 为最终公共字段集并遵守一致性规则 | [contract-20260816-01](../../areas-archive/contract/records/2026-08-16-bq137-shared-error-readiness.md)#F2 | 有效 |
+| contract/09#F1 | diagnostics topology 从所选 hardware descriptors 派生；公共 status adapter 只消费稳定总线 summary，不持有固定电机数组 | [release-deploy-20260903-01](../../areas-archive/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F3 | PASS（T1 Docker/Mock） |
+| contract/10#F1 | pinned `ros2_canopen` 的完整零值 error-reset EMCY 文本归一化为 cleared；其它非空或格式漂移继续 fail closed | [contract-20260904-01](../../areas-archive/contract/records/2026-09-04-cleared-emcy-readiness.md)#F1-F2 | PASS（T3 Native；PR CI/Docker 待完成） |
+| contract/13#F1 | ELECTRI-133 新增六个 RT 私有 chassis 类型；真实 ROS action/service 验证由无设备 Mock 与 opt-in loaned-interface adapter 提供，不增加域外消费者或 production 准入 | [Tier A 私有协议](../../areas-archive/contract/records/2026-09-25-tier-a-private-chassis-protocol.md)#F1-F3 | PARTIAL（T1；实机 PDO/标定/IMU 待验） |
+| contract/14#F2 | PP、头部、升降使用位置 Action；未配置资源 fail closed | [V3 公共接口实现](../../areas-archive/contract/records/2026-10-02-v3-interface-contract-implementation.md)#F2 | PARTIAL（T1；实物配置待补） |
+| lifecycle/04#F1 | 原位入口仅开放控制字，enable_only 省略 JTC 切换并保留驱动状态/故障/失能；16轴实测成功，默认运动栈不变 | [原位使能入口](../../areas-archive/lifecycle/records/2026-09-12-stationary-enable-entry.md) | PARTIAL（T1/T3，完整运动/交付待验） |
+| motion/F8 | V3 FJT/rolling 固定 7+7 CSP 轴序，PP 夹爪不进入运动 writer；初始周期为 1 ms、maximum 2 ms | [V3 双七轴运动 runtime](../../areas-archive/motion/records/2026-09-19-v3-arm-fjt-rolling-runtime.md)#F1-F3 | PARTIAL（T1 Mock；标定/目标机/实机待验） |
+| motion/F11 | PP、头部、升降采用绝对位置 Action；缺少实物限位/停止保持时不准入 | [位置 Action 适配](../../areas-archive/motion/records/2026-10-02-position-action-adapters.md)#F1-F2 | PARTIAL（T1；BQ-152） |
+| motion/F12 | 不实现底盘与双臂/升降/PP跨组互斥；同资源 writer 和 FJT/Rolling 互斥保留 | [位置 Action 适配](../../areas-archive/motion/records/2026-10-02-position-action-adapters.md)#F3 | PASS（源码/契约；联合运行待验） |
+| motion/F13 | 组合运行只保留一套 RSP，每关节状态与 TF 边保持唯一来源 | [位置 Action 适配](../../areas-archive/motion/records/2026-10-02-position-action-adapters.md)#F4 | PARTIAL（入口已支持；完整组合待验） |
+| release-deploy/07#F1 | 三代机底盘 scope 显式绑定 swerve_controller 与四个必需外置编码器；只有静态控制计划，真实后端/标定未准入 | [ELECTRI-117 底盘模块控制器绑定](../../areas-archive/release-deploy/records/2026-09-13-swerve-controller-module-binding.md)#F1-F3 | UNVERIFIED（T0 配置；无实机/容器启动） |
+| release-deploy/V3-ARM-RUNTIME-1 | V3 机械臂运动入口显式选择，JTC/rolling 先 INACTIVE、enable_manager 后 ACTIVE；默认入口仍为 validation | [V3 arm runtime 入口](../../areas-archive/release-deploy/records/2026-09-19-v3-arm-runtime-entry.md)#F1-F3 | PARTIAL（T1 Mock；旧机/真实总线未验） |
+| release-deploy/01#F1 | bringup 只选择并组合 EtherCAT/CANopen 两个 package-owned real/mock system，配置对齐在 Node 创建前 fail closed | [release-deploy-20260903-01](../../areas-archive/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F1-F3 | PASS（T1 Docker/Mock） |
+| release-deploy/04#F1 | swerve_driver 已进入 bringup 构建闭包，但未加入生产启动；增量容器测试不替代真实后端及整机验收 | [舵轮包集成](../../areas-archive/release-deploy/records/2026-09-09-swerve-package-integration.md) | PARTIAL（T1 增量容器） |
 
 | integration-20261013-01#F1–F4 | M0b 两包及九份 Draft 7 草案；模块私有 spec、设备 TBD、XML/GPIO 投影契约与离线 YAML 边界；不改变运行入口 | [M0b schema 与骨架](records/2026-10-13-kkozia-5-m0b-composer-skeleton-and-schemas.md) | UNVERIFIED（T0；A0/运行验证待完成） |
 

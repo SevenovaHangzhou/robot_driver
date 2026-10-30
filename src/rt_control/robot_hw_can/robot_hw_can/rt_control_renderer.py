@@ -134,6 +134,8 @@ def render(request: Mapping) -> Mapping:
         "parameter_exports": {
             "joint_names": [entry["robot_model_joint"] for entry in spec["joints"]],
             "control_name": spec["control_name"],
+            # The DaMiao plugin sequences enable itself; enable_manager drives it by handshake.
+            "handshake_devices": [spec["control_name"]],
         },
         "runtime_files": {},
         "expected_topology": {"preflight_required": False},

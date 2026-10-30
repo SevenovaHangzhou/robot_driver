@@ -3,7 +3,7 @@ kind: controllers
 status: draft
 verified: false
 authorities:
-  source: rt_control_bringup/config/machines/alfa_v3.yaml + config/alfa_v3_grippers.draft.yaml
+  source: migrated from the removed rt_control_bringup/config/machines/alfa_v3.yaml (see git history)
 pending_facts: []
 robot_variant: Alfa_V3
 controllers:
@@ -32,27 +32,12 @@ controllers:
         package: swerve_driver
         file: config/controller.draft.yaml
         path: '{controller}.ros__parameters'
-  head_gimbal:
-    module: head_gimbal
-    name: damiao_head_manager
-    plugin: damiao_head_controller/HeadManagerController
-    package: damiao_head_controller
-    config_file: config/controllers.yaml
-    actuator_groups:
-    - position_velocity
-    required_state_modules: []
-    tags: []
-    parameters:
-    - yaml:
-        package: damiao_head_controller
-        file: config/controllers.yaml
-        path: '{controller}.ros__parameters'
   whole_body_jtc:
     module: arms
     name: whole_body_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
     package: rolling_trajectory_controller
-    config_file: config/Alfa_V3_arm_tolerances.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
     actuator_groups:
     - csp
     required_state_modules: []
@@ -75,7 +60,7 @@ controllers:
     name: left_arm_jtc
     plugin: joint_trajectory_controller/JointTrajectoryController
     package: rolling_trajectory_controller
-    config_file: config/Alfa_V3_bench_left_arm_motion.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_bench_left_arm_motion.yaml
     actuator_groups:
     - csp
     required_state_modules: []
@@ -101,7 +86,7 @@ controllers:
     name: rolling_trajectory_controller
     plugin: rolling_trajectory_controller/RollingTrajectoryController
     package: rolling_trajectory_controller
-    config_file: config/Alfa_V3_arm_tolerances.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
     actuator_groups:
     - csp
     required_state_modules: []
@@ -109,6 +94,11 @@ controllers:
     - rolling
     - motion
     parameters:
+    - policy:
+        name: motion
+        path: joints
+        as: joints
+        match: actuator_groups
     - policy:
         name: motion
         path: rolling
@@ -120,7 +110,7 @@ controllers:
     name: enable_manager
     plugin: enable_manager/EnableManagerController
     package: enable_manager
-    config_file: config/Alfa_V3_enable_policy.yaml
+    config_file: machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml
     actuator_groups:
     - csp
     required_state_modules: []
@@ -241,16 +231,16 @@ controllers:
     module: head_gimbal
     name: head_position_controller
     plugin: forward_command_controller/ForwardCommandController
-    package: damiao_head_controller
-    config_file: config/controllers.yaml
+    package: forward_command_controller
+    config_file: machines/Alfa_V3/head_controllers.yaml
     actuator_groups:
     - position_velocity
     required_state_modules: []
     tags: []
     parameters:
     - yaml:
-        package: damiao_head_controller
-        file: config/controllers.yaml
+        package: rt_control_machine_config
+        file: machines/Alfa_V3/head_controllers.yaml
         path: '{controller}.ros__parameters'
   left_wrist_force_sensor_broadcaster:
     module: wrist_force_sensors

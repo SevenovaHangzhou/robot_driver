@@ -21,6 +21,7 @@ find_package(std_msgs REQUIRED)
 
 add_library(enable_manager_controller SHARED
   src/enable_manager_controller.cpp
+  src/handshake_device.cpp
 )
 target_compile_features(enable_manager_controller PUBLIC cxx_std_17)
 target_compile_options(enable_manager_controller PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
@@ -43,13 +44,6 @@ ament_target_dependencies(enable_manager_controller
   std_msgs
 )
 
-add_executable(rt_disable_once src/rt_disable_once.cpp)
-target_compile_features(rt_disable_once PUBLIC cxx_std_17)
-target_compile_options(rt_disable_once PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
-ament_target_dependencies(
-  rt_disable_once controller_manager_msgs lifecycle_msgs rclcpp rt_control_interfaces
-)
-
 pluginlib_export_plugin_description_file(
   controller_interface enable_manager_plugins.xml
 )
@@ -60,10 +54,9 @@ install(TARGETS enable_manager_controller
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
-install(TARGETS rt_disable_once DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY config schema DESTINATION share/${PROJECT_NAME}
-  FILES_MATCHING PATTERN "*.yaml" PATTERN "*.schema.json")
+install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.schema.json")
 install(FILES enable_manager_plugins.xml DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)
@@ -102,6 +95,11 @@ if(BUILD_TESTING)
     rt_control_interfaces
     rt_control_semantic_components
   )
+
+  ament_add_gmock(test_handshake_devices test/test_handshake_devices.cpp)
+  target_compile_features(test_handshake_devices PUBLIC cxx_std_17)
+  target_link_libraries(test_handshake_devices enable_manager_controller)
+  ament_target_dependencies(test_handshake_devices hardware_interface rclcpp)
 endif()
 
 ament_package()

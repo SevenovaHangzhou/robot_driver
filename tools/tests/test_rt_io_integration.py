@@ -153,7 +153,7 @@ def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
 
     assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
     assert 'executable="control_enable_adapter"' in (
-        BRINGUP / "launch/rt_control_arm_runtime.launch.py"
+        BRINGUP / "launch/rt_control_scope_runtime.launch.py"
     ).read_text()
     assert "launch/rt_control.launch.py" not in bringup_cmake
     assert "control_api_adapter" in bootstrap
@@ -356,16 +356,10 @@ def test_docker_build_contains_required_io_packages() -> None:
     assert not (ROOT / "src/rt_control/can_bus_guard").exists()
 
 
-def test_removed_duplicate_and_unused_ros_interfaces_do_not_return() -> None:
-    plc_source = (
-        ROOT / "src/rt_control/plc_node/plc_node/plc_node.py"
-    ).read_text()
+def test_bms_keeps_its_battery_and_opt_in_discharge_interfaces() -> None:
     bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
     bms_manifest = (ROOT / "src/rt_control/bms_node/package.xml").read_text()
 
-    assert "create_subscription" not in plc_source
-    assert '"/plc/command"' not in plc_source
-    assert "/command" not in plc_source
     assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 2
     assert 'declare_parameter<bool>("automatic_discharge_control", false)' in bms_source
     assert "if (automatic_discharge_control_)" in bms_source

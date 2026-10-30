@@ -86,7 +86,7 @@ def test_stale_artifact_and_selection_mismatch_are_rejected(shares, tmp_path):
     write_artifact(output, package_share=share_of(shares), **ARMS)
     with pytest.raises(ValueError, match="selection differs in \\['jtc_only'\\]"):
         load_artifact(output, package_share=share_of(shares), **ARMS, jtc_only=True)
-    policy = shares["enable_manager"] / "config/Alfa_V3_enable_policy.yaml"
+    policy = shares["rt_control_machine_config"] / "machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml"
     policy.write_text(policy.read_text().replace("batch_timeout: 4.0", "batch_timeout: 5.0"))
     with pytest.raises(ValueError, match=r"stale .*controllers\.yaml.*compose_artifact"):
         load_artifact(output, package_share=share_of(shares), **ARMS)
