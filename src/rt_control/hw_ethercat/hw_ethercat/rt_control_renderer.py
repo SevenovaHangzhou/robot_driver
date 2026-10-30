@@ -8,13 +8,12 @@ from collections.abc import Mapping
 from copy import deepcopy
 from functools import partial
 import importlib
-import json
 import math
 from pathlib import Path
 import subprocess  # noqa: F401  # Preflight implementations resolve it through this owner.
 
 from ament_index_python.packages import get_package_share_directory
-from jsonschema import Draft7Validator
+from infra_renderer import validated_spec
 
 from .arm_renderer import position_factors  # noqa: F401  # Stable owner-level helper.
 from .profiles import load_profile
@@ -41,17 +40,11 @@ def _module(name):
     return importlib.import_module(f"{__package__}.{name}")
 
 
-def _private_validate(data, filename):
-    schema = json.loads((_share() / "schema" / filename).read_text())
-    Draft7Validator(schema).validate(data)
-    return deepcopy(dict(data))
-
-
 def validate_module(module: Mapping, data: Mapping) -> Mapping:
     if "family" not in data["spec"]:
         raise ValueError("EtherCAT module spec must declare its renderer family")
     schema = _family(data["spec"]["family"])["module_schema"]
-    return {**deepcopy(dict(data)), "spec": _private_validate(data["spec"], schema)}
+    return validated_spec(data, _share() / "schema" / schema)
 
 
 def validate_unit(module: Mapping, data: Mapping | None, *, family=None) -> Mapping:
@@ -63,7 +56,7 @@ def validate_unit(module: Mapping, data: Mapping | None, *, family=None) -> Mapp
         return {} if data is None else deepcopy(dict(data))
     if data is None:
         raise ValueError(f"Calibration is required for EtherCAT family {family}")
-    return {**deepcopy(dict(data)), "spec": _private_validate(data["spec"], schema)}
+    return validated_spec(data, _share() / "schema" / schema)
 
 
 def validate_device(data: Mapping, *, render_mode: str) -> Mapping:

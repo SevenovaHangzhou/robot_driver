@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+from infra_renderer import xml_param
 import yaml
 
 from .profiles import master_parameters
@@ -62,10 +63,6 @@ def _pdo_objects(driver_config):
                 for channel in pdo["channels"]
             ]
     return objects
-
-
-def _param(parent, key, value):
-    ET.SubElement(parent, "param", name=key).text = str(value)
 
 
 def missing_facts(request, profile):
@@ -192,11 +189,11 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 if interface in ("position", "velocity")
                 else 0
             )
-            _param(element, "initial_value", initial)
+            xml_param(element, "initial_value", initial)
         for interface in STATES:
             element = ET.SubElement(joint, "state_interface", name=interface)
             if mock:
-                _param(
+                xml_param(
                     element,
                     "initial_value",
                     64
@@ -271,7 +268,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "mode_of_operation": axis["mode_of_operation"],
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
             }.items():
-                _param(joint, "ec_module." + key, value)
+                xml_param(joint, "ec_module." + key, value)
         joints.append(joint)
         managed.append(name)
         for group in request["module"]["mode_groups"]:

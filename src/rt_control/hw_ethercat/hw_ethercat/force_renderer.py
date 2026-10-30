@@ -7,13 +7,10 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 
+from infra_renderer import xml_param
 import yaml
 
 from .profiles import master_parameters
-
-
-def _param(parent, name, value):
-    ET.SubElement(parent, "param", name=name).text = str(value)
 
 
 def render(request, share, validate_module, validate_unit, validate_device):
@@ -39,7 +36,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
         for name, value in values.items():
             interface = ET.SubElement(sensor, "state_interface", name=name)
             if mock:
-                _param(interface, "initial_value", value)
+                xml_param(interface, "initial_value", value)
         sensors.append(sensor)
         return sensor
 
@@ -89,7 +86,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "position": position,
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
             }.items():
-                _param(component, "ec_module." + key, value)
+                xml_param(component, "ec_module." + key, value)
         controller_name = item["controller_name"]
         if controller_name in parameters:
             raise ValueError("Duplicate force sensor controller binding")
