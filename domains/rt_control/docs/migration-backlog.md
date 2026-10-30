@@ -36,7 +36,7 @@
 | [x] | A | `rt_diagnostics` 无生产入口且含二代履带诊断（arch-b3：用户 2026-10-30 裁定先删除旧实现，重写待需求明确后另做） | 1.4 |
 | [x] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用（arch-b2：vacuum/position_action/module_state/status 四个适配器删除，只留 `control_enable_adapter`） | 1.4 |
 | [x] | B | `damiao_head_controller` 是 `enable_manager` 的第二份实现（arch-s7：头部作为握手式设备并入 enable_manager，包删除；待实机验证） | 1.1、3 |
-| [ ] | B | `semantic_components` 混入 `runtime_log_shm_ring`（infra）和 `head_phase`（用户 2026-10-30 修正：`head_phase` 是握手式使能设备的通用阶段语义，改名 `HandshakePhase` 留在本包；`runtime_log_shm_ring` 按 §3 例外移入 `infra_shm_ring`） | 1.1、1.3 |
+| [x] | B | `semantic_components` 混入 `runtime_log_shm_ring`（infra）和 `head_phase`（用户 2026-10-30 修正：`head_phase` 是握手式使能设备的通用阶段语义，改名 `HandshakePhase` 留在本包；`runtime_log_shm_ring` 按 §3 例外移入 `infra_shm_ring`；#120、#121 完成） | 1.1、1.3 |
 | [ ] | C | 四个控制器包共同重复骨架（见 §5a 末） | 3 |
 | [ ] | C | `rt_disable_once` 与 `head_disable_once` 同一件事两种写法 | 3 |
 | [ ] | C | `rt_control_bringup/ros2_control_node.cpp` fork 上游 main | 3、§6 窄补丁 |
@@ -55,7 +55,7 @@
 | [ ] | `robot_hw_ethercat` | protocol | 先删后改名 | `hw_ethercat` | 最杂：二代残留（xacro、`variants/`、`config/slaves/`、681 行 `validate_ethercat_variants.py`）约占 40%；3 个 renderer 各自复制 `_param`；吸收 `x503_force_sensor` 为 `tools/x503/`。 |
 | [ ] | `robot_hw_canopen` | protocol | 保留 | `hw_canopen` | 健康。EDS `.compat.*` 三件套按 §4.5 标注生成源头。 |
 | [ ] | `robot_hw_can` | protocol | 保留 | `hw_can_damiao` | 健康。`socketcan.cpp` 作为 `infra_socketcan` 种子。 |
-| [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | 名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
+| [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | （#120、#121 已瘦身；剩余：CiA402 唯一出口、改名）名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
 | [ ] | `enable_manager` | control | 拆 | `ctrl_enable_manager` | 2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
 | [x] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
 | [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | `rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
@@ -72,7 +72,7 @@
 | [ ] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；剩余：改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
 | [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；剩余：按 V3 需求重写）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
 | [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | 两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
-| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。 |
+| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。 |
 
 净效果：24 包 → 删 1（`plc_node`）、合 3 为 1（web×2、head→enable_manager）、并入 1（x503）、重做 1（`rt_diagnostics`）、新增 infra 5–6，最终 25–26 包，每包职责单一。
 
