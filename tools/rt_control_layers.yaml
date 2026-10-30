@@ -13,8 +13,8 @@ layers:
   - robot_hw_canopen
   - robot_hw_can
   - rt_control_semantic_components
-  - enable_manager
   control:
+  - enable_manager
   - rolling_trajectory_controller
   - rt_force_torque_broadcaster
   - x503_force_sensor
