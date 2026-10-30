@@ -316,7 +316,9 @@ htmlcov
     def test_ci_workflow_must_preserve_governance_before_build(self):
         valid = """on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 18 * * *"
 permissions:
   contents: read
 jobs:
@@ -326,6 +328,7 @@ jobs:
       - run: python3 tools/pr_contract_gate.py --event-path event.json
   build:
     needs: governance
+    if: contains(github.event.pull_request.labels.*.name, 'full-ci')
     steps:
       - run: vcs import . < deps.repos
       - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
@@ -339,14 +342,19 @@ jobs:
         self.assertEqual(repository_gate.check_ci_workflow_policy(valid), [])
 
         redundant = valid.replace(
-            "    types: [opened, synchronize, reopened]\n",
-            "    types: [opened, synchronize, reopened, edited]\n"
+            "    types: [opened, synchronize, reopened, labeled]\n",
+            "    types: [opened, synchronize, reopened, labeled, edited]\n"
             "  push:\n"
             "    branches: [main]\n",
         )
         findings = repository_gate.check_ci_workflow_policy(redundant)
         self.assert_has(findings, "must not run on main push")
-        self.assert_has(findings, "must not run the full build for pull request edits")
+        self.assert_has(findings, "pull request edits are handled by pr-metadata-governance")
+
+        unscheduled = valid.replace('  schedule:\n    - cron: "0 18 * * *"\n', "")
+        self.assert_has(
+            repository_gate.check_ci_workflow_policy(unscheduled), "nightly schedule"
+        )
 
         weakened = valid.replace("    needs: governance\n", "").replace(
             "      - run: colcon test --packages-up-to rt_control_bringup\n", ""
@@ -355,14 +363,12 @@ jobs:
         self.assert_has(findings, "build job must depend on governance")
         self.assert_has(findings, "build job must run colcon test")
 
-        conditional = valid.replace(
-            "  build:\n    needs: governance\n",
-            "  build:\n    if: needs.scope.outputs.head_only != 'true'\n"
-            "    needs: governance\n",
+        every_pr = valid.replace(
+            "    if: contains(github.event.pull_request.labels.*.name, 'full-ci')\n", ""
         )
         self.assert_has(
-            repository_gate.check_ci_workflow_policy(conditional),
-            "full V3 build job must remain unconditional",
+            repository_gate.check_ci_workflow_policy(every_pr),
+            "only nightly, on dispatch or for the full-ci label",
         )
 
         ungated = valid.replace("      - run: python3 tools/check_v3_branch_contract.py\n", "")
@@ -466,7 +472,9 @@ htmlcov
 """,
             ".github/workflows/rt-control-ci.yml": """on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 18 * * *"
 permissions:
   contents: read
 jobs:
@@ -476,6 +484,7 @@ jobs:
       - run: python3 tools/pr_contract_gate.py --event-path event.json
   build:
     needs: governance
+    if: contains(github.event.pull_request.labels.*.name, 'full-ci')
     steps:
       - run: vcs import . < deps.repos
       - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare

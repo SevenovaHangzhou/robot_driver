@@ -1,8 +1,13 @@
 name: rt-control-ci
 
+# Plan A (user 2026-10-30): pull requests are gated only by governance (fast); the full V3
+# build runs nightly on main, on manual dispatch, or on a pull request labelled full-ci.
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 18 * * *"  # 02:00 Asia/Shanghai
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,6 +24,7 @@ env:
 
 jobs:
   governance:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-22.04
     container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
     timeout-minutes: 10
@@ -80,102 +86,11 @@ jobs:
         shell: bash
         run: python3 tools/pr_contract_gate.py --event-path "${GITHUB_EVENT_PATH}"
 
-  scope:
-    name: Classify changed scope
-    runs-on: ubuntu-22.04
-    outputs:
-      head_only: ${{ steps.classify.outputs.head_only }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - id: classify
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          head_only="$(
-            git diff --name-only "${BASE_SHA}...${HEAD_SHA}" |
-              python3 tools/ci_scope.py
-          )"
-          echo "head_only=${head_only}" >> "${GITHUB_OUTPUT}"
-
-  head-fast:
-    name: Head-only fast checks
-    needs: [governance, scope]
-    if: needs.scope.outputs.head_only == 'true'
-    runs-on: ubuntu-22.04
-    container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
-    timeout-minutes: 12
-    env:
-      HEAD_FAST_WS: ${{ github.workspace }}/.ci/head-fast-ws
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-      - name: Cache head-only vendor checkout
-        uses: actions/cache@v5
-        with:
-          path: .ci/head-fast-ws/src/vendor
-          key: head-fast-vendor-${{ runner.os }}-${{ hashFiles('deps.repos') }}
-      - name: Install head-only build tools
-        if: env.RT_CONTROL_CI_BASE_IMAGE == ''
-        shell: bash
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            build-essential \
-            git \
-            liburdfdom-tools \
-            python3-colcon-common-extensions \
-            python3-pytest \
-            python3-vcstool \
-            python3-yaml \
-            python3-jsonschema \
-            ros-humble-ros2-control \
-            ros-humble-ros2-controllers \
-            ros-humble-xacro
-      - name: Install and verify Draft 7 validator
-        shell: bash
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends python3-jsonschema
-          python3 -c "import jsonschema; assert jsonschema.__version__.startswith('3.2.')"
-      - name: Build and test head closure
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "${HEAD_FAST_WS}"
-          vcs import --shallow --retry 5 --workers 1 \
-            "${HEAD_FAST_WS}" < deps.repos
-          source /opt/ros/humble/setup.bash
-          colcon build --symlink-install \
-            --base-paths src "${HEAD_FAST_WS}/src/vendor" \
-            --packages-select \
-            robot_rt_control_interfaces \
-            robot_system_interfaces \
-            robot_interfaces_qos \
-            rt_control_interfaces \
-            robot_description \
-            rt_control_semantic_components \
-            rt_control_composer \
-            rt_control_machine_config \
-            robot_hw_can
-          source install/setup.bash
-          colcon test --event-handlers console_direct+ \
-            --base-paths src "${HEAD_FAST_WS}/src/vendor" \
-            --packages-select robot_hw_can
-          colcon test-result --verbose
-          COMPOSER_SCHEMA_DIR=${GITHUB_WORKSPACE}/install/rt_control_composer/share/rt_control_composer/schema \
-            python3 -m pytest -q \
-            src/rt_control/rt_control_composer/test/test_head_force.py \
-            src/rt_control/rt_control_composer/test/test_config_contract.py
-
   build:
     needs: governance
+    if: >-
+      always() && needs.governance.result != 'failure' && needs.governance.result != 'cancelled' &&
+      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci'))
     runs-on: ubuntu-22.04
     container: ${{ vars.RT_CONTROL_CI_IMAGE || 'ros:humble-ros-base' }}
     timeout-minutes: 30

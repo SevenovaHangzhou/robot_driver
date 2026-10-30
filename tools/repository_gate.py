@@ -390,18 +390,20 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     events = workflow.get("on") if isinstance(workflow, dict) else None
     pull_request = events.get("pull_request") if isinstance(events, dict) else None
     event_types = pull_request.get("types") if isinstance(pull_request, dict) else None
-    required_event_types = {"opened", "synchronize", "reopened"}
+    required_event_types = {"opened", "synchronize", "reopened", "labeled"}
     if (
         not isinstance(event_types, list) or
         len(event_types) != len(required_event_types) or
         set(event_types) != required_event_types
     ):
         findings.append(
-            "CI workflow must run the full build for opened, synchronize, and reopened only; "
-            "it must not run the full build for pull request edits"
+            "CI workflow must run governance for opened, synchronize, reopened and labeled pull "
+            "requests only; pull request edits are handled by pr-metadata-governance"
         )
     if isinstance(events, dict) and "push" in events:
         findings.append("CI workflow must not run on main push after a PR merge")
+    if not isinstance(events, dict) or "schedule" not in events:
+        findings.append("CI workflow must run the full build on a nightly schedule")
     permissions = workflow.get("permissions") if isinstance(workflow, dict) else None
     if not isinstance(permissions, dict) or permissions.get("contents") != "read":
         findings.append("CI workflow must keep contents permission read-only")
@@ -413,8 +415,10 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     build = jobs.get("build")
     if not isinstance(governance, dict) or not isinstance(build, dict):
         return findings + ["CI workflow must define governance and build jobs"]
-    if "if" in build:
-        findings.append("CI full V3 build job must remain unconditional for every code PR")
+    if "full-ci" not in str(build.get("if", "")):
+        findings.append(
+            "CI full V3 build job must run only nightly, on dispatch or for the full-ci label"
+        )
     needs = build.get("needs")
     if needs != "governance" and not (
         isinstance(needs, list) and "governance" in needs
