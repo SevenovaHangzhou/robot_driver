@@ -35,3 +35,5 @@
 ## 跨区事实关联
 
 协议与驱动事实见[protocol](../protocol/README.md)，启动拼装见[integration](../integration/README.md)。当前源码与目标两层归属的差异见划分decision。
+
+- hw-config-20261023-01#F1：J6专用26B TxPDO包含0x2241与0x3B69，已在未使能OP状态验证同帧采集；使能后标定未验证。见[记录](records/2026-10-23-j6-dual-encoder-pdo.md)。

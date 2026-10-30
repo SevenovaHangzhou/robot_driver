@@ -90,6 +90,11 @@
                 "encoder_policy": {
                   "type": "string",
                   "minLength": 1
+                },
+                "csp_profile": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_-]+$"
                 }
               },
               "required": [
@@ -138,6 +143,10 @@
     "direction_status": {
       "type": "string",
       "minLength": 1
+    },
+    "topology_preflight": {
+      "type": "boolean",
+      "description": "Require cached identities and branch wiring before motion hardware activation."
     }
   },
   "required": [

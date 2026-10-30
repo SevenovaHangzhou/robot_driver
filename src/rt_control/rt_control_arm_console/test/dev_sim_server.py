@@ -86,6 +86,7 @@ def main():
         PACKAGE / "web",
         lambda name: share if name == "robot_description" else "/nonexistent",
         arm.set_enabled,
+        view_model_share=Path(share),
     )
     server.serve_forever()
 

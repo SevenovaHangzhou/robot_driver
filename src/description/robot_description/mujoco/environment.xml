@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="generic_environment">
+  <!-- Reusable world environment; all lengths are in metres, Z points up. -->
+  <statistic center="0.2 0 1.1" extent="3.5" />
+
+  <visual>
+    <global azimuth="135" elevation="-20" offwidth="1280" offheight="720" />
+    <headlight ambient="0.2 0.2 0.2" diffuse="0.3 0.3 0.3" specular="0.1 0.1 0.1" />
+    <rgba haze="0.75 0.80 0.85 1" />
+    <map znear="0.01" zfar="50" />
+    <quality shadowsize="2048" />
+  </visual>
+
+  <asset>
+    <texture name="env_sky" type="skybox" builtin="gradient"
+             rgb1="0.55 0.67 0.80" rgb2="0.88 0.91 0.94" width="512" height="3072" />
+    <texture name="env_floor_texture" type="2d" builtin="checker"
+             rgb1="0.35 0.38 0.42" rgb2="0.45 0.48 0.52" width="512" height="512" />
+    <material name="env_floor_material" texture="env_floor_texture"
+              texuniform="true" texrepeat="1 1" reflectance="0.05"
+              specular="0.15" shininess="0.1" />
+  </asset>
+
+  <worldbody>
+    <!-- An infinite collision plane at base_footprint Z=0; size controls its visual extent.
+         Group 2 keeps the floor visible when robot collision group 0 is hidden. -->
+    <geom name="env_floor" type="plane" pos="0 0 0" size="6 6 0.1"
+          material="env_floor_material" group="2"
+          contype="1" conaffinity="1" condim="3" friction="0.8 0.005 0.0001" />
+
+    <light name="env_key_light" pos="-2 -3 5" dir="0.3 0.4 -1"
+           directional="true" diffuse="0.55 0.55 0.55" specular="0.2 0.2 0.2"
+           castshadow="true" />
+    <light name="env_fill_light" pos="3 2 4" dir="-0.4 -0.3 -1"
+           directional="true" diffuse="0.20 0.22 0.25" specular="0 0 0"
+           castshadow="false" />
+
+    <camera name="env_overview" pos="3 -3 3.5"
+            xyaxes="0.707107 0.707107 0 -0.221581 0.221581 0.94963" fovy="45" />
+    <camera name="env_top" pos="0 0 6" xyaxes="1 0 0 0 1 0" fovy="55" />
+  </worldbody>
+</mujoco>

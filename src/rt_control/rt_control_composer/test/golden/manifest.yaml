@@ -8,7 +8,7 @@ cases:
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
       controllers.yaml: 44b32019682a20a8b911d079518a3dd731b75a5bc6e9c8278062478448377a25
-      robot_description.xml: a6a3e09db065238a2cded89532ef843d108a37f739b9e4547100010d801977f2
+      robot_description.xml: a7a2a7ad7a6a05c3b7709fc7a257ccf33469ad15b9e3c7e89bcd95384f474d2b
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: fb6c6f703a89442ddfb0c115f20ce675f44b4c23d7da584fb49985c734f13b5c
@@ -31,7 +31,7 @@ cases:
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
       controllers.yaml: 44b32019682a20a8b911d079518a3dd731b75a5bc6e9c8278062478448377a25
-      robot_description.xml: 3f1ae8333d85b00f99c17b8b3c544db8919f524f2d9a80e8cb721251cc87ca48
+      robot_description.xml: 505227603c5ad858022f83b01240c3d13c0f60fa2e24ab5dac715957e0769c79
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: 16af3c87a9067327a50095b9d88c18dbc4c96cb80c241406f0d5c35cbe48d563
@@ -54,7 +54,7 @@ cases:
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
       controllers.yaml: c9fc3ba06c5844c6c1700400a9c62d67e275271e14bc92054b48c28580a1cc5c
-      robot_description.xml: a6a3e09db065238a2cded89532ef843d108a37f739b9e4547100010d801977f2
+      robot_description.xml: a7a2a7ad7a6a05c3b7709fc7a257ccf33469ad15b9e3c7e89bcd95384f474d2b
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: fb6c6f703a89442ddfb0c115f20ce675f44b4c23d7da584fb49985c734f13b5c
       runtime/left_joint3.yaml: 6342072f368d7d6989e26986b5c00f32e294f5eec0015554840a349a75472f7c
@@ -76,7 +76,7 @@ cases:
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
       controllers.yaml: c9fc3ba06c5844c6c1700400a9c62d67e275271e14bc92054b48c28580a1cc5c
-      robot_description.xml: 3f1ae8333d85b00f99c17b8b3c544db8919f524f2d9a80e8cb721251cc87ca48
+      robot_description.xml: 505227603c5ad858022f83b01240c3d13c0f60fa2e24ab5dac715957e0769c79
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: 16af3c87a9067327a50095b9d88c18dbc4c96cb80c241406f0d5c35cbe48d563
       runtime/left_joint3.yaml: 6342072f368d7d6989e26986b5c00f32e294f5eec0015554840a349a75472f7c
@@ -269,5 +269,15 @@ staged_scope_regeneration:
   - arm-real-jtc
   - stationary-mock
   - stationary-real
-  - force-mock
-  - force-real
+bench_integration_regeneration:
+  reason: 'arch-bench-dual-integrate 2026-10-30: robot_description updated to robot_description
+    main 12a83dd (tree adc9512, PR #7 there: unified J2 limits, arm collision meshes)'
+  method: compose output written only where the canonical form differs; arm cases differ only in
+    robot_description.xml; force cases keep the historical six-responder bench through the test
+    fixture and are unchanged; head cases are not regenerated because the new model renames
+    head_joint/head_pitch_joint to H1_joint/H2_joint and the head mapping is an open decision
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc

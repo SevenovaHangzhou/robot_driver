@@ -24,14 +24,14 @@ class TfContractTest(unittest.TestCase):
             source["repository"],
             "https://github.com/SevenovaHangzhou/robot_description.git",
         )
-        self.assertEqual(source["source_branch"], "feature/electri-127-alfav3-left-j3-j6-axis")
+        self.assertEqual(source["source_branch"], "main")
         self.assertEqual(
             source["source_revision"],
-            "5ec6b653d7b72f9d25fecea4d71e5d640ce468ca",
+            "12a83dd0a008b2e1046b86053cd3a47592307acb",
         )
         self.assertEqual(
             source["source_tree"],
-            "4706b7a18d7359f5752bb6473068866af3cb8050",
+            "adc951282e0c6746ca21d55014d649481f3a000d",
         )
         self.assertEqual(source["model_family"], "alfa_v3")
         self.assertEqual(source["default_end_effector"], "suction")

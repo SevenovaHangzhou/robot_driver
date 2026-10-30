@@ -16,8 +16,10 @@ from .audit import DEFAULT_AUDIT, AuditLog
 from .console import ArmConsole, config_from_mapping
 from .ros_bridge import RosBridge, spin_in_background
 from .server import ConsoleServer
+from .vacuum_control import VacuumControl
 
 DEFAULT_POSES = Path.home() / ".local/state/rt-control/arm_console_poses.json"
+DEFAULT_VIEW_SHARE = Path.home() / ".local/share/rt-control/view_robot_description"
 
 
 def parse_arguments(argv=None):
@@ -35,6 +37,18 @@ def parse_arguments(argv=None):
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
     parser.add_argument("--joint-state-topic", default="/joint_states")
     parser.add_argument("--web-dir", type=Path, default=share / "web")
+    parser.add_argument(
+        "--vacuum-script", type=Path, default=Path.home() / ".local/bin/vacuum",
+        help="optional operator-installed vacuum CLI; absent file disables the IO buttons",
+    )
+    parser.add_argument(
+        "--view-model-share",
+        type=Path,
+        default=DEFAULT_VIEW_SHARE
+        if DEFAULT_VIEW_SHARE.exists() or DEFAULT_VIEW_SHARE.is_symlink()
+        else None,
+        help="authoritative robot_description share for browser geometry; control uses the live model",
+    )
     parser.add_argument(
         "--audit-log",
         default=str(DEFAULT_AUDIT),
@@ -70,6 +84,8 @@ def main(argv=None) -> None:
         bridge.set_enabled,
         AuditLog(Path(arguments.audit_log).expanduser() if arguments.audit_log else None),
         bridge.reset_fault,
+        view_model_share=arguments.view_model_share,
+        vacuum=VacuumControl(arguments.vacuum_script) if arguments.vacuum_script.is_file() else None,
     )
 
     def shutdown(*_):
