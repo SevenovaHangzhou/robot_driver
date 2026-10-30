@@ -26,11 +26,12 @@ SHA-256 per file). The command stages beside the target and swaps by rename.
 It refuses to replace a directory that is not an artifact.
 
 Runtime launch entries take `generated_dir:=/abs/dir` (default from
-`RT_CONTROL_GENERATED_DIR`) and call `load_artifact()`. It rejects a missing
-manifest, a different selection, a modified, missing or extra file, and stale
-output: it recomposes in memory from the installed configuration and compares
-every file. Each rejection prints the exact regeneration command. Launch
-writes no configuration.
+`RT_CONTROL_GENERATED_DIR`) and call `load_artifact()`. It rejects a missing or
+older-schema manifest, a different selection, and a modified, missing or extra file,
+then returns the composition exactly as written (runtime parameter keys and owner
+preflight topology are stored in `artifact.yaml`). It does not recompose: after any
+installed configuration change, regenerate the artifact. Each rejection prints the
+exact regeneration command. Launch writes no configuration.
 
 Per-start values are not stored. A `runtime` parameter source records
 `Composed.runtime_parameters`; launch supplies values with node-scoped

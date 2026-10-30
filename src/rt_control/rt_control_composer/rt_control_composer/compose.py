@@ -343,7 +343,6 @@ def compose(
         runtime,
         systems,
         use_mock_hardware,
-        data["safety_policy"],
         files,
         runtime_parameters,
         tuple(hardware_order),
