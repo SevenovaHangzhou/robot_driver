@@ -558,6 +558,29 @@ def arm_page(arm, sessions, operators, audit, static_dir):
     return page, bridge
 
 
+def diag_page(sessions, static_dir):
+    """The read-only diagnostics page and its subscriptions (own executor thread)."""
+    from integ_diagnostics.report import state_directory
+
+    from .diag.feed import DiagnosticsFeed, FeedNode
+    from .diag.page import DiagPage
+
+    feed = DiagnosticsFeed()
+    node = FeedNode(feed)
+    executor = SingleThreadedExecutor()
+    executor.add_node(node)
+
+    def spin():
+        try:
+            executor.spin()
+        except ExternalShutdownException:
+            pass
+
+    threading.Thread(target=spin, name="operator-diag", daemon=True).start()
+    page = DiagPage(feed, sessions, static_dir / "diag", lambda: state_directory() / "self_check")
+    return page, node
+
+
 def main(argv=None, *, software_test_only=False, audit_path=None, arm=None):
     from aiohttp import web
 
@@ -572,10 +595,11 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None):
     executor.add_node(node)
     sessions, operators, audit = Sessions(load_token()), Operators(), AuditLog(audit_path)
     static_dir = Path(node.get_parameter("static_dir").value)
-    pages, bridge = (), None
+    diag, diag_node = diag_page(sessions, static_dir)
+    pages, bridge = (diag,), None
     if arm is not None:
         page, bridge = arm_page(arm, sessions, operators, audit, static_dir)
-        pages = (page,)
+        pages = (page, diag)
     server = OperatorServer(
         node.arbiter,
         sessions,
@@ -617,6 +641,7 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None):
         node.destroy_node()
         if bridge is not None:
             bridge.destroy_node()
+        diag_node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
     return 0
