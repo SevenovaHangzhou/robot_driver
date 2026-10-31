@@ -86,18 +86,6 @@ def test_bus_lock_is_exclusive_until_released(tmp_path):
         stream.close()
 
 
-def test_self_check_report_is_written_whether_or_not_it_blocks(tmp_path):
-    from integ_bringup.scope_lifecycle import write_self_check
-
-    warning = {"source": "arms/left_joint1/drive", "blocking": False, "detail": "0xA000"}
-    path = write_self_check("arms_only", "/artifact", [warning], directory=tmp_path)
-    report = json.loads(path.read_text())
-    assert path == tmp_path / "self_check/arms_only.json"
-    assert report["passed"] and report["entries"] == [warning]
-    write_self_check("arms_only", "/artifact", [{**warning, "blocking": True}], directory=tmp_path)
-    assert not json.loads(path.read_text())["passed"]
-
-
 def test_scope_launch_writes_the_failed_self_check_and_does_not_start(monkeypatch, tmp_path):
     path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
     spec = importlib.util.spec_from_file_location("scope_launch_self_check", path)

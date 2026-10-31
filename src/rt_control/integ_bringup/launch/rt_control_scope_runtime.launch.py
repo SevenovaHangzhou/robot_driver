@@ -10,10 +10,11 @@ from launch.events import Shutdown
 from launch.substitutions import EnvironmentVariable, LaunchConfiguration
 from launch_ros.actions import Node
 
-from integ_bringup.scope_lifecycle import acquire_bus_locks, write_self_check
+from integ_bringup.scope_lifecycle import acquire_bus_locks
 from integ_composer.artifact import load_artifact, runtime_arguments
 from integ_composer.compose import preflight
 from integ_composer.self_check import SelfCheckFailed
+from integ_diagnostics.report import write_self_check
 
 # Lock files stay open for the lifetime of this launch process.
 _HELD_LOCKS = []
