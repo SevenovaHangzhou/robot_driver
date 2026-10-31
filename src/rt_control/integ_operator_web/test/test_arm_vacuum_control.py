@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from rt_control_arm_console.console import ConsoleError
-from rt_control_arm_console.vacuum_control import VacuumControl
+from integ_operator_web.arm.console import ConsoleError
+from integ_operator_web.arm.vacuum_control import VacuumControl
 
 
 class ServiceError(RuntimeError):
@@ -48,7 +48,7 @@ def io_control(monkeypatch):
         "service_set": change,
         "ServiceError": ServiceError,
     }
-    monkeypatch.setattr("rt_control_arm_console.vacuum_control.runpy.run_path", lambda _: tool)
+    monkeypatch.setattr("integ_operator_web.arm.vacuum_control.runpy.run_path", lambda _: tool)
     return VacuumControl(Path("fake-vacuum")), state
 
 

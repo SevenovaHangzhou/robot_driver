@@ -1,4 +1,0 @@
-#!/usr/bin/env python3
-from rt_control_arm_console.main import main
-
-main()

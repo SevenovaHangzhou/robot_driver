@@ -10,7 +10,6 @@ layers:
   - integ_composer
   - integ_bringup
   - integ_api_adapter
-  - rt_control_arm_console
   - integ_operator_web
   protocol:
   - hw_ethercat

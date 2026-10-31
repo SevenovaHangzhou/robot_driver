@@ -20,27 +20,47 @@ const state = {
   sequence: [], // {name, gear, dwell_s}, in execution order (repeats allowed)
 };
 let viewer = null;
-let events = null;
+let socket = null;
+let nextRequest = 1;
+const pending = new Map(); // request id -> {resolve, reject}
 let loadedModelKey = null;
-const completionAudio = new Audio('/static/action-complete.mp3');
+const completionAudio = new Audio('/static/arm/action-complete.mp3');
 completionAudio.preload = 'auto';
 const completionSound = new CompletionSound(completionAudio, (message) => toast(message, true));
-const vacuumControls = new VacuumControls($("vacuum-panel"));
+const vacuumControls = new VacuumControls($("vacuum-panel"), (body) => post("/api/vacuum", body));
 const vacuumPressure = new VacuumPressure($("vacuum-pressure"));
 document.addEventListener('click', () => completionSound.unlock(), { capture: true });
 document.addEventListener('keydown', () => completionSound.unlock(), { capture: true });
 
-async function post(path, body = {}) {
-  const response = await fetch(path, {
+// Commands go over the page WebSocket as {type, id, ...}; the server answers {type: "result", id}.
+function post(path, body = {}) {
+  return new Promise((resolve, reject) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      reject(new Error("网页未连接"));
+      return;
+    }
+    const id = nextRequest++;
+    pending.set(id, { resolve, reject });
+    socket.send(JSON.stringify({ type: path.replace("/api/", ""), id, ...body }));
+  });
+}
+
+function settle(result) {
+  const request = pending.get(result.id);
+  if (!request) return;
+  pending.delete(result.id);
+  if (result.ok) request.resolve(result);
+  else request.reject(new Error(result.message || result.error || "操作失败"));
+}
+
+async function login(token) {
+  const response = await fetch("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ token }),
   });
   const document = await response.json().catch(() => ({}));
-  if (!response.ok || document.ok === false) {
-    throw new Error(document.message || document.error || `HTTP ${response.status}`);
-  }
-  return document;
+  if (!response.ok) throw new Error(document.message || `HTTP ${response.status}`);
 }
 
 function toast(message, bad = false) {
@@ -66,35 +86,49 @@ $("login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   $("login-error").textContent = "";
   try {
-    await post("/api/login", { token: $("token").value });
-    $("login").hidden = true;
+    await login($("token").value);
+    $("token").value = "";
     start();
   } catch (error) {
     $("login-error").textContent = error.message;
   }
 });
 
-async function start() {
-  vacuumControls.start();
-  viewer = new ArmViewer($("viewer"));
-  await loadInfo();
-  events = new EventSource("/api/events");
-  events.onmessage = (message) => onStatus(JSON.parse(message.data));
-  events.onerror = () => {
+function openSocket() {
+  socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/arm`);
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "status") {
+      $("login").hidden = true;
+      onStatus(data);
+    } else if (data.type === "result") settle(data);
+  };
+  socket.onclose = (event) => {
+    for (const request of pending.values()) request.reject(new Error("网页连接已断开"));
+    pending.clear();
     completionSound.reset();
     vacuumControls.setAccess(null);
     vacuumPressure.disconnect();
     setChip("conn-chip", "连接中断", "bad");
+    // 4401: no valid session cookie; the login form exchanges the token for one.
+    if (event.code === 4401) $("login").hidden = false;
+    else setTimeout(openSocket, 1000);
   };
 }
 
+async function start() {
+  vacuumControls.start();
+  viewer = viewer || new ArmViewer($("viewer"));
+  if (await loadInfo()) openSocket();
+}
+
 async function loadInfo() {
-  const response = await fetch("/api/info");
-  if (response.status === 401) { location.reload(); return; }
+  const response = await fetch("/api/arm/info");
+  if (response.status === 401) { $("login").hidden = false; return false; }
   const info = await response.json();
   if (!response.ok || !info.urdf) {
     setTimeout(loadInfo, 2000);
-    return;
+    return true;
   }
   state.info = info;
   state.gear = state.gear || info.gears[0].name;
@@ -113,6 +147,7 @@ async function loadInfo() {
   $("model-msg").textContent = "模型已加载，等待关节数据";
   $("model-msg").hidden = info.joints.length > 0;
   if (!info.joints.length) setTimeout(loadInfo, 2000);
+  return true;
 }
 
 // ------------------------------------------------------------------ controls
@@ -551,7 +586,7 @@ function updateButtons() {
 // Saved test presets: prepare the existing editor only. Execution stays manual.
 (async () => {
   const { preparePreset } = await import("./sequence-presets.mjs");
-  const response = await fetch("/static/sequence-presets.json", { cache: "no-store" });
+  const response = await fetch("/static/arm/sequence-presets.json", { cache: "no-store" });
   if (!response.ok) throw new Error("测试序列预设读取失败");
   const catalog = await response.json();
   const list = $("sequence");
@@ -602,3 +637,6 @@ function updateButtons() {
   list.parentNode.insertBefore(row, list);
   list.parentNode.insertBefore(note, list);
 })().catch((error) => toast(`测试序列入口不可用：${error.message}`, true));
+
+// An existing session (e.g. from the chassis page) connects directly; otherwise 4401 shows login.
+start();

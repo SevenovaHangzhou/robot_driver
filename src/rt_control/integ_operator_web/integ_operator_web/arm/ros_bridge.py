@@ -46,7 +46,7 @@ class RosBridge(Node):
     """Feeds ``ArmConsole`` and implements its ``Driver`` protocol."""
 
     def __init__(self, joint_state_topic: str) -> None:
-        super().__init__("rt_control_arm_console")
+        super().__init__("integ_operator_web_arm")
         self.console: Optional[ArmConsole] = None
         self._group = ReentrantCallbackGroup()
         self._lock = threading.Lock()

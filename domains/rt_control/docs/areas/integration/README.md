@@ -2,7 +2,7 @@
 
 **范围**：启动组合、接口适配与诊断。本区对应一个同名职责agent。
 
-**Owner路径**：integ_composer；integ_bringup；integ_api_adapter；rt_control_arm_console；integ_operator_web；src/interfaces/**。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：integ_composer；integ_bringup；integ_api_adapter；integ_operator_web；src/interfaces/**。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：机型事实（hwcfg_machines）归hw-config；控制器实现归control。
 

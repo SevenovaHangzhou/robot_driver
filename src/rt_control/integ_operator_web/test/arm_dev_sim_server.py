@@ -14,9 +14,11 @@ import time
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from rt_control_arm_console.console import ArmConsole, config_from_mapping  # noqa: E402
-from rt_control_arm_console.model import load_arm_model  # noqa: E402
-from rt_control_arm_console.server import ConsoleServer  # noqa: E402
+from integ_operator_web.arm.console import ArmConsole, config_from_mapping  # noqa: E402
+from integ_operator_web.arm.model import load_arm_model  # noqa: E402
+from integ_operator_web.arm.page import ArmPage  # noqa: E402
+from integ_operator_web.operators import Operators  # noqa: E402
+from integ_operator_web.session import Sessions  # noqa: E402
 
 PACKAGE = Path(__file__).resolve().parents[1]
 JOINTS = [f"left_joint{index}" for index in range(1, 8)]
@@ -60,7 +62,7 @@ class SimulatedArm:
 
 def main():
     urdf, share, port, token_file = sys.argv[1:5]
-    config = config_from_mapping(yaml.safe_load((PACKAGE / "config/console.yaml").read_text()))
+    config = config_from_mapping(yaml.safe_load((PACKAGE / "config/arm.yaml").read_text()))
     arm = SimulatedArm()
     console = ArmConsole(config, "left_arm_jtc", arm, Path("/tmp/arm-console-sim-poses.json"))
     arm.console = console
@@ -79,16 +81,24 @@ def main():
             time.sleep(0.02)
 
     threading.Thread(target=heartbeat, daemon=True).start()
-    server = ConsoleServer(
-        ("127.0.0.1", int(port)),
+    from aiohttp import web
+
+    sessions = Sessions(Path(token_file).read_text().strip())
+    page = ArmPage(
         console,
-        Path(token_file).read_text().strip(),
-        PACKAGE / "web",
+        sessions,
+        Operators(),
+        PACKAGE / "web/arm",
         lambda name: share if name == "robot_description" else "/nonexistent",
         arm.set_enabled,
         view_model_share=Path(share),
     )
-    server.serve_forever()
+    app = web.Application()
+    app.router.add_post("/api/login", sessions.login)
+    app.router.add_static("/static/", PACKAGE / "web", follow_symlinks=True)
+    page.add_routes(app)
+    print(f"arm page simulation on http://127.0.0.1:{port}/arm")
+    web.run_app(app, host="127.0.0.1", port=int(port), print=None)
 
 
 if __name__ == "__main__":

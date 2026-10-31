@@ -7,7 +7,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from rt_control_arm_console.trajectory import Limits, plan_move, plan_stop, scurve  # noqa: E402
+from integ_operator_web.arm.trajectory import Limits, plan_move, plan_stop, scurve  # noqa: E402
 
 DEG = math.radians
 LEISURE = Limits(DEG(10), DEG(20), DEG(80))
@@ -86,7 +86,7 @@ def test_stop_near_the_end_never_passes_the_target():
     assert plan_stop(plan, plan.duration + 1.0, SPORT).duration == 0.0
 import math
 import pytest
-from rt_control_arm_console.trajectory import Limits,plan_move
+from integ_operator_web.arm.trajectory import Limits,plan_move
 
 @pytest.mark.parametrize('speed',[2,5,10])
 @pytest.mark.parametrize('angle',[-170,-90,30,90,170])
