@@ -239,9 +239,18 @@ def test_startup_accepts_the_master_left_op_code_and_only_j3_battery_code(shares
     assert [axis["allowed_errors"] for axis in axes] == [
         [0x730F, 0xA000] if axis["ring_position"] == 3 else [0xA000] for axis in axes
     ]
-    preflight(result, run=scan(errors={1: 0xA000, 3: 0x730F, 7: 0xA000}))
-    with pytest.raises(RuntimeError, match="Unqualified error 0x730f"):
+    declared = preflight(result, run=scan(errors={1: 0xA000, 3: 0x730F, 7: 0xA000}))
+    assert [(e["dree"], e["severity"], e["blocking"]) for e in declared] == [
+        ("RT_DEVICE_FAULT_RESETTABLE", "WARN", False),
+        ("RT_DEVICE_FAULT", "WARN", False),
+        ("RT_DEVICE_FAULT_RESETTABLE", "WARN", False),
+    ]
+    with pytest.raises(RuntimeError, match="Unqualified error 0x730f") as failure:
         preflight(result, run=scan(errors={2: 0x730F}))
+    [entry] = failure.value.entries
+    # Located through diagnostics.yaml and explained by the ZeroErr fault table.
+    assert entry["source"].endswith("/drive") and entry["dree"] == "RT_DEVICE_FAULT"
+    assert "0x730F 电池电压低" in entry["detail"] and entry["severity"] == "FAULT"
     with pytest.raises(RuntimeError, match="Unqualified error 0x8500"):
         preflight(result, run=scan(errors={5: 0x8500}))
 

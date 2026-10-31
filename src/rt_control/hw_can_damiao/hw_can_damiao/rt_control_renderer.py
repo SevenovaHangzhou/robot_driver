@@ -133,5 +133,6 @@ def render(request: Mapping) -> Mapping:
     }
 
 
-def preflight(expected_topology: Mapping, *, run=None) -> None:
+def preflight(expected_topology: Mapping, *, run=None) -> list:
     """No additional head CAN preflight is introduced by the migration."""
+    return []

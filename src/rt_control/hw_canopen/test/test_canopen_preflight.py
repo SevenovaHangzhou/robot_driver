@@ -39,9 +39,12 @@ def bundle(tmp_path, source=SOURCE):
 
 def test_up_error_active_interface_with_current_bundle_is_admitted(tmp_path):
     calls = []
-    preflight(
-        topology(bundle(tmp_path)),
-        run=lambda argv, **_: calls.append(argv) or link(["UP"], "ERROR-ACTIVE"),
+    assert (
+        preflight(
+            topology(bundle(tmp_path)),
+            run=lambda argv, **_: calls.append(argv) or link(["UP"], "ERROR-ACTIVE"),
+        )
+        == []
     )
     assert calls == [["ip", "-details", "-json", "link", "show", "can0"]]
 
@@ -51,22 +54,27 @@ def test_up_error_active_interface_with_current_bundle_is_admitted(tmp_path):
     [(["NO-CARRIER"], "ERROR-ACTIVE", "not up"), (["UP"], "BUS-OFF", "not error-active")],
 )
 def test_down_or_bus_off_interface_is_rejected(tmp_path, flags, state, message):
-    with pytest.raises(RuntimeError, match=message):
-        preflight(topology(bundle(tmp_path)), run=lambda argv, **_: link(flags, state))
+    [finding] = preflight(topology(bundle(tmp_path)), run=lambda argv, **_: link(flags, state))
+    assert finding["problem"] == "offline" and finding["blocking"]
+    assert finding["address"] == {"can_interface": "can0"} and message in finding["detail"]
 
 
 def test_stale_or_missing_bundle_is_rejected_before_any_command(tmp_path):
     path = bundle(tmp_path, source="older source")
-    with pytest.raises(RuntimeError, match="stale"):
-        preflight(topology(path), run=lambda *_: pytest.fail("ran"))
+    [stale] = preflight(topology(path), run=lambda *_: pytest.fail("ran"))
+    assert stale["problem"] == "configuration_mismatch" and "stale" in stale["detail"]
     (path / "master.dcf").unlink()
-    with pytest.raises(RuntimeError, match="incomplete"):
-        preflight(topology(path), run=lambda *_: pytest.fail("ran"))
+    [missing] = preflight(topology(path), run=lambda *_: pytest.fail("ran"))
+    assert missing["problem"] == "configuration_mismatch" and "incomplete" in missing["detail"]
 
 
 def test_mock_topology_runs_no_command(tmp_path):
-    preflight(
-        {**topology(tmp_path), "preflight_required": False}, run=lambda *_: pytest.fail("ran")
+    assert (
+        preflight(
+            {**topology(tmp_path), "preflight_required": False},
+            run=lambda *_: pytest.fail("ran"),
+        )
+        == []
     )
 
 
