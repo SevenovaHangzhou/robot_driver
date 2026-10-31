@@ -87,6 +87,7 @@ RT-Control 域私有 `/rt/enable`、`/rt/disable`、`/rt/reset_fault`。
 该顺序延续“右臂在前、左臂在后”的约定。V3 `axis_set_hash` 的规范输入为每轴一行
 `<joint_name>:rad:rad/s\n`，SHA-256 为
 `f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`。
+该值与包络 `limits_version`（制品内包络副本的 SHA-256）都由 `integ_composer` 计算，作为 rolling 控制器参数传入；控制器只解析和比较，不再自行计算（arch-c6）。
 ELECTRI-102 的二代 hash 对应 `right_joint1..6,left_joint1..6,turn,updown`，禁止复用。
 
 ### 4.2 物理拓扑与接口顺序是两件事
