@@ -159,11 +159,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
 
 
 def preflight(topology, *, run=None):
+    """Read-only bench checks; one finding per problem, a master problem ends the scan."""
+
     def read(argv):
         return subprocess.run(argv, capture_output=True, text=True, timeout=5, check=True).stdout
 
     execute = read if run is None else run
     master_id = str(topology["master_id"])
+    bus = {"master_id": topology["master_id"]}
     master = execute(["ethercat", "master", "-m", master_id])
     for pattern in (
         r"Phase:\s*Idle\b",
@@ -172,10 +175,26 @@ def preflight(topology, *, run=None):
         rf"Slaves:\s*{topology['responder_count']}\b",
     ):
         if not re.search(pattern, master):
-            raise ValueError("Force bench requires idle master, link UP and declared responders")
+            return [
+                {
+                    "address": bus,
+                    "problem": "offline",
+                    "detail": "Force bench requires idle master, link UP and declared responders",
+                    "blocking": True,
+                }
+            ]
+    findings = []
     for sensor in topology["sensors"]:
         position = str(sensor["ring_position"])
+        address = {**bus, "ring_position": sensor["ring_position"]}
+
+        def problem(kind, detail):
+            findings.append(
+                {"address": address, "problem": kind, "detail": detail, "blocking": True}
+            )
+
         details = execute(["ethercat", "slaves", "-m", master_id, "-p", position, "-v"])
+        identity = True
         for label, key in (
             ("Vendor Id", "vendor_id"),
             ("Product code", "product_id"),
@@ -183,9 +202,13 @@ def preflight(topology, *, run=None):
         ):
             match = re.search(re.escape(label) + r":\s*(0x[0-9a-fA-F]+)", details)
             if match is None or int(match[1], 16) != sensor[key]:
-                raise ValueError("Force sensor identity mismatch")
+                identity = False
+        if not identity:
+            problem("identity_mismatch", "Force sensor identity mismatch")
+            continue
         if not re.search(r"State:\s*PREOP\b", details) or not re.search(r"Flag:\s*\+", details):
-            raise ValueError("Force sensor must be error-free PREOP")
+            problem("offline", "Force sensor must be error-free PREOP")
+            continue
         pdos = execute(["ethercat", "pdos", "-m", master_id, "-p", position])
         entries = [
             [int(i, 16), int(s, 16), int(bits)]
@@ -194,7 +217,8 @@ def preflight(topology, *, run=None):
             )
         ]
         if entries != sensor["pdo_entries"]:
-            raise ValueError("Force sensor PDO layout mismatch")
+            problem("configuration_mismatch", "Force sensor PDO layout mismatch")
         for label, index in (("RxPDO", 0x1600), ("TxPDO", 0x1A00)):
             if not re.search(label + rf"\s+0x{index:04x}\b", pdos, re.IGNORECASE):
-                raise ValueError("Force sensor missing PDO")
+                problem("configuration_mismatch", "Force sensor missing PDO")
+    return findings

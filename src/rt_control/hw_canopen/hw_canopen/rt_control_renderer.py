@@ -193,26 +193,36 @@ def _resolve_eds(reference):
     return str(path)
 
 
-def preflight(expected_topology: Mapping, *, run=None) -> None:
+def preflight(expected_topology: Mapping, *, run=None) -> list:
     """Read-only: interface up/error-active and identity, bundle generated from this source."""
     if not expected_topology.get("preflight_required"):
-        return
+        return []
+    interface = expected_topology["can_interface"]
+    address = {"can_interface": interface}
+
+    def finding(problem, detail):
+        return [{"address": address, "problem": problem, "detail": detail, "blocking": True}]
+
     bundle = Path(expected_topology["bundle_dir"])
     for name in ("bus.yml", "master.dcf", "master.bin", "source.sha256"):
         if not (bundle / name).is_file():
-            raise RuntimeError(f"CANopen bundle incomplete: {bundle / name}; run generate_canopen_bundle")
+            return finding(
+                "configuration_mismatch",
+                f"CANopen bundle incomplete: {bundle / name}; run generate_canopen_bundle",
+            )
     if (bundle / "source.sha256").read_text().strip() != expected_topology["bus_sha256"]:
-        raise RuntimeError(f"CANopen bundle {bundle} is stale; run generate_canopen_bundle")
+        return finding(
+            "configuration_mismatch", f"CANopen bundle {bundle} is stale; run generate_canopen_bundle"
+        )
     execute = subprocess.check_output if run is None else run
-    interface = expected_topology["can_interface"]
     link = json.loads(
         execute(["ip", "-details", "-json", "link", "show", interface], text=True, timeout=5)
     )[0]
     if "UP" not in link.get("flags", []):
-        raise RuntimeError(f"CAN interface {interface} is not up")
+        return finding("offline", f"CAN interface {interface} is not up")
     state = link.get("linkinfo", {}).get("info_data", {}).get("state")
     if state != "ERROR-ACTIVE":
-        raise RuntimeError(f"CAN interface {interface} is not error-active: {state}")
+        return finding("offline", f"CAN interface {interface} is not error-active: {state}")
     serial = expected_topology.get("can_usb_serial")
     if serial:
         device = Path("/sys/class/net", interface, "device").resolve()
@@ -222,4 +232,7 @@ def preflight(expected_topology: Mapping, *, run=None) -> None:
             if (path / "serial").is_file()
         ]
         if serial not in found:
-            raise RuntimeError(f"CAN interface {interface} is not the declared USB adapter")
+            return finding(
+                "identity_mismatch", f"CAN interface {interface} is not the declared USB adapter"
+            )
+    return []

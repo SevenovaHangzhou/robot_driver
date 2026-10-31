@@ -312,6 +312,7 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
     class Renderer:
         def preflight(self, topology, *, run=None):
             calls.append(topology)
+            return []
 
     import importlib
 
@@ -486,12 +487,13 @@ def test_stationary_preflight_preserves_old_checks_with_injected_cli(shares, mon
         )
         return f"uint16 {value}\n"
 
-    OWNER.preflight(topology, run=run)
+    assert OWNER.preflight(topology, run=run) == []
     error["value"] = topology["axes"][0]["allowed_errors"][0]
-    OWNER.preflight(topology, run=run)
+    [declared] = OWNER.preflight(topology, run=run)
+    assert declared["problem"] == "fault_code" and not declared["blocking"]
     error["value"] += 1
-    with pytest.raises(RuntimeError, match="Unqualified error"):
-        OWNER.preflight(topology, run=run)
+    [unqualified] = OWNER.preflight(topology, run=run)
+    assert unqualified["blocking"] and "Unqualified error" in unqualified["detail"]
     assert calls
 
 

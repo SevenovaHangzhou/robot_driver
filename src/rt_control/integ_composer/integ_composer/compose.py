@@ -12,6 +12,7 @@ from .bindings import bind_parameters
 from .model import ARTIFACT, Composed
 from .parameter_sources import controller_parameters
 from .renderer_registry import render_checked, select_renderer
+from .self_check import SelfCheckFailed, entries as self_check_entries
 from .schema.cross_checks import (
     manifest_links,
     merge_systems,
@@ -494,8 +495,18 @@ def _lifecycle(
 
 
 def preflight(composed, *, run=None):
+    """Self-check stage A (read-only, before any node): every owner check runs, then a
+    blocking entry raises SelfCheckFailed. Returns the entries for the self-check report."""
     if composed.use_mock_hardware:
-        return
+        return []
+    findings = []
     for system in composed.systems:
         renderer = select_renderer({"owner": system["owner"]}, "owner")
-        renderer.preflight(system["result"]["expected_topology"], run=run)
+        findings += [
+            {**finding, "owner": system["owner"]}
+            for finding in renderer.preflight(system["result"]["expected_topology"], run=run)
+        ]
+    entries = self_check_entries(composed.files.get("diagnostics.yaml"), findings)
+    if any(entry["blocking"] for entry in entries):
+        raise SelfCheckFailed(entries)
+    return entries
