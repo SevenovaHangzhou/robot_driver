@@ -1,6 +1,6 @@
-# rt_control_operator_web
+# integ_operator_web
 
-底盘网页操作台（ELECTRI-109 首版，ELECTRI-127 改为按能力声明对接新架构）。
+RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。当前页面：底盘（原 `rt_control_operator_web`，ELECTRI-109/127）。手臂页、诊断页按设计稿后续迁入。只给台架与调试使用。
 
 ## 功能
 
@@ -15,7 +15,10 @@
   `/controller_manager/list_hardware_components`、控制器参数服务、`/diagnostics`、能力声明中的速度话题。
 - 运行栈必须发布 `/rt/capabilities`，并声明 `enable` 与 `chassis_velocity`；实际硬件组件必须与声明一致。
 - 不启动硬件，不写驱动控制字，不自动使能，不自动复位。
-- 所有检查在服务端执行；浏览器只发请求。单终端控制权。
+- 所有检查在服务端执行；浏览器只发请求。
+- 登录：网页用令牌调用 `POST /api/login`，换得 HttpOnly 会话 cookie（`SameSite=Strict`）；WebSocket 握手时校验 cookie 与来源，消息中不再传令牌。会话保存在进程内存，服务重启后需要重新登录。修改转向参数、恢复默认时仍需再次输入令牌确认。
+- 操作权：同一时间只有一个连接持有控制权，其他连接只读；持有者断开连接或心跳超时（50 ms 心跳、200 ms 超时）时底盘速度归零，不失能、不复位。
+- 审计：登录与所有命令（遥控速度流除外）追加到 `~/.ros/log/integ_operator_web/audit.jsonl`（`--audit-log` 改路径，空字符串关闭）；不写令牌和会话值。
 
 ## 转向参数的现场调参
 
@@ -38,12 +41,12 @@
 3. 启动：
 
    ```bash
-   ros2 run rt_control_operator_web rt_control_operator_web \
-     --bind-host <局域网地址> --port 18110 --cpus <非实时 CPU，如 0-6,8-19> \
+   ros2 run integ_operator_web integ_operator_web \
+     --bind-host <局域网地址> --port 18120 --cpus <非实时 CPU，如 0-6,8-19> \
      --generated-dir <底盘部署产物目录>
    ```
 
-4. 浏览器打开 `http://<地址>:<端口>/`，输入令牌。
+4. 浏览器打开 `http://<地址>:18120/`，输入令牌登录。
 
 ## 依赖
 

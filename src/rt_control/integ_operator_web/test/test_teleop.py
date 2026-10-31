@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rt_control_operator_web.teleop import (  # noqa: E402
+from integ_operator_web.teleop import (  # noqa: E402
     COMMAND_TIMEOUT_S,
     MAX_TICK_DT_S,
     STICK_DEADZONE,

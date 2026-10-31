@@ -478,10 +478,10 @@ class ChassisConnection:
 
 class OperatorWebNode(Node):
     def __init__(self, *, software_test_only=False):
-        super().__init__("rt_control_operator_web")
+        super().__init__("integ_operator_web")
         defaults = {
             "bind_host": "127.0.0.1",
-            "port": 18109,
+            "port": 18120,
             "command_topic": "/cmd_vel",
             "controller_node": "/swerve_controller",
             "gear_names": ["leisure", "sport"],
@@ -528,10 +528,12 @@ class OperatorWebNode(Node):
         }
 
 
-def main(argv=None, *, software_test_only=False):
+def main(argv=None, *, software_test_only=False, audit_path=None):
     from aiohttp import web
 
+    from .audit import AuditLog
     from .server import OperatorServer
+    from .session import Sessions
 
     rclpy.init(args=argv, signal_handler_options=SignalHandlerOptions.NO)
     node = OperatorWebNode(software_test_only=software_test_only)
@@ -539,13 +541,14 @@ def main(argv=None, *, software_test_only=False):
     executor.add_node(node)
     server = OperatorServer(
         node.arbiter,
-        load_token(),
+        Sessions(load_token()),
         node.robot_status,
         Path(node.get_parameter("static_dir").value),
         module_operation=node.backend.operate,
         drive_allowed=node.backend.allowed,
         steering_operation=node.backend.set_steering,
         steering_defaults=node.backend.restore_steering_defaults,
+        audit=AuditLog(audit_path),
     )
 
     def spin():

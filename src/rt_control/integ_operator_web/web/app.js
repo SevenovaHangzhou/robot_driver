@@ -4,7 +4,6 @@ const labels = { leisure: '休闲档', sport: '运动档' };
 const state = { ws:null, authed:false, lease:'none', enabled:false, connected:false,
   busy:false, driveAvailable:false, moving:false, gear:'leisure', gears:{},
   x:0, y:0, yaw:0, pointer:null, yawPointer:null, keys:new Set(), reconnect:500 };
-const tokenKey = 'rt_operator_web_token';
 const fmt = x => Number.isFinite(x) ? x.toFixed(3) : '--';
 let toastTimer;
 function toast(text) { $('toast').textContent=text; $('toast').classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').classList.remove('show'),2500); }
@@ -80,9 +79,7 @@ function status(message) {
   document.body.classList.toggle('sport',state.gear==='sport');locks();
 }
 function connect() {
-  const token=sessionStorage.getItem(tokenKey);if(!token){$('login').classList.remove('hidden');return;}
   const previous=state.ws;const socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);state.ws=socket;state.authed=false;if(previous && previous.readyState<2)previous.close();
-  socket.addEventListener('open',()=>socket.send(JSON.stringify({type:'auth',token})));
   socket.addEventListener('message',event=>{
     if(state.ws!==socket)return;
     const data=JSON.parse(event.data);
@@ -91,18 +88,23 @@ function connect() {
     else if(data.type==='steering_params_result') {toast(data.message);$('last-result').textContent=data.message;if(data.ok)state.steeringEdited=false;$('steering-token').value='';}
     else if(data.type==='module_op_result') {resetInputs(false);$('last-result').textContent=data.op==='reset'?(data.stage||(data.ok?'故障已复位':'复位失败')):data.ok?(data.enabled?'底盘使能成功':'底盘已失能'):(data.stage||'操作失败');toast($('last-result').textContent);state.busy=false;locks();}
     else if(data.type==='error') {
-      if(data.code==='auth_failed'){sessionStorage.removeItem(tokenKey);$('login-error').textContent=data.message;$('login').classList.remove('hidden');}
-      else{toast(data.message);state.busy=false;locks();}
+      toast(data.message);state.busy=false;locks();
     }
   });
   socket.addEventListener('close',event=>{
     if(state.ws!==socket)return;
     resetInputs(false);state.authed=state.enabled=state.connected=state.driveAvailable=false;state.lease='none';state.busy=false;
     $('conn').className='sb-item sb-bad';$('conn').querySelector('b').textContent='网页未连接';$('ctrl-state').textContent='底盘状态待确认';$('ctrl-detail').textContent='网页连接已断开';locks();
-    if(event.code!==4401){setTimeout(connect,state.reconnect);state.reconnect=Math.min(state.reconnect*2,5000);}
+    // 4401: no valid session cookie; the login form exchanges the token for one.
+    if(event.code===4401)$('login').classList.remove('hidden');
+    else{setTimeout(connect,state.reconnect);state.reconnect=Math.min(state.reconnect*2,5000);}
   });
 }
-$('login-form').addEventListener('submit',event=>{event.preventDefault();sessionStorage.setItem(tokenKey,$('token').value.trim());$('token').value='';$('login-error').textContent='';connect();});
+$('login-form').addEventListener('submit',async event=>{
+  event.preventDefault();const token=$('token').value.trim();$('token').value='';$('login-error').textContent='';
+  const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+  if(response.ok)connect();else $('login-error').textContent=(await response.json()).message||'登录失败';
+});
 $('enable-op').addEventListener('click',()=>{
   if(!state.connected || state.busy)return;
   resetInputs();if(!acquire())return;

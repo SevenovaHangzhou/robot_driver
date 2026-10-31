@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 from ament_index_python.packages import get_package_share_directory
 import yaml
 
+from .audit import DEFAULT_AUDIT
 from .config import ConfigError, load_token
 
 
@@ -61,14 +62,19 @@ def check_dds(environ=os.environ) -> None:
 
 
 def main(argv=None) -> int:
-    share = Path(get_package_share_directory("rt_control_operator_web"))
+    share = Path(get_package_share_directory("integ_operator_web"))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bind-host", default="127.0.0.1", help="explicit interface IP")
-    parser.add_argument("--port", type=int, default=18109)
+    parser.add_argument("--port", type=int, default=18120)
     parser.add_argument("--cpus", required=True, help="validated housekeeping CPUs, e.g. 0-6")
     parser.add_argument("--config", type=Path, default=share / "config/operator.yaml")
     parser.add_argument(
         "--generated-dir", default="", help="deployment artifact of the running chassis scope"
+    )
+    parser.add_argument(
+        "--audit-log",
+        default=str(DEFAULT_AUDIT),
+        help="append-only JSON-lines operator audit log; empty string disables it",
     )
     parser.add_argument("--software-test-only", action="store_true")
     args = parser.parse_args(argv)
@@ -77,7 +83,7 @@ def main(argv=None) -> int:
         os.sched_setaffinity(0, parse_cpus(args.cpus))
         load_token()  # credentials before creating any publisher
         values = yaml.safe_load(args.config.read_text(encoding="utf-8"))
-        params = values["rt_control_operator_web"]["ros__parameters"]
+        params = values["integ_operator_web"]["ros__parameters"]
         params.update(
             bind_host=args.bind_host,
             port=args.port,
@@ -92,7 +98,8 @@ def main(argv=None) -> int:
             return run_node(
                 ["--ros-args", "--params-file", str(config)],
                 software_test_only=args.software_test_only,
+                audit_path=Path(args.audit_log).expanduser() if args.audit_log else None,
             )
     except (ConfigError, OSError, ValueError) as exc:
-        print(f"rt_control_operator_web: {exc}", file=sys.stderr)
+        print(f"integ_operator_web: {exc}", file=sys.stderr)
         return 2
