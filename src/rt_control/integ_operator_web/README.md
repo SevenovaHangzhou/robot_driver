@@ -1,6 +1,6 @@
 # integ_operator_web
 
-RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 手臂（原 `rt_control_arm_console`，ELECTRI-127）；诊断页按设计稿后续加入。两页共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
+RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 手臂（原 `rt_control_arm_console`，ELECTRI-127），`/diag` 诊断（只读）。两页共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
 
 ## 功能
 
@@ -207,3 +207,14 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 执行前验证所有段的位姿、限位、速度和停留；任一段无效整组拒绝。
 状态 `sequence.steps` 提供本次参数快照，`sequence.dwell_s` 为当前段停留。
 预设文件格式保持兼容，载入时将统一参数展开成独立段，载入不会执行。
+
+# 诊断页
+
+`/diag` 只读，不取控制权、不下发命令，经 `/ws/diag` 每秒推送一次：
+
+- 启动自检报告：`$RT_CONTROL_STATE_DIR/self_check/<作用域>.json`（默认 `/tmp/rt-control/`），每个作用域最新一份，新的在前。阶段 A 由运行栈启动文件在总线启动前写入；运行栈因自检失败没有起来时，这里仍能看到原因。阶段 B 由诊断节点在硬件激活后追加。
+- 运行栈就绪状态：R-OUT-09 `/rt_control/readiness`（每个问题的位置、DREE 码、级别、厂家码与说明）。诊断节点未运行时显示"未运行或尚未发布"。
+- 原始诊断：`/diagnostics` 每个名称的最新一行及其键值。
+
+本页不替代急停、STO 或安全链。
+
