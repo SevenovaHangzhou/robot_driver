@@ -5,10 +5,12 @@ verified: false
 authorities:
   source: rt_control_bringup/config/machines/alfa_v3_swerve_mechanics.draft.yaml:steering
   counts: steering drives Q4 encoder 65536 counts per motor turn read back on rings 1/3/5/7 (2026-10-14/15)
+  motor_encoder_type: user 2026-10-31, Q4 encoder uses the vendor's magnetic-encoder alarm entries
 pending_facts:
 - live identity and calibration
 family: kinco
 fault_table: devices/faults/kinco_fd.yaml
+motor_encoder_type: magnetic
 motor_encoder_counts_per_revolution: 65536
 spec:
   motor_model_as_printed: SMC60S-0040-30QAK-5DSU

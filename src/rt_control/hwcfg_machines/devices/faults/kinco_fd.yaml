@@ -2,6 +2,8 @@
 # (table 7-1 error state word 1 = 0x2601, table 7-2 error state word 2 = 0x2602).
 # The vendor forbids forced reset of any alarm, so every entry is RT_DEVICE_FAULT (user 2026-10-31).
 # Word 1 bit 0 only says "see word 2" and is not listed. Vendor contradictions are kept in `note`.
+# Entries with `encoder` apply to the device's motor_encoder_type (user 2026-10-31: G7 drive
+# motors use the incremental entries, Q4 steering motors the magnetic entries).
 schema_version: 1
 kind: device_fault_table
 status: draft
@@ -10,7 +12,6 @@ authorities:
   source: V3-DOC-2026-014 Kinco low-voltage servo drive manual (FD series) sha256 029f858f7e7a4ec1f1299ae47bb6c9d1dcee8de3ef035517e1479d7166d0125e chapter 7 tables 7-1/7-2
 pending_facts:
 - drive firmware version and applicability of the FD-series manual
-- motor encoder type of SMC60S-0040-30QAK-5DSU and SMC80S-0075-30WAK-5DCH (letters Q/W are not in the manual), which selects the incremental or magnetic entry of bits 1-3 and 14
 - whether the DS402 code column is the value read from 0x603F (not verified on the device)
 - vendor clarification of the contradictions recorded in note fields
 vendor: Kinco

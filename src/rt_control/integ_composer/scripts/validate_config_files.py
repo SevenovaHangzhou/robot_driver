@@ -79,6 +79,10 @@ def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[
                 table = load_yaml(resolve_share_path(share_root, document["fault_table"]))
                 if table["kind"] != "device_fault_table":
                     raise ValueError(f"{name}: fault_table is not a device_fault_table")
+                if "motor_encoder_type" not in document and any(
+                    "encoder" in fault for fault in table["faults"]
+                ):
+                    raise ValueError(f"{name}: fault_table has encoder entries; declare motor_encoder_type")
     return passed
 
 
