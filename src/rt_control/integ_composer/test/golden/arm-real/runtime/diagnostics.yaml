@@ -1,0 +1,375 @@
+devices:
+- address:
+    master_id: 0
+    ring_position: 1
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/left_joint1/drive
+  state:
+    al_state: ethercat_slave_1/al_state
+    status_word: left_joint1/status_word
+- address:
+    master_id: 0
+    ring_position: 2
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/left_joint2/drive
+  state:
+    al_state: ethercat_slave_2/al_state
+    status_word: left_joint2/status_word
+- address:
+    master_id: 0
+    ring_position: 3
+  allowed_startup_codes:
+  - '0x730F'
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/left_joint3/drive
+  state:
+    al_state: ethercat_slave_3/al_state
+    status_word: left_joint3/status_word
+- address:
+    master_id: 0
+    ring_position: 4
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/left_joint4/drive
+  state:
+    al_state: ethercat_slave_4/al_state
+    status_word: left_joint4/status_word
+- address:
+    master_id: 0
+    ring_position: 5
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/left_joint5/drive
+  state:
+    al_state: ethercat_slave_5/al_state
+    status_word: left_joint5/status_word
+- address:
+    master_id: 0
+    ring_position: 6
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/left_joint6/drive
+  state:
+    al_state: ethercat_slave_6/al_state
+    status_word: left_joint6/status_word
+- address:
+    master_id: 0
+    ring_position: 7
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/left_joint7/drive
+  state:
+    al_state: ethercat_slave_7/al_state
+    status_word: left_joint7/status_word
+- address:
+    master_id: 0
+    ring_position: 9
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/right_joint1/drive
+  state:
+    al_state: ethercat_slave_9/al_state
+    status_word: right_joint1/status_word
+- address:
+    master_id: 0
+    ring_position: 10
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/right_joint2/drive
+  state:
+    al_state: ethercat_slave_10/al_state
+    status_word: right_joint2/status_word
+- address:
+    master_id: 0
+    ring_position: 11
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/right_joint3/drive
+  state:
+    al_state: ethercat_slave_11/al_state
+    status_word: right_joint3/status_word
+- address:
+    master_id: 0
+    ring_position: 12
+  allowed_startup_codes:
+  - '0x730F'
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/right_joint4/drive
+  state:
+    al_state: ethercat_slave_12/al_state
+    status_word: right_joint4/status_word
+- address:
+    master_id: 0
+    ring_position: 13
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/right_joint5/drive
+  state:
+    al_state: ethercat_slave_13/al_state
+    status_word: right_joint5/status_word
+- address:
+    master_id: 0
+    ring_position: 14
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/right_joint6/drive
+  state:
+    al_state: ethercat_slave_14/al_state
+    status_word: right_joint6/status_word
+- address:
+    master_id: 0
+    ring_position: 15
+  allowed_startup_codes:
+  - '0xA000'
+  fault_table: zeroerr_erob
+  identity:
+    product_code: 168530
+    revision_number: 1
+    vendor_id: 1516597871
+  role: drive
+  source: arms/right_joint7/drive
+  state:
+    al_state: ethercat_slave_15/al_state
+    status_word: right_joint7/status_word
+- address:
+    master_id: 0
+  expected:
+    slaves_responding: 16
+  role: ethercat_master
+  source: ethercat/master0
+  state:
+    link_up: ethercat_master/link_up
+    process_data_age_ms: ethercat_domain/process_data_age_ms
+    slaves_responding: ethercat_master/slaves_responding
+    wc_error_count: ethercat_master/wc_error_count
+fault_tables:
+  zeroerr_erob:
+    authorities:
+      source: V3-DOC-2026-013 ZeroErr eRob CANopen DS301/DSP402 manual V1.9 sha256
+        1d4026599ec09e601366da5c1d95432f5dfc5582c4e949e216b371f9c1266221 section 7.2
+    faults:
+    - code: '0x2214'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u7535\u6D41\u8FC7\u6D41"
+      page: 120
+    - code: '0x2250'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u4E09\u76F8\u7535\u6D41\u548C\u8D85\u9650"
+      note: "\u5382\u5BB6\u6C47\u603B\u8868\u5341\u8FDB\u5236\u5199\u4F5C 8786\uFF0C\
+        \u6309\u5341\u516D\u8FDB\u5236\u5E94\u4E3A 8784"
+      page: 121
+    - code: '0x2341'
+      dree: RT_DEVICE_FAULT
+      message: "U \u76F8\u8FC7\u6D41"
+      page: 122
+    - code: '0x2342'
+      dree: RT_DEVICE_FAULT
+      message: "V \u76F8\u8FC7\u6D41"
+      page: 123
+    - code: '0x2343'
+      dree: RT_DEVICE_FAULT
+      message: "W \u76F8\u8FC7\u6D41"
+      page: 124
+    - code: '0x3210'
+      dree: RT_DEVICE_FAULT
+      message: "\u6BCD\u7EBF\u7535\u538B\u8FC7\u538B"
+      page: 125
+    - code: '0x3220'
+      dree: RT_DEVICE_FAULT
+      message: "\u6BCD\u7EBF\u7535\u538B\u6B20\u538B"
+      page: 125
+    - code: '0x4110'
+      dree: RT_DEVICE_FAULT
+      message: "\u529F\u7387\u90E8\u5206\u6E29\u5EA6\u8FC7\u9AD8"
+      page: 127
+    - code: '0x7121'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u5835\u8F6C"
+      page: 128
+    - code: '0x7305'
+      dree: RT_DEVICE_FAULT
+      message: "\u8D1F\u8F7D\u7AEF\u5355\u5708\u7F16\u7801\u5668\u8BFB\u53D6\u7684\
+        \u6570\u636E\u51FA\u9519"
+      page: 128
+    - code: '0x7306'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u7AEF\u5355\u5708\u7F16\u7801\u5668\u8BFB\u53D6\u7684\
+        \u6570\u636E\u51FA\u9519"
+      page: 129
+    - code: '0x730D'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u6C60\u8B66\u544A\u9519\u8BEF"
+      page: 130
+    - code: '0x730F'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u6C60\u7535\u538B\u4F4E"
+      page: 130
+    - code: '0x7311'
+      dree: RT_DEVICE_FAULT
+      message: "\u91C7\u6837\u7684\u7535\u673A\u7AEF\u4F4D\u7F6E\u8BEF\u5DEE\u8D85\
+        \u9650"
+      page: 131
+    - code: '0x7314'
+      dree: RT_DEVICE_FAULT
+      message: "\u68C0\u6D4B\u5230\u591A\u5708\u8BA1\u6570\u7528\u7535\u6C60\u91CD\
+        \u65B0\u63A5\u5165\u8FC7\uFF0C\u91CD\u7F6E\u8D1F\u8F7D\u7AEF\u7F16\u7801\u5668\
+        \u6E05\u9664\u8BE5\u62A5\u8B66"
+      page: 132
+    - code: '0x7315'
+      dree: RT_DEVICE_FAULT
+      message: "\u91C7\u6837\u7684\u8D1F\u8F7D\u7AEF\u4F4D\u7F6E\u8BEF\u5DEE\u8D85\
+        \u9650"
+      page: 133
+    - code: '0x7374'
+      dree: RT_DEVICE_FAULT
+      message: "\u591A\u5708\u4F4D\u7F6E\u9519\u8BEF"
+      page: 134
+    - code: '0x7377'
+      dree: RT_DEVICE_FAULT
+      message: "\u68C0\u6D4B\u5230\u590D\u4F4D\u5F15\u811A\u7684\u62A5\u9519\u4FE1\
+        \u606F"
+      page: 135
+    - code: '0x737A'
+      dree: RT_DEVICE_FAULT
+      message: "\u8D1F\u8F7D\u7AEF\u5355\u5708\u7F16\u7801\u5668\u542F\u52A8\u9519\
+        \u8BEF"
+      page: 135
+    - code: '0x7350'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u7AEF\u7F16\u7801\u5668\u7C7B\u578B\u4E0D\u652F\u6301"
+      page: 136
+    - code: '0x737E'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u7AEF\u5355\u5708\u7F16\u7801\u5668\u542F\u52A8\u9519\
+        \u8BEF"
+      page: 136
+    - code: '0x8130'
+      dree: RT_DEVICE_FAULT
+      message: "CAN \u5FC3\u8DF3\u9519\u8BEF"
+      page: 137
+    - code: '0x8400'
+      dree: RT_DEVICE_FAULT
+      message: "\u901F\u5EA6\u8BEF\u5DEE\u8D85\u51FA\u9650\u5236\u503C"
+      page: 138
+    - code: '0x8401'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u901F\u5EA6\u8FC7\u9AD8"
+      page: 140
+    - code: '0x8500'
+      dree: RT_DEVICE_FAULT
+      message: "\u4F4D\u7F6E\u8BEF\u5DEE\u8D85\u51FA\u9650\u5236\u503C"
+      page: 141
+    - code: '0xA000'
+      dree: RT_DEVICE_FAULT_RESETTABLE
+      message: "\u4E3B\u7AD9\u6389\u7EBF\u6216\u9000\u51FA OP \u81F3\u975E OP \u72B6\
+        \u6001"
+      page: 143
+    - code: '0xF004'
+      dree: RT_DEVICE_FAULT
+      message: "EtherCAT \u521D\u59CB\u5316\u9519\u8BEF"
+      page: 144
+    - code: '0xF005'
+      dree: RT_STO_ACTIVE
+      message: "STO \u529F\u80FD\u88AB\u6FC0\u6D3B"
+      page: 144
+    - code: '0xF006'
+      dree: RT_DEVICE_FAULT
+      message: "\u591A\u5708\u8BA1\u6570\u9519\u8BEF"
+      page: 145
+    - code: '0xF008'
+      dree: RT_DEVICE_FAULT
+      message: "\u6BCD\u7EBF\u7535\u538B\u4F4E\u4E8E\u5141\u8BB8\u7684\u6700\u5C0F\
+        \u4F9B\u7535\u7535\u538B\uFF0819V\uFF09"
+      page: 145
+    kind: device_fault_table
+    pending_facts:
+    - applicability to the deployed EtherCAT drive firmware (firmware version not
+      recorded)
+    read:
+    - kind: code
+      object: '0x603F'
+    schema_version: 1
+    status: draft
+    vendor: ZeroErr
+    verified: false
+schema_version: 1

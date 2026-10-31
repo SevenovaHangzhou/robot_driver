@@ -12,6 +12,7 @@ cases:
       controllers.yaml: 9b5c6f3ea93e77a906effe20b5ad88b161514ec82c6934669a3b44f513f33949
       robot_description.xml: a7a2a7ad7a6a05c3b7709fc7a257ccf33469ad15b9e3c7e89bcd95384f474d2b
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
+      runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: fb6c6f703a89442ddfb0c115f20ce675f44b4c23d7da584fb49985c734f13b5c
       runtime/left_joint3.yaml: 6342072f368d7d6989e26986b5c00f32e294f5eec0015554840a349a75472f7c
@@ -35,6 +36,7 @@ cases:
       controllers.yaml: 9b5c6f3ea93e77a906effe20b5ad88b161514ec82c6934669a3b44f513f33949
       robot_description.xml: 505227603c5ad858022f83b01240c3d13c0f60fa2e24ab5dac715957e0769c79
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
+      runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: 16af3c87a9067327a50095b9d88c18dbc4c96cb80c241406f0d5c35cbe48d563
       runtime/left_joint3.yaml: 6342072f368d7d6989e26986b5c00f32e294f5eec0015554840a349a75472f7c
@@ -57,6 +59,7 @@ cases:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
       controllers.yaml: c1a72765e91526cac0a9d8043c6269b6778e368be91e497934787f61dc0f640e
       robot_description.xml: a7a2a7ad7a6a05c3b7709fc7a257ccf33469ad15b9e3c7e89bcd95384f474d2b
+      runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: fb6c6f703a89442ddfb0c115f20ce675f44b4c23d7da584fb49985c734f13b5c
       runtime/left_joint3.yaml: 6342072f368d7d6989e26986b5c00f32e294f5eec0015554840a349a75472f7c
@@ -79,6 +82,7 @@ cases:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
       controllers.yaml: c1a72765e91526cac0a9d8043c6269b6778e368be91e497934787f61dc0f640e
       robot_description.xml: 505227603c5ad858022f83b01240c3d13c0f60fa2e24ab5dac715957e0769c79
+      runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
       runtime/left_joint2.yaml: 16af3c87a9067327a50095b9d88c18dbc4c96cb80c241406f0d5c35cbe48d563
       runtime/left_joint3.yaml: 6342072f368d7d6989e26986b5c00f32e294f5eec0015554840a349a75472f7c
@@ -101,6 +105,7 @@ cases:
       controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
       controllers.yaml: a48eb9e62369a61ca44e33987a125372fafe35920bf8833e1ad6cb2182b6da31
       robot_description.xml: bd3108d1fae036cbcdb990b105e7eb7d727bef954b1ae1fc0b07d52196d46e65
+      runtime/diagnostics.yaml: 62537feeb9ff3121b12d885b0ef3f89c5e0314c6d60009c2acce197b95aa7307
       runtime/left_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j3.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -123,6 +128,7 @@ cases:
       controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
       controllers.yaml: a48eb9e62369a61ca44e33987a125372fafe35920bf8833e1ad6cb2182b6da31
       robot_description.xml: d553e80cc3f773429c6c162a78282b204ddc0e137f2e7ee5f1f7aa02499a8a78
+      runtime/diagnostics.yaml: 62537feeb9ff3121b12d885b0ef3f89c5e0314c6d60009c2acce197b95aa7307
       runtime/left_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j2.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
       runtime/left_j3.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -348,3 +354,15 @@ rolling_digests_regeneration:
   cases:
   - arm-mock
   - arm-real
+diagnostics_devices_regeneration:
+  reason: 'arch-g1 design 2026-10-31 (operator-web-and-diagnostics-design.md §5.1): the composer writes
+    the integ_diagnostics device list diagnostics.yaml from owner results'
+  method: only runtime/diagnostics.yaml was added to each case; every existing output is unchanged and
+    was checked by canonical comparison before regeneration
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
