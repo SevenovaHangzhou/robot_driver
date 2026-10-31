@@ -90,9 +90,33 @@
       "type": "object",
       "additionalProperties": {
         "oneOf": [
-          {"type": ["string", "number", "boolean"]},
-          {"type": "array", "items": {"type": ["string", "number", "boolean"]}},
-          {"type": "object", "additionalProperties": {"type": ["string", "number", "boolean"]}}
+          {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean"
+              ]
+            }
+          }
         ]
       }
     },
@@ -101,11 +125,24 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "binding": {"type": "string", "minLength": 1},
-          "sensor_name": {"type": "string", "minLength": 1},
-          "family": {"type": "string", "minLength": 1}
+          "binding": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sensor_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1
+          }
         },
-        "required": ["binding", "sensor_name", "family"],
+        "required": [
+          "binding",
+          "sensor_name",
+          "family"
+        ],
         "additionalProperties": false
       }
     },
@@ -113,6 +150,78 @@
       "type": "object",
       "additionalProperties": {
         "type": "object"
+      }
+    },
+    "diagnostic_devices": {
+      "type": "array",
+      "description": "Devices the diagnostics node checks once at startup and watches passively. Each entry names state interfaces this result renders; the composer prefixes the module (or the transport for bus entries) to form ErrorInfo.source.",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "role",
+          "address",
+          "state"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "bus": {
+            "type": "boolean",
+            "description": "Bus-level entry: source is <transport>/<name>."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Device fact reference; its fault_table is attached by the composer."
+          },
+          "address": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": [
+                "string",
+                "integer"
+              ]
+            }
+          },
+          "identity": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "state": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "allowed_startup_codes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "uniqueItems": true
+          }
+        }
       }
     }
   },

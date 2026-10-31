@@ -106,6 +106,9 @@ def compose(
     )
     robot_description = ET.tostring(robot, encoding="unicode")
     files = _output_files(runtime, runtime_files, robot_description, controllers, order)
+    diagnostics = _diagnostics(data, rendered_modules, config_root)
+    if diagnostics["devices"]:
+        files["diagnostics.yaml"] = yaml.safe_dump(diagnostics, sort_keys=False, allow_unicode=True)
     lifecycle = _lifecycle(
         data,
         control_scope,
@@ -379,6 +382,44 @@ def _add_recorder(controllers, deployment, robot, staged, selected_names, bindin
     return [RECORDER_NAME]
 
 
+def _diagnostics(data, rendered_modules, config_root):
+    """Device list for integ_diagnostics, from owner results only; fault tables attached once."""
+    manifest = data["manifest"]
+    devices, tables = [], {}
+    for module, result in rendered_modules.items():
+        for entry in result.get("diagnostic_devices", []):
+            # ErrorInfo.source: <module>/<name>/<role>, or <transport>/<name> for a bus.
+            if entry.get("bus"):
+                source = f"{manifest['modules'][module]['transport']}/{entry['name']}"
+            else:
+                source = f"{module}/{entry['name']}/{entry['role']}"
+            item = {"source": source}
+            item.update(
+                {
+                    key: deepcopy(value)
+                    for key, value in entry.items()
+                    if key not in ("name", "bus", "device", "allowed_startup_codes")
+                }
+            )
+            if "allowed_startup_codes" in entry:
+                item["allowed_startup_codes"] = [
+                    f"0x{code:04X}" for code in entry["allowed_startup_codes"]
+                ]
+            device = data["devices"].get(entry.get("device"), {})
+            if "fault_table" in device:
+                key = Path(device["fault_table"]).stem
+                if key not in tables:
+                    tables[key] = load_yaml(resolve_share_path(config_root, device["fault_table"]))
+                item["fault_table"] = key
+            if "motor_encoder_type" in device:
+                item["motor_encoder_type"] = device["motor_encoder_type"]
+            devices.append(item)
+    sources = [item["source"] for item in devices]
+    if len(sources) != len(set(sources)):
+        raise ValueError("Duplicate diagnostics source")
+    return {"schema_version": 1, "devices": devices, "fault_tables": tables}
+
+
 def _output_files(runtime, runtime_files, robot_description, controllers, order):
     # Paths are validated here; writing belongs to the explicit deploy-time artifact step.
     reserved = {
@@ -386,6 +427,7 @@ def _output_files(runtime, runtime_files, robot_description, controllers, order)
         "controller_order.yaml",
         "robot_description.xml",
         "lifecycle.yaml",
+        "diagnostics.yaml",
         ARTIFACT,
     }
     if reserved.intersection(runtime_files):

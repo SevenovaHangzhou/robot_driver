@@ -102,8 +102,11 @@ def render(request, share, validate_module, validate_unit, validate_device):
             if axis["mode_of_operation"] == 8
         ):
             raise ValueError("Every CSP direction must be verified as +1 or -1")
+    master_id = request["deployment"]["ethercat"]["master_id"]
+    if not mock and master_id == "TBD":
+        raise ValueError("Required deployment.ethercat.master_id is TBD")
     families = _profile(share, "families")["families"]
-    runtime_files, joints, managed, expected_axes = {}, [], [], []
+    runtime_files, joints, managed, expected_axes, diagnostic_devices = {}, [], [], [], []
     for side, axis in axes:
         device = request["devices"][axis["device"]]
         if not mock:
@@ -191,6 +194,27 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 ),
             }
         )
+        rendered_states = {
+            item.attrib["name"] for item in joint.findall("state_interface")
+        }
+        diagnostic_devices.append(
+            {
+                "name": name,
+                "role": "drive",
+                "device": axis["device"],
+                "address": {"master_id": master_id, "ring_position": axis["ring_position"]},
+                "identity": dict(record["identity"]),
+                "state": {
+                    "al_state": f"ethercat_slave_{axis['ring_position']}/al_state",
+                    **{
+                        state_name: f"{name}/{state_name}"
+                        for state_name in ("status_word", "error_code")
+                        if state_name in rendered_states
+                    },
+                },
+                "allowed_startup_codes": expected_axes[-1]["allowed_errors"],
+            }
+        )
     responders = []
     for responder in spec["extra_responders"]:
         record = _profile(share, responder["profile"])
@@ -200,9 +224,6 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 **record["identities"][responder["identity_key"]],
             }
         )
-    master_id = request["deployment"]["ethercat"]["master_id"]
-    if not mock and master_id == "TBD":
-        raise ValueError("Required deployment.ethercat.master_id is TBD")
     expected = {
         "master_id": master_id,
         "responders": sorted(responders + expected_axes, key=lambda item: item["ring_position"]),
@@ -224,9 +245,26 @@ def render(request, share, validate_module, validate_unit, validate_device):
     }
     if spec.get("topology_preflight", False) and not stationary:
         expected["topology_only"] = True
-    from .master_health import sensors as health_sensors
+    from .master_health import responder_count, sensors as health_sensors
 
     sensors = health_sensors(request, [axis for _, axis in axes])
+    slaves = responder_count(request)
+    if slaves is not None:
+        diagnostic_devices.append(
+            {
+                "name": f"master{master_id}",
+                "role": "ethercat_master",
+                "bus": True,
+                "address": {"master_id": master_id},
+                "state": {
+                    "link_up": "ethercat_master/link_up",
+                    "slaves_responding": "ethercat_master/slaves_responding",
+                    "wc_error_count": "ethercat_master/wc_error_count",
+                    "process_data_age_ms": "ethercat_domain/process_data_age_ms",
+                },
+                "expected": {"slaves_responding": slaves},
+            }
+        )
     hardware_params = {}
     if mock and not stationary:
         hardware_params["calculate_dynamics"] = "false"
@@ -256,4 +294,5 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "actuator_groups": groups,
         "resource_claims": [f"ring:{item['ring_position']}" for item in expected["responders"]],
         "expected_topology": expected,
+        "diagnostic_devices": diagnostic_devices,
     }

@@ -153,6 +153,12 @@ For non-EtherCAT modules, `managed_joints` follows the declared machine input
 order after selecting axes exposing `control_word`. Do not invent ring positions
 for other transports. Policy/batch order is independent and stays explicit.
 
+Optional result `diagnostic_devices` lists the devices of this result for the
+diagnostics node: `name`, `role`, bus `address`, optional `identity`, the rendered
+`state` interfaces it reads (role -> `<prefix>/<interface>`), optional `expected`
+values and `allowed_startup_codes`, and the `device` fact reference whose
+`fault_table` the composer attaches. Bus-level entries set `bus: true`.
+
 Runtime paths must not be absolute or contain `..`. Render neither writes files
 nor accesses devices. The composer writes `runtime_files` after validation.
 Neither reads the observation archive named `evidence/`.

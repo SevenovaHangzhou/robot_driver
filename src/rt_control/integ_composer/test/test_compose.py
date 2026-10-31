@@ -7,6 +7,7 @@ import importlib.util
 from pathlib import Path
 import shutil
 import sys
+import xml.etree.ElementTree as ET
 
 import pytest
 import yaml
@@ -184,6 +185,36 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
     assert result.controller_order == yaml.safe_load(
         (snapshot / "controller_order.yaml").read_text()
     )
+
+
+@pytest.mark.parametrize("mock", [True, False])
+def test_diagnostics_devices_name_only_rendered_state_interfaces(shares, tmp_path, mock):
+    result = compose(
+        **inputs(shares, stationary=not mock),
+        runtime_dir=tmp_path / "runtime",
+        use_mock_hardware=mock,
+        jtc_only=False,
+    )
+    diagnostics = yaml.safe_load(result.files["diagnostics.yaml"])
+    robot = ET.fromstring(result.robot_description)
+    rendered = {
+        f"{owner.attrib['name']}/{interface.attrib['name']}"
+        for owner in robot.iter()
+        if owner.tag in ("joint", "sensor", "gpio")
+        for interface in owner.findall("state_interface")
+    }
+    devices = diagnostics["devices"]
+    drives = [device["source"] for device in devices if device["role"] == "drive"]
+    module = drives[0].split("/")[0]
+    managed = result.controllers["enable_manager"]["ros__parameters"]["managed_joints"]
+    assert set(drives) == {f"{module}/{joint}/drive" for joint in managed}
+    assert [device["source"] for device in devices if device["role"] == "ethercat_master"] == [
+        "ethercat/master0"
+    ]
+    for device in devices:
+        assert set(device["state"].values()) <= rendered, device["source"]
+        if "fault_table" in device:
+            assert device["fault_table"] in diagnostics["fault_tables"]
 
 
 def test_rolling_digests_are_computed_by_the_composer(shares, tmp_path):
