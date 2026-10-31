@@ -165,8 +165,22 @@ def setup(context):
         if publish_robot_state
         else []
     )
+    # Diagnostics only reports; its exit is not watched, so it can never stop the scope.
+    diagnostics = (
+        [
+            Node(
+                package="integ_diagnostics",
+                executable="integ_diagnostics",
+                parameters=[{"generated_dir": generated_dir, "control_scope": scope}],
+                output="both",
+            )
+        ]
+        if (runtime / "diagnostics.yaml").is_file()
+        else []
+    )
     return [
         *robot_state,
+        *diagnostics,
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,
