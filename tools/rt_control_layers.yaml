@@ -10,6 +10,7 @@ layers:
   - integ_composer
   - integ_bringup
   - integ_api_adapter
+  - integ_diagnostics
   - rt_control_arm_console
   - rt_control_operator_web
   protocol:

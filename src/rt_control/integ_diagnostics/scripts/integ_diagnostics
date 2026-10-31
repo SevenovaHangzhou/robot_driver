@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+import sys
+
+from integ_diagnostics.node import main
+
+sys.exit(main())

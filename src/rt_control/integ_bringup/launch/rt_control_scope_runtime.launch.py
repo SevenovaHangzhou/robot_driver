@@ -10,10 +10,11 @@ from launch.events import Shutdown
 from launch.substitutions import EnvironmentVariable, LaunchConfiguration
 from launch_ros.actions import Node
 
-from integ_bringup.scope_lifecycle import acquire_bus_locks, write_self_check
+from integ_bringup.scope_lifecycle import acquire_bus_locks
 from integ_composer.artifact import load_artifact, runtime_arguments
 from integ_composer.compose import preflight
 from integ_composer.self_check import SelfCheckFailed
+from integ_diagnostics.report import write_self_check
 
 # Lock files stay open for the lifetime of this launch process.
 _HELD_LOCKS = []
@@ -164,8 +165,22 @@ def setup(context):
         if publish_robot_state
         else []
     )
+    # Diagnostics only reports; its exit is not watched, so it can never stop the scope.
+    diagnostics = (
+        [
+            Node(
+                package="integ_diagnostics",
+                executable="integ_diagnostics",
+                parameters=[{"generated_dir": generated_dir, "control_scope": scope}],
+                output="both",
+            )
+        ]
+        if (runtime / "diagnostics.yaml").is_file()
+        else []
+    )
     return [
         *robot_state,
+        *diagnostics,
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,

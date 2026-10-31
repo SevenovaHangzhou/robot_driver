@@ -24,6 +24,7 @@ readonly -a runtime_packages=(
   canopen_master_driver
   canopen_ros2_control
   integ_api_adapter
+  integ_diagnostics
   ethercat_driver
   ethercat_generic_cia402_drive
   joint_trajectory_controller
