@@ -156,6 +156,6 @@
 | [x] | 根 `README.md` | 保留，删分支模型表；仓库结构图改为六层视图（分支表 arch-s2 已删；六层视图放在域 README，包改名后再同步根结构图） |
 | [x] | 域 `README.md` | 重写为一屏地图（§0 需求 4）；"新同事从这里开始"里 5 份标注"历史"的文档移出入口 |
 | [x] | `docs/areas/` 9 旧区 | 归档到 `docs/archive/`，从索引移除（实际为同层级 `docs/areas-archive/`，保持旧记录内相对链接有效） |
-| [ ] | `docs/areas/` 7 新区 | 归属按 §5a 包表重排；记录规则改为"行为/硬件事实变更才记" |
+| [x] | `docs/areas/` 7 新区 | 归属按 §5a 包表重排；记录规则改为"行为/硬件事实变更才记"（arch-d5：arm-control+chassis-control 合为 control，新开 infra，各区 owner 改为现包名） |
 | [x] | `BLOCKED-questions.md` 2852 行（arch-s5：用户裁定改为备份后清空、重新记录，写入前须确认；不再按模块拆分） | 按模块拆为 `docs/decisions/<module>.md`，只保留仍生效的裁决；已被取代的归档 |
 | [x] | `PROGRESS.md` | 改为只索引实机验证记录，不再每 PR 一行（规则已改，历史行不动） |

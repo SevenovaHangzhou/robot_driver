@@ -2,7 +2,7 @@
 
 **范围**：机型事实、标定与模型快照。本区对应一个同名职责agent。
 
-**Owner路径**：各包config/machines/**；src/rt_control/hw_ethercat/variants/**；整机清单alfa_v3.yaml；src/description/**快照同步。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：src/rt_control/hwcfg_machines/**（机型 manifest、单机 deployment/标定、策略文件、设备事实）；src/description/**快照同步。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：协议实现、ESI与通用从站profile归protocol；公共模型权威仍在独立仓库，不在本区私改。
 
@@ -34,6 +34,6 @@
 
 ## 跨区事实关联
 
-协议与驱动事实见[protocol](../protocol/README.md)，启动拼装见[integration](../integration/README.md)。当前源码与目标两层归属的差异见划分decision。
+协议与驱动事实见[protocol](../protocol/README.md)，启动拼装见[integration](../integration/README.md)。
 
 - hw-config-20261023-01#F1：J6专用26B TxPDO包含0x2241与0x3B69，已在未使能OP状态验证同帧采集；使能后标定未验证。见[记录](records/2026-10-23-j6-dual-encoder-pdo.md)。

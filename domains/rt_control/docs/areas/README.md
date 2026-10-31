@@ -1,18 +1,18 @@
 # RT-Control 功能区与开发记录
 
-本目录按七个agent职责组织当前owner和冻结事实。源码包位置本轮不变。
+本目录按七个职责区组织当前owner和冻结事实，与 `ARCHITECTURE.md` 的分层一一对应（control 层一个区，另加 platform）。2026-10-31 用户裁定：arm-control 与 chassis-control 合并为 control（记录原样迁入 `control/records/`，原 id 保留），新开 infra 区。
 调整决策与历史条目处置见 [划分decision](../areas-archive/governance/records/2026-10-13-seven-agent-areas.md)。
 
 ## 当前七个功能区
 
 | 功能区/agent | Owner资产 | 特殊排除 |
 | --- | --- | --- |
-| [protocol](protocol/README.md) | hw_ethercat、hw_canopen、hw_can_damiao、hw_semantic_components、ctrl_enable_manager；ecat_icube/igh/ros2_canopen补丁 | config/machines、hw_ethercat/variants归hw-config |
-| [hw-config](hw-config/README.md) | 各包config/machines、hw_ethercat/variants、alfa_v3.yaml、src/description快照 | 公共模型权威仍在独立仓库 |
-| [integration](integration/README.md) | integ_bringup其余部分、integ_api_adapter非真空部分、src/interfaces | 机型配置归hw-config，真空适配器归peripheral-control |
-| [arm-control](arm-control/README.md) | ctrl_rolling_trajectory、ctrl_force_torque_broadcaster；ros2_controllers补丁 | 协议实现归protocol |
-| [chassis-control](chassis-control/README.md) | ctrl_swerve | 机型配置归hw-config，协议/编码器提供器归protocol |
-| [peripheral-control](peripheral-control/README.md) | periph_plc_io、periph_led_ultrasonic、periph_bms、periph_imu_lpms | 公共IDL归integration，config/machines归hw-config |
+| [protocol](protocol/README.md) | hw_ethercat、hw_canopen、hw_can_damiao、hw_semantic_components；ecat_icube/igh/ros2_canopen补丁 | 机型事实归hw-config，控制器归control |
+| [hw-config](hw-config/README.md) | hwcfg_machines、src/description快照 | 公共模型权威仍在独立仓库 |
+| [integration](integration/README.md) | integ_composer、integ_bringup、integ_api_adapter、两个操作网页、src/interfaces | 机型配置归hw-config |
+| [control](control/README.md) | ctrl_enable_manager、ctrl_rolling_trajectory、ctrl_force_torque_broadcaster、ctrl_swerve；ros2_controllers补丁 | 协议实现与编码器提供器归protocol |
+| [peripheral-control](peripheral-control/README.md) | periph_plc_io、periph_led_ultrasonic、periph_bms、periph_imu_lpms | 传输库归infra，公共IDL归integration |
+| [infra](infra/README.md) | infra_modbus、infra_renderer、infra_shm_ring、infra_socketcan | 调用方实现归各自区 |
 | [platform](platform/README.md) | hostsetup、docker、tools、.github、deps.repos、versions.env、testing、各级AGENTS、协作规范及记录体系 | 工具归属不改变其检查对象的owner |
 
 未写完整路径的包均位于`src/rt_control/`，补丁位于`patches/`。

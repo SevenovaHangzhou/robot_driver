@@ -2,9 +2,9 @@
 
 **范围**：启动组合、接口适配与诊断。本区对应一个同名职责agent。
 
-**Owner路径**：integ_bringup其余部分；integ_api_adapter；src/interfaces/**。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：integ_composer；integ_bringup；integ_api_adapter；rt_control_arm_console；rt_control_operator_web；src/interfaces/**。未写完整前缀的包位于`src/rt_control/`。
 
-**不属于本区**：config/machines及alfa_v3.yaml归hw-config；控制器实现归其控制区。
+**不属于本区**：机型事实（hwcfg_machines）归hw-config；控制器实现归control。
 
 更具体路径优先于整包归属；跨区改动按主责拆分事实并互引。源码位置本轮不变。
 
@@ -51,4 +51,4 @@
 | --- | --- | --- | --- |
 | integration-20261014-01#F1–F5 | 手臂四层离线组合、六份金样、opt-in 入口；手臂 Mock 状态/占用等价，原位 Mock 查询待闭环 | [第二步组合记录](records/2026-10-14-arm-offline-composition.md) | PARTIAL（T0/T1；默认旧入口，实机未验） |
 
-控制器实现见[arm-control](../arm-control/README.md)；生命周期见[protocol](../protocol/README.md)；机型组合输入见[hw-config](../hw-config/README.md)。同一原始记录跨资产事实按对应区引用。
+控制器实现见[control](../control/README.md)；生命周期见[protocol](../protocol/README.md)；机型组合输入见[hw-config](../hw-config/README.md)。同一原始记录跨资产事实按对应区引用。

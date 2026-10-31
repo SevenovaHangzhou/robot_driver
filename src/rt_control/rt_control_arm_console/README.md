@@ -146,7 +146,7 @@
 模型加载成功不表示设备已经就绪或已使能。
 
 版本、验证边界及回退资料见
-[变更记录](../../../domains/rt_control/docs/areas/arm-control/records/2026-10-21-console-latest-view-model.md)。
+[变更记录](../../../domains/rt_control/docs/areas/control/records/2026-10-21-console-latest-view-model.md)。
 
 
 ## 逐段参数（ARM-SEQUENCE-20261024）
