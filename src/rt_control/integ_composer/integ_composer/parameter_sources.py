@@ -5,6 +5,7 @@ selected data, applies generic transforms and checks, and rejects duplicates.
 """
 
 from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path
 
 import yaml
@@ -48,6 +49,9 @@ def _transform(value, transform):
         return [item for group in value for item in group]
     if transform == "lengths":
         return [len(group) for group in value]
+    if transform == "rolling_axis_set_sha256":
+        # Rolling protocol axis-set identity (OpenRollingJointSession.srv axis_set_hash).
+        return sha256("".join(f"{joint}:rad:rad/s\n" for joint in value).encode()).hexdigest()
     raise ValueError(f"Unsupported parameter transform: {transform}")
 
 
@@ -188,5 +192,11 @@ def controller_parameters(name, binding, env):
         duplicate = set(result).intersection(value)
         if duplicate:
             raise ValueError(f"Duplicate parameter source for {name}: {sorted(duplicate)}")
+        if kind == "policy_file" and "digest_as" in source[kind]:
+            # Digest of the exact text copied into the artifact, which artifact loading verifies.
+            text = env["runtime_files"][Path(value[target]).name]
+            value[source[kind]["digest_as"]] = sha256(text.encode("utf-8")).hexdigest()
+            if source[kind]["digest_as"] in result:
+                raise ValueError(f"Duplicate parameter source for {name}: {source[kind]['digest_as']}")
         result.update(value)
     return result

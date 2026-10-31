@@ -9,7 +9,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: bb28845b7856f7c52b68190ab08fd5ec2cd6832109c05e55c89c895ac0157911
+      controllers.yaml: 9b5c6f3ea93e77a906effe20b5ad88b161514ec82c6934669a3b44f513f33949
       robot_description.xml: a7a2a7ad7a6a05c3b7709fc7a257ccf33469ad15b9e3c7e89bcd95384f474d2b
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -32,7 +32,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: bb28845b7856f7c52b68190ab08fd5ec2cd6832109c05e55c89c895ac0157911
+      controllers.yaml: 9b5c6f3ea93e77a906effe20b5ad88b161514ec82c6934669a3b44f513f33949
       robot_description.xml: 505227603c5ad858022f83b01240c3d13c0f60fa2e24ab5dac715957e0769c79
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -338,3 +338,13 @@ hw_rename_regeneration:
   - head-real
   - force-mock
   - force-real
+rolling_digests_regeneration:
+  reason: 'arch-c6 user decision 2026-10-31: the composer computes the rolling axis_set_hash and the envelope
+    limits_version (SHA-256 of the artifact copy); the controller only parses and compares them and no
+    longer links OpenSSL'
+  method: only the rolling_trajectory_controller.ros__parameters axis_set_hash and limits_version keys
+    were added; both values equal what the controller previously computed (interface axis set f4c8ff…,
+    envelope 167339…); every other value is unchanged and was checked by canonical comparison
+  cases:
+  - arm-mock
+  - arm-real
