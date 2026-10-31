@@ -1,6 +1,6 @@
 # 操作网页合并与诊断节点设计稿
 
-状态：**草稿，待评审**。对应迁移待办 §5a 的 `rt_control_operator_web + rt_control_arm_console → integ_operator_web` 与 `rt_diagnostics → integ_diagnostics` 两行。第 7 节列出待决定事项；定稿前不开实现 PR。
+状态：**已定稿**（用户 2026-10-31 评审第 7 节全部事项）。对应迁移待办 §5a 的 `rt_control_operator_web + rt_control_arm_console → integ_operator_web` 与 `rt_diagnostics → integ_diagnostics` 两行。实现按 §4.5、§5.7 的顺序逐个 PR 进行。
 
 ## 0. 已定事项（用户 2026-10-31）
 
@@ -56,7 +56,7 @@
 
 - 网页：台架/调试人员在一个页面完成使能、手臂与底盘操作、查看自检与故障；不新增运动能力。
 - 诊断：启动时一次性给出"哪个设备、什么问题、DREE 码、厂家原始码与说明"；运行中设备自己报出故障时，同样给出位置与码。
-- 不做：替代急停/STO/安全链；自动使能或自动复位；改变 `enable_manager` 的准入逻辑；访问未在制品中声明的设备。
+- 不做：替代急停/STO/安全链；自动使能或自动复位；参与或改变 `enable_manager` 的使能准入（准入只由 `enable_manager` 决定）；访问未在制品中声明的设备。
 
 ## 3. 包与进程
 
@@ -131,7 +131,7 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
 | A 总线前 | 现有 preflight 位置（ros2_control 启动前） | 主站/接口在线、从站数与身份、AL 状态、接线、各轴 0x603F（头部 CAN 现无预检，第一版只在阶段 B 检查） | **保持现状：运行栈不启动**；改为先跑完全部检查，按设备输出结果文件后再退出 |
 | B 激活后 | 硬件激活完成、使能前 | 各从站 OP、`link_up`、`wc_error_count` 不增长、`process_data_age_ms` 在时限内、各轴 `error_code`/头部 `fault_code` 无故障、编码器 `ready` 且未超时 | `ready=false`，结果写入 `/rt_control/readiness` |
 
-阶段 A 的结果文件写在本次运行目录，诊断节点启动后读入并一并发布，所以"运行栈没起来"时网页也能显示原因（网页可直接读该文件，见 §7 第 4 项）。
+阶段 A 的结果文件写在本次运行目录，诊断节点启动后读入并一并发布；运行栈没起来时，网页直接读该文件显示原因（§7 第 4 项）。
 
 码的选择：从站缺失、未到 OP、接口未起、编码器无数据 → `RT_DEVICE_OFFLINE`；身份不符 → `RT_DEVICE_IDENTITY_MISMATCH`；设备报故障码 → 查该设备的故障码表，未登记的码 → `RT_DEVICE_FAULT`，`detail` 写"未登记"；反馈超时 → `RT_DEVICE_FEEDBACK_STALE`。允许的启动码（如零差 `0xA000`）照样列出，但按 `RT_DEVICE_FAULT_RESETTABLE` 标为可复位，不作为阻断项。
 
@@ -180,13 +180,13 @@ Python rclpy 节点，订阅内部状态广播 `/rt_internal_state_broadcaster/d
 - 诊断：阶段 A 用现有 preflight 测试的命令输出样本；阶段 B 用 mock 硬件运行栈注入状态值；查表用 #153 的两张表。
 - 台架：用户在场时，按现有静止使能流程启动 `bench_dual_arm` 与 `head_only`，确认自检全部通过；断开一个从站电源或拔网线前须单独授权。
 
-## 7. 待决定事项
+## 7. 已定事项（用户 2026-10-31）
 
-| # | 问题 | 建议 |
+| # | 问题 | 结论 |
 | --- | --- | --- |
-| 1 | 自检结果是否参与使能准入 | **不参与**。`enable_manager` 保持唯一准入方；诊断只报告，避免两个准入事实 |
+| 1 | 自检结果是否参与使能准入 | **不参与**。`enable_manager` 是唯一准入方；诊断只报告 |
 | 2 | 运行中设备自己报出的故障是否上报（不重复自检） | **上报**（§5.3） |
-| 3 | 诊断节点是否作为 R-OUT-09 `/rt_control/readiness` 的生产者（恢复公共接口，Autonomy 可消费） | **是** |
+| 3 | 诊断节点是否作为 R-OUT-09 `/rt_control/readiness` 的生产者 | **是**，恢复该公共接口，Autonomy 可消费 |
 | 4 | 阶段 A 失败、运行栈没起来时，网页如何显示原因 | 网页读本次运行目录的 `self_check.json` |
 | 5 | 端口 | 统一 18120；台架启动脚本同步 |
 | 6 | 手臂页临时真空开关（调用现场 `~/.local/bin/vacuum` 脚本） | 第 2 步原样迁入并保留"临时"标注；改用 `periph_plc_io` 公共服务另开 PR |
