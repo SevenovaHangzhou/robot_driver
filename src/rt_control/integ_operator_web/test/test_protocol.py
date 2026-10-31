@@ -6,16 +6,18 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rt_control_operator_web.protocol import (  # noqa: E402
+from integ_operator_web.protocol import (  # noqa: E402
     MAX_MESSAGE_BYTES,
     ProtocolError,
     parse_request,
 )
 
 
-def test_auth_message() -> None:
-    request = parse_request(json.dumps({"type": "auth", "token": "abc"}))
-    assert request.type == "auth" and request.token == "abc"
+def test_tokens_are_not_a_socket_message() -> None:
+    # Login is POST /api/login; the socket only accepts commands of an authenticated session.
+    with pytest.raises(ProtocolError) as error:
+        parse_request(json.dumps({"type": "auth", "token": "abc"}))
+    assert error.value.code == "unknown_type"
 
 
 def test_drive_message() -> None:
@@ -44,7 +46,7 @@ def test_simple_messages(kind: str) -> None:
         (json.dumps({"type": "enable"}), "unknown_type"),
         (json.dumps({"type": "jog", "keys": ["left"]}), "unknown_type"),
         (json.dumps({"type": "publish", "topic": "/cmd_vel_safe"}), "unknown_type"),
-        (json.dumps({"type": "auth"}), "bad_request"),
+        (json.dumps({"type": "auth"}), "unknown_type"),
         (json.dumps({"type": "drive", "x": "1", "y": 0}), "bad_request"),
         (json.dumps({"type": "drive", "x": True, "y": 0}), "bad_request"),
         (json.dumps({"type": "drive", "y": 0}), "bad_request"),

@@ -1,21 +1,21 @@
-"""aiohttp HTTP/WebSocket front for the teleop arbiter.
+"""aiohttp HTTP/WebSocket front: token login to a session cookie, then one WebSocket per page.
 
-Only whitelisted requests (see ``protocol``) reach the arbiter. The server
-never exposes the ROS graph to the browser.
+Only whitelisted requests (see ``protocol``) reach the arbiter. The server never exposes the
+ROS graph to the browser. Every command except the high-rate drive stream is audited.
 """
 
 from __future__ import annotations
 
 import asyncio
-import hmac
 import uuid
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Mapping, Optional
-from urllib.parse import urlsplit
 
 from aiohttp import WSMsgType, web
 
+from .audit import AuditLog
 from .protocol import MAX_MESSAGE_BYTES, ProtocolError, parse_request
+from .session import Sessions, same_origin
 from .teleop import (
     CLIENT_HEARTBEAT_PERIOD_S,
     CLIENT_MIN_SEND_PERIOD_S,
@@ -27,12 +27,11 @@ from .teleop import (
     TeleopError,
 )
 
-AUTH_TIMEOUT_S = 5.0
-AUTH_FAILURE_DELAY_S = 1.0
 STATUS_PERIOD_S = 0.05
 WS_HEARTBEAT_S = 1.0
-CLOSE_AUTH_FAILED = 4401
-CLOSE_AUTH_TIMEOUT = 4408
+CLOSE_LOGIN_REQUIRED = 4401
+# Drive messages arrive every 50 ms; auditing them would bury every other record.
+UNAUDITED = {"drive", "get_fault_history", "get_model"}
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; connect-src 'self'; img-src 'self' data:; "
@@ -50,33 +49,23 @@ ModuleOperation = Callable[[str, tuple], Awaitable[Mapping[str, Any]]]
 StaticInfo = Mapping[str, Any]
 
 
-def _same_origin(request: web.Request) -> bool:
-    origin = request.headers.get("Origin")
-    if origin is None:
-        return True  # non-browser clients (tests, CLI) send no Origin
-    return urlsplit(origin).netloc == request.host
-
-
 class OperatorServer:
     def __init__(
         self,
         arbiter: DriveArbiter,
-        token: str,
+        sessions: Sessions,
         status_provider: StatusProvider,
         static_dir: Path,
         static_info: Optional[StaticInfo] = None,
         model_provider: Optional[Callable[[], Optional[Mapping[str, Any]]]] = None,
         module_operation: Optional[ModuleOperation] = None,
         history_provider: Optional[Callable[[], list]] = None,
-        auth_timeout: float = AUTH_TIMEOUT_S,
-        auth_failure_delay: float = AUTH_FAILURE_DELAY_S,
+        audit: Optional[AuditLog] = None,
         status_period: float = STATUS_PERIOD_S,
         drive_allowed: Optional[Callable[[], bool]] = None,
         steering_operation: Optional[Callable[..., Awaitable[Mapping[str, Any]]]] = None,
         steering_defaults: Optional[Callable[[], Awaitable[Mapping[str, Any]]]] = None,
     ) -> None:
-        if not token:
-            raise ValueError("an access token is required")
         index = static_dir / "index.html"
         if not index.is_file():
             raise ValueError(f"missing web asset: {index}")
@@ -84,7 +73,8 @@ class OperatorServer:
         self._steering_operation = steering_operation
         self._steering_defaults = steering_defaults
         self._arbiter = arbiter
-        self._token = token.encode("utf-8")
+        self._sessions = sessions
+        self._audit = audit or AuditLog(None)
         self._status_provider = status_provider
         self._static_info = dict(static_info or {})
         self._model_provider = model_provider or (lambda: None)
@@ -92,14 +82,14 @@ class OperatorServer:
         self._history_provider = history_provider or (lambda: [])
         self._module_op_task: Optional[asyncio.Task] = None
         self._static_dir = static_dir
-        self._auth_timeout = auth_timeout
-        self._auth_failure_delay = auth_failure_delay
         self._status_period = status_period
         self._sockets: set[web.WebSocketResponse] = set()
 
     def build_app(self) -> web.Application:
         app = web.Application(middlewares=[self._headers_middleware])
         app.router.add_get("/", self._index)
+        app.router.add_post("/api/login", self._login)
+        app.router.add_post("/api/logout", self._sessions.logout)
         app.router.add_get("/ws", self._websocket)
         app.router.add_static("/static/", self._static_dir, show_index=False)
         app.on_shutdown.append(self._on_shutdown)
@@ -142,27 +132,12 @@ class OperatorServer:
             "robot": dict(self._status_provider()),
         }
 
-    async def _authenticate(self, ws: web.WebSocketResponse) -> bool:
-        try:
-            message = await asyncio.wait_for(ws.receive(), self._auth_timeout)
-        except asyncio.TimeoutError:
-            await ws.close(code=CLOSE_AUTH_TIMEOUT, message=b"auth timeout")
-            return False
-        ok = False
-        if message.type == WSMsgType.TEXT:
-            try:
-                request = parse_request(message.data)
-                ok = request.type == "auth" and hmac.compare_digest(
-                    request.token.encode("utf-8"), self._token
-                )
-            except ProtocolError:
-                ok = False
-        if not ok:
-            await asyncio.sleep(self._auth_failure_delay)
-            if not ws.closed:
-                await ws.send_json({"type": "error", "code": "auth_failed", "message": "令牌无效"})
-                await ws.close(code=CLOSE_AUTH_FAILED, message=b"auth failed")
-        return ok
+    async def _login(self, request: web.Request) -> web.Response:
+        response = await self._sessions.login(request)
+        self._audit.record(
+            "login", {}, ok=response.status == 200, client=request.remote or ""
+        )
+        return response
 
     async def _push_status(self, ws: web.WebSocketResponse, session: str) -> None:
         while not ws.closed:
@@ -170,12 +145,17 @@ class OperatorServer:
             await asyncio.sleep(self._status_period)
 
     async def _websocket(self, request: web.Request) -> web.StreamResponse:
-        if not _same_origin(request):
+        if not same_origin(request):
             raise web.HTTPForbidden(text="cross-origin WebSocket rejected")
         ws = web.WebSocketResponse(heartbeat=WS_HEARTBEAT_S, max_msg_size=MAX_MESSAGE_BYTES)
         await ws.prepare(request)
-        if not await self._authenticate(ws):
+        login = self._sessions.session_of(request)
+        if login is None:
+            # Closed after the upgrade so the page sees the code and shows its login form.
+            await ws.close(code=CLOSE_LOGIN_REQUIRED, message=b"login required")
             return ws
+        client = request.remote or ""
+        # One lease identity per connection: closing this socket stops what it commanded.
         session = uuid.uuid4().hex
         self._sockets.add(ws)
         await ws.send_json(
@@ -202,7 +182,7 @@ class OperatorServer:
             async for message in ws:
                 if message.type != WSMsgType.TEXT:
                     break
-                await self._handle(ws, session, message.data)
+                await self._handle(ws, session, message.data, login, client)
         finally:
             self._arbiter.disconnect(session)
             self._sockets.discard(ws)
@@ -243,7 +223,10 @@ class OperatorServer:
 
         self._module_op_task = asyncio.ensure_future(run())
 
-    async def _handle(self, ws: web.WebSocketResponse, session: str, raw: str) -> None:
+    async def _handle(
+        self, ws: web.WebSocketResponse, session: str, raw: str, login: str, client: str
+    ) -> None:
+        request = None
         try:
             request = parse_request(raw)
             if request.type == "acquire":
@@ -268,8 +251,8 @@ class OperatorServer:
                     raise TeleopError("unsupported_operation", "当前运行环境不支持转向参数调整")
                 if not self._arbiter.is_holder(session):
                     raise TeleopError("lease_required", "未持有控制权")
-                if not hmac.compare_digest(request.token.encode("utf-8"), self._token):
-                    await asyncio.sleep(self._auth_failure_delay)
+                if not self._sessions.token_matches(request.token):
+                    await self._sessions.reject_slowly()
                     raise TeleopError("token_mismatch", "令牌确认失败，转向参数未修改")
                 result = await self._steering_operation(
                     request.x, request.y, request.z, request.w, request.release
@@ -281,8 +264,8 @@ class OperatorServer:
                     raise TeleopError("unsupported_operation", "当前运行环境不支持恢复默认")
                 if not self._arbiter.is_holder(session):
                     raise TeleopError("lease_required", "未持有控制权")
-                if not hmac.compare_digest(request.token.encode("utf-8"), self._token):
-                    await asyncio.sleep(self._auth_failure_delay)
+                if not self._sessions.token_matches(request.token):
+                    await self._sessions.reject_slowly()
                     raise TeleopError("token_mismatch", "令牌确认失败，转向参数未修改")
                 result = await self._steering_defaults()
                 await ws.send_json({"type": "steering_params_result", **dict(result)})
@@ -295,9 +278,34 @@ class OperatorServer:
                 model = self._model_provider()
                 await ws.send_json(dict(model) if model else {"type": "model", "version": None})
                 return
-            else:  # repeated auth after login
-                raise ProtocolError("bad_request", "already authenticated")
         except (ProtocolError, TeleopError) as exc:
             # Fail closed: any rejected request leaves this session's motion stopped.
             self._arbiter.halt(session)
+            self._record(request, raw, login, client, ok=False, error=exc.code)
             await ws.send_json({"type": "error", "code": exc.code, "message": exc.message})
+            return
+        self._record(request, raw, login, client, ok=True)
+
+    def _record(self, request, raw, login, client, *, ok, error=""):
+        kind = request.type if request is not None else "invalid"
+        if kind in UNAUDITED:
+            return
+        body = {}
+        if request is not None:
+            body = {"gear": request.gear, "op": request.op, "modules": list(request.modules)}
+            if kind == "steering_params":
+                body.update(
+                    slew_deg_s=request.x,
+                    accel_deg_s2=request.y,
+                    jerk_deg_s3=request.z,
+                    alignment_deg=request.w,
+                    release_deg=request.release,
+                )
+        self._audit.record(
+            kind,
+            {key: value for key, value in body.items() if value not in ("", [])},
+            ok=ok,
+            error=error,
+            session=login,
+            client=client,
+        )

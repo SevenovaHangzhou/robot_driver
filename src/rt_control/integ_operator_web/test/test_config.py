@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rt_control_operator_web.config import (  # noqa: E402
+from integ_operator_web.config import (  # noqa: E402
     TOKEN_FILE_ENV,
     ConfigError,
     build_config,

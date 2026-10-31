@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sys
 import time
 from pathlib import Path
@@ -9,12 +10,10 @@ from aiohttp.test_utils import TestClient, TestServer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rt_control_operator_web.server import (  # noqa: E402
-    CLOSE_AUTH_FAILED,
-    CLOSE_AUTH_TIMEOUT,
-    OperatorServer,
-)
-from rt_control_operator_web.teleop import (  # noqa: E402
+from integ_operator_web.audit import AuditLog  # noqa: E402
+from integ_operator_web.server import CLOSE_LOGIN_REQUIRED, OperatorServer  # noqa: E402
+from integ_operator_web.session import Sessions  # noqa: E402
+from integ_operator_web.teleop import (  # noqa: E402
     ZERO,
     AxisLimits,
     DriveArbiter,
@@ -29,24 +28,27 @@ GEARS = {"leisure": Gear(0.05, 0.1), "sport": Gear(0.15, 0.3)}
 STATIC = {"ultrasonic": {"channels": [], "layout_confirmed": False, "bands_m": [0.3]}}
 
 
-def make_server() -> tuple[OperatorServer, DriveArbiter]:
+def sessions() -> Sessions:
+    return Sessions(TOKEN, failure_delay=0.0)
+
+
+def make_server(audit=None) -> tuple[OperatorServer, DriveArbiter]:
     arbiter = DriveArbiter(GEARS, LIMITS, time.monotonic)
     server = OperatorServer(
         arbiter,
-        TOKEN,
+        sessions(),
         lambda: {"controller_connected": True, "battery": None},
         WEB_DIR,
         STATIC,
-        auth_timeout=0.3,
-        auth_failure_delay=0.0,
+        audit=audit,
         status_period=0.05,
     )
     return server, arbiter
 
 
-def run(scenario):
+def run(scenario, audit=None):
     async def main():
-        server, arbiter = make_server()
+        server, arbiter = make_server(audit)
         client = TestClient(TestServer(server.build_app()))
         await client.start_server()
         try:
@@ -58,8 +60,11 @@ def run(scenario):
 
 
 async def login(client: TestClient):
+    response = await client.post("/api/login", json={"token": TOKEN})
+    assert response.status == 200
+    cookie = response.cookies["integ_operator_session"]
+    assert cookie["httponly"] and cookie["samesite"] == "Strict"
     ws = await client.ws_connect("/ws")
-    await ws.send_json({"type": "auth", "token": TOKEN})
     reply = await ws.receive_json(timeout=2)
     assert reply["type"] == "auth_ok"
     return ws, reply
@@ -89,37 +94,37 @@ def test_index_served_with_security_headers() -> None:
     run(scenario)
 
 
-def test_wrong_token_closes_socket() -> None:
+def test_wrong_token_is_refused_and_a_socket_without_session_is_closed() -> None:
     async def scenario(client, arbiter):
-        ws = await client.ws_connect("/ws")
-        await ws.send_json({"type": "auth", "token": "wrong-token-value"})
-        error = await ws.receive_json(timeout=2)
-        assert error["code"] == "auth_failed"
-        closing = await ws.receive(timeout=2)
-        assert closing.type in (WSMsgType.CLOSE, WSMsgType.CLOSED)
-        assert ws.close_code == CLOSE_AUTH_FAILED
-        assert arbiter.snapshot().lease_holder is None
-
-    run(scenario)
-
-
-def test_commands_before_auth_are_rejected() -> None:
-    async def scenario(client, arbiter):
+        response = await client.post("/api/login", json={"token": "wrong-token-value"})
+        assert response.status == 401 and "integ_operator_session" not in response.cookies
         ws = await client.ws_connect("/ws")
         await ws.send_json({"type": "acquire"})
-        await ws.receive(timeout=2)
-        await ws.receive(timeout=2)
-        assert ws.closed and ws.close_code == CLOSE_AUTH_FAILED
+        closing = await ws.receive(timeout=2)
+        assert closing.type in (WSMsgType.CLOSE, WSMsgType.CLOSED)
+        assert ws.close_code == CLOSE_LOGIN_REQUIRED
         assert arbiter.snapshot().lease_holder is None
 
     run(scenario)
 
 
-def test_auth_timeout() -> None:
+def test_logout_ends_the_session() -> None:
     async def scenario(client, _arbiter):
+        await login(client)
+        assert (await client.post("/api/logout")).status == 200
         ws = await client.ws_connect("/ws")
         await ws.receive(timeout=2)
-        assert ws.close_code == CLOSE_AUTH_TIMEOUT
+        assert ws.close_code == CLOSE_LOGIN_REQUIRED
+
+    run(scenario)
+
+
+def test_cross_origin_login_rejected() -> None:
+    async def scenario(client, _arbiter):
+        response = await client.post(
+            "/api/login", json={"token": TOKEN}, headers={"Origin": "http://evil.example"}
+        )
+        assert response.status == 403
 
     run(scenario)
 
@@ -223,9 +228,10 @@ def test_mixed_and_unknown_messages_report_errors_and_stop() -> None:
         error = await next_of(ws, "error")
         assert error["code"] == "gear_change_while_moving"
         assert arbiter.snapshot().target == ZERO
+        # Tokens no longer travel over the socket.
         await ws.send_json({"type": "auth", "token": TOKEN})
         error = await next_of(ws, "error")
-        assert error["code"] == "bad_request"
+        assert error["code"] == "unknown_type"
         assert arbiter.snapshot().lease_holder is not None
 
     run(scenario)
@@ -249,9 +255,9 @@ def test_shutdown_soft_stops() -> None:
 def test_missing_assets_or_token_rejected(tmp_path: Path) -> None:
     arbiter = DriveArbiter(GEARS, LIMITS, time.monotonic)
     with pytest.raises(ValueError):
-        OperatorServer(arbiter, TOKEN, dict, tmp_path)
+        OperatorServer(arbiter, sessions(), dict, tmp_path)
     with pytest.raises(ValueError):
-        OperatorServer(arbiter, "", dict, WEB_DIR)
+        Sessions("")
 
 
 def test_get_model_is_read_only_and_needs_no_lease() -> None:
@@ -259,7 +265,7 @@ def test_get_model_is_read_only_and_needs_no_lease() -> None:
         arbiter = DriveArbiter(GEARS, LIMITS, time.monotonic)
         server = OperatorServer(
             arbiter,
-            TOKEN,
+            sessions(),
             lambda: {},
             WEB_DIR,
             STATIC,
@@ -293,7 +299,7 @@ def make_module_server(operation):
     arbiter = DriveArbiter(GEARS, LIMITS, time.monotonic)
     server = OperatorServer(
         arbiter,
-        TOKEN,
+        sessions(),
         lambda: {},
         WEB_DIR,
         STATIC,
@@ -387,12 +393,10 @@ def make_steering_server(calls):
     arbiter = DriveArbiter(GEARS, LIMITS, time.monotonic)
     server = OperatorServer(
         arbiter,
-        TOKEN,
+        sessions(),
         lambda: {},
         WEB_DIR,
         STATIC,
-        auth_timeout=0.3,
-        auth_failure_delay=0.0,
         status_period=0.05,
         steering_operation=steering,
         steering_defaults=defaults,
@@ -450,3 +454,27 @@ def test_steering_parameters_unavailable_without_backend() -> None:
         assert (await next_of(ws, "error"))["code"] == "unsupported_operation"
 
     run(scenario)
+
+
+def test_commands_are_audited_without_tokens_or_the_drive_stream(tmp_path: Path) -> None:
+    path = tmp_path / "audit.jsonl"
+
+    async def scenario(client, _arbiter):
+        ws, _ = await login(client)
+        await ws.send_json({"type": "acquire"})
+        await ws.send_json({"type": "drive", "x": 0, "y": 0, "yaw": 0})
+        await ws.send_json({"type": "gear", "gear": "sport"})
+        await ws.send_json({**STEERING, "token": "wrong-token-value"})
+        await next_of(ws, "error")
+
+    run(scenario, audit=AuditLog(path))
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [(r["action"], r["ok"]) for r in records] == [
+        ("login", True),
+        ("acquire", True),
+        ("gear", True),
+        ("steering_params", False),
+    ]
+    assert records[3]["error"] == "unsupported_operation" and records[3]["args"]["slew_deg_s"] == 30
+    assert TOKEN not in path.read_text() and "wrong-token-value" not in path.read_text()
+    assert len({r.get("session") for r in records[1:]}) == 1

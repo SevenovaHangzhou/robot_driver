@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="3">
-  <name>rt_control_operator_web</name>
+  <name>integ_operator_web</name>
   <version>0.1.0</version>
   <description>Chassis operator web console: enable, teleop on the declared velocity topic, fault reset and steering field tuning.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>

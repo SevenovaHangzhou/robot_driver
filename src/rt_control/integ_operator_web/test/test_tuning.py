@@ -9,7 +9,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rt_control_operator_web.tuning import FieldTuning, TuningError  # noqa: E402
+from integ_operator_web.tuning import FieldTuning, TuningError  # noqa: E402
 
 DEFAULTS = {
     "max_steering_slew": 0.61,

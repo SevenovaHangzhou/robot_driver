@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
-project(rt_control_operator_web)
+project(integ_operator_web)
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 ament_python_install_package(${PROJECT_NAME})
 
-install(PROGRAMS scripts/rt_control_operator_web DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS scripts/integ_operator_web DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY web config DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
 

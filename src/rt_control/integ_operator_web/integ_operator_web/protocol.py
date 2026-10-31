@@ -12,7 +12,6 @@ MODULE_OPERATIONS = frozenset({"enable", "disable", "reset"})
 MAX_MODULES = 8
 ALLOWED_TYPES = frozenset(
     {
-        "auth",
         "acquire",
         "release",
         "drive",
@@ -77,8 +76,6 @@ def parse_request(raw: str) -> Request:
     kind = document.get("type")
     if kind not in ALLOWED_TYPES:
         raise ProtocolError("unknown_type", "message type is not allowed")
-    if kind == "auth":
-        return Request(type=kind, token=_short_string(document.get("token"), "token"))
     if kind == "steering_params":
         # ELECTRI-127: operator-tuned steering motion; the token is re-confirmed per change.
         return Request(

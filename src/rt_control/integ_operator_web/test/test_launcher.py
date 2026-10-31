@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rt_control_operator_web.launcher import check_dds, parse_cpus  # noqa: E402
+from integ_operator_web.launcher import check_dds, parse_cpus  # noqa: E402
 
 LOOPBACK = """<?xml version="1.0"?>
 <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
