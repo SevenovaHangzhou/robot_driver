@@ -37,7 +37,7 @@
 | [x] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用（arch-b2：vacuum/position_action/module_state/status 四个适配器删除，只留 `control_enable_adapter`） | 1.4 |
 | [x] | B | `damiao_head_controller` 是 `enable_manager` 的第二份实现（arch-s7：头部作为握手式设备并入 enable_manager，包删除；待实机验证） | 1.1、3 |
 | [x] | B | `semantic_components` 混入 `runtime_log_shm_ring`（infra）和 `head_phase`（用户 2026-10-30 修正：`head_phase` 是握手式使能设备的通用阶段语义，改名 `HandshakePhase` 留在本包；`runtime_log_shm_ring` 按 §3 例外移入 `infra_shm_ring`；#120、#121 完成） | 1.1、1.3 |
-| [ ] | C | 四个控制器包共同重复骨架（见 §5a 末） | 3 |
+| [x] | C | 四个控制器包共同重复骨架（见 §5a 末；用户 2026-10-31 裁定不建 `infra_rt_utils`） | 3 |
 | [x] | C | `rt_disable_once` 与 `head_disable_once` 同一件事两种写法（#110 头部并入 enable_manager、#111 删除 `rt_disable_once`，两者均已不存在） | 3 |
 | [ ] | C | `rt_control_bringup/ros2_control_node.cpp` fork 上游 main | 3、§6 窄补丁 |
 | [x] | D | `composer.compose()` 单函数 300 行（arch-d1：拆为加载校验→模型骨架→模块渲染→挂接硬件系统→控制器参数→输出与 lifecycle；1404 个组合输出逐字节不变） | 4.3 |
@@ -72,13 +72,13 @@
 | [x] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；arch-r5 已改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
 | [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；剩余：按 V3 需求重写）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
 | [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | 两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
-| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架；arch-c5 已建：`validated_spec`、`xml_param`，`_share` 因测试替换与包专属而保留）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。 |
+| [x] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架；arch-c5 已建：`validated_spec`、`xml_param`，`_share` 因测试替换与包专属而保留）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。（用户 2026-10-31 裁定：不建 `infra_rt_utils`；CiA402 唯一出口在 `hw_semantic_components`（#146），不另建 `infra_cia402`） |
 
 净效果：24 包 → 删 1（`plc_node`）、合 3 为 1（web×2、head→enable_manager）、并入 1（x503）、重做 1（`rt_diagnostics`）、新增 infra 5–6，最终 25–26 包，每包职责单一。
 
 ### 四个控制器包的共同重复骨架
 
-`enable_manager`、`damiao_head_controller`、`swerve_driver`、`rolling_trajectory_controller` 各自实现：`encode_double/decode_double`（double 塑进 atomic<uint64>）、`steady_now`、`wait_for_result`（controller switch 同步等待）、`publish_diagnostics`、`fault_latched_` 原子标志组。进 `infra_rt_utils`。
+`enable_manager`、`damiao_head_controller`、`swerve_driver`、`rolling_trajectory_controller` 各自实现：`encode_double/decode_double`（double 塑进 atomic<uint64>）、`steady_now`、`wait_for_result`（controller switch 同步等待）、`publish_diagnostics`、`fault_latched_` 原子标志组。~~进 `infra_rt_utils`~~。处置（用户 2026-10-31 裁定不建 `infra_rt_utils`）：`damiao_head_controller` 已并入 enable_manager；double 编解码改用 `std::atomic<double>` 删除（#147）；`steady_now` 每份 3 行、底盘一份语义不同，留在各包；等待控制器切换只 enable_manager 一处；诊断行随 `rt_diagnostics` 重写再定。
 
 ## 8. 本规范取代的现有条款
 
