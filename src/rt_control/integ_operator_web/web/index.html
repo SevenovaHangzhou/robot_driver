@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000"><title>ALFA 底盘操作台</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-chassis-only="true" class="on-chassis">
+<header class="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">ALFA</span><span id="backend-badge" class="mock-label">等待底盘</span><a class="mock-label" href="/arm">手臂页</a><a class="mock-label" href="/diag">诊断页</a></div>
+  <div class="status-bar"><span id="conn" class="sb-item sb-bad"><i></i><b>未连接</b></span><span id="lease-chip" class="sb-item"><i></i><b>无控制权</b></span><span class="sport-tag">SPORT</span></div>
+</header>
+<main><section id="view-chassis" class="view active">
+  <div class="panel drive-panel"><div class="card drive-card">
+    <div class="yaw-row">
+      <button class="yaw-btn" data-yaw="1" type="button" aria-label="逆时针旋转"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M14 15a13 13 0 1 1 -3.5 13"/><path d="M14 6v9h9"/></svg><span>逆时针 Q</span><i class="yaw-fill"></i></button>
+      <div class="readout"><span><em>vx</em><b id="rd-vx">0.00</b></span><span><em>vy</em><b id="rd-vy">0.00</b></span><span><em>wz</em><b id="rd-wz">0.00</b></span></div>
+      <button class="yaw-btn" data-yaw="-1" type="button" aria-label="顺时针旋转"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M34 15a13 13 0 1 0 3.5 13"/><path d="M34 6v9h-9"/></svg><span>顺时针 E</span><i class="yaw-fill"></i></button>
+    </div>
+    <div id="stick" class="stick disabled" aria-label="平移摇杆" tabindex="0"><div class="stick-ring"></div><div class="stick-dead"></div><span class="axis axis-x">前进 W</span><span class="axis axis-y">左移 A</span><div id="stick-ghost" class="stick-ghost"></div><div id="stick-knob" class="stick-knob"></div></div>
+    <p id="drive-hint" class="hint">先使能底盘；拖动摇杆或按住 WASD 平移，Q/E 旋转</p>
+  </div></div>
+  <div class="right-col">
+    <div class="panel ops-panel"><div class="card console-state">
+      <div class="card-head"><span class="card-title">底盘控制</span><span id="ctrl-dot" class="dot bad"></span></div>
+      <h2 id="ctrl-state">底盘未连接</h2><p id="ctrl-detail">等待底盘运行栈启动</p>
+      <button id="enable-op" class="pill-btn enable-op" type="button" disabled>使能底盘</button>
+      <button id="reset-op" class="pill-btn reset-op" type="button" hidden>故障复位</button>
+      <div id="gear-op" class="op gear-op" role="radiogroup" aria-label="档位"></div>
+      <p id="gear-detail" class="hint">休闲档 / 运动档</p>
+      <div class="console-actions"><button id="lease-op" class="op lease-op" type="button">获取控制权</button><button id="soft-stop" class="op stop-op" type="button"><span>停止移动</span><small>空格 · 非硬件急停</small></button></div>
+    </div></div>
+    <div class="panel"><div class="card steering-card">
+      <div class="card-head"><span class="card-title">转向运动参数</span><span id="steering-limit" class="hint"></span></div>
+      <div class="steering-row"><span>底盘运动模式</span><strong id="drive-mode">--</strong></div>
+      <p id="steering-current" class="hint">当前：--</p>
+      <div class="steering-row"><label for="steering-slew">速度 °/s</label><input id="steering-slew" type="number" step="1" min="1"></div>
+      <div class="steering-row"><label for="steering-accel">加速度 °/s²</label><input id="steering-accel" type="number" step="1" min="1"></div>
+      <div class="steering-row"><label for="steering-jerk">加加速度 °/s³（S 曲线）</label><input id="steering-jerk" type="number" step="10" min="1"></div>
+      <div class="steering-row"><label id="steering-align-label" for="steering-align">对齐门限 °</label><input id="steering-align" type="number" step="0.5" min="0.5" max="90"></div>
+      <div id="steering-release-row" class="steering-row" style="display:none"><label for="steering-release">恢复门限 °（不大于对齐门限）</label><input id="steering-release" type="number" step="0.5" min="0.5" max="90"></div>
+      <div class="steering-row"><label for="steering-token">确认令牌</label><input id="steering-token" type="password" autocomplete="off"></div>
+      <button id="steering-apply" class="op" type="button" disabled>应用并保存（下次使能生效）</button>
+      <button id="steering-defaults" class="op" type="button" disabled>恢复默认</button>
+      <p id="steering-source" class="hint">来源：--</p>
+      <p class="hint">仅在底盘未使能时可修改；保存后底盘程序重启仍保留。</p>
+    </div></div>
+    <div class="panel"><div class="card console-help"><span class="card-title">操作</span><p>W 前进 · S 后退 · A 左移 · D 右移</p><p>Q 逆时针 · E 顺时针 · 空格停止</p><p>松开控制键停止，停止操作后可切换档位。</p><p id="endpoint" class="hint">速度接口 /cmd_vel</p><p id="last-result" role="status"></p></div></div>
+  </div>
+</section></main>
+<div id="login" class="overlay"><form id="login-form" class="card login-card"><span class="brand-mark big" aria-hidden="true"></span><h1>ALFA 底盘操作台</h1><label for="token">访问令牌</label><input id="token" type="password" autocomplete="current-password" required><button class="pill-btn" type="submit">连接</button><p id="login-error" class="error"></p></form></div>
+<div id="toast" class="toast" role="status"></div>
+<script type="module" src="/static/app.js"></script>
+</body></html>

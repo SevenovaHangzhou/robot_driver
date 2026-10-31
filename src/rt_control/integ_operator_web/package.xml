@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>integ_operator_web</name>
+  <version>0.1.0</version>
+  <description>RT-Control operator web: one process with the chassis page (enable, teleop, fault reset, steering tuning) and the arm page (joint moves, poses, sequences, model view, vacuum IO).</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>controller_manager_msgs</exec_depend>
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>integ_diagnostics</exec_depend>
+  <exec_depend>python3-aiohttp</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>robot_interfaces_qos</exec_depend>
+  <exec_depend>robot_rt_control_interfaces</exec_depend>
+  <exec_depend>robot_system_interfaces</exec_depend>
+  <exec_depend>rt_control_interfaces</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+  <exec_depend>control_msgs</exec_depend>
+  <exec_depend>periph_plc_io</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>trajectory_msgs</exec_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

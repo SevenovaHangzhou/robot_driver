@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALFA 诊断</title>
+<link rel="stylesheet" href="/static/diag/style.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">ALFA 诊断</span>
+  <nav><a href="/">底盘页</a><a href="/arm">手臂页</a></nav>
+  <span id="conn" class="chip bad">未连接</span>
+</header>
+<main>
+  <section class="card">
+    <h2>运行栈就绪状态 <small>/rt_control/readiness</small></h2>
+    <p id="readiness-summary" class="summary">等待诊断节点</p>
+    <p id="readiness-blockers" class="hint"></p>
+    <table id="readiness-errors"><thead><tr><th>位置</th><th>错误码</th><th>级别</th><th>说明</th></tr></thead><tbody></tbody></table>
+  </section>
+  <section class="card">
+    <h2>启动自检</h2>
+    <div id="self-checks"><p class="hint">没有自检报告</p></div>
+  </section>
+  <section class="card">
+    <h2>原始诊断 <small>/diagnostics</small></h2>
+    <table id="diagnostics"><thead><tr><th>名称</th><th>级别</th><th>信息</th><th>距今</th><th>详细</th></tr></thead><tbody></tbody></table>
+  </section>
+  <p class="hint">本页只读：不取控制权、不下发命令；不替代急停、STO 或安全链。</p>
+</main>
+<div id="login" class="overlay"><form id="login-form" class="card login-card"><h1>ALFA 诊断</h1><label for="token">访问令牌</label><input id="token" type="password" autocomplete="current-password" required><button type="submit">连接</button><p id="login-error" class="error"></p></form></div>
+<script type="module" src="/static/diag/app.js"></script>
+</body>
+</html>

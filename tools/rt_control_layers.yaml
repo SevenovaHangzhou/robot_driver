@@ -11,8 +11,7 @@ layers:
   - integ_bringup
   - integ_api_adapter
   - integ_diagnostics
-  - rt_control_arm_console
-  - rt_control_operator_web
+  - integ_operator_web
   protocol:
   - hw_ethercat
   - hw_canopen
