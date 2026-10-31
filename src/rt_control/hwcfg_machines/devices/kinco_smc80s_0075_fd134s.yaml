@@ -8,6 +8,7 @@ authorities:
 pending_facts:
 - live identity and calibration
 family: kinco
+fault_table: devices/faults/kinco_fd.yaml
 motor_encoder_counts_per_revolution: 10000
 spec:
   motor_model_as_printed: SMC80S-0075-30WAK-5DCH

@@ -169,6 +169,11 @@
     },
     "distinguishable_revolutions": {
       "$ref": "module_envelope.schema.json#/definitions/positive_integer"
+    },
+    "fault_table": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Share-relative path of this model's device_fault_table."
     }
   },
   "required": [

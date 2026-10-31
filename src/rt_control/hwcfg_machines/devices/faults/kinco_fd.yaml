@@ -1,0 +1,52 @@
+# Kinco FD low-voltage servo alarm codes, transcribed from the vendor manual chapter 7
+# (table 7-1 error state word 1 = 0x2601, table 7-2 error state word 2 = 0x2602).
+# The vendor forbids forced reset of any alarm, so every entry is RT_DEVICE_FAULT (user 2026-10-31).
+# Word 1 bit 0 only says "see word 2" and is not listed. Vendor contradictions are kept in `note`.
+schema_version: 1
+kind: device_fault_table
+status: draft
+verified: false
+authorities:
+  source: V3-DOC-2026-014 Kinco low-voltage servo drive manual (FD series) sha256 029f858f7e7a4ec1f1299ae47bb6c9d1dcee8de3ef035517e1479d7166d0125e chapter 7 tables 7-1/7-2
+pending_facts:
+- drive firmware version and applicability of the FD-series manual
+- motor encoder type of SMC60S-0040-30QAK-5DSU and SMC80S-0075-30WAK-5DCH (letters Q/W are not in the manual), which selects the incremental or magnetic entry of bits 1-3 and 14
+- whether the DS402 code column is the value read from 0x603F (not verified on the device)
+- vendor clarification of the contradictions recorded in note fields
+vendor: Kinco
+read:
+- object: '0x2601'
+  kind: bits
+- object: '0x2602'
+  kind: bits
+faults:
+- {object: '0x2601', bit: 1, ds402: '0x7380', encoder: incremental, message: "编码器 ABZ 信号错误", dree: RT_DEVICE_FAULT, page: 100}
+- {object: '0x2601', bit: 1, ds402: '0x7331', encoder: magnetic, message: "编码器通讯错误", dree: RT_DEVICE_FAULT, page: 100}
+- {object: '0x2601', bit: 2, ds402: '0x7381', encoder: incremental, message: "编码器 UVW 信号错误", dree: RT_DEVICE_FAULT, page: 100}
+- {object: '0x2601', bit: 2, ds402: '0x7320', encoder: magnetic, message: "编码器内部错误", dree: RT_DEVICE_FAULT, page: 100}
+- {object: '0x2601', bit: 3, ds402: '0x7305', encoder: incremental, message: "编码器计数错误", dree: RT_DEVICE_FAULT, page: 100}
+- {object: '0x2601', bit: 3, ds402: '0x7330', encoder: magnetic, message: "编码器 CRC 错误", dree: RT_DEVICE_FAULT, page: 100}
+- {object: '0x2601', bit: 4, ds402: '0x4210', message: "驱动器温度过高", dree: RT_DEVICE_FAULT, page: 100}
+- {object: '0x2601', bit: 5, ds402: '0x3210', message: "驱动器总线电压过高", dree: RT_DEVICE_FAULT, page: 101}
+- {object: '0x2601', bit: 6, ds402: '0x3220', message: "驱动器总线电压过低", dree: RT_DEVICE_FAULT, page: 101}
+- {object: '0x2601', bit: 7, ds402: '0x2320', message: "驱动器输出短路", dree: RT_DEVICE_FAULT, page: 101}
+- {object: '0x2601', bit: 8, ds402: '0x7110', message: "驱动器制动电阻异常", dree: RT_DEVICE_FAULT, page: 101}
+- {object: '0x2601', bit: 9, ds402: '0x8611', message: "实际跟踪误差超过允许", dree: RT_DEVICE_FAULT, page: 101}
+- {object: '0x2601', bit: 10, ds402: '0x5122', message: "逻辑电压过低", dree: RT_DEVICE_FAULT, page: 102, note: "表 4-2 写作 0x5112"}
+- {object: '0x2601', bit: 11, ds402: '0x2350', message: "电机或驱动器 IIT 错误", dree: RT_DEVICE_FAULT, page: 102}
+- {object: '0x2601', bit: 12, ds402: '0x8A80', message: "输入脉冲频率过高", dree: RT_DEVICE_FAULT, page: 102}
+- {object: '0x2601', bit: 13, ds402: '0x4310', message: "电机温度过高", dree: RT_DEVICE_FAULT, page: 102}
+- {object: '0x2601', bit: 14, ds402: '0x7122', encoder: incremental, message: "电机励磁错误", dree: RT_DEVICE_FAULT, page: 102}
+- {object: '0x2601', bit: 14, ds402: '0x7122', encoder: magnetic, message: "编码器信息错误", dree: RT_DEVICE_FAULT, page: 102, note: "表 4-2 写作 0x7331"}
+- {object: '0x2601', bit: 15, ds402: '0x6310', message: "EEPROM 数据错误", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 0, ds402: '0x5210', message: "电流传感器故障", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 1, ds402: '0x6010', message: "看门狗报错", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 2, ds402: '0x6011', message: "异常中断", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 3, ds402: '0x7400', message: "MCU 故障", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 4, ds402: '0x6320', message: "电机配置错误", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 8, ds402: '0x5443', message: "预使能报警", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 9, ds402: '0x5442', message: "正限位报错", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 10, ds402: '0x5441', message: "负限位报错", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 11, ds402: '0x6012', message: "SPI 故障", dree: RT_DEVICE_FAULT, page: 103}
+- {object: '0x2602', bit: 13, ds402: '0x8A81', message: "全闭环故障", dree: RT_DEVICE_FAULT, page: 104}
+- {object: '0x2602', bit: 15, ds402: '0x7306', message: "主编码器计数错误", dree: RT_DEVICE_FAULT, page: 104}

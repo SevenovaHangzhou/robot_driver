@@ -24,6 +24,24 @@ ENVELOPE_SCHEMAS = {
 }
 
 
+def check_fault_table(name: str, table) -> None:
+    """Cross-field rules the schema cannot express: one entry per key, matching read mode."""
+    kinds = {entry["object"]: entry["kind"] for entry in table["read"]}
+    keys = set()
+    for fault in table["faults"]:
+        if "code" in fault:
+            if "code" not in kinds.values():
+                raise ValueError(f"{name}: {fault['code']} needs a 'code' read object")
+            key = (fault["code"],)
+        else:
+            if kinds.get(fault["object"]) != "bits":
+                raise ValueError(f"{name}: {fault['object']} is not a 'bits' read object")
+            key = (fault["object"], fault["bit"], fault.get("encoder"))
+        if key in keys:
+            raise ValueError(f"{name}: duplicate fault entry {key}")
+        keys.add(key)
+
+
 def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[str]:
     """Validate every machine-config YAML with the schema that owns it; returns PASS lines.
 
@@ -54,7 +72,13 @@ def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[
                 continue
             schema = ENVELOPE_SCHEMAS.get(document["kind"], document["kind"]) + ".schema.json"
             validate_data(document, schema, schema_dir, share_root)
+            if document["kind"] == "device_fault_table":
+                check_fault_table(name, document)
             passed.append(f"PASS: {name} ({schema})")
+            if "fault_table" in document:
+                table = load_yaml(resolve_share_path(share_root, document["fault_table"]))
+                if table["kind"] != "device_fault_table":
+                    raise ValueError(f"{name}: fault_table is not a device_fault_table")
     return passed
 
 
