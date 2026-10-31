@@ -1,0 +1,138 @@
+# ZeroErr eRob drive fault codes (0x603F), transcribed from the vendor manual chapter 7.2.
+# DREE mapping (user 2026-10-31): RT_DEVICE_FAULT by default. 0xA000 (master offline) is
+# RT_DEVICE_FAULT_RESETTABLE: enable_manager clears it with a CiA402 fault reset, as on the
+# 2026-10-30 dual-arm bench run. 0xF005 is the STO input. 0x0000 (ready) is not a fault.
+schema_version: 1
+kind: device_fault_table
+status: draft
+verified: false
+authorities:
+  source: V3-DOC-2026-013 ZeroErr eRob CANopen DS301/DSP402 manual V1.9 sha256 1d4026599ec09e601366da5c1d95432f5dfc5582c4e949e216b371f9c1266221 section 7.2
+pending_facts:
+- applicability to the deployed EtherCAT drive firmware (firmware version not recorded)
+vendor: ZeroErr
+read:
+- object: '0x603F'
+  kind: code
+faults:
+- code: '0x2214'
+  message: "电机电流过流"
+  dree: RT_DEVICE_FAULT
+  page: 120
+- code: '0x2250'
+  message: "电机三相电流和超限"
+  dree: RT_DEVICE_FAULT
+  page: 121
+  note: "厂家汇总表十进制写作 8786，按十六进制应为 8784"
+- code: '0x2341'
+  message: "U 相过流"
+  dree: RT_DEVICE_FAULT
+  page: 122
+- code: '0x2342'
+  message: "V 相过流"
+  dree: RT_DEVICE_FAULT
+  page: 123
+- code: '0x2343'
+  message: "W 相过流"
+  dree: RT_DEVICE_FAULT
+  page: 124
+- code: '0x3210'
+  message: "母线电压过压"
+  dree: RT_DEVICE_FAULT
+  page: 125
+- code: '0x3220'
+  message: "母线电压欠压"
+  dree: RT_DEVICE_FAULT
+  page: 125
+- code: '0x4110'
+  message: "功率部分温度过高"
+  dree: RT_DEVICE_FAULT
+  page: 127
+- code: '0x7121'
+  message: "电机堵转"
+  dree: RT_DEVICE_FAULT
+  page: 128
+- code: '0x7305'
+  message: "负载端单圈编码器读取的数据出错"
+  dree: RT_DEVICE_FAULT
+  page: 128
+- code: '0x7306'
+  message: "电机端单圈编码器读取的数据出错"
+  dree: RT_DEVICE_FAULT
+  page: 129
+- code: '0x730D'
+  message: "电池警告错误"
+  dree: RT_DEVICE_FAULT
+  page: 130
+- code: '0x730F'
+  message: "电池电压低"
+  dree: RT_DEVICE_FAULT
+  page: 130
+- code: '0x7311'
+  message: "采样的电机端位置误差超限"
+  dree: RT_DEVICE_FAULT
+  page: 131
+- code: '0x7314'
+  message: "检测到多圈计数用电池重新接入过，重置负载端编码器清除该报警"
+  dree: RT_DEVICE_FAULT
+  page: 132
+- code: '0x7315'
+  message: "采样的负载端位置误差超限"
+  dree: RT_DEVICE_FAULT
+  page: 133
+- code: '0x7374'
+  message: "多圈位置错误"
+  dree: RT_DEVICE_FAULT
+  page: 134
+- code: '0x7377'
+  message: "检测到复位引脚的报错信息"
+  dree: RT_DEVICE_FAULT
+  page: 135
+- code: '0x737A'
+  message: "负载端单圈编码器启动错误"
+  dree: RT_DEVICE_FAULT
+  page: 135
+- code: '0x7350'
+  message: "电机端编码器类型不支持"
+  dree: RT_DEVICE_FAULT
+  page: 136
+- code: '0x737E'
+  message: "电机端单圈编码器启动错误"
+  dree: RT_DEVICE_FAULT
+  page: 136
+- code: '0x8130'
+  message: "CAN 心跳错误"
+  dree: RT_DEVICE_FAULT
+  page: 137
+- code: '0x8400'
+  message: "速度误差超出限制值"
+  dree: RT_DEVICE_FAULT
+  page: 138
+- code: '0x8401'
+  message: "电机速度过高"
+  dree: RT_DEVICE_FAULT
+  page: 140
+- code: '0x8500'
+  message: "位置误差超出限制值"
+  dree: RT_DEVICE_FAULT
+  page: 141
+- code: '0xA000'
+  message: "主站掉线或退出 OP 至非 OP 状态"
+  dree: RT_DEVICE_FAULT_RESETTABLE
+  page: 143
+- code: '0xF004'
+  message: "EtherCAT 初始化错误"
+  dree: RT_DEVICE_FAULT
+  page: 144
+- code: '0xF005'
+  message: "STO 功能被激活"
+  dree: RT_STO_ACTIVE
+  page: 144
+- code: '0xF006'
+  message: "多圈计数错误"
+  dree: RT_DEVICE_FAULT
+  page: 145
+- code: '0xF008'
+  message: "母线电压低于允许的最小供电电压（19V）"
+  dree: RT_DEVICE_FAULT
+  page: 145

@@ -8,6 +8,7 @@ authorities:
 pending_facts:
 - live identity and calibration
 family: kinco
+fault_table: devices/faults/kinco_fd.yaml
 motor_encoder_counts_per_revolution: 65536
 spec:
   motor_model_as_printed: SMC60S-0040-30QAK-5DSU

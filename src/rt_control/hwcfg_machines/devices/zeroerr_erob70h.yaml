@@ -9,6 +9,7 @@ pending_facts:
 - model-to-joint mapping
 - reduction ratio and rated/peak parameters
 family: zeroerr
+fault_table: devices/faults/zeroerr_erob.yaml
 output_encoder_counts_per_revolution: 524288
 reduction_ratio: TBD
 rated_torque_nm: TBD

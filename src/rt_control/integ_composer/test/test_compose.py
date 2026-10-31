@@ -299,6 +299,33 @@ def test_data_files_pass_existing_validator(shares):
     assert any(line.startswith("PASS: units/") for line in passed)
 
 
+def test_fault_tables_reject_duplicates_and_wrong_references(shares):
+    root = shares["hwcfg_machines"]
+    passed = VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    assert "PASS: devices/faults/zeroerr_erob.yaml (device_fault_table.schema.json)" in passed
+    table_path = root / "devices/faults/kinco_fd.yaml"
+    original = table_path.read_text()
+    table = yaml.safe_load(original)
+    table["faults"].append(deepcopy(table["faults"][-1]))
+    table_path.write_text(yaml.safe_dump(table, allow_unicode=True))
+    with pytest.raises(ValueError, match="duplicate fault entry"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    table["faults"].pop()
+    table["faults"][0] = {**table["faults"][0], "object": "0x603F"}
+    table_path.write_text(yaml.safe_dump(table, allow_unicode=True))
+    with pytest.raises(ValueError, match="is not a 'bits' read object"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    table_path.write_text(original)
+    device_path = root / "devices/kinco_smc60s_0040_fd124s.yaml"
+    device_path.write_text(
+        device_path.read_text().replace(
+            "fault_table: devices/faults/kinco_fd.yaml", "fault_table: devices/zeroerr_erob70h.yaml"
+        )
+    )
+    with pytest.raises(ValueError, match="is not a device_fault_table"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+
+
 def test_policy_values_equal_frozen_old_output():
     # The frozen old output remains the value oracle after retiring old code.
 
