@@ -4,7 +4,7 @@
 
 **Owner路径**：periph_plc_io；periph_led_ultrasonic；periph_bms；periph_imu_lpms。未写完整前缀的包位于`src/rt_control/`。
 
-**不属于本区**：各包config/machines归hw-config；公共IDL归integration；宿主设备配置归platform。
+**不属于本区**：机型事实（hwcfg_machines）归hw-config；Modbus/SocketCAN 传输库归infra；公共IDL归integration；宿主设备配置归platform。
 
 更具体路径优先于整包归属；跨区改动按主责拆分事实并互引。源码位置本轮不变。
 

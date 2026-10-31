@@ -2,9 +2,9 @@
 
 **范围**：总线协议、驱动插件与生命周期。本区对应一个同名职责agent。
 
-**Owner路径**：src/rt_control/hw_ethercat（总线胶水、从站插件、协议profile、ESI）；hw_canopen；hw_can_damiao；hw_semantic_components；ctrl_enable_manager；patches/ecat_icube、patches/igh、patches/ros2_canopen。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：src/rt_control/hw_ethercat（总线胶水、从站插件、协议profile、ESI）；hw_canopen；hw_can_damiao；hw_semantic_components；patches/ecat_icube、patches/igh、patches/ros2_canopen。未写完整前缀的包位于`src/rt_control/`。
 
-**不属于本区**：各包config/machines、hw_ethercat/variants及机型标定归hw-config；控制算法归arm-control/chassis-control；hostsetup归platform。
+**不属于本区**：机型事实与标定（hwcfg_machines）归hw-config；控制器（含ctrl_enable_manager）归control；共享库归infra；hostsetup归platform。
 
 更具体路径优先于整包归属；跨区改动按主责拆分事实并互引。源码位置本轮不变。
 
@@ -24,12 +24,7 @@
 | ecat-axes/05#F1 | PP 夹爪可选模块按已发送 PDO 与同序号反馈握手；旧 CSP profile 不变，TBD 和实机准入继续阻塞 | [PP 夹爪记录](../../areas-archive/ecat-axes/records/2026-09-08-zeroerr-pp-gripper.md)#F1 | PARTIAL（T1 离线/增量容器） |
 | ecat-axes/06#F1 | GR10-EC-6SW ESI 声明两个 JunctionSlave 设备，ID/端口说明已归档；实物身份与十八从站数量已在 07#F1 核验 | [汇川 ESI 记录](../../areas-archive/ecat-axes/records/2026-09-12-inovance-gr10-esi.md) | T0 文件事实；T2 进展见 07#F1 |
 | ecat-axes/15#F1 | 用户零位已归档；14 CSP+2 PP 实际 OP、WC48/48、16轴使能/保持/失能成功，最终 Idle/PREOP；PP运动/限力尚未验证 | [原位使能实测](../../areas-archive/ecat-axes/records/2026-09-12-gen3-stationary-enable.md) | PARTIAL（T3；当前状态及模式以本记录为准） |
-| lifecycle/20261009-03#F1 | 模式切换成功路径测试持续提供 JTC 状态，保留生产新鲜度与停稳门禁 | [CI 源状态刷新修复](../../areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md)#F1-F2 | PARTIAL（65用例及30次延迟回归通过；全仓CI待验） |
-| lifecycle/01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](../../areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |
-| lifecycle/01#F2 | rt_disable_once 三阶段共享单一绝对 deadline 是已验证现状（29 例日志佐证），非缺陷 | [lifecycle-20260814-01](../../areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F2 | 有效 |
-| lifecycle/02#F1 | enable_manager 单元测试基线 = 36 用例 @ 3ff153d（a–f 六项）；行为修改须先过套件 | [lifecycle-20260814-02](../../areas-archive/lifecycle/records/2026-08-14-enable-manager-gtest.md)#F1 | 有效 |
 | lifecycle/03#F1 | `Cia402Axis` 只绑定/解码接口；managed joints、批次、时序和 Ti5 终态由 enable_manager 显式配置并冻结 | [release-deploy-20260903-01](../../areas-archive/release-deploy/records/2026-09-03-port-hardware-composition-to-main.md)#F7 | PASS（T1 Docker/Mock） |
-| lifecycle/05#F1 | V3 enable_manager 保持 16 轴 CiA402 管理，14 CSP motion registry 在 enable 后默认进入 FJT_READY，并与 rolling 严格互斥 | [V3 运动控制器切换](../../areas-archive/lifecycle/records/2026-09-19-v3-motion-controller-switching.md)#F1-F3 | PARTIAL（T1 Mock；真实故障/停机待验） |
 | release-deploy/2026-09-24#F1 | 旧履带启动、差速控制、Leadshine CANopen 生成链及宿主 can0 已移除；上游补丁仅保留共享生命周期/RPDO 与 Lely 队列修复，编码器 CAN 身份仍 TBD | [旧履带运行链退役](../../areas-archive/release-deploy/records/2026-09-24-retire-track-runtime.md)#F1-F2 | UNVERIFIED（T0；隔离 9 包/150 测试、Docker 39 包与无设备静态 validation 通过；实机运行待验） |
 
 | protocol-20261014-01#F1–F3 | 离线 renderer、输出侧编码器换算、数据驱动原位预检；无新增运动入口总线检查 | [EtherCAT renderer](records/2026-10-14-ethercat-renderer.md) | UNVERIFIED（T0；conformance/既有测试通过，实机未验） |
@@ -38,4 +33,4 @@
 
 ## 跨区事实关联
 
-力反馈发布链见[arm-control](../arm-control/README.md)；机型/标定事实见[hw-config](../hw-config/README.md)。X503 PREOP准入属于本区，发布转换属于arm-control。
+力反馈发布链与使能状态机见[control](../control/README.md)；机型/标定事实见[hw-config](../hw-config/README.md)。X503 PREOP准入属于本区，发布转换属于control。

@@ -47,7 +47,7 @@ cases:
   - id: TC-LC-03
     title: 故障复位（两段式）
     purpose: 证明 /rt/reset_fault 先对 Fault 轴脉冲 0x0080、再走 staged 下行序列，不压缩流程
-    area: protocol
+    area: control
     risk: T3
     writes: { reset: yes, enable: no, motion: no, plc: no }
     env: both
@@ -67,7 +67,7 @@ cases:
   - id: TC-LC-04
     title: 14 轴分批使能与失能
     purpose: 证明 5 批次（3/3/3/3/2）使能全部到 Operation Enabled，失能收敛到冻结终态
-    area: protocol
+    area: control
     risk: T3
     writes: { reset: no, enable: yes, motion: no, plc: no }
     env: both
