@@ -14,6 +14,7 @@ from typing import Any, Awaitable, Callable, Mapping, Optional
 from aiohttp import WSMsgType, web
 
 from .audit import AuditLog
+from .operators import Operators
 from .protocol import MAX_MESSAGE_BYTES, ProtocolError, parse_request
 from .session import Sessions, same_origin
 from .teleop import (
@@ -34,7 +35,7 @@ CLOSE_LOGIN_REQUIRED = 4401
 UNAUDITED = {"drive", "get_fault_history", "get_model"}
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
-        "default-src 'self'; connect-src 'self'; img-src 'self' data:; "
+        "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; "
         "style-src 'self'; script-src 'self'; frame-ancestors 'none'"
     ),
     "X-Frame-Options": "DENY",
@@ -61,6 +62,8 @@ class OperatorServer:
         module_operation: Optional[ModuleOperation] = None,
         history_provider: Optional[Callable[[], list]] = None,
         audit: Optional[AuditLog] = None,
+        operators: Optional[Operators] = None,
+        pages: tuple = (),
         status_period: float = STATUS_PERIOD_S,
         drive_allowed: Optional[Callable[[], bool]] = None,
         steering_operation: Optional[Callable[..., Awaitable[Mapping[str, Any]]]] = None,
@@ -75,6 +78,9 @@ class OperatorServer:
         self._arbiter = arbiter
         self._sessions = sessions
         self._audit = audit or AuditLog(None)
+        self._operators = operators or Operators()
+        self._operators.register_page("chassis", lambda: arbiter.snapshot().lease_holder)
+        self._pages = pages
         self._status_provider = status_provider
         self._static_info = dict(static_info or {})
         self._model_provider = model_provider or (lambda: None)
@@ -91,7 +97,12 @@ class OperatorServer:
         app.router.add_post("/api/login", self._login)
         app.router.add_post("/api/logout", self._sessions.logout)
         app.router.add_get("/ws", self._websocket)
-        app.router.add_static("/static/", self._static_dir, show_index=False)
+        # A symlink install points installed assets back into the source tree.
+        app.router.add_static(
+            "/static/", self._static_dir, show_index=False, follow_symlinks=True
+        )
+        for page in self._pages:
+            page.add_routes(app)
         app.on_shutdown.append(self._on_shutdown)
         return app
 
@@ -157,6 +168,7 @@ class OperatorServer:
         client = request.remote or ""
         # One lease identity per connection: closing this socket stops what it commanded.
         session = uuid.uuid4().hex
+        self._operators.connect(session, login)
         self._sockets.add(ws)
         await ws.send_json(
             {
@@ -185,6 +197,7 @@ class OperatorServer:
                 await self._handle(ws, session, message.data, login, client)
         finally:
             self._arbiter.disconnect(session)
+            self._operators.disconnect(session)
             self._sockets.discard(ws)
             pusher.cancel()
             try:
@@ -230,6 +243,8 @@ class OperatorServer:
         try:
             request = parse_request(raw)
             if request.type == "acquire":
+                if not self._operators.may_acquire("chassis", session):
+                    raise TeleopError("lease_busy", "另一位操作员正在操作其他页面")
                 self._arbiter.acquire(session)
             elif request.type == "release":
                 self._arbiter.release(session)

@@ -1,7 +1,9 @@
 // Manual IO controls. Polling is read-only; only a click sends an explicit target.
 export class VacuumControls {
-  constructor(root) {
+  // send(body) issues the write over the page WebSocket; reads poll GET /api/arm/vacuum.
+  constructor(root, send) {
     this.root = root;
+    this.send = send;
     this.buttons = [...root.querySelectorAll('[data-vacuum]')];
     this.chip = root.querySelector('#vacuum-chip');
     this.message = root.querySelector('#vacuum-message');
@@ -42,22 +44,20 @@ export class VacuumControls {
   }
 
   async request(method, body) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('请求超时')), 10000);
+    });
     try {
-      const response = await fetch('/api/vacuum', {
-        method,
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
+      if (method !== 'GET') return await Promise.race([this.send(body), timeout]);
+      const response = await Promise.race([fetch('/api/arm/vacuum'), timeout]);
       const data = await response.json();
       if (!response.ok || data.ok === false) {
         throw new Error(data.message || data.error || `HTTP ${response.status}`);
       }
       return data;
     } finally {
-      clearTimeout(timeout);
+      clearTimeout(timer);
     }
   }
 

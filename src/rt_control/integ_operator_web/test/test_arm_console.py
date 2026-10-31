@@ -7,10 +7,10 @@ import xml.etree.ElementTree as ET
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from rt_control_arm_console.console import ArmConsole, ConsoleError, config_from_mapping  # noqa: E402
-from rt_control_arm_console.model import ModelError, load_arm_model, resolve_mesh  # noqa: E402
-from rt_control_arm_console.poses import PoseStore  # noqa: E402
-from rt_control_arm_console.trajectory import plan_move  # noqa: E402
+from integ_operator_web.arm.console import ArmConsole, ConsoleError, config_from_mapping  # noqa: E402
+from integ_operator_web.arm.model import ModelError, load_arm_model, resolve_mesh  # noqa: E402
+from integ_operator_web.arm.poses import PoseStore  # noqa: E402
+from integ_operator_web.arm.trajectory import plan_move  # noqa: E402
 
 CONFIG = {
     "gears": {

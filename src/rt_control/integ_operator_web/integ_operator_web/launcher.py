@@ -20,6 +20,10 @@ import yaml
 from .audit import DEFAULT_AUDIT
 from .config import ConfigError, load_token
 
+# Arm page state carried over from rt_control_arm_console (same files on existing hosts).
+DEFAULT_POSES = Path.home() / ".local/state/rt-control/arm_console_poses.json"
+DEFAULT_VIEW_SHARE = Path.home() / ".local/share/rt-control/view_robot_description"
+
 
 def parse_cpus(value: str) -> set[int]:
     cpus: set[int] = set()
@@ -71,6 +75,23 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--generated-dir", default="", help="deployment artifact of the running chassis scope"
     )
+    parser.add_argument("--arm-config", type=Path, default=share / "config/arm.yaml")
+    parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
+    parser.add_argument("--joint-state-topic", default="/joint_states")
+    parser.add_argument(
+        "--vacuum-script",
+        type=Path,
+        default=Path.home() / ".local/bin/vacuum",
+        help="optional operator-installed vacuum CLI; absent file disables the IO buttons",
+    )
+    parser.add_argument(
+        "--view-model-share",
+        type=Path,
+        default=DEFAULT_VIEW_SHARE
+        if DEFAULT_VIEW_SHARE.exists() or DEFAULT_VIEW_SHARE.is_symlink()
+        else None,
+        help="robot_description share for browser geometry; control uses the live model",
+    )
     parser.add_argument(
         "--audit-log",
         default=str(DEFAULT_AUDIT),
@@ -99,6 +120,13 @@ def main(argv=None) -> int:
                 ["--ros-args", "--params-file", str(config)],
                 software_test_only=args.software_test_only,
                 audit_path=Path(args.audit_log).expanduser() if args.audit_log else None,
+                arm={
+                    "config": args.arm_config,
+                    "poses": args.poses,
+                    "joint_state_topic": args.joint_state_topic,
+                    "vacuum_script": args.vacuum_script,
+                    "view_model_share": args.view_model_share,
+                },
             )
     except (ConfigError, OSError, ValueError) as exc:
         print(f"integ_operator_web: {exc}", file=sys.stderr)

@@ -478,3 +478,26 @@ def test_commands_are_audited_without_tokens_or_the_drive_stream(tmp_path: Path)
     assert records[3]["error"] == "unsupported_operation" and records[3]["args"]["slew_deg_s"] == 30
     assert TOKEN not in path.read_text() and "wrong-token-value" not in path.read_text()
     assert len({r.get("session") for r in records[1:]}) == 1
+
+
+def test_static_assets_are_served_from_a_symlink_install(tmp_path: Path) -> None:
+    web = tmp_path / "share/web"
+    web.mkdir(parents=True)
+    for name in ("index.html", "style.css"):
+        (web / name).symlink_to(WEB_DIR / name)  # what colcon --symlink-install produces
+    (tmp_path / "secret.txt").write_text("outside")
+    arbiter = DriveArbiter(GEARS, LIMITS, time.monotonic)
+    server = OperatorServer(arbiter, sessions(), dict, web)
+
+    async def main():
+        client = TestClient(TestServer(server.build_app()))
+        await client.start_server()
+        try:
+            response = await client.get("/static/style.css")
+            assert response.status == 200 and await response.read() == (WEB_DIR / "style.css").read_bytes()
+            assert (await client.get("/static/../../secret.txt")).status in (403, 404)
+        finally:
+            await client.close()
+
+    asyncio.run(main())
+

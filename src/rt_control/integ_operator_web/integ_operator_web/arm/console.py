@@ -225,6 +225,12 @@ class ArmConsole:
             if self._lease == session:
                 self._lease_seen = self._clock()
 
+    @property
+    def lease_holder(self) -> Optional[str]:
+        with self._lock:
+            self._expire_lease()
+            return self._lease
+
     def acquire(self, session: str) -> None:
         with self._lock:
             self._expire_lease()

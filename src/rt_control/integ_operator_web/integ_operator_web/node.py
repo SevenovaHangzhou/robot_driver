@@ -528,10 +528,41 @@ class OperatorWebNode(Node):
         }
 
 
-def main(argv=None, *, software_test_only=False, audit_path=None):
+def arm_page(arm, sessions, operators, audit, static_dir):
+    """The arm page and its ROS bridge (own executor thread), sharing login, lease rule and audit."""
+    from ament_index_python.packages import get_package_share_directory
+    import yaml
+
+    from .arm.console import ArmConsole, config_from_mapping
+    from .arm.page import ArmPage
+    from .arm.ros_bridge import RosBridge, spin_in_background
+    from .arm.vacuum_control import VacuumControl
+
+    config = config_from_mapping(yaml.safe_load(arm["config"].read_text(encoding="utf-8")))
+    bridge = RosBridge(arm["joint_state_topic"])
+    console = ArmConsole(config, "", bridge, arm["poses"])
+    bridge.console = console
+    spin_in_background(bridge)
+    page = ArmPage(
+        console,
+        sessions,
+        operators,
+        static_dir / "arm",
+        get_package_share_directory,
+        bridge.set_enabled,
+        bridge.reset_fault,
+        audit,
+        view_model_share=arm["view_model_share"],
+        vacuum=VacuumControl(arm["vacuum_script"]) if arm["vacuum_script"].is_file() else None,
+    )
+    return page, bridge
+
+
+def main(argv=None, *, software_test_only=False, audit_path=None, arm=None):
     from aiohttp import web
 
     from .audit import AuditLog
+    from .operators import Operators
     from .server import OperatorServer
     from .session import Sessions
 
@@ -539,16 +570,24 @@ def main(argv=None, *, software_test_only=False, audit_path=None):
     node = OperatorWebNode(software_test_only=software_test_only)
     executor = SingleThreadedExecutor()
     executor.add_node(node)
+    sessions, operators, audit = Sessions(load_token()), Operators(), AuditLog(audit_path)
+    static_dir = Path(node.get_parameter("static_dir").value)
+    pages, bridge = (), None
+    if arm is not None:
+        page, bridge = arm_page(arm, sessions, operators, audit, static_dir)
+        pages = (page,)
     server = OperatorServer(
         node.arbiter,
-        Sessions(load_token()),
+        sessions,
         node.robot_status,
-        Path(node.get_parameter("static_dir").value),
+        static_dir,
         module_operation=node.backend.operate,
         drive_allowed=node.backend.allowed,
         steering_operation=node.backend.set_steering,
         steering_defaults=node.backend.restore_steering_defaults,
-        audit=AuditLog(audit_path),
+        audit=audit,
+        operators=operators,
+        pages=pages,
     )
 
     def spin():
@@ -576,6 +615,8 @@ def main(argv=None, *, software_test_only=False, audit_path=None):
         executor.shutdown()
         thread.join(timeout=2)
         node.destroy_node()
+        if bridge is not None:
+            bridge.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
     return 0
