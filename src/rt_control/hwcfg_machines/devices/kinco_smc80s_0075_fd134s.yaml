@@ -5,10 +5,12 @@ verified: false
 authorities:
   source: rt_control_bringup/config/machines/alfa_v3_swerve_mechanics.draft.yaml:drive
   counts: user confirmed G7 motor; 6410:03=10000 read back on rings 0/2/4/6 (2026-10-14)
+  motor_encoder_type: user 2026-10-31, G7 encoder uses the vendor's incremental-encoder alarm entries
 pending_facts:
 - live identity and calibration
 family: kinco
 fault_table: devices/faults/kinco_fd.yaml
+motor_encoder_type: incremental
 motor_encoder_counts_per_revolution: 10000
 spec:
   motor_model_as_printed: SMC80S-0075-30WAK-5DCH

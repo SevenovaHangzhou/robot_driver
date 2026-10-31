@@ -324,6 +324,15 @@ def test_fault_tables_reject_duplicates_and_wrong_references(shares):
     )
     with pytest.raises(ValueError, match="is not a device_fault_table"):
         VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    other = root / "devices/kinco_smc80s_0075_fd134s.yaml"
+    other.write_text(other.read_text().replace("motor_encoder_type: incremental\n", ""))
+    device_path.write_text(
+        device_path.read_text().replace(
+            "fault_table: devices/zeroerr_erob70h.yaml", "fault_table: devices/faults/kinco_fd.yaml"
+        )
+    )
+    with pytest.raises(ValueError, match="declare motor_encoder_type"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
 
 
 def test_policy_values_equal_frozen_old_output():
