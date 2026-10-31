@@ -10,7 +10,6 @@ find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(OpenSSL REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_motion_interfaces REQUIRED)
 find_package(robot_rt_control_interfaces REQUIRED)
@@ -37,7 +36,7 @@ target_include_directories(rolling_trajectory_core PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 set_target_properties(rolling_trajectory_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(rolling_trajectory_core PRIVATE OpenSSL::Crypto yaml-cpp)
+target_link_libraries(rolling_trajectory_core PRIVATE yaml-cpp)
 
 add_library(rolling_trajectory_controller_plugin SHARED
   src/rolling_trajectory_controller.cpp
@@ -59,7 +58,6 @@ ament_target_dependencies(
   pluginlib
   rcl_interfaces
   rclcpp
-  OpenSSL
   robot_interfaces_qos
   robot_motion_interfaces
   robot_rt_control_interfaces

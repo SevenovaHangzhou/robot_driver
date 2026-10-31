@@ -1,6 +1,5 @@
 #include "ctrl_rolling_trajectory/envelope_loader.hpp"
 
-#include <openssl/sha.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
@@ -154,7 +153,8 @@ bool validateMetadata(const YAML::Node & metadata, std::string & error)
 }  // namespace
 
 bool loadProvisionalEnvelope(
-  const std::string & path, const JointNames & joints, DynamicEnvelope & envelope,
+  const std::string & path, const JointNames & joints,
+  const std::array<std::uint8_t, 32> & limits_version, DynamicEnvelope & envelope,
   std::string & error) noexcept
 {
   envelope = DynamicEnvelope{};
@@ -178,13 +178,7 @@ bool loadProvisionalEnvelope(
 
     DynamicEnvelope candidate;
     candidate.source = LimitsSource::kProvisional;
-    if (
-      SHA256(
-        reinterpret_cast<const unsigned char *>(bytes.data()), bytes.size(),
-        candidate.limits_version.data()) == nullptr) {
-      error = "SHA-256 failed for provisional envelope '" + path + "'";
-      return false;
-    }
+    candidate.limits_version = limits_version;
 
     const YAML::Node root = YAML::Load(bytes);
     if (

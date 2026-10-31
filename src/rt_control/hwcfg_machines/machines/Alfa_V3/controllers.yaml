@@ -123,10 +123,16 @@ controllers:
         match: actuator_groups
     - policy:
         name: motion
+        path: joints
+        as: axis_set_hash
+        transform: rolling_axis_set_sha256
+    - policy:
+        name: motion
         path: rolling
     - policy_file:
         name: envelope
         as: envelope_file
+        digest_as: limits_version
   enable_manager:
     module: arms
     name: enable_manager

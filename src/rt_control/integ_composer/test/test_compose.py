@@ -186,6 +186,22 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
     )
 
 
+def test_rolling_digests_are_computed_by_the_composer(shares, tmp_path):
+    # The controller only compares these; robot_interfaces endpoints.yaml pins the axis set.
+    result = compose(
+        **inputs(shares), runtime_dir=tmp_path / "runtime", use_mock_hardware=True, jtc_only=False
+    )
+    parameters = result.controllers["rolling_trajectory_controller"]["ros__parameters"]
+    assert parameters["axis_set_hash"] == (
+        "f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4"
+    )
+    envelope = result.files[Path(parameters["envelope_file"]).name]
+    assert parameters["limits_version"] == sha256(envelope.encode("utf-8")).hexdigest()
+    assert parameters["limits_version"] == (
+        "1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab"
+    )
+
+
 def facts_subset(facts):
     return {key: facts[key] for key in ("use_mock_hardware", "jtc_only")}
 
@@ -296,7 +312,9 @@ def test_policy_values_equal_frozen_old_output():
     expected_jtc.pop("joints")
     assert policy["jtc"] == expected_jtc
     expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
-    expected_rolling.pop("envelope_file")
+    # Composer-derived values, not policy data (see test_rolling_digests_are_computed_by_the_composer).
+    for derived in ("envelope_file", "axis_set_hash", "limits_version"):
+        expected_rolling.pop(derived)
     assert expected_rolling.pop("joints") == policy["joints"]
     assert policy["rolling"] == expected_rolling
     assert policy["enable_manager"] == {

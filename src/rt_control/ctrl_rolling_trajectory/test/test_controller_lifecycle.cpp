@@ -31,6 +31,7 @@ std::vector<rclcpp::Parameter> makeValidTestOnlyParameters()
   return {
     rclcpp::Parameter("configuration_source", "test_only"),
     testJointsParameter(),
+    testAxisSetHashParameter(),
     rclcpp::Parameter("allow_test_only_configuration", true),
     rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
     rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
@@ -150,7 +151,7 @@ TEST_F(ControllerLifecycleTest, ConfigurationRefusesImplicitOrUnapprovedTestThre
   auto options = rclcpp::NodeOptions();
   options.parameter_overrides(
     {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
-     rclcpp::Parameter("allow_test_only_configuration", false),
+     testAxisSetHashParameter(), rclcpp::Parameter("allow_test_only_configuration", false),
      rclcpp::Parameter(
        "takeover_tolerances", std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))});
   RollingTrajectoryController unapproved;
@@ -177,6 +178,12 @@ TEST_F(ControllerLifecycleTest, InvalidRuntimeParameterMatrixFailsConfigureWitho
   const std::vector<rclcpp::Parameter> invalid_parameters = {
     rclcpp::Parameter("joints", short_joints),
     rclcpp::Parameter("joints", duplicate_joints),
+    rclcpp::Parameter("axis_set_hash", ""),
+    rclcpp::Parameter(
+      "axis_set_hash", "F4C8FF8A32183D1733032494600C9F5D1E7E625673A4AD51556B3AC6C35ADEE4"),
+    rclcpp::Parameter("axis_set_hash", "f4c8ff8a"),
+    rclcpp::Parameter(
+      "limits_version", "1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab"),
     rclcpp::Parameter("buffer_capacity", std::int64_t{1}),
     rclcpp::Parameter("buffer_capacity", std::int64_t{257}),
     rclcpp::Parameter("max_horizon_ms", std::int64_t{499}),
@@ -223,6 +230,7 @@ TEST_F(ControllerLifecycleTest, ProvisionalConfigurationRequiresItsOwnOptInAndEx
     replaceParameter(parameters, rclcpp::Parameter("allow_provisional_configuration", false));
     replaceParameter(
       parameters, rclcpp::Parameter("envelope_file", ROLLING_PROVISIONAL_ENVELOPE_PATH));
+    replaceParameter(parameters, testProvisionalLimitsVersionParameter());
     return parameters;
   };
 
@@ -246,6 +254,18 @@ TEST_F(ControllerLifecycleTest, ProvisionalConfigurationRequiresItsOwnOptInAndEx
   EXPECT_EQ(
     accepted.on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::SUCCESS);
+
+  auto unversioned_parameters = accepted_parameters;
+  replaceParameter(unversioned_parameters, rclcpp::Parameter("limits_version", ""));
+  auto unversioned_options = rclcpp::NodeOptions();
+  unversioned_options.parameter_overrides(unversioned_parameters);
+  RollingTrajectoryController unversioned;
+  ASSERT_EQ(
+    unversioned.init("provisional_unversioned", "", unversioned_options),
+    controller_interface::return_type::OK);
+  EXPECT_EQ(
+    unversioned.on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
 
   replaceParameter(
     accepted_parameters, rclcpp::Parameter("envelope_file", "/tmp/e102-missing-envelope.yaml"));

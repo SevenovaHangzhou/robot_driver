@@ -126,7 +126,8 @@
                       "transform": {
                         "enum": [
                           "flatten",
-                          "lengths"
+                          "lengths",
+                          "rolling_axis_set_sha256"
                         ]
                       },
                       "match": {
@@ -234,6 +235,10 @@
                         "minLength": 1
                       },
                       "as": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "digest_as": {
                         "type": "string",
                         "minLength": 1
                       }

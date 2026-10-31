@@ -32,7 +32,7 @@
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |
 | [ ] | F | `robot_description` 内多份展开 `.urdf` 与多套 `joint_limits_*`/`named_poses_*` 变体并存 | 1.1、4.5 |
 | [x] | 6 重复校验 | `load_artifact` 运行时重新 compose 比对每个文件（arch-b5：用户 2026-10-30 裁定删除；artifact 自带运行时参数键与 preflight 拓扑，启动只校验哈希） | 1.6 |
-| [ ] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA | 1.6 |
+| [ ] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA（arch-c6：用户 2026-10-31 裁定方案 A，`limits_version` 与 `axis_set_hash` 由 composer 计算并传入，控制器去 OpenSSL；待验证后合入） | 1.6 |
 | [x] | A | `rt_diagnostics` 无生产入口且含二代履带诊断（arch-b3：用户 2026-10-30 裁定先删除旧实现，重写待需求明确后另做） | 1.4 |
 | [x] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用（arch-b2：vacuum/position_action/module_state/status 四个适配器删除，只留 `control_enable_adapter`） | 1.4 |
 | [x] | B | `damiao_head_controller` 是 `enable_manager` 的第二份实现（arch-s7：头部作为握手式设备并入 enable_manager，包删除；待实机验证） | 1.1、3 |
@@ -58,7 +58,7 @@
 | [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | （#120、#121 已瘦身；arch-r3 已改名；剩余：CiA402 唯一出口）名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
 | [ ] | `enable_manager` | control | 拆 | `ctrl_enable_manager` | （arch-r2 已改名；剩余：拆分）2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
 | [x] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
-| [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | （arch-r2 已改名；剩余：拆分、去 OpenSSL）`rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
+| [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | （arch-r2 已改名；arch-c6 去 OpenSSL 待合入；剩余：拆分）`rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
 | [x] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | （arch-b1 已删 relative 扩展，`swerve_controller.cpp` 降至 893 行；arch-r2 已改名）内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
 | [x] | `rt_force_torque_broadcaster` | control | 保留 | `ctrl_force_torque_broadcaster` | （arch-r2 已改名）健康。 |
 | [x] | `x503_force_sensor` | control | ~~并入 `hw_ethercat`~~ **删** | — | X503 PREOP 标定/SDO 快照脚本，纯协议工具。arch-b4：用户 2026-10-30 裁定 X503 只用于二代机，连同 `robot_hw_ethercat/config/x503b_readback.yaml` 删除。 |

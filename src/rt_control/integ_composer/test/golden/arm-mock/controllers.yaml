@@ -152,6 +152,7 @@ rolling_trajectory_controller:
   ros__parameters:
     allow_provisional_configuration: true
     allow_test_only_configuration: false
+    axis_set_hash: f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4
     buffer_capacity: 64
     configuration_source: provisional
     envelope_file: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
@@ -170,6 +171,7 @@ rolling_trajectory_controller:
     - left_joint5
     - left_joint6
     - left_joint7
+    limits_version: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
     max_horizon_ms: 600
     maximum_controller_period_ms: 2
     nominal_controller_period_ms: 1

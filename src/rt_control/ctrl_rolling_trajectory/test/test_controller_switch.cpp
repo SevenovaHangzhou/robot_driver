@@ -217,7 +217,7 @@ TEST(RollingControllerSwitch, StrictSwitchNeverDoubleClaimsPositionCommands)
   ASSERT_NE(rolling, nullptr);
   rolling->get_node()->set_parameters(
     {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
-     rclcpp::Parameter("allow_test_only_configuration", true),
+     testAxisSetHashParameter(), rclcpp::Parameter("allow_test_only_configuration", true),
      rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
      rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
      rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount, 0.1))});

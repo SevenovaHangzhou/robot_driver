@@ -188,7 +188,7 @@ protected:
     auto options = rclcpp::NodeOptions();
     options.parameter_overrides(
       {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
-       rclcpp::Parameter("allow_test_only_configuration", true),
+       testAxisSetHashParameter(), rclcpp::Parameter("allow_test_only_configuration", true),
        rclcpp::Parameter("buffer_capacity", std::int64_t{32}),
        rclcpp::Parameter("max_horizon_ms", std::int64_t{700}),
        rclcpp::Parameter("required_initial_horizon_ms", std::int64_t{500}),
