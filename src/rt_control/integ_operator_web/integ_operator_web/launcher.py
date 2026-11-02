@@ -77,6 +77,7 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--arm-config", type=Path, default=share / "config/arm.yaml")
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
+    parser.add_argument("--head-config", type=Path, default=share / "config/head.yaml")
     parser.add_argument("--joint-state-topic", default="/joint_states")
     parser.add_argument(
         "--vacuum-script",
@@ -127,6 +128,7 @@ def main(argv=None) -> int:
                     "vacuum_script": args.vacuum_script,
                     "view_model_share": args.view_model_share,
                 },
+                head={"config": args.head_config, "joint_state_topic": args.joint_state_topic},
             )
     except (ConfigError, OSError, ValueError) as exc:
         print(f"integ_operator_web: {exc}", file=sys.stderr)

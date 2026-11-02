@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALFA 头部</title>
+<link rel="stylesheet" href="/static/head/style.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">ALFA 头部</span>
+  <nav><a href="/">底盘页</a><a href="/arm">手臂页</a><a href="/diag">诊断页</a></nav>
+  <span id="conn" class="chip bad">未连接</span>
+  <span id="lease" class="chip">无控制权</span>
+</header>
+<main>
+  <p class="warning">头部正方向与机械行程尚未确认；目标范围只按机器人模型限位（内缩 2°）检查。首次请在零位附近小幅移动；速度由驱动参数限制。本页不替代急停。</p>
+  <section class="card">
+    <h2>状态</h2>
+    <p id="state">等待运行栈</p>
+    <div class="row">
+      <button id="lease-op" type="button">获取控制权</button>
+      <button id="enable-op" type="button">使能</button>
+      <button id="disable-op" type="button">失能</button>
+      <button id="reset-op" type="button">故障复位</button>
+    </div>
+  </section>
+  <section class="card">
+    <h2>目标位置</h2>
+    <div id="joints"><p class="hint">等待头部控制器与机器人模型</p></div>
+    <div class="row">
+      <button id="move-op" type="button">发送目标</button>
+      <button id="hold-op" type="button" class="stop">停止（原地保持）</button>
+    </div>
+    <p id="result" class="hint" role="status"></p>
+  </section>
+</main>
+<div id="login" class="overlay"><form id="login-form" class="card login-card"><h1>ALFA 头部</h1><label for="token">访问令牌</label><input id="token" type="password" autocomplete="current-password" required><button type="submit">连接</button><p id="login-error" class="error"></p></form></div>
+<script type="module" src="/static/head/app.js"></script>
+</body>
+</html>

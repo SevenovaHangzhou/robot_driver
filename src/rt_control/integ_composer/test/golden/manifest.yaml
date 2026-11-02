@@ -152,7 +152,7 @@ cases:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
       controllers.yaml: f733e5efe173d01887c0752c5724b95134e5df390ffda5f07c0ebf1bdf3eb0fb
       robot_description.xml: 84054f6e8e02bdf01707a08d0d7417095ae489a0402a1ff375d87304cb89926b
-      runtime/lifecycle.yaml: 843617dc1b2576b8b6360ddc6d91adff7709137990ec55dc9dd30e7640ff111a
+      runtime/lifecycle.yaml: b3f1807fd7a5e5d5319def567628cae82c37f077ccf8e0559060b3e7fe170672
   head-real:
     use_mock_hardware: false
     sync_mode: ''
@@ -161,7 +161,7 @@ cases:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
       controllers.yaml: f733e5efe173d01887c0752c5724b95134e5df390ffda5f07c0ebf1bdf3eb0fb
       robot_description.xml: 2ad88f9f804c07642d73538b345e317a96a384980e85c96ce64f290326943947
-      runtime/lifecycle.yaml: 3c21a286eb6206cb0b897a755f6f9bd55efe27321d6ce8316e0dc2210233924a
+      runtime/lifecycle.yaml: 1c76793e7c5a4c3721efc5aca982afb186dfabfa4cdfa21218be9107a2455ea8
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
@@ -366,3 +366,11 @@ diagnostics_devices_regeneration:
   - arm-real-jtc
   - stationary-mock
   - stationary-real
+head_position_capability_regeneration:
+  reason: 'arch-w4 user request 2026-10-31: the operator web head page discovers the head command topic
+    through a head_position capability declared on head_position_controller'
+  method: only the head_position entry was added to runtime/lifecycle.yaml capabilities; every other output
+    is unchanged and was checked by canonical comparison
+  cases:
+  - head-mock
+  - head-real
