@@ -1,6 +1,6 @@
 # integ_operator_web
 
-RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 手臂（原 `rt_control_arm_console`，ELECTRI-127），`/diag` 诊断（只读）。两页共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
+RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 手臂（原 `rt_control_arm_console`，ELECTRI-127），`/head` 头部，`/diag` 诊断（只读）。两页共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
 
 ## 功能
 
@@ -217,4 +217,14 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 - 原始诊断：`/diagnostics` 每个名称的最新一行及其键值。
 
 本页不替代急停、STO 或安全链。
+
+# 头部页
+
+`/head` 经 `/ws/head` 推送状态（20 Hz）并接收命令。运行栈需声明能力 `head_position`（`head_only` 等作用域的 `head_position_controller`，话题 `/head_position_controller/commands`，`std_msgs/msg/Float64MultiArray`）；关节顺序取自该控制器的 `joints` 参数，限位取自机器人模型。
+
+- 操作：取得/释放控制权、使能/失能（`/control/set_enabled`）、故障复位（`/rt/reset_fault`）、发送绝对目标位置、停止（以实测位置作为目标原地保持）。
+- 发送目标前在服务端检查：持有控制权、作用域已使能、头部设备已允许运动且无故障锁存、关节反馈不超过 0.2 s、目标在机器人模型限位内侧 2°（`config/head.yaml`）。运动速度由驱动参数（制品中的 `velocity_limit`）限制。
+- 持有控制权的连接断开时，以实测位置作为目标原地保持并释放控制权；不失能、不复位。
+- 与其他页面共用登录、审计与"同一时间一位操作员"规则。
+- **头部正方向与机械行程尚未确认**；当前限位只来自机器人模型（±π），页面会显示提示。实测安全行程确认后应写入机器人模型或驱动命令限位，不在网页里另设。
 

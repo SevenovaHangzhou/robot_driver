@@ -261,6 +261,10 @@ controllers:
     - position_velocity
     required_state_modules: []
     tags: []
+    capabilities:
+    - name: head_position
+      topic: /head_position_controller/commands
+      type: std_msgs/msg/Float64MultiArray
     parameters:
     - yaml:
         package: hwcfg_machines

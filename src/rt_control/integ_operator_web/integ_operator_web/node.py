@@ -558,6 +558,25 @@ def arm_page(arm, sessions, operators, audit, static_dir):
     return page, bridge
 
 
+def head_page(head, sessions, operators, audit, static_dir):
+    """The head page and its ROS bridge (own executor thread)."""
+    import yaml
+
+    from .arm.ros_bridge import spin_in_background
+    from .head.console import HeadConsole
+    from .head.page import HeadPage
+    from .head.ros_bridge import HeadBridge
+
+    bridge = HeadBridge(head["joint_state_topic"])
+    console = HeadConsole(yaml.safe_load(head["config"].read_text(encoding="utf-8")), bridge.publish)
+    bridge.console = console
+    spin_in_background(bridge)
+    page = HeadPage(
+        console, sessions, operators, static_dir / "head", bridge.set_enabled, bridge.reset_fault, audit
+    )
+    return page, bridge
+
+
 def diag_page(sessions, static_dir):
     """The read-only diagnostics page and its subscriptions (own executor thread)."""
     from integ_diagnostics.report import state_directory
@@ -581,7 +600,7 @@ def diag_page(sessions, static_dir):
     return page, node
 
 
-def main(argv=None, *, software_test_only=False, audit_path=None, arm=None):
+def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head=None):
     from aiohttp import web
 
     from .audit import AuditLog
@@ -600,6 +619,10 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None):
     if arm is not None:
         page, bridge = arm_page(arm, sessions, operators, audit, static_dir)
         pages = (page, diag)
+    head_bridge = None
+    if head is not None:
+        page, head_bridge = head_page(head, sessions, operators, audit, static_dir)
+        pages = (*pages, page)
     server = OperatorServer(
         node.arbiter,
         sessions,
@@ -642,6 +665,8 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None):
         if bridge is not None:
             bridge.destroy_node()
         diag_node.destroy_node()
+        if head_bridge is not None:
+            head_bridge.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
     return 0

@@ -20,21 +20,17 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.duration import Duration as RosDuration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-from robot_rt_control_interfaces.srv import SetControlEnabled
-from rt_control_interfaces.srv import RtEnable
 from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 from trajectory_msgs.msg import JointTrajectoryPoint
 
+from ..enable_services import EnableServices
 from .console import ArmConsole, ConsoleError
 from .model import ModelError, load_arm_model
 from .trajectory import TrajectoryPoint
 
 CAPABILITY = "arm_joint_trajectory"
 ENABLE_DIAGNOSTIC = "/robot/rt_control/enable_manager"
-ENABLE_TIMEOUT_S = 95.0
-# enable_manager waits up to 30 s for the group reset to settle.
-RESET_TIMEOUT_S = 35.0
 
 
 def _duration(seconds: float) -> Duration:
@@ -77,11 +73,9 @@ class RosBridge(Node):
                 partial(self._vacuum_pressure, side),
                 pressure_qos, callback_group=self._group,
             )
-        self._enable = self.create_client(
-            SetControlEnabled, "/control/set_enabled", callback_group=self._group
-        )
-        # Explicit operator fault reset (runbook: "explicit group reset"); enable_manager decides.
-        self._reset = self.create_client(RtEnable, "/rt/reset_fault", callback_group=self._group)
+        services = EnableServices(self, self._group, ConsoleError, "ELECTRI-127 arm console")
+        self.set_enabled = services.set_enabled
+        self.reset_fault = services.reset_fault
         self._controllers = self.create_client(
             ListControllers, "/controller_manager/list_controllers", callback_group=self._group
         )
@@ -260,42 +254,6 @@ class RosBridge(Node):
             handle = self._goal
         if handle is not None:
             handle.cancel_goal_async()
-
-    # ------------------------------------------------------------------ enable
-    def set_enabled(self, enabled: bool) -> dict:
-        if not self._enable.service_is_ready():
-            raise ConsoleError("enable_unavailable", "使能服务不可用")
-        request = SetControlEnabled.Request(enabled=enabled, reason="ELECTRI-127 arm console")
-        event = threading.Event()
-        future = self._enable.call_async(request)
-        future.add_done_callback(lambda _: event.set())
-        if not event.wait(ENABLE_TIMEOUT_S):
-            self._enable.remove_pending_request(future)
-            raise ConsoleError("enable_timeout", "使能服务响应超时，请查看实际状态")
-        result = future.result()
-        return {
-            "accepted": bool(result.accepted),
-            "enabled": bool(result.enabled),
-            "message": result.error.message,
-        }
-
-    def reset_fault(self) -> dict:
-        """Group CiA402 fault reset through enable_manager: Fault -> Switch On Disabled, never enables."""
-        if not self._reset.service_is_ready():
-            raise ConsoleError("reset_unavailable", "故障复位服务不可用")
-        event = threading.Event()
-        future = self._reset.call_async(RtEnable.Request())
-        future.add_done_callback(lambda _: event.set())
-        if not event.wait(RESET_TIMEOUT_S):
-            self._reset.remove_pending_request(future)
-            raise ConsoleError("reset_timeout", "故障复位响应超时，请查看实际状态")
-        result = future.result()
-        return {
-            "ok": bool(result.ok),
-            "stage": result.stage,
-            "failed_joint": result.failed_joint,
-            "status_word": int(result.status_word),
-        }
 
 
 def spin_in_background(node: Node) -> threading.Thread:
