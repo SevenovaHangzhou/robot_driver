@@ -25,6 +25,9 @@ enable_manager:
     - H2_joint
     disable_stage_timeout: 5.0
     fault_reset_timeout: 5.0
+    feedback_age_interfaces:
+    - H1_joint/feedback_age_ms
+    - H2_joint/feedback_age_ms
     handshake_devices:
     - damiao_head_control
     jtc_name: head_position_controller

@@ -180,7 +180,7 @@ def test_force_preflight_uses_recorded_cli_and_rejects_mismatch(shares, tmp_path
     preflight(result, run=run)
     assert len(calls) == 5 and all(command[1] in {"master", "slaves", "pdos"} for command in calls)
     cli["ethercat master -m 0"] = "Phase: Operation\nActive: yes\nLink: UP\nSlaves: 6\n"
-    with pytest.raises(ValueError, match="idle master"):
+    with pytest.raises(RuntimeError, match="idle master"):
         preflight(result, run=run)
 
 

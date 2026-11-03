@@ -23,14 +23,14 @@
   "model_zero_offset_evidence": "left J5 +180 deg and right J5 restored by 9994680; metadata corrected to match the existing URDF",
   "arm_limits_deg": {
     "1": 160.0,
-    "2": {"lower": -92.0, "upper": 122.0},
+    "2": {"left": {"lower": -92.0, "upper": 122.0}, "right": {"lower": -122.0, "upper": 92.0}},
     "3": 160.0,
     "4": 150.0,
     "5": 160.0,
     "6": 135.0,
     "7": 160.0
   },
-  "arm_limits_convention": "Scalar values are symmetric +/- degrees; lower/upper objects are signed bounds, identical on both arms.",
+  "arm_limits_convention": "Scalar values are symmetric +/- degrees on both arms; side-keyed objects contain signed lower/upper bounds for each arm.",
   "arm_actuator_specs": "config/alfav3_arm_module_specs.json",
   "arm_actuator_source_revision": "68705a2eb370845e9476776b72b7620e5d0d9316",
   "arm_dynamics": {

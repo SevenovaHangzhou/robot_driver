@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -21,6 +20,8 @@ namespace ctrl_rolling_trajectory
 {
 namespace
 {
+
+constexpr std::array<std::uint8_t, 32> kTestVersion = {0x16U, 0x73U, 0x39U, 0x31U};
 
 const std::filesystem::path kProvisionalEnvelopePath{ROLLING_PROVISIONAL_ENVELOPE_PATH};
 
@@ -60,16 +61,6 @@ private:
   std::filesystem::path path_{};
 };
 
-std::string versionHex(const std::array<std::uint8_t, 32> & version)
-{
-  std::ostringstream stream;
-  stream << std::hex << std::setfill('0');
-  for (const std::uint8_t value : version) {
-    stream << std::setw(2) << static_cast<unsigned int>(value);
-  }
-  return stream.str();
-}
-
 bool replaceFirst(
   std::string & contents, const std::string & old_value, const std::string & new_value)
 {
@@ -96,18 +87,17 @@ bool removeFirstField(std::string & contents, const std::string & field)
   return true;
 }
 
-TEST(EnvelopeLoader, LoadsExactFourteenAxisProvisionalArtifactAndHashesRawBytes)
+TEST(EnvelopeLoader, LoadsExactFourteenAxisProvisionalArtifactWithoutHashing)
 {
   DynamicEnvelope envelope;
   std::string error;
-  ASSERT_TRUE(
-    loadProvisionalEnvelope(kProvisionalEnvelopePath.string(), kTestJointNames, envelope, error))
+  ASSERT_TRUE(loadProvisionalEnvelope(
+    kProvisionalEnvelopePath.string(), kTestJointNames, kTestVersion, envelope, error))
     << error;
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(envelope.source, LimitsSource::kProvisional);
-  EXPECT_EQ(
-    versionHex(envelope.limits_version),
-    "1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab");
+  // The composer supplies limits_version; the loader stores it unchanged and never hashes.
+  EXPECT_EQ(envelope.limits_version, kTestVersion);
 
   EXPECT_DOUBLE_EQ(envelope.axes[0].position_lower, -3.14159265);
   EXPECT_DOUBLE_EQ(envelope.axes[3].position_upper, 2.53072742);
@@ -143,7 +133,8 @@ TEST(EnvelopeLoader, RejectsEveryMissingAxisFieldWithoutFallback)
     envelope.source = LimitsSource::kProduction;
     envelope.limits_version.fill(0xffU);
     std::string error;
-    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), kTestJointNames, envelope, error))
+    EXPECT_FALSE(
+      loadProvisionalEnvelope(file.path().string(), kTestJointNames, kTestVersion, envelope, error))
       << field;
     EXPECT_EQ(envelope.source, LimitsSource::kUnspecified) << field;
     EXPECT_EQ(envelope.limits_version, (std::array<std::uint8_t, 32>{})) << field;
@@ -169,7 +160,8 @@ TEST(EnvelopeLoader, RejectsWrongSourceAxisOrderUnknownFieldsAndInvalidNumbers)
     TemporaryEnvelope file(invalid);
     DynamicEnvelope envelope;
     std::string error;
-    EXPECT_FALSE(loadProvisionalEnvelope(file.path().string(), kTestJointNames, envelope, error))
+    EXPECT_FALSE(
+      loadProvisionalEnvelope(file.path().string(), kTestJointNames, kTestVersion, envelope, error))
       << mutation.first;
     EXPECT_EQ(envelope.source, LimitsSource::kUnspecified) << mutation.first;
     EXPECT_FALSE(error.empty()) << mutation.first;
@@ -182,7 +174,7 @@ TEST(EnvelopeLoader, MissingFileFailsClosed)
   envelope.source = LimitsSource::kProduction;
   std::string error;
   EXPECT_FALSE(loadProvisionalEnvelope(
-    "/tmp/e102-envelope-that-does-not-exist.yaml", kTestJointNames, envelope, error));
+    "/tmp/e102-envelope-that-does-not-exist.yaml", kTestJointNames, kTestVersion, envelope, error));
   EXPECT_EQ(envelope.source, LimitsSource::kUnspecified);
   EXPECT_FALSE(error.empty());
 }

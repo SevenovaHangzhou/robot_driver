@@ -121,4 +121,4 @@ delta 判定阈值已由 BQ-134 裁决，固化于 [thresholds.yaml](thresholds.
 
 ## 用例功能区归属
 
-用例area使用protocol、hw-config、integration、arm-control、chassis-control、peripheral-control、platform。按covers资产主责分配；跨包诊断/组合归integration，全域构建/时序/长稳门禁归platform。历史用例保留ID、covers、风险层级、授权位及命令，不借本次重划改变验收。
+用例area使用protocol、hw-config、integration、control、peripheral-control、infra、platform。按covers资产主责分配；跨包诊断/组合归integration，全域构建/时序/长稳门禁归platform。历史用例保留ID、covers、风险层级、授权位及命令，不借本次重划改变验收。

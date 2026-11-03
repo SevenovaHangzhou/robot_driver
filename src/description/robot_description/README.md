@@ -8,9 +8,9 @@
 
 ## 运控手臂碰撞体（2026-10-27）
 
-左右 `link1`～`link7` 的碰撞 STL 来自用户提供的 `robot_urdf_stl_20261027`，以共同 `arm_carriage` 和各模型零位求固定刚体转换后导入当前 link 坐标。外观、关节轴/原点/零位、惯性、工具碰撞和 TCP 均未随之替换；双 J2 仍为 −92°～+122°。
+左右 `link1`～`link7` 的碰撞 STL 来自用户提供的 `robot_urdf_stl_20261027`，以共同 `arm_carriage` 和各模型零位求固定刚体转换后导入当前 link 坐标。外观、关节轴/原点/零位、惯性、工具碰撞和 TCP 均未随之替换；J2 当前限位为左臂 −92°～+122°、右臂 −122°～+92°。
 
-转换来源、14组矩阵、文件哈希和顶点核对见 `config/arm_collision_import.json`，复现工具为 `tools/import_motion_collision.py <源目录>`。零位最大 STL 浮点误差约 1.5e-8 m；同关节角下两套运动链并非完全等价，J2=90°/122°时最大碰撞顶点差约 1.105/1.367 mm。本变更未验证全姿态碰撞安全裕量。
+转换来源、14组矩阵、文件哈希和顶点核对见 `config/arm_collision_import.json`，复现工具为 `tools/import_motion_collision.py <源目录>`。零位最大 STL 浮点误差约 1.5e-8 m；同关节角下两套运动链并非完全等价，历史对比姿态 J2=90°/122°时最大碰撞顶点差约 1.105/1.367 mm；其中右 J2=122°超出当前限位，仅为运动学对比数据，不可作为执行目标。本变更未验证全姿态碰撞安全裕量。
 
 URDF/Rerun保留导入的原始三角面外形。MuJoCo派生模型同步引用这些网格，但其网格接触采用凸包近似，会填充凹陷，不能当成与FCL/原始STL完全一致的碰撞结果。
 
@@ -25,9 +25,11 @@ URDF/Rerun保留导入的原始三角面外形。MuJoCo派生模型同步引用�
 | `config/alfav3_mobile_manifest.json` | 模型约定、零位偏移和历史来源 |
 | `config/mesh_assets.json` | 58 个必需网格及 SHA-256 校验值 |
 | `mesh/` | URDF 引用的 58 个原始网格，按部件和 visual/collision 分类 |
-| `mujoco/robot.xml`、`mujoco/scene.xml` | MuJoCo 机器人及场景入口 |
+| `mujoco/robot.xml` | MuJoCo 机器人模型入口，可独立加载 |
 | `mujoco/meshes/` | XML 引用的转换网格（200 个 STL） |
 | `test/test_current_model.py` | 单树、网格、限位、惯性、零位与 SRDF 校验 |
+
+完整场景 `scene.xml` 和环境描述 `environment.xml` 已迁入同级仿真项目的 `../robot_simulation/world_description/`。仿真项目直接引用本仓库的 `mujoco/robot.xml` 和网格；本仓库的生成器只生成并校验机器人模型。
 
 2026-10-23 按仓库全部 URDF/XML 的实际引用清理：删除旧 `meshes/` 下 81 个未引用 STL（86.6 MiB）及其空目录，移除 `model_sources/` 下与正式入口完全相同的 URDF 副本。`config/mesh_assets.json` 记录原始 URDF 网格；MuJoCo 转换网格由 XML 引用。
 
@@ -52,6 +54,8 @@ mesh/
 
 旧 `head_yaw/head` 和 `head_joint/head_pitch_joint` 已替换为 `H1_Link/H2_Link` 和 `H1_joint/H2_joint`，接入 `Leye_link`、`Reye_Link`、`mid360_Link` 及其固定关节。H1/H2 范围均为 ±180°，effort=10 N·m、velocity=5 rad/s 沿用旧头部配置。当前共 35 个 link、25 个活动关节。
 
+头部俯仰轴（2026-11-03 用户复核）：以左右 J1 轴线交点 arm-base-point 为原点、沿 base_link，零位下 H2 原点为 [−19, 0, 246.250093] mm，H1 原点为 [+1, 0, 0] mm；俯仰轴位于偏航轴后方 20 mm。H2 及其固定子连杆的外形、碰撞、惯性已按原世界位置补偿。左右 J1 原点本身有微米级左右差，交点 Y 约 +0.005 mm。
+
 左右眼按无质量视距范围处理，仅作半透明视觉显示，无惯性或碰撞几何。mid360 质量按用户指定为 0.375 kg；源传感器质心与惯量异常，当前采用网格包围盒的均匀实体近似，待实测替换。来源摘要、原始 mid360 惯性数据及近似方法见 `config/alfav3_mobile_manifest.json`。
 
 ## 零位和参数
@@ -59,7 +63,7 @@ mesh/
 - 模型零位为全部关节角/位移为 0；`updown=0 m` 是升降上端点。
 - 左 J5 的模型零位绕自身 +Z 轴偏转 180°：`q5_export = q5_model + π`；右 J5 保持导出零位。正方向不变。
 - 左 J3/J6 轴向已按台架确认结果取反；右臂编码器零位和方向仍需实机校验。
-- 双臂角度限位：J1/J3/J5/J7 ±160°、左右 J2 均为 −92°～+122°、J4 ±150°、J6 ±135°。
+- 双臂角度限位：J1/J3/J5/J7 ±160°、左 J2 −92°～+122°、右 J2 −122°～+92°、J4 ±150°、J6 ±135°。
 - 双臂 effort：`[647,647,484,459,204,107,36] N·m`，表示启停峰值扭矩，不是连续额定值。
 - 双臂速度：按 `[12.5,12.5,12.5,16.7,30,30,30] rpm` 换算；J5 连续额定扭矩为 87 N·m。
 - 14 个臂关节的 `friction=0`、`damping=0` 是未辨识占位值。

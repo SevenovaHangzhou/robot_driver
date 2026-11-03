@@ -19,8 +19,9 @@ using AxisSetHash = std::array<std::uint8_t, 32>;
 bool parseJointNames(
   const std::vector<std::string> & values, JointNames & names, std::string & error);
 
-// Protocol axis-set identity: SHA-256 of "<joint_name>:rad:rad/s\n" per axis, in order.
-AxisSetHash computeAxisSetHash(const JointNames & names);
+// Parses a SHA-256 digest given as 64 lowercase hex digits. The composer computes the
+// protocol axis-set identity and the envelope limits_version; the controller only compares.
+bool parseSha256Hex(const std::string & text, AxisSetHash & digest, std::string & error);
 
 }  // namespace ctrl_rolling_trajectory
 

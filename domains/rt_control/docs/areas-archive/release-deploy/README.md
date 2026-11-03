@@ -1,4 +1,4 @@
-> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[arm-control](../../areas/arm-control/README.md)、[hw-config](../../areas/hw-config/README.md)、[integration](../../areas/integration/README.md)、[protocol](../../areas/protocol/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
+> **历史区：自 [governance-20261013-03](../governance/records/2026-10-13-seven-agent-areas.md) 起不再写入新记录，当前有效事实见新区：[control](../../areas/control/README.md)、[hw-config](../../areas/hw-config/README.md)、[integration](../../areas/integration/README.md)、[protocol](../../areas/protocol/README.md)。下表为迁移前历史视图，不用于判定当前V3配置。**
 
 # release-deploy — 构建、镜像、发布与部署
 

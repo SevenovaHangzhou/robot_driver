@@ -86,7 +86,7 @@ def render(request: Mapping) -> Mapping:
     )
 
 
-def preflight(expected_topology: Mapping, *, run=None) -> None:
+def preflight(expected_topology: Mapping, *, run=None) -> list:
     kinds = _registry()["preflight"]
     kind = expected_topology.get("kind")
     if kind not in kinds:

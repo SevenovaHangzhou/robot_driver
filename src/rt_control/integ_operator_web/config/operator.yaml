@@ -1,0 +1,26 @@
+# Operator command caps; not a hardware qualification record.
+integ_operator_web:
+  ros__parameters:
+    bind_host: 127.0.0.1
+    port: 18120
+    controller_node: /swerve_controller
+    gear_names:
+    - leisure
+    - sport
+    gear_linear_speeds:
+    - 0.05
+    - 0.15
+    gear_angular_speeds:
+    - 0.1
+    - 0.3
+    linear_limits:
+    - 0.3
+    - 0.5
+    - 1.0
+    - 2.0
+    angular_limits:
+    - 0.6
+    - 1.0
+    - 2.0
+    - 4.0
+    command_topic: /cmd_vel

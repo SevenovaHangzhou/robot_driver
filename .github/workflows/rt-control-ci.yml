@@ -6,7 +6,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   schedule:
-    - cron: "0 18 * * *"  # 02:00 Asia/Shanghai
+    # User 2026-11-03: 23:00 Asia/Shanghai. GitHub starts scheduled runs late under load.
+    - cron: "0 15 * * *"  # 23:00 Asia/Shanghai
   workflow_dispatch:
 
 permissions:
@@ -208,6 +209,7 @@ jobs:
             canopen_master_driver
             canopen_ros2_control
             integ_api_adapter
+            integ_diagnostics
             ethercat_driver
             ethercat_generic_cia402_drive
             joint_trajectory_controller
@@ -226,7 +228,7 @@ jobs:
             integ_composer
             hwcfg_machines
             integ_bringup
-            rt_control_operator_web
+            integ_operator_web
           )
           mapfile -t dependency_paths < <(
             colcon list \
@@ -262,6 +264,7 @@ jobs:
             canopen_master_driver \
             canopen_ros2_control \
             integ_api_adapter \
+            integ_diagnostics \
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
@@ -280,7 +283,7 @@ jobs:
             integ_composer \
             hwcfg_machines \
             integ_bringup \
-            rt_control_operator_web \
+            integ_operator_web \
             --cmake-args -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Report compiler cache
         if: always()
@@ -323,6 +326,7 @@ jobs:
             canopen_master_driver \
             canopen_ros2_control \
             integ_api_adapter \
+            integ_diagnostics \
             ethercat_driver \
             ethercat_generic_cia402_drive \
             joint_trajectory_controller \
@@ -341,7 +345,7 @@ jobs:
             integ_composer \
             hwcfg_machines \
             integ_bringup \
-            rt_control_operator_web \
+            integ_operator_web \
             --packages-skip joint_trajectory_controller
           # Upstream JTC tests use wall-clock sleeps and tight publication windows.
           # Run the unchanged suite alone after other packages to avoid cross-package load.

@@ -3,19 +3,27 @@
 import xml.etree.ElementTree as ET
 
 
-def sensors(request, axes):
+def responder_count(request):
+    """Slaves on the master; only the first peer module renders the master health group."""
     peers = request.get("peer_machines", [request["machine"]])
+    if peers[0]["module"] != request["machine"]["module"]:
+        return None
+    count = 0
+    for peer in peers:
+        spec = peer["spec"]
+        count += (
+            len(spec["axes"])
+            if "axes" in spec
+            else sum(len(branch["axes"]) for branch in spec["branches"].values())
+        )
+        count += len(spec.get("extra_responders", []))
+    return count
+
+
+def sensors(request, axes):
     health = {}
-    if peers[0]["module"] == request["machine"]["module"]:
-        count = 0
-        for peer in peers:
-            spec = peer["spec"]
-            count += (
-                len(spec["axes"])
-                if "axes" in spec
-                else sum(len(branch["axes"]) for branch in spec["branches"].values())
-            )
-            count += len(spec.get("extra_responders", []))
+    count = responder_count(request)
+    if count is not None:
         health = {
             "ethercat_domain": {"process_data_age_ms": 0},
             "ethercat_master": {"link_up": 1, "slaves_responding": count, "wc_error_count": 0},

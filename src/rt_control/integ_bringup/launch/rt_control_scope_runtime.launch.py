@@ -13,6 +13,8 @@ from launch_ros.actions import Node
 from integ_bringup.scope_lifecycle import acquire_bus_locks
 from integ_composer.artifact import load_artifact, runtime_arguments
 from integ_composer.compose import preflight
+from integ_composer.self_check import SelfCheckFailed
+from integ_diagnostics.report import write_self_check
 
 # Lock files stay open for the lifetime of this launch process.
 _HELD_LOCKS = []
@@ -60,7 +62,12 @@ def setup(context):
     if not use_mock_hardware:
         # Bus ownership first, then read-only owner checks, before any Node exists.
         _HELD_LOCKS.extend(acquire_bus_locks(build.lifecycle["bus_locks"]))
-    preflight(build)
+    generated_dir = LaunchConfiguration("generated_dir").perform(context)
+    try:
+        write_self_check(scope, generated_dir, preflight(build))
+    except SelfCheckFailed as failure:
+        write_self_check(scope, generated_dir, failure.entries)
+        raise
     publish_robot_state = _optional_boolean(
         context,
         "publish_robot_state",

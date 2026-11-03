@@ -23,7 +23,7 @@
 | [ ] | C | CiA402 状态字解码在 5 个包各写一份；`semantic_components` 未成为唯一出口 | 1.1、3 |
 | [ ] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份 | 3 |
 | [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
-| [ ] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件 | 3 硬指标 |
+| [ ] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件（用户 2026-11-03：实时状态机不拆，接受 §3 例外；非实时代码已移到 `enable_manager_{configure,services,mode_switch}.cpp`，主文件约 1400 行；剩余：删除与组合器 schema 重复的参数校验） | 3 硬指标 |
 | [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行（arch-d2 拆为主文件 + `manifest/{modules,profiles,scopes}.yaml`，均 < 400 行） | 3 硬指标 |
 | [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
 | [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试 | 1.5、4.6 |
@@ -32,12 +32,12 @@
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |
 | [ ] | F | `robot_description` 内多份展开 `.urdf` 与多套 `joint_limits_*`/`named_poses_*` 变体并存 | 1.1、4.5 |
 | [x] | 6 重复校验 | `load_artifact` 运行时重新 compose 比对每个文件（arch-b5：用户 2026-10-30 裁定删除；artifact 自带运行时参数键与 preflight 拓扑，启动只校验哈希） | 1.6 |
-| [ ] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA | 1.6 |
+| [ ] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA（arch-c6：用户 2026-10-31 裁定方案 A，`limits_version` 与 `axis_set_hash` 由 composer 计算并传入，控制器去 OpenSSL；待验证后合入） | 1.6 |
 | [x] | A | `rt_diagnostics` 无生产入口且含二代履带诊断（arch-b3：用户 2026-10-30 裁定先删除旧实现，重写待需求明确后另做） | 1.4 |
 | [x] | A | `control_api_adapter` 4/5 适配器只被 draft 入口引用（arch-b2：vacuum/position_action/module_state/status 四个适配器删除，只留 `control_enable_adapter`） | 1.4 |
 | [x] | B | `damiao_head_controller` 是 `enable_manager` 的第二份实现（arch-s7：头部作为握手式设备并入 enable_manager，包删除；待实机验证） | 1.1、3 |
 | [x] | B | `semantic_components` 混入 `runtime_log_shm_ring`（infra）和 `head_phase`（用户 2026-10-30 修正：`head_phase` 是握手式使能设备的通用阶段语义，改名 `HandshakePhase` 留在本包；`runtime_log_shm_ring` 按 §3 例外移入 `infra_shm_ring`；#120、#121 完成） | 1.1、1.3 |
-| [ ] | C | 四个控制器包共同重复骨架（见 §5a 末） | 3 |
+| [x] | C | 四个控制器包共同重复骨架（见 §5a 末；用户 2026-10-31 裁定不建 `infra_rt_utils`） | 3 |
 | [x] | C | `rt_disable_once` 与 `head_disable_once` 同一件事两种写法（#110 头部并入 enable_manager、#111 删除 `rt_disable_once`，两者均已不存在） | 3 |
 | [ ] | C | `rt_control_bringup/ros2_control_node.cpp` fork 上游 main | 3、§6 窄补丁 |
 | [x] | D | `composer.compose()` 单函数 300 行（arch-d1：拆为加载校验→模型骨架→模块渲染→挂接硬件系统→控制器参数→输出与 lifecycle；1404 个组合输出逐字节不变） | 4.3 |
@@ -56,9 +56,9 @@
 | [x] | `robot_hw_canopen` | protocol | 保留 | `hw_canopen` | （arch-r3 已改名；arch-d3 EDS 兼容件标注为原件 + diff 派生并由测试校验）健康。EDS `.compat.*` 三件套按 §4.5 标注生成源头。 |
 | [x] | `robot_hw_can` | protocol | 保留 | `hw_can_damiao` | （arch-r3 已改名；SocketCAN 已由 #128 下沉 infra）健康。`socketcan.cpp` 作为 `infra_socketcan` 种子。 |
 | [ ] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | （#120、#121 已瘦身；arch-r3 已改名；剩余：CiA402 唯一出口）名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
-| [ ] | `enable_manager` | control | 拆 | `ctrl_enable_manager` | （arch-r2 已改名；剩余：拆分）2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
+| [ ] | `enable_manager` | control | 不拆状态机 | `ctrl_enable_manager` | （arch-r2 已改名；用户 2026-11-03：实时状态机不拆，接受 §3 文件大小例外；非实时代码已移文件；剩余：删重复校验）2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
 | [x] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
-| [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | （arch-r2 已改名；剩余：拆分、去 OpenSSL）`rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
+| [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | （arch-r2 已改名；arch-c6 去 OpenSSL 待合入；剩余：拆分）`rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
 | [x] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | （arch-b1 已删 relative 扩展，`swerve_controller.cpp` 降至 893 行；arch-r2 已改名）内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
 | [x] | `rt_force_torque_broadcaster` | control | 保留 | `ctrl_force_torque_broadcaster` | （arch-r2 已改名）健康。 |
 | [x] | `x503_force_sensor` | control | ~~并入 `hw_ethercat`~~ **删** | — | X503 PREOP 标定/SDO 快照脚本，纯协议工具。arch-b4：用户 2026-10-30 裁定 X503 只用于二代机，连同 `robot_hw_ethercat/config/x503b_readback.yaml` 删除。 |
@@ -70,15 +70,15 @@
 | [x] | `rt_control_composer` | integration | 保留 | `integ_composer` | （#133 去反向引用、#136 拆 compose、arch-r5 已改名）纯函数 + schema 齐全，结构好。`compose()` 单函数 300 行拆为加载→校验→渲染→绑定→输出五段。测试反向 import bringup 要改。 |
 | [ ] | `rt_control_bringup` | integration | 瘦身 | `integ_bringup` | （旧 launch、多入口、rt_io.yaml/joint_limits.yaml 已删；arch-r5 已改名；剩余：`ros2_control_node.cpp` fork）5 个旧 launch 删，只留 `scope_runtime`；`rt_control_start` 6 个 `--xxx` 收敛为 `--scope`；`ros2_control_node.cpp` 是上游 fork（188 行）→ 改补丁或论证；`rt_io.yaml`、`joint_limits.yaml` 只被 draft 入口用。 |
 | [x] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；arch-r5 已改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
-| [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；剩余：按 V3 需求重写）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
-| [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | 两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
-| [ ] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_cia402`、`infra_rt_utils`（新鲜度/超时、诊断行、encode/decode_double、steady_now、wait_for_result）、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架；arch-c5 已建：`validated_spec`、`xml_param`，`_share` 因测试替换与包专属而保留）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。 |
+| [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；剩余：按 V3 需求重写，设计稿 [operator-web-and-diagnostics-design.md](operator-web-and-diagnostics-design.md)）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
+| [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | （设计稿 [operator-web-and-diagnostics-design.md](operator-web-and-diagnostics-design.md)；arch-w1 第 1 步：底盘页迁入 `integ_operator_web` + 会话/审计核心；arch-w2 第 2 步：手臂页迁入、`rt_control_arm_console` 删除；arch-w3 第 3 步：只读诊断页；剩余：台架启动脚本同步）两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
+| [x] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架；arch-c5 已建：`validated_spec`、`xml_param`，`_share` 因测试替换与包专属而保留）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。（用户 2026-10-31 裁定：不建 `infra_rt_utils`；CiA402 唯一出口在 `hw_semantic_components`（#146），不另建 `infra_cia402`） |
 
 净效果：24 包 → 删 1（`plc_node`）、合 3 为 1（web×2、head→enable_manager）、并入 1（x503）、重做 1（`rt_diagnostics`）、新增 infra 5–6，最终 25–26 包，每包职责单一。
 
 ### 四个控制器包的共同重复骨架
 
-`enable_manager`、`damiao_head_controller`、`swerve_driver`、`rolling_trajectory_controller` 各自实现：`encode_double/decode_double`（double 塑进 atomic<uint64>）、`steady_now`、`wait_for_result`（controller switch 同步等待）、`publish_diagnostics`、`fault_latched_` 原子标志组。进 `infra_rt_utils`。
+`enable_manager`、`damiao_head_controller`、`swerve_driver`、`rolling_trajectory_controller` 各自实现：`encode_double/decode_double`（double 塑进 atomic<uint64>）、`steady_now`、`wait_for_result`（controller switch 同步等待）、`publish_diagnostics`、`fault_latched_` 原子标志组。~~进 `infra_rt_utils`~~。处置（用户 2026-10-31 裁定不建 `infra_rt_utils`）：`damiao_head_controller` 已并入 enable_manager；double 编解码改用 `std::atomic<double>` 删除（#147）；`steady_now` 每份 3 行、底盘一份语义不同，留在各包；等待控制器切换只 enable_manager 一处；诊断行随 `rt_diagnostics` 重写再定。
 
 ## 8. 本规范取代的现有条款
 
@@ -156,6 +156,6 @@
 | [x] | 根 `README.md` | 保留，删分支模型表；仓库结构图改为六层视图（分支表 arch-s2 已删；六层视图放在域 README，包改名后再同步根结构图） |
 | [x] | 域 `README.md` | 重写为一屏地图（§0 需求 4）；"新同事从这里开始"里 5 份标注"历史"的文档移出入口 |
 | [x] | `docs/areas/` 9 旧区 | 归档到 `docs/archive/`，从索引移除（实际为同层级 `docs/areas-archive/`，保持旧记录内相对链接有效） |
-| [ ] | `docs/areas/` 7 新区 | 归属按 §5a 包表重排；记录规则改为"行为/硬件事实变更才记" |
+| [x] | `docs/areas/` 7 新区 | 归属按 §5a 包表重排；记录规则改为"行为/硬件事实变更才记"（arch-d5：arm-control+chassis-control 合为 control，新开 infra，各区 owner 改为现包名） |
 | [x] | `BLOCKED-questions.md` 2852 行（arch-s5：用户裁定改为备份后清空、重新记录，写入前须确认；不再按模块拆分） | 按模块拆为 `docs/decisions/<module>.md`，只保留仍生效的裁决；已被取代的归档 |
 | [x] | `PROGRESS.md` | 改为只索引实机验证记录，不再每 PR 一行（规则已改，历史行不动） |

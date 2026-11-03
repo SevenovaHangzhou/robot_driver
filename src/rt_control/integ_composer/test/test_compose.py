@@ -7,6 +7,7 @@ import importlib.util
 from pathlib import Path
 import shutil
 import sys
+import xml.etree.ElementTree as ET
 
 import pytest
 import yaml
@@ -186,6 +187,52 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
     )
 
 
+@pytest.mark.parametrize("mock", [True, False])
+def test_diagnostics_devices_name_only_rendered_state_interfaces(shares, tmp_path, mock):
+    result = compose(
+        **inputs(shares, stationary=not mock),
+        runtime_dir=tmp_path / "runtime",
+        use_mock_hardware=mock,
+        jtc_only=False,
+    )
+    diagnostics = yaml.safe_load(result.files["diagnostics.yaml"])
+    robot = ET.fromstring(result.robot_description)
+    rendered = {
+        f"{owner.attrib['name']}/{interface.attrib['name']}"
+        for owner in robot.iter()
+        if owner.tag in ("joint", "sensor", "gpio")
+        for interface in owner.findall("state_interface")
+    }
+    devices = diagnostics["devices"]
+    drives = [device["source"] for device in devices if device["role"] == "drive"]
+    module = drives[0].split("/")[0]
+    managed = result.controllers["enable_manager"]["ros__parameters"]["managed_joints"]
+    assert set(drives) == {f"{module}/{joint}/drive" for joint in managed}
+    assert [device["source"] for device in devices if device["role"] == "ethercat_master"] == [
+        "ethercat/master0"
+    ]
+    for device in devices:
+        assert set(device["state"].values()) <= rendered, device["source"]
+        if "fault_table" in device:
+            assert device["fault_table"] in diagnostics["fault_tables"]
+
+
+def test_rolling_digests_are_computed_by_the_composer(shares, tmp_path):
+    # The controller only compares these; robot_interfaces endpoints.yaml pins the axis set.
+    result = compose(
+        **inputs(shares), runtime_dir=tmp_path / "runtime", use_mock_hardware=True, jtc_only=False
+    )
+    parameters = result.controllers["rolling_trajectory_controller"]["ros__parameters"]
+    assert parameters["axis_set_hash"] == (
+        "f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4"
+    )
+    envelope = result.files[Path(parameters["envelope_file"]).name]
+    assert parameters["limits_version"] == sha256(envelope.encode("utf-8")).hexdigest()
+    assert parameters["limits_version"] == (
+        "1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab"
+    )
+
+
 def facts_subset(facts):
     return {key: facts[key] for key in ("use_mock_hardware", "jtc_only")}
 
@@ -265,6 +312,7 @@ def test_shared_system_conflicts_and_preflight_once(monkeypatch):
     class Renderer:
         def preflight(self, topology, *, run=None):
             calls.append(topology)
+            return []
 
     import importlib
 
@@ -283,6 +331,42 @@ def test_data_files_pass_existing_validator(shares):
     assert any(line.startswith("PASS: units/") for line in passed)
 
 
+def test_fault_tables_reject_duplicates_and_wrong_references(shares):
+    root = shares["hwcfg_machines"]
+    passed = VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    assert "PASS: devices/faults/zeroerr_erob.yaml (device_fault_table.schema.json)" in passed
+    table_path = root / "devices/faults/kinco_fd.yaml"
+    original = table_path.read_text()
+    table = yaml.safe_load(original)
+    table["faults"].append(deepcopy(table["faults"][-1]))
+    table_path.write_text(yaml.safe_dump(table, allow_unicode=True))
+    with pytest.raises(ValueError, match="duplicate fault entry"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    table["faults"].pop()
+    table["faults"][0] = {**table["faults"][0], "object": "0x603F"}
+    table_path.write_text(yaml.safe_dump(table, allow_unicode=True))
+    with pytest.raises(ValueError, match="is not a 'bits' read object"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    table_path.write_text(original)
+    device_path = root / "devices/kinco_smc60s_0040_fd124s.yaml"
+    device_path.write_text(
+        device_path.read_text().replace(
+            "fault_table: devices/faults/kinco_fd.yaml", "fault_table: devices/zeroerr_erob70h.yaml"
+        )
+    )
+    with pytest.raises(ValueError, match="is not a device_fault_table"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+    other = root / "devices/kinco_smc80s_0075_fd134s.yaml"
+    other.write_text(other.read_text().replace("motor_encoder_type: incremental\n", ""))
+    device_path.write_text(
+        device_path.read_text().replace(
+            "fault_table: devices/zeroerr_erob70h.yaml", "fault_table: devices/faults/kinco_fd.yaml"
+        )
+    )
+    with pytest.raises(ValueError, match="declare motor_encoder_type"):
+        VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
+
+
 def test_policy_values_equal_frozen_old_output():
     # The frozen old output remains the value oracle after retiring old code.
 
@@ -296,7 +380,9 @@ def test_policy_values_equal_frozen_old_output():
     expected_jtc.pop("joints")
     assert policy["jtc"] == expected_jtc
     expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
-    expected_rolling.pop("envelope_file")
+    # Composer-derived values, not policy data (see test_rolling_digests_are_computed_by_the_composer).
+    for derived in ("envelope_file", "axis_set_hash", "limits_version"):
+        expected_rolling.pop(derived)
     assert expected_rolling.pop("joints") == policy["joints"]
     assert policy["rolling"] == expected_rolling
     assert policy["enable_manager"] == {
@@ -401,12 +487,13 @@ def test_stationary_preflight_preserves_old_checks_with_injected_cli(shares, mon
         )
         return f"uint16 {value}\n"
 
-    OWNER.preflight(topology, run=run)
+    assert OWNER.preflight(topology, run=run) == []
     error["value"] = topology["axes"][0]["allowed_errors"][0]
-    OWNER.preflight(topology, run=run)
+    [declared] = OWNER.preflight(topology, run=run)
+    assert declared["problem"] == "fault_code" and not declared["blocking"]
     error["value"] += 1
-    with pytest.raises(RuntimeError, match="Unqualified error"):
-        OWNER.preflight(topology, run=run)
+    [unqualified] = OWNER.preflight(topology, run=run)
+    assert unqualified["blocking"] and "Unqualified error" in unqualified["detail"]
     assert calls
 
 
@@ -444,3 +531,36 @@ def test_renderer_api_rejected_before_invocation(monkeypatch):
     monkeypatch.setattr(importlib, "import_module", lambda name: Renderer())
     with pytest.raises(ValueError, match="Unsupported renderer API"):
         select_renderer({"synthetic_transport": "synthetic_owner"}, "synthetic_transport")
+
+
+def test_manifest_parts_split_one_mapping_but_never_repeat_an_entry(tmp_path):
+    (tmp_path / "a.yaml").write_text("scopes:\n  one: {render_mode: normal}\n")
+    (tmp_path / "b.yaml").write_text("scopes:\n  two: {render_mode: normal}\n")
+    (tmp_path / "manifest.yaml").write_text("kind: manifest\nparts: [a.yaml, b.yaml]\n")
+    assert sorted(read_manifest(tmp_path / "manifest.yaml")["scopes"]) == ["one", "two"]
+    (tmp_path / "b.yaml").write_text("scopes:\n  one: {render_mode: stationary_enable}\n")
+    with pytest.raises(ValueError, match=r"repeats scopes: \['one'\]"):
+        read_manifest(tmp_path / "manifest.yaml")
+    (tmp_path / "b.yaml").write_text("kind: other\n")
+    with pytest.raises(ValueError, match="repeats kind"):
+        read_manifest(tmp_path / "manifest.yaml")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"batch_timeout": 0.0},
+        {"fault_reset_timeout": 0.0},
+        {"controller_switch_timeout": 0.0},
+        {"service_result_timeout_ms": 0},
+        {"enable_groups": [{"module": "bench_dual_arm", "mode_group": "csp", "batch_size": 4}]},
+    ],
+)
+def test_enable_policy_schema_is_the_only_timing_and_batch_check(change):
+    # enable_manager no longer re-checks these values (ARCHITECTURE §1.6).
+    policy_dir = RT / "hwcfg_machines/machines/Alfa_V3/policies"
+    policy = load_yaml(policy_dir / "Alfa_V3_bench_dual_arm_enable_policy.yaml")
+    schema_dir = RT / "ctrl_enable_manager/schema"
+    validate_data(policy, "enable_policy.schema.json", schema_dir, policy_dir)
+    with pytest.raises(Exception, match="(less than|greater than)"):
+        validate_data({**policy, **change}, "enable_policy.schema.json", schema_dir, policy_dir)

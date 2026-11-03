@@ -1,6 +1,7 @@
 """Generic scope lifecycle: order, teardown and bus ownership; no ROS graph or bus."""
 
 import importlib.util
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -85,6 +86,47 @@ def test_bus_lock_is_exclusive_until_released(tmp_path):
         stream.close()
 
 
+def test_scope_launch_writes_the_failed_self_check_and_does_not_start(monkeypatch, tmp_path):
+    path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
+    spec = importlib.util.spec_from_file_location("scope_launch_self_check", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setattr(
+        module,
+        "load_artifact",
+        lambda directory, **_: SimpleNamespace(
+            staged_hardware_activation=True,
+            lifecycle={"bus_locks": []},
+            controller_order={"inactive": [], "active": []},
+            robot_description="<robot name='synthetic'/>",
+            runtime_dir=Path(directory),
+            runtime_parameters={},
+        ),
+    )
+    entry = {"source": "ethercat/master0", "blocking": True, "detail": "not attached"}
+
+    def preflight(_):
+        raise module.SelfCheckFailed([entry])
+
+    monkeypatch.setattr(module, "preflight", preflight)
+    monkeypatch.setattr(module, "acquire_bus_locks", lambda names: [])
+    monkeypatch.setattr(module, "Node", lambda **_: pytest.fail("Node after a failed self-check"))
+    monkeypatch.setenv("RT_CONTROL_STATE_DIR", str(tmp_path))
+    context = LaunchContext()
+    context.launch_configurations.update(
+        use_mock_hardware="false",
+        control_scope="arms_only",
+        physical_profile="",
+        robot_variant="Alfa_V3",
+        machine_unit="Alfa_V3-01",
+        generated_dir="/synthetic/artifact",
+    )
+    with pytest.raises(RuntimeError, match="not attached"):
+        module.setup(context)
+    report = json.loads((tmp_path / "self_check/arms_only.json").read_text())
+    assert not report["passed"] and report["entries"] == [entry]
+
+
 def test_scope_launch_reads_artifact_locks_then_preflights_before_any_node(monkeypatch):
     path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
     spec = importlib.util.spec_from_file_location("scope_launch", path)
@@ -140,7 +182,7 @@ def test_scope_launch_reads_artifact_locks_then_preflights_before_any_node(monke
     [([], ["lifecycle"]), (["swerve_controller"], ["motion", "tuning", "lifecycle"])],
 )
 def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
-    monkeypatch, inactive, expected
+    monkeypatch, tmp_path, inactive, expected
 ):
     path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
     spec = importlib.util.spec_from_file_location("scope_launch", path)
@@ -158,7 +200,8 @@ def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
             runtime_parameters={},
         ),
     )
-    monkeypatch.setattr(module, "preflight", lambda _: None)
+    monkeypatch.setattr(module, "preflight", lambda _: [])
+    monkeypatch.setenv("RT_CONTROL_STATE_DIR", str(tmp_path))
     spawners = []
     real_node = module.Node
 
@@ -189,7 +232,7 @@ def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
     [(False, "", False), (True, "", True), (True, "false", False), (False, "true", True)],
 )
 def test_scope_launch_runs_robot_state_publisher_as_the_scope_declares(
-    monkeypatch, declared, override, expected
+    monkeypatch, tmp_path, declared, override, expected
 ):
     path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
     spec = importlib.util.spec_from_file_location("scope_launch", path)
@@ -207,7 +250,8 @@ def test_scope_launch_runs_robot_state_publisher_as_the_scope_declares(
             runtime_parameters={},
         ),
     )
-    monkeypatch.setattr(module, "preflight", lambda _: None)
+    monkeypatch.setattr(module, "preflight", lambda _: [])
+    monkeypatch.setenv("RT_CONTROL_STATE_DIR", str(tmp_path))
     context = LaunchContext()
     context.launch_configurations.update(
         use_mock_hardware="true",

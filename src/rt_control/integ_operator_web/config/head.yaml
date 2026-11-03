@@ -1,0 +1,7 @@
+# Head page motion policy. Targets stay limit_margin_deg inside the Robot Model limits, as on the
+# arm page; motion speed is the DaMiao hardware velocity_limit of the running artifact.
+limit_margin_deg: 2.0
+# Joint feedback older than this blocks a move (arm page value).
+max_feedback_age_s: 0.2
+# enable_manager diagnostics older than this count as unknown (arm page value).
+state_stale_s: 2.5
