@@ -21,6 +21,7 @@ KINDS = (
     "runtime",
     "policy_file",
     "state_ready",
+    "exports",
 )
 # A source that resolves to nothing contributes no parameter (keeps unrelated outputs unchanged).
 _SKIP = object()
@@ -167,6 +168,14 @@ def _evaluate(kind, source, name, binding, env):
     if kind == "state_ready":
         # Required state sources gate enabling through their "ready" state interfaces.
         return env.get("state_ready", []) or _SKIP
+    if kind == "exports":
+        # One list from every selected module that exports it, in module order.
+        values = [
+            item
+            for module in env["rendered_modules"].values()
+            for item in module.get("parameter_exports", {}).get(source["name"], [])
+        ]
+        return values or _SKIP
     raise ValueError(f"Unsupported parameter source: {kind}")
 
 

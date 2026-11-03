@@ -175,6 +175,9 @@ scopes:
             module: head_gimbal
             export: joint_names
             resource_kind: joints
+          feedback_age_interfaces:
+            module: head_gimbal
+            export: feedback_age_interfaces
     robot_name: alfa_v3_head_control
     parameter_view: head_state
     staged_hardware_activation: true

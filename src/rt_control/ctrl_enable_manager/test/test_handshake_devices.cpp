@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -111,7 +113,8 @@ public:
   }
 
   // with_axis: one CiA402 axis enabled before the device; otherwise a device-only manager.
-  void bringUp(bool with_axis)
+  // with_feedback_age: the bus age gates enable/reset; head_yaw/fault_code is also a diagnostic.
+  void bringUp(bool with_axis, bool with_feedback_age = false)
   {
     with_axis_ = with_axis;
     std::vector<rclcpp::Parameter> parameters{
@@ -123,6 +126,11 @@ public:
       rclcpp::Parameter("disable_stage_timeout", 0.2),
       rclcpp::Parameter("fault_reset_timeout", 0.2),
       rclcpp::Parameter("update_rate", 1000)};
+    if (with_feedback_age) {
+      parameters.emplace_back(
+        "feedback_age_interfaces",
+        std::vector<std::string>{"bus/process_data_age_ms", "head_yaw/fault_code"});
+    }
     if (with_axis) {
       parameters.emplace_back("managed_joints", std::vector<std::string>{"arm"});
       parameters.emplace_back("enable_batch_joint_names", std::vector<std::string>{"arm"});
@@ -152,6 +160,9 @@ public:
     states_.emplace_back("head_control", "handled_reset_generation", &plugin_.handled_generation);
     states_.emplace_back("head_control", "motion_allowed", &plugin_.motion_allowed);
     states_.emplace_back("head_yaw", "fault_code", &fault_code_);
+    if (with_feedback_age) {
+      states_.emplace_back("bus", "process_data_age_ms", &process_data_age_);
+    }
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
     std::vector<hardware_interface::LoanedStateInterface> loaned_states;
     for (auto & handle : commands_) {
@@ -219,6 +230,7 @@ public:
   double control_word_{0.0};
   double status_word_{kSwSwitchOnDisabled};
   double fault_code_{0.0};
+  double process_data_age_{1.0};
   bool with_axis_{false};
   std::vector<hardware_interface::CommandInterface> commands_;
   std::vector<hardware_interface::StateInterface> states_;
@@ -339,6 +351,55 @@ TEST_F(HandshakeFixture, MixedTopologyEnablesDeviceOnlyAfterTheLastCia402Batch)
   ASSERT_TRUE(stepUntil(Phase::kIdle));
   EXPECT_EQ(plugin_.enable_request, 0.0);
   EXPECT_EQ(static_cast<std::uint16_t>(status_word_), kSwSwitchOnDisabled);
+}
+
+TEST_F(HandshakeFixture, FeedbackAgeInterfacesAreClaimedOnce)
+{
+  bringUp(true, true);
+  const auto names = controller_->state_interface_configuration().names;
+  EXPECT_EQ(std::count(names.begin(), names.end(), "head_yaw/fault_code"), 1);
+  EXPECT_EQ(names.back(), "bus/process_data_age_ms");
+}
+
+TEST_F(HandshakeFixture, StaleFeedbackRejectsEnableAsDeviceOffline)
+{
+  bringUp(true, true);
+  ASSERT_TRUE(stepUntil(Phase::kIdle));
+  process_data_age_ = 100.5;
+  Access::requestEnable(*controller_);
+  step(5);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+  EXPECT_FALSE(Access::enableResult(*controller_).ok.load());
+  EXPECT_EQ(Access::enableResult(*controller_).stage.load(), Stage::kDeviceOffline);
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kSuccess);
+  EXPECT_EQ(static_cast<std::uint16_t>(control_word_), 0U);
+  EXPECT_EQ(plugin_.enable_request, 0.0);
+
+  process_data_age_ = 1.0;
+  Access::requestEnable(*controller_);
+  ASSERT_TRUE(stepUntil(Phase::kJtcActivating));
+  Access::activationSucceeded(*controller_);
+  ASSERT_TRUE(stepUntil(Phase::kEnabled));
+}
+
+TEST_F(HandshakeFixture, StaleFeedbackRejectsResetAndKeepsTheRecordedFault)
+{
+  bringUp(true, true);
+  plugin_.latch_fault();
+  ASSERT_TRUE(stepUntil(Phase::kFailed));
+  const double generation = plugin_.reset_generation;
+  process_data_age_ = std::numeric_limits<double>::quiet_NaN();
+  Access::requestReset(*controller_);
+  step(5);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kFailed);
+  EXPECT_EQ(Access::resetResult(*controller_).stage.load(), Stage::kDeviceOffline);
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kFaultRequiresReset);
+  EXPECT_EQ(plugin_.reset_generation, generation);
+
+  process_data_age_ = 1.0;
+  Access::requestReset(*controller_);
+  ASSERT_TRUE(stepUntil(Phase::kIdle));
+  EXPECT_TRUE(Access::resetResult(*controller_).ok.load());
 }
 
 }  // namespace

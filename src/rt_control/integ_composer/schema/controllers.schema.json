@@ -261,6 +261,24 @@
                       "as"
                     ],
                     "additionalProperties": false
+                  },
+                  "exports": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "as"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "oneOf": [
@@ -302,6 +320,11 @@
                   {
                     "required": [
                       "state_ready"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "exports"
                     ]
                   }
                 ],
