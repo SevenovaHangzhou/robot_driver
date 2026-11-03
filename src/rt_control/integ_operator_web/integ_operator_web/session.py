@@ -17,6 +17,9 @@ from aiohttp import web
 COOKIE = "integ_operator_session"
 LOGIN_FAILURE_DELAY_S = 1.0
 MAX_LOGIN_BYTES = 1024
+# Arm/head/diag page sockets: aiohttp closes a socket whose pong is later than half the
+# heartbeat. 1 s dropped sockets while the page loads its model meshes (user 2026-11-03: 3 s).
+PAGE_WS_HEARTBEAT_S = 3.0
 
 
 def same_origin(request: web.Request) -> bool:
