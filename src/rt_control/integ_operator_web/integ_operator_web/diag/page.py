@@ -13,7 +13,7 @@ from typing import Callable
 
 from aiohttp import WSMsgType, web
 
-from ..session import Sessions, same_origin
+from ..session import PAGE_WS_HEARTBEAT_S, Sessions, same_origin
 from .feed import DiagnosticsFeed
 
 STATUS_PERIOD_S = 1.0
@@ -66,7 +66,7 @@ class DiagPage:
     async def _websocket(self, request: web.Request) -> web.StreamResponse:
         if not same_origin(request):
             raise web.HTTPForbidden(text="cross-origin WebSocket rejected")
-        ws = web.WebSocketResponse(heartbeat=1.0, max_msg_size=1024)
+        ws = web.WebSocketResponse(heartbeat=PAGE_WS_HEARTBEAT_S, max_msg_size=1024)
         await ws.prepare(request)
         if self._sessions.session_of(request) is None:
             await ws.close(code=CLOSE_LOGIN_REQUIRED, message=b"login required")
