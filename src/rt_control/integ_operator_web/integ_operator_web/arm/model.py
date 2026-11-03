@@ -113,6 +113,21 @@ def _arm_links(robot: ET.Element, root: str, controlled: set[str]) -> tuple[str,
     return tuple(links)
 
 
+def without_visuals(urdf: str, links: Sequence[str]) -> str:
+    """Browser URDF with the visuals of ``links`` removed; every name must be a model link."""
+    if not links:
+        return urdf
+    robot = ET.fromstring(urdf)
+    elements = {link.get("name"): link for link in robot.findall("link")}
+    missing = [name for name in links if name not in elements]
+    if missing:
+        raise ModelError(f"hidden view links missing from the Robot Model: {', '.join(missing)}")
+    for name in links:
+        for visual in elements[name].findall("visual"):
+            elements[name].remove(visual)
+    return ET.tostring(robot, encoding="unicode")
+
+
 def mesh_url(filename: str, prefix: str = MESH_URL_PREFIX) -> str:
     if not filename.startswith("package://"):
         raise ModelError(f"only package:// mesh URIs are supported: {filename!r}")
