@@ -12,21 +12,10 @@
 
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
+#include "hw_semantic_components/cia402_state.hpp"
 
 namespace hw_semantic_components
 {
-
-enum class Cia402State : std::uint8_t {
-  kNotReadyToSwitchOn,
-  kSwitchOnDisabled,
-  kReadyToSwitchOn,
-  kSwitchedOn,
-  kOperationEnabled,
-  kQuickStopActive,
-  kFaultReactionActive,
-  kFault,
-  kUnknown
-};
 
 class Cia402Axis final
 {
@@ -108,36 +97,7 @@ public:
   Cia402State get_state() const
   {
     const auto status_word = get_status_word();
-    return status_word.has_value() ? decode_state(*status_word) : Cia402State::kUnknown;
-  }
-
-  static constexpr Cia402State decode_state(std::uint16_t status_word) noexcept
-  {
-    if ((status_word & 0x004FU) == 0x0000U) {
-      return Cia402State::kNotReadyToSwitchOn;
-    }
-    if ((status_word & 0x004FU) == 0x0040U) {
-      return Cia402State::kSwitchOnDisabled;
-    }
-    if ((status_word & 0x006FU) == 0x0021U) {
-      return Cia402State::kReadyToSwitchOn;
-    }
-    if ((status_word & 0x006FU) == 0x0023U) {
-      return Cia402State::kSwitchedOn;
-    }
-    if ((status_word & 0x006FU) == 0x0027U) {
-      return Cia402State::kOperationEnabled;
-    }
-    if ((status_word & 0x006FU) == 0x0007U) {
-      return Cia402State::kQuickStopActive;
-    }
-    if ((status_word & 0x004FU) == 0x000FU) {
-      return Cia402State::kFaultReactionActive;
-    }
-    if ((status_word & 0x004FU) == 0x0008U) {
-      return Cia402State::kFault;
-    }
-    return Cia402State::kUnknown;
+    return status_word.has_value() ? decode_cia402_state(*status_word) : Cia402State::kUnknown;
   }
 
 private:
