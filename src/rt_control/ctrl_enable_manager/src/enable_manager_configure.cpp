@@ -50,8 +50,8 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::int64_t>>("expected_modes", {});
   auto_declare<std::vector<std::string>>("ready_state_interfaces", {});
   auto_declare<std::vector<std::string>>("feedback_age_interfaces", {});
-  // User 2026-11-03: shared by every scope; normal ages are ~1 ms (EtherCAT) and 6-13 ms (DaMiao).
-  auto_declare<double>("feedback_age_limit_ms", 100.0);
+  // User 2026-11-03: 500 ms for every scope (normal ages ~1 ms EtherCAT, 6-20 ms DaMiao).
+  auto_declare<double>("feedback_age_limit_ms", 500.0);
   auto_declare<double>("ready_hold_time", 0.05);
   auto_declare<std::string>("motion_fault_topic", "");
   auto_declare<std::vector<std::string>>("enable_batch_joint_names", {});
