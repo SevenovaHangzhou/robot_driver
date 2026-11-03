@@ -31,7 +31,7 @@ def main():
     import mujoco as mj
     import numpy as np
 
-    model = mj.MjModel.from_xml_path(str(ROOT / 'mujoco/scene.xml'))
+    model = mj.MjModel.from_xml_path(str(ROOT / 'mujoco/robot.xml'))
     data = mj.MjData(model)
     original = model.geom_rgba.copy()
     option = mj.MjvOption()
@@ -76,7 +76,7 @@ def main():
 <main><h1>双臂限位 · MuJoCo 碰撞演示</h1>
 <p>MuJoCo 3.15.0 实际渲染。点击姿态或自动播放；碰撞部件标红。其他关节均为零位，升降处于上端点。这里展示的是固定姿态的碰撞检测结果。</p>
 <button id="play" onclick="toggle()">▶ 自动播放</button><div id="buttons"></div>
-<p id="status"></p><img id="view"><p>J1～J7：±160° / −92°～+122° / ±160° / ±150° / ±160° / ±135° / ±160°。零位及这些示例不能覆盖所有组合姿态。J6 可对比原 ±110° 与新 ±135° 端点。</p></main>
+<p id="status"></p><img id="view"><p>J1～J7：±160° / 左 −92°～+122°、右 −122°～+92° / ±160° / ±150° / ±160° / ±135° / ±160°。零位及这些示例不能覆盖所有组合姿态。J6 可对比原 ±110° 与新 ±135° 端点。</p></main>
 <script>const frames=FRAME_DATA;let index=0,timer=null;
 const buttons=document.getElementById('buttons');frames.forEach((f,i)=>{let b=document.createElement('button');b.textContent=f.title;b.onclick=()=>show(i);buttons.appendChild(b)});
 function show(i){index=i;let f=frames[i];document.getElementById('view').src=f.image;document.getElementById('status').innerHTML=`<b>${f.title}</b> · ${f.joint?f.joint+' = '+f.degrees+'°':'全部关节为 0'} · <span class="${f.contacts?'bad':'ok'}">${f.contacts?'碰撞接触 '+f.contacts+' 个，最大穿透 '+f.depth+' mm':'无碰撞接触'}</span>`;[...buttons.children].forEach((b,j)=>b.className=i===j?'active':'')}
