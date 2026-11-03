@@ -50,6 +50,7 @@ def compose(
     runtime_dir,
     use_mock_hardware=True,
     jtc_only=False,
+    gravity_feedforward=False,
     require_manifest_ready=False,
     package_share=get_package_share_directory,
     sync_mode="",
@@ -60,6 +61,7 @@ def compose(
     Stages: load and validate -> model skeleton -> per-module rendering -> hardware systems in
     the description -> controller parameters -> output files and lifecycle.
     """
+    validate_gravity_feedforward_selection(gravity_feedforward)
     runtime = Path(runtime_dir)
     integration_share = Path(package_share("integ_composer"))
     schemas = integration_share / "schema"
@@ -492,6 +494,19 @@ def _lifecycle(
         "host": deepcopy(deployment.get("host", {})),
         "transports": sorted({system["owner"] for system in systems}),
     }
+
+
+def validate_gravity_feedforward_selection(enabled):
+    """Reject the unqualified runtime selection at compose and artifact entry points."""
+    if not isinstance(enabled, bool):
+        raise ValueError("gravity_feedforward must be a boolean")
+    if enabled:
+        raise ValueError(
+            "gravity_feedforward=true is not available: D-004 requires additive effort PDO "
+            "mapping, calibrated current conversion, explicit limits and lifecycle integration. "
+            "Use gravity_feedforward=false until that integration is qualified; "
+            "the standalone offline controller tests do not qualify a runtime scope."
+        )
 
 
 def preflight(composed, *, run=None):

@@ -222,6 +222,7 @@ jobs:
             ctrl_enable_manager
             hw_semantic_components
             ctrl_rolling_trajectory
+            ctrl_gravity_feedforward
             ctrl_force_torque_broadcaster
             ctrl_swerve
             integ_composer
@@ -277,6 +278,7 @@ jobs:
             ctrl_enable_manager \
             hw_semantic_components \
             ctrl_rolling_trajectory \
+            ctrl_gravity_feedforward \
             ctrl_force_torque_broadcaster \
             ctrl_swerve \
             integ_composer \
@@ -339,6 +341,7 @@ jobs:
             ctrl_enable_manager \
             hw_semantic_components \
             ctrl_rolling_trajectory \
+            ctrl_gravity_feedforward \
             ctrl_force_torque_broadcaster \
             ctrl_swerve \
             integ_composer \

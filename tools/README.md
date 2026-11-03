@@ -34,6 +34,23 @@ colcon build --symlink-install --packages-select robot_description
 
 结构性变更还要检查 TF 树、关节限制、碰撞模型、mesh 路径以及各消费者使用的模型版本。
 
+## 重力前馈离线候选
+
+`ctrl_gravity_feedforward` 当前为 draft，不在生产 scope 中。构建/测试按上面的 ROS 包
+命令执行，依赖闭包包含 `hw_semantic_components`。外部 `static_gravity` 数值对照：
+
+```bash
+python3 src/rt_control/ctrl_gravity_feedforward/test/compare_static_gravity.py \
+  --preview <install>/ctrl_gravity_feedforward/lib/ctrl_gravity_feedforward/gravity_preview \
+  --reference-library <fresh-static-gravity-build>/libarm_static_gravity.so \
+  --reference-parameters <static_gravity>/parameters.json \
+  --urdf src/description/robot_description/urdf/robot_alfav3_mobile.urdf \
+  --base arm_carriage --tips left_link7 right_link7
+```
+
+对照脚本需要 NumPy，检查编译库参数签名，并将世界重力转换到基座。真实输出接线仍受
+D-004 约束；上述命令不连接硬件。
+
 ## 接口
 
 先导入 `deps.repos`，再构建公共 vendor 包、`rt_control_interfaces` 与全部本域消费者，并全仓搜索旧名称：

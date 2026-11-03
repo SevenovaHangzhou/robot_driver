@@ -18,6 +18,7 @@ layers:
   - hw_can_damiao
   - hw_semantic_components
   control:
+  - ctrl_gravity_feedforward
   - ctrl_enable_manager
   - ctrl_rolling_trajectory
   - ctrl_force_torque_broadcaster

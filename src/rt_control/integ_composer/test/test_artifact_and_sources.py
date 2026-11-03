@@ -1,6 +1,7 @@
 """Deploy-time artifacts, declarative parameter sources and the EtherCAT family registry."""
 
 from pathlib import Path
+import runpy
 import shutil
 import sys
 import types
@@ -9,6 +10,7 @@ import pytest
 import yaml
 
 from integ_composer.artifact import load_artifact, runtime_arguments, write_artifact
+from integ_composer.compose import compose
 from integ_composer.model import ARTIFACT
 from integ_composer.parameter_sources import controller_parameters
 
@@ -125,6 +127,74 @@ def test_artifact_paths_and_replacement_rules(shares, tmp_path):
     write_artifact(output, package_share=share_of(shares), **ARMS)
     write_artifact(output, package_share=share_of(shares), **ARMS, jtc_only=True)
     assert yaml.safe_load((output / ARTIFACT).read_text())["selection"]["jtc_only"] is True
+
+
+@pytest.mark.parametrize("jtc_only", [False, True])
+def test_gravity_off_preserves_outputs_and_accepts_old_artifacts(shares, tmp_path, jtc_only):
+    output = tmp_path / "arms"
+    options = dict(ARMS, jtc_only=jtc_only, package_share=share_of(shares))
+    implicit = write_artifact(output, **options)
+    explicit = compose(runtime_dir=output, gravity_feedforward=False, **options)
+    assert explicit.files == implicit.files
+    assert explicit.controller_order == implicit.controller_order
+    path = output / ARTIFACT
+    manifest = yaml.safe_load(path.read_text())
+    assert manifest["selection"].pop("gravity_feedforward") is False
+    path.write_text(yaml.safe_dump(manifest))
+    assert load_artifact(output, gravity_feedforward=False, **ARMS, jtc_only=jtc_only).files == implicit.files
+    manifest["selection"]["gravity_feedforward"] = True
+    path.write_text(yaml.safe_dump(manifest))
+    with pytest.raises(ValueError, match="selection differs.*gravity_feedforward"):
+        load_artifact(output, **{k: v for k, v in options.items() if k != "package_share"})
+
+
+@pytest.mark.parametrize("use_mock_hardware", [False, True])
+@pytest.mark.parametrize("jtc_only", [False, True])
+def test_gravity_on_rejects_before_render_or_write(tmp_path, use_mock_hardware, jtc_only):
+    output = tmp_path / "not_created" / "arms"
+
+    def no_share(_):
+        pytest.fail("Unqualified gravity request reached an owner")
+
+    options = dict(
+        ARMS, use_mock_hardware=use_mock_hardware, jtc_only=jtc_only,
+        gravity_feedforward=True, package_share=no_share,
+    )
+    with pytest.raises(ValueError, match="D-004"):
+        compose(runtime_dir=output, **options)
+    with pytest.raises(ValueError, match="D-004"):
+        write_artifact(output, **options)
+    with pytest.raises(ValueError, match="D-004"):
+        load_artifact(output, **{k: v for k, v in options.items() if k != "package_share"})
+    assert not output.parent.exists()
+
+
+def test_rejected_gravity_selection_preserves_existing_artifact(shares, tmp_path):
+    output = tmp_path / "arms"
+    options = dict(ARMS, package_share=share_of(shares))
+    write_artifact(output, **options)
+    before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+    with pytest.raises(ValueError, match="D-004"):
+        write_artifact(output, gravity_feedforward=True, **options)
+    assert {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()} == before
+
+
+@pytest.mark.parametrize("value", ["false", "true", 0, 1, None])
+def test_gravity_selection_requires_boolean(tmp_path, value):
+    with pytest.raises(ValueError, match="gravity_feedforward must be a boolean"):
+        compose(runtime_dir=tmp_path, gravity_feedforward=value, **ARMS)
+
+
+def test_gravity_cli_reports_admission_failure(tmp_path, capsys):
+    main = runpy.run_path(str(RT / "integ_composer/scripts/compose_artifact"))["main"]
+    output = tmp_path / "arms"
+    assert main([
+        "--output", str(output), "--robot-variant", "Alfa_V3",
+        "--machine-unit", "Alfa_V3-01", "--physical-profile", "arms_only",
+        "--control-scope", "arms_only", "--mock", "--gravity-feedforward",
+    ]) == 1
+    assert "D-004" in capsys.readouterr().err
+    assert not output.exists()
 
 
 def test_per_start_values_stay_out_of_the_artifact(shares, tmp_path):

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from launch import LaunchContext
+from launch.actions import DeclareLaunchArgument
 
 from integ_bringup import scope_lifecycle as lifecycle
 
@@ -279,6 +280,32 @@ def test_capability_document_is_derived_from_the_lifecycle_plan():
     assert document["schema_version"] == 1
     assert document["control_scope"] == "chassis_only"
     assert document["capabilities"][0]["topic"] == "/cmd_vel"
+
+
+@pytest.mark.parametrize("use_mock_hardware", ["false", "true"])
+@pytest.mark.parametrize("jtc_only", ["false", "true"])
+def test_gravity_switch_rejects_before_nodes_or_bus_access(monkeypatch, use_mock_hardware, jtc_only):
+    path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
+    spec = importlib.util.spec_from_file_location("scope_launch", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    context = LaunchContext()
+    for action in module.generate_launch_description().entities:
+        if isinstance(action, DeclareLaunchArgument):
+            action.execute(context)
+    assert context.launch_configurations["gravity_feedforward"] == "false"
+    context.launch_configurations.update(
+        use_mock_hardware=use_mock_hardware, jtc_only=jtc_only,
+        gravity_feedforward="true", generated_dir="/synthetic/not_present",
+    )
+    monkeypatch.setattr(module, "preflight", lambda _: pytest.fail("preflight ran"))
+    monkeypatch.setattr(module, "Node", lambda **_: pytest.fail("Node constructed"))
+    monkeypatch.setattr(module, "acquire_bus_locks", lambda _: pytest.fail("bus lock acquired"))
+    with pytest.raises(ValueError, match="D-004"):
+        module.setup(context)
+    context.launch_configurations["gravity_feedforward"] = "yes"
+    with pytest.raises(ValueError, match="gravity_feedforward must be true or false"):
+        module.setup(context)
 
 
 def test_realtime_qualification_is_skipped_for_mock_and_rejects_shared_rt_cpu(tmp_path):

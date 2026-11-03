@@ -5,7 +5,7 @@ renderer API 1 validation, and frozen comparisons with the old entry points.
 ROS 2 Humble and Python 3.10 are the supported runtime.
 
 `compose()` accepts `robot_variant`, `machine_unit`, `physical_profile`,
-`control_scope`, `runtime_dir`, `use_mock_hardware`, `jtc_only` and `sync_mode`.
+`control_scope`, `runtime_dir`, `use_mock_hardware`, `jtc_only`, `gravity_feedforward` and `sync_mode`.
 It loads machine data, deployment and explicit owner policies through package
 shares. It is pure: `Composed.files` holds every output as text, with paths that
 point into `runtime_dir`. It writes nothing, accesses no device and runs no preflight.
@@ -32,6 +32,20 @@ then returns the composition exactly as written (runtime parameter keys and owne
 preflight topology are stored in `artifact.yaml`). It does not recompose: after any
 installed configuration change, regenerate the artifact. Each rejection prints the
 exact regeneration command. Launch writes no configuration.
+
+`gravity_feedforward` is an independent, opt-in composition/launch selection,
+defaulting to `false`. The CLI spelling is `--gravity-feedforward`; omit it to
+keep gravity feedforward off. The scope runtime launch entry
+accepts `gravity_feedforward:=false|true`. This does not change the `jtc_only`
+selection used for rolling controllers, and is not a live ROS parameter.
+
+Runtime gravity integration is still blocked by D-004. Requesting `true`
+currently fails before rendering, writing an artifact, acquiring bus locks,
+preflight or constructing nodes, for both mock and real selections. It does not
+load the draft gravity controller. Additive effort/PDO mapping, verified current
+conversion, limits and lifecycle integration must be completed before admitting
+this selection. Artifacts record `gravity_feedforward: false`; older artifacts
+without this key mean `false`. Artifact and launch selections must agree.
 
 Per-start values are not stored. A `runtime` parameter source records
 `Composed.runtime_parameters`; launch supplies values with node-scoped

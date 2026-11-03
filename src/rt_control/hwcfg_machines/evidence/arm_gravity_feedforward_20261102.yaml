@@ -1,0 +1,110 @@
+schema_version: 1
+status: draft
+verified: false
+purpose: Hardware evidence for D-004; not a runtime controller configuration
+authorities:
+  model_identification: user 2026-11-02, ordered J1..J7 for each arm
+  motor_version: 'user 2026-11-02: all MC2'
+  module_manual:
+    file: /home/zlz/Documents/eRob机器人关节模组用户手册_V3.44.pdf
+    sha256: 73e138369aa2780c980e0652008c8311c95d26ac3b4142ce2f05afdc1bf0e7b5
+    printed_pages:
+    - 51
+    - 88
+    - 89
+    - 90
+    - 91
+    ratio_definition: 'chapter 12: motor/output mechanical ratio = nominal ratio +
+      1'
+  protocol_manual:
+    file: /home/zlz/Documents/eRob CANopen and EtherCAT用户手册v1.10.pdf
+    sha256: e61af7330543a79bd69435ad1663ba71531ee0f37babaa1e34b9eb8cc4ae5b05
+    sections:
+    - 8.2.95
+    - 8.2.123
+  related_chat: codex://threads/01a163fa-7bf2-7e22-9843-5f0e9b44d025
+assembly:
+  gravity_reference: static_gravity
+  installed_tools: both URDF tool_link bodies included once
+  extra_payload: none in the selected reference
+  model_owner: robot_description
+  position_input: actual URDF joint angles after approved calibration; never apply
+    installation offsets twice
+variants:
+  170h160_v3:
+    model: erob170H160I-BS-18EN(V3)
+    motor_version: MC2
+    nominal_ratio: 160
+    mechanical_ratio: 161
+    motor_kt_nm_per_a: 0.22
+    kt_source: module_manual_table_25_2
+  142h160_v4:
+    model: erob142H160I-BHM-18ET(V4)
+    motor_version: MC2
+    nominal_ratio: 160
+    mechanical_ratio: 161
+    motor_kt_nm_per_a: 0.22
+    kt_source: module_manual_table_25_2
+  142h120_bhs_v4:
+    model: erob142H120I-BHS-18ET(V4)
+    motor_version: MC2
+    nominal_ratio: 120
+    mechanical_ratio: 121
+    motor_kt_nm_per_a: 0.22
+    kt_source: module_manual_table_25_2
+  142h120_bhm_v4:
+    model: erob142H120I-BHM-18ET(V4)
+    motor_version: MC2
+    nominal_ratio: 120
+    mechanical_ratio: 121
+    motor_kt_nm_per_a: 0.22
+    kt_source: module_manual_table_25_2
+  110h100_v6:
+    model: erob110H100I-BHS-18ET(V6)
+    motor_version: MC2
+    nominal_ratio: 100
+    mechanical_ratio: 101
+    motor_kt_nm_per_a: 0.134
+    kt_source: module_manual_table_25_2
+  90h100_v6:
+    model: erob90H100I-BHS-18ET(V6)
+    motor_version: MC2
+    nominal_ratio: 100
+    mechanical_ratio: 101
+    motor_kt_nm_per_a: TBD
+    kt_source: V6_MC2 not listed; V3_MC2 value 0.14 is not silently transferred
+  70h100_v5:
+    model: erob70H100I-BS-18EN(V5)
+    motor_version: MC2
+    nominal_ratio: 100
+    mechanical_ratio: 101
+    motor_kt_nm_per_a: TBD
+    kt_source: V5_MC2 not listed; V4_MC2 value 0.132 is not silently transferred
+arms:
+  left:
+  - 170h160_v3
+  - 170h160_v3
+  - 142h160_v4
+  - 142h120_bhs_v4
+  - 110h100_v6
+  - 90h100_v6
+  - 70h100_v5
+  right:
+  - 170h160_v3
+  - 170h160_v3
+  - 142h160_v4
+  - 142h120_bhm_v4
+  - 110h100_v6
+  - 90h100_v6
+  - 70h100_v5
+remaining_facts:
+  current_6075_per_axis_a: TBD; left-arm 2026-10-21 snapshot is historical
+  signed_output_nm_per_a: TBD; motor Kt is not calibrated output Kt
+  transmission_efficiency: TBD; manual typical 50-70 percent is not a per-axis constant
+  joint6_external_transmission: TBD per related calibration task
+  installation_offset_application: TBD on target controller; related task applied
+    offsets in analysis/replay
+  max_feedforward_effort_nm: TBD
+  max_feedforward_rate_nm_s: TBD
+  max_feedback_age_ms: TBD
+runtime_enabled: false

@@ -18,6 +18,10 @@ def main(argv=None):
     hardware.add_argument("--mock", dest="use_mock_hardware", action="store_true")
     hardware.add_argument("--real", dest="use_mock_hardware", action="store_false")
     parser.add_argument("--jtc-only", action="store_true")
+    parser.add_argument(
+        "--gravity-feedforward", action="store_true",
+        help="request gravity feedforward (default off; runtime integration blocked by D-004)",
+    )
     parser.add_argument("--sync-mode", default="", choices=["", "sm", "dc"])
     args = parser.parse_args(argv)
     try:
@@ -29,6 +33,7 @@ def main(argv=None):
             control_scope=args.control_scope,
             use_mock_hardware=args.use_mock_hardware,
             jtc_only=args.jtc_only,
+            gravity_feedforward=args.gravity_feedforward,
             sync_mode=args.sync_mode,
         )
     except ValueError as error:

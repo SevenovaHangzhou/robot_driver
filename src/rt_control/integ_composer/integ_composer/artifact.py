@@ -14,7 +14,7 @@ import tempfile
 from ament_index_python.packages import get_package_share_directory
 import yaml
 
-from .compose import compose
+from .compose import compose, validate_gravity_feedforward_selection
 from .model import Composed
 from .model import ARTIFACT
 from .schema.primitives import load_yaml, resolve_share_path
@@ -23,7 +23,12 @@ from .schema.primitives import load_yaml, resolve_share_path
 SCHEMA_VERSION = 2
 KIND = "rt_control_composition_artifact"
 # Startup-specific values such as startup_id are deliberately not part of a selection.
-SELECTION_DEFAULTS = {"use_mock_hardware": True, "jtc_only": False, "sync_mode": ""}
+SELECTION_DEFAULTS = {
+    "use_mock_hardware": True,
+    "jtc_only": False,
+    "gravity_feedforward": False,
+    "sync_mode": "",
+}
 SELECTION_KEYS = (
     "robot_variant",
     "machine_unit",
@@ -49,6 +54,7 @@ def selection(**values):
     if unknown:
         raise ValueError(f"Unknown artifact selection keys: {sorted(unknown)}")
     result = {**SELECTION_DEFAULTS, **values}
+    validate_gravity_feedforward_selection(result["gravity_feedforward"])
     missing = [key for key in SELECTION_KEYS if key not in result]
     if missing:
         raise ValueError(f"Missing artifact selection keys: {missing}")
@@ -70,6 +76,8 @@ def generate_command(directory, chosen):
     arguments.append("--mock" if chosen["use_mock_hardware"] else "--real")
     if chosen["jtc_only"]:
         arguments.append("--jtc-only")
+    if chosen["gravity_feedforward"]:
+        arguments.append("--gravity-feedforward")
     if chosen["sync_mode"]:
         arguments += ["--sync-mode", chosen["sync_mode"]]
     return shlex.join(arguments)
@@ -136,9 +144,11 @@ def load_artifact(directory, **expected):
     manifest = load_yaml(path)
     if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("kind") != KIND:
         raise ValueError(f"Unsupported composition artifact {path}; regenerate with: {command}")
-    if manifest["selection"] != wanted:
+    # Artifacts generated before this opt-in switch mean gravity feedforward is off.
+    stored_selection = {"gravity_feedforward": False, **manifest["selection"]}
+    if stored_selection != wanted:
         different = sorted(
-            key for key in SELECTION_KEYS if manifest["selection"].get(key) != wanted[key]
+            key for key in SELECTION_KEYS if stored_selection.get(key) != wanted[key]
         )
         raise ValueError(f"Artifact selection differs in {different}; regenerate with: {command}")
     present = {item.relative_to(root).as_posix() for item in root.rglob("*") if item.is_file()} - {

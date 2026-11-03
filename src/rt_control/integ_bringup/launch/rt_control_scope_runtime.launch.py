@@ -55,6 +55,7 @@ def setup(context):
         control_scope=scope,
         use_mock_hardware=use_mock_hardware,
         jtc_only=_optional_boolean(context, "jtc_only", "false"),
+        gravity_feedforward=_optional_boolean(context, "gravity_feedforward", "false"),
         sync_mode=context.launch_configurations.get("sync_mode", ""),
     )
     if not build.staged_hardware_activation:
@@ -204,6 +205,10 @@ def generate_launch_description():
             DeclareLaunchArgument("control_scope", default_value="chassis_only"),
             DeclareLaunchArgument("physical_profile", default_value=""),
             DeclareLaunchArgument("jtc_only", default_value="false"),
+            DeclareLaunchArgument(
+                "gravity_feedforward", default_value="false", choices=["true", "false"],
+                description="Request gravity feedforward; runtime integration requires D-004",
+            ),
             DeclareLaunchArgument(
                 "sync_mode", default_value="", description="EtherCAT force bench: sm or dc"
             ),
