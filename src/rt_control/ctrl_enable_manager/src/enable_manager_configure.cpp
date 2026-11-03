@@ -206,15 +206,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   expected_modes_.assign(modes.begin(), modes.end());
   ready_state_names_ = get_node()->get_parameter("ready_state_interfaces").as_string_array();
   ready_hold_seconds_ = get_node()->get_parameter("ready_hold_time").as_double();
-  if (
-    !std::isfinite(ready_hold_seconds_) || ready_hold_seconds_ < 0.0 ||
-    std::set<std::string>(ready_state_names_.begin(), ready_state_names_.end()).size() !=
-      ready_state_names_.size()) {
-    RCLCPP_ERROR(
-      get_node()->get_logger(),
-      "ready_state_interfaces must be unique and ready_hold_time finite and non-negative");
-    return controller_interface::CallbackReturn::ERROR;
-  }
   ready_state_indices_.assign(ready_state_names_.size(), 0U);
   feedback_age_names_ = get_node()->get_parameter("feedback_age_interfaces").as_string_array();
   feedback_age_limit_ms_ = get_node()->get_parameter("feedback_age_limit_ms").as_double();
@@ -297,15 +288,12 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
      valid_threshold_array(stable_velocity_thresholds) &&
      valid_threshold_array(takeover_tolerances));
 
+  // Timing values are checked once by the composer (enable policy schema; YAML load rejects
+  // non-finite numbers).
   if (
-    !std::isfinite(batch_timeout_seconds_) || !std::isfinite(disable_stage_timeout_seconds_) ||
-    !std::isfinite(inter_batch_delay_seconds_) || !std::isfinite(fault_reset_timeout_seconds_) ||
-    !std::isfinite(controller_switch_timeout_seconds_) || batch_timeout_seconds_ <= 0.0 ||
-    disable_stage_timeout_seconds_ <= 0.0 || inter_batch_delay_seconds_ < 0.0 ||
-    fault_reset_timeout_seconds_ <= 0.0 || controller_switch_timeout_seconds_ <= 0.0 ||
-    service_timeout <= 0 || (enable_only_ ? !jtc_name_.empty() : jtc_name_.empty()) ||
-    !motion_parameters_valid || !companions_valid) {
-    RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager timing or controller parameter");
+    (enable_only_ ? !jtc_name_.empty() : jtc_name_.empty()) || !motion_parameters_valid ||
+    !companions_valid) {
+    RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager controller parameter");
     return controller_interface::CallbackReturn::ERROR;
   }
   service_result_timeout_ = std::chrono::milliseconds(service_timeout);
@@ -490,13 +478,6 @@ bool EnableManagerController::configureTopology()
 {
   auto explicit_mask = topology_parameters_explicit_mask_.load(std::memory_order_acquire);
   const auto device_names = get_node()->get_parameter("handshake_devices").as_string_array();
-  if (
-    std::any_of(
-      device_names.begin(), device_names.end(), [](const auto & name) { return name.empty(); }) ||
-    std::set<std::string>(device_names.begin(), device_names.end()).size() != device_names.size()) {
-    RCLCPP_ERROR(get_node()->get_logger(), "handshake_devices must be unique nonempty names");
-    return false;
-  }
   handshake_devices_.clear();
   for (const auto & name : device_names) {
     handshake_devices_.push_back(std::make_unique<HandshakeDevice>(name));
@@ -556,55 +537,24 @@ bool EnableManagerController::configureTopology()
     return false;
   }
 
+  // The composer checks once that the managed joints are unique and that the batches (1..3
+  // joints, enable policy schema) partition them exactly.
   std::unordered_map<std::string, std::size_t> axis_by_name;
   axis_by_name.reserve(managed_joints.size());
   for (std::size_t axis = 0; axis < managed_joints.size(); ++axis) {
-    const auto & joint = managed_joints[axis];
-    if (joint.empty() || !axis_by_name.emplace(joint, axis).second) {
-      RCLCPP_ERROR(get_node()->get_logger(), "managed_joints must contain unique nonempty names");
-      return false;
-    }
-  }
-
-  std::size_t expected_flat_count = 0U;
-  for (const auto batch_size : batch_sizes) {
-    if (batch_size < 1 || batch_size > 3) {
-      RCLCPP_ERROR(get_node()->get_logger(), "every enable batch must contain 1..3 joints");
-      return false;
-    }
-    expected_flat_count += static_cast<std::size_t>(batch_size);
-  }
-  if (expected_flat_count != flat_batch_joints.size()) {
-    RCLCPP_ERROR(
-      get_node()->get_logger(),
-      "enable_batch_sizes must exactly partition enable_batch_joint_names");
-    return false;
+    axis_by_name.emplace(managed_joints[axis], axis);
   }
 
   std::vector<std::vector<std::size_t>> candidate_batches;
   candidate_batches.reserve(batch_sizes.size());
-  std::vector<std::uint8_t> seen(managed_joints.size(), 0U);
   std::size_t flat_index = 0U;
   for (const auto batch_size : batch_sizes) {
     std::vector<std::size_t> batch;
     batch.reserve(static_cast<std::size_t>(batch_size));
     for (std::int64_t item = 0; item < batch_size; ++item) {
-      const auto & joint = flat_batch_joints[flat_index++];
-      const auto axis = axis_by_name.find(joint);
-      if (axis == axis_by_name.end() || seen[axis->second] != 0U) {
-        RCLCPP_ERROR(
-          get_node()->get_logger(), "enable batches must cover every managed joint exactly once");
-        return false;
-      }
-      seen[axis->second] = 1U;
-      batch.push_back(axis->second);
+      batch.push_back(axis_by_name.at(flat_batch_joints[flat_index++]));
     }
     candidate_batches.push_back(std::move(batch));
-  }
-  if (std::find(seen.begin(), seen.end(), 0U) != seen.end()) {
-    RCLCPP_ERROR(
-      get_node()->get_logger(), "enable batches must cover every managed joint exactly once");
-    return false;
   }
 
   std::vector<std::uint8_t> candidate_ready_terminal(managed_joints.size(), 0U);
