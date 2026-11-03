@@ -31,6 +31,13 @@ def bind_parameters(binding, parameters, rendered_modules, *, mock):
             resources = {element.attrib["name"] for element in owner[reference["resource_kind"]]}
             if len(values) != len(set(values)) or not set(values).issubset(resources):
                 raise ValueError(f"Controller parameter references invalid resources: {name}")
+        if reference.get("append"):
+            # Extends a list owned by another source with this module's distinct resources.
+            current = result.get(name)
+            if not isinstance(current, list) or set(current) & set(values):
+                raise ValueError(f"Controller parameter cannot be appended: {name}")
+            result[name] = current + values
+            continue
         # Two authorities are an error even when today's values happen to agree.
         if name in result:
             raise ValueError(f"Controller parameter duplicates a hardware fact: {name}")
