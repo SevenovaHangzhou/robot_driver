@@ -365,7 +365,7 @@ TEST_F(HandshakeFixture, StaleFeedbackRejectsEnableAsDeviceOffline)
 {
   bringUp(true, true);
   ASSERT_TRUE(stepUntil(Phase::kIdle));
-  process_data_age_ = 100.5;
+  process_data_age_ = 500.5;
   Access::requestEnable(*controller_);
   step(5);
   EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
