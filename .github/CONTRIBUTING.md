@@ -62,7 +62,7 @@ PR 描述中写 `Closes`/`Related to` 关联 Issue；跨域任务先在 `robot_i
 | --- | --- |
 | PR opened / synchronize / reopened / labeled | `rt-control-ci`：`governance`（pre-commit = `tools/quality_gate.sh` + PR 契约门禁），合并只等它 |
 | PR 带 `full-ci` 标签 | 另跑完整 `build`（干净环境：上游依赖、补丁、IgH、全量构建与测试） |
-| 每晚 02:00（北京时间）、手动触发 | 在 `main` 上跑完整 `build`；失败时由提交者第二天修复 |
+| 每晚 23:00（北京时间；GitHub 可能推迟数小时启动）、手动触发 | 在 `main` 上跑完整 `build`；失败时由提交者第二天修复 |
 | PR edited | `pr-metadata-governance`：只校验 PR 契约 |
 | push(main) | 不运行 |
 
