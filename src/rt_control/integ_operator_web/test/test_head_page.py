@@ -73,7 +73,8 @@ def test_page_requires_login_then_moves_holds_and_stops_on_disconnect(tmp_path):
     app = build(console, audit=AuditLog(path))
 
     async def scenario(client):
-        assert "ALFA 头部" in await (await client.get("/head")).text()
+        response = await client.get("/head", allow_redirects=False)
+        assert response.status == 302 and response.headers["Location"] == "/arm#head-controls"
         ws = await client.ws_connect("/ws/head")
         closing = await ws.receive(timeout=2)
         assert closing.type in (WSMsgType.CLOSE, WSMsgType.CLOSED) and ws.close_code == 4401
