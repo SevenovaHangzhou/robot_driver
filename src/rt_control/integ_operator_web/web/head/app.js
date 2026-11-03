@@ -1,7 +1,8 @@
 // Head controls embedded in the arm page; login belongs to the containing page.
 const DEG = 180 / Math.PI;
 
-export function headControls(root, loginRequired) {
+// onPositions receives measured head joint positions (rad) for the shared 3D model.
+export function headControls(root, loginRequired, onPositions) {
   const $ = (name) => root.querySelector(`[data-head="${name}"]`);
   let socket = null;
   let nextRequest = 1;
@@ -39,16 +40,16 @@ export function headControls(root, loginRequired) {
     const container = $("joints");
     container.replaceChildren();
     for (const joint of joints) {
+      // Same row layout as the arm joint sliders (arm/style.css .joint).
       const row = document.createElement("div");
-      row.className = "head-joint";
-      const name = document.createElement("span");
-      name.textContent = joint.name;
-      const actual = document.createElement("span");
+      row.className = "joint";
+      const label = document.createElement("label");
+      label.textContent = joint.name;
       const slider = document.createElement("input");
       slider.type = "range";
       slider.step = "0.1";
-      slider.min = String(joint.lower * DEG);
-      slider.max = String(joint.upper * DEG);
+      slider.min = (joint.lower * DEG).toFixed(1);
+      slider.max = (joint.upper * DEG).toFixed(1);
       slider.value = String((joint.position ?? 0) * DEG);
       slider.setAttribute("aria-label", `${joint.name} 目标角度滑块`);
       const number = document.createElement("input");
@@ -58,10 +59,17 @@ export function headControls(root, loginRequired) {
       number.max = slider.max;
       number.value = Number(slider.value).toFixed(1);
       number.setAttribute("aria-label", `${joint.name} 目标角度（度）`);
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const actual = document.createElement("span");
+      actual.textContent = "实测 --";
+      const span = document.createElement("span");
+      span.textContent = `${slider.min}° ~ ${slider.max}°`;
+      meta.append(actual, span);
       slider.addEventListener("input", () => { number.value = Number(slider.value).toFixed(1); });
       number.addEventListener("input", () => { slider.value = number.value; });
       targets.set(joint.name, { slider, number, actual });
-      row.append(name, actual, slider, number);
+      row.append(label, slider, number, meta);
       container.append(row);
     }
   }
@@ -94,9 +102,10 @@ export function headControls(root, loginRequired) {
       targets.clear();
       $("joints").textContent = data.model_error || "等待头部控制器与机器人模型";
     }
+    onPositions(Object.fromEntries(data.joints.map((joint) => [joint.name, joint.position])));
     for (const joint of data.joints) {
       const controls = targets.get(joint.name);
-      controls.actual.textContent = joint.position == null ? "--" : `${(joint.position * DEG).toFixed(2)}°`;
+      controls.actual.textContent = joint.position == null ? "实测 --" : `实测 ${(joint.position * DEG).toFixed(2)}°`;
     }
   }
 

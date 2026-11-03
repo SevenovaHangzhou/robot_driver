@@ -89,9 +89,11 @@ profiles:
     status: draft
     modules:
     - bench_dual_arm
+    - head_gimbal
     allowed_scopes:
     - bench_dual_arm_stationary_enable
     - bench_dual_arm
+    - bench_dual_arm_head
     hardware_options:
       force_sensors:
       - none

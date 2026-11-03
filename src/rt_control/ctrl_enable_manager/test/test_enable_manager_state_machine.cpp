@@ -2479,6 +2479,76 @@ std::map<std::string, double> latestTraceCycle(const std::string & name, std::ui
   return values;
 }
 
+TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryController)
+{
+  initAndConfigure(
+    "companion_switch_test",
+    {rclcpp::Parameter(
+      "companion_controllers", std::vector<std::string>{"head_position_controller"})});
+  activate();
+  auto manager = std::make_shared<rclcpp::Node>("companion_switch_manager");
+  std::mutex mutex;
+  std::vector<controller_manager_msgs::srv::SwitchController::Request> requests;
+  auto service = manager->create_service<controller_manager_msgs::srv::SwitchController>(
+    "/controller_manager/switch_controller",
+    [&](
+      const std::shared_ptr<controller_manager_msgs::srv::SwitchController::Request> request,
+      std::shared_ptr<controller_manager_msgs::srv::SwitchController::Response> reply) {
+      std::lock_guard<std::mutex> lock(mutex);
+      requests.push_back(*request);
+      reply->ok = true;
+    });
+  // Only the head is still active when the disable path stops the controllers.
+  auto list = manager->create_service<controller_manager_msgs::srv::ListControllers>(
+    "/controller_manager/list_controllers",
+    [](
+      const std::shared_ptr<controller_manager_msgs::srv::ListControllers::Request>,
+      std::shared_ptr<controller_manager_msgs::srv::ListControllers::Response> reply) {
+      for (const auto & [name, state] :
+           {std::pair{"whole_body_jtc", "inactive"},
+            std::pair{"head_position_controller", "active"}}) {
+        controller_manager_msgs::msg::ControllerState entry;
+        entry.name = name;
+        entry.state = state;
+        reply->controller.push_back(entry);
+      }
+    });
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(manager);
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  std::thread spin([&] { executor.spin(); });
+  const bool available =
+    Access::waitForControllerManagerServices(*controller_, std::chrono::seconds(2));
+  const auto activated = available ? Access::switchJtc(*controller_, true) : SwitchResult::kFailed;
+  const auto deactivated =
+    available ? Access::switchJtc(*controller_, false) : SwitchResult::kFailed;
+  executor.cancel();
+  spin.join();
+  ASSERT_TRUE(available);
+  EXPECT_EQ(activated, SwitchResult::kSuccess);
+  EXPECT_EQ(deactivated, SwitchResult::kSuccess);
+  ASSERT_EQ(requests.size(), 2U);
+  EXPECT_EQ(
+    requests[0].activate_controllers,
+    (std::vector<std::string>{"whole_body_jtc", "head_position_controller"}));
+  EXPECT_TRUE(requests[0].deactivate_controllers.empty());
+  EXPECT_EQ(
+    requests[1].deactivate_controllers, std::vector<std::string>{"head_position_controller"});
+}
+
+TEST_F(EnableManagerFixture, CompanionControllersMustBeDistinctFromTheTrajectoryController)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(parametersWithFixtureTopology(
+    {rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+     rclcpp::Parameter("companion_controllers", std::vector<std::string>{"whole_body_jtc"})}));
+  ASSERT_EQ(
+    controller_->init("duplicate_companion", "", options), controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+}
+
 TEST_F(EnableManagerFixture, RuntimeLogTraceFollowsTheStateMachine)
 {
   initAndConfigure(

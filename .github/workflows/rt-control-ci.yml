@@ -6,7 +6,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   schedule:
-    - cron: "0 18 * * *"  # 02:00 Asia/Shanghai
+    # User 2026-11-03: 23:00 Asia/Shanghai. GitHub starts scheduled runs late under load.
+    - cron: "0 15 * * *"  # 23:00 Asia/Shanghai
   workflow_dispatch:
 
 permissions:

@@ -99,6 +99,58 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+  # Dual arms and the head in one controller_manager: one enable request brings up the arm
+  # batches, then the head handshake, then activates dual_arm_jtc and head_position_controller.
+  bench_dual_arm_head:
+    enabled_modules:
+    - bench_dual_arm
+    - head_gimbal
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_dual_arm
+      mode_group: csp
+    - module: head_gimbal
+      mode_group: position_velocity
+    jtc_groups:
+    - module: bench_dual_arm
+      mode_group: csp
+    global_readiness: partial_scope
+    render_mode: normal
+    policies:
+    - enable
+    - motion
+    policy_overrides:
+      enable: bench_dual_arm_enable
+      motion: bench_dual_arm_motion
+    staged_hardware_activation: true
+    controller_order:
+      inactive:
+      - dual_arm_jtc
+      - head_position_controller
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
+    controller_parameter_bindings:
+      joint_state_broadcaster:
+        parameters:
+          joints:
+            module: head_gimbal
+            export: joint_names
+            resource_kind: joints
+            append: true
+      head_position_controller:
+        parameters:
+          joints:
+            module: head_gimbal
+            export: joint_names
+            resource_kind: joints
+      enable_manager:
+        parameters:
+          handshake_devices:
+            module: head_gimbal
+            export: handshake_devices
+            resource_kind: gpios
   bench_right_arm_stationary_enable:
     enabled_modules:
     - bench_right_arm
