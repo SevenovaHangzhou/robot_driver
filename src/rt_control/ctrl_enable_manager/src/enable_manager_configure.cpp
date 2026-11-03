@@ -5,7 +5,6 @@
 #include <set>
 #include <array>
 #include <cmath>
-#include <cstring>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -50,8 +49,8 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::int64_t>>("expected_modes", {});
   auto_declare<std::vector<std::string>>("ready_state_interfaces", {});
   auto_declare<std::vector<std::string>>("feedback_age_interfaces", {});
-  // User 2026-11-03: shared by every scope; normal ages are ~1 ms (EtherCAT) and 6-13 ms (DaMiao).
-  auto_declare<double>("feedback_age_limit_ms", 100.0);
+  // User 2026-11-03: 500 ms for every scope (normal ages ~1 ms EtherCAT, 6-20 ms DaMiao).
+  auto_declare<double>("feedback_age_limit_ms", 500.0);
   auto_declare<double>("ready_hold_time", 0.05);
   auto_declare<std::string>("motion_fault_topic", "");
   auto_declare<std::vector<std::string>>("enable_batch_joint_names", {});
@@ -220,8 +219,8 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     }
   }
   diagnostic_state_indices_.assign(diagnostic_state_names_.size(), 0U);
-  diagnostic_state_bits_ =
-    std::make_unique<std::atomic<std::uint64_t>[]>(diagnostic_state_names_.size());
+  diagnostic_state_values_ =
+    std::make_unique<std::atomic<double>[]>(diagnostic_state_names_.size());
   actual_modes_.assign(modes.size(), 256);
   mode_state_indices_.assign(modes.size(), 0U);
   mode_confirmed_.assign(modes.size(), 0U);
