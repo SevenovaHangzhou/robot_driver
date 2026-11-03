@@ -1,7 +1,8 @@
 // Head controls embedded in the arm page; login belongs to the containing page.
 const DEG = 180 / Math.PI;
 
-export function headControls(root, loginRequired) {
+// onPositions receives measured head joint positions (rad) for the shared 3D model.
+export function headControls(root, loginRequired, onPositions) {
   const $ = (name) => root.querySelector(`[data-head="${name}"]`);
   let socket = null;
   let nextRequest = 1;
@@ -101,6 +102,7 @@ export function headControls(root, loginRequired) {
       targets.clear();
       $("joints").textContent = data.model_error || "等待头部控制器与机器人模型";
     }
+    onPositions(Object.fromEntries(data.joints.map((joint) => [joint.name, joint.position])));
     for (const joint of data.joints) {
       const controls = targets.get(joint.name);
       controls.actual.textContent = joint.position == null ? "实测 --" : `实测 ${(joint.position * DEG).toFixed(2)}°`;

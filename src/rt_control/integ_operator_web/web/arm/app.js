@@ -30,7 +30,11 @@ completionAudio.preload = 'auto';
 const completionSound = new CompletionSound(completionAudio, (message) => toast(message, true));
 const vacuumControls = new VacuumControls($("vacuum-panel"), (body) => post("/api/vacuum", body));
 const vacuumPressure = new VacuumPressure($("vacuum-pressure"));
-const head = headControls($("head-controls"), () => { $("login").hidden = false; });
+const head = headControls(
+  $("head-controls"),
+  () => { $("login").hidden = false; },
+  (positions) => viewer?.setMeasured(positions),
+);
 document.addEventListener('click', () => completionSound.unlock(), { capture: true });
 document.addEventListener('keydown', () => completionSound.unlock(), { capture: true });
 
