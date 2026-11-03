@@ -4,7 +4,6 @@
 #include <set>
 #include <array>
 #include <cmath>
-#include <cstring>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -213,13 +212,11 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   if (motion_mode_switching_) {
     const std::size_t motion_offset = cia402_axes_.size();
     for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
-      actual_position_bits_[axis].store(
-        encodeDouble(state_interfaces_[motion_offset + axis].get_value()),
-        std::memory_order_relaxed);
+      actual_sample_positions_[axis].store(
+        state_interfaces_[motion_offset + axis].get_value(), std::memory_order_relaxed);
     }
-    actual_feedback_age_bits_.store(
-      encodeDouble(state_interfaces_[motion_offset + kMotionAxisCount].get_value()),
-      std::memory_order_relaxed);
+    actual_sample_feedback_age_ms_.store(
+      state_interfaces_[motion_offset + kMotionAxisCount].get_value(), std::memory_order_relaxed);
   }
   clearFailure();
   current_batch_ = 0U;
@@ -269,21 +266,18 @@ controller_interface::return_type EnableManagerController::update(
     device->read();
   }
   for (std::size_t index = 0; index < diagnostic_state_names_.size(); ++index) {
-    diagnostic_state_bits_[index].store(
-      encodeDouble(state_interfaces_[diagnostic_state_indices_[index]].get_value()),
-      std::memory_order_relaxed);
+    diagnostic_state_values_[index].store(
+      state_interfaces_[diagnostic_state_indices_[index]].get_value(), std::memory_order_relaxed);
   }
   if (motion_mode_switching_) {
     const std::size_t motion_offset = cia402_axes_.size();
     actual_sample_version_.fetch_add(1U, std::memory_order_acq_rel);
     for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
-      actual_position_bits_[axis].store(
-        encodeDouble(state_interfaces_[motion_offset + axis].get_value()),
-        std::memory_order_relaxed);
+      actual_sample_positions_[axis].store(
+        state_interfaces_[motion_offset + axis].get_value(), std::memory_order_relaxed);
     }
-    actual_feedback_age_bits_.store(
-      encodeDouble(state_interfaces_[motion_offset + kMotionAxisCount].get_value()),
-      std::memory_order_relaxed);
+    actual_sample_feedback_age_ms_.store(
+      state_interfaces_[motion_offset + kMotionAxisCount].get_value(), std::memory_order_relaxed);
     actual_sample_time_ns_.store(steadyNowNs(), std::memory_order_relaxed);
     actual_sample_sequence_.fetch_add(1U, std::memory_order_relaxed);
     actual_sample_version_.fetch_add(1U, std::memory_order_release);
@@ -524,7 +518,7 @@ void EnableManagerController::publishDiagnostics()
   for (std::size_t index = 0; index < diagnostic_state_names_.size(); ++index) {
     add_value(
       diagnostic_state_names_[index],
-      std::to_string(decodeDouble(diagnostic_state_bits_[index].load(std::memory_order_relaxed))));
+      std::to_string(diagnostic_state_values_[index].load(std::memory_order_relaxed)));
   }
   array.status.push_back(std::move(status));
   diagnostics_publisher_->publish(array);
@@ -1281,22 +1275,6 @@ std::uint64_t EnableManagerController::steadyNowNs() noexcept
   const auto elapsed = std::chrono::steady_clock::now().time_since_epoch();
   const auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
   return nanoseconds < 0 ? 0U : static_cast<std::uint64_t>(nanoseconds);
-}
-
-std::uint64_t EnableManagerController::encodeDouble(double value) noexcept
-{
-  std::uint64_t bits = 0U;
-  static_assert(sizeof(bits) == sizeof(value));
-  std::memcpy(&bits, &value, sizeof(bits));
-  return bits;
-}
-
-double EnableManagerController::decodeDouble(std::uint64_t bits) noexcept
-{
-  double value = 0.0;
-  static_assert(sizeof(bits) == sizeof(value));
-  std::memcpy(&value, &bits, sizeof(value));
-  return value;
 }
 
 bool EnableManagerController::isZeroIdentifier(

@@ -5,7 +5,6 @@
 #include <set>
 #include <array>
 #include <cmath>
-#include <cstring>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -111,11 +110,9 @@ bool EnableManagerController::readActualSample(ActualSample & sample) const noex
       continue;
     }
     for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
-      sample.positions[axis] =
-        decodeDouble(actual_position_bits_[axis].load(std::memory_order_relaxed));
+      sample.positions[axis] = actual_sample_positions_[axis].load(std::memory_order_relaxed);
     }
-    sample.feedback_age_ms =
-      decodeDouble(actual_feedback_age_bits_.load(std::memory_order_relaxed));
+    sample.feedback_age_ms = actual_sample_feedback_age_ms_.load(std::memory_order_relaxed);
     sample.steady_time_ns = actual_sample_time_ns_.load(std::memory_order_relaxed);
     sample.sequence = actual_sample_sequence_.load(std::memory_order_relaxed);
     const std::uint64_t version_after = actual_sample_version_.load(std::memory_order_acquire);

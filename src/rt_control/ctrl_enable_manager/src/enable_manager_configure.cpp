@@ -5,7 +5,6 @@
 #include <set>
 #include <array>
 #include <cmath>
-#include <cstring>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -220,8 +219,8 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     }
   }
   diagnostic_state_indices_.assign(diagnostic_state_names_.size(), 0U);
-  diagnostic_state_bits_ =
-    std::make_unique<std::atomic<std::uint64_t>[]>(diagnostic_state_names_.size());
+  diagnostic_state_values_ =
+    std::make_unique<std::atomic<double>[]>(diagnostic_state_names_.size());
   actual_modes_.assign(modes.size(), 256);
   mode_state_indices_.assign(modes.size(), 0U);
   mode_confirmed_.assign(modes.size(), 0U);
