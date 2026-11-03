@@ -28,7 +28,7 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "ea582c8a711874813d2ad7f0801b366bd32ab67e",
+        "commit": "c82f0e40937453f1f8fb104822c2e91e9fb8d742",
         "contract_version": "1.0.0",
         "vendor_path": "src/vendor/robot_interfaces",
         "vendored_packages": list(public_packages),
