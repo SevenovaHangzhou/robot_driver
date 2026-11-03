@@ -49,6 +49,9 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::string>>("managed_joints", {});
   auto_declare<std::vector<std::int64_t>>("expected_modes", {});
   auto_declare<std::vector<std::string>>("ready_state_interfaces", {});
+  auto_declare<std::vector<std::string>>("feedback_age_interfaces", {});
+  // User 2026-11-03: shared by every scope; normal ages are ~1 ms (EtherCAT) and 6-13 ms (DaMiao).
+  auto_declare<double>("feedback_age_limit_ms", 100.0);
   auto_declare<double>("ready_hold_time", 0.05);
   auto_declare<std::string>("motion_fault_topic", "");
   auto_declare<std::vector<std::string>>("enable_batch_joint_names", {});
@@ -149,6 +152,13 @@ EnableManagerController::state_interface_configuration() const
   }
   configuration.names.insert(
     configuration.names.end(), diagnostic_state_names_.begin(), diagnostic_state_names_.end());
+  for (const auto & name : feedback_age_names_) {
+    if (
+      std::find(configuration.names.begin(), configuration.names.end(), name) ==
+      configuration.names.end()) {
+      configuration.names.push_back(name);
+    }
+  }
   return configuration;
 }
 
@@ -194,6 +204,9 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     return controller_interface::CallbackReturn::ERROR;
   }
   ready_state_indices_.assign(ready_state_names_.size(), 0U);
+  feedback_age_names_ = get_node()->get_parameter("feedback_age_interfaces").as_string_array();
+  feedback_age_limit_ms_ = get_node()->get_parameter("feedback_age_limit_ms").as_double();
+  feedback_age_indices_.assign(feedback_age_names_.size(), 0U);
   diagnostic_state_names_.clear();
   const auto diagnostic_joints = get_node()->get_parameter("diagnostic_joints").as_string_array();
   const auto diagnostic_interfaces =
@@ -648,10 +661,7 @@ bool EnableManagerController::configureTopology()
 controller_interface::CallbackReturn EnableManagerController::on_activate(
   const rclcpp_lifecycle::State &)
 {
-  const std::size_t expected_state_count =
-    cia402_axes_.size() + expected_modes_.size() + ready_state_names_.size() +
-    (motion_mode_switching_ ? kMotionAxisCount + 1U : 0U) + handshake_devices_.size() * 4U +
-    diagnostic_state_names_.size();
+  const std::size_t expected_state_count = state_interface_configuration().names.size();
   if (
     command_interfaces_.size() != cia402_axes_.size() + handshake_devices_.size() * 2U ||
     state_interfaces_.size() != expected_state_count) {
@@ -744,6 +754,21 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
     diagnostic_state_indices_[source] =
       static_cast<std::size_t>(std::distance(state_interfaces_.begin(), match));
   }
+  for (std::size_t source = 0; source < feedback_age_names_.size(); ++source) {
+    const auto match = std::find_if(
+      state_interfaces_.begin(), state_interfaces_.end(),
+      [&](const auto & interface) { return interface.get_name() == feedback_age_names_[source]; });
+    if (match == state_interfaces_.end()) {
+      releaseCia402Interfaces();
+      RCLCPP_ERROR(
+        get_node()->get_logger(), "Missing feedback age state %s",
+        feedback_age_names_[source].c_str());
+      return controller_interface::CallbackReturn::ERROR;
+    }
+    feedback_age_indices_[source] =
+      static_cast<std::size_t>(std::distance(state_interfaces_.begin(), match));
+  }
+  offline_feedback_.store(-1, std::memory_order_relaxed);
   for (auto & device : handshake_devices_) {
     if (!device->baseline()) {
       releaseCia402Interfaces();
@@ -903,6 +928,9 @@ controller_interface::return_type EnableManagerController::update(
       setAllControlWords(0x0000U);
       requestDevicesEnable(false);
       if (enable_request_.exchange(false, std::memory_order_acq_rel)) {
+        if (rejectIfOffline(enable_result_)) {
+          break;
+        }
         current_batch_ = 0U;
         // A device-only manager has no CiA402 batch and starts with the device stage.
         device_stage_ = enable_batches_.empty();
@@ -920,6 +948,9 @@ controller_interface::return_type EnableManagerController::update(
         stage_deadline_ns_ = now_ns + static_cast<std::int64_t>(batch_timeout_seconds_ * 1e9);
         phase_.store(Phase::kEnabling, std::memory_order_release);
       } else if (reset_request_.exchange(false, std::memory_order_acq_rel)) {
+        if (rejectIfOffline(reset_result_)) {
+          break;
+        }
         std::fill(reset_targets_.begin(), reset_targets_.end(), 0U);
         bool has_fault = anyDeviceFaulted();
         for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
@@ -1003,6 +1034,9 @@ controller_interface::return_type EnableManagerController::update(
       if (disable_request_.exchange(false, std::memory_order_acq_rel)) {
         startDownward(Phase::kDisabling, now_ns);
       } else if (reset_request_.exchange(false, std::memory_order_acq_rel)) {
+        if (rejectIfOffline(reset_result_)) {
+          break;
+        }
         std::fill(reset_targets_.begin(), reset_targets_.end(), 0U);
         bool has_fault = anyDeviceFaulted();
         for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
@@ -2177,6 +2211,8 @@ void EnableManagerController::publishDiagnostics()
   add_value(
     "failed_status_word", std::to_string(last_failed_status_word_.load(std::memory_order_acquire)));
   add_value("stage", stageName(last_failure_stage_.load(std::memory_order_acquire)));
+  const int offline = offline_feedback_.load(std::memory_order_relaxed);
+  add_value("offline_feedback", offline >= 0 ? feedback_age_names_[offline] : "");
   const auto actual_mode = last_failed_mode_.load(std::memory_order_acquire);
   add_value("failed_actual_mode", actual_mode == 256 ? "unavailable" : std::to_string(actual_mode));
   add_value(
@@ -2213,6 +2249,31 @@ void EnableManagerController::publishResult(
   slot.status_word.store(status_word, std::memory_order_relaxed);
   slot.stage.store(stage, std::memory_order_relaxed);
   slot.ready.store(true, std::memory_order_release);
+}
+
+int EnableManagerController::staleFeedback() const noexcept
+{
+  for (std::size_t source = 0; source < feedback_age_indices_.size(); ++source) {
+    const double age = state_interfaces_[feedback_age_indices_[source]].get_value();
+    if (!std::isfinite(age) || age > feedback_age_limit_ms_) {
+      return static_cast<int>(source);
+    }
+  }
+  return -1;
+}
+
+// Rejects without changing phase or the recorded failure: the adapter reads the recorded
+// stage to decide whether a reset is still worth trying once the devices are back.
+bool EnableManagerController::rejectIfOffline(ResultSlot & slot)
+{
+  const int stale = staleFeedback();
+  offline_feedback_.store(stale, std::memory_order_relaxed);
+  if (stale < 0) {
+    return false;
+  }
+  publishResult(slot, false, Stage::kDeviceOffline);
+  owner_.store(Owner::kNone, std::memory_order_release);
+  return true;
 }
 
 void EnableManagerController::recordFailure(
@@ -3099,6 +3160,8 @@ const char * EnableManagerController::stageName(Stage stage)
       return "controller_update_timeout";
     case Stage::kRestartRequired:
       return "restart_required";
+    case Stage::kDeviceOffline:
+      return "device_offline";
   }
   return "unknown";
 }
