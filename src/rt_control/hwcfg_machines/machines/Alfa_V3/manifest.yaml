@@ -16,6 +16,7 @@ parts:
 - manifest/modules.yaml
 - manifest/profiles.yaml
 - manifest/scopes.yaml
+- manifest/bench_scopes.yaml
 robot_model:
   package: robot_description
   source_revision: 12a83dd0a008b2e1046b86053cd3a47592307acb
