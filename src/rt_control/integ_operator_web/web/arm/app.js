@@ -3,6 +3,7 @@ import { ArmViewer } from "./viewer.js";
 import { CompletionSound } from "./completion-sound.mjs";
 import { VacuumControls } from "./vacuum-controls.mjs";
 import { VacuumPressure } from "./vacuum-pressure.mjs";
+import { headControls } from "../head/app.js";
 
 const $ = (id) => document.getElementById(id);
 const DEG = 180 / Math.PI;
@@ -29,6 +30,7 @@ completionAudio.preload = 'auto';
 const completionSound = new CompletionSound(completionAudio, (message) => toast(message, true));
 const vacuumControls = new VacuumControls($("vacuum-panel"), (body) => post("/api/vacuum", body));
 const vacuumPressure = new VacuumPressure($("vacuum-pressure"));
+const head = headControls($("head-controls"), () => { $("login").hidden = false; });
 document.addEventListener('click', () => completionSound.unlock(), { capture: true });
 document.addEventListener('keydown', () => completionSound.unlock(), { capture: true });
 
@@ -95,6 +97,7 @@ $("login-form").addEventListener("submit", async (event) => {
 });
 
 function openSocket() {
+  if (socket && socket.readyState < WebSocket.CLOSING) return;
   socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/arm`);
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -117,6 +120,7 @@ function openSocket() {
 }
 
 async function start() {
+  head.connect();
   vacuumControls.start();
   viewer = viewer || new ArmViewer($("viewer"));
   if (await loadInfo()) openSocket();

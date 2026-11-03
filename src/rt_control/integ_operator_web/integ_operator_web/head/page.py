@@ -39,8 +39,9 @@ class HeadPage:
         audit: Optional[AuditLog] = None,
         status_period: float = STATUS_PERIOD_S,
     ) -> None:
-        if not (web_dir / "index.html").is_file():
-            raise ValueError(f"missing web asset: {web_dir / 'index.html'}")
+        # The former /head entry now opens the shared arm/head page.
+        if not (web_dir.parent / "arm/index.html").is_file():
+            raise ValueError(f"missing web asset: {web_dir.parent / 'arm/index.html'}")
         self.console = console
         self._sessions = sessions
         self._operators = operators
@@ -56,8 +57,8 @@ class HeadPage:
         app.router.add_get("/head", self._index)
         app.router.add_get("/ws/head", self._websocket)
 
-    async def _index(self, _request: web.Request) -> web.FileResponse:
-        return web.FileResponse(self._web_dir / "index.html")
+    async def _index(self, _request: web.Request) -> web.StreamResponse:
+        raise web.HTTPFound("/arm#head-controls")
 
     async def _websocket(self, request: web.Request) -> web.StreamResponse:
         if not same_origin(request):
