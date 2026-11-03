@@ -88,3 +88,9 @@ sample_period_s: 0.01
 stop_lead_s: 0.02
 # Trajectory t = 0 (header.stamp) is this far after sending; covers transport delay.
 start_delay_s: 0.05
+# Links drawn without visuals in the page's 3D view (user 2026-11-03): sensor shells on the head
+# whose open meshes look like a hollow cover. The Robot Model itself is unchanged.
+hidden_view_links:
+- mid360_Link
+- Leye_link
+- Reye_Link

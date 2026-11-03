@@ -164,3 +164,49 @@ def test_head_motion_and_sight_ranges():
     low, high = np.array(manifest['head_and_upper_base']['mid360']['bounds_m'])
     com = np.fromstring(sensor.find('inertial/origin').get('xyz'), sep=' ')
     assert np.all(low <= com) and np.all(com <= high)
+
+
+def _joint_frames(model):
+    """Zero-pose base_link frame (4x4) of every joint origin."""
+    joints = {j.find('child').get('link'): j for j in model.findall('joint')}
+
+    def origin(joint):
+        element = joint.find('origin')
+        frame = np.eye(4)
+        frame[:3, :3] = rotation(*map(float, element.get('rpy').split()))
+        frame[:3, 3] = list(map(float, element.get('xyz').split()))
+        return frame
+
+    def link(name):
+        frame = np.eye(4)
+        while name != 'base_link':
+            joint = joints[name]
+            frame = origin(joint) @ frame
+            name = joint.find('parent').get('link')
+        return frame
+
+    return {j.get('name'): link(j.find('parent').get('link')) @ origin(j) for j in model.findall('joint')
+            if j.find('parent').get('link') != 'base_footprint'}
+
+
+def test_head_pitch_origin_relative_to_arm_base_point():
+    # User 2026-11-03: arm-base-point = intersection of the left/right J1 axes; at the zero pose
+    # the H2 origin is [-19, 0, 246.250093] mm from it along base_link. H1 stays at +1 mm in X.
+    model = ET.parse(ENTRY).getroot()
+    frames = _joint_frames(model)
+
+    def axis(name):
+        direction = np.array(list(map(float, model.find(f"joint[@name='{name}']/axis").get('xyz').split())))
+        return frames[name][:3, 3], frames[name][:3, :3] @ direction
+
+    (pl, al), (pr, ar) = axis('left_joint1'), axis('right_joint1')
+    w = pl - pr
+    a, b, c, d, e = al @ al, al @ ar, ar @ ar, al @ w, ar @ w
+    left = pl + (b * e - c * d) / (a * c - b * b) * al
+    right = pr + (a * e - b * d) / (a * c - b * b) * ar
+    assert np.linalg.norm(left - right) < 1e-9
+    point = (left + right) / 2
+    # The J1 origins differ by micrometres left/right, so the intersection sits 0.005 mm off Y=0.
+    assert np.allclose((frames['H2_joint'][:3, 3] - point) * 1000, [-19.0, 0.0, 246.250093], atol=0.01)
+    assert np.allclose((frames['H1_joint'][:3, 3] - point) * 1000, [1.0, 0.0, 0.0], atol=0.01)
+    assert np.allclose(axis('H2_joint')[1], [0, -1, 0], atol=1e-6)  # rpy is pi/2 to 13 digits

@@ -2,7 +2,7 @@
   "source_bundle": "robot_urdf_stl_20261027",
   "coordinate_revision": "dual-zero-discrete-only-tool191-20261024",
   "source_urdf_sha256": "71ad6a6eaa6bf48bd376babd43c507dad5be58997e2b0b79be8591546a16c50e",
-  "target_urdf_sha256": "cc60c01753bf8bc7b95cdf21b1972a701e58a3a71596dc016820567239573119",
+  "target_urdf_sha256": "59862c6dae0e5806cadf44d3ca9a5bccdb1333e61b9d03e10e7630f6825f2f63",
   "alignment": "Fixed per-link rigid transform at q=0, anchored to shared arm_carriage. Kinematics unchanged; not globally equivalent at all q.",
   "scope": "left/right link1..7 collision only; existing tool collision and TCP retained",
   "links": {

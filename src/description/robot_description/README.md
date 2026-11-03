@@ -54,6 +54,8 @@ mesh/
 
 旧 `head_yaw/head` 和 `head_joint/head_pitch_joint` 已替换为 `H1_Link/H2_Link` 和 `H1_joint/H2_joint`，接入 `Leye_link`、`Reye_Link`、`mid360_Link` 及其固定关节。H1/H2 范围均为 ±180°，effort=10 N·m、velocity=5 rad/s 沿用旧头部配置。当前共 35 个 link、25 个活动关节。
 
+头部俯仰轴（2026-11-03 用户复核）：以左右 J1 轴线交点 arm-base-point 为原点、沿 base_link，零位下 H2 原点为 [−19, 0, 246.250093] mm，H1 原点为 [+1, 0, 0] mm；俯仰轴位于偏航轴后方 20 mm。H2 及其固定子连杆的外形、碰撞、惯性已按原世界位置补偿。左右 J1 原点本身有微米级左右差，交点 Y 约 +0.005 mm。
+
 左右眼按无质量视距范围处理，仅作半透明视觉显示，无惯性或碰撞几何。mid360 质量按用户指定为 0.375 kg；源传感器质心与惯量异常，当前采用网格包围盒的均匀实体近似，待实测替换。来源摘要、原始 mid360 惯性数据及近似方法见 `config/alfav3_mobile_manifest.json`。
 
 ## 零位和参数

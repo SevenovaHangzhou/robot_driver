@@ -45,6 +45,7 @@ class ConsoleConfig:
     sample_period: float  # s between trajectory points
     stop_lead: float  # s; the stop trajectory joins the running one this far ahead
     start_delay: float  # s; trajectory t = 0 is this far after the send time
+    hidden_view_links: tuple[str, ...] = ()  # 3D view only
 
     def gear(self, name: str) -> Gear:
         for gear in self.gears:
@@ -77,6 +78,7 @@ def config_from_mapping(document: Mapping) -> ConsoleConfig:
         sample_period=float(document["sample_period_s"]),
         stop_lead=float(document["stop_lead_s"]),
         start_delay=float(document["start_delay_s"]),
+        hidden_view_links=tuple(document.get("hidden_view_links", [])),
     )
     for name in ("sample_period", "stop_lead", "start_delay"):
         if not 0.0 < getattr(config, name) <= 0.1:

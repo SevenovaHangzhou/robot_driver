@@ -20,7 +20,7 @@ from ..audit import AuditLog
 from ..operators import Operators
 from ..session import PAGE_WS_HEARTBEAT_S, Sessions, same_origin
 from .console import ArmConsole, ConsoleError
-from .model import MESH_URL_PREFIX, ModelError, load_arm_model, resolve_mesh
+from .model import MESH_URL_PREFIX, ModelError, load_arm_model, resolve_mesh, without_visuals
 
 PAGE = "arm"
 STATUS_PERIOD_S = 0.05
@@ -134,10 +134,18 @@ class ArmPage:
                 return web.json_response(
                     {"error": "view_model_unavailable", "message": str(exc)}, status=503
                 )
+        urdf = None
+        if model:
+            try:
+                urdf = without_visuals(model.browser_urdf, self.console.config.hidden_view_links)
+            except ModelError as exc:
+                return web.json_response(
+                    {"error": "view_model_unavailable", "message": str(exc)}, status=503
+                )
         return web.json_response(
             {
                 **self.console.static_info(),
-                "urdf": model.browser_urdf if model else None,
+                "urdf": urdf,
                 "arm_links": list(model.arm_links) if model else [],
                 "view_model": self._view_metadata,
             }
