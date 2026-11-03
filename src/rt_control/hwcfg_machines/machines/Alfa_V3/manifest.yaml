@@ -19,7 +19,7 @@ parts:
 - manifest/bench_scopes.yaml
 robot_model:
   package: robot_description
-  source_revision: 0f0422de203023d85b0af8729561aee9c4ec3ceb
+  source_revision: 2b0950f1a5009dda1e93d4737b2894ccefed3734
   variants:
     # Alfav3 dual arms on the deployed mobile base; no named poses or initial positions (user 2026-10-17).
     mobile_proxy:

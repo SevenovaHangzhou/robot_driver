@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+### 头部俯仰原点
+
+- 2026-11-03：按用户复核值，零位下 H2 原点相对 arm-base-point（左右 J1 轴线交点，沿 base_link）为 [−19, 0, 246.250093] mm；H1 原点不变（+1 mm）。H2_joint 原点 x 0 → −0.020 m（H1_Link 系），H2_Link 的 visual/collision/inertial 与 Leye/Reye/mid360 固定关节原点反向补偿 +0.020 m，零位与纯偏航时头部外形、质量分布位置不变，俯仰时绕新轴转动。同步 MuJoCo、来源哈希与回归测试。
+
 ### 手臂碰撞几何导入
 
 - 2026-10-27：导入运控提供的14个手臂碰撞网格，以零位固定刚体变换转换到现有连杆坐标。保留原运动链、visual、惯性、工具碰撞与TCP；同步网格哈希和MuJoCo碰撞引用。转换来源与多姿态差异见 `config/arm_collision_import.json`，不宣称两套运动链全姿态等价。MuJoCo网格接触为凸包近似。

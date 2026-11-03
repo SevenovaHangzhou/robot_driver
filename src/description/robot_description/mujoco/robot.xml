@@ -198,18 +198,18 @@
             <joint name="H1_joint" range="-3.141592653589793 3.141592653589793" actuatorfrcrange="-10 10" axis="0 0 1" />
             <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_243" pos="0 0 0" />
             <geom quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_243" pos="0 0 0" />
-            <body name="H2_Link" pos="0 0 0.24625009252407" quat="0.70710678118654624 0.70710678118654879 0 0">
-              <inertial pos="-0.0152089027887525 0.0422440779975193 0.000136722359139303" mass="1.51565299644841" fullinertia="0.0017695557924900401 0.0012073921627625301 0.0017176200871382599 9.1652712271924895e-05 -5.0393452583865302e-08 -6.9993087952142899e-07" />
+            <body name="H2_Link" pos="-0.02 0 0.24625009252407" quat="0.70710678118654624 0.70710678118654879 0 0">
+              <inertial pos="0.0047910972112475 0.0422440779975193 0.000136722359139303" mass="1.51565299644841" fullinertia="0.0017695557924900401 0.0012073921627625301 0.0017176200871382599 9.1652712271924895e-05 -5.0393452583865302e-08 -6.9993087952142899e-07" />
               <joint name="H2_joint" range="-3.141592653589793 3.141592653589793" actuatorfrcrange="-10 10" axis="0 0 1" />
-              <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_244" pos="0 0 0" />
-              <geom quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_244" pos="0 0 0" />
-              <body name="Leye_link" pos="0.012866 0.11171 -0.06" quat="0.70710548251123628 -0.70710807985947355 0 0">
+              <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_244" pos="0.02 0 0" />
+              <geom quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_244" pos="0.02 0 0" />
+              <body name="Leye_link" pos="0.032866 0.11171 -0.06" quat="0.70710548251123628 -0.70710807985947355 0 0">
                 <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.85098 1 0.258824 0.15" density="0" mesh="description_mesh_245" pos="0 0 0" />
               </body>
-              <body name="Reye_Link" pos="0.012866 0.11171 0.06" quat="0.70710548251123628 -0.70710807985947355 0 0">
+              <body name="Reye_Link" pos="0.032866 0.11171 0.06" quat="0.70710548251123628 -0.70710807985947355 0 0">
                 <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.85098 1 0.258824 0.15" density="0" mesh="description_mesh_246" pos="0 0 0" />
               </body>
-              <body name="mid360_Link" pos="0.03857 0.066019 0" quat="0.69445725102369127 -0.69445980191229484 0.13314435823754572 -0.13314386917190779">
+              <body name="mid360_Link" pos="0.05857 0.066019 0" quat="0.69445725102369127 -0.69445980191229484 0.13314435823754572 -0.13314386917190779">
                 <inertial pos="0 0.014781538397073746 -0.01695144921541214" mass="0.375" fullinertia="0.00039156229099928004 0.00024438365360815451 0.00041021711772289311 0 0 0" />
                 <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.792157 0.819608 0.933333 1" density="0" mesh="description_mesh_247" pos="0 0 0" />
                 <geom quat="1 0 0 0" type="mesh" contype="1" conaffinity="1" rgba="0.5 0.5 0.5 0" mesh="description_mesh_247" pos="0 0 0" />

@@ -27,11 +27,11 @@ class TfContractTest(unittest.TestCase):
         self.assertEqual(source["source_branch"], "main")
         self.assertEqual(
             source["source_revision"],
-            "0f0422de203023d85b0af8729561aee9c4ec3ceb",
+            "2b0950f1a5009dda1e93d4737b2894ccefed3734",
         )
         self.assertEqual(
             source["source_tree"],
-            "7216b55a095236928c46b51e94ef07af3df5ad48",
+            "135f3e315e79ed2b94bc2ecbcb50163818ea676d",
         )
         self.assertEqual(source["model_family"], "alfa_v3")
         self.assertEqual(source["default_end_effector"], "mobile_proxy")
