@@ -149,7 +149,7 @@
             <geom quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_132" pos="0 0 0" />
             <body name="right_link2" quat="0.56098552679692981 -0.4304593345768789 -0.56098552679693281 0.43045933457687896" pos="0 0 0">
               <inertial pos="6.19011958091775E-06 -0.159107596371285 -0.00106836459257154" mass="3.96874956085377" fullinertia="0.0158655264734242 0.016193872891197 0.025872339295099901 -1.5199665805871799e-06 2.8179655016814602e-07 -2.5371284952645902e-06" />
-              <joint name="right_joint2" range="-1.6057029118347832 2.129301687433082" actuatorfrcrange="-647 647" axis="0 0 -1" />
+              <joint name="right_joint2" range="-2.129301687433082 1.6057029118347832" actuatorfrcrange="-647 647" axis="0 0 -1" />
               <geom pos="0 0 0" quat="1 0 0 0" type="mesh" contype="0" conaffinity="0" group="1" rgba="0.866667 0.909804 1 1" density="0" mesh="description_mesh_153" />
               <body name="right_link3" pos="0 -0.506000000045022 0" quat="0.49999999999999817 0.5 0.5 -0.50000000000000178">
                 <inertial pos="-1.25336350936811E-06 0.00557543862883625 -0.0578818391305252" mass="4.33246818012089" fullinertia="0.0279520979729889 0.028418409573254901 0.0116342114235482 2.0370158053218499e-06 7.1916592524993396e-06 -0.0037851374064702499" />
@@ -224,7 +224,7 @@
           <geom pos="-0.305 0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_013" rgba="0.5 0.5 0.5 0" />
           <body name="wheel1" pos="0 -0.03 0.23" quat="0.70710679065997395 0.70710677171312097 0 0">
             <inertial pos="3.5386183e-09 3.8364939e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
-            <joint name="wheel1_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <joint name="wheel1_joint" type="hinge" limited="false" actuatorfrcrange="-10 10" axis="0 0 1" />
             <geom pos="-0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_014" />
             <geom pos="-0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_014" rgba="0.5 0.5 0.5 0" />
           </body>
@@ -236,7 +236,7 @@
           <geom pos="-0.305 -0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_015" rgba="0.5 0.5 0.5 0" />
           <body name="wheel2" pos="0 -0.03 0.23" quat="0.70710679065997395 0.70710677171312097 0 0">
             <inertial pos="3.5386188e-09 3.8364939e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
-            <joint name="wheel2_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <joint name="wheel2_joint" type="hinge" limited="false" actuatorfrcrange="-10 10" axis="0 0 1" />
             <geom pos="-0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_016" />
             <geom pos="-0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_016" rgba="0.5 0.5 0.5 0" />
           </body>
@@ -248,7 +248,7 @@
           <geom pos="0.305 0.305 -0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_017" rgba="0.5 0.5 0.5 0" />
           <body name="wheel3" pos="0 -0.03 0.21" quat="0.70710679065997395 0.70710677171312097 0 0">
             <inertial pos="-3.538619e-09 3.8364972e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
-            <joint name="wheel3_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <joint name="wheel3_joint" type="hinge" limited="false" actuatorfrcrange="-10 10" axis="0 0 1" />
             <geom pos="0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_018" />
             <geom pos="0.305 -0.22 -0.335" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_018" rgba="0.5 0.5 0.5 0" />
           </body>
@@ -260,7 +260,7 @@
           <geom pos="0.305 -0.305 0.01" quat="-2.3205103333142417e-08 -0.99999999999999978 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_019" rgba="0.5 0.5 0.5 0" />
           <body name="wheel4" pos="0 -0.03 0.23" quat="0.70710679065997395 0.70710677171312097 0 0">
             <inertial pos="-3.5386178e-09 3.8364883e-10 -0.03" mass="2.251654" fullinertia="0.0062790399 0.0062790398000000004 0.011207086999999999 0 0 0" />
-            <joint name="wheel4_joint" actuatorfrcrange="-10 10" axis="0 0 1" />
+            <joint name="wheel4_joint" type="hinge" limited="false" actuatorfrcrange="-10 10" axis="0 0 1" />
             <geom pos="0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" mesh="description_mesh_020" />
             <geom pos="0.305 -0.22 0.275" quat="0.70710679065997395 0.70710677171312097 0 0" type="mesh" contype="1" conaffinity="1" mesh="description_mesh_020" rgba="0.5 0.5 0.5 0" />
           </body>

@@ -8,10 +8,11 @@ authorities:
   confirmation_date: '2026-10-14'
   confirmation_scope: User confirmed listed IDs/profile parameters and approved all
     five default entries in this task session
+  direction: user 2026-11-03 compared the bench head with the Robot Model view; motor and model
+    positive directions agree for H1 (yaw) and H2 (pitch)
 # Mechanical zero is the motor encoder zero for both joints (user 2026-10-30; bench readback
 # H1 -0.0029 rad, H2 -0.0002 rad at the confirmed zero pose).
-pending_facts:
-- model positive direction
+pending_facts: []
 robot_variant: Alfa_V3
 module: head_gimbal
 spec:
@@ -32,7 +33,7 @@ spec:
     maximum_speed_rad_s: 600.0
     robot_model_joint: H1_joint  # yaw (user 2026-10-30)
     device: devices/damiao_dm_j4310_2ec_v1_1.yaml
-    direction: TBD
+    direction: 1
   - can_id: 2
     master_id: 18
     velocity_limit: 0.2
@@ -41,5 +42,5 @@ spec:
     maximum_speed_rad_s: 600.0
     robot_model_joint: H2_joint  # pitch (user 2026-10-30)
     device: devices/damiao_dm_j4310_2ec_v1_1.yaml
-    direction: TBD
+    direction: 1
 master_system: damiao_head

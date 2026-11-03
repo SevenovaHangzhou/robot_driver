@@ -146,7 +146,11 @@ def main():
             dest = body.find('joint')
             dest.set('axis', joint.find('axis').get('xyz'))
             limit = joint.find('limit')
-            if joint.get('type') != 'continuous':
+            if joint.get('type') == 'continuous':
+                dest.set('type', 'hinge')
+                dest.set('limited', 'false')
+                dest.attrib.pop('range', None)
+            else:
                 dest.set('range', f'{limit.get("lower")} {limit.get("upper")}')
     for link in imported.findall('link'):
         body = bodies[link.get('name')]
@@ -224,11 +228,8 @@ def main():
         ET.SubElement(contact, 'exclude', body1=joint.find('parent').get('link'),
                       body2=joint.find('child').get('link'))
     write_xml(xml, ROOT / 'mujoco/robot.xml')
-    scene = ET.Element('mujoco', model=robot.get('name'))
-    ET.SubElement(scene, 'include', file='robot.xml')
-    ET.SubElement(scene, 'include', file='environment.xml')
-    write_xml(scene, ROOT / 'mujoco/scene.xml')
-    model = mujoco.MjModel.from_xml_path(str(ROOT / 'mujoco/scene.xml'))
+    # Complete scenes and environments belong to downstream simulation projects.
+    model = mujoco.MjModel.from_xml_path(str(ROOT / 'mujoco/robot.xml'))
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     assert model.nq == model.nv == model.nu == len(mapping)
