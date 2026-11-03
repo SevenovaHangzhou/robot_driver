@@ -821,7 +821,7 @@
     <parent link="right_link1" />
     <child link="right_link2" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.6057029118347832" upper="2.129301687433082" effort="647" velocity="1.3089969389957472" />
+    <limit lower="-2.129301687433082" upper="1.6057029118347832" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint3" type="revolute">
@@ -900,12 +900,12 @@
   </link>
   <link name="H2_Link">
     <inertial>
-      <origin xyz="-0.0152089027887525 0.0422440779975193 0.000136722359139303" rpy="0 0 0" />
+      <origin xyz="0.0047910972112475 0.0422440779975193 0.000136722359139303" rpy="0 0 0" />
       <mass value="1.51565299644841" />
       <inertia ixx="0.00176955579249004" ixy="9.16527122719249E-05" ixz="-5.03934525838653E-08" iyy="0.00120739216276253" iyz="-6.99930879521429E-07" izz="0.00171762008713826" />
     </inertial>
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
+      <origin xyz="0.02 0 0" rpy="0 0 0" />
       <geometry>
         <mesh filename="package://robot_description/mesh/head/H2_Link.STL" />
       </geometry>
@@ -914,7 +914,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
+      <origin xyz="0.02 0 0" rpy="0 0 0" />
       <geometry>
         <mesh filename="package://robot_description/mesh/head/H2_Link.STL" />
       </geometry>
@@ -972,26 +972,26 @@
     <limit lower="-3.141592653589793" upper="3.141592653589793" effort="10" velocity="5" />
   </joint>
   <joint name="H2_joint" type="revolute">
-    <origin xyz="0 0 0.24625009252407" rpy="1.5707963267949 0 0" />
+    <origin xyz="-0.02 0 0.24625009252407" rpy="1.5707963267949 0 0" />
     <parent link="H1_Link" />
     <child link="H2_Link" />
     <axis xyz="0 0 1" />
     <limit lower="-3.141592653589793" upper="3.141592653589793" effort="10" velocity="5" />
   </joint>
   <joint name="Leye_joint" type="fixed">
-    <origin xyz="0.012866 0.11171 -0.06" rpy="-1.5708 0 0" />
+    <origin xyz="0.032866 0.11171 -0.06" rpy="-1.5708 0 0" />
     <parent link="H2_Link" />
     <child link="Leye_link" />
     <axis xyz="0 0 0" />
   </joint>
   <joint name="Reye_joint" type="fixed">
-    <origin xyz="0.012866 0.11171 0.06" rpy="-1.5708 0 0" />
+    <origin xyz="0.032866 0.11171 0.06" rpy="-1.5708 0 0" />
     <parent link="H2_Link" />
     <child link="Reye_Link" />
     <axis xyz="0 0 0" />
   </joint>
   <joint name="mid360_joint" type="fixed">
-    <origin xyz="0.03857 0.066019 0" rpy="-1.5708 0 -0.37885" />
+    <origin xyz="0.05857 0.066019 0" rpy="-1.5708 0 -0.37885" />
     <parent link="H2_Link" />
     <child link="mid360_Link" />
     <axis xyz="0 0 0" />

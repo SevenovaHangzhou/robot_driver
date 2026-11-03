@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Installed entry point; logic lives in integ_operator_web.launcher."""
+
+import sys
+
+from integ_operator_web.launcher import main
+
+sys.exit(main())

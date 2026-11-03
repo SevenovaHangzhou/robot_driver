@@ -5,6 +5,7 @@ selected data, applies generic transforms and checks, and rejects duplicates.
 """
 
 from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path
 
 import yaml
@@ -20,6 +21,7 @@ KINDS = (
     "runtime",
     "policy_file",
     "state_ready",
+    "exports",
 )
 # A source that resolves to nothing contributes no parameter (keeps unrelated outputs unchanged).
 _SKIP = object()
@@ -48,6 +50,9 @@ def _transform(value, transform):
         return [item for group in value for item in group]
     if transform == "lengths":
         return [len(group) for group in value]
+    if transform == "rolling_axis_set_sha256":
+        # Rolling protocol axis-set identity (OpenRollingJointSession.srv axis_set_hash).
+        return sha256("".join(f"{joint}:rad:rad/s\n" for joint in value).encode()).hexdigest()
     raise ValueError(f"Unsupported parameter transform: {transform}")
 
 
@@ -113,7 +118,8 @@ def _controllers(source, env):
     names = [name for name in env["selected"] if source["tag"] in env["tags"][name]]
     select = source["select"]
     if select == "all":
-        return names
+        # ROS parameter YAML cannot carry a typed empty array; optional omits it instead.
+        return _SKIP if not names and source.get("optional") else names
     if select == "any":
         return bool(names)
     if select == "first":
@@ -162,6 +168,14 @@ def _evaluate(kind, source, name, binding, env):
     if kind == "state_ready":
         # Required state sources gate enabling through their "ready" state interfaces.
         return env.get("state_ready", []) or _SKIP
+    if kind == "exports":
+        # One list from every selected module that exports it, in module order.
+        values = [
+            item
+            for module in env["rendered_modules"].values()
+            for item in module.get("parameter_exports", {}).get(source["name"], [])
+        ]
+        return values or _SKIP
     raise ValueError(f"Unsupported parameter source: {kind}")
 
 
@@ -188,5 +202,11 @@ def controller_parameters(name, binding, env):
         duplicate = set(result).intersection(value)
         if duplicate:
             raise ValueError(f"Duplicate parameter source for {name}: {sorted(duplicate)}")
+        if kind == "policy_file" and "digest_as" in source[kind]:
+            # Digest of the exact text copied into the artifact, which artifact loading verifies.
+            text = env["runtime_files"][Path(value[target]).name]
+            value[source[kind]["digest_as"]] = sha256(text.encode("utf-8")).hexdigest()
+            if source[kind]["digest_as"] in result:
+                raise ValueError(f"Duplicate parameter source for {name}: {source[kind]['digest_as']}")
         result.update(value)
     return result

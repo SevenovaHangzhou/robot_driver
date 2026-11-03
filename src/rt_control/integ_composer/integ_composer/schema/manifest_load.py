@@ -6,15 +6,24 @@ from .primitives import load_and_validate, load_yaml, resolve_share_path, valida
 
 
 def read_manifest(path):
-    """manifest.yaml merged with the part files it lists under `parts` (not validated)."""
+    """manifest.yaml merged with the part files it lists under `parts` (not validated).
+
+    Parts may split one mapping (such as `scopes`) as long as no entry appears twice.
+    """
     path = Path(path)
     manifest = load_yaml(path)
     for part in manifest.pop("parts", []):
         piece = load_yaml(resolve_share_path(path.parent, part))
-        repeated = set(piece) & set(manifest)
-        if repeated:
-            raise ValueError(f"Manifest part {part} repeats {sorted(repeated)}")
-        manifest.update(piece)
+        for key, value in piece.items():
+            if key not in manifest:
+                manifest[key] = value
+            elif isinstance(manifest[key], dict) and isinstance(value, dict):
+                repeated = set(manifest[key]) & set(value)
+                if repeated:
+                    raise ValueError(f"Manifest part {part} repeats {key}: {sorted(repeated)}")
+                manifest[key].update(value)
+            else:
+                raise ValueError(f"Manifest part {part} repeats {key}")
     return manifest
 
 

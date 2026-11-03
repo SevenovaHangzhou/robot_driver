@@ -4,7 +4,7 @@ cases:
   - id: TC-AR-01
     title: 急停触发后的恢复路径
     purpose: 证明急停/安全链动作后系统 fail-closed，且按既定流程可恢复
-    area: protocol
+    area: control
     risk: T3
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native

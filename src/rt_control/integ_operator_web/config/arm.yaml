@@ -1,0 +1,96 @@
+# Arm console motion policy (ELECTRI-127, user decision 2026-10-17).
+# Gear limits act on the joint with the largest move; all joints arrive together.
+# Acceleration = 2 x velocity (user). Jerk: the acceleration ramp lasts 0.25 s.
+gears:
+  test_low5:
+    label: 测试低速5°/s
+    velocity_deg_s: 5.0
+    acceleration_deg_s2: 10.0
+    jerk_deg_s3: 40.0
+  test_low2:
+    label: 测试低速2°/s
+    velocity_deg_s: 2.0
+    acceleration_deg_s2: 4.0
+    jerk_deg_s3: 16.0
+  speed_3:
+    label: 3°/s
+    velocity_deg_s: 3.0
+    acceleration_deg_s2: 6.0
+    jerk_deg_s3: 24.0
+  speed_4:
+    label: 4°/s
+    velocity_deg_s: 4.0
+    acceleration_deg_s2: 8.0
+    jerk_deg_s3: 32.0
+  speed_6:
+    label: 6°/s
+    velocity_deg_s: 6.0
+    acceleration_deg_s2: 12.0
+    jerk_deg_s3: 48.0
+  speed_7:
+    label: 7°/s
+    velocity_deg_s: 7.0
+    acceleration_deg_s2: 14.0
+    jerk_deg_s3: 56.0
+  speed_8:
+    label: 8°/s
+    velocity_deg_s: 8.0
+    acceleration_deg_s2: 16.0
+    jerk_deg_s3: 64.0
+  speed_9:
+    label: 9°/s
+    velocity_deg_s: 9.0
+    acceleration_deg_s2: 18.0
+    jerk_deg_s3: 72.0
+  speed_11:
+    label: 11°/s
+    velocity_deg_s: 11.0
+    acceleration_deg_s2: 22.0
+    jerk_deg_s3: 88.0
+  speed_12:
+    label: 12°/s
+    velocity_deg_s: 12.0
+    acceleration_deg_s2: 24.0
+    jerk_deg_s3: 96.0
+  speed_13:
+    label: 13°/s
+    velocity_deg_s: 13.0
+    acceleration_deg_s2: 26.0
+    jerk_deg_s3: 104.0
+  speed_14:
+    label: 14°/s
+    velocity_deg_s: 14.0
+    acceleration_deg_s2: 28.0
+    jerk_deg_s3: 112.0
+  speed_15:
+    label: 15°/s
+    velocity_deg_s: 15.0
+    acceleration_deg_s2: 30.0
+    jerk_deg_s3: 120.0
+  leisure:
+    label: 10°/s（休闲）
+    velocity_deg_s: 10.0
+    acceleration_deg_s2: 20.0
+    jerk_deg_s3: 80.0
+  sport:
+    label: 30°/s（运动）
+    velocity_deg_s: 30.0
+    acceleration_deg_s2: 60.0
+    jerk_deg_s3: 240.0
+# Targets stay this far inside each Robot Model position limit.
+limit_margin_deg: 2.0
+# Planning and execution need joint feedback younger than this.
+max_feedback_age_s: 0.2
+# Below the left_arm_jtc start-consistency tolerance (1 deg).
+start_tolerance_deg: 0.5
+sample_period_s: 0.01
+# A stop trajectory joins the running motion this far ahead (< 1 deg at 30 deg/s).
+stop_lead_s: 0.02
+# Trajectory t = 0 (header.stamp) is this far after sending; covers transport delay.
+start_delay_s: 0.05
+# Links drawn without visuals in the page's 3D view (user 2026-11-03): sensor shells on the head
+# whose open meshes look like a hollow cover. The Robot Model itself is unchanged.
+hidden_view_links:
+- mid360_Link
+- Leye_link
+- Reye_Link

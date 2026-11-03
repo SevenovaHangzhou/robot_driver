@@ -39,12 +39,14 @@ constexpr std::int64_t kDefaultMaximumControllerPeriodMs = 8;
 constexpr std::int64_t kDefaultSchedulingGuardMs = 4;
 constexpr double kDefaultOpenFeedbackAgeLimitMs = 500.0;
 
-constexpr std::array<std::string_view, 22> kManagedParameterNames = {
+constexpr std::array<std::string_view, 24> kManagedParameterNames = {
   "configuration_source",
   "joints",
   "allow_test_only_configuration",
   "allow_provisional_configuration",
   "envelope_file",
+  "limits_version",
+  "axis_set_hash",
   "buffer_capacity",
   "max_horizon_ms",
   "required_initial_horizon_ms",
@@ -189,6 +191,8 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_init()
   auto_declare<bool>("allow_test_only_configuration", false);
   auto_declare<bool>("allow_provisional_configuration", false);
   auto_declare<std::string>("envelope_file", "");
+  auto_declare<std::string>("limits_version", "");
+  auto_declare<std::string>("axis_set_hash", "");
   auto_declare<std::int64_t>("buffer_capacity", kDefaultBufferCapacity);
   auto_declare<std::int64_t>("max_horizon_ms", kDefaultMaxHorizonMs);
   auto_declare<std::int64_t>("required_initial_horizon_ms", kDefaultRequiredInitialHorizonMs);
@@ -374,6 +378,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   const bool allow_provisional =
     get_node()->get_parameter("allow_provisional_configuration").as_bool();
   const std::string envelope_file = get_node()->get_parameter("envelope_file").as_string();
+  const std::string limits_version = get_node()->get_parameter("limits_version").as_string();
   if (
     (source == "test_only" && !allow_test_only) ||
     (source == "provisional" && !allow_provisional) ||
@@ -391,7 +396,13 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
     return controller_interface::CallbackReturn::ERROR;
   }
 
-  axis_set_hash_ = computeAxisSetHash(runtime_configuration_.joints);
+  if (!parseSha256Hex(
+        get_node()->get_parameter("axis_set_hash").as_string(), axis_set_hash_,
+        configuration_error)) {
+    RCLCPP_ERROR(
+      get_node()->get_logger(), "Invalid rolling axis_set_hash: %s", configuration_error.c_str());
+    return controller_interface::CallbackReturn::ERROR;
+  }
 
   BufferConfiguration buffer_configuration;
   buffer_configuration.capacity = runtime_configuration_.buffer_capacity;
@@ -403,17 +414,20 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   buffer_configuration.splice_velocity_tolerance =
     runtime_configuration_.splice_velocity_tolerances;
   if (source == "test_only") {
-    if (!envelope_file.empty()) {
+    if (!envelope_file.empty() || !limits_version.empty()) {
       RCLCPP_ERROR(
         get_node()->get_logger(),
-        "Test-only rolling configuration must not provide an envelope file");
+        "Test-only rolling configuration must not provide an envelope file or limits_version");
       return controller_interface::CallbackReturn::ERROR;
     }
     envelope_ = makeTestOnlyEnvelope();
   } else {
     std::string envelope_error;
-    if (!loadProvisionalEnvelope(
-          envelope_file, runtime_configuration_.joints, envelope_, envelope_error)) {
+    std::array<std::uint8_t, 32> version{};
+    if (
+      !parseSha256Hex(limits_version, version, envelope_error) ||
+      !loadProvisionalEnvelope(
+        envelope_file, runtime_configuration_.joints, version, envelope_, envelope_error)) {
       RCLCPP_ERROR(
         get_node()->get_logger(), "Failed to load provisional rolling envelope: %s",
         envelope_error.c_str());

@@ -29,8 +29,17 @@ def render(request: Mapping[str, object]) -> Mapping[str, object]: ...
 
 def preflight(
     expected_topology: Mapping[str, object], *, run=None
-) -> None: ...
+) -> list[Mapping[str, object]]: ...
 ```
+
+`preflight` is read-only and runs before any node. It returns one finding per problem
+instead of raising: `address` (the same keys as the owner's `diagnostic_devices`
+address, e.g. `master_id`/`ring_position` or `can_interface`), `problem`
+(`offline`, `identity_mismatch`, `topology_mismatch`, `configuration_mismatch`,
+`already_controlled`, `position_window`, `fault_code`), `detail`, `blocking`, and
+for `fault_code` the raw vendor `fault_code`. A bus-level problem may end the scan.
+Integration maps findings to DREE codes and locations (`integ_composer.self_check`)
+and refuses to start on any blocking finding.
 
 Reject API versions other than 1 before invoking a renderer. Find shared and
 owner-private schemas through the ament index in their installed share
@@ -152,6 +161,12 @@ children. The optional `gpios` list preserves GPIO hardware declarations
 For non-EtherCAT modules, `managed_joints` follows the declared machine input
 order after selecting axes exposing `control_word`. Do not invent ring positions
 for other transports. Policy/batch order is independent and stays explicit.
+
+Optional result `diagnostic_devices` lists the devices of this result for the
+diagnostics node: `name`, `role`, bus `address`, optional `identity`, the rendered
+`state` interfaces it reads (role -> `<prefix>/<interface>`), optional `expected`
+values and `allowed_startup_codes`, and the `device` fact reference whose
+`fault_table` the composer attaches. Bus-level entries set `bus: true`.
 
 Runtime paths must not be absolute or contain `..`. Render neither writes files
 nor accesses devices. The composer writes `runtime_files` after validation.
