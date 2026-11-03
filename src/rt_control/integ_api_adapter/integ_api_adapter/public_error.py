@@ -12,6 +12,7 @@ class PublicErrorCode(enum.IntEnum):
     INVALID_GOAL = 4
     CANCELED = 80
 
+    RT_DEVICE_OFFLINE = 1001
     RT_ENABLE_FAILED = 1021
     RT_PUMP_UNAVAILABLE = 1022
     RT_RESET_FAILED = 1023

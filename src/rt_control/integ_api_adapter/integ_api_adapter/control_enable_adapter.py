@@ -229,6 +229,9 @@ class ControlEnableAdapterCore:
     ) -> PublicErrorCode:
         if stage == "operation_in_progress":
             return PublicErrorCode.RT_OPERATION_IN_PROGRESS
+        if stage == "device_offline":
+            # enable_manager saw stale bus/device feedback before starting.
+            return PublicErrorCode.RT_DEVICE_OFFLINE
         if stage == "restart_required":
             return PublicErrorCode.RT_RESTART_REQUIRED
         return fallback

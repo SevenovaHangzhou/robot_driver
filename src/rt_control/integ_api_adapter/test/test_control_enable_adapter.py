@@ -169,3 +169,31 @@ def test_enable_reports_internal_service_unavailable():
     assert result.error.retryable
     assert result.error.origin == "rt_control"
     assert "/rt/enable timed out" in result.error.message
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "results", "calls"),
+    [
+        (
+            DiagnosticSnapshot(state="IDLE", stage="success"),
+            {"enable": RtServiceResult(ok=False, stage="device_offline")},
+            ["enable"],
+        ),
+        (
+            DiagnosticSnapshot(state="FAILED", stage="fault_requires_reset"),
+            {"reset_fault": RtServiceResult(ok=False, stage="device_offline")},
+            ["reset_fault"],
+        ),
+    ],
+)
+def test_offline_devices_report_rt_device_offline(snapshot, results, calls):
+    services = FakeRtServices(results)
+    adapter = ControlEnableAdapterCore(services, FakeDiagnostics(snapshot))
+
+    result = adapter.set_enabled(True, reason="operator")
+
+    assert services.calls == calls
+    assert not result.accepted
+    assert result.error.code == PublicErrorCode.RT_DEVICE_OFFLINE == 1001
+    assert not result.error.retryable
+    assert "device_offline" in result.error.message
