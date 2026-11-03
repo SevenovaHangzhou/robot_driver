@@ -22,6 +22,9 @@ find_package(std_msgs REQUIRED)
 
 add_library(enable_manager_controller SHARED
   src/enable_manager_controller.cpp
+  src/enable_manager_configure.cpp
+  src/enable_manager_mode_switch.cpp
+  src/enable_manager_services.cpp
   src/handshake_device.cpp
 )
 target_compile_features(enable_manager_controller PUBLIC cxx_std_17)
