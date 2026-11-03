@@ -17,15 +17,15 @@
     },
     "batch_timeout": {
       "type": "number",
-      "minimum": 0
+      "exclusiveMinimum": 0
     },
     "disable_stage_timeout": {
       "type": "number",
-      "minimum": 0
+      "exclusiveMinimum": 0
     },
     "fault_reset_timeout": {
       "type": "number",
-      "minimum": 0
+      "exclusiveMinimum": 0
     },
     "inter_batch_delay": {
       "type": "number",
@@ -33,11 +33,11 @@
     },
     "controller_switch_timeout": {
       "type": "number",
-      "minimum": 0
+      "exclusiveMinimum": 0
     },
     "service_result_timeout_ms": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 1
     },
     "enable_batches": {
       "type": "array",
@@ -45,7 +45,9 @@
         "type": "array",
         "items": {
           "type": "string"
-        }
+        },
+        "minItems": 1,
+        "maxItems": 3
       }
     },
     "ready_to_switch_on_disable_terminal_joints": {
@@ -79,7 +81,9 @@
               "type": "array",
               "items": {
                 "type": "string"
-              }
+              },
+              "minItems": 1,
+              "maxItems": 3
             }
           },
           "enable_only": {
@@ -109,7 +113,8 @@
           },
           "batch_size": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 3
           }
         },
         "required": [
