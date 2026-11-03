@@ -531,3 +531,16 @@ def test_renderer_api_rejected_before_invocation(monkeypatch):
     monkeypatch.setattr(importlib, "import_module", lambda name: Renderer())
     with pytest.raises(ValueError, match="Unsupported renderer API"):
         select_renderer({"synthetic_transport": "synthetic_owner"}, "synthetic_transport")
+
+
+def test_manifest_parts_split_one_mapping_but_never_repeat_an_entry(tmp_path):
+    (tmp_path / "a.yaml").write_text("scopes:\n  one: {render_mode: normal}\n")
+    (tmp_path / "b.yaml").write_text("scopes:\n  two: {render_mode: normal}\n")
+    (tmp_path / "manifest.yaml").write_text("kind: manifest\nparts: [a.yaml, b.yaml]\n")
+    assert sorted(read_manifest(tmp_path / "manifest.yaml")["scopes"]) == ["one", "two"]
+    (tmp_path / "b.yaml").write_text("scopes:\n  one: {render_mode: stationary_enable}\n")
+    with pytest.raises(ValueError, match=r"repeats scopes: \['one'\]"):
+        read_manifest(tmp_path / "manifest.yaml")
+    (tmp_path / "b.yaml").write_text("kind: other\n")
+    with pytest.raises(ValueError, match="repeats kind"):
+        read_manifest(tmp_path / "manifest.yaml")
