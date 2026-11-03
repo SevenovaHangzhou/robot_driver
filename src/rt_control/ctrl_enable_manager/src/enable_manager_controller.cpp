@@ -65,6 +65,8 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
   auto_declare<std::string>("jtc_name", "whole_body_jtc");
+  // Further controllers switched in the same request as jtc_name (e.g. a head next to the arms).
+  auto_declare<std::vector<std::string>>("companion_controllers", {});
   auto_declare<bool>("enable_only", false);
   auto_declare<std::string>("disable_terminal_policy", "joint_list");
   // Runtime-LOG: copy the state machine into a shared-memory ring every cycle (optional).
@@ -169,6 +171,16 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   jtc_name_ = get_node()->get_parameter("jtc_name").as_string();
   enable_only_ = get_node()->get_parameter("enable_only").as_bool();
   motion_mode_switching_ = get_node()->get_parameter("motion_mode_switching").as_bool();
+  const auto companions = get_node()->get_parameter("companion_controllers").as_string_array();
+  switched_controllers_ = {jtc_name_};
+  switched_controllers_.insert(switched_controllers_.end(), companions.begin(), companions.end());
+  const bool companions_valid =
+    companions.empty() ||
+    (!enable_only_ && !motion_mode_switching_ &&
+     std::none_of(
+       companions.begin(), companions.end(), [](const auto & name) { return name.empty(); }) &&
+     std::set<std::string>(switched_controllers_.begin(), switched_controllers_.end()).size() ==
+       switched_controllers_.size());
   const auto modes = get_node()->get_parameter("expected_modes").as_integer_array();
   if (
     !modes.empty() && (modes.size() != joint_names_.size() || motion_mode_switching_ ||
@@ -279,7 +291,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     disable_stage_timeout_seconds_ <= 0.0 || inter_batch_delay_seconds_ < 0.0 ||
     fault_reset_timeout_seconds_ <= 0.0 || controller_switch_timeout_seconds_ <= 0.0 ||
     service_timeout <= 0 || (enable_only_ ? !jtc_name_.empty() : jtc_name_.empty()) ||
-    !motion_parameters_valid) {
+    !motion_parameters_valid || !companions_valid) {
     RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager timing or controller parameter");
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -462,6 +474,7 @@ rcl_interfaces::msg::SetParametersResult EnableManagerController::validateTopolo
   for (const auto & parameter : parameters) {
     if (
       parameter.get_name() == "enable_only" || parameter.get_name() == "jtc_name" ||
+      parameter.get_name() == "companion_controllers" ||
       parameter.get_name() == "disable_terminal_policy" ||
       parameter.get_name() == "expected_modes" || parameter.get_name() == "motion_mode_switching" ||
       parameter.get_name() == "ready_state_interfaces" ||
@@ -2045,6 +2058,7 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
     return SwitchResult::kAmbiguous;
   }
 
+  auto targets = switched_controllers_;
   if (!activate && list_client_->wait_for_service(std::chrono::milliseconds(0))) {
     auto list_request = std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
     auto list_future = list_client_->async_send_request(list_request);
@@ -2052,21 +2066,20 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
       list_future.wait_for(std::chrono::duration<double>(controller_switch_timeout_seconds_));
     if (list_wait_status == std::future_status::ready) {
       const auto list_response = list_future.get();
-      bool found_jtc = false;
+      // STRICT rejects deactivating an inactive controller: stop only the active ones.
+      targets.clear();
       if (list_response != nullptr) {
         for (const auto & controller : list_response->controller) {
-          if (controller.name != jtc_name_) {
-            continue;
+          if (
+            controller.state == "active" &&
+            std::find(
+              switched_controllers_.begin(), switched_controllers_.end(), controller.name) !=
+              switched_controllers_.end()) {
+            targets.push_back(controller.name);
           }
-          found_jtc = true;
-          if (controller.state != "active") {
-            clear_in_progress();
-            return SwitchResult::kSuccess;
-          }
-          break;
         }
       }
-      if (!found_jtc) {
+      if (targets.empty()) {
         clear_in_progress();
         return SwitchResult::kSuccess;
       }
@@ -2075,9 +2088,9 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
 
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
   if (activate) {
-    request->activate_controllers.push_back(jtc_name_);
+    request->activate_controllers = targets;
   } else {
-    request->deactivate_controllers.push_back(jtc_name_);
+    request->deactivate_controllers = targets;
   }
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;

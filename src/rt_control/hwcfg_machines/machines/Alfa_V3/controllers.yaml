@@ -176,6 +176,11 @@ controllers:
         select: first
         default: ''
         as: jtc_name
+    - controllers:
+        tag: enable_companion
+        select: all
+        optional: true
+        as: companion_controllers
     - policy:
         name: enable
         path: expected_modes
@@ -260,7 +265,9 @@ controllers:
     actuator_groups:
     - position_velocity
     required_state_modules: []
-    tags: []
+    # Next to the arms, enable_manager activates it together with the trajectory controller.
+    tags:
+    - enable_companion
     capabilities:
     - name: head_position
       topic: /head_position_controller/commands

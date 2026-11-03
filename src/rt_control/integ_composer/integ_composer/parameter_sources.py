@@ -117,7 +117,8 @@ def _controllers(source, env):
     names = [name for name in env["selected"] if source["tag"] in env["tags"][name]]
     select = source["select"]
     if select == "all":
-        return names
+        # ROS parameter YAML cannot carry a typed empty array; optional omits it instead.
+        return _SKIP if not names and source.get("optional") else names
     if select == "any":
         return bool(names)
     if select == "first":

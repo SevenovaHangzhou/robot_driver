@@ -385,6 +385,7 @@ private:
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
   std::string jtc_name_{"whole_body_jtc"};
+  std::vector<std::string> switched_controllers_{"whole_body_jtc"};  // jtc_name + companions
   bool enable_only_{false};
   bool motion_mode_switching_{false};
   std::vector<std::string> motion_controller_names_{
