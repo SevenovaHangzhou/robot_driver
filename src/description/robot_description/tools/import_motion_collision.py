@@ -179,6 +179,7 @@ def main():
             )
         checks[pose] = {"q_rad": q, "maximum_collision_vertex_separation_m": max(errs)}
     info["pose_comparison"] = checks
+    info["pose_comparison_scope"] = 'Kinematic comparison poses, not executable targets. right_joint2=+122 degrees exceeds the current +92 degree upper limit. Limit-only changes do not alter these FK comparisons.'
     (a.root / "config/arm_collision_import.json").write_text(
         json.dumps(info, ensure_ascii=False, indent=2) + "\n"
     )

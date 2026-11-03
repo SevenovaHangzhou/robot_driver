@@ -10,7 +10,7 @@ metadata:
   warning: Base arm zero follows the Alfav3 export. left_joint5 model zero is offset
     +180 deg about its local axis; right_joint5 retains its export zero. Hardware
     encoder calibration is separate.
-    Arm J2 limits are -92 to +122 degrees on both sides; other arm limits remain symmetric. Actuator caps follow V3 eRob specifications. Zero
+    Arm J2 limits are -92 to +122 degrees on the left and -122 to +92 degrees on the right; other arm limits remain symmetric. Actuator caps follow V3 eRob specifications. Zero
     friction/damping are placeholders, not identified hardware values.
 joints:
   updown:
@@ -80,8 +80,8 @@ joints:
     max_velocity_rad_s: 1.3089969389957472
   right_joint2:
     type: revolute
-    lower_position_rad: -1.6057029118347832
-    upper_position_rad: 2.129301687433082
+    lower_position_rad: -2.129301687433082
+    upper_position_rad: 1.6057029118347832
     max_effort: 647
     max_velocity_rad_s: 1.3089969389957472
   right_joint3:

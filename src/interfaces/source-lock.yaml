@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# Review candidate only: GitHub robot_interfaces#11 / equivalent Gitea#12 tree.
-commit: ea582c8a711874813d2ad7f0801b366bd32ab67e
+# robot_interfaces main after #11 (V3 RT contract) and #12 (device DREE codes).
+commit: c82f0e40937453f1f8fb104822c2e91e9fb8d742
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:

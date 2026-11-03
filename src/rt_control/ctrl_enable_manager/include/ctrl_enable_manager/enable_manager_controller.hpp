@@ -118,7 +118,8 @@ private:
     kJtcActivateFailed,
     kJtcDeactivateFailed,
     kControllerUpdateTimeout,
-    kRestartRequired
+    kRestartRequired,
+    kDeviceOffline
   };
 
   struct ResultSlot
@@ -165,8 +166,6 @@ private:
   static const char * phaseName(Phase phase);
   static bool isFaultState(DriveState state);
   static std::uint64_t steadyNowNs() noexcept;
-  static std::uint64_t encodeDouble(double value) noexcept;
-  static double decodeDouble(std::uint64_t bits) noexcept;
   static bool isZeroIdentifier(const std::array<std::uint8_t, 16U> & identifier) noexcept;
   bool isConfirmedDisableTerminal(std::size_t axis, DriveState state) const;
   bool configureTopology();
@@ -298,6 +297,9 @@ private:
   bool allDevicesEnabled() const noexcept;
   bool allDevicesDisabledOrFaulted() const noexcept;
   bool allDeviceResetsComplete() const noexcept;
+  // Index into feedback_age_names_ of the first stale source, -1 when every source is fresh.
+  int staleFeedback() const noexcept;
+  bool rejectIfOffline(ResultSlot & slot);
   bool stateSourcesReady() const noexcept;
   void handleMotionFault();
 
@@ -320,8 +322,10 @@ private:
   std::atomic_bool mode_callback_active_{false};
   std::atomic_bool mode_abort_requested_{false};
   std::atomic<ControlMode> current_control_mode_{ControlMode::kDisabled};
-  std::array<std::atomic<std::uint64_t>, kMotionAxisCount> actual_position_bits_{};
-  std::atomic<std::uint64_t> actual_feedback_age_bits_{0U};
+  // Realtime writers and service readers share these; the doubles must stay lock-free.
+  static_assert(std::atomic<double>::is_always_lock_free);
+  std::array<std::atomic<double>, kMotionAxisCount> actual_sample_positions_{};
+  std::atomic<double> actual_sample_feedback_age_ms_{0.0};
   std::atomic<std::uint64_t> actual_sample_time_ns_{0U};
   std::atomic<std::uint64_t> actual_sample_sequence_{0U};
   std::atomic<std::uint64_t> actual_sample_version_{0U};
@@ -351,6 +355,12 @@ private:
   // Required state sources (e.g. external encoders) gate the first enable batch.
   std::vector<std::string> ready_state_names_;
   std::vector<std::size_t> ready_state_indices_;
+  // Bus/device feedback ages (ms) checked before an enable or reset starts: a powered-off drive
+  // keeps its last status word, so its state must not be judged while its feedback is stale.
+  std::vector<std::string> feedback_age_names_;
+  std::vector<std::size_t> feedback_age_indices_;
+  double feedback_age_limit_ms_{100.0};
+  std::atomic<int> offline_feedback_{-1};
   double ready_hold_seconds_{0.05};
   std::int64_t ready_since_ns_{-1};
   bool state_sources_qualified_{false};
@@ -365,7 +375,7 @@ private:
   // Extra state values copied into diagnostics: <diagnostic_joints>/<diagnostic_joint_interfaces>.
   std::vector<std::string> diagnostic_state_names_;
   std::vector<std::size_t> diagnostic_state_indices_;
-  std::unique_ptr<std::atomic<std::uint64_t>[]> diagnostic_state_bits_;
+  std::unique_ptr<std::atomic<double>[]> diagnostic_state_values_;
   std::size_t current_batch_{0U};
   std::uint8_t downward_stage_{0U};
   std::int64_t stage_deadline_ns_{0};
@@ -385,6 +395,7 @@ private:
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
   std::string jtc_name_{"whole_body_jtc"};
+  std::vector<std::string> switched_controllers_{"whole_body_jtc"};  // jtc_name + companions
   bool enable_only_{false};
   bool motion_mode_switching_{false};
   std::vector<std::string> motion_controller_names_{

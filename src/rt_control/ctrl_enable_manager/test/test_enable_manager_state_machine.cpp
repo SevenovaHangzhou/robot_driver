@@ -883,7 +883,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExpli
 {
   auto parameters = parametersWithFixtureTopology(
     {rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
-     rclcpp::Parameter("controller_switch_timeout", 0.0)});
+     rclcpp::Parameter("jtc_name", std::string(""))});
   parameters.erase(
     std::remove_if(
       parameters.begin(), parameters.end(),
@@ -899,7 +899,8 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExpli
     controller_interface::CallbackReturn::ERROR);
   controller_->get_node()->set_parameter(
     rclcpp::Parameter("disable_terminal_policy", std::string("joint_list")));
-  controller_->get_node()->set_parameter(rclcpp::Parameter("controller_switch_timeout", 4.0));
+  controller_->get_node()->set_parameter(
+    rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")));
   EXPECT_EQ(
     controller_->on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::ERROR);
@@ -1061,7 +1062,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
 {
   rclcpp::NodeOptions options;
   options.parameter_overrides(parametersWithFixtureTopology({
-    rclcpp::Parameter("batch_timeout", 0.0),
+    rclcpp::Parameter("jtc_name", std::string("")),
     rclcpp::Parameter("update_rate", 1000),
   }));
   options.allow_undeclared_parameters(true);
@@ -1074,7 +1075,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
     controller_interface::CallbackReturn::ERROR);
 
   const auto result = controller_->get_node()->set_parameters_atomically({
-    rclcpp::Parameter("batch_timeout", kBatchTimeout),
+    rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
     rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
     rclcpp::Parameter(
       "enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
@@ -1092,28 +1093,8 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
     ::testing::ElementsAre("axis_c/control_word", "axis_a/control_word", "axis_b/control_word"));
 }
 
-TEST_F(EnableManagerFixture, ConfigureRejectsTopologyThatDoesNotCoverEveryManagedJointOnce)
-{
-  rclcpp::NodeOptions options;
-  options.parameter_overrides({
-    rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_a", "axis_b"}),
-    rclcpp::Parameter("enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_a"}),
-    rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2}),
-    rclcpp::Parameter("ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{}),
-    rclcpp::Parameter("update_rate", 1000),
-  });
-  options.allow_undeclared_parameters(true);
-  options.automatically_declare_parameters_from_overrides(true);
-
-  ASSERT_EQ(
-    controller_->init("enable_manager_invalid_topology", "", options),
-    controller_interface::return_type::OK);
-  EXPECT_EQ(
-    controller_->on_configure(rclcpp_lifecycle::State()),
-    controller_interface::CallbackReturn::ERROR);
-}
-
-TEST_F(EnableManagerFixture, ConfigureRejectsInvalidBatchAndDisablePolicyShapes)
+// Batch shape and coverage are checked once by the composer (enable policy schema/partition).
+TEST_F(EnableManagerFixture, ConfigureRejectsEmptyTopologyAndInvalidTerminalJoints)
 {
   struct InvalidTopology
   {
@@ -1124,10 +1105,6 @@ TEST_F(EnableManagerFixture, ConfigureRejectsInvalidBatchAndDisablePolicyShapes)
   };
   const std::vector<InvalidTopology> invalid_topologies{
     {{}, {}, {1}, {}},
-    {{"axis_a"}, {"axis_a"}, {0}, {}},
-    {{"axis_a", "axis_b", "axis_c", "axis_d"}, {"axis_a", "axis_b", "axis_c", "axis_d"}, {4}, {}},
-    {{"axis_a", "axis_b"}, {"axis_a"}, {1}, {}},
-    {{"axis_a"}, {"unknown"}, {1}, {}},
     {{"axis_a"}, {"axis_a"}, {1}, {"unknown"}},
     {{"axis_a"}, {"axis_a"}, {1}, {"axis_a", "axis_a"}},
   };
@@ -1154,65 +1131,6 @@ TEST_F(EnableManagerFixture, ConfigureRejectsInvalidBatchAndDisablePolicyShapes)
       controller_interface::CallbackReturn::ERROR);
   }
 }
-
-struct NonFiniteTimingCase
-{
-  const char * parameter_name;
-  double value;
-  const char * test_name;
-};
-
-class EnableManagerNonFiniteTimingTest : public EnableManagerFixture,
-                                         public ::testing::WithParamInterface<NonFiniteTimingCase>
-{
-};
-
-TEST_P(EnableManagerNonFiniteTimingTest, ConfigureRejectsNonFiniteValue)
-{
-  const auto & test_case = GetParam();
-  rclcpp::NodeOptions options;
-  options.parameter_overrides(parametersWithFixtureTopology({
-    rclcpp::Parameter(test_case.parameter_name, test_case.value),
-    rclcpp::Parameter("update_rate", 1000),
-  }));
-  options.allow_undeclared_parameters(true);
-  options.automatically_declare_parameters_from_overrides(true);
-
-  ASSERT_EQ(
-    controller_->init(std::string("enable_manager_non_finite_") + test_case.test_name, "", options),
-    controller_interface::return_type::OK);
-  EXPECT_EQ(
-    controller_->on_configure(rclcpp_lifecycle::State()),
-    controller_interface::CallbackReturn::ERROR);
-}
-
-INSTANTIATE_TEST_SUITE_P(
-  TimingParameters, EnableManagerNonFiniteTimingTest,
-  ::testing::Values(
-    NonFiniteTimingCase{
-      "batch_timeout", std::numeric_limits<double>::quiet_NaN(), "BatchTimeoutNaN"},
-    NonFiniteTimingCase{
-      "batch_timeout", std::numeric_limits<double>::infinity(), "BatchTimeoutInfinity"},
-    NonFiniteTimingCase{
-      "disable_stage_timeout", std::numeric_limits<double>::quiet_NaN(), "DisableStageTimeoutNaN"},
-    NonFiniteTimingCase{
-      "disable_stage_timeout", std::numeric_limits<double>::infinity(),
-      "DisableStageTimeoutInfinity"},
-    NonFiniteTimingCase{
-      "inter_batch_delay", std::numeric_limits<double>::quiet_NaN(), "InterBatchDelayNaN"},
-    NonFiniteTimingCase{
-      "inter_batch_delay", std::numeric_limits<double>::infinity(), "InterBatchDelayInfinity"},
-    NonFiniteTimingCase{
-      "fault_reset_timeout", std::numeric_limits<double>::quiet_NaN(), "FaultResetTimeoutNaN"},
-    NonFiniteTimingCase{
-      "fault_reset_timeout", std::numeric_limits<double>::infinity(), "FaultResetTimeoutInfinity"},
-    NonFiniteTimingCase{
-      "controller_switch_timeout", std::numeric_limits<double>::quiet_NaN(),
-      "ControllerSwitchTimeoutNaN"},
-    NonFiniteTimingCase{
-      "controller_switch_timeout", std::numeric_limits<double>::infinity(),
-      "ControllerSwitchTimeoutInfinity"}),
-  [](const ::testing::TestParamInfo<NonFiniteTimingCase> & info) { return info.param.test_name; });
 
 TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)
 {
@@ -2477,6 +2395,76 @@ std::map<std::string, double> latestTraceCycle(const std::string & name, std::ui
   }
   close(fd);
   return values;
+}
+
+TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryController)
+{
+  initAndConfigure(
+    "companion_switch_test",
+    {rclcpp::Parameter(
+      "companion_controllers", std::vector<std::string>{"head_position_controller"})});
+  activate();
+  auto manager = std::make_shared<rclcpp::Node>("companion_switch_manager");
+  std::mutex mutex;
+  std::vector<controller_manager_msgs::srv::SwitchController::Request> requests;
+  auto service = manager->create_service<controller_manager_msgs::srv::SwitchController>(
+    "/controller_manager/switch_controller",
+    [&](
+      const std::shared_ptr<controller_manager_msgs::srv::SwitchController::Request> request,
+      std::shared_ptr<controller_manager_msgs::srv::SwitchController::Response> reply) {
+      std::lock_guard<std::mutex> lock(mutex);
+      requests.push_back(*request);
+      reply->ok = true;
+    });
+  // Only the head is still active when the disable path stops the controllers.
+  auto list = manager->create_service<controller_manager_msgs::srv::ListControllers>(
+    "/controller_manager/list_controllers",
+    [](
+      const std::shared_ptr<controller_manager_msgs::srv::ListControllers::Request>,
+      std::shared_ptr<controller_manager_msgs::srv::ListControllers::Response> reply) {
+      for (const auto & [name, state] :
+           {std::pair{"whole_body_jtc", "inactive"},
+            std::pair{"head_position_controller", "active"}}) {
+        controller_manager_msgs::msg::ControllerState entry;
+        entry.name = name;
+        entry.state = state;
+        reply->controller.push_back(entry);
+      }
+    });
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(manager);
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  std::thread spin([&] { executor.spin(); });
+  const bool available =
+    Access::waitForControllerManagerServices(*controller_, std::chrono::seconds(2));
+  const auto activated = available ? Access::switchJtc(*controller_, true) : SwitchResult::kFailed;
+  const auto deactivated =
+    available ? Access::switchJtc(*controller_, false) : SwitchResult::kFailed;
+  executor.cancel();
+  spin.join();
+  ASSERT_TRUE(available);
+  EXPECT_EQ(activated, SwitchResult::kSuccess);
+  EXPECT_EQ(deactivated, SwitchResult::kSuccess);
+  ASSERT_EQ(requests.size(), 2U);
+  EXPECT_EQ(
+    requests[0].activate_controllers,
+    (std::vector<std::string>{"whole_body_jtc", "head_position_controller"}));
+  EXPECT_TRUE(requests[0].deactivate_controllers.empty());
+  EXPECT_EQ(
+    requests[1].deactivate_controllers, std::vector<std::string>{"head_position_controller"});
+}
+
+TEST_F(EnableManagerFixture, CompanionControllersMustBeDistinctFromTheTrajectoryController)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(parametersWithFixtureTopology(
+    {rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+     rclcpp::Parameter("companion_controllers", std::vector<std::string>{"whole_body_jtc"})}));
+  ASSERT_EQ(
+    controller_->init("duplicate_companion", "", options), controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
 }
 
 TEST_F(EnableManagerFixture, RuntimeLogTraceFollowsTheStateMachine)

@@ -176,6 +176,11 @@ controllers:
         select: first
         default: ''
         as: jtc_name
+    - controllers:
+        tag: enable_companion
+        select: all
+        optional: true
+        as: companion_controllers
     - policy:
         name: enable
         path: expected_modes
@@ -183,6 +188,10 @@ controllers:
         optional: true
     - state_ready:
         as: ready_state_interfaces
+    # Bus/device feedback ages that must be fresh before an enable or a fault reset starts.
+    - exports:
+        name: feedback_age_interfaces
+        as: feedback_age_interfaces
     - controllers:
         tag: fault_reporting
         select: first
@@ -260,7 +269,13 @@ controllers:
     actuator_groups:
     - position_velocity
     required_state_modules: []
-    tags: []
+    # Next to the arms, enable_manager activates it together with the trajectory controller.
+    tags:
+    - enable_companion
+    capabilities:
+    - name: head_position
+      topic: /head_position_controller/commands
+      type: std_msgs/msg/Float64MultiArray
     parameters:
     - yaml:
         package: hwcfg_machines

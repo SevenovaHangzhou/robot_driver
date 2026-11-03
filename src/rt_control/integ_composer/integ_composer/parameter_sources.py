@@ -21,6 +21,7 @@ KINDS = (
     "runtime",
     "policy_file",
     "state_ready",
+    "exports",
 )
 # A source that resolves to nothing contributes no parameter (keeps unrelated outputs unchanged).
 _SKIP = object()
@@ -117,7 +118,8 @@ def _controllers(source, env):
     names = [name for name in env["selected"] if source["tag"] in env["tags"][name]]
     select = source["select"]
     if select == "all":
-        return names
+        # ROS parameter YAML cannot carry a typed empty array; optional omits it instead.
+        return _SKIP if not names and source.get("optional") else names
     if select == "any":
         return bool(names)
     if select == "first":
@@ -166,6 +168,14 @@ def _evaluate(kind, source, name, binding, env):
     if kind == "state_ready":
         # Required state sources gate enabling through their "ready" state interfaces.
         return env.get("state_ready", []) or _SKIP
+    if kind == "exports":
+        # One list from every selected module that exports it, in module order.
+        values = [
+            item
+            for module in env["rendered_modules"].values()
+            for item in module.get("parameter_exports", {}).get(source["name"], [])
+        ]
+        return values or _SKIP
     raise ValueError(f"Unsupported parameter source: {kind}")
 
 

@@ -570,6 +570,9 @@
                             "sensors",
                             "gpios"
                           ]
+                        },
+                        "append": {
+                          "type": "boolean"
                         }
                       },
                       "required": [

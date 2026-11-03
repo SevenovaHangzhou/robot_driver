@@ -5,10 +5,16 @@ import sys
 import xml.etree.ElementTree as ET
 
 import pytest
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from integ_operator_web.arm.console import ArmConsole, ConsoleError, config_from_mapping  # noqa: E402
-from integ_operator_web.arm.model import ModelError, load_arm_model, resolve_mesh  # noqa: E402
+from integ_operator_web.arm.model import (  # noqa: E402
+    ModelError,
+    load_arm_model,
+    resolve_mesh,
+    without_visuals,
+)
 from integ_operator_web.arm.poses import PoseStore  # noqa: E402
 from integ_operator_web.arm.trajectory import plan_move  # noqa: E402
 
@@ -154,6 +160,21 @@ def test_browser_view_shows_the_whole_robot_and_names_the_arm_links():
     assert robot.find(".//collision") is None and robot.find("ros2_control") is None
     with pytest.raises(ModelError, match="missing"):
         load_arm_model(URDF, ["left_joint9"])
+
+
+def test_hidden_view_links_lose_only_their_visuals():
+    view = without_visuals(load_arm_model(URDF, JOINTS).browser_urdf, ["mount"])
+    robot = ET.fromstring(view)
+    assert "mount" in {link.get("name") for link in robot.findall("link")}
+    assert [m.get("filename") for m in robot.iter("mesh")] == ["/mesh/pkg/meshes/l2.stl"]
+    with pytest.raises(ModelError, match="hidden view links missing"):
+        without_visuals(view, ["mid360_Link"])
+
+
+def test_package_config_hides_the_head_sensor_shells():
+    path = Path(__file__).resolve().parents[1] / "config/arm.yaml"
+    config = config_from_mapping(yaml.safe_load(path.read_text()))
+    assert config.hidden_view_links == ("mid360_Link", "Leye_link", "Reye_Link")
 
 
 def test_mesh_resolution_stays_inside_the_package_share(tmp_path):

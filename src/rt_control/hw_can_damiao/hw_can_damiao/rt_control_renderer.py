@@ -127,6 +127,9 @@ def render(request: Mapping) -> Mapping:
             "control_name": spec["control_name"],
             # The DaMiao plugin sequences enable itself; enable_manager drives it by handshake.
             "handshake_devices": [spec["control_name"]],
+            "feedback_age_interfaces": [
+                f"{entry['robot_model_joint']}/feedback_age_ms" for entry in spec["joints"]
+            ],
         },
         "runtime_files": {},
         "expected_topology": {"preflight_required": False},

@@ -9,7 +9,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 ROLLING = ROOT / "src/rt_control/ctrl_rolling_trajectory"
-EXPECTED_INTERFACE_SHA = "ea582c8a711874813d2ad7f0801b366bd32ab67e"
+EXPECTED_INTERFACE_SHA = "c82f0e40937453f1f8fb104822c2e91e9fb8d742"
 EXPECTED_JOINTS = tuple(
     [f"right_joint{index}" for index in range(1, 8)]
     + [f"left_joint{index}" for index in range(1, 8)]

@@ -1,9 +1,10 @@
 # 当前 URDF 的 MuJoCo 模型
 
 - `robot.xml`：由 `../urdf/robot_alfav3_mobile.urdf` 转换的机器人 MJCF，可单独加载。
-- `scene.xml`：检查入口，包含机器人和 `environment.xml` 中的地面、灯光与相机。
 - `meshes/`：为 MuJoCo 生成的兼容网格；其他网格直接通过相对路径引用 `../mesh/`。
 - `conversion_report.json`：源文件 SHA-256、转换参数及碰撞几何兼容处理记录。
+
+`scene.xml` 和 `environment.xml` 已迁入同级 `robot_simulation/world_description/`。地面、灯光、相机和场景组合由仿真项目维护；机器人结构、执行器与网格由本仓库维护。
 
 参考 `real2sim_v3/tools/build_models.py` 的导入及网格兼容处理方式。保留源 URDF 的全部 25 个活动关节、35 个 link、关节轴、限位、质量、质心和惯量，以及视觉模型。底座固定在 `base_footprint`，没有额外的自由浮动关节。与参考目录中的手臂仿真配置不同，本模型不锁定升降、头部和车轮关节。
 
@@ -11,10 +12,16 @@
 
 25 个 motor 执行器直接接受力或力矩，控制及输出范围使用 URDF 的 effort 限制，没有增加位置伺服增益。URDF 的 velocity 限制不由 MuJoCo 自动执行。启动动态仿真后，未施加控制的关节会受重力运动；检查零位外观时请暂停仿真。这不是调校完成的控制器或移动底盘动力学配置。
 
-从仓库根目录打开检查场景（使用已安装 MuJoCo 的 Python）：
+从仓库根目录单独查看机器人（使用已安装 MuJoCo 的 Python）：
 
 ```bash
-../.venv/bin/python -m mujoco.viewer --mjcf=mujoco/scene.xml
+../.venv/bin/python -m mujoco.viewer --mjcf=mujoco/robot.xml
+```
+
+同级仿真项目的完整场景启动入口：
+
+```bash
+../robot_simulation/control_synchronizer/scripts/start_mujoco.sh
 ```
 
 重新转换（依赖 MuJoCo 3.15、NumPy 和 SciPy）：
@@ -23,7 +30,9 @@
 ../.venv/bin/python tools/build_mujoco.py
 ```
 
-生成文件依赖本仓库的相对目录结构，不能只复制 XML 到其他位置。当前转换不会改写 URDF、原始网格或参考项目。
+生成文件依赖本仓库的相对目录结构。下游场景通过 include 引用本仓库的 `mujoco/robot.xml`，并保留网格原目录。当前转换只生成机器人 MJCF 与转换资源、报告，不再生成场景或环境，不会改写 URDF、原始网格或下游场景。
+
+以下记录保留迁移前的历史验证结果，其中的场景文件现位于同级仿真项目。
 
 验证记录：MuJoCo 3.15.0 成功编译机器人和场景；零位及 5 组随机关节位置的全部 link 位姿与独立 URDF 正运动学计算一致（最大元素误差约 1e-15）；质量、质心、惯量、关节轴和位置限位通过数值核对；机器人模型运行 100 步，状态有限且无 MuJoCo 警告。尚未进行人工外观验收或控制性能验证。
 

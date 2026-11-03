@@ -54,6 +54,8 @@ enable_manager:
     - 1
     enable_only: false
     fault_reset_timeout: 4.0
+    feedback_age_interfaces:
+    - ethercat_domain/process_data_age_ms
     inter_batch_delay: 0.2
     jtc_name: whole_body_jtc
     managed_joints:

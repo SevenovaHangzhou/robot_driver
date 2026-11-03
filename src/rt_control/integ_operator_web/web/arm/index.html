@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>ALFA 机械臂操作台</title>
+  <title>ALFA 机械臂与头部操作台</title>
   <link rel="stylesheet" href="/static/arm/style.css">
+  <link rel="stylesheet" href="/static/head/style.css">
 </head>
 <body>
   <section id="login" class="login">
     <form id="login-form" class="card login-card">
-      <h1>ALFA 机械臂操作台</h1>
+      <h1>ALFA 机械臂与头部操作台</h1>
       <input id="token" type="password" autocomplete="current-password" placeholder="访问令牌" required>
       <button type="submit" class="primary">登录</button>
       <p id="login-error" class="error"></p>
@@ -17,7 +18,7 @@
   </section>
 
   <header class="topbar">
-    <div class="brand"><span class="brand-mark"></span><b>ALFA</b><span>左臂</span>
+    <div class="brand"><span class="brand-mark"></span><b>ALFA</b><span>机械臂与头部</span>
       <span id="mock-chip" class="chip" hidden>Mock · 非实机</span><a class="chip" href="/">底盘页</a><a class="chip" href="/diag">诊断页</a></div>
     <div class="topbar-status">
       <div class="chips">
@@ -48,7 +49,27 @@
     </section>
 
     <section class="panel side">
+      <section id="head-controls" class="card head-controls" aria-labelledby="head-title">
+        <div class="card-head"><h2 id="head-title">头部控制</h2>
+          <span data-head="conn" class="chip bad">未连接</span>
+          <span data-head="lease" class="chip">无控制权</span></div>
+        <p data-head="state" class="hint">等待头部运行栈</p>
+        <div class="row">
+          <button data-head="lease-op" type="button" disabled>获取头部控制权</button>
+          <button data-head="enable-op" type="button" disabled>使能</button>
+          <button data-head="disable-op" type="button" disabled>失能</button>
+          <button data-head="reset-op" type="button" disabled>故障复位</button>
+        </div>
+        <div data-head="joints" class="joints"><p class="hint">等待头部控制器与机器人模型</p></div>
+        <div class="row">
+          <button data-head="move-op" type="button" class="primary wide" disabled>发送头部目标</button>
+          <button data-head="hold-op" type="button" class="danger wide" disabled>停止</button>
+        </div>
+        <p data-head="result" class="hint" role="status"></p>
+        <p class="hint">正方向与机械行程尚未确认，目标按机器人模型限位检查。请在已确认的行程内操作。</p>
+      </section>
       <div class="card controls">
+        <div class="card-head"><h2>机械臂控制</h2></div>
         <div class="control-buttons">
           <button id="lease-btn" type="button" class="lease">获取控制权</button>
           <button id="enable-btn" type="button" class="primary">使能</button>

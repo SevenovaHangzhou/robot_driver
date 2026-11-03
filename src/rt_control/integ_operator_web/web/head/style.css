@@ -1,0 +1,4 @@
+/* Head card inside the arm page; joint rows reuse the arm .joint slider styles. */
+.head-controls { scroll-margin-top: 1rem; }
+.head-controls .card-head { flex-wrap: wrap; gap: 0.5rem; }
+.head-controls [data-head="state"] { overflow-wrap: anywhere; }

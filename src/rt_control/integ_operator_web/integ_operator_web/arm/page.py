@@ -18,9 +18,9 @@ from aiohttp import WSMsgType, web
 
 from ..audit import AuditLog
 from ..operators import Operators
-from ..session import Sessions, same_origin
+from ..session import PAGE_WS_HEARTBEAT_S, Sessions, same_origin
 from .console import ArmConsole, ConsoleError
-from .model import MESH_URL_PREFIX, ModelError, load_arm_model, resolve_mesh
+from .model import MESH_URL_PREFIX, ModelError, load_arm_model, resolve_mesh, without_visuals
 
 PAGE = "arm"
 STATUS_PERIOD_S = 0.05
@@ -134,10 +134,18 @@ class ArmPage:
                 return web.json_response(
                     {"error": "view_model_unavailable", "message": str(exc)}, status=503
                 )
+        urdf = None
+        if model:
+            try:
+                urdf = without_visuals(model.browser_urdf, self.console.config.hidden_view_links)
+            except ModelError as exc:
+                return web.json_response(
+                    {"error": "view_model_unavailable", "message": str(exc)}, status=503
+                )
         return web.json_response(
             {
                 **self.console.static_info(),
-                "urdf": model.browser_urdf if model else None,
+                "urdf": urdf,
                 "arm_links": list(model.arm_links) if model else [],
                 "view_model": self._view_metadata,
             }
@@ -166,7 +174,7 @@ class ArmPage:
     async def _websocket(self, request: web.Request) -> web.StreamResponse:
         if not same_origin(request):
             raise web.HTTPForbidden(text="cross-origin WebSocket rejected")
-        ws = web.WebSocketResponse(heartbeat=1.0, max_msg_size=MAX_MESSAGE_BYTES)
+        ws = web.WebSocketResponse(heartbeat=PAGE_WS_HEARTBEAT_S, max_msg_size=MAX_MESSAGE_BYTES)
         await ws.prepare(request)
         login = self._sessions.session_of(request)
         if login is None:

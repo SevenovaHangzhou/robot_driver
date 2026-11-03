@@ -531,3 +531,36 @@ def test_renderer_api_rejected_before_invocation(monkeypatch):
     monkeypatch.setattr(importlib, "import_module", lambda name: Renderer())
     with pytest.raises(ValueError, match="Unsupported renderer API"):
         select_renderer({"synthetic_transport": "synthetic_owner"}, "synthetic_transport")
+
+
+def test_manifest_parts_split_one_mapping_but_never_repeat_an_entry(tmp_path):
+    (tmp_path / "a.yaml").write_text("scopes:\n  one: {render_mode: normal}\n")
+    (tmp_path / "b.yaml").write_text("scopes:\n  two: {render_mode: normal}\n")
+    (tmp_path / "manifest.yaml").write_text("kind: manifest\nparts: [a.yaml, b.yaml]\n")
+    assert sorted(read_manifest(tmp_path / "manifest.yaml")["scopes"]) == ["one", "two"]
+    (tmp_path / "b.yaml").write_text("scopes:\n  one: {render_mode: stationary_enable}\n")
+    with pytest.raises(ValueError, match=r"repeats scopes: \['one'\]"):
+        read_manifest(tmp_path / "manifest.yaml")
+    (tmp_path / "b.yaml").write_text("kind: other\n")
+    with pytest.raises(ValueError, match="repeats kind"):
+        read_manifest(tmp_path / "manifest.yaml")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"batch_timeout": 0.0},
+        {"fault_reset_timeout": 0.0},
+        {"controller_switch_timeout": 0.0},
+        {"service_result_timeout_ms": 0},
+        {"enable_groups": [{"module": "bench_dual_arm", "mode_group": "csp", "batch_size": 4}]},
+    ],
+)
+def test_enable_policy_schema_is_the_only_timing_and_batch_check(change):
+    # enable_manager no longer re-checks these values (ARCHITECTURE §1.6).
+    policy_dir = RT / "hwcfg_machines/machines/Alfa_V3/policies"
+    policy = load_yaml(policy_dir / "Alfa_V3_bench_dual_arm_enable_policy.yaml")
+    schema_dir = RT / "ctrl_enable_manager/schema"
+    validate_data(policy, "enable_policy.schema.json", schema_dir, policy_dir)
+    with pytest.raises(Exception, match="(less than|greater than)"):
+        validate_data({**policy, **change}, "enable_policy.schema.json", schema_dir, policy_dir)
