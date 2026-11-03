@@ -2072,7 +2072,8 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
         for (const auto & controller : list_response->controller) {
           if (
             controller.state == "active" &&
-            std::find(switched_controllers_.begin(), switched_controllers_.end(), controller.name) !=
+            std::find(
+              switched_controllers_.begin(), switched_controllers_.end(), controller.name) !=
               switched_controllers_.end()) {
             targets.push_back(controller.name);
           }

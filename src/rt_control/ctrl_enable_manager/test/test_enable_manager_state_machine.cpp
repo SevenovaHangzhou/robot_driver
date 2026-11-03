@@ -2505,7 +2505,8 @@ TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryControll
       const std::shared_ptr<controller_manager_msgs::srv::ListControllers::Request>,
       std::shared_ptr<controller_manager_msgs::srv::ListControllers::Response> reply) {
       for (const auto & [name, state] :
-           {std::pair{"whole_body_jtc", "inactive"}, std::pair{"head_position_controller", "active"}}) {
+           {std::pair{"whole_body_jtc", "inactive"},
+            std::pair{"head_position_controller", "active"}}) {
         controller_manager_msgs::msg::ControllerState entry;
         entry.name = name;
         entry.state = state;
@@ -2531,7 +2532,8 @@ TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryControll
     requests[0].activate_controllers,
     (std::vector<std::string>{"whole_body_jtc", "head_position_controller"}));
   EXPECT_TRUE(requests[0].deactivate_controllers.empty());
-  EXPECT_EQ(requests[1].deactivate_controllers, std::vector<std::string>{"head_position_controller"});
+  EXPECT_EQ(
+    requests[1].deactivate_controllers, std::vector<std::string>{"head_position_controller"});
 }
 
 TEST_F(EnableManagerFixture, CompanionControllersMustBeDistinctFromTheTrajectoryController)
