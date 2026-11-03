@@ -188,6 +188,10 @@ controllers:
         optional: true
     - state_ready:
         as: ready_state_interfaces
+    # Bus/device feedback ages that must be fresh before an enable or a fault reset starts.
+    - exports:
+        name: feedback_age_interfaces
+        as: feedback_age_interfaces
     - controllers:
         tag: fault_reporting
         select: first

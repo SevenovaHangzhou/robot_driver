@@ -118,7 +118,8 @@ private:
     kJtcActivateFailed,
     kJtcDeactivateFailed,
     kControllerUpdateTimeout,
-    kRestartRequired
+    kRestartRequired,
+    kDeviceOffline
   };
 
   struct ResultSlot
@@ -298,6 +299,9 @@ private:
   bool allDevicesEnabled() const noexcept;
   bool allDevicesDisabledOrFaulted() const noexcept;
   bool allDeviceResetsComplete() const noexcept;
+  // Index into feedback_age_names_ of the first stale source, -1 when every source is fresh.
+  int staleFeedback() const noexcept;
+  bool rejectIfOffline(ResultSlot & slot);
   bool stateSourcesReady() const noexcept;
   void handleMotionFault();
 
@@ -351,6 +355,12 @@ private:
   // Required state sources (e.g. external encoders) gate the first enable batch.
   std::vector<std::string> ready_state_names_;
   std::vector<std::size_t> ready_state_indices_;
+  // Bus/device feedback ages (ms) checked before an enable or reset starts: a powered-off drive
+  // keeps its last status word, so its state must not be judged while its feedback is stale.
+  std::vector<std::string> feedback_age_names_;
+  std::vector<std::size_t> feedback_age_indices_;
+  double feedback_age_limit_ms_{100.0};
+  std::atomic<int> offline_feedback_{-1};
   double ready_hold_seconds_{0.05};
   std::int64_t ready_since_ns_{-1};
   bool state_sources_qualified_{false};

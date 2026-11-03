@@ -295,4 +295,8 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "resource_claims": [f"ring:{item['ring_position']}" for item in expected["responders"]],
         "expected_topology": expected,
         "diagnostic_devices": diagnostic_devices,
+        # The master health group is rendered once per master, by its first module.
+        "parameter_exports": {"feedback_age_interfaces": ["ethercat_domain/process_data_age_ms"]}
+        if slaves is not None
+        else {},
     }
