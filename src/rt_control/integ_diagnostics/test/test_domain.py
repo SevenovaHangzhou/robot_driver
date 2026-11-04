@@ -86,3 +86,9 @@ def test_latched_failure_names_the_device_and_the_vendor_code(stage, code, token
         "FAULT",
     )
     assert text in error["detail"]
+
+
+def test_stale_feedback_at_self_check_blocks_as_offline():
+    stale = {**WARN, "dree": "RT_DEVICE_FEEDBACK_STALE", "severity": "FAULT", "blocking": True}
+    fields = domain_readiness({"pending": False, "entries": [stale]}, enable("ENABLED"), UP, HW)
+    assert fields["blockers"] == ["device_offline"] and fields["errors"] == [stale]

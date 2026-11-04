@@ -10,6 +10,7 @@ from integ_composer.self_check import describe_fault
 # Self-check DREE names that block with a dedicated token; other blocking entries are device faults.
 SELF_CHECK_TOKENS = {
     "RT_DEVICE_OFFLINE": "device_offline",
+    "RT_DEVICE_FEEDBACK_STALE": "device_offline",
     "RT_DEVICE_IDENTITY_MISMATCH": "identity_mismatch",
     "RT_STO_ACTIVE": "sto_active",
 }
@@ -24,10 +25,11 @@ FAILURE = {
 }
 DEFAULT_FAILURE = ("enable_failed", "RT_ENABLE_FAILED")
 # Every DREE name this module can publish, for the pinned-contract check.
-DREE_NAMES = {dree for _, dree in FAILURE.values()} | {
-    DEFAULT_FAILURE[1],
-    "RT_ENABLE_MANAGER_NOT_READY",
-}
+DREE_NAMES = (
+    {dree for _, dree in FAILURE.values()}
+    | set(SELF_CHECK_TOKENS)
+    | {DEFAULT_FAILURE[1], "RT_ENABLE_MANAGER_NOT_READY"}
+)
 
 
 def failure_entry(enable, devices, tables, values):

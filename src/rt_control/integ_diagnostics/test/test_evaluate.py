@@ -97,6 +97,8 @@ def test_fault_bit_without_an_error_code_interface_still_blocks():
     drive = {**DRIVE, "state": {k: v for k, v in DRIVE["state"].items() if k != "error_code"}}
     [entry] = evaluate([drive], TABLES, sample(status_word=0x0218))
     assert entry["dree"] == "RT_DEVICE_FAULT" and entry["blocking"]
+
+
 HEAD = {
     "source": "head_gimbal/H1_joint/head_motor",
     "role": "head_motor",
