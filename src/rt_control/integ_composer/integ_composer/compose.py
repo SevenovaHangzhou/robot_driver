@@ -70,7 +70,7 @@ def compose(
     manifest_links(data, config_root)
     runtime_admission(data, use_mock_hardware, require_manifest_ready)
     naming = load_yaml(integration_share / "config/interface_naming.yaml")
-    robot, robot_model = _robot_skeleton(
+    robot, robot_model, model_limits = _robot_skeleton(
         data, robot_variant, use_mock_hardware, naming, package_share
     )
     systems, rendered_modules, bus_rates = _render_modules(
@@ -101,6 +101,7 @@ def compose(
         runtime=runtime,
         runtime_files=runtime_files,
         startup_id=startup_id,
+        model_limits=model_limits,
     )
     recorders = _add_recorder(
         controllers, data["deployment"], robot, staged, selected_names, bindings
@@ -141,7 +142,8 @@ def compose(
 
 
 def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_share):
-    """Description root for the scope view, plus the model joints and limits owners check."""
+    """Description root for the scope view, the model joints and limits owners check, and the
+    model's URDF joint limits."""
     manifest, scope, deployment = data["manifest"], data["scope"], data["deployment"]
     model = manifest["robot_model"]
     model_share = Path(package_share(model["package"]))
@@ -157,6 +159,16 @@ def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_shar
         "joints": [joint.attrib["name"] for joint in model_robot.findall("joint")],
         "joint_limits": yaml.safe_load((model_share / variant["joint_limits_file"]).read_text()),
     }
+    # URDF <limit> attributes per joint, for "model_limits" controller parameter sources.
+    model_limits = {
+        joint.attrib["name"]: {
+            name: float(value)
+            for name, value in joint.find("limit").attrib.items()
+            if name == "velocity"
+        }
+        for joint in model_robot.findall("joint")
+        if joint.find("limit") is not None
+    }
     if "robot_name" in scope:
         model_robot.attrib["name"] = scope["robot_name"]
     if "minimal_robot" in scope:
@@ -169,7 +181,7 @@ def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_shar
         ET.SubElement(robot, "link", name=naming["stationary_base_link"])
     else:
         robot = model_robot
-    return robot, robot_model
+    return robot, robot_model, model_limits
 
 
 def _render_modules(data, robot_model, runtime, use_mock_hardware, sync_mode, schemas, config_root):
@@ -262,6 +274,7 @@ def _controllers(
     runtime,
     runtime_files,
     startup_id,
+    model_limits,
 ):
     """controllers.yaml content, controller order and per-start runtime parameter keys."""
     manifest, scope = data["manifest"], data["scope"]
@@ -315,6 +328,7 @@ def _controllers(
         "runtime_dir": str(runtime),
         "runtime_files": runtime_files,
         "managed_joints": managed,
+        "model_limits": model_limits,
         "state_ready": [
             f"{sensor.attrib['name']}/ready"
             for module in scope["required_state_modules"]

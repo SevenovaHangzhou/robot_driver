@@ -55,6 +55,14 @@ controllers:
     - interface:
         name: arms_trajectory
         as: action_name
+    - interface:
+        name: arms_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
   # Seven-axis bench arm trajectory controller; the operator console is its client.
   left_arm_jtc:
     module: bench_left_arm
@@ -72,6 +80,9 @@ controllers:
     - name: arm_joint_trajectory
       topic: /rt/arms/left/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/left/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
     parameters:
     - policy:
         name: motion
@@ -84,6 +95,14 @@ controllers:
     - interface:
         name: left_arm_trajectory
         as: action_name
+    - interface:
+        name: left_arm_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
   # Both bench arms in one trajectory controller; the operator console is its client.
   dual_arm_jtc:
     module: bench_dual_arm
@@ -101,6 +120,9 @@ controllers:
     - name: arm_joint_trajectory
       topic: /rt/arms/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
     parameters:
     - policy:
         name: motion
@@ -113,6 +135,14 @@ controllers:
     - interface:
         name: arms_trajectory
         as: action_name
+    - interface:
+        name: arms_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
   rolling_trajectory_controller:
     module: arms
     name: rolling_trajectory_controller
@@ -351,6 +381,9 @@ controllers:
     - name: arm_joint_trajectory
       topic: /rt/arms/right/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/right/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
     parameters:
     - policy:
         name: motion
@@ -363,3 +396,11 @@ controllers:
     - interface:
         name: right_arm_trajectory
         as: action_name
+    - interface:
+        name: right_arm_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits

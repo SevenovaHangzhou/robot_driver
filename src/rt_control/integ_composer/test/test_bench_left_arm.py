@@ -47,10 +47,19 @@ def arguments(shares, *, confirmed=True):
     return dict(**SELECTION, package_share=lambda name: str(shares[name]))
 
 
-def scan(topology_ports=((1, "MII", 9), (2, "EBUS", 17), (3, "MII", 1)), slaves=18, errors=None, faulted=()):
+def scan(
+    topology_ports=((1, "MII", 9), (2, "EBUS", 17), (3, "MII", 1)),
+    slaves=18,
+    errors=None,
+    faulted=(),
+):
     """Connected dual arms plus two passive BluePoint tails, cached SII scan 2026-10-24."""
-    identities = {0: (0x00100000, 0x10F40931), 17: (0x00100000, 0x10F40932),
-                  8: (0xA1, 0x8081), 16: (0xA1, 0x8081)}
+    identities = {
+        0: (0x00100000, 0x10F40931),
+        17: (0x00100000, 0x10F40932),
+        8: (0xA1, 0x8081),
+        16: (0xA1, 0x8081),
+    }
     identities.update({ring: (0x5A65726F, 0x00029252) for ring in [*range(1, 8), *range(9, 16)]})
 
     def run(command, **_):
@@ -152,10 +161,14 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     enable = result.controllers["enable_manager"]["ros__parameters"]
     assert enable["enable_only"] is False and enable["jtc_name"] == "left_arm_jtc"
     assert enable["motion_mode_switching"] is False
+    assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
+    assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
+    # One velocity limit per joint, from the model URDF <limit velocity>.
+    assert len(jtc["joint_velocity_limits"]) == len(MODEL_JOINTS)
     assert {
-        "name": "arm_joint_trajectory",
-        "topic": "/left_arm_jtc/follow_joint_trajectory",
-        "type": "control_msgs/action/FollowJointTrajectory",
+        "name": "arm_joint_stream",
+        "topic": "/rt/arms/left/joint_trajectory",
+        "type": "trajectory_msgs/msg/JointTrajectory",
         "controller": "left_arm_jtc",
     } in result.lifecycle["capabilities"]
 
@@ -193,7 +206,9 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
             (0x606C, "int32", "velocity"),
             (0x6077, "int16", "torque_permille"),
             (0x603F, "uint16", "error_code"),
-        ] + ([(0x3B69, "int32", "sensor_torque_mnm")] if sensor else []) + ([(0x2241, "int32", "dual_encoder_difference_counts")] if encoder else [])
+        ] + ([(0x3B69, "int32", "sensor_torque_mnm")] if sensor else []) + (
+            [(0x2241, "int32", "dual_encoder_difference_counts")] if encoder else []
+        )
         assert all("scale" not in channel for channel in channels)
         # 18/22/26 bytes of TxPDO, inside the 76-byte 0x1A00 limit.
         sizes = {"int32": 4, "uint32": 4, "int16": 2, "uint16": 2}
@@ -214,7 +229,9 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
             "velocity",
             "torque_permille",
             "error_code",
-        ] + (["sensor_torque_mnm"] if sensor else []) + (["dual_encoder_difference_counts"] if encoder else [])
+        ] + (["sensor_torque_mnm"] if sensor else []) + (
+            ["dual_encoder_difference_counts"] if encoder else []
+        )
         recorder = result.controllers["runtime_log_recorder"]["ros__parameters"]["interfaces"]
         assert (f"{joint}/sensor_torque_mnm" in recorder) is sensor
         assert (f"{joint}/dual_encoder_difference_counts" in recorder) is encoder

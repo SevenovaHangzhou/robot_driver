@@ -49,7 +49,9 @@ def describe_fault(device, tables, code):
     fault = next((f for f in table.get("faults", []) if f.get("code") == hex_code), None)
     if fault is None:
         return None, f"未登记故障码 {hex_code}"
-    return fault["dree"], f"{hex_code} {fault['message']}（{table['vendor']} 手册 p{fault['page']}）"
+    return fault[
+        "dree"
+    ], f"{hex_code} {fault['message']}（{table['vendor']} 手册 p{fault['page']}）"
 
 
 def entries(diagnostics_text, findings):

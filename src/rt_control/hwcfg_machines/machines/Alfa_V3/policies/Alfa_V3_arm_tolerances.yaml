@@ -19,6 +19,8 @@ jtc:
   state_interfaces:
   - position
   allow_partial_joints_goal: false
+  # A trajectory must end at rest, so a broken stream stops smoothly at its last point.
+  allow_nonzero_velocity_at_trajectory_end: false
   open_loop_control: false
   set_last_command_interface_value_as_state_on_activation: false
   trajectory_start_consistency_check:

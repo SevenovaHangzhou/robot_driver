@@ -412,3 +412,11 @@ arch-drop-sha-ids:
   - stationary-mock
   - stationary-real
   - force-real
+arch-arm-joint-stream:
+  reason: JTC 开放流式话题 R-IN-22（trajectory_topic），准入改为 URDF 速度上限（joint_velocity_limits，patch 0006），轨迹末点速度必须为 0
+  method: arch-golden-regen.py（arm）按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc

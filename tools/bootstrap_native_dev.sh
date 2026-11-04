@@ -244,6 +244,9 @@ apply_frozen_patches()
   apply_patch_once \
     patches/ros2_controllers/0005-public-action-name.patch \
     src/vendor/ros2_controllers
+  apply_patch_once \
+    patches/ros2_controllers/0006-stream-topic-velocity-admission.patch \
+    src/vendor/ros2_controllers
 }
 
 verify_patched_vendor_tree()
@@ -320,7 +323,8 @@ verify_frozen_vendor_trees()
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
     patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
     patches/ros2_controllers/0004-limit-trajectory-points.patch \
-    patches/ros2_controllers/0005-public-action-name.patch
+    patches/ros2_controllers/0005-public-action-name.patch \
+    patches/ros2_controllers/0006-stream-topic-velocity-admission.patch
 }
 
 prepare_sources()
