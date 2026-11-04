@@ -493,12 +493,13 @@ class VacuumAdapterCore:
 
 
 def main(args=None) -> None:
+    import signal
+
     import rclpy
     from robot_rt_control_interfaces.action import SetVacuumValves
     from robot_rt_control_interfaces.msg import (
         ObservationMeta,
         OutputCommandResult,
-        OutputState,
         VacuumChannelState,
         VacuumState,
         VacuumStateEvent,
@@ -508,6 +509,7 @@ def main(args=None) -> None:
     from rclpy.callback_groups import ReentrantCallbackGroup
     from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
     from rclpy.node import Node
+    from rclpy.signals import SignalHandlerOptions
     from rclpy.qos import QoSProfile
     from robot_interfaces_qos import state
     from rt_control_interfaces.msg import PlcIoState
@@ -732,6 +734,11 @@ def main(args=None) -> None:
                 callback_group=self._callback_group,
             )
 
+        def destroy_node(self):
+            # Humble Node.destroy_node() does not destroy action waitables.
+            self._action_server.destroy()
+            return super().destroy_node()
+
         def _handle_goal(self, goal_request):
             try:
                 normalize_channels(goal_request.channels)
@@ -938,19 +945,35 @@ def main(args=None) -> None:
             assign_error_info(message.output.observation.error, item.error)
             assign_error_info(message.error, item.error)
 
-    rclpy.init(args=args)
-    node = VacuumAdapterNode()
-    executor = MultiThreadedExecutor(num_threads=4)
-    executor.add_node(node)
+    shutdown_requested = False
+
+    def request_shutdown(_signum, _frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+
+    previous_handlers = {
+        signum: signal.signal(signum, request_shutdown)
+        for signum in (signal.SIGINT, signal.SIGTERM)
+    }
+    node = executor = None
     try:
-        executor.spin()
+        # Keep the context alive until callbacks and ROS entities have drained.
+        rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+        node = VacuumAdapterNode()
+        executor = MultiThreadedExecutor(num_threads=4)
+        executor.add_node(node)
+        while rclpy.ok() and not shutdown_requested:
+            executor.spin_once(timeout_sec=0.1)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         try:
-            executor.shutdown()
-            node.destroy_node()
+            if executor is not None:
+                executor.shutdown()
+            if node is not None:
+                node.destroy_node()
             if rclpy.ok():
                 rclpy.shutdown()
-        except KeyboardInterrupt:
-            pass
+        finally:
+            for signum, handler in previous_handlers.items():
+                signal.signal(signum, handler)

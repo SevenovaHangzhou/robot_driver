@@ -167,6 +167,8 @@ def require_edge_preview_only(enabled: bool) -> None:
 
 
 def main(args=None) -> None:
+    import signal
+
     import rclpy
     from robot_interfaces_qos import latched
     from robot_rt_control_interfaces.msg import (
@@ -179,8 +181,9 @@ def main(args=None) -> None:
     )
     from robot_rt_control_interfaces.srv import ResetProtectiveStop
     from robot_system_interfaces.msg import ErrorInfo
-    from rclpy.executors import ExternalShutdownException
+    from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
     from rclpy.node import Node
+    from rclpy.signals import SignalHandlerOptions
     from rclpy.qos import QoSProfile
     from rt_control_interfaces.msg import PlcIoState
     from sensor_msgs.msg import BatteryState
@@ -491,16 +494,35 @@ def main(args=None) -> None:
             )
             return response
 
-    rclpy.init(args=args)
-    node = ModuleStateAdapter()
+    shutdown_requested = False
+
+    def request_shutdown(_signum, _frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+
+    previous_handlers = {
+        signum: signal.signal(signum, request_shutdown)
+        for signum in (signal.SIGINT, signal.SIGTERM)
+    }
+    node = executor = None
     try:
-        rclpy.spin(node)
+        # Keep the context alive until callbacks and ROS entities have drained.
+        rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+        node = ModuleStateAdapter()
+        executor = SingleThreadedExecutor()
+        executor.add_node(node)
+        while rclpy.ok() and not shutdown_requested:
+            executor.spin_once(timeout_sec=0.1)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         try:
-            node.destroy_node()
+            if executor is not None:
+                executor.shutdown()
+            if node is not None:
+                node.destroy_node()
             if rclpy.ok():
                 rclpy.shutdown()
-        except KeyboardInterrupt:
-            pass
+        finally:
+            for signum, handler in previous_handlers.items():
+                signal.signal(signum, handler)

@@ -112,11 +112,13 @@ def test_preview_discovery_rejects_unconfigured_commands_and_exits(tmp_path, mon
             path = tmp_path / (module + ".log")
             logs.append(path)
             with path.open("w") as output:
-                bootstrap = (
-                    POSITION_ACTION_BOOTSTRAP
-                    if module == "position_action_adapter"
-                    else f"from control_api_adapter.{module} import main; main()"
-                )
+                server_count = {"vacuum_adapter": 1, "module_state_adapter": 0,
+                                "position_action_adapter": 4}[module]
+                bootstrap = POSITION_ACTION_BOOTSTRAP.replace(
+                    "position_action_adapter", module
+                ).replace('["server"] * 4', f'["server"] * {server_count}')
+                if module == "module_state_adapter":
+                    bootstrap = bootstrap.replace("MultiThreadedExecutor", "SingleThreadedExecutor")
                 processes.append(subprocess.Popen(
                     [sys.executable, "-X", "faulthandler", "-c", bootstrap],
                     env=env, stdout=output, stderr=subprocess.STDOUT, start_new_session=True,
