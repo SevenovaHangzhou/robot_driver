@@ -405,6 +405,24 @@ TEST_F(HandshakeFixture, StaleFeedbackRejectsResetAndKeepsTheRecordedFault)
   EXPECT_TRUE(Access::resetResult(*controller_).ok.load());
 }
 
+TEST_F(HandshakeFixture, StaleFeedbackWhileEnabledStopsAndFailsAsDeviceOffline)
+{
+  bringUp(true, true);
+  ASSERT_TRUE(stepUntil(Phase::kIdle));
+  Access::requestEnable(*controller_);
+  ASSERT_TRUE(stepUntil(Phase::kJtcActivating));
+  Access::activationSucceeded(*controller_);
+  ASSERT_TRUE(stepUntil(Phase::kEnabled));
+
+  // The drive loses power: its status word stays at operation enabled, only the age grows.
+  process_data_age_ = 500.5;
+  step();
+  EXPECT_NE(Access::phase(*controller_), Phase::kEnabled);
+  ASSERT_TRUE(stepUntil(Phase::kFailed, 2000));
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kDeviceOffline);
+  EXPECT_EQ(plugin_.enable_request, 0.0);
+}
+
 TEST_F(HandshakeFixture, DiagnosticsUseTheContractDiagnosticQos)
 {
   bringUp(false);
