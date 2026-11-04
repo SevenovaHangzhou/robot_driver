@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
-#include "diagnostic_msgs/msg/key_value.hpp"
 #include "rclcpp/duration.hpp"
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
@@ -350,10 +349,7 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
     }
     request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
     request->activate_asap = true;
-    const std::int64_t switch_timeout_ns =
-      rclcpp::Duration::from_seconds(controller_switch_timeout_seconds_).nanoseconds();
-    request->timeout.sec = static_cast<std::int32_t>(switch_timeout_ns / 1000000000LL);
-    request->timeout.nanosec = static_cast<std::uint32_t>(switch_timeout_ns % 1000000000LL);
+    request->timeout = rclcpp::Duration::from_seconds(controller_switch_timeout_seconds_);
     auto future = switch_client_->async_send_request(request);
     const auto wait_status =
       future.wait_for(std::chrono::duration<double>(controller_switch_timeout_seconds_));
@@ -428,10 +424,7 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
   }
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;
-  const std::int64_t switch_timeout_ns =
-    rclcpp::Duration::from_seconds(controller_switch_timeout_seconds_).nanoseconds();
-  request->timeout.sec = static_cast<std::int32_t>(switch_timeout_ns / 1000000000LL);
-  request->timeout.nanosec = static_cast<std::uint32_t>(switch_timeout_ns % 1000000000LL);
+  request->timeout = rclcpp::Duration::from_seconds(controller_switch_timeout_seconds_);
   auto future = switch_client_->async_send_request(request);
   const auto wait_status =
     future.wait_for(std::chrono::duration<double>(controller_switch_timeout_seconds_));

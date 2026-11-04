@@ -21,7 +21,7 @@
 | [x] | C | 3 套 SocketCAN 封装（`robot_hw_can`、`bms_node`、`lpms_nav3_can`）（#128 统一到 `infra_socketcan`） | 3 |
 | [x] | C | 3 个协议包 renderer 各自复制 `_share/_validate/_param/validate_*`（#148 `infra_renderer`） | 3 |
 | [ ] | C | CiA402 状态字解码在 5 个包各写一份；`semantic_components` 未成为唯一出口（arch-c3：C++ 全部经 `hw_semantic_components/cia402_state.hpp`；离线 Python 预检 `topology_preflight.py` 仍自写一行，#146 已合入，台架验证通过） | 1.1、3 |
-| [ ] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份 | 3 |
+| [x] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份（诊断键值改用上游 `diagnostic_updater::DiagnosticStatusWrapper`，5 个包的自写 KeyValue 辅助删除；反馈年龄判断收敛到 `hw_semantic_components/feedback_age.hpp`，enable_manager 与 swerve 使用，rolling 随同事拆分时改用；控制器切换超时改用 `rclcpp::Duration`；`steady_now` 按 10-31 裁定留在各包） | 3 |
 | [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
 | [x] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件（用户 2026-11-03：实时状态机不拆，接受 §3 例外；非实时代码已移到 `enable_manager_{configure,services,mode_switch}.cpp`，主文件约 1400 行；重复参数校验已删除并收紧到使能策略 schema（#175、#176）） | 3 硬指标 |
 | [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行（arch-d2 拆为主文件 + `manifest/{modules,profiles,scopes}.yaml`，均 < 400 行） | 3 硬指标 |

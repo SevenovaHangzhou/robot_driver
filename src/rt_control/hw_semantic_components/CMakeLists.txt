@@ -40,6 +40,10 @@ if(BUILD_TESTING)
     hw_semantic_components
   )
 
+  ament_add_gtest(test_feedback_age test/test_feedback_age.cpp)
+  target_compile_features(test_feedback_age PUBLIC cxx_std_17)
+  target_include_directories(test_feedback_age PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
   ament_add_gtest(test_force_torque_sensor
     test/test_force_torque_sensor.cpp
   )

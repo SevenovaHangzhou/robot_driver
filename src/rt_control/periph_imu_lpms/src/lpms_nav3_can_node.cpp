@@ -7,7 +7,7 @@
 #include <builtin_interfaces/msg/time.hpp>
 #include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
-#include <diagnostic_msgs/msg/key_value.hpp>
+#include <diagnostic_updater/diagnostic_status_wrapper.hpp>
 #include <linux/can.h>
 #include <net/if.h>
 #include <rclcpp/rclcpp.hpp>
@@ -51,14 +51,6 @@ using SteadyClock = std::chrono::steady_clock;
     throw std::invalid_argument{std::string{parameter_name} + " must be positive"};
   }
   return std::chrono::milliseconds{value};
-}
-
-[[nodiscard]] diagnostic_msgs::msg::KeyValue diagnostic_value(std::string key, std::string value)
-{
-  diagnostic_msgs::msg::KeyValue item;
-  item.key = std::move(key);
-  item.value = std::move(value);
-  return item;
 }
 
 [[nodiscard]] const char * heartbeat_state_name(const std::uint8_t state) noexcept
@@ -327,7 +319,7 @@ private:
   {
     diagnostic_msgs::msg::DiagnosticArray array;
     array.header.stamp = now();
-    diagnostic_msgs::msg::DiagnosticStatus status;
+    diagnostic_updater::DiagnosticStatusWrapper status;
     status.name = get_fully_qualified_name() + std::string{": LPMS-NAV3 CAN"};
     status.hardware_id = "lpms-nav3-node-" + std::to_string(node_id_) + "@" + can_interface_;
 
@@ -356,25 +348,18 @@ private:
       status.message = "LPMS-NAV3 CAN data healthy";
     }
 
-    status.values.push_back(diagnostic_value("can_interface", can_interface_));
-    status.values.push_back(diagnostic_value("node_id", std::to_string(node_id_)));
-    status.values.push_back(
-      diagnostic_value("socket_connected", socket_.is_open() ? "true" : "false"));
-    status.values.push_back(diagnostic_value("sample_age_ms", std::to_string(sample_age)));
-    status.values.push_back(diagnostic_value("heartbeat_age_ms", std::to_string(heartbeat_age)));
-    status.values.push_back(
-      diagnostic_value("heartbeat_state", heartbeat_state_name(heartbeat_state_)));
-    status.values.push_back(
-      diagnostic_value("published_samples", std::to_string(published_sample_count_)));
-    status.values.push_back(
-      diagnostic_value("recognized_frames", std::to_string(recognized_frame_count_)));
-    status.values.push_back(
-      diagnostic_value("malformed_frames", std::to_string(malformed_frame_count_)));
-    status.values.push_back(
-      diagnostic_value("dropped_assemblies", std::to_string(dropped_assembly_count_)));
-    status.values.push_back(
-      diagnostic_value("connect_attempts", std::to_string(connect_attempt_count_)));
-    status.values.push_back(diagnostic_value("last_socket_error", last_socket_error_));
+    status.add("can_interface", can_interface_);
+    status.add("node_id", std::to_string(node_id_));
+    status.add("socket_connected", socket_.is_open() ? "true" : "false");
+    status.add("sample_age_ms", std::to_string(sample_age));
+    status.add("heartbeat_age_ms", std::to_string(heartbeat_age));
+    status.add("heartbeat_state", heartbeat_state_name(heartbeat_state_));
+    status.add("published_samples", std::to_string(published_sample_count_));
+    status.add("recognized_frames", std::to_string(recognized_frame_count_));
+    status.add("malformed_frames", std::to_string(malformed_frame_count_));
+    status.add("dropped_assemblies", std::to_string(dropped_assembly_count_));
+    status.add("connect_attempts", std::to_string(connect_attempt_count_));
+    status.add("last_socket_error", last_socket_error_);
 
     robot_rt_control_interfaces::msg::SensorStatusArray public_status;
     public_status.header.stamp = array.header.stamp;

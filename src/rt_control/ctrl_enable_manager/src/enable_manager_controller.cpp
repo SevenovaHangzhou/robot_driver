@@ -14,7 +14,8 @@
 #include <vector>
 
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
-#include "diagnostic_msgs/msg/key_value.hpp"
+#include "diagnostic_updater/diagnostic_status_wrapper.hpp"
+#include "hw_semantic_components/feedback_age.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "rclcpp/duration.hpp"
 #include "rclcpp/qos.hpp"
@@ -469,7 +470,7 @@ void EnableManagerController::publishDiagnostics()
 {
   diagnostic_msgs::msg::DiagnosticArray array;
   array.header.stamp = get_node()->now();
-  diagnostic_msgs::msg::DiagnosticStatus status;
+  diagnostic_updater::DiagnosticStatusWrapper status;
   status.name = "/robot/rt_control/enable_manager";
   status.hardware_id = "robot-001";
   const Phase phase = phase_.load(std::memory_order_acquire);
@@ -484,23 +485,18 @@ void EnableManagerController::publishDiagnostics()
     status.message = "operational";
   }
   const std::int8_t failed_joint = last_failed_joint_.load(std::memory_order_acquire);
-  const auto add_value = [&status](const std::string & key, const std::string & value) {
-    diagnostic_msgs::msg::KeyValue item;
-    item.key = key;
-    item.value = value;
-    status.values.push_back(std::move(item));
-  };
-  add_value("state", phaseName(phase));
-  add_value("failed_batch", std::to_string(last_failed_batch_.load(std::memory_order_acquire)));
-  add_value("failed_joint", failed_joint >= 0 ? joint_names_[failed_joint] : "");
-  add_value(
+  status.add("state", phaseName(phase));
+  status.add("failed_batch", std::to_string(last_failed_batch_.load(std::memory_order_acquire)));
+  status.add("failed_joint", failed_joint >= 0 ? joint_names_[failed_joint] : "");
+  status.add(
     "failed_status_word", std::to_string(last_failed_status_word_.load(std::memory_order_acquire)));
-  add_value("stage", stageName(last_failure_stage_.load(std::memory_order_acquire)));
+  status.add("stage", stageName(last_failure_stage_.load(std::memory_order_acquire)));
   const int offline = offline_feedback_.load(std::memory_order_relaxed);
-  add_value("offline_feedback", offline >= 0 ? feedback_age_names_[offline] : "");
+  status.add("offline_feedback", offline >= 0 ? feedback_age_names_[offline] : "");
   const auto actual_mode = last_failed_mode_.load(std::memory_order_acquire);
-  add_value("failed_actual_mode", actual_mode == 256 ? "unavailable" : std::to_string(actual_mode));
-  add_value(
+  status.add(
+    "failed_actual_mode", actual_mode == 256 ? "unavailable" : std::to_string(actual_mode));
+  status.add(
     "failed_expected_mode", std::to_string(last_expected_mode_.load(std::memory_order_acquire)));
   for (const auto & device : handshake_devices_) {
     const auto device_status = device->status();
@@ -511,12 +507,12 @@ void EnableManagerController::publishDiagnostics()
       status.message = device_status.valid ? "device fault latched" : "device state invalid";
     }
     const std::string prefix = device->name() + ".";
-    add_value(prefix + "phase", std::to_string(static_cast<int>(device_status.phase)));
-    add_value(prefix + "fault_latched", device_status.fault_latched ? "true" : "false");
-    add_value(prefix + "motion_allowed", device_status.motion_allowed ? "true" : "false");
+    status.add(prefix + "phase", std::to_string(static_cast<int>(device_status.phase)));
+    status.add(prefix + "fault_latched", device_status.fault_latched ? "true" : "false");
+    status.add(prefix + "motion_allowed", device_status.motion_allowed ? "true" : "false");
   }
   for (std::size_t index = 0; index < diagnostic_state_names_.size(); ++index) {
-    add_value(
+    status.add(
       diagnostic_state_names_[index],
       std::to_string(diagnostic_state_values_[index].load(std::memory_order_relaxed)));
   }
@@ -540,7 +536,7 @@ int EnableManagerController::staleFeedback() const noexcept
 {
   for (std::size_t source = 0; source < feedback_age_indices_.size(); ++source) {
     const double age = state_interfaces_[feedback_age_indices_[source]].get_value();
-    if (!std::isfinite(age) || age > feedback_age_limit_ms_) {
+    if (!hw_semantic_components::feedback_fresh(age, feedback_age_limit_ms_)) {
       return static_cast<int>(source);
     }
   }

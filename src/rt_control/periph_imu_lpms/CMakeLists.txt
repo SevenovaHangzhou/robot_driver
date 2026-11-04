@@ -13,6 +13,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 find_package(infra_socketcan REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -55,6 +56,7 @@ target_link_libraries(
 ament_target_dependencies(
   lpms_nav3_node
   diagnostic_msgs
+  diagnostic_updater
   infra_socketcan
   rclcpp
   robot_interfaces_qos

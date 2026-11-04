@@ -11,7 +11,7 @@
 #include <utility>
 
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
-#include "diagnostic_msgs/msg/key_value.hpp"
+#include "diagnostic_updater/diagnostic_status_wrapper.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 
@@ -379,7 +379,7 @@ void ForceTorqueBroadcaster::publish_calibration()
 
   diagnostic_msgs::msg::DiagnosticArray message;
   message.header.stamp = get_node()->now();
-  diagnostic_msgs::msg::DiagnosticStatus status;
+  diagnostic_updater::DiagnosticStatusWrapper status;
   status.name = diagnostic_name_;
   status.hardware_id = sensor_name_;
   const bool valid = calibration_valid_ && !startup_invalidated_.load(std::memory_order_acquire);
@@ -390,23 +390,17 @@ void ForceTorqueBroadcaster::publish_calibration()
                      : (startup_invalidated_.load(std::memory_order_acquire)
                           ? "Sensor left OP or link was lost; fresh PREOP initialization required"
                           : "No valid force/torque calibration snapshot");
-  auto add = [&status](const std::string & key, const std::string & value) {
-    diagnostic_msgs::msg::KeyValue item;
-    item.key = key;
-    item.value = value;
-    status.values.push_back(std::move(item));
-  };
-  add("startup_id", startup_id_);
-  add("snapshot_source", snapshot_source_);
-  add("snapshot_valid", valid ? "true" : "false");
-  add("validity_policy", validity_policy_);
-  add("minimum_auxiliary_value", std::to_string(minimum_auxiliary_value_));
-  add("maximum_auxiliary_value", std::to_string(maximum_auxiliary_value_));
+  status.add("startup_id", startup_id_);
+  status.add("snapshot_source", snapshot_source_);
+  status.add("snapshot_valid", valid ? "true" : "false");
+  status.add("validity_policy", validity_policy_);
+  status.add("minimum_auxiliary_value", std::to_string(minimum_auxiliary_value_));
+  status.add("maximum_auxiliary_value", std::to_string(maximum_auxiliary_value_));
   for (std::size_t index = 0U; index < decimals_.size(); ++index) {
-    add("decimal_" + std::to_string(index + 1U), std::to_string(decimals_[index]));
+    status.add("decimal_" + std::to_string(index + 1U), std::to_string(decimals_[index]));
   }
   for (std::size_t index = 0U; index < unit_codes_.size(); ++index) {
-    add("unit_" + std::to_string(index + 1U), std::to_string(unit_codes_[index]));
+    status.add("unit_" + std::to_string(index + 1U), std::to_string(unit_codes_[index]));
   }
   message.status.push_back(std::move(status));
   calibration_publisher_->publish(message);
