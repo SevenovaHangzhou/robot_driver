@@ -3,6 +3,9 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
+#include <map>
+#include <sstream>
 #include <limits>
 #include <string>
 #include <utility>
@@ -214,27 +217,42 @@ TEST(Cia402AxisTest, WritesEveryUint16ControlWordExactlyAsDouble)
   }
 }
 
-TEST(Cia402AxisTest, DecodesEveryCia402PowerDriveState)
+TEST(Cia402AxisTest, DecodesTheSharedCasesLikeThePythonDecoder)
 {
-  using State = Cia402State;
-  const std::array<std::pair<std::uint16_t, State>, 8> states{{
-    {0x0000U, State::kNotReadyToSwitchOn},
-    {0x0040U, State::kSwitchOnDisabled},
-    {0x0021U, State::kReadyToSwitchOn},
-    {0x0023U, State::kSwitchedOn},
-    {0x0027U, State::kOperationEnabled},
-    {0x0007U, State::kQuickStopActive},
-    {0x000FU, State::kFaultReactionActive},
-    {0x0008U, State::kFault},
-  }};
-
-  for (const auto & [status_word, expected] : states) {
-    EXPECT_EQ(decode_cia402_state(status_word), expected) << status_word;
-    // Bits outside the CiA402 state masks must not change the decoded state.
-    EXPECT_EQ(decode_cia402_state(static_cast<std::uint16_t>(status_word | 0xFF90U)), expected)
-      << status_word;
+  // test/cia402_cases.txt is also checked by hw_semantic_components.cia402 (Python preflight).
+  const std::map<std::string, Cia402State> names{
+    {"not_ready_to_switch_on", Cia402State::kNotReadyToSwitchOn},
+    {"switch_on_disabled", Cia402State::kSwitchOnDisabled},
+    {"ready_to_switch_on", Cia402State::kReadyToSwitchOn},
+    {"switched_on", Cia402State::kSwitchedOn},
+    {"operation_enabled", Cia402State::kOperationEnabled},
+    {"quick_stop_active", Cia402State::kQuickStopActive},
+    {"fault_reaction_active", Cia402State::kFaultReactionActive},
+    {"fault", Cia402State::kFault},
+    {"unknown", Cia402State::kUnknown},
+  };
+  std::ifstream cases(CIA402_CASES_FILE);
+  ASSERT_TRUE(cases.is_open());
+  std::size_t checked = 0U;
+  for (std::string line; std::getline(cases, line);) {
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+    std::istringstream fields(line);
+    std::string word;
+    std::string state;
+    fields >> word >> state;
+    const auto status_word = static_cast<std::uint16_t>(std::stoul(word, nullptr, 16));
+    EXPECT_EQ(decode_cia402_state(status_word), names.at(state)) << line;
+    if (state != "unknown") {
+      // Bits outside the CiA402 state masks must not change the decoded state.
+      EXPECT_EQ(
+        decode_cia402_state(static_cast<std::uint16_t>(status_word | 0xFF90U)), names.at(state))
+        << line;
+    }
+    ++checked;
   }
-  EXPECT_EQ(decode_cia402_state(0x0001U), State::kUnknown);
+  EXPECT_GE(checked, 9U);
 }
 
 TEST(Cia402AxisTest, OperationEnabledIsExactlyTheMaskedStatusWord0x27)
