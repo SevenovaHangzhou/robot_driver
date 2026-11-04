@@ -694,14 +694,24 @@ def test_hidden_launch_environment_uses_the_host_domain_never_zero(tmp_path, pro
     assert readable.domain == "77" and readable.document["domain_source"] == "environ"
 
 
-def test_procfs_distinguishes_a_refused_environment(tmp_path):
+def test_procfs_distinguishes_a_refused_environment(tmp_path, monkeypatch):
     from runtime_log.procfs import ProcFS
 
     (tmp_path / "10").mkdir()
     (tmp_path / "10/environ").write_bytes(b"ROS_DOMAIN_ID=5\0HOME=/x\0")
     (tmp_path / "11").mkdir()
     (tmp_path / "11/environ").write_bytes(b"A=1\0")
-    (tmp_path / "11/environ").chmod(0)
+    # CI containers run as root, which can read files even after chmod(0).
+    # Inject the kernel's refusal at the read boundary for this one process.
+    path_type = type(tmp_path)
+    read_bytes = path_type.read_bytes
+
+    def read_with_refusal(path):
+        if path == tmp_path / "11/environ":
+            raise PermissionError("process environment access denied")
+        return read_bytes(path)
+
+    monkeypatch.setattr(path_type, "read_bytes", read_with_refusal)
     proc = ProcFS(tmp_path)
     assert proc.environ_or_none(10) == {"ROS_DOMAIN_ID": "5", "HOME": "/x"}
     assert proc.environ_or_none(11) is None and proc.environ(11) == {}

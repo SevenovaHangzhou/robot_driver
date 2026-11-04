@@ -53,6 +53,9 @@ PR 189 的工控机功能分支与 main 的包重命名、共享基础设施和�
   SHA-256 一致后明确允许该版本；本机 2.54.2 与 GitHub 2.54.3 的构建结果分别记录。
 - GitHub 2.54.3 完整构建通过，ROS 汇总 2431 tests、0 errors、0 failures、24 skipped。
   Runtime-LOG 步骤随后因基础镜像缺少 pip 失败；该步骤显式安装 pip 与 pytest 后再安装锁定依赖。
+- Runtime-LOG 在 root CI 中执行到权限拒绝用例时失败：root 可读取 chmod(0) 文件。
+  测试改为在指定进程文件的读取边界注入 PermissionError，仍验证权限拒绝与进程退出的区别，
+  不跳过用例、不改变生产读取逻辑。
 
 本记录不授权使能或运动。
 
