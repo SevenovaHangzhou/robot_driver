@@ -22,12 +22,12 @@ ros2 run integ_composer compose_artifact --output /abs/dir \
 ```
 
 The directory receives the composed files and `artifact.yaml` (selection and
-SHA-256 per file). The command stages beside the target and swaps by rename.
+the file list). The command stages beside the target and swaps by rename.
 It refuses to replace a directory that is not an artifact.
 
 Runtime launch entries take `generated_dir:=/abs/dir` (default from
 `RT_CONTROL_GENERATED_DIR`) and call `load_artifact()`. It rejects a missing or
-older-schema manifest, a different selection, and a modified, missing or extra file,
+older-schema manifest, a different selection, and a missing or extra file,
 then returns the composition exactly as written (runtime parameter keys and owner
 preflight topology are stored in `artifact.yaml`). It does not recompose: after any
 installed configuration change, regenerate the artifact. Each rejection prints the
@@ -132,7 +132,8 @@ modules are not passed to a protocol renderer.
 
 The six old outputs in `test/golden/` come from a separate, pinned old checkout.
 They include runtime profiles, robot description, controller parameters and
-spawner order. The manifest records source and output hashes and exact renames.
+spawner order. The manifest records the source commit, each case's output file list and exact
+renames; content changes show in the golden files themselves.
 After freezing, implementation differences must be fixed in the implementation.
 
 Canonical comparison permits XML canonicalization, YAML key sorting, the

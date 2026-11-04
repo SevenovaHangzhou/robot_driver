@@ -12,7 +12,6 @@ from __future__ import annotations
 import ast
 from collections import Counter
 from dataclasses import asdict, dataclass
-import hashlib
 from pathlib import PurePosixPath
 import re
 import xml.etree.ElementTree as ET
@@ -298,13 +297,12 @@ def check_layers(texts: dict[str, str]) -> list[str]:
     layers, baselines, exclusions, listen_only, findings = read_policy(texts.get(CONFIG, ""))
     frozen_frequency_paths = set()
     for entry in exclusions:
-        if not isinstance(entry, dict) or set(entry) != {"file", "sha256", "reason"}:
+        if not isinstance(entry, dict) or set(entry) != {"file", "reason"}:
             findings.append(f"{CONFIG}: invalid frequency scope exclusion")
             continue
         path = entry["file"]
-        source = texts.get(path)
-        if source is None or hashlib.sha256(source.encode("utf-8")).hexdigest() != entry["sha256"]:
-            findings.append(f"{CONFIG}: R6 excluded frozen asset is missing or changed: {path}")
+        if path not in texts:
+            findings.append(f"{CONFIG}: R6 excluded frozen asset is missing: {path}")
             continue
         frozen_frequency_paths.add(path)
     inventory = package_inventory(texts)

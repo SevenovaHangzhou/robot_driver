@@ -1,11 +1,10 @@
 """Deploy-time composition artifacts.
 
 The explicit compose command is the only writer and the only place configuration is validated.
-Launch reads the artifact, checks its selection and file hashes, and uses it as written; it does
+Launch reads the artifact, checks its selection and file set, and uses it as written; it does
 not recompose. Changing installed configuration therefore requires regenerating the artifact.
 """
 
-from hashlib import sha256
 from pathlib import Path
 import shlex
 import shutil
@@ -19,8 +18,9 @@ from .model import Composed
 from .model import ARTIFACT
 from .schema.primitives import load_yaml, resolve_share_path
 
-# 2: the manifest also carries runtime parameter keys and owner preflight topology.
-SCHEMA_VERSION = 2
+# 3: files is a list of names (no content digests, user 2026-11-04); runtime parameter keys and
+# owner preflight topology as in 2.
+SCHEMA_VERSION = 3
 KIND = "rt_control_composition_artifact"
 # Startup-specific values such as startup_id are deliberately not part of a selection.
 SELECTION_DEFAULTS = {"use_mock_hardware": True, "jtc_only": False, "sync_mode": ""}
@@ -38,10 +38,6 @@ class _PlainDumper(yaml.SafeDumper):
 
     def ignore_aliases(self, data):
         return True
-
-
-def _digest(text):
-    return sha256(text.encode("utf-8")).hexdigest()
 
 
 def selection(**values):
@@ -94,7 +90,7 @@ def write_artifact(directory, *, package_share=get_package_share_directory, **va
         "schema_version": SCHEMA_VERSION,
         "kind": KIND,
         "selection": chosen,
-        "files": {name: _digest(text) for name, text in sorted(composed.files.items())},
+        "files": sorted(composed.files),
         "runtime_parameters": composed.runtime_parameters,
         "preflight": [
             {"owner": system["owner"], "expected_topology": system["result"]["expected_topology"]}
@@ -126,7 +122,7 @@ def write_artifact(directory, *, package_share=get_package_share_directory, **va
 
 
 def load_artifact(directory, **expected):
-    """Return the composition as written; reject a missing, modified or mismatched artifact."""
+    """Return the composition as written; reject a missing or mismatched artifact."""
     root = _absolute(directory)
     wanted = selection(**expected)
     command = generate_command(root, wanted)
@@ -146,11 +142,7 @@ def load_artifact(directory, **expected):
     }
     if present != set(manifest["files"]):
         raise ValueError(f"Artifact file set differs from its manifest; regenerate with: {command}")
-    files = {}
-    for name, digest in manifest["files"].items():
-        files[name] = (root / name).read_text(encoding="utf-8")
-        if _digest(files[name]) != digest:
-            raise ValueError(f"Artifact file was modified: {name}; regenerate with: {command}")
+    files = {name: (root / name).read_text(encoding="utf-8") for name in manifest["files"]}
     lifecycle = yaml.safe_load(files["lifecycle.yaml"])
     return Composed(
         robot_description=files["robot_description.xml"],
