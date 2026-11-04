@@ -8,7 +8,7 @@ trigger: 用户 2026-11-04；2026-11-03 台架驱动在使能中断电，使能�
 commits: [feature/arch-enabled-offline-stop]
 env: native
 risk: T1
-writes: {reset: no, enable: no, motion: no, plc: no}
+writes: {reset: yes, enable: yes, motion: no, plc: no}
 verified: PARTIAL
 evidence: []
 supersedes: []
@@ -25,7 +25,13 @@ related: [control-20261103-01, control-20261103-02]
 
 ## 验证
 
-单元测试：使能后反馈年龄 500.5 ms → 离开已使能、进入失败、失败阶段 device_offline、头部使能请求撤回。实机需现场断驱动电验证，另行授权。
+单元测试：使能后反馈年龄 500.5 ms → 离开已使能、进入失败、失败阶段 device_offline、头部使能请求撤回。
+
+台架 2026-11-04（`~/rt-control-arch-20261104b`，main + 本分支 + #188，作用域 bench_dual_arm_head，用户授权使能、复位、断电、拔网线；无运动指令）：
+
+- 使能保持中断开双臂 + 头部电源：14 个驱动在断电过程中先报 0x603F=0xF008（母线欠压，ZeroErr 手册 p145），使能管理器按 `fault_detected` 在 3 ms 内急停失能并进入失败；过程数据随后才过期（约 150 ms 后）。本分支的过期路径未触发，因为驱动先报了故障。
+- 恢复供电后左臂 1–5 轴停在 SAFEOP + “No Sync Error”，与 2026-11-03 相同；现场故障复位能回到空闲，但必须重启运行栈才能再用。按需自检报出这 5 轴 `RT_DEVICE_OFFLINE`。
+- 拔 EtherCAT 网线的试验未完成：运行栈在 16:17:28 被另一会话按正常流程停止，主站没有记录到断链。
 
 本记录不授权使能或运动。
 
@@ -35,4 +41,5 @@ related: [control-20261103-01, control-20261103-02]
 
 ## 遗留
 
-台架断电验证。
+- 在使能保持中突然中断通信（拔 EtherCAT 网线或只断头部电源），验证 `device_offline` 路径。
+- 用 `fault_detected` 停下来后，恢复供电时同样需要重启：要不要对 `fault_detected` 也置“需要重启”，由用户决定。
