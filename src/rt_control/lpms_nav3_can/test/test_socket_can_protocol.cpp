@@ -1,4 +1,4 @@
-#include "lpms_nav3_can/protocol/socket_can.hpp"
+#include "lpms_nav3_can/socket_can.hpp"
 
 #include <gtest/gtest.h>
 
@@ -23,9 +23,9 @@ TEST(SocketCanProtocolTest, RejectsInvalidNodeIds)
   EXPECT_THROW((void)lpms_nav3_can::make_can_filters(128U), std::invalid_argument);
 }
 
-TEST(SocketCanProtocolTest, ProtectsExistingRobotAndBmsInterfaces)
+TEST(SocketCanProtocolTest, ReservesBmsInterface)
 {
-  EXPECT_TRUE(lpms_nav3_can::is_reserved_robot_interface("can0"));
+  EXPECT_FALSE(lpms_nav3_can::is_reserved_robot_interface("can0"));
   EXPECT_TRUE(lpms_nav3_can::is_reserved_robot_interface("can1"));
   EXPECT_FALSE(lpms_nav3_can::is_reserved_robot_interface("imu_can"));
   EXPECT_FALSE(lpms_nav3_can::is_reserved_robot_interface("vcan0"));

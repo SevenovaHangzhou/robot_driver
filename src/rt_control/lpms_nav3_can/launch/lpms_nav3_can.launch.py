@@ -1,4 +1,4 @@
-"""Static by default; runtime is an explicit standalone commissioning action."""
+"""Start the standalone LPMS-NAV3 receive-only CAN node."""
 
 from pathlib import Path
 
@@ -14,7 +14,7 @@ def _setup(context):
     config_file = LaunchConfiguration("config_file").perform(context)
     parameters = yaml.safe_load(Path(config_file).read_text())["/**"]["ros__parameters"]
     if LaunchConfiguration("validation_only").perform(context).lower() == "true":
-        return [LogInfo(msg="LPMS-NAV3 draft: validation_only=true; no CAN node started")]
+        return [LogInfo(msg="LPMS-NAV3 validation_only=true; no CAN node started")]
     interface = parameters.get("can_interface", "")
     frame = parameters.get("frame_id", "")
     node_id = parameters.get("node_id", 0)
@@ -23,7 +23,7 @@ def _setup(context):
         or not interface
         or interface == "TBD"
         or len(interface) >= 16
-        or interface in {"can0", "can1"}
+        or interface == "can1"
         or type(node_id) is not int
         or not 1 <= node_id <= 127
         or not isinstance(frame, str)
@@ -32,7 +32,9 @@ def _setup(context):
         or frame.startswith("/")
         or any(char.isspace() for char in frame)
     ):
-        raise ValueError("LPMS runtime requires explicit dedicated interface, node_id and frame_id")
+        raise ValueError(
+            "LPMS runtime requires can_interface, node_id and frame_id"
+        )
     return [
         Node(
             package="lpms_nav3_can",
@@ -49,7 +51,7 @@ def generate_launch_description():
     share = Path(get_package_share_directory("lpms_nav3_can"))
     return LaunchDescription(
         [
-            DeclareLaunchArgument("validation_only", default_value="true"),
+            DeclareLaunchArgument("validation_only", default_value="false"),
             DeclareLaunchArgument(
                 "config_file", default_value=str(share / "config/lpms_nav3_can.yaml")
             ),

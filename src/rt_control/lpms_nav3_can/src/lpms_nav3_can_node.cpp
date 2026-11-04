@@ -1,6 +1,6 @@
-#include "lpms_nav3_can/protocol/decoder.hpp"
+#include "lpms_nav3_can/decoder.hpp"
 #include "lpms_nav3_can/ros_conversion.hpp"
-#include "lpms_nav3_can/protocol/socket_can.hpp"
+#include "lpms_nav3_can/socket_can.hpp"
 #include "lpms_nav3_can/node.hpp"
 
 #include <builtin_interfaces/msg/time.hpp>
@@ -12,7 +12,6 @@
 #include <net/if.h>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
-#include <sensor_msgs/msg/magnetic_field.hpp>
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/observation_meta.hpp"
 #include "robot_rt_control_interfaces/msg/sensor_status.hpp"
@@ -99,6 +98,30 @@ private:
   return std::chrono::milliseconds{value};
 }
 
+[[nodiscard]] std::array<double, 9> read_covariance(
+  rclcpp::Node & node, const char * const parameter_name)
+{
+  const auto values =
+    node.declare_parameter<std::vector<double>>(parameter_name, std::vector<double>(9, 0.0));
+  if (values.size() != 9U) {
+    throw std::invalid_argument{std::string{parameter_name} + " must contain 9 values"};
+  }
+  for (const auto value : values) {
+    if (!std::isfinite(value)) {
+      throw std::invalid_argument{std::string{parameter_name} + " must contain finite values"};
+    }
+  }
+  for (const auto diagonal : {0U, 4U, 8U}) {
+    if (values[diagonal] < 0.0) {
+      throw std::invalid_argument{
+        std::string{parameter_name} + " diagonal values must be nonnegative"};
+    }
+  }
+  std::array<double, 9> covariance{};
+  std::copy(values.begin(), values.end(), covariance.begin());
+  return covariance;
+}
+
 [[nodiscard]] diagnostic_msgs::msg::KeyValue diagnostic_value(
   std::string key, std::string value)
 {
@@ -134,12 +157,15 @@ public:
     node_id_(read_node_id()),
     decoder_(node_id_)
   {
-    can_interface_ = declare_parameter<std::string>("can_interface", "");
-    frame_id_ = declare_parameter<std::string>("frame_id", "");
+    can_interface_ = declare_parameter<std::string>("can_interface", "can0");
+    frame_id_ = declare_parameter<std::string>("frame_id", "imu_link");
+    const double mount_yaw_deg = declare_parameter<double>("mount_yaw_deg", 90.0);
+    if (!std::isfinite(mount_yaw_deg)) {
+      throw std::invalid_argument{"mount_yaw_deg must be finite"};
+    }
+    mount_yaw_rad_ = mount_yaw_deg * (3.14159265358979323846 / 180.0);
     convert_to_ros_ = declare_parameter<bool>("convert_to_ros_convention", false);
     require_heartbeat_ = declare_parameter<bool>("require_heartbeat", true);
-    orientation_covariance_ = read_covariance("orientation_covariance");
-    angular_velocity_covariance_ = read_covariance("angular_velocity_covariance");
     poll_period_ = positive_duration(
       declare_parameter<std::int64_t>("poll_period_ms", 2), "poll_period_ms");
     reconnect_period_ = positive_duration(
@@ -153,7 +179,10 @@ public:
     heartbeat_timeout_ = positive_duration(
       declare_parameter<std::int64_t>("heartbeat_timeout_ms", 2500),
       "heartbeat_timeout_ms");
-    const auto imu_topic = declare_parameter<std::string>("imu_topic", "/imu/data");
+    covariances_.orientation = read_covariance(*this, "orientation_covariance");
+    covariances_.angular_velocity = read_covariance(*this, "angular_velocity_covariance");
+    covariances_.linear_acceleration = read_covariance(*this, "linear_acceleration_covariance");
+    imu_topic_ = declare_parameter<std::string>("imu_topic", "/imu/data");
     const auto diagnostics_topic =
       declare_parameter<std::string>("diagnostics_topic", "~/diagnostics");
     const auto sensor_status_topic =
@@ -166,8 +195,8 @@ public:
     }
     if (is_reserved_robot_interface(can_interface_)) {
       throw std::invalid_argument{
-              "refusing reserved interface " + can_interface_ +
-              "; shared Gen3 CAN admission is not implemented"};
+        "refusing reserved interface " + can_interface_ +
+        "; this standalone IMU node is configured for can0"};
     }
     if (frame_id_.empty() || frame_id_ == "TBD" || frame_id_.front() == '/' ||
       frame_id_.find_first_of(" \t\r\n") != std::string::npos)
@@ -176,10 +205,8 @@ public:
     }
 
     initialise_instance_id();
-    imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>(
-      imu_topic, robot_interfaces_qos::fast_state());
-    magnetic_field_publisher_ = create_publisher<sensor_msgs::msg::MagneticField>(
-      "~/mag", robot_interfaces_qos::fast_state());
+    imu_publisher_ =
+      create_publisher<sensor_msgs::msg::Imu>(imu_topic_, robot_interfaces_qos::fast_state());
     diagnostics_publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       diagnostics_topic, robot_interfaces_qos::diagnostic());
     sensor_status_publisher_ =
@@ -223,7 +250,7 @@ private:
 
   [[nodiscard]] std::uint8_t read_node_id()
   {
-    const auto value = declare_parameter<std::int64_t>("node_id", 0);
+    const auto value = declare_parameter<std::int64_t>("node_id", 1);
     if (value < 1 || value > 127) {
       throw std::invalid_argument{"node_id must be in [1, 127]"};
     }
@@ -389,16 +416,12 @@ private:
   void publish_sample(const ImuSample & raw_sample)
   {
     const auto sample = convert_to_ros_convention(raw_sample, convert_to_ros_);
-    auto imu_message = make_imu_message(
-      sample, orientation_covariance_, angular_velocity_covariance_);
-    auto magnetic_field_message = make_magnetic_field_message(sample);
+    auto imu_message = make_imu_message(sample, covariances_, mount_yaw_rad_);
     const auto stamp = now();
-    last_sample_stamp_ = stamp;
     imu_message.header.stamp = stamp;
     imu_message.header.frame_id = frame_id_;
-    magnetic_field_message.header = imu_message.header;
+    last_sample_stamp_ = stamp;
     imu_publisher_->publish(imu_message);
-    magnetic_field_publisher_->publish(magnetic_field_message);
   }
 
   [[nodiscard]] static double age_ms(
@@ -467,7 +490,7 @@ private:
     robot_rt_control_interfaces::msg::SensorStatus imu_status;
     imu_status.sensor_id = "lpms_nav3";
     imu_status.module_id = "lpms_nav3_can";
-    imu_status.data_topic = "/imu/data";
+    imu_status.data_topic = imu_topic_;
     imu_status.observation.stamp = last_sample_stamp_;
     imu_status.observation.time_source =
       robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_PUBLICATION;
@@ -496,29 +519,13 @@ private:
     diagnostics_publisher_->publish(array);
   }
 
-  [[nodiscard]] std::array<double, 9U> read_covariance(const std::string & name)
-  {
-    rcl_interfaces::msg::ParameterDescriptor descriptor;
-    descriptor.read_only = true;
-    descriptor.description = "Row-major 3x3 covariance; all zeros means unknown";
-    const auto values = declare_parameter<std::vector<double>>(
-      name, std::vector<double>(9U, 0.0), descriptor);
-    if (values.size() != 9U ||
-      !std::all_of(values.begin(), values.end(), [](double value) {return std::isfinite(value);}))
-    {
-      throw std::invalid_argument{name + " must contain exactly 9 finite numbers"};
-    }
-    std::array<double, 9U> result{};
-    std::copy(values.begin(), values.end(), result.begin());
-    return result;
-  }
-
-  std::array<double, 9U> orientation_covariance_{};
-  std::array<double, 9U> angular_velocity_covariance_{};
   std::string can_interface_;
   std::string frame_id_;
+  std::string imu_topic_;
   const std::uint8_t node_id_;
   Decoder decoder_;
+  ImuCovariances covariances_;
+  double mount_yaw_rad_{0.0};
   bool convert_to_ros_{false};
   bool require_heartbeat_{true};
   std::chrono::milliseconds poll_period_{2};
@@ -545,7 +552,6 @@ private:
   builtin_interfaces::msg::Time last_sample_stamp_;
   unique_identifier_msgs::msg::UUID producer_instance_id_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr magnetic_field_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
   rclcpp::Publisher<robot_rt_control_interfaces::msg::SensorStatusArray>::SharedPtr
     sensor_status_publisher_;

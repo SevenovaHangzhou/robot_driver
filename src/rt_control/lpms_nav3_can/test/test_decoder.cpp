@@ -1,4 +1,4 @@
-#include "lpms_nav3_can/protocol/decoder.hpp"
+#include "lpms_nav3_can/decoder.hpp"
 
 #include <gtest/gtest.h>
 
@@ -28,8 +28,7 @@ lpms_nav3_can::CanFrame make_frame(
   return frame;
 }
 
-std::array<lpms_nav3_can::CanFrame, 4U> make_default_sample_frames(
-  const std::uint8_t node_id = 1U)
+std::array<lpms_nav3_can::CanFrame, 4U> make_six_axis_sample_frames(const std::uint8_t node_id = 1U)
 {
   const auto node = static_cast<std::uint32_t>(node_id);
   return {
@@ -42,10 +41,10 @@ std::array<lpms_nav3_can::CanFrame, 4U> make_default_sample_frames(
 
 }  // namespace
 
-TEST(DecoderTest, CompletesOneSampleFromDefaultPdoMapping)
+TEST(DecoderTest, CompletesOneSampleFromSixAxisPdoMapping)
 {
   lpms_nav3_can::Decoder decoder{1U};
-  const auto frames = make_default_sample_frames();
+  const auto frames = make_six_axis_sample_frames();
 
   EXPECT_FALSE(decoder.consume(frames[0]).sample.has_value());
   EXPECT_FALSE(decoder.consume(frames[1]).sample.has_value());
@@ -60,9 +59,9 @@ TEST(DecoderTest, CompletesOneSampleFromDefaultPdoMapping)
   EXPECT_NEAR(sample.angular_velocity_radps[0], kPi / 2.0, kTolerance);
   EXPECT_NEAR(sample.angular_velocity_radps[1], -kPi / 2.0, kTolerance);
   EXPECT_NEAR(sample.angular_velocity_radps[2], kPi, kTolerance);
-  EXPECT_NEAR(sample.magnetic_field_t[0], 1.0e-6, kTolerance);
-  EXPECT_NEAR(sample.magnetic_field_t[1], -2.0e-6, kTolerance);
-  EXPECT_NEAR(sample.magnetic_field_t[2], 3.0e-6, kTolerance);
+  EXPECT_NEAR(sample.bias_calibrated_angular_velocity_radps[0], 10.0 * kPi / 180.0, kTolerance);
+  EXPECT_NEAR(sample.bias_calibrated_angular_velocity_radps[1], -20.0 * kPi / 180.0, kTolerance);
+  EXPECT_NEAR(sample.bias_calibrated_angular_velocity_radps[2], 30.0 * kPi / 180.0, kTolerance);
   EXPECT_NEAR(sample.euler_rad[0], kPi / 180.0, kTolerance);
   EXPECT_NEAR(sample.euler_rad[1], -2.0 * kPi / 180.0, kTolerance);
   EXPECT_NEAR(sample.euler_rad[2], kPi / 2.0, kTolerance);
@@ -76,7 +75,7 @@ TEST(DecoderTest, CompletesOneSampleFromDefaultPdoMapping)
 TEST(DecoderTest, SupportsConfigurableNodeIdAndAnyFrameOrder)
 {
   lpms_nav3_can::Decoder decoder{7U};
-  const auto frames = make_default_sample_frames(7U);
+  const auto frames = make_six_axis_sample_frames(7U);
 
   EXPECT_FALSE(decoder.consume(frames[3]).sample.has_value());
   EXPECT_FALSE(decoder.consume(frames[1]).sample.has_value());
@@ -91,11 +90,11 @@ TEST(DecoderTest, SupportsConfigurableNodeIdAndAnyFrameOrder)
 TEST(DecoderTest, RejectsMalformedAndUnrelatedFramesWithoutAdvancingAssembly)
 {
   lpms_nav3_can::Decoder decoder{1U};
-  auto malformed = make_default_sample_frames()[0];
+  auto malformed = make_six_axis_sample_frames()[0];
   malformed.dlc = 7U;
-  auto unrelated = make_default_sample_frames()[1];
+  auto unrelated = make_six_axis_sample_frames()[1];
   unrelated.id = 0x123U;
-  auto extended = make_default_sample_frames()[2];
+  auto extended = make_six_axis_sample_frames()[2];
   extended.is_extended = true;
 
   const auto malformed_result = decoder.consume(malformed);
@@ -159,7 +158,7 @@ TEST(DecoderTest, RejectsNonzeroHeartbeatPadding)
 TEST(DecoderTest, ResetsPartialAssemblyAfterCompletedSample)
 {
   lpms_nav3_can::Decoder decoder{1U};
-  const auto frames = make_default_sample_frames();
+  const auto frames = make_six_axis_sample_frames();
   for (const auto & frame : frames) {
     decoder.consume(frame);
   }
@@ -175,7 +174,7 @@ TEST(DecoderTest, ConvertsLpmsCoordinatesToRosConventions)
   lpms_nav3_can::ImuSample sample;
   sample.linear_acceleration_mps2 = {1.0, -2.0, 3.0};
   sample.angular_velocity_radps = {4.0, -5.0, 6.0};
-  sample.magnetic_field_t = {7.0, -8.0, 9.0};
+  sample.bias_calibrated_angular_velocity_radps = {7.0, -8.0, 9.0};
   sample.orientation_wxyz = {0.5, 0.1, -0.2, 0.3};
   sample.euler_rad = {0.4, -0.5, 0.6};
 
@@ -183,7 +182,9 @@ TEST(DecoderTest, ConvertsLpmsCoordinatesToRosConventions)
 
   EXPECT_EQ(converted.linear_acceleration_mps2, (std::array<double, 3U>{-1.0, 2.0, -3.0}));
   EXPECT_EQ(converted.angular_velocity_radps, sample.angular_velocity_radps);
-  EXPECT_EQ(converted.magnetic_field_t, sample.magnetic_field_t);
+  EXPECT_EQ(
+    converted.bias_calibrated_angular_velocity_radps,
+    sample.bias_calibrated_angular_velocity_radps);
   EXPECT_EQ(converted.orientation_wxyz, (std::array<double, 4U>{0.5, -0.1, 0.2, -0.3}));
   EXPECT_EQ(converted.euler_rad, sample.euler_rad);
 }
@@ -193,7 +194,7 @@ TEST(DecoderTest, LeavesSampleUnchangedWhenConversionIsDisabled)
   lpms_nav3_can::ImuSample sample;
   sample.linear_acceleration_mps2 = {1.0, 2.0, 3.0};
   sample.angular_velocity_radps = {4.0, 5.0, 6.0};
-  sample.magnetic_field_t = {7.0, 8.0, 9.0};
+  sample.bias_calibrated_angular_velocity_radps = {7.0, 8.0, 9.0};
   sample.orientation_wxyz = {1.0, 0.0, 0.0, 0.0};
   sample.euler_rad = {0.1, 0.2, 0.3};
 
@@ -201,7 +202,9 @@ TEST(DecoderTest, LeavesSampleUnchangedWhenConversionIsDisabled)
 
   EXPECT_EQ(converted.linear_acceleration_mps2, sample.linear_acceleration_mps2);
   EXPECT_EQ(converted.angular_velocity_radps, sample.angular_velocity_radps);
-  EXPECT_EQ(converted.magnetic_field_t, sample.magnetic_field_t);
+  EXPECT_EQ(
+    converted.bias_calibrated_angular_velocity_radps,
+    sample.bias_calibrated_angular_velocity_radps);
   EXPECT_EQ(converted.orientation_wxyz, sample.orientation_wxyz);
   EXPECT_EQ(converted.euler_rad, sample.euler_rad);
 }

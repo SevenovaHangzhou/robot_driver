@@ -1,14 +1,19 @@
-# Draft commissioning configuration. No physical interface is selected.
+# Standalone LPMS-NAV3 USB-CAN configuration confirmed for this machine.
 /**:
   ros__parameters:
-    can_interface: ""
-    node_id: 0
-    frame_id: ""
+    can_interface: "can0"
+    node_id: 1
+    frame_id: "imu_link"
+    # Sensor X points robot left; +90 deg makes output X point robot forward.
+    mount_yaw_deg: 90.0
+    # Row-major 3x3 matrices; uncomment after measuring these covariances.
+    # orientation: rad^2; angular velocity: (rad/s)^2; acceleration: (m/s^2)^2.
+    # orientation_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # Provisional: X/Y from 17 min static data, Z from CCW 20-60 s steady turn.
+    # XZ/YZ terms assume zero correlation; no independent rate reference was recorded.
+    angular_velocity_covariance: [9.363859e-7, 3.481037e-9, 0.0, 3.481037e-9, 1.131485e-6, 0.0, 0.0, 0.0, 5.312287e-6]
+    # linear_acceleration_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     convert_to_ros_convention: false
-    # Row-major 3x3 matrices: orientation in rad^2, angular velocity in (rad/s)^2.
-    # All zeros means unknown. Loaded at startup; restart after editing.
-    orientation_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    angular_velocity_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     require_heartbeat: true
     # Historical independent-bench settings, not approved Gen3 limits.
     poll_period_ms: 2

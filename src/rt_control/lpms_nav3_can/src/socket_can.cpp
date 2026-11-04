@@ -1,4 +1,4 @@
-#include "lpms_nav3_can/protocol/socket_can.hpp"
+#include "lpms_nav3_can/socket_can.hpp"
 
 #include <array>
 #include <cstdint>
@@ -35,7 +35,7 @@ std::array<can_filter, 5U> make_can_filters(const std::uint8_t node_id)
 
 bool is_reserved_robot_interface(const std::string_view interface_name) noexcept
 {
-  return interface_name == "can0" || interface_name == "can1";
+  return interface_name == "can1";
 }
 
 }  // namespace lpms_nav3_can
