@@ -54,22 +54,43 @@ def failure_entry(enable, devices, tables, values):
     }
 
 
+def offline_entry(enable, devices):
+    """What enable_manager sees offline now (stale feedback, or a slave outside OP), if not
+    already the recorded failure. Reset and enable wait for it; if it does not come back, only a
+    stack restart helps (2026-11-04 bench: re-powered slaves stuck in SAFEOP)."""
+    interface = enable.get("offline_now", "")
+    if not interface or interface == enable.get("offline_feedback"):
+        return None
+    device = _device_with(devices, interface)
+    state = "not in OP" if interface.endswith("/al_state") else "feedback stale"
+    return {
+        "source": device["source"] if device is not None else "rt_control/enable_manager",
+        "dree": "RT_DEVICE_OFFLINE",
+        "severity": "FAULT",
+        "blocking": True,
+        "detail": f"{interface} {state}; restart the stack if it does not recover",
+    }
+
+
+def _device_with(devices, interface):
+    return next((device for device in devices if interface in device["state"].values()), None)
+
+
 def _failed_device(enable, devices):
     joint = enable.get("failed_joint", "")
-    stale = enable.get("offline_feedback", "")
     for device in devices:
-        names = device["state"].values()
-        if (joint and any(name.startswith(joint + "/") for name in names)) or stale in names:
+        if joint and any(name.startswith(joint + "/") for name in device["state"].values()):
             return device
-    return None
+    return _device_with(devices, enable.get("offline_feedback", ""))
 
 
-def domain_readiness(self_check, enable, controllers, hardware, failure=None):
+def domain_readiness(self_check, enable, controllers, hardware, failure=None, offline=None):
     """DomainReadiness fields.
 
     self_check: {"pending": bool, "entries": [...]}; enable: enable_manager diagnostic values or
     None when stale; controllers/hardware: name -> state, or None while not yet queried;
-    failure: (token, entry) from failure_entry() when enable_manager is FAILED.
+    failure: (token, entry) from failure_entry() when enable_manager is FAILED;
+    offline: offline_entry() result.
     """
     blockers, errors = [], []
     if self_check["pending"]:
@@ -86,6 +107,11 @@ def domain_readiness(self_check, enable, controllers, hardware, failure=None):
         errors.append(entry)
     elif state != "ENABLED":
         blockers.append("not_enabled")
+    if offline is not None:
+        blockers.append("device_offline")
+        errors.append(offline)
+    if enable is not None and enable.get("restart_required") == "true":
+        blockers.append("restart_required")
     if hardware is not None and any(value != "active" for value in hardware.values()):
         blockers.append("hardware_inactive")
     if (

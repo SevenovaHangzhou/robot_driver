@@ -32,6 +32,7 @@ public:
 
   static Phase phase(const Controller & c) { return c.phase_.load(); }
   static Stage failureStage(const Controller & c) { return c.last_failure_stage_.load(); }
+  static bool restartRequired(const Controller & c) { return c.restart_required_.load(); }
   static void requestEnable(Controller & c) { c.enable_request_.store(true); }
   static void requestDisable(Controller & c) { c.disable_request_.store(true); }
   static void requestReset(Controller & c) { c.reset_request_.store(true); }
@@ -116,7 +117,8 @@ public:
   }
 
   // with_axis: one CiA402 axis enabled before the device; otherwise a device-only manager.
-  // with_feedback_age: the bus age gates enable/reset; head_yaw/fault_code is also a diagnostic.
+  // with_feedback_age: the bus age and one slave's AL state gate enable/reset;
+  // head_yaw/fault_code is also a diagnostic.
   void bringUp(bool with_axis, bool with_feedback_age = false)
   {
     with_axis_ = with_axis;
@@ -133,6 +135,7 @@ public:
       parameters.emplace_back(
         "feedback_age_interfaces",
         std::vector<std::string>{"bus/process_data_age_ms", "head_yaw/fault_code"});
+      parameters.emplace_back("al_state_interfaces", std::vector<std::string>{"slave_1/al_state"});
     }
     if (with_axis) {
       parameters.emplace_back("managed_joints", std::vector<std::string>{"arm"});
@@ -165,6 +168,7 @@ public:
     states_.emplace_back("head_yaw", "fault_code", &fault_code_);
     if (with_feedback_age) {
       states_.emplace_back("bus", "process_data_age_ms", &process_data_age_);
+      states_.emplace_back("slave_1", "al_state", &al_state_);
     }
     std::vector<hardware_interface::LoanedCommandInterface> loaned_commands;
     std::vector<hardware_interface::LoanedStateInterface> loaned_states;
@@ -234,6 +238,7 @@ public:
   double status_word_{kSwSwitchOnDisabled};
   double fault_code_{0.0};
   double process_data_age_{1.0};
+  double al_state_{8.0};
   bool with_axis_{false};
   std::vector<hardware_interface::CommandInterface> commands_;
   std::vector<hardware_interface::StateInterface> states_;
@@ -361,7 +366,8 @@ TEST_F(HandshakeFixture, FeedbackAgeInterfacesAreClaimedOnce)
   bringUp(true, true);
   const auto names = controller_->state_interface_configuration().names;
   EXPECT_EQ(std::count(names.begin(), names.end(), "head_yaw/fault_code"), 1);
-  EXPECT_EQ(names.back(), "bus/process_data_age_ms");
+  EXPECT_EQ(names[names.size() - 2], "bus/process_data_age_ms");
+  EXPECT_EQ(names.back(), "slave_1/al_state");
 }
 
 TEST_F(HandshakeFixture, StaleFeedbackRejectsEnableAsDeviceOffline)
@@ -420,6 +426,38 @@ TEST_F(HandshakeFixture, StaleFeedbackWhileEnabledStopsAndFailsAsDeviceOffline)
   EXPECT_NE(Access::phase(*controller_), Phase::kEnabled);
   ASSERT_TRUE(stepUntil(Phase::kFailed, 2000));
   EXPECT_EQ(Access::failureStage(*controller_), Stage::kDeviceOffline);
+  EXPECT_EQ(plugin_.enable_request, 0.0);
+}
+
+// 2026-11-04 bench: after power returns the master brings some slaves back to OP (a reset then
+// works) and leaves others in SAFEOP; reset waits for OP and never latches a restart by itself.
+TEST_F(HandshakeFixture, SlaveOutsideOpRejectsResetUntilItIsBackInOp)
+{
+  bringUp(true, true);
+  plugin_.latch_fault();
+  ASSERT_TRUE(stepUntil(Phase::kFailed));
+  al_state_ = 4.0;  // SAFEOP
+  Access::requestReset(*controller_);
+  step(5);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kFailed);
+  EXPECT_EQ(Access::resetResult(*controller_).stage.load(), Stage::kDeviceOffline);
+  EXPECT_FALSE(Access::restartRequired(*controller_));
+
+  al_state_ = 8.0;
+  Access::requestReset(*controller_);
+  ASSERT_TRUE(stepUntil(Phase::kIdle));
+  EXPECT_TRUE(Access::resetResult(*controller_).ok.load());
+}
+
+TEST_F(HandshakeFixture, SlaveLeavingOpWhileEnabledStopsAndRequiresRestart)
+{
+  bringUp(true, true);
+  ASSERT_TRUE(stepUntil(Phase::kIdle));
+  enableToEnabled();
+  al_state_ = 4.0;
+  ASSERT_TRUE(stepUntil(Phase::kFailed, 2000));
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kDeviceOffline);
+  EXPECT_TRUE(Access::restartRequired(*controller_));
   EXPECT_EQ(plugin_.enable_request, 0.0);
 }
 

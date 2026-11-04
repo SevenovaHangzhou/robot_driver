@@ -23,7 +23,7 @@ import yaml
 
 from integ_composer.self_check import PROBLEM_DREE
 
-from .domain import DREE_NAMES, domain_readiness, failure_entry, readiness_line
+from .domain import DREE_NAMES, domain_readiness, failure_entry, offline_entry, readiness_line
 from .evaluate import complete, evaluate
 from .report import state_directory, write_self_check
 
@@ -172,8 +172,9 @@ class DiagnosticsNode(Node):
         failure = None
         if enable is not None and enable.get("state") == "FAILED":
             failure = failure_entry(enable, self._devices, self._tables, self._values)
+        offline = None if enable is None else offline_entry(enable, self._devices)
         fields = domain_readiness(
-            self._self_check, enable, self._controllers, self._hardware, failure
+            self._self_check, enable, self._controllers, self._hardware, failure, offline
         )
         if fields == self._last and not force:
             return

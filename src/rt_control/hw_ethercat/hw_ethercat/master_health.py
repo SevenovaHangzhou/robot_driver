@@ -20,6 +20,21 @@ def responder_count(request):
     return count
 
 
+def offline_exports(request, axes):
+    """enable_manager offline sources: the domain age (first peer module) and each slave's AL state."""
+    exports = {}
+    if responder_count(request) is not None:
+        exports["feedback_age_interfaces"] = ["ethercat_domain/process_data_age_ms"]
+    al_states = [
+        f"ethercat_slave_{axis['ring_position']}/al_state"
+        for axis in axes
+        if type(axis["ring_position"]) is int
+    ]
+    if al_states:
+        exports["al_state_interfaces"] = al_states
+    return exports
+
+
 def sensors(request, axes):
     health = {}
     count = responder_count(request)

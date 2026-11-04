@@ -48,6 +48,7 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::int64_t>>("expected_modes", {});
   auto_declare<std::vector<std::string>>("ready_state_interfaces", {});
   auto_declare<std::vector<std::string>>("feedback_age_interfaces", {});
+  auto_declare<std::vector<std::string>>("al_state_interfaces", {});
   // User 2026-11-03: 500 ms for every scope (normal ages ~1 ms EtherCAT, 6-20 ms DaMiao).
   auto_declare<double>("feedback_age_limit_ms", 500.0);
   auto_declare<double>("ready_hold_time", 0.05);
@@ -152,7 +153,7 @@ EnableManagerController::state_interface_configuration() const
   }
   configuration.names.insert(
     configuration.names.end(), diagnostic_state_names_.begin(), diagnostic_state_names_.end());
-  for (const auto & name : feedback_age_names_) {
+  for (const auto & name : offline_source_names_) {
     if (
       std::find(configuration.names.begin(), configuration.names.end(), name) ==
       configuration.names.end()) {
@@ -205,9 +206,12 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   ready_state_names_ = get_node()->get_parameter("ready_state_interfaces").as_string_array();
   ready_hold_seconds_ = get_node()->get_parameter("ready_hold_time").as_double();
   ready_state_indices_.assign(ready_state_names_.size(), 0U);
-  feedback_age_names_ = get_node()->get_parameter("feedback_age_interfaces").as_string_array();
+  offline_source_names_ = get_node()->get_parameter("feedback_age_interfaces").as_string_array();
+  age_source_count_ = offline_source_names_.size();
+  const auto al_states = get_node()->get_parameter("al_state_interfaces").as_string_array();
+  offline_source_names_.insert(offline_source_names_.end(), al_states.begin(), al_states.end());
   feedback_age_limit_ms_ = get_node()->get_parameter("feedback_age_limit_ms").as_double();
-  feedback_age_indices_.assign(feedback_age_names_.size(), 0U);
+  offline_source_indices_.assign(offline_source_names_.size(), 0U);
   diagnostic_state_names_.clear();
   const auto diagnostic_joints = get_node()->get_parameter("diagnostic_joints").as_string_array();
   const auto diagnostic_interfaces =

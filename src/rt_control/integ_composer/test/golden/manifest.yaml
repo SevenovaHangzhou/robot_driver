@@ -9,7 +9,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: 74f56b7ffd2a99eb1b51c29495b1a442453bc5d8a83770184f22a970164d5ba0
+      controllers.yaml: a6d59f737c24216e8ce3a5f916c7577e6c2e7cc44433e57114b3ecc98b08ec33
       robot_description.xml: 9c3c43757f945d296cd7e7388de310a76a0bde2b4889ec14b56bf1331fa1e2d6
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
@@ -33,7 +33,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 4e6012dbd732bf14bba934e59312880abd7a8f273bbcedd007b8dc8149258cdf
-      controllers.yaml: 74f56b7ffd2a99eb1b51c29495b1a442453bc5d8a83770184f22a970164d5ba0
+      controllers.yaml: a6d59f737c24216e8ce3a5f916c7577e6c2e7cc44433e57114b3ecc98b08ec33
       robot_description.xml: ab1f9fbbb41b2906730acf85a5e6bf564d8b637a02d8f8ffb0727aa58a23fab8
       runtime/alfa_v3_rolling_envelope.mock.yaml: 1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab
       runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
@@ -57,7 +57,7 @@ cases:
     jtc_only: true
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
-      controllers.yaml: f11808aa9c0841a4b7079b652ff64b0b4a8c600b19ace20dc9db8efbeda3c1a9
+      controllers.yaml: 2a0200f46a7e1e7c51d061fc20fb98d53101f4f1978204ca00ca0ac955fe4206
       robot_description.xml: 9c3c43757f945d296cd7e7388de310a76a0bde2b4889ec14b56bf1331fa1e2d6
       runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -80,7 +80,7 @@ cases:
     jtc_only: true
     outputs:
       controller_order.yaml: d36a3d0a2f01409be9282d5b9618715afae04a5f206a3da826a8c2ee4cae6d45
-      controllers.yaml: f11808aa9c0841a4b7079b652ff64b0b4a8c600b19ace20dc9db8efbeda3c1a9
+      controllers.yaml: 2a0200f46a7e1e7c51d061fc20fb98d53101f4f1978204ca00ca0ac955fe4206
       robot_description.xml: ab1f9fbbb41b2906730acf85a5e6bf564d8b637a02d8f8ffb0727aa58a23fab8
       runtime/diagnostics.yaml: a4f96445b45719093612f4062589d449cf17228506b030b18bdbfe8b994f3270
       runtime/left_joint1.yaml: 7d65df17ed670c1f964a29a69ce32ce8633d3c37db2ac8db8c87c320cf310017
@@ -103,7 +103,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
-      controllers.yaml: 2d15f63ce06f55687d614fc7420bae3d78fcb1224d02d33a1c47698382ab74f2
+      controllers.yaml: 367efdccb7cdaba2d7a2f10ab30da51209458fc4398829ffc059cfd97c102e25
       robot_description.xml: bd3108d1fae036cbcdb990b105e7eb7d727bef954b1ae1fc0b07d52196d46e65
       runtime/diagnostics.yaml: 62537feeb9ff3121b12d885b0ef3f89c5e0314c6d60009c2acce197b95aa7307
       runtime/left_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -126,7 +126,7 @@ cases:
     jtc_only: false
     outputs:
       controller_order.yaml: 30e0804aa5a7d76bf54c04d3164d406e4ad729f13fc95f738b70bf90ed3c7545
-      controllers.yaml: 2d15f63ce06f55687d614fc7420bae3d78fcb1224d02d33a1c47698382ab74f2
+      controllers.yaml: 367efdccb7cdaba2d7a2f10ab30da51209458fc4398829ffc059cfd97c102e25
       robot_description.xml: d553e80cc3f773429c6c162a78282b204ddc0e137f2e7ee5f1f7aa02499a8a78
       runtime/diagnostics.yaml: 62537feeb9ff3121b12d885b0ef3f89c5e0314c6d60009c2acce197b95aa7307
       runtime/left_j1.yaml: a88973134b1fd0a06f771338851723a4f5d280cbabc4dedc7e6cb9a0e356afd6
@@ -412,3 +412,13 @@ enable_feedback_age_regeneration:
   - stationary-real
   - head-mock
   - head-real
+arch-al-state-offline:
+  reason: enable_manager 增加 al_state_interfaces（每个 EtherCAT 从站的 AL 状态），使能/复位前要求在 OP
+  method: arch-golden-regen.py --only=arm-,stationary- --write；只多出 al_state_interfaces 一个参数
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
