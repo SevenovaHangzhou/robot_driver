@@ -73,7 +73,7 @@ def render(request: Mapping) -> Mapping:
         },
     }
     sources = {}
-    sensors, claims, missing = [], [], []
+    sensors, claims, missing, diagnostic_devices = [], [], [], []
     for item in spec["nodes"]:
         device = request["devices"][item["device"]]
         name = item["resource_name"]
@@ -105,6 +105,18 @@ def render(request: Mapping) -> Mapping:
             for key, value in values.items():
                 xml_param(sensor, key, value)
         sensors.append(sensor)
+        diagnostic_devices.append(
+            {
+                "name": name,
+                "role": "encoder",
+                "device": item["device"],
+                "address": {"node_id": item["node_id"]},
+                "state": {
+                    "ready": f"{name}/ready",
+                    "feedback_age_ms": f"{name}/feedback_age_ms",
+                },
+            }
+        )
         if type(item["node_id"]) is int:
             claims.append(f"node:{item['node_id']}")
         node = deepcopy(profile["node_settings"])
@@ -164,6 +176,7 @@ def render(request: Mapping) -> Mapping:
         "managed_joints": [],
         "actuator_groups": {},
         "parameter_exports": {"steering_encoders": encoder_names},
+        "diagnostic_devices": diagnostic_devices,
         "resource_claims": claims,
         "runtime_files": {
             "canopen_bus.yaml": bus_text,

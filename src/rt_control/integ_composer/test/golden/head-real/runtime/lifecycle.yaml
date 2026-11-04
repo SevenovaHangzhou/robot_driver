@@ -16,6 +16,7 @@ hardware_activation_order:
 host: {}
 lifecycle_controllers:
 - joint_state_broadcaster
+- rt_internal_state_broadcaster
 - enable_manager
 motion_controllers:
 - head_position_controller

@@ -122,3 +122,51 @@ def test_pending_readiness_carries_stage_a_warnings_only():
     fields = readiness(True, stage_a, [])
     assert not fields["ready"] and fields["blockers"] == ["self_check_pending"]
     assert fields["errors"] == stage_a and fields["operational_state"] == "self_check_pending"
+
+
+HEAD = {
+    "source": "head_gimbal/H1_joint/head_motor",
+    "role": "head_motor",
+    "state": {"fault_code": "H1_joint/fault_code", "feedback_age_ms": "H1_joint/feedback_age_ms"},
+    "expected": {"max_feedback_age_ms": 50},
+    "fault_table": "damiao_dm",
+}
+ENCODER = {
+    "source": "swerve_encoders/steering_encoder_1/encoder",
+    "role": "encoder",
+    "state": {
+        "ready": "steering_encoder_1/ready",
+        "feedback_age_ms": "steering_encoder_1/feedback_age_ms",
+    },
+}
+HEAD_TABLES = {
+    "damiao_dm": yaml.safe_load(
+        (RT / "hwcfg_machines/devices/faults/damiao_dm.yaml").read_text(encoding="utf-8")
+    )
+}
+
+
+@pytest.mark.parametrize(
+    ("fault_code", "age", "dree", "text"),
+    [
+        (0, 12.0, None, None),
+        (9, 12.0, "RT_DEVICE_FAULT", "欠压"),
+        (0, 80.0, "RT_DEVICE_FEEDBACK_STALE", "80 ms > 50 ms"),
+    ],
+)
+def test_head_motor_reports_vendor_errors_and_stale_feedback(fault_code, age, dree, text):
+    values = {"H1_joint/fault_code": fault_code, "H1_joint/feedback_age_ms": age}
+    entries = evaluate([HEAD], HEAD_TABLES, values)
+    if dree is None:
+        assert entries == []
+    else:
+        assert [(e["dree"], e["blocking"]) for e in entries] == [(dree, True)]
+        assert text in entries[0]["detail"]
+
+
+def test_encoder_that_is_not_ready_blocks_as_stale_feedback():
+    ready = {"steering_encoder_1/ready": 1, "steering_encoder_1/feedback_age_ms": 4.0}
+    assert evaluate([ENCODER], {}, ready) == []
+    stale = {"steering_encoder_1/ready": 0, "steering_encoder_1/feedback_age_ms": 40.0}
+    (entry,) = evaluate([ENCODER], {}, stale)
+    assert entry["dree"] == "RT_DEVICE_FEEDBACK_STALE" and entry["blocking"]

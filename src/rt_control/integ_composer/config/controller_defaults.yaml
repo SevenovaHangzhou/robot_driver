@@ -21,3 +21,7 @@ parameter_views:
   head_state:
     joint_state_broadcaster:
       update_rate: 50
+    rt_internal_state_broadcaster:
+      update_rate: 50
+      use_local_topics: true
+      publish_dynamic_joint_states: true

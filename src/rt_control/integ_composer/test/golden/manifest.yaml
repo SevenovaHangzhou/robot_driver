@@ -149,19 +149,21 @@ cases:
     sync_mode: ''
     startup_id: force-bench-synthetic-golden
     outputs:
-      controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
-      controllers.yaml: 4474e364b0b74563603d177b9e2a78e768250c797c1b9fbfd3c6961882f858df
+      controller_order.yaml: 7ca1539a309530ded9059cf5e0219c9a6b0b769fdac0c05f7fe127b3a5d74c96
+      controllers.yaml: 75e8a367f954c462f876ae55aa7ef492610ba60ed179b73510d2d5cfc62876fb
       robot_description.xml: af48c53f6477afb4b4ace588aebb081e0b25535f1311b831e3b547e310c13008
-      runtime/lifecycle.yaml: b3f1807fd7a5e5d5319def567628cae82c37f077ccf8e0559060b3e7fe170672
+      runtime/diagnostics.yaml: f7160da8acaa6d8f3c02f1c29c8e07825554d131f778b04a4c6751a5241b3c87
+      runtime/lifecycle.yaml: 55ba3f417bf661c489a9d2b040eec08e1adaef0a83e80f863d867cff10fa4db7
   head-real:
     use_mock_hardware: false
     sync_mode: ''
     startup_id: force-bench-synthetic-golden
     outputs:
-      controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
-      controllers.yaml: 4474e364b0b74563603d177b9e2a78e768250c797c1b9fbfd3c6961882f858df
+      controller_order.yaml: 7ca1539a309530ded9059cf5e0219c9a6b0b769fdac0c05f7fe127b3a5d74c96
+      controllers.yaml: 75e8a367f954c462f876ae55aa7ef492610ba60ed179b73510d2d5cfc62876fb
       robot_description.xml: c0f49e658a34775757d143c6ae210758a947cbf2da7b2974014fd23eba8a927e
-      runtime/lifecycle.yaml: 1c76793e7c5a4c3721efc5aca982afb186dfabfa4cdfa21218be9107a2455ea8
+      runtime/diagnostics.yaml: f7160da8acaa6d8f3c02f1c29c8e07825554d131f778b04a4c6751a5241b3c87
+      runtime/lifecycle.yaml: a80c4a6ddc2b7c6a11d21ded272147555a8cc802959f0f0b122a39bd683d9cc4
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
@@ -410,5 +412,13 @@ enable_feedback_age_regeneration:
   - arm-real-jtc
   - stationary-mock
   - stationary-real
+  - head-mock
+  - head-real
+diag_devices_chassis_head_regeneration:
+  reason: 'arch-diag-devices-chassis-head 2026-11-04: head_only adds rt_internal_state_broadcaster and
+    head_motor diagnostic devices with the DaMiao fault table'
+  method: compose output written only where the canonical form differs; head cases add the broadcaster
+    to controllers/controller_order/lifecycle and a new runtime/diagnostics.yaml
+  cases:
   - head-mock
   - head-real

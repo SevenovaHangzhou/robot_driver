@@ -9,6 +9,8 @@ controller_manager:
       type: forward_command_controller/ForwardCommandController
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
+    rt_internal_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
     thread_priority: 80
     update_rate: 1000
 enable_manager:
@@ -47,3 +49,8 @@ joint_state_broadcaster:
     - H1_joint
     - H2_joint
     update_rate: 50
+rt_internal_state_broadcaster:
+  ros__parameters:
+    publish_dynamic_joint_states: true
+    update_rate: 50
+    use_local_topics: true

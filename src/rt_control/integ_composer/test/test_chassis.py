@@ -248,7 +248,7 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
     assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
     assert result.controller_order == {
         "inactive": ["swerve_controller"],
-        "active": ["joint_state_broadcaster", "enable_manager"],
+        "active": ["joint_state_broadcaster", "rt_internal_state_broadcaster", "enable_manager"],
     }
 
 
@@ -261,7 +261,11 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     lifecycle = yaml.safe_load(result.files["lifecycle.yaml"])
     assert lifecycle["hardware_activation_order"] == order
     assert lifecycle["motion_controllers"] == ["swerve_controller"]
-    assert lifecycle["lifecycle_controllers"] == ["joint_state_broadcaster", "enable_manager"]
+    assert lifecycle["lifecycle_controllers"] == [
+        "joint_state_broadcaster",
+        "rt_internal_state_broadcaster",
+        "enable_manager",
+    ]
     names = {item["name"]: item for item in lifecycle["capabilities"]}
     assert names["chassis_velocity"]["topic"] == "/cmd_vel"
     assert names["chassis_velocity"]["controller"] == "swerve_controller"

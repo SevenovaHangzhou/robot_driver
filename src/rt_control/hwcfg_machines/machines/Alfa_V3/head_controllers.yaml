@@ -4,6 +4,9 @@ controller_manager:
   ros__parameters:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
+    # Every state interface on a local topic, read by integ_diagnostics.
+    rt_internal_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
     head_position_controller:
       type: forward_command_controller/ForwardCommandController
     enable_manager:
@@ -14,6 +17,9 @@ joint_state_broadcaster:
     - position
     - velocity
     - effort
+# Rate and topics come from integ_composer parameter_views.head_state.
+rt_internal_state_broadcaster:
+  ros__parameters: {}
 head_position_controller:
   ros__parameters:
     interface_name: position
