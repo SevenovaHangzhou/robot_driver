@@ -71,3 +71,27 @@ CANopen 生成物从权威 EDS 重建，不手改 `.bin/.dcf`。
 - Shell：`bash -n <files>`，可用时 `shellcheck`。
 
 容器、Compose 与宿主脚本见 [`docker/README.md`](../docker/README.md)、[`hostsetup/README.md`](../hostsetup/README.md)。
+
+## arch_check 设计（待实现）
+
+单一入口 `tools/arch_check.py`，吸收现有 `rt_control_layer_gate.py`，不另起第二套。约定：
+
+- 输出格式固定为 `path:line: RULE-ID 一句话`，RULE-ID 对应本规范章节（如 `OWN-1.1`、`SIZE-3`、`STATUS-1.4`）。
+- 退出码 0 通过、1 有违反、2 工具自身错误。
+- 只读源码树与安装的 share 目录，不访问硬件、网络、构建目录。
+- 子命令按"改动类型"而非"规则类型"组织，让执行者改完只跑一条。
+- 秒级返回；超过 10 s 的检查（如 colcon build）不属于本入口，由 `run_scoped_tests.sh` 承担。
+
+| 子命令 | 检查什么 | ARCHITECTURE 条款 |
+| --- | --- | --- |
+| `arch_check all` | 下列全部 | — |
+| `arch_check layers` | 包前缀 ↔ 层一致；依赖方向（package.xml、C++ include、Python import、CMake find_package、测试同样计入）；跨包只用 ARCHITECTURE §1.2 四种方式 | 1.2、1.3 |
+| `arch_check status` | 每个 `package.xml`、`config/**.yaml`、`launch/*.py` 有 `status: production\|draft\|retired`；`production` 入口不引用 `draft`/`retired`；`retired` 不在构建闭包 | 1.4 |
+| `arch_check size` | C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 | 3 |
+| `arch_check refs` | `machine_config`、`controllers.yaml`、manifest、policy 文件中所有 `package/file/path` 字符串引用可解析；`authorities.source` 指向存在的文件 | 1.2 |
+| `arch_check facts <kind> <name>` | 列出一个事实（`joint`/`module`/`device`/`controller`）在源码树的全部出现位置，并按 ARCHITECTURE §1.1 判定每处是"拥有者"还是"违反"；输出形如 `enable_policy.yaml:12: OWN-1.1 left_joint7 在策略文件中按名引用，应通过 managed_joints 绑定` | 1.1 |
+| `arch_check names` | 机型名（`Alfa_V3`、`alfa_v3`）、协议名（`damiao`、`zeroerr`、`kinco`）只出现在允许的层 | 1.1、§5a 原则 |
+| `arch_check duplicates` | 已知重复实现签名清单（SocketCAN open、Modbus 读保持寄存器、CiA402 状态字解码、`encode_double`、新鲜度判定）在非 infra 包出现即报 | 3 |
+| `arch_check compose <variant> <unit> <profile> <scope>` | 内存 compose 一次并跑全部 schema/交叉校验，不写文件；是 `validate_machine_profile.py` 的替代入口 | 1.6 |
+
+`facts` 的事实来源是 `hwcfg_machines` 的 manifest；工具不维护第二份清单。
