@@ -8,12 +8,30 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 ament_python_install_package(${PROJECT_NAME})
 
-# Controller manager node: ros2_control 2.53.1 ros2_control_node with Jazzy's overrun management
-# (skip missed ticks instead of running them back to back). Same executable name as upstream.
+# Controller manager node: the installed ros2_control 2.53.1 (Humble) ships ros2_control_node only
+# as a binary, so its source is kept verbatim in upstream/ and one narrow patch adds Jazzy's overrun
+# management (skip missed ticks instead of running them back to back). Same executable name.
 find_package(controller_manager REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(realtime_tools REQUIRED)
-add_executable(ros2_control_node src/ros2_control_node.cpp)
+find_program(PATCH_EXECUTABLE patch REQUIRED)
+set(ROS2_CONTROL_NODE_UPSTREAM ${CMAKE_CURRENT_SOURCE_DIR}/upstream/ros2_control_node.cpp)
+file(SHA256 ${ROS2_CONTROL_NODE_UPSTREAM} ROS2_CONTROL_NODE_UPSTREAM_SHA256)
+if(NOT ROS2_CONTROL_NODE_UPSTREAM_SHA256 STREQUAL
+   "ca6192e765b4ad433e9cd9053ca8209982f6367e301afd7f99620baa3c4eed92")
+  message(FATAL_ERROR "upstream/ros2_control_node.cpp differs from ros2_control 2.53.1")
+endif()
+set(ROS2_CONTROL_NODE_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/patches/ros2_control_node-overruns.patch)
+set(ROS2_CONTROL_NODE_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/patched/ros2_control_node.cpp)
+add_custom_command(
+  OUTPUT ${ROS2_CONTROL_NODE_SOURCE}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/patched
+  COMMAND ${CMAKE_COMMAND} -E copy ${ROS2_CONTROL_NODE_UPSTREAM} ${ROS2_CONTROL_NODE_SOURCE}
+  COMMAND ${PATCH_EXECUTABLE} --batch --forward --silent -p1
+          -d ${CMAKE_CURRENT_BINARY_DIR}/patched -i ${ROS2_CONTROL_NODE_PATCH}
+  DEPENDS ${ROS2_CONTROL_NODE_UPSTREAM} ${ROS2_CONTROL_NODE_PATCH}
+  COMMENT "Applying the rt_control patch to ros2_control 2.53.1 ros2_control_node.cpp")
+add_executable(ros2_control_node ${ROS2_CONTROL_NODE_SOURCE})
 target_compile_features(ros2_control_node PUBLIC cxx_std_17)
 target_include_directories(ros2_control_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
