@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from integ_diagnostics.domain import domain_readiness, failure_entry
+from integ_diagnostics.domain import domain_readiness, failure_entry, readiness_line
 
 RT = Path(__file__).resolve().parents[2]
 TABLES = {
@@ -86,3 +86,14 @@ def test_latched_failure_names_the_device_and_the_vendor_code(stage, code, token
         "FAULT",
     )
     assert text in error["detail"]
+
+
+def test_log_line_ignores_enable_phase_changes():
+    enabling = domain_readiness(DONE, enable("ENABLING"), UP, HW)
+    waiting = domain_readiness(DONE, enable("INTER_BATCH_DELAY"), UP, HW)
+    assert enabling != waiting
+    assert (
+        readiness_line(enabling)
+        == readiness_line(waiting)
+        == ("RT_READINESS ready=false status=UNAVAILABLE blockers=not_enabled")
+    )
