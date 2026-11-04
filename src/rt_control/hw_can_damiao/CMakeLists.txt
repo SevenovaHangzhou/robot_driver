@@ -17,7 +17,8 @@ add_library(damiao_protocol SHARED
   src/head_state_machine.cpp
   src/parameter_tool.cpp
   src/protocol.cpp
-  src/socketcan.cpp)
+  src/socketcan.cpp
+  src/status_query.cpp)
 target_compile_features(damiao_protocol PUBLIC cxx_std_17)
 ament_target_dependencies(damiao_protocol PUBLIC infra_socketcan hw_semantic_components)
 target_compile_options(damiao_protocol PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
@@ -45,7 +46,12 @@ install(TARGETS damiao_protocol damiao_system
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
-install(TARGETS damiao_parameter_tool DESTINATION lib/${PROJECT_NAME})
+add_executable(damiao_preflight src/preflight_main.cpp)
+target_compile_features(damiao_preflight PUBLIC cxx_std_17)
+target_compile_options(damiao_preflight PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+target_link_libraries(damiao_preflight damiao_protocol)
+
+install(TARGETS damiao_parameter_tool damiao_preflight DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY urdf DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY schema DESTINATION share/${PROJECT_NAME}
@@ -65,6 +71,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_parameter_tool test/test_parameter_tool.cpp)
   target_link_libraries(test_parameter_tool damiao_protocol)
   ament_add_pytest_test(test_config test/test_config.py)
+  ament_add_pytest_test(test_preflight test/test_preflight.py)
 endif()
 
 ament_export_targets(export_robot_hw_can HAS_LIBRARY_TARGET)

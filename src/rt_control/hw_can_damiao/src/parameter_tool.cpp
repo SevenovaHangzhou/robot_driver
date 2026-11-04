@@ -11,6 +11,7 @@
 #include <system_error>
 
 #include "hw_can_damiao/socketcan.hpp"
+#include "hw_can_damiao/status_query.hpp"
 
 namespace hw_can_damiao
 {
@@ -95,16 +96,14 @@ void write_profile_value(
 
 void confirm_disabled(SocketCan & socket, const ParameterWriteRequest & request)
 {
-  socket.send(make_special_command(request.motor_id, SpecialCommand::disable));
-  const auto frame = wait_for_frame(socket, [&](const CanFrame & candidate) {
-    return candidate.id == request.master_id && candidate.data[2] != 0x33U &&
-           candidate.data[2] != 0x55U && candidate.data[2] != 0xAAU &&
-           (candidate.data[0] & 0x0FU) == static_cast<std::uint8_t>(request.motor_id);
-  });
-  if ((frame.data[0] >> 4U) > 1U) {
+  const auto reply = query_status(socket, request.motor_id, request.master_id, kTransactionTimeout);
+  if (!reply.answered) {
+    throw std::runtime_error{"timed out waiting for DaMiao parameter response"};
+  }
+  if (reply.status > 1U) {
     throw std::runtime_error{"DaMiao motor reports a fault; refusing parameter write"};
   }
-  if ((frame.data[0] >> 4U) == 1U) {
+  if (reply.status == 1U) {
     throw std::runtime_error{"DaMiao motor remained enabled; refusing parameter write"};
   }
 }

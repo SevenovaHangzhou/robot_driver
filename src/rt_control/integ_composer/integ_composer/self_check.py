@@ -39,6 +39,8 @@ def _fallback_source(address):
         return f"ethercat/master{address['master_id']}/slave{address['ring_position']}"
     if "master_id" in address:
         return f"ethercat/master{address['master_id']}"
+    if "can_id" in address:
+        return f"can/node{address['can_id']}"
     return f"can/{address['can_interface']}"
 
 

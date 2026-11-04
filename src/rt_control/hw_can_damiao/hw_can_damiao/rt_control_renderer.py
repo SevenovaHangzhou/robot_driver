@@ -1,12 +1,15 @@
-"""DaMiao Mapping renderer: owner shape checks and offline XML only."""
+"""DaMiao Mapping renderer: owner shape checks, offline XML and the startup CAN preflight."""
 
 from collections.abc import Mapping
 from copy import deepcopy
+import json
 from pathlib import Path
+import subprocess
 import xml.etree.ElementTree as ET
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from infra_renderer import validated_spec, xml_param
+from infra_socketcan.link import link_problem
 
 RENDERER_API_VERSION = 1
 
@@ -132,10 +135,48 @@ def render(request: Mapping) -> Mapping:
             ],
         },
         "runtime_files": {},
-        "expected_topology": {"preflight_required": False},
+        "expected_topology": {
+            "preflight_required": not mock,
+            "can_interface": None if mock else params["can_interface"],
+            "motors": [
+                {"can_id": entry["can_id"], "master_id": entry["master_id"]}
+                for entry in spec["joints"]
+            ],
+            "timeout_ms": spec["configure_timeout_ms"],
+        },
     }
 
 
 def preflight(expected_topology: Mapping, *, run=None) -> list:
-    """No additional head CAN preflight is introduced by the migration."""
-    return []
+    """Interface up and error-active, then one disable command per motor (user 2026-11-04 allows
+    these CAN frames): a motor that does not answer is offline, an ERR nibble above 1 a fault."""
+    if not expected_topology.get("preflight_required"):
+        return []
+    interface = expected_topology["can_interface"]
+    problem = link_problem(interface, run)
+    if problem is not None:
+        return [
+            {"address": {"can_interface": interface}, "problem": problem[0],
+             "detail": problem[1], "blocking": True}
+        ]
+    execute = subprocess.check_output if run is None else run
+    tool = Path(get_package_prefix("hw_can_damiao")) / "lib/hw_can_damiao/damiao_preflight"
+    motors = expected_topology["motors"]
+    output = execute(
+        [str(tool), interface, str(expected_topology["timeout_ms"]),
+         *(f"{m['can_id']}:{m['master_id']}" for m in motors)],
+        text=True,
+        timeout=5 + len(motors) * expected_topology["timeout_ms"] / 1000,
+    )
+    findings = []
+    for line in output.splitlines():
+        reply = json.loads(line)
+        address = {"can_id": reply["can_id"]}
+        if not reply["answered"]:
+            findings.append({"address": address, "problem": "offline", "blocking": True,
+                             "detail": f"DaMiao motor {reply['can_id']} did not answer on {interface}"})
+        elif reply["status"] > 1:
+            findings.append({"address": address, "problem": "fault_code", "blocking": True,
+                             "fault_code": reply["status"],
+                             "detail": f"DaMiao motor {reply['can_id']} reports ERR {reply['status']}"})
+    return findings

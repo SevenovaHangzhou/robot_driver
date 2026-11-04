@@ -2,13 +2,12 @@
 
 from collections.abc import Mapping
 from copy import deepcopy
-import json
 from pathlib import Path
-import subprocess
 import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
 from infra_renderer import validated_spec, xml_param
+from infra_socketcan.link import link_problem
 import yaml
 
 RENDERER_API_VERSION = 1
@@ -213,15 +212,9 @@ def preflight(expected_topology: Mapping, *, run=None) -> list:
         return finding(
             "configuration_mismatch", f"CANopen bundle {bundle} is stale; run generate_canopen_bundle"
         )
-    execute = subprocess.check_output if run is None else run
-    link = json.loads(
-        execute(["ip", "-details", "-json", "link", "show", interface], text=True, timeout=5)
-    )[0]
-    if "UP" not in link.get("flags", []):
-        return finding("offline", f"CAN interface {interface} is not up")
-    state = link.get("linkinfo", {}).get("info_data", {}).get("state")
-    if state != "ERROR-ACTIVE":
-        return finding("offline", f"CAN interface {interface} is not error-active: {state}")
+    problem = link_problem(interface, run)
+    if problem is not None:
+        return finding(*problem)
     serial = expected_topology.get("can_usb_serial")
     if serial:
         device = Path("/sys/class/net", interface, "device").resolve()
