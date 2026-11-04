@@ -159,3 +159,5 @@ def test_pressure_is_gauge_pascal_and_invalid_samples_only_reach_the_sensor_stat
     assert right.measurement_state == SensorStatus.MEASUREMENT_INVALID
     assert right.error.code == ErrorCode.RT_SENSOR_INVALID and right.sensor_id == "ZSE30A-right"
     assert by_topic["/rt/vacuum/left/pressure"].measurement_state == SensorStatus.MEASUREMENT_VALID
+    outputs = {sensor.sensor_id: sensor for sensor in statuses[-1].sensors}["vacuum_outputs"]
+    assert outputs.measurement_state == SensorStatus.MEASUREMENT_VALID

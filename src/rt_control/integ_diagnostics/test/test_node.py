@@ -41,6 +41,8 @@ CODES = SimpleNamespace(
     RT_STO_ACTIVE=1070,
     RT_ENABLE_MANAGER_NOT_READY=1101,
     RT_DEVICE_FAULT_RESETTABLE=1128,
+    RT_PLC_UNAVAILABLE=1121,
+    RT_DEVICE_FEEDBACK_STALE=1141,
 )
 
 
@@ -205,6 +207,57 @@ def test_readiness_follows_self_check_and_controller_state(runtime):
     report = json.loads((state_dir / "self_check/arms_only.json").read_text())
     assert report["stage"] == "on_demand"
     assert len({m.producer_instance_id for m in received}) == 1
+    executor.shutdown()
+    node.destroy_node()
+    peer.destroy_node()
+
+
+def test_lasting_plc_problem_degrades_readiness_and_clears_itself(runtime):
+    from robot_rt_control_interfaces.msg import SensorStatus, SensorStatusArray
+
+    from integ_diagnostics.node import SENSORS_TOPIC
+
+    generated, _ = runtime
+    clock = [100.0]
+    node = DiagnosticsNode(
+        codes=CODES,
+        monotonic=lambda: clock[0],
+        parameter_overrides=[
+            Parameter("generated_dir", value=str(generated)),
+            Parameter("control_scope", value="arms_only"),
+        ],
+    )
+    peer = rclpy.create_node("sensor_test_peer")
+    received = []
+    peer.create_subscription(
+        DomainReadiness, READINESS_TOPIC, received.append, robot_interfaces_qos.latched()
+    )
+    sensors = peer.create_publisher(SensorStatusArray, SENSORS_TOPIC, robot_interfaces_qos.state())
+    executor = SingleThreadedExecutor()
+    executor.add_node(node)
+    executor.add_node(peer)
+
+    def send(state, code):
+        sensor = SensorStatus(
+            sensor_id="left_vacuum_sensor", module_id="plc_analog_module", measurement_state=state
+        )
+        sensor.error.code = code
+        sensor.error.message = "Modbus timeout"
+        sensors.publish(SensorStatusArray(sensors=[sensor]))
+        for _ in range(40):
+            executor.spin_once(timeout_sec=0.02)
+
+    def plc_errors():
+        return [e for e in received[-1].errors if e.source.endswith("left_vacuum_sensor")]
+
+    send(SensorStatus.MEASUREMENT_COMMUNICATION_ERROR, 1121)
+    assert plc_errors() == []
+    clock[0] += 4.0
+    send(SensorStatus.MEASUREMENT_COMMUNICATION_ERROR, 1121)
+    [error] = plc_errors()
+    assert (error.code, error.severity) == (1121, ErrorInfo.WARN)
+    send(SensorStatus.MEASUREMENT_VALID, 0)
+    assert plc_errors() == []
     executor.shutdown()
     node.destroy_node()
     peer.destroy_node()

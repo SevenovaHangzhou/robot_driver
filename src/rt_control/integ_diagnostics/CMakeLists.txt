@@ -17,6 +17,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_evaluate test/test_evaluate.py)
   ament_add_pytest_test(test_node test/test_node.py)
   ament_add_pytest_test(test_report test/test_report.py)
+  ament_add_pytest_test(test_sensors test/test_sensors.py)
 endif()
 
 ament_package()
