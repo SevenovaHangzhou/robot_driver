@@ -23,7 +23,7 @@ import yaml
 
 from integ_composer.self_check import PROBLEM_DREE
 
-from .domain import DREE_NAMES, domain_readiness, failure_entry
+from .domain import DREE_NAMES, domain_readiness, failure_entry, readiness_line
 from .evaluate import complete, evaluate
 from .report import state_directory, write_self_check
 
@@ -78,6 +78,7 @@ class DiagnosticsNode(Node):
         self._enable, self._enable_at = None, -float("inf")
         self._controllers = self._hardware = None
         self._last = None
+        self._line = None
         self._instance = uuid.uuid4().hex
         self._publisher = self.create_publisher(
             DomainReadiness, READINESS_TOPIC, robot_interfaces_qos.latched()
@@ -174,15 +175,13 @@ class DiagnosticsNode(Node):
         fields = domain_readiness(
             self._self_check, enable, self._controllers, self._hardware, failure
         )
-        changed = fields != self._last
-        if not (changed or force):
+        if fields == self._last and not force:
             return
-        if changed:
+        line = readiness_line(fields)
+        if line != self._line:
             # Runtime-LOG follows this line in launch.log as a timeline event.
-            self.get_logger().info(
-                f"RT_READINESS ready={str(fields['ready']).lower()} status={fields['status']} "
-                f"blockers={','.join(fields['blockers']) or 'none'}"
-            )
+            self.get_logger().info(line)
+            self._line = line
         self._last = fields
         message = DomainReadiness()
         message.header.stamp = self.get_clock().now().to_msg()
