@@ -73,31 +73,9 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 ## 2. 改动类型对照表与验证命令
 
-### 2.1 验证入口设计（待实现，§7 步骤 7）
+验证入口为 `tools/arch_check.py`（待实现，§7 步骤 7），子命令与输出约定见 [`tools/README.md`](tools/README.md#arch_check-设计待实现)。
 
-单一入口 `tools/arch_check.py`，吸收现有 `rt_control_layer_gate.py`，不另起第二套。约定：
-
-- 输出格式固定为 `path:line: RULE-ID 一句话`，RULE-ID 对应本规范章节（如 `OWN-1.1`、`SIZE-3`、`STATUS-1.4`）。
-- 退出码 0 通过、1 有违反、2 工具自身错误。
-- 只读源码树与安装的 share 目录，不访问硬件、网络、构建目录。
-- 子命令按"改动类型"而非"规则类型"组织，让执行者改完只跑一条。
-- 秒级返回；超过 10 s 的检查（如 colcon build）不属于本入口，由 `run_scoped_tests.sh` 承担。
-
-| 子命令 | 检查什么 | 对应规则 |
-| --- | --- | --- |
-| `arch_check all` | 下列全部 | — |
-| `arch_check layers` | 包前缀 ↔ 层一致；依赖方向（package.xml、C++ include、Python import、CMake find_package、测试同样计入）；跨包只用 §1.2 四种方式 | 1.2、1.3 |
-| `arch_check status` | 每个 `package.xml`、`config/**.yaml`、`launch/*.py` 有 `status: production\|draft\|retired`；`production` 入口不引用 `draft`/`retired`；`retired` 不在构建闭包 | 1.4 |
-| `arch_check size` | C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 | 3 |
-| `arch_check refs` | `machine_config`、`controllers.yaml`、manifest、policy 文件中所有 `package/file/path` 字符串引用可解析；`authorities.source` 指向存在的文件 | 1.2 |
-| `arch_check facts <kind> <name>` | 列出一个事实（`joint`/`module`/`device`/`controller`）在源码树的全部出现位置，并按 §1.1 判定每处是"拥有者"还是"违反"；输出形如 `enable_policy.yaml:12: OWN-1.1 left_joint7 在策略文件中按名引用，应通过 managed_joints 绑定` | 1.1 |
-| `arch_check names` | 机型名（`Alfa_V3`、`alfa_v3`）、协议名（`damiao`、`zeroerr`、`kinco`）只出现在允许的层 | 1.1、§5a 原则 |
-| `arch_check duplicates` | 已知重复实现签名清单（SocketCAN open、Modbus 读保持寄存器、CiA402 状态字解码、`encode_double`、新鲜度判定）在非 infra 包出现即报 | 3 |
-| `arch_check compose <variant> <unit> <profile> <scope>` | 内存 compose 一次并跑全部 schema/交叉校验，不写文件；是 `validate_machine_profile.py` 的替代入口 | 1.6 |
-
-`facts` 的事实来源是 `hwcfg_machines` 的 manifest；工具不维护第二份清单。
-
-### 2.2 改动类型对照表
+### 2.1 改动类型对照表
 
 | 改什么 | 唯一位置 | 改完跑 |
 | --- | --- | --- |
@@ -175,44 +153,4 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 每步：独立 PR、不改行为、行为变更与结构变更不混。
 
-## 9. 执行指引（给执行本规范迁移的 Agent）
-
-本节是给按本文档执行的 Agent 的硬约束，优先级高于其自身习惯。
-
-### 9.1 第一个 PR 的范围（§7 步骤 1）
-
-只做三件事，不做其他：
-
-1. 把架构规范原稿拆为两个文件落入仓库：
-   - `ARCHITECTURE.md`（根目录）：§0、§1、§2、§3、§4、§6、§7、§9。去掉 frontmatter 与过程性状态标记。
-   - `domains/rt_control/docs/migration-backlog.md`：§5、§5a、§8。每项带复选框，做完勾掉；全部完成后删除此文件。
-2. 根 `AGENTS.md` 第 1 节末尾加一行：`架构、分层、编码与测试规则以 ARCHITECTURE.md 为准；本文件与其冲突时以 ARCHITECTURE.md 为准。`
-3. `tools/repository_gate.py` 的 `REQUIRED_GOVERNANCE_FILES` 加入 `ARCHITECTURE.md`。
-
-不改任何源码、配置、测试、其他文档。不在本 PR 里开始瘦身 AGENTS.md。
-
-### 9.2 后续每个 PR 的通用约束
-
-- 一个 PR 对应 `domains/rt_control/docs/migration-backlog.md` 里的一项或一组同类项，标题写明对应项。
-- 结构变更 PR 不改行为：改前改后 `arch_check compose` 对每个 scope 的输出逐字节一致（`arch_check` 未实现前，用 `compose_artifact` 生成到临时目录做 diff）。
-- 行为变更 PR（删 relative_move、重做 rt_diagnostics、删 draft 适配器）单独开，PR 描述第一行写"行为变更"，列出被删除的 topic/service/action。
-- 每个 PR 在描述中写清：对应 backlog 项、改前/改后验证命令及结果、未验证项。PR 顶部摘要格式见 `.github/CONTRIBUTING.md` §3。
-- 遇到 §6 列出的底线、硬件事实、或规范没覆盖的情况：停下来问，不猜。
-- 发现规范本身有错或不可执行：改规范（独立 PR）而不是绕过。
-
-### 9.3 停止点
-
-以下动作完成后必须停下等用户确认，不自动进入下一步：
-
-- §7 步骤 1 的 PR 开出后；
-- 每个行为变更 PR 动手前；
-- 任何需要删除 ≥ 1000 行代码的 PR 动手前；
-- `arch_check` 首版实现完成、接入 `quality_gate.sh` 前（因为会让现状全红，需要先定 baseline 策略：按 §5 清单逐项消化，不做豁免清单；§3 写明的单一例外除外）。
-
-### 9.4 分支与工作树（本轮不走 Linear，用户 2026-10-28 裁定）
-
-- 工作树：`repos/features/ARCH-spec-v1`
-- 分支：`feature/arch-spec-v1`
-- 后续迁移 PR 按步骤编号：`feature/arch-s2-agents-slim`、`feature/arch-s3-dead-code`、`feature/arch-s4-config-ownership`、`feature/arch-s5-infra-<lib>`、`feature/arch-s6-split-<pkg>`、`feature/arch-s7-arch-check`。
-- 偏离说明：控制工作区约定要求工作树引用 Linear Issue；本轮用户明确不走 Linear，分支名以 `arch-` 前缀代替 Linear ID。若后续补建 Issue，分支改名为 `feature/<linear-id>-arch-…`。
-- 基线：`main` @ `43d4c64` 或更新的 `origin/main`；开工前先 fetch 并记录实际 base SHA。
+迁移期间的执行指引（每个 PR 的约束、停止点、分支命名）见 [`migration-backlog.md`](domains/rt_control/docs/migration-backlog.md#9-执行指引给执行本规范迁移的-agent)，随该文件一起删除。
