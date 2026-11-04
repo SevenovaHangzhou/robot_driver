@@ -19,6 +19,15 @@ plc_io_modbus:
           do_address: -1
         right_vacuum_valve:
           do_address: -1
+        # 两路电池继电器共用 digital.module，DO 地址必须不同。
+        primary_battery_relay:
+          do_address: 0
+        secondary_battery_relay:
+          do_address: 1
+
+    # 设为 true 后，/plc/battery/{primary,secondary} 服务允许操作上述 DO。
+    battery_relays:
+      configured: true
 
     analog:
       module:
@@ -53,6 +62,7 @@ plc_io_modbus:
 
 # Domain-private endpoints:
 # /plc/vacuum_pump, /plc/vacuum_valve/{left,right}: SetDigitalOutput
+# /plc/battery/{primary,secondary}: SetDigitalOutput
 # /plc/io_state: PlcIoState
 # /plc_io/vacuum/{left,right}: VacuumSensorState
 # /plc_io/infrared_laser: legacy Bool observation; the public adapter adds identity/validity.

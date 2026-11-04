@@ -200,6 +200,8 @@ TEST(BmsProtocolTest, DecodesTwoAddressesAndExtendedStatus)
   EXPECT_EQ(second.discharge_mos_raw, 1U);
   EXPECT_DOUBLE_EQ(*second.max_cell_temperature_c, 25.0);
   EXPECT_DOUBLE_EQ(*second.min_cell_temperature_c, 20.0);
+  EXPECT_DOUBLE_EQ(*second.mos_temperature_c, -40.0);
+  EXPECT_DOUBLE_EQ(*second.board_temperature_c, -40.0);
   EXPECT_TRUE(second.cells_fresh(1.1, 1.0));
   EXPECT_DOUBLE_EQ(*second.cell_voltage_v[0], 3.3);
   secondary.begin_cell_scan(second);
@@ -217,6 +219,21 @@ TEST(BmsProtocolTest, RecognizesDefinedFaultsPerPack)
   ASSERT_TRUE(decoder.ingest(pack, 0x18984002U, faults.data(), faults.size(), 2.0));
   EXPECT_TRUE(pack.has_fault());
   EXPECT_FALSE(pack.status_fresh(5.0, 1.0));
+}
+
+TEST(BmsProtocolTest, NewCellFrameZeroStartsANewAtomicScan)
+{
+  bms_node::GoldenPhoenixPack decoder{bms_node::ByteOrder::kBigEndian, 1U, 0x40U};
+  bms_node::PackState pack;
+  const std::array<std::uint8_t, 8U> count{6U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
+  const std::array<std::uint8_t, 8U> first{0U, 0x0CU, 0xE4U, 0x0CU, 0xE4U, 0x0CU, 0xE4U, 0U};
+  const std::array<std::uint8_t, 8U> second{1U, 0x0CU, 0xE4U, 0x0CU, 0xE4U, 0x0CU, 0xE4U, 0U};
+  ASSERT_TRUE(decoder.ingest(pack, 0x18944001U, count.data(), count.size(), 1.0));
+  ASSERT_TRUE(decoder.ingest(pack, 0x18954001U, first.data(), first.size(), 1.0));
+  ASSERT_TRUE(decoder.ingest(pack, 0x18954001U, second.data(), second.size(), 1.0));
+  ASSERT_TRUE(pack.cells_fresh(1.1, 1.0));
+  ASSERT_TRUE(decoder.ingest(pack, 0x18954001U, first.data(), first.size(), 1.2));
+  EXPECT_FALSE(pack.cells_fresh(1.2, 1.0));
 }
 
 }  // namespace

@@ -227,15 +227,10 @@ bool GoldenPhoenixPack::ingest(
   if (can_id == make_can_id(kCellTemperatureDataId, host_address_, bms_address_)) {
     state.max_cell_temperature_c = static_cast<double>(data[0U]) - 40.0;
     state.min_cell_temperature_c = static_cast<double>(data[2U]) - 40.0;
+    state.mos_temperature_c = static_cast<double>(data[4U]) - 40.0;
+    state.board_temperature_c = static_cast<double>(data[5U]) - 40.0;
+    state.temperature_delta_c = static_cast<double>(data[6U]);
     state.temperature_frame_s = now_s;
-    return true;
-  }
-  if (can_id == make_can_id(kDischargeMosDataId, host_address_, bms_address_)) {
-    if (data[0U] > 1U) {
-      return false;
-    }
-    state.discharge_ack_value = data[0U];
-    state.discharge_ack_s = now_s;
     return true;
   }
   if (can_id == make_can_id(kPackInfoDataId, host_address_, bms_address_)) {
@@ -264,6 +259,9 @@ bool GoldenPhoenixPack::ingest(
     const auto frame_index = data[0U];
     if (frame_index >= state.cell_frame_s.size()) {
       return false;
+    }
+    if (frame_index == 0U) {
+      begin_cell_scan(state);
     }
     for (std::size_t offset = 0U; offset < 3U; ++offset) {
       const std::size_t cell_index = static_cast<std::size_t>(frame_index) * 3U + offset;

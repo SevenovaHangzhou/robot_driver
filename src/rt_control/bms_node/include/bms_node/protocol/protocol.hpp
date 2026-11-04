@@ -17,7 +17,6 @@ constexpr std::uint8_t kMosStatusDataId = 0x93U;
 constexpr std::uint8_t kPackInfoDataId = 0x94U;
 constexpr std::uint8_t kCellVoltagesDataId = 0x95U;
 constexpr std::uint8_t kFaultDataId = 0x98U;
-constexpr std::uint8_t kDischargeMosDataId = 0xD9U;
 constexpr std::uint8_t kDefaultBmsAddress = 0x01U;
 constexpr std::uint8_t kSecondaryBmsAddress = 0x02U;
 constexpr std::uint8_t kDefaultHostAddress = 0x40U;
@@ -81,8 +80,6 @@ struct PackState
   std::optional<std::uint8_t> discharge_mos_raw;
   std::optional<double> pack_info_s;
   std::optional<std::uint8_t> charger_connected_raw;
-  std::optional<double> discharge_ack_s;
-  std::optional<std::uint8_t> discharge_ack_value;
   std::optional<std::uint8_t> cell_count;
   std::optional<double> cell_extremes_s;
   std::optional<double> max_cell_voltage_v;
@@ -90,6 +87,9 @@ struct PackState
   std::optional<double> temperature_frame_s;
   std::optional<double> max_cell_temperature_c;
   std::optional<double> min_cell_temperature_c;
+  std::optional<double> mos_temperature_c;
+  std::optional<double> board_temperature_c;
+  std::optional<double> temperature_delta_c;
   std::array<std::optional<double>, 48U> cell_voltage_v{};
   std::array<std::optional<double>, 16U> cell_frame_s{};
 

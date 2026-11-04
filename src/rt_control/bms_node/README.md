@@ -1,107 +1,148 @@
 # bms_node
 
-Golden Phoenix BMS CAN protocol V1.1 dual-battery monitor and opt-in discharge
-coordinator. The node uses SocketCAN for a CAN card exposing a Linux `canX`
-interface. It never configures the interface. Automatic control is disabled by default.
+金凤凰 V1.1 双电池监控节点。节点通过 SocketCAN 以 250 kbit/s 查询地址 `0x01` 和
+`0x02`，不配置 CAN 接口，也不发送 `D9/DA`，因此不会控制 BMS 的充放电 MOS。
 
-## CAN contract
+## USB-CAN 与 SocketCAN
 
-- Physical bus: CAN, 250 kbit/s, configured by the host before the node starts.
-- Transport: SocketCAN, with the target CAN card's `canX` selected by configuration.
-- Frame type: 29-bit extended data frame, 8-byte payload.
-- Poll plan: `0x90/0x91/0x92/0x93/0x94/0x95/0x98` for addresses `0x01` and `0x02`.
-- Each address and data ID is queried once per 200 ms, staggered across the cycle.
-- Response byte 0-1: accumulated voltage, scale 0.1 V.
-- Response byte 6-7: SOC, scale 0.1 percent.
+电池使用专用 `gs_usb` USB-CAN，固定为 Linux SocketCAN 接口 `can1`。当前批准的适配器
+USB 序列号为 `004D00675230500720333159`；`bms_node` 启动时会核对该序列号，防止误用其他
+CAN 总线。CAN 参数为 250 kbit/s、发送队列长度 128。
 
-The PDF does not define multi-byte byte order. `multi_byte_order: auto` accepts a frame
-only when the SOC range identifies one unique order, then locks that order for the
-process lifetime. Set `big_endian` or `little_endian` explicitly after a captured frame
-or vendor confirmation. Ambiguous auto-detection never updates the published sample.
+首次安装或 USB-CAN 插拔后，使用仓库脚本按序列号固定接口并配置 SocketCAN：
 
-## Configuration
+```bash
+cd /home/sev_v3/Robot/rt-control/v3/robot_driver
+sudo ./hostsetup/can-install.sh --start
+```
 
-The installed configuration is `share/bms_node/config/bms_node.yaml`. The host must
-first verify the CAN card is wired to the battery bus, identify its actual `canX`, and
-configure that interface at 250 kbit/s. Set `can_interface` in both the package and
-bringup configurations to that verified name. `expected_adapter_serial` is optional:
-when nonempty it is checked before opening the CAN socket; leave it empty for a
-non-USB CAN card. The node reconnects when the interface is absent or goes down.
-`automatic_discharge_control=false` keeps the node read-only. Enabling control requires
-valid join/trip voltage limits, current limit, cell voltage and temperature limits,
-stable/observation and command/status timeouts, and the measured `0x93` MOS on/off
-values in YAML. Invalid or missing values reject node startup. The shipped YAML uses
-invalid placeholders and does not enable K2 or D9 writes.
+也可以在已经确认目标适配器就是 `can1` 时手动配置：
 
-The configured domain-private Bool topics are `/bms/k2/command` (true closes,
-false opens), `/bms/k2/closed` (physical auxiliary-contact feedback),
-`/bms/loads/stop_request` (true requests load stop), and `/bms/loads/stopped`
-(actual load-stop feedback). Topic publication alone does not drive a physical relay.
-The target CAN card is reported as `can0`; this is not the earlier USB-CAN adapter.
-The user reports that both battery addresses answer `0x90` queries and that manual
-parallel discharge works. This does not validate automatic K2 switching or fault
-isolation. The K2 hardware adapter is not in this package or the current electrical drawing;
-it must use a DC-rated contactor, provide actual contact feedback, default open,
-and de-energize on command heartbeat loss or process death. The controller will not
-join without fresh contact/load feedback and command subscribers. It sends `D9`
-only in enabled mode, checks the D9 reply and subsequent `0x93`, then closes K2
-after the stable voltage window. A fault requests load stop before low-current MOS
-switching; a secondary fault also opens K2. This software path has no real-hardware
-commissioning evidence and does not replace the independent protection chain.
-If the other pack faults after the first isolation is latched, the controller
-re-enters load-stop handling and requests isolation of that second pack as well.
-There is currently no producer for the K2 auxiliary-contact or load-stop feedback
-topics in this repository; a ROS subscriber by itself is not proof of a wired output.
-S1 on `0x01` is a manual switch. On a primary fault the controller requests `D9=0`
-for `0x01`; it cannot operate S1, and the IPC may immediately lose power if the
-secondary pack is not already connected. On a secondary fault it requests `D9=0`
-for `0x02` and opens K2 after load-stop/low-current checks. A command or topic
-publication alone does not prove that either pack was isolated.
+```bash
+sudo ip link set can1 down
+sudo ip link set can1 type can bitrate 250000
+sudo ip link set can1 txqueuelen 128
+sudo ip link set can1 up
+```
 
-The four control topics must be pairwise distinct after ROS name expansion and
-remapping. Subscriber counts remain a connectivity check, not a new execution-end
-readiness handshake. CAN reconnect waits do not suspend control ticks or relay-hold
-publication. D9 write failures do not directly reset the connection. Every D9 OFF
-retry rechecks fresh load-stop and low-current feedback.
+启动 BMS 前检查接口：
 
-Before a command is sent, stale K2 or primary MOS feedback only pauses admission
-and resets the stable window; fresh unexpected K2 closure still latches a fault.
-After D9 has been sent, stale or unexpectedly closed K2 feedback aborts the handshake
-with a latched fault. An unexpected primary MOS OFF during joining or
-running enters `awaiting_primary_mos_isolation_policy`: request load stop and latch;
-do not choose a K2 isolation or supply-transfer policy. This state returns early:
-later secondary faults do not enter the normal second-pack isolation path. The
-system owners must resolve this exception before enabling control.
-Normal phase progress emits INFO, fault-handling progress WARN, and fault/policy
-latches ERROR; unchanged phases do not log every control tick.
+```bash
+udevadm info -q property -p /sys/class/net/can1 | grep '^ID_SERIAL_SHORT='
+ip -details -statistics link show can1
+```
 
-Automatic control remains prohibited until the system owners settle controlled
-shutdown, K2 level/edge/debounce/heartbeat semantics, isolation after unexpected
-primary MOS loss, and load-stop persistence after fault latching. K2 OFF retries
-are not changed by this review fix. See ELECTRI-131 and BQ-152.
-
-The primary `0x01` pack publishes `/battery_state`; secondary `0x02` publishes
-`/battery_state/secondary`. They are not averaged or summed because diode ORing
-does not guarantee current sharing. A missing, stale, or faulted pack publishes
-`present=false` with invalid numeric values; `0x98` faults set unspecified failure
-health. The published status is not a replacement for the hardware safety chain.
-
-See the dual Golden Phoenix power-flow record for the physical connection and charging
-restrictions. Charging MOS is not controlled by this package.
-
-## Build and test
-
-`bms_protocol` and `bms_can_transport` expose ROS-independent headers under
-`include/bms_node/protocol/`. Include `bms_node/protocol/protocol.hpp` or
-`bms_node/protocol/can_transport.hpp`; link the corresponding existing library target.
-The discharge controller and ROS node remain outside the protocol directory.
+预期序列号为 `004D00675230500720333159`，接口为 `UP`、CAN 状态为 `ERROR-ACTIVE`、
+波特率为 `250000`。然后启动节点：
 
 ```bash
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install --packages-select bms_node
-colcon test --packages-select bms_node
+source /home/sev_v3/Robot/rt-control/v3/robot_driver/install/setup.bash
+ros2 run bms_node bms_node --ros-args \
+  --params-file /home/sev_v3/Robot/rt-control/v3/robot_driver/src/rt_control/bms_node/config/bms_node.yaml
+```
+
+在另一个终端检查两块电池是否返回状态：
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/sev_v3/Robot/rt-control/v3/robot_driver/install/setup.bash
+ros2 topic echo /bms/primary/status_chinese --once
+ros2 topic echo /bms/secondary/status_chinese --once
+```
+
+如需观察原始扩展 CAN 帧，可并行运行 `candump can1`。状态话题持续显示“数据缺失或超时”
+时，检查电池供电、CAN_H/CAN_L、终端电阻以及 BMS 地址 `0x01`、`0x02`。
+
+节点从专用 `can1` 原始 SocketCAN socket 接收报文，并在用户态只接受配置地址返回的
+`0x90/0x91/0x92/0x93/0x94/0x95/0x98` 扩展数据帧；RTR、错误帧、非 8 字节帧以及其他
+CAN ID 均会被丢弃。
+
+## 电池开关
+
+`bms_node` 不提供开关服务，也不创建 PLC 客户端。调用方直接使用原有
+`plc_io_modbus` 节点提供的两个 `rt_control_interfaces/srv/SetDigitalOutput` 服务：
+
+- `/plc/battery/primary`：主电池继电器；
+- `/plc/battery/secondary`：副电池继电器。
+
+请求中的 `enabled=true` 表示闭合，`enabled=false` 表示断开。只有 PLC 写入成功并且线圈
+回读等于请求值时，服务才返回 `OUTCOME_CONFIRMED`。
+
+两路继电器配置位于 `plc_io_modbus/config/plc_io_modbus.yaml` 中，使用同一个
+`plc_io_modbus.digital.module` host、port 和 unit_id，但必须配置不同的 `do_address`。
+当前主、副电池 DO 地址分别为 `0`、`1`，且 `battery_relays.configured=true`。修改地址后
+需要重启 `plc_io_modbus`。两个节点需要在两个终端中分别启动，并分别加载各自的配置文件。
+
+终端 1：启动 PLC 继电器控制节点：
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/sev_v3/Robot/rt-control/v3/robot_driver/install/setup.bash
+
+ros2 run plc_io_modbus plc_io_modbus --ros-args \
+  --params-file /home/sev_v3/Robot/rt-control/v3/robot_driver/src/rt_control/plc_io_modbus/config/plc_io_modbus.yaml
+```
+
+终端 2：启动双电池 CAN 状态节点：
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/sev_v3/Robot/rt-control/v3/robot_driver/install/setup.bash
+
+ros2 run bms_node bms_node --ros-args \
+  --params-file /home/sev_v3/Robot/rt-control/v3/robot_driver/src/rt_control/bms_node/config/bms_node.yaml
+```
+
+直接控制示例：
+
+```bash
+ros2 service call /plc/battery/primary \
+  rt_control_interfaces/srv/SetDigitalOutput "{enabled: true}"
+ros2 service call /plc/battery/secondary \
+  rt_control_interfaces/srv/SetDigitalOutput "{enabled: false}"
+```
+
+## 状态话题
+
+每块电池同时发布标准数值消息和中文文本：
+
+| 电池 | 标准 `sensor_msgs/BatteryState` | 中文状态 | 中文故障 |
+| --- | --- | --- | --- |
+| 主电池 | `/battery_state` | `/bms/primary/status_chinese` | `/bms/primary/fault_chinese` |
+| 副电池 | `/battery_state/secondary` | `/bms/secondary/status_chinese` | `/bms/secondary/fault_chinese` |
+
+中文状态包含电量、电压、电流、最高/最低单体温度、MOS温度、板卡温度、温差、充放电状态、
+充电 MOS 状态和放电 MOS 状态。中文故障逐位展开 `0x98` 中协议规定的所有告警/故障，
+并附加 Byte7 故障码；未收到或过期会明确显示“未收到故障状态”或“故障状态通信超时”。
+
+协议没有规定多字节端序和 MOS 状态原始值。`multi_byte_order=auto` 只在 SOC 能唯一判断
+端序时锁定。`mos_closed_raw`/`mos_open_raw` 默认均为 `-1`，此时文本显示原始值但不猜测
+开闭；厂家或抓包确认后必须同时配置为两个不同的字节值。
+
+电池话题、周期、超时、CAN 地址和 MOS 映射位于 `config/bms_node.yaml`。PLC 数字量模块及
+两路继电器 DO 地址位于 `../plc_io_modbus/config/plc_io_modbus.yaml`。
+
+## 构建和测试
+
+在 `robot_driver` 工作区根目录执行。先加载 ROS 2 Humble，再加载 V3 已安装的接口依赖：
+
+```bash
+cd /home/sev_v3/Robot/rt-control/v3/robot_driver
+
+source /opt/ros/humble/setup.bash
+source /home/sev_v3/Robot/rt-control/v3/install/setup.bash
+
+colcon build --symlink-install --packages-up-to bms_node plc_io_modbus
+colcon test --packages-select bms_node plc_io_modbus
 colcon test-result --verbose
 ```
 
-The tests cover protocol decoding, both CAN addresses, the discharge state machine,
-CAN frame filtering, fail-closed configuration, and node shutdown without a CAN device.
+如果未加载 `/home/sev_v3/Robot/rt-control/v3/install/setup.bash`，构建接口包时可能提示找不到
+`robot_rt_control_interfaces`。
+
+编译完成后，启动节点前加载本工作区的安装环境：
+
+```bash
+source /home/sev_v3/Robot/rt-control/v3/robot_driver/install/setup.bash
+```

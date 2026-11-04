@@ -5,15 +5,6 @@
 namespace bms_node
 {
 
-can_filter make_response_filter(const std::uint32_t response_id) noexcept
-{
-  constexpr canid_t exact_extended_data_mask =
-    CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG;
-  return can_filter{
-    static_cast<canid_t>(response_id) | CAN_EFF_FLAG,
-    exact_extended_data_mask};
-}
-
 can_frame make_query_frame(const std::uint32_t request_id) noexcept
 {
   can_frame frame{};

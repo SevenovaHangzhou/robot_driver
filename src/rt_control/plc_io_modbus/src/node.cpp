@@ -1,5 +1,6 @@
 // Hardware-only Modbus bridge. Public cross-domain interfaces are provided by
 // control_api_adapter; this node owns the serialised socket transactions.
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -79,9 +80,12 @@ public:
     declare_parameter("digital.inputs.infrared_laser.di_address", 0);
 
     vacuum_configured_ = declare_parameter("vacuum_system.configured", false);
+    battery_relays_configured_ = declare_parameter("battery_relays.configured", false);
     declare_parameter("digital.outputs.vacuum_pump_relay.do_address", -1);
     declare_parameter("digital.outputs.left_vacuum_valve.do_address", -1);
     declare_parameter("digital.outputs.right_vacuum_valve.do_address", -1);
+    declare_parameter("digital.outputs.primary_battery_relay.do_address", -1);
+    declare_parameter("digital.outputs.secondary_battery_relay.do_address", -1);
     declare_pressure_parameters("left", "left_vacuum_sensor");
     declare_pressure_parameters("right", "right_vacuum_sensor");
 
@@ -106,13 +110,20 @@ public:
       "/plc/io_state", 10);
 
     pump_service_ = create_output_service(
-      "/plc/vacuum_pump", "digital.outputs.vacuum_pump_relay.do_address", &pump_on_);
+      "/plc/vacuum_pump", "digital.outputs.vacuum_pump_relay.do_address", &pump_on_,
+      vacuum_configured_);
     left_valve_service_ = create_output_service(
-      "/plc/vacuum_valve/left", "digital.outputs.left_vacuum_valve.do_address",
-      &left_valve_on_);
+      "/plc/vacuum_valve/left", "digital.outputs.left_vacuum_valve.do_address", &left_valve_on_,
+      vacuum_configured_);
     right_valve_service_ = create_output_service(
-      "/plc/vacuum_valve/right", "digital.outputs.right_vacuum_valve.do_address",
-      &right_valve_on_);
+      "/plc/vacuum_valve/right", "digital.outputs.right_vacuum_valve.do_address", &right_valve_on_,
+      vacuum_configured_);
+    primary_battery_service_ = create_output_service(
+      "/plc/battery/primary", "digital.outputs.primary_battery_relay.do_address",
+      &primary_battery_relay_on_, battery_relays_configured_);
+    secondary_battery_service_ = create_output_service(
+      "/plc/battery/secondary", "digital.outputs.secondary_battery_relay.do_address",
+      &secondary_battery_relay_on_, battery_relays_configured_);
 
     poll_timer_ = create_wall_timer(
       std::chrono::duration<double>(poll_period_seconds), [this]() {poll_all_inputs();});
@@ -128,6 +139,29 @@ private:
     }
     if (infrared_configured_) {
       (void)read_integer_parameter("digital.inputs.infrared_laser.di_address", 0, 65535);
+    }
+    if (battery_relays_configured_) {
+      const int primary =
+        read_integer_parameter("digital.outputs.primary_battery_relay.do_address", 0, 65535);
+      const int secondary =
+        read_integer_parameter("digital.outputs.secondary_battery_relay.do_address", 0, 65535);
+      if (primary == secondary) {
+        throw std::invalid_argument("primary and secondary battery relay addresses must differ");
+      }
+      if (vacuum_configured_) {
+        const std::array<int, 3> vacuum_outputs{
+          read_integer_parameter("digital.outputs.vacuum_pump_relay.do_address", 0, 65535),
+          read_integer_parameter("digital.outputs.left_vacuum_valve.do_address", 0, 65535),
+          read_integer_parameter("digital.outputs.right_vacuum_valve.do_address", 0, 65535)};
+        if (
+          std::find(vacuum_outputs.begin(), vacuum_outputs.end(), primary) !=
+            vacuum_outputs.end() ||
+          std::find(vacuum_outputs.begin(), vacuum_outputs.end(), secondary) !=
+            vacuum_outputs.end()) {
+          throw std::invalid_argument(
+            "battery relay addresses must differ from configured vacuum outputs");
+        }
+      }
     }
   }
 
@@ -216,26 +250,27 @@ private:
   }
 
   rclcpp::Service<SetDigitalOutput>::SharedPtr create_output_service(
-    const std::string & service_name, const std::string & address_parameter, bool * state)
+    const std::string & service_name, const std::string & address_parameter, bool * state,
+    const bool configured)
   {
-    return create_service<SetDigitalOutput>(service_name,
-      [this, service_name, address_parameter, state](
-        SetDigitalOutput::Request::SharedPtr request,
-        SetDigitalOutput::Response::SharedPtr response)
-      {
-        on_output_command(service_name, address_parameter, *state, request->enabled, *response);
+    return create_service<SetDigitalOutput>(
+      service_name, [this, service_name, address_parameter, state, configured](
+                      SetDigitalOutput::Request::SharedPtr request,
+                      SetDigitalOutput::Response::SharedPtr response) {
+        on_output_command(
+          service_name, address_parameter, *state, configured, request->enabled, *response);
       });
   }
 
   void on_output_command(
-    const std::string & service_name, const std::string & address_parameter,
-    bool & state, bool enabled, SetDigitalOutput::Response & response)
+    const std::string & service_name, const std::string & address_parameter, bool & state,
+    const bool configured, bool enabled, SetDigitalOutput::Response & response)
   {
-    if (!vacuum_configured_) {
+    if (!configured) {
       response.accepted = false;
       response.outcome = SetDigitalOutput::Response::OUTCOME_NOT_EXECUTED;
       response.observation_valid = false;
-      response.message = "vacuum hardware is not configured";
+      response.message = service_name + " hardware is not configured";
       return;
     }
 
@@ -297,7 +332,7 @@ private:
 
   void poll_digital_module()
   {
-    if (!infrared_configured_ && !vacuum_configured_) {
+    if (!infrared_configured_ && !vacuum_configured_ && !battery_relays_configured_) {
       publish_infrared_state(false, false, false, "infrared input is not configured");
       digital_error_ = "no digital IO capability is configured";
       return;
@@ -316,6 +351,11 @@ private:
         pump_output_valid_ = true;
         left_valve_output_valid_ = true;
         right_valve_output_valid_ = true;
+      }
+      if (battery_relays_configured_) {
+        primary_battery_relay_on_ = read_output("digital.outputs.primary_battery_relay.do_address");
+        secondary_battery_relay_on_ =
+          read_output("digital.outputs.secondary_battery_relay.do_address");
       }
       digital_fresh_ = true;
       digital_error_.clear();
@@ -510,6 +550,7 @@ private:
   ModbusClient digital_client_;
   ModbusClient analog_client_;
   bool vacuum_configured_{false};
+  bool battery_relays_configured_{false};
   bool infrared_configured_{false};
   bool infrared_active_high_{true};
   bool digital_fresh_{false};
@@ -520,6 +561,8 @@ private:
   bool pump_on_{false};
   bool left_valve_on_{false};
   bool right_valve_on_{false};
+  bool primary_battery_relay_on_{false};
+  bool secondary_battery_relay_on_{false};
   PressureSample left_pressure_;
   PressureSample right_pressure_;
   std::string digital_error_;
@@ -535,6 +578,8 @@ private:
   rclcpp::Service<SetDigitalOutput>::SharedPtr pump_service_;
   rclcpp::Service<SetDigitalOutput>::SharedPtr left_valve_service_;
   rclcpp::Service<SetDigitalOutput>::SharedPtr right_valve_service_;
+  rclcpp::Service<SetDigitalOutput>::SharedPtr primary_battery_service_;
+  rclcpp::Service<SetDigitalOutput>::SharedPtr secondary_battery_service_;
   rclcpp::TimerBase::SharedPtr poll_timer_;
 };
 }  // namespace plc_io_modbus

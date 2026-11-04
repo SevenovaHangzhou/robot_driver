@@ -59,6 +59,7 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
         "msg/ChassisMoveLimits.msg",
         "msg/ChassisMoveState.msg",
         "msg/ChassisState.msg",
+        "msg/SwerveExecutionState.msg",
         "srv/ChassisSetMode.srv",
         "srv/ChassisResetFault.srv",
         "srv/SetDigitalOutput.srv",
@@ -74,7 +75,6 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     bms = yaml.safe_load(
         (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
     )["bms_node"]["ros__parameters"]
-
     assert plc["digital"]["module"]["host"] == "192.168.1.12"
     assert plc["digital"]["inputs"]["infrared_laser"] == {
         "configured": False,
@@ -85,6 +85,9 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert plc["digital"]["outputs"]["vacuum_pump_relay"]["do_address"] == -1
     assert plc["digital"]["outputs"]["left_vacuum_valve"]["do_address"] == -1
     assert plc["digital"]["outputs"]["right_vacuum_valve"]["do_address"] == -1
+    assert plc["battery_relays"]["configured"] is True
+    assert plc["digital"]["outputs"]["primary_battery_relay"]["do_address"] == 0
+    assert plc["digital"]["outputs"]["secondary_battery_relay"]["do_address"] == 1
     assert plc["analog"]["module"]["host"] == "192.168.1.13"
     left_sensor = plc["analog"]["inputs"]["left_vacuum_sensor"]
     right_sensor = plc["analog"]["inputs"]["right_vacuum_sensor"]
@@ -98,13 +101,15 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
         "digital.outputs.vacuum_pump_relay.do_address",
         "digital.outputs.left_vacuum_valve.do_address",
         "digital.outputs.right_vacuum_valve.do_address",
+        "digital.outputs.primary_battery_relay.do_address",
+        "digital.outputs.secondary_battery_relay.do_address",
         "analog.module.host",
     )
     for parameter_name in configured_hardware_parameters:
         assert f'declare_parameter("{parameter_name}"' in node_source
     assert bms["transport"] == "socketcan"
-    assert bms["can_interface"] == "can0"
-    assert bms["expected_adapter_serial"] == ""
+    assert bms["can_interface"] == "can1"
+    assert bms["expected_adapter_serial"] == "004D00675230500720333159"
     assert bms["protocol"] == "golden_phoenix_v1_1"
     assert bms["can_bitrate"] == 250000
     assert bms["primary_bms_address"] == 1
@@ -114,9 +119,8 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert bms["request_period_s"] == 0.2
     assert bms["publish_period_s"] == 5.0
     assert bms["frame_timeout_s"] == 3.0
-    assert bms["automatic_discharge_control"] is False
-    assert bms["max_join_voltage_delta_v"] == -1.0
-    assert bms["max_join_current_a"] == -1.0
+    assert bms["mos_closed_raw"] == -1
+    assert bms["mos_open_raw"] == -1
 
 
 def test_rt_io_public_parameters_match_current_contract() -> None:
@@ -125,7 +129,9 @@ def test_rt_io_public_parameters_match_current_contract() -> None:
     bms_params = yaml.safe_load(
         (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
     )["bms_node"]["ros__parameters"]
-    assert bms_params["battery_state_topic"] == "/battery_state"
+    assert bms_params["primary_battery_state_topic"] == "/battery_state"
+    assert bms_params["primary_status_chinese_topic"] == "/bms/primary/status_chinese"
+    assert bms_params["primary_fault_chinese_topic"] == "/bms/primary/fault_chinese"
     assert bms_params["publish_period_s"] == 5.0
 
     vacuum_params = rt_io["vacuum_adapter"]["ros__parameters"]
@@ -226,8 +232,10 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
     ).read_text()
 
     assert '#include "robot_interfaces_qos/profiles.hpp"' in bms_source
-    assert "topic, robot_interfaces_qos::state()" in bms_source
-    assert "secondary_topic, robot_interfaces_qos::state()" in bms_source
+    assert "primary_battery_topic, robot_interfaces_qos::state()" in bms_source
+    assert "secondary_battery_topic, robot_interfaces_qos::state()" in bms_source
+    assert "primary_status_topic, robot_interfaces_qos::state()" in bms_source
+    assert "secondary_fault_topic, robot_interfaces_qos::state()" in bms_source
     assert "from robot_interfaces_qos import state" in vacuum_source
     assert "state()," in vacuum_source
     assert "from robot_interfaces_qos import diagnostic, latched, state" in status_source
@@ -367,9 +375,13 @@ def test_removed_duplicate_and_unused_ros_interfaces_do_not_return() -> None:
     assert '"/plc/command"' not in plc_source
     assert "/command" not in plc_source
     assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 2
-    assert 'declare_parameter<bool>("automatic_discharge_control", false)' in bms_source
-    assert "if (automatic_discharge_control_)" in bms_source
-    assert "relay_command_publisher_" in bms_source
+    assert "kDischargeMosDataId" not in bms_source
+    assert "send_discharge_command" not in bms_source
+    assert "primary_switch_service_" not in bms_source
+    assert "secondary_switch_service_" not in bms_source
+    assert "create_client<SetDigitalOutput>" not in bms_source
+    assert "primary_status_publisher_" in bms_source
+    assert "secondary_fault_publisher_" in bms_source
     assert "can_bus_guard" not in bms_source
     assert "can_bus_guard" not in bms_manifest
 
@@ -400,4 +412,5 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     assert 'readonly BITRATE="250000"' in naming_script
     assert 'verify_reserved_name_not_unknown can1' in naming_script
     assert 'wait_for_serial "BMS/can1" "${BMS_SERIAL}"' in naming_script
+    assert 'BMS_SERIAL="004D00675230500720333159"' in naming_script
     assert "can0" not in naming_script

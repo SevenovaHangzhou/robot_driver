@@ -1,8 +1,8 @@
 bms_node:
   ros__parameters:
     transport: socketcan
-    can_interface: can0
-    expected_adapter_serial: ""
+    can_interface: can1
+    expected_adapter_serial: "004D00675230500720333159"
     primary_bms_address: 1
     secondary_bms_address: 2
     host_address: 64
@@ -12,14 +12,14 @@ bms_node:
     reconnect_period_s: 2.0
     publish_period_s: 5.0
     frame_timeout_s: 3.0
-    automatic_discharge_control: false
-    max_join_voltage_delta_v: -1.0
-    max_join_current_a: -1.0
-    discharge_mos_on_raw: -1
-    discharge_mos_off_raw: -1
-    loads_stopped_feedback_topic: ""
-    battery_state_topic: /battery_state
+    mos_closed_raw: -1
+    mos_open_raw: -1
+    primary_battery_state_topic: /battery_state
     secondary_battery_state_topic: /battery_state/secondary
+    primary_status_chinese_topic: /bms/primary/status_chinese
+    secondary_status_chinese_topic: /bms/secondary/status_chinese
+    primary_fault_chinese_topic: /bms/primary/fault_chinese
+    secondary_fault_chinese_topic: /bms/secondary/fault_chinese
 
 vacuum_adapter:
   ros__parameters:

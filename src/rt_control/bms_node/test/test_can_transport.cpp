@@ -13,15 +13,6 @@ namespace
 constexpr std::uint32_t kRequestId = 0x18900140U;
 constexpr std::uint32_t kResponseId = 0x18904001U;
 
-TEST(CanTransportTest, FilterMatchesOnlyExactExtendedDataResponse)
-{
-  const auto filter = bms_node::make_response_filter(kResponseId);
-  EXPECT_EQ(filter.can_id, static_cast<canid_t>(kResponseId) | CAN_EFF_FLAG);
-  EXPECT_EQ(
-    filter.can_mask,
-    static_cast<canid_t>(CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG));
-}
-
 TEST(CanTransportTest, QueryIsAnEightByteZeroFilledExtendedFrame)
 {
   const auto frame = bms_node::make_query_frame(kRequestId);
