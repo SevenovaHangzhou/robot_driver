@@ -337,7 +337,6 @@ jobs:
       - run: colcon build --packages-up-to integ_bringup
       - run: colcon test --packages-up-to integ_bringup
       - run: check_urdf robot.urdf
-      - run: python3 tools/check_v3_branch_contract.py
 """
         self.assertEqual(repository_gate.check_ci_workflow_policy(valid), [])
 
@@ -369,12 +368,6 @@ jobs:
         self.assert_has(
             repository_gate.check_ci_workflow_policy(every_pr),
             "only nightly, on dispatch or for the full-ci label",
-        )
-
-        ungated = valid.replace("      - run: python3 tools/check_v3_branch_contract.py\n", "")
-        self.assert_has(
-            repository_gate.check_ci_workflow_policy(ungated),
-            "branch-specific migration gate",
         )
 
         unprepared = valid.replace(
@@ -493,7 +486,6 @@ jobs:
       - run: colcon build --packages-up-to integ_bringup
       - run: colcon test --packages-up-to integ_bringup
       - run: check_urdf robot.urdf
-      - run: python3 tools/check_v3_branch_contract.py
 """,
             ".github/workflows/pr-metadata-governance.yml": """on:
   pull_request:
@@ -635,7 +627,9 @@ def layer_fixture():
         "control": ["motor"],
         "periph": ["periph_bms"],
     }
-    texts = {layer_gate.CONFIG: yaml.safe_dump({"layers": layers, "baseline_violations": []})}
+    texts = {layer_gate.CONFIG: yaml.safe_dump(
+        {"layers": layers, "baseline_violations": [], "listen_only_peripherals": ["periph_bms"]}
+    )}
     for packages in layers.values():
         for package in packages:
             texts[f"src/rt_control/{package}/package.xml"] = f"<package><name>{package}</name></package>"
@@ -670,6 +664,8 @@ def layer_fixture():
      '#include "periph_bms/a.hpp"'),
     ("R11", "ring/package.xml", "<package><name>ring</name></package>",
      "<package><name>ring</name><depend>motor</depend></package>"),
+    ("R13", "periph_bms/src/node.cpp", "const auto bytes = ::read(fd, &frame, sizeof(frame));",
+     "const auto bytes = ::write(fd, &frame, sizeof(frame));"),
 ])
 def test_layer_rules_accept_valid_input_and_reject_new_violations(rule, path, accepted, rejected):
     texts = layer_fixture()
