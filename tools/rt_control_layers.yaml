@@ -8,6 +8,7 @@ layers:
   - rt_diagnostics
   - rt_control_arm_console
   - rt_control_operator_web
+  - runtime_log_recorder
   protocol:
   - robot_hw_ethercat
   - robot_hw_canopen

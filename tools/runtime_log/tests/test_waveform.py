@@ -1,0 +1,218 @@
+import json
+import math
+import time
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
+import pytest
+from mcap.writer import Writer
+
+from runtime_log.archive import Archive
+from runtime_log.waveform import waveform
+from runtime_log.web import serve
+
+
+def ready(url):
+    for _ in range(200):
+        response = urlopen(url)
+        if response.status != 202:
+            return response
+        response.close()
+        time.sleep(0.01)
+    raise AssertionError("waveform query did not complete")
+
+
+@pytest.fixture
+def recorded(tmp_path):
+    path = tmp_path / "data.mcap"
+    with path.open("wb") as stream:
+        writer = Writer(stream)
+        writer.start()
+        channel = writer.register_channel("/cycles", "json", 0)
+        for i in range(10000):
+            if i == 7001:
+                continue
+            row = {
+                "seq": i,
+                "period_us": 8300 if i == 1234 else 1000,
+                "left_joint1/position": math.nan if i == 4000 else 0.1,
+                "left_joint1/target_position": 0.2,
+                "left_joint1/velocity": 0.3,
+                "left_joint1/torque_permille": -10,
+                "left_joint1/status_word": 0x1637,
+            }
+            writer.add_message(
+                channel,
+                log_time=1800000000000000000 + i * 1000000,
+                publish_time=1800000000000000000 + i * 1000000,
+                data=json.dumps(row).encode(),
+            )
+        writer.finish()
+    return path
+
+
+def test_overview_preserves_peak_units_and_gaps(recorded):
+    data = waveform(recorded, "left_joint1", width=100)
+    signals = {s["key"]: s for s in data["series"]}
+    assert data["samples"] == 9999 and data["missing"] == 1 and data["aggregated"]
+    assert data["duration"] == 9.999
+    assert max(p[1] for p in signals["period_us"]["points"] if p[1] is not None) == 8300
+    assert signals["position"]["points"][0][1] == pytest.approx(math.degrees(0.1))
+    assert signals["error"]["points"][0][1] == pytest.approx(math.degrees(0.1))
+    assert any(p[1] is None for p in signals["position"]["points"])
+    assert any(p[1] is None for p in signals["period_us"]["points"])
+    assert len(signals["position"]["points"]) <= 410
+    json.dumps(data, allow_nan=False)
+
+
+def test_zoom_reads_original_samples_and_includes_endpoint(recorded):
+    data = waveform(recorded, "left_joint1", start=1.230, end=1.240)
+    assert data["samples"] == 11 and not data["aggregated"]
+    period = next(s for s in data["series"] if s["key"] == "period_us")
+    assert [1.234, 8300] in period["points"]
+    assert period["points"][-1][0] == 1.240
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"joint": "bad"},
+        {"start": -1},
+        {"start": float("nan")},
+        {"end": float("inf")},
+        {"start": 2, "end": 1},
+        {"start": 20},
+    ],
+)
+def test_reject_invalid_queries(recorded, kwargs):
+    with pytest.raises(ValueError):
+        waveform(recorded, **({"joint": "left_joint1"} | kwargs))
+
+
+def test_waveform_http_and_old_experiment_page(tmp_path, recorded):
+    root = tmp_path / "archive"
+    exp = root / "run" / "experiments" / "goal-1"
+    exp.mkdir(parents=True)
+    recorded.rename(exp / "data.mcap")
+    (root / "run" / "run.json").write_text("{}")
+    (exp / "meta.json").write_text(json.dumps({"name": "goal-1", "joints": {"left_joint1": {}}}))
+    server = serve(Archive(root), "127.0.0.1", 0)
+    base = f"http://127.0.0.1:{server.server_address[1]}/run/experiments/goal-1/"
+    try:
+        with urlopen(base) as response:
+            assert "wave-load" in response.read().decode()
+        with ready(base + "waveform.json?joint=left_joint1&start=1.23&end=1.24") as response:
+            assert json.load(response)["samples"] == 11
+        url = base + "waveform.json?joint=left_joint1"
+        with ready(url) as response:
+            plain = response.read()
+        import gzip
+
+        with urlopen(Request(url, headers={"Accept-Encoding": "gzip"})) as response:
+            assert response.headers["Content-Encoding"] == "gzip"
+            compressed = response.read()
+            assert len(compressed) < len(plain)
+            assert gzip.decompress(compressed) == plain
+        with pytest.raises(HTTPError) as error:
+            ready(base + "waveform.json?joint=bad")
+        assert error.value.code == 400
+        with pytest.raises(HTTPError) as error:
+            urlopen(base + "waveform.json?joint=left_joint1&width=bad")
+        assert error.value.code == 400
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_blackbox_waveform_route(tmp_path, recorded):
+    root = tmp_path / "archive"
+    box = root / "run" / "blackbox" / "window-1"
+    box.mkdir(parents=True)
+    recorded.rename(box / "window.mcap")
+    (root / "run" / "run.json").write_text("{}")
+    (box / "trigger.json").write_text(
+        json.dumps(
+            {
+                "fields": ["left_joint1/position"],
+                "window": {"start": 1800000000, "cycles": 9999, "missing": 1},
+                "triggers": [
+                    {"time_ns": 1800000001234000000, "reason": "manual", "detail": "<unsafe>"}
+                ],
+            }
+        )
+    )
+    server = serve(Archive(root), "127.0.0.1", 0)
+    base = f"http://127.0.0.1:{server.server_address[1]}/run/blackbox/window-1/"
+    try:
+        with urlopen(base) as response:
+            page = response.read().decode()
+            assert "wave-load" in page and "window.csv" in page and "data.csv" not in page
+            assert "&lt;unsafe&gt;" in page and "1.234000" in page
+        with ready(base + "waveform.json?joint=left_joint1&start=1.23&end=1.24") as response:
+            assert json.load(response)["samples"] == 11
+        with pytest.raises(HTTPError) as error:
+            urlopen(base + "not-allowed")
+        assert error.value.code == 404
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_background_dedup_cache_and_source_invalidation(recorded, monkeypatch):
+    from runtime_log import waveform_queries
+    import threading
+
+    real = waveform_queries.waveform
+    release = threading.Event()
+    calls = []
+
+    def slow(*args):
+        calls.append(args)
+        assert release.wait(5)
+        return real(*args)
+
+    monkeypatch.setattr(waveform_queries, "waveform", slow)
+    queries = waveform_queries.WaveformQueries()
+    args = (recorded, "left_joint1", 1.23, 1.24, 1000)
+    try:
+        assert queries.request(*args)[0] == 202
+        assert queries.request(*args)[0] == 202
+        release.set()
+        queries.pool.shutdown(wait=True)
+        status, data = queries.request(*args)
+        assert status == 200 and data["samples"] == 11 and len(calls) == 1
+        # The disk cache survives a new query manager without decoding MCAP again.
+        other = waveform_queries.WaveformQueries()
+        try:
+            assert other.request(*args) == (200, data)
+            recorded.touch()
+            assert other.request(*args)[0] == 202
+        finally:
+            other.pool.shutdown(wait=True)
+        assert len(calls) == 2
+    finally:
+        release.set()
+        queries.pool.shutdown(wait=True)
+
+
+def test_equivalent_full_ranges_share_cache_but_zoom_remains_exact(recorded):
+    from runtime_log.waveform_queries import WaveformQueries
+
+    queries = WaveformQueries()
+    try:
+        assert queries.request(recorded, "left_joint1", 0, None, 1000)[0] == 202
+        queries.pool.shutdown(wait=True)
+        status, full = queries.request(recorded, "left_joint1", 0.0, 9.999, 1000)
+        assert status == 200 and full["samples"] == 9999
+        assert queries.request(recorded, "left_joint1", 0, 100, 1000) == (200, full)
+        other = WaveformQueries()
+        try:
+            assert other.request(recorded, "left_joint1", 0, 9.999, 1000) == (200, full)
+            assert other.request(recorded, "left_joint1", 0, 9.998, 1000)[0] == 202
+            other.pool.shutdown(wait=True)
+            status, zoom = other.request(recorded, "left_joint1", 0, 9.998, 1000)
+            assert status == 200 and zoom["samples"] == 9998
+        finally:
+            other.pool.shutdown(wait=True)
+    finally:
+        queries.pool.shutdown(wait=True)

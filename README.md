@@ -57,6 +57,10 @@ robot_driver/
 └─ collaboration-and-commit-standards.md
 ```
 
+运行记录与只读日志网页见 [tools/runtime_log](tools/runtime_log/README.md)，
+其 ros2_control 记录插件位于 [runtime_log_recorder](src/rt_control/runtime_log_recorder/README.md)。
+日志站保持端口 18200，归档保存在用户目录的 `runtime-log/runs`，不写入源码树。
+
 ## 分支模型
 
 | 分支 | 定位 | Docker 要求 |
