@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 import yaml
 
-from integ_diagnostics.domain import domain_readiness, failure_entry, readiness_line
+from integ_diagnostics.domain import (
+    domain_readiness,
+    failure_entry,
+    offline_entry,
+    readiness_line,
+)
 
 RT = Path(__file__).resolve().parents[2]
 TABLES = {
@@ -97,3 +102,28 @@ def test_log_line_ignores_enable_phase_changes():
         == readiness_line(waiting)
         == ("RT_READINESS ready=false status=UNAVAILABLE blockers=not_enabled")
     )
+
+
+def test_slave_outside_op_blocks_while_idle_and_names_the_drive():
+    idle = enable("IDLE", offline_now="ethercat_slave_3/al_state")
+    offline = offline_entry(idle, [DRIVE])
+    fields = domain_readiness(DONE, idle, UP, HW, offline=offline)
+    assert fields["blockers"] == ["device_offline", "not_enabled"]
+    [error] = fields["errors"]
+    assert (error["source"], error["dree"]) == ("arms/left_joint3/drive", "RT_DEVICE_OFFLINE")
+    assert "not in OP" in error["detail"]
+
+
+def test_restart_latch_is_a_blocker_and_the_recorded_source_is_not_repeated():
+    latched = enable(
+        "FAILED",
+        stage="device_offline",
+        offline_feedback="ethercat_slave_3/al_state",
+        offline_now="ethercat_slave_3/al_state",
+        restart_required="true",
+    )
+    assert offline_entry(latched, [DRIVE]) is None
+    failure = failure_entry(latched, [DRIVE], TABLES, {})
+    fields = domain_readiness(DONE, latched, UP, HW, failure)
+    assert fields["blockers"] == ["device_offline", "restart_required"]
+    assert [e["source"] for e in fields["errors"]] == ["arms/left_joint3/drive"]

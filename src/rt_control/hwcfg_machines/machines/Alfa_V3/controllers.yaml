@@ -188,10 +188,14 @@ controllers:
         optional: true
     - state_ready:
         as: ready_state_interfaces
-    # Bus/device feedback ages that must be fresh before an enable or a fault reset starts.
+    # Bus/device feedback ages that must be fresh, and EtherCAT slaves that must be in OP, before
+    # an enable or a fault reset starts; while enabled either one stops and requires a restart.
     - exports:
         name: feedback_age_interfaces
         as: feedback_age_interfaces
+    - exports:
+        name: al_state_interfaces
+        as: al_state_interfaces
     - controllers:
         tag: fault_reporting
         select: first

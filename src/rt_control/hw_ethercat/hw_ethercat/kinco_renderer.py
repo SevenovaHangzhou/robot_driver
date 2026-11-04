@@ -304,10 +304,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "position_windows": position_windows,
         "preflight_required": not mock,
     }
-    from .master_health import responder_count, sensors as health_sensors
+    from .master_health import offline_exports, sensors as health_sensors
 
-    if responder_count(request) is not None:
-        exports["feedback_age_interfaces"] = ["ethercat_domain/process_data_age_ms"]
+    exports.update(offline_exports(request, axes))
 
     params = {
         "master_id": topology["master_id"],

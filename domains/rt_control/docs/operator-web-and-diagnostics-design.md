@@ -145,7 +145,9 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
 | 自检有阻断项 | false | `device_offline` / `identity_mismatch` / `sto_active` / `device_fault` |
 | 使能管理器诊断超过 2.5 s 未更新 | false | `enable_manager_unavailable` |
 | 未使能 | false | `not_enabled`（附自检警告） |
+| 使能管理器看到反馈过期或 EtherCAT 从站不在 OP（`offline_now`） | false | `device_offline`；复位与使能被拒绝，从站回到 OP 后复位即可，一直不回则需重启运行栈 |
 | 使能管理器失败锁存 | false | `device_offline` / `device_fault` / `restart_required` / `enable_failed`；`errors` 给出设备位置、失败阶段，并读一次该设备故障码查表 |
+| 使能管理器要求重启（使能中掉线） | false | `restart_required` |
 | 已使能但运动控制器未激活 / 硬件组件未激活 | false | `controller_inactive` / `hardware_inactive` |
 | 已使能、控制器与硬件激活 | true（HEALTHY） | — |
 

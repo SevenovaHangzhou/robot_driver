@@ -60,6 +60,8 @@ private:
 
   static constexpr std::size_t kMotionAxisCount = 14U;
   static constexpr std::size_t kModeCacheCapacity = 8U;
+  // EtherCAT AL state Operational (ETG.1000.6), as the slave al_state interface reports it.
+  static constexpr double kAlStateOp = 8.0;
 
   enum class Phase : std::uint8_t {
     kInactive,
@@ -297,8 +299,8 @@ private:
   bool allDevicesEnabled() const noexcept;
   bool allDevicesDisabledOrFaulted() const noexcept;
   bool allDeviceResetsComplete() const noexcept;
-  // Index into feedback_age_names_ of the first stale source, -1 when every source is fresh.
-  int staleFeedback() const noexcept;
+  // Index into offline_source_names_ of the first stale age or non-OP slave, -1 when every source is fresh.
+  int offlineSource() const noexcept;
   bool rejectIfOffline(ResultSlot & slot);
   bool stateSourcesReady() const noexcept;
   void handleMotionFault();
@@ -357,8 +359,14 @@ private:
   std::vector<std::size_t> ready_state_indices_;
   // Bus/device feedback ages (ms) checked before an enable or reset starts: a powered-off drive
   // keeps its last status word, so its state must not be judged while its feedback is stale.
-  std::vector<std::string> feedback_age_names_;
-  std::vector<std::size_t> feedback_age_indices_;
+  // Feedback ages first, then EtherCAT slave AL states: a re-powered slave can stay in SAFEOP
+  // with fresh process data (2026-11-04 bench); only a stack restart brings it back to OP.
+  std::vector<std::string> offline_source_names_;
+  std::vector<std::size_t> offline_source_indices_;
+  std::size_t age_source_count_{0U};
+  // Current offline source, refreshed every cycle; offline_feedback_ keeps the one that stopped
+  // or rejected the last request.
+  std::atomic<int> offline_now_{-1};
   double feedback_age_limit_ms_{100.0};
   std::atomic<int> offline_feedback_{-1};
   double ready_hold_seconds_{0.05};
