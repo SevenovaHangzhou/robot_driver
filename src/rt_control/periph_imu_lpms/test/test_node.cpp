@@ -4,6 +4,7 @@
 #include <limits>
 #include <net/if.h>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "periph_imu_lpms/node.hpp"
@@ -82,6 +83,20 @@ TEST_F(LpmsCovarianceParameterTest, DefaultsAreNineZerosAndReadOnly)
     EXPECT_EQ(node->get_parameter(name).as_double_array(), std::vector<double>(9U, 0.0));
     EXPECT_TRUE(node->describe_parameter(name).read_only);
   }
+}
+
+TEST_F(LpmsCovarianceParameterTest, PublishesOnTheContractTopicsByDefault)
+{
+  options.parameter_overrides(parameters);
+  const auto node = periph_imu_lpms::make_node(options);
+  EXPECT_EQ(node->get_parameter("imu_topic").as_string(), "/imu/data");
+  EXPECT_EQ(node->get_parameter("diagnostics_topic").as_string(), "~/diagnostics");
+  EXPECT_EQ(node->get_parameter("sensor_status_topic").as_string(), "/rt_control/sensors/status");
+  EXPECT_EQ(node->get_publishers_info_by_topic("/imu/data").size(), 1U);
+  EXPECT_EQ(
+    node->get_publishers_info_by_topic(std::string(node->get_fully_qualified_name()) + "/mag")
+      .size(),
+    1U);
 }
 
 TEST_F(LpmsCovarianceParameterTest, AcceptsConfiguredMatrices)

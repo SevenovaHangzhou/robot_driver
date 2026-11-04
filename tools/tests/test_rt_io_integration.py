@@ -60,7 +60,6 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:
-    node_source = (ROOT / "src/rt_control/periph_plc_io/src/node.cpp").read_text()
     plc = yaml.safe_load(
         (ROOT / "src/rt_control/periph_plc_io/config/plc_io_modbus.yaml").read_text()
     )["plc_io_modbus"]["ros__parameters"]
@@ -85,16 +84,6 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert right_sensor["register"] == -1
     assert left_sensor["sensor_id"] == "TBD"
     assert right_sensor["sensor_id"] == "TBD"
-    configured_hardware_parameters = (
-        "digital.module.host",
-        "digital.inputs.infrared_laser.di_address",
-        "digital.outputs.vacuum_pump_relay.do_address",
-        "digital.outputs.left_vacuum_valve.do_address",
-        "digital.outputs.right_vacuum_valve.do_address",
-        "analog.module.host",
-    )
-    for parameter_name in configured_hardware_parameters:
-        assert f'declare_parameter("{parameter_name}"' in node_source
     assert bms["transport"] == "socketcan"
     assert bms["can_interface"] == "can0"
     assert bms["expected_adapter_serial"] == ""
@@ -154,20 +143,12 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
     assert "src/vendor/robot_interfaces" in bootstrap
 
 
-def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
-    bms_source = (ROOT / "src/rt_control/periph_bms/src/bms_node.cpp").read_text()
-    enable_source = "".join(
-        path.read_text()
-        for path in sorted((ROOT / "src/rt_control/ctrl_enable_manager/src").glob("*.cpp"))
-    )
+# BMS and enable_manager QoS are checked by their package tests on the live publishers.
+def test_ros2_controllers_patch_uses_named_robot_interfaces_qos_profiles() -> None:
     controller_patch = (
         ROOT / "patches/ros2_controllers/0002-use-contract-qos-profiles.patch"
     ).read_text()
 
-    assert '#include "robot_interfaces_qos/profiles.hpp"' in bms_source
-    assert "topic, robot_interfaces_qos::state()" in bms_source
-    assert "secondary_topic, robot_interfaces_qos::state()" in bms_source
-    assert "robot_interfaces_qos::diagnostic()" in enable_source
     assert "robot_interfaces_qos::control()" in controller_patch
     assert controller_patch.count("robot_interfaces_qos::fast_state()") == 2
     assert "diff_drive_controller/test/test_diff_drive_controller.cpp" in controller_patch
@@ -175,17 +156,6 @@ def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
         "controller_name + \"/cmd_vel\", robot_interfaces_qos::control()"
         in controller_patch
     )
-
-
-def test_public_errors_populate_the_vendored_shared_message_schema() -> None:
-    public_error_source = (
-        ROOT / "src/rt_control/integ_api_adapter/integ_api_adapter/public_error.py"
-    ).read_text()
-
-    assert "message.code = int(value.code)" in public_error_source
-    assert "message.code = str(int(value.code))" not in public_error_source
-    assert "message.source = value.origin" in public_error_source
-    assert 'message.detail = ""' in public_error_source
 
 
 def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
@@ -282,18 +252,6 @@ def test_docker_build_contains_required_io_packages() -> None:
     assert "0005-derive-motor-topology-from-hardware-info.patch" not in dockerfile
     assert "can_bus_guard" not in dockerfile
     assert not (ROOT / "src/rt_control/can_bus_guard").exists()
-
-
-def test_bms_keeps_its_battery_and_opt_in_discharge_interfaces() -> None:
-    bms_source = (ROOT / "src/rt_control/periph_bms/src/bms_node.cpp").read_text()
-    bms_manifest = (ROOT / "src/rt_control/periph_bms/package.xml").read_text()
-
-    assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 2
-    assert 'declare_parameter<bool>("automatic_discharge_control", false)' in bms_source
-    assert "if (automatic_discharge_control_)" in bms_source
-    assert "relay_command_publisher_" in bms_source
-    assert "can_bus_guard" not in bms_source
-    assert "can_bus_guard" not in bms_manifest
 
 
 def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:

@@ -10,6 +10,7 @@ find_package(control_msgs REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(controller_manager_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -38,6 +39,7 @@ ament_target_dependencies(enable_manager_controller
   controller_interface
   controller_manager_msgs
   diagnostic_msgs
+  diagnostic_updater
   infra_shm_ring
   pluginlib
   rclcpp
@@ -104,7 +106,7 @@ if(BUILD_TESTING)
   ament_add_gmock(test_handshake_devices test/test_handshake_devices.cpp)
   target_compile_features(test_handshake_devices PUBLIC cxx_std_17)
   target_link_libraries(test_handshake_devices enable_manager_controller)
-  ament_target_dependencies(test_handshake_devices hardware_interface rclcpp)
+  ament_target_dependencies(test_handshake_devices hardware_interface rclcpp robot_interfaces_qos)
 endif()
 
 ament_package()

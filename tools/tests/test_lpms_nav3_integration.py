@@ -35,14 +35,12 @@ def test_lpms_config_and_launch_fail_closed():
     assert 'DeclareLaunchArgument("validation_only", default_value="true")' in launch
 
 
+# Topic defaults are checked on the live node (periph_imu_lpms test_node). The bus-write
+# absence stays a static guard: a node that only listens has no behaviour to observe for it.
 def test_lpms_has_no_bus_write_or_host_deployment_configuration():
     source = (PACKAGE / "src/lpms_nav3_can_node.cpp").read_text()
     assert "::write(" not in source
     assert "::send(" not in source
     assert "make_nmt_start_frame" not in source
-    assert '"imu_topic", "/imu/data"' in source
-    assert '"~/mag"' in source
-    assert '"diagnostics_topic", "~/diagnostics"' in source
-    assert '"sensor_status_topic", "/rt_control/sensors/status"' in source
     assert not list((PACKAGE / "config").glob("*.service"))
     assert not list((PACKAGE / "config").glob("*.rules"))

@@ -21,12 +21,12 @@
 | [x] | C | 3 套 SocketCAN 封装（`robot_hw_can`、`bms_node`、`lpms_nav3_can`）（#128 统一到 `infra_socketcan`） | 3 |
 | [x] | C | 3 个协议包 renderer 各自复制 `_share/_validate/_param/validate_*`（#148 `infra_renderer`） | 3 |
 | [x] | C | CiA402 状态字解码在 5 个包各写一份；`semantic_components` 未成为唯一出口（arch-c3：C++ 全部经 `hw_semantic_components/cia402_state.hpp`；离线 Python 预检改用同包 `hw_semantic_components.cia402`，两种语言共用 `test/cia402_cases.txt`） | 1.1、3 |
-| [ ] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份 | 3 |
+| [x] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份（诊断键值改用上游 `diagnostic_updater::DiagnosticStatusWrapper`，5 个包的自写 KeyValue 辅助删除；反馈年龄判断收敛到 `hw_semantic_components/feedback_age.hpp`，enable_manager 与 swerve 使用，rolling 随同事拆分时改用；控制器切换超时改用 `rclcpp::Duration`；`steady_now` 按 10-31 裁定留在各包） | 3 |
 | [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
 | [x] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件（用户 2026-11-03：实时状态机不拆，接受 §3 例外；非实时代码已移到 `enable_manager_{configure,services,mode_switch}.cpp`，主文件约 1400 行；重复参数校验已删除并收紧到使能策略 schema（#175、#176）） | 3 硬指标 |
 | [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行（arch-d2 拆为主文件 + `manifest/{modules,profiles,scopes}.yaml`，均 < 400 行） | 3 硬指标 |
 | [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
-| [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试 | 1.5、4.6 |
+| [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试（arch-behavior-contract-tests：本仓库 C++/Python 源码字符串断言已改为包内行为测试——BMS/IMU 发布话题与 QoS、enable_manager 诊断 QoS、公共错误码字段；剩余为补丁文件、CI/Dockerfile/主机脚本文本断言，以及 IMU 不写总线的静态防护，待定处理方式） | 1.5、4.6 |
 | [x] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个（arch-f1：两个一次性历史生成脚本删除——它们读取的是 `source_commit` 旧检出的 bringup；补齐 `robot_hw_can`、`robot_hw_canopen` 测试依赖） | 1.3 |
 | [x] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除（arch-cleanup：已删除） | 1.4、1.2 |
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |

@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
-#include "diagnostic_msgs/msg/key_value.hpp"
 #include "rclcpp/duration.hpp"
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
