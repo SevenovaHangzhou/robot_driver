@@ -109,3 +109,9 @@ def domain_readiness(self_check, enable, controllers, hardware, failure=None):
         "blockers": blockers,
         "errors": errors,
     }
+
+
+def readiness_line(fields):
+    """One log line per change of ready/status/blockers; enable phases alone do not repeat it."""
+    blockers = ",".join(fields["blockers"]) or "none"
+    return f"RT_READINESS ready={str(fields['ready']).lower()} status={fields['status']} blockers={blockers}"
