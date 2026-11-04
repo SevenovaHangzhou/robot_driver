@@ -93,10 +93,10 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 ## 真空压力显示（2026-10-27）
 
 右上角显示左、右真空表压，单位 kPa，保留一位小数。读取
-`/plc_io/vacuum/left`、`/plc_io/vacuum/right` 的
-`periph_plc_io/msg/VacuumSensorState.pressure_kpa`，不在浏览器重复换算或自动归零。
+`/rt/vacuum/left/pressure`、`/rt/vacuum/right/pressure`（R-OUT-05L/R，`sensor_msgs/FluidPressure`，
+表压 Pa，负值为真空；无效样本不发布），只除以 1000 显示，不在浏览器重复换算或自动归零。
 现场已确认 AI0=左、AI1=右，ZSE30A 的大气压为 0 kPa，真空为负值。
-传感器有效标志为假、单位错误、非有限值或超过 1 秒未收到消息时清除数字并显示原因；
+非有限值或超过 1 秒未收到消息时清除数字并显示原因（无效原因见 `/rt/sensors/state`）；
 网页连接断开或停滞 1 秒也清除数字。两路独立判定，未收到压力不阻止机械臂操作。
 压力由独立 IO 节点发布；`arm start` 的操作台订阅不会启动或改写模拟量模块。
 

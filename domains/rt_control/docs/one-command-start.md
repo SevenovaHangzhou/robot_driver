@@ -123,7 +123,7 @@ FJT: /rt/arms/follow_joint_trajectory
 | 真空动作 | `/vacuum/grip`，`robot_rt_control_interfaces/action/VacuumGrip`；通道 `left/right`，布尔吸附验证；当前 `grip_profile_id=default` |
 | 真空状态 | `/vacuum/state`，`robot_rt_control_interfaces/msg/VacuumState`；无 `pressure_pa` |
 | 真空泵维护 | `/vacuum/pump/set_enabled`，`robot_rt_control_interfaces/srv/SetPumpEnabled` |
-| PLC 底层调试 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
+| 真空 | `/rt/vacuum/pump/set_enabled`、`/rt/vacuum/{left,right}_valve/set_enabled`（`SetEnabled`）；压力 `/rt/vacuum/{left,right}/pressure` |
 | 安全摘要 | `/control/safety_state`，`robot_rt_control_interfaces/msg/SafetyState` |
 | 就绪状态 | `/rt/readiness`，`robot_system_interfaces/msg/DomainReadiness` |
 | 诊断 | `/diagnostics` |
