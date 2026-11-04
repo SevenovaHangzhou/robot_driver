@@ -289,7 +289,17 @@ controller_interface::return_type EnableManagerController::update(
   if (
     phase == Phase::kEnabled || phase == Phase::kJtcActivating ||
     phase == Phase::kJtcDeactivating) {
-    for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
+    // A drive that lost power keeps its last status word; only its stale feedback shows it.
+    // Re-powered EtherCAT drives do not resynchronise in OP, so the stack must be restarted.
+    const int stale = staleFeedback();
+    if (stale >= 0) {
+      offline_feedback_.store(stale, std::memory_order_relaxed);
+      restart_required_.store(true, std::memory_order_release);
+      startEmergency(Stage::kDeviceOffline, -1, 0U, now_ns);
+      phase = Phase::kEmergencyQuickStop;
+    }
+    for (std::size_t axis = 0; phase != Phase::kEmergencyQuickStop && axis < cia402_axes_.size();
+         ++axis) {
       const DriveState state = decodeState(status_words_[axis]);
       if (isFaultState(state)) {
         startEmergency(
