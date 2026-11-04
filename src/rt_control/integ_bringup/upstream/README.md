@@ -2,7 +2,8 @@
 
 `ros2_control_node.cpp` is byte-for-byte `controller_manager/src/ros2_control_node.cpp` of
 ros2_control tag `2.53.1` (https://github.com/ros-controls/ros2_control), the version of the
-installed `ros-humble-controller-manager` package; SHA-256
+installed `ros-humble-controller-manager` package (CMake also requires the installed
+`controller_manager` to be 2.53.1); SHA-256
 `ca6192e765b4ad433e9cd9053ca8209982f6367e301afd7f99620baa3c4eed92` (checked by CMake).
 Do not edit it. The build applies `../patches/ros2_control_node-overruns.patch`.
 

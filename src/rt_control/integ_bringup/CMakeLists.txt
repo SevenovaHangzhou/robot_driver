@@ -12,6 +12,12 @@ ament_python_install_package(${PROJECT_NAME})
 # as a binary, so its source is kept verbatim in upstream/ and one narrow patch adds Jazzy's overrun
 # management (skip missed ticks instead of running them back to back). Same executable name.
 find_package(controller_manager REQUIRED)
+# The patched main() is 2.53.1's; it links the installed controller_manager library.
+if(NOT controller_manager_VERSION VERSION_EQUAL "2.53.1")
+  message(FATAL_ERROR
+    "controller_manager ${controller_manager_VERSION} installed; upstream/ros2_control_node.cpp and "
+    "its patch are for 2.53.1. Re-import the upstream file and rebase the patch.")
+endif()
 find_package(rclcpp REQUIRED)
 find_package(realtime_tools REQUIRED)
 find_program(PATCH_EXECUTABLE patch REQUIRED)
