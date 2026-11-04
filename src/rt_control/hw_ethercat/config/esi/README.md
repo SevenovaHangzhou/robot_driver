@@ -7,12 +7,9 @@ both coupler entries; the observed device-name suffix is `1.4.2.0`, while this
 ESI's name/file suffix is `1.4.2.3`. Matching identities do not establish firmware
 or full configuration equivalence.
 
-Original file SHA-256:
-`cd47a205dc70f0ee0f91b95c2c8ca72b711e11ce55602f2566cf94d1297b98e3`.
 
 The repository copy normalizes CRLF/trailing whitespace and adds the final newline;
-XML elements, attributes and values are unchanged. Repository copy SHA-256:
-`ea49828fc0ea72c6fc2d8ed4378cc078a790e0e24d3fbd5f85e056c5c91358a4`.
+XML elements, attributes and values are unchanged.
 
 ## Declared identities
 
@@ -68,21 +65,16 @@ State/DC handling, joint bindings and PDO/SDO qualification are still pending.
 The user supplied `P140000107-1.0.1.1-ECXML.xml` on 2026-09-17 for the optional
 Gen3 wrist force/torque sensors.
 
-Original file SHA-256:
-`8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad`.
 
 The repository copy normalizes CRLF line endings; XML elements, attributes and
-values are unchanged. Repository copy SHA-256:
-`f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8`.
+values are unchanged.
 
 Declared identity: Vendor `0x000000A1` (`ACTI`), Product `0x00008081`, Revision
 `0x00000002`, Type `P140000107`. The ESI declares RxPDO `0x1600` with eight
 32-bit entries (`0x2000..0x2007`) and TxPDO `0x1A00` with nine 32-bit entries
 (`0x4000..0x4008`). It advertises SM Synchron and DC `AssignActivate=0x0300`.
 
-The accompanying V1.1 protocol PDF has SHA-256
-`39432f1304b68af1839a3553b4581da92a3923306945e5985cdbae7d7689ae0c`.
-It documents `10000 raw = 1 N` for force, `10000 raw = 1 N.m` for torque,
+The accompanying V1.1 protocol PDF documents `10000 raw = 1 N` for force, `10000 raw = 1 N.m` for torque,
 SampleCounter units of 1 ms, temperature in 0.1 degree C, and a tare rising edge
 on `0x2000 bit 0`. It does not define StatusCode bits, the seven additional ESI
 RxPDO fields, a closed-loop freshness threshold, or the installed coordinate

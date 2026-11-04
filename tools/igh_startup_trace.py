@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import json
 import os
 import platform
@@ -86,8 +85,7 @@ def inspect_module(module):
                 change_symbols[address] = fields[2][len("ec_fsm_change_state_"):].split(".")[0]
     if not {"start", "dc_sync_check", "op", "end", "error"} <= set(symbols.values()):
         raise ValueError("Loaded IgH state symbols are unavailable")
-    return {"module": str(module), "module_sha256": hashlib.sha256(module.read_bytes()).hexdigest(),
-            "build_note_hex": notes.hex(), "layout": parse_layout(layout_text),
+    return {"module": str(module), "build_note_hex": notes.hex(), "layout": parse_layout(layout_text),
             "layout_evidence": layout_text, "symbols": symbols, "change_symbols": change_symbols}
 
 

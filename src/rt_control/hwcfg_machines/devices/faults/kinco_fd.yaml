@@ -9,7 +9,7 @@ kind: device_fault_table
 status: draft
 verified: false
 authorities:
-  source: V3-DOC-2026-014 Kinco low-voltage servo drive manual (FD series) sha256 029f858f7e7a4ec1f1299ae47bb6c9d1dcee8de3ef035517e1479d7166d0125e chapter 7 tables 7-1/7-2
+  source: V3-DOC-2026-014 Kinco low-voltage servo drive manual (FD series) chapter 7 tables 7-1/7-2
 pending_facts:
 - drive firmware version and applicability of the FD-series manual
 - whether the DS402 code column is the value read from 0x603F (not verified on the device)

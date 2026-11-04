@@ -5,6 +5,7 @@ Ported from rt_control_arm_console's HTTP/SSE server tests; the console undernea
 
 import asyncio
 import json
+import os
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
@@ -110,7 +111,7 @@ def test_view_model_meshes_and_live_limits(setup, tmp_path):
         view = ET.fromstring(info["urdf"])
         assert view.find("joint[@name='left_joint1']/axis").get("xyz") == "0 0 -1"
         assert info["joints"] == console.static_info()["joints"]
-        assert console.model is live_model and info["view_model"]["urdf_sha256"]
+        assert console.model is live_model and info["view_model"]["assets_version"]
         mesh = view.find("link[@name='mount']/visual/geometry/mesh").get("filename")
         assert mesh == path
         response = await client.get(mesh)
@@ -150,8 +151,11 @@ def test_mesh_manifest_change_gets_a_new_browser_cache_namespace(setup, tmp_path
     (tmp_path / "config").mkdir()
     (tmp_path / "urdf/robot_alfav3_mobile.urdf").write_text(URDF)
     namespaces = []
-    for version in ("old mesh hash", "new mesh hash"):
-        (tmp_path / "config/mesh_assets.json").write_text(json.dumps({"mesh": version}))
+    manifest = tmp_path / "config/mesh_assets.json"
+    for index, version in enumerate(("old mesh", "new mesh")):
+        manifest.write_text(json.dumps({"mesh": version}))
+        # A reinstall rewrites the file; equal sizes must still give a new namespace.
+        os.utime(manifest, ns=(index * 10**9, index * 10**9))
         namespaces.append(build(console, view_model_share=tmp_path)[1]._view_prefix)
     assert namespaces[0] != namespaces[1]
 

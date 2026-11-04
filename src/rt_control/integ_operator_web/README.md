@@ -183,8 +183,8 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 远端采用同一仓库提交的完整发行目录，不能把 URDF 或网格单独复制到 `web/` 私改。
 切换模型目录后需重启网页服务；先检查无运动、无序列，并保留机器人控制栈和 guard。
 
-`/api/arm/info` 的 `view_model` 返回入口、URDF SHA256 和资源版本。资源版本由 URDF 和
-`config/mesh_assets.json` 共同计算，网格 URL 使用 `/view-mesh/<版本>/...stl`，
+`/api/arm/info` 的 `view_model` 返回入口和资源版本。资源版本取 URDF 与
+`config/mesh_assets.json` 的修改时间和大小，网格 URL 使用 `/view-mesh/<版本>/...stl`，
 避免浏览器沿用旧缓存。更换网格时应同步更新权威资源清单。
 选定模型不兼容受控关节时返回 `view_model_unavailable`，不静默切回旧模型。
 控制栈未提供关节数据时也可显示模型，页面提示“模型已加载，等待关节数据”；
