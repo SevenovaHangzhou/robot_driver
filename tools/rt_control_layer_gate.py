@@ -1,4 +1,5 @@
-"""Offline four-layer policy (SPEC v1.1 R1–R10).
+"""Offline layer policy (SPEC v1.1 R1–R10; R11: infra depends on no domain package;
+R12: periph depends only on infra, and only integration depends on periph).
 
 Only exact, counted baseline occurrences are exempt. Tests are included for
 API dependencies; R5–R7 inspect production code/configuration, not test data.
@@ -19,11 +20,10 @@ import yaml
 
 CONFIG = "tools/rt_control_layers.yaml"
 PREFIX = "src/rt_control/"
-DATA_PACKAGE = "rt_control_machine_config"
-COMPOSER = "rt_control_composer"
-LAYERS = {"hw_config", "integration", "protocol", "control"}
+DATA_PACKAGE = "hwcfg_machines"
+COMPOSER = "integ_composer"
+LAYERS = {"infra", "hw_config", "integration", "protocol", "control", "periph"}
 SOURCE_SUFFIXES = {".py", ".cpp", ".hpp", ".h", ".cc", ".cxx"}
-PERIPHERALS = {"bms_node", "lpms_nav3_can", "modbus_tcp_rtu485", "plc_io_modbus"}
 PRODUCT_NAMES = re.compile(
     r"alfa_v[0-9]|left_joint|right_joint|head_joint|head_pitch|EcCiA402Drive|"
     r"GenericEcSlave|KincoCyclicModeSlave|zeroerr|kinco|damiao|bluepoint",
@@ -82,7 +82,7 @@ def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[dict], list
     findings = []
     mapping: dict[str, str] = {}
     if set(policy["layers"]) != LAYERS:
-        findings.append(f"{CONFIG}: R1 requires exactly the four declared layers")
+        findings.append(f"{CONFIG}: R1 requires exactly the six declared layers")
     for layer, packages in policy["layers"].items():
         if not isinstance(packages, list) or any(not isinstance(p, str) for p in packages):
             findings.append(f"{CONFIG}: R1 {layer} must be a package list")
@@ -173,9 +173,15 @@ def dependency_violations(
         rule = None
         if target == DATA_PACKAGE and kind != "exec_depend":
             rule = "R4"
+        elif layers.get(source) == "infra" and layers.get(target, "infra") != "infra":
+            rule = "R11"
+        elif (
+            layers.get(source) == "periph" and layers.get(target) in {"protocol", "control", "integration"}
+        ) or (layers.get(target) == "periph" and layers.get(source) in {"protocol", "control"}):
+            rule = "R12"
         else:
             if layers.get(source) == "control" and layers.get(target) == "protocol":
-                if target != "rt_control_semantic_components":
+                if target != "hw_semantic_components":
                     rule = "R2"
             elif layers.get(source) == "protocol" and layers.get(target) == "control":
                 rule = "R3"
@@ -190,7 +196,7 @@ def production_file(path: str) -> bool:
 
 
 def content_violations(
-    path: str, text: str, package: str, *, frequency_excluded=False
+    path: str, text: str, package: str, *, frequency_excluded=False, peripheral=False
 ) -> list[Violation]:
     file = PurePosixPath(path)
     violations = []
@@ -201,6 +207,7 @@ def content_violations(
         return violations
     allowed_frequency = (
         file.match(f"{PREFIX}{DATA_PACKAGE}/machines/*/manifest.yaml")
+        or file.match(f"{PREFIX}{DATA_PACKAGE}/machines/*/manifest/*.yaml")
         or path == f"{PREFIX}{COMPOSER}/config/controller_defaults.yaml"
     )
     for number, line in enumerate(text.splitlines(), 1):
@@ -226,12 +233,12 @@ def content_violations(
             violations.append(
                 Violation("R6", package, "", "frequency-literal", path, number, line.strip())
             )
-    return violations + peripheral_violations(path, text, package)
+    return violations + (peripheral_violations(path, text, package) if peripheral else [])
 
 
 def peripheral_violations(path: str, text: str, package: str) -> list[Violation]:
     violations = []
-    if package in PERIPHERALS and f"/include/{package}/protocol/" in path:
+    if f"/include/{package}/protocol/" in path:
         for match in INCLUDE.finditer(text):
             target = match[1].split("/")[0]
             if target.startswith("rclcpp") or target.endswith("_msgs"):
@@ -308,7 +315,11 @@ def check_layers(texts: dict[str, str]) -> list[str]:
             violations.extend(dependency_violations(path, text, package, layers))
             violations.extend(
                 content_violations(
-                    path, text, package, frequency_excluded=path in frozen_frequency_paths
+                    path,
+                    text,
+                    package,
+                    frequency_excluded=path in frozen_frequency_paths,
+                    peripheral=layers.get(package) == "periph",
                 )
             )
     return findings + apply_baselines(violations, baselines)
@@ -324,7 +335,7 @@ def check_release_policy(texts: dict[str, str]) -> list[str]:
             if re.search(r"(?<![\w.-])python3-jsonschema\s*=", text):
                 findings.append(f"{path}: R10 python3-jsonschema must not pin an apt version")
     owners = texts.get(".github/CODEOWNERS", "")
-    pattern = "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml"
+    pattern = "/src/rt_control/hwcfg_machines/**/safety_policy.yaml"
     if not any(line.split() == [pattern, "kkozia188@gmail.com"] for line in owners.splitlines()):
         findings.append(".github/CODEOWNERS: R9 safety policy requires the designated human owner")
     return findings

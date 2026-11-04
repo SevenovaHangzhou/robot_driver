@@ -1,0 +1,5 @@
+active:
+- joint_state_broadcaster
+- enable_manager
+inactive:
+- head_position_controller

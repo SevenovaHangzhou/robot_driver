@@ -1,0 +1,35 @@
+schema_version: 1
+kind: machine_module
+status: ready
+verified: true
+authorities:
+  verification: exercised on the Advantech chassis bench with enable and motion (ELECTRI-127, 2026-10-14..16)
+  source: hw_canopen/config/machines/alfa_v3_swerve_encoders.draft.yaml
+  node_id: 'user: steering encoders nodes 11/12/13/14 for modules 1..4; node 1 is the IMU on the same
+    bus'
+  eds: hw_canopen/config/eds/BRT-Multi-turn-V1.0.compat.eds (vendor original retained)
+pending_facts:
+- heartbeat, feedback age and discontinuity acceptance thresholds
+robot_variant: Alfa_V3
+module: swerve_encoders
+master_system: canopen_swerve_encoders
+spec:
+  assembly: devices/ht_ws_hh270_q750.yaml
+  profile: cia406_encoder
+  nodes:
+  - resource_name: steering_encoder_1
+    module_position: module_1
+    node_id: 11
+    device: devices/brt_encoder_model_tbd.yaml
+  - resource_name: steering_encoder_2
+    module_position: module_2
+    node_id: 12
+    device: devices/brt_encoder_model_tbd.yaml
+  - resource_name: steering_encoder_3
+    module_position: module_3
+    node_id: 13
+    device: devices/brt_encoder_model_tbd.yaml
+  - resource_name: steering_encoder_4
+    module_position: module_4
+    node_id: 14
+    device: devices/brt_encoder_model_tbd.yaml

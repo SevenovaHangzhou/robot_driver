@@ -59,7 +59,7 @@ ID，禁止把它随意指向开发工作区。
 
 修复版实测 `/plc/io_state` 为 `connected=true`、`data_fresh=true`、三路输出关闭、两路真空未建立、报警字 0；发布
 频率为 2 Hz。`/bms/battery_state` 能从 CAN1 标准帧 `0x3FC` 得到有效数据，复测样本为 `48.6 V`、SOC `0.23`、
-`present=true`，发布频率为 0.2 Hz。CAN1 为 500 kbit/s、ERROR-ACTIVE，只有 `bms_node` 发布该 ROS 话题。
+`present=true`，发布频率为 0.2 Hz。CAN1 为 500 kbit/s、ERROR-ACTIVE，只有 `periph_bms` 发布该 ROS 话题。
 
 目标机实扫 RMW 为 `rmw_fastrtps_cpp`。TF 同时验证了静态 `base_footprint → base_link` 的精确高度 `0.202094 m`，
 以及可查询的组合变换 `odom → base_link`；该变换没有恢复已删除的 `world` 父节点。
@@ -77,7 +77,7 @@ ID，禁止把它随意指向开发工作区。
 
 > 2026-08-17 纠正：上表是当时“服务名→寄存器 bit”的真实历史证据，但当时没有完成左右
 > 实体观察。后续现场测试确认 bit0 实际是右阀、bit1 实际是左阀；当前映射与新证据见
-> [io-power corrective 记录](areas/io-power/records/2026-08-17-correct-solenoid-side-mapping.md)。
+> [io-power corrective 记录](areas-archive/io-power/records/2026-08-17-correct-solenoid-side-mapping.md)。
 
 测试全过程 `%MW201=0x0001`，`%MW212=0`。末态 `/plc/io_state` 再次报告三路输出均关闭。左阀第一次命令在 ROS CLI
 参数解析阶段失败，没有形成 service request，寄存器保持基线；修正引号后按上表通过。这是测试命令错误，不是 PLC

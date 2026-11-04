@@ -1,0 +1,105 @@
+controller_manager:
+  ros__parameters:
+    hardware_components_initial_state:
+      unconfigured:
+      - bluepoint_raw_bench
+    left_wrist_force_sensor_broadcaster:
+      type: ctrl_force_torque_broadcaster/ForceTorqueBroadcaster
+    right_wrist_force_sensor_broadcaster:
+      type: ctrl_force_torque_broadcaster/ForceTorqueBroadcaster
+    thread_priority: 80
+    update_rate: 1000
+left_wrist_force_sensor_broadcaster:
+  ros__parameters:
+    al_state_interface: ethercat_slave_2/al_state
+    auxiliary_interfaces:
+    - left_wrist_force_sensor/status_code_raw
+    - left_wrist_force_sensor/sample_counter_raw
+    - left_wrist_force_sensor/temperature_raw
+    calibration_topic: /rt_control/bluepoint/calibration
+    calibration_valid: false
+    decimals:
+    - 5
+    - 5
+    - 5
+    - 5
+    - 5
+    - 5
+    diagnostic_name: /robot/rt_control/bluepoint/left_wrist_force_sensor/calibration
+    frame_id: left_wrist_force_sensor_raw
+    link_interface: ethercat_master/link_up
+    raw_topic: /rt_control/left_wrist/raw
+    scale_factors:
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    sensor_name: left_wrist_force_sensor
+    sensor_state_topic: /rt_control/left_wrist/state
+    snapshot_source: fixed_protocol
+    startup_id: force-bench-synthetic-golden
+    unit_codes:
+    - 5
+    - 5
+    - 5
+    - 7
+    - 7
+    - 7
+    validity_policy: none
+    value_interfaces:
+    - left_wrist_force_sensor/channel_1_raw
+    - left_wrist_force_sensor/channel_2_raw
+    - left_wrist_force_sensor/channel_3_raw
+    - left_wrist_force_sensor/channel_4_raw
+    - left_wrist_force_sensor/channel_5_raw
+    - left_wrist_force_sensor/channel_6_raw
+    wrench_topic: /rt_control/left_wrist/wrench
+right_wrist_force_sensor_broadcaster:
+  ros__parameters:
+    al_state_interface: ethercat_slave_4/al_state
+    auxiliary_interfaces:
+    - right_wrist_force_sensor/status_code_raw
+    - right_wrist_force_sensor/sample_counter_raw
+    - right_wrist_force_sensor/temperature_raw
+    calibration_topic: /rt_control/bluepoint/calibration
+    calibration_valid: false
+    decimals:
+    - 5
+    - 5
+    - 5
+    - 5
+    - 5
+    - 5
+    diagnostic_name: /robot/rt_control/bluepoint/right_wrist_force_sensor/calibration
+    frame_id: right_wrist_force_sensor_raw
+    link_interface: ethercat_master/link_up
+    raw_topic: /rt_control/right_wrist/raw
+    scale_factors:
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    - 1.0e-05
+    sensor_name: right_wrist_force_sensor
+    sensor_state_topic: /rt_control/right_wrist/state
+    snapshot_source: fixed_protocol
+    startup_id: force-bench-synthetic-golden
+    unit_codes:
+    - 5
+    - 5
+    - 5
+    - 7
+    - 7
+    - 7
+    validity_policy: none
+    value_interfaces:
+    - right_wrist_force_sensor/channel_1_raw
+    - right_wrist_force_sensor/channel_2_raw
+    - right_wrist_force_sensor/channel_3_raw
+    - right_wrist_force_sensor/channel_4_raw
+    - right_wrist_force_sensor/channel_5_raw
+    - right_wrist_force_sensor/channel_6_raw
+    wrench_topic: /rt_control/right_wrist/wrench

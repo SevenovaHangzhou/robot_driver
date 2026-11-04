@@ -1,10 +1,10 @@
 schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
-source_branch: feature/electri-127-alfav3-left-j3-j6-axis
-source_revision: 5ec6b653d7b72f9d25fecea4d71e5d640ce468ca
-source_tree: 4706b7a18d7359f5752bb6473068866af3cb8050
+source_branch: main
+source_revision: 2b0950f1a5009dda1e93d4737b2894ccefed3734
+source_tree: 135f3e315e79ed2b94bc2ecbcb50163818ea676d
 imported_path: src/description/robot_description
 model_family: alfa_v3
-default_end_effector: suction
+default_end_effector: mobile_proxy
 status: design_description_requires_hardware_validation

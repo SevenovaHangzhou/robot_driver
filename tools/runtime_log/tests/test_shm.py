@@ -31,7 +31,7 @@ def bench(tmp_path_factory):
             "-Wextra",
             "-Werror",
             "-I",
-            str(PKG / "include"),
+            str(PKG.parent / "infra_shm_ring/include"),
             str(PKG / "tools/shm_bench.cpp"),
             "-o",
             str(binary),

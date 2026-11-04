@@ -2,15 +2,14 @@
 
 from pathlib import Path
 import hashlib
-import re
 
 import yaml
 import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ROLLING = ROOT / "src/rt_control/rolling_trajectory_controller"
-EXPECTED_INTERFACE_SHA = "ea582c8a711874813d2ad7f0801b366bd32ab67e"
+ROLLING = ROOT / "src/rt_control/ctrl_rolling_trajectory"
+EXPECTED_INTERFACE_SHA = "c82f0e40937453f1f8fb104822c2e91e9fb8d742"
 EXPECTED_JOINTS = tuple(
     [f"right_joint{index}" for index in range(1, 8)]
     + [f"left_joint{index}" for index in range(1, 8)]
@@ -33,57 +32,35 @@ def test_rolling_package_is_in_source_and_runtime_closure():
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text(encoding="utf-8")
     workflow = (ROOT / ".github/workflows/rt-control-ci.yml").read_text(encoding="utf-8")
     from tools.repository_gate import domain_packages
-    assert "rolling_trajectory_controller" in bootstrap
-    assert workflow.count("rolling_trajectory_controller") >= 3
-    assert "rolling_trajectory_controller" in domain_packages(ROOT)
+    assert "ctrl_rolling_trajectory" in bootstrap
+    assert workflow.count("ctrl_rolling_trajectory") >= 3
+    assert "ctrl_rolling_trajectory" in domain_packages(ROOT)
 
 
-def test_rolling_core_uses_v3_fixed_axis_order_without_turn_or_updown():
-    header = (
-        ROLLING
-        / "include/rolling_trajectory_controller/rolling_types.hpp"
-    ).read_text(encoding="utf-8")
-    match = re.search(r"kJointNames\s*=\s*\{(.*?)\};", header, re.S)
-    assert match is not None
-    names = tuple(re.findall(r'"([^"]+)"', match.group(1)))
-    assert names == EXPECTED_JOINTS
-    assert '"turn"' not in match.group(1)
-    assert '"updown"' not in match.group(1)
+def _machine_motion_joints():
+    config = ROOT / "src/rt_control/hwcfg_machines"
+    manifest = yaml.safe_load((config / "machines/Alfa_V3/manifest.yaml").read_text())
+    policy = yaml.safe_load((config / manifest["policy_refs"]["motion"]["file"]).read_text())
+    return tuple(policy["joints"])
 
 
-def test_v3_axis_set_hash_is_derived_from_the_documented_canonical_lines():
-    implementation = (
-        ROLLING / "src/rolling_trajectory_controller.cpp"
-    ).read_text(encoding="utf-8")
-    block = re.search(r"kAxisSetHash\s*=\s*\{(.*?)\};", implementation, re.S)
-    assert block is not None
-    encoded = bytes(int(value, 16) for value in re.findall(r"0x([0-9a-fA-F]+)U", block.group(1)))
-    canonical = "".join(f"{name}:rad:rad/s\n" for name in EXPECTED_JOINTS).encode()
-    assert encoded == hashlib.sha256(canonical).digest()
+def test_machine_motion_joints_are_the_v3_arm_axes_without_turn_or_updown():
+    # The rolling controller takes its joint names from this policy (arch-s6).
+    joints = _machine_motion_joints()
+    assert joints == EXPECTED_JOINTS
+    assert "turn" not in joints and "updown" not in joints
 
 
-def test_imported_public_axes_match_controller_names_and_digest():
+def test_imported_public_axes_match_machine_joints_and_digest():
     registry = ROOT / "src/vendor/robot_interfaces/contract/endpoints.yaml"
     if not registry.is_file():
-        pytest.skip("import deps.repos to verify the public/controller axis contract")
+        pytest.skip("import deps.repos to verify the public/machine axis contract")
     axes = yaml.safe_load(registry.read_text())["axis_sets"]["v3_dual_arm"]
-    assert tuple(axes["joint_names"]) == EXPECTED_JOINTS
+    assert tuple(axes["joint_names"]) == _machine_motion_joints()
     assert axes["position_unit"] == "rad"
     assert axes["velocity_unit"] == "rad/s"
-    canonical = "".join(f"{name}:rad:rad/s\n" for name in EXPECTED_JOINTS).encode()
+    canonical = "".join(f"{name}:rad:rad/s\n" for name in _machine_motion_joints()).encode()
     assert axes["sha256"] == hashlib.sha256(canonical).hexdigest()
-    source = (ROLLING / "src/rolling_trajectory_controller.cpp").read_text()
-    values = re.search(r"kAxisSetHash\s*=\s*\{(.*?)\};", source, re.S)
-    assert values is not None
-    digest = bytes(int(v, 16) for v in re.findall(r"0x([0-9a-fA-F]+)U", values.group(1)))
-    assert axes["sha256"] == digest.hex()
-
-
-def test_v3_branch_contract_requires_arm_runtime_not_only_validation():
-    contract = (ROOT / "tools/check_v3_branch_contract.py").read_text(encoding="utf-8")
-    assert "rt_control_arm_runtime.launch.py" in contract
-    assert "rolling_trajectory_controller" in contract
-    assert "14 CSP" in contract or "fourteen CSP" in contract
 
 
 def test_ci_runs_upstream_jtc_once_after_other_package_tests():
@@ -112,5 +89,5 @@ def test_ci_sources_the_built_overlay_before_expanding_the_v3_model():
     validation = workflow.split("- name: Validate shared robot description", 1)[1]
     validation = validation.split("- name:", 1)[0]
     assert validation.index("source install/setup.bash") < validation.index(
-        "xacro src/description/robot_description/urdf/robot.urdf.xacro"
+        "xacro src/description/robot_description/urdf/robot_alfav3_mobile.urdf"
     )

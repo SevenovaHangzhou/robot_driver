@@ -14,32 +14,31 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
-| platform-20261029-01#F1–F3 | Runtime-LOG 归档/网页工具归入 tools/runtime_log；ROS 记录插件归入 src/rt_control/runtime_log_recorder；服务、归档和 chassis 联动保持既有名称 | [日志站源码迁移](records/2026-10-29-runtime-log-migration.md) | PARTIAL（119 项 Python 测试、4 项 ROS 测试及网页验证通过；总门禁有既存阻断） |
-| contract/03#F3 | 全部生产/消费域必须锁定同一接口 SHA 原子升级 | [contract-20260816-01](../contract/records/2026-08-16-bq137-shared-error-readiness.md)#F3 | 有效 |
-| contract/04#F3 | 最终 SHA 回填不解除各域同 SHA 原子升级与跨域 smoke 门禁 | [contract-20260817-01](../contract/records/2026-08-17-robot-interfaces-final-main-pin.md)#F3 | 有效 |
-| contract/05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](../contract/records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
-| contract/05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](../contract/records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
-| contract/05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](../contract/records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
-| contract/07#F1 | ROS Domain 由部署显式配置为十进制 `0..232`，默认 `0` | [contract-20260828-01](../contract/records/2026-08-28-configurable-ros-domain.md)#F1 | 有效；取代 BQ-128 固定 Domain 0 |
-| contract/07#F2 | 同一机器实例的五域必须使用同一 Domain，Domain 不是安全隔离 | [contract-20260828-01](../contract/records/2026-08-28-configurable-ros-domain.md)#F2 | 有效 |
-| contract/07#F3 | RMW 仍固定 `rmw_fastrtps_cpp`，传输仍为 Fast DDS 默认 UDP+SHM | [contract-20260828-01](../contract/records/2026-08-28-configurable-ros-domain.md)#F3 | 有效 |
-| ecat-axes/TI5-ASSIGN-1 | Native 启动检查实际安装 profile、驱动分配和 IgH 缓存，仅将已知默认分配恢复为已验证的 1601/1A01；未知映射拒绝启动，正确暖态无写入/重扫。 | [ecat-axes-20260911-01](../ecat-axes/records/2026-09-11-ti5-assignment-recovery.md)#F1-F3 | PARTIAL（T3；掉电重复性未验） |
-| governance/F2 | 记录格式为 TEMPLATE.md：frontmatter + 五段正文，合并后不可改，推翻用 supersedes | [governance-20260813-01](../governance/records/2026-08-13-establish-area-record-system.md)#F2 | 有效 |
-| governance/F3 | PROGRESS.md 自 2026-08-13 起降级为时间线索引，历史段冻结 | [governance-20260813-01](../governance/records/2026-08-13-establish-area-record-system.md)#F3 | 有效 |
-| governance/F4 | 冻结 REQ 表原件确认丢失，不重建；需求追溯坐标改用 `<记录id>#F<n>` | [governance-20260813-01](../governance/records/2026-08-13-establish-area-record-system.md)#F4 | 有效 |
-| governance/F5 | 测试风险分层 T0–T4，发布门禁自动部分只到 T2 | [governance-20260813-02](../governance/records/2026-08-13-test-case-catalog-v1.md)#F1 | 有效 |
-| governance/F6 | 用例 ID 规则 `TC-<分类码>-<NN>`，不复用 | [governance-20260813-02](../governance/records/2026-08-13-test-case-catalog-v1.md)#F2 | 有效 |
-| governance/F7 | V0.10 最小门禁 = v010_gate run 全过 + reference 全部给出历史坐标 | [governance-20260813-02](../governance/records/2026-08-13-test-case-catalog-v1.md)#F3 | 有效 |
-| governance/F8 | 根 docs 必须为空，协作规范位于仓库根，接口视图来自 vendor | [governance-20260814-01](../governance/records/2026-08-14-root-docs-and-vendor-governance.md)#F1 | 有效；取代 governance-20260813-04#F1 |
-| governance/F9 | source-lock 发布身份必须与 deps.repos 的 robot_interfaces pin 一致 | [governance-20260814-01](../governance/records/2026-08-14-root-docs-and-vendor-governance.md)#F2 | 有效 |
-| governance/F10 | 已归档 records 保留旧路径作为历史坐标 | [governance-20260814-01](../governance/records/2026-08-14-root-docs-and-vendor-governance.md)#F3 | 有效 |
-| governance/F11 | main 是稳定源码基线，普通源码 PR 不强制 Docker；源码稳定后由人工选择 SHA 封装，发布产物仍需完整镜像/容器证据 | [governance-20260915-01](../governance/records/2026-09-15-main-manual-docker-packaging.md)#F1-F3；BQ-148 | 有效 |
-| governance/F12 | 完整 CI 只由代码相关 PR 事件触发；PR 描述编辑只跑 contract governance；PR 合并后的 main push 不重复全量构建 | [governance-20260917-01](../governance/records/2026-09-17-pr-ci-trigger-deduplication.md)#F1-F3 | 有效；GitHub main 分支保护待配置 |
-| governance/F13 | Robot Model CI 校验必须 source 当前构建 overlay 后再运行 xacro/check_urdf | [governance-20260919-01](../governance/records/2026-09-19-v3-description-overlay-ci.md)#F1-F2 | PASS（T0 回归；PR CI 终态待确认） |
-| governance/F14 | head-fast 只提供提前反馈，所有代码 PR 仍无条件执行完整 V3 build；CI 基础镜像使用精确标签且保留公开 ROS 回退 | [governance-20260920-01](../governance/records/2026-09-20-layered-ci-cache.md)#F1-F4 | PARTIAL（基础镜像发布与变量启用待完成） |
-| governance/STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](../governance/records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
-| governance/CONTRACT-1 | 三档测试、语言分工、任务指派分支授权 | [governance-20261013-02](../governance/records/2026-10-13-agent-contract-sync.md)#F1-F3 | UNVERIFIED（T0文档） |
-| AREA-1 | 七区owner、历史冻结与目标分层，代码迁移另立任务 | [划分decision](../governance/records/2026-10-13-seven-agent-areas.md)#F1-F4 | UNVERIFIED（T0文档与索引） |
+| contract/03#F3 | 全部生产/消费域必须锁定同一接口 SHA 原子升级 | [contract-20260816-01](../../areas-archive/contract/records/2026-08-16-bq137-shared-error-readiness.md)#F3 | 有效 |
+| contract/04#F3 | 最终 SHA 回填不解除各域同 SHA 原子升级与跨域 smoke 门禁 | [contract-20260817-01](../../areas-archive/contract/records/2026-08-17-robot-interfaces-final-main-pin.md)#F3 | 有效 |
+| contract/05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](../../areas-archive/contract/records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
+| contract/05#F2 | Native 入口在硬件访问前 fail-closed 检查公共适配器依赖闭包 | [contract-20260817-02](../../areas-archive/contract/records/2026-08-17-native-qos-runtime-closure.md)#F2 | 有效 |
+| contract/05#F3 | Native READY 需要 live controller-manager、控制器状态与 EtherCAT OP | [contract-20260817-02](../../areas-archive/contract/records/2026-08-17-native-qos-runtime-closure.md)#F3 | 有效 |
+| contract/07#F1 | ROS Domain 由部署显式配置为十进制 `0..232`，默认 `0` | [contract-20260828-01](../../areas-archive/contract/records/2026-08-28-configurable-ros-domain.md)#F1 | 有效；取代 BQ-128 固定 Domain 0 |
+| contract/07#F2 | 同一机器实例的五域必须使用同一 Domain，Domain 不是安全隔离 | [contract-20260828-01](../../areas-archive/contract/records/2026-08-28-configurable-ros-domain.md)#F2 | 有效 |
+| contract/07#F3 | RMW 仍固定 `rmw_fastrtps_cpp`，传输仍为 Fast DDS 默认 UDP+SHM | [contract-20260828-01](../../areas-archive/contract/records/2026-08-28-configurable-ros-domain.md)#F3 | 有效 |
+| ecat-axes/TI5-ASSIGN-1 | Native 启动检查实际安装 profile、驱动分配和 IgH 缓存，仅将已知默认分配恢复为已验证的 1601/1A01；未知映射拒绝启动，正确暖态无写入/重扫。 | [ecat-axes-20260911-01](../../areas-archive/ecat-axes/records/2026-09-11-ti5-assignment-recovery.md)#F1-F3 | PARTIAL（T3；掉电重复性未验） |
+| governance/F2 | 记录格式为 TEMPLATE.md：frontmatter + 五段正文，合并后不可改，推翻用 supersedes | [governance-20260813-01](../../areas-archive/governance/records/2026-08-13-establish-area-record-system.md)#F2 | 有效 |
+| governance/F3 | PROGRESS.md 自 2026-08-13 起降级为时间线索引，历史段冻结 | [governance-20260813-01](../../areas-archive/governance/records/2026-08-13-establish-area-record-system.md)#F3 | 有效 |
+| governance/F4 | 冻结 REQ 表原件确认丢失，不重建；需求追溯坐标改用 `<记录id>#F<n>` | [governance-20260813-01](../../areas-archive/governance/records/2026-08-13-establish-area-record-system.md)#F4 | 有效 |
+| governance/F5 | 测试风险分层 T0–T4，发布门禁自动部分只到 T2 | [governance-20260813-02](../../areas-archive/governance/records/2026-08-13-test-case-catalog-v1.md)#F1 | 有效 |
+| governance/F6 | 用例 ID 规则 `TC-<分类码>-<NN>`，不复用 | [governance-20260813-02](../../areas-archive/governance/records/2026-08-13-test-case-catalog-v1.md)#F2 | 有效 |
+| governance/F7 | V0.10 最小门禁 = v010_gate run 全过 + reference 全部给出历史坐标 | [governance-20260813-02](../../areas-archive/governance/records/2026-08-13-test-case-catalog-v1.md)#F3 | 有效 |
+| governance/F8 | 根 docs 必须为空，协作规范位于仓库根，接口视图来自 vendor | [governance-20260814-01](../../areas-archive/governance/records/2026-08-14-root-docs-and-vendor-governance.md)#F1 | 有效；取代 governance-20260813-04#F1 |
+| governance/F9 | source-lock 发布身份必须与 deps.repos 的 robot_interfaces pin 一致 | [governance-20260814-01](../../areas-archive/governance/records/2026-08-14-root-docs-and-vendor-governance.md)#F2 | 有效 |
+| governance/F10 | 已归档 records 保留旧路径作为历史坐标 | [governance-20260814-01](../../areas-archive/governance/records/2026-08-14-root-docs-and-vendor-governance.md)#F3 | 有效 |
+| governance/F11 | main 是稳定源码基线，普通源码 PR 不强制 Docker；源码稳定后由人工选择 SHA 封装，发布产物仍需完整镜像/容器证据 | [governance-20260915-01](../../areas-archive/governance/records/2026-09-15-main-manual-docker-packaging.md)#F1-F3；BQ-148 | 有效 |
+| governance/F12 | 完整 CI 只由代码相关 PR 事件触发；PR 描述编辑只跑 contract governance；PR 合并后的 main push 不重复全量构建 | [governance-20260917-01](../../areas-archive/governance/records/2026-09-17-pr-ci-trigger-deduplication.md)#F1-F3 | 有效；GitHub main 分支保护待配置 |
+| governance/F13 | Robot Model CI 校验必须 source 当前构建 overlay 后再运行 xacro/check_urdf | [governance-20260919-01](../../areas-archive/governance/records/2026-09-19-v3-description-overlay-ci.md)#F1-F2 | PASS（T0 回归；PR CI 终态待确认） |
+| governance/F14 | ~~head-fast 只提供提前反馈，所有代码 PR 仍无条件执行完整 V3 build~~（用户 2026-10-30 方案 A 取代：PR 只跑 governance，完整 build 每晚/手动/`full-ci` 标签触发，head-fast 删除）；CI 基础镜像使用精确标签且保留公开 ROS 回退 | [governance-20260920-01](../../areas-archive/governance/records/2026-09-20-layered-ci-cache.md)#F1-F4 | PARTIAL（基础镜像发布与变量启用待完成） |
+| governance/STYLE-1 | 固定clang-format14/ruff0.11.13；仅改动范围门禁，自有C++五项警告 | [governance-20261013-01](../../areas-archive/governance/records/2026-10-13-executable-code-style.md)#F1-F3 | UNVERIFIED（T0工具验证通过；构建待验） |
+| governance/CONTRACT-1 | 三档测试、语言分工、任务指派分支授权 | [governance-20261013-02](../../areas-archive/governance/records/2026-10-13-agent-contract-sync.md)#F1-F3 | UNVERIFIED（T0文档） |
+| AREA-1 | 七区owner、历史冻结与目标分层，代码迁移另立任务 | [划分decision](../../areas-archive/governance/records/2026-10-13-seven-agent-areas.md)#F1-F4 | UNVERIFIED（T0文档与索引） |
 | platform-20261014-01 | 四层逐条基线、jsonschema 3.2.x 标签一致性、ADR-17 合并授权；BQ-154 保持 OPEN | [M1 平台记录](records/2026-10-13-m1-layer-gates.md)#F1-F4 | UNVERIFIED（T0；CI schema 安装测试失败，本地最小修复及两包 153 tests 通过；修复后的 CI 待验证，镜像及分支保护未验证） |
 
 | platform-20261014-02#F1–F2 | 后续20PR的bringup触碰率目标≤30%，基线待合并；V2冻结文件哈希例外获批，V3基线清空 | [迁移观察指标](records/2026-10-14-composer-observation-baseline.md) | UNVERIFIED（起点pending_merge，非验收指标） |
@@ -55,14 +54,12 @@
 Compose build 没有该参数时会被构建断言拒绝，应改用此包装器完成镜像封装。
 本任务没有执行镜像构建或启动生产容器。
 
-- 2026-10-30 [chassis start CAN binding fix](records/platform-20261030-01.md): serial-based binding before chassis bitrate configuration; six regression tests and disabled real startup PASS; no enable/motion.
+## 导入的现场记录
 
-## Runtime-LOG archive fix (2026-11-03)
+历史验证范围以各记录为准。
 
-- [platform-20261103-01#F1-F3](records/platform-20261103-01.md): retain two segment-reader threads; exclusive archive directories; report failed windows without stopping sampling; normalize only corroborated unsigned counter underflow. PARTIAL: existing SHM stress-count test and activation latency remain open.
-
-- [platform-20261103-02#F1-F3](records/platform-20261103-02.md): continuous names show sums of absolute x/y/yaw increments in segment-start coordinates; valid wheel-odometry intervals only; bounded background summaries and source-versioned cache preserve archive URLs.
-
-### 2026-11-04 上传前修复
-
-- [platform-20261104-01](records/platform-20261104-01.md)：适配器释放顺序与 SHM 过载读者；冻结事实 F1–F3，实机准入不变。
+- [2026-10-29-runtime-log-migration](records/2026-10-29-runtime-log-migration.md)
+- [platform-20261030-01](records/platform-20261030-01.md)
+- [platform-20261103-01](records/platform-20261103-01.md)
+- [platform-20261103-02](records/platform-20261103-02.md)
+- [platform-20261104-01](records/platform-20261104-01.md)

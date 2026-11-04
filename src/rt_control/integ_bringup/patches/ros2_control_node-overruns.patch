@@ -1,0 +1,129 @@
+--- a/ros2_control_node.cpp
++++ b/ros2_control_node.cpp
+@@ -14,7 +14,9 @@
+ 
+ #include <errno.h>
+ #include <algorithm>
++#include <atomic>
+ #include <chrono>
++#include <cstdint>
+ #include <memory>
+ #include <string>
+ #include <thread>
+@@ -22,6 +24,8 @@
+ #include "controller_manager/controller_manager.hpp"
+ #include "rclcpp/rclcpp.hpp"
+ #include "realtime_tools/realtime_helpers.hpp"
++// rt_control: overrun rule of ros2_control Jazzy (`overruns.manage`), unit-tested on its own.
++#include "integ_bringup/control_loop_timing.hpp"
+ 
+ using namespace std::chrono_literals;
+ 
+@@ -32,6 +36,14 @@
+ // We use a midpoint RT priority to allow maximum flexibility to users
+ int const kSchedPriority = 50;
+ 
++// rt_control: written by the update thread only, read by the reporting timer.
++struct OverrunCounters
++{
++  std::atomic<std::uint64_t> events{0U};
++  std::atomic<std::uint64_t> missed_cycles{0U};
++  std::atomic<std::uint64_t> last_missed_cycles{0U};
++};
++
+ }  // namespace
+ 
+ int main(int argc, char ** argv)
+@@ -58,13 +70,19 @@
+   }
+ 
+   RCLCPP_INFO(cm->get_logger(), "update rate is %d Hz", cm->get_update_rate());
++  // rt_control: same parameter name and default as ros2_control Jazzy.
++  const bool manage_overruns = cm->get_parameter_or<bool>("overruns.manage", true);
++  RCLCPP_INFO(
++    cm->get_logger(), "Overruns handling is : %s", manage_overruns ? "enabled" : "disabled");
+   const int thread_priority = cm->get_parameter_or<int>("thread_priority", kSchedPriority);
+   RCLCPP_INFO(
+     cm->get_logger(), "Spawning %s RT thread with scheduler priority: %d", cm->get_name(),
+     thread_priority);
+ 
++  auto overruns = std::make_shared<OverrunCounters>();
++
+   std::thread cm_thread(
+-    [cm, thread_priority, use_sim_time]()
++    [cm, thread_priority, use_sim_time, manage_overruns, overruns]()
+     {
+       rclcpp::Parameter cpu_affinity_param;
+       if (cm->get_parameter("cpu_affinity", cpu_affinity_param))
+@@ -108,9 +126,8 @@
+ 
+       // for calculating sleep time
+       auto const period = std::chrono::nanoseconds(1'000'000'000 / cm->get_update_rate());
+-      auto const cm_now = std::chrono::nanoseconds(cm->now().nanoseconds());
+-      std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>
+-        next_iteration_time{cm_now};
++      // rt_control: monotonic deadline (2.53.1 used system_clock, which also jumps with wall time).
++      auto next_iteration_time = std::chrono::steady_clock::now();
+ 
+       // for calculating the measured period of the loop
+       rclcpp::Time previous_time = cm->now();
+@@ -128,18 +145,58 @@
+         cm->write(cm->now(), measured_period);
+ 
+         // wait until we hit the end of the period
+-        next_iteration_time += period;
+         if (use_sim_time)
+         {
++          next_iteration_time += period;
+           cm->get_clock()->sleep_until(current_time + period);
+         }
+         else
+         {
++          // rt_control: skip missed ticks instead of catching up (Jazzy `overruns.manage`).
++          const auto step = integ_bringup::next_deadline(
++            next_iteration_time, std::chrono::steady_clock::now(), period, manage_overruns);
++          next_iteration_time = step.deadline;
++          if (step.missed_cycles > 0U)
++          {
++            overruns->events.fetch_add(1U, std::memory_order_relaxed);
++            overruns->missed_cycles.fetch_add(step.missed_cycles, std::memory_order_relaxed);
++            overruns->last_missed_cycles.store(step.missed_cycles, std::memory_order_relaxed);
++          }
+           std::this_thread::sleep_until(next_iteration_time);
+         }
+       }
+     });
+ 
++  // rt_control: report overruns outside the update thread, at most once per second.
++  struct Reported
++  {
++    std::uint64_t events{0U};
++    std::uint64_t missed{0U};
++  };
++  auto reported = std::make_shared<Reported>();
++  auto overrun_report = cm->create_wall_timer(
++    1s,
++    [cm, overruns, reported]()
++    {
++      const auto events = overruns->events.load(std::memory_order_relaxed);
++      if (events == reported->events)
++      {
++        return;
++      }
++      const auto missed = overruns->missed_cycles.load(std::memory_order_relaxed);
++      RCLCPP_WARN(
++        cm->get_logger(),
++        "Overrun detected! %llu overrun(s) skipped %llu missed cycle(s) instead of running them "
++        "back to back (last overrun: %llu cycle(s); total skipped since start: %llu).",
++        static_cast<unsigned long long>(events - reported->events),
++        static_cast<unsigned long long>(missed - reported->missed),
++        static_cast<unsigned long long>(
++          overruns->last_missed_cycles.load(std::memory_order_relaxed)),
++        static_cast<unsigned long long>(missed));
++      reported->events = events;
++      reported->missed = missed;
++    });
++
+   executor->add_node(cm);
+   executor->spin();
+   cm_thread.join();

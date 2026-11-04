@@ -5,7 +5,7 @@
 
 #include "controller_interface/controller_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
-#include "runtime_log_recorder/shm_ring.hpp"
+#include "infra_shm_ring/shm_ring.hpp"
 
 namespace runtime_log_recorder
 {

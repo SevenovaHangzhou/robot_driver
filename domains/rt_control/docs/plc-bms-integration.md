@@ -75,13 +75,13 @@ PLC 使用 Modbus TCP，默认 `192.168.1.88:502`、unit id `1`，在当前新�
 
 ## 启动与容器边界
 
-PLC/适配器参数保留在
-[`rt_io.yaml`](../../../src/rt_control/rt_control_bringup/config/rt_io.yaml)，BMS 参数由 owner 包内
-[`bms_node.yaml`](../../../src/rt_control/bms_node/config/bms_node.yaml) 管理。普通源码 launch 默认关闭两个 IO
+PLC 参数由 owner 包内
+[`plc_io_modbus.yaml`](../../../src/rt_control/periph_plc_io/config/plc_io_modbus.yaml)，BMS 参数由 owner 包内
+[`bms_node.yaml`](../../../src/rt_control/periph_bms/config/bms_node.yaml) 管理。普通源码 launch 默认关闭两个 IO
 节点，避免 Mock 或开发命令意外访问真实 PLC/CAN：
 
 ```bash
-ros2 launch rt_control_bringup rt_control.launch.py \
+ros2 launch integ_bringup rt_control.launch.py \
   use_mock_hardware:=true \
   start_plc:=false \
   start_bms:=false
@@ -90,7 +90,7 @@ ros2 launch rt_control_bringup rt_control.launch.py \
 需要明确直连硬件时才传入：
 
 ```bash
-ros2 launch rt_control_bringup rt_control.launch.py \
+ros2 launch integ_bringup rt_control.launch.py \
   start_plc:=true \
   start_bms:=true
 ```

@@ -27,4 +27,4 @@ differed, so these observations do not establish a repeatable speedup.
 The original 1 ms modules and metadata were restored after the experiment.
 
 Build evidence, module identities, deployment status and rollback prerequisites
-are in the [ELECTRI-97 experiment record](../../../domains/rt_control/docs/areas/realtime-host/records/2026-09-09-electri-97-offset-trigger-100us-candidate.md).
+are in the [ELECTRI-97 experiment record](../../../domains/rt_control/docs/areas-archive/realtime-host/records/2026-09-09-electri-97-offset-trigger-100us-candidate.md).

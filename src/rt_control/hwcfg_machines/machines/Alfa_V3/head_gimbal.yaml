@@ -1,0 +1,46 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: true
+authorities:
+  source: "robot_hw_can/docs/damiao_head.md \xA74"
+  confirmation_person: user
+  confirmation_date: '2026-10-14'
+  confirmation_scope: User confirmed listed IDs/profile parameters and approved all
+    five default entries in this task session
+  direction: user 2026-11-03 compared the bench head with the Robot Model view; motor and model
+    positive directions agree for H1 (yaw) and H2 (pitch)
+# Mechanical zero is the motor encoder zero for both joints (user 2026-10-30; bench readback
+# H1 -0.0029 rad, H2 -0.0002 rad at the confirmed zero pose).
+pending_facts: []
+robot_variant: Alfa_V3
+module: head_gimbal
+spec:
+  control_name: damiao_head_control
+  configure_timeout_ms: 100
+  feedback_timeout_ms: 50
+  transition_timeout_ms: 250
+  command_rate_hz: 250.0
+  disabled_poll_interval_ms: 20
+  max_rx_frames_per_cycle: 32
+  family: damiao
+  joints:
+  - can_id: 1
+    master_id: 17
+    velocity_limit: 0.2
+    acceleration_krad_s2: 2.0
+    deceleration_krad_s2: -2.0
+    maximum_speed_rad_s: 600.0
+    robot_model_joint: H1_joint  # yaw (user 2026-10-30)
+    device: devices/damiao_dm_j4310_2ec_v1_1.yaml
+    direction: 1
+  - can_id: 2
+    master_id: 18
+    velocity_limit: 0.2
+    acceleration_krad_s2: 2.0
+    deceleration_krad_s2: -2.0
+    maximum_speed_rad_s: 600.0
+    robot_model_joint: H2_joint  # pitch (user 2026-10-30)
+    device: devices/damiao_dm_j4310_2ec_v1_1.yaml
+    direction: 1
+master_system: damiao_head

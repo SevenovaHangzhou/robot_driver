@@ -18,34 +18,32 @@ readonly -a runtime_packages=(
   robot_rt_control_interfaces
   robot_system_interfaces
   robot_interfaces_qos
-  bms_node
-  lpms_nav3_can
-  modbus_tcp_rtu485
+  periph_bms
+  periph_imu_lpms
+  periph_led_ultrasonic
   canopen_master_driver
   canopen_ros2_control
-  control_api_adapter
+  integ_api_adapter
+  integ_diagnostics
   ethercat_driver
   ethercat_generic_cia402_drive
   joint_trajectory_controller
   gripper_controllers
-  plc_io_modbus
-  plc_node
+  periph_plc_io
   robot_description
   rt_control_interfaces
-  robot_hw_ethercat
-  robot_hw_canopen
-  robot_hw_can
-  damiao_head_controller
-  enable_manager
-  rt_diagnostics
-  rt_control_semantic_components
-  rolling_trajectory_controller
-  rt_force_torque_broadcaster
-  swerve_driver
-  rt_control_composer
-  rt_control_machine_config
-  rt_control_bringup
-  rt_control_operator_web
+  hw_ethercat
+  hw_canopen
+  hw_can_damiao
+  ctrl_enable_manager
+  hw_semantic_components
+  ctrl_rolling_trajectory
+  ctrl_force_torque_broadcaster
+  ctrl_swerve
+  integ_composer
+  hwcfg_machines
+  integ_bringup
+  integ_operator_web
 )
 
 info()

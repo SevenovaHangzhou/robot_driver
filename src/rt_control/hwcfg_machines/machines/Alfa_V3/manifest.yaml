@@ -1,0 +1,102 @@
+schema_version: 1
+kind: manifest
+status: draft
+verified: false
+authorities:
+  source: integ_bringup/config/machines/alfa_v3.yaml
+pending_facts: []
+robot_variant: Alfa_V3
+functional_modules:
+- arms
+- updown
+- swerve_chassis
+- active_suspension
+- head_gimbal
+parts:
+- manifest/modules.yaml
+- manifest/profiles.yaml
+- manifest/scopes.yaml
+- manifest/bench_scopes.yaml
+robot_model:
+  package: robot_description
+  source_revision: 2b0950f1a5009dda1e93d4737b2894ccefed3734
+  variants:
+    # Alfav3 dual arms on the deployed mobile base; no named poses or initial positions (user 2026-10-17).
+    mobile_proxy:
+      xacro_file: urdf/robot_alfav3_mobile.urdf
+      joint_limits_file: config/joint_limits_alfav3_mobile.yaml
+      srdf_file: srdf/robot_alfav3_mobile.srdf
+hardware_options:
+  force_sensors:
+    none:
+      modules: []
+      status: ready
+      pending_facts: []
+    bluepoint_dual:
+      modules:
+      - wrist_force_sensors
+      status: draft
+      pending_facts:
+      - full-machine branch enumeration and responder count; bench has 6 responders
+        with sensors at 2/4
+      - left/right frame IDs and mounting orientation
+owner_refs:
+  ethercat: hw_ethercat
+  canopen: hw_canopen
+  damiao_can: hw_can_damiao
+layout:
+  ethercat:
+    cycle_hz: 1000
+  canopen:
+    sync_period_us: 4000
+  damiao_can:
+    cycle_hz: 1000
+policy_refs:
+  enable:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml
+    schema_package: ctrl_enable_manager
+    schema: enable_policy.schema.json
+  chassis_enable:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_chassis_enable_policy.yaml
+    schema_package: ctrl_enable_manager
+    schema: enable_policy.schema.json
+  bench_left_arm_enable:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_bench_left_arm_enable_policy.yaml
+    schema_package: ctrl_enable_manager
+    schema: enable_policy.schema.json
+  bench_left_arm_motion:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_bench_left_arm_motion.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: arm_tolerances.schema.json
+  bench_dual_arm_enable:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_bench_dual_arm_enable_policy.yaml
+    schema_package: ctrl_enable_manager
+    schema: enable_policy.schema.json
+  bench_dual_arm_motion:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_bench_dual_arm_motion.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: arm_tolerances.schema.json
+  motion:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: arm_tolerances.schema.json
+  envelope:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_arm_envelope.mock.yaml
+  bench_right_arm_enable:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_bench_right_arm_enable_policy.yaml
+    schema_package: ctrl_enable_manager
+    schema: enable_policy.schema.json
+  bench_right_arm_motion:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_bench_right_arm_motion.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: arm_tolerances.schema.json

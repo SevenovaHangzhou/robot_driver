@@ -1,0 +1,113 @@
+# Right-arm-only control on the observed 18-responder bench.
+# X3 right J1..J7 are9..15. Left1..7 and sensors8/16 have no command interfaces.
+schema_version: 1
+kind: machine_module
+status: draft
+verified: true
+authorities:
+  source: existing dual-arm right branch and zero capture, corrected against live cached EtherCAT topology
+    2026-10-26
+  topology: '2026-10-26 live scan: 18 responders; main port1/X3 starts at9; main port3/X2 starts at1;
+    subdevice17; BluePoint8/16'
+  encoder_policy: user 2026-10-24 confirms right J3/J4 single-turn; 0x730F may be reset at disabled startup
+  direction: left confirmed 2026-10-18; right all +1 confirmed by user per joint 2026-10-22; direction
+    unchanged by ring migration
+pending_facts:
+- right arm drive firmware (torque-sensor PDO not yet verified on the right drives)
+- 'PP Halt policy: live firmware has no 0x605D object'
+- coupler runtime state/DC and ESI display-version difference
+- measured nonwrapping single-turn travel for right J3/J4
+robot_variant: Alfa_V3
+module: bench_right_arm
+master_system: ecat_arms
+spec:
+  family: zeroerr
+  extra_responders:
+  - ring_position: 0
+    profile: inovance_gr10_coupler
+    identity_key: coupler_main
+  - ring_position: 1
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 2
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 3
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 4
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 5
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 6
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 7
+    profile: bench_arms_observers
+    identity_key: zeroerr_unmanaged
+  - ring_position: 8
+    profile: bench_arms_observers
+    identity_key: bluepoint_p140000100
+  - ring_position: 16
+    profile: bench_arms_observers
+    identity_key: bluepoint_p140000100
+  - ring_position: 17
+    profile: inovance_gr10_coupler
+    identity_key: coupler_subdevice
+  branches:
+    right:
+      connector: X3
+      main_esc_port: 1
+      axes:
+      - physical_joint: J1
+        ring_position: 9
+        mode_of_operation: 8
+        robot_model_joint: right_joint1
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J2
+        ring_position: 10
+        mode_of_operation: 8
+        robot_model_joint: right_joint2
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J3
+        ring_position: 11
+        mode_of_operation: 8
+        robot_model_joint: right_joint3
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J4
+        ring_position: 12
+        mode_of_operation: 8
+        robot_model_joint: right_joint4
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J5
+        ring_position: 13
+        mode_of_operation: 8
+        robot_model_joint: right_joint5
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J6
+        ring_position: 14
+        mode_of_operation: 8
+        robot_model_joint: right_joint6
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J7
+        ring_position: 15
+        mode_of_operation: 8
+        robot_model_joint: right_joint7
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+  drive_profiles:
+    csp: zeroerr_cia402_csp_diag
+    gripper_pp: zeroerr_cia402_stationary
+  branch_mapping_verified: true
+  direction_status: user_confirmed_left_2026_10_18_right_2026_10_22
+  topology_preflight: true

@@ -83,19 +83,19 @@ flowchart TD
     DG --> BR
 ```
 
-依赖方向应保持为“共享模型/接口 → 功能包 → bringup”。功能包不得反向依赖 `rt_control_bringup`，共享包也不得依赖任何域实现。
+依赖方向应保持为“共享模型/接口 → 功能包 → bringup”。功能包不得反向依赖 `integ_bringup`，共享包也不得依赖任何域实现。
 
 | 节点 | 它回答的问题 | 第一个阅读入口 |
 | --- | --- | --- |
-| `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot.urdf.xacro`](../../../src/description/robot_description/urdf/robot.urdf.xacro) |
+| `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot_alfav3_mobile.urdf`](../../../src/description/robot_description/urdf/robot_alfav3_mobile.urdf) |
 | `rt_control_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/rt_control_interfaces/srv/RtEnable.srv) |
-| `robot_hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](../../../src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](../../../src/rt_control/robot_hw_ethercat/config/slaves) |
-| `robot_hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](../../../src/rt_control/robot_hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](../../../src/rt_control/robot_hw_canopen/config/bus.yml) |
-| `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/enable_manager/include/enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
-| `rt_diagnostics` | EtherCAT、CANopen 和使能状态怎样形成统一诊断？ | [`rt_diagnostics_node.cpp`](../../../src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp) |
-| `rt_control_bringup` | 哪些节点和控制器以什么顺序启动？ | [`rt_control.launch.py`](../../../src/rt_control/rt_control_bringup/launch/rt_control.launch.py)、[`controllers.yaml`](../../../src/rt_control/rt_control_bringup/config/controllers.yaml) |
+| `hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](https://github.com/SevenovaHangzhou/robot_driver/tree/43d4c648bca8/src/rt_control/hw_ethercat/config/slaves) |
+| `hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/hw_canopen/config/bus.yml) |
+| `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/ctrl_enable_manager/include/ctrl_enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp) |
+| `rt_diagnostics` | EtherCAT、CANopen 和使能状态怎样形成统一诊断？ | `rt_diagnostics_node.cpp`（包已删除，arch-b3） |
+| `integ_bringup` | 哪些节点和控制器以什么顺序启动？ | [`rt_control.launch.py`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/integ_bringup/launch/rt_control.launch.py)、[`controllers.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/integ_bringup/config/controllers.yaml) |
 | 上游窄补丁 | 为什么只看本仓库源码还解释不了生产行为？ | [`deps.repos`](../../../deps.repos)、[`patches`](../../../patches)、[`Dockerfile`](../../../docker/rt-control/Dockerfile) |
-| 容器与宿主 | 镜像、CPU、DDS、设备和退出语义怎样落地？ | [`compose.yaml`](../../../docker/compose.yaml)、[`rt_control_start`](../../../src/rt_control/rt_control_bringup/scripts/rt_control_start)、[`hostsetup`](../../../hostsetup) |
+| 容器与宿主 | 镜像、CPU、DDS、设备和退出语义怎样落地？ | [`compose.yaml`](../../../docker/compose.yaml)、[`rt_control_start`](../../../src/rt_control/integ_bringup/scripts/rt_control_start)、[`hostsetup`](../../../hostsetup) |
 
 三个上游补丁目录也是生产代码的一部分：
 
@@ -110,8 +110,8 @@ flowchart TD
 
 | 事实 | 当前权威入口 | 不应放在哪里 |
 | --- | --- | --- |
-| link/joint、TF、几何、惯量、机器人固有关节范围 | `robot_description/urdf/robot.urdf.xacro` | EtherCAT/CAN 配置、业务域的模型副本。 |
-| EtherCAT 环位置、PDO/SDO、缩放与驱动 profile | `robot_hw_ethercat` 的 xacro 和 `config/slaves/*.yaml` | `robot_description`、motion 规划参数。 |
+| link/joint、TF、几何、惯量、机器人固有关节范围 | `robot_description/urdf/robot_alfav3_mobile.urdf` | EtherCAT/CAN 配置、业务域的模型副本。 |
+| EtherCAT 环位置、PDO/SDO、缩放与驱动 profile | `hw_ethercat` 的 xacro 和 `config/slaves/*.yaml` | `robot_description`、motion 规划参数。 |
 | CAN 节点、EDS、运行模式和总线参数 | `robot_hw_canopen/config/bus.yml`、权威 EDS 和 CAN xacro | controller 临时参数、手工生成物。 |
 | controller 集合、频率、关节集合和运行时约束 | `rt_control_bringup/config/controllers.yaml` | 上层域的重复 controller 配置。 |
 | 上游版本和行为改动 | `deps.repos`、`versions.env`、`patches/*` | 未锁定的现场源码副本。 |
@@ -144,10 +144,10 @@ flowchart TD
 入口按以下顺序阅读：
 
 1. [`docker/rt-control/entrypoint.sh`](../../../docker/rt-control/entrypoint.sh) 只负责 source 环境并执行命令。
-2. [`rt_control_start`](../../../src/rt_control/rt_control_bringup/scripts/rt_control_start) 是唯一支持的生产 PID 1，并负责停机前失能。
-3. [`rt_control.launch.py`](../../../src/rt_control/rt_control_bringup/launch/rt_control.launch.py) 负责模型、节点、控制器和启动顺序。
-4. [`rt_control.urdf.xacro`](../../../src/rt_control/rt_control_bringup/urdf/rt_control.urdf.xacro) 决定装配真实硬件还是 mock hardware。
-5. [`controllers.yaml`](../../../src/rt_control/rt_control_bringup/config/controllers.yaml) 决定控制器频率、关节集合和运行约束。
+2. [`rt_control_start`](../../../src/rt_control/integ_bringup/scripts/rt_control_start) 是唯一支持的生产 PID 1，并负责停机前失能。
+3. [`rt_control.launch.py`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/integ_bringup/launch/rt_control.launch.py) 负责模型、节点、控制器和启动顺序。
+4. [`rt_control.urdf.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/integ_bringup/urdf/rt_control.urdf.xacro) 决定装配真实硬件还是 mock hardware。
+5. [`controllers.yaml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/integ_bringup/config/controllers.yaml) 决定控制器频率、关节集合和运行约束。
 
 一个容易误解的事实是：`/rt/enable` 不是整个机器人的总授权开关。CANopen 履带硬件在 `Cia402System::on_activate()` 阶段就会 Boot、设置 PV 模式并预置零速度，diff-drive 控制器也在启动时直接 active；Updown 则受 14 轴 EtherCAT 生命周期联锁管理。
 
@@ -224,8 +224,8 @@ docker stop / SIGTERM
 
 | 符号 | 阅读它能回答什么 | 文件 |
 | --- | --- | --- |
-| `generate_launch_description()` | 全域如何总装、哪些 controller 以什么状态启动？ | [`rt_control.launch.py`](../../../src/rt_control/rt_control_bringup/launch/rt_control.launch.py) |
-| `EnableManagerController::on_configure()` | service、controller switch client 和诊断怎样建立？ | [`enable_manager_controller.cpp`](../../../src/rt_control/enable_manager/src/enable_manager_controller.cpp) |
+| `generate_launch_description()` | 全域如何总装、哪些 controller 以什么状态启动？ | [`rt_control.launch.py`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/integ_bringup/launch/rt_control.launch.py) |
+| `EnableManagerController::on_configure()` | service、controller switch client 和诊断怎样建立？ | [`enable_manager_controller.cpp`](../../../src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp) |
 | `EnableManagerController::on_activate()` | 启动时怎样进入 `STARTUP_SANITIZING` 并清理旧状态？ | 同上 |
 | `EnableManagerController::update()` | 非实时请求怎样由实时状态机推进？ | 同上 |
 | `handleEnable/Disable/ResetFault()` | 三个生命周期 service 怎样接收、拒绝或抢占请求？ | 同上 |
@@ -233,15 +233,15 @@ docker stop / SIGTERM
 | `updateDownward()` / `startEmergency()` | 正常失能、使能回滚和运行中故障怎样收敛？ | 同上 |
 | `updateReset()` | 整组 Fault Reset 怎样发上升沿并确认？ | 同上 |
 | `validate_trajectory_start()` | 14 轴 FJT 如何按轴校验首点和 EtherCAT 反馈年龄？ | [`0001-jtc-start-consistency.patch`](../../../patches/ros2_controllers/0001-jtc-start-consistency.patch) |
-| `RtDiagnosticsNode::publishSnapshot()` | 多路硬件状态如何变成 1 Hz 诊断树？ | [`rt_diagnostics_node.cpp`](../../../src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp) |
-| `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](../../../src/rt_control/enable_manager/src/rt_disable_once.cpp) |
+| `RtDiagnosticsNode::publishSnapshot()` | 多路硬件状态如何变成 1 Hz 诊断树？ | `rt_diagnostics_node.cpp`（包已删除，arch-b3） |
+| `rt_disable_once` 的 `main()` | PID 1 在退出前如何等待 `/rt/disable` 最终结果？ | [`rt_disable_once.cpp`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/ctrl_enable_manager/src/rt_disable_once.cpp) |
 
 ## 4. 按任务找代码
 
 | 要做的事 | 先看哪里 | 直接影响 | 需要联查 |
 | --- | --- | --- | --- |
 | 修改 link/joint、TF、几何或关节固有属性 | `robot_description` | 所有模型消费者 | motion、perception、rt-control 的联合模型验证。 |
-| 修改 14 轴映射/PDO/驱动参数 | `robot_hw_ethercat` | EtherCAT 插件、enable manager、diagnostics | 冻结 profile、上游补丁、迁移差异和实机分级验收。 |
+| 修改 14 轴映射/PDO/驱动参数 | `hw_ethercat` | EtherCAT 插件、enable manager、diagnostics | 冻结 profile、上游补丁、迁移差异和实机分级验收。 |
 | 修改使能、失能、Fault Reset | `enable_manager` | 14 轴、JTC 生命周期、停机路径 | `rt_disable_once`、诊断、mock 与实机故障路径。 |
 | 修改 14 轴轨迹准入 | `controllers.yaml` + JTC patch | motion 的 FJT 调用 | 完整性、逐轴首点误差、反馈新鲜度、取消与结果语义。 |
 | 修改 Updown | `xmc_updown_sw511.yaml` + EtherCAT xacro + JTC/limits | motion 和 EtherCAT slave 17 | 固定 PDO、SI/counts 换算、CSP 周期、第五批使能和整组故障语义。 |
@@ -255,7 +255,7 @@ docker stop / SIGTERM
 
 ### 30 分钟建立全貌
 
-1. 读根 [`README.md`](../../../README.md)、根 [`AGENTS.md`](../../../AGENTS.md) 和本域 [`AGENTS.md`](../AGENTS.md)，先确定边界和安全规则。
+1. 读根 [`README.md`](../../../README.md)、根 [`AGENTS.md`](../../../AGENTS.md) 和 [`ARCHITECTURE.md`](../../../ARCHITECTURE.md)，先确定边界和安全规则。
 2. 读本页前四节，建立接口、包依赖、启动和关停模型。
 3. 读 `rt_control.launch.py`、`controllers.yaml` 和三个 ros2_control xacro，理解总装。
 4. 读 `RtEnable.srv`，然后浏览 enable manager、XMC SW 5.11 profile 和 diagnostics。

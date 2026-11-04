@@ -4,11 +4,11 @@ cases:
   - id: TC-AR-01
     title: 急停触发后的恢复路径
     purpose: 证明急停/安全链动作后系统 fail-closed，且按既定流程可恢复
-    area: protocol
+    area: control
     risk: T3
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native
-    covers: ["src/rt_control/enable_manager/**"]
+    covers: ["src/rt_control/ctrl_enable_manager/**"]
     traces: [domains/rt_control/docs/deployment-operations-runbook.md]
     preconditions: 现场授权；急停按钮与安全链物理功能已由电气验收确认（软件不替代安全链）
     entry: |
@@ -28,7 +28,7 @@ cases:
     risk: T3
     writes: { reset: yes, enable: no, motion: no, plc: no }
     env: native
-    covers: ["src/rt_control/robot_hw_ethercat/**", "src/rt_control/rt_diagnostics/**"]
+    covers: ["src/rt_control/hw_ethercat/**"]
     traces: ["BQ-117"]
     preconditions: 注入方式（断电单从站/断链）需先裁决并单独授权；禁止在带载状态注入
     entry: |
@@ -48,7 +48,7 @@ cases:
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/robot_hw_canopen/**"]
+    covers: ["src/rt_control/hw_canopen/**"]
     traces: ["BQ-132"]
     preconditions: BQ-132 当前 BLOCKED；本用例在裁决闭环前固定为已知 FAIL 登记项
     entry: |
@@ -67,7 +67,7 @@ cases:
     risk: T3
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/plc_node/**"]
+    covers: ["src/rt_control/periph_plc_io/**"]
     traces: [domains/rt_control/docs/plc-bms-integration.md]
     preconditions: 断连方式为拔网线/关 PLC 电源，不改软件配置；现场授权
     entry: |
@@ -87,7 +87,7 @@ cases:
     risk: T2
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/bms_node/**", "hostsetup/**"]
+    covers: ["src/rt_control/periph_bms/**", "hostsetup/**"]
     traces: ["BQ-121"]
     preconditions: BQ-121 当前 OPEN/DEPLOYMENT
     entry: |

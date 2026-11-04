@@ -5,33 +5,10 @@ find_package(ament_cmake REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
-  ament_add_pytest_test(
-    test_v3_2_2_production_profile
-    test/test_v3_2_2_production_profile.py
-  )
-  ament_add_pytest_test(
-    test_v3_2_2_source_profile
-    test/test_v3_2_2_source_profile.py
-  )
-  ament_add_pytest_test(
-    test_v3_analytic_proxy_profile
-    test/test_v3_analytic_proxy_profile.py
-  )
-  ament_add_pytest_test(
-    test_analytic_proxy_mobile
-    test/test_analytic_proxy_mobile.py
-  )
-  ament_add_pytest_test(
-    test_alfav3_mobile
-    test/test_alfav3_mobile.py
-  )
+  ament_add_pytest_test(test_current_model test/test_current_model.py)
 endif()
 
-install(DIRECTORY urdf srdf meshes config DESTINATION share/${PROJECT_NAME})
-install(
-  DIRECTORY model_sources/robot_v3_2_2 model_sources/mechanical_958c49d
-            model_sources/alfav3_arms_1011_4
-  DESTINATION share/${PROJECT_NAME}/model_sources
-)
+# Mesh assets are classified by robot part; URDF package:// paths match this layout.
+install(DIRECTORY urdf srdf config mesh DESTINATION share/${PROJECT_NAME})
 
 ament_package()

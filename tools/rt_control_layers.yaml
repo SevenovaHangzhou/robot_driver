@@ -1,34 +1,32 @@
 layers:
+  infra:
+  - infra_modbus
+  - infra_renderer
+  - infra_shm_ring
+  - infra_socketcan
   hw_config:
-  - rt_control_machine_config
+  - hwcfg_machines
   integration:
-  - rt_control_composer
-  - rt_control_bringup
-  - control_api_adapter
-  - rt_diagnostics
-  - rt_control_arm_console
-  - rt_control_operator_web
+  - integ_composer
+  - integ_bringup
+  - integ_api_adapter
+  - integ_diagnostics
+  - integ_operator_web
   - runtime_log_recorder
   protocol:
-  - robot_hw_ethercat
-  - robot_hw_canopen
-  - robot_hw_can
-  - rt_control_semantic_components
-  - enable_manager
+  - hw_ethercat
+  - hw_canopen
+  - hw_can_damiao
+  - hw_semantic_components
   control:
-  - rolling_trajectory_controller
-  - rt_force_torque_broadcaster
-  - x503_force_sensor
-  - damiao_head_controller
-  - swerve_driver
-  - bms_node
-  - lpms_nav3_can
-  - modbus_tcp_rtu485
-  - plc_io_modbus
-  - plc_node
+  - ctrl_enable_manager
+  - ctrl_rolling_trajectory
+  - ctrl_force_torque_broadcaster
+  - ctrl_swerve
+  periph:
+  - periph_bms
+  - periph_imu_lpms
+  - periph_led_ultrasonic
+  - periph_plc_io
 baseline_violations: []
-frequency_scope_exclusions:
-- file: src/rt_control/robot_hw_ethercat/urdf/ecat.ros2_control.xacro
-  sha256: 06c0cca8e79b70a632c82eeab6290de74510992d7e9eacb8c812f11e66b01e97
-  reason: User explicitly approved excluding this frozen V2 asset from V3 A3/baseline
-    acceptance; retain original bytes. Other rules still apply.
+frequency_scope_exclusions: []

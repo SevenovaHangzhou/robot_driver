@@ -1,3 +1,3 @@
 patches/**/*.patch -whitespace
 # Vendor EDS files keep their original CRLF bytes; SHA-256 is verified by tests.
-src/rt_control/robot_hw_canopen/config/eds/*.eds -text -whitespace
+src/rt_control/hw_canopen/config/eds/*.eds -text -whitespace

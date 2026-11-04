@@ -41,7 +41,7 @@ class RepositoryGateTest(unittest.TestCase):
                     repository_gate.check_path(path),
                     "must live under domains/<domain>/",
                 )
-        self.assertEqual(repository_gate.check_path("src/rt_control/enable_manager/package.xml"), [])
+        self.assertEqual(repository_gate.check_path("src/rt_control/ctrl_enable_manager/package.xml"), [])
         self.assert_has(
             repository_gate.check_path("docs/README.md"),
             "root docs directory must remain empty",
@@ -136,7 +136,7 @@ vendored_packages:
 <package format="3">
   <name>robot_description</name>
   <version>0.1.0</version>
-  <exec_depend>rt_control_bringup</exec_depend>
+  <exec_depend>integ_bringup</exec_depend>
 </package>
 """
         self.assert_has(
@@ -147,7 +147,7 @@ vendored_packages:
         )
 
         semantic_dependency = manifest.replace(
-            "rt_control_bringup", "rt_control_semantic_components"
+            "integ_bringup", "hw_semantic_components"
         )
         self.assert_has(
             repository_gate.check_manifest_dependencies(
@@ -157,20 +157,20 @@ vendored_packages:
             "shared package must not depend on domain package",
         )
 
-        feature_manifest = manifest.replace("robot_description", "enable_manager").replace(
-            "src/description/robot_description", "src/rt_control/enable_manager"
+        feature_manifest = manifest.replace("robot_description", "ctrl_enable_manager").replace(
+            "src/description/robot_description", "src/rt_control/ctrl_enable_manager"
         )
         self.assert_has(
             repository_gate.check_manifest_dependencies(
-                "src/rt_control/enable_manager/package.xml", feature_manifest
+                "src/rt_control/ctrl_enable_manager/package.xml", feature_manifest
             ),
-            "feature package must not depend on rt_control_bringup",
+            "feature package must not depend on integ_bringup",
         )
 
     def test_robot_description_ignores_comments_but_rejects_domain_data(self):
         comment_only = """<?xml version="1.0"?>
 <robot name="robot">
-  <!-- ros2_control belongs to rt_control_bringup. -->
+  <!-- ros2_control belongs to integ_bringup. -->
   <link name="base_link"/>
 </robot>
 """
@@ -257,13 +257,13 @@ vendored_packages:
     def test_dockerfile_must_keep_the_signal_gate_as_direct_command(self):
         valid = """FROM ros:humble-ros-base
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
-CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
+CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]
 """
         self.assertEqual(repository_gate.check_dockerfile_policy(valid), [])
 
         bypassed = valid.replace(
-            'CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]',
-            'CMD ["ros2", "launch", "rt_control_bringup", "rt_control.launch.py"]',
+            'CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]',
+            'CMD ["ros2", "launch", "integ_bringup", "rt_control.launch.py"]',
         )
         self.assert_has(
             repository_gate.check_dockerfile_policy(bypassed),
@@ -272,10 +272,10 @@ CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
 
         commented_bypass = (
             valid.replace(
-                'CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]',
-                '# CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]',
+                'CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]',
+                '# CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]',
             )
-            + 'CMD ["ros2", "launch", "rt_control_bringup", "rt_control.launch.py"]\n'
+            + 'CMD ["ros2", "launch", "integ_bringup", "rt_control.launch.py"]\n'
         )
         self.assert_has(
             repository_gate.check_dockerfile_policy(commented_bypass),
@@ -316,7 +316,9 @@ htmlcov
     def test_ci_workflow_must_preserve_governance_before_build(self):
         valid = """on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 18 * * *"
 permissions:
   contents: read
 jobs:
@@ -326,50 +328,54 @@ jobs:
       - run: python3 tools/pr_contract_gate.py --event-path event.json
   build:
     needs: governance
+    if: contains(github.event.pull_request.labels.*.name, 'full-ci')
     steps:
       - run: vcs import . < deps.repos
       - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
       - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
       - run: rosdep install --dependency-types test
-      - run: colcon build --packages-up-to rt_control_bringup
-      - run: colcon test --packages-up-to rt_control_bringup
+      - run: colcon build --packages-up-to integ_bringup
+      - run: colcon test --packages-up-to integ_bringup
       - run: check_urdf robot.urdf
-      - run: python3 tools/diff_legacy.py
+      - run: python3 tools/check_v3_branch_contract.py
 """
         self.assertEqual(repository_gate.check_ci_workflow_policy(valid), [])
 
         redundant = valid.replace(
-            "    types: [opened, synchronize, reopened]\n",
-            "    types: [opened, synchronize, reopened, edited]\n"
+            "    types: [opened, synchronize, reopened, labeled]\n",
+            "    types: [opened, synchronize, reopened, labeled, edited]\n"
             "  push:\n"
             "    branches: [main]\n",
         )
         findings = repository_gate.check_ci_workflow_policy(redundant)
         self.assert_has(findings, "must not run on main push")
-        self.assert_has(findings, "must not run the full build for pull request edits")
+        self.assert_has(findings, "pull request edits are handled by pr-metadata-governance")
+
+        unscheduled = valid.replace('  schedule:\n    - cron: "0 18 * * *"\n', "")
+        self.assert_has(
+            repository_gate.check_ci_workflow_policy(unscheduled), "nightly schedule"
+        )
 
         weakened = valid.replace("    needs: governance\n", "").replace(
-            "      - run: colcon test --packages-up-to rt_control_bringup\n", ""
+            "      - run: colcon test --packages-up-to integ_bringup\n", ""
         )
         findings = repository_gate.check_ci_workflow_policy(weakened)
         self.assert_has(findings, "build job must depend on governance")
         self.assert_has(findings, "build job must run colcon test")
 
-        conditional = valid.replace(
-            "  build:\n    needs: governance\n",
-            "  build:\n    if: needs.scope.outputs.head_only != 'true'\n"
-            "    needs: governance\n",
+        every_pr = valid.replace(
+            "    if: contains(github.event.pull_request.labels.*.name, 'full-ci')\n", ""
         )
         self.assert_has(
-            repository_gate.check_ci_workflow_policy(conditional),
-            "full V3 build job must remain unconditional",
+            repository_gate.check_ci_workflow_policy(every_pr),
+            "only nightly, on dispatch or for the full-ci label",
         )
 
-        v3 = valid.replace(
-            "python3 tools/diff_legacy.py",
-            "python3 tools/check_v3_branch_contract.py",
+        ungated = valid.replace("      - run: python3 tools/check_v3_branch_contract.py\n", "")
+        self.assert_has(
+            repository_gate.check_ci_workflow_policy(ungated),
+            "branch-specific migration gate",
         )
-        self.assertEqual(repository_gate.check_ci_workflow_policy(v3), [])
 
         unprepared = valid.replace(
             "      - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws "
@@ -440,9 +446,9 @@ jobs:
         files = {
             "README.md": "# robot_driver\n",
             "AGENTS.md": "# Contract\n",
-            "collaboration-and-commit-standards.md": "# Collaboration\n",
+            "ARCHITECTURE.md": "# Architecture\n",
+            ".github/CONTRIBUTING.md": "# Contributing\n",
             "domains/rt_control/README.md": "# rt-control\n",
-            "domains/rt_control/AGENTS.md": "# rt-control contract\n",
             "domains/rt_control/PROGRESS.md": "# rt-control progress\n",
             "domains/rt_control/BLOCKED-questions.md": "# rt-control blockers\n",
             ".pre-commit-config.yaml": """repos:
@@ -466,7 +472,9 @@ htmlcov
 """,
             ".github/workflows/rt-control-ci.yml": """on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: "0 18 * * *"
 permissions:
   contents: read
 jobs:
@@ -476,15 +484,16 @@ jobs:
       - run: python3 tools/pr_contract_gate.py --event-path event.json
   build:
     needs: governance
+    if: contains(github.event.pull_request.labels.*.name, 'full-ci')
     steps:
       - run: vcs import . < deps.repos
       - run: RT_CONTROL_NATIVE_WS=/tmp/rt-control-ci-ws tools/bootstrap_native_dev.sh prepare
       - run: ./configure --prefix=/usr/local/etherlab --disable-kernel
       - run: rosdep install --dependency-types test
-      - run: colcon build --packages-up-to rt_control_bringup
-      - run: colcon test --packages-up-to rt_control_bringup
+      - run: colcon build --packages-up-to integ_bringup
+      - run: colcon test --packages-up-to integ_bringup
       - run: check_urdf robot.urdf
-      - run: python3 tools/diff_legacy.py
+      - run: python3 tools/check_v3_branch_contract.py
 """,
             ".github/workflows/pr-metadata-governance.yml": """on:
   pull_request:
@@ -516,7 +525,7 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
 """,
             "docker/rt-control/Dockerfile": """FROM ros:humble-ros-base
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
-CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]
+CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]
 """,
             "src/description/robot_description/package.xml": """<package format="3">
   <name>robot_description</name>
@@ -545,7 +554,7 @@ vendored_packages:
         files["tools/rt_control_layers.yaml"] = yaml.safe_dump({
             "layers": {name: [] for name in layer_gate.LAYERS}, "baseline_violations": []})
         files[".github/CODEOWNERS"] = (
-            "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n")
+            "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n")
         for relative_path, content in files.items():
             path = root / relative_path
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -619,10 +628,12 @@ if __name__ == "__main__":
 
 def layer_fixture():
     layers = {
-        "hw_config": ["rt_control_machine_config"],
-        "integration": ["rt_control_composer"],
-        "protocol": ["bus", "rt_control_semantic_components"],
-        "control": ["motor", "bms_node"],
+        "infra": ["ring"],
+        "hw_config": ["hwcfg_machines"],
+        "integration": ["integ_composer"],
+        "protocol": ["bus", "hw_semantic_components"],
+        "control": ["motor"],
+        "periph": ["periph_bms"],
     }
     texts = {layer_gate.CONFIG: yaml.safe_dump({"layers": layers, "baseline_violations": []})}
     for packages in layers.values():
@@ -633,25 +644,32 @@ def layer_fixture():
 
 @pytest.mark.parametrize("rule,path,accepted,rejected", [
     ("R1", "new_package/package.xml", "", "<package><name>new_package</name></package>"),
-    ("R2", "motor/src/node.cpp", '#include "rt_control_semantic_components/a.hpp"',
+    ("R2", "motor/src/node.cpp", '#include "hw_semantic_components/a.hpp"',
      '#include "bus/a.hpp"'),
     ("R3", "bus/package.xml", "<package><name>bus</name></package>",
      "<package><name>bus</name><test_depend>motor</test_depend></package>"),
-    ("R2", "motor/tool.py", "from rt_control_semantic_components import status", "import bus"),
-    ("R2", "motor/CMakeLists.txt", "find_package(rt_control_semantic_components REQUIRED)", "find_package(bus REQUIRED)"),
-    ("R3", "bus/tool.py", "import rt_control_semantic_components", "from motor import policy"),
-    ("R3", "bus/CMakeLists.txt", "find_package(rt_control_semantic_components REQUIRED)", "find_package(motor REQUIRED)"),
+    ("R2", "motor/tool.py", "from hw_semantic_components import status", "import bus"),
+    ("R2", "motor/CMakeLists.txt", "find_package(hw_semantic_components REQUIRED)", "find_package(bus REQUIRED)"),
+    ("R3", "bus/tool.py", "import hw_semantic_components", "from motor import policy"),
+    ("R3", "bus/CMakeLists.txt", "find_package(hw_semantic_components REQUIRED)", "find_package(motor REQUIRED)"),
     ("R4", "motor/package.xml",
-     "<package><name>motor</name><exec_depend>rt_control_machine_config</exec_depend></package>",
-     "<package><name>motor</name><depend>rt_control_machine_config</depend></package>"),
-    ("R5", "rt_control_composer/rt_control_composer/compose.py", 'name = "synthetic"',
+     "<package><name>motor</name><exec_depend>hwcfg_machines</exec_depend></package>",
+     "<package><name>motor</name><depend>hwcfg_machines</depend></package>"),
+    ("R5", "integ_composer/integ_composer/compose.py", 'name = "synthetic"',
      'name = "AlFa_V3"'),
-    ("R6", "rt_control_composer/rt_control_composer/compose.py", 'cfg = {"update_rate": rate}',
+    ("R6", "integ_composer/integ_composer/compose.py", 'cfg = {"update_rate": rate}',
      'cfg = {"update_rate": 1000}'),
     ("R7", "bus/rt_control_renderer.py", 'path = "devices/motor.yaml"',
      'path = "evidence/observation.yaml"'),
-    ("R8", "bms_node/include/bms_node/protocol/decoder.hpp", "#include <cstdint>",
+    ("R8", "periph_bms/include/periph_bms/protocol/decoder.hpp", "#include <cstdint>",
      "#include <std_msgs/msg/header.hpp>"),
+    ("R11", "ring/include/ring/ring.hpp", "#include <cstdint>", '#include "hw_semantic_components/a.hpp"'),
+    ("R12", "periph_bms/package.xml", "<package><name>periph_bms</name><depend>ring</depend></package>",
+     "<package><name>periph_bms</name><depend>motor</depend></package>"),
+    ("R12", "motor/src/node.cpp", '#include "hw_semantic_components/a.hpp"',
+     '#include "periph_bms/a.hpp"'),
+    ("R11", "ring/package.xml", "<package><name>ring</name></package>",
+     "<package><name>ring</name><depend>motor</depend></package>"),
 ])
 def test_layer_rules_accept_valid_input_and_reject_new_violations(rule, path, accepted, rejected):
     texts = layer_fixture()
@@ -701,14 +719,14 @@ def test_baseline_only_allows_the_recorded_occurrence():
 
 @pytest.mark.parametrize("rule,path,accepted,rejected", [
     ("R9", ".github/CODEOWNERS",
-     "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n", ""),
+     "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n", ""),
     ("R10", "docker/rt-control/Dockerfile",
      'RUN apt-get install python3-jsonschema\nLABEL org.sevenova.rt-control.deps.python3-jsonschema="3.2.0"',
      "RUN apt-get install python3-jsonschema=3.2.0-0ubuntu2"),
 ])
 def test_release_rules_accept_valid_input_and_reject_violations(rule, path, accepted, rejected):
     texts = {".github/CODEOWNERS": (
-        "/src/rt_control/rt_control_machine_config/**/safety_policy.yaml kkozia188@gmail.com\n")}
+        "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n")}
     texts[path] = accepted
     assert layer_gate.check_release_policy(texts) == []
     texts[path] = rejected

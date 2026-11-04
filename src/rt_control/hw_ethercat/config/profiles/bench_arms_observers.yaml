@@ -1,0 +1,12 @@
+# Identity-only entries from cached SII readback on 2026-10-24, ar-Default-string.
+# These responders are observed by topology preflight, NOT configured as PDO participants.
+# Blue Point P140000100-3.6.1.0-ECXML: left ring8, right ring16, both revision1.
+identities:
+  bluepoint_p140000100:
+    vendor_id: 161
+    product_code: 32897
+    revision_number: 1
+  zeroerr_unmanaged:
+    vendor_id: 1516597871
+    product_code: 168530
+    revision_number: 1

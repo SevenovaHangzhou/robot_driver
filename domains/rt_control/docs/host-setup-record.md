@@ -24,7 +24,7 @@
 > `user@localhost` (management address `192.168.0.250`) running
 > `6.8.1-1057-realtime`. Its current Native identity and read-only preflight
 > evidence are recorded in
-> [`realtime-host-20260904-01`](areas/realtime-host/records/2026-09-04-current-ipc-identity.md).
+> [`realtime-host-20260904-01`](areas-archive/realtime-host/records/2026-09-04-current-ipc-identity.md).
 > The `ar-Default-string` section below is retained unchanged as historical
 > evidence and no longer defines launcher identity.
 

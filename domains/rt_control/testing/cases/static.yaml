@@ -9,7 +9,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     covers: ["**"]
-    traces: [tools/quality_gate.sh, collaboration-and-commit-standards.md]
+    traces: [tools/quality_gate.sh, AGENTS.md]
     preconditions: 干净候选 commit 检出，无未提交改动
     entry: |
       REQUIRE_SHELLCHECK=1 tools/quality_gate.sh
@@ -61,7 +61,7 @@ cases:
       - 退出码 0（未批准语义差异数为 0）
     evidence: 比对 stdout 存档
     cleanup: 无
-    status: automated
+    status: retired
     v010_gate: run
 
   - id: TC-ST-04

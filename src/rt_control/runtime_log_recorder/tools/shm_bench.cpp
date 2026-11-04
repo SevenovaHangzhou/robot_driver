@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include "runtime_log_recorder/shm_ring.hpp"
+#include "infra_shm_ring/shm_ring.hpp"
 
 namespace
 {

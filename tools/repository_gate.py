@@ -24,7 +24,7 @@ else:
 
 
 def domain_packages(repository_root: Path) -> set[str]:
-    """Include rt_control_composer and rt_control_machine_config once registered."""
+    """Include integ_composer and hwcfg_machines once registered."""
     texts = {p.relative_to(repository_root).as_posix(): p.read_text(encoding="utf-8")
              for p in repository_root.glob("src/rt_control/*/package.xml")}
     return set(rt_control_layer_gate.package_inventory(texts).values())
@@ -61,10 +61,10 @@ SKIP_TEXT_SUFFIXES = {".stl", ".bin", ".dcf"}
 REQUIRED_GOVERNANCE_FILES = (
     "README.md",
     "AGENTS.md",
-    "collaboration-and-commit-standards.md",
+    "ARCHITECTURE.md",
+    ".github/CONTRIBUTING.md",
     ".dockerignore",
     "domains/rt_control/README.md",
-    "domains/rt_control/AGENTS.md",
     "domains/rt_control/PROGRESS.md",
     "domains/rt_control/BLOCKED-questions.md",
     ".pre-commit-config.yaml",
@@ -231,11 +231,11 @@ def check_manifest_dependencies(relative_path: str, xml_text: str,
             )
     if (
         relative_path.startswith("src/rt_control/")
-        and not relative_path.startswith("src/rt_control/rt_control_bringup/")
-        and "rt_control_bringup" in dependencies
+        and not relative_path.startswith("src/rt_control/integ_bringup/")
+        and "integ_bringup" in dependencies
     ):
         findings.append(
-            f"{relative_path}: feature package must not depend on rt_control_bringup"
+            f"{relative_path}: feature package must not depend on integ_bringup"
         )
     return findings
 
@@ -327,7 +327,7 @@ def check_dockerfile_policy(dockerfile_text: str) -> list[str]:
     """Keep rt_control_start as the direct container command."""
     findings: list[str] = []
     entrypoint = 'ENTRYPOINT ["/rt-control-entrypoint.sh"]'
-    command = 'CMD ["/opt/rt_control_ws/install/lib/rt_control_bringup/rt_control_start"]'
+    command = 'CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]'
     active_lines = [
         line.strip()
         for line in dockerfile_text.splitlines()
@@ -390,18 +390,20 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     events = workflow.get("on") if isinstance(workflow, dict) else None
     pull_request = events.get("pull_request") if isinstance(events, dict) else None
     event_types = pull_request.get("types") if isinstance(pull_request, dict) else None
-    required_event_types = {"opened", "synchronize", "reopened"}
+    required_event_types = {"opened", "synchronize", "reopened", "labeled"}
     if (
         not isinstance(event_types, list) or
         len(event_types) != len(required_event_types) or
         set(event_types) != required_event_types
     ):
         findings.append(
-            "CI workflow must run the full build for opened, synchronize, and reopened only; "
-            "it must not run the full build for pull request edits"
+            "CI workflow must run governance for opened, synchronize, reopened and labeled pull "
+            "requests only; pull request edits are handled by pr-metadata-governance"
         )
     if isinstance(events, dict) and "push" in events:
         findings.append("CI workflow must not run on main push after a PR merge")
+    if not isinstance(events, dict) or "schedule" not in events:
+        findings.append("CI workflow must run the full build on a nightly schedule")
     permissions = workflow.get("permissions") if isinstance(workflow, dict) else None
     if not isinstance(permissions, dict) or permissions.get("contents") != "read":
         findings.append("CI workflow must keep contents permission read-only")
@@ -413,8 +415,10 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     build = jobs.get("build")
     if not isinstance(governance, dict) or not isinstance(build, dict):
         return findings + ["CI workflow must define governance and build jobs"]
-    if "if" in build:
-        findings.append("CI full V3 build job must remain unconditional for every code PR")
+    if "full-ci" not in str(build.get("if", "")):
+        findings.append(
+            "CI full V3 build job must run only nightly, on dispatch or for the full-ci label"
+        )
     needs = build.get("needs")
     if needs != "governance" and not (
         isinstance(needs, list) and "governance" in needs
@@ -445,10 +449,7 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     ):
         if required_command not in build_commands:
             findings.append(f"CI build job must run {description}")
-    if not any(
-        command in build_commands
-        for command in ("tools/diff_legacy.py", "tools/check_v3_branch_contract.py")
-    ):
+    if "tools/check_v3_branch_contract.py" not in build_commands:
         findings.append("CI build job must run a branch-specific migration gate")
     return findings
 

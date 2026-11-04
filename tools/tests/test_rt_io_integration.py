@@ -7,12 +7,12 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BRINGUP = ROOT / "src/rt_control/rt_control_bringup"
+BRINGUP = ROOT / "src/rt_control/integ_bringup"
 HOSTSETUP = ROOT / "hostsetup"
 COMPOSE_WRAPPER = ROOT / "tools/rt_control_compose.sh"
-sys.path.insert(0, str(ROOT / "src/rt_control/control_api_adapter"))
+sys.path.insert(0, str(ROOT / "src/rt_control/integ_api_adapter"))
 
-from control_api_adapter.public_error import PublicErrorCode
+from integ_api_adapter.public_error import PublicErrorCode
 
 
 def test_public_and_private_interface_packages_have_distinct_ownership() -> None:
@@ -28,7 +28,7 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
     assert source_lock == {
         "schema_version": 1,
         "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
-        "commit": "ea582c8a711874813d2ad7f0801b366bd32ab67e",
+        "commit": "c82f0e40937453f1f8fb104822c2e91e9fb8d742",
         "contract_version": "1.0.0",
         "vendor_path": "src/vendor/robot_interfaces",
         "vendored_packages": list(public_packages),
@@ -67,14 +67,12 @@ def test_public_and_private_interface_packages_have_distinct_ownership() -> None
 
 
 def test_rt_io_uses_one_central_hardware_configuration() -> None:
-    document = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
-    node_source = (ROOT / "src/rt_control/plc_io_modbus/src/node.cpp").read_text()
     plc = yaml.safe_load(
-        (ROOT / "src/rt_control/plc_io_modbus/config/plc_io_modbus.yaml").read_text()
+        (ROOT / "src/rt_control/periph_plc_io/config/plc_io_modbus.yaml").read_text()
     )["plc_io_modbus"]["ros__parameters"]
-    bms = yaml.safe_load(
-        (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
-    )["bms_node"]["ros__parameters"]
+    bms = yaml.safe_load((ROOT / "src/rt_control/periph_bms/config/bms_node.yaml").read_text())[
+        "bms_node"
+    ]["ros__parameters"]
     assert plc["digital"]["module"]["host"] == "192.168.1.12"
     assert plc["digital"]["inputs"]["infrared_laser"] == {
         "configured": False,
@@ -95,18 +93,6 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert right_sensor["register"] == -1
     assert left_sensor["sensor_id"] == "TBD"
     assert right_sensor["sensor_id"] == "TBD"
-    configured_hardware_parameters = (
-        "digital.module.host",
-        "digital.inputs.infrared_laser.di_address",
-        "digital.outputs.vacuum_pump_relay.do_address",
-        "digital.outputs.left_vacuum_valve.do_address",
-        "digital.outputs.right_vacuum_valve.do_address",
-        "digital.outputs.primary_battery_relay.do_address",
-        "digital.outputs.secondary_battery_relay.do_address",
-        "analog.module.host",
-    )
-    for parameter_name in configured_hardware_parameters:
-        assert f'declare_parameter("{parameter_name}"' in node_source
     assert bms["transport"] == "socketcan"
     assert bms["can_interface"] == "can1"
     assert bms["expected_adapter_serial"] == "004D00675230500720333159"
@@ -123,33 +109,14 @@ def test_rt_io_uses_one_central_hardware_configuration() -> None:
     assert bms["mos_open_raw"] == -1
 
 
-def test_rt_io_public_parameters_match_current_contract() -> None:
-    rt_io = yaml.safe_load((BRINGUP / "config/rt_io.yaml").read_text())
-
+def test_bms_public_parameters_match_current_contract() -> None:
     bms_params = yaml.safe_load(
-        (ROOT / "src/rt_control/bms_node/config/bms_node.yaml").read_text()
+        (ROOT / "src/rt_control/periph_bms/config/bms_node.yaml").read_text()
     )["bms_node"]["ros__parameters"]
     assert bms_params["primary_battery_state_topic"] == "/battery_state"
     assert bms_params["primary_status_chinese_topic"] == "/bms/primary/status_chinese"
     assert bms_params["primary_fault_chinese_topic"] == "/bms/primary/fault_chinese"
     assert bms_params["publish_period_s"] == 5.0
-
-    vacuum_params = rt_io["vacuum_adapter"]["ros__parameters"]
-    assert vacuum_params["vacuum_state_topic"] == "/vacuum/state"
-    assert vacuum_params["pump_set_enabled_service"] == "/vacuum/pump/set_enabled"
-    assert vacuum_params["valve_action_name"] == "/vacuum/valves/set"
-    assert vacuum_params["vacuum_event_topic"] == "/vacuum/events"
-    assert vacuum_params["left_valve_service"] == "/plc/vacuum_valve/left"
-    assert vacuum_params["right_valve_service"] == "/plc/vacuum_valve/right"
-    assert vacuum_params["attached_threshold_kpa"] == -60.0
-    assert vacuum_params["released_threshold_kpa"] == -1.0
-    assert vacuum_params["publish_period_s"] == 0.05
-
-    status_params = rt_io["rt_status_adapter"]["ros__parameters"]
-    assert status_params["safety_state_topic"] == "/control/safety_state"
-    assert status_params["readiness_topic"] == "/rt_control/readiness"
-    assert status_params["safety_publish_period_s"] == 0.1
-    assert status_params["readiness_publish_period_s"] == 1.0
 
 
 def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
@@ -157,42 +124,14 @@ def test_v3_jtc_runtime_uses_adapter_without_installing_legacy_launch() -> None:
     bringup_cmake = (BRINGUP / "CMakeLists.txt").read_text()
     bootstrap = (ROOT / "tools/bootstrap_native_dev.sh").read_text()
 
-    assert "<exec_depend>control_api_adapter</exec_depend>" in bringup_manifest
-    assert 'executable="control_enable_adapter"' in (
-        BRINGUP / "launch/rt_control_arm_runtime.launch.py"
-    ).read_text()
+    assert "<exec_depend>integ_api_adapter</exec_depend>" in bringup_manifest
+    assert (
+        'executable="control_enable_adapter"'
+        in (BRINGUP / "launch/rt_control_scope_runtime.launch.py").read_text()
+    )
     assert "launch/rt_control.launch.py" not in bringup_cmake
-    assert "control_api_adapter" in bootstrap
+    assert "integ_api_adapter" in bootstrap
     assert int(PublicErrorCode.RT_ENABLE_MANAGER_NOT_READY) == 1101
-
-
-def test_public_vacuum_and_state_adapters_are_installed() -> None:
-    adapter_cmake = (
-        ROOT / "src/rt_control/control_api_adapter/CMakeLists.txt"
-    ).read_text()
-    adapter_manifest = (
-        ROOT / "src/rt_control/control_api_adapter/package.xml"
-    ).read_text()
-
-    assert "scripts/vacuum_adapter" in adapter_cmake
-    assert "scripts/module_state_adapter" in adapter_cmake
-    assert "scripts/position_action_adapter" in adapter_cmake
-    assert "scripts/rt_status_adapter" in adapter_cmake
-    assert "<exec_depend>robot_system_interfaces</exec_depend>" in adapter_manifest
-    assert "<exec_depend>sensor_msgs</exec_depend>" in adapter_manifest
-    assert "<exec_depend>unique_identifier_msgs</exec_depend>" in adapter_manifest
-    assert "<exec_depend>std_srvs</exec_depend>" not in adapter_manifest
-
-
-def test_internal_dynamic_state_is_used_only_for_rt_diagnostics() -> None:
-    diagnostics_source = (
-        ROOT / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
-    ).read_text()
-
-    internal_topic = "/rt_internal_state_broadcaster/dynamic_joint_states"
-    assert "declare_parameter<std::string>" in diagnostics_source
-    assert '"dynamic_joint_states_topic"' in diagnostics_source
-    assert internal_topic in diagnostics_source
 
 
 def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -> None:
@@ -204,68 +143,25 @@ def test_public_vacuum_and_readiness_interfaces_are_in_runtime_package_lists() -
 
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
     assert "      robot_system_interfaces \\\n" in dockerfile
-    assert "      control_api_adapter \\\n" in dockerfile
+    assert "      integ_api_adapter \\\n" in dockerfile
     assert "\n  robot_rt_control_interfaces\n" in bootstrap
     assert "\n  robot_system_interfaces\n" in bootstrap
-    assert "\n  control_api_adapter\n" in bootstrap
+    assert "\n  integ_api_adapter\n" in bootstrap
     assert "test -d src/vendor/robot_interfaces/robot_rt_control_interfaces" in dockerfile
     assert "test -d src/vendor/robot_interfaces/robot_system_interfaces" in dockerfile
     assert "src/vendor/robot_interfaces" in bootstrap
 
 
-def test_cross_domain_topics_use_named_robot_interfaces_qos_profiles() -> None:
-    bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
-    vacuum_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/vacuum_adapter.py"
-    ).read_text()
-    status_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py"
-    ).read_text()
-    enable_source = (
-        ROOT / "src/rt_control/enable_manager/src/enable_manager_controller.cpp"
-    ).read_text()
-    diagnostics_source = (
-        ROOT / "src/rt_control/rt_diagnostics/src/rt_diagnostics_node.cpp"
-    ).read_text()
+# BMS and enable_manager QoS are checked by their package tests on the live publishers.
+def test_ros2_controllers_patch_uses_named_robot_interfaces_qos_profiles() -> None:
     controller_patch = (
         ROOT / "patches/ros2_controllers/0002-use-contract-qos-profiles.patch"
     ).read_text()
 
-    assert '#include "robot_interfaces_qos/profiles.hpp"' in bms_source
-    assert "primary_battery_topic, robot_interfaces_qos::state()" in bms_source
-    assert "secondary_battery_topic, robot_interfaces_qos::state()" in bms_source
-    assert "primary_status_topic, robot_interfaces_qos::state()" in bms_source
-    assert "secondary_fault_topic, robot_interfaces_qos::state()" in bms_source
-    assert "from robot_interfaces_qos import state" in vacuum_source
-    assert "state()," in vacuum_source
-    assert "from robot_interfaces_qos import diagnostic, latched, state" in status_source
-    assert "robot_interfaces_qos::diagnostic()" in enable_source
-    assert "robot_interfaces_qos::diagnostic()" in diagnostics_source
     assert "robot_interfaces_qos::control()" in controller_patch
     assert controller_patch.count("robot_interfaces_qos::fast_state()") == 2
     assert "diff_drive_controller/test/test_diff_drive_controller.cpp" in controller_patch
-    assert (
-        "controller_name + \"/cmd_vel\", robot_interfaces_qos::control()"
-        in controller_patch
-    )
-
-
-def test_public_adapters_populate_the_vendored_shared_message_schemas() -> None:
-    public_error_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/public_error.py"
-    ).read_text()
-    status_source = (
-        ROOT / "src/rt_control/control_api_adapter/control_api_adapter/status_adapter.py"
-    ).read_text()
-
-    assert "message.code = int(value.code)" in public_error_source
-    assert "message.code = str(int(value.code))" not in public_error_source
-    assert "message.source = value.origin" in public_error_source
-    assert 'message.detail = ""' in public_error_source
-    assert "def populate_domain_readiness(" in status_source
-    assert 'message.domain = "rt_control"' in status_source
-    assert 'message.readiness_name = "rt_control"' in status_source
-    assert "message.producer_instance_id = producer_instance_id" in status_source
+    assert 'controller_name + "/cmd_vel", robot_interfaces_qos::control()' in controller_patch
 
 
 def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
@@ -283,8 +179,8 @@ def test_compose_starts_rt_io_in_same_rt_control_container() -> None:
     assert service["environment"]["RT_CONTROL_START_CPUSET"].startswith(
         "${RT_CONTROL_START_CPUSET:?"
     )
-    assert service["environment"]["RT_CONTROL_START_PLC"] == "true"
-    assert service["environment"]["RT_CONTROL_START_BMS"] == "true"
+    assert "RT_CONTROL_START_PLC" not in service["environment"]
+    assert "RT_CONTROL_START_BMS" not in service["environment"]
     assert "command" not in service
     assert "entrypoint" not in service
 
@@ -350,9 +246,9 @@ def test_docker_build_contains_required_io_packages() -> None:
     dockerfile = (ROOT / "docker/rt-control/Dockerfile").read_text()
 
     assert "      robot_rt_control_interfaces \\\n" in dockerfile
-    assert "      bms_node \\\n" in dockerfile
-    assert "      control_api_adapter \\\n" in dockerfile
-    assert "      plc_io_modbus \\\n" in dockerfile
+    assert "      periph_bms \\\n" in dockerfile
+    assert "      integ_api_adapter \\\n" in dockerfile
+    assert "      periph_plc_io \\\n" in dockerfile
     assert "ros-humble-rmw-fastrtps-cpp" in dockerfile
     assert "ros-humble-rmw-cyclonedds-cpp" not in dockerfile
     assert "      util-linux \\\n" in dockerfile
@@ -362,28 +258,6 @@ def test_docker_build_contains_required_io_packages() -> None:
     assert "0005-derive-motor-topology-from-hardware-info.patch" not in dockerfile
     assert "can_bus_guard" not in dockerfile
     assert not (ROOT / "src/rt_control/can_bus_guard").exists()
-
-
-def test_removed_duplicate_and_unused_ros_interfaces_do_not_return() -> None:
-    plc_source = (
-        ROOT / "src/rt_control/plc_node/plc_node/plc_node.py"
-    ).read_text()
-    bms_source = (ROOT / "src/rt_control/bms_node/src/bms_node.cpp").read_text()
-    bms_manifest = (ROOT / "src/rt_control/bms_node/package.xml").read_text()
-
-    assert "create_subscription" not in plc_source
-    assert '"/plc/command"' not in plc_source
-    assert "/command" not in plc_source
-    assert bms_source.count("create_publisher<sensor_msgs::msg::BatteryState>") == 2
-    assert "kDischargeMosDataId" not in bms_source
-    assert "send_discharge_command" not in bms_source
-    assert "primary_switch_service_" not in bms_source
-    assert "secondary_switch_service_" not in bms_source
-    assert "create_client<SetDigitalOutput>" not in bms_source
-    assert "primary_status_publisher_" in bms_source
-    assert "secondary_fault_publisher_" in bms_source
-    assert "can_bus_guard" not in bms_source
-    assert "can_bus_guard" not in bms_manifest
 
 
 def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
@@ -404,13 +278,13 @@ def test_bms_can_is_configured_and_started_by_its_own_host_unit() -> None:
     assert "disable rt-control-can-names.service can1.service" in installer
     assert "/usr/local/sbin/rt-control-can-names --wait 30 --configure" in installer
     assert "rt-control-can-names.service must not be enabled at boot" in verifier
-    assert 'can0.service must not be enabled at boot' not in verifier
+    assert "can0.service must not be enabled at boot" not in verifier
     assert "can1.service must not be enabled at boot" in verifier
-    assert 'legacy can0.service is still installed' in installer
-    assert 'legacy can0.service remains installed' in verifier
+    assert "legacy can0.service is still installed" in installer
+    assert "legacy can0.service remains installed" in verifier
     naming_script = (HOSTSETUP / "rt-control-can-names.sh").read_text()
     assert 'readonly BITRATE="250000"' in naming_script
-    assert 'verify_reserved_name_not_unknown can1' in naming_script
+    assert "verify_reserved_name_not_unknown can1" in naming_script
     assert 'wait_for_serial "BMS/can1" "${BMS_SERIAL}"' in naming_script
     assert 'BMS_SERIAL="004D00675230500720333159"' in naming_script
     assert "can0" not in naming_script

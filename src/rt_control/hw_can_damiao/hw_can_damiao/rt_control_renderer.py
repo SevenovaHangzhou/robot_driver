@@ -1,0 +1,141 @@
+"""DaMiao Mapping renderer: owner shape checks and offline XML only."""
+
+from collections.abc import Mapping
+from copy import deepcopy
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+from ament_index_python.packages import get_package_share_directory
+from infra_renderer import validated_spec, xml_param
+
+RENDERER_API_VERSION = 1
+
+
+def _share():
+    return Path(get_package_share_directory("hw_can_damiao"))
+
+
+def validate_module(module: Mapping, data: Mapping) -> Mapping:
+    machine = validated_spec(data, _share() / "schema/head.schema.json")
+    spec = machine["spec"]
+    if spec["control_name"] in {joint["robot_model_joint"] for joint in spec["joints"]}:
+        raise ValueError("Control GPIO and joint names must be distinct")
+    for key in ("can_id", "master_id", "robot_model_joint"):
+        values = [joint[key] for joint in spec["joints"]]
+        if len(set(values)) != len(values):
+            raise ValueError(f"Head {key} must be unique")
+    return machine
+
+
+def validate_unit(module: Mapping, data: Mapping | None) -> Mapping:
+    # The current head protocol reads the device's established zero; no new offset is applied.
+    if data is None:
+        return {}
+    return validated_spec(data, _share() / "schema/head_zero.schema.json")
+
+
+def validate_device(data: Mapping, *, render_mode: str) -> Mapping:
+    if data["family"] != "damiao":
+        raise ValueError("Head device must use the declared protocol family")
+    return deepcopy(dict(data))
+
+
+def render(request: Mapping) -> Mapping:
+    machine = validate_module(request["module"], request["machine"])
+    validate_unit(request["module"], request["unit"])
+    mock = request["use_mock_hardware"]
+    if not mock and machine["verified"] is not True:
+        raise ValueError("D-b: head_gimbal configuration is not verified")
+    spec = machine["spec"]
+    params = (
+        {"calculate_dynamics": "true"}
+        if mock
+        else {
+            "can_interface": request["deployment"]["can_interfaces"][
+                request["module"]["can_interface_key"]
+            ],
+            **{
+                key: spec[key]
+                for key in (
+                    "configure_timeout_ms",
+                    "feedback_timeout_ms",
+                    "transition_timeout_ms",
+                    "command_rate_hz",
+                    "disabled_poll_interval_ms",
+                    "max_rx_frames_per_cycle",
+                )
+            },
+        }
+    )
+    if not mock and params["can_interface"] == "TBD":
+        raise ValueError("Required head CAN interface is TBD")
+    joints = []
+    limits = request["robot_model"]["joint_limits"]
+    limits = limits["joints"]
+    for entry in spec["joints"]:
+        validate_device(request["devices"][entry["device"]], render_mode=request["render_mode"])
+        joint = ET.Element("joint", name=entry["robot_model_joint"])
+        for key in (
+            "can_id",
+            "master_id",
+            "velocity_limit",
+            "acceleration_krad_s2",
+            "deceleration_krad_s2",
+            "maximum_speed_rad_s",
+        ):
+            xml_param(joint, key, entry[key])
+        bound = limits[entry["robot_model_joint"]]
+        lower, upper = bound["lower_position_rad"], bound["upper_position_rad"]
+        if lower >= upper:
+            raise ValueError("Head model limits require min < max")
+        command = ET.SubElement(joint, "command_interface", name="position")
+        xml_param(command, "min", lower)
+        xml_param(command, "max", upper)
+        for name in (
+            "position",
+            "velocity",
+            "effort",
+            "fault_code",
+            "mos_temperature",
+            "motor_temperature",
+            "feedback_age_ms",
+            "enabled",
+        ):
+            xml_param(ET.SubElement(joint, "state_interface", name=name), "initial_value", 0.0)
+        joints.append(joint)
+    control = ET.Element("gpio", name=spec["control_name"])
+    for name in ("enable_request", "reset_generation"):
+        xml_param(ET.SubElement(control, "command_interface", name=name), "initial_value", 0.0)
+    for name in ("phase", "fault_latched", "handled_reset_generation", "motion_allowed"):
+        xml_param(ET.SubElement(control, "state_interface", name=name), "initial_value", 0.0)
+    # This protocol does not consume an EtherCAT-style control_frequency parameter.
+    return {
+        "hardware_system_id": machine["master_system"],
+        "hardware_plugin": "mock_components/GenericSystem" if mock else "hw_can_damiao/DamiaoSystem",
+        "hardware_params": params,
+        "joints": joints,
+        "sensors": [],
+        "gpios": [control],
+        "managed_joints": [],
+        "actuator_groups": {
+            group["name"]: [entry["robot_model_joint"] for entry in spec["joints"]]
+            for group in request["module"]["mode_groups"]
+        },
+        "resource_claims": [f"can:{entry['can_id']}" for entry in spec["joints"]],
+        "parameter_exports": {
+            "joint_names": [entry["robot_model_joint"] for entry in spec["joints"]],
+            "control_name": spec["control_name"],
+            # The DaMiao plugin sequences enable itself; enable_manager drives it by handshake.
+            "handshake_devices": [spec["control_name"]],
+            "feedback_age_interfaces": [
+                f"{entry['robot_model_joint']}/feedback_age_ms" for entry in spec["joints"]
+            ],
+        },
+        "runtime_files": {},
+        "expected_topology": {"preflight_required": False},
+    }
+
+
+def preflight(expected_topology: Mapping, *, run=None) -> list:
+    """No additional head CAN preflight is introduced by the migration."""
+    return []

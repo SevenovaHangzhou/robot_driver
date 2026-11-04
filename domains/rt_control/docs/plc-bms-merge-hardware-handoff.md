@@ -53,7 +53,7 @@ git diff --check
 
 | 文件 | 必须同时保留 |
 | --- | --- |
-| `docker/rt-control/Dockerfile` | T-020 的 `robot_state_publisher` 可执行文件检查；新增 `bms_node`、`plc_node` 构建清单 |
+| `docker/rt-control/Dockerfile` | T-020 的 `robot_state_publisher` 可执行文件检查；新增 `periph_bms`、`plc_node` 构建清单 |
 | `rt_control.launch.py` | T-020 的 RSP 50 Hz；新增 PLC/BMS 条件节点；原 controller 启动顺序不变 |
 | `docker/compose.yaml` | 单一 `rt-control` 服务、原 PID 1、CPU/设备门禁；新增 `NET_RAW` 和两个启动环境变量 |
 | `one-command-start.md` | T-020 TF 发布边界；新增 PLC/BMS 发布边界和接口 |
@@ -73,17 +73,17 @@ git diff --check
 
 新增实现：
 
-- `src/rt_control/bms_node/`
+- `src/rt_control/periph_bms/`
 - `src/rt_control/plc_node/`
 - `src/interfaces/rt_control_interfaces/msg/PlcIoState.msg`
-- `src/rt_control/rt_control_bringup/config/rt_io.yaml`
+- `src/rt_control/integ_bringup/config/rt_io.yaml`
 - `tools/tests/test_rt_io_integration.py`
 - `domains/rt_control/docs/plc-bms-integration.md`
 
 主要修改：
 
-- `src/rt_control/rt_control_bringup/launch/rt_control.launch.py`
-- `src/rt_control/rt_control_bringup/package.xml`
+- `src/rt_control/integ_bringup/launch/rt_control.launch.py`
+- `src/rt_control/integ_bringup/package.xml`
 - `docker/rt-control/Dockerfile`
 - `docker/compose.yaml`
 - `tools/rt_control_ipc.sh`
@@ -97,12 +97,12 @@ git diff --check
 
 已完成且通过：
 
-- `rt_control_interfaces`、`bms_node`、`plc_node`、`rt_control_bringup` 受影响包构建；
+- `rt_control_interfaces`、`periph_bms`、`plc_node`、`integ_bringup` 受影响包构建；
 - BMS/PLC 共 47 项测试，0 failure；
 - `ament_flake8`，17 个相关 Python 文件无问题；
 - `tools/quality_gate.sh`：26 项仓库测试通过，分支覆盖率 84%；
 - `RT_CONTROL_CPUSET=14 tools/rt_control_compose.sh config`；
-- `ros2 launch rt_control_bringup rt_control.launch.py --show-args`；
+- `ros2 launch integ_bringup rt_control.launch.py --show-args`；
 - `git diff --check`。
 
 复跑建议：
@@ -132,7 +132,7 @@ git diff --check
 ```
 
 注意：在只包含仓库本体的局部 `--base-paths` 下使用 `--packages-up-to rt_control_bringup`，会尝试重编既有
-`robot_hw_canopen`，若 vendor `lely_core_libraries` 未加载会在无关依赖阶段失败。局部复核使用上面的
+`hw_canopen`，若 vendor `lely_core_libraries` 未加载会在无关依赖阶段失败。局部复核使用上面的
 `--packages-select`；正式 Docker 构建会按 `deps.repos` 导入完整 vendor 依赖。
 
 本机没有 ShellCheck，质量门禁只报告本地 notice；提交前应在安装 ShellCheck 的环境或 CI 再跑一次。
@@ -206,7 +206,7 @@ timeout 35 ros2 topic hz /battery_state
 验收：
 
 - 类型为 `sensor_msgs/msg/BatteryState`；
-- 只有 `bms_node` 发布，不存在旧 BMS 重复话题；
+- 只有 `periph_bms` 发布，不存在旧 BMS 重复话题；
 - 频率约 0.2 Hz；
 - 电压与 BMS/HMI 对照一致，SOC 为 0.0-1.0；
 - 如获准做失帧测试，下一次发布应为电压/SOC `NaN`、`present=false`；不得从容器执行 `ip link set`。

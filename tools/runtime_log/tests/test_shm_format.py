@@ -1,7 +1,6 @@
 """The v1 segment format is frozen by tests/fixtures/shm_format_v1.bin.
 
-robot_driver keeps a copy of shm_ring.hpp (rt_control_semantic_components) and the same golden file;
-each side checks its writer against it, so the two copies cannot drift apart unnoticed.
+The recorder and runtime readers share infra_shm_ring and the same frozen golden file.
 """
 
 import hashlib
@@ -33,9 +32,9 @@ def test_writer_produces_the_golden_bytes(tmp_path):
             "-Wall",
             "-Wextra",
             "-Werror",
-            '-DSHM_RING_HEADER="runtime_log_recorder/shm_ring.hpp"',
+            '-DSHM_RING_HEADER="infra_shm_ring/shm_ring.hpp"',
             "-I",
-            str(ROOT.parents[1] / "src/rt_control/runtime_log_recorder/include"),
+            str(ROOT.parents[1] / "src/rt_control/infra_shm_ring/include"),
             str(ROOT / "tests/cpp/format_sample.cpp"),
             "-o",
             str(binary),

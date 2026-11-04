@@ -12,7 +12,7 @@ PDO remapping, or writes to unresolved safety objects.
 
 - Hardware numeric authority: `ecat_canopen_hardware_mapping_export.md`.
 - EDS input: `LD2-CAN系列设备描述文件.eds`, copied byte-for-byte as
-  `src/rt_control/robot_hw_canopen/config/eds/ld2_drive.eds`.
+  `src/rt_control/hw_canopen/config/eds/ld2_drive.eds`.
 - EDS SHA-256: `e1abc580b76d0548c5eedfbb6461b9ad3f3607b90ecbc087f042cc1573cf9c08`.
 - ros2_canopen source: `/home/kkozia/rt_control_refs/ros2_canopen` at
   `fef50e54b1c94c50e908e2c5d0b8888eed907e8d` (Humble reference checkout).

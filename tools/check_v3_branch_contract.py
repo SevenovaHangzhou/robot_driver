@@ -11,29 +11,32 @@ from pathlib import Path
 import yaml
 
 
-EXPECTED_DESCRIPTION_REVISION = "5ec6b653d7b72f9d25fecea4d71e5d640ce468ca"
-EXPECTED_DESCRIPTION_TREE = "4706b7a18d7359f5752bb6473068866af3cb8050"
-EXPECTED_ROLLING_INTERFACE_REVISION = "ea582c8a711874813d2ad7f0801b366bd32ab67e"
+EXPECTED_DESCRIPTION_REVISION = "2b0950f1a5009dda1e93d4737b2894ccefed3734"
+EXPECTED_DESCRIPTION_TREE = "135f3e315e79ed2b94bc2ecbcb50163818ea676d"
+EXPECTED_ROLLING_INTERFACE_REVISION = "c82f0e40937453f1f8fb104822c2e91e9fb8d742"
 
 
 def validate(repository_root: Path) -> list[str]:
     findings: list[str] = []
     source_lock_path = repository_root / "src/description/source-lock.yaml"
     machine_path = (
-        repository_root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml"
+        repository_root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/manifest.yaml"
     )
-    cmake_path = repository_root / "src/rt_control/rt_control_bringup/CMakeLists.txt"
-    package_path = repository_root / "src/rt_control/rt_control_bringup/package.xml"
-    start_path = repository_root / "src/rt_control/rt_control_bringup/scripts/rt_control_start"
+    cmake_path = repository_root / "src/rt_control/integ_bringup/CMakeLists.txt"
+    package_path = repository_root / "src/rt_control/integ_bringup/package.xml"
+    start_path = repository_root / "src/rt_control/integ_bringup/scripts/rt_control_start"
     dependency_path = repository_root / "deps.repos"
     interface_lock_path = repository_root / "src/interfaces/source-lock.yaml"
     arm_calibration_path = (
-        repository_root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/arms.yaml"
+        repository_root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/arms.yaml"
     )
 
     try:
         source_lock = yaml.safe_load(source_lock_path.read_text(encoding="utf-8"))
-        machine = yaml.safe_load(machine_path.read_text(encoding="utf-8"))
+        sys.path.insert(0, str(repository_root / "src/rt_control/integ_composer"))
+        from integ_composer.schema.manifest_load import read_manifest
+
+        machine = read_manifest(machine_path)
         cmake = cmake_path.read_text(encoding="utf-8")
         package = package_path.read_text(encoding="utf-8")
         start = start_path.read_text(encoding="utf-8")
@@ -45,11 +48,11 @@ def validate(repository_root: Path) -> list[str]:
 
     expected_source = {
         "repository": "https://github.com/SevenovaHangzhou/robot_description.git",
-        "source_branch": "feature/electri-127-alfav3-left-j3-j6-axis",
+        "source_branch": "main",
         "source_revision": EXPECTED_DESCRIPTION_REVISION,
         "source_tree": EXPECTED_DESCRIPTION_TREE,
         "model_family": "alfa_v3",
-        "default_end_effector": "suction",
+        "default_end_effector": "mobile_proxy",
     }
     for key, expected in expected_source.items():
         if source_lock.get(key) != expected:
@@ -67,7 +70,7 @@ def validate(repository_root: Path) -> list[str]:
     deployment = yaml.safe_load(
         (
             repository_root
-            / "src/rt_control/rt_control_machine_config/units/Alfa_V3-01/deployment.yaml"
+            / "src/rt_control/hwcfg_machines/units/Alfa_V3-01/deployment.yaml"
         ).read_text()
     )
     # ELECTRI-127: the unit deploys the Alfav3 dual arms on the Advantech mobile base; no gripper joints.
@@ -79,10 +82,14 @@ def validate(repository_root: Path) -> list[str]:
         findings.append("V3 deployment must select the deployed mobile model")
     if "launch/rt_control_module.launch.py" not in cmake:
         findings.append("V3 bringup must install the machine-profile launch")
-    if "launch/rt_control_arm_runtime.launch.py" not in cmake:
-        findings.append("V3 bringup must install the arm motion runtime launch")
+    if "launch/rt_control_scope_runtime.launch.py" not in cmake:
+        findings.append("V3 bringup must install the staged scope runtime launch")
     for retired_install in (
         "launch/rt_control.launch.py",
+        "launch/rt_control_arm_runtime.launch.py",
+        "launch/rt_control_enable_only.launch.py",
+        "launch/rt_control_force_sensors.launch.py",
+        "launch/rt_control_head_runtime.launch.py",
         "config/controllers.yaml",
         "test_preop_snapshot_launch",
         "test_mock_contract",
@@ -96,10 +103,10 @@ def validate(repository_root: Path) -> list[str]:
         findings.append("V3 rt_control_start must default to static module validation")
     if "launch_file=rt_control.launch.py" in start:
         findings.append("V3 rt_control_start must not select the V2 launch")
-    if "launch_file=rt_control_arm_runtime.launch.py" not in start:
+    if 'exec "$0" --scope arms_only "$@"' not in start:
         findings.append("V3 rt_control_start must expose the explicit arm runtime")
-    if "<exec_depend>rolling_trajectory_controller</exec_depend>" not in package:
-        findings.append("V3 bringup must depend on rolling_trajectory_controller")
+    if "<exec_depend>ctrl_rolling_trajectory</exec_depend>" not in package:
+        findings.append("V3 bringup must depend on ctrl_rolling_trajectory")
     interface_pin = (
         dependencies.get("repositories", {}).get("src/vendor/robot_interfaces", {}).get("version")
     )
@@ -119,7 +126,7 @@ def validate(repository_root: Path) -> list[str]:
     safety = yaml.safe_load(
         (
             repository_root
-            / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/safety_policy.yaml"
+            / "src/rt_control/hwcfg_machines/machines/Alfa_V3/safety_policy.yaml"
         ).read_text()
     )["fault_dependencies"]
     expected_safety = [
@@ -151,8 +158,8 @@ def main() -> int:
     args = parser.parse_args()
     root = args.repository_root.resolve()
     findings = validate(root)
-    validator = root / "src/rt_control/rt_control_bringup/scripts/validate_machine_profile.py"
-    manifest = root / "src/rt_control/rt_control_machine_config/machines/Alfa_V3/manifest.yaml"
+    validator = root / "src/rt_control/integ_bringup/scripts/validate_machine_profile.py"
+    manifest = root / "src/rt_control/hwcfg_machines/machines/Alfa_V3/manifest.yaml"
     result = subprocess.run(
         [
             sys.executable,

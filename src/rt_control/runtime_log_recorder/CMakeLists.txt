@@ -6,6 +6,7 @@ find_package(ament_cmake REQUIRED)
 set(dependencies
   controller_interface
   hardware_interface
+  infra_shm_ring
   pluginlib
   rclcpp
   rclcpp_lifecycle
@@ -29,6 +30,7 @@ add_executable(runtime_log_shm_bench tools/shm_bench.cpp)
 target_compile_features(runtime_log_shm_bench PRIVATE cxx_std_17)
 target_include_directories(runtime_log_shm_bench PRIVATE include)
 target_link_libraries(runtime_log_shm_bench rt)
+ament_target_dependencies(runtime_log_shm_bench infra_shm_ring)
 
 install(TARGETS runtime_log_recorder EXPORT export_runtime_log_recorder
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)

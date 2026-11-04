@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Installed entry point; logic lives in integ_bringup.scope_lifecycle."""
+
+import sys
+
+from integ_bringup.scope_lifecycle import shutdown_main
+
+sys.exit(shutdown_main())
