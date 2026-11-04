@@ -16,7 +16,7 @@
 | [x] | B 多处落地 | `rolling_types.hpp` 的 `kJointNames[14]` 硬编码机型事实（arch-s6：用户 2026-10-29 裁定关节名只写在 machine_config；控制器改读 `joints` 参数，轴集合哈希按配置计算，对现有关节名与原协议常量逐字节一致） | 1.1、1.2 |
 | [x] | B | `enable_manager/config/Alfa_V3_*`、`rolling_trajectory_controller/config/Alfa_V3_*`、`control_api_adapter/config/Alfa_V3_grippers.draft.yaml` 带机型名 | 1.1 |
 | [x] | B | `controllers.yaml` 的 `authorities.source` 指向不存在的 `rt_control_bringup/config/machines/alfa_v3.yaml` | 1.2 |
-| [ ] | B | 改一个关节需触碰约 20 个非测试文件 | 0 需求 1 |
+| [x] | B | 改一个关节需触碰约 20 个非测试文件（2026-11-04 重测，按关节名在非测试、非文档、非模型文件中出现计：整机机械臂关节 4 个数据文件——`arms.yaml`、`Alfa_V3_enable_policy.yaml`、`Alfa_V3_arm_tolerances.yaml`、`Alfa_V3_arm_envelope.mock.yaml`；台架变体另加各自模块与运动策略 2–3 个；头部关节 1 个、转向关节 2 个；C++/Python 源码 0 个。可再减：整机使能策略改用 `enable_groups` 由模块派生关节） | 0 需求 1 |
 | [x] | C 重复 | 3 套 Modbus TCP 客户端（`plc_io_modbus`、`modbus_tcp_rtu485`、`plc_node`）（`plc_node` 已删；#130、#131 统一到 `infra_modbus`） | 3 |
 | [x] | C | 3 套 SocketCAN 封装（`robot_hw_can`、`bms_node`、`lpms_nav3_can`）（#128 统一到 `infra_socketcan`） | 3 |
 | [x] | C | 3 个协议包 renderer 各自复制 `_share/_validate/_param/validate_*`（#148 `infra_renderer`） | 3 |
