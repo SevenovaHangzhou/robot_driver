@@ -225,8 +225,8 @@ devices:
 fault_tables:
   zeroerr_erob:
     authorities:
-      source: V3-DOC-2026-013 ZeroErr eRob CANopen DS301/DSP402 manual V1.9 sha256
-        1d4026599ec09e601366da5c1d95432f5dfc5582c4e949e216b371f9c1266221 section 7.2
+      source: V3-DOC-2026-013 ZeroErr eRob CANopen DS301/DSP402 manual V1.9 section
+        7.2
     faults:
     - code: '0x2214'
       dree: RT_DEVICE_FAULT

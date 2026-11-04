@@ -401,3 +401,14 @@ arch-head-move-action:
   cases:
   - head-mock
   - head-real
+arch-drop-sha-ids:
+  reason: 故障表与六维力配置的文档出处去掉 SHA-256（用户 2026-11-04）
+  method: arch-golden-regen.py（arm/stationary）、arch-force-golden2.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
+  - force-real

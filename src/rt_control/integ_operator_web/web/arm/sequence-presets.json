@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "source_sha": "6401efe23e8dbd3e7094a5800bfad57af1d7dfce",
-  "poses_sha256": "3dd71243b5d9792535428e86514d4f1d7bfaf83e1bb5ece98aee004beafa6aef",
   "expected_poses": {
     "零位": {
       "left_joint1": -4.793689962134806e-05,
@@ -349,8 +348,7 @@
         "attached_object": false,
         "plastic_part_installed": false,
         "urdf_accuracy": "confirmed by user",
-        "run_baseline": "20261023-155750-d77-bench_left_arm",
-        "urdf_sha256": "013950bc69c4a67a9cc73d9062591346438ffc29e425f2d4468b8e5d52379e29"
+        "run_baseline": "20261023-155750-d77-bench_left_arm"
       }
     },
     {
@@ -415,8 +413,7 @@
         "attached_object": false,
         "plastic_part_installed": false,
         "urdf_accuracy": "confirmed by user",
-        "run_baseline": "20261023-155750-d77-bench_left_arm",
-        "urdf_sha256": "013950bc69c4a67a9cc73d9062591346438ffc29e425f2d4468b8e5d52379e29"
+        "run_baseline": "20261023-155750-d77-bench_left_arm"
       }
     },
     {
@@ -469,8 +466,7 @@
         "attached_object": false,
         "plastic_part_installed": false,
         "urdf_accuracy": "confirmed by user",
-        "run_baseline": "20261023-155750-d77-bench_left_arm",
-        "urdf_sha256": "013950bc69c4a67a9cc73d9062591346438ffc29e425f2d4468b8e5d52379e29"
+        "run_baseline": "20261023-155750-d77-bench_left_arm"
       }
     },
     {
@@ -529,8 +525,7 @@
         "attached_object": false,
         "plastic_part_installed": false,
         "urdf_accuracy": "confirmed by user",
-        "run_baseline": "20261023-155750-d77-bench_left_arm",
-        "urdf_sha256": "013950bc69c4a67a9cc73d9062591346438ffc29e425f2d4468b8e5d52379e29"
+        "run_baseline": "20261023-155750-d77-bench_left_arm"
       }
     },
     {
@@ -589,8 +584,7 @@
         "attached_object": false,
         "plastic_part_installed": false,
         "urdf_accuracy": "confirmed by user",
-        "run_baseline": "20261023-155750-d77-bench_left_arm",
-        "urdf_sha256": "013950bc69c4a67a9cc73d9062591346438ffc29e425f2d4468b8e5d52379e29"
+        "run_baseline": "20261023-155750-d77-bench_left_arm"
       }
     },
     {
@@ -649,8 +643,7 @@
         "attached_object": false,
         "plastic_part_installed": false,
         "urdf_accuracy": "confirmed by user",
-        "run_baseline": "20261023-155750-d77-bench_left_arm",
-        "urdf_sha256": "013950bc69c4a67a9cc73d9062591346438ffc29e425f2d4468b8e5d52379e29"
+        "run_baseline": "20261023-155750-d77-bench_left_arm"
       }
     },
     {
