@@ -6,7 +6,7 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
 find_package(ruckig REQUIRED)
-set(dependencies controller_interface hardware_interface diagnostic_msgs geometry_msgs
+set(dependencies controller_interface hardware_interface diagnostic_msgs diagnostic_updater geometry_msgs
   nav_msgs sensor_msgs std_msgs pluginlib rclcpp realtime_tools robot_interfaces_qos
   hw_semantic_components)
 foreach(dependency IN LISTS dependencies)

@@ -1,5 +1,6 @@
 // Motion mode switching between the trajectory and rolling controllers.
 #include "ctrl_enable_manager/enable_manager_controller.hpp"
+#include "hw_semantic_components/feedback_age.hpp"
 
 #include <algorithm>
 #include <set>
@@ -15,7 +16,6 @@
 #include <vector>
 
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
-#include "diagnostic_msgs/msg/key_value.hpp"
 #include "rclcpp/duration.hpp"
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
@@ -158,9 +158,8 @@ std::uint8_t EnableManagerController::validateModeSource(
   if (!readActualSample(previous)) {
     return ServiceResult::NOT_READY;
   }
-  if (
-    !std::isfinite(previous.feedback_age_ms) || previous.feedback_age_ms < 0.0 ||
-    previous.feedback_age_ms > mode_switch_feedback_age_limit_ms_) {
+  if (!hw_semantic_components::feedback_fresh(
+        previous.feedback_age_ms, mode_switch_feedback_age_limit_ms_)) {
     return ServiceResult::FEEDBACK_STALE;
   }
 
@@ -178,9 +177,8 @@ std::uint8_t EnableManagerController::validateModeSource(
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
       continue;
     }
-    if (
-      !std::isfinite(current.feedback_age_ms) || current.feedback_age_ms < 0.0 ||
-      current.feedback_age_ms > mode_switch_feedback_age_limit_ms_) {
+    if (!hw_semantic_components::feedback_fresh(
+          current.feedback_age_ms, mode_switch_feedback_age_limit_ms_)) {
       return ServiceResult::FEEDBACK_STALE;
     }
     stable_intervals = stableActualInterval(previous, current) ? stable_intervals + 1U : 0U;
@@ -329,10 +327,7 @@ std::uint8_t EnableManagerController::executeModeSwitch(
   request->activate_controllers.emplace_back(target_controller);
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;
-  const std::int64_t timeout_ns =
-    std::chrono::duration_cast<std::chrono::nanoseconds>(mode_switch_timeout_).count();
-  request->timeout.sec = static_cast<std::int32_t>(timeout_ns / 1000000000LL);
-  request->timeout.nanosec = static_cast<std::uint32_t>(timeout_ns % 1000000000LL);
+  request->timeout = rclcpp::Duration(mode_switch_timeout_);
   auto future = switch_client_->async_send_request(request);
   const bool response_ready = future.wait_for(mode_switch_timeout_) == std::future_status::ready;
   const auto switch_response = response_ready ? future.get() : nullptr;

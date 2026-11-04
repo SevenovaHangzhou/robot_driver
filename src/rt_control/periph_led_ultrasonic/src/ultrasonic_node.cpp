@@ -11,7 +11,7 @@
 
 #include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
-#include "diagnostic_msgs/msg/key_value.hpp"
+#include "diagnostic_updater/diagnostic_status_wrapper.hpp"
 #include "infra_modbus/client.hpp"
 #include "periph_led_ultrasonic/protocol/modbus_transport.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -99,14 +99,6 @@ private:
     }
   }
 
-  static diagnostic_msgs::msg::KeyValue key_value(std::string key, std::string value)
-  {
-    diagnostic_msgs::msg::KeyValue item;
-    item.key = std::move(key);
-    item.value = std::move(value);
-    return item;
-  }
-
   std::string sensor_id(size_t channel_index) const
   {
     const size_t module_index = channel_index / 4U;
@@ -118,14 +110,14 @@ private:
   diagnostic_msgs::msg::DiagnosticStatus channel_diagnostic(
     size_t index, uint16_t raw, const UltrasonicReading & reading) const
   {
-    diagnostic_msgs::msg::DiagnosticStatus status;
+    diagnostic_updater::DiagnosticStatusWrapper status;
     status.level = diagnostic_level(reading);
     status.name = "ultrasonic/channel" + std::to_string(index + 1U);
     status.hardware_id = sensor_id(index);
     status.message = reading.status;
-    status.values.push_back(key_value("raw", std::to_string(raw)));
+    status.add("raw", std::to_string(raw));
     if (std::isfinite(reading.range_m)) {
-      status.values.push_back(key_value("distance_mm", std::to_string(raw)));
+      status.add("distance_mm", std::to_string(raw));
     }
     return status;
   }
@@ -205,12 +197,12 @@ private:
         statuses.sensors.push_back(make_status(index, stamp, state, valid, reading.status, code));
       }
     } catch (const std::exception & error) {
-      diagnostic_msgs::msg::DiagnosticStatus diagnostic;
+      diagnostic_updater::DiagnosticStatusWrapper diagnostic;
       diagnostic.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
       diagnostic.name = "ultrasonic/unit" + std::to_string(unit_ids_[module_index]);
       diagnostic.hardware_id = gateway_ip_ + ":" + std::to_string(gateway_port_);
       diagnostic.message = "communication_error";
-      diagnostic.values.push_back(key_value("detail", error.what()));
+      diagnostic.add("detail", error.what());
       diagnostics.status.push_back(std::move(diagnostic));
       for (size_t local = 0; local < 4U; ++local) {
         statuses.sensors.push_back(make_status(
