@@ -7,8 +7,7 @@ from __future__ import annotations
 
 import threading
 
-from robot_rt_control_interfaces.srv import SetControlEnabled
-from rt_control_interfaces.srv import RtEnable
+from robot_rt_control_interfaces.srv import RtEnable
 
 ENABLE_TIMEOUT_S = 95.0
 # enable_manager waits up to 30 s for the group reset to settle.
@@ -16,12 +15,12 @@ RESET_TIMEOUT_S = 35.0
 
 
 class EnableServices:
-    def __init__(self, node, callback_group, error, reason: str) -> None:
+    def __init__(self, node, callback_group, error) -> None:
         self._error = error
-        self._reason = reason
-        self._enable = node.create_client(
-            SetControlEnabled, "/control/set_enabled", callback_group=callback_group
-        )
+        self._enable = {
+            enabled: node.create_client(RtEnable, name, callback_group=callback_group)
+            for enabled, name in ((True, "/rt/enable"), (False, "/rt/disable"))
+        }
         # Explicit operator fault reset (runbook: "explicit group reset"); enable_manager decides.
         self._reset = node.create_client(RtEnable, "/rt/reset_fault", callback_group=callback_group)
 
@@ -38,15 +37,15 @@ class EnableServices:
 
     def set_enabled(self, enabled: bool) -> dict:
         result = self._call(
-            self._enable,
-            SetControlEnabled.Request(enabled=enabled, reason=self._reason),
+            self._enable[enabled],
+            RtEnable.Request(),
             ENABLE_TIMEOUT_S,
             ("enable_unavailable", "使能服务不可用"),
             ("enable_timeout", "使能服务响应超时，请查看实际状态"),
         )
         return {
-            "accepted": bool(result.accepted),
-            "enabled": bool(result.enabled),
+            "accepted": bool(result.ok),
+            "enabled": enabled if result.ok else False,
             "message": result.error.message,
         }
 

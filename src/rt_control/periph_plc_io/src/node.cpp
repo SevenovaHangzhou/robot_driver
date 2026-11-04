@@ -1,5 +1,4 @@
-// Hardware-only Modbus bridge. Public cross-domain interfaces are provided by
-// integ_api_adapter; this node owns the serialised socket transactions.
+// Hardware-only Modbus bridge; this node owns the serialised socket transactions.
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -136,7 +135,7 @@ public:
     laser_publisher_ = create_publisher<std_msgs::msg::Bool>("/plc_io/infrared_laser", 10);
     infrared_state_publisher_ =
       create_publisher<robot_rt_control_interfaces::msg::DigitalInputStateArray>(
-        "/infrared/state", robot_interfaces_qos::state());
+        "/rt/infrared/state", robot_interfaces_qos::state());
     plc_state_publisher_ =
       create_publisher<rt_control_interfaces::msg::PlcIoState>("/plc/io_state", 10);
 

@@ -279,6 +279,24 @@
                       "as"
                     ],
                     "additionalProperties": false
+                  },
+                  "interface": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "as"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "oneOf": [
@@ -325,6 +343,11 @@
                   {
                     "required": [
                       "exports"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "interface"
                     ]
                   }
                 ],

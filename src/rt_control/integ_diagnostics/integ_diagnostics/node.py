@@ -1,4 +1,4 @@
-"""integ_diagnostics: self-check (startup stage B and on demand) and R-OUT-09 /rt_control/readiness.
+"""integ_diagnostics: self-check (startup stage B and on demand) and R-OUT-09 /rt/readiness.
 
 Readiness comes from the controllers' own state (enable_manager, motion controllers, hardware
 components); the real-time controllers detect and handle faults, Runtime-LOG keeps the evidence.
@@ -28,8 +28,8 @@ from .evaluate import complete, evaluate
 from .report import state_directory, write_self_check
 
 STATE_TOPIC = "/rt_internal_state_broadcaster/dynamic_joint_states"
-READINESS_TOPIC = "/rt_control/readiness"
-SELF_CHECK_SERVICE = "/rt_control/self_check"
+READINESS_TOPIC = "/rt/readiness"
+SELF_CHECK_SERVICE = "/rt/run_self_check"
 ENABLE_DIAGNOSTIC = "/robot/rt_control/enable_manager"
 # enable_manager publishes its diagnostics at 1 Hz; older values count as unavailable.
 ENABLE_STALE_S = 2.5

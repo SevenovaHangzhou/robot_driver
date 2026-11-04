@@ -26,7 +26,7 @@ public:
     addresses_ = declare_parameter("controller_addresses", std::vector<int64_t>{1, 2, 3, 4, 5, 6});
     response_timeout_ms_ = declare_parameter<int64_t>("response_timeout_ms", 500);
     exit_response_timeout_ms_ = declare_parameter<int64_t>("exit_response_timeout_ms", 100);
-    service_name_ = declare_parameter("service_name", std::string("/led/set_rgbw"));
+    service_name_ = declare_parameter("service_name", std::string("/rt/led/set_rgbw"));
     exit_color_enabled_ = declare_parameter("exit_color_enabled", true);
     validate_led_config(ports_, addresses_, response_timeout_ms_);
     if (exit_response_timeout_ms_ < 1 || exit_response_timeout_ms_ > 60000) {

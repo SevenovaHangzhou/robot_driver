@@ -345,7 +345,7 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     states_.assign(state_names_.size(), nullptr);
     core_ = std::move(candidate);
     odometry_publisher_ = get_node()->create_publisher<nav_msgs::msg::Odometry>(
-      "~/odom", robot_interfaces_qos::fast_state());
+      "/rt/base/odom", robot_interfaces_qos::fast_state());
     realtime_odometry_ =
       std::make_unique<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>>(
         odometry_publisher_);
@@ -495,7 +495,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     ++generation_;
     // Fresh subscriptions plus generation tags exclude queued callbacks from old activations.
     command_subscription_ = get_node()->create_subscription<geometry_msgs::msg::Twist>(
-      "/cmd_vel", robot_interfaces_qos::control(),
+      "/rt/base/cmd_vel", robot_interfaces_qos::control(),
       [this, generation = generation_](geometry_msgs::msg::Twist::ConstSharedPtr message) {
         accept_command(*message, generation);
       });

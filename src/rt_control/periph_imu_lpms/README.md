@@ -45,10 +45,10 @@ ROS timestamp is publication time, not hardware or kernel CAN capture time.
 
 | Topic | Type | QoS |
 | --- | --- | --- |
-| `/imu/data` | sensor_msgs/msg/Imu | robot_interfaces_qos::fast_state (reliable) |
+| `/rt/imu/data` | sensor_msgs/msg/Imu | robot_interfaces_qos::fast_state (reliable) |
 | `~/mag` | sensor_msgs/msg/MagneticField | fast_state (reliable), RT-local commissioning only |
 | `~/diagnostics` | diagnostic_msgs/msg/DiagnosticArray | diagnostic (reliable), engineering diagnostics |
-| `/rt_control/sensors/status` | robot_rt_control_interfaces/msg/SensorStatusArray | state (reliable), cross-domain validity |
+| `/rt/sensors/state` | robot_rt_control_interfaces/msg/SensorStatusArray | state (reliable), cross-domain validity |
 
 The IMU observation and structured validity status are public contract endpoints.
 The magnetic field remains an RT-local commissioning endpoint. Publication uses

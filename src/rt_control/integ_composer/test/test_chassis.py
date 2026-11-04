@@ -263,6 +263,6 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     assert lifecycle["motion_controllers"] == ["swerve_controller"]
     assert lifecycle["lifecycle_controllers"] == ["joint_state_broadcaster", "enable_manager"]
     names = {item["name"]: item for item in lifecycle["capabilities"]}
-    assert names["chassis_velocity"]["topic"] == "/cmd_vel"
+    assert names["chassis_velocity"]["topic"] == "/rt/base/cmd_vel"
     assert names["chassis_velocity"]["controller"] == "swerve_controller"
-    assert names["enable"]["service"] == "/control/set_enabled"
+    assert names["enable"]["service"] == "/rt/enable"

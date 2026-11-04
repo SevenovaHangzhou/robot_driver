@@ -16,7 +16,7 @@ from integ_operator_web.config import (  # noqa: E402
 VALID = dict(
     bind_host="127.0.0.1",
     port=18109,
-    command_topic="/cmd_vel",
+    command_topic="/rt/base/cmd_vel",
     controller_node="/swerve_controller",
     gear_names=["leisure", "sport"],
     gear_linear_speeds=[0.05, 0.15],
@@ -28,7 +28,7 @@ VALID = dict(
 
 def test_valid_config():
     config = build_config(**VALID)
-    assert config.command_topic == "/cmd_vel"
+    assert config.command_topic == "/rt/base/cmd_vel"
     assert set(config.gears) == {"leisure", "sport"}
 
 

@@ -98,9 +98,6 @@ def setup(context):
         arguments=[*order["active"], "--controller-manager-timeout", "120"],
         output="both",
     )
-    adapter = Node(
-        package="integ_api_adapter", executable="control_enable_adapter", output="both"
-    )
     # Published only once the stack is loaded: presence means the scope runtime is up.
     capabilities = Node(
         package="integ_bringup",
@@ -111,7 +108,7 @@ def setup(context):
     # Optional Runtime-LOG recorder: own spawner, started after the lifecycle controllers; its
     # exit (including a missing plugin) is not watched, so it can never stop the scope.
     recorder_names = build.lifecycle.get("recorder_controllers", [])
-    after_lifecycle = [adapter, capabilities]
+    after_lifecycle = [capabilities]
     if recorder_names:
         after_lifecycle.append(
             Node(
@@ -198,12 +195,6 @@ def setup(context):
             OnProcessExit(
                 target_action=lifecycle,
                 on_exit=_then(after_lifecycle, "lifecycle load failed"),
-            )
-        ),
-        RegisterEventHandler(
-            OnProcessExit(
-                target_action=adapter,
-                on_exit=[EmitEvent(event=Shutdown(reason="control enable adapter exited"))],
             )
         ),
         manager,

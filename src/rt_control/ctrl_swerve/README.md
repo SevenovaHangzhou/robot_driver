@@ -84,19 +84,16 @@ motor position, not the previous planned target, as the available hold reference
 
 ## Commands And Lifecycle
 
-Private endpoints:
+Endpoints (N-04 and R-OUT-02 are public contract names):
 
 | Endpoint | Type | Meaning |
 | --- | --- | --- |
-| `/cmd_vel` | `geometry_msgs/msg/Twist` | Planar chassis velocity |
-| `~/odom` | `nav_msgs/msg/Odometry` | Measured motion, published at 50 Hz |
+| `/rt/base/cmd_vel` | `geometry_msgs/msg/Twist` | Planar chassis velocity (N-04) |
+| `/rt/base/odom` | `nav_msgs/msg/Odometry` | Measured motion, published at 50 Hz (R-OUT-02) |
 | `~/imu` (optional) | `sensor_msgs/msg/Imu` | Already aligned, configured base-frame IMU |
 | `~/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Controller execution state |
 
-No odometry TF, global joint-state publisher or enable/reset/zero service is
-created. Future module bringup must route commands from the existing authorized
-`/cmd_vel` path and odometry to `/wheel/odom`, without publishing a new
-cross-domain contract or bypassing Motion. Existing production remappings are unchanged.
+No odometry TF, global joint-state publisher or enable/reset/zero service is created.
 
 Command freshness follows N-04: at most 500 ms since local receipt of Twist,
 with no fabricated message timestamp or frame. Non-finite/non-planar commands

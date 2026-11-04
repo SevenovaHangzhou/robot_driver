@@ -51,9 +51,9 @@ ENABLE_RT_CONTROL
 
 ```text
 READY: rt-control 已启动并完成 /rt/enable。
-启停: /control/set_enabled
-FJT: /whole_body_jtc/follow_joint_trajectory
-底盘: /cmd_vel_safe
+启停: /rt/enable、/rt/disable、/rt/reset_fault
+FJT: /rt/arms/follow_joint_trajectory
+底盘: /rt/base/cmd_vel
 真空: /vacuum/grip
 ```
 
@@ -125,10 +125,9 @@ FJT: /whole_body_jtc/follow_joint_trajectory
 | 真空泵维护 | `/vacuum/pump/set_enabled`，`robot_rt_control_interfaces/srv/SetPumpEnabled` |
 | PLC 底层调试 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
 | 安全摘要 | `/control/safety_state`，`robot_rt_control_interfaces/msg/SafetyState` |
-| 就绪状态 | `/rt_control/readiness`，`robot_system_interfaces/msg/DomainReadiness` |
+| 就绪状态 | `/rt/readiness`，`robot_system_interfaces/msg/DomainReadiness` |
 | 诊断 | `/diagnostics` |
-| 公共启停 | `/control/set_enabled`，`robot_rt_control_interfaces/srv/SetControlEnabled`；`true` 时可自动清一次 resettable fault 后使能，`false` 只调用 `/rt/disable` |
-| 手工失能 | `/rt/disable` |
+| 公共启停 | `/rt/enable`、`/rt/disable`、`/rt/reset_fault`，`robot_rt_control_interfaces/srv/RtEnable` |
 
 rt-control 的本体链从 `base_footprint → base_link → 本体/传感器连杆` 开始；导航域发布最终 `/odom` 和唯一动态
 `odom → base_footprint`，`map → odom` 仍由定位侧负责。`/wheel/odom` 是消息 topic，不是 TF frame。导航未启动时

@@ -272,13 +272,13 @@ def test_capability_document_is_derived_from_the_lifecycle_plan():
         {
             "control_scope": "chassis_only",
             "use_mock_hardware": False,
-            "capabilities": [{"name": "chassis_velocity", "topic": "/cmd_vel"}],
+            "capabilities": [{"name": "chassis_velocity", "topic": "/rt/base/cmd_vel"}],
             "hardware": [{"name": "ecat", "plugin": "ethercat_driver/EthercatDriver"}],
         }
     )
     assert document["schema_version"] == 1
     assert document["control_scope"] == "chassis_only"
-    assert document["capabilities"][0]["topic"] == "/cmd_vel"
+    assert document["capabilities"][0]["topic"] == "/rt/base/cmd_vel"
 
 
 def test_realtime_qualification_is_skipped_for_mock_and_rejects_shared_rt_cpu(tmp_path):

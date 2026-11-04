@@ -2,7 +2,7 @@
 """Test-only stand-in for the scope runtime around a mock controller_manager.
 
 Publishes /rt/capabilities from an artifact lifecycle.yaml, enable_manager style
-/diagnostics and a /control/set_enabled service that only flips that state.
+/diagnostics and /rt/enable, /rt/disable services that only flip that state.
 Never installed; never used with real hardware.
 """
 
@@ -14,7 +14,7 @@ from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-from robot_rt_control_interfaces.srv import SetControlEnabled
+from robot_rt_control_interfaces.srv import RtEnable
 from std_msgs.msg import String
 import yaml
 
@@ -43,13 +43,14 @@ class Support(Node):
         )
         self.enabled = False
         self.diagnostics = self.create_publisher(DiagnosticArray, "/diagnostics", 10)
-        self.create_service(SetControlEnabled, "/control/set_enabled", self.set_enabled)
+        self.create_service(RtEnable, "/rt/enable", lambda _, res: self.set_enabled(True, res))
+        self.create_service(RtEnable, "/rt/disable", lambda _, res: self.set_enabled(False, res))
         self.create_timer(0.5, self.publish)
 
-    def set_enabled(self, request, response):
-        self.enabled = request.enabled
-        response.accepted = True
-        response.enabled = self.enabled
+    def set_enabled(self, enabled, response):
+        self.enabled = enabled
+        response.ok = True
+        response.stage = "success"
         return response
 
     def publish(self) -> None:

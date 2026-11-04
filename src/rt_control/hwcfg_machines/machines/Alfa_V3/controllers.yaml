@@ -24,7 +24,7 @@ controllers:
     # Public operator capability provided while this controller is active.
     capabilities:
     - name: chassis_velocity
-      topic: /cmd_vel
+      topic: /rt/base/cmd_vel
       type: geometry_msgs/msg/Twist
     parameters:
     - yaml:
@@ -52,6 +52,9 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: arms_trajectory
+        as: action_name
   # Seven-axis bench arm trajectory controller; the operator console is its client.
   left_arm_jtc:
     module: bench_left_arm
@@ -67,7 +70,7 @@ controllers:
     - enable_target
     capabilities:
     - name: arm_joint_trajectory
-      topic: /left_arm_jtc/follow_joint_trajectory
+      topic: /rt/arms/left/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
     parameters:
     - policy:
@@ -78,6 +81,9 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: left_arm_trajectory
+        as: action_name
   # Both bench arms in one trajectory controller; the operator console is its client.
   dual_arm_jtc:
     module: bench_dual_arm
@@ -93,7 +99,7 @@ controllers:
     - enable_target
     capabilities:
     - name: arm_joint_trajectory
-      topic: /dual_arm_jtc/follow_joint_trajectory
+      topic: /rt/arms/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
     parameters:
     - policy:
@@ -104,6 +110,9 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: arms_trajectory
+        as: action_name
   rolling_trajectory_controller:
     module: arms
     name: rolling_trajectory_controller
@@ -339,7 +348,7 @@ controllers:
     - enable_target
     capabilities:
     - name: arm_joint_trajectory
-      topic: /right_arm_jtc/follow_joint_trajectory
+      topic: /rt/arms/right/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
     parameters:
     - policy:
@@ -350,3 +359,6 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: right_arm_trajectory
+        as: action_name

@@ -12,7 +12,6 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/JointControlModeResult.msg"
   "msg/PlcIoState.msg"
   "srv/SetDigitalOutput.srv"
-  "srv/RtEnable.srv"
   DEPENDENCIES builtin_interfaces robot_rt_control_interfaces std_msgs unique_identifier_msgs
 )
 

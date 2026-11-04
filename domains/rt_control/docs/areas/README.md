@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | [protocol](protocol/README.md) | hw_ethercat、hw_canopen、hw_can_damiao、hw_semantic_components；ecat_icube/igh/ros2_canopen补丁 | 机型事实归hw-config，控制器归control |
 | [hw-config](hw-config/README.md) | hwcfg_machines、src/description快照 | 公共模型权威仍在独立仓库 |
-| [integration](integration/README.md) | integ_composer、integ_bringup、integ_api_adapter、两个操作网页、src/interfaces | 机型配置归hw-config |
+| [integration](integration/README.md) | integ_composer、integ_bringup、integ_diagnostics、操作网页、src/interfaces | 机型配置归hw-config |
 | [control](control/README.md) | ctrl_enable_manager、ctrl_rolling_trajectory、ctrl_force_torque_broadcaster、ctrl_swerve；ros2_controllers补丁 | 协议实现与编码器提供器归protocol |
 | [peripheral-control](peripheral-control/README.md) | periph_plc_io、periph_led_ultrasonic、periph_bms、periph_imu_lpms | 传输库归infra，公共IDL归integration |
 | [infra](infra/README.md) | infra_modbus、infra_renderer、infra_shm_ring、infra_socketcan | 调用方实现归各自区 |

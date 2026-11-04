@@ -225,10 +225,10 @@ protected:
     executor_->add_node(client_node_);
     executor_thread_ = std::thread([this]() { executor_->spin(); });
 
-    open_client_ = client_node_->create_client<Open>("/rt/rolling_joint_control/open");
-    close_client_ = client_node_->create_client<Close>("/rt/rolling_joint_control/close");
+    open_client_ = client_node_->create_client<Open>("/rt/arms/rolling/open_session");
+    close_client_ = client_node_->create_client<Close>("/rt/arms/rolling/close_session");
     update_publisher_ = client_node_->create_publisher<Batch>(
-      "/rt/rolling_joint_control/update", robot_interfaces_qos::rolling_command());
+      "/rt/arms/rolling/target_batch", robot_interfaces_qos::rolling_command());
     ASSERT_TRUE(open_client_->wait_for_service(1s));
     ASSERT_TRUE(close_client_->wait_for_service(1s));
     ASSERT_TRUE(waitUntil([this]() { return update_publisher_->get_subscription_count() == 1U; }));

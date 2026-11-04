@@ -1,7 +1,7 @@
 """ROS connection of the chassis operator console.
 
 Public interfaces only: the scope runtime's ``/rt/capabilities`` declaration,
-``/control/set_enabled``, ``/rt/reset_fault`` (FAILED only), controller-manager and
+``/rt/enable``, ``/rt/disable``, ``/rt/reset_fault`` (FAILED only), controller-manager and
 controller parameter services, ``/diagnostics`` and the declared velocity topic. The
 console never starts hardware, writes drive words or enables on its own.
 """
@@ -26,9 +26,8 @@ from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.signals import SignalHandlerOptions
-from robot_rt_control_interfaces.srv import SetControlEnabled
 import robot_interfaces_qos
-from rt_control_interfaces.srv import RtEnable
+from robot_rt_control_interfaces.srv import RtEnable
 from std_msgs.msg import String
 
 from .config import build_config, load_token
@@ -108,7 +107,10 @@ class ChassisConnection:
                 durability=DurabilityPolicy.TRANSIENT_LOCAL,
             ),
         )
-        self.enable_client = node.create_client(SetControlEnabled, "/control/set_enabled")
+        self.enable_clients = {
+            "enable": node.create_client(RtEnable, "/rt/enable"),
+            "disable": node.create_client(RtEnable, "/rt/disable"),
+        }
         self.reset_client = node.create_client(RtEnable, "/rt/reset_fault")
         self.hardware_client = node.create_client(
             ListHardwareComponents, "/controller_manager/list_hardware_components"
@@ -294,7 +296,7 @@ class ChassisConnection:
                 "message": reason,
                 "last_error": self.last_error,
                 "command_topic": self.node.config.command_topic,
-                "enable_service": "/control/set_enabled",
+                "enable_service": "/rt/enable",
                 "can_reset": diagnostic_fresh
                 and self.state == "FAILED"
                 and not self.busy
@@ -335,15 +337,12 @@ class ChassisConnection:
             self.last_error = ""
         self.node.arbiter.reset_motion("enable_change")
         self.node.publish_zero()
-        request = SetControlEnabled.Request(
-            enabled=op == "enable", reason="chassis operator console"
-        )
         try:
-            result = await call_service(self.enable_client, request, 45)
+            result = await call_service(self.enable_clients[op], RtEnable.Request(), 45)
             message = result.error.message
             with self.lock:
-                if result.accepted:
-                    self.enabled = bool(result.enabled)
+                if result.ok:
+                    self.enabled = op == "enable"
                     self.state = "ENABLED" if self.enabled else "IDLE"
                     self.diag_at = time.monotonic()
                     self.ignore_diag_before = self.node.get_clock().now().nanoseconds
@@ -352,8 +351,8 @@ class ChassisConnection:
                     self.enabled = None
                     self.diag_at = -math.inf
             return {
-                "ok": result.accepted,
-                "enabled": result.enabled,
+                "ok": result.ok,
+                "enabled": self.enabled,
                 "stage": message,
                 "modules": ["chassis"],
             }
@@ -482,7 +481,7 @@ class OperatorWebNode(Node):
         defaults = {
             "bind_host": "127.0.0.1",
             "port": 18120,
-            "command_topic": "/cmd_vel",
+            "command_topic": "/rt/base/cmd_vel",
             "controller_node": "/swerve_controller",
             "gear_names": ["leisure", "sport"],
             "gear_linear_speeds": [0.05, 0.15],
