@@ -43,4 +43,4 @@ related: [arm-control-20261019-01, integration-20261104-01]
 - 台架：低速流式下发、断流保持、流式与 action 交替。
 - 上游 Humble `preempt_active_goal()` 对执行中的目标调用 `setCanceled`，属于非法状态转换（本次测试中观察到 `invalid transition from state EXECUTING with event CANCELED`），新 action 抢占旧 action 时旧目标不会正常结束；本补丁只在话题路径改用 ABORTED，action 路径未改。
 - 段内样条插值可能略超过平均速度；加速度未检查。
-- robot_interfaces 合入 R-IN-22 后更新 `deps.repos` 锁定版本。
+- robot_interfaces#14 已合入（15525d1），`deps.repos` 与 `src/interfaces/source-lock.yaml` 已锁定。
