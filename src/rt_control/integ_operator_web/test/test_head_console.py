@@ -27,7 +27,7 @@ def ready_console():
     console.set_model(JOINTS, {"H1_joint": (-math.pi, math.pi), "H2_joint": (-1.0, 1.0)})
     console.update(
         capability={
-            "topic": "/head_position_controller/commands",
+            "topic": "/rt/head/move",
             "controller": "head_position_controller",
         },
         positions={"H1_joint": 0.1, "H2_joint": -0.2},
