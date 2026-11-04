@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "periph_bms/node.hpp"
+#include "robot_interfaces_qos/profiles.hpp"
 
 #include <chrono>
 #include <memory>
@@ -111,6 +112,31 @@ TEST(BmsNodeTest, AllowsCanCardWithoutUsbSerial)
   });
   auto node = periph_bms::make_node(options);
   std::this_thread::sleep_for(std::chrono::milliseconds{30});
+  node.reset();
+  context->shutdown("test complete");
+}
+
+TEST(BmsNodeTest, PublishesBothBatteryStatesWithTheContractStateQos)
+{
+  auto context = std::make_shared<rclcpp::Context>();
+  context->init(0, nullptr);
+  rclcpp::NodeOptions options;
+  options.context(context).parameter_overrides({
+    {"can_interface", "bms_missing"},
+    {"expected_adapter_serial", "test_serial"},
+    {"reconnect_period_s", 0.01},
+  });
+  auto node = periph_bms::make_node(options);
+  const auto expected = robot_interfaces_qos::state();
+  for (const auto * topic : {"/battery_state", "/battery_state/secondary"}) {
+    const auto publishers = node->get_publishers_info_by_topic(topic);
+    ASSERT_EQ(publishers.size(), 1U) << topic;
+    EXPECT_EQ(publishers[0].topic_type(), "sensor_msgs/msg/BatteryState") << topic;
+    EXPECT_EQ(publishers[0].qos_profile().reliability(), expected.reliability()) << topic;
+    EXPECT_EQ(publishers[0].qos_profile().durability(), expected.durability()) << topic;
+  }
+  // Discharge control is opt-in: without commissioning it never commands the relay.
+  EXPECT_FALSE(node->get_parameter("automatic_discharge_control").as_bool());
   node.reset();
   context->shutdown("test complete");
 }

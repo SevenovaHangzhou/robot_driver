@@ -6,7 +6,9 @@
 
 #include <algorithm>
 #include <limits>
+#include <chrono>
 #include <memory>
+#include <thread>
 #include <string>
 #include <vector>
 
@@ -15,6 +17,7 @@
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "robot_interfaces_qos/profiles.hpp"
 
 namespace ctrl_enable_manager
 {
@@ -400,6 +403,23 @@ TEST_F(HandshakeFixture, StaleFeedbackRejectsResetAndKeepsTheRecordedFault)
   Access::requestReset(*controller_);
   ASSERT_TRUE(stepUntil(Phase::kIdle));
   EXPECT_TRUE(Access::resetResult(*controller_).ok.load());
+}
+
+TEST_F(HandshakeFixture, DiagnosticsUseTheContractDiagnosticQos)
+{
+  bringUp(false);
+  const auto expected = robot_interfaces_qos::diagnostic();
+  const auto node = controller_->get_node();
+  std::vector<rclcpp::TopicEndpointInfo> publishers;
+  for (int attempt = 0; attempt < 100 && publishers.empty(); ++attempt) {
+    publishers = node->get_publishers_info_by_topic("/diagnostics");
+    if (publishers.empty()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  }
+  ASSERT_EQ(publishers.size(), 1U);
+  EXPECT_EQ(publishers[0].qos_profile().reliability(), expected.reliability());
+  EXPECT_EQ(publishers[0].qos_profile().durability(), expected.durability());
 }
 
 }  // namespace

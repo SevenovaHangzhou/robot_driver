@@ -104,7 +104,7 @@ if(BUILD_TESTING)
   ament_add_gmock(test_handshake_devices test/test_handshake_devices.cpp)
   target_compile_features(test_handshake_devices PUBLIC cxx_std_17)
   target_link_libraries(test_handshake_devices enable_manager_controller)
-  ament_target_dependencies(test_handshake_devices hardware_interface rclcpp)
+  ament_target_dependencies(test_handshake_devices hardware_interface rclcpp robot_interfaces_qos)
 endif()
 
 ament_package()
