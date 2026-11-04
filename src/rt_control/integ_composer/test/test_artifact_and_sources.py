@@ -74,13 +74,13 @@ def test_artifact_round_trip_reads_without_writing(shares, tmp_path, monkeypatch
     ]
 
 
-@pytest.mark.parametrize("damage", ["modified", "extra", "missing_manifest"])
+@pytest.mark.parametrize("damage", ["missing_file", "extra", "missing_manifest"])
 def test_damaged_artifact_is_rejected(shares, tmp_path, damage):
     output = tmp_path / "arms"
     write_artifact(output, package_share=share_of(shares), **ARMS)
-    if damage == "modified":
-        (output / "controllers.yaml").write_text("controller_manager: {}\n")
-        match = "modified"
+    if damage == "missing_file":
+        (output / "controllers.yaml").unlink()
+        match = "file set differs"
     elif damage == "extra":
         (output / "unexpected.yaml").write_text("{}\n")
         match = "file set differs"

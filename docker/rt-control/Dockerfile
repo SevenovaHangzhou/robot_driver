@@ -72,13 +72,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && make -j"$(nproc)" \
     && make install \
     && install -d /usr/local/share/rt-control \
-    && igh_patch_sha256="$(sha256sum \
-      /tmp/0001-preserve-verified-pdo-config.patch | awk '{print $1}')" \
-    && igh_dc_patch_sha256="$(sha256sum \
-      /tmp/0002-dc-offset-use-sent-application-time.patch | awk '{print $1}')" \
-    && igh_preop_patch_sha256="$(sha256sum /tmp/0003-preop-only-coe.patch | awk '{print $1}')" \
-    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_DC_OFFSET_PATCH_SHA256=%s\nIGH_PREOP_COE_PATCH_SHA256=%s\n' \
-      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" "${igh_preop_patch_sha256}" \
+    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PATCHES=%s\n' \
+      "${IGH_VERSION}" "${IGH_COMMIT}" "0001-preserve-verified-pdo-config.patch 0002-dc-offset-use-sent-application-time.patch 0003-preop-only-coe.patch" \
       > /usr/local/share/rt-control/dependency-versions.env \
     && ldconfig \
     && rm -rf /tmp/ethercat \

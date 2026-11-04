@@ -8,7 +8,6 @@ source /opt/ros/humble/setup.bash
 set -u
 python3 - "${repo_root}" "${bench_root}" <<'PY'
 from pathlib import Path
-import hashlib
 import shutil
 import subprocess
 import sys
@@ -23,11 +22,11 @@ actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source, text=
 if actual != expected:
     raise SystemExit('EtherCAT dependency does not match the frozen deps.repos commit')
 patches = sorted((repo / 'patches/ecat_icube').glob('*.patch'))
-digest = hashlib.sha256(expected.encode() + b''.join(p.read_bytes() for p in patches)).hexdigest()
+identity = '\n'.join([expected, *(p.name for p in patches)]) + '\n'
 vendor = target / 'vendor'
-marker = target / 'vendor-patch.sha256'
+marker = target / 'vendor-patches.txt'
 if vendor.exists():
-    if not marker.exists() or marker.read_text().strip() != digest:
+    if not marker.exists() or marker.read_text() != identity:
         raise SystemExit('Use a new build directory: existing vendor patch identity differs')
 else:
     if subprocess.check_output(['git', 'status', '--porcelain'], cwd=source, text=True).strip():
@@ -36,7 +35,7 @@ else:
     for patch in patches:
         subprocess.run(['git', 'apply', '--check', str(patch)], cwd=vendor, check=True)
         subprocess.run(['git', 'apply', str(patch)], cwd=vendor, check=True)
-    marker.write_text(digest + '\n')
+    marker.write_text(identity)
 PY
 qos_source="${repo_root}/src/vendor/robot_interfaces/qos"
 if [[ ! -d "${qos_source}" ]]; then

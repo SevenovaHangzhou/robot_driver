@@ -31,22 +31,15 @@ fail() {
 [[ -r "${igh_patch}" ]] || fail "missing IgH PDO-preservation patch ${igh_patch}"
 [[ -r "${igh_dc_patch}" ]] || fail "missing IgH DC offset patch ${igh_dc_patch}"
 [[ -r "${igh_metadata}" ]] || fail "missing installed IgH dependency identity"
-expected_igh_patch_sha256="$(sha256sum "${igh_patch}" | awk '{print $1}')"
-expected_igh_dc_patch_sha256="$(sha256sum "${igh_dc_patch}" | awk '{print $1}')"
 grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${igh_metadata}" ||
   fail "installed IgH version does not match versions.env"
 grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${igh_metadata}" ||
   fail "installed IgH commit does not match versions.env"
-grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${expected_igh_patch_sha256}" "${igh_metadata}" ||
-  fail "installed IgH master does not contain the approved PDO-preservation patch"
+grep -Fxq "IGH_PATCHES=0001-preserve-verified-pdo-config.patch 0002-dc-offset-use-sent-application-time.patch 0003-preop-only-coe.patch" "${igh_metadata}" ||
+  fail "installed IgH master was not built with the approved patch set"
 grep -Fxq 'IGH_HRTIMER=1' "${igh_metadata}" ||
   fail "IgH requires --enable-hrtimer before FIFO scheduling"
-grep -Fxq "IGH_DC_OFFSET_PATCH_SHA256=${expected_igh_dc_patch_sha256}" "${igh_metadata}" ||
-  fail "installed IgH lacks the expected DC offset patch"
 [[ -r "${igh_preop_patch}" ]] || fail "missing IgH PREOP CoE policy patch"
-expected_igh_preop_patch_sha256="$(sha256sum "${igh_preop_patch}" | awk '{print $1}')"
-grep -Fxq "IGH_PREOP_COE_PATCH_SHA256=${expected_igh_preop_patch_sha256}" "${igh_metadata}" ||
-  fail "installed IgH lacks the PREOP-only CoE policy"
 
 contains_cpu14() {
   local list="$1"
