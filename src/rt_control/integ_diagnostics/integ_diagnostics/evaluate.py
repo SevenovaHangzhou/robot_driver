@@ -1,4 +1,4 @@
-"""Self-check stage B and passive checks over one state sample; pure functions, no ROS.
+"""Self-check device rules over one state sample (startup stage B and on demand); no ROS.
 
 Devices come from the artifact's diagnostics.yaml; each names the state interfaces it reads.
 Entries have the same shape as integ_composer.self_check entries.
@@ -10,12 +10,6 @@ from integ_composer.self_check import describe_fault
 
 AL_STATE_OP = 8  # EtherCAT AL state code for Operational.
 CIA402_FAULT_BIT = 0x0008  # Status word bit 3: Fault or Fault reaction active.
-
-BLOCKER_TOKENS = {
-    "RT_DEVICE_OFFLINE": "device_offline",
-    "RT_DEVICE_IDENTITY_MISMATCH": "identity_mismatch",
-    "RT_STO_ACTIVE": "sto_active",
-}
 
 
 def complete(devices, values):
@@ -72,27 +66,3 @@ def evaluate(devices, tables, values):
             elif "status_word" in state and int(state["status_word"]) & CIA402_FAULT_BIT:
                 add(device, "RT_DEVICE_FAULT", True, "CiA402 fault bit set, no error code read")
     return entries
-
-
-def readiness(pending, before_bus, current):
-    """DomainReadiness fields; ready is the only admission verdict (never enable admission)."""
-    errors = [entry for entry in before_bus if not entry["blocking"]] if pending else current
-    if pending:
-        blockers = ["self_check_pending"]
-    else:
-        blockers = sorted(
-            {
-                BLOCKER_TOKENS.get(entry["dree"], "device_fault")
-                for entry in current
-                if entry["blocking"]
-            }
-        )
-    ready = not blockers
-    status = "UNAVAILABLE" if not ready else "DEGRADED" if errors else "HEALTHY"
-    return {
-        "ready": ready,
-        "status": status,
-        "operational_state": "self_check_pending" if pending else "self_check_done",
-        "blockers": blockers,
-        "errors": errors,
-    }
