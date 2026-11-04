@@ -53,8 +53,8 @@ plc_io_modbus:
 
     poll_period: 0.2
 
-# Domain-private endpoints:
-# /plc/vacuum_pump, /plc/vacuum_valve/{left,right}: SetDigitalOutput
-# /plc/io_state: PlcIoState
-# /plc_io/vacuum/{left,right}: VacuumSensorState
+# Public endpoints (robot_interfaces cb379db): /rt/vacuum/pump/set_enabled,
+# /rt/vacuum/{left,right}_valve/set_enabled (SetEnabled), /rt/vacuum/{left,right}/pressure
+# (FluidPressure, gauge Pa), /rt/sensors/state (both pressure sensors), /rt/infrared/state.
+# Domain-private: /plc/io_state (PlcIoState).
 # /plc_io/infrared_laser: legacy Bool observation; the public adapter adds identity/validity.
