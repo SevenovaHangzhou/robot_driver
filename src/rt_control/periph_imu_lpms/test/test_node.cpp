@@ -89,10 +89,10 @@ TEST_F(LpmsCovarianceParameterTest, PublishesOnTheContractTopicsByDefault)
 {
   options.parameter_overrides(parameters);
   const auto node = periph_imu_lpms::make_node(options);
-  EXPECT_EQ(node->get_parameter("imu_topic").as_string(), "/imu/data");
+  EXPECT_EQ(node->get_parameter("imu_topic").as_string(), "/rt/imu/data");
   EXPECT_EQ(node->get_parameter("diagnostics_topic").as_string(), "~/diagnostics");
-  EXPECT_EQ(node->get_parameter("sensor_status_topic").as_string(), "/rt_control/sensors/status");
-  EXPECT_EQ(node->get_publishers_info_by_topic("/imu/data").size(), 1U);
+  EXPECT_EQ(node->get_parameter("sensor_status_topic").as_string(), "/rt/sensors/state");
+  EXPECT_EQ(node->get_publishers_info_by_topic("/rt/imu/data").size(), 1U);
   EXPECT_EQ(
     node->get_publishers_info_by_topic(std::string(node->get_fully_qualified_name()) + "/mag")
       .size(),

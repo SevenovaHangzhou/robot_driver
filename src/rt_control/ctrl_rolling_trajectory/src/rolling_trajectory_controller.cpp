@@ -452,17 +452,17 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
 
   callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   state_publisher_ = get_node()->create_publisher<StateMessage>(
-    "/rt/rolling_joint_control/state", robot_interfaces_qos::rolling_state());
+    "/rt/arms/rolling/state", robot_interfaces_qos::rolling_state());
   state_timer_ = get_node()->create_wall_timer(
     std::chrono::nanoseconds(runtime_configuration_.state_publish_period_ns),
     [this]() { (void)publishPublicState(); }, callback_group_);
   open_service_ = get_node()->create_service<OpenService>(
-    "/rt/rolling_joint_control/open",
+    "/rt/arms/rolling/open_session",
     std::bind(
       &RollingTrajectoryController::handleOpen, this, std::placeholders::_1, std::placeholders::_2),
     rmw_qos_profile_services_default, callback_group_);
   close_service_ = get_node()->create_service<CloseService>(
-    "/rt/rolling_joint_control/close",
+    "/rt/arms/rolling/close_session",
     std::bind(
       &RollingTrajectoryController::handleClose, this, std::placeholders::_1,
       std::placeholders::_2),
@@ -470,7 +470,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   rclcpp::SubscriptionOptions subscription_options;
   subscription_options.callback_group = callback_group_;
   update_subscription_ = get_node()->create_subscription<BatchMessage>(
-    "/rt/rolling_joint_control/update", robot_interfaces_qos::rolling_command(),
+    "/rt/arms/rolling/target_batch", robot_interfaces_qos::rolling_command(),
     std::bind(&RollingTrajectoryController::handleUpdate, this, std::placeholders::_1),
     subscription_options);
   mode_result_subscription_ = get_node()->create_subscription<ModeResultMessage>(

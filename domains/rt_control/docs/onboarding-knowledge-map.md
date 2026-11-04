@@ -88,7 +88,7 @@ flowchart TD
 | 节点 | 它回答的问题 | 第一个阅读入口 |
 | --- | --- | --- |
 | `robot_description` | 机器人有哪些 link/joint，TF 和几何从哪里来？ | [`robot_alfav3_mobile.urdf`](../../../src/description/robot_description/urdf/robot_alfav3_mobile.urdf) |
-| `rt_control_interfaces` | 生命周期服务有哪些字段？ | [`RtEnable.srv`](../../../src/interfaces/rt_control_interfaces/srv/RtEnable.srv) |
+| `robot_rt_control_interfaces` | 生命周期服务有哪些字段？ | 公共契约 `robot_rt_control_interfaces/srv/RtEnable.srv`（robot_interfaces 仓库） |
 | `hw_ethercat` | 14 个轴怎样映射到 EtherCAT 从站、PDO 和状态接口？ | [`ecat.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/43d4c648bca8/src/rt_control/hw_ethercat/urdf/ecat.ros2_control.xacro)、[`config/slaves`](https://github.com/SevenovaHangzhou/robot_driver/tree/43d4c648bca8/src/rt_control/hw_ethercat/config/slaves) |
 | `hw_canopen` | 左、右履带怎样映射到 CANopen Node 2/3？ | [`canopen.ros2_control.xacro`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/hw_canopen/urdf/canopen.ros2_control.xacro)、[`bus.yml`](https://github.com/SevenovaHangzhou/robot_driver/blob/946ec110f82a/src/rt_control/hw_canopen/config/bus.yml) |
 | `enable_manager` | 14 轴为什么能安全分批上电、回滚和失能？ | [`enable_manager_controller.hpp`](../../../src/rt_control/ctrl_enable_manager/include/ctrl_enable_manager/enable_manager_controller.hpp)、[`enable_manager_controller.cpp`](../../../src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp) |

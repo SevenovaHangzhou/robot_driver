@@ -2,7 +2,7 @@
 <package format="3">
   <name>integ_diagnostics</name>
   <version>0.1.0</version>
-  <description>RT-Control startup self-check stage B, passive device fault reporting and /rt_control/readiness.</description>
+  <description>RT-Control startup self-check stage B, passive device fault reporting and /rt/readiness.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>

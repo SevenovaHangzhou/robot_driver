@@ -64,7 +64,7 @@ TEST_F(SwerveManagerTest, SharesTheManagerAndReleasesMotionInterfacesOnDeactivat
   auto client = std::make_shared<rclcpp::Node>("swerve_manager_client");
   executor->add_node(client);
   auto publisher = client->create_publisher<geometry_msgs::msg::Twist>(
-    "/cmd_vel", robot_interfaces_qos::control());
+    "/rt/base/cmd_vel", robot_interfaces_qos::control());
   const auto discovery = std::chrono::steady_clock::now() + std::chrono::seconds(2);
   while (publisher->get_subscription_count() != 1 && std::chrono::steady_clock::now() < discovery) {
     tick();

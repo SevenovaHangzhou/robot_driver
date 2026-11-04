@@ -2,8 +2,8 @@ bus_locks:
 - ethercat-master-0
 capabilities:
 - name: enable
-  service: /control/set_enabled
-  type: SetControlEnabled
+  service: /rt/enable
+  type: RtEnable
 control_scope: arms_stationary_enable
 hardware:
 - name: ecat_arms

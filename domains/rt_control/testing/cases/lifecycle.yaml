@@ -55,7 +55,7 @@ cases:
     traces: [PROGRESS.md 历史段 "T-IF-RT-003 (reset staged-disable corrective)"]
     preconditions: 栈运行中；存在或人为保留的 Fault 轴；现场授权
     entry: |
-      ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable
+      ros2 service call /rt/reset_fault robot_rt_control_interfaces/srv/RtEnable
     pass:
       - 响应 ok=true；全部轴离开 Fault
       - 失败时 failed_batch/failed_joint/status_word/stage 字段完整可诊断
@@ -77,7 +77,7 @@ cases:
     entry: |
       tools/rt_control_native.sh enable   # 现场输入确认短语
       # 校验后
-      ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable
+      ros2 service call /rt/disable robot_rt_control_interfaces/srv/RtEnable
     pass:
       - enable 后 14 轴 status_word 全为 Operation Enabled（axis_state_check enabled 判据）
       - disable 后终态符合冻结例外表（Ti5 四轴 0x0021 例外不视为失败，也不关闭原判据）

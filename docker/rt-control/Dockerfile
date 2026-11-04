@@ -186,7 +186,11 @@ RUN git config --global http.version HTTP/1.1 \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch \
+    && git -C src/vendor/ros2_controllers apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0005-public-action-name.patch \
+    && git -C src/vendor/ros2_controllers apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0005-public-action-name.patch
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 ENV RT_CONTROL_ECAT_CONTINUOUS_HANDOFF="1"
@@ -213,7 +217,6 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       periph_led_ultrasonic \
       canopen_master_driver \
       canopen_ros2_control \
-      integ_api_adapter \
       integ_diagnostics \
       ethercat_driver \
       ethercat_generic_cia402_drive \

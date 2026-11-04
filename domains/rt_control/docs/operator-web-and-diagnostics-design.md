@@ -39,7 +39,7 @@
 
   预检**遇到第一个问题就抛异常**，运行栈不启动，但没有逐设备的报告。
 - 运行中：`enable_manager` 在 `/diagnostics` 发一行汇总（阶段、失败批次/关节/状态字）；底盘、力传感器广播器各发自己的行。
-- 公共接口 R-OUT-09 `/rt_control/readiness`（`DomainReadiness`，消费方 Autonomy）在注册表中由 RT 生产，但 #117 删除草稿适配器后**目前没有发布者**。
+- 公共接口 R-OUT-09 `/rt/readiness`（`DomainReadiness`，消费方 Autonomy）在注册表中由 RT 生产，但 #117 删除草稿适配器后**目前没有发布者**。
 - 原 `rt_diagnostics` 已删除（#118），只解析二代履带。
 
 ### 1.3 可用的设备数据
@@ -62,7 +62,7 @@
 
 ```text
 integ_operator_web   一个 aiohttp 进程：网页 + 一个 rclpy 节点（只调用公共接口）
-integ_diagnostics    一个 rclpy 节点：启动自检 + 被动故障上报，发布 /rt_control/readiness
+integ_diagnostics    一个 rclpy 节点：启动自检 + 被动故障上报，发布 /rt/readiness
 integ_composer       在制品中输出 diagnostics 设备清单（唯一来源）
 hw_*                 preflight 改为返回逐设备结果；故障码表读取方式在表中声明
 ```
@@ -98,13 +98,13 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
 | 公共栏 | 登录、操作权、使能/失能、故障复位、使能状态与失败位置 | 两者合并 |
 | 手臂 | 关节目标、S 曲线执行与停止、位姿与序列（含逐段速度与停留）、整车模型视图、真空开关与压力 | 手臂控制台，SSE 改为 WebSocket |
 | 底盘 | 摇杆/键盘遥控、档位、软件停止、转向参数调参 | 底盘页原样迁入 |
-| 诊断 | 自检结果表（位置、DREE 码与名称、厂家码与说明、建议）、运行中故障、`/diagnostics` 原始行 | 新增，只读 `/rt_control/readiness` 与 `/diagnostics` |
+| 诊断 | 自检结果表（位置、DREE 码与名称、厂家码与说明、建议）、运行中故障、`/diagnostics` 原始行 | 新增，只读 `/rt/readiness` 与 `/diagnostics` |
 
 ### 4.5 迁移顺序（每步一个 PR）
 
 1. 建 `integ_operator_web`：公共核心（鉴权、会话、操作权、WebSocket、ROS 桥、审计）+ 底盘页（底盘页已是 aiohttp/WebSocket，迁入改动最小）。
 2. 迁入手臂页（SSE/POST 改为 WebSocket 消息；运动规则与测试原样保留）。
-3. 加诊断页（依赖 §5 的 `/rt_control/readiness`）。
+3. 加诊断页（依赖 §5 的 `/rt/readiness`）。
 4. 删除两个旧包，更新台架启动脚本与文档。第 2、4 步改变访问地址与端口，按行为变更 PR 处理。
 
 ## 5. `integ_diagnostics`
@@ -129,7 +129,7 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
 | 阶段 | 时机 | 检查 | 失败时 |
 | --- | --- | --- | --- |
 | A 总线前 | 现有 preflight 位置（ros2_control 启动前） | 主站/接口在线、从站数与身份、AL 状态、接线、各轴 0x603F（头部 CAN 现无预检，第一版只在阶段 B 检查） | **保持现状：运行栈不启动**；改为先跑完全部检查，按设备输出结果文件后再退出 |
-| B 激活后 | 硬件激活完成、使能前 | 各从站 OP、`link_up`、`wc_error_count` 不增长、`process_data_age_ms` 在时限内、各轴 `error_code`/头部 `fault_code` 无故障、编码器 `ready` 且未超时 | `ready=false`，结果写入 `/rt_control/readiness` |
+| B 激活后 | 硬件激活完成、使能前 | 各从站 OP、`link_up`、`wc_error_count` 不增长、`process_data_age_ms` 在时限内、各轴 `error_code`/头部 `fault_code` 无故障、编码器 `ready` 且未超时 | `ready=false`，结果写入 `/rt/readiness` |
 
 阶段 A 的结果文件写在本次运行目录，诊断节点启动后读入并一并发布；运行栈没起来时，网页直接读该文件显示原因（§7 第 4 项）。
 
@@ -157,7 +157,7 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
 
 ### 5.4 输出
 
-- R-OUT-09 `/rt_control/readiness`（`DomainReadiness`，`Q_LATCHED`，变化立即发、稳定 1 Hz）。`readiness_name` 为本次作用域名；`errors[]` 每项一个 `ErrorInfo`：
+- R-OUT-09 `/rt/readiness`（`DomainReadiness`，`Q_LATCHED`，变化立即发、稳定 1 Hz）。`readiness_name` 为本次作用域名；`errors[]` 每项一个 `ErrorInfo`：
 
   | 字段 | 内容 | 例 |
   | --- | --- | --- |
@@ -186,7 +186,7 @@ Python rclpy 节点，订阅内部状态广播 `/rt_internal_state_broadcaster/d
 
 1. 组合器输出 `diagnostics` 设备清单（制品新增一段，组合快照会变化，单独说明）。
 2. 各协议包 preflight 改为逐设备结果 + 结果文件（失败仍阻止启动）。
-3. `integ_diagnostics` 节点与 `/rt_control/readiness` 发布（行为变更：新增发布者，恢复 R-OUT-09）。
+3. `integ_diagnostics` 节点与 `/rt/readiness` 发布（行为变更：新增发布者，恢复 R-OUT-09）。
 4. §5.6 缺口逐项补齐。
 5. 网页诊断页（§4.5 第 3 步）。
 
@@ -202,7 +202,7 @@ Python rclpy 节点，订阅内部状态广播 `/rt_internal_state_broadcaster/d
 | --- | --- | --- |
 | 1 | 自检结果是否参与使能准入 | **不参与**。`enable_manager` 是唯一准入方；诊断只报告 |
 | 2 | 运行中设备自己报出的故障是否上报（不重复自检） | **上报**（§5.3） |
-| 3 | 诊断节点是否作为 R-OUT-09 `/rt_control/readiness` 的生产者 | **是**，恢复该公共接口，Autonomy 可消费 |
+| 3 | 诊断节点是否作为 R-OUT-09 `/rt/readiness` 的生产者 | **是**，恢复该公共接口，Autonomy 可消费 |
 | 4 | 阶段 A 失败、运行栈没起来时，网页如何显示原因 | 网页读本次运行目录的 `self_check.json` |
 | 5 | 端口 | 统一 18120；台架启动脚本同步 |
 | 6 | 手臂页临时真空开关（调用现场 `~/.local/bin/vacuum` 脚本） | 第 2 步原样迁入并保留"临时"标注；改用 `periph_plc_io` 公共服务另开 PR |

@@ -198,9 +198,9 @@ cd /home/user/rt-control-dev/robot
 2. 外层 `rt_control_start` 运行在 housekeeping CPUs：
    `0,2,4,6,16-27`。这些 housekeeping CPUs 还必须与当前 `isolated`/`nohz_full`
    集合不重叠；当前多隔离核配置中的 CPU8/10/12 不归 native rt-control 普通线程使用。
-3. 接触总线前，脚本验证公共接口、`robot_interfaces_qos` Python API、适配器、BMS、PLC、
+3. 接触总线前，脚本验证公共接口、`robot_interfaces_qos` Python API、BMS、PLC、
    诊断与 bringup 均已安装；缺少任一运行依赖时 fail-closed。随后在最多 150 秒内要求
-   `/rt/enable`、`/control/set_enabled` 可发现，并实际调用
+   `/rt/enable`、`/rt/disable` 可发现，并实际调用
    `/controller_manager/list_controllers`，避免旧 DDS discovery 造成假 READY。
 4. 控制器必须达到 disabled 启动契约，EtherCAT 必须为 Operation/Active；两项均通过后才
    报告 READY。随后脚本查找 `ros2_control_node` 内部实时线程；只有“恰好一个

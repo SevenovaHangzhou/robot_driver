@@ -51,7 +51,7 @@ class HeadBridge(Node):
         self._manager_parameters = self.create_client(
             GetParameters, "/controller_manager/get_parameters", callback_group=self._group
         )
-        services = EnableServices(self, self._group, HeadError, "integ_operator_web head page")
+        services = EnableServices(self, self._group, HeadError)
         self.set_enabled = services.set_enabled
         self.reset_fault = services.reset_fault
         self.create_timer(0.5, self._refresh, callback_group=self._group)

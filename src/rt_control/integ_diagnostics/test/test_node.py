@@ -1,4 +1,4 @@
-"""The real node end to end: self-check report, controller state in, /rt_control/readiness out."""
+"""The real node end to end: self-check report, controller state in, /rt/readiness out."""
 
 import json
 from pathlib import Path

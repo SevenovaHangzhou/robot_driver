@@ -11,7 +11,7 @@ from rclpy.node import Node
 import robot_interfaces_qos
 from robot_system_interfaces.msg import DomainReadiness, ErrorInfo
 
-READINESS_TOPIC = "/rt_control/readiness"
+READINESS_TOPIC = "/rt/readiness"
 SEVERITY = {ErrorInfo.OK: "OK", ErrorInfo.WARN: "WARN", ErrorInfo.FAULT: "FAULT"}
 LEVEL = {b"\x00": "OK", b"\x01": "WARN", b"\x02": "ERROR", b"\x03": "STALE"}
 

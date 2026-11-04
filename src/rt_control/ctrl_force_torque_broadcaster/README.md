@@ -34,7 +34,7 @@ StatusCode标为保留，不按故障状态解析。Temper也标为保留，注�
 | profile | bluepoint_p140000100_left | bluepoint_p140000100_right |
 | raw_topic | /rt_control/left_wrist/raw | /rt_control/right_wrist/raw |
 | sensor_state_topic | /rt_control/left_wrist/state | /rt_control/right_wrist/state |
-| wrench_topic | /rt_control/left_wrist/wrench | /rt_control/right_wrist/wrench |
+| wrench_topic | /rt/force_torque/left_wrist/wrench | /rt/force_torque/right_wrist/wrench |
 
 配置来源：
 

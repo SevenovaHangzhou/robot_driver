@@ -73,7 +73,7 @@ class RosBridge(Node):
                 partial(self._vacuum_pressure, side),
                 pressure_qos, callback_group=self._group,
             )
-        services = EnableServices(self, self._group, ConsoleError, "ELECTRI-127 arm console")
+        services = EnableServices(self, self._group, ConsoleError)
         self.set_enabled = services.set_enabled
         self.reset_fault = services.reset_fault
         self._controllers = self.create_client(

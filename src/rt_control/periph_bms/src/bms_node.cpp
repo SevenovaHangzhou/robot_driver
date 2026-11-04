@@ -76,9 +76,10 @@ public:
     reconnect_period_s_ = positive_parameter("reconnect_period_s", 2.0);
     frame_timeout_s_ = positive_parameter("frame_timeout_s", 3.0);
     const double publish_period_s = positive_parameter("publish_period_s", 5.0);
-    const auto topic = declare_parameter<std::string>("battery_state_topic", "/battery_state");
+    const auto topic =
+      declare_parameter<std::string>("battery_state_topic", "/rt/battery/left/state");
     const auto secondary_topic =
-      declare_parameter<std::string>("secondary_battery_state_topic", "/battery_state/secondary");
+      declare_parameter<std::string>("secondary_battery_state_topic", "/rt/battery/right/state");
     const double max_join_voltage_delta_v =
       declare_parameter<double>("max_join_voltage_delta_v", -1.0);
     const double max_trip_voltage_delta_v =

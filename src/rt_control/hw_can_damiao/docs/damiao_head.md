@@ -164,10 +164,10 @@ ros2 topic echo /joint_states --once
 
 ## 7. 使能、位置话题、清错和退出
 
-三个生命周期服务都是 rt_control_interfaces/srv/RtEnable，空请求，返回ok、failed_batch、failed_joint、status_word、stage。
+三个生命周期服务都是 robot_rt_control_interfaces/srv/RtEnable，空请求，返回ok、failed_batch、failed_joint、status_word、stage。
 
 ```bash
-ros2 service call /rt/enable rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/enable robot_rt_control_interfaces/srv/RtEnable '{}'
 ```
 
 等待ok:true，enable_manager 确认头部插件回报"已使能且允许运动"后激活位置控制器。仅使能不会执行额外角度目标。
@@ -191,10 +191,10 @@ ros2 topic echo /joint_states
 ros2 topic echo /diagnostics --once
 
 # 清错：不是话题；停止位置控制、请求失能，再清除并等待失能终态
-ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/reset_fault robot_rt_control_interfaces/srv/RtEnable '{}'
 
 # 结束控制：先失能，再在启动终端Ctrl+C
-ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/disable robot_rt_control_interfaces/srv/RtEnable '{}'
 ```
 
 到位后仍使能保持。查看反馈终端的Ctrl+C只停止查看。清错不会自动重新使能，故障根因未消除可能再报错；没有故障时清错直接返回 already_clear。诊断名称为 /robot/rt_control/enable_manager，发布在 /diagnostics；重点查看 `damiao_head_control.phase`（0 失能、2 使能、6 故障锁存）、`damiao_head_control.fault_latched`、`damiao_head_control.motion_allowed` 及两台的 `<joint>/feedback_age_ms`。

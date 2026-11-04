@@ -55,7 +55,7 @@ public:
 
     for (size_t i = 0; i < range_publishers_.size(); ++i) {
       range_publishers_[i] = create_publisher<sensor_msgs::msg::Range>(
-        "/ultrasonic/channel" + std::to_string(i + 1) + "/range",
+        "/rt/ultrasonic/channel" + std::to_string(i + 1) + "/range",
         robot_interfaces_qos::fast_state());
     }
     for (size_t i = 0; i < raw_publishers_.size(); ++i) {
@@ -65,7 +65,7 @@ public:
     diagnostic_publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       "/ultrasonic/diagnostics", robot_interfaces_qos::diagnostic());
     status_publisher_ = create_publisher<robot_rt_control_interfaces::msg::SensorStatusArray>(
-      "/rt_control/sensors/status", robot_interfaces_qos::state());
+      "/rt/sensors/state", robot_interfaces_qos::state());
 
     if (poll_enabled_) {
       timer_ =
@@ -143,7 +143,7 @@ private:
     robot_rt_control_interfaces::msg::SensorStatus status;
     status.sensor_id = sensor_id(index);
     status.module_id = "ultrasonic_unit" + std::to_string(unit_ids_[index / 4U]);
-    status.data_topic = "/ultrasonic/channel" + std::to_string(index + 1U) + "/range";
+    status.data_topic = "/rt/ultrasonic/channel" + std::to_string(index + 1U) + "/range";
     status.observation.stamp = sample_time;
     status.observation.time_source = ObservationMeta::TIME_SOURCE_READ_COMPLETE;
     status.observation.valid = valid;

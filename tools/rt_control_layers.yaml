@@ -9,7 +9,6 @@ layers:
   integration:
   - integ_composer
   - integ_bringup
-  - integ_api_adapter
   - integ_diagnostics
   - integ_operator_web
   protocol:

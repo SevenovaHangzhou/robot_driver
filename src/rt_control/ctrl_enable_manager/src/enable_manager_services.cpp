@@ -21,13 +21,14 @@
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
+#include "robot_system_interfaces/msg/error_info.hpp"
 
 namespace ctrl_enable_manager
 {
 
 void EnableManagerController::handleEnable(
-  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
+  const std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request>,
+  std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response> response)
 {
   bool expected_callback = false;
   if (!enable_callback_active_.compare_exchange_strong(expected_callback, true)) {
@@ -119,8 +120,8 @@ void EnableManagerController::handleEnable(
 }
 
 void EnableManagerController::handleDisable(
-  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
+  const std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request>,
+  std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response> response)
 {
   bool expected_callback = false;
   if (!disable_callback_active_.compare_exchange_strong(expected_callback, true)) {
@@ -213,8 +214,8 @@ void EnableManagerController::handleDisable(
 }
 
 void EnableManagerController::handleResetFault(
-  const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>,
-  std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response)
+  const std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request>,
+  std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response> response)
 {
   bool expected_callback = false;
   if (!reset_callback_active_.compare_exchange_strong(expected_callback, true)) {
@@ -269,7 +270,7 @@ bool EnableManagerController::waitForResult(ResultSlot & slot)
 }
 
 void EnableManagerController::fillResponse(
-  const ResultSlot & slot, rt_control_interfaces::srv::RtEnable::Response & response) const
+  const ResultSlot & slot, robot_rt_control_interfaces::srv::RtEnable::Response & response) const
 {
   response.ok = slot.ok.load(std::memory_order_acquire);
   response.failed_batch = slot.failed_batch.load(std::memory_order_acquire);
@@ -288,8 +289,46 @@ void EnableManagerController::fillResponse(
   }
 }
 
+void EnableManagerController::reportResult(
+  const char * service, robot_rt_control_interfaces::srv::RtEnable::Response & response,
+  std::uint32_t failure_code) const
+{
+  using robot_system_interfaces::msg::ErrorCode;
+  using robot_system_interfaces::msg::ErrorInfo;
+  static const std::unordered_map<std::string_view, std::uint32_t> kStageCodes{
+    {"operation_in_progress", ErrorCode::RT_OPERATION_IN_PROGRESS},
+    {"controller_inactive", ErrorCode::RT_ENABLE_MANAGER_NOT_READY},
+    {"device_offline", ErrorCode::RT_DEVICE_OFFLINE},
+    {"restart_required", ErrorCode::RT_RESTART_REQUIRED},
+  };
+  std::uint32_t code = ErrorCode::SUCCESS;
+  if (!response.ok) {
+    const auto found = kStageCodes.find(response.stage);
+    code = found != kStageCodes.end() ? found->second : failure_code;
+  }
+  std::string summary = "stage=" + response.stage;
+  if (!response.failed_joint.empty()) {
+    summary += " failed_joint=" + response.failed_joint;
+  }
+  if (response.failed_batch >= 0) {
+    summary += " failed_batch=" + std::to_string(response.failed_batch);
+  }
+  // DREE recovery digit 1 marks retryable codes.
+  const bool retryable = code != ErrorCode::SUCCESS && (code / 100U) % 10U == 1U;
+  response.error.code = code;
+  response.error.message = summary;
+  response.error.retryable = retryable;
+  response.error.severity = code == ErrorCode::SUCCESS ? ErrorInfo::OK
+                            : retryable                ? ErrorInfo::WARN
+                                                       : ErrorInfo::FAULT;
+  response.error.source = "rt_control/enable_manager";
+  RCLCPP_INFO(
+    get_node()->get_logger(), "%s %s: %s", service, response.ok ? "accepted" : "rejected",
+    summary.c_str());
+}
+
 void EnableManagerController::fillImmediateResponse(
-  rt_control_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const
+  robot_rt_control_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const
 {
   response.ok = ok;
   response.failed_batch = -1;

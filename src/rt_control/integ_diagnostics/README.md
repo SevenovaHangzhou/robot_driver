@@ -8,7 +8,7 @@ RT-Control 诊断节点（设计稿：`domains/rt_control/docs/operator-web-and-
 - 阶段 B：硬件激活后收到第一份完整状态时检查一次（从站 OP、主站链路与从站数、驱动 0x603F 故障码
   与 CiA402 故障位），结果追加写回自检报告。
 - 运行中：只在设备自己报出问题时更新，不重复自检。
-- 输出：R-OUT-09 `/rt_control/readiness`（`DomainReadiness`，`Q_LATCHED`，变化即发、1 Hz）。
+- 输出：R-OUT-09 `/rt/readiness`（`DomainReadiness`，`Q_LATCHED`，变化即发、1 Hz）。
   `errors[]` 每项 `code` 为 DREE、`source` 为设备位置、`detail` 为厂家原始码与说明。
 - 不下发任何命令，不参与使能准入（准入只由 `enable_manager` 决定），不替代急停/STO/安全链。
 - DREE 数值取自锁定的 `robot_interfaces` `ErrorCode`；缺少所需常量时节点拒绝启动。

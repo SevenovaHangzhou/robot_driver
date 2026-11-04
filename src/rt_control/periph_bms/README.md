@@ -80,8 +80,8 @@ shutdown, K2 level/edge/debounce/heartbeat semantics, isolation after unexpected
 primary MOS loss, and load-stop persistence after fault latching. K2 OFF retries
 are not changed by this review fix. See ELECTRI-131 and BQ-152.
 
-The primary `0x01` pack publishes `/battery_state`; secondary `0x02` publishes
-`/battery_state/secondary`. They are not averaged or summed because diode ORing
+The primary `0x01` pack publishes `/rt/battery/left/state`; secondary `0x02` publishes
+`/rt/battery/right/state`. They are not averaged or summed because diode ORing
 does not guarantee current sharing. A missing, stale, or faulted pack publishes
 `present=false` with invalid numeric values; `0x98` faults set unspecified failure
 health. The published status is not a replacement for the hardware safety chain.

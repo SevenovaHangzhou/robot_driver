@@ -324,25 +324,34 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   }
   worker_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
-  enable_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
-    "/rt/enable",
-    std::bind(
-      &EnableManagerController::handleEnable, this, std::placeholders::_1, std::placeholders::_2),
-    rmw_qos_profile_services_default, enable_callback_group_);
-  disable_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
-    "/rt/disable",
-    std::bind(
-      &EnableManagerController::handleDisable, this, std::placeholders::_1, std::placeholders::_2),
-    rmw_qos_profile_services_default, disable_callback_group_);
-  reset_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
-    "/rt/reset_fault",
-    std::bind(
-      &EnableManagerController::handleResetFault, this, std::placeholders::_1,
-      std::placeholders::_2),
-    rmw_qos_profile_services_default, reset_callback_group_);
+  // R-IN-18/19/20: public services; each result carries its DREE error.
+  using ErrorCode = robot_system_interfaces::msg::ErrorCode;
+  using RtEnable = robot_rt_control_interfaces::srv::RtEnable;
+  const auto serve = [this](
+                       const char * name, auto handler, std::uint32_t failure_code,
+                       rclcpp::CallbackGroup::SharedPtr group) {
+    return get_node()->create_service<RtEnable>(
+      name,
+      [this, name, handler, failure_code](
+        const std::shared_ptr<RtEnable::Request> request,
+        std::shared_ptr<RtEnable::Response> response) {
+        (this->*handler)(request, response);
+        reportResult(name, *response, failure_code);
+      },
+      rmw_qos_profile_services_default, group);
+  };
+  enable_service_ = serve(
+    "/rt/enable", &EnableManagerController::handleEnable, ErrorCode::RT_ENABLE_FAILED,
+    enable_callback_group_);
+  disable_service_ = serve(
+    "/rt/disable", &EnableManagerController::handleDisable, ErrorCode::RT_DISABLE_FAILED,
+    disable_callback_group_);
+  reset_service_ = serve(
+    "/rt/reset_fault", &EnableManagerController::handleResetFault, ErrorCode::RT_RESET_FAILED,
+    reset_callback_group_);
   if (motion_mode_switching_) {
     mode_service_ = get_node()->create_service<ModeService>(
-      "/rt/joint_control/set_mode",
+      "/rt/arms/set_control_mode",
       std::bind(
         &EnableManagerController::handleSetMode, this, std::placeholders::_1,
         std::placeholders::_2),
@@ -358,7 +367,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
         source_subscription_options);
     rolling_state_subscription_ =
       get_node()->create_subscription<robot_rt_control_interfaces::msg::RollingJointControlState>(
-        "/rt/rolling_joint_control/state", robot_interfaces_qos::rolling_state(),
+        "/rt/arms/rolling/state", robot_interfaces_qos::rolling_state(),
         std::bind(&EnableManagerController::handleRollingState, this, std::placeholders::_1),
         source_subscription_options);
   }

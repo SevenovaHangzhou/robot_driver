@@ -11,7 +11,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 ## 边界
 
-- 只用公共接口：`/rt/capabilities`、`/control/set_enabled`、`/rt/reset_fault`（仅 FAILED）、
+- 只用公共接口：`/rt/capabilities`、`/rt/enable`、`/rt/disable`、`/rt/reset_fault`（仅 FAILED）、
   `/controller_manager/list_hardware_components`、控制器参数服务、`/diagnostics`、能力声明中的速度话题。
 - 运行栈必须发布 `/rt/capabilities`，并声明 `enable` 与 `chassis_velocity`；实际硬件组件必须与声明一致。
 - 不启动硬件，不写驱动控制字，不自动使能，不自动复位。
@@ -35,8 +35,8 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
    或只含 127.0.0.1 的 UDP DDS 配置。
    - 如果运行栈本身对局域网可见（例如导航在其他进程用默认 DDS 配置接入），只用回环的网页无法与运行栈通信。
      此时设置 `RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS=1`，并使用与运行栈相同的 DDS 配置。
-   - 打开该开关后，同一 Domain 的局域网主机都能看到底盘话题，也能发送 `/cmd_vel`。
-     Domain 必须为非默认值，同一时间只允许一个 `/cmd_vel` 发送方。
+   - 打开该开关后，同一 Domain 的局域网主机都能看到底盘话题，也能发送 `/rt/base/cmd_vel`。
+     Domain 必须为非默认值，同一时间只允许一个 `/rt/base/cmd_vel` 发送方。
 2. 令牌文件权限 0600，路径写入环境变量 `RT_OPERATOR_WEB_TOKEN_FILE`。
 3. 启动：
 
@@ -63,7 +63,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 - 机械臂控制只调用公共接口：
   - `/rt/capabilities` 中的 `arm_joint_trajectory`（FollowJointTrajectory action）；
-  - `/control/set_enabled`；
+  - `/rt/enable`、`/rt/disable`；
   - `/controller_manager/list_controllers` 与参数读取；
   - `/joint_states`、`/diagnostics`。
 - 操作台不写驱动控制字，不切换控制器，不自动使能，不复位故障。
@@ -213,7 +213,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 `/diag` 只读，不取控制权、不下发命令，经 `/ws/diag` 每秒推送一次：
 
 - 启动自检报告：`$RT_CONTROL_STATE_DIR/self_check/<作用域>.json`（默认 `/tmp/rt-control/`），每个作用域最新一份，新的在前。阶段 A 由运行栈启动文件在总线启动前写入；运行栈因自检失败没有起来时，这里仍能看到原因。阶段 B 由诊断节点在硬件激活后追加。
-- 运行栈就绪状态：R-OUT-09 `/rt_control/readiness`（每个问题的位置、DREE 码、级别、厂家码与说明）。诊断节点未运行时显示"未运行或尚未发布"。
+- 运行栈就绪状态：R-OUT-09 `/rt/readiness`（每个问题的位置、DREE 码、级别、厂家码与说明）。诊断节点未运行时显示"未运行或尚未发布"。
 - 原始诊断：`/diagnostics` 每个名称的最新一行及其键值。
 
 本页不替代急停、STO 或安全链。
@@ -224,7 +224,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 头部区经 `/ws/head` 推送状态（20 Hz）并接收命令。运行栈需声明能力 `head_position`（`head_only` 等作用域的 `head_position_controller`，话题 `/head_position_controller/commands`，`std_msgs/msg/Float64MultiArray`）；关节顺序取自该控制器的 `joints` 参数，限位取自机器人模型。
 
-- 操作：取得/释放控制权、使能/失能（`/control/set_enabled`）、故障复位（`/rt/reset_fault`）、发送绝对目标位置、停止（以实测位置作为目标原地保持）。
+- 操作：取得/释放控制权、使能/失能（`/rt/enable`、`/rt/disable`）、故障复位（`/rt/reset_fault`）、发送绝对目标位置、停止（以实测位置作为目标原地保持）。
 - 发送目标前在服务端检查：持有控制权、作用域已使能、头部设备已允许运动且无故障锁存、关节反馈不超过 0.2 s、目标在机器人模型限位内侧 2°（`config/head.yaml`）。运动速度由驱动参数（制品中的 `velocity_limit`）限制。
 - 持有控制权的连接断开时，以实测位置作为目标原地保持并释放控制权；不失能、不复位。
 - 与其他页面共用登录、审计与"同一时间一位操作员"规则。

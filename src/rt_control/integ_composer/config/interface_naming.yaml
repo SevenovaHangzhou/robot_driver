@@ -1,4 +1,8 @@
-wrench: /rt_control/{binding}/wrench
+# Public names registered in robot_interfaces contract/endpoints.yaml.
+wrench: /rt/force_torque/{binding}/wrench
+arms_trajectory: /rt/arms/follow_joint_trajectory
+left_arm_trajectory: /rt/arms/left/follow_joint_trajectory
+right_arm_trajectory: /rt/arms/right/follow_joint_trajectory
 raw: /rt_control/{binding}/raw
 state: /rt_control/{binding}/state
 sensor_calibration: /robot/rt_control/{family}/{sensor_name}/calibration
