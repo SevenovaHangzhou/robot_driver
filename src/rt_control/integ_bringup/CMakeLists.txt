@@ -12,12 +12,13 @@ ament_python_install_package(${PROJECT_NAME})
 # as a binary, so its source is kept verbatim in upstream/ and one narrow patch adds Jazzy's overrun
 # management (skip missed ticks instead of running them back to back). Same executable name.
 find_package(controller_manager REQUIRED)
-# 2.54.2 ships exactly the same main() bytes; see upstream/README.md for the SHA-256.
+# 2.54.2 and 2.54.3 ship the same main() bytes; see upstream/README.md for the SHA-256.
 if(NOT controller_manager_VERSION VERSION_EQUAL "2.53.1" AND
-   NOT controller_manager_VERSION VERSION_EQUAL "2.54.2")
+   NOT controller_manager_VERSION VERSION_EQUAL "2.54.2" AND
+   NOT controller_manager_VERSION VERSION_EQUAL "2.54.3")
   message(FATAL_ERROR
     "controller_manager ${controller_manager_VERSION} installed; upstream/ros2_control_node.cpp and "
-    "its patch were verified with 2.53.1 and 2.54.2. Re-import the upstream file and rebase the patch.")
+    "its patch were verified with 2.53.1, 2.54.2 and 2.54.3. Re-import the upstream file and rebase the patch.")
 endif()
 find_package(rclcpp REQUIRED)
 find_package(realtime_tools REQUIRED)
