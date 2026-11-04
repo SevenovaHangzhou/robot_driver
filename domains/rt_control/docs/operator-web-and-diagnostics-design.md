@@ -135,9 +135,23 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
 
 码的选择：从站缺失、未到 OP、接口未起、编码器无数据 → `RT_DEVICE_OFFLINE`；身份不符 → `RT_DEVICE_IDENTITY_MISMATCH`；设备报故障码 → 查该设备的故障码表，未登记的码 → `RT_DEVICE_FAULT`，`detail` 写"未登记"；反馈超时 → `RT_DEVICE_FEEDBACK_STALE`。允许的启动码（如零差 `0xA000`）照样列出，但按 `RT_DEVICE_FAULT_RESETTABLE` 标为可复位，不作为阻断项。
 
-### 5.3 运行中（被动上报）
+### 5.3 运行中（用户 2026-11-04 修订：看控制器状态，不逐设备判断）
 
-不重复执行自检。只在设备自己通过周期数据报出问题时上报：从站 AL 状态离开 OP、驱动状态字故障位置位（附 0x603F 查表结果）、头部 `fault_code` 非零、反馈超时。上报即刻发布，故障清除后移除该条目。
+运行中不再逐个设备判断状态接口。故障由实时控制器发现并处置（使能管理器急停/失能、头部插件锁存、轨迹控制器拒绝），并锁存原因；诊断节点只读控制器状态汇总成 readiness：
+
+| 情况 | ready | blockers |
+| --- | --- | --- |
+| 阶段 B 未完成 | false | `self_check_pending` |
+| 自检有阻断项 | false | `device_offline` / `identity_mismatch` / `sto_active` / `device_fault` |
+| 使能管理器诊断超过 2.5 s 未更新 | false | `enable_manager_unavailable` |
+| 未使能 | false | `not_enabled`（附自检警告） |
+| 使能管理器失败锁存 | false | `device_offline` / `device_fault` / `restart_required` / `enable_failed`；`errors` 给出设备位置、失败阶段，并读一次该设备故障码查表 |
+| 已使能但运动控制器未激活 / 硬件组件未激活 | false | `controller_inactive` / `hardware_inactive` |
+| 已使能、控制器与硬件激活 | true（HEALTHY） | — |
+
+自检也可随时触发：服务 `/rt_control/self_check`（`std_srvs/Trigger`）用最新一组状态重跑阶段 B 规则并覆盖报告（`stage: on_demand`）。
+
+故障原因的证据（触发前 10 s、后 2 s 的 1 kHz 数据、时间线、内核日志）由 Runtime-LOG 负责；诊断节点在 readiness 变化时打印 `RT_READINESS ready=… status=… blockers=…`，供 Runtime-LOG 作为时间线事件。产品不依赖 Runtime-LOG。
 
 ### 5.4 输出
 
@@ -151,7 +165,7 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
   | `detail` | 厂家原始码与说明、出处 | `0x603F=0x2214 电机电流过流（ZeroErr §7.2.2 p120）` |
   | `retryable` | 由 DREE 的 R 位决定 | false |
 
-  `blockers` 用稳定标记：`self_check_failed`、`device_fault`、`bus_offline`。
+  `blockers` 用 §5.3 表中的稳定标记。
 - 本次运行目录写 `self_check.json`（阶段 A 与 B 的全部结果），供审计与 Runtime-LOG 归档。
 - `/diagnostics`（R-OUT-10）不变，各控制器照旧发布。
 
