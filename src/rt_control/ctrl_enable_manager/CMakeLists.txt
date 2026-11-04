@@ -10,6 +10,7 @@ find_package(control_msgs REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(controller_manager_msgs REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -38,6 +39,7 @@ ament_target_dependencies(enable_manager_controller
   controller_interface
   controller_manager_msgs
   diagnostic_msgs
+  diagnostic_updater
   infra_shm_ring
   pluginlib
   rclcpp

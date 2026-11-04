@@ -8,7 +8,9 @@
 #include <stdexcept>
 #include "pluginlib/class_list_macros.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
+#include "diagnostic_updater/diagnostic_status_wrapper.hpp"
 #include "hw_semantic_components/cia402_axis.hpp"
+#include "hw_semantic_components/feedback_age.hpp"
 
 namespace ctrl_swerve
 {
@@ -534,8 +536,8 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
 ModuleFeedbackArray SwerveController::read_feedback() const
 {
   ModuleFeedbackArray result{};
-  auto recent = [this](double age) {
-    return std::isfinite(age) && age >= 0.0 && age * 0.001 <= feedback_timeout_;
+  auto recent = [this](double age_ms) {
+    return hw_semantic_components::feedback_fresh(age_ms, feedback_timeout_ * 1000.0);
   };
   const bool bus_fresh = recent(states_[36]->get_value());
   for (size_t i = 0; i < 4; ++i) {
@@ -863,7 +865,7 @@ void SwerveController::publish_diagnostics()
   }
   diagnostic_msgs::msg::DiagnosticArray message;
   message.header.stamp = get_node()->now();
-  diagnostic_msgs::msg::DiagnosticStatus item;
+  diagnostic_updater::DiagnosticStatusWrapper item;
   const auto status = status_.load();
   const auto slipping_mask = slipping_mask_.load();
   const bool slip_detected{slipping_mask != 0U};
@@ -901,41 +903,30 @@ void SwerveController::publish_diagnostics()
         modules += "non_finite,";
       }
     }
-    diagnostic_msgs::msg::KeyValue latched;
-    latched.key = "latched_fault";
-    latched.value = code < 0 ? "unknown" : status_name(static_cast<ControlStatus>(code));
-    item.values.push_back(latched);
-    diagnostic_msgs::msg::KeyValue detail;
-    detail.key = "latched_fault_modules";
-    detail.value = modules.empty() ? "none" : modules;
-    item.values.push_back(detail);
-    diagnostic_msgs::msg::KeyValue difference;
-    difference.key = "latched_fault_max_encoder_difference_mdeg";
-    difference.value = std::to_string(fault_max_difference_mdeg_.load());
-    item.values.push_back(difference);
-    diagnostic_msgs::msg::KeyValue deviation;
-    deviation.key = "latched_fault_target_deviation_mdeg";
-    deviation.value = "module_" + std::to_string(fault_target_module_.load()) + ":" +
-                      std::to_string(fault_target_deviation_mdeg_.load());
-    item.values.push_back(deviation);
+    item.add(
+      "latched_fault",
+      std::string(code < 0 ? "unknown" : status_name(static_cast<ControlStatus>(code))));
+    item.add("latched_fault_modules", modules.empty() ? std::string("none") : modules);
+    item.add(
+      "latched_fault_max_encoder_difference_mdeg",
+      std::to_string(fault_max_difference_mdeg_.load()));
+    item.add(
+      "latched_fault_target_deviation_mdeg", "module_" +
+                                               std::to_string(fault_target_module_.load()) + ":" +
+                                               std::to_string(fault_target_deviation_mdeg_.load()));
   }
-  diagnostic_msgs::msg::KeyValue slip_value;
-  slip_value.key = "slip_detected";
-  slip_value.value = slip_detected ? "true" : "false";
-  item.values.push_back(std::move(slip_value));
-  diagnostic_msgs::msg::KeyValue modules_value;
-  modules_value.key = "slipping_modules";
+  item.add("slip_detected", std::string(slip_detected ? "true" : "false"));
+  std::string slipping;
   constexpr std::array<const char *, 4> module_names{"FL", "FR", "RL", "RR"};
   for (size_t i = 0; i < module_names.size(); ++i) {
     if ((slipping_mask & (1U << i)) != 0U) {
-      if (!modules_value.value.empty()) {
-        modules_value.value += ',';
+      if (!slipping.empty()) {
+        slipping += ',';
       }
-      modules_value.value += module_names[i];
+      slipping += module_names[i];
     }
   }
-  modules_value.value = modules_value.value.empty() ? "none" : modules_value.value;
-  item.values.push_back(std::move(modules_value));
+  item.add("slipping_modules", slipping.empty() ? std::string("none") : slipping);
   message.status.push_back(std::move(item));
   diagnostic_publisher_->publish(message);
 }

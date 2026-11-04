@@ -9,6 +9,7 @@ set(dependencies
   control_msgs
   controller_interface
   diagnostic_msgs
+  diagnostic_updater
   geometry_msgs
   hardware_interface
   pluginlib

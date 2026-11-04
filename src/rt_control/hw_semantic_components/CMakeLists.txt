@@ -49,6 +49,10 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_cia402_python test/test_cia402_python.py
     APPEND_ENV PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR})
 
+  ament_add_gtest(test_feedback_age test/test_feedback_age.cpp)
+  target_compile_features(test_feedback_age PUBLIC cxx_std_17)
+  target_include_directories(test_feedback_age PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
   ament_add_gtest(test_force_torque_sensor
     test/test_force_torque_sensor.cpp
   )

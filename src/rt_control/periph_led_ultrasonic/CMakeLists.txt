@@ -5,6 +5,7 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 find_package(infra_modbus REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
@@ -38,7 +39,7 @@ target_link_libraries(ultrasonic_node modbus_transport ultrasonic_ros_conversion
 target_compile_features(ultrasonic_node PUBLIC cxx_std_17)
 target_compile_options(ultrasonic_node PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 ament_target_dependencies(
-  ultrasonic_node diagnostic_msgs infra_modbus rclcpp robot_interfaces_qos
+  ultrasonic_node diagnostic_msgs diagnostic_updater infra_modbus rclcpp robot_interfaces_qos
   robot_rt_control_interfaces robot_system_interfaces sensor_msgs std_msgs
   unique_identifier_msgs)
 
