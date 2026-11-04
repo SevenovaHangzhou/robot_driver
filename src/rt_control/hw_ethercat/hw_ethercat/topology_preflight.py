@@ -7,6 +7,8 @@ problem ends the scan because later reads would be meaningless.
 import re
 import subprocess
 
+from hw_semantic_components.cia402 import FAULT_BIT, decode_state
+
 
 def _finding(address, problem, detail, **extra):
     return {"address": address, "problem": problem, "detail": detail, "blocking": True, **extra}
@@ -107,7 +109,8 @@ def preflight(expected_topology, *, run=None):
             )
 
         status, error = value(0x6041), value(0x603F)
-        if status & 0x6F == 0x27 or value(0x6040) != 0:
+        state = decode_state(status)
+        if state == "operation_enabled" or value(0x6040) != 0:
             findings.append(_finding(address, "already_controlled", "Axis is already controlled"))
             continue
         # A Fault is accepted only with a declared startup code (e.g. 0xA000 after the master
@@ -120,7 +123,7 @@ def preflight(expected_topology, *, run=None):
                     "fault_code": error,
                 }
             )
-        elif status & 8:
+        elif status & FAULT_BIT:
             findings.append(
                 _finding(
                     address,
