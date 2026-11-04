@@ -152,7 +152,7 @@ cases:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
       controllers.yaml: 4474e364b0b74563603d177b9e2a78e768250c797c1b9fbfd3c6961882f858df
       robot_description.xml: af48c53f6477afb4b4ace588aebb081e0b25535f1311b831e3b547e310c13008
-      runtime/lifecycle.yaml: 3a968262699209ecd02173e9c2ec125bead1e5f039fc456cf280c61a7995fe28
+      runtime/lifecycle.yaml: 95270b2dc7009289eb36228633f146c44375c7151689cfecac8ed0b702756269
   head-real:
     use_mock_hardware: false
     sync_mode: ''
@@ -161,7 +161,7 @@ cases:
       controller_order.yaml: 8ac3012ccfebc6f9080800d94b0337fe7afcfd468dd06fae782a074a04d7cfd6
       controllers.yaml: 4474e364b0b74563603d177b9e2a78e768250c797c1b9fbfd3c6961882f858df
       robot_description.xml: c0f49e658a34775757d143c6ae210758a947cbf2da7b2974014fd23eba8a927e
-      runtime/lifecycle.yaml: 5a4c47162d7bae080e6e329caa46aec4446b524d4f8eaa8bd794ed84e31e5918
+      runtime/lifecycle.yaml: 70fde3c7c3ed6eca0a0e29cf43787519562b254599d9f7c0bad70b0d3e64cade
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
@@ -436,3 +436,9 @@ arch-rt-endpoint-names:
   - head-real
   - force-mock
   - force-real
+arch-head-move-action:
+  reason: 头部能力改为 R-IN-16 head_move（/rt/head/move，MoveHead），由 integ_head_move 提供
+  method: arch-head-golden2.py 按测试夹具重算
+  cases:
+  - head-mock
+  - head-real

@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+import sys
+
+from integ_head_move.node import main
+
+sys.exit(main())

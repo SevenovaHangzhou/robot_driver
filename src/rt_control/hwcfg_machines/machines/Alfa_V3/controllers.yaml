@@ -286,9 +286,10 @@ controllers:
     tags:
     - enable_companion
     capabilities:
-    - name: head_position
-      topic: /head_position_controller/commands
-      type: std_msgs/msg/Float64MultiArray
+    # R-IN-16, served by integ_head_move over this controller's command topic.
+    - name: head_move
+      topic: /rt/head/move
+      type: robot_rt_control_interfaces/action/MoveHead
     parameters:
     - yaml:
         package: hwcfg_machines

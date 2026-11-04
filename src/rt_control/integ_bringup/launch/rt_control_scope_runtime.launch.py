@@ -175,9 +175,23 @@ def setup(context):
         if (runtime / "diagnostics.yaml").is_file()
         else []
     )
+    # R-IN-16 head action, present when the scope declares the head_move capability.
+    head_move = (
+        [
+            Node(
+                package="integ_head_move",
+                executable="integ_head_move",
+                parameters=[{"generated_dir": generated_dir}],
+                output="both",
+            )
+        ]
+        if any(item["name"] == "head_move" for item in build.lifecycle.get("capabilities", []))
+        else []
+    )
     return [
         *robot_state,
         *diagnostics,
+        *head_move,
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,
