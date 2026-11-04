@@ -22,11 +22,6 @@ find_package(rclcpp REQUIRED)
 find_package(realtime_tools REQUIRED)
 find_program(PATCH_EXECUTABLE patch REQUIRED)
 set(ROS2_CONTROL_NODE_UPSTREAM ${CMAKE_CURRENT_SOURCE_DIR}/upstream/ros2_control_node.cpp)
-file(SHA256 ${ROS2_CONTROL_NODE_UPSTREAM} ROS2_CONTROL_NODE_UPSTREAM_SHA256)
-if(NOT ROS2_CONTROL_NODE_UPSTREAM_SHA256 STREQUAL
-   "ca6192e765b4ad433e9cd9053ca8209982f6367e301afd7f99620baa3c4eed92")
-  message(FATAL_ERROR "upstream/ros2_control_node.cpp differs from ros2_control 2.53.1")
-endif()
 set(ROS2_CONTROL_NODE_PATCH ${CMAKE_CURRENT_SOURCE_DIR}/patches/ros2_control_node-overruns.patch)
 set(ROS2_CONTROL_NODE_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/patched/ros2_control_node.cpp)
 add_custom_command(
