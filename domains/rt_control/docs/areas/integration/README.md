@@ -2,7 +2,7 @@
 
 **范围**：启动组合、接口适配与诊断。本区对应一个同名职责agent。
 
-**Owner路径**：rt_control_bringup其余部分；control_api_adapter（vacuum_adapter除外）；src/interfaces/**；rt_diagnostics。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：rt_control_bringup其余部分；control_api_adapter（vacuum_adapter除外）；src/interfaces/**；rt_diagnostics；runtime_log_recorder（状态接口到共享内存的被动记录插件）。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：config/machines及alfa_v3.yaml归hw-config；vacuum_adapter及其专属测试归peripheral-control；控制器实现归其控制区。
 
@@ -14,6 +14,10 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
+| integration-20261029-08#F1 | 作业四轮显式允许CSV/CSP，启动仍固定CSV；交接成功继续依赖控制器四轮反馈及ACK | [作业切换监控修复](records/2026-10-29-chassis-operation-zero.md) | PARTIAL（515结果通过；实机连续两轮零位移成功，非零运动未验） |
+| integration-20261029-07#F1 | 初始NAV轮速零确认与CSV/CSP全轮系静止交接分开，原始反馈按有限范围和持续时间判断；不恢复旧指令 | [导航启动及作业静止范围](records/2026-10-29-chassis-steering-startup.md) | PARTIAL（T3 NAV零速度20秒通过；作业运动未验） |
+| integration-20261029-06#F1–F2 | 实机启动通过，使能后实时更新故障；NAV未就绪，OP和零位移未执行，不能外推T1结果 | [实机零指令检查](records/2026-10-29-chassis-real-zero-check.md) | PARTIAL（T3 检查失败，故障未使能） |
+| integration-20261029-05#F1–F3 | 网页配置单个相对位移任务，控制器限制回读和实际准入；停止/释放/断网请求取消，NAV启动不变 | [网页作业位移](records/2026-10-29-web-operation-motion.md) | PARTIAL（T1 无设备；实机运动待验） |
 | contract/02#F1 | vendored 权威 RT-Control 视图固定 /joint_states=125 Hz | [contract-20260814-01](../contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F1 | 有效 |
 | contract/02#F2 | src/interfaces 只保留域内私有接口，公共 schema 从 vendor 构建 | [contract-20260814-01](../contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F2 | 有效 |
 | contract/02#F3 | 跨域 Topic 使用 robot_interfaces_qos 命名 profile | [contract-20260814-01](../contract/records/2026-08-14-robot-interfaces-vendoring-and-qos.md)#F3 | 有效 |
@@ -44,8 +48,18 @@
 | integration-20261015-01#F1–F4 | 底盘事实公共绑定、头部名称注入与力传感器私有结构隔离 | [ELECTRI-183 公共参数绑定](records/2026-10-15-electri-183-public-bindings.md) | UNVERIFIED（T0 定向测试；运行与实机未验） |
 
 | integration-20261015-02#F1–F4 | 控制器参数声明化；部署时生成、启动只校验；EtherCAT 设备族注册表与主站 profile | [ELECTRI-184 声明式组合与生成物](records/2026-10-15-electri-184-declarative-composer-artifacts.md) | UNVERIFIED（T0 定向测试；部署/实机未验） |
+| integration-20261020-01#F1–F2 | 研华 V3 底盘启动须先确认 EtherCAT 8 从站在线；网页为独立临时服务 | [底盘现场启动 README](records/2026-10-20-v3-chassis-start-readme.md) | PARTIAL（既有现场启动日志与 HTTP 200；本次仅文档静态检查） |
+
+| integration-20261029-03#F1–F3 | 单机作业显式启用，NAV启动不变；四驱动真实交接ACK、已有接收IMU和导航单位换算保持准入条件，估计限制须实机验收 | [作业运行配置](records/2026-10-29-chassis-operation-runtime.md) | PARTIAL（T1 无设备；实机切换/运动待验） |
+| integration-20261029-04#F1–F3 | 初次CSV零速确认有界等待反馈；年龄反推时刻保留原值、序号仍验顺序；准入拒绝保持inactive，运行故障仍走owner失能 | [使能启动修复](records/2026-10-29-chassis-enable-startup.md) | PARTIAL（T1 回归与归档反馈离线重放；实机重载/使能待验） |
 
 ## 跨区事实关联
+
+- [网页作业位移](records/2026-10-29-web-operation-motion.md)：配置运动、限制回读、实际反馈和取消；T1 无设备端到端通过，实机运动待验。
+
+- [使能启动与重试修复](records/2026-10-29-chassis-enable-startup.md)：启动零速确认有界等待PDO、年龄估计抖动处理、激活拒绝保持inactive；保留运行故障保护与owner失能链路，现场重载/使能待验。
+- [复用导航配置接通作业运行](records/2026-10-29-chassis-operation-runtime.md)：显式单机部署、四驱动切换、实际 IMU 及正式产物接通；构建/离线联合测试通过，实机切换和低速运动待验。
+- [操作站导航/作业切换](records/2026-10-29-operator-chassis-mode.md)：已有私有服务回读确认、速度入口互斥与未配置拒绝；无设备验证通过，实机作业准入待验。
 
 | 当前来源坐标 | 事实 | 原始记录 | 验证状态 |
 | --- | --- | --- | --- |

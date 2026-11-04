@@ -14,6 +14,7 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
+| integration-20261029-08#F1 | 四轮运行期CSV/CSP白名单不放宽启动CSV；驱动失能清除旧CSV速度并重置等待新指令 | [作业切换及重复使能](../integration/records/2026-10-29-chassis-operation-zero.md) | PARTIAL（重复使能及零位移连续两轮实机通过） |
 | canopen-chassis/F3 | 三代机四路舵角 provider 复用 Lely/ros2_canopen 主站，导出 position/feedback_age_ms 且无 command interface；硬件 profile 保持 draft/TBD | [CANopen 舵角 provider](../canopen-chassis/records/2026-09-16-swerve-encoder-state-provider.md)#F1-F4 | PARTIAL（T1 单元/Mock；EDS、总线与实机待验） |
 | ecat-axes/X503-PREOP-1 | 两侧单位/小数位每次初始化只在 PREOP 读取一次，OP 用本次快照与 PDO；离开 OP 或断链后快照失效。主站拒绝非 PREOP CoE 请求。 | [ecat-axes-20260912-01](../ecat-axes/records/2026-09-12-x503-preop-snapshot.md)#F1-F4 | PASS（T3不使能；PDI固件根因、长期/运动未闭环） |
 | ecat-axes/TI5-PDO-1 | 四份Ti5 profile保留已校验PDO，失败在外层终止；三轮映射abort为0，PDO阶段由4.224秒降至约3.454秒，最终新配置保留、14轴失能无故障位。 | [ecat-axes-20260909-03](../ecat-axes/records/2026-09-09-electri-97-ti5-preserved-pdo.md)#F1-F4 | PASS（T3失能启动；DC/长期/运动未闭环） |

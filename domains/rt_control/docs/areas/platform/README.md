@@ -14,6 +14,7 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
+| platform-20261029-01#F1–F3 | Runtime-LOG 归档/网页工具归入 tools/runtime_log；ROS 记录插件归入 src/rt_control/runtime_log_recorder；服务、归档和 chassis 联动保持既有名称 | [日志站源码迁移](records/2026-10-29-runtime-log-migration.md) | PARTIAL（119 项 Python 测试、4 项 ROS 测试及网页验证通过；总门禁有既存阻断） |
 | contract/03#F3 | 全部生产/消费域必须锁定同一接口 SHA 原子升级 | [contract-20260816-01](../contract/records/2026-08-16-bq137-shared-error-readiness.md)#F3 | 有效 |
 | contract/04#F3 | 最终 SHA 回填不解除各域同 SHA 原子升级与跨域 smoke 门禁 | [contract-20260817-01](../contract/records/2026-08-17-robot-interfaces-final-main-pin.md)#F3 | 有效 |
 | contract/05#F1 | Native 完整构建必须安装并验证 QoS 五 profile 运行闭包 | [contract-20260817-02](../contract/records/2026-08-17-native-qos-runtime-closure.md)#F1 | 有效 |
@@ -53,3 +54,15 @@
 直接调用 Dockerfile 时也必须提供 `PYTHON3_JSONSCHEMA_VERSION` build-arg；旧的
 Compose build 没有该参数时会被构建断言拒绝，应改用此包装器完成镜像封装。
 本任务没有执行镜像构建或启动生产容器。
+
+- 2026-10-30 [chassis start CAN binding fix](records/platform-20261030-01.md): serial-based binding before chassis bitrate configuration; six regression tests and disabled real startup PASS; no enable/motion.
+
+## Runtime-LOG archive fix (2026-11-03)
+
+- [platform-20261103-01#F1-F3](records/platform-20261103-01.md): retain two segment-reader threads; exclusive archive directories; report failed windows without stopping sampling; normalize only corroborated unsigned counter underflow. PARTIAL: existing SHM stress-count test and activation latency remain open.
+
+- [platform-20261103-02#F1-F3](records/platform-20261103-02.md): continuous names show sums of absolute x/y/yaw increments in segment-start coordinates; valid wheel-odometry intervals only; bounded background summaries and source-versioned cache preserve archive URLs.
+
+### 2026-11-04 上传前修复
+
+- [platform-20261104-01](records/platform-20261104-01.md)：适配器释放顺序与 SHM 过载读者；冻结事实 F1–F3，实机准入不变。

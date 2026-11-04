@@ -1,5 +1,17 @@
 # rt-control implementation progress
 
+| 2026-10-29 | integration | [作业切换固定CSV监控修复与零位移](docs/areas/integration/records/2026-10-29-chassis-operation-zero.md) | PARTIAL：定位正常CSV→CSP被固定模式监控快停；新增四轮白名单且启动仍严格CSV，515结果与质量门禁通过；修复重复使能状态清理，同一实机进程连续两轮零位移成功，结束IDLE失能 |
+
+| 2026-10-29 | integration | [导航CSV启动与作业静止范围](docs/areas/integration/records/2026-10-29-chassis-steering-startup.md) | PARTIAL：初始NAV轮速零确认与CSV/CSP全轮系静止交接分开；采用用户要求的有限容差；244控制测试及6配置测试通过；实机NAV持续20秒/396次零速度通过，结束正常失能IDLE，作业运动未验 |
+
+| 2026-10-29 | integration | [实机零指令检查](docs/areas/integration/records/2026-10-29-chassis-real-zero-check.md) | PARTIAL：授权启动成功，使能返回成功后实时更新故障并失能；NAV未就绪，OP/零位移未执行；现场FAILED且未使能，需继续定位 |
+
+| 2026-10-29 | integration | [网页作业位移配置与执行](docs/areas/integration/records/2026-10-29-web-operation-motion.md) | PARTIAL：网页表单、真实Action接入、限幅和取消；179 Python测试/187 colcon结果及隔离ROS无设备联调通过；默认NAV，无自动使能或任务，实机运动待用户验收 |
+
+| 2026-10-29 | integration | [修复首次使能及重试失败](docs/areas/integration/records/2026-10-29-chassis-enable-startup.md) | PARTIAL：启动零速确认容纳有界PDO缺失、保留年龄估计并消除微抖动误判、激活拒绝保持inactive；两包239结果及质量门禁通过，已安装，实机重载/使能待用户验证 |
+| 2026-10-29 | integration | [复用导航配置接通作业运行](docs/areas/integration/records/2026-10-29-chassis-operation-runtime.md) | PARTIAL：六包构建、773 colcon结果及质量门禁通过；正式启动产物已更新；首次实机使能暴露启动瞬态问题，后续修复见 integration-20261029-04 |
+| 2026-10-29 | integration | [操作站导航/作业模式切换](docs/areas/integration/records/2026-10-29-operator-chassis-mode.md) | PARTIAL：网页接口、包构建/测试及隔离 ROS 无设备往返切换通过；后续配置接通见 integration-20261029-03，现场切换待验证 |
+
 | 2026-10-07 | motion | [安装舵轮减速比与换算边界](docs/areas/motion/records/2026-10-07-swerve-installed-ratios.md) | PARTIAL：机械比更新为27.48/140；运行raw/SI比例缺反馈单位和电子齿轮事实，未写设备 |
 
 | 2026-09-24 | release-deploy | [旧履带运行链退役](docs/areas/release-deploy/records/2026-09-24-retire-track-runtime.md) | UNVERIFIED（T0；quality gate 207、V3 Python 98、共享 CANopen 补丁隔离 9 包/150 测试、Docker 39 包及无设备静态 validation 通过；实机/Mock 生命周期待验，V3 CAN 身份 TBD） |
@@ -251,3 +263,23 @@
 | 2026-10-15 | integration | [ELECTRI-183 公共参数绑定与跨层耦合修复](docs/areas/integration/records/2026-10-15-electri-183-public-bindings.md) | UNVERIFIED（T0；定向组合测试与头部接口测试通过，运行/实机未验） |
 | 2026-10-14 | platform | [四层源码合并证据与观察起点](docs/areas/platform/records/2026-10-14-composer-merged-evidence.md) | PARTIAL（main c220e5e；完整CI41包/2107 tests无失败；后续20PR观察起点已登记，T1/实机缺口保留） |
 | 2026-10-14 | arm-control | [显式手臂策略](docs/areas/arm-control/records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；数值/顺序/金样对齐；包络未实测） |
+| 2026-10-20 | integration | [研华 V3 底盘与网页现场启动 README](docs/areas/integration/records/2026-10-20-v3-chassis-start-readme.md) | PARTIAL（沿用当日实机启动日志与网页 HTTP 200；本次仅文档静态检查，未重新启停硬件） |
+| 2026-10-21 | peripheral-control | [双电池PLC继电器服务与中文状态故障](docs/areas/peripheral-control/records/2026-10-21-bms-plc-relay-and-chinese-status.md) | PARTIAL（T1 Mock；BMS只读、PLC确认回读服务、中文状态/故障；36项两包测试与16项集成检查通过，DO地址及实机待验） |
+
+- 2026-10-25：ELECTRI-127 研华导航反馈增量部署、保留对齐默认；详见 docs/areas/chassis-control/records/chassis-control-20261025-01.md，运动未验收。
+
+| 2026-10-29 | platform | [Runtime-LOG 归入 robot_driver 并保持部署行为](docs/areas/platform/records/2026-10-29-runtime-log-migration.md) | PARTIAL（119 项 Python、4 项 ROS 测试与网页验证通过；总门禁存在既有 lpms_nav3_can 阻断；未启动底盘） |
+
+- 2026-10-29 chassis-control：[指令取时竞态与单周期停轮诊断](docs/areas/chassis-control/records/chassis-control-20261029-99.md)。公共机局部增量部署，保留多人改动；未执行运动验收。
+
+- 2026-10-29 chassis-control：[作业模式连续换向误报修复](docs/areas/chassis-control/records/chassis-control-20261029-02.md)。349 tests与质量门禁通过；实机同一OP会话内前进0.3m→左移0.3m→逆时针10°均成功、故障码0、最终正常失能；横移偏航和定位精度仍待单独验收。未提交或推送。
+
+- 2026-10-30 platform: [chassis start CAN identity fix](docs/areas/platform/records/platform-20261030-01.md). Rebound swapped USB-CAN identities, preserved startup identity validation; six regression tests, quality gate and real disabled startup PASS. No enable/motion, commit or push.
+
+- 2026-11-02 chassis-control: [Restore previous steering baseline](docs/areas/chassis-control/records/chassis-control-20261102-02.md). User-requested source and deployment rollback, original four-entry steering TxPDO restored; builds/tests pass. Drive 4 motor-configuration alarm remains; runtime stopped, no motion retest, commit or push.
+
+| 2026-11-03 | platform | [Runtime-LOG dual-reader archive isolation](docs/areas/platform/records/platform-20261103-01.md) | PARTIAL: 130 tests passed; existing SHM stress-count failure reproduced before patch; quality PASS; two live MCAP archives decoded; no motion |
+
+| 2026-11-03 | platform | [Continuous recording absolute-movement names](docs/areas/platform/records/platform-20261103-02.md) | PARTIAL: 138 tests passed, existing SHM stress case deselected; quality PASS; old recording list/detail HTTP 200 and unchanged URLs |
+
+| 2026-11-04 | platform | [V3 上传前退出竞态与共享内存读者修复](docs/areas/platform/records/platform-20261104-01.md) | PARTIAL：25 包构建、1483 ROS 结果零失败、139 日志测试与固定工具格式检查通过；真实硬件未重验 |
