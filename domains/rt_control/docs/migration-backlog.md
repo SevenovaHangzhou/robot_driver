@@ -39,7 +39,7 @@
 | [x] | B | `semantic_components` 混入 `runtime_log_shm_ring`（infra）和 `head_phase`（用户 2026-10-30 修正：`head_phase` 是握手式使能设备的通用阶段语义，改名 `HandshakePhase` 留在本包；`runtime_log_shm_ring` 按 §3 例外移入 `infra_shm_ring`；#120、#121 完成） | 1.1、1.3 |
 | [x] | C | 四个控制器包共同重复骨架（见 §5a 末；用户 2026-10-31 裁定不建 `infra_rt_utils`） | 3 |
 | [x] | C | `rt_disable_once` 与 `head_disable_once` 同一件事两种写法（#110 头部并入 enable_manager、#111 删除 `rt_disable_once`，两者均已不存在） | 3 |
-| [ ] | C | `rt_control_bringup/ros2_control_node.cpp` fork 上游 main | 3、§6 窄补丁 |
+| [x] | C | `rt_control_bringup/ros2_control_node.cpp` fork 上游 main（改为 `integ_bringup/upstream/` 原样上游 2.53.1 + 构建时应用的窄补丁，代码与原拷贝逐 token 相同） | 3、§6 窄补丁 |
 | [x] | D | `composer.compose()` 单函数 300 行（arch-d1：拆为加载校验→模型骨架→模块渲染→挂接硬件系统→控制器参数→输出与 lifecycle；1404 个组合输出逐字节不变） | 4.3 |
 | [x] | D | `swerve_controller.cpp` 1042 行；`relative_move` 与控制器同包；mock 在 `src/`（arch-b1：用户 2026-10-30 裁定删除整个 relative 扩展——relative_move、ChassisRuntime、chassis_mode_handoff 与 6 个 IDL；`swerve_controller.cpp` 降至 893 行，mock 随之删除） | 3 硬指标、1.4、4.6 |
 
@@ -68,7 +68,7 @@
 | [x] | `plc_io_modbus` | periph | 保留 | `periph_plc_io` | （arch-r1 已改名，传输层已下沉 infra）健康。Modbus 客户端下沉 infra。 |
 | [x] | `plc_node` | periph | **删** | — | 与 `plc_io_modbus` 重复，Python 版，无生产入口。 |
 | [x] | `rt_control_composer` | integration | 保留 | `integ_composer` | （#133 去反向引用、#136 拆 compose、arch-r5 已改名）纯函数 + schema 齐全，结构好。`compose()` 单函数 300 行拆为加载→校验→渲染→绑定→输出五段。测试反向 import bringup 要改。 |
-| [ ] | `rt_control_bringup` | integration | 瘦身 | `integ_bringup` | （旧 launch、多入口、rt_io.yaml/joint_limits.yaml 已删；arch-r5 已改名；剩余：`ros2_control_node.cpp` fork）5 个旧 launch 删，只留 `scope_runtime`；`rt_control_start` 6 个 `--xxx` 收敛为 `--scope`；`ros2_control_node.cpp` 是上游 fork（188 行）→ 改补丁或论证；`rt_io.yaml`、`joint_limits.yaml` 只被 draft 入口用。 |
+| [x] | `rt_control_bringup` | integration | 瘦身 | `integ_bringup` | （旧 launch、多入口、rt_io.yaml/joint_limits.yaml 已删；arch-r5 已改名；`ros2_control_node.cpp` 改为上游原样 + 窄补丁）5 个旧 launch 删，只留 `scope_runtime`；`rt_control_start` 6 个 `--xxx` 收敛为 `--scope`；`ros2_control_node.cpp` 是上游 fork（188 行）→ 改补丁或论证；`rt_io.yaml`、`joint_limits.yaml` 只被 draft 入口用。 |
 | [x] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；arch-r5 已改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
 | [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；按设计稿 [operator-web-and-diagnostics-design.md](operator-web-and-diagnostics-design.md) 重写：#156 设备清单、#157 阶段 A、arch-g3 `integ_diagnostics` 节点；剩余：其余协议包接入、网页诊断页）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
 | [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | （设计稿 [operator-web-and-diagnostics-design.md](operator-web-and-diagnostics-design.md)；arch-w1 第 1 步：底盘页迁入 `integ_operator_web` + 会话/审计核心；arch-w2 第 2 步：手臂页迁入、`rt_control_arm_console` 删除；arch-w3 第 3 步：只读诊断页；剩余：台架启动脚本同步）两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
