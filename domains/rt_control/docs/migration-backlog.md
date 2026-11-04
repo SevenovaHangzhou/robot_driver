@@ -30,7 +30,7 @@
 | [x] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个（arch-f1：两个一次性历史生成脚本删除——它们读取的是 `source_commit` 旧检出的 bringup；补齐 `robot_hw_can`、`robot_hw_canopen` 测试依赖） | 1.3 |
 | [x] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除（arch-cleanup：已删除） | 1.4、1.2 |
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |
-| [ ] | F | `robot_description` 内多份展开 `.urdf` 与多套 `joint_limits_*`/`named_poses_*` 变体并存 | 1.1、4.5 |
+| [x] | F | `robot_description` 内多份展开 `.urdf` 与多套 `joint_limits_*`/`named_poses_*` 变体并存（2026-11-03 核对：上游 main 只剩 `urdf/robot_alfav3_mobile.urdf`、`config/joint_limits_alfav3_mobile.yaml`、`config/alfav3_mobile_manifest.json` 各一份，无 `named_poses_*`） | 1.1、4.5 |
 | [x] | 6 重复校验 | `load_artifact` 运行时重新 compose 比对每个文件（arch-b5：用户 2026-10-30 裁定删除；artifact 自带运行时参数键与 preflight 拓扑，启动只校验哈希） | 1.6 |
 | [x] | 6 | `rolling_trajectory_controller` 运行时用 OpenSSL 算 envelope SHA（arch-c6：用户 2026-10-31 裁定方案 A，`limits_version` 与 `axis_set_hash` 由 composer 计算并传入，控制器去 OpenSSL；#152 已合入） | 1.6 |
 | [x] | A | `rt_diagnostics` 无生产入口且含二代履带诊断（arch-b3：用户 2026-10-30 裁定先删除旧实现，重写待需求明确后另做） | 1.4 |
@@ -49,8 +49,8 @@
 
 | 完成 | 现名 | 层 | 处置 | 新名 | 审查结论 |
 | --- | --- | --- | --- | --- | --- |
-| [ ] | `robot_description` | 共享 | 保留 | 不改 | 构建副本内有 4 份展开 `.urdf`、4 套 `joint_limits_*`、3 套 `named_poses_*`、5 个 `*_manifest.json`；生成物不入库，本仓库只留一个 pin。 |
-| [ ] | `rt_control_interfaces` | 共享 | 保留 | 不改 | 健康。9 个 IDL 均为 V3 在用。 |
+| [x] | `robot_description` | 共享 | 保留 | 不改 | 构建副本内有 4 份展开 `.urdf`、4 套 `joint_limits_*`、3 套 `named_poses_*`、5 个 `*_manifest.json`；生成物不入库，本仓库只留一个 pin。 |
+| [x] | `rt_control_interfaces` | 共享 | 保留 | 不改 | 健康。9 个 IDL 均为 V3 在用。 |
 | [x] | `rt_control_machine_config` | hw_config | 保留 | `hwcfg_machines` | （arch-r4 已改名；arch-d2 manifest 已拆分）结构对；114 处 draft/TBD/verified:false；`manifest.yaml` 736 行按 module 拆文件，manifest 只留索引。 |
 | [x] | `robot_hw_ethercat` | protocol | 先删后改名 | `hw_ethercat` | （二代残留已删；x503 已删；arch-r3 已改名；#148 renderer 骨架已抽 infra）最杂：二代残留（xacro、`variants/`、`config/slaves/`、681 行 `validate_ethercat_variants.py`）约占 40%；3 个 renderer 各自复制 `_param`；吸收 `x503_force_sensor` 为 `tools/x503/`。 |
 | [x] | `robot_hw_canopen` | protocol | 保留 | `hw_canopen` | （arch-r3 已改名；arch-d3 EDS 兼容件标注为原件 + diff 派生并由测试校验）健康。EDS `.compat.*` 三件套按 §4.5 标注生成源头。 |
@@ -71,7 +71,7 @@
 | [x] | `rt_control_bringup` | integration | 瘦身 | `integ_bringup` | （旧 launch、多入口、rt_io.yaml/joint_limits.yaml 已删；arch-r5 已改名；`ros2_control_node.cpp` 改为上游原样 + 窄补丁）5 个旧 launch 删，只留 `scope_runtime`；`rt_control_start` 6 个 `--xxx` 收敛为 `--scope`；`ros2_control_node.cpp` 是上游 fork（188 行）→ 改补丁或论证；`rt_io.yaml`、`joint_limits.yaml` 只被 draft 入口用。 |
 | [x] | `control_api_adapter` | integration | 隔离或删 4/5 | `integ_api_adapter` | （arch-b2 已删 4 个；arch-r5 已改名）5 个适配器中 4 个（vacuum 956 行、position_action、module_state、status）只被 draft 入口引用；仅 `control_enable_adapter` 在生产路径。 |
 | [ ] | `rt_diagnostics` | integration | **重做** | `integ_diagnostics` | （arch-b3 已删旧实现；按设计稿 [operator-web-and-diagnostics-design.md](operator-web-and-diagnostics-design.md) 重写：#156 设备清单、#157 阶段 A、arch-g3 `integ_diagnostics` 节点；剩余：其余协议包接入、网页诊断页）无任何生产入口引用；`canopen_native_diagnostic.cpp` 仍解析二代履带 NMT/EMCY。重做为 V3 诊断聚合器：输入为各控制器/硬件的 `/diagnostics` 行，输出按 scope 聚合的就绪/故障摘要；拓扑从 artifact 派生，不维护第二份设备清单；先删现有实现再按 V3 需求重写，不在旧代码上改。 |
-| [ ] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | （设计稿 [operator-web-and-diagnostics-design.md](operator-web-and-diagnostics-design.md)；arch-w1 第 1 步：底盘页迁入 `integ_operator_web` + 会话/审计核心；arch-w2 第 2 步：手臂页迁入、`rt_control_arm_console` 删除；arch-w3 第 3 步：只读诊断页；剩余：台架启动脚本同步）两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
+| [x] | `rt_control_operator_web` + `rt_control_arm_console` | integration | **合并** | `integ_operator_web` | （设计稿 [operator-web-and-diagnostics-design.md](operator-web-and-diagnostics-design.md)；arch-w1 第 1 步：底盘页迁入 `integ_operator_web` + 会话/审计核心；arch-w2 第 2 步：手臂页迁入、`rt_control_arm_console` 删除；arch-w3 第 3 步：只读诊断页；台架启动脚本属台架本地 `tools-local/`、不在仓库，已随部署更新）两套 token/aiohttp/controller_manager 桥接，重复约 1/3。一个服务多个页面。 |
 | [x] | （新增） | infra | 按清单 C 逐个创建 | `infra_socketcan`、`infra_modbus`、`infra_renderer`（`_share/_validate/_param/validate_*` 骨架；arch-c5 已建：`validated_spec`、`xml_param`，`_share` 因测试替换与包专属而保留）、`infra_shm_ring` | 每个库一个 PR，进库条件 ≥ 2 现有调用方。`infra_shm_ring` 已由 #121 建立（§3 例外）。（用户 2026-10-31 裁定：不建 `infra_rt_utils`；CiA402 唯一出口在 `hw_semantic_components`（#146），不另建 `infra_cia402`） |
 
 净效果：24 包 → 删 1（`plc_node`）、合 3 为 1（web×2、head→enable_manager）、并入 1（x503）、重做 1（`rt_diagnostics`）、新增 infra 5–6，最终 25–26 包，每包职责单一。
