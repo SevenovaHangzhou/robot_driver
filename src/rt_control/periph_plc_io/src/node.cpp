@@ -472,6 +472,43 @@ private:
     pressure_publishers_[index]->publish(message);
   }
 
+  // Coil readback of the pump and both valves (DI/DO module); its failure means the outputs
+  // real state is unknown, so it is reported like a sensor.
+  SensorStatus output_status(const builtin_interfaces::msg::Time & stamp)
+  {
+    using ObservationMeta = robot_rt_control_interfaces::msg::ObservationMeta;
+    SensorStatus status;
+    status.sensor_id = "vacuum_outputs";
+    status.module_id = "plc_digital_module";
+    status.data_topic = "/rt/vacuum/pump/set_enabled";
+    uint32_t code = ErrorCode::SUCCESS;
+    std::string message;
+    const bool valid = pump_output_valid_ && left_valve_output_valid_ && right_valve_output_valid_;
+    if (!vacuum_configured_) {
+      status.measurement_state = SensorStatus::MEASUREMENT_NOT_CONFIGURED;
+      code = ErrorCode::NOT_READY;
+      message = "vacuum hardware is not configured";
+    } else if (!valid) {
+      status.measurement_state = SensorStatus::MEASUREMENT_COMMUNICATION_ERROR;
+      code = ErrorCode::RT_PLC_UNAVAILABLE;
+      message = digital_error_;
+    } else {
+      status.measurement_state = SensorStatus::MEASUREMENT_VALID;
+    }
+    status.observation.stamp = stamp;
+    status.observation.time_source = ObservationMeta::TIME_SOURCE_READ_COMPLETE;
+    status.observation.valid = valid;
+    status.observation.source_instance_id = producer_instance_id_;
+    status.observation.sample_sequence = ++pressure_sample_sequence_;
+    fill_error(status.observation.error, code, message, code != ErrorCode::SUCCESS);
+    status.error = status.observation.error;
+    if (code != ErrorCode::SUCCESS) {
+      status.fault_detected_at = stamp;
+      status.fault_detected_time_valid = true;
+    }
+    return status;
+  }
+
   // R-OUT-20 entries for both pressure sensors; each keeps its own read time.
   void publish_sensor_states()
   {
@@ -520,6 +557,7 @@ private:
       }
       array.sensors.push_back(std::move(status));
     }
+    array.sensors.push_back(output_status(array.header.stamp));
     sensor_state_publisher_->publish(array);
   }
 

@@ -149,6 +149,7 @@ hw_*                 preflight 改为返回逐设备结果；故障码表读取�
 | 使能管理器失败锁存 | false | `device_offline` / `device_fault` / `restart_required` / `enable_failed`；`errors` 给出设备位置、失败阶段，并读一次该设备故障码查表 |
 | 使能管理器要求重启（使能中掉线） | false | `restart_required` |
 | 已使能但运动控制器未激活 / 硬件组件未激活 | false | `controller_inactive` / `hardware_inactive` |
+| `/rt/sensors/state` 中某传感器（真空压力、PLC 输出回读、超声、IMU）无效、通信错误或停发持续超过 3 s | 不变 | 无；`errors` 增加 WARN，status 降为 DEGRADED，首个正常状态即恢复（用户 2026-11-04：单次 Modbus 超时自行恢复，不进 readiness） |
 | 已使能、控制器与硬件激活 | true（HEALTHY） | — |
 
 自检也可随时触发：服务 `/rt_control/self_check`（`std_srvs/Trigger`）用最新一组状态重跑阶段 B 规则并覆盖报告（`stage: on_demand`）。

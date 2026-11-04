@@ -2,7 +2,8 @@
 
 The real-time controllers detect and handle faults. This module only answers "may RT-Control
 accept commands now, and if not, why": self-check result, enable_manager state and latched
-failure, motion controllers and hardware components active.
+failure, motion controllers and hardware components active. Sensor problems that outlast the
+watchdog in sensors.py are warnings: they degrade readiness without blocking it.
 """
 
 from integ_composer.self_check import describe_fault
@@ -84,13 +85,15 @@ def _failed_device(enable, devices):
     return _device_with(devices, enable.get("offline_feedback", ""))
 
 
-def domain_readiness(self_check, enable, controllers, hardware, failure=None, offline=None):
+def domain_readiness(
+    self_check, enable, controllers, hardware, failure=None, offline=None, sensors=()
+):
     """DomainReadiness fields.
 
     self_check: {"pending": bool, "entries": [...]}; enable: enable_manager diagnostic values or
     None when stale; controllers/hardware: name -> state, or None while not yet queried;
     failure: (token, entry) from failure_entry() when enable_manager is FAILED;
-    offline: offline_entry() result.
+    offline: offline_entry() result; sensors: SensorWatch.entries() warnings.
     """
     blockers, errors = [], []
     if self_check["pending"]:
@@ -124,6 +127,7 @@ def domain_readiness(self_check, enable, controllers, hardware, failure=None, of
     if state != "ENABLED":
         errors += [entry for entry in self_check["entries"] if not entry["blocking"]]
     errors += [entry for entry in self_check["entries"] if entry["blocking"]]
+    errors += list(sensors)
     blockers = sorted(set(blockers))
     ready = not blockers
     return {

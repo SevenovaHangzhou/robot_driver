@@ -17,6 +17,7 @@ import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 import robot_interfaces_qos
+from robot_rt_control_interfaces.msg import SensorStatusArray
 from robot_system_interfaces.msg import DomainReadiness, ErrorCode, ErrorInfo
 from std_srvs.srv import Trigger
 import yaml
@@ -26,10 +27,12 @@ from integ_composer.self_check import PROBLEM_DREE
 from .domain import DREE_NAMES, domain_readiness, failure_entry, offline_entry, readiness_line
 from .evaluate import complete, evaluate
 from .report import state_directory, write_self_check
+from .sensors import SensorWatch
 
 STATE_TOPIC = "/rt_internal_state_broadcaster/dynamic_joint_states"
 READINESS_TOPIC = "/rt/readiness"
 SELF_CHECK_SERVICE = "/rt/run_self_check"
+SENSORS_TOPIC = "/rt/sensors/state"
 ENABLE_DIAGNOSTIC = "/robot/rt_control/enable_manager"
 # enable_manager publishes its diagnostics at 1 Hz; older values count as unavailable.
 ENABLE_STALE_S = 2.5
@@ -62,6 +65,12 @@ class DiagnosticsNode(Node):
         self._devices = diagnostics["devices"]
         self._tables = diagnostics["fault_tables"]
         self._codes = dree_codes(self._tables, codes)
+        self._code_names = {
+            getattr(codes, name): name
+            for name in dir(codes)
+            if name[:1].isalpha() and name.isupper() and isinstance(getattr(codes, name), int)
+        }
+        self._sensors = SensorWatch()
         self._motion_controllers = lifecycle["motion_controllers"]
         self._hardware_names = [item["name"] for item in lifecycle["hardware"]]
         report = state_directory() / "self_check" / f"{self._scope}.json"
@@ -92,6 +101,9 @@ class DiagnosticsNode(Node):
         )
         self._list_hardware = self.create_client(
             ListHardwareComponents, "/controller_manager/list_hardware_components"
+        )
+        self.create_subscription(
+            SensorStatusArray, SENSORS_TOPIC, self._on_sensors, robot_interfaces_qos.state()
         )
         self.create_service(Trigger, SELF_CHECK_SERVICE, self._on_self_check)
         self.create_timer(1.0, self._tick)
@@ -127,6 +139,23 @@ class DiagnosticsNode(Node):
             f"{len(blocking)} blocking, {len(entries) - len(blocking)} warning; report {path}"
         )
         return response
+
+    def _on_sensors(self, message):
+        now = self._monotonic()
+        for sensor in message.sensors:
+            name = self._code_names.get(sensor.error.code, "RT_SENSOR_INVALID")
+            self._codes.setdefault(name, sensor.error.code)
+            self._sensors.observe(
+                {
+                    "sensor_id": sensor.sensor_id,
+                    "module_id": sensor.module_id,
+                    "state": sensor.measurement_state,
+                    "dree": name,
+                    "message": sensor.error.message,
+                },
+                now,
+            )
+        self._publish()
 
     def _on_diagnostics(self, message):
         for status in message.status:
@@ -173,8 +202,9 @@ class DiagnosticsNode(Node):
         if enable is not None and enable.get("state") == "FAILED":
             failure = failure_entry(enable, self._devices, self._tables, self._values)
         offline = None if enable is None else offline_entry(enable, self._devices)
+        sensors = self._sensors.entries(self._monotonic())
         fields = domain_readiness(
-            self._self_check, enable, self._controllers, self._hardware, failure, offline
+            self._self_check, enable, self._controllers, self._hardware, failure, offline, sensors
         )
         if fields == self._last and not force:
             return
