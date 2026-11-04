@@ -395,3 +395,9 @@ arch-rt-endpoint-names:
   - head-real
   - force-mock
   - force-real
+arch-head-move-action:
+  reason: 头部能力改为 R-IN-16 head_move（/rt/head/move，MoveHead），由 integ_head_move 提供
+  method: arch-head-golden2.py 按测试夹具重算
+  cases:
+  - head-mock
+  - head-real

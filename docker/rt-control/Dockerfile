@@ -213,6 +213,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       canopen_master_driver \
       canopen_ros2_control \
       integ_diagnostics \
+      integ_head_move \
       ethercat_driver \
       ethercat_generic_cia402_drive \
       joint_trajectory_controller \

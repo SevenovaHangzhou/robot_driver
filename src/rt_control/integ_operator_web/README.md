@@ -222,7 +222,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 头部控制嵌入 `/arm`，与机械臂共用一个页面和登录框；旧 `/head` 地址跳转到 `/arm#head-controls`。两区独立显示设备反馈，无机械臂模型时仍能使用头部区。页面保持不自动取得控制权或发送目标。
 
-头部区经 `/ws/head` 推送状态（20 Hz）并接收命令。运行栈需声明能力 `head_position`（`head_only` 等作用域的 `head_position_controller`，话题 `/head_position_controller/commands`，`std_msgs/msg/Float64MultiArray`）；关节顺序取自该控制器的 `joints` 参数，限位取自机器人模型。
+头部区经 `/ws/head` 推送状态（20 Hz）并接收命令。运行栈需声明能力 `head_move`（R-IN-16 `/rt/head/move`，`robot_rt_control_interfaces/action/MoveHead`，由 `integ_head_move` 经 `head_position_controller` 执行）；每个目标发一个 Action 目标，新目标前先取消正在执行的目标（头部原地保持）；关节顺序取自该控制器的 `joints` 参数，限位取自机器人模型。
 
 - 操作：取得/释放控制权、使能/失能（`/rt/enable`、`/rt/disable`）、故障复位（`/rt/reset_fault`）、发送绝对目标位置、停止（以实测位置作为目标原地保持）。
 - 发送目标前在服务端检查：持有控制权、作用域已使能、头部设备已允许运动且无故障锁存、关节反馈不超过 0.2 s、目标在机器人模型限位内侧 2°（`config/head.yaml`）。运动速度由驱动参数（制品中的 `velocity_limit`）限制。
