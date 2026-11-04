@@ -51,6 +51,8 @@ PR 189 的工控机功能分支与 main 的包重命名、共享基础设施和�
   vendor 缓存改为仅按 `deps.repos` 精确命中，不再跨 pin 恢复，缓存命名空间升级以排除旧污染。
 - GitHub 的 ROS apt 安装 2.54.3，初次编译被版本保护拦住；逐字节复核官方节点源码与冻结文件
   SHA-256 一致后明确允许该版本；本机 2.54.2 与 GitHub 2.54.3 的构建结果分别记录。
+- GitHub 2.54.3 完整构建通过，ROS 汇总 2431 tests、0 errors、0 failures、24 skipped。
+  Runtime-LOG 步骤随后因基础镜像缺少 pip 失败；该步骤显式安装 pip 与 pytest 后再安装锁定依赖。
 
 本记录不授权使能或运动。
 

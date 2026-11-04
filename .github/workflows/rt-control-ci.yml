@@ -356,6 +356,8 @@ jobs:
       - name: Test Runtime-LOG tools
         shell: bash
         run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-pip python3-pytest
           python3 -m pip install -r tools/runtime_log/requirements.txt
           PYTHONPATH=tools/runtime_log python3 -m pytest tools/runtime_log/tests -q
       - name: Validate shared robot description
