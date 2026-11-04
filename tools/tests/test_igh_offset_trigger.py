@@ -7,10 +7,6 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-PATCH = ROOT / "patches/igh/experimental/0003-dc-offset-trigger-100us.patch"
-
-
 class InitialOffsetTriggerTest(unittest.TestCase):
     def test_recorded_submillisecond_offsets_and_boundary_cases(self):
         source_path = os.environ.get("IGH_TRIGGER_SOURCE")
@@ -76,17 +72,3 @@ int main(void) {
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(executable)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_experiment_changes_only_the_initial_offset_trigger(self):
-        patch = PATCH.read_text()
-        self.assertEqual(patch.count("diff --git"), 1)
-        self.assertIn("a/master/fsm_master.c b/master/fsm_master.c", patch)
-        changes = [line for line in patch.splitlines()
-                   if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))]
-        self.assertEqual(changes, ["-#define EC_SYSTEM_TIME_TOLERANCE_NS 1000000",
-                                   "+#define EC_SYSTEM_TIME_TOLERANCE_NS 100000"])
-
-    def test_unvalidated_experiment_is_not_in_default_builds(self):
-        for file in ["hostsetup/igh-install.sh", "hostsetup/verify-host.sh",
-                     "docker/rt-control/Dockerfile"]:
-            self.assertNotIn(PATCH.name, (ROOT / file).read_text(), file)

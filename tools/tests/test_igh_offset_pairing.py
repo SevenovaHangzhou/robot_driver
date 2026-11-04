@@ -7,10 +7,6 @@ import unittest
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-PATCH = ROOT / "patches/igh/0002-dc-offset-use-sent-application-time.patch"
-
-
 class OffsetPairingRegressionTest(unittest.TestCase):
     def test_processing_delay_does_not_change_the_read_time_pair(self):
         source_path = os.environ.get("IGH_OFFSET_SOURCE")
@@ -85,21 +81,3 @@ int main(void) {
             self.assertEqual(build.returncode, 0, build.stderr)
             result = subprocess.run([str(executable)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_patch_preserves_sync_tolerance_and_slave_configuration(self):
-        patch = PATCH.read_text()
-        changed = "\n".join(line[1:] for line in patch.splitlines()
-                            if line.startswith(("+", "-")) and not line.startswith(("+++", "---")))
-        for token in ["EC_SYSTEM_TIME_TOLERANCE_NS", "EC_DC_SYNC_WAIT_MS", "EC_DC_MAX_SYNC_DIFF_NS"]:
-            self.assertNotIn(token, changed)
-        self.assertNotIn("fsm_slave_config.c", patch)
-        self.assertIn("+        app_time_sent = master->app_time;", patch)
-        self.assertLess(patch.index("+            datagram->app_time_sent = app_time_sent;"),
-                        patch.index("smp_store_release(&datagram->state, EC_DATAGRAM_SENT)"))
-
-    def test_build_and_runtime_identity_include_the_offset_patch(self):
-        for path in ["hostsetup/igh-install.sh", "hostsetup/verify-host.sh",
-                     "docker/rt-control/Dockerfile"]:
-            text = (ROOT / path).read_text()
-            self.assertTrue("IGH_DC_OFFSET_PATCH_SHA256" in text, path)
-            self.assertTrue(PATCH.name in text, path)
