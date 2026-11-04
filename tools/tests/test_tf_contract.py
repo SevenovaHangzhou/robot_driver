@@ -4,37 +4,14 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import yaml
 
 
 ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTION = ROOT / "src/description/robot_description"
 MOBILE_URDF = DESCRIPTION / "urdf/robot_alfav3_mobile.urdf"
-SOURCE_LOCK = ROOT / "src/description/source-lock.yaml"
-BRINGUP_MANIFEST = ROOT / "src/rt_control/integ_bringup/package.xml"
-DOCKERFILE = ROOT / "docker/rt-control/Dockerfile"
 
 
 class TfContractTest(unittest.TestCase):
-    def test_v3_description_source_is_identity_locked(self):
-        source = yaml.safe_load(SOURCE_LOCK.read_text(encoding="utf-8"))
-        self.assertEqual(source["schema_version"], 1)
-        self.assertEqual(source["package"], "robot_description")
-        self.assertEqual(
-            source["repository"],
-            "https://github.com/SevenovaHangzhou/robot_description.git",
-        )
-        self.assertEqual(source["source_branch"], "main")
-        self.assertEqual(
-            source["source_revision"],
-            "2b0950f1a5009dda1e93d4737b2894ccefed3734",
-        )
-        self.assertEqual(
-            source["source_tree"],
-            "135f3e315e79ed2b94bc2ecbcb50163818ea676d",
-        )
-        self.assertEqual(source["model_family"], "alfa_v3")
-        self.assertEqual(source["default_end_effector"], "mobile_proxy")
 
     def test_v3_robot_model_roots_at_base_footprint(self):
         robot = ET.parse(MOBILE_URDF).getroot()
@@ -72,32 +49,6 @@ class TfContractTest(unittest.TestCase):
             limit = joints[f"steer{index}_joint"].find("limit").attrib
             self.assertEqual(limit["lower"], "-2.356194490192345")
             self.assertEqual(limit["upper"], "2.356194490192345")
-
-    def test_v3_model_assets_and_variants_are_installed_by_the_package(self):
-        for relative_path in (
-            "urdf/robot_alfav3_mobile.urdf",
-            "srdf/robot_alfav3_mobile.srdf",
-            "config/joint_limits_alfav3_mobile.yaml",
-        ):
-            self.assertTrue((DESCRIPTION / relative_path).is_file(), relative_path)
-        robot = ET.parse(MOBILE_URDF).getroot()
-        for mesh in robot.iter("mesh"):
-            path = mesh.attrib["filename"].replace("package://robot_description/", "")
-            self.assertTrue((DESCRIPTION / path).is_file(), path)
-
-        cmake = (DESCRIPTION / "CMakeLists.txt").read_text(encoding="utf-8")
-        self.assertIn("install(DIRECTORY urdf srdf config mesh DESTINATION", cmake)
-
-    def test_image_and_bringup_require_robot_state_publisher(self):
-        manifest = ET.parse(BRINGUP_MANIFEST).getroot()
-        exec_dependencies = {dep.text for dep in manifest.findall("exec_depend")}
-        self.assertIn("robot_state_publisher", exec_dependencies)
-
-        dockerfile = DOCKERFILE.read_text(encoding="utf-8")
-        self.assertIn(
-            "test -x /opt/ros/humble/lib/robot_state_publisher/robot_state_publisher",
-            dockerfile,
-        )
 
 
 if __name__ == "__main__":

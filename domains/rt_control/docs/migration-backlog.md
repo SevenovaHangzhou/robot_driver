@@ -26,7 +26,7 @@
 | [x] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件（用户 2026-11-03：实时状态机不拆，接受 §3 例外；非实时代码已移到 `enable_manager_{configure,services,mode_switch}.cpp`，主文件约 1400 行；重复参数校验已删除并收紧到使能策略 schema（#175、#176）） | 3 硬指标 |
 | [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行（arch-d2 拆为主文件 + `manifest/{modules,profiles,scopes}.yaml`，均 < 400 行） | 3 硬指标 |
 | [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
-| [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试（arch-behavior-contract-tests：本仓库 C++/Python 源码字符串断言已改为包内行为测试——BMS/IMU 发布话题与 QoS、enable_manager 诊断 QoS、公共错误码字段；剩余为补丁文件、CI/Dockerfile/主机脚本文本断言，以及 IMU 不写总线的静态防护，待定处理方式） | 1.5、4.6 |
+| [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试（arch-behavior-contract-tests：本仓库 C++/Python 源码字符串断言已改为包内行为测试——BMS/IMU 发布话题与 QoS、enable_manager 诊断 QoS、公共错误码字段；用户 2026-11-04：补丁、CI workflow、Dockerfile/bootstrap 包列表、主机 unit 文本与配置值镜像等纯文本断言删除，`check_v3_branch_contract.py` 一并删除；保留编译运行补丁代码、执行脚本的检查；IMU 不写总线改为分层门禁 R13 `listen_only_peripherals`；剩余：必读文档瘦身） | 1.5、4.6 |
 | [x] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个（arch-f1：两个一次性历史生成脚本删除——它们读取的是 `source_commit` 旧检出的 bringup；补齐 `robot_hw_can`、`robot_hw_canopen` 测试依赖） | 1.3 |
 | [x] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除（arch-cleanup：已删除） | 1.4、1.2 |
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |
