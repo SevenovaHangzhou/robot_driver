@@ -112,6 +112,27 @@ def test_enabled_recorder_records_every_state_interface_outside_controller_order
     assert lifecycle == baseline.lifecycle
 
 
+def test_explicit_recorder_selection_only_changes_recording(shares, tmp_path):
+    set_recorder(shares, {"enabled": True})
+    full = build(shares, tmp_path)
+    selected = ["left_joint1/status_word", "left_joint2/position"]
+    set_recorder(shares, {"enabled": True, "interfaces": selected})
+    result = build(shares, tmp_path)
+    assert result.controllers[RECORDER_NAME]["ros__parameters"]["interfaces"] == selected
+    assert result.files["robot_description.xml"] == full.files["robot_description.xml"]
+    assert result.lifecycle == full.lifecycle
+    for name in full.controllers:
+        if name != RECORDER_NAME:
+            assert result.controllers[name] == full.controllers[name]
+
+
+@pytest.mark.parametrize("interfaces", [[], ["left_joint1/position"] * 2, ["left_joint1/not_exported"]])
+def test_invalid_recorder_selection_is_rejected(shares, tmp_path, interfaces):
+    set_recorder(shares, {"enabled": True, "interfaces": interfaces})
+    with pytest.raises(Exception):
+        build(shares, tmp_path)
+
+
 def test_recorder_settings_are_schema_checked(shares, tmp_path):
     set_recorder(shares, {"enabled": True, "slots": 10})
     with pytest.raises(Exception):

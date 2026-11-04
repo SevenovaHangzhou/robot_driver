@@ -27,6 +27,65 @@ parameters or wheel torque-feedforward calculation. Legacy gain parameters are
 rejected rather than silently accepted. Kinco's internal loops are tuned through
 the hardware configuration/commissioning process, not by this controller.
 
+## Runtime Drive Mode (Public Contract Candidate R-IN-18 / R-OUT-28)
+
+Navigation may switch modes while the controller stays enabled, after stopping:
+
+```bash
+ros2 service call /control/set_chassis_align_first std_srvs/srv/SetBool '{data: true}'
+ros2 service call /control/set_chassis_align_first std_srvs/srv/SetBool '{data: false}'
+ros2 topic echo /rt_control/chassis/align_first std_msgs/msg/Bool
+```
+
+`true` selects alignment-first; `false` selects continuous steering. Navigation must
+continue publishing fresh zero velocity until the service confirms success. Motion,
+stale/invalid feedback, non-navigation ownership and latched faults reject the request;
+the service never queues a switch until the robot later stops. Wheel references must
+be zero and measured rim speeds must satisfy the existing `fault_stop_speed` /
+`fault_stop_hold` window. Steering and velocity histories are preserved.
+
+The service returns only after an RT cycle confirms the mode. On false/timeout/lost
+response, keep zero velocity and check fresh actual mode state before explicitly
+requesting again. Do not interpret the human-readable response message as admission.
+After success send a new velocity command: pre-switch locally received commands are
+excluded. The mode topic is latched, published on change and at 1 Hz; it is not an
+enable or standstill signal.
+
+`drive_mode` is a startup parameter, writable only before configure;
+after configure its value is not the current runtime mode and parameter writes are rejected. Ordinary deactivate/activate preserves the
+runtime selection; configure or process restart restores the startup default. The web
+console follows the actual mode topic. These standard-type endpoints are registered
+as a local candidate in the independent interfaces repository; contract release and
+producer/consumer rollout remain required before production use.
+
+## Chassis Velocity S-Curve
+
+Optional `max_body_acceleration` and `max_body_jerk` limit the norm of acceleration
+and jerk of `(vx, vy, omega * R)`, where `R` is the largest module distance from the
+body origin. Units are m/s² and m/s³. Both parameters are read during configure;
+set both to finite positive values to enable, or both to `.inf` to retain the
+existing behaviour. The shipped template keeps them disabled until unit-specific
+limits and stopping distance are accepted. No new command topic is introduced.
+
+The implementation uses Ruckig's fixed three-axis velocity interface before
+inverse kinematics. Component limits are the norm limits divided by √3. Phase
+synchronization preserves ratios for collinear states, including starts from rest;
+arbitrary moving retargets use time synchronization when phase synchronization is
+not possible. There is no nonzero startup seed. Steering is planned while wheels
+wait at zero, and acceleration starts only after the alignment gate releases.
+
+Normal zero-velocity commands use the same S-curve to stop. The 500 ms command
+watchdog, alignment stops, and invalid-feedback stops retain their existing stop
+policies; they are not delayed to preserve comfort jerk bounds. Cosine compensation,
+wheel-speed saturation and per-wheel acceleration limits still apply downstream,
+so the body shaper is not a guarantee of exact wheel coordination in every transient.
+Odometry continues to use measured wheel feedback, never the smoothed command.
+
+For reference only, a local simulation using 1.0 m/s² and 4.0 m/s³ stops from
+0.3 m/s in approximately 0.77 s over 0.115 m. These are candidate tuning values,
+not approved hardware limits. Navigation must account for the resulting delay and
+stopping distance. Persistent rotation still requires command/feedback diagnosis.
+
 ## Hardware Interface Contract
 
 | Component | Commands claimed | States consumed |
@@ -63,7 +122,7 @@ Private endpoints:
 | Endpoint | Type | Meaning |
 | --- | --- | --- |
 | `/cmd_vel` | `geometry_msgs/msg/Twist` | Planar chassis velocity |
-| `~/odom` | `nav_msgs/msg/Odometry` | Measured motion, published at 50 Hz |
+| `/wheel/odom` | `nav_msgs/msg/Odometry` | Wheel-only measured motion, 50 Hz, `odom`→`base_footprint`; public contract R-OUT-02 |
 | `~/imu` (optional) | `sensor_msgs/msg/Imu` | Already aligned, configured base-frame IMU |
 | `~/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Controller execution state |
 
@@ -112,11 +171,13 @@ least one and is multiplied with the existing IMU-fallback and missing-module sc
 
 ## Remaining Hardware Integration
 
-The source now contains the opt-in `KincoCyclicModeSlave` and connected controller
-adapter, but **not a commissioned machine backend**. Production still needs a reviewed
+The source contains the opt-in `KincoCyclicModeSlave` and connected controller
+adapter. A new machine still needs a reviewed
 Kinco PDO/profile with real identity/ring placement, conversions, signs, offsets, limits,
-watchdog/DC behavior and transition timing. The current profile remains draft and
-`relative.profile_verified` must stay false until those facts are confirmed. The CANopen
+watchdog/DC behavior and transition timing. Generic draft profiles must keep
+`relative.profile_verified` false until the hardware/calibration facts are confirmed.
+The explicit `Alfa_V3-Advantech-01` opt-in below reuses its existing verified NAV profile;
+it does not claim physical CSP transition or relative-motion acceptance. The CANopen
 steering-encoder provider likewise still needs its actual EDS/node/interface configuration.
 CANopen SYNC is specified at 4000 us, with one synchronous TPDO response per encoder per
 SYNC. The controller does not emit SYNC or synthesize fresh encoder feedback. Device
@@ -142,8 +203,13 @@ This executable has an ideal in-memory plant and no hardware interface, plugin l
 bus access, controlword writer or production launch connection. Separately, the
 opt-in `relative.enabled` extension connects the same fixed-size session to the real
 `SwerveController` loaned interfaces and the `KincoCyclicModeSlave` cyclic adapter.
-The extension is source-complete and synthetic-PDO tested, but is absent from production
-launch and cannot be enabled until the real profile and calibration gates below close.
+The extension is synthetic-PDO tested. The `Alfa_V3-Advantech-01` deployment explicitly
+selects it through `chassis_operation`: the composer reuses verified NAV calibration,
+derives wheel rad/s limits from rim limits and radii, connects `/imu/data`, and asks the
+hardware renderer to enable mode switching on four drive adapters. Initial mode remains
+NAV/CSV and enable remains explicit. The commissioning template documents estimated
+task limits (0.05 m/s translation, 0.1 rad/s yaw); these are not physical acceptance evidence.
+Real CSP readback and low-speed execution still require on-site validation.
 
 Goals are `(dx, dy, dyaw)` in the configured execution-start base frame, metres and
 radians, bounded by 0.700 m, 15 degrees and 0.2 m/s translation. Per-goal limits must
@@ -163,6 +229,18 @@ checks, holds all targets and reports progress 1 after stationary settling.
 The mode service requires confirmation and fresh wheel **and steering** stationary
 feedback for a configured dwell. Its response is deferred until all four drives confirm
 CSV/NAVIGATION or CSP/OPERATION; steering remains CSP. Failed readback latches a fault.
+Initial CSV zero qualification preserves NAV behavior: steering remains in position mode,
+while stopped wheels, full wheel-zero dwell, a new sent-zero ACK and CSV readback gate
+admission. Steering need not be stationary to start NAV; its actual stationary flag still
+uses both wheel and steering feedback. Incomplete PDO restarts zero qualification within
+the original deadline. Actual CSV/CSP transitions still require the full wheel AND steering
+stationary dwell. Commissioning uses raw steering speed within ±0.02 rad/s and wheel speed
+within the NAV-derived range (±0.1 rad/s on this unit), continuously for 50 ms; no exact-zero
+measurement is required. Active NAV and CSP transition fault protection remains enabled.
+Hardware sample times estimated as `now - feedback_age` remain unmodified for freshness
+and dwell checks; their sampling jitter is not treated as absolute timestamp rewind.
+PDO sequence rollback and stale feedback still fail. Retryable activation admission
+returns lifecycle FAILURE (INACTIVE), allowing a subsequent explicit enable attempt.
 The standalone mock still discards `cmd_vel` in every mode. The opt-in controller path,
 however, accepts local velocity only on `/cmd_vel`, freezes that admission before the
 CSV stop, and tags each sample with the current navigation generation and original local
@@ -270,3 +348,8 @@ The ELECTRI-133 native run passed 122 package cases (12 planner, 17 session,
 20 action/service/serialization, 2 process and 71 existing cases); ASan/UBSan passed all 29
 planner/session cases. The affected private-interface consumer closure also built
 and tested. These results provide no device or production switching evidence.
+
+作业部署同时要求使能管理器配置 `cyclic_mode_switch_joints` 为四个行走轮，
+保留 `expected_modes` 中行走轮9、转向8。白名单仅在已使能及正常停用控制器期间允许
+行走轮反馈CSV/CSP；初始使能与控制器激活仍严格CSV。此配置不替代模式交接器的
+静止持续时间、预置目标、发送ACK和新反馈确认。composer在启用作业时自动连接此策略。

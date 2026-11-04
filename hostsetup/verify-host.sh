@@ -9,7 +9,7 @@ readonly repository_root
 source "${repository_root}/versions.env"
 
 readonly ethercat_mac="8c:59:3c:15:01:f8"
-readonly bms_can_serial="003000265230500720333159"
+readonly bms_can_serial="004D00675230500720333159"
 readonly rt_control_cpu="14"
 readonly housekeeping_cpus="0,2,4,6,8,10,12,16-27"
 readonly ec_master_run_on_cpu_line="options ec_master run_on_cpu=14"

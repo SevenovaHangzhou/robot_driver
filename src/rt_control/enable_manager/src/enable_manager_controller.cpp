@@ -50,6 +50,7 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
 {
   auto_declare<std::vector<std::string>>("managed_joints", {});
   auto_declare<std::vector<std::int64_t>>("expected_modes", {});
+  auto_declare<std::vector<std::string>>("cyclic_mode_switch_joints", {});
   auto_declare<std::vector<std::string>>("ready_state_interfaces", {});
   auto_declare<double>("ready_hold_time", 0.05);
   auto_declare<std::string>("motion_fault_topic", "");
@@ -179,6 +180,20 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     return controller_interface::CallbackReturn::ERROR;
   }
   expected_modes_.assign(modes.begin(), modes.end());
+  cyclic_mode_switch_axes_.assign(joint_names_.size(), false);
+  const auto switch_joints =
+    get_node()->get_parameter("cyclic_mode_switch_joints").as_string_array();
+  for (const auto & joint : switch_joints) {
+    const auto it = std::find(joint_names_.begin(), joint_names_.end(), joint);
+    const auto axis = static_cast<std::size_t>(it - joint_names_.begin());
+    if (
+      it == joint_names_.end() || expected_modes_.empty() || expected_modes_[axis] != 9 ||
+      cyclic_mode_switch_axes_[axis] || enable_only_ || jtc_name_.empty()) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Invalid cyclic_mode_switch_joints policy");
+      return controller_interface::CallbackReturn::ERROR;
+    }
+    cyclic_mode_switch_axes_[axis] = true;
+  }
   ready_state_names_ = get_node()->get_parameter("ready_state_interfaces").as_string_array();
   ready_hold_seconds_ = get_node()->get_parameter("ready_hold_time").as_double();
   if (
@@ -459,7 +474,9 @@ EnableManagerController::validateTopologyParameterUpdate(
     if (
       parameter.get_name() == "enable_only" || parameter.get_name() == "jtc_name" ||
       parameter.get_name() == "disable_terminal_policy" ||
-      parameter.get_name() == "expected_modes" || parameter.get_name() == "motion_mode_switching" ||
+      parameter.get_name() == "expected_modes" ||
+      parameter.get_name() == "cyclic_mode_switch_joints" ||
+      parameter.get_name() == "motion_mode_switching" ||
       parameter.get_name() == "ready_state_interfaces" ||
       parameter.get_name() == "motion_fault_topic" || parameter.get_name() == "ready_hold_time" ||
       parameter.get_name() == "motion_joints" ||
@@ -812,7 +829,11 @@ controller_interface::return_type EnableManagerController::update(
         phase = Phase::kEmergencyQuickStop;
         break;
       }
-      if (!modeConfirmed(axis)) {
+      // Startup and controller activation remain fixed CSV. Only the active
+      // motion controller owns CSV/CSP handoff; never accept mode 0/invalid modes.
+      const bool cyclic_mode = phase != Phase::kJtcActivating && cyclic_mode_switch_axes_[axis] &&
+                               (actual_modes_[axis] == 8 || actual_modes_[axis] == 9);
+      if (!modeConfirmed(axis) && !cyclic_mode) {
         startEmergency(
           Stage::kModeMismatch, static_cast<std::int8_t>(axis), status_words_[axis], now_ns);
         phase = Phase::kEmergencyQuickStop;

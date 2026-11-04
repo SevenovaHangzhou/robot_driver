@@ -207,6 +207,50 @@ TEST(KincoCyclicModeSlave, CspTakeoverWithinToleranceThenFollowsController)
   EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
 }
 
+TEST(KincoCyclicModeSlave, NormalDisableRevokesStaleCspProducerBeforeNextEnable)
+{
+  Rig rig(KINCO_FIXTURE, 8);
+  rig.commands[0] = std::numeric_limits<double>::quiet_NaN();
+  rig.setup();
+  rig.cycle(8, 350, 0, 0x0040);
+  rig.cycle(8, 350, 0, 0x0027);
+  rig.commands[0] = 0.25;
+  rig.cycle(8, 350, 0, 0x0027);
+  // Disable before the last commanded reference was reached. It must not be
+  // interpreted as a new controller takeover during the next enable sequence.
+  rig.commands[0] = 0.4;
+  rig.cycle(8, 350, 0, 0x0027);
+  rig.commands[3] = 0;
+  rig.cycle(0, 355, 0, 0x0040);
+  EXPECT_TRUE(std::isnan(rig.commands[0]));
+  rig.commands[3] = 0xf;
+  rig.cycle(8, 355, 0, 0x0027);
+  EXPECT_EQ(EC_READ_U16(rig.bytes(0x6040)), 0xf);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 355);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+  rig.commands[0] = 0.26;
+  rig.cycle(8, 355, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 360);
+}
+
+TEST(KincoCyclicModeSlave, DisableInOperationRestoresStartupModeForNextEnable)
+{
+  Rig rig(KINCO_FIXTURE, 9, true);
+  rig.setup();
+  rig.cycle();
+  rig.commands[2] = 8;
+  rig.commands[3] = 0;
+  rig.cycle(0, 350, 0, 0x0040);
+  EXPECT_TRUE(std::isnan(rig.commands[2]));
+  rig.commands[3] = 0xf;
+  rig.cycle(0, 350, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0);
+  rig.cycle(9, 350, 0, 0x0027);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
+}
+
 TEST(KincoCyclicModeSlave, CsvToCspRequiresStationaryExactPreseedSentBeforeModeRequest)
 {
   Rig rig(KINCO_FIXTURE, 9, true);
@@ -521,4 +565,28 @@ TEST(KincoCyclicModePlugin, LoadsIndependentInstancesFromRegistry)
   ASSERT_TRUE(first);
   ASSERT_TRUE(second);
   EXPECT_NE(first.get(), second.get());
+}
+
+TEST(KincoCyclicModeSlave, ReenableCsvWaitsForFreshProducerWithoutReplayingOrReportingError)
+{
+  Rig rig(KINCO_FIXTURE, 9, true);
+  rig.setup();
+  rig.cycle();
+  rig.commands[1] = 1.5;
+  rig.cycle();
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 150);
+  rig.commands[3] = 0;
+  rig.cycle(9, 350, 0, 0x0040);
+  EXPECT_TRUE(std::isnan(rig.commands[1]));
+  rig.commands[3] = 0x000f;
+  for (int i = 0; i < 5; ++i) {
+    rig.cycle();
+    EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 0);
+    EXPECT_DOUBLE_EQ(rig.states[8], 0);
+    EXPECT_DOUBLE_EQ(rig.states[7], 0);
+  }
+  rig.commands[1] = 0;
+  rig.cycle();
+  EXPECT_DOUBLE_EQ(rig.states[7], 1);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0);
 }

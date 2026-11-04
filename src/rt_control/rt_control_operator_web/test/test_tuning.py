@@ -16,6 +16,8 @@ DEFAULTS = {
     "max_steering_acceleration": 0.61,
     "max_steering_jerk": 1.75,
     "alignment_threshold": 1.57,
+    "align_first_threshold": 0.087,
+    "align_first_release": 0.052,
 }
 
 

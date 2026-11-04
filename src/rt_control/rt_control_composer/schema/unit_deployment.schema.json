@@ -139,6 +139,63 @@
       ],
       "additionalProperties": false
     },
+    "chassis_imu": {
+      "description": "Receive-only chassis IMU publishing /imu/data; opt-in operation consumes this feedback. Started by the scope runtime on real hardware when the profile includes swerve_chassis.",
+      "type": "object",
+      "properties": {
+        "driver": {
+          "enum": [
+            "lpms_nav3_can"
+          ]
+        },
+        "can_interface": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,14}$"
+        },
+        "node_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 127
+        },
+        "frame_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "shared_bus_receive_only": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "driver",
+        "can_interface",
+        "node_id",
+        "frame_id"
+      ],
+      "additionalProperties": false
+    },
+    "chassis_operation": {
+      "description": "Opt in to the chassis CSV/CSP runtime using the existing verified NAV hardware calibration.",
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "controller": {"type": "string", "minLength": 1},
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "package": {"type": "string", "minLength": 1},
+            "file": {"type": "string", "minLength": 1}
+          },
+          "required": ["package", "file"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["enabled"],
+      "allOf": [{
+        "if": {"properties": {"enabled": {"const": true}}},
+        "then": {"required": ["controller", "parameters"]}
+      }],
+      "additionalProperties": false
+    },
     "runtime_log_recorder": {
       "description": "Optional Runtime-LOG 1 kHz recorder (runtime_log_recorder/RecorderController, built on the host from the Runtime-LOG repository). Loaded by its own non-fatal spawner after the lifecycle controllers.",
       "type": "object",
@@ -150,6 +207,13 @@
           "type": "integer",
           "minimum": 100,
           "maximum": 100000
+        },
+        "interfaces": {
+          "description": "Optional exact state-interface allowlist; omitted records all exported states. Unknown or duplicate names are rejected.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
         }
       },
       "required": [

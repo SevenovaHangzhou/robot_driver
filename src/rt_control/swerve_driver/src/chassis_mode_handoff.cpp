@@ -80,9 +80,17 @@ bool ChassisModeHandoff::stationary_sample() const noexcept
 }
 bool ChassisModeHandoff::stationary() const noexcept
 {
-  if (stationary_since_ < 0) {return false;}
+  return dwell_complete(stationary_since_);
+}
+bool ChassisModeHandoff::dwell_complete(double since) const noexcept
+{
+  if (since < 0) {
+    return false;
+  }
   for (const auto & d : feedback_) {
-    if (d.sample_time - stationary_since_ < config_.stationary_dwell) {return false;}
+    if (d.sample_time - since < config_.stationary_dwell) {
+      return false;
+    }
   }
   return true;
 }
@@ -134,11 +142,18 @@ bool ChassisModeHandoff::start_navigation(
   if (!configured_ || phase_ != HandoffPhase::inactive || !std::isfinite(now) || now < 0 ||
     check_feedback(now, f) != HandoffCause::none) {return false;}
   for (std::size_t i = 0; i < 4; ++i) {
-    if (last_sent_velocity[i] != 0 || f[i].mode != 9 ||
-      std::abs(f[i].wheel_velocity) > config_.stationary_wheel_velocity ||
-      std::abs(f[i].steering_velocity) > config_.stationary_steering_velocity) {return false;}
+    if (
+      last_sent_velocity[i] != 0 || f[i].mode != 9 ||
+      std::abs(f[i].wheel_velocity) > config_.stationary_wheel_velocity) {
+      return false;
+    }
   }
-  feedback_ = f; last_update_ = phase_started_ = stationary_since_ = now;
+  feedback_ = f;
+  last_update_ = phase_started_ = now;
+  // Activation starts zero qualification, not navigation admission. The steering
+  // position hold can still be settling after enable; count no dwell until it stops.
+  stationary_since_ = stationary_sample() ? now : -1;
+  startup_wheels_stopped_since_ = now;
   phase_ = HandoffPhase::seed_csv; source_mode_ = 9;
   output_.inhibited = false; output_.write_velocity = true; output_.requested_mode = 9;
   return next_write();
@@ -228,10 +243,38 @@ void ChassisModeHandoff::update(
     now - last_update_ > config_.max_update_period) {inhibit(HandoffCause::timing); return;}
   const double dt = now - last_update_; last_update_ = now;
   const auto fault = check_feedback(now, f);
+  // No motion has been admitted during the initial CSV zero qualification. Power-stage
+  // enable can lose a PDO cycle; keep zero and restart qualification within the ORIGINAL
+  // deadline. This exception never applies to active NAV or a return from CSP.
+  const bool startup =
+    source_mode_ == 9 && (phase_ == HandoffPhase::seed_csv || phase_ == HandoffPhase::confirm_csv);
+  if (startup && now - phase_started_ >= config_.switch_timeout) {
+    inhibit(HandoffCause::switch_timeout);
+    return;
+  }
+  const bool stopped_wheels_csv = std::all_of(f.begin(), f.end(), [this](const auto & d) {
+    return d.mode == 9 && d.drive_sequence != 0 && matches(d.status_word, config_.enabled) &&
+           std::isfinite(d.wheel_position) && std::isfinite(d.wheel_velocity) &&
+           std::isfinite(d.steering_velocity) &&
+           std::abs(d.wheel_velocity) <= config_.stationary_wheel_velocity;
+  });
+  if (startup && fault == HandoffCause::feedback && stopped_wheels_csv) {
+    phase_ = HandoffPhase::seed_csv;
+    stationary_since_ = -1;
+    startup_wheels_stopped_since_ = -1;
+    output_.write_mode = false;
+    // Invalidate any older send ACK. Only a new complete PDO can acknowledge this zero.
+    (void)next_write();
+    return;
+  }
   if (fault != HandoffCause::none) {inhibit(fault); return;}
   for (std::size_t i = 0; i < 4; ++i) {
-    if (f[i].drive_sequence < feedback_[i].drive_sequence ||
-      f[i].sample_time < feedback_[i].sample_time) {inhibit(HandoffCause::feedback); return;}
+    if (
+      f[i].drive_sequence < feedback_[i].drive_sequence ||
+      (!f[i].sample_time_estimated && f[i].sample_time < feedback_[i].sample_time)) {
+      inhibit(HandoffCause::feedback);
+      return;
+    }
     if (a[i].write_sequence > output_.write_sequence ||
       a[i].feedback_sequence_at_send > f[i].drive_sequence ||
       (a[i].write_sequence != 0 && a[i].feedback_sequence_at_send == 0))
@@ -240,6 +283,10 @@ void ChassisModeHandoff::update(
   feedback_ = f;
   if (!stationary_sample()) {stationary_since_ = -1;} else if (stationary_since_ < 0) {
     stationary_since_ = now;
+  }
+
+  if (startup && stopped_wheels_csv && startup_wheels_stopped_since_ < 0) {
+    startup_wheels_stopped_since_ = now;
   }
 
   if (phase_ == HandoffPhase::navigation || phase_ == HandoffPhase::stopping_csv) {
@@ -281,14 +328,23 @@ void ChassisModeHandoff::update(
   if (now - phase_started_ >= config_.switch_timeout) {
     inhibit(HandoffCause::switch_timeout); return;
   }
-  if (!stationary_sample() || (output_.write_position && !seed_stable())) {
+  if (
+    (startup ? !stopped_wheels_csv : !stationary_sample()) ||
+    (output_.write_position && !seed_stable())) {
     inhibit(HandoffCause::seed_moved); return;
   }
   const bool csp = phase_ == HandoffPhase::seed_csp || phase_ == HandoffPhase::confirm_csp;
   const bool seeding = phase_ == HandoffPhase::seed_csp || phase_ == HandoffPhase::seed_csv;
   if (seeding) {
     if (!all_mode(csp ? 9 : source_mode_)) {inhibit(HandoffCause::mode); return;}
-    if (!stationary() || !acknowledged(a, false)) {return;}
+    // Initial CSV is already the actual drive mode and steering stays CSP. It
+    // qualifies stopped wheels, independently of full-body stationary reporting.
+    // Every actual CSV<->CSP transition still requires wheel AND steering dwell.
+    if (
+      !(startup ? dwell_complete(startup_wheels_stopped_since_) : stationary()) ||
+      !acknowledged(a, false)) {
+      return;
+    }
     output_.requested_mode = csp ? 8 : 9; output_.write_mode = true;
     phase_ = csp ? HandoffPhase::confirm_csp : HandoffPhase::confirm_csv;
     (void)next_write(); return;

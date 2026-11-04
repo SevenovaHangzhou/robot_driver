@@ -45,7 +45,7 @@ def preflight(expected_topology, *, run=None):
             match = re.search(label + r":\s+(0x[0-9a-fA-F]+)", block)
             if not match or int(match.group(1), 16) != identity[key]:
                 raise RuntimeError("Unexpected slave identity")
-        if "State: PREOP" not in block:
+        if not re.search(r"^\s*State:\s+PREOP\s*$", block, re.M):
             raise RuntimeError("Unexpected slave AL state")
     main = blocks[0][1]
     for branch in topology["branches"] + topology["internal_ports"]:
@@ -72,8 +72,26 @@ def preflight(expected_topology, *, run=None):
             )
 
         status, error = value(0x6041), value(0x603F)
-        if status & 0x6F == 0x27 or value(0x6040) != 0:
-            raise RuntimeError("Axis is already controlled")
+        control_word = value(0x6040)
+        # Opt-in Kinco startup state: Shutdown (0x0006) with a stable, unfaulted
+        # Ready to Switch On readback. It is not Operation Enabled and does not
+        # prove physical stationarity. enable_manager still owns startup sanitizing.
+        shutdown_ready = (
+            axis.get("allow_shutdown_ready") is True
+            and re.search(r"Phase:\s+Idle\b", master) is not None
+            and control_word == 0x0006
+            and status & 0x6F == 0x21
+            and error == 0
+        )
+        if shutdown_ready:
+            # Reject a changing state rather than admitting a stale ready snapshot.
+            shutdown_ready = value(0x6041) & 0x6F == 0x21 and value(0x603F) == 0
+        if status & 0x6F == 0x27 or (control_word != 0 and not shutdown_ready):
+            raise RuntimeError(
+                f"Axis is already controlled or has an unsupported startup state: "
+                f"ring={axis['ring_position']} controlword=0x{control_word:04x} "
+                f"statusword=0x{status:04x} error=0x{error:04x}"
+            )
         # A Fault is accepted only with a declared startup code (e.g. 0xA000 after the master
         # left OP); enable_manager must clear it with a CiA402 fault reset before enabling.
         if status & 8 and error not in axis["allowed_errors"]:

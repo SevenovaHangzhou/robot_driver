@@ -9,6 +9,7 @@ import xacro
 import yaml
 
 from .bindings import bind_parameters
+from .chassis_operation import configure_operation
 from .model import ARTIFACT, Composed
 from .parameter_sources import controller_parameters
 from .renderer_registry import render_checked, select_renderer
@@ -23,6 +24,8 @@ from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
 
 RECORDER_NAME = "runtime_log_recorder"
+IMU_PARAMS = "sensor_chassis_imu.yaml"
+IMU_DRIVERS = {"lpms_nav3_can": ("lpms_nav3_can", "lpms_nav3_can_node")}
 RECORDER_PLUGIN = "runtime_log_recorder/RecorderController"
 ENABLE_MANAGER_PLUGIN = "enable_manager/EnableManagerController"
 
@@ -38,6 +41,34 @@ def recorded_state_interfaces(robot):
                     for state in element.findall("state_interface")
                 )
     return names
+
+
+def chassis_imu_sensor(deployment, modules, robot, *, staged, use_mock_hardware):
+    """Receive-only chassis IMU sidecar; opt-in operation consumes its feedback.
+
+    Returns (files, sensor_nodes). Real hardware only: the mock stack has no CAN bus.
+    """
+    imu = deployment.get("chassis_imu")
+    if not imu or not staged or use_mock_hardware or "swerve_chassis" not in modules:
+        return {}, []
+    package, executable = IMU_DRIVERS[imu["driver"]]
+    links = {link.attrib["name"] for link in robot.findall("link")}
+    if imu["frame_id"] not in links:
+        raise ValueError(f"chassis_imu frame_id {imu['frame_id']} is not a robot model link")
+    shared = imu["can_interface"] in set(deployment.get("can_interfaces", {}).values())
+    if shared and not imu.get("shared_bus_receive_only", False):
+        raise ValueError("chassis_imu shares a CAN bus with another owner: declare receive-only")
+    parameters = {
+        "can_interface": imu["can_interface"],
+        "node_id": imu["node_id"],
+        "frame_id": imu["frame_id"],
+        "allow_shared_interface": shared,
+        "convert_to_ros_convention": False,
+        "require_heartbeat": True,
+    }
+    text = yaml.safe_dump({"/**": {"ros__parameters": parameters}}, sort_keys=False)
+    node = {"name": "chassis_imu", "package": package, "executable": executable}
+    return {IMU_PARAMS: text}, [{**node, "parameters": IMU_PARAMS}]
 
 
 def compose(
@@ -248,11 +279,28 @@ def compose(
             rendered_modules,
             mock=use_mock_hardware,
         )
+    configure_operation(controllers, deployment, robot, package_share, mock=use_mock_hardware)
+    operation = deployment.get("chassis_operation", {})
+    if operation.get("enabled") and operation.get("controller") in controllers:
+        motion_name = operation["controller"]
+        drives = controllers[motion_name]["ros__parameters"]["drive_joints"]
+        for controller in controllers.values():
+            policy = controller["ros__parameters"]
+            if policy.get("jtc_name") == motion_name:
+                modes = dict(zip(policy.get("managed_joints", []), policy.get("expected_modes", [])))
+                if any(modes.get(joint) != 9 for joint in drives):
+                    raise ValueError("Operation requires fixed CSV startup mode for each drive")
+                policy["cyclic_mode_switch_joints"] = list(drives)
     # fault_dependencies remain owned by the separate machine safety policy. These
     # migrated entry points did not emit them; validation does not add runtime fields.
     recorders = []
     recorder = deployment.get("runtime_log_recorder", {})
     if recorder.get("enabled") and staged:
+        available = recorded_state_interfaces(robot)
+        selected = recorder.get("interfaces", available)
+        unknown = set(selected) - set(available)
+        if unknown:
+            raise ValueError(f"Unknown recorder state interfaces: {sorted(unknown)}")
         # Optional, outside controller_order: a missing plugin or failed load never blocks the scope.
         recorders = [RECORDER_NAME]
         controllers["controller_manager"]["ros__parameters"][RECORDER_NAME] = {
@@ -260,7 +308,7 @@ def compose(
         }
         controllers[RECORDER_NAME] = {
             "ros__parameters": {
-                "interfaces": recorded_state_interfaces(robot),
+                "interfaces": list(selected),
                 "slots": recorder.get("slots", 2000),
             }
         }
@@ -275,6 +323,7 @@ def compose(
         "controller_order.yaml",
         "robot_description.xml",
         "lifecycle.yaml",
+        IMU_PARAMS,
         ARTIFACT,
     }
     if reserved.intersection(runtime_files):
@@ -287,6 +336,10 @@ def compose(
         "controllers.yaml": yaml.safe_dump(controllers, sort_keys=False),
         "controller_order.yaml": yaml.safe_dump(order, sort_keys=False),
     }
+    sensor_files, sensor_nodes = chassis_imu_sensor(
+        deployment, data["modules"], robot, staged=staged, use_mock_hardware=use_mock_hardware
+    )
+    files.update(sensor_files)
     params_of = [s["result"]["hardware_params"] for s in systems]
     lifecycle = {
         "control_scope": control_scope,
@@ -296,6 +349,8 @@ def compose(
         "motion_controllers": list(order["inactive"]),
         "lifecycle_controllers": list(order["active"]),
         **({"recorder_controllers": recorders} if recorders else {}),
+        # Receive-only sidecars start after lifecycle controllers. Operation gates missing IMU.
+        **({"sensor_nodes": sensor_nodes} if sensor_nodes else {}),
         # One process owns an IgH master or a CAN interface at a time (supervisor locks).
         "bus_locks": sorted(
             {f"ethercat-master-{p['master_id']}" for p in params_of if "master_id" in p}

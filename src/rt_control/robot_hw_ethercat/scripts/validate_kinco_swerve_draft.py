@@ -13,6 +13,9 @@ def validate(path):
         "rpdo": [(0x6040, "uint16"), (0x607A, "int32"), (0x60FF, "int32"), (0x6060, "int8")],
         "tpdo": [(0x6041, "uint16"), (0x6064, "int32"), (0x606C, "int32"), (0x6061, "int8")],
     }
+    admission = data.get("startup_admission", {})
+    if set(admission) - {"allow_shutdown_ready"} or type(admission.get("allow_shutdown_ready", False)) is not bool:
+        raise ValueError("Invalid Kinco startup_admission: allow_shutdown_ready must be boolean")
     profile = data["driver_config"]
     for name, entries in expected.items():
         channels = profile[name][0]["channels"]

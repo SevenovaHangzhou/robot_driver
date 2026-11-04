@@ -272,6 +272,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
             }.items():
                 _param(joint, "ec_module." + key, value)
+            if (axis["role"] == "drive" and
+                    request["deployment"].get("chassis_operation", {}).get("enabled", False)):
+                _param(joint, "ec_module.mode_switching", "true")
         joints.append(joint)
         managed.append(name)
         for group in request["module"]["mode_groups"]:
@@ -281,8 +284,16 @@ def render(request, share, validate_module, validate_unit, validate_device):
             responders.append({"ring_position": axis["ring_position"], **profile["identity"]})
         if not mock:
             ring = axis["ring_position"]
-            # Read-only admission: disabled and unfaulted, saved PDOs match, steering in range.
-            preflight_axes.append({"ring_position": ring, "allowed_errors": []})
+            # Read-only admission: not enabled, unfaulted, saved PDOs match, steering in range.
+            preflight_axes.append(
+                {
+                    "ring_position": ring,
+                    "allowed_errors": [],
+                    "allow_shutdown_ready": profile.get("startup_admission", {}).get(
+                        "allow_shutdown_ready", False
+                    ),
+                }
+            )
             pdo_checks.append(
                 {"ring_position": ring, "objects": _pdo_objects(profile["driver_config"])}
             )

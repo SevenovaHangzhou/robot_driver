@@ -88,8 +88,43 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
     assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
     lifecycle = result.lifecycle
-    assert lifecycle["host"]["rt_cpu"] == 7
+    assert lifecycle["host"]["rt_cpu"] == 6
     assert lifecycle["bus_locks"] == ["can-can0", "ethercat-master-0"]
+
+
+def test_operation_composition_connects_only_drives_and_actual_imu(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "operation", use_mock_hardware=False)
+    params = result.controllers["swerve_controller"]["ros__parameters"]
+    assert params["relative"]["enabled"] and params["relative"]["profile_verified"]
+    enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["cyclic_mode_switch_joints"] == params["drive_joints"]
+    modes = dict(zip(enable["managed_joints"], enable["expected_modes"]))
+    assert all(modes[joint] == 9 for joint in params["drive_joints"])
+    assert not set(enable["cyclic_mode_switch_joints"]) & set(params["steering_joints"])
+    assert params["imu_enabled"] and params["imu_topic"] == "/imu/data"
+    for radius, speed in zip(params["wheel_radius"], params["relative"]["max_wheel_velocity"]):
+        assert speed * radius == pytest.approx(params["max_wheel_speed"])
+    joints = {j.attrib["name"]: j for j in ET.fromstring(result.robot_description).findall(".//joint")}
+    for name in params["drive_joints"]:
+        assert joints[name].findtext("param[@name='ec_module.mode_switching']") == "true"
+        assert joints[name].findtext("param[@name='ec_module.mode_of_operation']") == "9"
+    for name in params["steering_joints"]:
+        assert joints[name].find("param[@name='ec_module.mode_switching']") is None
+        assert joints[name].findtext("param[@name='ec_module.mode_of_operation']") == "8"
+
+
+def test_operation_opt_out_preserves_fixed_navigation(shares, tmp_path):
+    copied = dict(shares)
+    copied["rt_control_machine_config"] = tmp_path / "config"
+    shutil.copytree(shares["rt_control_machine_config"], copied["rt_control_machine_config"])
+    path = copied["rt_control_machine_config"] / "units/Alfa_V3-Advantech-01/deployment.yaml"
+    deployment = yaml.safe_load(path.read_text())
+    deployment["chassis_operation"] = {"enabled": False}
+    path.write_text(yaml.safe_dump(deployment))
+    result = compose(**arguments(copied), runtime_dir=tmp_path / "navigation", use_mock_hardware=False)
+    params = result.controllers["swerve_controller"]["ros__parameters"]
+    assert "relative" not in params and not params["imu_enabled"]
+    assert "ec_module.mode_switching" not in result.robot_description
 
 
 def test_real_chassis_without_deployment_bundle_is_rejected(shares, tmp_path):
@@ -265,3 +300,43 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     assert names["chassis_velocity"]["topic"] == "/cmd_vel"
     assert names["chassis_velocity"]["controller"] == "swerve_controller"
     assert names["enable"]["service"] == "/control/set_enabled"
+
+
+def test_chassis_imu_remains_receive_only_and_feeds_opt_in_operation(shares, tmp_path):
+    from rt_control_composer.compose import IMU_PARAMS, chassis_imu_sensor
+
+    real = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    assert real.lifecycle["sensor_nodes"] == [
+        {
+            "name": "chassis_imu",
+            "package": "lpms_nav3_can",
+            "executable": "lpms_nav3_can_node",
+            "parameters": IMU_PARAMS,
+        }
+    ]
+    parameters = yaml.safe_load(real.files[IMU_PARAMS])["/**"]["ros__parameters"]
+    assert parameters["can_interface"] == "can0"
+    assert parameters["node_id"] == 1
+    assert parameters["frame_id"] == "imu_link"
+    # can0 is the encoder bus: the IMU reads it, never owns it (no extra bus lock).
+    assert parameters["allow_shared_interface"] is True
+    assert real.lifecycle["bus_locks"] == ["can-can0", "ethercat-master-0"]
+    # Sensor remains a receive-only sidecar; operation consumes its existing topic.
+    swerve = real.controllers["swerve_controller"]["ros__parameters"]
+    assert swerve["imu_enabled"] is True and swerve["imu_topic"] == "/imu/data"
+    mock = compose(**arguments(shares), runtime_dir=tmp_path / "mock")
+    assert "sensor_nodes" not in mock.lifecycle and IMU_PARAMS not in mock.files
+
+    robot = ET.fromstring(real.robot_description)
+    deployment = {"can_interfaces": {"swerve_encoders": "can0"}}
+    imu = {"driver": "lpms_nav3_can", "can_interface": "can0", "node_id": 1}
+    with pytest.raises(ValueError, match="not a robot model link"):
+        chassis_imu_sensor(
+            {**deployment, "chassis_imu": {**imu, "frame_id": "nowhere"}},
+            {"swerve_chassis": {}}, robot, staged=True, use_mock_hardware=False,
+        )
+    with pytest.raises(ValueError, match="declare receive-only"):
+        chassis_imu_sensor(
+            {**deployment, "chassis_imu": {**imu, "frame_id": "imu_link"}},
+            {"swerve_chassis": {}}, robot, staged=True, use_mock_hardware=False,
+        )

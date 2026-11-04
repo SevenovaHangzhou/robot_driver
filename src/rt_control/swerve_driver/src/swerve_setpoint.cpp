@@ -23,6 +23,12 @@ SwerveSetpointGenerator::SwerveSetpointGenerator(
   {
     throw std::invalid_argument{"alignment threshold must be finite and nonnegative"};
   }
+  if (
+    !std::isnan(parameters_.alignment_release_rad) &&
+    (!finite(parameters_.alignment_release_rad) || parameters_.alignment_release_rad < 0.0 ||
+     parameters_.alignment_release_rad > parameters_.alignment_threshold_rad)) {
+    throw std::invalid_argument{"alignment release must be in [0, alignment threshold]"};
+  }
   if (!finite(parameters_.flip_hysteresis_rad) ||
     parameters_.flip_hysteresis_rad < 0.0 ||
     parameters_.flip_hysteresis_rad >= kPi / 2.0)
@@ -129,7 +135,30 @@ AlignmentResult SwerveSetpointGenerator::generate(
       }
     }
   }
-  const bool global_translation_branch{all_forward_feasible || all_reverse_feasible};
+  // Entering exactly zero yaw rate must not flip already aligned wheel axes
+  // by pi. A mixed forward/reverse layout is an equivalent pure translation.
+  // Keep it only inside the release tolerance; initial, unaligned crab targets
+  // still select one common feasible branch as before.
+  const bool mixed_branches =
+    std::any_of(reversed_.begin(), reversed_.end(), [](bool value) { return value; }) &&
+    std::any_of(reversed_.begin(), reversed_.end(), [](bool value) { return !value; });
+  const double continuation_release = finite(parameters_.alignment_release_rad)
+                                        ? parameters_.alignment_release_rad
+                                        : parameters_.alignment_threshold_rad;
+  const double continuation_tolerance =
+    std::min({3.0 * kPi / 180.0, continuation_release, parameters_.alignment_threshold_rad});
+  bool equivalent_layout = translation_requested && mixed_branches;
+  for (const double angle : planning_angles) {
+    equivalent_layout =
+      equivalent_layout &&
+      std::abs(std::remainder(angle - common_heading, kPi)) <= continuation_tolerance;
+  }
+  // Continuous mode uses the same bounded, hysteretic per-wheel optimizer for
+  // pure translation and tiny nonzero yaw. Do not force a pi flip at that boundary.
+  // Align-first retains its common translation branch policy.
+  const bool continuous = std::abs(parameters_.alignment_threshold_rad - kPi / 2.0) <= 1e-9;
+  const bool global_translation_branch{
+    !continuous && (all_forward_feasible || all_reverse_feasible) && !equivalent_layout};
   bool translation_reversed{false};
   if (global_translation_branch) {
     if (!all_forward_feasible) {
@@ -188,6 +217,8 @@ AlignmentResult SwerveSetpointGenerator::generate(
         parameters_.flip_hysteresis_rad, parameters_.angle_limits[index]);
     }
     reversed_[index] = optimized.reversed;
+    selected_goals_[index] = optimized.target_angle_rad;
+    selected_errors_[index] = optimized.error_rad;
 
     if (!previous_targets_[index].has_value()) {
       previous_targets_[index] = planning_angles[index];
@@ -233,13 +264,31 @@ AlignmentResult SwerveSetpointGenerator::generate(
       result.maximum_error_rad, std::abs(optimized.error_rad));
   }
 
-  result.gated = result.maximum_error_rad > parameters_.alignment_threshold_rad;
+  // All four modules gate together. Enter above the threshold; once gated, release only
+  // when every module is within the release angle (hysteresis avoids stop/start chatter).
+  const double release{
+    std::isnan(parameters_.alignment_release_rad) ? parameters_.alignment_threshold_rad
+                                                  : parameters_.alignment_release_rad};
+  gated_ = result.maximum_error_rad > (gated_ ? release : parameters_.alignment_threshold_rad);
+  result.gated = gated_;
   if (result.gated) {
     for (auto & module : result.modules) {
       module.speed_mps = 0.0;
     }
   }
   return result;
+}
+
+bool SwerveSetpointGenerator::set_alignment_policy(double threshold, double release) noexcept
+{
+  if (
+    !finite(threshold) || threshold <= 0.0 || threshold > kPi / 2.0 ||
+    (!std::isnan(release) && (!finite(release) || release <= 0.0 || release > threshold))) {
+    return false;
+  }
+  parameters_.alignment_threshold_rad = threshold;
+  parameters_.alignment_release_rad = release;
+  return true;
 }
 
 void SwerveSetpointGenerator::reset(const std::array<double, kSwerveModuleCount> & targets) noexcept
@@ -258,6 +307,9 @@ void SwerveSetpointGenerator::reset() noexcept
   previous_targets_.fill(std::nullopt);
   steering_rates_.fill(0.0);
   steering_accelerations_.fill(0.0);
+  gated_ = false;
+  selected_goals_.fill(0.0);
+  selected_errors_.fill(0.0);
 }
 
 namespace

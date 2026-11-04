@@ -1,8 +1,9 @@
 """ROS connection of the chassis operator console.
 
-Public interfaces only: the scope runtime's ``/rt/capabilities`` declaration,
+The scope runtime's ``/rt/capabilities`` declaration,
 ``/control/set_enabled``, ``/rt/reset_fault`` (FAILED only), controller-manager and
-controller parameter services, ``/diagnostics`` and the declared velocity topic. The
+controller parameter services, ``/diagnostics`` and the declared velocity topic;
+plus the controller's RT-Control private mode service/state inside this domain. The
 console never starts hardware, writes drive words or enables on its own.
 """
 
@@ -22,16 +23,21 @@ from geometry_msgs.msg import Twist
 from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
 from rcl_interfaces.srv import GetParameters, SetParameters
 import rclpy
+from rclpy.action import ActionClient
 from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.signals import SignalHandlerOptions
 from robot_rt_control_interfaces.srv import SetControlEnabled
 import robot_interfaces_qos
-from rt_control_interfaces.srv import RtEnable
-from std_msgs.msg import String
+from rt_control_interfaces.msg import ChassisState
+from rt_control_interfaces.action import ChassisRelativeMove
+from rt_control_interfaces.srv import ChassisSetMode, RtEnable
+from std_msgs.msg import Bool, String
 
 from .config import build_config, load_token
+from .chassis_mode import ChassisModeView
+from .chassis_operation import ChassisOperation, LIMIT_FIELDS as OP_LIMIT_FIELDS, PARAMETERS as OP_PARAMETERS
 from .teleop import PUBLISH_RATE_HZ, DriveArbiter, TeleopError
 from .tuning import STEERING_PARAMETERS, FieldTuning, TuningError
 
@@ -40,6 +46,8 @@ LIMIT_PARAMETERS = (
     "max_steering_acceleration_limit",
     "max_steering_jerk_limit",
 )
+# Startup default, used only as a fallback for controllers without the runtime mode topic.
+DRIVE_MODE_PARAMETERS = ("drive_mode",)
 STALE_S = 2.5
 
 
@@ -63,7 +71,7 @@ async def call_service(client, request, timeout):
     future.add_done_callback(completed)
     try:
         return await asyncio.wait_for(completion, timeout=timeout)
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, asyncio.CancelledError):
         client.remove_pending_request(future)
         raise
 
@@ -90,12 +98,33 @@ class ChassisConnection:
         self.diag_at = -math.inf
         self.ignore_diag_before = 0
         self.busy = False
+        self.mode_busy = False
         self.last_error = ""
         self.pending = {}
         self.capability = None
         self.steering_motion = {}
         self.steering_motion_at = -math.inf
+        self.runtime_mode = None
+        self.runtime_mode_at = -math.inf
+        node.create_subscription(
+            Bool,
+            "/rt_control/chassis/align_first",
+            self.received_mode,
+            QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+        )
         controller = node.config.controller_node
+        self.chassis_mode = ChassisModeView()
+        self.mode_client = node.create_client(ChassisSetMode, controller + "/set_mode")
+        action_client = ActionClient(node, ChassisRelativeMove, controller + "/relative_move")
+        self.operation = ChassisOperation(
+            action_client, self.make_operation_goal,
+            lambda: self.status()["operation"]["can_execute"], self.lock,
+        )
+        node.create_subscription(ChassisState, controller + "/state", self.received_chassis_mode, 1)
         node.create_subscription(
             String,
             "/rt/capabilities",
@@ -172,6 +201,10 @@ class ChassisConnection:
 
     def refresh(self):
         self.request(
+            "chassis_mode_config", self.swerve_client,
+            GetParameters.Request(names=["relative.enabled", *OP_PARAMETERS]), self.received_mode_config,
+        )
+        self.request(
             "hardware",
             self.hardware_client,
             ListHardwareComponents.Request(),
@@ -192,7 +225,9 @@ class ChassisConnection:
         self.request(
             "steering_params",
             self.swerve_client,
-            GetParameters.Request(names=[*STEERING_PARAMETERS, *LIMIT_PARAMETERS]),
+            GetParameters.Request(
+                names=[*STEERING_PARAMETERS, *LIMIT_PARAMETERS, *DRIVE_MODE_PARAMETERS]
+            ),
             self.received_steering,
         )
 
@@ -230,18 +265,46 @@ class ChassisConnection:
             with self.lock:
                 self.managed = list(response.values[0].string_array_value)
 
+    def received_mode(self, message):
+        with self.lock:
+            self.runtime_mode = "align_first" if message.data else "steer_while_driving"
+            self.runtime_mode_at = time.monotonic()
+
+    def received_mode_config(self, response):
+        with self.lock:
+            enabled = None
+            if response.values:
+                value = response.values[0]
+                if value.type == ParameterType.PARAMETER_BOOL:
+                    enabled = value.bool_value
+            self.chassis_mode.configure(enabled)
+            limits = {}
+            for name, value in zip(OP_LIMIT_FIELDS, response.values[1:]):
+                if value.type == ParameterType.PARAMETER_DOUBLE:
+                    limits[name] = value.double_value
+                elif value.type == ParameterType.PARAMETER_DOUBLE_ARRAY:
+                    limits[name] = list(value.double_array_value)
+            self.operation.configure(limits)
+
+    def received_chassis_mode(self, message):
+        stamp = message.stamp.sec * 1_000_000_000 + message.stamp.nanosec
+        age = (self.node.get_clock().now().nanoseconds - stamp) / 1e9
+        with self.lock:
+            self.chassis_mode.receive(message, age)
+
     def received_steering(self, response):
         names = [*STEERING_PARAMETERS, *LIMIT_PARAMETERS]
-        if len(response.values) != len(names):
+        if len(response.values) != len(names) + len(DRIVE_MODE_PARAMETERS):
             return
         values = {name: math.degrees(v.double_value) for name, v in zip(names, response.values)}
+        drive = {"drive_mode": response.values[len(names)].string_value or None}
         # An unlimited jerk (trapezoidal profile) is reported as None; JSON has no infinity.
         if values["max_steering_jerk"] == math.inf:
             values["max_steering_jerk"] = None
         if not all(v is None or (math.isfinite(v) and v > 0) for v in values.values()):
             return
         with self.lock:
-            self.steering_motion = values
+            self.steering_motion = {**values, **drive}
             self.steering_motion_at = time.monotonic()
 
     # ------------------------------------------------------------------ status
@@ -263,6 +326,7 @@ class ChassisConnection:
             now = time.monotonic()
             scope = self.scope_ready()
             diagnostic_fresh = now - self.diag_at < STALE_S
+            busy = self.busy or self.mode_busy or self.operation.running or self.operation.unknown
             connected = scope and diagnostic_fresh and self.enable_client.service_is_ready()
             if not connected:
                 reason = (
@@ -277,13 +341,21 @@ class ChassisConnection:
             else:
                 reason = "已使能" if self.enabled else "未使能"
             steering = dict(self.steering_motion) if now - self.steering_motion_at < 5.0 else {}
+            if steering and self.runtime_mode_at != -math.inf:
+                steering["drive_mode"] = (
+                    self.runtime_mode if now - self.runtime_mode_at < STALE_S else None
+                )
+            mode = self.chassis_mode.status(
+                connected=connected, enabled=self.enabled is True,
+                busy=busy, service_ready=self.mode_client.service_is_ready(),
+            )
             return {
                 "backend_kind": self.kind if now - self.hardware_at < STALE_S else "disconnected",
                 "software_test_only": self.software_test_only,
                 "connected": connected,
                 "enabled": self.enabled if connected else None,
-                "busy": self.busy,
-                "can_enable": connected and self.state in ("IDLE", "ENABLED") and not self.busy,
+                "busy": busy,
+                "can_enable": connected and self.state in ("IDLE", "ENABLED") and not busy,
                 "state": self.state if diagnostic_fresh else "DISCONNECTED",
                 "stage": self.stage,
                 "message": reason,
@@ -292,14 +364,17 @@ class ChassisConnection:
                 "enable_service": "/control/set_enabled",
                 "can_reset": diagnostic_fresh
                 and self.state == "FAILED"
-                and not self.busy
+                and not busy
                 and self.reset_client.service_is_ready(),
                 "can_tune_steering": connected
                 and self.state in ("IDLE", "FAILED")
-                and not self.busy
+                and not busy
                 and bool(steering)
+                and steering.get("drive_mode") in ("align_first", "steer_while_driving")
                 and self.tuning is not None,
                 "steering": steering,
+                "chassis_mode": mode,
+                "operation": self.operation.status(mode, connected, self.enabled is True, busy),
                 "steering_tuning": self.tuning.source()
                 if self.tuning is not None
                 else {"source": "unavailable", "updated_at": "未配置部署产物目录"},
@@ -311,10 +386,77 @@ class ChassisConnection:
             value["connected"]
             and value["enabled"] is True
             and not value["busy"]
+            and value["chassis_mode"]["velocity_allowed"]
             and self.node.publisher.get_subscription_count() > 0
         )
 
     # ------------------------------------------------------------------ operations
+    @staticmethod
+    def make_operation_goal(values):
+        goal = ChassisRelativeMove.Goal()
+        goal.dx, goal.dy, goal.dyaw = values["dx"], values["dy"], values["dyaw"]
+        goal.max_duration = values["max_duration"]
+        goal.corridor_token = "operator-web"
+        for name in OP_LIMIT_FIELDS:
+            if name != "max_duration":
+                setattr(goal.limits, name, values[name])
+        return goal
+
+    async def run_operation(self, values):
+        self.node.arbiter.reset_motion("operation_start")
+        self.node.publish_zero()
+        return await self.operation.execute(values)
+
+    async def set_chassis_mode(self, mode):
+        if mode not in ("navigation", "operation"):
+            raise TeleopError("invalid_mode", "只支持导航或作业模式")
+        with self.lock:
+            status = self.status()["chassis_mode"]
+            if not status["can_switch"]:
+                raise TeleopError("mode_not_ready", status["message"])
+            if status["mode"] == mode:
+                return {"ok": True, "message": "已经处于目标模式"}
+            self.mode_busy = True
+            self.last_error = ""
+        self.node.arbiter.reset_motion("mode_change")
+        self.node.publish_zero()
+        target = 1 if mode == "navigation" else 2
+        try:
+            result = await call_service(
+                self.mode_client, ChassisSetMode.Request(mode=target, confirm=True), 60,
+            )
+            ok = (result.code == ChassisSetMode.Response.OK
+                  and result.state.mode == target and result.state.fault_code == 0)
+            if ok:
+                self.received_chassis_mode(result.state)
+                message = "已确认切换到" + ("导航模式" if target == 1 else "作业模式")
+            else:
+                reasons = {
+                    1: "模式请求无效", 2: "尚未满足静止条件", 3: "控制器正在执行其他操作",
+                    4: "控制器未就绪", 5: "故障已闭锁", 6: "四轮模式交接失败",
+                }
+                message = (f"模式反馈故障：{result.state.fault_code}" if result.state.fault_code
+                           else reasons.get(result.code, "模式反馈与请求不一致"))
+            if not ok:
+                with self.lock:
+                    self.chassis_mode.invalidate()
+                    self.last_error = message
+            return {"ok": ok, "message": message}
+        except asyncio.TimeoutError:
+            with self.lock:
+                self.chassis_mode.invalidate()
+                self.last_error = "模式切换响应超时，结果未确认；等待实际反馈，勿连续重试"
+            return {"ok": False, "message": self.last_error}
+        except Exception:
+            with self.lock:
+                self.chassis_mode.invalidate()
+                self.last_error = "模式切换异常，等待控制器实际状态"
+            raise
+        finally:
+            self.node.arbiter.reset_motion("mode_change_complete")
+            with self.lock:
+                self.mode_busy = False
+
     async def operate(self, op, modules):
         if modules != ("chassis",) or op not in ("enable", "disable", "reset"):
             raise TeleopError("unsupported_operation", "只支持底盘使能、失能和故障复位")
@@ -391,17 +533,22 @@ class ChassisConnection:
             with self.lock:
                 self.busy = False
 
-    async def set_steering(self, slew_deg, accel_deg, jerk_deg, alignment_deg):
+    async def set_steering(self, slew_deg, accel_deg, jerk_deg, alignment_deg, release_deg=0.0):
         status = self.status()
         if not status["can_tune_steering"]:
             raise TeleopError("steering_locked", "只能在底盘未使能时修改转向参数")
         limits = status["steering"]
-        checks = (
+        # alignment_deg/release_deg belong to the running drive mode; the other mode keeps its
+        # current values so the saved file is always a complete snapshot.
+        align_mode = limits.get("drive_mode") == "align_first"
+        checks = [
             (slew_deg, limits["max_steering_slew_limit"], "转向速度", "°/s"),
             (accel_deg, limits["max_steering_acceleration_limit"], "转向加速度", "°/s²"),
             (jerk_deg, limits["max_steering_jerk_limit"], "转向加加速度", "°/s³"),
             (alignment_deg, 90.0, "对齐门限", "°"),
-        )
+        ]
+        if align_mode:
+            checks.append((release_deg, alignment_deg, "恢复门限", "°（不大于对齐门限）"))
         for value, limit, label, unit in checks:
             if not 0 < value <= limit:
                 raise TeleopError("steering_out_of_range", f"{label}须在 0–{limit:.0f}{unit}")
@@ -409,11 +556,24 @@ class ChassisConnection:
             "max_steering_slew": math.radians(slew_deg),
             "max_steering_acceleration": math.radians(accel_deg),
             "max_steering_jerk": math.radians(jerk_deg),
-            "alignment_threshold": math.radians(alignment_deg),
+            "alignment_threshold": math.radians(
+                limits["alignment_threshold"] if align_mode else alignment_deg
+            ),
+            "align_first_threshold": math.radians(
+                alignment_deg if align_mode else limits["align_first_threshold"]
+            ),
+            "align_first_release": math.radians(
+                release_deg if align_mode else limits["align_first_release"]
+            ),
         }
+        gate = (
+            f"对齐门限 {alignment_deg:.0f}°/恢复 {release_deg:.0f}°"
+            if align_mode
+            else f"对齐门限 {alignment_deg:.0f}°"
+        )
         message = (
             f"转向参数已保存：{slew_deg:.1f}°/s，{accel_deg:.1f}°/s²，{jerk_deg:.0f}°/s³，"
-            f"对齐门限 {alignment_deg:.0f}°，下次使能生效（重启后保留）"
+            f"{gate}，下次使能生效（重启后保留）"
         )
         return await self.apply_steering(values, "set", message, persist=True)
 
@@ -523,6 +683,9 @@ def main(argv=None, *, software_test_only=False):
         drive_allowed=node.backend.allowed,
         steering_operation=node.backend.set_steering,
         steering_defaults=node.backend.restore_steering_defaults,
+        mode_operation=node.backend.set_chassis_mode,
+        motion_operation=node.backend.run_operation,
+        motion_cancel=node.backend.operation.cancel,
     )
 
     def spin():

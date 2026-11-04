@@ -2642,3 +2642,78 @@ TEST_F(EnableManagerFixture, RuntimeLogTraceIsOffByDefault)
 
 }  // namespace
 }  // namespace enable_manager
+
+namespace enable_manager
+{
+namespace
+{
+// A cyclic chassis controller owns its handoff; enable_manager keeps fixed startup
+// admission and the drive-state safety chain, with an explicit per-axis allowlist.
+class CyclicModeFixture : public EnableManagerFixture
+{
+public:
+  void bringUpCyclic(Phase phase)
+  {
+    initAndConfigure(
+      "cyclic_mode_enable",
+      {rclcpp::Parameter("expected_modes", std::vector<std::int64_t>(kAxes, 9)),
+       rclcpp::Parameter("cyclic_mode_switch_joints", std::vector<std::string>{kJointNames[0]})});
+    activate();
+    ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+    setAllStatus(kSwOperationEnabled);
+    mode_buffer_.fill(9);
+    Access::setPhase(*controller_, phase);
+    Access::setOwner(*controller_, Owner::kNone);
+  }
+};
+
+TEST_F(CyclicModeFixture, EnabledAllowsOnlyConfiguredAxisToSwitchCspAndBack)
+{
+  bringUpCyclic(Phase::kEnabled);
+  mode_buffer_[0] = 8;
+  callUpdate();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  mode_buffer_[0] = 9;
+  callUpdate();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  mode_buffer_[1] = 8;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+}
+
+TEST_F(CyclicModeFixture, StartupStillRequiresCsvBeforeActivation)
+{
+  bringUpCyclic(Phase::kJtcActivating);
+  mode_buffer_[0] = 8;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+}
+
+TEST_F(CyclicModeFixture, ZeroModeCannotPassAsACyclicTransition)
+{
+  bringUpCyclic(Phase::kEnabled);
+  mode_buffer_[0] = 0;
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kModeMismatch);
+}
+
+TEST_F(CyclicModeFixture, CspStillAllowsNormalControllerDeactivation)
+{
+  bringUpCyclic(Phase::kJtcDeactivating);
+  mode_buffer_[0] = 8;
+  callUpdate();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kJtcDeactivating);
+}
+
+TEST_F(CyclicModeFixture, CyclicPolicyDoesNotMaskDriveEnableLoss)
+{
+  bringUpCyclic(Phase::kEnabled);
+  mode_buffer_[0] = 8;
+  setStatus(0, kSwSwitchedOn);
+  callUpdate();
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kUnexpectedDriveState);
+}
+
+}  // namespace
+}  // namespace enable_manager

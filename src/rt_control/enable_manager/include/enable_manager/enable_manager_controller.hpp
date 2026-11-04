@@ -345,6 +345,7 @@ private:
   std::vector<std::uint8_t> ready_to_switch_on_disable_terminal_;
   std::vector<std::uint16_t> status_words_;
   std::vector<std::int16_t> expected_modes_;
+  std::vector<bool> cyclic_mode_switch_axes_;
   std::vector<std::int16_t> actual_modes_;
   std::vector<std::size_t> mode_state_indices_;
   std::vector<std::uint8_t> mode_confirmed_;

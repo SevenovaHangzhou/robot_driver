@@ -365,6 +365,18 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
     return;
   }
   if (!operation_enabled()) {
+    // A new enable session must wait for a new producer, including after a normal
+    // disable. Never replay the previous CSV velocity or classify an absent new
+    // command as malformed while the controller has not yet been activated.
+    csv_requires_fresh_command_ = true;
+    invalidate_velocity_command();
+    // Position and mode producers also end with this enable lifetime. A retained
+    // CSP target can otherwise fail first takeover before the controller activates,
+    // and a retained OP mode can contradict the next startup CSV confirmation.
+    (*command_interface_ptr_)[commands_[kPosition]] = std::numeric_limits<double>::quiet_NaN();
+    if (mode_switching_) {
+      (*command_interface_ptr_)[commands_[kMode]] = std::numeric_limits<double>::quiet_NaN();
+    }
     // The enable transition starts from the last disabled position; no producer owns it yet.
     hold_position_raw_ = actual_position_raw_;
     position_owned_ = false;

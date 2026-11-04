@@ -23,26 +23,31 @@ constexpr const char * session_parameters[] = {
 }
 void ChassisRuntime::declare_parameters(const rclcpp_lifecycle::LifecycleNode::SharedPtr & n)
 {
-  n->declare_parameter<bool>("relative.enabled", false);
-  n->declare_parameter<bool>("relative.profile_verified", false);
+  // Controller-manager can auto-declare YAML overrides before on_init().
+  // Preserve them, just as ControllerInterface::auto_declare does for NAV.
+  const auto declare = [&n](const std::string & name, const auto & value) {
+    if (!n->has_parameter(name)) {
+      n->declare_parameter(name, value);
+    }
+  };
+  declare("relative.enabled", false);
+  declare("relative.profile_verified", false);
   for (const auto * name : session_parameters) {
-    n->declare_parameter<double>(std::string("relative.") + name, kRelativeMoveRequired);
+    declare(std::string("relative.") + name, kRelativeMoveRequired);
   }
   for (const auto * name :
     {"max_translation_velocity", "max_translation_acceleration", "max_yaw_velocity",
       "max_yaw_acceleration", "command_timeout"})
   {
-    n->declare_parameter<double>(std::string("relative.") + name, kRelativeMoveRequired);
+    declare(std::string("relative.") + name, kRelativeMoveRequired);
   }
   for (const auto * name : {"max_wheel_velocity", "max_wheel_acceleration", "seed_tolerance"}) {
-    n->declare_parameter<std::vector<double>>(
-      std::string("relative.") + name,
-      std::vector<double>{});
+    declare(std::string("relative.") + name, std::vector<double>{});
   }
   for (const auto * name :
     {"enabled_mask", "enabled_value", "csv_mask", "csv_value", "csp_mask", "csp_value"})
   {
-    n->declare_parameter<int>(std::string("relative.") + name, 0);
+    declare(std::string("relative.") + name, 0);
   }
 }
 ChassisRuntime::ChassisRuntime(
@@ -140,11 +145,14 @@ bool ChassisRuntime::activate(double now, const ChassisRuntimeFeedback & f, uint
       const auto keep_alive = weak.lock(); if (!keep_alive) {return;}
       std::lock_guard<std::mutex> guard(endpoint_mutex_); drain_snapshots();
       SetMode::Response response;
-      response.code = (reserved_ || mode_header_ || reset_header_) ? SetMode::Response::BUSY :
-      (!req->confirm || (req->mode != 1 && req->mode != 2)) ? SetMode::Response::INVALID_REQUEST :
-      !active_ || lifetime != lifetime_ || !snapshot_fresh() ? SetMode::Response::NOT_READY :
-      (latest_.cause != HandoffCause::none || latest_.move.fault != MoveFault::none) ? SetMode::Response::FAULT_LATCHED :
-      SetMode::Response::OK;
+      response.code =
+        (reserved_ || mode_header_ || reset_header_)            ? SetMode::Response::BUSY
+        : (!req->confirm || (req->mode != 1 && req->mode != 2)) ? SetMode::Response::INVALID_REQUEST
+        : !active_ || lifetime != lifetime_ || !snapshot_fresh() ? SetMode::Response::NOT_READY
+        : (latest_.cause != HandoffCause::none || latest_.move.fault != MoveFault::none)
+          ? SetMode::Response::FAULT_LATCHED
+        : (req->mode == 2 && !latest_.move.imu_valid) ? SetMode::Response::NOT_READY
+                                                      : SetMode::Response::OK;
       if (response.code == SetMode::Response::OK) {
         Request request; request.kind = RequestKind::mode; request.lifetime = lifetime;
         request.id = ++request_id_; request.mode = static_cast<ChassisMode>(req->mode); request.receipt = monotonic_now();
@@ -234,13 +242,18 @@ ChassisRuntimeOutput ChassisRuntime::update(
 {
   Request request;
   uint64_t reset_request_id = 0;
+  const bool imu_ready = f.move.imu_valid && std::isfinite(f.move.imu_yaw) &&
+                         std::isfinite(f.move.imu_age) && f.move.imu_age >= 0 &&
+                         f.move.imu_age <= config_.imu_timeout;
   if (requests_.pop(request) && request.lifetime == lifetime_) {
     if (request.kind == RequestKind::mode) {
       uint16_t code = SetMode::Response::OK;
       if (handoff_.cause() != HandoffCause::none || session_.state().fault != MoveFault::none) {
         code = SetMode::Response::FAULT_LATCHED;
       } else if (request.mode == ChassisMode::operation && handoff_.navigation_open()) {
-        if (!handoff_.begin_operation(now)) {code = SetMode::Response::NOT_READY;}
+        if (!imu_ready || !handoff_.begin_operation(now)) {
+          code = SetMode::Response::NOT_READY;
+        }
       } else if (request.mode == ChassisMode::navigation && handoff_.operation_ready()) {
         if (session_.state().active) {
           code = SetMode::Response::BUSY;
@@ -304,9 +317,11 @@ ChassisRuntimeOutput ChassisRuntime::update(
       session_.reset_fault(true) : Reset::Response::CAUSE_PRESENT;
   }
   if (pending_mode_id_ != 0) {
-    const bool done = pending_mode_ == ChassisMode::operation ?
-      handoff_.operation_ready() &&
-      session_.state().mode == ChassisMode::operation : handoff_.navigation_open();
+    const bool done = pending_mode_ == ChassisMode::operation
+                        ? handoff_.operation_ready() &&
+                            session_.state().mode == ChassisMode::operation &&
+                            session_.state().fault == MoveFault::none
+                        : handoff_.navigation_open();
     if (done || handoff_.cause() != HandoffCause::none ||
       session_.state().fault != MoveFault::none)
     {
@@ -320,6 +335,12 @@ ChassisRuntimeOutput ChassisRuntime::update(
   Snapshot snapshot{session_.state(), handoff_.phase(), handoff_.cause(), now,
     rt_response_id_, rt_goal_id_, rt_response_code_, ros_ns, execution_ns_, estimate_ns_,
     f.move.age, f.move.imu_age, session_};
+  if (handoff_.navigation_open()) {
+    // There is no live relative session in NAV. Report current measurements,
+    // rather than the inactive session's default/previous IMU and dwell flags.
+    snapshot.move.imu_valid = imu_ready;
+    snapshot.move.stationary = handoff_.stationary_confirmed();
+  }
   (void)snapshots_.push(snapshot);
   navigation_generation_.store(handoff_.navigation_open() ? handoff_.generation() : 0);
   ChassisRuntimeOutput result{handoff_.output(), steering_};
@@ -355,6 +376,12 @@ void ChassisRuntime::drain_snapshots()
 {
   Snapshot s;
   for (size_t i = 0; i < 8 && snapshots_.pop(s); ++i) {
+    if (s.cause != HandoffCause::none && latest_.cause == HandoffCause::none) {
+      // This is the non-RT endpoint path, never log from the cyclic update.
+      RCLCPP_ERROR(
+        node_->get_logger(), "Chassis handoff inhibited: cause=%u phase=%u",
+        static_cast<unsigned int>(s.cause), static_cast<unsigned int>(s.phase));
+    }
     latest_ = s;
   }
 }

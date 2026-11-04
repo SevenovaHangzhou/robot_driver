@@ -8,6 +8,7 @@ inline std::vector<rclcpp::Parameter> synthetic_parameters()
 {
   return {
     {"calibration_verified", true},
+    {"drive_mode", "align_first"},  // Explicit legacy fixture; production starts continuous.
     // Synthetic caps above the synthetic steering slew (5 rad/s); set before the values.
     {"max_steering_slew_limit", 10.0},
     {"max_steering_acceleration_limit", 100.0},

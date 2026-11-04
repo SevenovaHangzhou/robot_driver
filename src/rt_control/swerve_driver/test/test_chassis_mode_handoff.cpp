@@ -103,7 +103,8 @@ TEST(ChassisModeHandoff, StartupNeedsExplicitZeroReferenceFreshStationaryAndSend
   Rig r;
   HandoffWheels moving{{0, 0, 0, 1}};
   EXPECT_FALSE(c.start_navigation(r.now, r.feedback, moving));
-  auto f = r.feedback; f[3].steering_velocity = 0.1;
+  auto f = r.feedback;
+  f[3].wheel_velocity = 0.1;
   EXPECT_FALSE(c.start_navigation(r.now, f, {}));
   f = r.feedback; f[3].mode = 8;
   EXPECT_FALSE(c.start_navigation(r.now, f, {}));
@@ -114,6 +115,198 @@ TEST(ChassisModeHandoff, StartupNeedsExplicitZeroReferenceFreshStationaryAndSend
   }
   EXPECT_EQ(r.core.phase(), HandoffPhase::seed_csv); // Readback 9 cannot acknowledge send.
   EXPECT_FALSE(r.core.output().write_mode);
+}
+TEST(ChassisModeHandoff, StartupCsvZeroDwellDoesNotRequireSteeringToStop)
+{
+  Rig r;
+  r.feedback[2].steering_velocity = 0.015545;
+  for (int i = 0; i < 6; ++i) {
+    r.tick();
+    ASSERT_EQ(r.core.cause(), HandoffCause::none);
+    EXPECT_FALSE(r.core.navigation_open());  // Readback alone cannot confirm a zero send.
+    EXPECT_EQ(r.core.output().wheel_velocity, HandoffWheels{});
+    EXPECT_FALSE(r.core.accept_navigation(r.command(1), r.now));
+  }
+  r.sent();
+  r.tick();
+  ASSERT_EQ(r.core.phase(), HandoffPhase::confirm_csv);
+  r.sent();
+  r.tick();
+  ASSERT_TRUE(r.core.navigation_open());
+  EXPECT_FALSE(r.core.stationary_confirmed());  // Never claim steering is stationary.
+  ASSERT_TRUE(r.core.begin_operation(r.now));
+  for (int i = 0; i < 10; ++i) {
+    r.tick();
+  }
+  EXPECT_EQ(r.core.phase(), HandoffPhase::stopping_csv);
+  EXPECT_FALSE(r.core.output().write_position);
+  EXPECT_FALSE(r.core.operation_ready());  // NAV->OP still requires full steering dwell.
+  r.feedback[2].steering_velocity = 0;
+  for (int i = 0; i < 4; ++i) {
+    r.tick();
+  }
+  EXPECT_EQ(r.core.phase(), HandoffPhase::seed_csp);
+}
+TEST(ChassisModeHandoff, InitialSteeringSettlingBeginsOnlyZeroQualification)
+{
+  Rig r;
+  r.feedback[2].steering_velocity = 0.015545;
+  ChassisModeHandoff c;
+  ASSERT_TRUE(c.configure(mock_config(), 200));
+  ASSERT_TRUE(c.start_navigation(r.now, r.feedback, {}));
+  EXPECT_FALSE(c.navigation_open());
+  EXPECT_EQ(c.output().wheel_velocity, HandoffWheels{});
+  EXPECT_FALSE(c.output().write_mode);
+  EXPECT_FALSE(c.accept_navigation(r.command(1), r.now));
+}
+TEST(ChassisModeHandoff, OperationStationaryUsesFiniteToleranceAndFullDwell)
+{
+  for (double sign : {-1.0, 1.0}) {
+    Rig r;
+    r.navigation();
+    for (auto & d : r.feedback) {
+      d.wheel_velocity = sign * mock_config().stationary_wheel_velocity * 0.9;
+      d.steering_velocity = -sign * mock_config().stationary_steering_velocity * 0.9;
+    }
+    r.operation();
+    EXPECT_TRUE(r.core.operation_ready());  // In-range feedback need not be exact zero.
+  }
+  Rig outside;
+  outside.navigation();
+  outside.feedback[2].steering_velocity = mock_config().stationary_steering_velocity * 1.001;
+  ASSERT_TRUE(outside.core.begin_operation(outside.now));
+  for (int i = 0; i < 10; ++i) {
+    outside.tick();
+  }
+  EXPECT_EQ(outside.core.phase(), HandoffPhase::stopping_csv);
+  EXPECT_FALSE(outside.core.output().write_position);
+  EXPECT_FALSE(outside.core.operation_ready());
+}
+TEST(ChassisModeHandoff, SteeringSettlingDoesNotExtendDeadlineOrHideWheelMotion)
+{
+  Rig timeout;
+  timeout.feedback[2].steering_velocity = 0.015545;
+  for (int i = 0; i < 31; ++i) {
+    timeout.tick();
+  }
+  EXPECT_EQ(timeout.core.cause(), HandoffCause::switch_timeout);
+  EXPECT_TRUE(timeout.core.output().inhibited);
+  for (int bad = 0; bad < 4; ++bad) {
+    Rig r;
+    r.feedback[2].steering_velocity = 0.015545;
+    if (bad == 0) {
+      r.feedback[0].wheel_velocity = 0.1;
+    }
+    if (bad == 1) {
+      r.feedback[0].steering_velocity = NAN;
+    }
+    if (bad == 2) {
+      r.feedback[0].status_word = 0;
+    }
+    if (bad == 3) {
+      r.ack[0] = {999, 1};
+    }
+    r.tick();
+    EXPECT_TRUE(r.core.output().inhibited);
+  }
+  Rig returning;
+  returning.navigation();
+  returning.operation();
+  ASSERT_TRUE(
+    returning.core.begin_navigation(returning.now, returning.core.output().wheel_position));
+  returning.feedback[2].steering_velocity = 0.015545;
+  returning.tick();
+  EXPECT_EQ(returning.core.cause(), HandoffCause::seed_moved);
+}
+TEST(ChassisModeHandoff, StartupFeedbackGapKeepsZeroAndRestartsSentAckAndStationaryDwell)
+{
+  for (bool after_first_ack : {false, true}) {
+    Rig r;
+    if (after_first_ack) {
+      r.sent();
+      for (int i = 0; i < 4; ++i) {
+        r.tick();
+      }
+      ASSERT_EQ(r.core.phase(), HandoffPhase::confirm_csv);
+    }
+    for (int i = 0; i < 3; ++i) {
+      for (auto & d : r.feedback) {
+        d.sample_time = -std::numeric_limits<double>::infinity();
+        d.healthy = false;
+      }
+      r.tick(false);
+      ASSERT_EQ(r.core.cause(), HandoffCause::none);
+      EXPECT_FALSE(r.core.navigation_open());
+      EXPECT_FALSE(r.core.output().write_mode);
+      EXPECT_FALSE(r.core.output().write_position);
+      EXPECT_EQ(r.core.output().wheel_velocity, HandoffWheels{});
+      EXPECT_FALSE(r.core.accept_navigation(r.command(1), r.now));
+    }
+    for (auto & d : r.feedback) {
+      d.healthy = true;
+    }
+    // Restored feedback and old ACKs alone cannot reopen admission.
+    for (int i = 0; i < 4; ++i) {
+      r.tick();
+    }
+    EXPECT_EQ(r.core.phase(), HandoffPhase::seed_csv);
+    r.sent();
+    r.tick();
+    ASSERT_EQ(r.core.phase(), HandoffPhase::confirm_csv);
+    r.sent();
+    r.tick();
+    EXPECT_TRUE(r.core.navigation_open());
+  }
+}
+TEST(ChassisModeHandoff, StartupFeedbackGapHasFiniteDeadline)
+{
+  Rig r;
+  for (auto & d : r.feedback) {
+    d.sample_time = -INFINITY;
+    d.healthy = false;
+  }
+  for (int i = 0; i < 32; ++i) {
+    r.tick(false);
+  }
+  EXPECT_TRUE(r.core.output().inhibited);
+  EXPECT_EQ(r.core.cause(), HandoffCause::switch_timeout);
+  EXPECT_FALSE(r.core.navigation_open());
+}
+TEST(ChassisModeHandoff, AgeDerivedTimestampJitterPreservesRawAgeAndAbsoluteStampsStillRejectRewind)
+{
+  for (bool estimated : {false, true}) {
+    Rig r;
+    r.navigation();
+    for (auto & d : r.feedback) {
+      d.sample_time -= .000005;
+      d.sample_time_estimated = estimated;
+      ++d.drive_sequence;
+    }
+    r.tick(false);
+    EXPECT_EQ(r.core.navigation_open(), estimated);
+    if (estimated) {
+      // Jitter tolerance never fabricates freshness for old feedback.
+      r.feedback[0].sample_time = r.now - 1;
+      r.tick(false);
+      EXPECT_EQ(r.core.cause(), HandoffCause::feedback);
+    } else {
+      EXPECT_EQ(r.core.cause(), HandoffCause::feedback);
+    }
+  }
+}
+TEST(ChassisModeHandoff, StartupGapDoesNotHideMotionOrMalformedPosition)
+{
+  for (bool moving : {false, true}) {
+    Rig r;
+    r.feedback[0].sample_time = -INFINITY;
+    if (moving) {
+      r.feedback[0].wheel_velocity = 1;
+    } else {
+      r.feedback[0].wheel_position = NAN;
+    }
+    r.tick(false);
+    EXPECT_TRUE(r.core.output().inhibited);
+  }
 }
 TEST(ChassisModeHandoff, ExactPositionSeedMustBeSentBeforeModeRequestAndNewReadbackBeforeReady)
 {

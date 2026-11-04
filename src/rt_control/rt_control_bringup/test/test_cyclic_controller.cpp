@@ -105,6 +105,7 @@ std::vector<rclcpp::Parameter> runtime_parameters()
   params.emplace_back("relative.profile_verified", true);
   params.emplace_back("imu_enabled", true);
   params.emplace_back("imu_frame_id", "base_footprint");
+  params.emplace_back("imu_topic", "/cyclic_imu/data");
   params.emplace_back("imu_timeout", 0.1);
   params.emplace_back("max_imu_yaw_step", 0.2);
   params.emplace_back("quaternion_norm_tolerance", 0.01);
@@ -170,6 +171,7 @@ protected:
   rt_control_interfaces::msg::ChassisState::SharedPtr state;
   rclcpp::Subscription<rt_control_interfaces::msg::ChassisState>::SharedPtr state_sub;
   bool imu_valid{true}, running{false};
+  double settling_steering_velocity{NAN};
   controller_interface::return_type update_result{controller_interface::return_type::OK};
   std::chrono::steady_clock::time_point previous;
   double * pointer(const std::string & name, bool command)
@@ -243,7 +245,7 @@ protected:
     velocity = client->create_publisher<geometry_msgs::msg::Twist>(
       "/cmd_vel", robot_interfaces_qos::control());
     imu = client->create_publisher<sensor_msgs::msg::Imu>(
-      "/cyclic_chassis/imu", robot_interfaces_qos::fast_state());
+      "/cyclic_imu/data", robot_interfaces_qos::fast_state());
     mode_client = client->create_client<Runtime::SetMode>("/cyclic_chassis/set_mode");
     action = rclcpp_action::create_client<Runtime::Action>(client, "/cyclic_chassis/relative_move");
     state_sub = client->create_subscription<rt_control_interfaces::msg::ChassisState>(
@@ -251,7 +253,8 @@ protected:
       [this](rt_control_interfaces::msg::ChassisState::SharedPtr message) { state = message; });
     previous = std::chrono::steady_clock::now();
     until([&]() {
-      return state && state->mode == 1 && state->ready && velocity->get_subscription_count() == 1;
+      return state && state->mode == 1 && state->ready && state->imu_valid &&
+             velocity->get_subscription_count() == 1;
     });
   }
   void TearDown() override
@@ -272,6 +275,9 @@ protected:
       const auto joint = "s" + std::to_string(i), enc = "e" + std::to_string(i);
       const double target = other["command:" + joint + "/position"];
       other["state:" + joint + "/velocity"] = (target - other["state:" + joint + "/position"]) / dt;
+      if (i == 2 && std::isfinite(settling_steering_velocity)) {
+        other["state:" + joint + "/velocity"] = settling_steering_velocity;
+      }
       other["state:" + joint + "/position"] = other["state:" + enc + "/position"] = target;
     }
     sensor_msgs::msg::Imu message;
@@ -332,6 +338,24 @@ protected:
     until([&]() { return state && state->mode == 2 && state->ready && state->stationary; });
   }
 };
+TEST_F(CyclicControllerTest, NavigationReportsLiveImuAndRejectsOperationWhenItIsLost)
+{
+  until([&]() { return state && state->stationary && state->imu_valid; });
+  imu_valid = false;
+  until([&]() { return state && !state->imu_valid; });
+  EXPECT_EQ(state->mode, 1);
+  EXPECT_TRUE(state->ready);  // NAV remains available with wheel odometry.
+  auto response = mode(2);
+  until([&]() { return response.wait_for(std::chrono::seconds(0)) == std::future_status::ready; });
+  EXPECT_EQ(response.get()->code, Runtime::SetMode::Response::NOT_READY);
+  for (const auto & drive : drives) {
+    EXPECT_EQ(drive.mode, 9);
+  }
+  imu_valid = true;
+  until([&]() { return state && state->imu_valid; });
+  operation();
+}
+
 TEST_F(CyclicControllerTest, FullNavigationStopSentPreloadRelativeHoldReturnAndFreshCommand)
 {
   command(0.05);
@@ -448,6 +472,103 @@ TEST_F(CyclicControllerTest, ImuLossDuringGoalStopsAndLatchesWithoutLosingToken)
   auto back = mode(1);
   until([&]() { return back.wait_for(std::chrono::seconds(0)) == std::future_status::ready; });
   EXPECT_EQ(back.get()->code, Runtime::SetMode::Response::FAULT_LATCHED);
+}
+TEST_F(CyclicControllerTest, StartupIncompletePdoRecoversWithNewZeroSendAndNoOldCommand)
+{
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), Callback::SUCCESS);
+  bind();
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), Callback::SUCCESS);
+  state.reset();
+  // The initial CSV zero has not been sent yet; reproduce the enable-cycle gap.
+  const double previous_sent_sequence = drives[0].state[10];
+  for (auto & drive : drives) {
+    drive.complete = false;
+  }
+  command(.1);
+  for (int i = 0; i < 3; ++i) {
+    tick();
+    ASSERT_EQ(update_result, controller_interface::return_type::OK);
+    for (const auto & drive : drives) {
+      EXPECT_DOUBLE_EQ(drive.command[1], 0);
+      EXPECT_EQ(drive.state[10], previous_sent_sequence);  // No fabricated new send ACK.
+    }
+  }
+  for (auto & drive : drives) {
+    drive.complete = true;
+  }
+  until([&]() { return state && state->mode == 1 && state->ready && state->imu_valid; });
+  for (const auto & drive : drives) {
+    EXPECT_DOUBLE_EQ(drive.command[1], 0);
+  }
+  command(.05);
+  until([&]() { return std::abs(drives[0].command[1]) > .01; });
+}
+TEST_F(CyclicControllerTest, CsvStartupWithSteeringFeedbackRequiresRealZeroSendNotFullStop)
+{
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), Callback::SUCCESS);
+  bind();
+  settling_steering_velocity = 0.015545;
+  other["state:s2/velocity"] = settling_steering_velocity;
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), Callback::SUCCESS);
+  state.reset();
+  command(.1);  // A queued speed during qualification must never resume later.
+  for (int i = 0; i < 10; ++i) {
+    tick();
+    ASSERT_EQ(update_result, controller_interface::return_type::OK);
+    for (const auto & drive : drives) {
+      EXPECT_DOUBLE_EQ(drive.command[1], 0);
+    }
+  }
+  ASSERT_TRUE(state);
+  EXPECT_TRUE(state->ready);
+  EXPECT_EQ(state->mode, 1);
+  EXPECT_FALSE(state->stationary);
+  EXPECT_EQ(state->fault_code, 0);
+  settling_steering_velocity = NAN;
+  until([&]() { return state && state->mode == 1 && state->ready && state->stationary; });
+  for (const auto & drive : drives) {
+    EXPECT_DOUBLE_EQ(drive.command[1], 0);
+    EXPECT_GT(drive.state[10], 0);  // Actual adapter send completion, never readback alone.
+  }
+}
+TEST_F(CyclicControllerTest, ActivationAdmissionRejectionCanRetryWithoutReconfiguration)
+{
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), Callback::SUCCESS);
+  // Use actual lifecycle transitions here: direct callback tests cannot prove that
+  // a failed activation leaves the controller INACTIVE instead of UNCONFIGURED.
+  auto node = controller.get_node();
+  ASSERT_EQ(node->configure().label(), "inactive");
+  bind();
+  const double healthy_velocity = drives[0].state[1];
+  drives[0].state[1] = 1;  // CSV startup must reject an actually moving wheel.
+  EXPECT_EQ(node->activate().label(), "inactive");
+  for (const auto & drive : drives) {
+    EXPECT_DOUBLE_EQ(drive.command[1], 0);
+  }
+  drives[0].state[1] = healthy_velocity;
+  controller.release_interfaces();
+  bind();
+  ASSERT_EQ(node->activate().label(), "active");
+  state.reset();
+  until([&]() { return state && state->mode == 1 && state->ready; });
+}
+TEST_F(CyclicControllerTest, FeedbackLossAfterNavigationReadyStillLatchesAndNotifiesEnableOwner)
+{
+  bool fault_stop = false;
+  auto sub = client->create_subscription<std_msgs::msg::Bool>(
+    "/cyclic_chassis/fault_stop", rclcpp::QoS(1).reliable().transient_local(),
+    [&](std_msgs::msg::Bool::SharedPtr message) { fault_stop = message->data; });
+  drives[0].complete = false;
+  tick();
+  EXPECT_EQ(update_result, controller_interface::return_type::ERROR);
+  drives[0].complete = true;
+  until([&]() { return fault_stop; });
+  EXPECT_EQ(update_result, controller_interface::return_type::ERROR);
+  EXPECT_TRUE(state && !state->ready && state->fault_code != 0);
+  for (const auto & drive : drives) {
+    EXPECT_DOUBLE_EQ(drive.command[1], 0);
+    EXPECT_DOUBLE_EQ(drive.command[4], 0);
+  }
 }
 TEST_F(CyclicControllerTest, ResetUsesCurrentCycleFaultInsteadOfPreviousHealthyFeedback)
 {

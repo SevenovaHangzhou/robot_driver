@@ -74,6 +74,51 @@ async def next_of(ws, kind: str, timeout: float = 2.0):
             return message
 
 
+def test_mode_switch_requires_lease_locks_motion_and_keeps_status_responsive():
+    async def scenario(client, arbiter):
+        server = client.server.app["mode_test_server"]
+        entered, finish = asyncio.Event(), asyncio.Event()
+        calls = []
+
+        async def switch(mode):
+            calls.append(mode)
+            entered.set()
+            await finish.wait()
+            return {"ok": True, "message": "confirmed"}
+
+        server._mode_operation = switch
+        ws, _ = await login(client)
+        request = {"type": "chassis_mode", "mode": "operation", "confirm": True}
+        await ws.send_json(request)
+        assert (await next_of(ws, "error"))["code"] == "lease_required"
+        assert calls == []
+        await ws.send_json({"type": "acquire"})
+        await ws.send_json(request)
+        await asyncio.wait_for(entered.wait(), 2)
+        assert (await next_of(ws, "status"))["lease"] == "you"
+        await ws.send_json({"type": "drive", "x": 1, "y": 0})
+        assert (await next_of(ws, "error"))["code"] == "mode_busy"
+        await ws.send_json(request)
+        assert (await next_of(ws, "error"))["code"] == "mode_busy"
+        assert calls == ["operation"] and arbiter.snapshot().command == ZERO
+        finish.set()
+        assert (await next_of(ws, "chassis_mode_result"))["ok"]
+        assert arbiter.snapshot().command == ZERO
+
+    async def main():
+        server, arbiter = make_server()
+        app = server.build_app()
+        app["mode_test_server"] = server
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            await scenario(client, arbiter)
+        finally:
+            await client.close()
+
+    asyncio.run(main())
+
+
 def test_index_served_with_security_headers() -> None:
     async def scenario(client, _arbiter):
         response = await client.get("/")
@@ -87,6 +132,61 @@ def test_index_served_with_security_headers() -> None:
         assert listing.status in (403, 404)
 
     run(scenario)
+
+
+@pytest.mark.parametrize("ending", ["soft_stop", "release", "disconnect", "operation_cancel"])
+def test_operation_requires_lease_stays_responsive_and_cancels_on_control_loss(ending):
+    async def main():
+        server, arbiter = make_server()
+        entered, canceled, finished = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        calls = []
+        server._status_provider = lambda: {"chassis": {"connected": True, "enabled": True,
+            "chassis_mode": {"confirmed": True, "mode": "operation", "fault_code": 0}}}
+
+        async def execute(values):
+            calls.append(values)
+            entered.set()
+            await finished.wait()
+            return {"ok": False, "message": "canceled"}
+
+        async def cancel():
+            canceled.set()
+            return {"ok": True, "message": "cancel requested"}
+
+        server._motion_operation, server._motion_cancel = execute, cancel
+        from test_chassis_operation import motion
+        request = {"type": "operation_move", "confirm": True, **motion()}
+        client = TestClient(TestServer(server.build_app()))
+        await client.start_server()
+        try:
+            ws, _ = await login(client)
+            await ws.send_json(request)
+            assert (await next_of(ws, "error"))["code"] == "lease_required"
+            assert not calls
+            await ws.send_json({"type": "acquire"})
+            await ws.send_json(request)
+            await asyncio.wait_for(entered.wait(), 2)
+            assert (await next_of(ws, "status"))["lease"] == "you"
+            await ws.send_json(request)
+            assert (await next_of(ws, "error"))["code"] == "operation_busy"
+            await ws.send_json({"type": "drive", "x": .1, "y": 0})
+            assert (await next_of(ws, "error"))["code"] == "operation_busy"
+            await ws.send_json({"type": "chassis_mode", "mode": "navigation", "confirm": True})
+            # The mock has no mode function; either unsupported or busy must reject.
+            assert (await next_of(ws, "error"))["code"] in ("mode_unavailable", "mode_busy")
+            if ending == "disconnect":
+                await ws.close()
+            else:
+                await ws.send_json({"type": ending})
+            await asyncio.wait_for(canceled.wait(), 2)
+            assert len(calls) == 1 and arbiter.snapshot().command == ZERO
+            finished.set()
+            if ending != "disconnect":
+                assert not (await next_of(ws, "operation_result"))["ok"]
+        finally:
+            finished.set()
+            await client.close()
+    asyncio.run(main())
 
 
 def test_wrong_token_closes_socket() -> None:
@@ -376,8 +476,8 @@ def test_module_op_unavailable_without_backend():
 
 
 def make_steering_server(calls):
-    async def steering(slew, accel, jerk, alignment):
-        calls.append(("set", slew, accel, jerk, alignment))
+    async def steering(slew, accel, jerk, alignment, release):
+        calls.append(("set", slew, accel, jerk, alignment, release))
         return {"ok": True, "message": "saved"}
 
     async def defaults():
@@ -420,7 +520,8 @@ STEERING = {
     "slew_deg_s": 30,
     "accel_deg_s2": 20,
     "jerk_deg_s3": 100,
-    "alignment_deg": 90,
+    "alignment_deg": 5,
+    "release_deg": 3,
 }
 
 
@@ -438,7 +539,7 @@ def test_steering_parameters_need_the_lease_and_the_token_again() -> None:
         assert (await next_of(ws, "steering_params_result"))["message"] == "restored"
 
     calls = run_steering(scenario)
-    assert calls == [("set", 30.0, 20.0, 100.0, 90.0), ("defaults",)]
+    assert calls == [("set", 30.0, 20.0, 100.0, 5.0, 3.0), ("defaults",)]
 
 
 def test_steering_parameters_unavailable_without_backend() -> None:

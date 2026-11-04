@@ -50,6 +50,9 @@ struct HandoffDriveFeedback
   int8_t mode{0}; // Actual 0x6061.
   bool healthy{false}; // Includes bus, drive fault and enabled/healthy CSP steering evidence.
   bool mode_ack{true}; // Adapter-confirmed mode/zero transaction; legacy core fixtures set true.
+  // Age-derived estimates from independently sampled hardware reads can jitter backwards.
+  // Keep the raw estimate for freshness/dwell; only absolute source stamps prove ordering.
+  bool sample_time_estimated{false};
 };
 using HandoffFeedback = std::array<HandoffDriveFeedback, 4>;
 struct HandoffWriteAck
@@ -97,8 +100,9 @@ public:
   // initial_generation must be nonzero and never reused across controller/process lifetimes.
   // A latched cause cannot be cleared on this instance; supervised restart creates a new one.
   [[nodiscard]] bool configure(const ChassisHandoffConfig &, uint64_t initial_generation) noexcept;
-  // Explicit no-motion startup: all drives already CSV, healthy/stationary, and last actually
-  // sent CSV references zero. Admission still waits for zero write ACK, state and dwell.
+  // Explicit no-motion startup: healthy CSV, stopped wheels and last actually sent velocity
+  // zero. Initial NAV does not change steering mode: wheel-zero dwell and a new sent-zero
+  // ACK/readback gate admission; steering stationarity is still required for CSV<->CSP.
   [[nodiscard]] bool start_navigation(
     double now, const HandoffFeedback &,
     const HandoffWheels & last_sent_velocity) noexcept;
@@ -113,6 +117,7 @@ public:
   void update(double now, const HandoffFeedback &, const HandoffAcknowledgements &) noexcept;
   void cancel() noexcept;
   void deactivate() noexcept;
+  bool stationary_confirmed() const noexcept { return stationary(); }
 
   [[nodiscard]] HandoffPhase phase() const noexcept {return phase_;}
   [[nodiscard]] HandoffCause cause() const noexcept {return cause_;}
@@ -127,6 +132,7 @@ private:
   [[nodiscard]] bool all_mode(int8_t mode) const noexcept;
   [[nodiscard]] bool stationary_sample() const noexcept;
   [[nodiscard]] bool stationary() const noexcept;
+  [[nodiscard]] bool dwell_complete(double since) const noexcept;
   [[nodiscard]] bool seed_stable() const noexcept;
   [[nodiscard]] bool acknowledged(
     const HandoffAcknowledgements &,
@@ -145,6 +151,7 @@ private:
   HandoffCause cause_{HandoffCause::none};
   uint64_t generation_{0};
   double last_update_{0}, phase_started_{0}, stationary_since_{-1}, admission_since_{0};
+  double startup_wheels_stopped_since_{-1};
   int8_t source_mode_{9};
   bool configured_{false}, have_command_{false};
 };

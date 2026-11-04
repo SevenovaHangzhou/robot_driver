@@ -3,6 +3,11 @@ identity:
   product_code: 4604997
   revision_number: 505
 driver_plugin: robot_hw_ethercat/KincoCyclicModeSlave
+# User-approved 2026-10-24, Advantech readback: all eight FD drives retain 0x6040=0x0006
+# with (0x6041 & 0x006f)=0x0021 after the IPC restart. This exact unfaulted PREOP
+# combination is admitted read-only; enable_manager still performs startup sanitizing.
+startup_admission:
+  allow_shutdown_ready: true
 velocity_dec:
   numerator: 512
   denominator: 1875

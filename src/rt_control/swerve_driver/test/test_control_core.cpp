@@ -58,6 +58,93 @@ TEST(ControlConfiguration, UnspecifiedGeometryCannotActivate)
   EXPECT_THROW(ControlCore{config}, std::invalid_argument);
 }
 
+TEST_F(ControlCoreTest, OperationDirectionChangesDoNotTripOldNavigationHold)
+{
+  // Operation owns the steering ramp while NAV still observes feedback/odometry.
+  for (double angle : {0.0, 0.5, 1.0, kPi / 2, 1.0, 0.5, 0.0}) {
+    std::array<double, 4> reference{};
+    reference.fill(angle);
+    for (auto & module : feedback) {
+      module.steering_position = module.steering_angle = angle;
+    }
+    const auto out = core.observe_operation(feedback, reference, 0.004);
+    EXPECT_FALSE(core.hold_fault_latched());
+    EXPECT_NE(out.status, ControlStatus::steering_hold_fault);
+  }
+  // Returning to NAV retains the last OP reference, without replaying velocity.
+  const auto out = core.update(feedback, {}, false, 0.004);
+  EXPECT_FALSE(core.hold_fault_latched());
+  EXPECT_EQ(out.steering_position, core.hold_positions());
+  for (double speed : out.drive_velocity) {
+    EXPECT_DOUBLE_EQ(speed, 0);
+  }
+}
+
+TEST_F(ControlCoreTest, OperationObservationStillRejectsBadFeedbackAndReferences)
+{
+  std::array<double, 4> reference{};
+  reference.fill(kPi);
+  EXPECT_EQ(
+    core.observe_operation(feedback, reference, 0.004).status, ControlStatus::steering_limit);
+  reference.fill(0);
+  feedback[0].valid = false;
+  EXPECT_EQ(
+    core.observe_operation(feedback, reference, 0.004).status, ControlStatus::feedback_fault);
+  feedback[0].valid = true;
+  feedback[0].steering_angle = 1.0;
+  for (int i = 0; i < 100; ++i) {
+    core.observe_operation(feedback, reference, 0.004);
+  }
+  EXPECT_EQ(
+    core.observe_operation(feedback, reference, 0.004).status, ControlStatus::feedback_fault);
+  EXPECT_EQ(core.observe_operation(feedback, reference, 1).status, ControlStatus::feedback_fault);
+}
+
+TEST(ControlCoreModeSwitch, PreservesSteeringHistoryAndRejectsWheelMotion)
+{
+  auto config = synthetic_config();
+  config.setpoint.maximum_steering_acceleration_radps2 = 2.0;
+  config.setpoint.maximum_steering_jerk_radps3 = 10.0;
+  ControlCore baseline{config}, switched{config};
+  ModuleFeedbackArray feedback{};
+  for (auto & m : feedback) {
+    m.valid = m.enabled = m.encoder_valid = true;
+  }
+  ASSERT_TRUE(baseline.activate(feedback));
+  ASSERT_TRUE(switched.activate(feedback));
+  for (int i = 0; i < 12; ++i) {
+    const auto a = baseline.update(feedback, {0.0, 0.3, 0.0}, true, 0.004);
+    const auto b = switched.update(feedback, {0.0, 0.3, 0.0}, true, 0.004);
+    ASSERT_EQ(a.steering_position, b.steering_position);
+    ASSERT_EQ(a.status, ControlStatus::alignment_gated);
+    for (size_t j = 0; j < 4; ++j) {
+      feedback[j].steering_position = feedback[j].steering_angle = a.steering_position[j];
+    }
+  }
+  feedback[0].wheel_velocity = 1.0;
+  EXPECT_FALSE(switched.switch_alignment_policy(
+    feedback, 0.01, 0.3, std::numeric_limits<double>::quiet_NaN()));
+  feedback[0].wheel_velocity = 0.0;
+  feedback[0].encoder_valid = false;
+  EXPECT_FALSE(switched.mode_switch_feedback_ready(feedback));
+  EXPECT_FALSE(switched.switch_alignment_policy(
+    feedback, 0.01, 0.3, std::numeric_limits<double>::quiet_NaN()));
+  feedback[0].encoder_valid = true;
+  // Identical policy update must not reset an in-flight steering S-curve or branch history.
+  ASSERT_TRUE(switched.switch_alignment_policy(
+    feedback, 0.01, 0.3, std::numeric_limits<double>::quiet_NaN()));
+  for (int i = 0; i < 12; ++i) {
+    const auto a = baseline.update(feedback, {}, true, 0.004);
+    const auto b = switched.update(feedback, {}, true, 0.004);
+    EXPECT_EQ(a.steering_position, b.steering_position);
+    EXPECT_EQ(a.drive_velocity, b.drive_velocity);
+    for (size_t j = 0; j < 4; ++j) {
+      feedback[j].steering_position = feedback[j].steering_angle = a.steering_position[j];
+    }
+  }
+  EXPECT_FALSE(switched.switch_alignment_policy(feedback, 0.01, 0.1, 0.2));
+}
+
 TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)
 {
   const auto result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
@@ -65,6 +152,93 @@ TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)
   for (size_t i = 0; i < 4; ++i) {
     EXPECT_DOUBLE_EQ(result.steering_position[i], 0.0);
     EXPECT_NEAR(result.drive_velocity[i], 0.4, 1e-12);
+  }
+}
+
+TEST(ControlCoreBodyShaper, GatedStartWaitsThenRampsOnTheSCurve)
+{
+  auto config = synthetic_config();
+  config.max_body_acceleration = 1.0;
+  config.max_body_jerk = 4.0;
+  ControlCore core{config};
+  ModuleFeedbackArray feedback{};
+  for (auto & module : feedback) {
+    module.valid = module.enabled = module.encoder_valid = true;
+  }
+  ASSERT_TRUE(core.activate(feedback));
+  // Lateral command from rest: modules at 0 rad must first steer to pi/2 (gated, no drive).
+  const ChassisSpeeds lateral{0.0, 0.3, 0.0};
+  auto result = core.update(feedback, lateral, true, 0.004);
+  EXPECT_EQ(result.status, ControlStatus::alignment_gated);
+  for (const auto speed : result.drive_velocity) {
+    EXPECT_DOUBLE_EQ(speed, 0.0);
+  }
+  // Steering reaches the target: drive starts from exactly zero, without a seed step.
+  for (auto & module : feedback) {
+    module.steering_position = module.steering_angle = kPi / 2.0;
+  }
+  double previous{0.0}, previous_step{0.0};
+  for (int cycle = 0; cycle < 400; ++cycle) {
+    result = core.update(feedback, lateral, true, 0.004);
+    ASSERT_EQ(result.status, ControlStatus::running);
+    const double speed = std::abs(result.drive_velocity[0]) * 0.1;  // wheel radius 0.1 m
+    EXPECT_GE(speed, previous - 1e-12);
+    // Check the actual CSV command differences, including the first ramp sample.
+    EXPECT_LE(std::abs((speed - previous) - previous_step), 4.0 * 0.004 * 0.004 + 1e-9);
+    for (size_t i = 1; i < 4; ++i) {
+      EXPECT_NEAR(std::abs(result.drive_velocity[i]), std::abs(result.drive_velocity[0]), 1e-12);
+    }
+    previous_step = speed - previous;
+    previous = speed;
+  }
+  EXPECT_NEAR(previous, 0.3, 1e-6);
+  // Zero command uses the same ramp down, not an instantaneous stop or indefinite tail.
+  for (int cycle = 0; cycle < 400; ++cycle) {
+    result = core.update(feedback, {}, true, 0.004);
+    ASSERT_EQ(result.status, ControlStatus::running);
+    const double speed = std::abs(result.drive_velocity[0]) * 0.1;
+    EXPECT_LE(speed, previous + 1e-12);
+    EXPECT_LE(std::abs((speed - previous) - previous_step), 4.0 * 0.004 * 0.004 + 1e-9);
+    previous_step = speed - previous;
+    previous = speed;
+  }
+  EXPECT_NEAR(previous, 0.0, 1e-12);
+  // A small navigation correction must eventually pass the input deadband and move.
+  for (int cycle = 0; cycle < 250; ++cycle) {
+    result = core.update(feedback, {0.0, 0.002, 0.0}, true, 0.004);
+  }
+  EXPECT_NEAR(std::abs(result.drive_velocity[0]) * 0.1, 0.002, 1e-9);
+  // Moving retarget with lagging steering: wait until all drive commands are zero, then
+  // restart from rest. The body ramp must not advance secretly while alignment gates it.
+  bool gated = false;
+  for (int cycle = 0; cycle < 600; ++cycle) {
+    result = core.update(feedback, {0.3, 0.0, 0.0}, true, 0.004);
+    gated |= result.status == ControlStatus::alignment_gated;
+  }
+  EXPECT_TRUE(gated);
+  EXPECT_EQ(result.status, ControlStatus::alignment_gated);
+  for (const auto speed : result.drive_velocity) {
+    EXPECT_DOUBLE_EQ(speed, 0.0);
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    feedback[i].steering_position = feedback[i].steering_angle = result.steering_position[i];
+  }
+  previous = previous_step = 0.0;
+  for (int cycle = 0; cycle < 400; ++cycle) {
+    result = core.update(feedback, {0.3, 0.0, 0.0}, true, 0.004);
+    ASSERT_EQ(result.status, ControlStatus::running);
+    const double speed = std::abs(result.drive_velocity[0]) * 0.1;
+    EXPECT_LE(std::abs((speed - previous) - previous_step), 4.0 * 0.004 * 0.004 + 1e-9);
+    previous_step = speed - previous;
+    previous = speed;
+  }
+  EXPECT_NEAR(previous, 0.3, 1e-6);
+  for (int cycle = 0; cycle < 50; ++cycle) {
+    result = core.update(feedback, lateral, false, 0.004);
+    EXPECT_EQ(result.status, ControlStatus::command_timeout);
+  }
+  for (const auto speed : result.drive_velocity) {
+    EXPECT_DOUBLE_EQ(speed, 0.0);
   }
 }
 

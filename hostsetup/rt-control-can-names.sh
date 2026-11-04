@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly BMS_SERIAL="003000265230500720333159"
+readonly BMS_SERIAL="004D00675230500720333159"
 readonly BITRATE="250000"
 readonly TXQUEUELEN="128"
 

@@ -1,0 +1,62 @@
+# Commissioning parameter template. Used only by explicit chassis_operation opt-in.
+# User 2026-10-29: reuse navigation values; estimate unknown limits.
+# Geometry, radius, directions and unit conversions remain in the navigation
+# deployment. Estimates below are NOT calibration or proof of real PDO switching.
+# The composer derives profile_verified from the existing verified NAV hardware
+# calibration, enables the runtime, connects IMU and enables four DRIVE adapters.
+# This does not claim physical switch/trajectory acceptance; those remain to test.
+# Loading this template directly leaves its two gates off.
+swerve_controller:
+  ros__parameters:
+    relative:
+      enabled: false
+      profile_verified: false
+      # Proposed initial task limits: navigation leisure speed; acceleration below
+      # navigation's 1 m/s^2. Handoff wheel limits must still cover NAV's full
+      # 2 m/s wheel-surface speed: 2 / 0.1 m radius = 20 rad/s, NOT 2 rad/s.
+      max_translation_velocity: 0.05             # m/s
+      max_translation_acceleration: 0.1          # m/s^2, estimate
+      max_yaw_velocity: 0.1                      # rad/s, leisure speed
+      max_yaw_acceleration: 0.2                  # rad/s^2, estimate
+      max_wheel_velocity: [20.0, 20.0, 20.0, 20.0]       # rad/s, NAV-derived
+      max_wheel_acceleration: [20.0, 20.0, 20.0, 20.0]   # rad/s^2, NAV-derived
+      max_steering_velocity: 0.6108652381980153   # rad/s, NAV 35 deg/s
+      max_steering_acceleration: 0.6108652381980153 # rad/s^2, NAV 35 deg/s^2
+      feedback_timeout: 0.2                     # s, NAV
+      imu_timeout: 0.1                          # s, NAV placeholder
+      imu_max_increment: 0.1                    # rad/sample, NAV placeholder
+      max_update_period: 0.2                    # s, NAV watchdog bound
+      command_timeout: 0.2                      # s, estimate
+      stationary_wheel_velocity: 0.1            # rad/s, NAV 0.01 m/s / 0.1 m
+      # 2026-10-29 user: stationary within a range. Held-position field feedback
+      # peaks at 0.01855 rad/s (angle span 0.0000391 rad); retain a finite raw-speed
+      # bound and the NAV-derived 50 ms dwell, without filtering away moving samples.
+      stationary_steering_velocity: 0.02         # rad/s, field commissioning tolerance
+      stationary_dwell: 0.05                    # s, NAV stop hold
+      alignment_tolerance: 0.05235987755982988   # rad, NAV release 3 deg
+      alignment_dwell: 0.1                      # s, estimate
+      alignment_timeout: 10.0                   # s, estimate includes worst steering travel
+      steering_error: 0.08726646259971647       # rad, NAV alignment 5 deg
+      steering_error_dwell: 0.1                 # s, estimate
+      encoder_difference: 0.017453292519943295  # rad, NAV 1 deg
+      seed_tolerance: [0.01, 0.01, 0.01, 0.01]  # wheel rad, estimate = 1 mm at rim
+      position_tolerance: 0.01                  # wheel rad, estimate
+      velocity_tolerance: 0.1                   # wheel rad/s, estimate
+      settling_dwell: 0.1                      # s, estimate
+      settling_timeout: 3.0                    # s, estimate
+      slip_threshold: 0.05                     # m/s wheel residual, estimate
+      slip_dwell: 0.1                          # s, estimate
+      pose_translation_tolerance: 0.01         # m, estimate; NOT accuracy claim
+      pose_yaw_tolerance: 0.017453292519943295  # rad, estimate; NOT accuracy claim
+      yaw_discrepancy: 0.05235987755982988      # rad, estimate
+      switch_timeout: 2.0                     # s, estimate; no indefinite retries
+      stop_timeout: 2.0                       # s, NAV; 20/20 + .05 + 2*.2 < 2
+      max_goal_duration: 60.0                 # s, estimate
+      # CiA402 candidate predicates; MUST verify actual Kinco CSP status bit 12.
+      # Never copy synthetic test masks (0x25) to the real enabled (0x27) drive.
+      enabled_mask: 111                       # 0x006f
+      enabled_value: 39                       # 0x0027
+      csv_mask: 111                           # 0x006f
+      csv_value: 39                           # 0x0027
+      csp_mask: 4207                          # 0x106f
+      csp_value: 4135                         # 0x1027

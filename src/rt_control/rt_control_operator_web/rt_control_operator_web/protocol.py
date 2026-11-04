@@ -6,6 +6,7 @@ import json
 import math
 from dataclasses import dataclass
 from typing import Any
+from .chassis_operation import LIMIT_FIELDS
 
 MAX_MESSAGE_BYTES = 1024
 MODULE_OPERATIONS = frozenset({"enable", "disable", "reset"})
@@ -24,6 +25,9 @@ ALLOWED_TYPES = frozenset(
         "get_fault_history",
         "steering_params",
         "steering_defaults",
+        "chassis_mode",
+        "operation_move",
+        "operation_cancel",
     }
 )
 
@@ -44,9 +48,12 @@ class Request:
     yaw: int = 0
     z: float = 0.0
     w: float = 0.0
+    release: float = 0.0
     gear: str = ""
     op: str = ""
+    mode: str = ""
     modules: tuple[str, ...] = ()
+    motion: Any = None
 
 
 def _short_string(value: Any, field: str) -> str:
@@ -78,6 +85,16 @@ def parse_request(raw: str) -> Request:
         raise ProtocolError("unknown_type", "message type is not allowed")
     if kind == "auth":
         return Request(type=kind, token=_short_string(document.get("token"), "token"))
+    if kind == "chassis_mode":
+        mode = document.get("mode")
+        if mode not in ("navigation", "operation") or document.get("confirm") is not True:
+            raise ProtocolError("bad_request", "mode must be navigation/operation with confirm=true")
+        return Request(type=kind, mode=mode)
+    if kind == "operation_move":
+        fields = {"dx", "dy", "dyaw_deg", *LIMIT_FIELDS}
+        if document.get("confirm") is not True or set(document) != {"type", "confirm", *fields}:
+            raise ProtocolError("bad_request", "作业运动需完整参数和confirm=true")
+        return Request(type=kind, motion={key: _number(document[key], key) for key in fields})
     if kind == "steering_params":
         # ELECTRI-127: operator-tuned steering motion; the token is re-confirmed per change.
         return Request(
@@ -87,6 +104,8 @@ def parse_request(raw: str) -> Request:
             y=_number(document.get("accel_deg_s2"), "accel_deg_s2"),
             z=_number(document.get("jerk_deg_s3"), "jerk_deg_s3"),
             w=_number(document.get("alignment_deg"), "alignment_deg"),
+            # Only the align drive mode has a release angle; absent means not applicable.
+            release=_number(document.get("release_deg", 0.0), "release_deg"),
         )
     if kind == "steering_defaults":
         return Request(type=kind, token=_short_string(document.get("token"), "token"))

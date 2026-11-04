@@ -105,6 +105,15 @@ def test_chassis_binds_facts_by_instance_after_bus_and_calibration_reordering(co
     assert params["calibration_verified"] is True
     unit["verified"] = False
     save(root / "units/Alfa_V3-Advantech-01/swerve_calibration.yaml", unit)
+    with pytest.raises(ValueError, match="verified navigation calibration"):
+        compose(
+            **{**args, "machine_unit": "Alfa_V3-Advantech-01"},
+            physical_profile="chassis_only", control_scope="chassis_only",
+            runtime_dir=tmp_path / "unverified_operation",
+        )
+    # Fixed NAV mock composition still exposes the unverified flag for diagnostics.
+    deployment["chassis_operation"] = {"enabled": False}
+    save(root / "units/Alfa_V3-Advantech-01/deployment.yaml", deployment)
     mock = compose(
         **{**args, "machine_unit": "Alfa_V3-Advantech-01"},
         physical_profile="chassis_only",

@@ -3,6 +3,45 @@
 #include "relative_move_fixture.hpp"
 using namespace swerve_driver;
 
+TEST(RelativeMoveSession, ForwardThenLateralThenRotationAlignsWithWheelsHeld)
+{
+  SessionRig r;
+  r.operation();
+  for (const auto goal : {Pose2d{0.3, 0, 0}, Pose2d{0, 0.3, 0}, Pose2d{0, 0, kPi / 18}}) {
+    // Each goal runs in the same OP session and starts only after the previous stop.
+    r.tick();
+    ASSERT_TRUE(r.session.state().stationary);
+    ASSERT_TRUE(r.session.start(request(goal)));
+    const auto wheel_hold = r.session.output().wheel_position;
+    bool aligned = false;
+    for (int i = 0; i < 4000 && r.session.state().active; ++i) {
+      if (r.session.state().phase == MovePhase::aligning) {
+        EXPECT_EQ(r.session.output().wheel_position, wheel_hold);
+        for (double speed : r.session.output().wheel_velocity) {
+          EXPECT_DOUBLE_EQ(speed, 0);
+        }
+      }
+      if (r.session.state().phase == MovePhase::executing && !aligned) {
+        aligned = true;
+        EXPECT_TRUE(r.session.state().stationary);
+        for (size_t j = 0; j < 4; ++j) {
+          EXPECT_NEAR(
+            r.feedback.positions[j].steering_measured_rad, r.session.output().steering_position[j],
+            r.config.alignment_tolerance);
+        }
+      }
+      r.tick();
+    }
+    EXPECT_TRUE(aligned);
+    ASSERT_EQ(r.session.state().result, MoveResult::succeeded);
+    EXPECT_EQ(r.session.state().fault, MoveFault::none);
+    EXPECT_EQ(r.session.state().mode, ChassisMode::operation);
+    EXPECT_NEAR(r.session.state().actual.x_m, goal.x_m, 1e-8);
+    EXPECT_NEAR(r.session.state().actual.y_m, goal.y_m, 1e-8);
+    EXPECT_NEAR(r.session.state().actual.heading_rad, goal.heading_rad, 1e-8);
+  }
+}
+
 TEST(RelativeMoveSession, RequiredConfigurationAndStartup)
 {
   RelativeMoveSession s;

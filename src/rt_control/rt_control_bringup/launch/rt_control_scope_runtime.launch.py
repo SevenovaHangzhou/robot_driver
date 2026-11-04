@@ -78,6 +78,14 @@ def setup(context):
     adapter = Node(
         package="control_api_adapter", executable="control_enable_adapter", output="both"
     )
+    # Contract R-OUT-01/01S: body TF from the artifact URDF (fixed links on /tf_static, joints
+    # from /joint_states on /tf). Never odom->base_footprint or map->odom.
+    robot_state_publisher = Node(
+        package="robot_state_publisher",
+        executable="robot_state_publisher",
+        parameters=[{"robot_description": build.robot_description}],
+        output="both",
+    )
     # Published only once the stack is loaded: presence means the scope runtime is up.
     capabilities = Node(
         package="rt_control_bringup",
@@ -96,6 +104,17 @@ def setup(context):
                 executable="spawner",
                 exec_name="runtime_log_recorder_spawner",
                 arguments=[*recorder_names, "--controller-manager-timeout", "30"],
+                output="both",
+            )
+        )
+    # Observation-only sensor sidecars (e.g. the chassis IMU): unwatched, so their exit never
+    # stops the scope; parameters come from the artifact.
+    for sensor in build.lifecycle.get("sensor_nodes", []):
+        after_lifecycle.append(
+            Node(
+                package=sensor["package"],
+                executable=sensor["executable"],
+                parameters=[str(runtime / sensor["parameters"])],
                 output="both",
             )
         )
@@ -158,6 +177,7 @@ def setup(context):
         ),
         manager,
         hardware,
+        robot_state_publisher,
     ]
 
 

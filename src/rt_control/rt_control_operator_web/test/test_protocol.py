@@ -18,6 +18,20 @@ def test_auth_message() -> None:
     assert request.type == "auth" and request.token == "abc"
 
 
+@pytest.mark.parametrize("mode", ["navigation", "operation"])
+def test_chassis_mode_requires_explicit_confirmation(mode):
+    assert parse_request(json.dumps({"type": "chassis_mode", "mode": mode,
+                                     "confirm": True})).mode == mode
+
+
+@pytest.mark.parametrize("mode, confirm", [("operation", False), ("operation", 1),
+    ("operation", None), ("invalid", True), (2, True), (True, True)])
+def test_invalid_chassis_mode_rejected(mode, confirm):
+    with pytest.raises(ProtocolError):
+        parse_request(json.dumps({"type": "chassis_mode", "mode": mode, "confirm": confirm}))
+
+
+
 def test_drive_message() -> None:
     request = parse_request(json.dumps({"type": "drive", "x": 0.5, "y": -0.25, "yaw": 0}))
     assert (request.x, request.y, request.yaw) == (0.5, -0.25, 0)

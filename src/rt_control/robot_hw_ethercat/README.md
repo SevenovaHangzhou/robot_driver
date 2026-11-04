@@ -215,7 +215,10 @@ an upper controller must wait for all four axes before releasing relative positi
 commands. Returning to CSV writes zero velocity, invalidates the cached velocity
 command, waits for mode/state readback and one sent zero cycle, discards the next
 controller update so the acknowledgement is observable, and then requires a new finite
-velocity command. `command_fresh` reports that post-handoff admission.
+velocity command. `command_fresh` reports that post-handoff admission. A disabled drive also
+invalidates the previous CSV velocity and resets fresh-command admission, so a later
+enable holds zero while its producer is inactive. Absence of a new command during
+that wait is not a mode error; after takeover malformed commands remain errors.
 `mode_request_error` is a fail-closed latch for invalid mode/command, stale or lost
 process data, or an expired explicit mode-ack timeout.
 
