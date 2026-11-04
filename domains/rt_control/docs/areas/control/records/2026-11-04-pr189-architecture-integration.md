@@ -47,6 +47,8 @@ PR 189 的工控机功能分支与 main 的包重命名、共享基础设施和�
 - ROS 完整构建：PASS，31 包；修复后重新构建并复测受影响包。
 - `colcon test-result --verbose`：PASS，1377 tests，0 errors，0 failures，1 skipped。
 - GitHub CI：结果见 PR 189 最新提交的检查记录。
+- 首次 GitHub governance 通过；完整构建恢复了旧 pin 的 vendor 缓存，被冻结检查正确拒绝。
+  vendor 缓存改为仅按 `deps.repos` 精确命中，不再跨 pin 恢复，缓存命名空间升级以排除旧污染。
 
 本记录不授权使能或运动。
 
