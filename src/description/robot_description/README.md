@@ -10,7 +10,7 @@
 
 左右 `link1`～`link7` 的碰撞 STL 来自用户提供的 `robot_urdf_stl_20261027`，以共同 `arm_carriage` 和各模型零位求固定刚体转换后导入当前 link 坐标。外观、关节轴/原点/零位、惯性、工具碰撞和 TCP 均未随之替换；J2 当前限位为左臂 −92°～+122°、右臂 −122°～+92°。
 
-转换来源、14组矩阵、文件哈希和顶点核对见 `config/arm_collision_import.json`，复现工具为 `tools/import_motion_collision.py <源目录>`。零位最大 STL 浮点误差约 1.5e-8 m；同关节角下两套运动链并非完全等价，历史对比姿态 J2=90°/122°时最大碰撞顶点差约 1.105/1.367 mm；其中右 J2=122°超出当前限位，仅为运动学对比数据，不可作为执行目标。本变更未验证全姿态碰撞安全裕量。
+转换来源、14组矩阵和顶点核对见 `config/arm_collision_import.json`，复现工具为 `tools/import_motion_collision.py <源目录>`。零位最大 STL 浮点误差约 1.5e-8 m；同关节角下两套运动链并非完全等价，历史对比姿态 J2=90°/122°时最大碰撞顶点差约 1.105/1.367 mm；其中右 J2=122°超出当前限位，仅为运动学对比数据，不可作为执行目标。本变更未验证全姿态碰撞安全裕量。
 
 URDF/Rerun保留导入的原始三角面外形。MuJoCo派生模型同步引用这些网格，但其网格接触采用凸包近似，会填充凹陷，不能当成与FCL/原始STL完全一致的碰撞结果。
 
@@ -25,15 +25,13 @@ URDF/Rerun保留导入的原始三角面外形。MuJoCo派生模型同步引用�
 | `config/alfav3_mobile_manifest.json` | 模型约定、零位偏移和历史来源 |
 | `config/mesh_assets.json` | 58 个必需网格及 SHA-256 校验值 |
 | `mesh/` | URDF 引用的 58 个原始网格，按部件和 visual/collision 分类 |
-| `mujoco/robot.xml` | MuJoCo 机器人模型入口，可独立加载 |
-| `mujoco/meshes/` | XML 引用的转换网格（200 个 STL） |
 | `test/test_current_model.py` | 单树、网格、限位、惯性、零位与 SRDF 校验 |
 
-完整场景 `scene.xml` 和环境描述 `environment.xml` 已迁入同级仿真项目的 `../robot_simulation/world_description/`。仿真项目直接引用本仓库的 `mujoco/robot.xml` 和网格；本仓库的生成器只生成并校验机器人模型。
+MuJoCo 模型、转换网格、转换/碰撞演示工具及专属测试已迁至同级 [robot_simulation](../robot_simulation/README.md)：模型入口为 `../robot_simulation/mujoco/robot.xml`，完整场景位于 `../robot_simulation/world_description/`。仿真项目读取本仓库的 URDF 和原始 `mesh/`，本仓库独立维护机器人描述。
 
 2026-10-23 按仓库全部 URDF/XML 的实际引用清理：删除旧 `meshes/` 下 81 个未引用 STL（86.6 MiB）及其空目录，移除 `model_sources/` 下与正式入口完全相同的 URDF 副本。`config/mesh_assets.json` 记录原始 URDF 网格；MuJoCo 转换网格由 XML 引用。
 
-网格统一放在 `mesh/`，URDF 的 `package://robot_description/mesh/…` URI、MuJoCo XML、资产清单、安装配置与生成工具同步使用以下结构：
+网格统一放在 `mesh/`，URDF 的 `package://robot_description/mesh/…` URI、资产清单和安装配置同步使用以下结构；仿真项目的 MuJoCo XML 通过相对路径引用这些原始网格：
 
 ```text
 mesh/
@@ -73,7 +71,7 @@ mesh/
 ## 修改与验证
 
 直接编辑当前 URDF，并同步相关限位 YAML/清单。历史生成器依赖已归档的多个模型，已移出当前分支，避免重新生成时覆盖当前模型。
-若修改网格，应更新 `config/mesh_assets.json` 对应校验值。
+若修改网格，应更新 `config/mesh_assets.json` 对应校验值。需要同步 MuJoCo 派生模型时，从仿真项目执行 `.venv/bin/python tools/build_mujoco.py`，并运行该项目的 `test/test_mujoco_model.py`。
 
 ```bash
 source /opt/ros/humble/setup.bash

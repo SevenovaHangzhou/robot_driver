@@ -23,7 +23,16 @@
   "model_zero_offset_evidence": "left J5 +180 deg and right J5 restored by 9994680; metadata corrected to match the existing URDF",
   "arm_limits_deg": {
     "1": 160.0,
-    "2": {"left": {"lower": -92.0, "upper": 122.0}, "right": {"lower": -122.0, "upper": 92.0}},
+    "2": {
+      "left": {
+        "lower": -92.0,
+        "upper": 122.0
+      },
+      "right": {
+        "lower": -122.0,
+        "upper": 92.0
+      }
+    },
     "3": 160.0,
     "4": 150.0,
     "5": 160.0,
@@ -118,7 +127,6 @@
   "maintenance": "Single maintained URDF; legacy generators and original source models are in archived_sources.",
   "head_and_upper_base": {
     "source": "总装1011++6/urdf/总装1011++6.urdf",
-    "source_sha256": "62b0b6bf61803d3deddc9699a072ebb83b071492c7565d18c8fc28382d879da7",
     "source_base_link_maps_to": "arm_carriage; mobile base_link and updown retained",
     "source_base_in_arm_carriage": {
       "xyz_m": [
