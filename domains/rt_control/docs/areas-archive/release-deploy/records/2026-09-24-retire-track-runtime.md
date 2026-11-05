@@ -47,8 +47,7 @@ V3 已不安装旧 `rt_control.launch.py` 和旧控制器配置，但源树还�
   `canopen_master_driver`：PASS。`colcon test --packages-select canopen_core
   canopen_master_driver canopen_proxy_driver canopen_ros2_control robot_hw_canopen`：
   150 项通过、0 错误/失败/跳过。
-- `docker build --build-arg IGH_VERSION=stable-1.6 --build-arg IGH_COMMIT=2f7f884f1c7d377c02a7d627eb06512126a0e50e -t rt-control:electri127-retire-local -f docker/rt-control/Dockerfile .`：PASS，39 包构建通过，测试镜像 ID 为
-  `sha256:94e24dd2bf1f7d99351bfc6b9e739ed8eb16564abc361efceca9ecd65cceef`。
+- `docker build --build-arg IGH_VERSION=stable-1.6 --build-arg IGH_COMMIT=2f7f884f1c7d377c02a7d627eb06512126a0e50e -t rt-control:electri127-retire-local -f docker/rt-control/Dockerfile .`：PASS，39 包构建通过。
   `docker run --rm --network none`（不映射设备）执行 `rt_control_module.launch.py`
   的 `arms_only` 和 `chassis_only` `validation_only:=true`：PASS，前者 CANopen
   `not_required`，后者 swerve controller/4 encoder 仅静态 draft，Node ID 仍 TBD；

@@ -57,10 +57,7 @@ GREEN：候选实际32/64位函数通过14组实测/边界用例及原配对回�
 
 候选位于目标 `rt-control-backups/electri97-offset-trigger-20260909/build`：
 
-- ec_master SHA256: `a3ceeb7cddd16593ac63e6cf526ceb3ea51f3d2c3a637a7ddc2900c1999858ec`
 - ec_master Build ID: `f670f7faf21bd5265a2c22351c1e39a55b63d3ff`
-- ec_igb SHA256: `7df7dc75d57691b99ba71eb7842e3d03bc48d12d7b0073bc37f8cf20e68cc3b6`
-- ec_generic SHA256: `177667d1c7163d9b5334cf1a7035047e2d8ad22490b3f94e8a46ddb6c274111e`
 
 ### 实机对照
 
@@ -100,7 +97,7 @@ X503。控制/SYNC0周期仍为4 ms，控制线程CPU14/FIFO80，EtherCAT-OP FIF
 
 五次受控停止均返回already_disabled。最终RT-Control stopped、主站Idle/Inactive、
 18从站PREOP，14轴0x6041的operation-enabled及fault位均为false；所有采集探针已移除。
-已恢复ec_master SHA256 `3720b496e782bb4b1bd7ed103bc6626a030e27f8c3e71cf1c54557c4f432859c`，
+已恢复ec_master，
 Build ID `5cd310baa88d9ebccba4a8026204ef9284e62ec1`，原ec_igb/ec_generic及元数据一并恢复。
 两份应用库哈希保持原值。本轮没有发送使能、运动、复位或PLC命令。
 

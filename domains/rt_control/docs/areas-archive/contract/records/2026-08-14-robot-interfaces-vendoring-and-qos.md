@@ -10,7 +10,7 @@ env: native
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }
 verified: PASS
-evidence: [quality_gate 187/187, changed ROS packages 73/73, Domain 142 mock 6/6, Docker image sha256:ffd0eba25ccd431d5a6da2b23d334bc6748e7021681630e536998035ade83b54]
+evidence: [quality_gate 187/187, changed ROS packages 73/73, Domain 142 mock 6/6, Docker image ]
 supersedes: [contract-20260813-01]
 related: [BQ-135, BQ-136, BQ-137, TC-ST-04, TC-IF-01]
 ---
@@ -50,7 +50,6 @@ RED 阶段的 vendoring/source-lock/QoS 合同测试先按预期失败；当前�
   5 个命名 QoS profile、125 Hz `/joint_states`、endpoint 图和删除清单。未访问真实总线。
 - `python3 tools/release_test_runner.py validate`：`OK: 33 cases valid`。
 - 直接执行无代理 `docker build`：28 个包完整闭包构建通过，测试镜像
-  `sha256:ffd0eba25ccd431d5a6da2b23d334bc6748e7021681630e536998035ade83b54`。
   仅有既有 Lely 构建警告与 CANopen DCF `DynamicChannels`/`[607E]` 警告。
 
 主机全闭包构建仍受本机缺少 `/usr/local/etherlab` 开发文件限制；等价闭包已由 Docker

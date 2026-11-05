@@ -327,16 +327,13 @@ node/diagnostics 列表从 descriptor 派生；controller tolerance、使能批�
 ### 8.1 未合并分支的 2026-08-19 历史 T1 基线
 
 本次 ELECTRI-94 的精确最终软件基线是镜像
-`rt-control:electri-94-franka-layering-final-bbe5`，image ID 为
-`sha256:5a61aa08a6f9b807f32cb6fc5829193f0f0e0060de938e36e128532f2d2d64f4`；镜像构建
+`rt-control:electri-94-franka-layering-final-bbe5`；镜像构建
 完成 29 个包。`ros2_canopen` 0005 补丁
-`patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch` 的 SHA-256 是
-`bbe5fddd32760e06eda7c558984647990fbe5bbfb629753e3bebeeaafe315b0a`。冻结上游的
+`patches/ros2_canopen/0005-derive-motor-topology-from-hardware-info.patch` 在冻结上游的
 pristine 工作树完成 8-package CANopen 构建并通过 178 项测试；focused Python
 165/165、`tools/quality_gate.sh` 196/196（门禁覆盖率 83%）通过。
 
-精确该镜像的无设备 Mock 容器
-`a706422f1a3aec4899265c17009f31bca4e1f4046dc978793f15482cf3fae580` 使用
+精确该镜像的无设备 Mock 容器使用
 `network=none`、private IPC，且没有 device、capability 或 bind。运行时
 `joint_state_broadcaster`、`rt_internal_state_broadcaster`、`diff_drive_controller` 和
 `enable_manager` 为 active，`whole_body_jtc` 为 inactive；controller manager 以 250 Hz

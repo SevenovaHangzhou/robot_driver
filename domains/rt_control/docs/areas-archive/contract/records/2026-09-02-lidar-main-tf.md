@@ -17,7 +17,6 @@ evidence:
   - "工控机独立 lidar-main 镜像构建：PASS"
   - "本地 tools/tests/test_tf_contract.py：PASS"
   - "PR #15 body：tools/pr_contract_gate.validate_body PASS"
-  - "STL SHA-256：549449b3acf4da35264538a678bd82a1448c8571180e9c467eee949beac4197a"
 supersedes: []
 related: [BQ-125, T-020, ELECTRI-106]
 ---
@@ -62,8 +61,7 @@ related: [BQ-125, T-020, ELECTRI-106]
 - F1: 共享模型新增固定 TF 边 `base_link -> lidar_main`，位姿为
   `xyz=(0.382364228640, 0.133500000000, 0.121820508080)`、
   `rpy=(0, 0.523598775598, 0)`。
-- F2: `lidar_main.STL` 的权威资产 SHA-256 为
-  `549449b3acf4da35264538a678bd82a1448c8571180e9c467eee949beac4197a`，坐标系为
+- F2: `lidar_main.STL` 的坐标系为
   `base_link`，单位为毫米，消费时必须使用 0.001 缩放。
 - F3: 该变更不新增公共接口、不改变 `odom -> base_footprint` 所有权，也不改变任何
   ros2_control 关节、限制或实时控制参数。

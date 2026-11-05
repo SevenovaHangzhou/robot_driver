@@ -15,7 +15,7 @@ evidence:
   - focused pytest 66 passed
   - quality_gate 193 passed, gated coverage 83%
   - "rt-control:ipc-main-sync-20260828 image build: PASS (28 packages)"
-  - "image id sha256:d26242edc6f3d5dce1ea08e3c9d99f4d10ca035c10a6567baaa34c7b01bed8ab"
+  - "image id "
 related: [BQ-137]
 ---
 

@@ -10,7 +10,7 @@ env: docker
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }
 verified: PASS
-evidence: [final image rt-control:electri-94-franka-layering-final-bbe5 sha256:5a61aa08a6f9b807f32cb6fc5829193f0f0e0060de938e36e128532f2d2d64f4 with 29 packages, ros2_canopen 0005 SHA-256 bbe5fddd32760e06eda7c558984647990fbe5bbfb629753e3bebeeaafe315b0a, pristine upstream CANopen 8-package build and 178 tests, focused Python 165/165, quality_gate 196/196 at 83%, Mock container a706422f1a3aec4899265c17009f31bca4e1f4046dc978793f15482cf3fae580 exit 0]
+evidence: [final image rt-control:electri-94-franka-layering-final-bbe5 with 29 packages, pristine upstream CANopen 8-package build and 178 tests, focused Python 165/165, quality_gate 196/196 at 83%, Mock container  exit 0]
 supersedes: []
 related: [BQ-027, BQ-122, BQ-132, ecat-axes-20260819-01, canopen-chassis-20260819-01, lifecycle-20260819-03, contract-20260819-06]
 ---
@@ -55,15 +55,12 @@ semantic components，但保留多设备系统：统一 bringup 在一个 contro
 
 ## 验证
 
-- 最终 `ros2_canopen` 0005 补丁 SHA-256 为
-  `bbe5fddd32760e06eda7c558984647990fbe5bbfb629753e3bebeeaafe315b0a`；在冻结上游的
+- 最终 `ros2_canopen` 0005 补丁在冻结上游的
   pristine 工作树完成 8-package 构建并通过 178 项测试。focused Python 165/165、
   `tools/quality_gate.sh` 196/196（门禁覆盖率 83%）通过。
-- 最终镜像 `rt-control:electri-94-franka-layering-final-bbe5`（ID
-  `sha256:5a61aa08a6f9b807f32cb6fc5829193f0f0e0060de938e36e128532f2d2d64f4`）成功构建
+- 最终镜像 `rt-control:electri-94-franka-layering-final-bbe5`成功构建
   29 个包。镜像入口仍为安装后的 `rt_control_start`。
-- 精确该镜像的无设备 Mock 容器
-  `a706422f1a3aec4899265c17009f31bca4e1f4046dc978793f15482cf3fae580` 在
+- 精确该镜像的无设备 Mock 容器在
   `network=none`、private IPC、无 device/capability/bind 的条件下得到预期 controller
   状态；controller manager 为 250 Hz，SafetyState 保持 `NOT_READY` 并 fail closed。
   停机按 BQ-122 的 `/rt/disable -> controllers quiesced -> ecat_arms inactive ->
