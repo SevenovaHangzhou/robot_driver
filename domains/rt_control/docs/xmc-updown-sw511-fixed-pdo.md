@@ -71,7 +71,7 @@
 
 ## 与供应商 XML 的已知差异
 
-供应商 XML SHA-256 为 `4c295d61e87675652e9ba4df2b8e0970cd6bd7a4cbeae9927d04202add0a2b46`。它与 SW 5.11 实机至少有两处运行映射差异：
+供应商 XML 与 SW 5.11 实机至少有两处运行映射差异：
 
 - XML 的 RxPDO 末项是 `0x607F:uint32`，实机是 `0x2302:uint16`；
 - XML 的 TxPDO 额外包含 `0x6077:int16`，实机没有。

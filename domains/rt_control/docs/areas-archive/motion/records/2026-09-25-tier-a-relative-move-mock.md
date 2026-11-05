@@ -44,7 +44,7 @@ solely `/cmd_vel`. The default `relative.enabled=false`, draft machine profile a
 production launch wiring keep runtime admission closed.
 
 The locally cataloged Kinco FD low-voltage servo manual
-`V3-DOC-2026-014` (SHA-256 `029f858f7e7a4ec1f1299ae47bb6c9d1dcee8de3ef035517e1479d7166d0125e`)
+`V3-DOC-2026-014`
 provides the protocol basis: printed page 150 lists variable PDO mappings that include
 `0x607A`, `0x60FF`, `0x6060`, `0x6064`, `0x606C` and `0x6061`; printed page 154 defines
 CSP=8, CSV=9, `0x6060` as the requested mode and `0x6061` as the effective mode. User

@@ -31,7 +31,7 @@ pin 升级为可抓取的 `robot_interfaces@9aa2693d7d3235958369272b7ce8c48592dd
 
 ## 结论与冻结事实
 
-- F1: V3 axis hash 为 `f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`。
+- F1: V3 axis hash 为 。
 - F2: `JointControlModeResult` 仅为 RT-Control 域内交接，不是新的跨域 endpoint。
 - F3: Motion 与 RT-Control 必须原子使用同一 public schema SHA 和 V3 axis hash。
 

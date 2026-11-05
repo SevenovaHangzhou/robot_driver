@@ -166,7 +166,6 @@ motion remains gated by T-013/T-014 and the frozen safety preconditions.
 Implementation commit `f3012bfc1a18a1cbf6391a047ad69ef358bbb003`
 was built as image `rt-control:f3012bfc1a18a1cbf6391a047ad69ef358bbb003`
 with image ID
-`sha256:80cf505aa723c2ec00fbbd65bbd24a73ced3cf9279c330da9d0270d4f16927bc`
 and size 549,114,905 bytes. All 21 packages built. The image has no proxy
 environment value and reports IgH 1.6.10, matching the host. It was streamed
 to the IPC without a tar file; the same feature commit was transferred by Git
@@ -280,7 +279,6 @@ streamed through a FIFO and loaded without a large intermediate archive:
 
 ```text
 tag:  rt-control:4e0d586f73c5548f778e5ef889f5854a6c19c604
-id:   sha256:69642097ed0079b3c05335aa62c1efa5a987e7a8572bda4b0c0fd083f2ea465f
 size: 549109974
 ```
 
@@ -479,7 +477,7 @@ affect this classic-CAN deployment. Sources:
 
 The existing Docker image was verified but deliberately not started. It is
 tagged with Git HEAD `4e0d586f73c5548f778e5ef889f5854a6c19c604`, has image ID
-`69642097ed0079b3c05335aa62c1efa5a987e7a8572bda4b0c0fd083f2ea465f`, and
+, and
 contains IgH stable-1.6 commit `2f7f884f1c7d377c02a7d627eb06512126a0e50e`;
 the frozen Compose wrapper config passes on CPU 14. It predates the T-009
 `thread_priority: 80` host decision and its installed controllers file contains

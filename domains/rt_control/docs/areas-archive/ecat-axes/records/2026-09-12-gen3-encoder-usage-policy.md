@@ -33,7 +33,6 @@ multiturn_required。单圈只列 730F 为已确认的上电电池清错情形�
 
 - 32 次只读 SDO upload 全部成功；主站 Idle/Inactive，18 PREOP 从站。
   快照时间 2026-09-12T06:41:51.090330+00:00，原始 gen3-after-battery-20260912.json
-  SHA256=5b1535013b90edab43aa14961bc0bfbefa3489900e4d6aa2862b8f0629e102e8，
   另存于隔离部署目录。
 - 回读（各对象顺序采样，并非同周期锁存）：
 

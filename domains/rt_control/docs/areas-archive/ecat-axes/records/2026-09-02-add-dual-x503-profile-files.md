@@ -16,7 +16,7 @@ evidence:
   - "robot_hw_ethercat/rt_diagnostics colcon test-result：15 tests，0 failures"
   - "tools/quality_gate.sh：200/200 PASS，策略覆盖率 83%"
   - "IgH pinned source patch apply-check：PASS"
-  - "完整 Docker 构建：28 packages PASS；image sha256:f4b7359acc6bdb7f4a79f36d2a34a7d4010901b66392e7eab54540e2268030d4"
+  - "完整 Docker 构建：28 packages PASS；image "
   - "无网络/无设备临时容器内安装产物与 18 位 Xacro smoke：PASS"
   - "无网络/无设备 Mock 运行时 dynamic_joint_states 的双 X503 raw 接口：PASS"
 supersedes: []

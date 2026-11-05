@@ -22,7 +22,7 @@
   "model_zero_offset_convention": "q_export = axis_sign_vs_export * q_model + offset_deg; left J5 axis unchanged",
   "model_zero_offset_evidence": "left J5 +180 deg and right J5 restored by 9994680; metadata corrected to match the existing URDF",
   "arm_limits_deg": {
-    "1": 160.0,
+    "1": 170.0,
     "2": {
       "left": {
         "lower": -92.0,
@@ -33,11 +33,11 @@
         "upper": 92.0
       }
     },
-    "3": 160.0,
-    "4": 150.0,
-    "5": 160.0,
-    "6": 135.0,
-    "7": 160.0
+    "3": 170.0,
+    "4": 145.0,
+    "5": 170.0,
+    "6": 130.0,
+    "7": 170.0
   },
   "arm_motion_limits": {
     "velocity_deg_s": 30.0,
@@ -147,13 +147,9 @@
       "Reye_Link",
       "mid360_Link"
     ],
-    "head_limits_rad": [
-      -3.141592653589793,
-      3.141592653589793
-    ],
     "head_effort_nm": 10,
     "head_velocity_rad_s": 5,
-    "head_caps_note": "Position limits requested 2026-10-24; effort and speed retained from prior head, not actuator identification.",
+    "head_caps_note": "Position limits measured on the bench 2026-11-05 (user): yaw H1 +-45 deg, pitch H2 -40..+35 deg in model coordinates; effort and speed retained from prior head, not actuator identification.",
     "eye_links": "Massless, visual-only sight ranges; no collision geometry.",
     "mid360": {
       "source_inertial": "<inertial>\n      <origin xyz=\"-2.3816781880015E-11 7.90368063299876E-09 0.584355121999665\" rpy=\"0 0 0\" />\n      <mass value=\"37530.9779588344\" />\n      <inertia ixx=\"62610.6812819352\" ixy=\"5.33966563970609E-09\" ixz=\"-6.0572347138077E-10\" iyy=\"62610.6812811808\" iyz=\"-6.03319201718292E-10\" izz=\"105696.902590375\" />\n    </inertial>",
@@ -171,6 +167,16 @@
           0.013097099959850311
         ]
       ]
+    },
+    "head_limits_deg": {
+      "H1_joint": {
+        "lower": -45.0,
+        "upper": 45.0
+      },
+      "H2_joint": {
+        "lower": -40.0,
+        "upper": 35.0
+      }
     }
   }
 }

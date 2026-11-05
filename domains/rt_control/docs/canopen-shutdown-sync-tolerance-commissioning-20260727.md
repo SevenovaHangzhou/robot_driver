@@ -20,7 +20,7 @@ FJT、`/cmd_vel` 或其他运动目标。
 
 - 仓库分支：`feature/rt-control-implementation`；
 - 代码提交：`4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d`；
-- 镜像 ID：`sha256:09c8a979c536955d160bc92c60e4531627f13b62a75b00ee108e6ef332226898`；
+- 镜像 ID：；
 - IgH 标签提交：`2f7f884f1c7d377c02a7d627eb06512126a0e50e`；
 - 目标发布目录：
   `/home/ar/rt-control-releases/4fc8414f67b63bf3a1c4fb4c34eb27fe8caafc9d/robot`；
@@ -116,5 +116,4 @@ OP 空跑，再独立评审主站线程 CPU 策略。
 ```
 
 目录包含三轮 container inspect/log、关键 service 返回、OP/最终 slave 状态、kernel
-窗口、CAN 统计、CRC/拓扑、NIC/PCI/AER/IRQ/CPU 调度快照及最终 Docker 状态。`evidence-manifest.sha256` 已在目标机执行
-`sha256sum -c` 校验通过。
+窗口、CAN 统计、CRC/拓扑、NIC/PCI/AER/IRQ/CPU 调度快照及最终 Docker 状态。
