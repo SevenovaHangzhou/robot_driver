@@ -92,9 +92,7 @@ DC等待告警。第1轮全OP后的离散0x092c读回中，1、2号分别为16.9
 Idle/Inactive、Link UP、18从站PREOP；14运动轴的operation-enabled及fault位均false。
 新模块与四份保留profile留在现场，已加载身份与磁盘一致，所有本次探针已清除。
 
-当前ec_master SHA256 `5861d61fa8537ed06b55da2d10dd6adf1d22cdba468e320a0bac0bbeb15f1144`，
-Build ID `d37e9762b9595221aa12cebfaa2739ef48fe60a4`；0001补丁SHA256为
-`b83b5837d3748fb7f5c15d4066e3cfc753347dd2f20f16fd0f43585d2f9a1438`。
+当前ec_master Build ID `d37e9762b9595221aa12cebfaa2739ef48fe60a4`。
 两份应用库哈希保持上一轮原值。
 
 本次操作沿用用户对robot-ipc受控失能启动/停止的会话授权，使用Native确认入口；

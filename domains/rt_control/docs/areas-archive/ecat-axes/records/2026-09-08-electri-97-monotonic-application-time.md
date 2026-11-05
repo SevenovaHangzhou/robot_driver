@@ -35,7 +35,6 @@ PDO、application_time 调用位置、同步 API 顺序及 IgH offset 算法在�
 五项 PDO 测试通过；本阶段本地质量门禁 227 项通过。
 
 目标 Native 包经正常 colcon 重编译，运行进程 maps 确认加载新库：
-`ab7a4b776321c7b61b2e2368ddd9cdaf96e48e965aff3cdf14622e4dafc36e0b`。
 运行时 application_time 与主机 monotonic 相差约 2.916 ms，符合 4 ms 更新周期。
 ROS 消息头的时间仍来自 ROS 节点时钟；没有修改主机墙钟。
 

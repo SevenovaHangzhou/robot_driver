@@ -26,7 +26,7 @@ FIFO80 更新线程直到硬件激活完成后才创建，提前等待/绑定它
 
 - IgH `0002-dc-offset-use-sent-application-time.patch` 为每个已发送报文保存 application_time，
   0x0910 响应按同一报文的时间计算 32/64 位偏移，去掉处理时刻/jiffies 补偿。
-- Host、Native 与 Docker 构建链记录并校验 `IGH_DC_OFFSET_PATCH_SHA256`，Native 同时
+- Host、Native 与 Docker 构建链记录 DC 偏移补丁，Native 同时
   核对已加载模块 Build ID。IgH frozen commit、PDO 保留补丁及 hrtimer 构建保持不变。
 - ICube `0009-scope-startup-realtime-scheduling.patch` 在主站激活、OP 等待和 preload
   周期内临时设置调用线程 CPU/FIFO，成功和异常路径恢复原调度及亲和性。
@@ -46,11 +46,9 @@ FIFO80 更新线程直到硬件激活完成后才创建，提前等待/绑定它
 主线程误识别。本地质量门禁 233 项通过，门禁工具覆盖率 83%；ShellCheck 未安装。
 
 目标机器内核 `6.8.1-1057-realtime` 上，IgH userspace/modules 编译成功；安装过程备份
-三个旧模块、依赖身份文件和启动入口，失败时恢复。新 ec_master SHA256：
-`3720b496e782bb4b1bd7ed103bc6626a030e27f8c3e71cf1c54557c4f432859c`；
+三个旧模块、依赖身份文件和启动入口，失败时恢复。
 已加载 Build ID：`5cd310baa88d9ebccba4a8026204ef9284e62ec1`。
-驱动通过正常 colcon 重编译、21 项原有参数测试及实际头文件回归，新库 SHA256：
-`2cbaa7fc6f92a93ba5190ecb2b893aa94b1f3d202b6db955d50fe590c4d12103`。
+驱动通过正常 colcon 重编译、21 项原有参数测试及实际头文件回归。
 
 | 阶段 | 轮次 | 激活至首次全 OP/WKC | DC wait 警告 | UNMATCHED | TIMED OUT | lost 增量 | 稳定后8节点 DC 最大绝对值 |
 | --- | --- | --- | --- | --- | --- | --- | --- |

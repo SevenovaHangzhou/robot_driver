@@ -35,7 +35,7 @@ steering_min/max为±2.356194490192345 rad，margin为0.2617993877991494 rad（1
 用户选择先按手册计算候选；新增硬件owner候选文件
 `src/rt_control/robot_hw_ethercat/config/machines/alfa_v3_swerve_conversion.candidate.yaml`，
 `verified=false`、`runtime_enabled=false`，不由运行插件消费。
-手册V3-DOC-2026-014（SHA-256 `029f858f7e7a4ec1f1299ae47bb6c9d1dcee8de3ef035517e1479d7166d0125e`）
+手册V3-DOC-2026-014
 印刷页107–108给出速度raw = rpm × 512 × N / 1875。以电机侧N计数/转且无另行缩放为前提，
 行走position比例为4.373577836165284×N，velocity比例为71.65669926773201×N；
 转向分别为22.281692032865347×N和365.06324226646586×N，方向符号另定。

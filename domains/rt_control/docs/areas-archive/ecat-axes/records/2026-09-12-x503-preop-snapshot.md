@@ -54,7 +54,7 @@ related: [ELECTRI-116, BQ-143]
   39 passed；工作台相关测试 45 passed。
 - 从实际上游补丁重建函数并编译 C 测试，验证非 PREOP 不排队数据报、上传和下载
   都返回正确的权限错误：2 passed。候选内核编译成功，96 个导出符号 CRC 与原模块
-  一致；新模块 SHA 为 `bcc7ec970b53f6d23b2bec3469734fe233db2c67f02f437871ae95639598c22f`。
+  一致；新模块 SHA 为 。
 - 固定已有镜像 `45fb2467a1f0...` 上增量构建两包及补丁身份，隔离网络运行容器单测
   和 Mock 契约测试：129 tests、0 errors、0 failures、0 skipped。
 - 18:03:35 的 Native 不使能启动：Ti5 固定 1601/1A01 检查通过且无需恢复/重扫；

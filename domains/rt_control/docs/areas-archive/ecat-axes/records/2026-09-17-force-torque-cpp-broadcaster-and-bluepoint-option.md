@@ -11,9 +11,6 @@ risk: T1
 writes: {reset: no, enable: no, motion: no, plc: no}
 verified: PARTIAL
 evidence:
-  - "用户提供蓝点 ESI SHA-256: 8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad"
-  - "CRLF 规范化仓库副本 SHA-256: f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8"
-  - "用户提供蓝点协议 PDF SHA-256: 39432f1304b68af1839a3553b4581da92a3923306945e5985cdbae7d7689ae0c"
   - "扩大 Python/config 回归：223 passed"
   - "五个受影响包及 EtherCAT 固定依赖构建：PASS"
   - "五包 colcon test-result：316 tests，0 errors，0 failures，0 skipped"

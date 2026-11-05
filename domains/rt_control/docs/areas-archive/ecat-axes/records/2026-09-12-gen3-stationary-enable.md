@@ -53,11 +53,8 @@ related: [BQ-147, BQ-146, ecat-axes-20260912-10, lifecycle-20260912-01]
   manager 退出 0；最终主站 Idle/Inactive、18 从站全部 PREOP。未切换原生产服务。
 - 原位 CSP/PP 合成 PDO 测试验证精确预加载、发送确认前拒绝 enable、使能后目标锁定、
   PP bit4..6 为 0、失能后重新预加载。硬件包 88 条记录、配置/launch 共 52 项通过。
-- 证据位于隔离部署目录：gen3-confirmed-mechanical-zero-20260912.json
-  (SHA256 5f4f29cc1215e4ef9fb75ab0df5e3e90e962a4994d813f7979bbc87fde44bbf0)、
-  stationary-enable-hold-20260912.jsonl
-  (4d4ecdf4608fd4e0ef52fe0dc44ee46463f1230ce900672c38f7c120287bcd39)、
-  real-enable-zwtu751y.log (415ca5226cf6761a7b98e5bcf7551a29381d64599c25894694a7b1e4d0c6e373)。
+- 证据位于隔离部署目录：gen3-confirmed-mechanical-zero-20260912.json、
+  stationary-enable-hold-20260912.jsonl、real-enable-zwtu751y.log。
 
 本次实机操作经现场授权，操作人：Codex（用户授权），确认短语入口：
 “我确认当前位置为机械零位 除电机本身减速器外 无额外传动比，继续做14个CSP和2个PP模式的使能”。

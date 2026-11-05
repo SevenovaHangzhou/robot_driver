@@ -79,18 +79,32 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     ecat = systems["ecat_arms"]["expected_topology"]
     assert ecat["preflight_required"] and ecat["ethercat_mac"] == "cc:82:7f:c4:d3:0f"
     assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(8))
+    # The artifact loader accepts string keys only (2026-11-05 Advantech: real start rejected).
+    saved = tmp_path / "topology.yaml"
+    saved.write_text(yaml.safe_dump(ecat))
+    assert load_yaml(saved)["pdo_checks"][0]["objects"]["0x1A00"] == [
+        0x60410010,
+        0x60640020,
+        0x606C0020,
+        0x60610008,
+        0x26010010,
+        0x26020010,
+    ]
     assert [window["ring_position"] for window in ecat["position_windows"]] == [1, 3, 5, 7]
     can = systems["canopen_swerve_encoders"]
     bundle = "/var/lib/rt-control/canopen/Alfa_V3-Advantech-01"
     assert can["hardware_params"]["bus_config"] == bundle + "/bus.yml"
-    assert can["expected_topology"]["can_usb_serial"] == "003000265230500720333159"
+    # ZLG PCIe card (user 2026-11-05): encoders and IMU on can3, no USB serial to check.
+    assert can["expected_topology"]["can_interface"] == "can3"
+    assert can["expected_topology"]["can_usb_serial"] is None
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
     assert bus["options"]["dcf_path"] == bundle and bus["master"]["baudrate"] == 500
     assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
     assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
     lifecycle = result.lifecycle
-    assert lifecycle["host"]["rt_cpu"] == 7
-    assert lifecycle["bus_locks"] == ["can-can0", "ethercat-master-0"]
+    assert lifecycle["host"]["rt_cpu"] == 6
+    assert 6 not in lifecycle["host"]["housekeeping_cpus"]
+    assert lifecycle["bus_locks"] == ["can-can3", "ethercat-master-0"]
 
 
 def test_real_chassis_without_deployment_bundle_is_rejected(shares, tmp_path):

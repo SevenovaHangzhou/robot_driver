@@ -26,7 +26,7 @@ canopen-chassis，而不是导航融合或宿主接口配置。
 ## 改动
 
 - 新增 `src/rt_control/lpms_nav3_can`，保留默认 16-bit 四 TPDO、零填充 heartbeat、SI 换算、
-  四帧组装、超时诊断、接收 socket 重连；NOTICE 记录原始源码 SHA-256。
+  四帧组装、超时诊断、接收 socket 重连；NOTICE 记录原始源码来源。
 - 删除 NMT Start 编码/发送路径，不保留 SDO、bitrate、接口-up、systemd/udev 或目标机绝对路径。
   节点是该 IMU 的专用传感器适配，不是履带/舵轮 CANopen 主站的旁路监视器。
 - interface/frame 默认为空，Node ID 默认 0；不完整配置拒启动，can0/can1 没有共享接口 override。

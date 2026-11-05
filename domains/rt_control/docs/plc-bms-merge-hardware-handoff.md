@@ -10,8 +10,7 @@
 ## 1. 当前状态
 
 > 执行进展（2026-07-28）：首次候选 `e4fed685…` 在目标机完成 BMS/PLC 读取，但暴露关停期间 IO 节点 respawn，
-> 100 秒后 exit 137，已拒绝。修复提交为 `d415c0c2c75917a9545a4a2f87487718de8622a2`，新镜像 ID 为
-> `sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2`；带 IO Mock 已在 2 秒内干净退出，
+> 100 秒后 exit 137，已拒绝。修复提交为 `d415c0c2c75917a9545a4a2f87487718de8622a2`，新镜像带 IO Mock 已在 2 秒内干净退出，
 > 本提交把阶段 B 锁更新到该修复身份。本节以下“未提交工作区”等文字保留为交接时点的历史记录，不代表当前 Git
 > 状态。后续目标机重复停止、三路 PLC 输出逐点 ON/OFF 和完整一键 start→READY→stop 均已通过，操作锁为
 > `7bc8f16e903ef7174f60ebe9613f6eeed3a96185`。最终证据见
@@ -155,7 +154,7 @@ tools/rt_control_compose.sh build rt-control
 docker image inspect "rt-control:$(git rev-parse HEAD)" --format '{{.Id}}'
 ```
 
-5. 记录镜像 inspect、Git tag SHA 和 Release 归档 SHA-256，完成容器内包、接口、CMD/PID 1、capability 和 Compose 展开检查。
+5. 记录镜像 inspect、Git tag SHA 和 Release 归档名，完成容器内包、接口、CMD/PID 1、capability 和 Compose 展开检查。
 
 ### 阶段 B：GitHub Release 发布
 
@@ -163,7 +162,6 @@ docker image inspect "rt-control:$(git rev-parse HEAD)" --format '{{.Id}}'
 
 - 创建版本号 Git tag，例如 `V0.10`；
 - 将镜像保存为 `rt-control-V0.10-<git-sha>.tar.gz`；
-- 生成并上传 `.sha256`；
 - 在 GitHub Release 中记录源码 SHA、IgH commit、构建命令和未验证边界；
 - 目标机从 Release 附件下载、校验、`docker load` 后使用 `rt-control:V0.10`。
 - `PROGRESS.md` / 发布文档：记录构建和未验证边界。

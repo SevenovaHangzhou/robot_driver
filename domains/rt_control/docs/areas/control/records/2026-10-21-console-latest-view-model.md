@@ -6,7 +6,6 @@
 - 用户指定权威目录：`/home/kkozia/桌面/ing_obj/sim/robot_description`。
 - 版本：`5538a004125756d38c73c859dd8cad9780153590`。
 - URDF：`urdf/robot_alfav3_mobile.urdf`。
-- SHA256：`db2522f4e82796571f16061a0babe75bb3f8e650b9ae2e00bb46cae27af457b6`。
 
 ## 行为与边界
 
@@ -62,7 +61,6 @@
 
 远端18121登录后API返回上述URDF哈希，32连杆与全部joint XML一致，67个唯一可视网格
 逐个HTTP 200且哈希与发行一致。资源版本为
-`c63ef5d163b68be27e10d736c91f919e41087a6c2d918b7fcc276014bb75d2b6`。
 运行关节数为0、状态DISCONNECTED，因此此时模型显示零位并等待运行反馈，不能宣称实测姿态就绪。
 远端备份为`/home/ar/robot_driver-sync-backups/view-model-20261021-193955`，
 包含manifest.json、before/、restart.json及verification.json；本地备份另存remote-verification.json。
