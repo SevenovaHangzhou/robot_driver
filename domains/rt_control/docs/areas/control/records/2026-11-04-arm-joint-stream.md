@@ -33,6 +33,17 @@ related: [arm-control-20261019-01, integration-20261104-01]
 
 本机打补丁构建 JTC：`test_trajectory_controller` 501、`test_trajectory_actions` 114、`test_tolerances`、`test_trajectory` 全部通过，其中新增 5 例（必填校验、起点按速度放宽、点/段超速拒绝、话题准入与替换、话题中止 action 目标）。`test_load_joint_trajectory_controller` 因本机 test_assets 插件缺失失败，与本改动无关。integ_composer 236 项通过（`test_cli_uses_installed_share_and_reports_rejection` 在 main 上同样失败，源码树运行环境问题）。未上台架。
 
+## 台架（2026-11-04 22:03，用户授权，bench_dual_arm，域 78）
+
+只动两侧 joint7（±0.05 rad 正弦，峰值 0.052 rad/s），motion_guard 3°。
+
+- 流式 18 s（50 Hz、两点窗口、末点 0 速度）：最大跟踪误差 0.163°，无故障。
+- 断流：保持 3 s 漂移 8.4e-5 rad，无故障；断流后 0.5 s 内走了 0.034 rad，大于预期（约 0.01 rad），原因未查明。
+- 超速拒绝：0.03 rad / 5 ms 的单点窗口**被接受**（规则允许 1° + 3.14 rad/s × 5 ms = 0.033 rad），两侧 joint7 报 0x8400 速度误差超限，enable_manager 急停，全部轴去使能。
+- action 交替：因上一步故障未执行。
+
+结论：只限速度不能防止速度阶跃；1° 静态容差加在首点时间 > 0 的轨迹上等于允许 1° 瞬跳；`open_loop_control: false` 时每条新轨迹从实测位置、零速度（只有位置状态接口）起步。修正方案待定，本 PR 保持 draft。
+
 ## 结论与冻结事实
 
 - F1: 流式与 action 共用 JTC，准入规则相同，速度上限唯一来源是模型 URDF。
