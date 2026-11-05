@@ -63,6 +63,11 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   # Seven-axis bench arm trajectory controller; the operator console is its client.
   left_arm_jtc:
     module: bench_left_arm
@@ -103,6 +108,11 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   # Both bench arms in one trajectory controller; the operator console is its client.
   dual_arm_jtc:
     module: bench_dual_arm
@@ -143,6 +153,11 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   rolling_trajectory_controller:
     module: arms
     name: rolling_trajectory_controller
@@ -404,3 +419,8 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits

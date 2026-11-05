@@ -381,6 +381,7 @@ def test_policy_values_equal_frozen_old_output():
     assert expected_jtc.pop("trajectory_topic") == "/rt/arms/joint_trajectory"
     # Velocity limits come from the robot model URDF, not the policy.
     assert len(expected_jtc.pop("joint_velocity_limits")) == len(policy["joints"])
+    assert len(expected_jtc.pop("joint_acceleration_limits")) == len(policy["joints"])
     assert policy["jtc"] == expected_jtc
     expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
     # Composer-derived values, not policy data (see test_rolling_digests_are_computed_by_the_composer).

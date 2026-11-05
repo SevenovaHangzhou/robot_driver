@@ -1,5 +1,6 @@
 """Single-arm bench scope: data-only selection on the shared owners; no hardware is accessed."""
 
+import math
 from pathlib import Path
 import shutil
 import sys
@@ -163,8 +164,11 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert enable["motion_mode_switching"] is False
     assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
     assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
-    # One velocity limit per joint, from the model URDF <limit velocity>.
-    assert len(jtc["joint_velocity_limits"]) == len(MODEL_JOINTS)
+    # Arm limits from the robot model (user 2026-11-04): 30 deg/s from the URDF <limit velocity>,
+    # 60 deg/s^2 from its joint limits file.
+    assert jtc["joint_velocity_limits"] == [math.radians(30.0)] * len(MODEL_JOINTS)
+    assert jtc["joint_acceleration_limits"] == [math.radians(60.0)] * len(MODEL_JOINTS)
+    assert jtc["open_loop_control"] is True
     assert {
         "name": "arm_joint_stream",
         "topic": "/rt/arms/left/joint_trajectory",

@@ -312,7 +312,8 @@
                       },
                       "attribute": {
                         "enum": [
-                          "velocity"
+                          "velocity",
+                          "acceleration"
                         ]
                       },
                       "as": {

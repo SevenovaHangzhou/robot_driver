@@ -159,16 +159,17 @@ def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_shar
         "joints": [joint.attrib["name"] for joint in model_robot.findall("joint")],
         "joint_limits": yaml.safe_load((model_share / variant["joint_limits_file"]).read_text()),
     }
-    # URDF <limit> attributes per joint, for "model_limits" controller parameter sources.
-    model_limits = {
-        joint.attrib["name"]: {
-            name: float(value)
-            for name, value in joint.find("limit").attrib.items()
-            if name == "velocity"
-        }
-        for joint in model_robot.findall("joint")
-        if joint.find("limit") is not None
-    }
+    # Joint limits for "model_limits" controller parameter sources, both owned by the model:
+    # velocity from the URDF <limit>, acceleration from its joint limits file (URDF has none).
+    model_limits = {}
+    for joint in model_robot.findall("joint"):
+        if joint.find("limit") is not None and "velocity" in joint.find("limit").attrib:
+            model_limits.setdefault(joint.attrib["name"], {})["velocity"] = float(
+                joint.find("limit").attrib["velocity"]
+            )
+    for name, limits in robot_model["joint_limits"].get("joints", {}).items():
+        if "max_acceleration_rad_s2" in limits:
+            model_limits.setdefault(name, {})["acceleration"] = limits["max_acceleration_rad_s2"]
     if "robot_name" in scope:
         model_robot.attrib["name"] = scope["robot_name"]
     if "minimal_robot" in scope:

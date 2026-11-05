@@ -420,3 +420,13 @@ arch-arm-joint-stream:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+arch-arm-motion-limits:
+  reason: 机器人模型双臂速度上限 30°/s、加速度上限 60°/s²（robot_description e4c4a7c，用户 2026-11-04）；JTC 新增 joint_acceleration_limits，open_loop_control 改为 true
+  method: arch-golden-regen.py（arm/stationary）、arch-head-golden2.py、arch-force-golden2.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - head-mock
+  - head-real
