@@ -106,10 +106,13 @@ std::uint8_t RollingTrajectoryController::admitBatch(
     return State::NOT_ACCEPTING;
   }
 
-  // Not moving yet (or holding after a stop): the batch starts a new session at replace_from.
+  // A batch extends the session once its first batch is accepted (also before it starts);
+  // holding (after a stop, or before any accepted batch) the batch starts a new session.
   const SessionState session_state = buffer_.sessionState();
   std::int64_t offset_ns = 0;
-  if (session_state == SessionState::kRunning) {
+  if (
+    session_state == SessionState::kRunning ||
+    (session_state == SessionState::kPriming && buffer_.hasPending())) {
     offset_ns = replace_from_ns - session_origin_ns_;
   } else if (session_state == SessionState::kStopping) {
     return State::NOT_ACCEPTING;
@@ -183,7 +186,7 @@ std::uint8_t RollingTrajectoryController::startSession(std::int64_t start_ns)
     return State::NOT_ACCEPTING;
   }
   if (session_state == SessionState::kPriming) {
-    // The previous first batch has not started yet; this one replaces it.
+    // A started session whose first batch was rejected.
     buffer_.terminateSession();
     (void)buffer_.resetTerminated();
   }

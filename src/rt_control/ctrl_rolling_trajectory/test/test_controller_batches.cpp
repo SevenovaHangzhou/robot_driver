@@ -401,6 +401,21 @@ TEST_F(ControllerBatchTest, RunningReplacementSplicesOntoTheBufferedTrajectory)
   }
 }
 
+TEST_F(ControllerBatchTest, BatchesBeforeTheStartExtendTheFirstOne)
+{
+  const std::array<double, kAxisCount> hold = command_positions_;
+  const rclcpp::Time start = now() + rclcpp::Duration::from_seconds(0.2);
+  Peer::submit(*controller_, move(1U, start, 0.4, 0.0));
+  // Streamed before the first batch starts: splices 0.1 s into it instead of restarting.
+  Batch extension = move(2U, start + rclcpp::Duration::from_seconds(0.1), 0.3, 0.04);
+  Peer::submit(*controller_, extension);
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+  run(start, 120U);
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    EXPECT_NEAR(command_positions_[axis], hold[axis] + 0.04, 1.0e-3);
+  }
+}
+
 TEST_F(ControllerBatchTest, RejectionsAreReportedWithTheirSequence)
 {
   const rclcpp::Time start = now() + rclcpp::Duration::from_seconds(0.1);
@@ -501,7 +516,7 @@ TEST_F(ControllerBatchTest, ConcurrentBatchesAndRtConsumptionRemainCoherent)
       std::this_thread::yield();
     }
   });
-  // Until the RT starts the first batch each one replaces it; afterwards they are late.
+  // The first batch opens the session; the same plan resent from the same start is late.
   for (std::uint64_t sequence = 1U; sequence <= 10U; ++sequence) {
     Peer::submit(*controller_, move(sequence, start, 0.5, 0.05));
   }
