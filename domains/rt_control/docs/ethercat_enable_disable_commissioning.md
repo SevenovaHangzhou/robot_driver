@@ -25,14 +25,6 @@ diagnostic failure fields.
 
 ## Deployed implementation under test
 
-- ICube overlay library SHA-256:
-  `0369900b1048e2a5bd4e7d7143df50ebe773fd8ebf33153978523bdf069b8f46`.
-- Run-6 enable-manager library SHA-256:
-  `196b296a9e33d38b2703ce79b471440d3b8b891e55784f90a74590b9abe3333b`.
-- Run-7 enable-manager library SHA-256 after the diagnostic cleanup:
-  `5d6036dc82265e392f86ef0ebb53af78ec261f85874a4c18bb709b4a5e3db196`.
-- Run-7 41-file evidence manifest SHA-256:
-  `a71c48871d14de6bdc738c44e564101787a885449ae5c6f47c1185c3e44e777e`.
 - The test used an incremental library injection into the stopped production
   container. The committed Dockerfile remains the reproducible build path; this
   injection is commissioning evidence, not a release-image construction method.
@@ -115,7 +107,6 @@ run-7 evidence directory.
 ## BQ-114 400 ms mitigation and explicit master deactivation follow-up
 
 Two isolated EtherCAT-only cycles were executed with image
-`sha256:b8cc0ad9691e9fa34062338501ef1b26d9f8de6cf66eda62fca9802664a96cc5`.
 The CANopen hardware component remained unconfigured, and no drive enable or
 motion command was issued. This isolates master activation/deactivation and is
 not a substitute for the remaining production motion tests.
@@ -156,9 +147,6 @@ returning lifecycle ERROR.
 Evidence is retained at
 `/var/lib/rt-control/validation/run-14-bq114-400ms-gated-ecat-only` and
 `/var/lib/rt-control/validation/run-15-bq114-400ms-gated-ecat-only-repeat`.
-Their evidence-manifest SHA-256 values are respectively
-`248da7d6c29ccd742c0db62d4efd06f432cb2044f5c69f593c3185ed0c795624` and
-`85f411497829e7794079991dc6087fec5b8915507e70119d4650e8b7e43a9dbb`.
 The IPC is currently left with master 0 inactive, all fifteen positions PREOP,
 and the validation container stopped with exit code 0.
 

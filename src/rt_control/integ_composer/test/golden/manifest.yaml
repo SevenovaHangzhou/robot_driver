@@ -300,7 +300,7 @@ hw_rename_regeneration:
   - force-real
 rolling_digests_regeneration:
   reason: 'arch-c6 user decision 2026-10-31: the composer computes the rolling axis_set_hash and the envelope
-    limits_version (SHA-256 of the artifact copy); the controller only parses and compares them and no
+    limits_version; the controller only parses and compares them and no
     longer links OpenSSL'
   method: only the rolling_trajectory_controller.ros__parameters axis_set_hash and limits_version keys
     were added; both values equal what the controller previously computed (interface axis set f4c8ff…,
@@ -397,7 +397,7 @@ arch-head-move-action:
   - head-mock
   - head-real
 arch-drop-sha-ids:
-  reason: 故障表与六维力配置的文档出处去掉 SHA-256（用户 2026-11-04）
+  reason: 故障表与六维力配置的文档出处去掉内容哈希（用户 2026-11-04）
   method: arch-golden-regen.py（arm/stationary）、arch-force-golden2.py 按测试夹具重算
   cases:
   - arm-mock
@@ -407,6 +407,19 @@ arch-drop-sha-ids:
   - stationary-mock
   - stationary-real
   - force-real
+arch-sync-description-91c21eb:
+  reason: 同步 robot_description 91c21eb：头部限位按台架实测（H1 ±45°、H2 −40°～+35°，用户 2026-11-05）、双臂速度 30°/s（#9）、删除内容哈希（#10）
+  method: arch-golden-regen.py（arm）、arch-head-golden2.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - head-mock
+  - head-real
+arch-sync-description-8b9c404:
+  reason: 同步 robot_description 8b9c404：双臂限位 J1/J3/J5/J7 ±170°、J4 ±145°、J6 ±130°（同事 97a6326，用户 2026-11-05 接受），说明去掉 SHA-256 文字
+  method: b2-golden.py 按测试夹具重算
 arch-arm-joint-stream:
   reason: JTC 开放流式话题 R-IN-22（trajectory_topic），准入改为 URDF 速度上限（joint_velocity_limits，patch 0006），轨迹末点速度必须为 0
   method: arch-golden-regen.py（arm）按测试夹具重算
@@ -457,3 +470,9 @@ arch-standstill-window:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+arch-rolling-slim-arm-limits-8b9c404:
+  reason: 合入 main 后 rolling 位置上下限随 robot_description 8b9c404 双臂限位（±170/±145/±130°）
+  method: b2-golden.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real

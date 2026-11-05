@@ -15,9 +15,9 @@ evidence:
   - "ecat_icube 1390be7 补丁 0001..0006 顺序 apply-check：PASS"
   - "ros2_canopen fef50e5 补丁 0001..0005 顺序 apply-check：PASS"
   - "镜像内补丁影响的 7 个 ecat_icube/ros2_canopen 上游包：200 tests，0 failures"
-  - "完整 Docker 构建：29 packages PASS；image sha256:08d3705b163a6dbe7c6c4ed0031935108d889f8aec5823e0dc511ac065fe29d6"
+  - "完整 Docker 构建：29 packages PASS；image "
   - "镜像内 7 个受影响包 BUILD_TESTING=ON：365 tests，0 failures"
-  - "无网络/无设备/无 capability/无 bind Mock 容器 9a594e96ad4ce71171954855125d0cea7b78b6a74349750b194f1dfbf5fdcc3a：exit 0"
+  - "无网络/无设备/无 capability/无 bind Mock 容器 ：exit 0"
 supersedes: [canopen-chassis-20260819-01, contract-20260819-06, ecat-axes-20260819-01, lifecycle-20260819-03, release-deploy-20260819-01]
 related: [ecat-axes-20260902-01, ELECTRI-94]
 ---
@@ -66,8 +66,7 @@ EtherCAT 拓扑。旧提交不能直接 cherry-pick，否则会把 Turn/Updown �
   `0001..0006` 与 ros2_canopen `0001..0005` 均逐个通过 `git apply --check` 并顺序应用。
 - 在最终镜像中以 `BUILD_TESTING=ON` 重新构建补丁影响的 7 个 ecat_icube/ros2_canopen
   上游包，200 项测试全部通过。
-- 完整 Docker 构建完成 29 个包，候选镜像 ID 为
-  `sha256:08d3705b163a6dbe7c6c4ed0031935108d889f8aec5823e0dc511ac065fe29d6`。该镜像内
+- 完整 Docker 构建完成 29 个包，该候选镜像内
   使用独立 build/install/log 根重新以 `BUILD_TESTING=ON` 构建 7 个受影响包，365 项
   测试全部通过。
 - Mock 容器使用 `network=none`、private IPC，inspect 确认 devices 为空、capability

@@ -283,7 +283,6 @@ maximum period 为 2 ms；这些是 Mock/初始软件值，不是目标机实测
 | Host / kernel | `ar-Default-string` / `5.15.0-1032-realtime` |
 | V3 release | `/home/ar/rt-control-v3/releases/1256885` |
 | Source SHA | `1256885ce3b99c794bc9ea68d4b353f880166337` |
-| Source bundle SHA-256 | `064a5ff1db27e4b1afa70f6b6785416463528c6e5283bfe3b35c8a46b5478576` |
 | 构建 | 34 packages PASS |
 | 测试 | 1697 tests，0 errors/failures，23 skipped |
 | 静态入口 | arms-only validation PASS，14 CSP + 2 PP |

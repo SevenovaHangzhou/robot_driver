@@ -15,8 +15,11 @@ if [[ ${EUID} -ne 0 ]]; then
   exit 1
 fi
 
-if [[ -e /etc/systemd/system/can0.service ]]; then
-  echo "legacy can0.service is still installed; retire it under separate host authorization" >&2
+# shellcheck source=hostsetup/legacy-units.sh
+source "${script_dir}/legacy-units.sh"
+legacy_can0="$(legacy_unit_problem can0.service)"
+if [[ -n "${legacy_can0}" ]]; then
+  echo "legacy ${legacy_can0}; disable it under separate host authorization" >&2
   exit 1
 fi
 

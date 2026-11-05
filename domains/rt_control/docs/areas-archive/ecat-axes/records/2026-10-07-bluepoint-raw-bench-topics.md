@@ -161,7 +161,7 @@ launch退出1：`Force sensor 2 PDO layout mismatch`，硬件节点未启动，�
 ## 新 DOCX 协议配置 — 2026-10-07
 
 用户改为指定`三代机电气件通讯协议/力传感器/三代机/前置产品信息/六维力传感器-EtherCAT通讯协议V1.1(1).docx`，
-日期2026-09-10，SHA256 9c275c21bb171a99cd814c2a041b8bc9b03774ef1034cac523104c1e63ab8cdf。
+日期2026-09-10。
 该文档映射对象与此前实机一致：Rx7000:01..08、Tx6000:01..09，映射容器保留1600/1A00。
 左右profile、family、broadcaster九路接口已同步恢复，保留输出固定零。
 REAL保留输出仍为uint32零字编码，不导出命令。启动检查继续按profile生成期望列表。

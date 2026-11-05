@@ -104,7 +104,7 @@ bool KincoCyclicModeSlave::setupSlave(
       "status_word",       "feedback_age_ms", "mode_switch_ready",
       "mode_request_ack",  "command_fresh",   "mode_request_error",
       "feedback_sequence", "sent_sequence",   "feedback_sequence_at_send",
-      "sent_velocity"};
+      "sent_velocity",     "error_word_1",    "error_word_2"};
     auto bind = [&parameters](
                   const auto & names, auto & indices, const char * prefix, size_t size) {
       std::set<size_t> used;
@@ -123,8 +123,9 @@ bool KincoCyclicModeSlave::setupSlave(
 
     const std::map<unsigned int, std::string> outputs{
       {0x6040, "uint16"}, {0x607a, "int32"}, {0x60ff, "int32"}, {0x6060, "int8"}};
-    const std::map<unsigned int, std::string> inputs{
-      {0x6041, "uint16"}, {0x6064, "int32"}, {0x606c, "int32"}, {0x6061, "int8"}};
+    const std::map<unsigned int, std::string> inputs{{0x6041, "uint16"}, {0x6064, "int32"},
+                                                     {0x606c, "int32"},  {0x6061, "int8"},
+                                                     {0x2601, "uint16"}, {0x2602, "uint16"}};
     auto validate_pdo = [](const YAML::Node & pdos, const auto & expected) {
       if (!pdos.IsSequence() || pdos.size() != 1) {
         return false;
@@ -232,6 +233,12 @@ void KincoCyclicModeSlave::processData(size_t index, uint8_t * address)
       mode_display_ = EC_READ_S8(address);
       have_mode_ = true;
       set_state(kModeDisplay, mode_display_);
+      break;
+    case 0x2601:
+      set_state(kErrorWord1, EC_READ_U16(address));
+      break;
+    case 0x2602:
+      set_state(kErrorWord2, EC_READ_U16(address));
       break;
     default:
       break;

@@ -5,26 +5,26 @@ verified: true
 authorities:
   host: Advantech MIC-770V3W chassis bench, read back 2026-10-14..17 (ELECTRI-127)
   ethercat_mac: IgH master 0 attached device
-  can: USB CAN adapter serial 003000265230500720333159 on can0 at 500 kbit/s; master node 127;
-    node 1 (IMU) shares the bus
-  realtime: rt_cpu 7 isolated (isolcpus/nohz_full); IgH run_on_cpu=7; housekeeping 0-6,8-19
+  can: ZLG PCIe CAN card (user 2026-11-05) - can0 left battery slot, can1 right battery slot,
+    can3 external steering encoders + IMU (node 1); bitrate per canopen.bitrate_kbps; master node 127
+  realtime: host read back 2026-11-05 - isolcpus/nohz_full 6,7; SMT sibling 7 offline (rt-control-cpu-layout);
+    rt_cpu 6, IgH run_on_cpu=6; irqaffinity/housekeeping 0-5,8-27 (user 2026-11-05)
 pending_facts: []
 robot_variant: Alfa_V3
 end_effector: mobile_proxy
 hardware_options:
   force_sensors: none
 can_interfaces:
-  swerve_encoders: can0
+  swerve_encoders: can3
 ethercat:
   master_id: 0
 host_id: user-MIC-770V3W
 host:
   hostname: user-MIC-770V3W
   ethercat_mac: cc:82:7f:c4:d3:0f
-  can_usb_serials:
-    can0: '003000265230500720333159'
-  rt_cpu: 7
-  housekeeping_cpus: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+  rt_cpu: 6
+  housekeeping_cpus: [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+    25, 26, 27]
 canopen:
   master_node_id: 127
   bitrate_kbps: 500

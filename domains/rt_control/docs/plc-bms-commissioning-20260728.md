@@ -27,7 +27,7 @@ PREOP，CAN0/CAN1 无错误，PLC 三路命令和实际输出均回到关闭状�
 | 功能源码 | `d415c0c2c75917a9545a4a2f87487718de8622a2` |
 | 发布锁 | `7bc8f16e903ef7174f60ebe9613f6eeed3a96185` |
 | 镜像 | `rt-control:d415c0c2c75917a9545a4a2f87487718de8622a2` |
-| 镜像 ID | `sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2` |
+| 镜像 ID |  |
 | 镜像大小 | `552557165 bytes`，约 `527.0 MiB` |
 | 不可变运行副本 | `/home/ar/rt-control-releases/d415c0c2c75917a9545a4a2f87487718de8622a2/robot` |
 | 不可变操作副本 | `/home/ar/rt-control-operators/7bc8f16e903ef7174f60ebe9613f6eeed3a96185/robot` |
@@ -108,7 +108,7 @@ CPU14、`CAP_SYS_NICE`/`CAP_IPC_LOCK`/`CAP_NET_RAW`，采样约 4.00% CPU、644.
 - PLC MW200=`0x0000`、MW201=`0x0001`、MW210/MW211/MW212=`0x0000`；
 - 关停日志没有 traceback、process died、respawn、FATAL 或 `UNCLEAN` 标记。
 
-完整证据及 SHA-256 清单位于：
+完整证据位于：
 
 ```text
 /var/lib/rt-control/validation/run-22-one-command-d415c0c/

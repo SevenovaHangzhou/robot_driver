@@ -1,4 +1,7 @@
 # Bench assembly scopes of the Alfa_V3 manifest; merged into `scopes` by integ_composer read_manifest().
+# Every bench scope runs robot_state_publisher (static and joint TF; user 2026-11-05). The bench has
+# no lift, so `updown` gets no state and the tree splits there: `base_footprint`..`base_link` and
+# `arm_carriage` with the arms and head.
 scopes:
   bench_left_arm_stationary_enable:
     enabled_modules:
@@ -16,6 +19,7 @@ scopes:
     policy_overrides:
       enable: bench_left_arm_enable
     staged_hardware_activation: true
+    publish_robot_state: true
     controller_order:
       inactive: []
       active:
@@ -43,6 +47,7 @@ scopes:
       enable: bench_left_arm_enable
       motion: bench_left_arm_motion
     staged_hardware_activation: true
+    publish_robot_state: true
     controller_order:
       inactive:
       - left_arm_jtc
@@ -65,6 +70,7 @@ scopes:
     policy_overrides:
       enable: bench_dual_arm_enable
     staged_hardware_activation: true
+    publish_robot_state: true
     controller_order:
       inactive: []
       active:
@@ -92,6 +98,7 @@ scopes:
       enable: bench_dual_arm_enable
       motion: bench_dual_arm_motion
     staged_hardware_activation: true
+    publish_robot_state: true
     controller_order:
       inactive:
       - dual_arm_jtc
@@ -124,6 +131,7 @@ scopes:
       enable: bench_dual_arm_enable
       motion: bench_dual_arm_motion
     staged_hardware_activation: true
+    publish_robot_state: true
     jtc_only_excluded:
     - dual_arm_rolling
     controller_order:
@@ -170,6 +178,7 @@ scopes:
     policy_overrides:
       enable: bench_right_arm_enable
     staged_hardware_activation: true
+    publish_robot_state: true
     controller_order:
       inactive: []
       active:
@@ -195,6 +204,7 @@ scopes:
       enable: bench_right_arm_enable
       motion: bench_right_arm_motion
     staged_hardware_activation: true
+    publish_robot_state: true
     controller_order:
       inactive:
       - right_arm_jtc

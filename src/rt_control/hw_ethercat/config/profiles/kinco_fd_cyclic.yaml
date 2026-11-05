@@ -61,6 +61,13 @@ driver_config:
     - index: 24673
       sub_index: 0
       type: int8
+    # Error state words 1/2 (user 2026-11-05: written into the drives' saved 0x1A00).
+    - index: 9729
+      sub_index: 0
+      type: uint16
+    - index: 9730
+      sub_index: 0
+      type: uint16
 mock_adapter:
   verified: true
   mock_only: true

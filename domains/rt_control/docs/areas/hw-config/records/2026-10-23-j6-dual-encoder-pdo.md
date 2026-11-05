@@ -44,7 +44,7 @@ related: [arm-control-20261023-06]
 
 - F1: J6新0x2241和原0x3B69已实际进入同一1kHz recorder帧；验证仅覆盖未使能OP通信。
 - F2: 当前状态IDLE、JTC inactive，七轴未使能，0xA000记录未清；后续动作需现场恢复正常零错误使能状态。
-- F3: 新生成XML哈希0859cf22e7fb5345dcfebf5dcbc8ce650e201b39a92cd0e515d6483a3f20b90b，仅新增ros2_control状态接口；旧录制仍按013950bc69c4a67a9cc73d9062591346438ffc29e425f2d4468b8e5d52379e29快照分析，不重标历史模型。
+- F3: 新生成XML哈希，仅新增ros2_control状态接口；旧录制仍按快照分析，不重标历史模型。
 
 ## 遗留
 
