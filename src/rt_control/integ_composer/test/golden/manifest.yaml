@@ -422,3 +422,13 @@ arch-sync-description-91c21eb:
   - arm-real-jtc
   - head-mock
   - head-real
+arch-sync-description-8b9c404:
+  reason: 同步 robot_description 8b9c404：双臂限位 J1/J3/J5/J7 ±170°、J4 ±145°、J6 ±130°（同事 97a6326，用户 2026-11-05 接受），说明去掉 SHA-256 文字
+  method: b2-golden.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - head-mock
+  - head-real
