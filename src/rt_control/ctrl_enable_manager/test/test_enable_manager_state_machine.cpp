@@ -165,6 +165,12 @@ public:
   {
     c.handleJtcState(message);
   }
+  using ActualSample = EnableManagerController::ActualSample;
+  static bool stableActualInterval(
+    const Controller & c, const ActualSample & previous, const ActualSample & current)
+  {
+    return c.stableActualInterval(previous, current);
+  }
   static void handleRollingState(
     Controller & c,
     const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr & message)
@@ -193,6 +199,16 @@ constexpr std::array<const char *, kAxes> kJointNames{
   "right_joint1", "right_joint2", "right_joint3", "right_joint4", "right_joint5",
   "right_joint6", "left_joint1",  "left_joint2",  "left_joint3",  "left_joint4",
   "left_joint5",  "left_joint6",  "turn",         "updown"};
+// The fixture renders measured velocities, as the bench diagnostic TxPDO profile does.
+std::vector<std::string> velocityInterfaces()
+{
+  std::vector<std::string> names;
+  for (const char * joint : kJointNames) {
+    names.emplace_back(std::string(joint) + "/velocity");
+  }
+  return names;
+}
+
 constexpr std::array<std::array<std::int8_t, 3>, kBatches> kEnableBatches{
   {{{0, 1, 2}}, {{6, 7, 8}}, {{3, 4, 5}}, {{9, 10, 11}}, {{12, 13, -1}}}};
 constexpr std::array<std::uint8_t, kBatches> kBatchSizes{3U, 3U, 3U, 3U, 2U};
@@ -282,6 +298,7 @@ public:
     status_buffer_.fill(static_cast<double>(kSwSwitchOnDisabled));
     command_buffer_.fill(0.0);
     position_buffer_.fill(0.0);
+    velocity_buffer_.fill(0.0);
     mode_buffer_.fill(0.0);
     feedback_age_ms_ = 0.0;
   }
@@ -343,10 +360,10 @@ public:
     state_handles_.clear();
     command_handles_.reserve(kAxes);
     const bool motion_mode =
-      controller_->state_interface_configuration().names.size() == kAxes * 2U + 1U;
+      controller_->state_interface_configuration().names.size() == kAxes * 3U + 1U;
     const bool fixed_modes =
       !controller_->get_node()->get_parameter("expected_modes").as_integer_array().empty();
-    state_handles_.reserve(motion_mode ? kAxes * 2U + 1U : fixed_modes ? kAxes * 2U : kAxes);
+    state_handles_.reserve(motion_mode ? kAxes * 3U + 1U : fixed_modes ? kAxes * 2U : kAxes);
 
     // The controller claims interfaces in kJointNames order, so build in that order.
     for (std::size_t axis = 0; axis < kAxes; ++axis) {
@@ -359,6 +376,9 @@ public:
     if (motion_mode) {
       for (std::size_t axis = 0; axis < kAxes; ++axis) {
         state_handles_.emplace_back(kJointNames[axis], "position", &position_buffer_[axis]);
+      }
+      for (std::size_t axis = 0; axis < kAxes; ++axis) {
+        state_handles_.emplace_back(kJointNames[axis], "velocity", &velocity_buffer_[axis]);
       }
       state_handles_.emplace_back("ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
     }
@@ -419,6 +439,7 @@ public:
         rclcpp::Parameter("motion_mode_switching", true),
         rclcpp::Parameter(
           "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
+        rclcpp::Parameter("motion_velocity_interfaces", velocityInterfaces()),
         rclcpp::Parameter("mode_switch_maximum_sample_period_ms", 2),
       });
     activate();
@@ -597,6 +618,7 @@ public:
   std::array<double, kAxes> command_buffer_{};
   std::array<double, kAxes> status_buffer_{};
   std::array<double, kAxes> position_buffer_{};
+  std::array<double, kAxes> velocity_buffer_{};
   std::array<double, kAxes> mode_buffer_{};
   std::array<double, 4> ready_buffer_{};
   double feedback_age_ms_{0.0};
@@ -646,15 +668,32 @@ TEST_F(EnableManagerFixture, MotionModeClaimsFourteenPositionsAndFeedbackAge)
     "enable_manager_motion_interfaces",
     {rclcpp::Parameter("motion_mode_switching", true),
      rclcpp::Parameter(
-       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
+       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
+     rclcpp::Parameter("motion_velocity_interfaces", velocityInterfaces())});
 
   const auto state_config = controller_->state_interface_configuration();
-  ASSERT_EQ(state_config.names.size(), kAxes * 2U + 1U);
+  ASSERT_EQ(state_config.names.size(), kAxes * 3U + 1U);
   for (std::size_t axis = 0U; axis < kAxes; ++axis) {
     EXPECT_EQ(state_config.names[axis], std::string(kJointNames[axis]) + "/status_word");
     EXPECT_EQ(state_config.names[kAxes + axis], std::string(kJointNames[axis]) + "/position");
+    EXPECT_EQ(state_config.names[2U * kAxes + axis], std::string(kJointNames[axis]) + "/velocity");
   }
   EXPECT_EQ(state_config.names.back(), "ethercat_domain/process_data_age_ms");
+}
+
+TEST_F(EnableManagerFixture, StandstillUsesTheMeasuredVelocityNotQuantizedPositions)
+{
+  bringUpMotionToIdle();
+  Access::ActualSample previous;
+  previous.steady_time_ns = 1'000'000'000U;
+  Access::ActualSample current = previous;
+  current.steady_time_ns += 1'000'000U;
+  // One encoder count (about 1.2e-5 rad) in 1 ms is 0.012 rad/s by differentiation, above the
+  // 0.0087 rad/s threshold, although the drive reports the arm at rest.
+  current.positions[0] += 1.2e-5;
+  EXPECT_TRUE(Access::stableActualInterval(*controller_, previous, current));
+  current.velocities[0] = 0.02;
+  EXPECT_FALSE(Access::stableActualInterval(*controller_, previous, current));
 }
 
 TEST_F(EnableManagerFixture, DetectsAndClassifiesExclusiveMotionControllerModes)
@@ -663,7 +702,8 @@ TEST_F(EnableManagerFixture, DetectsAndClassifiesExclusiveMotionControllerModes)
     "enable_manager_motion_modes",
     {rclcpp::Parameter("motion_mode_switching", true),
      rclcpp::Parameter(
-       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
+       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
+     rclcpp::Parameter("motion_velocity_interfaces", velocityInterfaces())});
   controller_manager_msgs::srv::ListControllers::Response states;
   states.controller.resize(2U);
   states.controller[0].name = "whole_body_jtc";
@@ -696,7 +736,8 @@ TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWr
     "enable_manager_motion_switch_plan",
     {rclcpp::Parameter("motion_mode_switching", true),
      rclcpp::Parameter(
-       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
+       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
+     rclcpp::Parameter("motion_velocity_interfaces", velocityInterfaces())});
   controller_manager_msgs::srv::ListControllers::Response states;
   states.controller.resize(2U);
   states.controller[0].name = "whole_body_jtc";

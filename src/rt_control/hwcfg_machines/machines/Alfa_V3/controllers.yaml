@@ -302,6 +302,9 @@ controllers:
     - exports:
         name: al_state_interfaces
         as: al_state_interfaces
+    - exports:
+        name: velocity_state_interfaces
+        as: motion_velocity_interfaces
     - controllers:
         tag: fault_reporting
         select: first

@@ -15,6 +15,9 @@ lifecycle_controllers:
 - joint_state_broadcaster
 - rt_internal_state_broadcaster
 - enable_manager
+mode_controllers:
+- whole_body_jtc
+- rolling_trajectory_controller
 motion_controllers:
 - whole_body_jtc
 - rolling_trajectory_controller

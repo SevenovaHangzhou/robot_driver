@@ -135,6 +135,7 @@ private:
   struct ActualSample
   {
     std::array<double, kMotionAxisCount> positions{};
+    std::array<double, kMotionAxisCount> velocities{};
     double feedback_age_ms{0.0};
     std::uint64_t steady_time_ns{0U};
     std::uint64_t sequence{0U};
@@ -321,6 +322,13 @@ private:
   // Realtime writers and service readers share these; the doubles must stay lock-free.
   static_assert(std::atomic<double>::is_always_lock_free);
   std::array<std::atomic<double>, kMotionAxisCount> actual_sample_positions_{};
+  std::array<std::atomic<double>, kMotionAxisCount> actual_sample_velocities_{};
+  // Standstill from measured velocities when the hardware renders them, else from positions.
+  bool motion_velocity_state_{false};
+  std::size_t motionAgeOffset() const noexcept
+  {
+    return motion_velocity_state_ ? kMotionAxisCount * 2U : kMotionAxisCount;
+  }
   std::atomic<double> actual_sample_feedback_age_ms_{0.0};
   std::atomic<std::uint64_t> actual_sample_time_ns_{0U};
   std::atomic<std::uint64_t> actual_sample_sequence_{0U};
