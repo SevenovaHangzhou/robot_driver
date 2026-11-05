@@ -54,7 +54,7 @@ def materialize(result):
 
 def inputs(shares, *, stationary=False, verified=False):
     data = shares["hwcfg_machines"]
-    deployment_path = (data / "units/Alfa_V3-01/deployment.yaml")
+    deployment_path = data / "units/Alfa_V3-01/deployment.yaml"
     deployment = load_yaml(deployment_path)
     manifest = read_manifest(data / "machines" / deployment["robot_variant"] / "manifest.yaml")
     mode = "stationary_enable" if stationary else "normal"
@@ -141,9 +141,7 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
     facts = BASELINE["cases"][case]
     baseline = GOLDEN / case
     actual_files = {
-        path.relative_to(baseline).as_posix()
-        for path in baseline.rglob("*")
-        if path.is_file()
+        path.relative_to(baseline).as_posix() for path in baseline.rglob("*") if path.is_file()
     }
     assert actual_files == set(facts["outputs"]), "Frozen baseline file set changed"
     arguments = inputs(
@@ -380,6 +378,10 @@ def test_policy_values_equal_frozen_old_output():
     expected_jtc.pop("joints")
     # The public action name comes from config/interface_naming.yaml, not the policy.
     assert expected_jtc.pop("action_name") == "/rt/arms/follow_joint_trajectory"
+    assert expected_jtc.pop("trajectory_topic") == "/rt/arms/joint_trajectory"
+    # Velocity limits come from the robot model URDF, not the policy.
+    assert len(expected_jtc.pop("joint_velocity_limits")) == len(policy["joints"])
+    assert len(expected_jtc.pop("joint_acceleration_limits")) == len(policy["joints"])
     assert policy["jtc"] == expected_jtc
     expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
     # Composer-derived values, not policy data (see test_rolling_digests_are_computed_by_the_composer).

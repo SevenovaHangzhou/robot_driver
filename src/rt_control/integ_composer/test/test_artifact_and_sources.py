@@ -192,6 +192,21 @@ def test_parameter_source_rejections(source, match):
         )
 
 
+def test_model_limits_follow_the_policy_joint_order_and_need_every_joint():
+    source = {
+        "model_limits": {"policy": "arm", "path": "joints", "attribute": "velocity", "as": "v"}
+    }
+    env = environment(
+        policies={"arm": {"joints": ["b", "a"]}},
+        model_limits={"a": {"velocity": 1.0}, "b": {"velocity": 2.0}},
+    )
+    binding = {"module": "m", "parameters": [source]}
+    assert controller_parameters("new_controller", binding, env) == {"v": [2.0, 1.0]}
+    env["model_limits"] = {"a": {"velocity": 1.0}, "b": {}}
+    with pytest.raises(ValueError, match=r"no velocity limit for \['b'\]"):
+        controller_parameters("new_controller", binding, env)
+
+
 def test_two_sources_for_one_parameter_are_rejected():
     duplicate = {"policy": {"name": "tuning", "path": "gain", "as": "limit"}}
     binding = {

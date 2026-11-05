@@ -10,7 +10,7 @@ metadata:
   warning: Base arm zero follows the Alfav3 export. left_joint5 model zero is offset
     +180 deg about its local axis; right_joint5 retains its export zero. Hardware
     encoder calibration is separate.
-    Arm J2 limits are -92 to +122 degrees on the left and -122 to +92 degrees on the right; other arm limits remain symmetric. Actuator caps follow V3 eRob specifications. Zero
+    Arm J2 limits are -92 to +122 degrees on the left and -122 to +92 degrees on the right; other arm limits remain symmetric. Arm effort caps follow V3 eRob specifications; arm velocity is limited to 30 deg/s and acceleration to 60 deg/s^2 (user 2026-11-04), below the actuator peak speeds. Zero
     friction/damping are placeholders, not identified hardware values.
 joints:
   updown:
@@ -35,85 +35,99 @@ joints:
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 647
-    max_velocity_rad_s: 1.3089969389957472
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   left_joint2:
     type: revolute
     lower_position_rad: -1.6057029118347832
     upper_position_rad: 2.129301687433082
     max_effort: 647
-    max_velocity_rad_s: 1.3089969389957472
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   left_joint3:
     type: revolute
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 484
-    max_velocity_rad_s: 1.3089969389957472
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   left_joint4:
     type: revolute
     lower_position_rad: -2.6179938779914944
     upper_position_rad: 2.6179938779914944
     max_effort: 459
-    max_velocity_rad_s: 1.7488199104983182
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   left_joint5:
     type: revolute
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 204
-    max_velocity_rad_s: 3.1415926535897927
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   left_joint6:
     type: revolute
     lower_position_rad: -2.356194490192345
     upper_position_rad: 2.356194490192345
     max_effort: 107
-    max_velocity_rad_s: 3.1415926535897927
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   left_joint7:
     type: revolute
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 36
-    max_velocity_rad_s: 3.1415926535897927
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   right_joint1:
     type: revolute
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 647
-    max_velocity_rad_s: 1.3089969389957472
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   right_joint2:
     type: revolute
     lower_position_rad: -2.129301687433082
     upper_position_rad: 1.6057029118347832
     max_effort: 647
-    max_velocity_rad_s: 1.3089969389957472
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   right_joint3:
     type: revolute
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 484
-    max_velocity_rad_s: 1.3089969389957472
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   right_joint4:
     type: revolute
     lower_position_rad: -2.6179938779914944
     upper_position_rad: 2.6179938779914944
     max_effort: 459
-    max_velocity_rad_s: 1.7488199104983182
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   right_joint5:
     type: revolute
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 204
-    max_velocity_rad_s: 3.1415926535897927
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   right_joint6:
     type: revolute
     lower_position_rad: -2.356194490192345
     upper_position_rad: 2.356194490192345
     max_effort: 107
-    max_velocity_rad_s: 3.1415926535897927
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   right_joint7:
     type: revolute
     lower_position_rad: -2.792526803190927
     upper_position_rad: 2.792526803190927
     max_effort: 36
-    max_velocity_rad_s: 3.1415926535897927
+    max_velocity_rad_s: 0.5235987755982988
+    max_acceleration_rad_s2: 1.0471975511965976
   steer1_joint:
     type: revolute
     max_effort: 10.0

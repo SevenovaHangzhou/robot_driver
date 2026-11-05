@@ -30,6 +30,12 @@
     "6": 135.0,
     "7": 160.0
   },
+  "arm_motion_limits": {
+    "velocity_deg_s": 30.0,
+    "acceleration_deg_s2": 60.0,
+    "source": "user 2026-11-04: every arm joint 30 deg/s; acceleration twice the velocity limit",
+    "applies_to": "left_joint1..7, right_joint1..7: URDF <limit velocity>, joint_limits max_velocity_rad_s and max_acceleration_rad_s2"
+  },
   "arm_limits_convention": "Scalar values are symmetric +/- degrees on both arms; side-keyed objects contain signed lower/upper bounds for each arm.",
   "arm_actuator_specs": "config/alfav3_arm_module_specs.json",
   "arm_actuator_source_revision": "68705a2eb370845e9476776b72b7620e5d0d9316",

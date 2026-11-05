@@ -298,6 +298,37 @@
                     ],
                     "additionalProperties": false
                   }
+               ,
+                  "model_limits": {
+                    "type": "object",
+                    "properties": {
+                      "policy": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "attribute": {
+                        "enum": [
+                          "velocity",
+                          "acceleration"
+                        ]
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "policy",
+                      "path",
+                      "attribute",
+                      "as"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "oneOf": [
                   {
@@ -348,6 +379,11 @@
                   {
                     "required": [
                       "interface"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "model_limits"
                     ]
                   }
                 ],

@@ -42,7 +42,9 @@ def test_joint_limits_and_actuator_caps_match():
     model = ET.parse(ENTRY).getroot()
     limits = yaml.safe_load((ROOT / 'config/joint_limits_alfav3_mobile.yaml').read_text())['joints']
     specs = json.loads((ROOT / 'config/alfav3_arm_module_specs.json').read_text())['joints']
-    manifest_limits = json.loads((ROOT / 'config/alfav3_mobile_manifest.json').read_text())['arm_limits_deg']
+    manifest = json.loads((ROOT / 'config/alfav3_mobile_manifest.json').read_text())
+    manifest_limits = manifest['arm_limits_deg']
+    motion = manifest['arm_motion_limits']
     mjcf = ET.parse(ROOT / 'mujoco/robot.xml').getroot()
     assert set(limits) == {j.get('name') for j in model.findall('joint') if j.get('type') != 'fixed'}
     for j in model.findall('joint'):
@@ -69,7 +71,10 @@ def test_joint_limits_and_actuator_caps_match():
             assert np.allclose(np.fromstring(mjcf.find(f".//joint[@name='{name}']").get('range'), sep=' '), expected, atol=1e-12), name
             spec = specs['joint' + name[-1]]
             assert float(bound.get('effort')) == spec['urdf_effort_nm']
-            assert float(bound.get('velocity')) == spec['urdf_velocity_rad_s']
+            # Motion limits sit below the actuator peak speed; acceleration lives only in the YAML.
+            assert math.isclose(float(bound.get('velocity')), math.radians(motion['velocity_deg_s']))
+            assert float(bound.get('velocity')) <= spec['peak_velocity_rad_s']
+            assert math.isclose(data['max_acceleration_rad_s2'], math.radians(motion['acceleration_deg_s2']))
             assert j.find('dynamics').attrib == {'friction': '0.0', 'damping': '0.0'}
 
 

@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+### 双臂速度与加速度上限
+
+- 2026-11-04：按用户要求，左右 J1～J7 的 URDF `<limit velocity>` 与限位 YAML `max_velocity_rad_s` 统一改为 30°/s（0.5235987755982988 rad/s），限位 YAML 新增 `max_acceleration_rad_s2` = 60°/s²（速度上限的 2 倍）。执行器参数中原 `urdf_velocity_rad_s` 改名 `peak_velocity_rad_s`，数值仍为 eRob 峰值转速；清单新增 `arm_motion_limits` 记录来源。同步来源哈希与回归测试。MuJoCo 不执行速度限制，模型文件不变。
+
 ### 头部俯仰原点
 
 - 2026-11-03：按用户复核值，零位下 H2 原点相对 arm-base-point（左右 J1 轴线交点，沿 base_link）为 [−19, 0, 246.250093] mm；H1 原点不变（+1 mm）。H2_joint 原点 x 0 → −0.020 m（H1_Link 系），H2_Link 的 visual/collision/inertial 与 Leye/Reye/mid360 固定关节原点反向补偿 +0.020 m，零位与纯偏航时头部外形、质量分布位置不变，俯仰时绕新轴转动。同步 MuJoCo、来源哈希与回归测试。

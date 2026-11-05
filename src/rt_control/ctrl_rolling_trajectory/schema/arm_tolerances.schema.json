@@ -27,6 +27,9 @@
         "allow_partial_joints_goal": {
           "type": "boolean"
         },
+        "allow_nonzero_velocity_at_trajectory_end": {
+          "const": false
+        },
         "open_loop_control": {
           "type": "boolean"
         },
@@ -89,6 +92,7 @@
         "command_interfaces",
         "state_interfaces",
         "allow_partial_joints_goal",
+        "allow_nonzero_velocity_at_trajectory_end",
         "open_loop_control",
         "set_last_command_interface_value_as_state_on_activation",
         "trajectory_start_consistency_check",

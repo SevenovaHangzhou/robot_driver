@@ -7,7 +7,7 @@
     "right"
   ],
   "effort_policy": "output-side startup/stop peak torque; not continuous rated or momentary shock torque",
-  "velocity_policy": "published output-side peak rpm * 2*pi/60; no second gearbox conversion",
+  "velocity_policy": "peak_velocity_rad_s = published output-side peak rpm * 2*pi/60; no second gearbox conversion. The URDF arm velocity limit is the lower motion limit in alfav3_mobile_manifest.json arm_motion_limits",
   "version_status": "110H V6 explicitly listed; other supplied revision suffixes not individually verified by these tables",
   "limitations": "Independent scalar caps do not enforce duty cycle, temperature or torque-speed envelope. Tables retain latest specifications; version-specific drawings take precedence.",
   "joints": {
@@ -20,7 +20,7 @@
       "momentary_shock_torque_max_nm": 1180,
       "output_peak_rpm": 12.5,
       "urdf_effort_nm": 647,
-      "urdf_velocity_rad_s": 1.3089969389957472,
+      "peak_velocity_rad_s": 1.3089969389957472,
       "table": "2-4 (C)",
       "printed_page": 5,
       "pdf_page": 16
@@ -34,7 +34,7 @@
       "momentary_shock_torque_max_nm": 1180,
       "output_peak_rpm": 12.5,
       "urdf_effort_nm": 647,
-      "urdf_velocity_rad_s": 1.3089969389957472,
+      "peak_velocity_rad_s": 1.3089969389957472,
       "table": "2-4 (C)",
       "printed_page": 5,
       "pdf_page": 16
@@ -48,7 +48,7 @@
       "momentary_shock_torque_max_nm": 892,
       "output_peak_rpm": 12.5,
       "urdf_effort_nm": 484,
-      "urdf_velocity_rad_s": 1.3089969389957472,
+      "peak_velocity_rad_s": 1.3089969389957472,
       "table": "2-4 (C)",
       "printed_page": 5,
       "pdf_page": 16
@@ -62,7 +62,7 @@
       "momentary_shock_torque_max_nm": 892,
       "output_peak_rpm": 16.7,
       "urdf_effort_nm": 459,
-      "urdf_velocity_rad_s": 1.7488199104983182,
+      "peak_velocity_rad_s": 1.7488199104983182,
       "table": "2-4 (C)",
       "printed_page": 5,
       "pdf_page": 16
@@ -76,7 +76,7 @@
       "momentary_shock_torque_max_nm": 369,
       "output_peak_rpm": 30,
       "urdf_effort_nm": 204,
-      "urdf_velocity_rad_s": 3.1415926535897927,
+      "peak_velocity_rad_s": 3.1415926535897927,
       "table": "2-3 (B)",
       "printed_page": 4,
       "pdf_page": 15
@@ -90,7 +90,7 @@
       "momentary_shock_torque_max_nm": 191,
       "output_peak_rpm": 30,
       "urdf_effort_nm": 107,
-      "urdf_velocity_rad_s": 3.1415926535897927,
+      "peak_velocity_rad_s": 3.1415926535897927,
       "table": "2-3 (B)",
       "printed_page": 4,
       "pdf_page": 15
@@ -104,7 +104,7 @@
       "momentary_shock_torque_max_nm": 70,
       "output_peak_rpm": 30,
       "urdf_effort_nm": 36,
-      "urdf_velocity_rad_s": 3.1415926535897927,
+      "peak_velocity_rad_s": 3.1415926535897927,
       "table": "2-2 (A)",
       "printed_page": 3,
       "pdf_page": 14
