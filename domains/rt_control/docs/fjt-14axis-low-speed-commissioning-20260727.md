@@ -39,8 +39,7 @@ FJT 运动窗口内。在已批准的 `0x10F1:02=250` 配置下没有驱动掉�
 - 客户端在每段记录 action feedback、移动轴最大绝对跟踪误差和终点误差；任一 goal
   拒绝、action 失败、越限或反馈方向与命令相反都会中止后续 goal。
 
-临时客户端没有加入生产包或重建镜像；归档副本 SHA-256 为
-`22ee9ec5793b1e47928ca93b49ad4ae1d6c1e1cf2bed93bdd74f080efa71609a`。它只用于本次
+临时客户端没有加入生产包或重建镜像。它只用于本次
 经批准的 commissioning，测试后已从目标机 `/tmp` 删除。
 
 ## 运动结果
@@ -103,7 +102,7 @@ bus error、drop、bus-off 均为 0；`robot-rt-io-1` 保持运行。
 
 其中包括逐段 `fjt-run.jsonl`、客户端和 hash、`fjt-summary.txt`、CPU/进程/内存原始
 采样、启动前/运动后/停机后 EtherCAT 与 CAN 状态、内核和当前容器日志、服务响应及
-`evidence-manifest.sha256`。清单已用 `sha256sum -c` 校验通过。
+证据清单。
 
 后续仍需：
 

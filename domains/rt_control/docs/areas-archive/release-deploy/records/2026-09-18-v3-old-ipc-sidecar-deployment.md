@@ -29,7 +29,7 @@ release 和其他工作树隔离，不修改 active release link，也不启动�
 
 ## 验证
 
-- source bundle SHA-256：`064a5ff1db27e4b1afa70f6b6785416463528c6e5283bfe3b35c8a46b5478576`；clone clean、fsck PASS。
+- source bundle clone clean、fsck PASS。
 - 34 packages 构建和 runtime package/QoS closure PASS；二次 `prepare` 验证补丁幂等。
 - 质量门禁 286 passed、13 skipped、83%；完整测试 1697 tests、0 errors/failures、23 skipped。
 - 安装态 arms-only validation PASS：14 CSP + 2 PP，CANopen/达妙 CAN not_required。

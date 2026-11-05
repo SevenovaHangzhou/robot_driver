@@ -45,7 +45,6 @@ related: [BQ-147, ecat-axes-20260912-07]
 - 原始证据在隔离部署目录：gripper-fault-recovery-before-20260912.json、
   gripper8-fault-reset-20260912.log、gripper-fault-diagnostics-20260912.json、
   gripper-fault-history-20260912.json；包含请求值、时间戳、退出码和各次回读。
-  写入/六次回读日志 SHA256=32ff9c01d66198a7b88b757fb23e16efc82df3b41da663cf44ff316c8989a449。
 - 无执行代码变更；文档与仓库门禁检查通过，214 项测试、受门禁覆盖率 83%；
   ShellCheck 本机未安装。上述结果不改变实机恢复失败的结论。
 

@@ -66,6 +66,7 @@ if(BUILD_TESTING)
   ament_target_dependencies(test_pp_controller gripper_controllers)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_bluepoint_profile test/test_bluepoint_profile.py)
+  ament_add_pytest_test(test_kinco_preflight test/test_kinco_preflight.py)
 endif()
 
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})

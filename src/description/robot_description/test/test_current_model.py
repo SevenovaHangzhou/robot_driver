@@ -143,10 +143,12 @@ def test_manifest_paths_resolve():
 
 def test_head_motion_and_sight_ranges():
     model = ET.parse(ENTRY).getroot()
-    for name in ('H1_joint', 'H2_joint'):
+    # Bench measurement 2026-11-05 (user); the manifest records the degrees.
+    manifest = json.loads((ROOT / 'config/alfav3_mobile_manifest.json').read_text())
+    for name, degrees in manifest['head_and_upper_base']['head_limits_deg'].items():
         limit = model.find(f"joint[@name='{name}']/limit")
-        assert math.isclose(float(limit.get('lower')), -math.pi)
-        assert math.isclose(float(limit.get('upper')), math.pi)
+        assert math.isclose(float(limit.get('lower')), math.radians(degrees['lower']))
+        assert math.isclose(float(limit.get('upper')), math.radians(degrees['upper']))
     for name in ('Leye_link', 'Reye_Link'):
         link = model.find(f"link[@name='{name}']")
         assert link.find('inertial') is None

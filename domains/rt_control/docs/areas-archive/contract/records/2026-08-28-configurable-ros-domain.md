@@ -15,7 +15,7 @@ evidence:
   - "Compose/IO focused tests: PASS (18 tests)"
   - "tools/quality_gate.sh: PASS (197 tests, gated coverage 83%)"
   - "candidate image build: PASS (28 packages)"
-  - "image id sha256:af24d7e5f1a5b32846b6e60e0992bcf6812a83438d194ce8cfe906e0e9f63ea4"
+  - "image id "
   - "Domain 12 hardware-free Docker Mock: PASS (devices=[], exit=0)"
 supersedes: [BQ-128-fixed-domain-zero]
 related: [BQ-128, BQ-141]

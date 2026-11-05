@@ -35,12 +35,11 @@ related: [BQ-147, BQ-146, ecat-axes-20260912-04]
 
 - 目标机 master/slaves 查询、16 份对象字典与 656 次限定 SDO upload 完成：640 次成功，
   16 次均为 605D 返回 0x06020000。原始 gen3-live-protocol-20260912.json 保存在隔离部署
-  目录，SHA256=f5d463dc2e039c913655b593894b85647228713a59486a6377dd7eca740571d2。
+  目录。
 - 采集前后 master Idle/Inactive、18 PREOP 从站。SDO 状态字不等同于已使能证据。
 - 本地手册《机械臂-零差.pdf》4.4.2 要求偶数字节对齐，8.2.65 描述 Halt option，
-  8.2.84 描述限力对象；PDF SHA256=1d4026599ec09e601366da5c1d95432f5dfc5582c4e949e216b371f9c1266221。
+  8.2.84 描述限力对象。
   旧 ESI ZeroErr Driver_V3.2.0.xml 的 INT 6072 和 TxPDO dummy 与字典/对齐方案相符，
-  SHA256=67f7f1179e2c14c07ab1e3611116e33e4932f290551456f6317104e68e52372c。
 - TDD 回归先复现：signed/padded profile 被拒绝、32768 上限被错误接受；修正后
   8 个 adapter/plugin 测试通过，包含 112-bit TxPDO 结构、32767 正值落到线上的字节及
   非法 padding/类型拒绝。首次 GREEN 误加载旧 install .so，已用 ldd/哈希定位后纠正。

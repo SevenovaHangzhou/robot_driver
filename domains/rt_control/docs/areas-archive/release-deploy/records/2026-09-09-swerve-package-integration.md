@@ -27,10 +27,9 @@ bringup 增加 swerve_driver 运行依赖，仓库治理登记新域包；安装
 ## 验证
 
 - `colcon list --packages-up-to rt_control_bringup` 确认构建闭包包含 swerve_driver。
-- 以本地既有 PP 验证镜像（digest `cfddfcb50391d8f1903242c146793bff9bcfde002ad0274694a5ad5a34b56443`）
+- 以本地既有 PP 验证镜像（digest ）
   为基线，用 `docker build --network none` 编译新包并执行测试，64 条测试记录全通过。
 - 新验证镜像 `rt-control:electri-118-swerve-offline` 的 digest 为
-  `bc6cc03c2177087537437280566c7f831c56a22dfb7c449531da90f0be5a2cec`。
 - `docker run --network none --cap-drop ALL` 运行共享 manager Mock 测试通过，无 EtherCAT/CAN 设备映射。
 - 此镜像使用测试入口，仅用于软件验证；不是完整生产 Dockerfile 从零重建或 rt_control_start 交付验收。
 

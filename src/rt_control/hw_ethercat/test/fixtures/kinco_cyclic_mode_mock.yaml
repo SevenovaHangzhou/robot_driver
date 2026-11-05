@@ -31,3 +31,5 @@ tpdo:
       - {index: 0x6064, sub_index: 0, type: int32}
       - {index: 0x606c, sub_index: 0, type: int32}
       - {index: 0x6061, sub_index: 0, type: int8}
+      - {index: 0x2601, sub_index: 0, type: uint16}
+      - {index: 0x2602, sub_index: 0, type: uint16}

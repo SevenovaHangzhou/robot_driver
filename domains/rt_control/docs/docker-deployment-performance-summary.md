@@ -14,7 +14,6 @@
 | 发布版本 | `V0.10` |
 | 实机运行源码 | GitHub tag `V0.10` 指向的提交 |
 | 镜像 | `rt-control:V0.10` |
-| 镜像归档 | GitHub Release `V0.10` 附件 `rt-control-V0.10-<git-sha>.tar.gz` 与 `.sha256` |
 | 镜像大小 | 发布构建后记录 |
 | 不可变运行副本 | `/home/ar/rt-control-releases/V0.10/robot` |
 | 固定操作入口 | `/home/ar/rt-control-current` → `V0.10` 操作副本 |

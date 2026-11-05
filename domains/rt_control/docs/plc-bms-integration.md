@@ -104,12 +104,10 @@ ROS context 关停与 respawn 存在竞态：节点退出后可能在容器关�
 节点在析构时关闭 CAN 描述符并等待读取线程退出；进程异常则保留错误证据并有序重启整个 rt-control，不做容器内部
 的局部进程复活。
 
-首次候选提交 `e4fed685bfa4485c210ad038c804a331b4801d88`（镜像
-`sha256:998c5a1e9e5f70f7e09f1f2a8c316bbc3714bd9815e68f6b870130a332542c06`）已通过功能读取，但因上述关停竞态在
+首次候选提交 `e4fed685bfa4485c210ad038c804a331b4801d88` 已通过功能读取，但因上述关停竞态在
 100 秒后被 Docker 强制终止为 137，现已拒绝。
 
-关停修复候选提交为 `d415c0c2c75917a9545a4a2f87487718de8622a2`，镜像 ID 为
-`sha256:01bd550b068fccb9158b007067e55c30eed7d7d7253ef9179dfdf6d9be9a11c2`。该镜像已在开启 PLC/BMS、使用 Mock
+关停修复候选提交为 `d415c0c2c75917a9545a4a2f87487718de8622a2`。该镜像已在开启 PLC/BMS、使用 Mock
 硬件且 controller manager ready 的条件下 2 秒内 exit 0，无 traceback、respawn 或 `UNCLEAN_SHUTDOWN`。目标机
 随后完成只读重复停止、三路输出逐点 ON/OFF 和完整一键 start→READY→stop，全部 exit 0；详见
 [PLC / BMS 与一键启动实机验收](plc-bms-commissioning-20260728.md)。

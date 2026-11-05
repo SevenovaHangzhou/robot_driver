@@ -82,7 +82,7 @@ related: [integration-20261014-01, integration-20261014-02, integration-20261014
 ## 遗留
 
 - 用户随后批准冻结V2 Xacro排除本次V3 A3/清空基线验收。V3 baseline_violations现为空；
-  该单一文件在frequency_scope_exclusions公开登记路径、SHA-256与授权理由。
+  该单一文件在frequency_scope_exclusions公开登记路径与授权理由。
   只有内容哈希不变才排除R6；若文件改动，冻结检查和周期字面量检查都失败，其它规则始终继续检查。
   这不是全包豁免，V2原文件未改动。
 - 直接关键词grep会包含合法变量转发、schema、fixtures与冻结golden；R5/R6生产规则的结果和字面量

@@ -57,10 +57,8 @@ memory mapping 无法运行；ShellCheck 本机未安装。未执行完整上游
 头文件布局变化的直接运行消费者只有 ethercat_driver，已与 ethercat_interface 同批
 重编译；EcMasterAsync 为另一类型，不受此布局变更影响。
 
-目标 `6.8.1-1057-realtime` 安装并核对运行进程 maps 后，库 SHA256 为：
+目标 `6.8.1-1057-realtime` 安装并核对运行进程 maps。
 
-- ethercat_interface: `da81ab964430d08ef24207e6e4b500750a137a52e9897ae6250345e60869b083`
-- ethercat_driver: `1fd9c461deefe61d9b86e013b3c4e489ae2f52c13b36bb49ebe697d03eae86d6`
 
 基线和候选使用相同库，仅切换连续维护开关。基线确认变量为0且没有维护帧：
 
