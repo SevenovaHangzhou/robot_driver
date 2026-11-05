@@ -5,8 +5,8 @@ verified: true
 authorities:
   host: Advantech MIC-770V3W chassis bench, read back 2026-10-14..17 (ELECTRI-127)
   ethercat_mac: IgH master 0 attached device
-  can: USB CAN adapter serial 003000265230500720333159 on can0 at 500 kbit/s; master node 127;
-    node 1 (IMU) shares the bus
+  can: ZLG PCIe CAN card (user 2026-11-05) - can0 left battery slot, can1 right battery slot,
+    can3 external steering encoders + IMU (node 1); bitrate per canopen.bitrate_kbps; master node 127
   realtime: rt_cpu 7 isolated (isolcpus/nohz_full); IgH run_on_cpu=7; housekeeping 0-6,8-19
 pending_facts: []
 robot_variant: Alfa_V3
@@ -14,15 +14,13 @@ end_effector: mobile_proxy
 hardware_options:
   force_sensors: none
 can_interfaces:
-  swerve_encoders: can0
+  swerve_encoders: can3
 ethercat:
   master_id: 0
 host_id: user-MIC-770V3W
 host:
   hostname: user-MIC-770V3W
   ethercat_mac: cc:82:7f:c4:d3:0f
-  can_usb_serials:
-    can0: '003000265230500720333159'
   rt_cpu: 7
   housekeeping_cpus: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 canopen:
