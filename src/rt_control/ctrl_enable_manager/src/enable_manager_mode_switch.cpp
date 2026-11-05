@@ -72,7 +72,6 @@ bool EnableManagerController::readActualSample(ActualSample & sample) const noex
     }
     for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
       sample.positions[axis] = actual_sample_positions_[axis].load(std::memory_order_relaxed);
-      sample.velocities[axis] = actual_sample_velocities_[axis].load(std::memory_order_relaxed);
     }
     sample.feedback_age_ms = actual_sample_feedback_age_ms_.load(std::memory_order_relaxed);
     sample.steady_time_ns = actual_sample_time_ns_.load(std::memory_order_relaxed);
@@ -126,7 +125,11 @@ std::uint8_t EnableManagerController::validateModeSource(
     return kModeFeedbackStale;
   }
 
-  std::size_t stable_intervals = 0U;
+  // Standstill over a window of consecutive samples: its start-to-end displacement rate. Per
+  // 1 ms interval one encoder count already exceeds the threshold on a still arm (bench
+  // 2026-11-05); a 20-sample window keeps quantization 20 times smaller.
+  ActualSample window_start = previous;
+  std::size_t window_intervals = 0U;
   const auto deadline = std::chrono::steady_clock::now() + mode_switch_timeout_;
   while (std::chrono::steady_clock::now() < deadline) {
     if (
@@ -144,9 +147,21 @@ std::uint8_t EnableManagerController::validateModeSource(
           current.feedback_age_ms, mode_switch_feedback_age_limit_ms_)) {
       return kModeFeedbackStale;
     }
-    stable_intervals = stableActualInterval(previous, current) ? stable_intervals + 1U : 0U;
+    const bool contiguous =
+      current.steady_time_ns > previous.steady_time_ns &&
+      current.steady_time_ns - previous.steady_time_ns <= mode_switch_maximum_sample_period_ns_;
     previous = current;
-    if (stable_intervals < mode_switch_stable_interval_count_) {
+    if (!contiguous) {
+      window_start = current;
+      window_intervals = 0U;
+      continue;
+    }
+    if (++window_intervals < mode_switch_stable_interval_count_) {
+      continue;
+    }
+    if (!stableActualInterval(window_start, current)) {
+      window_start = current;
+      window_intervals = 0U;
       continue;
     }
 
@@ -502,26 +517,13 @@ EnableManagerController::ModeSwitchState EnableManagerController::classifyModeSw
 }
 
 bool EnableManagerController::stableActualInterval(
-  const ActualSample & previous, const ActualSample & current) const noexcept
+  const ActualSample & window_start, const ActualSample & current) const noexcept
 {
-  if (
-    current.steady_time_ns <= previous.steady_time_ns ||
-    current.steady_time_ns - previous.steady_time_ns > mode_switch_maximum_sample_period_ns_) {
-    return false;
-  }
   const double elapsed_seconds =
-    static_cast<double>(current.steady_time_ns - previous.steady_time_ns) / 1.0e9;
+    static_cast<double>(current.steady_time_ns - window_start.steady_time_ns) / 1.0e9;
   for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
-    if (!std::isfinite(previous.positions[axis]) || !std::isfinite(current.positions[axis])) {
-      return false;
-    }
-    // Prefer the drive's measured velocity: differentiating 1 ms position samples amplifies
-    // encoder quantization above the threshold on a still arm (bench 2026-11-05; approach from
-    // the colleague's rolling split).
     const double speed =
-      motion_velocity_state_
-        ? std::max(std::abs(previous.velocities[axis]), std::abs(current.velocities[axis]))
-        : std::abs(current.positions[axis] - previous.positions[axis]) / elapsed_seconds;
+      std::abs(current.positions[axis] - window_start.positions[axis]) / elapsed_seconds;
     if (!std::isfinite(speed) || speed > mode_switch_stable_velocity_thresholds_[axis]) {
       return false;
     }

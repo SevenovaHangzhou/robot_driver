@@ -95,19 +95,14 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
     const std::size_t motion_offset = cia402_axes_.size();
     for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
       const std::string expected_position = motion_joint_names_[axis] + "/position";
-      const std::string expected_velocity = motion_joint_names_[axis] + "/velocity";
-      if (
-        state_interfaces_[motion_offset + axis].get_name() != expected_position ||
-        (motion_velocity_state_ &&
-         state_interfaces_[motion_offset + kMotionAxisCount + axis].get_name() !=
-           expected_velocity)) {
+      if (state_interfaces_[motion_offset + axis].get_name() != expected_position) {
         releaseCia402Interfaces();
         RCLCPP_ERROR(get_node()->get_logger(), "Unexpected motion state interface order");
         return controller_interface::CallbackReturn::ERROR;
       }
     }
     if (
-      state_interfaces_[motion_offset + motionAgeOffset()].get_name() !=
+      state_interfaces_[motion_offset + kMotionAxisCount].get_name() !=
       "ethercat_domain/process_data_age_ms") {
       releaseCia402Interfaces();
       RCLCPP_ERROR(get_node()->get_logger(), "Missing EtherCAT feedback-age interface");
@@ -219,14 +214,9 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
     for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
       actual_sample_positions_[axis].store(
         state_interfaces_[motion_offset + axis].get_value(), std::memory_order_relaxed);
-      actual_sample_velocities_[axis].store(
-        motion_velocity_state_
-          ? state_interfaces_[motion_offset + kMotionAxisCount + axis].get_value()
-          : 0.0,
-        std::memory_order_relaxed);
     }
     actual_sample_feedback_age_ms_.store(
-      state_interfaces_[motion_offset + motionAgeOffset()].get_value(), std::memory_order_relaxed);
+      state_interfaces_[motion_offset + kMotionAxisCount].get_value(), std::memory_order_relaxed);
   }
   clearFailure();
   current_batch_ = 0U;
@@ -285,14 +275,9 @@ controller_interface::return_type EnableManagerController::update(
     for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
       actual_sample_positions_[axis].store(
         state_interfaces_[motion_offset + axis].get_value(), std::memory_order_relaxed);
-      actual_sample_velocities_[axis].store(
-        motion_velocity_state_
-          ? state_interfaces_[motion_offset + kMotionAxisCount + axis].get_value()
-          : 0.0,
-        std::memory_order_relaxed);
     }
     actual_sample_feedback_age_ms_.store(
-      state_interfaces_[motion_offset + motionAgeOffset()].get_value(), std::memory_order_relaxed);
+      state_interfaces_[motion_offset + kMotionAxisCount].get_value(), std::memory_order_relaxed);
     actual_sample_time_ns_.store(steadyNowNs(), std::memory_order_relaxed);
     actual_sample_sequence_.fetch_add(1U, std::memory_order_relaxed);
     actual_sample_version_.fetch_add(1U, std::memory_order_release);

@@ -437,3 +437,11 @@ arch-rolling-continuous-splice:
   cases:
   - arm-mock
   - arm-real
+arch-standstill-window:
+  reason: 模式切换静止判定改为 20 个连续采样的窗口位移（mode_switch_stable_interval_count 5 → 20，用户 2026-11-05 方案 A）
+  method: arch-golden-regen.py（arm）按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc

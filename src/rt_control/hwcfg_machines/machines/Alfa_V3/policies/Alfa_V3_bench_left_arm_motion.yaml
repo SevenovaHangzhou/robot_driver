@@ -79,7 +79,8 @@ rolling:
   - 0.1
 enable_manager:
   mode_switch_source_state_max_age_ms: 100
-  mode_switch_stable_interval_count: 5
+  # Standstill window: displacement rate over 20 consecutive samples (user 2026-11-05).
+  mode_switch_stable_interval_count: 20
   mode_switch_maximum_sample_period_ms: 2
   mode_switch_timeout_ms: 500
   mode_switch_feedback_age_limit_ms: 500.0

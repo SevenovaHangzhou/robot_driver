@@ -74,8 +74,6 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<bool>("runtime_log_trace", false);
   auto_declare<bool>("motion_mode_switching", false);
   auto_declare<std::vector<std::string>>("motion_joints", {});
-  // Measured velocity state interfaces the hardware renders; empty when its TxPDO lacks them.
-  auto_declare<std::vector<std::string>>("motion_velocity_interfaces", {});
   auto_declare<std::vector<std::string>>(
     "motion_controller_names", {"whole_body_jtc", "rolling_trajectory_controller"});
   auto_declare<std::string>("default_motion_controller", "whole_body_jtc");
@@ -135,13 +133,9 @@ EnableManagerController::state_interface_configuration() const
     configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
   if (motion_mode_switching_) {
-    configuration.names.reserve(configuration.names.size() + kMotionAxisCount * 2U + 1U);
+    configuration.names.reserve(configuration.names.size() + kMotionAxisCount + 1U);
     for (const auto & joint : motion_joint_names_) {
       configuration.names.emplace_back(joint + "/position");
-    }
-    for (const auto & joint :
-         motion_velocity_state_ ? motion_joint_names_ : std::vector<std::string>{}) {
-      configuration.names.emplace_back(joint + "/velocity");
     }
     configuration.names.emplace_back("ethercat_domain/process_data_age_ms");
   }
@@ -233,17 +227,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   mode_state_indices_.assign(modes.size(), 0U);
   mode_confirmed_.assign(modes.size(), 0U);
   motion_joint_names_ = get_node()->get_parameter("motion_joints").as_string_array();
-  {
-    const auto available =
-      get_node()->get_parameter("motion_velocity_interfaces").as_string_array();
-    motion_velocity_state_ =
-      !available.empty() &&
-      std::all_of(
-        motion_joint_names_.begin(), motion_joint_names_.end(), [&available](const auto & joint) {
-          return std::find(available.begin(), available.end(), joint + "/velocity") !=
-                 available.end();
-        });
-  }
   motion_controller_names_ = get_node()->get_parameter("motion_controller_names").as_string_array();
   default_motion_controller_ = get_node()->get_parameter("default_motion_controller").as_string();
   rolling_motion_controller_ = get_node()->get_parameter("rolling_motion_controller").as_string();
@@ -466,7 +449,6 @@ rcl_interfaces::msg::SetParametersResult EnableManagerController::validateTopolo
       parameter.get_name() == "ready_state_interfaces" ||
       parameter.get_name() == "motion_fault_topic" || parameter.get_name() == "ready_hold_time" ||
       parameter.get_name() == "motion_joints" ||
-      parameter.get_name() == "motion_velocity_interfaces" ||
       parameter.get_name() == "motion_controller_names" ||
       parameter.get_name() == "default_motion_controller" ||
       parameter.get_name() == "rolling_motion_controller" ||

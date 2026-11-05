@@ -91,7 +91,7 @@ enable_manager:
     mode_switch_feedback_age_limit_ms: 500.0
     mode_switch_maximum_sample_period_ms: 2
     mode_switch_source_state_max_age_ms: 100
-    mode_switch_stable_interval_count: 5
+    mode_switch_stable_interval_count: 20
     mode_switch_stable_velocity_thresholds:
     - 0.008726646259971648
     - 0.008726646259971648

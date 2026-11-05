@@ -107,7 +107,6 @@ def render(request, share, validate_module, validate_unit, validate_device):
         raise ValueError("Required deployment.ethercat.master_id is TBD")
     families = _profile(share, "families")["families"]
     runtime_files, joints, managed, expected_axes, diagnostic_devices = {}, [], [], [], []
-    velocity_states = []
     for side, axis in axes:
         device = request["devices"][axis["device"]]
         if not mock:
@@ -198,8 +197,6 @@ def render(request, share, validate_module, validate_unit, validate_device):
         rendered_states = {
             item.attrib["name"] for item in joint.findall("state_interface")
         }
-        if "velocity" in rendered_states:
-            velocity_states.append(f"{name}/velocity")
         diagnostic_devices.append(
             {
                 "name": name,
@@ -298,10 +295,5 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "resource_claims": [f"ring:{item['ring_position']}" for item in expected["responders"]],
         "expected_topology": expected,
         "diagnostic_devices": diagnostic_devices,
-        # Measured joint velocities (diagnostic TxPDO profiles only), for enable_manager's
-        # standstill check before a motion-mode switch.
-        "parameter_exports": {
-            **offline_exports(request, [axis for _, axis in axes]),
-            **({"velocity_state_interfaces": velocity_states} if velocity_states else {}),
-        },
+        "parameter_exports": offline_exports(request, [axis for _, axis in axes]),
     }
