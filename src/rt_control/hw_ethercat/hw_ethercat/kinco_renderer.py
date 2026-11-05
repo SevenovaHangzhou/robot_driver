@@ -52,13 +52,16 @@ _BITS = {"uint8": 8, "int8": 8, "uint16": 16, "int16": 16, "uint32": 32, "int32"
 
 
 def _pdo_objects(driver_config):
-    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs."""
+    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs.
+
+    Keys are hex strings: the artifact is YAML and its loader accepts string keys only.
+    """
     objects = {}
     for assign, direction in ((0x1C12, "rpdo"), (0x1C13, "tpdo")):
         pdos = driver_config[direction]
-        objects[assign] = [pdo["index"] for pdo in pdos]
+        objects[f"0x{assign:04X}"] = [pdo["index"] for pdo in pdos]
         for pdo in pdos:
-            objects[pdo["index"]] = [
+            objects[f"0x{pdo['index']:04X}"] = [
                 (channel["index"] << 16) | (channel["sub_index"] << 8) | _BITS[channel["type"]]
                 for channel in pdo["channels"]
             ]
@@ -279,7 +282,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if not mock:
             ring = axis["ring_position"]
             # Read-only admission: disabled and unfaulted, saved PDOs match, steering in range.
-            preflight_axes.append({"ring_position": ring, "allowed_errors": []})
+            preflight_axes.append(
+                {"ring_position": ring, "allowed_errors": [], "allow_shutdown_ready": True}
+            )
             pdo_checks.append(
                 {"ring_position": ring, "objects": _pdo_objects(profile["driver_config"])}
             )
