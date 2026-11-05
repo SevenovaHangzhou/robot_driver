@@ -1,14 +1,7 @@
 # Dual-arm bench motion policy (ELECTRI-127): both arms' seven axes with the same per-joint
-# values as the single-arm bench policy. One trajectory controller drives all 14 joints;
-# the rolling section satisfies the shared schema, the bench scope loads no rolling controller.
+# values as the single-arm bench policy. Joints follow the contract axis order (right arm first),
+# which is the rolling batch order; dual_arm_jtc and dual_arm_rolling share them.
 joints:
-- left_joint1
-- left_joint2
-- left_joint3
-- left_joint4
-- left_joint5
-- left_joint6
-- left_joint7
 - right_joint1
 - right_joint2
 - right_joint3
@@ -16,6 +9,13 @@ joints:
 - right_joint5
 - right_joint6
 - right_joint7
+- left_joint1
+- left_joint2
+- left_joint3
+- left_joint4
+- left_joint5
+- left_joint6
+- left_joint7
 jtc:
   command_interfaces:
   - position

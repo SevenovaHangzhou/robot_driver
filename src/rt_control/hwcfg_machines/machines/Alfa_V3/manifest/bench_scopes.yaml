@@ -95,6 +95,7 @@ scopes:
     controller_order:
       inactive:
       - dual_arm_jtc
+      - dual_arm_rolling
       active:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
