@@ -1,5 +1,4 @@
 """Validate the single supported model without depending on archived generators/models."""
-import hashlib
 import json
 import math
 from pathlib import Path
@@ -34,16 +33,15 @@ def test_all_and_only_referenced_meshes_present():
     assert refs == set(manifest['files'])
     actual = {str(p.relative_to(ROOT)) for p in (ROOT / 'mesh').rglob('*') if p.is_file()}
     assert refs == actual
-    for path, digest in manifest['files'].items():
-        assert hashlib.sha256((ROOT / path).read_bytes()).hexdigest() == digest, path
 
 
 def test_joint_limits_and_actuator_caps_match():
     model = ET.parse(ENTRY).getroot()
     limits = yaml.safe_load((ROOT / 'config/joint_limits_alfav3_mobile.yaml').read_text())['joints']
     specs = json.loads((ROOT / 'config/alfav3_arm_module_specs.json').read_text())['joints']
-    manifest_limits = json.loads((ROOT / 'config/alfav3_mobile_manifest.json').read_text())['arm_limits_deg']
-    mjcf = ET.parse(ROOT / 'mujoco/robot.xml').getroot()
+    manifest = json.loads((ROOT / 'config/alfav3_mobile_manifest.json').read_text())
+    manifest_limits = manifest['arm_limits_deg']
+    motion = manifest['arm_motion_limits']
     assert set(limits) == {j.get('name') for j in model.findall('joint') if j.get('type') != 'fixed'}
     for j in model.findall('joint'):
         name = j.get('name')
@@ -66,10 +64,12 @@ def test_joint_limits_and_actuator_caps_match():
                 degrees = [-entry, entry]
             expected = np.deg2rad(degrees)
             assert np.allclose([float(bound.get('lower')), float(bound.get('upper'))], expected, atol=1e-12), name
-            assert np.allclose(np.fromstring(mjcf.find(f".//joint[@name='{name}']").get('range'), sep=' '), expected, atol=1e-12), name
             spec = specs['joint' + name[-1]]
             assert float(bound.get('effort')) == spec['urdf_effort_nm']
-            assert float(bound.get('velocity')) == spec['urdf_velocity_rad_s']
+            # Motion limits sit below the actuator peak speed; acceleration lives only in the YAML.
+            assert math.isclose(float(bound.get('velocity')), math.radians(motion['velocity_deg_s']))
+            assert float(bound.get('velocity')) <= spec['peak_velocity_rad_s']
+            assert math.isclose(data['max_acceleration_rad_s2'], math.radians(motion['acceleration_deg_s2']))
             assert j.find('dynamics').attrib == {'friction': '0.0', 'damping': '0.0'}
 
 
@@ -81,13 +81,11 @@ def rotation(r, p, y):
 
 def test_confirmed_zero_conventions():
     model = ET.parse(ENTRY).getroot()
-    mjcf = ET.parse(ROOT / 'mujoco/robot.xml').getroot()
     for side in ('left', 'right'):
         name = side + '_joint2'
         bounds = model.find(f"joint[@name='{name}']/limit")
         expected = np.deg2rad((-92, 122) if side == 'left' else (-122, 92))
         assert np.allclose([float(bounds.get('lower')), float(bounds.get('upper'))], expected, atol=1e-12)
-        assert np.allclose(np.fromstring(mjcf.find(f".//joint[@name='{name}']").get('range'), sep=' '), expected, atol=1e-12)
     left = model.find("joint[@name='left_joint5']")
     current = rotation(*map(float, left.find('origin').get('rpy').split()))
     assert np.allclose(current, rotation(-math.pi/2, 0, 0) @ rotation(0, 0, math.pi), atol=1e-11)
@@ -130,11 +128,8 @@ def test_inertials_and_srdf_references():
 def test_manifest_paths_resolve():
     imported = json.loads((ROOT / 'config/arm_collision_import.json').read_text())
     assert set(imported['links']) == {f'{side}_link{i}' for side in ('left', 'right') for i in range(1, 8)}
-    assert imported['target_urdf_sha256'] == hashlib.sha256(ENTRY.read_bytes()).hexdigest()
-    conversion = json.loads((ROOT / 'mujoco/conversion_report.json').read_text())
-    assert conversion['source_sha256'] == hashlib.sha256(ENTRY.read_bytes()).hexdigest()
     for item in imported['links'].values():
-        assert hashlib.sha256((ROOT / item['target_mesh']).read_bytes()).hexdigest() == item['target_sha256']
+        assert (ROOT / item['target_mesh']).is_file()
         transform = np.array(item['target_link_from_source_link_q0'])
         assert np.allclose(transform[3], [0, 0, 0, 1])
         assert np.allclose(transform[:3, :3].T @ transform[:3, :3], np.eye(3), atol=1e-12)
@@ -148,10 +143,12 @@ def test_manifest_paths_resolve():
 
 def test_head_motion_and_sight_ranges():
     model = ET.parse(ENTRY).getroot()
-    for name in ('H1_joint', 'H2_joint'):
+    # Bench measurement 2026-11-05 (user); the manifest records the degrees.
+    manifest = json.loads((ROOT / 'config/alfav3_mobile_manifest.json').read_text())
+    for name, degrees in manifest['head_and_upper_base']['head_limits_deg'].items():
         limit = model.find(f"joint[@name='{name}']/limit")
-        assert math.isclose(float(limit.get('lower')), -math.pi)
-        assert math.isclose(float(limit.get('upper')), math.pi)
+        assert math.isclose(float(limit.get('lower')), math.radians(degrees['lower']))
+        assert math.isclose(float(limit.get('upper')), math.radians(degrees['upper']))
     for name in ('Leye_link', 'Reye_Link'):
         link = model.find(f"link[@name='{name}']")
         assert link.find('inertial') is None

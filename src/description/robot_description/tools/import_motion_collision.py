@@ -1,17 +1,14 @@
 """Import source arm collision meshes into the existing link frames at model q=0.
-Only collision STL contents and provenance/asset hashes are changed; no kinematic edits.
+Only collision STL contents and their provenance are changed; no kinematic edits.
 """
 
-import argparse, hashlib, json, math, struct
+import argparse, json, math, struct
 from pathlib import Path
 import numpy as np
 import xml.etree.ElementTree as ET
 
 DT = np.dtype([("normal", "<f4", 3), ("vertices", "<f4", (3, 3)), ("attr", "<u2")])
 
-
-def sha(p):
-    return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
 def rotate(axis, a):
@@ -69,13 +66,11 @@ def main():
     dst = Model(a.root / "urdf/robot_alfav3_mobile.urdf")
     S, D = src.frames({}), dst.frames({})
     source_manifest = json.loads((a.source / "manifest.json").read_text())
-    for name, v in source_manifest["mesh_files"].items():
-        assert sha(a.source / name) == v["sha256"], name
+    for name in source_manifest["mesh_files"]:
+        assert (a.source / name).is_file(), name
     info = {
         "source_bundle": "robot_urdf_stl_20261027",
         "coordinate_revision": source_manifest["coordinate_revision"],
-        "source_urdf_sha256": sha(a.source / "robot.urdf"),
-        "target_urdf_sha256": sha(a.root / "urdf/robot_alfav3_mobile.urdf"),
         "alignment": "Fixed per-link rigid transform at q=0, anchored to shared arm_carriage. Kinematics unchanged; not globally equivalent at all q.",
         "scope": "left/right link1..7 collision only; existing tool collision and TCP retained",
         "links": {},
@@ -131,9 +126,7 @@ def main():
             assert err < 1e-6, (name, err)
             info["links"][name] = {
                 "source_mesh": sm.get("filename"),
-                "source_sha256": sha(source),
                 "target_mesh": str(target.relative_to(a.root)),
-                "target_sha256": sha(target),
                 "triangles": n,
                 "target_link_from_source_link_q0": C.tolist(),
                 "target_mesh_from_source_mesh": G.tolist(),
@@ -185,8 +178,7 @@ def main():
     )
     assets = a.root / "config/mesh_assets.json"
     d = json.loads(assets.read_text())
-    for item in info["links"].values():
-        d["files"][item["target_mesh"]] = item["target_sha256"]
+    d["files"] = sorted(set(d["files"]) | {item["target_mesh"] for item in info["links"].values()})
     assets.write_text(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
     print(
         json.dumps(

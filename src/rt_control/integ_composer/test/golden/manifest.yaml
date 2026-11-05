@@ -412,3 +412,13 @@ arch-drop-sha-ids:
   - stationary-mock
   - stationary-real
   - force-real
+arch-sync-description-91c21eb:
+  reason: 同步 robot_description 91c21eb：头部限位按台架实测（H1 ±45°、H2 −40°～+35°，用户 2026-11-05）、双臂速度 30°/s（#9）、删除内容哈希（#10）
+  method: arch-golden-regen.py（arm）、arch-head-golden2.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - head-mock
+  - head-real
