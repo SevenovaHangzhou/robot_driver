@@ -32,6 +32,8 @@ STATES = (
     "sent_sequence",
     "feedback_sequence_at_send",
     "sent_velocity",
+    "error_word_1",
+    "error_word_2",
 )
 
 

@@ -53,6 +53,8 @@ private:
     kSentSequence,
     kFeedbackSequenceAtSend,
     kSentVelocity,
+    kErrorWord1,  // 0x2601 error state word 1 (bit table: hwcfg_machines faults/kinco_fd.yaml)
+    kErrorWord2,  // 0x2602 error state word 2
     kStateCount
   };
 
