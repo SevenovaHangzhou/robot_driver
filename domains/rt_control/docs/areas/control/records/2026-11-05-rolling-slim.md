@@ -27,6 +27,7 @@ related: [control-20261104-03]
 - enable_manager：`SetJointControlMode` 去掉协议号、UUID、幂等缓存、`expected_mode` 和切换证据字段；删除 `/rt/internal/joint_control/mode_result` 及 `rt_control_interfaces/JointControlModeResult`；rolling 作为切换源时要求 `state == HOLDING`，接管容差只对 JTC 输出检查（rolling 激活自检接管，JTC 从实测起步）。
 - 切换前静止判定改用驱动器实测速度（台架 2026-11-05：1 ms 位置差分把编码器量化放大到阈值以上，静止手臂被判为 SOURCE_MOVING；做法取自同事的 rolling 拆分）。实测速度由 hw_ethercat 在渲染了 `velocity` 状态接口时导出 `velocity_state_interfaces`，enable_manager 参数 `motion_velocity_interfaces`；没有时仍用位置差分。
 - readiness：可切换的运动控制器（JTC 与 rolling）由 lifecycle `mode_controllers` 列出，要求恰好一个 active；之前两者都要求 active，切换作用域使能后永远 `controller_inactive`（台架 2026-11-05 发现）。
+- 首个批次首点在拼接容差内（0.01 rad、0.03 rad/s）即接受，轨迹从保持位置精确起步（客户端只能从反馈得知保持位置；原协议由 open 返回精确值）；首批开始前到达的批次接续首批，不重开会话。
 - composer：删除 `policy_file` 参数源、`digest_as` 与 `rolling_axis_set_sha256`；删除 `Alfa_V3_arm_envelope.mock.yaml`。
 - 运控对接说明 `v3-arm-motion-integration.md` §6、§7.2 按新协议重写。
 
@@ -37,6 +38,20 @@ related: [control-20261104-03]
 ## 验证
 
 本机：ctrl_rolling_trajectory 9 个测试程序全部通过（新 `test_controller_batches` 9 例，重复 20 次无失败）；ctrl_enable_manager 95 项；integ_composer 236 项（`test_cli_uses_installed_share_and_reports_rejection` 为既有环境问题）。未上台架。
+
+## 台架（2026-11-05，用户批准的计划内对比测试，`~/rt-control-arch-20261105`，bench_dual_arm，域 78）
+
+只动两侧 joint7：偏移 0.05·(1−cos ωt)，周期 6 s，峰值 0.052 rad/s；同一部署、同一运动，先 rolling 后 JTC 流式。
+
+| 项 | rolling（30 Hz，0.1 s 节点，0.5 s 窗口） | JTC 流式（50 Hz，两点窗口） |
+| --- | --- | --- |
+| 模式切换 | FJT→rolling、rolling→FJT 均 accepted | — |
+| 流式 19.5 s | 569 批 0 拒绝；实测与计划最大差 0.067°（含时间对齐误差） | 跟踪误差 0.060° |
+| 断流 | 更新超时刹停（`STOP_UPDATE_TIMEOUT`），刹停后多走 0.0028 rad，保持 3 s 漂移 3.6e-5 rad | 走到窗口停止点 0.0159 rad，漂移 3.6e-4 rad |
+| 超速 0.03 rad / 5 ms | `LIMIT_EXCEEDED`，未动 | 拒绝，未动 |
+| 回起点 | 103 批 0 拒绝，残差 5e-5 rad | FJT 残差 1e-4 rad |
+
+全程 readiness HEALTHY、无驱动器故障；去使能后有序停机，18 PREOP。过程中发现并修正：静止判定被编码器量化误判（改用实测速度）、readiness 要求两个可切换控制器都 active、首批首点要求与保持位置逐位相等、首批开始前的批次重开会话。
 
 ## 遗留
 
