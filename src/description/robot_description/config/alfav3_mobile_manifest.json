@@ -22,7 +22,7 @@
   "model_zero_offset_convention": "q_export = axis_sign_vs_export * q_model + offset_deg; left J5 axis unchanged",
   "model_zero_offset_evidence": "left J5 +180 deg and right J5 restored by 9994680; metadata corrected to match the existing URDF",
   "arm_limits_deg": {
-    "1": 160.0,
+    "1": 170.0,
     "2": {
       "left": {
         "lower": -92.0,
@@ -33,11 +33,11 @@
         "upper": 92.0
       }
     },
-    "3": 160.0,
-    "4": 150.0,
-    "5": 160.0,
-    "6": 135.0,
-    "7": 160.0
+    "3": 170.0,
+    "4": 145.0,
+    "5": 170.0,
+    "6": 130.0,
+    "7": 170.0
   },
   "arm_motion_limits": {
     "velocity_deg_s": 30.0,

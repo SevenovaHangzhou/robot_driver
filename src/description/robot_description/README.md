@@ -23,7 +23,7 @@ URDF/Rerun保留导入的原始三角面外形。MuJoCo派生模型同步引用�
 | `config/joint_limits_alfav3_mobile.yaml` | 当前模型关节限位，与 URDF 保持一致 |
 | `config/alfav3_arm_module_specs.json` | eRob 执行器参数、额定/峰值口径和来源 |
 | `config/alfav3_mobile_manifest.json` | 模型约定、零位偏移和历史来源 |
-| `config/mesh_assets.json` | 58 个必需网格及 SHA-256 校验值 |
+| `config/mesh_assets.json` | 58 个必需网格的路径清单 |
 | `mesh/` | URDF 引用的 58 个原始网格，按部件和 visual/collision 分类 |
 | `test/test_current_model.py` | 单树、网格、限位、惯性、零位与 SRDF 校验 |
 
@@ -61,7 +61,7 @@ mesh/
 - 模型零位为全部关节角/位移为 0；`updown=0 m` 是升降上端点。
 - 左 J5 的模型零位绕自身 +Z 轴偏转 180°：`q5_export = q5_model + π`；右 J5 保持导出零位。正方向不变。
 - 左 J3/J6 轴向已按台架确认结果取反；右臂编码器零位和方向仍需实机校验。
-- 双臂角度限位：J1/J3/J5/J7 ±160°、左 J2 −92°～+122°、右 J2 −122°～+92°、J4 ±150°、J6 ±135°。
+- 双臂角度限位：J1/J3/J5/J7 ±170°、左 J2 −92°～+122°、右 J2 −122°～+92°、J4 ±145°、J6 ±130°。
 - 双臂 effort：`[647,647,484,459,204,107,36] N·m`，表示启停峰值扭矩，不是连续额定值。
 - 双臂速度：URDF 与限位 YAML 统一为 30°/s，加速度 60°/s²（只在限位 YAML 的 `max_acceleration_rad_s2`，URDF 无此字段；用户 2026-11-04）。执行器峰值速度按 `[12.5,12.5,12.5,16.7,30,30,30] rpm` 换算，见 `alfav3_arm_module_specs.json` 的 `peak_velocity_rad_s`；J5 连续额定扭矩为 87 N·m。
 - 14 个臂关节的 `friction=0`、`damping=0` 是未辨识占位值。

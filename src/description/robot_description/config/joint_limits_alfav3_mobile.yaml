@@ -32,8 +32,8 @@ joints:
     max_velocity_rad_s: 5.0
   left_joint1:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 647
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
@@ -46,43 +46,43 @@ joints:
     max_acceleration_rad_s2: 1.0471975511965976
   left_joint3:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 484
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   left_joint4:
     type: revolute
-    lower_position_rad: -2.6179938779914944
-    upper_position_rad: 2.6179938779914944
+    lower_position_rad: -2.530727415391778
+    upper_position_rad: 2.530727415391778
     max_effort: 459
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   left_joint5:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 204
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   left_joint6:
     type: revolute
-    lower_position_rad: -2.356194490192345
-    upper_position_rad: 2.356194490192345
+    lower_position_rad: -2.2689280275926285
+    upper_position_rad: 2.2689280275926285
     max_effort: 107
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   left_joint7:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 36
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   right_joint1:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 647
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
@@ -95,36 +95,36 @@ joints:
     max_acceleration_rad_s2: 1.0471975511965976
   right_joint3:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 484
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   right_joint4:
     type: revolute
-    lower_position_rad: -2.6179938779914944
-    upper_position_rad: 2.6179938779914944
+    lower_position_rad: -2.530727415391778
+    upper_position_rad: 2.530727415391778
     max_effort: 459
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   right_joint5:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 204
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   right_joint6:
     type: revolute
-    lower_position_rad: -2.356194490192345
-    upper_position_rad: 2.356194490192345
+    lower_position_rad: -2.2689280275926285
+    upper_position_rad: 2.2689280275926285
     max_effort: 107
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
   right_joint7:
     type: revolute
-    lower_position_rad: -2.792526803190927
-    upper_position_rad: 2.792526803190927
+    lower_position_rad: -2.9670597283903604
+    upper_position_rad: 2.9670597283903604
     max_effort: 36
     max_velocity_rad_s: 0.5235987755982988
     max_acceleration_rad_s2: 1.0471975511965976
