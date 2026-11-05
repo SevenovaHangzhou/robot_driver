@@ -40,7 +40,7 @@ struct Rig
 {
   explicit Rig(
     const std::string & profile = KINCO_FIXTURE, int startup_mode = 9, bool switching = false)
-  : profile_path(profile), states(13, 0.0), commands{0.25,
+  : profile_path(profile), states(15, 0.0), commands{0.25,
                                                      std::numeric_limits<double>::quiet_NaN(),
                                                      static_cast<double>(startup_mode),
                                                      0x000f,
@@ -69,7 +69,9 @@ struct Rig
       {"state_interface/feedback_sequence", "9"},
       {"state_interface/sent_sequence", "10"},
       {"state_interface/feedback_sequence_at_send", "11"},
-      {"state_interface/sent_velocity", "12"}};
+      {"state_interface/sent_velocity", "12"},
+      {"state_interface/error_word_1", "13"},
+      {"state_interface/error_word_2", "14"}};
     if (switching) {
       // Runtime CSP<->CSV switching is opt-in; the default is the fixed startup mode.
       parameters["mode_switching"] = "true";
@@ -129,7 +131,7 @@ struct Rig
   hw_ethercat::KincoCyclicModeSlave slave;
   std::vector<double> states;
   std::vector<double> commands;
-  std::array<std::array<uint8_t, 8>, 8> pdo{};
+  std::array<std::array<uint8_t, 8>, 10> pdo{};
   std::unordered_map<unsigned int, size_t> index;
   std::unordered_map<std::string, std::string> parameters;
 };
@@ -156,6 +158,22 @@ TEST(KincoCyclicModeSlave, StartupSeedsActualRawPositionInCsvBeforeReportingInit
   EXPECT_EQ(EC_READ_S32(rig.bytes(0x60ff)), 150);
   EXPECT_DOUBLE_EQ(rig.states[6], 1.0);
   EXPECT_DOUBLE_EQ(rig.states[7], 1.0);
+}
+
+TEST(KincoCyclicModeSlave, ErrorWordsAreExportedEveryCycle)
+{
+  Rig rig;
+  rig.setup();
+  EC_WRITE_U16(rig.bytes(0x2601), 0x0011);
+  EC_WRITE_U16(rig.bytes(0x2602), 0x8000);
+  rig.cycle();
+  EXPECT_DOUBLE_EQ(rig.states[13], 0x0011);
+  EXPECT_DOUBLE_EQ(rig.states[14], 0x8000);
+  EC_WRITE_U16(rig.bytes(0x2601), 0);
+  EC_WRITE_U16(rig.bytes(0x2602), 0);
+  rig.cycle();
+  EXPECT_DOUBLE_EQ(rig.states[13], 0.0);
+  EXPECT_DOUBLE_EQ(rig.states[14], 0.0);
 }
 
 TEST(KincoCyclicModeSlave, DisabledModeZeroWritesStartupModeUntilEnabledReadbackConfirms)

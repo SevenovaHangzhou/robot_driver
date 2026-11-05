@@ -35,7 +35,7 @@ def shares(monkeypatch):
 
 def arguments(shares):
     config = shares["hwcfg_machines"]
-    path = (config / "units/Alfa_V3-Advantech-01/deployment.yaml")
+    path = config / "units/Alfa_V3-Advantech-01/deployment.yaml"
     return dict(
         robot_variant=load_yaml(path)["robot_variant"],
         machine_unit=path.parent.name,
@@ -53,18 +53,16 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     assert len(systems[1].findall("sensor")) == 4
     assert not systems[1].findall(".//command_interface")
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
-    manifest = read_manifest(
-        next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml"))
-    )
+    manifest = read_manifest(next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml")))
     assert manifest["layout"]["ethercat"]["cycle_hz"] == 1000
     assert bus["master"]["sync_period"] == manifest["layout"]["canopen"]["sync_period_us"]
     assert (
         result.controllers["controller_manager"]["ros__parameters"]["update_rate"]
         == manifest["layout"]["ethercat"]["cycle_hz"]
     )
-    binding = load_yaml(
-        next((shares["hwcfg_machines"] / "machines").glob("*/controllers.yaml"))
-    )["controllers"]["swerve_chassis"]
+    binding = load_yaml(next((shares["hwcfg_machines"] / "machines").glob("*/controllers.yaml")))[
+        "controllers"
+    ]["swerve_chassis"]
     assert binding["required_state_modules"] == ["swerve_encoders"]
     assert result.controller_order["inactive"] == [binding["name"]]
     assert all(
@@ -75,7 +73,9 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
 
 def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, tmp_path):
     result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
-    systems = {system["result"]["hardware_system_id"]: system["result"] for system in result.systems}
+    systems = {
+        system["result"]["hardware_system_id"]: system["result"] for system in result.systems
+    }
     ecat = systems["ecat_arms"]["expected_topology"]
     assert ecat["preflight_required"] and ecat["ethercat_mac"] == "cc:82:7f:c4:d3:0f"
     assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(8))
@@ -87,6 +87,8 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
         0x60640020,
         0x606C0020,
         0x60610008,
+        0x26010010,
+        0x26020010,
     ]
     assert [window["ring_position"] for window in ecat["position_windows"]] == [1, 3, 5, 7]
     can = systems["canopen_swerve_encoders"]
@@ -132,7 +134,11 @@ def request_for_module(shares, name):
     manifest = read_manifest(next((config / "machines").glob("*/manifest.yaml")))
     entry = manifest["modules"][name]
     # The chassis lives on the Advantech bench unit; arm calibration on Alfa_V3-01.
-    unit = "Alfa_V3-Advantech-01" if entry["transport"] == "canopen" or name == "swerve_chassis" else "Alfa_V3-01"
+    unit = (
+        "Alfa_V3-Advantech-01"
+        if entry["transport"] == "canopen" or name == "swerve_chassis"
+        else "Alfa_V3-01"
+    )
     deployment = load_yaml(config / f"units/{unit}/deployment.yaml")
     unit_dir = config / f"units/{unit}"
     return {
@@ -176,20 +182,19 @@ def test_sample_b_owner_adapter_and_read_only_contract(shares, monkeypatch):
         pytest.fail("Renderer performed a write or device command")
 
     monkeypatch.setattr(Path, "write_text", denied)
-    result = render_checked(
-        ETHERCAT, request, PACKAGE / "schema", shares["hwcfg_machines"]
-    )
+    result = render_checked(ETHERCAT, request, PACKAGE / "schema", shares["hwcfg_machines"])
     assert len(result["joints"]) == len(sample["spec"]["axes"])
     assert result["managed_joints"] == [
         axis["robot_model_joint"] for axis in sample["spec"]["axes"]
     ]
     encoders = request_for_module(shares, "swerve_encoders")
-    sensor_result = render_checked(
-        CANOPEN, encoders, PACKAGE / "schema", shares["hwcfg_machines"]
-    )
+    sensor_result = render_checked(CANOPEN, encoders, PACKAGE / "schema", shares["hwcfg_machines"])
     assert not sensor_result["managed_joints"] and not sensor_result["joints"]
     encoders["use_mock_hardware"] = False
-    encoders["deployment"] = {**encoders["deployment"], "can_interfaces": {"swerve_encoders": "TBD"}}
+    encoders["deployment"] = {
+        **encoders["deployment"],
+        "can_interfaces": {"swerve_encoders": "TBD"},
+    }
     with pytest.raises(ValueError, match="Missing real encoder facts"):
         CANOPEN.render(encoders)
 
