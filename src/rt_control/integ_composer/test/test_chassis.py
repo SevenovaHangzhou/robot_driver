@@ -79,6 +79,15 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     ecat = systems["ecat_arms"]["expected_topology"]
     assert ecat["preflight_required"] and ecat["ethercat_mac"] == "cc:82:7f:c4:d3:0f"
     assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(8))
+    # The artifact loader accepts string keys only (2026-11-05 Advantech: real start rejected).
+    saved = tmp_path / "topology.yaml"
+    saved.write_text(yaml.safe_dump(ecat))
+    assert load_yaml(saved)["pdo_checks"][0]["objects"]["0x1A00"] == [
+        0x60410010,
+        0x60640020,
+        0x606C0020,
+        0x60610008,
+    ]
     assert [window["ring_position"] for window in ecat["position_windows"]] == [1, 3, 5, 7]
     can = systems["canopen_swerve_encoders"]
     bundle = "/var/lib/rt-control/canopen/Alfa_V3-Advantech-01"
