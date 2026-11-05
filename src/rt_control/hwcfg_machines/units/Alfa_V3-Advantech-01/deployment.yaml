@@ -7,7 +7,8 @@ authorities:
   ethercat_mac: IgH master 0 attached device
   can: ZLG PCIe CAN card (user 2026-11-05) - can0 left battery slot, can1 right battery slot,
     can3 external steering encoders + IMU (node 1); bitrate per canopen.bitrate_kbps; master node 127
-  realtime: rt_cpu 7 isolated (isolcpus/nohz_full); IgH run_on_cpu=7; housekeeping 0-6,8-19
+  realtime: host read back 2026-11-05 - isolcpus/nohz_full 6,7; SMT sibling 7 offline (rt-control-cpu-layout);
+    rt_cpu 6, IgH run_on_cpu=6; irqaffinity/housekeeping 0-5,8-27 (user 2026-11-05)
 pending_facts: []
 robot_variant: Alfa_V3
 end_effector: mobile_proxy
@@ -21,8 +22,9 @@ host_id: user-MIC-770V3W
 host:
   hostname: user-MIC-770V3W
   ethercat_mac: cc:82:7f:c4:d3:0f
-  rt_cpu: 7
-  housekeeping_cpus: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+  rt_cpu: 6
+  housekeeping_cpus: [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+    25, 26, 27]
 canopen:
   master_node_id: 127
   bitrate_kbps: 500
