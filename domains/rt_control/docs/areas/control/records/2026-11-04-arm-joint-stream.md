@@ -55,6 +55,20 @@ related: [arm-control-20261019-01, integration-20261104-01]
 - 回归测试覆盖台架问题：0.03 rad / 5 ms、0.12 rad / 0.1 s 均被拒绝。
 - 契约约束更新见 robot_interfaces#15。
 
+## 台架复测（用户授权复位与复测，`~/rt-control-arch-20261104d`，域 78）
+
+复位两侧 joint7 的 0x8400、自检 0 阻断后使能；只动两侧 joint7：偏移 0.05·(1−cos ωt)，周期 6 s，峰值 0.052 rad/s。每个 50 Hz 窗口两点：0.1 s 后的运动点，再 0.4 s 后按匀减速的停止点（速度 0）。
+
+| 步骤 | 结果 |
+| --- | --- |
+| 流式 19.5 s | 最大跟踪误差 0.058°（第一次闭环 0.163°），无故障 |
+| 断流（峰值速度时） | 走到停止点 0.0154 rad（预期约 0.0157 rad），保持 3 s 漂移 1.7e-4 rad，无故障 |
+| 超速窗口 0.03 rad / 5 ms | 被拒绝（`FJT_REJECT reason=acceleration`），手臂未动（6e-5 rad），保持 ENABLED |
+| action 中途来流式窗口 | action ABORTED，`INVALID_GOAL`，“Superseded by a trajectory on the streaming topic.” |
+| 新 action 回起点 | SUCCEEDED，残差 1e-4 rad |
+
+全程 readiness HEALTHY；去使能后有序停机（`drives_disabled=True`，18 PREOP）。未测：其他关节、更高速度、头部同时运行。
+
 ## 驱动器参数只读（用户授权，2026-11-04，EtherCAT PREOP，`ethercat upload`）
 
 | 关节 | 0x6502 支持模式 | 0x6076 额定力矩 | 0x100A 软件版本 |
