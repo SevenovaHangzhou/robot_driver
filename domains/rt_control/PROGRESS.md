@@ -265,4 +265,4 @@
 - 2026-10-24：机械臂 18121 操作台增加真空泵及左右阀三个手动开关，复用现场 vacuum 脚本；本地/工控机各 105 tests 和浏览器模拟六次开关通过，真实网页只读三路均 OFF，仅重启空闲 Web，未使能/运动/写输出。见[记录](docs/areas/control/records/2026-10-24-vacuum-web-controls.md)（PARTIAL，T2；实机开关待验）。
 
 | 2026-10-27 | arm-control | [操作台双路真空表压](docs/areas/control/records/2026-10-27-vacuum-pressure-display.md) | PASS（T2）：右上角显示左右压力 ROS 换算值；107 项包测试、构建、质量门禁和真实页面只读验收通过，未写设备 |
-| control-20261105-04 (enabled EtherCAT unplug, bench_dual_arm_head) | `d125022` | PASS — enabled hold, cable pulled: quick stop within 1 s, `device_offline` + restart latched; reset rejected after slaves returned to OP; stack restart + one fault reset (0xA000) back to IDLE | Head-power-only cut not run |
+| 2026-11-05 | control | [使能中拔 EtherCAT 网线](docs/areas/control/records/2026-11-05-enabled-unplug-bench.md) | PASS（T3）：1 s 内急停失能并锁存重启；网线恢复后复位被拒，重启 + 一次复位回到空闲；只断头部电源未做 |
