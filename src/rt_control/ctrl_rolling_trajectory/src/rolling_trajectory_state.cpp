@@ -6,54 +6,6 @@
 namespace ctrl_rolling_trajectory
 {
 
-bool RollingTrajectoryController::synchronizeBufferStateFromRt() noexcept
-{
-  const SessionState rt_state =
-    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
-  SessionState buffer_state = buffer_.sessionState();
-
-  if (
-    rt_state == SessionState::kRunning &&
-    (buffer_state == SessionState::kPriming || buffer_state == SessionState::kRunning)) {
-    const std::uint64_t active_generation = active_generation_.load(std::memory_order_acquire);
-    if (!buffer_.acknowledgeActiveGeneration(active_generation)) {
-      return false;
-    }
-    buffer_state = buffer_.sessionState();
-  }
-  if (
-    (rt_state == SessionState::kStopping || rt_state == SessionState::kHolding) &&
-    (buffer_state == SessionState::kPriming || buffer_state == SessionState::kRunning)) {
-    if (!buffer_.requestStop()) {
-      return false;
-    }
-    buffer_state = buffer_.sessionState();
-  }
-  if (rt_state == SessionState::kHolding && buffer_state == SessionState::kStopping) {
-    if (!buffer_.markHolding()) {
-      return false;
-    }
-    buffer_state = buffer_.sessionState();
-  }
-  if (rt_state == SessionState::kTerminated) {
-    if (buffer_state != SessionState::kTerminated) {
-      buffer_.terminateSession();
-    }
-    return true;
-  }
-
-  if (rt_state == SessionState::kRunning) {
-    return buffer_state == SessionState::kRunning;
-  }
-  if (rt_state == SessionState::kStopping) {
-    return buffer_state == SessionState::kStopping;
-  }
-  if (rt_state == SessionState::kHolding) {
-    return buffer_state == SessionState::kHolding;
-  }
-  return true;
-}
-
 bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noexcept
 {
   constexpr std::size_t kMaximumReadAttempts = 8U;
@@ -67,11 +19,9 @@ bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noex
     candidate.session_epoch = rt_state_session_epoch_.load(std::memory_order_acquire);
     candidate.session_state =
       static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
-    candidate.stop_reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
     candidate.active_generation = active_generation_.load(std::memory_order_acquire);
     candidate.execution_time_ns = execution_time_ns_.load(std::memory_order_acquire);
     candidate.replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_acquire);
-    candidate.buffered_until_ns = buffered_until_ns_.load(std::memory_order_acquire);
     candidate.desired.time_ns = candidate.execution_time_ns;
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
       candidate.desired.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
@@ -82,9 +32,7 @@ bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noex
     const std::uint64_t version_after = rt_state_version_.load(std::memory_order_acquire);
     if (
       version_before == version_after && (version_after & 1U) == 0U &&
-      candidate.session_state <= SessionState::kTerminated &&
-      candidate.stop_reason <= StopReason::kControllerRestart &&
-      desiredIsValid(candidate.desired)) {
+      candidate.session_state <= SessionState::kTerminated && desiredIsValid(candidate.desired)) {
       view = candidate;
       return true;
     }
@@ -94,24 +42,18 @@ bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noex
 
 bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & context) const noexcept
 {
+  context = AdmissionContext{};
   if (
-    buffer_.sessionState() == SessionState::kPriming &&
     static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) ==
       SessionState::kPriming &&
     active_generation_.load(std::memory_order_acquire) == 0U) {
-    context.execution_time_ns = 0U;
-    context.replaceable_from_ns = 0U;
-    context.minimum_horizon_ns =
-      runtime_configuration_.scheduling_guard.one_cycle_detection_ns +
-      runtime_configuration_.scheduling_guard.stop_time_growth_ns +
-      runtime_configuration_.scheduling_guard.non_rt_to_rt_visibility_ns +
-      runtime_configuration_.scheduling_guard.period_quantization_ns;
+    context.priming = true;
     return true;
   }
 
   RtStateView view;
   if (
-    !readRtStateView(view) ||
+    !readRtStateView(view) || view.session_state != SessionState::kRunning ||
     view.session_epoch != session_epoch_.load(std::memory_order_acquire)) {
     return false;
   }
@@ -139,6 +81,7 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
   context.execution_time_ns = view.execution_time_ns;
   context.replaceable_from_ns = view.replaceable_from_ns;
   context.minimum_horizon_ns = minimum_horizon_ns;
+  context.active_generation = view.active_generation;
   return true;
 }
 
@@ -173,17 +116,11 @@ std::uint8_t RollingTrajectoryController::publicStopReason(StopReason reason) no
     case StopReason::kNone:
       return StateMessage::STOP_NONE;
     case StopReason::kUpdateTimeout:
-    case StopReason::kPrimeTimeout:
       return StateMessage::STOP_UPDATE_TIMEOUT;
     case StopReason::kLowWater:
       return StateMessage::STOP_BUFFER_END;
     case StopReason::kControllerDeactivated:
-    case StopReason::kDisable:
-    case StopReason::kControllerRestart:
-    case StopReason::kGracefulClose:
       return StateMessage::STOP_DEACTIVATED;
-    case StopReason::kGroupFault:
-      return StateMessage::STOP_FAULT;
     default:
       return StateMessage::STOP_INTERNAL;
   }

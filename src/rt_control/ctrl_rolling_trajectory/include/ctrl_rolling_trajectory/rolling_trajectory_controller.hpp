@@ -52,28 +52,13 @@ private:
 
   enum class SnapshotConsumeResult : std::uint8_t { kNoChange = 0U, kAccepted = 1U, kInvalid = 2U };
 
-  enum class RtInvariantStage : std::uint8_t {
-    kNone = 0U,
-    kSnapshotShapeOrGeneration = 1U,
-    kSnapshotPrimingTime = 2U,
-    kSnapshotIdentity = 3U,
-    kSnapshotLateBoundary = 4U,
-    kSnapshotSample = 5U,
-    kStopDuration = 6U,
-    kTrajectorySample = 7U,
-    kReplaceableBoundary = 8U,
-    kSnapshotPublication = 9U
-  };
-
   struct RtStateView
   {
     std::uint64_t session_epoch{0U};
     SessionState session_state{SessionState::kNone};
-    StopReason stop_reason{StopReason::kNone};
     std::uint64_t active_generation{0U};
     std::uint64_t execution_time_ns{0U};
     std::uint64_t replaceable_from_ns{0U};
-    std::uint64_t buffered_until_ns{0U};
     JointPoint desired{};
   };
 
@@ -96,7 +81,6 @@ private:
 
   static constexpr const char * kFeedbackAgeInterface = "ethercat_domain/process_data_age_ms";
 
-  static Identifier generateIdentifier() noexcept;
   static std::uint64_t steadyNowNs() noexcept;
   static bool elapsedExceeds(
     std::uint64_t now_ns, std::uint64_t start_ns, std::uint64_t limit_ns) noexcept;
@@ -110,7 +94,6 @@ private:
     const BatchMessage & message, std::array<PointView, kTransportMaxPoints> & point_views);
   std::uint8_t startSession(std::int64_t start_ns);
   static std::uint8_t publicStopReason(StopReason reason) noexcept;
-  bool synchronizeBufferStateFromRt() noexcept;
   bool readRtStateView(RtStateView & view) const noexcept;
   bool buildAdmissionContext(AdmissionContext & context) const noexcept;
   bool buildPublicState(StateMessage & state);
@@ -135,8 +118,6 @@ private:
   RuntimeConfiguration runtime_configuration_{};
   RollingBuffer buffer_{};
   RollingSnapshotExchange snapshot_exchange_{};
-  // Internal identities keep the realtime snapshot handoff per session; clients never see them.
-  Identifier controller_boot_id_{};
   // Public state (R-OUT-07), guarded by callback_mutex_.
   std::uint32_t activation_epoch_{0U};
   std::uint64_t last_sequence_{0U};
@@ -146,7 +127,6 @@ private:
   std::uint8_t last_stop_reason_{StateMessage::STOP_NONE};
   // ROS time of session time 0, guarded by callback_mutex_.
   std::int64_t session_origin_ns_{0};
-  std::atomic<std::uint64_t> invariant_failure_count_{0U};
   std::mutex callback_mutex_{};
   std::mutex state_publish_mutex_{};
   rclcpp::CallbackGroup::SharedPtr callback_group_{};
@@ -156,7 +136,6 @@ private:
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_{};
   std::atomic<std::uint8_t> rt_session_state_{static_cast<std::uint8_t>(SessionState::kNone)};
   std::atomic<std::uint8_t> stop_reason_{static_cast<std::uint8_t>(StopReason::kNone)};
-  std::atomic<std::uint8_t> rt_invariant_stage_{static_cast<std::uint8_t>(RtInvariantStage::kNone)};
   std::atomic<std::uint64_t> execution_time_ns_{0U};
   std::atomic<std::uint64_t> active_generation_{0U};
   std::atomic<std::uint64_t> buffered_until_ns_{0U};
@@ -167,8 +146,6 @@ private:
   std::atomic<std::uint64_t> session_publication_floor_{1U};
   std::atomic<std::uint64_t> rt_state_version_{0U};
   std::atomic<std::uint64_t> rt_state_session_epoch_{0U};
-  std::atomic<std::uint64_t> rt_accepted_arrival_time_ns_{0U};
-  std::atomic_bool has_accepted_update_{false};
   std::atomic_flag initial_handoff_gate_ = ATOMIC_FLAG_INIT;
   std::atomic_bool stop_requested_{false};
   bool configured_{false};
@@ -179,9 +156,8 @@ private:
   std::uint64_t rt_consumed_publication_sequence_{0U};
   std::uint64_t rt_last_accepted_arrival_ns_{0U};
   std::uint64_t rt_stop_elapsed_ns_{0U};
-  TrajectoryImage rt_active_trajectory_{};
+  const TrajectoryImage * rt_active_trajectory_{nullptr};
   MonotonicTrajectoryCursor rt_sampling_cursor_{};
-  SessionIdentity rt_identity_{};
   JointPoint rt_desired_{};
   StopTrajectory rt_stop_trajectory_{};
 };

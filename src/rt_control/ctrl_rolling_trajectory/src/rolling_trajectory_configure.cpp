@@ -208,9 +208,7 @@ bool RollingTrajectoryController::loadRuntimeConfiguration(std::string & error)
   buffer_configuration.splice_position_tolerance = candidate.splice_position_tolerances;
   buffer_configuration.splice_velocity_tolerance = candidate.splice_velocity_tolerances;
   StopTrajectory stop_trajectory;
-  if (
-    !buffer_.configure(buffer_configuration) || !buffer_.configureLimits(envelope) ||
-    !stop_trajectory.configure(envelope)) {
+  if (!buffer_.configure(buffer_configuration, envelope) || !stop_trajectory.configure(envelope)) {
     error = "buffer configuration or robot-model limits are invalid";
     return false;
   }
@@ -255,8 +253,6 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   rt_session_state_.store(
     static_cast<std::uint8_t>(SessionState::kNone), std::memory_order_relaxed);
   stop_reason_.store(static_cast<std::uint8_t>(StopReason::kNone), std::memory_order_relaxed);
-  rt_invariant_stage_.store(
-    static_cast<std::uint8_t>(RtInvariantStage::kNone), std::memory_order_relaxed);
   execution_time_ns_.store(0U, std::memory_order_relaxed);
   active_generation_.store(0U, std::memory_order_relaxed);
   buffered_until_ns_.store(0U, std::memory_order_relaxed);
@@ -266,9 +262,6 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   session_publication_floor_.store(1U, std::memory_order_relaxed);
   rt_state_version_.store(0U, std::memory_order_relaxed);
   rt_state_session_epoch_.store(0U, std::memory_order_relaxed);
-  rt_accepted_arrival_time_ns_.store(0U, std::memory_order_relaxed);
-  invariant_failure_count_.store(0U, std::memory_order_relaxed);
-  has_accepted_update_.store(false, std::memory_order_relaxed);
   initial_handoff_gate_.clear(std::memory_order_relaxed);
   configured_ = true;
   parameters_frozen_.store(true, std::memory_order_release);
