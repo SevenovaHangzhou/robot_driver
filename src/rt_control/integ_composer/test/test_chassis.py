@@ -91,7 +91,8 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
     assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
     lifecycle = result.lifecycle
-    assert lifecycle["host"]["rt_cpu"] == 7
+    assert lifecycle["host"]["rt_cpu"] == 6
+    assert 6 not in lifecycle["host"]["housekeeping_cpus"]
     assert lifecycle["bus_locks"] == ["can-can3", "ethercat-master-0"]
 
 
