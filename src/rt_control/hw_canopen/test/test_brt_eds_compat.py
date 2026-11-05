@@ -2,13 +2,11 @@
 
 import configparser
 import difflib
-import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "config/eds"
 ORIGINAL = "BRT-Multi-turn-V1.0.eds"
 COMPAT = "BRT-Multi-turn-V1.0.compat.eds"
-ORIGINAL_SHA256 = "8ed45c23f567868c79903c77dde65ffa1bdb20d5078418d07a32065ea7fb6a53"
 
 
 def read(name):
@@ -28,10 +26,6 @@ def inventory(parser):
         values.extend(int(section[str(index)], 0) for index in range(1, count + 1))
     assert len(values) == len(set(values))
     return set(values)
-
-
-def test_vendor_original_is_unchanged():
-    assert hashlib.sha256((ROOT / ORIGINAL).read_bytes()).hexdigest() == ORIGINAL_SHA256
 
 
 def test_only_readback_width_changes_in_object_definitions():

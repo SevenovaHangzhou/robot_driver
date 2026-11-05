@@ -160,21 +160,23 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
     diagnostic_state_indices_[source] =
       static_cast<std::size_t>(std::distance(state_interfaces_.begin(), match));
   }
-  for (std::size_t source = 0; source < feedback_age_names_.size(); ++source) {
-    const auto match = std::find_if(
-      state_interfaces_.begin(), state_interfaces_.end(),
-      [&](const auto & interface) { return interface.get_name() == feedback_age_names_[source]; });
+  for (std::size_t source = 0; source < offline_source_names_.size(); ++source) {
+    const auto match =
+      std::find_if(state_interfaces_.begin(), state_interfaces_.end(), [&](const auto & interface) {
+        return interface.get_name() == offline_source_names_[source];
+      });
     if (match == state_interfaces_.end()) {
       releaseCia402Interfaces();
       RCLCPP_ERROR(
-        get_node()->get_logger(), "Missing feedback age state %s",
-        feedback_age_names_[source].c_str());
+        get_node()->get_logger(), "Missing offline source state %s",
+        offline_source_names_[source].c_str());
       return controller_interface::CallbackReturn::ERROR;
     }
-    feedback_age_indices_[source] =
+    offline_source_indices_[source] =
       static_cast<std::size_t>(std::distance(state_interfaces_.begin(), match));
   }
   offline_feedback_.store(-1, std::memory_order_relaxed);
+  offline_now_.store(-1, std::memory_order_relaxed);
   for (auto & device : handshake_devices_) {
     if (!device->baseline()) {
       releaseCia402Interfaces();
@@ -285,11 +287,22 @@ controller_interface::return_type EnableManagerController::update(
   }
   const std::int64_t now_ns = time.nanoseconds();
   Phase phase = phase_.load(std::memory_order_acquire);
+  const int offline = offlineSource();
+  offline_now_.store(offline, std::memory_order_relaxed);
 
   if (
     phase == Phase::kEnabled || phase == Phase::kJtcActivating ||
     phase == Phase::kJtcDeactivating) {
-    for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
+    // A drive that lost power keeps its last status word; only its stale feedback or its slave
+    // leaving OP shows it. A re-powered slave may not resynchronise in OP: restart the stack.
+    if (offline >= 0) {
+      offline_feedback_.store(offline, std::memory_order_relaxed);
+      restart_required_.store(true, std::memory_order_release);
+      startEmergency(Stage::kDeviceOffline, -1, 0U, now_ns);
+      phase = Phase::kEmergencyQuickStop;
+    }
+    for (std::size_t axis = 0; phase != Phase::kEmergencyQuickStop && axis < cia402_axes_.size();
+         ++axis) {
       const DriveState state = decodeState(status_words_[axis]);
       if (isFaultState(state)) {
         startEmergency(
@@ -492,7 +505,11 @@ void EnableManagerController::publishDiagnostics()
     "failed_status_word", std::to_string(last_failed_status_word_.load(std::memory_order_acquire)));
   status.add("stage", stageName(last_failure_stage_.load(std::memory_order_acquire)));
   const int offline = offline_feedback_.load(std::memory_order_relaxed);
-  status.add("offline_feedback", offline >= 0 ? feedback_age_names_[offline] : "");
+  status.add("offline_feedback", offline >= 0 ? offline_source_names_[offline] : "");
+  const int offline_now = offline_now_.load(std::memory_order_relaxed);
+  status.add("offline_now", offline_now >= 0 ? offline_source_names_[offline_now] : "");
+  status.add(
+    "restart_required", restart_required_.load(std::memory_order_acquire) ? "true" : "false");
   const auto actual_mode = last_failed_mode_.load(std::memory_order_acquire);
   status.add(
     "failed_actual_mode", actual_mode == 256 ? "unavailable" : std::to_string(actual_mode));
@@ -532,11 +549,14 @@ void EnableManagerController::publishResult(
   slot.ready.store(true, std::memory_order_release);
 }
 
-int EnableManagerController::staleFeedback() const noexcept
+int EnableManagerController::offlineSource() const noexcept
 {
-  for (std::size_t source = 0; source < feedback_age_indices_.size(); ++source) {
-    const double age = state_interfaces_[feedback_age_indices_[source]].get_value();
-    if (!hw_semantic_components::feedback_fresh(age, feedback_age_limit_ms_)) {
+  for (std::size_t source = 0; source < offline_source_indices_.size(); ++source) {
+    const double value = state_interfaces_[offline_source_indices_[source]].get_value();
+    const bool online = source < age_source_count_
+                          ? hw_semantic_components::feedback_fresh(value, feedback_age_limit_ms_)
+                          : value == kAlStateOp;
+    if (!online) {
       return static_cast<int>(source);
     }
   }
@@ -547,7 +567,7 @@ int EnableManagerController::staleFeedback() const noexcept
 // stage to decide whether a reset is still worth trying once the devices are back.
 bool EnableManagerController::rejectIfOffline(ResultSlot & slot)
 {
-  const int stale = staleFeedback();
+  const int stale = offline_now_.load(std::memory_order_relaxed);
   offline_feedback_.store(stale, std::memory_order_relaxed);
   if (stale < 0) {
     return false;

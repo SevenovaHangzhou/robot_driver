@@ -5,7 +5,6 @@ directory is the bus option dcf_path. Runs dcfgen offline; never touches the bus
 """
 
 import argparse
-import hashlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -59,9 +58,6 @@ def generate(artifact_dir, *, dcfgen=None):
             (output / "master.bin").write_bytes(b"\0\0\0\0")
         # The runtime bus is the artifact source itself: relative dcf names, final dcf_path.
         (output / "bus.yml").write_text(source_text, encoding="utf-8")
-        (output / "source.sha256").write_text(
-            hashlib.sha256(source_text.encode("utf-8")).hexdigest() + "\n"
-        )
     except BaseException:
         shutil.rmtree(output, ignore_errors=True)
         if previous.exists():

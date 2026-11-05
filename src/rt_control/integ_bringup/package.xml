@@ -16,6 +16,7 @@
   <exec_depend>robot_description</exec_depend>
   <exec_depend>integ_composer</exec_depend>
   <exec_depend>integ_diagnostics</exec_depend>
+  <exec_depend>integ_head_move</exec_depend>
   <exec_depend>hwcfg_machines</exec_depend>
   <exec_depend>periph_bms</exec_depend>
   <exec_depend>periph_plc_io</exec_depend>
@@ -23,13 +24,12 @@
   <exec_depend>hw_ethercat</exec_depend>
   <exec_depend>hw_can_damiao</exec_depend>
   <exec_depend>ctrl_force_torque_broadcaster</exec_depend>
-  <exec_depend>integ_api_adapter</exec_depend>
   <exec_depend>ctrl_enable_manager</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>hw_canopen</exec_depend>
   <exec_depend>ctrl_swerve</exec_depend>
-  <exec_depend>rt_control_interfaces</exec_depend>
+  <exec_depend>robot_rt_control_interfaces</exec_depend>
   <exec_depend>controller_manager_msgs</exec_depend>
   <exec_depend>hardware_interface</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>

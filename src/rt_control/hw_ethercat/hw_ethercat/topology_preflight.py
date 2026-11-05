@@ -110,7 +110,20 @@ def preflight(expected_topology, *, run=None):
 
         status, error = value(0x6041), value(0x603F)
         state = decode_state(status)
-        if state == "operation_enabled" or value(0x6040) != 0:
+        control_word = value(0x6040)
+        # Kinco keeps the last Shutdown (0x0006) after the master leaves OP (ELECTRI-127 field
+        # behaviour). Admitted only per axis, with an idle master and a stable, unfaulted Ready to
+        # Switch On readback; enable_manager's startup sanitizing still owns the drive.
+        shutdown_ready = (
+            axis.get("allow_shutdown_ready") is True
+            and re.search(r"Phase:\s+Idle\b", master) is not None
+            and control_word == 0x0006
+            and state == "ready_to_switch_on"
+            and error == 0
+            and decode_state(value(0x6041)) == "ready_to_switch_on"
+            and value(0x603F) == 0
+        )
+        if state == "operation_enabled" or (control_word != 0 and not shutdown_ready):
             findings.append(_finding(address, "already_controlled", "Axis is already controlled"))
             continue
         # A Fault is accepted only with a declared startup code (e.g. 0xA000 after the master
@@ -134,7 +147,9 @@ def preflight(expected_topology, *, run=None):
             )
         elif error != 0:
             findings.append(
-                _finding(address, "fault_code", f"Unqualified error 0x{error:04x}", fault_code=error)
+                _finding(
+                    address, "fault_code", f"Unqualified error 0x{error:04x}", fault_code=error
+                )
             )
 
     def upload(ring, index, subindex, kind):
@@ -149,7 +164,7 @@ def preflight(expected_topology, *, run=None):
     for check in topology.get("pdo_checks", []):
         ring = check["ring_position"]
         for index, expected in check["objects"].items():
-            index = int(index)
+            index = int(index, 0)
             kind = "uint16" if index in (0x1C12, 0x1C13) else "uint32"
             if upload(ring, index, 0, "uint8") != len(expected) or [
                 upload(ring, index, sub, kind) for sub in range(1, len(expected) + 1)

@@ -23,8 +23,8 @@ readonly -a runtime_packages=(
   periph_led_ultrasonic
   canopen_master_driver
   canopen_ros2_control
-  integ_api_adapter
   integ_diagnostics
+  integ_head_move
   ethercat_driver
   ethercat_generic_cia402_drive
   joint_trajectory_controller
@@ -241,6 +241,9 @@ apply_frozen_patches()
   apply_patch_once \
     patches/ros2_controllers/0004-limit-trajectory-points.patch \
     src/vendor/ros2_controllers
+  apply_patch_once \
+    patches/ros2_controllers/0005-public-action-name.patch \
+    src/vendor/ros2_controllers
 }
 
 verify_patched_vendor_tree()
@@ -316,7 +319,8 @@ verify_frozen_vendor_trees()
     patches/ros2_controllers/0001-jtc-start-consistency.patch \
     patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
     patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
-    patches/ros2_controllers/0004-limit-trajectory-points.patch
+    patches/ros2_controllers/0004-limit-trajectory-points.patch \
+    patches/ros2_controllers/0005-public-action-name.patch
 }
 
 prepare_sources()
@@ -457,7 +461,6 @@ doctor()
 {
   local metadata="/usr/local/share/rt-control/dependency-versions.env"
   local patch="${repository_root}/patches/igh/0001-preserve-verified-pdo-config.patch"
-  local patch_sha256
   verify_workspace_layout
   require_commands bash git python3 vcs colcon rosdep
   python3 -c 'import yaml' >/dev/null 2>&1 || fail "missing Python yaml module"
@@ -468,10 +471,9 @@ doctor()
   [[ -r "${patch}" ]] || fail "missing IgH PDO-preservation patch: ${patch}"
   # shellcheck disable=SC1091
   source "${repository_root}/versions.env"
-  patch_sha256="$(sha256sum "${patch}" | awk '{print $1}')"
   grep -Fxq "IGH_VERSION=${IGH_VERSION}" "${metadata}" || fail "installed IgH version mismatch"
   grep -Fxq "IGH_COMMIT=${IGH_COMMIT}" "${metadata}" || fail "installed IgH commit mismatch"
-  grep -Fxq "IGH_PRESERVE_PDO_PATCH_SHA256=${patch_sha256}" "${metadata}" ||
+  grep -Fq "IGH_PATCHES=0001-preserve-verified-pdo-config.patch" "${metadata}" ||
     fail "installed IgH lacks fixed-PDO preservation support"
   refuse_partial_vendor_tree
   if [[ -d "${vendor_root}" ]]; then

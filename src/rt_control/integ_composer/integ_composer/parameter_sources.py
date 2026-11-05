@@ -22,6 +22,7 @@ KINDS = (
     "policy_file",
     "state_ready",
     "exports",
+    "interface",
 )
 # A source that resolves to nothing contributes no parameter (keeps unrelated outputs unchanged).
 _SKIP = object()
@@ -168,6 +169,9 @@ def _evaluate(kind, source, name, binding, env):
     if kind == "state_ready":
         # Required state sources gate enabling through their "ready" state interfaces.
         return env.get("state_ready", []) or _SKIP
+    if kind == "interface":
+        # Public ROS names have one owner: config/interface_naming.yaml.
+        return env["naming"][source["name"]]
     if kind == "exports":
         # One list from every selected module that exports it, in module order.
         values = [

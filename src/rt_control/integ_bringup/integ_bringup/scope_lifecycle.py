@@ -106,7 +106,7 @@ class RosLifecycleBackend:
             SetHardwareComponentState,
             SwitchController,
         )
-        from rt_control_interfaces.srv import RtEnable
+        from robot_rt_control_interfaces.srv import RtEnable
 
         self.rclpy = rclpy
         rclpy.init(signal_handler_options=SignalHandlerOptions.NO)

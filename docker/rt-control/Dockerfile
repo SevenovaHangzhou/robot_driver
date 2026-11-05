@@ -72,13 +72,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
     && make -j"$(nproc)" \
     && make install \
     && install -d /usr/local/share/rt-control \
-    && igh_patch_sha256="$(sha256sum \
-      /tmp/0001-preserve-verified-pdo-config.patch | awk '{print $1}')" \
-    && igh_dc_patch_sha256="$(sha256sum \
-      /tmp/0002-dc-offset-use-sent-application-time.patch | awk '{print $1}')" \
-    && igh_preop_patch_sha256="$(sha256sum /tmp/0003-preop-only-coe.patch | awk '{print $1}')" \
-    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_DC_OFFSET_PATCH_SHA256=%s\nIGH_PREOP_COE_PATCH_SHA256=%s\n' \
-      "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" "${igh_preop_patch_sha256}" \
+    && printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PATCHES=%s\n' \
+      "${IGH_VERSION}" "${IGH_COMMIT}" "0001-preserve-verified-pdo-config.patch 0002-dc-offset-use-sent-application-time.patch 0003-preop-only-coe.patch" \
       > /usr/local/share/rt-control/dependency-versions.env \
     && ldconfig \
     && rm -rf /tmp/ethercat \
@@ -186,7 +181,11 @@ RUN git config --global http.version HTTP/1.1 \
     && git -C src/vendor/ros2_controllers apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch \
+    && git -C src/vendor/ros2_controllers apply --check \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0005-public-action-name.patch \
+    && git -C src/vendor/ros2_controllers apply \
+      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0005-public-action-name.patch
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 ENV RT_CONTROL_ECAT_CONTINUOUS_HANDOFF="1"
@@ -213,8 +212,8 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       periph_led_ultrasonic \
       canopen_master_driver \
       canopen_ros2_control \
-      integ_api_adapter \
       integ_diagnostics \
+      integ_head_move \
       ethercat_driver \
       ethercat_generic_cia402_drive \
       joint_trajectory_controller \

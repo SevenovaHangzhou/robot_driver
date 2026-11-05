@@ -50,11 +50,11 @@ cases:
     risk: T4
     writes: { reset: no, enable: no, motion: no, plc: yes }
     env: both
-    covers: ["src/rt_control/periph_plc_io/**", "src/rt_control/integ_api_adapter/**"]
+    covers: ["src/rt_control/periph_plc_io/**"]
     traces: [domains/rt_control/docs/plc-bms-commissioning-20260728.md]
     preconditions: PLC 192.168.1.88:502 可达；现场授权
     entry: |
-      # 逐点：/plc/left_solenoid、/plc/right_solenoid、/plc/vacuum_pump 各 on/off 并回读
+      # 逐点：/rt/vacuum/{left,right}_valve/set_enabled、/rt/vacuum/pump/set_enabled 各 on/off 并回读
       # 公共层：/vacuum/grip GRIP/RELEASE、持箱状态下调用 /vacuum/pump/set_enabled(false)
     pass:
       - 每路输出回读与命令一致（io_state 确认）

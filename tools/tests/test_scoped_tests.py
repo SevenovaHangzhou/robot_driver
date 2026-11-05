@@ -26,7 +26,7 @@ class ClassifyTest(unittest.TestCase):
         self.assertFalse(plan["full"])
 
     def test_private_interface_change_selects_private_package_only(self):
-        plan = st.classify(["src/interfaces/rt_control_interfaces/srv/RtEnable.srv"])
+        plan = st.classify(["src/interfaces/rt_control_interfaces/msg/PlcIoState.msg"])
         joined = " ".join(plan["actions"])
         self.assertIn("rt_control_interfaces", joined)
         self.assertNotIn("robot_rt_control_interfaces", joined)

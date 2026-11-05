@@ -36,10 +36,7 @@ related: [BQ-147, ecat-axes-20260912-09]
   右=22854；与此前位置相近，未观察到整圈跳变。该单次用户上电与顺序快照不足以验证
   所有断电多圈保持场景，也不证明夹爪机械开口标定。
 - 主站 Idle/Inactive、18 PREOP 从站、Link UP；未启用总线应用、PP 模式或运动。
-- 原始 grippers-after-power-cycle-20260912.json 的 SHA256 为
-  48fc41cb27485156fc0b453108dba27d039f32b8bd078f697f35c1aee2766a17；
-  all-axes-after-power-cycle-20260912.json 的 SHA256 为
-  ff16dc71b5fd48ef906a8587a00a02f246bad1fb066899fff57ec3bea0f1841a。
+- 原始 grippers-after-power-cycle-20260912.json、all-axes-after-power-cycle-20260912.json 保存在隔离部署目录。
 - 纯记录更新的质量门禁 214 项通过、受门禁覆盖率 83%；ShellCheck 本机未安装。
   实际结论来自现场回读，不由离线测试推导。
 

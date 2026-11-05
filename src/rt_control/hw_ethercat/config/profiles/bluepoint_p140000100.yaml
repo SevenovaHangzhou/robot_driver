@@ -17,13 +17,10 @@ driver_config:
     - long-run DC timing and sample freshness validation
     - installed left/right frames and full-machine topology
     reference_esi_file: P140000107-1.0.1.1-ECXML.xml
-    reference_esi_original_sha256: 8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad
-    reference_esi_sha256: f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8
     reference_manual_file: "\u516D\u7EF4\u529B\u4F20\u611F\u5668-EtherCAT\u901A\u8BAF\
       \u534F\u8BAEV1.1(1).docx"
     reference_manual_date: 2026-09-10
     reference_manual_firmware: P140000100-3.6.1.3-ECG
-    reference_manual_sha256: 9c275c21bb171a99cd814c2a041b8bc9b03774ef1034cac523104c1e63ab8cdf
     sync_mode: dc_candidate
     runtime_identity_readback_required: true
     runtime_pdo_readback_required: true

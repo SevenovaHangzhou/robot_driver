@@ -480,7 +480,7 @@ def _lifecycle(
             for item in bindings[name].get("capabilities", [])
         ]
         + (
-            [{"name": "enable", "service": "/control/set_enabled", "type": "SetControlEnabled"}]
+            [{"name": "enable", "service": "/rt/enable", "type": "RtEnable"}]
             if any("enable" in bindings[name].get("tags", []) for name in selected_names)
             else []
         ),

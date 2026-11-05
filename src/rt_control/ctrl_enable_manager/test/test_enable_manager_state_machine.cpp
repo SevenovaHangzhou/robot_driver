@@ -44,7 +44,9 @@
 #include "robot_rt_control_interfaces/msg/rolling_joint_control_state.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_rt_control_interfaces/srv/set_joint_control_mode.hpp"
-#include "rt_control_interfaces/srv/rt_enable.hpp"
+#include "robot_rt_control_interfaces/srv/rt_enable.hpp"
+#include "robot_system_interfaces/msg/error_code.hpp"
+#include "robot_system_interfaces/msg/error_info.hpp"
 
 namespace ctrl_enable_manager
 {
@@ -132,9 +134,16 @@ public:
   // Converts a result slot into the exact response the service would return.
   static void fillResponse(
     const Controller & c, const ResultSlot & slot,
-    rt_control_interfaces::srv::RtEnable::Response & response)
+    robot_rt_control_interfaces::srv::RtEnable::Response & response)
   {
     c.fillResponse(slot, response);
+  }
+
+  static void reportResult(
+    const Controller & c, robot_rt_control_interfaces::srv::RtEnable::Response & response,
+    std::uint32_t failure_code)
+  {
+    c.reportResult("/rt/test", response, failure_code);
   }
 
   static Stage slotStage(const ResultSlot & s) { return s.stage.load(); }
@@ -144,8 +153,8 @@ public:
   static std::int8_t slotFailedJoint(const ResultSlot & s) { return s.failed_joint.load(); }
   static std::uint16_t slotStatusWord(const ResultSlot & s) { return s.status_word.load(); }
 
-  using Req = std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request>;
-  using Res = std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response>;
+  using Req = std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request>;
+  using Res = std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response>;
   static void handleEnable(Controller & c, Req q, Res s) { c.handleEnable(q, s); }
   static void handleDisable(Controller & c, Req q, Res s) { c.handleDisable(q, s); }
   static void handleResetFault(Controller & c, Req q, Res s) { c.handleResetFault(q, s); }
@@ -176,7 +185,7 @@ using DriveState = Access::DriveState;
 using SwitchResult = Access::SwitchResult;
 using ControlMode = Access::ControlMode;
 using ModeSwitchState = Access::ModeSwitchState;
-using RtEnable = rt_control_interfaces::srv::RtEnable;
+using RtEnable = robot_rt_control_interfaces::srv::RtEnable;
 using ModeService = robot_rt_control_interfaces::srv::SetJointControlMode;
 using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
 
@@ -1584,6 +1593,35 @@ TEST_F(EnableManagerFixture, ResetWithNoFaultedAxisReportsAlreadyClear)
   EXPECT_EQ(response.stage, std::string("already_clear"));
   EXPECT_EQ(response.failed_batch, -1);
   EXPECT_EQ(response.failed_joint, std::string(""));
+}
+
+// R-IN-18/19/20 responses carry the public DREE code: stage-specific codes first, then the
+// operation's own failure code; retryable codes (recovery digit 1) are warnings.
+TEST_F(EnableManagerFixture, PublicResultsCarryDreeErrors)
+{
+  using robot_system_interfaces::msg::ErrorCode;
+  using robot_system_interfaces::msg::ErrorInfo;
+  bringUpToIdle();
+  const auto report = [this](bool ok, const char * stage) {
+    RtEnable::Response response;
+    response.ok = ok;
+    response.stage = stage;
+    response.failed_batch = -1;
+    Access::reportResult(*controller_, response, ErrorCode::RT_RESET_FAILED);
+    return response.error;
+  };
+  EXPECT_EQ(report(true, "success").code, ErrorCode::SUCCESS);
+  EXPECT_EQ(report(true, "success").severity, ErrorInfo::OK);
+  EXPECT_EQ(report(false, "device_offline").code, ErrorCode::RT_DEVICE_OFFLINE);
+  EXPECT_EQ(report(false, "restart_required").code, ErrorCode::RT_RESTART_REQUIRED);
+  const auto timeout = report(false, "fault_reset_timeout");
+  EXPECT_EQ(timeout.code, ErrorCode::RT_RESET_FAILED);
+  EXPECT_EQ(timeout.severity, ErrorInfo::FAULT);
+  EXPECT_NE(timeout.message.find("fault_reset_timeout"), std::string::npos);
+  const auto busy = report(false, "operation_in_progress");
+  EXPECT_EQ(busy.code, ErrorCode::RT_OPERATION_IN_PROGRESS);
+  EXPECT_TRUE(busy.retryable);
+  EXPECT_EQ(busy.severity, ErrorInfo::WARN);
 }
 
 TEST_F(EnableManagerFixture, ResetTimesOutWhenFaultNeverClears)

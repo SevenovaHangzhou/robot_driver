@@ -136,7 +136,7 @@ tools/quality_gate.sh
 发布记录至少包含：
 
 - 完整 Git SHA，且目标部署目录是同一 SHA 的干净工作树；
-- 镜像引用 `rt-control:<release-version>`、Git tag SHA 和 GitHub Release 归档 SHA-256；
+- 镜像引用 `rt-control:<release-version>`、Git tag SHA 和 GitHub Release 归档名；
 - [`versions.env`](../../../versions.env) 中 IgH 版本/commit；
 - [`deps.repos`](../../../deps.repos) 中四个上游完整 commit；
 - 目标机事实、目标 `RT_CONTROL_CPUSET`、目标 `RT_CONTROL_START_CPUSET`、操作者和时间；
@@ -150,7 +150,7 @@ tools/quality_gate.sh
 - 现有 CAN/EtherCAT systemd units；
 - `dpkg-query -W`、`apt-mark showhold`；
 - 当前内核、模块、网卡、总线和 `systemctl --failed` 状态；
-- 当前仓库 SHA、镜像引用、Release 归档 SHA-256 和 Compose 展开结果。
+- 当前仓库 SHA、镜像引用、Release 归档名和 Compose 展开结果。
 
 备份应放在版本化、只读或受控的位置，并实际验证可读。当前主机的历史备份位置只是一条现场记录，不能当作所有新机的默认路径。
 
@@ -184,27 +184,24 @@ docker image inspect "${image_ref}"
 
 ### 4.2 目标机只在应用镜像阶段网络受限
 
-正式交付通过 GitHub Release 附件完成。联网构建机导出标准 Docker archive，并额外做 SHA-256 校验：
+正式交付通过 GitHub Release 附件完成。联网构建机导出标准 Docker archive：
 
 ```bash
 docker image save "${image_ref}" | gzip > "rt-control-${release_version}-${release_sha}.tar.gz"
-sha256sum "rt-control-${release_version}-${release_sha}.tar.gz" \
-  > "rt-control-${release_version}-${release_sha}.tar.gz.sha256"
 ```
 
-将 `.tar.gz` 与 `.sha256` 上传到同名 GitHub Release。目标机下载后：
+将 `.tar.gz` 上传到同名 GitHub Release。目标机下载后：
 
 ```bash
 release_version=V0.10
 release_sha=<release-tag-full-git-sha>
 image_ref="rt-control:${release_version}"
-sha256sum -c "rt-control-${release_version}-${release_sha}.tar.gz.sha256"
 gzip -dc "rt-control-${release_version}-${release_sha}.tar.gz" | docker image load
 docker image inspect "${image_ref}" --format '{{.Id}}'
 ```
 
-目标机不再依赖仓库脚本内置 image ID 锁；追溯依据是 Git tag、Release 附件名和 SHA-256。
-不要在网络不稳定的工控机临时冷构建，也不要跳过 Release 附件校验后直接启动。
+目标机不再依赖仓库脚本内置 image ID 锁；追溯依据是 Git tag 和 Release 附件名。
+不要在网络不稳定的工控机临时冷构建，也不要绕过 Release 附件直接启动。
 
 这只解决 rt-control 应用镜像和源码的交付，不代表“全离线新机安装”已经成立。后续宿主 bootstrap 仍可能需要：
 
@@ -213,7 +210,7 @@ docker image inspect "${image_ref}" --format '{{.Id}}'
 - IgH 的编译依赖、当前内核 headers，以及 `versions.env` 指定 commit 的完整源码；本机没有该 commit 时 `igh-install.sh` 会从 GitLab fetch；
 - CAN/网络/构建所需的 Ubuntu packages。
 
-因此完全离线的新机必须在部署前获得一套经校验、带 SHA-256/签名和来源记录的宿主依赖包，或使用受控联网窗口，并验证现有脚本能消费这些预置资产。当前仓库没有离线 bundle、私有镜像仓库或离线 apt/bootstrap runner；缺少这些条件时应把部署标为 blocked，而不是跳过版本、签名或内核检查。
+因此完全离线的新机必须在部署前获得一套经校验、带签名和来源记录的宿主依赖包，或使用受控联网窗口，并验证现有脚本能消费这些预置资产。当前仓库没有离线 bundle、私有镜像仓库或离线 apt/bootstrap runner；缺少这些条件时应把部署标为 blocked，而不是跳过版本、签名或内核检查。
 
 ## 5. Phase D：配置宿主但先不启动总线（L1）
 
@@ -379,7 +376,7 @@ tools/rt_control_compose.sh ps -a
 
 创建不等于启动。检查展开配置和容器 inspect，确认：
 
-- image tag 等于当前发布版本，并且目标机已通过 GitHub Release SHA-256 校验导入该镜像；
+- image tag 等于当前发布版本，并且目标机已从 GitHub Release 附件导入该镜像；
 - `Privileged=false`；
 - cpuset 只包含经过验证的隔离 CPU；
 - host network、host IPC；
@@ -518,18 +515,16 @@ timeout 5 ros2 topic echo /diagnostics
 三项服务使用同一个空请求和响应结构：
 
 ```bash
-ros2 service call /control/set_enabled robot_rt_control_interfaces/srv/SetControlEnabled "{enabled: true, reason: operator}"
-ros2 service call /control/set_enabled robot_rt_control_interfaces/srv/SetControlEnabled "{enabled: false, reason: operator}"
-ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable "{}"
-ros2 service call /rt/enable rt_control_interfaces/srv/RtEnable "{}"
-ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable "{}"
+ros2 service call /rt/reset_fault robot_rt_control_interfaces/srv/RtEnable "{}"
+ros2 service call /rt/enable robot_rt_control_interfaces/srv/RtEnable "{}"
+ros2 service call /rt/disable robot_rt_control_interfaces/srv/RtEnable "{}"
 ```
 
-`/control/set_enabled` 是域外公共入口；`enabled=true` 会等待 enable_manager ready，遇到
-`fault_requires_reset` 时自动调用一次 `/rt/reset_fault`，成功后再调用 `/rt/enable`；`enabled=false`
-只调用 `/rt/disable`，不停止 launch/容器/主站进程，也不复位急停、安全继电器或 STO。
+三项都是公共接口（R-IN-18/19/20，2026-11-04 起取代 `/control/set_enabled`），由 enable_manager 直接提供，
+响应带 DREE 错误码；`/rt/enable` 不再自动复位，`fault_requires_reset` 时先显式调用 `/rt/reset_fault`。
+三者都不停止 launch/容器/主站进程，也不复位急停、安全继电器或 STO。
 
-内部 `/rt/*` 命令只能在现场条件满足后按需执行，不应把三条连续复制粘贴。推荐语义是：
+`/rt/*` 命令只能在现场条件满足后按需执行，不应把三条连续复制粘贴。推荐语义是：
 
 1. 只有 diagnostics 显示 `FAILED` 且物理故障原因已解除时才 reset。
 2. reset 成功只回到 `IDLE`，不会自动 enable。

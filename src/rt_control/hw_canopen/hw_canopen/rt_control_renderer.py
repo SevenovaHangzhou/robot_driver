@@ -2,7 +2,6 @@
 
 from collections.abc import Mapping
 from copy import deepcopy
-import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -189,7 +188,7 @@ def render(request: Mapping) -> Mapping:
             if mock
             else deployment.get("host", {}).get("can_usb_serials", {}).get(interface),
             "bundle_dir": None if mock else bundle_dir,
-            "bus_sha256": hashlib.sha256(bus_text.encode("utf-8")).hexdigest(),
+            "bus_text": bus_text,
             "preflight_required": not mock,
         },
     }
@@ -217,13 +216,13 @@ def preflight(expected_topology: Mapping, *, run=None) -> list:
         return [{"address": address, "problem": problem, "detail": detail, "blocking": True}]
 
     bundle = Path(expected_topology["bundle_dir"])
-    for name in ("bus.yml", "master.dcf", "master.bin", "source.sha256"):
+    for name in ("bus.yml", "master.dcf", "master.bin"):
         if not (bundle / name).is_file():
             return finding(
                 "configuration_mismatch",
                 f"CANopen bundle incomplete: {bundle / name}; run generate_canopen_bundle",
             )
-    if (bundle / "source.sha256").read_text().strip() != expected_topology["bus_sha256"]:
+    if (bundle / "bus.yml").read_text(encoding="utf-8") != expected_topology["bus_text"]:
         return finding(
             "configuration_mismatch", f"CANopen bundle {bundle} is stale; run generate_canopen_bundle"
         )

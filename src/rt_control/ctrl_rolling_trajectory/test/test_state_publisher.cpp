@@ -520,14 +520,13 @@ TEST_F(StatePublisherTest, UpdateTimeoutCountAndHoldingStateAreObservable)
 TEST_F(StatePublisherTest, TopicPublicationWorksWithoutSubscribersAndDeliversTheSameModel)
 {
   ASSERT_EQ(update(), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    RollingControllerStateTestPeer::stateTopic(*controller_), "/rt/rolling_joint_control/state");
+  EXPECT_EQ(RollingControllerStateTestPeer::stateTopic(*controller_), "/rt/arms/rolling/state");
   EXPECT_TRUE(RollingControllerStateTestPeer::publishState(*controller_));
 
   auto observer = std::make_shared<rclcpp::Node>("rolling_state_observer");
   std::shared_ptr<State> received;
   auto subscription = observer->create_subscription<State>(
-    "/rt/rolling_joint_control/state", rclcpp::QoS(1).reliable(),
+    "/rt/arms/rolling/state", rclcpp::QoS(1).reliable(),
     [&received](State::SharedPtr message) { received = std::move(message); });
   const auto discovery_deadline = std::chrono::steady_clock::now() + 1s;
   while (subscription->get_publisher_count() == 0U &&
@@ -559,8 +558,7 @@ TEST_F(StatePublisherTest, ConfiguredWallTimerPublishesAfterControllerActivation
   auto observer = std::make_shared<rclcpp::Node>("rolling_state_timer_observer");
   std::atomic_uint32_t received_count{0U};
   auto subscription = observer->create_subscription<State>(
-    "/rt/rolling_joint_control/state", rclcpp::QoS(5).reliable(),
-    [&received_count](State::SharedPtr) {
+    "/rt/arms/rolling/state", rclcpp::QoS(5).reliable(), [&received_count](State::SharedPtr) {
       received_count.fetch_add(1U, std::memory_order_release);
     });
 
@@ -585,7 +583,7 @@ TEST_F(StatePublisherTest, SlowStateConsumerCannotDelayTheRtUpdatePath)
   std::atomic_bool callback_entered{false};
   std::atomic_bool release_callback{false};
   auto subscription = observer->create_subscription<State>(
-    "/rt/rolling_joint_control/state", rclcpp::QoS(1).reliable(),
+    "/rt/arms/rolling/state", rclcpp::QoS(1).reliable(),
     [&callback_entered, &release_callback](State::SharedPtr) {
       callback_entered.store(true, std::memory_order_release);
       while (!release_callback.load(std::memory_order_acquire)) {
@@ -682,7 +680,7 @@ TEST_F(StatePublisherTest, ControllerDeactivationPublishesTheTerminatedTransitio
   auto observer = std::make_shared<rclcpp::Node>("terminated_state_observer");
   std::shared_ptr<State> received;
   auto subscription = observer->create_subscription<State>(
-    "/rt/rolling_joint_control/state", rclcpp::QoS(1).reliable(),
+    "/rt/arms/rolling/state", rclcpp::QoS(1).reliable(),
     [&received](State::SharedPtr message) { received = std::move(message); });
   const auto discovery_deadline = std::chrono::steady_clock::now() + 1s;
   while (subscription->get_publisher_count() == 0U &&

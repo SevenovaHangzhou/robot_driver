@@ -24,7 +24,7 @@ controllers:
     # Public operator capability provided while this controller is active.
     capabilities:
     - name: chassis_velocity
-      topic: /cmd_vel
+      topic: /rt/base/cmd_vel
       type: geometry_msgs/msg/Twist
     parameters:
     - yaml:
@@ -52,6 +52,9 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: arms_trajectory
+        as: action_name
   # Seven-axis bench arm trajectory controller; the operator console is its client.
   left_arm_jtc:
     module: bench_left_arm
@@ -67,7 +70,7 @@ controllers:
     - enable_target
     capabilities:
     - name: arm_joint_trajectory
-      topic: /left_arm_jtc/follow_joint_trajectory
+      topic: /rt/arms/left/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
     parameters:
     - policy:
@@ -78,6 +81,9 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: left_arm_trajectory
+        as: action_name
   # Both bench arms in one trajectory controller; the operator console is its client.
   dual_arm_jtc:
     module: bench_dual_arm
@@ -93,7 +99,7 @@ controllers:
     - enable_target
     capabilities:
     - name: arm_joint_trajectory
-      topic: /dual_arm_jtc/follow_joint_trajectory
+      topic: /rt/arms/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
     parameters:
     - policy:
@@ -104,6 +110,9 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: arms_trajectory
+        as: action_name
   rolling_trajectory_controller:
     module: arms
     name: rolling_trajectory_controller
@@ -188,10 +197,14 @@ controllers:
         optional: true
     - state_ready:
         as: ready_state_interfaces
-    # Bus/device feedback ages that must be fresh before an enable or a fault reset starts.
+    # Bus/device feedback ages that must be fresh, and EtherCAT slaves that must be in OP, before
+    # an enable or a fault reset starts; while enabled either one stops and requires a restart.
     - exports:
         name: feedback_age_interfaces
         as: feedback_age_interfaces
+    - exports:
+        name: al_state_interfaces
+        as: al_state_interfaces
     - controllers:
         tag: fault_reporting
         select: first
@@ -273,9 +286,10 @@ controllers:
     tags:
     - enable_companion
     capabilities:
-    - name: head_position
-      topic: /head_position_controller/commands
-      type: std_msgs/msg/Float64MultiArray
+    # R-IN-16, served by integ_head_move over this controller's command topic.
+    - name: head_move
+      topic: /rt/head/move
+      type: robot_rt_control_interfaces/action/MoveHead
     parameters:
     - yaml:
         package: hwcfg_machines
@@ -335,7 +349,7 @@ controllers:
     - enable_target
     capabilities:
     - name: arm_joint_trajectory
-      topic: /right_arm_jtc/follow_joint_trajectory
+      topic: /rt/arms/right/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
     parameters:
     - policy:
@@ -346,3 +360,6 @@ controllers:
     - policy:
         name: motion
         path: jtc
+    - interface:
+        name: right_arm_trajectory
+        as: action_name

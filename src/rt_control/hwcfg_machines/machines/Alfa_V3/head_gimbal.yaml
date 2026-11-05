@@ -25,17 +25,17 @@ spec:
   max_rx_frames_per_cycle: 32
   family: damiao
   joints:
-  - can_id: 1
-    master_id: 17
+  - can_id: 2
+    master_id: 18
     velocity_limit: 0.2
     acceleration_krad_s2: 2.0
     deceleration_krad_s2: -2.0
     maximum_speed_rad_s: 600.0
-    robot_model_joint: H1_joint  # yaw (user 2026-10-30)
+    robot_model_joint: H1_joint  # yaw; CAN ID 2 (user 2026-11-05: IDs swapped on the bench)
     device: devices/damiao_dm_j4310_2ec_v1_1.yaml
     direction: 1
-  - can_id: 2
-    master_id: 18
+  - can_id: 1
+    master_id: 17
     velocity_limit: 0.2
     acceleration_krad_s2: 2.0
     deceleration_krad_s2: -2.0

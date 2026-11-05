@@ -17,6 +17,21 @@ controller_manager:
       type: joint_trajectory_controller/JointTrajectoryController
 enable_manager:
   ros__parameters:
+    al_state_interfaces:
+    - ethercat_slave_1/al_state
+    - ethercat_slave_2/al_state
+    - ethercat_slave_3/al_state
+    - ethercat_slave_4/al_state
+    - ethercat_slave_5/al_state
+    - ethercat_slave_6/al_state
+    - ethercat_slave_7/al_state
+    - ethercat_slave_9/al_state
+    - ethercat_slave_10/al_state
+    - ethercat_slave_11/al_state
+    - ethercat_slave_12/al_state
+    - ethercat_slave_13/al_state
+    - ethercat_slave_14/al_state
+    - ethercat_slave_15/al_state
     batch_timeout: 4.0
     controller_switch_timeout: 4.0
     default_motion_controller: whole_body_jtc
@@ -239,6 +254,7 @@ rt_internal_state_broadcaster:
     use_local_topics: true
 whole_body_jtc:
   ros__parameters:
+    action_name: /rt/arms/follow_joint_trajectory
     allow_partial_joints_goal: false
     command_interfaces:
     - position

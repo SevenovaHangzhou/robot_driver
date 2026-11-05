@@ -2,10 +2,11 @@
 
 The real-time controllers detect and handle faults. This module only answers "may RT-Control
 accept commands now, and if not, why": self-check result, enable_manager state and latched
-failure, motion controllers and hardware components active.
+failure, motion controllers and hardware components active. Sensor problems that outlast the
+watchdog in sensors.py are warnings: they degrade readiness without blocking it.
 """
 
-from integ_composer.self_check import describe_fault
+from integ_composer.self_check import ERROR_WORDS, describe_error_bits, describe_fault
 
 # Self-check DREE names that block with a dedicated token; other blocking entries are device faults.
 SELF_CHECK_TOKENS = {
@@ -44,6 +45,14 @@ def failure_entry(enable, devices, tables, values):
             listed, text = describe_fault(device, tables, code)
             dree = listed if token == "device_fault" and listed else dree
             detail += f"; {text}"
+        words = {
+            role: values.get(device["state"][role], 0)
+            for role in ERROR_WORDS
+            if role in device["state"]
+        }
+        for listed, text in describe_error_bits(device, tables, words):
+            dree = listed if token == "device_fault" and listed else dree
+            detail += f"; {text}"
     if enable.get("offline_feedback"):
         detail += f"; stale {enable['offline_feedback']}"
     source = device["source"] if device is not None else "rt_control/enable_manager"
@@ -56,22 +65,45 @@ def failure_entry(enable, devices, tables, values):
     }
 
 
+def offline_entry(enable, devices):
+    """What enable_manager sees offline now (stale feedback, or a slave outside OP), if not
+    already the recorded failure. Reset and enable wait for it; if it does not come back, only a
+    stack restart helps (2026-11-04 bench: re-powered slaves stuck in SAFEOP)."""
+    interface = enable.get("offline_now", "")
+    if not interface or interface == enable.get("offline_feedback"):
+        return None
+    device = _device_with(devices, interface)
+    state = "not in OP" if interface.endswith("/al_state") else "feedback stale"
+    return {
+        "source": device["source"] if device is not None else "rt_control/enable_manager",
+        "dree": "RT_DEVICE_OFFLINE",
+        "severity": "FAULT",
+        "blocking": True,
+        "detail": f"{interface} {state}; restart the stack if it does not recover",
+    }
+
+
+def _device_with(devices, interface):
+    return next((device for device in devices if interface in device["state"].values()), None)
+
+
 def _failed_device(enable, devices):
     joint = enable.get("failed_joint", "")
-    stale = enable.get("offline_feedback", "")
     for device in devices:
-        names = device["state"].values()
-        if (joint and any(name.startswith(joint + "/") for name in names)) or stale in names:
+        if joint and any(name.startswith(joint + "/") for name in device["state"].values()):
             return device
-    return None
+    return _device_with(devices, enable.get("offline_feedback", ""))
 
 
-def domain_readiness(self_check, enable, controllers, hardware, failure=None):
+def domain_readiness(
+    self_check, enable, controllers, hardware, failure=None, offline=None, sensors=()
+):
     """DomainReadiness fields.
 
     self_check: {"pending": bool, "entries": [...]}; enable: enable_manager diagnostic values or
     None when stale; controllers/hardware: name -> state, or None while not yet queried;
-    failure: (token, entry) from failure_entry() when enable_manager is FAILED.
+    failure: (token, entry) from failure_entry() when enable_manager is FAILED;
+    offline: offline_entry() result; sensors: SensorWatch.entries() warnings.
     """
     blockers, errors = [], []
     if self_check["pending"]:
@@ -88,6 +120,11 @@ def domain_readiness(self_check, enable, controllers, hardware, failure=None):
         errors.append(entry)
     elif state != "ENABLED":
         blockers.append("not_enabled")
+    if offline is not None:
+        blockers.append("device_offline")
+        errors.append(offline)
+    if enable is not None and enable.get("restart_required") == "true":
+        blockers.append("restart_required")
     if hardware is not None and any(value != "active" for value in hardware.values()):
         blockers.append("hardware_inactive")
     if (
@@ -100,6 +137,7 @@ def domain_readiness(self_check, enable, controllers, hardware, failure=None):
     if state != "ENABLED":
         errors += [entry for entry in self_check["entries"] if not entry["blocking"]]
     errors += [entry for entry in self_check["entries"] if entry["blocking"]]
+    errors += list(sensors)
     blockers = sorted(set(blockers))
     ready = not blockers
     return {
@@ -111,3 +149,9 @@ def domain_readiness(self_check, enable, controllers, hardware, failure=None):
         "blockers": blockers,
         "errors": errors,
     }
+
+
+def readiness_line(fields):
+    """One log line per change of ready/status/blockers; enable phases alone do not repeat it."""
+    blockers = ",".join(fields["blockers"]) or "none"
+    return f"RT_READINESS ready={str(fields['ready']).lower()} status={fields['status']} blockers={blockers}"

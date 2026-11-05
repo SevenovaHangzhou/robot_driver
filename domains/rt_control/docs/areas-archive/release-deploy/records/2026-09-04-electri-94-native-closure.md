@@ -12,7 +12,7 @@ writes: { reset: no, enable: no, motion: no, plc: no }
 verified: PASS
 evidence:
   - "隔离 workspace /home/kkozia/.tmp/e94-native-verify-a069ab3 从 deps.repos 干净导入四个 vendor；robot_interfaces=92d6ff2ed0b45684d7da2170d96703ca8be569f，ecat_icube=1390be742986f4e898ca112e49bb24805be9899a，ros2_canopen=fef50e54b1c94c50e908e2c5d0b8888eed907e8d，ros2_controllers=cbcf66218ff43353f9fb5fe7a2c33f458d578d73；ecat_icube 0001..0007、其它冻结补丁按序 apply/verify PASS。"
-  - "IgH userspace-only 从 versions.env 的 2f7f884f1c7d377c02a7d627eb06512126a0e50e 构建到 workspace 私有前缀；0001-preserve-verified-pdo-config.patch SHA-256=89fcab7e72eac7fc4f00dd94ad133ac94ed1206b2cc55642a89d6cd869daf4ce；安装 ecrt.h 与 libethercat.so.1.2.0 与构建产物字节一致，未生成 .ko。"
+  - "IgH userspace-only 从 versions.env 的 2f7f884f1c7d377c02a7d627eb06512126a0e50e 构建到 workspace 私有前缀；安装 ecrt.h 与 libethercat.so.1.2.0 与构建产物字节一致，未生成 .ko。"
   - "Native build 同时设置 RT_CONTROL_ETHERLAB_PREFIX=/home/kkozia/.tmp/e94-native-verify-a069ab3/igh-prefix 与 -DETHERLAB_DIR=/home/kkozia/.tmp/e94-native-verify-a069ab3/igh-prefix：29 个生产闭包包全部完成；另有 ros2_control_test_assets 测试资源包通过，ethercat_manager/ethercat_msgs 额外目标通过。"
   - "同一 build/install/log 根执行 colcon test；补入同一 ros2_control_test_assets 提交 e65ddd72804f3f2d9b19e533a15ed436b2f3fc42 的 hardware_interface_testing test-only base path 后，colcon test-result --verbose 汇总 1433 tests, 0 errors, 0 failures, 18 skipped。"
   - "安装后的 robot_interfaces_qos 五个 profile runtime smoke PASS；以 LD_LIBRARY_PATH=<local-prefix>/lib:<install>/lib（并保留 ROS 库路径）运行 readelf/ldd，libethercat_interface.so 与 libethercat_driver.so 的 libethercat.so.1 均解析到同一 local prefix；tools/quality_gate.sh PASS（211 tests，策略覆盖率 83%；本机 ShellCheck 不可用，由 CI 强制）。"

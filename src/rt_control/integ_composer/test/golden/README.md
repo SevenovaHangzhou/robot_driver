@@ -11,4 +11,4 @@ path is an identity mapping: no new runtime subdirectory is authorized by this
 draft. In M2d, expand the documented `<joint>` placeholder to the finite set
 of actual baseline names before exact matching; it is not a wildcard rule.
 All other output differences remain failures. A0 reviews this draft; M2d adds
-source commit, generation command, and input/output hashes with the bodies.
+source commit, generation command, and the output file lists with the bodies.

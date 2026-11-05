@@ -6,7 +6,7 @@ Entries have the same shape as integ_composer.self_check entries.
 
 import math
 
-from integ_composer.self_check import describe_fault
+from integ_composer.self_check import ERROR_WORDS, describe_error_bits, describe_fault
 
 AL_STATE_OP = 8  # EtherCAT AL state code for Operational.
 CIA402_FAULT_BIT = 0x0008  # Status word bit 3: Fault or Fault reaction active.
@@ -56,6 +56,12 @@ def evaluate(devices, tables, values):
                     True,
                     f"AL state {int(state['al_state'])}, expected OP ({AL_STATE_OP})",
                 )
+                continue
+            words = {role: state[role] for role in ERROR_WORDS if role in state}
+            faults = describe_error_bits(device, tables, words)
+            if faults:
+                for dree, text in faults:
+                    add(device, dree or "RT_DEVICE_FAULT", True, text)
                 continue
             code = int(state.get("error_code", 0))
             if code:

@@ -164,25 +164,25 @@ ros2 topic echo /joint_states --once
 
 ## 7. 使能、位置话题、清错和退出
 
-三个生命周期服务都是 rt_control_interfaces/srv/RtEnable，空请求，返回ok、failed_batch、failed_joint、status_word、stage。
+三个生命周期服务都是 robot_rt_control_interfaces/srv/RtEnable，空请求，返回ok、failed_batch、failed_joint、status_word、stage。
 
 ```bash
-ros2 service call /rt/enable rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/enable robot_rt_control_interfaces/srv/RtEnable '{}'
 ```
 
 等待ok:true，enable_manager 确认头部插件回报"已使能且允许运动"后激活位置控制器。仅使能不会执行额外角度目标。
 
 ```bash
-# 示例：确认范围、方向和保持位置后才能发送
-ros2 topic pub --once /head_position_controller/commands \
-  std_msgs/msg/Float64MultiArray '{data: [0.11, 0.0]}'
+# 示例：确认范围、方向和保持位置后才能发送（R-IN-16，integ_head_move）
+ros2 action send_goal /rt/head/move robot_rt_control_interfaces/action/MoveHead \
+  '{head_joint_position_rad: 0.11, head_pitch_joint_position_rad: 0.0}' --feedback
 
 # 两台返回零位
-ros2 topic pub --once /head_position_controller/commands \
-  std_msgs/msg/Float64MultiArray '{data: [0.0, 0.0]}'
+ros2 action send_goal /rt/head/move robot_rt_control_interfaces/action/MoveHead \
+  '{head_joint_position_rad: 0.0, head_pitch_joint_position_rad: 0.0}'
 ```
 
-数组顺序[head_joint, head_pitch_joint]，即项目配置的ID1/ID2；单位rad，绝对位置，不是增量。0.11 rad约6.30°。另一台若应保持不动，应填其当前保持位置而非随意填0。发布成功只说明消息已发送，不等于到位。
+head_joint 为 ID1（H1，偏航），head_pitch_joint 为 ID2（H2，俯仰）；单位 rad，绝对位置，不是增量。0.11 rad 约 6.30°。两轴都进入 ±0.01 rad 才算到位，超过“最慢关节距离/限速 + 2 s”未到位则原地保持并返回超时；执行中再发目标会被拒绝，取消即原地保持（用户 2026-11-04）。外部不得直接写 `/head_position_controller/commands`（契约已删除该名）。
 
 该控制器不是joint_trajectory_controller，没有动作时长或插补轨迹接口。--once只发布一次，节点继续执行最后目标；新目标覆盖旧目标。0.1 rad/s下走0.11 rad至少约1.1秒，0.2 rad/s下至少约0.55秒，不包含完整加减速和收敛时间。
 
@@ -191,10 +191,10 @@ ros2 topic echo /joint_states
 ros2 topic echo /diagnostics --once
 
 # 清错：不是话题；停止位置控制、请求失能，再清除并等待失能终态
-ros2 service call /rt/reset_fault rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/reset_fault robot_rt_control_interfaces/srv/RtEnable '{}'
 
 # 结束控制：先失能，再在启动终端Ctrl+C
-ros2 service call /rt/disable rt_control_interfaces/srv/RtEnable '{}'
+ros2 service call /rt/disable robot_rt_control_interfaces/srv/RtEnable '{}'
 ```
 
 到位后仍使能保持。查看反馈终端的Ctrl+C只停止查看。清错不会自动重新使能，故障根因未消除可能再报错；没有故障时清错直接返回 already_clear。诊断名称为 /robot/rt_control/enable_manager，发布在 /diagnostics；重点查看 `damiao_head_control.phase`（0 失能、2 使能、6 故障锁存）、`damiao_head_control.fault_latched`、`damiao_head_control.motion_allowed` 及两台的 `<joint>/feedback_age_ms`。

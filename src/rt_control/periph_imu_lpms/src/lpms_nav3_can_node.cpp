@@ -93,11 +93,11 @@ public:
       declare_parameter<std::int64_t>("assembly_timeout_ms", 50), "assembly_timeout_ms");
     heartbeat_timeout_ = positive_duration(
       declare_parameter<std::int64_t>("heartbeat_timeout_ms", 2500), "heartbeat_timeout_ms");
-    const auto imu_topic = declare_parameter<std::string>("imu_topic", "/imu/data");
+    const auto imu_topic = declare_parameter<std::string>("imu_topic", "/rt/imu/data");
     const auto diagnostics_topic =
       declare_parameter<std::string>("diagnostics_topic", "~/diagnostics");
     const auto sensor_status_topic =
-      declare_parameter<std::string>("sensor_status_topic", "/rt_control/sensors/status");
+      declare_parameter<std::string>("sensor_status_topic", "/rt/sensors/state");
 
     if (can_interface_.empty() || can_interface_ == "TBD" || can_interface_.size() >= IFNAMSIZ) {
       throw std::invalid_argument{"can_interface must be explicitly configured"};
@@ -366,7 +366,7 @@ private:
     robot_rt_control_interfaces::msg::SensorStatus imu_status;
     imu_status.sensor_id = "lpms_nav3";
     imu_status.module_id = "lpms_nav3_can";
-    imu_status.data_topic = "/imu/data";
+    imu_status.data_topic = "/rt/imu/data";
     imu_status.observation.stamp = last_sample_stamp_;
     imu_status.observation.time_source =
       robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_PUBLICATION;

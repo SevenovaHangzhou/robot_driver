@@ -1,12 +1,12 @@
 bus_locks: []
 capabilities:
 - controller: head_position_controller
-  name: head_position
-  topic: /head_position_controller/commands
-  type: std_msgs/msg/Float64MultiArray
+  name: head_move
+  topic: /rt/head/move
+  type: robot_rt_control_interfaces/action/MoveHead
 - name: enable
-  service: /control/set_enabled
-  type: SetControlEnabled
+  service: /rt/enable
+  type: RtEnable
 control_scope: head_only
 hardware:
 - name: damiao_head

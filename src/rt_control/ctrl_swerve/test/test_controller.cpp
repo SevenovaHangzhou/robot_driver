@@ -91,7 +91,7 @@ protected:
     client = std::make_shared<rclcpp::Node>("swerve_test_client");
     executor.add_node(client);
     publisher = client->create_publisher<geometry_msgs::msg::Twist>(
-      "/cmd_vel", robot_interfaces_qos::control());
+      "/rt/base/cmd_vel", robot_interfaces_qos::control());
   }
 
   void TearDown() override { controller.on_deactivate(rclcpp_lifecycle::State{}); }
@@ -258,7 +258,7 @@ TEST_F(SwerveControllerTest, LateralCommandTraversesInterfacesAndProducesMeasure
 {
   nav_msgs::msg::Odometry::SharedPtr odometry;
   auto subscription = client->create_subscription<nav_msgs::msg::Odometry>(
-    "/swerve_test/odom", robot_interfaces_qos::fast_state(),
+    "/rt/base/odom", robot_interfaces_qos::fast_state(),
     [&](nav_msgs::msg::Odometry::SharedPtr message) { odometry = message; });
   send(0.0, 1.0);
   std::array<double, 4> wheel_position{};
@@ -287,7 +287,7 @@ TEST_F(SwerveControllerTest, SlipInflatesCovarianceAndNamesRejectedModule)
   nav_msgs::msg::Odometry::SharedPtr odometry;
   diagnostic_msgs::msg::DiagnosticArray::SharedPtr diagnostics;
   auto odometry_subscription = client->create_subscription<nav_msgs::msg::Odometry>(
-    "/swerve_test/odom", robot_interfaces_qos::fast_state(),
+    "/rt/base/odom", robot_interfaces_qos::fast_state(),
     [&](nav_msgs::msg::Odometry::SharedPtr message) { odometry = message; });
   auto diagnostic_subscription = client->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
     "/swerve_test/diagnostics", robot_interfaces_qos::diagnostic(),
@@ -389,7 +389,7 @@ TEST_F(SwerveControllerTest, OptionalImuPublishesMeasuredYawRateAndRejectsBadOri
   ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
   nav_msgs::msg::Odometry::SharedPtr odometry;
   auto subscription = client->create_subscription<nav_msgs::msg::Odometry>(
-    "/swerve_test/odom", robot_interfaces_qos::fast_state(),
+    "/rt/base/odom", robot_interfaces_qos::fast_state(),
     [&](nav_msgs::msg::Odometry::SharedPtr message) { odometry = message; });
   auto imu_publisher = client->create_publisher<sensor_msgs::msg::Imu>(
     "/swerve_test/imu", robot_interfaces_qos::fast_state());

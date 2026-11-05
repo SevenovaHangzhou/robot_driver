@@ -9,29 +9,35 @@ from typing import Optional
 
 from diagnostic_msgs.msg import DiagnosticArray
 from rcl_interfaces.srv import GetParameters
+from rclpy.action import ActionClient
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from robot_rt_control_interfaces.action import MoveHead
 from sensor_msgs.msg import JointState
-from std_msgs.msg import Float64MultiArray, String
+from std_msgs.msg import String
 
 from ..arm.model import ModelError, load_arm_model
 from ..enable_services import EnableServices
 from .console import HeadConsole, HeadError
 
-CAPABILITY = "head_position"
+CAPABILITY = "head_move"
 ENABLE_DIAGNOSTIC = "/robot/rt_control/enable_manager"
+# The head action answers a goal or cancel within a control period; this only bounds a lost server.
+ACTION_REPLY_S = 2.0
 
 
 class HeadBridge(Node):
-    """Feeds ``HeadConsole`` and publishes its targets on the declared command topic."""
+    """Feeds ``HeadConsole`` and sends its targets as /rt/head/move goals (R-IN-16)."""
 
     def __init__(self, joint_state_topic: str) -> None:
         super().__init__("integ_operator_web_head")
         self.console: Optional[HeadConsole] = None
         self._group = ReentrantCallbackGroup()
         self._lock = threading.Lock()
-        self._publisher = None
+        self._client = None
+        self._action = ""
+        self._goal = None
         self._controller_parameters = None
         self._model_pending = False
         latched = QoSProfile(
@@ -51,17 +57,35 @@ class HeadBridge(Node):
         self._manager_parameters = self.create_client(
             GetParameters, "/controller_manager/get_parameters", callback_group=self._group
         )
-        services = EnableServices(self, self._group, HeadError, "integ_operator_web head page")
+        services = EnableServices(self, self._group, HeadError)
         self.set_enabled = services.set_enabled
         self.reset_fault = services.reset_fault
         self.create_timer(0.5, self._refresh, callback_group=self._group)
 
+    def _wait(self, future, late: str):
+        done = threading.Event()
+        future.add_done_callback(lambda _: done.set())
+        if not done.wait(ACTION_REPLY_S):
+            raise HeadError("head_action_timeout", late)
+        return future.result()
+
     def publish(self, positions: list[float]) -> None:
+        """A busy head rejects new goals, so the running goal is cancelled (and held) first."""
         with self._lock:
-            publisher = self._publisher
-        if publisher is None:
-            raise HeadError("capability_missing", "运行栈未声明头部位置能力")
-        publisher.publish(Float64MultiArray(data=list(positions)))
+            client, previous = self._client, self._goal
+        if client is None:
+            raise HeadError("capability_missing", "运行栈未声明头部运动能力")
+        if previous is not None:
+            self._wait(previous.cancel_goal_async(), "头部运动取消无响应")
+            self._wait(previous.get_result_async(), "头部运动未结束")
+        goal = MoveHead.Goal(
+            head_joint_position_rad=positions[0], head_pitch_joint_position_rad=positions[1]
+        )
+        handle = self._wait(client.send_goal_async(goal), "头部运动服务无响应")
+        if not handle.accepted:
+            raise HeadError("head_busy", "头部运动被拒绝")
+        with self._lock:
+            self._goal = handle
 
     def _capabilities(self, message: String) -> None:
         try:
@@ -76,14 +100,17 @@ class HeadBridge(Node):
         except (ValueError, KeyError, TypeError):
             capability = None
         with self._lock:
-            if capability is not None and self._publisher is None:
-                self._publisher = self.create_publisher(Float64MultiArray, capability["topic"], 10)
+            if capability is not None and self._client is None:
+                self._client = ActionClient(
+                    self, MoveHead, capability["topic"], callback_group=self._group
+                )
+                self._action = capability["topic"]
                 self._controller_parameters = self.create_client(
                     GetParameters,
                     f"/{capability['controller']}/get_parameters",
                     callback_group=self._group,
                 )
-            elif capability is not None and capability["topic"] != self._publisher.topic_name:
+            elif capability is not None and capability["topic"] != self._action:
                 self.get_logger().error("head capability changed; restart the operator web")
                 return
         if self.console is not None:

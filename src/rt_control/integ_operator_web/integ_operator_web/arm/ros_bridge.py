@@ -12,7 +12,6 @@ from builtin_interfaces.msg import Duration
 from control_msgs.action import FollowJointTrajectory
 from controller_manager_msgs.srv import ListControllers
 from diagnostic_msgs.msg import DiagnosticArray
-from periph_plc_io.msg import VacuumSensorState
 from rcl_interfaces.srv import GetParameters
 import rclpy
 from rclpy.action import ActionClient
@@ -20,7 +19,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.duration import Duration as RosDuration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import FluidPressure, JointState
 from std_msgs.msg import String
 from trajectory_msgs.msg import JointTrajectoryPoint
 
@@ -69,11 +68,11 @@ class RosBridge(Node):
         pressure_qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT)
         for side in ("left", "right"):
             self.create_subscription(
-                VacuumSensorState, f"/plc_io/vacuum/{side}",
+                FluidPressure, f"/rt/vacuum/{side}/pressure",
                 partial(self._vacuum_pressure, side),
                 pressure_qos, callback_group=self._group,
             )
-        services = EnableServices(self, self._group, ConsoleError, "ELECTRI-127 arm console")
+        services = EnableServices(self, self._group, ConsoleError)
         self.set_enabled = services.set_enabled
         self.reset_fault = services.reset_fault
         self._controllers = self.create_client(
@@ -179,11 +178,10 @@ class RosBridge(Node):
         )
 
     # ------------------------------------------------------------------ feedback
-    def _vacuum_pressure(self, side: str, message: VacuumSensorState) -> None:
+    def _vacuum_pressure(self, side: str, message: FluidPressure) -> None:
+        # R-OUT-05L/R: gauge Pa, negative for vacuum; invalid samples are never published.
         if self.console is not None:
-            self.console.update_vacuum_pressure(
-                side, message.pressure_kpa, message.valid, message.error, message.unit
-            )
+            self.console.update_vacuum_pressure(side, message.fluid_pressure / 1000.0, True, "", "kPa")
 
     def _joint_states(self, message: JointState) -> None:
         if self.console is None or len(message.name) != len(message.position):

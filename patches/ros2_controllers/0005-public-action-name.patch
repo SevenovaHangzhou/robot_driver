@@ -1,0 +1,31 @@
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller.cpp b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+index 5577412e..14f0e70b 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller.cpp
++++ b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+@@ -1008,7 +1008,8 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+   action_server_ = rclcpp_action::create_server<FollowJTrajAction>(
+     get_node()->get_node_base_interface(), get_node()->get_node_clock_interface(),
+     get_node()->get_node_logging_interface(), get_node()->get_node_waitables_interface(),
+-    std::string(get_node()->get_name()) + "/follow_joint_trajectory",
++    params_.action_name.empty() ? std::string(get_node()->get_name()) + "/follow_joint_trajectory"
++                                : params_.action_name,
+     std::bind(&JointTrajectoryController::goal_received_callback, this, _1, _2),
+     std::bind(&JointTrajectoryController::goal_cancelled_callback, this, _1),
+     std::bind(&JointTrajectoryController::goal_accepted_callback, this, _1));
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+index fd8cdd7a..6c5551d9 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
++++ b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+@@ -87,6 +87,12 @@ joint_trajectory_controller:
+     default_value: true,
+     description: "When set to true, the last command interface value is used as both the current state and the last commanded state upon activation. When set to false, the current state is used for both.",
+   }
++  action_name: {
++    type: string,
++    default_value: "",
++    description: "Absolute FollowJointTrajectory action name; empty keeps <controller_name>/follow_joint_trajectory",
++    read_only: true,
++  }
+   action_monitor_rate: {
+     type: double,
+     default_value: 20.0,

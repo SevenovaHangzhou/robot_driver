@@ -9,8 +9,8 @@ layers:
   integration:
   - integ_composer
   - integ_bringup
-  - integ_api_adapter
   - integ_diagnostics
+  - integ_head_move
   - integ_operator_web
   protocol:
   - hw_ethercat
@@ -28,4 +28,7 @@ layers:
   - periph_led_ultrasonic
   - periph_plc_io
 baseline_violations: []
+# The LPMS IMU node only listens on its CAN bus (ELECTRI-105): no frame is ever written.
+listen_only_peripherals:
+- periph_imu_lpms
 frequency_scope_exclusions: []

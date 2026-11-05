@@ -70,7 +70,7 @@ function status(message) {
   $('ctrl-state').textContent=!state.connected?'底盘未连接':state.enabled?'底盘已使能':'底盘未使能';
   $('ctrl-detail').textContent=backend.message||'等待底盘运行栈启动';
   $('ctrl-dot').className='dot '+(!state.connected?'bad':state.enabled?'ok':'warn');
-  $('endpoint').textContent=`速度接口 ${backend.command_topic || '/cmd_vel'}`;
+  $('endpoint').textContent=`速度接口 ${backend.command_topic || '/rt/base/cmd_vel'}`;
   if(backend.last_error)$('last-result').textContent=backend.last_error;
   $('lease-chip').querySelector('b').textContent=state.lease==='you'?'本机控制':state.lease==='other'?'其他终端控制':'无控制权';
   $('rd-vx').textContent=fmt(message.command.vx);$('rd-vy').textContent=fmt(message.command.vy);$('rd-wz').textContent=fmt(message.command.wz);

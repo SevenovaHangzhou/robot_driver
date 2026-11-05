@@ -11,7 +11,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 ## 边界
 
-- 只用公共接口：`/rt/capabilities`、`/control/set_enabled`、`/rt/reset_fault`（仅 FAILED）、
+- 只用公共接口：`/rt/capabilities`、`/rt/enable`、`/rt/disable`、`/rt/reset_fault`（仅 FAILED）、
   `/controller_manager/list_hardware_components`、控制器参数服务、`/diagnostics`、能力声明中的速度话题。
 - 运行栈必须发布 `/rt/capabilities`，并声明 `enable` 与 `chassis_velocity`；实际硬件组件必须与声明一致。
 - 不启动硬件，不写驱动控制字，不自动使能，不自动复位。
@@ -35,8 +35,8 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
    或只含 127.0.0.1 的 UDP DDS 配置。
    - 如果运行栈本身对局域网可见（例如导航在其他进程用默认 DDS 配置接入），只用回环的网页无法与运行栈通信。
      此时设置 `RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS=1`，并使用与运行栈相同的 DDS 配置。
-   - 打开该开关后，同一 Domain 的局域网主机都能看到底盘话题，也能发送 `/cmd_vel`。
-     Domain 必须为非默认值，同一时间只允许一个 `/cmd_vel` 发送方。
+   - 打开该开关后，同一 Domain 的局域网主机都能看到底盘话题，也能发送 `/rt/base/cmd_vel`。
+     Domain 必须为非默认值，同一时间只允许一个 `/rt/base/cmd_vel` 发送方。
 2. 令牌文件权限 0600，路径写入环境变量 `RT_OPERATOR_WEB_TOKEN_FILE`。
 3. 启动：
 
@@ -63,7 +63,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 - 机械臂控制只调用公共接口：
   - `/rt/capabilities` 中的 `arm_joint_trajectory`（FollowJointTrajectory action）；
-  - `/control/set_enabled`；
+  - `/rt/enable`、`/rt/disable`；
   - `/controller_manager/list_controllers` 与参数读取；
   - `/joint_states`、`/diagnostics`。
 - 操作台不写驱动控制字，不切换控制器，不自动使能，不复位故障。
@@ -93,10 +93,10 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 ## 真空压力显示（2026-10-27）
 
 右上角显示左、右真空表压，单位 kPa，保留一位小数。读取
-`/plc_io/vacuum/left`、`/plc_io/vacuum/right` 的
-`periph_plc_io/msg/VacuumSensorState.pressure_kpa`，不在浏览器重复换算或自动归零。
+`/rt/vacuum/left/pressure`、`/rt/vacuum/right/pressure`（R-OUT-05L/R，`sensor_msgs/FluidPressure`，
+表压 Pa，负值为真空；无效样本不发布），只除以 1000 显示，不在浏览器重复换算或自动归零。
 现场已确认 AI0=左、AI1=右，ZSE30A 的大气压为 0 kPa，真空为负值。
-传感器有效标志为假、单位错误、非有限值或超过 1 秒未收到消息时清除数字并显示原因；
+非有限值或超过 1 秒未收到消息时清除数字并显示原因（无效原因见 `/rt/sensors/state`）；
 网页连接断开或停滞 1 秒也清除数字。两路独立判定，未收到压力不阻止机械臂操作。
 压力由独立 IO 节点发布；`arm start` 的操作台订阅不会启动或改写模拟量模块。
 
@@ -183,8 +183,8 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 远端采用同一仓库提交的完整发行目录，不能把 URDF 或网格单独复制到 `web/` 私改。
 切换模型目录后需重启网页服务；先检查无运动、无序列，并保留机器人控制栈和 guard。
 
-`/api/arm/info` 的 `view_model` 返回入口、URDF SHA256 和资源版本。资源版本由 URDF 和
-`config/mesh_assets.json` 共同计算，网格 URL 使用 `/view-mesh/<版本>/...stl`，
+`/api/arm/info` 的 `view_model` 返回入口和资源版本。资源版本取 URDF 与
+`config/mesh_assets.json` 的修改时间和大小，网格 URL 使用 `/view-mesh/<版本>/...stl`，
 避免浏览器沿用旧缓存。更换网格时应同步更新权威资源清单。
 选定模型不兼容受控关节时返回 `view_model_unavailable`，不静默切回旧模型。
 控制栈未提供关节数据时也可显示模型，页面提示“模型已加载，等待关节数据”；
@@ -213,7 +213,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 `/diag` 只读，不取控制权、不下发命令，经 `/ws/diag` 每秒推送一次：
 
 - 启动自检报告：`$RT_CONTROL_STATE_DIR/self_check/<作用域>.json`（默认 `/tmp/rt-control/`），每个作用域最新一份，新的在前。阶段 A 由运行栈启动文件在总线启动前写入；运行栈因自检失败没有起来时，这里仍能看到原因。阶段 B 由诊断节点在硬件激活后追加。
-- 运行栈就绪状态：R-OUT-09 `/rt_control/readiness`（每个问题的位置、DREE 码、级别、厂家码与说明）。诊断节点未运行时显示"未运行或尚未发布"。
+- 运行栈就绪状态：R-OUT-09 `/rt/readiness`（每个问题的位置、DREE 码、级别、厂家码与说明）。诊断节点未运行时显示"未运行或尚未发布"。
 - 原始诊断：`/diagnostics` 每个名称的最新一行及其键值。
 
 本页不替代急停、STO 或安全链。
@@ -222,9 +222,9 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 头部控制嵌入 `/arm`，与机械臂共用一个页面和登录框；旧 `/head` 地址跳转到 `/arm#head-controls`。两区独立显示设备反馈，无机械臂模型时仍能使用头部区。页面保持不自动取得控制权或发送目标。
 
-头部区经 `/ws/head` 推送状态（20 Hz）并接收命令。运行栈需声明能力 `head_position`（`head_only` 等作用域的 `head_position_controller`，话题 `/head_position_controller/commands`，`std_msgs/msg/Float64MultiArray`）；关节顺序取自该控制器的 `joints` 参数，限位取自机器人模型。
+头部区经 `/ws/head` 推送状态（20 Hz）并接收命令。运行栈需声明能力 `head_move`（R-IN-16 `/rt/head/move`，`robot_rt_control_interfaces/action/MoveHead`，由 `integ_head_move` 经 `head_position_controller` 执行）；每个目标发一个 Action 目标，新目标前先取消正在执行的目标（头部原地保持）；关节顺序取自该控制器的 `joints` 参数，限位取自机器人模型。
 
-- 操作：取得/释放控制权、使能/失能（`/control/set_enabled`）、故障复位（`/rt/reset_fault`）、发送绝对目标位置、停止（以实测位置作为目标原地保持）。
+- 操作：取得/释放控制权、使能/失能（`/rt/enable`、`/rt/disable`）、故障复位（`/rt/reset_fault`）、发送绝对目标位置、停止（以实测位置作为目标原地保持）。
 - 发送目标前在服务端检查：持有控制权、作用域已使能、头部设备已允许运动且无故障锁存、关节反馈不超过 0.2 s、目标在机器人模型限位内侧 2°（`config/head.yaml`）。运动速度由驱动参数（制品中的 `velocity_limit`）限制。
 - 持有控制权的连接断开时，以实测位置作为目标原地保持并释放控制权；不失能、不复位。
 - 与其他页面共用登录、审计与"同一时间一位操作员"规则。

@@ -1,6 +1,5 @@
 """CAN owner preflight and bundle generation are offline; no CAN frame is sent."""
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -23,7 +22,7 @@ def topology(bundle, source=SOURCE):
         "can_interface": "can0",
         "can_usb_serial": None,
         "bundle_dir": str(bundle),
-        "bus_sha256": hashlib.sha256(source.encode()).hexdigest(),
+        "bus_text": source,
         "preflight_required": True,
     }
 
@@ -31,9 +30,9 @@ def topology(bundle, source=SOURCE):
 def bundle(tmp_path, source=SOURCE):
     path = tmp_path / "bundle"
     path.mkdir()
-    for name in ("bus.yml", "master.dcf", "master.bin"):
+    for name in ("master.dcf", "master.bin"):
         (path / name).write_text("x")
-    (path / "source.sha256").write_text(hashlib.sha256(source.encode()).hexdigest() + "\n")
+    (path / "bus.yml").write_text(source)
     return path
 
 
@@ -99,5 +98,4 @@ def test_bundle_generation_runs_dcfgen_at_the_final_path(tmp_path):
     assert (output / "bus.yml").read_text() == source
     assert (output / "steering_encoder_1.eds").read_text() == "[FileInfo]\n"
     assert (output / "master.bin").read_bytes() == b"\0\0\0\0"
-    assert (output / "source.sha256").read_text().strip() == hashlib.sha256(source.encode()).hexdigest()
     assert Path(output).is_dir()

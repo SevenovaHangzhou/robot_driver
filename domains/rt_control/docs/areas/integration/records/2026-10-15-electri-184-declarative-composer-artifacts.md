@@ -34,7 +34,7 @@ owner 用 `family ==` 分派。用户批准全部修改。
   `preserve_controller_file`）。使能策略视图增加 `enable_only`。
 - 生成物：`compose()` 改为纯函数，返回 `Composed.files`。新增
   `compose_artifact` 命令，暂存后改名替换，并写入 `artifact.yaml`（选择项与
-  每文件 SHA-256）。拒绝覆盖非生成物目录。
+  文件清单）。拒绝覆盖非生成物目录。
 - 启动：四个运行入口删除 `mkdtemp`，改读 `generated_dir`（默认取
   `RT_CONTROL_GENERATED_DIR`）。`load_artifact()` 拒绝缺失、选择项不同、
   文件被改、多文件/少文件与过期生成物。过期判定方法为：内存中重新组合，

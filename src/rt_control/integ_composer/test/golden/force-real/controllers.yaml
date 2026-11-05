@@ -55,7 +55,7 @@ left_wrist_force_sensor_broadcaster:
     - left_wrist_force_sensor/channel_4_raw
     - left_wrist_force_sensor/channel_5_raw
     - left_wrist_force_sensor/channel_6_raw
-    wrench_topic: /rt_control/left_wrist/wrench
+    wrench_topic: /rt/force_torque/left_wrist/wrench
 right_wrist_force_sensor_broadcaster:
   ros__parameters:
     al_state_interface: ethercat_slave_4/al_state
@@ -102,4 +102,4 @@ right_wrist_force_sensor_broadcaster:
     - right_wrist_force_sensor/channel_4_raw
     - right_wrist_force_sensor/channel_5_raw
     - right_wrist_force_sensor/channel_6_raw
-    wrench_topic: /rt_control/right_wrist/wrench
+    wrench_topic: /rt/force_torque/right_wrist/wrench

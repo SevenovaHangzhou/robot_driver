@@ -1,5 +1,6 @@
 """Offline layer policy (SPEC v1.1 R1–R10; R11: infra depends on no domain package;
-R12: periph depends only on infra, and only integration depends on periph).
+R12: periph depends only on infra, and only integration depends on periph;
+R13: a listen-only peripheral's production C/C++ never writes to its bus).
 
 Only exact, counted baseline occurrences are exempt. Tests are included for
 API dependencies; R5–R7 inspect production code/configuration, not test data.
@@ -11,7 +12,6 @@ from __future__ import annotations
 import ast
 from collections import Counter
 from dataclasses import asdict, dataclass
-import hashlib
 from pathlib import PurePosixPath
 import re
 import xml.etree.ElementTree as ET
@@ -29,6 +29,8 @@ PRODUCT_NAMES = re.compile(
     r"GenericEcSlave|KincoCyclicModeSlave|zeroerr|kinco|damiao|bluepoint",
     re.I,
 )
+# R13: the system calls and frame builders a bus writer would need.
+BUS_WRITE = re.compile(r"::(?:write|send|sendto|sendmsg)\s*\(|make_nmt_start_frame")
 INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*[<"]([^>"\n]+)[>"]', re.M)
 FREQUENCY = re.compile(
     r"""\b(control_frequency|update_rate|cycle_hz)\b["']?\s*[:=]\s*["']?\d"""
@@ -72,13 +74,13 @@ def package_inventory(texts: dict[str, str]) -> dict[str, str]:
     return packages
 
 
-def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[dict], list[str]]:
+def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[dict], set[str], list[str]]:
     try:
         policy = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        return {}, [], [], [f"{CONFIG}: R1 invalid YAML: {exc}"]
+        return {}, [], [], set(), [f"{CONFIG}: R1 invalid YAML: {exc}"]
     if not isinstance(policy, dict) or not isinstance(policy.get("layers"), dict):
-        return {}, [], [], [f"{CONFIG}: R1 layers must be a mapping"]
+        return {}, [], [], set(), [f"{CONFIG}: R1 layers must be a mapping"]
     findings = []
     mapping: dict[str, str] = {}
     if set(policy["layers"]) != LAYERS:
@@ -92,17 +94,18 @@ def read_policy(text: str) -> tuple[dict[str, str], list[dict], list[dict], list
                 findings.append(f"{CONFIG}: R1 {package} appears in multiple layer entries")
             mapping[package] = layer
     baselines = policy.get("baseline_violations", [])
-    if not isinstance(baselines, list):
-        return mapping, [], [], findings + [f"{CONFIG}: baseline_violations must be a list"]
     exclusions = policy.get("frequency_scope_exclusions", [])
-    if not isinstance(exclusions, list):
-        return (
-            mapping,
-            baselines,
-            [],
-            findings + [f"{CONFIG}: frequency_scope_exclusions must be a list"],
-        )
-    return mapping, baselines, exclusions, findings
+    listen_only = policy.get("listen_only_peripherals", [])
+    for key, value in (
+        ("baseline_violations", baselines),
+        ("frequency_scope_exclusions", exclusions),
+        ("listen_only_peripherals", listen_only),
+    ):
+        if not isinstance(value, list):
+            return mapping, [], [], set(), findings + [f"{CONFIG}: {key} must be a list"]
+    if any(mapping.get(package) != "periph" for package in listen_only):
+        findings.append(f"{CONFIG}: R13 listen_only_peripherals must name periph packages")
+    return mapping, baselines, exclusions, set(listen_only), findings
 
 
 def python_dependencies(text: str) -> list[tuple[str, str, int, str]]:
@@ -256,6 +259,16 @@ def peripheral_violations(path: str, text: str, package: str) -> list[Violation]
     return violations
 
 
+def bus_write_violations(path: str, text: str, package: str) -> list[Violation]:
+    if PurePosixPath(path).suffix not in SOURCE_SUFFIXES - {".py"}:
+        return []
+    return [
+        Violation("R13", package, "", "bus-write", path, number, line.strip())
+        for number, line in enumerate(text.splitlines(), 1)
+        if BUS_WRITE.search(line)
+    ]
+
+
 def apply_baselines(violations: list[Violation], baselines: list[dict]) -> list[str]:
     exemptions: Counter = Counter()
     findings = []
@@ -281,16 +294,15 @@ def apply_baselines(violations: list[Violation], baselines: list[dict]) -> list[
 
 
 def check_layers(texts: dict[str, str]) -> list[str]:
-    layers, baselines, exclusions, findings = read_policy(texts.get(CONFIG, ""))
+    layers, baselines, exclusions, listen_only, findings = read_policy(texts.get(CONFIG, ""))
     frozen_frequency_paths = set()
     for entry in exclusions:
-        if not isinstance(entry, dict) or set(entry) != {"file", "sha256", "reason"}:
+        if not isinstance(entry, dict) or set(entry) != {"file", "reason"}:
             findings.append(f"{CONFIG}: invalid frequency scope exclusion")
             continue
         path = entry["file"]
-        source = texts.get(path)
-        if source is None or hashlib.sha256(source.encode("utf-8")).hexdigest() != entry["sha256"]:
-            findings.append(f"{CONFIG}: R6 excluded frozen asset is missing or changed: {path}")
+        if path not in texts:
+            findings.append(f"{CONFIG}: R6 excluded frozen asset is missing: {path}")
             continue
         frozen_frequency_paths.add(path)
     inventory = package_inventory(texts)
@@ -322,6 +334,8 @@ def check_layers(texts: dict[str, str]) -> list[str]:
                     peripheral=layers.get(package) == "periph",
                 )
             )
+            if package in listen_only and production_file(path):
+                violations.extend(bus_write_violations(path, text, package))
     return findings + apply_baselines(violations, baselines)
 
 

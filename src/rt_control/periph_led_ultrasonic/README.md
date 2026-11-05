@@ -16,7 +16,7 @@ same port while a node is running; stop the node first.
 
 ## LED node
 
-`led_strip_node` provides `/led/set_rgbw` using
+`led_strip_node` provides `/rt/led/set_rgbw` using
 `robot_rt_control_interfaces/srv/SetLedRgbw`. The request selects strip 0..5
 and supplies complete normalized red, green, blue and white values. Four zeros
 mean off. The service rejects non-finite or out-of-range values instead of
@@ -37,7 +37,7 @@ ros2 run periph_led_ultrasonic led_strip_node --ros-args \
 Example command, which writes real hardware:
 
 ```bash
-ros2 service call /led/set_rgbw robot_rt_control_interfaces/srv/SetLedRgbw \
+ros2 service call /rt/led/set_rgbw robot_rt_control_interfaces/srv/SetLedRgbw \
   '{strip_id: 0, red: 1.0, green: 0.0, blue: 0.0, white: 0.0}'
 ```
 
@@ -93,9 +93,9 @@ Published topics:
 
 | Topic | Type | Meaning |
 | --- | --- | --- |
-| `/ultrasonic/channel1/range` .. `channel8/range` | `sensor_msgs/msg/Range` | Per-channel range; each E08 uses its own read-completion time |
+| `/rt/ultrasonic/channel1/range` .. `channel8/range` | `sensor_msgs/msg/Range` | Per-channel range; each E08 uses its own read-completion time |
 | `/ultrasonic/unit1/raw`, `/ultrasonic/unit6/raw` | `std_msgs/msg/UInt16MultiArray` | Four unmodified registers from one successful E08 read |
-| `/rt_control/sensors/status` | `robot_rt_control_interfaces/msg/SensorStatusArray` | Per-channel validity, protocol state, communication failure and sample time |
+| `/rt/sensors/state` | `robot_rt_control_interfaces/msg/SensorStatusArray` | Per-channel validity, protocol state, communication failure and sample time |
 | `/ultrasonic/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Engineering diagnostics |
 
 Protocol values are mapped as follows:
@@ -123,8 +123,8 @@ Inspect data with:
 
 ```bash
 ros2 topic echo /ultrasonic/unit1/raw
-ros2 topic echo /ultrasonic/channel1/range
-ros2 topic echo /rt_control/sensors/status
+ros2 topic echo /rt/ultrasonic/channel1/range
+ros2 topic echo /rt/sensors/state
 ```
 
 The four messages from one E08 read share that request's response-completion

@@ -36,7 +36,6 @@ ethercat download -m 0 -p 8 -t uint16 0x2242 0 1
   603F=7314、6040=0、6060/6061=8 和位置。原始记录保存在隔离部署目录：
   gripper-encoder-reset-before-20260912.json、gripper8-encoder-reset-attempt-20260912.log、
   gripper8-encoder-reset-after-20260912.json、gripper-encoder-reset-final-20260912.json。
-  最终快照 SHA256=ac52575ffebe2d0b17e67e27a75e479352ff6556c88a762e72c61a31798eaeed。
 - SII revision=0x00000001，而 CoE 1018:03=0x00020111，均与此前完整快照一致。
   初次写前检查误将 SII revision 用于 CoE 比较，在任何写入前停止；查回此前原始记录，
   按各自来源分别核对 vendor/product/revision 与夹爪软件字符串后继续。

@@ -48,6 +48,7 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::int64_t>>("expected_modes", {});
   auto_declare<std::vector<std::string>>("ready_state_interfaces", {});
   auto_declare<std::vector<std::string>>("feedback_age_interfaces", {});
+  auto_declare<std::vector<std::string>>("al_state_interfaces", {});
   // User 2026-11-03: 500 ms for every scope (normal ages ~1 ms EtherCAT, 6-20 ms DaMiao).
   auto_declare<double>("feedback_age_limit_ms", 500.0);
   auto_declare<double>("ready_hold_time", 0.05);
@@ -152,7 +153,7 @@ EnableManagerController::state_interface_configuration() const
   }
   configuration.names.insert(
     configuration.names.end(), diagnostic_state_names_.begin(), diagnostic_state_names_.end());
-  for (const auto & name : feedback_age_names_) {
+  for (const auto & name : offline_source_names_) {
     if (
       std::find(configuration.names.begin(), configuration.names.end(), name) ==
       configuration.names.end()) {
@@ -205,9 +206,12 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   ready_state_names_ = get_node()->get_parameter("ready_state_interfaces").as_string_array();
   ready_hold_seconds_ = get_node()->get_parameter("ready_hold_time").as_double();
   ready_state_indices_.assign(ready_state_names_.size(), 0U);
-  feedback_age_names_ = get_node()->get_parameter("feedback_age_interfaces").as_string_array();
+  offline_source_names_ = get_node()->get_parameter("feedback_age_interfaces").as_string_array();
+  age_source_count_ = offline_source_names_.size();
+  const auto al_states = get_node()->get_parameter("al_state_interfaces").as_string_array();
+  offline_source_names_.insert(offline_source_names_.end(), al_states.begin(), al_states.end());
   feedback_age_limit_ms_ = get_node()->get_parameter("feedback_age_limit_ms").as_double();
-  feedback_age_indices_.assign(feedback_age_names_.size(), 0U);
+  offline_source_indices_.assign(offline_source_names_.size(), 0U);
   diagnostic_state_names_.clear();
   const auto diagnostic_joints = get_node()->get_parameter("diagnostic_joints").as_string_array();
   const auto diagnostic_interfaces =
@@ -320,25 +324,34 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   }
   worker_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
 
-  enable_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
-    "/rt/enable",
-    std::bind(
-      &EnableManagerController::handleEnable, this, std::placeholders::_1, std::placeholders::_2),
-    rmw_qos_profile_services_default, enable_callback_group_);
-  disable_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
-    "/rt/disable",
-    std::bind(
-      &EnableManagerController::handleDisable, this, std::placeholders::_1, std::placeholders::_2),
-    rmw_qos_profile_services_default, disable_callback_group_);
-  reset_service_ = get_node()->create_service<rt_control_interfaces::srv::RtEnable>(
-    "/rt/reset_fault",
-    std::bind(
-      &EnableManagerController::handleResetFault, this, std::placeholders::_1,
-      std::placeholders::_2),
-    rmw_qos_profile_services_default, reset_callback_group_);
+  // R-IN-18/19/20: public services; each result carries its DREE error.
+  using ErrorCode = robot_system_interfaces::msg::ErrorCode;
+  using RtEnable = robot_rt_control_interfaces::srv::RtEnable;
+  const auto serve = [this](
+                       const char * name, auto handler, std::uint32_t failure_code,
+                       rclcpp::CallbackGroup::SharedPtr group) {
+    return get_node()->create_service<RtEnable>(
+      name,
+      [this, name, handler, failure_code](
+        const std::shared_ptr<RtEnable::Request> request,
+        std::shared_ptr<RtEnable::Response> response) {
+        (this->*handler)(request, response);
+        reportResult(name, *response, failure_code);
+      },
+      rmw_qos_profile_services_default, group);
+  };
+  enable_service_ = serve(
+    "/rt/enable", &EnableManagerController::handleEnable, ErrorCode::RT_ENABLE_FAILED,
+    enable_callback_group_);
+  disable_service_ = serve(
+    "/rt/disable", &EnableManagerController::handleDisable, ErrorCode::RT_DISABLE_FAILED,
+    disable_callback_group_);
+  reset_service_ = serve(
+    "/rt/reset_fault", &EnableManagerController::handleResetFault, ErrorCode::RT_RESET_FAILED,
+    reset_callback_group_);
   if (motion_mode_switching_) {
     mode_service_ = get_node()->create_service<ModeService>(
-      "/rt/joint_control/set_mode",
+      "/rt/arms/set_control_mode",
       std::bind(
         &EnableManagerController::handleSetMode, this, std::placeholders::_1,
         std::placeholders::_2),
@@ -354,7 +367,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
         source_subscription_options);
     rolling_state_subscription_ =
       get_node()->create_subscription<robot_rt_control_interfaces::msg::RollingJointControlState>(
-        "/rt/rolling_joint_control/state", robot_interfaces_qos::rolling_state(),
+        "/rt/arms/rolling/state", robot_interfaces_qos::rolling_state(),
         std::bind(&EnableManagerController::handleRollingState, this, std::placeholders::_1),
         source_subscription_options);
   }

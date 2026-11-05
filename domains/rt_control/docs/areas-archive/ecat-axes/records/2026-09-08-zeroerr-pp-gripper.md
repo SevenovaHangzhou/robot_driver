@@ -42,7 +42,6 @@ related: [BQ-147, motion-20260908-01, release-deploy-20260907-01]
 - Docker: 相同固定依赖 SHA 的本地基线镜像上完成 6 包重新构建和包内测试；
   `--network none --cap-drop ALL` 的独立测试容器运行通过。未映射任何 EtherCAT/CAN 设备。
   最终增量镜像 `rt-control:electri-118-pp-offline` 内 83 条测试记录通过，manifest digest 为
-  `cfddfcb50391d8f1903242c146793bff9bcfde002ad0274694a5ad5a34b56443`。
 - 从生产 Dockerfile 的全量构建在源码下载阶段停滞后终止，不能声称全量交付镜像已经验证。
 - 自审：域边界/公共接口/旧配置兼容性 PASS；离线生命周期与停止语义 PASS；实机与完整交付
   镜像 UNVERIFIED；原有未提交配置改动保留，未暂存、提交或推送。

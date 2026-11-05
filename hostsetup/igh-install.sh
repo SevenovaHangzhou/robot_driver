@@ -15,17 +15,12 @@ if [[ ! -r "${igh_patch}" ]]; then
   echo "missing pinned IgH PDO-preservation patch ${igh_patch}" >&2
   exit 1
 fi
-igh_patch_sha256="$(sha256sum "${igh_patch}" | awk '{print $1}')"
 igh_dc_patch="${repository_root}/patches/igh/0002-dc-offset-use-sent-application-time.patch"
 [[ -r "${igh_dc_patch}" ]] || { echo "missing IgH DC offset patch" >&2; exit 1; }
-igh_dc_patch_sha256="$(sha256sum "${igh_dc_patch}" | awk '{print $1}')"
 igh_preop_patch="${repository_root}/patches/igh/0003-preop-only-coe.patch"
 [[ -r "${igh_preop_patch}" ]] || { echo "missing IgH PREOP CoE policy patch" >&2; exit 1; }
-igh_preop_patch_sha256="$(sha256sum "${igh_preop_patch}" | awk '{print $1}')"
-if [[ ! "${igh_patch_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
-  echo "failed to identify IgH PDO-preservation patch" >&2
-  exit 1
-fi
+# Installed patch identity: file names in apply order (user 2026-11-04: no content hashes).
+igh_patches="0001-preserve-verified-pdo-config.patch 0002-dc-offset-use-sent-application-time.patch 0003-preop-only-coe.patch"
 
 if [[ "${IGH_VERSION}" != "stable-1.6" ]]; then
   echo "IGH_VERSION must remain frozen at stable-1.6" >&2
@@ -249,8 +244,8 @@ printf '%s\n' "${etherlab_prefix}/lib" > /etc/ld.so.conf.d/etherlab.conf
 ldconfig
 
 metadata_tmp="$(mktemp)"
-printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PRESERVE_PDO_PATCH_SHA256=%s\nIGH_HRTIMER=1\nIGH_DC_OFFSET_PATCH_SHA256=%s\nIGH_PREOP_COE_PATCH_SHA256=%s\n' \
-  "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patch_sha256}" "${igh_dc_patch_sha256}" "${igh_preop_patch_sha256}" > "${metadata_tmp}"
+printf 'IGH_VERSION=%s\nIGH_COMMIT=%s\nIGH_PATCHES=%s\nIGH_HRTIMER=1\n' \
+  "${IGH_VERSION}" "${IGH_COMMIT}" "${igh_patches}" > "${metadata_tmp}"
 install -d -m 0755 /usr/local/share/rt-control
 install -o root -g root -m 0644 \
   "${metadata_tmp}" /usr/local/share/rt-control/dependency-versions.env

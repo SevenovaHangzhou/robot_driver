@@ -8,7 +8,6 @@ socket that holds the lease stops the arm smoothly and releases it.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 from pathlib import Path
 from typing import Callable, Optional
@@ -69,17 +68,17 @@ class ArmPage:
         self._view_text = self._view_prefix = self._view_metadata = None
         if self._view_share is not None:
             entry = self._view_share / "urdf/robot_alfav3_mobile.urdf"
-            data = entry.read_bytes()
-            self._view_text = data.decode("utf-8")
+            self._view_text = entry.read_text(encoding="utf-8")
+            # Cache key for the immutable mesh URLs: changes whenever the installed model does.
+            stats = [entry.stat()]
             manifest = self._view_share / "config/mesh_assets.json"
-            digest = hashlib.sha256(
-                data + (manifest.read_bytes() if manifest.is_file() else b"")
-            ).hexdigest()
-            self._view_prefix = f"/view-mesh/{digest}/"
+            if manifest.is_file():
+                stats.append(manifest.stat())
+            version = "-".join(f"{item.st_mtime_ns:x}{item.st_size:x}" for item in stats)
+            self._view_prefix = f"/view-mesh/{version}/"
             self._view_metadata = {
                 "entry": "urdf/robot_alfav3_mobile.urdf",
-                "urdf_sha256": hashlib.sha256(data).hexdigest(),
-                "assets_version": digest,
+                "assets_version": version,
             }
         operators.register_page(PAGE, lambda: console.lease_holder)
 

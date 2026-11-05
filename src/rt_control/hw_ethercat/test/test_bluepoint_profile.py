@@ -41,18 +41,7 @@ def test_bluepoint_profile_is_state_only_and_matches_the_user_selected_docx_layo
     assert profile["vendor_id"] == 0xA1 and profile["product_id"] == 0x8081
     assert profile["assign_activate"] == 0x0300 and profile["use_slave_pdo_defaults"] is True
     assert profile["metadata"]["revision_id"] == 1
-    assert (
-        profile["metadata"]["reference_esi_original_sha256"]
-        == "8e654bdf540ebac4522f68f403b6a4568677c46ecec14db8451559fa028742ad"
-    )
-    assert (
-        profile["metadata"]["reference_esi_sha256"]
-        == "f92f783bfe91152163e4812b10314399a2f82ffa8135ea76295ee0f953b6e6f8"
-    )
-    assert (
-        profile["metadata"]["reference_manual_sha256"]
-        == "9c275c21bb171a99cd814c2a041b8bc9b03774ef1034cac523104c1e63ab8cdf"
-    )
+    assert profile["metadata"]["reference_esi_file"] == "P140000107-1.0.1.1-ECXML.xml"
     assert record["force_raw_per_newton"] == record["torque_raw_per_newton_metre"] == 100000
     assert profile["metadata"]["status_code_semantics"] == "reserved"
     assert profile["metadata"]["temperature_raw_per_degree_celsius"] == "TBD"

@@ -194,9 +194,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 ),
             }
         )
-        rendered_states = {
-            item.attrib["name"] for item in joint.findall("state_interface")
-        }
+        rendered_states = {item.attrib["name"] for item in joint.findall("state_interface")}
         diagnostic_devices.append(
             {
                 "name": name,
@@ -245,10 +243,13 @@ def render(request, share, validate_module, validate_unit, validate_device):
     }
     if spec.get("topology_preflight", False) and not stationary:
         expected["topology_only"] = True
-    from .master_health import master_diagnostic, responder_count, sensors as health_sensors
+    from .master_health import (
+        master_diagnostic,
+        offline_exports,
+        sensors as health_sensors,
+    )
 
     sensors = health_sensors(request, [axis for _, axis in axes])
-    slaves = responder_count(request)
     diagnostic_devices += master_diagnostic(request, master_id)
     hardware_params = {}
     if mock and not stationary:
@@ -280,8 +281,5 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "resource_claims": [f"ring:{item['ring_position']}" for item in expected["responders"]],
         "expected_topology": expected,
         "diagnostic_devices": diagnostic_devices,
-        # The master health group is rendered once per master, by its first module.
-        "parameter_exports": {"feedback_age_interfaces": ["ethercat_domain/process_data_age_ms"]}
-        if slaves is not None
-        else {},
+        "parameter_exports": offline_exports(request, [axis for _, axis in axes]),
     }

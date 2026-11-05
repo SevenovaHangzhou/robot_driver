@@ -1,8 +1,8 @@
 """Head page logic, no ROS: lease, readiness checks and absolute position targets.
 
-The running stack declares the head command topic (capability ``head_position``); joint
-order comes from that controller's ``joints`` parameter and limits from the Robot Model.
-A move publishes one absolute target; the DaMiao hardware limits the speed.
+The running stack declares the head action (capability ``head_move``, R-IN-16 /rt/head/move);
+joint order comes from that controller's ``joints`` parameter and limits from the Robot Model.
+A move sends one absolute target; the DaMiao hardware limits the speed.
 """
 
 from __future__ import annotations

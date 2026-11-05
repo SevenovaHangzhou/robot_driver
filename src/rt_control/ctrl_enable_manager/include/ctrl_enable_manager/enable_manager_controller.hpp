@@ -30,7 +30,7 @@
 #include "robot_system_interfaces/msg/error_info.hpp"
 #include "ctrl_enable_manager/handshake_device.hpp"
 #include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
-#include "rt_control_interfaces/srv/rt_enable.hpp"
+#include "robot_rt_control_interfaces/srv/rt_enable.hpp"
 #include "hw_semantic_components/cia402_axis.hpp"
 #include "infra_shm_ring/shm_ring.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -60,6 +60,8 @@ private:
 
   static constexpr std::size_t kMotionAxisCount = 14U;
   static constexpr std::size_t kModeCacheCapacity = 8U;
+  // EtherCAT AL state Operational (ETG.1000.6), as the slave al_state interface reports it.
+  static constexpr double kAlStateOp = 8.0;
 
   enum class Phase : std::uint8_t {
     kInactive,
@@ -173,14 +175,14 @@ private:
     const std::vector<rclcpp::Parameter> & parameters);
 
   void handleEnable(
-    const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
-    std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response);
+    const std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request> request,
+    std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response> response);
   void handleDisable(
-    const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
-    std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response);
+    const std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request> request,
+    std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response> response);
   void handleResetFault(
-    const std::shared_ptr<rt_control_interfaces::srv::RtEnable::Request> request,
-    std::shared_ptr<rt_control_interfaces::srv::RtEnable::Response> response);
+    const std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request> request,
+    std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response> response);
   void handleSetMode(
     const std::shared_ptr<ModeService::Request> request,
     std::shared_ptr<ModeService::Response> response);
@@ -189,9 +191,13 @@ private:
     const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr message);
   bool waitForResult(ResultSlot & slot);
   void fillResponse(
-    const ResultSlot & slot, rt_control_interfaces::srv::RtEnable::Response & response) const;
+    const ResultSlot & slot, robot_rt_control_interfaces::srv::RtEnable::Response & response) const;
   void fillImmediateResponse(
-    rt_control_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const;
+    robot_rt_control_interfaces::srv::RtEnable::Response & response, bool ok, Stage stage) const;
+  // Public DREE error for a finished request, logged as "<service> accepted|rejected: ...".
+  void reportResult(
+    const char * service, robot_rt_control_interfaces::srv::RtEnable::Response & response,
+    std::uint32_t failure_code) const;
   SwitchResult buildMotionControllerSwitchRequest(
     const controller_manager_msgs::srv::ListControllers::Response & states, bool activate_default,
     controller_manager_msgs::srv::SwitchController::Request & request) const;
@@ -297,8 +303,8 @@ private:
   bool allDevicesEnabled() const noexcept;
   bool allDevicesDisabledOrFaulted() const noexcept;
   bool allDeviceResetsComplete() const noexcept;
-  // Index into feedback_age_names_ of the first stale source, -1 when every source is fresh.
-  int staleFeedback() const noexcept;
+  // Index into offline_source_names_ of the first stale age or non-OP slave, -1 when every source is fresh.
+  int offlineSource() const noexcept;
   bool rejectIfOffline(ResultSlot & slot);
   bool stateSourcesReady() const noexcept;
   void handleMotionFault();
@@ -357,8 +363,14 @@ private:
   std::vector<std::size_t> ready_state_indices_;
   // Bus/device feedback ages (ms) checked before an enable or reset starts: a powered-off drive
   // keeps its last status word, so its state must not be judged while its feedback is stale.
-  std::vector<std::string> feedback_age_names_;
-  std::vector<std::size_t> feedback_age_indices_;
+  // Feedback ages first, then EtherCAT slave AL states: a re-powered slave can stay in SAFEOP
+  // with fresh process data (2026-11-04 bench); only a stack restart brings it back to OP.
+  std::vector<std::string> offline_source_names_;
+  std::vector<std::size_t> offline_source_indices_;
+  std::size_t age_source_count_{0U};
+  // Current offline source, refreshed every cycle; offline_feedback_ keeps the one that stopped
+  // or rejected the last request.
+  std::atomic<int> offline_now_{-1};
   double feedback_age_limit_ms_{100.0};
   std::atomic<int> offline_feedback_{-1};
   double ready_hold_seconds_{0.05};
@@ -421,9 +433,9 @@ private:
   rclcpp::CallbackGroup::SharedPtr reset_callback_group_;
   rclcpp::CallbackGroup::SharedPtr mode_callback_group_;
   rclcpp::CallbackGroup::SharedPtr worker_callback_group_;
-  rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr enable_service_;
-  rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr disable_service_;
-  rclcpp::Service<rt_control_interfaces::srv::RtEnable>::SharedPtr reset_service_;
+  rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr enable_service_;
+  rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr disable_service_;
+  rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr reset_service_;
   rclcpp::Service<ModeService>::SharedPtr mode_service_;
   rclcpp::Publisher<ModeResultMessage>::SharedPtr mode_result_publisher_;
   rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr

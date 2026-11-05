@@ -32,6 +32,8 @@ STATES = (
     "sent_sequence",
     "feedback_sequence_at_send",
     "sent_velocity",
+    "error_word_1",
+    "error_word_2",
 )
 
 
@@ -52,13 +54,16 @@ _BITS = {"uint8": 8, "int8": 8, "uint16": 16, "int16": 16, "uint32": 32, "int32"
 
 
 def _pdo_objects(driver_config):
-    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs."""
+    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs.
+
+    Keys are hex strings: the artifact is YAML and its loader accepts string keys only.
+    """
     objects = {}
     for assign, direction in ((0x1C12, "rpdo"), (0x1C13, "tpdo")):
         pdos = driver_config[direction]
-        objects[assign] = [pdo["index"] for pdo in pdos]
+        objects[f"0x{assign:04X}"] = [pdo["index"] for pdo in pdos]
         for pdo in pdos:
-            objects[pdo["index"]] = [
+            objects[f"0x{pdo['index']:04X}"] = [
                 (channel["index"] << 16) | (channel["sub_index"] << 8) | _BITS[channel["type"]]
                 for channel in pdo["channels"]
             ]
@@ -188,6 +193,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "state": {
                     "al_state": f"ethercat_slave_{axis['ring_position']}/al_state",
                     "status_word": f"{name}/status_word",
+                    # 0x2601/0x2602, decoded per bit with the device fault table.
+                    "error_word_1": f"{name}/error_word_1",
+                    "error_word_2": f"{name}/error_word_2",
                 },
             }
         )
@@ -292,7 +300,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if not mock:
             ring = axis["ring_position"]
             # Read-only admission: disabled and unfaulted, saved PDOs match, steering in range.
-            preflight_axes.append({"ring_position": ring, "allowed_errors": []})
+            preflight_axes.append(
+                {"ring_position": ring, "allowed_errors": [], "allow_shutdown_ready": True}
+            )
             pdo_checks.append(
                 {"ring_position": ring, "objects": _pdo_objects(profile["driver_config"])}
             )
@@ -317,10 +327,13 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "position_windows": position_windows,
         "preflight_required": not mock,
     }
-    from .master_health import master_diagnostic, responder_count, sensors as health_sensors
+    from .master_health import (
+        master_diagnostic,
+        offline_exports,
+        sensors as health_sensors,
+    )
 
-    if responder_count(request) is not None:
-        exports["feedback_age_interfaces"] = ["ethercat_domain/process_data_age_ms"]
+    exports.update(offline_exports(request, axes))
 
     params = {
         "master_id": topology["master_id"],

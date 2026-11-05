@@ -13,6 +13,21 @@ controller_manager:
     update_rate: 250
 enable_manager:
   ros__parameters:
+    al_state_interfaces:
+    - ethercat_slave_1/al_state
+    - ethercat_slave_2/al_state
+    - ethercat_slave_3/al_state
+    - ethercat_slave_4/al_state
+    - ethercat_slave_5/al_state
+    - ethercat_slave_6/al_state
+    - ethercat_slave_7/al_state
+    - ethercat_slave_9/al_state
+    - ethercat_slave_10/al_state
+    - ethercat_slave_11/al_state
+    - ethercat_slave_12/al_state
+    - ethercat_slave_13/al_state
+    - ethercat_slave_14/al_state
+    - ethercat_slave_15/al_state
     batch_timeout: 4.0
     disable_stage_timeout: 4.0
     disable_terminal_policy: switch_on_disabled

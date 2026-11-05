@@ -1,7 +1,7 @@
 # RT-Control interface boundary
 
 `rt_control_interfaces` is private to this domain. It contains only RT-Control
-internal messages and services such as `PlcIoState` and `RtEnable`; other
+internal messages such as `PlcIoState` and `JointControlModeResult`; other
 domains must not depend on it.
 
 Cross-domain packages are not mirrored here. `deps.repos` vendors the

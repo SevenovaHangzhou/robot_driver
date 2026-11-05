@@ -1,6 +1,6 @@
 # robot_driver 架构迁移待办
 
-本文件是 [`ARCHITECTURE.md`](../../../ARCHITECTURE.md) 的迁移待办，内容为规范原稿的 §5、§5a、§8，章节号保持不变。每项做完由对应 PR 勾掉（`[ ]` → `[x]`）并注明 PR（§8.1–8.3 由 `feature/arch-s2-agents-slim` 完成）；全部完成后删除本文件。规则与迁移顺序以 `ARCHITECTURE.md` §7、§9 为准。
+本文件是 [`ARCHITECTURE.md`](../../../ARCHITECTURE.md) 的迁移待办，内容为规范原稿的 §5、§5a、§8，章节号保持不变。每项做完由对应 PR 勾掉（`[ ]` → `[x]`）并注明 PR（§8.1–8.3 由 `feature/arch-s2-agents-slim` 完成）；全部完成后删除本文件。规则与迁移顺序以 `ARCHITECTURE.md` §7 与本文件 §9 为准。
 
 ## 5. 现状已知违反清单（基于 `43d4c64`，作为迁移待办）
 
@@ -24,9 +24,9 @@
 | [x] | C | 新鲜度/超时、`DiagnosticArray` 构造在十余个包各写一份（诊断键值改用上游 `diagnostic_updater::DiagnosticStatusWrapper`，5 个包的自写 KeyValue 辅助删除；反馈年龄判断收敛到 `hw_semantic_components/feedback_age.hpp`，enable_manager 与 swerve 使用，rolling 随同事拆分时改用；控制器切换超时改用 `rclcpp::Duration`；`steady_now` 按 10-31 裁定留在各包） | 3 |
 | [x] | C | 5 个 launch 骨架相同；`rt_control_start` 6 个分支各带专属 shutdown（arch-s7/s8：运行入口统一为分阶段 scope 入口，旧参数保留为别名；待实机验证） | 3、§2"新增启动模式" |
 | [x] | D 超大单元 | `enable_manager_controller.cpp` 2998 行 / 69 方法；测试 2644 行单文件（用户 2026-11-03：实时状态机不拆，接受 §3 例外；非实时代码已移到 `enable_manager_{configure,services,mode_switch}.cpp`，主文件约 1400 行；重复参数校验已删除并收紧到使能策略 schema（#175、#176）） | 3 硬指标 |
-| [ ] | D | `rolling_trajectory_controller.cpp` 2007 行、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行（arch-d2 拆为主文件 + `manifest/{modules,profiles,scopes}.yaml`，均 < 400 行） | 3 硬指标 |
+| [x] | D | `rolling_trajectory_controller.cpp` 2007 行（arch-rolling-split 按实时/非实时拆为 `rolling_trajectory_{controller,configure,session,state}.cpp`，均 < 1000 行；`test_rt_update.cpp` 1126 行随 rolling 协议精简重写）、`vacuum_adapter.py` 956 行（arch-b2 已删）、`manifest.yaml` 736 行（arch-d2 拆为主文件 + `manifest/{modules,profiles,scopes}.yaml`，均 < 400 行） | 3 硬指标 |
 | [x] | D | `BLOCKED-questions.md` 2852 行 161 条，只能全文读 | 需求 4 |
-| [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试（arch-behavior-contract-tests：本仓库 C++/Python 源码字符串断言已改为包内行为测试——BMS/IMU 发布话题与 QoS、enable_manager 诊断 QoS、公共错误码字段；剩余为补丁文件、CI/Dockerfile/主机脚本文本断言，以及 IMU 不写总线的静态防护，待定处理方式） | 1.5、4.6 |
+| [ ] | E 规则过载 | 开工前必读文档约 1.6 MB；`tools/tests` 多个源码字符串契约测试（arch-behavior-contract-tests：本仓库 C++/Python 源码字符串断言已改为包内行为测试——BMS/IMU 发布话题与 QoS、enable_manager 诊断 QoS、公共错误码字段；用户 2026-11-04：补丁、CI workflow、Dockerfile/bootstrap 包列表、主机 unit 文本与配置值镜像等纯文本断言删除，`check_v3_branch_contract.py` 一并删除；保留编译运行补丁代码、执行脚本的检查；IMU 不写总线改为分层门禁 R13 `listen_only_peripherals`；必读瘦身：`ARCHITECTURE.md` §9 执行指引移入本文件、§2.1 `arch_check` 设计移到 `tools/README.md`，必读两文件合计约 18 KB，目标约 15 KB） | 1.5、4.6 |
 | [x] | F | `composer/test/golden/generate_baseline.py` 反向 import `bringup`；composer 测试 import 三个协议包但 `package.xml` 只声明一个（arch-f1：两个一次性历史生成脚本删除——它们读取的是 `source_commit` 旧检出的 bringup；补齐 `robot_hw_can`、`robot_hw_canopen` 测试依赖） | 1.3 |
 | [x] | F | `controllers.yaml` 每个条目的 `config_file` 字段无任何读取方，且相对哪个包的 share 不明确（arch-s4 发现）；建议从 schema 与数据中删除（arch-cleanup：已删除） | 1.4、1.2 |
 | [x] | F | `patches/ros2_canopen` 编号 0001、0002、0006、0007 缺号无说明（arch-cleanup：`patches/ros2_canopen/README.md` 记录退役补丁） | 1.4 |
@@ -58,7 +58,7 @@
 | [x] | `rt_control_semantic_components` | protocol | 瘦身 | `hw_semantic_components` | （#120、#121 已瘦身；arch-r3 已改名；arch-c3 CiA402 唯一出口 #146 已合入）名不副实：`runtime_log_shm_ring.hpp`（跨仓库拷贝，与 Runtime-LOG 共享内存布局，本仓库只供 enable_manager）→ `infra_shm_ring`（§3 例外）。`head_phase.hpp` 原判为达妙专属；头部并入 enable_manager 后它是“插件自执行使能”设备（`HandshakeDevice`）与硬件插件之间的通用阶段约定，与 `cia402_axis` 同类，改名 `handshake_phase.hpp`/`HandshakePhase` 留在本包（用户 2026-10-30 修正）。留 `cia402_axis`、`handshake_phase`、`force_torque_sensor`，并成为 CiA402 解码唯一出口。 |
 | [x] | `enable_manager` | control | 不拆状态机 | `ctrl_enable_manager` | （arch-r2 已改名；用户 2026-11-03：实时状态机不拆，接受 §3 文件大小例外；非实时代码已移文件；重复校验已删（#176））2998 行/69 方法；实时 FSM 留核心，模式切换/诊断/trace/controller 名解析搬出。拆前每条迁移一个行为测试。吸收 `damiao_head_controller`。 |
 | [x] | `damiao_head_controller` | control | **合入 enable_manager** | — | 是第二个 enable_manager（`handle_enable/disable/reset + switch_position_controller + publish_diagnostics + encode_double`），只是 14 轴变 2 轴。应是同一控制器配不同 policy。`head_disable_once` 与 `rt_disable_once` 同理合并。 |
-| [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | （arch-r2 已改名；arch-c6 去 OpenSSL 已合入（#152）；剩余：拆分）`rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
+| [ ] | `rolling_trajectory_controller` | control | 拆 | `ctrl_rolling_trajectory` | （arch-r2 已改名；arch-c6 去 OpenSSL 已合入（#152）；arch-rolling-split 已拆分：生命周期与实时路径留在 `rolling_trajectory_controller.cpp`，参数/配置、会话协议、状态发布各一个文件；剩余：协议精简，robot_interfaces#16）`rolling_trajectory_core`（无 ROS 纯库 1800 行）健康；主文件 2007 行/80 方法/21 参数要拆；去掉 OpenSSL（envelope SHA 校验应在 composer 做一次）；`kJointNames[14]` 改为参数。 |
 | [x] | `swerve_driver` | control | 拆 + 删 | `ctrl_swerve` | （arch-b1 已删 relative 扩展，`swerve_controller.cpp` 降至 893 行；arch-r2 已改名）内部 include 图干净。**删 `relative_move`**（session/planner/mock_node/mock_main 约 1000 行，及 `rt_control_interfaces` 中 `ChassisRelativeMove.action`、`ChassisMoveState.msg`、`ChassisMoveLimits.msg`；外部无消费者，仅 `bringup/test/test_cyclic_controller.cpp` 和 `tools/tests/test_rt_io_integration.py` 引用；行为变更，独立 PR）；拆 `swerve_controller.cpp`（1042 行）为 update 路径 + 生命周期两文件；`chassis_runtime` 去掉 relative_move 依赖后重评；`chassis_mode_handoff` 23 个过程方法改显式状态表。 |
 | [x] | `rt_force_torque_broadcaster` | control | 保留 | `ctrl_force_torque_broadcaster` | （arch-r2 已改名）健康。 |
 | [x] | `x503_force_sensor` | control | ~~并入 `hw_ethercat`~~ **删** | — | X503 PREOP 标定/SDO 快照脚本，纯协议工具。arch-b4：用户 2026-10-30 裁定 X503 只用于二代机，连同 `robot_hw_ethercat/config/x503b_readback.yaml` 删除。 |
@@ -159,3 +159,45 @@
 | [x] | `docs/areas/` 7 新区 | 归属按 §5a 包表重排；记录规则改为"行为/硬件事实变更才记"（arch-d5：arm-control+chassis-control 合为 control，新开 infra，各区 owner 改为现包名） |
 | [x] | `BLOCKED-questions.md` 2852 行（arch-s5：用户裁定改为备份后清空、重新记录，写入前须确认；不再按模块拆分） | 按模块拆为 `docs/decisions/<module>.md`，只保留仍生效的裁决；已被取代的归档 |
 | [x] | `PROGRESS.md` | 改为只索引实机验证记录，不再每 PR 一行（规则已改，历史行不动） |
+
+## 9. 执行指引（给执行本规范迁移的 Agent）
+
+本节是给按本文档执行的 Agent 的硬约束，优先级高于其自身习惯。
+
+### 9.1 第一个 PR 的范围（§7 步骤 1）
+
+只做三件事，不做其他：
+
+1. 把架构规范原稿拆为两个文件落入仓库：
+   - `ARCHITECTURE.md`（根目录）：§0、§1、§2、§3、§4、§6、§7、§9（§9 于 2026-11-04 移入本文件）。去掉 frontmatter 与过程性状态标记。
+   - `domains/rt_control/docs/migration-backlog.md`：§5、§5a、§8。每项带复选框，做完勾掉；全部完成后删除此文件。
+2. 根 `AGENTS.md` 第 1 节末尾加一行：`架构、分层、编码与测试规则以 ARCHITECTURE.md 为准；本文件与其冲突时以 ARCHITECTURE.md 为准。`
+3. `tools/repository_gate.py` 的 `REQUIRED_GOVERNANCE_FILES` 加入 `ARCHITECTURE.md`。
+
+不改任何源码、配置、测试、其他文档。不在本 PR 里开始瘦身 AGENTS.md。
+
+### 9.2 后续每个 PR 的通用约束
+
+- 一个 PR 对应 `domains/rt_control/docs/migration-backlog.md` 里的一项或一组同类项，标题写明对应项。
+- 结构变更 PR 不改行为：改前改后 `arch_check compose` 对每个 scope 的输出逐字节一致（`arch_check` 未实现前，用 `compose_artifact` 生成到临时目录做 diff）。
+- 行为变更 PR（删 relative_move、重做 rt_diagnostics、删 draft 适配器）单独开，PR 描述第一行写"行为变更"，列出被删除的 topic/service/action。
+- 每个 PR 在描述中写清：对应 backlog 项、改前/改后验证命令及结果、未验证项。PR 顶部摘要格式见 `.github/CONTRIBUTING.md` §3。
+- 遇到 `ARCHITECTURE.md` §6 列出的底线、硬件事实、或规范没覆盖的情况：停下来问，不猜。
+- 发现规范本身有错或不可执行：改规范（独立 PR）而不是绕过。
+
+### 9.3 停止点
+
+以下动作完成后必须停下等用户确认，不自动进入下一步：
+
+- §7 步骤 1 的 PR 开出后；
+- 每个行为变更 PR 动手前；
+- 任何需要删除 ≥ 1000 行代码的 PR 动手前；
+- `arch_check` 首版实现完成、接入 `quality_gate.sh` 前（因为会让现状全红，需要先定 baseline 策略：按 §5 清单逐项消化，不做豁免清单；`ARCHITECTURE.md` §3 写明的单一例外除外）。
+
+### 9.4 分支与工作树（本轮不走 Linear，用户 2026-10-28 裁定）
+
+- 工作树：`repos/features/ARCH-spec-v1`
+- 分支：`feature/arch-spec-v1`
+- 后续迁移 PR 按步骤编号：`feature/arch-s2-agents-slim`、`feature/arch-s3-dead-code`、`feature/arch-s4-config-ownership`、`feature/arch-s5-infra-<lib>`、`feature/arch-s6-split-<pkg>`、`feature/arch-s7-arch-check`。
+- 偏离说明：控制工作区约定要求工作树引用 Linear Issue；本轮用户明确不走 Linear，分支名以 `arch-` 前缀代替 Linear ID。若后续补建 Issue，分支改名为 `feature/<linear-id>-arch-…`。
+- 基线：`main` @ `43d4c64` 或更新的 `origin/main`；开工前先 fetch 并记录实际 base SHA。

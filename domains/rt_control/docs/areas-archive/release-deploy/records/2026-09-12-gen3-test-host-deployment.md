@@ -25,7 +25,6 @@ related: [BQ-147, BQ-145, BQ-146, ecat-axes-20260912-02]
 - 部署原有 main 基础 `308dbfca75c2fb5fec53241a6e6ead37dcd4f8fa` 加本轮未提交开发改动，
   没有在部署时合并远端后来新增的 28 个提交。
 - 源码和四个 deps.repos 精确版本打包，按序应用全部窄补丁并验证；初始归档哈希为
-  `da376bb5f1dd48d496c8bfc67e4ed40fbad78d3d6c63908415acb1ef8779ec5e`。
 - 目标使用新建隔离目录 `electri118-gen3-20260912.wvvShj`；源码、install 和日志独立。
   添加部署校验、arms_only 静态校验和环境加载脚本，不添加自启动。
 - 随后将用户提供的 GR10-EC-6SW ESI 和配置澄清同步到源码并安装，追加文件校验清单。
@@ -40,7 +39,7 @@ related: [BQ-147, BQ-145, BQ-146, ecat-axes-20260912-02]
   输出 14 CSP + 2 PP、master 0、draft，无硬件节点创建。
 - 归档/增量文件哈希核验与七个关键包 install prefix 检查通过；旧部署 symlink 和运行服务保持。
 - 本地 quality_gate：214 项通过，门禁覆盖率 83%，ShellCheck 本地不可用。
-- 主机 doctor 未通过：安装元数据缺少所要求的 IGH_PRESERVE_PDO_PATCH_SHA256。
+- 主机 doctor 未通过：安装元数据缺少所要求的 PDO 保留补丁记录。
   基础提交相同，但记录的是另一份 DC 补丁。未修改内核/驱动，未将其当作实机准入通过。
 
 本记录不授权使能或运动。

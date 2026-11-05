@@ -40,6 +40,9 @@ target_link_libraries(rolling_trajectory_core PRIVATE yaml-cpp)
 
 add_library(rolling_trajectory_controller_plugin SHARED
   src/rolling_trajectory_controller.cpp
+  src/rolling_trajectory_configure.cpp
+  src/rolling_trajectory_session.cpp
+  src/rolling_trajectory_state.cpp
   src/service_error.cpp
 )
 target_compile_features(rolling_trajectory_controller_plugin PUBLIC cxx_std_17)

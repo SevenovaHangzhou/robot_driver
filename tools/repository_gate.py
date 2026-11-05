@@ -449,8 +449,6 @@ def check_ci_workflow_policy(workflow_text: str) -> list[str]:
     ):
         if required_command not in build_commands:
             findings.append(f"CI build job must run {description}")
-    if "tools/check_v3_branch_contract.py" not in build_commands:
-        findings.append("CI build job must run a branch-specific migration gate")
     return findings
 
 

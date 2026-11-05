@@ -9,7 +9,7 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     env_note: mock 不含 CANopen 硬件后端，/wheel/odom 只断言存在与类型，频率归 TC-RO-06
-    covers: ["src/rt_control/integ_api_adapter/**", "src/interfaces/**", "src/rt_control/integ_bringup/**"]
+    covers: ["src/rt_control/ctrl_enable_manager/**", "src/interfaces/**", "src/rt_control/integ_bringup/**"]
     traces: [src/vendor/robot_interfaces/contract/views/rt_control.md, "BQ-132"]
     preconditions: 无硬件；BQ-132 决定无总线路径必须走 mock
     entry: |

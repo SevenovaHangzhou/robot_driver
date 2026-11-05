@@ -128,7 +128,7 @@ TEST(BmsNodeTest, PublishesBothBatteryStatesWithTheContractStateQos)
   });
   auto node = periph_bms::make_node(options);
   const auto expected = robot_interfaces_qos::state();
-  for (const auto * topic : {"/battery_state", "/battery_state/secondary"}) {
+  for (const auto * topic : {"/rt/battery/left/state", "/rt/battery/right/state"}) {
     const auto publishers = node->get_publishers_info_by_topic(topic);
     ASSERT_EQ(publishers.size(), 1U) << topic;
     EXPECT_EQ(publishers[0].topic_type(), "sensor_msgs/msg/BatteryState") << topic;
