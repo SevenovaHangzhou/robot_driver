@@ -425,6 +425,18 @@ arch-arm-motion-limits:
   - arm-real-jtc
   - head-mock
   - head-real
+arch-controller-set:
+  reason: 统一使能控制器集合；共同启停的头部与机械臂模式切换兼容（用户 2026-11-05 方案 B2）
+  method: 使用 test_compose 与 test_head_force 的夹具重新 compose，经 canonical_files 规范化
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
+  - head-mock
+  - head-real
 arch-rolling-slim:
   reason: 精简 rolling 协议（robot_interfaces#16）：rolling 参数改为机器人模型限位（位置、30°/s、60°/s²）+ 位置余量 0.05 rad，删除轴集合 SHA、限值版本、包络文件、限值来源与预热参数
   method: arch-golden-regen.py（arm/stationary）、arch-head-golden2.py、arch-force-golden2.py 按测试夹具重算；删除 runtime 包络文件

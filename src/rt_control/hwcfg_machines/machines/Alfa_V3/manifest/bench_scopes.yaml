@@ -124,9 +124,12 @@ scopes:
       enable: bench_dual_arm_enable
       motion: bench_dual_arm_motion
     staged_hardware_activation: true
+    jtc_only_excluded:
+    - dual_arm_rolling
     controller_order:
       inactive:
       - dual_arm_jtc
+      - dual_arm_rolling
       - head_position_controller
       active:
       - joint_state_broadcaster

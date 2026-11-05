@@ -100,11 +100,11 @@ public:
   {
     return c.classifyModeSwitchState(states, source, target);
   }
-  static SwitchResult buildMotionControllerSwitchRequest(
+  static SwitchResult buildControllerSwitchRequest(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states,
-    bool activate_default, controller_manager_msgs::srv::SwitchController::Request & request)
+    ControlMode target, controller_manager_msgs::srv::SwitchController::Request & request)
   {
-    return c.buildMotionControllerSwitchRequest(states, activate_default, request);
+    return c.buildControllerSwitchRequest(states, target, request);
   }
   static bool waitForControllerManagerServices(Controller & c, std::chrono::milliseconds timeout)
   {
@@ -316,7 +316,7 @@ public:
       rclcpp::Parameter("fault_reset_timeout", kFaultResetTimeout),
       rclcpp::Parameter("controller_switch_timeout", kControllerSwitchTimeout),
       rclcpp::Parameter("service_result_timeout_ms", kServiceResultTimeoutMs),
-      rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+      rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
       rclcpp::Parameter("update_rate", 1000),
     });
     for (const auto & parameter : additional_parameters) {
@@ -422,7 +422,7 @@ public:
     initAndConfigure(
       "enable_manager_motion_test",
       {
-        rclcpp::Parameter("motion_mode_switching", true),
+        rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
         rclcpp::Parameter(
           "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
         rclcpp::Parameter("mode_switch_maximum_sample_period_ms", 2),
@@ -650,7 +650,7 @@ TEST_F(EnableManagerFixture, MotionModeClaimsFourteenPositionsAndFeedbackAge)
 {
   initAndConfigure(
     "enable_manager_motion_interfaces",
-    {rclcpp::Parameter("motion_mode_switching", true),
+    {rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
      rclcpp::Parameter(
        "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
 
@@ -683,7 +683,7 @@ TEST_F(EnableManagerFixture, DetectsAndClassifiesExclusiveMotionControllerModes)
 {
   initAndConfigure(
     "enable_manager_motion_modes",
-    {rclcpp::Parameter("motion_mode_switching", true),
+    {rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
      rclcpp::Parameter(
        "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
   controller_manager_msgs::srv::ListControllers::Response states;
@@ -716,7 +716,7 @@ TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWr
 {
   initAndConfigure(
     "enable_manager_motion_switch_plan",
-    {rclcpp::Parameter("motion_mode_switching", true),
+    {rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
      rclcpp::Parameter(
        "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
   controller_manager_msgs::srv::ListControllers::Response states;
@@ -728,7 +728,7 @@ TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWr
 
   controller_manager_msgs::srv::SwitchController::Request activate;
   EXPECT_EQ(
-    Access::buildMotionControllerSwitchRequest(*controller_, states, true, activate),
+    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kFjtReady, activate),
     SwitchResult::kSuccess);
   EXPECT_THAT(activate.activate_controllers, ::testing::ElementsAre("whole_body_jtc"));
   EXPECT_THAT(
@@ -736,10 +736,68 @@ TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWr
 
   controller_manager_msgs::srv::SwitchController::Request stop;
   EXPECT_EQ(
-    Access::buildMotionControllerSwitchRequest(*controller_, states, false, stop),
+    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kDisabled, stop),
     SwitchResult::kSuccess);
   EXPECT_TRUE(stop.activate_controllers.empty());
   EXPECT_THAT(stop.deactivate_controllers, ::testing::ElementsAre("rolling_trajectory_controller"));
+}
+
+TEST_F(EnableManagerFixture, CompanionsStayActiveAcrossBothModesAndStopOnDisable)
+{
+  initAndConfigure(
+    "companion_modes",
+    {rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
+     rclcpp::Parameter(
+       "companion_controllers", std::vector<std::string>{"head_position_controller"}),
+     rclcpp::Parameter(
+       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
+  controller_manager_msgs::srv::ListControllers::Response states;
+  for (const auto & name :
+       {"whole_body_jtc", "rolling_trajectory_controller", "head_position_controller"}) {
+    controller_manager_msgs::msg::ControllerState state;
+    state.name = name;
+    state.state = "inactive";
+    states.controller.push_back(state);
+  }
+  controller_manager_msgs::srv::SwitchController::Request request;
+  EXPECT_EQ(
+    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kFjtReady, request),
+    SwitchResult::kSuccess);
+  EXPECT_THAT(
+    request.activate_controllers,
+    ::testing::ElementsAre("whole_body_jtc", "head_position_controller"));
+  states.controller[0].state = "active";
+  states.controller[2].state = "active";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kFjtReady);
+  EXPECT_EQ(
+    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kRollingReady, request),
+    SwitchResult::kSuccess);
+  EXPECT_THAT(
+    request.activate_controllers, ::testing::ElementsAre("rolling_trajectory_controller"));
+  EXPECT_THAT(request.deactivate_controllers, ::testing::ElementsAre("whole_body_jtc"));
+  states.controller[0].state = "inactive";
+  states.controller[1].state = "active";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kRollingReady);
+  EXPECT_EQ(
+    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kFjtReady, request),
+    SwitchResult::kSuccess);
+  EXPECT_THAT(request.activate_controllers, ::testing::ElementsAre("whole_body_jtc"));
+  EXPECT_THAT(
+    request.deactivate_controllers, ::testing::ElementsAre("rolling_trajectory_controller"));
+  EXPECT_EQ(
+    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kDisabled, request),
+    SwitchResult::kSuccess);
+  EXPECT_THAT(
+    request.deactivate_controllers,
+    ::testing::ElementsAre("rolling_trajectory_controller", "head_position_controller"));
+  EXPECT_TRUE(request.activate_controllers.empty());
+  // A lost companion cannot be reported as a successful arm mode switch.
+  states.controller[2].state = "inactive";
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kRestartRequired);
+  states.controller.pop_back();
+  EXPECT_EQ(
+    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kDisabled, request),
+    SwitchResult::kFailed);
 }
 
 TEST_F(EnableManagerFixture, ModeServiceSwitchesWithoutWaitingForRollingState)
@@ -852,9 +910,7 @@ TEST_F(EnableManagerFixture, ModeServiceSwitchesWithoutWaitingForRollingState)
 
 TEST_F(EnableManagerFixture, EnableOnlyCompletesEnableAndDisableWithoutControllerServices)
 {
-  initAndConfigure(
-    "enable_only_test",
-    {rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string(""))});
+  initAndConfigure("enable_only_test", {rclcpp::Parameter("motion_controller", std::string(""))});
   if (::testing::Test::HasFatalFailure()) {
     return;
   }
@@ -876,13 +932,15 @@ TEST_F(EnableManagerFixture, EnableOnlyCompletesEnableAndDisableWithoutControlle
     EXPECT_EQ(command(axis), kCwZero);
   }
   EXPECT_FALSE(
-    controller_->get_node()->set_parameter(rclcpp::Parameter("enable_only", false)).successful);
+    controller_->get_node()
+      ->set_parameter(rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")))
+      .successful);
 }
 
 TEST_F(EnableManagerFixture, ExplicitDisabledTerminalPolicyDoesNotNeedAnEmptyYamlArray)
 {
   auto parameters = parametersWithFixtureTopology(
-    {rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string("")),
+    {rclcpp::Parameter("motion_controller", std::string("")),
      rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled"))});
   parameters.erase(
     std::remove_if(
@@ -903,7 +961,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExpli
 {
   auto parameters = parametersWithFixtureTopology(
     {rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
-     rclcpp::Parameter("jtc_name", std::string(""))});
+     rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller"))});
   parameters.erase(
     std::remove_if(
       parameters.begin(), parameters.end(),
@@ -919,8 +977,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExpli
     controller_interface::CallbackReturn::ERROR);
   controller_->get_node()->set_parameter(
     rclcpp::Parameter("disable_terminal_policy", std::string("joint_list")));
-  controller_->get_node()->set_parameter(
-    rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")));
+  controller_->get_node()->set_parameter(rclcpp::Parameter("rolling_controller", std::string("")));
   EXPECT_EQ(
     controller_->on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::ERROR);
@@ -1082,7 +1139,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
 {
   rclcpp::NodeOptions options;
   options.parameter_overrides(parametersWithFixtureTopology({
-    rclcpp::Parameter("jtc_name", std::string("")),
+    rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
     rclcpp::Parameter("update_rate", 1000),
   }));
   options.allow_undeclared_parameters(true);
@@ -1095,7 +1152,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
     controller_interface::CallbackReturn::ERROR);
 
   const auto result = controller_->get_node()->set_parameters_atomically({
-    rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+    rclcpp::Parameter("rolling_controller", std::string("")),
     rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
     rclcpp::Parameter(
       "enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
@@ -2364,7 +2421,8 @@ TEST_F(FixedModeFixture, ExpectedModePolicyIsFrozenAndBindingsAreValidated)
 TEST_F(EnableManagerFixture, SwerveActivationMakesExactlyOneSwitchRequest)
 {
   initAndConfigure(
-    "single_switch_test", {rclcpp::Parameter("jtc_name", std::string("swerve_controller"))});
+    "single_switch_test",
+    {rclcpp::Parameter("motion_controller", std::string("swerve_controller"))});
   activate();
   setAllStatus(kSwOperationEnabled);
   Access::setPhase(*controller_, Phase::kJtcActivating);
@@ -2456,6 +2514,8 @@ TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryControll
   auto manager = std::make_shared<rclcpp::Node>("companion_switch_manager");
   std::mutex mutex;
   std::vector<controller_manager_msgs::srv::SwitchController::Request> requests;
+  std::map<std::string, std::string> states{
+    {"whole_body_jtc", "inactive"}, {"head_position_controller", "inactive"}};
   auto service = manager->create_service<controller_manager_msgs::srv::SwitchController>(
     "/controller_manager/switch_controller",
     [&](
@@ -2463,17 +2523,21 @@ TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryControll
       std::shared_ptr<controller_manager_msgs::srv::SwitchController::Response> reply) {
       std::lock_guard<std::mutex> lock(mutex);
       requests.push_back(*request);
+      for (const auto & name : request->activate_controllers) {
+        states[name] = "active";
+      }
+      for (const auto & name : request->deactivate_controllers) {
+        states[name] = "inactive";
+      }
       reply->ok = true;
     });
-  // Only the head is still active when the disable path stops the controllers.
   auto list = manager->create_service<controller_manager_msgs::srv::ListControllers>(
     "/controller_manager/list_controllers",
-    [](
+    [&](
       const std::shared_ptr<controller_manager_msgs::srv::ListControllers::Request>,
       std::shared_ptr<controller_manager_msgs::srv::ListControllers::Response> reply) {
-      for (const auto & [name, state] :
-           {std::pair{"whole_body_jtc", "inactive"},
-            std::pair{"head_position_controller", "active"}}) {
+      std::lock_guard<std::mutex> lock(mutex);
+      for (const auto & [name, state] : states) {
         controller_manager_msgs::msg::ControllerState entry;
         entry.name = name;
         entry.state = state;
@@ -2487,6 +2551,10 @@ TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryControll
   const bool available =
     Access::waitForControllerManagerServices(*controller_, std::chrono::seconds(2));
   const auto activated = available ? Access::switchJtc(*controller_, true) : SwitchResult::kFailed;
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    states["whole_body_jtc"] = "inactive";  // Disable must still stop the remaining head writer.
+  }
   const auto deactivated =
     available ? Access::switchJtc(*controller_, false) : SwitchResult::kFailed;
   executor.cancel();
@@ -2507,7 +2575,7 @@ TEST_F(EnableManagerFixture, CompanionControllersMustBeDistinctFromTheTrajectory
 {
   rclcpp::NodeOptions options;
   options.parameter_overrides(parametersWithFixtureTopology(
-    {rclcpp::Parameter("jtc_name", std::string("whole_body_jtc")),
+    {rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
      rclcpp::Parameter("companion_controllers", std::vector<std::string>{"whole_body_jtc"})}));
   ASSERT_EQ(
     controller_->init("duplicate_companion", "", options), controller_interface::return_type::OK);
@@ -2519,9 +2587,8 @@ TEST_F(EnableManagerFixture, CompanionControllersMustBeDistinctFromTheTrajectory
 TEST_F(EnableManagerFixture, RuntimeLogTraceFollowsTheStateMachine)
 {
   initAndConfigure(
-    "trace_test",
-    {rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string("")),
-     rclcpp::Parameter("runtime_log_trace", true)});
+    "trace_test", {rclcpp::Parameter("motion_controller", std::string("")),
+                   rclcpp::Parameter("runtime_log_trace", true)});
   if (::testing::Test::HasFatalFailure()) {
     return;
   }
@@ -2556,9 +2623,7 @@ TEST_F(EnableManagerFixture, RuntimeLogTraceFollowsTheStateMachine)
 
 TEST_F(EnableManagerFixture, RuntimeLogTraceIsOffByDefault)
 {
-  initAndConfigure(
-    "trace_off_test",
-    {rclcpp::Parameter("enable_only", true), rclcpp::Parameter("jtc_name", std::string(""))});
+  initAndConfigure("trace_off_test", {rclcpp::Parameter("motion_controller", std::string(""))});
   if (::testing::Test::HasFatalFailure()) {
     return;
   }

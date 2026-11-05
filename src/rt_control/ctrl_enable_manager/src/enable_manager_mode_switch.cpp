@@ -214,19 +214,6 @@ bool EnableManagerController::queryControllerStates(
   return true;
 }
 
-const char * EnableManagerController::controllerNameForMode(
-  ControlMode mode, const std::string & default_controller,
-  const std::string & rolling_controller) noexcept
-{
-  if (mode == ControlMode::kFjtReady) {
-    return default_controller.c_str();
-  }
-  if (mode == ControlMode::kRollingReady) {
-    return rolling_controller.c_str();
-  }
-  return nullptr;
-}
-
 void EnableManagerController::convergeAfterUnsafeModeSwitch(bool require_restart)
 {
   restart_required_.store(require_restart, std::memory_order_release);
@@ -296,17 +283,12 @@ std::uint8_t EnableManagerController::executeModeSwitch(ControlMode source, Cont
     return kModeRestartRequired;
   }
 
-  const char * source_controller =
-    controllerNameForMode(source, default_motion_controller_, rolling_motion_controller_);
-  const char * target_controller =
-    controllerNameForMode(target, default_motion_controller_, rolling_motion_controller_);
-  if (source_controller == nullptr || target_controller == nullptr) {
-    release_switch();
-    return kModeWrongMode;
-  }
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
-  request->deactivate_controllers.emplace_back(source_controller);
-  request->activate_controllers.emplace_back(target_controller);
+  if (buildControllerSwitchRequest(before, target, *request) != SwitchResult::kSuccess) {
+    release_switch();
+    convergeAfterUnsafeModeSwitch(true);
+    return kModeRestartRequired;
+  }
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;
   request->timeout = rclcpp::Duration(mode_switch_timeout_);
@@ -422,47 +404,58 @@ void EnableManagerController::handleSetMode(
   finish(switch_result, current_control_mode_.load(std::memory_order_acquire));
 }
 
-EnableManagerController::SwitchResult EnableManagerController::buildMotionControllerSwitchRequest(
-  const controller_manager_msgs::srv::ListControllers::Response & states, bool activate_default,
+bool EnableManagerController::controllerRunsInMode(
+  const std::string & name, ControlMode target) const
+{
+  if (target == ControlMode::kDisabled) {
+    return false;
+  }
+  if (name == default_motion_controller_) {
+    return target == ControlMode::kFjtReady;
+  }
+  if (name == rolling_motion_controller_) {
+    return target == ControlMode::kRollingReady;
+  }
+  return true;  // Companions stay active in either motion mode.
+}
+
+EnableManagerController::SwitchResult EnableManagerController::buildControllerSwitchRequest(
+  const controller_manager_msgs::srv::ListControllers::Response & states, ControlMode target,
   controller_manager_msgs::srv::SwitchController::Request & request) const
 {
   request.activate_controllers.clear();
   request.deactivate_controllers.clear();
-  for (const std::string & registered_name : motion_controller_names_) {
+  for (const auto & name : managed_controllers_) {
     const auto controller = std::find_if(
       states.controller.begin(), states.controller.end(),
-      [&registered_name](const auto & candidate) { return candidate.name == registered_name; });
+      [&name](const auto & candidate) { return candidate.name == name; });
     if (controller == states.controller.end()) {
       return SwitchResult::kFailed;
     }
     const bool is_active = controller->state == "active";
-    if (registered_name == default_motion_controller_ && activate_default) {
+    if (controllerRunsInMode(name, target)) {
       if (!is_active) {
         if (controller->state != "inactive") {
           return SwitchResult::kFailed;
         }
-        request.activate_controllers.push_back(registered_name);
+        request.activate_controllers.push_back(name);
       }
     } else if (is_active) {
-      request.deactivate_controllers.push_back(registered_name);
+      request.deactivate_controllers.push_back(name);
     }
   }
   return SwitchResult::kSuccess;
 }
 
-bool EnableManagerController::registeredMotionControllerStateMatches(
-  const controller_manager_msgs::srv::ListControllers::Response & states, bool default_active) const
+bool EnableManagerController::controllerStateMatches(
+  const controller_manager_msgs::srv::ListControllers::Response & states, ControlMode target) const
 {
-  for (const std::string & registered_name : motion_controller_names_) {
+  for (const auto & name : managed_controllers_) {
     const auto controller = std::find_if(
       states.controller.begin(), states.controller.end(),
-      [&registered_name](const auto & candidate) { return candidate.name == registered_name; });
-    if (controller == states.controller.end()) {
-      return false;
-    }
-    const std::string expected_state =
-      default_active && registered_name == default_motion_controller_ ? "active" : "inactive";
-    if (controller->state != expected_state) {
+      [&name](const auto & candidate) { return candidate.name == name; });
+    const char * expected = controllerRunsInMode(name, target) ? "active" : "inactive";
+    if (controller == states.controller.end() || controller->state != expected) {
       return false;
     }
   }
@@ -472,29 +465,14 @@ bool EnableManagerController::registeredMotionControllerStateMatches(
 EnableManagerController::ControlMode EnableManagerController::detectControlMode(
   const controller_manager_msgs::srv::ListControllers::Response & states) const
 {
-  const auto state_for = [&states](const std::string & name) -> const std::string * {
-    const auto controller = std::find_if(
-      states.controller.begin(), states.controller.end(),
-      [&name](const auto & candidate) { return candidate.name == name; });
-    return controller == states.controller.end() ? nullptr : &controller->state;
-  };
-  const std::string * fjt_state = state_for(default_motion_controller_);
-  const std::string * rolling_state = state_for(rolling_motion_controller_);
-  if (fjt_state == nullptr || rolling_state == nullptr) {
-    return ControlMode::kRestartRequired;
+  if (controllerStateMatches(states, ControlMode::kDisabled)) {
+    return ControlMode::kDisabled;
   }
-  const bool fjt_active = *fjt_state == "active";
-  const bool rolling_active = *rolling_state == "active";
-  const bool fjt_inactive = *fjt_state == "inactive";
-  const bool rolling_inactive = *rolling_state == "inactive";
-  if (fjt_active && rolling_inactive) {
+  if (controllerStateMatches(states, ControlMode::kFjtReady)) {
     return ControlMode::kFjtReady;
   }
-  if (fjt_inactive && rolling_active) {
+  if (motion_mode_switching_ && controllerStateMatches(states, ControlMode::kRollingReady)) {
     return ControlMode::kRollingReady;
-  }
-  if (fjt_inactive && rolling_inactive) {
-    return ControlMode::kDisabled;
   }
   return ControlMode::kRestartRequired;
 }
