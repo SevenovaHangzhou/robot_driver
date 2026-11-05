@@ -7,6 +7,8 @@ repository_root="$(cd -- "${script_dir}/.." && pwd)"
 readonly repository_root
 # shellcheck disable=SC1091
 source "${repository_root}/versions.env"
+# shellcheck source=hostsetup/legacy-units.sh
+source "${script_dir}/legacy-units.sh"
 
 readonly ethercat_mac="8c:59:3c:15:01:f8"
 readonly bms_can_serial="003000265230500720333159"
@@ -106,8 +108,8 @@ done
 systemctl is-active --quiet apparmor.service docker.service containerd.service ethercat.service
 systemctl is-enabled --quiet rt-control-can-names.service &&
   fail "rt-control-can-names.service must not be enabled at boot"
-[[ ! -e /etc/systemd/system/can0.service ]] ||
-  fail "legacy can0.service remains installed; retire it before V3 host acceptance"
+legacy_can0="$(legacy_unit_problem can0.service)"
+[[ -z "${legacy_can0}" ]] || fail "legacy ${legacy_can0}; disable it before V3 host acceptance"
 systemctl is-enabled --quiet can1.service &&
   fail "can1.service must not be enabled at boot"
 [[ "$(systemctl --failed --no-legend | wc -l)" -eq 0 ]] || fail "systemd has failed units"
