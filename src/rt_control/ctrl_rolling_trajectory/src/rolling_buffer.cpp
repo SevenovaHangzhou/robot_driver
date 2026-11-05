@@ -336,6 +336,10 @@ RejectCode RollingBuffer::prepare(
     if (continuity != RejectCode::kNone) {
       return continuity;
     }
+    // The replacement continues from the buffered state: its first point is only checked, so
+    // the tolerance never becomes a step in the command (user 2026-11-05).
+    replacement_splice.positions = splice.positions;
+    replacement_splice.velocities = splice.velocities;
 
     std::size_t history_start = 0U;
     if (!findHistoryStart(head, context.execution_time_ns, history_start)) {

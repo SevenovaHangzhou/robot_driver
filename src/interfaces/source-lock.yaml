@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# robot_interfaces#16 (slim rolling, breaking; switch to the merge commit before merging).
-commit: 06266d035b580fcd252eeec5ebe20cee3ee71df2
+# robot_interfaces main after #16 (slim rolling).
+commit: 79d982db33ee9a966f059e6e8e43d2a3aab0d838
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:

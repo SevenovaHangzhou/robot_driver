@@ -193,8 +193,9 @@ Mock，但尚未进入远端 V3 或旧工控机 release；临时 envelope 标记
 2. `set_mode(target=ROLLING_READY)`，`accepted=true` 后读 `/rt/arms/rolling/state` 的 `epoch`。
 3. 第一批：`replace_from` 至少在当前时刻 + 替换提前量之后、最大缓冲时长之内；首点等于保持
    位置、速度 0。RT 保持到 `replace_from` 才开始跟随（`state` 从 HOLDING 变 RUNNING）。
-4. 之后每批的首点必须在拼接容差内等于缓冲轨迹在 `replace_from` 处的值（即自己上一批计划在
-   该时刻的位置和速度）；`replace_from` 不早于当前时刻 + 替换提前量。
+4. 之后每批的首点必须在拼接容差内（0.05 rad、0.1 rad/s）等于缓冲轨迹在 `replace_from` 处的值
+   （即自己上一批计划在该时刻的位置和速度）；RT 从缓冲状态连续接续，首点只用于检查；
+   `replace_from` 不早于当前时刻 + 替换提前量。
 5. 每批都看 `last_sequence`/`last_result`；只有 ACCEPTED 才算接受。
 6. 运动结束时最后一批以静止点收尾，并在末点后再留一段静止（不短于保护时间之和）；
    缓冲耗尽时 RT 会提前按限值刹停（`STOP_BUFFER_END`），停点可能差最后一小段。

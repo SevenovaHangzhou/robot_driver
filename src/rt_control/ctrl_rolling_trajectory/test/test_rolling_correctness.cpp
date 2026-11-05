@@ -218,10 +218,12 @@ TEST(RollingCorrectness, InteriorSpliceKeepsEverySampleBeforeRUnchanged)
     }
   }
 
+  // The first point (0.005 rad, 0.01 rad/s off) is within the tolerances: the replacement
+  // continues from the buffered state, with no step at the boundary.
   JointPoint at_boundary;
   ASSERT_TRUE(sampleTrajectoryImage(candidate, replace_from_ns, at_boundary));
-  EXPECT_DOUBLE_EQ(at_boundary.positions[0], suffix[0].positions[0]);
-  EXPECT_DOUBLE_EQ(at_boundary.velocities[0], suffix[0].velocities[0]);
+  EXPECT_DOUBLE_EQ(at_boundary.positions[0], left.positions[0]);
+  EXPECT_DOUBLE_EQ(at_boundary.velocities[0], left.velocities[0]);
   ASSERT_GE(candidate.point_count, 2U);
   bool found_pair = false;
   for (std::size_t index = 0U; index + 1U < candidate.point_count; ++index) {

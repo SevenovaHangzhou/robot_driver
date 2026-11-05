@@ -27,7 +27,7 @@ related: [control-20261104-03]
 - enable_manager：`SetJointControlMode` 去掉协议号、UUID、幂等缓存、`expected_mode` 和切换证据字段；删除 `/rt/internal/joint_control/mode_result` 及 `rt_control_interfaces/JointControlModeResult`；rolling 作为切换源时要求 `state == HOLDING`，接管容差只对 JTC 输出检查（rolling 激活自检接管，JTC 从实测起步）。
 - 切换前静止判定改用驱动器实测速度（台架 2026-11-05：1 ms 位置差分把编码器量化放大到阈值以上，静止手臂被判为 SOURCE_MOVING；做法取自同事的 rolling 拆分）。实测速度由 hw_ethercat 在渲染了 `velocity` 状态接口时导出 `velocity_state_interfaces`，enable_manager 参数 `motion_velocity_interfaces`；没有时仍用位置差分。
 - readiness：可切换的运动控制器（JTC 与 rolling）由 lifecycle `mode_controllers` 列出，要求恰好一个 active；之前两者都要求 active，切换作用域使能后永远 `controller_inactive`（台架 2026-11-05 发现）。
-- 首个批次首点在拼接容差内（0.01 rad、0.03 rad/s）即接受，轨迹从保持位置精确起步（客户端只能从反馈得知保持位置；原协议由 open 返回精确值）；首批开始前到达的批次接续首批，不重开会话。
+- 拼接（含首个批次）改为从缓冲状态连续接续：新批次首点只用于检查是否在拼接容差内，指令不再在拼接点跳变；拼接容差随之放宽到 0.05 rad / 0.1 rad/s（用户 2026-11-05）。首个批次的首点同理，轨迹从保持位置精确起步（客户端只能从反馈得知保持位置；原协议由 open 返回精确值）；首批开始前到达的批次接续首批，不重开会话。
 - composer：删除 `policy_file` 参数源、`digest_as` 与 `rolling_axis_set_sha256`；删除 `Alfa_V3_arm_envelope.mock.yaml`。
 - 运控对接说明 `v3-arm-motion-integration.md` §6、§7.2 按新协议重写。
 

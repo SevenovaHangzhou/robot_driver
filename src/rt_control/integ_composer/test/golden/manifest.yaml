@@ -431,3 +431,9 @@ arch-rolling-slim:
   cases:
   - arm-mock
   - arm-real
+arch-rolling-continuous-splice:
+  reason: rolling 拼接改为从缓冲轨迹连续接续，拼接容差放宽到 0.05 rad / 0.1 rad/s（只决定接受与否，用户 2026-11-05）
+  method: arch-golden-regen.py（arm）按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real

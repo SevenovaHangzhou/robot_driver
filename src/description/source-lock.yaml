@@ -1,8 +1,8 @@
 schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
-source_branch: feature/arch-arm-joint-limits
-source_revision: e4c4a7cb4cdbeaa9f4e37f841399197787c10654
+source_branch: main
+source_revision: af7a4907ca08fd5beb632ea9c5728b30ba0a5c20
 source_tree: 51fba4cc2df0b798ce1bf0736321264bc6370a11
 imported_path: src/description/robot_description
 model_family: alfa_v3
