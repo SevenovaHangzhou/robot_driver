@@ -72,12 +72,6 @@ bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noex
     candidate.execution_time_ns = execution_time_ns_.load(std::memory_order_acquire);
     candidate.replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_acquire);
     candidate.buffered_until_ns = buffered_until_ns_.load(std::memory_order_acquire);
-    candidate.prime_start_time_ns = prime_start_time_ns_.load(std::memory_order_acquire);
-    candidate.accepted_arrival_time_ns =
-      rt_accepted_arrival_time_ns_.load(std::memory_order_acquire);
-    candidate.timeout_count = timeout_count_.load(std::memory_order_acquire);
-    candidate.invariant_failure_count = invariant_failure_count_.load(std::memory_order_acquire);
-    candidate.has_accepted_update = has_accepted_update_.load(std::memory_order_acquire);
     candidate.desired.time_ns = candidate.execution_time_ns;
     for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
       candidate.desired.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
@@ -151,113 +145,48 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
 bool RollingTrajectoryController::buildPublicState(StateMessage & state)
 {
   std::lock_guard<std::mutex> lock(callback_mutex_);
-  RtStateView view;
-  bool coherent = false;
-  constexpr std::size_t kMaximumStateBuildAttempts = 8U;
-  for (std::size_t attempt = 0U; attempt < kMaximumStateBuildAttempts; ++attempt) {
-    if (!synchronizeBufferStateFromRt() || !readRtStateView(view)) {
-      continue;
-    }
-    const std::uint64_t session_epoch = session_epoch_.load(std::memory_order_acquire);
-    if (view.session_epoch != session_epoch) {
-      continue;
-    }
-
-    const SessionState buffer_state = buffer_.sessionState();
-    const bool state_aligned =
-      (view.session_state == SessionState::kRunning && buffer_state == SessionState::kRunning) ||
-      (view.session_state == SessionState::kStopping && buffer_state == SessionState::kStopping) ||
-      (view.session_state == SessionState::kHolding && buffer_state == SessionState::kHolding) ||
-      (view.session_state == SessionState::kTerminated &&
-       buffer_state == SessionState::kTerminated) ||
-      (view.session_state == SessionState::kPriming && buffer_state == SessionState::kPriming) ||
-      (view.session_state == SessionState::kNone && buffer_state == SessionState::kNone);
-    if (!state_aligned) {
-      continue;
-    }
-    if (
-      view.session_state == SessionState::kRunning && buffer_.hasPending() &&
-      buffer_.pendingImage().generation <= view.active_generation) {
-      continue;
-    }
-    coherent = true;
-    break;
-  }
-  if (!coherent) {
-    return false;
-  }
-
-  const std::uint64_t now_ns = steadyNowNs();
-  const SessionState buffer_state = buffer_.sessionState();
-  const bool has_session =
-    buffer_state != SessionState::kNone && buffer_state != SessionState::kTerminated;
-  const bool pending_valid = buffer_.hasPending();
-  const TrajectoryImage & validation_head =
-    pending_valid ? buffer_.pendingImage() : buffer_.image();
-
+  const auto session_state =
+    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
+  const auto stop_reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
   state = StateMessage{};
-  state.published_at = get_node()->now();
-  state.protocol_major = kProtocolMajor;
-  state.protocol_minor = kProtocolMinor;
-  state.controller_boot_id.uuid = controller_boot_id_;
-  if (has_session) {
-    state.session_id.uuid = buffer_.identity().session_id;
-    state.client_instance_id.uuid = buffer_.identity().client_instance_id;
+  state.epoch = activation_epoch_;
+  switch (session_state) {
+    case SessionState::kRunning:
+      state.state = StateMessage::RUNNING;
+      break;
+    case SessionState::kStopping:
+      state.state = StateMessage::STOPPING;
+      break;
+    default:
+      state.state = StateMessage::HOLDING;
   }
-  state.control_mode.value = active_.load(std::memory_order_acquire)
-                               ? ControlModeMessage::ROLLING_READY
-                               : ControlModeMessage::DISABLED;
-  state.session_state.value = static_cast<std::uint8_t>(view.session_state);
-  state.has_session = has_session;
-  state.has_accepted_update = view.has_accepted_update;
-  state.pending_generation_valid = pending_valid;
-  state.test_only_limits = envelope_.source == LimitsSource::kTestOnly;
-  state.limits_source.value = static_cast<std::uint8_t>(envelope_.source);
-  state.axis_set_hash = axis_set_hash_;
-  state.limits_version = envelope_.limits_version;
-  state.active_generation = view.active_generation;
-  state.validation_base_generation = buffer_.validationBaseGeneration();
-  state.pending_generation = pending_valid ? validation_head.generation : 0U;
-  state.last_seen_sequence = buffer_.lastSeenSequence();
-  state.last_accepted_sequence = buffer_.lastAcceptedSequence();
-  state.last_rejected_sequence = last_rejected_sequence_;
-  state.execution_time_ns = view.execution_time_ns;
-  state.replaceable_from_ns = view.replaceable_from_ns;
-  state.buffered_until_ns = view.buffered_until_ns;
-  state.available_horizon_ns = view.buffered_until_ns >= view.execution_time_ns
-                                 ? view.buffered_until_ns - view.execution_time_ns
-                                 : 0U;
-  state.prime_age_ns =
-    view.session_state == SessionState::kPriming && now_ns >= view.prime_start_time_ns
-      ? now_ns - view.prime_start_time_ns
-      : 0U;
-  state.accepted_update_age_ns = view.has_accepted_update && now_ns >= view.accepted_arrival_time_ns
-                                   ? now_ns - view.accepted_arrival_time_ns
-                                   : 0U;
-  state.buffer_point_count = static_cast<std::uint16_t>(validation_head.point_count);
-  state.buffer_capacity = static_cast<std::uint16_t>(buffer_.capacity());
-  state.desired_positions = view.desired.positions;
-  state.desired_velocities = view.desired.velocities;
-  state.last_reject.value = static_cast<std::uint8_t>(last_reject_code_);
-  state.stop_reason.value = static_cast<std::uint8_t>(view.stop_reason);
-  if (last_mode_result_sequence_ != 0U) {
-    state.last_mode_request_id = last_mode_result_.request_id;
-    state.last_mode_result = last_mode_result_.result;
-    state.source_controller_deactivated = last_mode_result_.source_controller_deactivated;
-    state.target_controller_activated = last_mode_result_.target_controller_activated;
-    state.restart_required = last_mode_result_.restart_required;
-  } else {
-    state.last_mode_result.value = ServiceResultMessage::NONE;
-    state.source_controller_deactivated = view.stop_reason == StopReason::kControllerDeactivated;
-  }
-  state.accepted_count = accepted_count_;
-  state.rejected_count = rejected_count_;
-  state.superseded_pending_count = superseded_pending_count_;
-  state.timeout_count = view.timeout_count;
-  state.invariant_failure_count = view.invariant_failure_count;
-  state.command_deadline_miss_count = 0U;
-  state.state_sequence = ++state_sequence_;
+  state.last_sequence = last_sequence_;
+  state.last_result = last_result_;
+  state.stop_reason =
+    stop_reason == StopReason::kNone ? last_stop_reason_ : publicStopReason(stop_reason);
   return true;
+}
+
+std::uint8_t RollingTrajectoryController::publicStopReason(StopReason reason) noexcept
+{
+  switch (reason) {
+    case StopReason::kNone:
+      return StateMessage::STOP_NONE;
+    case StopReason::kUpdateTimeout:
+    case StopReason::kPrimeTimeout:
+      return StateMessage::STOP_UPDATE_TIMEOUT;
+    case StopReason::kLowWater:
+      return StateMessage::STOP_BUFFER_END;
+    case StopReason::kControllerDeactivated:
+    case StopReason::kDisable:
+    case StopReason::kControllerRestart:
+    case StopReason::kGracefulClose:
+      return StateMessage::STOP_DEACTIVATED;
+    case StopReason::kGroupFault:
+      return StateMessage::STOP_FAULT;
+    default:
+      return StateMessage::STOP_INTERNAL;
+  }
 }
 
 bool RollingTrajectoryController::publishPublicState()

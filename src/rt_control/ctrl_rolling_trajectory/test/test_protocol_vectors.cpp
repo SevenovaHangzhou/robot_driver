@@ -62,9 +62,6 @@ OwnedPoint makePoint(std::uint64_t time_ns, double position, double velocity = 0
 DynamicEnvelope makeTestOnlyEnvelope()
 {
   DynamicEnvelope envelope;
-  envelope.source = LimitsSource::kTestOnly;
-  envelope.limits_version[0] = 0xE1U;
-  envelope.limits_version[1] = 0x02U;
   for (AxisEnvelope & axis : envelope.axes) {
     axis.position_lower = -1.0e6;
     axis.position_upper = 1.0e6;
@@ -101,7 +98,7 @@ protected:
     configuration.splice_position_tolerance.fill(1.0e-10);
     configuration.splice_velocity_tolerance.fill(1.0e-10);
     ASSERT_TRUE(buffer_.configure(configuration));
-    ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope(), true));
+    ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope()));
 
     identity_.controller_boot_id = makeIdentifier(1U);
     identity_.session_id = makeIdentifier(21U);
@@ -140,9 +137,9 @@ TEST(RollingBufferSession, RefusesToBeginWithoutAnApprovedDynamicEnvelope)
   const JointPoint anchor = makePoint(0U, 0.0).jointPoint();
   EXPECT_FALSE(buffer.beginSession(identity, anchor));
   EXPECT_EQ(buffer.sessionState(), SessionState::kNone);
-  EXPECT_TRUE(buffer.configureLimits(makeTestOnlyEnvelope(), true));
+  EXPECT_TRUE(buffer.configureLimits(makeTestOnlyEnvelope()));
   EXPECT_TRUE(buffer.beginSession(identity, anchor));
-  EXPECT_FALSE(buffer.configureLimits(makeTestOnlyEnvelope(), true));
+  EXPECT_FALSE(buffer.configureLimits(makeTestOnlyEnvelope()));
 }
 
 TEST_F(ProtocolVectors, WrongIdentityDoesNotConsumeSequenceButPayloadFailureDoes)
@@ -231,7 +228,7 @@ TEST_F(ProtocolVectors, PrimeMustMeetTheConfiguredInitialHorizonExactly)
   configuration.splice_position_tolerance.fill(1.0e-10);
   configuration.splice_velocity_tolerance.fill(1.0e-10);
   ASSERT_TRUE(buffer_.configure(configuration));
-  ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope(), true));
+  ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope()));
   ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
 
   std::array<OwnedPoint, 2> points = {makePoint(0U, 0.0), makePoint(2U * kCycleNs - 1U, 0.1)};
@@ -429,7 +426,7 @@ TEST_F(ProtocolVectors, PrefixPlusSuffixCannotExceedRuntimeCapacity)
   configuration.splice_position_tolerance.fill(1.0e-10);
   configuration.splice_velocity_tolerance.fill(1.0e-10);
   ASSERT_TRUE(buffer_.configure(configuration));
-  ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope(), true));
+  ASSERT_TRUE(buffer_.configureLimits(makeTestOnlyEnvelope()));
   ASSERT_TRUE(buffer_.beginSession(identity_, makePoint(0U, 0.0).jointPoint()));
 
   const std::array<OwnedPoint, 4> prime = {
@@ -458,7 +455,7 @@ TEST_F(ProtocolVectors, InteriorVelocityViolationCannotBecomePending)
 {
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
   envelope.axes[0].velocity_positive = 1.4;
-  ASSERT_TRUE(buffer_.configureLimits(envelope, true));
+  ASSERT_TRUE(buffer_.configureLimits(envelope));
   ASSERT_TRUE(buffer_.beginSession(identity_, JointPoint{}));
 
   std::array<OwnedPoint, 2> points{};
@@ -478,7 +475,7 @@ TEST_F(ProtocolVectors, StopUnsafeDirectlyValidSegmentCannotBecomePending)
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
   envelope.axes[0].position_upper = 1.0;
   envelope.axes[0].stop_acceleration_positive = 1.0;
-  ASSERT_TRUE(buffer_.configureLimits(envelope, true));
+  ASSERT_TRUE(buffer_.configureLimits(envelope));
   ASSERT_TRUE(buffer_.beginSession(identity_, JointPoint{}));
 
   std::array<OwnedPoint, 3> points{};

@@ -151,22 +151,16 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
       return controller_interface::CallbackReturn::ERROR;
     }
     controller_boot_id_ = generateIdentifier();
-    open_cache_ = OpenCacheEntry{};
-    clearActiveCloseCache();
-    finalize_cache_ = CloseCacheEntry{};
-    last_reject_code_ = RejectCode::kNone;
-    last_rejected_sequence_ = 0U;
-    accepted_count_ = 0U;
-    rejected_count_ = 0U;
-    superseded_pending_count_ = 0U;
-    timeout_count_.store(0U, std::memory_order_release);
+    ++activation_epoch_;
+    epoch_sequence_ = 0U;
+    last_sequence_ = 0U;
+    last_result_ = StateMessage::ACCEPTED;
+    last_stop_reason_ = StateMessage::STOP_NONE;
+    session_origin_ns_ = 0;
     invariant_failure_count_.store(0U, std::memory_order_release);
-    last_service_error_ = ServiceResultMessage::NONE;
-    state_sequence_ = 0U;
     stop_requested_.store(false, std::memory_order_release);
   }
 
-  hold_positions_ = source_commands;
   rt_active_trajectory_ = TrajectoryImage{};
   rt_sampling_cursor_.reset();
   rt_identity_ = SessionIdentity{};
@@ -174,9 +168,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   rt_desired_.positions = source_commands;
   rt_desired_.velocities.fill(0.0);
   rt_stop_trajectory_ = StopTrajectory{};
-  if (!rt_stop_trajectory_.configure(
-        envelope_, envelope_.source == LimitsSource::kTestOnly,
-        envelope_.source == LimitsSource::kProvisional)) {
+  if (!rt_stop_trajectory_.configure(envelope_)) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to reset rolling stop trajectory");
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -195,7 +187,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   active_generation_.store(0U, std::memory_order_release);
   buffered_until_ns_.store(0U, std::memory_order_release);
   replaceable_from_ns_.store(0U, std::memory_order_release);
-  prime_start_time_ns_.store(0U, std::memory_order_release);
+  prime_start_ns_.store(0, std::memory_order_release);
   session_epoch_.store(0U, std::memory_order_release);
   session_publication_floor_.store(1U, std::memory_order_release);
   rt_state_version_.store(0U, std::memory_order_release);
@@ -222,11 +214,6 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_deactivate(
     active_.store(false, std::memory_order_release);
     buffer_.terminateSession();
     controller_boot_id_ = Identifier{};
-    open_cache_ = OpenCacheEntry{};
-    clearActiveCloseCache();
-    finalize_cache_ = CloseCacheEntry{};
-    last_mode_result_ = ModeResultMessage{};
-    last_mode_result_sequence_ = 0U;
     stop_requested_.store(false, std::memory_order_release);
     stop_reason_.store(
       static_cast<std::uint8_t>(StopReason::kControllerDeactivated), std::memory_order_release);
@@ -246,7 +233,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_deactivate(
 }
 
 controller_interface::return_type RollingTrajectoryController::update(
-  const rclcpp::Time &, const rclcpp::Duration & period)
+  const rclcpp::Time & time, const rclcpp::Duration & period)
 {
   if (!active_.load(std::memory_order_acquire)) {
     return controller_interface::return_type::OK;
@@ -288,11 +275,8 @@ controller_interface::return_type RollingTrajectoryController::update(
         reason = StopReason::kGracefulClose;
       }
       update_succeeded = beginRtStop(reason);
-    } else if (elapsedExceeds(
-                 steadyNowNs(), prime_start_time_ns_.load(std::memory_order_acquire),
-                 runtime_configuration_.prime_timeout_ns)) {
-      update_succeeded = beginRtStop(StopReason::kPrimeTimeout);
-    } else {
+    } else if (time.nanoseconds() >= prime_start_ns_.load(std::memory_order_acquire)) {
+      // The first batch starts at its replace_from; until then the arms hold.
       OptionalRtFlagGuard handoff(initial_handoff_gate_, true);
       if (handoff.mayProceed()) {
         const SnapshotConsumeResult consumed = consumeLatestRtTrajectory(true);
@@ -404,12 +388,6 @@ std::uint64_t RollingTrajectoryController::steadyNowNs() noexcept
   return nanoseconds < 0 ? 0U : static_cast<std::uint64_t>(nanoseconds);
 }
 
-bool RollingTrajectoryController::isZeroIdentifier(const Identifier & identifier) noexcept
-{
-  return std::all_of(
-    identifier.begin(), identifier.end(), [](std::uint8_t value) { return value == 0U; });
-}
-
 bool RollingTrajectoryController::elapsedExceeds(
   std::uint64_t now_ns, std::uint64_t start_ns, std::uint64_t limit_ns) noexcept
 {
@@ -450,9 +428,7 @@ bool RollingTrajectoryController::resetRtEpoch(std::uint64_t epoch) noexcept
   }
 
   StopTrajectory stop_trajectory;
-  if (!stop_trajectory.configure(
-        envelope_, envelope_.source == LimitsSource::kTestOnly,
-        envelope_.source == LimitsSource::kProvisional)) {
+  if (!stop_trajectory.configure(envelope_)) {
     return false;
   }
 
@@ -589,12 +565,8 @@ bool RollingTrajectoryController::beginRtStop(StopReason reason) noexcept
   const bool reason_latched = stop_reason_.compare_exchange_strong(
     expected_reason, static_cast<std::uint8_t>(reason), std::memory_order_acq_rel,
     std::memory_order_acquire);
-  if (reason_latched) {
-    if (reason == StopReason::kPrimeTimeout || reason == StopReason::kUpdateTimeout) {
-      timeout_count_.fetch_add(1U, std::memory_order_relaxed);
-    } else if (reason == StopReason::kInternalInvariant) {
-      invariant_failure_count_.fetch_add(1U, std::memory_order_relaxed);
-    }
+  if (reason_latched && reason == StopReason::kInternalInvariant) {
+    invariant_failure_count_.fetch_add(1U, std::memory_order_relaxed);
   }
   if (!rt_stop_trajectory_.begin(rt_desired_)) {
     return false;

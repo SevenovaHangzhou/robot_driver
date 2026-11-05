@@ -9,12 +9,6 @@ namespace ctrl_rolling_trajectory
 namespace
 {
 
-bool hasVersion(const std::array<std::uint8_t, 32> & version) noexcept
-{
-  return std::any_of(
-    version.begin(), version.end(), [](std::uint8_t value) { return value != 0U; });
-}
-
 bool validAxisEnvelope(const AxisEnvelope & axis) noexcept
 {
   const bool values_are_finite =
@@ -41,35 +35,17 @@ bool validAxisEnvelope(const AxisEnvelope & axis) noexcept
   return std::isfinite(safe_lower) && std::isfinite(safe_upper) && safe_lower < safe_upper;
 }
 
-bool validEnvelope(
-  const DynamicEnvelope & envelope, bool allow_test_only_limits,
-  bool allow_provisional_limits) noexcept
+bool validEnvelope(const DynamicEnvelope & envelope) noexcept
 {
-  if (
-    envelope.source != LimitsSource::kProduction && envelope.source != LimitsSource::kTestOnly &&
-    envelope.source != LimitsSource::kProvisional) {
-    return false;
-  }
-  if (envelope.source == LimitsSource::kTestOnly && !allow_test_only_limits) {
-    return false;
-  }
-  if (envelope.source == LimitsSource::kProvisional && !allow_provisional_limits) {
-    return false;
-  }
-  if (!hasVersion(envelope.limits_version)) {
-    return false;
-  }
   return std::all_of(envelope.axes.begin(), envelope.axes.end(), validAxisEnvelope);
 }
 
 }  // namespace
 
-bool LimitChecker::configure(
-  const DynamicEnvelope & envelope, bool allow_test_only_limits,
-  bool allow_provisional_limits) noexcept
+bool LimitChecker::configure(const DynamicEnvelope & envelope) noexcept
 {
   configured_ = false;
-  if (!validEnvelope(envelope, allow_test_only_limits, allow_provisional_limits)) {
+  if (!validEnvelope(envelope)) {
     return false;
   }
   envelope_ = envelope;

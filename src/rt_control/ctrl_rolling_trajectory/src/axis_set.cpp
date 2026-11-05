@@ -26,28 +26,4 @@ bool parseJointNames(
   return true;
 }
 
-bool parseSha256Hex(const std::string & text, AxisSetHash & digest, std::string & error)
-{
-  if (text.size() != 2U * digest.size()) {
-    error = "must be 64 lowercase hex digits";
-    return false;
-  }
-  for (std::size_t index = 0U; index < digest.size(); ++index) {
-    std::uint8_t byte = 0U;
-    for (const char character : text.substr(2U * index, 2U)) {
-      byte = static_cast<std::uint8_t>(byte << 4U);
-      if (character >= '0' && character <= '9') {
-        byte = static_cast<std::uint8_t>(byte | static_cast<std::uint8_t>(character - '0'));
-      } else if (character >= 'a' && character <= 'f') {
-        byte = static_cast<std::uint8_t>(byte | static_cast<std::uint8_t>(character - 'a' + 10));
-      } else {
-        error = "must be 64 lowercase hex digits";
-        return false;
-      }
-    }
-    digest[index] = byte;
-  }
-  return true;
-}
-
 }  // namespace ctrl_rolling_trajectory

@@ -75,8 +75,6 @@ OwnedPoint makePoint(std::uint64_t time_ns, double position = 0.0, double veloci
 DynamicEnvelope makeEnvelope()
 {
   DynamicEnvelope envelope;
-  envelope.source = LimitsSource::kTestOnly;
-  envelope.limits_version[0] = 0xE1U;
   for (AxisEnvelope & axis : envelope.axes) {
     axis.position_lower = -100.0;
     axis.position_upper = 100.0;
@@ -132,7 +130,7 @@ BatchView makeBatch(
 void configureBuffer(RollingBuffer & buffer, std::size_t capacity = 64U)
 {
   ASSERT_TRUE(buffer.configure(makeConfiguration(capacity)));
-  ASSERT_TRUE(buffer.configureLimits(makeEnvelope(), true));
+  ASSERT_TRUE(buffer.configureLimits(makeEnvelope()));
 }
 
 std::array<OwnedPoint, 6U> makePrime()
