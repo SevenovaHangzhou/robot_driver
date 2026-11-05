@@ -374,14 +374,18 @@ RejectCode RollingBuffer::prepare(
   }
 
   if (session_state_ == SessionState::kPriming && batch.replace_from_ns == 0U) {
+    // The client only knows the hold from its feedback: its first point must lie within the
+    // splice tolerances of the hold, and the trajectory starts exactly at the hold.
     JointPoint replacement_anchor;
     copyPoint(batch.points[0], replacement_anchor);
-    std::array<double, kAxisCount> exact_tolerance{};
-    const RejectCode anchor_continuity =
-      checkSpliceContinuity(prime_anchor_, replacement_anchor, exact_tolerance, exact_tolerance);
+    const RejectCode anchor_continuity = checkSpliceContinuity(
+      prime_anchor_, replacement_anchor, configuration_.splice_position_tolerance,
+      configuration_.splice_velocity_tolerance);
     if (anchor_continuity != RejectCode::kNone) {
       return anchor_continuity;
     }
+    candidate.points[0].positions = prime_anchor_.positions;
+    candidate.points[0].velocities = prime_anchor_.velocities;
   }
 
   const RejectCode horizon_validation =

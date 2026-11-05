@@ -142,7 +142,7 @@ std::array<OwnedPoint, 6U> makePrime()
   return points;
 }
 
-TEST(RollingCorrectness, PrimeMustCopyTheOpenHoldExactly)
+TEST(RollingCorrectness, FirstPointNearTheHoldStartsExactlyAtTheHold)
 {
   RollingBuffer buffer;
   configureBuffer(buffer);
@@ -150,24 +150,28 @@ TEST(RollingCorrectness, PrimeMustCopyTheOpenHoldExactly)
   const JointPoint anchor = makePoint(0U).jointPoint();
   ASSERT_TRUE(buffer.beginSession(identity, anchor));
 
+  // Splice tolerances are 0.01 rad and 0.03 rad/s.
   std::array<OwnedPoint, 2U> points = {makePoint(0U), makePoint(500U * kMillisecondNs)};
-  points[0].positions[3] = 1.0e-12;
+  points[0].positions[3] = 0.011;
   auto views = makeViews(points);
   EXPECT_EQ(
     buffer.submit(makeBatch(identity, 1U, 0U, views.data(), views.size())),
     RejectCode::kPositionDiscontinuity);
 
   points[0] = makePoint(0U);
-  points[0].velocities[7] = 1.0e-12;
+  points[0].velocities[7] = 0.031;
   views = makeViews(points);
   EXPECT_EQ(
     buffer.submit(makeBatch(identity, 2U, 0U, views.data(), views.size())),
     RejectCode::kVelocityDiscontinuity);
 
   points[0] = makePoint(0U);
+  points[0].positions[3] = 0.005;
   views = makeViews(points);
   EXPECT_EQ(
     buffer.submit(makeBatch(identity, 3U, 0U, views.data(), views.size())), RejectCode::kNone);
+  EXPECT_EQ(buffer.pendingImage().points[0].positions, anchor.positions);
+  EXPECT_EQ(buffer.pendingImage().points[0].velocities, anchor.velocities);
 }
 
 TEST(RollingCorrectness, InteriorSpliceKeepsEverySampleBeforeRUnchanged)
