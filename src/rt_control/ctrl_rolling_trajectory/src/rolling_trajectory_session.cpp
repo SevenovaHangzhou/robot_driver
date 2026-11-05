@@ -98,7 +98,8 @@ std::uint8_t RollingTrajectoryController::admitBatch(
   }
   const std::int64_t now_ns = get_node()->now().nanoseconds();
   const std::int64_t replace_from_ns = rclcpp::Time(message.replace_from).nanoseconds();
-  if (replace_from_ns - now_ns < static_cast<std::int64_t>(runtime_configuration_.replace_lead_ns)) {
+  if (
+    replace_from_ns - now_ns < static_cast<std::int64_t>(runtime_configuration_.replace_lead_ns)) {
     return State::LATE_REPLACE;
   }
   if (!synchronizeBufferStateFromRt()) {
@@ -113,7 +114,8 @@ std::uint8_t RollingTrajectoryController::admitBatch(
   } else if (session_state == SessionState::kStopping) {
     return State::NOT_ACCEPTING;
   } else {
-    if (replace_from_ns - now_ns > static_cast<std::int64_t>(runtime_configuration_.max_horizon_ns)) {
+    if (
+      replace_from_ns - now_ns > static_cast<std::int64_t>(runtime_configuration_.max_horizon_ns)) {
       return State::HORIZON_EXCEEDED;
     }
     const std::uint8_t started = startSession(replace_from_ns);
@@ -124,8 +126,7 @@ std::uint8_t RollingTrajectoryController::admitBatch(
 
   for (std::size_t index = 0U; index < point_count; ++index) {
     const auto & point = message.points[index];
-    const std::int64_t time_ns =
-      offset_ns + rclcpp::Duration(point.time_from_start).nanoseconds();
+    const std::int64_t time_ns = offset_ns + rclcpp::Duration(point.time_from_start).nanoseconds();
     if (time_ns < 0) {
       return State::INVALID_BATCH;
     }

@@ -75,7 +75,8 @@ Each `controllers.yaml` entry lists ordered `parameters` sources and selection
 | `owner_parameters` | Renderer `controller_parameters[controller]` |
 | `topics` | `interface_naming` templates formatted with renderer `controller_context` |
 | `runtime` | Per-start value, supplied at launch |
-| `policy_file` | Copies a referenced policy file into the output and yields its path |
+| `interface` | Public name from `config/interface_naming.yaml` |
+| `model_limits` | Per-joint robot-model limit (`lower`, `upper`, `velocity` from the URDF; `acceleration` from its joint limits file) in the order of a policy joint list |
 
 `{mode}` and `{controller}` expand in paths. `when_policy` skips a source when
 that policy is not selected. Policy checks `match: managed_joints`,

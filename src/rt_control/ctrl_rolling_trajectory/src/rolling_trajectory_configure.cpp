@@ -190,9 +190,16 @@ bool RollingTrajectoryController::loadRuntimeConfiguration(std::string & error)
   const double margin = get_node()->get_parameter("position_margin").as_double();
   DynamicEnvelope envelope;
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    envelope.axes[axis] = AxisEnvelope{
-      lower[axis],        upper[axis],        velocity[axis], velocity[axis], acceleration[axis],
-      acceleration[axis], acceleration[axis], acceleration[axis], margin,      margin};
+    envelope.axes[axis] = AxisEnvelope{lower[axis],
+                                       upper[axis],
+                                       velocity[axis],
+                                       velocity[axis],
+                                       acceleration[axis],
+                                       acceleration[axis],
+                                       acceleration[axis],
+                                       acceleration[axis],
+                                       margin,
+                                       margin};
   }
 
   BufferConfiguration buffer_configuration;

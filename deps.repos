@@ -2,8 +2,8 @@ repositories:
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git
-    # robot_interfaces main after #14 (R-IN-22 arm joint trajectory stream).
-    version: 15525d1665f6e459f6d004f3d3bf78866012f1a9
+    # robot_interfaces#16 (slim rolling, breaking; switch to the merge commit before merging).
+    version: 06266d035b580fcd252eeec5ebe20cee3ee71df2
   src/vendor/ecat_icube:
     type: git
     url: https://github.com/ICube-Robotics/ethercat_driver_ros2.git

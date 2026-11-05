@@ -84,11 +84,8 @@ RT-Control 域私有 `/rt/enable`、`/rt/disable`、`/rt/reset_fault`。
 | 12 | `left_joint6` | rad / rad/s |
 | 13 | `left_joint7` | rad / rad/s |
 
-该顺序延续“右臂在前、左臂在后”的约定。V3 `axis_set_hash` 的规范输入为每轴一行
-`<joint_name>:rad:rad/s\n`，SHA-256 为
-`f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`。
-该值与包络 `limits_version`（制品内包络副本的 SHA-256）都由 `integ_composer` 计算，作为 rolling 控制器参数传入；控制器只解析和比较，不再自行计算（arch-c6）。
-ELECTRI-102 的二代 hash 对应 `right_joint1..6,left_joint1..6,turn,updown`，禁止复用。
+该顺序延续“右臂在前、左臂在后”的约定，由契约 `axis_sets.v3_dual_arm` 登记；二代的
+`right_joint1..6,left_joint1..6,turn,updown` 与之长度相同但语义不同，禁止复用。
 
 ### 4.2 物理拓扑与接口顺序是两件事
 
@@ -179,43 +176,33 @@ IDL/QoS pin、V3 轴序 hash、临时低速 envelope 和 arm runtime launch。�
 Mock，但尚未进入远端 V3 或旧工控机 release；临时 envelope 标记为
 `ESTIMATED_NOT_MEASURED`，不得用于授权真实硬件运动。
 
-### 6.2 目标接口
+### 6.2 接口（robot_interfaces#16，用户 2026-11-05 代表运控确认）
 
-| 方向 | Endpoint | 目标类型 |
+| 方向 | Endpoint | 类型 |
 | --- | --- | --- |
-| Motion -> RT | `/rt/joint_control/set_mode` | `SetJointControlMode` service |
-| Motion -> RT | `/rt/rolling_joint_control/open` | `OpenRollingJointSession` service |
-| Motion -> RT | `/rt/rolling_joint_control/update` | `RollingJointTargetBatch` topic |
-| Motion -> RT | `/rt/rolling_joint_control/close` | `CloseRollingJointSession` service |
-| RT -> Motion | `/rt/rolling_joint_control/state` | `RollingJointControlState` topic |
+| Motion -> RT | `/rt/arms/set_control_mode` | `SetJointControlMode`：`target_mode` → `accepted`、`error`、`mode` |
+| Motion -> RT | `/rt/arms/rolling/target_batch` | `RollingJointTargetBatch`：`epoch`、`sequence`、`replace_from`（ROS 时间）、`points` |
+| RT -> Motion | `/rt/arms/rolling/state` | `RollingJointControlState`：`epoch`、`state`、`last_sequence`、`last_result`、`stop_reason` |
 
-本实现评审分支固定 `robot_interfaces@ea582c8` 候选，公共 `axis_sets.v3_dual_arm`、
-RollingJointPoint、open 的 hold 数组和 state 的 desired 数组均统一为
-`right_joint1..7,left_joint1..7`，位置全部 rad、速度全部 rad/s。V3 轴哈希为
-`f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`。
-旧双六轴＋turn/updown 哈希必须被 open 拒绝，即使数组长度同为14也不兼容。
-字段布局与协议1.0未改变，不能只换hash后重放旧轨迹。候选尚未正式发布，Motion与RT仍须
-使用同一批准后的接口SHA原子升级。
+没有会话服务：切到 `ROLLING_READY` 即开始，切回 `FJT_READY` 即结束。运控与 RT-Control
+同机，`replace_from` 用 ROS 时间；每点 `time_from_start` 相对 `replace_from`，首点为 0。
 
-### 6.3 建议会话流程
+### 6.3 调用流程
 
-1. Motion cancel 自己的 FJT goal，并等待最终 result；
-2. `set_mode(expected=FJT_READY, target=ROLLING_READY)`；
-3. 校验 `accepted=true`、source controller 已停、rolling controller 已 active 且
-   `restart_required=false`；响应中的 boot ID 可能暂时为零；
-4. 等待本次切换之后发布的 `/rt/rolling_joint_control/state`：模式为 `ROLLING_READY`、
-   轴数为 14、boot ID 非零；超过客户端截止时间仍无状态时不得 `open` 或下发轨迹；
-5. `open` 携带 protocol、client/request ID、该状态的 boot ID 和 V3 axis hash；
-6. 使用 open 返回的 hold 与 `initial_replaceable_from_ns` 立即发送静止 prime suffix；
-7. 只有 state 的 `last_accepted_sequence` 到达本批 sequence 才算接受；
-8. 正常阶段持续发布完整 14 轴 future suffix，替换点应留出通信与状态采样余量；
-9. 退出时先 `close(REQUEST_STOP)`，等待同一 session 进入 `HOLDING`；
-10. 再 `close(FINALIZE)`，等待 `has_session=false`；
-11. `set_mode(expected=ROLLING_READY, target=FJT_READY)`。
+1. Motion 取消自己的 FJT goal 并等待结果；手臂静止。
+2. `set_mode(target=ROLLING_READY)`，`accepted=true` 后读 `/rt/arms/rolling/state` 的 `epoch`。
+3. 第一批：`replace_from` 至少在当前时刻 + 替换提前量之后、最大缓冲时长之内；首点等于保持
+   位置、速度 0。RT 保持到 `replace_from` 才开始跟随（`state` 从 HOLDING 变 RUNNING）。
+4. 之后每批的首点必须在拼接容差内等于缓冲轨迹在 `replace_from` 处的值（即自己上一批计划在
+   该时刻的位置和速度）；`replace_from` 不早于当前时刻 + 替换提前量。
+5. 每批都看 `last_sequence`/`last_result`；只有 ACCEPTED 才算接受。
+6. 运动结束时最后一批以静止点收尾，并在末点后再留一段静止（不短于保护时间之和）；
+   缓冲耗尽时 RT 会提前按限值刹停（`STOP_BUFFER_END`），停点可能差最后一小段。
+7. 更新超时或缓冲耗尽后 RT 刹停并 HOLDING；同一 epoch 内下一批（新起点）即重新开始。
+8. 退出：手臂静止（HOLDING）后 `set_mode(target=FJT_READY)`；RUNNING/STOPPING 时切换被拒。
 
-任何 boot/session/client 不匹配、超时、低水位、fault 或 restart-required 都必须丢弃旧
-session 和未确认 batch，禁止自动重放。切换后状态超时应进入明确的停止/恢复流程，
-不能把仅有 controller_manager 的 active 结果当作可开会话的证明。
+限值只取 robot_description：位置限位（内缩 0.05 rad）、双臂 30°/s、60°/s²；刹车减速度
+等于加速度上限。
 
 ### 6.4 Motion 的 future 生成责任
 
@@ -242,7 +229,7 @@ maximum period 为 2 ms；这些是 Mock/初始软件值，不是目标机实测
 - one-cycle detection、non-RT-to-RT visibility 和 period quantization guard；
 - replace lead；
 - update timeout 与最低可停车 horizon；
-- state publish period、prime timeout；
+- state publish period；
 - 每轴 takeover/splice tolerance；
 - 每轴速度、加速度、停车加速度和 position margin。
 
@@ -263,18 +250,16 @@ maximum period 为 2 ms；这些是 Mock/初始软件值，不是目标机实测
 根据单个 `ethercat_ok` 或字符串自行推导 motion admission，应使用明确的
 `safe_to_start_motion` 和当前命令接口终态。
 
-### 7.2 Rolling 错误类别
+### 7.2 Rolling 批次结果（`last_result`）
 
-迁移后 Motion 至少要区分：
+- `WRONG_EPOCH`：控制器重新激活过；读最新 `epoch`，从保持位置重新开始。
+- `STALE_SEQUENCE`、`LATE_REPLACE`：取更晚的 `replace_from` 重新计算。
+- `SPLICE_MISMATCH`：首点不在缓冲轨迹上；从自己上一批被接受的计划在替换点重新采样。
+- `LIMIT_EXCEEDED`、`NOT_STOPPABLE`、`HORIZON_EXCEEDED`、`INVALID_BATCH`：重新规划，RT 不做裁剪。
+- `NOT_ACCEPTING`：正在刹停或手臂不在保持位置；等 HOLDING 后重发。
 
-- 身份类：wrong protocol/boot/session/client/axis set；丢弃本地 session，禁止重放；
-- 排序类：stale sequence、late replace、non-monotonic time；读取最新 state 后重新计算；
-- 连续性类：position/velocity discontinuity；从最后 accepted future 在替换点重采样；
-- 包络类：position/velocity/acceleration/not-stopping-viable；重新规划，不由 RT clamp；
-- 生命周期类：not enabled、wrong mode、switch timeout、restart required；停止新命令并人工恢复。
-
-字符串只用于日志。Motion 的状态机应依据枚举结果、`ErrorInfo.code`、`retryable` 和 public
-state，而不是匹配错误文本。
+停止原因（`stop_reason`）：`UPDATE_TIMEOUT`、`BUFFER_END` 可直接重发；`DEACTIVATED`、
+`FAULT`、`INTERNAL` 需等 RT 恢复（见 `/rt/readiness`）。
 
 ## 8. Physical profile 与使能范围
 
@@ -330,7 +315,7 @@ state，而不是匹配错误文本。
 
 1. 只用公共接口和固定 QoS；
 2. 验证完整 14 轴 FJT、取消、拒绝、反馈过期和 restart；
-3. rolling 依次验证 prime、30 Hz update、splice、reject、低水位、timeout、close/finalize；
+3. rolling 依次验证首批延时开始、30 Hz update、splice、reject、缓冲耗尽、更新超时与再次开始；
 4. 先单臂视觉伺服，非伺服臂保持 accepted future；
 5. 完成急停、断总线、controller restart 和最终停机验收后才进入生产。
 
@@ -340,6 +325,6 @@ state，而不是匹配错误文本。
 - 不把机械臂切为 CSV 以绕过 rolling trajectory；
 - 不发 partial FJT 或单关节旁路命令；
 - 不由 Motion 调 controller_manager 或域私有 enable/reset 服务；
-- 不在反馈过期、safety false、mode/session 不明时发送新命令；
-- 不复用 ELECTRI-102 的旧 axis hash、4 ms guard 或二代 dynamic envelope；
+- 不在反馈过期、readiness 为 false、模式或 epoch 不明时发送新命令；
+- 不复用 ELECTRI-102 的二代轴序、4 ms guard 或二代 dynamic envelope；
 - 不把旧工控机上的 validation-only 成功描述成三代机真实轨迹控制通过。

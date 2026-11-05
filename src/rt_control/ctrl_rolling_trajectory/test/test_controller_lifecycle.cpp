@@ -26,7 +26,10 @@ namespace
 
 constexpr double kTakeoverTolerance = 0.125;
 
-std::vector<rclcpp::Parameter> makeValidParameters() { return testControllerParameters(); }
+std::vector<rclcpp::Parameter> makeValidParameters()
+{
+  return testControllerParameters();
+}
 
 void replaceParameter(
   std::vector<rclcpp::Parameter> & parameters, const rclcpp::Parameter & replacement)

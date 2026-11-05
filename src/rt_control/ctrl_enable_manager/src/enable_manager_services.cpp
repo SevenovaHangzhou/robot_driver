@@ -19,7 +19,6 @@
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
-#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
 #include "robot_system_interfaces/msg/error_info.hpp"
 

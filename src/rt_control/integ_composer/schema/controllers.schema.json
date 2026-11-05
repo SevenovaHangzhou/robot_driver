@@ -227,28 +227,6 @@
                     ],
                     "additionalProperties": false
                   },
-                  "policy_file": {
-                    "type": "object",
-                    "properties": {
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "as": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "digest_as": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "required": [
-                      "name",
-                      "as"
-                    ],
-                    "additionalProperties": false
-                  },
                   "state_ready": {
                     "type": "object",
                     "properties": {
@@ -297,8 +275,7 @@
                       "as"
                     ],
                     "additionalProperties": false
-                  }
-               ,
+                  },
                   "model_limits": {
                     "type": "object",
                     "properties": {
@@ -312,6 +289,8 @@
                       },
                       "attribute": {
                         "enum": [
+                          "lower",
+                          "upper",
                           "velocity",
                           "acceleration"
                         ]
@@ -359,11 +338,6 @@
                   {
                     "required": [
                       "runtime"
-                    ]
-                  },
-                  {
-                    "required": [
-                      "policy_file"
                     ]
                   },
                   {

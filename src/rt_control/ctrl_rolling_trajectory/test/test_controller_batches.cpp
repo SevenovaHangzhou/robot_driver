@@ -473,7 +473,8 @@ TEST_F(ControllerBatchTest, ReactivationStartsANewEpoch)
 {
   const rclcpp::Time start = now() + rclcpp::Duration::from_seconds(0.1);
   Batch first_epoch = move(1U, start, 0.4, 0.02);
-  ASSERT_EQ(controller_->on_deactivate(rclcpp_lifecycle::State()),
+  ASSERT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::SUCCESS);
   activate();
   EXPECT_EQ(Peer::state(*controller_).epoch, 2U);

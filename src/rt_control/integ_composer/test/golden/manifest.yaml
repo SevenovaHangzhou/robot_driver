@@ -11,7 +11,6 @@ cases:
       - controller_order.yaml
       - controllers.yaml
       - robot_description.xml
-      - runtime/alfa_v3_rolling_envelope.mock.yaml
       - runtime/diagnostics.yaml
       - runtime/left_joint1.yaml
       - runtime/left_joint2.yaml
@@ -35,7 +34,6 @@ cases:
       - controller_order.yaml
       - controllers.yaml
       - robot_description.xml
-      - runtime/alfa_v3_rolling_envelope.mock.yaml
       - runtime/diagnostics.yaml
       - runtime/left_joint1.yaml
       - runtime/left_joint2.yaml
@@ -184,9 +182,6 @@ cases:
       - runtime/lifecycle.yaml
 rename_map:
   alfa_v3_stationary_enable: Alfa_V3_stationary_enable
-  alfa_v3_rolling_envelope.mock.yaml: Alfa_V3_arm_envelope.mock.yaml
-  <RUNTIME_DIR>/alfa_v3_rolling_envelope.mock.yaml: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
-  runtime/alfa_v3_rolling_envelope.mock.yaml: runtime/Alfa_V3_arm_envelope.mock.yaml
 # Removed one-shot generator; last version: git show 70c831c:src/rt_control/rt_control_composer/test/golden/generate_head_force_baseline.py
 head_force_generation_command: python3 test/golden/generate_head_force_baseline.py --baseline <READ_ONLY_BASELINE>
   --output test/golden
@@ -430,3 +425,9 @@ arch-arm-motion-limits:
   - arm-real-jtc
   - head-mock
   - head-real
+arch-rolling-slim:
+  reason: 精简 rolling 协议（robot_interfaces#16）：rolling 参数改为机器人模型限位（位置、30°/s、60°/s²）+ 位置余量 0.05 rad，删除轴集合 SHA、限值版本、包络文件、限值来源与预热参数
+  method: arch-golden-regen.py（arm/stationary）、arch-head-golden2.py、arch-force-golden2.py 按测试夹具重算；删除 runtime 包络文件
+  cases:
+  - arm-mock
+  - arm-real

@@ -177,16 +177,27 @@ controllers:
         match: actuator_groups
     - policy:
         name: motion
-        path: joints
-        as: axis_set_hash
-        transform: rolling_axis_set_sha256
-    - policy:
-        name: motion
         path: rolling
-    - policy_file:
-        name: envelope
-        as: envelope_file
-        digest_as: limits_version
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: lower
+        as: joint_position_lower
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: upper
+        as: joint_position_upper
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   enable_manager:
     module: arms
     name: enable_manager
