@@ -126,8 +126,7 @@
                       "transform": {
                         "enum": [
                           "flatten",
-                          "lengths",
-                          "rolling_axis_set_sha256"
+                          "lengths"
                         ]
                       },
                       "match": {
