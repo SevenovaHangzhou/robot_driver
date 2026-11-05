@@ -53,7 +53,6 @@ PP 夹爪、swerve_driver、物理清单和双臂原位使能实现。保留原�
   首次直连 VCS 下载停滞后终止，传入既有环境的预定义代理 build args 后成功；
   没有修改 Dockerfile 网络策略或在仓库记录代理值。
   镜像 `rt-control:electri-118-main-pr-20260913`，ID
-  `sha256:7e2baab36cba196977975aa4cb9e3a8419a96e19293aa7bd35cdce253a4dc104`。
   `src/patches/docker/tools/deps.repos/versions.env` 与 PR 工作区逐文件比对一致；
   构建后的补充仅涉及文档引用、验证记录和 CI 测试依赖。
 - 镜像内重新构建 enable_manager、robot_hw_ethercat、swerve_driver 并运行

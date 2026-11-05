@@ -84,11 +84,7 @@ RT-Control 域私有 `/rt/enable`、`/rt/disable`、`/rt/reset_fault`。
 | 12 | `left_joint6` | rad / rad/s |
 | 13 | `left_joint7` | rad / rad/s |
 
-该顺序延续“右臂在前、左臂在后”的约定。V3 `axis_set_hash` 的规范输入为每轴一行
-`<joint_name>:rad:rad/s\n`，SHA-256 为
-`f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`。
-该值与包络 `limits_version`（制品内包络副本的 SHA-256）都由 `integ_composer` 计算，作为 rolling 控制器参数传入；控制器只解析和比较，不再自行计算（arch-c6）。
-ELECTRI-102 的二代 hash 对应 `right_joint1..6,left_joint1..6,turn,updown`，禁止复用。
+该顺序延续“右臂在前、左臂在后”的约定。轴集合不再带哈希标识（robot_interfaces#16）。
 
 ### 4.2 物理拓扑与接口顺序是两件事
 
@@ -191,10 +187,8 @@ Mock，但尚未进入远端 V3 或旧工控机 release；临时 envelope 标记
 
 本实现评审分支固定 `robot_interfaces@ea582c8` 候选，公共 `axis_sets.v3_dual_arm`、
 RollingJointPoint、open 的 hold 数组和 state 的 desired 数组均统一为
-`right_joint1..7,left_joint1..7`，位置全部 rad、速度全部 rad/s。V3 轴哈希为
-`f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`。
-旧双六轴＋turn/updown 哈希必须被 open 拒绝，即使数组长度同为14也不兼容。
-字段布局与协议1.0未改变，不能只换hash后重放旧轨迹。候选尚未正式发布，Motion与RT仍须
+`right_joint1..7,left_joint1..7`，位置全部 rad、速度全部 rad/s。
+候选尚未正式发布，Motion与RT仍须
 使用同一批准后的接口SHA原子升级。
 
 ### 6.3 建议会话流程
@@ -297,7 +291,6 @@ state，而不是匹配错误文本。
 | Host / kernel | `ar-Default-string` / `5.15.0-1032-realtime` |
 | V3 release | `/home/ar/rt-control-v3/releases/1256885` |
 | Source SHA | `1256885ce3b99c794bc9ea68d4b353f880166337` |
-| Source bundle SHA-256 | `064a5ff1db27e4b1afa70f6b6785416463528c6e5283bfe3b35c8a46b5478576` |
 | 构建 | 34 packages PASS |
 | 测试 | 1697 tests，0 errors/failures，23 skipped |
 | 静态入口 | arms-only validation PASS，14 CSP + 2 PP |

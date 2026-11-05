@@ -29,8 +29,7 @@ related: [ELECTRI-174, BQ-152, BQ-153]
 - 公共候选 `ea582c8a711874813d2ad7f0801b366bd32ab67e` 的注册表、四个 Rolling IDL、
   FJT约束、生成视图统一到 `right_joint1..7,left_joint1..7`，所有位置 rad、速度 rad/s。
 - `axis_sets.v3_dual_arm` 登记规范顺序和
-  `f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4`；
-  门禁重新计算 UTF-8 逐行含末尾 LF 的SHA-256，拒绝顺序、数量和哈希漂移。
+  门禁核对顺序和数量。
 - 不改变 Rolling wire 数组、协议1.0、会话／序号机制或运行控制周期。不能仅把V2 hash换为V3
   就继续使用旧轨迹；Motion必须按双七轴重新生成目标。
 - G-01、P-01/P-02、M-08、N-17 在公共注册表和生成视图明确标为 Legacy V2；旧类型保留供

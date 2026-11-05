@@ -8,7 +8,7 @@
 > “当前工程接口”，公共域间契约冻结前不承诺名称、QoS 或错误语义长期兼容。
 
 当前发布候选版本为 `V0.10`，镜像 tag 为 `rt-control:V0.10`，交付物通过 GitHub Release
-附件 `rt-control-V0.10-<git-sha>.tar.gz` 与 `.sha256` 发布，目标机仅为 `ar@192.168.0.40`。
+附件 `rt-control-V0.10-<git-sha>.tar.gz` 发布，目标机仅为 `ar@192.168.0.40`。
 该版本包含 T-020 TF 根链、PLC/BMS、公共启停、真空公共接口、安全摘要、readiness 和
 T-IF-RT-005 统一 `ErrorInfo` 公共错误结构。
 

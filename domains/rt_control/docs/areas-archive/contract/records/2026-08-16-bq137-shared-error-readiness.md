@@ -10,7 +10,7 @@ env: both
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }
 verified: PASS
-evidence: [upstream robot_interfaces PR 6 head d8236bda7e087a54a8ee7585bc7a2d6a94251af4, quality_gate 187/187, affected ROS packages 22/22, Domain 142 in-process readiness smoke, Docker image sha256:59a476fbb5023a0b36aba47db8323c2b4c73a951cd7a05e42295abeaed5c82f1]
+evidence: [upstream robot_interfaces PR 6 head d8236bda7e087a54a8ee7585bc7a2d6a94251af4, quality_gate 187/187, affected ROS packages 22/22, Domain 142 in-process readiness smoke, Docker image ]
 supersedes: []
 related: [BQ-133, BQ-136, BQ-137, contract-20260814-01, TC-IF-01]
 ---
@@ -57,7 +57,6 @@ readiness blocker 仍是动态诊断句子；实现后完成以下 GREEN 验证�
   `rt_status_adapter` 节点和 `Q_LATCHED` 等价订阅，确认无输入时发布
   `UNAVAILABLE`、`map_version=""`、空 errors 和 6 个稳定 blocker token。
 - 无代理 Docker clean build 完成 28 个包，镜像
-  `sha256:59a476fbb5023a0b36aba47db8323c2b4c73a951cd7a05e42295abeaed5c82f1`；
   `--network none`、无设备容器 smoke 确认 vendor HEAD/source-lock 均为 `d8236bd...`、
   契约 0.7.0、整数 DREE 映射以及全部 5 个命名 QoS profile 可实例化。仅出现既有
   Lely 构建警告与 CANopen DCF `DynamicChannels`/`[607E]` 警告。

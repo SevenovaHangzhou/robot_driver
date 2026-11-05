@@ -14,7 +14,7 @@ evidence:
   - "python3 -m pytest -q tools/tests/test_track_mechanics.py: PASS"
   - "tools/quality_gate.sh: PASS (193 tests, gated coverage 83%)"
   - "rt-control:ipc-main-sync-20260828 image build: PASS (28 packages)"
-  - "image id sha256:d26242edc6f3d5dce1ea08e3c9d99f4d10ca035c10a6567baaa34c7b01bed8ab"
+  - "image id "
   - "Domain 142 hardware-free Docker Mock: PASS (devices=[], exit=0)"
 supersedes: [canopen-chassis-20260821-01#F1-wheel-separation]
 related: [BQ-139, BQ-140, REQ-CAN-003]

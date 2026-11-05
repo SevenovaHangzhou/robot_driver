@@ -305,7 +305,7 @@ hw_rename_regeneration:
   - force-real
 rolling_digests_regeneration:
   reason: 'arch-c6 user decision 2026-10-31: the composer computes the rolling axis_set_hash and the envelope
-    limits_version (SHA-256 of the artifact copy); the controller only parses and compares them and no
+    limits_version; the controller only parses and compares them and no
     longer links OpenSSL'
   method: only the rolling_trajectory_controller.ros__parameters axis_set_hash and limits_version keys
     were added; both values equal what the controller previously computed (interface axis set f4c8ff…,
@@ -402,7 +402,7 @@ arch-head-move-action:
   - head-mock
   - head-real
 arch-drop-sha-ids:
-  reason: 故障表与六维力配置的文档出处去掉 SHA-256（用户 2026-11-04）
+  reason: 故障表与六维力配置的文档出处去掉内容哈希（用户 2026-11-04）
   method: arch-golden-regen.py（arm/stationary）、arch-force-golden2.py 按测试夹具重算
   cases:
   - arm-mock

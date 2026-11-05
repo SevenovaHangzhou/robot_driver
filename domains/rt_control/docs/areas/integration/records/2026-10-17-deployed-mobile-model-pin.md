@@ -17,8 +17,7 @@ related: [chassis-control-20261017-01, integration-20261014-04]
 
 ## 背景
 
-研华底盘台架运行的模型是 `robot_analytic_proxy_mobile.urdf`（SHA-256
-`bba180d064ff4fe672b9b3fdfa7e8e8fd1bc9d1cac4f7cbc13c751ebd0fbff1c`），
+研华底盘台架运行的模型是 `robot_analytic_proxy_mobile.urdf`，
 已推送到 robot_description `feature/electri-127-deployed-mobile-model@c49e8ed`（基于 e189bdb）。
 该线由模型方 #14 切换为 V3.2.2 吸盘生产模型，删除了夹爪入口。用户选择让主线锁定该模型。
 
@@ -44,7 +43,7 @@ related: [chassis-control-20261017-01, integration-20261014-04]
 
 ## 结论与冻结事实
 
-- F1: 主线 Robot Model 为 c49e8ed，部署入口 SHA-256 与研华一致。
+- F1: 主线 Robot Model 为 c49e8ed，部署入口与研华一致。
 - F2: 在提供带夹爪关节的模型前，PP 夹爪不参与任何组合；带夹爪的真实手臂总线会多出两个从站。
 
 ## 遗留
