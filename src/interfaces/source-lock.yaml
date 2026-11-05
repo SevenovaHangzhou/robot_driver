@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# robot_interfaces main after #14 (R-IN-22 arm joint trajectory stream, user 2026-11-04).
-commit: 15525d1665f6e459f6d004f3d3bf78866012f1a9
+# robot_interfaces main after #15 (arm trajectory admission limits).
+commit: a144d5f7e325418404aaf0cea7f9c23bba3b19f8
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:
