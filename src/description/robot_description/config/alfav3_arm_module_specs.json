@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "manual": "eRob机器人关节模组用户手册_V3.44.pdf",
-  "manual_sha256": "73e138369aa2780c980e0652008c8311c95d26ac3b4142ce2f05afdc1bf0e7b5",
   "applies_to": [
     "left",
     "right"

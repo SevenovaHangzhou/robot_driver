@@ -9,6 +9,14 @@
 
 ## Unreleased
 
+### 删除内容哈希
+
+- 2026-11-05：按用户要求删除全部 SHA-256 内容哈希：`mesh_assets.json` 的 `files` 改为路径列表；`arm_collision_import.json` 删除源/目标 URDF 与网格哈希；清单删除头部来源哈希；执行器参数删除手册哈希；测试改为核对文件存在与引用一致；导入工具不再计算哈希。来源追溯靠 git 历史与文件路径。
+
+### MuJoCo 迁移
+
+- 2026-11-05：将 `mujoco/`、模型转换及碰撞演示脚本迁至同级 `robot_simulation`，同步场景、网格引用和文档；MuJoCo 校验迁入仿真项目，本仓库测试仅依赖机器人描述。URDF、原始网格和动力学参数保持不变。
+
 ### 双臂速度与加速度上限
 
 - 2026-11-04：按用户要求，左右 J1～J7 的 URDF `<limit velocity>` 与限位 YAML `max_velocity_rad_s` 统一改为 30°/s（0.5235987755982988 rad/s），限位 YAML 新增 `max_acceleration_rad_s2` = 60°/s²（速度上限的 2 倍）。执行器参数中原 `urdf_velocity_rad_s` 改名 `peak_velocity_rad_s`，数值仍为 eRob 峰值转速；清单新增 `arm_motion_limits` 记录来源。同步来源哈希与回归测试。MuJoCo 不执行速度限制，模型文件不变。
