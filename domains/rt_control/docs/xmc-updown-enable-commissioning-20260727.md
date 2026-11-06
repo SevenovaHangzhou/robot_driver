@@ -29,7 +29,7 @@ FJT、`/cmd_vel` 或任何有意运动目标。
 ## 发布物与现场前提
 
 - Git/T-017：`95527cc88700a50a90e193ac9afa63a00d05e907`；
-- image ID：`sha256:3116276ae004ec85bda8407d1ec98819a00310e77083cca0877c04211550d3ac`；
+- image ID：；
 - 目标内核：`5.15.0-1032-realtime`，控制 CPU 14；
 - EtherCAT：16 positions，position 15 为 XMC `0x34E/0x445566/rev0`；
 - XMC 固件：HW 1.0 / SW 5.11，固定 Rx/Tx 为 19/24 bytes；

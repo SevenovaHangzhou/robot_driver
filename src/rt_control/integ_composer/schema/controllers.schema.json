@@ -126,8 +126,7 @@
                       "transform": {
                         "enum": [
                           "flatten",
-                          "lengths",
-                          "rolling_axis_set_sha256"
+                          "lengths"
                         ]
                       },
                       "match": {
@@ -227,28 +226,6 @@
                     ],
                     "additionalProperties": false
                   },
-                  "policy_file": {
-                    "type": "object",
-                    "properties": {
-                      "name": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "as": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "digest_as": {
-                        "type": "string",
-                        "minLength": 1
-                      }
-                    },
-                    "required": [
-                      "name",
-                      "as"
-                    ],
-                    "additionalProperties": false
-                  },
                   "state_ready": {
                     "type": "object",
                     "properties": {
@@ -297,6 +274,38 @@
                       "as"
                     ],
                     "additionalProperties": false
+                  },
+                  "model_limits": {
+                    "type": "object",
+                    "properties": {
+                      "policy": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "attribute": {
+                        "enum": [
+                          "lower",
+                          "upper",
+                          "velocity",
+                          "acceleration"
+                        ]
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "policy",
+                      "path",
+                      "attribute",
+                      "as"
+                    ],
+                    "additionalProperties": false
                   }
                 },
                 "oneOf": [
@@ -332,11 +341,6 @@
                   },
                   {
                     "required": [
-                      "policy_file"
-                    ]
-                  },
-                  {
-                    "required": [
                       "state_ready"
                     ]
                   },
@@ -348,6 +352,11 @@
                   {
                     "required": [
                       "interface"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "model_limits"
                     ]
                   }
                 ],

@@ -38,24 +38,6 @@ Only `robot_driver` and `robot_driver_review` contain `dual_arm_ethercat_control
 
 This is a real semantic conflict, not formatting drift: authoritative `6bc94cd` has Ti5 `0x1600/0x1A00` and additional velocity/effort/mode interfaces, whereas frozen REQ-ECAT-002/004 and the hardware mapping export require position-only `0x1601/0x1A01` plus Ti5 `0x60C2`. The frozen requirements and mapping therefore govern the target, while the legacy checkout remains the named comparison baseline. The resulting `diff_legacy.py` policy question is recorded as BQ-001.
 
-Authoritative config SHA-256 fingerprints:
-
-```text
-13c9ed8c7b3bb9ffe926c426cb55467263564b8e68bda1ea10ad8b5a65c679b0  controllers.yaml
-c796823de5872867dcf15d852f30c64b7f370870f86b43b79eab3def9b8d7a62  drive_profiles.yaml
-0ec2ee6aa48dd86938d81b32b42cf8eaf9701faf618c1b036b0948d92b06cea9  ethercat_topology.yaml
-59e54845916aa347d75ac1a567535bc66ffbf490d09f200a4bcb4ccf2a0fe183  icube_profiles/joint1.yaml
-fef30dd547127b654b3076a3c4a5537456e663909b7d7eb88745f035ba257f3e  icube_profiles/joint2.yaml
-fef30dd547127b654b3076a3c4a5537456e663909b7d7eb88745f035ba257f3e  icube_profiles/joint3.yaml
-59e54845916aa347d75ac1a567535bc66ffbf490d09f200a4bcb4ccf2a0fe183  icube_profiles/joint4.yaml
-59e54845916aa347d75ac1a567535bc66ffbf490d09f200a4bcb4ccf2a0fe183  icube_profiles/joint5.yaml
-59e54845916aa347d75ac1a567535bc66ffbf490d09f200a4bcb4ccf2a0fe183  icube_profiles/joint6.yaml
-f9de61a006ccf188ddd89a9c63f3041e6b8fcd8039b65b5f30300e52653f7773  icube_profiles/left_joint6.yaml
-14fa80a7c943524df47cad8f788ce0b2433b1c30c6372a808514fa39ecff29c8  icube_profiles/right_joint6.yaml
-c04f90306b5ec40ffbeb04b1028198e34118df941957aff36b138112ee2d8cd9  icube_profiles/turn.yaml
-7b8bc5868167921ecc461c501f1fcdfc340870abc2f33c9724e2b3d6402b399e  joint_limits.yaml
-```
-
 ## 3. Authoritative topology and controller configuration
 
 The complete authoritative `ethercat_topology.yaml` is:

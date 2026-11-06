@@ -8,8 +8,8 @@
 > Docker 路径在 PCIe CAN 迁移和发布验证完成前不得使用。脚本会访问真实
 > EtherCAT/CANopen 并自动调用 `/rt/enable`，无现场授权时严禁运行。
 
-> **当前发布候选：** `V0.10`。镜像以 GitHub Release 附件发布，目标机应先校验
-> `rt-control-V0.10-<git-sha>.tar.gz.sha256`，再 `docker load` 得到 `rt-control:V0.10`。
+> **当前发布候选：** `V0.10`。镜像以 GitHub Release 附件发布，目标机下载
+> `rt-control-V0.10-<git-sha>.tar.gz` 后 `docker load` 得到 `rt-control:V0.10`。
 > 目标机受控“启动→READY→stop”验证完成后，`~/rt-control-current` 才能作为同事固定入口。
 
 > **T-020 TF 发布边界：** 前序镜像已在目标机完成 TF 只读复核；本发布候选延续
@@ -123,7 +123,7 @@ FJT: /rt/arms/follow_joint_trajectory
 | 真空动作 | `/vacuum/grip`，`robot_rt_control_interfaces/action/VacuumGrip`；通道 `left/right`，布尔吸附验证；当前 `grip_profile_id=default` |
 | 真空状态 | `/vacuum/state`，`robot_rt_control_interfaces/msg/VacuumState`；无 `pressure_pa` |
 | 真空泵维护 | `/vacuum/pump/set_enabled`，`robot_rt_control_interfaces/srv/SetPumpEnabled` |
-| PLC 底层调试 | `/plc/left_solenoid`、`/plc/right_solenoid`、`/plc/vacuum_pump` |
+| 真空 | `/rt/vacuum/pump/set_enabled`、`/rt/vacuum/{left,right}_valve/set_enabled`（`SetEnabled`）；压力 `/rt/vacuum/{left,right}/pressure` |
 | 安全摘要 | `/control/safety_state`，`robot_rt_control_interfaces/msg/SafetyState` |
 | 就绪状态 | `/rt/readiness`，`robot_system_interfaces/msg/DomainReadiness` |
 | 诊断 | `/diagnostics` |

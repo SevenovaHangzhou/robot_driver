@@ -26,7 +26,7 @@ ENVELOPE_SCHEMAS = {
 
 def check_fault_table(name: str, table) -> None:
     """Cross-field rules the schema cannot express: one entry per key, matching read mode."""
-    kinds = {entry["object"]: entry["kind"] for entry in table["read"]}
+    kinds = {entry.get("object", entry.get("field")): entry["kind"] for entry in table["read"]}
     keys = set()
     for fault in table["faults"]:
         if "code" in fault:
@@ -51,7 +51,9 @@ def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[
     scopes = manifest["scopes"].values()
     # Robot model inputs and scope controller files are complete owner documents,
     # not machine envelopes.
-    skipped = {s["mock_robot_model"]["joint_limits_file"] for s in scopes if "mock_robot_model" in s}
+    skipped = {
+        s["mock_robot_model"]["joint_limits_file"] for s in scopes if "mock_robot_model" in s
+    }
     skipped |= {s["controller_file"]["file"] for s in scopes if "controller_file" in s}
     # Owner policies have no machine envelope; each is validated by its owner's schema.
     policies = {ref["file"]: ref for ref in manifest["policy_refs"].values()}
@@ -82,7 +84,9 @@ def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[
                 if "motor_encoder_type" not in document and any(
                     "encoder" in fault for fault in table["faults"]
                 ):
-                    raise ValueError(f"{name}: fault_table has encoder entries; declare motor_encoder_type")
+                    raise ValueError(
+                        f"{name}: fault_table has encoder entries; declare motor_encoder_type"
+                    )
     return passed
 
 

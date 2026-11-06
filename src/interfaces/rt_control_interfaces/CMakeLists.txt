@@ -9,9 +9,7 @@ find_package(std_msgs REQUIRED)
 find_package(unique_identifier_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/JointControlModeResult.msg"
   "msg/PlcIoState.msg"
-  "srv/SetDigitalOutput.srv"
   DEPENDENCIES builtin_interfaces robot_rt_control_interfaces std_msgs unique_identifier_msgs
 )
 

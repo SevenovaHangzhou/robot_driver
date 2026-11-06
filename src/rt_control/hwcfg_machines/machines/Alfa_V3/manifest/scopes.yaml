@@ -62,6 +62,7 @@ scopes:
       - swerve_controller
       active:
       - joint_state_broadcaster
+      - rt_internal_state_broadcaster
       - enable_manager
     controller_parameter_bindings:
       swerve_controller:
@@ -148,6 +149,7 @@ scopes:
       - head_position_controller
       active:
       - joint_state_broadcaster
+      - rt_internal_state_broadcaster
       - enable_manager
     controller_file:
       package: hwcfg_machines

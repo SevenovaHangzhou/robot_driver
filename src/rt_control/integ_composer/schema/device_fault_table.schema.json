@@ -41,11 +41,10 @@
     "read": {
       "type": "array",
       "minItems": 1,
-      "description": "Objects that carry the vendor code: 'code' = one numeric code, 'bits' = one fault per set bit.",
+      "description": "Where the vendor code is read: a CANopen 'object' or another 'field'; 'code' = one numeric code, 'bits' = one fault per set bit.",
       "items": {
         "type": "object",
         "required": [
-          "object",
           "kind"
         ],
         "additionalProperties": false,
@@ -59,8 +58,35 @@
               "code",
               "bits"
             ]
+          },
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A value that is not an object, e.g. a status nibble of a vendor feedback frame."
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "object"
+            ],
+            "not": {
+              "required": [
+                "field"
+              ]
+            }
+          },
+          {
+            "required": [
+              "field"
+            ],
+            "not": {
+              "required": [
+                "object"
+              ]
+            }
+          }
+        ]
       }
     },
     "faults": {

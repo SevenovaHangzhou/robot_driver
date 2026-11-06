@@ -11,15 +11,17 @@
 #include <string>
 
 #include "infra_modbus/client.hpp"
-#include "periph_plc_io/msg/vacuum_sensor_state.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/digital_input_state.hpp"
 #include "robot_rt_control_interfaces/msg/digital_input_state_array.hpp"
 #include "robot_rt_control_interfaces/msg/observation_meta.hpp"
+#include "robot_rt_control_interfaces/msg/sensor_status_array.hpp"
+#include "robot_rt_control_interfaces/srv/set_enabled.hpp"
+#include "robot_system_interfaces/msg/error_code.hpp"
 #include "robot_system_interfaces/msg/error_info.hpp"
 #include "rt_control_interfaces/msg/plc_io_state.hpp"
-#include "rt_control_interfaces/srv/set_digital_output.hpp"
+#include "sensor_msgs/msg/fluid_pressure.hpp"
 #include "std_msgs/msg/bool.hpp"
 
 namespace periph_plc_io
@@ -30,6 +32,10 @@ constexpr uint8_t kReadInputRegisters = 0x04;
 constexpr uint8_t kWriteSingleCoil = 0x05;
 constexpr uint16_t kCoilOn = 0xFF00;
 constexpr uint16_t kCoilOff = 0x0000;
+// R-IN-04: an ordinary pump stop needs both valves released and both pressures at or above this.
+constexpr float kReleasedKpa = -1.0F;
+using ErrorCode = robot_system_interfaces::msg::ErrorCode;
+using SensorStatus = robot_rt_control_interfaces::msg::SensorStatus;
 
 struct ModuleConfig
 {
@@ -128,10 +134,11 @@ public:
     initialise_instance_id();
 
     for (size_t index = 0; index < pressure_publishers_.size(); ++index) {
-      const auto channel = index == 0U ? "left" : "right";
-      pressure_publishers_[index] = create_publisher<periph_plc_io::msg::VacuumSensorState>(
-        std::string("/plc_io/vacuum/") + channel, 10);
+      pressure_publishers_[index] = create_publisher<sensor_msgs::msg::FluidPressure>(
+        pressure_topic(index == 0U ? "left" : "right"), robot_interfaces_qos::state());
     }
+    sensor_state_publisher_ = create_publisher<robot_rt_control_interfaces::msg::SensorStatusArray>(
+      "/rt/sensors/state", robot_interfaces_qos::state());
     laser_publisher_ = create_publisher<std_msgs::msg::Bool>("/plc_io/infrared_laser", 10);
     infrared_state_publisher_ =
       create_publisher<robot_rt_control_interfaces::msg::DigitalInputStateArray>(
@@ -139,19 +146,27 @@ public:
     plc_state_publisher_ =
       create_publisher<rt_control_interfaces::msg::PlcIoState>("/plc/io_state", 10);
 
+    // R-IN-04, R-IN-05L/R.
     pump_service_ = create_output_service(
-      "/plc/vacuum_pump", "digital.outputs.vacuum_pump_relay.do_address", &pump_on_);
+      "/rt/vacuum/pump/set_enabled", "digital.outputs.vacuum_pump_relay.do_address", &pump_on_);
     left_valve_service_ = create_output_service(
-      "/plc/vacuum_valve/left", "digital.outputs.left_vacuum_valve.do_address", &left_valve_on_);
+      "/rt/vacuum/left_valve/set_enabled", "digital.outputs.left_vacuum_valve.do_address",
+      &left_valve_on_);
     right_valve_service_ = create_output_service(
-      "/plc/vacuum_valve/right", "digital.outputs.right_vacuum_valve.do_address", &right_valve_on_);
+      "/rt/vacuum/right_valve/set_enabled", "digital.outputs.right_vacuum_valve.do_address",
+      &right_valve_on_);
 
     poll_timer_ = create_wall_timer(
       std::chrono::duration<double>(poll_period_seconds), [this]() { poll_all_inputs(); });
   }
 
 private:
-  using SetDigitalOutput = rt_control_interfaces::srv::SetDigitalOutput;
+  using SetEnabled = robot_rt_control_interfaces::srv::SetEnabled;
+
+  static std::string pressure_topic(const std::string & channel)
+  {
+    return "/rt/vacuum/" + channel + "/pressure";  // R-OUT-05L/R
+  }
 
   void validate_parameters() const
   {
@@ -242,33 +257,61 @@ private:
     }
   }
 
-  rclcpp::Service<SetDigitalOutput>::SharedPtr create_output_service(
+  rclcpp::Service<SetEnabled>::SharedPtr create_output_service(
     const std::string & service_name, const std::string & address_parameter, bool * state)
   {
-    return create_service<SetDigitalOutput>(
-      service_name, [this, service_name, address_parameter, state](
-                      SetDigitalOutput::Request::SharedPtr request,
-                      SetDigitalOutput::Response::SharedPtr response) {
-        on_output_command(service_name, address_parameter, *state, request->enabled, *response);
+    return create_service<SetEnabled>(
+      service_name,
+      [this, service_name, address_parameter, state](
+        SetEnabled::Request::SharedPtr request, SetEnabled::Response::SharedPtr response) {
+        on_output_command(service_name, address_parameter, *state, *request, *response);
+        RCLCPP_INFO(
+          get_logger(), "%s enabled=%s reason='%s': %s", service_name.c_str(),
+          request->enabled ? "true" : "false", request->reason.c_str(),
+          response->error.message.c_str());
       });
+  }
+
+  // Why an ordinary pump stop is refused, or empty: a held box would drop (R-IN-04).
+  std::string pump_stop_blocker()
+  {
+    if (
+      read_output("digital.outputs.left_vacuum_valve.do_address") ||
+      read_output("digital.outputs.right_vacuum_valve.do_address")) {
+      return "a vacuum valve is still on";
+    }
+    for (const auto * sample : {&left_pressure_, &right_pressure_}) {
+      if (!sample->valid || sample->pressure_kpa < kReleasedKpa) {
+        return "a pressure is invalid or below -1 kPa";
+      }
+    }
+    return "";
   }
 
   void on_output_command(
     const std::string & service_name, const std::string & address_parameter, bool & state,
-    bool enabled, SetDigitalOutput::Response & response)
+    const SetEnabled::Request & command, SetEnabled::Response & response)
   {
+    const bool enabled = command.enabled;
+    response.accepted = false;
+    response.enabled = state;
     if (!vacuum_configured_) {
-      response.accepted = false;
-      response.outcome = SetDigitalOutput::Response::OUTCOME_NOT_EXECUTED;
-      response.observation_valid = false;
-      response.message = "vacuum hardware is not configured";
+      fill_error(response.error, ErrorCode::NOT_READY, "vacuum hardware is not configured", false);
       return;
     }
 
-    response.accepted = true;
     bool write_may_have_occurred = false;
     try {
       const int address = read_integer_parameter(address_parameter, 0, 65535);
+      if (&state == &pump_on_ && !enabled) {
+        const auto blocker = pump_stop_blocker();
+        if (!blocker.empty()) {
+          fill_error(
+            response.error, ErrorCode::RT_POSSIBLE_LOAD_HELD, "pump stop refused: " + blocker,
+            false);
+          return;
+        }
+      }
       if (read_single_bit(kReadCoils, static_cast<uint16_t>(address)) != enabled) {
         const uint16_t output_value = enabled ? kCoilOn : kCoilOff;
         write_may_have_occurred = true;
@@ -282,20 +325,20 @@ private:
         }
       }
       state = read_single_bit(kReadCoils, static_cast<uint16_t>(address));
-      response.observed_value = state;
-      response.observation_valid = true;
+      response.enabled = state;
       if (state != enabled) {
         throw std::runtime_error("coil state readback mismatch");
       }
-      response.outcome = SetDigitalOutput::Response::OUTCOME_CONFIRMED;
-      response.message = service_name + (enabled ? "=ON verified" : "=OFF verified");
+      response.accepted = true;
+      fill_error(
+        response.error, ErrorCode::SUCCESS,
+        service_name + (enabled ? "=ON verified" : "=OFF verified"), false);
       digital_error_.clear();
     } catch (const std::exception & error) {
       digital_client_->close();
-      response.outcome = write_may_have_occurred ? SetDigitalOutput::Response::OUTCOME_UNKNOWN
-                                                 : SetDigitalOutput::Response::OUTCOME_NOT_EXECUTED;
-      response.observation_valid = false;
-      response.message = error.what();
+      const std::string what =
+        write_may_have_occurred ? "output state unknown: " : "not executed: ";
+      fill_error(response.error, ErrorCode::RT_PLC_UNAVAILABLE, what + error.what(), true);
       digital_error_ = error.what();
     }
     publish_plc_state();
@@ -368,8 +411,7 @@ private:
     right_pressure_ = PressureSample{};
     if (!vacuum_configured_) {
       analog_error_ = "vacuum hardware is not configured";
-      publish_pressure("left", left_pressure_, 0U);
-      publish_pressure("right", right_pressure_, 1U);
+      publish_sensor_states();
       return;
     }
 
@@ -386,6 +428,7 @@ private:
     }
     publish_pressure("left", left_pressure_, 0U);
     publish_pressure("right", right_pressure_, 1U);
+    publish_sensor_states();
   }
 
   PressureSample read_pressure(const PressureConfig & config)
@@ -414,25 +457,108 @@ private:
     return sample;
   }
 
+  // Gauge pressure in Pa, negative for vacuum (R-OUT-05L/R); invalid samples are not sent.
   void publish_pressure(const std::string & channel, const PressureSample & sample, size_t index)
   {
-    periph_plc_io::msg::VacuumSensorState message;
+    if (!sample.valid) {
+      return;
+    }
+    sensor_msgs::msg::FluidPressure message;
     message.header.stamp.sec = sample.stamp_sec;
     message.header.stamp.nanosec = sample.stamp_nanosec;
     message.header.frame_id = channel + "_vacuum_sensor";
-    message.channel = channel;
-    message.sensor_id =
-      vacuum_configured_
-        ? get_parameter("analog.inputs." + channel + "_vacuum_sensor.sensor_id").as_string()
-        : "";
-    message.raw_millivolts = sample.raw;
-    message.pressure_kpa = sample.pressure_kpa;
-    message.unit = "kPa";
-    message.valid = sample.valid;
-    message.error = sample.error.empty() && !vacuum_configured_
-                      ? "vacuum hardware is not configured"
-                      : sample.error;
+    message.fluid_pressure = static_cast<double>(sample.pressure_kpa) * 1000.0;
+    message.variance = 0.0;
     pressure_publishers_[index]->publish(message);
+  }
+
+  // Coil readback of the pump and both valves (DI/DO module); its failure means the outputs
+  // real state is unknown, so it is reported like a sensor.
+  SensorStatus output_status(const builtin_interfaces::msg::Time & stamp)
+  {
+    using ObservationMeta = robot_rt_control_interfaces::msg::ObservationMeta;
+    SensorStatus status;
+    status.sensor_id = "vacuum_outputs";
+    status.module_id = "plc_digital_module";
+    status.data_topic = "/rt/vacuum/pump/set_enabled";
+    uint32_t code = ErrorCode::SUCCESS;
+    std::string message;
+    const bool valid = pump_output_valid_ && left_valve_output_valid_ && right_valve_output_valid_;
+    if (!vacuum_configured_) {
+      status.measurement_state = SensorStatus::MEASUREMENT_NOT_CONFIGURED;
+      code = ErrorCode::NOT_READY;
+      message = "vacuum hardware is not configured";
+    } else if (!valid) {
+      status.measurement_state = SensorStatus::MEASUREMENT_COMMUNICATION_ERROR;
+      code = ErrorCode::RT_PLC_UNAVAILABLE;
+      message = digital_error_;
+    } else {
+      status.measurement_state = SensorStatus::MEASUREMENT_VALID;
+    }
+    status.observation.stamp = stamp;
+    status.observation.time_source = ObservationMeta::TIME_SOURCE_READ_COMPLETE;
+    status.observation.valid = valid;
+    status.observation.source_instance_id = producer_instance_id_;
+    status.observation.sample_sequence = ++pressure_sample_sequence_;
+    fill_error(status.observation.error, code, message, code != ErrorCode::SUCCESS);
+    status.error = status.observation.error;
+    if (code != ErrorCode::SUCCESS) {
+      status.fault_detected_at = stamp;
+      status.fault_detected_time_valid = true;
+    }
+    return status;
+  }
+
+  // R-OUT-20 entries for both pressure sensors; each keeps its own read time.
+  void publish_sensor_states()
+  {
+    using ObservationMeta = robot_rt_control_interfaces::msg::ObservationMeta;
+    robot_rt_control_interfaces::msg::SensorStatusArray array;
+    array.header.stamp = now();
+    for (const auto & [channel, sample] :
+         {std::pair<const char *, const PressureSample *>{"left", &left_pressure_},
+          {"right", &right_pressure_}}) {
+      SensorStatus status;
+      const std::string side{channel};
+      status.sensor_id =
+        vacuum_configured_
+          ? get_parameter("analog.inputs." + side + "_vacuum_sensor.sensor_id").as_string()
+          : side + "_vacuum_sensor";
+      status.module_id = "plc_analog_module";
+      status.data_topic = pressure_topic(side);
+      uint32_t code = ErrorCode::SUCCESS;
+      std::string message;
+      if (!vacuum_configured_) {
+        status.measurement_state = SensorStatus::MEASUREMENT_NOT_CONFIGURED;
+        code = ErrorCode::NOT_READY;
+        message = "vacuum hardware is not configured";
+      } else if (sample->stamp_sec == 0 && sample->stamp_nanosec == 0U) {
+        status.measurement_state = SensorStatus::MEASUREMENT_COMMUNICATION_ERROR;
+        code = ErrorCode::RT_PLC_UNAVAILABLE;
+        message = analog_error_;
+      } else if (!sample->valid) {
+        status.measurement_state = SensorStatus::MEASUREMENT_INVALID;
+        code = ErrorCode::RT_SENSOR_INVALID;
+        message = sample->error;
+      } else {
+        status.measurement_state = SensorStatus::MEASUREMENT_VALID;
+      }
+      status.observation.stamp.sec = sample->stamp_sec;
+      status.observation.stamp.nanosec = sample->stamp_nanosec;
+      status.observation.time_source = ObservationMeta::TIME_SOURCE_READ_COMPLETE;
+      status.observation.valid = sample->valid;
+      status.observation.source_instance_id = producer_instance_id_;
+      status.observation.sample_sequence = ++pressure_sample_sequence_;
+      fill_error(status.observation.error, code, message, code != ErrorCode::SUCCESS);
+      status.error = status.observation.error;
+      if (code != ErrorCode::SUCCESS) {
+        status.fault_detected_at = array.header.stamp;
+        status.fault_detected_time_valid = true;
+      }
+      array.sensors.push_back(std::move(status));
+    }
+    array.sensors.push_back(output_status(array.header.stamp));
+    sensor_state_publisher_->publish(array);
   }
 
   static void fill_error(
@@ -551,15 +677,18 @@ private:
   std::string analog_error_;
   unique_identifier_msgs::msg::UUID producer_instance_id_;
   uint64_t infrared_sample_sequence_{0};
-  std::array<rclcpp::Publisher<periph_plc_io::msg::VacuumSensorState>::SharedPtr, 2>
+  uint64_t pressure_sample_sequence_{0};
+  std::array<rclcpp::Publisher<sensor_msgs::msg::FluidPressure>::SharedPtr, 2>
     pressure_publishers_{};
+  rclcpp::Publisher<robot_rt_control_interfaces::msg::SensorStatusArray>::SharedPtr
+    sensor_state_publisher_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr laser_publisher_;
   rclcpp::Publisher<robot_rt_control_interfaces::msg::DigitalInputStateArray>::SharedPtr
     infrared_state_publisher_;
   rclcpp::Publisher<rt_control_interfaces::msg::PlcIoState>::SharedPtr plc_state_publisher_;
-  rclcpp::Service<SetDigitalOutput>::SharedPtr pump_service_;
-  rclcpp::Service<SetDigitalOutput>::SharedPtr left_valve_service_;
-  rclcpp::Service<SetDigitalOutput>::SharedPtr right_valve_service_;
+  rclcpp::Service<SetEnabled>::SharedPtr pump_service_;
+  rclcpp::Service<SetEnabled>::SharedPtr left_valve_service_;
+  rclcpp::Service<SetEnabled>::SharedPtr right_valve_service_;
   rclcpp::TimerBase::SharedPtr poll_timer_;
 };
 }  // namespace periph_plc_io

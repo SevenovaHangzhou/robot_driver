@@ -195,7 +195,7 @@ vendored_packages:
         )
         self.assertEqual(
             repository_gate.check_interface_path(
-                "src/interfaces/rt_control_interfaces/srv/SetDigitalOutput.srv"
+                "src/interfaces/rt_control_interfaces/msg/PlcIoState.msg"
             ),
             [],
         )

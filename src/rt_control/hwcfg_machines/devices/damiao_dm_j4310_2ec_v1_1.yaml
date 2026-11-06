@@ -8,6 +8,7 @@ pending_facts:
 - model-rated parameters and applicability
 - D-b
 family: damiao
+fault_table: devices/faults/damiao_dm.yaml
 reduction_ratio: TBD
 rated_torque_nm: TBD
 spec:

@@ -32,6 +32,8 @@ STATES = (
     "sent_sequence",
     "feedback_sequence_at_send",
     "sent_velocity",
+    "error_word_1",
+    "error_word_2",
 )
 
 
@@ -52,13 +54,16 @@ _BITS = {"uint8": 8, "int8": 8, "uint16": 16, "int16": 16, "uint32": 32, "int32"
 
 
 def _pdo_objects(driver_config):
-    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs."""
+    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs.
+
+    Keys are hex strings: the artifact is YAML and its loader accepts string keys only.
+    """
     objects = {}
     for assign, direction in ((0x1C12, "rpdo"), (0x1C13, "tpdo")):
         pdos = driver_config[direction]
-        objects[assign] = [pdo["index"] for pdo in pdos]
+        objects[f"0x{assign:04X}"] = [pdo["index"] for pdo in pdos]
         for pdo in pdos:
-            objects[pdo["index"]] = [
+            objects[f"0x{pdo['index']:04X}"] = [
                 (channel["index"] << 16) | (channel["sub_index"] << 8) | _BITS[channel["type"]]
                 for channel in pdo["channels"]
             ]
@@ -151,7 +156,8 @@ def render(request, share, validate_module, validate_unit, validate_device):
     )
     if len(axes) != request["module"]["actuator_count"]:
         raise ValueError("Axis count differs from declared module")
-    joints, managed, runtime_files, responders = [], [], {}, []
+    joints, managed, runtime_files, responders, diagnostic_devices = [], [], {}, [], []
+    master_id = request["deployment"]["ethercat"]["master_id"]
     preflight_axes, pdo_checks, position_windows = [], [], []
     groups = {group["name"]: [] for group in request["module"]["mode_groups"]}
     for axis in axes:
@@ -178,6 +184,21 @@ def render(request, share, validate_module, validate_unit, validate_device):
             exports["steering_to_yaw_sign"][axis["module_position"]] = (
                 sign if sign == "TBD" else float(sign)
             )
+        diagnostic_devices.append(
+            {
+                "name": name,
+                "role": "drive",
+                "device": axis["device"],
+                "address": {"master_id": master_id, "ring_position": axis["ring_position"]},
+                "state": {
+                    "al_state": f"ethercat_slave_{axis['ring_position']}/al_state",
+                    "status_word": f"{name}/status_word",
+                    # 0x2601/0x2602, decoded per bit with the device fault table.
+                    "error_word_1": f"{name}/error_word_1",
+                    "error_word_2": f"{name}/error_word_2",
+                },
+            }
+        )
         joint = ET.Element("joint", name=name)
         for interface in COMMANDS:
             element = ET.SubElement(joint, "command_interface", name=interface)
@@ -279,7 +300,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if not mock:
             ring = axis["ring_position"]
             # Read-only admission: disabled and unfaulted, saved PDOs match, steering in range.
-            preflight_axes.append({"ring_position": ring, "allowed_errors": []})
+            preflight_axes.append(
+                {"ring_position": ring, "allowed_errors": [], "allow_shutdown_ready": True}
+            )
             pdo_checks.append(
                 {"ring_position": ring, "objects": _pdo_objects(profile["driver_config"])}
             )
@@ -293,7 +316,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                     {"ring_position": ring, "raw_min": ends[0], "raw_max": ends[1]}
                 )
     topology = {
-        "master_id": request["deployment"]["ethercat"]["master_id"],
+        "master_id": master_id,
         "responders": responders,
         "axes": preflight_axes,
         "branches": [],
@@ -304,7 +327,11 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "position_windows": position_windows,
         "preflight_required": not mock,
     }
-    from .master_health import offline_exports, sensors as health_sensors
+    from .master_health import (
+        master_diagnostic,
+        offline_exports,
+        sensors as health_sensors,
+    )
 
     exports.update(offline_exports(request, axes))
 
@@ -329,4 +356,5 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "resource_claims": [f"ring:{item['ring_position']}" for item in responders],
         "runtime_files": runtime_files,
         "expected_topology": topology,
+        "diagnostic_devices": master_diagnostic(request, master_id) + diagnostic_devices,
     }

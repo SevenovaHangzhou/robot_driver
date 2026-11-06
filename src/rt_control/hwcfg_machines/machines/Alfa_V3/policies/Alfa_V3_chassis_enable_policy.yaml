@@ -20,7 +20,6 @@ mode_confirmation: startup
 ready_to_switch_on_disable_terminal_joints: []
 runtime_views:
   normal:
-    enable_only: false
     parameter_names:
     - disable_terminal_policy
     - batch_timeout

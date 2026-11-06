@@ -1,18 +1,18 @@
 """Append-only operator audit log (JSON lines) for run timelines (Runtime-LOG reads it).
 
 One line per command request: wall time, ROS domain, action, sanitised arguments, outcome and a
-short session digest. The token and the session value themselves are never written. Failures to
+short random alias per browser session. The token and the session value are never written. Failures to
 write never affect the command.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 from pathlib import Path
 import threading
 import time
+import uuid
 from typing import Optional
 
 DEFAULT_AUDIT = Path.home() / ".ros/log/integ_operator_web/audit.jsonl"
@@ -39,6 +39,7 @@ class AuditLog:
         self.path = path
         self.lock = threading.Lock()
         self.domain = os.environ.get("ROS_DOMAIN_ID", "0")
+        self._aliases: dict[str, str] = {}
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -68,7 +69,7 @@ class AuditLog:
         if message:
             entry["message"] = message[:200]
         if session:
-            entry["session"] = hashlib.sha256(session.encode("utf-8")).hexdigest()[:8]
+            entry["session"] = self._aliases.setdefault(session, uuid.uuid4().hex[:8])
         if client:
             entry["client"] = client
         line = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n"

@@ -35,7 +35,7 @@ def shares(monkeypatch):
 
 def arguments(shares):
     config = shares["hwcfg_machines"]
-    path = (config / "units/Alfa_V3-Advantech-01/deployment.yaml")
+    path = config / "units/Alfa_V3-Advantech-01/deployment.yaml"
     return dict(
         robot_variant=load_yaml(path)["robot_variant"],
         machine_unit=path.parent.name,
@@ -53,18 +53,16 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     assert len(systems[1].findall("sensor")) == 4
     assert not systems[1].findall(".//command_interface")
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
-    manifest = read_manifest(
-        next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml"))
-    )
+    manifest = read_manifest(next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml")))
     assert manifest["layout"]["ethercat"]["cycle_hz"] == 1000
     assert bus["master"]["sync_period"] == manifest["layout"]["canopen"]["sync_period_us"]
     assert (
         result.controllers["controller_manager"]["ros__parameters"]["update_rate"]
         == manifest["layout"]["ethercat"]["cycle_hz"]
     )
-    binding = load_yaml(
-        next((shares["hwcfg_machines"] / "machines").glob("*/controllers.yaml"))
-    )["controllers"]["swerve_chassis"]
+    binding = load_yaml(next((shares["hwcfg_machines"] / "machines").glob("*/controllers.yaml")))[
+        "controllers"
+    ]["swerve_chassis"]
     assert binding["required_state_modules"] == ["swerve_encoders"]
     assert result.controller_order["inactive"] == [binding["name"]]
     assert all(
@@ -75,22 +73,44 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
 
 def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, tmp_path):
     result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
-    systems = {system["result"]["hardware_system_id"]: system["result"] for system in result.systems}
+    systems = {
+        system["result"]["hardware_system_id"]: system["result"] for system in result.systems
+    }
     ecat = systems["ecat_arms"]["expected_topology"]
     assert ecat["preflight_required"] and ecat["ethercat_mac"] == "cc:82:7f:c4:d3:0f"
     assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(8))
+    # The artifact loader accepts string keys only (2026-11-05 Advantech: real start rejected).
+    saved = tmp_path / "topology.yaml"
+    saved.write_text(yaml.safe_dump(ecat))
+    assert load_yaml(saved)["pdo_checks"][0]["objects"]["0x1A00"] == [
+        0x60410010,
+        0x60640020,
+        0x606C0020,
+        0x60610008,
+        0x26010010,
+        0x26020010,
+    ]
     assert [window["ring_position"] for window in ecat["position_windows"]] == [1, 3, 5, 7]
     can = systems["canopen_swerve_encoders"]
     bundle = "/var/lib/rt-control/canopen/Alfa_V3-Advantech-01"
     assert can["hardware_params"]["bus_config"] == bundle + "/bus.yml"
-    assert can["expected_topology"]["can_usb_serial"] == "003000265230500720333159"
+    # ZLG PCIe card (user 2026-11-05): encoders and IMU on can3, no USB serial to check.
+    assert can["expected_topology"]["can_interface"] == "can3"
+    assert can["expected_topology"]["can_usb_serial"] is None
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
     assert bus["options"]["dcf_path"] == bundle and bus["master"]["baudrate"] == 500
     assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
     assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
+    diagnostics = yaml.safe_load(result.files["diagnostics.yaml"])
+    drives = [device for device in diagnostics["devices"] if device["role"] == "drive"]
+    assert len(drives) == 8 and {d["fault_table"] for d in drives} == {"kinco_fd"}
+    assert {d["motor_encoder_type"] for d in drives} == {"magnetic", "incremental"}
+    assert all(set(d["state"]) >= {"error_word_1", "error_word_2"} for d in drives)
+    assert diagnostics["fault_tables"]["kinco_fd"]["read"][0]["object"] == "0x2601"
     lifecycle = result.lifecycle
-    assert lifecycle["host"]["rt_cpu"] == 7
-    assert lifecycle["bus_locks"] == ["can-can0", "ethercat-master-0"]
+    assert lifecycle["host"]["rt_cpu"] == 6
+    assert 6 not in lifecycle["host"]["housekeeping_cpus"]
+    assert lifecycle["bus_locks"] == ["can-can3", "ethercat-master-0"]
 
 
 def test_real_chassis_without_deployment_bundle_is_rejected(shares, tmp_path):
@@ -120,7 +140,11 @@ def request_for_module(shares, name):
     manifest = read_manifest(next((config / "machines").glob("*/manifest.yaml")))
     entry = manifest["modules"][name]
     # The chassis lives on the Advantech bench unit; arm calibration on Alfa_V3-01.
-    unit = "Alfa_V3-Advantech-01" if entry["transport"] == "canopen" or name == "swerve_chassis" else "Alfa_V3-01"
+    unit = (
+        "Alfa_V3-Advantech-01"
+        if entry["transport"] == "canopen" or name == "swerve_chassis"
+        else "Alfa_V3-01"
+    )
     deployment = load_yaml(config / f"units/{unit}/deployment.yaml")
     unit_dir = config / f"units/{unit}"
     return {
@@ -164,20 +188,19 @@ def test_sample_b_owner_adapter_and_read_only_contract(shares, monkeypatch):
         pytest.fail("Renderer performed a write or device command")
 
     monkeypatch.setattr(Path, "write_text", denied)
-    result = render_checked(
-        ETHERCAT, request, PACKAGE / "schema", shares["hwcfg_machines"]
-    )
+    result = render_checked(ETHERCAT, request, PACKAGE / "schema", shares["hwcfg_machines"])
     assert len(result["joints"]) == len(sample["spec"]["axes"])
     assert result["managed_joints"] == [
         axis["robot_model_joint"] for axis in sample["spec"]["axes"]
     ]
     encoders = request_for_module(shares, "swerve_encoders")
-    sensor_result = render_checked(
-        CANOPEN, encoders, PACKAGE / "schema", shares["hwcfg_machines"]
-    )
+    sensor_result = render_checked(CANOPEN, encoders, PACKAGE / "schema", shares["hwcfg_machines"])
     assert not sensor_result["managed_joints"] and not sensor_result["joints"]
     encoders["use_mock_hardware"] = False
-    encoders["deployment"] = {**encoders["deployment"], "can_interfaces": {"swerve_encoders": "TBD"}}
+    encoders["deployment"] = {
+        **encoders["deployment"],
+        "can_interfaces": {"swerve_encoders": "TBD"},
+    }
     with pytest.raises(ValueError, match="Missing real encoder facts"):
         CANOPEN.render(encoders)
 
@@ -242,13 +265,13 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
     assert params["enable_batch_joint_names"] == steering + drive
     assert params["enable_batch_sizes"] == [2, 2, 2, 2]
     assert params["expected_modes"] == [9, 8] * 4
-    assert params["jtc_name"] == "swerve_controller"
+    assert params["motion_controller"] == "swerve_controller"
     assert params["ready_state_interfaces"] == [f"steering_encoder_{n}/ready" for n in range(1, 5)]
     assert params["ready_hold_time"] == 0.05
     assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
     assert result.controller_order == {
         "inactive": ["swerve_controller"],
-        "active": ["joint_state_broadcaster", "enable_manager"],
+        "active": ["joint_state_broadcaster", "rt_internal_state_broadcaster", "enable_manager"],
     }
 
 
@@ -261,7 +284,11 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     lifecycle = yaml.safe_load(result.files["lifecycle.yaml"])
     assert lifecycle["hardware_activation_order"] == order
     assert lifecycle["motion_controllers"] == ["swerve_controller"]
-    assert lifecycle["lifecycle_controllers"] == ["joint_state_broadcaster", "enable_manager"]
+    assert lifecycle["lifecycle_controllers"] == [
+        "joint_state_broadcaster",
+        "rt_internal_state_broadcaster",
+        "enable_manager",
+    ]
     names = {item["name"]: item for item in lifecycle["capabilities"]}
     assert names["chassis_velocity"]["topic"] == "/rt/base/cmd_vel"
     assert names["chassis_velocity"]["controller"] == "swerve_controller"

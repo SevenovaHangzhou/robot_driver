@@ -11,7 +11,6 @@ risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no, sdo: no }
 verified: PARTIAL
 evidence:
-  - "user-supplied X503-B V1.6 protocol PDF SHA-256: 39432f1304b68af1839a3553b4581da92a3923306945e5985cdbae7d7689ae0c"
   - "x503_force_sensor package build and colcon test: 2 test targets / 14 cases, 0 failures"
   - "affected native-source build: 29 packages finished"
   - "affected colcon test-result: 1439 tests, 0 errors, 0 failures, 18 skipped"

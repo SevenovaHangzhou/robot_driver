@@ -19,7 +19,6 @@
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
-#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
 #include "robot_system_interfaces/msg/error_info.hpp"
 
@@ -345,76 +344,6 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
   if (enable_only_) {
     return SwitchResult::kSuccess;
   }
-  if (motion_mode_switching_) {
-    bool expected = false;
-    if (!switch_in_progress_.compare_exchange_strong(expected, true)) {
-      return SwitchResult::kAmbiguous;
-    }
-    const auto clear_in_progress = [this]() {
-      switch_in_progress_.store(false, std::memory_order_release);
-    };
-    if (
-      !switch_client_->wait_for_service(std::chrono::milliseconds(0)) ||
-      !list_client_->wait_for_service(std::chrono::milliseconds(0))) {
-      clear_in_progress();
-      return SwitchResult::kAmbiguous;
-    }
-
-    auto list_request = std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
-    auto list_future = list_client_->async_send_request(list_request);
-    const auto list_wait_status =
-      list_future.wait_for(std::chrono::duration<double>(controller_switch_timeout_seconds_));
-    if (list_wait_status != std::future_status::ready) {
-      clear_in_progress();
-      return SwitchResult::kAmbiguous;
-    }
-    const auto list_response = list_future.get();
-    if (list_response == nullptr) {
-      clear_in_progress();
-      return SwitchResult::kAmbiguous;
-    }
-
-    auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
-    const SwitchResult plan_result =
-      buildMotionControllerSwitchRequest(*list_response, activate, *request);
-    if (plan_result != SwitchResult::kSuccess) {
-      clear_in_progress();
-      return plan_result;
-    }
-    if (request->activate_controllers.empty() && request->deactivate_controllers.empty()) {
-      const bool state_matches = registeredMotionControllerStateMatches(*list_response, activate);
-      clear_in_progress();
-      return state_matches ? SwitchResult::kSuccess : SwitchResult::kFailed;
-    }
-    request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
-    request->activate_asap = true;
-    request->timeout = rclcpp::Duration::from_seconds(controller_switch_timeout_seconds_);
-    auto future = switch_client_->async_send_request(request);
-    const auto wait_status =
-      future.wait_for(std::chrono::duration<double>(controller_switch_timeout_seconds_));
-    SwitchResult result = SwitchResult::kAmbiguous;
-    if (wait_status == std::future_status::ready) {
-      const auto switch_response = future.get();
-      if (switch_response != nullptr && switch_response->ok) {
-        auto verification_request =
-          std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
-        auto verification_future = list_client_->async_send_request(verification_request);
-        const auto verification_wait = verification_future.wait_for(
-          std::chrono::duration<double>(controller_switch_timeout_seconds_));
-        if (verification_wait == std::future_status::ready) {
-          const auto verification_response = verification_future.get();
-          result = verification_response != nullptr &&
-                       registeredMotionControllerStateMatches(*verification_response, activate)
-                     ? SwitchResult::kSuccess
-                     : SwitchResult::kAmbiguous;
-        }
-      } else {
-        result = SwitchResult::kFailed;
-      }
-    }
-    clear_in_progress();
-    return result;
-  }
   bool expected = false;
   if (!switch_in_progress_.compare_exchange_strong(expected, true)) {
     return SwitchResult::kAmbiguous;
@@ -427,39 +356,24 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
     return SwitchResult::kAmbiguous;
   }
 
-  auto targets = switched_controllers_;
-  if (!activate && list_client_->wait_for_service(std::chrono::milliseconds(0))) {
-    auto list_request = std::make_shared<controller_manager_msgs::srv::ListControllers::Request>();
-    auto list_future = list_client_->async_send_request(list_request);
-    const auto list_wait_status =
-      list_future.wait_for(std::chrono::duration<double>(controller_switch_timeout_seconds_));
-    if (list_wait_status == std::future_status::ready) {
-      const auto list_response = list_future.get();
-      // STRICT rejects deactivating an inactive controller: stop only the active ones.
-      targets.clear();
-      if (list_response != nullptr) {
-        for (const auto & controller : list_response->controller) {
-          if (
-            controller.state == "active" &&
-            std::find(
-              switched_controllers_.begin(), switched_controllers_.end(), controller.name) !=
-              switched_controllers_.end()) {
-            targets.push_back(controller.name);
-          }
-        }
-      }
-      if (targets.empty()) {
-        clear_in_progress();
-        return SwitchResult::kSuccess;
-      }
-    }
+  const auto timeout = std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::duration<double>(controller_switch_timeout_seconds_));
+  controller_manager_msgs::srv::ListControllers::Response before;
+  if (!queryControllerStates(before, timeout)) {
+    clear_in_progress();
+    return SwitchResult::kAmbiguous;
   }
-
+  const ControlMode target = activate ? ControlMode::kFjtReady : ControlMode::kDisabled;
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
-  if (activate) {
-    request->activate_controllers = targets;
-  } else {
-    request->deactivate_controllers = targets;
+  const SwitchResult plan_result = buildControllerSwitchRequest(before, target, *request);
+  if (plan_result != SwitchResult::kSuccess) {
+    clear_in_progress();
+    return plan_result;
+  }
+  if (request->activate_controllers.empty() && request->deactivate_controllers.empty()) {
+    const bool matches = controllerStateMatches(before, target);
+    clear_in_progress();
+    return matches ? SwitchResult::kSuccess : SwitchResult::kFailed;
   }
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;
@@ -470,8 +384,14 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
   SwitchResult result = SwitchResult::kAmbiguous;
   if (wait_status == std::future_status::ready) {
     const auto switch_response = future.get();
-    result = switch_response != nullptr && switch_response->ok ? SwitchResult::kSuccess
-                                                               : SwitchResult::kFailed;
+    if (switch_response != nullptr && switch_response->ok) {
+      controller_manager_msgs::srv::ListControllers::Response after;
+      if (queryControllerStates(after, timeout) && controllerStateMatches(after, target)) {
+        result = SwitchResult::kSuccess;
+      }
+    } else {
+      result = SwitchResult::kFailed;
+    }
   }
   clear_in_progress();
   return result;

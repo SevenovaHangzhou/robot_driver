@@ -2,14 +2,16 @@
 
 The real-time controllers detect and handle faults. This module only answers "may RT-Control
 accept commands now, and if not, why": self-check result, enable_manager state and latched
-failure, motion controllers and hardware components active.
+failure, motion controllers and hardware components active. Sensor problems that outlast the
+watchdog in sensors.py are warnings: they degrade readiness without blocking it.
 """
 
-from integ_composer.self_check import describe_fault
+from integ_composer.self_check import ERROR_WORDS, describe_error_bits, describe_fault
 
 # Self-check DREE names that block with a dedicated token; other blocking entries are device faults.
 SELF_CHECK_TOKENS = {
     "RT_DEVICE_OFFLINE": "device_offline",
+    "RT_DEVICE_FEEDBACK_STALE": "device_offline",
     "RT_DEVICE_IDENTITY_MISMATCH": "identity_mismatch",
     "RT_STO_ACTIVE": "sto_active",
 }
@@ -24,10 +26,11 @@ FAILURE = {
 }
 DEFAULT_FAILURE = ("enable_failed", "RT_ENABLE_FAILED")
 # Every DREE name this module can publish, for the pinned-contract check.
-DREE_NAMES = {dree for _, dree in FAILURE.values()} | {
-    DEFAULT_FAILURE[1],
-    "RT_ENABLE_MANAGER_NOT_READY",
-}
+DREE_NAMES = (
+    {dree for _, dree in FAILURE.values()}
+    | set(SELF_CHECK_TOKENS)
+    | {DEFAULT_FAILURE[1], "RT_ENABLE_MANAGER_NOT_READY"}
+)
 
 
 def failure_entry(enable, devices, tables, values):
@@ -40,6 +43,14 @@ def failure_entry(enable, devices, tables, values):
         code = int(values.get(code_name, 0)) if code_name else 0
         if code:
             listed, text = describe_fault(device, tables, code)
+            dree = listed if token == "device_fault" and listed else dree
+            detail += f"; {text}"
+        words = {
+            role: values.get(device["state"][role], 0)
+            for role in ERROR_WORDS
+            if role in device["state"]
+        }
+        for listed, text in describe_error_bits(device, tables, words):
             dree = listed if token == "device_fault" and listed else dree
             detail += f"; {text}"
     if enable.get("offline_feedback"):
@@ -84,13 +95,15 @@ def _failed_device(enable, devices):
     return _device_with(devices, enable.get("offline_feedback", ""))
 
 
-def domain_readiness(self_check, enable, controllers, hardware, failure=None, offline=None):
+def domain_readiness(
+    self_check, enable, controllers, hardware, failure=None, offline=None, sensors=()
+):
     """DomainReadiness fields.
 
     self_check: {"pending": bool, "entries": [...]}; enable: enable_manager diagnostic values or
     None when stale; controllers/hardware: name -> state, or None while not yet queried;
     failure: (token, entry) from failure_entry() when enable_manager is FAILED;
-    offline: offline_entry() result.
+    offline: offline_entry() result; sensors: SensorWatch.entries() warnings.
     """
     blockers, errors = [], []
     if self_check["pending"]:
@@ -124,6 +137,7 @@ def domain_readiness(self_check, enable, controllers, hardware, failure=None, of
     if state != "ENABLED":
         errors += [entry for entry in self_check["entries"] if not entry["blocking"]]
     errors += [entry for entry in self_check["entries"] if entry["blocking"]]
+    errors += list(sensors)
     blockers = sorted(set(blockers))
     ready = not blockers
     return {

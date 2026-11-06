@@ -125,6 +125,20 @@ def render(request: Mapping) -> Mapping:
             for group in request["module"]["mode_groups"]
         },
         "resource_claims": [f"can:{entry['can_id']}" for entry in spec["joints"]],
+        "diagnostic_devices": [
+            {
+                "name": entry["robot_model_joint"],
+                "role": "head_motor",
+                "device": entry["device"],
+                "address": {"can_id": entry["can_id"]},
+                "state": {
+                    "fault_code": f"{entry['robot_model_joint']}/fault_code",
+                    "feedback_age_ms": f"{entry['robot_model_joint']}/feedback_age_ms",
+                },
+                "expected": {"max_feedback_age_ms": spec["feedback_timeout_ms"]},
+            }
+            for entry in spec["joints"]
+        ],
         "parameter_exports": {
             "joint_names": [entry["robot_model_joint"] for entry in spec["joints"]],
             "control_name": spec["control_name"],

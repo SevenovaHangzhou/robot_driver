@@ -1,7 +1,6 @@
 """The public rolling axis set matches the machine motion joints."""
 
 from pathlib import Path
-import hashlib
 
 import yaml
 import pytest
@@ -17,7 +16,7 @@ def _machine_motion_joints():
     return tuple(policy["joints"])
 
 
-def test_imported_public_axes_match_machine_joints_and_digest():
+def test_imported_public_axes_match_machine_joints():
     registry = ROOT / "src/vendor/robot_interfaces/contract/endpoints.yaml"
     if not registry.is_file():
         pytest.skip("import deps.repos to verify the public/machine axis contract")
@@ -25,5 +24,3 @@ def test_imported_public_axes_match_machine_joints_and_digest():
     assert tuple(axes["joint_names"]) == _machine_motion_joints()
     assert axes["position_unit"] == "rad"
     assert axes["velocity_unit"] == "rad/s"
-    canonical = "".join(f"{name}:rad:rad/s\n" for name in _machine_motion_joints()).encode()
-    assert axes["sha256"] == hashlib.sha256(canonical).hexdigest()

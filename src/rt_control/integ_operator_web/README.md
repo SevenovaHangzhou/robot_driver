@@ -93,10 +93,10 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 ## 真空压力显示（2026-10-27）
 
 右上角显示左、右真空表压，单位 kPa，保留一位小数。读取
-`/plc_io/vacuum/left`、`/plc_io/vacuum/right` 的
-`periph_plc_io/msg/VacuumSensorState.pressure_kpa`，不在浏览器重复换算或自动归零。
+`/rt/vacuum/left/pressure`、`/rt/vacuum/right/pressure`（R-OUT-05L/R，`sensor_msgs/FluidPressure`，
+表压 Pa，负值为真空；无效样本不发布），只除以 1000 显示，不在浏览器重复换算或自动归零。
 现场已确认 AI0=左、AI1=右，ZSE30A 的大气压为 0 kPa，真空为负值。
-传感器有效标志为假、单位错误、非有限值或超过 1 秒未收到消息时清除数字并显示原因；
+非有限值或超过 1 秒未收到消息时清除数字并显示原因（无效原因见 `/rt/sensors/state`）；
 网页连接断开或停滞 1 秒也清除数字。两路独立判定，未收到压力不阻止机械臂操作。
 压力由独立 IO 节点发布；`arm start` 的操作台订阅不会启动或改写模拟量模块。
 
@@ -183,8 +183,8 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 远端采用同一仓库提交的完整发行目录，不能把 URDF 或网格单独复制到 `web/` 私改。
 切换模型目录后需重启网页服务；先检查无运动、无序列，并保留机器人控制栈和 guard。
 
-`/api/arm/info` 的 `view_model` 返回入口、URDF SHA256 和资源版本。资源版本由 URDF 和
-`config/mesh_assets.json` 共同计算，网格 URL 使用 `/view-mesh/<版本>/...stl`，
+`/api/arm/info` 的 `view_model` 返回入口和资源版本。资源版本取 URDF 与
+`config/mesh_assets.json` 的修改时间和大小，网格 URL 使用 `/view-mesh/<版本>/...stl`，
 避免浏览器沿用旧缓存。更换网格时应同步更新权威资源清单。
 选定模型不兼容受控关节时返回 `view_model_unavailable`，不静默切回旧模型。
 控制栈未提供关节数据时也可显示模型，页面提示“模型已加载，等待关节数据”；

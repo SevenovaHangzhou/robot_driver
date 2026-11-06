@@ -1,5 +1,6 @@
 """Single-arm bench scope: data-only selection on the shared owners; no hardware is accessed."""
 
+import math
 from pathlib import Path
 import shutil
 import sys
@@ -47,10 +48,19 @@ def arguments(shares, *, confirmed=True):
     return dict(**SELECTION, package_share=lambda name: str(shares[name]))
 
 
-def scan(topology_ports=((1, "MII", 9), (2, "EBUS", 17), (3, "MII", 1)), slaves=18, errors=None, faulted=()):
+def scan(
+    topology_ports=((1, "MII", 9), (2, "EBUS", 17), (3, "MII", 1)),
+    slaves=18,
+    errors=None,
+    faulted=(),
+):
     """Connected dual arms plus two passive BluePoint tails, cached SII scan 2026-10-24."""
-    identities = {0: (0x00100000, 0x10F40931), 17: (0x00100000, 0x10F40932),
-                  8: (0xA1, 0x8081), 16: (0xA1, 0x8081)}
+    identities = {
+        0: (0x00100000, 0x10F40931),
+        17: (0x00100000, 0x10F40932),
+        8: (0xA1, 0x8081),
+        16: (0xA1, 0x8081),
+    }
     identities.update({ring: (0x5A65726F, 0x00029252) for ring in [*range(1, 8), *range(9, 16)]})
 
     def run(command, **_):
@@ -108,7 +118,8 @@ def test_mock_scope_is_enable_only_with_staged_hardware(shares, tmp_path):
     assert enable["managed_joints"] == JOINTS
     assert enable["enable_batch_joint_names"] == JOINTS
     assert enable["enable_batch_sizes"] == [1] * 7
-    assert enable["enable_only"] is True and enable["jtc_name"] == ""
+    assert enable["motion_controller"] == ""
+    assert enable["rolling_controller"] == ""
     assert "expected_modes" not in enable
 
 
@@ -150,14 +161,43 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert jtc["joints"] == MODEL_JOINTS and jtc["command_interfaces"] == ["position"]
     assert jtc["trajectory_start_consistency_check"]["enabled"] is True
     enable = result.controllers["enable_manager"]["ros__parameters"]
-    assert enable["enable_only"] is False and enable["jtc_name"] == "left_arm_jtc"
-    assert enable["motion_mode_switching"] is False
+    assert enable["motion_controller"] == "left_arm_jtc"
+    assert enable["rolling_controller"] == ""
+    assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
+    assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
+    # Arm limits from the robot model (user 2026-11-04): 30 deg/s from the URDF <limit velocity>,
+    # 60 deg/s^2 from its joint limits file.
+    assert jtc["joint_velocity_limits"] == [math.radians(30.0)] * len(MODEL_JOINTS)
+    assert jtc["joint_acceleration_limits"] == [math.radians(60.0)] * len(MODEL_JOINTS)
+    assert jtc["open_loop_control"] is True
     assert {
-        "name": "arm_joint_trajectory",
-        "topic": "/left_arm_jtc/follow_joint_trajectory",
-        "type": "control_msgs/action/FollowJointTrajectory",
+        "name": "arm_joint_stream",
+        "topic": "/rt/arms/left/joint_trajectory",
+        "type": "trajectory_msgs/msg/JointTrajectory",
         "controller": "left_arm_jtc",
     } in result.lifecycle["capabilities"]
+
+
+@pytest.mark.parametrize("jtc_only", [False, True])
+def test_dual_arm_head_uses_one_enable_set_and_an_exclusive_arm_pair(shares, tmp_path, jtc_only):
+    result = compose(
+        robot_variant="Alfa_V3",
+        machine_unit=UNIT,
+        physical_profile="bench_dual_arm",
+        control_scope="bench_dual_arm_head",
+        package_share=lambda name: str(shares[name]),
+        runtime_dir=tmp_path / "arms-head",
+        jtc_only=jtc_only,
+    )
+    enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["motion_controller"] == "dual_arm_jtc"
+    assert enable["rolling_controller"] == ("" if jtc_only else "dual_arm_rolling")
+    assert enable["companion_controllers"] == ["head_position_controller"]
+    assert result.lifecycle.get("mode_controllers", []) == (
+        [] if jtc_only else ["dual_arm_jtc", "dual_arm_rolling"]
+    )
+    assert "head_position_controller" in result.lifecycle["motion_controllers"]
+    assert "head_position_controller" not in result.lifecycle["lifecycle_controllers"]
 
 
 def test_motion_scope_real_mode_uses_confirmed_directions_and_stop_parameters(shares, tmp_path):
@@ -193,7 +233,9 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
             (0x606C, "int32", "velocity"),
             (0x6077, "int16", "torque_permille"),
             (0x603F, "uint16", "error_code"),
-        ] + ([(0x3B69, "int32", "sensor_torque_mnm")] if sensor else []) + ([(0x2241, "int32", "dual_encoder_difference_counts")] if encoder else [])
+        ] + ([(0x3B69, "int32", "sensor_torque_mnm")] if sensor else []) + (
+            [(0x2241, "int32", "dual_encoder_difference_counts")] if encoder else []
+        )
         assert all("scale" not in channel for channel in channels)
         # 18/22/26 bytes of TxPDO, inside the 76-byte 0x1A00 limit.
         sizes = {"int32": 4, "uint32": 4, "int16": 2, "uint16": 2}
@@ -214,7 +256,9 @@ def test_motion_scope_maps_diagnostic_feedback(shares, tmp_path, mock):
             "velocity",
             "torque_permille",
             "error_code",
-        ] + (["sensor_torque_mnm"] if sensor else []) + (["dual_encoder_difference_counts"] if encoder else [])
+        ] + (["sensor_torque_mnm"] if sensor else []) + (
+            ["dual_encoder_difference_counts"] if encoder else []
+        )
         recorder = result.controllers["runtime_log_recorder"]["ros__parameters"]["interfaces"]
         assert (f"{joint}/sensor_torque_mnm" in recorder) is sensor
         assert (f"{joint}/dual_encoder_difference_counts" in recorder) is encoder

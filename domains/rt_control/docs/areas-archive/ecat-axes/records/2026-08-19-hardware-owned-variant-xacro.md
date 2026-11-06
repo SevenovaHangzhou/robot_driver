@@ -10,7 +10,7 @@ env: docker
 risk: T1
 writes: { reset: no, enable: no, motion: no, plc: no }
 verified: PASS
-evidence: [final image rt-control:electri-94-franka-layering-final-bbe5 sha256:5a61aa08a6f9b807f32cb6fc5829193f0f0e0060de938e36e128532f2d2d64f4 with 29 packages, focused Python 165/165, quality_gate 196/196 at 83%, Mock container a706422f1a3aec4899265c17009f31bca4e1f4046dc978793f15482cf3fae580 exit 0]
+evidence: [final image rt-control:electri-94-franka-layering-final-bbe5  with 29 packages, focused Python 165/165, quality_gate 196/196 at 83%, Mock container  exit 0]
 supersedes: []
 related: [BQ-122, canopen-chassis-20260819-01, lifecycle-20260819-03, contract-20260819-06, release-deploy-20260819-01]
 ---
@@ -45,11 +45,9 @@ CANopen 两个独立硬件插件。EtherCAT 总线局部事实因此应由 `robo
 ## 验证
 
 - focused Python 165/165、`tools/quality_gate.sh` 196/196（门禁覆盖率 83%）通过。
-  最终镜像 `rt-control:electri-94-franka-layering-final-bbe5`（ID
-  `sha256:5a61aa08a6f9b807f32cb6fc5829193f0f0e0060de938e36e128532f2d2d64f4`）应用冻结的
+  最终镜像 `rt-control:electri-94-franka-layering-final-bbe5`应用冻结的
   EtherCAT patch chain，并成功构建 29 个包。
-- 精确该镜像的无设备 Mock 容器
-  `a706422f1a3aec4899265c17009f31bca4e1f4046dc978793f15482cf3fae580` 在
+- 精确该镜像的无设备 Mock 容器在
   `network=none`、private IPC、无 device/capability/bind 的条件下得到预期 controller
   状态，controller manager 为 250 Hz，SafetyState 保持 `NOT_READY` 并 fail closed；
   BQ-122 顺序成立，容器退出 0，日志未出现 `ERROR`、`FATAL`、

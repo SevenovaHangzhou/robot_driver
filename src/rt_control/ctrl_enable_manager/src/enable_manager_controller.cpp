@@ -21,7 +21,6 @@
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
-#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
 
 namespace ctrl_enable_manager
@@ -202,8 +201,6 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   mode_abort_requested_.store(false, std::memory_order_release);
   switch_in_progress_.store(false, std::memory_order_release);
   current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
-  mode_cache_.fill(ModeCacheEntry{});
-  next_mode_cache_slot_ = 0U;
   {
     std::lock_guard<std::mutex> lock(command_snapshot_mutex_);
     jtc_command_snapshot_ = CommandSnapshot{};
@@ -1291,13 +1288,6 @@ std::uint64_t EnableManagerController::steadyNowNs() noexcept
   const auto elapsed = std::chrono::steady_clock::now().time_since_epoch();
   const auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
   return nanoseconds < 0 ? 0U : static_cast<std::uint64_t>(nanoseconds);
-}
-
-bool EnableManagerController::isZeroIdentifier(
-  const std::array<std::uint8_t, 16U> & identifier) noexcept
-{
-  return std::all_of(
-    identifier.begin(), identifier.end(), [](std::uint8_t byte) { return byte == 0U; });
 }
 
 EnableManagerController::DriveState EnableManagerController::decodeState(std::uint16_t status_word)

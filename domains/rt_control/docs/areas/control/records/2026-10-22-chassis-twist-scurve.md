@@ -82,7 +82,6 @@ related: [chassis-control-20261021-01]
 ## 部署与回退
 
 研华部署目录 `v3/deployments/ELECTRI-127-body-scurve-20261023` 保存源快照、测试、安装事务和原产物备份。
-源码快照 tar SHA-256：`4bfdce0df0e7f9307b078b4ca08c73c51f53cea8108943276cafe073a7442e8e`。
 `install-package.py restore` 只在控制进程停止时恢复本次替换文件和旧部署产物。
 也可将两项设为 `.inf`，重新生成部署产物后重启；禁止直接篡改带校验的生成文件。
 控制器从启动配置读取限值，网页尚不提供这两项的调节入口。

@@ -93,6 +93,12 @@ def test_latched_failure_names_the_device_and_the_vendor_code(stage, code, token
     assert text in error["detail"]
 
 
+def test_stale_feedback_at_self_check_blocks_as_offline():
+    stale = {**WARN, "dree": "RT_DEVICE_FEEDBACK_STALE", "severity": "FAULT", "blocking": True}
+    fields = domain_readiness({"pending": False, "entries": [stale]}, enable("ENABLED"), UP, HW)
+    assert fields["blockers"] == ["device_offline"] and fields["errors"] == [stale]
+
+
 def test_log_line_ignores_enable_phase_changes():
     enabling = domain_readiness(DONE, enable("ENABLING"), UP, HW)
     waiting = domain_readiness(DONE, enable("INTER_BATCH_DELAY"), UP, HW)
@@ -127,3 +133,31 @@ def test_restart_latch_is_a_blocker_and_the_recorded_source_is_not_repeated():
     fields = domain_readiness(DONE, latched, UP, HW, failure)
     assert fields["blockers"] == ["device_offline", "restart_required"]
     assert [e["source"] for e in fields["errors"]] == ["arms/left_joint3/drive"]
+
+
+def test_latched_kinco_failure_reports_the_error_word_bits():
+    tables = {
+        "kinco_fd": yaml.safe_load(
+            (RT / "hwcfg_machines/devices/faults/kinco_fd.yaml").read_text(encoding="utf-8")
+        )
+    }
+    drive = {
+        "source": "swerve_chassis/wheel1_joint/drive",
+        "role": "drive",
+        "state": {
+            "al_state": "ethercat_slave_1/al_state",
+            "error_word_1": "wheel1_joint/error_word_1",
+            "error_word_2": "wheel1_joint/error_word_2",
+        },
+        "fault_table": "kinco_fd",
+        "motor_encoder_type": "incremental",
+    }
+    latched = enable("FAILED", stage="fault_detected", failed_joint="wheel1_joint")
+    values = {"wheel1_joint/error_word_1": 1 << 13, "wheel1_joint/error_word_2": 0}
+    token, entry = failure_entry(latched, [drive], tables, values)
+    assert (token, entry["source"], entry["dree"]) == (
+        "device_fault",
+        "swerve_chassis/wheel1_joint/drive",
+        "RT_DEVICE_FAULT",
+    )
+    assert "0x2601 bit13 电机温度过高" in entry["detail"]

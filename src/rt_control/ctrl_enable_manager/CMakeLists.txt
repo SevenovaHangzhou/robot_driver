@@ -17,7 +17,6 @@ find_package(rclcpp REQUIRED)
 find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_rt_control_interfaces REQUIRED)
 find_package(robot_system_interfaces REQUIRED)
-find_package(rt_control_interfaces REQUIRED)
 find_package(hw_semantic_components REQUIRED)
 find_package(std_msgs REQUIRED)
 
@@ -46,7 +45,6 @@ ament_target_dependencies(enable_manager_controller
   robot_interfaces_qos
   robot_rt_control_interfaces
   robot_system_interfaces
-  rt_control_interfaces
   hw_semantic_components
   std_msgs
 )
@@ -70,7 +68,6 @@ ament_export_targets(export_enable_manager_controller HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   control_msgs controller_interface controller_manager_msgs diagnostic_msgs infra_shm_ring lifecycle_msgs
   pluginlib rclcpp robot_interfaces_qos robot_rt_control_interfaces robot_system_interfaces
-  rt_control_interfaces
   hw_semantic_components
   std_msgs
 )
@@ -99,7 +96,6 @@ if(BUILD_TESTING)
     robot_interfaces_qos
     robot_rt_control_interfaces
     robot_system_interfaces
-    rt_control_interfaces
     hw_semantic_components
   )
 

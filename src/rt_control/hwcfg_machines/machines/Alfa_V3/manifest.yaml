@@ -87,9 +87,6 @@ policy_refs:
     file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
     schema_package: ctrl_rolling_trajectory
     schema: arm_tolerances.schema.json
-  envelope:
-    package: hwcfg_machines
-    file: machines/Alfa_V3/policies/Alfa_V3_arm_envelope.mock.yaml
   bench_right_arm_enable:
     package: hwcfg_machines
     file: machines/Alfa_V3/policies/Alfa_V3_bench_right_arm_enable_policy.yaml

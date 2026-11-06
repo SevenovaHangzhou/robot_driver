@@ -22,9 +22,6 @@ constexpr std::uint64_t kSecondNs = 1'000'000'000U;
 DynamicEnvelope makeTestOnlyEnvelope()
 {
   DynamicEnvelope envelope;
-  envelope.source = LimitsSource::kTestOnly;
-  envelope.limits_version[0] = 0xE1U;
-  envelope.limits_version[1] = 0x02U;
   for (AxisEnvelope & axis : envelope.axes) {
     axis.position_lower = -10.0;
     axis.position_upper = 10.0;
@@ -49,43 +46,17 @@ JointPoint makeJointPoint(std::uint64_t time_ns, double position, double velocit
   return point;
 }
 
-TEST(DynamicEnvelope, TestOnlyLimitsRequireExplicitOptInAndVersion)
+TEST(DynamicEnvelope, InvalidBoundsAreRejected)
 {
   LimitChecker checker;
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
-
-  EXPECT_FALSE(checker.configure(envelope, false));
-  EXPECT_FALSE(checker.configured());
-  EXPECT_TRUE(checker.configure(envelope, true));
+  EXPECT_TRUE(checker.configure(envelope));
   EXPECT_TRUE(checker.configured());
 
-  envelope.limits_version.fill(0U);
-  LimitChecker missing_version_checker;
-  EXPECT_FALSE(missing_version_checker.configure(envelope, true));
-
-  envelope = makeTestOnlyEnvelope();
   envelope.axes[3].position_margin_upper = 20.0;
   LimitChecker invalid_bounds_checker;
-  EXPECT_FALSE(invalid_bounds_checker.configure(envelope, true));
-}
-
-TEST(DynamicEnvelope, ProvisionalAndTestOnlyAuthoritiesAreIndependent)
-{
-  DynamicEnvelope envelope = makeTestOnlyEnvelope();
-
-  LimitChecker checker;
-  EXPECT_FALSE(checker.configure(envelope, false, false));
-  EXPECT_TRUE(checker.configure(envelope, true, false));
-
-  envelope.source = LimitsSource::kProvisional;
-  LimitChecker provisional_checker;
-  EXPECT_FALSE(provisional_checker.configure(envelope, false, false));
-  EXPECT_FALSE(provisional_checker.configure(envelope, true, false));
-  EXPECT_TRUE(provisional_checker.configure(envelope, false, true));
-
-  envelope.source = LimitsSource::kProduction;
-  LimitChecker production_checker;
-  EXPECT_TRUE(production_checker.configure(envelope, false, false));
+  EXPECT_FALSE(invalid_bounds_checker.configure(envelope));
+  EXPECT_FALSE(invalid_bounds_checker.configured());
 }
 
 TEST(CubicHermite, ConstantPositionHasOnlyEndpointExtrema)
@@ -140,7 +111,7 @@ TEST(LimitChecker, RejectsAnInteriorPositionExtremumWhenEndpointsPass)
   envelope.axes[0].position_margin_lower = 0.0;
   envelope.axes[0].position_margin_upper = 0.1;
   LimitChecker checker;
-  ASSERT_TRUE(checker.configure(envelope, true));
+  ASSERT_TRUE(checker.configure(envelope));
 
   JointPoint start = makeJointPoint(0U, 0.0, 0.0);
   JointPoint end = makeJointPoint(kSecondNs, 0.0, 0.0);
@@ -161,7 +132,7 @@ TEST(LimitChecker, RejectsAnInteriorVelocityExtremumWhenEndpointVelocitiesPass)
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
   envelope.axes[0].velocity_positive = 1.4;
   LimitChecker checker;
-  ASSERT_TRUE(checker.configure(envelope, true));
+  ASSERT_TRUE(checker.configure(envelope));
 
   JointPoint start = makeJointPoint(0U, 0.0, 0.0);
   JointPoint end = makeJointPoint(kSecondNs, 0.0, 0.0);
@@ -182,7 +153,7 @@ TEST(LimitChecker, AppliesPositiveAndNegativeAccelerationLimitsIndependently)
   envelope.axes[0].acceleration_positive = 1.0;
   envelope.axes[0].acceleration_negative = 0.5;
   LimitChecker checker;
-  ASSERT_TRUE(checker.configure(envelope, true));
+  ASSERT_TRUE(checker.configure(envelope));
 
   JointPoint positive_start = makeJointPoint(0U, 0.0, 0.0);
   JointPoint positive_end = makeJointPoint(kSecondNs, 0.0, 0.0);
@@ -308,7 +279,7 @@ TEST(LimitChecker, RotaryAndPrismaticLimitsRemainAxisLocal)
   envelope.axes[13].position_margin_upper = 0.02;
   envelope.axes[13].velocity_positive = 0.3;
   LimitChecker checker;
-  ASSERT_TRUE(checker.configure(envelope, true));
+  ASSERT_TRUE(checker.configure(envelope));
 
   JointPoint start = makeJointPoint(0U, 0.0, 0.0);
   JointPoint end = makeJointPoint(kSecondNs, 0.0, 0.0);

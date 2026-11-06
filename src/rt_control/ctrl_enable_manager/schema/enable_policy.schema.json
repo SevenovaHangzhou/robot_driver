@@ -85,13 +85,9 @@
               "minItems": 1,
               "maxItems": 3
             }
-          },
-          "enable_only": {
-            "type": "boolean"
           }
         },
         "required": [
-          "enable_only",
           "parameter_names"
         ],
         "additionalProperties": false

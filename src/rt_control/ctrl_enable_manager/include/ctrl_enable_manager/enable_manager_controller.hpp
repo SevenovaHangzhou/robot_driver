@@ -29,7 +29,6 @@
 #include "robot_rt_control_interfaces/srv/set_joint_control_mode.hpp"
 #include "robot_system_interfaces/msg/error_info.hpp"
 #include "ctrl_enable_manager/handshake_device.hpp"
-#include "rt_control_interfaces/msg/joint_control_mode_result.hpp"
 #include "robot_rt_control_interfaces/srv/rt_enable.hpp"
 #include "hw_semantic_components/cia402_axis.hpp"
 #include "infra_shm_ring/shm_ring.hpp"
@@ -59,7 +58,6 @@ private:
   friend class EnableManagerTestAccess;
 
   static constexpr std::size_t kMotionAxisCount = 14U;
-  static constexpr std::size_t kModeCacheCapacity = 8U;
   // EtherCAT AL state Operational (ETG.1000.6), as the slave al_state interface reports it.
   static constexpr double kAlStateOp = 8.0;
 
@@ -146,21 +144,26 @@ private:
   {
     bool valid{false};
     std::array<double, kMotionAxisCount> positions{};
-    std::array<std::uint8_t, 16U> controller_boot_id{};
     std::uint64_t received_steady_ns{0U};
     std::uint8_t control_mode{0U};
-    bool has_session{false};
-    std::uint8_t session_state{0U};
+    // Rolling only: RollingJointControlState.state; the rolling source must be holding.
+    std::uint8_t rolling_state{0U};
   };
 
   using ModeService = robot_rt_control_interfaces::srv::SetJointControlMode;
-  using ModeResultMessage = rt_control_interfaces::msg::JointControlModeResult;
 
-  struct ModeCacheEntry
-  {
-    bool valid{false};
-    ModeService::Request request{};
-    ModeService::Response response{};
+  // Mode-switch outcome; populateModeError maps it to the public ErrorInfo.
+  enum ModeResult : std::uint8_t {
+    kModeOk = 0U,
+    kModeNotEnabled,
+    kModeNotReady,
+    kModeWrongMode,
+    kModeSourceStale,
+    kModeSourceMoving,
+    kModeFeedbackStale,
+    kModeTakeoverMismatch,
+    kModeSwitchRejected,
+    kModeRestartRequired
   };
 
   static DriveState decodeState(std::uint16_t status_word);
@@ -168,7 +171,6 @@ private:
   static const char * phaseName(Phase phase);
   static bool isFaultState(DriveState state);
   static std::uint64_t steadyNowNs() noexcept;
-  static bool isZeroIdentifier(const std::array<std::uint8_t, 16U> & identifier) noexcept;
   bool isConfirmedDisableTerminal(std::size_t axis, DriveState state) const;
   bool configureTopology();
   rcl_interfaces::msg::SetParametersResult validateTopologyParameterUpdate(
@@ -198,48 +200,35 @@ private:
   void reportResult(
     const char * service, robot_rt_control_interfaces::srv::RtEnable::Response & response,
     std::uint32_t failure_code) const;
-  SwitchResult buildMotionControllerSwitchRequest(
-    const controller_manager_msgs::srv::ListControllers::Response & states, bool activate_default,
+  SwitchResult buildControllerSwitchRequest(
+    const controller_manager_msgs::srv::ListControllers::Response & states, ControlMode target,
     controller_manager_msgs::srv::SwitchController::Request & request) const;
-  bool registeredMotionControllerStateMatches(
+  bool controllerStateMatches(
     const controller_manager_msgs::srv::ListControllers::Response & states,
-    bool default_active) const;
+    ControlMode target) const;
+  bool controllerRunsInMode(const std::string & name, ControlMode target) const;
   ControlMode detectControlMode(
     const controller_manager_msgs::srv::ListControllers::Response & states) const;
   ModeSwitchState classifyModeSwitchState(
     const controller_manager_msgs::srv::ListControllers::Response & states, ControlMode source,
     ControlMode target) const;
+  // True when the displacement rate from window_start to current is below the thresholds.
   bool stableActualInterval(
-    const ActualSample & previous, const ActualSample & current) const noexcept;
+    const ActualSample & window_start, const ActualSample & current) const noexcept;
   bool sourceWithinTakeoverTolerance(
     const std::array<double, kMotionAxisCount> & source,
     const std::array<double, kMotionAxisCount> & actual) const noexcept;
-  static bool sameModeRequest(
-    const ModeService::Request & lhs, const ModeService::Request & rhs) noexcept;
-  ModeCacheEntry * findModeCache(
-    const std::array<std::uint8_t, 16U> & client_id,
-    const std::array<std::uint8_t, 16U> & request_id) noexcept;
-  ModeCacheEntry & allocateModeCache() noexcept;
   bool readActualSample(ActualSample & sample) const noexcept;
   bool readCommandSnapshot(ControlMode mode, CommandSnapshot & snapshot) const;
   std::uint8_t validateModeSource(ControlMode source, CommandSnapshot & snapshot);
   bool queryControllerStates(
     controller_manager_msgs::srv::ListControllers::Response & states,
     std::chrono::milliseconds timeout);
-  std::uint8_t executeModeSwitch(
-    ControlMode source, ControlMode target, ModeService::Response & response,
-    std::uint64_t switch_started_ns);
+  std::uint8_t executeModeSwitch(ControlMode source, ControlMode target);
   void convergeAfterUnsafeModeSwitch(bool restart_required);
   bool releaseModeOwnership() noexcept;
-  void setModeResponse(
-    ModeService::Response & response, const ModeService::Request & request, std::uint8_t result,
-    ControlMode mode, bool source_deactivated, bool target_activated, bool restart_required);
   static void populateModeError(
     robot_system_interfaces::msg::ErrorInfo & error, std::uint8_t result);
-  void publishModeResult(const ModeService::Response & response);
-  static const char * controllerNameForMode(
-    ControlMode mode, const std::string & default_controller,
-    const std::string & rolling_controller) noexcept;
   SwitchResult switchJtc(bool activate);
   void handleNonRtFaultStop();
   void publishDiagnostics();
@@ -406,14 +395,12 @@ private:
   double fault_reset_timeout_seconds_{4.0};
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
-  std::string jtc_name_{"whole_body_jtc"};
-  std::vector<std::string> switched_controllers_{"whole_body_jtc"};  // jtc_name + companions
-  bool enable_only_{false};
+  bool enable_only_{false};  // Derived from the configured controller set.
   bool motion_mode_switching_{false};
-  std::vector<std::string> motion_controller_names_{
-    "whole_body_jtc", "rolling_trajectory_controller"};
-  std::string default_motion_controller_{"whole_body_jtc"};
-  std::string rolling_motion_controller_{"rolling_trajectory_controller"};
+  std::vector<std::string> managed_controllers_;
+  std::vector<std::string> companion_controllers_;
+  std::string default_motion_controller_;
+  std::string rolling_motion_controller_;
   std::uint64_t mode_switch_maximum_sample_period_ns_{2000000U};
   std::uint64_t mode_switch_source_state_max_age_ns_{100000000U};
   std::size_t mode_switch_stable_interval_count_{5U};
@@ -424,9 +411,6 @@ private:
   mutable std::mutex command_snapshot_mutex_{};
   CommandSnapshot jtc_command_snapshot_{};
   CommandSnapshot rolling_command_snapshot_{};
-  std::array<ModeCacheEntry, kModeCacheCapacity> mode_cache_{};
-  std::size_t next_mode_cache_slot_{0U};
-  std::atomic<std::uint64_t> mode_result_sequence_{0U};
 
   rclcpp::CallbackGroup::SharedPtr enable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr disable_callback_group_;
@@ -437,7 +421,6 @@ private:
   rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr disable_service_;
   rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr reset_service_;
   rclcpp::Service<ModeService>::SharedPtr mode_service_;
-  rclcpp::Publisher<ModeResultMessage>::SharedPtr mode_result_publisher_;
   rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr
     jtc_state_subscription_;
   rclcpp::Subscription<robot_rt_control_interfaces::msg::RollingJointControlState>::SharedPtr

@@ -5,7 +5,7 @@ captured_utc: '2026-10-17T08:58:45+00:00'
 host: ar-Default-string
 master_id: 0
 physical_profile: bench_left_arm
-igh_preserve_pdo_patch_sha256: b83b5837d3748fb7f5c15d4066e3cfc753347dd2f20f16fd0f43585d2f9a1438
+igh_patches: 0001-preserve-verified-pdo-config.patch
 before_and_after: {master_active: false, master_phase: Idle, responders: 9, al_state: PREOP}
 responders:
 - {ring_position: 0, name: GR10-EC-6SW(IN,X2,X3)_1.4.2.0, vendor_id: 0x00100000, product_code: 0x10f40931}

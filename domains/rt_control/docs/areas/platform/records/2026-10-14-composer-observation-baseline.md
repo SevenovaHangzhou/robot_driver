@@ -28,7 +28,7 @@ related: [platform-20261014-01, integration-20261014-04]
 ## 验证
 
 用户批准唯一冻结V2 Xacro排除本次V3频率验收，保留原control_frequency 1000与原文件。
-V3迁移baseline_violations已清空；公开scope exclusion带路径、SHA-256和用户批准理由。
+V3迁移baseline_violations已清空；公开scope exclusion带路径和用户批准理由。
 若内容改变，冻结哈希与R6检查失败；只有原字节可以排除周期检查，其它规则不排除。
 工具门禁违规为0。
 

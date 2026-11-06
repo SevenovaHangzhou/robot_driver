@@ -1,0 +1,82 @@
+devices:
+- address:
+    can_id: 1
+  expected:
+    max_feedback_age_ms: 50
+  fault_table: damiao_dm
+  role: head_motor
+  source: head_gimbal/H1_joint/head_motor
+  state:
+    fault_code: H1_joint/fault_code
+    feedback_age_ms: H1_joint/feedback_age_ms
+- address:
+    can_id: 2
+  expected:
+    max_feedback_age_ms: 50
+  fault_table: damiao_dm
+  role: head_motor
+  source: head_gimbal/H2_joint/head_motor
+  state:
+    fault_code: H2_joint/fault_code
+    feedback_age_ms: H2_joint/feedback_age_ms
+fault_tables:
+  damiao_dm:
+    authorities:
+      source: "V3-DOC-2026-012 DaMiao DM-J4310-2EC V1.1 manual V1.1 sha256 717ba758b9a8719a7603177e27f6744baee0f9d95deba3fb59b4b5a1bf30fdd4\
+        \ section \u53CD\u9988\u5E27"
+    faults:
+    - code: '0x0003'
+      dree: RT_DEVICE_FAULT
+      message: "\u8F93\u51FA\u8F74\u6821\u51C6\u5F02\u5E38"
+      page: 12
+    - code: '0x0004'
+      dree: RT_DEVICE_FAULT
+      message: "\u4F20\u611F\u5668\u8F93\u51FA\u5F02\u5E38"
+      page: 12
+    - code: '0x0005'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u7F16\u7801\u5668\u6821\u51C6\u5F02\u5E38"
+      page: 12
+    - code: '0x0008'
+      dree: RT_DEVICE_FAULT
+      message: "\u8D85\u538B"
+      page: 12
+    - code: '0x0009'
+      dree: RT_DEVICE_FAULT
+      message: "\u6B20\u538B"
+      page: 12
+    - code: '0x000A'
+      dree: RT_DEVICE_FAULT
+      message: "\u8FC7\u7535\u6D41"
+      page: 12
+    - code: '0x000B'
+      dree: RT_DEVICE_FAULT
+      message: "MOS \u8FC7\u6E29"
+      page: 12
+    - code: '0x000C'
+      dree: RT_DEVICE_FAULT
+      message: "\u7535\u673A\u7EBF\u5708\u8FC7\u6E29"
+      page: 12
+    - code: '0x000D'
+      dree: RT_DEVICE_FAULT
+      message: "\u901A\u8BAF\u4E22\u5931"
+      note: "\u7535\u673A\u4FA7 CAN \u8D85\u65F6\u9000\u51FA\u4F7F\u80FD\uFF08TIMEOUT\
+        \ \u5BC4\u5B58\u5668\uFF09\uFF0C\u4E0D\u662F\u5DE5\u63A7\u673A\u4FA7\u53CD\
+        \u9988\u8D85\u65F6"
+      page: 12
+    - code: '0x000E'
+      dree: RT_DEVICE_FAULT
+      message: "\u8FC7\u8F7D"
+      page: 12
+    kind: device_fault_table
+    pending_facts:
+    - which faults the clear-error command (D7=0xFB) clears without a power cycle
+    - applicability to the deployed motor firmware (firmware version not recorded)
+    read:
+    - field: feedback ERR nibble
+      kind: code
+    schema_version: 1
+    status: draft
+    vendor: DaMiao
+    verified: false
+schema_version: 1
