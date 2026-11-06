@@ -503,6 +503,10 @@ TEST_F(ControllerBatchTest, ReactivationStartsANewEpoch)
 TEST_F(ControllerBatchTest, ConcurrentBatchesAndRtConsumptionRemainCoherent)
 {
   const rclcpp::Time start = now() + rclcpp::Duration::from_seconds(0.05);
+  std::vector<Batch> batches;
+  for (std::uint64_t sequence = 1U; sequence <= 10U; ++sequence) {
+    batches.push_back(move(sequence, start, 0.5, 0.05));
+  }
   std::atomic_bool producer_done{false};
   std::atomic<std::uint64_t> update_errors{0U};
   std::thread rt_thread([&]() {
@@ -517,8 +521,8 @@ TEST_F(ControllerBatchTest, ConcurrentBatchesAndRtConsumptionRemainCoherent)
     }
   });
   // The first batch opens the session; the same plan resent from the same start is late.
-  for (std::uint64_t sequence = 1U; sequence <= 10U; ++sequence) {
-    Peer::submit(*controller_, move(sequence, start, 0.5, 0.05));
+  for (const auto & batch : batches) {
+    Peer::submit(*controller_, batch);
   }
   producer_done.store(true, std::memory_order_release);
   rt_thread.join();

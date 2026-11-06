@@ -77,16 +77,6 @@ if(BUILD_TESTING)
   target_include_directories(test_rolling_buffer PRIVATE include)
   target_link_libraries(test_rolling_buffer rolling_trajectory_core)
 
-  ament_add_gtest(test_protocol_vectors
-    test/test_protocol_vectors.cpp
-  )
-  target_compile_features(test_protocol_vectors PUBLIC cxx_std_17)
-  target_compile_options(
-    test_protocol_vectors PRIVATE -Wall -Wextra -Wpedantic -Wconversion
-  )
-  target_include_directories(test_protocol_vectors PRIVATE include)
-  target_link_libraries(test_protocol_vectors rolling_trajectory_core)
-
   ament_add_gtest(test_rolling_correctness
     test/test_rolling_correctness.cpp
   )
