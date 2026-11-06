@@ -338,11 +338,11 @@ TEST_F(ControllerBatchTest, FirstBatchHoldsUntilReplaceFromThenFollowsTheCubic)
   EXPECT_EQ(state.epoch, 1U);
   EXPECT_EQ(state.last_sequence, 1U);
   EXPECT_EQ(state.last_result, State::ACCEPTED);
-  EXPECT_EQ(state.state, State::HOLDING);
+  EXPECT_EQ(state.state, State::STARTING);
 
   run(start - rclcpp::Duration::from_seconds(0.05), 5U);
   EXPECT_EQ(command_positions_, hold);
-  EXPECT_EQ(Peer::state(*controller_).state, State::HOLDING);
+  EXPECT_EQ(Peer::state(*controller_).state, State::STARTING);
 
   run(start, 1U);
   EXPECT_EQ(Peer::state(*controller_).state, State::RUNNING);
@@ -443,8 +443,13 @@ TEST_F(ControllerBatchTest, RejectionsAreReportedWithTheirSequence)
   beyond.points[1].positions[0] = 9.0;
   EXPECT_EQ(result(beyond), State::LIMIT_EXCEEDED);
   EXPECT_EQ(result(move(6U, start, 0.4, 0.02)), State::STALE_SEQUENCE);
-  EXPECT_EQ(result(move(7U, start, 0.4, 0.02)), State::ACCEPTED);
   EXPECT_EQ(Peer::state(*controller_).state, State::HOLDING);
+  Batch final_moving = move(7U, start, 0.4, 0.02);
+  final_moving.final = true;
+  final_moving.points[1].velocities[3] = 0.01;
+  EXPECT_EQ(result(final_moving), State::FINAL_NOT_AT_REST);
+  EXPECT_EQ(result(move(8U, start, 0.4, 0.02)), State::ACCEPTED);
+  EXPECT_EQ(Peer::state(*controller_).state, State::STARTING);
 }
 
 TEST_F(ControllerBatchTest, UpdateTimeoutStopsAndTheNextBatchStartsAgain)
@@ -460,13 +465,86 @@ TEST_F(ControllerBatchTest, UpdateTimeoutStopsAndTheNextBatchStartsAgain)
   EXPECT_EQ(state.state, State::HOLDING);
   EXPECT_EQ(state.stop_reason, State::STOP_UPDATE_TIMEOUT);
 
+  // A rejected first batch starts nothing: the stop reason of the last trajectory stays.
   const rclcpp::Time restart = now() + rclcpp::Duration::from_seconds(0.05);
-  Peer::submit(*controller_, move(2U, restart, 0.4, -0.02));
+  Batch off_hold = move(2U, restart, 0.4, -0.02);
+  off_hold.points[0].positions[0] += 0.001;
+  Peer::submit(*controller_, off_hold);
+  state = Peer::state(*controller_);
+  EXPECT_EQ(state.last_result, State::SPLICE_MISMATCH);
+  EXPECT_EQ(state.state, State::HOLDING);
+  EXPECT_EQ(state.stop_reason, State::STOP_UPDATE_TIMEOUT);
+
+  // An accepted one starts a new trajectory with a cleared stop reason.
+  Peer::submit(*controller_, move(3U, restart, 0.4, -0.02));
   state = Peer::state(*controller_);
   EXPECT_EQ(state.last_result, State::ACCEPTED);
-  EXPECT_EQ(state.stop_reason, State::STOP_UPDATE_TIMEOUT);
+  EXPECT_EQ(state.state, State::STARTING);
+  EXPECT_EQ(state.stop_reason, State::STOP_NONE);
   run(restart, 2U);
   EXPECT_EQ(Peer::state(*controller_).state, State::RUNNING);
+}
+
+TEST_F(ControllerBatchTest, FinalTrajectoryRunsToItsEndWithoutFurtherUpdates)
+{
+  const std::array<double, kAxisCount> hold = command_positions_;
+  const rclcpp::Time start = now() + rclcpp::Duration::from_seconds(0.05);
+  Batch batch = move(1U, start, 0.3, 0.05);
+  batch.final = true;
+  Peer::submit(*controller_, batch);
+  ASSERT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+  rclcpp::Time time = run(start, 10U);
+  ASSERT_EQ(Peer::state(*controller_).state, State::RUNNING);
+
+  // No batch arrives any more; a non-final trajectory would stop on the update timeout here.
+  Peer::expireAcceptedUpdate(*controller_);
+  time = run(time, 80U);  // past the end at 0.3 s
+  const State state = Peer::state(*controller_);
+  EXPECT_EQ(state.state, State::HOLDING);
+  EXPECT_EQ(state.stop_reason, State::STOP_COMPLETED);
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    EXPECT_NEAR(command_positions_[axis], hold[axis] + 0.05, 1.0e-12);
+  }
+  run(time, 20U);
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    EXPECT_NEAR(command_positions_[axis], hold[axis] + 0.05, 1.0e-12);
+  }
+}
+
+TEST_F(ControllerBatchTest, NonFinalReplacementOfAFinalTrajectoryAwaitsUpdatesAgain)
+{
+  const std::array<double, kAxisCount> hold = command_positions_;
+  const rclcpp::Time start = now() + rclcpp::Duration::from_seconds(0.05);
+  Batch batch = move(1U, start, 0.5, 0.1);
+  batch.final = true;
+  Peer::submit(*controller_, batch);
+  rclcpp::Time time = run(start, 10U);
+  ASSERT_EQ(Peer::state(*controller_).state, State::RUNNING);
+
+  CubicHermite original;
+  ASSERT_TRUE(buildCubicHermite(0.0, 0.0, 0.1, 0.0, 0.5, original));
+  ScalarKinematicState splice;
+  ASSERT_TRUE(sampleCubicHermite(original, 0.2 / 0.5, splice));
+  Batch replacement;
+  replacement.epoch = 1U;
+  replacement.sequence = 2U;
+  replacement.replace_from = start + rclcpp::Duration::from_seconds(0.2);
+  replacement.points.resize(2U);
+  replacement.points[1].time_from_start = rclcpp::Duration::from_seconds(0.3);
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    replacement.points[0].positions[axis] = hold[axis] + splice.position;
+    replacement.points[0].velocities[axis] = splice.velocity;
+    replacement.points[1].positions[axis] = hold[axis] + 0.08;
+  }
+  Peer::submit(*controller_, replacement);
+  ASSERT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+  time = run(time, 2U);
+
+  Peer::expireAcceptedUpdate(*controller_);
+  run(time, 200U);
+  const State state = Peer::state(*controller_);
+  EXPECT_EQ(state.state, State::HOLDING);
+  EXPECT_EQ(state.stop_reason, State::STOP_UPDATE_TIMEOUT);
 }
 
 TEST_F(ControllerBatchTest, BufferEndWhileMovingBrakesWithinTheLimits)

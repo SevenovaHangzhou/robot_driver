@@ -121,6 +121,13 @@ RejectCode RollingBuffer::validateInput(const BatchView & batch) const noexcept
       return RejectCode::kNonMonotonicTime;
     }
   }
+  if (batch.final) {
+    const auto & last = batch.points[batch.point_count - 1U];
+    if (!std::all_of(
+          last.velocities, last.velocities + kAxisCount, [](double v) { return v == 0.0; })) {
+      return RejectCode::kFinalNotAtRest;
+    }
+  }
   return batch.points[0].time_ns == batch.replace_from_ns ? RejectCode::kNone
                                                           : RejectCode::kTimeGap;
 }
@@ -177,6 +184,7 @@ RejectCode RollingBuffer::prepare(
 
   candidate.point_count = prefix_count + batch.point_count;
   candidate.generation = image_.generation + 1U;
+  candidate.final = batch.final;
   candidate.earliest_changed_ns = image_.generation > context.active_generation
                                     ? std::min(image_.earliest_changed_ns, batch.replace_from_ns)
                                     : batch.replace_from_ns;

@@ -29,7 +29,8 @@ enum class RejectCode : std::uint8_t {
   kAccelerationLimit,
   kNotStoppingViable,
   kSessionNotAccepting,
-  kHorizonExceeded
+  kHorizonExceeded,
+  kFinalNotAtRest
 };
 
 struct PointView
@@ -47,6 +48,8 @@ struct BatchView
   std::uint64_t replace_from_ns{0U};
   const PointView * points{nullptr};
   std::size_t point_count{0U};
+  // Last batch of the trajectory: it must end at rest.
+  bool final{false};
 };
 
 enum class SessionState : std::uint8_t {
@@ -64,7 +67,8 @@ enum class StopReason : std::uint8_t {
   kLowWater,
   kClockAnomaly,
   kInternalInvariant,
-  kControllerDeactivated
+  kControllerDeactivated,
+  kCompleted
 };
 
 struct JointPoint
@@ -81,6 +85,8 @@ struct TrajectoryImage
   std::uint64_t generation{0U};
   // Earliest replacement not yet observed by the realtime consumer.
   std::uint64_t earliest_changed_ns{0U};
+  // Ends at rest and needs no further batch: run to the last point, then hold.
+  bool final{false};
 };
 
 inline void copyTrajectoryImageEffective(
@@ -89,6 +95,7 @@ inline void copyTrajectoryImageEffective(
   std::copy_n(source.points.begin(), source.point_count, destination.points.begin());
   destination.generation = source.generation;
   destination.earliest_changed_ns = source.earliest_changed_ns;
+  destination.final = source.final;
   destination.point_count = source.point_count;
 }
 

@@ -181,7 +181,7 @@ Mock，但尚未进入远端 V3 或旧工控机 release；临时 envelope 标记
 | 方向 | Endpoint | 类型 |
 | --- | --- | --- |
 | Motion -> RT | `/rt/arms/set_control_mode` | `SetJointControlMode`：`target_mode` → `accepted`、`error`、`mode` |
-| Motion -> RT | `/rt/arms/rolling/target_batch` | `RollingJointTargetBatch`：`epoch`、`sequence`、`replace_from`（ROS 时间）、`points` |
+| Motion -> RT | `/rt/arms/rolling/target_batch` | `RollingJointTargetBatch`：`epoch`、`sequence`、`replace_from`（ROS 时间）、`points`、`final` |
 | RT -> Motion | `/rt/arms/rolling/state` | `RollingJointControlState`：`epoch`、`state`、`last_sequence`、`last_result`、`stop_reason` |
 
 没有会话服务：切到 `ROLLING_READY` 即开始，切回 `FJT_READY` 即结束。运控与 RT-Control
@@ -192,14 +192,17 @@ Mock，但尚未进入远端 V3 或旧工控机 release；临时 envelope 标记
 1. Motion 取消自己的 FJT goal 并等待结果；手臂静止。
 2. `set_mode(target=ROLLING_READY)`，`accepted=true` 后读 `/rt/arms/rolling/state` 的 `epoch`。
 3. 第一批：`replace_from` 至少在当前时刻 + 替换提前量之后、最大缓冲时长之内；首点等于保持
-   位置、速度 0。RT 保持到 `replace_from` 才开始跟随（`state` 从 HOLDING 变 RUNNING）。
+   位置、速度 0。接受后 `state` 为 STARTING，RT 保持到 `replace_from` 才开始跟随（RUNNING）；
+   HOLDING 只表示没有轨迹。
 4. 之后每批的首点必须在拼接容差内（0.05 rad、0.1 rad/s）等于缓冲轨迹在 `replace_from` 处的值
    （即自己上一批计划在该时刻的位置和速度）；RT 从缓冲状态连续接续，首点只用于检查；
    `replace_from` 不早于当前时刻 + 替换提前量。
 5. 每批都看 `last_sequence`/`last_result`；只有 ACCEPTED 才算接受。
-6. 运动结束时最后一批以静止点收尾，并在末点后再留一段静止（不短于保护时间之和）；
-   缓冲耗尽时 RT 会提前按限值刹停（`STOP_BUFFER_END`），停点可能差最后一小段。
+6. 运动结束时最后一批置 `final=true`，末点各轴速度为 0：RT 不再等后续批次，执行到末点后
+   保持，`stop_reason=STOP_COMPLETED`。final 之后仍可发新批次替换，非 final 批次恢复更新超时。
+   不置 final 时，缓冲耗尽 RT 会提前按限值刹停（`STOP_BUFFER_END`），停点可能差最后一小段。
 7. 更新超时或缓冲耗尽后 RT 刹停并 HOLDING；同一 epoch 内下一批（新起点）即重新开始。
+   `stop_reason` 只说明当前或最近一段：新一段的首批被接受时清为 `STOP_NONE`。
 8. 退出：手臂静止（HOLDING）后 `set_mode(target=FJT_READY)`；RUNNING/STOPPING 时切换被拒。
 
 限值只取 robot_description：位置限位（内缩 0.05 rad）、双臂 30°/s、60°/s²；刹车减速度
@@ -258,8 +261,9 @@ maximum period 为 2 ms；这些是 Mock/初始软件值，不是目标机实测
 - `SPLICE_MISMATCH`：首点不在缓冲轨迹上；从自己上一批被接受的计划在替换点重新采样。
 - `LIMIT_EXCEEDED`、`NOT_STOPPABLE`、`HORIZON_EXCEEDED`、`INVALID_BATCH`：重新规划，RT 不做裁剪。
 - `NOT_ACCEPTING`：正在刹停或手臂不在保持位置；等 HOLDING 后重发。
+- `FINAL_NOT_AT_REST`：final 批末点速度不为 0；改为静止收尾或去掉 final。
 
-停止原因（`stop_reason`）：`UPDATE_TIMEOUT`、`BUFFER_END` 可直接重发；`DEACTIVATED`、
+停止原因（`stop_reason`）：`COMPLETED` 为 final 轨迹正常结束；`UPDATE_TIMEOUT`、`BUFFER_END` 可直接重发；`DEACTIVATED`、
 `FAULT`、`INTERNAL` 需等 RT 恢复（见 `/rt/readiness`）。
 
 ## 8. Physical profile 与使能范围
