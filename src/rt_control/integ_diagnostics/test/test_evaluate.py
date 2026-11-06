@@ -58,6 +58,25 @@ def test_healthy_sample_has_no_entries():
     assert evaluate(DEVICES, TABLES, sample()) == []
 
 
+FORCE = {
+    "source": "wrist_force_sensors/left_wrist_force_sensor/force_sensor",
+    "role": "force_sensor",
+    "state": {"al_state": "ethercat_slave_2/al_state"},
+}
+
+
+@pytest.mark.parametrize("al_state, reported", [(8, False), (4, True), (2, True)])
+def test_force_sensor_must_be_operational(al_state, reported):
+    entries = evaluate([FORCE], TABLES, {"ethercat_slave_2/al_state": al_state})
+    assert bool(entries) == reported
+    if reported:
+        (entry,) = entries
+        assert entry["source"] == FORCE["source"]
+        assert entry["dree"] == "RT_DEVICE_OFFLINE"
+        assert entry["blocking"]
+        assert f"AL state {al_state}" in entry["detail"]
+
+
 def test_declared_startup_code_warns_without_blocking():
     [entry] = evaluate(DEVICES, TABLES, sample(status_word=0x0218, error_code=0xA000))
     assert entry["dree"] == "RT_DEVICE_FAULT_RESETTABLE" and not entry["blocking"]

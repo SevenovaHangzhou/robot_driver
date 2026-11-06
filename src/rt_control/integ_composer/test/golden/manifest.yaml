@@ -170,6 +170,7 @@ cases:
       - controller_order.yaml
       - controllers.yaml
       - robot_description.xml
+      - runtime/diagnostics.yaml
       - runtime/lifecycle.yaml
   force-real:
     use_mock_hardware: false
@@ -181,6 +182,7 @@ cases:
       - robot_description.xml
       - runtime/bluepoint_p140000100_left.yaml
       - runtime/bluepoint_p140000100_right.yaml
+      - runtime/diagnostics.yaml
       - runtime/lifecycle.yaml
 rename_map:
   alfa_v3_stationary_enable: Alfa_V3_stationary_enable
@@ -486,3 +488,9 @@ diag_devices_chassis_head_regeneration:
   cases:
   - head-mock
   - head-real
+arch-diag-force-sensors:
+  reason: 腕部力传感器进入诊断设备清单（用户 2026-11-06）：force_bench 新增 runtime/diagnostics.yaml（主站 + 两个传感器的地址、身份、AL 状态）
+  method: arch-force-golden2.py 按测试夹具重算，只新增 diagnostics.yaml，其余输出不变
+  cases:
+  - force-mock
+  - force-real

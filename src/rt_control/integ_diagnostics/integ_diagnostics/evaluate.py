@@ -35,6 +35,18 @@ def evaluate(devices, tables, values):
             }
         )
 
+    def not_operational(device, state):
+        """Reports an EtherCAT slave that is not OP; True when reported."""
+        if "al_state" in state and int(state["al_state"]) != AL_STATE_OP:
+            add(
+                device,
+                "RT_DEVICE_OFFLINE",
+                True,
+                f"AL state {int(state['al_state'])}, expected OP ({AL_STATE_OP})",
+            )
+            return True
+        return False
+
     for device in devices:
         state = {role: values[name] for role, name in device["state"].items()}
         if device["role"] == "ethercat_master":
@@ -48,14 +60,10 @@ def evaluate(devices, tables, values):
                     True,
                     f"{int(state['slaves_responding'])} of {expected} slaves responding",
                 )
+        elif device["role"] == "force_sensor":
+            not_operational(device, state)
         elif device["role"] == "drive":
-            if "al_state" in state and int(state["al_state"]) != AL_STATE_OP:
-                add(
-                    device,
-                    "RT_DEVICE_OFFLINE",
-                    True,
-                    f"AL state {int(state['al_state'])}, expected OP ({AL_STATE_OP})",
-                )
+            if not_operational(device, state):
                 continue
             words = {role: state[role] for role in ERROR_WORDS if role in state}
             faults = describe_error_bits(device, tables, words)
