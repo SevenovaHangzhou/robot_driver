@@ -2,8 +2,8 @@ repositories:
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git
-    # robot_interfaces breaking/M-09-rolling-final: Rolling final, STARTING, STOP_COMPLETED.
-    version: ea647d64c20eaadb798b3ccc507e81663a321144
+    # robot_interfaces main after #17/#18 (Rolling final, rolling client).
+    version: aa82a77c7acccc837309c234462b2f564edc42e2
   src/vendor/ecat_icube:
     type: git
     url: https://github.com/ICube-Robotics/ethercat_driver_ros2.git
