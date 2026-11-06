@@ -22,7 +22,11 @@ jtc:
   state_interfaces:
   - position
   allow_partial_joints_goal: false
-  open_loop_control: false
+  # A trajectory must end at rest, so a broken stream stops smoothly at its last point.
+  allow_nonzero_velocity_at_trajectory_end: false
+  # New trajectories splice onto the last command (position and velocity), so a stream of
+  # windows stays continuous; admission still checks the first point against the measurement.
+  open_loop_control: true
   set_last_command_interface_value_as_state_on_activation: false
   trajectory_start_consistency_check:
     enabled: true

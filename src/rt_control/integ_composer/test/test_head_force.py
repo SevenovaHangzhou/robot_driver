@@ -52,7 +52,7 @@ def materialize(result):
 
 
 def arguments(shares, family):
-    deployment = (shares["hwcfg_machines"] / "units/Alfa_V3-01/deployment.yaml")
+    deployment = shares["hwcfg_machines"] / "units/Alfa_V3-01/deployment.yaml"
     variant = load_yaml(deployment)["robot_variant"]
     scope = "head_only" if family == "head" else "force_bench"
     return dict(
@@ -72,9 +72,7 @@ def test_four_frozen_head_force_cases(shares, tmp_path, case):
     facts = MANIFEST["cases"][case]
     target = GOLDEN / case
     assert {
-        path.relative_to(target).as_posix()
-        for path in target.rglob("*")
-        if path.is_file()
+        path.relative_to(target).as_posix() for path in target.rglob("*") if path.is_file()
     } == set(facts["outputs"])
     args = arguments(shares, family)
     if family == "head":
@@ -101,13 +99,15 @@ def test_four_frozen_head_force_cases(shares, tmp_path, case):
         limits.write_text(yaml.safe_dump(values))
         shares["robot_description"] = model
     runtime = tmp_path / "output"
-    result = materialize(compose(
-        **args,
-        runtime_dir=runtime,
-        use_mock_hardware=facts["use_mock_hardware"],
-        sync_mode=facts["sync_mode"],
-        startup_id=facts["startup_id"],
-    ))
+    result = materialize(
+        compose(
+            **args,
+            runtime_dir=runtime,
+            use_mock_hardware=facts["use_mock_hardware"],
+            sync_mode=facts["sync_mode"],
+            startup_id=facts["startup_id"],
+        )
+    )
     snapshot = tmp_path / "snapshot"
     for path in runtime.rglob("*"):
         if not path.is_file():

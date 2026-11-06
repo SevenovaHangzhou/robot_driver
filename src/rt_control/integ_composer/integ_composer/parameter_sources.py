@@ -23,6 +23,7 @@ KINDS = (
     "state_ready",
     "exports",
     "interface",
+    "model_limits",
 )
 # A source that resolves to nothing contributes no parameter (keeps unrelated outputs unchanged).
 _SKIP = object()
@@ -172,6 +173,14 @@ def _evaluate(kind, source, name, binding, env):
     if kind == "interface":
         # Public ROS names have one owner: config/interface_naming.yaml.
         return env["naming"][source["name"]]
+    if kind == "model_limits":
+        # Joint limits have one owner: the robot model's URDF <limit>, in the order of a policy list.
+        joints = _lookup(env["policies"][source["policy"]], source["path"], env["context"])
+        limits = env["model_limits"]
+        missing = [joint for joint in joints if source["attribute"] not in limits.get(joint, {})]
+        if missing:
+            raise ValueError(f"Robot model has no {source['attribute']} limit for {missing}")
+        return [limits[joint][source["attribute"]] for joint in joints]
     if kind == "exports":
         # One list from every selected module that exports it, in module order.
         values = [
@@ -211,6 +220,8 @@ def controller_parameters(name, binding, env):
             text = env["runtime_files"][Path(value[target]).name]
             value[source[kind]["digest_as"]] = sha256(text.encode("utf-8")).hexdigest()
             if source[kind]["digest_as"] in result:
-                raise ValueError(f"Duplicate parameter source for {name}: {source[kind]['digest_as']}")
+                raise ValueError(
+                    f"Duplicate parameter source for {name}: {source[kind]['digest_as']}"
+                )
         result.update(value)
     return result

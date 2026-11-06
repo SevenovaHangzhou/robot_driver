@@ -170,12 +170,43 @@ rt_internal_state_broadcaster:
 whole_body_jtc:
   ros__parameters:
     action_name: /rt/arms/follow_joint_trajectory
+    allow_nonzero_velocity_at_trajectory_end: false
     allow_partial_joints_goal: false
     command_interfaces:
     - position
     constraints:
       goal_time: 0.5
       stopped_velocity_tolerance: 0.01
+    joint_acceleration_limits:
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    joint_velocity_limits:
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
+    - 0.5235987755982988
     joints:
     - right_joint1
     - right_joint2
@@ -191,7 +222,7 @@ whole_body_jtc:
     - left_joint5
     - left_joint6
     - left_joint7
-    open_loop_control: false
+    open_loop_control: true
     set_last_command_interface_value_as_state_on_activation: false
     state_interfaces:
     - position
@@ -215,3 +246,4 @@ whole_body_jtc:
       - 0.017453292519943295
       - 0.017453292519943295
       - 0.017453292519943295
+    trajectory_topic: /rt/arms/joint_trajectory

@@ -425,6 +425,17 @@ arch-sync-description-91c21eb:
 arch-sync-description-8b9c404:
   reason: 同步 robot_description 8b9c404：双臂限位 J1/J3/J5/J7 ±170°、J4 ±145°、J6 ±130°（同事 97a6326，用户 2026-11-05 接受），说明去掉 SHA-256 文字
   method: b2-golden.py 按测试夹具重算
+arch-arm-joint-stream:
+  reason: JTC 开放流式话题 R-IN-22（trajectory_topic），准入改为 URDF 速度上限（joint_velocity_limits，patch 0006），轨迹末点速度必须为 0
+  method: arch-golden-regen.py（arm）按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+arch-arm-motion-limits:
+  reason: 机器人模型双臂速度上限 30°/s、加速度上限 60°/s²（robot_description e4c4a7c，用户 2026-11-04）；JTC 新增 joint_acceleration_limits，open_loop_control 改为 true
+  method: arch-golden-regen.py（arm/stationary）、arch-head-golden2.py、arch-force-golden2.py 按测试夹具重算
   cases:
   - arm-mock
   - arm-real

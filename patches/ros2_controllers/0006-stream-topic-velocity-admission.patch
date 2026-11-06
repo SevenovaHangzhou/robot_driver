@@ -1,0 +1,615 @@
+diff --git a/joint_trajectory_controller/CMakeLists.txt b/joint_trajectory_controller/CMakeLists.txt
+index 15505534..dbe48528 100644
+--- a/joint_trajectory_controller/CMakeLists.txt
++++ b/joint_trajectory_controller/CMakeLists.txt
+@@ -17,6 +17,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
+     rclcpp_action
+     rclcpp_lifecycle
+     realtime_tools
++    robot_interfaces_qos
+     rsl
+     trajectory_msgs
+ )
+diff --git a/joint_trajectory_controller/include/joint_trajectory_controller/joint_trajectory_controller.hpp b/joint_trajectory_controller/include/joint_trajectory_controller/joint_trajectory_controller.hpp
+index b1e7e812..4cd9e284 100644
+--- a/joint_trajectory_controller/include/joint_trajectory_controller/joint_trajectory_controller.hpp
++++ b/joint_trajectory_controller/include/joint_trajectory_controller/joint_trajectory_controller.hpp
+@@ -134,6 +134,9 @@ protected:
+   InterfaceReferences<hardware_interface::LoanedStateInterface> joint_state_interface_;
+ 
+   std::unique_ptr<std::atomic<double>[]> admission_position_snapshot_;
++  // Splice state (position, velocity): last command in open-loop control, else the measured state.
++  std::unique_ptr<std::atomic<double>[]> admission_splice_position_snapshot_;
++  std::unique_ptr<std::atomic<double>[]> admission_splice_velocity_snapshot_;
+   std::atomic<double> admission_feedback_age_ms_{std::numeric_limits<double>::quiet_NaN()};
+   std::atomic<uint64_t> admission_snapshot_sequence_{0U};
+   size_t feedback_age_state_interface_index_{0U};
+@@ -275,6 +278,10 @@ protected:
+   bool read_state_from_command_interfaces(JointTrajectoryPoint & state);
+   bool read_commands_from_command_interfaces(JointTrajectoryPoint & commands);
+ 
++  bool validate_trajectory_limits(
++    const trajectory_msgs::msg::JointTrajectory & trajectory, double first_point_s,
++    const std::vector<double> & splice_positions,
++    const std::vector<double> & splice_velocities) const;
+   bool validate_trajectory_start(
+     const trajectory_msgs::msg::JointTrajectory & trajectory) const;
+ 
+diff --git a/joint_trajectory_controller/package.xml b/joint_trajectory_controller/package.xml
+index 87aeb901..452c4013 100644
+--- a/joint_trajectory_controller/package.xml
++++ b/joint_trajectory_controller/package.xml
+@@ -30,6 +30,7 @@
+   <depend>rclcpp_action</depend>
+   <depend>rclcpp_lifecycle</depend>
+   <depend>realtime_tools</depend>
++  <depend>robot_interfaces_qos</depend>
+   <depend>rsl</depend>
+   <depend>trajectory_msgs</depend>
+ 
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller.cpp b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+index 14f0e70b..a2e337ab 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller.cpp
++++ b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+@@ -36,6 +36,7 @@
+ #include "rclcpp_action/create_server.hpp"
+ #include "rclcpp_action/server_goal_handle.hpp"
+ #include "rclcpp_lifecycle/state.hpp"
++#include "robot_interfaces_qos/profiles.hpp"
+ 
+ namespace joint_trajectory_controller
+ {
+@@ -206,6 +207,12 @@ controller_interface::return_type JointTrajectoryController::update(
+     {
+       admission_position_snapshot_[index].store(
+         state_current_.positions[index], std::memory_order_relaxed);
++      // Where a new trajectory is spliced in (see the first sample below).
++      const auto & splice = params_.open_loop_control ? last_commanded_state_ : state_current_;
++      admission_splice_position_snapshot_[index].store(
++        splice.positions[index], std::memory_order_relaxed);
++      admission_splice_velocity_snapshot_[index].store(
++        splice.velocities.empty() ? 0.0 : splice.velocities[index], std::memory_order_relaxed);
+     }
+     admission_feedback_age_ms_.store(
+       state_interfaces_[feedback_age_state_interface_index_].get_value(),
+@@ -720,11 +727,34 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+         "trajectory_start_consistency_check.position_tolerances must be finite and nonnegative");
+       return CallbackReturn::FAILURE;
+     }
++    for (const auto & [name, limits] :
++         {std::pair{"joint_velocity_limits", params_.joint_velocity_limits},
++          std::pair{"joint_acceleration_limits", params_.joint_acceleration_limits}})
++    {
++      if (
++        limits.size() != dof_ ||
++        std::any_of(
++          limits.begin(), limits.end(),
++          [](double limit) { return !std::isfinite(limit) || limit <= 0.0; }))
++      {
++        RCLCPP_ERROR(
++          logger,
++          "%s must contain one finite positive value per configured joint (expected %zu, got %zu)",
++          name, dof_, limits.size());
++        return CallbackReturn::FAILURE;
++      }
++    }
+     admission_position_snapshot_ = std::make_unique<std::atomic<double>[]>(dof_);
++    admission_splice_position_snapshot_ = std::make_unique<std::atomic<double>[]>(dof_);
++    admission_splice_velocity_snapshot_ = std::make_unique<std::atomic<double>[]>(dof_);
+     for (size_t index = 0; index < dof_; ++index)
+     {
+       admission_position_snapshot_[index].store(
+         std::numeric_limits<double>::quiet_NaN(), std::memory_order_relaxed);
++      admission_splice_position_snapshot_[index].store(
++        std::numeric_limits<double>::quiet_NaN(), std::memory_order_relaxed);
++      admission_splice_velocity_snapshot_[index].store(
++        std::numeric_limits<double>::quiet_NaN(), std::memory_order_relaxed);
+     }
+     admission_feedback_age_ms_.store(
+       std::numeric_limits<double>::quiet_NaN(), std::memory_order_relaxed);
+@@ -733,6 +763,8 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+   else
+   {
+     admission_position_snapshot_.reset();
++    admission_splice_position_snapshot_.reset();
++    admission_splice_velocity_snapshot_.reset();
+   }
+ 
+   // TODO(destogl): why is this here? Add comment or move
+@@ -899,25 +931,14 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+   // prepare hold_position_msg
+   init_hold_position_msg();
+ 
+-  // The topic callback has no goal-response admission phase. When the
+-  // first-point/feedback-age consistency gate is enabled, exposing this topic
+-  // would create a command path that bypasses that gate. Keep the upstream
+-  // topic behavior only for controllers that do not opt into the gate.
+-  if (!params_.trajectory_start_consistency_check.enabled)
+-  {
+-    joint_command_subscriber_ =
+-      get_node()->create_subscription<trajectory_msgs::msg::JointTrajectory>(
+-        "~/joint_trajectory", rclcpp::SystemDefaultsQoS(),
+-        std::bind(&JointTrajectoryController::topic_callback, this, std::placeholders::_1));
+-  }
+-  else
+-  {
+-    joint_command_subscriber_.reset();
+-    RCLCPP_INFO(
+-      logger,
+-      "JTC_TOPIC_COMMAND_DISABLED reason=trajectory_start_consistency_check_enabled "
+-      "command_interface=follow_joint_trajectory_action");
+-  }
++  // Streaming input (teleoperation, visual servoing, online replanning). It passes the same
++  // admission as action goals, so it is never a path around the start/velocity gate.
++  joint_command_subscriber_ =
++    get_node()->create_subscription<trajectory_msgs::msg::JointTrajectory>(
++      params_.trajectory_topic.empty() ? std::string("~/joint_trajectory")
++                                       : params_.trajectory_topic,
++      robot_interfaces_qos::control(),
++      std::bind(&JointTrajectoryController::topic_callback, this, std::placeholders::_1));
+ 
+   // State publisher
+   RCLCPP_INFO(logger, "Controller state will be published at %.2f Hz.", params_.state_publish_rate);
+@@ -1334,7 +1355,7 @@ void JointTrajectoryController::publish_state(
+ void JointTrajectoryController::topic_callback(
+   const std::shared_ptr<trajectory_msgs::msg::JointTrajectory> msg)
+ {
+-  if (!validate_trajectory_msg(*msg))
++  if (!validate_trajectory_msg(*msg) || !validate_trajectory_start(*msg))
+   {
+     return;
+   }
+@@ -1342,6 +1363,17 @@ void JointTrajectoryController::topic_callback(
+   // always replace old msg with new one for now
+   if (subscriber_is_active_)
+   {
++    // The newest command wins: an action goal must not report on a trajectory it no longer owns.
++    // Abort, not cancel: an executing goal cannot move to CANCELED without a cancel request.
++    const auto active_goal = *rt_active_goal_.readFromNonRT();
++    if (active_goal)
++    {
++      auto result = std::make_shared<FollowJTrajAction::Result>();
++      result->set__error_code(FollowJTrajAction::Result::INVALID_GOAL);
++      result->set__error_string("Superseded by a trajectory on the streaming topic.");
++      active_goal->setAborted(result);
++      rt_active_goal_.writeFromNonRT(RealtimeGoalHandlePtr());
++    }
+     add_new_trajectory_msg(msg);
+     rt_is_holding_ = false;
+   }
+@@ -1374,6 +1406,94 @@ rclcpp_action::GoalResponse JointTrajectoryController::goal_received_callback(
+   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+ }
+ 
++namespace
++{
++// Largest |acceleration| of the cubic Hermite segment from (q0, v0) to (q1, v1) over T seconds.
++// The acceleration of a cubic is linear in time, so the extremes are at the two ends.
++double hermite_peak_acceleration(double q0, double v0, double q1, double v1, double duration)
++{
++  const double delta = q1 - q0;
++  const double start = (6.0 * delta - (4.0 * v0 + 2.0 * v1) * duration) / (duration * duration);
++  const double end = (-6.0 * delta + (2.0 * v0 + 4.0 * v1) * duration) / (duration * duration);
++  return std::max(std::abs(start), std::abs(end));
++}
++}  // namespace
++
++bool JointTrajectoryController::validate_trajectory_limits(
++  const trajectory_msgs::msg::JointTrajectory & trajectory, double first_point_s,
++  const std::vector<double> & splice_positions, const std::vector<double> & splice_velocities) const
++{
++  for (size_t goal_index = 0; goal_index < trajectory.joint_names.size(); ++goal_index)
++  {
++    const auto joint =
++      std::find(params_.joints.begin(), params_.joints.end(), trajectory.joint_names[goal_index]);
++    const auto joint_index = static_cast<size_t>(std::distance(params_.joints.begin(), joint));
++    const double velocity_limit = params_.joint_velocity_limits[joint_index];
++    const double acceleration_limit = params_.joint_acceleration_limits[joint_index];
++    const char * name = trajectory.joint_names[goal_index].c_str();
++    for (size_t point = 0; point < trajectory.points.size(); ++point)
++    {
++      const auto & current = trajectory.points[point];
++      // Without velocities the controller interpolates linearly: a velocity step at every point.
++      if (current.velocities.empty())
++      {
++        RCLCPP_ERROR(
++          get_node()->get_logger(), "FJT_REJECT reason=missing_velocities joint=%s point=%zu", name,
++          point);
++        return false;
++      }
++      double velocity = std::abs(current.velocities[goal_index]);
++      double acceleration =
++        current.accelerations.empty() ? 0.0 : std::abs(current.accelerations[goal_index]);
++      const char * velocity_reason = "point_velocity";
++      if (point > 0)
++      {
++        const auto & previous = trajectory.points[point - 1];
++        const double duration =
++          (rclcpp::Duration(current.time_from_start) - rclcpp::Duration(previous.time_from_start))
++            .seconds();
++        const double average =
++          std::abs(current.positions[goal_index] - previous.positions[goal_index]) / duration;
++        if (average > velocity)
++        {
++          velocity = average;
++          velocity_reason = "segment_velocity";
++        }
++        acceleration = std::max(
++          acceleration, hermite_peak_acceleration(
++                          previous.positions[goal_index], previous.velocities[goal_index],
++                          current.positions[goal_index], current.velocities[goal_index], duration));
++      }
++      else if (first_point_s > 0.0)
++      {
++        // Lead-in from the state the controller splices the new trajectory onto.
++        acceleration = std::max(
++          acceleration,
++          hermite_peak_acceleration(
++            splice_positions[joint_index], splice_velocities[joint_index],
++            current.positions[goal_index], current.velocities[goal_index], first_point_s));
++      }
++      if (!std::isfinite(velocity) || velocity > velocity_limit)
++      {
++        RCLCPP_ERROR(
++          get_node()->get_logger(),
++          "FJT_REJECT reason=%s joint=%s point=%zu velocity=%.17g limit=%.17g", velocity_reason,
++          name, point, velocity, velocity_limit);
++        return false;
++      }
++      if (!std::isfinite(acceleration) || acceleration > acceleration_limit)
++      {
++        RCLCPP_ERROR(
++          get_node()->get_logger(),
++          "FJT_REJECT reason=acceleration joint=%s point=%zu acceleration=%.17g limit=%.17g", name,
++          point, acceleration, acceleration_limit);
++        return false;
++      }
++    }
++  }
++  return true;
++}
++
+ bool JointTrajectoryController::validate_trajectory_start(
+   const trajectory_msgs::msg::JointTrajectory & trajectory) const
+ {
+@@ -1393,6 +1513,8 @@ bool JointTrajectoryController::validate_trajectory_start(
+   }
+ 
+   std::vector<double> actual_positions(dof_);
++  std::vector<double> splice_positions(dof_);
++  std::vector<double> splice_velocities(dof_);
+   double feedback_age_ms = std::numeric_limits<double>::quiet_NaN();
+   bool snapshot_copied = false;
+   for (size_t attempt = 0; attempt < 1000U; ++attempt)
+@@ -1408,6 +1530,10 @@ bool JointTrajectoryController::validate_trajectory_start(
+     {
+       actual_positions[index] =
+         admission_position_snapshot_[index].load(std::memory_order_relaxed);
++      splice_positions[index] =
++        admission_splice_position_snapshot_[index].load(std::memory_order_relaxed);
++      splice_velocities[index] =
++        admission_splice_velocity_snapshot_[index].load(std::memory_order_relaxed);
+     }
+     const uint64_t sequence_after =
+       admission_snapshot_sequence_.load(std::memory_order_acquire);
+@@ -1438,6 +1564,15 @@ bool JointTrajectoryController::validate_trajectory_start(
+   }
+ 
+   const auto & first_point = trajectory.points.front();
++  // Seconds from now until the first point is due; a zero stamp means "start now".
++  const rclcpp::Time stamp(trajectory.header.stamp, get_node()->get_clock()->get_clock_type());
++  const rclcpp::Time start = stamp.nanoseconds() == 0 ? get_node()->now() : stamp;
++  const double first_point_s = std::max(
++    0.0, (start + rclcpp::Duration(first_point.time_from_start) - get_node()->now()).seconds());
++  if (!validate_trajectory_limits(trajectory, first_point_s, splice_positions, splice_velocities))
++  {
++    return false;
++  }
+   for (size_t joint_index = 0; joint_index < dof_; ++joint_index)
+   {
+     const auto goal_joint = std::find(
+@@ -1456,8 +1591,13 @@ bool JointTrajectoryController::validate_trajectory_start(
+     const double actual_position = actual_positions[joint_index];
+     const double first_position = first_point.positions[goal_index];
+     const double absolute_error = std::abs(first_position - actual_position);
++    // A point due now may differ from the measured position by the tolerance (measurement and
++    // tracking error). A later point must be reachable within the velocity limit, with no
++    // tolerance on top: the tolerance would otherwise allow an instantaneous step.
+     const double position_tolerance =
+-      params_.trajectory_start_consistency_check.position_tolerances[joint_index];
++      first_point_s > 0.0
++        ? params_.joint_velocity_limits[joint_index] * first_point_s
++        : params_.trajectory_start_consistency_check.position_tolerances[joint_index];
+     if (
+       !std::isfinite(actual_position) || !std::isfinite(first_position) ||
+       absolute_error > position_tolerance)
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+index 6c5551d9..d8115f58 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
++++ b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+@@ -87,6 +87,30 @@ joint_trajectory_controller:
+     default_value: true,
+     description: "When set to true, the last command interface value is used as both the current state and the last commanded state upon activation. When set to false, the current state is used for both.",
+   }
++  trajectory_topic: {
++    type: string,
++    default_value: "",
++    description: "Absolute streaming JointTrajectory topic; empty keeps <controller_name>/joint_trajectory",
++    read_only: true,
++  }
++  joint_velocity_limits: {
++    type: double_array,
++    default_value: [],
++    description: "Velocity limit (rad/s) per configured joint, required with
++      trajectory_start_consistency_check. Each point velocity and each segment's average velocity
++      must stay within it. A first point due now may lie position_tolerance from the measured
++      position; a later one at most limit * (time until the first point).",
++    read_only: true,
++  }
++  joint_acceleration_limits: {
++    type: double_array,
++    default_value: [],
++    description: "Acceleration limit (rad/s^2) per configured joint, required with
++      trajectory_start_consistency_check. Every point must carry velocities; each cubic segment
++      (including the lead-in from the last command) and each given point acceleration must stay
++      within it.",
++    read_only: true,
++  }
+   action_name: {
+     type: string,
+     default_value: "",
+@@ -128,7 +152,7 @@ joint_trajectory_controller:
+     enabled: {
+       type: bool,
+       default_value: false,
+-      description: "Reject FJT goals whose first point is inconsistent with a fresh state snapshot.",
++      description: "Reject goals and topic trajectories whose first point is inconsistent with a fresh state snapshot or whose velocities exceed joint_velocity_limits.",
+       read_only: true,
+     }
+     position_tolerances: {
+diff --git a/joint_trajectory_controller/test/test_trajectory_actions.cpp b/joint_trajectory_controller/test/test_trajectory_actions.cpp
+index 5f788343..d2bcbb11 100644
+--- a/joint_trajectory_controller/test/test_trajectory_actions.cpp
++++ b/joint_trajectory_controller/test/test_trajectory_actions.cpp
+@@ -225,6 +225,36 @@ public:
+   static void TearDownTestCase() { TrajectoryControllerTest::TearDownTestCase(); }
+ };
+ 
++TEST_F(TestTrajectoryActions, topic_trajectory_aborts_the_active_goal)
++{
++  SetUpExecutor();
++  SetUpControllerHardware();
++
++  std::vector<JointTrajectoryPoint> points(2);
++  for (size_t index = 0; index < points.size(); ++index)
++  {
++    points[index].time_from_start = rclcpp::Duration::from_seconds(0.5 + 0.5 * index);
++    points[index].positions = {1.0 + 0.1 * index, 2.0, 3.0};
++  }
++  auto goal = sendActionGoal(points, 1.0, goal_options_);
++  ASSERT_EQ(std::future_status::ready, goal.wait_for(std::chrono::seconds(1)));
++
++  // The newest command wins; the goal must not report on a trajectory it no longer owns.
++  trajectory_msgs::msg::JointTrajectory stream;
++  stream.joint_names = joint_names_;
++  stream.points = points;
++  trajectory_publisher_->publish(stream);
++  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
++  while (common_resultcode_ == rclcpp_action::ResultCode::UNKNOWN &&
++         std::chrono::steady_clock::now() < deadline)
++  {
++    std::this_thread::sleep_for(std::chrono::milliseconds(10));
++  }
++  EXPECT_EQ(rclcpp_action::ResultCode::ABORTED, common_resultcode_);
++  EXPECT_EQ(
++    control_msgs::action::FollowJointTrajectory_Result::INVALID_GOAL, common_action_result_code_);
++}
++
+ TEST_P(TestTrajectoryActionsTestParameterized, test_success_single_point_sendgoal)
+ {
+   // deactivate velocity tolerance
+diff --git a/joint_trajectory_controller/test/test_trajectory_controller.cpp b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+index 30d9c985..36df18e4 100644
+--- a/joint_trajectory_controller/test/test_trajectory_controller.cpp
++++ b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+@@ -54,25 +54,136 @@ using lifecycle_msgs::msg::State;
+ using test_trajectory_controllers::TrajectoryControllerTest;
+ using test_trajectory_controllers::TrajectoryControllerTestParameterized;
+ 
+-TEST_F(TrajectoryControllerTest, topic_command_path_follows_start_consistency_admission_policy)
++namespace
+ {
+-  rclcpp::executors::MultiThreadedExecutor executor;
+-  SetUpTrajectoryController(
+-    executor,
++std::vector<rclcpp::Parameter> admission_parameters()
++{
++  return {
++    rclcpp::Parameter("trajectory_start_consistency_check.enabled", true),
++    rclcpp::Parameter(
++      "trajectory_start_consistency_check.position_tolerances", std::vector<double>{0.1, 0.1, 0.1}),
++    rclcpp::Parameter(
++      "trajectory_start_consistency_check.feedback_age_state_interface",
++      "ethercat_domain/process_data_age_ms"),
++    rclcpp::Parameter("joint_velocity_limits", std::vector<double>{1.0, 1.0, 1.0}),
++    rclcpp::Parameter("joint_acceleration_limits", std::vector<double>{2.0, 2.0, 2.0}),
++  };
++}
++
++// One trajectory from the initial joint positions: offsets (rad) at times (s), one velocity for
++// every point (rad/s); with_velocities=false leaves the velocities out.
++trajectory_msgs::msg::JointTrajectory offsets(
++  const std::vector<std::string> & joints, const std::vector<std::pair<double, double>> & points,
++  double velocity = 0.0, bool with_velocities = true)
++{
++  trajectory_msgs::msg::JointTrajectory trajectory;
++  trajectory.joint_names = joints;
++  for (const auto & [seconds, offset] : points)
++  {
++    trajectory_msgs::msg::JointTrajectoryPoint point;
++    point.time_from_start = rclcpp::Duration::from_seconds(seconds);
++    for (const double initial : INITIAL_POS_JOINTS)
+     {
+-      rclcpp::Parameter("trajectory_start_consistency_check.enabled", true),
+-      rclcpp::Parameter(
+-        "trajectory_start_consistency_check.position_tolerances",
+-        std::vector<double>{0.1, 0.1, 0.1}),
+-      rclcpp::Parameter(
+-        "trajectory_start_consistency_check.feedback_age_state_interface",
+-        "ethercat_domain/process_data_age_ms"),
+-    });
++      point.positions.push_back(initial + offset);
++      if (with_velocities)
++      {
++        point.velocities.push_back(velocity);
++      }
++    }
++    trajectory.points.push_back(point);
++  }
++  return trajectory;
++}
++}  // namespace
+ 
+-  const auto state = traj_controller_->get_node()->configure();
+-  ASSERT_EQ(state.id(), State::PRIMARY_STATE_INACTIVE);
+-  EXPECT_FALSE(traj_controller_->has_joint_command_subscriber());
++TEST_F(TrajectoryControllerTest, joint_limits_are_required_with_start_consistency)
++{
++  for (const std::string missing : {"joint_velocity_limits", "joint_acceleration_limits"})
++  {
++    rclcpp::executors::MultiThreadedExecutor executor;
++    auto parameters = admission_parameters();
++    parameters.erase(std::remove_if(
++      parameters.begin(), parameters.end(),
++      [&missing](const rclcpp::Parameter & parameter) { return parameter.get_name() == missing; }));
++    SetUpTrajectoryController(executor, parameters);
++    EXPECT_EQ(traj_controller_->get_node()->configure().id(), State::PRIMARY_STATE_UNCONFIGURED)
++      << missing;
++    executor.cancel();
++  }
++}
++
++TEST_F(TrajectoryControllerTest, admission_applies_the_tolerance_only_to_a_point_due_now)
++{
++  rclcpp::executors::MultiThreadedExecutor executor;
++  SetUpAndActivateTrajectoryController(executor, admission_parameters());
++  EXPECT_TRUE(traj_controller_->has_joint_command_subscriber());
++  updateController(rclcpp::Duration::from_seconds(0.02));
++
++  // Due now: only the position tolerance (0.1 rad) applies.
++  EXPECT_TRUE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.0, 0.05}})));
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.0, 0.15}})));
++  // Due later: reachable at 1 rad/s, no tolerance on top (bench 2026-11-04: tolerance + v*t let
++  // a 0.03 rad step in 5 ms through and faulted both wrists).
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.1, 0.12}})));
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.005, 0.03}})));
++  EXPECT_TRUE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{1.0, 0.2}})));
++  executor.cancel();
++}
++
++TEST_F(TrajectoryControllerTest, admission_rejects_velocities_over_the_limit)
++{
++  rclcpp::executors::MultiThreadedExecutor executor;
++  SetUpAndActivateTrajectoryController(executor, admission_parameters());
++  updateController(rclcpp::Duration::from_seconds(0.02));
+ 
++  EXPECT_TRUE(
++    traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.0, 0.0}, {2.0, 0.6}})));
++  // 1.1 rad in 1 s between points at 1 rad/s: the average is over the limit, the cubic
++  // acceleration (0.6 rad/s^2) is not.
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(
++    offsets(joint_names_, {{0.0, 0.0}, {1.0, 1.1}}, 1.0)));
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(
++    offsets(joint_names_, {{0.0, 0.0}, {2.0, 0.1}}, 1.5)));
++  executor.cancel();
++}
++
++TEST_F(TrajectoryControllerTest, admission_rejects_accelerations_over_the_limit)
++{
++  rclcpp::executors::MultiThreadedExecutor executor;
++  SetUpAndActivateTrajectoryController(executor, admission_parameters());
++  updateController(rclcpp::Duration::from_seconds(0.02));
++
++  // Rest to rest, 0.5 rad in 1 s: peak cubic acceleration 3 rad/s^2.
++  EXPECT_FALSE(
++    traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.0, 0.0}, {1.0, 0.5}})));
++  EXPECT_TRUE(
++    traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.0, 0.0}, {2.0, 1.0}})));
++  // Lead-in from the held command: 0.1 rad in 0.3 s needs 6.7 rad/s^2.
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{0.3, 0.1}})));
++  EXPECT_TRUE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{1.0, 0.1}})));
++  // Without velocities the controller would interpolate linearly (a velocity step per point).
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(
++    offsets(joint_names_, {{0.0, 0.0}, {2.0, 0.6}}, 0.0, false)));
++  executor.cancel();
++}
++
++TEST_F(TrajectoryControllerTest, topic_trajectory_passes_admission_and_replaces_the_command)
++{
++  rclcpp::executors::MultiThreadedExecutor executor;
++  SetUpAndActivateTrajectoryController(executor, admission_parameters());
++  updateController(rclcpp::Duration::from_seconds(0.02));
++
++  // First point out of reach at the velocity limit: dropped, the controller keeps holding.
++  // (A one-point trajectory counts as trivial, so both use two points.)
++  trajectory_publisher_->publish(offsets(joint_names_, {{0.1, 0.5}, {0.5, 0.55}}));
++  traj_controller_->wait_for_trajectory(executor, std::chrono::milliseconds(200));
++  updateController(rclcpp::Duration::from_seconds(0.02));
++  EXPECT_FALSE(traj_controller_->has_nontrivial_traj());
++
++  trajectory_publisher_->publish(offsets(joint_names_, {{1.0, 0.1}, {2.0, 0.2}}));
++  traj_controller_->wait_for_trajectory(executor, std::chrono::milliseconds(200));
++  updateController(rclcpp::Duration::from_seconds(0.02));
++  EXPECT_TRUE(traj_controller_->has_nontrivial_traj());
+   executor.cancel();
+ }
+ 
+diff --git a/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp b/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp
+index 140cd4e1..50a63abe 100644
+--- a/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp
++++ b/joint_trajectory_controller/test/test_trajectory_controller_utils.hpp
+@@ -27,6 +27,7 @@
+ #include "joint_trajectory_controller/joint_trajectory_controller.hpp"
+ #include "joint_trajectory_controller/tolerances.hpp"
+ #include "lifecycle_msgs/msg/state.hpp"
++#include "robot_interfaces_qos/profiles.hpp"
+ 
+ namespace
+ {
+@@ -90,6 +91,7 @@ class TestableJointTrajectoryController
+ public:
+   using joint_trajectory_controller::JointTrajectoryController::JointTrajectoryController;
+   using joint_trajectory_controller::JointTrajectoryController::validate_trajectory_msg;
++  using joint_trajectory_controller::JointTrajectoryController::validate_trajectory_start;
+ 
+   controller_interface::CallbackReturn on_configure(
+     const rclcpp_lifecycle::State & previous_state) override
+@@ -220,7 +222,7 @@ public:
+ 
+     node_ = std::make_shared<rclcpp::Node>("trajectory_publisher_");
+     trajectory_publisher_ = node_->create_publisher<trajectory_msgs::msg::JointTrajectory>(
+-      controller_name_ + "/joint_trajectory", rclcpp::SystemDefaultsQoS());
++      controller_name_ + "/joint_trajectory", robot_interfaces_qos::control());
+   }
+ 
+   void TearDown() override
+@@ -373,6 +375,10 @@ public:
+       state_interfaces.emplace_back(vel_state_interfaces_.back());
+       state_interfaces.emplace_back(acc_state_interfaces_.back());
+     }
++    // Scalar feedback age read by trajectory_start_consistency_check; ignored otherwise.
++    feedback_age_state_interface_ = std::make_unique<hardware_interface::StateInterface>(
++      "ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
++    state_interfaces.emplace_back(*feedback_age_state_interface_);
+ 
+     traj_controller_->assign_interfaces(std::move(cmd_interfaces), std::move(state_interfaces));
+     return traj_controller_->get_node()->activate();
+@@ -794,6 +800,8 @@ public:
+   std::vector<hardware_interface::CommandInterface> acc_cmd_interfaces_;
+   std::vector<hardware_interface::CommandInterface> eff_cmd_interfaces_;
+   std::vector<hardware_interface::StateInterface> pos_state_interfaces_;
++  double feedback_age_ms_ = 1.0;
++  std::unique_ptr<hardware_interface::StateInterface> feedback_age_state_interface_;
+   std::vector<hardware_interface::StateInterface> vel_state_interfaces_;
+   std::vector<hardware_interface::StateInterface> acc_state_interfaces_;
+ };
