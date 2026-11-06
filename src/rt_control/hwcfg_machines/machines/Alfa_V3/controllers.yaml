@@ -273,15 +273,11 @@ controllers:
         path: enable_batches
         transform: lengths
         as: enable_batch_sizes
-    - policy:
-        name: enable
-        path: runtime_views.{mode}.enable_only
-        as: enable_only
     - controllers:
         tag: enable_target
         select: first
         default: ''
-        as: jtc_name
+        as: motion_controller
     - controllers:
         tag: enable_companion
         select: all
@@ -308,27 +304,11 @@ controllers:
         format: /{name}/fault_stop
         optional: true
         as: motion_fault_topic
-    - when_policy: motion
-      controllers:
-        tag: rolling
-        select: any
-        as: motion_mode_switching
-    - when_policy: motion
-      controllers:
-        tag: motion
-        select: all
-        as: motion_controller_names
-    - when_policy: motion
-      controllers:
-        tag: trajectory
-        select: first
-        as: default_motion_controller
-    - when_policy: motion
-      controllers:
+    - controllers:
         tag: rolling
         select: first
         default: ''
-        as: rolling_motion_controller
+        as: rolling_controller
     - when_policy: motion
       policy:
         name: motion

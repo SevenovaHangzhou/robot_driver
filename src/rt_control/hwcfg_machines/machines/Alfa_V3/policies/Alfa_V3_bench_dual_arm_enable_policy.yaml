@@ -15,7 +15,6 @@ enable_groups:
 ready_to_switch_on_disable_terminal_joints: []
 runtime_views:
   normal:
-    enable_only: false
     parameter_names:
     - disable_terminal_policy
     - batch_timeout
@@ -25,7 +24,6 @@ runtime_views:
     - controller_switch_timeout
     - service_result_timeout_ms
   stationary_enable:
-    enable_only: true
     parameter_names:
     - disable_terminal_policy
     - batch_timeout

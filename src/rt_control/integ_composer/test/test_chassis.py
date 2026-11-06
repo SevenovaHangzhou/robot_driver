@@ -259,7 +259,7 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
     assert params["enable_batch_joint_names"] == steering + drive
     assert params["enable_batch_sizes"] == [2, 2, 2, 2]
     assert params["expected_modes"] == [9, 8] * 4
-    assert params["jtc_name"] == "swerve_controller"
+    assert params["motion_controller"] == "swerve_controller"
     assert params["ready_state_interfaces"] == [f"steering_encoder_{n}/ready" for n in range(1, 5)]
     assert params["ready_hold_time"] == 0.05
     assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"

@@ -118,7 +118,8 @@ def test_mock_scope_is_enable_only_with_staged_hardware(shares, tmp_path):
     assert enable["managed_joints"] == JOINTS
     assert enable["enable_batch_joint_names"] == JOINTS
     assert enable["enable_batch_sizes"] == [1] * 7
-    assert enable["enable_only"] is True and enable["jtc_name"] == ""
+    assert enable["motion_controller"] == ""
+    assert enable["rolling_controller"] == ""
     assert "expected_modes" not in enable
 
 
@@ -160,8 +161,8 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert jtc["joints"] == MODEL_JOINTS and jtc["command_interfaces"] == ["position"]
     assert jtc["trajectory_start_consistency_check"]["enabled"] is True
     enable = result.controllers["enable_manager"]["ros__parameters"]
-    assert enable["enable_only"] is False and enable["jtc_name"] == "left_arm_jtc"
-    assert enable["motion_mode_switching"] is False
+    assert enable["motion_controller"] == "left_arm_jtc"
+    assert enable["rolling_controller"] == ""
     assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
     assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
     # Arm limits from the robot model (user 2026-11-04): 30 deg/s from the URDF <limit velocity>,
@@ -175,6 +176,28 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
         "type": "trajectory_msgs/msg/JointTrajectory",
         "controller": "left_arm_jtc",
     } in result.lifecycle["capabilities"]
+
+
+@pytest.mark.parametrize("jtc_only", [False, True])
+def test_dual_arm_head_uses_one_enable_set_and_an_exclusive_arm_pair(shares, tmp_path, jtc_only):
+    result = compose(
+        robot_variant="Alfa_V3",
+        machine_unit=UNIT,
+        physical_profile="bench_dual_arm",
+        control_scope="bench_dual_arm_head",
+        package_share=lambda name: str(shares[name]),
+        runtime_dir=tmp_path / "arms-head",
+        jtc_only=jtc_only,
+    )
+    enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["motion_controller"] == "dual_arm_jtc"
+    assert enable["rolling_controller"] == ("" if jtc_only else "dual_arm_rolling")
+    assert enable["companion_controllers"] == ["head_position_controller"]
+    assert result.lifecycle.get("mode_controllers", []) == (
+        [] if jtc_only else ["dual_arm_jtc", "dual_arm_rolling"]
+    )
+    assert "head_position_controller" in result.lifecycle["motion_controllers"]
+    assert "head_position_controller" not in result.lifecycle["lifecycle_controllers"]
 
 
 def test_motion_scope_real_mode_uses_confirmed_directions_and_stop_parameters(shares, tmp_path):

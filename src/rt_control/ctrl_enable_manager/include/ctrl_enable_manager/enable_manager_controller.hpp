@@ -200,12 +200,13 @@ private:
   void reportResult(
     const char * service, robot_rt_control_interfaces::srv::RtEnable::Response & response,
     std::uint32_t failure_code) const;
-  SwitchResult buildMotionControllerSwitchRequest(
-    const controller_manager_msgs::srv::ListControllers::Response & states, bool activate_default,
+  SwitchResult buildControllerSwitchRequest(
+    const controller_manager_msgs::srv::ListControllers::Response & states, ControlMode target,
     controller_manager_msgs::srv::SwitchController::Request & request) const;
-  bool registeredMotionControllerStateMatches(
+  bool controllerStateMatches(
     const controller_manager_msgs::srv::ListControllers::Response & states,
-    bool default_active) const;
+    ControlMode target) const;
+  bool controllerRunsInMode(const std::string & name, ControlMode target) const;
   ControlMode detectControlMode(
     const controller_manager_msgs::srv::ListControllers::Response & states) const;
   ModeSwitchState classifyModeSwitchState(
@@ -228,9 +229,6 @@ private:
   bool releaseModeOwnership() noexcept;
   static void populateModeError(
     robot_system_interfaces::msg::ErrorInfo & error, std::uint8_t result);
-  static const char * controllerNameForMode(
-    ControlMode mode, const std::string & default_controller,
-    const std::string & rolling_controller) noexcept;
   SwitchResult switchJtc(bool activate);
   void handleNonRtFaultStop();
   void publishDiagnostics();
@@ -397,14 +395,12 @@ private:
   double fault_reset_timeout_seconds_{4.0};
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
-  std::string jtc_name_{"whole_body_jtc"};
-  std::vector<std::string> switched_controllers_{"whole_body_jtc"};  // jtc_name + companions
-  bool enable_only_{false};
+  bool enable_only_{false};  // Derived from the configured controller set.
   bool motion_mode_switching_{false};
-  std::vector<std::string> motion_controller_names_{
-    "whole_body_jtc", "rolling_trajectory_controller"};
-  std::string default_motion_controller_{"whole_body_jtc"};
-  std::string rolling_motion_controller_{"rolling_trajectory_controller"};
+  std::vector<std::string> managed_controllers_;
+  std::vector<std::string> companion_controllers_;
+  std::string default_motion_controller_;
+  std::string rolling_motion_controller_;
   std::uint64_t mode_switch_maximum_sample_period_ns_{2000000U};
   std::uint64_t mode_switch_source_state_max_age_ns_{100000000U};
   std::size_t mode_switch_stable_interval_count_{5U};

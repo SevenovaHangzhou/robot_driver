@@ -61,12 +61,10 @@ enable_manager:
     - 1
     - 1
     - 1
-    enable_only: true
     fault_reset_timeout: 4.0
     feedback_age_interfaces:
     - ethercat_domain/process_data_age_ms
     inter_batch_delay: 0.2
-    jtc_name: ''
     managed_joints:
     - left_j1
     - left_j2
@@ -82,6 +80,8 @@ enable_manager:
     - right_j5
     - right_j6
     - right_j7
+    motion_controller: ''
+    rolling_controller: ''
     service_result_timeout_ms: 90000
 joint_state_broadcaster:
   ros__parameters:
