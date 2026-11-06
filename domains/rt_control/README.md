@@ -15,8 +15,7 @@
 | integration | `integ_composer` `integ_bringup` `integ_diagnostics` `integ_operator_web` | 离线组合、启动入口、诊断、操作网页 |
 
 共享：`src/description/robot_description`（Robot Model 构建副本）、`src/interfaces/rt_control_interfaces`（域内 IDL）、
-`src/vendor/robot_interfaces`（由 `deps.repos` 导入的公共契约，不入库）。包的去留与改名计划见
-[迁移待办](docs/migration-backlog.md) §5a。
+`src/vendor/robot_interfaces`（由 `deps.repos` 导入的公共契约，不入库）。
 
 ## 数据流
 

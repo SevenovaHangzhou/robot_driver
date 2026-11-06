@@ -1,6 +1,6 @@
 # 操作网页合并与诊断节点设计稿
 
-状态：**已定稿**（用户 2026-10-31 评审第 7 节全部事项）。对应迁移待办 §5a 的 `rt_control_operator_web + rt_control_arm_console → integ_operator_web` 与 `rt_diagnostics → integ_diagnostics` 两行。实现按 §4.5、§5.7 的顺序逐个 PR 进行。
+状态：**已定稿**（用户 2026-10-31 评审第 7 节全部事项）。对应原迁移待办（2026-11-06 已完成并删除）§5a 的 `rt_control_operator_web + rt_control_arm_console → integ_operator_web` 与 `rt_diagnostics → integ_diagnostics` 两行。实现按 §4.5、§5.7 的顺序逐个 PR 进行。
 
 ## 0. 已定事项（用户 2026-10-31）
 

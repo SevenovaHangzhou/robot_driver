@@ -90,8 +90,10 @@ CANopen 生成物从权威 EDS 重建，不手改 `.bin/.dcf`。
 | `arch_check size` | C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 | 3 |
 | `arch_check refs` | `machine_config`、`controllers.yaml`、manifest、policy 文件中所有 `package/file/path` 字符串引用可解析；`authorities.source` 指向存在的文件 | 1.2 |
 | `arch_check facts <kind> <name>` | 列出一个事实（`joint`/`module`/`device`/`controller`）在源码树的全部出现位置，并按 ARCHITECTURE §1.1 判定每处是"拥有者"还是"违反"；输出形如 `enable_policy.yaml:12: OWN-1.1 left_joint7 在策略文件中按名引用，应通过 managed_joints 绑定` | 1.1 |
-| `arch_check names` | 机型名（`Alfa_V3`、`alfa_v3`）、协议名（`damiao`、`zeroerr`、`kinco`）只出现在允许的层 | 1.1、§5a 原则 |
+| `arch_check names` | 机型名（`Alfa_V3`、`alfa_v3`）、协议名（`damiao`、`zeroerr`、`kinco`）只出现在允许的层 | 1.1 |
 | `arch_check duplicates` | 已知重复实现签名清单（SocketCAN open、Modbus 读保持寄存器、CiA402 状态字解码、`encode_double`、新鲜度判定）在非 infra 包出现即报 | 3 |
 | `arch_check compose <variant> <unit> <profile> <scope>` | 内存 compose 一次并跑全部 schema/交叉校验，不写文件；是 `validate_machine_profile.py` 的替代入口 | 1.6 |
 
 `facts` 的事实来源是 `hwcfg_machines` 的 manifest；工具不维护第二份清单。
+
+首版实现后、接入 `quality_gate.sh` 前停下等用户确认：接入可能让现状变红，需要先定基线策略（逐项消化，不做豁免清单；`ARCHITECTURE.md` §3 写明的单一例外除外）。

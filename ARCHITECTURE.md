@@ -2,7 +2,7 @@
 
 本文是 `robot_driver` 后续一切结构性改动的裁判。与 `AGENTS.md` 冲突时，架构与编码问题以本文为准；实时、安全、硬件事实、上游补丁与 PR 门禁的既有底线不因本文放宽（§6）。
 
-迁移待办（§5 现状违反清单、§5a 逐包处置表、§8 被取代条款）不在本文，见 [`domains/rt_control/docs/migration-backlog.md`](domains/rt_control/docs/migration-backlog.md)；本文提到的 §5、§5a、§8 与清单 A–F 均指该文件。
+按本文执行的迁移已于 2026-11-06 完成，迁移待办文件已删除（最后版本见 `1ba008a` 的 `domains/rt_control/docs/migration-backlog.md`）。
 
 ## 0. 目标（五条需求的复述）
 
@@ -53,7 +53,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 - 下层不得依赖上层；`infra` 不依赖任何域包、不含 ROS 节点、不含策略、不含机型。
 - control 只经 `hw_semantic_components` 依赖 protocol：该包定义硬件层与控制器共用的状态/命令接口语义（CiA402 状态字、握手式使能阶段、力传感器），控制器不直接依赖具体协议包（`tools/rt_control_layer_gate.py` R2 已执行）。
 - 测试与 golden 生成脚本同样遵守方向。
-- 包名用统一前缀表达所属层，看名字即知层，门禁按前缀检查。具体前缀词与存量包重命名映射表另行讨论（open item）。
+- 包名用统一前缀表达所属层，看名字即知层，门禁按前缀检查：`infra_`、`hwcfg_`、`hw_`、`ctrl_`、`periph_`（独立外设节点，不与 protocol/control 互相依赖）、`integ_`。包与层的对照见域 [`README.md`](domains/rt_control/README.md)。
 
 ### 1.4 死活分明
 
@@ -73,7 +73,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 ## 2. 改动类型对照表与验证命令
 
-验证入口为 `tools/arch_check.py`（待实现，§7 步骤 7），子命令与输出约定见 [`tools/README.md`](tools/README.md#arch_check-设计待实现)。
+验证入口为 `tools/arch_check.py`（待实现），子命令与输出约定见 [`tools/README.md`](tools/README.md#arch_check-设计待实现)。
 
 ### 2.1 改动类型对照表
 
@@ -97,7 +97,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 | 指标 | 值 | 执行方式 |
 | --- | --- | --- |
-| 单文件上限 | C++ ≤ 1000 行、Python ≤ 600 行、YAML ≤ 400 行 | 门禁；存量超限按 §7 顺序消化。唯一例外：`ctrl_enable_manager` 的实时使能状态机主文件（用户 2026-11-03 接受：状态机不拆，非实时部分移到同包独立文件后主文件仍可超限；使能流程不再扩展） |
+| 单文件上限 | C++ ≤ 1000 行、Python ≤ 600 行、YAML ≤ 400 行 | 门禁；存量超限已消化。唯一例外：`ctrl_enable_manager` 的实时使能状态机主文件（用户 2026-11-03 接受：状态机不拆，非实时部分移到同包独立文件后主文件仍可超限；使能流程不再扩展） |
 | 复用三级 | 上游 → infra → 自写；第二份拷贝即抽取 | 人工审查 + 门禁查重复实现清单 |
 | infra 进库条件 | ≥ 2 个现有调用方；或是与仓库外程序共享的二进制/内存布局约定（如 Runtime-LOG 共享内存环），此时本仓库调用方可只有 1 个 | 人工审查 |
 | 状态标记 | 每包/配置/入口必须有 `status` | 门禁 |
@@ -139,18 +139,12 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 本文不放宽以下既有契约：实时路径禁止阻塞/分配/锁竞争；硬件事实、安全阈值、CPU 拓扑不猜；上游只通过 `deps.repos` 锁定 + 窄补丁；PR 门禁与提交/推送授权规则；硬件操作需单独授权；软件诊断不替代急停/STO/安全链。
 
-## 7. 迁移顺序
+## 7. 改动规则
 
-1. 本文定稿，迁入仓库为 `ARCHITECTURE.md`；`AGENTS.md` 加一行"架构与编码以 `ARCHITECTURE.md` 为准"。
-2. 瘦身 `AGENTS.md`、域 `AGENTS.md`、协作规范：按 §8 清单吸收或作废条款（文档本身是最大的"死活不分"）。目标：开工前必读只剩 `ARCHITECTURE.md` + 根 `AGENTS.md`，合计约 15 KB；域 `AGENTS.md` 的规则要么并入、要么变门禁；`PROGRESS.md`/`BLOCKED-questions.md` 改为按模块索引、按需查。
-3. 删死代码、收敛文档入口（清单 A）。
-4. 收敛配置归属与机型事实（清单 B）。
-5. 建 `infra` 层，抽公共库（清单 C），每抽一个库一个 PR。
-6. 拆超大单元（清单 D），实时/非实时分界：实时状态机留小核心，模式切换、诊断、trace、controller 名解析搬出去。拆到撞上实时约束即为边界。
-7. 门禁补齐（§3 硬指标），替换源码字符串契约测试。
+- 一个 PR 只做一个目的。结构变更不改行为：改前改后对每个 scope 生成的 artifact 逐字节一致（`arch_check compose` 实现前，用 `compose_artifact` 生成到临时目录做 `diff -r`）。
+- 行为变更单独开 PR，描述第一行写"行为变更"，列出被删除的 topic/service/action。
+- 遇到 §6 的底线、硬件事实，或本文没覆盖的情况：停下来问，不猜。
+- 发现本文有错或不可执行：改本文（独立 PR），不绕过。
+- 本文与其门禁工具的后续改动沿用 `feature/arch-<slug>` 分支，不走 Linear（用户 2026-10-28 裁定）。
 
-行为变更项（不归入上述结构步骤，各自独立 PR，需单独说明影响）：删 `relative_move` 及其 3 个 IDL；重做 `rt_diagnostics`。
-
-每步：独立 PR、不改行为、行为变更与结构变更不混。
-
-迁移期间的执行指引（每个 PR 的约束、停止点、分支命名）见 [`migration-backlog.md`](domains/rt_control/docs/migration-backlog.md#9-执行指引给执行本规范迁移的-agent)，随该文件一起删除。
+迁移记录：2026-10-28 至 2026-11-06 按本文完成死代码清理、配置归属收敛、`infra` 层、超大单元拆分、包改名、诊断重做与 Rolling 精简。开工必读原定约 15 KB，现 `ARCHITECTURE.md` + 根 `AGENTS.md` 约 18 KB，用户 2026-11-06 决定不再瘦身。
