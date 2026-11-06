@@ -3,6 +3,8 @@ project(infra_socketcan)
 add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+ament_python_install_package(${PROJECT_NAME})
 
 add_library(infra_socketcan SHARED src/socket.cpp)
 target_compile_features(infra_socketcan PUBLIC cxx_std_17)
@@ -20,6 +22,8 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_socket test/test_socket.cpp)
   target_link_libraries(test_socket infra_socketcan)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_link test/test_link.py)
 endif()
 
 ament_package()

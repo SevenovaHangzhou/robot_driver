@@ -15,6 +15,10 @@ ROS 侧只发送最终位置目标和速度上限。
   [docs/damiao_head.md](docs/damiao_head.md)。
 - 位置控制器启动时保持 inactive。只有插件回报两台电机均已使能且允许运动，enable_manager
   才激活位置控制器；失能时先停位置控制器，再撤销使能请求并等待插件回报已失能。
+- 启动自检阶段 A（任何节点之前、总线锁之后）：`can2` 必须 up 且 ERROR-ACTIVE，然后
+  `damiao_preflight` 向每台电机发一次失能帧（用户 2026-11-04 允许）读取反馈帧的 ERR：不回应为
+  离线，ERR > 1 为故障（查 `devices/faults/damiao_dm.yaml`），任一阻断项都不启动运行栈。
+  身份与配置寄存器仍由插件 configure 时校验。
 - 普通位置帧的发送频率由 `command_rate_hz` 限制，默认设计目标为 250 Hz；使能、失能、清错和
   故障停车帧不受普通位置命令降频影响。
 

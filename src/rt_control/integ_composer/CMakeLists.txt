@@ -23,6 +23,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(head_force_composition test/test_head_force.py TIMEOUT 60)
   ament_add_pytest_test(chassis_composition test/test_chassis.py TIMEOUT 60)
   ament_add_pytest_test(composition test/test_compose.py TIMEOUT 60)
+  ament_add_pytest_test(self_check test/test_self_check.py TIMEOUT 60)
   ament_add_pytest_test(config_contract test/test_config_contract.py
     ENV COMPOSER_SCHEMA_DIR=${CMAKE_INSTALL_PREFIX}/share/${PROJECT_NAME}/schema)
 endif()

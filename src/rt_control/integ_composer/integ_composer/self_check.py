@@ -39,6 +39,8 @@ def _fallback_source(address):
         return f"ethercat/master{address['master_id']}/slave{address['ring_position']}"
     if "master_id" in address:
         return f"ethercat/master{address['master_id']}"
+    if "can_id" in address:
+        return f"can/node{address['can_id']}"
     return f"can/{address['can_interface']}"
 
 
@@ -54,7 +56,7 @@ def describe_fault(device, tables, code):
     ], f"{hex_code} {fault['message']}（{table['vendor']} 手册 p{fault['page']}）"
 
 
-# Bit-table devices (Kinco FD) read error words; the state role names the object.
+# Devices with a bit-table fault table read error words; the state role names the object.
 ERROR_WORDS = {"error_word_1": "0x2601", "error_word_2": "0x2602"}
 
 
