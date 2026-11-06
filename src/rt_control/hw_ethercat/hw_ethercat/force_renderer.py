@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from infra_renderer import xml_param
 import yaml
 
+from .master_health import master_entry
 from .profiles import master_parameters
 
 
@@ -30,6 +31,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
     sensors, files, parameters, profiles = [], {}, {}, []
     contexts = {}
     count = len(spec["sensors"]) + len(spec["bench_extra_responders"])
+    master_id = request["deployment"]["ethercat"]["master_id"]
+    # This renderer owns the master health group as well as the sensors.
+    diagnostic_devices = [master_entry(master_id, count)]
 
     def state_sensor(name, values):
         sensor = ET.Element("sensor", name=name)
@@ -115,6 +119,20 @@ def render(request, share, validate_module, validate_unit, validate_device):
             "link_interface": "ethercat_master/link_up",
             "al_state_interface": f"ethercat_slave_{position}/al_state",
         }
+        if type(position) is int:
+            diagnostic_devices.append(
+                {
+                    "name": item["sensor_name"],
+                    "role": "force_sensor",
+                    "address": {"master_id": master_id, "ring_position": position},
+                    "identity": {
+                        "vendor_id": profile["vendor_id"],
+                        "product_code": profile["product_id"],
+                        "revision_number": profile["metadata"]["revision_id"],
+                    },
+                    "state": {"al_state": f"ethercat_slave_{position}/al_state"},
+                }
+            )
         profiles.append(
             {
                 "ring_position": position,
@@ -130,7 +148,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
             }
         )
     params = {
-        "master_id": request["deployment"]["ethercat"]["master_id"],
+        "master_id": master_id,
         "control_frequency": request["bus_cycle_hz"],
         **master_parameters(share),
     }
@@ -149,6 +167,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "runtime_files": files,
         "controller_parameters": parameters,
         "controller_context": contexts,
+        "diagnostic_devices": diagnostic_devices,
         "expected_topology": {
             "kind": "passive_force_bench",
             "master_id": params["master_id"],

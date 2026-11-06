@@ -1,0 +1,36 @@
+devices:
+- address:
+    master_id: 0
+  expected:
+    slaves_responding: 6
+  role: ethercat_master
+  source: ethercat/master0
+  state:
+    link_up: ethercat_master/link_up
+    process_data_age_ms: ethercat_domain/process_data_age_ms
+    slaves_responding: ethercat_master/slaves_responding
+    wc_error_count: ethercat_master/wc_error_count
+- address:
+    master_id: 0
+    ring_position: 2
+  identity:
+    product_code: 32897
+    revision_number: 1
+    vendor_id: 161
+  role: force_sensor
+  source: wrist_force_sensors/left_wrist_force_sensor/force_sensor
+  state:
+    al_state: ethercat_slave_2/al_state
+- address:
+    master_id: 0
+    ring_position: 4
+  identity:
+    product_code: 32897
+    revision_number: 1
+    vendor_id: 161
+  role: force_sensor
+  source: wrist_force_sensors/right_wrist_force_sensor/force_sensor
+  state:
+    al_state: ethercat_slave_4/al_state
+fault_tables: {}
+schema_version: 1
