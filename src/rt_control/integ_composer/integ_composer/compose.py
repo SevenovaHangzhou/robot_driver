@@ -160,13 +160,13 @@ def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_shar
         "joint_limits": yaml.safe_load((model_share / variant["joint_limits_file"]).read_text()),
     }
     # Joint limits for "model_limits" controller parameter sources, both owned by the model:
-    # velocity from the URDF <limit>, acceleration from its joint limits file (URDF has none).
+    # position and velocity from the URDF <limit>, acceleration from its joint limits file.
     model_limits = {}
     for joint in model_robot.findall("joint"):
-        if joint.find("limit") is not None and "velocity" in joint.find("limit").attrib:
-            model_limits.setdefault(joint.attrib["name"], {})["velocity"] = float(
-                joint.find("limit").attrib["velocity"]
-            )
+        limit = joint.find("limit")
+        for name in ("lower", "upper", "velocity"):
+            if limit is not None and name in limit.attrib:
+                model_limits.setdefault(joint.attrib["name"], {})[name] = float(limit.attrib[name])
     for name, limits in robot_model["joint_limits"].get("joints", {}).items():
         if "max_acceleration_rad_s2" in limits:
             model_limits.setdefault(name, {})["acceleration"] = limits["max_acceleration_rad_s2"]
@@ -458,6 +458,13 @@ def _output_files(runtime, runtime_files, robot_description, controllers, order)
     }
 
 
+def _mode_controllers(order, bindings):
+    tags = {name: set(bindings[name].get("tags", [])) for name in order["inactive"]}
+    if not any("rolling" in names for names in tags.values()):
+        return []
+    return [name for name, names in tags.items() if names & {"trajectory", "rolling"}]
+
+
 def _lifecycle(
     data,
     control_scope,
@@ -481,6 +488,8 @@ def _lifecycle(
         "publish_robot_state": bool(scope.get("publish_robot_state", False)),
         "hardware_activation_order": list(hardware_order),
         "motion_controllers": list(order["inactive"]),
+        # Switched by /rt/arms/set_control_mode: exactly one of them is active when enabled.
+        **({"mode_controllers": mode} if (mode := _mode_controllers(order, bindings)) else {}),
         "lifecycle_controllers": list(order["active"]),
         **({"recorder_controllers": recorders} if recorders else {}),
         # One process owns an IgH master or a CAN interface at a time (supervisor locks).

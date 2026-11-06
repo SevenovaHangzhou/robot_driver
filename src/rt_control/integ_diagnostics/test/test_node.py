@@ -261,3 +261,30 @@ def test_lasting_plc_problem_degrades_readiness_and_clears_itself(runtime):
     executor.shutdown()
     node.destroy_node()
     peer.destroy_node()
+
+
+def test_one_of_the_switched_mode_controllers_must_be_active(runtime):
+    generated, _ = runtime
+    lifecycle = yaml.safe_load((generated / "lifecycle.yaml").read_text())
+    lifecycle["motion_controllers"] = ["arm_jtc", "arm_rolling", "head"]
+    lifecycle["mode_controllers"] = ["arm_jtc", "arm_rolling"]
+    (generated / "lifecycle.yaml").write_text(yaml.safe_dump(lifecycle))
+    node = DiagnosticsNode(
+        codes=CODES,
+        parameter_overrides=[
+            Parameter("generated_dir", value=str(generated)),
+            Parameter("control_scope", value="arms_only"),
+        ],
+    )
+
+    def store(**states):
+        response = ListControllers.Response()
+        response.controller = [ControllerState(name=n, state=s) for n, s in states.items()]
+        node._store_controllers(SimpleNamespace(result=lambda: response))
+        return node._controllers
+
+    rolling = store(arm_jtc="inactive", arm_rolling="active", head="active")
+    assert set(rolling.values()) == {"active"}
+    neither = store(arm_jtc="inactive", arm_rolling="inactive", head="active")
+    assert neither["arm_jtc|arm_rolling"] == "inactive"
+    node.destroy_node()

@@ -5,7 +5,6 @@ selected data, applies generic transforms and checks, and rejects duplicates.
 """
 
 from copy import deepcopy
-from hashlib import sha256
 from pathlib import Path
 
 import yaml
@@ -19,7 +18,6 @@ KINDS = (
     "owner_parameters",
     "topics",
     "runtime",
-    "policy_file",
     "state_ready",
     "exports",
     "interface",
@@ -52,9 +50,6 @@ def _transform(value, transform):
         return [item for group in value for item in group]
     if transform == "lengths":
         return [len(group) for group in value]
-    if transform == "rolling_axis_set_sha256":
-        # Rolling protocol axis-set identity (OpenRollingJointSession.srv axis_set_hash).
-        return sha256("".join(f"{joint}:rad:rad/s\n" for joint in value).encode()).hexdigest()
     raise ValueError(f"Unsupported parameter transform: {transform}")
 
 
@@ -158,15 +153,6 @@ def _evaluate(kind, source, name, binding, env):
         if value is None:
             env["runtime_parameters"].setdefault(name, {})[source["as"]] = source["key"]
         return value
-    if kind == "policy_file":
-        reference = env["policy_refs"][source["name"]]
-        path = resolve_share_path(
-            Path(env["package_share"](reference["package"])), reference["file"]
-        )
-        if path.name in env["runtime_files"]:
-            raise ValueError(f"Duplicate runtime path: {path.name}")
-        env["runtime_files"][path.name] = path.read_text()
-        return str(Path(env["runtime_dir"]) / path.name)
     if kind == "state_ready":
         # Required state sources gate enabling through their "ready" state interfaces.
         return env.get("state_ready", []) or _SKIP
@@ -215,13 +201,5 @@ def controller_parameters(name, binding, env):
         duplicate = set(result).intersection(value)
         if duplicate:
             raise ValueError(f"Duplicate parameter source for {name}: {sorted(duplicate)}")
-        if kind == "policy_file" and "digest_as" in source[kind]:
-            # Digest of the exact text copied into the artifact, which artifact loading verifies.
-            text = env["runtime_files"][Path(value[target]).name]
-            value[source[kind]["digest_as"]] = sha256(text.encode("utf-8")).hexdigest()
-            if source[kind]["digest_as"] in result:
-                raise ValueError(
-                    f"Duplicate parameter source for {name}: {source[kind]['digest_as']}"
-                )
         result.update(value)
     return result

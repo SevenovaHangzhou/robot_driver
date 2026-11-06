@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# robot_interfaces main after #15 (arm trajectory admission limits).
-commit: a144d5f7e325418404aaf0cea7f9c23bba3b19f8
+# robot_interfaces main after #16 (slim rolling).
+commit: 79d982db33ee9a966f059e6e8e43d2a3aab0d838
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:

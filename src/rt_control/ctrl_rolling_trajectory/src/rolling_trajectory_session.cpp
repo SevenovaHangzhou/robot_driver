@@ -7,13 +7,15 @@
 #include <limits>
 #include <thread>
 
-#include "ctrl_rolling_trajectory/service_error.hpp"
+#include "hw_semantic_components/feedback_age.hpp"
 
 namespace ctrl_rolling_trajectory
 {
 
 namespace
 {
+
+using State = robot_rt_control_interfaces::msg::RollingJointControlState;
 
 class BlockingFlagGuard
 {
@@ -34,446 +36,213 @@ private:
   std::atomic_flag & flag_;
 };
 
+std::uint8_t publicResult(RejectCode code) noexcept
+{
+  switch (code) {
+    case RejectCode::kNone:
+      return State::ACCEPTED;
+    case RejectCode::kStaleSequence:
+      return State::STALE_SEQUENCE;
+    case RejectCode::kLateReplace:
+      return State::LATE_REPLACE;
+    case RejectCode::kPositionDiscontinuity:
+    case RejectCode::kVelocityDiscontinuity:
+      return State::SPLICE_MISMATCH;
+    case RejectCode::kPositionLimit:
+    case RejectCode::kVelocityLimit:
+    case RejectCode::kAccelerationLimit:
+      return State::LIMIT_EXCEEDED;
+    case RejectCode::kNotStoppingViable:
+      return State::NOT_STOPPABLE;
+    case RejectCode::kCapacityExceeded:
+    case RejectCode::kInsufficientHorizon:
+    case RejectCode::kHorizonExceeded:
+      return State::HORIZON_EXCEEDED;
+    case RejectCode::kSessionNotAccepting:
+      return State::NOT_ACCEPTING;
+    default:
+      return State::INVALID_BATCH;
+  }
+}
+
 }  // namespace
 
-bool RollingTrajectoryController::sameOpenRequest(
-  const OpenService::Request & lhs, const OpenService::Request & rhs) noexcept
-{
-  return lhs.protocol_major == rhs.protocol_major && lhs.protocol_minor == rhs.protocol_minor &&
-         lhs.request_id.uuid == rhs.request_id.uuid &&
-         lhs.expected_controller_boot_id.uuid == rhs.expected_controller_boot_id.uuid &&
-         lhs.client_instance_id.uuid == rhs.client_instance_id.uuid &&
-         lhs.axis_set_hash == rhs.axis_set_hash;
-}
-
-bool RollingTrajectoryController::sameCloseRequest(
-  const CloseService::Request & lhs, const CloseService::Request & rhs) noexcept
-{
-  return lhs.protocol_major == rhs.protocol_major && lhs.protocol_minor == rhs.protocol_minor &&
-         lhs.request_id.uuid == rhs.request_id.uuid &&
-         lhs.controller_boot_id.uuid == rhs.controller_boot_id.uuid &&
-         lhs.session_id.uuid == rhs.session_id.uuid &&
-         lhs.client_instance_id.uuid == rhs.client_instance_id.uuid &&
-         lhs.operation == rhs.operation;
-}
-
-void RollingTrajectoryController::handleOpen(
-  const std::shared_ptr<OpenService::Request> request,
-  std::shared_ptr<OpenService::Response> response)
-{
-  std::lock_guard<std::mutex> lock(callback_mutex_);
-  response->request_id = request->request_id;
-  response->protocol_major = kProtocolMajor;
-  response->protocol_minor = kProtocolMinor;
-  response->controller_boot_id.uuid = controller_boot_id_;
-
-  if (request->protocol_major != kProtocolMajor || request->protocol_minor != kProtocolMinor) {
-    setOpenError(*response, ServiceResultMessage::WRONG_PROTOCOL);
-    return;
-  }
-  if (isZeroIdentifier(request->request_id.uuid)) {
-    setOpenError(*response, ServiceResultMessage::WRONG_REQUEST);
-    return;
-  }
-  if (request->expected_controller_boot_id.uuid != controller_boot_id_) {
-    setOpenError(*response, ServiceResultMessage::WRONG_BOOT);
-    return;
-  }
-  if (isZeroIdentifier(request->client_instance_id.uuid)) {
-    setOpenError(*response, ServiceResultMessage::WRONG_CLIENT);
-    return;
-  }
-  if (request->axis_set_hash != axis_set_hash_) {
-    setOpenError(*response, ServiceResultMessage::AXIS_SET_MISMATCH);
-    return;
-  }
-  if (
-    open_cache_.valid && open_cache_.request.request_id.uuid == request->request_id.uuid &&
-    open_cache_.request.client_instance_id.uuid == request->client_instance_id.uuid) {
-    if (!sameOpenRequest(open_cache_.request, *request)) {
-      setOpenError(*response, ServiceResultMessage::WRONG_REQUEST);
-      return;
-    }
-    *response = open_cache_.response;
-    last_service_error_ = response->result.value;
-    return;
-  }
-  if (!active_.load(std::memory_order_acquire)) {
-    setOpenError(*response, ServiceResultMessage::NOT_READY);
-    return;
-  }
-  if (!synchronizeBufferStateFromRt()) {
-    setOpenError(*response, ServiceResultMessage::NOT_READY);
-    return;
-  }
-  if (buffer_.sessionState() != SessionState::kNone) {
-    setOpenError(*response, ServiceResultMessage::SESSION_BUSY);
-    return;
-  }
-
-  const double feedback_age_ms = observed_feedback_age_ms_.load(std::memory_order_acquire);
-  if (
-    !std::isfinite(feedback_age_ms) || feedback_age_ms < 0.0 ||
-    feedback_age_ms > runtime_configuration_.open_feedback_age_limit_ms) {
-    setOpenError(*response, ServiceResultMessage::FEEDBACK_STALE);
-    return;
-  }
-
-  std::array<double, kAxisCount> hold_positions{};
-  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-    const double hold = desired_positions_[axis].load(std::memory_order_acquire);
-    const double actual = observed_positions_[axis].load(std::memory_order_acquire);
-    const AxisEnvelope & limits = envelope_.axes[axis];
-    const double safe_lower = limits.position_lower + limits.position_margin_lower;
-    const double safe_upper = limits.position_upper - limits.position_margin_upper;
-    if (!std::isfinite(hold) || hold < safe_lower || hold > safe_upper) {
-      setOpenError(*response, ServiceResultMessage::UNSAFE_HOLD);
-      return;
-    }
-    if (
-      !std::isfinite(actual) ||
-      std::abs(hold - actual) > runtime_configuration_.takeover_tolerances[axis]) {
-      setOpenError(*response, ServiceResultMessage::TAKEOVER_MISMATCH);
-      return;
-    }
-    hold_positions[axis] = hold;
-  }
-
-  SessionIdentity identity;
-  identity.controller_boot_id = controller_boot_id_;
-  identity.session_id = generateIdentifier();
-  identity.client_instance_id = request->client_instance_id.uuid;
-  JointPoint prime_anchor;
-  prime_anchor.positions = hold_positions;
-  prime_anchor.velocities.fill(0.0);
-  const std::uint64_t current_epoch = session_epoch_.load(std::memory_order_acquire);
-  const std::uint64_t latest_publication = snapshot_exchange_.latestPublicationSequence();
-  if (
-    current_epoch == std::numeric_limits<std::uint64_t>::max() ||
-    latest_publication == std::numeric_limits<std::uint64_t>::max()) {
-    setOpenError(*response, ServiceResultMessage::RESTART_REQUIRED);
-    return;
-  }
-  if (!buffer_.beginSession(identity, prime_anchor)) {
-    setOpenError(*response, ServiceResultMessage::LIMITS_UNAVAILABLE);
-    return;
-  }
-
-  response->accepted = true;
-  response->result.value = ServiceResultMessage::NONE;
-  populateServiceError(response->error, ServiceResultMessage::NONE);
-  response->client_instance_id = request->client_instance_id;
-  response->session_id.uuid = identity.session_id;
-  response->session_state.value = SessionStateMessage::PRIMING;
-  response->axis_set_hash = axis_set_hash_;
-  response->limits_version = envelope_.limits_version;
-  response->limits_source.value = static_cast<std::uint8_t>(envelope_.source);
-  response->capability_bits = kCapabilityBits;
-  response->transport_max_points = static_cast<std::uint16_t>(kTransportMaxPoints);
-  response->buffer_capacity = static_cast<std::uint16_t>(buffer_.capacity());
-  response->max_horizon_ns = runtime_configuration_.max_horizon_ns;
-  response->required_initial_horizon_ns = runtime_configuration_.required_initial_horizon_ns;
-  response->replace_lead_ns = runtime_configuration_.replace_lead_ns;
-  response->update_timeout_ns = runtime_configuration_.update_timeout_ns;
-  response->nominal_controller_period_ns = runtime_configuration_.nominal_controller_period_ns;
-  response->initial_replaceable_from_ns = 0U;
-  response->test_only_limits = envelope_.source == LimitsSource::kTestOnly;
-  response->hold_positions = hold_positions;
-  response->hold_velocities.fill(0.0);
-  open_cache_.valid = true;
-  open_cache_.request = *request;
-  open_cache_.response = *response;
-  clearActiveCloseCache();
-  execution_time_ns_.store(0U, std::memory_order_release);
-  active_generation_.store(0U, std::memory_order_release);
-  buffered_until_ns_.store(0U, std::memory_order_release);
-  replaceable_from_ns_.store(0U, std::memory_order_release);
-  has_accepted_update_.store(false, std::memory_order_release);
-  prime_start_time_ns_.store(steadyNowNs(), std::memory_order_release);
-  session_publication_floor_.store(latest_publication + 1U, std::memory_order_release);
-  stop_reason_.store(static_cast<std::uint8_t>(StopReason::kNone), std::memory_order_release);
-  stop_requested_.store(false, std::memory_order_release);
-  session_epoch_.store(current_epoch + 1U, std::memory_order_release);
-  rt_session_state_.store(
-    static_cast<std::uint8_t>(SessionState::kPriming), std::memory_order_release);
-  last_service_error_ = ServiceResultMessage::NONE;
-}
-
-void RollingTrajectoryController::handleClose(
-  const std::shared_ptr<CloseService::Request> request,
-  std::shared_ptr<CloseService::Response> response)
-{
-  std::lock_guard<std::mutex> lock(callback_mutex_);
-  response->request_id = request->request_id;
-  if (request->protocol_major != kProtocolMajor || request->protocol_minor != kProtocolMinor) {
-    setCloseError(*response, ServiceResultMessage::WRONG_PROTOCOL);
-    return;
-  }
-  if (
-    isZeroIdentifier(request->request_id.uuid) ||
-    (request->operation != CloseService::Request::REQUEST_STOP &&
-     request->operation != CloseService::Request::FINALIZE)) {
-    setCloseError(*response, ServiceResultMessage::WRONG_REQUEST);
-    return;
-  }
-  if (request->controller_boot_id.uuid != controller_boot_id_) {
-    setCloseError(*response, ServiceResultMessage::WRONG_BOOT);
-    return;
-  }
-  if (
-    finalize_cache_.valid && finalize_cache_.request.request_id.uuid == request->request_id.uuid) {
-    if (!sameCloseRequest(finalize_cache_.request, *request)) {
-      setCloseError(*response, ServiceResultMessage::WRONG_REQUEST);
-      return;
-    }
-    *response = finalize_cache_.response;
-    last_service_error_ = response->result.value;
-    return;
-  }
-  if (!active_.load(std::memory_order_acquire)) {
-    setCloseError(*response, ServiceResultMessage::NOT_READY);
-    return;
-  }
-  if (!synchronizeBufferStateFromRt()) {
-    setCloseError(*response, ServiceResultMessage::NOT_READY);
-    return;
-  }
-
-  const SessionState state = buffer_.sessionState();
-  if (state == SessionState::kNone || state == SessionState::kTerminated) {
-    setCloseError(*response, ServiceResultMessage::WRONG_SESSION);
-    return;
-  }
-  const SessionIdentity & identity = buffer_.identity();
-  if (request->session_id.uuid != identity.session_id) {
-    setCloseError(*response, ServiceResultMessage::WRONG_SESSION);
-    return;
-  }
-  if (request->client_instance_id.uuid != identity.client_instance_id) {
-    setCloseError(*response, ServiceResultMessage::WRONG_CLIENT);
-    return;
-  }
-
-  if (CloseCacheEntry * cached = findActiveCloseCache(request->request_id.uuid)) {
-    if (!sameCloseRequest(cached->request, *request)) {
-      setCloseError(*response, ServiceResultMessage::WRONG_REQUEST);
-      return;
-    }
-    *response = cached->response;
-    last_service_error_ = response->result.value;
-    return;
-  }
-
-  if (request->operation == CloseService::Request::FINALIZE) {
-    if (state != SessionState::kHolding) {
-      setCloseError(*response, ServiceResultMessage::WRONG_MODE);
-      return;
-    }
-    if (!buffer_.finishSession()) {
-      setCloseError(*response, ServiceResultMessage::NOT_READY);
-      return;
-    }
-    response->accepted = true;
-    response->completed = true;
-    response->result.value = ServiceResultMessage::NONE;
-    populateServiceError(response->error, ServiceResultMessage::NONE);
-    response->session_state.value = SessionStateMessage::NONE;
-    response->stop_reason.value = StopReasonMessage::GRACEFUL_CLOSE;
-    finalize_cache_.valid = true;
-    finalize_cache_.request = *request;
-    finalize_cache_.response = *response;
-    clearActiveCloseCache();
-    stop_requested_.store(false, std::memory_order_release);
-    rt_session_state_.store(
-      static_cast<std::uint8_t>(SessionState::kNone), std::memory_order_release);
-    stop_reason_.store(static_cast<std::uint8_t>(StopReason::kNone), std::memory_order_release);
-    has_accepted_update_.store(false, std::memory_order_release);
-    session_epoch_.fetch_add(1U, std::memory_order_acq_rel);
-    last_service_error_ = ServiceResultMessage::NONE;
-    return;
-  }
-
-  CloseCacheEntry * cache = allocateActiveCloseCache();
-  if (cache == nullptr) {
-    setCloseError(*response, ServiceResultMessage::WRONG_REQUEST);
-    return;
-  }
-  if (state == SessionState::kPriming || state == SessionState::kRunning) {
-    if (!buffer_.requestStop()) {
-      setCloseError(*response, ServiceResultMessage::NOT_READY);
-      return;
-    }
-    std::uint8_t expected_reason = static_cast<std::uint8_t>(StopReason::kNone);
-    (void)stop_reason_.compare_exchange_strong(
-      expected_reason, static_cast<std::uint8_t>(StopReason::kGracefulClose),
-      std::memory_order_acq_rel, std::memory_order_acquire);
-    stop_requested_.store(true, std::memory_order_release);
-  } else if (state != SessionState::kStopping && state != SessionState::kHolding) {
-    setCloseError(*response, ServiceResultMessage::NOT_READY);
-    return;
-  }
-
-  response->accepted = true;
-  response->completed = state == SessionState::kHolding;
-  response->result.value = ServiceResultMessage::NONE;
-  populateServiceError(response->error, ServiceResultMessage::NONE);
-  response->session_state.value =
-    state == SessionState::kHolding ? SessionStateMessage::HOLDING : SessionStateMessage::STOPPING;
-  response->stop_reason.value = StopReasonMessage::GRACEFUL_CLOSE;
-  cache->valid = true;
-  cache->request = *request;
-  cache->response = *response;
-  last_service_error_ = ServiceResultMessage::NONE;
-}
-
-void RollingTrajectoryController::handleUpdate(const BatchMessage::SharedPtr message)
+void RollingTrajectoryController::handleBatch(const BatchMessage::SharedPtr message)
 {
   if (!message) {
     return;
   }
   BlockingFlagGuard initial_handoff(initial_handoff_gate_);
   std::array<PointView, kTransportMaxPoints> point_views{};
-  const std::size_t point_count = message->points.size();
-  if (point_count <= point_views.size()) {
-    for (std::size_t index = 0U; index < point_count; ++index) {
-      const auto & point = message->points[index];
-      point_views[index] = PointView{
-        point.time_from_session_start_ns, point.positions.data(), point.positions.size(),
-        point.velocities.data(), point.velocities.size()};
+  std::lock_guard<std::mutex> lock(callback_mutex_);
+  if (!active_.load(std::memory_order_acquire)) {
+    return;
+  }
+  last_result_ = admitBatch(*message, point_views);
+  last_sequence_ = message->sequence;
+}
+
+std::uint8_t RollingTrajectoryController::admitBatch(
+  const BatchMessage & message, std::array<PointView, kTransportMaxPoints> & point_views)
+{
+  if (message.epoch != activation_epoch_) {
+    return State::WRONG_EPOCH;
+  }
+  if (message.sequence <= epoch_sequence_) {
+    return State::STALE_SEQUENCE;
+  }
+  epoch_sequence_ = message.sequence;
+  const std::size_t point_count = message.points.size();
+  if (point_count == 0U || point_count > kTransportMaxPoints) {
+    return State::INVALID_BATCH;
+  }
+  const std::int64_t now_ns = get_node()->now().nanoseconds();
+  const std::int64_t replace_from_ns = rclcpp::Time(message.replace_from).nanoseconds();
+  if (
+    replace_from_ns - now_ns < static_cast<std::int64_t>(runtime_configuration_.replace_lead_ns)) {
+    return State::LATE_REPLACE;
+  }
+  if (!synchronizeBufferStateFromRt()) {
+    return State::NOT_ACCEPTING;
+  }
+
+  // A batch extends the session once its first batch is accepted (also before it starts);
+  // holding (after a stop, or before any accepted batch) the batch starts a new session.
+  const SessionState session_state = buffer_.sessionState();
+  std::int64_t offset_ns = 0;
+  if (
+    session_state == SessionState::kRunning ||
+    (session_state == SessionState::kPriming && buffer_.hasPending())) {
+    offset_ns = replace_from_ns - session_origin_ns_;
+  } else if (session_state == SessionState::kStopping) {
+    return State::NOT_ACCEPTING;
+  } else {
+    if (
+      replace_from_ns - now_ns > static_cast<std::int64_t>(runtime_configuration_.max_horizon_ns)) {
+      return State::HORIZON_EXCEEDED;
+    }
+    const std::uint8_t started = startSession(replace_from_ns);
+    if (started != State::ACCEPTED) {
+      return started;
     }
   }
 
-  std::lock_guard<std::mutex> lock(callback_mutex_);
-  RejectCode result = RejectCode::kNone;
+  for (std::size_t index = 0U; index < point_count; ++index) {
+    const auto & point = message.points[index];
+    const std::int64_t time_ns = offset_ns + rclcpp::Duration(point.time_from_start).nanoseconds();
+    if (time_ns < 0) {
+      return State::INVALID_BATCH;
+    }
+    point_views[index] = PointView{
+      static_cast<std::uint64_t>(time_ns), point.positions.data(), point.positions.size(),
+      point.velocities.data(), point.velocities.size()};
+  }
+  BatchView batch;
+  batch.protocol_major = kProtocolMajor;
+  batch.protocol_minor = kProtocolMinor;
+  batch.controller_boot_id = buffer_.identity().controller_boot_id;
+  batch.session_id = buffer_.identity().session_id;
+  batch.client_instance_id = buffer_.identity().client_instance_id;
+  batch.sequence = buffer_.lastSeenSequence() + 1U;
+  batch.replace_from_ns = static_cast<std::uint64_t>(offset_ns);
+  batch.points = point_views.data();
+  batch.point_count = point_count;
+
   PreparedSubmission submission;
   AdmissionContext admission_context;
-  bool supersedes_pending = false;
-  if (!synchronizeBufferStateFromRt() || !buildAdmissionContext(admission_context)) {
-    result = RejectCode::kSessionNotAccepting;
-  } else if (
-    message->protocol_major != kProtocolMajor || message->protocol_minor != kProtocolMinor) {
-    result = RejectCode::kWrongProtocol;
-  } else if (message->controller_boot_id.uuid != controller_boot_id_) {
-    result = RejectCode::kWrongBoot;
-  } else {
-    BatchView batch;
-    batch.protocol_major = message->protocol_major;
-    batch.protocol_minor = message->protocol_minor;
-    batch.controller_boot_id = message->controller_boot_id.uuid;
-    batch.session_id = message->session_id.uuid;
-    batch.client_instance_id = message->client_instance_id.uuid;
-    batch.sequence = message->sequence;
-    batch.replace_from_ns = message->replace_from_ns;
-    batch.points = point_views.data();
-    batch.point_count = point_count;
-    supersedes_pending = buffer_.hasPending();
-    result = buffer_.prepare(batch, admission_context, submission);
-    if (result == RejectCode::kNone) {
-      AdmissionContext commit_context;
-      if (!synchronizeBufferStateFromRt() || !buildAdmissionContext(commit_context)) {
-        result = RejectCode::kSessionNotAccepting;
-      } else {
-        result = buffer_.commit(submission, commit_context);
-      }
-    }
+  if (!buildAdmissionContext(admission_context)) {
+    return State::NOT_ACCEPTING;
   }
-
+  RejectCode result = buffer_.prepare(batch, admission_context, submission);
   if (result == RejectCode::kNone) {
-    if (!snapshot_exchange_.publish(buffer_.identity(), buffer_.pendingImage(), steadyNowNs())) {
-      buffer_.terminateSession();
-      std::uint8_t expected_reason = static_cast<std::uint8_t>(StopReason::kNone);
-      (void)stop_reason_.compare_exchange_strong(
-        expected_reason, static_cast<std::uint8_t>(StopReason::kInternalInvariant),
-        std::memory_order_acq_rel, std::memory_order_acquire);
-      rt_invariant_stage_.store(
-        static_cast<std::uint8_t>(RtInvariantStage::kSnapshotPublication),
-        std::memory_order_release);
-      stop_requested_.store(true, std::memory_order_release);
-      invariant_failure_count_.fetch_add(1U, std::memory_order_relaxed);
-      result = RejectCode::kSessionNotAccepting;
-    } else {
-      ++accepted_count_;
-      if (supersedes_pending) {
-        ++superseded_pending_count_;
-      }
+    AdmissionContext commit_context;
+    if (!synchronizeBufferStateFromRt() || !buildAdmissionContext(commit_context)) {
+      return State::NOT_ACCEPTING;
     }
+    result = buffer_.commit(submission, commit_context);
   }
-  last_reject_code_ = result;
   if (result != RejectCode::kNone) {
-    last_rejected_sequence_ = message->sequence;
-    ++rejected_count_;
+    return publicResult(result);
   }
+  if (!snapshot_exchange_.publish(buffer_.identity(), buffer_.pendingImage(), steadyNowNs())) {
+    buffer_.terminateSession();
+    std::uint8_t expected_reason = static_cast<std::uint8_t>(StopReason::kNone);
+    (void)stop_reason_.compare_exchange_strong(
+      expected_reason, static_cast<std::uint8_t>(StopReason::kInternalInvariant),
+      std::memory_order_acq_rel, std::memory_order_acquire);
+    rt_invariant_stage_.store(
+      static_cast<std::uint8_t>(RtInvariantStage::kSnapshotPublication), std::memory_order_release);
+    stop_requested_.store(true, std::memory_order_release);
+    invariant_failure_count_.fetch_add(1U, std::memory_order_relaxed);
+    return State::NOT_ACCEPTING;
+  }
+  return State::ACCEPTED;
 }
 
-void RollingTrajectoryController::handleModeResult(const ModeResultMessage::SharedPtr message)
+std::uint8_t RollingTrajectoryController::startSession(std::int64_t start_ns)
 {
+  const SessionState session_state = buffer_.sessionState();
+  if (session_state == SessionState::kHolding && !buffer_.finishSession()) {
+    return State::NOT_ACCEPTING;
+  }
+  if (session_state == SessionState::kPriming) {
+    // A started session whose first batch was rejected.
+    buffer_.terminateSession();
+    (void)buffer_.resetTerminated();
+  }
+  if (!hw_semantic_components::feedback_fresh(
+        observed_feedback_age_ms_.load(std::memory_order_acquire),
+        runtime_configuration_.feedback_age_limit_ms)) {
+    return State::NOT_ACCEPTING;
+  }
+
+  JointPoint anchor;
+  for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+    const double hold = desired_positions_[axis].load(std::memory_order_acquire);
+    const double actual = observed_positions_[axis].load(std::memory_order_acquire);
+    if (
+      !std::isfinite(actual) ||
+      std::abs(hold - actual) > runtime_configuration_.takeover_tolerances[axis]) {
+      return State::NOT_ACCEPTING;
+    }
+    anchor.positions[axis] = hold;
+  }
+  anchor.velocities.fill(0.0);
+
+  SessionIdentity identity;
+  identity.controller_boot_id = controller_boot_id_;
+  identity.session_id = generateIdentifier();
+  identity.client_instance_id = controller_boot_id_;
+  const std::uint64_t current_epoch = session_epoch_.load(std::memory_order_acquire);
+  const std::uint64_t latest_publication = snapshot_exchange_.latestPublicationSequence();
   if (
-    message == nullptr || message->protocol_major != ModeResultMessage::PROTOCOL_MAJOR ||
-    message->protocol_minor != ModeResultMessage::PROTOCOL_MINOR || message->sequence == 0U ||
-    isZeroIdentifier(message->request_id.uuid) ||
-    message->result.value > ServiceResultMessage::NOT_READY ||
-    message->mode.value > ControlModeMessage::RESTART_REQUIRED) {
-    return;
+    current_epoch == std::numeric_limits<std::uint64_t>::max() ||
+    latest_publication == std::numeric_limits<std::uint64_t>::max()) {
+    return State::NOT_ACCEPTING;
   }
-  std::lock_guard<std::mutex> lock(callback_mutex_);
-  if (message->sequence <= last_mode_result_sequence_) {
-    return;
+  if (!buffer_.beginSession(identity, anchor)) {
+    // The held position lies outside the limits minus the margin.
+    return State::LIMIT_EXCEEDED;
   }
-  last_mode_result_ = *message;
-  last_mode_result_sequence_ = message->sequence;
-}
 
-void RollingTrajectoryController::clearActiveCloseCache() noexcept
-{
-  for (CloseCacheEntry & entry : close_cache_) {
-    entry = CloseCacheEntry{};
+  const auto stop = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
+  if (stop != StopReason::kNone) {
+    last_stop_reason_ = publicStopReason(stop);
   }
-}
-
-RollingTrajectoryController::CloseCacheEntry * RollingTrajectoryController::findActiveCloseCache(
-  const Identifier & request_id) noexcept
-{
-  for (CloseCacheEntry & entry : close_cache_) {
-    if (entry.valid && entry.request.request_id.uuid == request_id) {
-      return &entry;
-    }
-  }
-  return nullptr;
-}
-
-RollingTrajectoryController::CloseCacheEntry *
-RollingTrajectoryController::allocateActiveCloseCache() noexcept
-{
-  for (CloseCacheEntry & entry : close_cache_) {
-    if (!entry.valid) {
-      return &entry;
-    }
-  }
-  return nullptr;
-}
-
-void RollingTrajectoryController::setOpenError(
-  OpenService::Response & response, std::uint8_t error_code)
-{
-  response.accepted = false;
-  response.result.value = error_code;
-  populateServiceError(response.error, error_code);
-  last_service_error_ = error_code;
-}
-
-void RollingTrajectoryController::setCloseError(
-  CloseService::Response & response, std::uint8_t error_code)
-{
-  response.accepted = false;
-  response.completed = false;
-  response.result.value = error_code;
-  populateServiceError(response.error, error_code);
-  response.session_state.value = static_cast<std::uint8_t>(buffer_.sessionState());
-  response.stop_reason.value = buffer_.sessionState() == SessionState::kStopping ||
-                                   buffer_.sessionState() == SessionState::kHolding
-                                 ? StopReasonMessage::GRACEFUL_CLOSE
-                                 : StopReasonMessage::NONE;
-  last_service_error_ = error_code;
+  session_origin_ns_ = start_ns;
+  execution_time_ns_.store(0U, std::memory_order_release);
+  active_generation_.store(0U, std::memory_order_release);
+  buffered_until_ns_.store(0U, std::memory_order_release);
+  replaceable_from_ns_.store(0U, std::memory_order_release);
+  has_accepted_update_.store(false, std::memory_order_release);
+  prime_start_ns_.store(start_ns, std::memory_order_release);
+  session_publication_floor_.store(latest_publication + 1U, std::memory_order_release);
+  stop_reason_.store(static_cast<std::uint8_t>(StopReason::kNone), std::memory_order_release);
+  stop_requested_.store(false, std::memory_order_release);
+  session_epoch_.store(current_epoch + 1U, std::memory_order_release);
+  rt_session_state_.store(
+    static_cast<std::uint8_t>(SessionState::kPriming), std::memory_order_release);
+  return State::ACCEPTED;
 }
 
 }  // namespace ctrl_rolling_trajectory

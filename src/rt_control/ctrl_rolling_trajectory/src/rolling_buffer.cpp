@@ -108,14 +108,12 @@ bool RollingBuffer::configure(const BufferConfiguration & configuration) noexcep
   return true;
 }
 
-bool RollingBuffer::configureLimits(
-  const DynamicEnvelope & envelope, bool allow_test_only_limits,
-  bool allow_provisional_limits) noexcept
+bool RollingBuffer::configureLimits(const DynamicEnvelope & envelope) noexcept
 {
   if (!configured_ || session_state_ != SessionState::kNone) {
     return false;
   }
-  return limit_checker_.configure(envelope, allow_test_only_limits, allow_provisional_limits);
+  return limit_checker_.configure(envelope);
 }
 
 bool RollingBuffer::configured() const noexcept
@@ -338,6 +336,10 @@ RejectCode RollingBuffer::prepare(
     if (continuity != RejectCode::kNone) {
       return continuity;
     }
+    // The replacement continues from the buffered state: its first point is only checked, so
+    // the tolerance never becomes a step in the command (user 2026-11-05).
+    replacement_splice.positions = splice.positions;
+    replacement_splice.velocities = splice.velocities;
 
     std::size_t history_start = 0U;
     if (!findHistoryStart(head, context.execution_time_ns, history_start)) {
@@ -376,14 +378,18 @@ RejectCode RollingBuffer::prepare(
   }
 
   if (session_state_ == SessionState::kPriming && batch.replace_from_ns == 0U) {
+    // The client only knows the hold from its feedback: its first point must lie within the
+    // splice tolerances of the hold, and the trajectory starts exactly at the hold.
     JointPoint replacement_anchor;
     copyPoint(batch.points[0], replacement_anchor);
-    std::array<double, kAxisCount> exact_tolerance{};
-    const RejectCode anchor_continuity =
-      checkSpliceContinuity(prime_anchor_, replacement_anchor, exact_tolerance, exact_tolerance);
+    const RejectCode anchor_continuity = checkSpliceContinuity(
+      prime_anchor_, replacement_anchor, configuration_.splice_position_tolerance,
+      configuration_.splice_velocity_tolerance);
     if (anchor_continuity != RejectCode::kNone) {
       return anchor_continuity;
     }
+    candidate.points[0].positions = prime_anchor_.positions;
+    candidate.points[0].velocities = prime_anchor_.velocities;
   }
 
   const RejectCode horizon_validation =

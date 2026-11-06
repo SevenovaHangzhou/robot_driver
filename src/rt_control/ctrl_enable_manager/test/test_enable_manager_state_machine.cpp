@@ -42,7 +42,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
 #include "robot_rt_control_interfaces/msg/rolling_joint_control_state.hpp"
-#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_rt_control_interfaces/srv/set_joint_control_mode.hpp"
 #include "robot_rt_control_interfaces/srv/rt_enable.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
@@ -166,6 +165,12 @@ public:
   {
     c.handleJtcState(message);
   }
+  using ActualSample = EnableManagerController::ActualSample;
+  static bool stableActualInterval(
+    const Controller & c, const ActualSample & window_start, const ActualSample & current)
+  {
+    return c.stableActualInterval(window_start, current);
+  }
   static void handleRollingState(
     Controller & c,
     const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr & message)
@@ -187,7 +192,6 @@ using ControlMode = Access::ControlMode;
 using ModeSwitchState = Access::ModeSwitchState;
 using RtEnable = robot_rt_control_interfaces::srv::RtEnable;
 using ModeService = robot_rt_control_interfaces::srv::SetJointControlMode;
-using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
 
 constexpr std::size_t kAxes = 14U;
 constexpr std::size_t kBatches = 5U;
@@ -659,6 +663,22 @@ TEST_F(EnableManagerFixture, MotionModeClaimsFourteenPositionsAndFeedbackAge)
   EXPECT_EQ(state_config.names.back(), "ethercat_domain/process_data_age_ms");
 }
 
+TEST_F(EnableManagerFixture, StandstillIsJudgedOverTheWholeWindow)
+{
+  bringUpMotionToIdle();
+  Access::ActualSample start;
+  start.steady_time_ns = 1'000'000'000U;
+  Access::ActualSample current = start;
+  current.steady_time_ns += 20'000'000U;
+  // One encoder count (about 1.2e-5 rad) over 20 ms is 0.0006 rad/s, well under the 0.0087 rad/s
+  // threshold; over a single 1 ms interval it would be 0.012 rad/s.
+  current.positions[0] += 1.2e-5;
+  EXPECT_TRUE(Access::stableActualInterval(*controller_, start, current));
+  // 0.0002 rad over 20 ms is 0.01 rad/s: moving.
+  current.positions[0] = start.positions[0] + 2.0e-4;
+  EXPECT_FALSE(Access::stableActualInterval(*controller_, start, current));
+}
+
 TEST_F(EnableManagerFixture, DetectsAndClassifiesExclusiveMotionControllerModes)
 {
   initAndConfigure(
@@ -722,7 +742,7 @@ TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWr
   EXPECT_THAT(stop.deactivate_controllers, ::testing::ElementsAre("rolling_trajectory_controller"));
 }
 
-TEST_F(EnableManagerFixture, ModeServiceDoesNotWaitForRollingStateAndReplaysResult)
+TEST_F(EnableManagerFixture, ModeServiceSwitchesWithoutWaitingForRollingState)
 {
   bringUpMotionToIdle();
   setAllStatus(kSwOperationEnabled);
@@ -801,16 +821,12 @@ TEST_F(EnableManagerFixture, ModeServiceDoesNotWaitForRollingStateAndReplaysResu
   });
 
   auto request = std::make_shared<ModeService::Request>();
-  request->protocol_major = 1U;
-  request->protocol_minor = 0U;
-  request->client_instance_id.uuid.fill(0x41U);
-  request->request_id.uuid.fill(0x42U);
-  request->expected_mode.value = robot_rt_control_interfaces::msg::JointControlMode::FJT_READY;
   request->target_mode.value = robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY;
   auto response = std::make_shared<ModeService::Response>();
   Access::handleSetMode(*controller_, request, response);
-  auto replay = std::make_shared<ModeService::Response>();
-  Access::handleSetMode(*controller_, request, replay);
+  // Asking for the mode already in force is accepted without another switch.
+  auto again = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, again);
 
   pump_running.store(false);
   update_thread.join();
@@ -820,19 +836,14 @@ TEST_F(EnableManagerFixture, ModeServiceDoesNotWaitForRollingStateAndReplaysResu
   executor.remove_node(controller_->get_node()->get_node_base_interface());
 
   EXPECT_TRUE(response->accepted);
-  EXPECT_EQ(response->result.value, ServiceResult::NONE);
-  EXPECT_TRUE(response->source_controller_deactivated);
-  EXPECT_TRUE(response->target_controller_activated);
-  EXPECT_FALSE(response->restart_required);
+  EXPECT_EQ(response->error.code, robot_system_interfaces::msg::ErrorCode::SUCCESS);
   EXPECT_EQ(
     response->mode.value, robot_rt_control_interfaces::msg::JointControlMode::ROLLING_READY);
-  EXPECT_THAT(response->controller_boot_id.uuid, ::testing::Each(0U));
   EXPECT_EQ(Access::controlMode(*controller_), ControlMode::kRollingReady);
   EXPECT_TRUE(strict_request_valid.load());
   EXPECT_EQ(switch_calls.load(), 1U);
   EXPECT_GE(list_calls.load(), 2U);
-  EXPECT_EQ(replay->result.value, response->result.value);
-  EXPECT_EQ(replay->controller_boot_id.uuid, response->controller_boot_id.uuid);
+  EXPECT_TRUE(again->accepted);
   EXPECT_EQ(switch_calls.load(), 1U);
 
   (void)list_service;

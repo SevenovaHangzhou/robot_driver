@@ -2,8 +2,8 @@ repositories:
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git
-    # robot_interfaces main after #15 (arm trajectory admission limits).
-    version: a144d5f7e325418404aaf0cea7f9c23bba3b19f8
+    # robot_interfaces main after #16 (slim rolling).
+    version: 79d982db33ee9a966f059e6e8e43d2a3aab0d838
   src/vendor/ecat_icube:
     type: git
     url: https://github.com/ICube-Robotics/ethercat_driver_ros2.git

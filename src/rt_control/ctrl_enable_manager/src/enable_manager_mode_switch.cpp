@@ -20,7 +20,6 @@
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
-#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
 
 namespace ctrl_enable_manager
@@ -53,52 +52,14 @@ void EnableManagerController::handleJtcState(
 void EnableManagerController::handleRollingState(
   const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr message)
 {
+  // Published only while the rolling controller is active.
   CommandSnapshot snapshot;
   snapshot.valid = true;
-  snapshot.control_mode = message->control_mode.value;
+  snapshot.control_mode = static_cast<std::uint8_t>(ControlMode::kRollingReady);
   snapshot.received_steady_ns = steadyNowNs();
-  snapshot.controller_boot_id = message->controller_boot_id.uuid;
-  snapshot.has_session = message->has_session;
-  snapshot.session_state = message->session_state.value;
-  for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
-    if (!std::isfinite(message->desired_positions[axis])) {
-      return;
-    }
-    snapshot.positions[axis] = message->desired_positions[axis];
-  }
+  snapshot.rolling_state = message->state;
   std::lock_guard<std::mutex> lock(command_snapshot_mutex_);
   rolling_command_snapshot_ = snapshot;
-}
-
-bool EnableManagerController::sameModeRequest(
-  const ModeService::Request & lhs, const ModeService::Request & rhs) noexcept
-{
-  return lhs.protocol_major == rhs.protocol_major && lhs.protocol_minor == rhs.protocol_minor &&
-         lhs.client_instance_id.uuid == rhs.client_instance_id.uuid &&
-         lhs.request_id.uuid == rhs.request_id.uuid &&
-         lhs.expected_mode.value == rhs.expected_mode.value &&
-         lhs.target_mode.value == rhs.target_mode.value;
-}
-
-EnableManagerController::ModeCacheEntry * EnableManagerController::findModeCache(
-  const std::array<std::uint8_t, 16U> & client_id,
-  const std::array<std::uint8_t, 16U> & request_id) noexcept
-{
-  const auto entry = std::find_if(
-    mode_cache_.begin(), mode_cache_.end(),
-    [&client_id, &request_id](const ModeCacheEntry & candidate) {
-      return candidate.valid && candidate.request.client_instance_id.uuid == client_id &&
-             candidate.request.request_id.uuid == request_id;
-    });
-  return entry == mode_cache_.end() ? nullptr : &*entry;
-}
-
-EnableManagerController::ModeCacheEntry & EnableManagerController::allocateModeCache() noexcept
-{
-  ModeCacheEntry & entry = mode_cache_[next_mode_cache_slot_];
-  next_mode_cache_slot_ = (next_mode_cache_slot_ + 1U) % kModeCacheCapacity;
-  entry = ModeCacheEntry{};
-  return entry;
 }
 
 bool EnableManagerController::readActualSample(ActualSample & sample) const noexcept
@@ -140,37 +101,42 @@ bool EnableManagerController::readCommandSnapshot(
 std::uint8_t EnableManagerController::validateModeSource(
   ControlMode source, CommandSnapshot & snapshot)
 {
-  using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
   if (!readCommandSnapshot(source, snapshot)) {
-    return ServiceResult::SOURCE_STATE_STALE;
+    return kModeSourceStale;
   }
   std::uint64_t now_ns = steadyNowNs();
   if (
     now_ns < snapshot.received_steady_ns ||
     now_ns - snapshot.received_steady_ns > mode_switch_source_state_max_age_ns_) {
-    return ServiceResult::SOURCE_STATE_STALE;
+    return kModeSourceStale;
   }
-  if (source == ControlMode::kRollingReady && snapshot.has_session) {
-    return ServiceResult::SESSION_EXISTS;
+  if (
+    source == ControlMode::kRollingReady &&
+    snapshot.rolling_state != robot_rt_control_interfaces::msg::RollingJointControlState::HOLDING) {
+    return kModeSourceMoving;
   }
 
   ActualSample previous;
   if (!readActualSample(previous)) {
-    return ServiceResult::NOT_READY;
+    return kModeNotReady;
   }
   if (!hw_semantic_components::feedback_fresh(
         previous.feedback_age_ms, mode_switch_feedback_age_limit_ms_)) {
-    return ServiceResult::FEEDBACK_STALE;
+    return kModeFeedbackStale;
   }
 
-  std::size_t stable_intervals = 0U;
+  // Standstill over a window of consecutive samples: its start-to-end displacement rate. Per
+  // 1 ms interval one encoder count already exceeds the threshold on a still arm (bench
+  // 2026-11-05); a 20-sample window keeps quantization 20 times smaller.
+  ActualSample window_start = previous;
+  std::size_t window_intervals = 0U;
   const auto deadline = std::chrono::steady_clock::now() + mode_switch_timeout_;
   while (std::chrono::steady_clock::now() < deadline) {
     if (
       mode_abort_requested_.load(std::memory_order_acquire) ||
       owner_.load(std::memory_order_acquire) != Owner::kMode ||
       phase_.load(std::memory_order_acquire) != Phase::kEnabled) {
-      return ServiceResult::NOT_READY;
+      return kModeNotReady;
     }
     ActualSample current;
     if (!readActualSample(current) || current.sequence == previous.sequence) {
@@ -179,34 +145,53 @@ std::uint8_t EnableManagerController::validateModeSource(
     }
     if (!hw_semantic_components::feedback_fresh(
           current.feedback_age_ms, mode_switch_feedback_age_limit_ms_)) {
-      return ServiceResult::FEEDBACK_STALE;
+      return kModeFeedbackStale;
     }
-    stable_intervals = stableActualInterval(previous, current) ? stable_intervals + 1U : 0U;
+    const bool contiguous =
+      current.steady_time_ns > previous.steady_time_ns &&
+      current.steady_time_ns - previous.steady_time_ns <= mode_switch_maximum_sample_period_ns_;
     previous = current;
-    if (stable_intervals < mode_switch_stable_interval_count_) {
+    if (!contiguous) {
+      window_start = current;
+      window_intervals = 0U;
+      continue;
+    }
+    if (++window_intervals < mode_switch_stable_interval_count_) {
+      continue;
+    }
+    if (!stableActualInterval(window_start, current)) {
+      window_start = current;
+      window_intervals = 0U;
       continue;
     }
 
     CommandSnapshot fresh_source;
     if (!readCommandSnapshot(source, fresh_source)) {
-      return ServiceResult::SOURCE_STATE_STALE;
+      return kModeSourceStale;
     }
     now_ns = steadyNowNs();
     if (
       now_ns < fresh_source.received_steady_ns ||
       now_ns - fresh_source.received_steady_ns > mode_switch_source_state_max_age_ns_) {
-      return ServiceResult::SOURCE_STATE_STALE;
+      return kModeSourceStale;
     }
-    if (source == ControlMode::kRollingReady && fresh_source.has_session) {
-      return ServiceResult::SESSION_EXISTS;
+    if (
+      source == ControlMode::kRollingReady &&
+      fresh_source.rolling_state !=
+        robot_rt_control_interfaces::msg::RollingJointControlState::HOLDING) {
+      return kModeSourceMoving;
     }
-    if (!sourceWithinTakeoverTolerance(fresh_source.positions, current.positions)) {
-      return ServiceResult::TAKEOVER_MISMATCH;
+    // The trajectory controller hands over its output; rolling checks its own takeover on
+    // activation and the trajectory controller starts from the measured state.
+    if (
+      source == ControlMode::kFjtReady &&
+      !sourceWithinTakeoverTolerance(fresh_source.positions, current.positions)) {
+      return kModeTakeoverMismatch;
     }
     snapshot = fresh_source;
-    return ServiceResult::NONE;
+    return kModeOk;
   }
-  return ServiceResult::SOURCE_MOVING;
+  return kModeSourceMoving;
 }
 
 bool EnableManagerController::queryControllerStates(
@@ -263,18 +248,15 @@ bool EnableManagerController::releaseModeOwnership() noexcept
   return owner_.compare_exchange_strong(expected_owner, Owner::kNone, std::memory_order_acq_rel);
 }
 
-std::uint8_t EnableManagerController::executeModeSwitch(
-  ControlMode source, ControlMode target, ModeService::Response & response,
-  std::uint64_t switch_started_ns)
+std::uint8_t EnableManagerController::executeModeSwitch(ControlMode source, ControlMode target)
 {
-  using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
   if (mode_abort_requested_.load(std::memory_order_acquire)) {
-    return ServiceResult::NOT_READY;
+    return kModeNotReady;
   }
   bool switch_expected = false;
   if (!switch_in_progress_.compare_exchange_strong(
         switch_expected, true, std::memory_order_acq_rel)) {
-    return ServiceResult::NOT_READY;
+    return kModeNotReady;
   }
   const auto release_switch = [this]() {
     switch_in_progress_.store(false, std::memory_order_release);
@@ -285,33 +267,33 @@ std::uint8_t EnableManagerController::executeModeSwitch(
   };
   if (mode_abort_requested_.load(std::memory_order_acquire)) {
     release_switch();
-    return ServiceResult::NOT_READY;
+    return kModeNotReady;
   }
   controller_manager_msgs::srv::ListControllers::Response before;
   if (!queryControllerStates(before, mode_switch_timeout_)) {
     release_switch();
     convergeAfterUnsafeModeSwitch(true);
-    return ServiceResult::RESTART_REQUIRED;
+    return kModeRestartRequired;
   }
   if (safety_preempted()) {
     restart_required_.store(true, std::memory_order_release);
     current_control_mode_.store(ControlMode::kRestartRequired, std::memory_order_release);
     release_switch();
-    return ServiceResult::RESTART_REQUIRED;
+    return kModeRestartRequired;
   }
   if (detectControlMode(before) != source) {
     release_switch();
     convergeAfterUnsafeModeSwitch(true);
-    return ServiceResult::RESTART_REQUIRED;
+    return kModeRestartRequired;
   }
   if (mode_abort_requested_.load(std::memory_order_acquire)) {
     release_switch();
-    return ServiceResult::NOT_READY;
+    return kModeNotReady;
   }
   if (!switch_client_->wait_for_service(std::chrono::milliseconds(0))) {
     release_switch();
     convergeAfterUnsafeModeSwitch(true);
-    return ServiceResult::RESTART_REQUIRED;
+    return kModeRestartRequired;
   }
 
   const char * source_controller =
@@ -320,7 +302,7 @@ std::uint8_t EnableManagerController::executeModeSwitch(
     controllerNameForMode(target, default_motion_controller_, rolling_motion_controller_);
   if (source_controller == nullptr || target_controller == nullptr) {
     release_switch();
-    return ServiceResult::WRONG_MODE;
+    return kModeWrongMode;
   }
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
   request->deactivate_controllers.emplace_back(source_controller);
@@ -337,69 +319,37 @@ std::uint8_t EnableManagerController::executeModeSwitch(
   if (!queryControllerStates(after, mode_switch_timeout_)) {
     release_switch();
     convergeAfterUnsafeModeSwitch(true);
-    return ServiceResult::RESTART_REQUIRED;
+    return kModeRestartRequired;
   }
-  const auto controller_has_state = [&after](const char * name, const char * state) {
-    const auto controller = std::find_if(
-      after.controller.begin(), after.controller.end(),
-      [name](const auto & candidate) { return candidate.name == name; });
-    return controller != after.controller.end() && controller->state == state;
-  };
   const ModeSwitchState observed = classifyModeSwitchState(after, source, target);
-  response.source_controller_deactivated = controller_has_state(source_controller, "inactive");
-  response.target_controller_activated = controller_has_state(target_controller, "active");
   if (safety_preempted()) {
     restart_required_.store(true, std::memory_order_release);
     current_control_mode_.store(ControlMode::kRestartRequired, std::memory_order_release);
     release_switch();
-    return ServiceResult::RESTART_REQUIRED;
+    return kModeRestartRequired;
   }
   if (!response_ready) {
     release_switch();
     convergeAfterUnsafeModeSwitch(true);
-    return ServiceResult::RESTART_REQUIRED;
+    return kModeRestartRequired;
   }
   if (switch_ok && observed == ModeSwitchState::kTargetActive) {
-    if (target == ControlMode::kRollingReady) {
-      CommandSnapshot rolling_snapshot;
-      if (
-        readCommandSnapshot(ControlMode::kRollingReady, rolling_snapshot) &&
-        rolling_snapshot.received_steady_ns >= switch_started_ns &&
-        !isZeroIdentifier(rolling_snapshot.controller_boot_id)) {
-        response.controller_boot_id.uuid = rolling_snapshot.controller_boot_id;
-      }
-    }
     current_control_mode_.store(target, std::memory_order_release);
     release_switch();
-    return ServiceResult::NONE;
+    return kModeOk;
   }
   if (!switch_ok && observed == ModeSwitchState::kSourcePreserved) {
     release_switch();
-    return ServiceResult::SWITCH_REJECTED;
+    return kModeSwitchRejected;
   }
   if (observed == ModeSwitchState::kAllInactive) {
     release_switch();
     convergeAfterUnsafeModeSwitch(false);
-    return ServiceResult::SWITCH_REJECTED;
+    return kModeSwitchRejected;
   }
   release_switch();
   convergeAfterUnsafeModeSwitch(true);
-  return ServiceResult::RESTART_REQUIRED;
-}
-
-void EnableManagerController::setModeResponse(
-  ModeService::Response & response, const ModeService::Request & request, std::uint8_t result,
-  ControlMode mode, bool source_deactivated, bool target_activated, bool require_restart)
-{
-  using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
-  response.accepted = result == ServiceResult::NONE;
-  response.result.value = result;
-  response.request_id = request.request_id;
-  response.mode.value = static_cast<std::uint8_t>(mode);
-  response.source_controller_deactivated = source_deactivated;
-  response.target_controller_activated = target_activated;
-  response.restart_required = require_restart;
-  populateModeError(response.error, result);
+  return kModeRestartRequired;
 }
 
 void EnableManagerController::handleSetMode(
@@ -407,135 +357,69 @@ void EnableManagerController::handleSetMode(
   std::shared_ptr<ModeService::Response> response)
 {
   using ModeMessage = robot_rt_control_interfaces::msg::JointControlMode;
-  using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
   *response = ModeService::Response{};
-  response->request_id = request->request_id;
+  const auto respond = [&response](std::uint8_t result, ControlMode mode) {
+    response->accepted = result == kModeOk;
+    response->mode.value = static_cast<std::uint8_t>(mode);
+    populateModeError(response->error, result);
+  };
 
   bool expected_callback = false;
   if (!mode_callback_active_.compare_exchange_strong(expected_callback, true)) {
-    setModeResponse(
-      *response, *request, ServiceResult::NOT_READY,
-      current_control_mode_.load(std::memory_order_acquire), false, false,
-      restart_required_.load(std::memory_order_acquire));
-    publishModeResult(*response);
+    respond(kModeNotReady, current_control_mode_.load(std::memory_order_acquire));
     return;
   }
-  const auto release_callback = [this]() {
+  const auto finish = [this, &respond](std::uint8_t result, ControlMode mode) {
+    respond(result, mode);
     mode_callback_active_.store(false, std::memory_order_release);
   };
-  const auto finish = [this, &request, &response, &release_callback](
-                        std::uint8_t result, ControlMode mode, bool source_deactivated,
-                        bool target_activated, bool require_restart, bool cache) {
-    setModeResponse(
-      *response, *request, result, mode, source_deactivated, target_activated, require_restart);
-    if (cache) {
-      ModeCacheEntry & entry = allocateModeCache();
-      entry.valid = true;
-      entry.request = *request;
-      entry.response = *response;
-    }
-    publishModeResult(*response);
-    release_callback();
-  };
 
-  const bool identifiers_valid = !isZeroIdentifier(request->client_instance_id.uuid) &&
-                                 !isZeroIdentifier(request->request_id.uuid);
-  if (identifiers_valid) {
-    ModeCacheEntry * cached =
-      findModeCache(request->client_instance_id.uuid, request->request_id.uuid);
-    if (cached != nullptr) {
-      if (sameModeRequest(cached->request, *request)) {
-        *response = cached->response;
-        publishModeResult(*response);
-      } else {
-        setModeResponse(
-          *response, *request, ServiceResult::WRONG_REQUEST,
-          current_control_mode_.load(std::memory_order_acquire), false, false,
-          restart_required_.load(std::memory_order_acquire));
-        publishModeResult(*response);
-      }
-      release_callback();
-      return;
-    }
-  }
-  if (!identifiers_valid) {
-    finish(
-      ServiceResult::WRONG_REQUEST, current_control_mode_.load(std::memory_order_acquire), false,
-      false, restart_required_.load(std::memory_order_acquire), false);
-    return;
-  }
-  if (request->protocol_major != 1U || request->protocol_minor != 0U) {
-    finish(
-      ServiceResult::WRONG_PROTOCOL, current_control_mode_.load(std::memory_order_acquire), false,
-      false, restart_required_.load(std::memory_order_acquire), true);
-    return;
-  }
   if (!active_.load(std::memory_order_acquire)) {
-    finish(ServiceResult::NOT_ENABLED, ControlMode::kDisabled, false, false, false, true);
+    finish(kModeNotEnabled, ControlMode::kDisabled);
     return;
   }
   if (restart_required_.load(std::memory_order_acquire)) {
-    finish(
-      ServiceResult::RESTART_REQUIRED, ControlMode::kRestartRequired, false, false, true, true);
+    finish(kModeRestartRequired, ControlMode::kRestartRequired);
     return;
   }
+  const ControlMode current_mode = current_control_mode_.load(std::memory_order_acquire);
   const Phase phase = phase_.load(std::memory_order_acquire);
   if (phase != Phase::kEnabled) {
-    finish(
-      phase == Phase::kIdle ? ServiceResult::NOT_ENABLED : ServiceResult::NOT_READY,
-      current_control_mode_.load(std::memory_order_acquire), false, false, false, true);
+    finish(phase == Phase::kIdle ? kModeNotEnabled : kModeNotReady, current_mode);
     return;
   }
-  const ControlMode expected_mode = static_cast<ControlMode>(request->expected_mode.value);
   const ControlMode target_mode = static_cast<ControlMode>(request->target_mode.value);
-  const ControlMode current_mode = current_control_mode_.load(std::memory_order_acquire);
-  const bool valid_expected = request->expected_mode.value == ModeMessage::FJT_READY ||
-                              request->expected_mode.value == ModeMessage::ROLLING_READY;
-  const bool valid_target = request->target_mode.value == ModeMessage::FJT_READY ||
-                            request->target_mode.value == ModeMessage::ROLLING_READY;
-  if (!valid_expected || !valid_target || expected_mode != current_mode) {
-    finish(ServiceResult::WRONG_MODE, current_mode, false, false, false, true);
+  if (
+    request->target_mode.value != ModeMessage::FJT_READY &&
+    request->target_mode.value != ModeMessage::ROLLING_READY) {
+    finish(kModeWrongMode, current_mode);
     return;
   }
   if (owner_.load(std::memory_order_acquire) != Owner::kNone) {
-    finish(ServiceResult::NOT_READY, current_mode, false, false, false, true);
+    finish(kModeNotReady, current_mode);
     return;
   }
   if (target_mode == current_mode) {
-    CommandSnapshot current_snapshot;
-    if (
-      current_mode == ControlMode::kRollingReady &&
-      readCommandSnapshot(current_mode, current_snapshot)) {
-      response->controller_boot_id.uuid = current_snapshot.controller_boot_id;
-    }
-    finish(ServiceResult::NONE, current_mode, false, true, false, true);
+    finish(kModeOk, current_mode);
     return;
   }
 
   Owner expected_owner = Owner::kNone;
   mode_abort_requested_.store(false, std::memory_order_release);
   if (!owner_.compare_exchange_strong(expected_owner, Owner::kMode)) {
-    finish(ServiceResult::NOT_READY, current_mode, false, false, false, true);
+    finish(kModeNotReady, current_mode);
     return;
   }
   CommandSnapshot source_snapshot;
   const std::uint8_t admission_result = validateModeSource(current_mode, source_snapshot);
-  if (admission_result != ServiceResult::NONE) {
+  if (admission_result != kModeOk) {
     (void)releaseModeOwnership();
-    finish(admission_result, current_mode, false, false, false, true);
+    finish(admission_result, current_mode);
     return;
   }
-  if (current_mode == ControlMode::kRollingReady) {
-    response->controller_boot_id.uuid = source_snapshot.controller_boot_id;
-  }
-  const std::uint64_t switch_started_ns = steadyNowNs();
-  const std::uint8_t switch_result =
-    executeModeSwitch(current_mode, target_mode, *response, switch_started_ns);
+  const std::uint8_t switch_result = executeModeSwitch(current_mode, target_mode);
   (void)releaseModeOwnership();
-  const ControlMode resulting_mode = current_control_mode_.load(std::memory_order_acquire);
-  finish(
-    switch_result, resulting_mode, response->source_controller_deactivated,
-    response->target_controller_activated, resulting_mode == ControlMode::kRestartRequired, true);
+  finish(switch_result, current_control_mode_.load(std::memory_order_acquire));
 }
 
 EnableManagerController::SwitchResult EnableManagerController::buildMotionControllerSwitchRequest(
@@ -633,20 +517,14 @@ EnableManagerController::ModeSwitchState EnableManagerController::classifyModeSw
 }
 
 bool EnableManagerController::stableActualInterval(
-  const ActualSample & previous, const ActualSample & current) const noexcept
+  const ActualSample & window_start, const ActualSample & current) const noexcept
 {
-  if (
-    current.steady_time_ns <= previous.steady_time_ns ||
-    current.steady_time_ns - previous.steady_time_ns > mode_switch_maximum_sample_period_ns_) {
-    return false;
-  }
   const double elapsed_seconds =
-    static_cast<double>(current.steady_time_ns - previous.steady_time_ns) / 1.0e9;
+    static_cast<double>(current.steady_time_ns - window_start.steady_time_ns) / 1.0e9;
   for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
-    if (
-      !std::isfinite(previous.positions[axis]) || !std::isfinite(current.positions[axis]) ||
-      std::abs(current.positions[axis] - previous.positions[axis]) / elapsed_seconds >
-        mode_switch_stable_velocity_thresholds_[axis]) {
+    const double speed =
+      std::abs(current.positions[axis] - window_start.positions[axis]) / elapsed_seconds;
+    if (!std::isfinite(speed) || speed > mode_switch_stable_velocity_thresholds_[axis]) {
       return false;
     }
   }
@@ -672,47 +550,48 @@ void EnableManagerController::populateModeError(
 {
   using ErrorCode = robot_system_interfaces::msg::ErrorCode;
   using ErrorInfo = robot_system_interfaces::msg::ErrorInfo;
-  using ServiceResult = robot_rt_control_interfaces::msg::RollingServiceResult;
   std::uint32_t code = ErrorCode::INTERNAL_ERROR;
+  const char * detail = "internal";
   switch (result) {
-    case ServiceResult::NONE:
+    case kModeOk:
       code = ErrorCode::SUCCESS;
+      detail = "ok";
       break;
-    case ServiceResult::WRONG_PROTOCOL:
-      code = ErrorCode::VERSION_MISMATCH;
-      break;
-    case ServiceResult::WRONG_REQUEST:
-    case ServiceResult::WRONG_CLIENT:
-    case ServiceResult::AXIS_SET_MISMATCH:
-      code = ErrorCode::INVALID_GOAL;
-      break;
-    case ServiceResult::WRONG_BOOT:
-    case ServiceResult::WRONG_SESSION:
-      code = ErrorCode::RETRYABLE_INVALID_GOAL;
-      break;
-    case ServiceResult::NOT_ENABLED:
-    case ServiceResult::SESSION_BUSY:
-    case ServiceResult::SESSION_EXISTS:
-    case ServiceResult::SOURCE_STATE_STALE:
-    case ServiceResult::SOURCE_MOVING:
-    case ServiceResult::FEEDBACK_STALE:
-    case ServiceResult::SWITCH_TIMEOUT:
-    case ServiceResult::NOT_READY:
+    case kModeNotEnabled:
       code = ErrorCode::NOT_READY;
+      detail = "not_enabled";
       break;
-    case ServiceResult::WRONG_MODE:
-    case ServiceResult::SWITCH_REJECTED:
+    case kModeNotReady:
+      code = ErrorCode::NOT_READY;
+      detail = "busy";
+      break;
+    case kModeSourceStale:
+      code = ErrorCode::NOT_READY;
+      detail = "source_state_stale";
+      break;
+    case kModeSourceMoving:
+      code = ErrorCode::NOT_READY;
+      detail = "source_moving";
+      break;
+    case kModeFeedbackStale:
+      code = ErrorCode::NOT_READY;
+      detail = "feedback_stale";
+      break;
+    case kModeWrongMode:
       code = ErrorCode::GOAL_REJECTED;
+      detail = "wrong_mode";
       break;
-    case ServiceResult::TAKEOVER_MISMATCH:
+    case kModeSwitchRejected:
+      code = ErrorCode::GOAL_REJECTED;
+      detail = "switch_rejected";
+      break;
+    case kModeTakeoverMismatch:
       code = ErrorCode::RT_TOLERANCE_VIOLATED;
+      detail = "takeover_mismatch";
       break;
-    case ServiceResult::UNSAFE_HOLD:
-      code = ErrorCode::SAFETY_DENIED;
-      break;
-    case ServiceResult::LIMITS_UNAVAILABLE:
-    case ServiceResult::RESTART_REQUIRED:
-      code = ErrorCode::VERSION_MISMATCH;
+    case kModeRestartRequired:
+      code = ErrorCode::RT_RESTART_REQUIRED;
+      detail = "restart_required";
       break;
     default:
       break;
@@ -722,28 +601,9 @@ void EnableManagerController::populateModeError(
   error.severity = code == ErrorCode::SUCCESS
                      ? ErrorInfo::OK
                      : (error.retryable ? ErrorInfo::WARN : ErrorInfo::FAULT);
-  error.source = "rt_control";
+  error.source = "rt_control/enable_manager";
   error.message = code == ErrorCode::SUCCESS ? "mode request accepted" : "mode request rejected";
-  error.detail = "rolling_service_result=" + std::to_string(result);
-}
-
-void EnableManagerController::publishModeResult(const ModeService::Response & response)
-{
-  if (mode_result_publisher_ == nullptr || isZeroIdentifier(response.request_id.uuid)) {
-    return;
-  }
-  ModeResultMessage event;
-  event.protocol_major = ModeResultMessage::PROTOCOL_MAJOR;
-  event.protocol_minor = ModeResultMessage::PROTOCOL_MINOR;
-  event.sequence = mode_result_sequence_.fetch_add(1U, std::memory_order_acq_rel) + 1U;
-  event.request_id = response.request_id;
-  event.result = response.result;
-  event.mode = response.mode;
-  event.controller_boot_id = response.controller_boot_id;
-  event.source_controller_deactivated = response.source_controller_deactivated;
-  event.target_controller_activated = response.target_controller_activated;
-  event.restart_required = response.restart_required;
-  mode_result_publisher_->publish(event);
+  error.detail = detail;
 }
 
 }  // namespace ctrl_enable_manager

@@ -177,16 +177,68 @@ controllers:
         match: actuator_groups
     - policy:
         name: motion
+        path: rolling
+    - model_limits:
+        policy: motion
         path: joints
-        as: axis_set_hash
-        transform: rolling_axis_set_sha256
+        attribute: lower
+        as: joint_position_lower
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: upper
+        as: joint_position_upper
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
+  # Both bench arms under rolling; enable_manager switches between it and dual_arm_jtc.
+  dual_arm_rolling:
+    module: bench_dual_arm
+    name: dual_arm_rolling
+    plugin: ctrl_rolling_trajectory/RollingTrajectoryController
+    package: ctrl_rolling_trajectory
+    actuator_groups:
+    - csp
+    required_state_modules: []
+    tags:
+    - rolling
+    - motion
+    parameters:
+    - policy:
+        name: motion
+        path: joints
+        as: joints
+        match: actuator_groups
     - policy:
         name: motion
         path: rolling
-    - policy_file:
-        name: envelope
-        as: envelope_file
-        digest_as: limits_version
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: lower
+        as: joint_position_lower
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: upper
+        as: joint_position_upper
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   enable_manager:
     module: arms
     name: enable_manager

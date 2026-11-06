@@ -19,7 +19,6 @@
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
-#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
 
 namespace ctrl_enable_manager
@@ -356,8 +355,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
         &EnableManagerController::handleSetMode, this, std::placeholders::_1,
         std::placeholders::_2),
       rmw_qos_profile_services_default, mode_callback_group_);
-    mode_result_publisher_ = get_node()->create_publisher<ModeResultMessage>(
-      "/rt/internal/joint_control/mode_result", robot_interfaces_qos::state());
     rclcpp::SubscriptionOptions source_subscription_options;
     source_subscription_options.callback_group = worker_callback_group_;
     jtc_state_subscription_ =
@@ -406,9 +403,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   phase_.store(Phase::kInactive, std::memory_order_release);
   owner_.store(Owner::kInternal, std::memory_order_release);
   current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
-  mode_cache_.fill(ModeCacheEntry{});
-  next_mode_cache_slot_ = 0U;
-  mode_result_sequence_.store(0U, std::memory_order_release);
   {
     std::lock_guard<std::mutex> lock(command_snapshot_mutex_);
     jtc_command_snapshot_ = CommandSnapshot{};

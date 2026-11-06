@@ -71,7 +71,10 @@ class DiagnosticsNode(Node):
             if name[:1].isalpha() and name.isupper() and isinstance(getattr(codes, name), int)
         }
         self._sensors = SensorWatch()
-        self._motion_controllers = lifecycle["motion_controllers"]
+        self._mode_controllers = lifecycle.get("mode_controllers", [])
+        self._motion_controllers = [
+            name for name in lifecycle["motion_controllers"] if name not in self._mode_controllers
+        ]
         self._hardware_names = [item["name"] for item in lifecycle["hardware"]]
         report = state_directory() / "self_check" / f"{self._scope}.json"
         stage_a = json.loads(report.read_text(encoding="utf-8")) if report.is_file() else {}
@@ -178,6 +181,12 @@ class DiagnosticsNode(Node):
         self._controllers = {
             name: states.get(name, "unloaded") for name in self._motion_controllers
         }
+        if self._mode_controllers:
+            # Trajectory or rolling, whichever /rt/arms/set_control_mode selected.
+            active = [name for name in self._mode_controllers if states.get(name) == "active"]
+            self._controllers["|".join(self._mode_controllers)] = (
+                "active" if len(active) == 1 else "inactive"
+            )
         self._publish()
 
     def _store_hardware(self, future):

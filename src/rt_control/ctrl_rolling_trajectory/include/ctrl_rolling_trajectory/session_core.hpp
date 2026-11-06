@@ -22,9 +22,7 @@ struct SchedulingGuard
 class StopTrajectory
 {
 public:
-  bool configure(
-    const DynamicEnvelope & envelope, bool allow_test_only_limits,
-    bool allow_provisional_limits = false) noexcept;
+  bool configure(const DynamicEnvelope & envelope) noexcept;
   bool begin(const JointPoint & desired) noexcept;
   bool sample(std::uint64_t elapsed_ns, JointPoint & desired) noexcept;
 

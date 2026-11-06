@@ -75,8 +75,6 @@ OwnedPoint makePoint(std::uint64_t time_ns, double position = 0.0, double veloci
 DynamicEnvelope makeEnvelope()
 {
   DynamicEnvelope envelope;
-  envelope.source = LimitsSource::kTestOnly;
-  envelope.limits_version[0] = 0xE1U;
   for (AxisEnvelope & axis : envelope.axes) {
     axis.position_lower = -100.0;
     axis.position_upper = 100.0;
@@ -132,7 +130,7 @@ BatchView makeBatch(
 void configureBuffer(RollingBuffer & buffer, std::size_t capacity = 64U)
 {
   ASSERT_TRUE(buffer.configure(makeConfiguration(capacity)));
-  ASSERT_TRUE(buffer.configureLimits(makeEnvelope(), true));
+  ASSERT_TRUE(buffer.configureLimits(makeEnvelope()));
 }
 
 std::array<OwnedPoint, 6U> makePrime()
@@ -144,7 +142,7 @@ std::array<OwnedPoint, 6U> makePrime()
   return points;
 }
 
-TEST(RollingCorrectness, PrimeMustCopyTheOpenHoldExactly)
+TEST(RollingCorrectness, FirstPointNearTheHoldStartsExactlyAtTheHold)
 {
   RollingBuffer buffer;
   configureBuffer(buffer);
@@ -152,24 +150,28 @@ TEST(RollingCorrectness, PrimeMustCopyTheOpenHoldExactly)
   const JointPoint anchor = makePoint(0U).jointPoint();
   ASSERT_TRUE(buffer.beginSession(identity, anchor));
 
+  // Splice tolerances are 0.01 rad and 0.03 rad/s.
   std::array<OwnedPoint, 2U> points = {makePoint(0U), makePoint(500U * kMillisecondNs)};
-  points[0].positions[3] = 1.0e-12;
+  points[0].positions[3] = 0.011;
   auto views = makeViews(points);
   EXPECT_EQ(
     buffer.submit(makeBatch(identity, 1U, 0U, views.data(), views.size())),
     RejectCode::kPositionDiscontinuity);
 
   points[0] = makePoint(0U);
-  points[0].velocities[7] = 1.0e-12;
+  points[0].velocities[7] = 0.031;
   views = makeViews(points);
   EXPECT_EQ(
     buffer.submit(makeBatch(identity, 2U, 0U, views.data(), views.size())),
     RejectCode::kVelocityDiscontinuity);
 
   points[0] = makePoint(0U);
+  points[0].positions[3] = 0.005;
   views = makeViews(points);
   EXPECT_EQ(
     buffer.submit(makeBatch(identity, 3U, 0U, views.data(), views.size())), RejectCode::kNone);
+  EXPECT_EQ(buffer.pendingImage().points[0].positions, anchor.positions);
+  EXPECT_EQ(buffer.pendingImage().points[0].velocities, anchor.velocities);
 }
 
 TEST(RollingCorrectness, InteriorSpliceKeepsEverySampleBeforeRUnchanged)
@@ -216,10 +218,12 @@ TEST(RollingCorrectness, InteriorSpliceKeepsEverySampleBeforeRUnchanged)
     }
   }
 
+  // The first point (0.005 rad, 0.01 rad/s off) is within the tolerances: the replacement
+  // continues from the buffered state, with no step at the boundary.
   JointPoint at_boundary;
   ASSERT_TRUE(sampleTrajectoryImage(candidate, replace_from_ns, at_boundary));
-  EXPECT_DOUBLE_EQ(at_boundary.positions[0], suffix[0].positions[0]);
-  EXPECT_DOUBLE_EQ(at_boundary.velocities[0], suffix[0].velocities[0]);
+  EXPECT_DOUBLE_EQ(at_boundary.positions[0], left.positions[0]);
+  EXPECT_DOUBLE_EQ(at_boundary.velocities[0], left.velocities[0]);
   ASSERT_GE(candidate.point_count, 2U);
   bool found_pair = false;
   for (std::size_t index = 0U; index + 1U < candidate.point_count; ++index) {
