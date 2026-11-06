@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# robot_interfaces main after #16 (slim rolling).
-commit: 79d982db33ee9a966f059e6e8e43d2a3aab0d838
+# robot_interfaces main after #17/#18 (Rolling final, rolling client).
+commit: aa82a77c7acccc837309c234462b2f564edc42e2
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:

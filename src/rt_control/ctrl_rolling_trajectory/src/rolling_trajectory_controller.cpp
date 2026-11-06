@@ -139,7 +139,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
     epoch_sequence_ = 0U;
     last_sequence_ = 0U;
     last_result_ = StateMessage::ACCEPTED;
-    last_stop_reason_ = StateMessage::STOP_NONE;
+    previous_stop_reason_ = StateMessage::STOP_NONE;
     session_origin_ns_ = 0;
     stop_requested_.store(false, std::memory_order_release);
   }
@@ -266,6 +266,12 @@ controller_interface::return_type RollingTrajectoryController::update(
           update_succeeded = beginRtStop(StopReason::kInternalInvariant);
         } else if (!validPeriod(period_ns)) {
           update_succeeded = beginRtStop(StopReason::kClockAnomaly);
+        } else if (rt_active_trajectory_->final) {
+          // Ends at rest and was checked to be stoppable throughout: no update is awaited.
+          update_succeeded = advanceRtFinal(period_ns);
+          if (!update_succeeded) {
+            update_succeeded = beginRtStop(StopReason::kInternalInvariant);
+          }
         } else if (elapsedExceeds(
                      steadyNowNs(), rt_last_accepted_arrival_ns_,
                      runtime_configuration_.update_timeout_ns)) {
@@ -510,6 +516,41 @@ bool RollingTrajectoryController::advanceRtStop(std::int64_t period_ns) noexcept
     rt_session_state_.store(
       static_cast<std::uint8_t>(SessionState::kHolding), std::memory_order_release);
   }
+  return true;
+}
+
+bool RollingTrajectoryController::advanceRtFinal(std::int64_t period_ns) noexcept
+{
+  const std::uint64_t end_ns = buffered_until_ns_.load(std::memory_order_relaxed);
+  std::uint64_t next_execution_ns = 0U;
+  if (!addTime(
+        execution_time_ns_.load(std::memory_order_relaxed), static_cast<std::uint64_t>(period_ns),
+        next_execution_ns)) {
+    return false;
+  }
+  const bool completed = next_execution_ns >= end_ns;
+  if (completed) {
+    next_execution_ns = end_ns;
+  }
+  JointPoint candidate;
+  if (
+    !sampleTrajectoryImageMonotonic(
+      *rt_active_trajectory_, next_execution_ns, rt_sampling_cursor_, candidate) ||
+    !desiredIsValid(candidate)) {
+    return false;
+  }
+  rt_desired_ = candidate;
+  execution_time_ns_.store(next_execution_ns, std::memory_order_release);
+  if (!completed) {
+    return updateRtReplaceableBoundary();
+  }
+  // The last point is at rest (checked on admission): hold it without a stop trajectory.
+  std::uint8_t expected_reason = static_cast<std::uint8_t>(StopReason::kNone);
+  (void)stop_reason_.compare_exchange_strong(
+    expected_reason, static_cast<std::uint8_t>(StopReason::kCompleted), std::memory_order_acq_rel,
+    std::memory_order_acquire);
+  rt_session_state_.store(
+    static_cast<std::uint8_t>(SessionState::kHolding), std::memory_order_release);
   return true;
 }
 

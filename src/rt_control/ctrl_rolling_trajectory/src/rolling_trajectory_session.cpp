@@ -53,6 +53,8 @@ std::uint8_t publicResult(RejectCode code) noexcept
       return State::HORIZON_EXCEEDED;
     case RejectCode::kSessionNotAccepting:
       return State::NOT_ACCEPTING;
+    case RejectCode::kFinalNotAtRest:
+      return State::FINAL_NOT_AT_REST;
     default:
       return State::INVALID_BATCH;
   }
@@ -127,7 +129,8 @@ std::uint8_t RollingTrajectoryController::admitBatch(
       static_cast<std::uint64_t>(time_ns), point.positions.data(), point.positions.size(),
       point.velocities.data(), point.velocities.size()};
   }
-  const BatchView batch{static_cast<std::uint64_t>(offset_ns), point_views.data(), point_count};
+  const BatchView batch{
+    static_cast<std::uint64_t>(offset_ns), point_views.data(), point_count, message.final};
   TrajectoryImage candidate;
   AdmissionContext context;
   if (!buildAdmissionContext(context)) {
@@ -186,7 +189,7 @@ std::uint8_t RollingTrajectoryController::startSession(std::int64_t start_ns)
   }
   const auto stop = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
   if (stop != StopReason::kNone) {
-    last_stop_reason_ = publicStopReason(stop);
+    previous_stop_reason_ = publicStopReason(stop);
   }
   session_origin_ns_ = start_ns;
   execution_time_ns_.store(0U, std::memory_order_release);

@@ -102,6 +102,7 @@ private:
   SnapshotConsumeResult consumeLatestRtTrajectory(bool priming) noexcept;
   bool beginRtStop(StopReason reason) noexcept;
   bool advanceRtStop(std::int64_t period_ns) noexcept;
+  bool advanceRtFinal(std::int64_t period_ns) noexcept;
   bool updateRtReplaceableBoundary() noexcept;
   bool writeRtDesired() noexcept;
   bool desiredIsValid(const JointPoint & desired) const noexcept;
@@ -124,7 +125,9 @@ private:
   // Newest sequence of this epoch; older ones are stale.
   std::uint64_t epoch_sequence_{0U};
   std::uint8_t last_result_{StateMessage::ACCEPTED};
-  std::uint8_t last_stop_reason_{StateMessage::STOP_NONE};
+  // Stop reason of the trajectory before the current session, reported until a batch of the
+  // current session is accepted.
+  std::uint8_t previous_stop_reason_{StateMessage::STOP_NONE};
   // ROS time of session time 0, guarded by callback_mutex_.
   std::int64_t session_origin_ns_{0};
   std::mutex callback_mutex_{};

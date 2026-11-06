@@ -91,9 +91,16 @@ bool RollingTrajectoryController::buildPublicState(StateMessage & state)
   const auto session_state =
     static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
   const auto stop_reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
+  // A session is primed before its first batch is checked; until a batch is accepted it has
+  // no trajectory and the previous trajectory's stop reason still applies.
+  const bool trajectory_pending =
+    session_state == SessionState::kPriming && buffer_.image().point_count == 0U;
   state = StateMessage{};
   state.epoch = activation_epoch_;
   switch (session_state) {
+    case SessionState::kPriming:
+      state.state = trajectory_pending ? StateMessage::HOLDING : StateMessage::STARTING;
+      break;
     case SessionState::kRunning:
       state.state = StateMessage::RUNNING;
       break;
@@ -105,8 +112,7 @@ bool RollingTrajectoryController::buildPublicState(StateMessage & state)
   }
   state.last_sequence = last_sequence_;
   state.last_result = last_result_;
-  state.stop_reason =
-    stop_reason == StopReason::kNone ? last_stop_reason_ : publicStopReason(stop_reason);
+  state.stop_reason = trajectory_pending ? previous_stop_reason_ : publicStopReason(stop_reason);
   return true;
 }
 
@@ -121,6 +127,8 @@ std::uint8_t RollingTrajectoryController::publicStopReason(StopReason reason) no
       return StateMessage::STOP_BUFFER_END;
     case StopReason::kControllerDeactivated:
       return StateMessage::STOP_DEACTIVATED;
+    case StopReason::kCompleted:
+      return StateMessage::STOP_COMPLETED;
     default:
       return StateMessage::STOP_INTERNAL;
   }
