@@ -1,13 +1,14 @@
 # 验证命令
 
 按改动类型查。所有命令只读源码或构建目录，不访问硬件。规则见根 [`AGENTS.md`](../AGENTS.md) 第 6–7 节；
-改动类型与唯一位置见 [`ARCHITECTURE.md`](../ARCHITECTURE.md) §2（`tools/arch_check.py` 实现后以它为准）。
+改动类型与唯一位置见 [`ARCHITECTURE.md`](../ARCHITECTURE.md) §2，架构规则由 `tools/arch_check.py` 执行。
 
 ## 每次提交
 
 ```bash
 tools/run_scoped_tests.sh   # 日常内环：按改动范围裁剪 repository/quality gate 与 colcon test --packages-above
 tools/quality_gate.sh       # 提交/PR 前必跑；pre-commit 与 CI governance 用同一份
+tools/arch_check.py         # 架构规则（quality_gate 也会跑）；秒级，任何改动后都可单独跑
 ```
 
 增量内环不能替代 `quality_gate.sh`；命中 `patches/`、`deps.repos`、`versions.env`、`docker/`、CI 等全局路径时改跑全量。
@@ -72,28 +73,49 @@ CANopen 生成物从权威 EDS 重建，不手改 `.bin/.dcf`。
 
 容器、Compose 与宿主脚本见 [`docker/README.md`](../docker/README.md)、[`hostsetup/README.md`](../hostsetup/README.md)。
 
-## arch_check 设计（待实现）
+## arch_check
 
-单一入口 `tools/arch_check.py`，吸收现有 `rt_control_layer_gate.py`，不另起第二套。约定：
+`tools/arch_check.py` 执行 `ARCHITECTURE.md` 的架构规则，每次扫描全仓（含未提交、未忽略的文件），
+只读源码树，不访问硬件、网络或构建目录。仓库卫生与策略（固定版本、Docker、CI、CODEOWNERS 等）归
+`repository_gate.py`，格式归 `style_gate.py`；每条规则只在一个工具里。
 
-- 输出格式固定为 `path:line: RULE-ID 一句话`，RULE-ID 对应本规范章节（如 `OWN-1.1`、`SIZE-3`、`STATUS-1.4`）。
-- 退出码 0 通过、1 有违反、2 工具自身错误。
-- 只读源码树与安装的 share 目录，不访问硬件、网络、构建目录。
-- 子命令按"改动类型"而非"规则类型"组织，让执行者改完只跑一条。
-- 秒级返回；超过 10 s 的检查（如 colcon build）不属于本入口，由 `run_scoped_tests.sh` 承担。
+```bash
+tools/arch_check.py                 # 全部规则组
+tools/arch_check.py layers names    # 只跑指定规则组
+tools/arch_check.py --json          # 每条发现一行 JSON
+```
 
-| 子命令 | 检查什么 | ARCHITECTURE 条款 |
+输出 `路径:行: 规则ID 说明`，退出码 0 通过、1 有发现、2 工具自身错误。
+
+| 规则 | 检查什么 | ARCHITECTURE |
 | --- | --- | --- |
-| `arch_check all` | 下列全部 | — |
-| `arch_check layers` | 包前缀 ↔ 层一致；依赖方向（package.xml、C++ include、Python import、CMake find_package、测试同样计入）；跨包只用 ARCHITECTURE §1.2 四种方式 | 1.2、1.3 |
-| `arch_check status` | 每个 `package.xml`、`config/**.yaml`、`launch/*.py` 有 `status: production\|draft\|retired`；`production` 入口不引用 `draft`/`retired`；`retired` 不在构建闭包 | 1.4 |
-| `arch_check size` | C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 | 3 |
-| `arch_check refs` | `machine_config`、`controllers.yaml`、manifest、policy 文件中所有 `package/file/path` 字符串引用可解析；`authorities.source` 指向存在的文件 | 1.2 |
-| `arch_check facts <kind> <name>` | 列出一个事实（`joint`/`module`/`device`/`controller`）在源码树的全部出现位置，并按 ARCHITECTURE §1.1 判定每处是"拥有者"还是"违反"；输出形如 `enable_policy.yaml:12: OWN-1.1 left_joint7 在策略文件中按名引用，应通过 managed_joints 绑定` | 1.1 |
-| `arch_check names` | 机型名（`Alfa_V3`、`alfa_v3`）、协议名（`damiao`、`zeroerr`、`kinco`）只出现在允许的层 | 1.1 |
-| `arch_check duplicates` | 已知重复实现签名清单（SocketCAN open、Modbus 读保持寄存器、CiA402 状态字解码、`encode_double`、新鲜度判定）在非 infra 包出现即报 | 3 |
-| `arch_check compose <variant> <unit> <profile> <scope>` | 内存 compose 一次并跑全部 schema/交叉校验，不写文件；是 `validate_machine_profile.py` 的替代入口 | 1.6 |
+| LAYER-1 | `src/rt_control/<目录>/package.xml` 的包名与目录一致；前缀属于六层之一（层由前缀决定，不另列清单） | 1.3 |
+| LAYER-2 | 依赖方向：下层不依赖上层；infra 不依赖任何域包；control 只经 `hw_semantic_components` 使用 protocol；periph 只依赖 infra，只有 integration 依赖 periph。依赖取自 package.xml、C/C++ include、Python import、CMake `find_package`，测试同样计入 | 1.3 |
+| LAYER-3 | `hwcfg_machines` 只放数据：其他包只能 `exec_depend` 它，它自身不含代码文件 | 1.1 |
+| LAYER-4 | 外设包 `include/<包>/protocol/` 不依赖 ROS | 1.3 |
+| LAYER-5 | `listen_only_peripherals` 中外设的生产 C/C++ 不写总线 | 6 |
+| OWN-1 | 控制频率数值只写在 manifest 与 `integ_composer/config/controller_defaults.yaml` | 1.1 |
+| OWN-2 | 组合器与渲染器不读取 `evidence/` | 1.6 |
+| NAME-1 | `integ_composer` 代码不写机型或产品名（第 3 步扩为全层 NAME 规则） | 1.1 |
 
-`facts` 的事实来源是 `hwcfg_machines` 的 manifest；工具不维护第二份清单。
+内容规则只看生产文件（不含 `test/`、`tests/`、`fixtures/`、`schema/`）。
 
-首版实现后、接入 `quality_gate.sh` 前停下等用户确认：接入可能让现状变红，需要先定基线策略（逐项消化，不做豁免清单；`ARCHITECTURE.md` §3 写明的单一例外除外）。
+`tools/arch_rules.yaml` 只放两类数据：`exceptions`（每条写明规则、文件、原因、批准人与日期；
+不再命中的例外本身会被报告）与 `listen_only_peripherals`。`ARCHITECTURE.md` §3 的
+`ctrl_enable_manager` 主文件例外在 SIZE 规则启用时登记于此。
+
+### 后续步骤
+
+每条规则在现状清零后才接入，接入前停下等用户确认（不做豁免清单，§3 写明的单一例外除外）：
+
+1. 删除 manifest 中的占位作用域 `full`、`arms_updown`（定义完整后再加）。
+2. NAME：机型名只在 `hwcfg_machines`；厂家/产品名只在 `hw_*`、`hwcfg_machines`、`periph_*`；关节名只在
+   `hwcfg_machines`。查代码与注释，不查 Markdown 与测试；`integ_operator_web/web/arm/sequence-presets.json`
+   登记为例外。
+3. DUP：已抽取的实现不得再抄——原始 CAN socket 只在 `infra_socketcan`，Modbus TCP 只在 `infra_modbus`，
+   CiA402 状态字解码只在 `hw_semantic_components`，渲染器参数骨架只在 `infra_renderer`。
+4. SIZE：生产源码与配置 C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 行；先拆
+   `integ_operator_web/node.py`、`arm/console.py` 与 `hwcfg_machines/.../controllers.yaml`。
+5. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
+   一次并逐文件比较，基线成功而当前失败也报告；用作结构变更不改行为的证据（ARCHITECTURE §7）。按需运行，
+   不在默认规则组里。

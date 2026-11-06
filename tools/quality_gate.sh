@@ -22,6 +22,7 @@ fi
 python3 -c "import jsonschema; assert jsonschema.__version__.startswith('3.2.')"
 
 python3 tools/repository_gate.py
+python3 tools/arch_check.py
 python3 tools/style_gate.py
 
 mapfile -t shell_files < <(
@@ -49,7 +50,7 @@ python3 -m coverage run --branch \
 python3 -m coverage report --fail-under=80 \
   --include='tools/repository_gate.py,tools/pr_contract_gate.py'
 python3 -m coverage report --fail-under=80 \
-  --include='tools/repository_gate.py,tools/pr_contract_gate.py,tools/rt_control_layer_gate.py'
+  --include='tools/repository_gate.py,tools/pr_contract_gate.py,tools/arch_check.py,tools/archcheck/*.py'
 echo "NOTICE: informational coverage for remaining tools scripts (not gated):" >&2
 python3 -m coverage report --include='tools/rt_control_axis_state_check.py,tools/rt_control_thread_affinity.py,tools/release_test_runner.py,tools/scoped_tests.py,tools/rt_perf_capture.py' || true
 

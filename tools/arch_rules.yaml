@@ -1,0 +1,10 @@
+# Data for tools/arch_check.py. Package layers come from the name prefix (ARCHITECTURE.md §1.3).
+#
+# exceptions: approved deviations, one per rule and file:
+#   - {rule: NAME-3, path: <file>, reason: <why>, approved: "<who> <date>"}
+# An exception that no longer matches a finding is itself reported.
+exceptions: []
+# Peripherals that only listen on their bus: production C/C++ never writes (LAYER-5).
+# The LPMS IMU node only listens on its CAN bus (ELECTRI-105).
+listen_only_peripherals:
+- periph_imu_lpms
