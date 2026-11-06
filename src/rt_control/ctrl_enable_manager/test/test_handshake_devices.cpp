@@ -126,7 +126,7 @@ public:
       rclcpp::Parameter("handshake_devices", std::vector<std::string>{"head_control"}),
       rclcpp::Parameter("diagnostic_joints", std::vector<std::string>{"head_yaw"}),
       rclcpp::Parameter("diagnostic_joint_interfaces", std::vector<std::string>{"fault_code"}),
-      rclcpp::Parameter("jtc_name", std::string("head_position_controller")),
+      rclcpp::Parameter("motion_controller", std::string("head_position_controller")),
       rclcpp::Parameter("batch_timeout", 0.2),
       rclcpp::Parameter("disable_stage_timeout", 0.2),
       rclcpp::Parameter("fault_reset_timeout", 0.2),

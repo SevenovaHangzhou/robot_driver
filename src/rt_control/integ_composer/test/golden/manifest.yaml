@@ -11,7 +11,6 @@ cases:
       - controller_order.yaml
       - controllers.yaml
       - robot_description.xml
-      - runtime/alfa_v3_rolling_envelope.mock.yaml
       - runtime/diagnostics.yaml
       - runtime/left_joint1.yaml
       - runtime/left_joint2.yaml
@@ -35,7 +34,6 @@ cases:
       - controller_order.yaml
       - controllers.yaml
       - robot_description.xml
-      - runtime/alfa_v3_rolling_envelope.mock.yaml
       - runtime/diagnostics.yaml
       - runtime/left_joint1.yaml
       - runtime/left_joint2.yaml
@@ -186,9 +184,6 @@ cases:
       - runtime/lifecycle.yaml
 rename_map:
   alfa_v3_stationary_enable: Alfa_V3_stationary_enable
-  alfa_v3_rolling_envelope.mock.yaml: Alfa_V3_arm_envelope.mock.yaml
-  <RUNTIME_DIR>/alfa_v3_rolling_envelope.mock.yaml: <RUNTIME_DIR>/Alfa_V3_arm_envelope.mock.yaml
-  runtime/alfa_v3_rolling_envelope.mock.yaml: runtime/Alfa_V3_arm_envelope.mock.yaml
 # Removed one-shot generator; last version: git show 70c831c:src/rt_control/rt_control_composer/test/golden/generate_head_force_baseline.py
 head_force_generation_command: python3 test/golden/generate_head_force_baseline.py --baseline <READ_ONLY_BASELINE>
   --output test/golden
@@ -424,6 +419,65 @@ arch-sync-description-91c21eb:
   - arm-real-jtc
   - head-mock
   - head-real
+arch-sync-description-8b9c404:
+  reason: 同步 robot_description 8b9c404：双臂限位 J1/J3/J5/J7 ±170°、J4 ±145°、J6 ±130°（同事 97a6326，用户 2026-11-05 接受），说明去掉 SHA-256 文字
+  method: b2-golden.py 按测试夹具重算
+arch-arm-joint-stream:
+  reason: JTC 开放流式话题 R-IN-22（trajectory_topic），准入改为 URDF 速度上限（joint_velocity_limits，patch 0006），轨迹末点速度必须为 0
+  method: arch-golden-regen.py（arm）按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+arch-arm-motion-limits:
+  reason: 机器人模型双臂速度上限 30°/s、加速度上限 60°/s²（robot_description e4c4a7c，用户 2026-11-04）；JTC 新增 joint_acceleration_limits，open_loop_control 改为 true
+  method: arch-golden-regen.py（arm/stationary）、arch-head-golden2.py、arch-force-golden2.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - head-mock
+  - head-real
+arch-controller-set:
+  reason: 统一使能控制器集合；共同启停的头部与机械臂模式切换兼容（用户 2026-11-05 方案 B2）
+  method: 使用 test_compose 与 test_head_force 的夹具重新 compose，经 canonical_files 规范化
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
+  - head-mock
+  - head-real
+arch-rolling-slim:
+  reason: 精简 rolling 协议（robot_interfaces#16）：rolling 参数改为机器人模型限位（位置、30°/s、60°/s²）+ 位置余量 0.05 rad，删除轴集合 SHA、限值版本、包络文件、限值来源与预热参数
+  method: arch-golden-regen.py（arm/stationary）、arch-head-golden2.py、arch-force-golden2.py 按测试夹具重算；删除 runtime 包络文件
+  cases:
+  - arm-mock
+  - arm-real
+arch-rolling-continuous-splice:
+  reason: rolling 拼接改为从缓冲轨迹连续接续，拼接容差放宽到 0.05 rad / 0.1 rad/s（只决定接受与否，用户 2026-11-05）
+  method: arch-golden-regen.py（arm）按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+arch-standstill-window:
+  reason: 模式切换静止判定改为 20 个连续采样的窗口位移（mode_switch_stable_interval_count 5 → 20，用户 2026-11-05 方案 A）
+  method: arch-golden-regen.py（arm）按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+arch-rolling-slim-arm-limits-8b9c404:
+  reason: 合入 main 后 rolling 位置上下限随 robot_description 8b9c404 双臂限位（±170/±145/±130°）
+  method: b2-golden.py 按测试夹具重算
+  cases:
+  - arm-mock
+  - arm-real
 diag_devices_chassis_head_regeneration:
   reason: 'arch-diag-devices-chassis-head 2026-11-04: head_only adds rt_internal_state_broadcaster and
     head_motor diagnostic devices with the DaMiao fault table'

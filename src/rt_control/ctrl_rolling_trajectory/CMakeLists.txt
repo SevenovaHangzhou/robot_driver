@@ -14,14 +14,11 @@ find_package(robot_interfaces_qos REQUIRED)
 find_package(robot_motion_interfaces REQUIRED)
 find_package(robot_rt_control_interfaces REQUIRED)
 find_package(robot_system_interfaces REQUIRED)
-find_package(rt_control_interfaces REQUIRED)
-find_package(yaml_cpp_vendor REQUIRED)
-find_package(yaml-cpp REQUIRED)
+find_package(hw_semantic_components REQUIRED)
 
 add_library(rolling_trajectory_core
   src/axis_set.cpp
   src/cubic_hermite.cpp
-  src/envelope_loader.cpp
   src/limit_checker.cpp
   src/rolling_buffer.cpp
   src/rolling_snapshot.cpp
@@ -36,14 +33,12 @@ target_include_directories(rolling_trajectory_core PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 set_target_properties(rolling_trajectory_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(rolling_trajectory_core PRIVATE yaml-cpp)
 
 add_library(rolling_trajectory_controller_plugin SHARED
   src/rolling_trajectory_controller.cpp
   src/rolling_trajectory_configure.cpp
   src/rolling_trajectory_session.cpp
   src/rolling_trajectory_state.cpp
-  src/service_error.cpp
 )
 target_compile_features(rolling_trajectory_controller_plugin PUBLIC cxx_std_17)
 target_compile_options(
@@ -65,8 +60,7 @@ ament_target_dependencies(
   robot_motion_interfaces
   robot_rt_control_interfaces
   robot_system_interfaces
-  rt_control_interfaces
-  yaml_cpp_vendor
+  hw_semantic_components
 )
 
 if(BUILD_TESTING)
@@ -82,16 +76,6 @@ if(BUILD_TESTING)
   )
   target_include_directories(test_rolling_buffer PRIVATE include)
   target_link_libraries(test_rolling_buffer rolling_trajectory_core)
-
-  ament_add_gtest(test_protocol_vectors
-    test/test_protocol_vectors.cpp
-  )
-  target_compile_features(test_protocol_vectors PUBLIC cxx_std_17)
-  target_compile_options(
-    test_protocol_vectors PRIVATE -Wall -Wextra -Wpedantic -Wconversion
-  )
-  target_include_directories(test_protocol_vectors PRIVATE include)
-  target_link_libraries(test_protocol_vectors rolling_trajectory_core)
 
   ament_add_gtest(test_rolling_correctness
     test/test_rolling_correctness.cpp
@@ -123,20 +107,6 @@ if(BUILD_TESTING)
   target_include_directories(test_stopping_envelope PRIVATE include)
   target_link_libraries(test_stopping_envelope rolling_trajectory_core)
 
-  ament_add_gtest(test_envelope_loader
-    test/test_envelope_loader.cpp
-  )
-  target_compile_features(test_envelope_loader PUBLIC cxx_std_17)
-  target_compile_options(
-    test_envelope_loader PRIVATE -Wall -Wextra -Wpedantic -Wconversion
-  )
-  target_compile_definitions(
-    test_envelope_loader PRIVATE
-    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../hwcfg_machines/machines/Alfa_V3/policies/Alfa_V3_arm_envelope.mock.yaml\""
-  )
-  target_include_directories(test_envelope_loader PRIVATE include)
-  target_link_libraries(test_envelope_loader rolling_trajectory_core)
-
   ament_add_gtest(test_rolling_snapshot
     test/test_rolling_snapshot.cpp
   )
@@ -155,10 +125,6 @@ if(BUILD_TESTING)
     test_controller_lifecycle PRIVATE -Wall -Wextra -Wpedantic -Wconversion
   )
   target_include_directories(test_controller_lifecycle PRIVATE include)
-  target_compile_definitions(
-    test_controller_lifecycle PRIVATE
-    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../hwcfg_machines/machines/Alfa_V3/policies/Alfa_V3_arm_envelope.mock.yaml\""
-  )
   ament_target_dependencies(
     test_controller_lifecycle controller_interface hardware_interface rclcpp
   )
@@ -187,40 +153,16 @@ if(BUILD_TESTING)
     test_controller_switch rolling_trajectory_controller_plugin
   )
 
-  ament_add_gtest(test_controller_callbacks
-    test/test_controller_callbacks.cpp
+  ament_add_gtest(test_controller_batches
+    test/test_controller_batches.cpp
   )
-  target_compile_features(test_controller_callbacks PUBLIC cxx_std_17)
+  target_compile_features(test_controller_batches PUBLIC cxx_std_17)
   target_compile_options(
-    test_controller_callbacks PRIVATE -Wall -Wextra -Wpedantic -Wconversion
+    test_controller_batches PRIVATE -Wall -Wextra -Wpedantic -Wconversion
   )
-  target_include_directories(test_controller_callbacks PRIVATE include)
+  target_include_directories(test_controller_batches PRIVATE include)
   ament_target_dependencies(
-    test_controller_callbacks
-    controller_interface
-    hardware_interface
-    rclcpp
-    robot_interfaces_qos
-    robot_motion_interfaces
-    robot_rt_control_interfaces
-    robot_system_interfaces
-  )
-  target_link_libraries(
-    test_controller_callbacks
-    rolling_trajectory_controller_plugin
-    rolling_trajectory_core
-  )
-
-  ament_add_gtest(test_rt_update
-    test/test_rt_update.cpp
-  )
-  target_compile_features(test_rt_update PUBLIC cxx_std_17)
-  target_compile_options(
-    test_rt_update PRIVATE -Wall -Wextra -Wpedantic -Wconversion
-  )
-  target_include_directories(test_rt_update PRIVATE include)
-  ament_target_dependencies(
-    test_rt_update
+    test_controller_batches
     controller_interface
     hardware_interface
     rclcpp
@@ -229,54 +171,11 @@ if(BUILD_TESTING)
     robot_system_interfaces
   )
   target_link_libraries(
-    test_rt_update
+    test_controller_batches
     rolling_trajectory_controller_plugin
     rolling_trajectory_core
   )
 
-  ament_add_gtest(test_state_publisher
-    test/test_state_publisher.cpp
-  )
-  target_compile_features(test_state_publisher PUBLIC cxx_std_17)
-  target_compile_options(
-    test_state_publisher PRIVATE -Wall -Wextra -Wpedantic -Wconversion
-  )
-  target_include_directories(test_state_publisher PRIVATE include)
-  target_compile_definitions(
-    test_state_publisher PRIVATE
-    "ROLLING_PROVISIONAL_ENVELOPE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/../hwcfg_machines/machines/Alfa_V3/policies/Alfa_V3_arm_envelope.mock.yaml\""
-  )
-  ament_target_dependencies(
-    test_state_publisher
-    controller_interface
-    hardware_interface
-    rclcpp
-    robot_motion_interfaces
-    robot_rt_control_interfaces
-    robot_system_interfaces
-  )
-  target_link_libraries(
-    test_state_publisher
-    rolling_trajectory_controller_plugin
-    rolling_trajectory_core
-  )
-
-  ament_add_gtest(test_service_error
-    test/test_service_error.cpp
-  )
-  target_compile_features(test_service_error PUBLIC cxx_std_17)
-  target_compile_options(
-    test_service_error PRIVATE -Wall -Wextra -Wpedantic -Wconversion
-  )
-  target_include_directories(test_service_error PRIVATE include)
-  ament_target_dependencies(
-    test_service_error
-    robot_rt_control_interfaces
-    robot_system_interfaces
-  )
-  target_link_libraries(
-    test_service_error rolling_trajectory_controller_plugin
-  )
 endif()
 
 pluginlib_export_plugin_description_file(
@@ -310,7 +209,7 @@ ament_export_dependencies(
   robot_motion_interfaces
   robot_rt_control_interfaces
   robot_system_interfaces
-  rt_control_interfaces
+  hw_semantic_components
 )
 
 ament_package()

@@ -24,19 +24,11 @@ namespace ctrl_rolling_trajectory
 namespace
 {
 
-constexpr double kTestOnlyTakeoverTolerance = 0.125;
+constexpr double kTakeoverTolerance = 0.125;
 
-std::vector<rclcpp::Parameter> makeValidTestOnlyParameters()
+std::vector<rclcpp::Parameter> makeValidParameters()
 {
-  return {
-    rclcpp::Parameter("configuration_source", "test_only"),
-    testJointsParameter(),
-    testAxisSetHashParameter(),
-    rclcpp::Parameter("allow_test_only_configuration", true),
-    rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-    rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-    rclcpp::Parameter(
-      "takeover_tolerances", std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))};
+  return testControllerParameters();
 }
 
 void replaceParameter(
@@ -82,7 +74,7 @@ protected:
     state_handles_.emplace_back("ethercat_domain", "process_data_age_ms", &feedback_age_ms_);
 
     auto options = rclcpp::NodeOptions();
-    options.parameter_overrides(makeValidTestOnlyParameters());
+    options.parameter_overrides(makeValidParameters());
     controller_ = std::make_unique<RollingTrajectoryController>();
     ASSERT_EQ(
       controller_->init("test_rolling_controller", "", options),
@@ -141,26 +133,12 @@ TEST_F(ControllerLifecycleTest, ClaimsFourteenPositionPairsAndTheSharedFeedbackA
   EXPECT_EQ(state_configuration.names.back(), "ethercat_domain/process_data_age_ms");
 }
 
-TEST_F(ControllerLifecycleTest, ConfigurationRefusesImplicitOrUnapprovedTestThresholds)
+TEST_F(ControllerLifecycleTest, ConfigurationRequiresEveryParameterFromTheArtifact)
 {
   RollingTrajectoryController implicit;
   ASSERT_EQ(implicit.init("implicit_rolling_controller"), controller_interface::return_type::OK);
   EXPECT_EQ(
     implicit.on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
-
-  auto options = rclcpp::NodeOptions();
-  options.parameter_overrides(
-    {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
-     testAxisSetHashParameter(), rclcpp::Parameter("allow_test_only_configuration", false),
-     rclcpp::Parameter(
-       "takeover_tolerances", std::vector<double>(kAxisCount, kTestOnlyTakeoverTolerance))});
-  RollingTrajectoryController unapproved;
-  ASSERT_EQ(
-    unapproved.init("unapproved_rolling_controller", "", options),
-    controller_interface::return_type::OK);
-  EXPECT_EQ(
-    unapproved.on_configure(rclcpp_lifecycle::State()),
-    controller_interface::CallbackReturn::ERROR);
 }
 
 TEST_F(ControllerLifecycleTest, RuntimeParametersAreFrozenAfterConfigure)
@@ -178,35 +156,25 @@ TEST_F(ControllerLifecycleTest, InvalidRuntimeParameterMatrixFailsConfigureWitho
   const std::vector<rclcpp::Parameter> invalid_parameters = {
     rclcpp::Parameter("joints", short_joints),
     rclcpp::Parameter("joints", duplicate_joints),
-    rclcpp::Parameter("axis_set_hash", ""),
-    rclcpp::Parameter(
-      "axis_set_hash", "F4C8FF8A32183D1733032494600C9F5D1E7E625673A4AD51556B3AC6C35ADEE4"),
-    rclcpp::Parameter("axis_set_hash", "f4c8ff8a"),
-    rclcpp::Parameter(
-      "limits_version", "1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab"),
+    rclcpp::Parameter("joint_position_lower", std::vector<double>(kAxisCount, 10.0)),
+    rclcpp::Parameter("joint_velocity_limits", std::vector<double>(kAxisCount - 1U, 1.0)),
+    rclcpp::Parameter("joint_acceleration_limits", std::vector<double>(kAxisCount, 0.0)),
+    rclcpp::Parameter("position_margin", -0.01),
+    rclcpp::Parameter("position_margin", 10.0),
     rclcpp::Parameter("buffer_capacity", std::int64_t{1}),
     rclcpp::Parameter("buffer_capacity", std::int64_t{257}),
-    rclcpp::Parameter("max_horizon_ms", std::int64_t{499}),
-    rclcpp::Parameter("required_initial_horizon_ms", std::int64_t{601}),
-    rclcpp::Parameter("update_timeout_ms", std::int64_t{99}),
-    rclcpp::Parameter("update_timeout_ms", std::int64_t{501}),
     rclcpp::Parameter("replace_lead_ms", std::int64_t{0}),
     rclcpp::Parameter("replace_lead_ms", std::int64_t{601}),
     rclcpp::Parameter("state_publish_period_ms", std::int64_t{0}),
-    rclcpp::Parameter("prime_timeout_ms", std::int64_t{7}),
     rclcpp::Parameter("nominal_controller_period_ms", std::int64_t{0}),
     rclcpp::Parameter("maximum_controller_period_ms", std::int64_t{3}),
+    rclcpp::Parameter("update_timeout_ms", std::int64_t{7}),
     rclcpp::Parameter("one_cycle_detection_guard_ms", std::int64_t{0}),
-    rclcpp::Parameter("one_cycle_detection_guard_ms", std::int64_t{500}),
-    rclcpp::Parameter("open_feedback_age_limit_ms", std::numeric_limits<double>::quiet_NaN()),
-    rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount - 1U, 0.1)),
-    rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, -0.1)),
-    rclcpp::Parameter(
-      "splice_velocity_tolerances",
-      std::vector<double>(kAxisCount, std::numeric_limits<double>::infinity()))};
+    rclcpp::Parameter("feedback_age_limit_ms", std::numeric_limits<double>::quiet_NaN()),
+    rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount - 1U, 0.1))};
 
   for (std::size_t index = 0U; index < invalid_parameters.size(); ++index) {
-    auto parameters = makeValidTestOnlyParameters();
+    auto parameters = makeValidParameters();
     replaceParameter(parameters, invalid_parameters[index]);
     auto options = rclcpp::NodeOptions();
     options.parameter_overrides(parameters);
@@ -219,64 +187,6 @@ TEST_F(ControllerLifecycleTest, InvalidRuntimeParameterMatrixFailsConfigureWitho
       invalid.on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR)
       << invalid_parameters[index].get_name();
   }
-}
-
-TEST_F(ControllerLifecycleTest, ProvisionalConfigurationRequiresItsOwnOptInAndExactFile)
-{
-  auto make_provisional_parameters = []() {
-    auto parameters = makeValidTestOnlyParameters();
-    replaceParameter(parameters, rclcpp::Parameter("configuration_source", "provisional"));
-    replaceParameter(parameters, rclcpp::Parameter("allow_test_only_configuration", true));
-    replaceParameter(parameters, rclcpp::Parameter("allow_provisional_configuration", false));
-    replaceParameter(
-      parameters, rclcpp::Parameter("envelope_file", ROLLING_PROVISIONAL_ENVELOPE_PATH));
-    replaceParameter(parameters, testProvisionalLimitsVersionParameter());
-    return parameters;
-  };
-
-  auto denied_options = rclcpp::NodeOptions();
-  denied_options.parameter_overrides(make_provisional_parameters());
-  RollingTrajectoryController denied;
-  ASSERT_EQ(
-    denied.init("provisional_denied", "", denied_options), controller_interface::return_type::OK);
-  EXPECT_EQ(
-    denied.on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
-
-  auto accepted_parameters = make_provisional_parameters();
-  replaceParameter(accepted_parameters, rclcpp::Parameter("allow_test_only_configuration", false));
-  replaceParameter(accepted_parameters, rclcpp::Parameter("allow_provisional_configuration", true));
-  auto accepted_options = rclcpp::NodeOptions();
-  accepted_options.parameter_overrides(accepted_parameters);
-  RollingTrajectoryController accepted;
-  ASSERT_EQ(
-    accepted.init("provisional_accepted", "", accepted_options),
-    controller_interface::return_type::OK);
-  EXPECT_EQ(
-    accepted.on_configure(rclcpp_lifecycle::State()),
-    controller_interface::CallbackReturn::SUCCESS);
-
-  auto unversioned_parameters = accepted_parameters;
-  replaceParameter(unversioned_parameters, rclcpp::Parameter("limits_version", ""));
-  auto unversioned_options = rclcpp::NodeOptions();
-  unversioned_options.parameter_overrides(unversioned_parameters);
-  RollingTrajectoryController unversioned;
-  ASSERT_EQ(
-    unversioned.init("provisional_unversioned", "", unversioned_options),
-    controller_interface::return_type::OK);
-  EXPECT_EQ(
-    unversioned.on_configure(rclcpp_lifecycle::State()),
-    controller_interface::CallbackReturn::ERROR);
-
-  replaceParameter(
-    accepted_parameters, rclcpp::Parameter("envelope_file", "/tmp/e102-missing-envelope.yaml"));
-  auto missing_options = rclcpp::NodeOptions();
-  missing_options.parameter_overrides(accepted_parameters);
-  RollingTrajectoryController missing;
-  ASSERT_EQ(
-    missing.init("provisional_missing", "", missing_options),
-    controller_interface::return_type::OK);
-  EXPECT_EQ(
-    missing.on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR);
 }
 
 TEST_F(ControllerLifecycleTest, ActivationRequiresEveryClaimedInterface)
@@ -330,7 +240,7 @@ TEST_F(ControllerLifecycleTest, NonFiniteActualPositionFailsActivation)
 
 TEST_F(ControllerLifecycleTest, ExactTakeoverTolerancePasses)
 {
-  command_positions_[3] = actual_positions_[3] + kTestOnlyTakeoverTolerance;
+  command_positions_[3] = actual_positions_[3] + kTakeoverTolerance;
   assignInterfaces();
   EXPECT_EQ(
     controller_->on_activate(rclcpp_lifecycle::State()),
@@ -340,7 +250,7 @@ TEST_F(ControllerLifecycleTest, ExactTakeoverTolerancePasses)
 TEST_F(ControllerLifecycleTest, OneRepresentableStepPastTakeoverToleranceFails)
 {
   command_positions_[3] = std::nextafter(
-    actual_positions_[3] + kTestOnlyTakeoverTolerance, std::numeric_limits<double>::infinity());
+    actual_positions_[3] + kTakeoverTolerance, std::numeric_limits<double>::infinity());
   assignInterfaces();
   EXPECT_EQ(
     controller_->on_activate(rclcpp_lifecycle::State()),

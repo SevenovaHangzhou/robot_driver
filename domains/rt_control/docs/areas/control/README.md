@@ -22,6 +22,8 @@
 | release-deploy/V3-HEAD-CAN-1 | V3 头部使用 `head_joint/head_pitch_joint`、非 JTC ForwardCommand + `/rt/head/*` manager；达妙 T 型由 ACC/DEC/MAX_SPD 承担，参数工具默认不写 flash | [V3 达妙头部非 JTC 位置速度运行链](../../areas-archive/release-deploy/records/2026-09-19-v3-damiao-head-runtime.md)#F1-F4 | PARTIAL（T1 Mock；CAN/机械/整机 full runtime 待验） |
 | arm-control-20261014-01#F1–F3 | 显式批次/容差/包络保留旧数值与顺序，provisional 不冒充实测 | [显式手臂策略](records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；策略/金样验证通过，实机未验） |
 | arm-control-20261019-01#F1–F3 | JTC 在非实时回调拒绝超过 `max_trajectory_points`（默认 2000）的轨迹；2000 点时新轨迹周期约 1.17 ms | [JTC 点数上限](records/2026-10-19-jtc-max-trajectory-points.md) | PARTIAL（T1 mock；台架未发轨迹） |
+| control-20261104-03#F1–F2 | JTC 话题与 action 共用准入：首点 ≤ 容差 + URDF 速度上限 × 到首点时间，点/段速度不超过 URDF 上限；末点速度必须为 0 | [流式轨迹与速度准入](records/2026-11-04-arm-joint-stream.md) | PARTIAL（本机单元测试；未上台架） |
+| control-20261105-01 | rolling 会话随模式切换与首个批次开始；批次 ROS 时间；状态 5 字段；限值取 robot_description（位置内缩 0.05 rad、30°/s、60°/s²） | [精简 rolling](records/2026-11-05-rolling-slim.md) | PARTIAL（本机单元测试；未上台架） |
 | integration-20261014-03#F1–F4 | 控制包只依赖共享HeadPhase；控制器集合/参数保持，D-b不准入新真实头部 | [第四步记录](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（头部T1等价；实机未验） |
 | lifecycle/20261009-03#F1 | 模式切换成功路径测试持续提供 JTC 状态，保留生产新鲜度与停稳门禁 | [CI 源状态刷新修复](../../areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md)#F1-F2 | PARTIAL（65用例及30次延迟回归通过；全仓CI待验） |
 | lifecycle/01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](../../areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |

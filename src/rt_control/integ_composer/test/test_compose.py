@@ -2,8 +2,8 @@
 
 from copy import deepcopy
 import filecmp
-from hashlib import sha256
 import importlib.util
+import math
 from pathlib import Path
 import shutil
 import sys
@@ -54,7 +54,7 @@ def materialize(result):
 
 def inputs(shares, *, stationary=False, verified=False):
     data = shares["hwcfg_machines"]
-    deployment_path = (data / "units/Alfa_V3-01/deployment.yaml")
+    deployment_path = data / "units/Alfa_V3-01/deployment.yaml"
     deployment = load_yaml(deployment_path)
     manifest = read_manifest(data / "machines" / deployment["robot_variant"] / "manifest.yaml")
     mode = "stationary_enable" if stationary else "normal"
@@ -141,9 +141,7 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
     facts = BASELINE["cases"][case]
     baseline = GOLDEN / case
     actual_files = {
-        path.relative_to(baseline).as_posix()
-        for path in baseline.rglob("*")
-        if path.is_file()
+        path.relative_to(baseline).as_posix() for path in baseline.rglob("*") if path.is_file()
     }
     assert actual_files == set(facts["outputs"]), "Frozen baseline file set changed"
     arguments = inputs(
@@ -217,20 +215,21 @@ def test_diagnostics_devices_name_only_rendered_state_interfaces(shares, tmp_pat
             assert device["fault_table"] in diagnostics["fault_tables"]
 
 
-def test_rolling_digests_are_computed_by_the_composer(shares, tmp_path):
-    # The controller only compares these; robot_interfaces endpoints.yaml pins the axis set.
+def test_rolling_limits_come_from_the_robot_model(shares, tmp_path):
+    # User 2026-11-04/05: arm limits 30 deg/s and 60 deg/s^2; position from the URDF.
     result = compose(
         **inputs(shares), runtime_dir=tmp_path / "runtime", use_mock_hardware=True, jtc_only=False
     )
     parameters = result.controllers["rolling_trajectory_controller"]["ros__parameters"]
-    assert parameters["axis_set_hash"] == (
-        "f4c8ff8a32183d1733032494600c9f5d1e7e625673a4ad51556b3ac6c35adee4"
+    assert set(parameters["joint_velocity_limits"]) == {math.radians(30.0)}
+    assert set(parameters["joint_acceleration_limits"]) == {math.radians(60.0)}
+    assert all(
+        lower < upper
+        for lower, upper in zip(
+            parameters["joint_position_lower"], parameters["joint_position_upper"]
+        )
     )
-    envelope = result.files[Path(parameters["envelope_file"]).name]
-    assert parameters["limits_version"] == sha256(envelope.encode("utf-8")).hexdigest()
-    assert parameters["limits_version"] == (
-        "1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab"
-    )
+    assert parameters["position_margin"] == 0.05
 
 
 def facts_subset(facts):
@@ -380,10 +379,19 @@ def test_policy_values_equal_frozen_old_output():
     expected_jtc.pop("joints")
     # The public action name comes from config/interface_naming.yaml, not the policy.
     assert expected_jtc.pop("action_name") == "/rt/arms/follow_joint_trajectory"
+    assert expected_jtc.pop("trajectory_topic") == "/rt/arms/joint_trajectory"
+    # Velocity limits come from the robot model URDF, not the policy.
+    assert len(expected_jtc.pop("joint_velocity_limits")) == len(policy["joints"])
+    assert len(expected_jtc.pop("joint_acceleration_limits")) == len(policy["joints"])
     assert policy["jtc"] == expected_jtc
     expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
-    # Composer-derived values, not policy data (see test_rolling_digests_are_computed_by_the_composer).
-    for derived in ("envelope_file", "axis_set_hash", "limits_version"):
+    # Robot-model limits, not policy data (see test_rolling_limits_come_from_the_robot_model).
+    for derived in (
+        "joint_position_lower",
+        "joint_position_upper",
+        "joint_velocity_limits",
+        "joint_acceleration_limits",
+    ):
         expected_rolling.pop(derived)
     assert expected_rolling.pop("joints") == policy["joints"]
     assert policy["rolling"] == expected_rolling

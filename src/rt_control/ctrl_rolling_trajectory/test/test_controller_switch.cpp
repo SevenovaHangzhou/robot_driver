@@ -215,12 +215,9 @@ TEST(RollingControllerSwitch, StrictSwitchNeverDoubleClaimsPositionCommands)
     "ctrl_rolling_trajectory/RollingTrajectoryController");
   ASSERT_NE(source, nullptr);
   ASSERT_NE(rolling, nullptr);
-  rolling->get_node()->set_parameters(
-    {rclcpp::Parameter("configuration_source", "test_only"), testJointsParameter(),
-     testAxisSetHashParameter(), rclcpp::Parameter("allow_test_only_configuration", true),
-     rclcpp::Parameter("splice_position_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-     rclcpp::Parameter("splice_velocity_tolerances", std::vector<double>(kAxisCount, 1.0e-9)),
-     rclcpp::Parameter("takeover_tolerances", std::vector<double>(kAxisCount, 0.1))});
+  auto parameters = testControllerParameters();
+  parameters.emplace_back("takeover_tolerances", std::vector<double>(kAxisCount, 0.1));
+  rolling->get_node()->set_parameters(parameters);
   ASSERT_EQ(manager->configure_controller("whole_body_jtc"), controller_interface::return_type::OK);
   ASSERT_EQ(
     manager->configure_controller("rolling_joint_controller"),

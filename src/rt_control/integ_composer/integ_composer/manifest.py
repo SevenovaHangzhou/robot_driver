@@ -18,11 +18,7 @@ def validate_selection(
     config_share=None,
     package_share=get_package_share_directory,
 ):
-    root = (
-        Path(package_share("hwcfg_machines"))
-        if config_share is None
-        else Path(config_share)
-    )
+    root = Path(package_share("hwcfg_machines")) if config_share is None else Path(config_share)
     schemas = Path(package_share("integ_composer")) / "schema"
     data = load_machine(root, schemas, robot_variant, machine_unit, physical_profile, control_scope)
     manifest_links(data, root)

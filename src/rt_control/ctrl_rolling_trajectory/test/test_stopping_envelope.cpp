@@ -23,10 +23,6 @@ constexpr std::uint64_t kSecondNs = 1'000'000'000U;
 DynamicEnvelope makeTestOnlyEnvelope()
 {
   DynamicEnvelope envelope;
-  envelope.source = LimitsSource::kTestOnly;
-  envelope.limits_version[0] = 0xE1U;
-  envelope.limits_version[1] = 0x02U;
-  envelope.limits_version[2] = 0x04U;
   for (AxisEnvelope & axis : envelope.axes) {
     axis.position_lower = -100.0;
     axis.position_upper = 100.0;
@@ -55,7 +51,7 @@ TEST(StopTrajectory, ZeroVelocityTransitionsDirectlyToAnExactHold)
 {
   StopTrajectory trajectory;
   const DynamicEnvelope envelope = makeTestOnlyEnvelope();
-  ASSERT_TRUE(trajectory.configure(envelope, true));
+  ASSERT_TRUE(trajectory.configure(envelope));
   JointPoint desired = makeJointPoint(17U, 1.25, 0.0);
 
   ASSERT_TRUE(trajectory.begin(desired));
@@ -77,7 +73,7 @@ TEST(StopTrajectory, PositiveLimitingAxisSetsOneSynchronousDuration)
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
   envelope.axes[0].stop_acceleration_positive = 2.0;
   envelope.axes[1].stop_acceleration_positive = 4.0;
-  ASSERT_TRUE(trajectory.configure(envelope, true));
+  ASSERT_TRUE(trajectory.configure(envelope));
   JointPoint desired = makeJointPoint(0U, 0.0, 0.0);
   desired.velocities[0] = 4.0;
   desired.velocities[1] = 2.0;
@@ -111,7 +107,7 @@ TEST(StopTrajectory, NegativeVelocityUsesTheNegativeDirectionalLimit)
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
   envelope.axes[2].stop_acceleration_positive = 100.0;
   envelope.axes[2].stop_acceleration_negative = 1.0;
-  ASSERT_TRUE(trajectory.configure(envelope, true));
+  ASSERT_TRUE(trajectory.configure(envelope));
   JointPoint desired = makeJointPoint(0U, 0.0, 0.0);
   desired.velocities[2] = -3.0;
 
@@ -137,7 +133,7 @@ TEST(StopTrajectory, MixedAxesStopTogetherAndCannotBeReplaced)
                                          : envelope.axes[axis].stop_acceleration_negative;
     expected_duration = std::max(expected_duration, magnitude / limit);
   }
-  ASSERT_TRUE(trajectory.configure(envelope, true));
+  ASSERT_TRUE(trajectory.configure(envelope));
   ASSERT_TRUE(trajectory.begin(desired));
   EXPECT_DOUBLE_EQ(trajectory.durationSeconds(), expected_duration);
 
@@ -172,13 +168,13 @@ TEST(StopTrajectory, ExactSafePositionBoundPassesAndNextValueFails)
   desired.velocities[0] = 2.0;
 
   StopTrajectory exact;
-  ASSERT_TRUE(exact.configure(envelope, true));
+  ASSERT_TRUE(exact.configure(envelope));
   EXPECT_TRUE(exact.begin(desired));
   EXPECT_DOUBLE_EQ(exact.terminalPositions()[0], 9.5);
 
   desired.positions[0] = std::nextafter(8.5, std::numeric_limits<double>::infinity());
   StopTrajectory outside;
-  ASSERT_TRUE(outside.configure(envelope, true));
+  ASSERT_TRUE(outside.configure(envelope));
   EXPECT_FALSE(outside.begin(desired));
   EXPECT_EQ(outside.state(), StopTrajectoryState::kIdle);
 }
@@ -189,7 +185,7 @@ TEST(StoppingViability, ConservativeEnvelopeRejectsAStopUnsafeDirectlyValidSegme
   envelope.axes[0].position_upper = 1.0;
   envelope.axes[0].stop_acceleration_positive = 1.0;
   LimitChecker checker;
-  ASSERT_TRUE(checker.configure(envelope, true));
+  ASSERT_TRUE(checker.configure(envelope));
   JointPoint start = makeJointPoint(0U, 0.0, 0.0);
   JointPoint end = makeJointPoint(kSecondNs, 0.0, 0.0);
   start.velocities[0] = 0.8;
@@ -214,7 +210,7 @@ TEST(StoppingViability, ConservativeBoundsNeverUnderestimateDenseExactStops)
   std::uniform_real_distribution<double> velocity_distribution(-3.0, 3.0);
   DynamicEnvelope envelope = makeTestOnlyEnvelope();
   LimitChecker checker;
-  ASSERT_TRUE(checker.configure(envelope, true));
+  ASSERT_TRUE(checker.configure(envelope));
 
   for (std::size_t curve = 0U; curve < 50U; ++curve) {
     JointPoint start = makeJointPoint(0U, 0.0, 0.0);

@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# robot_interfaces main after #13 (RT-Control endpoints under /rt/, user 2026-11-04).
-commit: cb379dbd8cfa5c03308ced36db5ccb278d3b402a
+# robot_interfaces main after #17/#18 (Rolling final, rolling client).
+commit: aa82a77c7acccc837309c234462b2f564edc42e2
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:

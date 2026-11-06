@@ -55,6 +55,19 @@ controllers:
     - interface:
         name: arms_trajectory
         as: action_name
+    - interface:
+        name: arms_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   # Seven-axis bench arm trajectory controller; the operator console is its client.
   left_arm_jtc:
     module: bench_left_arm
@@ -72,6 +85,9 @@ controllers:
     - name: arm_joint_trajectory
       topic: /rt/arms/left/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/left/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
     parameters:
     - policy:
         name: motion
@@ -84,6 +100,19 @@ controllers:
     - interface:
         name: left_arm_trajectory
         as: action_name
+    - interface:
+        name: left_arm_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   # Both bench arms in one trajectory controller; the operator console is its client.
   dual_arm_jtc:
     module: bench_dual_arm
@@ -101,6 +130,9 @@ controllers:
     - name: arm_joint_trajectory
       topic: /rt/arms/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
     parameters:
     - policy:
         name: motion
@@ -113,6 +145,19 @@ controllers:
     - interface:
         name: arms_trajectory
         as: action_name
+    - interface:
+        name: arms_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   rolling_trajectory_controller:
     module: arms
     name: rolling_trajectory_controller
@@ -132,16 +177,68 @@ controllers:
         match: actuator_groups
     - policy:
         name: motion
+        path: rolling
+    - model_limits:
+        policy: motion
         path: joints
-        as: axis_set_hash
-        transform: rolling_axis_set_sha256
+        attribute: lower
+        as: joint_position_lower
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: upper
+        as: joint_position_upper
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
+  # Both bench arms under rolling; enable_manager switches between it and dual_arm_jtc.
+  dual_arm_rolling:
+    module: bench_dual_arm
+    name: dual_arm_rolling
+    plugin: ctrl_rolling_trajectory/RollingTrajectoryController
+    package: ctrl_rolling_trajectory
+    actuator_groups:
+    - csp
+    required_state_modules: []
+    tags:
+    - rolling
+    - motion
+    parameters:
+    - policy:
+        name: motion
+        path: joints
+        as: joints
+        match: actuator_groups
     - policy:
         name: motion
         path: rolling
-    - policy_file:
-        name: envelope
-        as: envelope_file
-        digest_as: limits_version
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: lower
+        as: joint_position_lower
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: upper
+        as: joint_position_upper
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits
   enable_manager:
     module: arms
     name: enable_manager
@@ -176,15 +273,11 @@ controllers:
         path: enable_batches
         transform: lengths
         as: enable_batch_sizes
-    - policy:
-        name: enable
-        path: runtime_views.{mode}.enable_only
-        as: enable_only
     - controllers:
         tag: enable_target
         select: first
         default: ''
-        as: jtc_name
+        as: motion_controller
     - controllers:
         tag: enable_companion
         select: all
@@ -211,27 +304,11 @@ controllers:
         format: /{name}/fault_stop
         optional: true
         as: motion_fault_topic
-    - when_policy: motion
-      controllers:
-        tag: rolling
-        select: any
-        as: motion_mode_switching
-    - when_policy: motion
-      controllers:
-        tag: motion
-        select: all
-        as: motion_controller_names
-    - when_policy: motion
-      controllers:
-        tag: trajectory
-        select: first
-        as: default_motion_controller
-    - when_policy: motion
-      controllers:
+    - controllers:
         tag: rolling
         select: first
         default: ''
-        as: rolling_motion_controller
+        as: rolling_controller
     - when_policy: motion
       policy:
         name: motion
@@ -351,6 +428,9 @@ controllers:
     - name: arm_joint_trajectory
       topic: /rt/arms/right/follow_joint_trajectory
       type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/right/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
     parameters:
     - policy:
         name: motion
@@ -363,3 +443,16 @@ controllers:
     - interface:
         name: right_arm_trajectory
         as: action_name
+    - interface:
+        name: right_arm_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: acceleration
+        as: joint_acceleration_limits

@@ -70,7 +70,7 @@ def compose(
     manifest_links(data, config_root)
     runtime_admission(data, use_mock_hardware, require_manifest_ready)
     naming = load_yaml(integration_share / "config/interface_naming.yaml")
-    robot, robot_model = _robot_skeleton(
+    robot, robot_model, model_limits = _robot_skeleton(
         data, robot_variant, use_mock_hardware, naming, package_share
     )
     systems, rendered_modules, bus_rates = _render_modules(
@@ -101,6 +101,7 @@ def compose(
         runtime=runtime,
         runtime_files=runtime_files,
         startup_id=startup_id,
+        model_limits=model_limits,
     )
     recorders = _add_recorder(
         controllers, data["deployment"], robot, staged, selected_names, bindings
@@ -141,7 +142,8 @@ def compose(
 
 
 def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_share):
-    """Description root for the scope view, plus the model joints and limits owners check."""
+    """Description root for the scope view, the model joints and limits owners check, and the
+    model's URDF joint limits."""
     manifest, scope, deployment = data["manifest"], data["scope"], data["deployment"]
     model = manifest["robot_model"]
     model_share = Path(package_share(model["package"]))
@@ -157,6 +159,17 @@ def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_shar
         "joints": [joint.attrib["name"] for joint in model_robot.findall("joint")],
         "joint_limits": yaml.safe_load((model_share / variant["joint_limits_file"]).read_text()),
     }
+    # Joint limits for "model_limits" controller parameter sources, both owned by the model:
+    # position and velocity from the URDF <limit>, acceleration from its joint limits file.
+    model_limits = {}
+    for joint in model_robot.findall("joint"):
+        limit = joint.find("limit")
+        for name in ("lower", "upper", "velocity"):
+            if limit is not None and name in limit.attrib:
+                model_limits.setdefault(joint.attrib["name"], {})[name] = float(limit.attrib[name])
+    for name, limits in robot_model["joint_limits"].get("joints", {}).items():
+        if "max_acceleration_rad_s2" in limits:
+            model_limits.setdefault(name, {})["acceleration"] = limits["max_acceleration_rad_s2"]
     if "robot_name" in scope:
         model_robot.attrib["name"] = scope["robot_name"]
     if "minimal_robot" in scope:
@@ -169,7 +182,7 @@ def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_shar
         ET.SubElement(robot, "link", name=naming["stationary_base_link"])
     else:
         robot = model_robot
-    return robot, robot_model
+    return robot, robot_model, model_limits
 
 
 def _render_modules(data, robot_model, runtime, use_mock_hardware, sync_mode, schemas, config_root):
@@ -262,6 +275,7 @@ def _controllers(
     runtime,
     runtime_files,
     startup_id,
+    model_limits,
 ):
     """controllers.yaml content, controller order and per-start runtime parameter keys."""
     manifest, scope = data["manifest"], data["scope"]
@@ -315,6 +329,7 @@ def _controllers(
         "runtime_dir": str(runtime),
         "runtime_files": runtime_files,
         "managed_joints": managed,
+        "model_limits": model_limits,
         "state_ready": [
             f"{sensor.attrib['name']}/ready"
             for module in scope["required_state_modules"]
@@ -443,6 +458,13 @@ def _output_files(runtime, runtime_files, robot_description, controllers, order)
     }
 
 
+def _mode_controllers(order, bindings):
+    tags = {name: set(bindings[name].get("tags", [])) for name in order["inactive"]}
+    if not any("rolling" in names for names in tags.values()):
+        return []
+    return [name for name, names in tags.items() if names & {"trajectory", "rolling"}]
+
+
 def _lifecycle(
     data,
     control_scope,
@@ -466,6 +488,8 @@ def _lifecycle(
         "publish_robot_state": bool(scope.get("publish_robot_state", False)),
         "hardware_activation_order": list(hardware_order),
         "motion_controllers": list(order["inactive"]),
+        # Switched by /rt/arms/set_control_mode: exactly one of them is active when enabled.
+        **({"mode_controllers": mode} if (mode := _mode_controllers(order, bindings)) else {}),
         "lifecycle_controllers": list(order["active"]),
         **({"recorder_controllers": recorders} if recorders else {}),
         # One process owns an IgH master or a CAN interface at a time (supervisor locks).

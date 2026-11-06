@@ -19,7 +19,6 @@
 #include "rclcpp/qos.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/joint_control_mode.hpp"
-#include "robot_rt_control_interfaces/msg/rolling_service_result.hpp"
 #include "robot_system_interfaces/msg/error_code.hpp"
 
 namespace ctrl_enable_manager
@@ -66,19 +65,13 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("fault_reset_timeout", 4.0);
   auto_declare<double>("controller_switch_timeout", 4.0);
   auto_declare<int>("service_result_timeout_ms", 30000);
-  auto_declare<std::string>("jtc_name", "whole_body_jtc");
-  // Further controllers switched in the same request as jtc_name (e.g. a head next to the arms).
+  auto_declare<std::string>("motion_controller", "");
+  auto_declare<std::string>("rolling_controller", "");
   auto_declare<std::vector<std::string>>("companion_controllers", {});
-  auto_declare<bool>("enable_only", false);
   auto_declare<std::string>("disable_terminal_policy", "joint_list");
   // Runtime-LOG: copy the state machine into a shared-memory ring every cycle (optional).
   auto_declare<bool>("runtime_log_trace", false);
-  auto_declare<bool>("motion_mode_switching", false);
   auto_declare<std::vector<std::string>>("motion_joints", {});
-  auto_declare<std::vector<std::string>>(
-    "motion_controller_names", {"whole_body_jtc", "rolling_trajectory_controller"});
-  auto_declare<std::string>("default_motion_controller", "whole_body_jtc");
-  auto_declare<std::string>("rolling_motion_controller", "rolling_trajectory_controller");
   auto_declare<int>("mode_switch_maximum_sample_period_ms", 2);
   auto_declare<int>("mode_switch_source_state_max_age_ms", 100);
   auto_declare<int>("mode_switch_stable_interval_count", 5);
@@ -177,19 +170,27 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   controller_switch_timeout_seconds_ =
     get_node()->get_parameter("controller_switch_timeout").as_double();
   const auto service_timeout = get_node()->get_parameter("service_result_timeout_ms").as_int();
-  jtc_name_ = get_node()->get_parameter("jtc_name").as_string();
-  enable_only_ = get_node()->get_parameter("enable_only").as_bool();
-  motion_mode_switching_ = get_node()->get_parameter("motion_mode_switching").as_bool();
-  const auto companions = get_node()->get_parameter("companion_controllers").as_string_array();
-  switched_controllers_ = {jtc_name_};
-  switched_controllers_.insert(switched_controllers_.end(), companions.begin(), companions.end());
-  const bool companions_valid =
-    companions.empty() ||
-    (!enable_only_ && !motion_mode_switching_ &&
-     std::none_of(
-       companions.begin(), companions.end(), [](const auto & name) { return name.empty(); }) &&
-     std::set<std::string>(switched_controllers_.begin(), switched_controllers_.end()).size() ==
-       switched_controllers_.size());
+  default_motion_controller_ = get_node()->get_parameter("motion_controller").as_string();
+  rolling_motion_controller_ = get_node()->get_parameter("rolling_controller").as_string();
+  companion_controllers_ = get_node()->get_parameter("companion_controllers").as_string_array();
+  managed_controllers_.clear();
+  if (!default_motion_controller_.empty()) {
+    managed_controllers_.push_back(default_motion_controller_);
+  }
+  if (!rolling_motion_controller_.empty()) {
+    managed_controllers_.push_back(rolling_motion_controller_);
+  }
+  managed_controllers_.insert(
+    managed_controllers_.end(), companion_controllers_.begin(), companion_controllers_.end());
+  enable_only_ = managed_controllers_.empty();
+  motion_mode_switching_ = !rolling_motion_controller_.empty();
+  const bool controllers_valid =
+    (!default_motion_controller_.empty() || enable_only_) &&
+    std::none_of(
+      managed_controllers_.begin(), managed_controllers_.end(),
+      [](const auto & name) { return name.empty(); }) &&
+    std::set<std::string>(managed_controllers_.begin(), managed_controllers_.end()).size() ==
+      managed_controllers_.size();
   const auto modes = get_node()->get_parameter("expected_modes").as_integer_array();
   if (
     !modes.empty() && (modes.size() != joint_names_.size() || motion_mode_switching_ ||
@@ -228,9 +229,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   mode_state_indices_.assign(modes.size(), 0U);
   mode_confirmed_.assign(modes.size(), 0U);
   motion_joint_names_ = get_node()->get_parameter("motion_joints").as_string_array();
-  motion_controller_names_ = get_node()->get_parameter("motion_controller_names").as_string_array();
-  default_motion_controller_ = get_node()->get_parameter("default_motion_controller").as_string();
-  rolling_motion_controller_ = get_node()->get_parameter("rolling_motion_controller").as_string();
   const auto maximum_sample_period_ms =
     get_node()->get_parameter("mode_switch_maximum_sample_period_ms").as_int();
   const auto source_state_max_age_ms =
@@ -245,22 +243,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   const auto takeover_tolerances =
     get_node()->get_parameter("mode_switch_takeover_tolerances").as_double_array();
 
-  std::vector<std::string> sorted_controller_names = motion_controller_names_;
-  std::sort(sorted_controller_names.begin(), sorted_controller_names.end());
-  const bool has_empty_controller_name = std::any_of(
-    motion_controller_names_.begin(), motion_controller_names_.end(),
-    [](const std::string & name) { return name.empty(); });
-  const bool has_duplicate_controller_name =
-    std::adjacent_find(sorted_controller_names.begin(), sorted_controller_names.end()) !=
-    sorted_controller_names.end();
-  const bool default_is_registered =
-    std::find(
-      motion_controller_names_.begin(), motion_controller_names_.end(),
-      default_motion_controller_) != motion_controller_names_.end();
-  const bool rolling_is_registered =
-    std::find(
-      motion_controller_names_.begin(), motion_controller_names_.end(),
-      rolling_motion_controller_) != motion_controller_names_.end();
   std::vector<std::string> sorted_motion_joints = motion_joint_names_;
   std::sort(sorted_motion_joints.begin(), sorted_motion_joints.end());
   const bool motion_joints_valid =
@@ -279,22 +261,15 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   };
   const bool motion_parameters_valid =
     !motion_mode_switching_ ||
-    (!enable_only_ && motion_joints_valid && motion_controller_names_.size() == 2U &&
-     !has_empty_controller_name && !has_duplicate_controller_name &&
-     !default_motion_controller_.empty() && default_is_registered &&
-     !rolling_motion_controller_.empty() && rolling_is_registered &&
-     rolling_motion_controller_ != default_motion_controller_ &&
-     jtc_name_ == default_motion_controller_ && maximum_sample_period_ms > 0 &&
-     source_state_max_age_ms > 0 && stable_interval_count > 0 && mode_switch_timeout_ms > 0 &&
+    (motion_joints_valid && maximum_sample_period_ms > 0 && source_state_max_age_ms > 0 &&
+     stable_interval_count > 0 && mode_switch_timeout_ms > 0 &&
      std::isfinite(mode_switch_feedback_age_limit_ms) && mode_switch_feedback_age_limit_ms > 0.0 &&
      valid_threshold_array(stable_velocity_thresholds) &&
      valid_threshold_array(takeover_tolerances));
 
   // Timing values are checked once by the composer (enable policy schema; YAML load rejects
   // non-finite numbers).
-  if (
-    (enable_only_ ? !jtc_name_.empty() : jtc_name_.empty()) || !motion_parameters_valid ||
-    !companions_valid) {
+  if (!controllers_valid || !motion_parameters_valid) {
     RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager controller parameter");
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -356,8 +331,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
         &EnableManagerController::handleSetMode, this, std::placeholders::_1,
         std::placeholders::_2),
       rmw_qos_profile_services_default, mode_callback_group_);
-    mode_result_publisher_ = get_node()->create_publisher<ModeResultMessage>(
-      "/rt/internal/joint_control/mode_result", robot_interfaces_qos::state());
     rclcpp::SubscriptionOptions source_subscription_options;
     source_subscription_options.callback_group = worker_callback_group_;
     jtc_state_subscription_ =
@@ -406,9 +379,6 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   phase_.store(Phase::kInactive, std::memory_order_release);
   owner_.store(Owner::kInternal, std::memory_order_release);
   current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
-  mode_cache_.fill(ModeCacheEntry{});
-  next_mode_cache_slot_ = 0U;
-  mode_result_sequence_.store(0U, std::memory_order_release);
   {
     std::lock_guard<std::mutex> lock(command_snapshot_mutex_);
     jtc_command_snapshot_ = CommandSnapshot{};
@@ -448,17 +418,14 @@ rcl_interfaces::msg::SetParametersResult EnableManagerController::validateTopolo
 
   for (const auto & parameter : parameters) {
     if (
-      parameter.get_name() == "enable_only" || parameter.get_name() == "jtc_name" ||
+      parameter.get_name() == "motion_controller" || parameter.get_name() == "rolling_controller" ||
       parameter.get_name() == "companion_controllers" ||
       parameter.get_name() == "disable_terminal_policy" ||
-      parameter.get_name() == "expected_modes" || parameter.get_name() == "motion_mode_switching" ||
+      parameter.get_name() == "expected_modes" ||
       parameter.get_name() == "ready_state_interfaces" ||
       parameter.get_name() == "motion_fault_topic" || parameter.get_name() == "ready_hold_time" ||
-      parameter.get_name() == "motion_joints" ||
-      parameter.get_name() == "motion_controller_names" ||
-      parameter.get_name() == "default_motion_controller" ||
-      parameter.get_name() == "rolling_motion_controller" ||
-      parameter.get_name() == "handshake_devices" || parameter.get_name() == "diagnostic_joints" ||
+      parameter.get_name() == "motion_joints" || parameter.get_name() == "handshake_devices" ||
+      parameter.get_name() == "diagnostic_joints" ||
       parameter.get_name() == "diagnostic_joint_interfaces") {
       if (topology_parameters_frozen_.load(std::memory_order_acquire)) {
         result.successful = false;

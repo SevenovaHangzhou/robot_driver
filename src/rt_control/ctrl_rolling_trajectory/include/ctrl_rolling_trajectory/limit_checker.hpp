@@ -11,13 +11,6 @@
 namespace ctrl_rolling_trajectory
 {
 
-enum class LimitsSource : std::uint8_t {
-  kUnspecified = 0U,
-  kProduction = 1U,
-  kTestOnly = 2U,
-  kProvisional = 3U
-};
-
 struct AxisEnvelope
 {
   double position_lower{0.0};
@@ -35,8 +28,6 @@ struct AxisEnvelope
 struct DynamicEnvelope
 {
   std::array<AxisEnvelope, kAxisCount> axes{};
-  std::array<std::uint8_t, 32> limits_version{};
-  LimitsSource source{LimitsSource::kUnspecified};
 };
 
 struct SegmentExtrema
@@ -60,9 +51,7 @@ struct StoppingEnvelope
 class LimitChecker
 {
 public:
-  bool configure(
-    const DynamicEnvelope & envelope, bool allow_test_only_limits,
-    bool allow_provisional_limits = false) noexcept;
+  bool configure(const DynamicEnvelope & envelope) noexcept;
   [[nodiscard]] bool configured() const noexcept;
   [[nodiscard]] const DynamicEnvelope & envelope() const noexcept;
 

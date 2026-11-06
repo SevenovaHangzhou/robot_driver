@@ -12,33 +12,25 @@ namespace ctrl_rolling_trajectory
 
 inline constexpr std::size_t kAxisCount = 14U;
 inline constexpr std::size_t kTransportMaxPoints = 256U;
-inline constexpr std::uint16_t kProtocolMajor = 1U;
-inline constexpr std::uint16_t kProtocolMinor = 0U;
-
-using Identifier = std::array<std::uint8_t, 16>;
 
 enum class RejectCode : std::uint8_t {
-  kNone = 0U,
-  kWrongProtocol = 1U,
-  kWrongBoot = 2U,
-  kWrongSession = 3U,
-  kWrongClient = 4U,
-  kStaleSequence = 5U,
-  kInvalidShape = 6U,
-  kNonFinite = 7U,
-  kNonMonotonicTime = 8U,
-  kLateReplace = 9U,
-  kTimeGap = 10U,
-  kCapacityExceeded = 11U,
-  kInsufficientHorizon = 12U,
-  kPositionDiscontinuity = 13U,
-  kVelocityDiscontinuity = 14U,
-  kPositionLimit = 15U,
-  kVelocityLimit = 16U,
-  kAccelerationLimit = 17U,
-  kNotStoppingViable = 18U,
-  kSessionNotAccepting = 19U,
-  kHorizonExceeded = 20U
+  kNone,
+  kInvalidShape,
+  kNonFinite,
+  kNonMonotonicTime,
+  kLateReplace,
+  kTimeGap,
+  kCapacityExceeded,
+  kInsufficientHorizon,
+  kPositionDiscontinuity,
+  kVelocityDiscontinuity,
+  kPositionLimit,
+  kVelocityLimit,
+  kAccelerationLimit,
+  kNotStoppingViable,
+  kSessionNotAccepting,
+  kHorizonExceeded,
+  kFinalNotAtRest
 };
 
 struct PointView
@@ -50,24 +42,14 @@ struct PointView
   std::size_t velocity_count{0U};
 };
 
+// Epoch and sequence are checked once by the ROS callback. The core only sees trajectory data.
 struct BatchView
 {
-  std::uint16_t protocol_major{0U};
-  std::uint16_t protocol_minor{0U};
-  Identifier controller_boot_id{};
-  Identifier session_id{};
-  Identifier client_instance_id{};
-  std::uint64_t sequence{0U};
   std::uint64_t replace_from_ns{0U};
   const PointView * points{nullptr};
   std::size_t point_count{0U};
-};
-
-struct SessionIdentity
-{
-  Identifier controller_boot_id{};
-  Identifier session_id{};
-  Identifier client_instance_id{};
+  // Last batch of the trajectory: it must end at rest.
+  bool final{false};
 };
 
 enum class SessionState : std::uint8_t {
@@ -80,20 +62,14 @@ enum class SessionState : std::uint8_t {
 };
 
 enum class StopReason : std::uint8_t {
-  kNone = 0U,
-  kGracefulClose = 1U,
-  kPrimeTimeout = 2U,
-  kUpdateTimeout = 3U,
-  kLowWater = 4U,
-  kClockAnomaly = 5U,
-  kInternalInvariant = 6U,
-  kControllerDeactivated = 7U,
-  kDisable = 8U,
-  kGroupFault = 9U,
-  kControllerRestart = 10U
+  kNone,
+  kUpdateTimeout,
+  kLowWater,
+  kClockAnomaly,
+  kInternalInvariant,
+  kControllerDeactivated,
+  kCompleted
 };
-
-enum class TrajectoryPointRole : std::uint8_t { kNormal = 0U, kSpliceLeft = 1U, kSpliceRight = 2U };
 
 struct JointPoint
 {
@@ -105,39 +81,26 @@ struct JointPoint
 struct TrajectoryImage
 {
   std::array<JointPoint, kTransportMaxPoints> points{};
-  std::array<TrajectoryPointRole, kTransportMaxPoints> roles{};
   std::size_t point_count{0U};
   std::uint64_t generation{0U};
+  // Earliest replacement not yet observed by the realtime consumer.
   std::uint64_t earliest_changed_ns{0U};
+  // Ends at rest and needs no further batch: run to the last point, then hold.
+  bool final{false};
 };
 
-[[nodiscard]] inline constexpr std::size_t effectiveTrajectoryCopyBytes(
-  std::size_t point_count) noexcept
-{
-  return point_count > kTransportMaxPoints
-           ? 0U
-           : point_count * (sizeof(JointPoint) + sizeof(TrajectoryPointRole)) +
-               sizeof(std::size_t) + 2U * sizeof(std::uint64_t);
-}
-
-inline bool copyTrajectoryImageEffective(
+inline void copyTrajectoryImageEffective(
   const TrajectoryImage & source, TrajectoryImage & destination) noexcept
 {
-  if (source.point_count > kTransportMaxPoints) {
-    return false;
-  }
   std::copy_n(source.points.begin(), source.point_count, destination.points.begin());
-  std::copy_n(source.roles.begin(), source.point_count, destination.roles.begin());
   destination.generation = source.generation;
   destination.earliest_changed_ns = source.earliest_changed_ns;
+  destination.final = source.final;
   destination.point_count = source.point_count;
-  return true;
 }
 
 static_assert(std::is_trivially_copyable_v<JointPoint>);
 static_assert(std::is_trivially_copyable_v<TrajectoryImage>);
-static_assert(sizeof(JointPoint) == sizeof(std::uint64_t) + 2U * kAxisCount * sizeof(double));
-static_assert(effectiveTrajectoryCopyBytes(64U) <= 15U * 1024U);
 
 }  // namespace ctrl_rolling_trajectory
 

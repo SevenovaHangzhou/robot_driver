@@ -17,15 +17,6 @@ namespace ctrl_rolling_trajectory
 namespace
 {
 
-std::uint64_t splitMix64(std::uint64_t & state) noexcept
-{
-  state += 0x9e3779b97f4a7c15ULL;
-  std::uint64_t value = state;
-  value = (value ^ (value >> 30U)) * 0xbf58476d1ce4e5b9ULL;
-  value = (value ^ (value >> 27U)) * 0x94d049bb133111ebULL;
-  return value ^ (value >> 31U);
-}
-
 class OptionalRtFlagGuard
 {
 public:
@@ -143,40 +134,23 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
 
   {
     std::lock_guard<std::mutex> lock(callback_mutex_);
-    if (buffer_.sessionState() == SessionState::kTerminated && !buffer_.resetTerminated()) {
-      return controller_interface::CallbackReturn::ERROR;
-    }
-    if (buffer_.sessionState() != SessionState::kNone) {
-      RCLCPP_ERROR(get_node()->get_logger(), "Rolling session still exists during activation");
-      return controller_interface::CallbackReturn::ERROR;
-    }
-    controller_boot_id_ = generateIdentifier();
-    open_cache_ = OpenCacheEntry{};
-    clearActiveCloseCache();
-    finalize_cache_ = CloseCacheEntry{};
-    last_reject_code_ = RejectCode::kNone;
-    last_rejected_sequence_ = 0U;
-    accepted_count_ = 0U;
-    rejected_count_ = 0U;
-    superseded_pending_count_ = 0U;
-    timeout_count_.store(0U, std::memory_order_release);
-    invariant_failure_count_.store(0U, std::memory_order_release);
-    last_service_error_ = ServiceResultMessage::NONE;
-    state_sequence_ = 0U;
+    buffer_.clear();
+    ++activation_epoch_;
+    epoch_sequence_ = 0U;
+    last_sequence_ = 0U;
+    last_result_ = StateMessage::ACCEPTED;
+    previous_stop_reason_ = StateMessage::STOP_NONE;
+    session_origin_ns_ = 0;
     stop_requested_.store(false, std::memory_order_release);
   }
 
-  hold_positions_ = source_commands;
-  rt_active_trajectory_ = TrajectoryImage{};
+  rt_active_trajectory_ = nullptr;
   rt_sampling_cursor_.reset();
-  rt_identity_ = SessionIdentity{};
   rt_desired_ = JointPoint{};
   rt_desired_.positions = source_commands;
   rt_desired_.velocities.fill(0.0);
   rt_stop_trajectory_ = StopTrajectory{};
-  if (!rt_stop_trajectory_.configure(
-        envelope_, envelope_.source == LimitsSource::kTestOnly,
-        envelope_.source == LimitsSource::kProvisional)) {
+  if (!rt_stop_trajectory_.configure(envelope_)) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to reset rolling stop trajectory");
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -184,24 +158,19 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   rt_publication_floor_ = 1U;
   rt_consumed_publication_sequence_ = 0U;
   rt_last_accepted_arrival_ns_ = 0U;
-  rt_accepted_arrival_time_ns_.store(0U, std::memory_order_release);
   rt_stop_elapsed_ns_ = 0U;
   rt_session_state_.store(
     static_cast<std::uint8_t>(SessionState::kNone), std::memory_order_release);
   stop_reason_.store(static_cast<std::uint8_t>(StopReason::kNone), std::memory_order_release);
-  rt_invariant_stage_.store(
-    static_cast<std::uint8_t>(RtInvariantStage::kNone), std::memory_order_release);
   execution_time_ns_.store(0U, std::memory_order_release);
   active_generation_.store(0U, std::memory_order_release);
   buffered_until_ns_.store(0U, std::memory_order_release);
   replaceable_from_ns_.store(0U, std::memory_order_release);
-  prime_start_time_ns_.store(0U, std::memory_order_release);
+  prime_start_ns_.store(0, std::memory_order_release);
   session_epoch_.store(0U, std::memory_order_release);
   session_publication_floor_.store(1U, std::memory_order_release);
   rt_state_version_.store(0U, std::memory_order_release);
   rt_state_session_epoch_.store(0U, std::memory_order_release);
-  rt_accepted_arrival_time_ns_.store(0U, std::memory_order_release);
-  has_accepted_update_.store(false, std::memory_order_release);
   initial_handoff_gate_.clear(std::memory_order_release);
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     observed_positions_[axis].store(actual_positions[axis], std::memory_order_release);
@@ -220,25 +189,14 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_deactivate(
   {
     std::lock_guard<std::mutex> lock(callback_mutex_);
     active_.store(false, std::memory_order_release);
-    buffer_.terminateSession();
-    controller_boot_id_ = Identifier{};
-    open_cache_ = OpenCacheEntry{};
-    clearActiveCloseCache();
-    finalize_cache_ = CloseCacheEntry{};
-    last_mode_result_ = ModeResultMessage{};
-    last_mode_result_sequence_ = 0U;
+    buffer_.clear();
     stop_requested_.store(false, std::memory_order_release);
     stop_reason_.store(
       static_cast<std::uint8_t>(StopReason::kControllerDeactivated), std::memory_order_release);
     rt_session_state_.store(
       static_cast<std::uint8_t>(SessionState::kTerminated), std::memory_order_release);
-    has_accepted_update_.store(false, std::memory_order_release);
     const std::uint64_t new_epoch = session_epoch_.fetch_add(1U, std::memory_order_acq_rel) + 1U;
     rt_state_session_epoch_.store(new_epoch, std::memory_order_release);
-    rt_accepted_arrival_time_ns_.store(0U, std::memory_order_release);
-    const SessionIdentity invalid_identity{};
-    const TrajectoryImage invalid_trajectory{};
-    (void)snapshot_exchange_.publish(invalid_identity, invalid_trajectory, steadyNowNs());
   }
   (void)publishPublicState();
   state_publisher_->on_deactivate();
@@ -246,7 +204,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_deactivate(
 }
 
 controller_interface::return_type RollingTrajectoryController::update(
-  const rclcpp::Time &, const rclcpp::Duration & period)
+  const rclcpp::Time & time, const rclcpp::Duration & period)
 {
   if (!active_.load(std::memory_order_acquire)) {
     return controller_interface::return_type::OK;
@@ -283,16 +241,9 @@ controller_interface::return_type RollingTrajectoryController::update(
   bool update_succeeded = true;
   if (state == SessionState::kPriming) {
     if (stop_requested_.load(std::memory_order_acquire)) {
-      StopReason reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
-      if (reason == StopReason::kNone) {
-        reason = StopReason::kGracefulClose;
-      }
-      update_succeeded = beginRtStop(reason);
-    } else if (elapsedExceeds(
-                 steadyNowNs(), prime_start_time_ns_.load(std::memory_order_acquire),
-                 runtime_configuration_.prime_timeout_ns)) {
-      update_succeeded = beginRtStop(StopReason::kPrimeTimeout);
-    } else {
+      update_succeeded = beginRtStop(StopReason::kInternalInvariant);
+    } else if (time.nanoseconds() >= prime_start_ns_.load(std::memory_order_acquire)) {
+      // The first batch starts at its replace_from; until then the arms hold.
       OptionalRtFlagGuard handoff(initial_handoff_gate_, true);
       if (handoff.mayProceed()) {
         const SnapshotConsumeResult consumed = consumeLatestRtTrajectory(true);
@@ -303,11 +254,7 @@ controller_interface::return_type RollingTrajectoryController::update(
     }
   } else if (state == SessionState::kRunning) {
     if (stop_requested_.load(std::memory_order_acquire)) {
-      StopReason reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
-      if (reason == StopReason::kNone) {
-        reason = StopReason::kGracefulClose;
-      }
-      update_succeeded = beginRtStop(reason);
+      update_succeeded = beginRtStop(StopReason::kInternalInvariant);
     } else {
       const bool initial_handoff = execution_time_ns_.load(std::memory_order_relaxed) == 0U;
       OptionalRtFlagGuard handoff(initial_handoff_gate_, initial_handoff);
@@ -319,6 +266,12 @@ controller_interface::return_type RollingTrajectoryController::update(
           update_succeeded = beginRtStop(StopReason::kInternalInvariant);
         } else if (!validPeriod(period_ns)) {
           update_succeeded = beginRtStop(StopReason::kClockAnomaly);
+        } else if (rt_active_trajectory_->final) {
+          // Ends at rest and was checked to be stoppable throughout: no update is awaited.
+          update_succeeded = advanceRtFinal(period_ns);
+          if (!update_succeeded) {
+            update_succeeded = beginRtStop(StopReason::kInternalInvariant);
+          }
         } else if (elapsedExceeds(
                      steadyNowNs(), rt_last_accepted_arrival_ns_,
                      runtime_configuration_.update_timeout_ns)) {
@@ -329,9 +282,6 @@ controller_interface::return_type RollingTrajectoryController::update(
           const std::uint64_t buffered_until_ns =
             buffered_until_ns_.load(std::memory_order_relaxed);
           if (!calculateStopDurationNs(rt_desired_, stop_duration_ns)) {
-            rt_invariant_stage_.store(
-              static_cast<std::uint8_t>(RtInvariantStage::kStopDuration),
-              std::memory_order_release);
             update_succeeded = beginRtStop(StopReason::kInternalInvariant);
           } else if (!hasSufficientStoppingHorizon(
                        execution_ns, buffered_until_ns, stop_duration_ns,
@@ -344,20 +294,14 @@ controller_interface::return_type RollingTrajectoryController::update(
             if (
               !addTime(execution_ns, increment_ns, next_execution_ns) ||
               !sampleTrajectoryImageMonotonic(
-                rt_active_trajectory_, next_execution_ns, rt_sampling_cursor_, candidate) ||
+                *rt_active_trajectory_, next_execution_ns, rt_sampling_cursor_, candidate) ||
               !desiredIsValid(candidate)) {
-              rt_invariant_stage_.store(
-                static_cast<std::uint8_t>(RtInvariantStage::kTrajectorySample),
-                std::memory_order_release);
               update_succeeded = beginRtStop(StopReason::kInternalInvariant);
             } else {
               rt_desired_ = candidate;
               execution_time_ns_.store(next_execution_ns, std::memory_order_release);
               update_succeeded = updateRtReplaceableBoundary();
               if (!update_succeeded) {
-                rt_invariant_stage_.store(
-                  static_cast<std::uint8_t>(RtInvariantStage::kReplaceableBoundary),
-                  std::memory_order_release);
                 update_succeeded = beginRtStop(StopReason::kInternalInvariant);
               }
             }
@@ -377,37 +321,11 @@ controller_interface::return_type RollingTrajectoryController::update(
   return controller_interface::return_type::OK;
 }
 
-Identifier RollingTrajectoryController::generateIdentifier() noexcept
-{
-  static std::atomic<std::uint64_t> counter{0U};
-  const auto system_ticks = std::chrono::system_clock::now().time_since_epoch().count();
-  const auto steady_ticks = std::chrono::steady_clock::now().time_since_epoch().count();
-  std::uint64_t state = static_cast<std::uint64_t>(system_ticks) ^
-                        (static_cast<std::uint64_t>(steady_ticks) << 1U) ^
-                        counter.fetch_add(1U, std::memory_order_relaxed);
-  Identifier identifier{};
-  for (std::size_t word_index = 0U; word_index < 2U; ++word_index) {
-    const std::uint64_t word = splitMix64(state);
-    for (std::size_t byte = 0U; byte < sizeof(word); ++byte) {
-      identifier[word_index * sizeof(word) + byte] = static_cast<std::uint8_t>(word >> (byte * 8U));
-    }
-  }
-  identifier[6] = static_cast<std::uint8_t>((identifier[6] & 0x0fU) | 0x40U);
-  identifier[8] = static_cast<std::uint8_t>((identifier[8] & 0x3fU) | 0x80U);
-  return identifier;
-}
-
 std::uint64_t RollingTrajectoryController::steadyNowNs() noexcept
 {
   const auto elapsed = std::chrono::steady_clock::now().time_since_epoch();
   const auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
   return nanoseconds < 0 ? 0U : static_cast<std::uint64_t>(nanoseconds);
-}
-
-bool RollingTrajectoryController::isZeroIdentifier(const Identifier & identifier) noexcept
-{
-  return std::all_of(
-    identifier.begin(), identifier.end(), [](std::uint8_t value) { return value == 0U; });
 }
 
 bool RollingTrajectoryController::elapsedExceeds(
@@ -450,29 +368,22 @@ bool RollingTrajectoryController::resetRtEpoch(std::uint64_t epoch) noexcept
   }
 
   StopTrajectory stop_trajectory;
-  if (!stop_trajectory.configure(
-        envelope_, envelope_.source == LimitsSource::kTestOnly,
-        envelope_.source == LimitsSource::kProvisional)) {
+  if (!stop_trajectory.configure(envelope_)) {
     return false;
   }
 
-  rt_active_trajectory_ = TrajectoryImage{};
+  rt_active_trajectory_ = nullptr;
   rt_sampling_cursor_.reset();
-  rt_identity_ = SessionIdentity{};
   rt_desired_ = hold;
   rt_stop_trajectory_ = stop_trajectory;
   rt_publication_floor_ = publication_floor;
   rt_consumed_publication_sequence_ = publication_floor - 1U;
   rt_last_accepted_arrival_ns_ = 0U;
-  rt_accepted_arrival_time_ns_.store(0U, std::memory_order_release);
   rt_stop_elapsed_ns_ = 0U;
-  rt_invariant_stage_.store(
-    static_cast<std::uint8_t>(RtInvariantStage::kNone), std::memory_order_release);
   execution_time_ns_.store(0U, std::memory_order_release);
   active_generation_.store(0U, std::memory_order_release);
   buffered_until_ns_.store(0U, std::memory_order_release);
   replaceable_from_ns_.store(0U, std::memory_order_release);
-  has_accepted_update_.store(false, std::memory_order_release);
   rt_observed_session_epoch_ = epoch;
   return true;
 }
@@ -480,11 +391,11 @@ bool RollingTrajectoryController::resetRtEpoch(std::uint64_t epoch) noexcept
 RollingTrajectoryController::SnapshotConsumeResult
 RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
 {
-  SnapshotLease lease;
-  if (!snapshot_exchange_.acquire(lease)) {
+  const auto * latest = snapshot_exchange_.acquire();
+  if (latest == nullptr) {
     return SnapshotConsumeResult::kNoChange;
   }
-  const RollingSnapshot & snapshot = *lease;
+  const RollingSnapshot & snapshot = *latest;
   if (
     snapshot.publication_sequence < rt_publication_floor_ ||
     snapshot.publication_sequence <= rt_consumed_publication_sequence_) {
@@ -492,48 +403,26 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
   }
 
   const TrajectoryImage & trajectory = snapshot.trajectory;
-  const std::uint64_t active_generation = active_generation_.load(std::memory_order_relaxed);
+  const auto active_generation = active_generation_.load(std::memory_order_relaxed);
   if (
-    trajectory.point_count == 0U || trajectory.point_count > kTransportMaxPoints ||
-    trajectory.generation == 0U || trajectory.generation <= active_generation ||
-    !trajectoryImageStructureIsValid(trajectory)) {
-    rt_invariant_stage_.store(
-      static_cast<std::uint8_t>(RtInvariantStage::kSnapshotShapeOrGeneration),
-      std::memory_order_release);
+    snapshot.session_epoch != rt_observed_session_epoch_ ||
+    trajectory.generation <= active_generation) {
     return SnapshotConsumeResult::kInvalid;
   }
-
-  const std::uint64_t execution_ns = execution_time_ns_.load(std::memory_order_relaxed);
+  const auto execution_ns = execution_time_ns_.load(std::memory_order_relaxed);
   if (priming) {
     if (execution_ns != 0U || trajectory.points[0].time_ns != 0U) {
-      rt_invariant_stage_.store(
-        static_cast<std::uint8_t>(RtInvariantStage::kSnapshotPrimingTime),
-        std::memory_order_release);
       return SnapshotConsumeResult::kInvalid;
     }
   } else {
     if (
       trajectory.points[0].time_ns > execution_ns ||
       trajectory.points[trajectory.point_count - 1U].time_ns < execution_ns) {
-      rt_invariant_stage_.store(
-        static_cast<std::uint8_t>(RtInvariantStage::kSnapshotShapeOrGeneration),
-        std::memory_order_release);
       return SnapshotConsumeResult::kInvalid;
     }
-    const std::uint64_t replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_acquire);
-    const bool safe_zero_time_handoff = execution_ns == 0U && trajectory.earliest_changed_ns == 0U;
-    if (
-      snapshot.identity.controller_boot_id != rt_identity_.controller_boot_id ||
-      snapshot.identity.session_id != rt_identity_.session_id ||
-      snapshot.identity.client_instance_id != rt_identity_.client_instance_id) {
-      rt_invariant_stage_.store(
-        static_cast<std::uint8_t>(RtInvariantStage::kSnapshotIdentity), std::memory_order_release);
-      return SnapshotConsumeResult::kInvalid;
-    }
-    if (trajectory.earliest_changed_ns < replaceable_from_ns && !safe_zero_time_handoff) {
-      rt_invariant_stage_.store(
-        static_cast<std::uint8_t>(RtInvariantStage::kSnapshotLateBoundary),
-        std::memory_order_release);
+    const auto boundary = replaceable_from_ns_.load(std::memory_order_acquire);
+    const bool initial_handoff = execution_ns == 0U && trajectory.earliest_changed_ns == 0U;
+    if (trajectory.earliest_changed_ns < boundary && !initial_handoff) {
       return SnapshotConsumeResult::kInvalid;
     }
   }
@@ -545,28 +434,18 @@ RollingTrajectoryController::consumeLatestRtTrajectory(bool priming) noexcept
     !sampleTrajectoryImageMonotonic(trajectory, execution_ns, candidate_cursor, candidate) ||
     !desiredIsValid(candidate) ||
     !addTime(execution_ns, runtime_configuration_.replace_lead_ns, replacement_boundary_ns)) {
-    rt_invariant_stage_.store(
-      static_cast<std::uint8_t>(RtInvariantStage::kSnapshotSample), std::memory_order_release);
     return SnapshotConsumeResult::kInvalid;
   }
 
-  if (!copyTrajectoryImageEffective(trajectory, rt_active_trajectory_)) {
-    rt_invariant_stage_.store(
-      static_cast<std::uint8_t>(RtInvariantStage::kSnapshotShapeOrGeneration),
-      std::memory_order_release);
-    return SnapshotConsumeResult::kInvalid;
-  }
+  rt_active_trajectory_ = &trajectory;
   rt_sampling_cursor_ = candidate_cursor;
-  rt_identity_ = snapshot.identity;
   rt_desired_ = candidate;
   rt_consumed_publication_sequence_ = snapshot.publication_sequence;
   rt_last_accepted_arrival_ns_ = snapshot.arrival_time_ns;
-  rt_accepted_arrival_time_ns_.store(snapshot.arrival_time_ns, std::memory_order_release);
   active_generation_.store(trajectory.generation, std::memory_order_release);
   buffered_until_ns_.store(
     trajectory.points[trajectory.point_count - 1U].time_ns, std::memory_order_release);
   replaceable_from_ns_.store(replacement_boundary_ns, std::memory_order_release);
-  has_accepted_update_.store(true, std::memory_order_release);
   if (priming) {
     rt_session_state_.store(
       static_cast<std::uint8_t>(SessionState::kRunning), std::memory_order_release);
@@ -586,16 +465,9 @@ bool RollingTrajectoryController::beginRtStop(StopReason reason) noexcept
   }
 
   std::uint8_t expected_reason = static_cast<std::uint8_t>(StopReason::kNone);
-  const bool reason_latched = stop_reason_.compare_exchange_strong(
+  (void)stop_reason_.compare_exchange_strong(
     expected_reason, static_cast<std::uint8_t>(reason), std::memory_order_acq_rel,
     std::memory_order_acquire);
-  if (reason_latched) {
-    if (reason == StopReason::kPrimeTimeout || reason == StopReason::kUpdateTimeout) {
-      timeout_count_.fetch_add(1U, std::memory_order_relaxed);
-    } else if (reason == StopReason::kInternalInvariant) {
-      invariant_failure_count_.fetch_add(1U, std::memory_order_relaxed);
-    }
-  }
   if (!rt_stop_trajectory_.begin(rt_desired_)) {
     return false;
   }
@@ -647,6 +519,41 @@ bool RollingTrajectoryController::advanceRtStop(std::int64_t period_ns) noexcept
   return true;
 }
 
+bool RollingTrajectoryController::advanceRtFinal(std::int64_t period_ns) noexcept
+{
+  const std::uint64_t end_ns = buffered_until_ns_.load(std::memory_order_relaxed);
+  std::uint64_t next_execution_ns = 0U;
+  if (!addTime(
+        execution_time_ns_.load(std::memory_order_relaxed), static_cast<std::uint64_t>(period_ns),
+        next_execution_ns)) {
+    return false;
+  }
+  const bool completed = next_execution_ns >= end_ns;
+  if (completed) {
+    next_execution_ns = end_ns;
+  }
+  JointPoint candidate;
+  if (
+    !sampleTrajectoryImageMonotonic(
+      *rt_active_trajectory_, next_execution_ns, rt_sampling_cursor_, candidate) ||
+    !desiredIsValid(candidate)) {
+    return false;
+  }
+  rt_desired_ = candidate;
+  execution_time_ns_.store(next_execution_ns, std::memory_order_release);
+  if (!completed) {
+    return updateRtReplaceableBoundary();
+  }
+  // The last point is at rest (checked on admission): hold it without a stop trajectory.
+  std::uint8_t expected_reason = static_cast<std::uint8_t>(StopReason::kNone);
+  (void)stop_reason_.compare_exchange_strong(
+    expected_reason, static_cast<std::uint8_t>(StopReason::kCompleted), std::memory_order_acq_rel,
+    std::memory_order_acquire);
+  rt_session_state_.store(
+    static_cast<std::uint8_t>(SessionState::kHolding), std::memory_order_release);
+  return true;
+}
+
 bool RollingTrajectoryController::updateRtReplaceableBoundary() noexcept
 {
   std::uint64_t boundary_ns = 0U;
@@ -670,7 +577,6 @@ bool RollingTrajectoryController::writeRtDesired() noexcept
     desired_velocities_[axis].store(rt_desired_.velocities[axis], std::memory_order_release);
   }
   rt_state_session_epoch_.store(rt_observed_session_epoch_, std::memory_order_release);
-  rt_accepted_arrival_time_ns_.store(rt_last_accepted_arrival_ns_, std::memory_order_release);
   return true;
 }
 

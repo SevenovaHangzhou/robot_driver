@@ -265,3 +265,6 @@
 - 2026-10-24：机械臂 18121 操作台增加真空泵及左右阀三个手动开关，复用现场 vacuum 脚本；本地/工控机各 105 tests 和浏览器模拟六次开关通过，真实网页只读三路均 OFF，仅重启空闲 Web，未使能/运动/写输出。见[记录](docs/areas/control/records/2026-10-24-vacuum-web-controls.md)（PARTIAL，T2；实机开关待验）。
 
 | 2026-10-27 | arm-control | [操作台双路真空表压](docs/areas/control/records/2026-10-27-vacuum-pressure-display.md) | PASS（T2）：右上角显示左右压力 ROS 换算值；107 项包测试、构建、质量门禁和真实页面只读验收通过，未写设备 |
+| 2026-11-05 | control | [使能中拔 EtherCAT 网线](docs/areas/control/records/2026-11-05-enabled-unplug-bench.md) | PASS（T3）：1 s 内急停失能并锁存重启；网线恢复后复位被拒，重启 + 一次复位回到空闲；只断头部电源未做 |
+| 2026-11-06 | control | [Rolling 停流后再次启动与双臂逐关节](docs/areas/control/records/2026-11-06-rolling-restart-bench.md) | PARTIAL（T4）：双臂 14 关节 Rolling ±2° 往返全通过（含右 J7 停流后再启动），未观察到拒绝，结束已失能；运动中断流与头部用例待测 |
+| 2026-11-06 | control | [Rolling final 正常收尾与断流停止](docs/areas/control/records/2026-11-06-rolling-final-bench.md) | PARTIAL（T4）：4 关节 final 收尾 5/5 报 STOP_COMPLETED，3 s 断流报 STOP_UPDATE_TIMEOUT；左 J4 有 2 批 NOT_ACCEPTING（独立问题，待查）；结束已失能 |

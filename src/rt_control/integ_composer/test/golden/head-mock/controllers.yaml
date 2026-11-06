@@ -32,7 +32,8 @@ enable_manager:
     - H2_joint/feedback_age_ms
     handshake_devices:
     - damiao_head_control
-    jtc_name: head_position_controller
+    motion_controller: head_position_controller
+    rolling_controller: ''
 head_position_controller:
   ros__parameters:
     interface_name: position
