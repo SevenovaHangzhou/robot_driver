@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Repository-wide architecture and file-hygiene gate.
+"""Repository-wide file-hygiene and policy gate.
 
 The same executable is used by local pre-commit hooks and CI.  Checks are
 deliberately deterministic and do not access hardware or the network.
+Architecture rules (layers, ownership, names) belong to tools/arch_check.py.
 """
 
 from __future__ import annotations
@@ -17,17 +18,17 @@ from typing import Sequence
 
 import yaml
 
-if __package__:
-    from . import rt_control_layer_gate
-else:
-    import rt_control_layer_gate
-
-
 def domain_packages(repository_root: Path) -> set[str]:
-    """Include integ_composer and hwcfg_machines once registered."""
-    texts = {p.relative_to(repository_root).as_posix(): p.read_text(encoding="utf-8")
-             for p in repository_root.glob("src/rt_control/*/package.xml")}
-    return set(rt_control_layer_gate.package_inventory(texts).values())
+    """Package names declared under src/rt_control."""
+    names = set()
+    for path in repository_root.glob("src/rt_control/*/package.xml"):
+        try:
+            name = ET.fromstring(path.read_text(encoding="utf-8")).findtext("name", "").strip()
+        except ET.ParseError:
+            continue  # reported by the XML syntax check
+        if name:
+            names.add(name)
+    return names
 
 
 DOMAIN_PACKAGES = domain_packages(Path(__file__).resolve().parents[1])
@@ -541,6 +542,22 @@ def check_precommit_policy(config_text: str) -> list[str]:
     return findings
 
 
+def check_release_policy(texts: dict[str, str]) -> list[str]:
+    findings = []
+    for path, text in texts.items():
+        if (
+            path.startswith(("docker/", ".github/workflows/"))
+            or path == "tools/bootstrap_native_dev.sh"
+        ):
+            if re.search(r"(?<![\w.-])python3-jsonschema\s*=", text):
+                findings.append(f"{path}: R10 python3-jsonschema must not pin an apt version")
+    owners = texts.get(".github/CODEOWNERS", "")
+    pattern = "/src/rt_control/hwcfg_machines/**/safety_policy.yaml"
+    if not any(line.split() == [pattern, "kkozia188@gmail.com"] for line in owners.splitlines()):
+        findings.append(".github/CODEOWNERS: R9 safety policy requires the designated human owner")
+    return findings
+
+
 def _repository_files(repository_root: Path) -> list[str]:
     result = subprocess.run(
         [
@@ -679,8 +696,7 @@ def collect_findings(repository_root: Path) -> list[str]:
         )
     if ".pre-commit-config.yaml" in texts:
         findings.extend(check_precommit_policy(texts[".pre-commit-config.yaml"]))
-    findings.extend(rt_control_layer_gate.check_layers(texts))
-    findings.extend(rt_control_layer_gate.check_release_policy(texts))
+    findings.extend(check_release_policy(texts))
     return sorted(set(findings))
 
 
@@ -707,7 +723,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for finding in findings:
             print(f"- {finding}", file=sys.stderr)
         return 1
-    print("PASS: repository architecture and file-hygiene gate")
+    print("PASS: repository file-hygiene and policy gate")
     return 0
 
 

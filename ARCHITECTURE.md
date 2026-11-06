@@ -51,17 +51,15 @@ integration（composer、bringup、适配层、诊断、操作面）
 ```
 
 - 下层不得依赖上层；`infra` 不依赖任何域包、不含 ROS 节点、不含策略、不含机型。
-- control 只经 `hw_semantic_components` 依赖 protocol：该包定义硬件层与控制器共用的状态/命令接口语义（CiA402 状态字、握手式使能阶段、力传感器），控制器不直接依赖具体协议包（`tools/rt_control_layer_gate.py` R2 已执行）。
+- control 只经 `hw_semantic_components` 依赖 protocol：该包定义硬件层与控制器共用的状态/命令接口语义（CiA402 状态字、握手式使能阶段、力传感器），控制器不直接依赖具体协议包（`arch_check` LAYER-2）。
 - 测试与 golden 生成脚本同样遵守方向。
 - 包名用统一前缀表达所属层，看名字即知层，门禁按前缀检查：`infra_`、`hwcfg_`、`hw_`、`ctrl_`、`periph_`（独立外设节点，不与 protocol/control 互相依赖）、`integ_`。包与层的对照见域 [`README.md`](domains/rt_control/README.md)。
 
 ### 1.4 死活分明
 
-每个包、每个配置文件、每个 launch 入口必须声明状态：`production | draft | retired`。
-
-- `retired`：删除，或移入 `legacy/` 并从构建、测试、门禁中摘除。不允许靠 SHA 冻结 + 测试引用把死代码留在树里。
-- `draft`：不得被 `production` 入口引用。
-- 文档同理：自称"历史"的文档不得作为推荐入口。
+- 不再使用的包、配置、launch 入口和文档直接删除；不靠 SHA 冻结或测试引用把死代码留在树里，不设 `legacy/`。
+- manifest 中模块、物理配置与作用域的 `status`（`draft`/`ready`/`absent`）表示事实的成熟度，由 composer 校验；定义不完整的作用域不放进 manifest（用户 2026-11-06：不再给每个包、配置、入口逐个标注状态）。
+- 自称"历史"的文档不得作为推荐入口。
 
 ### 1.5 改动可局部验证
 
@@ -73,23 +71,24 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 ## 2. 改动类型对照表与验证命令
 
-验证入口为 `tools/arch_check.py`（待实现），子命令与输出约定见 [`tools/README.md`](tools/README.md#arch_check-设计待实现)。
+架构规则由 `tools/arch_check.py` 执行（秒级、全仓），规则表与输出约定见 [`tools/README.md`](tools/README.md#arch_check)。
 
 ### 2.1 改动类型对照表
 
 | 改什么 | 唯一位置 | 改完跑 |
 | --- | --- | --- |
-| 新增/修改一个设备型号 | `hwcfg_machines/devices/<device>.yaml` | `arch_check facts device <id>` + `arch_check compose …` |
-| 新增/修改一个模块（轴组、传感器） | `hwcfg_machines/machines/<variant>/<module>.yaml` + manifest 索引 | `arch_check facts module <name>` + `arch_check compose …` |
-| 修改台套零位/标定 | `hwcfg_machines/units/<unit>/` | `arch_check compose …` |
-| 修改使能批次/策略 | 策略拥有者 `config/`（无机型名） | `arch_check names` + `arch_check compose …` |
-| 新增一种总线/协议 | `hw_<bus>` 新包 + renderer 注册 | `arch_check layers` + `arch_check status` |
-| 新增一个控制器 | `ctrl_<name>` 新包 + `controllers.yaml` 数据条目 | `arch_check layers` + `arch_check refs` |
-| 新增一个外设节点 | `periph_<name>` 新包 | `arch_check layers` + `arch_check duplicates` |
-| 新增一个启动模式 | manifest `scopes`（不新增 launch 文件） | `arch_check compose …` |
-| 抽一个共享库 | `infra_<name>` 新包，进库条件见 §3 | `arch_check layers` + `arch_check duplicates` |
+| 新增/修改一个设备型号 | `hwcfg_machines/devices/<device>.yaml` | `arch_check` + `integ_composer` 测试 |
+| 新增/修改一个模块（轴组、传感器） | `hwcfg_machines/machines/<variant>/<module>.yaml` + manifest 索引 | `arch_check` + `integ_composer` 测试 |
+| 修改台套零位/标定 | `hwcfg_machines/units/<unit>/` | 对该台套 `compose_artifact` 并检查输出 |
+| 修改使能批次/策略 | 策略拥有者 `config/`（无机型名） | `arch_check` + `integ_composer`、`ctrl_enable_manager` 测试 |
+| 新增一种总线/协议 | `hw_<bus>` 新包 + renderer 注册 | `arch_check` + 该包测试 |
+| 新增一个控制器 | `ctrl_<name>` 新包 + `controllers.yaml` 数据条目 | `arch_check` + 该包与 `integ_composer` 测试 |
+| 新增一个外设节点 | `periph_<name>` 新包 | `arch_check` + 该包测试 |
+| 新增一个启动模式 | manifest `scopes`（不新增 launch 文件） | `arch_check` + `integ_composer` 测试 |
+| 抽一个共享库 | `infra_<name>` 新包，进库条件见 §3 | `arch_check` + 调用方测试 |
 | 修改公共契约 | `robot_interfaces` 仓库 → `deps.repos` pin | 既有流程 |
-| 任何改动提交前 | — | `arch_check all` + `run_scoped_tests.sh` |
+| 结构变更（不改行为） | — | 改前改后 artifact 逐字节一致（§7） |
+| 任何改动提交前 | — | `tools/quality_gate.sh` + `run_scoped_tests.sh` |
 
 表里没有的改动类型，先补表再动手。
 
@@ -97,12 +96,11 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 | 指标 | 值 | 执行方式 |
 | --- | --- | --- |
-| 单文件上限 | C++ ≤ 1000 行、Python ≤ 600 行、YAML ≤ 400 行 | 门禁；存量超限已消化。唯一例外：`ctrl_enable_manager` 的实时使能状态机主文件（用户 2026-11-03 接受：状态机不拆，非实时部分移到同包独立文件后主文件仍可超限；使能流程不再扩展） |
-| 复用三级 | 上游 → infra → 自写；第二份拷贝即抽取 | 人工审查 + 门禁查重复实现清单 |
+| 单文件上限 | C++ ≤ 1000 行、Python ≤ 600 行、YAML ≤ 400 行 | `arch_check` SIZE（启用前先拆存量 3 个超限文件）。唯一例外：`ctrl_enable_manager` 的实时使能状态机主文件（用户 2026-11-03 接受：状态机不拆，非实时部分移到同包独立文件后主文件仍可超限；使能流程不再扩展） |
+| 复用三级 | 上游 → infra → 自写；第二份拷贝即抽取 | 人工审查 + `arch_check` DUP（待启用：已抽取的实现不得再抄） |
 | infra 进库条件 | ≥ 2 个现有调用方；或是与仓库外程序共享的二进制/内存布局约定（如 Runtime-LOG 共享内存环），此时本仓库调用方可只有 1 个 | 人工审查 |
-| 状态标记 | 每包/配置/入口必须有 `status` | 门禁 |
-| 跨包引用 | 只允许 §1.2 四种 | 门禁（扩展现有 layer gate） |
-| 机型名出现位置 | 仅 `machine_config` 与 `units` | 门禁（现有 PRODUCT_NAMES 规则扩到全层） |
+| 跨包引用 | 只允许 §1.2 四种 | `arch_check` LAYER-2 检查依赖方向；四种方式之外的跨越靠人工审查 |
+| 机型名出现位置 | 仅 `hwcfg_machines`（含 `units`） | `arch_check` NAME（组合器已执行，全层待启用） |
 
 ## 4. 编码与测试原则
 

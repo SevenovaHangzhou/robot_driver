@@ -8,10 +8,8 @@ import unittest
 from pathlib import Path
 
 import pytest
-import yaml
 
 from tools import repository_gate
-from tools import rt_control_layer_gate as layer_gate
 
 
 class RepositoryGateTest(unittest.TestCase):
@@ -543,8 +541,6 @@ vendored_packages:
 """,
             "tools/example.py": "print('ok')\n",
         }
-        files["tools/rt_control_layers.yaml"] = yaml.safe_dump({
-            "layers": {name: [] for name in layer_gate.LAYERS}, "baseline_violations": []})
         files[".github/CODEOWNERS"] = (
             "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n")
         for relative_path, content in files.items():
@@ -618,98 +614,6 @@ if __name__ == "__main__":
     unittest.main()
 
 
-def layer_fixture():
-    layers = {
-        "infra": ["ring"],
-        "hw_config": ["hwcfg_machines"],
-        "integration": ["integ_composer"],
-        "protocol": ["bus", "hw_semantic_components"],
-        "control": ["motor"],
-        "periph": ["periph_bms"],
-    }
-    texts = {layer_gate.CONFIG: yaml.safe_dump(
-        {"layers": layers, "baseline_violations": [], "listen_only_peripherals": ["periph_bms"]}
-    )}
-    for packages in layers.values():
-        for package in packages:
-            texts[f"src/rt_control/{package}/package.xml"] = f"<package><name>{package}</name></package>"
-    return texts
-
-
-@pytest.mark.parametrize("rule,path,accepted,rejected", [
-    ("R1", "new_package/package.xml", "", "<package><name>new_package</name></package>"),
-    ("R2", "motor/src/node.cpp", '#include "hw_semantic_components/a.hpp"',
-     '#include "bus/a.hpp"'),
-    ("R3", "bus/package.xml", "<package><name>bus</name></package>",
-     "<package><name>bus</name><test_depend>motor</test_depend></package>"),
-    ("R2", "motor/tool.py", "from hw_semantic_components import status", "import bus"),
-    ("R2", "motor/CMakeLists.txt", "find_package(hw_semantic_components REQUIRED)", "find_package(bus REQUIRED)"),
-    ("R3", "bus/tool.py", "import hw_semantic_components", "from motor import policy"),
-    ("R3", "bus/CMakeLists.txt", "find_package(hw_semantic_components REQUIRED)", "find_package(motor REQUIRED)"),
-    ("R4", "motor/package.xml",
-     "<package><name>motor</name><exec_depend>hwcfg_machines</exec_depend></package>",
-     "<package><name>motor</name><depend>hwcfg_machines</depend></package>"),
-    ("R5", "integ_composer/integ_composer/compose.py", 'name = "synthetic"',
-     'name = "AlFa_V3"'),
-    ("R6", "integ_composer/integ_composer/compose.py", 'cfg = {"update_rate": rate}',
-     'cfg = {"update_rate": 1000}'),
-    ("R7", "bus/rt_control_renderer.py", 'path = "devices/motor.yaml"',
-     'path = "evidence/observation.yaml"'),
-    ("R8", "periph_bms/include/periph_bms/protocol/decoder.hpp", "#include <cstdint>",
-     "#include <std_msgs/msg/header.hpp>"),
-    ("R11", "ring/include/ring/ring.hpp", "#include <cstdint>", '#include "hw_semantic_components/a.hpp"'),
-    ("R12", "periph_bms/package.xml", "<package><name>periph_bms</name><depend>ring</depend></package>",
-     "<package><name>periph_bms</name><depend>motor</depend></package>"),
-    ("R12", "motor/src/node.cpp", '#include "hw_semantic_components/a.hpp"',
-     '#include "periph_bms/a.hpp"'),
-    ("R11", "ring/package.xml", "<package><name>ring</name></package>",
-     "<package><name>ring</name><depend>motor</depend></package>"),
-    ("R13", "periph_bms/src/node.cpp", "const auto bytes = ::read(fd, &frame, sizeof(frame));",
-     "const auto bytes = ::write(fd, &frame, sizeof(frame));"),
-])
-def test_layer_rules_accept_valid_input_and_reject_new_violations(rule, path, accepted, rejected):
-    texts = layer_fixture()
-    path = "src/rt_control/" + path
-    if accepted:
-        texts[path] = accepted
-    assert layer_gate.check_layers(texts) == []
-    texts[path] = rejected
-    findings = layer_gate.check_layers(texts)
-    assert any(rule in finding for finding in findings), findings
-
-
-def test_approved_frequency_scope_exclusion_requires_the_asset():
-    texts = layer_fixture()
-    path = "src/rt_control/bus/urdf/frozen.xacro"
-    original = '<param name="control_frequency">1000</param>'
-    texts[path] = original
-    policy = yaml.safe_load(texts[layer_gate.CONFIG])
-    policy["frequency_scope_exclusions"] = [
-        {"file": path, "reason": "Synthetic approved frozen asset"}
-    ]
-    texts[layer_gate.CONFIG] = yaml.safe_dump(policy)
-    assert layer_gate.check_layers(texts) == []
-    del texts[path]
-    findings = layer_gate.check_layers(texts)
-    assert any("frozen asset is missing" in item for item in findings)
-
-
-def test_baseline_only_allows_the_recorded_occurrence():
-    texts = layer_fixture()
-    path = "src/rt_control/motor/src/node.cpp"
-    snippet = '#include "bus/a.hpp"'
-    texts[path] = snippet
-    policy = yaml.safe_load(texts[layer_gate.CONFIG])
-    policy["baseline_violations"] = [{
-        "rule": "R2", "source_package": "motor", "target_package": "bus",
-        "dependency_type": "#include", "file": path, "line": 1, "text": snippet, "expires": "M3d",
-    }]
-    texts[layer_gate.CONFIG] = yaml.safe_dump(policy)
-    assert layer_gate.check_layers(texts) == []
-    texts[path] += "\n" + snippet
-    assert any("R2" in finding for finding in layer_gate.check_layers(texts))
-
-
 @pytest.mark.parametrize("rule,path,accepted,rejected", [
     ("R9", ".github/CODEOWNERS",
      "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n", ""),
@@ -721,6 +625,6 @@ def test_release_rules_accept_valid_input_and_reject_violations(rule, path, acce
     texts = {".github/CODEOWNERS": (
         "/src/rt_control/hwcfg_machines/**/safety_policy.yaml kkozia188@gmail.com\n")}
     texts[path] = accepted
-    assert layer_gate.check_release_policy(texts) == []
+    assert repository_gate.check_release_policy(texts) == []
     texts[path] = rejected
-    assert any(rule in finding for finding in layer_gate.check_release_policy(texts))
+    assert any(rule in finding for finding in repository_gate.check_release_policy(texts))
