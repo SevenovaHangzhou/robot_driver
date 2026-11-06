@@ -56,7 +56,7 @@ def describe_fault(device, tables, code):
     ], f"{hex_code} {fault['message']}（{table['vendor']} 手册 p{fault['page']}）"
 
 
-# Bit-table devices (Kinco FD) read error words; the state role names the object.
+# Devices with a bit-table fault table read error words; the state role names the object.
 ERROR_WORDS = {"error_word_1": "0x2601", "error_word_2": "0x2602"}
 
 
