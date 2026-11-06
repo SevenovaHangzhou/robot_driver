@@ -266,3 +266,4 @@
 
 | 2026-10-27 | arm-control | [操作台双路真空表压](docs/areas/control/records/2026-10-27-vacuum-pressure-display.md) | PASS（T2）：右上角显示左右压力 ROS 换算值；107 项包测试、构建、质量门禁和真实页面只读验收通过，未写设备 |
 | 2026-11-05 | control | [使能中拔 EtherCAT 网线](docs/areas/control/records/2026-11-05-enabled-unplug-bench.md) | PASS（T3）：1 s 内急停失能并锁存重启；网线恢复后复位被拒，重启 + 一次复位回到空闲；只断头部电源未做 |
+| 2026-11-06 | control | [Rolling 停流后再次启动](docs/areas/control/records/2026-11-06-rolling-restart-bench.md) | PARTIAL（T4）：右 J7 两段 ±2° 往返，同一 epoch，无观察到拒绝，结束已失能；A2/B2 全部用例尚未完成 |
