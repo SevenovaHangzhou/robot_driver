@@ -1,0 +1,28 @@
+# DaMiao DM-J4310-2EC feedback ERR nibble (feedback frame D[0] high 4 bits), transcribed from the
+# vendor manual "反馈帧" section. 0 (disabled) and 1 (enabled) are states, not faults; hw_can_damiao
+# reports them as fault_code 0. DREE mapping follows the ruling for vendor faults (user 2026-10-31):
+# RT_DEVICE_FAULT unless the manual documents a clearing path, which it does not distinguish here.
+schema_version: 1
+kind: device_fault_table
+status: draft
+verified: false
+authorities:
+  source: V3-DOC-2026-012 DaMiao DM-J4310-2EC V1.1 manual V1.1 sha256 717ba758b9a8719a7603177e27f6744baee0f9d95deba3fb59b4b5a1bf30fdd4 section 反馈帧
+pending_facts:
+- which faults the clear-error command (D7=0xFB) clears without a power cycle
+- applicability to the deployed motor firmware (firmware version not recorded)
+vendor: DaMiao
+read:
+- field: feedback ERR nibble
+  kind: code
+faults:
+- {code: '0x0003', message: "输出轴校准异常", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x0004', message: "传感器输出异常", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x0005', message: "电机编码器校准异常", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x0008', message: "超压", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x0009', message: "欠压", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x000A', message: "过电流", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x000B', message: "MOS 过温", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x000C', message: "电机线圈过温", dree: RT_DEVICE_FAULT, page: 12}
+- {code: '0x000D', message: "通讯丢失", dree: RT_DEVICE_FAULT, page: 12, note: "电机侧 CAN 超时退出使能（TIMEOUT 寄存器），不是工控机侧反馈超时"}
+- {code: '0x000E', message: "过载", dree: RT_DEVICE_FAULT, page: 12}

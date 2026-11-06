@@ -101,6 +101,12 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     assert bus["options"]["dcf_path"] == bundle and bus["master"]["baudrate"] == 500
     assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
     assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
+    diagnostics = yaml.safe_load(result.files["diagnostics.yaml"])
+    drives = [device for device in diagnostics["devices"] if device["role"] == "drive"]
+    assert len(drives) == 8 and {d["fault_table"] for d in drives} == {"kinco_fd"}
+    assert {d["motor_encoder_type"] for d in drives} == {"magnetic", "incremental"}
+    assert all(set(d["state"]) >= {"error_word_1", "error_word_2"} for d in drives)
+    assert diagnostics["fault_tables"]["kinco_fd"]["read"][0]["object"] == "0x2601"
     lifecycle = result.lifecycle
     assert lifecycle["host"]["rt_cpu"] == 6
     assert 6 not in lifecycle["host"]["housekeeping_cpus"]
@@ -265,7 +271,7 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
     assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
     assert result.controller_order == {
         "inactive": ["swerve_controller"],
-        "active": ["joint_state_broadcaster", "enable_manager"],
+        "active": ["joint_state_broadcaster", "rt_internal_state_broadcaster", "enable_manager"],
     }
 
 
@@ -278,7 +284,11 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     lifecycle = yaml.safe_load(result.files["lifecycle.yaml"])
     assert lifecycle["hardware_activation_order"] == order
     assert lifecycle["motion_controllers"] == ["swerve_controller"]
-    assert lifecycle["lifecycle_controllers"] == ["joint_state_broadcaster", "enable_manager"]
+    assert lifecycle["lifecycle_controllers"] == [
+        "joint_state_broadcaster",
+        "rt_internal_state_broadcaster",
+        "enable_manager",
+    ]
     names = {item["name"]: item for item in lifecycle["capabilities"]}
     assert names["chassis_velocity"]["topic"] == "/rt/base/cmd_vel"
     assert names["chassis_velocity"]["controller"] == "swerve_controller"

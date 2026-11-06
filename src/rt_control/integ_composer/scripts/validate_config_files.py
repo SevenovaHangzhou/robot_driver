@@ -26,7 +26,7 @@ ENVELOPE_SCHEMAS = {
 
 def check_fault_table(name: str, table) -> None:
     """Cross-field rules the schema cannot express: one entry per key, matching read mode."""
-    kinds = {entry["object"]: entry["kind"] for entry in table["read"]}
+    kinds = {entry.get("object", entry.get("field")): entry["kind"] for entry in table["read"]}
     keys = set()
     for fault in table["faults"]:
         if "code" in fault:

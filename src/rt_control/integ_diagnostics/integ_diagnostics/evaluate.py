@@ -6,7 +6,7 @@ Entries have the same shape as integ_composer.self_check entries.
 
 import math
 
-from integ_composer.self_check import describe_fault
+from integ_composer.self_check import ERROR_WORDS, describe_error_bits, describe_fault
 
 AL_STATE_OP = 8  # EtherCAT AL state code for Operational.
 CIA402_FAULT_BIT = 0x0008  # Status word bit 3: Fault or Fault reaction active.
@@ -57,6 +57,12 @@ def evaluate(devices, tables, values):
                     f"AL state {int(state['al_state'])}, expected OP ({AL_STATE_OP})",
                 )
                 continue
+            words = {role: state[role] for role in ERROR_WORDS if role in state}
+            faults = describe_error_bits(device, tables, words)
+            if faults:
+                for dree, text in faults:
+                    add(device, dree or "RT_DEVICE_FAULT", True, text)
+                continue
             code = int(state.get("error_code", 0))
             if code:
                 dree, text = describe_fault(device, tables, code)
@@ -65,4 +71,25 @@ def evaluate(devices, tables, values):
                 add(device, dree or "RT_DEVICE_FAULT", not allowed, f"0x603F: {text}")
             elif "status_word" in state and int(state["status_word"]) & CIA402_FAULT_BIT:
                 add(device, "RT_DEVICE_FAULT", True, "CiA402 fault bit set, no error code read")
+        elif device["role"] == "encoder":
+            if int(state["ready"]) != 1:
+                add(
+                    device,
+                    "RT_DEVICE_FEEDBACK_STALE",
+                    True,
+                    f"encoder not ready (feedback age {state['feedback_age_ms']:.0f} ms)",
+                )
+        elif device["role"] == "head_motor":
+            code = int(state["fault_code"])
+            limit = device["expected"]["max_feedback_age_ms"]
+            if code:
+                dree, text = describe_fault(device, tables, code)
+                add(device, dree or "RT_DEVICE_FAULT", True, f"feedback ERR: {text}")
+            elif not 0.0 <= state["feedback_age_ms"] <= limit:
+                add(
+                    device,
+                    "RT_DEVICE_FEEDBACK_STALE",
+                    True,
+                    f"feedback age {state['feedback_age_ms']:.0f} ms > {limit} ms",
+                )
     return entries

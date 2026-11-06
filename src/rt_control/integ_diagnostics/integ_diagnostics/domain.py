@@ -6,11 +6,12 @@ failure, motion controllers and hardware components active. Sensor problems that
 watchdog in sensors.py are warnings: they degrade readiness without blocking it.
 """
 
-from integ_composer.self_check import describe_fault
+from integ_composer.self_check import ERROR_WORDS, describe_error_bits, describe_fault
 
 # Self-check DREE names that block with a dedicated token; other blocking entries are device faults.
 SELF_CHECK_TOKENS = {
     "RT_DEVICE_OFFLINE": "device_offline",
+    "RT_DEVICE_FEEDBACK_STALE": "device_offline",
     "RT_DEVICE_IDENTITY_MISMATCH": "identity_mismatch",
     "RT_STO_ACTIVE": "sto_active",
 }
@@ -25,10 +26,11 @@ FAILURE = {
 }
 DEFAULT_FAILURE = ("enable_failed", "RT_ENABLE_FAILED")
 # Every DREE name this module can publish, for the pinned-contract check.
-DREE_NAMES = {dree for _, dree in FAILURE.values()} | {
-    DEFAULT_FAILURE[1],
-    "RT_ENABLE_MANAGER_NOT_READY",
-}
+DREE_NAMES = (
+    {dree for _, dree in FAILURE.values()}
+    | set(SELF_CHECK_TOKENS)
+    | {DEFAULT_FAILURE[1], "RT_ENABLE_MANAGER_NOT_READY"}
+)
 
 
 def failure_entry(enable, devices, tables, values):
@@ -41,6 +43,14 @@ def failure_entry(enable, devices, tables, values):
         code = int(values.get(code_name, 0)) if code_name else 0
         if code:
             listed, text = describe_fault(device, tables, code)
+            dree = listed if token == "device_fault" and listed else dree
+            detail += f"; {text}"
+        words = {
+            role: values.get(device["state"][role], 0)
+            for role in ERROR_WORDS
+            if role in device["state"]
+        }
+        for listed, text in describe_error_bits(device, tables, words):
             dree = listed if token == "device_fault" and listed else dree
             detail += f"; {text}"
     if enable.get("offline_feedback"):

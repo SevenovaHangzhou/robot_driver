@@ -147,7 +147,9 @@ def preflight(expected_topology, *, run=None):
             )
         elif error != 0:
             findings.append(
-                _finding(address, "fault_code", f"Unqualified error 0x{error:04x}", fault_code=error)
+                _finding(
+                    address, "fault_code", f"Unqualified error 0x{error:04x}", fault_code=error
+                )
             )
 
     def upload(ring, index, subindex, kind):

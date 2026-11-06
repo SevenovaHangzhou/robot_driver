@@ -91,7 +91,8 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if controller_name in parameters:
             raise ValueError("Duplicate force sensor controller binding")
         contexts[controller_name] = {
-            "binding": item["binding"], "sensor_name": item["sensor_name"],
+            "binding": item["binding"],
+            "sensor_name": item["sensor_name"],
             "family": spec["family"],
         }
         parameters[controller_name] = {

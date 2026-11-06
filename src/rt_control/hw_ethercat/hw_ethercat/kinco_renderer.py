@@ -156,7 +156,8 @@ def render(request, share, validate_module, validate_unit, validate_device):
     )
     if len(axes) != request["module"]["actuator_count"]:
         raise ValueError("Axis count differs from declared module")
-    joints, managed, runtime_files, responders = [], [], {}, []
+    joints, managed, runtime_files, responders, diagnostic_devices = [], [], {}, [], []
+    master_id = request["deployment"]["ethercat"]["master_id"]
     preflight_axes, pdo_checks, position_windows = [], [], []
     groups = {group["name"]: [] for group in request["module"]["mode_groups"]}
     for axis in axes:
@@ -183,6 +184,21 @@ def render(request, share, validate_module, validate_unit, validate_device):
             exports["steering_to_yaw_sign"][axis["module_position"]] = (
                 sign if sign == "TBD" else float(sign)
             )
+        diagnostic_devices.append(
+            {
+                "name": name,
+                "role": "drive",
+                "device": axis["device"],
+                "address": {"master_id": master_id, "ring_position": axis["ring_position"]},
+                "state": {
+                    "al_state": f"ethercat_slave_{axis['ring_position']}/al_state",
+                    "status_word": f"{name}/status_word",
+                    # 0x2601/0x2602, decoded per bit with the device fault table.
+                    "error_word_1": f"{name}/error_word_1",
+                    "error_word_2": f"{name}/error_word_2",
+                },
+            }
+        )
         joint = ET.Element("joint", name=name)
         for interface in COMMANDS:
             element = ET.SubElement(joint, "command_interface", name=interface)
@@ -300,7 +316,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                     {"ring_position": ring, "raw_min": ends[0], "raw_max": ends[1]}
                 )
     topology = {
-        "master_id": request["deployment"]["ethercat"]["master_id"],
+        "master_id": master_id,
         "responders": responders,
         "axes": preflight_axes,
         "branches": [],
@@ -311,7 +327,11 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "position_windows": position_windows,
         "preflight_required": not mock,
     }
-    from .master_health import offline_exports, sensors as health_sensors
+    from .master_health import (
+        master_diagnostic,
+        offline_exports,
+        sensors as health_sensors,
+    )
 
     exports.update(offline_exports(request, axes))
 
@@ -336,4 +356,5 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "resource_claims": [f"ring:{item['ring_position']}" for item in responders],
         "runtime_files": runtime_files,
         "expected_topology": topology,
+        "diagnostic_devices": master_diagnostic(request, master_id) + diagnostic_devices,
     }

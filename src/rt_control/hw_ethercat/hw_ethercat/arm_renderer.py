@@ -194,9 +194,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 ),
             }
         )
-        rendered_states = {
-            item.attrib["name"] for item in joint.findall("state_interface")
-        }
+        rendered_states = {item.attrib["name"] for item in joint.findall("state_interface")}
         diagnostic_devices.append(
             {
                 "name": name,
@@ -245,26 +243,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
     }
     if spec.get("topology_preflight", False) and not stationary:
         expected["topology_only"] = True
-    from .master_health import offline_exports, responder_count, sensors as health_sensors
+    from .master_health import (
+        master_diagnostic,
+        offline_exports,
+        sensors as health_sensors,
+    )
 
     sensors = health_sensors(request, [axis for _, axis in axes])
-    slaves = responder_count(request)
-    if slaves is not None:
-        diagnostic_devices.append(
-            {
-                "name": f"master{master_id}",
-                "role": "ethercat_master",
-                "bus": True,
-                "address": {"master_id": master_id},
-                "state": {
-                    "link_up": "ethercat_master/link_up",
-                    "slaves_responding": "ethercat_master/slaves_responding",
-                    "wc_error_count": "ethercat_master/wc_error_count",
-                    "process_data_age_ms": "ethercat_domain/process_data_age_ms",
-                },
-                "expected": {"slaves_responding": slaves},
-            }
-        )
+    diagnostic_devices += master_diagnostic(request, master_id)
     hardware_params = {}
     if mock and not stationary:
         hardware_params["calculate_dynamics"] = "false"

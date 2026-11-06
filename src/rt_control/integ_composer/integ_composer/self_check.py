@@ -54,6 +54,46 @@ def describe_fault(device, tables, code):
     ], f"{hex_code} {fault['message']}（{table['vendor']} 手册 p{fault['page']}）"
 
 
+# Bit-table devices (Kinco FD) read error words; the state role names the object.
+ERROR_WORDS = {"error_word_1": "0x2601", "error_word_2": "0x2602"}
+
+
+def describe_error_bits(device, tables, words):
+    """[(DREE name or None, text)] for every set bit of the device's error words.
+
+    words: state role -> value. Entries restricted to an encoder type apply only to devices of
+    that motor_encoder_type. Word 1 bit 0 only points at word 2 and is not listed.
+    """
+    table = tables.get(device.get("fault_table"), {})
+    encoder = device.get("motor_encoder_type")
+    result = []
+    for role, value in words.items():
+        word, obj = int(value), ERROR_WORDS[role]
+        for bit in range(16):
+            if not word & (1 << bit) or (obj == "0x2601" and bit == 0):
+                continue
+            fault = next(
+                (
+                    f
+                    for f in table.get("faults", [])
+                    if f.get("object") == obj
+                    and f.get("bit") == bit
+                    and f.get("encoder", encoder) == encoder
+                ),
+                None,
+            )
+            if fault is None:
+                result.append((None, f"{obj} bit{bit} 未登记"))
+            else:
+                result.append(
+                    (
+                        fault["dree"],
+                        f"{obj} bit{bit} {fault['message']}（{table['vendor']} 手册 p{fault['page']}）",
+                    )
+                )
+    return result
+
+
 def entries(diagnostics_text, findings):
     diagnostics = yaml.safe_load(diagnostics_text) if diagnostics_text else {}
     devices = {_key(device["address"]): device for device in diagnostics.get("devices", [])}
