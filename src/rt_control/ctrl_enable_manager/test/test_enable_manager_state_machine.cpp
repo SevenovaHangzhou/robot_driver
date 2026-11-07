@@ -259,6 +259,7 @@ std::vector<rclcpp::Parameter> parametersWithFixtureTopology(
     rclcpp::Parameter(
       "ready_to_switch_on_disable_terminal_joints",
       std::vector<std::string>{"right_joint2", "right_joint3", "left_joint2", "left_joint3"}),
+    rclcpp::Parameter("mode_service", std::string("/rt/arms/set_control_mode")),
   };
   for (const auto & parameter : additional_parameters) {
     addOrReplaceParameter(parameters, parameter);

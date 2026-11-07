@@ -1,6 +1,8 @@
 # Dual-arm bench motion policy (ELECTRI-127): both arms' seven axes with the same per-joint
 # values as the single-arm bench policy. Joints follow the contract axis order (right arm first),
 # which is the rolling batch order; dual_arm_jtc and dual_arm_rolling share them.
+# Arms SetJointControlMode service (R-IN-06), used with the rolling controller.
+mode_service: arms_control_mode
 joints:
 - right_joint1
 - right_joint2
