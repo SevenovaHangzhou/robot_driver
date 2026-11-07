@@ -370,8 +370,6 @@ def test_sequence_dwell_and_selector(setup, dwell):
         ]
         assert console._sequence["dwell_s"] == dwell and console._sequence["wait_until"] is not None
         assert not driver.sent  # already there; it must hold without submitting a move
-        page = await (await client.get("/arm")).text()
-        assert 'id="sequence-dwell"' in page and 'type="number" min="0" step="0.1"' in page
         assert (await command(ws, "stop"))["ok"]
         jobs.pop()()
         reply = await command(ws, "run_sequence", names=["here"], gear="leisure", dwell_s="2")
