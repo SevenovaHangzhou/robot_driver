@@ -392,9 +392,13 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   if (!operation_enabled()) {
     // The enable transition starts from the last disabled position; no producer owns it yet.
     // A disabled drive returns to the startup mode, so every enable confirms that fixed mode.
+    // A deactivated controller leaves its last position target behind; discard it, so the next
+    // producer's first command is checked against the measurement (bench 2026-11-07: a stale
+    // trajectory-controller target 0.12 deg off a drifted steering axis latched the next enable).
     hold_position_raw_ = actual_position_raw_;
     output_mode_ = startup_mode_;
     position_owned_ = false;
+    (*command_interface_ptr_)[commands_[kPosition]] = std::numeric_limits<double>::quiet_NaN();
     startup_mode_waiting_ = false;
     clear_handoff(false);
     return;

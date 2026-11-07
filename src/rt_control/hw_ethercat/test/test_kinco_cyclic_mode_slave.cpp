@@ -326,6 +326,24 @@ TEST(KincoCyclicModeSlave, DisabledSwitchingAxisReturnsToTheStartupMode)
   EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 360);
 }
 
+TEST(KincoCyclicModeSlave, DisabledAxisDiscardsTheLastPositionTarget)
+{
+  Rig rig(KINCO_FIXTURE, 8);
+  rig.setup();
+  rig.cycle(8);
+  rig.commands[0] = 0.25;
+  rig.cycle(8);
+  // Disabled: the target the previous controller left behind is not a producer any more.
+  rig.cycle(0, 350, 0, 0x0040);
+  EXPECT_TRUE(std::isnan(rig.commands[0]));
+  // The drive drifts while disabled; the enable holds there and does not latch an error.
+  rig.cycle(0, 400, 0, 0x0040);
+  rig.cycle(0, 400, 0, 0x0027);
+  rig.cycle(8, 400, 0, 0x0027);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 400);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+}
+
 TEST(KincoCyclicModeSlave, RejectsInvalidModesCommandsAndOutOfRangeValues)
 {
   Rig switching(KINCO_FIXTURE, 9, true);
