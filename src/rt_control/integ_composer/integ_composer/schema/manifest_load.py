@@ -5,31 +5,32 @@ from pathlib import Path
 from .primitives import load_and_validate, load_yaml, resolve_share_path, validate_data
 
 
-def read_manifest(path):
-    """manifest.yaml merged with the part files it lists under `parts` (not validated).
+def read_with_parts(path):
+    """A YAML document merged with the part files it lists under `parts` (not validated).
 
-    Parts may split one mapping (such as `scopes`) as long as no entry appears twice.
+    Parts may split one mapping (such as `scopes` or `controllers`) as long as no entry
+    appears twice. Part paths are relative to the document.
     """
     path = Path(path)
-    manifest = load_yaml(path)
-    for part in manifest.pop("parts", []):
+    document = load_yaml(path)
+    for part in document.pop("parts", []):
         piece = load_yaml(resolve_share_path(path.parent, part))
         for key, value in piece.items():
-            if key not in manifest:
-                manifest[key] = value
-            elif isinstance(manifest[key], dict) and isinstance(value, dict):
-                repeated = set(manifest[key]) & set(value)
+            if key not in document:
+                document[key] = value
+            elif isinstance(document[key], dict) and isinstance(value, dict):
+                repeated = set(document[key]) & set(value)
                 if repeated:
-                    raise ValueError(f"Manifest part {part} repeats {key}: {sorted(repeated)}")
-                manifest[key].update(value)
+                    raise ValueError(f"{path.name} part {part} repeats {key}: {sorted(repeated)}")
+                document[key].update(value)
             else:
-                raise ValueError(f"Manifest part {part} repeats {key}")
-    return manifest
+                raise ValueError(f"{path.name} part {part} repeats {key}")
+    return document
 
 
 def load_manifest(path, schema_dir, share_root):
     """The merged manifest, validated as one document."""
-    manifest = read_manifest(path)
+    manifest = read_with_parts(path)
     validate_data(manifest, "manifest.schema.json", schema_dir, share_root)
     return manifest
 
@@ -89,7 +90,8 @@ def load_machine(
         for reference in entry["device_refs"]:
             if reference not in devices:
                 devices[reference] = load(resolve_share_path(root, reference), "device.schema.json")
-    controllers = load(machine_dir / "controllers.yaml", "controllers.schema.json")
+    controllers = read_with_parts(machine_dir / "controllers.yaml")
+    validate_data(controllers, "controllers.schema.json", schema_dir, root)
     safety = load(machine_dir / "safety_policy.yaml", "safety_policy.schema.json")
     return {
         "manifest": manifest,

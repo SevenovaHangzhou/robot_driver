@@ -14,7 +14,8 @@ import time
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from integ_operator_web.arm.console import ArmConsole, config_from_mapping  # noqa: E402
+from integ_operator_web.arm.console import ArmConsole  # noqa: E402
+from integ_operator_web.arm.console_types import config_from_mapping  # noqa: E402
 from integ_operator_web.arm.model import load_arm_model  # noqa: E402
 from integ_operator_web.arm.page import ArmPage  # noqa: E402
 from integ_operator_web.operators import Operators  # noqa: E402

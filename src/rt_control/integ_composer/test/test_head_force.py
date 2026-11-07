@@ -10,7 +10,7 @@ import yaml
 from integ_composer.canonical import canonical_files
 from integ_composer.compose import compose
 from integ_composer.schema.primitives import load_yaml
-from integ_composer.schema.manifest_load import read_manifest
+from integ_composer.schema.manifest_load import read_with_parts
 
 PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
@@ -188,7 +188,7 @@ def test_head_sample_c_adapter_is_offline(shares, tmp_path, monkeypatch):
 
     data = shares["hwcfg_machines"]
     args = arguments(shares, "head")
-    manifest = read_manifest(data / "machines" / args["robot_variant"] / "manifest.yaml")
+    manifest = read_with_parts(data / "machines" / args["robot_variant"] / "manifest.yaml")
     descriptor = manifest["modules"]["head_gimbal"]
     request = {
         "module": descriptor,

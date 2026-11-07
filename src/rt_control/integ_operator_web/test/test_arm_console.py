@@ -8,7 +8,8 @@ import pytest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from integ_operator_web.arm.console import ArmConsole, ConsoleError, config_from_mapping  # noqa: E402
+from integ_operator_web.arm.console import ArmConsole  # noqa: E402
+from integ_operator_web.arm.console_types import ConsoleError, config_from_mapping  # noqa: E402
 from integ_operator_web.arm.model import (  # noqa: E402
     ModelError,
     load_arm_model,

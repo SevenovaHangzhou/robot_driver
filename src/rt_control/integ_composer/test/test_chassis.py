@@ -13,7 +13,7 @@ from integ_composer.compose import compose
 from integ_composer.renderer_registry import render_checked
 from integ_composer.schema.cross_checks import merge_systems
 from integ_composer.schema.primitives import load_yaml
-from integ_composer.schema.manifest_load import read_manifest
+from integ_composer.schema.manifest_load import read_with_parts
 
 PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
@@ -53,7 +53,7 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     assert len(systems[1].findall("sensor")) == 4
     assert not systems[1].findall(".//command_interface")
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
-    manifest = read_manifest(next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml")))
+    manifest = read_with_parts(next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml")))
     assert manifest["layout"]["ethercat"]["cycle_hz"] == 1000
     assert bus["master"]["sync_period"] == manifest["layout"]["canopen"]["sync_period_us"]
     assert (
@@ -137,7 +137,7 @@ def test_kinco_position_and_velocity_roundtrips():
 
 def request_for_module(shares, name):
     config = shares["hwcfg_machines"]
-    manifest = read_manifest(next((config / "machines").glob("*/manifest.yaml")))
+    manifest = read_with_parts(next((config / "machines").glob("*/manifest.yaml")))
     entry = manifest["modules"][name]
     # The chassis lives on the Advantech bench unit; arm calibration on Alfa_V3-01.
     unit = (
