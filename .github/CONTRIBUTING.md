@@ -92,7 +92,7 @@ Linear Issue + GitHub Issue → 分支 → worktree → 本地验证 → PR → 
   3. 结构变更另跑 `tools/arch_check.py compose --against origin/main`。
 
   其余按改动类型查 `tools/README.md`。
-- **验证分级**：按 `AGENTS.md` §6 逐级升级，前一级失败不进入后一级；汇报时写到实际达到的那一级，编译、单元测试、mock、台架、实车分开写，没跑的写"未验证"。
+- **验证分级**：T0 静态与构建、T1 mock、T2 实机只读、T3 实机使能/失能不运动、T4 实机运动（定义见 `AGENTS.md` §6）；逐级升级，前一级失败不进入后一级；汇报时写到实际达到的那一级，编译、单元测试、mock、台架、实车分开写，没跑的写"未验证"。
 
 ## 5. 硬件与实机
 
