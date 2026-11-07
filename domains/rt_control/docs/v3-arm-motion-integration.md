@@ -270,8 +270,9 @@ maximum period 为 2 ms；这些是 Mock/初始软件值，不是目标机实测
 
 - 双臂台架使用 `physical_profile=arms_only, control_scope=arms_only`；CANopen 和达妙 CAN
   为 `not_required`，缺失不能误报为 fault。
-- V3 当前策略规定 `full_robot` 只能选择 `full` scope；完整物理环存在时所有执行器进入
-  使能集合，不提供“物理全装但只使能机械臂”的子模式。
+- 整机（`full_robot`/`full`）与升降（`arms_updown`）配置未定义完整，已从 manifest 删除（用户 2026-11-06），
+  接入时按完整定义重新加入。原定规则：完整物理环存在时所有执行器进入使能集合，不提供“物理全装但只使能
+  机械臂”的子模式。
 - Motion 可以只向机械臂 controller 发命令，但不能改变 enable_manager 的整机使能策略。
 - 主动悬挂 fault -> 舵轮 stop-and-inhibit；舵轮 fault -> 机械臂 stop。当前只有静态合同，
   runtime 传播仍未接通。

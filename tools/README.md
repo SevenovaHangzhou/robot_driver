@@ -106,16 +106,15 @@ tools/arch_check.py --json          # 每条发现一行 JSON
 
 ### 后续步骤
 
-每条规则在现状清零后才接入，接入前停下等用户确认（不做豁免清单，§3 写明的单一例外除外）：
+每条规则在现状清零后接入门禁（用户 2026-11-06：清零即接入，不逐条确认；需要新增例外或改变行为时先问）。不做豁免清单，§3 写明的单一例外除外：
 
-1. 删除 manifest 中的占位作用域 `full`、`arms_updown`（定义完整后再加）。
-2. NAME：机型名只在 `hwcfg_machines`；厂家/产品名只在 `hw_*`、`hwcfg_machines`、`periph_*`；关节名只在
+1. NAME：机型名只在 `hwcfg_machines`；厂家/产品名只在 `hw_*`、`hwcfg_machines`、`periph_*`；关节名只在
    `hwcfg_machines`。查代码与注释，不查 Markdown 与测试；`integ_operator_web/web/arm/sequence-presets.json`
    登记为例外。
-3. DUP：已抽取的实现不得再抄——原始 CAN socket 只在 `infra_socketcan`，Modbus TCP 只在 `infra_modbus`，
+2. DUP：已抽取的实现不得再抄——原始 CAN socket 只在 `infra_socketcan`，Modbus TCP 只在 `infra_modbus`，
    CiA402 状态字解码只在 `hw_semantic_components`，渲染器参数骨架只在 `infra_renderer`。
-4. SIZE：生产源码与配置 C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 行；先拆
+3. SIZE：生产源码与配置 C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 行；先拆
    `integ_operator_web/node.py`、`arm/console.py` 与 `hwcfg_machines/.../controllers.yaml`。
-5. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
+4. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
    一次并逐文件比较，基线成功而当前失败也报告；用作结构变更不改行为的证据（ARCHITECTURE §7）。按需运行，
    不在默认规则组里。

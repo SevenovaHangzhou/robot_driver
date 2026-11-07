@@ -128,30 +128,6 @@ profiles:
         node_ids: []
     pending_facts:
     - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
-  arms_updown:
-    status: draft
-    modules:
-    - arms
-    - updown
-    allowed_scopes:
-    - arms_updown
-    hardware_options:
-      force_sensors:
-      - none
-      - bluepoint_dual
-    layout:
-      ethercat:
-        status: draft
-        master_id: 0
-        ring_positions: TBD
-      canopen:
-        status: absent
-        node_ids: []
-      damiao_can:
-        status: absent
-        node_ids: []
-    pending_facts:
-    - physical EtherCAT ring layout with Updown connected
   chassis_only:
     status: draft
     modules:
@@ -177,38 +153,6 @@ profiles:
     pending_facts:
     - physical EtherCAT ring layout for the chassis bench
     - active suspension drive position and mechanical commissioning facts
-  full_robot:
-    status: draft
-    modules:
-    - arms
-    - updown
-    - swerve_chassis
-    - swerve_encoders
-    - active_suspension
-    - head_gimbal
-    allowed_scopes:
-    - full
-    hardware_options:
-      force_sensors:
-      - none
-      - bluepoint_dual
-    layout:
-      ethercat:
-        status: draft
-        master_id: 0
-        ring_positions: TBD
-      canopen:
-        status: draft
-        node_ids: TBD
-      damiao_can:
-        status: draft
-        node_ids:
-        - 1
-        - 2
-    pending_facts:
-    - complete EtherCAT ring order and responder identities
-    - CANopen encoder bus identity and head-gimbal CAN wiring
-    - active suspension identity, PDO and installed mechanical calibration
   head_only:
     status: draft
     modules:

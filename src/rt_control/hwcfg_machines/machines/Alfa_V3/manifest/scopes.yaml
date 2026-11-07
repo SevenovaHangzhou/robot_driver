@@ -27,22 +27,6 @@ scopes:
     - rolling_trajectory_controller
     staged_hardware_activation: true
     publish_robot_state: true
-  arms_updown:
-    enabled_modules:
-    - arms
-    - updown
-    required_state_modules: []
-    actuator_groups:
-    - module: arms
-      mode_group: csp
-    - module: updown
-      mode_group: csp
-    jtc_groups:
-    - module: arms
-      mode_group: csp
-    - module: updown
-      mode_group: csp
-    global_readiness: partial_scope
   chassis_only:
     enabled_modules:
     - swerve_chassis
@@ -104,35 +88,6 @@ scopes:
       package: hwcfg_machines
       xacro_file: machines/Alfa_V3/chassis.mock.urdf
       joint_limits_file: machines/Alfa_V3/chassis.mock.limits.yaml
-  full:
-    enabled_modules:
-    - arms
-    - updown
-    - swerve_chassis
-    - swerve_encoders
-    - active_suspension
-    - head_gimbal
-    required_state_modules:
-    - swerve_encoders
-    actuator_groups:
-    - module: arms
-      mode_group: csp
-    - module: updown
-      mode_group: csp
-    - module: swerve_chassis
-      mode_group: steering_csp
-    - module: swerve_chassis
-      mode_group: drive_csv
-    - module: active_suspension
-      mode_group: csp
-    - module: head_gimbal
-      mode_group: position_velocity
-    jtc_groups:
-    - module: arms
-      mode_group: csp
-    - module: updown
-      mode_group: csp
-    global_readiness: full_scope
   head_only:
     enabled_modules:
     - head_gimbal
