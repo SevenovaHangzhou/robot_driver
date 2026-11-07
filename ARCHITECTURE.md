@@ -36,7 +36,7 @@
 
 ### 1.3 分层与依赖方向
 
-保留现有四层模型，新增一层基础设施：
+五层自下而上依赖，外设节点另成一层：
 
 ```
 infra（共享叶子库：传输、协议解码、实时基础件、renderer 骨架）
@@ -45,15 +45,17 @@ hw_config（机型/台套数据，无代码 API）
   ↑
 protocol（总线与设备适配、renderer）
   ↑
-control（控制器、广播器、外设节点）
+control（控制器、广播器）
   ↑
 integration（composer、bringup、适配层、诊断、操作面）
+
+periph（独立外设节点：BMS、IMU、LED/超声、PLC IO）只依赖 infra，只有 integration 可以依赖它
 ```
 
-- 下层不得依赖上层；`infra` 不依赖任何域包、不含 ROS 节点、不含策略、不含机型。
+- 下层不得依赖上层；`infra` 不依赖任何域包、不含 ROS 节点、不含策略、不含机型；periph 与 protocol、control 互不依赖（`arch_check` LAYER-2）。
 - control 只经 `hw_semantic_components` 依赖 protocol：该包定义硬件层与控制器共用的状态/命令接口语义（CiA402 状态字、握手式使能阶段、力传感器），控制器不直接依赖具体协议包（`arch_check` LAYER-2）。
 - 测试与 golden 生成脚本同样遵守方向。
-- 包名用统一前缀表达所属层，看名字即知层，门禁按前缀检查：`infra_`、`hwcfg_`、`hw_`、`ctrl_`、`periph_`（独立外设节点，不与 protocol/control 互相依赖）、`integ_`。包与层的对照见域 [`README.md`](domains/rt_control/README.md)。
+- 包名用统一前缀表达所属层，看名字即知层，门禁按前缀检查：`infra_`、`hwcfg_`、`hw_`、`ctrl_`、`periph_`、`integ_`。包与层的对照见域 [`README.md`](domains/rt_control/README.md)。
 
 ### 1.4 死活分明
 
@@ -94,13 +96,15 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 ## 3. 硬指标
 
-| 指标 | 值 | 执行方式 |
+| 指标 | 值 | 谁来挡 |
 | --- | --- | --- |
-| 单文件上限 | C++ ≤ 1000 行、Python ≤ 600 行、YAML ≤ 400 行 | `arch_check` SIZE-1（生产源码与配置；测试、金样、原样上游代码不计）。唯一例外：`ctrl_enable_manager` 的实时使能状态机主文件（用户 2026-11-03 接受：状态机不拆，非实时部分移到同包独立文件后主文件仍可超限；使能流程不再扩展） |
-| 复用三级 | 上游 → infra → 自写；第二份拷贝即抽取 | 人工审查 + `arch_check` DUP-1（已抽取的实现不得再抄） |
-| infra 进库条件 | ≥ 2 个现有调用方；或是与仓库外程序共享的二进制/内存布局约定（如 Runtime-LOG 共享内存环），此时本仓库调用方可只有 1 个 | 人工审查 |
-| 跨包引用 | 只允许 §1.2 四种 | `arch_check` LAYER-2 检查依赖方向；四种方式之外的跨越靠人工审查 |
-| 机型、厂家、关节名出现位置 | 机型名与关节名仅 `hwcfg_machines`；厂家/产品名仅 `hw_*`、`hwcfg_machines`、`periph_*` | `arch_check` NAME-1～3 |
+| 单文件上限 | 生产源码与配置：C++ ≤ 1000 行、Python ≤ 600 行、YAML ≤ 400 行；测试、金样、原样引入的上游代码不计 | `arch_check` SIZE-1 |
+| 复用三级 | 上游 → infra → 自写；第二份拷贝即抽取 | `arch_check` DUP-1（已抽取的不得再抄）；该不该抽取靠评审 |
+| infra 进库条件 | ≥ 2 个现有调用方；或是与仓库外程序共享的二进制/内存布局约定（如 Runtime-LOG 共享内存环），此时调用方可只有 1 个 | 评审 |
+| 跨包方式 | 只用 §1.2 的四种 | `arch_check` LAYER-2 管依赖方向；具体用的是哪种方式靠评审 |
+| 名字出现位置 | 机型名、关节名仅在 `hwcfg_machines`；厂家/产品名仅在 `hw_*`、`hwcfg_machines`、`periph_*` | `arch_check` NAME-1～3 |
+
+例外只登记在 `tools/arch_rules.yaml`，每条写明规则、文件、原因、批准人和日期；不再命中的例外会被 `arch_check` 报出。新增例外须经用户批准。目前两条：`ctrl_enable_manager` 的实时使能状态机主文件超过行数上限（用户 2026-11-03：状态机不拆，非实时部分已移到同包独立文件，使能流程不再扩展）；台架调试网页的机械臂测试姿态预设含关节名（用户 2026-11-06）。
 
 ## 4. 编码与测试原则
 
