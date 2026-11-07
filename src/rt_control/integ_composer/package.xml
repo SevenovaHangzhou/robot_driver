@@ -12,6 +12,7 @@
   <exec_depend>xacro</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>hwcfg_machines</exec_depend>
+  <exec_depend>infra_renderer</exec_depend>
   <test_depend>hw_can_damiao</test_depend>
   <test_depend>hw_canopen</test_depend>
   <test_depend>hw_ethercat</test_depend>

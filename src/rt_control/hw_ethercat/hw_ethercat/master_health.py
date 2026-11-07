@@ -2,6 +2,8 @@
 
 import xml.etree.ElementTree as ET
 
+from infra_renderer import xml_param
+
 
 def responder_count(request):
     """Slaves on the master; only the first peer module renders the master health group."""
@@ -56,7 +58,7 @@ def sensors(request, axes):
         for field, value in fields.items():
             interface = ET.SubElement(sensor, "state_interface", name=field)
             if request["use_mock_hardware"]:
-                ET.SubElement(interface, "param", name="initial_value").text = str(value)
+                xml_param(interface, "initial_value", value)
         result.append(sensor)
     return result
 

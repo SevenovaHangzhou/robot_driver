@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+import re
 import subprocess
 import xml.etree.ElementTree as ET
 
@@ -75,52 +76,51 @@ def package_inventory(texts: dict[str, str]) -> dict[str, str]:
 
 @dataclass(frozen=True)
 class Rules:
-    exceptions: tuple[dict, ...]
-    listen_only_peripherals: frozenset[str]
-    vendor_names: tuple[str, ...]
+    exceptions: tuple[dict, ...] = ()
+    listen_only_peripherals: frozenset[str] = frozenset()
+    vendor_names: tuple[str, ...] = ()
+    duplicates: tuple[dict, ...] = ()
+
+
+def _config(message: str) -> Finding:
+    return Finding("ARCH-CONFIG", RULES_FILE, 1, message)
 
 
 def read_rules(texts: dict[str, str]) -> tuple[Rules, list[Finding]]:
-    """tools/arch_rules.yaml: approved exceptions, listen-only peripherals and vendor names."""
-    empty = Rules((), frozenset(), ())
+    """tools/arch_rules.yaml: exceptions, listen-only peripherals, vendor names, duplicates."""
     try:
         data = yaml.safe_load(texts.get(RULES_FILE, "")) or {}
     except yaml.YAMLError as exc:
-        return empty, [Finding("ARCH-CONFIG", RULES_FILE, 1, f"YAML 无效：{exc}")]
+        return Rules(), [_config(f"YAML 无效：{exc}")]
+    keys = ("exceptions", "listen_only_peripherals", "vendor_names", "duplicates")
+    values = {key: data.get(key, []) for key in keys}
+    if not all(isinstance(value, list) for value in values.values()):
+        return Rules(), [_config("、".join(keys) + " 必须是列表")]
     findings = []
-    exceptions = data.get("exceptions", [])
-    listen_only = data.get("listen_only_peripherals", [])
-    vendor_names = data.get("vendor_names", [])
-    if not all(isinstance(value, list) for value in (exceptions, listen_only, vendor_names)):
-        return empty, [
-            Finding(
-                "ARCH-CONFIG",
-                RULES_FILE,
-                1,
-                "exceptions、listen_only_peripherals 与 vendor_names 必须是列表",
-            )
-        ]
-    valid = []
-    for entry in exceptions:
-        if not isinstance(entry, dict) or set(entry) != {"rule", "path", "reason", "approved"}:
-            findings.append(
-                Finding(
-                    "ARCH-CONFIG", RULES_FILE, 1, f"例外须含 rule/path/reason/approved：{entry!r}"
-                )
-            )
-            continue
-        valid.append(entry)
-    for package in listen_only:
+    exceptions = []
+    for entry in values["exceptions"]:
+        if isinstance(entry, dict) and set(entry) == {"rule", "path", "reason", "approved"}:
+            exceptions.append(entry)
+        else:
+            findings.append(_config(f"例外须含 rule/path/reason/approved：{entry!r}"))
+    for package in values["listen_only_peripherals"]:
         if layer_of(str(package)) != "periph":
-            findings.append(
-                Finding(
-                    "ARCH-CONFIG",
-                    RULES_FILE,
-                    1,
-                    f"listen_only_peripherals 只列 periph 包：{package}",
-                )
-            )
-    rules = Rules(tuple(valid), frozenset(map(str, listen_only)), tuple(map(str, vendor_names)))
+            findings.append(_config(f"listen_only_peripherals 只列 periph 包：{package}"))
+    duplicates = []
+    for entry in values["duplicates"]:
+        try:
+            if not isinstance(entry, dict) or set(entry) != {"name", "owner", "pattern"}:
+                raise ValueError("须含 name/owner/pattern")
+            re.compile(entry["pattern"])
+            duplicates.append(entry)
+        except (ValueError, TypeError, re.error) as exc:
+            findings.append(_config(f"重复实现特征无效（{exc}）：{entry!r}"))
+    rules = Rules(
+        tuple(exceptions),
+        frozenset(map(str, values["listen_only_peripherals"])),
+        tuple(map(str, values["vendor_names"])),
+        tuple(duplicates),
+    )
     return rules, findings
 
 
