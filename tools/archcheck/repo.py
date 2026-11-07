@@ -77,11 +77,12 @@ def package_inventory(texts: dict[str, str]) -> dict[str, str]:
 class Rules:
     exceptions: tuple[dict, ...]
     listen_only_peripherals: frozenset[str]
+    vendor_names: tuple[str, ...]
 
 
 def read_rules(texts: dict[str, str]) -> tuple[Rules, list[Finding]]:
-    """tools/arch_rules.yaml: approved exceptions and the listen-only peripherals."""
-    empty = Rules((), frozenset())
+    """tools/arch_rules.yaml: approved exceptions, listen-only peripherals and vendor names."""
+    empty = Rules((), frozenset(), ())
     try:
         data = yaml.safe_load(texts.get(RULES_FILE, "")) or {}
     except yaml.YAMLError as exc:
@@ -89,10 +90,14 @@ def read_rules(texts: dict[str, str]) -> tuple[Rules, list[Finding]]:
     findings = []
     exceptions = data.get("exceptions", [])
     listen_only = data.get("listen_only_peripherals", [])
-    if not isinstance(exceptions, list) or not isinstance(listen_only, list):
+    vendor_names = data.get("vendor_names", [])
+    if not all(isinstance(value, list) for value in (exceptions, listen_only, vendor_names)):
         return empty, [
             Finding(
-                "ARCH-CONFIG", RULES_FILE, 1, "exceptions 与 listen_only_peripherals 必须是列表"
+                "ARCH-CONFIG",
+                RULES_FILE,
+                1,
+                "exceptions、listen_only_peripherals 与 vendor_names 必须是列表",
             )
         ]
     valid = []
@@ -115,7 +120,8 @@ def read_rules(texts: dict[str, str]) -> tuple[Rules, list[Finding]]:
                     f"listen_only_peripherals 只列 periph 包：{package}",
                 )
             )
-    return Rules(tuple(valid), frozenset(map(str, listen_only))), findings
+    rules = Rules(tuple(valid), frozenset(map(str, listen_only)), tuple(map(str, vendor_names)))
+    return rules, findings
 
 
 def apply_exceptions(findings: list[Finding], rules: Rules, checked: set[str]) -> list[Finding]:

@@ -48,7 +48,7 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::string>>("ready_state_interfaces", {});
   auto_declare<std::vector<std::string>>("feedback_age_interfaces", {});
   auto_declare<std::vector<std::string>>("al_state_interfaces", {});
-  // User 2026-11-03: 500 ms for every scope (normal ages ~1 ms EtherCAT, 6-20 ms DaMiao).
+  // User 2026-11-03: 500 ms for every scope (normal ages ~1 ms EtherCAT, 6-20 ms head CAN).
   auto_declare<double>("feedback_age_limit_ms", 500.0);
   auto_declare<double>("ready_hold_time", 0.05);
   auto_declare<std::string>("motion_fault_topic", "");

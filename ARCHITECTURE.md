@@ -100,7 +100,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 | 复用三级 | 上游 → infra → 自写；第二份拷贝即抽取 | 人工审查 + `arch_check` DUP（待启用：已抽取的实现不得再抄） |
 | infra 进库条件 | ≥ 2 个现有调用方；或是与仓库外程序共享的二进制/内存布局约定（如 Runtime-LOG 共享内存环），此时本仓库调用方可只有 1 个 | 人工审查 |
 | 跨包引用 | 只允许 §1.2 四种 | `arch_check` LAYER-2 检查依赖方向；四种方式之外的跨越靠人工审查 |
-| 机型名出现位置 | 仅 `hwcfg_machines`（含 `units`） | `arch_check` NAME（组合器已执行，全层待启用） |
+| 机型、厂家、关节名出现位置 | 机型名与关节名仅 `hwcfg_machines`；厂家/产品名仅 `hw_*`、`hwcfg_machines`、`periph_*` | `arch_check` NAME-1～3 |
 
 ## 4. 编码与测试原则
 

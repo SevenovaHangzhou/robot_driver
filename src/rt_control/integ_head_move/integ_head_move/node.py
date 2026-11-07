@@ -1,7 +1,7 @@
 """R-IN-16 /rt/head/move: one absolute head target per goal over the head position controller.
 
 A busy head rejects a second goal. Cancel, timeout and lost readiness command the measured
-position (hold). Speed is limited by the DaMiao hardware, not here.
+position (hold). Speed is limited by the head motor hardware, not here.
 """
 
 import threading

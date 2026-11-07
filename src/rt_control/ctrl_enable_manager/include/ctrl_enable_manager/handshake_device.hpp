@@ -14,7 +14,7 @@
 namespace ctrl_enable_manager
 {
 
-// A device whose hardware plugin runs its own enable sequence (e.g. the DaMiao head).
+// A device whose hardware plugin runs its own enable sequence (e.g. the head motors).
 // The controller only requests enable/disable and a fault reset through a control GPIO,
 // and reads back the plugin's phase:
 //   commands: <gpio>/enable_request (0|1), <gpio>/reset_generation (exact integer)

@@ -1,4 +1,4 @@
-"""LAYER (ARCHITECTURE.md §1.3), OWN (§1.1) and the interim composer NAME rule.
+"""LAYER (ARCHITECTURE.md §1.3) and OWN (§1.1) rules.
 
 Dependencies are read from package.xml, C/C++ includes, Python imports and literal CMake
 find_package; tests count for dependencies. Content rules read production files only.
@@ -17,11 +17,6 @@ DATA_PACKAGE = "hwcfg_machines"
 COMPOSER = "integ_composer"
 SEMANTIC_PACKAGE = "hw_semantic_components"
 SOURCE_SUFFIXES = {".py", ".cpp", ".hpp", ".h", ".cc", ".cxx"}
-PRODUCT_NAMES = re.compile(
-    r"alfa_v[0-9]|left_joint|right_joint|head_joint|head_pitch|EcCiA402Drive|"
-    r"GenericEcSlave|KincoCyclicModeSlave|zeroerr|kinco|damiao|bluepoint",
-    re.I,
-)
 # LAYER-5: the system calls and frame builders a bus writer would need.
 BUS_WRITE = re.compile(r"::(?:write|send|sendto|sendmsg)\s*\(|make_nmt_start_frame")
 INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*[<"]([^>"\n]+)[>"]', re.M)
@@ -236,14 +231,3 @@ def check_ownership(texts: dict[str, str]) -> list[Finding]:
                 Finding("OWN-2", path, number, f"组合器与渲染器不读取 evidence/：{line.strip()}")
             )
     return findings
-
-
-def check_names(texts: dict[str, str]) -> list[Finding]:
-    """Interim NAME-1: machine and product names stay out of the composer's code."""
-    return [
-        Finding("NAME-1", path, number, f"{COMPOSER} 不写机型或产品名：{line.strip()}")
-        for path, package, number, line in _production_lines(texts)
-        if package == COMPOSER
-        and PurePosixPath(path).suffix in SOURCE_SUFFIXES
-        and PRODUCT_NAMES.search(line)
-    ]

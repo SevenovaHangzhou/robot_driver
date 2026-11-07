@@ -96,25 +96,24 @@ tools/arch_check.py --json          # 每条发现一行 JSON
 | LAYER-5 | `listen_only_peripherals` 中外设的生产 C/C++ 不写总线 | 6 |
 | OWN-1 | 控制频率数值只写在 manifest 与 `integ_composer/config/controller_defaults.yaml` | 1.1 |
 | OWN-2 | 组合器与渲染器不读取 `evidence/` | 1.6 |
-| NAME-1 | `integ_composer` 代码不写机型或产品名（第 3 步扩为全层 NAME 规则） | 1.1 |
+| NAME-1 | 机型名只写在 `hwcfg_machines`；机型名取自 `hwcfg_machines/machines/<机型>/` 目录名，不区分大小写与分隔符 | 1.1 |
+| NAME-2 | 厂家与产品名（`arch_rules.yaml` 的 `vendor_names`）只写在 `hw_*`、`hwcfg_machines`、`periph_*`；包名（如依赖 `hw_can_damiao`）不算 | 1.1 |
+| NAME-3 | 关节名只写在 `hwcfg_machines`；关节名取自其模块文件的 `robot_model_joint`、`joint_name` | 1.1 |
 
-内容规则只看生产文件（不含 `test/`、`tests/`、`fixtures/`、`schema/`）。
+内容规则只看生产文件（不含 `test/`、`tests/`、`fixtures/`、`schema/`）；NAME 还不看 `golden/` 与 Markdown，代码注释照查。
 
-`tools/arch_rules.yaml` 只放两类数据：`exceptions`（每条写明规则、文件、原因、批准人与日期；
-不再命中的例外本身会被报告）与 `listen_only_peripherals`。`ARCHITECTURE.md` §3 的
+`tools/arch_rules.yaml` 只放规则数据：`exceptions`（每条写明规则、文件、原因、批准人与日期；
+不再命中的例外本身会被报告）、`listen_only_peripherals` 与 `vendor_names`。`ARCHITECTURE.md` §3 的
 `ctrl_enable_manager` 主文件例外在 SIZE 规则启用时登记于此。
 
 ### 后续步骤
 
 每条规则在现状清零后接入门禁（用户 2026-11-06：清零即接入，不逐条确认；需要新增例外或改变行为时先问）。不做豁免清单，§3 写明的单一例外除外：
 
-1. NAME：机型名只在 `hwcfg_machines`；厂家/产品名只在 `hw_*`、`hwcfg_machines`、`periph_*`；关节名只在
-   `hwcfg_machines`。查代码与注释，不查 Markdown 与测试；`integ_operator_web/web/arm/sequence-presets.json`
-   登记为例外。
-2. DUP：已抽取的实现不得再抄——原始 CAN socket 只在 `infra_socketcan`，Modbus TCP 只在 `infra_modbus`，
+1. DUP：已抽取的实现不得再抄——原始 CAN socket 只在 `infra_socketcan`，Modbus TCP 只在 `infra_modbus`，
    CiA402 状态字解码只在 `hw_semantic_components`，渲染器参数骨架只在 `infra_renderer`。
-3. SIZE：生产源码与配置 C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 行；先拆
+2. SIZE：生产源码与配置 C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 行；先拆
    `integ_operator_web/node.py`、`arm/console.py` 与 `hwcfg_machines/.../controllers.yaml`。
-4. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
+3. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
    一次并逐文件比较，基线成功而当前失败也报告；用作结构变更不改行为的证据（ARCHITECTURE §7）。按需运行，
    不在默认规则组里。
