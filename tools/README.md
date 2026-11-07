@@ -105,8 +105,8 @@ tools/arch_check.py --json          # 每条发现一行 JSON
 内容规则只看生产文件（不含 `test/`、`tests/`、`fixtures/`、`schema/`）；NAME 还不看 `golden/` 与 Markdown，代码注释照查。
 
 `tools/arch_rules.yaml` 只放规则数据：`exceptions`（每条写明规则、文件、原因、批准人与日期；
-不再命中的例外本身会被报告）、`listen_only_peripherals`、`vendor_names` 与 `duplicates`。`ARCHITECTURE.md` §3 的
-`ctrl_enable_manager` 主文件例外登记于此。
+不再命中的例外本身会被报告）、`listen_only_peripherals`、`vendor_names` 与 `duplicates`。例外的规矩见
+`ARCHITECTURE.md` §3。
 
 ### compose --against：结构变更不改行为
 
@@ -122,4 +122,4 @@ tools/arch_check.py compose --against origin/main
 `quality_gate.sh` 中运行。
 
 新规则在现状清零后接入（用户 2026-11-06：清零即接入，不逐条确认；需要新增例外或改变行为时先问），
-不做豁免清单，§3 写明的单一例外除外。
+例外按 `ARCHITECTURE.md` §3 登记，须经用户批准。
