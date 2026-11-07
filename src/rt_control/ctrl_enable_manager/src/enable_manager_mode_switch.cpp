@@ -29,15 +29,15 @@ void EnableManagerController::handleJtcState(
   const control_msgs::msg::JointTrajectoryControllerState::SharedPtr message)
 {
   if (
-    message->joint_names.size() != kMotionAxisCount ||
-    message->output.positions.size() != kMotionAxisCount) {
+    message->joint_names.size() != motion_joint_names_.size() ||
+    message->output.positions.size() != motion_joint_names_.size()) {
     return;
   }
   CommandSnapshot snapshot;
   snapshot.valid = true;
   snapshot.control_mode = static_cast<std::uint8_t>(ControlMode::kFjtReady);
   snapshot.received_steady_ns = steadyNowNs();
-  for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+  for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
     if (
       message->joint_names[axis] != motion_joint_names_[axis] ||
       !std::isfinite(message->output.positions[axis])) {
@@ -70,7 +70,7 @@ bool EnableManagerController::readActualSample(ActualSample & sample) const noex
     if ((version_before & 1U) != 0U) {
       continue;
     }
-    for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+    for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
       sample.positions[axis] = actual_sample_positions_[axis].load(std::memory_order_relaxed);
     }
     sample.feedback_age_ms = actual_sample_feedback_age_ms_.load(std::memory_order_relaxed);
@@ -499,7 +499,7 @@ bool EnableManagerController::stableActualInterval(
 {
   const double elapsed_seconds =
     static_cast<double>(current.steady_time_ns - window_start.steady_time_ns) / 1.0e9;
-  for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+  for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
     const double speed =
       std::abs(current.positions[axis] - window_start.positions[axis]) / elapsed_seconds;
     if (!std::isfinite(speed) || speed > mode_switch_stable_velocity_thresholds_[axis]) {
@@ -510,10 +510,9 @@ bool EnableManagerController::stableActualInterval(
 }
 
 bool EnableManagerController::sourceWithinTakeoverTolerance(
-  const std::array<double, kMotionAxisCount> & source,
-  const std::array<double, kMotionAxisCount> & actual) const noexcept
+  const MotionPositions & source, const MotionPositions & actual) const noexcept
 {
-  for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+  for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
     if (
       !std::isfinite(source[axis]) || !std::isfinite(actual[axis]) ||
       std::abs(source[axis] - actual[axis]) > mode_switch_takeover_tolerances_[axis]) {

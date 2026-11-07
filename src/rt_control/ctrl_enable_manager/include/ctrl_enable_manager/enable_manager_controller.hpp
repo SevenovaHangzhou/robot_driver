@@ -57,7 +57,11 @@ private:
   // state machine. No behavior change; not referenced by production code.
   friend class EnableManagerTestAccess;
 
-  static constexpr std::size_t kMotionAxisCount = 14U;
+  // Motion axes of the mode switch: motion_joints, at most kMaxMotionAxes. The per-axis
+  // parameter defaults cover the dual arm.
+  static constexpr std::size_t kMaxMotionAxes = 16U;
+  static constexpr std::size_t kDualArmAxisCount = 14U;
+  using MotionPositions = std::array<double, kMaxMotionAxes>;
   // EtherCAT AL state Operational (ETG.1000.6), as the slave al_state interface reports it.
   static constexpr double kAlStateOp = 8.0;
 
@@ -134,7 +138,7 @@ private:
 
   struct ActualSample
   {
-    std::array<double, kMotionAxisCount> positions{};
+    MotionPositions positions{};
     double feedback_age_ms{0.0};
     std::uint64_t steady_time_ns{0U};
     std::uint64_t sequence{0U};
@@ -143,7 +147,7 @@ private:
   struct CommandSnapshot
   {
     bool valid{false};
-    std::array<double, kMotionAxisCount> positions{};
+    MotionPositions positions{};
     std::uint64_t received_steady_ns{0U};
     std::uint8_t control_mode{0U};
     // Rolling only: RollingJointControlState.state; the rolling source must be holding.
@@ -216,8 +220,7 @@ private:
   bool stableActualInterval(
     const ActualSample & window_start, const ActualSample & current) const noexcept;
   bool sourceWithinTakeoverTolerance(
-    const std::array<double, kMotionAxisCount> & source,
-    const std::array<double, kMotionAxisCount> & actual) const noexcept;
+    const MotionPositions & source, const MotionPositions & actual) const noexcept;
   bool readActualSample(ActualSample & sample) const noexcept;
   bool readCommandSnapshot(ControlMode mode, CommandSnapshot & snapshot) const;
   std::uint8_t validateModeSource(ControlMode source, CommandSnapshot & snapshot);
@@ -319,7 +322,7 @@ private:
   std::atomic<ControlMode> current_control_mode_{ControlMode::kDisabled};
   // Realtime writers and service readers share these; the doubles must stay lock-free.
   static_assert(std::atomic<double>::is_always_lock_free);
-  std::array<std::atomic<double>, kMotionAxisCount> actual_sample_positions_{};
+  std::array<std::atomic<double>, kMaxMotionAxes> actual_sample_positions_{};
   std::atomic<double> actual_sample_feedback_age_ms_{0.0};
   std::atomic<std::uint64_t> actual_sample_time_ns_{0U};
   std::atomic<std::uint64_t> actual_sample_sequence_{0U};
@@ -406,8 +409,8 @@ private:
   std::size_t mode_switch_stable_interval_count_{5U};
   std::chrono::milliseconds mode_switch_timeout_{500};
   double mode_switch_feedback_age_limit_ms_{500.0};
-  std::array<double, kMotionAxisCount> mode_switch_stable_velocity_thresholds_{};
-  std::array<double, kMotionAxisCount> mode_switch_takeover_tolerances_{};
+  MotionPositions mode_switch_stable_velocity_thresholds_{};
+  MotionPositions mode_switch_takeover_tolerances_{};
   mutable std::mutex command_snapshot_mutex_{};
   CommandSnapshot jtc_command_snapshot_{};
   CommandSnapshot rolling_command_snapshot_{};
