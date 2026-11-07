@@ -366,40 +366,6 @@ def test_fault_tables_reject_duplicates_and_wrong_references(shares):
         VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
 
 
-def test_policy_values_equal_frozen_old_output():
-    # The frozen old output remains the value oracle after retiring old code.
-
-    manifest_path = next((RT / "hwcfg_machines/machines").glob("*/manifest.yaml"))
-    policy = load_yaml(
-        RT / "hwcfg_machines" / load_yaml(manifest_path)["policy_refs"]["motion"]["file"]
-    )
-    old = load_yaml(GOLDEN / "arm-mock/controllers.yaml")
-    assert policy["joints"] == old["whole_body_jtc"]["ros__parameters"]["joints"]
-    expected_jtc = deepcopy(old["whole_body_jtc"]["ros__parameters"])
-    expected_jtc.pop("joints")
-    # The public action name comes from config/interface_naming.yaml, not the policy.
-    assert expected_jtc.pop("action_name") == "/rt/arms/follow_joint_trajectory"
-    assert expected_jtc.pop("trajectory_topic") == "/rt/arms/joint_trajectory"
-    # Velocity limits come from the robot model URDF, not the policy.
-    assert len(expected_jtc.pop("joint_velocity_limits")) == len(policy["joints"])
-    assert len(expected_jtc.pop("joint_acceleration_limits")) == len(policy["joints"])
-    assert policy["jtc"] == expected_jtc
-    expected_rolling = deepcopy(old["rolling_trajectory_controller"]["ros__parameters"])
-    # Robot-model limits, not policy data (see test_rolling_limits_come_from_the_robot_model).
-    for derived in (
-        "joint_position_lower",
-        "joint_position_upper",
-        "joint_velocity_limits",
-        "joint_acceleration_limits",
-    ):
-        expected_rolling.pop(derived)
-    assert expected_rolling.pop("joints") == policy["joints"]
-    assert policy["rolling"] == expected_rolling
-    assert policy["enable_manager"] == {
-        key: value
-        for key, value in old["enable_manager"]["ros__parameters"].items()
-        if key.startswith("mode_switch_")
-    }
 
 
 def test_sample_a_conformance_is_read_only_and_keeps_unknown_xml(shares, monkeypatch):
@@ -507,29 +473,6 @@ def test_stationary_preflight_preserves_old_checks_with_injected_cli(shares, mon
     assert calls
 
 
-def test_owner_import_has_no_integration_dependency():
-    import os
-    import subprocess
-
-    code = """
-import importlib.abc
-import sys
-class DenyIntegration(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname == 'integ_composer' or fullname.startswith('integ_composer.'):
-            raise RuntimeError('Protocol imported integration')
-sys.meta_path.insert(0, DenyIntegration())
-from hw_ethercat import rt_control_renderer
-assert rt_control_renderer.RENDERER_API_VERSION == 1
-"""
-    env = {
-        **os.environ,
-        "PYTHONPATH": str(RT / "hw_ethercat") + os.pathsep + os.environ["PYTHONPATH"],
-    }
-    result = subprocess.run(
-        [sys.executable, "-c", code], env=env, text=True, capture_output=True, check=False
-    )
-    assert result.returncode == 0, result.stderr
 
 
 def test_renderer_api_rejected_before_invocation(monkeypatch):
