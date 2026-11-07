@@ -58,27 +58,30 @@
 
 ## 6. 验证分级
 
-验证按级升级，前一级失败不得进入后一级；每级结论只能写成该级：
+验证分 T0–T4 五级，定义（含每级允许的写动作）以
+[`domains/rt_control/testing/README.md`](domains/rt_control/testing/README.md) 为准；开发记录与发布用例同用这一套（用户 2026-11-07）：
 
 | 级 | 内容 |
 | --- | --- |
-| 1 | 静态检查与配置/schema 校验 |
-| 2 | 受影响包构建与自动化测试 |
-| 3 | `use_mock_hardware:=true` 的加载、生命周期和停机 |
-| 4 | 容器 config/镜像构建/无硬件启动（仅 Docker/Compose 变更或人工封装/发布时必做） |
-| 5 | 断动力或不使能的现场通信 |
-| 6 | 有急停、隔离区、限速、监护人和回退方案的上电低速验证 |
-| 7 | 完整生产验收 |
+| T0 | 静态：配置/schema 校验、门禁、构建、包测试；Docker/Compose 变更或人工封装/发布时含容器配置、镜像构建与无硬件启动 |
+| T1 | `use_mock_hardware:=true` 的加载、生命周期和停机 |
+| T2 | 实机只读：断动力或不使能的现场通信、总线观测、诊断快照 |
+| T3 | 实机生命周期：启动、复位、使能、失能、停机，不产生运动 |
+| T4 | 实机功能运动；须有急停、隔离区、限速、监护人和回退方案 |
 
+验证按级升级，前一级失败不得进入后一级；每级结论只能写成该级。完整生产验收按发布门禁执行（同一 README）。
 编译、mock、仿真和离线校验不得写成"实机验证通过"。
 
 ## 7. 提交与交付
 
 - 每次提交前：`git status --short --branch`、`git diff --check`、逐行审查 `git diff` 与 `git diff --cached`
-  （含 `??` 未跟踪文件），再跑 `tools/quality_gate.sh` 和 [`tools/README.md`](tools/README.md) 中对应改动类型的命令。
+  （含 `??` 未跟踪文件），再跑 `tools/quality_gate.sh`（含 `arch_check`）和 [`tools/README.md`](tools/README.md)
+  中对应改动类型的命令；结构变更另附 `tools/arch_check.py compose --against origin/main` 的结果（`ARCHITECTURE.md` §7）。
+- 分支、commit 和 PR 引用同一任务的 Linear Issue 与 GitHub Issue（[`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) §2）。
 - 提交、推送、开 PR 只在用户明确要求时执行。在任务系统里把 Issue 派给某个 agent，即视为授权它在自己的分支上
-  提交、推送并开 PR；合并由人完成。此授权不含打 tag、上传发布物或硬件操作。
-- KKOZIA-2 子 issue 的 PR 由架构师在 CI 通过后合并（2026-10-13 用户授权），`safety_policy.yaml` 除外。
+  提交、推送并开 PR。此授权不含合并、打 tag、上传发布物或硬件操作。
+- 合并由人完成；用户针对某个 PR 明确要求合并时，Agent 可在 CI 每个 workflow 的最新一次运行通过、本地
+  `tools/quality_gate.sh` 通过后执行 squash 合并（用户 2026-11-07）。`safety_policy.yaml` 的改动仍须人工 approve。
 - 禁止：直接推 `main`、`--no-verify`、force push、改写共享历史、擅自 amend 他人提交、把无关任务塞进一个提交；
   提交密钥、凭据、构建产物、日志、`__pycache__`、未解释的大文件；用 `git checkout --`、`git reset --hard`
   或清理工作树处理用户已有改动。
