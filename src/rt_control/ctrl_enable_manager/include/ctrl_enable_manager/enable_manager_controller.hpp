@@ -61,6 +61,8 @@ private:
   // parameter defaults cover the dual arm.
   static constexpr std::size_t kMaxMotionAxes = 16U;
   static constexpr std::size_t kDualArmAxisCount = 14U;
+  // CiA402 0x6060 values the mode switch writes to the switched drives (mode_switch_joints).
+  static constexpr std::int16_t kCspMode = 8;
   using MotionPositions = std::array<double, kMaxMotionAxes>;
   // EtherCAT AL state Operational (ETG.1000.6), as the slave al_state interface reports it.
   static constexpr double kAlStateOp = 8.0;
@@ -90,7 +92,8 @@ private:
     kDisabled = 0U,
     kFjtReady = 1U,
     kRollingReady = 2U,
-    kRestartRequired = 3U
+    kRestartRequired = 3U,
+    kVelocityReady = 4U
   };
   enum class ModeSwitchState : std::uint8_t {
     kTargetActive,
@@ -167,7 +170,8 @@ private:
     kModeFeedbackStale,
     kModeTakeoverMismatch,
     kModeSwitchRejected,
-    kModeRestartRequired
+    kModeRestartRequired,
+    kModeDriveModeTimeout
   };
 
   static DriveState decodeState(std::uint16_t status_word);
@@ -230,6 +234,15 @@ private:
   std::uint8_t executeModeSwitch(ControlMode source, ControlMode target);
   void convergeAfterUnsafeModeSwitch(bool restart_required);
   bool releaseModeOwnership() noexcept;
+  // The mode a controller set implies for the switched drives: CSP while the trajectory
+  // controller owns a velocity-mode group, else each drive's startup mode.
+  bool switchedDrivesUseCsp(ControlMode mode) const noexcept;
+  // Requests the drive mode for `mode`, then waits until every switched drive reports it.
+  bool switchDriveModes(ControlMode mode);
+  bool configureDriveModeSwitching();
+  bool bindDriveModeCommands();
+  void writeDriveModes() noexcept;
+  bool runningModeConfirmed(std::size_t axis) const noexcept;
   static void populateModeError(
     robot_system_interfaces::msg::ErrorInfo & error, std::uint8_t result);
   SwitchResult switchJtc(bool activate);
@@ -404,6 +417,20 @@ private:
   std::vector<std::string> companion_controllers_;
   std::string default_motion_controller_;
   std::string rolling_motion_controller_;
+  // Velocity-mode groups (the swerve chassis): motion_controller runs VELOCITY_READY and this
+  // trajectory controller FJT_READY; empty for the arms, where motion_controller is FJT_READY.
+  std::string trajectory_motion_controller_;
+  ControlMode motion_controller_mode_{ControlMode::kFjtReady};
+  std::string mode_service_name_;
+  // Drives whose operation mode follows the controller set; enable checks their startup mode.
+  std::vector<std::string> mode_switch_joint_names_;
+  std::vector<std::size_t> mode_switch_axes_;
+  std::vector<std::uint8_t> mode_switch_axis_;
+  std::size_t drive_mode_command_offset_{0U};
+  // CSP requested by the mode switch; the realtime update clears it whenever the group is not
+  // enabled, so every enable starts in the startup mode.
+  std::atomic_bool drive_csp_requested_{false};
+  std::array<std::atomic<std::int16_t>, kMaxMotionAxes> drive_mode_display_{};
   std::uint64_t mode_switch_maximum_sample_period_ns_{2000000U};
   std::uint64_t mode_switch_source_state_max_age_ns_{100000000U};
   std::size_t mode_switch_stable_interval_count_{5U};

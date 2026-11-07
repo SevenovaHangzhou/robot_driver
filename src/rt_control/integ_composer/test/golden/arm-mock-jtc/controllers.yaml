@@ -83,6 +83,7 @@ enable_manager:
     - right_joint5
     - right_joint6
     - right_joint7
+    mode_service: /rt/arms/set_control_mode
     mode_switch_feedback_age_limit_ms: 500.0
     mode_switch_maximum_sample_period_ms: 2
     mode_switch_source_state_max_age_ms: 100

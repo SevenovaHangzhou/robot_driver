@@ -391,7 +391,9 @@ void KincoCyclicModeSlave::onPdoCycleStart(bool complete)
   }
   if (!operation_enabled()) {
     // The enable transition starts from the last disabled position; no producer owns it yet.
+    // A disabled drive returns to the startup mode, so every enable confirms that fixed mode.
     hold_position_raw_ = actual_position_raw_;
+    output_mode_ = startup_mode_;
     position_owned_ = false;
     startup_mode_waiting_ = false;
     clear_handoff(false);

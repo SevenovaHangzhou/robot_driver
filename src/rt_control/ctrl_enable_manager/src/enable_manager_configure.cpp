@@ -67,6 +67,9 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<int>("service_result_timeout_ms", 30000);
   auto_declare<std::string>("motion_controller", "");
   auto_declare<std::string>("rolling_controller", "");
+  auto_declare<std::string>("trajectory_controller", "");
+  auto_declare<std::string>("mode_service", "");
+  auto_declare<std::vector<std::string>>("mode_switch_joints", {});
   auto_declare<std::vector<std::string>>("companion_controllers", {});
   auto_declare<std::string>("disable_terminal_policy", "joint_list");
   // Runtime-LOG: copy the state machine into a shared-memory ring every cycle (optional).
@@ -113,6 +116,9 @@ EnableManagerController::command_interface_configuration() const
   for (const auto & device : handshake_devices_) {
     const auto names = device->command_interface_names();
     configuration.names.insert(configuration.names.end(), names.begin(), names.end());
+  }
+  for (const auto & joint : mode_switch_joint_names_) {
+    configuration.names.emplace_back(joint + "/mode_of_operation");
   }
   return configuration;
 }
@@ -173,20 +179,29 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   const auto service_timeout = get_node()->get_parameter("service_result_timeout_ms").as_int();
   default_motion_controller_ = get_node()->get_parameter("motion_controller").as_string();
   rolling_motion_controller_ = get_node()->get_parameter("rolling_controller").as_string();
+  trajectory_motion_controller_ = get_node()->get_parameter("trajectory_controller").as_string();
+  mode_service_name_ = get_node()->get_parameter("mode_service").as_string();
   companion_controllers_ = get_node()->get_parameter("companion_controllers").as_string_array();
   managed_controllers_.clear();
   if (!default_motion_controller_.empty()) {
     managed_controllers_.push_back(default_motion_controller_);
   }
-  if (!rolling_motion_controller_.empty()) {
-    managed_controllers_.push_back(rolling_motion_controller_);
+  for (const auto & alternate : {rolling_motion_controller_, trajectory_motion_controller_}) {
+    if (!alternate.empty()) {
+      managed_controllers_.push_back(alternate);
+    }
   }
   managed_controllers_.insert(
     managed_controllers_.end(), companion_controllers_.begin(), companion_controllers_.end());
   enable_only_ = managed_controllers_.empty();
-  motion_mode_switching_ = !rolling_motion_controller_.empty();
+  motion_mode_switching_ =
+    !rolling_motion_controller_.empty() || !trajectory_motion_controller_.empty();
+  motion_controller_mode_ =
+    trajectory_motion_controller_.empty() ? ControlMode::kFjtReady : ControlMode::kVelocityReady;
   const bool controllers_valid =
     (!default_motion_controller_.empty() || enable_only_) &&
+    (rolling_motion_controller_.empty() || trajectory_motion_controller_.empty()) &&
+    (!motion_mode_switching_ || !mode_service_name_.empty()) &&
     std::none_of(
       managed_controllers_.begin(), managed_controllers_.end(),
       [](const auto & name) { return name.empty(); }) &&
@@ -194,14 +209,14 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
       managed_controllers_.size();
   const auto modes = get_node()->get_parameter("expected_modes").as_integer_array();
   if (
-    !modes.empty() && (modes.size() != joint_names_.size() || motion_mode_switching_ ||
+    !modes.empty() && (modes.size() != joint_names_.size() || !rolling_motion_controller_.empty() ||
                        !std::all_of(modes.begin(), modes.end(), [](std::int64_t value) {
                          return value >= -128 && value <= 127 && value != 0;
                        }))) {
     RCLCPP_ERROR(
       get_node()->get_logger(),
       "expected_modes must be empty or one nonzero int8 fixed mode per managed joint; incompatible "
-      "with dynamic mode switching");
+      "with the rolling mode switch");
     return controller_interface::CallbackReturn::ERROR;
   }
   expected_modes_.assign(modes.begin(), modes.end());
@@ -270,7 +285,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
 
   // Timing values are checked once by the composer (enable policy schema; YAML load rejects
   // non-finite numbers).
-  if (!controllers_valid || !motion_parameters_valid) {
+  if (!controllers_valid || !motion_parameters_valid || !configureDriveModeSwitching()) {
     RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager controller parameter");
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -327,7 +342,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     reset_callback_group_);
   if (motion_mode_switching_) {
     mode_service_ = get_node()->create_service<ModeService>(
-      "/rt/arms/set_control_mode",
+      mode_service_name_,
       std::bind(
         &EnableManagerController::handleSetMode, this, std::placeholders::_1,
         std::placeholders::_2),
@@ -336,14 +351,21 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     source_subscription_options.callback_group = worker_callback_group_;
     jtc_state_subscription_ =
       get_node()->create_subscription<control_msgs::msg::JointTrajectoryControllerState>(
-        "/" + default_motion_controller_ + "/controller_state", robot_interfaces_qos::state(),
+        "/" +
+          (trajectory_motion_controller_.empty() ? default_motion_controller_
+                                                 : trajectory_motion_controller_) +
+          "/controller_state",
+        robot_interfaces_qos::state(),
         std::bind(&EnableManagerController::handleJtcState, this, std::placeholders::_1),
         source_subscription_options);
-    rolling_state_subscription_ =
-      get_node()->create_subscription<robot_rt_control_interfaces::msg::RollingJointControlState>(
-        "/rt/arms/rolling/state", robot_interfaces_qos::rolling_state(),
-        std::bind(&EnableManagerController::handleRollingState, this, std::placeholders::_1),
-        source_subscription_options);
+    rolling_state_subscription_.reset();
+    if (!rolling_motion_controller_.empty()) {
+      rolling_state_subscription_ =
+        get_node()->create_subscription<robot_rt_control_interfaces::msg::RollingJointControlState>(
+          "/rt/arms/rolling/state", robot_interfaces_qos::rolling_state(),
+          std::bind(&EnableManagerController::handleRollingState, this, std::placeholders::_1),
+          source_subscription_options);
+    }
   }
   list_client_ = get_node()->create_client<controller_manager_msgs::srv::ListControllers>(
     "/controller_manager/list_controllers", rmw_qos_profile_services_default,
@@ -420,6 +442,8 @@ rcl_interfaces::msg::SetParametersResult EnableManagerController::validateTopolo
   for (const auto & parameter : parameters) {
     if (
       parameter.get_name() == "motion_controller" || parameter.get_name() == "rolling_controller" ||
+      parameter.get_name() == "trajectory_controller" || parameter.get_name() == "mode_service" ||
+      parameter.get_name() == "mode_switch_joints" ||
       parameter.get_name() == "companion_controllers" ||
       parameter.get_name() == "disable_terminal_policy" ||
       parameter.get_name() == "expected_modes" ||

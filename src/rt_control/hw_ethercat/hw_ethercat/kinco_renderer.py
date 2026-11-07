@@ -134,6 +134,12 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if radius != "TBD" and (not math.isfinite(radius) or radius <= 0):
             raise ValueError("Effective wheel radius must be positive and finite")
     exports = {"steering_joints": {}, "drive_joints": {}, "steering_to_yaw_sign": {}}
+    # Joint position range each drive accepts (its adapter limits), per role and module position;
+    # drives whose CSP/CSV mode follows the controller set (mode_switching).
+    for role in ("steering", "drive"):
+        exports[role + "_position_min"] = {}
+        exports[role + "_position_max"] = {}
+    exports["mode_switching_joints"] = []
     # The controller refuses to configure unless the chassis data and the unit
     # calibration are both verified; this is the single source of that flag.
     exports["calibration_verified"] = machine["verified"] is True and unit["verified"] is True
@@ -278,6 +284,10 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 assign_activate=profile["assign_activate"],
             )
         config["kinco_cyclic_mode"] = adapter
+        for bound, key in (("min", "min_position"), ("max", "max_position")):
+            exports[f"{axis['role']}_position_{bound}"][axis["module_position"]] = adapter[key]
+        if axis.get("mode_switching", False):
+            exports["mode_switching_joints"].append(name)
         relative = name + ".yaml"
         runtime_files[relative] = yaml.safe_dump(config, sort_keys=False)
         if not mock:
@@ -288,6 +298,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "position": axis["ring_position"],
                 "mode_of_operation": axis["mode_of_operation"],
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
+                **({"mode_switching": "true"} if axis.get("mode_switching", False) else {}),
             }.items():
                 xml_param(joint, "ec_module." + key, value)
         joints.append(joint)

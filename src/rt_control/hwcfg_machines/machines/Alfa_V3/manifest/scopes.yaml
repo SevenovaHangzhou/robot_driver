@@ -44,6 +44,7 @@ scopes:
     controller_order:
       inactive:
       - swerve_controller
+      - base_wheel_jtc
       active:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
@@ -81,8 +82,10 @@ scopes:
             export: calibration_verified
     policies:
     - enable
+    - base_motion
     policy_overrides:
       enable: chassis_enable
+      base_motion: chassis_motion
     staged_hardware_activation: true
     mock_robot_model:
       package: hwcfg_machines

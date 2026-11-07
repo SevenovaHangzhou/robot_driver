@@ -309,6 +309,23 @@ TEST(KincoCyclicModeSlave, CspToCsvSendsZeroDiscardsStaleAndRequiresPostAckComma
   EXPECT_DOUBLE_EQ(rig.states[7], 1.0);
 }
 
+TEST(KincoCyclicModeSlave, DisabledSwitchingAxisReturnsToTheStartupMode)
+{
+  Rig rig(KINCO_FIXTURE, 9, true);
+  rig.setup();
+  rig.cycle(9);
+  // Running in CSP after a handoff, then the drive is disabled while CSP is still requested.
+  rig.commands[2] = 8.0;
+  rig.cycle(8, 350, 0, 0x0040);
+  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
+  EXPECT_DOUBLE_EQ(rig.states[8], 0.0);
+  // The next enable starts from the startup mode with no producer.
+  rig.commands[2] = std::numeric_limits<double>::quiet_NaN();
+  rig.cycle(9, 360, 0, 0x0040);
+  EXPECT_EQ(EC_READ_S8(rig.bytes(0x6060)), 9);
+  EXPECT_EQ(EC_READ_S32(rig.bytes(0x607a)), 360);
+}
+
 TEST(KincoCyclicModeSlave, RejectsInvalidModesCommandsAndOutOfRangeValues)
 {
   Rig switching(KINCO_FIXTURE, 9, true);

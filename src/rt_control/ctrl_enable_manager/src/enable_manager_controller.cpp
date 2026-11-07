@@ -68,7 +68,8 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
 {
   const std::size_t expected_state_count = state_interface_configuration().names.size();
   if (
-    command_interfaces_.size() != cia402_axes_.size() + handshake_devices_.size() * 2U ||
+    command_interfaces_.size() !=
+      cia402_axes_.size() + handshake_devices_.size() * 2U + mode_switch_joint_names_.size() ||
     state_interfaces_.size() != expected_state_count) {
     RCLCPP_ERROR(
       get_node()->get_logger(), "Unexpected enable-manager command or state interface count");
@@ -84,7 +85,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   for (auto & device : handshake_devices_) {
     interfaces_bound = interfaces_bound && device->bind(command_interfaces_, state_interfaces_);
   }
-  if (!interfaces_bound) {
+  if (!interfaces_bound || !bindDriveModeCommands()) {
     releaseCia402Interfaces();
     RCLCPP_ERROR(
       get_node()->get_logger(),
@@ -316,7 +317,7 @@ controller_interface::return_type EnableManagerController::update(
         phase = Phase::kEmergencyQuickStop;
         break;
       }
-      if (!modeConfirmed(axis)) {
+      if (!runningModeConfirmed(axis)) {
         startEmergency(
           Stage::kModeMismatch, static_cast<std::int8_t>(axis), status_words_[axis], now_ns);
         phase = Phase::kEmergencyQuickStop;
@@ -404,7 +405,7 @@ controller_interface::return_type EnableManagerController::update(
         // Commit success on the RT update only after this cycle's state/mode checks.
         clearFailure();
         if (motion_mode_switching_) {
-          current_control_mode_.store(ControlMode::kFjtReady, std::memory_order_release);
+          current_control_mode_.store(motion_controller_mode_, std::memory_order_release);
         }
         phase_.store(Phase::kEnabled, std::memory_order_release);
         publishResult(enable_result_, true, Stage::kSuccess);
@@ -474,6 +475,7 @@ controller_interface::return_type EnableManagerController::update(
   for (auto & device : handshake_devices_) {
     device->write();
   }
+  writeDriveModes();
   writeTrace(now_ns, period.nanoseconds());
   return controller_interface::return_type::OK;
 }

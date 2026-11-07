@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# robot_interfaces main after #17/#18 (Rolling final, rolling client).
-commit: aa82a77c7acccc837309c234462b2f564edc42e2
+# robot_interfaces main after #19 (base CSV/CSP mode switching, base wheel trajectory).
+commit: 78f02ffe5b8f40a9f57bf9405cd00e007914fc84
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:

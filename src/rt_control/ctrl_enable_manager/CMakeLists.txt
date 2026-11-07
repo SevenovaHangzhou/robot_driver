@@ -104,6 +104,13 @@ if(BUILD_TESTING)
   target_compile_features(test_handshake_devices PUBLIC cxx_std_17)
   target_link_libraries(test_handshake_devices enable_manager_controller)
   ament_target_dependencies(test_handshake_devices hardware_interface rclcpp robot_interfaces_qos)
+
+  ament_add_gmock(test_drive_mode_switch test/test_drive_mode_switch.cpp)
+  target_compile_features(test_drive_mode_switch PUBLIC cxx_std_17)
+  target_link_libraries(test_drive_mode_switch enable_manager_controller)
+  ament_target_dependencies(test_drive_mode_switch
+    control_msgs controller_manager_msgs hardware_interface rclcpp robot_rt_control_interfaces
+    robot_system_interfaces)
 endif()
 
 ament_package()

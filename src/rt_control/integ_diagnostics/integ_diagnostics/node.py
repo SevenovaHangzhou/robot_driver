@@ -182,7 +182,7 @@ class DiagnosticsNode(Node):
             name: states.get(name, "unloaded") for name in self._motion_controllers
         }
         if self._mode_controllers:
-            # Trajectory or rolling, whichever /rt/arms/set_control_mode selected.
+            # Whichever controller the group's set_control_mode selected (arms or chassis).
             active = [name for name in self._mode_controllers if states.get(name) == "active"]
             self._controllers["|".join(self._mode_controllers)] = (
                 "active" if len(active) == 1 else "inactive"

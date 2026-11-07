@@ -22,6 +22,7 @@ KINDS = (
     "exports",
     "interface",
     "model_limits",
+    "joint_values",
 )
 # A source that resolves to nothing contributes no parameter (keeps unrelated outputs unchanged).
 _SKIP = object()
@@ -130,6 +131,37 @@ def _controllers(source, env):
     raise ValueError(f"Unsupported controller selection: {select}")
 
 
+def _joint_values(source, env):
+    """One value per policy joint, from instance-keyed module exports.
+
+    Each group names a module export mapping instances to joints, and a value: a scalar from a
+    package YAML (yaml) or an export with the same instance keys (value_export), optionally
+    divided by another such export (divide_by_export), e.g. a wheel-surface speed by its radius.
+    """
+    joints = _lookup(env["policies"][source["policy"]], source["path"], env["context"])
+    values = {}
+    for group in source["groups"]:
+        exports = env["rendered_modules"][group["module"]]["parameter_exports"]
+        if "yaml" in group:
+            share = Path(env["package_share"](group["yaml"]["package"]))
+            data = yaml.safe_load(resolve_share_path(share, group["yaml"]["file"]).read_text())
+            scalar = _lookup(data, group["yaml"]["path"], env["context"])
+        for instance, joint in exports[group["joints_export"]].items():
+            value = scalar if "yaml" in group else exports[group["value_export"]][instance]
+            divisor = (
+                exports[group["divide_by_export"]][instance] if "divide_by_export" in group else 1
+            )
+            if joint in values or not all(
+                isinstance(item, (int, float)) and not isinstance(item, bool)
+                for item in (value, divisor)
+            ):
+                raise ValueError(f"Joint value for {joint} is duplicated or not a number")
+            values[joint] = float(value) / float(divisor)
+    if set(values) != set(joints):
+        raise ValueError(f"Joint values do not cover exactly {joints}")
+    return [values[joint] for joint in joints]
+
+
 def _evaluate(kind, source, name, binding, env):
     owner = env["rendered_modules"].get(binding["module"], {})
     if kind == "yaml":
@@ -157,8 +189,16 @@ def _evaluate(kind, source, name, binding, env):
         # Required state sources gate enabling through their "ready" state interfaces.
         return env.get("state_ready", []) or _SKIP
     if kind == "interface":
-        # Public ROS names have one owner: config/interface_naming.yaml.
+        # Public ROS names have one owner: config/interface_naming.yaml. A policy may choose the
+        # name key (policy/path), e.g. the mode service of the group it configures.
+        if "policy" in source:
+            policy = env["policies"][source["policy"]]
+            if source.get("optional") and not _has(policy, source["path"], {}):
+                return _SKIP
+            return env["naming"][_lookup(policy, source["path"], {})]
         return env["naming"][source["name"]]
+    if kind == "joint_values":
+        return _joint_values(source, env)
     if kind == "model_limits":
         # Joint limits have one owner: the robot model's URDF <limit>, in the order of a policy list.
         joints = _lookup(env["policies"][source["policy"]], source["path"], env["context"])

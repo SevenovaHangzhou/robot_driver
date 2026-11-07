@@ -248,6 +248,11 @@
         "mode_switch_takeover_tolerances"
       ],
       "additionalProperties": false
+    },
+    "mode_service": {
+      "description": "interface_naming key of the arms' SetJointControlMode service; required with a rolling controller",
+      "type": "string",
+      "minLength": 1
     }
   },
   "required": [

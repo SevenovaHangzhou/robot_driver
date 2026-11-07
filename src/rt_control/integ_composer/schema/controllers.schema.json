@@ -259,10 +259,22 @@
                   },
                   "interface": {
                     "type": "object",
+                    "description": "Public name from config/interface_naming.yaml: by key (name), or by the key a policy states (policy/path).",
                     "properties": {
                       "name": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "policy": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "optional": {
+                        "type": "boolean"
                       },
                       "as": {
                         "type": "string",
@@ -270,8 +282,20 @@
                       }
                     },
                     "required": [
-                      "name",
                       "as"
+                    ],
+                    "oneOf": [
+                      {
+                        "required": [
+                          "name"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "policy",
+                          "path"
+                        ]
+                      }
                     ],
                     "additionalProperties": false
                   },
@@ -304,6 +328,95 @@
                       "path",
                       "attribute",
                       "as"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "joint_values": {
+                    "type": "object",
+                    "description": "One value per policy joint from instance-keyed module exports (see parameter_sources._joint_values).",
+                    "properties": {
+                      "policy": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "groups": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "module": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "joints_export": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "yaml": {
+                              "type": "object",
+                              "properties": {
+                                "package": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "file": {
+                                  "$ref": "module_envelope.schema.json#/definitions/share_path"
+                                },
+                                "path": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "package",
+                                "file",
+                                "path"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "value_export": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "divide_by_export": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "module",
+                            "joints_export"
+                          ],
+                          "oneOf": [
+                            {
+                              "required": [
+                                "yaml"
+                              ]
+                            },
+                            {
+                              "required": [
+                                "value_export"
+                              ]
+                            }
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "policy",
+                      "path",
+                      "as",
+                      "groups"
                     ],
                     "additionalProperties": false
                   }
@@ -357,6 +470,11 @@
                   {
                     "required": [
                       "model_limits"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "joint_values"
                     ]
                   }
                 ],

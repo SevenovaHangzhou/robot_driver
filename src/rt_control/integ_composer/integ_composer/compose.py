@@ -460,10 +460,16 @@ def _output_files(runtime, runtime_files, robot_description, controllers, order)
 
 
 def _mode_controllers(order, bindings):
+    """Controllers a mode service switches between: arms trajectory/rolling, or the chassis
+    velocity controller (enable_target) and its wheel trajectory controller."""
     tags = {name: set(bindings[name].get("tags", [])) for name in order["inactive"]}
-    if not any("rolling" in names for names in tags.values()):
-        return []
-    return [name for name, names in tags.items() if names & {"trajectory", "rolling"}]
+    for alternate, group in (
+        ("rolling", {"trajectory", "rolling"}),
+        ("base_trajectory", {"enable_target", "base_trajectory"}),
+    ):
+        if any(alternate in names for names in tags.values()):
+            return [name for name, names in tags.items() if names & group]
+    return []
 
 
 def _lifecycle(
@@ -489,7 +495,7 @@ def _lifecycle(
         "publish_robot_state": bool(scope.get("publish_robot_state", False)),
         "hardware_activation_order": list(hardware_order),
         "motion_controllers": list(order["inactive"]),
-        # Switched by /rt/arms/set_control_mode: exactly one of them is active when enabled.
+        # Switched by the group's set_control_mode: exactly one of them is active when enabled.
         **({"mode_controllers": mode} if (mode := _mode_controllers(order, bindings)) else {}),
         "lifecycle_controllers": list(order["active"]),
         **({"recorder_controllers": recorders} if recorders else {}),

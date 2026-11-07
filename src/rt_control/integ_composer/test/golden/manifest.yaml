@@ -494,3 +494,11 @@ arch-diag-force-sensors:
   cases:
   - force-mock
   - force-real
+arch-base-control-mode:
+  reason: enable_manager 的模式服务名改由策略选定（arms_control_mode → /rt/arms/set_control_mode），双臂渲染多出 mode_service 参数，值与原来写死的名字相同（用户 2026-11-07 底盘 CSV/CSP 切换）
+  method: arch-golden-regen.py --only=arm- 按测试夹具重算，只改 controllers.yaml
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc

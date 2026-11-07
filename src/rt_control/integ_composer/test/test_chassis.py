@@ -53,7 +53,9 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
     assert len(systems[1].findall("sensor")) == 4
     assert not systems[1].findall(".//command_interface")
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
-    manifest = read_with_parts(next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml")))
+    manifest = read_with_parts(
+        next((shares["hwcfg_machines"] / "machines").glob("*/manifest.yaml"))
+    )
     assert manifest["layout"]["ethercat"]["cycle_hz"] == 1000
     assert bus["master"]["sync_period"] == manifest["layout"]["canopen"]["sync_period_us"]
     assert (
@@ -64,7 +66,7 @@ def test_chassis_mock_has_eight_axes_and_four_read_only_encoders(shares, tmp_pat
         "controllers"
     ]["swerve_chassis"]
     assert binding["required_state_modules"] == ["swerve_encoders"]
-    assert result.controller_order["inactive"] == [binding["name"]]
+    assert result.controller_order["inactive"] == [binding["name"], "base_wheel_jtc"]
     assert all(
         "control_word" in [child.attrib["name"] for child in joint.findall("command_interface")]
         for joint in systems[0].findall("joint")
@@ -270,7 +272,7 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
     assert params["ready_hold_time"] == 0.05
     assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
     assert result.controller_order == {
-        "inactive": ["swerve_controller"],
+        "inactive": ["swerve_controller", "base_wheel_jtc"],
         "active": ["joint_state_broadcaster", "rt_internal_state_broadcaster", "enable_manager"],
     }
 
@@ -283,7 +285,9 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     assert manager["hardware_components_initial_state"] == {"unconfigured": order}
     lifecycle = yaml.safe_load(result.files["lifecycle.yaml"])
     assert lifecycle["hardware_activation_order"] == order
-    assert lifecycle["motion_controllers"] == ["swerve_controller"]
+    assert lifecycle["motion_controllers"] == ["swerve_controller", "base_wheel_jtc"]
+    # R-IN-23 switches between them; exactly one is active while enabled.
+    assert lifecycle["mode_controllers"] == ["swerve_controller", "base_wheel_jtc"]
     assert lifecycle["lifecycle_controllers"] == [
         "joint_state_broadcaster",
         "rt_internal_state_broadcaster",
@@ -293,3 +297,41 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     assert names["chassis_velocity"]["topic"] == "/rt/base/cmd_vel"
     assert names["chassis_velocity"]["controller"] == "swerve_controller"
     assert names["enable"]["service"] == "/rt/enable"
+
+
+def test_chassis_mode_switch_wires_the_wheel_trajectory_controller_and_drive_wheels(
+    shares, tmp_path
+):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    wheels = [f"wheel{n}_joint" for n in range(1, 5)]
+    joints = [f"steer{n}_joint" for n in range(1, 5)] + wheels
+    manager = result.controllers["enable_manager"]["ros__parameters"]
+    assert manager["trajectory_controller"] == "base_wheel_jtc"
+    assert manager["mode_service"] == "/rt/base/set_control_mode"
+    assert manager["mode_switch_joints"] == wheels
+    assert manager["motion_joints"] == joints
+    jtc = result.controllers["base_wheel_jtc"]["ros__parameters"]
+    assert jtc["joints"] == joints
+    assert (jtc["action_name"], jtc["trajectory_topic"]) == (
+        "/rt/base/follow_joint_trajectory",
+        "/rt/base/joint_trajectory",
+    )
+    # Navigation limits in joint units: 35 deg/s steering, 2 m/s over r = 0.1 m drive.
+    swerve = result.controllers["swerve_controller"]["ros__parameters"]
+    radius = swerve["wheel_radius"]
+    assert jtc["joint_velocity_limits"] == [swerve["max_steering_slew"]] * 4 + [
+        swerve["max_wheel_speed"] / r for r in radius
+    ]
+    assert jtc["joint_acceleration_limits"] == [swerve["max_steering_acceleration"]] * 4 + [
+        swerve["max_wheel_acceleration"] / r for r in radius
+    ]
+    assert jtc["joint_position_limits_upper"][:4] == [2.0943951023931953] * 4
+    # Only the drive wheels switch at runtime; the steering drives stay fixed CSP.
+    model = ET.fromstring(result.robot_description)
+    switching = {
+        joint.attrib["name"]
+        for joint in model.iter("joint")
+        for param in joint.findall("param")
+        if param.attrib["name"] == "ec_module.mode_switching" and param.text == "true"
+    }
+    assert switching == set(wheels)
