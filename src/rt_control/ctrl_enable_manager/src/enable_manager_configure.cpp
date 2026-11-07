@@ -78,9 +78,10 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<int>("mode_switch_timeout_ms", 500);
   auto_declare<double>("mode_switch_feedback_age_limit_ms", 500.0);
   auto_declare<std::vector<double>>(
-    "mode_switch_stable_velocity_thresholds", std::vector<double>(kMotionAxisCount, 0.00872664626));
+    "mode_switch_stable_velocity_thresholds",
+    std::vector<double>(kDualArmAxisCount, 0.00872664626));
   auto_declare<std::vector<double>>(
-    "mode_switch_takeover_tolerances", std::vector<double>(kMotionAxisCount, 0.00872664626));
+    "mode_switch_takeover_tolerances", std::vector<double>(kDualArmAxisCount, 0.00872664626));
 
   topology_parameters_frozen_.store(false, std::memory_order_release);
   topology_parameters_explicit_mask_.store(0U, std::memory_order_release);
@@ -127,7 +128,7 @@ EnableManagerController::state_interface_configuration() const
     configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
   if (motion_mode_switching_) {
-    configuration.names.reserve(configuration.names.size() + kMotionAxisCount + 1U);
+    configuration.names.reserve(configuration.names.size() + motion_joint_names_.size() + 1U);
     for (const auto & joint : motion_joint_names_) {
       configuration.names.emplace_back(joint + "/position");
     }
@@ -246,15 +247,15 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   std::vector<std::string> sorted_motion_joints = motion_joint_names_;
   std::sort(sorted_motion_joints.begin(), sorted_motion_joints.end());
   const bool motion_joints_valid =
-    motion_joint_names_.size() == kMotionAxisCount &&
+    !motion_joint_names_.empty() && motion_joint_names_.size() <= kMaxMotionAxes &&
     std::adjacent_find(sorted_motion_joints.begin(), sorted_motion_joints.end()) ==
       sorted_motion_joints.end() &&
     std::all_of(
       motion_joint_names_.begin(), motion_joint_names_.end(), [this](const std::string & name) {
         return std::find(joint_names_.begin(), joint_names_.end(), name) != joint_names_.end();
       });
-  const auto valid_threshold_array = [](const std::vector<double> & values) {
-    return values.size() == kMotionAxisCount &&
+  const auto valid_threshold_array = [this](const std::vector<double> & values) {
+    return values.size() == motion_joint_names_.size() &&
            std::all_of(values.begin(), values.end(), [](double value) {
              return std::isfinite(value) && value >= 0.0;
            });

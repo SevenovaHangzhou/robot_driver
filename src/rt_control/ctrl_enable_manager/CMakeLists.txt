@@ -24,6 +24,7 @@ add_library(enable_manager_controller SHARED
   src/enable_manager_controller.cpp
   src/enable_manager_configure.cpp
   src/enable_manager_mode_switch.cpp
+  src/enable_manager_drive_modes.cpp
   src/enable_manager_services.cpp
   src/handshake_device.cpp
 )
