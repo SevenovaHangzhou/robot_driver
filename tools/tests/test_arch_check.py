@@ -344,3 +344,31 @@ def test_invalid_duplicate_signature_is_reported():
 def test_file_size_limits(path, lines, reported):
     texts = tree(**{path: "x\n" * lines})
     assert [f.rule for f in findings(texts, "size")] == (["SIZE-1"] if reported else [])
+
+
+def test_compose_comparison_reports_lost_selections_and_changed_files():
+    from tools.archcheck import compose_against
+
+    files = {"controllers.yaml": "a: 1\nb: 2\n", "robot.xml": "<robot/>"}
+    base = {
+        "V/U/p/s/mock": {"ok": True, "files": dict(files)},
+        "V/U/p/s/real": {"ok": True, "files": dict(files)},
+        "V/U/p/t/mock": {"ok": False, "error": "ValueError: not composable"},
+        "V/U/p/gone/mock": {"ok": True, "files": dict(files)},
+    }
+    current = {
+        "V/U/p/s/mock": {
+            "ok": True,
+            "files": {"controllers.yaml": "a: 1\nb: 3\n", "diagnostics.yaml": "devices: []\n"},
+        },
+        "V/U/p/s/real": {"ok": False, "error": "KeyError: 'x'"},
+        "V/U/p/t/mock": {"ok": False, "error": "ValueError: not composable"},
+    }
+    found = {(f.path, f.line): f.message for f in compose_against.compare(base, current)}
+    assert found[("V/U/p/s/mock/controllers.yaml", 2)] == "产物不同：b: 2 → b: 3"
+    assert found[("V/U/p/s/mock/diagnostics.yaml", 0)] == "产物文件新增"
+    assert found[("V/U/p/s/mock/robot.xml", 0)] == "产物文件删除"
+    assert found[("V/U/p/s/real", 0)] == "基线可组合，当前失败：KeyError: 'x'"
+    assert found[("V/U/p/gone/mock", 0)] == "基线可组合，当前失败：选择已不存在"
+    assert len(found) == 5
+    assert compose_against.compare(base, base) == []
