@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Architecture check: the rules of ARCHITECTURE.md over the whole source tree.
 
-Usage: tools/arch_check.py [layers|ownership|names ...] [--json]
+Usage: tools/arch_check.py [layers|ownership|names|duplicates|size ...] [--json]
 Without a rule group every group runs. Output: `path:line: RULE-ID message`.
 Exit codes: 0 no finding, 1 findings, 2 the tool itself failed.
 Reads only the work tree (tracked and untracked, not ignored); no hardware, network or build.
@@ -17,9 +17,9 @@ import sys
 from typing import Sequence
 
 if __package__:
-    from .archcheck import duplicates, layers, names, repo
+    from .archcheck import duplicates, layers, names, repo, size
 else:
-    from archcheck import duplicates, layers, names, repo
+    from archcheck import duplicates, layers, names, repo, size
 
 # Rule group -> (rule-ID family, check). Every group runs over the full tree.
 GROUPS = {
@@ -30,6 +30,7 @@ GROUPS = {
         "DUP",
         lambda texts, rules: duplicates.check_duplicates(texts, rules.duplicates),
     ),
+    "size": ("SIZE", lambda texts, rules: size.check_size(texts)),
 }
 
 

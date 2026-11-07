@@ -8,10 +8,9 @@ from jsonschema import ValidationError
 from jsonschema.exceptions import RefResolutionError, SchemaError
 import yaml
 
-from integ_composer.schema.manifest_load import read_manifest
+from integ_composer.schema.manifest_load import read_with_parts
 from integ_composer.schema.primitives import (
     ConfigError as ConfigError,
-    load_and_validate,
     load_yaml as load_yaml,
     resolve_share_path,
     validate_data as validate_data,
@@ -47,7 +46,7 @@ def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[
 
     `share_of(package)` resolves an owner package's share directory for policy schemas.
     """
-    manifest = read_manifest(next((share_root / "machines").glob("*/manifest.yaml")))
+    manifest = read_with_parts(next((share_root / "machines").glob("*/manifest.yaml")))
     scopes = manifest["scopes"].values()
     # Robot model inputs and scope controller files are complete owner documents,
     # not machine envelopes.
@@ -57,14 +56,17 @@ def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[
     skipped |= {s["controller_file"]["file"] for s in scopes if "controller_file" in s}
     # Owner policies have no machine envelope; each is validated by its owner's schema.
     policies = {ref["file"]: ref for ref in manifest["policy_refs"].values()}
+    # Part files are validated as part of the document that lists them under `parts`.
+    for path in (share_root / "machines").rglob("*.yaml"):
+        for part in load_yaml(path).get("parts", []):
+            skipped.add(resolve_share_path(path.parent, part).relative_to(share_root).as_posix())
     passed = []
     for directory in ("devices", "machines", "units"):
         for path in sorted((share_root / directory).rglob("*.yaml")):
             name = path.relative_to(share_root).as_posix()
-            # Manifest parts are validated as part of their merged manifest.
-            if name in skipped or path.parent.name == "manifest":
+            if name in skipped:
                 continue
-            document = read_manifest(path) if path.name == "manifest.yaml" else load_yaml(path)
+            document = read_with_parts(path)
             if name in policies:
                 ref = policies[name]
                 if "schema" in ref:
@@ -111,10 +113,7 @@ def main() -> int:
                 print(line)
         for name in args.files:
             path = resolve_share_path(share_root, name)
-            if path.name == "manifest.yaml":
-                validate_data(read_manifest(path), args.schema, schema_dir, share_root)
-            else:
-                load_and_validate(path, args.schema, schema_dir, share_root)
+            validate_data(read_with_parts(path), args.schema, schema_dir, share_root)
             print(f"PASS: {name} ({args.schema})")
     except (
         ValueError,

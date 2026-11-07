@@ -327,3 +327,20 @@ def test_invalid_duplicate_signature_is_reported():
         {"duplicates": [{"name": "x", "owner": "infra_ring", "pattern": "("}]}
     )
     assert [f.rule for f in findings(texts, "duplicates")] == ["ARCH-CONFIG"]
+
+
+@pytest.mark.parametrize(
+    "path,lines,reported",
+    [
+        ("hw_bus/src/bus.cpp", 1000, False),
+        ("hw_bus/src/bus.cpp", 1001, True),
+        ("integ_composer/integ_composer/compose.py", 601, True),
+        ("hwcfg_machines/machines/Demo_V9/controllers.yaml", 401, True),
+        ("integ_composer/test/test_compose.py", 2000, False),
+        ("integ_composer/test/golden/arm/controllers.yaml", 900, False),
+        ("integ_composer/web/presets.json", 5000, False),
+    ],
+)
+def test_file_size_limits(path, lines, reported):
+    texts = tree(**{path: "x\n" * lines})
+    assert [f.rule for f in findings(texts, "size")] == (["SIZE-1"] if reported else [])

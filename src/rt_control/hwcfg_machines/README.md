@@ -3,7 +3,9 @@
 KKOZIA-5 / SPEC v1.1 M0b data-only package skeleton.
 
 - `devices/`: sourced model properties; unknown facts must remain `TBD`.
-- `machines/Alfa_V3/`: machine wiring, manifest and explicit policies.
+- `machines/Alfa_V3/`: machine wiring, manifest and explicit policies. `manifest.yaml` and
+  `controllers.yaml` may list `parts` (`manifest/`, `controllers/`) that split one mapping; integ_composer
+  merges them (`read_with_parts`) and validates the merged document, and an entry may appear only once.
 - `units/Alfa_V3-01/`: installation and calibration for the placeholder unit.
 - `evidence/`: read-only observations, never a composer or renderer input.
 

@@ -8,6 +8,10 @@ exceptions:
   path: src/rt_control/integ_operator_web/web/arm/sequence-presets.json
   reason: 台架调试网页的机械臂测试姿态预设（按关节名记录的位置），属调试工具数据
   approved: user 2026-11-06
+- rule: SIZE-1
+  path: src/rt_control/ctrl_enable_manager/src/enable_manager_controller.cpp
+  reason: 实时使能状态机不拆，非实时部分已移到同包独立文件；使能流程不再扩展（ARCHITECTURE §3 唯一例外）
+  approved: user 2026-11-03
 # Peripherals that only listen on their bus: production C/C++ never writes (LAYER-5).
 # The LPMS IMU node only listens on its CAN bus (ELECTRI-105).
 listen_only_peripherals:
