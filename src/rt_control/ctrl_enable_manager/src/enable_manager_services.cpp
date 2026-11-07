@@ -363,7 +363,8 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
     clear_in_progress();
     return SwitchResult::kAmbiguous;
   }
-  const ControlMode target = activate ? ControlMode::kFjtReady : ControlMode::kDisabled;
+  // Enable starts the group in its motion controller's mode (velocity for the chassis).
+  const ControlMode target = activate ? motion_controller_mode_ : ControlMode::kDisabled;
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
   const SwitchResult plan_result = buildControllerSwitchRequest(before, target, *request);
   if (plan_result != SwitchResult::kSuccess) {

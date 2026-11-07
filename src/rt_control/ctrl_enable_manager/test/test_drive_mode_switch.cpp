@@ -58,6 +58,10 @@ public:
   {
     c.handleSetMode(request, response);
   }
+  static bool activateMotionControllers(Controller & c)
+  {
+    return c.switchJtc(true) == Controller::SwitchResult::kSuccess;
+  }
   static void handleJtcState(
     Controller & c, const control_msgs::msg::JointTrajectoryControllerState::SharedPtr & message)
   {
@@ -423,6 +427,22 @@ TEST_F(DriveModeServiceFixture, SwitchesToCspAfterTheTrajectoryControllerHoldsAn
   EXPECT_EQ(displays_at_switch_[1], 9.0);
   EXPECT_EQ(
     switch_requests_[1].activate_controllers, std::vector<std::string>{"swerve_controller"});
+}
+
+TEST_F(DriveModeServiceFixture, EnableActivatesTheVelocityController)
+{
+  bringUpToIdle();
+  startPump(true);
+  {
+    std::lock_guard<std::mutex> lock(states_mutex_);
+    states_.controller[0].state = "inactive";
+  }
+  EXPECT_TRUE(Access::activateMotionControllers(*controller_));
+  std::lock_guard<std::mutex> lock(states_mutex_);
+  ASSERT_EQ(switch_requests_.size(), 1U);
+  EXPECT_EQ(
+    switch_requests_[0].activate_controllers, std::vector<std::string>{"swerve_controller"});
+  EXPECT_EQ(states_.controller[1].state, "inactive");
 }
 
 TEST_F(DriveModeServiceFixture, UnconfirmedCspStopsTheGroup)
