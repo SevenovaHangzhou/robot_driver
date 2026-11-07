@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -113,6 +114,27 @@ def _write(text: str, suffix: str = ".txt") -> str:
     return handle.name
 
 
+
+@pytest.mark.parametrize(
+    "parse,text",
+    [
+        (rpc.parse_pidstat_cpu, "Linux 5.15.0 (host)\n\nno samples here\n"),
+        (rpc.parse_pidstat_rss, PIDSTAT_CPU_TEXT),
+        (lambda text: rpc.parse_mpstat_cpu_busy(text, cpu=3), MPSTAT_TEXT),
+        (rpc.parse_vmstat, "procs -----------memory----------\n r  b   swpd   free\n"),
+        (rpc.parse_free, "               total        used        free\nMem: 1 2 3\n"),
+        (rpc.parse_proc_stat, "cpu 1 2 3\nprocs_running 2\n"),
+        (rpc.parse_ip_link_stats, "no interfaces here\n"),
+        (rpc.parse_cyclictest, "# /dev/cpu_dma_latency set to 0us\nno summary\n"),
+        (rpc.parse_wc_error_count, "  values:\n  - key: link_up\n    value: 'true'\n"),
+    ],
+)
+def test_parsers_reject_text_without_their_fields(parse, text):
+    """Every parser fails loudly instead of returning a fabricated value."""
+    with pytest.raises(rpc.ParseError):
+        parse(text)
+
+
 class PidstatParserTest(unittest.TestCase):
     def test_parses_process_cpu_average_and_peak_from_samples(self):
         # Arrange / Act
@@ -136,13 +158,6 @@ class PidstatParserTest(unittest.TestCase):
         self.assertEqual(result["rss_kib_peak"], 591157.0)
         self.assertAlmostEqual(result["rss_mib_peak"], 577.30, places=2)
 
-    def test_raises_when_pidstat_text_has_no_samples(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_pidstat_cpu("Linux 5.15.0 (host)\n\nno samples here\n")
-
-    def test_rss_parser_raises_on_text_without_rss_column(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_pidstat_rss(PIDSTAT_CPU_TEXT)
 
 
 class MpstatParserTest(unittest.TestCase):
@@ -152,9 +167,6 @@ class MpstatParserTest(unittest.TestCase):
         self.assertAlmostEqual(result["peak_percent"], 23.230, places=3)
         self.assertEqual(result["samples"], 2)
 
-    def test_raises_when_requested_cpu_is_absent(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_mpstat_cpu_busy(MPSTAT_TEXT, cpu=3)
 
 
 class VmstatAndMemoryParserTest(unittest.TestCase):
@@ -175,26 +187,15 @@ class VmstatAndMemoryParserTest(unittest.TestCase):
         self.assertEqual(result["swap_in"], 5)
         self.assertEqual(result["swap_out"], 7)
 
-    def test_vmstat_parser_raises_without_data_rows(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_vmstat("procs -----------memory----------\n r  b   swpd   free\n")
-
     def test_parses_free_swap_usage_in_mib(self):
         result = rpc.parse_free(FREE_TEXT)
         self.assertEqual(result["swap_total_mib"], 4096.0)
         self.assertEqual(result["swap_used_mib"], 0.0)
         self.assertEqual(result["mem_available_mib"], 12494.0)
 
-    def test_free_parser_raises_without_swap_row(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_free("               total        used        free\nMem: 1 2 3\n")
-
     def test_parses_procs_blocked_from_proc_stat(self):
         self.assertEqual(rpc.parse_proc_stat(PROC_STAT_TEXT)["blocked_processes"], 0)
 
-    def test_proc_stat_parser_raises_when_field_missing(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_proc_stat("cpu 1 2 3\nprocs_running 2\n")
 
 
 class CanErrorParserTest(unittest.TestCase):
@@ -234,9 +235,6 @@ class CanErrorParserTest(unittest.TestCase):
         self.assertEqual(delta["can_error_delta"], 6)
         self.assertEqual(delta["missing"], ["can9"])
 
-    def test_ip_parser_raises_when_no_interface_block_found(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_ip_link_stats("no interfaces here\n")
 
 
 class CyclictestParserTest(unittest.TestCase):
@@ -270,9 +268,6 @@ class CyclictestParserTest(unittest.TestCase):
         self.assertEqual(rpc.cyclictest_verdict(100.0), "PASS")
         self.assertEqual(rpc.cyclictest_verdict(100.1), "FAIL")
 
-    def test_raises_when_summary_line_absent(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_cyclictest("# /dev/cpu_dma_latency set to 0us\nno summary\n")
 
 
 class WcErrorDiffTest(unittest.TestCase):
@@ -288,9 +283,6 @@ class WcErrorDiffTest(unittest.TestCase):
         self.assertEqual(delta["wc_error_first"], 705.0)
         self.assertEqual(delta["wc_error_last"], 712.0)
 
-    def test_raises_when_wc_error_count_missing(self):
-        with self.assertRaises(rpc.ParseError):
-            rpc.parse_wc_error_count("  values:\n  - key: link_up\n    value: 'true'\n")
 
 
 class MetricsDocumentTest(unittest.TestCase):
