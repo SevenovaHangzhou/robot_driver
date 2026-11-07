@@ -52,7 +52,7 @@ python3 -m coverage report --fail-under=80 \
 python3 -m coverage report --fail-under=80 \
   --include='tools/repository_gate.py,tools/pr_contract_gate.py,tools/arch_check.py,tools/archcheck/*.py'
 echo "NOTICE: informational coverage for remaining tools scripts (not gated):" >&2
-python3 -m coverage report --include='tools/rt_control_axis_state_check.py,tools/rt_control_thread_affinity.py,tools/release_test_runner.py,tools/scoped_tests.py,tools/rt_perf_capture.py' || true
+python3 -m coverage report --include='tools/rt_control_axis_state_check.py,tools/release_test_runner.py,tools/scoped_tests.py,tools/rt_perf_capture.py' || true
 
 bash tools/check_ecat_sync_shutdown_policy.sh
 
