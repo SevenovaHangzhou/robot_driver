@@ -302,7 +302,7 @@ sudo docker run -d \
   -e RMW_IMPLEMENTATION=rmw_fastrtps_cpp \
   "rt-control:${release_sha}" \
   /opt/rt_control_ws/install/lib/integ_bringup/rt_control_start \
-  use_mock_hardware:=true
+  robot_variant:=Alfa_V3 machine_unit:=Alfa_V3-01 use_mock_hardware:=true
 ```
 
 确认没有硬件映射，并观察启动和停止：

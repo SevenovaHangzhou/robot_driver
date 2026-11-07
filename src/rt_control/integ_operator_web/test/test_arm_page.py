@@ -98,9 +98,12 @@ def test_view_model_meshes_and_live_limits(setup, tmp_path):
     robot = ET.fromstring(URDF.replace("package://pkg/", "package://robot_description/"))
     robot.find("joint[@name='left_joint1']/limit").set("upper", "2.0")
     ET.SubElement(robot.find("joint[@name='left_joint1']"), "axis", xyz="0 0 -1")
-    (share / "urdf/robot_alfav3_mobile.urdf").write_text(ET.tostring(robot, encoding="unicode"))
+    # The model text comes from the running artifact, the meshes from the share.
+    artifact_model = tmp_path / "artifact/robot_description.xml"
+    artifact_model.parent.mkdir()
+    artifact_model.write_text(ET.tostring(robot, encoding="unicode"))
     (share / "meshes/mount.stl").write_bytes(b"latest mesh")
-    app, page = build(console, view_model_share=share)
+    app, page = build(console, view_model_share=share, view_model_file=artifact_model)
     path = page._view_prefix + "robot_description/meshes/mount.stl"
 
     async def scenario(client):
@@ -112,6 +115,7 @@ def test_view_model_meshes_and_live_limits(setup, tmp_path):
         assert view.find("joint[@name='left_joint1']/axis").get("xyz") == "0 0 -1"
         assert info["joints"] == console.static_info()["joints"]
         assert console.model is live_model and info["view_model"]["assets_version"]
+        assert info["view_model"]["entry"] == "robot_description.xml"
         mesh = view.find("link[@name='mount']/visual/geometry/mesh").get("filename")
         assert mesh == path
         response = await client.get(mesh)
@@ -132,9 +136,9 @@ def test_view_model_meshes_and_live_limits(setup, tmp_path):
 
 def test_view_model_without_the_joints_does_not_fall_back(setup, tmp_path):
     console, _, _ = setup
-    (tmp_path / "urdf").mkdir()
-    (tmp_path / "urdf/robot_alfav3_mobile.urdf").write_text("<robot name='missing'/>")
-    app, _ = build(console, view_model_share=tmp_path)
+    model = tmp_path / "robot_description.xml"
+    model.write_text("<robot name='missing'/>")
+    app, _ = build(console, view_model_share=tmp_path, view_model_file=model)
 
     async def scenario(client):
         await login(client)
@@ -147,16 +151,18 @@ def test_view_model_without_the_joints_does_not_fall_back(setup, tmp_path):
 
 def test_mesh_manifest_change_gets_a_new_browser_cache_namespace(setup, tmp_path):
     console, _, _ = setup
-    (tmp_path / "urdf").mkdir()
     (tmp_path / "config").mkdir()
-    (tmp_path / "urdf/robot_alfav3_mobile.urdf").write_text(URDF)
+    model = tmp_path / "robot_description.xml"
+    model.write_text(URDF)
     namespaces = []
     manifest = tmp_path / "config/mesh_assets.json"
     for index, version in enumerate(("old mesh", "new mesh")):
         manifest.write_text(json.dumps({"mesh": version}))
         # A reinstall rewrites the file; equal sizes must still give a new namespace.
         os.utime(manifest, ns=(index * 10**9, index * 10**9))
-        namespaces.append(build(console, view_model_share=tmp_path)[1]._view_prefix)
+        namespaces.append(
+            build(console, view_model_share=tmp_path, view_model_file=model)[1]._view_prefix
+        )
     assert namespaces[0] != namespaces[1]
 
 
@@ -476,3 +482,15 @@ def test_absent_or_failing_vacuum_tool_is_reported(setup):
         assert len(vacuum.writes) == 1
 
     run(app, failing)
+
+
+def test_without_an_artifact_the_arm_page_has_no_view_model(setup, tmp_path):
+    console, _, _ = setup
+    app, page = build(console, view_model_share=tmp_path)
+
+    async def scenario(client):
+        await login(client)
+        info = await (await client.get("/api/arm/info")).json()
+        assert info["view_model"] is None
+
+    run(app, scenario)

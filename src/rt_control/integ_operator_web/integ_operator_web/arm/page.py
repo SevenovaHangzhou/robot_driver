@@ -48,6 +48,7 @@ class ArmPage:
         reset_fault: Optional[Callable[[], dict]] = None,
         audit: Optional[AuditLog] = None,
         view_model_share: Optional[Path] = None,
+        view_model_file: Optional[Path] = None,
         vacuum=None,
         status_period: float = STATUS_PERIOD_S,
     ) -> None:
@@ -66,8 +67,9 @@ class ArmPage:
         self._sockets: set[web.WebSocketResponse] = set()
         self._view_share = view_model_share.resolve() if view_model_share is not None else None
         self._view_text = self._view_prefix = self._view_metadata = None
-        if self._view_share is not None:
-            entry = self._view_share / "urdf/robot_alfav3_mobile.urdf"
+        # Geometry for the browser: the model text of the running artifact, meshes from the share.
+        if self._view_share is not None and view_model_file is not None:
+            entry = view_model_file
             self._view_text = entry.read_text(encoding="utf-8")
             # Cache key for the immutable mesh URLs: changes whenever the installed model does.
             stats = [entry.stat()]
@@ -76,10 +78,7 @@ class ArmPage:
                 stats.append(manifest.stat())
             version = "-".join(f"{item.st_mtime_ns:x}{item.st_size:x}" for item in stats)
             self._view_prefix = f"/view-mesh/{version}/"
-            self._view_metadata = {
-                "entry": "urdf/robot_alfav3_mobile.urdf",
-                "assets_version": version,
-            }
+            self._view_metadata = {"entry": entry.name, "assets_version": version}
         operators.register_page(PAGE, lambda: console.lease_holder)
 
     def add_routes(self, app: web.Application) -> None:

@@ -37,6 +37,8 @@ ros2 run integ_composer compose_artifact --output /abs/dir --robot-variant Alfa_
 除默认的静态校验外，所有运行入口都是通用分阶段 scope 入口 `rt_control_scope_runtime.launch.py`：
 先加总线锁、跑 owner preflight，再按顺序激活硬件、加载控制器；停机统一走
 `scope_shutdown`（停运动控制器 → `/rt/disable` → 停其余控制器 → 硬件退出）。
+每个入口都必须显式传入 `robot_variant:=` 与 `machine_unit:=`，并与制品记录的选择一致；不传即拒绝启动
+（用户 2026-11-06：不再用代码默认值猜台套，容器默认命令同样需要写明）。
 
 | 参数 | 等同于 | 说明 |
 | --- | --- | --- |

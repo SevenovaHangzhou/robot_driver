@@ -92,6 +92,7 @@ def main():
         lambda name: share if name == "robot_description" else "/nonexistent",
         arm.set_enabled,
         view_model_share=Path(share),
+        view_model_file=Path(share) / "urdf/robot_alfav3_mobile.urdf",
     )
     app = web.Application()
     app.router.add_post("/api/login", sessions.login)

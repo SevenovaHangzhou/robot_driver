@@ -147,7 +147,7 @@ ros2 run integ_composer compose_artifact --output /abs/head-real \
   --robot-variant Alfa_V3 --machine-unit Alfa_V3-01 \
   --physical-profile head_only --control-scope head_only --real
 ros2 run integ_bringup rt_control_start --scope head_only \
-  machine_unit:=Alfa_V3-01 use_mock_hardware:=false generated_dir:=/abs/head-real
+  robot_variant:=Alfa_V3 machine_unit:=Alfa_V3-01 use_mock_hardware:=false generated_dir:=/abs/head-real
 ```
 
 启动入口只读取并校验该目录；目录缺失、内容被修改或与当前安装配置不一致时拒绝启动并给出重新生成命令。
