@@ -28,6 +28,10 @@ def tree(**extra):
                 "exceptions": [],
                 "listen_only_peripherals": ["periph_bms"],
                 "vendor_names": ["AcmeMotors"],
+                "duplicates": [
+                    {"name": "raw CAN", "owner": "infra_ring", "pattern": r"\bAF_CAN\b"},
+                    {"name": "old codec", "owner": "", "pattern": r"\bencode_double\b"},
+                ],
             }
         ),
         # Machine and joint names are read from the data package itself.
@@ -300,3 +304,26 @@ def test_dependencies_are_read_from_every_declaration_kind():
         )
     }
     assert kinds == {"depend", "test_depend"}
+
+
+@pytest.mark.parametrize(
+    "path,text,reported",
+    [
+        ("infra_ring/src/socket.cpp", "addr.can_family = AF_CAN;", False),
+        ("hw_bus/src/bus.cpp", "addr.can_family = AF_CAN;", True),
+        ("hw_bus/src/bus.cpp", "// opened by infra_ring (AF_CAN)", False),
+        ("hw_bus/test/test_bus.cpp", "addr.can_family = AF_CAN;", False),
+        ("infra_ring/src/socket.cpp", "auto bits = encode_double(x);", True),
+    ],
+)
+def test_duplicate_signatures_only_in_their_owner(path, text, reported):
+    texts = tree(**{path: text})
+    assert [f.rule for f in findings(texts, "duplicates")] == (["DUP-1"] if reported else [])
+
+
+def test_invalid_duplicate_signature_is_reported():
+    texts = tree()
+    texts[repo.RULES_FILE] = yaml.safe_dump(
+        {"duplicates": [{"name": "x", "owner": "infra_ring", "pattern": "("}]}
+    )
+    assert [f.rule for f in findings(texts, "duplicates")] == ["ARCH-CONFIG"]

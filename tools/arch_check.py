@@ -17,15 +17,19 @@ import sys
 from typing import Sequence
 
 if __package__:
-    from .archcheck import layers, names, repo
+    from .archcheck import duplicates, layers, names, repo
 else:
-    from archcheck import layers, names, repo
+    from archcheck import duplicates, layers, names, repo
 
 # Rule group -> (rule-ID family, check). Every group runs over the full tree.
 GROUPS = {
     "layers": ("LAYER", lambda texts, rules: layers.check_layers(texts, rules)),
     "ownership": ("OWN", lambda texts, rules: layers.check_ownership(texts)),
     "names": ("NAME", lambda texts, rules: names.check_names(texts, rules.vendor_names)),
+    "duplicates": (
+        "DUP",
+        lambda texts, rules: duplicates.check_duplicates(texts, rules.duplicates),
+    ),
 }
 
 

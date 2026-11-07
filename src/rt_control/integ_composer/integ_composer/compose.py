@@ -5,6 +5,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
+from infra_renderer import xml_param
 import xacro
 import yaml
 
@@ -242,7 +243,7 @@ def _attach_systems(robot, systems, mode, robot_model):
         hardware = ET.SubElement(element, "hardware")
         ET.SubElement(hardware, "plugin").text = result["hardware_plugin"]
         for key, value in result["hardware_params"].items():
-            ET.SubElement(hardware, "param", name=key).text = str(value)
+            xml_param(hardware, key, value)
         for key in ("joints", "sensors", "gpios"):
             for fragment in result.get(key, []):
                 if (

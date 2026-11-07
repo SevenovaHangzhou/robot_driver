@@ -25,3 +25,21 @@ vendor_names:
 - Inovance
 - EcCiA402Drive
 - GenericEcSlave
+# DUP-1: one owner per extracted implementation; its signature anywhere else is reported.
+# owner "" marks an implementation that was deleted and must not return.
+duplicates:
+- name: SocketCAN 原始套接字
+  owner: infra_socketcan
+  pattern: '\b(?:PF_CAN|AF_CAN|CAN_RAW)\b'
+- name: Modbus TCP 帧头（MBAP）
+  owner: infra_modbus
+  pattern: '\bMBAP\b|\btransaction_id'
+- name: CiA402 状态字解码
+  owner: hw_semantic_components
+  pattern: '\b0x00[46][Ff]U?\b'
+- name: 渲染器 XML 参数（infra_renderer.xml_param）
+  owner: infra_renderer
+  pattern: '"param",\s*name='
+- name: double 塞进整型原子量（改用 std::atomic<double>）
+  owner: ""
+  pattern: '\b(?:encode|decode)_double\b'

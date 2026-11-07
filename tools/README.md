@@ -99,21 +99,20 @@ tools/arch_check.py --json          # 每条发现一行 JSON
 | NAME-1 | 机型名只写在 `hwcfg_machines`；机型名取自 `hwcfg_machines/machines/<机型>/` 目录名，不区分大小写与分隔符 | 1.1 |
 | NAME-2 | 厂家与产品名（`arch_rules.yaml` 的 `vendor_names`）只写在 `hw_*`、`hwcfg_machines`、`periph_*`；包名（如依赖 `hw_can_damiao`）不算 | 1.1 |
 | NAME-3 | 关节名只写在 `hwcfg_machines`；关节名取自其模块文件的 `robot_model_joint`、`joint_name` | 1.1 |
+| DUP-1 | 已抽取的实现不得再抄：`arch_rules.yaml` 的 `duplicates` 为每类实现给出拥有者与特征（原始 CAN 套接字、Modbus TCP 帧头、CiA402 状态字掩码、渲染器 XML 参数、已删除的 double 编码），特征出现在其他包的生产源码中即报告；注释不算 | 3 |
 
 内容规则只看生产文件（不含 `test/`、`tests/`、`fixtures/`、`schema/`）；NAME 还不看 `golden/` 与 Markdown，代码注释照查。
 
 `tools/arch_rules.yaml` 只放规则数据：`exceptions`（每条写明规则、文件、原因、批准人与日期；
-不再命中的例外本身会被报告）、`listen_only_peripherals` 与 `vendor_names`。`ARCHITECTURE.md` §3 的
+不再命中的例外本身会被报告）、`listen_only_peripherals`、`vendor_names` 与 `duplicates`。`ARCHITECTURE.md` §3 的
 `ctrl_enable_manager` 主文件例外在 SIZE 规则启用时登记于此。
 
 ### 后续步骤
 
 每条规则在现状清零后接入门禁（用户 2026-11-06：清零即接入，不逐条确认；需要新增例外或改变行为时先问）。不做豁免清单，§3 写明的单一例外除外：
 
-1. DUP：已抽取的实现不得再抄——原始 CAN socket 只在 `infra_socketcan`，Modbus TCP 只在 `infra_modbus`，
-   CiA402 状态字解码只在 `hw_semantic_components`，渲染器参数骨架只在 `infra_renderer`。
-2. SIZE：生产源码与配置 C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 行；先拆
+1. SIZE：生产源码与配置 C++ ≤ 1000、Python ≤ 600、YAML ≤ 400 行；先拆
    `integ_operator_web/node.py`、`arm/console.py` 与 `hwcfg_machines/.../controllers.yaml`。
-3. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
+2. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
    一次并逐文件比较，基线成功而当前失败也报告；用作结构变更不改行为的证据（ARCHITECTURE §7）。按需运行，
    不在默认规则组里。
