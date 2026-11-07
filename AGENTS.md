@@ -75,10 +75,13 @@
 ## 7. 提交与交付
 
 - 每次提交前：`git status --short --branch`、`git diff --check`、逐行审查 `git diff` 与 `git diff --cached`
-  （含 `??` 未跟踪文件），再跑 `tools/quality_gate.sh` 和 [`tools/README.md`](tools/README.md) 中对应改动类型的命令。
+  （含 `??` 未跟踪文件），再跑 `tools/quality_gate.sh`（含 `arch_check`）和 [`tools/README.md`](tools/README.md)
+  中对应改动类型的命令；结构变更另附 `tools/arch_check.py compose --against origin/main` 的结果（`ARCHITECTURE.md` §7）。
+- 分支、commit 和 PR 引用同一任务的 Linear Issue 与 GitHub Issue（[`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) §2）。
 - 提交、推送、开 PR 只在用户明确要求时执行。在任务系统里把 Issue 派给某个 agent，即视为授权它在自己的分支上
-  提交、推送并开 PR；合并由人完成。此授权不含打 tag、上传发布物或硬件操作。
-- KKOZIA-2 子 issue 的 PR 由架构师在 CI 通过后合并（2026-10-13 用户授权），`safety_policy.yaml` 除外。
+  提交、推送并开 PR。此授权不含合并、打 tag、上传发布物或硬件操作。
+- 合并由人完成；用户针对某个 PR 明确要求合并时，Agent 可在 CI 每个 workflow 的最新一次运行通过、本地
+  `tools/quality_gate.sh` 通过后执行 squash 合并（用户 2026-11-07）。`safety_policy.yaml` 的改动仍须人工 approve。
 - 禁止：直接推 `main`、`--no-verify`、force push、改写共享历史、擅自 amend 他人提交、把无关任务塞进一个提交；
   提交密钥、凭据、构建产物、日志、`__pycache__`、未解释的大文件；用 `git checkout --`、`git reset --hard`
   或清理工作树处理用户已有改动。
