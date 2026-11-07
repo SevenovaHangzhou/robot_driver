@@ -24,8 +24,16 @@ def tree(**extra):
     """A minimal compliant source tree as path -> text."""
     texts = {
         repo.RULES_FILE: yaml.safe_dump(
-            {"exceptions": [], "listen_only_peripherals": ["periph_bms"]}
-        )
+            {
+                "exceptions": [],
+                "listen_only_peripherals": ["periph_bms"],
+                "vendor_names": ["AcmeMotors"],
+            }
+        ),
+        # Machine and joint names are read from the data package itself.
+        "src/rt_control/hwcfg_machines/machines/Demo_V9/arms.yaml": yaml.safe_dump(
+            {"spec": {"axes": [{"robot_model_joint": "arm_joint1"}]}}
+        ),
     }
     for package in PACKAGES:
         texts[f"src/rt_control/{package}/package.xml"] = (
@@ -159,7 +167,28 @@ def test_layer_rules(rule, path, accepted, rejected):
             "names",
             "integ_composer/integ_composer/compose.py",
             'name = "synthetic"',
-            'name = "AlFa_V3"',
+            'name = "demo-v9"',
+        ),
+        (
+            "NAME-1",
+            "names",
+            "integ_composer/web/app.js",
+            "load('model.urdf')",
+            "load('robot_demo_v9.urdf')",
+        ),
+        (
+            "NAME-2",
+            "names",
+            "ctrl_motor/src/node.cpp",
+            "// the head motors",
+            "// the AcmeMotors head",
+        ),
+        (
+            "NAME-3",
+            "names",
+            "integ_composer/config/poses.yaml",
+            "pose: {}",
+            "pose: {arm_joint1: 0.5}",
         ),
     ],
 )
@@ -183,7 +212,7 @@ def test_frequency_in_manifest_and_composer_defaults_is_the_owner():
 
 def test_exception_covers_its_file_and_a_stale_one_is_reported():
     path = "integ_composer/integ_composer/compose.py"
-    texts = tree(**{path: 'name = "AlFa_V3"'})
+    texts = tree(**{path: 'name = "Demo_V9"'})
     approved = {
         "rule": "NAME-1",
         "path": "src/rt_control/" + path,
@@ -191,7 +220,7 @@ def test_exception_covers_its_file_and_a_stale_one_is_reported():
         "approved": "user",
     }
     texts[repo.RULES_FILE] = yaml.safe_dump(
-        {"exceptions": [approved], "listen_only_peripherals": []}
+        {"exceptions": [approved], "listen_only_peripherals": [], "vendor_names": []}
     )
     assert findings(texts, "names") == []
     texts["src/rt_control/" + path] = 'name = "synthetic"'

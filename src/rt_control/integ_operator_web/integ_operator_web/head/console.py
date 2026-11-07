@@ -2,7 +2,7 @@
 
 The running stack declares the head action (capability ``head_move``, R-IN-16 /rt/head/move);
 joint order comes from that controller's ``joints`` parameter and limits from the Robot Model.
-A move sends one absolute target; the DaMiao hardware limits the speed.
+A move sends one absolute target; the head motor hardware limits the speed.
 """
 
 from __future__ import annotations

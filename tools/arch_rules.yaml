@@ -3,8 +3,25 @@
 # exceptions: approved deviations, one per rule and file:
 #   - {rule: NAME-3, path: <file>, reason: <why>, approved: "<who> <date>"}
 # An exception that no longer matches a finding is itself reported.
-exceptions: []
+exceptions:
+- rule: NAME-3
+  path: src/rt_control/integ_operator_web/web/arm/sequence-presets.json
+  reason: 台架调试网页的机械臂测试姿态预设（按关节名记录的位置），属调试工具数据
+  approved: user 2026-11-06
 # Peripherals that only listen on their bus: production C/C++ never writes (LAYER-5).
 # The LPMS IMU node only listens on its CAN bus (ELECTRI-105).
 listen_only_peripherals:
 - periph_imu_lpms
+# NAME-2: vendor and product words, allowed only in hw_*, hwcfg_machines and periph_*.
+# Machine and joint names are read from hwcfg_machines itself.
+vendor_names:
+- ZeroErr
+- Kinco
+- DaMiao
+- Bluepoint
+- LPMS
+- X503
+- Ti5
+- Inovance
+- EcCiA402Drive
+- GenericEcSlave
