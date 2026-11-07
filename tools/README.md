@@ -55,7 +55,7 @@ ros2 run integ_composer compose_artifact --output /tmp/<dir> --robot-variant <v>
   --machine-unit <u> --physical-profile <p> --control-scope <s> --mock
 ```
 
-结构变更前后对每个 scope 生成 artifact 并 `diff -r`，证明输出不变。
+结构变更前后的输出比对用 `tools/arch_check.py compose --against origin/main`（见下文 arch_check 一节）。
 
 ## EtherCAT / CANopen / 补丁
 
@@ -108,10 +108,18 @@ tools/arch_check.py --json          # 每条发现一行 JSON
 不再命中的例外本身会被报告）、`listen_only_peripherals`、`vendor_names` 与 `duplicates`。`ARCHITECTURE.md` §3 的
 `ctrl_enable_manager` 主文件例外登记于此。
 
-### 后续步骤
+### compose --against：结构变更不改行为
 
-每条规则在现状清零后接入门禁（用户 2026-11-06：清零即接入，不逐条确认；需要新增例外或改变行为时先问）。不做豁免清单，§3 写明的单一例外除外：
+```bash
+source /opt/ros/humble/setup.bash             # 组合要用 xacro
+tools/arch_check.py compose --against origin/main
+```
 
-1. `arch_check compose --against <ref>`：对基线可组合的每个机型/台套/配置/作用域组合，在基线与当前树各组合
-   一次并逐文件比较，基线成功而当前失败也报告；用作结构变更不改行为的证据（ARCHITECTURE §7）。按需运行，
-   不在默认规则组里。
+用 `git archive` 导出基线的 `src/rt_control` 与 `src/description`，基线与当前树各用自己的组合器在独立进程
+里组合每个机型 × 台套 × 物理配置 × 允许的作用域（mock 与真机），把树与运行目录的绝对路径换成占位符后
+逐文件比较（约 20 s）。基线可组合而当前失败、产物文件增删或内容不同都报 COMPOSE-2（`选择/文件:行`）；
+基线就组合不了的选择不比较。结构变更 PR（ARCHITECTURE §7）附此结果；它不在默认规则组里，也不在
+`quality_gate.sh` 中运行。
+
+新规则在现状清零后接入（用户 2026-11-06：清零即接入，不逐条确认；需要新增例外或改变行为时先问），
+不做豁免清单，§3 写明的单一例外除外。

@@ -87,7 +87,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 | 新增一个启动模式 | manifest `scopes`（不新增 launch 文件） | `arch_check` + `integ_composer` 测试 |
 | 抽一个共享库 | `infra_<name>` 新包，进库条件见 §3 | `arch_check` + 调用方测试 |
 | 修改公共契约 | `robot_interfaces` 仓库 → `deps.repos` pin | 既有流程 |
-| 结构变更（不改行为） | — | 改前改后 artifact 逐字节一致（§7） |
+| 结构变更（不改行为） | — | `arch_check compose --against origin/main`（§7） |
 | 任何改动提交前 | — | `tools/quality_gate.sh` + `run_scoped_tests.sh` |
 
 表里没有的改动类型，先补表再动手。
@@ -139,7 +139,7 @@ integration（composer、bringup、适配层、诊断、操作面）
 
 ## 7. 改动规则
 
-- 一个 PR 只做一个目的。结构变更不改行为：改前改后对每个 scope 生成的 artifact 逐字节一致（`arch_check compose` 实现前，用 `compose_artifact` 生成到临时目录做 `diff -r`）。
+- 一个 PR 只做一个目的。结构变更不改行为：改前改后对每个 scope 生成的 artifact 逐字节一致（`tools/arch_check.py compose --against origin/main`）。
 - 行为变更单独开 PR，描述第一行写"行为变更"，列出被删除的 topic/service/action。
 - 遇到 §6 的底线、硬件事实，或本文没覆盖的情况：停下来问，不猜。
 - 发现本文有错或不可执行：改本文（独立 PR），不绕过。

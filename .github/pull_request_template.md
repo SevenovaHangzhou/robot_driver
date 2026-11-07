@@ -16,7 +16,7 @@
 
 ## 验证证据
 
-<!-- 逐条填写“实际执行的命令：PASS/FAIL”。不要只写“测试通过”。 -->
+<!-- 逐条填写“实际执行的命令：PASS/FAIL”。不要只写“测试通过”。结构变更（不改行为）附 `tools/arch_check.py compose --against origin/main` 的结果。 -->
 
 ## 未验证项与剩余风险
 
