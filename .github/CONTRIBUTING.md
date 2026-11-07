@@ -46,7 +46,7 @@ Linear Issue + GitHub Issue → 分支 → worktree → 本地验证 → PR → 
 ### 2.2 分支与 worktree
 
 - `main` 是唯一长期分支，也是 V3 主线。禁止直接 push、force push 和改写共享历史。
-- 工作分支：`feature/<linear-id>-<slug>`、`bugfix/<linear-id>-<slug>`、`hotfix/<linear-id>-<slug>`、`release/vX.Y`；如 `feature/electri-140-battery-comm`。小写、连字符分词，禁止 `tmp`、`wip`、`test` 等无信息名称。
+- 工作分支：`feature/<slug>`、`bugfix/<slug>`、`hotfix/<slug>`、`release/vX.Y`。`<slug>` 用看名字就懂的英文短语描述改动内容，如 `feature/base-control-mode`、`bugfix/kinco-stale-position`；不放 Linear ID（任务号写在 commit 和 PR 里）。小写、连字符分词，禁止 `tmp`、`wip`、`test` 等无信息名称。
 - 一个 worktree 只有一个写入者；并行开发用各自的 worktree 和不重叠的范围。分支落后时把 `main` 合进来，不 rebase 后强推。
 
 ### 2.3 一个 PR 一个目的
