@@ -27,7 +27,7 @@ related: [control-20261107-01, chassis-control-20261022-01]
   - 任一步 500 ms 内没有确认：底盘失能，返回 `TIMEOUT`/`drive_mode_not_confirmed`。`ROLLING_READY` 被拒绝。
 - `ctrl_enable_manager`：新参数 `trajectory_controller`（有它时 `motion_controller` 运行在 `VELOCITY_READY`）、`mode_service`（服务名，来自 `interface_naming`）、`mode_switch_joints`（模式随控制器集合切换的驱动器）。只有已使能时才写 CSP；其余阶段每周期写回启动模式并清除请求，所以每次使能仍按固定启动模式确认。运行中这些驱动器的模式回读为启动模式或 CSP 都视为正常。
 - `hw_ethercat`：Kinco 插件失能时输出启动模式（即使最后请求的是 CSP）；machine 模块的轴新字段 `mode_switching: true` 打开插件的运行时切换。渲染器导出各驱动器的位置范围与需要切换的关节。
-- 组合：`chassis_only` 新增策略 `base_motion`（`policies/Alfa_V3_chassis_motion.yaml`）与控制器 `base_wheel_jtc`。JTC 的速度、加速度上限按舵轮导航配置换算（转向 35°/s、35°/s²；行走轮 2 m/s、2 m/s² 除以各模块轮半径，0.1 m 时为 20 rad/s、20 rad/s²），位置上下限取驱动器范围（转向 ±120°，行走 ±49000 rad），由补丁 0007 在准入时检查。新参数源 `joint_values`；`interface` 参数源可由策略选定名字。
+- 组合：`chassis_only` 新增策略 `base_motion`（`policies/Alfa_V3_chassis_motion.yaml`）与控制器 `base_wheel_jtc`。JTC 的速度、加速度上限按舵轮导航配置换算（转向 90°/s、180°/s²（用户 2026-11-07 由 35°/s、35°/s² 上调，导航与操作员调参上限同步）；行走轮 2 m/s、2 m/s² 除以各模块轮半径，0.1 m 时为 20 rad/s、20 rad/s²），位置上下限取驱动器范围（转向 ±120°，行走 ±49000 rad），由补丁 0007 在准入时检查。新参数源 `joint_values`；`interface` 参数源可由策略选定名字。
 - 双臂：模式服务名改由策略给出（`mode_service: arms_control_mode`），值仍为 `/rt/arms/set_control_mode`，行为不变。
 
 ## 验证

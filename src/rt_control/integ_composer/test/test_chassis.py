@@ -316,7 +316,7 @@ def test_chassis_mode_switch_wires_the_wheel_trajectory_controller_and_drive_whe
         "/rt/base/follow_joint_trajectory",
         "/rt/base/joint_trajectory",
     )
-    # Navigation limits in joint units: 35 deg/s steering, 2 m/s over r = 0.1 m drive.
+    # Navigation limits in joint units: steering as configured, drive wheel speed over its radius.
     swerve = result.controllers["swerve_controller"]["ros__parameters"]
     radius = swerve["wheel_radius"]
     assert jtc["joint_velocity_limits"] == [swerve["max_steering_slew"]] * 4 + [

@@ -35,8 +35,9 @@ controllers:
     - interface:
         name: base_joint_stream
         as: trajectory_topic
-    # The navigation limits of the swerve controller in joint units: steering 35 deg/s and
-    # 35 deg/s^2; drive wheels 2 m/s and 2 m/s^2 at the wheel surface, divided by the radius.
+    # The navigation limits of the swerve controller in joint units: steering max_steering_slew
+    # and max_steering_acceleration; drive wheels max_wheel_speed and max_wheel_acceleration at
+    # the wheel surface, divided by the radius.
     - joint_values:
         policy: base_motion
         path: joints
