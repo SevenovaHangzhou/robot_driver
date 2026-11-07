@@ -73,7 +73,9 @@ def main(argv=None) -> int:
     parser.add_argument("--cpus", required=True, help="validated housekeeping CPUs, e.g. 0-6")
     parser.add_argument("--config", type=Path, default=share / "config/operator.yaml")
     parser.add_argument(
-        "--generated-dir", default="", help="deployment artifact of the running chassis scope"
+        "--generated-dir",
+        default="",
+        help="deployment artifact of the running scope (chassis tuning, arm view model)",
     )
     parser.add_argument("--arm-config", type=Path, default=share / "config/arm.yaml")
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
@@ -127,6 +129,10 @@ def main(argv=None) -> int:
                     "joint_state_topic": args.joint_state_topic,
                     "vacuum_script": args.vacuum_script,
                     "view_model_share": args.view_model_share,
+                    # The running model; without an artifact the arm page has no 3-D view.
+                    "view_model_file": Path(args.generated_dir) / "robot_description.xml"
+                    if args.generated_dir
+                    else None,
                 },
                 head={"config": args.head_config, "joint_state_topic": args.joint_state_topic},
             )

@@ -552,6 +552,7 @@ def arm_page(arm, sessions, operators, audit, static_dir):
         bridge.reset_fault,
         audit,
         view_model_share=arm["view_model_share"],
+        view_model_file=arm["view_model_file"],
         vacuum=VacuumControl(arm["vacuum_script"]) if arm["vacuum_script"].is_file() else None,
     )
     return page, bridge

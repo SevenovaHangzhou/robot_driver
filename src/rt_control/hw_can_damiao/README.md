@@ -104,8 +104,10 @@ colcon test-result --verbose
 V3 head-only Mock 入口：
 
 ```bash
-ros2 launch integ_bringup rt_control_head_runtime.launch.py \
-  head_can_config:=/absolute/path/to/head.yaml use_mock_hardware:=true
+ros2 run integ_composer compose_artifact --output /abs/head-mock --robot-variant Alfa_V3 \
+  --machine-unit Alfa_V3-01 --physical-profile head_only --control-scope head_only --mock
+ros2 run integ_bringup rt_control_start --scope head_only robot_variant:=Alfa_V3 \
+  machine_unit:=Alfa_V3-01 use_mock_hardware:=true generated_dir:=/abs/head-mock
 ```
 
 该入口应看到 `damiao_head_manager` active、`head_position_controller` inactive；它不使能任何真实电机。

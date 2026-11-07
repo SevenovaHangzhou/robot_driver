@@ -231,8 +231,12 @@ def generate_launch_description():
                 default_value="",
                 description="true/false overrides the scope's publish_robot_state",
             ),
-            DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
-            DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
+            DeclareLaunchArgument(
+                "robot_variant", description="required; must match the artifact selection"
+            ),
+            DeclareLaunchArgument(
+                "machine_unit", description="required; must match the artifact selection"
+            ),
             DeclareLaunchArgument(
                 "generated_dir",
                 default_value=EnvironmentVariable("RT_CONTROL_GENERATED_DIR", default_value=""),

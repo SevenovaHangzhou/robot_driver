@@ -28,8 +28,12 @@ def _launch_setup(context):
 def generate_launch_description():
     return LaunchDescription(
         [
-            DeclareLaunchArgument("robot_variant", default_value="Alfa_V3"),
-            DeclareLaunchArgument("machine_unit", default_value="Alfa_V3-01"),
+            DeclareLaunchArgument(
+                "robot_variant", description="required; must match the artifact selection"
+            ),
+            DeclareLaunchArgument(
+                "machine_unit", description="required; must match the artifact selection"
+            ),
             DeclareLaunchArgument("physical_profile", default_value="arms_only"),
             DeclareLaunchArgument("control_scope", default_value="arms_only"),
             DeclareLaunchArgument("validation_only", default_value="true"),
