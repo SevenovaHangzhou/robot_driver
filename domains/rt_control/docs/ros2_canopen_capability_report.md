@@ -1,8 +1,9 @@
 # rt-control ros2_canopen capability report (T-006)
 
-> **Historical scope:** this report predates BQ-118. Its Node 1/PP/Updown
-> findings remain evidence for the removed implementation only. Current
-> CANopen production scope contains the two PV track drives at Node 2/3.
+> **Historical evidence only:** this T-006 report describes the retired LD2
+> Node 1/2/3 implementation and its pinned upstream audit. It does not describe
+> the current V3 CANopen scope or authorize deployment. Current source is in
+> [`hw_canopen`](../../../src/rt_control/hw_canopen/).
 
 ## Scope and pinned inputs
 

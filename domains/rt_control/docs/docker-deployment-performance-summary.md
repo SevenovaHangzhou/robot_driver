@@ -1,5 +1,8 @@
 # rt-control Docker 部署与性能验证
 
+> **历史性能证据（旧履带 / V0.10）**：本页保留测试 baseline 所引用的测量窗口和原始结果，
+> 不代表当前 V3 的部署状态、运行参数或操作流程。当前部署入口见 [docker/README.md](../../../docker/README.md)。
+
 > **当前结论：部署成功，可以供同机其他域开展联调。** 这里的“可以联调”表示容器、
 > 实时控制、硬件通信、14 轴 FJT 和有序退出已有实机证据；不表示域间接口已经冻结，
 > 也不表示整机生产安全验收已经完成。
@@ -174,5 +177,5 @@ CRC/Lost/WC 零增量复测，不能把“未影响本次控制”写成“通�
 - 详细原始记录：[14 轴 FJT 最小低速运动](fjt-14axis-low-speed-commissioning-20260727.md)、
   [CANopen 有序清理与 EtherCAT 同步容忍](canopen-shutdown-sync-tolerance-commissioning-20260727.md)。
 
-开发完成度和联调边界见 [rt-control 开发进度与联调准入](integration-readiness-summary.md)；
-同事日常启动只需阅读 [rt-control 一键启动](one-command-start.md)。
+本页仅用于上述历史窗口的证据追溯。当前能力与验证边界见 [域记录入口](../README.md#记录)，
+当前启动入口见 [域启动说明](../README.md)，部署见 [docker/README.md](../../../docker/README.md)。

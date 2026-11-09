@@ -1,5 +1,10 @@
 # rt-control host setup record
 
+> **Historical host evidence:** all uses of “current” or “active target” below
+> refer to the dated observation, not the present V3 deployment. This report
+> remains a source for validation history; it is not a host installation guide.
+> Current host authorization requirements are in [hostsetup/README.md](../../../hostsetup/README.md).
+
 > **Topology note (2026-07-27):** the earlier 15-position EtherCAT and
 > CANopen Node 1/2/3 observations below are historical. BQ-118 changes the
 > current target to a 16-position ring with XMC Updown at position 15 and
