@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-11-03T22:19:30+08:00",
+  "reference_repository": "/home/zlz/Desktop/ing_obj/frame/robot_driver",
+  "reference_ref": "origin/main",
+  "reference_commit": "69d7273ac56eb67011c38ac705f6b106fd1f16c8",
+  "source_basis": "committed Git objects; existing working trees are not used or modified",
+  "controller_package": "ctrl_rolling_trajectory",
+  "controller_plugin": "ctrl_rolling_trajectory/RollingTrajectoryController",
+  "operator_package": "integ_operator_web",
+  "robot_description_pin": "2b0950f1a5009dda1e93d4737b2894ccefed3734",
+  "files": [
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/include/ctrl_rolling_trajectory/rolling_types.hpp",
+      "sha256": "91d8d51a9e7a59c656244a9d3e86d286d6c953e0bbc3dd1d489e4764d4174e7a"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/include/ctrl_rolling_trajectory/rolling_buffer.hpp",
+      "sha256": "0b84c602d0915ba25d3b694e0876b92a0b66d540a584e5928fdcba372900aad5"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/include/ctrl_rolling_trajectory/session_core.hpp",
+      "sha256": "a28b31c7c8bfe6941710a9ef1a775211e82bd2bdf958c1f7af91905f00413415"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/src/rolling_trajectory_controller.cpp",
+      "sha256": "10ea661c80b5de21393658c37060b2ac7590a30e1c721523a4af3e34b4c804f0"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/src/rolling_buffer.cpp",
+      "sha256": "cb6c5bb597cac3c0348ce298faa802ca7f1c3507dc9e40daf253989b5a5e0093"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/src/session_core.cpp",
+      "sha256": "f86c11a5d48a08ac88673ab060e3e73df9ded4d13917358279f1997d2c4f0b7c"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/src/axis_set.cpp",
+      "sha256": "169f78bd41e7f7ba8a338e6b1ddf70a73a9ee0f60e01560b88dfe33eb5dd4c36"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/src/envelope_loader.cpp",
+      "sha256": "2d51f03f2e8d3ce96204b9635ea468710cee47047327b6f9a18980b2da404b32"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/src/cubic_hermite.cpp",
+      "sha256": "6b5d9eb760701fc5f98d2db7047f9cbb5ae41ab6c2ba061b2a975543d9da946c"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/src/limit_checker.cpp",
+      "sha256": "874d6fef72c13340f6883fc013f59517c900b24e24d4d632f6ca534a68b05973"
+    },
+    {
+      "path": "src/rt_control/ctrl_rolling_trajectory/rolling_trajectory_controller_plugins.xml",
+      "sha256": "55413cfb1b2ead6eb6ff9b1b559a383c9344efc24ef6fa2e4c9858632970f06e"
+    },
+    {
+      "path": "src/interfaces/source-lock.yaml",
+      "sha256": "f584190ff3fa13090e9512112019974765df20647e7c52db672e3e78d945195a"
+    },
+    {
+      "path": "deps.repos",
+      "sha256": "ed13714a3e4f4a2aa7ae339056c1b9cc0ddf89cedd5148e019fc1145c08cb98b"
+    },
+    {
+      "path": "src/description/source-lock.yaml",
+      "sha256": "9b2c4747381c74b2a629a40ef8af89cd33881fc1aa32eae8a20f1da8a98ea04a"
+    },
+    {
+      "path": "src/rt_control/hwcfg_machines/machines/Alfa_V3/policies/Alfa_V3_arm_envelope.mock.yaml",
+      "sha256": "1673393117a50ed04b7b9fa99dd01dbeb171cc691e9733a65e49fb13b418baab"
+    },
+    {
+      "path": "src/rt_control/integ_operator_web/integ_operator_web/operators.py",
+      "sha256": "51ad2883da1f7622993c1785481f4781451e8db226f03ac4a0a30cec3aa576c1"
+    },
+    {
+      "path": "src/rt_control/integ_operator_web/integ_operator_web/arm/console.py",
+      "sha256": "400d8638569b768d4d749a2f056e5c6f084a59d58b837a88f8153a0a8a42bfdc"
+    },
+    {
+      "path": "src/rt_control/integ_operator_web/integ_operator_web/arm/page.py",
+      "sha256": "42ad77b4e8eb908e4d926ae45df83ef0ee2f0f60877de17eb60e3862af6e8545"
+    }
+  ],
+  "public_interfaces": {
+    "repository": "https://github.com/SevenovaHangzhou/robot_interfaces.git",
+    "commit": "c82f0e40937453f1f8fb104822c2e91e9fb8d742",
+    "previous_commit": "ea582c8a711874813d2ad7f0801b366bd32ab67e",
+    "changed_paths": [
+      "contract/CHANGELOG.md",
+      "robot_system_interfaces/msg/ErrorCode.msg"
+    ],
+    "rolling_messages_services_and_qos_identical": true,
+    "files": [
+      {
+        "path": "robot_motion_interfaces/msg/RollingJointPoint.msg",
+        "sha256": "fc6f940b44ef8b5fa09eccca1e646d14c292904abec693ac438e3b367f393182"
+      },
+      {
+        "path": "robot_motion_interfaces/msg/RollingJointTargetBatch.msg",
+        "sha256": "b99d10666259aa055c0adc122fe2d6ac942240f3725c9f8568917d5ad8865aff"
+      },
+      {
+        "path": "robot_rt_control_interfaces/msg/RollingJointControlState.msg",
+        "sha256": "7f535f0be2c1c903d9769b9ab5e4e6af9f663c889c28939893f7b1d2e0feb2da"
+      },
+      {
+        "path": "robot_rt_control_interfaces/msg/RollingLimitsSource.msg",
+        "sha256": "9ce962541316d9f55744f783aa01aef55b8dfe9ee0a953673575d2236a5d6f82"
+      },
+      {
+        "path": "robot_rt_control_interfaces/msg/RollingRejectCode.msg",
+        "sha256": "4d3563abab0332cc28806d3c5c3a542b9ae8d0d46f80da3abc4c69549a7aaa97"
+      },
+      {
+        "path": "robot_rt_control_interfaces/msg/RollingServiceResult.msg",
+        "sha256": "32b40ae2b382d8b117b63f23aad0950966e8c07bf01e9ee58c69953eb3e05db1"
+      },
+      {
+        "path": "robot_rt_control_interfaces/msg/RollingSessionState.msg",
+        "sha256": "a608005b97d4950966b0583d021215b12992eaeeae2f6f800b17f50a8f744e53"
+      },
+      {
+        "path": "robot_rt_control_interfaces/msg/RollingStopReason.msg",
+        "sha256": "93a458638d21e14c925aff0429cdaea99552ab7baf297284378ea0da7c24ac1c"
+      },
+      {
+        "path": "qos/include/robot_interfaces_qos/profiles.hpp",
+        "sha256": "d0155982d54cbc9259a1574f9fd3c966b8ae5c8ab0f6adc580b3d418935b58df"
+      },
+      {
+        "path": "qos/robot_interfaces_qos/__init__.py",
+        "sha256": "ec162736e375a0261c3d14effdfc5a7090a749d800aa252f4fe2ce91bc337874"
+      },
+      {
+        "path": "robot_rt_control_interfaces/msg/JointControlMode.msg",
+        "sha256": "09afb3ee3205761e6373a77d90b486dc46d14557c1b9f88caa5cd8156ba31acb"
+      },
+      {
+        "path": "robot_system_interfaces/msg/ErrorInfo.msg",
+        "sha256": "e693c0ded86ed93cee7ad21853cce9cc9d80d890e7c72cf45c14da65115b2212"
+      },
+      {
+        "path": "robot_system_interfaces/msg/ErrorCode.msg",
+        "sha256": "e2a28296866fc68567747976db467e6a2d7a758f1d15faa4c890941959b1d5e2"
+      },
+      {
+        "path": "robot_rt_control_interfaces/srv/OpenRollingJointSession.srv",
+        "sha256": "1af96385ddaf4b29ddb3f7ba05b0ee25d67ed113d794e39ace017f6e4513f7e9"
+      },
+      {
+        "path": "robot_rt_control_interfaces/srv/CloseRollingJointSession.srv",
+        "sha256": "836efc2d713fa97bb7206a36f488ac90441fd9e29ce96131c28ac20ad78c7fd8"
+      }
+    ]
+  },
+  "validation": {
+    "generated_types_built": true,
+    "client_generated_type_tests_passed": true,
+    "cpp_controller_integration_verified": false,
+    "hardware_motion_verified": false,
+    "shared_authority_deployed": false,
+    "client_tests_passed": 181,
+    "client_tests_skipped": 0,
+    "generated_type_tests_passed": 5,
+    "generated_interfaces_workspace": ".runtime/interfaces-c82f0e4",
+    "client_test_log": ".runtime/main-69d7273-tests.log"
+  },
+  "historical_references": [
+    "integration/rolling-reference.json",
+    "integration/mink-rolling-reference.json"
+  ]
+}

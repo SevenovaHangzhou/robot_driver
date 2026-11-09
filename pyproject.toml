@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gripper-end-move-handle"
+version = "0.2.0"
+description = "Cartesian arm keyboard console with Mink and shared-authority Rolling integration"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.21", "scipy>=1.8", "mujoco==3.15.0", "mink==1.3.0", "qpsolvers==4.13.0", "daqp==0.10.3", "PyYAML>=6,<7", "aiohttp>=3.8,<4"]
+
+[project.scripts]
+gripper-jog = "gripper_jog.server:main"
+
+[tool.setuptools.packages.find]
+include = ["gripper_jog*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.data-files]
+"share/gripper-jog/web" = ["web/jog.html", "web/jog.css", "web/jog.mjs", "web/input.mjs", "web/model-view.mjs", "web/gateway.mjs", "web/diagnostics.mjs"]
+"share/gripper-jog/config" = ["config/mock.json", "config/real_collision.json"]
+
+"share/gripper-jog/web/vendor" = ["web/vendor/*.js", "web/vendor/LICENSE.*", "web/vendor/README.md"]

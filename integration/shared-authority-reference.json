@@ -1,0 +1,603 @@
+{
+  "review_date": "2026-11-07",
+  "driver_base": "cbf411691ae6ad51a2775fbaeb718ba8325d0730",
+  "driver_branch": "codex/jog-current-framework",
+  "public_interfaces_pin": "aa82a77c7acccc837309c234462b2f564edc42e2",
+  "patch": "integration/shared-arm-authority.patch",
+  "patch_sha256": "0fb02515b0dcfb2c4bcfaf6b91be6299b4addb897f975db3446c901f0ec909cb",
+  "driver_files": {
+    "ARCHITECTURE.md": {
+      "before": "1706d863caa7bc1f08c2e578f2fa6b94cf153e2ffdd0e936837c067c5f6f66da",
+      "after": "b1c7188a15dc881f52b26496c297aaf2ca5b77ef5caebae2c731a2142cce439b"
+    },
+    "domains/rt_control/docs/areas/control/records/2026-11-07-shared-arm-authority.md": {
+      "before": null,
+      "after": "442b4fecbaf1e42628b208fa9b1cc8d716b22428bdda838247c6d5f31a232367"
+    },
+    "src/rt_control/integ_operator_web/CMakeLists.txt": {
+      "before": "8b90cb58fef1443ec52418f307341bdfab39c5f9e067b9a78e778792d0f82471",
+      "after": "294ea6c40fe4ea14d3a23923448af6815f61aedd4457bb6eb99684dad9cb6c4f"
+    },
+    "src/rt_control/integ_operator_web/README.md": {
+      "before": "c00adf586276ca5457cfe424e966da10a176c716a50ec259f39d25a1a89572d4",
+      "after": "8c7d441646fa3a2d4b9ef2de0eed61ce8fa99f6eb35db6e00add0297d4a1e4d5"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/authority.py": {
+      "before": null,
+      "after": "8951f1b0d1187539d6c2024b705d2d81ba3f7ee87a7549b4ff454bfa9e952087"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/console.py": {
+      "before": "0991a85f050e96cfa33dab4eb557c79f62c051aa5039a6bb75d1fa242720accf",
+      "after": "6f9abae487e074359131634368e6c92c511d67110505eb2d4e7535e470b3878a"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/errors.py": {
+      "before": null,
+      "after": "c99d598826a85e4d2844b09a11d73703bf849e563dce970da585a04ad5c6120e"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/idle.py": {
+      "before": null,
+      "after": "45b9ed8b4e20f8c8a429e1ce31d7a40d15b2f5b140fc100e53f9b309ebe8eab0"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/jog.py": {
+      "before": null,
+      "after": "e8bce0a0b43dbe6a41340c58eec6cd96d8a7b0fac7a5ffe26a5b8fce39a7e7eb"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/lease.py": {
+      "before": null,
+      "after": "5c57347a6bdf4dbae97bd29efd0179616d4340aa003c4b98d16e4883e82c6577"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/mode_service.py": {
+      "before": null,
+      "after": "1ead9d3d7c9c7a29de161cac191d1b07d826f1d5202c4d9763d5c821b0517e6b"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/model.py": {
+      "before": "bd9041dcdbc8ba0c8fdd76c978b2dc5f6718cba66c6305e9bb0038d4dd6928e2",
+      "after": "f4d119a46401106c6c0365db031532c188c4ede789c0531cea0b925e6a513766"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/modes.py": {
+      "before": null,
+      "after": "1d0a638a6f66c7fb2a47199b89e09cb40cd6dcb98afcb6d615bda226793348a0"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/page.py": {
+      "before": "ee138104a0b83c1778f391b6f42c1ebc9ef5b4834a25f6a24f657c62efcd8fee",
+      "after": "644eef4a6920f01c114eadddf599069c03dae0a8d73dcf048c1335c42f07f6fc"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/readback.py": {
+      "before": null,
+      "after": "dcb787cc878cb70aeab76f4075833ca0b3adb0f71dd71c363f603c7e01fbc41a"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/rolling_output.py": {
+      "before": null,
+      "after": "596433c4080f3f1f9442ec4eac00480e64857e432e5cbdf93583563befb62a65"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/ros_bridge.py": {
+      "before": "4b2203ccd38a35792cfde9e7cba25aebe2c09486f7189f31f82db88da520c2dc",
+      "after": "610622b8740e8ea491030fd77e62eae1867cc6d30eab64caa1fffa8a77bcd1e2"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/chassis_connection.py": {
+      "before": "14efc94c3275e30fd0a74a9ac0ef8bf77936ba4cb9732700f8c3623736750a3b",
+      "after": "bec117e5cb163cfe6bfdc6f02eb80775bf6ba9c2e5c53a1c79f731c1a79f8aef"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/head/page.py": {
+      "before": "163ccbbd2c42d3e8a1afc2ccd1d80e48a8ea00f83674aaf80bfaed70031aba4f",
+      "after": "1e7370eaaaf1f3b52c0476179754ae90da3e8e06c55d8970f6db2301645f33e6"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/launcher.py": {
+      "before": "97eef30dd4133fd14f1cced5578c6e6172d7415a7a89c694e6c75c93cd337acf",
+      "after": "1262f5d6a9b8c4487672d759ae7f937927a4293ffd66aab77c53c7b7758c6f8e"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/node.py": {
+      "before": "645c1799750ecfb2673735690ba68bb18f26bb951e025810eccd77c87bf05adc",
+      "after": "4441fc93b0a5bd47166af6ca44e0b3eaa7619b69c51a28048d1beb2abf70ddca"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/server.py": {
+      "before": "726915afdcf6738a9fe71c1022808bd7ae713a80679ec272d1be03b279f316f8",
+      "after": "15fa95d90f0fff139fa5e45625c8cd6b9e7b38649539f92df5a22a7ed7dc0b39"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/session.py": {
+      "before": "1dcdacd302678017b0a23fd842cebe0f50918d181f40cfc07bd2659d5daee030",
+      "after": "e7dcbd04310602e19f54a6e99186225791664593a1621bd93be780358dd28256"
+    },
+    "src/rt_control/integ_operator_web/package.xml": {
+      "before": "24cd82f5c9fc624dd4f2e6c66dc41f9b483dc108aa5196a28329fcbf778e3ffc",
+      "after": "24a42e58f2d0a3c7e2378feb9ffae367de6e3d7a34a67cc5032a1c1d7a18c7d7"
+    },
+    "src/rt_control/integ_operator_web/src/rolling_python.cpp": {
+      "before": null,
+      "after": "281990460b6b5a46931652f6456e7b08bb59a29288f40a06c57e63b0de7694f6"
+    },
+    "src/rt_control/integ_operator_web/test/test_arm_authority.py": {
+      "before": null,
+      "after": "cf2d8f88fa078d8ed559e8671b13e7ec7862ab5a8bc73ba87b67f92520753931"
+    },
+    "src/rt_control/integ_operator_web/test/test_arm_console.py": {
+      "before": "c36d6b60294b7a32806612123fbcafaaacfe075ad5331511efe03b3730bfb5c1",
+      "after": "48d07e54450f728230e90b8f41a1a573b8d2a607c855f0060b2257d502973a71"
+    },
+    "src/rt_control/integ_operator_web/test/test_arm_idle.py": {
+      "before": null,
+      "after": "e69bf7c55887ad8e7c10e62dcdb1be003176424ee3f389f9cdeb2b2773859010"
+    },
+    "src/rt_control/integ_operator_web/test/test_arm_modes.py": {
+      "before": null,
+      "after": "c4baffce5e1f3ce2c9f04a3010e9e310509ca1a698e46f9249b0ebc651a77113"
+    },
+    "src/rt_control/integ_operator_web/test/test_arm_page.py": {
+      "before": "45a2f02c95be68f9da1054cee9b0a90b8edc6e9e91cdb2b01318fe12b6fa324c",
+      "after": "8c114079ea2e1cad9258766c9611908d1be24a99bf25b02fed78b5c7ce031827"
+    },
+    "src/rt_control/integ_operator_web/test/test_arm_ros_send.py": {
+      "before": null,
+      "after": "4c2abd4301be727cc214f1f8e373ae98ac06e300307b3d1beb7c3ee08326a344"
+    },
+    "src/rt_control/integ_operator_web/test/test_jog_page.py": {
+      "before": null,
+      "after": "602864475dc661ea6421761ffa25a001ffd723ea80caa5b1d0e9023f55bd7c11"
+    },
+    "src/rt_control/integ_operator_web/test/test_mode_service.py": {
+      "before": null,
+      "after": "3b80c148d7c59443b59a1f796939f21b1b018380292ce958f0dfb744b9e3aa02"
+    },
+    "src/rt_control/integ_operator_web/test/test_rolling_binding.py": {
+      "before": null,
+      "after": "a46a14a17a3cf9795ea26902df5dd8b39cfd71f4e932a7bb617eb2af4403be51"
+    },
+    "src/rt_control/integ_operator_web/test/test_rolling_output.py": {
+      "before": null,
+      "after": "a04a8d96dcd1ac5cea56b72a6c7da2dd210ea5b07f9b71afb59c4f3cacc8bc97"
+    },
+    "src/rt_control/integ_operator_web/web/arm/app.js": {
+      "before": "c1ebad517fc873c5430991cc8e9e384246a7c28858ad5180e63403d3ee2a50e5",
+      "after": "96e003f7981b9eed09a8547bba8b55f08c4bbbd30bd7a52dc97aa80561645474"
+    },
+    "src/rt_control/integ_operator_web/web/arm/index.html": {
+      "before": "1773c17f8554700c5a860f035b491fbdd6e00b2e169baea872793ca97ad82b84",
+      "after": "ba131cdd1ada3691abbd0d5788bb6df3afc6bfc6dbf2d0664a95a0982810e506"
+    },
+    "src/rt_control/integ_operator_web/web/arm/style.css": {
+      "before": "f0280fb1fbfc3ac5ae7495205b6222f02f90f1881aa464397128ba5744ddbbeb",
+      "after": "06c6116a8b2caff49705c9d0ec61fae51b48003ad44e162063ffc58053870636"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/console_types.py": {
+      "before": "97ab1a19da5a00a389f755f9f1ab2cdfb99e362a057605dfa2a09b3562182077",
+      "after": "ba466539435df28d88a7590f24f434096055ff71205574ab6a0edf7162177751"
+    },
+    "src/rt_control/integ_operator_web/test/test_arm_trajectory.py": {
+      "before": "445dc5016c966acc39ee27c9b6f8731b2b242c6b01c979ad18832841d537e57d",
+      "after": "45fca0fa728a08f5b9ce5644a4bb7a28edf415d0625cbd7e23fc7a91a8d737c9"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/CMakeLists.txt": {
+      "before": "bff88130fad39ab03b71ea7c22ae8e1ff1d1e84871aa6afa4840504e11149fdf",
+      "after": "5dc27c7ced56dc16a677240e939e83d494217806038497aa93ef0a47bc9b70f0"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/package.xml": {
+      "before": "7a05122cd5767ab11c085562da8270511a84f88429ca069530ea4d4639205d4b",
+      "after": "5fa7e4916dc45dbd6f7263ed6fb9669e8ff8e617aa043ed7198c781a083302eb"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/test/test_controller_lifecycle.cpp": {
+      "before": "c876fe338d8a1164f9c81027c40aca64ef710da384a92dab8d5b1cb01dbdf271",
+      "after": "8baa9e8e4ec0ef34dbfa6bff7ebb9bde91d69be9a965a06513628dc33a3ffa8a"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/test/test_controller_batches.cpp": {
+      "before": "25b2d43b71711eb0e0b24242b6b31cf21274594e2fcdf7f4506fc88594025442",
+      "after": "41fab91504f5fc51feb3040c2f65f5df9783283dd8065553f552f31fa43f48d3"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/src/rolling_trajectory_configure.cpp": {
+      "before": "f7551378808f2a7cc520aa97aa015df3dd11e37c45d45f310ceb7bdaa870fdf1",
+      "after": "313f3a74653ada7748aaf911ce49e9cba59977e054ef746d65e478ddd38ccbd9"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/src/rolling_trajectory_state.cpp": {
+      "before": "0a4132676c11aec169ed56457ba5bb6ffbdd67748bfc355cacfbdae3c1ddca08",
+      "after": "5744874e0375d38b833e3ce279df55fda70edb35e662f7dab236766d2a5ab995"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/include/ctrl_rolling_trajectory/rolling_trajectory_controller.hpp": {
+      "before": "3adb3f49a3a7b22d11818bc8973e303263d94292b96f73c7bdfc85764adc98ad",
+      "after": "75e72e5ba78d98a2ccd7af2685d134852f01e91eb8a0769e9f6e7241b37e7f96"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/README.md": {
+      "before": null,
+      "after": "adac00fa7c5a772613084d87ae82c0cd71a7ee43f5eabc1b17779ecbc8089d63"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/rolling_hold.py": {
+      "before": null,
+      "after": "45b2dcd77f455fc16a59e78001f98cb194b797a420bc667372e5798ba3ed1573"
+    },
+    "src/rt_control/integ_operator_web/test/test_rolling_hold.py": {
+      "before": null,
+      "after": "f38b53b0309e9429d8290fdee600d6a38af67bb222a76f29581450440e637295"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/include/ctrl_rolling_trajectory/rolling_buffer.hpp": {
+      "before": "64cf28679204a965a526e7fe3c57825fc7fb2ebeb75fdf38c0f98db4ceeed089",
+      "after": "9d7b822374b92ecd62bb6863e4b5bc383e56af72a5453aacb4d36257b90599cc"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/src/rolling_buffer.cpp": {
+      "before": "a1246c9bc2657767e2fca2d58aa6ca76be68d7af36d9bc34052807fa49a10bb6",
+      "after": "22a56568b1a136ec643a87422dee914e917646bcac2736ced062d84d4a1e71c5"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/src/rolling_trajectory_controller.cpp": {
+      "before": "7e3ed90f3b5d1cd6d0432d8b8b64a5355b2fa115158f57eae1a84136f1f3fbf3",
+      "after": "6c6a8a667ea5a808310a33fd672c0dd3e45ea59a7530d31d368445afe70cbb13"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/src/rolling_trajectory_diagnostics.cpp": {
+      "before": null,
+      "after": "5f419cc2eb697e6533d1ee743b5abdf9d7bcbca512d7fbc4b97d936aa75198c5"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/src/rolling_trajectory_session.cpp": {
+      "before": "7905b83335418f290d52dca9fe50f6a207b57006cd03f5bd75eeae8b7b8042b9",
+      "after": "78480e1b4d801f56577875e3b3bca1d657c8f64c760ab01e3e265718ad6c82c6"
+    },
+    "src/rt_control/ctrl_rolling_trajectory/test/test_rolling_buffer.cpp": {
+      "before": "abc53a4ac60f4aa83c70a1e776b8b5e3ec37fc463c51a75690817f3bcab1e657",
+      "after": "ce5d982ca0aef75da368437de97bc6f4dbb5984c1e4dead78215c4f6f755512b"
+    },
+    "src/rt_control/integ_operator_web/integ_operator_web/arm/rolling_rejection.py": {
+      "before": null,
+      "after": "f8999bdecb758a6de997e75420c6f0ba459a45c066e065e0fbd12e41cb5ee19c"
+    },
+    "src/rt_control/integ_operator_web/test/test_rolling_rejection.py": {
+      "before": null,
+      "after": "4ea2508ea9efa842d457e30b9835b950c8fe407a9011f44a64b6c0dab04a149b"
+    },
+    "domains/rt_control/docs/areas/control/records/2026-11-09-jog-rolling-v0.2.0.md": {
+      "before": null,
+      "after": "ac2db918230cf79ab91637740b53334f10958761c62a1c3648ccbbf1509e3ab7"
+    }
+  },
+  "client_files": {
+    "PLAN.md": "9d9af0484e45923360bae20622c900eaf114800e8438ada0dc6b4b7ec2e7a348",
+    "README.md": "b1afbedb3554f68901c6d9c790bd9cf0b7a125cdfb16bbcf814d26205cf3c51e",
+    "docs/CONTROL-AUTHORITY.md": "2b36f2cff648ef4377f36317fbb3f88537a138bed3a22a6dc020b72f058151be",
+    "docs/MAIN-ALIGNMENT.md": "ac94839bdf0ccdbf0932a1e0ed98122f3e25a16f7001aa166aa7f961fd133ead",
+    "docs/REAL-KEYBOARD.md": "19945a75371724a87a187f546879abdca1bc70d164273255998ca7135706ea48",
+    "docs/REAL-ROLLING-PREFLIGHT.md": "9f15a3f76346a00f7592e69e0951ed935a3b2a50200f58d56b85dca9a83d1e31",
+    "gripper_jog/current_stream.py": "aabc9e14d505d5b17695b9699bf9eb49bcfb2c95907191727d1ebb8c9da6fcfe",
+    "gripper_jog/gateway.py": "efa633bd5fdcf422a7d6a6fbda126d8be01ddfde8612ca87467e7449c59bacfc",
+    "gripper_jog/real_keyboard.py": "8cdb81123dd5296eb2ee1e55ed1f6ec15ecf8a6c099d53e4f3f646ef51d8da46",
+    "gripper_jog/real_observe.py": "2f746378a53d5533f764c396f164f4b0f49bdea3d775ebbb5c5304861ae4ce93",
+    "gripper_jog/real_server.py": "f0c67dd0b3be2ba848f77e686aea48adbdcd205a16ab94e369e1cafb6894ec30",
+    "gripper_jog/real_source.py": "cf4169dff5ce35a9484964e304fc1ba6de4e11ab91f91973e406e3d104036ba8",
+    "gripper_jog/rolling_stream.py": "963127c74959ab7b1d00ea058f984397d0a92a0269c1441fc71bed733b659d3d",
+    "gripper_jog/server.py": "bd016eb806b33f42dbce71bd665a0b7ee20807749ebe963f5a291f947f8ab40a",
+    "pyproject.toml": "1ee1eaa35789f62a6146d768e41118d497d78914069c36cfe7ed00395eb676a7",
+    "script/start_gateway_observe.sh": "8163132480e8eb472833528f12bd127b335d7d4afb7cd46fd1548e31c5bb56fa",
+    "script/start_ipc_observe.sh": "fefca63c799f9bfe9858a666cb3f2437921cb3cdebeef38b3e8f80f39ee2eb2d",
+    "script/start_real_keyboard.sh": "f1d5c321bb5d10ad1c78eae3120b95f6102da3b2d00ebf397a11629554e5daee",
+    "tests/test_current_stream.py": "a938df0c4d1f5dbf2d302ea82508a7a747599d95beb22438fd80d699d07da9dd",
+    "tests/test_gateway.mjs": "759d7cba51101624a5265b0b6f99151a49f3bc9d27ede0e88015d08049f745e0",
+    "tests/test_gateway.py": "d6e2db76058e3bec2d2a6b9f95a6a8c3d20dccd126079a7815c8a4a86fb4dafd",
+    "tests/test_real_keyboard.py": "ecaf6bfa8d135bf58f2a5bf79d8059e97fea272d4fbf09f08263b27d5111db84",
+    "tools/check_shared_authority.py": "e20c4ed76809cc27eb62c3b79e6fea0cb7a08058dc62170df62a31483f3e8908",
+    "web/gateway.mjs": "3fc2cfaaa2942e7938fbe70e3a2ac97e9e03e0db481d9011d20f839cfaaa09df",
+    "web/jog.html": "1616b34570de8d03346f7d0b7cff17e330721aaa8f144f22ba705ac1b71f0460",
+    "web/jog.mjs": "d25c01da7c661e3ea5a2035bf3963797a871a6b5d567322ce74a45747f668294",
+    "gripper_jog/completed_hold.py": "72ac470dbb3c752fa0ba00c7be881414b68612295f9bf2711dc5bea16e2b2783",
+    "tests/test_completed_hold.py": "860c9fd15010e9d2a49fdfb377c8c018e71d4b773a47a25a2ff3387a8adedb87",
+    "docs/ROLLING-HOLD-ANCHOR.md": "d3b73017fec4585839eac8a06435abf19bf031a250eed0f59b0a3e8598d61b4a",
+    "gripper_jog/model.py": "ba0efdaeee8315c47846659a7d115efd574be29978e17a3148a0b2db30f4319c",
+    "gripper_jog/cartesian_input.py": "f814c9d84b39e4723ce579dd5dca5eee7a08a962d81876235a70770b19a652ba",
+    "web/jog.css": "cc6a5eed14567cd7554b825b5f90c4dac1be83f7a3e264ebef1f88f44da2495e",
+    "web/input.mjs": "e71470e161210f39fa71fba1d49cd05de03eeac356a3f27a67a2b03550d8eebb",
+    "tests/test_input.mjs": "d8b254efbf216d168858c859ba2a054d915e343df13d1cda24109c0197ccc8e9",
+    "tests/test_orientation.py": "56c11a4cd3e178c85cdd6cfd0ff02dd67b2b3a0ff80769b715ec9df71d115651",
+    "docs/J7-ORIENTATION-JOG.md": "984b97d880a4281cd1dc5f263f118c337b332455e09b6c00a1a9edddb6084195",
+    "docs/ROLLING-LATENCY-DIAGNOSTICS.md": "d33824cec243c9eadd2cc040b718367a48a2d7867eebede941adaa06f35a39a9",
+    "gripper_jog/errors.py": "f6a2c1fad82aabf37e7f8215d9ead8c1fb0435058b51e3f2686ab94936e7c6a9",
+    "gripper_jog/failure.py": "82dc5929659acacccf27bfdb5000985e2ae6adfeb7d43987bbe87d083697c6d1",
+    "gripper_jog/latency.py": "37aeb9bc5866fea8192a1384995826e063839c18f31c4d15cf3e1cb56cb9cc98",
+    "tests/test_latency_diagnostics.py": "3cab1376233b10345b4dfb2a64aa873688b3196dc3cc4d45191150fe04d0b326",
+    "web/diagnostics.mjs": "1e4fa0d78fc0506ccd79ad281b9cdf6d98f80adf473e1d874b5cd3947ed538cc",
+    "docs/ROLLING-RELIABILITY-20261107.md": "93fe9fcf14ae39459998169441b71bdab608ca70de51e71a6236ecbd42ffd65d",
+    "tests/test_real_source_limits.py": "b6bc7fe012726f031b8140ec130138f5bf88c66b78d845b7fe34fc2599076ad1",
+    "docs/DEPLOYMENT-20261109.md": "7031a06fce7952960dac9041087777a224dd0ad2958be08eb0c3235efb3b0b02",
+    "docs/releases/v0.2.0.md": "2fc0785f57aa2afd18ba2342ec5ce2662f4938fe111f3703368d59f3ab5f9fe6",
+    "tests/test_http.py": "0bd9e7bf3224be331a4c23032d2f5d84e8f71e67ca8671c36d8d3b3b7293a5e9",
+    "docs/releases/v0.2.0-validation.json": "69fbb2203d9942ea366e885192531b14b6a58b5e7a1ecdde4be57919f2ed542f"
+  },
+  "removed_client_files": [
+    "gripper_jog/authority.py",
+    "tests/test_authority.py"
+  ],
+  "validation": {
+    "operator_pytest": {
+      "passed": 329,
+      "skipped": 1,
+      "skip": "binding exercised separately with JOG_SENDER_EXTENSION"
+    },
+    "operator_colcon_test": {
+      "tests": 351,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "official_sender_transport": {
+      "passed": 1,
+      "domain_id": 219,
+      "localhost_only": true
+    },
+    "gateway_observe_http_stream_keyboard": {
+      "passed": 41,
+      "skipped": 0,
+      "files": [
+        "test_gateway.py",
+        "test_real_observe.py",
+        "test_http.py",
+        "test_current_stream.py",
+        "test_real_keyboard.py"
+      ]
+    },
+    "keyboard_input": {
+      "passed": 10
+    },
+    "arch_check": "PASS",
+    "quality_gate": {
+      "result": "PASS",
+      "tool_tests_passed": 185,
+      "tool_tests_skipped": 11,
+      "subtests": 25,
+      "unavailable_optional_tools": [
+        "clang-format-14",
+        "shellcheck"
+      ]
+    },
+    "automatic_mode": {
+      "joint_entry": "jtc",
+      "jog_entry": "rolling",
+      "cancellation_fencing": true,
+      "public_service_responses": true,
+      "hardware_switch_tested": false
+    },
+    "build": "local and remote operator builds passed; official RollingSender binding transport passed",
+    "remote_browser": {
+      "full_robot_rendered": true,
+      "shared_login": true,
+      "bidirectional_mutual_exclusion": true,
+      "handover": true,
+      "disconnect_release": true,
+      "18121_to_18131_link": true,
+      "keyboard_configured": true,
+      "keyboard_unarmed": true,
+      "page_errors": []
+    },
+    "strict_json": {
+      "before_first_rolling_feedback": true,
+      "after_feedback": true,
+      "missing_state_age": null,
+      "remote_fixed": true
+    },
+    "current_artifact_offline_windows": {
+      "count": 12,
+      "speed_mm_s": 0.5,
+      "points_per_window": 21,
+      "maximum_planning_ms": 22.563,
+      "cubic_limits_and_collisions_ok": true,
+      "hardware_motion": false
+    },
+    "login_session": {
+      "javascript_tests_passed": 13,
+      "gateway_http_tests_passed": 10,
+      "local_browser": {
+        "invalid_token_rejected": true,
+        "form_login": true,
+        "primary_cookie_rotations": 3,
+        "expired_session_prompts_once": true,
+        "no_reconnect_loop_while_waiting": true,
+        "relogin_restores_connection": true,
+        "refresh_uses_existing_session": true,
+        "model_rendered": true,
+        "keyboard_unarmed": true,
+        "no_control_commands": true,
+        "page_errors": []
+      },
+      "remote_browser": {
+        "form_login": true,
+        "primary_relogin_reconnect": true,
+        "model_rendered": true,
+        "keyboard_unarmed": true,
+        "page_errors": []
+      },
+      "remote_static_files_updated": [
+        "web/gateway.mjs",
+        "web/jog.mjs"
+      ],
+      "processes_restarted": false,
+      "motion_commands_sent": 0,
+      "mode_switch_requests_sent": 0
+    },
+    "rolling_startup_cache": {
+      "regressions": 4,
+      "old_code_fails": true,
+      "fixed_keyboard_and_stream_tests": 17,
+      "pre_begin_status_ignored": true,
+      "public_begin_and_window_replies_used": true,
+      "status_freshness_ms": 200,
+      "hardware_motion_tested": false
+    },
+    "held_key_diagnostics": {
+      "keyboard_and_stream_tests": 20,
+      "gateway_http_tests": 10,
+      "event_history_maximum": 24,
+      "motion_commands_sent": 0,
+      "preserves_release_stop": true,
+      "hardware_motion_tested": false
+    },
+    "completed_hold_restart": {
+      "affected_python_tests_passed": 92,
+      "same_direction_cycles": 3,
+      "test_speed_mm_s": 20,
+      "tracking_offset_rad": 0.0002,
+      "old_behavior_regression_fails": true,
+      "requires_same_connection_epoch_and_sequence": true,
+      "actual_collision_check_retained": true,
+      "hardware_motion_tested": false,
+      "motion_commands_sent": 0,
+      "first_or_faulted_start_fixed": false,
+      "native_fixed_windows_accepted": 12,
+      "native_old_acceleration_rejections": 12,
+      "native_test_speed_mm_s": 20
+    },
+    "jtc_start_lead": {
+      "operator_tests_passed": 347,
+      "operator_tests_skipped": 1,
+      "move_point_budget": 32,
+      "start_delay_after_preparation": true,
+      "stop_timeline_preserved": true,
+      "hardware_motion_tested": true,
+      "deployed": true,
+      "real_goals_completed": 4,
+      "real_third_goal_accepted": true,
+      "verification": "controller logs and hardware feedback; actions initiated by operator",
+      "operator_confirmed_success": true
+    },
+    "rolling_hold_anchor": {
+      "operator_tests_passed": 362,
+      "operator_tests_skipped": 1,
+      "keyboard_planning_tests_passed": 96,
+      "controller_cpp_tests": 58,
+      "controller_cpp_suites": 8,
+      "readback_service": "/<discovered-controller>/query_state",
+      "query_timeout_ms": 200,
+      "authoritative_hold_required": true,
+      "first_knot_and_acceleration_checked": true,
+      "rt_update_path_unchanged": true,
+      "hardware_motion_tested": false,
+      "deployed": true,
+      "remote_release_build": "passed",
+      "controller_service_reachable": true,
+      "inactive_query_rejected": true,
+      "rt_reloaded": true,
+      "artifact_unchanged": true,
+      "remote_bidirectional_mutex": true,
+      "enable_after": "IDLE",
+      "agent_motion_commands_sent": 0,
+      "stale_capability_publisher_removed": true
+    },
+    "j7_orientation": {
+      "python_passed": 245,
+      "python_skipped": 24,
+      "node_passed": 17,
+      "offline_real_windows": 48,
+      "browser_key_commands": 12,
+      "rotation_basis": "moving J7 child frame",
+      "real_motion_validated": false
+    },
+    "rolling_latency_diagnostics": {
+      "operator_python_passed": 368,
+      "operator_python_skipped": 0,
+      "keyboard_gateway_python_passed": 152,
+      "controller_cpp_tests": 60,
+      "controller_cpp_suites": 8,
+      "frontend_tests_passed": 17,
+      "browser_desktop_mobile_passed": true,
+      "baseline_initial_lead_ms": 120,
+      "baseline_replacement_lead_ms": 100,
+      "trial_initial_lead_ms": 100,
+      "trial_replacement_lead_ms": 80,
+      "automatic_timing_change": false,
+      "rejection_topic": "/<discovered-controller>/rejection",
+      "rt_update_path_unchanged": true,
+      "public_schema_unchanged": true,
+      "parallel_rotation_preserved": true,
+      "deployed": true,
+      "hardware_motion_tested": false,
+      "benchmark": {
+        "baseline": {
+          "samples": 80,
+          "p50_ms": 3.624,
+          "p95_ms": 4.019,
+          "max_ms": 4.469
+        },
+        "new": {
+          "samples": 80,
+          "p50_ms": 3.218,
+          "p95_ms": 3.457,
+          "max_ms": 3.833
+        }
+      },
+      "official_sender_transport_included": true,
+      "operator_build_passed": true,
+      "controller_build_passed": true,
+      "arch_check_passed": true,
+      "integration_patch_verified": true,
+      "deployed_at": "2026-11-09T12:20:26.010159+08:00"
+    },
+    "rolling_reliability": {
+      "controller_cpp_passed": 63,
+      "controller_cpp_suites": 8,
+      "operator_python_passed": 372,
+      "client_python_passed": 406,
+      "client_python_skipped": 180,
+      "legacy_ros_module_excluded": "tests/test_rolling_ros.py",
+      "frontend_scripts_passed": 2,
+      "snapshot_retry_non_rt_only": true,
+      "snapshot_budget_configuration": "maximum_controller_period_ns",
+      "planning_scale": 0.98,
+      "hardware_envelope_changed": false,
+      "automatic_timing_change": false,
+      "baseline_initial_lead_ms": 120,
+      "baseline_replacement_lead_ms": 100,
+      "public_schema_unchanged": true,
+      "parallel_j7_preserved": true,
+      "deployed": true,
+      "hardware_motion_tested": false,
+      "controller_build_passed": true,
+      "operator_build_passed": true,
+      "arch_check_passed": true,
+      "integration_patch_verified": true,
+      "browser_desktop_mobile_passed": true,
+      "remote_build_passed": true,
+      "remote_payload_sha256": "dd5292bb603d0b6651a2e74b6f754bf2a0ac69c8c1b2eedf5fd3edfc4b0e77ed",
+      "deployment_state": "complete",
+      "deployed_at": "2026-11-09T12:20:26.010159+08:00",
+      "remote_health_verified": true,
+      "remote_browser_verified": true,
+      "loaded_controller_plugin_sha256": "27a721dc0452d384fb8c8e9e1acd66d2f4722ca10ff325da4c14337c94022658",
+      "deployed_receipt": ".runtime/rolling-reliability-20261107/deployment-receipt-1109.json",
+      "remote_backup": "/home/ar/gripper-jog/releases/shared-authority-20261107/rolling-reliability-backup-20261109-121539.tar.gz",
+      "post_restart_enable_state": "IDLE",
+      "shared_authority_phase": "idle"
+    },
+    "component_release": {
+      "version": "0.2.0",
+      "scope": "component_source",
+      "user_feedback_date": "2026-11-09",
+      "user_feedback": "效果不错",
+      "quality_gate_passed": true,
+      "quality_gate_python_passed": 185,
+      "quality_gate_python_skipped": 11,
+      "production_container_release": false,
+      "driver_commit": "c67b3c0f4e1f11a42407f0b11709cd1ac40e17fc",
+      "source_copy_passed": 406,
+      "source_copy_skipped": 180,
+      "working_directory_passed": 478,
+      "working_directory_skipped": 108,
+      "wheel_install_passed": true,
+      "static_http_passed": true,
+      "http_regression_passed": 3
+    }
+  },
+  "runtime": {
+    "remote_release": "/home/ar/gripper-jog/releases/shared-authority-20261107",
+    "remote_deployed": true,
+    "primary_url": "http://192.168.100.40:18121/arm",
+    "jog_url": "http://192.168.100.40:18131/jog",
+    "domain_id": 77,
+    "artifact": "bench_dual_arm_head_wrist_force",
+    "model_sha256": "51584c4c5309c12139a92e22ca11ba2e3abf1ff4ab6e9847d2a1c33e30cb9c29",
+    "jog_motion_enabled": true,
+    "keyboard_configured": true,
+    "keyboard_armed": false,
+    "automatic_mode_enabled": true,
+    "hardware_mode_switch_tested": false,
+    "hardware_motion_tested": false,
+    "motion_commands_sent": 0,
+    "mode_switch_requests_sent": 0,
+    "rolling_acceptance": "user-confirmed; Cartesian hardware validation pending",
+    "git_committed": false,
+    "git_pushed": false,
+    "jtc_start_lead_deployed": true,
+    "rolling_hold_anchor_deployed": true,
+    "primary_pid": 759972,
+    "gateway_pid": 758071,
+    "rt_pid": 758013
+  }
+}

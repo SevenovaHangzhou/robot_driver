@@ -1,0 +1,28 @@
+{
+  "reference_repository": "/home/zlz/Desktop/ing_obj/frame/robot_driver",
+  "reference_commit": "eafb8c179db1ac965b99078050befc1b58ef36c5",
+  "public_interfaces_pin": "ea582c8a711874813d2ad7f0801b366bd32ab67e",
+  "public_generated_types_verified": false,
+  "files": [
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/include/rolling_trajectory_controller/rolling_types.hpp",
+      "sha256": "dfb00c331fa28432b65b663eb7335eb6099035033f4ab5e458a6bcbe10b6a398"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/rolling_trajectory_controller.cpp",
+      "sha256": "c30b3d9757f497d6302e672bc46c099fc945b6818afe45a62d91ae7431870205"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/rolling_buffer.cpp",
+      "sha256": "e78750bdd60978ad29061cf1a1e9b2ce883411ab3178f04732b214c046d3ca40"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/session_core.cpp",
+      "sha256": "4877387600654fd49e09e2c1f907bc29a55d4427ad1d1b460009c9543c9d120c"
+    },
+    {
+      "path": "src/interfaces/source-lock.yaml",
+      "sha256": "934af39f8daedd89931373b9f16866bdebd73776a60402750b55c8b917e491b9"
+    }
+  ]
+}

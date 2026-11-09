@@ -1,0 +1,553 @@
+--- a/src/rt_control/rt_control_arm_console/rt_control_arm_console/server.py
++++ b/src/rt_control/rt_control_arm_console/rt_control_arm_console/server.py
+@@ -137,6 +137,20 @@
+         path = urlsplit(self.path).path
+         if path == "/":
+             self._file(self.server.web_dir / "index.html")
++        elif path in ("/jog", "/jog/"):
++            self._file(self.server.web_dir / "jog/jog.html")
++        elif path == "/api/jog/state":
++            if self._session() is None:
++                self._json(HTTPStatus.UNAUTHORIZED, {"error": "login_required"})
++                return
++            self._json(HTTPStatus.OK, {
++                "mode": "unavailable", "hardware_connected": False,
++                "lease": "none", "armed": False, "epoch": "", "busy": False,
++                "can_arm": False, "result": "末端点动实机后端尚未开放",
++                "blockers": ["待核验 TCP、参考系和运行模型身份",
++                             "待接入 Motion 笛卡尔路径与全模型碰撞检查",
++                             "待完成统一执行仲裁及故障停车契约"],
++            })
+         elif path.startswith("/static/"):
+             self._file(self._static(path[len("/static/") :]))
+         elif path.startswith(MESH_URL_PREFIX):
+@@ -272,6 +286,8 @@
+ 
+     def _command(self, path: str, session: str, body: dict) -> Optional[dict]:
+         console = self.server.console
++        if path.startswith("/api/jog/"):
++            raise ConsoleError("jog_unavailable", "末端点动实机后端尚未开放")
+         if path == "/api/acquire":
+             console.acquire(session)
+         elif path == "/api/release":
+--- a/src/rt_control/rt_control_arm_console/CMakeLists.txt
++++ b/src/rt_control/rt_control_arm_console/CMakeLists.txt
+@@ -14,6 +14,7 @@
+   ament_add_pytest_test(trajectory test/test_trajectory.py TIMEOUT 60)
+   ament_add_pytest_test(console test/test_console.py TIMEOUT 60)
+   ament_add_pytest_test(server test/test_server.py TIMEOUT 60)
++  ament_add_pytest_test(jog_ui test/test_jog_ui.py TIMEOUT 60)
+ endif()
+ 
+ ament_package()
+--- a/src/rt_control/rt_control_arm_console/web/index.html
++++ b/src/rt_control/rt_control_arm_console/web/index.html
+@@ -20,6 +20,7 @@
+     <div class="brand"><span class="brand-mark"></span><b>ALFA</b><span>左臂</span>
+       <span id="mock-chip" class="chip" hidden>Mock · 非实机</span></div>
+     <div class="chips">
++      <a class="chip" href="/jog">末端点动 · 待核验</a>
+       <span id="conn-chip" class="chip bad">未连接</span>
+       <span id="enable-chip" class="chip">--</span>
+       <span id="ctrl-chip" class="chip">控制器 --</span>
+--- /dev/null
++++ b/src/rt_control/rt_control_arm_console/web/jog/jog.html
+@@ -0,0 +1,22 @@
++<!doctype html>
++<html lang="zh-CN">
++<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>末端点动 · ALFA</title><link rel="stylesheet" href="/static/jog/jog.css"></head>
++<body>
++<header><a class="brand" href="/">A<span>ALFA / 末端点动</span></a><span id="mode" class="pill">连接中</span><a class="back" href="/">关节操作台 ↗</a></header>
++<main>
++  <section class="intro"><div><p class="eyebrow">CARTESIAN JOG / 01</p><h1>沿直线，微调末端。</h1><p>固定参考系 · 保持姿态 · 六方向点动</p></div><div id="connection" class="connection">正在连接</div></section>
++  <div class="layout">
++    <section class="visual card"><div class="section-head"><h2>完整机器人 · 末端轨迹</h2><span id="frame">参考系 —</span></div><div class="view-toolbar"><button id="view-arm">查看整机</button><button id="view-selected">查看当前臂</button><button id="view-tcp">聚焦末端</button><button id="clear-trail">清空轨迹</button></div><div id="model-view" role="img" aria-label="完整机器人三维模型及所选臂 TCP 三维运动轨迹"></div><div class="view-label"><span><i></i> 青色：TCP 轨迹 · 绿色：当前末端</span><span>拖动旋转 · 滚轮缩放</span></div><p id="model-status" class="muted">正在加载同版本机械臂模型…</p><div class="coordinates"><div><label>X <small>mm</small></label><strong id="pos-x">—</strong></div><div><label>Y <small>mm</small></label><strong id="pos-y">—</strong></div><div><label>Z <small>mm</small></label><strong id="pos-z">—</strong></div></div><div class="pose"><span id="tip">TCP —</span><span id="rpy">姿态 —</span></div></section>
++    <section class="card controls"><div class="section-head"><h2>方向控制</h2><span class="pill subtle">长按点动</span></div>
++      <div class="arm-choice"><label for="arm-side">控制机械臂</label><select id="arm-side" disabled aria-describedby="arm-side-help"></select><span id="selected-arm">等待机械臂信息</span></div><p id="arm-side-help" class="muted">获取控制权后可选择左右臂；切换前请按 Esc 停止并退出接管。</p>
++      <div class="settings"><label>步长<select id="step"><option value="0.5">0.5 mm</option></select></label><label>速度上限<span>1.0 <small>mm/s</small></span></label></div>
++      <p class="instruction">按住方向键执行直线微调，松开减速停止；每段完成后继续下一段。</p><p id="publication" class="muted">正在读取轨迹发布模式…</p>
++      <div class="pad"><button class="dir forward" data-code="ArrowUp" aria-label="前移 X 正方向"><b>↑</b><span>前 / +X</span></button><button class="dir left" data-code="ArrowLeft" aria-label="左移 Y 正方向"><b>←</b><span>左 / +Y</span></button><div class="pad-center">XY<br><small>保持高度</small></div><button class="dir right" data-code="ArrowRight" aria-label="右移 Y 负方向"><b>→</b><span>右 / −Y</span></button><button class="dir backward" data-code="ArrowDown" aria-label="后移 X 负方向"><b>↓</b><span>后 / −X</span></button><div class="z-pair"><button class="dir" data-code="NumpadAdd" aria-label="上升 Z 正方向"><b>+</b><span>升 / +Z</span></button><button class="dir" data-code="NumpadSubtract" aria-label="下降 Z 负方向"><b>−</b><span>降 / −Z</span></button></div></div>
++      <div class="ownership"><button id="lease" class="secondary">获取控制权</button><button id="arm" class="primary" disabled>开启键盘接管</button></div><button id="stop" class="stop">停止 / 退出接管 <kbd>Esc</kbd></button><p id="result" role="status" aria-live="polite">等待连接</p>
++    </section>
++  </div>
++  <section class="details"><div class="card"><div class="section-head"><h2>本次路径检查</h2><span id="motion">空闲</span></div><dl><div><dt>轨迹时长</dt><dd id="duration">—</dd></div><div><dt>最大直线误差</dt><dd id="path-error">—</dd></div><div><dt>最大姿态误差</dt><dd id="orientation-error">—</dd></div><div><dt>最大关节变化</dt><dd id="joint-delta">—</dd></div></dl><p class="muted">数值为模型离线计算结果，不能代表实机精度。</p></div><div class="card readiness"><div class="section-head"><h2>实机接入条件</h2><span class="pill warning">待核验</span></div><ul id="blockers"><li>正在读取配置</li></ul><p class="muted">单步不排队；失焦、断线和保活超时将退出接管。软件停止不能代替实体急停。</p></div></section>
++</main>
++<dialog id="login"><form id="login-form"><p class="eyebrow">ALFA / ACCESS</p><h2>登录操作台</h2><p>使用当前实例的访问令牌。本地 Mock 令牌为 <code>mock</code>。</p><label>访问令牌<input id="token" type="password" autocomplete="current-password" required></label><p id="login-error" role="alert"></p><button class="primary">登录</button></form></dialog>
++<script type="module" src="/static/jog/jog.mjs"></script>
++</body></html>
+--- /dev/null
++++ b/src/rt_control/rt_control_arm_console/web/jog/jog.css
+@@ -0,0 +1,6 @@
++:root{color-scheme:dark;--bg:#101719;--card:#182124;--border:#2a373b;--text:#eef5f2;--muted:#91a6a8;--green:#a3e1b8;--red:#f08075;--amber:#e6c783;font-family:Inter,"Noto Sans CJK SC",system-ui,sans-serif}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}button,a,input,select{-webkit-tap-highlight-color:transparent}button,select,input{font:inherit}button{cursor:pointer;border:1px solid var(--border);border-radius:9px;background:#233034;color:var(--text);transition:background .12s}button:hover:enabled{background:#304247}button:disabled{opacity:.38;cursor:not-allowed}button:focus-visible,a:focus-visible{outline:2px solid var(--green);outline-offset:4px}header{height:76px;padding:0 4vw;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:24px}.brand{display:flex;align-items:center;gap:15px;color:var(--green);font-weight:800;font-size:31px;text-decoration:none}.brand span{font-size:15px;letter-spacing:1px;color:var(--text);font-weight:500}.back{margin-left:auto;color:var(--muted);text-decoration:none;font-size:13px}.pill{display:inline-flex;border-radius:30px;padding:5px 11px;font-size:11px;font-weight:600;border:1px solid #40534b;color:var(--green);white-space:nowrap}.pill.warning{border-color:#605334;color:var(--amber)}.pill.subtle{color:var(--muted);border-color:var(--border)}main{max-width:1320px;margin:auto;padding:35px 36px}.intro{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}.eyebrow{font-size:10px;letter-spacing:2.6px;color:var(--green);margin:0 0 12px}h1{font-size:30px;letter-spacing:1px;margin:0 0 8px;font-weight:500}.intro p:last-child{margin:0;font-size:13px;color:var(--muted)}.connection{font-size:12px;color:var(--muted)}.connection.ok{color:var(--green)}.connection.bad{color:var(--red)}.layout{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}.card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:23px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px}h2{font-size:15px;margin:0;font-weight:500}.section-head>span{font-size:11px;color:var(--muted)}canvas{width:100%;height:284px;display:block;margin-top:10px}.view-label{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;margin:0 0 22px}.view-label i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px}.coordinates{display:flex;gap:12px;border-top:1px solid var(--border);padding-top:20px}.coordinates>div{flex:1}label{display:block;font-size:12px;color:var(--muted)}small{font-size:10px;color:var(--muted);font-weight:400}.coordinates strong{display:block;font-size:25px;font-weight:400;font-variant-numeric:tabular-nums;margin-top:9px}.coordinates label{color:var(--green)}.pose{display:flex;justify-content:space-between;gap:12px;font-size:10px;color:var(--muted);padding-top:23px}.settings{display:flex;gap:20px;margin-top:24px}.settings label{flex:1}.settings select,.settings label>span{display:block;margin-top:8px;border:1px solid var(--border);border-radius:7px;padding:10px 12px;width:100%;color:var(--text);background:#121c1e;font-size:14px}.instruction{font-size:11px;color:var(--muted);line-height:1.8;margin:17px 0}.pad{display:grid;grid-template-columns:repeat(3,1fr) 1.05fr;grid-template-rows:repeat(3,57px);gap:7px;touch-action:none}.dir{display:flex;flex-direction:column;align-items:center;justify-content:center;user-select:none;touch-action:none}.dir b{font-size:23px;font-weight:400;line-height:1.1}.dir span{font-size:10px;color:var(--muted);margin-top:4px}.dir.active{border-color:var(--green);background:#284333}.forward{grid-column:2;grid-row:1}.left{grid-column:1;grid-row:2}.right{grid-column:3;grid-row:2}.backward{grid-column:2;grid-row:3}.pad-center{grid-column:2;grid-row:2;text-align:center;align-self:center;color:var(--green);font-size:15px;line-height:1.5}.z-pair{grid-column:4;grid-row:1/4;display:flex;flex-direction:column;gap:8px;padding-left:13px;border-left:1px solid var(--border);margin-left:9px}.z-pair button{flex:1}.ownership{display:flex;gap:10px;margin-top:21px}.ownership button{flex:1;padding:11px 5px;font-size:12px}.primary{background:var(--green);color:#11251b;border-color:var(--green);padding:11px 16px}.primary:hover:enabled{background:#c0f0ce}.secondary{background:transparent}.stop{display:flex;justify-content:center;gap:15px;align-items:center;width:100%;padding:12px;margin-top:11px;background:#342626;border-color:#674039;color:#f1a095;font-size:13px}.stop:hover:enabled{background:#50302d}kbd{font:10px monospace;border:1px solid #77534a;padding:2px 4px;border-radius:4px}#result{font-size:11px;color:var(--muted);margin:13px 0 0;min-height:16px}.details{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-top:20px}dl{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:24px 0}dl div{display:flex;justify-content:space-between;gap:10px;font-size:11px}dt{color:var(--muted)}dd{margin:0;font-variant-numeric:tabular-nums}.muted{color:var(--muted);font-size:10px;line-height:1.8;margin-bottom:0}ul{padding-left:17px;font-size:12px;color:var(--amber);line-height:2;margin:17px 0}.readiness .pill{color:var(--amber)}dialog{border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--text);width:min(430px,90vw);padding:30px}dialog::backdrop{background:#081011dd;backdrop-filter:blur(5px)}dialog p{font-size:12px;color:var(--muted);line-height:1.9}dialog input{display:block;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:12px;width:100%;margin-top:9px}#login-error{color:var(--red)}dialog button{width:100%}@media(max-width:850px){main{padding:25px 18px}.layout,.details{grid-template-columns:1fr}.intro{align-items:flex-start;gap:20px}h1{font-size:24px}.brand span{font-size:12px}header{gap:12px;padding:0 18px}.back{font-size:11px}.coordinates strong{font-size:23px}.card{padding:20px}}@media(prefers-reduced-motion:reduce){button{transition:none}}
++@media(max-width:500px){header{gap:8px}.brand{font-size:25px;gap:7px}.brand span{font-size:10px;letter-spacing:0;white-space:nowrap}.back{font-size:10px;white-space:nowrap}header .pill{font-size:9px;padding:4px 7px}.intro{flex-direction:column;align-items:flex-start;gap:16px}.connection{font-size:11px}.coordinates strong{font-size:22px}.pose{font-size:9px}.view-label{font-size:9px}}
++#model-view{height:340px;width:100%;position:relative;border-radius:8px;overflow:hidden;margin:12px 0;background:#111b1e}#model-view canvas{width:100%;height:100%;margin:0;display:block;touch-action:none}.view-toolbar{display:flex;gap:7px;margin-top:16px}.view-toolbar button{font-size:11px;padding:6px 10px;background:transparent}.visual #model-status{min-height:18px;margin-bottom:14px}.coordinates{margin-top:16px}@media(max-width:500px){#model-view{height:310px}}
++
++.arm-choice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:20px}.arm-choice label{font-size:12px;color:var(--muted)}.arm-choice select{min-width:110px;flex:1;max-width:180px}.arm-choice span{font-size:11px;color:#a9debd}.view-toolbar{flex-wrap:wrap}#model-view{height:440px}@media(max-width:500px){#model-view{height:360px}.arm-choice{gap:8px}}
++.arm-choice select{background:#111b1e;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px}.arm-choice select:disabled{opacity:.5}.arm-choice select:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+--- /dev/null
++++ b/src/rt_control/rt_control_arm_console/web/jog/jog.mjs
+@@ -0,0 +1,232 @@
++import {JogInput} from './input.mjs';
++const $ = id => document.getElementById(id);
++const client = crypto.randomUUID(); // A new document never inherits another tab's input authority.
++let state = null, epoch = '', sequence = 0, heartbeatSequence = 0, connected = false, pollBusy = false;
++let heartbeatBusy = false, stopping = false, localBusy = false, lastState = 0;
++let armGeneration = 0, notice = '';
++const pointerCodes = new Map();
++let modelView = null, modelTask = null, modelReady = false;
++let switchBusy = false;
++const armLabel = side => ({left: '左臂', right: '右臂', single: '当前臂'})[side] || side;
++async function request(path, body, {timeout = 5000, keepalive = false} = {}) {
++  const controller = new AbortController();
++  const timer = setTimeout(() => controller.abort(), timeout);
++  try {
++    const response = await fetch(path, {method: body === undefined ? 'GET' : 'POST',
++      headers: body === undefined ? {} : {'Content-Type': 'application/json'},
++      body: body === undefined ? undefined : JSON.stringify(body),
++      credentials: 'same-origin', signal: controller.signal, keepalive, cache: 'no-store'});
++    const data = await response.json();
++    if (!response.ok) {
++      if (response.status === 401 && !$('login').open) $('login').showModal();
++      throw new Error(data.message || data.error || `HTTP ${response.status}`);
++    }
++    return data;
++  } finally { clearTimeout(timer); }
++}
++function message(text) { $('result').textContent = text; }
++function command(action, extra = {}, options) {
++  return request(`/api/jog/${action}`, {client, epoch, seq: action === 'heartbeat' ? ++heartbeatSequence : ++sequence, ...extra}, options);
++}
++async function stop(reason = '已请求停止') {
++  notice = reason;
++  epoch = ''; armGeneration++; localBusy = false;
++  input.armed = false; input.held.clear(); pointerCodes.clear();
++  message(reason); render();
++  if (stopping || !connected) return;
++  stopping = true;
++  try { await command('stop', {}, {keepalive: true, timeout: 2000}); }
++  catch (error) { message(`停止请求未确认：${error.message}。接管已退出。`); }
++  finally { stopping = false; }
++}
++async function release(reason) {
++  const oldEpoch = epoch, generation = ++armGeneration;
++  epoch = ''; input.armed = false; input.held.clear(); pointerCodes.clear();
++  message(reason); render();
++  if (!oldEpoch || !connected) return;
++  try {
++    const result = await request('/api/jog/halt', {client, epoch: oldEpoch, seq: ++sequence});
++    if (generation !== armGeneration || document.hidden || !document.hasFocus()) return;
++    armGeneration++; epoch = result.epoch; sequence = 0; heartbeatSequence = 0;
++    state = {...state, armed: true, epoch}; input.arm(); render(); await poll();
++  } catch (error) { await stop(`松键停止未确认：${error.message}`); }
++}
++const input = new JogInput({
++  release,
++  step: async direction => {
++    if (!connected || !epoch || localBusy) return;
++    const stepEpoch = epoch;
++    localBusy = true; input.busy = true; message('正在检查直线路径…'); render();
++    try { await command('step', {direction, step_mm: Number($('step').value)}); }
++    catch (error) { if (epoch === stepEpoch) await stop(error.message); }
++    finally { localBusy = false; }
++  },
++  stop,
++});
++function render() {
++  const mine = state?.lease === 'you';
++  const armed = Boolean(connected && epoch && state?.armed && state.epoch === epoch);
++  input.busy = localBusy || Boolean(state?.busy);
++  $('lease').textContent = mine ? '释放控制权' : state?.lease === 'other' ? '其他页面控制中' : '获取控制权';
++  $('lease').disabled = !connected || state?.mode === 'unavailable' || state?.lease === 'other';
++  $('lease').disabled ||= switchBusy;
++  $('arm').disabled = !connected || !mine || !state?.can_arm || !modelReady || state?.busy || Boolean(epoch);
++  $('arm').textContent = epoch ? '键盘已接管' : '开启键盘接管';
++  const sides = state?.arms || [];
++  if (Array.from($('arm-side').options, option => option.value).join(',') !== sides.join(',')) {
++    $('arm-side').replaceChildren(...sides.map(side => new Option(armLabel(side), side)));
++  }
++  $('arm-side').value = state?.selected_arm || '';
++  $('arm-side').disabled = !connected || !mine || !modelReady || Boolean(epoch) || Boolean(state?.busy) || switchBusy || sides.length < 2;
++  $('selected-arm').textContent = state?.selected_arm ? `${armLabel(state.selected_arm)} / TCP 轨迹` : '等待机械臂信息';
++  $('arm').disabled ||= switchBusy;
++  $('stop').disabled = !connected || state?.mode === 'unavailable';
++  document.querySelectorAll('.dir').forEach(button => {
++    button.disabled = !armed;
++    button.classList.toggle('active', input.held.has(button.dataset.code));
++  });
++  $('motion').textContent = state?.stopping ? '正在减速' : state?.busy ? '路径执行中' : '空闲';
++}
++async function poll() {
++  if (pollBusy) return;
++  pollBusy = true;
++  const generation = armGeneration;
++  try {
++    const next = await request(`/api/jog/state?client=${encodeURIComponent(client)}`, undefined, {timeout: 1200});
++    if (generation !== armGeneration) return;
++    state = next; connected = true; lastState = performance.now();
++    if (!modelTask && next.mode === 'mock') modelTask = loadModel();
++    if (next.mode === 'unavailable') $('model-status').textContent = '实机模型等待运行服务接入';
++    $('connection').textContent = next.mode === 'mock' ? '● 本地 Mock 已连接' : '● 操作台已连接';
++    $('connection').className = 'connection ok';
++    $('mode').textContent = next.mode === 'mock' ? 'MOCK / 无硬件连接' : '实机点动未开放';
++    $('mode').className = next.mode === 'mock' ? 'pill' : 'pill warning';
++    const publication = next.publication;
++    $('publication').textContent = publication?.mode === 'rolling'
++      ? `Rolling 发布 · 批次 ${publication.sequence || 0}${publication.pending_sequence ? ' · 等待确认' : ''}${publication.fault ? ` · ${publication.fault}` : ''}`
++      : next.mode === 'unavailable' ? '轨迹发布尚未接入' : '单步执行';
++    $('frame').textContent = `参考系 / ${next.frame || '待确认'}`;
++    $('tip').textContent = `TCP / ${next.tip || '待确认'}`;
++    if (next.tcp_mm) {
++      next.tcp_mm.forEach((v, i) => $(`pos-${'xyz'[i]}`).textContent = v.toFixed(3));
++      $('rpy').textContent = `RPY ${next.rpy_deg.map(v => v.toFixed(2)).join(' / ')} °`;
++      modelView?.update(next);
++
++    }
++    const metrics = next.last_plan?.metrics;
++    if (metrics) {
++      $('duration').textContent = `${next.last_plan.duration_s.toFixed(2)} s`;
++      $('path-error').textContent = `${metrics.max_path_error_mm.toFixed(5)} mm`;
++      $('orientation-error').textContent = `${metrics.max_orientation_error_deg.toFixed(5)} °`;
++      $('joint-delta').textContent = `${metrics.max_joint_delta_deg.toFixed(3)} °`;
++    } else {
++      for (const id of ['duration', 'path-error', 'orientation-error', 'joint-delta']) $(id).textContent = '—';
++    }
++    $('blockers').replaceChildren(...(next.blockers || []).map(text => {
++      const li = document.createElement('li'); li.textContent = text; return li;
++    }));
++    if (epoch && (!next.armed || next.epoch !== epoch)) {
++      epoch = ''; input.cancel(next.result || '服务端已退出接管');
++    }
++    if (!localBusy && !stopping) message(notice || next.result || '末端点动暂不可用');
++    render();
++    input.resume();
++  } catch (error) {
++    if (generation !== armGeneration) return;
++    connected = false; epoch = ''; input.cancel('连接中断，已退出接管');
++    $('connection').textContent = '● 连接中断'; $('connection').className = 'connection bad';
++    message(error.message); render();
++  } finally { pollBusy = false; }
++}
++async function loadModel() {
++  try {
++    const [{ModelView}, info] = await Promise.all([
++      import('./model-view.mjs'), request('/api/jog/model'),
++    ]);
++    modelView = new ModelView($('model-view'), text => $('model-status').textContent = text);
++    if (state) modelView.update(state);
++    await modelView.load(info);
++    modelReady = true; render();
++  } catch (error) {
++    $('model-status').textContent = `模型加载失败：${error.message}`;
++    modelReady = false; render();
++  }
++}
++$('view-arm').addEventListener('click', () => modelView?.fit());
++$('view-selected').addEventListener('click', () => modelView?.fit(true));
++$('view-tcp').addEventListener('click', () => modelView?.focusTCP());
++$('clear-trail').addEventListener('click', () => modelView?.clear());
++$('arm-side').addEventListener('change', async event => {
++  const side = event.target.value;
++  switchBusy = true; armGeneration++; render();
++  try {
++    await command('select_arm', {arm: side});
++    armGeneration++;
++    notice = ''; epoch = ''; sequence = 0; heartbeatSequence = 0;
++    await poll();
++  } catch (error) { message(error.message); }
++  finally { switchBusy = false; render(); }
++});
++$('login-form').addEventListener('submit', async event => {
++  event.preventDefault();
++  try {
++    await request('/api/login', {token: $('token').value});
++    $('token').value = ''; $('login-error').textContent = ''; $('login').close(); await poll();
++  } catch (error) { $('login-error').textContent = error.message; }
++});
++$('lease').addEventListener('click', async () => {
++  try {
++    if (state?.lease === 'you') { await stop('释放控制权'); await command('release'); }
++    else await command('acquire');
++    await poll();
++  } catch (error) { message(error.message); }
++});
++$('arm').addEventListener('click', async () => {
++  const generation = ++armGeneration;
++  try {
++    const result = await command('arm');
++    notice = '';
++    if (generation !== armGeneration || document.hidden || !document.hasFocus()) { await stop('页面已离开前台'); return; }
++    armGeneration++; epoch = result.epoch; sequence = 0; heartbeatSequence = 0;
++    state = {...state, armed: true, epoch}; input.arm(); render();
++    await poll();
++  } catch (error) { message(error.message); }
++});
++$('stop').addEventListener('click', () => stop('操作员停止'));
++const editable = node => node instanceof Element && Boolean(node.closest('input,textarea,select,[contenteditable="true"]'));
++window.addEventListener('keydown', event => {
++  if (input.down(event.code, {repeat: event.repeat, editable: editable(event.target), modified: event.ctrlKey || event.altKey || event.metaKey})) {
++    event.preventDefault(); render();
++  }
++});
++window.addEventListener('keyup', event => { if (input.up(event.code)) { event.preventDefault(); render(); } });
++document.querySelectorAll('.dir').forEach(button => {
++  button.addEventListener('pointerdown', event => {
++    if (event.button !== 0) return;
++    event.preventDefault(); button.setPointerCapture(event.pointerId);
++    pointerCodes.set(event.pointerId, button.dataset.code);
++    input.down(button.dataset.code); render();
++  });
++  button.addEventListener('lostpointercapture', event => {
++    const code = pointerCodes.get(event.pointerId);
++    if (code) { pointerCodes.delete(event.pointerId); input.up(code); }
++  });
++});
++for (const type of ['pointerup', 'pointercancel']) window.addEventListener(type, event => {
++  const code = pointerCodes.get(event.pointerId);
++  if (code) { pointerCodes.delete(event.pointerId); input.up(code); render(); }
++});
++window.addEventListener('blur', () => { armGeneration++; input.cancel('页面失焦'); });
++document.addEventListener('visibilitychange', () => { if (document.hidden) { armGeneration++; input.cancel('页面已进入后台'); } });
++window.addEventListener('pagehide', () => { armGeneration++; input.cancel('页面已关闭'); });
++setInterval(async () => {
++  if (performance.now() - lastState > 1500 && epoch) { await stop('状态反馈超时'); return; }
++  if (!epoch || !input.armed || heartbeatBusy || document.hidden || !document.hasFocus()) return;
++  heartbeatBusy = true;
++  const heartbeatEpoch = epoch;
++  try { await command('heartbeat', {}, {timeout: 1000}); }
++  catch (error) { if (epoch === heartbeatEpoch) await stop(`保活失败：${error.message}`); }
++  finally { heartbeatBusy = false; }
++}, 100);
++setInterval(poll, 200);
++await poll();
+--- /dev/null
++++ b/src/rt_control/rt_control_arm_console/web/jog/input.mjs
+@@ -0,0 +1,39 @@
++// Pure input state machine; DOM/network handling lives in jog.mjs.
++export const KEY_DIRECTIONS = Object.freeze({
++  ArrowUp: 'x+', ArrowDown: 'x-', ArrowLeft: 'y+', ArrowRight: 'y-',
++  Equal: 'z+', Minus: 'z-', NumpadAdd: 'z+', NumpadSubtract: 'z-',
++});
++export class JogInput {
++  constructor({step, stop, release = stop}) {
++    this.step = step; this.stop = stop; this.release = release;
++    this.armed = false; this.busy = false; this.held = new Set();
++  }
++  arm() { this.held.clear(); this.armed = true; }
++  cancel(reason) {
++    const active = this.armed || this.held.size > 0;
++    this.armed = false; this.held.clear();
++    if (active) this.stop(reason);
++  }
++  down(code, {repeat = false, editable = false, modified = false} = {}) {
++    if (code === 'Escape') { this.cancel('键盘停止'); return true; }
++    if (!(code in KEY_DIRECTIONS) || editable || modified || !this.armed) return false;
++    if (repeat || this.held.has(code)) return true;
++    this.held.add(code);
++    if (this.held.size > 1) { this.cancel('多方向按键冲突'); return true; }
++    if (!this.busy) { this.busy = true; this.step(KEY_DIRECTIONS[code]); }
++    return true;
++  }
++  resume() {
++    if (!this.armed || this.busy || this.held.size !== 1) return false;
++    this.busy = true;
++    this.step(KEY_DIRECTIONS[this.held.values().next().value]);
++    return true;
++  }
++  up(code) {
++    if (!this.held.has(code)) return false;
++    this.held.delete(code);
++    // Every release invalidates the server epoch, including requests still planning.
++    this.release('已松开方向键');
++    return true;
++  }
++}
+--- /dev/null
++++ b/src/rt_control/rt_control_arm_console/web/jog/model-view.mjs
+@@ -0,0 +1,155 @@
++import * as THREE from '../vendor/three.module.min.js';
++import {OrbitControls} from '../vendor/OrbitControls.js';
++import URDFLoader from '../vendor/URDFLoader.js';
++
++export class ModelView {
++  constructor(container, status) {
++    this.status = status;
++    this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
++    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
++    this.renderer.setClearColor(0x111b1e, 1);
++    container.appendChild(this.renderer.domElement);
++    this.scene = new THREE.Scene();
++    this.camera = new THREE.PerspectiveCamera(38, 1, .001, 30);
++    this.camera.up.set(0, 0, 1);
++    this.camera.position.set(2, -2, 1.6);
++    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
++    this.controls.enableDamping = true;
++    this.scene.add(new THREE.HemisphereLight(0xf4fff8, 0x3b474b, 2.4));
++    const sun = new THREE.DirectionalLight(0xffffff, 2);
++    sun.position.set(3, -4, 5); this.scene.add(sun);
++    const grid = new THREE.GridHelper(4, 40, 0x45665c, 0x253a3d);
++    grid.rotation.x = Math.PI / 2; this.scene.add(grid);
++    this.scene.add(new THREE.AxesHelper(.2));
++    this.robot = null; this.frame = null; this.lastState = null;
++    this.points = []; this.count = 0;
++    this.trails = new Map(); this.currentIdentity = null; this.activeLinks = new Set();
++    this.lineGeometry = new THREE.BufferGeometry();
++    this.traceBuffer = new Float32Array(4000 * 3);
++    this.lineGeometry.setAttribute('position', new THREE.BufferAttribute(this.traceBuffer, 3));
++    this.lineGeometry.setDrawRange(0, 0);
++    this.trace = new THREE.Line(this.lineGeometry,
++      new THREE.LineBasicMaterial({color: 0x62d9ff, depthTest: false, transparent: true, opacity: .95}));
++    this.trace.frustumCulled = false; this.trace.renderOrder = 10;
++    this.marker = new THREE.Mesh(new THREE.SphereGeometry(.0008, 16, 12),
++      new THREE.MeshBasicMaterial({color: 0x78ffc2, depthTest: false}));
++    this.marker.renderOrder = 11;
++    this.axes = new THREE.AxesHelper(.07);
++    this.failedMeshes = new Set();
++    new ResizeObserver(() => {
++      const w = container.clientWidth, h = container.clientHeight;
++      if (w && h) { this.renderer.setSize(w, h, false); this.camera.aspect = w/h; this.camera.updateProjectionMatrix(); }
++    }).observe(container);
++    this.renderer.setAnimationLoop(() => {
++      this.controls.update(); this.renderer.render(this.scene, this.camera);
++    });
++  }
++
++  async load(info) {
++    this.modelHash = info.model_hash;
++    this.tipName = info.tip;
++    this.tcpOffset = new THREE.Vector3(...(info.tcp_xyz_m || [0, 0, 0]));
++    const manager = new THREE.LoadingManager();
++    manager.onError = url => { this.failedMeshes.add(url); this.status('模型 mesh 加载失败，请检查资源'); };
++    const loader = new URDFLoader(manager);
++    let resolveMeshes;
++    const ready = new Promise(resolve => { resolveMeshes = resolve; });
++    manager.onLoad = resolveMeshes;
++    this.robot = loader.parse(info.urdf, '');
++    this.frame = this.robot.links[info.frame];
++    if (!this.frame) throw new Error('模型中缺少点动参考系，无法对齐轨迹');
++    this.scene.add(this.robot);
++    this.frame.add(this.trace, this.marker, this.axes);
++    if (this.lastState) this.update(this.lastState);
++    // Establish an initial camera even before external meshes finish loading.
++    this.fit();
++    const hasMeshes = new DOMParser().parseFromString(info.urdf, 'text/xml').querySelector('visual mesh');
++    if (hasMeshes) await ready;
++    this.robot.traverse(child => {
++      if (child.isMesh && child !== this.marker) {
++        child.material = new THREE.MeshStandardMaterial({color: 0xb9c8c8, metalness: .2, roughness: .55});
++      }
++    });
++    if (this.lastState) this.update(this.lastState);
++    this.fit();
++    if (this.failedMeshes.size) throw new Error('部分模型 mesh 未能加载');
++    this.status('完整机器人已加载 · 浅绿高亮当前臂 · 轨迹绑定 TCP');
++  }
++
++  fit(selectedOnly = false) {
++    if (!this.robot) return;
++    this.robot.updateMatrixWorld(true);
++    // Frame visuals only: the trail and coordinate helpers must not affect camera fit.
++    const box = new THREE.Box3();
++    this.robot.traverse(child => {
++      if (child.isMesh && child !== this.marker && (!selectedOnly || this.activeLinks.has(child))) box.expandByObject(child);
++    });
++    if (box.isEmpty()) return;
++    const sphere = box.getBoundingSphere(new THREE.Sphere());
++    const fov = Math.min(THREE.MathUtils.degToRad(this.camera.fov),
++      2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov)/2) * this.camera.aspect));
++    const distance = sphere.radius / Math.sin(fov / 2) * 1.08;
++    this.controls.target.copy(sphere.center);
++    this.camera.position.copy(sphere.center).addScaledVector(new THREE.Vector3(.9, -1.2, .65).normalize(), distance);
++    this.camera.near = .001; this.camera.far = Math.max(30, distance * 10); this.camera.updateProjectionMatrix();
++  }
++
++  focusTCP() {
++    if (!this.frame || !this.lastState?.tcp_mm) return;
++    const target = this.frame.localToWorld(new THREE.Vector3(...this.lastState.tcp_mm.map(v => v / 1000)));
++    const direction = this.camera.position.clone().sub(this.controls.target).normalize();
++    this.controls.target.copy(target); this.camera.position.copy(target).addScaledVector(direction, .35);
++  }
++
++  clear() {
++    this.points = []; this.count = 0; this.lineGeometry.setDrawRange(0, 0);
++    if (this.currentIdentity) this.trails.set(this.currentIdentity, this.points);
++    if (this.lastState) this.update(this.lastState);
++  }
++
++  update(state) {
++    this.lastState = state;
++    if (!this.robot || !this.frame || !state.tcp_mm) return;
++    if (this.modelHash && state.model_hash !== this.modelHash) { this.status('显示模型与状态身份不一致'); return; }
++    const changed = this.currentIdentity !== state.model_identity;
++    if (changed) {
++      const frame = this.robot.links[state.frame], tip = this.robot.links[state.tip];
++      if (!frame || !tip) { this.status('所选臂的参考系或 TCP 缺失'); return; }
++      this.frame = frame; this.tipName = state.tip;
++      this.tcpOffset = new THREE.Vector3(...(state.tcp_xyz_m || [0, 0, 0]));
++      this.frame.add(this.trace, this.marker, this.axes);
++      this.currentIdentity = state.model_identity;
++      this.points = this.trails.get(this.currentIdentity) || [];
++      this.trails.set(this.currentIdentity, this.points);
++    }
++    this.activeLinks.clear();
++    this.robot.joints[state.joint_names[0]]?.traverse(child => { if (child.isMesh) this.activeLinks.add(child); });
++    this.robot.traverse(child => {
++      if (child.isMesh && child !== this.marker) child.material.color.setHex(this.activeLinks.has(child) ? 0x99d9c1 : 0xb9c8c8);
++    });
++    const jointNames = state.model_joint_names || state.joint_names, q = state.model_q_rad || state.q_rad;
++    jointNames.forEach((name, i) => this.robot.joints[name]?.setJointValue(q[i]));
++    this.robot.updateMatrixWorld(true);
++    const position = new THREE.Vector3(...state.tcp_mm.map(v => v / 1000));
++    this.marker.position.copy(position); this.axes.position.copy(position);
++    const previous = this.points.at(-1);
++    if (!previous || position.distanceToSquared(previous) > 1e-14) {
++      this.points.push(position.clone());
++      if (this.points.length > 4000) this.points.shift();
++    }
++    this.points.forEach((p, i) => p.toArray(this.traceBuffer, i * 3));
++    this.lineGeometry.attributes.position.needsUpdate = true;
++    this.lineGeometry.setDrawRange(0, this.points.length); this.count = this.points.length;
++    this.renderer.domElement.dataset.activeArm = state.selected_arm || '';
++    this.renderer.domElement.dataset.activeTip = state.tip;
++    // Independently compare the model's transformed TCP with backend FK in the same frame.
++    const tip = this.robot.links[this.tipName];
++    if (tip) {
++      const expected = this.frame.worldToLocal(tip.localToWorld(this.tcpOffset.clone()));
++      const error = expected.distanceTo(position) * 1000;
++      this.renderer.domElement.dataset.tcpAlignmentMm = error.toFixed(6);
++      this.renderer.domElement.dataset.trailPoints = String(this.count);
++      if (error > .01) this.status(`TCP 与模型对齐误差 ${error.toFixed(3)} mm`);
++    }
++  }
++}
+--- /dev/null
++++ b/src/rt_control/rt_control_arm_console/test/test_jog_ui.py
+@@ -0,0 +1,29 @@
++"""UI-only integration must never submit any arm trajectory."""
++import json
++from test_server import server, request, login  # noqa: F401
++from test_console import setup  # noqa: F401
++
++
++def test_jog_page_and_authentication(server):
++    instance, _, _ = server
++    response, body = request(instance, "GET", "/jog")
++    assert response.status == 200 and "末端点动" in body.decode()
++    response, _ = request(instance, "GET", "/static/jog/input.mjs")
++    assert response.status == 200
++    response, _ = request(instance, "GET", "/api/jog/state")
++    assert response.status == 401
++    cookie = login(instance)
++    response, body = request(instance, "GET", "/api/jog/state", cookie=cookie)
++    state = json.loads(body)
++    assert response.status == 200 and state["mode"] == "unavailable"
++    assert state["armed"] is False and state["can_arm"] is False
++
++
++def test_jog_commands_fail_closed(server):
++    instance, console, driver = server
++    cookie = login(instance)
++    initial = list(driver.sent)
++    for command in ("acquire", "arm", "step", "heartbeat", "stop"):
++        response, body = request(instance, "POST", f"/api/jog/{command}", {}, cookie)
++        assert response.status == 409 and json.loads(body)["error"] == "jog_unavailable"
++    assert driver.sent == initial

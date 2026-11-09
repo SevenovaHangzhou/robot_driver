@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-09",
+  "version": "0.2.0",
+  "driver_commit": "c67b3c0f4e1f11a42407f0b11709cd1ac40e17fc",
+  "controller_cpp": {
+    "passed": 63,
+    "suites": 8
+  },
+  "operator_python": {
+    "passed": 371,
+    "binding_passed": 1,
+    "binding_domain": 219,
+    "binding_localhost_only": true
+  },
+  "client_working_directory": {
+    "passed": 478,
+    "skipped": 108
+  },
+  "client_source_copy": {
+    "passed": 406,
+    "skipped": 180
+  },
+  "excluded_legacy_schema_module": "tests/test_rolling_ros.py",
+  "frontend": {
+    "scripts_passed": 2,
+    "cases": 17
+  },
+  "quality_gate": {
+    "passed": true,
+    "pytest_passed": 185,
+    "pytest_skipped": 11,
+    "pinned_format_tools_available": false
+  },
+  "release_http_regression": {
+    "passed": 3
+  },
+  "wheel": {
+    "version": "0.2.0",
+    "independent_install": true,
+    "cli_help": true,
+    "static_http": true
+  },
+  "user_feedback": {
+    "date": "2026-11-09",
+    "text": "效果不错"
+  },
+  "motion_sent_by_release_process": false,
+  "production_container_release": false,
+  "complete_production_acceptance": false
+}

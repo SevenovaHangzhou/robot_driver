@@ -1,0 +1,10 @@
+{
+  "status": "candidate_not_hardware_validated",
+  "source": "real2sim_v3/config/mink_demo.json collision_avoidance; offline candidate",
+  "minimum_distance_m": 0.03,
+  "detection_distance_m": 0.12,
+  "gain": 0.05,
+  "max_subdivision_depth": 12,
+  "max_interval_checks": 10000,
+  "numerical_tolerance_m": 1e-9
+}

@@ -1,0 +1,39 @@
+{
+  "review_date": "2026-11-03",
+  "reference_repository": "/home/zlz/Desktop/ing_obj/frame/robot_driver",
+  "reference_commit": "eafb8c179db1ac965b99078050befc1b58ef36c5",
+  "source_basis": "local working tree, contains pre-existing uncommitted changes",
+  "public_interfaces_pin": "ea582c8a711874813d2ad7f0801b366bd32ab67e",
+  "public_generated_types_verified_this_change": false,
+  "cpp_controller_integration_verified_this_change": false,
+  "files": [
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/include/rolling_trajectory_controller/rolling_types.hpp",
+      "sha256": "dfb00c331fa28432b65b663eb7335eb6099035033f4ab5e458a6bcbe10b6a398"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/rolling_trajectory_controller.cpp",
+      "sha256": "3ec8ff6c15a494bf184e93a3cb0439b7c9e50a5e1b1a2860b99ee5ae26e37c2b"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/rolling_buffer.cpp",
+      "sha256": "e78750bdd60978ad29061cf1a1e9b2ce883411ab3178f04732b214c046d3ca40"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/session_core.cpp",
+      "sha256": "d93544ed4210843cade680403b3fa05ccdb78185c0ed3cc8c2a461477b7441bd"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/cubic_hermite.cpp",
+      "sha256": "30aec340660147bc5bc782d6da31a85daf1c6becb0e38d7039efc96bdb151cb6"
+    },
+    {
+      "path": "src/rt_control/rolling_trajectory_controller/src/limit_checker.cpp",
+      "sha256": "b6bd4c5c78a2fdf7b75b5fe34c8437bc3db2287744c5eb6079f0e0fb68f351d4"
+    },
+    {
+      "path": "src/interfaces/source-lock.yaml",
+      "sha256": "934af39f8daedd89931373b9f16866bdebd73776a60402750b55c8b917e491b9"
+    }
+  ]
+}

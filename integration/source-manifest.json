@@ -1,0 +1,47 @@
+[
+  {
+    "path": "src/rt_control/rt_control_arm_console/rt_control_arm_console/server.py",
+    "before_sha256": "61245485d99d5f58cffd8d8e906c32e5315bf330399176ca123a2db3b22aaf47",
+    "after_sha256": "2f072b153b59346d992791a90f79bd3de1e1261052db2f3952cedc643a92927a"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/CMakeLists.txt",
+    "before_sha256": "4fbf60ca480ae1d1074bd0972a7849200e2351d904edf68bafef23131b708af9",
+    "after_sha256": "55124359eab71e551504080b8b36622b34b4d7217622fcf7444d579f8447a914"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/web/index.html",
+    "before_sha256": "4224b150f087e077920ed94c30d6e3450a9d214af378ce7969f31e3c46e0d564",
+    "after_sha256": "30871cc2a5cae0302fbd75cc2c6155fbcb9c8dae966426d7b2deb20699aad1b0"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/web/jog/jog.html",
+    "before_sha256": null,
+    "after_sha256": "2f1f205d5d3b5d7f9bb157a0c00b6309c35ab43c7f17cdd9bb931e1c995957b7"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/web/jog/jog.css",
+    "before_sha256": null,
+    "after_sha256": "98f61a9eee14a2bd5396ae53a6a0bca8228525ae1c46cabb38434c1574821857"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/web/jog/jog.mjs",
+    "before_sha256": null,
+    "after_sha256": "024ebde227a51368990d1822cd9be8e4dee763eefdfe003d231c9c13721a687e"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/web/jog/input.mjs",
+    "before_sha256": null,
+    "after_sha256": "21e0ddba545c82f13ab86a0070e623b5e54ff8c7d116da6c8e969e46c0e9edd4"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/web/jog/model-view.mjs",
+    "before_sha256": null,
+    "after_sha256": "fa7b28ebcbec355257ed3deed7c36c4720c3a93a67d5ff7dcc313a32063df823"
+  },
+  {
+    "path": "src/rt_control/rt_control_arm_console/test/test_jog_ui.py",
+    "before_sha256": null,
+    "after_sha256": "b468854d8583d3aafae31e3a5933c737494fee0fba62ee7738cc4eecda818c32"
+  }
+]
