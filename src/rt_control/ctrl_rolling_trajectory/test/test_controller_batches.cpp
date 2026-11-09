@@ -11,6 +11,7 @@
 #include <fstream>
 #include <limits>
 #include <memory>
+#include <map>
 #include <mutex>
 #include <new>
 #include <string>
@@ -198,6 +199,14 @@ public:
     return state;
   }
 
+  static control_msgs::srv::QueryTrajectoryState::Response held(RollingTrajectoryController & controller)
+  {
+    control_msgs::srv::QueryTrajectoryState::Request request;
+    control_msgs::srv::QueryTrajectoryState::Response response;
+    controller.queryHeldState(request, response);
+    return response;
+  }
+
   static SessionState sessionState(const RollingTrajectoryController & controller)
   {
     return static_cast<SessionState>(controller.rt_session_state_.load(std::memory_order_acquire));
@@ -206,6 +215,16 @@ public:
   static std::uint64_t executionTime(const RollingTrajectoryController & controller)
   {
     return controller.execution_time_ns_.load(std::memory_order_acquire);
+  }
+
+  static void writerBusy(RollingTrajectoryController & controller, bool busy)
+  {
+    controller.rt_state_version_.store(busy ? 1U : 2U, std::memory_order_release);
+  }
+
+  static std::string rejectionReason(const RollingTrajectoryController & controller)
+  {
+    return controller.admission_failure_;
   }
 
   static void expireAcceptedUpdate(RollingTrajectoryController & controller)
@@ -328,6 +347,74 @@ protected:
   std::vector<hardware_interface::StateInterface> state_handles_{};
   std::unique_ptr<RollingTrajectoryController> controller_{};
 };
+
+TEST_F(ControllerBatchTest, TransientSnapshotWriterDoesNotRejectARunningReplacement)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.05);
+  Peer::submit(*controller_, move(1U, start, 0.4, 0.0));
+  run(start, 5U);
+  auto replacement = move(2U, start + rclcpp::Duration::from_seconds(0.1), 0.4, 0.0);
+  Peer::writerBusy(*controller_, true);
+  std::thread writer([&]() {
+    std::this_thread::sleep_for(std::chrono::microseconds(200));
+    Peer::writerBusy(*controller_, false);
+  });
+  Peer::submit(*controller_, replacement);
+  writer.join();
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+  EXPECT_EQ(Peer::state(*controller_).state, State::RUNNING);
+}
+
+TEST_F(ControllerBatchTest, PermanentlyBusySnapshotIsBoundedAndDoesNotCommit)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.05);
+  Peer::submit(*controller_, move(1U, start, 0.4, 0.0));
+  run(start, 5U);
+  auto replacement = move(2U, start + rclcpp::Duration::from_seconds(0.1), 0.4, 0.0);
+  Peer::writerBusy(*controller_, true);
+  const auto began = std::chrono::steady_clock::now();
+  Peer::submit(*controller_, replacement);
+  const auto elapsed = std::chrono::steady_clock::now() - began;
+  EXPECT_LT(elapsed, std::chrono::milliseconds(100));
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::NOT_ACCEPTING);
+  EXPECT_EQ(Peer::rejectionReason(*controller_), "snapshot_busy");
+  EXPECT_EQ(Peer::state(*controller_).state, State::RUNNING);
+  Peer::writerBusy(*controller_, false);
+  replacement.sequence++;
+  Peer::submit(*controller_, replacement);
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+}
+
+TEST_F(ControllerBatchTest, ConcurrentOneKilohertzUpdatesAcceptContinuousReplacements)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.05);
+  Peer::submit(*controller_, move(1U, start, 0.4, 0.0));
+  auto replacement = move(2U, start + rclcpp::Duration::from_seconds(0.1), 0.4, 0.0);
+  std::atomic_bool stopped{false};
+  std::atomic_bool update_failed{false};
+  std::thread realtime([&]() {
+    auto next = std::chrono::steady_clock::now();
+    while (!stopped.load()) {
+      if (controller_->update(now(), rclcpp::Duration::from_nanoseconds(1'000'000)) !=
+          controller_interface::return_type::OK) { update_failed.store(true); }
+      next += std::chrono::milliseconds(1);
+      std::this_thread::sleep_until(next);
+    }
+  });
+  unsigned int rejected = 0U;
+  for (unsigned int i = 0U; i < 150U; ++i) {
+    replacement.sequence = i + 2U;
+    replacement.replace_from = now() + rclcpp::Duration::from_seconds(0.1);
+    Peer::submit(*controller_, replacement);
+    rejected += Peer::state(*controller_).last_result != State::ACCEPTED ? 1U : 0U;
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  stopped.store(true);
+  realtime.join();
+  EXPECT_FALSE(update_failed.load());
+  EXPECT_EQ(rejected, 0U);
+  EXPECT_EQ(Peer::state(*controller_).state, State::RUNNING);
+}
 
 TEST_F(ControllerBatchTest, FirstBatchHoldsUntilReplaceFromThenFollowsTheCubic)
 {
@@ -458,12 +545,16 @@ TEST_F(ControllerBatchTest, UpdateTimeoutStopsAndTheNextBatchStartsAgain)
   Peer::submit(*controller_, move(1U, start, 0.5, 0.05));
   rclcpp::Time time = run(start, 20U);
   ASSERT_EQ(Peer::state(*controller_).state, State::RUNNING);
+  EXPECT_FALSE(Peer::held(*controller_).success);
 
   Peer::expireAcceptedUpdate(*controller_);
   time = run(time, 200U);
   State state = Peer::state(*controller_);
   EXPECT_EQ(state.state, State::HOLDING);
   EXPECT_EQ(state.stop_reason, State::STOP_UPDATE_TIMEOUT);
+  const auto recovered = Peer::held(*controller_);
+  ASSERT_TRUE(recovered.success);
+  EXPECT_EQ(recovered.position, std::vector<double>(command_positions_.begin(), command_positions_.end()));
 
   // A rejected first batch starts nothing: the stop reason of the last trajectory stays.
   const rclcpp::Time restart = now() + rclcpp::Duration::from_seconds(0.05);
@@ -474,6 +565,8 @@ TEST_F(ControllerBatchTest, UpdateTimeoutStopsAndTheNextBatchStartsAgain)
   EXPECT_EQ(state.last_result, State::SPLICE_MISMATCH);
   EXPECT_EQ(state.state, State::HOLDING);
   EXPECT_EQ(state.stop_reason, State::STOP_UPDATE_TIMEOUT);
+  EXPECT_EQ(update(time), controller_interface::return_type::OK);
+  EXPECT_TRUE(Peer::held(*controller_).success);
 
   // An accepted one starts a new trajectory with a cleared stop reason.
   Peer::submit(*controller_, move(3U, restart, 0.4, -0.02));
@@ -502,6 +595,9 @@ TEST_F(ControllerBatchTest, FinalTrajectoryRunsToItsEndWithoutFurtherUpdates)
   const State state = Peer::state(*controller_);
   EXPECT_EQ(state.state, State::HOLDING);
   EXPECT_EQ(state.stop_reason, State::STOP_COMPLETED);
+  const auto completed = Peer::held(*controller_);
+  ASSERT_TRUE(completed.success);
+  EXPECT_EQ(completed.position, std::vector<double>(command_positions_.begin(), command_positions_.end()));
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     EXPECT_NEAR(command_positions_[axis], hold[axis] + 0.05, 1.0e-12);
   }
@@ -589,13 +685,17 @@ TEST_F(ControllerBatchTest, ConcurrentBatchesAndRtConsumptionRemainCoherent)
   std::atomic<std::uint64_t> update_errors{0U};
   std::thread rt_thread([&]() {
     rclcpp::Time time = start;
+    auto next = std::chrono::steady_clock::now();
     for (std::size_t cycle = 0U; cycle < 20U || !producer_done.load(std::memory_order_acquire);
          ++cycle) {
       if (update(time) != controller_interface::return_type::OK) {
         update_errors.fetch_add(1U, std::memory_order_relaxed);
       }
       time += rclcpp::Duration::from_nanoseconds(kCycleNs);
-      std::this_thread::yield();
+      // This test advances the controller clock: pace it at its configured
+      // period so an NRT snapshot retry cannot exhaust a virtual trajectory.
+      next += std::chrono::nanoseconds(kCycleNs);
+      std::this_thread::sleep_until(next);
     }
   });
   // The first batch opens the session; the same plan resent from the same start is late.
@@ -633,4 +733,37 @@ TEST_F(ControllerBatchTest, UpdatePathDoesNotAllocate)
 }
 
 }  // namespace
+TEST_F(ControllerBatchTest, RejectionTopicCarriesTheExactRejectedBatchAndLimit)
+{
+  auto reader = std::make_shared<rclcpp::Node>("rolling_rejection_test_reader");
+  diagnostic_msgs::msg::DiagnosticArray::SharedPtr report;
+  auto subscription = reader->create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
+    "/test_rolling_batches/rejection", rclcpp::QoS(1).reliable().transient_local(),
+    [&report](diagnostic_msgs::msg::DiagnosticArray::SharedPtr message) { report = message; });
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  const auto batch = move(1U, start, 0.4, 4.0);
+  Peer::submit(*controller_, batch);
+  ASSERT_EQ(Peer::state(*controller_).last_result, State::LIMIT_EXCEEDED);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  while (!report && std::chrono::steady_clock::now() < deadline) {
+    rclcpp::spin_some(reader);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  }
+  ASSERT_TRUE(report);
+  ASSERT_EQ(report->status.size(), 1U);
+  const auto & status = report->status.front();
+  EXPECT_EQ(status.name, "/test_rolling_batches/rejection");
+  std::map<std::string, std::string> values;
+  for (const auto & item : status.values) { values[item.key] = item.value; }
+  EXPECT_EQ(values["epoch"], std::to_string(batch.epoch));
+  EXPECT_EQ(values["sequence"], "1");
+  EXPECT_EQ(values["result"], "6");
+  EXPECT_EQ(values["joint"], kTestJointNames[0]);
+  EXPECT_EQ(values["quantity"], "velocity_positive");
+  EXPECT_NEAR(std::stod(values["value"]), 15.0, 1.0e-9);
+  EXPECT_DOUBLE_EQ(std::stod(values["limit"]), 10.0);
+  EXPECT_EQ(values["start_ns"], "0");
+  EXPECT_EQ(values["end_ns"], "400000000");
+}
+
 }  // namespace ctrl_rolling_trajectory

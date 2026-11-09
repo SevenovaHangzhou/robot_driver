@@ -54,7 +54,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 # 手臂页
 
-手臂页通过 `/ws/arm` WebSocket 接收状态并发送命令（每条命令一个请求号，服务端逐条回复）；持有控制权的连接断开时，手臂沿当前路径平滑停车并释放控制权。手臂、头部、诊断页的连接每 3 s 探测一次，1.5 s 无回应即判定断开（网络静默中断最多约 4.5 s 才被发现）。
+手臂页通过 `/ws/arm` WebSocket 接收状态并发送命令（每条命令一个请求号，服务端逐条回复）；持有控制权的连接断开时，手臂沿当前路径平滑停车，确认请求终态及实际停稳后才释放控制权。手臂、头部、诊断页的连接每 3 s 探测一次，1.5 s 无回应即判定断开（网络静默中断最多约 4.5 s 才被发现）。
 
 单臂关节网页操作台（ELECTRI-127）。用滑块设定 7 个关节目标，确认后以 S 型曲线发送。
 页面显示整车 Robot Model：实体为实测位姿（未受控关节在零位），半透明只显示受控手臂的目标预览。
@@ -230,3 +230,19 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 - 与其他页面共用登录、审计与"同一时间一位操作员"规则。
 - **头部正方向与机械行程尚未确认**；当前限位只来自机器人模型（±π），页面会显示提示。实测安全行程确认后应写入机器人模型或驱动命令限位，不在网页里另设。
 
+
+## 与末端点动共用双臂控制权
+
+`/ws/arm` 与 `/ws/jog` 共享唯一 `ArmConsole.authority` 的 `dual_arms` 资源。同一登录的不同连接也互斥。关节动作、序列和作用域使能/复位通过同一资源；不确定的请求结果持续占用，不能强制交接。运动中断线先停车，提交请求终态和终态之后的实测静止证据齐全才归还。
+
+`/ws/jog` 复用登录、来源检查、审计和注销，协议为 `shared_arm_authority_v1`。状态提供 Domain、原始 URDF SHA-256、受控关节、实测反馈和发布端状态。默认只有 `acquire/release/stop`，运动命令返回 `jog_motion_disabled`；显式 `--jog-motion-enabled` 才建立官方 `robot_interfaces_rolling_client::RollingSender` 的 Python 绑定，接受 `begin_motion/window`。硬件使能仍由操作员显式发起。
+
+启动状态为 `unverified`。JTC active 时要求无活动 Action、目标速度为零；有实际速度反馈时检查公开停止容差，仅位置反馈时要求实测静止窗口。首次 Action 状态缺失只能由已观测的 JTC inactive 状态建立无活动目标证据。Rolling active 时要求 HOLDING、新鲜状态、JTC inactive 和实测位置静止窗口。两者都明确 inactive 时仍需实测静止窗口。该窗口使用 EnableManager 的 `motion_joints`、`mode_switch_stable_velocity_thresholds` 与 `mode_switch_stable_interval_count`；缺失、过期或未知参数不能替代。
+
+18121 关节动作、到位和序列选择 JTC；18131 `begin_motion` 选择 Rolling。两者一起加载，只有所选控制器激活。有效请求在同一权限代次内预留运动资源，确认已使能、反馈新鲜与停稳，再通过公开 `/rt/arms/set_control_mode` 选模；当前模式已匹配时不重复请求。服务成功后确认实际控制器互斥及切换后的停稳反馈，才允许发送。序列只在开始时选择一次，不在各段间切换。
+
+状态 `control_mode` 提供 `automatic/current/target/switching/error`，网页显示当前模式和切换中状态。每条 WebSocket 最多一个待执行运动请求；模式服务等待期间仍处理停止、释放及断线，取消后不会迟到发布。模式明确拒绝则不发轨迹；响应超时或模式结果不明则继续保留资源等待核查，不自动交接或重试。启动网页、登录与取得权限不触发选模。
+
+18121 顶栏的“机械臂末端控制”在新标签页打开当前主机 18131 的 `/jog`，共享登录但不自动获取或转移控制权。此锁只约束该主操作台的入口，独立 ROS 发布者仍需统一管理。
+
+2026-11-07 已部署远端两个网页并验证权限互斥、交接、空闲断线归还、跳转和整机渲染。当前已开启末端发布，18131 运行 Mink 键盘入口；两者跟随 `bench_dual_arm_head_wrist_force` artifact、Domain 77。重启后未使能、未接管，尚无自动选模或末端实机运动验收。相关行为测试在 `test_arm_authority.py`、`test_arm_idle.py`、`test_arm_modes.py`、`test_mode_service.py`、`test_arm_ros_send.py`、`test_jog_page.py`、`test_rolling_output.py`；官方 sender 传输测试在 `test_rolling_binding.py`。

@@ -1,7 +1,7 @@
 """Arm console core: admission checks, planning, execution state. No ROS imports.
 
 The console is a FollowJointTrajectory client. It never writes drive words, never
-switches controllers and never enables on its own. Every check runs on the server;
+enables on its own. Mode selection uses the shared arm reservation. Every check runs on the server;
 the browser only proposes targets.
 """
 
@@ -13,7 +13,6 @@ import time
 from typing import Callable, Mapping, Optional, Sequence
 
 from .console_types import (
-    LEASE_TIMEOUT_S,
     STATE_STALE_S,
     MAX_SEQUENCE,
     ConsoleError,
@@ -23,12 +22,13 @@ from .console_types import (
     _Execution,
     Robot,
 )
+from .lease import ArmLease
 from .model import ArmModel
 from .poses import PoseError, PoseStore
 from .trajectory import Limits, TrajectoryPoint, plan_move, plan_stop
 
 
-class ArmConsole:
+class ArmConsole(ArmLease):
     def __init__(
         self,
         config: ConsoleConfig,
@@ -38,6 +38,7 @@ class ArmConsole:
         clock: Callable[[], float] = time.monotonic,
         spawn: Optional[Callable[[Callable[[], None]], None]] = None,
         wait: Callable[[float], None] = time.sleep,
+        authority=None,
     ) -> None:
         self.config = config
         self.controller = controller
@@ -53,8 +54,7 @@ class ArmConsole:
         self.poses: Optional[PoseStore] = None
         self._execution: Optional[_Execution] = None
         self._last_result = ""
-        self._lease: Optional[str] = None
-        self._lease_seen = -math.inf
+        self._init_lease(authority)
         self._enable_busy = False
         # Pose sequence run by the server: {"session", "names", "gear", "index"}.
         self._sequence: Optional[dict] = None
@@ -113,39 +113,6 @@ class ArmConsole:
             }
         return result
 
-    # ------------------------------------------------------------------ lease
-    def touch(self, session: str) -> None:
-        with self._lock:
-            if self._lease == session:
-                self._lease_seen = self._clock()
-
-    @property
-    def lease_holder(self) -> Optional[str]:
-        with self._lock:
-            self._expire_lease()
-            return self._lease
-
-    def acquire(self, session: str) -> None:
-        with self._lock:
-            self._expire_lease()
-            if self._lease not in (None, session):
-                raise ConsoleError("lease_busy", "另一个终端持有控制权")
-            self._lease, self._lease_seen = session, self._clock()
-
-    def release(self, session: str) -> None:
-        with self._lock:
-            if self._lease == session:
-                self._lease = None
-
-    def _expire_lease(self) -> None:
-        if self._lease is not None and self._clock() - self._lease_seen > LEASE_TIMEOUT_S:
-            self._lease = None
-
-    def _require_lease(self, session: str) -> None:
-        self._expire_lease()
-        if self._lease != session:
-            raise ConsoleError("lease_required", "未持有控制权")
-
     # ------------------------------------------------------------------ checks
     def _fresh(self, at: float, limit: float) -> bool:
         return self._clock() - at <= limit
@@ -160,14 +127,15 @@ class ArmConsole:
         except KeyError as exc:
             raise ConsoleError("feedback_incomplete", f"缺少关节反馈：{exc.args[0]}") from exc
 
-    def _motion_ready(self) -> Optional[str]:
+    def _motion_ready(self, *, allow_mode_switch=False) -> Optional[str]:
         robot = self.robot
         if robot.capability is None:
             return "运行栈未声明手臂轨迹能力"
         if not self._fresh(robot.enable_at, STATE_STALE_S) or robot.enable_state != "ENABLED":
             return "手臂未使能"
         if not self._fresh(robot.controller_at, STATE_STALE_S) or not robot.controller_active:
-            return f"轨迹控制器 {self.controller} 未激活"
+            if not (allow_mode_switch and self.modes is not None and self.modes.can_select("jtc")):
+                return f"轨迹控制器 {self.controller} 未激活"
         if self._enable_busy:
             return "正在切换使能"
         return None
@@ -221,26 +189,39 @@ class ArmConsole:
         self, session: str, target: Mapping[str, float], gear_name: str, label: str = "",
         *, _sequence: Optional[dict] = None,
     ) -> dict:
-        with self._lock:
-            self._require_lease(session)
-            if self._execution is not None or self._sequence is not _sequence:
-                raise ConsoleError("busy", "上一段运动或序列尚未结束")
-            reason = self._motion_ready()
-            if reason:
-                raise ConsoleError("not_ready", reason)
-            gear = self.config.gear(gear_name)
-            goal = self._check_target(target)
-            start = self._measured()
-            plan = plan_move(start, goal, self._limits(gear, start, goal))
-            if plan.duration <= 0.0:
-                raise ConsoleError("no_motion", "目标与当前位置相同")
-            started = self._clock() + self.config.start_delay
-            execution = _Execution("move", plan, gear, started, 0.0, label)
-            self._execution = execution
-            self._last_result = ""
-        # Deployed left_arm_jtc max_trajectory_points=2000 (controller log verified).
-        self._send(execution, plan.bounded_points(self.config.sample_period, 2000))
-        return {"duration_s": plan.duration}
+        if self.modes is not None and _sequence is None:
+            with self._lock:
+                self._require_lease(session)
+                if self._execution is not None or self._sequence is not None or self._mode_busy:
+                    raise ConsoleError("busy", "上一段运动或切换尚未结束")
+                reason = self._motion_ready(allow_mode_switch=True)
+                if reason:
+                    raise ConsoleError("not_ready", reason)
+                if self.preview(target, gear_name)["duration_s"] <= 0:
+                    raise ConsoleError("no_motion", "目标与当前位置相同")
+        with self._select_mode(session, "jtc", continuation=_sequence is not None):
+            with self._lock:
+                self._require_lease(session)
+                if self._execution is not None or self._sequence is not _sequence:
+                    raise ConsoleError("busy", "上一段运动或序列尚未结束")
+                reason = self._motion_ready()
+                if reason:
+                    raise ConsoleError("not_ready", reason)
+                gear = self.config.gear(gear_name)
+                goal = self._check_target(target)
+                start = self._measured()
+                plan = plan_move(start, goal, self._limits(gear, start, goal))
+                if plan.duration <= 0.0:
+                    raise ConsoleError("no_motion", "目标与当前位置相同")
+                started = self._clock() + self.config.start_delay
+                execution = _Execution("move", plan, gear, started, 0.0, label)
+                self._reserve_motion(session, continuation=_sequence is not None)
+                self._execution = execution
+                self._last_result = ""
+            # Preserve each cubic phase, without filling the startup lead with
+            # thousands of redundant samples and ROS message conversions.
+            self._send(execution, plan.bounded_points(self.config.sample_period, 32))
+            return {"duration_s": plan.duration}
 
     def goto_pose(self, session: str, name: str, gear_name: str) -> dict:
         try:
@@ -282,9 +263,9 @@ class ArmConsole:
         names = [step["name"] for step in normalized]
         with self._lock:
             self._require_lease(session)
-            if self._execution is not None or self._sequence is not None:
+            if self._execution is not None or self._sequence is not None or self._mode_busy:
                 raise ConsoleError("busy", "上一段运动尚未结束")
-            reason = self._motion_ready()
+            reason = self._motion_ready(allow_mode_switch=True)
             if reason:
                 raise ConsoleError("not_ready", reason)
             for index, name in enumerate(names, start=1):
@@ -296,19 +277,28 @@ class ArmConsole:
                     self._check_target(dict(zip(self.joint_names, values)))
                 except ConsoleError as exc:
                     raise ConsoleError(exc.code, f"第 {index} 个「{name}」：{exc.message}") from exc
-            self._sequence = {
-                "session": session,
-                "names": tuple(str(name) for name in names),
-                "gear": normalized[0]["gear"],
-                "steps": normalized,
-                "index": 0,
-                "dwell_s": normalized[0]["dwell_s"],
-                "wait_until": None,
-            }
-            self._last_result = ""
-            sequence = self._sequence
-        self._sequence_step(sequence)
-        return {"total": len(names)}
+        with self._select_mode(session, "jtc"):
+            with self._lock:
+                self._require_lease(session)
+                if self._execution is not None or self._sequence is not None:
+                    raise ConsoleError("busy", "上一段运动尚未结束")
+                reason = self._motion_ready()
+                if reason:
+                    raise ConsoleError("not_ready", reason)
+                self._reserve_motion(session)
+                self._sequence = {
+                    "session": session,
+                    "names": tuple(str(name) for name in names),
+                    "gear": normalized[0]["gear"],
+                    "steps": normalized,
+                    "index": 0,
+                    "dwell_s": normalized[0]["dwell_s"],
+                    "wait_until": None,
+                }
+                self._last_result = ""
+                sequence = self._sequence
+            self._sequence_step(sequence)
+            return {"total": len(names)}
 
     def _sequence_step(self, sequence: dict) -> None:
         # Keep identity validation and submission atomic with respect to stop/new run.
@@ -374,6 +364,7 @@ class ArmConsole:
     def stop(self) -> dict:
         """Smooth stop on the current line; any authenticated client may request it."""
         with self._lock:
+            self._stop_authority()
             cancelled = self._sequence is not None
             self._sequence = None
             execution = self._execution
@@ -413,6 +404,7 @@ class ArmConsole:
                 if self._execution is not execution:
                     return  # superseded (e.g. by a stop)
                 self._execution = None
+                self._authority_outcome_at = self._clock()
                 if execution.kind == "stop":
                     self._last_result = "已停止" if success else f"停止失败：{message}"
                 else:
@@ -428,7 +420,15 @@ class ArmConsole:
                 self._driver.cancel()  # fall back to the controller's hold
 
         try:
-            self._driver.send(self.joint_names, points, done, execution.started)
+            with self._lock:
+                if self._execution is not execution:
+                    return
+                if execution.kind == "move":
+                    self.authority.require(self._arm_permit)
+                execution.started = self._driver.send(
+                    self.joint_names, points, done, execution.started,
+                    start_delay=self.config.start_delay if execution.kind == "move" else 0.0,
+                )
         except Exception as exc:  # noqa: BLE001 - report, never leave a phantom execution
             done(False, str(exc))
             raise ConsoleError("send_failed", f"轨迹发送失败：{exc}") from exc
@@ -460,15 +460,18 @@ class ArmConsole:
     def begin_enable(self, session: str) -> None:
         with self._lock:
             self._require_lease(session)
-            if self._execution is not None or self._sequence is not None:
+            if self._mode_busy or self._execution is not None or self._sequence is not None:
                 raise ConsoleError("busy", "运动或序列中不能切换使能")
             if self._enable_busy:
                 raise ConsoleError("busy", "正在切换使能")
+            self._reserve_motion(session)
             self._enable_busy = True
 
-    def end_enable(self) -> None:
+    def end_enable(self, *, confirmed=True) -> None:
         with self._lock:
             self._enable_busy = False
+            self._authority_unknown |= not confirmed
+            self._authority_outcome_at = self._clock()
 
     # ------------------------------------------------------------------ status
     def status(self, session: str) -> dict:
@@ -490,13 +493,11 @@ class ArmConsole:
                         zip(self.joint_names, execution.plan.state(elapsed).positions)
                     ),
                 }
-            ready = None if self.model is None else self._motion_ready()
+            ready = None if self.model is None else self._motion_ready(allow_mode_switch=True)
             return {
-                "lease": "none"
-                if self._lease is None
-                else "you"
-                if self._lease == session
-                else "other",
+                "lease": self._lease_status(session),
+                "control_authority": self.authority.poll(self._permit_for(session)),
+                "control_mode": self.modes.status() if self.modes else None,
                 "model_error": self.model_error,
                 "feedback_fresh": feedback_fresh,
                 "vacuum_pressure": self._vacuum_pressure_status(now),
@@ -514,7 +515,7 @@ class ArmConsole:
                     and self._fresh(robot.controller_at, STATE_STALE_S),
                 },
                 "mock": robot.mock,
-                "motion_ready": ready is None and feedback_fresh,
+                "motion_ready": ready is None and feedback_fresh and not self._mode_busy,
                 "not_ready_reason": ready or ("" if feedback_fresh else "关节反馈超时"),
                 "moving": moving,
                 "sequence": None

@@ -6,6 +6,9 @@ import { VacuumPressure } from "./vacuum-pressure.mjs";
 import { headControls } from "../head/app.js";
 
 const $ = (id) => document.getElementById(id);
+const jogUrl = new URL('/jog', location.href);
+jogUrl.port = '18131';
+$("jog-link").href = jogUrl.href;
 const DEG = 180 / Math.PI;
 const RAD = Math.PI / 180;
 const CHANGED_DEG = 0.05;
@@ -538,8 +541,12 @@ function onStatus(status) {
     || (enable.state === "FAILED" ? `故障（${enable.stage}）` : `${enable.state} ${enable.stage}`);
   setChip("enable-chip", enable.busy ? "使能切换中…" : enableText,
     enable.state === "ENABLED" ? "ok" : enable.state === "IDLE" ? "" : "warn");
-  setChip("ctrl-chip", `${status.controller.name || "控制器"} ${status.controller.active ? "激活" : "未激活"}`,
-    status.controller.active ? "ok" : "");
+  const mode = status.control_mode;
+  const modeName = mode?.current === "rolling" ? "Rolling" : "JTC";
+  setChip("ctrl-chip", mode?.switching ? `切换至 ${mode.target === "rolling" ? "Rolling" : "JTC"}…`
+    : mode && mode.current !== "unknown" ? `${modeName} 激活`
+    : `${status.controller.name || "控制器"} ${status.controller.active ? "激活" : "未激活"}`,
+    mode?.switching ? "warn" : (status.controller.active || mode?.current === "rolling") ? "ok" : "");
   $("mock-chip").hidden = status.mock !== true;
   const lease = { you: "释放控制权", other: "他人控制中", none: "获取控制权" }[status.lease];
   $("lease-btn").textContent = lease;
@@ -566,7 +573,7 @@ function renderProgress(moving) {
 function updateButtons() {
   const status = state.status;
   const mine = status && status.lease === "you";
-  const moving = Boolean(status && status.moving);
+  const moving = Boolean(status && (status.moving || status.control_mode?.switching));
   const busy = status && status.enable.busy;
   const ready = status && status.motion_ready && mine && !moving;
   $("send-btn").disabled = !ready || !state.info;

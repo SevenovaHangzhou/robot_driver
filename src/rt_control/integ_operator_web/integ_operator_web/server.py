@@ -68,6 +68,7 @@ class OperatorServer:
         drive_allowed: Optional[Callable[[], bool]] = None,
         steering_operation: Optional[Callable[..., Awaitable[Mapping[str, Any]]]] = None,
         steering_defaults: Optional[Callable[[], Awaitable[Mapping[str, Any]]]] = None,
+        arm_control=None,
     ) -> None:
         index = static_dir / "index.html"
         if not index.is_file():
@@ -85,6 +86,7 @@ class OperatorServer:
         self._static_info = dict(static_info or {})
         self._model_provider = model_provider or (lambda: None)
         self._module_operation = module_operation
+        self._arm_control = arm_control
         self._history_provider = history_provider or (lambda: [])
         self._module_op_task: Optional[asyncio.Task] = None
         self._static_dir = static_dir
@@ -216,14 +218,26 @@ class OperatorServer:
             raise TeleopError("lease_required", "未持有控制权")
         if self._module_op_task is not None and not self._module_op_task.done():
             raise TeleopError("module_op_busy", "上一项使能/复位操作尚未完成")
+        permit = None
+        if self._arm_control is not None:
+            from .arm.errors import ConsoleError
+            try:
+                permit = self._arm_control.begin_scope_operation('chassis', session)
+            except ConsoleError as exc:
+                raise TeleopError(exc.code, exc.message) from exc
 
         async def run() -> None:
+            confirmed = False
             try:
-                result = await self._module_operation(op, tuple(modules))
+                result = dict(await self._module_operation(op, tuple(modules)))
+                confirmed = result.pop('response_received', False)
             except TeleopError as exc:
                 result = {"ok": False, "stage": exc.message, "modules": []}
             except Exception as exc:  # noqa: BLE001 - reported to the operator
                 result = {"ok": False, "stage": f"internal_error: {exc}", "modules": []}
+            finally:
+                if permit is not None:
+                    self._arm_control.end_scope_operation(permit, confirmed=confirmed)
             if not ws.closed:
                 await ws.send_json(
                     {

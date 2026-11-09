@@ -39,6 +39,25 @@ struct AdmissionContext
   bool priming{false};
 };
 
+enum class LimitQuantity : std::uint8_t
+{
+  kNone, kPositionLower, kPositionUpper, kVelocityPositive, kVelocityNegative,
+  kAccelerationPositive, kAccelerationNegative, kStoppingLower, kStoppingUpper
+};
+
+// Optional non-RT admission evidence. It never changes rejection or acceptance.
+struct BufferRejection
+{
+  RejectCode code{RejectCode::kNone};
+  std::size_t axis{kAxisCount};
+  std::size_t segment{0U};
+  std::uint64_t start_ns{0U};
+  std::uint64_t end_ns{0U};
+  LimitQuantity quantity{LimitQuantity::kNone};
+  double value{0.0};
+  double limit{0.0};
+};
+
 // Non-realtime, serialized by the controller callback. Owns only the last accepted plan.
 // prepare() checks the new suffix; commit() rechecks time after validation has taken place.
 class RollingBuffer
@@ -51,7 +70,7 @@ public:
   [[nodiscard]] const TrajectoryImage & image() const noexcept { return image_; }
   RejectCode prepare(
     const BatchView & batch, const AdmissionContext & context,
-    TrajectoryImage & candidate) const noexcept;
+    TrajectoryImage & candidate, BufferRejection * rejection = nullptr) const noexcept;
   RejectCode commit(const TrajectoryImage & candidate, const AdmissionContext & context) noexcept;
 
 private:

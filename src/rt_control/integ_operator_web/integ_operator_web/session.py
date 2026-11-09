@@ -40,6 +40,9 @@ class Sessions:
     def token_matches(self, value: str) -> bool:
         return hmac.compare_digest(value.encode("utf-8"), self._token)
 
+    def active(self, session: str) -> bool:
+        return session in self._ids
+
     async def reject_slowly(self) -> None:
         await asyncio.sleep(self._failure_delay)
 

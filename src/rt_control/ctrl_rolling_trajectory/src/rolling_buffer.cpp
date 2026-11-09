@@ -45,6 +45,60 @@ bool sampleSegment(
   return true;
 }
 
+void describeLimit(
+  BufferRejection * rejection, const SegmentCheckResult & result, std::size_t segment,
+  const JointPoint & start, const JointPoint & end, const DynamicEnvelope & envelope,
+  const SegmentExtrema & extrema, const StoppingEnvelope * stopping = nullptr) noexcept
+{
+  if (rejection == nullptr || result.axis >= kAxisCount) {
+    return;
+  }
+  *rejection = BufferRejection{result.code, result.axis, segment, start.time_ns, end.time_ns};
+  const auto & bounds = envelope.axes[result.axis];
+  const auto & values = extrema.axes[result.axis];
+  const auto set = [rejection](LimitQuantity quantity, double value, double limit) {
+    rejection->quantity = quantity;
+    rejection->value = value;
+    rejection->limit = limit;
+  };
+  const double lower = bounds.position_lower + bounds.position_margin_lower;
+  const double upper = bounds.position_upper - bounds.position_margin_upper;
+  switch (result.code) {
+    case RejectCode::kPositionLimit:
+      if (values.position_min < lower) {
+        set(LimitQuantity::kPositionLower, values.position_min, lower);
+      } else {
+        set(LimitQuantity::kPositionUpper, values.position_max, upper);
+      }
+      break;
+    case RejectCode::kVelocityLimit:
+      if (values.velocity_positive > bounds.velocity_positive) {
+        set(LimitQuantity::kVelocityPositive, values.velocity_positive, bounds.velocity_positive);
+      } else {
+        set(LimitQuantity::kVelocityNegative, values.velocity_negative, bounds.velocity_negative);
+      }
+      break;
+    case RejectCode::kAccelerationLimit:
+      if (values.acceleration_positive > bounds.acceleration_positive) {
+        set(LimitQuantity::kAccelerationPositive, values.acceleration_positive, bounds.acceleration_positive);
+      } else {
+        set(LimitQuantity::kAccelerationNegative, values.acceleration_negative, bounds.acceleration_negative);
+      }
+      break;
+    case RejectCode::kNotStoppingViable:
+      if (stopping != nullptr) {
+        if (stopping->lower_positions[result.axis] < lower) {
+          set(LimitQuantity::kStoppingLower, stopping->lower_positions[result.axis], lower);
+        } else {
+          set(LimitQuantity::kStoppingUpper, stopping->upper_positions[result.axis], upper);
+        }
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 }  // namespace
 
 bool RollingBuffer::configure(
@@ -134,8 +188,11 @@ RejectCode RollingBuffer::validateInput(const BatchView & batch) const noexcept
 
 RejectCode RollingBuffer::prepare(
   const BatchView & batch, const AdmissionContext & context,
-  TrajectoryImage & candidate) const noexcept
+  TrajectoryImage & candidate, BufferRejection * rejection) const noexcept
 {
+  if (rejection != nullptr) {
+    *rejection = BufferRejection{};
+  }
   const auto input_result = validateInput(batch);
   if (input_result != RejectCode::kNone) {
     return input_result;
@@ -204,11 +261,15 @@ RejectCode RollingBuffer::prepare(
     const auto direct =
       limit_checker_.checkSegment(candidate.points[index], candidate.points[index + 1U], extrema);
     if (direct.code != RejectCode::kNone) {
+      describeLimit(rejection, direct, index - prefix_count, candidate.points[index],
+        candidate.points[index + 1U], limit_checker_.envelope(), extrema);
       return direct.code;
     }
     StoppingEnvelope stopping;
     const auto viable = limit_checker_.checkStoppingViability(extrema, stopping);
     if (viable.code != RejectCode::kNone) {
+      describeLimit(rejection, viable, index - prefix_count, candidate.points[index],
+        candidate.points[index + 1U], limit_checker_.envelope(), extrema, &stopping);
       return viable.code;
     }
   }

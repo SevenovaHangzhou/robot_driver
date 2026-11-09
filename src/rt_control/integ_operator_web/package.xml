@@ -7,6 +7,10 @@
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <build_depend>pybind11-dev</build_depend>
+  <depend>rclcpp</depend>
+  <depend>robot_interfaces_rolling_client</depend>
+  <exec_depend>action_msgs</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>controller_manager_msgs</exec_depend>
   <exec_depend>diagnostic_msgs</exec_depend>

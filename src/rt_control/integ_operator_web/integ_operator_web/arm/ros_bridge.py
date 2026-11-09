@@ -27,8 +27,16 @@ from ..enable_services import EnableServices
 from .console import ArmConsole, ConsoleError
 from .model import ModelError, load_arm_model
 from .trajectory import TrajectoryPoint
+from .readback import ArmReadback
+from .mode_service import ModeService
+from .modes import ArmModes
+from .rolling_hold import RollingHold
+from .rolling_rejection import RollingRejections
 
 CAPABILITY = "arm_joint_trajectory"
+ROLLING_PARAMETERS = ["joints", "joint_position_lower", "joint_position_upper", "joint_velocity_limits",
+                      "joint_acceleration_limits", "position_margin",
+                      "buffer_capacity", "max_horizon_ms", "update_timeout_ms", "replace_lead_ms"]
 ENABLE_DIAGNOSTIC = "/robot/rt_control/enable_manager"
 
 
@@ -82,13 +90,28 @@ class RosBridge(Node):
             GetParameters, "/controller_manager/get_parameters", callback_group=self._group
         )
         self._controller_parameters = None
+        self._readback = None
+        self._mode_parameters = None
+        self._rolling_parameters = None
+        self.rolling_hold = None
+        self.rolling_rejections = None
+        self.rolling_parameters = None
+        self.rolling_parameters_at = -float("inf")
         self.create_timer(0.5, self._refresh, callback_group=self._group)
+
+    def attach_console(self, console):
+        self.console = console
+        self._readback = ArmReadback(self, self._group, console)
+        mode = ModeService(self)
+        console.modes = ArmModes(console, mode.switch, mode.available, mode.matches)
 
     # ------------------------------------------------------------------ discovery
     def _capabilities(self, message: String) -> None:
+        scope_has_arms = None
         try:
             document = json.loads(message.data)
             items = {item["name"]: item for item in document["capabilities"]}
+            scope_has_arms = CAPABILITY in items
             arm = items[CAPABILITY]
             capability = {
                 "topic": arm["topic"],
@@ -111,11 +134,13 @@ class RosBridge(Node):
                 self._controller_parameters = self.create_client(
                     GetParameters, f"/{self._controller}/get_parameters", callback_group=self._group
                 )
+                self._readback.bind(self._controller, self._action_topic)
         if self.console is not None:
             if capability is not None:
                 self.console.controller = capability["controller"]
             self.console.update(
-                capability=capability, mock=None if capability is None else capability["mock"]
+                capability=capability, mock=None if capability is None else capability["mock"],
+                scope_has_arms=scope_has_arms
             )
 
     def _request(self, key: str, client, request, callback: Callable) -> None:
@@ -143,23 +168,59 @@ class RosBridge(Node):
         self._request(
             "controllers", self._controllers, ListControllers.Request(), self._received_controllers
         )
-        if self.console.model is None and self._controller_parameters is not None:
+        if self._mode_parameters is not None:
+            self._request("stationary_policy", self._mode_parameters,
+                          GetParameters.Request(names=["motion_joints", "mode_switch_stable_velocity_thresholds",
+                                                       "mode_switch_stable_interval_count"]), self._stationary_policy)
+        if self._rolling_parameters is not None:
+            self._request("rolling_parameters", self._rolling_parameters,
+                          GetParameters.Request(names=ROLLING_PARAMETERS), self._received_rolling_parameters)
+        if self._controller_parameters is not None:
             self._request(
                 "joints",
                 self._controller_parameters,
-                GetParameters.Request(names=["joints"]),
+                GetParameters.Request(names=["joints", "constraints.stopped_velocity_tolerance"]),
                 self._received_joints,
             )
 
     def _received_controllers(self, response) -> None:
+        for item in response.controller:
+            if item.type.endswith("/EnableManagerController") and self._mode_parameters is None:
+                self._mode_parameters = self.create_client(
+                    GetParameters, f"/{item.name}/get_parameters", callback_group=self._group)
+            if item.type.endswith("/RollingTrajectoryController") and self._rolling_parameters is None:
+                self._rolling_parameters = self.create_client(
+                    GetParameters, f"/{item.name}/get_parameters", callback_group=self._group)
+                self.rolling_hold = RollingHold(self, item.name, self._group)
+                self.rolling_rejections = RollingRejections(self, item.name, self._group)
+        self._readback.evidence.controllers(response.controller, self._controller)
         active = any(
             c.name == self._controller and c.state == "active" for c in response.controller
         )
         self.console.update(controller_active=active, controller_at=time.monotonic())
 
+    def _stationary_policy(self, response):
+        values = response.values
+        if len(values) == 3 and [v.type for v in values] == [9, 8, 2]:
+            self._readback.evidence.set_stationary_policy(
+                values[0].string_array_value, values[1].double_array_value, values[2].integer_value)
+
+    def _received_rolling_parameters(self, response):
+        fields = {2: "integer_value", 3: "double_value", 8: "double_array_value", 9: "string_array_value"}
+        if len(response.values) == len(ROLLING_PARAMETERS) and all(v.type in fields for v in response.values):
+            self.rolling_parameters = {n: list(getattr(v, fields[v.type])) if v.type in (8, 9)
+                                       else getattr(v, fields[v.type]) for n, v in zip(ROLLING_PARAMETERS, response.values)}
+            self.rolling_parameters_at = time.monotonic()
+
     def _received_joints(self, response) -> None:
         joints = list(response.values[0].string_array_value) if response.values else []
         if not joints:
+            return
+        value = response.values[1] if len(response.values) > 1 else None
+        self._readback.evidence.set_tolerance(value.double_value if value and value.type == 3 else None)
+        if self.console.model is not None:
+            if tuple(joints) != self.console.joint_names:
+                self._readback.evidence.unknown = True
             return
 
         def received_model(model_response) -> None:
@@ -187,6 +248,8 @@ class RosBridge(Node):
         if self.console is None or len(message.name) != len(message.position):
             return
         positions = dict(zip(message.name, message.position))
+        self._readback.evidence.measured(message.name, message.position,
+            message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec)
         self.console.update(positions=positions, feedback_at=time.monotonic())
 
     def _diagnostics(self, message: DiagnosticArray) -> None:
@@ -206,14 +269,13 @@ class RosBridge(Node):
         points: Sequence[TrajectoryPoint],
         done: Callable[[bool, str], None],
         start: float,
-    ) -> None:
+        *,
+        start_delay: float = 0.0,
+    ) -> float:
         action = self._action
         if action is None or not action.server_is_ready():
             raise RuntimeError("轨迹 action 不可用")
         goal = FollowJointTrajectory.Goal()
-        # Explicit start time: the controller and the console share one timeline.
-        stamp = self.get_clock().now() + RosDuration(seconds=start - time.monotonic())
-        goal.trajectory.header.stamp = stamp.to_msg()
         goal.trajectory.joint_names = list(joints)
         for point in points:
             goal.trajectory.points.append(
@@ -224,28 +286,56 @@ class RosBridge(Node):
                     time_from_start=_duration(point.time),
                 )
             )
+        # Allocate and populate points before reserving the startup lead. Stop
+        # trajectories retain their existing absolute timeline, even if past.
+        if start_delay:
+            start = max(start, time.monotonic() + start_delay)
+        stamp = self.get_clock().now() + RosDuration(seconds=start - time.monotonic())
+        goal.trajectory.header.stamp = stamp.to_msg()
 
         def accepted(future) -> None:
-            handle = future.result()
+            try:
+                handle = future.result()
+            except Exception as exc:
+                self._readback.evidence.resolved(unknown=True)
+                done(False, f'轨迹接收结果未确认：{exc}')
+                return
             if not handle.accepted:
+                self._readback.evidence.resolved()
                 done(False, "控制器拒绝轨迹（请查JTC日志：点数上限、起点一致性或参数校验）")
                 return
             with self._lock:
                 self._goal = handle
 
             def finished(result_future) -> None:
-                wrapped = result_future.result()
+                try:
+                    wrapped = result_future.result()
+                except Exception as exc:
+                    self._readback.evidence.resolved(unknown=True)
+                    done(False, f'轨迹结束结果未确认：{exc}')
+                    return
                 result = wrapped.result
                 ok = wrapped.status == 4 and result.error_code == 0  # STATUS_SUCCEEDED
+                self._readback.evidence.resolved()
                 done(
                     ok,
                     result.error_string
                     or f"status={wrapped.status} error_code={result.error_code}",
                 )
 
-            handle.get_result_async().add_done_callback(finished)
+            try:
+                handle.get_result_async().add_done_callback(finished)
+            except Exception as exc:
+                self._readback.evidence.resolved(unknown=True)
+                done(False, f'轨迹结束请求结果未确认：{exc}')
 
-        action.send_goal_async(goal).add_done_callback(accepted)
+        self._readback.evidence.submitted()
+        try:
+            action.send_goal_async(goal).add_done_callback(accepted)
+        except Exception:
+            self._readback.evidence.resolved(unknown=True)
+            raise
+        return start
 
     def cancel(self) -> None:
         with self._lock:

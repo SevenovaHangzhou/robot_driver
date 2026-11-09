@@ -90,15 +90,16 @@ from integ_operator_web.arm.trajectory import Limits,plan_move
 
 @pytest.mark.parametrize('speed',[2,5,10])
 @pytest.mark.parametrize('angle',[-170,-90,30,90,170])
-def test_bounded_spline_preserves_path_and_phase_boundaries(speed,angle):
+@pytest.mark.parametrize('budget',[32,2000])
+def test_bounded_spline_preserves_path_and_phase_boundaries(speed,angle,budget):
     plan=plan_move([0.,.1],[math.radians(angle),.2],Limits(*map(math.radians,[speed,2*speed,8*speed])))
-    points=plan.bounded_points(.01,2000)
-    assert len(points)<=2000
+    points=plan.bounded_points(.01,budget)
+    assert len(points)<=budget
     assert points[0]==plan.state(0)
     assert points[-1]==plan.state(plan.duration)
     assert all(a.time<b.time for a,b in zip(points,points[1:]))
     original_count=math.ceil(plan.duration/.01-1e-9)+1
-    if original_count<=2000:
+    if original_count<=budget:
         assert points==plan.points(.01)
         return
     t=0

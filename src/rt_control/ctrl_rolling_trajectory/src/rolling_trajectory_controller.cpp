@@ -179,6 +179,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   }
   observed_feedback_age_ms_.store(feedback_age_ms, std::memory_order_release);
   state_publisher_->on_activate();
+  rejection_publisher_->on_activate();
   active_.store(true, std::memory_order_release);
   return controller_interface::CallbackReturn::SUCCESS;
 }
@@ -200,6 +201,7 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_deactivate(
   }
   (void)publishPublicState();
   state_publisher_->on_deactivate();
+  rejection_publisher_->on_deactivate();
   return controller_interface::CallbackReturn::SUCCESS;
 }
 

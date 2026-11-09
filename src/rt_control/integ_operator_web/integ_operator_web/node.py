@@ -43,6 +43,7 @@ class OperatorWebNode(Node):
         for name, value in defaults.items():
             self.declare_parameter(name, value)
         self.declare_parameter("static_dir", "")
+        self.declare_parameter("jog_motion_enabled", False)
         # Deployment artifact of the running scope: steering defaults and the unit name.
         self.declare_parameter("generated_dir", "")
         self.config = build_config(**{k: self.get_parameter(k).value for k in defaults})
@@ -78,7 +79,7 @@ class OperatorWebNode(Node):
         }
 
 
-def arm_page(arm, sessions, operators, audit, static_dir):
+def arm_page(arm, sessions, operators, audit, static_dir, *, jog_motion_enabled=False):
     """The arm page and its ROS bridge (own executor thread), sharing login, lease rule and audit."""
     from ament_index_python.packages import get_package_share_directory
     import yaml
@@ -86,13 +87,18 @@ def arm_page(arm, sessions, operators, audit, static_dir):
     from .arm.console import ArmConsole
     from .arm.console_types import config_from_mapping
     from .arm.page import ArmPage
+    from .arm.jog import JogPage
     from .arm.ros_bridge import RosBridge, spin_in_background
     from .arm.vacuum_control import VacuumControl
 
     config = config_from_mapping(yaml.safe_load(arm["config"].read_text(encoding="utf-8")))
     bridge = RosBridge(arm["joint_state_topic"])
     console = ArmConsole(config, "", bridge, arm["poses"])
-    bridge.console = console
+    bridge.attach_console(console)
+    if jog_motion_enabled:
+        from ._rolling_sender import Sender
+        from .arm.rolling_output import RollingOutput
+        console.jog_output = RollingOutput(console, bridge, Sender(100))
     spin_in_background(bridge)
     page = ArmPage(
         console,
@@ -107,10 +113,10 @@ def arm_page(arm, sessions, operators, audit, static_dir):
         view_model_file=arm["view_model_file"],
         vacuum=VacuumControl(arm["vacuum_script"]) if arm["vacuum_script"].is_file() else None,
     )
-    return page, bridge
+    return page, JogPage(page), bridge
 
 
-def head_page(head, sessions, operators, audit, static_dir):
+def head_page(head, sessions, operators, audit, static_dir, arm_control=None):
     """The head page and its ROS bridge (own executor thread)."""
     import yaml
 
@@ -124,7 +130,8 @@ def head_page(head, sessions, operators, audit, static_dir):
     bridge.console = console
     spin_in_background(bridge)
     page = HeadPage(
-        console, sessions, operators, static_dir / "head", bridge.set_enabled, bridge.reset_fault, audit
+        console, sessions, operators, static_dir / "head", bridge.set_enabled, bridge.reset_fault, audit,
+        arm_control=arm_control
     )
     return page, bridge
 
@@ -168,12 +175,15 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
     static_dir = Path(node.get_parameter("static_dir").value)
     diag, diag_node = diag_page(sessions, static_dir)
     pages, bridge = (diag,), None
+    arm_control = None
     if arm is not None:
-        page, bridge = arm_page(arm, sessions, operators, audit, static_dir)
-        pages = (page, diag)
+        page, jog, bridge = arm_page(arm, sessions, operators, audit, static_dir,
+            jog_motion_enabled=node.get_parameter("jog_motion_enabled").value)
+        arm_control = page.console
+        pages = (page, jog, diag)
     head_bridge = None
     if head is not None:
-        page, head_bridge = head_page(head, sessions, operators, audit, static_dir)
+        page, head_bridge = head_page(head, sessions, operators, audit, static_dir, arm_control)
         pages = (*pages, page)
     server = OperatorServer(
         node.arbiter,
@@ -187,6 +197,7 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         audit=audit,
         operators=operators,
         pages=pages,
+        arm_control=arm_control,
     )
 
     def spin():
@@ -215,6 +226,8 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         thread.join(timeout=2)
         node.destroy_node()
         if bridge is not None:
+            if arm_control.jog_output is not None:
+                arm_control.jog_output.close()
             bridge.destroy_node()
         diag_node.destroy_node()
         if head_bridge is not None:

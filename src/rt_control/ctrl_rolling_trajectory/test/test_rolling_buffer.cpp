@@ -131,4 +131,33 @@ TEST_F(BufferFixture, CommitRechecksTheBoundaryAndHorizonAfterValidation)
   EXPECT_EQ(buffer.image().generation, 2U);
 }
 
+TEST_F(BufferFixture, LimitEvidenceMatchesTheRejectedAxisAndCubicWithoutChangingAdmission)
+{
+  for (const bool negative : {false, true}) {
+    envelope.axes[5].acceleration_positive = 5.0;
+    envelope.axes[5].acceleration_negative = 5.0;
+    configure();
+    std::vector<JointPoint> points{point(0U), point(1000U)};
+    points[1].positions[5] = negative ? -1.0 : 1.0;
+    const auto input = views(points);
+    const BatchView batch{0U, input.data(), input.size()};
+    TrajectoryImage candidate;
+    BufferRejection detail;
+    EXPECT_EQ(buffer.prepare(batch, {}, candidate, &detail), RejectCode::kAccelerationLimit);
+    EXPECT_EQ(buffer.prepare(batch, {}, candidate), detail.code);
+    EXPECT_EQ(detail.axis, 5U);
+    EXPECT_EQ(detail.segment, 0U);
+    EXPECT_EQ(detail.start_ns, 0U);
+    EXPECT_EQ(detail.end_ns, 1000U * kMs);
+    EXPECT_EQ(detail.quantity, LimitQuantity::kAccelerationPositive);
+    EXPECT_DOUBLE_EQ(detail.value, 6.0);
+    EXPECT_DOUBLE_EQ(detail.limit, 5.0);
+    EXPECT_EQ(buffer.image().point_count, 0U);
+    points[1].positions[5] = 0.0;
+    const auto valid = views(points);
+    EXPECT_EQ(buffer.prepare({0U, valid.data(), valid.size()}, {}, candidate, &detail), RejectCode::kNone);
+    EXPECT_EQ(detail.quantity, LimitQuantity::kNone);
+  }
+}
+
 }  // namespace ctrl_rolling_trajectory::test

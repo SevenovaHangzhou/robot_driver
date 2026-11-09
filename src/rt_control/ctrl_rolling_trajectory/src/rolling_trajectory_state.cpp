@@ -2,47 +2,96 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <chrono>
+#include <thread>
+#include <algorithm>
+
+#include "hw_semantic_components/feedback_age.hpp"
 
 namespace ctrl_rolling_trajectory
 {
 
-bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noexcept
+void RollingTrajectoryController::queryHeldState(
+  const QueryState::Request & request, QueryState::Response & response)
 {
-  constexpr std::size_t kMaximumReadAttempts = 8U;
+  std::lock_guard<std::mutex> lock(callback_mutex_);
+  response = QueryState::Response{};
+  response.message = "current stationary command unavailable";
+  if (request.time.sec != 0 || request.time.nanosec != 0U) {
+    response.message = "only time zero (current stationary command) is supported";
+    return;
+  }
+  RtStateView view;
+  const bool empty_priming =
+    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) ==
+    SessionState::kPriming && buffer_.image().point_count == 0U;
+  if (
+    !active_.load(std::memory_order_acquire) || !readRtStateView(view) ||
+    view.session_epoch != session_epoch_.load(std::memory_order_acquire) ||
+    (view.session_state != SessionState::kNone && view.session_state != SessionState::kHolding &&
+     !(view.session_state == SessionState::kPriming && empty_priming)) ||
+    !std::all_of(view.desired.velocities.begin(), view.desired.velocities.end(),
+                 [](double value) { return value == 0.0; }) ||
+    !hw_semantic_components::feedback_fresh(
+      observed_feedback_age_ms_.load(std::memory_order_acquire),
+      runtime_configuration_.feedback_age_limit_ms)) {
+    return;
+  }
+  response.name.assign(runtime_configuration_.joints.begin(), runtime_configuration_.joints.end());
+  response.position.assign(view.desired.positions.begin(), view.desired.positions.end());
+  response.velocity.assign(kAxisCount, 0.0);
+  response.acceleration.assign(kAxisCount, 0.0);
+  response.success = true;
+  response.message = "current stationary command";
+}
+
+bool RollingTrajectoryController::readRtStateView(RtStateView & view, const char ** failure) const noexcept
+{
+  if (failure != nullptr) { *failure = "snapshot_busy"; }
+  // Non-RT only: let a concurrent update finish instead of exhausting adjacent spins.
+  // The budget derives from the configured controller period, not the motion timeout.
+  const auto deadline = std::chrono::steady_clock::now() +
+    std::chrono::nanoseconds(runtime_configuration_.maximum_controller_period_ns);
+  constexpr std::size_t kMaximumReadAttempts = 64U;
   for (std::size_t attempt = 0U; attempt < kMaximumReadAttempts; ++attempt) {
     const std::uint64_t version_before = rt_state_version_.load(std::memory_order_acquire);
-    if ((version_before & 1U) != 0U) {
-      continue;
-    }
+    if ((version_before & 1U) == 0U) {
+      RtStateView candidate;
+      candidate.session_epoch = rt_state_session_epoch_.load(std::memory_order_acquire);
+      candidate.session_state =
+        static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
+      candidate.active_generation = active_generation_.load(std::memory_order_acquire);
+      candidate.execution_time_ns = execution_time_ns_.load(std::memory_order_acquire);
+      candidate.replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_acquire);
+      candidate.desired.time_ns = candidate.execution_time_ns;
+      for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
+        candidate.desired.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
+        candidate.desired.velocities[axis] =
+          desired_velocities_[axis].load(std::memory_order_acquire);
+      }
 
-    RtStateView candidate;
-    candidate.session_epoch = rt_state_session_epoch_.load(std::memory_order_acquire);
-    candidate.session_state =
-      static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
-    candidate.active_generation = active_generation_.load(std::memory_order_acquire);
-    candidate.execution_time_ns = execution_time_ns_.load(std::memory_order_acquire);
-    candidate.replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_acquire);
-    candidate.desired.time_ns = candidate.execution_time_ns;
-    for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-      candidate.desired.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
-      candidate.desired.velocities[axis] =
-        desired_velocities_[axis].load(std::memory_order_acquire);
+      const std::uint64_t version_after = rt_state_version_.load(std::memory_order_acquire);
+      if (version_before == version_after && (version_after & 1U) == 0U) {
+        if (candidate.session_state > SessionState::kTerminated || !desiredIsValid(candidate.desired)) {
+          if (failure != nullptr) { *failure = "invalid_desired"; }
+          return false;
+        }
+        view = candidate;
+        if (failure != nullptr) { *failure = "none"; }
+        return true;
+      }
     }
-
-    const std::uint64_t version_after = rt_state_version_.load(std::memory_order_acquire);
-    if (
-      version_before == version_after && (version_after & 1U) == 0U &&
-      candidate.session_state <= SessionState::kTerminated && desiredIsValid(candidate.desired)) {
-      view = candidate;
-      return true;
-    }
+    if (std::chrono::steady_clock::now() >= deadline) { break; }
+    std::this_thread::sleep_for(std::chrono::microseconds(50));
   }
   return false;
 }
 
-bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & context) const noexcept
+bool RollingTrajectoryController::buildAdmissionContext(
+  AdmissionContext & context, const char ** failure) const noexcept
 {
   context = AdmissionContext{};
+  if (failure != nullptr) { *failure = "none"; }
   if (
     static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) ==
       SessionState::kPriming &&
@@ -52,14 +101,19 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
   }
 
   RtStateView view;
-  if (
-    !readRtStateView(view) || view.session_state != SessionState::kRunning ||
-    view.session_epoch != session_epoch_.load(std::memory_order_acquire)) {
+  if (!readRtStateView(view, failure)) { return false; }
+  if (view.session_state != SessionState::kRunning) {
+    if (failure != nullptr) { *failure = "state_not_running"; }
+    return false;
+  }
+  if (view.session_epoch != session_epoch_.load(std::memory_order_acquire)) {
+    if (failure != nullptr) { *failure = "epoch_changed"; }
     return false;
   }
 
   std::uint64_t stop_duration_ns = 0U;
   if (!calculateStopDurationNs(view.desired, stop_duration_ns)) {
+    if (failure != nullptr) { *failure = "invalid_desired"; }
     return false;
   }
   std::uint64_t minimum_horizon_ns = stop_duration_ns;
@@ -76,6 +130,7 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
     !addTime(
       minimum_horizon_ns, runtime_configuration_.scheduling_guard.period_quantization_ns,
       minimum_horizon_ns)) {
+    if (failure != nullptr) { *failure = "time_overflow"; }
     return false;
   }
   context.execution_time_ns = view.execution_time_ns;
