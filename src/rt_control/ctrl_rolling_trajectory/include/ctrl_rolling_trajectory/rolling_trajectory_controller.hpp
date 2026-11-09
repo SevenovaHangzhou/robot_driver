@@ -56,9 +56,11 @@ private:
   {
     std::uint64_t session_epoch{0U};
     SessionState session_state{SessionState::kNone};
+    StopReason stop_reason{StopReason::kNone};
     std::uint64_t active_generation{0U};
     std::uint64_t execution_time_ns{0U};
     std::uint64_t replaceable_from_ns{0U};
+    std::uint64_t published_at_ns{0U};
     JointPoint desired{};
   };
 
@@ -94,8 +96,10 @@ private:
     const BatchMessage & message, std::array<PointView, kTransportMaxPoints> & point_views);
   std::uint8_t startSession(std::int64_t start_ns);
   static std::uint8_t publicStopReason(StopReason reason) noexcept;
-  bool readRtStateView(RtStateView & view) const noexcept;
-  bool buildAdmissionContext(AdmissionContext & context) const noexcept;
+  // Consumer calls are serialized by callback_mutex_; lifecycle publication excludes update().
+  const RtStateView & readRtStateView() noexcept;
+  void publishRtStateView() noexcept;
+  bool buildAdmissionContext(AdmissionContext & context) noexcept;
   bool buildPublicState(StateMessage & state);
   bool publishPublicState();
   bool resetRtEpoch(std::uint64_t epoch) noexcept;
@@ -113,12 +117,14 @@ private:
   static_assert(std::atomic<double>::is_always_lock_free);
   std::array<std::atomic<double>, kAxisCount> observed_positions_{};
   std::array<std::atomic<double>, kAxisCount> desired_positions_{};
-  std::array<std::atomic<double>, kAxisCount> desired_velocities_{};
   std::atomic<double> observed_feedback_age_ms_{0.0};
   DynamicEnvelope envelope_{};
   RuntimeConfiguration runtime_configuration_{};
   RollingBuffer buffer_{};
   RollingSnapshotExchange snapshot_exchange_{};
+  LatestSnapshotExchange<RtStateView> rt_state_exchange_{};
+  // Last completed RT publication, owned by the serialized non-RT consumer.
+  RtStateView confirmed_rt_state_{};
   // Public state (R-OUT-07), guarded by callback_mutex_.
   std::uint32_t activation_epoch_{0U};
   std::uint64_t last_sequence_{0U};
@@ -147,8 +153,6 @@ private:
   std::atomic<std::int64_t> prime_start_ns_{0};
   std::atomic<std::uint64_t> session_epoch_{0U};
   std::atomic<std::uint64_t> session_publication_floor_{1U};
-  std::atomic<std::uint64_t> rt_state_version_{0U};
-  std::atomic<std::uint64_t> rt_state_session_epoch_{0U};
   std::atomic_flag initial_handoff_gate_ = ATOMIC_FLAG_INIT;
   std::atomic_bool stop_requested_{false};
   bool configured_{false};

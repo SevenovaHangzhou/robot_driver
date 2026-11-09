@@ -1,46 +1,21 @@
 #include "ctrl_rolling_trajectory/rolling_trajectory_controller.hpp"
 
-#include <cstddef>
+#include <algorithm>
 #include <cstdint>
 
 namespace ctrl_rolling_trajectory
 {
 
-bool RollingTrajectoryController::readRtStateView(RtStateView & view) const noexcept
+const RollingTrajectoryController::RtStateView &
+RollingTrajectoryController::readRtStateView() noexcept
 {
-  constexpr std::size_t kMaximumReadAttempts = 8U;
-  for (std::size_t attempt = 0U; attempt < kMaximumReadAttempts; ++attempt) {
-    const std::uint64_t version_before = rt_state_version_.load(std::memory_order_acquire);
-    if ((version_before & 1U) != 0U) {
-      continue;
-    }
-
-    RtStateView candidate;
-    candidate.session_epoch = rt_state_session_epoch_.load(std::memory_order_acquire);
-    candidate.session_state =
-      static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
-    candidate.active_generation = active_generation_.load(std::memory_order_acquire);
-    candidate.execution_time_ns = execution_time_ns_.load(std::memory_order_acquire);
-    candidate.replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_acquire);
-    candidate.desired.time_ns = candidate.execution_time_ns;
-    for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-      candidate.desired.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
-      candidate.desired.velocities[axis] =
-        desired_velocities_[axis].load(std::memory_order_acquire);
-    }
-
-    const std::uint64_t version_after = rt_state_version_.load(std::memory_order_acquire);
-    if (
-      version_before == version_after && (version_after & 1U) == 0U &&
-      candidate.session_state <= SessionState::kTerminated && desiredIsValid(candidate.desired)) {
-      view = candidate;
-      return true;
-    }
+  if (const auto * latest = rt_state_exchange_.acquire()) {
+    confirmed_rt_state_ = *latest;
   }
-  return false;
+  return confirmed_rt_state_;
 }
 
-bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & context) const noexcept
+bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & context) noexcept
 {
   context = AdmissionContext{};
   if (
@@ -51,15 +26,26 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
     return true;
   }
 
-  RtStateView view;
+  const auto & view = readRtStateView();
   if (
-    !readRtStateView(view) || view.session_state != SessionState::kRunning ||
-    view.session_epoch != session_epoch_.load(std::memory_order_acquire)) {
+    view.session_state != SessionState::kRunning ||
+    view.session_epoch != session_epoch_.load(std::memory_order_acquire) ||
+    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) !=
+      SessionState::kRunning ||
+    elapsedExceeds(
+      steadyNowNs(), view.published_at_ns, runtime_configuration_.maximum_controller_period_ns)) {
     return false;
   }
 
   std::uint64_t stop_duration_ns = 0U;
   if (!calculateStopDurationNs(view.desired, stop_duration_ns)) {
+    return false;
+  }
+  const auto execution_ns =
+    std::max(view.execution_time_ns, execution_time_ns_.load(std::memory_order_acquire));
+  // Braking uses the model acceleration limit: stop time grows by at most the elapsed
+  // trajectory time. Reserve that growth when RT has advanced past the completed summary.
+  if (!addTime(stop_duration_ns, execution_ns - view.execution_time_ns, stop_duration_ns)) {
     return false;
   }
   std::uint64_t minimum_horizon_ns = stop_duration_ns;
@@ -78,19 +64,27 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
       minimum_horizon_ns)) {
     return false;
   }
-  context.execution_time_ns = view.execution_time_ns;
-  context.replaceable_from_ns = view.replaceable_from_ns;
+  context.execution_time_ns = execution_ns;
+  // A completed summary can lag the update currently in progress. This live monotonic fence
+  // prevents commit from replacing a boundary already advanced by that update.
+  context.replaceable_from_ns =
+    std::max(view.replaceable_from_ns, replaceable_from_ns_.load(std::memory_order_acquire));
   context.minimum_horizon_ns = minimum_horizon_ns;
-  context.active_generation = view.active_generation;
+  // Consumption acknowledges an older replacement even before its summary is published.
+  context.active_generation =
+    std::max(view.active_generation, active_generation_.load(std::memory_order_acquire));
   return true;
 }
 
 bool RollingTrajectoryController::buildPublicState(StateMessage & state)
 {
   std::lock_guard<std::mutex> lock(callback_mutex_);
-  const auto session_state =
-    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
-  const auto stop_reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
+  const auto & view = readRtStateView();
+  // The serialized admission side can acknowledge STARTING before RT observes a new epoch.
+  // All execution state and stop reasons otherwise come from one completed RT publication.
+  const bool awaiting_rt = view.session_epoch != session_epoch_.load(std::memory_order_acquire);
+  const auto session_state = awaiting_rt ? SessionState::kPriming : view.session_state;
+  const auto stop_reason = awaiting_rt ? StopReason::kNone : view.stop_reason;
   // A session is primed before its first batch is checked; until a batch is accepted it has
   // no trajectory and the previous trajectory's stop reason still applies.
   const bool trajectory_pending =

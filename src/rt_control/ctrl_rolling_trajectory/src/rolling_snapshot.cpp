@@ -12,22 +12,18 @@ bool RollingSnapshotExchange::publish(
   if (publication_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
     return false;
   }
-  auto & snapshot = slots_[writing_];
+  auto & snapshot = slots_.writingSlot();
   snapshot.session_epoch = session_epoch;
   copyTrajectoryImageEffective(trajectory, snapshot.trajectory);
   snapshot.arrival_time_ns = arrival_time_ns;
   snapshot.publication_sequence = ++publication_sequence_;
-  writing_ = middle_.exchange(writing_ | kDirty, std::memory_order_acq_rel) & kIndexMask;
+  slots_.publish();
   return true;
 }
 
 const RollingSnapshot * RollingSnapshotExchange::acquire() noexcept
 {
-  if ((middle_.load(std::memory_order_acquire) & kDirty) == 0U) {
-    return nullptr;
-  }
-  reading_ = middle_.exchange(reading_, std::memory_order_acq_rel) & kIndexMask;
-  return &slots_[reading_];
+  return slots_.acquire();
 }
 
 }  // namespace ctrl_rolling_trajectory
