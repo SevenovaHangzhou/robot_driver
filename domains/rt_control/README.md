@@ -66,18 +66,11 @@ ros2 run integ_composer compose_artifact --output /abs/dir --robot-variant Alfa_
 | [docs/areas-archive/](docs/areas-archive/) | 2026-10-13 前 9 个旧功能区的记录（只读归档） |
 | [testing/](testing/README.md) | 发布前测试分层、用例目录与 runner |
 | [docs/v3-arm-motion-integration.md](docs/v3-arm-motion-integration.md) | V3 双臂与运控对接方案 |
-| [docs/hardware-configuration-layering-and-motor-variants.md](docs/hardware-configuration-layering-and-motor-variants.md) | 硬件配置分层与电机变体（部分内容描述二代 descriptor） |
 
-### 历史资料（不作为当前操作依据）
+### 历史证据
 
-二代/旧机记录，仅用于追溯：
-[接手知识图谱](docs/onboarding-knowledge-map.md)、
-[一键启动](docs/one-command-start.md)、
-[原生开发与运行](docs/native-development-workflow.md)、
-[新机部署与运行手册](docs/deployment-operations-runbook.md)、
-[宿主安装记录](docs/host-setup-record.md)、
-[联调准入摘要](docs/integration-readiness-summary.md)、
-[后续修改计划](docs/follow-up-modification-plan.md)、
-[PLC/BMS 合并交接](docs/plc-bms-merge-hardware-handoff.md)、
-[迁移基线报告](docs/baseline_report.md)，
-以及 `docs/` 下带日期的调试/验收记录。
+已退役架构的导航、启动/部署指南和完成的交接计划不再保留；需要追溯时查 Git 历史。
+实机记录与能力审查报告仍作为证据保留，例如 [宿主验收记录](docs/host-setup-record.md)、
+[迁移基线报告](docs/baseline_report.md) 和 `docs/` 下带日期的调试/验收记录。
+它们只说明记录时点、对应主机和配置，不能作为当前 V3 操作步骤；当前启动入口见本页，
+构建、部署与授权分别见 `tools/README.md`、`docker/README.md`、`hostsetup/README.md` 和根 `AGENTS.md`。

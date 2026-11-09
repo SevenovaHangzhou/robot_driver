@@ -1,8 +1,11 @@
 # RT-Control 发布前测试体系
 
 本目录是 RT-Control 发布前测试用例的事实源：`README.md` 定义分层、分类、用例
-schema 和发布门禁映射；`cases/` 按分类存放用例。运行器（runner）、JSON 报告和
-baseline 工具是后续子任务，落地前用例按 `status` 字段人工执行、机器记录。
+schema 和发布门禁映射；`cases/` 按分类存放用例，运行器见下文。
+
+`V0.10` 用例与 baseline 含旧履带/旧主机的历史命令和参数，不能直接当作当前 V3 操作步骤。
+退役指南的 `traces` 指向 Git 历史，仅用于追溯原判据。执行前必须按当前源码、台套事实与
+根 [AGENTS.md](../../../AGENTS.md) 的授权要求核对适用性；本文分级定义不构成硬件授权。
 
 体系设计背景与裁决见
 [governance-20260813-02](../docs/areas-archive/governance/records/2026-08-13-test-case-catalog-v1.md)；
@@ -12,8 +15,7 @@ Linear 任务：ELECTRI-74。
 
 本表也是根 `AGENTS.md` §6 验证分级和开发记录 `risk` 字段的唯一定义（用户 2026-11-07 统一为 T0–T4）。
 
-分层直接映射既有授权机制（启动脚本确认短语、runbook L0–L3 危险等级、域契约
-5.7 节 mock/实机分级），不新设授权：
+分层沿用根 [AGENTS.md](../../../AGENTS.md) 第 5–6 节的硬件授权和验证要求，不新设授权：
 
 | 层级 | 内容 | 允许的写动作 | 执行方式 |
 | --- | --- | --- | --- |
@@ -49,7 +51,7 @@ ID 一经使用不复用；用例作废保留条目并置 `status: retired`。
 - id: TC-XX-00            # 用例 ID
   title: 一句话标题
   purpose: 目的与证明目标
-  area: 九功能区之一        # 与 docs/areas/ 一致，增量执行按此分组
+  area: 七功能区之一        # 与 docs/areas/ 一致，增量执行按此分组
   risk: T0..T4
   writes: { reset: no, enable: no, motion: no, plc: no }   # 四个授权位
   env: native | docker | both   # 适用环境；有差异时加 env_note 说明

@@ -9,7 +9,9 @@ cases:
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native
     covers: ["src/rt_control/ctrl_enable_manager/**"]
-    traces: [domains/rt_control/docs/deployment-operations-runbook.md]
+    # 旧 V0.10 用例的历史来源，不是当前 V3 操作手册。
+    traces:
+      - https://github.com/SevenovaHangzhou/robot_driver/blob/16fa212ec2b1efd748486e06158e0d364191b755/domains/rt_control/docs/deployment-operations-runbook.md
     preconditions: 现场授权；急停按钮与安全链物理功能已由电气验收确认（软件不替代安全链）
     entry: |
       # 值守人员触发急停 → 观察栈行为 → 复位急停 → 走 TC-LC-03/04 恢复
@@ -17,7 +19,7 @@ cases:
       - 急停期间无自动重试使能、无软件绕过
       - 复位后按标准流程恢复到 14 轴可用
     evidence: 全程日志与操作时间线存档
-    cleanup: 恢复失败按 runbook 第 11 节处置
+    cleanup: 原用例清理步骤见 traces 中旧版本 runbook 第 11 节；不可直接用于当前 V3
     status: planned
     v010_gate: "no"
 
@@ -68,7 +70,9 @@ cases:
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
     covers: ["src/rt_control/periph_plc_io/**"]
-    traces: [domains/rt_control/docs/plc-bms-integration.md]
+    # 旧 PLC 实现的来源说明；当前接口以 periph_plc_io 源码与公共契约为准。
+    traces:
+      - https://github.com/SevenovaHangzhou/robot_driver/blob/16fa212ec2b1efd748486e06158e0d364191b755/domains/rt_control/docs/plc-bms-integration.md
     preconditions: 断连方式为拔网线/关 PLC 电源，不改软件配置；现场授权
     entry: |
       # 断开 PLC 网络 60 s 后恢复，全程订阅 /plc/io_state 与 /control/safety_state
