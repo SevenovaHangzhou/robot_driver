@@ -3,6 +3,8 @@ plc_io_modbus:
     digital:
       module:
         host: "192.168.1.12"
+        # Empty uses host routing. Set the verified direct NIC in the site configuration.
+        interface: ""
         port: 502
         unit_id: 1
         timeout_ms: 1000
@@ -24,6 +26,7 @@ plc_io_modbus:
     analog:
       module:
         host: "192.168.1.13"
+        interface: ""
         port: 502
         unit_id: 1
         timeout_ms: 1000

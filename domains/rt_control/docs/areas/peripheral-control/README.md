@@ -14,6 +14,7 @@
 
 | 历史来源坐标 | 事实 | 原始记录 | 原验证状态 |
 | --- | --- | --- | --- |
+| peripheral-control-20261110-01#F1-F3 | PLC可选直连网卡绑定由infra_modbus实现；空值沿用路由，绑定失败不回退；台架只读138条状态有效。 | [PLC直连绑定](records/2026-11-10-plc-interface-binding.md) | PARTIAL（T0回归；现场候选T2；真实拔线恢复未验） |
 | canopen-chassis/F5 | LPMS-NAV3 已迁入当前 main 源码基线并纳入构建；默认静态启动、私有 topic、只接收 CAN；不启用三代机共线或正式导航融合 | [LPMS-NAV3 源码接入](../../areas-archive/canopen-chassis/records/2026-09-17-lpms-nav3-main-source-integration.md)#F1-F4 | PARTIAL（T1 无接口/解码测试；连接路径、跨进程 DDS 与实机待验） |
 | canopen-chassis/F6 | LPMS 在 node 构造完成至 spin 建立窗口收到 SIGINT 时按正常停止返回 0；context 仍有效的配置/构造异常继续返回 1 | [LPMS 启动窗口 SIGINT 纠错](../../areas-archive/canopen-chassis/records/2026-09-20-lpms-startup-sigint-exit.md)#F1-F2 | PARTIAL（T1 Native；远端完整闭包待确认） |
 | canopen-chassis/F7 | LPMS 姿态与角速度协方差支持启动时 YAML 配置，每项九个有限数、默认零，按行写入消息 | [LPMS 协方差配置](../../areas-archive/canopen-chassis/records/2026-10-08-lpms-configurable-covariance.md)#F1-F2 | PARTIAL（T1 参数/转换测试；标定与现场应用待验） |
