@@ -98,6 +98,7 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-11-10 | peripheral-control | [PLC可选直连网卡绑定](docs/areas/peripheral-control/records/2026-11-10-plc-interface-binding.md) | PARTIAL（main基线三包22测试；现场候选T2只读138条有效，正常退出；实际拔线恢复未验） |
 | 2026-10-09 | io-power | [ELECTRI-131 auto 字节序歧义修复](docs/areas-archive/io-power/records/2026-10-09-electri-131-bms-byte-order.md) | PARTIAL（3 个 CTest/14 条汇总结果通过；实机字节序待确认） |
 | 2026-10-09 | governance | [ELECTRI-131 从 PR #53 分离 BMS](docs/areas-archive/governance/records/2026-10-09-electri-131-pr53-split.md) | PARTIAL（电池恢复 main 基线；其余模块源码不变；质量门禁通过，拆分后 CI 待验） |
 | 2026-10-09 | lifecycle | [模式切换 CI 源状态刷新修复](docs/areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md) | PARTIAL（PR #53；65用例、30次150ms延迟回归和质量门禁通过；全仓CI待验） |

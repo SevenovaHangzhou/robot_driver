@@ -1,6 +1,7 @@
 #include "infra_modbus/client.hpp"
 
 #include <netdb.h>
+#include <net/if.h>
 #include <poll.h>
 #include <unistd.h>
 
@@ -21,9 +22,14 @@ std::uint16_t read_uint16_be(const std::uint8_t * data)
 
 }  // namespace
 
-Client::Client(const std::string & host, std::uint16_t port, std::chrono::milliseconds timeout)
-: timeout_(timeout)
+Client::Client(
+  const std::string & host, std::uint16_t port, std::chrono::milliseconds timeout,
+  const std::string & interface)
+: interface_(interface), timeout_(timeout)
 {
+  if (interface.size() >= IFNAMSIZ || interface.find('\0') != std::string::npos) {
+    throw std::invalid_argument{"Invalid network interface name"};
+  }
   if (port == 0U) {
     throw std::invalid_argument{"Modbus port must be 1..65535"};
   }
@@ -128,6 +134,13 @@ void Client::connect(Clock::time_point deadline)
   descriptor_ = ::socket(address_.ss_family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
   if (descriptor_ < 0) {
     throw std::runtime_error{"cannot create Modbus socket"};
+  }
+  if (
+    !interface_.empty() &&
+    ::setsockopt(
+      descriptor_, SOL_SOCKET, SO_BINDTODEVICE, interface_.c_str(), interface_.size() + 1) != 0) {
+    throw std::runtime_error{
+      "Modbus interface bind failed: " + interface_ + ": " + std::strerror(errno)};
   }
   if (::connect(descriptor_, reinterpret_cast<const sockaddr *>(&address_), address_length_) != 0) {
     if (errno != EINPROGRESS) {
