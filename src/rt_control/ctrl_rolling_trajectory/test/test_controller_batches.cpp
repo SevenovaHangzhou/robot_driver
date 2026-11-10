@@ -212,6 +212,54 @@ public:
   {
     controller.rt_last_accepted_arrival_ns_ = 0U;
   }
+
+  static void stageUnpublishedState(RollingTrajectoryController & controller)
+  {
+    auto & writing = controller.rt_state_exchange_.writingSlot();
+    writing.session_state = SessionState::kStopping;
+    writing.stop_reason = StopReason::kInternalInvariant;
+  }
+
+  static void stageCompletion(RollingTrajectoryController & controller, bool holding)
+  {
+    controller.stop_reason_.store(
+      static_cast<std::uint8_t>(StopReason::kCompleted), std::memory_order_release);
+    if (holding) {
+      controller.rt_session_state_.store(
+        static_cast<std::uint8_t>(SessionState::kHolding), std::memory_order_release);
+    }
+  }
+
+  static void publishState(RollingTrajectoryController & controller)
+  {
+    controller.publishRtStateView();
+  }
+
+  static void expireState(RollingTrajectoryController & controller)
+  {
+    std::lock_guard<std::mutex> lock(controller.callback_mutex_);
+    auto stale = controller.readRtStateView();
+    stale.published_at_ns = 0U;
+    controller.rt_state_exchange_.writingSlot() = stale;
+    controller.rt_state_exchange_.publish();
+  }
+
+  static void advanceBoundary(RollingTrajectoryController & controller, std::uint64_t boundary_ns)
+  {
+    controller.replaceable_from_ns_.store(boundary_ns, std::memory_order_release);
+  }
+
+  static void advanceExecution(RollingTrajectoryController & controller, std::uint64_t execution_ns)
+  {
+    controller.execution_time_ns_.store(execution_ns, std::memory_order_release);
+  }
+
+  static void consumePendingTrajectory(RollingTrajectoryController & controller)
+  {
+    EXPECT_EQ(
+      controller.consumeLatestRtTrajectory(false),
+      RollingTrajectoryController::SnapshotConsumeResult::kAccepted);
+  }
 };
 
 namespace
@@ -581,28 +629,37 @@ TEST_F(ControllerBatchTest, ReactivationStartsANewEpoch)
 TEST_F(ControllerBatchTest, ConcurrentBatchesAndRtConsumptionRemainCoherent)
 {
   const rclcpp::Time start = now() + rclcpp::Duration::from_seconds(0.05);
-  std::vector<Batch> batches;
-  for (std::uint64_t sequence = 1U; sequence <= 10U; ++sequence) {
-    batches.push_back(move(sequence, start, 0.5, 0.05));
-  }
-  std::atomic_bool producer_done{false};
+  Peer::submit(*controller_, move(1U, start, 0.55, 0.0));
+  const auto time = run(start, 20U);
+  ASSERT_EQ(Peer::state(*controller_).state, State::RUNNING);
+  Batch replacement = move(2U, start + rclcpp::Duration::from_seconds(0.45), 0.1, 0.0);
+  constexpr std::size_t kReplacements = 80U;
+  std::atomic<std::size_t> requested{0U};
+  std::atomic<std::size_t> completed{0U};
   std::atomic<std::uint64_t> update_errors{0U};
   std::thread rt_thread([&]() {
-    rclcpp::Time time = start;
-    for (std::size_t cycle = 0U; cycle < 20U || !producer_done.load(std::memory_order_acquire);
-         ++cycle) {
-      if (update(time) != controller_interface::return_type::OK) {
+    auto next = time;
+    for (std::size_t cycle = 1U; cycle <= kReplacements; ++cycle) {
+      while (requested.load(std::memory_order_acquire) < cycle) {
+        std::this_thread::yield();
+      }
+      if (update(next) != controller_interface::return_type::OK) {
         update_errors.fetch_add(1U, std::memory_order_relaxed);
       }
-      time += rclcpp::Duration::from_nanoseconds(kCycleNs);
-      std::this_thread::yield();
+      next += rclcpp::Duration::from_nanoseconds(kCycleNs);
+      completed.store(cycle, std::memory_order_release);
     }
   });
-  // The first batch opens the session; the same plan resent from the same start is late.
-  for (const auto & batch : batches) {
-    Peer::submit(*controller_, batch);
+  // Every replacement remains ahead of the moving boundary, so every one must be accepted.
+  for (std::size_t cycle = 1U; cycle <= kReplacements; ++cycle) {
+    replacement.sequence = cycle + 1U;
+    requested.store(cycle, std::memory_order_release);
+    Peer::submit(*controller_, replacement);
+    EXPECT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+    while (completed.load(std::memory_order_acquire) < cycle) {
+      std::this_thread::yield();
+    }
   }
-  producer_done.store(true, std::memory_order_release);
   rt_thread.join();
 
   ASSERT_EQ(update_errors.load(std::memory_order_relaxed), 0U);
@@ -612,6 +669,109 @@ TEST_F(ControllerBatchTest, ConcurrentBatchesAndRtConsumptionRemainCoherent)
   for (const double command : command_positions_) {
     EXPECT_TRUE(std::isfinite(command));
   }
+}
+
+TEST_F(ControllerBatchTest, UnpublishedRtStateDoesNotRejectAValidRunningReplacement)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  Peer::submit(*controller_, move(1U, start, 0.5, 0.0));
+  run(start, 20U);
+  Peer::stageUnpublishedState(*controller_);
+  Peer::submit(*controller_, move(2U, start + rclcpp::Duration::from_seconds(0.25), 0.3, 0.0));
+  const auto state = Peer::state(*controller_);
+  EXPECT_EQ(state.last_result, State::ACCEPTED);
+  EXPECT_EQ(state.state, State::RUNNING);
+  EXPECT_EQ(state.stop_reason, State::STOP_NONE);
+}
+
+TEST_F(ControllerBatchTest, PublicStateUsesACompletedPublicationForStateAndStopReason)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  Peer::submit(*controller_, move(1U, start, 0.5, 0.0));
+  run(start, 20U);
+  for (const bool holding : {false, true}) {
+    Peer::stageCompletion(*controller_, holding);
+    const auto state = Peer::state(*controller_);
+    EXPECT_EQ(state.state, State::RUNNING);
+    EXPECT_EQ(state.stop_reason, State::STOP_NONE);
+  }
+  Peer::publishState(*controller_);
+  const auto completed = Peer::state(*controller_);
+  EXPECT_EQ(completed.state, State::HOLDING);
+  EXPECT_EQ(completed.stop_reason, State::STOP_COMPLETED);
+}
+
+TEST_F(ControllerBatchTest, StaleRtStateCannotAdmitUntilAnUpdatePublishesAgain)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  Peer::submit(*controller_, move(1U, start, 0.5, 0.0));
+  const auto time = run(start, 20U);
+  Peer::expireState(*controller_);
+  auto replacement = move(2U, start + rclcpp::Duration::from_seconds(0.25), 0.3, 0.0);
+  Peer::submit(*controller_, replacement);
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::NOT_ACCEPTING);
+  run(time, 1U);
+  replacement.sequence = 3U;
+  Peer::submit(*controller_, replacement);
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+}
+
+TEST_F(ControllerBatchTest, CommitUsesTheLiveBoundaryWhileTheNextStateIsUnpublished)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  Peer::submit(*controller_, move(1U, start, 0.5, 0.0));
+  run(start, 20U);
+  Peer::advanceBoundary(*controller_, 300'000'000U);
+  Peer::submit(*controller_, move(2U, start + rclcpp::Duration::from_seconds(0.25), 0.3, 0.0));
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::LATE_REPLACE);
+}
+
+TEST_F(ControllerBatchTest, ReactivationClearsTheCompletedExecutionSummary)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  auto final = move(1U, start, 0.1, 0.0);
+  final.final = true;
+  Peer::submit(*controller_, final);
+  run(start, 30U);
+  ASSERT_EQ(Peer::state(*controller_).stop_reason, State::STOP_COMPLETED);
+  ASSERT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  EXPECT_EQ(Peer::state(*controller_).stop_reason, State::STOP_DEACTIVATED);
+  activate();
+  const auto state = Peer::state(*controller_);
+  EXPECT_EQ(state.state, State::HOLDING);
+  EXPECT_EQ(state.stop_reason, State::STOP_NONE);
+}
+
+TEST_F(ControllerBatchTest, UnpublishedConsumptionAcknowledgesThePreviousReplacementBoundary)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  Peer::submit(*controller_, move(1U, start, 0.5, 0.0));
+  run(start, 20U);  // execution 76 ms, replacement boundary 92 ms
+  Peer::submit(*controller_, move(2U, start + rclcpp::Duration::from_seconds(0.092), 0.4, 0.0));
+  ASSERT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+  Peer::consumePendingTrajectory(*controller_);
+  Peer::advanceBoundary(*controller_, 96'000'000U);
+  Peer::submit(*controller_, move(3U, start + rclcpp::Duration::from_seconds(0.25), 0.3, 0.0));
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
+}
+
+TEST_F(ControllerBatchTest, UnpublishedExecutionReservesStopTimeGrowthUntilPublication)
+{
+  const auto start = now() + rclcpp::Duration::from_seconds(0.1);
+  Peer::submit(*controller_, move(1U, start, 0.5, 0.0));
+  run(start, 20U);  // execution 76 ms
+  Peer::advanceExecution(*controller_, 80'000'000U);
+  Peer::advanceBoundary(*controller_, 96'000'000U);
+  auto replacement = move(2U, start + rclcpp::Duration::from_seconds(0.096), 0.000001, 0.0);
+  Peer::submit(*controller_, replacement);
+  // The end is just beyond the 16 ms guard, but not the 4 ms of possible stop-time growth.
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::HORIZON_EXCEEDED);
+  Peer::publishState(*controller_);
+  replacement.sequence = 3U;
+  Peer::submit(*controller_, replacement);
+  EXPECT_EQ(Peer::state(*controller_).last_result, State::ACCEPTED);
 }
 
 TEST_F(ControllerBatchTest, UpdatePathDoesNotAllocate)

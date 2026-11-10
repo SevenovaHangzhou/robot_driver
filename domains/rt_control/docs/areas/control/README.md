@@ -26,6 +26,7 @@
 | control-20261107-01 | JTC 准入可选位置上下限：点与每段三次曲线（含引入段）都在 [lower, upper] 内，否则整条拒绝；不配置不检查 | [JTC 位置准入](records/2026-11-07-jtc-position-limits.md) | PARTIAL（本机单元测试；暂无配置使用者） |
 | control-20261107-02 | 底盘 `/rt/base/set_control_mode`：静止时在舵轮控制器（行走轮 CSV）与 `base_wheel_jtc`（行走轮 CSP）间切换，驱动器回读确认后才成功，超时失能；JTC 限值取导航配置与驱动器范围 | [底盘 CSV/CSP 切换](records/2026-11-07-base-control-mode.md) | PARTIAL（研华实车切换、轨迹、准入、失能再使能通过；cmd_vel 行驶未测） |
 | control-20261105-01 | rolling 会话随模式切换与首个批次开始；批次 ROS 时间；状态 5 字段；限值取 robot_description（位置内缩 0.05 rad、30°/s、60°/s²） | [精简 rolling](records/2026-11-05-rolling-slim.md) | PARTIAL（本机单元测试；未上台架） |
+| control-20261109-01#F1–F3 | Rolling 补窗与状态发布消费一致的完整 RT 摘要，准入保留新鲜度、最新边界及停车时间增长余量 | [Rolling 状态摘要](records/2026-11-09-rolling-state-snapshot.md) | PARTIAL（T0；实机待验） |
 | integration-20261014-03#F1–F4 | 控制包只依赖共享HeadPhase；控制器集合/参数保持，D-b不准入新真实头部 | [第四步记录](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（头部T1等价；实机未验） |
 | lifecycle/20261009-03#F1 | 模式切换成功路径测试持续提供 JTC 状态，保留生产新鲜度与停稳门禁 | [CI 源状态刷新修复](../../areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md)#F1-F2 | PARTIAL（65用例及30次延迟回归通过；全仓CI待验） |
 | lifecycle/01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](../../areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |
