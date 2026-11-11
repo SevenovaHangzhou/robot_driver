@@ -45,6 +45,8 @@
 
 | integration-20261015-02#F1–F4 | 控制器参数声明化；部署时生成、启动只校验；EtherCAT 设备族注册表与主站 profile | [ELECTRI-184 声明式组合与生成物](records/2026-10-15-electri-184-declarative-composer-artifacts.md) | UNVERIFIED（T0 定向测试；部署/实机未验） |
 
+| integration-20261111-01#F1 | 保留的 controller manager 主程序与补丁已核验支持 2.53.1、2.54.2、2.54.3，其他版本仍拒绝 | [2.54.3 版本准入](records/2026-11-11-controller-manager-2.54.3.md) | PARTIAL（T0 构建及33项测试；实机未验） |
+
 ## 跨区事实关联
 
 | 当前来源坐标 | 事实 | 原始记录 | 验证状态 |
