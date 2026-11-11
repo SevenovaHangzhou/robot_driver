@@ -1,3 +1,4 @@
+import { renderModules } from "./modules.mjs";
 // Arm console page. The server checks every command; this page only proposes targets.
 import { ArmViewer } from "./viewer.js";
 import { CompletionSound } from "./completion-sound.mjs";
@@ -37,6 +38,7 @@ const head = headControls(
   $("head-controls"),
   () => { $("login").hidden = false; },
   (positions) => viewer?.setMeasured(positions),
+  scopeLabel,
 );
 document.addEventListener('click', () => completionSound.unlock(), { capture: true });
 document.addEventListener('keydown', () => completionSound.unlock(), { capture: true });
@@ -106,6 +108,7 @@ $("login-form").addEventListener("submit", async (event) => {
 function openSocket() {
   if (socket && socket.readyState < WebSocket.CLOSING) return;
   socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/arm`);
+  socket.onopen = () => guarded(loadInfo);
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.type === "status") {
@@ -140,6 +143,14 @@ async function loadInfo() {
   if (!response.ok || !info.urdf) {
     setTimeout(loadInfo, 2000);
     return true;
+  }
+  const scopeKey = (value) => JSON.stringify([value.controller, value.joints.map((joint) => joint.name)]);
+  if (state.info && scopeKey(state.info) !== scopeKey(info)) {
+    state.target = {};
+    state.edited = false;
+    state.pending = null;
+    state.sequence = [];
+    if ($("confirm").open) $("confirm").close();
   }
   state.info = info;
   state.gear = state.gear || info.gears[0].name;
@@ -494,13 +505,27 @@ $("sequence-clear").addEventListener("click", () => {
 });
 
 // ------------------------------------------------------------------ lease / enable
+function scopeLabel() {
+  const scope = head.getScope()?.replace(/_wrist_force$/, "");
+  const labels = {
+    bench_left_arm_head: "左臂和头部",
+    bench_right_arm_head: "右臂和头部",
+    bench_dual_arm_head: "双臂和头部",
+  };
+  if (labels[scope]) return labels[scope];
+  const names = (state.info?.joints || []).map((joint) => joint.name);
+  const left = names.some((name) => /^left_joint\d+$/.test(name));
+  const right = names.some((name) => /^right_joint\d+$/.test(name));
+  return left && right ? "双臂" : left ? "左臂" : right ? "右臂" : "当前控制栈";
+}
+
 $("lease-btn").addEventListener("click", () => {
   const mine = state.status && state.status.lease === "you";
   guarded(() => post(mine ? "/api/release" : "/api/acquire"));
 });
 
 $("enable-btn").addEventListener("click", async () => {
-  if (!confirm("确认使能左臂？使能后关节保持当前位置。")) return;
+  if (!confirm(`确认使能${scopeLabel()}？\n这是当前控制栈的整体使能操作；使能后关节保持当前位置。`)) return;
   const result = await guarded(() => post("/api/enable", { enabled: true }));
   if (result) toast("使能完成");
 });
@@ -536,6 +561,11 @@ function onStatus(status) {
   // After a move (or stop) the sliders follow the measured pose again.
   if ((!state.edited || wasMoving) && !status.moving) syncTargets();
   setChip("conn-chip", status.feedback_fresh ? "反馈正常" : "反馈超时", status.feedback_fresh ? "ok" : "bad");
+  if (Array.isArray(status.modules)) {
+    renderModules($("module-status"), status.modules);
+    const headModule = status.modules.find(row => row.option === "head");
+    if (headModule) $("head-controls").hidden = !headModule.selected;
+  }
   const enable = status.enable;
   const enableText = { ENABLED: "已使能", IDLE: "未使能", DISCONNECTED: "使能管理未连接" }[enable.state]
     || (enable.state === "FAILED" ? `故障（${enable.stage}）` : `${enable.state} ${enable.stage}`);

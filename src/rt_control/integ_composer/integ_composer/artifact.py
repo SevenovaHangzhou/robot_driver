@@ -78,11 +78,16 @@ def _absolute(directory):
     return path
 
 
-def write_artifact(directory, *, package_share=get_package_share_directory, **values):
+def write_artifact(directory, *, package_share=get_package_share_directory, additional_files=None, **values):
     """Compose for the final path, stage beside it, then replace atomically by rename."""
     output = _absolute(directory)
     chosen = selection(**values)
     composed = compose(**chosen, runtime_dir=output, package_share=package_share)
+    for name, text in (additional_files or {}).items():
+        resolve_share_path(output, name)
+        if name == ARTIFACT or name in composed.files:
+            raise ValueError(f'Additional artifact file collides with composition: {name}')
+        composed.files[name] = text
     if output.exists() and not (output / ARTIFACT).is_file():
         raise ValueError(f"Refusing to replace a directory that is not an artifact: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)

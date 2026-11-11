@@ -85,6 +85,7 @@ class JogPage(ArmPage):
         self.console = JogAccess(arm_page.console)
         self._sessions, self._operators = arm_page._sessions, arm_page._operators
         self._audit, self._status_period = arm_page._audit, arm_page._status_period
+        self._module_status = arm_page._module_status
         self._sockets = set()
         self._operators.register_page("jog", lambda: self.console.lease_holder)
 

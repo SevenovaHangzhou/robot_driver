@@ -2,7 +2,7 @@
 const DEG = 180 / Math.PI;
 
 // onPositions receives measured head joint positions (rad) for the shared 3D model.
-export function headControls(root, loginRequired, onPositions) {
+export function headControls(root, loginRequired, onPositions, scopeLabel = () => "当前控制栈") {
   const $ = (name) => root.querySelector(`[data-head="${name}"]`);
   let socket = null;
   let nextRequest = 1;
@@ -141,10 +141,14 @@ export function headControls(root, loginRequired, onPositions) {
   }
 
   $("lease-op").addEventListener("click", () => run(status?.lease === "you" ? "release" : "acquire"));
-  $("enable-op").addEventListener("click", () => run("enable", { enabled: true }));
+  $("enable-op").addEventListener("click", () => {
+    if (confirm(`确认使能${scopeLabel()}？\n这是当前控制栈的整体使能操作；使能后关节保持当前位置。`)) {
+      run("enable", { enabled: true });
+    }
+  });
   $("disable-op").addEventListener("click", () => run("enable", { enabled: false }));
   $("reset-op").addEventListener("click", () => {
-    if (confirm("确认对头部执行故障复位？复位前应先排除故障原因。")) run("reset_fault");
+    if (confirm(`确认对${scopeLabel()}执行整体故障复位？复位前应先排除故障原因。`)) run("reset_fault");
   });
   $("move-op").addEventListener("click", () => {
     if (!status) return;
@@ -153,5 +157,5 @@ export function headControls(root, loginRequired, onPositions) {
     run("move", { target });
   });
   $("hold-op").addEventListener("click", () => run("hold"));
-  return { connect };
+  return { connect, getScope: () => status?.capability?.scope };
 }

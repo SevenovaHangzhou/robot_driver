@@ -45,7 +45,7 @@ CallbackReturn ForceTorqueBroadcaster::on_init()
   for (const auto * name :
        {"sensor_name", "frame_id", "validity_policy", "startup_id", "snapshot_source",
         "wrench_topic", "raw_topic", "calibration_topic", "diagnostic_name", "link_interface",
-        "al_state_interface"}) {
+        "al_state_interface", "data_valid_interface"}) {
     auto_declare<std::string>(name, "");
   }
   for (const auto * name : {"value_interfaces", "auxiliary_interfaces"}) {
@@ -82,6 +82,7 @@ CallbackReturn ForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::Stat
     diagnostic_name_ = get_node()->get_parameter("diagnostic_name").as_string();
     link_interface_name_ = get_node()->get_parameter("link_interface").as_string();
     al_state_interface_name_ = get_node()->get_parameter("al_state_interface").as_string();
+    data_valid_interface_name_ = get_node()->get_parameter("data_valid_interface").as_string();
     validity_policy_ = get_node()->get_parameter("validity_policy").as_string();
     snapshot_source_ = get_node()->get_parameter("snapshot_source").as_string();
     const auto startup_id = get_node()->get_parameter("startup_id").as_string();
@@ -190,6 +191,15 @@ CallbackReturn ForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::Stat
     state_interface_names_ = candidate_sensor->get_state_interface_names();
     state_interface_names_.push_back(link_interface_name_);
     state_interface_names_.push_back(al_state_interface_name_);
+    if (!data_valid_interface_name_.empty()) {
+      if (!configured_name(data_valid_interface_name_) ||
+        std::find(state_interface_names_.begin(), state_interface_names_.end(),
+        data_valid_interface_name_) != state_interface_names_.end())
+      {
+        throw std::invalid_argument("data_valid_interface must be a unique configured interface");
+      }
+      state_interface_names_.push_back(data_valid_interface_name_);
+    }
     sensor_ = std::move(candidate_sensor);
     processor_ = std::move(candidate_processor);
 
@@ -259,6 +269,9 @@ CallbackReturn ForceTorqueBroadcaster::on_activate(const rclcpp_lifecycle::State
   }
 
   for (auto & interface : state_interfaces_) {
+    if (!data_valid_interface_name_.empty() && interface.get_name() == data_valid_interface_name_) {
+      data_valid_interface_ = &interface;
+    }
     if (interface.get_name() == link_interface_name_) {
       if (link_interface_ != nullptr) {
         sensor_->release_interfaces();
@@ -271,15 +284,18 @@ CallbackReturn ForceTorqueBroadcaster::on_activate(const rclcpp_lifecycle::State
       if (al_state_interface_ != nullptr) {
         sensor_->release_interfaces();
         al_state_interface_ = nullptr;
+        data_valid_interface_ = nullptr;
         return CallbackReturn::ERROR;
       }
       al_state_interface_ = &interface;
     }
   }
-  if (link_interface_ == nullptr || al_state_interface_ == nullptr) {
+  if (link_interface_ == nullptr || al_state_interface_ == nullptr ||
+    (!data_valid_interface_name_.empty() && data_valid_interface_ == nullptr)) {
     sensor_->release_interfaces();
     link_interface_ = nullptr;
     al_state_interface_ = nullptr;
+    data_valid_interface_ = nullptr;
     return CallbackReturn::ERROR;
   }
 
@@ -301,7 +317,8 @@ controller_interface::return_type ForceTorqueBroadcaster::update(
     return controller_interface::return_type::ERROR;
   }
   const auto outcome =
-    processor_->process(*sample, link_interface_->get_value(), al_state_interface_->get_value());
+    processor_->process(*sample, link_interface_->get_value(), al_state_interface_->get_value(),
+      data_valid_interface_ == nullptr || data_valid_interface_->get_value() == 1.0);
   if (outcome.invalidated_this_cycle) {
     startup_invalidated_.store(true, std::memory_order_release);
     diagnostic_generation_.fetch_add(1U, std::memory_order_acq_rel);
@@ -349,6 +366,7 @@ CallbackReturn ForceTorqueBroadcaster::on_deactivate(const rclcpp_lifecycle::Sta
   }
   link_interface_ = nullptr;
   al_state_interface_ = nullptr;
+  data_valid_interface_ = nullptr;
   release_interfaces();
   return CallbackReturn::SUCCESS;
 }
@@ -422,6 +440,7 @@ void ForceTorqueBroadcaster::clear_runtime_resources()
   state_interface_names_.clear();
   link_interface_ = nullptr;
   al_state_interface_ = nullptr;
+  data_valid_interface_ = nullptr;
   calibration_valid_ = false;
   decimals_.clear();
   unit_codes_.clear();

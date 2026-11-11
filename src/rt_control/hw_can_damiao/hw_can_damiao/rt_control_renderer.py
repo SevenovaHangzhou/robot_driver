@@ -194,3 +194,31 @@ def preflight(expected_topology: Mapping, *, run=None) -> list:
                              "fault_code": reply["status"],
                              "detail": f"DaMiao motor {reply['can_id']} reports ERR {reply['status']}"})
     return findings
+
+
+def select_startup(request):
+    from .presence import probe_module
+    rows = []
+    for name, machine in request['modules'].items():
+        declaration = request['declarations'][name]
+        mode = request['choices'].get(name, 'auto')
+        if mode not in ('auto', 'none', 'required'):
+            raise ValueError(f'Unknown startup selection for {name}: {mode}')
+        if mode == 'auto' and request['mock'] and request.get('probe') is None:
+            raise ValueError('Mock head discovery requires explicit probe evidence')
+        evidence = ((request.get('probe') or probe_module)(machine, declaration, request['deployment'])
+                    if mode == 'auto' else {'present': None if mode == 'none' else True,
+                                           'reason': mode})
+        selected = bool(evidence['present'])
+        if not selected and declaration['startup']['policy'] == 'required':
+            raise ValueError(f'Required module unavailable: {name}')
+        spec = machine['spec']
+        joints = [joint['robot_model_joint'] for joint in spec['joints']]
+        rows.append(dict(module=name, component='', option=declaration['startup'].get('option', ''), label=declaration['startup']['label'],
+            policy=declaration['startup']['policy'], present=evidence['present'], selected=selected,
+            reason='excluded' if mode == 'none' else 'present' if selected else 'absent',
+            detail=evidence, domain=None, joints=joints,
+            health_interfaces=[f'{joint}/feedback_age_ms' for joint in joints] +
+                [f"{spec['control_name']}/fault_latched"]))
+    return dict(modules=request['modules'], rows=rows,
+                removed=[row['module'] for row in rows if not row['selected']])

@@ -92,7 +92,13 @@ def arm_page(arm, sessions, operators, audit, static_dir, *, jog_motion_enabled=
     from .arm.vacuum_control import VacuumControl
 
     config = config_from_mapping(yaml.safe_load(arm["config"].read_text(encoding="utf-8")))
+    from .module_status import ModuleStatus
+    from control_msgs.msg import DynamicJointState
+    from rclpy.qos import qos_profile_sensor_data
+    modules = ModuleStatus(arm.get('generated_dir', ''), config.max_feedback_age)
     bridge = RosBridge(arm["joint_state_topic"])
+    bridge.create_subscription(DynamicJointState,
+        '/rt_internal_state_broadcaster/dynamic_joint_states', modules.observe, qos_profile_sensor_data)
     console = ArmConsole(config, "", bridge, arm["poses"])
     bridge.attach_console(console)
     if jog_motion_enabled:
@@ -109,6 +115,7 @@ def arm_page(arm, sessions, operators, audit, static_dir, *, jog_motion_enabled=
         bridge.set_enabled,
         bridge.reset_fault,
         audit,
+        module_status=modules.snapshot,
         view_model_share=arm["view_model_share"],
         view_model_file=arm["view_model_file"],
         vacuum=VacuumControl(arm["vacuum_script"]) if arm["vacuum_script"].is_file() else None,

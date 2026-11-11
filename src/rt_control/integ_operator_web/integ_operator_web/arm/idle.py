@@ -14,6 +14,9 @@ class ArmIdleEvidence:
         self.joints, self.positions, self.velocities, self.desired = (), (), (), ()
         self.jtc_active = self.rolling_active = False
         self.motion_inactive = False
+        self.jtc, self.rolling_present = "", False
+        self.configured_motion = None
+        self.configured_motion_at = -math.inf
         self.status_seen, self.active_goal = False, True
         self.tolerance = None  # From JTC constraints.stopped_velocity_tolerance, never a fallback.
         self.pending, self.unknown = 0, False
@@ -65,20 +68,32 @@ class ArmIdleEvidence:
         with self.lock:
             self.tolerance, self.tolerance_at = value, self.clock()
 
+    def set_motion_controllers(self, jtc, rolling):
+        with self.lock:
+            self.configured_motion = (jtc, rolling)
+            self.configured_motion_at = self.clock()
+
+    def _configured_jtc_only(self):
+        return (bool(self.jtc) and self.configured_motion == (self.jtc, "")
+                and self.clock() - self.configured_motion_at <= self.controller_age)
+
     def controllers(self, controllers, jtc):
         with self.lock:
+            self.jtc = jtc
             self.jtc_active = any(c.name == jtc and c.state == "active" for c in controllers)
             if any(c.name == jtc and c.state == "inactive" for c in controllers):
                 # JTC aborts its goal on deactivation and rejects goals while inactive.
                 # Its action server does not publish an initial empty status array.
                 self.status_seen, self.active_goal = True, False
             rolling = [c for c in controllers if "RollingTrajectoryController" in c.type]
+            self.rolling_present = bool(rolling)
             self.rolling_active = any(
                 c.state == "active" for c in rolling
             )
             self.motion_inactive = (
                 any(c.name == jtc and c.state == "inactive" for c in controllers)
-                and bool(rolling) and all(c.state == "inactive" for c in rolling)
+                and (bool(rolling) or self._configured_jtc_only())
+                and all(c.state == "inactive" for c in rolling)
                 and not self.jtc_active
             )
             self.controllers_at = self.clock()
@@ -135,6 +150,8 @@ class ArmIdleEvidence:
             if self.motion_inactive:
                 # Inactive controllers publish no live target state. Use the same
                 # configured position window as Rolling, after the handover barrier.
+                if not self.rolling_present and not self._configured_jtc_only():
+                    return False
                 return self._measured_stopped(expected_joints, since)
             limit = self.tolerance
             if not (isinstance(limit, (int, float)) and math.isfinite(limit) and limit > 0

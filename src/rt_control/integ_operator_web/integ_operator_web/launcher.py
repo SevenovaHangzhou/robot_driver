@@ -128,6 +128,7 @@ def main(argv=None) -> int:
                 audit_path=Path(args.audit_log).expanduser() if args.audit_log else None,
                 arm={
                     "config": args.arm_config,
+                    "generated_dir": args.generated_dir,
                     "poses": args.poses,
                     "joint_state_topic": args.joint_state_topic,
                     "vacuum_script": args.vacuum_script,

@@ -13,9 +13,9 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>hwcfg_machines</exec_depend>
   <exec_depend>infra_renderer</exec_depend>
-  <test_depend>hw_can_damiao</test_depend>
+  <exec_depend>hw_can_damiao</exec_depend>
   <test_depend>hw_canopen</test_depend>
-  <test_depend>hw_ethercat</test_depend>
+  <exec_depend>hw_ethercat</exec_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <export>
     <build_type>ament_cmake</build_type>

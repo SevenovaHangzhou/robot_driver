@@ -88,6 +88,13 @@ def preflight(expected_topology, *, run=None):
                     f"Branch wiring differs from the declared layout at port {branch['main_esc_port']}",
                 )
             )
+    if not findings and topology.get("force_checks"):
+        from .force_renderer import check_sensors
+
+        findings.extend(check_sensors(
+            topology["force_checks"], master_id,
+            lambda argv: execute(argv, text=True, timeout=10),
+        ))
     if findings or topology.get("topology_only", False):
         return findings
     for axis in topology["axes"]:

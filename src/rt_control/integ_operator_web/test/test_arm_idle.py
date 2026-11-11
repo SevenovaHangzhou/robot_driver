@@ -128,6 +128,29 @@ def test_inactive_controllers_need_fresh_measured_stationary_window():
     assert not e.idle(NAMES, 99.)
 
 
+def test_jtc_only_scope_reconciles_with_fresh_declared_controller_configuration():
+    e, clock = inactive_ready()
+    controllers = [NS(name="jtc", type="JointTrajectoryController", state="inactive")]
+    e.controllers(controllers, "jtc")
+    assert not e.idle(NAMES, 99.)
+    e.set_motion_controllers("jtc", "")
+    e.controllers(controllers, "jtc")
+    assert e.idle(NAMES, 99.)
+
+
+@pytest.mark.parametrize("invalid", ["stale", "other_jtc", "rolling_expected"])
+def test_jtc_only_scope_rejects_stale_or_inconsistent_configuration(invalid):
+    e, clock = inactive_ready()
+    e.set_motion_controllers("other" if invalid == "other_jtc" else "jtc",
+                             "rolling" if invalid == "rolling_expected" else "")
+    controllers = [NS(name="jtc", type="JointTrajectoryController", state="inactive")]
+    e.controllers(controllers, "jtc")
+    if invalid == "stale":
+        clock[0] += e.controller_age + .01
+        e.controllers(controllers, "jtc")
+    assert not e.idle(NAMES, 99.)
+
+
 def test_position_only_jtc_after_enable_uses_configured_position_window():
     e, clock = inactive_ready()
     # No action goal has ever been submitted: there is no initial action status message.

@@ -272,3 +272,32 @@ must also set `use_slave_pdo_defaults: true`, which uses the pinned ICube/IgH pr
 path and rejects runtime PDO assignment writes. The alfa_v3 swerve inventory remains
 `verified: false`, contains no device identity or ring position, and cannot produce a
 production variant. Runtime admission therefore remains closed.
+
+
+## Optional passive sensors and PDO domains
+
+Arm branches and passive sensors can declare `pdo_domain` (0..65535). The generated
+component parameter is `ec_module.domain_id`. The driver exchanges all configured
+domains once per cycle, including startup and cyclic handoff. Each declared domain
+exports `ethercat_domain_<id>/process_data_age_ms` and `data_valid`. The existing
+aggregate domain age remains diagnostic; split arm admission uses the motor domains.
+Configurations without a domain declaration retain their existing interfaces.
+
+A force broadcaster with `data_valid_interface` suppresses raw, named-state and
+wrench publication for incomplete domain samples. Its existing calibration latch
+still applies after a runtime communication interruption. Domain separation does
+not qualify force calibration or enable independent arm control groups.
+
+`compose_artifact --sensors auto|none|<comma-separated sides>` requires
+`--selection-workspace <new-directory>`. It uses a read-only verbose EtherCAT scan,
+or `--scan-file` for offline tests. Only declared passive sensor tails may be absent.
+The resolver checks the complete identity sequence and coupler branch connections,
+then remaps positions while preserving physical joint calibration. It records the
+scan and selected configuration. Explicitly requested absent sensors, missing
+motors and unexpected branch wiring are rejected. Runtime startup repeats topology
+checks before activation. Selection is fixed for that run; this is not hot-plug
+support or automatic recovery from common-bus faults.
+
+Native builds apply `patches/ecat_icube/0015-isolate-process-data-domains.patch`
+after the existing patch series. All consumers of the changed vendor C++ headers
+must be rebuilt together; do not mix old and new plugin binaries.

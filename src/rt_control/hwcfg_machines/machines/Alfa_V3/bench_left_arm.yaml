@@ -53,6 +53,7 @@ spec:
     identity_key: coupler_subdevice
   branches:
     left:
+      pdo_domain: 1
       connector: X2
       main_esc_port: 3
       axes:

@@ -25,6 +25,10 @@ modules:
     - devices/zeroerr_erob_model_tbd.yaml
   # Bench assembly of one arm without its gripper; not a functional module of the robot.
   bench_left_arm:
+    startup:
+      policy: required
+      label: 左臂
+      labels: {left: 左臂, right: 右臂}
     role: actuator_group
     transport: ethercat
     status: draft
@@ -49,6 +53,10 @@ modules:
     - devices/zeroerr_erob_model_tbd.yaml
   # Bench assembly of both arms without grippers; not a functional module of the robot.
   bench_dual_arm:
+    startup:
+      policy: required
+      label: 双臂
+      labels: {left: 左臂, right: 右臂}
     role: actuator_group
     transport: ethercat
     status: draft
@@ -73,6 +81,11 @@ modules:
     device_refs:
     - devices/zeroerr_erob_model_tbd.yaml
   wrist_force_sensors:
+    startup:
+      policy: optional
+      label: 腕力
+      option: wrist_force
+      labels: {left: 左腕力, right: 右腕力}
     role: state_sensor_group
     transport: ethercat
     status: draft
@@ -201,6 +214,10 @@ modules:
     unit_file: swerve_calibration.yaml
     unit_module: swerve_chassis
   head_gimbal:
+    startup:
+      policy: optional
+      label: 头部
+      option: head
     role: actuator_group
     transport: damiao_can
     status: draft
@@ -225,6 +242,10 @@ modules:
     - devices/damiao_dm_j4310_2ec_v1_1.yaml
     can_interface_key: head
   bench_right_arm:
+    startup:
+      policy: required
+      label: 右臂
+      labels: {left: 左臂, right: 右臂}
     role: actuator_group
     transport: ethercat
     status: draft

@@ -1,0 +1,64 @@
+Resolve the PDO domain at common registration, independent of derived setup paths.
+
+diff --git a/ethercat_generic_plugins/ethercat_generic_cia402_drive/src/generic_ec_cia402_drive.cpp b/ethercat_generic_plugins/ethercat_generic_cia402_drive/src/generic_ec_cia402_drive.cpp
+index 2602c93..b68c1eb 100644
+--- a/ethercat_generic_plugins/ethercat_generic_cia402_drive/src/generic_ec_cia402_drive.cpp
++++ b/ethercat_generic_plugins/ethercat_generic_cia402_drive/src/generic_ec_cia402_drive.cpp
+@@ -178,7 +178,6 @@ bool EcCiA402Drive::setupSlave(
+   state_interface_ptr_ = state_interface;
+   command_interface_ptr_ = command_interface;
+   paramters_ = slave_paramters;
+-  domain_id_ = paramters_.count("domain_id") ? std::stoul(paramters_.at("domain_id")) : 0;
+ 
+   if (paramters_.find("slave_config") != paramters_.end()) {
+     if (!setup_from_config_file(paramters_["slave_config"])) {
+diff --git a/ethercat_generic_plugins/ethercat_generic_cia402_drive/test/test_generic_ec_cia402_drive.cpp b/ethercat_generic_plugins/ethercat_generic_cia402_drive/test/test_generic_ec_cia402_drive.cpp
+index 0441e52..8e170e0 100644
+--- a/ethercat_generic_plugins/ethercat_generic_cia402_drive/test/test_generic_ec_cia402_drive.cpp
++++ b/ethercat_generic_plugins/ethercat_generic_cia402_drive/test/test_generic_ec_cia402_drive.cpp
+@@ -425,8 +425,8 @@ TEST_F(EcCiA402DriveTest, SetupSlaveAssignsMotorProcessDataDomain)
+   ASSERT_GE(fd, 0);
+   close(fd);
+   {std::ofstream file(path); file << test_drive_config;}
+-  for (unsigned id : {0U, 1U, 2U}) {
+-    auto drive = std::make_unique<FriendEcCiA402Drive>();
++  auto drive = std::make_unique<FriendEcCiA402Drive>();
++  for (unsigned id : {0U, 1U, 2U, 0U}) {
+     std::vector<double> state(16, 0.0), command(16, 0.0);
+     std::unordered_map<std::string, std::string> parameters{{"slave_config", path}};
+     if (id != 0U) {parameters["domain_id"] = std::to_string(id);}
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp b/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp
+index 06af8b7..d0f40b5 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/include/ethercat_generic_plugins/generic_ec_slave.hpp
+@@ -58,7 +58,6 @@ protected:
+   std::vector<ethercat_interface::SMConfig> sm_configs_;
+   std::vector<ec_sync_info_t> syncs_;
+   std::vector<unsigned int> domain_map_;
+-  uint32_t domain_id_ = 0;
+   YAML::Node slave_config_;
+   uint32_t assign_activate_ = 0;
+   bool use_slave_pdo_defaults_ = false;
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp b/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
+index 045d44a..a727635 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/src/generic_ec_slave.cpp
+@@ -61,7 +61,9 @@ const ec_pdo_entry_info_t * GenericEcSlave::channels()
+ }
+ void GenericEcSlave::domains(DomainMap & domains) const
+ {
+-  domains = {{domain_id_, domain_map_}};
++  // Domain registration runs during configuration, outside the realtime loop.
++  const auto id = paramters_.count("domain_id") ? std::stoul(paramters_.at("domain_id")) : 0;
++  domains = {{static_cast<unsigned int>(id), domain_map_}};
+ }
+ 
+ void GenericEcSlave::setup_syncs()
+@@ -101,7 +103,6 @@ bool GenericEcSlave::setupSlave(
+   state_interface_ptr_ = state_interface;
+   command_interface_ptr_ = command_interface;
+   paramters_ = slave_paramters;
+-  domain_id_ = paramters_.count("domain_id") ? std::stoul(paramters_.at("domain_id")) : 0;
+ 
+   if (paramters_.find("slave_config") != paramters_.end()) {
+     if (!setup_from_config_file(paramters_["slave_config"])) {

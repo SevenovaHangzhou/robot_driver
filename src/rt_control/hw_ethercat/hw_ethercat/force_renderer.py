@@ -10,30 +10,51 @@ import xml.etree.ElementTree as ET
 from infra_renderer import xml_param
 import yaml
 
-from .master_health import master_entry
 from .profiles import master_parameters
+from .master_health import domain_sensor, master_entry
 
 
 def render(request, share, validate_module, validate_unit, validate_device):
     machine = validate_module(request["module"], request["machine"])
     spec = machine["spec"]
+    declared_sensors = spec["sensors"]
     mock = request["use_mock_hardware"]
+    arms = [
+        peer for peer in request.get("peer_machines", [])
+        if peer["spec"].get("family") == "zeroerr"
+    ]
+    if arms and spec.get("follow_arm_branches", False):
+        sides = {side for arm in arms for side in arm["spec"]["branches"]}
+        selected = [item for item in spec["sensors"] if item["side"] in sides]
+        if {item["side"] for item in selected} != sides:
+            raise ValueError("Force sensors must cover every selected arm branch")
+        spec["sensors"] = selected
     bench = request["hardware_system_id"] == "bluepoint_raw_bench"
-    if not bench:
+    observed = {
+        item["ring_position"]: item
+        for arm in arms for item in arm["spec"]["extra_responders"]
+    }
+    integrated_bench = bool(arms) and all(
+        item["ring_position"] in observed for item in spec["sensors"]
+    )
+    if not bench and not integrated_bench:
         if spec["full_ring_positions"] == "TBD":
-            raise ValueError("Full-machine force sensor ring positions are TBD")
-        if len(spec["full_ring_positions"]) != len(spec["sensors"]):
-            raise ValueError("Full-machine force topology must cover every sensor")
-        for item, position in zip(spec["sensors"], spec["full_ring_positions"]):
-            item["ring_position"] = position
-    if not mock and request.get("sync_mode", "") not in ("sm", "dc"):
+            if not mock:
+                raise ValueError("Full-machine force sensor ring positions are TBD")
+            for item in spec["sensors"]:
+                item["ring_position"] = "TBD"
+        else:
+            if len(spec["full_ring_positions"]) != len(declared_sensors):
+                raise ValueError("Full-machine force topology must cover every sensor")
+            for item, position in zip(declared_sensors, spec["full_ring_positions"]):
+                item["ring_position"] = position
+    if not mock and not arms and request.get("sync_mode", "") not in ("sm", "dc"):
         raise ValueError("Real force bench requires explicit sync_mode sm or dc")
     sensors, files, parameters, profiles = [], {}, {}, []
     contexts = {}
     count = len(spec["sensors"]) + len(spec["bench_extra_responders"])
     master_id = request["deployment"]["ethercat"]["master_id"]
-    # This renderer owns the master health group as well as the sensors.
-    diagnostic_devices = [master_entry(master_id, count)]
+    diagnostic_devices = [] if arms else [master_entry(master_id, count)]
 
     def state_sensor(name, values):
         sensor = ET.Element("sensor", name=name)
@@ -44,13 +65,27 @@ def render(request, share, validate_module, validate_unit, validate_device):
         sensors.append(sensor)
         return sensor
 
-    state_sensor("ethercat_master", {"link_up": 1, "slaves_responding": count, "wc_error_count": 0})
-    state_sensor("ethercat_domain", {"process_data_age_ms": 0})
+    if not arms:
+        state_sensor("ethercat_master", {"link_up": 1, "slaves_responding": count, "wc_error_count": 0})
+        state_sensor("ethercat_domain", {"process_data_age_ms": 0})
+    for domain in sorted({item["pdo_domain"] for item in spec["sensors"] if "pdo_domain" in item}):
+        # Legacy configurations may share domain 0 with an arm module.
+        if not any(domain in {b.get("pdo_domain", 0) for b in arm["spec"]["branches"].values()} for arm in arms):
+            sensors.append(domain_sensor(domain, mock))
     for item in spec["sensors"]:
         record = yaml.safe_load(
             (share / "config/profiles" / (item["profile"] + ".yaml")).read_text()
         )
         profile = deepcopy(record["driver_config"])
+        if integrated_bench:
+            observer = observed[item["ring_position"]]
+            identity = yaml.safe_load(
+                (share / "config/profiles" / (observer["profile"] + ".yaml")).read_text()
+            )["identities"][observer["identity_key"]]
+            if (identity["vendor_id"], identity["product_code"], identity["revision_number"]) != (
+                profile["vendor_id"], profile["product_id"], profile["metadata"]["revision_id"]
+            ):
+                raise ValueError("Arm observer identity differs from the selected force sensor")
         profile["metadata"].update(
             side=item["side"],
             observed_ring_position=item["ring_position"],
@@ -73,13 +108,21 @@ def render(request, share, validate_module, validate_unit, validate_device):
         position = item["ring_position"]
         if not mock and position == "TBD":
             raise ValueError("Required force sensor ring_position is TBD")
-        state_sensor(f"ethercat_slave_{position}", {"al_state": 8})
+        al_sensor = (
+            f"ethercat_slave_{position}" if position != "TBD"
+            else item["sensor_name"] + "_mock_bus"
+        )
+        state_sensor(al_sensor, {"al_state": 8})
         values = {
             channel["state_interface"]: 0 for pdo in profile["tpdo"] for channel in pdo["channels"]
         }
         component = state_sensor(item["sensor_name"], values)
         if not mock:
-            profile["assign_activate"] = 0x0300 if request["sync_mode"] == "dc" else 0
+            # Integrated arms inherit the device profile's existing DC setting.
+            if request.get("sync_mode"):
+                if request["sync_mode"] not in ("sm", "dc"):
+                    raise ValueError("Force sync_mode must be sm or dc")
+                profile["assign_activate"] = 0x0300 if request["sync_mode"] == "dc" else 0
             # Exact legacy filenames are declaration data, not composer special cases.
             relative = item["profile"] + "_" + item["side"] + ".yaml"
             files[relative] = yaml.safe_dump(profile, sort_keys=False)
@@ -88,6 +131,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "plugin": "ethercat_generic_plugins/GenericEcSlave",
                 "alias": 0,
                 "position": position,
+                **({"domain_id": item["pdo_domain"]} if "pdo_domain" in item else {}),
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
             }.items():
                 xml_param(component, "ec_module." + key, value)
@@ -95,12 +139,12 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if controller_name in parameters:
             raise ValueError("Duplicate force sensor controller binding")
         contexts[controller_name] = {
-            "binding": item["binding"],
-            "sensor_name": item["sensor_name"],
+            "binding": item["binding"], "sensor_name": item["sensor_name"],
             "family": spec["family"],
         }
         parameters[controller_name] = {
             "sensor_name": item["sensor_name"],
+            **({"data_valid_interface": f"ethercat_domain_{item['pdo_domain']}/data_valid"} if "pdo_domain" in item else {}),
             "value_interfaces": [
                 item["sensor_name"] + "/" + name
                 for name in record["broadcaster"]["value_interface_names"]
@@ -117,7 +161,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
             "calibration_valid": False,
             "frame_id": item["sensor_name"] + "_raw",
             "link_interface": "ethercat_master/link_up",
-            "al_state_interface": f"ethercat_slave_{position}/al_state",
+            "al_state_interface": f"{al_sensor}/al_state",
         }
         if type(position) is int:
             diagnostic_devices.append(
@@ -148,12 +192,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
             }
         )
     params = {
-        "master_id": master_id,
+        "master_id": request["deployment"]["ethercat"]["master_id"],
         "control_frequency": request["bus_cycle_hz"],
         **master_parameters(share),
     }
-    if mock:
+    if mock and not arms:
         params.update(calculate_dynamics="false", mock_sensor_commands="false")
+    elif mock and request["render_mode"] != "stationary_enable":
+        params["calculate_dynamics"] = "false"
     return {
         "hardware_system_id": machine["master_system"],
         "hardware_plugin": "mock_components/GenericSystem"
@@ -169,6 +215,10 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "controller_context": contexts,
         "diagnostic_devices": diagnostic_devices,
         "expected_topology": {
+            "master_id": params["master_id"],
+            "force_checks": profiles,
+            "preflight_required": True,
+        } if arms else {
             "kind": "passive_force_bench",
             "master_id": params["master_id"],
             "responder_count": count,
@@ -203,8 +253,15 @@ def preflight(topology, *, run=None):
                     "blocking": True,
                 }
             ]
+    return check_sensors(topology["sensors"], master_id, execute)
+
+
+def check_sensors(sensors, master_id, execute):
+    """Verify the selected passive slaves before a shared master is activated."""
+    master_id = str(master_id)
+    bus = {"master_id": int(master_id)}
     findings = []
-    for sensor in topology["sensors"]:
+    for sensor in sensors:
         position = str(sensor["ring_position"])
         address = {**bus, "ring_position": sensor["ring_position"]}
 

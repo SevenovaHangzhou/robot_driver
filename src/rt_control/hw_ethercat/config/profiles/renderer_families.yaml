@@ -3,6 +3,7 @@ schema_version: 1
 # schemas. Adding a family adds a row and a module; the dispatch code is unchanged.
 families:
   zeroerr:
+    startup_kind: actuators
     module: arm_renderer
     module_schema: arms.schema.json
     unit_schema: arms_zero.schema.json
@@ -11,6 +12,7 @@ families:
     module_schema: kinco_module.schema.json
     unit_schema: kinco_unit.schema.json
   bluepoint:
+    startup_kind: passive_sensors
     module: force_renderer
     module_schema: force.schema.json
 # expected_topology.kind selects the read-only preflight implementation.

@@ -107,6 +107,11 @@
               ],
               "additionalProperties": false
             }
+          },
+          "pdo_domain": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
           }
         },
         "required": [

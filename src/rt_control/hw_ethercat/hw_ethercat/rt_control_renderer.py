@@ -92,3 +92,8 @@ def preflight(expected_topology: Mapping, *, run=None) -> list:
     if kind not in kinds:
         raise ValueError(f"Unregistered EtherCAT preflight kind: {kind}")
     return _module(kinds[kind]).preflight(expected_topology, run=run)
+
+
+def select_startup(request):
+    from .startup import select_startup as resolve
+    return resolve(request, _registry()['families'])

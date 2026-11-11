@@ -171,7 +171,8 @@ class RosBridge(Node):
         if self._mode_parameters is not None:
             self._request("stationary_policy", self._mode_parameters,
                           GetParameters.Request(names=["motion_joints", "mode_switch_stable_velocity_thresholds",
-                                                       "mode_switch_stable_interval_count"]), self._stationary_policy)
+                                                       "mode_switch_stable_interval_count", "motion_controller",
+                                                       "rolling_controller"]), self._stationary_policy)
         if self._rolling_parameters is not None:
             self._request("rolling_parameters", self._rolling_parameters,
                           GetParameters.Request(names=ROLLING_PARAMETERS), self._received_rolling_parameters)
@@ -201,9 +202,10 @@ class RosBridge(Node):
 
     def _stationary_policy(self, response):
         values = response.values
-        if len(values) == 3 and [v.type for v in values] == [9, 8, 2]:
+        if len(values) == 5 and [v.type for v in values] == [9, 8, 2, 4, 4]:
             self._readback.evidence.set_stationary_policy(
                 values[0].string_array_value, values[1].double_array_value, values[2].integer_value)
+            self._readback.evidence.set_motion_controllers(values[3].string_value, values[4].string_value)
 
     def _received_rolling_parameters(self, response):
         fields = {2: "integer_value", 3: "double_value", 8: "double_array_value", 9: "string_array_value"}

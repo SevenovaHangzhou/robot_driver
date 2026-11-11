@@ -71,7 +71,7 @@ protected:
   Broadcaster controller;
   rclcpp::executors::SingleThreadedExecutor executor;
   rclcpp::Node::SharedPtr client;
-  std::array<double, 14> state_values{};
+  std::vector<double> state_values = std::vector<double>(14, 0.0);
   std::vector<hardware_interface::StateInterface> state_handles;
 
   void configure(const bool calibration_valid = true)
@@ -157,6 +157,29 @@ protected:
 
   void TearDown() override { controller.on_deactivate(rclcpp_lifecycle::State{}); }
 };
+
+TEST_F(ForceTorqueBroadcasterTest, DomainValiditySuppressesRawPublicationUntilComplete)
+{
+  controller.on_deactivate(rclcpp_lifecycle::State{});
+  controller.get_node()->set_parameter({"data_valid_interface", "ethercat_domain_4/data_valid"});
+  ASSERT_EQ(controller.on_configure(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  state_values.resize(15, 0.0);
+  bind_and_activate();
+  set_valid_frame();
+  std_msgs::msg::Int32MultiArray::SharedPtr raw;
+  const auto subscription = client->create_subscription<std_msgs::msg::Int32MultiArray>(
+    "/test/raw", robot_interfaces_qos::fast_state(),
+    [&](std_msgs::msg::Int32MultiArray::SharedPtr message) { raw = message; });
+  spin_until([&]() { return subscription->get_publisher_count() > 0U; });
+  const auto until = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
+  while (std::chrono::steady_clock::now() < until) {
+    update_once();
+    executor.spin_some();
+  }
+  EXPECT_FALSE(raw);
+  set_state("ethercat_domain_4/data_valid", 1.0);
+  spin_until([&]() { update_once(); return raw != nullptr; });
+}
 
 TEST_F(ForceTorqueBroadcasterTest, ClaimsOnlyTheConfiguredStateInterfaces)
 {
