@@ -111,10 +111,8 @@ jobs:
         with:
           path: .ci/vendor
           key: rt-control-vendor-v1-${{ runner.os }}-${{ hashFiles('deps.repos') }}
-          restore-keys: |
-            rt-control-vendor-v1-${{ runner.os }}-
-            rt-control-ci-${{ runner.os }}-${{ hashFiles('deps.repos', 'versions.env') }}
-            rt-control-ci-${{ runner.os }}-
+          # A different manifest can contain different immutable commits. Treat it as a miss;
+          # bootstrap intentionally refuses to rewrite an existing vendor checkout.
       - name: Cache apt archives
         uses: actions/cache@v5
         with:
