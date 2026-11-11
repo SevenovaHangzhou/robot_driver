@@ -29,7 +29,6 @@ class RollingOutput:
     def __init__(self, console, bridge, sender):
         self.console, self.bridge, self.sender = console, bridge, sender
         self.started = False
-        self.terminal_seen = False
         self.hold_reference = None
 
     def snapshot(self):
@@ -102,7 +101,7 @@ class RollingOutput:
                     raise ConsoleError("jog_hold_changed", "Rolling 保持状态已变化，未启动运动")
                 c._reserve_motion(connection)
                 self.hold_reference = {"positions": positions, "identity": before}
-                self.started = self.terminal_seen = False
+                self.started = False
                 c._jog_busy = True
                 return {
                     "positions": dict(c.robot.positions),
@@ -223,8 +222,7 @@ class RollingOutput:
             c._authority_unknown = True
         ended = phase in (3, 4, 5)
         never_sent = not self.started and c.authority.poll()["phase"] == "stopping"
-        if (ended or never_sent) and not self.terminal_seen:
-            self.terminal_seen = True
+        if ended or never_sent:
             c._jog_busy = False
             c._authority_outcome_at = c._clock()
 

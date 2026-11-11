@@ -21,8 +21,7 @@ class ArmIdleEvidence:
         self.tolerance = None  # From JTC constraints.stopped_velocity_tolerance, never a fallback.
         self.pending, self.unknown = 0, False
         self.rolling = None
-        self.measured_joints, self.measured_velocities = (), ()
-        self.measured_at = self.tolerance_at = -math.inf
+        self.tolerance_at = -math.inf
         self.stationary_policy = None
         self.stationary_at = -math.inf
         self.samples = deque(maxlen=4097)
@@ -45,7 +44,6 @@ class ArmIdleEvidence:
                 self.samples.clear()
             if valid:
                 self.samples.append((now, stamp_ns, dict(zip(names, positions))))
-            self.measured_at = now
 
     def set_stationary_policy(self, names, thresholds, intervals):
         with self.lock:

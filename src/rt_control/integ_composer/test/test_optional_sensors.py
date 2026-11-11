@@ -34,19 +34,8 @@ def observed_scan(missing=()):
 def test_auto_selects_present_scope_sensors_and_preserves_motor_calibration(
     shares, tmp_path, missing, side
 ):
-    selection = dict(
-        robot_variant="Alfa_V3",
-        machine_unit="Alfa_V3-bench-01",
-        physical_profile=f"bench_{side}_arm",
-        control_scope=f"bench_{side}_arm_head",
-        use_mock_hardware=False,
-    )
-    result, report = write_sensor_artifact(
-        tmp_path / "artifact",
-        workspace=tmp_path / "selection",
-        scan=observed_scan(missing),
-        package_share=lambda name: str(shares[name]),
-        **selection,
+    result, report = make(
+        shares, tmp_path, observed_scan(missing), side=side, use_mock_hardware=False
     )
     expected = {
         s for s, p in [("left", 8), ("right", 16)] if p not in missing and side in (s, "dual")
@@ -88,7 +77,9 @@ def test_auto_selects_present_scope_sensors_and_preserves_motor_calibration(
     ] == list(range(18 - len(missing)))
 
 
-def make(shares, tmp_path, scan_text, choice="auto"):
+def make(
+    shares, tmp_path, scan_text, choice="auto", *, side="dual", use_mock_hardware=True, **options
+):
     return write_sensor_artifact(
         tmp_path / "artifact",
         workspace=tmp_path / "selection",
@@ -97,9 +88,10 @@ def make(shares, tmp_path, scan_text, choice="auto"):
         package_share=lambda name: str(shares[name]),
         robot_variant="Alfa_V3",
         machine_unit="Alfa_V3-bench-01",
-        physical_profile="bench_dual_arm",
-        control_scope="bench_dual_arm_head",
-        use_mock_hardware=True,
+        physical_profile=f"bench_{side}_arm",
+        control_scope=f"bench_{side}_arm_head",
+        use_mock_hardware=use_mock_hardware,
+        **options,
     )
 
 
@@ -131,18 +123,13 @@ def test_does_not_treat_motor_loss_or_bad_wiring_as_optional(shares, tmp_path, d
 @pytest.mark.parametrize("side", ["left", "right", "dual"])
 @pytest.mark.parametrize("present", [True, False])
 def test_optional_head_removes_all_claims_when_absent(shares, tmp_path, side, present):
-    result, report = write_sensor_artifact(
-        tmp_path / "artifact",
-        workspace=tmp_path / "selection",
-        scan=observed_scan((16,)),
+    result, report = make(
+        shares,
+        tmp_path,
+        observed_scan((16,)),
+        side=side,
         head="auto",
         head_probe=lambda *args: {"present": present},
-        package_share=lambda name: str(shares[name]),
-        robot_variant="Alfa_V3",
-        machine_unit="Alfa_V3-bench-01",
-        physical_profile=f"bench_{side}_arm",
-        control_scope=f"bench_{side}_arm_head",
-        use_mock_hardware=True,
     )
     params = result.controllers["enable_manager"]["ros__parameters"]
     assert ("head_position_controller" in result.controllers) == present
