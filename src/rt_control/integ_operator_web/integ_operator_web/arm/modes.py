@@ -19,13 +19,21 @@ class ArmModes:
 
     def can_select(self, target):
         c = self.console
-        return (not c._mode_busy and not c._authority_unknown
-                and (self.matches(target) or (self.available() and c.idle_probe(-float("inf")))))
+        return (
+            not c._mode_busy
+            and not c._authority_unknown
+            and (self.matches(target) or (self.available() and c.idle_probe(-float("inf"))))
+        )
 
     def status(self):
         current = next((m for m in ("jtc", "rolling") if self.matches(m)), "unknown")
-        return {"automatic": True, "current": current, "target": self.target,
-                "switching": self.console._mode_busy, "error": self.error}
+        return {
+            "automatic": True,
+            "current": current,
+            "target": self.target,
+            "switching": self.console._mode_busy,
+            "error": self.error,
+        }
 
     @contextmanager
     def select(self, connection, target):
@@ -36,8 +44,15 @@ class ArmModes:
             if permit is None or permit.entry != entry:
                 raise ConsoleError("lease_required", "请先获取对应页面的双臂控制权")
             c.authority.require(permit)
-            if (c._mode_busy or c._execution is not None or c._sequence is not None
-                    or c._jog_busy or c._enable_busy or c._scope_busy or c._authority_unknown):
+            if (
+                c._mode_busy
+                or c._execution is not None
+                or c._sequence is not None
+                or c._jog_busy
+                or c._enable_busy
+                or c._scope_busy
+                or c._authority_unknown
+            ):
                 raise ConsoleError("busy", "双臂已有运动或切换尚未结束")
             if c.robot.enable_state != "ENABLED" or not c._fresh(c.robot.enable_at, STATE_STALE_S):
                 raise ConsoleError("not_ready", "手臂未使能")
@@ -58,13 +73,17 @@ class ArmModes:
             with c._lock:
                 c.authority.require(permit)
                 if not self.matches(target):
-                    raise ModeError("mode_unconfirmed", "控制器模式未确认，未发送轨迹", uncertain=True)
+                    raise ModeError(
+                        "mode_unconfirmed", "控制器模式未确认，未发送轨迹", uncertain=True
+                    )
             yield
             committed = True
         except Exception as exc:
             with c._lock:
                 self.error = str(exc)
-                c._authority_unknown |= not isinstance(exc, ConsoleError) or getattr(exc, "uncertain", False)
+                c._authority_unknown |= not isinstance(exc, ConsoleError) or getattr(
+                    exc, "uncertain", False
+                )
             raise
         finally:
             with c._lock:

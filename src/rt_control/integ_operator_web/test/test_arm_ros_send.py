@@ -65,7 +65,9 @@ def test_message_preparation_preserves_move_lead_and_stop_timeline(monkeypatch, 
     monkeypatch.setattr("integ_operator_web.arm.ros_bridge.time.monotonic", lambda: now[0])
     action = Action()
     obj = NS(
-        _action=action, _lock=threading.Lock(), _goal=None,
+        _action=action,
+        _lock=threading.Lock(),
+        _goal=None,
         _readback=NS(evidence=ArmIdleEvidence(0.2, 2.5)),
         get_clock=lambda: NS(now=lambda: Time(seconds=now[0] + 100.0)),
     )
@@ -75,7 +77,12 @@ def test_message_preparation_preserves_move_lead_and_stop_timeline(monkeypatch, 
         yield TrajectoryPoint(0.0, (0.2,), (0.0,), (0.0,))
 
     actual_start = RosBridge.send(
-        obj, ["a"], slow_points(), lambda *_: None, 100.05, start_delay=start_delay,
+        obj,
+        ["a"],
+        slow_points(),
+        lambda *_: None,
+        100.05,
+        start_delay=start_delay,
     )
     expected = 100.13 if start_delay else 100.05
     assert actual_start == pytest.approx(expected)

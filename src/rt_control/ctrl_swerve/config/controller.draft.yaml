@@ -4,7 +4,8 @@ controller_manager:
       type: ctrl_swerve/SwerveController
 # Exercised values: ELECTRI-127 Advantech bench (controllers.runtime.yaml on 946ec110),
 # except user 2026-10-17: max_linear_speed/max_wheel_speed 2 m/s, max_wheel_acceleration 2 m/s^2
-# (both wheel-surface units), max_steering_slew 35 deg/s, max_steering_acceleration 35 deg/s^2.
+# (both wheel-surface units); user 2026-11-07: steering 90 deg/s and 180 deg/s^2 (was 35/35), also the
+# operator-tuning ceilings and the base wheel trajectory limits.
 # PLACEHOLDER (user 2026-10-17): covariance/IMU values are uncalibrated; replace after the
 # joint backlash + IMU variance calibration. Do not treat published odometry covariance as measured.
 swerve_controller:
@@ -52,8 +53,10 @@ swerve_controller:
     align_first_release: 0.05235987755982988
     alignment_threshold: 1.5707963267948966
     flip_hysteresis: 0.05235987755982989
-    max_steering_slew: 0.6108652381980153
-    max_steering_acceleration: 0.6108652381980153
+    max_steering_slew: 1.5707963267948966
+    max_steering_acceleration: 3.141592653589793
+    max_steering_slew_limit: 1.5707963267948966
+    max_steering_acceleration_limit: 3.141592653589793
     # S-curve steering, user 2026-10-18: 100 deg/s^3 (operator-tunable, cap 1000 deg/s^3).
     max_steering_jerk: 1.7453292519943295
     translation_heading_epsilon: 1e-06

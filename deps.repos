@@ -2,8 +2,8 @@ repositories:
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git
-    # robot_interfaces main after #17/#18 (Rolling final, rolling client).
-    version: aa82a77c7acccc837309c234462b2f564edc42e2
+    # robot_interfaces main after #19 (base CSV/CSP mode switching, base wheel trajectory).
+    version: 78f02ffe5b8f40a9f57bf9405cd00e007914fc84
   src/vendor/ecat_icube:
     type: git
     url: https://github.com/ICube-Robotics/ethercat_driver_ros2.git

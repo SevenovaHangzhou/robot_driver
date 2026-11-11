@@ -1,3 +1,5 @@
+# Arms SetJointControlMode service (R-IN-06), used with the rolling controller.
+mode_service: arms_control_mode
 joints:
 - right_joint1
 - right_joint2

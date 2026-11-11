@@ -1,0 +1,99 @@
+# Part of controllers.yaml (merged by integ_composer read_with_parts): chassis wheel trajectory.
+controllers:
+  # R-IN-24/R-IN-25: owns the eight wheel joints in FJT_READY (drive wheels in CSP); the swerve
+  # controller owns them in VELOCITY_READY. enable_manager switches between the two.
+  base_wheel_jtc:
+    module: swerve_chassis
+    name: base_wheel_jtc
+    plugin: joint_trajectory_controller/JointTrajectoryController
+    package: ctrl_rolling_trajectory
+    actuator_groups:
+    - steering_csp
+    - drive_csv
+    required_state_modules: []
+    tags:
+    - base_trajectory
+    capabilities:
+    - name: base_joint_trajectory
+      topic: /rt/base/follow_joint_trajectory
+      type: control_msgs/action/FollowJointTrajectory
+    - name: base_joint_stream
+      topic: /rt/base/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
+    parameters:
+    - policy:
+        name: base_motion
+        path: joints
+        as: joints
+        match: actuator_groups
+    - policy:
+        name: base_motion
+        path: jtc
+    - interface:
+        name: base_trajectory
+        as: action_name
+    - interface:
+        name: base_joint_stream
+        as: trajectory_topic
+    # The navigation limits of the swerve controller in joint units: steering max_steering_slew
+    # and max_steering_acceleration; drive wheels max_wheel_speed and max_wheel_acceleration at
+    # the wheel surface, divided by the radius.
+    - joint_values:
+        policy: base_motion
+        path: joints
+        as: joint_velocity_limits
+        groups:
+        - module: swerve_chassis
+          joints_export: steering_joints
+          yaml:
+            package: ctrl_swerve
+            file: config/controller.draft.yaml
+            path: swerve_controller.ros__parameters.max_steering_slew
+        - module: swerve_chassis
+          joints_export: drive_joints
+          yaml:
+            package: ctrl_swerve
+            file: config/controller.draft.yaml
+            path: swerve_controller.ros__parameters.max_wheel_speed
+          divide_by_export: wheel_radius
+    - joint_values:
+        policy: base_motion
+        path: joints
+        as: joint_acceleration_limits
+        groups:
+        - module: swerve_chassis
+          joints_export: steering_joints
+          yaml:
+            package: ctrl_swerve
+            file: config/controller.draft.yaml
+            path: swerve_controller.ros__parameters.max_steering_acceleration
+        - module: swerve_chassis
+          joints_export: drive_joints
+          yaml:
+            package: ctrl_swerve
+            file: config/controller.draft.yaml
+            path: swerve_controller.ros__parameters.max_wheel_acceleration
+          divide_by_export: wheel_radius
+    # The position range each drive accepts: steering +-120 deg (the navigation range).
+    - joint_values:
+        policy: base_motion
+        path: joints
+        as: joint_position_limits_lower
+        groups:
+        - module: swerve_chassis
+          joints_export: steering_joints
+          value_export: steering_position_min
+        - module: swerve_chassis
+          joints_export: drive_joints
+          value_export: drive_position_min
+    - joint_values:
+        policy: base_motion
+        path: joints
+        as: joint_position_limits_upper
+        groups:
+        - module: swerve_chassis
+          joints_export: steering_joints
+          value_export: steering_position_max
+        - module: swerve_chassis
+          joints_export: drive_joints
+          value_export: drive_position_max

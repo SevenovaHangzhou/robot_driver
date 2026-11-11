@@ -192,10 +192,11 @@ CallbackReturn ForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::Stat
     state_interface_names_.push_back(link_interface_name_);
     state_interface_names_.push_back(al_state_interface_name_);
     if (!data_valid_interface_name_.empty()) {
-      if (!configured_name(data_valid_interface_name_) ||
-        std::find(state_interface_names_.begin(), state_interface_names_.end(),
-        data_valid_interface_name_) != state_interface_names_.end())
-      {
+      if (
+        !configured_name(data_valid_interface_name_) ||
+        std::find(
+          state_interface_names_.begin(), state_interface_names_.end(),
+          data_valid_interface_name_) != state_interface_names_.end()) {
         throw std::invalid_argument("data_valid_interface must be a unique configured interface");
       }
       state_interface_names_.push_back(data_valid_interface_name_);
@@ -290,7 +291,8 @@ CallbackReturn ForceTorqueBroadcaster::on_activate(const rclcpp_lifecycle::State
       al_state_interface_ = &interface;
     }
   }
-  if (link_interface_ == nullptr || al_state_interface_ == nullptr ||
+  if (
+    link_interface_ == nullptr || al_state_interface_ == nullptr ||
     (!data_valid_interface_name_.empty() && data_valid_interface_ == nullptr)) {
     sensor_->release_interfaces();
     link_interface_ = nullptr;
@@ -316,9 +318,9 @@ controller_interface::return_type ForceTorqueBroadcaster::update(
   if (!sample.has_value()) {
     return controller_interface::return_type::ERROR;
   }
-  const auto outcome =
-    processor_->process(*sample, link_interface_->get_value(), al_state_interface_->get_value(),
-      data_valid_interface_ == nullptr || data_valid_interface_->get_value() == 1.0);
+  const auto outcome = processor_->process(
+    *sample, link_interface_->get_value(), al_state_interface_->get_value(),
+    data_valid_interface_ == nullptr || data_valid_interface_->get_value() == 1.0);
   if (outcome.invalidated_this_cycle) {
     startup_invalidated_.store(true, std::memory_order_release);
     diagnostic_generation_.fetch_add(1U, std::memory_order_acq_rel);

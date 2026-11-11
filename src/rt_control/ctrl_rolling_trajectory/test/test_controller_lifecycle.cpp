@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstddef>
 #include <chrono>
+#include <future>
+#include <thread>
 #include <limits>
 #include <memory>
 #include <string>
@@ -109,8 +111,7 @@ protected:
     controller_->assign_interfaces(std::move(commands), std::move(states));
   }
 
-  control_msgs::srv::QueryTrajectoryState::Response::SharedPtr queryHeld(
-    std::int32_t seconds = 0)
+  control_msgs::srv::QueryTrajectoryState::Response::SharedPtr queryHeld(std::int32_t seconds = 0)
   {
     using Query = control_msgs::srv::QueryTrajectoryState;
     auto client_node = std::make_shared<rclcpp::Node>("hold_query_client");
@@ -125,10 +126,17 @@ protected:
     auto request = std::make_shared<Query::Request>();
     request->time.sec = seconds;
     auto future = client->async_send_request(request);
-    if (executor.spin_until_future_complete(future, std::chrono::seconds(2)) !=
-        rclcpp::FutureReturnCode::SUCCESS) {
-      ADD_FAILURE() << "hold query timed out";
-      return nullptr;
+    // Keep mock feedback and the completed RT summary current while DDS serves the query.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (future.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+      (void)controller_->update(
+        controller_->get_node()->now(), rclcpp::Duration::from_nanoseconds(4'000'000));
+      executor.spin_some();
+      if (std::chrono::steady_clock::now() >= deadline) {
+        ADD_FAILURE() << "hold query timed out";
+        return nullptr;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     return future.get();
   }
@@ -304,13 +312,15 @@ TEST_F(ControllerLifecycleTest, ReadOnlyQueryReturnsSourceCommandAndNeverMeasure
   ASSERT_NE(inactive, nullptr);
   EXPECT_FALSE(inactive->success);
   assignInterfaces();
-  ASSERT_EQ(controller_->on_activate(rclcpp_lifecycle::State()),
-            controller_interface::CallbackReturn::SUCCESS);
+  ASSERT_EQ(
+    controller_->on_activate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
   const auto response = queryHeld();
   ASSERT_NE(response, nullptr);
   ASSERT_TRUE(response->success) << response->message;
   ASSERT_EQ(response->position.size(), kAxisCount);
-  EXPECT_EQ(response->name, std::vector<std::string>(kTestJointNames.begin(), kTestJointNames.end()));
+  EXPECT_EQ(
+    response->name, std::vector<std::string>(kTestJointNames.begin(), kTestJointNames.end()));
   EXPECT_EQ(response->velocity, std::vector<double>(kAxisCount, 0.0));
   EXPECT_EQ(response->acceleration, std::vector<double>(kAxisCount, 0.0));
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
@@ -318,16 +328,18 @@ TEST_F(ControllerLifecycleTest, ReadOnlyQueryReturnsSourceCommandAndNeverMeasure
     EXPECT_NE(response->position[axis], actual_positions_[axis]);
   }
   EXPECT_FALSE(queryHeld(1)->success);
-  EXPECT_EQ(controller_->on_deactivate(rclcpp_lifecycle::State()),
-            controller_interface::CallbackReturn::SUCCESS);
+  EXPECT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
   EXPECT_FALSE(queryHeld()->success);
 }
 
 TEST_F(ControllerLifecycleTest, HeldQueryRejectsStaleHardwareFeedback)
 {
   assignInterfaces();
-  ASSERT_EQ(controller_->on_activate(rclcpp_lifecycle::State()),
-            controller_interface::CallbackReturn::SUCCESS);
+  ASSERT_EQ(
+    controller_->on_activate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
   feedback_age_ms_ = 1000.0;
   (void)controller_->update(rclcpp::Time(0), rclcpp::Duration::from_nanoseconds(4'000'000));
   const auto response = queryHeld();

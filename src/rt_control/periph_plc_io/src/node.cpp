@@ -98,6 +98,8 @@ class IoModuleNode final : public rclcpp::Node
 public:
   IoModuleNode() : Node("plc_io_modbus")
   {
+    declare_parameter("digital.module.interface", "");
+    declare_parameter("analog.module.interface", "");
     declare_parameter("digital.module.host", "192.168.1.12");
     declare_parameter("digital.module.port", 502);
     declare_parameter("digital.module.unit_id", 1);
@@ -126,10 +128,12 @@ public:
     analog_config_ = read_module_config("analog.module", "AI/AO");
     digital_client_.emplace(
       digital_config_.host, static_cast<uint16_t>(digital_config_.port),
-      std::chrono::milliseconds(digital_config_.timeout_ms));
+      std::chrono::milliseconds(digital_config_.timeout_ms),
+      get_parameter("digital.module.interface").as_string());
     analog_client_.emplace(
       analog_config_.host, static_cast<uint16_t>(analog_config_.port),
-      std::chrono::milliseconds(analog_config_.timeout_ms));
+      std::chrono::milliseconds(analog_config_.timeout_ms),
+      get_parameter("analog.module.interface").as_string());
     validate_parameters();
     initialise_instance_id();
 

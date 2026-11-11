@@ -57,7 +57,13 @@ private:
   // state machine. No behavior change; not referenced by production code.
   friend class EnableManagerTestAccess;
 
-  static constexpr std::size_t kMotionAxisCount = 14U;
+  // Motion axes of the mode switch: motion_joints, at most kMaxMotionAxes. The per-axis
+  // parameter defaults cover the dual arm.
+  static constexpr std::size_t kMaxMotionAxes = 16U;
+  static constexpr std::size_t kDualArmAxisCount = 14U;
+  // CiA402 0x6060 values the mode switch writes to the switched drives (mode_switch_joints).
+  static constexpr std::int16_t kCspMode = 8;
+  using MotionPositions = std::array<double, kMaxMotionAxes>;
   // EtherCAT AL state Operational (ETG.1000.6), as the slave al_state interface reports it.
   static constexpr double kAlStateOp = 8.0;
 
@@ -86,7 +92,8 @@ private:
     kDisabled = 0U,
     kFjtReady = 1U,
     kRollingReady = 2U,
-    kRestartRequired = 3U
+    kRestartRequired = 3U,
+    kVelocityReady = 4U
   };
   enum class ModeSwitchState : std::uint8_t {
     kTargetActive,
@@ -134,7 +141,7 @@ private:
 
   struct ActualSample
   {
-    std::array<double, kMotionAxisCount> positions{};
+    MotionPositions positions{};
     double feedback_age_ms{0.0};
     std::uint64_t steady_time_ns{0U};
     std::uint64_t sequence{0U};
@@ -143,7 +150,7 @@ private:
   struct CommandSnapshot
   {
     bool valid{false};
-    std::array<double, kMotionAxisCount> positions{};
+    MotionPositions positions{};
     std::uint64_t received_steady_ns{0U};
     std::uint8_t control_mode{0U};
     // Rolling only: RollingJointControlState.state; the rolling source must be holding.
@@ -163,7 +170,8 @@ private:
     kModeFeedbackStale,
     kModeTakeoverMismatch,
     kModeSwitchRejected,
-    kModeRestartRequired
+    kModeRestartRequired,
+    kModeDriveModeTimeout
   };
 
   static DriveState decodeState(std::uint16_t status_word);
@@ -216,8 +224,7 @@ private:
   bool stableActualInterval(
     const ActualSample & window_start, const ActualSample & current) const noexcept;
   bool sourceWithinTakeoverTolerance(
-    const std::array<double, kMotionAxisCount> & source,
-    const std::array<double, kMotionAxisCount> & actual) const noexcept;
+    const MotionPositions & source, const MotionPositions & actual) const noexcept;
   bool readActualSample(ActualSample & sample) const noexcept;
   bool readCommandSnapshot(ControlMode mode, CommandSnapshot & snapshot) const;
   std::uint8_t validateModeSource(ControlMode source, CommandSnapshot & snapshot);
@@ -227,6 +234,15 @@ private:
   std::uint8_t executeModeSwitch(ControlMode source, ControlMode target);
   void convergeAfterUnsafeModeSwitch(bool restart_required);
   bool releaseModeOwnership() noexcept;
+  // The mode a controller set implies for the switched drives: CSP while the trajectory
+  // controller owns a velocity-mode group, else each drive's startup mode.
+  bool switchedDrivesUseCsp(ControlMode mode) const noexcept;
+  // Requests the drive mode for `mode`, then waits until every switched drive reports it.
+  bool switchDriveModes(ControlMode mode);
+  bool configureDriveModeSwitching();
+  bool bindDriveModeCommands();
+  void writeDriveModes() noexcept;
+  bool runningModeConfirmed(std::size_t axis) const noexcept;
   static void populateModeError(
     robot_system_interfaces::msg::ErrorInfo & error, std::uint8_t result);
   SwitchResult switchJtc(bool activate);
@@ -319,7 +335,7 @@ private:
   std::atomic<ControlMode> current_control_mode_{ControlMode::kDisabled};
   // Realtime writers and service readers share these; the doubles must stay lock-free.
   static_assert(std::atomic<double>::is_always_lock_free);
-  std::array<std::atomic<double>, kMotionAxisCount> actual_sample_positions_{};
+  std::array<std::atomic<double>, kMaxMotionAxes> actual_sample_positions_{};
   std::atomic<double> actual_sample_feedback_age_ms_{0.0};
   std::atomic<std::uint64_t> actual_sample_time_ns_{0U};
   std::atomic<std::uint64_t> actual_sample_sequence_{0U};
@@ -401,13 +417,27 @@ private:
   std::vector<std::string> companion_controllers_;
   std::string default_motion_controller_;
   std::string rolling_motion_controller_;
+  // Velocity-mode groups (the swerve chassis): motion_controller runs VELOCITY_READY and this
+  // trajectory controller FJT_READY; empty for the arms, where motion_controller is FJT_READY.
+  std::string trajectory_motion_controller_;
+  ControlMode motion_controller_mode_{ControlMode::kFjtReady};
+  std::string mode_service_name_;
+  // Drives whose operation mode follows the controller set; enable checks their startup mode.
+  std::vector<std::string> mode_switch_joint_names_;
+  std::vector<std::size_t> mode_switch_axes_;
+  std::vector<std::uint8_t> mode_switch_axis_;
+  std::size_t drive_mode_command_offset_{0U};
+  // CSP requested by the mode switch; the realtime update clears it whenever the group is not
+  // enabled, so every enable starts in the startup mode.
+  std::atomic_bool drive_csp_requested_{false};
+  std::array<std::atomic<std::int16_t>, kMaxMotionAxes> drive_mode_display_{};
   std::uint64_t mode_switch_maximum_sample_period_ns_{2000000U};
   std::uint64_t mode_switch_source_state_max_age_ns_{100000000U};
   std::size_t mode_switch_stable_interval_count_{5U};
   std::chrono::milliseconds mode_switch_timeout_{500};
   double mode_switch_feedback_age_limit_ms_{500.0};
-  std::array<double, kMotionAxisCount> mode_switch_stable_velocity_thresholds_{};
-  std::array<double, kMotionAxisCount> mode_switch_takeover_tolerances_{};
+  MotionPositions mode_switch_stable_velocity_thresholds_{};
+  MotionPositions mode_switch_takeover_tolerances_{};
   mutable std::mutex command_snapshot_mutex_{};
   CommandSnapshot jtc_command_snapshot_{};
   CommandSnapshot rolling_command_snapshot_{};

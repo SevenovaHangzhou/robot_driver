@@ -20,7 +20,7 @@
 
 ## 条目
 
-## D-001 — 头部使能并入 enable_manager，待实机验证 [OPEN]
+## D-001 — 头部使能并入 enable_manager，待实机验证 [RESOLVED 2026-11-07]
 
 - 问题：达妙头部的使能、失能、清错已由 enable_manager 以"握手式设备"方式负责，原
   `damiao_head_controller` 与 `/rt/head/*` 删除（PR #110，arch-s7）。软件测试与 mock 启停已通过，
@@ -29,9 +29,13 @@
 - 影响范围：只阻塞 #110 及其后续 PR 的合并与头部实机使用；不影响双臂、底盘。
 - 待验证项：启动后 IDLE 且两台未使能；`/rt/enable` 两台使能并激活位置控制器；`/rt/disable`
   先停位置控制器再失能；故障锁存进入 FAILED、`/rt/reset_fault` 回到 IDLE；使能中 SIGTERM 先失能再退出。
-- 裁决：用户 2026-10-29 要求合并后实机测试；结论待填。
+- 裁决：用户 2026-10-29 要求合并后实机测试。台架 bench_dual_arm_head 已验证启动 IDLE、使能、失能、
+  故障后复位与使能中拔线停机，头部随使能启动、双臂模式切换时保持运行（记录
+  `docs/areas/control/records/2026-11-04-enabled-offline-stop.md`、`2026-11-05-enabled-unplug-bench.md`、
+  `2026-11-05-controller-set.md`）。用户 2026-11-07 确认关闭。
+- 剩余验证：使能中 SIGTERM 先失能再退出无单独记录；只断头部电源的场景未做。
 
-## D-002 — 统一三份 SocketCAN 实现 [OPEN]
+## D-002 — 统一三份 SocketCAN 实现 [RESOLVED 2026-11-07]
 
 - 问题：`hw_can_damiao`（达妙，跑在 ros2_control 实时 read/write 中）、`periph_bms`（29 位扩展帧，
   失败后重连）、`periph_imu_lpms`（只收、拒绝 can0/can1）各自实现打开、过滤、收发。
@@ -46,8 +50,12 @@
   - 公共库 `infra_socketcan` 只管传输（打开、过滤、绑定、非阻塞收发、等待、接口序号）；
     重连策略、过滤器构造、协议解码留在各包；打开失败抛异常，收发与等待返回状态、不抛异常。
   - `can0/can1` 保留检查不进公共库，从 `periph_imu_lpms` 删除：接口归属是台套部署事实。
+- 完成：#128（b646234）新建 `infra_socketcan`，`hw_can_damiao`、`periph_bms`、`periph_imu_lpms`、`hw_canopen`
+  共用；#129 删除 can0/can1 保留检查。用户 2026-11-07 确认关闭。
+- 剩余验证：`hw_can_damiao` 已在台架头部实机运行；`periph_bms`、`periph_imu_lpms` 改用公共库后未在真机运行
+  （2026-11-07 电池通信为 `cansend` 手动只读查询，未经 BMS 节点）。
 
-## D-003 — 统一两个 Modbus TCP 客户端 [OPEN]
+## D-003 — 统一两个 Modbus TCP 客户端 [RESOLVED 2026-11-07]
 
 - 问题：`periph_plc_io`（长连接、固定 1 s 超时、getaddrinfo、FC01–06）与 `periph_led_ultrasonic`
   （每次请求重连、可配置超时、只接受 IPv4）各自实现连接、收发与报头校验。
@@ -60,4 +68,6 @@
   - 任何错误（含超时）都关闭连接，下一次请求再连，避免迟到回复被下一次请求读到。
   - 读写都不自动重试（与 `periph_plc_io` 现状一致；写操作结果未知时不得假装成功）。
   - getaddrinfo 加 `AI_NUMERICHOST`，只接受数字地址；超时按端点配置，`periph_plc_io` 默认仍为 1 s。
-
+- 完成：#130（6f8bc76）新建 `infra_modbus` 长连接客户端，`periph_plc_io` 改用；#131（23f548b）
+  `periph_led_ultrasonic` 改用。用户 2026-11-07 确认关闭。
+- 剩余验证：`periph_plc_io`（真空泵与阀）、`periph_led_ultrasonic` 改用公共库后未在真机运行。

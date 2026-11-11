@@ -62,6 +62,11 @@ policy_refs:
     file: machines/Alfa_V3/policies/Alfa_V3_chassis_enable_policy.yaml
     schema_package: ctrl_enable_manager
     schema: enable_policy.schema.json
+  chassis_motion:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_chassis_motion.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: base_motion.schema.json
   bench_left_arm_enable:
     package: hwcfg_machines
     file: machines/Alfa_V3/policies/Alfa_V3_bench_left_arm_enable_policy.yaml

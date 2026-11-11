@@ -23,7 +23,10 @@
 | arm-control-20261014-01#F1–F3 | 显式批次/容差/包络保留旧数值与顺序，provisional 不冒充实测 | [显式手臂策略](records/2026-10-14-explicit-arm-policies.md) | UNVERIFIED（T0；策略/金样验证通过，实机未验） |
 | arm-control-20261019-01#F1–F3 | JTC 在非实时回调拒绝超过 `max_trajectory_points`（默认 2000）的轨迹；2000 点时新轨迹周期约 1.17 ms | [JTC 点数上限](records/2026-10-19-jtc-max-trajectory-points.md) | PARTIAL（T1 mock；台架未发轨迹） |
 | control-20261104-03#F1–F2 | JTC 话题与 action 共用准入：首点 ≤ 容差 + URDF 速度上限 × 到首点时间，点/段速度不超过 URDF 上限；末点速度必须为 0 | [流式轨迹与速度准入](records/2026-11-04-arm-joint-stream.md) | PARTIAL（本机单元测试；未上台架） |
+| control-20261107-01 | JTC 准入可选位置上下限：点与每段三次曲线（含引入段）都在 [lower, upper] 内，否则整条拒绝；不配置不检查 | [JTC 位置准入](records/2026-11-07-jtc-position-limits.md) | PARTIAL（本机单元测试；暂无配置使用者） |
+| control-20261107-02 | 底盘 `/rt/base/set_control_mode`：静止时在舵轮控制器（行走轮 CSV）与 `base_wheel_jtc`（行走轮 CSP）间切换，驱动器回读确认后才成功，超时失能；JTC 限值取导航配置与驱动器范围 | [底盘 CSV/CSP 切换](records/2026-11-07-base-control-mode.md) | PARTIAL（研华实车切换、轨迹、准入、失能再使能通过；cmd_vel 行驶未测） |
 | control-20261105-01 | rolling 会话随模式切换与首个批次开始；批次 ROS 时间；状态 5 字段；限值取 robot_description（位置内缩 0.05 rad、30°/s、60°/s²） | [精简 rolling](records/2026-11-05-rolling-slim.md) | PARTIAL（本机单元测试；未上台架） |
+| control-20261109-01#F1–F3 | Rolling 补窗与状态发布消费一致的完整 RT 摘要，准入保留新鲜度、最新边界及停车时间增长余量 | [Rolling 状态摘要](records/2026-11-09-rolling-state-snapshot.md) | PARTIAL（T0；实机待验） |
 | integration-20261014-03#F1–F4 | 控制包只依赖共享HeadPhase；控制器集合/参数保持，D-b不准入新真实头部 | [第四步记录](../integration/records/2026-10-14-head-force-composition.md) | PARTIAL（头部T1等价；实机未验） |
 | lifecycle/20261009-03#F1 | 模式切换成功路径测试持续提供 JTC 状态，保留生产新鲜度与停稳门禁 | [CI 源状态刷新修复](../../areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md)#F1-F2 | PARTIAL（65用例及30次延迟回归通过；全仓CI待验） |
 | lifecycle/01#F1 | /rt/disable 挂起症状真实（4 例日志）；病因指向服务端 waitForResult 30s 自旋+RT 循环未填槽，非串行预算叠加 | [lifecycle-20260814-01](../../areas-archive/lifecycle/records/2026-08-14-rt-disable-log-forensics.md)#F1 | 有效 |
@@ -38,6 +41,7 @@
 | motion/F6 | 四轮速度使用固定规模最小二乘残差剔除；同一异常轮从 twist 与位置里程计排除且恢复无补跳，阈值保持待标定；共模一致误差不可辨识 | [残差剔除记录](../../areas-archive/motion/records/2026-09-16-swerve-slip-residual-rejection.md)#F1-F4 | PARTIAL（T1 Native/Mock；阈值和实机打滑待验） |
 | motion/F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](../../areas-archive/motion/records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
 | motion/F10 | ELECTRI-133 Tier A 固定规模 SE(2) 相对运动、独立无设备 Mock 与 opt-in loaned-interface/cyclic adapter 已实现；connected synthetic PDO 已验证 sent-cycle 与全四轮切换门禁，production profile/gate 未放开 | [Tier A 记录](../../areas-archive/motion/records/2026-09-25-tier-a-relative-move-mock.md)#F1-F4 | PARTIAL（T1；真实切换/标定/IMU 待验） |
+| control-20261111-01#F1–F2 | Rolling 保持指令查询与补窗共用完整 RT 摘要，过期摘要拒绝查询并报告明确准入原因 | [Rolling 摘要集成](records/2026-11-11-rolling-snapshot-integration.md) | PARTIAL（T0；798 项通过，实机待验） |
 
 ## 跨区事实关联
 

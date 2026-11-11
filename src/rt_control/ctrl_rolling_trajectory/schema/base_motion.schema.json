@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Velocity-mode group policy (swerve chassis): mode service, wheel trajectory controller and mode switch. The jtc and enable_manager sections are those of the arm policy.",
+  "type": "object",
+  "properties": {
+    "mode_service": {
+      "description": "interface_naming key of the group's SetJointControlMode service",
+      "type": "string",
+      "minLength": 1
+    },
+    "joints": {
+      "$ref": "arm_tolerances.schema.json#/properties/joints"
+    },
+    "jtc": {
+      "$ref": "arm_tolerances.schema.json#/properties/jtc"
+    },
+    "enable_manager": {
+      "$ref": "arm_tolerances.schema.json#/properties/enable_manager"
+    }
+  },
+  "required": [
+    "mode_service",
+    "joints",
+    "jtc",
+    "enable_manager"
+  ],
+  "additionalProperties": false
+}

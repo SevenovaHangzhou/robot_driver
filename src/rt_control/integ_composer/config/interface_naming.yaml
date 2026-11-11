@@ -6,6 +6,10 @@ right_arm_trajectory: /rt/arms/right/follow_joint_trajectory
 arms_joint_stream: /rt/arms/joint_trajectory
 left_arm_joint_stream: /rt/arms/left/joint_trajectory
 right_arm_joint_stream: /rt/arms/right/joint_trajectory
+arms_control_mode: /rt/arms/set_control_mode
+base_control_mode: /rt/base/set_control_mode
+base_trajectory: /rt/base/follow_joint_trajectory
+base_joint_stream: /rt/base/joint_trajectory
 raw: /rt_control/{binding}/raw
 state: /rt_control/{binding}/state
 sensor_calibration: /robot/rt_control/{family}/{sensor_name}/calibration

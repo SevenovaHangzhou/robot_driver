@@ -1,0 +1,201 @@
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller.cpp b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+index a2e337ab..63311926 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller.cpp
++++ b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+@@ -19,6 +19,7 @@
+ #include <memory>
+ 
+ #include <string>
++#include <utility>
+ #include <vector>
+ 
+ #include "angles/angles.h"
+@@ -698,6 +699,28 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+   // get degrees of freedom
+   dof_ = params_.joints.size();
+ 
++  const auto & lower_limits = params_.joint_position_limits_lower;
++  const auto & upper_limits = params_.joint_position_limits_upper;
++  if (!lower_limits.empty() || !upper_limits.empty())
++  {
++    bool valid = params_.trajectory_start_consistency_check.enabled &&
++                 lower_limits.size() == dof_ && upper_limits.size() == dof_;
++    for (size_t index = 0; valid && index < dof_; ++index)
++    {
++      valid = std::isfinite(lower_limits[index]) && std::isfinite(upper_limits[index]) &&
++              lower_limits[index] < upper_limits[index];
++    }
++    if (!valid)
++    {
++      RCLCPP_ERROR(
++        logger,
++        "joint_position_limits_lower/upper need trajectory_start_consistency_check and one finite "
++        "lower < upper pair per configured joint (expected %zu, got %zu/%zu)",
++        dof_, lower_limits.size(), upper_limits.size());
++      return CallbackReturn::FAILURE;
++    }
++  }
++
+   if (params_.trajectory_start_consistency_check.enabled)
+   {
+     if (params_.trajectory_start_consistency_check.feedback_age_state_interface.empty())
+@@ -1417,6 +1440,40 @@ double hermite_peak_acceleration(double q0, double v0, double q1, double v1, dou
+   const double end = (-6.0 * delta + (2.0 * v0 + 4.0 * v1) * duration) / (duration * duration);
+   return std::max(std::abs(start), std::abs(end));
+ }
++
++// Position range of the same cubic Hermite segment: its ends and the interior zeros of the
++// quadratic velocity.
++std::pair<double, double> hermite_position_range(
++  double q0, double v0, double q1, double v1, double duration)
++{
++  const double a = (2.0 * (q0 - q1) + (v0 + v1) * duration) / (duration * duration * duration);
++  const double b = (3.0 * (q1 - q0) - (2.0 * v0 + v1) * duration) / (duration * duration);
++  double lowest = std::min(q0, q1);
++  double highest = std::max(q0, q1);
++  const auto include = [&](double s)
++  {
++    if (std::isfinite(s) && s > 0.0 && s < duration)
++    {
++      const double position = ((a * s + b) * s + v0) * s + q0;
++      lowest = std::min(lowest, position);
++      highest = std::max(highest, position);
++    }
++  };
++  if (a == 0.0)
++  {
++    include(b == 0.0 ? 0.0 : -v0 / (2.0 * b));
++  }
++  else
++  {
++    const double discriminant = b * b - 3.0 * a * v0;
++    if (discriminant >= 0.0)
++    {
++      include((-b + std::sqrt(discriminant)) / (3.0 * a));
++      include((-b - std::sqrt(discriminant)) / (3.0 * a));
++    }
++  }
++  return {lowest, highest};
++}
+ }  // namespace
+ 
+ bool JointTrajectoryController::validate_trajectory_limits(
+@@ -1473,6 +1530,37 @@ bool JointTrajectoryController::validate_trajectory_limits(
+             splice_positions[joint_index], splice_velocities[joint_index],
+             current.positions[goal_index], current.velocities[goal_index], first_point_s));
+       }
++      if (!params_.joint_position_limits_lower.empty())
++      {
++        std::pair<double, double> range{current.positions[goal_index], current.positions[goal_index]};
++        if (point > 0)
++        {
++          const auto & previous = trajectory.points[point - 1];
++          range = hermite_position_range(
++            previous.positions[goal_index], previous.velocities[goal_index],
++            current.positions[goal_index], current.velocities[goal_index],
++            (rclcpp::Duration(current.time_from_start) - rclcpp::Duration(previous.time_from_start))
++              .seconds());
++        }
++        else if (first_point_s > 0.0)
++        {
++          range = hermite_position_range(
++            splice_positions[joint_index], splice_velocities[joint_index],
++            current.positions[goal_index], current.velocities[goal_index], first_point_s);
++        }
++        const double lower = params_.joint_position_limits_lower[joint_index];
++        const double upper = params_.joint_position_limits_upper[joint_index];
++        if (!std::isfinite(range.first) || !std::isfinite(range.second) || range.first < lower ||
++            range.second > upper)
++        {
++          RCLCPP_ERROR(
++            get_node()->get_logger(),
++            "FJT_REJECT reason=position_limit joint=%s point=%zu min=%.17g max=%.17g "
++            "lower=%.17g upper=%.17g",
++            name, point, range.first, range.second, lower, upper);
++          return false;
++        }
++      }
+       if (!std::isfinite(velocity) || velocity > velocity_limit)
+       {
+         RCLCPP_ERROR(
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+index d8115f58..242b89f2 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
++++ b/joint_trajectory_controller/src/joint_trajectory_controller_parameters.yaml
+@@ -111,6 +111,22 @@ joint_trajectory_controller:
+       within it.",
+     read_only: true,
+   }
++  joint_position_limits_lower: {
++    type: double_array,
++    default_value: [],
++    description: "Optional lower position limit (rad) per configured joint, with
++      joint_position_limits_upper and trajectory_start_consistency_check; empty disables the
++      position check. Every point and every cubic segment, including the lead-in from the last
++      command, must stay within [lower, upper].",
++    read_only: true,
++  }
++  joint_position_limits_upper: {
++    type: double_array,
++    default_value: [],
++    description: "Optional upper position limit (rad) per configured joint; see
++      joint_position_limits_lower.",
++    read_only: true,
++  }
+   action_name: {
+     type: string,
+     default_value: "",
+diff --git a/joint_trajectory_controller/test/test_trajectory_controller.cpp b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+index 36df18e4..ba8e6e4c 100644
+--- a/joint_trajectory_controller/test/test_trajectory_controller.cpp
++++ b/joint_trajectory_controller/test/test_trajectory_controller.cpp
+@@ -112,6 +112,49 @@ TEST_F(TrajectoryControllerTest, joint_limits_are_required_with_start_consistenc
+   }
+ }
+ 
++TEST_F(TrajectoryControllerTest, position_limits_need_one_pair_per_joint)
++{
++  for (const auto & [lower, upper] :
++       {std::pair{std::vector<double>{0.0, 0.0, 0.0}, std::vector<double>{}},
++        std::pair{std::vector<double>{0.0, 0.0}, std::vector<double>{5.0, 5.0}},
++        std::pair{std::vector<double>{5.0, 0.0, 0.0}, std::vector<double>{5.0, 5.0, 5.0}}})
++  {
++    rclcpp::executors::MultiThreadedExecutor executor;
++    auto parameters = admission_parameters();
++    parameters.emplace_back("joint_position_limits_lower", lower);
++    parameters.emplace_back("joint_position_limits_upper", upper);
++    SetUpTrajectoryController(executor, parameters);
++    EXPECT_EQ(traj_controller_->get_node()->configure().id(), State::PRIMARY_STATE_UNCONFIGURED);
++    executor.cancel();
++  }
++}
++
++TEST_F(TrajectoryControllerTest, admission_rejects_points_and_segments_outside_position_limits)
++{
++  rclcpp::executors::MultiThreadedExecutor executor;
++  auto parameters = admission_parameters();
++  std::vector<double> lower;
++  std::vector<double> upper;
++  for (const double initial : INITIAL_POS_JOINTS)
++  {
++    lower.push_back(initial - 0.28);
++    upper.push_back(initial + 0.28);
++  }
++  parameters.emplace_back("joint_position_limits_lower", lower);
++  parameters.emplace_back("joint_position_limits_upper", upper);
++  SetUpAndActivateTrajectoryController(executor, parameters);
++  updateController(rclcpp::Duration::from_seconds(0.02));
++
++  EXPECT_TRUE(
++    traj_controller_->validate_trajectory_start(offsets(joint_names_, {{2.0, 0.25}, {4.0, 0.25}})));
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{2.0, 0.29}})));
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(offsets(joint_names_, {{2.0, -0.29}})));
++  // Both points lie inside, but at 0.3 rad/s the cubic between them peaks near +0.308 rad.
++  EXPECT_FALSE(traj_controller_->validate_trajectory_start(
++    offsets(joint_names_, {{2.0, 0.25}, {4.0, 0.25}}, 0.3)));
++  executor.cancel();
++}
++
+ TEST_F(TrajectoryControllerTest, admission_applies_the_tolerance_only_to_a_point_due_now)
+ {
+   rclcpp::executors::MultiThreadedExecutor executor;

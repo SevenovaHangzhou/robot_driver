@@ -10,7 +10,11 @@ cases:
     env: docker
     env_note: 按 BQ-093/096 裁决方式注入宿主 cyclictest（只读 bind /usr/bin/cyclictest，映射 /dev/cpu_dma_latency），与运行中控制栈并行施压
     covers: ["hostsetup/**", "docker/**"]
-    traces: [domains/rt_control/docs/deployment-operations-runbook.md, domains/rt_control/docs/host-setup-record.md, "BQ-064"]
+    # 旧 V0.10 性能用例的来源坐标，不是新主机的参数授权。
+    traces:
+      - https://github.com/SevenovaHangzhou/robot_driver/blob/16fa212ec2b1efd748486e06158e0d364191b755/domains/rt_control/docs/deployment-operations-runbook.md
+      - domains/rt_control/docs/host-setup-record.md
+      - BQ-064
     preconditions: 栈运行中（FIFO 80 控制环在线）；宿主装有 rt-tests
     entry: |
       # 诊断容器内，单线程 FIFO 90、1 ms interval、mlockall，运行 1800 s

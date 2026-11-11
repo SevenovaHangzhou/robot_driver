@@ -82,6 +82,10 @@
               -1,
               1
             ]
+          },
+          "mode_switching": {
+            "description": "Runtime CSP/CSV switching: the enable manager writes this drive's mode with the controller set; mode_of_operation stays the startup mode.",
+            "type": "boolean"
           }
         },
         "required": [

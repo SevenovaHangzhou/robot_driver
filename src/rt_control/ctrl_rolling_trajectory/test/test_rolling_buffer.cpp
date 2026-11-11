@@ -155,7 +155,8 @@ TEST_F(BufferFixture, LimitEvidenceMatchesTheRejectedAxisAndCubicWithoutChanging
     EXPECT_EQ(buffer.image().point_count, 0U);
     points[1].positions[5] = 0.0;
     const auto valid = views(points);
-    EXPECT_EQ(buffer.prepare({0U, valid.data(), valid.size()}, {}, candidate, &detail), RejectCode::kNone);
+    EXPECT_EQ(
+      buffer.prepare({0U, valid.data(), valid.size()}, {}, candidate, &detail), RejectCode::kNone);
     EXPECT_EQ(detail.quantity, LimitQuantity::kNone);
   }
 }

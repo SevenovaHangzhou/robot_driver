@@ -45,23 +45,6 @@ private:
   bool owns_{false};
 };
 
-class RtStateVersionGuard
-{
-public:
-  explicit RtStateVersionGuard(std::atomic<std::uint64_t> & version) noexcept : version_(version)
-  {
-    version_.fetch_add(1U, std::memory_order_acq_rel);
-  }
-
-  ~RtStateVersionGuard() noexcept { version_.fetch_add(1U, std::memory_order_release); }
-
-  RtStateVersionGuard(const RtStateVersionGuard &) = delete;
-  RtStateVersionGuard & operator=(const RtStateVersionGuard &) = delete;
-
-private:
-  std::atomic<std::uint64_t> & version_;
-};
-
 }  // namespace
 
 controller_interface::InterfaceConfiguration
@@ -169,15 +152,13 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_activate(
   prime_start_ns_.store(0, std::memory_order_release);
   session_epoch_.store(0U, std::memory_order_release);
   session_publication_floor_.store(1U, std::memory_order_release);
-  rt_state_version_.store(0U, std::memory_order_release);
-  rt_state_session_epoch_.store(0U, std::memory_order_release);
   initial_handoff_gate_.clear(std::memory_order_release);
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     observed_positions_[axis].store(actual_positions[axis], std::memory_order_release);
     desired_positions_[axis].store(source_commands[axis], std::memory_order_release);
-    desired_velocities_[axis].store(0.0, std::memory_order_release);
   }
   observed_feedback_age_ms_.store(feedback_age_ms, std::memory_order_release);
+  publishRtStateView();
   state_publisher_->on_activate();
   rejection_publisher_->on_activate();
   active_.store(true, std::memory_order_release);
@@ -196,8 +177,8 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_deactivate(
       static_cast<std::uint8_t>(StopReason::kControllerDeactivated), std::memory_order_release);
     rt_session_state_.store(
       static_cast<std::uint8_t>(SessionState::kTerminated), std::memory_order_release);
-    const std::uint64_t new_epoch = session_epoch_.fetch_add(1U, std::memory_order_acq_rel) + 1U;
-    rt_state_session_epoch_.store(new_epoch, std::memory_order_release);
+    rt_observed_session_epoch_ = session_epoch_.fetch_add(1U, std::memory_order_acq_rel) + 1U;
+    publishRtStateView();
   }
   (void)publishPublicState();
   state_publisher_->on_deactivate();
@@ -211,7 +192,6 @@ controller_interface::return_type RollingTrajectoryController::update(
   if (!active_.load(std::memory_order_acquire)) {
     return controller_interface::return_type::OK;
   }
-  RtStateVersionGuard state_version(rt_state_version_);
 
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     observed_positions_[axis].store(state_interfaces_[axis].get_value(), std::memory_order_release);
@@ -236,8 +216,10 @@ controller_interface::return_type RollingTrajectoryController::update(
     }
   }
   if (!coherent_session) {
-    return writeRtDesired() ? controller_interface::return_type::OK
-                            : controller_interface::return_type::ERROR;
+    const bool written = writeRtDesired();
+    publishRtStateView();
+    return written ? controller_interface::return_type::OK
+                   : controller_interface::return_type::ERROR;
   }
 
   bool update_succeeded = true;
@@ -317,10 +299,9 @@ controller_interface::return_type RollingTrajectoryController::update(
     rt_desired_.velocities.fill(0.0);
   }
 
-  if (!update_succeeded || !writeRtDesired()) {
-    return controller_interface::return_type::ERROR;
-  }
-  return controller_interface::return_type::OK;
+  const bool written = update_succeeded && writeRtDesired();
+  publishRtStateView();
+  return written ? controller_interface::return_type::OK : controller_interface::return_type::ERROR;
 }
 
 std::uint64_t RollingTrajectoryController::steadyNowNs() noexcept
@@ -576,10 +557,34 @@ bool RollingTrajectoryController::writeRtDesired() noexcept
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     command_interfaces_[axis].set_value(rt_desired_.positions[axis]);
     desired_positions_[axis].store(rt_desired_.positions[axis], std::memory_order_release);
-    desired_velocities_[axis].store(rt_desired_.velocities[axis], std::memory_order_release);
   }
-  rt_state_session_epoch_.store(rt_observed_session_epoch_, std::memory_order_release);
   return true;
+}
+
+void RollingTrajectoryController::publishRtStateView() noexcept
+{
+  const auto state = static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
+  // Session startup may reset shared fields while holding. Skip publication if its non-RT
+  // writer owns the handoff; running/stopping state has no concurrent session reset.
+  const bool require_handoff = active_.load(std::memory_order_acquire) &&
+                               state != SessionState::kRunning && state != SessionState::kStopping;
+  OptionalRtFlagGuard handoff(initial_handoff_gate_, require_handoff);
+  if (
+    !handoff.mayProceed() ||
+    session_epoch_.load(std::memory_order_acquire) != rt_observed_session_epoch_) {
+    return;
+  }
+  auto & view = rt_state_exchange_.writingSlot();
+  view.session_epoch = rt_observed_session_epoch_;
+  view.session_state = static_cast<SessionState>(rt_session_state_.load(std::memory_order_relaxed));
+  view.stop_reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_relaxed));
+  view.active_generation = active_generation_.load(std::memory_order_relaxed);
+  view.execution_time_ns = execution_time_ns_.load(std::memory_order_relaxed);
+  view.replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_relaxed);
+  view.desired = rt_desired_;
+  view.desired.time_ns = view.execution_time_ns;
+  view.published_at_ns = steadyNowNs();
+  rt_state_exchange_.publish();
 }
 
 bool RollingTrajectoryController::desiredIsValid(const JointPoint & desired) const noexcept

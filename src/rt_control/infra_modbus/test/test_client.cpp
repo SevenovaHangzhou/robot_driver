@@ -126,6 +126,39 @@ TEST(ClientTest, RejectsNonNumericHostAndInvalidSettings)
   EXPECT_THROW(infra_modbus::Client("127.0.0.1", 0, 1000ms), std::invalid_argument);
   EXPECT_THROW(infra_modbus::Client("127.0.0.1", 502, 0ms), std::invalid_argument);
   EXPECT_NO_THROW(infra_modbus::Client("::1", 502, 1000ms));
+  EXPECT_THROW(
+    infra_modbus::Client("127.0.0.1", 502, 1000ms, std::string(16, 'x')), std::invalid_argument);
+  EXPECT_THROW(
+    infra_modbus::Client("127.0.0.1", 502, 1000ms, std::string("lo\0bad", 6)),
+    std::invalid_argument);
+}
+
+TEST(ClientTest, MissingInterfaceFailsWithoutFallingBackToTheDefaultRoute)
+{
+  Server server([](int, int) { ADD_FAILURE() << "Must not connect through another interface"; });
+  infra_modbus::Client client("127.0.0.1", server.port(), 100ms, "modbus_missing");
+  for (int attempt = 0; attempt < 2; ++attempt) {
+    EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+    EXPECT_FALSE(client.connected());
+  }
+  EXPECT_EQ(server.accepted(), 0);
+}
+
+TEST(ClientTest, BoundInterfaceSurvivesConnectionLossAndReconnect)
+{
+  Server server([](int fd, int connection) {
+    const auto request = read_request(fd);
+    if (connection == 1) {
+      return;
+    }
+    send_all(fd, reply_to(request, {0x01, 0x01, 0x00}));
+    read_request(fd);
+  });
+  infra_modbus::Client client("127.0.0.1", server.port(), 1000ms, "lo");
+  EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+  EXPECT_FALSE(client.connected());
+  EXPECT_EQ(client.transact(1, kReadCoil), (Bytes{0x01, 0x01, 0x00}));
+  EXPECT_EQ(server.accepted(), 2);
 }
 
 TEST(ClientTest, KeepsOneConnectionAcrossRequestsAndChecksTheReplyHeader)

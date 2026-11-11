@@ -25,8 +25,13 @@ class Client final
 {
 public:
   // `host` must be a numeric IPv4/IPv6 address. `timeout` bounds each transact() call,
-  // including the connect when one is needed. Throws std::invalid_argument.
-  Client(const std::string & host, std::uint16_t port, std::chrono::milliseconds timeout);
+  // including the connect when one is needed. Empty interface uses host routing; a specified
+  // interface is bound on every new socket and never falls back if binding fails.
+  // Changing this constructor requires rebuilding callers linked against this library.
+  // Throws std::invalid_argument for malformed configuration.
+  Client(
+    const std::string & host, std::uint16_t port, std::chrono::milliseconds timeout,
+    const std::string & interface = "");
   ~Client() noexcept;
   Client(const Client &) = delete;
   Client & operator=(const Client &) = delete;
@@ -48,6 +53,7 @@ private:
   void wait(short events, Clock::time_point deadline) const;
   void transfer(std::uint8_t * data, std::size_t size, bool sending, Clock::time_point deadline);
 
+  std::string interface_;
   sockaddr_storage address_{};
   socklen_t address_length_{0};
   std::chrono::milliseconds timeout_;

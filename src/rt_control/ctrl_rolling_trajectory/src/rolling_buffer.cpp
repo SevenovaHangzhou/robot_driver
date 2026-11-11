@@ -80,9 +80,13 @@ void describeLimit(
       break;
     case RejectCode::kAccelerationLimit:
       if (values.acceleration_positive > bounds.acceleration_positive) {
-        set(LimitQuantity::kAccelerationPositive, values.acceleration_positive, bounds.acceleration_positive);
+        set(
+          LimitQuantity::kAccelerationPositive, values.acceleration_positive,
+          bounds.acceleration_positive);
       } else {
-        set(LimitQuantity::kAccelerationNegative, values.acceleration_negative, bounds.acceleration_negative);
+        set(
+          LimitQuantity::kAccelerationNegative, values.acceleration_negative,
+          bounds.acceleration_negative);
       }
       break;
     case RejectCode::kNotStoppingViable:
@@ -187,8 +191,8 @@ RejectCode RollingBuffer::validateInput(const BatchView & batch) const noexcept
 }
 
 RejectCode RollingBuffer::prepare(
-  const BatchView & batch, const AdmissionContext & context,
-  TrajectoryImage & candidate, BufferRejection * rejection) const noexcept
+  const BatchView & batch, const AdmissionContext & context, TrajectoryImage & candidate,
+  BufferRejection * rejection) const noexcept
 {
   if (rejection != nullptr) {
     *rejection = BufferRejection{};
@@ -261,14 +265,16 @@ RejectCode RollingBuffer::prepare(
     const auto direct =
       limit_checker_.checkSegment(candidate.points[index], candidate.points[index + 1U], extrema);
     if (direct.code != RejectCode::kNone) {
-      describeLimit(rejection, direct, index - prefix_count, candidate.points[index],
+      describeLimit(
+        rejection, direct, index - prefix_count, candidate.points[index],
         candidate.points[index + 1U], limit_checker_.envelope(), extrema);
       return direct.code;
     }
     StoppingEnvelope stopping;
     const auto viable = limit_checker_.checkStoppingViability(extrema, stopping);
     if (viable.code != RejectCode::kNone) {
-      describeLimit(rejection, viable, index - prefix_count, candidate.points[index],
+      describeLimit(
+        rejection, viable, index - prefix_count, candidate.points[index],
         candidate.points[index + 1U], limit_checker_.envelope(), extrema, &stopping);
       return viable.code;
     }

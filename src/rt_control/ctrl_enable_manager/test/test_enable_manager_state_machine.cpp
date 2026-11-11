@@ -259,6 +259,7 @@ std::vector<rclcpp::Parameter> parametersWithFixtureTopology(
     rclcpp::Parameter(
       "ready_to_switch_on_disable_terminal_joints",
       std::vector<std::string>{"right_joint2", "right_joint3", "left_joint2", "left_joint3"}),
+    rclcpp::Parameter("mode_service", std::string("/rt/arms/set_control_mode")),
   };
   for (const auto & parameter : additional_parameters) {
     addOrReplaceParameter(parameters, parameter);
@@ -661,6 +662,35 @@ TEST_F(EnableManagerFixture, MotionModeClaimsFourteenPositionsAndFeedbackAge)
     EXPECT_EQ(state_config.names[kAxes + axis], std::string(kJointNames[axis]) + "/position");
   }
   EXPECT_EQ(state_config.names.back(), "ethercat_domain/process_data_age_ms");
+}
+
+TEST_F(EnableManagerFixture, MotionModeTakesItsAxisCountFromMotionJoints)
+{
+  // Eight of the managed joints, with per-axis arrays of the same length.
+  const std::vector<std::string> joints(kJointNames.begin(), kJointNames.begin() + 8);
+  const auto configure_with = [&joints](const std::vector<double> & per_axis) {
+    EnableManagerController c;
+    rclcpp::NodeOptions opts;
+    opts.parameter_overrides(parametersWithFixtureTopology(
+      {rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
+       rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
+       rclcpp::Parameter("motion_joints", joints),
+       rclcpp::Parameter("mode_switch_stable_velocity_thresholds", per_axis),
+       rclcpp::Parameter("mode_switch_takeover_tolerances", per_axis)}));
+    opts.allow_undeclared_parameters(true);
+    opts.automatically_declare_parameters_from_overrides(true);
+    EXPECT_EQ(c.init("motion_axis_count", "", opts), controller_interface::return_type::OK);
+    const auto result = c.on_configure(rclcpp_lifecycle::State());
+    const auto names = c.state_interface_configuration().names;
+    return std::make_pair(result, names.size());
+  };
+
+  const auto [ok, ok_names] = configure_with(std::vector<double>(8U, 0.01));
+  EXPECT_EQ(ok, controller_interface::CallbackReturn::SUCCESS);
+  EXPECT_EQ(ok_names, kAxes + 8U + 1U);
+  EXPECT_EQ(
+    configure_with(std::vector<double>(kAxes, 0.01)).first,
+    controller_interface::CallbackReturn::ERROR);
 }
 
 TEST_F(EnableManagerFixture, StandstillIsJudgedOverTheWholeWindow)

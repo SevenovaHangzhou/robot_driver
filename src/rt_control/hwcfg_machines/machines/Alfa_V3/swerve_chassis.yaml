@@ -13,7 +13,7 @@ authorities:
     8e6ddb7); base/steer/wheel elements carried unchanged into robot_alfav3_mobile.urdf (4d4ad9a)
 pending_facts:
 - Kinco ESI identity/revision, DC and watchdog belong to the protocol profile, not this file
-- CSP/CSV switch adapter profile and calibrated handoff limits/timeouts
+- CSP/CSV handoff limits/timeouts (policies/Alfa_V3_chassis_motion.yaml) are the user-approved initial values of 2026-11-07, to be calibrated on the chassis
 - DC support, watchdog range and 0x605E stop behavior
 - calibrated wheel radius, steering hard stops and transmission confirmation
 robot_variant: Alfa_V3
@@ -71,6 +71,8 @@ spec:
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: -1
     mode_of_operation: 9
+    # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
+    mode_switching: true
     interface_contract: swerve_drive_csv
     mock_joint_name: wheel1_joint
   - module_position: module_2
@@ -80,6 +82,8 @@ spec:
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: -1
     mode_of_operation: 9
+    # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
+    mode_switching: true
     interface_contract: swerve_drive_csv
     mock_joint_name: wheel2_joint
   - module_position: module_3
@@ -89,6 +93,8 @@ spec:
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: -1
     mode_of_operation: 9
+    # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
+    mode_switching: true
     interface_contract: swerve_drive_csv
     mock_joint_name: wheel3_joint
   - module_position: module_4
@@ -98,5 +104,7 @@ spec:
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: -1
     mode_of_operation: 9
+    # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
+    mode_switching: true
     interface_contract: swerve_drive_csv
     mock_joint_name: wheel4_joint

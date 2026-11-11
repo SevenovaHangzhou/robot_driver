@@ -1,0 +1,71 @@
+# Chassis CSV/CSP mode switch and wheel trajectory policy (R-IN-23/24/25, user 2026-11-07).
+# Joints follow the contract axis set v3_swerve_wheels: four steering axes, then four drive
+# wheels. Velocity, acceleration and position limits are not stated here: the wheel trajectory
+# controller takes them from the swerve navigation limits and the drives' position ranges.
+# All values below are the user-approved initial values of 2026-11-07, to be calibrated on the
+# chassis.
+mode_service: base_control_mode
+joints:
+- steer1_joint
+- steer2_joint
+- steer3_joint
+- steer4_joint
+- wheel1_joint
+- wheel2_joint
+- wheel3_joint
+- wheel4_joint
+jtc:
+  command_interfaces:
+  - position
+  state_interfaces:
+  - position
+  allow_partial_joints_goal: false
+  allow_nonzero_velocity_at_trajectory_end: false
+  open_loop_control: true
+  set_last_command_interface_value_as_state_on_activation: false
+  trajectory_start_consistency_check:
+    enabled: true
+    # First point due now: within 1 deg of the measurement.
+    position_tolerances:
+    - 0.017453292519943295
+    - 0.017453292519943295
+    - 0.017453292519943295
+    - 0.017453292519943295
+    - 0.017453292519943295
+    - 0.017453292519943295
+    - 0.017453292519943295
+    - 0.017453292519943295
+    feedback_age_state_interface: ethercat_domain/process_data_age_ms
+    max_feedback_age_ms: 500.0
+  state_publish_rate: 50.0
+  constraints:
+    goal_time: 0.5
+    stopped_velocity_tolerance: 0.01
+enable_manager:
+  mode_switch_source_state_max_age_ms: 100
+  # Standstill: displacement rate over 20 consecutive samples, steering 0.01 rad/s and drive
+  # 0.1 rad/s (0.01 m/s at r = 0.1 m), the drives' stationary_velocity.
+  mode_switch_stable_interval_count: 20
+  mode_switch_maximum_sample_period_ms: 2
+  # Each step (controller switch, drive mode readback) must finish within 500 ms.
+  mode_switch_timeout_ms: 500
+  mode_switch_feedback_age_limit_ms: 500.0
+  mode_switch_stable_velocity_thresholds:
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.1
+  - 0.1
+  - 0.1
+  - 0.1
+  # Leaving the trajectory controller: its output within 0.5 deg of the measurement.
+  mode_switch_takeover_tolerances:
+  - 0.008726646259971648
+  - 0.008726646259971648
+  - 0.008726646259971648
+  - 0.008726646259971648
+  - 0.008726646259971648
+  - 0.008726646259971648
+  - 0.008726646259971648
+  - 0.008726646259971648

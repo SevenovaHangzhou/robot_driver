@@ -1,10 +1,7 @@
 #include "ctrl_rolling_trajectory/rolling_trajectory_controller.hpp"
 
-#include <cstddef>
-#include <cstdint>
-#include <chrono>
-#include <thread>
 #include <algorithm>
+#include <cstdint>
 
 #include "hw_semantic_components/feedback_age.hpp"
 
@@ -21,17 +18,23 @@ void RollingTrajectoryController::queryHeldState(
     response.message = "only time zero (current stationary command) is supported";
     return;
   }
-  RtStateView view;
+  const auto & view = readRtStateView();
+  const auto live_state =
+    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
   const bool empty_priming =
-    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) ==
-    SessionState::kPriming && buffer_.image().point_count == 0U;
+    live_state == SessionState::kPriming && buffer_.image().point_count == 0U;
   if (
-    !active_.load(std::memory_order_acquire) || !readRtStateView(view) ||
+    !active_.load(std::memory_order_acquire) ||
     view.session_epoch != session_epoch_.load(std::memory_order_acquire) ||
+    view.session_state != live_state ||
+    elapsedExceeds(
+      steadyNowNs(), view.published_at_ns, runtime_configuration_.maximum_controller_period_ns) ||
+    !desiredIsValid(view.desired) ||
     (view.session_state != SessionState::kNone && view.session_state != SessionState::kHolding &&
      !(view.session_state == SessionState::kPriming && empty_priming)) ||
-    !std::all_of(view.desired.velocities.begin(), view.desired.velocities.end(),
-                 [](double value) { return value == 0.0; }) ||
+    !std::all_of(
+      view.desired.velocities.begin(), view.desired.velocities.end(),
+      [](double value) { return value == 0.0; }) ||
     !hw_semantic_components::feedback_fresh(
       observed_feedback_age_ms_.load(std::memory_order_acquire),
       runtime_configuration_.feedback_age_limit_ms)) {
@@ -45,53 +48,22 @@ void RollingTrajectoryController::queryHeldState(
   response.message = "current stationary command";
 }
 
-bool RollingTrajectoryController::readRtStateView(RtStateView & view, const char ** failure) const noexcept
+const RollingTrajectoryController::RtStateView &
+RollingTrajectoryController::readRtStateView() noexcept
 {
-  if (failure != nullptr) { *failure = "snapshot_busy"; }
-  // Non-RT only: let a concurrent update finish instead of exhausting adjacent spins.
-  // The budget derives from the configured controller period, not the motion timeout.
-  const auto deadline = std::chrono::steady_clock::now() +
-    std::chrono::nanoseconds(runtime_configuration_.maximum_controller_period_ns);
-  constexpr std::size_t kMaximumReadAttempts = 64U;
-  for (std::size_t attempt = 0U; attempt < kMaximumReadAttempts; ++attempt) {
-    const std::uint64_t version_before = rt_state_version_.load(std::memory_order_acquire);
-    if ((version_before & 1U) == 0U) {
-      RtStateView candidate;
-      candidate.session_epoch = rt_state_session_epoch_.load(std::memory_order_acquire);
-      candidate.session_state =
-        static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
-      candidate.active_generation = active_generation_.load(std::memory_order_acquire);
-      candidate.execution_time_ns = execution_time_ns_.load(std::memory_order_acquire);
-      candidate.replaceable_from_ns = replaceable_from_ns_.load(std::memory_order_acquire);
-      candidate.desired.time_ns = candidate.execution_time_ns;
-      for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
-        candidate.desired.positions[axis] = desired_positions_[axis].load(std::memory_order_acquire);
-        candidate.desired.velocities[axis] =
-          desired_velocities_[axis].load(std::memory_order_acquire);
-      }
-
-      const std::uint64_t version_after = rt_state_version_.load(std::memory_order_acquire);
-      if (version_before == version_after && (version_after & 1U) == 0U) {
-        if (candidate.session_state > SessionState::kTerminated || !desiredIsValid(candidate.desired)) {
-          if (failure != nullptr) { *failure = "invalid_desired"; }
-          return false;
-        }
-        view = candidate;
-        if (failure != nullptr) { *failure = "none"; }
-        return true;
-      }
-    }
-    if (std::chrono::steady_clock::now() >= deadline) { break; }
-    std::this_thread::sleep_for(std::chrono::microseconds(50));
+  if (const auto * latest = rt_state_exchange_.acquire()) {
+    confirmed_rt_state_ = *latest;
   }
-  return false;
+  return confirmed_rt_state_;
 }
 
 bool RollingTrajectoryController::buildAdmissionContext(
-  AdmissionContext & context, const char ** failure) const noexcept
+  AdmissionContext & context, const char ** failure) noexcept
 {
   context = AdmissionContext{};
-  if (failure != nullptr) { *failure = "none"; }
+  if (failure != nullptr) {
+    *failure = "none";
+  }
   if (
     static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) ==
       SessionState::kPriming &&
@@ -100,20 +72,45 @@ bool RollingTrajectoryController::buildAdmissionContext(
     return true;
   }
 
-  RtStateView view;
-  if (!readRtStateView(view, failure)) { return false; }
-  if (view.session_state != SessionState::kRunning) {
-    if (failure != nullptr) { *failure = "state_not_running"; }
+  const auto & view = readRtStateView();
+  if (view.session_epoch != session_epoch_.load(std::memory_order_acquire)) {
+    if (failure != nullptr) {
+      *failure = "epoch_changed";
+    }
     return false;
   }
-  if (view.session_epoch != session_epoch_.load(std::memory_order_acquire)) {
-    if (failure != nullptr) { *failure = "epoch_changed"; }
+  if (
+    view.session_state != SessionState::kRunning ||
+    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) !=
+      SessionState::kRunning) {
+    if (failure != nullptr) {
+      *failure = "state_not_running";
+    }
+    return false;
+  }
+  if (elapsedExceeds(
+        steadyNowNs(), view.published_at_ns, runtime_configuration_.maximum_controller_period_ns)) {
+    if (failure != nullptr) {
+      *failure = "snapshot_stale";
+    }
     return false;
   }
 
   std::uint64_t stop_duration_ns = 0U;
   if (!calculateStopDurationNs(view.desired, stop_duration_ns)) {
-    if (failure != nullptr) { *failure = "invalid_desired"; }
+    if (failure != nullptr) {
+      *failure = "invalid_desired";
+    }
+    return false;
+  }
+  const auto execution_ns =
+    std::max(view.execution_time_ns, execution_time_ns_.load(std::memory_order_acquire));
+  // Braking uses the model acceleration limit: stop time grows by at most the elapsed
+  // trajectory time. Reserve that growth when RT has advanced past the completed summary.
+  if (!addTime(stop_duration_ns, execution_ns - view.execution_time_ns, stop_duration_ns)) {
+    if (failure != nullptr) {
+      *failure = "time_overflow";
+    }
     return false;
   }
   std::uint64_t minimum_horizon_ns = stop_duration_ns;
@@ -130,22 +127,32 @@ bool RollingTrajectoryController::buildAdmissionContext(
     !addTime(
       minimum_horizon_ns, runtime_configuration_.scheduling_guard.period_quantization_ns,
       minimum_horizon_ns)) {
-    if (failure != nullptr) { *failure = "time_overflow"; }
+    if (failure != nullptr) {
+      *failure = "time_overflow";
+    }
     return false;
   }
-  context.execution_time_ns = view.execution_time_ns;
-  context.replaceable_from_ns = view.replaceable_from_ns;
+  context.execution_time_ns = execution_ns;
+  // A completed summary can lag the update currently in progress. This live monotonic fence
+  // prevents commit from replacing a boundary already advanced by that update.
+  context.replaceable_from_ns =
+    std::max(view.replaceable_from_ns, replaceable_from_ns_.load(std::memory_order_acquire));
   context.minimum_horizon_ns = minimum_horizon_ns;
-  context.active_generation = view.active_generation;
+  // Consumption acknowledges an older replacement even before its summary is published.
+  context.active_generation =
+    std::max(view.active_generation, active_generation_.load(std::memory_order_acquire));
   return true;
 }
 
 bool RollingTrajectoryController::buildPublicState(StateMessage & state)
 {
   std::lock_guard<std::mutex> lock(callback_mutex_);
-  const auto session_state =
-    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
-  const auto stop_reason = static_cast<StopReason>(stop_reason_.load(std::memory_order_acquire));
+  const auto & view = readRtStateView();
+  // The serialized admission side can acknowledge STARTING before RT observes a new epoch.
+  // All execution state and stop reasons otherwise come from one completed RT publication.
+  const bool awaiting_rt = view.session_epoch != session_epoch_.load(std::memory_order_acquire);
+  const auto session_state = awaiting_rt ? SessionState::kPriming : view.session_state;
+  const auto stop_reason = awaiting_rt ? StopReason::kNone : view.stop_reason;
   // A session is primed before its first batch is checked; until a batch is accepted it has
   // no trajectory and the previous trajectory's stop reason still applies.
   const bool trajectory_pending =

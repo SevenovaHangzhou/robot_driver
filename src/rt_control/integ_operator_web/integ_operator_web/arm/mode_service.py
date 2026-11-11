@@ -18,7 +18,8 @@ class ModeService:
     def __init__(self, bridge):
         self.bridge = bridge
         self.client = bridge.create_client(
-            SetJointControlMode, "/rt/arms/set_control_mode", callback_group=bridge._group)
+            SetJointControlMode, "/rt/arms/set_control_mode", callback_group=bridge._group
+        )
 
     def available(self):
         return self.client.service_is_ready()
@@ -35,7 +36,9 @@ class ModeService:
             future.add_done_callback(lambda _: event.set())
             if not event.wait(MODE_RESPONSE_TIMEOUT_S):
                 client.remove_pending_request(future)
-                raise ModeError("mode_timeout", "模式切换响应超时，保留控制权等待核查", uncertain=True)
+                raise ModeError(
+                    "mode_timeout", "模式切换响应超时，保留控制权等待核查", uncertain=True
+                )
             return future.result()
         except ModeError:
             raise
@@ -43,12 +46,18 @@ class ModeService:
             raise ModeError("mode_unknown", f"模式切换结果未确认：{exc}", uncertain=True) from exc
 
     def switch(self, target):
-        value = {"jtc": JointControlMode.FJT_READY, "rolling": JointControlMode.ROLLING_READY}[target]
-        response = self._call(self.client, SetJointControlMode.Request(
-            target_mode=JointControlMode(value=value)))
+        value = {"jtc": JointControlMode.FJT_READY, "rolling": JointControlMode.ROLLING_READY}[
+            target
+        ]
+        response = self._call(
+            self.client, SetJointControlMode.Request(target_mode=JointControlMode(value=value))
+        )
         if not response.accepted:
-            raise ModeError("mode_rejected", response.error.message or "模式切换被拒绝",
-                            uncertain=response.mode.value == JointControlMode.RESTART_REQUIRED)
+            raise ModeError(
+                "mode_rejected",
+                response.error.message or "模式切换被拒绝",
+                uncertain=response.mode.value == JointControlMode.RESTART_REQUIRED,
+            )
         if response.mode.value != value:
             raise ModeError("mode_unconfirmed", "服务响应的实际模式与请求不一致", uncertain=True)
         since = self.bridge.console._clock()
@@ -58,5 +67,5 @@ class ModeService:
         while time.monotonic() < deadline:
             if self.matches(target) and self.bridge.console.idle_probe(since):
                 return
-            time.sleep(.01)
+            time.sleep(0.01)
         raise ModeError("mode_readback_timeout", "切换后尚未收到完整停稳反馈，未发送轨迹")

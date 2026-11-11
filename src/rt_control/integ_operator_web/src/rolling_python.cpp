@@ -19,22 +19,24 @@ public:
     rclcpp::NodeOptions options;
     options.context(context_);
     node_ = std::make_shared<rclcpp::Node>("operator_jog_rolling_sender", options);
-    sender_ = std::make_unique<rolling::RollingSender>(
-      *node_, std::chrono::milliseconds(ack_timeout_ms));
+    sender_ =
+      std::make_unique<rolling::RollingSender>(*node_, std::chrono::milliseconds(ack_timeout_ms));
     rclcpp::ExecutorOptions executor_options;
     executor_options.context = context_;
     executor_ = std::make_unique<rclcpp::executors::SingleThreadedExecutor>(executor_options);
     executor_->add_node(node_);
-    thread_ = std::thread([this]() {executor_->spin();});
+    thread_ = std::thread([this]() { executor_->spin(); });
   }
 
-  ~Sender() {close();}
+  ~Sender() { close(); }
 
   void close()
   {
     if (executor_) {
       executor_->cancel();
-      if (thread_.joinable()) {thread_.join();}
+      if (thread_.joinable()) {
+        thread_.join();
+      }
       executor_.reset();
       sender_.reset();
       node_.reset();
@@ -79,7 +81,7 @@ public:
     return result;
   }
 
-  bool reset() {return sender_->reset();}
+  bool reset() { return sender_->reset(); }
 
 private:
   std::shared_ptr<rclcpp::Context> context_;
@@ -92,9 +94,9 @@ private:
 PYBIND11_MODULE(_rolling_sender, module)
 {
   py::class_<Sender>(module, "Sender")
-  .def(py::init<int>())
-  .def("send", &Sender::send)
-  .def("status", &Sender::status)
-  .def("reset", &Sender::reset)
-  .def("close", &Sender::close, py::call_guard<py::gil_scoped_release>());
+    .def(py::init<int>())
+    .def("send", &Sender::send)
+    .def("status", &Sender::status)
+    .def("reset", &Sender::reset)
+    .def("close", &Sender::close, py::call_guard<py::gil_scoped_release>());
 }

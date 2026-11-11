@@ -72,7 +72,9 @@ public:
     }
     outcome.runtime_invalidated = runtime_invalidated_;
 
-    if (!data_valid) {return outcome;}
+    if (!data_valid) {
+      return outcome;
+    }
 
     if (sample.auxiliary_count != config_.auxiliary_count) {
       return outcome;

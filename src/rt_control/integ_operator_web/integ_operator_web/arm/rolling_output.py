@@ -3,6 +3,7 @@
 Mode selection uses the shared arm reservation; hardware enable remains explicit. On disconnect
 it stops accepting windows; the controller owns timeout braking.
 """
+
 import math
 
 from .errors import ConsoleError
@@ -14,7 +15,12 @@ def time_ns(value):
     if not isinstance(value, dict) or set(value) != {"sec", "nanosec"}:
         raise ValueError("invalid ROS time")
     sec, nano = value["sec"], value["nanosec"]
-    if type(sec) is not int or type(nano) is not int or not 0 <= sec < 2**31 or not 0 <= nano < 10**9:
+    if (
+        type(sec) is not int
+        or type(nano) is not int
+        or not 0 <= sec < 2**31
+        or not 0 <= nano < 10**9
+    ):
         raise ValueError("invalid ROS time")
     return sec * 10**9 + nano
 
@@ -31,23 +37,39 @@ class RollingOutput:
         evidence = self.bridge._readback.evidence
         with evidence.lock:
             state = evidence.rolling
-            result["state_age_s"] = (evidence.clock() - evidence.rolling_at
-                                     if math.isfinite(evidence.rolling_at) else None)
-            result["controller"] = None if state is None else {
-                key: getattr(state, key) for key in
-                ("epoch", "state", "last_sequence", "last_result", "stop_reason")}
-        rejections = getattr(self.bridge, 'rolling_rejections', None)
-        result['rejection_detail'] = (rejections.matching(result['controller'], self.console.joint_names)
-                                      if rejections else None)
+            result["state_age_s"] = (
+                evidence.clock() - evidence.rolling_at
+                if math.isfinite(evidence.rolling_at)
+                else None
+            )
+            result["controller"] = (
+                None
+                if state is None
+                else {
+                    key: getattr(state, key)
+                    for key in ("epoch", "state", "last_sequence", "last_result", "stop_reason")
+                }
+            )
+        rejections = getattr(self.bridge, "rolling_rejections", None)
+        result["rejection_detail"] = (
+            rejections.matching(result["controller"], self.console.joint_names)
+            if rejections
+            else None
+        )
         return result
 
     def ready(self, *, allow_mode_switch=True):
         c = self.console
         evidence = self.bridge._readback.evidence
-        return bool(self._feedback_ready()
-                    and ((evidence.rolling_active and not evidence.jtc_active)
-                         or (allow_mode_switch and c.modes is not None and c.modes.can_select("rolling")))
-                    and not c._mode_busy and c.idle_probe(-math.inf))
+        return bool(
+            self._feedback_ready()
+            and (
+                (evidence.rolling_active and not evidence.jtc_active)
+                or (allow_mode_switch and c.modes is not None and c.modes.can_select("rolling"))
+            )
+            and not c._mode_busy
+            and c.idle_probe(-math.inf)
+        )
 
     def begin(self, connection, body):
         c = self.console
@@ -65,7 +87,9 @@ class RollingOutput:
                 c.authority.require(owner)
                 # The mode reservation is ours here; only controller readiness is checked.
                 if not self._controller_ready() or not self.sender.reset():
-                    raise ConsoleError("jog_not_ready", "需要已使能、Rolling HOLDING 和完整停稳反馈")
+                    raise ConsoleError(
+                        "jog_not_ready", "需要已使能、Rolling HOLDING 和完整停稳反馈"
+                    )
                 before = holding_identity(self.snapshot())
             # Keep the mode reservation, but let disconnect/stop invalidate its
             # permit while the read-only service is in flight.
@@ -80,20 +104,33 @@ class RollingOutput:
                 self.hold_reference = {"positions": positions, "identity": before}
                 self.started = self.terminal_seen = False
                 c._jog_busy = True
-                return {"positions": dict(c.robot.positions), "parameters": self.bridge.rolling_parameters,
-                        "rolling": self.snapshot(), "hold_reference": self.hold_reference}
+                return {
+                    "positions": dict(c.robot.positions),
+                    "parameters": self.bridge.rolling_parameters,
+                    "rolling": self.snapshot(),
+                    "hold_reference": self.hold_reference,
+                }
 
     def _feedback_ready(self):
         c, b = self.console, self.bridge
         now = c._clock()
-        return (c.model is not None and c.robot.enable_state == "ENABLED" and now - c.robot.enable_at <= STATE_STALE_S
-                and now - c.robot.feedback_at <= c.config.max_feedback_age
-                and b.rolling_parameters is not None and now - b.rolling_parameters_at <= STATE_STALE_S)
+        return (
+            c.model is not None
+            and c.robot.enable_state == "ENABLED"
+            and now - c.robot.enable_at <= STATE_STALE_S
+            and now - c.robot.feedback_at <= c.config.max_feedback_age
+            and b.rolling_parameters is not None
+            and now - b.rolling_parameters_at <= STATE_STALE_S
+        )
 
     def _controller_ready(self):
         e = self.bridge._readback.evidence
-        return (self._feedback_ready() and e.rolling_active and not e.jtc_active
-                and self.console.idle_probe(-math.inf))
+        return (
+            self._feedback_ready()
+            and e.rolling_active
+            and not e.jtc_active
+            and self.console.idle_probe(-math.inf)
+        )
 
     def publish(self, connection, body):
         c = self.console
@@ -114,7 +151,9 @@ class RollingOutput:
     def _validate(self, window):
         parameters = self.bridge.rolling_parameters
         points = window["points"]
-        if type(window["final"]) is not bool or not 2 <= len(points) <= min(256, parameters["buffer_capacity"]):
+        if type(window["final"]) is not bool or not 2 <= len(points) <= min(
+            256, parameters["buffer_capacity"]
+        ):
             raise ValueError("invalid Rolling window")
         start, previous = time_ns(window["replace_from"]), -1
         for point in points:
@@ -125,7 +164,8 @@ class RollingOutput:
             for key in ("positions", "velocities"):
                 values = point[key]
                 if len(values) != len(parameters["joints"]) or any(
-                    type(v) not in (int, float) or not math.isfinite(v) for v in values):
+                    type(v) not in (int, float) or not math.isfinite(v) for v in values
+                ):
                     raise ValueError("invalid Rolling joint values")
         now = self.sender.status()["ros_time_ns"]
         if start < now + parameters["replace_lead_ms"] * 10**6:
@@ -144,7 +184,10 @@ class RollingOutput:
         first, second = points[:2]
         dt = time_ns(second["time_from_start"]) / 1e9
         for axis, name in enumerate(self.bridge.rolling_parameters["joints"]):
-            if first["positions"][axis] != reference["positions"][name] or first["velocities"][axis] != 0.:
+            if (
+                first["positions"][axis] != reference["positions"][name]
+                or first["velocities"][axis] != 0.0
+            ):
                 raise ConsoleError("jog_start_mismatch", f"{name} 首点未对齐控制器保持指令，未发布")
             # Acceleration is linear on the controller's cubic Hermite segment;
             # its exact maximum is at one of the two endpoints.
@@ -154,7 +197,10 @@ class RollingOutput:
             peak = max(abs(2 * c2 / dt**2), abs((2 * c2 + 6 * c3) / dt**2))
             limit = self.bridge.rolling_parameters["joint_acceleration_limits"][axis]
             if not math.isfinite(peak) or peak > limit:
-                raise ConsoleError("jog_start_acceleration", f"{name} 首段加速度 {peak:.17g} 超过 {limit:.17g} rad/s²（超出 {peak - limit:.6g}），未发布")
+                raise ConsoleError(
+                    "jog_start_acceleration",
+                    f"{name} 首段加速度 {peak:.17g} 超过 {limit:.17g} rad/s²（超出 {peak - limit:.6g}），未发布",
+                )
 
     def stop(self, connection, *, release=False):
         c = self.console

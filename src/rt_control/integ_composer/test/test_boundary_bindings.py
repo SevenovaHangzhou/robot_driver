@@ -66,6 +66,9 @@ def test_chassis_binds_facts_by_instance_after_bus_and_calibration_reordering(co
     renamed["mock_joint_name"] = renamed["robot_model_joint"] = "test_steering_a"
     model = root / "machines/Alfa_V3/chassis.mock.urdf"
     model.write_text(model.read_text().replace(old_joint, renamed["mock_joint_name"]))
+    # The wheel trajectory policy lists the contract joint names; it follows the rename.
+    policy = root / "machines/Alfa_V3/policies/Alfa_V3_chassis_motion.yaml"
+    policy.write_text(policy.read_text().replace(old_joint, renamed["mock_joint_name"]))
     machine["spec"]["axes"].reverse()
     save(path, machine)
     path = root / "machines/Alfa_V3/swerve_encoders.yaml"
@@ -102,6 +105,11 @@ def test_chassis_binds_facts_by_instance_after_bus_and_calibration_reordering(co
         assert params[role + "_joints"] == [
             axes[item["module_position"], role] for item in expected
         ]
+    # Drive wheel limits divide by the radius of the same module, whatever the file order.
+    limits = result.controllers["base_wheel_jtc"]["ros__parameters"]["joint_velocity_limits"]
+    assert limits[4:] == [
+        params["max_wheel_speed"] / item["effective_wheel_radius_m"] for item in expected
+    ]
     # Bound from the verified chassis data and unit calibration, not a controller default.
     assert params["calibration_verified"] is True
     unit["verified"] = False

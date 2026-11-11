@@ -8,6 +8,7 @@ pending_facts: []
 robot_variant: Alfa_V3
 parts:
 - controllers/arm_trajectory.yaml
+- controllers/base_trajectory.yaml
 controllers:
   swerve_chassis:
     module: swerve_chassis
@@ -112,6 +113,35 @@ controllers:
       policy:
         name: motion
         path: enable_manager
+    - when_policy: motion
+      interface:
+        policy: motion
+        path: mode_service
+        optional: true
+        as: mode_service
+    # Velocity-mode group (chassis): the wheel trajectory controller and the switched drives.
+    - when_policy: base_motion
+      controllers:
+        tag: base_trajectory
+        select: first
+        as: trajectory_controller
+    - exports:
+        name: mode_switching_joints
+        as: mode_switch_joints
+    - when_policy: base_motion
+      policy:
+        name: base_motion
+        path: joints
+        as: motion_joints
+    - when_policy: base_motion
+      policy:
+        name: base_motion
+        path: enable_manager
+    - when_policy: base_motion
+      interface:
+        policy: base_motion
+        path: mode_service
+        as: mode_service
   joint_state_broadcaster:
     module: arms
     name: joint_state_broadcaster

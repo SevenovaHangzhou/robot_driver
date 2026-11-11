@@ -42,7 +42,9 @@ class JogAccess:
             "motion_ready": self.control.jog_output.ready() if self.control.jog_output else False,
             "control_mode": self.control.modes.status() if self.control.modes else None,
             "positions": dict(self.control.robot.positions),
-            "feedback_age_s": self.control._clock() - self.control.robot.feedback_at if self.control.robot.positions else None,
+            "feedback_age_s": self.control._clock() - self.control.robot.feedback_at
+            if self.control.robot.positions
+            else None,
             "rolling": self.control.jog_output.snapshot() if self.control.jog_output else None,
             "runtime_identity": {
                 "domain_id": int(os.environ["ROS_DOMAIN_ID"])

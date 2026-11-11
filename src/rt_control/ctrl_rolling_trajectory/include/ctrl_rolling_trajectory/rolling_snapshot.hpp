@@ -1,11 +1,9 @@
 #ifndef CTRL_ROLLING_TRAJECTORY__ROLLING_SNAPSHOT_HPP_
 #define CTRL_ROLLING_TRAJECTORY__ROLLING_SNAPSHOT_HPP_
 
-#include <array>
-#include <atomic>
-#include <cstddef>
 #include <cstdint>
 
+#include "ctrl_rolling_trajectory/latest_snapshot_exchange.hpp"
 #include "ctrl_rolling_trajectory/rolling_types.hpp"
 
 namespace ctrl_rolling_trajectory
@@ -35,16 +33,9 @@ public:
   std::uint64_t latestPublicationSequence() const noexcept { return publication_sequence_; }
 
 private:
-  static constexpr std::size_t kDirty = 4U;
-  static constexpr std::size_t kIndexMask = 3U;
-  std::array<RollingSnapshot, 3U> slots_{};
-  std::atomic<std::size_t> middle_{1U};
-  std::size_t writing_{2U};
-  std::size_t reading_{0U};
+  LatestSnapshotExchange<RollingSnapshot> slots_{};
   std::uint64_t publication_sequence_{0U};
 };
-
-static_assert(std::atomic<std::size_t>::is_always_lock_free);
 
 }  // namespace ctrl_rolling_trajectory
 

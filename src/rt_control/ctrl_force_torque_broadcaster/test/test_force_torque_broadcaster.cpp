@@ -178,7 +178,10 @@ TEST_F(ForceTorqueBroadcasterTest, DomainValiditySuppressesRawPublicationUntilCo
   }
   EXPECT_FALSE(raw);
   set_state("ethercat_domain_4/data_valid", 1.0);
-  spin_until([&]() { update_once(); return raw != nullptr; });
+  spin_until([&]() {
+    update_once();
+    return raw != nullptr;
+  });
 }
 
 TEST_F(ForceTorqueBroadcasterTest, ClaimsOnlyTheConfiguredStateInterfaces)

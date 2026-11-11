@@ -98,6 +98,7 @@
 
 | 日期 | 功能区 | 记录 | verified |
 | --- | --- | --- | --- |
+| 2026-11-10 | peripheral-control | [PLC可选直连网卡绑定](docs/areas/peripheral-control/records/2026-11-10-plc-interface-binding.md) | PARTIAL（main基线三包22测试；现场候选T2只读138条有效，正常退出；实际拔线恢复未验） |
 | 2026-10-09 | io-power | [ELECTRI-131 auto 字节序歧义修复](docs/areas-archive/io-power/records/2026-10-09-electri-131-bms-byte-order.md) | PARTIAL（3 个 CTest/14 条汇总结果通过；实机字节序待确认） |
 | 2026-10-09 | governance | [ELECTRI-131 从 PR #53 分离 BMS](docs/areas-archive/governance/records/2026-10-09-electri-131-pr53-split.md) | PARTIAL（电池恢复 main 基线；其余模块源码不变；质量门禁通过，拆分后 CI 待验） |
 | 2026-10-09 | lifecycle | [模式切换 CI 源状态刷新修复](docs/areas-archive/lifecycle/records/2026-10-09-mode-switch-ci-source-freshness.md) | PARTIAL（PR #53；65用例、30次150ms延迟回归和质量门禁通过；全仓CI待验） |
@@ -268,3 +269,4 @@
 | 2026-11-05 | control | [使能中拔 EtherCAT 网线](docs/areas/control/records/2026-11-05-enabled-unplug-bench.md) | PASS（T3）：1 s 内急停失能并锁存重启；网线恢复后复位被拒，重启 + 一次复位回到空闲；只断头部电源未做 |
 | 2026-11-06 | control | [Rolling 停流后再次启动与双臂逐关节](docs/areas/control/records/2026-11-06-rolling-restart-bench.md) | PARTIAL（T4）：双臂 14 关节 Rolling ±2° 往返全通过（含右 J7 停流后再启动），未观察到拒绝，结束已失能；运动中断流与头部用例待测 |
 | 2026-11-06 | control | [Rolling final 正常收尾与断流停止](docs/areas/control/records/2026-11-06-rolling-final-bench.md) | PARTIAL（T4）：4 关节 final 收尾 5/5 报 STOP_COMPLETED，3 s 断流报 STOP_UPDATE_TIMEOUT；左 J4 有 2 批 NOT_ACCEPTING（独立问题，待查）；结束已失能 |
+| 2026-11-07 | control | [底盘行走轮 CSV/CSP 运行时切换](docs/areas/control/records/2026-11-07-base-control-mode.md) | PARTIAL（T4）：研华底盘静止时两向切换、轮子轨迹往返（误差 ≤ 0.0004°）、超限目标与运动中切换被拒、CSP 下失能再使能均通过；台架修复使能误激活 JTC 与残留位置指令两处；cmd_vel 行驶与新转向上限未测 |

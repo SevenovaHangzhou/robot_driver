@@ -32,12 +32,15 @@ void RollingTrajectoryController::publishRejection(const BatchMessage & message)
   add("epoch", message.epoch);
   add("sequence", message.sequence);
   add("result", static_cast<unsigned int>(last_result_));
-  if (last_result_ == StateMessage::NOT_ACCEPTING) { add("reason", admission_failure_); }
+  if (last_result_ == StateMessage::NOT_ACCEPTING) {
+    add("reason", admission_failure_);
+  }
   const auto & detail = batch_rejection_;
   if (detail.quantity != LimitQuantity::kNone && detail.axis < kAxisCount) {
     constexpr std::array<const char *, 9> quantities = {
-      "unknown", "position_lower", "position_upper", "velocity_positive", "velocity_negative",
-      "acceleration_positive", "acceleration_negative", "stopping_lower", "stopping_upper"};
+      "unknown",           "position_lower",        "position_upper",        "velocity_positive",
+      "velocity_negative", "acceleration_positive", "acceleration_negative", "stopping_lower",
+      "stopping_upper"};
     add("joint", runtime_configuration_.joints[detail.axis]);
     add("axis", detail.axis);
     add("segment", detail.segment);

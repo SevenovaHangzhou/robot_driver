@@ -30,11 +30,18 @@ class ArmIdleEvidence:
     def measured(self, names, positions, stamp_ns=None):
         with self.lock:
             now = self.clock()
-            valid = (stamp_ns is not None and stamp_ns > 0 and
-                     len(names) == len(positions) == len(set(names)) and
-                     all(math.isfinite(v) for v in positions))
-            if not valid or (self.samples and (stamp_ns <= self.samples[-1][1] or
-                                               now - self.samples[-1][0] > self.feedback_age)):
+            valid = (
+                stamp_ns is not None
+                and stamp_ns > 0
+                and len(names) == len(positions) == len(set(names))
+                and all(math.isfinite(v) for v in positions)
+            )
+            if not valid or (
+                self.samples
+                and (
+                    stamp_ns <= self.samples[-1][1] or now - self.samples[-1][0] > self.feedback_age
+                )
+            ):
                 self.samples.clear()
             if valid:
                 self.samples.append((now, stamp_ns, dict(zip(names, positions))))
@@ -42,9 +49,13 @@ class ArmIdleEvidence:
 
     def set_stationary_policy(self, names, thresholds, intervals):
         with self.lock:
-            valid = (len(names) == len(thresholds) > 0 and len(set(names)) == len(names)
-                     and type(intervals) is int and 1 <= intervals <= 4096
-                     and all(math.isfinite(v) and v > 0 for v in thresholds))
+            valid = (
+                len(names) == len(thresholds) > 0
+                and len(set(names)) == len(names)
+                and type(intervals) is int
+                and 1 <= intervals <= 4096
+                and all(math.isfinite(v) and v > 0 for v in thresholds)
+            )
             self.stationary_policy = (tuple(names), tuple(thresholds), intervals) if valid else None
             self.stationary_at = self.clock()
 
@@ -55,14 +66,16 @@ class ArmIdleEvidence:
         names, limits, intervals = policy
         if set(names) != set(expected) or len(self.samples) < intervals + 1:
             return False
-        samples = list(self.samples)[-intervals-1:]
+        samples = list(self.samples)[-intervals - 1 :]
         if samples[0][0] <= since or self.clock() - samples[-1][0] > self.feedback_age:
             return False
         elapsed = (samples[-1][1] - samples[0][1]) / 1e9
         if elapsed <= 0 or any(not set(names) <= set(q) for _, _, q in samples):
             return False
-        return all((max(q[n] for _, _, q in samples) - min(q[n] for _, _, q in samples))
-                   / elapsed <= limit for n, limit in zip(names, limits))
+        return all(
+            (max(q[n] for _, _, q in samples) - min(q[n] for _, _, q in samples)) / elapsed <= limit
+            for n, limit in zip(names, limits)
+        )
 
     def set_tolerance(self, value):
         with self.lock:
@@ -74,8 +87,11 @@ class ArmIdleEvidence:
             self.configured_motion_at = self.clock()
 
     def _configured_jtc_only(self):
-        return (bool(self.jtc) and self.configured_motion == (self.jtc, "")
-                and self.clock() - self.configured_motion_at <= self.controller_age)
+        return (
+            bool(self.jtc)
+            and self.configured_motion == (self.jtc, "")
+            and self.clock() - self.configured_motion_at <= self.controller_age
+        )
 
     def controllers(self, controllers, jtc):
         with self.lock:
@@ -87,9 +103,7 @@ class ArmIdleEvidence:
                 self.status_seen, self.active_goal = True, False
             rolling = [c for c in controllers if "RollingTrajectoryController" in c.type]
             self.rolling_present = bool(rolling)
-            self.rolling_active = any(
-                c.state == "active" for c in rolling
-            )
+            self.rolling_active = any(c.state == "active" for c in rolling)
             self.motion_inactive = (
                 any(c.name == jtc and c.state == "inactive" for c in controllers)
                 and (bool(rolling) or self._configured_jtc_only())
@@ -110,8 +124,11 @@ class ArmIdleEvidence:
         with self.lock:
             if self.clock() - self.controllers_at > self.controller_age:
                 return False
-            return ((self.jtc_active and not self.rolling_active) if target == "jtc"
-                    else (self.rolling_active and not self.jtc_active))
+            return (
+                (self.jtc_active and not self.rolling_active)
+                if target == "jtc"
+                else (self.rolling_active and not self.jtc_active)
+            )
 
     def goal_status(self, statuses):
         with self.lock:
@@ -144,9 +161,14 @@ class ArmIdleEvidence:
                 return False
             if self.rolling_active:
                 state = self.rolling
-                return (not self.jtc_active and state is not None and state.state == 0
-                        and now - self.rolling_at <= self.feedback_age and self.rolling_at > since
-                        and self._measured_stopped(expected_joints, since))
+                return (
+                    not self.jtc_active
+                    and state is not None
+                    and state.state == 0
+                    and now - self.rolling_at <= self.feedback_age
+                    and self.rolling_at > since
+                    and self._measured_stopped(expected_joints, since)
+                )
             if self.motion_inactive:
                 # Inactive controllers publish no live target state. Use the same
                 # configured position window as Rolling, after the handover barrier.
@@ -154,8 +176,12 @@ class ArmIdleEvidence:
                     return False
                 return self._measured_stopped(expected_joints, since)
             limit = self.tolerance
-            if not (isinstance(limit, (int, float)) and math.isfinite(limit) and limit > 0
-                    and now - self.tolerance_at <= self.controller_age):
+            if not (
+                isinstance(limit, (int, float))
+                and math.isfinite(limit)
+                and limit > 0
+                and now - self.tolerance_at <= self.controller_age
+            ):
                 return False
             if (
                 not self.jtc_active
@@ -170,11 +196,13 @@ class ArmIdleEvidence:
             count = len(self.joints)
             if not (len(self.positions) == len(self.desired) == count):
                 return False
-            if (not all(math.isfinite(v) for v in self.positions)
-                    or not all(math.isfinite(v) and v == 0 for v in self.desired)):
+            if not all(math.isfinite(v) for v in self.positions) or not all(
+                math.isfinite(v) and v == 0 for v in self.desired
+            ):
                 return False
             if not self.velocities:
                 # Position-only hardware needs measured motion evidence, not invented zeros.
                 return self._measured_stopped(expected_joints, since)
             return len(self.velocities) == count and all(
-                math.isfinite(v) and abs(v) <= limit for v in self.velocities)
+                math.isfinite(v) and abs(v) <= limit for v in self.velocities
+            )

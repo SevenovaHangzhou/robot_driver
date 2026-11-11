@@ -39,10 +39,16 @@ struct AdmissionContext
   bool priming{false};
 };
 
-enum class LimitQuantity : std::uint8_t
-{
-  kNone, kPositionLower, kPositionUpper, kVelocityPositive, kVelocityNegative,
-  kAccelerationPositive, kAccelerationNegative, kStoppingLower, kStoppingUpper
+enum class LimitQuantity : std::uint8_t {
+  kNone,
+  kPositionLower,
+  kPositionUpper,
+  kVelocityPositive,
+  kVelocityNegative,
+  kAccelerationPositive,
+  kAccelerationNegative,
+  kStoppingLower,
+  kStoppingUpper
 };
 
 // Optional non-RT admission evidence. It never changes rejection or acceptance.
@@ -69,8 +75,8 @@ public:
   void clear() noexcept;
   [[nodiscard]] const TrajectoryImage & image() const noexcept { return image_; }
   RejectCode prepare(
-    const BatchView & batch, const AdmissionContext & context,
-    TrajectoryImage & candidate, BufferRejection * rejection = nullptr) const noexcept;
+    const BatchView & batch, const AdmissionContext & context, TrajectoryImage & candidate,
+    BufferRejection * rejection = nullptr) const noexcept;
   RejectCode commit(const TrajectoryImage & candidate, const AdmissionContext & context) noexcept;
 
 private:

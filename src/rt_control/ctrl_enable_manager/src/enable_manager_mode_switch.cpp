@@ -1,4 +1,5 @@
-// Motion mode switching between the trajectory and rolling controllers.
+// Motion mode switching: arms between the trajectory and rolling controllers, the swerve chassis
+// between the swerve controller (drive wheels CSV) and the wheel trajectory controller (CSP).
 #include "ctrl_enable_manager/enable_manager_controller.hpp"
 #include "hw_semantic_components/feedback_age.hpp"
 
@@ -29,15 +30,15 @@ void EnableManagerController::handleJtcState(
   const control_msgs::msg::JointTrajectoryControllerState::SharedPtr message)
 {
   if (
-    message->joint_names.size() != kMotionAxisCount ||
-    message->output.positions.size() != kMotionAxisCount) {
+    message->joint_names.size() != motion_joint_names_.size() ||
+    message->output.positions.size() != motion_joint_names_.size()) {
     return;
   }
   CommandSnapshot snapshot;
   snapshot.valid = true;
   snapshot.control_mode = static_cast<std::uint8_t>(ControlMode::kFjtReady);
   snapshot.received_steady_ns = steadyNowNs();
-  for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+  for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
     if (
       message->joint_names[axis] != motion_joint_names_[axis] ||
       !std::isfinite(message->output.positions[axis])) {
@@ -70,7 +71,7 @@ bool EnableManagerController::readActualSample(ActualSample & sample) const noex
     if ((version_before & 1U) != 0U) {
       continue;
     }
-    for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+    for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
       sample.positions[axis] = actual_sample_positions_[axis].load(std::memory_order_relaxed);
     }
     sample.feedback_age_ms = actual_sample_feedback_age_ms_.load(std::memory_order_relaxed);
@@ -101,13 +102,16 @@ bool EnableManagerController::readCommandSnapshot(
 std::uint8_t EnableManagerController::validateModeSource(
   ControlMode source, CommandSnapshot & snapshot)
 {
-  if (!readCommandSnapshot(source, snapshot)) {
+  // The swerve controller has no source state: the measured standstill alone admits leaving it.
+  const bool source_has_state = source != ControlMode::kVelocityReady;
+  if (source_has_state && !readCommandSnapshot(source, snapshot)) {
     return kModeSourceStale;
   }
   std::uint64_t now_ns = steadyNowNs();
   if (
-    now_ns < snapshot.received_steady_ns ||
-    now_ns - snapshot.received_steady_ns > mode_switch_source_state_max_age_ns_) {
+    source_has_state &&
+    (now_ns < snapshot.received_steady_ns ||
+     now_ns - snapshot.received_steady_ns > mode_switch_source_state_max_age_ns_)) {
     return kModeSourceStale;
   }
   if (
@@ -165,6 +169,9 @@ std::uint8_t EnableManagerController::validateModeSource(
       continue;
     }
 
+    if (!source_has_state) {
+      return kModeOk;
+    }
     CommandSnapshot fresh_source;
     if (!readCommandSnapshot(source, fresh_source)) {
       return kModeSourceStale;
@@ -283,6 +290,13 @@ std::uint8_t EnableManagerController::executeModeSwitch(ControlMode source, Cont
     return kModeRestartRequired;
   }
 
+  // Leaving CSP: the drives return to their startup mode under the trajectory controller's hold
+  // before the velocity controller takes over.
+  if (switchedDrivesUseCsp(source) && !switchedDrivesUseCsp(target) && !switchDriveModes(target)) {
+    release_switch();
+    convergeAfterUnsafeModeSwitch(false);
+    return kModeDriveModeTimeout;
+  }
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
   if (buildControllerSwitchRequest(before, target, *request) != SwitchResult::kSuccess) {
     release_switch();
@@ -316,6 +330,13 @@ std::uint8_t EnableManagerController::executeModeSwitch(ControlMode source, Cont
     return kModeRestartRequired;
   }
   if (switch_ok && observed == ModeSwitchState::kTargetActive) {
+    // Entering CSP: the trajectory controller holds the measured position, then the drives
+    // switch; a drive that does not confirm CSP in time stops the group.
+    if (switchedDrivesUseCsp(target) && !switchDriveModes(target)) {
+      release_switch();
+      convergeAfterUnsafeModeSwitch(false);
+      return kModeDriveModeTimeout;
+    }
     current_control_mode_.store(target, std::memory_order_release);
     release_switch();
     return kModeOk;
@@ -371,9 +392,11 @@ void EnableManagerController::handleSetMode(
     return;
   }
   const ControlMode target_mode = static_cast<ControlMode>(request->target_mode.value);
+  const std::uint8_t alternate_mode =
+    rolling_motion_controller_.empty() ? ModeMessage::VELOCITY_READY : ModeMessage::ROLLING_READY;
   if (
     request->target_mode.value != ModeMessage::FJT_READY &&
-    request->target_mode.value != ModeMessage::ROLLING_READY) {
+    request->target_mode.value != alternate_mode) {
     finish(kModeWrongMode, current_mode);
     return;
   }
@@ -411,10 +434,13 @@ bool EnableManagerController::controllerRunsInMode(
     return false;
   }
   if (name == default_motion_controller_) {
-    return target == ControlMode::kFjtReady;
+    return target == motion_controller_mode_;
   }
   if (name == rolling_motion_controller_) {
     return target == ControlMode::kRollingReady;
+  }
+  if (name == trajectory_motion_controller_) {
+    return target == ControlMode::kFjtReady;
   }
   return true;  // Companions stay active in either motion mode.
 }
@@ -468,11 +494,13 @@ EnableManagerController::ControlMode EnableManagerController::detectControlMode(
   if (controllerStateMatches(states, ControlMode::kDisabled)) {
     return ControlMode::kDisabled;
   }
-  if (controllerStateMatches(states, ControlMode::kFjtReady)) {
-    return ControlMode::kFjtReady;
-  }
-  if (motion_mode_switching_ && controllerStateMatches(states, ControlMode::kRollingReady)) {
-    return ControlMode::kRollingReady;
+  const ControlMode alternate = !rolling_motion_controller_.empty() ? ControlMode::kRollingReady
+                                : !trajectory_motion_controller_.empty() ? ControlMode::kFjtReady
+                                                                         : ControlMode::kDisabled;
+  for (const ControlMode mode : {motion_controller_mode_, alternate}) {
+    if (mode != ControlMode::kDisabled && controllerStateMatches(states, mode)) {
+      return mode;
+    }
   }
   return ControlMode::kRestartRequired;
 }
@@ -499,7 +527,7 @@ bool EnableManagerController::stableActualInterval(
 {
   const double elapsed_seconds =
     static_cast<double>(current.steady_time_ns - window_start.steady_time_ns) / 1.0e9;
-  for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+  for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
     const double speed =
       std::abs(current.positions[axis] - window_start.positions[axis]) / elapsed_seconds;
     if (!std::isfinite(speed) || speed > mode_switch_stable_velocity_thresholds_[axis]) {
@@ -510,10 +538,9 @@ bool EnableManagerController::stableActualInterval(
 }
 
 bool EnableManagerController::sourceWithinTakeoverTolerance(
-  const std::array<double, kMotionAxisCount> & source,
-  const std::array<double, kMotionAxisCount> & actual) const noexcept
+  const MotionPositions & source, const MotionPositions & actual) const noexcept
 {
-  for (std::size_t axis = 0U; axis < kMotionAxisCount; ++axis) {
+  for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
     if (
       !std::isfinite(source[axis]) || !std::isfinite(actual[axis]) ||
       std::abs(source[axis] - actual[axis]) > mode_switch_takeover_tolerances_[axis]) {
@@ -570,6 +597,10 @@ void EnableManagerController::populateModeError(
     case kModeRestartRequired:
       code = ErrorCode::RT_RESTART_REQUIRED;
       detail = "restart_required";
+      break;
+    case kModeDriveModeTimeout:
+      code = ErrorCode::TIMEOUT;
+      detail = "drive_mode_not_confirmed";
       break;
     default:
       break;

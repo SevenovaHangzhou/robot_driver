@@ -249,12 +249,12 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
     "~/query_state",
     [this](const QueryState::Request::SharedPtr request, QueryState::Response::SharedPtr response) {
       queryHeldState(*request, *response);
-    }, rmw_qos_profile_services_default, callback_group_);
+    },
+    rmw_qos_profile_services_default, callback_group_);
 
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     observed_positions_[axis].store(0.0, std::memory_order_relaxed);
     desired_positions_[axis].store(0.0, std::memory_order_relaxed);
-    desired_velocities_[axis].store(0.0, std::memory_order_relaxed);
   }
   observed_feedback_age_ms_.store(0.0, std::memory_order_relaxed);
   rt_session_state_.store(
@@ -267,8 +267,6 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   prime_start_ns_.store(0, std::memory_order_relaxed);
   session_epoch_.store(0U, std::memory_order_relaxed);
   session_publication_floor_.store(1U, std::memory_order_relaxed);
-  rt_state_version_.store(0U, std::memory_order_relaxed);
-  rt_state_session_epoch_.store(0U, std::memory_order_relaxed);
   initial_handoff_gate_.clear(std::memory_order_relaxed);
   configured_ = true;
   parameters_frozen_.store(true, std::memory_order_release);

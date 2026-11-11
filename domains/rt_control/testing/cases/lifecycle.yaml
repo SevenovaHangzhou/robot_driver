@@ -40,7 +40,7 @@ cases:
       - 启动后 /rt_control/readiness 可见且 16 从站 PREOP/OP
       - 停机退出码 0；日志无 UNCLEAN_SHUTDOWN、无 SIGSEGV
     evidence: 启动/停机日志与末态总线读数存档
-    cleanup: stop 即清理；异常时按 runbook 第 11 节恢复
+    cleanup: stop 即清理；历史异常处置见旧版本 runbook 第 11 节（链接见 TC-LC-05 traces），不可直接用于当前 V3
     status: manual
     v010_gate: reference
 
@@ -94,7 +94,11 @@ cases:
     writes: { reset: yes, enable: yes, motion: no, plc: no }
     env: native
     covers: ["tools/rt_control_native.sh", "src/rt_control/ctrl_enable_manager/**"]
-    traces: [domains/rt_control/docs/native-development-workflow.md, "domains/rt_control/docs/follow-up-modification-plan.md（historical，来源论证）"]
+    # 保留旧 V0.10 用例的来源坐标，不将已退役指南作为当前操作入口。
+    traces:
+      - https://github.com/SevenovaHangzhou/robot_driver/blob/16fa212ec2b1efd748486e06158e0d364191b755/domains/rt_control/docs/native-development-workflow.md
+      - https://github.com/SevenovaHangzhou/robot_driver/blob/16fa212ec2b1efd748486e06158e0d364191b755/domains/rt_control/docs/follow-up-modification-plan.md
+      - https://github.com/SevenovaHangzhou/robot_driver/blob/16fa212ec2b1efd748486e06158e0d364191b755/domains/rt_control/docs/deployment-operations-runbook.md
     preconditions: 现场断电复位完成；现场授权（确认短语 RECOVER_RT_CONTROL）
     entry: |
       tools/rt_control_native_oneclick.sh   # 即 recover-power-loss
@@ -102,7 +106,7 @@ cases:
       - 流程 fail-closed：任何阶段失败即停机，不带病继续
       - 成功路径终态 14 轴可用、readiness ready=true
     evidence: 全程日志存档
-    cleanup: 失败时按 runbook 第 11 节处置
+    cleanup: 原用例清理步骤见 traces 中旧版本 runbook 第 11 节；不可直接用于当前 V3
     status: manual
     v010_gate: reference
 

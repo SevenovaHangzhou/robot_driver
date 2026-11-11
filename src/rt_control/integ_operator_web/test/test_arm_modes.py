@@ -1,4 +1,5 @@
 """Automatic entry selection with the real console, authority and idle evidence."""
+
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
@@ -16,14 +17,15 @@ from integ_operator_web.arm.rolling_output import RollingOutput
 from test_arm_console import setup  # noqa: F401
 from test_rolling_output import Port
 
-TARGET = {"left_joint1": .3, "left_joint2": .2}
+TARGET = {"left_joint1": 0.3, "left_joint2": 0.2}
 
 
 class Feedback:
     """External controller snapshots; all reconciliation uses ArmIdleEvidence."""
+
     def __init__(self, console, clock):
         self.c, self.clock = console, clock
-        self.e = ArmIdleEvidence(.2, 2.5, clock=clock)
+        self.e = ArmIdleEvidence(0.2, 2.5, clock=clock)
         self.calls = []
         self.c.idle_probe = lambda since: self.e.idle(self.c.joint_names, since)
         self.c.modes = ArmModes(console, self.switch, lambda: True, self.e.mode_matches)
@@ -34,18 +36,35 @@ class Feedback:
         c, e = self.c, self.e
         names = c.joint_names
         q = [c.robot.positions[n] for n in names]
-        e.set_stationary_policy(names, [.01] * len(names), 20)
+        e.set_stationary_policy(names, [0.01] * len(names), 20)
         for _ in range(21):
-            self.clock.now += .008
+            self.clock.now += 0.008
             e.measured(names, q, round(self.clock.now * 1e9))
-        e.controllers([NS(name=c.controller, type="JointTrajectoryController", state="active" if self.current == "jtc" else "inactive"),
-                       NS(name="rolling", type="RollingTrajectoryController", state="active" if self.current == "rolling" else "inactive")], c.controller)
-        e.controller_state(names, q, [0.] * len(names), [0.] * len(names))
+        e.controllers(
+            [
+                NS(
+                    name=c.controller,
+                    type="JointTrajectoryController",
+                    state="active" if self.current == "jtc" else "inactive",
+                ),
+                NS(
+                    name="rolling",
+                    type="RollingTrajectoryController",
+                    state="active" if self.current == "rolling" else "inactive",
+                ),
+            ],
+            c.controller,
+        )
+        e.controller_state(names, q, [0.0] * len(names), [0.0] * len(names))
         e.goal_status([])
-        e.set_tolerance(.01)
+        e.set_tolerance(0.01)
         e.rolling_state(NS(epoch=2, state=0, last_sequence=0, last_result=0, stop_reason=0))
-        c.update(controller_active=self.current == "jtc", controller_at=self.clock(),
-                 feedback_at=self.clock(), enable_at=self.clock())
+        c.update(
+            controller_active=self.current == "jtc",
+            controller_at=self.clock(),
+            feedback_at=self.clock(),
+            enable_at=self.clock(),
+        )
 
     def switch(self, target):
         self.calls.append(target)
@@ -66,9 +85,12 @@ def jog_rig(setup):
     c.release("s1")
     access = JogAccess(c)
     access.acquire("jog")
-    bridge = NS(_readback=NS(evidence=io.e), rolling_parameters={"joints": list(c.joint_names)},
-                rolling_parameters_at=clock(),
-                rolling_hold=NS(query=lambda names: {n: c.robot.positions[n] for n in names}))
+    bridge = NS(
+        _readback=NS(evidence=io.e),
+        rolling_parameters={"joints": list(c.joint_names)},
+        rolling_parameters_at=clock(),
+        rolling_hold=NS(query=lambda names: {n: c.robot.positions[n] for n in names}),
+    )
     output = c.jog_output = RollingOutput(c, bridge, Port())
     identity = {"model_sha256": c.model.source_sha256, "joint_names": list(c.joint_names)}
     return c, driver, clock, io, access, output, identity
@@ -129,8 +151,11 @@ def test_invalid_request_never_changes_mode_or_publishes(setup, bad):
             c.robot.enable_state = "IDLE"
         elif bad == "moving":
             io.e.rolling_state(NS(state=1))
-        action = lambda: c.execute("s1", {**TARGET, "left_joint1": 20} if bad == "target" else TARGET,
-                                   "wrong" if bad == "gear" else "leisure")
+        action = lambda: c.execute(
+            "s1",
+            {**TARGET, "left_joint1": 20} if bad == "target" else TARGET,
+            "wrong" if bad == "gear" else "leisure",
+        )
     with pytest.raises(ConsoleError):
         action()
     assert not io.calls and not driver.sent and not c._mode_busy
@@ -139,8 +164,12 @@ def test_invalid_request_never_changes_mode_or_publishes(setup, bad):
 @pytest.mark.parametrize("uncertain", [False, True])
 def test_failed_switch_never_sends_and_unknown_outcome_stays_fenced(setup, uncertain):
     c, driver, _, io = arm_rig(setup)
+
     def fail(_):
-        raise ModeError("mode_timeout" if uncertain else "mode_rejected", "switch failed", uncertain=uncertain)
+        raise ModeError(
+            "mode_timeout" if uncertain else "mode_rejected", "switch failed", uncertain=uncertain
+        )
+
     c.modes.switch = fail
     with pytest.raises(ModeError):
         c.execute("s1", TARGET, "leisure")
@@ -155,10 +184,12 @@ def test_failed_switch_never_sends_and_unknown_outcome_stays_fenced(setup, uncer
 def test_switch_in_flight_cannot_be_preempted_or_publish_after_cancellation(setup, cancel):
     c, driver, clock, io = arm_rig(setup)
     entered, finish = threading.Event(), threading.Event()
+
     def wait_switch(target):
         entered.set()
         assert finish.wait(2)
         io.switch(target)
+
     c.modes.switch = wait_switch
     with ThreadPoolExecutor(max_workers=1) as pool:
         pending = pool.submit(c.execute, "s1", TARGET, "leisure")
@@ -183,9 +214,11 @@ def test_switch_in_flight_cannot_be_preempted_or_publish_after_cancellation(setu
 
 def test_release_during_jog_switch_prevents_first_window(setup):
     c, driver, _, io, access, output, identity = jog_rig(setup)
+
     def release(target):
         access.release("jog")
         io.switch(target)
+
     c.modes.switch = release
     with pytest.raises(ConsoleError):
         output.begin("jog", identity)
