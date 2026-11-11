@@ -1,0 +1,61 @@
+Fix ROS lint formatting in PDO domain processing and its tests.
+
+diff --git a/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp b/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp
+index dab3d7d..4b5e861 100644
+--- a/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp
++++ b/ethercat_generic_plugins/ethercat_generic_slave/test/test_generic_ec_slave.cpp
+@@ -12,9 +12,10 @@
+ // See the License for the specific language governing permissions and
+ // limitations under the License.
+ 
++#include <unistd.h>
++
+ #include <map>
+ #include <fstream>
+-#include <unistd.h>
+ #include <pluginlib/class_loader.hpp>
+ #include "ethercat_interface/ec_slave.hpp"
+ #include "test_generic_ec_slave.hpp"
+diff --git a/ethercat_interface/src/ec_master.cpp b/ethercat_interface/src/ec_master.cpp
+index 708fcc0..57e8c2e 100644
+--- a/ethercat_interface/src/ec_master.cpp
++++ b/ethercat_interface/src/ec_master.cpp
+@@ -405,8 +405,11 @@ void EcMaster::processDomains(uint32_t domain, bool read)
+     auto & info = *item.second;
+     const bool complete = info.domain_state.wc_state == EC_WC_COMPLETE;
+     for (auto & entry : info.entries) {
+-      if (read) {entry.slave->onPdoCycleRead(complete);}
+-      else {entry.slave->onPdoCycleStart(complete);}
++      if (read) {
++        entry.slave->onPdoCycleRead(complete);
++      } else {
++        entry.slave->onPdoCycleStart(complete);
++      }
+       for (int i = 0; i < entry.num_pdos; ++i) {
+         entry.slave->processData(i, info.domain_pd + entry.offset[i]);
+       }
+@@ -437,7 +440,9 @@ bool EcMaster::sendDomains(uint32_t domain, SendPhase phase, bool acknowledge)
+   if (acknowledge) {
+     for (const auto & item : domain_info_) {
+       if (domain != ALL_DOMAINS && domain != item.first) {continue;}
+-      for (auto & entry : item.second->entries) {entry.slave->onPdoCycleSent();}
++      for (auto & entry : item.second->entries) {
++        entry.slave->onPdoCycleSent();
++      }
+     }
+   }
+   return true;
+diff --git a/ethercat_interface/test/test_maintain_data.cpp b/ethercat_interface/test/test_maintain_data.cpp
+index 46049a5..b2b947c 100644
+--- a/ethercat_interface/test/test_maintain_data.cpp
++++ b/ethercat_interface/test/test_maintain_data.cpp
+@@ -66,7 +66,8 @@ int __wrap_ecrt_domain_state(const ec_domain_t * domain, ec_domain_state_t * sta
+   static_cast<void>(domain);
+   *state = {};
+   state->working_counter = 48;
+-  state->wc_state = reinterpret_cast<uintptr_t>(domain) == incomplete_domain ? EC_WC_INCOMPLETE : EC_WC_COMPLETE;
++  state->wc_state = reinterpret_cast<uintptr_t>(domain) ==
++    incomplete_domain ? EC_WC_INCOMPLETE : EC_WC_COMPLETE;
+   return 0;
+ }
+ int __wrap_ecrt_master_state(const ec_master_t * master, ec_master_state_t * state)

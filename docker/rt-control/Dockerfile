@@ -150,6 +150,18 @@ RUN git config --global http.version HTTP/1.1 \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
     && git -C src/vendor/ecat_icube apply \
       /opt/rt_control_ws/src/robot/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0015-isolate-process-data-domains.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0015-isolate-process-data-domains.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0016-centralize-domain-registration.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0016-centralize-domain-registration.patch \
+    && git -C src/vendor/ecat_icube apply --check \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0017-fix-pdo-source-lint.patch \
+    && git -C src/vendor/ecat_icube apply \
+      /opt/rt_control_ws/src/robot/patches/ecat_icube/0017-fix-pdo-source-lint.patch \
     && git -C src/vendor/ros2_canopen apply --check \
       /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     && git -C src/vendor/ros2_canopen apply \
