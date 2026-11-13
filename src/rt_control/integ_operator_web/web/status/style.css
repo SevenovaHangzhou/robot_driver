@@ -244,3 +244,14 @@ body[data-state="down"] .stage-view, body[data-state="down"] .tiles, body[data-s
   .al button { height: 28px; padding: 0 10px; font-size: 11px; }
   .al-summary { height: 128px; }
 }
+
+/* Login overlay: the page shell is public, the data stream is not. */
+.login { position: fixed; inset: 0; margin: auto; width: min(420px, 90vw); height: fit-content; padding: 22px 24px; z-index: 6;
+  background: linear-gradient(180deg, rgba(30,32,44,.98), rgba(16,17,24,.98)); }
+.login form { display: grid; gap: 12px; }
+.login p { color: var(--t2); font-size: 13px; }
+.login label { display: grid; gap: 6px; color: var(--t3); font-size: 12px; }
+.login input { height: 36px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 12px; background: rgba(255,255,255,.06); color: var(--t1); }
+.login-row { display: flex; align-items: center; justify-content: space-between; }
+.login-row span { color: var(--coral); font-size: 12px; }
+.login button { height: 36px; padding: 0 16px; border: 1px solid var(--hair); border-radius: 12px; background: rgba(255,255,255,.1); color: var(--t1); cursor: pointer; }

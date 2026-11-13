@@ -297,12 +297,39 @@ function render(s) {
   renderAlerts(s);
   loadModel(s);
 }
+function showLogin(error) {
+  $("login-error").textContent = error || "";
+  $("login").hidden = false;
+  $("login-token").focus();
+}
+$("login-form").onsubmit = async (event) => {
+  event.preventDefault();
+  const token = $("login-token").value;
+  const response = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!response.ok) {
+    showLogin("令牌无效");
+    return;
+  }
+  $("login").hidden = true;
+  $("login-token").value = "";
+  connect();
+};
+
+let closedForAuth = false;
 function connect() {
   const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/status`);
+  ws.onopen = () => { closedForAuth = false; $("login").hidden = true; };
   ws.onmessage = (event) => {
     try { render(JSON.parse(event.data)); } catch { /* keep the last good snapshot */ }
   };
-  ws.onclose = () => setTimeout(connect, 2000);
+  ws.onclose = (event) => {
+    if (event.code === 4401 || event.code === 1008) { closedForAuth = true; showLogin(""); return; }
+    if (!closedForAuth) setTimeout(connect, 2000);
+  };
 }
 connect();
 pollCameras();

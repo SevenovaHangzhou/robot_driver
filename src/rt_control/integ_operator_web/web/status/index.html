@@ -102,6 +102,15 @@
 <div class="alerts" id="alerts"></div>
 </main>
 
+<div class="login glass" id="login" hidden>
+  <form id="login-form">
+    <b>登录</b>
+    <p>状态页只读，但需要操作台令牌才能查看机器人数据。</p>
+    <label>令牌 <input type="password" id="login-token" autocomplete="current-password" required></label>
+    <div class="login-row"><span id="login-error"></span><button type="submit">登录</button></div>
+  </form>
+</div>
+
 <aside class="raw glass" id="raw" hidden aria-label="原始诊断数据">
   <header><b>原始数据</b><input type="search" placeholder="按名称筛选" id="raw-filter"><button type="button" id="raw-close">关闭</button></header>
   <div class="raw-body" id="raw-body"></div>
