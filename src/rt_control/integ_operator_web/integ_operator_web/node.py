@@ -196,7 +196,7 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         from .arm.model import MESH_URL_PREFIX, resolve_mesh
         from ament_index_python.packages import get_package_share_directory
 
-        model_file = Path(arm["generated_dir"]) / "robot_description.xml"
+        model_file = arm.get("view_model_file")
         view_share = arm["view_model_share"]
         view_share = view_share.resolve() if view_share is not None else None
 
