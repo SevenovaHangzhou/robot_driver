@@ -118,7 +118,10 @@ def alarms(rows: list[dict], readiness: Optional[dict]) -> list[dict]:
                 "code": error.get("code", ""),
                 "title": error.get("name", ""),
                 "part": error.get("source", ""),
-                "values": {"detail": error.get("detail", ""), "retryable": str(error.get("retryable"))},
+                "values": {
+                    "detail": error.get("detail", ""),
+                    "retryable": str(error.get("retryable")),
+                },
             }
         )
     # Blockers are tokens, not codes; when readiness already carries errors they describe the same
@@ -126,7 +129,13 @@ def alarms(rows: list[dict], readiness: Optional[dict]) -> list[dict]:
     if not (readiness or {}).get("errors"):
         for blocker in (readiness or {}).get("blockers", []):
             entries.append(
-                {"level": "fault", "code": blocker, "title": blocker, "part": "readiness", "values": {}}
+                {
+                    "level": "fault",
+                    "code": blocker,
+                    "title": blocker,
+                    "part": "readiness",
+                    "values": {},
+                }
             )
     order = {"fault": 0, "warn": 1, "stale": 2}
     return sorted(entries, key=lambda entry: order[entry["level"]])
@@ -204,16 +213,22 @@ class FeedNode(Node):
     def __init__(self, feed: Feed):
         super().__init__("integ_operator_web_status")
         self._feed = feed
-        self.create_subscription(JointState, JOINT_STATE_TOPIC, self._joints, robot_interfaces_qos.state())
+        self.create_subscription(
+            JointState, JOINT_STATE_TOPIC, self._joints, robot_interfaces_qos.state()
+        )
         for index, topic in enumerate(BATTERY_TOPICS):
             self.create_subscription(
-                BatteryState, topic, lambda message, position=index: self._battery(position, message),
+                BatteryState,
+                topic,
+                lambda message, position=index: self._battery(position, message),
                 robot_interfaces_qos.state(),
             )
         self.create_subscription(Odometry, ODOM_TOPIC, self._odometry, robot_interfaces_qos.state())
         for index, topic in enumerate(SONAR_TOPICS):
             self.create_subscription(
-                Range, topic, lambda message, position=index: self._sonar(position, message),
+                Range,
+                topic,
+                lambda message, position=index: self._sonar(position, message),
                 qos_profile_sensor_data,
             )
         self.create_subscription(
@@ -224,7 +239,9 @@ class FeedNode(Node):
         )
 
     def _joints(self, message: JointState) -> None:
-        self._feed.set("joints", {name: position for name, position in zip(message.name, message.position)})
+        self._feed.set(
+            "joints", {name: position for name, position in zip(message.name, message.position)}
+        )
 
     def _battery(self, index: int, message: BatteryState) -> None:
         self._feed.set(
@@ -264,7 +281,9 @@ class FeedNode(Node):
                     {
                         "code": error.code,
                         "name": error.message,
-                        "severity": {0: "OK", 1: "WARN", 2: "FAULT"}.get(error.severity, str(error.severity)),
+                        "severity": {0: "OK", 1: "WARN", 2: "FAULT"}.get(
+                            error.severity, str(error.severity)
+                        ),
                         "source": error.source,
                         "detail": error.detail,
                         "retryable": error.retryable,
@@ -307,9 +326,7 @@ def document(
 
     odometry = snapshot["odometry"] if _fresh(snapshot["odometry"], now) else None
     speed = odometry.value if odometry else {}
-    sonar = [
-        sample.value if _fresh(sample, now) else None for sample in snapshot["sonar"]
-    ]
+    sonar = [sample.value if _fresh(sample, now) else None for sample in snapshot["sonar"]]
 
     readiness_sample = snapshot["readiness"]
     readiness = readiness_sample.value if _fresh(readiness_sample, now) else None
@@ -318,7 +335,9 @@ def document(
 
     if not joints_fresh:
         state = "offline"
-    elif any(entry["level"] == "fault" for entry in entries) or (readiness and not readiness["ready"]):
+    elif any(entry["level"] == "fault" for entry in entries) or (
+        readiness and not readiness["ready"]
+    ):
         state = "fault"
     elif entries:
         state = "warn"

@@ -131,7 +131,15 @@ def test_warnings_alone_do_not_raise_a_fault():
     feed = feed_with(100.0)
     feed.readiness = None
     feed.diagnostics = status_feed.Sample(
-        [{"name": "periph_ultrasonic/ch5", "level": "WARN", "message": "interference", "values": {}}], 99.0
+        [
+            {
+                "name": "periph_ultrasonic/ch5",
+                "level": "WARN",
+                "message": "interference",
+                "values": {},
+            }
+        ],
+        99.0,
     )
     document = status_feed.document(feed, state_period_s=1.0, roles=ROLES, now=100.0)
     assert document["state"] == "warn"
@@ -147,7 +155,9 @@ def test_cpu_reads_proc_stat_and_isolated_cores():
 
 
 def test_snapshot_is_json_serialisable_and_carries_the_camera_base():
-    page = StatusPage(feed_with(), Sessions("token"), WEB, camera_base="http://nx:8120/", roles=ROLES)
+    page = StatusPage(
+        feed_with(), Sessions("token"), WEB, camera_base="http://nx:8120/", roles=ROLES
+    )
     snapshot = page.snapshot()
     json.dumps(snapshot)
     assert snapshot["camera_base"] == "http://nx:8120"
@@ -208,11 +218,21 @@ STATION = {
             "running": True,
             "update_age_s": 4.2,
             "report_url": "/20261113-101500-d195-bench/",
-            "cycle": {"nominal_period_us": 999.9, "max_jitter_us": 204.5, "overruns": 1,
-                      "cycles": 97231027, "overrun_rule": "period > 1.5 x nominal"},
+            "cycle": {
+                "nominal_period_us": 999.9,
+                "max_jitter_us": 204.5,
+                "overruns": 1,
+                "cycles": 97231027,
+                "overrun_rule": "period > 1.5 x nominal",
+            },
             "blackbox": [
-                {"id": "20261113-101000.500-drive_fault", "time": 1763000000.0, "reasons": ["drive_fault"],
-                 "subjects": ["right_joint4"], "url": "/20261113-101500-d195-bench/blackbox/20261113-101000.500-drive_fault/"},
+                {
+                    "id": "20261113-101000.500-drive_fault",
+                    "time": 1763000000.0,
+                    "reasons": ["drive_fault"],
+                    "subjects": ["right_joint4"],
+                    "url": "/20261113-101500-d195-bench/blackbox/20261113-101000.500-drive_fault/",
+                },
             ],
         }
     ]
@@ -221,7 +241,10 @@ STATION = {
 
 def test_station_numbers_carry_their_age():
     data = logstation.normalise(STATION, "http://log:18200", now=1000.0)
-    assert data["run"]["running"] is True and data["run"]["report_url"] == "http://log:18200/20261113-101500-d195-bench/"
+    assert (
+        data["run"]["running"] is True
+        and data["run"]["report_url"] == "http://log:18200/20261113-101500-d195-bench/"
+    )
     assert data["cycle"]["overruns"] == 1 and data["cycle"]["stale"] is False
     assert data["records"][0]["url"].endswith("-drive_fault/")
     stale = logstation.normalise(
@@ -233,9 +256,20 @@ def test_station_numbers_carry_their_age():
 def test_evidence_links_the_matching_window_and_lists_the_rest_as_recovered():
     log = logstation.normalise(STATION, "http://log:18200", now=1000.0)
     alerts = [
-        {"level": "fault", "code": "rt_control/enable_manager", "title": "右臂关节 4 过流",
-         "part": "右臂", "values": {"detail": "right_joint4 fault"}},
-        {"level": "warn", "code": "periph_bms/0x01/pack", "title": "温度偏高", "part": "0x01", "values": {}},
+        {
+            "level": "fault",
+            "code": "rt_control/enable_manager",
+            "title": "右臂关节 4 过流",
+            "part": "右臂",
+            "values": {"detail": "right_joint4 fault"},
+        },
+        {
+            "level": "warn",
+            "code": "periph_bms/0x01/pack",
+            "title": "温度偏高",
+            "part": "0x01",
+            "values": {},
+        },
     ]
     merged = logstation.evidence(alerts, log)
     assert merged[0]["evidence"]["kind"] == "waveform"

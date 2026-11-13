@@ -65,11 +65,17 @@ def evidence(alerts: list[dict], log: dict) -> list[dict]:
     used = set()
     merged = []
     for alert in alerts:
-        text = " ".join([str(alert.get("code", "")), str(alert.get("title", ""))]
-                        + [str(value) for value in (alert.get("values") or {}).values()])
+        text = " ".join(
+            [str(alert.get("code", "")), str(alert.get("title", ""))]
+            + [str(value) for value in (alert.get("values") or {}).values()]
+        )
         match = next(
-            (record for record in records
-             if record["id"] not in used and any(subject in text for subject in record["subjects"])),
+            (
+                record
+                for record in records
+                if record["id"] not in used
+                and any(subject in text for subject in record["subjects"])
+            ),
             None,
         )
         entry = dict(alert)
@@ -100,7 +106,9 @@ def evidence(alerts: list[dict], log: dict) -> list[dict]:
 class LogStation:
     """Polls one station; a failed poll keeps the previous answer and marks it stale."""
 
-    def __init__(self, base: str, period: float = POLL_PERIOD_S, timeout: float = REQUEST_TIMEOUT_S):
+    def __init__(
+        self, base: str, period: float = POLL_PERIOD_S, timeout: float = REQUEST_TIMEOUT_S
+    ):
         self.base = base.rstrip("/")
         self.period = period
         self.timeout = timeout
@@ -110,22 +118,36 @@ class LogStation:
 
     async def poll_once(self, session: aiohttp.ClientSession) -> dict:
         if not self.base:
-            return {"available": False, "run": None, "cycle": None, "records": [], "error": "not_configured"}
+            return {
+                "available": False,
+                "run": None,
+                "cycle": None,
+                "records": [],
+                "error": "not_configured",
+            }
         try:
             async with session.get(f"{self.base}/anomalies.json", timeout=self.timeout) as response:
                 response.raise_for_status()
                 payload = await response.json()
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as error:
             self._error = f"{type(error).__name__}: {error}"
-            return dict(self._last or {"available": False, "run": None, "cycle": None, "records": []},
-                        error=self._error)
+            return dict(
+                self._last or {"available": False, "run": None, "cycle": None, "records": []},
+                error=self._error,
+            )
         self._error = None
         self._last = normalise(payload, self.base)
         return self._last
 
     def snapshot(self) -> dict:
         if self._last is None:
-            return {"available": False, "run": None, "cycle": None, "records": [], "error": self._error or "pending"}
+            return {
+                "available": False,
+                "run": None,
+                "cycle": None,
+                "records": [],
+                "error": self._error or "pending",
+            }
         return dict(self._last, error=self._error)
 
     async def _loop(self) -> None:
