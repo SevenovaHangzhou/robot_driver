@@ -193,7 +193,7 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
     # The status page reuses the arm page's installed model share for the whole-vehicle view.
     model_file = mesh_lookup = None
     if arm is not None:
-        from .arm.model import MESH_URL_PREFIX, resolve_mesh
+        from .arm.model import resolve_mesh
         from ament_index_python.packages import get_package_share_directory
 
         model_file = arm.get("view_model_file")

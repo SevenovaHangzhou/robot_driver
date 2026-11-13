@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 
-from aiohttp import WSMsgType, web
+from aiohttp import web
 from aiohttp.client_exceptions import WSServerHandshakeError
 from aiohttp.test_utils import TestClient, TestServer
 
