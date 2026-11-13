@@ -1,6 +1,23 @@
 # integ_operator_web
 
-RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 机械臂与头部（同一页面），`/diag` 诊断（只读）。各控制区共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
+RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 状态（只读，首页，ELECTRI-200），`/chassis` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 机械臂与头部（同一页面）。各控制区共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
+
+## 状态页 `/`
+
+只读首页，不取控制权、不下发命令；`/ws/status` 每秒推送一份快照。
+
+| 区域 | 数据来源 |
+| --- | --- |
+| 整机姿态三维视图 | `/joint_states`；模型与网格来自运行中的 deployment 产物（`robot_description.xml` + 安装的 mesh 共享目录），复用 `/arm` 的只读接口 |
+| 电池与总放电电流 | `/rt/battery/left/state`、`/rt/battery/right/state`；总电流只在两包都新鲜时计入 |
+| 底盘俯视图 | 四舵角取 `status_joint_steer1..4` 的关节位置；速度取 `/wheel/odom`；八路距离取 `/rt/ultrasonic/channel1..8/range` |
+| CPU | 操作台所在工控机的 `/proc/stat`、`/sys/devices/system/cpu/isolated`、可读的 `thermal_zone*`；实时核即隔离核，不写死核号 |
+| 告警 | `/diagnostics` 与 `/rt/readiness` 的原文；`READY` 之外的条目按故障、警告、无数据排序，不自行判定健康 |
+
+- 关节名不写在代码里：`status_joint_updown`、`status_joint_head_yaw`、`status_joint_head_pitch`、`status_joint_steer1..4` 由部署填写，空值显示“—”。
+- `status_robot_label` 是页头显示的机型名，`status_camera_base` 是 NX 只读预览服务地址（空则不显示相机）。
+- 任何数据源超过 3 秒没有更新就显示“—”，`/joint_states` 超过 3 秒判为与机器人断开；页面不会用旧值冒充当前状态。
+- 尚未接入：控制周期、最大抖动、超时次数（需日志站提供），相机预览（需 NX 服务与地址配置）。
 
 ## 功能
 
@@ -207,16 +224,6 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 执行前验证所有段的位姿、限位、速度和停留；任一段无效整组拒绝。
 状态 `sequence.steps` 提供本次参数快照，`sequence.dwell_s` 为当前段停留。
 预设文件格式保持兼容，载入时将统一参数展开成独立段，载入不会执行。
-
-# 诊断页
-
-`/diag` 只读，不取控制权、不下发命令，经 `/ws/diag` 每秒推送一次：
-
-- 启动自检报告：`$RT_CONTROL_STATE_DIR/self_check/<作用域>.json`（默认 `/tmp/rt-control/`），每个作用域最新一份，新的在前。阶段 A 由运行栈启动文件在总线启动前写入；运行栈因自检失败没有起来时，这里仍能看到原因。阶段 B 由诊断节点在硬件激活后追加。
-- 运行栈就绪状态：R-OUT-09 `/rt/readiness`（每个问题的位置、DREE 码、级别、厂家码与说明）。诊断节点未运行时显示"未运行或尚未发布"。
-- 原始诊断：`/diagnostics` 每个名称的最新一行及其键值。
-
-本页不替代急停、STO 或安全链。
 
 # 头部控制区
 

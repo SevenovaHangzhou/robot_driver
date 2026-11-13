@@ -81,7 +81,8 @@ async def next_of(ws, kind: str, timeout: float = 2.0):
 
 def test_index_served_with_security_headers() -> None:
     async def scenario(client, _arbiter):
-        response = await client.get("/")
+        # "/" is the status page now; this console is the chassis page.
+        response = await client.get("/chassis")
         assert response.status == 200
         assert "ALFA 底盘操作台" in await response.text()
         assert "frame-ancestors 'none'" in response.headers["Content-Security-Policy"]

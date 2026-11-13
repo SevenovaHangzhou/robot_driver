@@ -93,7 +93,8 @@ class OperatorServer:
 
     def build_app(self) -> web.Application:
         app = web.Application(middlewares=[self._headers_middleware])
-        app.router.add_get("/", self._index)
+        # The status page owns "/"; this console is the chassis page at "/chassis".
+        app.router.add_get("/chassis", self._index)
         app.router.add_post("/api/login", self._login)
         app.router.add_post("/api/logout", self._sessions.logout)
         app.router.add_get("/ws", self._websocket)
