@@ -5,6 +5,9 @@
 #include "periph_bms/protocol/protocol.hpp"
 #include "infra_socketcan/socket.hpp"
 #include "robot_interfaces_qos/profiles.hpp"
+#include "diagnostic_msgs/msg/diagnostic_array.hpp"
+#include "diagnostic_msgs/msg/diagnostic_status.hpp"
+#include "diagnostic_msgs/msg/key_value.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
 #include "std_msgs/msg/bool.hpp"
 
@@ -80,6 +83,10 @@ public:
       declare_parameter<std::string>("battery_state_topic", "/rt/battery/left/state");
     const auto secondary_topic =
       declare_parameter<std::string>("secondary_battery_state_topic", "/rt/battery/right/state");
+    const auto diagnostics_topic =
+      declare_parameter<std::string>("battery_diagnostics_topic", "/rt/battery/left/diagnostics");
+    const auto secondary_diagnostics_topic = declare_parameter<std::string>(
+      "secondary_battery_diagnostics_topic", "/rt/battery/right/diagnostics");
     const double max_join_voltage_delta_v =
       declare_parameter<double>("max_join_voltage_delta_v", -1.0);
     const double max_trip_voltage_delta_v =
@@ -154,6 +161,10 @@ public:
       create_publisher<sensor_msgs::msg::BatteryState>(topic, robot_interfaces_qos::state());
     secondary_publisher_ = create_publisher<sensor_msgs::msg::BatteryState>(
       secondary_topic, robot_interfaces_qos::state());
+    diagnostics_publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      diagnostics_topic, robot_interfaces_qos::diagnostic());
+    secondary_diagnostics_publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      secondary_diagnostics_topic, robot_interfaces_qos::diagnostic());
     if (automatic_discharge_control_) {
       relay_command_publisher_ = create_publisher<std_msgs::msg::Bool>(relay_command_topic, 10);
       loads_stop_publisher_ = create_publisher<std_msgs::msg::Bool>(loads_stop_topic, 10);
@@ -450,17 +461,172 @@ private:
     }
   }
 
+  static std::uint8_t diagnostic_level(const PackState & pack)
+  {
+    using diagnostic_msgs::msg::DiagnosticStatus;
+    if (pack.has_warning_level(AlarmLevel::kFault) || pack.has_warning_level(AlarmLevel::kSecond)) {
+      return DiagnosticStatus::ERROR;
+    }
+    return pack.has_fault() ? DiagnosticStatus::WARN : DiagnosticStatus::OK;
+  }
+
+  static const char * level_name(const AlarmLevel level)
+  {
+    switch (level) {
+      case AlarmLevel::kFirst:
+        return "first";
+      case AlarmLevel::kSecond:
+        return "second";
+      case AlarmLevel::kFault:
+        return "fault";
+    }
+    return "unknown";
+  }
+
+  static const char * kind_name(const AlarmKind kind)
+  {
+    switch (kind) {
+      case AlarmKind::kTemperatureHigh:
+        return "temperature_high";
+      case AlarmKind::kTemperatureLow:
+        return "temperature_low";
+      case AlarmKind::kTemperatureDelta:
+        return "temperature_delta";
+      case AlarmKind::kOther:
+        return "other";
+    }
+    return "unknown";
+  }
+
+  static diagnostic_msgs::msg::KeyValue key_value(
+    const std::string & key, const std::string & value)
+  {
+    diagnostic_msgs::msg::KeyValue entry;
+    entry.key = key;
+    entry.value = value;
+    return entry;
+  }
+
+  static std::string optional_value(const std::optional<double> & value, const int digits)
+  {
+    if (!value) {
+      return "NaN";
+    }
+    char text[32] = {};
+    std::snprintf(text, sizeof(text), "%.*f", digits, *value);
+    return text;
+  }
+
+  // The vendor document defines no rule for when the BMS opens the MOS by itself, so the reported
+  // state is passed through as-is instead of being inferred from alarm levels.
+  static void add_switch_values(
+    diagnostic_msgs::msg::DiagnosticStatus & status, const PackState & pack)
+  {
+    if (pack.operating_state_raw) {
+      status.values.push_back(
+        key_value("operating_state", std::to_string(static_cast<int>(*pack.operating_state_raw))));
+    }
+    if (pack.charge_mos_raw) {
+      status.values.push_back(key_value("charge_mos", *pack.charge_mos_raw == 0U ? "off" : "on"));
+    }
+    if (pack.discharge_mos_raw) {
+      status.values.push_back(
+        key_value("discharge_mos", *pack.discharge_mos_raw == 0U ? "off" : "on"));
+    }
+  }
+
+  static void add_temperature_values(
+    diagnostic_msgs::msg::DiagnosticStatus & status, const PackState & pack)
+  {
+    status.values.push_back(
+      key_value("max_cell_temperature_c", optional_value(pack.max_cell_temperature_c, 1)));
+    status.values.push_back(
+      key_value("min_cell_temperature_c", optional_value(pack.min_cell_temperature_c, 1)));
+    status.values.push_back(
+      key_value("mos_temperature_c", optional_value(pack.mos_temperature_c, 1)));
+    status.values.push_back(
+      key_value("board_temperature_c", optional_value(pack.board_temperature_c, 1)));
+  }
+
+  // One summary row per pack plus one row per active 0x98 bit, so consumers get both the verdict and
+  // the individual alarms. Temperature alarms are reported; they no longer clear the measurements.
+  void publish_diagnostics(
+    const PackState & pack, const std::uint8_t address, const double timestamp,
+    const rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr & publisher)
+  {
+    const bool fault_fresh = pack.fault_frame_s && timestamp >= *pack.fault_frame_s &&
+                             timestamp - *pack.fault_frame_s <= frame_timeout_s_;
+    std::array<char, 5U> label{};
+    std::snprintf(label.data(), label.size(), "0x%02x", address);
+    std::array<const AlarmSpec *, kAlarmSpecs.size()> active{};
+    const std::size_t count = fault_fresh ? pack.active_alarms(active) : 0U;
+
+    diagnostic_msgs::msg::DiagnosticArray array;
+    array.header.stamp = now();
+    diagnostic_msgs::msg::DiagnosticStatus summary;
+    summary.name = "periph_bms/" + std::string(label.data()) + "/pack";
+    summary.hardware_id = label.data();
+    summary.level =
+      fault_fresh ? diagnostic_level(pack) : diagnostic_msgs::msg::DiagnosticStatus::STALE;
+    summary.message = !fault_fresh  ? "no 0x98 frame within timeout"
+                      : count == 0U ? "no protocol alarm"
+                                    : std::to_string(count) + " protocol alarm(s)";
+    summary.values.push_back(key_value("alarm_count", std::to_string(count)));
+    summary.values.push_back(
+      key_value("vendor_fault_code", std::to_string(static_cast<int>(pack.vendor_fault_code()))));
+    add_switch_values(summary, pack);
+    add_temperature_values(summary, pack);
+    array.status.push_back(summary);
+
+    for (std::size_t index = 0U; index < count; ++index) {
+      const auto & spec = *active[index];
+      diagnostic_msgs::msg::DiagnosticStatus status;
+      status.name = summary.name + "/alarm/" + std::string(spec.code);
+      status.hardware_id = label.data();
+      status.level = spec.level == AlarmLevel::kFirst
+                       ? diagnostic_msgs::msg::DiagnosticStatus::WARN
+                       : diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+      status.message = std::string(spec.code);
+      status.values.push_back(key_value("code", std::string(spec.code)));
+      status.values.push_back(key_value("level", level_name(spec.level)));
+      status.values.push_back(key_value("kind", kind_name(spec.kind)));
+      status.values.push_back(key_value(
+        "bit", std::to_string(static_cast<int>(spec.byte)) + "." + std::to_string(spec.bit)));
+      add_temperature_values(status, pack);
+      array.status.push_back(status);
+    }
+    if (count == 0U && pack.vendor_fault_code() != 0U) {
+      diagnostic_msgs::msg::DiagnosticStatus status;
+      status.name = summary.name + "/alarm/vendor_fault_code";
+      status.hardware_id = label.data();
+      status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+      status.message = "vendor fault code";
+      status.values.push_back(
+        key_value("vendor_fault_code", std::to_string(static_cast<int>(pack.vendor_fault_code()))));
+      array.status.push_back(status);
+    }
+    publisher->publish(array);
+  }
+
   void publish_pack(
     const PackState & pack, const std::uint8_t address,
     const rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr & publisher,
+    const rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr &
+      diagnostics_publisher,
     const double timestamp)
   {
     const bool fresh = pack.status_fresh(timestamp, frame_timeout_s_);
     const bool fault_fresh = pack.fault_frame_s && timestamp >= *pack.fault_frame_s &&
                              timestamp - *pack.fault_frame_s <= frame_timeout_s_;
     const auto values = project_battery_values(pack.sample, timestamp, frame_timeout_s_);
-    const bool present = fresh && std::isfinite(values.voltage_v) &&
-                         std::isfinite(values.soc_fraction) && !pack.has_fault();
+    // `present` only says whether the measurements can be used. Faults are reported through
+    // power_supply_health and the diagnostics topic; whether the pack may be discharged is the
+    // discharge controller's decision, not something the state message should fold in.
+    const bool present =
+      fresh && std::isfinite(values.voltage_v) && std::isfinite(values.soc_fraction);
+    const bool temperature_fresh = pack.temperature_frame_s &&
+                                   timestamp >= *pack.temperature_frame_s &&
+                                   timestamp - *pack.temperature_frame_s <= frame_timeout_s_;
     const double nan = std::numeric_limits<double>::quiet_NaN();
     sensor_msgs::msg::BatteryState message;
     message.header.stamp = now();
@@ -472,7 +638,9 @@ private:
     message.current =
       static_cast<float>(present && pack.sample.current_a ? *pack.sample.current_a : nan);
     message.percentage = static_cast<float>(present ? values.soc_fraction : nan);
-    message.temperature = static_cast<float>(nan);
+    message.temperature = static_cast<float>(
+      present && temperature_fresh && pack.max_cell_temperature_c ? *pack.max_cell_temperature_c
+                                                                  : nan);
     message.charge = static_cast<float>(nan);
     message.capacity = static_cast<float>(nan);
     message.design_capacity = static_cast<float>(nan);
@@ -482,14 +650,22 @@ private:
     } else if (present && pack.operating_state_raw == 2U) {
       message.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING;
     }
-    message.power_supply_health =
-      fault_fresh && pack.has_fault()
-        ? sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_UNSPEC_FAILURE
-        : sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_UNKNOWN;
+    message.power_supply_health = sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_UNKNOWN;
+    if (fault_fresh && pack.has_alarm_of_kind(AlarmKind::kTemperatureHigh)) {
+      message.power_supply_health = sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_OVERHEAT;
+    } else if (fault_fresh && pack.has_alarm_of_kind(AlarmKind::kTemperatureLow)) {
+      message.power_supply_health = sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_COLD;
+    } else if (fault_fresh && pack.has_fault()) {
+      message.power_supply_health =
+        sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+    } else if (pack.status_fresh(timestamp, frame_timeout_s_)) {
+      message.power_supply_health = sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_GOOD;
+    }
     message.power_supply_technology =
       sensor_msgs::msg::BatteryState::POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
     message.present = present;
     publisher->publish(message);
+    publish_diagnostics(pack, address, timestamp, diagnostics_publisher);
   }
 
   void publish()
@@ -502,8 +678,9 @@ private:
       secondary = secondary_;
     }
     const double stamp = monotonic_seconds();
-    publish_pack(primary, primary_address_, primary_publisher_, stamp);
-    publish_pack(secondary, secondary_address_, secondary_publisher_, stamp);
+    publish_pack(primary, primary_address_, primary_publisher_, diagnostics_publisher_, stamp);
+    publish_pack(
+      secondary, secondary_address_, secondary_publisher_, secondary_diagnostics_publisher_, stamp);
   }
 
   std::string can_interface_;
@@ -535,6 +712,9 @@ private:
   std::thread reader_thread_;
   rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr primary_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr secondary_publisher_;
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr
+    secondary_diagnostics_publisher_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr relay_command_publisher_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr loads_stop_publisher_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr relay_feedback_subscription_;

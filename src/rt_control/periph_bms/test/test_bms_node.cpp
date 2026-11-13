@@ -135,6 +135,12 @@ TEST(BmsNodeTest, PublishesBothBatteryStatesWithTheContractStateQos)
     EXPECT_EQ(publishers[0].qos_profile().reliability(), expected.reliability()) << topic;
     EXPECT_EQ(publishers[0].qos_profile().durability(), expected.durability()) << topic;
   }
+  // Temperature and alarm detail go to a diagnostics topic next to the state topics.
+  for (const auto * topic : {"/rt/battery/left/diagnostics", "/rt/battery/right/diagnostics"}) {
+    const auto publishers = node->get_publishers_info_by_topic(topic);
+    ASSERT_EQ(publishers.size(), 1U) << topic;
+    EXPECT_EQ(publishers[0].topic_type(), "diagnostic_msgs/msg/DiagnosticArray") << topic;
+  }
   // Discharge control is opt-in: without commissioning it never commands the relay.
   EXPECT_FALSE(node->get_parameter("automatic_discharge_control").as_bool());
   node.reset();

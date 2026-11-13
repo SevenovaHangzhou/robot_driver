@@ -82,9 +82,27 @@ are not changed by this review fix. See ELECTRI-131 and BQ-152.
 
 The primary `0x01` pack publishes `/rt/battery/left/state`; secondary `0x02` publishes
 `/rt/battery/right/state`. They are not averaged or summed because diode ORing
-does not guarantee current sharing. A missing, stale, or faulted pack publishes
-`present=false` with invalid numeric values; `0x98` faults set unspecified failure
-health. The published status is not a replacement for the hardware safety chain.
+does not guarantee current sharing. A missing or stale pack publishes `present=false`
+with invalid numeric values. `temperature` carries the highest cell temperature and is
+NaN when its frame is older than `frame_timeout_s`. `power_supply_health` is `OVERHEAT`
+for a temperature-high alarm, `COLD` for a temperature-low alarm, `UNSPEC_FAILURE` for
+any other `0x98` alarm or vendor fault code, `GOOD` when the pack is fresh without
+alarms, and `UNKNOWN` while no `0x98` frame is available.
+
+The vendor document defines no rule for when the BMS opens the charge or discharge MOS by
+itself and does not say whether a first-level alarm cuts the load, so the reported switch
+state is passed through instead of inferred: the diagnostics summary carries
+`operating_state`, `charge_mos` and `discharge_mos` from `0x93`. The discharge controller
+still requires a pack without any `0x98` alarm and inside the configured temperature window,
+so publishing does not relax the discharge conditions.
+
+Each pack also publishes `/rt/battery/{left,right}/diagnostics`
+(`diagnostic_msgs/msg/DiagnosticArray`, same 5 s period as the state topics): one summary
+row `<pack>` and one row per active `0x98` bit with `code`, `level` (`first`/`second`/
+`fault`), `kind` and `bit` values, plus highest/lowest cell, MOS and board temperatures.
+The vendor document names two warning levels without stating which is more severe;
+`first` is treated as the less severe one. Wording for people belongs to the consumer,
+not to the driver. None of this replaces the hardware safety chain.
 
 See the dual Golden Phoenix power-flow record for the physical connection and charging
 restrictions. Charging MOS is not controlled by this package.
