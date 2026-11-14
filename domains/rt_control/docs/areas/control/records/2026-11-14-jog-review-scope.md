@@ -21,7 +21,7 @@ related: []
 
 ## 改动
 
-- 移除模块探测、动态配置选择、网页模块卡片、PDO 补丁 0015–0017及其专属测试；这些路径与当前 main 一致。无关的 CI 缓存和 controller_manager 版本放行也移出本 PR。
+- 移除模块探测、动态配置选择、网页模块卡片、PDO 补丁 0015–0017及其专属测试；这些路径与当前 main 一致。移除无关的 CI 缓存改动。启动包仅保留本轮完整构建所需的 controller_manager 2.54.3 兼容，证据见下文。
 - 最短链路：Jog 客户端 → `/ws/jog` → 共享 ArmAuthority/模式协调 → RollingOutput → 公共 RollingSender → Rolling 控制器。epoch、sequence、确认和终态由发送器拥有，轨迹准入由控制器拥有。
 - EnableManager 增加域内只读 `~/confirm_standstill`（std_srvs/Trigger）。模式切换和查询共用内部实时样本、连续窗口和原有 stableActualInterval 判据。查询必须观察请求之后的新窗口；停机、忙、过期或没有新样本均不能确认成功。不切换模式，不写驱动命令。
 - JTC-only 配置中已有 motion_joints 也用于该只读确认；网页先核对查询覆盖的关节与受控关节一致。网页保留请求终态和控制器状态证据，删除自己的位置/速度停稳算法、参数策略和 Hermite 加速度预检。
@@ -40,6 +40,15 @@ ROS Humble，固定公共接口 78f02ffe5b8f40a9f57bf9405cd00e007914fc84 的源�
 - `tools/quality_gate.sh`：通过；工具测试 185 通过、11 条依赖未导入的公共接口/IgH 条件跳过；shellcheck 本机未安装。未将这些缺项记为通过。
 - `tools/arch_check.py compose --against origin/main`：27 种选择产物不变。
 - 初次构建因缺依赖前缀失败；首次测试发现旧夹具和动作权限快照的遗漏。修正后重新运行全部受影响包，以上均为最终源码结果。
+
+### CI 构建兼容修复
+
+head d5d7322 的 CI 43563462262 在 Build 阶段因安装 controller_manager 2.54.3、而启动包仅接受 2.53.1/2.54.2 失败；后续测试未执行。本地使用已安装的 2.54.3 复现同一配置错误后，仅增加这个已核实版本，不放开未知版本。
+
+- 官方 2.53.1、2.54.2（e822ad539633d1d286d1a85ab4e0390c79f218e7）、2.54.3（65d389596953cb4656c4216a3f0bc08a73230739）的 ros2_control_node.cpp 与仓库冻结副本逐字节相同，SHA-256 均为 ca6192e765b4ad433e9cd9053ca8209982f6367e301afd7f99620baa3c4eed92；现有补丁在三者上均通过 `patch --fuzz=0 --dry-run`。
+- `integ_bringup` 重新配置、编译和链接通过；链接已安装的 controller_manager 2.54.3，无缺失动态库。没有修改冻结源码或补丁。
+- 标准 CTest 4 个目标全部通过。独立包测试初次缺少源码 Python 依赖路径；补齐当前仓库的依赖路径后重跑全部目标，未修改或跳过测试。
+- 修复后的 `tools/quality_gate.sh` 通过；证据目录 `/tmp/pr260-jog-20261114/ci-failure-43563462262`。完整 CI 仍以新 head 结果为准。
 
 软件包测试不构成 T1 全图 mock 验收或实机验证；未运行本版本全栈 mock、容器、实机总线、使能和运动。历史记录中的现场证据只适用于当时提交。
 
