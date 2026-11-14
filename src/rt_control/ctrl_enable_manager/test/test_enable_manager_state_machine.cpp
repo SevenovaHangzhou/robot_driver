@@ -165,6 +165,12 @@ public:
   {
     c.handleJtcState(message);
   }
+  static auto confirmStandstill(Controller & c)
+  {
+    auto response = std::make_shared<std_srvs::srv::Trigger::Response>();
+    c.handleConfirmStandstill(std::make_shared<std_srvs::srv::Trigger::Request>(), response);
+    return response;
+  }
   using ActualSample = EnableManagerController::ActualSample;
   static bool stableActualInterval(
     const Controller & c, const ActualSample & window_start, const ActualSample & current)
@@ -707,6 +713,56 @@ TEST_F(EnableManagerFixture, StandstillIsJudgedOverTheWholeWindow)
   // 0.0002 rad over 20 ms is 0.01 rad/s: moving.
   current.positions[0] = start.positions[0] + 2.0e-4;
   EXPECT_FALSE(Access::stableActualInterval(*controller_, start, current));
+}
+
+TEST_F(EnableManagerFixture, StandstillQueryUsesLiveSamplesWithoutChangingControlOwnership)
+{
+  // A JTC-only scope needs the same evidence as the Rolling-capable scope.
+  initAndConfigure(
+    "standstill_query",
+    {rclcpp::Parameter(
+      "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end()))});
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  std::atomic<bool> running{true};
+  std::thread updates([&]() {
+    while (running.load()) {
+      callUpdate();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  });
+  const auto response = Access::confirmStandstill(*controller_);
+  running.store(false);
+  updates.join();
+  EXPECT_TRUE(response->success) << response->message;
+  EXPECT_EQ(Access::owner(*controller_), Owner::kNone);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+  EXPECT_TRUE(std::all_of(
+    command_buffer_.begin(), command_buffer_.end(), [](double value) { return value == 0.0; }));
+  EXPECT_FALSE(Access::confirmStandstill(*controller_)->success);  // No new samples.
+  feedback_age_ms_ = std::numeric_limits<double>::infinity();
+  callUpdate();
+  EXPECT_FALSE(Access::confirmStandstill(*controller_)->success);
+  Access::setOwner(*controller_, Owner::kEnable);
+  EXPECT_FALSE(Access::confirmStandstill(*controller_)->success);
+}
+
+TEST_F(EnableManagerFixture, StandstillQueryCannotConfirmMovingSamples)
+{
+  bringUpMotionToIdle();
+  std::atomic<bool> running{true};
+  std::thread updates([&]() {
+    while (running.load()) {
+      position_buffer_[0] += 0.001;
+      callUpdate();
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  });
+  const auto response = Access::confirmStandstill(*controller_);
+  running.store(false);
+  updates.join();
+  EXPECT_FALSE(response->success);
+  EXPECT_EQ(Access::owner(*controller_), Owner::kNone);
 }
 
 TEST_F(EnableManagerFixture, DetectsAndClassifiesExclusiveMotionControllerModes)

@@ -101,6 +101,8 @@ def main(argv=None) -> int:
         help="append-only JSON-lines operator audit log; empty string disables it",
     )
     parser.add_argument("--software-test-only", action="store_true")
+    parser.add_argument("--jog-motion-enabled", action="store_true",
+                        help="allow the shared jog entry to publish via public RollingSender; never enables hardware")
     args = parser.parse_args(argv)
     try:
         check_dds()
@@ -113,6 +115,7 @@ def main(argv=None) -> int:
             port=args.port,
             static_dir=str(share / "web"),
             generated_dir=args.generated_dir,
+            jog_motion_enabled=args.jog_motion_enabled,
         )
         from .node import main as run_node
 

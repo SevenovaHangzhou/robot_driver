@@ -82,9 +82,9 @@ def config_from_mapping(document: Mapping) -> ConsoleConfig:
 class Driver(Protocol):
     """Implemented by the ROS bridge.
 
-    ``start`` is the monotonic time of trajectory t = 0. The driver stamps the
-    trajectory with it, so a stop can continue the running motion on the same
-    timeline instead of the controller's receive time.
+    Return the monotonic time of trajectory t = 0. For a new move, ``start_delay``
+    reserves lead time after message preparation. A stop uses zero delay and keeps
+    ``start`` exactly, so it joins the running motion on the same timeline.
     """
 
     def send(
@@ -93,7 +93,9 @@ class Driver(Protocol):
         points: Sequence[TrajectoryPoint],
         done: Callable[[bool, str], None],
         start: float,
-    ) -> None: ...
+        *,
+        start_delay: float = 0.0,
+    ) -> float: ...
 
     def cancel(self) -> None: ...
 

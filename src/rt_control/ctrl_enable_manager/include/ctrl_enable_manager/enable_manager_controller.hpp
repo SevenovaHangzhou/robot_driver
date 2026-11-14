@@ -33,6 +33,7 @@
 #include "hw_semantic_components/cia402_axis.hpp"
 #include "infra_shm_ring/shm_ring.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 namespace ctrl_enable_manager
 {
@@ -196,6 +197,9 @@ private:
   void handleSetMode(
     const std::shared_ptr<ModeService::Request> request,
     std::shared_ptr<ModeService::Response> response);
+  void handleConfirmStandstill(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
   void handleJtcState(const control_msgs::msg::JointTrajectoryControllerState::SharedPtr message);
   void handleRollingState(
     const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr message);
@@ -227,6 +231,7 @@ private:
     const MotionPositions & source, const MotionPositions & actual) const noexcept;
   bool readActualSample(ActualSample & sample) const noexcept;
   bool readCommandSnapshot(ControlMode mode, CommandSnapshot & snapshot) const;
+  std::uint8_t waitForStandstill(Phase phase, Owner owner, ActualSample & sample);
   std::uint8_t validateModeSource(ControlMode source, CommandSnapshot & snapshot);
   bool queryControllerStates(
     controller_manager_msgs::srv::ListControllers::Response & states,
@@ -451,6 +456,7 @@ private:
   rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr disable_service_;
   rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr reset_service_;
   rclcpp::Service<ModeService>::SharedPtr mode_service_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr standstill_service_;
   rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr
     jtc_state_subscription_;
   rclcpp::Subscription<robot_rt_control_interfaces::msg::RollingJointControlState>::SharedPtr

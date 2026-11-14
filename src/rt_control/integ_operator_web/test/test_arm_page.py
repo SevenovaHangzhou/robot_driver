@@ -218,7 +218,7 @@ def test_status_stream_lease_and_execute(setup):
     run(app, scenario)
 
 
-def test_closing_the_holding_socket_stops_and_releases(setup):
+def test_closing_socket_retains_resource_until_stop_completion(setup):
     console, driver, _ = setup
     app, _ = build(console)
 
@@ -230,11 +230,16 @@ def test_closing_the_holding_socket_stops_and_releases(setup):
         await command(ws, "execute", **TARGET)
         await ws.close()
         for _ in range(100):
-            if console.lease_holder is None:
+            if len(driver.sent) == 2:
                 break
             await asyncio.sleep(0.01)
-        assert console.lease_holder is None
         assert len(driver.sent) == 2  # the move, then its smooth stop
+        assert console.authority.poll()['phase'] == 'stopping'
+        assert console.lease_holder is not None
+        driver.sent[0][2](False, 'superseded')
+        assert console.lease_holder is not None
+        driver.sent[1][2](True, '')
+        assert console.lease_holder is None  # fixture supplies controller-idle evidence
 
     run(app, scenario)
 
@@ -490,5 +495,58 @@ def test_without_an_artifact_the_arm_page_has_no_view_model(setup, tmp_path):
         await login(client)
         info = await (await client.get("/api/arm/info")).json()
         assert info["view_model"] is None
+
+    run(app, scenario)
+
+
+@pytest.mark.parametrize("cancel", ["stop", "release", "disconnect"])
+def test_mode_wait_does_not_block_stop_release_or_disconnect(setup, cancel):
+    import threading
+    from test_arm_modes import arm_rig, TARGET as mode_target
+
+    console, driver, _, feedback = arm_rig(setup)
+    console.release("s1")
+    entered, finish = threading.Event(), threading.Event()
+
+    def switch(target):
+        entered.set()
+        assert finish.wait(3)
+        feedback.switch(target)
+
+    console.modes.switch = switch
+    app, _ = build(console)
+
+    async def scenario(client):
+        assert await login(client) == 200
+        ws, _ = await connect(client)
+        assert (await command(ws, "acquire"))["ok"]
+        await ws.send_json({"type": "execute", "id": "waiting-mode", "target": mode_target, "gear": "leisure"})
+        assert await asyncio.to_thread(entered.wait, 2)
+        try:
+            assert not driver.sent
+            rejected = await command(ws, "execute", target=mode_target, gear="leisure")
+            assert rejected["error"] == "busy"
+            if cancel == "disconnect":
+                closing = asyncio.create_task(ws.close())
+                for _ in range(100):
+                    if console.authority.poll()["phase"] == "stopping":
+                        break
+                    await asyncio.sleep(.005)
+            else:
+                assert (await command(ws, cancel))["ok"]
+            assert console.authority.poll()["phase"] == "stopping"
+        finally:
+            finish.set()
+        if cancel == "disconnect":
+            await closing
+        else:
+            result = await next_of(ws, "result")
+            assert result["id"] == "waiting-mode" and not result["ok"]
+            await ws.close()
+        for _ in range(100):
+            if not console._mode_busy:
+                break
+            await asyncio.sleep(.005)
+        assert not console._mode_busy and not driver.sent
 
     run(app, scenario)

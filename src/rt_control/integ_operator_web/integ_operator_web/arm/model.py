@@ -9,6 +9,7 @@ Both views retain every link and joint, name the controlled arm links, and rewri
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 import math
 from pathlib import Path, PurePosixPath
 from typing import Callable, Optional, Sequence
@@ -38,6 +39,7 @@ class ArmModel:
     root_link: str
     browser_urdf: str
     arm_links: tuple[str, ...] = ()  # links moved by the controlled joints (target preview)
+    source_sha256: str = ''
 
 
 def load_arm_model(
@@ -50,7 +52,7 @@ def load_arm_model(
     if not joints:
         if not robot.findall("link"):
             raise ModelError("browser model has no links")
-        return ArmModel((), "", _robot_view(robot, mesh_prefix), ())
+        return ArmModel((), "", _robot_view(robot, mesh_prefix), (), sha256(urdf.encode()).hexdigest())
     elements = {joint.get("name"): joint for joint in robot.findall("joint")}
     limits = []
     for name in joints:
@@ -69,7 +71,8 @@ def load_arm_model(
         limits.append(JointLimit(name, *values))
     root = elements[joints[0]].find("parent").get("link")
     return ArmModel(
-        tuple(limits), root, _robot_view(robot, mesh_prefix), _arm_links(robot, root, set(joints))
+        tuple(limits), root, _robot_view(robot, mesh_prefix), _arm_links(robot, root, set(joints)),
+        sha256(urdf.encode()).hexdigest(),
     )
 
 

@@ -38,6 +38,7 @@ class HeadPage:
         reset_fault: Callable[[], dict],
         audit: Optional[AuditLog] = None,
         status_period: float = STATUS_PERIOD_S,
+        arm_control=None,
     ) -> None:
         # The former /head entry now opens the shared arm/head page.
         if not (web_dir.parent / "arm/index.html").is_file():
@@ -51,6 +52,7 @@ class HeadPage:
         self._audit = audit or AuditLog(None)
         self._status_period = status_period
         self._operation = threading.Lock()
+        self._arm_control = arm_control
         operators.register_page(PAGE, lambda: console.lease_holder)
 
     def add_routes(self, app: web.Application) -> None:
@@ -167,6 +169,22 @@ class HeadPage:
         finally:
             self._operation.release()
 
+    def _scope_call(self, connection, call):
+        permit, confirmed = None, False
+        try:
+            if self._arm_control is not None:
+                permit = self._arm_control.begin_scope_operation('head', connection)
+            result = self._exclusive(call)
+            confirmed = True
+            return result
+        except Exception as exc:
+            if hasattr(exc, 'code') and not isinstance(exc, HeadError):
+                raise HeadError(exc.code, str(exc)) from exc
+            raise
+        finally:
+            if permit is not None:
+                self._arm_control.end_scope_operation(permit, confirmed=confirmed)
+
     def _command(self, kind: str, connection: str, body: dict) -> Optional[dict]:
         console = self.console
         if kind == "acquire":
@@ -186,13 +204,13 @@ class HeadPage:
             if not isinstance(enabled, bool):
                 raise TypeError("enabled must be a boolean")
             self._require_lease(connection)
-            result = self._exclusive(lambda: self._set_enabled(enabled))
+            result = self._scope_call(connection, lambda: self._set_enabled(enabled))
             if not result["accepted"]:
                 raise HeadError("enable_rejected", result["message"] or "使能请求被拒绝")
             return result
         elif kind == "reset_fault":
             self._require_lease(connection)
-            result = self._exclusive(self._reset_fault)
+            result = self._scope_call(connection, self._reset_fault)
             if not result["ok"] or result["stage"] not in RESET_OK_STAGES:
                 raise HeadError("reset_rejected", f"故障复位未完成：{result['stage']}")
             return result

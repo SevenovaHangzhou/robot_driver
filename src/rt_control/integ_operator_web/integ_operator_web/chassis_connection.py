@@ -337,6 +337,7 @@ class ChassisConnection:
                     self.enabled = None
                     self.diag_at = -math.inf
             return {
+                "response_received": True,
                 "ok": result.ok,
                 "enabled": self.enabled,
                 "stage": message,
@@ -365,6 +366,7 @@ class ChassisConnection:
             with self.lock:
                 self.diag_at = -math.inf  # wait for the manager's next report
             return {
+                "response_received": True,
                 "ok": bool(result.ok),
                 "enabled": False,
                 "stage": "故障已复位，可重新使能" if result.ok else (result.stage or "复位被拒绝"),

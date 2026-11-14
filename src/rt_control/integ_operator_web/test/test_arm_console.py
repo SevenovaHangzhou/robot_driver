@@ -74,9 +74,10 @@ class Driver:
         self.starts = []
         self.cancelled = 0
 
-    def send(self, joints, points, done, start):
+    def send(self, joints, points, done, start, *, start_delay=0.0):
         self.sent.append((tuple(joints), list(points), done))
         self.starts.append(start)
+        return start
 
     def cancel(self):
         self.cancelled += 1
@@ -99,6 +100,8 @@ def setup(tmp_path):
         capability={"topic": "/x"},
         mock=True,
     )
+    # This fixture has a synchronous fake controller; live startup uses ArmReadback.
+    console.idle_probe = lambda _since: True
     console.acquire("s1")
     return console, driver, clock
 
@@ -242,7 +245,7 @@ def test_execute_rejects_stale_feedback_lease_and_out_of_range_targets(setup):
 
 def test_lease_expires_without_status_stream(setup):
     console, _, clock = setup
-    with pytest.raises(ConsoleError, match="另一个终端"):
+    with pytest.raises(ConsoleError, match="已持有双臂控制权"):
         console.acquire("s2")
     clock.now += 5.0
     console.acquire("s2")
@@ -278,6 +281,30 @@ def test_stop_joins_the_running_motion_and_reports_the_result(setup):
     stop_done(True, "")
     assert console.status("s1")["moving"] is None
     assert console.status("s1")["last_result"] == "已停止"
+
+
+def test_delayed_move_stamp_is_used_by_status_and_stop(setup):
+    console, driver, clock = setup
+    original_send = driver.send
+    delays = []
+
+    def delayed_send(joints, points, done, start, *, start_delay=0.0):
+        delays.append(start_delay)
+        if start_delay:
+            clock.now += 0.08
+            start = clock.now + start_delay
+        return original_send(joints, points, done, start, start_delay=start_delay)
+
+    driver.send = delayed_send
+    console.execute("s1", {"left_joint1": 0.8, "left_joint2": 0.2}, "sport")
+    assert len(driver.sent[0][1]) <= 32
+    assert console.status("s1")["moving"]["elapsed_s"] == 0.0
+    clock.now = 100.63
+    console.update(feedback_at=clock.now)
+    assert console.status("s1")["moving"]["elapsed_s"] == pytest.approx(0.5)
+    console.stop()
+    assert delays == [0.05, 0.0]
+    assert driver.starts == [pytest.approx(100.13)] * 2
 
 
 def test_failed_stop_falls_back_to_controller_hold(setup):
@@ -514,9 +541,9 @@ def test_low_speed_sequence_advances_within_controller_point_budget(setup):
     console.config = config_from_mapping(cfg)
     original_send = driver.send
 
-    def bounded_send(joints, points, done, start):
-        assert len(points) <= 2000  # Same admission limit as deployed JTC.
-        original_send(joints, points, done, start)
+    def bounded_send(joints, points, done, start, *, start_delay=0.0):
+        assert len(points) <= 32
+        return original_send(joints, points, done, start, start_delay=start_delay)
 
     driver.send = bounded_send
     console.run_sequence('s1', ['A', 'B', 'A'], 'leisure', 2)

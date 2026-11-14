@@ -10,9 +10,12 @@
 #include <string>
 
 #include "controller_interface/controller_interface.hpp"
+#include "diagnostic_msgs/msg/diagnostic_array.hpp"
+#include "control_msgs/srv/query_trajectory_state.hpp"
 #include "rclcpp/callback_group.hpp"
 #include "rclcpp/node_interfaces/node_parameters_interface.hpp"
 #include "rclcpp/subscription.hpp"
+#include "rclcpp/service.hpp"
 #include "rclcpp/timer.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
 #include "robot_motion_interfaces/msg/rolling_joint_target_batch.hpp"
@@ -49,6 +52,7 @@ private:
 
   using BatchMessage = robot_motion_interfaces::msg::RollingJointTargetBatch;
   using StateMessage = robot_rt_control_interfaces::msg::RollingJointControlState;
+  using QueryState = control_msgs::srv::QueryTrajectoryState;
 
   enum class SnapshotConsumeResult : std::uint8_t { kNoChange = 0U, kAccepted = 1U, kInvalid = 2U };
 
@@ -91,6 +95,7 @@ private:
     std::uint64_t value_ns, std::uint64_t increment_ns, std::uint64_t & sum_ns) noexcept;
   bool loadRuntimeConfiguration(std::string & error);
 
+  void publishRejection(const BatchMessage & message);
   void handleBatch(const BatchMessage::SharedPtr message);
   std::uint8_t admitBatch(
     const BatchMessage & message, std::array<PointView, kTransportMaxPoints> & point_views);
@@ -99,7 +104,8 @@ private:
   // Consumer calls are serialized by callback_mutex_; lifecycle publication excludes update().
   const RtStateView & readRtStateView() noexcept;
   void publishRtStateView() noexcept;
-  bool buildAdmissionContext(AdmissionContext & context) noexcept;
+  void queryHeldState(const QueryState::Request & request, QueryState::Response & response);
+  bool buildAdmissionContext(AdmissionContext & context, const char ** failure = nullptr) noexcept;
   bool buildPublicState(StateMessage & state);
   bool publishPublicState();
   bool resetRtEpoch(std::uint64_t epoch) noexcept;
@@ -121,6 +127,8 @@ private:
   DynamicEnvelope envelope_{};
   RuntimeConfiguration runtime_configuration_{};
   RollingBuffer buffer_{};
+  BufferRejection batch_rejection_{};
+  const char * admission_failure_{"none"};
   RollingSnapshotExchange snapshot_exchange_{};
   LatestSnapshotExchange<RtStateView> rt_state_exchange_{};
   // Last completed RT publication, owned by the serialized non-RT consumer.
@@ -140,7 +148,10 @@ private:
   std::mutex state_publish_mutex_{};
   rclcpp::CallbackGroup::SharedPtr callback_group_{};
   rclcpp::Subscription<BatchMessage>::SharedPtr batch_subscription_{};
+  rclcpp::Service<QueryState>::SharedPtr query_state_service_{};
   rclcpp_lifecycle::LifecyclePublisher<StateMessage>::SharedPtr state_publisher_{};
+  rclcpp_lifecycle::LifecyclePublisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr
+    rejection_publisher_{};
   rclcpp::TimerBase::SharedPtr state_timer_{};
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_{};
   std::atomic<std::uint8_t> rt_session_state_{static_cast<std::uint8_t>(SessionState::kNone)};

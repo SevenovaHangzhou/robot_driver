@@ -1,8 +1,7 @@
 """Arm page: model/mesh GETs and one WebSocket for status and commands.
 
-The console logic is unchanged from rt_control_arm_console; only the transport moved from
-POST + Server-Sent Events to WebSocket messages. Every command is audited. Closing the
-socket that holds the lease stops the arm smoothly and releases it.
+Every command is audited. A disconnected moving owner retains the arm resource until
+requests have resolved and fresh controller feedback confirms idle.
 """
 
 from __future__ import annotations
@@ -37,6 +36,8 @@ RESET_HINTS = {
 
 
 class ArmPage:
+    entry = 'arm'
+
     def __init__(
         self,
         console: ArmConsole,
@@ -90,6 +91,20 @@ class ArmPage:
             app.router.add_get(self._view_prefix + "{path:.+}", self._view_mesh)
         app.router.add_get("/ws/arm", self._websocket)
         app.on_shutdown.append(self._on_shutdown)
+        app.cleanup_ctx.append(self._authority_worker)
+
+    async def _authority_worker(self, _app):
+        async def watch():
+            while True:
+                await asyncio.get_running_loop().run_in_executor(None, self.console.poll_authority)
+                await asyncio.sleep(self._status_period)
+        task = asyncio.create_task(watch())
+        yield
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     # ------------------------------------------------------------------ GET
     async def _index(self, _request: web.Request) -> web.FileResponse:
@@ -172,7 +187,7 @@ class ArmPage:
     async def _websocket(self, request: web.Request) -> web.StreamResponse:
         if not same_origin(request):
             raise web.HTTPForbidden(text="cross-origin WebSocket rejected")
-        ws = web.WebSocketResponse(heartbeat=PAGE_WS_HEARTBEAT_S, max_msg_size=MAX_MESSAGE_BYTES)
+        ws = web.WebSocketResponse(heartbeat=PAGE_WS_HEARTBEAT_S, max_msg_size=getattr(self, "max_message_bytes", MAX_MESSAGE_BYTES))
         await ws.prepare(request)
         login = self._sessions.session_of(request)
         if login is None:
@@ -183,28 +198,59 @@ class ArmPage:
         connection = uuid.uuid4().hex
         self._operators.connect(connection, login)
         self._sockets.add(ws)
-        pusher = asyncio.ensure_future(self._push_status(ws, connection))
+        await ws.send_json({'type': 'auth_ok', 'entry': self.entry,
+                            'protocol': 'shared_arm_authority_v1'})
+        pusher = asyncio.ensure_future(self._push_status(ws, connection, login))
+        operation = None
         try:
             async for message in ws:
                 if message.type != WSMsgType.TEXT:
                     break
-                await self._handle(ws, connection, message.data, login, client)
+                if not self._sessions.active(login):
+                    await ws.close(code=CLOSE_LOGIN_REQUIRED, message=b'login expired')
+                    break
+                if operation is not None and operation.done():
+                    await operation
+                    operation = None
+                try:
+                    body = json.loads(message.data)
+                    kind = body.get("type") if isinstance(body, dict) else None
+                except ValueError:
+                    body, kind = {}, None
+                if operation is not None and kind not in ("stop", "release"):
+                    await ws.send_json({"type": "result", "id": body.get("id") if isinstance(body, dict) else None,
+                                        "ok": False, "error": "busy", "message": "上一条运动请求尚未结束"})
+                elif kind in ("execute", "goto_pose", "run_sequence", "begin_motion"):
+                    # One in-flight execution. Stop/release must reach the shared
+                    # authority while its worker waits for the mode service.
+                    operation = asyncio.create_task(self._handle(ws, connection, message.data, login, client))
+                else:
+                    await self._handle(ws, connection, message.data, login, client)
         finally:
-            pusher.cancel()
+            # Let the status task finish the login-expired close handshake before
+            # disconnect cleanup; cancelling it here can replace 4401 with 1000.
+            if self._sessions.active(login):
+                pusher.cancel()
             try:
                 await pusher
             except (asyncio.CancelledError, ConnectionResetError):
                 pass
-            if self.console.lease_holder == connection:
-                await asyncio.get_running_loop().run_in_executor(None, self.console.stop)
-                self.console.release(connection)
+            await asyncio.get_running_loop().run_in_executor(None, self.console.disconnect, connection)
+            if operation is not None:
+                try:
+                    await operation
+                except (ConnectionError, RuntimeError):
+                    pass  # The connection is fenced before its worker can finish.
             self._operators.disconnect(connection)
             self._sockets.discard(ws)
         return ws
 
-    async def _push_status(self, ws: web.WebSocketResponse, connection: str) -> None:
+    async def _push_status(self, ws: web.WebSocketResponse, connection: str, login=None) -> None:
         poses_version = None
         while not ws.closed:
+            if login is not None and not self._sessions.active(login):
+                await ws.close(code=4401, message=b'login expired')
+                return
             self.console.touch(connection)
             status = self.console.status(connection)
             poses = self.console.poses.list() if self.console.poses else []
@@ -223,13 +269,14 @@ class ArmPage:
             await ws.send_json({"type": "result", "id": None, "ok": False, "error": "bad_json"})
             return
         kind, request_id = message.pop("type"), message.pop("id", None)
+        audit_kind = kind if self.entry == 'arm' else f'{self.entry}_{kind}'
         try:
             result = await asyncio.get_running_loop().run_in_executor(
                 None, self._command, kind, connection, message
             )
         except ConsoleError as exc:
             self._audit.record(
-                kind,
+                audit_kind,
                 message,
                 ok=False,
                 error=exc.code,
@@ -249,7 +296,7 @@ class ArmPage:
             return
         except (KeyError, TypeError, ValueError) as exc:
             self._audit.record(
-                kind,
+                audit_kind,
                 message,
                 ok=False,
                 error="bad_request",
@@ -267,7 +314,7 @@ class ArmPage:
                 }
             )
             return
-        self._audit.record(kind, message, ok=True, session=login, client=client)
+        self._audit.record(audit_kind, message, ok=True, session=login, client=client)
         await ws.send_json({"type": "result", "id": request_id, "ok": True, **(result or {})})
 
     def _command(self, kind: str, connection: str, body: dict) -> Optional[dict]:
@@ -312,10 +359,12 @@ class ArmPage:
             if not isinstance(enabled, bool):
                 raise TypeError("enabled must be a boolean")
             console.begin_enable(connection)
+            confirmed = False
             try:
                 result = self._set_enabled(enabled)
+                confirmed = True
             finally:
-                console.end_enable()
+                console.end_enable(confirmed=confirmed)
             if not result["accepted"]:
                 raise ConsoleError("enable_rejected", result["message"] or "使能请求被拒绝")
             return result
@@ -323,10 +372,12 @@ class ArmPage:
             if self._reset_fault is None:
                 raise ConsoleError("reset_unavailable", "故障复位不可用")
             console.begin_enable(connection)
+            confirmed = False
             try:
                 result = self._reset_fault()
+                confirmed = True
             finally:
-                console.end_enable()
+                console.end_enable(confirmed=confirmed)
             if not result["ok"] or result["stage"] not in RESET_OK_STAGES:
                 hint = RESET_HINTS.get(result["stage"], "")
                 joint = f"，关节 {result['failed_joint']}" if result.get("failed_joint") else ""

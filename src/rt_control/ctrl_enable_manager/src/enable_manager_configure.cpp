@@ -133,7 +133,7 @@ EnableManagerController::state_interface_configuration() const
     const auto & names = axis.get_state_interface_names();
     configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
-  if (motion_mode_switching_) {
+  if (!motion_joint_names_.empty()) {
     configuration.names.reserve(configuration.names.size() + motion_joint_names_.size() + 1U);
     for (const auto & joint : motion_joint_names_) {
       configuration.names.emplace_back(joint + "/position");
@@ -276,7 +276,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
            });
   };
   const bool motion_parameters_valid =
-    !motion_mode_switching_ ||
+    (!motion_mode_switching_ && motion_joint_names_.empty()) ||
     (motion_joints_valid && maximum_sample_period_ms > 0 && source_state_max_age_ms > 0 &&
      stable_interval_count > 0 && mode_switch_timeout_ms > 0 &&
      std::isfinite(mode_switch_feedback_age_limit_ms) && mode_switch_feedback_age_limit_ms > 0.0 &&
@@ -290,7 +290,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     return controller_interface::CallbackReturn::ERROR;
   }
   service_result_timeout_ = std::chrono::milliseconds(service_timeout);
-  if (motion_mode_switching_) {
+  if (!motion_joint_names_.empty()) {
     mode_switch_maximum_sample_period_ns_ =
       static_cast<std::uint64_t>(maximum_sample_period_ms) * 1000000U;
     mode_switch_source_state_max_age_ns_ =
@@ -309,7 +309,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   enable_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   disable_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   reset_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-  if (motion_mode_switching_) {
+  if (!motion_joint_names_.empty()) {
     mode_callback_group_ =
       get_node()->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   }
@@ -340,6 +340,14 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   reset_service_ = serve(
     "/rt/reset_fault", &EnableManagerController::handleResetFault, ErrorCode::RT_RESET_FAILED,
     reset_callback_group_);
+  if (!motion_joint_names_.empty()) {
+    standstill_service_ = get_node()->create_service<std_srvs::srv::Trigger>(
+      "~/confirm_standstill",
+      std::bind(
+        &EnableManagerController::handleConfirmStandstill, this, std::placeholders::_1,
+        std::placeholders::_2),
+      rmw_qos_profile_services_default, mode_callback_group_);
+  }
   if (motion_mode_switching_) {
     mode_service_ = get_node()->create_service<ModeService>(
       mode_service_name_,
