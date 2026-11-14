@@ -157,8 +157,10 @@ class LogStation:
                 await asyncio.sleep(self.period)
 
     def start(self) -> None:
-        if self.base and self._task is None:
-            self._task = asyncio.ensure_future(self._loop())
+        """Start polling once a loop is running; calling it again is harmless."""
+        if not self.base or self._task is not None:
+            return
+        self._task = asyncio.ensure_future(self._loop())
 
     def stop(self) -> None:
         if self._task is not None:
