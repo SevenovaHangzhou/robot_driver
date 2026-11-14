@@ -495,10 +495,24 @@ def test_static_assets_are_served_from_a_symlink_install(tmp_path: Path) -> None
         await client.start_server()
         try:
             response = await client.get("/static/style.css")
-            assert response.status == 200 and await response.read() == (WEB_DIR / "style.css").read_bytes()
+            assert (
+                response.status == 200
+                and await response.read() == (WEB_DIR / "style.css").read_bytes()
+            )
             assert (await client.get("/static/../../secret.txt")).status in (403, 404)
         finally:
             await client.close()
 
     asyncio.run(main())
 
+
+def test_camera_origin_is_allowed_by_the_content_security_policy() -> None:
+    from integ_operator_web.server import security_headers
+
+    plain = security_headers()["Content-Security-Policy"]
+    assert "connect-src 'self';" in plain and "img-src 'self' data: blob:;" in plain
+
+    allowed = security_headers(("http://nx:8120",))["Content-Security-Policy"]
+    assert "connect-src 'self' http://nx:8120;" in allowed
+    assert "img-src 'self' data: blob: http://nx:8120;" in allowed
+    assert "default-src 'self'" in allowed and "frame-ancestors 'none'" in allowed
