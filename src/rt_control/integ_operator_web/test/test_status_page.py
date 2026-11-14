@@ -304,3 +304,69 @@ def test_page_merges_the_station_into_the_snapshot():
 def test_station_without_runs_is_available_but_empty():
     data = logstation.normalise({"runs": []}, "http://log:18200", now=1000.0)
     assert data["available"] is True and data["run"] is None and data["cycle"] is None
+
+
+# ---------------------------------------------------------------- chassis geometry from the model
+from integ_operator_web.status import model_geometry  # noqa: E402
+
+MODEL = """<?xml version="1.0"?>
+<robot name="alfa_robot_v3">
+  <link name="base_link"/>
+  %s
+</robot>
+"""
+
+
+def urdf_with(entries):
+    body = []
+    for name, xyz, rpy in entries:
+        body.append(
+            f'<link name="{name}_link"/><joint name="{name}" type="fixed">'
+            f'<origin xyz="{xyz}" rpy="{rpy}"/><parent link="base_link"/><child link="{name}_link"/></joint>'
+        )
+    return MODEL % "".join(body)
+
+
+WHEELS = [(f"steer{i}_joint", "0.305 0.305 0.01", "0 0 0") for i in range(1, 5)]
+WHEELS += [(f"steer{i}_joint", "0.305 -0.305 0.01", "0 0 0") for i in range(2, 5)]
+
+BOARD = [
+    ("ultrasonic_channel_1", "0.3145 0.485 0.019", "0 0 1.5707963267948966"),
+    ("ultrasonic_channel_2", "0.485 0.3145 0.019", "0 0 0"),
+    ("ultrasonic_channel_6", "-0.485 -0.3145 0.019", "0 0 3.141592653589793"),
+]
+
+
+def test_model_geometry_reads_sonar_frames_and_footprint():
+    geometry = model_geometry.frames(urdf_with(WHEELS + BOARD))
+    assert [item["channel"] for item in geometry["sonar"]] == [1, 2, 6]
+    first = geometry["sonar"][0]
+    assert (first["x_m"], first["y_m"], first["yaw_deg"]) == (0.3145, 0.485, 90.0)
+    assert geometry["sonar"][2]["yaw_deg"] == 180.0
+    assert geometry["body"] == {"half_length_m": 0.305, "half_width_m": 0.305}
+    assert len(geometry["wheels"]) == 4
+
+
+def test_model_without_sonar_frames_leaves_the_page_on_placeholders():
+    geometry = model_geometry.frames(urdf_with(WHEELS))
+    assert geometry["sonar"] == []
+    assert geometry["body"] == {"half_length_m": 0.305, "half_width_m": 0.305}
+
+
+def test_unreadable_model_is_not_an_error():
+    assert model_geometry.frames("not xml") == {"sonar": [], "wheels": [], "body": None}
+    assert model_geometry.parse(None) == {"sonar": [], "wheels": [], "body": None}
+    assert model_geometry.parse("/nonexistent/model.urdf") == {
+        "sonar": [],
+        "wheels": [],
+        "body": None,
+    }
+
+
+def test_snapshot_carries_the_geometry_of_the_served_model(tmp_path):
+    model = tmp_path / "robot_description.xml"
+    model.write_text(urdf_with(WHEELS + BOARD), encoding="utf-8")
+    page = StatusPage(feed_with(), Sessions("token"), WEB, roles=ROLES, model_file=model)
+    snapshot = page.snapshot()
+    assert [item["channel"] for item in snapshot["model_geometry"]["sonar"]] == [1, 2, 6]
+    assert snapshot["model"] is True
