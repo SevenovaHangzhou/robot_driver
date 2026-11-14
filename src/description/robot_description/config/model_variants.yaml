@@ -1,0 +1,8 @@
+schema_version: 1
+revision: unified-20261112-r2
+canonical_urdf: urdf/robot_alfav3_mobile.urdf
+visual_urdf: urdf/variants/robot_visual.urdf
+collision_urdf: urdf/variants/robot_collision.urdf
+curobo_config: config/curobo/robot.yaml
+curobo_spheres: config/curobo/collision_spheres.yaml
+fixed_body_boxes: config/curobo/fixed_body_boxes.yaml
