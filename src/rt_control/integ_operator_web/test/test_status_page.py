@@ -370,3 +370,29 @@ def test_snapshot_carries_the_geometry_of_the_served_model(tmp_path):
     snapshot = page.snapshot()
     assert [item["channel"] for item in snapshot["model_geometry"]["sonar"]] == [1, 2, 6]
     assert snapshot["model"] is True
+
+
+def test_polling_starts_with_the_application_not_the_node():
+    """Node start-up has no running loop, so the station poller starts in app start-up."""
+
+    class Station:
+        started = 0
+
+        def snapshot(self):
+            return {"available": False, "run": None, "cycle": None, "records": []}
+
+        def start(self):
+            Station.started += 1
+
+    page = StatusPage(feed_with(), Sessions("token"), WEB, roles=ROLES, log_station=Station())
+    app = web.Application()
+    page.add_routes(app)
+    assert Station.started == 0
+    callbacks = [cb for cb in app.on_startup if getattr(cb, "__self__", None) is page]
+    assert len(callbacks) == 1
+
+    async def main():
+        await callbacks[0](app)
+
+    asyncio.run(main())
+    assert Station.started == 1
