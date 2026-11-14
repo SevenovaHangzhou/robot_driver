@@ -21,7 +21,7 @@ related: []
 
 ## 改动
 
-- 移除模块探测、动态配置选择、网页模块卡片、PDO 补丁 0015–0017及其专属测试；这些路径与当前 main 一致。移除无关的 CI 缓存改动。启动包仅保留本轮完整构建所需的 controller_manager 2.54.3 兼容，证据见下文。
+- 移除模块探测、动态配置选择、网页模块卡片、PDO 补丁 0015–0017及其专属测试；这些路径与当前 main 一致。CI 仅保留完整构建所需的冻结依赖缓存限制和 controller_manager 2.54.3 兼容，证据见下文。
 - 最短链路：Jog 客户端 → `/ws/jog` → 共享 ArmAuthority/模式协调 → RollingOutput → 公共 RollingSender → Rolling 控制器。epoch、sequence、确认和终态由发送器拥有，轨迹准入由控制器拥有。
 - EnableManager 增加域内只读 `~/confirm_standstill`（std_srvs/Trigger）。模式切换和查询共用内部实时样本、连续窗口和原有 stableActualInterval 判据。查询必须观察请求之后的新窗口；停机、忙、过期或没有新样本均不能确认成功。不切换模式，不写驱动命令。
 - JTC-only 配置中已有 motion_joints 也用于该只读确认；网页先核对查询覆盖的关节与受控关节一致。网页保留请求终态和控制器状态证据，删除自己的位置/速度停稳算法、参数策略和 Hermite 加速度预检。
@@ -49,6 +49,8 @@ head d5d7322 的 CI 43563462262 在 Build 阶段因安装 controller_manager 2.5
 - `integ_bringup` 重新配置、编译和链接通过；链接已安装的 controller_manager 2.54.3，无缺失动态库。没有修改冻结源码或补丁。
 - 标准 CTest 4 个目标全部通过。独立包测试初次缺少源码 Python 依赖路径；补齐当前仓库的依赖路径后重跑全部目标，未修改或跳过测试。
 - 修复后的 `tools/quality_gate.sh` 通过；证据目录 `/tmp/pr260-jog-20261114/ci-failure-43563462262`。完整 CI 仍以新 head 结果为准。
+
+重新提交为 #268 后，CI 43592622958 的请求缓存清单哈希为 23da6f4b，但宽泛 restore-key 恢复了 ae1c0223 清单；robot_interfaces 实际为 ea582c8a，与冻结的 78f02ffe 不符，依赖导入按预期拒绝。删除 vendor 缓存的跨清单与旧布局回退，缺少相同清单缓存时沿现有路径重新导入；保留冻结 SHA 检查。此项是本 PR 完整构建的必要修复，不改变依赖 pin 或运行行为；新 CI 验证结果见 PR。
 
 软件包测试不构成 T1 全图 mock 验收或实机验证；未运行本版本全栈 mock、容器、实机总线、使能和运动。历史记录中的现场证据只适用于当时提交。
 
