@@ -396,3 +396,25 @@ def test_polling_starts_with_the_application_not_the_node():
 
     asyncio.run(main())
     assert Station.started == 1
+
+
+def test_start_is_idempotent_and_needs_a_configured_station():
+    class Station:
+        started = 0
+
+        def __init__(self):
+            self._task = None
+
+        def start(self):
+            Station.started += 1
+
+    station = logstation.LogStation("")
+    station.start()  # no station configured: nothing to do
+    assert station._task is None
+
+    configured = logstation.LogStation("http://log:18200")
+    sentinel = object()
+    configured._task = sentinel
+    configured.start()  # already running: must not schedule a second loop
+    assert configured._task is sentinel
+    _ = Station
