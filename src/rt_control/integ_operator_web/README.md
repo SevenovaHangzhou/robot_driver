@@ -10,7 +10,7 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 | --- | --- |
 | 整机姿态三维视图 | `/joint_states`；模型与网格来自运行中的 deployment 产物（`robot_description.xml` + 安装的 mesh 共享目录），复用 `/arm` 的只读接口 |
 | 电池与总放电电流 | `/rt/battery/left/state`、`/rt/battery/right/state`；总电流只在两包都新鲜时计入 |
-| 底盘俯视图 | 四舵角取 `status_joint_steer1..4` 的关节位置；速度取 `/wheel/odom`；八路距离取 `/rt/ultrasonic/channel1..8/range` |
+| 底盘俯视图 | 车体轮廓与探头位置读运行中的 Robot Model（`ultrasonic_channel_*_link`、`steer*_joint`）；四舵角取 `status_joint_steer1..4` 的关节位置；速度取 `/wheel/odom`；八路距离取 `/rt/ultrasonic/channel1..8/range`。模型里没有探头坐标系时退回占位布局 |
 | CPU | 操作台所在工控机的 `/proc/stat`、`/sys/devices/system/cpu/isolated`、可读的 `thermal_zone*`；实时核即隔离核，不写死核号 |
 | 告警 | `/diagnostics` 与 `/rt/readiness` 的原文；`READY` 之外的条目按故障、警告、无数据排序，不自行判定健康 |
 

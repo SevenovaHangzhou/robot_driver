@@ -90,13 +90,17 @@ function renderBattery(index, b) {
   root.querySelector(".temp").textContent = `${fix(b.temperature_c, 0)} °C`;
 }
 // ------------------------------------------------------------------ chassis plan
-const SENSORS = [
+// Screen: up = model +X (forward), left = model +Y, matching REP-103. Positions come from the
+// model the stack loaded; the placeholder layout is only used when it has no sonar frames.
+const CENTRE = { x: 230, y: 215 };
+const BODY_HALF_UNITS = 75;
+const PLACEHOLDER_SENSORS = [
   { x: 195, y: 115, rot: 0, ch: 1 }, { x: 265, y: 115, rot: 0, ch: 2 },
   { x: 305, y: 160, rot: 90, ch: 3 }, { x: 305, y: 270, rot: 90, ch: 4 },
   { x: 265, y: 315, rot: 180, ch: 6 }, { x: 195, y: 315, rot: 180, ch: 5 },
   { x: 155, y: 270, rot: 270, ch: 7 }, { x: 155, y: 160, rot: 270, ch: 8 },
 ];
-const WHEELS = [{ x: 185, y: 150, lx: 208 }, { x: 275, y: 150, lx: 252 }, { x: 185, y: 280, lx: 208 }, { x: 275, y: 280, lx: 252 }];
+const PLACEHOLDER_WHEELS = [{ x: 185, y: 150 }, { x: 275, y: 150 }, { x: 185, y: 280 }, { x: 275, y: 280 }];
 const ST = {
   safe: { f: "rgba(255,255,255,.05)", a: "rgba(255,255,255,.55)", w: 1.5, t: "rgba(255,255,255,.64)" },
   warn: { f: "rgba(255,166,61,.16)", a: "#ffa63d", w: 2, t: "#ffa63d" },
@@ -104,31 +108,88 @@ const ST = {
   none: { f: "none", a: "rgba(255,255,255,.3)", w: 1, t: "rgba(255,255,255,.5)" },
 };
 const level = (d) => (d == null ? "none" : d < DANGER ? "danger" : d <= WARN ? "warn" : "safe");
-function renderChassis(c) {
+// Places the model's channel numbers at the position they are declared in; wording only.
+const SENSOR_WHERE = { 1: "左前", 2: "左前", 3: "右前", 4: "右前", 5: "右后", 6: "右后", 7: "左后", 8: "左后" };
+
+// Model metres -> SVG units, so the body keeps the size the reference layout was drawn for.
+function plan(geo) {
+  const sonar = (geo && geo.sonar) || [];
+  const body = (geo && geo.body) || null;
+  if (!sonar.length || !body) {
+    return { placeholder: true, scale: 0, body, sensors: PLACEHOLDER_SENSORS, wheels: PLACEHOLDER_WHEELS };
+  }
+  const scale = BODY_HALF_UNITS / Math.max(body.half_length_m, body.half_width_m, 1e-6);
+  const toScreen = (x, y) => ({ x: CENTRE.x - y * scale, y: CENTRE.y - x * scale });
+  return {
+    placeholder: false,
+    scale,
+    body,
+    sensors: sonar.map((item) => {
+      const point = toScreen(item.x_m, item.y_m);
+      return { x: point.x, y: point.y, rot: -item.yaw_deg, ch: item.channel };
+    }),
+    wheels: ((geo && geo.wheels) || []).map((item) => toScreen(item.x_m, item.y_m)),
+  };
+}
+
+function drawChassisFrame(p) {
+  const cx = CENTRE.x, cy = CENTRE.y;
+  const halfX = p.placeholder ? 75 : p.body.half_width_m * p.scale;
+  const halfY = p.placeholder ? 100 : p.body.half_length_m * p.scale;
+  const rings = [0.5, 1.0].map((range) => ({
+    range,
+    x: cx - halfX - range * PX,
+    y: cy - halfY - range * PX,
+    w: 2 * (halfX + range * PX),
+    h: 2 * (halfY + range * PX),
+  }));
+  const ring = rings
+    .map((r) => `<rect x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${r.w.toFixed(1)}" height="${r.h.toFixed(1)}" rx="${(r.w * 0.28).toFixed(1)}" fill="none" stroke="rgba(255,255,255,.14)" stroke-dasharray="2 5"/>`)
+    .join("");
+  const ringLabels = `<text x="${(cx + rings[1].w / 2 + 3).toFixed(1)}" y="${cy - 6}" font-size="11" fill="rgba(255,255,255,.5)">0.5</text>`
+    + `<text x="${(cx + rings[1].w / 2 + 3).toFixed(1)}" y="${cy + 12}" font-size="11" fill="rgba(255,255,255,.5)">1.0 m</text>`;
+  return `<g id="plan-frame">${ring}${ringLabels}
+    <rect x="${(cx - halfX).toFixed(1)}" y="${(cy - halfY).toFixed(1)}" width="${(2 * halfX).toFixed(1)}" height="${(2 * halfY).toFixed(1)}" rx="${Math.min(halfX, halfY) * 0.27}" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.35)" stroke-width="1.2"/>
+    <path d="M${cx - 8} ${cy - halfY + 13}L${cx} ${cy - halfY + 6}L${cx + 8} ${cy - halfY + 13}" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>`;
+}
+
+function renderChassis(c, geo) {
+  const p = plan(geo);
+  const frame = document.getElementById("plan-frame");
+  const html = drawChassisFrame(p);
+  if (!frame || frame.outerHTML.slice(0, 200) !== html.slice(0, 200)) {
+    const existing = document.getElementById("plan-frame");
+    if (existing) existing.outerHTML = html;
+  }
   let s = "";
-  SENSORS.forEach((q, i) => {
+  p.sensors.forEach((q, i) => {
     const d = c.sonar[i];
     const lv = level(d), st = ST[lv];
     const L = (d == null ? 1 : Math.min(d, MAXM)) * PX, hx = (L * 0.3746).toFixed(1), hy = (L * 0.9272).toFixed(1);
-    s += `<g transform="translate(${q.x} ${q.y}) rotate(${q.rot})"><path d="M0 0L-${hx} -${hy}A${L} ${L} 0 0 1 ${hx} -${hy}Z" fill="${st.f}"${lv === "none" ? ' stroke="rgba(255,255,255,.3)" stroke-dasharray="3 4"' : ""}/>`;
+    s += `<g transform="translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${q.rot.toFixed(1)})"><path d="M0 0L-${hx} -${hy}A${L} ${L} 0 0 1 ${hx} -${hy}Z" fill="${st.f}"${lv === "none" ? ' stroke="rgba(255,255,255,.3)" stroke-dasharray="3 4"' : ""}/>`;
     if (lv !== "none") s += `<path d="M-${hx} -${hy}A${L} ${L} 0 0 1 ${hx} -${hy}" fill="none" stroke="${st.a}" stroke-width="${st.w}" stroke-linecap="round"${lv === "danger" ? ' style="filter:drop-shadow(0 0 5px #ff5a79)"' : ""}/>`;
     s += '<circle r="2" fill="rgba(255,255,255,.45)"/></g>';
-    let tx = q.x, ty = q.y, an = "middle";
-    if (q.rot === 0) ty = q.y - L - 10;
-    if (q.rot === 180) ty = q.y + L + 20;
-    if (q.rot === 90) { tx = q.x + L + 10; ty = q.y + 5; an = "start"; }
-    if (q.rot === 270) { tx = q.x - L - 10; ty = q.y + 5; an = "end"; }
-    s += `<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="${an}" font-size="15" fill="${st.t}">${d == null ? "—" : d.toFixed(2)}</text>`;
+    // The fan points along the beam: after rotate(rot) the up vector maps to (sin, -cos).
+    const radians = (q.rot * Math.PI) / 180;
+    const reach = L + 14;
+    const tx = q.x + Math.sin(radians) * reach;
+    const ty = q.y - Math.cos(radians) * reach;
+    const sideways = Math.abs(Math.sin(radians)) > 0.5;
+    const anchor = sideways ? (Math.sin(radians) > 0 ? "start" : "end") : "middle";
+    s += `<text x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}" text-anchor="${anchor}" font-size="13" fill="${st.t}">${d == null ? "—" : d.toFixed(2)}</text>`;
   });
   $("sensors").innerHTML = s;
-  $("wheels").innerHTML = WHEELS.map((q, i) => {
+  const wheels = p.wheels.length === 4 ? p.wheels : PLACEHOLDER_WHEELS;
+  $("wheels").innerHTML = wheels.map((q, i) => {
     const deg = c.steer_deg[i];
-    return `<g transform="translate(${q.x} ${q.y}) rotate(${deg == null ? 0 : -deg})"><rect x="-6.5" y="-18" width="13" height="36" rx="4.5" fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/><line x1="0" y1="-12" x2="0" y2="-26" stroke="#a99bff" stroke-width="1.6" stroke-linecap="round"/></g><text x="${q.lx}" y="${q.y + 4}" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.5)">${fix(deg, 0)}°</text>`;
+    const lx = q.x < CENTRE.x ? q.x - 26 : q.x + 26;
+    return `<g transform="translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${deg == null ? 0 : -deg})"><rect x="-6.5" y="-18" width="13" height="36" rx="4.5" fill="rgba(0,0,0,.35)" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/><line x1="0" y1="-12" x2="0" y2="-26" stroke="#a99bff" stroke-width="1.6" stroke-linecap="round"/></g><text x="${lx.toFixed(1)}" y="${(q.y + 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="rgba(255,255,255,.5)">${fix(deg, 0)}°</text>`;
   }).join("");
   const known = c.vx != null && c.vy != null;
   const v = known ? Math.hypot(c.vx, c.vy) : null;
   const heading = known ? (-Math.atan2(c.vy, c.vx) * 180) / Math.PI : 0;
-  $("vel").innerHTML = `<g transform="translate(230 215) rotate(${heading.toFixed(1)})">${v ? '<line x1="0" y1="0" x2="0" y2="-30" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M-4.5 -28L0 -38L4.5 -28Z" fill="#fff"/>' : ""}<circle r="2.5" fill="#fff"/></g>`;
+  $("vel").innerHTML = `<g transform="translate(${CENTRE.x} ${CENTRE.y}) rotate(${heading.toFixed(1)})">${v ? '<line x1="0" y1="0" x2="0" y2="-30" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/><path d="M-4.5 -28L0 -38L4.5 -28Z" fill="#fff"/>' : ""}<circle r="2.5" fill="#fff"/></g>`;
   $("speed").textContent = fix(v, 2);
   $("twist").textContent = `vx ${fix(c.vx, 2)} · vy ${fix(c.vy, 2)} · ω ${fix(c.wz, 2)}`;
   let near = -1;
@@ -136,7 +197,11 @@ function renderChassis(c) {
   const nd = near < 0 ? null : c.sonar[near];
   $("nearest").textContent = fix(nd, 2);
   $("nearest-big").className = `big stat ${nd == null ? "" : level(nd) === "safe" ? "" : level(nd)}`;
-  $("nearest-where").textContent = near < 0 ? "无数据" : `超声波 ${SENSORS[near].ch} 号`;
+  $("nearest-where").textContent = near < 0
+    ? "无数据"
+    : p.placeholder
+      ? `超声波 ${near + 1} 号`
+      : `${SENSOR_WHERE[p.sensors[near].ch] || "超声波"} · 超声波 ${p.sensors[near].ch} 号`;
 }
 
 // ------------------------------------------------------------------ cpu
@@ -292,7 +357,7 @@ function render(s) {
   renderHeader(s);
   renderPose(s);
   s.batteries.forEach((b, i) => { b.name = ["左电池", "右电池"][i]; renderBattery(i, b); });
-  renderChassis(s.chassis);
+  renderChassis(s.chassis, s.model_geometry);
   renderCpu(s.cpu, s.log);
   renderAlerts(s);
   loadModel(s);

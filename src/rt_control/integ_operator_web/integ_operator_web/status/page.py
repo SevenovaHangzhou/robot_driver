@@ -15,6 +15,7 @@ from aiohttp import WSMsgType, web
 
 from ..session import PAGE_WS_HEARTBEAT_S, Sessions, same_origin
 from . import feed as feed_module
+from . import model_geometry
 from .logstation import LogStation, evidence
 
 STATUS_PERIOD_S = 1.0
@@ -92,6 +93,10 @@ class StatusPage:
         log = self._log.snapshot()
         document["log"] = log
         document["alerts"] = evidence(document["alerts"], log)
+        # The drawing follows the model the stack actually loaded; a missing model keeps it empty.
+        document["model_geometry"] = model_geometry.parse(
+            str(self._model_file) if self._model_file is not None else None
+        )
         document["camera_base"] = self._camera_base
         document["robot_label"] = self._robot_label
         document["model"] = self._model_file is not None and self._model_file.is_file()
