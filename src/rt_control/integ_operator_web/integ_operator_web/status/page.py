@@ -52,13 +52,18 @@ class StatusPage:
         self._status_period = status_period
 
     def start_background(self) -> None:
+        """Start polling after the event loop exists: node start-up has no running loop."""
         self._log.start()
 
     def add_routes(self, app: web.Application) -> None:
+        app.on_startup.append(self._on_startup)
         app.router.add_get("/", self._index)
         app.router.add_get("/api/status/model", self._model)
         app.router.add_get("/status-mesh/{path:.+}", self._mesh)
         app.router.add_get("/ws/status", self._websocket)
+
+    async def _on_startup(self, _app: web.Application) -> None:
+        self.start_background()
 
     async def _index(self, _request: web.Request) -> web.FileResponse:
         return web.FileResponse(self._web_dir / "index.html")
