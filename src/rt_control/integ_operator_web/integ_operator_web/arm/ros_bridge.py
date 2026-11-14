@@ -1,4 +1,4 @@
-"""ROS 2 side of the arm console: public topics/services/actions only."""
+"""Arm ROS gateway: public motion APIs and domain-local read-only standstill confirmation."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import FluidPressure, JointState
 from std_msgs.msg import String
+from std_srvs.srv import Trigger
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from ..enable_services import EnableServices
@@ -89,9 +90,9 @@ class RosBridge(Node):
         self._manager_parameters = self.create_client(
             GetParameters, "/controller_manager/get_parameters", callback_group=self._group
         )
+        self._standstill_parameters = None
         self._controller_parameters = None
         self._readback = None
-        self._mode_parameters = None
         self._rolling_parameters = None
         self.rolling_hold = None
         self.rolling_rejections = None
@@ -155,6 +156,9 @@ class RosBridge(Node):
         self._pending[key] = (future, time.monotonic())
 
         def finished(done) -> None:
+            current = self._pending.get(key)
+            if current is None or current[0] is not done:
+                return
             try:
                 callback(done.result())
             except Exception as exc:  # noqa: BLE001 - logged; the next refresh retries
@@ -168,11 +172,9 @@ class RosBridge(Node):
         self._request(
             "controllers", self._controllers, ListControllers.Request(), self._received_controllers
         )
-        if self._mode_parameters is not None:
-            self._request("stationary_policy", self._mode_parameters,
-                          GetParameters.Request(names=["motion_joints", "mode_switch_stable_velocity_thresholds",
-                                                       "mode_switch_stable_interval_count", "motion_controller",
-                                                       "rolling_controller"]), self._stationary_policy)
+        if self._standstill_parameters is not None:
+            self._request("standstill_joints", self._standstill_parameters,
+                GetParameters.Request(names=["motion_joints"]), self._received_standstill_joints)
         if self._rolling_parameters is not None:
             self._request("rolling_parameters", self._rolling_parameters,
                           GetParameters.Request(names=ROLLING_PARAMETERS), self._received_rolling_parameters)
@@ -180,15 +182,23 @@ class RosBridge(Node):
             self._request(
                 "joints",
                 self._controller_parameters,
-                GetParameters.Request(names=["joints", "constraints.stopped_velocity_tolerance"]),
+                GetParameters.Request(names=["joints"]),
                 self._received_joints,
             )
 
     def _received_controllers(self, response) -> None:
+        managers = [c for c in response.controller if c.type.endswith("/EnableManagerController")]
+        if len(managers) != 1:
+            self._readback.evidence.confirm_standstill(False, time.monotonic())
+            self._readback.standstill_client = self._readback.pending = None
+            self._standstill_parameters = None
+            self._pending.pop("standstill_joints", None)
+        elif self._readback.standstill_client is None:
+            self._readback.standstill_client = self.create_client(
+                Trigger, f"/{managers[0].name}/confirm_standstill", callback_group=self._group)
+            self._standstill_parameters = self.create_client(
+                GetParameters, f"/{managers[0].name}/get_parameters", callback_group=self._group)
         for item in response.controller:
-            if item.type.endswith("/EnableManagerController") and self._mode_parameters is None:
-                self._mode_parameters = self.create_client(
-                    GetParameters, f"/{item.name}/get_parameters", callback_group=self._group)
             if item.type.endswith("/RollingTrajectoryController") and self._rolling_parameters is None:
                 self._rolling_parameters = self.create_client(
                     GetParameters, f"/{item.name}/get_parameters", callback_group=self._group)
@@ -200,12 +210,10 @@ class RosBridge(Node):
         )
         self.console.update(controller_active=active, controller_at=time.monotonic())
 
-    def _stationary_policy(self, response):
+    def _received_standstill_joints(self, response):
         values = response.values
-        if len(values) == 5 and [v.type for v in values] == [9, 8, 2, 4, 4]:
-            self._readback.evidence.set_stationary_policy(
-                values[0].string_array_value, values[1].double_array_value, values[2].integer_value)
-            self._readback.evidence.set_motion_controllers(values[3].string_value, values[4].string_value)
+        self._readback.motion_joints = tuple(values[0].string_array_value) if len(values) == 1 and values[0].type == 9 else ()
+        self._readback.motion_joints_at = time.monotonic()
 
     def _received_rolling_parameters(self, response):
         fields = {2: "integer_value", 3: "double_value", 8: "double_array_value", 9: "string_array_value"}
@@ -218,8 +226,6 @@ class RosBridge(Node):
         joints = list(response.values[0].string_array_value) if response.values else []
         if not joints:
             return
-        value = response.values[1] if len(response.values) > 1 else None
-        self._readback.evidence.set_tolerance(value.double_value if value and value.type == 3 else None)
         if self.console.model is not None:
             if tuple(joints) != self.console.joint_names:
                 self._readback.evidence.unknown = True
@@ -250,8 +256,6 @@ class RosBridge(Node):
         if self.console is None or len(message.name) != len(message.position):
             return
         positions = dict(zip(message.name, message.position))
-        self._readback.evidence.measured(message.name, message.position,
-            message.header.stamp.sec * 1_000_000_000 + message.header.stamp.nanosec)
         self.console.update(positions=positions, feedback_at=time.monotonic())
 
     def _diagnostics(self, message: DiagnosticArray) -> None:

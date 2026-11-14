@@ -195,9 +195,3 @@ dialog .card { width: min(460px, 92vw); border: 1px solid var(--line); }
 .sequence-list input, #sequence-dwell { width: 80px; }
 .sequence-list select { max-width: 180px; }
 .sequence-list label { white-space: nowrap; }
-
-.module-status { overflow-x: auto; }
-.module-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-.module-table th, .module-table td { padding: .45rem .35rem; text-align: left; border-bottom: 1px solid var(--border, #344253); }
-.module-table th { white-space: nowrap; font-weight: 500; }
-#head-controls[hidden] { display: none; }

@@ -29,20 +29,6 @@ hw_semantic_components::ForceTorqueSample x503_sample()
   return {{100.0, 200.0, 300.0, 1000.0, 2000.0, 3000.0}, {0.0, 1.0, 2.0, 3.0, 4.0, 5.0}, 6U};
 }
 
-TEST(ForceTorqueProcessorTest, IncompleteDomainSuppressesOldRawAndWrenchSamples)
-{
-  ForceTorqueProcessor processor{x503_config()};
-  EXPECT_FALSE(processor.process(x503_sample(), 1.0, 8.0, false).raw_valid);
-  ASSERT_TRUE(processor.process(x503_sample(), 1.0, 8.0, true).wrench_valid);
-  const auto lost = processor.process(x503_sample(), 1.0, 8.0, false);
-  EXPECT_FALSE(lost.raw_valid);
-  EXPECT_FALSE(lost.wrench_valid);
-  EXPECT_TRUE(lost.invalidated_this_cycle);
-  const auto recovered = processor.process(x503_sample(), 1.0, 8.0, true);
-  EXPECT_TRUE(recovered.raw_valid);
-  EXPECT_FALSE(recovered.wrench_valid);
-}
-
 TEST(ForceTorqueProcessorTest, ConvertsValidatedX503DataOnlyAfterOperation)
 {
   ForceTorqueProcessor processor{x503_config()};

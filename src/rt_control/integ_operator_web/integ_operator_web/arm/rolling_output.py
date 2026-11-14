@@ -6,7 +6,7 @@ it stops accepting windows; the controller owns timeout braking.
 
 import math
 
-from .errors import ConsoleError
+from .console_types import ConsoleError
 from .console_types import STATE_STALE_S
 from .rolling_hold import holding_identity
 
@@ -89,7 +89,7 @@ class RollingOutput:
                     raise ConsoleError(
                         "jog_not_ready", "需要已使能、Rolling HOLDING 和完整停稳反馈"
                     )
-                before = holding_identity(self.snapshot())
+                before = holding_identity(self.snapshot(), self.sender)
             # Keep the mode reservation, but let disconnect/stop invalidate its
             # permit while the read-only service is in flight.
             if self.bridge.rolling_hold is None:
@@ -97,7 +97,10 @@ class RollingOutput:
             positions = self.bridge.rolling_hold.query(c.joint_names)
             with c._lock:
                 c.authority.require(owner)
-                if not self._controller_ready() or holding_identity(self.snapshot()) != before:
+                if (
+                    not self._controller_ready()
+                    or holding_identity(self.snapshot(), self.sender) != before
+                ):
                     raise ConsoleError("jog_hold_changed", "Rolling 保持状态已变化，未启动运动")
                 c._reserve_motion(connection)
                 self.hold_reference = {"positions": positions, "identity": before}
@@ -143,7 +146,7 @@ class RollingOutput:
             window = body["window"]
             self._validate(window)
             result = self.sender.send(window)
-            if result == 0:
+            if result == int(self.sender.SendResult.SENT):
                 self.started = True
             return {"send_result": result, "rolling": self.snapshot()}
 
@@ -151,7 +154,7 @@ class RollingOutput:
         parameters = self.bridge.rolling_parameters
         points = window["points"]
         if type(window["final"]) is not bool or not 2 <= len(points) <= min(
-            256, parameters["buffer_capacity"]
+            self.sender.MAX_POINTS, parameters["buffer_capacity"]
         ):
             raise ValueError("invalid Rolling window")
         start, previous = time_ns(window["replace_from"]), -1
@@ -178,28 +181,18 @@ class RollingOutput:
 
     def _validate_start(self, points):
         reference = self.hold_reference
-        if reference is None or holding_identity(self.snapshot()) != reference["identity"]:
+        if (
+            reference is None
+            or holding_identity(self.snapshot(), self.sender) != reference["identity"]
+        ):
             raise ConsoleError("jog_hold_changed", "首窗发布前 Rolling 保持状态已变化，请重新按键")
-        first, second = points[:2]
-        dt = time_ns(second["time_from_start"]) / 1e9
+        first = points[0]
         for axis, name in enumerate(self.bridge.rolling_parameters["joints"]):
             if (
                 first["positions"][axis] != reference["positions"][name]
                 or first["velocities"][axis] != 0.0
             ):
                 raise ConsoleError("jog_start_mismatch", f"{name} 首点未对齐控制器保持指令，未发布")
-            # Acceleration is linear on the controller's cubic Hermite segment;
-            # its exact maximum is at one of the two endpoints.
-            dq = second["positions"][axis] - first["positions"][axis]
-            velocity = second["velocities"][axis]
-            c2, c3 = 3 * dq - dt * velocity, dt * velocity - 2 * dq
-            peak = max(abs(2 * c2 / dt**2), abs((2 * c2 + 6 * c3) / dt**2))
-            limit = self.bridge.rolling_parameters["joint_acceleration_limits"][axis]
-            if not math.isfinite(peak) or peak > limit:
-                raise ConsoleError(
-                    "jog_start_acceleration",
-                    f"{name} 首段加速度 {peak:.17g} 超过 {limit:.17g} rad/s²（超出 {peak - limit:.6g}），未发布",
-                )
 
     def stop(self, connection, *, release=False):
         c = self.console
@@ -218,9 +211,10 @@ class RollingOutput:
         if not c._jog_busy:
             return
         phase = self.sender.status()["phase"]
-        if phase in (6, 7):
+        phases = self.sender.Phase
+        if phase in (int(phases.START_TIMED_OUT), int(phases.INTERRUPTED)):
             c._authority_unknown = True
-        ended = phase in (3, 4, 5)
+        ended = phase in (int(phases.COMPLETED), int(phases.STOPPED), int(phases.REJECTED))
         never_sent = not self.started and c.authority.poll()["phase"] == "stopping"
         if ended or never_sent:
             c._jog_busy = False

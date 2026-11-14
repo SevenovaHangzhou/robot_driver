@@ -52,7 +52,6 @@ class ArmPage:
         view_model_file: Optional[Path] = None,
         vacuum=None,
         status_period: float = STATUS_PERIOD_S,
-        module_status=None,
     ) -> None:
         if not (web_dir / "index.html").is_file():
             raise ValueError(f"missing web asset: {web_dir / 'index.html'}")
@@ -66,7 +65,6 @@ class ArmPage:
         self._audit = audit or AuditLog(None)
         self._vacuum = vacuum
         self._status_period = status_period
-        self._module_status = module_status
         self._sockets: set[web.WebSocketResponse] = set()
         self._view_share = view_model_share.resolve() if view_model_share is not None else None
         self._view_text = self._view_prefix = self._view_metadata = None
@@ -255,8 +253,6 @@ class ArmPage:
                 return
             self.console.touch(connection)
             status = self.console.status(connection)
-            if self._module_status is not None:
-                status["modules"] = self._module_status()
             poses = self.console.poses.list() if self.console.poses else []
             version = json.dumps(poses, sort_keys=True)
             if version != poses_version:

@@ -172,7 +172,6 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 "plugin": "ethercat_generic_plugins/EcCiA402Drive",
                 "alias": 0,
                 "position": axis["ring_position"],
-                **({"domain_id": spec["branches"][side]["pdo_domain"]} if "pdo_domain" in spec["branches"][side] else {}),
                 "mode_of_operation": mode,
                 "slave_config": str(Path(request["runtime_dir"]) / relative),
             }.items():

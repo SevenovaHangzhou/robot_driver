@@ -4,13 +4,13 @@ from contextlib import contextmanager
 
 from .authority import ArmAuthority
 from .console_types import LEASE_TIMEOUT_S
-from .errors import ConsoleError
+from .console_types import ConsoleError
 
 
 class ArmLease:
     def _init_lease(self, authority):
         self.authority = authority or ArmAuthority(LEASE_TIMEOUT_S, clock=self._clock)
-        self._arm_permit = None
+        self._arm_permit = None  # Captured generation checked immediately before action send.
         self.jog_output = None
         self._jog_busy = False
         self.modes = None
@@ -65,7 +65,7 @@ class ArmLease:
     def acquire(self, connection):
         with self._lock:
             self._sync_authority()
-            self._arm_permit = self.authority.acquire("arm", connection, connection)
+            self._arm_permit = self.authority.acquire("arm", connection)
 
     def touch(self, connection):
         with self._lock:
@@ -154,7 +154,7 @@ class ArmLease:
             ):
                 return None
             self._sync_authority()
-            permit = self.authority.acquire(entry, connection, connection)
+            permit = self.authority.acquire(entry, connection)
             self.authority.begin_motion(permit)
             self._scope_busy = True
             return permit

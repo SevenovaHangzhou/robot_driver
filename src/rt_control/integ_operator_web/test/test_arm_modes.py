@@ -35,11 +35,10 @@ class Feedback:
     def feed(self):
         c, e = self.c, self.e
         names = c.joint_names
-        q = [c.robot.positions[n] for n in names]
-        e.set_stationary_policy(names, [0.01] * len(names), 20)
-        for _ in range(21):
-            self.clock.now += 0.008
-            e.measured(names, q, round(self.clock.now * 1e9))
+        self.clock.now += 0.001
+        requested_at = self.clock()
+        self.clock.now += 0.01
+        e.confirm_standstill(True, requested_at)
         e.controllers(
             [
                 NS(
@@ -55,10 +54,11 @@ class Feedback:
             ],
             c.controller,
         )
-        e.controller_state(names, q, [0.0] * len(names), [0.0] * len(names))
+        e.controller_state(names, [0.0] * len(names))
         e.goal_status([])
-        e.set_tolerance(0.01)
-        e.rolling_state(NS(epoch=2, state=0, last_sequence=0, last_result=0, stop_reason=0))
+        e.rolling_state(
+            NS(epoch=2, state=0, HOLDING=0, last_sequence=0, last_result=0, stop_reason=0)
+        )
         c.update(
             controller_active=self.current == "jtc",
             controller_at=self.clock(),
@@ -150,7 +150,7 @@ def test_invalid_request_never_changes_mode_or_publishes(setup, bad):
         if bad == "disabled":
             c.robot.enable_state = "IDLE"
         elif bad == "moving":
-            io.e.rolling_state(NS(state=1))
+            io.e.rolling_state(NS(state=1, HOLDING=0))
         action = lambda: c.execute(
             "s1",
             {**TARGET, "left_joint1": 20} if bad == "target" else TARGET,

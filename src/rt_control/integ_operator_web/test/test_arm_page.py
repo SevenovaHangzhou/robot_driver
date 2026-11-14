@@ -550,17 +550,3 @@ def test_mode_wait_does_not_block_stop_release_or_disconnect(setup, cancel):
         assert not console._mode_busy and not driver.sent
 
     run(app, scenario)
-
-
-def test_websocket_includes_read_only_module_feedback(setup):
-    console, driver, _ = setup
-    rows = [dict(label="右腕力", selected=False, reason="absent", communication="not_loaded")]
-    app, _ = build(console, module_status=lambda: rows)
-
-    async def scenario(client):
-        assert await login(client) == 200
-        socket, status = await connect(client)
-        assert status["modules"] == rows
-        await socket.close()
-
-    run(app, scenario)

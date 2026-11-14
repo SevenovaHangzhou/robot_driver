@@ -9,7 +9,7 @@ from control_msgs.srv import QueryTrajectoryState
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from integ_operator_web.arm.rolling_hold import RollingHold
-from integ_operator_web.arm.errors import ConsoleError
+from integ_operator_web.arm.console_types import ConsoleError
 from test_mode_service import ServiceClient
 
 

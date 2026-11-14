@@ -20,6 +20,11 @@ from integ_operator_web.arm.jog import JogPage
 
 
 class Port:
+    # Transport double only; the standard binding test checks these against RollingSender.
+    Phase = NS(START_TIMED_OUT=6, INTERRUPTED=7, COMPLETED=3, STOPPED=4, REJECTED=5)
+    SendResult = NS(SENT=0)
+    MAX_POINTS, HOLDING, STATE_MAX_AGE_S = 256, 0, 0.2
+
     def __init__(self):
         self.phase, self.sequence, self.sent = 0, 0, []
 
@@ -196,16 +201,6 @@ def test_changed_hold_is_rejected_before_the_first_publish(setup, change):
         setattr(evidence.rolling, change, getattr(evidence.rolling, change) + 1)
     with pytest.raises(ConsoleError, match="保持状态"):
         output.publish("jog", {"window": window(len(console.joint_names))})
-    assert not port.sent
-
-
-def test_first_segment_acceleration_is_rejected_before_motor_transport(setup):
-    console, port, output, _, identity = ready(setup)
-    output.begin("jog", identity)
-    target = window(len(console.joint_names))
-    target["points"][1]["positions"][0] = 0.1  # 15 rad/s² on the 200 ms Hermite segment
-    with pytest.raises(ConsoleError, match="首段加速度"):
-        output.publish("jog", {"window": target})
     assert not port.sent
 
 

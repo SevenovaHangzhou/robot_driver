@@ -5,13 +5,10 @@ import os
 import time
 import threading
 
-import pytest
-
 
 def test_binding_uses_public_sender_for_epoch_sequence_ack_and_final():
     path = os.environ.get("JOG_SENDER_EXTENSION")
-    if not path:
-        pytest.skip("Build the extension and set JOG_SENDER_EXTENSION")
+    assert path, "Run the standard package CTest target to build and load RollingSender"
     assert os.environ.get("ROS_LOCALHOST_ONLY") == "1"
     assert os.environ.get("ROS_DOMAIN_ID") == "219"
     spec = importlib.util.spec_from_file_location("_rolling_sender", path)
@@ -22,6 +19,9 @@ def test_binding_uses_public_sender_for_epoch_sequence_ack_and_final():
     from robot_rt_control_interfaces.msg import RollingJointControlState
     import robot_interfaces_qos
 
+    assert module.Sender.MAX_POINTS == RollingJointTargetBatch.MAX_POINTS
+    assert module.Sender.HOLDING == RollingJointControlState.HOLDING
+    assert module.Sender.STATE_MAX_AGE_S > 0
     rclpy.init()
     node = rclpy.create_node("rolling_binding_transport_peer")
     state = RollingJointControlState(epoch=17, state=0)
@@ -68,17 +68,17 @@ def test_binding_uses_public_sender_for_epoch_sequence_ack_and_final():
         raise AssertionError("local ROS transport did not converge")
 
     try:
-        until(lambda: sender.send(window) == 0)
-        until(lambda: sender.status()["phase"] == 2)
+        until(lambda: sender.send(window) == int(module.SendResult.SENT))
+        until(lambda: sender.status()["phase"] == int(module.Phase.STREAMING))
         assert received[0].epoch == 17 and received[0].sequence > 0
         assert received[0].replace_from.sec == 10 and received[0].replace_from.nanosec == 20
         assert list(received[0].points[0].positions) == [0.0] * 14
         window["final"] = True
-        assert sender.send(window) == 0
+        assert sender.send(window) == int(module.SendResult.SENT)
         until(lambda: len(received) == 2)
         assert received[-1].final and received[-1].sequence == received[0].sequence + 1
         state.state, state.stop_reason = 0, 6
-        until(lambda: sender.status()["phase"] == 3)
+        until(lambda: sender.status()["phase"] == int(module.Phase.COMPLETED))
         assert sender.reset()
     finally:
         sender.close()

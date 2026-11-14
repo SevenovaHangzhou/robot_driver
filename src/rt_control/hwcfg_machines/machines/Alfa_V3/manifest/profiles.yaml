@@ -48,12 +48,9 @@ profiles:
     status: draft
     modules:
     - bench_left_arm
-    - wrist_force_sensors
-    - head_gimbal
     allowed_scopes:
     - bench_left_arm_stationary_enable
     - bench_left_arm
-    - bench_left_arm_head
     hardware_options:
       force_sensors:
       - none
@@ -92,7 +89,6 @@ profiles:
     status: draft
     modules:
     - bench_dual_arm
-    - wrist_force_sensors
     - head_gimbal
     allowed_scopes:
     - bench_dual_arm_stationary_enable
@@ -196,12 +192,9 @@ profiles:
     status: draft
     modules:
     - bench_right_arm
-    - wrist_force_sensors
-    - head_gimbal
     allowed_scopes:
     - bench_right_arm_stationary_enable
     - bench_right_arm
-    - bench_right_arm_head
     hardware_options:
       force_sensors:
       - none

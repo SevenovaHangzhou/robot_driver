@@ -1,12 +1,11 @@
 """Jog authority entry sharing the arm page's authentication and WebSocket transport.
 
-Motion remains disabled until the real Mink/Rolling adapter is commissioned.
 Acquiring this entry reserves the SAME arm resource as joint moves and sequences.
 """
 
 import os
 
-from .errors import ConsoleError
+from .console_types import ConsoleError
 from .page import ArmPage
 
 
@@ -60,7 +59,7 @@ class JogAccess:
     def acquire(self, connection):
         with self.control._lock:
             self.control._sync_authority()
-            self.authority.acquire("jog", connection, connection)
+            self.authority.acquire("jog", connection)
 
     def release(self, connection):
         owner = self.authority.owner()
@@ -81,13 +80,20 @@ class JogAccess:
 
 class JogPage(ArmPage):
     entry = "jog"
-    max_message_bytes = 256 * 14 * 2 * 32 + 8192
+
+    @property
+    def max_message_bytes(self):
+        output = self.console.control.jog_output
+        return (
+            output.sender.MAX_POINTS * len(self.console.control.joint_names) * 2 * 32 + 8192
+            if output
+            else 8192
+        )
 
     def __init__(self, arm_page):
         self.console = JogAccess(arm_page.console)
         self._sessions, self._operators = arm_page._sessions, arm_page._operators
         self._audit, self._status_period = arm_page._audit, arm_page._status_period
-        self._module_status = arm_page._module_status
         self._sockets = set()
         self._operators.register_page("jog", lambda: self.console.lease_holder)
 

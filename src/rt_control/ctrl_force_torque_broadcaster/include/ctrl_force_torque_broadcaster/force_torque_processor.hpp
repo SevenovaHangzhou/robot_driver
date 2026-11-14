@@ -60,10 +60,10 @@ public:
 
   ForceTorqueOutcome process(
     const hw_semantic_components::ForceTorqueSample & sample, const double link_up,
-    const double al_state, const bool data_valid = true) noexcept
+    const double al_state) noexcept
   {
     ForceTorqueOutcome outcome;
-    const bool operation = link_up == 1.0 && al_state == 8.0 && data_valid;
+    const bool operation = link_up == 1.0 && al_state == 8.0;
     if (operation) {
       seen_operation_ = true;
     } else if (seen_operation_ && !runtime_invalidated_) {
@@ -71,10 +71,6 @@ public:
       outcome.invalidated_this_cycle = true;
     }
     outcome.runtime_invalidated = runtime_invalidated_;
-
-    if (!data_valid) {
-      return outcome;
-    }
 
     if (sample.auxiliary_count != config_.auxiliary_count) {
       return outcome;

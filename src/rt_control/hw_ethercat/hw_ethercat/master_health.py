@@ -10,24 +10,22 @@ def responder_count(request):
     peers = request.get("peer_machines", [request["machine"]])
     if peers[0]["module"] != request["machine"]["module"]:
         return None
-    positions = set()
+    count = 0
     for peer in peers:
         spec = peer["spec"]
-        axes = spec.get("axes", []) + [
-            axis for branch in spec.get("branches", {}).values() for axis in branch["axes"]
-        ]
-        # A passive sensor can already be listed as an arm's extra responder.
-        positions.update(item["ring_position"] for item in axes + spec.get("extra_responders", []))
-    return len(positions)
+        count += (
+            len(spec["axes"])
+            if "axes" in spec
+            else sum(len(branch["axes"]) for branch in spec["branches"].values())
+        )
+        count += len(spec.get("extra_responders", []))
+    return count
 
 
 def offline_exports(request, axes):
     """enable_manager offline sources: the domain age (first peer module) and each slave's AL state."""
     exports = {}
-    domains = arm_domains(request)
-    if domains:
-        exports["feedback_age_interfaces"] = [f"ethercat_domain_{domain}/process_data_age_ms" for domain in domains]
-    elif responder_count(request) is not None:
+    if responder_count(request) is not None:
         exports["feedback_age_interfaces"] = ["ethercat_domain/process_data_age_ms"]
     al_states = [
         f"ethercat_slave_{axis['ring_position']}/al_state"
@@ -54,7 +52,7 @@ def sensors(request, axes):
             if type(axis["ring_position"]) is int
         }
     )
-    result = [domain_sensor(domain, request["use_mock_hardware"]) for domain in arm_domains(request)]
+    result = []
     for name, fields in health.items():
         sensor = ET.Element("sensor", name=name)
         for field, value in fields.items():
@@ -88,18 +86,3 @@ def master_diagnostic(request, master_id):
     if slaves is None:
         return []
     return [master_entry(master_id, slaves)]
-
-
-def arm_domains(request):
-    spec = request["machine"]["spec"]
-    return sorted({branch["pdo_domain"] for branch in spec.get("branches", {}).values() if "pdo_domain" in branch})
-
-
-def domain_sensor(domain, mock):
-    sensor = ET.Element("sensor", name=f"ethercat_domain_{domain}")
-    xml_param(sensor, "domain_id", domain)
-    for name, initial in (("process_data_age_ms", 0), ("data_valid", 1)):
-        interface = ET.SubElement(sensor, "state_interface", name=name)
-        if mock:
-            xml_param(interface, "initial_value", initial)
-    return sensor

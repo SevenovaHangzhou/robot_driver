@@ -5,12 +5,17 @@ import threading
 
 from control_msgs.srv import QueryTrajectoryState
 
-from .errors import ConsoleError
+from .console_types import ConsoleError
 
 
-def holding_identity(snapshot):
+def holding_identity(snapshot, protocol):
     state, age = snapshot.get("controller"), snapshot.get("state_age_s")
-    if state is None or state["state"] != 0 or type(age) not in (int, float) or not 0 <= age <= 0.2:
+    if (
+        state is None
+        or state["state"] != protocol.HOLDING
+        or type(age) not in (int, float)
+        or not 0 <= age <= protocol.STATE_MAX_AGE_S
+    ):
         raise ConsoleError("jog_hold_changed", "Rolling 保持状态已变化或过期，请等待停稳后重新按键")
     return tuple(state[k] for k in ("epoch", "last_sequence", "last_result", "stop_reason"))
 

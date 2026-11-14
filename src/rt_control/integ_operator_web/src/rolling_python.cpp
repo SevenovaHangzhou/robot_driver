@@ -93,10 +93,31 @@ private:
 
 PYBIND11_MODULE(_rolling_sender, module)
 {
-  py::class_<Sender>(module, "Sender")
-    .def(py::init<int>())
-    .def("send", &Sender::send)
-    .def("status", &Sender::status)
-    .def("reset", &Sender::reset)
-    .def("close", &Sender::close, py::call_guard<py::gil_scoped_release>());
+  py::enum_<rolling::Phase>(module, "Phase")
+    .value("IDLE", rolling::Phase::kIdle)
+    .value("AWAITING_ACK", rolling::Phase::kAwaitingAck)
+    .value("STREAMING", rolling::Phase::kStreaming)
+    .value("COMPLETED", rolling::Phase::kCompleted)
+    .value("STOPPED", rolling::Phase::kStopped)
+    .value("REJECTED", rolling::Phase::kRejected)
+    .value("START_TIMED_OUT", rolling::Phase::kStartTimedOut)
+    .value("INTERRUPTED", rolling::Phase::kInterrupted);
+  py::enum_<rolling::SendResult>(module, "SendResult")
+    .value("SENT", rolling::SendResult::kSent)
+    .value("NOT_CONNECTED", rolling::SendResult::kNotConnected)
+    .value("CONTROLLER_BUSY", rolling::SendResult::kControllerBusy)
+    .value("AWAITING_FIRST_ACK", rolling::SendResult::kAwaitingFirstAck)
+    .value("ENDED", rolling::SendResult::kEnded);
+  auto sender = py::class_<Sender>(module, "Sender")
+                  .def(py::init<int>())
+                  .def("send", &Sender::send)
+                  .def("status", &Sender::status)
+                  .def("reset", &Sender::reset)
+                  .def("close", &Sender::close, py::call_guard<py::gil_scoped_release>());
+  sender.attr("Phase") = module.attr("Phase");
+  sender.attr("SendResult") = module.attr("SendResult");
+  sender.attr("MAX_POINTS") = py::int_(rolling::Batch::MAX_POINTS);
+  sender.attr("HOLDING") = py::int_(rolling::ControllerState::HOLDING);
+  sender.attr("STATE_MAX_AGE_S") =
+    py::float_(std::chrono::duration<double>(rolling::kStateMaxAge).count());
 }

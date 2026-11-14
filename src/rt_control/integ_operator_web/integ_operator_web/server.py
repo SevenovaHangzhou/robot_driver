@@ -95,7 +95,8 @@ class OperatorServer:
 
     def build_app(self) -> web.Application:
         app = web.Application(middlewares=[self._headers_middleware])
-        app.router.add_get("/", self._index)
+        # The status page owns "/"; this console is the chassis page at "/chassis".
+        app.router.add_get("/chassis", self._index)
         app.router.add_post("/api/login", self._login)
         app.router.add_post("/api/logout", self._sessions.logout)
         app.router.add_get("/ws", self._websocket)
@@ -220,7 +221,7 @@ class OperatorServer:
             raise TeleopError("module_op_busy", "上一项使能/复位操作尚未完成")
         permit = None
         if self._arm_control is not None:
-            from .arm.errors import ConsoleError
+            from .arm.console_types import ConsoleError
             try:
                 permit = self._arm_control.begin_scope_operation('chassis', session)
             except ConsoleError as exc:

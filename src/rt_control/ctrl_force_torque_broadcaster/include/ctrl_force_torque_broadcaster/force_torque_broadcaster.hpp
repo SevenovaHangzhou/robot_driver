@@ -46,9 +46,6 @@ private:
   hardware_interface::LoanedStateInterface * link_interface_{nullptr};
   hardware_interface::LoanedStateInterface * al_state_interface_{nullptr};
 
-  hardware_interface::LoanedStateInterface * data_valid_interface_{nullptr};
-  std::string data_valid_interface_name_;
-
   std::string sensor_name_;
   std::string frame_id_;
   std::string wrench_topic_;

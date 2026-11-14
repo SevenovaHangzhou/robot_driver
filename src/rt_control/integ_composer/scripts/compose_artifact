@@ -3,7 +3,6 @@
 
 import argparse
 import sys
-from pathlib import Path
 
 from integ_composer.artifact import write_artifact
 
@@ -20,41 +19,10 @@ def main(argv=None):
     hardware.add_argument("--real", dest="use_mock_hardware", action="store_false")
     parser.add_argument("--jtc-only", action="store_true")
     parser.add_argument("--sync-mode", default="", choices=["", "sm", "dc"])
-    parser.add_argument("--module", action="append", default=[], metavar="NAME=MODE",
-                        help="resolve declared modules: auto, none, required, or owner-defined components")
-    parser.add_argument("--head", choices=["required", "auto", "none"], default="required")
-    parser.add_argument("--sensors", help="auto, none, or comma-separated sensor sides; resolves optional tails")
-    parser.add_argument("--selection-workspace", help="new directory for the selected configuration and scan")
-    parser.add_argument("--scan-file", help="use a saved EtherCAT verbose scan for offline verification")
     args = parser.parse_args(argv)
     try:
-        writer = write_artifact
-        extra = {}
-        if args.sensors is not None and args.module:
-            raise ValueError("Use either --module or the legacy --sensors/--head options")
-        if args.head != "required" and args.sensors is None:
-            raise ValueError("--head requires --sensors; or use --module MODULE=MODE")
-        if args.module or args.sensors is not None:
-            if not args.selection_workspace:
-                raise ValueError("Startup selection requires --selection-workspace")
-            extra = dict(workspace=args.selection_workspace,
-                         scan=Path(args.scan_file).read_text() if args.scan_file else None)
-        if args.module:
-            from integ_composer.startup_selection import write_startup_artifact
-            choices = {}
-            for value in args.module:
-                name, sep, mode = value.partition("=")
-                if not sep or not name or not mode or name in choices:
-                    raise ValueError("Each --module must specify a unique NAME=MODE")
-                choices[name] = mode
-            writer = write_startup_artifact
-            extra["choices"] = choices
-        if args.sensors is not None:
-            from integ_composer.optional_sensors import write_sensor_artifact
-            writer = write_sensor_artifact
-            extra.update(sensors=args.sensors, head=args.head)
-        composed = writer(
-            args.output, **extra,
+        composed = write_artifact(
+            args.output,
             robot_variant=args.robot_variant,
             machine_unit=args.machine_unit,
             physical_profile=args.physical_profile,
@@ -66,14 +34,6 @@ def main(argv=None):
     except ValueError as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1
-    if args.module:
-        composed, report = composed
-        for row in report["modules"]:
-            print(f"MODULE {row['label']}: {row['reason']}")
-    if args.sensors is not None:
-        composed, report = composed
-        print("HEAD selected=" + ",".join(report["head"]["selected"]))
-        print("SENSORS selected=" + ",".join(report["selected"]) + " absent=" + ",".join(report["absent"]))
     print(f"PASS: wrote {len(composed.files)} files to {args.output}")
     return 0
 

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器人状态</title>
+<link rel="stylesheet" href="/static/status/style.css">
+</head>
+<body data-state="fault">
+
+
+<header class="glass bar">
+  <div class="brand"><span class="brand-name" id="robot-label" hidden></span><span class="lbl">机器人状态</span></div>
+  <div class="status-pill" role="status" aria-live="polite">
+    <span class="dot"></span><span class="status-word" id="status-word">故障</span><span class="status-note" id="status-note"></span>
+  </div>
+  <div class="spacer"></div>
+  <div class="facts"><span id="scope"></span><span>数据 <span class="t1" id="freshness"></span></span><span class="t1" id="clock"></span></div>
+  <nav class="nav" aria-label="页面">
+    <a class="on" href="/" aria-current="page">状态</a><a href="/chassis">底盘操作</a><a href="/arm">机械臂与头部</a><a href="#" id="raw-open">原始数据</a>
+  </nav>
+</header>
+
+<div class="offline-banner" id="offline-banner" hidden>与机器人的连接已断开 <span id="offline-age"></span> 秒，下面是断开前的最后数据，正在自动重连。</div>
+
+<main>
+<div class="cols">
+
+  <div class="stack">
+    <section class="glass card cam" data-camera="head"><div class="head"><b>头部相机</b><span class="fps-now">5 fps</span></div><div class="ph"><img alt="头部相机画面" hidden><span class="ph-text">连接中…</span></div></section>
+    <section class="glass card cam" data-camera="chest"><div class="head"><b>胸部相机</b><span class="fps-now">5 fps</span></div><div class="ph"><img alt="胸部相机画面" hidden><span class="ph-text">连接中…</span></div></section>
+    <div class="seg" role="radiogroup" aria-label="帧率"><span>帧率</span><button type="button" data-fps="1">1</button><button type="button" data-fps="5" class="on">5</button><button type="button" data-fps="10">10</button><span>fps</span></div>
+  </div>
+
+  <div class="stack">
+    <section class="glass card stage">
+      <div class="head stage-head"><b>整机姿态</b><span class="pose">升降 <span class="t1" id="updown"></span><br>头部 俯仰 <span class="t1" id="pitch"></span> 偏航 <span class="t1" id="yaw"></span></span></div>
+      <div class="stage-view" id="stage-view"></div>
+      <div class="stage-note" id="stage-loading">正在加载整机模型…</div>
+
+    </section>
+    <div class="tiles">
+      <section class="glass card pack" id="pack-0">
+        <div class="head"><b class="pack-name"></b><span class="pack-state"></span></div>
+        <div class="big soc"><span class="soc-n"></span><small>%</small></div>
+        <div class="cells"></div>
+        <div class="bfoot"><svg viewBox="0 0 120 30" aria-hidden="true"><polyline fill="none" stroke-width="1.6" stroke-linejoin="round"/><circle r="3"/></svg><span class="cur"></span><span class="volt"></span><span class="temp"></span></div>
+      </section>
+      <section class="glass card pack" id="pack-1">
+        <div class="head"><b class="pack-name"></b><span class="pack-state"></span></div>
+        <div class="big soc"><span class="soc-n"></span><small>%</small></div>
+        <div class="cells"></div>
+        <div class="bfoot"><svg viewBox="0 0 120 30" aria-hidden="true"><polyline fill="none" stroke-width="1.6" stroke-linejoin="round"/><circle r="3"/></svg><span class="cur"></span><span class="volt"></span><span class="temp"></span></div>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="stack">
+    <section class="glass card chassis">
+      <div class="head"><b>底盘</b><span>俯视 · 车头朝上</span></div>
+      <svg viewBox="0 0 460 410" role="img" aria-label="底盘俯视图">
+        <g id="plan-frame"></g>
+        <g id="sensors"></g>
+        <g id="wheels"></g><g id="vel"></g>
+      </svg>
+      <div class="stats">
+        <div><div class="lbl">行驶速度</div><div class="big stat"><span id="speed"></span><small>m/s</small></div><div class="sub" id="twist"></div></div>
+        <div><div class="lbl">最近障碍</div><div class="big stat" id="nearest-big"><span id="nearest"></span><small>m</small></div><div class="sub" id="nearest-where"></div></div>
+      </div>
+    </section>
+
+    <section class="glass card cpu-card">
+      <div class="head"><b>CPU</b><span>控制工控机 · 近 60 秒</span></div>
+      <div class="cpu">
+        <div>
+          <div class="big"><span id="cpu-avg"></span><small>%</small></div><div class="lbl cpu-count" id="cpu-count"></div>
+          <svg class="cpu-trend" viewBox="0 0 130 40" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="ar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a99bff" stop-opacity=".4"/><stop offset="1" stop-color="#a99bff" stop-opacity="0"/></linearGradient></defs><path id="cpu-area" fill="url(#ar)"/><path id="cpu-line" fill="none" stroke="#a99bff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <div class="head rt-head"><b>实时核 · 1 kHz 控制线程</b><span id="rt-range"></span></div>
+          <div id="rt"></div>
+          <div class="head gp-head"><b>通用核</b><span id="gp-note"></span></div>
+          <div class="matrix" id="matrix"></div>
+        </div>
+      </div>
+      <p class="metrics-note" id="m-note">日志站未配置</p>
+      <div class="metrics">
+        <div><span class="lbl">控制周期</span><b><span id="m-period"></span><small>ms</small></b></div>
+        <div><span class="lbl">最大抖动</span><b><span id="m-jitter"></span><small>µs</small></b></div>
+        <div><span class="lbl">超时</span><b id="m-overrun-b"><span id="m-overrun"></span><small>次</small></b></div>
+        <div><span class="lbl">温度</span><b><span id="m-temp"></span><small>°C</small></b></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="alerts" id="alerts"></div>
+</main>
+
+<div class="login glass" id="login" hidden>
+  <form id="login-form">
+    <b>登录</b>
+    <p>状态页只读，但需要操作台令牌才能查看机器人数据。</p>
+    <label>令牌 <input type="password" id="login-token" autocomplete="current-password" required></label>
+    <div class="login-row"><span id="login-error"></span><button type="submit">登录</button></div>
+  </form>
+</div>
+
+<aside class="raw glass" id="raw" hidden aria-label="原始诊断数据">
+  <header><b>原始数据</b><input type="search" placeholder="按名称筛选" id="raw-filter"><button type="button" id="raw-close">关闭</button></header>
+  <div class="raw-body" id="raw-body"></div>
+</aside>
+
+<script type="module" src="/static/status/app.js"></script>
+</body>
+</html>

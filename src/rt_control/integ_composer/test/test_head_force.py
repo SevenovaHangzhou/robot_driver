@@ -32,7 +32,6 @@ def shares(tmp_path, monkeypatch):
     force = load_yaml(force_path)
     for sensor, position in zip(force["spec"]["sensors"], (2, 4)):
         sensor["ring_position"] = position
-        sensor.pop("pdo_domain", None)  # Historical fixture used one shared domain.
     force["spec"]["bench_extra_responders"] = [0, 1, 3, 5]
     force_path.write_text(yaml.safe_dump(force, sort_keys=False))
     monkeypatch.setattr(HEAD, "_share", lambda: RT / "hw_can_damiao")

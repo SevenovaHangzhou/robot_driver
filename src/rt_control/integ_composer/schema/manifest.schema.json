@@ -182,9 +182,6 @@
             "can_interface_key": {
               "type": "string",
               "minLength": 1
-            },
-            "startup": {
-              "$ref": "#/definitions/startup"
             }
           },
           "required": [
@@ -796,38 +793,5 @@
     "owner_refs",
     "layout"
   ],
-  "additionalProperties": false,
-  "definitions": {
-    "startup": {
-      "type": "object",
-      "properties": {
-        "policy": {
-          "enum": [
-            "required",
-            "optional"
-          ]
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1
-        },
-        "option": {
-          "type": "string",
-          "minLength": 1
-        },
-        "labels": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "required": [
-        "policy",
-        "label"
-      ],
-      "additionalProperties": false
-    }
-  }
+  "additionalProperties": false
 }

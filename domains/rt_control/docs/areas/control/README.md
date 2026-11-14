@@ -41,7 +41,7 @@
 | motion/F6 | 四轮速度使用固定规模最小二乘残差剔除；同一异常轮从 twist 与位置里程计排除且恢复无补跳，阈值保持待标定；共模一致误差不可辨识 | [残差剔除记录](../../areas-archive/motion/records/2026-09-16-swerve-slip-residual-rejection.md)#F1-F4 | PARTIAL（T1 Native/Mock；阈值和实机打滑待验） |
 | motion/F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](../../areas-archive/motion/records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
 | motion/F10 | ELECTRI-133 Tier A 固定规模 SE(2) 相对运动、独立无设备 Mock 与 opt-in loaned-interface/cyclic adapter 已实现；connected synthetic PDO 已验证 sent-cycle 与全四轮切换门禁，production profile/gate 未放开 | [Tier A 记录](../../areas-archive/motion/records/2026-09-25-tier-a-relative-move-mock.md)#F1-F4 | PARTIAL（T1；真实切换/标定/IMU 待验） |
-| control-20261111-01#F1–F2 | Rolling 保持指令查询与补窗共用完整 RT 摘要，过期摘要拒绝查询并报告明确准入原因 | [Rolling 摘要集成](records/2026-11-11-rolling-snapshot-integration.md) | PARTIAL（T0；798 项通过，实机待验） |
+| control-20261114-01#F1–F3 | Jog 控制权在请求终态与控制器实际停稳后交接；发送协议和轨迹准入各归现有拥有者 | [Jog 评审收敛](records/2026-11-14-jog-review-scope.md) | PARTIAL（T0；548项包测试通过，实机未验） |
 
 ## 跨区事实关联
 

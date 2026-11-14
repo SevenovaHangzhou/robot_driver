@@ -151,9 +151,6 @@
         "can_interface_key": {
           "type": "string",
           "minLength": 1
-        },
-        "startup": {
-          "$ref": "manifest.schema.json#/definitions/startup"
         }
       },
       "required": [

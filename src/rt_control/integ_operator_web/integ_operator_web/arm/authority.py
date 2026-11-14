@@ -11,13 +11,12 @@ import secrets
 import threading
 import time
 
-from .errors import ConsoleError
+from .console_types import ConsoleError
 
 
 @dataclass(frozen=True)
 class ArmPermit:
     entry: str
-    session: str
     client: str
     generation: str
 
@@ -28,7 +27,7 @@ class ArmAuthority:
     An expired idle lease can be released. An expired moving lease is fenced and
     retained until the execution adapter confirms stopped/finalized. The adapter
     must call poll(), act on stop_required, and provide controller stop evidence
-    before calling confirm_stopped(); that method must not be a browser endpoint.
+    before calling finish_motion(); that method must not be a browser endpoint.
     """
 
     def __init__(self, lease_timeout, *, clock=time.monotonic):
@@ -72,23 +71,22 @@ class ArmAuthority:
         if self.phase == "stopping":
             raise ConsoleError("authority_stopping", "双臂正在停车确认，拒绝继续发送目标")
 
-    def acquire(self, entry, session, client):
-        if not all(isinstance(v, str) and 0 < len(v) <= 128 for v in (entry, session, client)):
+    def acquire(self, entry, client):
+        if not all(isinstance(v, str) and 0 < len(v) <= 128 for v in (entry, client)):
             raise ConsoleError("authority_identity", "控制页面身份无效")
         with self.lock:
             self._expire()
             if self.phase == "unverified":
                 raise ConsoleError("authority_unverified", "双臂执行状态尚未完成启动对账")
             if self.permit is not None:
-                if (self.permit.entry, self.permit.session, self.permit.client) != (
+                if (self.permit.entry, self.permit.client) != (
                     entry,
-                    session,
                     client,
                 ):
                     raise ConsoleError("lease_busy", "关节操作台或末端点动页面已持有双臂控制权")
                 self._require(self.permit)
             else:
-                self.permit = ArmPermit(entry, session, client, secrets.token_urlsafe(24))
+                self.permit = ArmPermit(entry, client, secrets.token_urlsafe(24))
                 self.phase, self.release_pending = "leased", False
             self.seen = self.clock()
             return self.permit
@@ -127,16 +125,6 @@ class ArmAuthority:
                 raise ConsoleError(
                     "authority_stop_pending", "停车和会话结束未确认，暂不交接双臂控制权"
                 )
-            self.permit, self.phase = None, "idle"
-
-    def confirm_stopped(self, permit):
-        """Backend only: call after actual idle + session-finalize confirmation.
-
-        Cancelling a request, losing a lease, a service timeout, or an Action
-        success alone is not stop evidence. Unknown outcomes keep the owner.
-        """
-        with self.lock:
-            self._owner(permit)
             self.permit, self.phase = None, "idle"
 
     def finish_motion(self, permit):

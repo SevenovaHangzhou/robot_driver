@@ -218,15 +218,6 @@ apply_frozen_patches()
     patches/ecat_icube/0014-mirror-rpdo-commands.patch \
     src/vendor/ecat_icube
   apply_patch_once \
-    patches/ecat_icube/0015-isolate-process-data-domains.patch \
-    src/vendor/ecat_icube
-  apply_patch_once \
-    patches/ecat_icube/0016-centralize-domain-registration.patch \
-    src/vendor/ecat_icube
-  apply_patch_once \
-    patches/ecat_icube/0017-fix-pdo-source-lint.patch \
-    src/vendor/ecat_icube
-  apply_patch_once \
     patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     src/vendor/ros2_canopen
   apply_patch_once \
@@ -324,10 +315,7 @@ verify_frozen_vendor_trees()
     patches/ecat_icube/0011-dc-rate-diagnostics.patch \
     patches/ecat_icube/0012-fix-timing-source-lint.patch \
     patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
-    patches/ecat_icube/0014-mirror-rpdo-commands.patch \
-    patches/ecat_icube/0015-isolate-process-data-domains.patch \
-    patches/ecat_icube/0016-centralize-domain-registration.patch \
-    patches/ecat_icube/0017-fix-pdo-source-lint.patch
+    patches/ecat_icube/0014-mirror-rpdo-commands.patch
   verify_patched_vendor_tree src/vendor/ros2_canopen \
     patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \

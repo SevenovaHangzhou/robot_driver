@@ -1,6 +1,23 @@
 # integ_operator_web
 
-RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 机械臂与头部（同一页面），`/diag` 诊断（只读）。各控制区共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
+RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿 `domains/rt_control/docs/operator-web-and-diagnostics-design.md` §4）。页面：`/` 状态（只读，首页，ELECTRI-200），`/chassis` 底盘（原 `rt_control_operator_web`，ELECTRI-109/127），`/arm` 机械臂与头部（同一页面）。各控制区共用登录会话、审计日志与操作权规则：任一页面的控制权被另一个登录会话持有时，本会话不能取得其他页面的控制权。只给台架与调试使用。
+
+## 状态页 `/`
+
+只读首页，不取控制权、不下发命令；`/ws/status` 每秒推送一份快照。
+
+| 区域 | 数据来源 |
+| --- | --- |
+| 整机姿态三维视图 | `/joint_states`；模型与网格来自运行中的 deployment 产物（`robot_description.xml` + 安装的 mesh 共享目录），复用 `/arm` 的只读接口 |
+| 电池与总放电电流 | `/rt/battery/left/state`、`/rt/battery/right/state`；总电流只在两包都新鲜时计入 |
+| 底盘俯视图 | 车体轮廓与探头位置读运行中的 Robot Model（`ultrasonic_channel_*_link`、`steer*_joint`）；四舵角取 `status_joint_steer1..4` 的关节位置；速度取 `/wheel/odom`；八路距离取 `/rt/ultrasonic/channel1..8/range`。模型里没有探头坐标系时退回占位布局 |
+| CPU | 操作台所在工控机的 `/proc/stat`、`/sys/devices/system/cpu/isolated`、可读的 `thermal_zone*`；实时核即隔离核，不写死核号 |
+| 告警 | `/diagnostics` 与 `/rt/readiness` 的原文；`READY` 之外的条目按故障、警告、无数据排序，不自行判定健康 |
+
+- 关节名不写在代码里：`status_joint_updown`、`status_joint_head_yaw`、`status_joint_head_pitch`、`status_joint_steer1..4` 由部署填写，空值显示“—”。
+- `status_robot_label` 是页头显示的机型名，`status_camera_base` 是 NX 只读预览服务地址（空则不显示相机）。
+- 任何数据源超过 3 秒没有更新就显示“—”，`/joint_states` 超过 3 秒判为与机器人断开；页面不会用旧值冒充当前状态。
+- 尚未接入：控制周期、最大抖动、超时次数（需日志站提供），相机预览（需 NX 服务与地址配置）。
 
 ## 功能
 
@@ -208,16 +225,6 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 状态 `sequence.steps` 提供本次参数快照，`sequence.dwell_s` 为当前段停留。
 预设文件格式保持兼容，载入时将统一参数展开成独立段，载入不会执行。
 
-# 诊断页
-
-`/diag` 只读，不取控制权、不下发命令，经 `/ws/diag` 每秒推送一次：
-
-- 启动自检报告：`$RT_CONTROL_STATE_DIR/self_check/<作用域>.json`（默认 `/tmp/rt-control/`），每个作用域最新一份，新的在前。阶段 A 由运行栈启动文件在总线启动前写入；运行栈因自检失败没有起来时，这里仍能看到原因。阶段 B 由诊断节点在硬件激活后追加。
-- 运行栈就绪状态：R-OUT-09 `/rt/readiness`（每个问题的位置、DREE 码、级别、厂家码与说明）。诊断节点未运行时显示"未运行或尚未发布"。
-- 原始诊断：`/diagnostics` 每个名称的最新一行及其键值。
-
-本页不替代急停、STO 或安全链。
-
 # 头部控制区
 
 头部控制嵌入 `/arm`，与机械臂共用一个页面和登录框；旧 `/head` 地址跳转到 `/arm#head-controls`。两区独立显示设备反馈，无机械臂模型时仍能使用头部区。页面保持不自动取得控制权或发送目标。
@@ -237,7 +244,9 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 `/ws/jog` 复用登录、来源检查、审计和注销，协议为 `shared_arm_authority_v1`。状态提供 Domain、原始 URDF SHA-256、受控关节、实测反馈和发布端状态。默认只有 `acquire/release/stop`，运动命令返回 `jog_motion_disabled`；显式 `--jog-motion-enabled` 才建立官方 `robot_interfaces_rolling_client::RollingSender` 的 Python 绑定，接受 `begin_motion/window`。硬件使能仍由操作员显式发起。
 
-启动状态为 `unverified`。JTC active 时要求无活动 Action、目标速度为零；有实际速度反馈时检查公开停止容差，仅位置反馈时要求实测静止窗口。首次 Action 状态缺失只能由已观测的 JTC inactive 状态建立无活动目标证据。Rolling active 时要求 HOLDING、新鲜状态、JTC inactive 和实测位置静止窗口。两者都明确 inactive 时仍需实测静止窗口。该窗口使用 EnableManager 的 `motion_joints`、`mode_switch_stable_velocity_thresholds` 与 `mode_switch_stable_interval_count`；缺失、过期或未知参数不能替代。
+启动状态为 `unverified`。JTC active 时要求无活动 Action、目标速度为零；Rolling active 时要求新鲜 HOLDING 状态且 JTC 不活动。两者都 inactive 时也不能直接交接。所有路径都必须取得 EnableManager 域内只读 `~/confirm_standstill`（类型 `std_srvs/srv/Trigger`）的成功确认；查询必须晚于本次终态/停车屏障，且响应仍新鲜。该服务复用模式切换已有的内部实时采样、连续窗口、反馈时效和 `stableActualInterval()` 判据，不切换模式、不使能、不写驱动命令。结果不明、超时或没有新的实时样本时不能返回空闲。网页不计算位置/速度停稳窗口。
+
+ArmPage 的后台任务是权限轮询的唯一调度者。RollingSender 拥有 epoch、sequence、确认和结束状态；绑定直接暴露 Phase、SendResult、MAX_POINTS、HOLDING 与 STATE_MAX_AGE_S。网页只检查会话权限、输入格式与保持命令衔接，轨迹数学准入由 Rolling 控制器负责，失败通过现有拒绝诊断反馈。
 
 18121 关节动作、到位和序列选择 JTC；18131 `begin_motion` 选择 Rolling。两者一起加载，只有所选控制器激活。有效请求在同一权限代次内预留运动资源，确认已使能、反馈新鲜与停稳，再通过公开 `/rt/arms/set_control_mode` 选模；当前模式已匹配时不重复请求。服务成功后确认实际控制器互斥及切换后的停稳反馈，才允许发送。序列只在开始时选择一次，不在各段间切换。
 
@@ -245,4 +254,4 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 18121 顶栏的“机械臂末端控制”在新标签页打开当前主机 18131 的 `/jog`，共享登录但不自动获取或转移控制权。此锁只约束该主操作台的入口，独立 ROS 发布者仍需统一管理。
 
-2026-11-07 已部署远端两个网页并验证权限互斥、交接、空闲断线归还、跳转和整机渲染。当前已开启末端发布，18131 运行 Mink 键盘入口；两者跟随 `bench_dual_arm_head_wrist_force` artifact、Domain 77。重启后未使能、未接管，尚无自动选模或末端实机运动验收。相关行为测试在 `test_arm_authority.py`、`test_arm_idle.py`、`test_arm_modes.py`、`test_mode_service.py`、`test_arm_ros_send.py`、`test_jog_page.py`、`test_rolling_output.py`；官方 sender 传输测试在 `test_rolling_binding.py`。
+标准验证：构建包后执行 `colcon test --packages-select integ_operator_web`；其中 `test_rolling_binding` 自动加载本次构建的扩展，并固定 localhost / ROS Domain 219。缺少扩展会失败，不静默跳过。本版本尚无实机使能、切换或运动验收证据；历史部署记录只适用于其记录的提交。
