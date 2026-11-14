@@ -33,16 +33,24 @@ WS_HEARTBEAT_S = 1.0
 CLOSE_LOGIN_REQUIRED = 4401
 # Drive messages arrive every 50 ms; auditing them would bury every other record.
 UNAUDITED = {"drive", "get_fault_history", "get_model"}
-SECURITY_HEADERS = {
-    "Content-Security-Policy": (
-        "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; "
-        "style-src 'self'; script-src 'self'; frame-ancestors 'none'"
-    ),
-    "X-Frame-Options": "DENY",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "no-referrer",
-    "Cache-Control": "no-store",
-}
+# Additional origins (for example the read-only camera preview on the NX) that the pages may fetch
+# from and show images from. Empty means a same-origin-only policy.
+SENSOR_SOURCES: tuple[str, ...] = ()
+
+
+def security_headers(sensor_sources: tuple[str, ...] = SENSOR_SOURCES) -> dict[str, str]:
+    extra = "".join(f" {origin}" for origin in sensor_sources if origin)
+    return {
+        "Content-Security-Policy": (
+            f"default-src 'self'; connect-src 'self'{extra}; img-src 'self' data: blob:{extra}; "
+            "style-src 'self'; script-src 'self'; frame-ancestors 'none'"
+        ),
+        "X-Frame-Options": "DENY",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+        "Cache-Control": "no-store",
+    }
+
 
 StatusProvider = Callable[[], Mapping[str, Any]]
 # (op, modules) -> {"ok": bool, "stage": str, "modules": [...]}; may take tens of seconds.
@@ -69,6 +77,7 @@ class OperatorServer:
         steering_operation: Optional[Callable[..., Awaitable[Mapping[str, Any]]]] = None,
         steering_defaults: Optional[Callable[[], Awaitable[Mapping[str, Any]]]] = None,
         arm_control=None,
+        sensor_sources: tuple[str, ...] = (),
     ) -> None:
         index = static_dir / "index.html"
         if not index.is_file():
@@ -91,6 +100,7 @@ class OperatorServer:
         self._module_op_task: Optional[asyncio.Task] = None
         self._static_dir = static_dir
         self._status_period = status_period
+        self._security_headers = security_headers(sensor_sources)
         self._sockets: set[web.WebSocketResponse] = set()
 
     def build_app(self) -> web.Application:
@@ -101,9 +111,7 @@ class OperatorServer:
         app.router.add_post("/api/logout", self._sessions.logout)
         app.router.add_get("/ws", self._websocket)
         # A symlink install points installed assets back into the source tree.
-        app.router.add_static(
-            "/static/", self._static_dir, show_index=False, follow_symlinks=True
-        )
+        app.router.add_static("/static/", self._static_dir, show_index=False, follow_symlinks=True)
         for page in self._pages:
             page.add_routes(app)
         app.on_shutdown.append(self._on_shutdown)
@@ -112,7 +120,7 @@ class OperatorServer:
     @web.middleware
     async def _headers_middleware(self, request: web.Request, handler):
         response = await handler(request)
-        for name, value in SECURITY_HEADERS.items():
+        for name, value in self._security_headers.items():
             response.headers.setdefault(name, value)
         return response
 
@@ -148,9 +156,7 @@ class OperatorServer:
 
     async def _login(self, request: web.Request) -> web.Response:
         response = await self._sessions.login(request)
-        self._audit.record(
-            "login", {}, ok=response.status == 200, client=request.remote or ""
-        )
+        self._audit.record("login", {}, ok=response.status == 200, client=request.remote or "")
         return response
 
     async def _push_status(self, ws: web.WebSocketResponse, session: str) -> None:

@@ -370,3 +370,51 @@ def test_snapshot_carries_the_geometry_of_the_served_model(tmp_path):
     snapshot = page.snapshot()
     assert [item["channel"] for item in snapshot["model_geometry"]["sonar"]] == [1, 2, 6]
     assert snapshot["model"] is True
+
+
+def test_polling_starts_with_the_application_not_the_node():
+    """Node start-up has no running loop, so the station poller starts in app start-up."""
+
+    class Station:
+        started = 0
+
+        def snapshot(self):
+            return {"available": False, "run": None, "cycle": None, "records": []}
+
+        def start(self):
+            Station.started += 1
+
+    page = StatusPage(feed_with(), Sessions("token"), WEB, roles=ROLES, log_station=Station())
+    app = web.Application()
+    page.add_routes(app)
+    assert Station.started == 0
+    callbacks = [cb for cb in app.on_startup if getattr(cb, "__self__", None) is page]
+    assert len(callbacks) == 1
+
+    async def main():
+        await callbacks[0](app)
+
+    asyncio.run(main())
+    assert Station.started == 1
+
+
+def test_start_is_idempotent_and_needs_a_configured_station():
+    class Station:
+        started = 0
+
+        def __init__(self):
+            self._task = None
+
+        def start(self):
+            Station.started += 1
+
+    station = logstation.LogStation("")
+    station.start()  # no station configured: nothing to do
+    assert station._task is None
+
+    configured = logstation.LogStation("http://log:18200")
+    sentinel = object()
+    configured._task = sentinel
+    configured.start()  # already running: must not schedule a second loop
+    assert configured._task is sentinel
+    _ = Station

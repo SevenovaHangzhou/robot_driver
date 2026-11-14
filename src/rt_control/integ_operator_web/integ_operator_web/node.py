@@ -53,9 +53,15 @@ class OperatorWebNode(Node):
         # Status page: log-station base URL for cycle statistics and waveform links ("" disables).
         self.declare_parameter("status_log_url", "")
         # Status page: joint names for the pose readouts, as deployed (empty means not shown).
-        for role in ("status_joint_updown", "status_joint_head_yaw", "status_joint_head_pitch",
-                     "status_joint_steer1", "status_joint_steer2", "status_joint_steer3",
-                     "status_joint_steer4"):
+        for role in (
+            "status_joint_updown",
+            "status_joint_head_yaw",
+            "status_joint_head_pitch",
+            "status_joint_steer1",
+            "status_joint_steer2",
+            "status_joint_steer3",
+            "status_joint_steer4",
+        ):
             self.declare_parameter(role, "")
         self.config = build_config(**{k: self.get_parameter(k).value for k in defaults})
         generated_dir = self.get_parameter("generated_dir").value
@@ -137,19 +143,35 @@ def head_page(head, sessions, operators, audit, static_dir, arm_control=None):
     from .head.ros_bridge import HeadBridge
 
     bridge = HeadBridge(head["joint_state_topic"])
-    console = HeadConsole(yaml.safe_load(head["config"].read_text(encoding="utf-8")), bridge.publish)
+    console = HeadConsole(
+        yaml.safe_load(head["config"].read_text(encoding="utf-8")), bridge.publish
+    )
     bridge.console = console
     spin_in_background(bridge)
     page = HeadPage(
-        console, sessions, operators, static_dir / "head", bridge.set_enabled, bridge.reset_fault, audit,
-        arm_control=arm_control
+        console,
+        sessions,
+        operators,
+        static_dir / "head",
+        bridge.set_enabled,
+        bridge.reset_fault,
+        audit,
+        arm_control=arm_control,
     )
     return page, bridge
 
 
 def status_page(
-    node, sessions, static_dir, *, camera_base="", robot_label="", roles=None, log_url="",
-    model_file=None, mesh_lookup=None,
+    node,
+    sessions,
+    static_dir,
+    *,
+    camera_base="",
+    robot_label="",
+    roles=None,
+    log_url="",
+    model_file=None,
+    mesh_lookup=None,
 ):
     """The read-only status page and its own subscription thread."""
     from .status.feed import Feed, FeedNode
@@ -179,7 +201,7 @@ def status_page(
         model_file=model_file,
         mesh_lookup=mesh_lookup,
     )
-    page.start_background()
+    # Polling starts in app start-up: at node start-up there is no running event loop yet.
     return page, feed_node
 
 
@@ -210,11 +232,15 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         def mesh_lookup(path, share=view_share):
             # The browser URL omits "package://", so the resolver needs the package name only.
             relative = path.lstrip("/")
-            found = resolve_mesh(relative, lambda package: str(share) if share else get_package_share_directory(package))
+            found = resolve_mesh(
+                relative,
+                lambda package: str(share) if share else get_package_share_directory(package),
+            )
             if found is None and share is not None:
                 candidate = Path(share) / relative
                 found = str(candidate) if candidate.is_file() else None
             return found
+
     status, status_node = status_page(
         node,
         sessions,
@@ -222,8 +248,10 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         camera_base=node.get_parameter("status_camera_base").value,
         robot_label=node.get_parameter("status_robot_label").value,
         log_url=node.get_parameter("status_log_url").value,
-        roles={key: node.get_parameter(f"status_joint_{key}").value for key in
-               ("updown", "head_yaw", "head_pitch", "steer1", "steer2", "steer3", "steer4")},
+        roles={
+            key: node.get_parameter(f"status_joint_{key}").value
+            for key in ("updown", "head_yaw", "head_pitch", "steer1", "steer2", "steer3", "steer4")
+        },
         model_file=model_file,
         mesh_lookup=mesh_lookup,
     )
@@ -238,6 +266,8 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
     if head is not None:
         page, head_bridge = head_page(head, sessions, operators, audit, static_dir, arm_control)
         pages = (*pages, page)
+    # The status page pulls the read-only camera preview straight from the NX.
+    camera_origin = (node.get_parameter("status_camera_base").value or "").rstrip("/")
     server = OperatorServer(
         node.arbiter,
         sessions,
@@ -251,6 +281,7 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         operators=operators,
         pages=pages,
         arm_control=arm_control,
+        sensor_sources=(camera_origin,),
     )
 
     def spin():

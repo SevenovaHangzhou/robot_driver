@@ -17,7 +17,7 @@ related: []
 
 ## 背景
 
-针对 de30a2c 的请求修改评审，用户选择将 #260 收敛为 Jog；柔性启动和 PDO 分域保留在独立分支，不改变工控机部署。本次隔离副本合入 main@be3df7d，保留主线状态页面、Robot Model 与完整实时摘要的实现。
+针对 de30a2c 的请求修改评审，用户选择将 #260 收敛为 Jog；柔性启动和 PDO 分域保留在独立分支，不改变工控机部署。本次隔离副本合入 main@f74d3ba，保留主线状态页面、Robot Model 与完整实时摘要的实现，以及最新日志轮询生命周期和相机预览 CSP 修复。
 
 ## 改动
 
@@ -35,8 +35,8 @@ ROS Humble，固定公共接口 78f02ffe5b8f40a9f57bf9405cd00e007914fc84 的源�
 - `cmake --build`：EnableManager、Rolling、网页及发送器绑定通过；公共依赖和叶子库在隔离前缀构建。
 - `ctest --test-dir <enable-build> --output-on-failure`：109 项通过。
 - `ctest --test-dir <rolling-build> --output-on-failure`：70 项通过。
-- `ctest --test-dir <web-build> --output-on-failure`：369 项通过，含标准真实 RollingSender 传输测试。
-- 上述共 548 项，0 失败、0 跳过。覆盖互斥、模式/保持查询中取消和断线、终态/停稳屏障、未知结果不交接、JTC-only、无新样本、反馈过期、移动中拒绝确认、连续 Jog 的保持值衔接及主线摘要保护。
+- `ctest --test-dir <web-build> --output-on-failure`：372 项通过，含标准真实 RollingSender 传输测试。
+- 上述共 551 项，0 失败、0 跳过。覆盖互斥、模式/保持查询中取消和断线、终态/停稳屏障、未知结果不交接、JTC-only、无新样本、反馈过期、移动中拒绝确认、连续 Jog 的保持值衔接及主线摘要保护。
 - `tools/quality_gate.sh`：通过；工具测试 185 通过、11 条依赖未导入的公共接口/IgH 条件跳过；shellcheck 本机未安装。未将这些缺项记为通过。
 - `tools/arch_check.py compose --against origin/main`：27 种选择产物不变。
 - 初次构建因缺依赖前缀失败；首次测试发现旧夹具和动作权限快照的遗漏。修正后重新运行全部受影响包，以上均为最终源码结果。
