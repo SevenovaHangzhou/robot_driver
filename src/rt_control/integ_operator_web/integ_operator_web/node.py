@@ -45,6 +45,17 @@ class OperatorWebNode(Node):
         self.declare_parameter("static_dir", "")
         # Deployment artifact of the running scope: steering defaults and the unit name.
         self.declare_parameter("generated_dir", "")
+        # Status page: read-only MJPEG preview base URL of the NX camera service ("" hides cameras).
+        self.declare_parameter("status_camera_base", "")
+        # Status page: label shown next to "机器人状态"; the machine configuration supplies it.
+        self.declare_parameter("status_robot_label", "")
+        # Status page: log-station base URL for cycle statistics and waveform links ("" disables).
+        self.declare_parameter("status_log_url", "")
+        # Status page: joint names for the pose readouts, as deployed (empty means not shown).
+        for role in ("status_joint_updown", "status_joint_head_yaw", "status_joint_head_pitch",
+                     "status_joint_steer1", "status_joint_steer2", "status_joint_steer3",
+                     "status_joint_steer4"):
+            self.declare_parameter(role, "")
         self.config = build_config(**{k: self.get_parameter(k).value for k in defaults})
         generated_dir = self.get_parameter("generated_dir").value
         tuning = None
@@ -129,17 +140,19 @@ def head_page(head, sessions, operators, audit, static_dir):
     return page, bridge
 
 
-def diag_page(sessions, static_dir):
-    """The read-only diagnostics page and its subscriptions (own executor thread)."""
-    from integ_diagnostics.report import state_directory
+def status_page(
+    node, sessions, static_dir, *, camera_base="", robot_label="", roles=None, log_url="",
+    model_file=None, mesh_lookup=None,
+):
+    """The read-only status page and its own subscription thread."""
+    from .status.feed import Feed, FeedNode
+    from .status.logstation import LogStation
+    from .status.page import StatusPage
 
-    from .diag.feed import DiagnosticsFeed, FeedNode
-    from .diag.page import DiagPage
-
-    feed = DiagnosticsFeed()
-    node = FeedNode(feed)
+    feed = Feed()
+    feed_node = FeedNode(feed)
     executor = SingleThreadedExecutor()
-    executor.add_node(node)
+    executor.add_node(feed_node)
 
     def spin():
         try:
@@ -147,9 +160,20 @@ def diag_page(sessions, static_dir):
         except ExternalShutdownException:
             pass
 
-    threading.Thread(target=spin, name="operator-diag", daemon=True).start()
-    page = DiagPage(feed, sessions, static_dir / "diag", lambda: state_directory() / "self_check")
-    return page, node
+    threading.Thread(target=spin, name="operator-status", daemon=True).start()
+    page = StatusPage(
+        feed,
+        sessions,
+        static_dir / "status",
+        camera_base=camera_base,
+        robot_label=robot_label,
+        roles=roles,
+        log_station=LogStation(log_url),
+        model_file=model_file,
+        mesh_lookup=mesh_lookup,
+    )
+    page.start_background()
+    return page, feed_node
 
 
 def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head=None):
@@ -166,11 +190,40 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
     executor.add_node(node)
     sessions, operators, audit = Sessions(load_token()), Operators(), AuditLog(audit_path)
     static_dir = Path(node.get_parameter("static_dir").value)
-    diag, diag_node = diag_page(sessions, static_dir)
-    pages, bridge = (diag,), None
+    # The status page reuses the arm page's installed model share for the whole-vehicle view.
+    model_file = mesh_lookup = None
+    if arm is not None:
+        from .arm.model import resolve_mesh
+        from ament_index_python.packages import get_package_share_directory
+
+        model_file = arm.get("view_model_file")
+        view_share = arm["view_model_share"]
+        view_share = view_share.resolve() if view_share is not None else None
+
+        def mesh_lookup(path, share=view_share):
+            # The browser URL omits "package://", so the resolver needs the package name only.
+            relative = path.lstrip("/")
+            found = resolve_mesh(relative, lambda package: str(share) if share else get_package_share_directory(package))
+            if found is None and share is not None:
+                candidate = Path(share) / relative
+                found = str(candidate) if candidate.is_file() else None
+            return found
+    status, status_node = status_page(
+        node,
+        sessions,
+        static_dir,
+        camera_base=node.get_parameter("status_camera_base").value,
+        robot_label=node.get_parameter("status_robot_label").value,
+        log_url=node.get_parameter("status_log_url").value,
+        roles={key: node.get_parameter(f"status_joint_{key}").value for key in
+               ("updown", "head_yaw", "head_pitch", "steer1", "steer2", "steer3", "steer4")},
+        model_file=model_file,
+        mesh_lookup=mesh_lookup,
+    )
+    pages, bridge = (status,), None
     if arm is not None:
         page, bridge = arm_page(arm, sessions, operators, audit, static_dir)
-        pages = (page, diag)
+        pages = (status, page)
     head_bridge = None
     if head is not None:
         page, head_bridge = head_page(head, sessions, operators, audit, static_dir)
@@ -216,7 +269,7 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         node.destroy_node()
         if bridge is not None:
             bridge.destroy_node()
-        diag_node.destroy_node()
+        status_node.destroy_node()
         if head_bridge is not None:
             head_bridge.destroy_node()
         if rclpy.ok():
