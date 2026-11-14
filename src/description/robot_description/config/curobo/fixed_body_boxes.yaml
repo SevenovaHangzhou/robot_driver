@@ -1,0 +1,60 @@
+schema_version: 1
+frame: base_link
+units: m
+required: true
+relations:
+  robot: sphere_box
+  environment: box_box_SAT
+cuboids:
+- name: base_box_001
+  center:
+  - 0.0
+  - 0.0
+  - -0.1
+  dimensions:
+  - 1.0
+  - 1.0
+  - 0.45
+  rpy_rad:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: base_box_002
+  center:
+  - -0.08
+  - 0.0
+  - 0.2
+  dimensions:
+  - 0.85
+  - 1.0
+  - 0.17
+  rpy_rad:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: base_box_003
+  center:
+  - -0.33
+  - 0.0
+  - 0.39
+  dimensions:
+  - 0.35
+  - 1.0
+  - 0.21
+  rpy_rad:
+  - 0.0
+  - 0.0
+  - 0.0
+- name: base_box_004
+  center:
+  - 0.06
+  - 0.0
+  - 1.0
+  dimensions:
+  - 0.53
+  - 0.4
+  - 1.35
+  rpy_rad:
+  - 0.0
+  - 0.0
+  - 0.0

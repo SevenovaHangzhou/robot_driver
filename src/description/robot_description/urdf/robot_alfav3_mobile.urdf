@@ -2,29 +2,206 @@
 <robot name="alfa_robot_v3">
   <link name="base_footprint" />
   <joint name="base_footprint_to_base_link" type="fixed">
-    <origin xyz="0 0 0.32" rpy="0 0 1.5707963267948966" />
+    <origin xyz="0 0 0.335" rpy="0 0 0" />
     <parent link="base_footprint" />
     <child link="base_link" />
   </joint>
   <link name="arm_carriage">
     <inertial>
-      <origin xyz="0.23694464536324472 5.3146263483262798e-07 0.32700563330509558" rpy="3.1415926535897931 0 0" />
-      <mass value="43.0078185286443" />
-      <inertia ixx="0.637599779635185" ixy="8.35573038618462E-06" ixz="-0.00470189812461125" iyy="0.70396791298062" iyz="3.7826666151288E-06" izz="0.699163951660266" />
+      <origin xyz="0.23241894 1.4548597e-09 0.35398238" rpy="0 0 0" />
+      <mass value="42.349928" />
+      <inertia ixx="1.461624" iyy="1.1919986" izz="1.2166646" ixy="0.00047758911" ixz="0.028235631" iyz="-2.4308674e-08" />
     </inertial>
     <visual>
-      <origin xyz="0.26600000000000001 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/torso/base_link.STL" />
+        <mesh filename="package://robot_description/mesh/curobo_body/part_014_surface_shell_014-a0f5a6901345.stl" scale="1 1 1" />
       </geometry>
-      <material name="base_link_material">
-        <color rgba="1 1 1 1" />
-      </material>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_004_surface_shell_004-5c8de5afa407.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_003_solid_003-b2cd56d30593.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_058_solid_058-86611fa58d21.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_050_solid_050-d2a80cadc42c.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_002_solid_002-cc0c5ce4401a.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_005_surface_shell_005-c3b5d0926db4.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_015_surface_shell_015-3f1e8dbb0074.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_018_surface_shell_018-5443449d2b9b.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_008_surface_shell_008-05cdb29c7788.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_006_surface_shell_006-05c645d276fb.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_009_surface_shell_009-a7fca2be3dfc.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_016_surface_shell_016-03e89afa43dc.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_019_surface_shell_019-a61cb522c782.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_017_surface_shell_017-1917586987ba.stl" scale="1 1 1" />
+      </geometry>
+    </visual>
+    <visual>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_007_surface_shell_007-4ef6cae1e708.stl" scale="1 1 1" />
+      </geometry>
     </visual>
     <collision>
-      <origin xyz="0.26600000000000001 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/torso/base_link.STL" />
+        <mesh filename="package://robot_description/mesh/curobo_body/part_014_surface_shell_014-a0f5a6901345.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_004_surface_shell_004-5c8de5afa407.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_003_solid_003-b2cd56d30593.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_058_solid_058-86611fa58d21.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_050_solid_050-d2a80cadc42c.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_002_solid_002-cc0c5ce4401a.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_005_surface_shell_005-c3b5d0926db4.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_015_surface_shell_015-3f1e8dbb0074.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_018_surface_shell_018-5443449d2b9b.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_008_surface_shell_008-05cdb29c7788.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_006_surface_shell_006-05c645d276fb.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_009_surface_shell_009-a7fca2be3dfc.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_016_surface_shell_016-03e89afa43dc.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_019_surface_shell_019-a61cb522c782.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_017_surface_shell_017-1917586987ba.stl" scale="1 1 1" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/curobo_body/part_007_surface_shell_007-4ef6cae1e708.stl" scale="1 1 1" />
       </geometry>
     </collision>
   </link>
@@ -37,16 +214,10 @@
   </joint>
   <link name="base_link">
     <inertial>
-      <origin xyz="-0.058828565 -0.00039444606 0.47566224" rpy="0 0 0" />
-      <mass value="595.66605" />
-      <inertia ixx="164.43873" iyy="161.58372" izz="67.060691" ixy="-0.017014144" ixz="-14.66085" iyz="-0.093258544" />
+      <origin xyz="-0.036137515 -0.00063829515 0.22563075" rpy="0 0 0" />
+      <mass value="982.58382" />
+      <inertia ixx="294.37355" iyy="291.98628" izz="131.56855" ixy="0.038878568" ixz="-6.0994854" iyz="-0.18347327" />
     </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_049_solid_049.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
@@ -56,121 +227,31 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_048_solid_048.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/curobo_body/part_049_solid_049-7d4e9d80ee1c.stl" scale="1 1 1" />
       </geometry>
     </visual>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_072_solid_072.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_073_solid_073.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_071_solid_071.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_068_solid_068.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_067_solid_067.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_069_solid_069.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_070_solid_070.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_074_solid_074.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/curobo_body/part_048_solid_048-ae9fa2f35ada.stl" scale="1 1 1" />
       </geometry>
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_049_solid_049.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/chassis/base_link.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_001_solid_001.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/curobo_body/part_049_solid_049-7d4e9d80ee1c.stl" scale="1 1 1" />
       </geometry>
     </collision>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_048_solid_048.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_072_solid_072.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_073_solid_073.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_071_solid_071.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_068_solid_068.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_067_solid_067.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_069_solid_069.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_070_solid_070.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_074_solid_074.stl" scale="0.001 0.001 0.001" />
+        <mesh filename="package://robot_description/mesh/curobo_body/part_048_solid_048-ae9fa2f35ada.stl" scale="1 1 1" />
       </geometry>
     </collision>
   </link>
@@ -186,12 +267,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_061_solid_061.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="-0.305 0.305 0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_061_solid_061.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <link name="wheel1">
     <inertial>
@@ -205,12 +280,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_062_solid_062.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="-0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_062_solid_062.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <link name="steer2">
     <inertial>
@@ -224,12 +293,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_059_solid_059.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="-0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_059_solid_059.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <link name="wheel2">
     <inertial>
@@ -243,12 +306,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_060_solid_060.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="-0.305 -0.22 0.275" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_060_solid_060.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <link name="steer3">
     <inertial>
@@ -262,12 +319,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_065_solid_065.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="0.305 0.305 -0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_065_solid_065.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <link name="wheel3">
     <inertial>
@@ -281,12 +332,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_066_solid_066.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_066_solid_066.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <link name="steer4">
     <inertial>
@@ -300,12 +345,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_063_solid_063.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_063_solid_063.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <link name="wheel4">
     <inertial>
@@ -319,12 +358,6 @@
         <mesh filename="package://robot_description/mesh/chassis/part_064_solid_064.stl" scale="0.001 0.001 0.001" />
       </geometry>
     </visual>
-    <collision>
-      <origin xyz="0.305 -0.22 0.275" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_064_solid_064.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
   </link>
   <joint name="steer1_joint" type="revolute">
     <origin xyz="0.305 0.305 0.01" rpy="3.1415927 0 -1.5707963267948966" />
@@ -609,7 +642,7 @@
     <parent link="left_link5" />
     <child link="left_link6" />
     <axis xyz="0 0 -1" />
-    <limit lower="-2.2689280275926285" upper="2.2689280275926285" effort="107" velocity="0.5235987755982988" />
+    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="0.5235987755982988" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint7" type="revolute">
@@ -626,9 +659,15 @@
     <child link="left_tool_link" />
     <axis xyz="0 0 0" />
   </joint>
+  <link name="left_ft_sensor_link" />
+  <joint name="left_ft_sensor_fixed" type="fixed">
+    <origin xyz="0 -0.0072 0" rpy="-1.5707963267948966 0 0" />
+    <parent link="left_tool_link" />
+    <child link="left_ft_sensor_link" />
+  </joint>
   <link name="left_tool0" />
   <joint name="left_tool0_fixed" type="fixed">
-    <origin xyz="0.0 0.0 0.2497" rpy="0 0 0" />
+    <origin xyz="0 0 0.23419999999999999" rpy="0 0 -1.5707963267948966" />
     <parent link="left_link7" />
     <child link="left_tool0" />
   </joint>
@@ -853,7 +892,7 @@
     <parent link="right_link5" />
     <child link="right_link6" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.2689280275926285" upper="2.2689280275926285" effort="107" velocity="0.5235987755982988" />
+    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="0.5235987755982988" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint7" type="revolute">
@@ -870,9 +909,15 @@
     <child link="right_tool_link" />
     <axis xyz="0 0 0" />
   </joint>
+  <link name="right_ft_sensor_link" />
+  <joint name="right_ft_sensor_fixed" type="fixed">
+    <origin xyz="0 0.0072 0" rpy="1.5707963267948966 0 0" />
+    <parent link="right_tool_link" />
+    <child link="right_ft_sensor_link" />
+  </joint>
   <link name="right_tool0" />
   <joint name="right_tool0_fixed" type="fixed">
-    <origin xyz="0.0 0.0 0.2497" rpy="0 0 0" />
+    <origin xyz="0 0 0.23419999999999999" rpy="0 0 -1.5707963267948966" />
     <parent link="right_link7" />
     <child link="right_tool0" />
   </joint>
@@ -995,5 +1040,81 @@
     <parent link="H2_Link" />
     <child link="mid360_Link" />
     <axis xyz="0 0 0" />
+  </joint>
+  <link name="lidar_main" />
+  <joint name="lidar_main_fixed" type="fixed">
+    <parent link="base_link" />
+    <child link="lidar_main" />
+    <origin xyz="0.45331344797786899 0 0.06309940399999997" rpy="0 0.26179938779914941 0" />
+  </joint>
+  <link name="lidar_rear" />
+  <joint name="lidar_rear_fixed" type="fixed">
+    <parent link="base_link" />
+    <child link="lidar_rear" />
+    <origin xyz="-0.047 0 1.6240000000000001" rpy="-0 -1.5707963267948966 0" />
+  </joint>
+  <!-- A22 channel 1: measuring surface at base_link (0.3145, 0.4850, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_1_link" />
+  <joint name="ultrasonic_channel_1_joint" type="fixed">
+    <origin xyz="0.3145 0.4850 0.019" rpy="0 0 1.570796" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_1_link" />
+  </joint>
+  <!-- A22 channel 2: measuring surface at base_link (0.4850, 0.3145, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_2_link" />
+  <joint name="ultrasonic_channel_2_joint" type="fixed">
+    <origin xyz="0.4850 0.3145 0.019" rpy="0 0 0.000000" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_2_link" />
+  </joint>
+  <!-- A22 channel 3: measuring surface at base_link (0.4850, -0.3145, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_3_link" />
+  <joint name="ultrasonic_channel_3_joint" type="fixed">
+    <origin xyz="0.4850 -0.3145 0.019" rpy="0 0 0.000000" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_3_link" />
+  </joint>
+  <!-- A22 channel 4: measuring surface at base_link (0.3145, -0.4850, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_4_link" />
+  <joint name="ultrasonic_channel_4_joint" type="fixed">
+    <origin xyz="0.3145 -0.4850 0.019" rpy="0 0 -1.570796" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_4_link" />
+  </joint>
+  <!-- A22 channel 5: measuring surface at base_link (-0.3145, -0.4850, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_5_link" />
+  <joint name="ultrasonic_channel_5_joint" type="fixed">
+    <origin xyz="-0.3145 -0.4850 0.019" rpy="0 0 -1.570796" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_5_link" />
+  </joint>
+  <!-- A22 channel 6: measuring surface at base_link (-0.4850, -0.3145, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_6_link" />
+  <joint name="ultrasonic_channel_6_joint" type="fixed">
+    <origin xyz="-0.4850 -0.3145 0.019" rpy="0 0 3.141593" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_6_link" />
+  </joint>
+  <!-- A22 channel 7: measuring surface at base_link (-0.4850, 0.3145, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_7_link" />
+  <joint name="ultrasonic_channel_7_joint" type="fixed">
+    <origin xyz="-0.4850 0.3145 0.019" rpy="0 0 3.141593" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_7_link" />
+  </joint>
+  <!-- A22 channel 8: measuring surface at base_link (-0.3145, 0.4850, 0.019) m,
+       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
+  <link name="ultrasonic_channel_8_link" />
+  <joint name="ultrasonic_channel_8_joint" type="fixed">
+    <origin xyz="-0.3145 0.4850 0.019" rpy="0 0 1.570796" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_8_link" />
   </joint>
 </robot>
