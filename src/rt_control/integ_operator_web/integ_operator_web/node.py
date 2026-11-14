@@ -256,6 +256,8 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
     if head is not None:
         page, head_bridge = head_page(head, sessions, operators, audit, static_dir)
         pages = (*pages, page)
+    # The status page pulls the read-only camera preview straight from the NX.
+    camera_origin = (node.get_parameter("status_camera_base").value or "").rstrip("/")
     server = OperatorServer(
         node.arbiter,
         sessions,
@@ -268,6 +270,7 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         audit=audit,
         operators=operators,
         pages=pages,
+        sensor_sources=(camera_origin,),
     )
 
     def spin():
