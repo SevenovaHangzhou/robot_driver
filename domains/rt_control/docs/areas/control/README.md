@@ -45,6 +45,8 @@
 
 ## 跨区事实关联
 
+[control-20261115-01](records/2026-11-15-receiver-stop-deployment.md)#F1–F3：停止候选已在双臂＋头部实机以未使能状态启动，18121 已切换，16 轴与双侧力反馈正常；旧安装和回退入口保留，物理停止 T4 待验（PARTIAL，T3）。
+
 [control-20261114-02](records/2026-11-14-receiver-time-stop.md)#F1–F3：可选停止插件在实际执行周期接管完整参考状态，网页等待参考终态及新鲜静止证据；27 个既有组合不变。目标机重新编译、隔离全 scope mock、停止客户端及 rolling 切换通过，实机 T3/T4 未验（PARTIAL，T1）。
 
 底层PREOP/PDO/semantic约束见[protocol](../protocol/README.md)；FJT/Rolling启动拼装见[integration](../integration/README.md)。本区负责controller实现，不扩大为硬件使能授权。
