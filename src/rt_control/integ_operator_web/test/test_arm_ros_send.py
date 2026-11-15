@@ -114,6 +114,33 @@ def test_terminal_result_alone_only_resolves_request_not_controller_idle():
     assert not evidence.idle(["a"], -float("inf"))  # Actual readback is still absent.
 
 
+@pytest.mark.parametrize("success", [True, False])
+def test_receiver_stop_keeps_its_own_request_evidence_until_completion(success):
+    evidence = ArmIdleEvidence(0.2, 2.5)
+    pending, replies = [], []
+    accepted = Future()
+    receiver = NS(request=lambda future, limits, done: pending.append((future, done)))
+    obj = NS(_lock=threading.Lock(), _goal_future=accepted,
+             _readback=NS(evidence=evidence), _receiver_stop=receiver)
+    RosBridge.stop_current(obj, None, lambda ok, text: replies.append(ok))
+    assert evidence.pending == 1 and not replies
+    assert pending[0][0] is accepted
+    pending[0][1](success, "result")
+    assert evidence.pending == 0 and evidence.unknown == (not success)
+    assert replies == [success]
+
+
+def test_receiver_stop_send_failure_latches_unknown_without_leaking_evidence():
+    evidence = ArmIdleEvidence(0.2, 2.5)
+    def fail(*args):
+        raise RuntimeError("transport unavailable")
+    obj = NS(_lock=threading.Lock(), _goal_future=Future(),
+             _readback=NS(evidence=evidence), _receiver_stop=NS(request=fail))
+    with pytest.raises(RuntimeError, match="transport"):
+        RosBridge.stop_current(obj, None, lambda *_: None)
+    assert evidence.pending == 0 and evidence.unknown
+
+
 def test_only_parsed_scope_absence_can_bypass_arm_resource():
     import json
 

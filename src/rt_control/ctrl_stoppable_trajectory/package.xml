@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>ctrl_stoppable_trajectory</name>
+  <version>0.1.0</version>
+  <description>Opt-in JTC extension for receiver-time bounded stops of straight joint paths.</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>joint_trajectory_controller</depend>
+  <depend>controller_interface</depend>
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>control_msgs</depend>
+  <depend>trajectory_msgs</depend>
+  <depend>lifecycle_msgs</depend>
+  <depend>rt_control_interfaces</depend>
+  <depend>robot_interfaces_qos</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>controller_manager</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -2,7 +2,7 @@
 
 **范围**：控制层控制器：CiA402/握手式使能状态机、机械臂轨迹、力反馈发布、四舵轮控制。2026-10-31 由 arm-control 与 chassis-control 合并而成（用户裁定），对应 `ARCHITECTURE.md` 的 control 层。
 
-**Owner路径**：ctrl_enable_manager；ctrl_rolling_trajectory；ctrl_force_torque_broadcaster；ctrl_swerve；patches/ros2_controllers。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：ctrl_enable_manager；ctrl_rolling_trajectory；ctrl_stoppable_trajectory；ctrl_force_torque_broadcaster；ctrl_swerve；patches/ros2_controllers。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：EtherCAT/CAN协议、编码器提供器与hw_semantic_components归protocol；机型事实/标定（hwcfg_machines）归hw-config；启动拼装归integration；共享库归infra。
 
@@ -44,6 +44,8 @@
 | control-20261114-01#F1–F3 | Jog 控制权在请求终态与控制器实际停稳后交接；发送协议和轨迹准入各归现有拥有者 | [Jog 评审收敛](records/2026-11-14-jog-review-scope.md) | PARTIAL（T0；548项包测试通过，实机未验） |
 
 ## 跨区事实关联
+
+[control-20261114-02](records/2026-11-14-receiver-time-stop.md)#F1–F3：可选停止插件在实际执行周期接管完整参考状态，网页等待参考终态及新鲜静止证据；27 个既有组合不变。目标机重新编译、隔离全 scope mock、停止客户端及 rolling 切换通过，实机 T3/T4 未验（PARTIAL，T1）。
 
 底层PREOP/PDO/semantic约束见[protocol](../protocol/README.md)；FJT/Rolling启动拼装见[integration](../integration/README.md)。本区负责controller实现，不扩大为硬件使能授权。
 

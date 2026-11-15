@@ -34,9 +34,10 @@ class ConsoleConfig:
     max_feedback_age: float  # s
     start_tolerance: float  # rad; must stay below the JTC start-consistency tolerance
     sample_period: float  # s between trajectory points
-    stop_lead: float  # s; the stop trajectory joins the running one this far ahead
+    stop_lead: float  # s; minimum lead; encoding may add at most one sample_period
     start_delay: float  # s; trajectory t = 0 is this far after the send time
     hidden_view_links: tuple[str, ...] = ()  # 3D view only
+    stop_backend: str = "planned"  # "controller" requires the private receiver-time stop service
 
     def gear(self, name: str) -> Gear:
         for gear in self.gears:
@@ -70,12 +71,15 @@ def config_from_mapping(document: Mapping) -> ConsoleConfig:
         stop_lead=float(document["stop_lead_s"]),
         start_delay=float(document["start_delay_s"]),
         hidden_view_links=tuple(document.get("hidden_view_links", [])),
+        stop_backend=str(document.get("stop_backend", "planned")),
     )
     for name in ("sample_period", "stop_lead", "start_delay"):
         if not 0.0 < getattr(config, name) <= 0.1:
             raise ValueError(f"{name}_s must be in (0, 0.1]")
     if config.limit_margin < 0.0 or config.max_feedback_age <= 0.0:
         raise ValueError("limit_margin_deg must be >= 0 and max_feedback_age_s > 0")
+    if config.stop_backend not in ("planned", "controller"):
+        raise ValueError("stop_backend must be planned or controller")
     return config
 
 
@@ -99,6 +103,10 @@ class Driver(Protocol):
 
     def cancel(self) -> None: ...
 
+    def stop_ready(self) -> bool: ...
+
+    def stop_current(self, limits: Limits, done: Callable[[bool, str], None]) -> None: ...
+
 
 @dataclass
 class _Execution:
@@ -112,6 +120,7 @@ class _Execution:
         return max(now - self.started - self.time_offset, 0.0)
 
     label: str = ""
+    controller_stop: bool = False
 
 
 @dataclass

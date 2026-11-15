@@ -1,5 +1,29 @@
 # Part of controllers.yaml (merged by integ_composer read_with_parts): arm trajectory controllers.
 controllers:
+  # Opt-in candidate; existing scopes continue selecting their current JTC.
+  dual_arm_stoppable_jtc:
+    module: bench_dual_arm
+    name: dual_arm_stoppable_jtc
+    plugin: ctrl_stoppable_trajectory/Controller
+    package: ctrl_stoppable_trajectory
+    actuator_groups: [csp]
+    required_state_modules: []
+    tags: [trajectory, motion, enable_target]
+    capabilities:
+    - name: arm_joint_trajectory
+      topic: /rt/arms/follow_joint_trajectory
+      type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
+    parameters:
+    - policy: {name: motion, path: joints, as: joints, match: actuator_groups}
+    - policy: {name: motion, path: jtc}
+    - interface: {name: arms_trajectory, as: action_name}
+    - interface: {name: arms_joint_stream, as: trajectory_topic}
+    - model_limits: {policy: motion, path: joints, attribute: velocity, as: joint_velocity_limits}
+    - model_limits: {policy: motion, path: joints, attribute: acceleration, as: joint_acceleration_limits}
+    - interface: {name: arms_bounded_stop, as: bounded_stop_service}
   whole_body_jtc:
     module: arms
     name: whole_body_jtc

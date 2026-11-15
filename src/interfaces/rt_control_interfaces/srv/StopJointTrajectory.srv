@@ -1,0 +1,19 @@
+# Domain-private stop of one active FJT goal. Limits use the infinity-norm
+# joint-path coordinate (rad); they must match the submitted motion's gear.
+unique_identifier_msgs/UUID goal_id
+float64 velocity
+float64 acceleration
+float64 jerk
+---
+# Response is deferred until the reference reaches rest, or the request fails.
+# REFERENCE_STOPPED does not certify physical standstill or replace STO.
+uint8 REFERENCE_STOPPED=0
+uint8 STALE_GOAL=1
+uint8 INACTIVE=2
+uint8 INVALID=3
+uint8 BUSY=4
+uint8 FAILED=5
+uint8 status
+string message
+builtin_interfaces/Time applied_at
+float64 braking_duration

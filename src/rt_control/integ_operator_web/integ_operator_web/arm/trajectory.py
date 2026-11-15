@@ -43,8 +43,8 @@ class Profile:
     def duration(self) -> float:
         return sum(duration for duration, _ in self.segments)
 
-    def sample(self, time: float) -> tuple[float, float, float]:
-        """(u, du/dt, d2u/dt2) at ``time``; exact piecewise cubic, clamped to the profile."""
+    def integrate(self, time: float) -> tuple[float, float, float]:
+        """Integrate the segments without replacing terminal velocity/acceleration."""
         position, velocity, acceleration = 0.0, self.initial_velocity, self.initial_acceleration
         remaining = min(max(time, 0.0), self.duration)
         for duration, jerk in self.segments:
@@ -55,6 +55,11 @@ class Profile:
             remaining -= step
             if remaining <= 0.0:
                 break
+        return position, velocity, acceleration
+
+    def sample(self, time: float) -> tuple[float, float, float]:
+        """Sample the profile, holding its terminal position after completion."""
+        position, velocity, acceleration = self.integrate(time)
         if time >= self.duration:
             velocity = acceleration = 0.0
         return position, velocity, acceleration
@@ -93,19 +98,36 @@ def scurve(distance: float, limits: Limits) -> Profile:
     )
 
 
-def brake(velocity: float, limits: Limits) -> Profile:
-    """Jerk-limited deceleration from path ``velocity`` (zero acceleration) to rest."""
-    velocity = max(velocity, 0.0)
+def brake(velocity: float, limits: Limits, acceleration: float = 0.0) -> Profile:
+    """Brake a forward path from its full (velocity, acceleration) state.
+
+    Apply -jerk down to the required negative peak acceleration, optionally hold,
+    then +jerk back to zero. Reject states that cannot stop without reversing or
+    exceeding the velocity limit while their positive acceleration is removed.
+    """
+    if not math.isfinite(velocity) or not math.isfinite(acceleration) or velocity < 0.0:
+        raise ValueError("braking state must be finite with non-negative velocity")
     a, j = limits.acceleration, limits.jerk
-    if velocity <= EPSILON:
+    if abs(acceleration) > a + EPSILON:
+        raise ValueError("initial acceleration exceeds the braking limit")
+    if acceleration < 0.0 and velocity < acceleration**2 / (2.0 * j) - EPSILON:
+        raise ValueError("braking state cannot reach rest without reversing")
+    peak_velocity = velocity + max(acceleration, 0.0)**2 / (2.0 * j)
+    if peak_velocity > limits.velocity + EPSILON:
+        raise ValueError("braking state cannot respect the velocity limit")
+    if velocity <= EPSILON and abs(acceleration) <= EPSILON:
         return Profile()
-    if velocity * j >= a * a:
-        ramp = a / j
-        hold = velocity / a - ramp
-    else:
-        ramp = math.sqrt(velocity / j)
-        hold = 0.0
-    return Profile(_segments((ramp, -j), (hold, 0.0), (ramp, j)), velocity)
+    peak = min(a, math.sqrt(j * velocity + acceleration**2 / 2.0))
+    ramp_down = max((acceleration + peak) / j, 0.0)
+    ramp_up = peak / j
+    hold = max((velocity + (acceleration**2 - 2.0 * peak**2) / (2.0 * j)) / peak, 0.0)
+    profile = Profile(
+        _segments((ramp_down, -j), (hold, 0.0), (ramp_up, j)), velocity, acceleration
+    )
+    _, final_velocity, final_acceleration = profile.integrate(profile.duration)
+    if abs(final_velocity) > 1e-10 or abs(final_acceleration) > 1e-10:
+        raise ValueError("braking integration does not finish at rest")
+    return profile
 
 
 @dataclass(frozen=True)
@@ -145,53 +167,76 @@ class Plan:
             tuple(d * ddu for d in self.direction),
         )
 
-    def points(self, period: float) -> list[TrajectoryPoint]:
-        """Samples every ``period`` from t = 0; the last point is the exact end at rest."""
-        if period <= 0.0:
-            raise ValueError("sample period must be positive")
-        count = max(int(math.ceil(self.duration / period - 1e-9)), 1)
-        result = [self.state(index * period) for index in range(count)]
-        result.append(self.state(self.duration))
-        if result[-1].time <= result[-2].time:
-            last = result.pop()
-            result.append(TrajectoryPoint(result[-1].time + period, *_rest(last)))
-        return result
+    def window_points(
+        self, start: float, end: float, period: float, max_points: int | None = None
+    ) -> list[TrajectoryPoint]:
+        """Sample a time window without crossing an unrepresented jerk boundary."""
+        if not math.isfinite(period) or period <= 0.0:
+            raise ValueError("sample period must be positive and finite")
+        if not all(math.isfinite(t) for t in (start, end)) or start < 0.0 or end < start:
+            raise ValueError("sample window must be finite, ordered and non-negative")
+        if max_points is not None and (
+            isinstance(max_points, bool) or not isinstance(max_points, int) or max_points < 2
+        ):
+            raise ValueError("max_points must be an integer >= 2")
+        boundaries = [start]
+        phase_end = 0.0
+        for duration, _ in self.profile.segments:
+            phase_end += duration
+            endpoint_roundoff = (
+                abs(phase_end - start) <= 4.0 * max(math.ulp(phase_end), math.ulp(start))
+                or round(phase_end * 1e9) == round(end * 1e9)
+            )
+            if start < phase_end < end and not endpoint_roundoff:
+                boundaries.append(phase_end)
+        if end > start:
+            boundaries.append(end)
+        if max_points is not None and len(boundaries) > max_points:
+            raise ValueError("point budget cannot preserve phase boundaries")
+        step = period
+        if max_points is not None:
+            spare = max_points - len(boundaries)
+            step = max(period, (end - start) / spare) if spare else math.inf
+        times = [start]
+        for lo, hi in zip(boundaries, boundaries[1:]):
+            intervals = max(1, int(math.ceil((hi - lo) / step - 1e-9)))
+            times.extend(lo + (hi - lo) * i / intervals for i in range(1, intervals))
+            times.append(hi)
+        ticks = [round(t * 1e9) for t in times]
+        if any(b <= a for a, b in zip(ticks, ticks[1:])):
+            raise ValueError("phase boundaries cannot be represented as distinct nanoseconds")
+        if max_points is not None and len(times) > max_points:
+            raise ValueError("trajectory exceeds point budget")
+        # Match the bridge's nanosecond timestamps before evaluating q/v/a. This
+        # prevents a rounded timestamp from being paired with an unrounded state.
+        points = []
+        terminal_tick = round(self.duration * 1e9)
+        for tick in ticks:
+            time = tick / 1e9
+            state = self.state(self.duration if tick == terminal_tick else time)
+            points.append(TrajectoryPoint(time, state.positions, state.velocities, state.accelerations))
+        for p0, p1 in zip(points, points[1:]):
+            h = p1.time - p0.time
+            # Hermite jerk amplifies endpoint-position roundoff by at most 60/h^3.
+            # Reject unresolvable short phases instead of widening the frozen
+            # 1e-4 rad/s^3 encoding-error budget or emitting an unchecked stop.
+            for axis, (q0, q1) in enumerate(zip(p0.positions, p1.positions)):
+                if (q0 == q1 and p0.velocities[axis] == p1.velocities[axis] == 0.0
+                        and p0.accelerations[axis] == p1.accelerations[axis] == 0.0):
+                    continue
+                if 60.0 * (math.ulp(q0) + math.ulp(q1)) / h**3 > 1e-4:
+                    raise ValueError("phase precision cannot satisfy the jerk encoding budget")
+        return points
 
+    def points(self, period: float) -> list[TrajectoryPoint]:
+        """Preserve every jerk boundary for both short and long trajectories."""
+        end = self.duration if self.duration > 0.0 else period
+        return self.window_points(0.0, end, period)
 
     def bounded_points(self, period: float, max_points: int) -> list[TrajectoryPoint]:
-        """Bound FJT size while retaining each constant-jerk phase boundary.
-
-        q/v/a at both endpoints let JTC spline interpolation reproduce each cubic
-        phase. Short trajectories retain their original sampling.
-        """
-        if not math.isfinite(period) or period <= 0:
-            raise ValueError("sample period must be positive and finite")
-        if isinstance(max_points, bool) or not isinstance(max_points, int) or max_points < 2:
-            raise ValueError("max_points must be an integer >= 2")
-        count = max(int(math.ceil(self.duration / period - 1e-9)), 1) + 1
-        if count <= max_points:
-            return self.points(period)
-        phases = self.profile.segments
-        if max_points <= len(phases) + 1:
-            raise ValueError("point budget cannot preserve phase boundaries")
-        # Reserve one interval for rounding up each phase's interval count.
-        step = max(period, self.duration / (max_points - 1 - len(phases)))
-        result = [self.state(0.0)]
-        start = 0.0
-        for duration, _ in phases:
-            intervals = max(1, int(math.ceil(duration / step)))
-            for i in range(1, intervals + 1):
-                result.append(self.state(start + duration * i / intervals))
-            start += duration
-        result[-1] = self.state(self.duration)
-        if len(result) > max_points:
-            raise ValueError("trajectory exceeds point budget")
-        return result
-
-
-def _rest(point: TrajectoryPoint):
-    zeros = tuple(0.0 for _ in point.positions)
-    return point.positions, zeros, zeros
+        """Bound point count while always retaining the exact cubic phase boundaries."""
+        end = self.duration if self.duration > 0.0 else period
+        return self.window_points(0.0, end, period, max_points)
 
 
 def plan_move(start: Sequence[float], target: Sequence[float], limits: Limits) -> Plan:
@@ -210,19 +255,19 @@ def plan_move(start: Sequence[float], target: Sequence[float], limits: Limits) -
 def plan_stop(plan: Plan, elapsed: float, limits: Limits) -> Plan:
     """Smooth stop on the line of ``plan``, starting from its state at ``elapsed``.
 
-    Braking starts from the path velocity at ``elapsed`` with zero acceleration (the
-    acceleration step is bounded by the profile limit). When the original remainder
-    stops sooner than a new brake would, the remainder is kept unchanged, so a stop
-    never travels past the original target.
+    Preserve position, velocity and acceleration at the cut. If the original
+    remainder stops within less distance, keep that already feasible remainder.
     """
+    if not math.isfinite(elapsed) or elapsed < 0.0:
+        raise ValueError("stop time must be finite and non-negative")
     u, du, ddu = plan.profile.sample(elapsed)
     origin = tuple(o + d * u for o, d in zip(plan.origin, plan.direction))
-    if elapsed >= plan.duration or du <= EPSILON:
+    if elapsed >= plan.duration or (du <= EPSILON and abs(ddu) <= EPSILON):
         return Plan(origin, tuple(0.0 for _ in origin), Profile())
-    profile = brake(du, limits)
+    profile = brake(du, limits, ddu)
     remaining = max(plan.profile.sample(plan.duration)[0] - u, 0.0)
     travelled = profile.sample(profile.duration)[0]
-    if travelled > remaining > EPSILON:
+    if travelled > remaining + EPSILON:
         # The original deceleration is already gentler: keep the original remainder.
         return Plan(
             origin,
@@ -241,3 +286,43 @@ def _trim(profile: Profile, elapsed: float) -> tuple[tuple[float, float], ...]:
             result.append((end - max(clock, elapsed), jerk))
         clock = end
     return _segments(*result)
+
+
+def stopping_points(plan: Plan, now: float, lead: float, period: float, limits: Limits):
+    """Return a C2 stop and its timestamped prefix on the original timeline.
+
+    The cut normally uses ``lead``. If rounding makes a phase unrepresentable,
+    retry at most one sampling period later (or at the original endpoint).
+    No motion limit or encoding tolerance is relaxed by that retry.
+    """
+    start = max(now - period, 0.0)
+    phase_end = 0.0
+    for duration, _ in plan.profile.segments:
+        phase_end += duration
+        if start < phase_end <= now:
+            # This phase boundary is already in the past. Starting here avoids a
+            # tiny initial interval without moving the first point into the future.
+            start = phase_end
+    nominal = now + lead
+    cuts = (nominal, min(nominal + period, plan.duration)) if nominal < plan.duration else (nominal,)
+    error = None
+    for candidate in cuts:
+        tick = round(candidate * 1e9)
+        if candidate >= plan.duration:
+            # Never round a completed move back into a sub-nanosecond brake.
+            tick = max(tick, math.ceil(plan.duration * 1e9))
+        cut = tick / 1e9
+        try:
+            stop = plan_stop(plan, cut, limits)
+            prefix = plan.window_points(start, cut, period)
+            points = prefix[:-1] + [
+                TrajectoryPoint(round((p.time + cut) * 1e9) / 1e9,
+                                p.positions, p.velocities, p.accelerations)
+                for p in stop.points(period)
+            ]
+            if any(b.time <= a.time for a, b in zip(points, points[1:])):
+                raise ValueError("stop timestamps must increase after nanosecond rounding")
+            return stop, cut, points
+        except ValueError as exc:
+            error = exc
+    raise ValueError("stop phases cannot be represented within one sample period") from error

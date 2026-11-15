@@ -563,6 +563,11 @@ function renderProgress(moving) {
   const element = $("progress");
   element.hidden = !moving;
   if (!moving) return;
+  if (moving.duration_s === null) {
+    element.querySelector("i").style.width = "0%";
+    element.querySelector("span").textContent = "正在制动，等待控制器确认";
+    return;
+  }
   const fraction = moving.duration_s > 0 ? Math.min(moving.elapsed_s / moving.duration_s, 1) : 1;
   element.querySelector("i").style.width = `${(fraction * 100).toFixed(1)}%`;
   const what = moving.kind === "stop" ? "正在停止" : moving.label ? `前往「${moving.label}」` : "运动中";

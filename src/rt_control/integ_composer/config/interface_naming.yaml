@@ -4,6 +4,8 @@ arms_trajectory: /rt/arms/follow_joint_trajectory
 left_arm_trajectory: /rt/arms/left/follow_joint_trajectory
 right_arm_trajectory: /rt/arms/right/follow_joint_trajectory
 arms_joint_stream: /rt/arms/joint_trajectory
+# Domain-private endpoint; not a robot_interfaces cross-domain command.
+arms_bounded_stop: /rt_control/arms/bounded_stop
 left_arm_joint_stream: /rt/arms/left/joint_trajectory
 right_arm_joint_stream: /rt/arms/right/joint_trajectory
 arms_control_mode: /rt/arms/set_control_mode

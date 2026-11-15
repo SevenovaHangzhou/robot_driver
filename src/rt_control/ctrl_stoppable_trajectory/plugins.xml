@@ -1,0 +1,5 @@
+<library path="ctrl_stoppable_trajectory">
+  <class name="ctrl_stoppable_trajectory/Controller" type="ctrl_stoppable_trajectory::Controller" base_class_type="controller_interface::ControllerInterface">
+    <description>JTC with a domain-private receiver-time stop for straight joint paths.</description>
+  </class>
+</library>

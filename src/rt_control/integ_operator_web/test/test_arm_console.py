@@ -18,6 +18,7 @@ from integ_operator_web.arm.model import (  # noqa: E402
 )
 from integ_operator_web.arm.poses import PoseStore  # noqa: E402
 from integ_operator_web.arm.trajectory import plan_move  # noqa: E402
+from spline_checks import check_points, raw_terminal
 
 CONFIG = {
     "gears": {
@@ -81,6 +82,12 @@ class Driver:
 
     def cancel(self):
         self.cancelled += 1
+
+    def stop_ready(self):
+        return getattr(self, "receiver_ready", False)
+
+    def stop_current(self, limits, done):
+        self.native_stop = (limits, done)
 
 
 @pytest.fixture
@@ -592,3 +599,117 @@ def test_invalid_later_step_rejects_entire_sequence_before_motion(setup, bad_ste
             {"name": "A", "gear": "leisure", "dwell_s": 0}, bad_step])
     assert not driver.sent
     assert console.status("s1")["sequence"] is None
+
+
+@pytest.mark.parametrize("elapsed", [.005, .23, .230001, .480001, .5, .730001, 1.])
+@pytest.mark.parametrize("direction", [-1, 1])
+def test_stop_preserves_acceleration_and_wire_interpolation(setup, elapsed, direction):
+    console, driver, clock = setup
+    console.execute("s1", {"left_joint1": direction*.8, "left_joint2": .2}, "sport")
+    original = console._execution.plan
+    clock.now = driver.starts[0]+elapsed
+    console.stop()
+    stopped = console._execution
+    assert stopped.kind == "stop"
+    assert stopped.plan.state(0.).accelerations == pytest.approx(
+        original.state(stopped.time_offset).accelerations, abs=1e-10)
+    assert driver.starts[0] == driver.starts[1]
+    check_points(driver.sent[1][1], console.config.gear("sport").limits)
+    raw_terminal(stopped.plan.profile)
+    console.stop()
+    assert len(driver.sent) == 2
+
+
+def test_stop_planning_failure_blocks_resume_and_ignores_old_callback(setup, monkeypatch):
+    from integ_operator_web.arm import console as module
+    console, driver, clock = setup
+    console.execute("s1", {"left_joint1": .8, "left_joint2": .2}, "sport")
+    old_done = driver.sent[0][2]
+    def fail(*args):
+        raise ValueError("unrepresentable phase")
+    monkeypatch.setattr(module, 'stopping_points', fail)
+    with pytest.raises(ConsoleError) as error:
+        console.stop()
+    assert error.value.code == 'stop_unrepresentable'
+    assert driver.cancelled == 1 and console._execution is None
+    old_done(True, '')
+    assert '未确认' in console.status('s1')['last_result']
+    with pytest.raises(ConsoleError) as error:
+        console.execute("s1", {"left_joint1": .8, "left_joint2": .2}, "sport")
+    assert error.value.code == 'authority_stopping'
+    assert console._authority_unknown and console._stop_unconfirmed
+    assert len(driver.sent) == 1
+
+
+def test_unrepresentable_move_never_reserves_execution(setup, monkeypatch):
+    from integ_operator_web.arm.trajectory import Plan
+    console, driver, clock = setup
+    def fail(*args):
+        raise ValueError('unrepresentable move')
+    monkeypatch.setattr(Plan, 'bounded_points', fail)
+    with pytest.raises(ValueError):
+        console.execute("s1", {"left_joint1": .8, "left_joint2": .2}, "sport")
+    assert console._execution is None
+    assert not driver.sent
+
+
+def test_controller_stop_waits_for_result_and_fences_old_action(setup):
+    console, driver, clock = setup
+    console.config = config_from_mapping({**CONFIG, "stop_backend": "controller"})
+    driver.receiver_ready = True
+    console.acquire("s1")
+    console.execute("s1", {"left_joint1": 0.3, "left_joint2": 0.2}, "sport")
+    original_done = driver.sent[0][2]
+    result = console.stop()
+    assert result == {"stopping": True, "duration_s": None}
+    assert len(driver.sent) == 1
+    assert driver.cancelled == 0
+    original_done(False, "interrupted by bounded stop")
+    assert console.status("s1")["moving"]["duration_s"] is None
+    assert console.stop()["stopping"] is True
+    driver.native_stop[1](True, "reference stopped")
+    assert console.status("s1")["moving"] is None
+    assert "制动参考结束" in console.status("s1")["last_result"]
+
+
+def test_controller_stop_failure_blocks_motion_without_cancel_fallback(setup):
+    console, driver, clock = setup
+    console.config = config_from_mapping({**CONFIG, "stop_backend": "controller"})
+    driver.receiver_ready = True
+    console.acquire("s1")
+    console.execute("s1", {"left_joint1": 0.3, "left_joint2": 0.2}, "sport")
+    console.stop()
+    driver.native_stop[1](False, "stale goal")
+    assert console._stop_unconfirmed
+    assert console._authority_unknown
+    assert driver.cancelled == 0
+    assert not console.status("s1")["motion_ready"]
+
+
+def test_controller_stop_requires_fresh_standstill_before_authority_handover(setup):
+    console, driver, clock = setup
+    console.config = config_from_mapping({**CONFIG, "stop_backend": "controller"})
+    driver.receiver_ready = True
+    console.execute("s1", {"left_joint1": 0.3, "left_joint2": 0.2}, "sport")
+    console.stop()
+    console.idle_probe = lambda _since: False
+    clock.now += 0.1
+    driver.native_stop[1](True, "reference stopped")
+    console._sync_authority()
+    assert console.authority.poll()["phase"] == "stopping"
+    assert console._authority_outcome_at == clock.now
+    assert not console._authority_unknown
+    checked = []
+    console.idle_probe = lambda since: checked.append(since) or True
+    console._sync_authority()
+    assert checked[-1] == clock.now
+    assert console.authority.poll()["phase"] != "stopping"
+
+
+def test_controller_stop_missing_service_blocks_start(setup):
+    console, driver, clock = setup
+    console.config = config_from_mapping({**CONFIG, "stop_backend": "controller"})
+    assert not console.status("s1")["motion_ready"]
+    assert "停止服务未就绪" in console.status("s1")["not_ready_reason"]
+    with pytest.raises(ValueError, match="stop_backend"):
+        config_from_mapping({**CONFIG, "stop_backend": "typo"})

@@ -1,4 +1,4 @@
-"""Arm ROS gateway: public motion APIs and domain-local read-only standstill confirmation."""
+"""Arm ROS gateway: public motion APIs and domain-local stop/standstill services."""
 
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ from .mode_service import ModeService
 from .modes import ArmModes
 from .rolling_hold import RollingHold
 from .rolling_rejection import RollingRejections
+from .receiver_stop import ReceiverStopClient
 
 CAPABILITY = "arm_joint_trajectory"
 ROLLING_PARAMETERS = ["joints", "joint_position_lower", "joint_position_upper", "joint_velocity_limits",
@@ -55,6 +56,8 @@ class RosBridge(Node):
         self._group = ReentrantCallbackGroup()
         self._lock = threading.Lock()
         self._goal = None
+        self._goal_future = None
+        self._receiver_stop = ReceiverStopClient(self, self._group)
         self._action: Optional[ActionClient] = None
         self._action_topic = ""
         self._controller = ""
@@ -169,6 +172,11 @@ class RosBridge(Node):
     def _refresh(self) -> None:
         if self.console is None:
             return
+        if self.console.config.stop_backend == "controller":
+            self._request(
+                "bounded_stop", self._controller_parameters,
+                GetParameters.Request(names=["bounded_stop_service"]), self._receiver_stop.bind,
+            )
         self._request(
             "controllers", self._controllers, ListControllers.Request(), self._received_controllers
         )
@@ -311,7 +319,8 @@ class RosBridge(Node):
                 done(False, "控制器拒绝轨迹（请查JTC日志：点数上限、起点一致性或参数校验）")
                 return
             with self._lock:
-                self._goal = handle
+                if self._goal_future is future:
+                    self._goal = handle
 
             def finished(result_future) -> None:
                 try:
@@ -337,11 +346,33 @@ class RosBridge(Node):
 
         self._readback.evidence.submitted()
         try:
-            action.send_goal_async(goal).add_done_callback(accepted)
+            future = action.send_goal_async(goal)
+            with self._lock:
+                self._goal_future = future
+            future.add_done_callback(accepted)
         except Exception:
             self._readback.evidence.resolved(unknown=True)
             raise
         return start
+
+    def stop_ready(self) -> bool:
+        return self._receiver_stop.ready()
+
+    def stop_current(self, limits, done) -> None:
+        with self._lock:
+            future = self._goal_future
+        evidence = self._readback.evidence
+        evidence.submitted()
+
+        def finished(success, message):
+            evidence.resolved(unknown=not success)
+            done(success, message)
+
+        try:
+            self._receiver_stop.request(future, limits, finished)
+        except Exception:
+            evidence.resolved(unknown=True)
+            raise
 
     def cancel(self) -> None:
         with self._lock:

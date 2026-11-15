@@ -25,7 +25,8 @@ from .console_types import (
 from .lease import ArmLease
 from .model import ArmModel
 from .poses import PoseError, PoseStore
-from .trajectory import Limits, TrajectoryPoint, plan_move, plan_stop
+from .trajectory import Limits, plan_move, stopping_points
+from .controller_stop import request_controller_stop
 
 
 class ArmConsole(ArmLease):
@@ -53,6 +54,7 @@ class ArmConsole(ArmLease):
         self.model_error = "等待机器人模型"
         self.poses: Optional[PoseStore] = None
         self._execution: Optional[_Execution] = None
+        self._stop_unconfirmed = False
         self._last_result = ""
         self._init_lease(authority)
         self._enable_busy = False
@@ -128,6 +130,10 @@ class ArmConsole(ArmLease):
             raise ConsoleError("feedback_incomplete", f"缺少关节反馈：{exc.args[0]}") from exc
 
     def _motion_ready(self, *, allow_mode_switch=False) -> Optional[str]:
+        if self._stop_unconfirmed:
+            return "停止结果未确认；请核查控制器状态后重新初始化操作台"
+        if self.config.stop_backend == "controller" and not self._driver.stop_ready():
+            return "控制器停止服务未就绪"
         robot = self.robot
         if robot.capability is None:
             return "运行栈未声明手臂轨迹能力"
@@ -213,6 +219,7 @@ class ArmConsole(ArmLease):
                 plan = plan_move(start, goal, self._limits(gear, start, goal))
                 if plan.duration <= 0.0:
                     raise ConsoleError("no_motion", "目标与当前位置相同")
+                points = plan.bounded_points(self.config.sample_period, 32)
                 started = self._clock() + self.config.start_delay
                 execution = _Execution("move", plan, gear, started, 0.0, label)
                 self._reserve_motion(session, continuation=_sequence is not None)
@@ -220,7 +227,7 @@ class ArmConsole(ArmLease):
                 self._last_result = ""
             # Preserve each cubic phase, without filling the startup lead with
             # thousands of redundant samples and ROS message conversions.
-            self._send(execution, plan.bounded_points(self.config.sample_period, 32))
+            self._send(execution, points)
             return {"duration_s": plan.duration}
 
     def goto_pose(self, session: str, name: str, gear_name: str) -> dict:
@@ -371,30 +378,32 @@ class ArmConsole(ArmLease):
             if execution is None or execution.kind == "stop":
                 if cancelled and execution is None:
                     self._last_result = "序列已取消"
-                return {"stopping": execution is not None}
-            # Same timeline (stamp) as the move. The stop trajectory starts one sample
-            # in the past with the move's own points, so the controller continues inside
-            # it and never interpolates from its receive-time state. Braking starts at
-            # ``cut``, ``stop_lead`` ahead of now.
+                return {"stopping": execution is not None or self._stop_unconfirmed}
+            if self.config.stop_backend == "controller":
+                return request_controller_stop(self, execution)
+            # Retain the move timeline and its prefix through cut. These points
+            # preserve the reference curve; receive-time takeover still depends
+            # on the controller and is not guaranteed when this message is late.
             period = self.config.sample_period
             now = execution.plan_time(self._clock())
-            cut = now + self.config.stop_lead
-            stop = plan_stop(execution.plan, cut, execution.gear.limits)
-            stopping = _Execution(
-                "stop", stop, execution.gear, execution.started, cut, execution.label
-            )
-            self._execution = stopping
-            count = max(int(math.ceil((cut - max(now - period, 0.0)) / period)), 1)
-            prefix = [execution.plan.state(cut - (count - i) * period) for i in range(count)]
-        points = [point for point in prefix if point.time >= 0.0] + [
-            TrajectoryPoint(
-                point.time + cut,
-                point.positions,
-                point.velocities,
-                point.accelerations,
-            )
-            for point in stop.points(period)
-        ]
+            try:
+                stop, cut, points = stopping_points(
+                    execution.plan, now, self.config.stop_lead, period, execution.gear.limits
+                )
+                stopping = _Execution(
+                    "stop", stop, execution.gear, execution.started, cut, execution.label
+                )
+                self._execution = stopping
+            except ValueError as error:
+                self._execution = None
+                self._stop_unconfirmed = self._authority_unknown = True
+                self._authority_outcome_at = self._clock()
+                self._last_result = "停止规划失败；请求控制器取消，保持结果未确认"
+                try:
+                    self._driver.cancel()
+                except Exception as cancel_error:
+                    raise ConsoleError("stop_cancel_unconfirmed", self._last_result) from cancel_error
+                raise ConsoleError("stop_unrepresentable", self._last_result) from error
         self._send(stopping, points)
         return {"stopping": True, "duration_s": stop.duration}
 
@@ -406,6 +415,8 @@ class ArmConsole(ArmLease):
                 self._execution = None
                 self._authority_outcome_at = self._clock()
                 if execution.kind == "stop":
+                    self._stop_unconfirmed |= not success
+                    self._authority_unknown |= not success
                     self._last_result = "已停止" if success else f"停止失败：{message}"
                 else:
                     self._last_result = "已到达" if success else f"运动未完成：{message}"
@@ -417,7 +428,10 @@ class ArmConsole(ArmLease):
                             self._sequence = None
                             self._last_result = f"序列中止（{execution.label}）：{message}"
             if not success and execution.kind == "stop":
-                self._driver.cancel()  # fall back to the controller's hold
+                try:
+                    self._driver.cancel()
+                except Exception:
+                    pass  # Stop remains unconfirmed even when cancel transport fails.
 
         try:
             with self._lock:
@@ -493,6 +507,8 @@ class ArmConsole(ArmLease):
                         zip(self.joint_names, execution.plan.state(elapsed).positions)
                     ),
                 }
+                if execution.controller_stop:
+                    moving.update(duration_s=None, target=dict(robot.positions), commanded={})
             ready = None if self.model is None else self._motion_ready(allow_mode_switch=True)
             return {
                 "lease": self._lease_status(session),

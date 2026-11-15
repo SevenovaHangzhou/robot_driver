@@ -322,3 +322,25 @@ def test_real_artifact_carries_the_bench_realtime_cpu_layout(shares, tmp_path):
     assert host["rt_cpu"] == 14 and host["hostname"] == "ar-Default-string"
     assert 14 not in host["housekeeping_cpus"]
     assert sorted(host["housekeeping_cpus"]) == [0, 2, 4, 6, 8, 10, 12, *range(16, 28)]
+
+
+def test_receiver_stop_is_selected_explicitly_and_binds_its_endpoint(shares, tmp_path):
+    path = shares["hwcfg_machines"] / "machines/Alfa_V3/manifest/bench_scopes.yaml"
+    document = load_yaml(path)
+    scope = document["scopes"]["bench_dual_arm_head"]
+    scope["controller_order"]["inactive"][0] = "dual_arm_stoppable_jtc"
+    path.write_text(yaml.safe_dump(document, sort_keys=False))
+    result = compose(
+        robot_variant="Alfa_V3", machine_unit=UNIT,
+        physical_profile="bench_dual_arm", control_scope="bench_dual_arm_head",
+        package_share=lambda name: str(shares[name]), runtime_dir=tmp_path / "receiver-stop",
+    )
+    entry = result.controllers["dual_arm_stoppable_jtc"]["ros__parameters"]
+    manager = result.controllers["controller_manager"]["ros__parameters"]
+    assert manager["dual_arm_stoppable_jtc"]["type"] == "ctrl_stoppable_trajectory/Controller"
+    assert entry["bounded_stop_service"] == "/rt_control/arms/bounded_stop"
+    assert len(entry["joints"]) == 14
+    assert entry["trajectory_start_consistency_check"]["enabled"]
+    enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["motion_controller"] == "dual_arm_stoppable_jtc"
+    assert result.lifecycle["mode_controllers"] == ["dual_arm_stoppable_jtc", "dual_arm_rolling"]
