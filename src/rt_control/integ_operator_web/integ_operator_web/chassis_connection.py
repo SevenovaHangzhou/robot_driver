@@ -256,7 +256,9 @@ class ChassisConnection:
             now = time.monotonic()
             scope = self.scope_ready()
             diagnostic_fresh = now - self.diag_at < STALE_S
-            connected = scope and diagnostic_fresh and self.enable_client.service_is_ready()
+            connected = (
+                scope and diagnostic_fresh and self.enable_clients["enable"].service_is_ready()
+            )
             if not connected:
                 reason = (
                     "等待底盘运行栈启动"
