@@ -12,9 +12,10 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+from typing import Optional
 import xml.etree.ElementTree as ET
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import PackageNotFoundError, get_package_share_directory
 import yaml
 
 from .audit import DEFAULT_AUDIT
@@ -22,7 +23,6 @@ from .config import ConfigError, load_token
 
 # Arm page state carried over from rt_control_arm_console (same files on existing hosts).
 DEFAULT_POSES = Path.home() / ".local/state/rt-control/arm_console_poses.json"
-DEFAULT_VIEW_SHARE = Path.home() / ".local/share/rt-control/view_robot_description"
 
 
 def parse_cpus(value: str) -> set[int]:
@@ -38,6 +38,26 @@ def parse_cpus(value: str) -> set[int]:
     if not cpus or min(cpus) < 0 or not cpus <= os.sched_getaffinity(0):
         raise ValueError("CPU list must be a non-empty subset of this process's allowed CPUs")
     return cpus
+
+
+def view_model(share: Optional[Path], relative: str) -> tuple[Optional[Path], Optional[Path]]:
+    """Browser geometry: the deployment-chosen model file inside a robot_description share.
+
+    The share defaults to the installed robot_description package, whose version the
+    deployment pins. No model or no package means no 3-D view; a chosen model that is
+    missing from the share is an error.
+    """
+    if not relative:
+        return None, None
+    if share is None:
+        try:
+            share = Path(get_package_share_directory("robot_description"))
+        except PackageNotFoundError:
+            return None, None
+    model = share / relative
+    if not model.is_file():
+        raise ValueError(f"view model not found: {model}")
+    return share, model
 
 
 def check_dds(environ=os.environ) -> None:
@@ -72,11 +92,6 @@ def main(argv=None) -> int:
     parser.add_argument("--port", type=int, default=18120)
     parser.add_argument("--cpus", required=True, help="validated housekeeping CPUs, e.g. 0-6")
     parser.add_argument("--config", type=Path, default=share / "config/operator.yaml")
-    parser.add_argument(
-        "--generated-dir",
-        default="",
-        help="deployment artifact of the running scope (arm view model)",
-    )
     parser.add_argument("--arm-config", type=Path, default=share / "config/arm.yaml")
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
     parser.add_argument("--head-config", type=Path, default=share / "config/head.yaml")
@@ -90,10 +105,15 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--view-model-share",
         type=Path,
-        default=DEFAULT_VIEW_SHARE
-        if DEFAULT_VIEW_SHARE.exists() or DEFAULT_VIEW_SHARE.is_symlink()
-        else None,
-        help="robot_description share for browser geometry; control uses the live model",
+        default=None,
+        help="robot_description share for browser geometry (default: the installed package); "
+        "control uses the live model",
+    )
+    parser.add_argument(
+        "--view-model",
+        default="",
+        help="model file of the deployed machine, relative to the robot_description share "
+        "(empty: no 3-D view)",
     )
     parser.add_argument(
         "--audit-log",
@@ -110,6 +130,7 @@ def main(argv=None) -> int:
         load_token()  # credentials before creating any publisher
         values = yaml.safe_load(args.config.read_text(encoding="utf-8"))
         params = values["integ_operator_web"]["ros__parameters"]
+        view_share, view_file = view_model(args.view_model_share, args.view_model)
         params.update(
             bind_host=args.bind_host,
             port=args.port,
@@ -130,11 +151,8 @@ def main(argv=None) -> int:
                     "poses": args.poses,
                     "joint_state_topic": args.joint_state_topic,
                     "vacuum_script": args.vacuum_script,
-                    "view_model_share": args.view_model_share,
-                    # The running model; without an artifact the arm page has no 3-D view.
-                    "view_model_file": Path(args.generated_dir) / "robot_description.xml"
-                    if args.generated_dir
-                    else None,
+                    "view_model_share": view_share,
+                    "view_model_file": view_file,
                 },
                 head={"config": args.head_config, "joint_state_topic": args.joint_state_topic},
             )
