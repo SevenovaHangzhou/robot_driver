@@ -36,7 +36,7 @@ class FakeNode:
 
 
 def ready_connection():
-    connection = ChassisConnection(FakeNode(), software_test_only=False, tuning=None)
+    connection = ChassisConnection(FakeNode(), software_test_only=False)
     connection.capabilities(
         String(
             data=json.dumps(

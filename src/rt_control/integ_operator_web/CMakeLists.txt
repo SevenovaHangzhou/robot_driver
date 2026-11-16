@@ -20,7 +20,7 @@ install(FILES README.md DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
-  foreach(test protocol teleop config server tuning launcher chassis_connection
+  foreach(test protocol teleop config server launcher chassis_connection
           arm_trajectory arm_console arm_vacuum_control arm_page arm_authority arm_idle arm_ros_send arm_modes mode_service rolling_output rolling_hold rolling_rejection jog_page head_console head_page status_page)
     ament_add_pytest_test(test_${test} test/test_${test}.py TIMEOUT 60
       APPEND_ENV "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}")

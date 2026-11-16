@@ -382,81 +382,6 @@ def test_module_op_unavailable_without_backend():
     run(scenario)
 
 
-def make_steering_server(calls):
-    async def steering(slew, accel, jerk, alignment, release):
-        calls.append(("set", slew, accel, jerk, alignment, release))
-        return {"ok": True, "message": "saved"}
-
-    async def defaults():
-        calls.append(("defaults",))
-        return {"ok": True, "message": "restored"}
-
-    arbiter = DriveArbiter(GEARS, LIMITS, time.monotonic)
-    server = OperatorServer(
-        arbiter,
-        sessions(),
-        lambda: {},
-        WEB_DIR,
-        STATIC,
-        status_period=0.05,
-        steering_operation=steering,
-        steering_defaults=defaults,
-    )
-    return server
-
-
-def run_steering(scenario):
-    calls = []
-
-    async def main():
-        client = TestClient(TestServer(make_steering_server(calls).build_app()))
-        await client.start_server()
-        try:
-            await scenario(client)
-        finally:
-            await client.close()
-
-    asyncio.run(main())
-    return calls
-
-
-STEERING = {
-    "type": "steering_params",
-    "slew_deg_s": 30,
-    "accel_deg_s2": 20,
-    "jerk_deg_s3": 100,
-    "alignment_deg": 5,
-    "release_deg": 3,
-}
-
-
-def test_steering_parameters_need_the_lease_and_the_token_again() -> None:
-    async def scenario(client):
-        ws, _ = await login(client)
-        await ws.send_json({**STEERING, "token": TOKEN})
-        assert (await next_of(ws, "error"))["code"] == "lease_required"
-        await ws.send_json({"type": "acquire"})
-        await ws.send_json({**STEERING, "token": "wrong-token-value"})
-        assert (await next_of(ws, "error"))["code"] == "token_mismatch"
-        await ws.send_json({**STEERING, "token": TOKEN})
-        assert (await next_of(ws, "steering_params_result"))["message"] == "saved"
-        await ws.send_json({"type": "steering_defaults", "token": TOKEN})
-        assert (await next_of(ws, "steering_params_result"))["message"] == "restored"
-
-    calls = run_steering(scenario)
-    assert calls == [("set", 30.0, 20.0, 100.0, 5.0, 3.0), ("defaults",)]
-
-
-def test_steering_parameters_unavailable_without_backend() -> None:
-    async def scenario(client, _arbiter):
-        ws, _ = await login(client)
-        await ws.send_json({"type": "acquire"})
-        await ws.send_json({**STEERING, "token": TOKEN})
-        assert (await next_of(ws, "error"))["code"] == "unsupported_operation"
-
-    run(scenario)
-
-
 def test_commands_are_audited_without_tokens_or_the_drive_stream(tmp_path: Path) -> None:
     path = tmp_path / "audit.jsonl"
 
@@ -465,7 +390,7 @@ def test_commands_are_audited_without_tokens_or_the_drive_stream(tmp_path: Path)
         await ws.send_json({"type": "acquire"})
         await ws.send_json({"type": "drive", "x": 0, "y": 0, "yaw": 0})
         await ws.send_json({"type": "gear", "gear": "sport"})
-        await ws.send_json({**STEERING, "token": "wrong-token-value"})
+        await ws.send_json({"type": "module_op", "op": "enable", "modules": ["chassis"]})
         await next_of(ws, "error")
 
     run(scenario, audit=AuditLog(path))
@@ -474,10 +399,10 @@ def test_commands_are_audited_without_tokens_or_the_drive_stream(tmp_path: Path)
         ("login", True),
         ("acquire", True),
         ("gear", True),
-        ("steering_params", False),
+        ("module_op", False),
     ]
-    assert records[3]["error"] == "unsupported_operation" and records[3]["args"]["slew_deg_s"] == 30
-    assert TOKEN not in path.read_text() and "wrong-token-value" not in path.read_text()
+    assert records[3]["error"] == "module_op_unavailable" and records[3]["args"]["op"] == "enable"
+    assert TOKEN not in path.read_text()
     assert len({r.get("session") for r in records[1:]}) == 1
 
 

@@ -74,8 +74,6 @@ class OperatorServer:
         pages: tuple = (),
         status_period: float = STATUS_PERIOD_S,
         drive_allowed: Optional[Callable[[], bool]] = None,
-        steering_operation: Optional[Callable[..., Awaitable[Mapping[str, Any]]]] = None,
-        steering_defaults: Optional[Callable[[], Awaitable[Mapping[str, Any]]]] = None,
         arm_control=None,
         sensor_sources: tuple[str, ...] = (),
     ) -> None:
@@ -83,8 +81,6 @@ class OperatorServer:
         if not index.is_file():
             raise ValueError(f"missing web asset: {index}")
         self._drive_allowed = drive_allowed or (lambda: True)
-        self._steering_operation = steering_operation
-        self._steering_defaults = steering_defaults
         self._arbiter = arbiter
         self._sessions = sessions
         self._audit = audit or AuditLog(None)
@@ -282,30 +278,6 @@ class OperatorServer:
             elif request.type == "module_op":
                 self._start_module_op(ws, session, request.op, request.modules)
                 return
-            elif request.type == "steering_params":
-                if self._steering_operation is None:
-                    raise TeleopError("unsupported_operation", "当前运行环境不支持转向参数调整")
-                if not self._arbiter.is_holder(session):
-                    raise TeleopError("lease_required", "未持有控制权")
-                if not self._sessions.token_matches(request.token):
-                    await self._sessions.reject_slowly()
-                    raise TeleopError("token_mismatch", "令牌确认失败，转向参数未修改")
-                result = await self._steering_operation(
-                    request.x, request.y, request.z, request.w, request.release
-                )
-                await ws.send_json({"type": "steering_params_result", **dict(result)})
-                return
-            elif request.type == "steering_defaults":
-                if self._steering_defaults is None:
-                    raise TeleopError("unsupported_operation", "当前运行环境不支持恢复默认")
-                if not self._arbiter.is_holder(session):
-                    raise TeleopError("lease_required", "未持有控制权")
-                if not self._sessions.token_matches(request.token):
-                    await self._sessions.reject_slowly()
-                    raise TeleopError("token_mismatch", "令牌确认失败，转向参数未修改")
-                result = await self._steering_defaults()
-                await ws.send_json({"type": "steering_params_result", **dict(result)})
-                return
             elif request.type == "get_fault_history":
                 await ws.send_json({"type": "fault_history", "items": self._history_provider()})
                 return
@@ -329,14 +301,6 @@ class OperatorServer:
         body = {}
         if request is not None:
             body = {"gear": request.gear, "op": request.op, "modules": list(request.modules)}
-            if kind == "steering_params":
-                body.update(
-                    slew_deg_s=request.x,
-                    accel_deg_s2=request.y,
-                    jerk_deg_s3=request.z,
-                    alignment_deg=request.w,
-                    release_deg=request.release,
-                )
         self._audit.record(
             kind,
             {key: value for key, value in body.items() if value not in ("", [])},

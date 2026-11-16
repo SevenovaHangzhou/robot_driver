@@ -2,7 +2,7 @@
 <package format="3">
   <name>integ_operator_web</name>
   <version>0.1.0</version>
-  <description>RT-Control operator web: one process with the chassis page (enable, teleop, fault reset, steering tuning) and the arm page (joint moves, poses, sequences, model view, vacuum IO).</description>
+  <description>RT-Control operator web: one process with the chassis page (enable, teleop, fault reset) and the arm page (joint moves, poses, sequences, model view, vacuum IO).</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
