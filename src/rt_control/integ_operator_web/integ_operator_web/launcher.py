@@ -41,12 +41,14 @@ def parse_cpus(value: str) -> set[int]:
 
 
 def view_model(share: Optional[Path], relative: str) -> tuple[Optional[Path], Optional[Path]]:
-    """Browser geometry: the model file inside a robot_description share.
+    """Browser geometry: the deployment-chosen model file inside a robot_description share.
 
     The share defaults to the installed robot_description package, whose version the
-    deployment pins. Without that package the pages have no 3-D view; a configured model
-    that is missing from the share is an error.
+    deployment pins. No model or no package means no 3-D view; a chosen model that is
+    missing from the share is an error.
     """
+    if not relative:
+        return None, None
     if share is None:
         try:
             share = Path(get_package_share_directory("robot_description"))
@@ -108,6 +110,12 @@ def main(argv=None) -> int:
         "control uses the live model",
     )
     parser.add_argument(
+        "--view-model",
+        default="",
+        help="model file of the deployed machine, relative to the robot_description share "
+        "(empty: no 3-D view)",
+    )
+    parser.add_argument(
         "--audit-log",
         default=str(DEFAULT_AUDIT),
         help="append-only JSON-lines operator audit log; empty string disables it",
@@ -122,7 +130,7 @@ def main(argv=None) -> int:
         load_token()  # credentials before creating any publisher
         values = yaml.safe_load(args.config.read_text(encoding="utf-8"))
         params = values["integ_operator_web"]["ros__parameters"]
-        view_share, view_file = view_model(args.view_model_share, params.pop("view_model"))
+        view_share, view_file = view_model(args.view_model_share, args.view_model)
         params.update(
             bind_host=args.bind_host,
             port=args.port,

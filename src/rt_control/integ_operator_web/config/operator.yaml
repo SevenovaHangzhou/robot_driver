@@ -24,5 +24,3 @@ integ_operator_web:
     - 2.0
     - 4.0
     command_topic: /rt/base/cmd_vel
-    # Browser geometry, relative to the robot_description share; the deployment pins its version.
-    view_model: urdf/robot_alfav3_mobile.urdf

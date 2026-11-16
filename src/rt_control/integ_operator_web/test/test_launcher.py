@@ -71,6 +71,7 @@ def test_view_model_is_read_from_the_robot_description_share(tmp_path):
     assert view_model(tmp_path, "urdf/robot.urdf") == (tmp_path, model)
     with pytest.raises(ValueError, match="view model not found"):
         view_model(tmp_path, "urdf/other.urdf")
+    assert view_model(tmp_path, "") == (None, None)
 
 
 def test_view_model_defaults_to_the_installed_package(monkeypatch, tmp_path):
