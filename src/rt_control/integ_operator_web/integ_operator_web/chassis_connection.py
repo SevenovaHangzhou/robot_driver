@@ -1,4 +1,4 @@
-"""Chassis backend of the operator web: controller_manager state, steering parameters, enable."""
+"""Chassis backend of the operator web: controller_manager state, enable and fault reset."""
 
 from __future__ import annotations
 
@@ -10,23 +10,14 @@ import time
 
 from controller_manager_msgs.srv import ListHardwareComponents
 from diagnostic_msgs.msg import DiagnosticArray
-from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
-from rcl_interfaces.srv import GetParameters, SetParameters
+from rcl_interfaces.srv import GetParameters
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 import robot_interfaces_qos
 from robot_rt_control_interfaces.srv import RtEnable
 from std_msgs.msg import String
 
 from .teleop import TeleopError
-from .tuning import STEERING_PARAMETERS, TuningError
 
-LIMIT_PARAMETERS = (
-    "max_steering_slew_limit",
-    "max_steering_acceleration_limit",
-    "max_steering_jerk_limit",
-)
-# Configure-time drive mode of the swerve controller (shown only, never set here).
-DRIVE_MODE_PARAMETERS = ("drive_mode",)
 STALE_S = 2.5
 
 
@@ -58,10 +49,9 @@ async def call_service(client, request, timeout):
 class ChassisConnection:
     """Chassis state from the scope runtime and the operator operations on it."""
 
-    def __init__(self, node, software_test_only, tuning):
+    def __init__(self, node, software_test_only):
         self.node = node
         self.software_test_only = software_test_only
-        self.tuning = tuning
         self.lock = threading.RLock()
         self.hardware = False
         self.hardware_at = -math.inf
@@ -80,8 +70,6 @@ class ChassisConnection:
         self.last_error = ""
         self.pending = {}
         self.capability = None
-        self.steering_motion = {}
-        self.steering_motion_at = -math.inf
         controller = node.config.controller_node
         node.create_subscription(
             String,
@@ -102,7 +90,6 @@ class ChassisConnection:
             ListHardwareComponents, "/controller_manager/list_hardware_components"
         )
         self.swerve_client = node.create_client(GetParameters, controller + "/get_parameters")
-        self.steering_set = node.create_client(SetParameters, controller + "/set_parameters")
         self.enable_params = node.create_client(GetParameters, "/enable_manager/get_parameters")
         node.create_subscription(
             DiagnosticArray, "/diagnostics", self.diagnostics, robot_interfaces_qos.diagnostic()
@@ -179,14 +166,6 @@ class ChassisConnection:
             GetParameters.Request(names=["managed_joints"]),
             self.received_managed,
         )
-        self.request(
-            "steering_params",
-            self.swerve_client,
-            GetParameters.Request(
-                names=[*STEERING_PARAMETERS, *LIMIT_PARAMETERS, *DRIVE_MODE_PARAMETERS]
-            ),
-            self.received_steering,
-        )
 
     def received_hardware(self, response):
         components = response.component
@@ -222,21 +201,6 @@ class ChassisConnection:
             with self.lock:
                 self.managed = list(response.values[0].string_array_value)
 
-    def received_steering(self, response):
-        names = [*STEERING_PARAMETERS, *LIMIT_PARAMETERS]
-        if len(response.values) != len(names) + len(DRIVE_MODE_PARAMETERS):
-            return
-        values = {name: math.degrees(v.double_value) for name, v in zip(names, response.values)}
-        drive = {"drive_mode": response.values[len(names)].string_value or None}
-        # An unlimited jerk (trapezoidal profile) is reported as None; JSON has no infinity.
-        if values["max_steering_jerk"] == math.inf:
-            values["max_steering_jerk"] = None
-        if not all(v is None or (math.isfinite(v) and v > 0) for v in values.values()):
-            return
-        with self.lock:
-            self.steering_motion = {**values, **drive}
-            self.steering_motion_at = time.monotonic()
-
     # ------------------------------------------------------------------ status
     def scope_ready(self):
         now = time.monotonic()
@@ -271,7 +235,6 @@ class ChassisConnection:
                 reason = "运动控制器激活失败"
             else:
                 reason = "已使能" if self.enabled else "未使能"
-            steering = dict(self.steering_motion) if now - self.steering_motion_at < 5.0 else {}
             return {
                 "backend_kind": self.kind if now - self.hardware_at < STALE_S else "disconnected",
                 "software_test_only": self.software_test_only,
@@ -289,15 +252,6 @@ class ChassisConnection:
                 and self.state == "FAILED"
                 and not self.busy
                 and self.reset_client.service_is_ready(),
-                "can_tune_steering": connected
-                and self.state in ("IDLE", "FAILED")
-                and not self.busy
-                and bool(steering)
-                and self.tuning is not None,
-                "steering": steering,
-                "steering_tuning": self.tuning.source()
-                if self.tuning is not None
-                else {"source": "unavailable", "updated_at": "未配置部署产物目录"},
             }
 
     def allowed(self):
@@ -384,82 +338,3 @@ class ChassisConnection:
         finally:
             with self.lock:
                 self.busy = False
-
-    async def set_steering(self, slew_deg, accel_deg, jerk_deg, alignment_deg, release_deg=0.0):
-        status = self.status()
-        if not status["can_tune_steering"]:
-            raise TeleopError("steering_locked", "只能在底盘未使能时修改转向参数")
-        limits = status["steering"]
-        # alignment_deg/release_deg belong to the running drive mode; the other mode keeps its
-        # current values so the saved file is always a complete snapshot.
-        align_mode = limits.get("drive_mode") == "align_first"
-        checks = [
-            (slew_deg, limits["max_steering_slew_limit"], "转向速度", "°/s"),
-            (accel_deg, limits["max_steering_acceleration_limit"], "转向加速度", "°/s²"),
-            (jerk_deg, limits["max_steering_jerk_limit"], "转向加加速度", "°/s³"),
-            (alignment_deg, 90.0, "对齐门限", "°"),
-        ]
-        if align_mode:
-            checks.append((release_deg, alignment_deg, "恢复门限", "°（不大于对齐门限）"))
-        for value, limit, label, unit in checks:
-            if not 0 < value <= limit:
-                raise TeleopError("steering_out_of_range", f"{label}须在 0–{limit:.0f}{unit}")
-        values = {
-            "max_steering_slew": math.radians(slew_deg),
-            "max_steering_acceleration": math.radians(accel_deg),
-            "max_steering_jerk": math.radians(jerk_deg),
-            "alignment_threshold": math.radians(
-                limits["alignment_threshold"] if align_mode else alignment_deg
-            ),
-            "align_first_threshold": math.radians(
-                alignment_deg if align_mode else limits["align_first_threshold"]
-            ),
-            "align_first_release": math.radians(
-                release_deg if align_mode else limits["align_first_release"]
-            ),
-        }
-        gate = (
-            f"对齐门限 {alignment_deg:.0f}°/恢复 {release_deg:.0f}°"
-            if align_mode
-            else f"对齐门限 {alignment_deg:.0f}°"
-        )
-        message = (
-            f"转向参数已保存：{slew_deg:.1f}°/s，{accel_deg:.1f}°/s²，{jerk_deg:.0f}°/s³，"
-            f"{gate}，下次使能生效（重启后保留）"
-        )
-        return await self.apply_steering(values, "set", message, persist=True)
-
-    async def restore_steering_defaults(self):
-        if not self.status()["can_tune_steering"]:
-            raise TeleopError("steering_locked", "只能在底盘未使能时修改转向参数")
-        try:
-            values = self.tuning.defaults()
-        except TuningError as exc:
-            raise TeleopError("defaults_unavailable", str(exc)) from exc
-        return await self.apply_steering(
-            values, "restore_defaults", "已恢复默认转向参数，下次使能生效", persist=False
-        )
-
-    async def apply_steering(self, values_rad, action, message, persist):
-        request = SetParameters.Request(
-            parameters=[
-                Parameter(
-                    name=name,
-                    value=ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=value),
-                )
-                for name, value in values_rad.items()
-            ]
-        )
-        try:
-            result = await call_service(self.steering_set, request, 10)
-        except asyncio.TimeoutError:
-            return {"ok": False, "message": "转向控制器参数服务响应超时"}
-        reasons = [r.reason for r in result.results if not r.successful]
-        self.refresh()
-        if reasons:
-            return {"ok": False, "message": "转向参数被拒绝：" + "; ".join(reasons)}
-        try:
-            self.tuning.store(values_rad if persist else None, action)
-        except (OSError, TuningError) as exc:
-            return {"ok": False, "message": f"参数已生效，但保存失败（重启后不保留）：{exc}"}
-        return {"ok": True, "message": message}

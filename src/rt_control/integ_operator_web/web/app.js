@@ -22,8 +22,6 @@ function locks() {
   $('enable-op').classList.toggle('enabled',state.enabled);
   $('reset-op').hidden=!state.canReset;
   $('reset-op').disabled=!state.authed || state.busy || state.lease==='other';
-  $('steering-apply').disabled=!state.authed || !state.canTuneSteering || state.busy || state.lease==='other';
-  $('steering-defaults').disabled=$('steering-apply').disabled;
   $('lease-op').disabled=!state.authed || state.lease==='other';
   $('lease-op').textContent=state.lease==='you'?'释放控制权':state.lease==='other'?'其他终端控制中':'获取控制权';
   $('soft-stop').disabled=!state.authed;
@@ -43,27 +41,7 @@ function status(message) {
   state.lease=message.lease;state.gear=message.gear;state.moving=message.moving;
   state.connected=backend.connected===true;state.enabled=backend.enabled===true;
   state.canEnable=backend.can_enable===true;state.busy=backend.busy===true;
-  state.canReset=backend.can_reset===true;state.canTuneSteering=backend.can_tune_steering===true;
-  const steering=backend.steering||{};
-  if(steering.max_steering_slew){
-    const jerk=Number.isFinite(steering.max_steering_jerk)?`${steering.max_steering_jerk.toFixed(0)} °/s³`:'不限（梯形）';
-    $('steering-current').textContent=`当前：速度 ${steering.max_steering_slew.toFixed(1)} °/s · 加速度 ${steering.max_steering_acceleration.toFixed(1)} °/s² · 加加速度 ${jerk}`;
-    $('steering-limit').textContent=`上限 ${steering.max_steering_slew_limit.toFixed(0)} °/s · ${steering.max_steering_acceleration_limit.toFixed(0)} °/s² · ${steering.max_steering_jerk_limit.toFixed(0)} °/s³`;
-    $('steering-jerk').max=steering.max_steering_jerk_limit.toFixed(0);
-    const alignFirst=steering.drive_mode==='align_first';
-    state.alignMode=alignFirst;
-    $('drive-mode').textContent=alignFirst?'对齐模式':steering.drive_mode==='steer_while_driving'?'连续模式':'未知';
-    const fmt=v=>Number(v.toFixed(1)).toString();
-    $('steering-current').textContent+=alignFirst
-      ?` · 对齐门限 ${fmt(steering.align_first_threshold)}°/恢复 ${fmt(steering.align_first_release)}°`
-      :` · 对齐门限 ${fmt(steering.alignment_threshold)}°`;
-    $('steering-align-label').textContent=alignFirst?'对齐门限 °（超过则四轮停驱）':'对齐门限 °（90 = 不等待对齐）';
-    $('steering-release-row').style.display=alignFirst?'':'none';
-    const tuning=backend.steering_tuning||{};
-    $('steering-source').textContent=tuning.source==='field'?`来源：现场调参（${tuning.updated_at}）`:tuning.source==='invalid'?`来源：现场调参文件无效（${tuning.updated_at}）`:'来源：默认值';
-    $('steering-slew').max=steering.max_steering_slew_limit.toFixed(1);$('steering-accel').max=steering.max_steering_acceleration_limit.toFixed(1);
-    if(!state.steeringEdited){$('steering-slew').value=steering.max_steering_slew.toFixed(1);$('steering-accel').value=steering.max_steering_acceleration.toFixed(1);$('steering-jerk').value=Number.isFinite(steering.max_steering_jerk)?steering.max_steering_jerk.toFixed(0):'';$('steering-align').value=fmt(alignFirst?steering.align_first_threshold:steering.alignment_threshold);if(alignFirst)$('steering-release').value=fmt(steering.align_first_release);}
-  }
+  state.canReset=backend.can_reset===true;
   state.driveAvailable=message.robot?.drive_available===true;
   if(wasAllowed && !state.driveAvailable)resetInputs(false);
   $('backend-badge').textContent=backend.backend_kind==='mock'?'软件测试':backend.backend_kind==='real'?'真实底盘':'等待底盘';
@@ -85,7 +63,6 @@ function connect() {
     const data=JSON.parse(event.data);
     if(data.type==='auth_ok') {state.authed=true;state.reconnect=500;state.gears=data.gears;renderGears();$('login').classList.add('hidden');$('conn').className='sb-item sb-ok';$('conn').querySelector('b').textContent='网页已连接';}
     else if(data.type==='status')status(data);
-    else if(data.type==='steering_params_result') {toast(data.message);$('last-result').textContent=data.message;if(data.ok)state.steeringEdited=false;$('steering-token').value='';}
     else if(data.type==='module_op_result') {resetInputs(false);$('last-result').textContent=data.op==='reset'?(data.stage||(data.ok?'故障已复位':'复位失败')):data.ok?(data.enabled?'底盘使能成功':'底盘已失能'):(data.stage||'操作失败');toast($('last-result').textContent);state.busy=false;locks();}
     else if(data.type==='error') {
       toast(data.message);state.busy=false;locks();
@@ -114,21 +91,6 @@ $('reset-op').addEventListener('click',()=>{
   if(state.busy || !state.canReset)return;
   if(!acquire())return;
   state.busy=true;locks();send({type:'module_op',op:'reset',modules:['chassis']});
-});
-for(const id of ['steering-slew','steering-accel','steering-jerk','steering-align','steering-release'])$(id).addEventListener('input',()=>{state.steeringEdited=true;});
-$('steering-apply').addEventListener('click',()=>{
-  const slew=Number($('steering-slew').value),accel=Number($('steering-accel').value),jerk=Number($('steering-jerk').value),alignment=Number($('steering-align').value),release=state.alignMode?Number($('steering-release').value):0,token=$('steering-token').value;
-  if(!token){toast('请输入确认令牌');return;}
-  if(!(slew>0)||!(accel>0)||!(jerk>0)||!(alignment>0&&alignment<=90)){toast('请输入有效的速度、加速度、加加速度和对齐门限');return;}
-  if(state.alignMode&&!(release>0&&release<=alignment)){toast('恢复门限须大于 0 且不大于对齐门限');return;}
-  if(!acquire())return;
-  send({type:'steering_params',slew_deg_s:slew,accel_deg_s2:accel,jerk_deg_s3:jerk,alignment_deg:alignment,release_deg:release,token});
-});
-$('steering-defaults').addEventListener('click',()=>{
-  const token=$('steering-token').value;
-  if(!token){toast('请输入确认令牌');return;}
-  if(!acquire())return;
-  state.steeringEdited=false;send({type:'steering_defaults',token});
 });
 $('lease-op').addEventListener('click',()=>{resetInputs();if(state.lease==='you')send({type:'release'});else acquire();});
 $('soft-stop').addEventListener('click',stop);

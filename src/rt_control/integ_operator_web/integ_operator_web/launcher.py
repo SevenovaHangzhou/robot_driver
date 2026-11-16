@@ -75,7 +75,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--generated-dir",
         default="",
-        help="deployment artifact of the running scope (chassis tuning, arm view model)",
+        help="deployment artifact of the running scope (arm view model)",
     )
     parser.add_argument("--arm-config", type=Path, default=share / "config/arm.yaml")
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
@@ -114,7 +114,6 @@ def main(argv=None) -> int:
             bind_host=args.bind_host,
             port=args.port,
             static_dir=str(share / "web"),
-            generated_dir=args.generated_dir,
             jog_motion_enabled=args.jog_motion_enabled,
         )
         from .node import main as run_node

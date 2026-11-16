@@ -21,8 +21,6 @@ ALLOWED_TYPES = frozenset(
         "get_model",
         "module_op",
         "get_fault_history",
-        "steering_params",
-        "steering_defaults",
     }
 )
 
@@ -37,13 +35,9 @@ class ProtocolError(Exception):
 @dataclass(frozen=True)
 class Request:
     type: str
-    token: str = ""
     x: float = 0.0
     y: float = 0.0
     yaw: int = 0
-    z: float = 0.0
-    w: float = 0.0
-    release: float = 0.0
     gear: str = ""
     op: str = ""
     modules: tuple[str, ...] = ()
@@ -76,20 +70,6 @@ def parse_request(raw: str) -> Request:
     kind = document.get("type")
     if kind not in ALLOWED_TYPES:
         raise ProtocolError("unknown_type", "message type is not allowed")
-    if kind == "steering_params":
-        # ELECTRI-127: operator-tuned steering motion; the token is re-confirmed per change.
-        return Request(
-            type=kind,
-            token=_short_string(document.get("token"), "token"),
-            x=_number(document.get("slew_deg_s"), "slew_deg_s"),
-            y=_number(document.get("accel_deg_s2"), "accel_deg_s2"),
-            z=_number(document.get("jerk_deg_s3"), "jerk_deg_s3"),
-            w=_number(document.get("alignment_deg"), "alignment_deg"),
-            # Only the align drive mode has a release angle; absent means not applicable.
-            release=_number(document.get("release_deg", 0.0), "release_deg"),
-        )
-    if kind == "steering_defaults":
-        return Request(type=kind, token=_short_string(document.get("token"), "token"))
     if kind == "drive":
         yaw = document.get("yaw", 0)
         if isinstance(yaw, bool) or yaw not in (-1, 0, 1):
