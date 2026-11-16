@@ -25,6 +25,9 @@ if(BUILD_TESTING)
     ament_add_pytest_test(test_${test} test/test_${test}.py TIMEOUT 60
       APPEND_ENV "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}")
   endforeach()
+  ament_add_pytest_test(test_status_feed_ros test/test_status_feed_ros.py TIMEOUT 60
+    APPEND_ENV "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}"
+    ENV "ROS_LOCALHOST_ONLY=1" "ROS_DOMAIN_ID=218")
   ament_add_pytest_test(test_rolling_binding test/test_rolling_binding.py TIMEOUT 60
     ENV "JOG_SENDER_EXTENSION=$<TARGET_FILE:_rolling_sender>"
       "ROS_LOCALHOST_ONLY=1" "ROS_DOMAIN_ID=219")
