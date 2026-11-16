@@ -7,7 +7,8 @@ authorities:
   source: robot_hw_ethercat/config/machines/alfa_v3_swerve_chassis.draft.yaml
   field_facts: ELECTRI-127 Advantech chassis bench, deployed profile.runtime.yaml (base 946ec110), 2026-10-14..16
   ring_position: live eight-slave enumeration; even rings drive, odd rings steering
-  direction: 'user real-motion corrections 2026-10-16: reverse all four drive and all four steering axes'
+  direction: 'user real-motion corrections 2026-10-16: reverse all four drive and all four steering axes; user
+    2026-11-16: drive reversal moved into the drives (Kinco 607E=1 stored on rings 0/2/4/6), drive direction +1'
   model_heading_sign: steerN_joint origin rpy (pi, 0, -pi/2) flips the joint axis to -Z, so heading = -q
   robot_model_joint: deployed model robot_analytic_proxy_mobile.urdf (robot_description
     8e6ddb7); base/steer/wheel elements carried unchanged into robot_alfav3_mobile.urdf (4d4ad9a)
@@ -69,7 +70,7 @@ spec:
     robot_model_joint: wheel1_joint
     ring_position: 0
     device: devices/kinco_smc80s_0075_fd134s.yaml
-    direction: -1
+    direction: 1
     mode_of_operation: 9
     # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
     mode_switching: true
@@ -80,7 +81,7 @@ spec:
     robot_model_joint: wheel2_joint
     ring_position: 2
     device: devices/kinco_smc80s_0075_fd134s.yaml
-    direction: -1
+    direction: 1
     mode_of_operation: 9
     # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
     mode_switching: true
@@ -91,7 +92,7 @@ spec:
     robot_model_joint: wheel3_joint
     ring_position: 4
     device: devices/kinco_smc80s_0075_fd134s.yaml
-    direction: -1
+    direction: 1
     mode_of_operation: 9
     # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
     mode_switching: true
@@ -102,7 +103,7 @@ spec:
     robot_model_joint: wheel4_joint
     ring_position: 6
     device: devices/kinco_smc80s_0075_fd134s.yaml
-    direction: -1
+    direction: 1
     mode_of_operation: 9
     # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
     mode_switching: true
