@@ -22,7 +22,8 @@ from sensor_msgs.msg import BatteryState, JointState, Range
 
 READINESS_TOPIC = "/rt/readiness"
 DIAGNOSTICS_TOPIC = "/diagnostics"
-ODOM_TOPIC = "/wheel/odom"
+# Swerve controller odometry (R-OUT-02); nothing publishes the old /wheel/odom.
+ODOM_TOPIC = "/rt/base/odom"
 JOINT_STATE_TOPIC = "/joint_states"
 BATTERY_TOPICS = ("/rt/battery/left/state", "/rt/battery/right/state")
 SONAR_TOPICS = tuple(f"/rt/ultrasonic/channel{index}/range" for index in range(1, 9))
@@ -223,7 +224,9 @@ class FeedNode(Node):
                 lambda message, position=index: self._battery(position, message),
                 robot_interfaces_qos.state(),
             )
-        self.create_subscription(Odometry, ODOM_TOPIC, self._odometry, robot_interfaces_qos.state())
+        self.create_subscription(
+            Odometry, ODOM_TOPIC, self._odometry, robot_interfaces_qos.fast_state()
+        )
         for index, topic in enumerate(SONAR_TOPICS):
             self.create_subscription(
                 Range,
