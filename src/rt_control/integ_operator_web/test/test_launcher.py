@@ -8,7 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from integ_operator_web.launcher import check_dds, parse_cpus  # noqa: E402
+from integ_operator_web import launcher  # noqa: E402
+from integ_operator_web.launcher import check_dds, parse_cpus, view_model  # noqa: E402
 
 LOOPBACK = """<?xml version="1.0"?>
 <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
@@ -61,3 +62,26 @@ def test_lan_dds_requires_explicit_opt_in(tmp_path):
     check_dds({**environ, "RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS": "1"})
     with pytest.raises(ValueError, match="ROS_DOMAIN_ID"):
         check_dds({"ROS_DOMAIN_ID": "0", "RT_CONTROL_OPERATOR_WEB_ALLOW_LAN_DDS": "1"})
+
+
+def test_view_model_is_read_from_the_robot_description_share(tmp_path):
+    model = tmp_path / "urdf/robot.urdf"
+    model.parent.mkdir()
+    model.write_text("<robot name='r'/>")
+    assert view_model(tmp_path, "urdf/robot.urdf") == (tmp_path, model)
+    with pytest.raises(ValueError, match="view model not found"):
+        view_model(tmp_path, "urdf/other.urdf")
+    assert view_model(tmp_path, "") == (None, None)
+
+
+def test_view_model_defaults_to_the_installed_package(monkeypatch, tmp_path):
+    (tmp_path / "urdf").mkdir()
+    (tmp_path / "urdf/robot.urdf").write_text("<robot name='r'/>")
+    monkeypatch.setattr(launcher, "get_package_share_directory", lambda package: str(tmp_path))
+    assert view_model(None, "urdf/robot.urdf") == (tmp_path, tmp_path / "urdf/robot.urdf")
+
+    def missing(package):
+        raise launcher.PackageNotFoundError(package)
+
+    monkeypatch.setattr(launcher, "get_package_share_directory", missing)
+    assert view_model(None, "urdf/robot.urdf") == (None, None)

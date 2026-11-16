@@ -88,57 +88,8 @@ def test_fault_history_message():
     assert parse_request(json.dumps({"type": "get_fault_history"})).type == "get_fault_history"
 
 
-def test_steering_messages_carry_all_values_and_the_token():
-    request = parse_request(
-        json.dumps(
-            {
-                "type": "steering_params",
-                "token": "t",
-                "slew_deg_s": 30,
-                "accel_deg_s2": 20.5,
-                "jerk_deg_s3": 100,
-                "alignment_deg": 90,
-            }
-        )
-    )
-    assert (request.token, request.x, request.y, request.z, request.w) == (
-        "t",
-        30.0,
-        20.5,
-        100.0,
-        90.0,
-    )
-    assert parse_request(json.dumps({"type": "steering_defaults", "token": "t"})).token == "t"
-
-
-@pytest.mark.parametrize(
-    "document",
-    [
-        {
-            "type": "steering_params",
-            "slew_deg_s": 30,
-            "accel_deg_s2": 20,
-            "jerk_deg_s3": 100,
-            "alignment_deg": 90,
-        },
-        {
-            "type": "steering_params",
-            "token": "t",
-            "slew_deg_s": "fast",
-            "accel_deg_s2": 20,
-            "jerk_deg_s3": 100,
-            "alignment_deg": 90,
-        },
-        {
-            "type": "steering_params",
-            "token": "t",
-            "slew_deg_s": 30,
-            "accel_deg_s2": 20,
-            "jerk_deg_s3": 100,
-        },
-        {"type": "steering_defaults"},
-    ],
-)
-def test_incomplete_steering_messages_rejected(document):
-    with pytest.raises(ProtocolError):
-        parse_request(json.dumps(document))
+@pytest.mark.parametrize("kind", ["steering_params", "steering_defaults"])
+def test_steering_tuning_messages_are_no_longer_accepted(kind):
+    with pytest.raises(ProtocolError) as error:
+        parse_request(json.dumps({"type": kind, "token": "t"}))
+    assert error.value.code == "unknown_type"

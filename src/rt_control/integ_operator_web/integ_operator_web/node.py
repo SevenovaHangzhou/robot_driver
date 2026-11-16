@@ -23,7 +23,6 @@ import robot_interfaces_qos
 from .chassis_connection import ChassisConnection
 from .config import build_config, load_token
 from .teleop import PUBLISH_RATE_HZ, DriveArbiter
-from .tuning import FieldTuning
 
 
 class OperatorWebNode(Node):
@@ -44,8 +43,6 @@ class OperatorWebNode(Node):
             self.declare_parameter(name, value)
         self.declare_parameter("static_dir", "")
         self.declare_parameter("jog_motion_enabled", False)
-        # Deployment artifact of the running scope: steering defaults and the unit name.
-        self.declare_parameter("generated_dir", "")
         # Status page: read-only MJPEG preview base URL of the NX camera service ("" hides cameras).
         self.declare_parameter("status_camera_base", "")
         # Status page: label shown next to "机器人状态"; the machine configuration supplies it.
@@ -64,15 +61,11 @@ class OperatorWebNode(Node):
         ):
             self.declare_parameter(role, "")
         self.config = build_config(**{k: self.get_parameter(k).value for k in defaults})
-        generated_dir = self.get_parameter("generated_dir").value
-        tuning = None
-        if generated_dir:
-            tuning = FieldTuning(Path(generated_dir), self.config.controller_node.lstrip("/"))
         self.arbiter = DriveArbiter(self.config.gears, self.config.limits, time.monotonic)
         self.publisher = self.create_publisher(
             Twist, self.config.command_topic, robot_interfaces_qos.control()
         )
-        self.backend = ChassisConnection(self, software_test_only, tuning)
+        self.backend = ChassisConnection(self, software_test_only)
         self.create_timer(1 / PUBLISH_RATE_HZ, self.publish_command)
 
     def publish_zero(self):
@@ -275,8 +268,6 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
         static_dir,
         module_operation=node.backend.operate,
         drive_allowed=node.backend.allowed,
-        steering_operation=node.backend.set_steering,
-        steering_defaults=node.backend.restore_steering_defaults,
         audit=audit,
         operators=operators,
         pages=pages,

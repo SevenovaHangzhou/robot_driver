@@ -8,9 +8,9 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 | 区域 | 数据来源 |
 | --- | --- |
-| 整机姿态三维视图 | `/joint_states`；模型与网格来自运行中的 deployment 产物（`robot_description.xml` + 安装的 mesh 共享目录），复用 `/arm` 的只读接口 |
+| 整机姿态三维视图 | `/joint_states`；模型与网格来自已安装的 `robot_description` 包（`--view-model`，版本由部署固定），复用 `/arm` 的只读接口 |
 | 电池与总放电电流 | `/rt/battery/left/state`、`/rt/battery/right/state`；总电流只在两包都新鲜时计入 |
-| 底盘俯视图 | 车体轮廓与探头位置读运行中的 Robot Model（`ultrasonic_channel_*_link`、`steer*_joint`）；四舵角取 `status_joint_steer1..4` 的关节位置；速度取 `/rt/base/odom`；八路距离取 `/rt/ultrasonic/channel1..8/range`。模型里没有探头坐标系时退回占位布局 |
+| 底盘俯视图 | 车体轮廓与探头位置读同一份 Robot Model（`ultrasonic_channel_*_link`、`steer*_joint`）；四舵角取 `status_joint_steer1..4` 的关节位置；速度取 `/rt/base/odom`；八路距离取 `/rt/ultrasonic/channel1..8/range`。模型里没有探头坐标系时退回占位布局 |
 | CPU | 操作台所在工控机的 `/proc/stat`、`/sys/devices/system/cpu/isolated`、可读的 `thermal_zone*`；实时核即隔离核，不写死核号 |
 | 告警 | `/diagnostics` 与 `/rt/readiness` 的原文；`READY` 之外的条目按故障、警告、无数据排序，不自行判定健康 |
 
@@ -24,27 +24,17 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 - 使能、失能底盘；故障（FAILED）时复位。
 - 摇杆或 WASD/QE 键盘遥控，休闲档与运动档。指令发到能力声明中的速度话题（`chassis_velocity`）。
 - “停止移动”：软件停止，不是硬件急停。
-- 转向运动参数：速度、加速度、加加速度（S 曲线）、对齐门限。修改需要令牌确认，只能在未使能时修改，下次使能生效。
 
 ## 边界
 
 - 只用公共接口：`/rt/capabilities`、`/rt/enable`、`/rt/disable`、`/rt/reset_fault`（仅 FAILED）、
-  `/controller_manager/list_hardware_components`、控制器参数服务、`/diagnostics`、能力声明中的速度话题。
+  `/controller_manager/list_hardware_components`、控制器参数读取（关节列表）、`/diagnostics`、能力声明中的速度话题。
 - 运行栈必须发布 `/rt/capabilities`，并声明 `enable` 与 `chassis_velocity`；实际硬件组件必须与声明一致。
 - 不启动硬件，不写驱动控制字，不自动使能，不自动复位。
 - 所有检查在服务端执行；浏览器只发请求。
 - 登录：网页用令牌调用 `POST /api/login`，换得 HttpOnly 会话 cookie（`SameSite=Strict`）；WebSocket 握手时校验 cookie 与来源，消息中不再传令牌。会话保存在进程内存，服务重启后需要重新登录。修改转向参数、恢复默认时仍需再次输入令牌确认。
 - 操作权：同一时间只有一个连接持有控制权，其他连接只读；持有者断开连接或心跳超时（50 ms 心跳、200 ms 超时）时底盘速度归零，不失能、不复位。
 - 审计：登录与所有命令（遥控速度流除外）追加到 `~/.ros/log/integ_operator_web/audit.jsonl`（`--audit-log` 改路径，空字符串关闭）；不写令牌和会话值。
-
-## 转向参数的现场调参
-
-- 默认值来自部署产物（`<generated_dir>/controllers.yaml`）。
-- 网页修改写入 `/var/lib/rt-control/tuning/<machine_unit>/swerve_controller.yaml`，并在同目录
-  `history.jsonl` 追加记录。`machine_unit` 取自 `<generated_dir>/artifact.yaml`。
-- 底盘运行栈启动时由 `integ_bringup` 的 `scope_operator_tuning` 应用该文件；控制器按上限校验。
-- “恢复默认”删除现场调参文件，并把参数设回默认值。
-- 未给出 `--generated-dir` 时，转向参数只读。
 
 ## 启动
 
@@ -60,8 +50,13 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
    ```bash
    ros2 run integ_operator_web integ_operator_web \
      --bind-host <局域网地址> --port 18120 --cpus <非实时 CPU，如 0-6,8-19> \
-     --generated-dir <底盘部署产物目录>
+     --view-model <本机型的模型文件，相对 robot_description 共享目录，如 urdf/<模型>.urdf>
    ```
+
+   三维视图与状态页几何读 `--view-model` 指定的模型，默认取已安装的 `robot_description` 包，版本由部署固定的提交决定；
+   `--view-model-share` 可指定其他共享目录。不给 `--view-model` 或没有安装该包时页面不显示三维视图；
+   指定的模型文件不存在时启动失败。机型对应的模型文件由部署填写（与 `hwcfg_machines` 机型 manifest 的 `xacro_file` 一致）。
+   控制用的限位仍取运行中的模型。
 
 4. 浏览器打开 `http://<地址>:18120/`，输入令牌登录。
 
