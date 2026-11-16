@@ -30,8 +30,13 @@ ACTION_REPLY_S = 2.0
 class HeadBridge(Node):
     """Feeds ``HeadConsole`` and sends its targets as /rt/head/move goals (R-IN-16)."""
 
-    def __init__(self, joint_state_topic: str) -> None:
-        super().__init__("integ_operator_web_head")
+    def __init__(self, joint_state_topic: str, *, namespace="", remappings=()) -> None:
+        arguments = [arg for source, target in remappings for arg in ("-r", f"{source}:={target}")]
+        super().__init__(
+            "integ_operator_web_head",
+            namespace=namespace,
+            cli_args=["--ros-args", *arguments] if arguments else None,
+        )
         self.console: Optional[HeadConsole] = None
         self._group = ReentrantCallbackGroup()
         self._lock = threading.Lock()

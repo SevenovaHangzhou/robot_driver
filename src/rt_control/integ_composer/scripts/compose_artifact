@@ -19,6 +19,7 @@ def main(argv=None):
     hardware.add_argument("--real", dest="use_mock_hardware", action="store_false")
     parser.add_argument("--jtc-only", action="store_true")
     parser.add_argument("--sync-mode", default="", choices=["", "sm", "dc"])
+    parser.add_argument("--instance-file", help="deployment namespace and exact ROS remappings")
     args = parser.parse_args(argv)
     try:
         composed = write_artifact(
@@ -30,6 +31,7 @@ def main(argv=None):
             use_mock_hardware=args.use_mock_hardware,
             jtc_only=args.jtc_only,
             sync_mode=args.sync_mode,
+            instance_file=args.instance_file,
         )
     except ValueError as error:
         print(f"FAIL: {error}", file=sys.stderr)

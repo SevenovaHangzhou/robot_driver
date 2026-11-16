@@ -97,7 +97,7 @@ def shutdown_sequence(backend, lifecycle, log=print):
 class RosLifecycleBackend:
     """controller_manager and enable_manager service client with one global deadline."""
 
-    def __init__(self, timeout=30.0, node_name="rt_scope_lifecycle_client"):
+    def __init__(self, timeout=30.0, node_name="rt_scope_lifecycle_client", ros_args=None):
         import rclpy
         from rclpy.signals import SignalHandlerOptions
         from controller_manager_msgs.srv import (
@@ -109,7 +109,7 @@ class RosLifecycleBackend:
         from robot_rt_control_interfaces.srv import RtEnable
 
         self.rclpy = rclpy
-        rclpy.init(signal_handler_options=SignalHandlerOptions.NO)
+        rclpy.init(args=ros_args, signal_handler_options=SignalHandlerOptions.NO)
         self.node = rclpy.create_node(node_name)
         self.deadline = time.monotonic() + timeout
         self.services = {
@@ -348,7 +348,15 @@ def shutdown_main(argv=None):
         print("RT_SCOPE_SHUTDOWN no lifecycle plan; nothing was started", flush=True)
         return 0
     lifecycle = load_lifecycle(runtime_dir)
-    backend = RosLifecycleBackend(timeout=30.0, node_name="rt_scope_shutdown")
+    instance_file = Path(runtime_dir) / "instance.yaml"
+    ros_args = None
+    artifact = yaml.safe_load((Path(runtime_dir) / "artifact.yaml").read_text(encoding="utf-8"))
+    if "instance.yaml" in artifact["files"]:
+        instance = yaml.safe_load(instance_file.read_text(encoding="utf-8"))
+        ros_args = ["--ros-args", "-r", "__ns:=" + instance["namespace"]]
+        for source, target in instance["remappings"]:
+            ros_args.extend(["-r", source + ":=" + target])
+    backend = RosLifecycleBackend(timeout=30.0, node_name="rt_scope_shutdown", ros_args=ros_args)
     try:
         return 0 if shutdown_sequence(backend, lifecycle) else 1
     finally:

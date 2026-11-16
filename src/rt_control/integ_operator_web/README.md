@@ -224,6 +224,11 @@ RT-Control 操作网页：一个进程、一个端口、多个页面（设计稿
 
 头部控制嵌入 `/arm`，与机械臂共用一个页面和登录框；旧 `/head` 地址跳转到 `/arm#head-controls`。两区独立显示设备反馈，无机械臂模型时仍能使用头部区。页面保持不自动取得控制权或发送目标。
 
+头部独立运行时，网页增加 `--head-instance-file /abs/head-artifact/instance.yaml`，
+读取 composer 已校验的实例配置。只有头部桥接使用该命名空间和路由，机械臂桥接使用原控制栈。
+`head_only` 的使能/复位确认显示“头部”，请求只到独立头部的使能管理器；关闭该实例也只失能和清理头部。
+两区仍共用既有登录、审计和操作权协调。合并作用域下，使能仍作用于其整个控制栈。
+
 头部区经 `/ws/head` 推送状态（20 Hz）并接收命令。运行栈需声明能力 `head_move`（R-IN-16 `/rt/head/move`，`robot_rt_control_interfaces/action/MoveHead`，由 `integ_head_move` 经 `head_position_controller` 执行）；每个目标发一个 Action 目标，新目标前先取消正在执行的目标（头部原地保持）；关节顺序取自该控制器的 `joints` 参数，限位取自机器人模型。
 
 - 操作：取得/释放控制权、使能/失能（`/rt/enable`、`/rt/disable`）、故障复位（`/rt/reset_fault`）、发送绝对目标位置、停止（以实测位置作为目标原地保持）。

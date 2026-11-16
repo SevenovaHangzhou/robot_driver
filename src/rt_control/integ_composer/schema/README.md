@@ -1,8 +1,12 @@
 # Draft 7 shared contract
 
-The nine `*.schema.json` files form one installed schema set. Common envelope
+The `*.schema.json` files form one installed schema set. Common envelope
 and positive/TBD definitions live in `module_envelope.schema.json`. Each root
 lists its fields explicitly; no envelope uses `allOf`. `format` is not used.
+
+`runtime_instance` validates a deployment namespace and exact ROS remapping pairs
+before the artifact writer qualifies controller parameter node names. Wildcards
+are excluded because the supported Humble remapper does not implement them.
 
 Closed records use `additionalProperties: false`. Named dictionaries use
 `patternProperties` or a typed value schema. The explicit owner-private

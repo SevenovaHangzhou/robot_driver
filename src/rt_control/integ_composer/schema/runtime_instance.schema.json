@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["namespace", "remappings"],
+  "properties": {
+    "kind": {"const": "runtime_instance"},
+    "namespace": {"$ref": "#/definitions/absolute_name"},
+    "remappings": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {"$ref": "#/definitions/absolute_name"}
+      }
+    }
+  },
+  "definitions": {
+    "absolute_name": {
+      "type": "string",
+      "pattern": "^(/[A-Za-z_][A-Za-z0-9_]*)+$"
+    }
+  }
+}

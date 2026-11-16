@@ -1,6 +1,6 @@
 # RT-Control composer
 
-The package provides offline composition, nine installed Draft 7 schemas,
+The package provides offline composition, installed Draft 7 schemas,
 renderer API 1 validation, and frozen comparisons with the old entry points.
 ROS 2 Humble and Python 3.10 are the supported runtime.
 
@@ -32,6 +32,16 @@ then returns the composition exactly as written (runtime parameter keys and owne
 preflight topology are stored in `artifact.yaml`). It does not recompose: after any
 installed configuration change, regenerate the artifact. Each rejection prints the
 exact regeneration command. Launch writes no configuration.
+
+Independent runtimes can use `--instance-file /abs/unit/instance.yaml` at composition
+time. The deployment file contains an absolute, non-root `namespace` and a
+`remappings` list of exact absolute ROS name pairs. Composition validates it,
+qualifies node keys in `controllers.instance.yaml`, and stores `instance.yaml` inside the
+artifact. Canonical `controllers.yaml` stays available to artifact consumers. Launch
+and orderly shutdown read that same instance file; no launch-time rewrite
+or extra shutdown arguments are needed. Omitting the option keeps the root runtime.
+The namespace separates ROS endpoints; existing bus locks still prevent two
+runtimes from owning the same real bus.
 
 Per-start values are not stored. A `runtime` parameter source records
 `Composed.runtime_parameters`; launch supplies values with node-scoped

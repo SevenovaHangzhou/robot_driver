@@ -500,7 +500,7 @@ $("lease-btn").addEventListener("click", () => {
 });
 
 $("enable-btn").addEventListener("click", async () => {
-  if (!confirm("确认使能左臂？使能后关节保持当前位置。")) return;
+  if (!confirm("确认使能当前机械臂控制栈？使能后关节保持当前位置。")) return;
   const result = await guarded(() => post("/api/enable", { enabled: true }));
   if (result) toast("使能完成");
 });

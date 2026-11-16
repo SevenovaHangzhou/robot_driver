@@ -10,6 +10,7 @@ export function headControls(root, loginRequired, onPositions) {
   const targets = new Map();
   let status = null;
   let builtFor = "";
+  const targetLabel = () => status?.capability?.scope === "head_only" ? "头部" : "当前控制栈";
 
   function request(type, body = {}) {
     return new Promise((resolve, reject) => {
@@ -141,10 +142,14 @@ export function headControls(root, loginRequired, onPositions) {
   }
 
   $("lease-op").addEventListener("click", () => run(status?.lease === "you" ? "release" : "acquire"));
-  $("enable-op").addEventListener("click", () => run("enable", { enabled: true }));
+  $("enable-op").addEventListener("click", () => {
+    if (confirm(`确认使能${targetLabel()}？\n使能后关节保持当前位置。`)) {
+      run("enable", { enabled: true });
+    }
+  });
   $("disable-op").addEventListener("click", () => run("enable", { enabled: false }));
   $("reset-op").addEventListener("click", () => {
-    if (confirm("确认对头部执行故障复位？复位前应先排除故障原因。")) run("reset_fault");
+    if (confirm(`确认对${targetLabel()}执行故障复位？复位前应先排除故障原因。`)) run("reset_fault");
   });
   $("move-op").addEventListener("click", () => {
     if (!status) return;

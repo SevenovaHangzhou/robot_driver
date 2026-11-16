@@ -95,6 +95,11 @@ def main(argv=None) -> int:
     parser.add_argument("--arm-config", type=Path, default=share / "config/arm.yaml")
     parser.add_argument("--poses", type=Path, default=DEFAULT_POSES)
     parser.add_argument("--head-config", type=Path, default=share / "config/head.yaml")
+    parser.add_argument(
+        "--head-instance-file",
+        type=Path,
+        help="namespace and ROS remappings of an independent head runtime",
+    )
     parser.add_argument("--joint-state-topic", default="/joint_states")
     parser.add_argument(
         "--vacuum-script",
@@ -121,8 +126,11 @@ def main(argv=None) -> int:
         help="append-only JSON-lines operator audit log; empty string disables it",
     )
     parser.add_argument("--software-test-only", action="store_true")
-    parser.add_argument("--jog-motion-enabled", action="store_true",
-                        help="allow the shared jog entry to publish via public RollingSender; never enables hardware")
+    parser.add_argument(
+        "--jog-motion-enabled",
+        action="store_true",
+        help="allow the shared jog entry to publish via public RollingSender; never enables hardware",
+    )
     args = parser.parse_args(argv)
     try:
         check_dds()
@@ -154,7 +162,11 @@ def main(argv=None) -> int:
                     "view_model_share": view_share,
                     "view_model_file": view_file,
                 },
-                head={"config": args.head_config, "joint_state_topic": args.joint_state_topic},
+                head={
+                    "config": args.head_config,
+                    "joint_state_topic": args.joint_state_topic,
+                    "instance_file": args.head_instance_file,
+                },
             )
     except (ConfigError, OSError, ValueError) as exc:
         print(f"integ_operator_web: {exc}", file=sys.stderr)

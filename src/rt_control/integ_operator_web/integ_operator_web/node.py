@@ -108,6 +108,7 @@ def arm_page(arm, sessions, operators, audit, static_dir, *, jog_motion_enabled=
     if jog_motion_enabled:
         from ._rolling_sender import Sender
         from .arm.rolling_output import RollingOutput
+
         console.jog_output = RollingOutput(console, bridge, Sender(100))
     spin_in_background(bridge)
     page = ArmPage(
@@ -135,7 +136,10 @@ def head_page(head, sessions, operators, audit, static_dir, arm_control=None):
     from .head.page import HeadPage
     from .head.ros_bridge import HeadBridge
 
-    bridge = HeadBridge(head["joint_state_topic"])
+    instance = {}
+    if head.get("instance_file"):
+        instance = yaml.safe_load(head["instance_file"].read_text(encoding="utf-8"))
+    bridge = HeadBridge(head["joint_state_topic"], **instance)
     console = HeadConsole(
         yaml.safe_load(head["config"].read_text(encoding="utf-8")), bridge.publish
     )
@@ -251,8 +255,14 @@ def main(argv=None, *, software_test_only=False, audit_path=None, arm=None, head
     pages, bridge = (status,), None
     arm_control = None
     if arm is not None:
-        page, jog, bridge = arm_page(arm, sessions, operators, audit, static_dir,
-            jog_motion_enabled=node.get_parameter("jog_motion_enabled").value)
+        page, jog, bridge = arm_page(
+            arm,
+            sessions,
+            operators,
+            audit,
+            static_dir,
+            jog_motion_enabled=node.get_parameter("jog_motion_enabled").value,
+        )
         arm_control = page.console
         pages = (status, page, jog)
     head_bridge = None

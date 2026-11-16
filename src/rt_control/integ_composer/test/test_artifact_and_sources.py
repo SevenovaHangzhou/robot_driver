@@ -43,9 +43,22 @@ def share_of(shares):
     return lambda name: str(shares[name])
 
 
-def test_artifact_round_trip_reads_without_writing(shares, tmp_path, monkeypatch):
+@pytest.mark.parametrize("independent", [False, True])
+def test_artifact_round_trip_reads_without_writing(shares, tmp_path, monkeypatch, independent):
     output = tmp_path / "generated" / "arms"
-    written = write_artifact(output, package_share=share_of(shares), **ARMS)
+    instance_file = None
+    if independent:
+        instance_file = tmp_path / "instance.yaml"
+        instance_file.write_text(
+            "namespace: /isolated\nremappings: [[/rt/disable, /isolated/rt/disable]]\n"
+        )
+    written = write_artifact(
+        output, package_share=share_of(shares), instance_file=instance_file, **ARMS
+    )
+    assert ("instance.yaml" in written.files) is independent
+    if independent:
+        parameters = yaml.safe_load(written.files["controllers.instance.yaml"])
+        assert set(parameters) == {"/isolated/" + name.lstrip("/") for name in written.controllers}
     on_disk = {
         path.relative_to(output).as_posix(): path.read_text()
         for path in output.rglob("*")
@@ -72,6 +85,24 @@ def test_artifact_round_trip_reads_without_writing(shares, tmp_path, monkeypatch
     assert [s["result"]["expected_topology"] for s in loaded.systems] == [
         s["result"]["expected_topology"] for s in written.systems
     ]
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {"namespace": "/", "remappings": []},
+        {"namespace": "/isolated", "remappings": [["/controller_manager/**", "/isolated/**"]]},
+        {"namespace": "/isolated", "remappings": [["/rt/disable", "/a"], ["/rt/disable", "/b"]]},
+    ],
+)
+def test_invalid_instance_does_not_replace_an_existing_artifact(shares, tmp_path, document):
+    output = tmp_path / "arms"
+    written = write_artifact(output, package_share=share_of(shares), **ARMS)
+    instance_file = tmp_path / "instance.yaml"
+    instance_file.write_text(yaml.safe_dump(document))
+    with pytest.raises(ValueError):
+        write_artifact(output, package_share=share_of(shares), instance_file=instance_file, **ARMS)
+    assert load_artifact(output, **ARMS).files == written.files
 
 
 @pytest.mark.parametrize("damage", ["missing_file", "extra", "missing_manifest"])

@@ -270,3 +270,4 @@
 | 2026-11-06 | control | [Rolling 停流后再次启动与双臂逐关节](docs/areas/control/records/2026-11-06-rolling-restart-bench.md) | PARTIAL（T4）：双臂 14 关节 Rolling ±2° 往返全通过（含右 J7 停流后再启动），未观察到拒绝，结束已失能；运动中断流与头部用例待测 |
 | 2026-11-06 | control | [Rolling final 正常收尾与断流停止](docs/areas/control/records/2026-11-06-rolling-final-bench.md) | PARTIAL（T4）：4 关节 final 收尾 5/5 报 STOP_COMPLETED，3 s 断流报 STOP_UPDATE_TIMEOUT；左 J4 有 2 批 NOT_ACCEPTING（独立问题，待查）；结束已失能 |
 | 2026-11-07 | control | [底盘行走轮 CSV/CSP 运行时切换](docs/areas/control/records/2026-11-07-base-control-mode.md) | PARTIAL（T4）：研华底盘静止时两向切换、轮子轨迹往返（误差 ≤ 0.0004°）、超限目标与运动中切换被拒、CSP 下失能再使能均通过；台架修复使能误激活 JTC 与残留位置指令两处；cmd_vel 行驶与新转向上限未测 |
+| 2026-11-16 | integration | [SEV-74 头部与双臂独立运行](docs/areas/integration/records/2026-11-16-head-arm-independent.md) | PARTIAL：候选 T3 启动/失能后均 IDLE；优化版 T0/T1 通过（699 项测试、独立实例 mock 停机及网页服务路由），尚未重新部署，实机独立使能/运动待验 |

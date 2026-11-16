@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import uuid
+import yaml
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, EmitEvent, OpaqueFunction, RegisterEventHandler
@@ -57,6 +58,12 @@ def setup(context):
         jtc_only=_optional_boolean(context, "jtc_only", "false"),
         sync_mode=context.launch_configurations.get("sync_mode", ""),
     )
+    instance = yaml.safe_load(build.files.get("instance.yaml", "{}"))
+    if instance:
+        instance["remappings"] = [tuple(pair) for pair in instance["remappings"]]
+    manager_args = (
+        ["--controller-manager", instance["namespace"] + "/controller_manager"] if instance else []
+    )
     if not build.staged_hardware_activation:
         raise ValueError(f"scope {scope} does not declare staged_hardware_activation")
     if not use_mock_hardware:
@@ -74,32 +81,37 @@ def setup(context):
         "true" if build.lifecycle.get("publish_robot_state", False) else "false",
     )
     runtime = Path(build.runtime_dir)
+    controllers_file = runtime / ("controllers.instance.yaml" if instance else "controllers.yaml")
     order = build.controller_order
     manager = Node(
+        **instance,
         package="integ_bringup",
         executable="ros2_control_node",
         parameters=[
             {"robot_description": build.robot_description},
-            str(runtime / "controllers.yaml"),
+            str(controllers_file),
         ],
         # Per-start values the scope declares; unrequested keys are ignored.
         arguments=runtime_arguments(build, {"startup_id": f"{scope}-{uuid.uuid4()}"}),
         output="both",
     )
     hardware = Node(
+        **instance,
         package="integ_bringup",
         executable="scope_hardware_start",
         arguments=[str(runtime)],
         output="both",
     )
     lifecycle = Node(
+        **instance,
         package="controller_manager",
         executable="spawner",
-        arguments=[*order["active"], "--controller-manager-timeout", "120"],
+        arguments=[*order["active"], *manager_args, "--controller-manager-timeout", "120"],
         output="both",
     )
     # Published only once the stack is loaded: presence means the scope runtime is up.
     capabilities = Node(
+        **instance,
         package="integ_bringup",
         executable="scope_capabilities",
         arguments=[str(runtime)],
@@ -112,10 +124,11 @@ def setup(context):
     if recorder_names:
         after_lifecycle.append(
             Node(
+                **instance,
                 package="controller_manager",
                 executable="spawner",
                 exec_name="runtime_log_recorder_spawner",
-                arguments=[*recorder_names, "--controller-manager-timeout", "30"],
+                arguments=[*recorder_names, *manager_args, "--controller-manager-timeout", "30"],
                 output="both",
             )
         )
@@ -124,9 +137,16 @@ def setup(context):
     after_hardware = lifecycle
     if order["inactive"]:
         motion = Node(
+            **instance,
             package="controller_manager",
             executable="spawner",
-            arguments=[*order["inactive"], "--inactive", "--controller-manager-timeout", "120"],
+            arguments=[
+                *order["inactive"],
+                *manager_args,
+                "--inactive",
+                "--controller-manager-timeout",
+                "120",
+            ],
             output="both",
         )
         staged.append(
@@ -140,6 +160,7 @@ def setup(context):
     robot_state = (
         [
             Node(
+                **instance,
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
                 parameters=[{"robot_description": build.robot_description}],
@@ -153,6 +174,7 @@ def setup(context):
     diagnostics = (
         [
             Node(
+                **instance,
                 package="integ_diagnostics",
                 executable="integ_diagnostics",
                 parameters=[{"generated_dir": generated_dir, "control_scope": scope}],
@@ -166,6 +188,7 @@ def setup(context):
     head_move = (
         [
             Node(
+                **instance,
                 package="integ_head_move",
                 executable="integ_head_move",
                 parameters=[{"generated_dir": generated_dir}],

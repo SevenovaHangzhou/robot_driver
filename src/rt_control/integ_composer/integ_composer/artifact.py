@@ -5,18 +5,20 @@ Launch reads the artifact, checks its selection and file set, and uses it as wri
 not recompose. Changing installed configuration therefore requires regenerating the artifact.
 """
 
+from dataclasses import replace
 from pathlib import Path
 import shlex
 import shutil
 import tempfile
 
 from ament_index_python.packages import get_package_share_directory
+from jsonschema import ValidationError
 import yaml
 
 from .compose import compose
 from .model import Composed
 from .model import ARTIFACT
-from .schema.primitives import load_yaml, resolve_share_path
+from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
 
 # 3: files is a list of names (no content digests, user 2026-11-04); runtime parameter keys and
 # owner preflight topology as in 2.
@@ -51,7 +53,7 @@ def selection(**values):
     return {key: result[key] for key in SELECTION_KEYS}
 
 
-def generate_command(directory, chosen):
+def generate_command(directory, chosen, instance_file=None):
     """Exact regeneration command reported with every rejection."""
     arguments = [
         "ros2",
@@ -68,6 +70,8 @@ def generate_command(directory, chosen):
         arguments.append("--jtc-only")
     if chosen["sync_mode"]:
         arguments += ["--sync-mode", chosen["sync_mode"]]
+    if instance_file:
+        arguments += ["--instance-file", str(instance_file)]
     return shlex.join(arguments)
 
 
@@ -78,11 +82,37 @@ def _absolute(directory):
     return path
 
 
-def write_artifact(directory, *, package_share=get_package_share_directory, **values):
+def write_artifact(
+    directory, *, package_share=get_package_share_directory, instance_file=None, **values
+):
     """Compose for the final path, stage beside it, then replace atomically by rename."""
     output = _absolute(directory)
     chosen = selection(**values)
     composed = compose(**chosen, runtime_dir=output, package_share=package_share)
+    if instance_file:
+        share = Path(package_share("integ_composer"))
+        try:
+            instance = load_and_validate(
+                Path(instance_file), "runtime_instance.schema.json", share / "schema", share
+            )
+        except ValidationError as error:
+            raise ValueError(f"Invalid runtime instance: {error.message}") from error
+        instance = {key: instance[key] for key in ("namespace", "remappings")}
+        sources = [source for source, _ in instance["remappings"]]
+        if len(sources) != len(set(sources)):
+            raise ValueError("Instance remappings must have unique source names")
+        controllers = {
+            instance["namespace"] + "/" + name.lstrip("/"): parameters
+            for name, parameters in composed.controllers.items()
+        }
+        composed = replace(
+            composed,
+            files={
+                **composed.files,
+                "controllers.instance.yaml": yaml.safe_dump(controllers, sort_keys=False),
+                "instance.yaml": yaml.safe_dump(instance, sort_keys=False),
+            },
+        )
     if output.exists() and not (output / ARTIFACT).is_file():
         raise ValueError(f"Refusing to replace a directory that is not an artifact: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -125,7 +155,8 @@ def load_artifact(directory, **expected):
     """Return the composition as written; reject a missing or mismatched artifact."""
     root = _absolute(directory)
     wanted = selection(**expected)
-    command = generate_command(root, wanted)
+    instance_file = root / "instance.yaml"
+    command = generate_command(root, wanted, instance_file if instance_file.is_file() else None)
     path = root / ARTIFACT
     if not path.is_file():
         raise ValueError(f"Missing composition artifact {root}; generate it with: {command}")

@@ -75,6 +75,18 @@ def test_failed_disable_is_reported_and_claimed_hardware_is_not_deactivated():
     assert not [call for call in backend.calls if call[0] == "hardware"]
 
 
+def test_shutdown_with_missing_instance_routes_never_contacts_the_root_runtime(
+    monkeypatch, tmp_path
+):
+    (tmp_path / "lifecycle.yaml").write_text("{}\n")
+    (tmp_path / "artifact.yaml").write_text("files: [lifecycle.yaml, instance.yaml]\n")
+    monkeypatch.setattr(
+        lifecycle, "RosLifecycleBackend", lambda **_: pytest.fail("root runtime contacted")
+    )
+    with pytest.raises(FileNotFoundError):
+        lifecycle.shutdown_main([str(tmp_path)])
+
+
 def test_bus_lock_is_exclusive_until_released(tmp_path):
     held = lifecycle.acquire_bus_locks(["ethercat-master-0", "can-can0"], tmp_path)
     with pytest.raises(RuntimeError, match="ethercat-master-0"):
@@ -101,6 +113,7 @@ def test_scope_launch_writes_the_failed_self_check_and_does_not_start(monkeypatc
             robot_description="<robot name='synthetic'/>",
             runtime_dir=Path(directory),
             runtime_parameters={},
+            files={},
         ),
     )
     entry = {"source": "ethercat/master0", "blocking": True, "detail": "not attached"}
@@ -145,6 +158,7 @@ def test_scope_launch_reads_artifact_locks_then_preflights_before_any_node(monke
             robot_description="<robot name='synthetic'/>",
             runtime_dir=Path(directory),
             runtime_parameters={},
+            files={},
         )
 
     monkeypatch.setattr(module, "load_artifact", load_artifact)
@@ -197,6 +211,7 @@ def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
             robot_description="<robot name='synthetic'/>",
             runtime_dir=Path(directory),
             runtime_parameters={},
+            files={},
         ),
     )
     monkeypatch.setattr(module, "preflight", lambda _: [])
@@ -245,6 +260,7 @@ def test_scope_launch_runs_robot_state_publisher_as_the_scope_declares(
             robot_description="<robot name='synthetic'/>",
             runtime_dir=Path(directory),
             runtime_parameters={},
+            files={},
         ),
     )
     monkeypatch.setattr(module, "preflight", lambda _: [])
