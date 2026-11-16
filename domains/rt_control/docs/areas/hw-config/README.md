@@ -38,3 +38,4 @@
 
 - hw-config-20261023-01#F1：J6专用26B TxPDO包含0x2241与0x3B69，已在未使能OP状态验证同帧采集；使能后标定未验证。见[记录](records/2026-10-23-j6-dual-encoder-pdo.md)。
 - hw-config-20261116-01#F1–F2：研华行走驱动器 ring 0/2/4/6 保存 `607E=1`，软件行走 `direction=+1`；更换驱动器须先写 `607E=1`。见[记录](records/2026-11-16-drive-wheel-polarity.md)。
+- hw-config-20261116-02#F1：研华轮组坐标取负（module_1 右前、2 右后、3 左前、4 左后），修正原地旋转反向。见[记录](records/2026-11-16-swerve-module-positions.md)。
