@@ -4,7 +4,7 @@ area: integration
 title: 操作网页迁至独立仓库 robot_operator_web，本仓库删除 integ_operator_web
 date: 2026-11-16
 type: removal
-trigger: ELECTRI-209/210；用户 2026-11-16 决定把网页拆成独立仓库，并选择先删除、再迁移 .40 的本地补丁（方案 A）
+trigger: ELECTRI-209/210；用户 2026-11-16 决定把网页拆成独立仓库，先删除（方案 A）；2026-11-17 决定丢弃 .40 的双实例补丁
 commits: [refactor/remove-operator-web]
 env: native
 risk: T1
@@ -38,9 +38,13 @@ related: [integration-20261116-01]
 
 ## 遗留
 
-- 台架 .40 上运行的网页仍来自 `head-arm-independent-20261116` 发布：本地候选提交 `de2ae668`，未推送。
-  其补丁修改了 `integ_operator_web` 的 `head/ros_bridge.py`、`launcher.py`、`node.py`（`--head-instance-file`、`--view-model-file`）。
-  这部分须改到 robot_operator_web 提交；launch 部分仍在本仓库。在此之前 .40 不换用新仓库网页。
+- 台架 .40 上运行的网页仍来自 `head-arm-independent-20261116` 发布（本地候选提交 `de2ae668`，未推送）。
+  该补丁让头部、双臂两份制品在同一主机同时运行（头部放进 `/head` 命名空间并重映射，网页增加 `--head-instance-file`）。
+  用户 2026-11-17 决定**丢弃该补丁**，不进本仓库，网页部分也不迁到 robot_operator_web。原因：
+  - 两个运行栈的 1 kHz 控制循环都以 FIFO 80 绑在同一个实时核上，没有抖动测量；
+  - `/joint_states`、`/rt/head/move` 被挪进 `/head`，违反 R-OUT-03、R-IN-16；
+  - `/rt/enable`、`/rt/readiness`、`/rt/capabilities` 只能有一份。
+  头部与双臂一起使用时，用单制品作用域 `bench_dual_arm_head`。.40 改用该作用域和新仓库网页的时间，由使用 .40 的同事安排。
 - 本记录不改变运行中的部署；.40 当前进程不受影响。
 
 ## 结论与冻结事实
