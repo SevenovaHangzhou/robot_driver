@@ -40,7 +40,11 @@ bms_node:
     min_cell_voltage_v: -1.0
     max_cell_voltage_v: -1.0
     min_cell_temperature_c: -1000.0
-    max_cell_temperature_c: -1000.0
+    # Discharge-inhibit backstop, 80 C (user 2026-11-11). The BMS already raises a first-level
+    # over-temperature alarm at 75 C and any 0x98 alarm blocks discharge, so this value is never the
+    # first limit to act. The minimum temperature is still an invalid placeholder: automatic
+    # discharge control must stay disabled until every control limit is approved.
+    max_cell_temperature_c: 80.0
     # Required stable join window and post-close observation period (seconds).
     join_stable_s: -1.0
     secondary_observation_s: -1.0
@@ -66,3 +70,7 @@ bms_node:
     # battery, address 2 the right one (user 2026-11-04).
     battery_state_topic: /rt/battery/left/state
     secondary_battery_state_topic: /rt/battery/right/state
+    # Alarm detail (0x98 bits, level, byte.bit) and temperatures. Temperature alarms are reported while
+    # the measurements stay published; other alarms still withhold them.
+    battery_diagnostics_topic: /rt/battery/left/diagnostics
+    secondary_battery_diagnostics_topic: /rt/battery/right/diagnostics
