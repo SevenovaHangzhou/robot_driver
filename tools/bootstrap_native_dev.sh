@@ -43,7 +43,6 @@ readonly -a runtime_packages=(
   integ_composer
   hwcfg_machines
   integ_bringup
-  integ_operator_web
 )
 
 info()
