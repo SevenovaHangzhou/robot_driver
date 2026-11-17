@@ -1,0 +1,9 @@
+# Tongyi lift/suspension drive (XMC_ESC). Identity read back on 2026-11-17 from the bench
+# (ar-Default-string, master 0 ring 18); the SII declares no PDO assign/configuration support, so
+# the drive's saved PDO layout (read back the same day) is the only one it accepts.
+# Source protocol: knowledge V3-DOC-2026-001 (vendor V1.4).
+identities:
+  xmc_esc:
+    vendor_id: 846
+    product_code: 4478310
+    revision_number: 0
