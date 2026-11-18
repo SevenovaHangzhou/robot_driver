@@ -2,9 +2,8 @@ repositories:
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git
-    # robot_interfaces feat/R-OUT-29-wheel-observations (R-OUT-29 wheel observations); replace with
-    # the main merge commit before merging.
-    version: 46a027308ca08b7931ae25eba5638957411e5279
+    # robot_interfaces main after #22 (R-OUT-29 wheel observations).
+    version: f54ddffb5f58b67e17ec4a76b5e4610844507592
   src/vendor/ecat_icube:
     type: git
     url: https://github.com/ICube-Robotics/ethercat_driver_ros2.git

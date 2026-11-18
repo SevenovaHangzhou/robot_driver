@@ -24,7 +24,7 @@ related: [hw-config-20261116-02, control-20261107-02]
 ## 改动
 
 - 新包 `ctrl_wheel_observation_broadcaster`：只读广播器，只认领状态接口，chassis_only 启动即激活。
-  发布 R-OUT-29（robot_interfaces `feat/R-OUT-29-wheel-observations`，待合并后升 pin），100 Hz，`fast_state`。
+  发布 R-OUT-29（robot_interfaces#22，pin `f54ddffb5f58b67e17ec4a76b5e4610844507592`），100 Hz，`fast_state`。
   - 每轮三个通道：行走（0x6064/0x606C 同一 PDO）、转向电机（位置 × `steering_to_yaw_sign`）、外置编码器；
     两路转向角分开，无效不互相填补。
   - 时间：驱动器通道 `READ_COMPLETE`（周期时间 − `feedback_age_ms`）；编码器 `HOST_RECEIVE`
@@ -43,8 +43,11 @@ related: [hw-config-20261116-02, control-20261107-02]
 - T0 本机：`ctrl_swerve` 97、`ctrl_wheel_observation_broadcaster` 11、`infra_renderer` 5 项测试通过；
   `integ_composer` 242 项中 239 通过，其余 3 项在 main 上同样失败（本机缺安装 share，与本改动无关）；
   `hw_canopen`/`hw_ethercat` Python 测试 22 项通过；`tools/quality_gate.sh` 通过。构建基于本地 robot_interfaces 分支。
+- T2 尝试（2026-11-18，用户授权只读，隔离 ROS 域 231）：研华整栈 chassis_only 启动在预检阶段被拒绝
+  （`Self-check failed: ethercat/master0: Expected inactive master with the declared responder count 8`）；
+  `ethercat slaves` 只见 1 个从站（环位 0，PREOP），其余 7 台驱动器不在环上。未启动任何控制器，未写总线输出。
 - 未验证：T1 mock 启动（mock 下计数不前进，各通道应为 NOT_READY）、研华实机只读发布、频率/延迟/时差统计（需求 A5）、
-  底盘失能与 FJT_READY 下持续发布。
+  底盘失能与 FJT_READY 下持续发布；需在 8 个从站全部在环后重做 T2。
 
 本记录不授权使能或运动。
 
@@ -55,6 +58,5 @@ related: [hw-config-20261116-02, control-20261107-02]
 
 ## 遗留
 
-- robot_interfaces 已临时锁定到分支提交 `46a027308ca08b7931ae25eba5638957411e5279`；其 PR 合并后须换成 main 上的合并提交再合并本 PR。
 - 接触点偏置、噪声、Kinco 速度反馈滤波（60F9.05/06）未知，需另行标定或只读回读。
 - 行走电机为增量编码器，int32 计数约 ±49,100 rad 后回绕，靠 epoch 标出。

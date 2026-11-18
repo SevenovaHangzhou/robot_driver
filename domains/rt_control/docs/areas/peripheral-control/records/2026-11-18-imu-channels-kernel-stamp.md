@@ -7,10 +7,11 @@ type: fix
 trigger: ELECTRI-227；用户 2026-11-18：IMU 配置按 feature/electri-127-chassis-imu，IMU 无磁力计；导航逐轮融合口径 v0.1 §7
 commits: [feature/wheel-observations]
 env: native
-risk: T0
+risk: T2
 writes: { reset: no, enable: no, motion: no, plc: no }
-verified: UNVERIFIED
+verified: PARTIAL
 evidence:
+  - 研华 ~/Robot/rt-control/tasks/ELECTRI-227-wheel-observations/runs/imu-20261118T072530Z/（只读运行，summary.txt）
   - 研华 ~/Robot/rt-control/records/imu-calibration/rotation-fullturns-20261020T224112/can.log（只读离线分析）
   - 研华 ~/Robot/rt-control/records/imu-sdo-targeted-20261017T075351Z/diagnosis.json
 supersedes: []
@@ -45,7 +46,11 @@ main 把 0x280/0x380 的通道 7–9 当磁场解码并发 `~/mag`，时间戳�
   映射与滤波模式本次未能回读。
 - T0 本机：`periph_imu_lpms` 32、`infra_socketcan` 9 项测试通过（无 vcan，带时间戳的收发用例跳过）；
   `integ_composer` 新增实机/mock 外设组合用例、`integ_bringup` 新增 launch 用例通过。
-- 未验证：研华 can3 上的内核时间戳实收、`publication_stamped_samples` 保持为 0、整栈启动中 IMU 节点与 CANopen 主站共存。
+- T2 研华只读（2026-11-18，用户授权，底盘未使能）：本分支构建的 IMU 节点单独在 can3 只收运行 20 s，
+  隔离 ROS 域（231，仅本机）。1,929 个样本，100.003 Hz，间隔 9.63–10.36 ms（P99 10.20 ms），无重复或倒退时间戳；
+  消息时间戳与 candump 记录的 0x181 内核接收时间相差中位 0.5 µs、最大 1.2 µs；`/rt/sensors/state` 时间来源 2
+  （HOST_RECEIVE），`publication_stamped_samples` 为 0；静止加速度 Z ≈ +9.84 m/s²。
+- 未验证：整栈启动中 IMU 节点与 CANopen 主站共存（同日整栈启动被 EtherCAT 自检拒绝，见 control-20261118-01）。
 
 本记录不授权使能或运动。
 
