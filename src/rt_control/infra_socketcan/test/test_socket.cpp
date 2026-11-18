@@ -35,6 +35,10 @@ TEST(SocketTest, ClosedSocketReportsErrorsWithoutThrowing)
   can_frame frame{};
   EXPECT_EQ(socket.send(frame), -EBADF);
   EXPECT_EQ(socket.receive(frame), -EBADF);
+  timespec kernel_time{1, 1};
+  EXPECT_EQ(socket.receive(frame, kernel_time), -EBADF);
+  EXPECT_EQ(kernel_time.tv_sec, 0);
+  EXPECT_EQ(kernel_time.tv_nsec, 0);
   EXPECT_EQ(socket.wait_readable(0), 0);  // poll ignores a negative descriptor
 }
 
@@ -61,6 +65,13 @@ TEST(SocketTest, VirtualInterfaceRoundTripExcludesOwnFrames)
   EXPECT_EQ(received.can_id, sent.can_id);
   EXPECT_EQ(received.data[0], 0x5AU);
   EXPECT_EQ(sender.receive(received), 0);
+
+  receiver.enable_receive_timestamps();
+  ASSERT_EQ(sender.send(sent), 0);
+  ASSERT_EQ(receiver.wait_readable(1000), 1);
+  timespec kernel_time{};
+  ASSERT_EQ(receiver.receive(received, kernel_time), 1);
+  EXPECT_GT(kernel_time.tv_sec, 0);
 
   infra_socketcan::Socket moved{std::move(receiver)};
   EXPECT_TRUE(moved.is_open());

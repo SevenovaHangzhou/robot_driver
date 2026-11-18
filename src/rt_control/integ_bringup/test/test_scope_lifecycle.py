@@ -264,6 +264,47 @@ def test_scope_launch_runs_robot_state_publisher_as_the_scope_declares(
     assert ("robot_state_publisher" in executables) == expected
 
 
+def test_scope_launch_starts_the_unit_peripherals_from_the_artifact(monkeypatch, tmp_path):
+    path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
+    spec = importlib.util.spec_from_file_location("scope_launch", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    peripheral = {
+        "name": "lpms_nav3",
+        "package": "periph_imu_lpms",
+        "executable": "lpms_nav3_can_node",
+        "config_file": "peripherals/lpms_nav3.yaml",
+    }
+    monkeypatch.setattr(
+        module,
+        "load_artifact",
+        lambda directory, **_: SimpleNamespace(
+            staged_hardware_activation=True,
+            lifecycle={"bus_locks": [], "optional_peripherals": [peripheral]},
+            controller_order={"inactive": [], "active": ["enable_manager"]},
+            robot_description="<robot name='synthetic'/>",
+            runtime_dir=Path(directory),
+            runtime_parameters={},
+        ),
+    )
+    monkeypatch.setattr(module, "preflight", lambda _: [])
+    monkeypatch.setenv("RT_CONTROL_STATE_DIR", str(tmp_path))
+    context = LaunchContext()
+    context.launch_configurations.update(
+        use_mock_hardware="false",
+        control_scope="chassis_only",
+        physical_profile="",
+        robot_variant="Alfa_V3",
+        machine_unit="Alfa_V3-Advantech-01",
+        generated_dir="/synthetic/artifact",
+        publish_robot_state="",
+    )
+    actions = module.setup(context)
+    nodes = [action for action in actions if getattr(action, "node_executable", None)]
+    imu = [node for node in nodes if node.node_executable == "lpms_nav3_can_node"]
+    assert len(imu) == 1 and imu[0].node_package == "periph_imu_lpms"
+
+
 def test_capability_document_is_derived_from_the_lifecycle_plan():
     document = lifecycle.capability_document(
         {

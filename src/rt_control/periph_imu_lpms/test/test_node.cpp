@@ -93,10 +93,8 @@ TEST_F(LpmsCovarianceParameterTest, PublishesOnTheContractTopicsByDefault)
   EXPECT_EQ(node->get_parameter("diagnostics_topic").as_string(), "~/diagnostics");
   EXPECT_EQ(node->get_parameter("sensor_status_topic").as_string(), "/rt/sensors/state");
   EXPECT_EQ(node->get_publishers_info_by_topic("/rt/imu/data").size(), 1U);
-  EXPECT_EQ(
-    node->get_publishers_info_by_topic(std::string(node->get_fully_qualified_name()) + "/mag")
-      .size(),
-    1U);
+  const auto gyro_topic = std::string(node->get_fully_qualified_name()) + "/gyro_bias_corrected";
+  EXPECT_EQ(node->get_publishers_info_by_topic(gyro_topic).size(), 1U);
 }
 
 TEST_F(LpmsCovarianceParameterTest, AcceptsConfiguredMatrices)

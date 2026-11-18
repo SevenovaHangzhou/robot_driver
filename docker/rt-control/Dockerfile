@@ -237,6 +237,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       ctrl_rolling_trajectory \
       ctrl_force_torque_broadcaster \
       ctrl_swerve \
+      ctrl_wheel_observation_broadcaster \
       integ_composer \
       hwcfg_machines \
       integ_bringup \

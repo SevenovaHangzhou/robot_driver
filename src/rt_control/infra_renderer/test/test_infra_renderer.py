@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from jsonschema import ValidationError
 import pytest
 
-from infra_renderer import validated_spec, xml_param
+from infra_renderer import calibration_id, validated_spec, xml_param
 
 
 @pytest.fixture
@@ -31,3 +31,17 @@ def test_xml_param_writes_the_value_as_text():
     parent = ET.Element("hardware")
     xml_param(parent, "cycle_hz", 1000)
     assert ET.tostring(parent) == b'<hardware><param name="cycle_hz">1000</param></hardware>'
+
+
+def test_calibration_id_follows_content_not_key_order():
+    first = calibration_id("swerve_chassis", {"a": 1, "b": [0.1, 0.2]}, {"zero": 5})
+    assert first == calibration_id("swerve_chassis", {"b": [0.1, 0.2], "a": 1}, {"zero": 5})
+    assert first.startswith("swerve_chassis:sha256:") and len(first.split(":")[-1]) == 16
+    assert first != calibration_id("swerve_chassis", {"a": 1, "b": [0.1, 0.2]}, {"zero": 6})
+    assert first != calibration_id("swerve_encoders", {"a": 1, "b": [0.1, 0.2]}, {"zero": 5})
+
+
+def test_calibration_id_ignores_provenance_text():
+    device = {"counts": 10000, "authorities": {"counts": "readback 2026-10-14"}}
+    reworded = {"counts": 10000, "authorities": {"counts": "readback"}, "pending_facts": []}
+    assert calibration_id("m", device) == calibration_id("m", reworded)

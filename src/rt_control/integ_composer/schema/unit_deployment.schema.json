@@ -196,6 +196,49 @@
         "housekeeping_cpus"
       ],
       "additionalProperties": false
+    },
+    "optional_peripherals": {
+      "description": "Unit peripheral nodes started by the scope launcher (real hardware only); offline devices do not block the scope.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "package": {
+            "enum": [
+              "periph_imu_lpms"
+            ]
+          },
+          "executable": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "config_file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scopes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "name",
+          "package",
+          "executable",
+          "config_file",
+          "scopes"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [

@@ -91,6 +91,10 @@
                       "path": {
                         "type": "string",
                         "minLength": 1
+                      },
+                      "as": {
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "required": [
