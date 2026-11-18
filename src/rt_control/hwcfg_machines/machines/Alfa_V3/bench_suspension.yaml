@@ -1,0 +1,55 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: false
+authorities:
+  source: user 2026-11-17/18 (ELECTRI-224); .40 read-only scan 2026-11-17
+  transmission: user 2026-11-17 - 2:1 reduction, 10 mm lead, 5 mm per motor turn
+  stroke: user 2026-11-17 - 0..180 mm, zero at the bottom, hard stops 2.5 mm beyond each end
+  direction: user 2026-11-18 - joint +Z up, the motor's positive direction is down
+  velocity: user 2026-11-17 - at most 30 mm/s (0x607F = 3600, user 2026-11-18)
+  acceleration: user 2026-11-18 - trapezoid, 0x6083/0x6084 = 1400 ms per 1000 r/min (0.5 s to 30 mm/s)
+pending_facts:
+- brake, communication-loss and limit-switch settings in the vendor tool (not readable over EtherCAT)
+- mechanical zero capture at the bottom of the stroke (bench_suspension_zero.yaml)
+robot_variant: Alfa_V3
+module: bench_suspension
+master_system: ecat_suspension
+# Bench test of the active-suspension drive behind the sub-coupler of the arms' master (ring 18).
+# The arm drives, BluePoint sensors and couplers stay passive responders: the arms stack and this
+# one cannot run at the same time.
+spec:
+  family: tongyi
+  profile: tongyi_xmc_esc
+  identity_key: xmc_esc
+  metres_per_motor_turn: 0.005
+  stroke_min_m: 0.0
+  stroke_max_m: 0.18
+  hard_stop_margin_m: 0.0025
+  max_velocity_m_s: 0.03
+  profile_acceleration_ms_per_krpm: 1400
+  profile_deceleration_ms_per_krpm: 1400
+  axes:
+  - robot_model_joint: suspension
+    ring_position: 18
+    device: devices/tongyi_xmc_esc.yaml
+    direction: -1
+  extra_responders:
+  - {ring_position: 0, profile: inovance_gr10_coupler, identity_key: coupler_main}
+  - {ring_position: 1, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 2, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 3, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 4, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 5, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 6, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 7, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 8, profile: bench_arms_observers, identity_key: bluepoint_p140000100}
+  - {ring_position: 9, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 10, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 11, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 12, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 13, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 14, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 15, profile: bench_arms_observers, identity_key: zeroerr_unmanaged}
+  - {ring_position: 16, profile: bench_arms_observers, identity_key: bluepoint_p140000100}
+  - {ring_position: 17, profile: inovance_gr10_coupler, identity_key: coupler_subdevice}

@@ -15,6 +15,7 @@ find_package(pluginlib REQUIRED)
 
 add_library(zeroerr_pp_slave SHARED
   src/zeroerr_pp_slave.cpp
+  src/tongyi_pp_slave.cpp
   src/kinco_cyclic_mode_slave.cpp)
 target_compile_features(zeroerr_pp_slave PUBLIC cxx_std_17)
 target_compile_options(zeroerr_pp_slave PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
@@ -56,6 +57,10 @@ if(BUILD_TESTING)
   target_link_libraries(test_zeroerr_pp_slave zeroerr_pp_slave)
   target_compile_definitions(test_zeroerr_pp_slave PRIVATE
     PP_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/pp_gripper.yaml")
+  ament_add_gtest(test_tongyi_pp_slave test/test_tongyi_pp_slave.cpp)
+  target_link_libraries(test_tongyi_pp_slave zeroerr_pp_slave)
+  target_compile_definitions(test_tongyi_pp_slave PRIVATE
+    TONGYI_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/tongyi_pp.yaml")
   ament_add_gtest(test_kinco_cyclic_mode_slave test/test_kinco_cyclic_mode_slave.cpp)
   target_link_libraries(test_kinco_cyclic_mode_slave zeroerr_pp_slave)
   target_compile_definitions(test_kinco_cyclic_mode_slave PRIVATE

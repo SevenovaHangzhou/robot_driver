@@ -212,3 +212,39 @@ scopes:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
       - enable_manager
+  # Active-suspension drive alone on the bench master (ELECTRI-224). The Robot Model has no
+  # `suspension` joint yet, so the scope renders the stationary description; commands go through
+  # suspension_command_controller after enable.
+  bench_suspension:
+    enabled_modules:
+    - bench_suspension
+    required_state_modules: []
+    actuator_groups:
+    - module: bench_suspension
+      mode_group: pp
+    jtc_groups: []
+    global_readiness: partial_scope
+    render_mode: stationary_enable
+    policies:
+    - enable
+    policy_overrides:
+      enable: bench_suspension_enable
+    staged_hardware_activation: true
+    publish_robot_state: false
+    controller_order:
+      inactive:
+      - suspension_command_controller
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - enable_manager
+    controller_parameter_bindings:
+      suspension_command_controller:
+        parameters:
+          joint:
+            module: bench_suspension
+            export: joint_name
+            resource_kind: joints
+          interface_names:
+            module: bench_suspension
+            export: motion_command_interfaces

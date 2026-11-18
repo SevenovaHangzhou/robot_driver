@@ -1,0 +1,15 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: pending - raw 0x6064 at the bottom of the stroke, confirmed by the user on the bench
+pending_facts:
+- bottom-of-stroke zero capture (0x6064 read 1 on 2026-11-17; position not yet confirmed)
+robot_variant: Alfa_V3
+module: bench_suspension
+spec:
+  confirmed_by: pending
+  axes:
+  - ring_position: 18
+    zero_counts: TBD

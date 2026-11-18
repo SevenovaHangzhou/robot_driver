@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from infra_renderer import xml_param
 import yaml
 
-from .profiles import master_parameters
+from .profiles import master_parameters, pdo_objects
 
 COMMANDS = (
     "position",
@@ -48,26 +48,6 @@ def conversion_factors(counts, ratio, sign, velocity_dec):
         / (2.0 * math.pi * velocity_dec["denominator"])
     )
     return position, velocity
-
-
-_BITS = {"uint8": 8, "int8": 8, "uint16": 16, "int16": 16, "uint32": 32, "int32": 32}
-
-
-def _pdo_objects(driver_config):
-    """Expected PDO assignment and mapping objects: the plugin uses the drive's saved PDOs.
-
-    Keys are hex strings: the artifact is YAML and its loader accepts string keys only.
-    """
-    objects = {}
-    for assign, direction in ((0x1C12, "rpdo"), (0x1C13, "tpdo")):
-        pdos = driver_config[direction]
-        objects[f"0x{assign:04X}"] = [pdo["index"] for pdo in pdos]
-        for pdo in pdos:
-            objects[f"0x{pdo['index']:04X}"] = [
-                (channel["index"] << 16) | (channel["sub_index"] << 8) | _BITS[channel["type"]]
-                for channel in pdo["channels"]
-            ]
-    return objects
 
 
 def missing_facts(request, profile):
@@ -315,7 +295,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
                 {"ring_position": ring, "allowed_errors": [], "allow_shutdown_ready": True}
             )
             pdo_checks.append(
-                {"ring_position": ring, "objects": _pdo_objects(profile["driver_config"])}
+                {"ring_position": ring, "objects": pdo_objects(profile["driver_config"])}
             )
             if axis["role"] == "steering":
                 ends = sorted(

@@ -4,6 +4,11 @@
          base_class_type="ethercat_interface::EcSlave">
     <description>Opt-in calibrated ZeroErr PP gripper with acknowledged commands.</description>
   </class>
+  <class name="hw_ethercat/TongyiPpSlave"
+         type="hw_ethercat::TongyiPpSlave"
+         base_class_type="ethercat_interface::EcSlave">
+    <description>Tongyi XMC_ESC linear axis in Profile Position mode over its fixed PDO layout.</description>
+  </class>
   <class name="hw_ethercat/KincoCyclicModeSlave"
          type="hw_ethercat::KincoCyclicModeSlave"
          base_class_type="ethercat_interface::EcSlave">

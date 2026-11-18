@@ -1,9 +1,53 @@
-# Tongyi lift/suspension drive (XMC_ESC). Identity read back on 2026-11-17 from the bench
+# Tongyi XMC_ESC linear drive. Identity read back on 2026-11-17 from the bench
 # (ar-Default-string, master 0 ring 18); the SII declares no PDO assign/configuration support, so
 # the drive's saved PDO layout (read back the same day) is the only one it accepts.
-# Source protocol: knowledge V3-DOC-2026-001 (vendor V1.4).
+# Source protocol: knowledge V3-DOC-2026-001 (vendor V1.4); ESI: V3-DOC-2026-023 (XMC_ESC_250325).
+authorities:
+  identity_and_layout: ESI V3-DOC-2026-023 = .40 ring 18 readback 2026-11-17 (0x1C12/0x1C13/0x1600/0x1A00)
+  profile_velocity_unit_rpm: V3-DOC-2026-001 0x6081 in 0.1 r/min; 0x607F the same object family
+  acceleration_unit: V3-DOC-2026-001 0x60F9 note - 0x6083/0x6084 in ms per 1000 r/min
+  assign_activate: ESI OpMode DC AssignActivate 0x300
+  volatile_parameters: vendor 2026-11-17 - values written over EtherCAT are lost at power-off
+  adapter: user 2026-11-18 - 0.5 mm in-position band; halt and handshake timings
 identities:
   xmc_esc:
     vendor_id: 846
     product_code: 4478310
     revision_number: 0
+driver_plugin: hw_ethercat/TongyiPpSlave
+profile_velocity_unit_rpm: 0.1
+assign_activate: 768
+mock_identity: {vendor_id: 1, product_code: 2, assign_activate: 0}
+# Profile Position handshake and stop detection of the adapter (joint units: m, m/s, s).
+adapter:
+  position_tolerance: 0.0005
+  stopped_velocity: 0.0005
+  ack_timeout: 0.1
+  halt_timeout: 2.0
+  stopped_cycles: 20
+driver_config:
+  use_slave_pdo_defaults: true
+  rpdo:
+  - index: 0x1600
+    channels:
+    - {index: 0x6040, sub_index: 0, type: uint16}
+    - {index: 0x6071, sub_index: 0, type: int16}
+    - {index: 0x60ff, sub_index: 0, type: int32}
+    - {index: 0x607a, sub_index: 0, type: int32}
+    - {index: 0x6081, sub_index: 0, type: uint32}
+    - {index: 0x6060, sub_index: 0, type: int8}
+    - {index: 0x607f, sub_index: 0, type: uint32}
+  tpdo:
+  - index: 0x1a00
+    channels:
+    - {index: 0x6041, sub_index: 0, type: uint16}
+    - {index: 0x603f, sub_index: 0, type: uint16}
+    - {index: 0x6078, sub_index: 0, type: int16}
+    - {index: 0x606c, sub_index: 0, type: int32}
+    - {index: 0x6064, sub_index: 0, type: int32}
+    - {index: 0x6061, sub_index: 0, type: int8}
+    - {index: 0x6000, sub_index: 0, type: uint8}
+    - {index: 0x2300, sub_index: 0, type: uint16}
+    - {index: 0x2301, sub_index: 0, type: uint16}
+    - {index: 0x60fd, sub_index: 0, type: uint32}
+    - {index: 0x6077, sub_index: 0, type: int16}

@@ -232,3 +232,45 @@ profiles:
         node_ids: []
     pending_facts:
     - Inovance GR10-EC-6SW runtime state/DC qualification on the bench
+  # The suspension drive alone on the bench master; the arms are passive responders here.
+  bench_suspension:
+    status: draft
+    modules:
+    - bench_suspension
+    allowed_scopes:
+    - bench_suspension
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        ring_positions:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+        - 7
+        - 8
+        - 9
+        - 10
+        - 11
+        - 12
+        - 13
+        - 14
+        - 15
+        - 16
+        - 17
+        - 18
+      canopen:
+        status: absent
+        node_ids: []
+      damiao_can:
+        status: absent
+        node_ids: []
+    pending_facts:
+    - Tongyi XMC_ESC DC operation and brake behaviour on the bench
