@@ -28,7 +28,9 @@ public:
     exit_response_timeout_ms_ = declare_parameter<int64_t>("exit_response_timeout_ms", 100);
     service_name_ = declare_parameter("service_name", std::string("/rt/led/set_rgbw"));
     exit_color_enabled_ = declare_parameter("exit_color_enabled", true);
+    request_gap_ms_ = declare_parameter<int64_t>("request_gap_ms", 20);
     validate_led_config(ports_, addresses_, response_timeout_ms_);
+    validate_request_gap(request_gap_ms_);
     if (exit_response_timeout_ms_ < 1 || exit_response_timeout_ms_ > 60000) {
       throw std::invalid_argument("exit_response_timeout_ms must be 1..60000");
     }
@@ -36,9 +38,10 @@ public:
     for (const auto port : ports_) {
       const auto key = static_cast<uint16_t>(port);
       if (clients_.count(key) == 0U) {
-        clients_.emplace(
-          key, std::make_unique<infra_modbus::Client>(
-                 gateway_ip_, key, std::chrono::milliseconds(response_timeout_ms_)));
+        auto client = std::make_unique<infra_modbus::Client>(
+          gateway_ip_, key, std::chrono::milliseconds(response_timeout_ms_));
+        client->set_min_request_gap(std::chrono::milliseconds(request_gap_ms_));
+        clients_.emplace(key, std::move(client));
       }
     }
     if (service_name_.empty()) {
@@ -134,6 +137,7 @@ private:
   std::vector<int64_t> addresses_;
   int64_t response_timeout_ms_{500};
   int64_t exit_response_timeout_ms_{100};
+  int64_t request_gap_ms_{20};
   bool exit_color_enabled_{true};
   std::map<uint16_t, std::unique_ptr<infra_modbus::Client>> clients_;
   rclcpp::Service<robot_rt_control_interfaces::srv::SetLedRgbw>::SharedPtr service_;

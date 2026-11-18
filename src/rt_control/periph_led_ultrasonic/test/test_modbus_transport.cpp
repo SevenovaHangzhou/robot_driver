@@ -36,6 +36,10 @@ void parameter_and_encoding_tests()
   validate_led_config(ports, units, 500);
   validate_endpoint(504, 1, 500);
   validate_e08_unit_ids({1, 6});
+  validate_request_gap(0);
+  validate_request_gap(1000);
+  rejects([]() { validate_request_gap(-1); });
+  rejects([]() { validate_request_gap(1001); });
   rejects([&]() { validate_led_config({}, units, 500); });
   rejects([&]() { validate_led_config(ports, {}, 500); });
   for (const auto value : {int64_t{-1}, int64_t{0}, int64_t{65536}}) {
