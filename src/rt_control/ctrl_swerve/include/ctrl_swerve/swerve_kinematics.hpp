@@ -183,6 +183,13 @@ void desaturate_wheel_speeds(
   const std::array<Translation2d, kSwerveModuleCount> & module_locations,
   double slip_residual_threshold);
 
+// Chassis quadrant of a calibrated module location (x forward, y left). The module index
+// order is wiring order, not a position: the label comes from the location only.
+enum class ModuleQuadrant { front_left, front_right, rear_left, rear_right, unknown };
+[[nodiscard]] ModuleQuadrant module_quadrant(const Translation2d & location) noexcept;
+// "FL", "FR", "RL", "RR"; "unknown" for a location on an axis or non-finite.
+[[nodiscard]] const char * module_quadrant_name(ModuleQuadrant quadrant) noexcept;
+
 }  // namespace ctrl_swerve
 
 #endif  // CTRL_SWERVE__SWERVE_KINEMATICS_HPP_

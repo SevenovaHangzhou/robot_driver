@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "ctrl_swerve/body_velocity_shaper.hpp"
@@ -661,5 +663,21 @@ TEST(SwerveKinematicsTest, JerkLimitNeedsAFiniteAccelerationLimit)
   parameters.maximum_steering_acceleration_radps2 = 1.0;
   parameters.maximum_steering_jerk_radps3 = 0.0;
   EXPECT_THROW(SwerveSetpointGenerator{parameters}, std::invalid_argument);
+}
+
+TEST(SwerveKinematicsTest, ModuleLabelFollowsCalibratedLocationNotIndex)
+{
+  // Alfa_V3-Advantech-01 wiring order (hw-config-20261116-02#F1): FR, RR, FL, RL.
+  const std::array<Translation2d, 4> locations{
+    {{0.305, -0.305}, {-0.305, -0.305}, {0.305, 0.305}, {-0.305, 0.305}}};
+  std::array<std::string, 4> names{};
+  for (std::size_t i = 0; i < locations.size(); ++i) {
+    names[i] = module_quadrant_name(module_quadrant(locations[i]));
+  }
+  EXPECT_EQ(names, (std::array<std::string, 4>{"FR", "RR", "FL", "RL"}));
+  EXPECT_EQ(module_quadrant({0.0, 0.3}), ModuleQuadrant::unknown);
+  EXPECT_EQ(
+    module_quadrant({std::numeric_limits<double>::quiet_NaN(), 0.3}), ModuleQuadrant::unknown);
+  EXPECT_STREQ(module_quadrant_name(ModuleQuadrant::unknown), "unknown");
 }
 }  // namespace ctrl_swerve
