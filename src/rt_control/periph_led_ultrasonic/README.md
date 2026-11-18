@@ -46,8 +46,9 @@ Failed service writes are logged and are not retried. With the default
 six controllers before exit. An uncaught exception escaping the node executor
 makes a best-effort write of red (`255,0,0,0`) to all six controllers before
 returning failure. Each controller is attempted independently. Exit writes use the
-separate `exit_response_timeout_ms` deadline (800 ms by default), bounding six
-sequential attempts when one or more RTU stations are offline.
+separate `exit_response_timeout_ms` deadline (1200 ms in the supplied configuration),
+bounding six sequential attempts when one or more RTU stations are offline; each
+absent station adds that deadline to the exit time.
 
 The abnormal-exit color cannot cover SIGKILL, process memory corruption, host
 power loss or loss of the gateway/RS485 path because the process cannot send a
@@ -83,8 +84,10 @@ memory corruption, gateway failure or RS485 failure.
 gateway channel. It reads `0x0106..0x0109` from RTU unit 1 for channels 1..4,
 then `0x0106..0x0109` from RTU unit 6 for channels 5..8. E08 addresses 2..5 are
 reserved for sensor interfaces and are rejected by configuration validation.
-The supplied configuration uses `192.168.1.12:504`, a 300 ms poll interval and
-a 500 ms deadline per transaction. A22 metadata is fixed and validated as a
+The supplied configuration uses `192.168.1.12:504`, a 300 ms poll interval,
+a 1200 ms deadline per transaction and a 20 ms `request_gap_ms` before each request.
+With two E08 adapters at about 140 ms per read, one poll takes about 320 ms. With one
+E08 absent a poll takes about 1.4 s, still inside the 2.5 s consumer staleness limit. A22 metadata is fixed and validated as a
 3.5 m maximum range and a 40-degree (`0.6981317008 rad`) field of view. The
 A22 angle-level register must be commissioned separately to level 2; this
 read-only driver does not write device configuration.
@@ -173,8 +176,26 @@ still defaults to no hardware acquisition in mock mode.
 
 `infra_modbus` validates the MBAP transaction, protocol, length, unit, function and
 exception response; this package checks the FC16 acknowledgement and FC03 byte count.
-One bounded deadline covers a reconnect, partial send and fragmented receive. Any
+One bounded deadline covers a reconnect, partial send and fragmented receive. A
 failure closes the connection and the next request reconnects; nothing is retried.
+The exception is a reply timeout with no reply byte received: the first such timeout
+keeps the connection and a second consecutive one closes it. The gateway accepts one
+client per port and refuses an immediate reconnect, so closing after every absent
+station also failed the next request to a present one (seen on 2026-11-18).
+
+Both nodes wait `request_gap_ms` (default 20 ms, 0..1000) after the previous
+transaction on the same gateway port before sending the next request. On
+2026-11-18 the RS485-ETH-M04 at HC2 answered 1 of 20 back-to-back reads of units
+1 and 6 with no gap, and 20 of 20 with gaps of 10, 20, 50 and 100 ms. The same
+gateway queues the reply to an abandoned request and delivers it on the next TCP
+connection; `infra_modbus` discards such a reply (an earlier transaction id within
+its stale window) and keeps waiting for the current one, so one timeout no longer
+shifts every later reply by one request.
+
+The gateway sends nothing for an absent RTU station; it holds the RS485 bus for its
+RTU receive timeout (1000 ms on HC0 and HC2) and queues later requests behind it.
+Keep `response_timeout_ms` and `exit_response_timeout_ms` above that value, or a
+request to a present station that follows an absent one also times out.
 
 Build and test with external artifact directories:
 

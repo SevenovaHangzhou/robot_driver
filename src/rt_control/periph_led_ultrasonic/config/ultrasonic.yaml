@@ -6,8 +6,13 @@ ultrasonic_node:
     # Two E08 adapters share HC2, with four sensors on each unit.
     # E08 addresses 2..5 are reserved for its sensor interfaces.
     unit_ids: [1, 6]
-    response_timeout_ms: 500
+    # Must exceed the gateway RTU receive timeout (HC2: 1000 ms). An absent station holds the
+    # RS485 bus that long and later requests wait behind it.
+    response_timeout_ms: 1200
     poll_interval_ms: 300
+    # Idle time before each request on HC2. The RS485-ETH-M04 drops a request sent right after
+    # the previous reply (0 ms: 1/20 replies; 10..100 ms: 20/20 on 2026-11-18).
+    request_gap_ms: 20
     poll_enabled: true
     min_range_m: 0.01
     # Keep this metadata aligned with the A22 angle-level register (level 2 = 40 degrees).

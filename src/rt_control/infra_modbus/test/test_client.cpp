@@ -196,24 +196,51 @@ TEST(ClientTest, ExceptionResponseKeepsTheConnection)
   EXPECT_EQ(server.accepted(), 1);
 }
 
-TEST(ClientTest, TimeoutClosesSoALateReplyIsNeverReadAsTheNextResponse)
+TEST(ClientTest, ReplyTimeoutKeepsTheConnectionAndALateReplyIsNeverReadAsTheNextResponse)
 {
-  Server server([](int fd, int connection) {
+  Server server([](int fd, int) {
     Bytes request = read_request(fd);
-    if (connection == 1) {
-      std::this_thread::sleep_for(300ms);
-      send_all(fd, reply_to(request, {0x01, 0x01, 0x01}));  // late
-      read_request(fd);
-      return;
-    }
+    std::this_thread::sleep_for(300ms);
+    send_all(fd, reply_to(request, {0x01, 0x01, 0x01}));  // late
+    request = read_request(fd);
     send_all(fd, reply_to(request, {0x01, 0x01, 0x00}));
     read_request(fd);
   });
   infra_modbus::Client client("127.0.0.1", server.port(), 100ms);
   EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+  EXPECT_TRUE(client.connected());
+  std::this_thread::sleep_for(300ms);  // the late reply is now queued on the socket
+  EXPECT_EQ(client.transact(1, kReadCoil, 1000ms), (Bytes{0x01, 0x01, 0x00}));
+  EXPECT_EQ(server.accepted(), 1);
+}
+
+TEST(ClientTest, SecondConsecutiveReplyTimeoutCloses)
+{
+  Server server([](int fd, int) {
+    while (!read_request(fd).empty()) {
+    }
+  });
+  infra_modbus::Client client("127.0.0.1", server.port(), 50ms);
+  EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+  EXPECT_TRUE(client.connected());
+  EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
   EXPECT_FALSE(client.connected());
-  EXPECT_EQ(client.transact(1, kReadCoil), (Bytes{0x01, 0x01, 0x00}));
+  EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+  EXPECT_TRUE(client.connected());
   EXPECT_EQ(server.accepted(), 2);
+}
+
+TEST(ClientTest, TimeoutInsideAPartialReplyCloses)
+{
+  Server server([](int fd, int) {
+    const Bytes request = read_request(fd);
+    const Bytes reply = reply_to(request, {0x01, 0x01, 0x01});
+    send_all(fd, Bytes(reply.begin(), reply.begin() + 4));
+    read_request(fd);
+  });
+  infra_modbus::Client client("127.0.0.1", server.port(), 100ms);
+  EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+  EXPECT_FALSE(client.connected());
 }
 
 TEST(ClientTest, PerCallTimeoutOverridesTheDefault)
@@ -228,7 +255,7 @@ TEST(ClientTest, PerCallTimeoutOverridesTheDefault)
   const auto start = std::chrono::steady_clock::now();
   EXPECT_THROW(client.transact(1, kReadCoil, 50ms), std::runtime_error);
   EXPECT_LT(std::chrono::steady_clock::now() - start, 1000ms);
-  EXPECT_FALSE(client.connected());
+  EXPECT_TRUE(client.connected());
   EXPECT_THROW(client.transact(1, kReadCoil, 0ms), std::invalid_argument);
 }
 
@@ -250,6 +277,83 @@ TEST(ClientTest, MismatchedTransactionOrFunctionClosesTheConnection)
   EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
   EXPECT_FALSE(client.connected());
   EXPECT_EQ(server.accepted(), 2);
+}
+
+// Gateway behaviour seen on RS485-ETH-M04: the reply to an abandoned request is delivered on the
+// next connection, before the reply to the new request.
+TEST(ClientTest, LateReplyQueuedOnTheNextConnectionIsDiscarded)
+{
+  Server server([](int fd, int connection) {
+    static Bytes abandoned;
+    Bytes request = read_request(fd);
+    if (connection == 1) {
+      abandoned = request;
+      read_request(fd);  // the client gives up and closes
+      return;
+    }
+    send_all(fd, reply_to(abandoned, {0x01, 0x01, 0x01}));  // stale
+    send_all(fd, reply_to(request, {0x01, 0x01, 0x00}));
+    request = read_request(fd);
+    send_all(fd, reply_to(request, {0x01, 0x01, 0x00}));
+    read_request(fd);
+  });
+  infra_modbus::Client client("127.0.0.1", server.port(), 100ms);
+  EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+  client.close();
+  EXPECT_EQ(client.transact(1, kReadCoil, 1000ms), (Bytes{0x01, 0x01, 0x00}));
+  EXPECT_TRUE(client.connected());
+  EXPECT_EQ(client.transact(1, kReadCoil, 1000ms), (Bytes{0x01, 0x01, 0x00}));
+  EXPECT_EQ(server.accepted(), 2);
+}
+
+TEST(ClientTest, OnlyRecentEarlierTransactionIdsAreTreatedAsLateReplies)
+{
+  Server server([](int fd, int) {
+    Bytes request = read_request(fd);
+    Bytes stale = reply_to(request, {0x01, 0x01, 0x01});
+    stale[1] = static_cast<std::uint8_t>(stale[1] - 1U);  // previous id
+    send_all(fd, stale);
+    send_all(fd, reply_to(request, {0x01, 0x01, 0x00}));
+    request = read_request(fd);
+    Bytes old = reply_to(request, {0x01, 0x01, 0x01});
+    const auto id = static_cast<std::uint16_t>(
+      ((request[0] << 8) | request[1]) - infra_modbus::Client::kStaleTransactionWindow - 1U);
+    old[0] = static_cast<std::uint8_t>(id >> 8);
+    old[1] = static_cast<std::uint8_t>(id);
+    send_all(fd, old);
+    read_request(fd);
+  });
+  infra_modbus::Client client("127.0.0.1", server.port(), 1000ms);
+  EXPECT_EQ(client.transact(1, kReadCoil), (Bytes{0x01, 0x01, 0x00}));
+  EXPECT_TRUE(client.connected());
+  EXPECT_THROW(client.transact(1, kReadCoil), std::runtime_error);
+  EXPECT_FALSE(client.connected());
+}
+
+TEST(ClientTest, MinimumRequestGapSeparatesConsecutiveRequests)
+{
+  std::vector<std::chrono::steady_clock::time_point> replied;
+  std::vector<std::chrono::steady_clock::time_point> received;
+  {
+    Server server([&](int fd, int) {
+      for (Bytes request; !(request = read_request(fd)).empty();) {
+        received.push_back(std::chrono::steady_clock::now());
+        send_all(fd, reply_to(request, {0x01, 0x01, 0x00}));
+        replied.push_back(std::chrono::steady_clock::now());
+      }
+    });
+    infra_modbus::Client client("127.0.0.1", server.port(), 1000ms);
+    EXPECT_THROW(client.set_min_request_gap(-1ms), std::invalid_argument);
+    client.set_min_request_gap(40ms);
+    for (int i = 0; i < 3; ++i) {
+      EXPECT_EQ(client.transact(1, kReadCoil), (Bytes{0x01, 0x01, 0x00}));
+    }
+    client.close();
+  }  // joins the server worker before its records are read
+  ASSERT_EQ(received.size(), 3U);
+  for (std::size_t i = 1; i < received.size(); ++i) {
+    EXPECT_GE(received[i] - replied[i - 1], 40ms);
+  }
 }
 
 TEST(ClientTest, PeerCloseIsDetectedAndTheNextCallReconnects)
