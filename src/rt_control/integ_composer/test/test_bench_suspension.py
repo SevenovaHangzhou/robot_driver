@@ -149,15 +149,15 @@ def test_real_drive_config_carries_the_confirmed_scale_speed_and_ramps(shares, t
     system = result.systems[0]["result"]
     config = yaml.safe_load(system["runtime_files"]["suspension.yaml"])
     pp = config["pp"]
-    # 65535 counts per motor turn over 5 mm; the motor's positive direction is down.
-    assert pp["counts_per_metre"] == pytest.approx(-65535 / 0.005)
+    # 65535 counts per motor turn over 20 mm (40 mm lead, 2:1); the motor's positive is down.
+    assert pp["counts_per_metre"] == pytest.approx(-65535 / 0.02)
     assert (pp["zero_counts"], pp["min_position"], pp["max_position"]) == (ZERO, 0.0, 0.18)
-    # 0x6081/0x607F in 0.1 r/min: 1 m/s = 200 r/s = 120000; 30 mm/s = 3600.
-    assert pp["profile_velocity_per_metre_per_second"] == pytest.approx(120000.0)
-    assert (pp["max_velocity"], pp["max_profile_velocity"]) == (0.03, 3600)
+    # 0x6081/0x607F in 0.1 r/min: 1 m/s = 50 r/s = 30000; 30 mm/s = 900.
+    assert pp["profile_velocity_per_metre_per_second"] == pytest.approx(30000.0)
+    assert (pp["max_velocity"], pp["max_profile_velocity"]) == (0.03, 900)
     assert config["sdo"] == [
-        {"index": 0x6083, "sub_index": 0, "type": "uint32", "value": 1400},
-        {"index": 0x6084, "sub_index": 0, "type": "uint32", "value": 1400},
+        {"index": 0x6083, "sub_index": 0, "type": "uint32", "value": 5556},
+        {"index": 0x6084, "sub_index": 0, "type": "uint32", "value": 5556},
     ]
     assert config["use_slave_pdo_defaults"] is True
     assert (config["vendor_id"], config["product_id"], config["assign_activate"]) == (
@@ -172,12 +172,12 @@ def test_preflight_checks_identity_saved_pdos_and_the_start_position(shares, tmp
     result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
     preflight(result, run=scan())
     # Inside the 2.5 mm hard-stop margin below zero (the motor counts up when moving down).
-    preflight(result, run=scan(position=ZERO + int(0.002 * 13107000)))
+    preflight(result, run=scan(position=ZERO + int(0.002 * 3276750)))
     with pytest.raises(RuntimeError, match="responder count"):
         preflight(result, run=scan(slaves=18))
     with pytest.raises(RuntimeError, match="saved PDO 0x1600"):
         preflight(result, run=scan(saved_mode_entry=0x60600010))
     with pytest.raises(RuntimeError, match="position range"):
-        preflight(result, run=scan(position=ZERO + int(0.003 * 13107000)))
+        preflight(result, run=scan(position=ZERO + int(0.003 * 3276750)))
     with pytest.raises(RuntimeError, match="position range"):
-        preflight(result, run=scan(position=ZERO - int(0.183 * 13107000)))
+        preflight(result, run=scan(position=ZERO - int(0.183 * 3276750)))
