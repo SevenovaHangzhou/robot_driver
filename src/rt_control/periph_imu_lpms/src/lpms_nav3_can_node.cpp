@@ -12,7 +12,6 @@
 #include <net/if.h>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
-#include <sensor_msgs/msg/magnetic_field.hpp>
 #include "robot_interfaces_qos/profiles.hpp"
 #include "robot_rt_control_interfaces/msg/observation_meta.hpp"
 #include "robot_rt_control_interfaces/msg/sensor_status.hpp"
@@ -111,8 +110,8 @@ public:
     initialise_instance_id();
     imu_publisher_ =
       create_publisher<sensor_msgs::msg::Imu>(imu_topic, robot_interfaces_qos::fast_state());
-    magnetic_field_publisher_ = create_publisher<sensor_msgs::msg::MagneticField>(
-      "~/mag", robot_interfaces_qos::fast_state());
+    bias_corrected_gyro_publisher_ = create_publisher<sensor_msgs::msg::Imu>(
+      "~/gyro_bias_corrected", robot_interfaces_qos::fast_state());
     diagnostics_publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       diagnostics_topic, robot_interfaces_qos::diagnostic());
     sensor_status_publisher_ =
@@ -189,6 +188,7 @@ private:
     infra_socketcan::Socket candidate;
     try {
       candidate.open(can_interface_, {filters.begin(), filters.end()});
+      candidate.enable_receive_timestamps();
     } catch (const std::exception & error) {
       record_socket_error("failed to open " + can_interface_ + ": " + error.what());
       return;
@@ -232,7 +232,8 @@ private:
 
     for (std::size_t iteration = 0U; iteration < 256U; ++iteration) {
       can_frame raw_frame{};
-      const int received = socket_.receive(raw_frame);
+      timespec kernel_time{};
+      const int received = socket_.receive(raw_frame, kernel_time);
       if (received == 0) {
         return;
       }
@@ -277,6 +278,7 @@ private:
       }
       if (is_pdo && starts_new_assembly) {
         assembly_started_time_ = receive_time;
+        assembly_kernel_time_ = kernel_time;
         has_partial_assembly_ = true;
       }
       if (result.heartbeat_state.has_value()) {
@@ -289,24 +291,34 @@ private:
         last_sample_time_ = receive_time;
         has_sample_ = true;
         ++published_sample_count_;
-        publish_sample(*result.sample);
+        publish_sample(*result.sample, assembly_kernel_time_);
       }
     }
   }
 
-  void publish_sample(const ImuSample & raw_sample)
+  // The sample is stamped with the kernel receive time of its first TPDO (CLOCK_REALTIME, the
+  // ROS time base without sim time). It is not a device sample time: the device has none.
+  void publish_sample(const ImuSample & raw_sample, const timespec & first_frame_kernel_time)
   {
     const auto sample = convert_to_ros_convention(raw_sample, convert_to_ros_);
     auto imu_message =
       make_imu_message(sample, orientation_covariance_, angular_velocity_covariance_);
-    auto magnetic_field_message = make_magnetic_field_message(sample);
-    const auto stamp = now();
-    last_sample_stamp_ = stamp;
-    imu_message.header.stamp = stamp;
+    auto gyro_message = make_bias_corrected_gyro_message(sample);
+    last_sample_kernel_stamped_ =
+      first_frame_kernel_time.tv_sec != 0 || first_frame_kernel_time.tv_nsec != 0;
+    if (last_sample_kernel_stamped_) {
+      imu_message.header.stamp.sec = static_cast<std::int32_t>(first_frame_kernel_time.tv_sec);
+      imu_message.header.stamp.nanosec =
+        static_cast<std::uint32_t>(first_frame_kernel_time.tv_nsec);
+    } else {
+      imu_message.header.stamp = now();
+      ++publication_stamped_sample_count_;
+    }
+    last_sample_stamp_ = imu_message.header.stamp;
     imu_message.header.frame_id = frame_id_;
-    magnetic_field_message.header = imu_message.header;
+    gyro_message.header = imu_message.header;
     imu_publisher_->publish(imu_message);
-    magnetic_field_publisher_->publish(magnetic_field_message);
+    bias_corrected_gyro_publisher_->publish(gyro_message);
   }
 
   [[nodiscard]] static double age_ms(
@@ -359,6 +371,7 @@ private:
     status.add("malformed_frames", std::to_string(malformed_frame_count_));
     status.add("dropped_assemblies", std::to_string(dropped_assembly_count_));
     status.add("connect_attempts", std::to_string(connect_attempt_count_));
+    status.add("publication_stamped_samples", std::to_string(publication_stamped_sample_count_));
     status.add("last_socket_error", last_socket_error_);
 
     robot_rt_control_interfaces::msg::SensorStatusArray public_status;
@@ -369,7 +382,9 @@ private:
     imu_status.data_topic = "/rt/imu/data";
     imu_status.observation.stamp = last_sample_stamp_;
     imu_status.observation.time_source =
-      robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_PUBLICATION;
+      last_sample_kernel_stamped_
+        ? robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_HOST_RECEIVE
+        : robot_rt_control_interfaces::msg::ObservationMeta::TIME_SOURCE_PUBLICATION;
     imu_status.observation.valid = status.level == diagnostic_msgs::msg::DiagnosticStatus::OK;
     imu_status.observation.source_instance_id = producer_instance_id_;
     imu_status.observation.sample_sequence = published_sample_count_;
@@ -439,11 +454,14 @@ private:
   std::uint64_t malformed_frame_count_{0U};
   std::uint64_t dropped_assembly_count_{0U};
   std::uint64_t connect_attempt_count_{0U};
+  std::uint64_t publication_stamped_sample_count_{0U};
+  timespec assembly_kernel_time_{};
+  bool last_sample_kernel_stamped_{false};
   std::string last_socket_error_;
   builtin_interfaces::msg::Time last_sample_stamp_;
   unique_identifier_msgs::msg::UUID producer_instance_id_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::MagneticField>::SharedPtr magnetic_field_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr bias_corrected_gyro_publisher_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
   rclcpp::Publisher<robot_rt_control_interfaces::msg::SensorStatusArray>::SharedPtr
     sensor_status_publisher_;

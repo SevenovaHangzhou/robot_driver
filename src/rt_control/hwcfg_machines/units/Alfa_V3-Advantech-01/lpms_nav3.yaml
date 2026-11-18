@@ -1,0 +1,33 @@
+# LPMS-NAV3 chassis IMU of Alfa_V3-Advantech-01; parameters of periph_imu_lpms.
+# can3 node 1 (deployment.yaml authorities, user 2026-11-05); 500 kbit/s set by the host.
+# No mounting rotation: frame_id names the sensor axes. Measured mounting yaw +90.0 ± 0.5 deg
+# (sensor X to chassis left) and ~8 ms lag versus wheel yaw rate (ELECTRI-181 report
+# 2026-10-20) are navigation's extrinsic and time calibration.
+# angular_velocity_covariance: commissioned Advantech value (static X/Y noise, steady-turn Z
+# interval; provisional, no independent rate reference). Orientation is not fused: unknown (0).
+/**:
+  ros__parameters:
+    can_interface: can3
+    node_id: 1
+    frame_id: imu_link
+    convert_to_ros_convention: false
+    orientation_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    angular_velocity_covariance:
+    - 9.363859e-07
+    - 3.481037e-09
+    - 0.0
+    - 3.481037e-09
+    - 1.131485e-06
+    - 0.0
+    - 0.0
+    - 0.0
+    - 5.312287e-06
+    require_heartbeat: true
+    poll_period_ms: 2
+    reconnect_period_ms: 1000
+    pdo_timeout_ms: 250
+    assembly_timeout_ms: 50
+    heartbeat_timeout_ms: 2500
+    imu_topic: /rt/imu/data
+    diagnostics_topic: ~/diagnostics
+    sensor_status_topic: /rt/sensors/state

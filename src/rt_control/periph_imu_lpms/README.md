@@ -30,28 +30,38 @@ All IDs below are standard classic CAN data frames, offset by configured Node ID
 | Base ID | Payload |
 | --- | --- |
 | 0x180 | acceleration XYZ (0.001 g/LSB), gyro X (0.1 deg/s/LSB) |
-| 0x280 | gyro YZ, magnetic field XY (0.01 uT/LSB) |
-| 0x380 | magnetic field Z, Euler XYZ (0.01 deg/LSB) |
+| 0x280 | gyro YZ, bias-calibrated gyro XY (0.1 deg/s/LSB) |
+| 0x380 | bias-calibrated gyro Z, Euler XYZ (0.01 deg/LSB) |
 | 0x480 | quaternion WXYZ (0.0001/LSB) |
 | 0x700 | heartbeat, including the observed zero-padded DLC=8 form |
 
-Conversion is g to m/s², deg/s to rad/s, and uT to tesla. A sample requires all
-four TPDOs; old partial assemblies are discarded on the next incoming PDO after
-`assembly_timeout_ms`. No device sample counter is available, so assembly is
-host-arrival based and is not proof that the four frames share a device timestamp.
-ROS timestamp is publication time, not hardware or kernel CAN capture time.
+Channel layout of the installed sensor (sensor team host-tool readback 2026-10-19, kept on
+`feature/electri-127-chassis-imu`): channels 1..3 calibrated acceleration (gravity
+retained, about +1 g on Z at rest), 4..6 axis-alignment-calibrated gyro, 7..9
+static-bias-calibrated gyro, 10..12 Euler, 13..16 quaternion WXYZ. There is no
+magnetometer channel. The Advantech raw CAN log of 2026-10-20 agrees: channels 7..9 track
+4..6 (correlation 0.95/0.97/1.00 during full turns, equal integrated yaw). The NAV3-CAN
+port only transmits data; mapping and filter-mode readback needs the TTL port.
+
+Conversion is g to m/s² and deg/s to rad/s. A sample requires all four TPDOs; old
+partial assemblies are discarded on the next incoming PDO after `assembly_timeout_ms`.
+No device sample counter or device time is available, so assembly is host-arrival based.
+The header stamp is the kernel SocketCAN receive time (`SO_TIMESTAMPNS`, CLOCK_REALTIME)
+of the sample's first TPDO and `/rt/sensors/state` reports `TIME_SOURCE_HOST_RECEIVE`.
+A frame without a kernel stamp falls back to publication time, reported as
+`TIME_SOURCE_PUBLICATION` and counted in the `publication_stamped_samples` diagnostic.
 
 ## Topics
 
 | Topic | Type | QoS |
 | --- | --- | --- |
 | `/rt/imu/data` | sensor_msgs/msg/Imu | robot_interfaces_qos::fast_state (reliable) |
-| `~/mag` | sensor_msgs/msg/MagneticField | fast_state (reliable), RT-local commissioning only |
+| `~/gyro_bias_corrected` | sensor_msgs/msg/Imu, angular velocity only | fast_state (reliable), RT-local commissioning only |
 | `~/diagnostics` | diagnostic_msgs/msg/DiagnosticArray | diagnostic (reliable), engineering diagnostics |
 | `/rt/sensors/state` | robot_rt_control_interfaces/msg/SensorStatusArray | state (reliable), cross-domain validity |
 
 The IMU observation and structured validity status are public contract endpoints.
-The magnetic field remains an RT-local commissioning endpoint. Publication uses
+The bias-calibrated gyro remains an RT-local commissioning endpoint. Publication uses
 repository named QoS profiles.
 
 `convert_to_ros_convention=false` keeps LPMS axes after SI conversion. The optional
@@ -61,9 +71,10 @@ arrays default to zero (unknown), not calibrated. `orientation_covariance` and
 `angular_velocity_covariance` are startup-only parameters containing nine finite
 numbers in row-major 3x3 order, in rad² and (rad/s)² respectively. Set them in the
 YAML using manufacturer or calibration evidence, then restart the node. Invalid
-lengths or non-finite values reject startup. Acceleration and magnetic covariance
-remain zero (unknown). Quaternion validity, magnetic
-calibration and extrinsics must be verified before navigation fusion.
+lengths or non-finite values reject startup. Acceleration covariance remains zero
+(unknown). No mounting rotation is applied: `frame_id` names the sensor's own axes and
+the mounting extrinsic belongs to the consumer's calibration, not to this driver.
+Quaternion validity must be verified before fusing orientation.
 
 ## Build And Static Validation
 

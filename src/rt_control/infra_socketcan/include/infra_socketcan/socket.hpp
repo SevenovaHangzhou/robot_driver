@@ -2,6 +2,7 @@
 #define INFRA_SOCKETCAN__SOCKET_HPP_
 
 #include <linux/can.h>
+#include <time.h>
 
 #include <string>
 #include <vector>
@@ -28,12 +29,18 @@ public:
   [[nodiscard]] bool is_open() const noexcept;
   // Kernel index of the bound interface; it changes when a USB adapter is re-enumerated.
   [[nodiscard]] int interface_index() const noexcept;
+  // Ask the kernel to attach its CLOCK_REALTIME receive time to each frame (SO_TIMESTAMPNS).
+  // Throws std::system_error.
+  void enable_receive_timestamps();
 
   // The calls below never block or throw, so they may run in a real-time loop.
   // send: 0 on success, -errno on failure.
   [[nodiscard]] int send(const can_frame & frame) const noexcept;
   // receive: 1 with `frame` filled, 0 when no frame is queued, -errno on failure.
   [[nodiscard]] int receive(can_frame & frame) const noexcept;
+  // As above; `kernel_time` is the kernel receive time, or zero when the frame carries none
+  // (timestamps not enabled).
+  [[nodiscard]] int receive(can_frame & frame, timespec & kernel_time) const noexcept;
   // wait_readable: 1 readable, 0 timed out, -errno on failure (-EINTR is returned, not retried;
   // -EIO when poll reports POLLERR, POLLHUP or POLLNVAL).
   [[nodiscard]] int wait_readable(int timeout_ms) const noexcept;

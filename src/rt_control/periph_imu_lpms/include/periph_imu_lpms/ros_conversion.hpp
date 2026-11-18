@@ -6,7 +6,6 @@
 #include "periph_imu_lpms/protocol/decoder.hpp"
 
 #include <sensor_msgs/msg/imu.hpp>
-#include <sensor_msgs/msg/magnetic_field.hpp>
 
 namespace periph_imu_lpms
 {
@@ -17,7 +16,9 @@ namespace periph_imu_lpms
   const ImuSample & sample, const std::array<double, 9U> & orientation_covariance,
   const std::array<double, 9U> & angular_velocity_covariance);
 
-[[nodiscard]] sensor_msgs::msg::MagneticField make_magnetic_field_message(const ImuSample & sample);
+// Channels 7..9 (static-bias-calibrated gyro) as an Imu carrying angular velocity only:
+// orientation and linear acceleration are marked absent (covariance[0] = -1).
+[[nodiscard]] sensor_msgs::msg::Imu make_bias_corrected_gyro_message(const ImuSample & sample);
 
 }  // namespace periph_imu_lpms
 
