@@ -2,8 +2,9 @@ repositories:
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git
-    # robot_interfaces main after #19 (base CSV/CSP mode switching, base wheel trajectory).
-    version: 78f02ffe5b8f40a9f57bf9405cd00e007914fc84
+    # robot_interfaces feat/R-OUT-29-wheel-observations (R-OUT-29 wheel observations); replace with
+    # the main merge commit before merging.
+    version: 46a027308ca08b7931ae25eba5638957411e5279
   src/vendor/ecat_icube:
     type: git
     url: https://github.com/ICube-Robotics/ethercat_driver_ros2.git

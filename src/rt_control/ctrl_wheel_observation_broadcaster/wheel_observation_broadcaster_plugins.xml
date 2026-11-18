@@ -1,0 +1,7 @@
+<library path="wheel_observation_broadcaster">
+  <class name="ctrl_wheel_observation_broadcaster/WheelObservationBroadcaster"
+         type="ctrl_wheel_observation_broadcaster::WheelObservationBroadcaster"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>Per-wheel drive, steering-motor and external-encoder feedback with per-channel timing (R-OUT-29).</description>
+  </class>
+</library>

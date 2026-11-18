@@ -54,3 +54,5 @@
 [arm-control-20261024-01](records/2026-10-24-vacuum-web-controls.md)#F1-F3：临时真空三按钮复用现场脚本，右阀00、左阀01、泵02；网页轮询只读，开关不自动联动。105项测试与浏览器模拟通过，实际读回三路OFF，实机开关待验（PARTIAL，T2）。
 
 [arm-control-20261027-01](records/2026-10-27-vacuum-pressure-display.md)#F1-F3：操作台右上角消费左右压力 ROS 话题，AI0=左、AI1=右，显示换算后的 kPa 表压；单路无效或超过 1 秒未更新清除数字，与泵阀和运动准入独立。107 项包测试、构建、质量门禁及真实页面只读验收通过（PASS，T2）。
+
+[control-20261118-01](records/2026-11-18-wheel-observations.md)#F1-F2：新增只读逐轮观测广播器 R-OUT-29（失能与轮子轨迹模式下照常发布）；打滑诊断与逐轮观测的 FL/FR/RL/RR 由标定坐标推出（研华 module_1..4 = FR/RR/FL/RL）。本机构建与包测试通过，mock 与实机未验（UNVERIFIED，T0）。
