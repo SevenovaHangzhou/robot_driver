@@ -50,16 +50,18 @@ def arguments(shares, *, confirmed=True):
 
 def scan(
     topology_ports=((1, "MII", 9), (2, "EBUS", 17), (3, "MII", 1)),
-    slaves=18,
+    slaves=19,
     errors=None,
     faulted=(),
 ):
-    """Connected dual arms plus two passive BluePoint tails, cached SII scan 2026-10-24."""
+    """Connected dual arms plus two passive BluePoint tails (cached SII scan 2026-10-24) and the
+    passive Tongyi suspension drive behind the sub-coupler (read back 2026-11-17)."""
     identities = {
         0: (0x00100000, 0x10F40931),
         17: (0x00100000, 0x10F40932),
         8: (0xA1, 0x8081),
         16: (0xA1, 0x8081),
+        18: (0x0000034E, 0x00445566),
     }
     identities.update({ring: (0x5A65726F, 0x00029252) for ring in [*range(1, 8), *range(9, 16)]})
 
@@ -70,7 +72,7 @@ def scan(
         if command[1] == "slaves":
             blocks = []
             for ring, (vendor, product) in sorted(identities.items()):
-                revision = 0x00010000 if ring in (0, 17) else 0x00000001
+                revision = 0x00010000 if ring in (0, 17) else 0 if ring == 18 else 0x00000001
                 block = (
                     f"=== Master 0, Slave {ring} ===\nState: PREOP\n"
                     f"Vendor Id:       0x{vendor:08x}\nProduct code:    0x{product:08x}\n"
@@ -130,13 +132,13 @@ def test_real_topology_matches_the_bench_scan(shares, tmp_path):
         use_mock_hardware=False,
     )
     topology = result.systems[0]["result"]["expected_topology"]
-    assert [item["ring_position"] for item in topology["responders"]] == list(range(18))
+    assert [item["ring_position"] for item in topology["responders"]] == list(range(19))
     assert topology["branches"] == [{"main_esc_port": 3, "downstream": 1}]
     assert topology["internal_ports"] == [{"main_esc_port": 2, "downstream": 17}]
     assert topology["preflight_required"] is True
     preflight(result, run=scan())
     with pytest.raises(RuntimeError, match="responder count"):
-        preflight(result, run=scan(slaves=17))
+        preflight(result, run=scan(slaves=18))
     with pytest.raises(RuntimeError, match="Branch wiring"):
         preflight(result, run=scan(topology_ports=((2, "EBUS", 8), (1, "MII", 1))))
 

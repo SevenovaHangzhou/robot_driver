@@ -6,6 +6,7 @@ authorities:
   source: machines/Alfa_V3/arms.yaml left branch + read-only EtherCAT scan 2026-10-17 (ar-Default-string)
   direction: user 2026-10-18 - all +1, joint positive = encoder count increasing; robot_alfav3_mobile.urdf (5ec6b65) flips the left J3/J6 export axis so the model still matches the arm
 pending_facts:
+- Tongyi suspension drive at ring18 is a passive bench responder (user 2026-11-17, bench test of the active suspension); remove when it leaves this bus
 - BluePoint sensors at rings8/16 are topology-only; force PDO/driver integration deferred
 - 'PP Halt policy: live firmware has no 0x605D object'
 - verified nonwrapping single-turn range for J3
@@ -51,6 +52,9 @@ spec:
   - ring_position: 17
     profile: inovance_gr10_coupler
     identity_key: coupler_subdevice
+  - ring_position: 18
+    profile: tongyi_xmc_esc
+    identity_key: xmc_esc
   branches:
     left:
       connector: X2
