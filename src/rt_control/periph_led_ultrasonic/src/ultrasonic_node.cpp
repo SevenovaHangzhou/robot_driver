@@ -33,7 +33,7 @@ class UltrasonicNode final : public rclcpp::Node
 public:
   UltrasonicNode() : Node("ultrasonic_node")
   {
-    gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.12"));
+    gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.14"));
     gateway_port_ = declare_parameter<int64_t>("gateway_port", 504);
     unit_ids_ = declare_parameter<std::vector<int64_t>>("unit_ids", {1, 6});
     response_timeout_ms_ = declare_parameter<int64_t>("response_timeout_ms", 500);

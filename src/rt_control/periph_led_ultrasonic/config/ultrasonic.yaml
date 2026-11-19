@@ -1,6 +1,7 @@
 ultrasonic_node:
   ros__parameters:
-    gateway_ip: "192.168.1.12"
+    # The DIO module of periph_plc_io owns 192.168.1.12; the gateway moved to .14 on 2026-11-18.
+    gateway_ip: "192.168.1.14"
     # HC2 maps to TCP 504 and terminals A2+/B2-.
     gateway_port: 504
     # Two E08 adapters share HC2, with four sensors on each unit.

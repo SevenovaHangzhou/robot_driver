@@ -21,7 +21,7 @@ class LedStripNode final : public rclcpp::Node
 public:
   LedStripNode() : Node("led_strip_node")
   {
-    gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.12"));
+    gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.14"));
     ports_ = declare_parameter("gateway_ports", std::vector<int64_t>{502, 502, 502, 502, 502, 502});
     addresses_ = declare_parameter("controller_addresses", std::vector<int64_t>{1, 2, 3, 4, 5, 6});
     response_timeout_ms_ = declare_parameter<int64_t>("response_timeout_ms", 500);

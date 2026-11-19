@@ -1,6 +1,7 @@
 led_strip_node:
   ros__parameters:
-    gateway_ip: "192.168.1.12"
+    # The DIO module of periph_plc_io owns 192.168.1.12; the gateway moved to .14 on 2026-11-18.
+    gateway_ip: "192.168.1.14"
     gateway_ports: [502, 502, 502, 502, 502, 502]
     # 六个控制器共享 HC0/502，使用现场配置的独立 RTU 站号。
     controller_addresses: [1, 2, 3, 4, 5, 6]
