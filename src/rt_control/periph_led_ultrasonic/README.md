@@ -24,10 +24,14 @@ clamping them. A successful result proves only that the Modbus write was
 acknowledged; the hardware has no light-output feedback.
 
 The supplied `led_strip.yaml` defines six controllers sharing TCP 502 and using
-RTU addresses 1 through 6. Change it only after checking the physical bus.
+RTU addresses 1 through 6.
+
+The gateway address is `192.168.1.14`. It was `192.168.1.12` until 2026-11-18,
+when that address was found shared with the PLC digital I/O module
+(`periph_plc_io`); the gateway was moved and the DIO module keeps `.12`. Change it only after checking the physical bus.
 ```bash
 mbpoll -v -m tcp -a 1 -0 -r 4 -c 1 -t 4:hex -1 -o 2 \
-  -p 502 192.168.1.12
+  -p 502 192.168.1.14
 ```
 ```bash
 ros2 run periph_led_ultrasonic led_strip_node --ros-args \
@@ -84,7 +88,7 @@ memory corruption, gateway failure or RS485 failure.
 gateway channel. It reads `0x0106..0x0109` from RTU unit 1 for channels 1..4,
 then `0x0106..0x0109` from RTU unit 6 for channels 5..8. E08 addresses 2..5 are
 reserved for sensor interfaces and are rejected by configuration validation.
-The supplied configuration uses `192.168.1.12:504`, a 300 ms poll interval,
+The supplied configuration uses `192.168.1.14:504`, a 300 ms poll interval,
 a 1200 ms deadline per transaction and a 20 ms `request_gap_ms` before each request.
 With two E08 adapters at about 140 ms per read, one poll takes about 320 ms. With one
 E08 absent a poll takes about 1.4 s, still inside the 2.5 s consumer staleness limit. A22 metadata is fixed and validated as a
@@ -145,9 +149,9 @@ Direct communication check without ROS:
 
 ```bash
 mbpoll -v -m tcp -a 1 -0 -r 262 -c 4 -t 4:hex -1 -o 2 \
-  -p 504 192.168.1.12
+  -p 504 192.168.1.14
 mbpoll -v -m tcp -a 6 -0 -r 262 -c 4 -t 4:hex -1 -o 2 \
-  -p 504 192.168.1.12
+  -p 504 192.168.1.14
 ```
 
 ## Bringup and offline verification

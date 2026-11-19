@@ -41,7 +41,7 @@ DYP-E084F-V2.0（站号 1、6，9600），HC0/502 挂 WE-10x LED 控制器（站
   - `set_min_request_gap()`：同一客户端两次请求之间的最小空闲时间，默认 0（PLC 行为不变）。
 - `periph_led_ultrasonic`：两节点新增 `request_gap_ms`（默认 20，0..1000）；随包配置
   `response_timeout_ms` 与 LED `exit_response_timeout_ms` 改为 1200 ms（须大于网关 RTU 接收超时）。
-  随包配置的 `gateway_ip` 仍为 192.168.1.12，未改。
+  随包配置的 `gateway_ip` 在 #295 中仍为 192.168.1.12；后续变更改为 192.168.1.14（两节点默认值同改），DIO 保留 .12。
 
 ## 验证
 
