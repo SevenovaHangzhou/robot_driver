@@ -69,7 +69,7 @@ Each `controllers.yaml` entry lists ordered `parameters` sources and selection
 
 | Kind | Result |
 | --- | --- |
-| `yaml` | Subtree of an owner YAML file at `path` |
+| `yaml` | Subtree of an owner YAML file at `path`; optional `joint_order: {policy, path}` selects a joint-keyed mapping in policy order, requiring every selected joint |
 | `policy` | Selected policy value: `path`, `overlay`, `keys_from`, `transform` (`flatten`, `lengths`) |
 | `controllers` | Names of selected controllers with a `tag`: `first`, `all` or `any` |
 | `owner_parameters` | Renderer `controller_parameters[controller]` |

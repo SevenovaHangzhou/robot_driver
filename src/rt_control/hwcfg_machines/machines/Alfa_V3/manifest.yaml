@@ -52,6 +52,16 @@ layout:
   damiao_can:
     cycle_hz: 1000
 policy_refs:
+  arm_acceleration:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: acceleration_limits.schema.json
+  gravity:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/gravity_feedforward.yaml
+    schema_package: ctrl_gravity_feedforward
+    schema: gravity.schema.json
   enable:
     package: hwcfg_machines
     file: machines/Alfa_V3/policies/Alfa_V3_enable_policy.yaml

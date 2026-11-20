@@ -15,7 +15,6 @@
   <depend>hw_semantic_components</depend>
   <depend>pluginlib</depend>
   <exec_depend>ethercat_driver</exec_depend>
-  <exec_depend>ethercat_generic_cia402_drive</exec_depend>
   <exec_depend>hardware_interface</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>xacro</exec_depend>
@@ -23,7 +22,7 @@
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>gripper_controllers</test_depend>
   <test_depend>hardware_interface</test_depend>
-  <test_depend>ethercat_generic_cia402_drive</test_depend>
+  <depend>ethercat_generic_cia402_drive</depend>
   <test_depend>python3-yaml</test_depend>
   <export>
     <build_type>ament_cmake</build_type>

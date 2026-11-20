@@ -43,6 +43,11 @@ void EnableManagerController::handleEnable(
     release_callback();
     return;
   }
+  if (emergencyStopBlocksEnable()) {
+    fillImmediateResponse(*response, false, Stage::kEmergencyStop);
+    release_callback();
+    return;
+  }
   if (restart_required_.load(std::memory_order_acquire)) {
     fillImmediateResponse(*response, false, Stage::kRestartRequired);
     release_callback();
@@ -88,7 +93,7 @@ void EnableManagerController::handleEnable(
   jtc_deactivation_required_.store(true, std::memory_order_release);
   const SwitchResult activation_result = switchJtc(true);
   if (activation_result != SwitchResult::kSuccess) {
-    if (activation_result == SwitchResult::kFailed) {
+    if (activation_result == SwitchResult::kFailed && !emergencyStopBlocksEnable()) {
       jtc_deactivation_required_.store(false, std::memory_order_release);
     }
     if (activation_result == SwitchResult::kAmbiguous) {
@@ -229,6 +234,11 @@ void EnableManagerController::handleResetFault(
     release_callback();
     return;
   }
+  if (emergencyStopBlocksReset()) {
+    fillImmediateResponse(*response, false, Stage::kEmergencyStop);
+    release_callback();
+    return;
+  }
   if (restart_required_.load(std::memory_order_acquire)) {
     fillImmediateResponse(*response, false, Stage::kRestartRequired);
     release_callback();
@@ -338,6 +348,7 @@ void EnableManagerController::fillImmediateResponse(
 
 EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool activate)
 {
+  if (activate && emergencyStopBlocksEnable()) return SwitchResult::kFailed;
   // Stationary commissioning exposes no motion command interfaces. Its explicit
   // policy has no trajectory controller to activate; drive-state, timeout,
   // fault, rollback and ordered-disable paths still run normally.
@@ -379,6 +390,10 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;
   request->timeout = rclcpp::Duration::from_seconds(controller_switch_timeout_seconds_);
+  if (activate && emergencyStopBlocksEnable()) {
+    clear_in_progress();
+    return SwitchResult::kFailed;
+  }
   auto future = switch_client_->async_send_request(request);
   const auto wait_status =
     future.wait_for(std::chrono::duration<double>(controller_switch_timeout_seconds_));

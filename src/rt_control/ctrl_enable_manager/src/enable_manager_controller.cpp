@@ -286,6 +286,7 @@ controller_interface::return_type EnableManagerController::update(
     actual_sample_version_.fetch_add(1U, std::memory_order_release);
   }
   const std::int64_t now_ns = time.nanoseconds();
+  updateEmergencyStop(now_ns);
   Phase phase = phase_.load(std::memory_order_acquire);
   const int offline = offlineSource();
   offline_now_.store(offline, std::memory_order_relaxed);
@@ -372,6 +373,7 @@ controller_interface::return_type EnableManagerController::update(
           has_fault = has_fault || reset_targets_[axis];
         }
         if (!has_fault) {
+          emergency_stop_latched_.store(false, std::memory_order_release);
           clearFailure();
           publishResult(reset_result_, true, Stage::kAlreadyClear);
           owner_.store(Owner::kNone, std::memory_order_release);
@@ -458,6 +460,7 @@ controller_interface::return_type EnableManagerController::update(
           has_fault = has_fault || reset_targets_[axis];
         }
         if (!has_fault) {
+          emergency_stop_latched_.store(false, std::memory_order_release);
           clearFailure();
           publishResult(reset_result_, true, Stage::kAlreadyClear);
           phase_.store(Phase::kIdle, std::memory_order_release);
@@ -480,6 +483,49 @@ controller_interface::return_type EnableManagerController::update(
   return controller_interface::return_type::OK;
 }
 
+void EnableManagerController::updateEmergencyStop(std::int64_t now_ns)
+{
+  const bool event = emergency_stop_input_.consumeEvent();
+  if (!emergency_stop_response_) return;
+  const bool stop = event || !emergency_stop_input_.released(steadyNowNs());
+  const auto phase = phase_.load(std::memory_order_acquire);
+  if (stop) {
+    emergency_stop_latched_.store(true, std::memory_order_release);
+    mode_abort_requested_.store(true, std::memory_order_release);
+    if (
+      phase != Phase::kInactive && phase != Phase::kStartupSanitizing && phase != Phase::kIdle &&
+      phase != Phase::kFailed && phase != Phase::kEmergencyQuickStop &&
+      phase != Phase::kEmergencyDisable) {
+      enable_request_.store(false, std::memory_order_release);
+      reset_request_.store(false, std::memory_order_release);
+      disable_request_.store(false, std::memory_order_release);
+      enable_hardware_ready_.store(false, std::memory_order_release);
+      jtc_activated_request_.store(false, std::memory_order_release);
+      jtc_activate_failed_request_.store(false, std::memory_order_release);
+      jtc_deactivation_required_.store(!enable_only_, std::memory_order_release);
+      startEmergency(Stage::kEmergencyStop, -1, 0, now_ns);
+    }
+  }
+  if (phase == Phase::kIdle || phase == Phase::kFailed) {
+    if (emergencyStopBlocksEnable() && enable_request_.exchange(false)) {
+      publishResult(enable_result_, false, Stage::kEmergencyStop);
+      owner_.store(Owner::kNone, std::memory_order_release);
+    }
+    bool reset_terminal = allDevicesDisabledOrFaulted();
+    if (emergency_stop_latched_.load(std::memory_order_acquire)) {
+      for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
+        const auto state = decodeState(status_words_[axis]);
+        reset_terminal =
+          reset_terminal && (isFaultState(state) || isConfirmedDisableTerminal(axis, state));
+      }
+    }
+    if ((stop || emergencyStopBlocksReset() || !reset_terminal) && reset_request_.exchange(false)) {
+      publishResult(reset_result_, false, Stage::kEmergencyStop);
+      owner_.store(Owner::kNone, std::memory_order_release);
+    }
+  }
+}
+
 void EnableManagerController::publishDiagnostics()
 {
   diagnostic_msgs::msg::DiagnosticArray array;
@@ -500,6 +546,16 @@ void EnableManagerController::publishDiagnostics()
   }
   const std::int8_t failed_joint = last_failed_joint_.load(std::memory_order_acquire);
   status.add("state", phaseName(phase));
+  status.add("emergency_stop_response", emergency_stop_response_ ? "true" : "false");
+  status.add(
+    "emergency_stop_reported_state", std::to_string(emergency_stop_input_.reportedState()));
+  status.add(
+    "emergency_stop_effective_state", std::to_string(emergency_stop_input_.state(steadyNowNs())));
+  status.add("emergency_stop_latched", emergency_stop_latched_.load() ? "true" : "false");
+  if (emergencyStopBlocksEnable()) {
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    status.message = "emergency stop: release with fresh input, then reset and enable";
+  }
   status.add("failed_batch", std::to_string(last_failed_batch_.load(std::memory_order_acquire)));
   status.add("failed_joint", failed_joint >= 0 ? joint_names_[failed_joint] : "");
   status.add(
@@ -838,6 +894,7 @@ void EnableManagerController::finishDownward()
       recordFailure(Stage::kFaultResetTimeout, -1, failed_joint, status_word);
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else {
+      emergency_stop_latched_.store(false, std::memory_order_release);
       clearFailure();
       publishResult(reset_result_, true, Stage::kSuccess);
       phase_.store(Phase::kIdle, std::memory_order_release);
@@ -855,6 +912,10 @@ void EnableManagerController::finishDownward()
       publishResult(
         enable_result_, false, primary_failure_stage_, primary_failed_batch_, primary_failed_joint_,
         primary_failed_status_word_);
+    } else if (interrupted_owner_ == Owner::kReset) {
+      publishResult(
+        reset_result_, false, primary_failure_stage_, primary_failed_batch_, primary_failed_joint_,
+        primary_failed_status_word_);
     } else if (interrupted_owner_ == Owner::kDisable) {
       publishResult(
         disable_result_, false, primary_failure_stage_, primary_failed_batch_,
@@ -862,7 +923,8 @@ void EnableManagerController::finishDownward()
     }
     const bool restart = restart_required_.load(std::memory_order_acquire);
     phase_.store(
-      any_fault || !all_terminal || restart ? Phase::kFailed : Phase::kIdle,
+      any_fault || !all_terminal || restart || emergency_stop_latched_.load() ? Phase::kFailed
+                                                                              : Phase::kIdle,
       std::memory_order_release);
     owner_.store(Owner::kNone, std::memory_order_release);
   }
@@ -1339,6 +1401,8 @@ const char * EnableManagerController::stageName(Stage stage)
       return "controller_update_timeout";
     case Stage::kRestartRequired:
       return "restart_required";
+    case Stage::kEmergencyStop:
+      return "emergency_stop";
     case Stage::kDeviceOffline:
       return "device_offline";
   }
