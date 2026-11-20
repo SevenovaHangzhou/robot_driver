@@ -115,6 +115,8 @@ def test_mock_scope_is_enable_only_with_staged_hardware(shares, tmp_path):
     assert manager["update_rate"] == 1000
     assert manager["hardware_components_initial_state"] == {"unconfigured": ["ecat_arms"]}
     enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["emergency_stop_response"] is True
+    assert enable["emergency_stop_timeout_ms"] == 0
     assert enable["managed_joints"] == JOINTS
     assert enable["enable_batch_joint_names"] == JOINTS
     assert enable["enable_batch_sizes"] == [1] * 7
@@ -191,6 +193,8 @@ def test_dual_arm_head_uses_one_enable_set_and_an_exclusive_arm_pair(shares, tmp
         jtc_only=jtc_only,
     )
     enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["emergency_stop_response"] is True
+    assert enable["emergency_stop_timeout_ms"] == 0
     assert enable["motion_controller"] == "dual_arm_jtc"
     assert enable["rolling_controller"] == ("" if jtc_only else "dual_arm_rolling")
     assert enable["companion_controllers"] == ["head_position_controller"]
@@ -323,3 +327,22 @@ def test_real_artifact_carries_the_bench_realtime_cpu_layout(shares, tmp_path):
     assert host["rt_cpu"] == 14 and host["hostname"] == "ar-Default-string"
     assert 14 not in host["housekeeping_cpus"]
     assert sorted(host["housekeeping_cpus"]) == [0, 2, 4, 6, 8, 10, 12, *range(16, 28)]
+
+
+@pytest.mark.parametrize("side", ["left", "right", "dual"])
+@pytest.mark.parametrize("stationary", [False, True])
+def test_arm_scopes_require_explicit_emergency_stop_deployment_timeout(
+    shares, tmp_path, side, stationary
+):
+    scope = f"bench_{side}_arm" + ("_stationary_enable" if stationary else "")
+    result = compose(
+        robot_variant="Alfa_V3",
+        machine_unit=UNIT,
+        physical_profile=f"bench_{side}_arm",
+        control_scope=scope,
+        package_share=lambda name: str(shares[name]),
+        runtime_dir=tmp_path / scope,
+    )
+    enable = result.controllers["enable_manager"]["ros__parameters"]
+    assert enable["emergency_stop_response"] is True
+    assert enable["emergency_stop_timeout_ms"] == 0

@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>periph_emergency_stop</name>
+  <version>0.1.0</version>
+  <description>Read-only Modbus emergency button observation and internal state broadcast.</description>
+  <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>infra_modbus</depend>
+  <depend>rclcpp</depend>
+  <depend>rt_control_interfaces</depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>ament_index_python</test_depend>
+  <test_depend>rclpy</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -33,6 +33,7 @@
 #include "hw_semantic_components/cia402_axis.hpp"
 #include "infra_shm_ring/shm_ring.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "ctrl_enable_manager/emergency_stop_input.hpp"
 
 namespace ctrl_enable_manager
 {
@@ -126,7 +127,8 @@ private:
     kJtcDeactivateFailed,
     kControllerUpdateTimeout,
     kRestartRequired,
-    kDeviceOffline
+    kDeviceOffline,
+    kEmergencyStop
   };
 
   struct ResultSlot
@@ -247,6 +249,15 @@ private:
     robot_system_interfaces::msg::ErrorInfo & error, std::uint8_t result);
   SwitchResult switchJtc(bool activate);
   void handleNonRtFaultStop();
+  bool configureEmergencyStop();
+  bool emergencyStopBlocksEnable() const noexcept;
+  bool emergencyStopBlocksReset() const noexcept;
+  void updateEmergencyStop(std::int64_t now_ns);
+  EmergencyStopInput emergency_stop_input_;
+  bool emergency_stop_response_{false};
+  std::atomic_bool emergency_stop_latched_{false};
+  rclcpp::CallbackGroup::SharedPtr emergency_stop_group_;
+  rclcpp::Subscription<EmergencyStopInput::Message>::SharedPtr emergency_stop_subscription_;
   void publishDiagnostics();
   void configureTrace();
   void writeTrace(std::int64_t now_ns, std::int64_t period_ns);

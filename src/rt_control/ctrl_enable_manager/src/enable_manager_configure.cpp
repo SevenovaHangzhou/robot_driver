@@ -52,6 +52,9 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<double>("feedback_age_limit_ms", 500.0);
   auto_declare<double>("ready_hold_time", 0.05);
   auto_declare<std::string>("motion_fault_topic", "");
+  auto_declare<std::string>("emergency_stop_topic", "/plc/emergency_stop/state");
+  auto_declare<bool>("emergency_stop_response", false);
+  auto_declare<int>("emergency_stop_timeout_ms", 0);
   auto_declare<std::vector<std::string>>("enable_batch_joint_names", {});
   auto_declare<std::vector<std::int64_t>>("enable_batch_sizes", {});
   auto_declare<std::vector<std::string>>("ready_to_switch_on_disable_terminal_joints", {});
@@ -407,6 +410,9 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
     jtc_command_snapshot_ = CommandSnapshot{};
     rolling_command_snapshot_ = CommandSnapshot{};
   }
+  if (!configureEmergencyStop()) {
+    return controller_interface::CallbackReturn::ERROR;
+  }
   topology_parameters_frozen_.store(true, std::memory_order_release);
   configureTrace();
   return controller_interface::CallbackReturn::SUCCESS;
@@ -448,6 +454,9 @@ rcl_interfaces::msg::SetParametersResult EnableManagerController::validateTopolo
       parameter.get_name() == "disable_terminal_policy" ||
       parameter.get_name() == "expected_modes" ||
       parameter.get_name() == "ready_state_interfaces" ||
+      parameter.get_name() == "emergency_stop_topic" ||
+      parameter.get_name() == "emergency_stop_response" ||
+      parameter.get_name() == "emergency_stop_timeout_ms" ||
       parameter.get_name() == "motion_fault_topic" || parameter.get_name() == "ready_hold_time" ||
       parameter.get_name() == "motion_joints" || parameter.get_name() == "handshake_devices" ||
       parameter.get_name() == "diagnostic_joints" ||

@@ -63,6 +63,23 @@ public:
   using ControlMode = EnableManagerController::ControlMode;
   using ModeSwitchState = EnableManagerController::ModeSwitchState;
 
+  static void observeStop(Controller & c, EmergencyStopInput::Message message, bool expired = false)
+  {
+    message.header.stamp = c.get_node()->now();
+    c.emergency_stop_input_.observe(
+      message, expired ? 1 : c.steadyNowNs(), rclcpp::Time(message.header.stamp).nanoseconds());
+  }
+  static bool stopLatched(const Controller & c) { return c.emergency_stop_latched_.load(); }
+  static bool stopControllersPending(const Controller & c)
+  {
+    return c.emergency_jtc_deactivate_request_.load();
+  }
+  static void nonRtStop(Controller & c) { c.handleNonRtFaultStop(); }
+  static uint8_t reportedStopState(const Controller & c)
+  {
+    return c.emergency_stop_input_.reportedState();
+  }
+
   static Phase phase(const Controller & c) { return c.phase_.load(); }
   static Stage failureStage(const Controller & c) { return c.last_failure_stage_.load(); }
   static int failureActualMode(const Controller & c) { return c.last_failed_mode_.load(); }
@@ -2661,6 +2678,280 @@ TEST_F(EnableManagerFixture, RuntimeLogTraceIsOffByDefault)
   EXPECT_TRUE(
     latestTraceCycle("/runtime-log." + std::to_string(getpid()) + ".trace_off_test", &state)
       .empty());
+}
+
+TEST_F(EnableManagerFixture, EmergencyResetCannotClearUnconfirmedDriveStop)
+{
+  initAndConfigure(
+    "stop_terminal", {rclcpp::Parameter("emergency_stop_response", true),
+                      rclcpp::Parameter("emergency_stop_timeout_ms", 1000),
+                      rclcpp::Parameter("motion_controller", std::string(""))});
+  activate();
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  EmergencyStopInput::Message message;
+  message.producer_instance_id.uuid[0] = 1;
+  message.sample_sequence = 1;
+  message.valid = true;
+  message.state = EmergencyStopInput::Message::RELEASED;
+  Access::observeStop(*controller_, message);
+  Access::setPhase(*controller_, Phase::kFailed);
+  setAllStatus(kSwOperationEnabled);
+  Access::setResetRequest(*controller_, true);
+  updateTimes(1);
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+  EXPECT_FALSE(Access::slotOk(Access::resetResult(*controller_)));
+  EXPECT_EQ(Access::slotStage(Access::resetResult(*controller_)), Stage::kEmergencyStop);
+}
+
+using StopMessage = EmergencyStopInput::Message;
+
+StopMessage stopMessage(bool pressed = false, std::uint64_t sequence = 1)
+{
+  StopMessage message;
+  message.producer_instance_id.uuid[0] = 1;
+  message.sample_sequence = sequence;
+  message.header.stamp.sec = 100;
+  message.sample_stamp = message.header.stamp;
+  message.sample_age_seconds = 0;
+  message.valid = true;
+  message.state = pressed ? StopMessage::PRESSED : StopMessage::RELEASED;
+  message.stop_requested = pressed;
+  return message;
+}
+
+TEST(EmergencyStopInput, StartupExpiryReplayAndNewSample)
+{
+  EmergencyStopInput input;
+  input.configure(1000000000);
+  EXPECT_FALSE(input.released(100));
+  auto message = stopMessage();
+  input.observe(message, 100, 100000000000);
+  EXPECT_TRUE(input.released(100));
+  input.observe(message, 500000100, 100000000000);  // Duplicate cannot extend the first deadline.
+  EXPECT_FALSE(input.released(1000000100));
+  message.sample_sequence++;
+  input.observe(message, 1000000100, 100000000000);
+  EXPECT_TRUE(input.released(1000000100));
+}
+
+TEST(EmergencyStopInput, AccountsForSampleAgeAndTransitAndRejectsInvalidValues)
+{
+  for (const double age : {0.9, -1.0, std::numeric_limits<double>::quiet_NaN()}) {
+    EmergencyStopInput input;
+    input.configure(1000000000);
+    auto message = stopMessage();
+    message.sample_age_seconds = age;
+    input.observe(message, 100, 100200000000);  // 200 ms transport plus sample age.
+    EXPECT_FALSE(input.released(100));
+    EXPECT_TRUE(input.consumeEvent());
+  }
+  EmergencyStopInput input;
+  input.configure(1000000000);
+  auto message = stopMessage();
+  input.observe(message, 100, 99000000000);  // Producer clock is ahead: not fresh evidence.
+  EXPECT_FALSE(input.released(100));
+}
+
+TEST(EmergencyStopInput, PressReleasePulseAndRestartRemainPending)
+{
+  EmergencyStopInput input;
+  input.configure(1000000000);
+  input.observe(stopMessage(), 100, 100000000000);
+  input.observe(stopMessage(true, 2), 101, 100000000000);
+  input.observe(stopMessage(false, 3), 102, 100000000000);
+  EXPECT_FALSE(input.released(102));
+  EXPECT_TRUE(input.consumeEvent());
+  EXPECT_TRUE(input.released(102));
+  auto restarted = stopMessage(false, 1);
+  restarted.producer_instance_id.uuid[0] = 2;
+  input.observe(restarted, 103, 100000000000);
+  EXPECT_TRUE(input.consumeEvent());
+  input.observe(stopMessage(false, 0), 104, 100000000000);
+  EXPECT_FALSE(input.released(104));
+}
+
+TEST(EmergencyStopInput, RegressedSequenceAndMalformedReleaseStop)
+{
+  EmergencyStopInput input;
+  input.configure(1000000000);
+  input.observe(stopMessage(false, 20), 100, 100000000000);
+  input.observe(stopMessage(false, 19), 101, 100000000000);
+  EXPECT_FALSE(input.released(101));
+  EXPECT_TRUE(input.consumeEvent());
+  auto message = stopMessage(false, 21);
+  message.stop_requested = true;
+  input.observe(message, 102, 100000000000);
+  EXPECT_FALSE(input.released(102));
+}
+
+TEST_F(EnableManagerFixture, EmergencyResponseRequiresDeploymentTimeout)
+{
+  rclcpp::NodeOptions options;
+  options.parameter_overrides(parametersWithFixtureTopology(
+    {rclcpp::Parameter("update_rate", 1000), rclcpp::Parameter("emergency_stop_response", true)}));
+  options.allow_undeclared_parameters(true);
+  options.automatically_declare_parameters_from_overrides(true);
+  ASSERT_EQ(
+    controller_->init("stop_missing_timeout", "", options), controller_interface::return_type::OK);
+  EXPECT_EQ(
+    controller_->on_configure(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::ERROR);
+}
+
+TEST_F(EnableManagerFixture, EmergencyInputObservationDoesNotChangeOtherModuleCommands)
+{
+  bringUpToIdle();
+  Access::setPhase(*controller_, Phase::kEnabled);
+  setAllStatus(kSwOperationEnabled);
+  Access::observeStop(*controller_, stopMessage(true));
+  updateTimes(1);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  EXPECT_FALSE(Access::stopLatched(*controller_));
+  for (std::size_t axis = 0; axis < kAxes; ++axis) EXPECT_EQ(command(axis), kCwEnableOperation);
+}
+
+TEST_F(EnableManagerFixture, EmergencyPulseQuickStopsEveryAxisAndRequiresReset)
+{
+  initAndConfigure(
+    "stop_pulse", {rclcpp::Parameter("emergency_stop_response", true),
+                   rclcpp::Parameter("emergency_stop_timeout_ms", 1000),
+                   rclcpp::Parameter("motion_controller", std::string(""))});
+  Access::observeStop(*controller_, stopMessage());
+  activate();
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  Access::setPhase(*controller_, Phase::kEnabled);
+  setAllStatus(kSwOperationEnabled);
+  Access::observeStop(*controller_, stopMessage(true, 2));
+  Access::observeStop(*controller_, stopMessage(false, 3));
+  updateTimes(1);
+  ASSERT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+  for (std::size_t axis = 0; axis < kAxes; ++axis) EXPECT_EQ(command(axis), 0x0002);
+  for (int tick = 0; tick < 100 && Access::phase(*controller_) != Phase::kFailed; ++tick) {
+    stepDriveResponses();
+    updateTimes(1);
+  }
+  EXPECT_EQ(Access::phase(*controller_), Phase::kFailed);
+  Access::nonRtStop(*controller_);  // Enable-only scope has no controller writers.
+  auto response = std::make_shared<RtEnable::Response>();
+  Access::handleEnable(*controller_, std::make_shared<RtEnable::Request>(), response);
+  EXPECT_FALSE(response->ok);
+  EXPECT_EQ(response->stage, "emergency_stop");
+  Access::setOwner(*controller_, Owner::kReset);
+  Access::setResetRequest(*controller_, true);
+  updateTimes(1);
+  EXPECT_TRUE(Access::slotOk(Access::resetResult(*controller_)));
+  EXPECT_FALSE(Access::stopLatched(*controller_));
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) EXPECT_EQ(command(axis), kCwZero);
+  Access::setEnableRequest(*controller_, true);
+  updateTimes(1);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabling);
+}
+
+TEST_F(EnableManagerFixture, EmergencyMissingAndExpiredInputRejectsRequests)
+{
+  initAndConfigure(
+    "stop_expiry", {rclcpp::Parameter("emergency_stop_response", true),
+                    rclcpp::Parameter("emergency_stop_timeout_ms", 1000)});
+  activate();
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+  Access::setEnableRequest(*controller_, true);
+  updateTimes(1);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kIdle);
+  EXPECT_EQ(Access::slotStage(Access::enableResult(*controller_)), Stage::kEmergencyStop);
+  auto response = std::make_shared<RtEnable::Response>();
+  Access::handleResetFault(*controller_, std::make_shared<RtEnable::Request>(), response);
+  EXPECT_FALSE(response->ok);
+  EXPECT_EQ(response->stage, "emergency_stop");
+  Access::observeStop(*controller_, stopMessage(), true);
+  Access::setPhase(*controller_, Phase::kEnabled);
+  setAllStatus(kSwOperationEnabled);
+  updateTimes(1);
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+}
+
+TEST_F(EnableManagerFixture, EmergencyPreemptsEnableActivationModeAndResetPhases)
+{
+  initAndConfigure(
+    "stop_phases", {rclcpp::Parameter("emergency_stop_response", true),
+                    rclcpp::Parameter("emergency_stop_timeout_ms", 1000)});
+  activate();
+  for (const auto phase :
+       {Phase::kEnabling, Phase::kInterBatchDelay, Phase::kJtcActivating, Phase::kEnabled,
+        Phase::kResetLow, Phase::kResetHigh, Phase::kResetDisabling}) {
+    Access::setPhase(*controller_, phase);
+    Access::setOwner(*controller_, Owner::kReset);
+    setAllStatus(kSwOperationEnabled);
+    Access::observeStop(*controller_, stopMessage(true));
+    updateTimes(1);
+    EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+    EXPECT_EQ(Access::failureStage(*controller_), Stage::kEmergencyStop);
+    EXPECT_TRUE(Access::stopControllersPending(*controller_));
+    for (std::size_t axis = 0; axis < kAxes; ++axis) EXPECT_EQ(command(axis), 0x0002);
+  }
+  // A reset interrupted by emergency stop must receive a completed failure result.
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kFailed, 200));
+  EXPECT_TRUE(Access::slotReady(Access::resetResult(*controller_)));
+  EXPECT_FALSE(Access::slotOk(Access::resetResult(*controller_)));
+  EXPECT_EQ(Access::slotStage(Access::resetResult(*controller_)), Stage::kEmergencyStop);
+  Access::observeStop(*controller_, stopMessage(false, 2));
+  auto response = std::make_shared<RtEnable::Response>();
+  Access::handleResetFault(*controller_, std::make_shared<RtEnable::Request>(), response);
+  EXPECT_FALSE(response->ok);  // Still waiting for controller-manager deactivation acknowledgement.
+}
+
+TEST_F(EnableManagerFixture, EmergencyLatchSurvivesLifecycleAndBlocksModeSwitch)
+{
+  initAndConfigure(
+    "stop_lifecycle", {rclcpp::Parameter("emergency_stop_response", true),
+                       rclcpp::Parameter("emergency_stop_timeout_ms", 1000)});
+  activate();
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  Access::observeStop(*controller_, stopMessage());
+  ASSERT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  controller_->release_interfaces();
+  assignInterfaces();
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+  Access::setPhase(*controller_, Phase::kEnabled);
+  Access::setControlMode(*controller_, ControlMode::kFjtReady);
+  auto request = std::make_shared<ModeService::Request>();
+  request->target_mode.value = robot_rt_control_interfaces::msg::JointControlMode::FJT_READY;
+  auto response = std::make_shared<ModeService::Response>();
+  Access::handleSetMode(*controller_, request, response);
+  EXPECT_FALSE(response->accepted);
+}
+
+TEST_F(EnableManagerFixture, EmergencyReceiverGetsLatchedDdsState)
+{
+  initAndConfigure(
+    "stop_dds", {rclcpp::Parameter("emergency_stop_response", true),
+                 rclcpp::Parameter("emergency_stop_timeout_ms", 1000)});
+  auto publisher_node = std::make_shared<rclcpp::Node>("stop_test_publisher");
+  auto publisher = publisher_node->create_publisher<StopMessage>(
+    "/plc/emergency_stop/state", rclcpp::QoS(1).reliable().transient_local());
+  auto message = stopMessage(true);
+  message.header.stamp = publisher_node->now();
+  publisher->publish(message);
+  rclcpp::executors::SingleThreadedExecutor executor;
+  executor.add_node(controller_->get_node()->get_node_base_interface());
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  while (Access::reportedStopState(*controller_) != StopMessage::PRESSED &&
+         std::chrono::steady_clock::now() < deadline) {
+    executor.spin_some();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  EXPECT_EQ(Access::reportedStopState(*controller_), StopMessage::PRESSED);
 }
 
 }  // namespace

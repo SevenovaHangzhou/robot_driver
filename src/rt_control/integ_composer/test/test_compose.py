@@ -171,8 +171,11 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, target)
     expected = canonical_files(baseline, "<RUNTIME_DIR>", BASELINE["rename_map"])
-    # The historic baseline predates the new acceleration policy.
+    # The historic baseline predates emergency-stop reception and the new acceleration policy.
     expected_controllers = yaml.safe_load(expected["controllers.yaml"])
+    expected_controllers["enable_manager"]["ros__parameters"].update(
+        emergency_stop_response=True, emergency_stop_timeout_ms=0
+    )
     for controller in expected_controllers.values():
         parameters = controller["ros__parameters"]
         if "joint_acceleration_limits" in parameters:
