@@ -88,6 +88,27 @@ def preflight(expected_topology, *, run=None):
                     f"Branch wiring differs from the declared layout at port {branch['main_esc_port']}",
                 )
             )
+    if findings:
+        return findings
+    # Current normalization belongs to the drive. Verify the stored readback even
+    # in a topology-only scope before admitting additive current commands.
+    for check in topology.get("rated_current_checks", []):
+        ring = check["ring_position"]
+        actual = int(
+            output(
+                "upload", "-m", master_id, "-p", str(ring), "-t", "uint32", "0x6075", "0"
+            ).split()[-1],
+            0,
+        )
+        if actual != check["rated_current_ma"]:
+            findings.append(
+                _finding(
+                    {**bus, "ring_position": ring},
+                    "configuration_mismatch",
+                    f"Slave {ring} 0x6075={actual} mA differs from gravity calibration "
+                    f"{check['rated_current_ma']} mA",
+                )
+            )
     if findings or topology.get("topology_only", False):
         return findings
     for axis in topology["axes"]:

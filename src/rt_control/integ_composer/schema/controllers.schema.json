@@ -234,7 +234,8 @@
                     "properties": {
                       "key": {
                         "enum": [
-                          "startup_id"
+                          "startup_id",
+                          "robot_description"
                         ]
                       },
                       "as": {
@@ -269,6 +270,10 @@
                         "minLength": 1
                       },
                       "as": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "module": {
                         "type": "string",
                         "minLength": 1
                       }

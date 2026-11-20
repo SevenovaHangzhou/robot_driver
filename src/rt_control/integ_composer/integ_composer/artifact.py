@@ -23,7 +23,12 @@ from .schema.primitives import load_yaml, resolve_share_path
 SCHEMA_VERSION = 3
 KIND = "rt_control_composition_artifact"
 # Startup-specific values such as startup_id are deliberately not part of a selection.
-SELECTION_DEFAULTS = {"use_mock_hardware": True, "jtc_only": False, "sync_mode": ""}
+SELECTION_DEFAULTS = {
+    "use_mock_hardware": True,
+    "jtc_only": False,
+    "sync_mode": "",
+    "gravity_feedforward": False,
+}
 SELECTION_KEYS = (
     "robot_variant",
     "machine_unit",
@@ -66,6 +71,8 @@ def generate_command(directory, chosen):
     arguments.append("--mock" if chosen["use_mock_hardware"] else "--real")
     if chosen["jtc_only"]:
         arguments.append("--jtc-only")
+    if chosen["gravity_feedforward"]:
+        arguments.append("--gravity-feedforward")
     if chosen["sync_mode"]:
         arguments += ["--sync-mode", chosen["sync_mode"]]
     return shlex.join(arguments)
@@ -132,10 +139,9 @@ def load_artifact(directory, **expected):
     manifest = load_yaml(path)
     if manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("kind") != KIND:
         raise ValueError(f"Unsupported composition artifact {path}; regenerate with: {command}")
-    if manifest["selection"] != wanted:
-        different = sorted(
-            key for key in SELECTION_KEYS if manifest["selection"].get(key) != wanted[key]
-        )
+    recorded = selection(**manifest["selection"])
+    if recorded != wanted:
+        different = sorted(key for key in SELECTION_KEYS if recorded.get(key) != wanted[key])
         raise ValueError(f"Artifact selection differs in {different}; regenerate with: {command}")
     present = {item.relative_to(root).as_posix() for item in root.rglob("*") if item.is_file()} - {
         ARTIFACT

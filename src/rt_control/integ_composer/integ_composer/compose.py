@@ -12,6 +12,7 @@ import yaml
 from .bindings import bind_parameters
 from .model import ARTIFACT, Composed
 from .parameter_sources import controller_parameters
+from .gravity_selection import select_gravity, validate_gravity_parameters
 from .renderer_registry import render_checked, select_renderer
 from .self_check import SelfCheckFailed, entries as self_check_entries
 from .schema.cross_checks import (
@@ -51,6 +52,7 @@ def compose(
     runtime_dir,
     use_mock_hardware=True,
     jtc_only=False,
+    gravity_feedforward=False,
     require_manifest_ready=False,
     package_share=get_package_share_directory,
     sync_mode="",
@@ -70,6 +72,7 @@ def compose(
     )
     manifest_links(data, config_root)
     runtime_admission(data, use_mock_hardware, require_manifest_ready)
+    select_gravity(data, gravity_feedforward)
     naming = load_yaml(integration_share / "config/interface_naming.yaml")
     robot, robot_model, model_limits = _robot_skeleton(
         data, robot_variant, use_mock_hardware, naming, package_share
@@ -103,7 +106,9 @@ def compose(
         runtime_files=runtime_files,
         startup_id=startup_id,
         model_limits=model_limits,
+        model_description=ET.tostring(robot, encoding="unicode"),
     )
+    validate_gravity_parameters(data, controllers)
     recorders = _add_recorder(
         controllers, data["deployment"], robot, staged, selected_names, bindings
     )
@@ -224,6 +229,8 @@ def _render_modules(data, robot_model, runtime, use_mock_hardware, sync_mode, sc
         }
         if sync_mode:
             request["sync_mode"] = sync_mode
+        if name == data.get("gravity_module"):
+            request["gravity_feedforward"] = True
         result = render_checked(renderer, request, schemas, config_root)
         if "hardware_system_id" in scope:
             result = {**result, "hardware_system_id": scope["hardware_system_id"]}
@@ -277,6 +284,7 @@ def _controllers(
     runtime_files,
     startup_id,
     model_limits,
+    model_description,
 ):
     """controllers.yaml content, controller order and per-start runtime parameter keys."""
     manifest, scope = data["manifest"], data["scope"]
@@ -325,7 +333,7 @@ def _controllers(
         "selected": selected_names,
         "tags": {name: bindings[name].get("tags", []) for name in selected_names},
         "naming": naming,
-        "runtime_values": {"startup_id": startup_id},
+        "runtime_values": {"startup_id": startup_id, "robot_description": model_description},
         "runtime_parameters": runtime_parameters,
         "runtime_dir": str(runtime),
         "runtime_files": runtime_files,

@@ -9,6 +9,7 @@ robot_variant: Alfa_V3
 parts:
 - controllers/arm_trajectory.yaml
 - controllers/base_trajectory.yaml
+- controllers/gravity.yaml
 controllers:
   swerve_chassis:
     module: swerve_chassis

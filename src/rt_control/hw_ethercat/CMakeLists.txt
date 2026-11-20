@@ -9,12 +9,14 @@ find_package(ament_cmake_python REQUIRED)
 ament_python_install_package(${PROJECT_NAME})
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(ethercat_generic_slave REQUIRED)
+find_package(ethercat_generic_cia402_drive REQUIRED)
 find_package(ethercat_interface REQUIRED)
 find_package(hw_semantic_components REQUIRED)
 find_package(pluginlib REQUIRED)
 
 add_library(zeroerr_pp_slave SHARED
   src/zeroerr_pp_slave.cpp
+  src/csp_torque_offset_slave.cpp
   src/kinco_cyclic_mode_slave.cpp)
 target_compile_features(zeroerr_pp_slave PUBLIC cxx_std_17)
 target_compile_options(zeroerr_pp_slave PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
@@ -22,7 +24,7 @@ target_include_directories(zeroerr_pp_slave PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(
-  zeroerr_pp_slave ethercat_generic_slave ethercat_interface hw_semantic_components pluginlib)
+  zeroerr_pp_slave ethercat_generic_slave ethercat_generic_cia402_drive ethercat_interface hw_semantic_components pluginlib)
 pluginlib_export_plugin_description_file(ethercat_interface ethercat_plugins.xml)
 
 add_custom_target(
@@ -42,6 +44,10 @@ if(BUILD_TESTING)
   find_package(hardware_interface REQUIRED)
   find_package(ethercat_generic_cia402_drive REQUIRED)
   ament_add_gtest(test_stationary_drive test/test_stationary_drive.cpp)
+  ament_add_gtest(test_csp_torque_offset_slave test/test_csp_torque_offset_slave.cpp)
+  target_link_libraries(test_csp_torque_offset_slave zeroerr_pp_slave)
+  target_compile_definitions(test_csp_torque_offset_slave PRIVATE
+    GRAVITY_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/test/fixtures/csp_gravity.yaml")
   target_compile_features(test_stationary_drive PUBLIC cxx_std_17)
   ament_target_dependencies(test_stationary_drive ethercat_generic_cia402_drive)
   ament_add_gtest(test_pp_gripper test/test_pp_gripper.cpp)
@@ -77,7 +83,7 @@ install(FILES README.md DESTINATION share/${PROJECT_NAME})
 install(TARGETS zeroerr_pp_slave EXPORT export_zeroerr_pp_slave
   ARCHIVE DESTINATION lib LIBRARY DESTINATION lib RUNTIME DESTINATION bin)
 ament_export_targets(export_zeroerr_pp_slave HAS_LIBRARY_TARGET)
-ament_export_dependencies(ethercat_generic_slave ethercat_interface hw_semantic_components pluginlib)
+ament_export_dependencies(ethercat_generic_cia402_drive ethercat_generic_slave ethercat_interface hw_semantic_components pluginlib)
 install(
   PROGRAMS
     scripts/validate_kinco_swerve_draft.py

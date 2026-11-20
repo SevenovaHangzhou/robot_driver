@@ -241,6 +241,9 @@
     "hardware_system_id": {
       "type": "string",
       "minLength": 1
+    },
+    "gravity_feedforward": {
+      "type": "boolean"
     }
   },
   "required": [

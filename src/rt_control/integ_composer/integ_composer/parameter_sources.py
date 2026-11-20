@@ -219,9 +219,14 @@ def _evaluate(kind, source, name, binding, env):
         return [limits[joint][source["attribute"]] for joint in joints]
     if kind == "exports":
         # One list from every selected module that exports it, in module order.
+        modules = (
+            [env["rendered_modules"][source["module"]]]
+            if "module" in source
+            else env["rendered_modules"].values()
+        )
         values = [
             item
-            for module in env["rendered_modules"].values()
+            for module in modules
             for item in module.get("parameter_exports", {}).get(source["name"], [])
         ]
         return values or _SKIP

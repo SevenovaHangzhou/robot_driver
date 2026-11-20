@@ -33,6 +33,41 @@
           "digital_outputs": {
             "type": "integer",
             "minimum": 0
+          },
+          "gravity_feedforward": {
+            "type": "object",
+            "properties": {
+              "permille_per_nm": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "torque_sign": {
+                "enum": [
+                  -1,
+                  1
+                ]
+              },
+              "basis": {
+                "type": "string",
+                "minLength": 1
+              },
+              "registry_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "rated_current_ma": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "permille_per_nm",
+              "torque_sign",
+              "basis",
+              "registry_sha256",
+              "rated_current_ma"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
