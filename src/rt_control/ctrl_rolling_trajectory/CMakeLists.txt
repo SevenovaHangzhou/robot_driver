@@ -6,6 +6,8 @@ add_compile_options(-Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 
 find_package(ament_cmake REQUIRED)
 find_package(controller_interface REQUIRED)
+find_package(control_msgs REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rcl_interfaces REQUIRED)
@@ -37,6 +39,7 @@ set_target_properties(rolling_trajectory_core PROPERTIES POSITION_INDEPENDENT_CO
 add_library(rolling_trajectory_controller_plugin SHARED
   src/rolling_trajectory_controller.cpp
   src/rolling_trajectory_configure.cpp
+  src/rolling_trajectory_diagnostics.cpp
   src/rolling_trajectory_session.cpp
   src/rolling_trajectory_state.cpp
 )
@@ -52,6 +55,8 @@ target_link_libraries(rolling_trajectory_controller_plugin rolling_trajectory_co
 ament_target_dependencies(
   rolling_trajectory_controller_plugin
   controller_interface
+  control_msgs
+  diagnostic_msgs
   hardware_interface
   pluginlib
   rcl_interfaces
@@ -201,6 +206,8 @@ ament_export_include_directories(include)
 ament_export_targets(export_rolling_trajectory_core HAS_LIBRARY_TARGET)
 ament_export_dependencies(
   controller_interface
+  control_msgs
+  diagnostic_msgs
   hardware_interface
   pluginlib
   rcl_interfaces

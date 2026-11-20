@@ -34,3 +34,11 @@ canopen:
     steering_encoder_2: hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
     steering_encoder_3: hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
     steering_encoder_4: hw_canopen:config/eds/BRT-Multi-turn-V1.0.compat.eds
+# Chassis IMU (LPMS-NAV3, can3 node 1): receive-only on the encoder bus; started with chassis_only.
+optional_peripherals:
+- name: lpms_nav3
+  package: periph_imu_lpms
+  executable: lpms_nav3_can_node
+  config_file: lpms_nav3.yaml
+  scopes:
+  - chassis_only

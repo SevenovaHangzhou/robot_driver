@@ -30,6 +30,13 @@ void validate_led_config(
   }
 }
 
+void validate_request_gap(int64_t gap_ms)
+{
+  if (gap_ms < 0 || gap_ms > 1000) {
+    throw std::invalid_argument("request_gap_ms must be 0..1000");
+  }
+}
+
 uint8_t brightness(float value)
 {
   if (!std::isfinite(value)) {

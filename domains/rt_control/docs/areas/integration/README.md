@@ -2,7 +2,7 @@
 
 **范围**：启动组合、接口适配与诊断。本区对应一个同名职责agent。
 
-**Owner路径**：integ_composer；integ_bringup；integ_diagnostics；integ_operator_web；src/interfaces/**。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：integ_composer；integ_bringup；integ_diagnostics；src/interfaces/**。操作网页（原 integ_operator_web）2026-11-16 迁至独立仓库 [robot_operator_web](https://github.com/SevenovaHangzhou/robot_operator_web)（ELECTRI-209），仍属本域。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：机型事实（hwcfg_machines）归hw-config；控制器实现归control。
 
@@ -50,5 +50,7 @@
 | 当前来源坐标 | 事实 | 原始记录 | 验证状态 |
 | --- | --- | --- | --- |
 | integration-20261014-01#F1–F5 | 手臂四层离线组合、六份金样、opt-in 入口；手臂 Mock 状态/占用等价，原位 Mock 查询待闭环 | [第二步组合记录](records/2026-10-14-arm-offline-composition.md) | PARTIAL（T0/T1；默认旧入口，实机未验） |
+| integration-20261116-01#F1 | 删除底盘转向参数现场调参；转向参数只来自部署产物 | [删除现场调参](records/2026-11-16-remove-steering-tuning.md) | PARTIAL（离线；实机待验） |
+| integration-20261116-02#F1 | 操作网页迁至 robot_operator_web，本仓库删除 integ_operator_web | [网页迁出](records/2026-11-16-operator-web-moved.md) | PARTIAL（.40 本地补丁待迁） |
 
 控制器实现见[control](../control/README.md)；生命周期见[protocol](../protocol/README.md)；机型组合输入见[hw-config](../hw-config/README.md)。同一原始记录跨资产事实按对应区引用。

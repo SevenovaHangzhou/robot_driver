@@ -1,0 +1,33 @@
+schema_version: 1
+model_revision: unified-20261112-r2
+model_entry: urdf/robot_alfav3_mobile.urdf
+controlled_joints:
+- updown
+- left_joint1
+- left_joint2
+- left_joint3
+- left_joint4
+- left_joint5
+- left_joint6
+- left_joint7
+- right_joint1
+- right_joint2
+- right_joint3
+- right_joint4
+- right_joint5
+- right_joint6
+- right_joint7
+state_only_joints:
+- H1_joint
+- H2_joint
+- steer1_joint
+- wheel1_joint
+- steer2_joint
+- wheel2_joint
+- steer3_joint
+- wheel3_joint
+- steer4_joint
+- wheel4_joint
+home_resource: config/poses/home.yaml
+missing_state_policy: require_explicit_state
+execution_policy: reject_joints_outside_controlled_set

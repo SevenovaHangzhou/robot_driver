@@ -67,14 +67,23 @@ void RollingTrajectoryController::handleBatch(const BatchMessage::SharedPtr mess
   if (!message) {
     return;
   }
-  BlockingFlagGuard initial_handoff(initial_handoff_gate_);
   std::array<PointView, kTransportMaxPoints> point_views{};
-  std::lock_guard<std::mutex> lock(callback_mutex_);
-  if (!active_.load(std::memory_order_acquire)) {
-    return;
+  std::unique_lock<std::mutex> lock(callback_mutex_, std::defer_lock);
+  {
+    BlockingFlagGuard initial_handoff(initial_handoff_gate_);
+    lock.lock();
+    if (!active_.load(std::memory_order_acquire)) {
+      return;
+    }
+    batch_rejection_ = BufferRejection{};
+    admission_failure_ = "none";
+    last_result_ = admitBatch(*message, point_views);
+    last_sequence_ = message->sequence;
   }
-  last_result_ = admitBatch(*message, point_views);
-  last_sequence_ = message->sequence;
+  // Diagnostics must not prolong the RT initial-handoff gate.
+  if (last_result_ != State::ACCEPTED) {
+    publishRejection(*message);
+  }
 }
 
 std::uint8_t RollingTrajectoryController::admitBatch(
@@ -105,6 +114,7 @@ std::uint8_t RollingTrajectoryController::admitBatch(
     (state == SessionState::kPriming && buffer_.image().point_count != 0U)) {
     offset_ns = replace_from_ns - session_origin_ns_;
   } else if (state == SessionState::kStopping || state == SessionState::kTerminated) {
+    admission_failure_ = "state_not_running";
     return State::NOT_ACCEPTING;
   } else {
     if (
@@ -133,13 +143,13 @@ std::uint8_t RollingTrajectoryController::admitBatch(
     static_cast<std::uint64_t>(offset_ns), point_views.data(), point_count, message.final};
   TrajectoryImage candidate;
   AdmissionContext context;
-  if (!buildAdmissionContext(context)) {
+  if (!buildAdmissionContext(context, &admission_failure_)) {
     return State::NOT_ACCEPTING;
   }
-  auto result = buffer_.prepare(batch, context, candidate);
+  auto result = buffer_.prepare(batch, context, candidate, &batch_rejection_);
   if (result == RejectCode::kNone) {
     // Validation is non-realtime: the mutable boundary may have advanced in the meantime.
-    if (!buildAdmissionContext(context)) {
+    if (!buildAdmissionContext(context, &admission_failure_)) {
       return State::NOT_ACCEPTING;
     }
     result = buffer_.commit(candidate, context);
@@ -154,6 +164,7 @@ std::uint8_t RollingTrajectoryController::admitBatch(
       expected, static_cast<std::uint8_t>(StopReason::kInternalInvariant),
       std::memory_order_acq_rel, std::memory_order_acquire);
     stop_requested_.store(true, std::memory_order_release);
+    admission_failure_ = "snapshot_publish_failed";
     return State::NOT_ACCEPTING;
   }
   return State::ACCEPTED;
@@ -164,6 +175,7 @@ std::uint8_t RollingTrajectoryController::startSession(std::int64_t start_ns)
   if (!hw_semantic_components::feedback_fresh(
         observed_feedback_age_ms_.load(std::memory_order_acquire),
         runtime_configuration_.feedback_age_limit_ms)) {
+    admission_failure_ = "feedback_stale";
     return State::NOT_ACCEPTING;
   }
   JointPoint anchor;
@@ -173,6 +185,7 @@ std::uint8_t RollingTrajectoryController::startSession(std::int64_t start_ns)
     if (
       !std::isfinite(actual) ||
       std::abs(hold - actual) > runtime_configuration_.takeover_tolerances[axis]) {
+      admission_failure_ = "takeover_mismatch";
       return State::NOT_ACCEPTING;
     }
     anchor.positions[axis] = hold;
@@ -182,6 +195,7 @@ std::uint8_t RollingTrajectoryController::startSession(std::int64_t start_ns)
   if (
     epoch == std::numeric_limits<std::uint64_t>::max() ||
     publication == std::numeric_limits<std::uint64_t>::max()) {
+    admission_failure_ = "sequence_overflow";
     return State::NOT_ACCEPTING;
   }
   if (!buffer_.reset(anchor)) {

@@ -19,6 +19,7 @@
   <exec_depend>integ_head_move</exec_depend>
   <exec_depend>hwcfg_machines</exec_depend>
   <exec_depend>periph_bms</exec_depend>
+  <exec_depend>periph_imu_lpms</exec_depend>
   <exec_depend>periph_plc_io</exec_depend>
   <exec_depend>periph_led_ultrasonic</exec_depend>
   <exec_depend>hw_ethercat</exec_depend>
@@ -29,6 +30,7 @@
   <exec_depend>rclpy</exec_depend>
   <exec_depend>hw_canopen</exec_depend>
   <exec_depend>ctrl_swerve</exec_depend>
+  <exec_depend>ctrl_wheel_observation_broadcaster</exec_depend>
   <exec_depend>robot_rt_control_interfaces</exec_depend>
   <exec_depend>controller_manager_msgs</exec_depend>
   <exec_depend>hardware_interface</exec_depend>

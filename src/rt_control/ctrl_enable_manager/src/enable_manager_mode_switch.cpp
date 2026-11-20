@@ -120,6 +120,44 @@ std::uint8_t EnableManagerController::validateModeSource(
     return kModeSourceMoving;
   }
 
+  ActualSample current;
+  const auto result = waitForStandstill(Phase::kEnabled, Owner::kMode, current);
+  if (result != kModeOk) {
+    return result;
+  }
+  if (!source_has_state) {
+    return kModeOk;
+  }
+  CommandSnapshot fresh_source;
+  if (!readCommandSnapshot(source, fresh_source)) {
+    return kModeSourceStale;
+  }
+  now_ns = steadyNowNs();
+  if (
+    now_ns < fresh_source.received_steady_ns ||
+    now_ns - fresh_source.received_steady_ns > mode_switch_source_state_max_age_ns_) {
+    return kModeSourceStale;
+  }
+  if (
+    source == ControlMode::kRollingReady &&
+    fresh_source.rolling_state !=
+      robot_rt_control_interfaces::msg::RollingJointControlState::HOLDING) {
+    return kModeSourceMoving;
+  }
+  // The trajectory controller hands over its output; rolling checks its own takeover on
+  // activation and the trajectory controller starts from the measured state.
+  if (
+    source == ControlMode::kFjtReady &&
+    !sourceWithinTakeoverTolerance(fresh_source.positions, current.positions)) {
+    return kModeTakeoverMismatch;
+  }
+  snapshot = fresh_source;
+  return kModeOk;
+}
+
+std::uint8_t EnableManagerController::waitForStandstill(
+  Phase phase, Owner owner, ActualSample & sample)
+{
   ActualSample previous;
   if (!readActualSample(previous)) {
     return kModeNotReady;
@@ -132,14 +170,17 @@ std::uint8_t EnableManagerController::validateModeSource(
   // Standstill over a window of consecutive samples: its start-to-end displacement rate. Per
   // 1 ms interval one encoder count already exceeds the threshold on a still arm (bench
   // 2026-11-05); a 20-sample window keeps quantization 20 times smaller.
+  const auto barrier = steadyNowNs();
   ActualSample window_start = previous;
   std::size_t window_intervals = 0U;
   const auto deadline = std::chrono::steady_clock::now() + mode_switch_timeout_;
   while (std::chrono::steady_clock::now() < deadline) {
     if (
-      mode_abort_requested_.load(std::memory_order_acquire) ||
-      owner_.load(std::memory_order_acquire) != Owner::kMode ||
-      phase_.load(std::memory_order_acquire) != Phase::kEnabled) {
+      !active_.load(std::memory_order_acquire) ||
+      restart_required_.load(std::memory_order_acquire) ||
+      (owner == Owner::kMode && mode_abort_requested_.load(std::memory_order_acquire)) ||
+      owner_.load(std::memory_order_acquire) != owner ||
+      phase_.load(std::memory_order_acquire) != phase) {
       return kModeNotReady;
     }
     ActualSample current;
@@ -155,7 +196,7 @@ std::uint8_t EnableManagerController::validateModeSource(
       current.steady_time_ns > previous.steady_time_ns &&
       current.steady_time_ns - previous.steady_time_ns <= mode_switch_maximum_sample_period_ns_;
     previous = current;
-    if (!contiguous) {
+    if (!contiguous || window_start.steady_time_ns < barrier) {
       window_start = current;
       window_intervals = 0U;
       continue;
@@ -169,36 +210,27 @@ std::uint8_t EnableManagerController::validateModeSource(
       continue;
     }
 
-    if (!source_has_state) {
-      return kModeOk;
-    }
-    CommandSnapshot fresh_source;
-    if (!readCommandSnapshot(source, fresh_source)) {
-      return kModeSourceStale;
-    }
-    now_ns = steadyNowNs();
-    if (
-      now_ns < fresh_source.received_steady_ns ||
-      now_ns - fresh_source.received_steady_ns > mode_switch_source_state_max_age_ns_) {
-      return kModeSourceStale;
-    }
-    if (
-      source == ControlMode::kRollingReady &&
-      fresh_source.rolling_state !=
-        robot_rt_control_interfaces::msg::RollingJointControlState::HOLDING) {
-      return kModeSourceMoving;
-    }
-    // The trajectory controller hands over its output; rolling checks its own takeover on
-    // activation and the trajectory controller starts from the measured state.
-    if (
-      source == ControlMode::kFjtReady &&
-      !sourceWithinTakeoverTolerance(fresh_source.positions, current.positions)) {
-      return kModeTakeoverMismatch;
-    }
-    snapshot = fresh_source;
+    sample = current;
     return kModeOk;
   }
   return kModeSourceMoving;
+}
+
+void EnableManagerController::handleConfirmStandstill(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  // Domain-local, read-only query. It neither claims command ownership nor switches modes.
+  const auto phase = phase_.load(std::memory_order_acquire);
+  ActualSample sample;
+  const std::uint8_t result = (phase == Phase::kIdle || phase == Phase::kEnabled) &&
+                                  owner_.load(std::memory_order_acquire) == Owner::kNone
+                                ? waitForStandstill(phase, Owner::kNone, sample)
+                                : kModeNotReady;
+  robot_system_interfaces::msg::ErrorInfo error;
+  populateModeError(error, result);
+  response->success = result == kModeOk;
+  response->message = error.detail;
 }
 
 bool EnableManagerController::queryControllerStates(

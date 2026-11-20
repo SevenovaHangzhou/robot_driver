@@ -232,6 +232,8 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
   }
 
   callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  rejection_publisher_ = get_node()->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+    "~/rejection", rclcpp::QoS(1).reliable().transient_local());
   state_publisher_ = get_node()->create_publisher<StateMessage>(
     "/rt/arms/rolling/state", robot_interfaces_qos::rolling_state());
   state_timer_ = get_node()->create_wall_timer(
@@ -243,6 +245,12 @@ controller_interface::CallbackReturn RollingTrajectoryController::on_configure(
     "/rt/arms/rolling/target_batch", robot_interfaces_qos::rolling_command(),
     std::bind(&RollingTrajectoryController::handleBatch, this, std::placeholders::_1),
     subscription_options);
+  query_state_service_ = get_node()->create_service<QueryState>(
+    "~/query_state",
+    [this](const QueryState::Request::SharedPtr request, QueryState::Response::SharedPtr response) {
+      queryHeldState(*request, *response);
+    },
+    rmw_qos_profile_services_default, callback_group_);
 
   for (std::size_t axis = 0U; axis < kAxisCount; ++axis) {
     observed_positions_[axis].store(0.0, std::memory_order_relaxed);

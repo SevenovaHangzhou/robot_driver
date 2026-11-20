@@ -64,6 +64,14 @@ def check(led_executable: str, led_config: str, ultrasonic_executable: str, ultr
             b"exit_response_timeout_ms must be",
         )
         require_rejected(
+            [led_executable, "--ros-args", "-p", "request_gap_ms:=-1"], environment,
+            b"request_gap_ms must be",
+        )
+        require_rejected(
+            [ultrasonic_executable, "--ros-args", "-p", "request_gap_ms:=1001"], environment,
+            b"request_gap_ms must be",
+        )
+        require_rejected(
             [
                 led_executable,
                 "--ros-args",

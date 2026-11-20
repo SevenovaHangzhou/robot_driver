@@ -2,7 +2,7 @@
 <package format="3">
   <name>robot_description</name>
   <version>0.5.1</version>
-  <description>Single current mobile robot model with Alfav3 dual arms.</description>
+  <description>Versioned unified robot with visual, mesh collision and cuRobo sphere/box assets.</description>
   <maintainer email="kkozia188@gmail.com">kkozia</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>

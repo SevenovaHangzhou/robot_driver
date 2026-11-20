@@ -48,8 +48,42 @@ scopes:
       active:
       - joint_state_broadcaster
       - rt_internal_state_broadcaster
+      - wheel_observation_broadcaster
       - enable_manager
     controller_parameter_bindings:
+      wheel_observation_broadcaster:
+        instance_order: [module_1, module_2, module_3, module_4]
+        parameters:
+          steering_joints:
+            module: swerve_chassis
+            export: steering_joints
+            resource_kind: joints
+          drive_joints:
+            module: swerve_chassis
+            export: drive_joints
+            resource_kind: joints
+          steering_encoders:
+            module: swerve_encoders
+            export: steering_encoders
+            resource_kind: sensors
+          module_x:
+            module: swerve_chassis
+            export: module_x
+          module_y:
+            module: swerve_chassis
+            export: module_y
+          wheel_radius:
+            module: swerve_chassis
+            export: wheel_radius
+          steering_to_yaw_sign:
+            module: swerve_chassis
+            export: steering_to_yaw_sign
+          chassis_calibration_id:
+            module: swerve_chassis
+            export: calibration_id
+          encoder_calibration_id:
+            module: swerve_encoders
+            export: calibration_id
       swerve_controller:
         instance_order: [module_1, module_2, module_3, module_4]
         parameters:

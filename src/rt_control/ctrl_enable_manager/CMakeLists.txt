@@ -20,6 +20,7 @@ find_package(robot_system_interfaces REQUIRED)
 find_package(hw_semantic_components REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(rt_control_interfaces REQUIRED)
+find_package(std_srvs REQUIRED)
 
 add_library(enable_manager_controller SHARED
   src/enable_manager_controller.cpp
@@ -51,6 +52,7 @@ ament_target_dependencies(enable_manager_controller
   hw_semantic_components
   std_msgs
   rt_control_interfaces
+  std_srvs
 )
 
 pluginlib_export_plugin_description_file(
@@ -76,6 +78,7 @@ ament_export_dependencies(
   hw_semantic_components
   std_msgs
   rt_control_interfaces
+  std_srvs
 )
 
 if(BUILD_TESTING)

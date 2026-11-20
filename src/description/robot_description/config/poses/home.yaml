@@ -1,0 +1,33 @@
+schema_version: 1
+name: home
+kind: joint_positions
+scope: motion_controlled_joints
+units:
+  revolute: rad
+  prismatic: m
+model_revision: unified-20261112-r2
+source:
+  release: alfa-v3-curobo-legacy-26.11.10-buildable
+  path: program/research/curobo_v3/config/rezero_home.json
+  sha256: a92f213f93f4114fac7b79c472fc22a394a9ae6ea67b2f89db3b0260c141ba98
+  coordinate_revision: dual-zero-discrete-only-tool135-20261105
+validation:
+  status: user_selected_joint_reference
+  collision_checked: false
+  new_model_task_verified: false
+positions:
+  updown: -0.3
+  left_joint1: 1.1344640137963142
+  left_joint2: -1.3089969389957472
+  left_joint3: 0.3490658503988659
+  left_joint4: -1.5707963267948966
+  left_joint5: 0.0
+  left_joint6: -0.6981317007977318
+  left_joint7: 1.5707963267948966
+  right_joint1: -1.1344640137963142
+  right_joint2: 1.3089969389957472
+  right_joint3: -0.3490658503988659
+  right_joint4: 1.5707963267948966
+  right_joint5: 0.0
+  right_joint6: 0.6981317007977318
+  right_joint7: -1.5707963267948966

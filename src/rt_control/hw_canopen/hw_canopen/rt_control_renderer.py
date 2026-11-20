@@ -6,7 +6,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
-from infra_renderer import validated_spec, xml_param
+from infra_renderer import calibration_id, validated_spec, xml_param
 from infra_socketcan.link import link_problem
 import yaml
 
@@ -70,7 +70,7 @@ def render(request: Mapping) -> Mapping:
             "package": profile["master_driver"]["package"],
         },
     }
-    sources = {}
+    sources, rendered_facts = {}, {}
     sensors, claims, missing, diagnostic_devices = [], [], [], []
     for item in spec["nodes"]:
         device = request["devices"][item["device"]]
@@ -94,6 +94,7 @@ def render(request: Mapping) -> Mapping:
             "encoder_revolutions": device["distinguishable_revolutions"],
         }
         missing += [name + "." + key for key, value in values.items() if value == "TBD"]
+        rendered_facts[name] = values
         sensor = ET.Element("sensor", name=name)
         for interface in profile["state_interfaces"]:
             element = ET.SubElement(sensor, "state_interface", name=interface)
@@ -173,7 +174,11 @@ def render(request: Mapping) -> Mapping:
         "sensors": sensors,
         "managed_joints": [],
         "actuator_groups": {},
-        "parameter_exports": {"steering_encoders": encoder_names},
+        "parameter_exports": {
+            "steering_encoders": encoder_names,
+            # Identity of every node, conversion and installation-offset fact rendered here.
+            "calibration_id": calibration_id(machine["module"], rendered_facts),
+        },
         "diagnostic_devices": diagnostic_devices,
         "resource_claims": claims,
         "runtime_files": {

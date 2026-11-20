@@ -917,13 +917,12 @@ void SwerveController::publish_diagnostics()
   }
   item.add("slip_detected", std::string(slip_detected ? "true" : "false"));
   std::string slipping;
-  constexpr std::array<const char *, 4> module_names{"FL", "FR", "RL", "RR"};
-  for (size_t i = 0; i < module_names.size(); ++i) {
+  for (size_t i = 0; i < config_.locations.size(); ++i) {
     if ((slipping_mask & (1U << i)) != 0U) {
       if (!slipping.empty()) {
         slipping += ',';
       }
-      slipping += module_names[i];
+      slipping += module_quadrant_name(module_quadrant(config_.locations[i]));
     }
   }
   item.add("slipping_modules", slipping.empty() ? std::string("none") : slipping);

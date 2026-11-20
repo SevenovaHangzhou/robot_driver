@@ -13,12 +13,15 @@ ament_python_install_package(${PROJECT_NAME})
 # management (skip missed ticks instead of running them back to back). Same executable name.
 find_package(controller_manager REQUIRED)
 # The patched main() is 2.53.1's; it links the installed controller_manager library.
-# 2.54.2 ships a byte-identical ros2_control_node.cpp (checked 2026-11-05).
+# 2.54.2/2.54.3 ship a byte-identical ros2_control_node.cpp (checked 2026-11-14); so does 2.54.4
+# (checked 2026-11-17, sha256 ca6192e7...).
 if(NOT controller_manager_VERSION VERSION_EQUAL "2.53.1"
-   AND NOT controller_manager_VERSION VERSION_EQUAL "2.54.2")
+   AND NOT controller_manager_VERSION VERSION_EQUAL "2.54.2"
+   AND NOT controller_manager_VERSION VERSION_EQUAL "2.54.3"
+   AND NOT controller_manager_VERSION VERSION_EQUAL "2.54.4")
   message(FATAL_ERROR
     "controller_manager ${controller_manager_VERSION} installed; upstream/ros2_control_node.cpp and "
-    "its patch are for 2.53.1/2.54.2. Re-import the upstream file and rebase the patch.")
+    "its patch are for 2.53.1/2.54.2/2.54.3/2.54.4. Re-import the upstream file and rebase the patch.")
 endif()
 find_package(rclcpp REQUIRED)
 find_package(realtime_tools REQUIRED)
@@ -55,7 +58,6 @@ install(
     scripts/scope_hardware_start
     scripts/scope_shutdown
     scripts/scope_capabilities
-    scripts/scope_operator_tuning
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -68,7 +70,6 @@ if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_ultrasonic_launch test/test_ultrasonic_launch.py)
   ament_add_pytest_test(test_scope_lifecycle test/test_scope_lifecycle.py)
-  ament_add_pytest_test(test_operator_tuning test/test_operator_tuning.py)
 endif()
 
 ament_package()

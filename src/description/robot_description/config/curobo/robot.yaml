@@ -1,0 +1,321 @@
+kinematics:
+  add_object_link: false
+  asset_root_path: .
+  base_link: base_footprint
+  collision_link_names:
+  - arm_carriage
+  - left_link1
+  - left_link2
+  - left_link3
+  - left_link4
+  - left_link5
+  - left_link6
+  - left_link7
+  - right_link1
+  - right_link2
+  - right_link3
+  - right_link4
+  - right_link5
+  - right_link6
+  - right_link7
+  - H1_Link
+  - H2_Link
+  - mid360_Link
+  collision_sphere_buffer: 0.0
+  collision_spheres: collision_spheres.yaml
+  cspace:
+    acceleration_scale:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    cspace_distance_weight:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    default_joint_position:
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    jerk_scale:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    joint_names:
+    - updown
+    - left_joint1
+    - left_joint2
+    - left_joint3
+    - left_joint4
+    - left_joint5
+    - left_joint6
+    - left_joint7
+    - right_joint1
+    - right_joint2
+    - right_joint3
+    - right_joint4
+    - right_joint5
+    - right_joint6
+    - right_joint7
+    max_acceleration:
+    - 10.0
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    - 1.0471975511965976
+    max_jerk:
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    - 500.0
+    null_space_maximum_distance:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    null_space_weight:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    position_limit_clip: 0.0
+    velocity_scale:
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+    - 1.0
+  debug: null
+  external_asset_path: null
+  external_robot_configs_path: null
+  extra_collision_spheres: null
+  extra_links: {}
+  format_version: 2.0
+  grasp_contact_link_names: null
+  load_meshes: false
+  load_tool_frames_with_mesh: false
+  lock_joints:
+    steer1_joint: 0.0
+    wheel1_joint: 0.0
+    steer2_joint: 0.0
+    wheel2_joint: 0.0
+    steer3_joint: 0.0
+    wheel3_joint: 0.0
+    steer4_joint: 0.0
+    wheel4_joint: 0.0
+    H1_joint: 0.0
+    H2_joint: 0.0
+  mesh_link_names:
+  - arm_carriage
+  - left_link1
+  - left_link2
+  - left_link3
+  - left_link4
+  - left_link5
+  - left_link6
+  - left_link7
+  - right_link1
+  - right_link2
+  - right_link3
+  - right_link4
+  - right_link5
+  - right_link6
+  - right_link7
+  - H1_Link
+  - H2_Link
+  - mid360_Link
+  self_collision_buffer:
+    arm_carriage: 0.0
+    left_link1: 0.0
+    left_link2: 0.0
+    left_link3: 0.0
+    left_link4: 0.0
+    left_link5: 0.0
+    left_link6: 0.0
+    left_link7: 0.0
+    right_link1: 0.0
+    right_link2: 0.0
+    right_link3: 0.0
+    right_link4: 0.0
+    right_link5: 0.0
+    right_link6: 0.0
+    right_link7: 0.0
+    H1_Link: 0.0
+    H2_Link: 0.0
+    mid360_Link: 0.0
+  self_collision_ignore:
+    arm_carriage:
+    - left_link1
+    - right_link1
+    - H1_Link
+    left_link1:
+    - arm_carriage
+    - left_link2
+    left_link2:
+    - left_link1
+    - left_link3
+    left_link3:
+    - left_link2
+    - left_link4
+    left_link4:
+    - left_link3
+    - left_link5
+    left_link5:
+    - left_link4
+    - left_link6
+    left_link6:
+    - left_link5
+    - left_link7
+    left_link7:
+    - left_link6
+    right_link1:
+    - arm_carriage
+    - right_link2
+    right_link2:
+    - right_link1
+    - right_link3
+    right_link3:
+    - right_link2
+    - right_link4
+    right_link4:
+    - right_link3
+    - right_link5
+    right_link5:
+    - right_link4
+    - right_link6
+    right_link6:
+    - right_link5
+    - right_link7
+    right_link7:
+    - right_link6
+    H1_Link:
+    - arm_carriage
+    - H2_Link
+    H2_Link:
+    - H1_Link
+    - mid360_Link
+    mid360_Link:
+    - H2_Link
+  tool_frames:
+  - left_tool0
+  - right_tool0
+  - lidar_main
+  - lidar_rear
+  - H1_Link
+  - H2_Link
+  - mid360_Link
+  - Leye_link
+  - Reye_Link
+  - left_ft_sensor_link
+  - right_ft_sensor_link
+  - steer1
+  - steer2
+  - steer3
+  - steer4
+  - wheel1
+  - wheel2
+  - wheel3
+  - wheel4
+  urdf_path: urdf/robot_alfav3_mobile.urdf
+  use_external_assets: false
+  use_global_cumul: true

@@ -92,7 +92,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
       "CiA402 and handshake interfaces must match each configured joint and device exactly once");
     return controller_interface::CallbackReturn::ERROR;
   }
-  if (motion_mode_switching_) {
+  if (!motion_joint_names_.empty()) {
     const std::size_t motion_offset = cia402_axes_.size();
     for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
       const std::string expected_position = motion_joint_names_[axis] + "/position";
@@ -210,7 +210,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   actual_sample_version_.store(0U, std::memory_order_relaxed);
   actual_sample_sequence_.store(0U, std::memory_order_relaxed);
   actual_sample_time_ns_.store(0U, std::memory_order_relaxed);
-  if (motion_mode_switching_) {
+  if (!motion_joint_names_.empty()) {
     const std::size_t motion_offset = cia402_axes_.size();
     for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
       actual_sample_positions_[axis].store(
@@ -271,7 +271,7 @@ controller_interface::return_type EnableManagerController::update(
     diagnostic_state_values_[index].store(
       state_interfaces_[diagnostic_state_indices_[index]].get_value(), std::memory_order_relaxed);
   }
-  if (motion_mode_switching_) {
+  if (!motion_joint_names_.empty()) {
     const std::size_t motion_offset = cia402_axes_.size();
     actual_sample_version_.fetch_add(1U, std::memory_order_acq_rel);
     for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {

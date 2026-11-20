@@ -1,0 +1,268 @@
+{
+  "revision": "unified-20261112-r2",
+  "canonical_urdf_sha256": "2391196b0a886b97d3c119c7ffd6b45a74d233bcd4856b049601fdc26860050e",
+  "cpu_tests": "13 passed; CTest 1/1; build/install passed",
+  "deterministic_regeneration_files": 77,
+  "upstream_inventory": {
+    "commit": "100d251f5532658847cc76da2633617eb1d39382",
+    "original_links": 37,
+    "original_joints": 36,
+    "missing_links": [],
+    "missing_joints": [],
+    "current_links": 39,
+    "current_joints": 38
+  },
+  "gpu_planning": {
+    "status": "passed",
+    "samples": 64,
+    "dof": 15,
+    "sphere_checks": 16512,
+    "mode": "published_planning_preset",
+    "queried_frames": [
+      "left_tool0",
+      "right_tool0",
+      "lidar_main",
+      "lidar_rear",
+      "H1_Link",
+      "H2_Link",
+      "mid360_Link",
+      "Leye_link",
+      "Reye_Link",
+      "left_ft_sensor_link",
+      "right_ft_sensor_link",
+      "steer1",
+      "steer2",
+      "steer3",
+      "steer4",
+      "wheel1",
+      "wheel2",
+      "wheel3",
+      "wheel4"
+    ],
+    "maximum_sphere_component_error_m": 3.3042141867056785e-07,
+    "maximum_tool_translation_error_m": 2.9372345000666655e-07,
+    "maximum_tool_rotation_matrix_error": 3.874303065089548e-07,
+    "scope": "GPU FK and sphere transforms vs independent CPU URDF FK; not collision coverage or planning acceptance"
+  },
+  "gpu_all_joints": {
+    "status": "passed",
+    "samples": 64,
+    "dof": 25,
+    "sphere_checks": 16512,
+    "mode": "all_joints_diagnostic",
+    "queried_frames": [
+      "left_tool0",
+      "right_tool0",
+      "lidar_main",
+      "lidar_rear",
+      "H1_Link",
+      "H2_Link",
+      "mid360_Link",
+      "Leye_link",
+      "Reye_Link",
+      "left_ft_sensor_link",
+      "right_ft_sensor_link",
+      "steer1",
+      "steer2",
+      "steer3",
+      "steer4",
+      "wheel1",
+      "wheel2",
+      "wheel3",
+      "wheel4"
+    ],
+    "maximum_sphere_component_error_m": 3.29828369061147e-07,
+    "maximum_tool_translation_error_m": 2.9372345000666655e-07,
+    "maximum_tool_rotation_matrix_error": 3.228258916299076e-07,
+    "scope": "GPU FK and sphere transforms vs independent CPU URDF FK; not collision coverage or planning acceptance"
+  },
+  "gpu_installed": {
+    "status": "passed",
+    "samples": 8,
+    "dof": 25,
+    "sphere_checks": 2064,
+    "mode": "all_joints_diagnostic",
+    "queried_frames": [
+      "left_tool0",
+      "right_tool0",
+      "lidar_main",
+      "lidar_rear",
+      "H1_Link",
+      "H2_Link",
+      "mid360_Link",
+      "Leye_link",
+      "Reye_Link",
+      "left_ft_sensor_link",
+      "right_ft_sensor_link",
+      "steer1",
+      "steer2",
+      "steer3",
+      "steer4",
+      "wheel1",
+      "wheel2",
+      "wheel3",
+      "wheel4"
+    ],
+    "maximum_sphere_component_error_m": 2.5261815506105734e-07,
+    "maximum_tool_translation_error_m": 2.0331213246294055e-07,
+    "maximum_tool_rotation_matrix_error": 2.2253577958153414e-07,
+    "scope": "GPU FK and sphere transforms vs independent CPU URDF FK; not collision coverage or planning acceptance"
+  },
+  "head_triangle_enclosure": {
+    "H1_Link": {
+      "triangle_count": 126606,
+      "sphere_count": 8,
+      "grid_cell_m": 0.06,
+      "surface_margin_m": 0.0005,
+      "maximum_assigned_triangle_vertex_gap_m": -0.0005000000000000004
+    },
+    "H2_Link": {
+      "triangle_count": 5668,
+      "sphere_count": 18,
+      "grid_cell_m": 0.06,
+      "surface_margin_m": 0.0005,
+      "maximum_assigned_triangle_vertex_gap_m": -0.0005000000000000004
+    },
+    "mid360_Link": {
+      "triangle_count": 47621,
+      "sphere_count": 10,
+      "grid_cell_m": 0.06,
+      "surface_margin_m": 0.0005,
+      "maximum_assigned_triangle_vertex_gap_m": -0.0005000000000000004
+    }
+  },
+  "collision_surface_sampling": {
+    "status": "measured_not_conservative_certificate",
+    "links": {
+      "arm_carriage": {
+        "method": "sphere_union_surface_sample",
+        "samples": 8112,
+        "covered_fraction": 0.6892258382642998,
+        "maximum_sampled_gap_m": 0.055418800879900476
+      },
+      "base_link": {
+        "method": "four_box_union_surface_sample",
+        "samples": 7192,
+        "covered_fraction": 0.9200500556173526,
+        "maximum_sampled_gap_m": 0.05027168490089313
+      },
+      "left_link1": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1280,
+        "covered_fraction": 0.68046875,
+        "maximum_sampled_gap_m": 0.014086791331224952
+      },
+      "left_link2": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1472,
+        "covered_fraction": 0.6175271739130435,
+        "maximum_sampled_gap_m": 0.013266266146336102
+      },
+      "left_link3": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1552,
+        "covered_fraction": 0.6771907216494846,
+        "maximum_sampled_gap_m": 0.012239172023814228
+      },
+      "left_link4": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1248,
+        "covered_fraction": 0.5849358974358975,
+        "maximum_sampled_gap_m": 0.01777550721256045
+      },
+      "left_link5": {
+        "method": "sphere_union_surface_sample",
+        "samples": 2312,
+        "covered_fraction": 0.47837370242214533,
+        "maximum_sampled_gap_m": 0.02121188010037056
+      },
+      "left_link6": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1312,
+        "covered_fraction": 0.7728658536585366,
+        "maximum_sampled_gap_m": 0.005115983683520127
+      },
+      "left_link7": {
+        "method": "sphere_union_surface_sample",
+        "samples": 944,
+        "covered_fraction": 0.6080508474576272,
+        "maximum_sampled_gap_m": 0.026321627788984864
+      },
+      "left_tool_link": {
+        "method": "sphere_union_surface_sample",
+        "samples": 2032,
+        "covered_fraction": 0.4827755905511811,
+        "maximum_sampled_gap_m": 0.024027781162758582
+      },
+      "right_link1": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1280,
+        "covered_fraction": 0.74453125,
+        "maximum_sampled_gap_m": 0.018159762537879792
+      },
+      "right_link2": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1472,
+        "covered_fraction": 0.6066576086956522,
+        "maximum_sampled_gap_m": 0.015283552482946244
+      },
+      "right_link3": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1552,
+        "covered_fraction": 0.6804123711340206,
+        "maximum_sampled_gap_m": 0.012157923248749591
+      },
+      "right_link4": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1248,
+        "covered_fraction": 0.6818910256410257,
+        "maximum_sampled_gap_m": 0.01629516040934044
+      },
+      "right_link5": {
+        "method": "sphere_union_surface_sample",
+        "samples": 2312,
+        "covered_fraction": 0.40657439446366783,
+        "maximum_sampled_gap_m": 0.020056209395860884
+      },
+      "right_link6": {
+        "method": "sphere_union_surface_sample",
+        "samples": 1312,
+        "covered_fraction": 0.6242378048780488,
+        "maximum_sampled_gap_m": 0.006194056350522437
+      },
+      "right_link7": {
+        "method": "sphere_union_surface_sample",
+        "samples": 944,
+        "covered_fraction": 0.4766949152542373,
+        "maximum_sampled_gap_m": 0.024752919191897885
+      },
+      "right_tool_link": {
+        "method": "sphere_union_surface_sample",
+        "samples": 2032,
+        "covered_fraction": 0.45718503937007876,
+        "maximum_sampled_gap_m": 0.02039163943954181
+      },
+      "H1_Link": {
+        "method": "sphere_union_surface_sample",
+        "samples": 506424,
+        "covered_fraction": 1.0,
+        "maximum_sampled_gap_m": 0.0
+      },
+      "H2_Link": {
+        "method": "sphere_union_surface_sample",
+        "samples": 22672,
+        "covered_fraction": 1.0,
+        "maximum_sampled_gap_m": 0.0
+      },
+      "mid360_Link": {
+        "method": "sphere_union_surface_sample",
+        "samples": 190484,
+        "covered_fraction": 1.0,
+        "maximum_sampled_gap_m": 0.0
+      }
+    },
+    "method": "all mesh vertices and face centroids; no radius inflation; local coverage invariant under each rigid link FK",
+    "maximum_sampled_gap_m": 0.055418800879900476
+  },
+  "visual_check": "Adjusted H1=.3rad,H2=.2rad in the real Viser page; all three representations and mid360 marker move; chassis radar coordinates stay fixed. Reset to zero for handoff."
+}

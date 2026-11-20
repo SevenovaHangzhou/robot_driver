@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -115,6 +116,14 @@ int Socket::interface_index() const noexcept
   return interface_index_;
 }
 
+void Socket::enable_receive_timestamps()
+{
+  const int enable{1};
+  if (::setsockopt(descriptor_, SOL_SOCKET, SO_TIMESTAMPNS, &enable, sizeof(enable)) < 0) {
+    throw_system_error("enable SocketCAN receive timestamps");
+  }
+}
+
 int Socket::send(const can_frame & frame) const noexcept
 {
   const ssize_t sent = ::send(descriptor_, &frame, sizeof(frame), MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -131,6 +140,32 @@ int Socket::receive(can_frame & frame) const noexcept
     return errno == EAGAIN || errno == EWOULDBLOCK ? 0 : -errno;
   }
   return received == static_cast<ssize_t>(sizeof(frame)) ? 1 : -EIO;
+}
+
+int Socket::receive(can_frame & frame, timespec & kernel_time) const noexcept
+{
+  kernel_time = {};
+  iovec data{&frame, sizeof(frame)};
+  alignas(cmsghdr) char control[CMSG_SPACE(sizeof(timespec))];
+  msghdr header{};
+  header.msg_iov = &data;
+  header.msg_iovlen = 1U;
+  header.msg_control = control;
+  header.msg_controllen = sizeof(control);
+  const ssize_t received = ::recvmsg(descriptor_, &header, MSG_DONTWAIT);
+  if (received < 0) {
+    return errno == EAGAIN || errno == EWOULDBLOCK ? 0 : -errno;
+  }
+  if (received != static_cast<ssize_t>(sizeof(frame))) {
+    return -EIO;
+  }
+  for (cmsghdr * item = CMSG_FIRSTHDR(&header); item != nullptr;
+       item = CMSG_NXTHDR(&header, item)) {
+    if (item->cmsg_level == SOL_SOCKET && item->cmsg_type == SCM_TIMESTAMPNS) {
+      std::memcpy(&kernel_time, CMSG_DATA(item), sizeof(kernel_time));
+    }
+  }
+  return 1;
 }
 
 int Socket::wait_readable(int timeout_ms) const noexcept

@@ -41,6 +41,7 @@
 | motion/F6 | 四轮速度使用固定规模最小二乘残差剔除；同一异常轮从 twist 与位置里程计排除且恢复无补跳，阈值保持待标定；共模一致误差不可辨识 | [残差剔除记录](../../areas-archive/motion/records/2026-09-16-swerve-slip-residual-rejection.md)#F1-F4 | PARTIAL（T1 Native/Mock；阈值和实机打滑待验） |
 | motion/F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](../../areas-archive/motion/records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
 | motion/F10 | ELECTRI-133 Tier A 固定规模 SE(2) 相对运动、独立无设备 Mock 与 opt-in loaned-interface/cyclic adapter 已实现；connected synthetic PDO 已验证 sent-cycle 与全四轮切换门禁，production profile/gate 未放开 | [Tier A 记录](../../areas-archive/motion/records/2026-09-25-tier-a-relative-move-mock.md)#F1-F4 | PARTIAL（T1；真实切换/标定/IMU 待验） |
+| control-20261114-01#F1–F3 | Jog 控制权在请求终态与控制器实际停稳后交接；发送协议和轨迹准入各归现有拥有者 | [Jog 评审收敛](records/2026-11-14-jog-review-scope.md) | PARTIAL（T0；548项包测试通过，实机未验） |
 
 ## 跨区事实关联
 
@@ -53,3 +54,5 @@
 [arm-control-20261024-01](records/2026-10-24-vacuum-web-controls.md)#F1-F3：临时真空三按钮复用现场脚本，右阀00、左阀01、泵02；网页轮询只读，开关不自动联动。105项测试与浏览器模拟通过，实际读回三路OFF，实机开关待验（PARTIAL，T2）。
 
 [arm-control-20261027-01](records/2026-10-27-vacuum-pressure-display.md)#F1-F3：操作台右上角消费左右压力 ROS 话题，AI0=左、AI1=右，显示换算后的 kPa 表压；单路无效或超过 1 秒未更新清除数字，与泵阀和运动准入独立。107 项包测试、构建、质量门禁及真实页面只读验收通过（PASS，T2）。
+
+[control-20261118-01](records/2026-11-18-wheel-observations.md)#F1-F2：新增只读逐轮观测广播器 R-OUT-29（失能与轮子轨迹模式下照常发布）；打滑诊断与逐轮观测的 FL/FR/RL/RR 由标定坐标推出（研华 module_1..4 = FR/RR/FL/RL）。本机构建与包测试通过，mock 与实机未验（UNVERIFIED，T0）。

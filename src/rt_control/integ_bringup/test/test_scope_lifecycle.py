@@ -178,8 +178,7 @@ def test_scope_launch_reads_artifact_locks_then_preflights_before_any_node(monke
 
 @pytest.mark.parametrize(
     "inactive, expected",
-    # Field tuning (ELECTRI-127) runs only when motion controllers exist to be tuned.
-    [([], ["lifecycle"]), (["swerve_controller"], ["motion", "tuning", "lifecycle"])],
+    [([], ["lifecycle"]), (["swerve_controller"], ["motion", "lifecycle"])],
 )
 def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
     monkeypatch, tmp_path, inactive, expected
@@ -209,8 +208,6 @@ def test_scope_launch_spawns_motion_only_when_the_scope_declares_it(
         if kwargs["executable"] == "spawner":
             spawners.append("motion" if "--inactive" in kwargs["arguments"] else "lifecycle")
             assert kwargs["arguments"][0] in [*inactive, "enable_manager"]
-        if kwargs["executable"] == "scope_operator_tuning":
-            spawners.append("tuning")
         return real_node(**kwargs)
 
     monkeypatch.setattr(module, "Node", node)
@@ -265,6 +262,47 @@ def test_scope_launch_runs_robot_state_publisher_as_the_scope_declares(
     actions = module.setup(context)
     executables = [getattr(action, "node_executable", None) for action in actions]
     assert ("robot_state_publisher" in executables) == expected
+
+
+def test_scope_launch_starts_the_unit_peripherals_from_the_artifact(monkeypatch, tmp_path):
+    path = BRINGUP / "launch/rt_control_scope_runtime.launch.py"
+    spec = importlib.util.spec_from_file_location("scope_launch", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    peripheral = {
+        "name": "lpms_nav3",
+        "package": "periph_imu_lpms",
+        "executable": "lpms_nav3_can_node",
+        "config_file": "peripherals/lpms_nav3.yaml",
+    }
+    monkeypatch.setattr(
+        module,
+        "load_artifact",
+        lambda directory, **_: SimpleNamespace(
+            staged_hardware_activation=True,
+            lifecycle={"bus_locks": [], "optional_peripherals": [peripheral]},
+            controller_order={"inactive": [], "active": ["enable_manager"]},
+            robot_description="<robot name='synthetic'/>",
+            runtime_dir=Path(directory),
+            runtime_parameters={},
+        ),
+    )
+    monkeypatch.setattr(module, "preflight", lambda _: [])
+    monkeypatch.setenv("RT_CONTROL_STATE_DIR", str(tmp_path))
+    context = LaunchContext()
+    context.launch_configurations.update(
+        use_mock_hardware="false",
+        control_scope="chassis_only",
+        physical_profile="",
+        robot_variant="Alfa_V3",
+        machine_unit="Alfa_V3-Advantech-01",
+        generated_dir="/synthetic/artifact",
+        publish_robot_state="",
+    )
+    actions = module.setup(context)
+    nodes = [action for action in actions if getattr(action, "node_executable", None)]
+    imu = [node for node in nodes if node.node_executable == "lpms_nav3_can_node"]
+    assert len(imu) == 1 and imu[0].node_package == "periph_imu_lpms"
 
 
 def test_capability_document_is_derived_from_the_lifecycle_plan():

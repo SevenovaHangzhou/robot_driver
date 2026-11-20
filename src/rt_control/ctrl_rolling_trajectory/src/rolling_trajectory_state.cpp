@@ -3,8 +3,50 @@
 #include <algorithm>
 #include <cstdint>
 
+#include "hw_semantic_components/feedback_age.hpp"
+
 namespace ctrl_rolling_trajectory
 {
+
+void RollingTrajectoryController::queryHeldState(
+  const QueryState::Request & request, QueryState::Response & response)
+{
+  std::lock_guard<std::mutex> lock(callback_mutex_);
+  response = QueryState::Response{};
+  response.message = "current stationary command unavailable";
+  if (request.time.sec != 0 || request.time.nanosec != 0U) {
+    response.message = "only time zero (current stationary command) is supported";
+    return;
+  }
+  const auto & view = readRtStateView();
+  const auto live_state =
+    static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire));
+  const bool empty_priming =
+    live_state == SessionState::kPriming && buffer_.image().point_count == 0U;
+  if (
+    !active_.load(std::memory_order_acquire) ||
+    view.session_epoch != session_epoch_.load(std::memory_order_acquire) ||
+    view.session_state != live_state ||
+    elapsedExceeds(
+      steadyNowNs(), view.published_at_ns, runtime_configuration_.maximum_controller_period_ns) ||
+    !desiredIsValid(view.desired) ||
+    (view.session_state != SessionState::kNone && view.session_state != SessionState::kHolding &&
+     !(view.session_state == SessionState::kPriming && empty_priming)) ||
+    !std::all_of(
+      view.desired.velocities.begin(), view.desired.velocities.end(),
+      [](double value) { return value == 0.0; }) ||
+    !hw_semantic_components::feedback_fresh(
+      observed_feedback_age_ms_.load(std::memory_order_acquire),
+      runtime_configuration_.feedback_age_limit_ms)) {
+    return;
+  }
+  response.name.assign(runtime_configuration_.joints.begin(), runtime_configuration_.joints.end());
+  response.position.assign(view.desired.positions.begin(), view.desired.positions.end());
+  response.velocity.assign(kAxisCount, 0.0);
+  response.acceleration.assign(kAxisCount, 0.0);
+  response.success = true;
+  response.message = "current stationary command";
+}
 
 const RollingTrajectoryController::RtStateView &
 RollingTrajectoryController::readRtStateView() noexcept
@@ -15,9 +57,13 @@ RollingTrajectoryController::readRtStateView() noexcept
   return confirmed_rt_state_;
 }
 
-bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & context) noexcept
+bool RollingTrajectoryController::buildAdmissionContext(
+  AdmissionContext & context, const char ** failure) noexcept
 {
   context = AdmissionContext{};
+  if (failure != nullptr) {
+    *failure = "none";
+  }
   if (
     static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) ==
       SessionState::kPriming &&
@@ -27,18 +73,34 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
   }
 
   const auto & view = readRtStateView();
+  if (view.session_epoch != session_epoch_.load(std::memory_order_acquire)) {
+    if (failure != nullptr) {
+      *failure = "epoch_changed";
+    }
+    return false;
+  }
   if (
     view.session_state != SessionState::kRunning ||
-    view.session_epoch != session_epoch_.load(std::memory_order_acquire) ||
     static_cast<SessionState>(rt_session_state_.load(std::memory_order_acquire)) !=
-      SessionState::kRunning ||
-    elapsedExceeds(
-      steadyNowNs(), view.published_at_ns, runtime_configuration_.maximum_controller_period_ns)) {
+      SessionState::kRunning) {
+    if (failure != nullptr) {
+      *failure = "state_not_running";
+    }
+    return false;
+  }
+  if (elapsedExceeds(
+        steadyNowNs(), view.published_at_ns, runtime_configuration_.maximum_controller_period_ns)) {
+    if (failure != nullptr) {
+      *failure = "snapshot_stale";
+    }
     return false;
   }
 
   std::uint64_t stop_duration_ns = 0U;
   if (!calculateStopDurationNs(view.desired, stop_duration_ns)) {
+    if (failure != nullptr) {
+      *failure = "invalid_desired";
+    }
     return false;
   }
   const auto execution_ns =
@@ -46,6 +108,9 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
   // Braking uses the model acceleration limit: stop time grows by at most the elapsed
   // trajectory time. Reserve that growth when RT has advanced past the completed summary.
   if (!addTime(stop_duration_ns, execution_ns - view.execution_time_ns, stop_duration_ns)) {
+    if (failure != nullptr) {
+      *failure = "time_overflow";
+    }
     return false;
   }
   std::uint64_t minimum_horizon_ns = stop_duration_ns;
@@ -62,6 +127,9 @@ bool RollingTrajectoryController::buildAdmissionContext(AdmissionContext & conte
     !addTime(
       minimum_horizon_ns, runtime_configuration_.scheduling_guard.period_quantization_ns,
       minimum_horizon_ns)) {
+    if (failure != nullptr) {
+      *failure = "time_overflow";
+    }
     return false;
   }
   context.execution_time_ns = execution_ns;

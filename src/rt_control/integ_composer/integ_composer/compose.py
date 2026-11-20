@@ -129,6 +129,11 @@ def compose(
         selected_names,
         bindings,
     )
+    peripherals = _optional_peripherals(
+        data["deployment"], control_scope, use_mock_hardware, config_root / "units" / machine_unit, files
+    )
+    if peripherals:
+        lifecycle["optional_peripherals"] = peripherals
     if staged:
         # Consumed by the generic scope launcher and its orderly shutdown.
         files["lifecycle.yaml"] = yaml.safe_dump(lifecycle, sort_keys=False)
@@ -478,6 +483,34 @@ def _mode_controllers(order, bindings):
         if any(alternate in names for names in tags.values()):
             return [name for name, names in tags.items() if names & group]
     return []
+
+
+def _optional_peripherals(deployment, control_scope, use_mock_hardware, unit_root, files):
+    """Unit peripheral nodes for the scope launcher; they never gate readiness or preflight.
+
+    A peripheral offline at start only reports through its own status. The node package is an
+    integ_bringup exec dependency, so a missing executable is a release error, not a fact here.
+    """
+    if use_mock_hardware:
+        return []
+    result = []
+    for item in deployment.get("optional_peripherals", []):
+        if control_scope not in item["scopes"]:
+            continue
+        if any(entry["name"] == item["name"] for entry in result):
+            raise ValueError(f"Duplicate optional peripheral: {item['name']}")
+        config = load_yaml(resolve_share_path(unit_root, item["config_file"]))
+        filename = f"peripherals/{item['name']}.yaml"
+        files[filename] = yaml.safe_dump(config, sort_keys=False)
+        result.append(
+            {
+                "name": item["name"],
+                "package": item["package"],
+                "executable": item["executable"],
+                "config_file": filename,
+            }
+        )
+    return result
 
 
 def _lifecycle(
