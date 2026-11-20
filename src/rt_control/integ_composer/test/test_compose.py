@@ -28,6 +28,11 @@ _SPEC = importlib.util.spec_from_file_location(
 VALIDATOR = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(VALIDATOR)
 BASELINE = yaml.safe_load((GOLDEN / "manifest.yaml").read_text())
+ARM_ACCELERATION_LIMITS = {
+    f"{side}_joint{index}": math.radians(value)
+    for side in ("left", "right")
+    for index, value in enumerate([373.06, 373.06, 373.06, 498.41, 895.35, 895.35, 895.35], 1)
+}
 sys.path.insert(0, str(RT / "hw_ethercat"))
 from hw_ethercat import rt_control_renderer as OWNER
 
@@ -166,6 +171,15 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, target)
     expected = canonical_files(baseline, "<RUNTIME_DIR>", BASELINE["rename_map"])
+    # The historic baseline predates the new acceleration policy.
+    expected_controllers = yaml.safe_load(expected["controllers.yaml"])
+    for controller in expected_controllers.values():
+        parameters = controller["ros__parameters"]
+        if "joint_acceleration_limits" in parameters:
+            parameters["joint_acceleration_limits"] = [
+                ARM_ACCELERATION_LIMITS[joint] for joint in parameters["joints"]
+            ]
+    expected["controllers.yaml"] = yaml.safe_dump(expected_controllers, sort_keys=True)
     actual = canonical_files(snapshot, runtime, BASELINE["rename_map"])
     assert set(expected) == set(actual), "Missing or extra output file"
     expected_dir, actual_dir = tmp_path / "canonical-old", tmp_path / "canonical-new"
@@ -215,14 +229,15 @@ def test_diagnostics_devices_name_only_rendered_state_interfaces(shares, tmp_pat
             assert device["fault_table"] in diagnostics["fault_tables"]
 
 
-def test_rolling_limits_come_from_the_robot_model(shares, tmp_path):
-    # User 2026-11-04/05: arm limits 30 deg/s and 60 deg/s^2; position from the URDF.
+def test_rolling_limits_use_urdf_velocity_and_acceleration_policy(shares, tmp_path):
     result = compose(
         **inputs(shares), runtime_dir=tmp_path / "runtime", use_mock_hardware=True, jtc_only=False
     )
     parameters = result.controllers["rolling_trajectory_controller"]["ros__parameters"]
     assert set(parameters["joint_velocity_limits"]) == {math.radians(30.0)}
-    assert set(parameters["joint_acceleration_limits"]) == {math.radians(60.0)}
+    assert parameters["joint_acceleration_limits"] == pytest.approx(
+        [ARM_ACCELERATION_LIMITS[joint] for joint in parameters["joints"]]
+    )
     assert all(
         lower < upper
         for lower, upper in zip(
@@ -366,8 +381,6 @@ def test_fault_tables_reject_duplicates_and_wrong_references(shares):
         VALIDATOR.validate_machine_tree(root, PACKAGE / "schema", shares.__getitem__)
 
 
-
-
 def test_sample_a_conformance_is_read_only_and_keeps_unknown_xml(shares, monkeypatch):
     request = sample_request(shares)
     before = deepcopy(request)
@@ -471,8 +484,6 @@ def test_stationary_preflight_preserves_old_checks_with_injected_cli(shares, mon
     [unqualified] = OWNER.preflight(topology, run=run)
     assert unqualified["blocking"] and "Unqualified error" in unqualified["detail"]
     assert calls
-
-
 
 
 def test_renderer_api_rejected_before_invocation(monkeypatch):

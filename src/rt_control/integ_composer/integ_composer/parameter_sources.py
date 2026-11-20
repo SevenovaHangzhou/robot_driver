@@ -167,7 +167,17 @@ def _evaluate(kind, source, name, binding, env):
     if kind == "yaml":
         share = Path(env["package_share"](source["package"]))
         data = yaml.safe_load(resolve_share_path(share, source["file"]).read_text())
-        return _lookup(data, source["path"], env["context"])
+        value = _lookup(data, source["path"], env["context"])
+        if "joint_order" in source:
+            order = source["joint_order"]
+            joints = _lookup(env["policies"][order["policy"]], order["path"], env["context"])
+            if not isinstance(value, dict):
+                raise ValueError(f"Joint-ordered YAML source for {name} must be a mapping")
+            missing = [joint for joint in joints if joint not in value]
+            if missing:
+                raise ValueError(f"YAML source for {name} has no value for {missing}")
+            return [value[joint] for joint in joints]
+        return value
     if kind == "policy":
         return _policy(source, env, binding, f"{name}:{source['name']}")
     if kind == "controllers":

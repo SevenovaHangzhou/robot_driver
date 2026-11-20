@@ -165,10 +165,11 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert enable["rolling_controller"] == ""
     assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
     assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
-    # Arm limits from the robot model (user 2026-11-04): 30 deg/s from the URDF <limit velocity>,
-    # 60 deg/s^2 from its joint limits file.
+    # Velocity follows the URDF; acceleration follows the user-selected RT policy.
     assert jtc["joint_velocity_limits"] == [math.radians(30.0)] * len(MODEL_JOINTS)
-    assert jtc["joint_acceleration_limits"] == [math.radians(60.0)] * len(MODEL_JOINTS)
+    assert jtc["joint_acceleration_limits"] == pytest.approx(
+        [math.radians(value) for value in [373.06, 373.06, 373.06, 498.41, 895.35, 895.35, 895.35]]
+    )
     assert jtc["open_loop_control"] is True
     assert {
         "name": "arm_joint_stream",
