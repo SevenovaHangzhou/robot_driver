@@ -3,7 +3,6 @@
 from copy import deepcopy
 import filecmp
 import importlib.util
-import math
 from pathlib import Path
 import shutil
 import sys
@@ -11,6 +10,8 @@ import xml.etree.ElementTree as ET
 
 import pytest
 import yaml
+
+from emergency_fixture import configure_test_units
 
 from integ_composer.canonical import canonical_files
 from integ_composer.compose import compose, preflight
@@ -28,11 +29,7 @@ _SPEC = importlib.util.spec_from_file_location(
 VALIDATOR = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(VALIDATOR)
 BASELINE = yaml.safe_load((GOLDEN / "manifest.yaml").read_text())
-ARM_ACCELERATION_LIMITS = {
-    f"{side}_joint{index}": math.radians(value)
-    for side in ("left", "right")
-    for index, value in enumerate([373.06, 373.06, 373.06, 498.41, 895.35, 895.35, 895.35], 1)
-}
+
 sys.path.insert(0, str(RT / "hw_ethercat"))
 from hw_ethercat import rt_control_renderer as OWNER
 
@@ -41,6 +38,7 @@ from hw_ethercat import rt_control_renderer as OWNER
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
     shutil.copytree(RT / "hwcfg_machines", data)
+    configure_test_units(data)
     monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["hwcfg_machines"] = data
@@ -171,18 +169,6 @@ def test_frozen_files_are_exactly_equivalent(shares, tmp_path, case):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, target)
     expected = canonical_files(baseline, "<RUNTIME_DIR>", BASELINE["rename_map"])
-    # The historic baseline predates emergency-stop reception and the new acceleration policy.
-    expected_controllers = yaml.safe_load(expected["controllers.yaml"])
-    expected_controllers["enable_manager"]["ros__parameters"].update(
-        emergency_stop_response=True, emergency_stop_timeout_ms=0
-    )
-    for controller in expected_controllers.values():
-        parameters = controller["ros__parameters"]
-        if "joint_acceleration_limits" in parameters:
-            parameters["joint_acceleration_limits"] = [
-                ARM_ACCELERATION_LIMITS[joint] for joint in parameters["joints"]
-            ]
-    expected["controllers.yaml"] = yaml.safe_dump(expected_controllers, sort_keys=True)
     actual = canonical_files(snapshot, runtime, BASELINE["rename_map"])
     assert set(expected) == set(actual), "Missing or extra output file"
     expected_dir, actual_dir = tmp_path / "canonical-old", tmp_path / "canonical-new"
@@ -232,7 +218,7 @@ def test_diagnostics_devices_name_only_rendered_state_interfaces(shares, tmp_pat
             assert device["fault_table"] in diagnostics["fault_tables"]
 
 
-def test_rolling_limits_use_urdf_velocity_and_acceleration_policy(shares, tmp_path):
+def test_rolling_limits_use_model_velocity_and_acceleration(shares, tmp_path):
     result = compose(
         **inputs(shares), runtime_dir=tmp_path / "runtime", use_mock_hardware=True, jtc_only=False
     )
@@ -242,8 +228,11 @@ def test_rolling_limits_use_urdf_velocity_and_acceleration_policy(shares, tmp_pa
         float(robot.find(f"joint[@name='{joint}']/limit").get("velocity"))
         for joint in parameters["joints"]
     ]
+    limits = load_yaml(shares["robot_description"] / "config/joint_limits_alfav3_mobile.yaml")[
+        "joints"
+    ]
     assert parameters["joint_acceleration_limits"] == pytest.approx(
-        [ARM_ACCELERATION_LIMITS[joint] for joint in parameters["joints"]]
+        [limits[joint]["max_acceleration_rad_s2"] for joint in parameters["joints"]]
     )
     assert all(
         lower < upper

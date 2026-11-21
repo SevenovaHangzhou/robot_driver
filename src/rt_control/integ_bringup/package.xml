@@ -19,6 +19,7 @@
   <exec_depend>integ_head_move</exec_depend>
   <exec_depend>hwcfg_machines</exec_depend>
   <exec_depend>periph_bms</exec_depend>
+  <exec_depend>periph_emergency_stop</exec_depend>
   <exec_depend>periph_imu_lpms</exec_depend>
   <exec_depend>periph_plc_io</exec_depend>
   <exec_depend>periph_led_ultrasonic</exec_depend>

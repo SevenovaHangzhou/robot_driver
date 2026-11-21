@@ -11,6 +11,11 @@ hardware:
 hardware_activation_order:
 - ecat_arms
 host: {}
+input_peripherals:
+- config_file: peripherals/emergency_stop.yaml
+  executable: emergency_stop_node
+  name: emergency_stop
+  package: periph_emergency_stop
 lifecycle_controllers:
 - joint_state_broadcaster
 - rt_internal_state_broadcaster

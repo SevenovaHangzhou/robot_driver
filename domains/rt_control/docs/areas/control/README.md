@@ -42,6 +42,8 @@
 | motion/F7 | 舵轮只做逐轮机械区间内的正/反轮速分支选择和线性 slew；不存在 continuous-joint 模式，输出层不二次选支或静默 clamp | [有限转向记录](../../areas-archive/motion/records/2026-09-16-swerve-bounded-steering-planner.md)#F1-F4 | PARTIAL（T1 Native/Mock；逐轮限位与实机跟踪待验） |
 | motion/F10 | ELECTRI-133 Tier A 固定规模 SE(2) 相对运动、独立无设备 Mock 与 opt-in loaned-interface/cyclic adapter 已实现；connected synthetic PDO 已验证 sent-cycle 与全四轮切换门禁，production profile/gate 未放开 | [Tier A 记录](../../areas-archive/motion/records/2026-09-25-tier-a-relative-move-mock.md)#F1-F4 | PARTIAL（T1；真实切换/标定/IMU 待验） |
 | control-20261114-01#F1–F3 | Jog 控制权在请求终态与控制器实际停稳后交接；发送协议和轨迹准入各归现有拥有者 | [Jog 评审收敛](records/2026-11-14-jog-review-scope.md) | PARTIAL（T0；548项包测试通过，实机未验） |
+| control-20261121-01#F1–F3 | 双臂规划加速度回归模型唯一来源，cuRobo/RT 同步；制动能力仍待实测 | [模型加速度来源](records/2026-11-21-model-acceleration-source.md) | PARTIAL（T0；实机未验） |
+| control-20261121-02#F1–F3 | 急停序号与离线锁存修复、时间归台套；用户报告目前仅普通 IO 软件停机 | [急停遗留与验收交接](records/2026-11-21-emergency-stop-backlog.md) | PARTIAL（T0；硬件安全链与时序未闭环） |
 
 ## 跨区事实关联
 

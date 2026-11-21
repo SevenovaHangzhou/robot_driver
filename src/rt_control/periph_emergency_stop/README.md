@@ -21,7 +21,7 @@ transient_local 缓存的最后一条 RELEASED。进程被杀、DDS 失联时不
 任何数据恢复/按钮释放均不得触发自动使能或恢复旧任务。
 
 这是普通网络 IO 的软件观测，不是安全继电器/STO 或硬件急停执行确认。
-当前包未接入生产 launch；接收与双臂响应见 [ctrl_enable_manager](../ctrl_enable_manager/README.md)。
+当前包由已配置实机范围的 scope launch 启动；接收与双臂响应见 [ctrl_enable_manager](../ctrl_enable_manager/README.md)。
 仅运行本节点不会使机器人停机；双臂消费者须配置并运行。
 跨域消费需先在独立 robot_interfaces 冻结公共契约，不直接把本域消息作为公共接口。
 
@@ -34,9 +34,13 @@ transient_local 缓存的最后一条 RELEASED。进程被杀、DDS 失联时不
 轮询受请求耗时限制，实际最坏检测时间还包含设备响应、网络、调度和消费者处理；本次手工
 采样约 1 s 间隔不能作为急停响应时间保证。
 
-台架设备映射与采样记录由部署人员另行核对，未作为本包的运行配置提供。
-运行时从台套配置传入这些值，通用包不内置设备 IP、网卡或输入极性。
-部署者确认三个时间参数后，可运行（以下变量必须先赋值）：
+台套配置位于 `hwcfg_machines/units/<unit>/deployment.yaml` 的 `emergency_stop` 段，
+包含接收超时与输入节点参数；机型消费者选择响应，组合器生成节点配置及启动清单。
+实机配置有 TBD 时拒绝生成 artifact；mock 不启动物理输入节点。通用包不内置 IP 或极性。
+用户于 2026-11-21 说明现场目前仅有普通 IO → Modbus → 软件停机链；尚无独立安全回路
+验收依据，不能将本节点作为符合标准的硬件急停。四个时间参数仍需整机停止预算及现场测量，
+不能套用安全继电器的 15/20 ms 器件反应规格。
+部署者确认所需参数后，可单独诊断节点（以下变量必须先赋值，实机操作由操作台执行）：
 
 ```bash
 ros2 run periph_emergency_stop emergency_stop_node --ros-args \

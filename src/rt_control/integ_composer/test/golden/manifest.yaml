@@ -43,6 +43,7 @@ cases:
       - runtime/left_joint6.yaml
       - runtime/left_joint7.yaml
       - runtime/lifecycle.yaml
+      - runtime/peripherals/emergency_stop.yaml
       - runtime/right_joint1.yaml
       - runtime/right_joint2.yaml
       - runtime/right_joint3.yaml
@@ -89,6 +90,7 @@ cases:
       - runtime/left_joint6.yaml
       - runtime/left_joint7.yaml
       - runtime/lifecycle.yaml
+      - runtime/peripherals/emergency_stop.yaml
       - runtime/right_joint1.yaml
       - runtime/right_joint2.yaml
       - runtime/right_joint3.yaml
@@ -135,6 +137,7 @@ cases:
       - runtime/left_j6.yaml
       - runtime/left_j7.yaml
       - runtime/lifecycle.yaml
+      - runtime/peripherals/emergency_stop.yaml
       - runtime/right_j1.yaml
       - runtime/right_j2.yaml
       - runtime/right_j3.yaml
@@ -517,3 +520,18 @@ arm-manual-peak-speed-20261121:
   - head-real
   - stationary-mock
   - stationary-real
+
+control-backlog-cleanup-20261121:
+  reason: SEV-134 / #298 and SEV-135 / #299 behavior; SEV-73 / #300 removes runtime expected-value patching
+  method: Actual compose outputs from existing frozen-case fixtures, canonical_files normalization; explicit local-test unit timing from emergency_fixture.py, not field defaults
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
+  - head-mock
+  - head-real
+  - force-mock
+  - force-real

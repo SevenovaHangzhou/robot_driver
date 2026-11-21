@@ -176,8 +176,9 @@ def setup(context):
         if any(item["name"] == "head_move" for item in build.lifecycle.get("capabilities", []))
         else []
     )
-    # Unit peripheral nodes (chassis IMU): their exit is not watched and an offline device only
-    # reports through its own status, so they can never stop the scope.
+    # Unit nodes share the launch lifetime. Emergency input loss is handled by the existing
+    # receiver freshness/stop state machine; keep that controller alive to complete its stop.
+    # Optional peripherals retain their independent diagnostics-only semantics.
     peripherals = [
         Node(
             package=item["package"],
@@ -186,7 +187,10 @@ def setup(context):
             parameters=[str(runtime / item["config_file"])],
             output="both",
         )
-        for item in build.lifecycle.get("optional_peripherals", [])
+        for item in (
+            build.lifecycle.get("input_peripherals", [])
+            + build.lifecycle.get("optional_peripherals", [])
+        )
     ]
     return [
         *robot_state,

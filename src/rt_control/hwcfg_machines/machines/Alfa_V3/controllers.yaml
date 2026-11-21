@@ -71,10 +71,6 @@ controllers:
     tags:
     - enable
     parameters:
-    - yaml:
-        package: ctrl_enable_manager
-        file: config/emergency_stop.yaml
-        path: receiver
     - policy:
         name: enable
         path: emergency_stop_response

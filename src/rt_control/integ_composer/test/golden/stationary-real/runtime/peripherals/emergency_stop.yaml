@@ -1,0 +1,10 @@
+emergency_stop:
+  ros__parameters:
+    host: 127.0.0.1
+    input_address: 0
+    poll_period_ms: 40
+    port: 1502
+    pressed_level: 0
+    request_timeout_ms: 150
+    stale_timeout_ms: 200
+    unit_id: 1

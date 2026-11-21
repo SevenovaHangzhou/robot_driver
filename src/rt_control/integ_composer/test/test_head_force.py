@@ -7,6 +7,8 @@ import sys
 import pytest
 import yaml
 
+from emergency_fixture import configure_test_units
+
 from integ_composer.canonical import canonical_files
 from integ_composer.compose import compose
 from integ_composer.schema.primitives import load_yaml
@@ -26,6 +28,7 @@ from hw_ethercat import rt_control_renderer as FORCE
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "data"
     shutil.copytree(RT / "hwcfg_machines", data)
+    configure_test_units(data)
     # Frozen equivalence and CLI recordings describe the historical six-responder
     # bench, independently of the current machine's physical wiring.
     force_path = data / "machines/Alfa_V3/wrist_force_sensors.yaml"

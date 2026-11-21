@@ -239,6 +239,142 @@
         ],
         "additionalProperties": false
       }
+    },
+    "emergency_stop": {
+      "type": "object",
+      "properties": {
+        "receiver_timeout_ms": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            {
+              "const": "TBD"
+            }
+          ]
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "port": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 65535
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "unit_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "input_address": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "pressed_level": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "poll_period_ms": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "request_timeout_ms": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "stale_timeout_ms": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2147483647
+                },
+                {
+                  "const": "TBD"
+                }
+              ]
+            },
+            "interface": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "host",
+            "port",
+            "unit_id",
+            "input_address",
+            "pressed_level",
+            "poll_period_ms",
+            "request_timeout_ms",
+            "stale_timeout_ms"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "receiver_timeout_ms",
+        "input"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

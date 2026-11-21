@@ -2841,6 +2841,90 @@ TEST(EmergencyStopInput, RegressedSequenceAndMalformedReleaseStop)
   EXPECT_FALSE(input.released(102));
 }
 
+TEST(EmergencyStopInput, PressAdvancesWatermarkAndRejectsConflictingRelease)
+{
+  for (const std::uint64_t sequence : {9U, 10U}) {
+    EmergencyStopInput input;
+    input.configure(1000000000);
+    input.observe(stopMessage(false, 1), 100, 100000000000);
+    input.observe(stopMessage(true, 10), 101, 100000000000);
+    ASSERT_TRUE(input.consumeEvent());
+    input.observe(stopMessage(false, sequence), 102, 100000000000);
+    input.consumeEvent();
+    EXPECT_FALSE(input.released(102));
+    // An older PRESSED must not lower the accepted sequence either.
+    input.observe(stopMessage(true, 2), 103, 100000000000);
+    input.consumeEvent();
+    input.observe(stopMessage(false, 9), 104, 100000000000);
+    input.consumeEvent();
+    EXPECT_FALSE(input.released(104));
+    input.observe(stopMessage(false, 11), 105, 100000000000);
+    EXPECT_TRUE(input.released(105));
+  }
+}
+
+class EmergencyOfflinePhase : public EnableManagerFixture,
+                              public ::testing::WithParamInterface<Phase>
+{
+};
+
+TEST_P(EmergencyOfflinePhase, SameCyclePressPreservesRestartLatch)
+{
+  initAndConfigure(
+    "stop_and_offline",
+    {rclcpp::Parameter(
+       "motion_joints", std::vector<std::string>(kJointNames.begin(), kJointNames.end())),
+     rclcpp::Parameter(
+       "feedback_age_interfaces", std::vector<std::string>{"ethercat_domain/process_data_age_ms"}),
+     rclcpp::Parameter("feedback_age_limit_ms", 100.0),
+     rclcpp::Parameter("emergency_stop_response", true),
+     rclcpp::Parameter("emergency_stop_timeout_ms", 1000),
+     rclcpp::Parameter("motion_controller", std::string(""))});
+  Access::observeStop(*controller_, stopMessage());
+  activate();
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  Access::setPhase(*controller_, GetParam());
+  setAllStatus(kSwOperationEnabled);
+  feedback_age_ms_ = std::numeric_limits<double>::infinity();
+  Access::observeStop(*controller_, stopMessage(true, 2));
+  updateTimes(1);
+  EXPECT_TRUE(Access::restartRequired(*controller_));
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+  for (std::size_t axis = 0; axis < kAxes; ++axis) EXPECT_EQ(command(axis), 0x0002);
+  feedback_age_ms_ = 0.0;
+  Access::observeStop(*controller_, stopMessage(false, 3));
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kFailed, 200));
+  Access::nonRtStop(*controller_);
+  auto request = std::make_shared<RtEnable::Request>();
+  auto response = std::make_shared<RtEnable::Response>();
+  Access::handleResetFault(*controller_, request, response);
+  EXPECT_FALSE(response->ok);
+  EXPECT_EQ(response->stage, "restart_required");
+  Access::handleEnable(*controller_, request, response);
+  EXPECT_FALSE(response->ok);
+  EXPECT_EQ(response->stage, "emergency_stop");  // The button latch still has enable priority.
+  EXPECT_TRUE(Access::restartRequired(*controller_));
+
+  ASSERT_EQ(
+    controller_->on_deactivate(rclcpp_lifecycle::State()),
+    controller_interface::CallbackReturn::SUCCESS);
+  controller_->release_interfaces();
+  assignInterfaces();
+  activate();
+  ASSERT_TRUE(spinUntilPhase(Phase::kFailed, 200));
+  EXPECT_TRUE(Access::restartRequired(*controller_));
+  Access::handleResetFault(*controller_, request, response);
+  EXPECT_FALSE(response->ok);
+  EXPECT_EQ(response->stage, "restart_required");
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  ActiveHardware, EmergencyOfflinePhase,
+  ::testing::Values(Phase::kEnabled, Phase::kJtcActivating, Phase::kJtcDeactivating));
+
 TEST_F(EnableManagerFixture, EmergencyResponseRequiresDeploymentTimeout)
 {
   rclcpp::NodeOptions options;
@@ -2990,15 +3074,16 @@ TEST_F(EnableManagerFixture, EmergencyLatchSurvivesLifecycleAndBlocksModeSwitch)
 
 TEST_F(EnableManagerFixture, EmergencyReceiverGetsLatchedDdsState)
 {
-  initAndConfigure(
-    "stop_dds", {rclcpp::Parameter("emergency_stop_response", true),
-                 rclcpp::Parameter("emergency_stop_timeout_ms", 1000)});
   auto publisher_node = std::make_shared<rclcpp::Node>("stop_test_publisher");
   auto publisher = publisher_node->create_publisher<StopMessage>(
     "/plc/emergency_stop/state", rclcpp::QoS(1).reliable().transient_local());
   auto message = stopMessage(true);
   message.header.stamp = publisher_node->now();
   publisher->publish(message);
+  // Create the receiver only after publication; no second publish may satisfy this test.
+  initAndConfigure(
+    "stop_dds", {rclcpp::Parameter("emergency_stop_response", true),
+                 rclcpp::Parameter("emergency_stop_timeout_ms", 1000)});
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(controller_->get_node()->get_node_base_interface());
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);

@@ -20,20 +20,26 @@ reliable / transient_local / depth 1），在自己的非实时 callback group �
 ## 部署参数
 
 用户于 2026-11-19 决定：接收端失联/样本过期阈值在部署时配置。
-`config/emergency_stop.yaml` 的 `receiver.emergency_stop_timeout_ms: 0` 只是未填写标记，
-不是运行阈值。部署人员在该源配置中填入经过现场确认的正整数毫秒值，重新构建安装
-`ctrl_enable_manager` 并重新生成 artifact；不要手改生成的 controllers.yaml。
-支持范围为 1..2147483647 ms。开启响应而值为 0 时 configure 返回 ERROR，不会静默关闭保护。
-同一部署的响应控制范围共用此值。独立头部当前仅用默认观察模式。
+接收阈值唯一来自 `hwcfg_machines/units/<unit>/deployment.yaml` 的
+`emergency_stop.receiver_timeout_ms`；输入节点的映射与 poll/request/stale 时间也在同一台套的
+`emergency_stop.input` 中。支持正整数毫秒值 1..2147483647；未知值显式保留 `TBD`。
+开启响应的实机范围在四个时间或映射未填写时拒绝生成 artifact。修改台套源配置后须重新安装
+`hwcfg_machines` 并重新生成 artifact，不手改生成的 controllers.yaml。
+mock 不连接物理输入节点；draft mock 可离线组合，但缺少接收阈值时控制器仍拒绝 configure，
+运行测试必须显式提供测试台套的时间值，不能把测试数值作为现场默认值。
 
 `emergency_stop_topic` 可在配置时指定，默认上述域内话题。
 `emergency_stop_topic`、`emergency_stop_response`、`emergency_stop_timeout_ms` 成功配置后不可动态更改。
 广播节点的 poll/request/stale 参数另由其部署配置显式给出，不复用或猜测接收端阈值。
-生产 launch 尚未自动启动广播节点；部署应由操作台启动已配置的广播节点，再启动控制范围。
+实机 artifact 的 input_peripherals 由 scope launch 启动；节点与 launch 共生命周期，不自动重启。
+节点故障或退出由本接收端的原有新鲜度和锁存停机路径处理，不能通过立即杀死控制器跳过停机收敛。
 
 接收端检查有效性、状态、stop_requested、producer UUID、样本序号、样本年龄和消息传输年龄。
 生产者与消费者须使用一致的 ROS 时间基准；来自未来的时间戳拒绝作为释放证据。
 有效 RELEASED 的剩余新鲜期转成接收端单调时钟 deadline，重复同一序号不会延长 deadline。
+PRESSED 同样推进序号水位；旧序号或与按下相同序号的 RELEASED 不能恢复释放证据。
+同周期按下与硬件离线分别锁存，人工复位按钮及同一控制器实例重新 activate 都不能清除
+离线造成的 restart_required；恢复仍由操作台按完整 RT-Control 重启流程执行。
 新实例、倒退序号、未知/无效数据、按下、样本过期、进程退出或网络失联均不能自动恢复许可。
 QoS 缓存的旧 RELEASED 也必须通过年龄检查。
 

@@ -8,6 +8,8 @@ import xml.etree.ElementTree as ET
 import pytest
 import yaml
 
+from emergency_fixture import configure_test_units
+
 from integ_composer.compose import RECORDER_NAME, RECORDER_PLUGIN, compose
 from integ_composer.schema.primitives import load_yaml
 
@@ -30,6 +32,7 @@ SELECTION = dict(
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
     shutil.copytree(RT / "hwcfg_machines", data)
+    configure_test_units(data)
     monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["hwcfg_machines"] = data

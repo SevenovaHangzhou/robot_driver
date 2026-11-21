@@ -1,4 +1,0 @@
-# Deployment must set a positive receiver freshness limit before an arm scope can configure.
-# Zero is an unset sentinel, never an enabled stop-response timeout.
-receiver:
-  emergency_stop_timeout_ms: 0

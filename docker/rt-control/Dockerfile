@@ -218,6 +218,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       periph_bms \
       periph_imu_lpms \
       periph_led_ultrasonic \
+      periph_emergency_stop \
       canopen_master_driver \
       canopen_ros2_control \
       integ_diagnostics \

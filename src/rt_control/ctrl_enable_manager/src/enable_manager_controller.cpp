@@ -197,7 +197,8 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   jtc_activated_request_.store(false, std::memory_order_release);
   emergency_jtc_deactivate_request_.store(false, std::memory_order_release);
   jtc_deactivation_required_.store(false, std::memory_order_release);
-  restart_required_.store(false, std::memory_order_release);
+  // Reactivating this controller is not a complete control-stack restart.
+  // Keep any offline/ambiguous-switch latch until the controller instance is replaced.
   mode_callback_active_.store(false, std::memory_order_release);
   mode_abort_requested_.store(false, std::memory_order_release);
   switch_in_progress_.store(false, std::memory_order_release);
@@ -286,10 +287,19 @@ controller_interface::return_type EnableManagerController::update(
     actual_sample_version_.fetch_add(1U, std::memory_order_release);
   }
   const std::int64_t now_ns = time.nanoseconds();
-  updateEmergencyStop(now_ns);
-  Phase phase = phase_.load(std::memory_order_acquire);
+  const Phase observed_phase = phase_.load(std::memory_order_acquire);
   const int offline = offlineSource();
   offline_now_.store(offline, std::memory_order_relaxed);
+  // Capture loss of active hardware before emergency input can change this cycle's phase.
+  // Releasing/resetting the button must never clear the independent stack-restart requirement.
+  if (
+    offline >= 0 && (observed_phase == Phase::kEnabled || observed_phase == Phase::kJtcActivating ||
+                     observed_phase == Phase::kJtcDeactivating)) {
+    offline_feedback_.store(offline, std::memory_order_relaxed);
+    restart_required_.store(true, std::memory_order_release);
+  }
+  updateEmergencyStop(now_ns);
+  Phase phase = phase_.load(std::memory_order_acquire);
 
   if (
     phase == Phase::kEnabled || phase == Phase::kJtcActivating ||
@@ -297,8 +307,6 @@ controller_interface::return_type EnableManagerController::update(
     // A drive that lost power keeps its last status word; only its stale feedback or its slave
     // leaving OP shows it. A re-powered slave may not resynchronise in OP: restart the stack.
     if (offline >= 0) {
-      offline_feedback_.store(offline, std::memory_order_relaxed);
-      restart_required_.store(true, std::memory_order_release);
       startEmergency(Stage::kDeviceOffline, -1, 0U, now_ns);
       phase = Phase::kEmergencyQuickStop;
     }
@@ -838,7 +846,10 @@ void EnableManagerController::finishDownward()
 
   if (completed_phase == Phase::kStartupSanitizing) {
     current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
-    if (primary_failure_stage_ != Stage::kSuccess) {
+    if (restart_required_.load(std::memory_order_acquire)) {
+      recordFailure(Stage::kRestartRequired, -1, -1, 0U);
+      phase_.store(Phase::kFailed, std::memory_order_release);
+    } else if (primary_failure_stage_ != Stage::kSuccess) {
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else if (any_fault) {
       recordFailure(Stage::kFaultRequiresReset, -1, first_fault, first_fault_status);

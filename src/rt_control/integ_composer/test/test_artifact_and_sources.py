@@ -8,6 +8,8 @@ import types
 import pytest
 import yaml
 
+from emergency_fixture import configure_test_units
+
 from integ_composer.artifact import load_artifact, runtime_arguments, write_artifact
 from integ_composer.model import ARTIFACT
 from integ_composer.parameter_sources import controller_parameters
@@ -35,6 +37,7 @@ def shares(tmp_path, monkeypatch):
         target = tmp_path / "share" / name
         shutil.copytree(RT / name, target, ignore=shutil.ignore_patterns("test", "src"))
         lookup[name] = target
+    configure_test_units(lookup["hwcfg_machines"])
     monkeypatch.setattr(ETHERCAT, "_share", lambda: lookup["hw_ethercat"])
     return lookup
 

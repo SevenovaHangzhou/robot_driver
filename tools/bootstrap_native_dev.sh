@@ -21,6 +21,7 @@ readonly -a runtime_packages=(
   periph_bms
   periph_imu_lpms
   periph_led_ultrasonic
+  periph_emergency_stop
   canopen_master_driver
   canopen_ros2_control
   integ_diagnostics

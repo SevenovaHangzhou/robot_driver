@@ -24,3 +24,16 @@ canopen:
     steering_encoder_2: TBD
     steering_encoder_3: TBD
     steering_encoder_4: TBD
+
+# SEV-135 / #299: timing requires a measured deployment budget; no hardware-safe defaults.
+emergency_stop:
+  receiver_timeout_ms: TBD
+  input:
+    host: TBD
+    port: TBD
+    unit_id: TBD
+    input_address: TBD
+    pressed_level: TBD
+    poll_period_ms: TBD
+    request_timeout_ms: TBD
+    stale_timeout_ms: TBD

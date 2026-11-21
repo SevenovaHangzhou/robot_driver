@@ -142,11 +142,6 @@ def test_real_node_states_and_read_only_protocol():
         pressed = wait_for(lambda m: m.valid and m.state == State.PRESSED)
         assert not pressed.raw_level and pressed.stop_requested
         assert pressed.producer_instance_id == released.producer_instance_id
-        # A late subscriber must receive the current pressed state.
-        late = []
-        peer.create_subscription(State, topic, late.append, qos)
-        wait_for(lambda m: bool(late))
-        assert late[-1].state == State.PRESSED
         module.level = 1
         wait_for(lambda m: m.valid and m.state == State.RELEASED)
         module.mode = "hold"
@@ -174,6 +169,70 @@ def test_real_node_states_and_read_only_protocol():
         wait_for(lambda m: m.detail == "sample_stale")
         process.send_signal(signal.SIGTERM)
         assert process.wait(timeout=3) == 0
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=3)
+        module.close()
+        peer.destroy_node()
+        rclpy.shutdown()
+
+
+def test_late_join_receives_startup_cache_without_another_publication():
+    module = Module()
+    rclpy.init()
+    peer = rclpy.create_node("emergency_stop_late_peer")
+    topic = f"/test/emergency_stop_late_{os.getpid()}"
+    # Only the constructor publishes within this test. The 60 s test timer is deliberately
+    # much longer than discovery and reception; it is not a production polling setting.
+    params = dict(
+        host="127.0.0.1",
+        port=module.port,
+        unit_id=1,
+        input_address=0,
+        pressed_level=0,
+        poll_period_ms=60000,
+        request_timeout_ms=500,
+        stale_timeout_ms=120,
+    )
+    args = [arg for key, value in params.items() for arg in ("-p", f"{key}:={value}")]
+    process = subprocess.Popen(
+        [executable(), "--ros-args", *args, "-r", f"/plc/emergency_stop/state:={topic}"]
+    )
+    started = time.monotonic()
+    try:
+        qos = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        first = []
+        observer = peer.create_subscription(State, topic, first.append, qos)
+        while not first:
+            assert process.poll() is None
+            assert time.monotonic() - started < 5, "startup publication not observed"
+            rclpy.spin_once(peer, timeout_sec=0.02)
+        # Discovery alone can precede publish(). Observe the first write, then replace the
+        # reader, so the new subscription is definitely created after the cached write.
+        peer.destroy_subscription(observer)
+        created_ns = peer.get_clock().now().nanoseconds
+        received = []
+        peer.create_subscription(State, topic, received.append, qos)
+        while not received:
+            assert process.poll() is None
+            assert time.monotonic() - started < 10, "cached startup sample not delivered"
+            rclpy.spin_once(peer, timeout_sec=0.02)
+        message = received[0]
+        stamp_ns = message.header.stamp.sec * 1000000000 + message.header.stamp.nanosec
+        assert message == first[0]
+        assert stamp_ns < created_ns
+        assert message.sample_sequence == 0 and message.state == State.UNKNOWN
+        assert message.stop_requested and not message.valid
+        assert not module.requests
     finally:
         if process.poll() is None:
             process.terminate()

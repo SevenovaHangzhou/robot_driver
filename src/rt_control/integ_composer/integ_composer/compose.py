@@ -10,6 +10,7 @@ import xacro
 import yaml
 
 from .bindings import bind_parameters
+from .emergency_input import configure_emergency_input
 from .model import ARTIFACT, Composed
 from .parameter_sources import controller_parameters
 from .gravity_selection import select_gravity, validate_gravity_parameters
@@ -112,6 +113,9 @@ def compose(
     recorders = _add_recorder(
         controllers, data["deployment"], robot, staged, selected_names, bindings
     )
+    emergency_input = configure_emergency_input(
+        data["deployment"], controllers, runtime_files, mock=use_mock_hardware
+    )
     robot_description = ET.tostring(robot, encoding="unicode")
     files = _output_files(runtime, runtime_files, robot_description, controllers, order)
     diagnostics = _diagnostics(data, rendered_modules, config_root)
@@ -130,8 +134,14 @@ def compose(
         bindings,
     )
     peripherals = _optional_peripherals(
-        data["deployment"], control_scope, use_mock_hardware, config_root / "units" / machine_unit, files
+        data["deployment"],
+        control_scope,
+        use_mock_hardware,
+        config_root / "units" / machine_unit,
+        files,
     )
+    if emergency_input:
+        lifecycle["input_peripherals"] = emergency_input
     if peripherals:
         lifecycle["optional_peripherals"] = peripherals
     if staged:

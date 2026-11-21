@@ -1,6 +1,5 @@
 """Single-arm bench scope: data-only selection on the shared owners; no hardware is accessed."""
 
-import math
 from pathlib import Path
 import shutil
 import sys
@@ -8,6 +7,8 @@ import xml.etree.ElementTree as ET
 
 import pytest
 import yaml
+
+from emergency_fixture import configure_test_units
 
 from integ_composer.compose import compose, preflight
 from integ_composer.schema.primitives import load_yaml
@@ -32,6 +33,7 @@ SELECTION = dict(
 def shares(tmp_path, monkeypatch):
     data = tmp_path / "machine_config"
     shutil.copytree(RT / "hwcfg_machines", data)
+    configure_test_units(data)
     monkeypatch.setattr(OWNER, "_share", lambda: RT / "hw_ethercat")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["hwcfg_machines"] = data
@@ -119,7 +121,6 @@ def test_mock_scope_is_enable_only_with_staged_hardware(shares, tmp_path):
     assert manager["hardware_components_initial_state"] == {"unconfigured": ["ecat_arms"]}
     enable = result.controllers["enable_manager"]["ros__parameters"]
     assert enable["emergency_stop_response"] is True
-    assert enable["emergency_stop_timeout_ms"] == 0
     assert enable["managed_joints"] == JOINTS
     assert enable["enable_batch_joint_names"] == JOINTS
     assert enable["enable_batch_sizes"] == [1] * 7
@@ -170,14 +171,17 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert enable["rolling_controller"] == ""
     assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
     assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
-    # Velocity follows the URDF; acceleration follows the user-selected RT policy.
+    # Both limits follow the authoritative robot model.
     robot = ET.fromstring(result.robot_description)
     assert jtc["joint_velocity_limits"] == [
         float(robot.find(f"joint[@name='{joint}']/limit").get("velocity"))
         for joint in jtc["joints"]
     ]
+    limits = load_yaml(shares["robot_description"] / "config/joint_limits_alfav3_mobile.yaml")[
+        "joints"
+    ]
     assert jtc["joint_acceleration_limits"] == pytest.approx(
-        [math.radians(value) for value in [373.06, 373.06, 373.06, 498.41, 895.35, 895.35, 895.35]]
+        [limits[joint]["max_acceleration_rad_s2"] for joint in jtc["joints"]]
     )
     assert jtc["open_loop_control"] is True
     assert {
@@ -201,7 +205,6 @@ def test_dual_arm_head_uses_one_enable_set_and_an_exclusive_arm_pair(shares, tmp
     )
     enable = result.controllers["enable_manager"]["ros__parameters"]
     assert enable["emergency_stop_response"] is True
-    assert enable["emergency_stop_timeout_ms"] == 0
     assert enable["motion_controller"] == "dual_arm_jtc"
     assert enable["rolling_controller"] == ("" if jtc_only else "dual_arm_rolling")
     assert enable["companion_controllers"] == ["head_position_controller"]
@@ -334,22 +337,3 @@ def test_real_artifact_carries_the_bench_realtime_cpu_layout(shares, tmp_path):
     assert host["rt_cpu"] == 14 and host["hostname"] == "ar-Default-string"
     assert 14 not in host["housekeeping_cpus"]
     assert sorted(host["housekeeping_cpus"]) == [0, 2, 4, 6, 8, 10, 12, *range(16, 28)]
-
-
-@pytest.mark.parametrize("side", ["left", "right", "dual"])
-@pytest.mark.parametrize("stationary", [False, True])
-def test_arm_scopes_require_explicit_emergency_stop_deployment_timeout(
-    shares, tmp_path, side, stationary
-):
-    scope = f"bench_{side}_arm" + ("_stationary_enable" if stationary else "")
-    result = compose(
-        robot_variant="Alfa_V3",
-        machine_unit=UNIT,
-        physical_profile=f"bench_{side}_arm",
-        control_scope=scope,
-        package_share=lambda name: str(shares[name]),
-        runtime_dir=tmp_path / scope,
-    )
-    enable = result.controllers["enable_manager"]["ros__parameters"]
-    assert enable["emergency_stop_response"] is True
-    assert enable["emergency_stop_timeout_ms"] == 0

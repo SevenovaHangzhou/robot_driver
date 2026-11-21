@@ -34,21 +34,35 @@ public:
     const auto stamp = static_cast<std::int64_t>(message.header.stamp.sec) * 1000000000LL +
                        message.header.stamp.nanosec;
     const auto transport_age = ros_ns - stamp;
-    const bool released =
-      message.valid && message.state == Message::RELEASED && !message.stop_requested &&
-      message.sample_sequence > 0 && std::isfinite(message.sample_age_seconds) &&
-      message.sample_age_seconds >= 0.0 && transport_age >= 0 && timeout_ns_ > 0 &&
+    const bool identified =
+      message.sample_sequence > 0 &&
       std::any_of(
         message.producer_instance_id.uuid.begin(), message.producer_instance_id.uuid.end(),
         [](uint8_t b) { return b != 0; });
-    const double age_ns = message.sample_age_seconds * 1e9 + static_cast<double>(transport_age);
-    if (!released || !std::isfinite(age_ns) || age_ns >= static_cast<double>(timeout_ns_)) {
-      deadline_.store(
-        message.valid && message.state == Message::PRESSED ? 1U : 0U, std::memory_order_release);
+    const bool same_producer = seen_ && producer_ == message.producer_instance_id;
+    if (message.valid && message.state == Message::PRESSED) {
+      // A stop is effective even when stale. Remember its sequence so an older or conflicting
+      // RELEASED sample cannot become permission to reset after the RT loop consumes the event.
+      if (identified && (!same_producer || message.sample_sequence >= sequence_)) {
+        producer_ = message.producer_instance_id;
+        sequence_ = message.sample_sequence;
+        seen_ = true;
+      }
+      sample_deadline_ = 0;
+      deadline_.store(1U, std::memory_order_release);
       event_.store(true, std::memory_order_release);
       return;
     }
-    const bool same_producer = seen_ && producer_ == message.producer_instance_id;
+    const bool released =
+      message.valid && message.state == Message::RELEASED && !message.stop_requested &&
+      identified && std::isfinite(message.sample_age_seconds) &&
+      message.sample_age_seconds >= 0.0 && transport_age >= 0 && timeout_ns_ > 0;
+    const double age_ns = message.sample_age_seconds * 1e9 + static_cast<double>(transport_age);
+    if (!released || !std::isfinite(age_ns) || age_ns >= static_cast<double>(timeout_ns_)) {
+      deadline_.store(0U, std::memory_order_release);
+      event_.store(true, std::memory_order_release);
+      return;
+    }
     if (same_producer && message.sample_sequence < sequence_) {
       deadline_.store(0, std::memory_order_release);
       event_.store(true, std::memory_order_release);
