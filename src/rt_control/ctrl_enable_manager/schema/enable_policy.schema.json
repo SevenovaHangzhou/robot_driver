@@ -111,6 +111,13 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 3
+          },
+          "mode_confirmation": {
+            "enum": [
+              "none",
+              "startup"
+            ],
+            "description": "Overrides the policy mode_confirmation for this group, e.g. drives without a mode display."
           }
         },
         "required": [

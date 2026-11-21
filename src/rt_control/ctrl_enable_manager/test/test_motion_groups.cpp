@@ -6,6 +6,7 @@
 
 #include <gmock/gmock.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -189,7 +190,7 @@ public:
 
   void bringUpToIdle()
   {
-    ASSERT_EQ(configure(), controller_interface::CallbackReturn::SUCCESS);
+    ASSERT_EQ(configure(twoGroupOverrides_), controller_interface::CallbackReturn::SUCCESS);
     const auto commands = controller_->command_interface_configuration().names;
     const auto states = controller_->state_interface_configuration().names;
     command_handles_.reserve(commands.size());
@@ -206,7 +207,11 @@ public:
     }
     for (const auto & joint : kAllJoints) {
       values_[joint + "/status_word"] = kSwitchOnDisabled;
-      values_[joint + "/mode_of_operation_display"] = 8.0;
+    }
+    for (const auto & joint : {"arm_a", "arm_b", "steer"}) {
+      if (values_.count(std::string(joint) + "/mode_of_operation_display") != 0U) {
+        values_[std::string(joint) + "/mode_of_operation_display"] = 8.0;
+      }
     }
     for (const auto & wheel : kWheels) {
       values_[wheel + "/mode_of_operation_display"] = 9.0;
@@ -352,6 +357,7 @@ public:
   }
 
   std::unique_ptr<EnableManagerController> controller_;
+  std::vector<rclcpp::Parameter> twoGroupOverrides_;
   std::map<std::string, double> values_;
   std::vector<hardware_interface::CommandInterface> command_handles_;
   std::vector<hardware_interface::StateInterface> state_handles_;
@@ -507,6 +513,46 @@ TEST_F(MotionGroupsFixture, OnlyTheSwitchedDrivesMayRunInCsp)
   values_["arm_b/mode_of_operation_display"] = 9.0;
   update();
   EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+}
+
+TEST_F(MotionGroupsFixture, UnconfirmedJointsClaimNoModeDisplay)
+{
+  // Arm drives without a mode display: 0 leaves their startup mode unconfirmed.
+  ASSERT_EQ(
+    configure({rclcpp::Parameter("expected_modes", std::vector<std::int64_t>{0, 0, 8, 9, 9})}),
+    controller_interface::CallbackReturn::SUCCESS);
+  const auto states = controller_->state_interface_configuration().names;
+  for (const auto & joint : kArmJoints) {
+    EXPECT_EQ(std::count(states.begin(), states.end(), joint + "/mode_of_operation_display"), 0);
+  }
+  for (const auto & joint : kBaseJoints) {
+    EXPECT_EQ(std::count(states.begin(), states.end(), joint + "/mode_of_operation_display"), 1);
+  }
+}
+
+TEST_F(MotionGroupsFixture, AnUnconfirmedJointNeverTripsTheModeCheck)
+{
+  ASSERT_EQ(
+    configure({rclcpp::Parameter("expected_modes", std::vector<std::int64_t>{0, 0, 8, 9, 9})}),
+    controller_interface::CallbackReturn::SUCCESS);
+  controller_.reset();
+  twoGroupOverrides_ = {
+    rclcpp::Parameter("expected_modes", std::vector<std::int64_t>{0, 0, 8, 9, 9})};
+  bringUpToIdle();
+  enableDirectly();
+  update();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEnabled);
+  // A confirmed joint still stops the manager when its mode is wrong.
+  values_["steer/mode_of_operation_display"] = 9.0;
+  update();
+  EXPECT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+}
+
+TEST_F(MotionGroupsFixture, ASwitchedDriveNeedsAConfirmedStartupMode)
+{
+  EXPECT_EQ(
+    configure({rclcpp::Parameter("expected_modes", std::vector<std::int64_t>{8, 8, 8, 0, 9})}),
+    controller_interface::CallbackReturn::ERROR);
 }
 
 }  // namespace

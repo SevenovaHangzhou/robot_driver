@@ -116,6 +116,7 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
     }
   }
   for (std::size_t axis = 0; axis < expected_modes_.size(); ++axis) {
+    if (expected_modes_[axis] == 0) continue;
     const auto name = joint_names_[axis] + "/mode_of_operation_display";
     std::size_t count = 0;
     for (std::size_t index = 0; index < state_interfaces_.size(); ++index) {

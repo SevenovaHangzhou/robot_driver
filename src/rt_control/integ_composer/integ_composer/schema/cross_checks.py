@@ -142,7 +142,8 @@ def merge_systems(rendered):
 
 def resolve_enable_groups(policy, modules, rendered_modules, managed):
     """Expand module/mode-group batches into joints and fixed startup modes per joint."""
-    batches, modes = [], {}
+    batches, modes, confirmed = [], {}, {}
+    default_confirmation = policy.pop("mode_confirmation", "none")
     for group in policy.pop("enable_groups"):
         module = group["module"]
         if module not in rendered_modules:
@@ -159,8 +160,12 @@ def resolve_enable_groups(policy, modules, rendered_modules, managed):
             if joint in modes:
                 raise ValueError(f"Joint appears in two enable groups: {joint}")
             modes[joint] = mode_groups[group["mode_group"]]["mode_of_operation"]
+            confirmed[joint] = group.get("mode_confirmation", default_confirmation) == "startup"
     # Managed order follows the hardware (bus) order; batches keep the policy order.
     policy["managed_joints"] = [name for name in managed if name in modes]
     policy["enable_batches"] = batches
-    if policy.pop("mode_confirmation", "none") == "startup":
-        policy["expected_modes"] = [modes[name] for name in policy["managed_joints"]]
+    # 0: a joint whose startup mode is not confirmed (e.g. its drive has no mode display).
+    if any(confirmed.values()):
+        policy["expected_modes"] = [
+            modes[name] if confirmed[name] else 0 for name in policy["managed_joints"]
+        ]
