@@ -1,0 +1,142 @@
+schema_version: 1
+kind: machine_module
+status: draft
+verified: true
+authorities:
+  source: bench_dual_arm.yaml (same arms moved from the bench) with every ring +10; Advantech read-only
+    scan 2026-11-22
+  topology: Advantech 2026-11-22 - sub-coupler at ring 10 on the main coupler EBUS port 2; its port 3
+    -> left J1..J7 (11..17) -> BluePoint 18, its port 1 -> right J1..J7 (19..25) -> BluePoint 26
+  arm_identity: 'user 2026-11-22 - J1/J2 firmware 150403170 at 11..13 (bench left arm), 150729090 at 19..20
+    (bench right arm): same order as the bench'
+  encoder_policy: user 2026-10-24 confirms right J3/J4 single-turn; 0x730F may be reset at disabled startup
+  direction: left confirmed 2026-10-18; right all +1 confirmed by user per joint 2026-10-22; direction
+    unchanged by ring migration
+pending_facts:
+- BluePoint sensors at rings 18/26 belong to wrist_force_sensors; driver integration of raw values only
+- right arm drive firmware (torque-sensor PDO not yet verified on the right drives)
+- 'PP Halt policy: live firmware has no 0x605D object'
+- measured nonwrapping single-turn travel for left J3 and right J3/J4 (single-turn use confirmed by user)
+- coupler runtime state/DC and ESI display-version difference
+- sub-coupler port numbers read back 2026-11-22; connector labels on the coupler housing not checked
+robot_variant: Alfa_V3
+module: advantech_dual_arm
+master_system: ecat_arms
+# Advantech full machine: both seven-axis arms without grippers behind the sub-coupler (ring 10);
+# the BluePoint wrist sensors (18, 26) are the wrist_force_sensors module.
+spec:
+  family: zeroerr
+  extra_responders:
+  - ring_position: 0
+    profile: inovance_gr10_coupler
+    identity_key: coupler_main
+  - ring_position: 10
+    profile: inovance_gr10_coupler
+    identity_key: coupler_subdevice
+  branches:
+    left:
+      connector: sub-coupler port 3
+      main_esc_port: 3
+      axes:
+      - physical_joint: J1
+        ring_position: 11
+        mode_of_operation: 8
+        robot_model_joint: left_joint1
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J2
+        ring_position: 12
+        mode_of_operation: 8
+        robot_model_joint: left_joint2
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J3
+        ring_position: 13
+        mode_of_operation: 8
+        robot_model_joint: left_joint3
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J4
+        ring_position: 14
+        mode_of_operation: 8
+        robot_model_joint: left_joint4
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J5
+        ring_position: 15
+        mode_of_operation: 8
+        robot_model_joint: left_joint5
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J6
+        ring_position: 16
+        mode_of_operation: 8
+        robot_model_joint: left_joint6
+        csp_profile: zeroerr_cia402_csp_torque_sensor
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J7
+        ring_position: 17
+        mode_of_operation: 8
+        robot_model_joint: left_joint7
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      esc_ring_position: 10
+    right:
+      connector: sub-coupler port 1
+      main_esc_port: 1
+      axes:
+      - physical_joint: J1
+        ring_position: 19
+        mode_of_operation: 8
+        robot_model_joint: right_joint1
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J2
+        ring_position: 20
+        mode_of_operation: 8
+        robot_model_joint: right_joint2
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J3
+        ring_position: 21
+        mode_of_operation: 8
+        robot_model_joint: right_joint3
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J4
+        ring_position: 22
+        mode_of_operation: 8
+        robot_model_joint: right_joint4
+        encoder_policy: single_turn
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J5
+        ring_position: 23
+        mode_of_operation: 8
+        robot_model_joint: right_joint5
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J6
+        ring_position: 24
+        mode_of_operation: 8
+        robot_model_joint: right_joint6
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      - physical_joint: J7
+        ring_position: 25
+        mode_of_operation: 8
+        robot_model_joint: right_joint7
+        device: devices/zeroerr_erob_model_tbd.yaml
+        direction: 1
+      esc_ring_position: 10
+  drive_profiles:
+    csp: zeroerr_cia402_csp_diag
+    gripper_pp: zeroerr_cia402_stationary
+  branch_mapping_verified: true
+  direction_status: user_confirmed_left_2026_10_18_right_2026_10_22

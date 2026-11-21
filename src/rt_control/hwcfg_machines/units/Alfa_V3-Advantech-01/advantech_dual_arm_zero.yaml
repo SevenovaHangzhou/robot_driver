@@ -1,0 +1,144 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: true
+authorities:
+  source: user 2026-11-22 - the bench arms moved to the Advantech robot keep their zeros (Alfa_V3-bench-01
+    bench_dual_arm_zero.yaml), rings +10
+  bench_source: left - user 2026-10-17 21:18 (+08:00); right - user 2026-10-22, motor zero = Robot Model
+    zero
+pending_facts: []
+robot_variant: Alfa_V3
+module: advantech_dual_arm
+spec:
+  confirmed_by: user
+  captured_utc: '2026-10-22T00:00:00+00:00'
+  external_transmission_ratio: 1.0
+  position_object: 24676
+  axes:
+  - ring_position: 11
+    gravity_feedforward:
+      permille_per_nm: 2.552479411143095
+      torque_sign: 1
+      basis: empirical_candidate
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 36000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 12
+    gravity_feedforward:
+      permille_per_nm: 0.7842399146746973
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 36000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 13
+    gravity_feedforward:
+      permille_per_nm: 0.7429641296918185
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 38000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 14
+    gravity_feedforward:
+      permille_per_nm: 2.574193419601005
+      torque_sign: 1
+      basis: empirical_candidate
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 38000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 15
+    gravity_feedforward:
+      permille_per_nm: 2.955519432540269
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 25000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 16
+    gravity_feedforward:
+      permille_per_nm: 8.372323658081248
+      torque_sign: 1
+      basis: empirical_candidate
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 12500
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 17
+    gravity_feedforward:
+      permille_per_nm: 13.890277916680557
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 5400
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 19
+    gravity_feedforward:
+      permille_per_nm: 0.7842399146746973
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 36000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 20
+    gravity_feedforward:
+      permille_per_nm: 0.7842399146746973
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 36000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 21
+    gravity_feedforward:
+      permille_per_nm: 0.7429641296918185
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 38000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 22
+    gravity_feedforward:
+      permille_per_nm: 0.9885721064494444
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 38000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 23
+    gravity_feedforward:
+      permille_per_nm: 2.955519432540269
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 25000
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 24
+    gravity_feedforward:
+      permille_per_nm: 8.477744061427694
+      torque_sign: 1
+      basis: empirical_candidate
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 12500
+    zero_counts: 262144
+    digital_outputs: 1
+  - ring_position: 25
+    gravity_feedforward:
+      permille_per_nm: 13.890277916680557
+      torque_sign: 1
+      basis: manual_kt_mechanical_ratio_eta_1
+      registry_sha256: 76c275059f234129abf05059da3914b68a2838192de055f351f53d6527756381
+      rated_current_ma: 5400
+    zero_counts: 262144
+    digital_outputs: 1

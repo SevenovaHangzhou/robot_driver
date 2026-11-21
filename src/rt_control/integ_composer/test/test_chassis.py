@@ -80,7 +80,8 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     }
     ecat = systems["ecat_arms"]["expected_topology"]
     assert ecat["preflight_required"] and ecat["ethercat_mac"] == "cc:82:7f:c4:d3:0f"
-    assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(8))
+    # Advantech 2026-11-22: the chassis follows the main coupler and the lift (rings 2..9).
+    assert [check["ring_position"] for check in ecat["pdo_checks"]] == list(range(2, 10))
     # The artifact loader accepts string keys only (2026-11-05 Advantech: real start rejected).
     saved = tmp_path / "topology.yaml"
     saved.write_text(yaml.safe_dump(ecat))
@@ -92,7 +93,7 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
         0x26010010,
         0x26020010,
     ]
-    assert [window["ring_position"] for window in ecat["position_windows"]] == [1, 3, 5, 7]
+    assert [window["ring_position"] for window in ecat["position_windows"]] == [3, 5, 7, 9]
     can = systems["canopen_swerve_encoders"]
     bundle = "/var/lib/rt-control/canopen/Alfa_V3-Advantech-01"
     assert can["hardware_params"]["bus_config"] == bundle + "/bus.yml"

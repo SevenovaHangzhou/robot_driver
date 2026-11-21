@@ -10,6 +10,7 @@ parts:
 - controllers/arm_trajectory.yaml
 - controllers/base_trajectory.yaml
 - controllers/gravity.yaml
+- controllers/advantech.yaml
 controllers:
   swerve_chassis:
     module: swerve_chassis

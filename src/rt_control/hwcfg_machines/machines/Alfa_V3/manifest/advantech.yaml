@@ -1,0 +1,181 @@
+# Advantech full machine (ELECTRI-239, user 2026-11-22); merged by integ_composer read_manifest().
+# One controller_manager: chassis, lift, both arms, wrist force sensors, steering encoders and the
+# head. The arms group (15-axis trajectory <-> 14-axis rolling) and the chassis group (swerve <->
+# wheel trajectory) switch modes independently; the head is a companion of the one enable state.
+profiles:
+  advantech_full:
+    status: draft
+    modules:
+    - swerve_chassis
+    - swerve_encoders
+    - updown
+    - advantech_dual_arm
+    - wrist_force_sensors
+    - head_gimbal
+    allowed_scopes:
+    - advantech_full
+    hardware_options:
+      force_sensors:
+      - none
+    layout:
+      ethercat:
+        status: draft
+        master_id: 0
+        # Advantech scan 2026-11-22: 0 main coupler, 1 lift, 2-9 chassis, 10 sub-coupler,
+        # 11-17 left arm, 18 left wrist force, 19-25 right arm, 26 right wrist force.
+        ring_positions: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+          23, 24, 25, 26]
+      canopen:
+        status: draft
+        node_ids: [11, 12, 13, 14]
+      damiao_can:
+        status: draft
+        node_ids: [1, 2]
+    pending_facts:
+    - first enabled run of the full machine on the Advantech robot
+scopes:
+  advantech_full:
+    # The first EtherCAT module renders the shared master health group.
+    enabled_modules:
+    - swerve_chassis
+    - updown
+    - advantech_dual_arm
+    - wrist_force_sensors
+    - swerve_encoders
+    - head_gimbal
+    required_state_modules:
+    - swerve_encoders
+    actuator_groups:
+    - module: swerve_chassis
+      mode_group: steering_csp
+    - module: swerve_chassis
+      mode_group: drive_csv
+    - module: updown
+      mode_group: csp
+    - module: advantech_dual_arm
+      mode_group: csp
+    - module: head_gimbal
+      mode_group: position_velocity
+    jtc_groups:
+    - module: advantech_dual_arm
+      mode_group: csp
+    - module: updown
+      mode_group: csp
+    global_readiness: partial_scope
+    render_mode: normal
+    policies:
+    - enable
+    - motion
+    - arm_rolling
+    - base_motion
+    policy_overrides:
+      enable: advantech_enable
+      motion: advantech_arms_motion
+      arm_rolling: advantech_arm_rolling
+      base_motion: chassis_motion
+    staged_hardware_activation: true
+    publish_robot_state: true
+    jtc_only_excluded:
+    - arms_rolling
+    controller_order:
+      inactive:
+      - arms_jtc
+      - arms_rolling
+      - swerve_controller
+      - base_wheel_jtc
+      - head_position_controller
+      active:
+      - joint_state_broadcaster
+      - rt_internal_state_broadcaster
+      - wheel_observation_broadcaster
+      - left_wrist_force_sensor_broadcaster
+      - right_wrist_force_sensor_broadcaster
+      - enable_manager
+    controller_parameter_bindings:
+      # The 15 arm and lift joints from the motion policy, then the chassis and the head.
+      joint_state_broadcaster:
+        parameters:
+          joints:
+          - module: swerve_chassis
+            export: joint_names
+            resource_kind: joints
+            append: true
+          - module: head_gimbal
+            export: joint_names
+            resource_kind: joints
+            append: true
+      head_position_controller:
+        parameters:
+          joints:
+            module: head_gimbal
+            export: joint_names
+            resource_kind: joints
+      enable_manager:
+        parameters:
+          handshake_devices:
+            module: head_gimbal
+            export: handshake_devices
+            resource_kind: gpios
+      wheel_observation_broadcaster:
+        instance_order: [module_1, module_2, module_3, module_4]
+        parameters:
+          steering_joints:
+            module: swerve_chassis
+            export: steering_joints
+            resource_kind: joints
+          drive_joints:
+            module: swerve_chassis
+            export: drive_joints
+            resource_kind: joints
+          steering_encoders:
+            module: swerve_encoders
+            export: steering_encoders
+            resource_kind: sensors
+          module_x:
+            module: swerve_chassis
+            export: module_x
+          module_y:
+            module: swerve_chassis
+            export: module_y
+          wheel_radius:
+            module: swerve_chassis
+            export: wheel_radius
+          steering_to_yaw_sign:
+            module: swerve_chassis
+            export: steering_to_yaw_sign
+          chassis_calibration_id:
+            module: swerve_chassis
+            export: calibration_id
+          encoder_calibration_id:
+            module: swerve_encoders
+            export: calibration_id
+      swerve_controller:
+        instance_order: [module_1, module_2, module_3, module_4]
+        parameters:
+          steering_joints:
+            module: swerve_chassis
+            export: steering_joints
+            resource_kind: joints
+          drive_joints:
+            module: swerve_chassis
+            export: drive_joints
+            resource_kind: joints
+          steering_encoders:
+            module: swerve_encoders
+            export: steering_encoders
+            resource_kind: sensors
+          module_x:
+            module: swerve_chassis
+            export: module_x
+          module_y:
+            module: swerve_chassis
+            export: module_y
+          wheel_radius:
+            module: swerve_chassis
+            export: wheel_radius
+          steering_to_yaw_sign:
+            module: swerve_chassis
+            export: steering_to_yaw_sign
+          calibration_verified:
+            module: swerve_chassis
+            export: calibration_verified
