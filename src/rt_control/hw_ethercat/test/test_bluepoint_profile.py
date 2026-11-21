@@ -33,7 +33,8 @@ def test_bluepoint_profile_is_state_only_and_matches_the_user_selected_docx_layo
     machine = yaml.safe_load(MACHINE.read_text())
     sensor = next(item for item in machine["spec"]["sensors"] if item["side"] == side)
     assert sensor["ring_position"] == position
-    assert machine["spec"]["full_ring_positions"] == "TBD"
+    # Advantech full machine (user 2026-11-22): each arm's tail after J7.
+    assert machine["spec"]["full_ring_positions"] == [18, 26]
     assert profile["metadata"]["verified"] is False
     assert not {"side", "ring_positions", "observed_ring_position"}.intersection(
         profile["metadata"]

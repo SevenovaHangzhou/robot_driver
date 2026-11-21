@@ -1,4 +1,10 @@
-"""Passive force fragments and the old read-only bench checks."""
+"""Passive force fragments and the old read-only bench checks.
+
+On the raw bench (hardware system bluepoint_raw_bench) this renderer owns the master and its
+health group. Inside a full machine the sensors join the arms' CiA402 master: the first peer
+module renders the master health, the sensors add responders and saved-PDO checks to the shared
+CiA402 topology, run with DC like the drives and publish raw values in their Robot Model frames.
+"""
 
 from copy import deepcopy
 import math
@@ -10,8 +16,8 @@ import xml.etree.ElementTree as ET
 from infra_renderer import xml_param
 import yaml
 
-from .master_health import master_entry
-from .profiles import master_parameters
+from .master_health import master_entry, sensors as health_sensors
+from .profiles import master_parameters, pdo_objects
 
 
 def render(request, share, validate_module, validate_unit, validate_device):
@@ -26,14 +32,16 @@ def render(request, share, validate_module, validate_unit, validate_device):
             raise ValueError("Full-machine force topology must cover every sensor")
         for item, position in zip(spec["sensors"], spec["full_ring_positions"]):
             item["ring_position"] = position
-    if not mock and request.get("sync_mode", "") not in ("sm", "dc"):
+    if bench and not mock and request.get("sync_mode", "") not in ("sm", "dc"):
         raise ValueError("Real force bench requires explicit sync_mode sm or dc")
+    if not bench and not mock and any(item["frame_id"] == "TBD" for item in spec["sensors"]):
+        raise ValueError("Full-machine force sensors need their Robot Model frame_id")
     sensors, files, parameters, profiles = [], {}, {}, []
     contexts = {}
     count = len(spec["sensors"]) + len(spec["bench_extra_responders"])
     master_id = request["deployment"]["ethercat"]["master_id"]
-    # This renderer owns the master health group as well as the sensors.
-    diagnostic_devices = [master_entry(master_id, count)]
+    # On the bench this renderer owns the master health group as well as the sensors.
+    diagnostic_devices = [master_entry(master_id, count)] if bench else []
 
     def state_sensor(name, values):
         sensor = ET.Element("sensor", name=name)
@@ -44,8 +52,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
         sensors.append(sensor)
         return sensor
 
-    state_sensor("ethercat_master", {"link_up": 1, "slaves_responding": count, "wc_error_count": 0})
-    state_sensor("ethercat_domain", {"process_data_age_ms": 0})
+    if bench:
+        state_sensor(
+            "ethercat_master", {"link_up": 1, "slaves_responding": count, "wc_error_count": 0}
+        )
+        state_sensor("ethercat_domain", {"process_data_age_ms": 0})
+    else:
+        sensors.extend(health_sensors(request, []))
+    pdo_checks = []
     for item in spec["sensors"]:
         record = yaml.safe_load(
             (share / "config/profiles" / (item["profile"] + ".yaml")).read_text()
@@ -79,7 +93,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
         }
         component = state_sensor(item["sensor_name"], values)
         if not mock:
-            profile["assign_activate"] = 0x0300 if request["sync_mode"] == "dc" else 0
+            dc = not bench or request["sync_mode"] == "dc"
+            profile["assign_activate"] = 0x0300 if dc else 0
+            pdo_checks.append({"ring_position": position, "objects": pdo_objects(profile)})
             # Exact legacy filenames are declaration data, not composer special cases.
             relative = item["profile"] + "_" + item["side"] + ".yaml"
             files[relative] = yaml.safe_dump(profile, sort_keys=False)
@@ -115,7 +131,8 @@ def render(request, share, validate_module, validate_unit, validate_device):
             "validity_policy": record["broadcaster"]["validity_policy"],
             "snapshot_source": record["broadcaster"]["snapshot_source"],
             "calibration_valid": False,
-            "frame_id": item["sensor_name"] + "_raw",
+            # Raw values until the scale is confirmed; the full machine names the model frame.
+            "frame_id": item["sensor_name"] + "_raw" if bench else item["frame_id"],
             "link_interface": "ethercat_master/link_up",
             "al_state_interface": f"ethercat_slave_{position}/al_state",
         }
@@ -153,7 +170,33 @@ def render(request, share, validate_module, validate_unit, validate_device):
         **master_parameters(share),
     }
     if mock:
-        params.update(calculate_dynamics="false", mock_sensor_commands="false")
+        params.update(calculate_dynamics="false")
+        if bench:
+            params.update(mock_sensor_commands="false")
+    if bench:
+        topology = {
+            "kind": "passive_force_bench",
+            "master_id": params["master_id"],
+            "responder_count": count,
+            "sensors": profiles,
+            "preflight_required": True,
+        }
+    else:
+        topology = {
+            "kind": "cia402_topology",
+            "master_id": master_id,
+            "responders": [
+                {
+                    "ring_position": item["ring_position"],
+                    "vendor_id": item["vendor_id"],
+                    "product_code": item["product_id"],
+                    "revision_number": item["revision"],
+                }
+                for item in profiles
+            ],
+            "pdo_checks": pdo_checks,
+            "preflight_required": not mock,
+        }
     return {
         "hardware_system_id": machine["master_system"],
         "hardware_plugin": "mock_components/GenericSystem"
@@ -168,13 +211,7 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "controller_parameters": parameters,
         "controller_context": contexts,
         "diagnostic_devices": diagnostic_devices,
-        "expected_topology": {
-            "kind": "passive_force_bench",
-            "master_id": params["master_id"],
-            "responder_count": count,
-            "sensors": profiles,
-            "preflight_required": True,
-        },
+        "expected_topology": topology,
     }
 
 
