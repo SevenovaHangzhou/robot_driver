@@ -165,6 +165,7 @@ cases:
       - robot_description.xml
       - runtime/diagnostics.yaml
       - runtime/lifecycle.yaml
+      - runtime/peripherals/emergency_stop.yaml
   force-mock:
     use_mock_hardware: true
     sync_mode: dc
@@ -535,3 +536,10 @@ control-backlog-cleanup-20261121:
   - head-real
   - force-mock
   - force-real
+
+head-arms-soft-stop-20261121:
+  reason: SEV-135 / #299; standalone head joins the explicitly selected software-stop scope
+  method: Actual composer outputs using existing head fixtures and canonical_files; explicit test-only unit timing
+  cases:
+  - head-mock
+  - head-real

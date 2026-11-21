@@ -1,6 +1,7 @@
-# 急停接收与双臂停机
+# 头部与双臂软急停
 
-`ctrl_enable_manager` 统一订阅 `/plc/emergency_stop/state`（域内 `EmergencyStopState`，
+本次功能是普通 IO → Modbus → DDS → 软件停机，覆盖头部和双臂。
+`ctrl_enable_manager` 按机型选择订阅 `/plc/emergency_stop/state`（域内 `EmergencyStopState`，
 reliable / transient_local / depth 1），在自己的非实时 callback group 接收；实时状态机只读原子状态。
 控制器与外设包之间不直接依赖。
 
@@ -11,11 +12,12 @@ reliable / transient_local / depth 1），在自己的非实时 callback group �
 | 左臂、右臂、双臂，包括 stationary_enable | 有 | 启用 |
 | 双臂与头部组合 | 有 | 停整个现有使能组，包括头部伴随控制器 |
 | 双臂重力前馈组合 | 有 | 停止当前轨迹控制器及重力前馈伴随控制器 |
-| 底盘、独立头部 | 有 | 仅接收，尚未启用动作 |
-| 升降、主动悬挂 | 公共管理器具备接收能力 | 机型中尚无可运行 scope，未形成独立接收实例 |
+| 独立头部 head_only | 有 | 撤销头部使能请求，停用位置控制器 |
+| 底盘、升降、主动悬挂、只读传感器范围 | 不订阅本输入 | 不在本次范围 |
 
-机型 enable policy 的 `emergency_stop_response: true` 选择响应。
-未选中的控制范围默认仅观察，不能据此宣称已有急停停机功能。
+机型配置的 `emergency_stop_response: true` 选择响应；双臂由 enable policy 提供，
+独立头部由 head_controllers 配置提供。
+未选中的控制范围不创建软急停订阅；是否响应由机型配置显式选择。
 
 ## 部署参数
 
@@ -48,21 +50,28 @@ QoS 缓存的旧 RELEASED 也必须通过年龄检查。
 - 初次没有新鲜释放样本时保持禁止使能。收到停机事件即锁存；两个 RT 周期之间已接收的按下再释放也不会丢掉锁存。
 - 运行或使能/复位途中触发：RT 进入现有 EmergencyQuickStop；OperationEnabled/QuickStopActive
   轴写控制字 `0x0002`，其他轴沿原有状态机向失能收敛，然后进入 EmergencyDisable。
+  头部通过现有握手接口写 `enable_request=0`，由驱动原有状态机执行失能并反馈结果。
   沿用已存在的停止阶段超时与驱动反馈规则，不新增减速或运动阈值。
 - 非实时 worker 停止已有 managed/companion controller 集合；等待在途 controller switch 后再执行停用。
   包括当前 JTC/rolling、组合头部和被选中的重力前馈。停用失败会要求控制栈重启。
 - 停机锁存期间拒绝使能和模式切换。按钮释放只更新观测，不恢复旧轨迹，也不自动使能。
+  头部 MoveHead 继续通过既有 readiness 终止在途目标；readiness 恢复不重发该目标。
 - 操作台确认按钮释放、收到新鲜输入、停止过程结束并收到控制器停用确认后，显式执行现有
   `/rt/reset_fault`，成功清除锁存后才能单独执行 `/rt/enable`。输入仍不可信时复位会被拒绝。
   硬件/总线故障引起的 restart_required 继续走原有完整重启要求。
 
 诊断增加 `emergency_stop_reported_state`（上次广播值）、`emergency_stop_effective_state`
 （本地新鲜度判断）、`emergency_stop_response`、`emergency_stop_latched`。状态数值为 0 UNKNOWN、
-1 RELEASED、2 PRESSED。观察模式未配置超时时 effective 保持 UNKNOWN，reported 只表示最后收到的值，
+1 RELEASED、2 PRESSED。未启用响应的实例不订阅，reported/effective 保持 UNKNOWN，
 不能用于运动许可。服务拒绝 stage 为 `emergency_stop`。
 
 ## 验证边界
 
 T0 包构建、状态机/握手/模式切换测试及真实本机 DDS 接收测试，不连接硬件。
 测试时间常量不属于部署配置。现场 T3/T4、驱动器实际停止时间、物理制动与断动力效果尚未验证，
-由操作台按分级流程执行。本功能是网络软件停机路径，不替代安全继电器、STO 和硬件保护。
+由操作台按分级流程执行。
+
+用户于 2026-11-21 将本次交付收敛为头部与双臂软急停：验收关注按下/失联/过期停机、
+控制器停用、释放不自动恢复及显式复位。四个台套时间仍需实测确认，未知值保留 TBD。
+硬件安全回路建设与认证另行处理，不作为本软件任务的开发验收项；本功能不替代安全继电器、STO 和硬件保护。
+加速度来源协调和 robot_description 外置沿用各自独立任务。

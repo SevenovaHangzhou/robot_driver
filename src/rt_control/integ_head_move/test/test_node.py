@@ -126,3 +126,27 @@ def test_out_of_range_and_not_ready_goals_abort_with_their_codes(rig):
     assert result.error.code == ErrorCode.NOT_READY
     assert "not_enabled" in result.error.message
     assert head.commands == []
+
+
+def test_readiness_loss_aborts_active_goal_and_recovery_does_not_resume_it(rig):
+    head, client, set_ready = rig
+    head.speed = 0.1
+    handle = wait(client.send_goal_async(goal(0.5, 0.0)))
+    assert handle.accepted
+    deadline = time.monotonic() + 3
+    while not head.commands and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert head.commands == [[0.5, 0.0]]
+    # The enable manager's stop reaches this adapter through existing readiness.
+    set_ready(False)
+    result = wait(handle.get_result_async()).result
+    assert result.error.code == ErrorCode.NOT_READY
+    deadline = time.monotonic() + 3
+    while len(head.commands) < 2 and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert len(head.commands) == 2
+    assert head.commands[-1] == pytest.approx(list(result.final_state.actual_positions))
+    commands = list(head.commands)
+    set_ready(True)
+    time.sleep(0.3)
+    assert head.commands == commands

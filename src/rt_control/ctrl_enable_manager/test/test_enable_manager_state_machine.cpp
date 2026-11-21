@@ -2939,9 +2939,10 @@ TEST_F(EnableManagerFixture, EmergencyResponseRequiresDeploymentTimeout)
     controller_interface::CallbackReturn::ERROR);
 }
 
-TEST_F(EnableManagerFixture, EmergencyInputObservationDoesNotChangeOtherModuleCommands)
+TEST_F(EnableManagerFixture, DisabledSoftStopDoesNotSubscribeOrChangeOtherModuleCommands)
 {
   bringUpToIdle();
+  EXPECT_EQ(controller_->get_node()->count_subscribers("/plc/emergency_stop/state"), 0U);
   Access::setPhase(*controller_, Phase::kEnabled);
   setAllStatus(kSwOperationEnabled);
   Access::observeStop(*controller_, stopMessage(true));

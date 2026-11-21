@@ -9,6 +9,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <tuple>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,25 @@ public:
   using Stage = Controller::Stage;
   using ResultSlot = Controller::ResultSlot;
 
+  static void observeStop(
+    Controller & c, std::uint8_t state, std::uint64_t sequence, bool expired = false)
+  {
+    EmergencyStopInput::Message message;
+    message.header.stamp = c.get_node()->now();
+    message.producer_instance_id.uuid[0] = 1;
+    message.sample_sequence = sequence;
+    message.valid = state != EmergencyStopInput::Message::UNKNOWN;
+    message.state = state;
+    message.stop_requested = state != EmergencyStopInput::Message::RELEASED;
+    c.emergency_stop_input_.observe(
+      message, expired ? 1 : c.steadyNowNs(), rclcpp::Time(message.header.stamp).nanoseconds());
+  }
+  static bool stopLatched(const Controller & c) { return c.emergency_stop_latched_.load(); }
+  static bool stopControllersPending(const Controller & c)
+  {
+    return c.emergency_jtc_deactivate_request_.load() && c.jtc_deactivation_required_.load();
+  }
+  static const auto & managedControllers(const Controller & c) { return c.managed_controllers_; }
   static Phase phase(const Controller & c) { return c.phase_.load(); }
   static Stage failureStage(const Controller & c) { return c.last_failure_stage_.load(); }
   static bool restartRequired(const Controller & c) { return c.restart_required_.load(); }
@@ -119,7 +139,7 @@ public:
   // with_axis: one CiA402 axis enabled before the device; otherwise a device-only manager.
   // with_feedback_age: the bus age and one slave's AL state gate enable/reset;
   // head_yaw/fault_code is also a diagnostic.
-  void bringUp(bool with_axis, bool with_feedback_age = false)
+  void bringUp(bool with_axis, bool with_feedback_age = false, bool soft_stop = false)
   {
     with_axis_ = with_axis;
     std::vector<rclcpp::Parameter> parameters{
@@ -144,6 +164,15 @@ public:
       parameters.emplace_back(
         "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{});
     }
+    if (soft_stop) {
+      parameters.emplace_back("emergency_stop_response", true);
+      parameters.emplace_back("emergency_stop_timeout_ms", 1000);  // Test-only freshness budget.
+      if (with_axis) {
+        parameters.emplace_back("motion_controller", std::string("arm_trajectory_controller"));
+        parameters.emplace_back(
+          "companion_controllers", std::vector<std::string>{"head_position_controller"});
+      }
+    }
     rclcpp::NodeOptions options;
     options.parameter_overrides(parameters);
     controller_ = std::make_unique<EnableManagerController>();
@@ -153,6 +182,9 @@ public:
       controller_->on_configure(rclcpp_lifecycle::State()),
       controller_interface::CallbackReturn::SUCCESS);
 
+    if (soft_stop) {
+      Access::observeStop(*controller_, EmergencyStopInput::Message::RELEASED, 1);
+    }
     commands_.clear();
     states_.clear();
     if (with_axis) {
@@ -360,6 +392,62 @@ TEST_F(HandshakeFixture, MixedTopologyEnablesDeviceOnlyAfterTheLastCia402Batch)
   EXPECT_EQ(plugin_.enable_request, 0.0);
   EXPECT_EQ(static_cast<std::uint16_t>(status_word_), kSwSwitchOnDisabled);
 }
+
+class HeadSoftStop : public HandshakeFixture,
+                     public ::testing::WithParamInterface<std::tuple<bool, int>>
+{
+};
+
+TEST_P(HeadSoftStop, InputStopDisablesHeadAndLatchesUntilExplicitRecovery)
+{
+  const auto [with_arm, trigger] = GetParam();
+  bringUp(with_arm, false, true);
+  ASSERT_TRUE(stepUntil(Phase::kIdle));
+  enableToEnabled();
+  ASSERT_EQ(plugin_.enable_request, 1.0);
+  const auto & managed = Access::managedControllers(*controller_);
+  EXPECT_NE(std::find(managed.begin(), managed.end(), "head_position_controller"), managed.end());
+  if (with_arm) {
+    EXPECT_NE(
+      std::find(managed.begin(), managed.end(), "arm_trajectory_controller"), managed.end());
+  }
+  using Message = EmergencyStopInput::Message;
+  if (trigger == 0) {
+    Access::observeStop(*controller_, Message::PRESSED, 2);
+    // A release before the next RT update must not erase a short press.
+    Access::observeStop(*controller_, Message::RELEASED, 3);
+  } else if (trigger == 1) {
+    Access::observeStop(*controller_, Message::RELEASED, 2, true);
+  } else {
+    Access::observeStop(*controller_, Message::UNKNOWN, 2);
+  }
+  step();
+  EXPECT_EQ(plugin_.enable_request, 0.0);
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+  EXPECT_TRUE(Access::stopControllersPending(*controller_));
+  if (with_arm) EXPECT_EQ(static_cast<std::uint16_t>(control_word_), 0x0002U);
+  ASSERT_TRUE(stepUntil(Phase::kFailed));
+  EXPECT_EQ(Access::failureStage(*controller_), Stage::kEmergencyStop);
+  EXPECT_EQ(plugin_.motion_allowed, 0.0);
+  Access::observeStop(*controller_, Message::RELEASED, 4);
+  step(5);
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+  EXPECT_EQ(plugin_.enable_request, 0.0);
+  Access::requestEnable(*controller_);
+  step();
+  EXPECT_FALSE(Access::enableResult(*controller_).ok.load());
+  EXPECT_EQ(Access::enableResult(*controller_).stage.load(), Stage::kEmergencyStop);
+  Access::requestReset(*controller_);
+  step();
+  // Fresh input alone cannot bypass the pending controller-stop acknowledgement.
+  EXPECT_FALSE(Access::resetResult(*controller_).ok.load());
+  EXPECT_EQ(Access::resetResult(*controller_).stage.load(), Stage::kEmergencyStop);
+  EXPECT_TRUE(Access::stopLatched(*controller_));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  HeadOnlyAndArmCompanion, HeadSoftStop,
+  ::testing::Combine(::testing::Bool(), ::testing::Values(0, 1, 2)));
 
 TEST_F(HandshakeFixture, FeedbackAgeInterfacesAreClaimedOnce)
 {

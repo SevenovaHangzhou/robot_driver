@@ -20,8 +20,11 @@ bool EnableManagerController::configureEmergencyStop()
     return false;
   }
   emergency_stop_subscription_.reset();
+  emergency_stop_group_.reset();
   emergency_stop_input_.configure(static_cast<std::uint64_t>(timeout) * 1000000ULL);
   emergency_stop_latched_.store(false, std::memory_order_release);
+  // Only machine-selected software-stop consumers subscribe to this input.
+  if (!emergency_stop_response_) return true;
   emergency_stop_group_ =
     get_node()->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   rclcpp::SubscriptionOptions options;

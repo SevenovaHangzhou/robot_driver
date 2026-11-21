@@ -25,6 +25,8 @@ head_position_controller:
     interface_name: position
 enable_manager:
   ros__parameters:
+    # User 2026-11-21: standalone head joins the arm software-stop scope.
+    emergency_stop_response: true
     # The DaMiao plugin runs the enable sequence; the manager only requests it and,
     # once confirmed, activates the position controller.
     motion_controller: head_position_controller

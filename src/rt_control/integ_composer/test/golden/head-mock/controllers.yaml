@@ -26,6 +26,8 @@ enable_manager:
     - H1_joint
     - H2_joint
     disable_stage_timeout: 5.0
+    emergency_stop_response: true
+    emergency_stop_timeout_ms: 250
     fault_reset_timeout: 5.0
     feedback_age_interfaces:
     - H1_joint/feedback_age_ms
