@@ -135,9 +135,9 @@ EnableManagerController::state_interface_configuration() const
   if (any_motion_joint) {
     configuration.names.emplace_back("ethercat_domain/process_data_age_ms");
   }
-  if (!expected_modes_.empty()) {
-    for (const auto & joint : joint_names_) {
-      configuration.names.emplace_back(joint + "/mode_of_operation_display");
+  for (std::size_t axis = 0U; axis < expected_modes_.size(); ++axis) {
+    if (expected_modes_[axis] != 0) {
+      configuration.names.emplace_back(joint_names_[axis] + "/mode_of_operation_display");
     }
   }
   configuration.names.insert(
@@ -176,11 +176,12 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   if (
     !modes.empty() && (modes.size() != joint_names_.size() ||
                        !std::all_of(modes.begin(), modes.end(), [](std::int64_t value) {
-                         return value >= -128 && value <= 127 && value != 0;
+                         return value >= -128 && value <= 127;
                        }))) {
+    // 0 leaves a joint's startup mode unconfirmed (a drive without a mode display).
     RCLCPP_ERROR(
       get_node()->get_logger(),
-      "expected_modes must be empty or one nonzero int8 fixed mode per managed joint");
+      "expected_modes must be empty or one int8 fixed mode (0: unconfirmed) per managed joint");
     return controller_interface::CallbackReturn::ERROR;
   }
   expected_modes_.assign(modes.begin(), modes.end());
