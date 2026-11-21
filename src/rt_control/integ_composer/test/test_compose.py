@@ -237,7 +237,11 @@ def test_rolling_limits_use_urdf_velocity_and_acceleration_policy(shares, tmp_pa
         **inputs(shares), runtime_dir=tmp_path / "runtime", use_mock_hardware=True, jtc_only=False
     )
     parameters = result.controllers["rolling_trajectory_controller"]["ros__parameters"]
-    assert set(parameters["joint_velocity_limits"]) == {math.radians(30.0)}
+    robot = ET.fromstring(result.robot_description)
+    assert parameters["joint_velocity_limits"] == [
+        float(robot.find(f"joint[@name='{joint}']/limit").get("velocity"))
+        for joint in parameters["joints"]
+    ]
     assert parameters["joint_acceleration_limits"] == pytest.approx(
         [ARM_ACCELERATION_LIMITS[joint] for joint in parameters["joints"]]
     )

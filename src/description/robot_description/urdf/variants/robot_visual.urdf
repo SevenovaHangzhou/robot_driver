@@ -440,7 +440,7 @@
     <parent link="arm_carriage" />
     <child link="left_link1" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint2" type="revolute">
@@ -448,7 +448,7 @@
     <parent link="left_link1" />
     <child link="left_link2" />
     <axis xyz="1 0 0" />
-    <limit lower="-1.6057029118347832" upper="2.129301687433082" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-1.6057029118347832" upper="2.129301687433082" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint3" type="revolute">
@@ -456,7 +456,7 @@
     <parent link="left_link2" />
     <child link="left_link3" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint4" type="revolute">
@@ -464,7 +464,7 @@
     <parent link="left_link3" />
     <child link="left_link4" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="0.5235987755982988" />
+    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="1.7488199104983182" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint5" type="revolute">
@@ -472,7 +472,7 @@
     <parent link="left_link4" />
     <child link="left_link5" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint6" type="revolute">
@@ -480,7 +480,7 @@
     <parent link="left_link5" />
     <child link="left_link6" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="0.5235987755982988" />
+    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint7" type="revolute">
@@ -488,7 +488,7 @@
     <parent link="left_link6" />
     <child link="left_link7" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_tool_fixed" type="fixed">
@@ -642,7 +642,7 @@
     <parent link="arm_carriage" />
     <child link="right_link1" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint2" type="revolute">
@@ -650,7 +650,7 @@
     <parent link="right_link1" />
     <child link="right_link2" />
     <axis xyz="0 0 -1" />
-    <limit lower="-2.129301687433082" upper="1.6057029118347832" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-2.129301687433082" upper="1.6057029118347832" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint3" type="revolute">
@@ -658,7 +658,7 @@
     <parent link="right_link2" />
     <child link="right_link3" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint4" type="revolute">
@@ -666,7 +666,7 @@
     <parent link="right_link3" />
     <child link="right_link4" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="0.5235987755982988" />
+    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="1.7488199104983182" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint5" type="revolute">
@@ -674,7 +674,7 @@
     <parent link="right_link4" />
     <child link="right_link5" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint6" type="revolute">
@@ -682,7 +682,7 @@
     <parent link="right_link5" />
     <child link="right_link6" />
     <axis xyz="0 0 1" />
-    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="0.5235987755982988" />
+    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint7" type="revolute">
@@ -690,7 +690,7 @@
     <parent link="right_link6" />
     <child link="right_link7" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_tool_fixed" type="fixed">

@@ -1,5 +1,6 @@
 """Contracts for the composed robot and its three asset representations."""
 import hashlib
+from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
@@ -18,6 +19,16 @@ MANIFEST=json.loads((ROOT/'config/alfav3_mobile_manifest.json').read_text())
 
 def structure(e):
     return [e.tag,dict(sorted(e.attrib.items())),[structure(c) for c in e]]
+
+def expected_joint_contract(name, original):
+    expected = deepcopy(original)
+    limits = MANIFEST['arm_module_limits']
+    if name in limits['velocity_rad_s']:
+        for tag, attributes, _ in expected[2]:
+            if tag == 'limit':
+                attributes['velocity'] = str(limits['velocity_rad_s'][name])
+                attributes['effort'] = format(limits['effort_nm'][name], 'g')
+    return expected
 
 def test_canonical_and_projection_trees():
     m=ET.parse(ENTRY).getroot()
@@ -51,7 +62,7 @@ def test_github_arm_joint_semantics_preserved():
     m=ET.parse(ENTRY).getroot()
     assert len(MANIFEST['github_arm_joint_contract'])==14
     for name,original in MANIFEST['github_arm_joint_contract'].items():
-        assert structure(m.find(f"joint[@name='{name}']"))==original
+        assert structure(m.find(f"joint[@name='{name}']"))==expected_joint_contract(name, original)
     for side in ('left','right'):
         assert m.find(f"joint[@name='{side}_joint1']/parent").get('link')=='arm_carriage'
         bounds=m.find(f"joint[@name='{side}_joint6']/limit")
@@ -78,7 +89,7 @@ def test_complete_github_inventory_and_local_joint_contract():
         assert j.find('parent').attrib==children['parent']
         assert j.find('child').attrib==children['child']
         if name not in MANIFEST['joint_overrides']:
-            assert structure(j)==original, name
+            assert structure(j)==expected_joint_contract(name, original), name
     assert 'head_joint' not in current and 'head_pitch_joint' not in current
 
 def test_head_sensor_follows_original_dynamic_chain():
@@ -171,7 +182,13 @@ def test_limits_and_inertials():
         for field,attr in pairs:
             assert np.isclose(limits[name][field],float(j.find('limit').get(attr)))
         if name.startswith(('left_joint','right_joint')):
-            assert np.isclose(float(j.find('limit').get('velocity')),np.pi/6)
+            index=int(name[-1])-1
+            speed=np.deg2rad([75,75,75,100.2,180,180,180][index])
+            effort=[647,647,484,459,204,107,36][index]
+            assert np.isclose(float(j.find('limit').get('velocity')),speed)
+            assert float(j.find('limit').get('effort'))==effort
+            assert np.isclose(MANIFEST['arm_module_limits']['velocity_rad_s'][name],speed)
+            assert MANIFEST['arm_module_limits']['effort_nm'][name]==effort
             assert np.isclose(limits[name]['max_acceleration_rad_s2'],np.pi/3)
     for l in m.findall('link'):
         a=l.find('inertial')
@@ -180,6 +197,20 @@ def test_limits_and_inertials():
         i={k:float(v) for k,v in a.find('inertia').attrib.items()}
         matrix=np.array([[i['ixx'],i['ixy'],i['ixz']],[i['ixy'],i['iyy'],i['iyz']],[i['ixz'],i['iyz'],i['izz']]])
         assert np.isfinite(matrix).all() and np.linalg.eigvalsh(matrix).min()>0
+
+def test_regeneration_preserves_documented_module_limits():
+    from compose_robot_model import apply_arm_module_limits
+    model=ET.parse(ENTRY).getroot()
+    original=structure(model)
+    for name in MANIFEST['arm_module_limits']['velocity_rad_s']:
+        limit=model.find(f"joint[@name='{name}']/limit")
+        limit.set('velocity',str(np.pi/6))
+        limit.set('effort','1')
+    assert apply_arm_module_limits(model)==MANIFEST['arm_module_limits']
+    assert structure(model)==original
+    cspace=yaml.safe_load((ROOT/VARIANTS['curobo_config']).read_text())['kinematics']['cspace']
+    expected=[10.0 if name=='updown' else np.pi/3 for name in cspace['joint_names']]
+    assert np.allclose(cspace['max_acceleration'],expected,rtol=0,atol=1e-12)
 
 def test_sphere_box_contract_and_references():
     m=ET.parse(ENTRY).getroot();links={l.get('name') for l in m.findall('link')};joints={j.get('name') for j in m.findall('joint')}

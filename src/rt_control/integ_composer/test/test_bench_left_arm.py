@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 import shutil
 import sys
+import xml.etree.ElementTree as ET
 
 import pytest
 import yaml
@@ -170,7 +171,11 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
     assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
     # Velocity follows the URDF; acceleration follows the user-selected RT policy.
-    assert jtc["joint_velocity_limits"] == [math.radians(30.0)] * len(MODEL_JOINTS)
+    robot = ET.fromstring(result.robot_description)
+    assert jtc["joint_velocity_limits"] == [
+        float(robot.find(f"joint[@name='{joint}']/limit").get("velocity"))
+        for joint in jtc["joints"]
+    ]
     assert jtc["joint_acceleration_limits"] == pytest.approx(
         [math.radians(value) for value in [373.06, 373.06, 373.06, 498.41, 895.35, 895.35, 895.35]]
     )

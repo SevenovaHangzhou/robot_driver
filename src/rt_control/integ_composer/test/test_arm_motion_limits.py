@@ -1,5 +1,7 @@
 """Compose final arm limits from the URDF and the shared RT acceleration policy."""
 
+import json
+import math
 import shutil
 import xml.etree.ElementTree as ET
 
@@ -70,3 +72,34 @@ def test_missing_acceleration_rejects_composition(shares, tmp_path):
             runtime_dir=tmp_path / "runtime",
             use_mock_hardware=True,
         )
+
+
+@pytest.mark.parametrize("side", ["left", "right", "dual"])
+def test_production_arm_speeds_use_manual_output_rpm(shares, tmp_path, side):
+    specs = json.loads(
+        (shares["robot_description"] / "config/alfav3_arm_module_specs.json").read_text()
+    )
+    result = compose(
+        robot_variant="Alfa_V3",
+        machine_unit=UNIT,
+        physical_profile=f"bench_{side}_arm",
+        control_scope=f"bench_{side}_arm",
+        package_share=lambda name: str(shares[name]),
+        runtime_dir=tmp_path / "runtime",
+        use_mock_hardware=True,
+    )
+    checked = 0
+    for controller in result.controllers.values():
+        parameters = controller["ros__parameters"]
+        if "joint_velocity_limits" not in parameters:
+            continue
+        expected = [
+            specs["joints"][joint.split("_", 1)[1]]["output_peak_rpm"] * math.tau / 60
+            for joint in parameters["joints"]
+        ]
+        assert parameters["joint_velocity_limits"] == pytest.approx(expected)
+        assert parameters["joint_acceleration_limits"] == pytest.approx(
+            [ARM_ACCELERATION_LIMITS[joint] for joint in parameters["joints"]]
+        )
+        checked += 1
+    assert checked == (2 if side == "dual" else 1)

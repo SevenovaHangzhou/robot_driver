@@ -3381,15 +3381,15 @@
   "artifacts": {
     "canonical_urdf": {
       "path": "urdf/robot_alfav3_mobile.urdf",
-      "sha256": "4d0e07038837f57b47c8b4db07710bafbfe2fdb15c3de63b155e89a0ae937592"
+      "sha256": "7a34f2fb377ebd2c04ec3e74ac86d7513ccb268d5711f737b67346559147a833"
     },
     "visual_urdf": {
       "path": "urdf/variants/robot_visual.urdf",
-      "sha256": "a3bb0e9efc276f329f7e2681034a025fc080bca9c3e4f08cb12dc645cc9f2878"
+      "sha256": "06a362eb75f125bb56bf586381a55f142d34d7f14ca3563891893d8f8f4404cb"
     },
     "collision_urdf": {
       "path": "urdf/variants/robot_collision.urdf",
-      "sha256": "15cfc7fb0c6810fc5905438adf084d2b3cbafad1750d59ef05aa08c3e69d7ce9"
+      "sha256": "21c576c16730e6e25fd014b5219408b70164e4c5f8fbb087aa62e649c82aaa38"
     },
     "curobo_config": {
       "path": "config/curobo/robot.yaml",
@@ -3402,6 +3402,44 @@
     "fixed_body_boxes": {
       "path": "config/curobo/fixed_body_boxes.yaml",
       "sha256": "7d641eee29d3e46265447a5bbe3df109d7612bba353f0d32b49395ad8731879e"
+    }
+  },
+  "arm_module_limits": {
+    "source": "config/alfav3_arm_module_specs.json",
+    "manual": "eRob机器人关节模组用户手册_V3.44.pdf",
+    "velocity_policy": "URDF arm velocity = published output-side peak rpm * 2*pi/60; no second gearbox conversion. Module speed ceiling; load-dependent operating limits are configured separately.",
+    "effort_policy": "output-side startup/stop peak torque; not continuous rated or momentary shock torque",
+    "velocity_rad_s": {
+      "left_joint1": 1.3089969389957472,
+      "left_joint2": 1.3089969389957472,
+      "left_joint3": 1.3089969389957472,
+      "left_joint4": 1.7488199104983182,
+      "left_joint5": 3.1415926535897927,
+      "left_joint6": 3.1415926535897927,
+      "left_joint7": 3.1415926535897927,
+      "right_joint1": 1.3089969389957472,
+      "right_joint2": 1.3089969389957472,
+      "right_joint3": 1.3089969389957472,
+      "right_joint4": 1.7488199104983182,
+      "right_joint5": 3.1415926535897927,
+      "right_joint6": 3.1415926535897927,
+      "right_joint7": 3.1415926535897927
+    },
+    "effort_nm": {
+      "left_joint1": 647,
+      "left_joint2": 647,
+      "left_joint3": 484,
+      "left_joint4": 459,
+      "left_joint5": 204,
+      "left_joint6": 107,
+      "left_joint7": 36,
+      "right_joint1": 647,
+      "right_joint2": 647,
+      "right_joint3": 484,
+      "right_joint4": 459,
+      "right_joint5": 204,
+      "right_joint6": 107,
+      "right_joint7": 36
     }
   }
 }

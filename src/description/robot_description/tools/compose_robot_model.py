@@ -62,6 +62,31 @@ def write_urdf(root, path, model):
         stream.write(b'\n')
 
 
+def apply_arm_module_limits(model):
+    """Apply the documented output-side maximum speed and start/stop torque.
+
+    These scalar limits do not specify continuous capability or enforce the
+    torque-speed envelope. Existing planning acceleration limits stay separate.
+    """
+    specs = json.loads((Path(__file__).resolve().parents[1] /
+                        'config/alfav3_arm_module_specs.json').read_text())
+    velocities, efforts = {}, {}
+    for side in specs['applies_to']:
+        for suffix, spec in specs['joints'].items():
+            name = f'{side}_{suffix}'
+            velocity = float(spec['output_peak_rpm'] * 2 * np.pi / 60)
+            effort = spec['startup_stop_peak_torque_nm']
+            limit = model.find(f"joint[@name='{name}']/limit")
+            limit.set('velocity', str(velocity))
+            limit.set('effort', format(effort, 'g'))
+            velocities[name], efforts[name] = velocity, effort
+    return {'source': 'config/alfav3_arm_module_specs.json',
+            'manual': specs['manual'],
+            'velocity_policy': specs['velocity_policy'],
+            'effort_policy': specs['effort_policy'],
+            'velocity_rad_s': velocities, 'effort_nm': efforts}
+
+
 def enclose_head_meshes(model, root, cell_size=.06):
     """Cover every source head-mesh triangle with a deterministic local sphere.
 
@@ -244,6 +269,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         target.write_bytes(data)
         source_meshes[path] = data
 
+    arm_module_limits = apply_arm_module_limits(model)
     entry = 'urdf/robot_alfav3_mobile.urdf'
     write_urdf(output, entry, model)
     for variant in ('visual', 'collision'):
@@ -364,6 +390,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
             'updown': 'PR82 lift (same local transform as upstream)',
             'left_tool0_fixed': 'agreed own TCP distance and axes',
             'right_tool0_fixed': 'agreed own TCP distance and axes'},
+        'arm_module_limits': arm_module_limits,
         'head_collision_fit': head_fit,
         'collision_scope': 'Imported arm/body radii are approximations, not certified conservative envelopes. New head spheres enclose assigned mesh triangles with a 0.5mm surface margin. No payload. Four boxes require an explicit backend; native sphere-only queries are incomplete.',
         'mesh_sources': source_files,

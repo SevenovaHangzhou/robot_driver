@@ -502,3 +502,18 @@ arch-base-control-mode:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+
+arm-manual-peak-speed-20261121:
+  reason: SEV-134 / robot_driver#298；同步权威模型速度回移 7cb6f9b，双臂 75/100.2/180°/s；当前 composer 重新生成受影响快照
+  method: 使用 test_compose 与 test_head_force 既有夹具调用 compose，经 canonical_files 规范化，更新 robot_description.xml 和 controllers.yaml
+  cases:
+  - arm-mock
+  - arm-mock-jtc
+  - arm-real
+  - arm-real-jtc
+  - force-mock
+  - force-real
+  - head-mock
+  - head-real
+  - stationary-mock
+  - stationary-real
