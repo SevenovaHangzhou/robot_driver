@@ -120,7 +120,7 @@ EnableManagerController::command_interface_configuration() const
     const auto names = device->command_interface_names();
     configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
-  for (const auto & joint : mode_switch_joint_names_) {
+  for (const auto & joint : motion_group_.drive_joint_names) {
     configuration.names.emplace_back(joint + "/mode_of_operation");
   }
   return configuration;
@@ -136,9 +136,9 @@ EnableManagerController::state_interface_configuration() const
     const auto & names = axis.get_state_interface_names();
     configuration.names.insert(configuration.names.end(), names.begin(), names.end());
   }
-  if (!motion_joint_names_.empty()) {
-    configuration.names.reserve(configuration.names.size() + motion_joint_names_.size() + 1U);
-    for (const auto & joint : motion_joint_names_) {
+  if (!motion_group_.joint_names.empty()) {
+    configuration.names.reserve(configuration.names.size() + motion_group_.joint_names.size() + 1U);
+    for (const auto & joint : motion_group_.joint_names) {
       configuration.names.emplace_back(joint + "/position");
     }
     configuration.names.emplace_back("ethercat_domain/process_data_age_ms");
@@ -180,16 +180,18 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   controller_switch_timeout_seconds_ =
     get_node()->get_parameter("controller_switch_timeout").as_double();
   const auto service_timeout = get_node()->get_parameter("service_result_timeout_ms").as_int();
-  default_motion_controller_ = get_node()->get_parameter("motion_controller").as_string();
-  rolling_motion_controller_ = get_node()->get_parameter("rolling_controller").as_string();
-  trajectory_motion_controller_ = get_node()->get_parameter("trajectory_controller").as_string();
-  mode_service_name_ = get_node()->get_parameter("mode_service").as_string();
+  motion_group_.default_controller = get_node()->get_parameter("motion_controller").as_string();
+  motion_group_.rolling_controller = get_node()->get_parameter("rolling_controller").as_string();
+  motion_group_.trajectory_controller =
+    get_node()->get_parameter("trajectory_controller").as_string();
+  motion_group_.service_name = get_node()->get_parameter("mode_service").as_string();
   companion_controllers_ = get_node()->get_parameter("companion_controllers").as_string_array();
   managed_controllers_.clear();
-  if (!default_motion_controller_.empty()) {
-    managed_controllers_.push_back(default_motion_controller_);
+  if (!motion_group_.default_controller.empty()) {
+    managed_controllers_.push_back(motion_group_.default_controller);
   }
-  for (const auto & alternate : {rolling_motion_controller_, trajectory_motion_controller_}) {
+  for (const auto & alternate :
+       {motion_group_.rolling_controller, motion_group_.trajectory_controller}) {
     if (!alternate.empty()) {
       managed_controllers_.push_back(alternate);
     }
@@ -197,14 +199,15 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   managed_controllers_.insert(
     managed_controllers_.end(), companion_controllers_.begin(), companion_controllers_.end());
   enable_only_ = managed_controllers_.empty();
-  motion_mode_switching_ =
-    !rolling_motion_controller_.empty() || !trajectory_motion_controller_.empty();
-  motion_controller_mode_ =
-    trajectory_motion_controller_.empty() ? ControlMode::kFjtReady : ControlMode::kVelocityReady;
+  motion_group_.mode_switching =
+    !motion_group_.rolling_controller.empty() || !motion_group_.trajectory_controller.empty();
+  motion_group_.default_mode = motion_group_.trajectory_controller.empty()
+                                 ? ControlMode::kFjtReady
+                                 : ControlMode::kVelocityReady;
   const bool controllers_valid =
-    (!default_motion_controller_.empty() || enable_only_) &&
-    (rolling_motion_controller_.empty() || trajectory_motion_controller_.empty()) &&
-    (!motion_mode_switching_ || !mode_service_name_.empty()) &&
+    (!motion_group_.default_controller.empty() || enable_only_) &&
+    (motion_group_.rolling_controller.empty() || motion_group_.trajectory_controller.empty()) &&
+    (!motion_group_.mode_switching || !motion_group_.service_name.empty()) &&
     std::none_of(
       managed_controllers_.begin(), managed_controllers_.end(),
       [](const auto & name) { return name.empty(); }) &&
@@ -212,10 +215,11 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
       managed_controllers_.size();
   const auto modes = get_node()->get_parameter("expected_modes").as_integer_array();
   if (
-    !modes.empty() && (modes.size() != joint_names_.size() || !rolling_motion_controller_.empty() ||
-                       !std::all_of(modes.begin(), modes.end(), [](std::int64_t value) {
-                         return value >= -128 && value <= 127 && value != 0;
-                       }))) {
+    !modes.empty() &&
+    (modes.size() != joint_names_.size() || !motion_group_.rolling_controller.empty() ||
+     !std::all_of(modes.begin(), modes.end(), [](std::int64_t value) {
+       return value >= -128 && value <= 127 && value != 0;
+     }))) {
     RCLCPP_ERROR(
       get_node()->get_logger(),
       "expected_modes must be empty or one nonzero int8 fixed mode per managed joint; incompatible "
@@ -247,7 +251,7 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   actual_modes_.assign(modes.size(), 256);
   mode_state_indices_.assign(modes.size(), 0U);
   mode_confirmed_.assign(modes.size(), 0U);
-  motion_joint_names_ = get_node()->get_parameter("motion_joints").as_string_array();
+  motion_group_.joint_names = get_node()->get_parameter("motion_joints").as_string_array();
   const auto maximum_sample_period_ms =
     get_node()->get_parameter("mode_switch_maximum_sample_period_ms").as_int();
   const auto source_state_max_age_ms =
@@ -262,24 +266,25 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   const auto takeover_tolerances =
     get_node()->get_parameter("mode_switch_takeover_tolerances").as_double_array();
 
-  std::vector<std::string> sorted_motion_joints = motion_joint_names_;
+  std::vector<std::string> sorted_motion_joints = motion_group_.joint_names;
   std::sort(sorted_motion_joints.begin(), sorted_motion_joints.end());
   const bool motion_joints_valid =
-    !motion_joint_names_.empty() && motion_joint_names_.size() <= kMaxMotionAxes &&
+    !motion_group_.joint_names.empty() && motion_group_.joint_names.size() <= kMaxMotionAxes &&
     std::adjacent_find(sorted_motion_joints.begin(), sorted_motion_joints.end()) ==
       sorted_motion_joints.end() &&
     std::all_of(
-      motion_joint_names_.begin(), motion_joint_names_.end(), [this](const std::string & name) {
+      motion_group_.joint_names.begin(), motion_group_.joint_names.end(),
+      [this](const std::string & name) {
         return std::find(joint_names_.begin(), joint_names_.end(), name) != joint_names_.end();
       });
   const auto valid_threshold_array = [this](const std::vector<double> & values) {
-    return values.size() == motion_joint_names_.size() &&
+    return values.size() == motion_group_.joint_names.size() &&
            std::all_of(values.begin(), values.end(), [](double value) {
              return std::isfinite(value) && value >= 0.0;
            });
   };
   const bool motion_parameters_valid =
-    (!motion_mode_switching_ && motion_joint_names_.empty()) ||
+    (!motion_group_.mode_switching && motion_group_.joint_names.empty()) ||
     (motion_joints_valid && maximum_sample_period_ms > 0 && source_state_max_age_ms > 0 &&
      stable_interval_count > 0 && mode_switch_timeout_ms > 0 &&
      std::isfinite(mode_switch_feedback_age_limit_ms) && mode_switch_feedback_age_limit_ms > 0.0 &&
@@ -288,32 +293,33 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
 
   // Timing values are checked once by the composer (enable policy schema; YAML load rejects
   // non-finite numbers).
-  if (!controllers_valid || !motion_parameters_valid || !configureDriveModeSwitching()) {
+  if (
+    !controllers_valid || !motion_parameters_valid || !configureDriveModeSwitching(motion_group_)) {
     RCLCPP_ERROR(get_node()->get_logger(), "Invalid enable-manager controller parameter");
     return controller_interface::CallbackReturn::ERROR;
   }
   service_result_timeout_ = std::chrono::milliseconds(service_timeout);
-  if (!motion_joint_names_.empty()) {
-    mode_switch_maximum_sample_period_ns_ =
+  if (!motion_group_.joint_names.empty()) {
+    motion_group_.maximum_sample_period_ns =
       static_cast<std::uint64_t>(maximum_sample_period_ms) * 1000000U;
-    mode_switch_source_state_max_age_ns_ =
+    motion_group_.source_state_max_age_ns =
       static_cast<std::uint64_t>(source_state_max_age_ms) * 1000000U;
-    mode_switch_stable_interval_count_ = static_cast<std::size_t>(stable_interval_count);
-    mode_switch_timeout_ = std::chrono::milliseconds(mode_switch_timeout_ms);
-    mode_switch_feedback_age_limit_ms_ = mode_switch_feedback_age_limit_ms;
+    motion_group_.stable_interval_count = static_cast<std::size_t>(stable_interval_count);
+    motion_group_.switch_timeout = std::chrono::milliseconds(mode_switch_timeout_ms);
+    motion_group_.feedback_age_limit_ms = mode_switch_feedback_age_limit_ms;
     std::copy(
       stable_velocity_thresholds.begin(), stable_velocity_thresholds.end(),
-      mode_switch_stable_velocity_thresholds_.begin());
+      motion_group_.stable_velocity_thresholds.begin());
     std::copy(
       takeover_tolerances.begin(), takeover_tolerances.end(),
-      mode_switch_takeover_tolerances_.begin());
+      motion_group_.takeover_tolerances.begin());
   }
 
   enable_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   disable_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
   reset_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
-  if (!motion_joint_names_.empty()) {
-    mode_callback_group_ =
+  if (!motion_group_.joint_names.empty()) {
+    motion_group_.callback_group =
       get_node()->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   }
   worker_callback_group_ = get_node()->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
@@ -343,38 +349,47 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   reset_service_ = serve(
     "/rt/reset_fault", &EnableManagerController::handleResetFault, ErrorCode::RT_RESET_FAILED,
     reset_callback_group_);
-  if (!motion_joint_names_.empty()) {
-    standstill_service_ = get_node()->create_service<std_srvs::srv::Trigger>(
+  if (!motion_group_.joint_names.empty()) {
+    motion_group_.standstill_service = get_node()->create_service<std_srvs::srv::Trigger>(
       "~/confirm_standstill",
-      std::bind(
-        &EnableManagerController::handleConfirmStandstill, this, std::placeholders::_1,
-        std::placeholders::_2),
-      rmw_qos_profile_services_default, mode_callback_group_);
+      [this](
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+        handleConfirmStandstill(motion_group_, request, response);
+      },
+      rmw_qos_profile_services_default, motion_group_.callback_group);
   }
-  if (motion_mode_switching_) {
-    mode_service_ = get_node()->create_service<ModeService>(
-      mode_service_name_,
-      std::bind(
-        &EnableManagerController::handleSetMode, this, std::placeholders::_1,
-        std::placeholders::_2),
-      rmw_qos_profile_services_default, mode_callback_group_);
+  if (motion_group_.mode_switching) {
+    motion_group_.mode_service = get_node()->create_service<ModeService>(
+      motion_group_.service_name,
+      [this](
+        const std::shared_ptr<ModeService::Request> request,
+        std::shared_ptr<ModeService::Response> response) {
+        handleSetMode(motion_group_, request, response);
+      },
+      rmw_qos_profile_services_default, motion_group_.callback_group);
     rclcpp::SubscriptionOptions source_subscription_options;
     source_subscription_options.callback_group = worker_callback_group_;
-    jtc_state_subscription_ =
+    motion_group_.jtc_state_subscription =
       get_node()->create_subscription<control_msgs::msg::JointTrajectoryControllerState>(
         "/" +
-          (trajectory_motion_controller_.empty() ? default_motion_controller_
-                                                 : trajectory_motion_controller_) +
+          (motion_group_.trajectory_controller.empty() ? motion_group_.default_controller
+                                                       : motion_group_.trajectory_controller) +
           "/controller_state",
         robot_interfaces_qos::state(),
-        std::bind(&EnableManagerController::handleJtcState, this, std::placeholders::_1),
+        [this](const control_msgs::msg::JointTrajectoryControllerState::SharedPtr message) {
+          handleJtcState(motion_group_, message);
+        },
         source_subscription_options);
-    rolling_state_subscription_.reset();
-    if (!rolling_motion_controller_.empty()) {
-      rolling_state_subscription_ =
+    motion_group_.rolling_state_subscription.reset();
+    if (!motion_group_.rolling_controller.empty()) {
+      motion_group_.rolling_state_subscription =
         get_node()->create_subscription<robot_rt_control_interfaces::msg::RollingJointControlState>(
           "/rt/arms/rolling/state", robot_interfaces_qos::rolling_state(),
-          std::bind(&EnableManagerController::handleRollingState, this, std::placeholders::_1),
+          [this](
+            const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr message) {
+            handleRollingState(motion_group_, message);
+          },
           source_subscription_options);
     }
   }
@@ -412,11 +427,11 @@ controller_interface::CallbackReturn EnableManagerController::on_configure(
   active_.store(false, std::memory_order_release);
   phase_.store(Phase::kInactive, std::memory_order_release);
   owner_.store(Owner::kInternal, std::memory_order_release);
-  current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
+  motion_group_.current_mode.store(ControlMode::kDisabled, std::memory_order_release);
   {
-    std::lock_guard<std::mutex> lock(command_snapshot_mutex_);
-    jtc_command_snapshot_ = CommandSnapshot{};
-    rolling_command_snapshot_ = CommandSnapshot{};
+    std::lock_guard<std::mutex> lock(motion_group_.snapshot_mutex);
+    motion_group_.jtc_snapshot = CommandSnapshot{};
+    motion_group_.rolling_snapshot = CommandSnapshot{};
   }
   if (!configureEmergencyStop()) {
     return controller_interface::CallbackReturn::ERROR;

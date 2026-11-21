@@ -41,7 +41,7 @@ void EnableManagerController::writeTrace(std::int64_t now_ns, std::int64_t perio
   v[i++] = static_cast<double>(owner_.load(std::memory_order_relaxed));
   v[i++] = static_cast<double>(current_batch_);
   v[i++] = static_cast<double>(downward_stage_);
-  v[i++] = static_cast<double>(current_control_mode_.load(std::memory_order_relaxed));
+  v[i++] = static_cast<double>(motion_group_.current_mode.load(std::memory_order_relaxed));
   v[i++] = stage_deadline_ns_ == 0 ? std::numeric_limits<double>::quiet_NaN()
                                    : static_cast<double>(stage_deadline_ns_ - now_ns) * 1e-6;
   v[i++] = static_cast<double>(last_failure_stage_.load(std::memory_order_relaxed));
@@ -68,8 +68,8 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
 {
   const std::size_t expected_state_count = state_interface_configuration().names.size();
   if (
-    command_interfaces_.size() !=
-      cia402_axes_.size() + handshake_devices_.size() * 2U + mode_switch_joint_names_.size() ||
+    command_interfaces_.size() != cia402_axes_.size() + handshake_devices_.size() * 2U +
+                                    motion_group_.drive_joint_names.size() ||
     state_interfaces_.size() != expected_state_count) {
     RCLCPP_ERROR(
       get_node()->get_logger(), "Unexpected enable-manager command or state interface count");
@@ -85,30 +85,18 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   for (auto & device : handshake_devices_) {
     interfaces_bound = interfaces_bound && device->bind(command_interfaces_, state_interfaces_);
   }
-  if (!interfaces_bound || !bindDriveModeCommands()) {
+  if (!interfaces_bound || !bindDriveModeCommands(motion_group_)) {
     releaseCia402Interfaces();
     RCLCPP_ERROR(
       get_node()->get_logger(),
       "CiA402 and handshake interfaces must match each configured joint and device exactly once");
     return controller_interface::CallbackReturn::ERROR;
   }
-  if (!motion_joint_names_.empty()) {
-    const std::size_t motion_offset = cia402_axes_.size();
-    for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
-      const std::string expected_position = motion_joint_names_[axis] + "/position";
-      if (state_interfaces_[motion_offset + axis].get_name() != expected_position) {
-        releaseCia402Interfaces();
-        RCLCPP_ERROR(get_node()->get_logger(), "Unexpected motion state interface order");
-        return controller_interface::CallbackReturn::ERROR;
-      }
-    }
-    if (
-      state_interfaces_[motion_offset + motion_joint_names_.size()].get_name() !=
-      "ethercat_domain/process_data_age_ms") {
-      releaseCia402Interfaces();
-      RCLCPP_ERROR(get_node()->get_logger(), "Missing EtherCAT feedback-age interface");
-      return controller_interface::CallbackReturn::ERROR;
-    }
+  if (!motionStatesBound(motion_group_)) {
+    releaseCia402Interfaces();
+    RCLCPP_ERROR(
+      get_node()->get_logger(), "Motion state interfaces must be the group positions and age");
+    return controller_interface::CallbackReturn::ERROR;
   }
 
   for (std::size_t source = 0; source < ready_state_names_.size(); ++source) {
@@ -198,28 +186,8 @@ controller_interface::CallbackReturn EnableManagerController::on_activate(
   emergency_jtc_deactivate_request_.store(false, std::memory_order_release);
   jtc_deactivation_required_.store(false, std::memory_order_release);
   restart_required_.store(false, std::memory_order_release);
-  mode_callback_active_.store(false, std::memory_order_release);
-  mode_abort_requested_.store(false, std::memory_order_release);
   switch_in_progress_.store(false, std::memory_order_release);
-  current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
-  {
-    std::lock_guard<std::mutex> lock(command_snapshot_mutex_);
-    jtc_command_snapshot_ = CommandSnapshot{};
-    rolling_command_snapshot_ = CommandSnapshot{};
-  }
-  actual_sample_version_.store(0U, std::memory_order_relaxed);
-  actual_sample_sequence_.store(0U, std::memory_order_relaxed);
-  actual_sample_time_ns_.store(0U, std::memory_order_relaxed);
-  if (!motion_joint_names_.empty()) {
-    const std::size_t motion_offset = cia402_axes_.size();
-    for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
-      actual_sample_positions_[axis].store(
-        state_interfaces_[motion_offset + axis].get_value(), std::memory_order_relaxed);
-    }
-    actual_sample_feedback_age_ms_.store(
-      state_interfaces_[motion_offset + motion_joint_names_.size()].get_value(),
-      std::memory_order_relaxed);
-  }
+  resetMotionGroup(motion_group_);
   clearFailure();
   current_batch_ = 0U;
   downward_stage_ = 0U;
@@ -241,7 +209,7 @@ controller_interface::CallbackReturn EnableManagerController::on_deactivate(
   const rclcpp_lifecycle::State &)
 {
   active_.store(false, std::memory_order_release);
-  mode_abort_requested_.store(true, std::memory_order_release);
+  motion_group_.abort_requested.store(true, std::memory_order_release);
   setAllControlWords(0x0000U);
   for (auto & device : handshake_devices_) {
     device->request_enable(false);
@@ -249,7 +217,7 @@ controller_interface::CallbackReturn EnableManagerController::on_deactivate(
   }
   phase_.store(Phase::kInactive, std::memory_order_release);
   owner_.store(Owner::kInternal, std::memory_order_release);
-  current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
+  motion_group_.current_mode.store(ControlMode::kDisabled, std::memory_order_release);
   releaseCia402Interfaces();
   trace_.set_state(runtime_log::WriterState::kInactive);
   return controller_interface::CallbackReturn::SUCCESS;
@@ -271,20 +239,7 @@ controller_interface::return_type EnableManagerController::update(
     diagnostic_state_values_[index].store(
       state_interfaces_[diagnostic_state_indices_[index]].get_value(), std::memory_order_relaxed);
   }
-  if (!motion_joint_names_.empty()) {
-    const std::size_t motion_offset = cia402_axes_.size();
-    actual_sample_version_.fetch_add(1U, std::memory_order_acq_rel);
-    for (std::size_t axis = 0U; axis < motion_joint_names_.size(); ++axis) {
-      actual_sample_positions_[axis].store(
-        state_interfaces_[motion_offset + axis].get_value(), std::memory_order_relaxed);
-    }
-    actual_sample_feedback_age_ms_.store(
-      state_interfaces_[motion_offset + motion_joint_names_.size()].get_value(),
-      std::memory_order_relaxed);
-    actual_sample_time_ns_.store(steadyNowNs(), std::memory_order_relaxed);
-    actual_sample_sequence_.fetch_add(1U, std::memory_order_relaxed);
-    actual_sample_version_.fetch_add(1U, std::memory_order_release);
-  }
+  sampleMotionGroup(motion_group_);
   const std::int64_t now_ns = time.nanoseconds();
   updateEmergencyStop(now_ns);
   Phase phase = phase_.load(std::memory_order_acquire);
@@ -406,8 +361,8 @@ controller_interface::return_type EnableManagerController::update(
       if (jtc_activated_request_.exchange(false, std::memory_order_acq_rel)) {
         // Commit success on the RT update only after this cycle's state/mode checks.
         clearFailure();
-        if (motion_mode_switching_) {
-          current_control_mode_.store(motion_controller_mode_, std::memory_order_release);
+        if (motion_group_.mode_switching) {
+          motion_group_.current_mode.store(motion_group_.default_mode, std::memory_order_release);
         }
         phase_.store(Phase::kEnabled, std::memory_order_release);
         publishResult(enable_result_, true, Stage::kSuccess);
@@ -478,7 +433,7 @@ controller_interface::return_type EnableManagerController::update(
   for (auto & device : handshake_devices_) {
     device->write();
   }
-  writeDriveModes();
+  writeDriveModes(motion_group_);
   writeTrace(now_ns, period.nanoseconds());
   return controller_interface::return_type::OK;
 }
@@ -491,7 +446,7 @@ void EnableManagerController::updateEmergencyStop(std::int64_t now_ns)
   const auto phase = phase_.load(std::memory_order_acquire);
   if (stop) {
     emergency_stop_latched_.store(true, std::memory_order_release);
-    mode_abort_requested_.store(true, std::memory_order_release);
+    motion_group_.abort_requested.store(true, std::memory_order_release);
     if (
       phase != Phase::kInactive && phase != Phase::kStartupSanitizing && phase != Phase::kIdle &&
       phase != Phase::kFailed && phase != Phase::kEmergencyQuickStop &&
@@ -837,7 +792,7 @@ void EnableManagerController::finishDownward()
   const std::uint16_t first_fault_status = first_fault >= 0 ? status_words_[first_fault] : 0U;
 
   if (completed_phase == Phase::kStartupSanitizing) {
-    current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
+    motion_group_.current_mode.store(ControlMode::kDisabled, std::memory_order_release);
     if (primary_failure_stage_ != Stage::kSuccess) {
       phase_.store(Phase::kFailed, std::memory_order_release);
     } else if (any_fault) {
@@ -851,7 +806,7 @@ void EnableManagerController::finishDownward()
   }
 
   if (completed_phase == Phase::kDisabling) {
-    current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
+    motion_group_.current_mode.store(ControlMode::kDisabled, std::memory_order_release);
     if (any_fault) {
       publishResult(
         disable_result_, false, Stage::kFaultRequiresReset, -1, first_fault, first_fault_status);
@@ -875,7 +830,7 @@ void EnableManagerController::finishDownward()
   }
 
   if (completed_phase == Phase::kRollback) {
-    current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
+    motion_group_.current_mode.store(ControlMode::kDisabled, std::memory_order_release);
     publishResult(
       enable_result_, false, primary_failure_stage_, primary_failed_batch_, primary_failed_joint_,
       primary_failed_status_word_);
@@ -886,7 +841,7 @@ void EnableManagerController::finishDownward()
   }
 
   if (completed_phase == Phase::kResetDisabling) {
-    current_control_mode_.store(ControlMode::kDisabled, std::memory_order_release);
+    motion_group_.current_mode.store(ControlMode::kDisabled, std::memory_order_release);
     if (any_fault || !all_terminal) {
       const std::int8_t failed_joint = first_fault >= 0 ? first_fault : first_nonterminal;
       const std::uint16_t status_word = failed_joint >= 0 ? status_words_[failed_joint] : 0U;
@@ -904,7 +859,7 @@ void EnableManagerController::finishDownward()
   }
 
   if (completed_phase == Phase::kEmergencyDisable) {
-    current_control_mode_.store(
+    motion_group_.current_mode.store(
       restart_required_.load(std::memory_order_acquire) ? ControlMode::kRestartRequired
                                                         : ControlMode::kDisabled,
       std::memory_order_release);
