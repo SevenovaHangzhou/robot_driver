@@ -83,10 +83,17 @@ ENV PATH="/usr/local/etherlab/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/etherlab/lib"
 
 WORKDIR /opt/rt_control_ws
-COPY . src/robot
+COPY . robot_driver
+COPY --from=robot_description CMakeLists.txt package.xml robot_description/
+COPY --from=robot_description urdf robot_description/urdf
+COPY --from=robot_description srdf robot_description/srdf
+COPY --from=robot_description config robot_description/config
+COPY --from=robot_description mesh robot_description/mesh
+COPY --from=robot_description tools robot_description/tools
 
 RUN git config --global http.version HTTP/1.1 \
-    && vcs import --shallow --retry 5 --workers 1 /opt/rt_control_ws < src/robot/deps.repos \
+    && python3 robot_driver/tools/robot_model.py vendor-manifest > /tmp/rt-control-vendor.repos \
+    && vcs import --shallow --retry 5 --workers 1 /opt/rt_control_ws < /tmp/rt-control-vendor.repos \
     && test -d src/vendor/ecat_icube \
     && test -d src/vendor/ros2_canopen \
     && test -d src/vendor/ros2_controllers \
@@ -95,105 +102,105 @@ RUN git config --global http.version HTTP/1.1 \
     && test -d src/vendor/robot_interfaces/qos \
     && test -f src/vendor/robot_interfaces/contract/views/rt_control.md \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0001-rt-control-preload-and-diagnostics.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0002-wait-for-complete-bus-before-preload.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0003-orderly-master-deactivation.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0003-orderly-master-deactivation.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0003-orderly-master-deactivation.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0003-orderly-master-deactivation.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0004-preserve-fixed-pdo-config.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0005-use-component-parameters-for-ec-modules.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0006-validate-component-module-parameters.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0006-validate-component-module-parameters.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0006-validate-component-module-parameters.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0006-validate-component-module-parameters.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0007-configure-etherlab-prefix.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0007-configure-etherlab-prefix.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0007-configure-etherlab-prefix.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0007-configure-etherlab-prefix.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0008-use-monotonic-application-time.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0008-use-monotonic-application-time.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0008-use-monotonic-application-time.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0008-use-monotonic-application-time.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0009-scope-startup-realtime-scheduling.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0010-maintain-cyclic-handoff.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0011-dc-rate-diagnostics.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0011-dc-rate-diagnostics.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0011-dc-rate-diagnostics.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0011-dc-rate-diagnostics.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0012-fix-timing-source-lint.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0012-fix-timing-source-lint.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0012-fix-timing-source-lint.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0012-fix-timing-source-lint.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0013-coherent-pdo-cycle-hooks.patch \
     && git -C src/vendor/ecat_icube apply --check \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
     && git -C src/vendor/ecat_icube apply \
-      /opt/rt_control_ws/src/robot/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
+      /opt/rt_control_ws/robot_driver/patches/ecat_icube/0014-mirror-rpdo-commands.patch \
     && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0001-shared-canopen-lifecycle.patch \
     && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
     && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0002-lely-preconfigured-txqlen.patch \
     && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
     && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0006-expose-rpdo-receive-hook.patch \
     && git -C src/vendor/ros2_canopen apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0007-expose-nmt-state-hook.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0007-expose-nmt-state-hook.patch \
     && git -C src/vendor/ros2_canopen apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_canopen/0007-expose-nmt-state-hook.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_canopen/0007-expose-nmt-state-hook.patch \
     && git -C src/vendor/ros2_controllers apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0001-jtc-start-consistency.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0001-jtc-start-consistency.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0001-jtc-start-consistency.patch \
     && git -C src/vendor/ros2_controllers apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0002-use-contract-qos-profiles.patch \
     && git -C src/vendor/ros2_controllers apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0003-opt-in-pp-gripper-commands.patch \
     && git -C src/vendor/ros2_controllers apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0004-limit-trajectory-points.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0004-limit-trajectory-points.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0004-limit-trajectory-points.patch \
     && git -C src/vendor/ros2_controllers apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0005-public-action-name.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0005-public-action-name.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0005-public-action-name.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0005-public-action-name.patch \
     && git -C src/vendor/ros2_controllers apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0006-stream-topic-velocity-admission.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0006-stream-topic-velocity-admission.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0006-stream-topic-velocity-admission.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0006-stream-topic-velocity-admission.patch \
     && git -C src/vendor/ros2_controllers apply --check \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0007-position-limit-admission.patch \
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0007-position-limit-admission.patch \
     && git -C src/vendor/ros2_controllers apply \
-      /opt/rt_control_ws/src/robot/patches/ros2_controllers/0007-position-limit-admission.patch
+      /opt/rt_control_ws/robot_driver/patches/ros2_controllers/0007-position-limit-admission.patch
 
 ENV ROSDISTRO_INDEX_URL="https://mirrors.tuna.tsinghua.edu.cn/rosdistro/index-v4.yaml"
 ENV RT_CONTROL_ECAT_CONTINUOUS_HANDOFF="1"
@@ -244,7 +251,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       integ_bringup \
     ) \
     && mapfile -t rt_control_dependency_paths < <( \
-      colcon list --base-paths src --paths-only \
+      colcon list --base-paths src robot_driver/src robot_description --paths-only \
         --packages-up-to "${rt_control_packages[@]}" \
     ) \
     && (( ${#rt_control_dependency_paths[@]} > 0 )) \
@@ -260,7 +267,7 @@ RUN unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy \
       --dependency-types exec \
       -r -y \
     && colcon --log-base /opt/rt_control_ws/log build \
-      --base-paths src \
+      --base-paths src robot_driver/src robot_description \
       --install-base /opt/rt_control_ws/install \
       --build-base /opt/rt_control_ws/build \
       --merge-install \

@@ -74,8 +74,10 @@ not measured joint torque. Runtime-LOG automatically includes these state interf
 The first candidate is for the existing unloaded tools. It has no additional
 payload, friction, damping or dynamic acceleration model. Deployment must retain
 the current authoritative model, the confirmed joint limits and the existing
-plan-stop implementation. The driver checkout's model copy and the active robot
-model have different hashes; compare the generated deployment before switching.
+plan-stop implementation. Builds use the sibling `robot_description` checkout at
+the revision pinned in `deps.repos`; runtime uses its installed ROS package.
+Compare the candidate model and generated artifact with the active deployment
+before switching; a source checkout does not update the running robot.
 
 ## Verification
 

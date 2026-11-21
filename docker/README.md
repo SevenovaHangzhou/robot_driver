@@ -22,6 +22,15 @@
 - 相关脚本 `bash -n`，可用时 `shellcheck`；
 - 人工封装/发布任务另需完整镜像构建与容器内无硬件启动。
 
+## 模型依赖
+
+构建前手动提供与 driver 同级的 `../robot_description` Git checkout，版本须与 `deps.repos` 一致。
+`tools/rt_control_compose.sh build` 先做只读版本及工作树检查，再通过 Compose `additional_contexts`
+将该目录作为独立构建输入传给 Docker（需要 [Compose 2.17+ 与支持额外构建上下文的 BuildKit](https://docs.docker.com/reference/compose-file/build/#additional_contexts)）。模型不从网络下载。
+镜像内 `/opt/rt_control_ws/robot_driver` 与 `/opt/rt_control_ws/robot_description` 为同级目录；
+只复制模型包所需源码和资源，不复制 `.git`。模型与驱动共同构建后，运行时从安装空间读取
+`robot_description` 包，无需宿主模型挂载。其它上游仍按过滤后的 `deps.repos` 导入。
+
 ## 发布
 
 版本号 `vMAJOR.MINOR.PATCH`：破坏性接口或 Robot Model 变更、域边界调整升 MAJOR；新增非破坏性能力升 MINOR；修复与文档升 PATCH。

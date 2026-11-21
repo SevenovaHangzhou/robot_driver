@@ -88,6 +88,7 @@ periph（独立外设节点：BMS、IMU、LED/超声、PLC IO）只依赖 infra�
 | 新增一个外设节点 | `periph_<name>` 新包 | `arch_check` + 该包测试 |
 | 新增一个启动模式 | manifest `scopes`（不新增 launch 文件） | `arch_check` + `integ_composer` 测试 |
 | 抽一个共享库 | `infra_<name>` 新包，进库条件见 §3 | `arch_check` + 调用方测试 |
+| 调整外部模型依赖布局 | `deps.repos` + 同级 `../robot_description`；源码不入 driver | `robot_model.py verify` + composer 测试 + `arch_check compose` |
 | 修改公共契约 | `robot_interfaces` 仓库 → `deps.repos` pin | 既有流程 |
 | 结构变更（不改行为） | — | `arch_check compose --against origin/main`（§7） |
 | 任何改动提交前 | — | `tools/quality_gate.sh` + `run_scoped_tests.sh` |

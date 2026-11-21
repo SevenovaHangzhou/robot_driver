@@ -32,7 +32,7 @@ def config(tmp_path, monkeypatch):
     shutil.copytree(RT / "hwcfg_machines", root)
     shares = {path.name: path for path in RT.iterdir() if path.is_dir()}
     shares["hwcfg_machines"] = root
-    shares["robot_description"] = RT.parent / "description/robot_description"
+    shares["robot_description"] = RT.parents[2] / "robot_description"
     for owner, name in (
         (CAN, "hw_can_damiao"),
         (CANOPEN, "hw_canopen"),

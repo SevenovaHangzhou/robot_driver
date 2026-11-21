@@ -14,7 +14,7 @@
 | periph | `periph_bms` `periph_imu_lpms` `periph_led_ultrasonic` `periph_plc_io` | 独立外设节点（BMS、IMU、LED/超声、PLC IO） |
 | integration | `integ_composer` `integ_bringup` `integ_diagnostics` | 离线组合、启动入口、诊断；操作网页已迁至 [robot_operator_web](https://github.com/SevenovaHangzhou/robot_operator_web) |
 
-共享：`src/description/robot_description`（Robot Model 构建副本）、`src/interfaces/rt_control_interfaces`（域内 IDL）、
+共享：`../robot_description`（独立 Robot Model 仓库，`deps.repos` 锁定）、`src/interfaces/rt_control_interfaces`（域内 IDL）、
 `src/vendor/robot_interfaces`（由 `deps.repos` 导入的公共契约，不入库）。
 
 ## 数据流

@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: docker/rt-control/Dockerfile
+      additional_contexts:
+        robot_description: ../robot_description
       network: host
       args:
         IGH_VERSION: "${IGH_VERSION:?IGH_VERSION must come from versions.env}"

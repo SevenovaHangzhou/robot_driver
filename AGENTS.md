@@ -16,8 +16,8 @@
 - 公共接口的权威源是独立 `robot_interfaces` 仓库，本仓库以 `deps.repos` 固定完整 SHA 导入，
   `src/interfaces/source-lock.yaml` 必须一致；禁止在本仓库复制或修改公共 schema。新跨域命令先改公共契约
   （调用方向、超时、取消、幂等、错误语义），再更新 pin。`rt_control_interfaces` 只供本域使用。
-- Robot Model 的权威源是独立 `robot_description` 仓库；`src/description/robot_description` 是构建副本，
-  不得形成独立模型分支。link/joint 名称、TF、轴向、零位、限位、mesh 尺寸变更是破坏性公共变更。
+- Robot Model 的权威源是与 driver 同级的独立 `../robot_description` 仓库，版本只由 `deps.repos` 的完整 SHA 锁定；
+  driver 不保存模型副本或指向模型的仓库内软链接。link/joint 名称、TF、轴向、零位、限位、mesh 尺寸变更是破坏性公共变更。
 - 删除、重命名或改变公共字段类型、单位、坐标系、终态与错误语义均为破坏性变更；没有消费者迁移和原子发布方案不得合并。
 
 ## 2. 事实与裁决

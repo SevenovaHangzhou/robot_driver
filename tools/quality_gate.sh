@@ -21,6 +21,7 @@ fi
 
 python3 -c "import jsonschema; assert jsonschema.__version__.startswith('3.2.')"
 
+python3 tools/robot_model.py verify
 python3 tools/repository_gate.py
 python3 tools/arch_check.py
 python3 tools/style_gate.py

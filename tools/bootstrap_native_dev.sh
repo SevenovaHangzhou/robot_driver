@@ -9,10 +9,11 @@ build_base="${workspace_root}/build"
 install_base="${workspace_root}/install"
 log_base="${workspace_root}/log"
 vendor_root="${workspace_root}/src/vendor"
+model_root="${repository_root}/../robot_description"
 etherlab_prefix="${RT_CONTROL_ETHERLAB_PREFIX:-/usr/local/etherlab}"
 
 readonly repository_root workspace_root dependency_manifest etherlab_prefix
-readonly build_base install_base log_base vendor_root
+readonly build_base install_base log_base vendor_root model_root
 
 readonly -a runtime_packages=(
   robot_rt_control_interfaces
@@ -79,6 +80,9 @@ RT_CONTROL_ETHERLAB_PREFIX defaults to /usr/local/etherlab and controls the
 EtherLab userspace include/library lookup for this process.
 
 prepare never resets, checks out, or cleans an existing vendor repository.
+robot_description is always a sibling of this repository, even when
+RT_CONTROL_NATIVE_WS selects another directory for build outputs and vendors.
+The model must be supplied locally; prepare never downloads or modifies it.
 install-deps is the only command that may invoke apt through rosdep/sudo.
 EOF
 }
@@ -111,6 +115,8 @@ import yaml
 document = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8")) or {}
 repositories = document.get("repositories") or {}
 for relative_path, spec in repositories.items():
+    if relative_path == "robot_description":
+        continue
     version = str(spec.get("version", ""))
     if not version:
         raise SystemExit(f"missing pinned version for {relative_path}")
@@ -138,13 +144,14 @@ refuse_partial_vendor_tree()
 
 verify_vendor_heads()
 {
+  python3 "${script_dir}/robot_model.py" verify
   local actual
   local relative_path
   local repository
   local version
   while IFS=$'\t' read -r relative_path version; do
     repository="${workspace_root}/${relative_path}"
-    [[ -d "${repository}/.git" ]] || fail "missing vendor repository: ${repository}"
+    [[ -e "${repository}/.git" ]] || fail "missing vendor repository: ${repository}"
     actual="$(git -C "${repository}" rev-parse HEAD)"
     [[ "${actual}" == "${version}" ]] ||
       fail "${relative_path} is at ${actual}, expected frozen ${version}; no checkout was attempted"
@@ -338,12 +345,15 @@ prepare_sources()
   verify_workspace_layout
   require_commands git python3 vcs
   python3 -c 'import yaml' >/dev/null 2>&1 || fail "missing Python yaml module"
+  python3 "${script_dir}/robot_model.py" verify
   refuse_partial_vendor_tree
 
   if [[ ! -e "${first_repository}" ]]; then
     mkdir -p "${workspace_root}"
     info "importing frozen vendor repositories into ${workspace_root}"
-    vcs import --shallow --retry 5 --workers 1 "${workspace_root}" < "${dependency_manifest}"
+    vcs import --shallow --retry 5 --workers 1 "${workspace_root}" < <(
+      python3 "${script_dir}/robot_model.py" vendor-manifest
+    )
   else
     info "preserving existing complete vendor tree"
   fi
@@ -376,7 +386,7 @@ source_build_environment()
 dependency_paths()
 {
   colcon list \
-    --base-paths "${repository_root}/src" "${vendor_root}" \
+    --base-paths "${repository_root}/src" "${vendor_root}" "${model_root}" \
     --paths-only \
     --packages-up-to "${runtime_packages[@]}"
 }
@@ -454,7 +464,7 @@ build_workspace()
   fi
 
   colcon --log-base "${log_base}" build \
-    --base-paths "${repository_root}/src" "${vendor_root}" \
+    --base-paths "${repository_root}/src" "${vendor_root}" "${model_root}" \
     --build-base "${build_base}" \
     --install-base "${install_base}" \
     --merge-install \

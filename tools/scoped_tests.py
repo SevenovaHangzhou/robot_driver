@@ -20,7 +20,7 @@ import yaml
 
 FULL_SUITE_PATHS = ("patches/", "deps.repos", "versions.env", "docker/", ".github/")
 INTERFACE_PREFIX = "src/interfaces/"
-PACKAGE_PREFIXES = ("src/rt_control/", "src/description/")
+PACKAGE_PREFIXES = ("src/rt_control/",)
 INTERFACE_PACKAGES = ("rt_control_interfaces",)
 
 
@@ -46,7 +46,8 @@ def classify(changed_files: list[str]) -> dict:
             plan["reasons"].append(f"{path}: 文档/其他，跑 repository_gate")
     if plan["full"]:
         plan["actions"] = ["tools/quality_gate.sh",
-                          "colcon build --symlink-install && colcon test && colcon test-result --verbose"]
+                          "colcon build --base-paths src ../robot_description --symlink-install && "
+                          "colcon test --base-paths src ../robot_description && colcon test-result --verbose"]
     else:
         if needs_quality_gate:
             plan["actions"].append("tools/quality_gate.sh")
@@ -55,7 +56,8 @@ def classify(changed_files: list[str]) -> dict:
         if plan["packages"]:
             packages = " ".join(sorted(plan["packages"]))
             plan["actions"].append(
-                f"colcon test --packages-above {packages} --event-handlers console_direct+"
+                f"colcon test --base-paths src ../robot_description --packages-above {packages} "
+                "--event-handlers console_direct+"
             )
     plan["packages"] = sorted(plan["packages"])
     return plan

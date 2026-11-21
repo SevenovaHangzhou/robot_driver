@@ -1,8 +1,8 @@
-# hw-config — 机型事实、标定与模型快照
+# hw-config — 机型事实、标定与模型版本引用
 
-**范围**：机型事实、标定与模型快照。本区对应一个同名职责agent。
+**范围**：机型事实、标定与模型版本引用。本区对应一个同名职责agent。
 
-**Owner路径**：src/rt_control/hwcfg_machines/**（机型 manifest、单机 deployment/标定、策略文件、设备事实）；src/description/**快照同步。未写完整前缀的包位于`src/rt_control/`。
+**Owner路径**：src/rt_control/hwcfg_machines/**（机型 manifest、单机 deployment/标定、策略文件、设备事实）；`deps.repos` 中外部 `../robot_description` 版本引用。未写完整前缀的包位于`src/rt_control/`。
 
 **不属于本区**：协议实现、ESI与通用从站profile归protocol；公共模型权威仍在独立仓库，不在本区私改。
 

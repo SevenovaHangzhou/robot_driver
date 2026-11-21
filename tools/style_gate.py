@@ -48,9 +48,8 @@ def find_tool(names, version, root, required):
 
 def check(root, base, required=False):
     merge_base, names, added = changed_files(root, base)
-    # Imported upstream bytes keep their owner's style: the Robot Model and the ros2_control
-    # node source that integ_bringup patches at build time.
-    upstream = ("src/description/robot_description/", "src/rt_control/integ_bringup/upstream/")
+    # The ros2_control node source retains its upstream style.
+    upstream = ("src/rt_control/integ_bringup/upstream/",)
     names = [p for p in names if not p.startswith(upstream)]
     print(f"Style merge base: {merge_base}")
     python = [p for p in names if is_python(root, p)]

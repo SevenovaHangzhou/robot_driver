@@ -19,7 +19,12 @@ RUNTIME = Path("/arch-check/runtime")
 def main(tree: Path, output: Path) -> int:
     rt = tree / "src/rt_control"
     shares = {path.name: path for path in rt.iterdir() if (path / "package.xml").is_file()}
-    shares["robot_description"] = tree / "src/description/robot_description"
+    model = tree / "src/description/robot_description"
+    if not (model / "package.xml").is_file():
+        model = tree.parent / "robot_description"
+    if not (model / "package.xml").is_file():
+        raise FileNotFoundError(f"missing model checkout: {model}")
+    shares["robot_description"] = model
     sys.path[:0] = [str(path) for path in shares.values()]
 
     def share(name: str) -> str:
@@ -63,9 +68,9 @@ def main(tree: Path, output: Path) -> int:
                         results[key] = {
                             "ok": True,
                             "files": {
-                                name: text.replace(str(tree), "<TREE>").replace(
-                                    str(RUNTIME), "<RUNTIME>"
-                                )
+                                name: text.replace(str(model), "<MODEL>")
+                                .replace(str(tree), "<TREE>")
+                                .replace(str(RUNTIME), "<RUNTIME>")
                                 for name, text in sorted(composed.files.items())
                             },
                         }

@@ -14,10 +14,12 @@ import sys
 import tarfile
 import tempfile
 
+import yaml
+
 from .repo import Finding
 
 WORKER = Path(__file__).with_name("compose_worker.py")
-EXPORTED = ("src/rt_control", "src/description")
+EXPORTED = ("src/rt_control", "src/description", "deps.repos")
 
 
 def compare(base: dict, current: dict) -> list[Finding]:
@@ -58,15 +60,33 @@ def compare(base: dict, current: dict) -> list[Finding]:
 
 
 def _export(root: Path, ref: str, destination: Path) -> None:
+    paths = subprocess.check_output(
+        ["git", "-C", str(root), "ls-tree", "--name-only", ref, *EXPORTED], text=True
+    ).splitlines()
     archive = destination / "base.tar"
     with archive.open("wb") as stream:
         subprocess.run(
-            ["git", "-C", str(root), "archive", "--format=tar", ref, *EXPORTED],
+            ["git", "-C", str(root), "archive", "--format=tar", ref, *paths],
             check=True,
             stdout=stream,
         )
     with tarfile.open(archive) as tar:
         tar.extractall(destination / "tree")  # noqa: S202 - our own repository archive
+    tree = destination / "tree"
+    # Old comparison bases contain a snapshot; newer bases pin the sibling repository.
+    if not (tree / "src/description/robot_description").is_dir():
+        version = yaml.safe_load((tree / "deps.repos").read_text())["repositories"][
+            "robot_description"
+        ]["version"]
+        model_archive = destination / "model.tar"
+        with model_archive.open("wb") as stream:
+            subprocess.run(
+                ["git", "-C", str(root.parent / "robot_description"), "archive", version],
+                check=True,
+                stdout=stream,
+            )
+        with tarfile.open(model_archive) as tar:
+            tar.extractall(destination / "robot_description")  # noqa: S202 - pinned Git archive
 
 
 def run(root: Path, ref: str) -> tuple[list[Finding], int]:

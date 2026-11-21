@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DESCRIPTION = ROOT / "src/description/robot_description"
+DESCRIPTION = ROOT.parent / "robot_description"
 MOBILE_URDF = DESCRIPTION / "urdf/robot_alfav3_mobile.urdf"
 
 

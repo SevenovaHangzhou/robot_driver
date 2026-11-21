@@ -42,14 +42,8 @@ ROBOT_INTERFACES_PACKAGES = [
     "robot_interfaces_qos",
 ]
 GENERATED_PARTS = {"build", "install", "log", ".colcon", "__pycache__"}
-IMPORTED_DESCRIPTION_PREFIX = "src/description/robot_description/"
 SHARED_PACKAGE_PREFIXES = (
-    "src/description/robot_description/",
     "src/interfaces/",
-)
-DOMAIN_TOKEN = re.compile(
-    r"(?i)(?:ros2_control|hardware_plugin|"
-    r"(?<![a-z0-9])(?:pdo|sdo|station|pick|place)(?![a-z0-9]))"
 )
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
@@ -82,6 +76,8 @@ def check_path(relative_path: str) -> list[str]:
     findings: list[str] = []
     if any(part in GENERATED_PARTS for part in path.parts) or path.suffix == ".pyc":
         findings.append(f"{relative_path}: generated artifact must not be tracked")
+    if relative_path.startswith("src/description/"):
+        findings.append(f"{relative_path}: robot_description must remain outside the driver repository")
     if relative_path.startswith("src/rt_control/rt_watchdog/"):
         findings.append(f"{relative_path}: retired rt_watchdog must remain absent")
     if relative_path.startswith("docs/"):
@@ -103,13 +99,7 @@ def check_text(relative_path: str, text: str) -> list[str]:
     # Patch whitespace belongs to the upstream diff and is validated by
     # applying the patch to its pinned source revision. Other hygiene and
     # secret checks still apply to patch payloads.
-    # The imported Robot Model keeps the pinned upstream bytes (source-lock source_tree);
-    # adding a newline here would change the deployed model hash.
-    if (
-        text
-        and not text.endswith("\n")
-        and not relative_path.startswith(IMPORTED_DESCRIPTION_PREFIX)
-    ):
+    if text and not text.endswith("\n"):
         findings.append(f"{relative_path}: missing newline at end of file")
     if MERGE_MARKER.search(text):
         findings.append(f"{relative_path}: merge-conflict marker found")
@@ -240,25 +230,6 @@ def check_manifest_dependencies(relative_path: str, xml_text: str,
         )
     return findings
 
-
-def check_robot_description_xml(relative_path: str, xml_text: str) -> list[str]:
-    """Keep domain-specific data out of the shared model.
-
-    ElementTree intentionally drops XML comments, so comments that explain the
-    boundary do not trigger the content policy.
-    """
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError as exc:
-        return [f"{relative_path}: invalid robot-description XML: {exc}"]
-    uncommented_xml = ET.tostring(root, encoding="unicode")
-    match = DOMAIN_TOKEN.search(uncommented_xml)
-    if match:
-        return [
-            f"{relative_path}: robot_description contains domain-specific token "
-            f"{match.group(0)!r}"
-        ]
-    return []
 
 
 def check_interface_path(relative_path: str) -> list[str]:
@@ -573,7 +544,11 @@ def _repository_files(repository_root: Path) -> list[str]:
         check=True,
         capture_output=True,
     )
-    return sorted(path.decode("utf-8") for path in result.stdout.split(b"\0") if path)
+    paths = (path.decode("utf-8") for path in result.stdout.split(b"\0") if path)
+    return sorted(
+        path for path in paths
+        if (repository_root / path).exists() or (repository_root / path).is_symlink()
+    )
 
 
 def _read_text(path: Path) -> tuple[str | None, str | None]:
@@ -665,11 +640,6 @@ def collect_findings(repository_root: Path) -> list[str]:
         findings.extend(check_cxx_warnings(relative_path, text))
         if relative_path.endswith("/package.xml"):
             findings.extend(check_manifest_dependencies(relative_path, text, packages))
-        if (
-            relative_path.startswith("src/description/robot_description/")
-            and PurePosixPath(relative_path).suffix in {".xacro", ".urdf", ".srdf"}
-        ):
-            findings.extend(check_robot_description_xml(relative_path, text))
 
     deps_text = texts.get("deps.repos")
     versions_text = texts.get("versions.env")

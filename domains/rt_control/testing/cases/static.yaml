@@ -52,7 +52,7 @@ cases:
     risk: T0
     writes: { reset: no, enable: no, motion: no, plc: no }
     env: both
-    covers: ["src/rt_control/**", "src/description/**"]
+    covers: ["src/rt_control/**", "deps.repos", "tools/robot_model.py"]
     traces: [domains/rt_control/docs/baseline_report.md, tools/diff_legacy.py]
     preconditions: 基线 checkout 就位（CI 自动检出 6bc94cd 到 .legacy/robot_driver）
     entry: |

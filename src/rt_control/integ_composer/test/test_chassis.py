@@ -29,7 +29,7 @@ def shares(monkeypatch):
     monkeypatch.setattr(ETHERCAT, "_share", lambda: RT / "hw_ethercat")
     monkeypatch.setattr(CANOPEN, "_share", lambda: RT / "hw_canopen")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
-    lookup["robot_description"] = RT.parent / "description/robot_description"
+    lookup["robot_description"] = RT.parents[2] / "robot_description"
     return lookup
 
 

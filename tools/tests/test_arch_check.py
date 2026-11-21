@@ -262,8 +262,8 @@ def test_layer_comes_from_the_package_prefix():
 
 def test_shared_packages_may_not_build_depend_on_the_data_package():
     texts = tree()
-    texts["src/description/robot_description/package.xml"] = (
-        "<package><name>robot_description</name><depend>hwcfg_machines</depend></package>"
+    texts["src/interfaces/shared_tools/package.xml"] = (
+        "<package><name>shared_tools</name><depend>hwcfg_machines</depend></package>"
     )
     assert [f.rule for f in findings(texts)] == ["LAYER-3"]
 

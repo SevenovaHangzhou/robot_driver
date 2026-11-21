@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from tools import repository_gate
+from tools import repository_gate, robot_model
 
 
 class RepositoryGateTest(unittest.TestCase):
@@ -55,11 +55,9 @@ class RepositoryGateTest(unittest.TestCase):
         self.assert_has(findings, "merge-conflict marker")
         self.assert_has(findings, "trailing whitespace")
         self.assert_has(findings, "newline at end of file")
-        self.assertEqual(
-            repository_gate.check_text(
-                "src/description/robot_description/urdf/model.urdf", "<robot/>"
-            ),
-            [],
+        self.assert_has(
+            repository_gate.check_path("src/description/robot_description/package.xml"),
+            "must remain outside",
         )
 
         self.assertEqual(
@@ -139,7 +137,7 @@ vendored_packages:
 """
         self.assert_has(
             repository_gate.check_manifest_dependencies(
-                "src/description/robot_description/package.xml", manifest
+                "src/interfaces/shared/package.xml", manifest
             ),
             "shared package must not depend on domain package",
         )
@@ -149,15 +147,13 @@ vendored_packages:
         )
         self.assert_has(
             repository_gate.check_manifest_dependencies(
-                "src/description/robot_description/package.xml",
+                "src/interfaces/shared/package.xml",
                 semantic_dependency,
             ),
             "shared package must not depend on domain package",
         )
 
-        feature_manifest = manifest.replace("robot_description", "ctrl_enable_manager").replace(
-            "src/description/robot_description", "src/rt_control/ctrl_enable_manager"
-        )
+        feature_manifest = manifest.replace("robot_description", "ctrl_enable_manager")
         self.assert_has(
             repository_gate.check_manifest_dependencies(
                 "src/rt_control/ctrl_enable_manager/package.xml", feature_manifest
@@ -173,14 +169,14 @@ vendored_packages:
 </robot>
 """
         self.assertEqual(
-            repository_gate.check_robot_description_xml("robot.urdf.xacro", comment_only), []
+            robot_model.check_robot_description_xml("robot.urdf.xacro", comment_only), []
         )
 
         polluted = comment_only.replace(
             '<link name="base_link"/>', '<link name="pick_station"/>'
         )
         self.assert_has(
-            repository_gate.check_robot_description_xml("robot.urdf.xacro", polluted),
+            robot_model.check_robot_description_xml("robot.urdf.xacro", polluted),
             "domain-specific token",
         )
 
@@ -517,17 +513,6 @@ IGH_COMMIT=89abcdef0123456789abcdef0123456789abcdef
 ENTRYPOINT ["/rt-control-entrypoint.sh"]
 CMD ["/opt/rt_control_ws/install/lib/integ_bringup/rt_control_start"]
 """,
-            "src/description/robot_description/package.xml": """<package format="3">
-  <name>robot_description</name>
-  <version>0.1.0</version>
-  <exec_depend>xacro</exec_depend>
-</package>
-""",
-            "src/description/robot_description/urdf/robot.urdf.xacro": """<robot name="robot">
-  <!-- ros2_control remains outside this package. -->
-  <link name="base_link"/>
-</robot>
-""",
             "src/interfaces/rt_control_interfaces/msg/Example.msg": "string value\n",
             "src/interfaces/source-lock.yaml": """schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
@@ -604,7 +589,7 @@ vendored_packages:
             "invalid package XML",
         )
         self.assert_has(
-            repository_gate.check_robot_description_xml("robot.urdf.xacro", "<robot>"),
+            robot_model.check_robot_description_xml("robot.urdf.xacro", "<robot>"),
             "invalid robot-description XML",
         )
         self.assert_has(repository_gate.check_compose_policy("services: ["), "invalid YAML")

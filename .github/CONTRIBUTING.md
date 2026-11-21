@@ -140,7 +140,7 @@ Linear Issue + GitHub Issue → 分支 → worktree → 本地验证 → PR → 
 | PR 类型 | 评审要求 |
 | --- | --- |
 | 普通域内变更 | ≥ 1 approve |
-| Robot Model 构建副本 | ≥ 2 approve，含 1 名核心负责人；全部消费域联合验证 |
+| Robot Model 版本引用 | ≥ 2 approve，含 1 名核心负责人；全部消费域联合验证 |
 | 公共接口 pin / source-lock | 接口所有者 + 全部消费域 approve；与上游契约同批更新 |
 | `docker/**`、Compose、部署 | 平台/集成 + 受影响域 approve |
 | 实时或安全边界（控制频率、CPU 隔离、capability、device） | 核心负责人 approve；附时序或隔离实测 |

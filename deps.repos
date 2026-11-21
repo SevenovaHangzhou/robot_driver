@@ -1,4 +1,9 @@
 repositories:
+  robot_description:
+    type: git
+    url: https://github.com/SevenovaHangzhou/robot_description.git
+    # Supplied sibling checkout; excluded from automatic vendor imports.
+    version: 3147e940c0ce5aab9d99494ba402de96736890e0
   src/vendor/robot_interfaces:
     type: git
     url: https://github.com/SevenovaHangzhou/robot_interfaces.git

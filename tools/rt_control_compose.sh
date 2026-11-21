@@ -33,6 +33,14 @@ else
   : "${RT_CONTROL_IMAGE_TAG:?Set RT_CONTROL_IMAGE_TAG to the audited release version for a non-Git export}"
 fi
 
+# Build inputs are local source repositories; runtime commands only need the image.
+for compose_argument in "$@"; do
+  if [[ "${compose_argument}" == "build" || "${compose_argument}" == "--build" ]]; then
+    python3 "${repository_root}/tools/robot_model.py" verify
+    break
+  fi
+done
+
 cd "${repository_root}"
 exec docker compose \
   --project-directory . \

@@ -18,31 +18,33 @@ tools/arch_check.py         # 架构规则（quality_gate 也会跑）；秒级�
 
 ```bash
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install --packages-select <affected>
-colcon test --packages-select <affected> && colcon test-result --verbose
+colcon build --base-paths src ../robot_description --symlink-install --packages-select <affected>
+colcon test --base-paths src ../robot_description --packages-select <affected> && colcon test-result --verbose
 ```
 
 公共头文件、接口或共享配置变化时扩大到所有下游（`--packages-above`）。"无测试"不等于验证通过。
 C++ 改动还要人工检查实时路径的分配、锁、阻塞、单位/符号、边界与错误传播。
 
-## robot_description 构建副本
+## 同级 robot_description 依赖
 
 ```bash
-xacro src/description/robot_description/urdf/robot_alfav3_mobile.urdf > /tmp/robot-description-review.urdf
+# 手动放置 ../robot_description（完整 Git checkout，版本见 deps.repos）。
+python3 tools/robot_model.py verify
+xacro ../robot_description/urdf/robot_alfav3_mobile.urdf > /tmp/robot-description-review.urdf
 check_urdf /tmp/robot-description-review.urdf
-colcon build --symlink-install --packages-select robot_description
+colcon build --base-paths ../robot_description --symlink-install --packages-select robot_description
 ```
 
 结构性变更还要检查 TF 树、关节限制、碰撞模型、mesh 路径以及各消费者使用的模型版本。
 
 ## 接口
 
-先导入 `deps.repos`，再构建公共 vendor 包、`rt_control_interfaces` 与全部本域消费者，并全仓搜索旧名称：
+通过 `tools/bootstrap_native_dev.sh prepare` 导入冻结 vendor（同级模型需预先放置），再构建公共 vendor 包、`rt_control_interfaces` 与全部本域消费者，并全仓搜索旧名称：
 
 ```bash
-colcon build --symlink-install --packages-up-to robot_rt_control_interfaces robot_system_interfaces \
+colcon build --base-paths src ../robot_description --symlink-install --packages-up-to robot_rt_control_interfaces robot_system_interfaces \
   robot_interfaces_qos rt_control_interfaces
-colcon build --symlink-install --packages-above rt_control_interfaces
+colcon build --base-paths src ../robot_description --symlink-install --packages-above rt_control_interfaces
 rg -n "<changed-interface-or-field>" src docker tools domains
 ```
 
@@ -115,8 +117,9 @@ source /opt/ros/humble/setup.bash             # 组合要用 xacro
 tools/arch_check.py compose --against origin/main
 ```
 
-用 `git archive` 导出基线的 `src/rt_control` 与 `src/description`，基线与当前树各用自己的组合器在独立进程
-里组合每个机型 × 台套 × 物理配置 × 允许的作用域（mock 与真机），把树与运行目录的绝对路径换成占位符后
+用 `git archive` 导出基线的 `src/rt_control` 与 `deps.repos`，按基线冻结 SHA 从同级模型 Git 对象导出对应模型；
+旧基线仍使用其历史内置快照。不会联网或改动模型 checkout。基线与当前树各用自己的组合器在独立进程
+里组合每个机型 × 台套 × 物理配置 × 允许的作用域（mock 与真机），把源码树、模型与运行目录的绝对路径换成占位符后
 逐文件比较（约 20 s）。基线可组合而当前失败、产物文件增删或内容不同都报 COMPOSE-2（`选择/文件:行`）；
 基线就组合不了的选择不比较。结构变更 PR（ARCHITECTURE §7）附此结果；它不在默认规则组里，也不在
 `quality_gate.sh` 中运行。

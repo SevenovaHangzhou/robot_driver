@@ -45,7 +45,6 @@ robot_driver/
 │  ├─ docs/areas/           # 7 个功能区的开发记录与冻结事实（旧 9 区在 docs/areas-archive/）
 │  └─ testing/              # 发布前测试分层、用例目录、runner 与 baseline
 ├─ src/
-│  ├─ description/          # robot_description 构建副本
 │  ├─ interfaces/           # RT-Control 私有接口 + 公共契约 source-lock
 │  ├─ vendor/               # 构建时从 deps.repos 导入，不入库
 │  └─ rt_control/           # 硬件、控制器、诊断和 bringup
@@ -57,6 +56,38 @@ robot_driver/
 ├─ AGENTS.md                # 安全底线、授权与交付（开工必读）
 └─ ARCHITECTURE.md          # 架构、分层、编码与测试规范（开工必读）
 ```
+
+## Robot Model
+
+模型由同级的独立仓库提供，driver 中不保存副本、软链接或第二份版本锁：
+
+```text
+workspace/
+├─ robot_driver/
+│  └─ deps.repos            # robot_description 的唯一冻结 SHA
+└─ robot_description/       # 独立 Git checkout
+```
+
+```bash
+# 先自行将 deps.repos 指定版本的完整 Git checkout 放入 ../robot_description。
+# 在 robot_driver 根目录执行；只读核对，不下载、切换或覆盖模型。
+python3 tools/robot_model.py verify
+# 完整开发环境仍用既有入口，包含同级模型和冻结 vendor。
+tools/bootstrap_native_dev.sh prepare
+tools/bootstrap_native_dev.sh build
+```
+
+模型缺失、版本不符或有本地改动时检查失败，不自动拉取、切换、重置或覆盖。
+CI runner 同样需要预置这个同级目录；工作流只验证和使用它，不下载私有模型。
+当前 GitHub 托管 runner 尚未配置模型输入（2026-11-21 用户选择先完成本地迁移，见 #298 / SEV-134）；
+该输入就绪前 CI 会在模型校验处失败，不能据本地验证宣称 CI 或发布门禁通过。
+运行时继续通过 ROS 的 `robot_description` 包定位已安装资源；同级路径只用于源码准备、构建和离线测试。
+底盘 `chassis_only` 的 mock 模式仍使用 `hwcfg_machines` 内的专用测试模型，不属于正式 Robot Model 依赖。
+调整 `RT_CONTROL_NATIVE_WS` 只改变构建产物及 vendor 位置，模型仍位于 driver 同级目录。
+
+速度上限读取模型 URDF；加速度由模型的 `config/arm_motion_limits.yaml` 定义并生成关节限值配置，
+经 composer 的 `model_limits.acceleration` schema 校验后按关节顺序绑定到控制器。
+模型外置与这条限值加载链共同由 #298 / SEV-134 跟踪。
 
 ## 分支
 
