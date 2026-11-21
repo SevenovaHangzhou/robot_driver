@@ -45,6 +45,7 @@
 | control-20261121-01#F1–F3 | 双臂规划加速度回归模型唯一来源，cuRobo/RT 同步；制动能力仍待实测 | [模型加速度来源](records/2026-11-21-model-acceleration-source.md) | PARTIAL（T0；实机未验） |
 | control-20261121-02#F1–F3 | 急停序号与离线锁存修复、时间归台套；范围与验收安排由下一条记录覆盖 | [急停遗留记录](records/2026-11-21-emergency-stop-backlog.md) | PARTIAL（T0；范围已收敛） |
 | control-20261121-03#F1–F3 | 本次仅交付头部与双臂软急停；独立头部已接入，硬件安全回路另行处理 | [头臂软急停范围](records/2026-11-21-head-arms-soft-stop.md) | PARTIAL（T0；软件时序与现场停止待验） |
+| control-20261121-04#F1–F3 | 已确认接线的台架采用用户授权的软急停时间候选值；其余台套保持 TBD | [时间候选值](records/2026-11-21-soft-stop-timing-candidate.md) | PARTIAL（T0 离线；现场时间待验） |
 
 ## 跨区事实关联
 

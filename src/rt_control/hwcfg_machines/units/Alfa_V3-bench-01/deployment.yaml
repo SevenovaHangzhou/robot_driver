@@ -28,9 +28,10 @@ runtime_log_recorder:
   enabled: true
   slots: 2000
 
-# SEV-135 / #299: timing requires a measured deployment budget; no hardware-safe defaults.
+# SEV-135 / #299: user-authorized estimates, 2026-11-21, for head/arm software stop only.
+# Pending field measurement; not a guaranteed stop time. See control-20261121-04.
 emergency_stop:
-  receiver_timeout_ms: TBD
+  receiver_timeout_ms: 300
   input:
     # User-confirmed FC02 mapping, 2026-11-19; DI2 terminal label is not the address.
     host: 192.168.1.12
@@ -38,6 +39,6 @@ emergency_stop:
     unit_id: 1
     input_address: 0
     pressed_level: 0
-    poll_period_ms: TBD
-    request_timeout_ms: TBD
-    stale_timeout_ms: TBD
+    poll_period_ms: 20
+    request_timeout_ms: 100
+    stale_timeout_ms: 200
