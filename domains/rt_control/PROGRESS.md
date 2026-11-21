@@ -272,3 +272,4 @@
 | 2026-11-07 | control | [底盘行走轮 CSV/CSP 运行时切换](docs/areas/control/records/2026-11-07-base-control-mode.md) | PARTIAL（T4）：研华底盘静止时两向切换、轮子轨迹往返（误差 ≤ 0.0004°）、超限目标与运动中切换被拒、CSP 下失能再使能均通过；台架修复使能误激活 JTC 与残留位置指令两处；cmd_vel 行驶与新转向上限未测 |
 | 2026-11-18 | peripheral-control | [底盘 IMU 通道与内核接收时间戳](docs/areas/peripheral-control/records/2026-11-18-imu-channels-kernel-stamp.md) | PARTIAL（T2）：研华 can3 单独运行 IMU 节点 20 s，100.003 Hz，时间戳与内核接收时间差 ≤ 1.2 µs，时间来源 HOST_RECEIVE；整栈逐轮观测启动因 EtherCAT 仅 1/8 从站在环被预检拒绝，未验 |
 | 2026-11-18 | peripheral-control | [RS485 网关请求节奏、迟到应答与超时](docs/areas/peripheral-control/records/2026-11-18-modbus-gateway-sequencing.md) | PARTIAL（T2）：.40 两台 E08 40 s 0 错误、拔站号 6 后自动恢复且站号 1 不受影响；LED 站号 2/3 写与正常退出通过；三包 27 项测试 |
+| 2026-11-22 | hw-config | [研华转角零点按外置编码器重算](docs/areas/hw-config/records/2026-11-22-advantech-steering-zero.md) | PARTIAL（T2）：0x7320 清除后只读换算四个转向零点，外置编码器显示四轮在 ±3° 内并经目视确认；使能低速核对未做 |
