@@ -1,13 +1,37 @@
 schema_version: 1
 kind: machine_module
 status: draft
-verified: false
+verified: true
 authorities:
-  source: rt_control_bringup/config/machines/alfa_v3.yaml
+  source: user 2026-11-22 (ELECTRI-242); Advantech read-only scan 2026-11-22 (ring 1, XMC_ESC 0x34e:0x445566)
+  transmission: user 2026-11-22 - lead screw 10 mm with a 1:2 timing belt, so 5 mm per motor turn
+  stroke: user 2026-11-22 - 1.05 m stroke, encoder zero at the bottom (model -1.05 m), joint 0 at the top;
+    hard stops 2 cm beyond each end
+  direction: user 2026-11-22 - motor positive moves the carriage up, the model's +q
+  velocity: user 2026-11-22 - at most 2000 r/min; 0.1666 m/s = 1999.2 r/min (0x607F 19992 in 0.1 r/min),
+    matching the Robot Model limit
+  mode: user 2026-11-22 - CSP inside the arms' 15-axis trajectory controller
+  brake: user 2026-11-22 - multi-turn absolute encoder that keeps its position without power; the brake
+    engages on power loss
 pending_facts:
-- EtherCAT ring position and device identity
-- PDO/SDO profile and mechanical limits
+- brake behaviour on disable and on communication loss, to be observed on the robot
+- enabled direction check with a small move before the full stroke
 robot_variant: Alfa_V3
 module: updown
+# Advantech topology: the lift sits on the main coupler's X2 branch (ring 1), on the master the
+# arms and the chassis share; its trajectory limits come from the Robot Model.
+master_system: ecat_arms
 spec:
-  migration_pending: true
+  family: tongyi
+  profile: tongyi_xmc_esc
+  identity_key: xmc_esc
+  metres_per_motor_turn: 0.005
+  stroke_min_m: -1.05
+  stroke_max_m: 0.0
+  hard_stop_margin_m: 0.02
+  max_velocity_m_s: 0.1666
+  axes:
+  - robot_model_joint: updown
+    ring_position: 1
+    device: devices/tongyi_xmc_esc.yaml
+    direction: 1

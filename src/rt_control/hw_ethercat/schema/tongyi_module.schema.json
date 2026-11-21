@@ -28,8 +28,7 @@
     "stroke_min_m": {
       "anyOf": [
         {
-          "type": "number",
-          "minimum": 0
+          "type": "number"
         },
         {
           "const": "TBD"
@@ -39,8 +38,7 @@
     "stroke_max_m": {
       "anyOf": [
         {
-          "type": "number",
-          "exclusiveMinimum": 0
+          "type": "number"
         },
         {
           "const": "TBD"
@@ -170,8 +168,6 @@
     "stroke_max_m",
     "hard_stop_margin_m",
     "max_velocity_m_s",
-    "profile_acceleration_ms_per_krpm",
-    "profile_deceleration_ms_per_krpm",
     "axes"
   ],
   "additionalProperties": false
