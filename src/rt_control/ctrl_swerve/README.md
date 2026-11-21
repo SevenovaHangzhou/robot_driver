@@ -1,7 +1,10 @@
 # ctrl_swerve
 
 Protocol-independent four-module swerve algorithms and a ROS 2 Humble
-`ctrl_swerve/SwerveController` plugin. The module order is FL, FR, RL, RR.
+`ctrl_swerve/SwerveController` plugin. Modules are indexed in wiring order
+(`module_1..4`); front/rear and left/right labels are derived from each module's
+calibrated `module_x/module_y`, never from the index. On `Alfa_V3-Advantech-01`
+module 1..4 are FR, RR, FL, RL (hw-config-20261116-02#F1).
 See [NOTICE.md](NOTICE.md) for the exact source revision of the migrated math.
 
 ## Implemented
@@ -12,7 +15,7 @@ See [NOTICE.md](NOTICE.md) for the exact source revision of the migrated math.
 - Measured wheel-position-increment odometry, measured twist and optional IMU
   yaw/rate with wheel-yaw fallback and continuity on source changes.
 - Fixed-size least-squares residual checking rejects an inconsistent wheel from
-  measured twist and position odometry, reports its FL/FR/RL/RR identity and
+  measured twist and position odometry, reports its location-derived FL/FR/RL/RR label and
   inflates covariance while the rejection is active.
 - Navigation contract: four steering-position (CSP) and four wheel-velocity (CSV)
   commands. The controller owns no standalone bus thread, EtherCAT master or motor

@@ -1,0 +1,67 @@
+controllers:
+  left_gravity_feedforward:
+    module: bench_dual_arm
+    name: left_gravity_feedforward
+    plugin: ctrl_gravity_feedforward/GravityController
+    package: ctrl_gravity_feedforward
+    actuator_groups:
+    - csp
+    required_state_modules: []
+    tags:
+    - enable_companion
+    parameters:
+    - policy:
+        name: gravity
+        path: left
+    - policy:
+        name: motion
+        path: jtc.trajectory_start_consistency_check.max_feedback_age_ms
+        as: max_feedback_age_ms
+    - runtime:
+        key: robot_description
+        as: robot_description
+    - exports:
+        name: feedback_age_interfaces
+        as: feedback_age_interfaces
+        module: bench_dual_arm
+    - exports:
+        name: al_state_interfaces
+        as: health_interfaces
+        module: bench_dual_arm
+    - exports:
+        name: gravity_al_state_values
+        as: health_values
+        module: bench_dual_arm
+  right_gravity_feedforward:
+    module: bench_dual_arm
+    name: right_gravity_feedforward
+    plugin: ctrl_gravity_feedforward/GravityController
+    package: ctrl_gravity_feedforward
+    actuator_groups:
+    - csp
+    required_state_modules: []
+    tags:
+    - enable_companion
+    parameters:
+    - policy:
+        name: gravity
+        path: right
+    - policy:
+        name: motion
+        path: jtc.trajectory_start_consistency_check.max_feedback_age_ms
+        as: max_feedback_age_ms
+    - runtime:
+        key: robot_description
+        as: robot_description
+    - exports:
+        name: feedback_age_interfaces
+        as: feedback_age_interfaces
+        module: bench_dual_arm
+    - exports:
+        name: al_state_interfaces
+        as: health_interfaces
+        module: bench_dual_arm
+    - exports:
+        name: gravity_al_state_values
+        as: health_values
+        module: bench_dual_arm

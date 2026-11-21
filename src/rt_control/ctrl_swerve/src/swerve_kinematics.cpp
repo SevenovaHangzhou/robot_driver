@@ -522,4 +522,34 @@ std::optional<ChassisSpeedFit> chassis_speeds_with_slip_rejection(
   return result;
 }
 
+ModuleQuadrant module_quadrant(const Translation2d & location) noexcept
+{
+  if (
+    !std::isfinite(location.x) || !std::isfinite(location.y) || location.x == 0.0 ||
+    location.y == 0.0) {
+    return ModuleQuadrant::unknown;
+  }
+  if (location.x > 0.0) {
+    return location.y > 0.0 ? ModuleQuadrant::front_left : ModuleQuadrant::front_right;
+  }
+  return location.y > 0.0 ? ModuleQuadrant::rear_left : ModuleQuadrant::rear_right;
+}
+
+const char * module_quadrant_name(ModuleQuadrant quadrant) noexcept
+{
+  switch (quadrant) {
+    case ModuleQuadrant::front_left:
+      return "FL";
+    case ModuleQuadrant::front_right:
+      return "FR";
+    case ModuleQuadrant::rear_left:
+      return "RL";
+    case ModuleQuadrant::rear_right:
+      return "RR";
+    case ModuleQuadrant::unknown:
+      break;
+  }
+  return "unknown";
+}
+
 }  // namespace ctrl_swerve

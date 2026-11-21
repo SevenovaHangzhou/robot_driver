@@ -32,10 +32,13 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
-    - model_limits:
-        policy: motion
-        path: joints
-        attribute: acceleration
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: motion
+          path: joints
         as: joint_acceleration_limits
   # Seven-axis bench arm trajectory controller; the operator console is its client.
   left_arm_jtc:
@@ -77,10 +80,13 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
-    - model_limits:
-        policy: motion
-        path: joints
-        attribute: acceleration
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: motion
+          path: joints
         as: joint_acceleration_limits
   # Both bench arms in one trajectory controller; the operator console is its client.
   dual_arm_jtc:
@@ -122,10 +128,13 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
-    - model_limits:
-        policy: motion
-        path: joints
-        attribute: acceleration
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: motion
+          path: joints
         as: joint_acceleration_limits
   rolling_trajectory_controller:
     module: arms
@@ -162,10 +171,13 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
-    - model_limits:
-        policy: motion
-        path: joints
-        attribute: acceleration
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: motion
+          path: joints
         as: joint_acceleration_limits
   # Both bench arms under rolling; enable_manager switches between it and dual_arm_jtc.
   dual_arm_rolling:
@@ -203,10 +215,13 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
-    - model_limits:
-        policy: motion
-        path: joints
-        attribute: acceleration
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: motion
+          path: joints
         as: joint_acceleration_limits
   right_arm_jtc:
     module: bench_right_arm
@@ -247,8 +262,11 @@ controllers:
         path: joints
         attribute: velocity
         as: joint_velocity_limits
-    - model_limits:
-        policy: motion
-        path: joints
-        attribute: acceleration
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: motion
+          path: joints
         as: joint_acceleration_limits

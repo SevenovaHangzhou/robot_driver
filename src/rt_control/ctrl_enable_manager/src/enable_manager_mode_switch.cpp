@@ -338,6 +338,10 @@ std::uint8_t EnableManagerController::executeModeSwitch(ControlMode source, Cont
   request->strictness = controller_manager_msgs::srv::SwitchController::Request::STRICT;
   request->activate_asap = true;
   request->timeout = rclcpp::Duration(mode_switch_timeout_);
+  if (emergencyStopBlocksEnable() || safety_preempted()) {
+    release_switch();
+    return kModeNotReady;
+  }
   auto future = switch_client_->async_send_request(request);
   const bool response_ready = future.wait_for(mode_switch_timeout_) == std::future_status::ready;
   const auto switch_response = response_ready ? future.get() : nullptr;
@@ -415,6 +419,10 @@ void EnableManagerController::handleSetMode(
   }
   if (restart_required_.load(std::memory_order_acquire)) {
     finish(kModeRestartRequired, ControlMode::kRestartRequired);
+    return;
+  }
+  if (emergencyStopBlocksEnable()) {
+    finish(kModeNotReady, current_control_mode_.load(std::memory_order_acquire));
     return;
   }
   const ControlMode current_mode = current_control_mode_.load(std::memory_order_acquire);

@@ -115,6 +115,71 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     assert lifecycle["bus_locks"] == ["can-can3", "ethercat-master-0"]
 
 
+def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(shares, tmp_path):
+    result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    params = result.controllers["wheel_observation_broadcaster"]["ros__parameters"]
+    swerve = result.controllers["swerve_controller"]["ros__parameters"]
+    for name in (
+        "steering_joints",
+        "drive_joints",
+        "steering_encoders",
+        "module_x",
+        "module_y",
+        "wheel_radius",
+        "steering_to_yaw_sign",
+        "feedback_timeout",
+    ):
+        assert params[name] == swerve[name], name
+    # hw-config-20261116-02#F1: module_1..4 are FR, RR, FL, RL.
+    assert params["module_x"] == [0.305, -0.305, 0.305, -0.305]
+    assert params["module_y"] == [-0.305, -0.305, 0.305, 0.305]
+    assert params["chassis_calibration_id"].startswith("swerve_chassis:sha256:")
+    assert params["encoder_calibration_id"].startswith("swerve_encoders:sha256:")
+    assert params["publish_rate"] == 100.0
+    assert "wheel_observation_broadcaster" in result.controller_order["active"]
+    manager = result.controllers["controller_manager"]["ros__parameters"]
+    assert manager["wheel_observation_broadcaster"]["type"] == (
+        "ctrl_wheel_observation_broadcaster/WheelObservationBroadcaster"
+    )
+
+
+def test_real_chassis_starts_the_receive_only_imu_and_mock_does_not(shares, tmp_path):
+    real = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    assert real.lifecycle["optional_peripherals"] == [
+        {
+            "name": "lpms_nav3",
+            "package": "periph_imu_lpms",
+            "executable": "lpms_nav3_can_node",
+            "config_file": "peripherals/lpms_nav3.yaml",
+        }
+    ]
+    parameters = yaml.safe_load(real.files["peripherals/lpms_nav3.yaml"])["/**"]["ros__parameters"]
+    assert (parameters["can_interface"], parameters["node_id"]) == ("can3", 1)
+    assert parameters["imu_topic"] == "/rt/imu/data"
+    mock = compose(**arguments(shares), runtime_dir=tmp_path / "mock")
+    assert "optional_peripherals" not in mock.lifecycle
+    assert "peripherals/lpms_nav3.yaml" not in mock.files
+
+
+def test_calibration_id_changes_with_any_rendered_calibration_fact(shares, tmp_path):
+    def identity(directory):
+        result = compose(**arguments(shares), runtime_dir=directory)
+        return result.controllers["wheel_observation_broadcaster"]["ros__parameters"]
+
+    before = identity(tmp_path / "before")
+    unit = shares["hwcfg_machines"] / "units/Alfa_V3-Advantech-01/swerve_calibration.yaml"
+    copied = tmp_path / "hwcfg_machines"
+    shutil.copytree(shares["hwcfg_machines"], copied)
+    path = copied / unit.relative_to(shares["hwcfg_machines"])
+    data = yaml.safe_load(path.read_text())
+    data["spec"]["modules"][0]["steering_zero_counts"] += 1
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    shares["hwcfg_machines"] = copied
+    after = identity(tmp_path / "after")
+    assert after["chassis_calibration_id"] != before["chassis_calibration_id"]
+    assert after["encoder_calibration_id"] == before["encoder_calibration_id"]
+
+
 def test_real_chassis_without_deployment_bundle_is_rejected(shares, tmp_path):
     copied = dict(shares)
     copied["hwcfg_machines"] = tmp_path / "config"
@@ -273,7 +338,12 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
     assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
     assert result.controller_order == {
         "inactive": ["swerve_controller", "base_wheel_jtc"],
-        "active": ["joint_state_broadcaster", "rt_internal_state_broadcaster", "enable_manager"],
+        "active": [
+            "joint_state_broadcaster",
+            "rt_internal_state_broadcaster",
+            "wheel_observation_broadcaster",
+            "enable_manager",
+        ],
     }
 
 
@@ -291,6 +361,7 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     assert lifecycle["lifecycle_controllers"] == [
         "joint_state_broadcaster",
         "rt_internal_state_broadcaster",
+        "wheel_observation_broadcaster",
         "enable_manager",
     ]
     names = {item["name"]: item for item in lifecycle["capabilities"]}

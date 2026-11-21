@@ -60,6 +60,11 @@ def validate_machine_tree(share_root: Path, schema_dir: Path, share_of) -> list[
     for path in (share_root / "machines").rglob("*.yaml"):
         for part in load_yaml(path).get("parts", []):
             skipped.add(resolve_share_path(path.parent, part).relative_to(share_root).as_posix())
+    # Peripheral parameter files are owner documents; the peripheral node validates them.
+    for path in (share_root / "units").glob("*/deployment.yaml"):
+        for item in load_yaml(path).get("optional_peripherals", []):
+            config = resolve_share_path(path.parent, item["config_file"])
+            skipped.add(config.relative_to(share_root).as_posix())
     passed = []
     for directory in ("devices", "machines", "units"):
         for path in sorted((share_root / directory).rglob("*.yaml")):

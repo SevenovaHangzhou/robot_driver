@@ -130,6 +130,9 @@
     "ready_hold_time": {
       "type": "number",
       "minimum": 0
+    },
+    "emergency_stop_response": {
+      "type": "boolean"
     }
   },
   "required": [

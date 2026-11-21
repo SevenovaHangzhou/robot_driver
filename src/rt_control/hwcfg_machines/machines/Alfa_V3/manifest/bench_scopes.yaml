@@ -80,6 +80,10 @@ scopes:
   # Dual-arm bench motion: the operator console sends 14-joint FollowJointTrajectory goals to
   # dual_arm_jtc after enable. The right arm directions are provisional until checked per joint.
   bench_dual_arm:
+    gravity_feedforward:
+      module: bench_dual_arm
+      controllers: [left_gravity_feedforward, right_gravity_feedforward]
+      policy: gravity
     enabled_modules:
     - bench_dual_arm
     required_state_modules: []
@@ -110,6 +114,10 @@ scopes:
   # Dual arms and the head in one controller_manager: one enable request brings up the arm
   # batches, then the head handshake, then activates dual_arm_jtc and head_position_controller.
   bench_dual_arm_head:
+    gravity_feedforward:
+      module: bench_dual_arm
+      controllers: [left_gravity_feedforward, right_gravity_feedforward]
+      policy: gravity
     enabled_modules:
     - bench_dual_arm
     - head_gimbal

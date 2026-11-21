@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from infra_renderer import xml_param
+from infra_renderer import calibration_id, xml_param
 import yaml
 
 from .profiles import master_parameters, pdo_objects
@@ -123,6 +123,14 @@ def render(request, share, validate_module, validate_unit, validate_device):
     # The controller refuses to configure unless the chassis data and the unit
     # calibration are both verified; this is the single source of that flag.
     exports["calibration_verified"] = machine["verified"] is True and unit["verified"] is True
+    # Identity of every wiring, conversion, zero and geometry fact rendered here.
+    exports["calibration_id"] = calibration_id(
+        machine["module"],
+        spec,
+        unit["spec"],
+        profile,
+        *(request["devices"][reference] for reference in request["module"]["device_refs"]),
+    )
     for target, source in (
         ("wheel_radius", "effective_wheel_radius_m"),
         ("module_x", "module_x_m"),

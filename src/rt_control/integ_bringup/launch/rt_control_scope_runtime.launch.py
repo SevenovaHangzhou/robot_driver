@@ -55,6 +55,7 @@ def setup(context):
         control_scope=scope,
         use_mock_hardware=use_mock_hardware,
         jtc_only=_optional_boolean(context, "jtc_only", "false"),
+        gravity_feedforward=_optional_boolean(context, "gravity_feedforward", "false"),
         sync_mode=context.launch_configurations.get("sync_mode", ""),
     )
     if not build.staged_hardware_activation:
@@ -175,10 +176,23 @@ def setup(context):
         if any(item["name"] == "head_move" for item in build.lifecycle.get("capabilities", []))
         else []
     )
+    # Unit peripheral nodes (chassis IMU): their exit is not watched and an offline device only
+    # reports through its own status, so they can never stop the scope.
+    peripherals = [
+        Node(
+            package=item["package"],
+            executable=item["executable"],
+            name=item["name"],
+            parameters=[str(runtime / item["config_file"])],
+            output="both",
+        )
+        for item in build.lifecycle.get("optional_peripherals", [])
+    ]
     return [
         *robot_state,
         *diagnostics,
         *head_move,
+        *peripherals,
         RegisterEventHandler(
             OnProcessExit(
                 target_action=manager,
@@ -210,6 +224,9 @@ def generate_launch_description():
             DeclareLaunchArgument("control_scope", default_value="chassis_only"),
             DeclareLaunchArgument("physical_profile", default_value=""),
             DeclareLaunchArgument("jtc_only", default_value="false"),
+            DeclareLaunchArgument(
+                "gravity_feedforward", default_value="false", choices=["true", "false"]
+            ),
             DeclareLaunchArgument(
                 "sync_mode", default_value="", description="EtherCAT force bench: sm or dc"
             ),

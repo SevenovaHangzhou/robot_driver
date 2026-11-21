@@ -33,11 +33,12 @@ class UltrasonicNode final : public rclcpp::Node
 public:
   UltrasonicNode() : Node("ultrasonic_node")
   {
-    gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.12"));
+    gateway_ip_ = declare_parameter("gateway_ip", std::string("192.168.1.14"));
     gateway_port_ = declare_parameter<int64_t>("gateway_port", 504);
     unit_ids_ = declare_parameter<std::vector<int64_t>>("unit_ids", {1, 6});
     response_timeout_ms_ = declare_parameter<int64_t>("response_timeout_ms", 500);
     poll_interval_ms_ = declare_parameter<int64_t>("poll_interval_ms", 300);
+    request_gap_ms_ = declare_parameter<int64_t>("request_gap_ms", 20);
     poll_enabled_ = declare_parameter("poll_enabled", true);
     min_range_m_ = declare_parameter("min_range_m", 0.01);
     max_range_m_ = declare_parameter("max_range_m", 3.5);
@@ -51,6 +52,7 @@ public:
     client_ = std::make_unique<infra_modbus::Client>(
       gateway_ip_, static_cast<uint16_t>(gateway_port_),
       std::chrono::milliseconds(response_timeout_ms_));
+    client_->set_min_request_gap(std::chrono::milliseconds(request_gap_ms_));
     initialise_instance_id();
 
     for (size_t i = 0; i < range_publishers_.size(); ++i) {
@@ -86,6 +88,7 @@ private:
     if (poll_interval_ms_ < 20 || poll_interval_ms_ > 60000) {
       throw std::invalid_argument("poll_interval_ms must be 20..60000");
     }
+    validate_request_gap(request_gap_ms_);
     validate_ultrasonic_config(
       frame_ids_, static_cast<float>(field_of_view_rad_), static_cast<float>(min_range_m_),
       static_cast<float>(max_range_m_));
@@ -234,6 +237,7 @@ private:
   std::vector<int64_t> unit_ids_{1, 6};
   int64_t response_timeout_ms_{500};
   int64_t poll_interval_ms_{300};
+  int64_t request_gap_ms_{20};
   bool poll_enabled_{true};
   double min_range_m_{0.01};
   double max_range_m_{3.5};

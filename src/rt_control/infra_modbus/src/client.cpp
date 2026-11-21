@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <cstring>
 #include <memory>
+#include <thread>
 
 namespace infra_modbus
 {
@@ -19,6 +20,13 @@ std::uint16_t read_uint16_be(const std::uint8_t * data)
 {
   return static_cast<std::uint16_t>((data[0] << 8) | data[1]);
 }
+
+// Deadline expiry; lets exchange() tell a missing reply from other failures.
+class Timeout : public std::runtime_error
+{
+public:
+  Timeout() : std::runtime_error{"Modbus timeout"} {}
+};
 
 }  // namespace
 
@@ -60,11 +68,20 @@ void Client::close() noexcept
     static_cast<void>(::close(descriptor_));
     descriptor_ = -1;
   }
+  consecutive_reply_timeouts_ = 0U;
 }
 
 bool Client::connected() const noexcept
 {
   return descriptor_ >= 0;
+}
+
+void Client::set_min_request_gap(std::chrono::milliseconds gap)
+{
+  if (gap.count() < 0) {
+    throw std::invalid_argument{"Modbus request gap must not be negative"};
+  }
+  min_request_gap_ = gap;
 }
 
 std::vector<std::uint8_t> Client::transact(std::uint8_t unit, const std::vector<std::uint8_t> & pdu)
@@ -81,7 +98,25 @@ std::vector<std::uint8_t> Client::transact(
   if (timeout.count() <= 0) {
     throw std::invalid_argument{"Modbus timeout must be positive"};
   }
-  const auto deadline = Clock::now() + timeout;
+  if (min_request_gap_.count() > 0) {
+    const auto earliest = last_transaction_end_ + min_request_gap_;
+    if (Clock::now() < earliest) {
+      std::this_thread::sleep_until(earliest);
+    }
+  }
+  struct MarkEnd
+  {
+    Clock::time_point & end;
+    ~MarkEnd() { end = Clock::now(); }
+  } mark_end{last_transaction_end_};
+  return exchange(unit, pdu, Clock::now() + timeout);
+}
+
+std::vector<std::uint8_t> Client::exchange(
+  std::uint8_t unit, const std::vector<std::uint8_t> & pdu, Clock::time_point deadline)
+{
+  // True only while the stream sits at a frame boundary after the request was fully sent.
+  bool awaiting_reply = false;
   try {
     if (descriptor_ < 0) {
       connect(deadline);
@@ -101,27 +136,55 @@ std::vector<std::uint8_t> Client::transact(
     transfer(frame.data(), frame.size(), true, deadline);
 
     std::array<std::uint8_t, 7> header{};
-    transfer(header.data(), header.size(), false, deadline);
-    const auto reply_length = read_uint16_be(header.data() + 4);
-    if (
-      read_uint16_be(header.data()) != transaction_id_ || read_uint16_be(header.data() + 2) != 0U ||
-      header[6] != unit || reply_length < 2U || reply_length > 254U) {
+    std::vector<std::uint8_t> reply;
+    for (;;) {
+      awaiting_reply = true;
+      wait(POLLIN, deadline);
+      awaiting_reply = false;
+      transfer(header.data(), header.size(), false, deadline);
+      const auto reply_id = read_uint16_be(header.data());
+      const auto reply_length = read_uint16_be(header.data() + 4);
+      if (read_uint16_be(header.data() + 2) != 0U || reply_length < 2U || reply_length > 254U) {
+        throw std::runtime_error{"invalid Modbus MBAP header"};
+      }
+      // The length field counts the unit id that is already read.
+      reply.assign(reply_length - 1U, 0U);
+      transfer(reply.data(), reply.size(), false, deadline);
+      if (reply_id == transaction_id_) {
+        break;
+      }
+      // Modulo-2^16 age of the reply id; a recent earlier id is a late reply to drop.
+      const auto age = static_cast<std::uint16_t>(transaction_id_ - reply_id);
+      if (age > kStaleTransactionWindow) {
+        throw std::runtime_error{"invalid Modbus MBAP header"};
+      }
+    }
+    if (header[6] != unit) {
       throw std::runtime_error{"invalid Modbus MBAP header"};
     }
-    // The length field counts the unit id that is already read.
-    std::vector<std::uint8_t> reply(reply_length - 1U);
-    transfer(reply.data(), reply.size(), false, deadline);
     if (reply[0] == (pdu[0] | 0x80U)) {
       if (reply.size() != 2U) {
         throw std::runtime_error{"malformed Modbus exception response"};
       }
+      consecutive_reply_timeouts_ = 0U;
       throw ModbusException{"Modbus exception code " + std::to_string(reply[1])};
     }
     if (reply[0] != pdu[0]) {
       throw std::runtime_error{"Modbus function code mismatch"};
     }
+    consecutive_reply_timeouts_ = 0U;
     return reply;
   } catch (const ModbusException &) {
+    throw;
+  } catch (const Timeout &) {
+    // No reply byte arrived: the stream is still aligned and a late reply will be discarded by
+    // its transaction id, so keep the connection once. Reconnecting at once is refused by
+    // single-client gateways, which would fail the next request to a healthy station.
+    if (awaiting_reply && consecutive_reply_timeouts_ == 0U) {
+      ++consecutive_reply_timeouts_;
+      throw;
+    }
+    close();
     throw;
   } catch (...) {
     close();
@@ -161,7 +224,7 @@ void Client::wait(short events, Clock::time_point deadline) const
     const auto remaining =
       std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()).count();
     if (remaining <= 0) {
-      throw std::runtime_error{"Modbus timeout"};
+      throw Timeout{};
     }
     pollfd descriptor{descriptor_, events, 0};
     const int rc = ::poll(&descriptor, 1, static_cast<int>(remaining));
@@ -169,7 +232,7 @@ void Client::wait(short events, Clock::time_point deadline) const
       continue;
     }
     if (rc == 0) {
-      throw std::runtime_error{"Modbus timeout"};
+      throw Timeout{};
     }
     if (rc < 0) {
       throw std::runtime_error{"Modbus poll failed"};

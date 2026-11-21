@@ -10,6 +10,7 @@ find_package(unique_identifier_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PlcIoState.msg"
+  "msg/EmergencyStopState.msg"
   DEPENDENCIES builtin_interfaces robot_rt_control_interfaces std_msgs unique_identifier_msgs
 )
 

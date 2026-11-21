@@ -18,8 +18,10 @@ install(PROGRAMS scripts/validate_config_files.py scripts/compose_artifact
 
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(gravity_feedforward test/test_gravity_feedforward.py TIMEOUT 90)
   ament_add_pytest_test(boundary_bindings test/test_boundary_bindings.py TIMEOUT 60)
   ament_add_pytest_test(artifact_and_sources test/test_artifact_and_sources.py TIMEOUT 60)
+  ament_add_pytest_test(arm_motion_limits test/test_arm_motion_limits.py TIMEOUT 60)
   ament_add_pytest_test(head_force_composition test/test_head_force.py TIMEOUT 60)
   ament_add_pytest_test(chassis_composition test/test_chassis.py TIMEOUT 60)
   ament_add_pytest_test(composition test/test_compose.py TIMEOUT 60)

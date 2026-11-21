@@ -9,6 +9,7 @@ robot_variant: Alfa_V3
 parts:
 - controllers/arm_trajectory.yaml
 - controllers/base_trajectory.yaml
+- controllers/gravity.yaml
 controllers:
   swerve_chassis:
     module: swerve_chassis
@@ -34,6 +35,31 @@ controllers:
         package: ctrl_swerve
         file: config/controller.draft.yaml
         path: '{controller}.ros__parameters'
+  # R-OUT-29: read-only per-wheel feedback for navigation; active from startup, also while
+  # the chassis is disabled or base_wheel_jtc owns the wheels.
+  wheel_observations:
+    module: swerve_chassis
+    name: wheel_observation_broadcaster
+    plugin: ctrl_wheel_observation_broadcaster/WheelObservationBroadcaster
+    package: ctrl_wheel_observation_broadcaster
+    actuator_groups: []
+    required_state_modules:
+    - swerve_encoders
+    tags: []
+    parameters:
+    - yaml:
+        package: ctrl_wheel_observation_broadcaster
+        file: config/broadcaster.yaml
+        path: '{controller}.ros__parameters'
+    # The swerve controller's feedback timeout: one staleness rule for both readers.
+    - yaml:
+        package: ctrl_swerve
+        file: config/controller.draft.yaml
+        path: swerve_controller.ros__parameters.feedback_timeout
+        as: feedback_timeout
+    - runtime:
+        key: startup_id
+        as: startup_id
   enable_manager:
     module: arms
     name: enable_manager
@@ -45,6 +71,15 @@ controllers:
     tags:
     - enable
     parameters:
+    - yaml:
+        package: ctrl_enable_manager
+        file: config/emergency_stop.yaml
+        path: receiver
+    - policy:
+        name: enable
+        path: emergency_stop_response
+        as: emergency_stop_response
+        optional: true
     - policy:
         name: enable
         overlay: runtime_views.{mode}

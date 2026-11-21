@@ -60,9 +60,9 @@ TEST(DecoderTest, CompletesOneSampleFromDefaultPdoMapping)
   EXPECT_NEAR(sample.angular_velocity_radps[0], kPi / 2.0, kTolerance);
   EXPECT_NEAR(sample.angular_velocity_radps[1], -kPi / 2.0, kTolerance);
   EXPECT_NEAR(sample.angular_velocity_radps[2], kPi, kTolerance);
-  EXPECT_NEAR(sample.magnetic_field_t[0], 1.0e-6, kTolerance);
-  EXPECT_NEAR(sample.magnetic_field_t[1], -2.0e-6, kTolerance);
-  EXPECT_NEAR(sample.magnetic_field_t[2], 3.0e-6, kTolerance);
+  EXPECT_NEAR(sample.angular_velocity_bias_corrected_radps[0], 10.0 * kPi / 180.0, kTolerance);
+  EXPECT_NEAR(sample.angular_velocity_bias_corrected_radps[1], -20.0 * kPi / 180.0, kTolerance);
+  EXPECT_NEAR(sample.angular_velocity_bias_corrected_radps[2], 30.0 * kPi / 180.0, kTolerance);
   EXPECT_NEAR(sample.euler_rad[0], kPi / 180.0, kTolerance);
   EXPECT_NEAR(sample.euler_rad[1], -2.0 * kPi / 180.0, kTolerance);
   EXPECT_NEAR(sample.euler_rad[2], kPi / 2.0, kTolerance);
@@ -175,7 +175,7 @@ TEST(DecoderTest, ConvertsLpmsCoordinatesToRosConventions)
   periph_imu_lpms::ImuSample sample;
   sample.linear_acceleration_mps2 = {1.0, -2.0, 3.0};
   sample.angular_velocity_radps = {4.0, -5.0, 6.0};
-  sample.magnetic_field_t = {7.0, -8.0, 9.0};
+  sample.angular_velocity_bias_corrected_radps = {7.0, -8.0, 9.0};
   sample.orientation_wxyz = {0.5, 0.1, -0.2, 0.3};
   sample.euler_rad = {0.4, -0.5, 0.6};
 
@@ -183,7 +183,8 @@ TEST(DecoderTest, ConvertsLpmsCoordinatesToRosConventions)
 
   EXPECT_EQ(converted.linear_acceleration_mps2, (std::array<double, 3U>{-1.0, 2.0, -3.0}));
   EXPECT_EQ(converted.angular_velocity_radps, sample.angular_velocity_radps);
-  EXPECT_EQ(converted.magnetic_field_t, sample.magnetic_field_t);
+  EXPECT_EQ(
+    converted.angular_velocity_bias_corrected_radps, sample.angular_velocity_bias_corrected_radps);
   EXPECT_EQ(converted.orientation_wxyz, (std::array<double, 4U>{0.5, -0.1, 0.2, -0.3}));
   EXPECT_EQ(converted.euler_rad, sample.euler_rad);
 }
@@ -193,7 +194,7 @@ TEST(DecoderTest, LeavesSampleUnchangedWhenConversionIsDisabled)
   periph_imu_lpms::ImuSample sample;
   sample.linear_acceleration_mps2 = {1.0, 2.0, 3.0};
   sample.angular_velocity_radps = {4.0, 5.0, 6.0};
-  sample.magnetic_field_t = {7.0, 8.0, 9.0};
+  sample.angular_velocity_bias_corrected_radps = {7.0, 8.0, 9.0};
   sample.orientation_wxyz = {1.0, 0.0, 0.0, 0.0};
   sample.euler_rad = {0.1, 0.2, 0.3};
 
@@ -201,7 +202,8 @@ TEST(DecoderTest, LeavesSampleUnchangedWhenConversionIsDisabled)
 
   EXPECT_EQ(converted.linear_acceleration_mps2, sample.linear_acceleration_mps2);
   EXPECT_EQ(converted.angular_velocity_radps, sample.angular_velocity_radps);
-  EXPECT_EQ(converted.magnetic_field_t, sample.magnetic_field_t);
+  EXPECT_EQ(
+    converted.angular_velocity_bias_corrected_radps, sample.angular_velocity_bias_corrected_radps);
   EXPECT_EQ(converted.orientation_wxyz, sample.orientation_wxyz);
   EXPECT_EQ(converted.euler_rad, sample.euler_rad);
 }

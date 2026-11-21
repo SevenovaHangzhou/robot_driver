@@ -1,0 +1,5 @@
+# Published rate of /rt/base/wheel_observations (navigation proposal v0.1, 100 Hz target). The
+# broadcaster itself runs every controller_manager cycle to see every encoder frame.
+wheel_observation_broadcaster:
+  ros__parameters:
+    publish_rate: 100.0

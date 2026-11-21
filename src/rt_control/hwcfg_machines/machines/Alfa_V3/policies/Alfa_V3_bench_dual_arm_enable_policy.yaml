@@ -1,3 +1,4 @@
+emergency_stop_response: true
 # Dual-arm bench enable policy: one joint per batch in bus order (left J1..J7, right J1..J7).
 # Joints come from the rendered bench_dual_arm module. Timing values equal
 # Alfa_V3_enable_policy.yaml; the bench has the same ZeroErr drives.

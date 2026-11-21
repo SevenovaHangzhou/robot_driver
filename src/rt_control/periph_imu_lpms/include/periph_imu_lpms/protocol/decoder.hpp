@@ -22,7 +22,9 @@ struct ImuSample
 {
   std::array<double, 3U> linear_acceleration_mps2{};
   std::array<double, 3U> angular_velocity_radps{};
-  std::array<double, 3U> magnetic_field_t{};
+  // Channels 7..9: static-bias-calibrated gyro (rad/s); channels 4..6 above carry the
+  // axis-alignment-calibrated gyro. The installed mapping has no magnetometer channel.
+  std::array<double, 3U> angular_velocity_bias_corrected_radps{};
   std::array<double, 4U> orientation_wxyz{};
   std::array<double, 3U> euler_rad{};
 };

@@ -71,6 +71,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
     zero = validate_unit(module, unit)["spec"]
     mock = request["use_mock_hardware"]
     stationary = request["render_mode"] == "stationary_enable"
+    gravity = request.get("gravity_feedforward", False)
+    if gravity and stationary:
+        raise ValueError("Gravity feedforward requires motion CSP")
     axes = sorted(
         ((side, axis) for side, branch in spec["branches"].items() for axis in branch["axes"]),
         key=lambda entry: entry[1]["ring_position"],
@@ -131,6 +134,39 @@ def render(request, share, validate_module, validate_unit, validate_device):
         raw_zero = zeros[axis["ring_position"]]["zero_counts"]
         if not stationary and mode == 8:
             _interface(joint, "command_interface", "position")
+        if gravity:
+            calibration = zeros[axis["ring_position"]].get("gravity_feedforward", {})
+            gain = calibration.get("permille_per_nm")
+            sign = calibration.get("torque_sign")
+            if (
+                mode != 8
+                or type(gain) not in (int, float)
+                or not math.isfinite(gain)
+                or gain <= 0
+                or type(sign) is not int
+                or sign not in (-1, 1)
+            ):
+                raise ValueError(f"{name}: explicit positive gravity gain and torque sign required")
+            if any(
+                channel["index"] == 0x60B2 for pdo in profile["rpdo"] for channel in pdo["channels"]
+            ):
+                raise ValueError(f"{name}: duplicate torque offset PDO")
+            _interface(joint, "command_interface", "effort", 0.0)
+            _interface(joint, "state_interface", "gravity_command_epoch", 0.0 if mock else None)
+            _interface(
+                joint, "state_interface", "torque_offset_permille_sent", 0.0 if mock else None
+            )
+            profile["rpdo"][0]["channels"].append(
+                {
+                    "index": 0x60B2,
+                    "sub_index": 0,
+                    "type": "int16",
+                    "default": 0.0,
+                    "command_interface": "effort",
+                    "factor": sign * gain,
+                    "mirror_state_interface": "gravity_effort_sent",
+                }
+            )
         _interface(joint, "command_interface", "control_word", 0)
         state = "position_raw" if stationary or mode == 1 else "position"
         _interface(
@@ -169,7 +205,9 @@ def render(request, share, validate_module, validate_unit, validate_device):
         if not mock:
             for key, value in {
                 "name": name + "_drive",
-                "plugin": "ethercat_generic_plugins/EcCiA402Drive",
+                "plugin": "hw_ethercat/CspTorqueOffsetSlave"
+                if gravity
+                else "ethercat_generic_plugins/EcCiA402Drive",
                 "alias": 0,
                 "position": axis["ring_position"],
                 "mode_of_operation": mode,
@@ -243,6 +281,17 @@ def render(request, share, validate_module, validate_unit, validate_device):
     }
     if spec.get("topology_preflight", False) and not stationary:
         expected["topology_only"] = True
+    if gravity:
+        expected["preflight_required"] = True
+        expected["rated_current_checks"] = [
+            {
+                "ring_position": axis["ring_position"],
+                "rated_current_ma": zeros[axis["ring_position"]]["gravity_feedforward"][
+                    "rated_current_ma"
+                ],
+            }
+            for _, axis in axes
+        ]
     from .master_health import (
         master_diagnostic,
         offline_exports,
@@ -281,5 +330,8 @@ def render(request, share, validate_module, validate_unit, validate_device):
         "resource_claims": [f"ring:{item['ring_position']}" for item in expected["responders"]],
         "expected_topology": expected,
         "diagnostic_devices": diagnostic_devices,
-        "parameter_exports": offline_exports(request, [axis for _, axis in axes]),
+        "parameter_exports": {
+            **offline_exports(request, [axis for _, axis in axes]),
+            **({"gravity_al_state_values": [8.0] * len(axes)} if gravity else {}),
+        },
     }

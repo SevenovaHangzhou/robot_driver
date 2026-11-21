@@ -1,0 +1,67 @@
+# User-confirmed commissioning settings; generated from the motor registry.
+left:
+  joints:
+  - left_joint1
+  - left_joint2
+  - left_joint3
+  - left_joint4
+  - left_joint5
+  - left_joint6
+  - left_joint7
+  base_link: arm_carriage
+  tip_link: left_link7
+  gravity_in_base:
+  - 0.0
+  - 0.0
+  - -9.81
+  gravity_in_root: true
+  scale: 0.1
+  max_effort_nm:
+  - 39.17759319171797
+  - 127.51199999999999
+  - 134.596
+  - 38.84711973799537
+  - 33.835
+  - 11.944115407372795
+  - 7.19928
+  max_effort_rate_nm_s:
+  - 7.835518638343593
+  - 25.502399999999998
+  - 26.9192
+  - 7.7694239475990745
+  - 6.7669999999999995
+  - 2.388823081474559
+  - 1.439856
+right:
+  joints:
+  - right_joint1
+  - right_joint2
+  - right_joint3
+  - right_joint4
+  - right_joint5
+  - right_joint6
+  - right_joint7
+  base_link: arm_carriage
+  tip_link: right_link7
+  gravity_in_base:
+  - 0.0
+  - 0.0
+  - -9.81
+  gravity_in_root: true
+  scale: 0.1
+  max_effort_nm:
+  - 127.51199999999999
+  - 127.51199999999999
+  - 134.596
+  - 101.156
+  - 33.835
+  - 11.795590817017363
+  - 7.19928
+  max_effort_rate_nm_s:
+  - 25.502399999999998
+  - 25.502399999999998
+  - 26.9192
+  - 20.2312
+  - 6.7669999999999995
+  - 2.3591181634034726
+  - 1.439856

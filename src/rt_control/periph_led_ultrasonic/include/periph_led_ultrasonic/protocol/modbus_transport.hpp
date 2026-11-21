@@ -15,6 +15,8 @@ inline constexpr size_t kLedControllerCount{6U};
 void validate_endpoint(int64_t port, int64_t unit, int64_t timeout_ms);
 void validate_led_config(
   const std::vector<int64_t> & ports, const std::vector<int64_t> & addresses, int64_t timeout_ms);
+// Idle time between consecutive requests on one gateway port: 0..1000 ms.
+void validate_request_gap(int64_t gap_ms);
 uint8_t brightness(float value);
 inline constexpr std::array<uint8_t, 4> led_exit_color(bool abnormal)
 {

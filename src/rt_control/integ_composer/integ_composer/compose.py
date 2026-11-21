@@ -12,6 +12,7 @@ import yaml
 from .bindings import bind_parameters
 from .model import ARTIFACT, Composed
 from .parameter_sources import controller_parameters
+from .gravity_selection import select_gravity, validate_gravity_parameters
 from .renderer_registry import render_checked, select_renderer
 from .self_check import SelfCheckFailed, entries as self_check_entries
 from .schema.cross_checks import (
@@ -51,6 +52,7 @@ def compose(
     runtime_dir,
     use_mock_hardware=True,
     jtc_only=False,
+    gravity_feedforward=False,
     require_manifest_ready=False,
     package_share=get_package_share_directory,
     sync_mode="",
@@ -70,6 +72,7 @@ def compose(
     )
     manifest_links(data, config_root)
     runtime_admission(data, use_mock_hardware, require_manifest_ready)
+    select_gravity(data, gravity_feedforward)
     naming = load_yaml(integration_share / "config/interface_naming.yaml")
     robot, robot_model, model_limits = _robot_skeleton(
         data, robot_variant, use_mock_hardware, naming, package_share
@@ -103,7 +106,9 @@ def compose(
         runtime_files=runtime_files,
         startup_id=startup_id,
         model_limits=model_limits,
+        model_description=ET.tostring(robot, encoding="unicode"),
     )
+    validate_gravity_parameters(data, controllers)
     recorders = _add_recorder(
         controllers, data["deployment"], robot, staged, selected_names, bindings
     )
@@ -124,6 +129,11 @@ def compose(
         selected_names,
         bindings,
     )
+    peripherals = _optional_peripherals(
+        data["deployment"], control_scope, use_mock_hardware, config_root / "units" / machine_unit, files
+    )
+    if peripherals:
+        lifecycle["optional_peripherals"] = peripherals
     if staged:
         # Consumed by the generic scope launcher and its orderly shutdown.
         files["lifecycle.yaml"] = yaml.safe_dump(lifecycle, sort_keys=False)
@@ -224,6 +234,8 @@ def _render_modules(data, robot_model, runtime, use_mock_hardware, sync_mode, sc
         }
         if sync_mode:
             request["sync_mode"] = sync_mode
+        if name == data.get("gravity_module"):
+            request["gravity_feedforward"] = True
         result = render_checked(renderer, request, schemas, config_root)
         if "hardware_system_id" in scope:
             result = {**result, "hardware_system_id": scope["hardware_system_id"]}
@@ -277,6 +289,7 @@ def _controllers(
     runtime_files,
     startup_id,
     model_limits,
+    model_description,
 ):
     """controllers.yaml content, controller order and per-start runtime parameter keys."""
     manifest, scope = data["manifest"], data["scope"]
@@ -325,7 +338,7 @@ def _controllers(
         "selected": selected_names,
         "tags": {name: bindings[name].get("tags", []) for name in selected_names},
         "naming": naming,
-        "runtime_values": {"startup_id": startup_id},
+        "runtime_values": {"startup_id": startup_id, "robot_description": model_description},
         "runtime_parameters": runtime_parameters,
         "runtime_dir": str(runtime),
         "runtime_files": runtime_files,
@@ -470,6 +483,34 @@ def _mode_controllers(order, bindings):
         if any(alternate in names for names in tags.values()):
             return [name for name, names in tags.items() if names & group]
     return []
+
+
+def _optional_peripherals(deployment, control_scope, use_mock_hardware, unit_root, files):
+    """Unit peripheral nodes for the scope launcher; they never gate readiness or preflight.
+
+    A peripheral offline at start only reports through its own status. The node package is an
+    integ_bringup exec dependency, so a missing executable is a release error, not a fact here.
+    """
+    if use_mock_hardware:
+        return []
+    result = []
+    for item in deployment.get("optional_peripherals", []):
+        if control_scope not in item["scopes"]:
+            continue
+        if any(entry["name"] == item["name"] for entry in result):
+            raise ValueError(f"Duplicate optional peripheral: {item['name']}")
+        config = load_yaml(resolve_share_path(unit_root, item["config_file"]))
+        filename = f"peripherals/{item['name']}.yaml"
+        files[filename] = yaml.safe_dump(config, sort_keys=False)
+        result.append(
+            {
+                "name": item["name"],
+                "package": item["package"],
+                "executable": item["executable"],
+                "config_file": filename,
+            }
+        )
+    return result
 
 
 def _lifecycle(
