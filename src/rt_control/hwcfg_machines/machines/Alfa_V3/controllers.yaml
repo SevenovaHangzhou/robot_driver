@@ -177,6 +177,20 @@ controllers:
         policy: base_motion
         path: mode_service
         as: mode_service
+  suspension_command_controller:
+    module: bench_suspension
+    name: suspension_command_controller
+    plugin: forward_command_controller/MultiInterfaceForwardCommandController
+    package: forward_command_controller
+    actuator_groups:
+    - pp
+    required_state_modules: []
+    # Bench command path until the public interface exists (ELECTRI-224): one Float64MultiArray
+    # on ~/commands in the drive adapter's command order; a new target needs a new sequence.
+    # Activated by enable_manager after the axis is enabled, deactivated on disable.
+    tags:
+    - enable_target
+    parameters: []
   joint_state_broadcaster:
     module: arms
     name: joint_state_broadcaster

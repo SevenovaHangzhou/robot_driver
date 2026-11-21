@@ -27,3 +27,9 @@ families:
       passive: bluepoint_p140000100
     certified_modes: []
     interface_contract: bluepoint_wrench_input
+  tongyi:
+    profiles:
+      pp: tongyi_xmc_esc
+    position_counts_field: motor_encoder_counts_per_revolution
+    certified_modes:
+    - 1

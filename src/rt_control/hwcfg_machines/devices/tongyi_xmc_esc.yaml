@@ -1,0 +1,13 @@
+schema_version: 1
+kind: device
+status: draft
+verified: false
+authorities:
+  identity: ESI V3-DOC-2026-023 (XMC_ESC_250325) = .40 ring 18 readback 2026-11-17 (HW 1.0, SW 5.11)
+  motor_encoder_counts_per_revolution: user 2026-11-17 (vendor), 65535 counts per motor turn
+pending_facts:
+- motor model, rated/peak current and force (6073/6075 read back 0)
+- units of 0x606C, 0x6078, 0x2300/0x2301 and 0x6079
+- brake release/engage delays and power-loss behaviour as set in the vendor tool
+family: tongyi
+motor_encoder_counts_per_revolution: 65535

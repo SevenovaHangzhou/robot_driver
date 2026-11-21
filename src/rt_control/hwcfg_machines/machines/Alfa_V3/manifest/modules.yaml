@@ -246,3 +246,26 @@ modules:
     config_file: machines/Alfa_V3/bench_right_arm.yaml
     device_refs:
     - devices/zeroerr_erob_model_tbd.yaml
+  # Bench test of the active-suspension drive on the arms' master; not a functional module.
+  bench_suspension:
+    role: actuator
+    transport: ethercat
+    status: draft
+    instance_count: 1
+    actuator_count: 1
+    sensor_count: 0
+    mode_groups:
+    - name: pp
+      count: 1
+      mode_of_operation: 1
+      interface: position
+      certified: false
+    per_instance_mode_groups:
+      pp: 1
+    requires: []
+    sensor_bindings: []
+    pending_facts:
+    - brake and communication-loss behaviour validated on the bench
+    config_file: machines/Alfa_V3/bench_suspension.yaml
+    device_refs:
+    - devices/tongyi_xmc_esc.yaml
