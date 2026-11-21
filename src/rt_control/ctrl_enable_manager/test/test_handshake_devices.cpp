@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ctrl_enable_manager/enable_manager_controller.hpp"
+#include "motion_group_parameters.hpp"
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
@@ -145,7 +146,7 @@ public:
         "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{});
     }
     rclcpp::NodeOptions options;
-    options.parameter_overrides(parameters);
+    options.parameter_overrides(test::grouped(parameters, "head"));
     controller_ = std::make_unique<EnableManagerController>();
     ASSERT_EQ(
       controller_->init("handshake_test", "", options), controller_interface::return_type::OK);

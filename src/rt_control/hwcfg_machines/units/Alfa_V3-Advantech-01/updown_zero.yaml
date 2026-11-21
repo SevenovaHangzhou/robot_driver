@@ -1,0 +1,18 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: true
+authorities:
+  source: user 2026-11-22 (ELECTRI-242) - raw 0x6064 -12503 with the carriage 0.371 m above the bottom,
+    tape-measured; zero_counts is the raw count at joint 0 (the top), -12503 + (1.05 - 0.371) m x
+    13107000 counts/m = 8887150 (5 mm and 65535 counts per motor turn)
+pending_facts:
+- re-measured zero after the first enabled move (user 2026-11-22, to be recalibrated)
+robot_variant: Alfa_V3
+module: updown
+spec:
+  confirmed_by: user
+  captured_utc: '2026-11-22T00:00:00+00:00'
+  axes:
+  - ring_position: 1
+    zero_counts: 8887150

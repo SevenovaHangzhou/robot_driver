@@ -233,9 +233,26 @@ def _evaluate(kind, source, name, binding, env):
     raise ValueError(f"Unsupported parameter source: {kind}")
 
 
+def _motion_groups(name, binding, env):
+    """One nested parameter group per motion group whose members include an activatable
+    controller; controller sources in a group only see that group's members."""
+    result = {}
+    for template in binding.get("motion_groups", []):
+        group = template["name"]
+        members = [item for item in env["selected"] if env["motion_groups"].get(item) == group]
+        if not any("enable_target" in env["tags"][item] for item in members):
+            continue
+        group_binding = {**binding, "parameters": template["parameters"]}
+        group_binding.pop("motion_groups")
+        result[group] = controller_parameters(
+            f"{name}.{group}", group_binding, {**env, "selected": members}
+        )
+    return {"motion_groups": list(result), **result} if result else {}
+
+
 def controller_parameters(name, binding, env):
     """Merge sources in order. A key from two sources has two authorities: reject it."""
-    result = {}
+    result = _motion_groups(name, binding, env)
     for source in binding.get("parameters", []):
         kinds = [kind for kind in KINDS if kind in source]
         if len(kinds) != 1:

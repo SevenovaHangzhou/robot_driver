@@ -22,6 +22,7 @@ controllers:
     required_state_modules:
     - swerve_encoders
     # Activated by enable_manager after every batch is confirmed; reports latched faults.
+    motion_group: base
     tags:
     - enable_target
     - fault_reporting
@@ -104,11 +105,6 @@ controllers:
         transform: lengths
         as: enable_batch_sizes
     - controllers:
-        tag: enable_target
-        select: first
-        default: ''
-        as: motion_controller
-    - controllers:
         tag: enable_companion
         select: all
         optional: true
@@ -134,49 +130,71 @@ controllers:
         format: /{name}/fault_stop
         optional: true
         as: motion_fault_topic
-    - controllers:
-        tag: rolling
-        select: first
-        default: ''
-        as: rolling_controller
-    - when_policy: motion
-      policy:
-        name: motion
-        path: joints
-        as: motion_joints
-    - when_policy: motion
-      policy:
-        name: motion
-        path: enable_manager
-    - when_policy: motion
-      interface:
-        policy: motion
-        path: mode_service
-        optional: true
-        as: mode_service
+    # One parameter group per motion group with an activatable controller in the scope
+    # (motion_groups: [...], then <group>.<name>). Controller sources choose among the group's
+    # members only; the arms and chassis groups switch modes independently.
+    motion_groups:
+    - name: arms
+      parameters:
+      - controllers:
+          tag: enable_target
+          select: first
+          as: motion_controller
+      - controllers:
+          tag: rolling
+          select: first
+          optional: true
+          as: rolling_controller
+      - when_policy: motion
+        policy:
+          name: motion
+          path: joints
+          as: motion_joints
+      - when_policy: motion
+        policy:
+          name: motion
+          path: enable_manager
+      - when_policy: motion
+        interface:
+          policy: motion
+          path: mode_service
+          optional: true
+          as: mode_service
     # Velocity-mode group (chassis): the wheel trajectory controller and the switched drives.
-    - when_policy: base_motion
-      controllers:
-        tag: base_trajectory
-        select: first
-        as: trajectory_controller
-    - exports:
-        name: mode_switching_joints
-        as: mode_switch_joints
-    - when_policy: base_motion
-      policy:
-        name: base_motion
-        path: joints
-        as: motion_joints
-    - when_policy: base_motion
-      policy:
-        name: base_motion
-        path: enable_manager
-    - when_policy: base_motion
-      interface:
-        policy: base_motion
-        path: mode_service
-        as: mode_service
+    - name: base
+      parameters:
+      - controllers:
+          tag: enable_target
+          select: first
+          as: motion_controller
+      - when_policy: base_motion
+        controllers:
+          tag: base_trajectory
+          select: first
+          as: trajectory_controller
+      - exports:
+          name: mode_switching_joints
+          as: mode_switch_joints
+      - when_policy: base_motion
+        policy:
+          name: base_motion
+          path: joints
+          as: motion_joints
+      - when_policy: base_motion
+        policy:
+          name: base_motion
+          path: enable_manager
+      - when_policy: base_motion
+        interface:
+          policy: base_motion
+          path: mode_service
+          as: mode_service
+    - name: suspension
+      parameters:
+      - controllers:
+          tag: enable_target
+          select: first
+          as: motion_controller
   suspension_command_controller:
     module: bench_suspension
     name: suspension_command_controller
@@ -188,6 +206,7 @@ controllers:
     # Bench command path until the public interface exists (ELECTRI-224): one Float64MultiArray
     # on ~/commands in the drive adapter's command order; a new target needs a new sequence.
     # Activated by enable_manager after the axis is enabled, deactivated on disable.
+    motion_group: suspension
     tags:
     - enable_target
     parameters: []

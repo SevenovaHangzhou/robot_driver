@@ -127,7 +127,8 @@ def test_mock_scope_enables_one_pp_axis_and_its_command_controller(shares, tmp_p
     assert result.lifecycle["bus_locks"] == ["ethercat-master-0"]
     enable = result.controllers["enable_manager"]["ros__parameters"]
     assert enable["enable_batch_joint_names"] == ["suspension"]
-    assert enable["motion_controller"] == "suspension_command_controller"
+    assert enable["motion_groups"] == ["suspension"]
+    assert enable["suspension"] == {"motion_controller": "suspension_command_controller"}
     assert enable["al_state_interfaces"] == ["ethercat_slave_18/al_state"]
     command = result.controllers["suspension_command_controller"]["ros__parameters"]
     assert command == {

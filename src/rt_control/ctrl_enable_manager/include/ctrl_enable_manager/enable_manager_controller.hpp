@@ -62,6 +62,8 @@ private:
   // Motion axes of the mode switch: motion_joints, at most kMaxMotionAxes. The per-axis
   // parameter defaults cover the dual arm.
   static constexpr std::size_t kMaxMotionAxes = 16U;
+  // Motion groups switch modes independently (e.g. the arms and the chassis); one enable state.
+  static constexpr std::size_t kMaxMotionGroups = 4U;
   static constexpr std::size_t kDualArmAxisCount = 14U;
   // CiA402 0x6060 values the mode switch writes to the switched drives (mode_switch_joints).
   static constexpr std::int16_t kCspMode = 8;
@@ -181,6 +183,8 @@ private:
   // standstill admits a switch, and the drives whose operation mode follows the controller set.
   struct MotionGroup
   {
+    // Parameter prefix and the namespace of the group's standstill service.
+    std::string name;
     std::string default_controller;
     std::string rolling_controller;
     // Velocity-mode groups (the swerve chassis): default_controller runs VELOCITY_READY and this
@@ -193,7 +197,11 @@ private:
     std::atomic_bool callback_active{false};
     std::atomic_bool abort_requested{false};
 
+    // The group's own controllers (default, then the alternate); companions are not listed.
+    std::vector<std::string> controllers;
     std::vector<std::string> joint_names;
+    // Index of the first position state interface; the shared EtherCAT age follows all groups.
+    std::size_t state_offset{0U};
     // Realtime writers and service readers share these; the doubles must stay lock-free.
     std::array<std::atomic<double>, kMaxMotionAxes> sample_positions{};
     std::atomic<double> sample_feedback_age_ms{0.0};
@@ -317,6 +325,19 @@ private:
   // Requests the drive mode for `mode`, then waits until every switched drive reports it.
   bool switchDriveModes(MotionGroup & group, ControlMode mode);
   bool configureDriveModeSwitching(MotionGroup & group);
+  bool configureMotionGroups();
+  bool configureMotionGroup(MotionGroup & group);
+  void createMotionGroupEndpoints(MotionGroup & group);
+  // Enable/disable plan over every group (each in its default mode) and the companions.
+  bool controllerRunsEnabled(const std::string & name) const;
+  SwitchResult buildEnableSwitchRequest(
+    const controller_manager_msgs::srv::ListControllers::Response & states, bool activate,
+    controller_manager_msgs::srv::SwitchController::Request & request) const;
+  bool enableStateMatches(
+    const controller_manager_msgs::srv::ListControllers::Response & states, bool activate) const;
+  void storeGroupModes(ControlMode mode) noexcept;
+  void storeEnabledGroupModes() noexcept;
+  void abortModeSwitches() noexcept;
   bool bindDriveModeCommands(MotionGroup & group);
   void writeDriveModes(MotionGroup & group) noexcept;
   bool runningModeConfirmed(std::size_t axis) const noexcept;
@@ -489,7 +510,11 @@ private:
   bool enable_only_{false};  // Derived from the configured controller set.
   std::vector<std::string> managed_controllers_;
   std::vector<std::string> companion_controllers_;
-  MotionGroup motion_group_;
+  std::array<MotionGroup, kMaxMotionGroups> motion_groups_{};
+  std::size_t motion_group_count_{0U};
+  // Managed axes whose drive mode a group's mode switch changes (any group).
+  std::vector<std::uint8_t> drive_switch_axis_;
+  std::size_t motion_age_state_index_{0U};
 
   rclcpp::CallbackGroup::SharedPtr enable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr disable_callback_group_;

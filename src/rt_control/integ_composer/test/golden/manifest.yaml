@@ -502,6 +502,15 @@ arch-base-control-mode:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+motion_groups_regeneration:
+  reason: 'ELECTRI-236 user decision 2026-11-22: enable_manager supports several motion groups (arms,
+    chassis) that switch modes independently; its parameters carry motion_groups plus a nested group
+    per member set, and lifecycle lists mode_controller_groups'
+  method: only enable_manager.ros__parameters changed - motion_controller, rolling_controller,
+    mode_service, motion_joints and mode_switch_* moved under the group (arms, or head for head_only)
+    with motion_groups added; empty controller names dropped; stationary cases only drop the two empty
+    names. runtime/lifecycle.yaml mode_controllers became mode_controller_groups. Every other value is
+    unchanged
 description_updown_limits_regeneration:
   reason: 'ELECTRI-241 2026-11-22: robot_description main 09a7ca4 (tree b13cd94) - updown -1.05..0 m and
     0.1666 m/s (user 2026-11-22), with the upstream commits since 98d498e: active suspension joint,
@@ -514,5 +523,7 @@ description_updown_limits_regeneration:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+  - stationary-mock
+  - stationary-real
   - head-mock
   - head-real

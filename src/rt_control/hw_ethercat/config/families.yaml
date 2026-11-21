@@ -239,7 +239,7 @@ families:
     certified_modes:
     - 8
   xmc:
-    identity_profile: xmc_updown_sw511
+    identity_profile: xmc_esc_sw511
     interface_contract: cia402_position
     certified_modes:
     - 8

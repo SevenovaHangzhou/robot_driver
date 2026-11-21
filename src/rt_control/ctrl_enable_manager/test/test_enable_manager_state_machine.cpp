@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include "ctrl_enable_manager/enable_manager_controller.hpp"
+#include "motion_group_parameters.hpp"
 
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/loaned_command_interface.hpp"
@@ -103,28 +104,40 @@ public:
   static SwitchResult switchJtc(Controller & c, bool a) { return c.switchJtc(a); }
   static void setControlMode(Controller & c, ControlMode mode)
   {
-    c.motion_group_.current_mode.store(mode);
+    c.motion_groups_[0].current_mode.store(mode);
   }
   static ControlMode controlMode(const Controller & c)
   {
-    return c.motion_group_.current_mode.load();
+    return c.motion_groups_[0].current_mode.load();
   }
   static ControlMode detectControlMode(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states)
   {
-    return c.detectControlMode(c.motion_group_, states);
+    return c.detectControlMode(c.motion_groups_[0], states);
   }
   static ModeSwitchState classifyModeSwitchState(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states,
     ControlMode source, ControlMode target)
   {
-    return c.classifyModeSwitchState(c.motion_group_, states, source, target);
+    return c.classifyModeSwitchState(c.motion_groups_[0], states, source, target);
   }
   static SwitchResult buildControllerSwitchRequest(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states,
     ControlMode target, controller_manager_msgs::srv::SwitchController::Request & request)
   {
-    return c.buildControllerSwitchRequest(c.motion_group_, states, target, request);
+    return c.buildControllerSwitchRequest(c.motion_groups_[0], states, target, request);
+  }
+  static SwitchResult buildEnableSwitchRequest(
+    const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states,
+    bool activate, controller_manager_msgs::srv::SwitchController::Request & request)
+  {
+    return c.buildEnableSwitchRequest(states, activate, request);
+  }
+  static bool enableStateMatches(
+    const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states,
+    bool activate)
+  {
+    return c.enableStateMatches(states, activate);
   }
   static bool waitForControllerManagerServices(Controller & c, std::chrono::milliseconds timeout)
   {
@@ -181,31 +194,31 @@ public:
   using ModeRes = std::shared_ptr<EnableManagerController::ModeService::Response>;
   static void handleSetMode(Controller & c, ModeReq q, ModeRes s)
   {
-    c.handleSetMode(c.motion_group_, q, s);
+    c.handleSetMode(c.motion_groups_[0], q, s);
   }
   static void handleJtcState(
     Controller & c, const control_msgs::msg::JointTrajectoryControllerState::SharedPtr & message)
   {
-    c.handleJtcState(c.motion_group_, message);
+    c.handleJtcState(c.motion_groups_[0], message);
   }
   static auto confirmStandstill(Controller & c)
   {
     auto response = std::make_shared<std_srvs::srv::Trigger::Response>();
     c.handleConfirmStandstill(
-      c.motion_group_, std::make_shared<std_srvs::srv::Trigger::Request>(), response);
+      c.motion_groups_[0], std::make_shared<std_srvs::srv::Trigger::Request>(), response);
     return response;
   }
   using ActualSample = EnableManagerController::ActualSample;
   static bool stableActualInterval(
     const Controller & c, const ActualSample & window_start, const ActualSample & current)
   {
-    return c.stableActualInterval(c.motion_group_, window_start, current);
+    return c.stableActualInterval(c.motion_groups_[0], window_start, current);
   }
   static void handleRollingState(
     Controller & c,
     const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr & message)
   {
-    c.handleRollingState(c.motion_group_, message);
+    c.handleRollingState(c.motion_groups_[0], message);
   }
 };
 
@@ -353,7 +366,7 @@ public:
     for (const auto & parameter : additional_parameters) {
       addOrReplaceParameter(parameters, parameter);
     }
-    options.parameter_overrides(parameters);
+    options.parameter_overrides(test::grouped(parameters, "arms"));
     options.allow_undeclared_parameters(true);
     options.automatically_declare_parameters_from_overrides(true);
 
@@ -649,7 +662,7 @@ public:
 TEST_F(EnableManagerFixture, ConfigureRejectsMissingExplicitTopology)
 {
   rclcpp::NodeOptions options;
-  options.parameter_overrides({rclcpp::Parameter("update_rate", 1000)});
+  options.parameter_overrides(test::grouped({rclcpp::Parameter("update_rate", 1000)}, "arms"));
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
 
@@ -701,12 +714,14 @@ TEST_F(EnableManagerFixture, MotionModeTakesItsAxisCountFromMotionJoints)
   const auto configure_with = [&joints](const std::vector<double> & per_axis) {
     EnableManagerController c;
     rclcpp::NodeOptions opts;
-    opts.parameter_overrides(parametersWithFixtureTopology(
-      {rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
-       rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
-       rclcpp::Parameter("motion_joints", joints),
-       rclcpp::Parameter("mode_switch_stable_velocity_thresholds", per_axis),
-       rclcpp::Parameter("mode_switch_takeover_tolerances", per_axis)}));
+    opts.parameter_overrides(test::grouped(
+      parametersWithFixtureTopology(
+        {rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
+         rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
+         rclcpp::Parameter("motion_joints", joints),
+         rclcpp::Parameter("mode_switch_stable_velocity_thresholds", per_axis),
+         rclcpp::Parameter("mode_switch_takeover_tolerances", per_axis)}),
+      "arms"));
     opts.allow_undeclared_parameters(true);
     opts.automatically_declare_parameters_from_overrides(true);
     EXPECT_EQ(c.init("motion_axis_count", "", opts), controller_interface::return_type::OK);
@@ -852,7 +867,7 @@ TEST_F(EnableManagerFixture, MotionSwitchPlanActivatesOnlyDefaultAndStopsEveryWr
   EXPECT_THAT(stop.deactivate_controllers, ::testing::ElementsAre("rolling_trajectory_controller"));
 }
 
-TEST_F(EnableManagerFixture, CompanionsStayActiveAcrossBothModesAndStopOnDisable)
+TEST_F(EnableManagerFixture, CompanionsFollowEnableButNotTheGroupModeSwitch)
 {
   initAndConfigure(
     "companion_modes",
@@ -870,15 +885,17 @@ TEST_F(EnableManagerFixture, CompanionsStayActiveAcrossBothModesAndStopOnDisable
     states.controller.push_back(state);
   }
   controller_manager_msgs::srv::SwitchController::Request request;
+  // Enable: the group's default controller and the companions.
   EXPECT_EQ(
-    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kFjtReady, request),
-    SwitchResult::kSuccess);
+    Access::buildEnableSwitchRequest(*controller_, states, true, request), SwitchResult::kSuccess);
   EXPECT_THAT(
     request.activate_controllers,
     ::testing::ElementsAre("whole_body_jtc", "head_position_controller"));
   states.controller[0].state = "active";
   states.controller[2].state = "active";
+  EXPECT_TRUE(Access::enableStateMatches(*controller_, states, true));
   EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kFjtReady);
+  // A mode switch only moves the group's own controllers.
   EXPECT_EQ(
     Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kRollingReady, request),
     SwitchResult::kSuccess);
@@ -894,20 +911,20 @@ TEST_F(EnableManagerFixture, CompanionsStayActiveAcrossBothModesAndStopOnDisable
   EXPECT_THAT(request.activate_controllers, ::testing::ElementsAre("whole_body_jtc"));
   EXPECT_THAT(
     request.deactivate_controllers, ::testing::ElementsAre("rolling_trajectory_controller"));
+  // Disable: everything the manager owns.
   EXPECT_EQ(
-    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kDisabled, request),
-    SwitchResult::kSuccess);
+    Access::buildEnableSwitchRequest(*controller_, states, false, request), SwitchResult::kSuccess);
   EXPECT_THAT(
     request.deactivate_controllers,
     ::testing::ElementsAre("rolling_trajectory_controller", "head_position_controller"));
   EXPECT_TRUE(request.activate_controllers.empty());
-  // A lost companion cannot be reported as a successful arm mode switch.
+  // A lost companion fails the enabled-state check; the group's own mode is still known.
   states.controller[2].state = "inactive";
-  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kRestartRequired);
+  EXPECT_FALSE(Access::enableStateMatches(*controller_, states, true));
+  EXPECT_EQ(Access::detectControlMode(*controller_, states), ControlMode::kRollingReady);
   states.controller.pop_back();
   EXPECT_EQ(
-    Access::buildControllerSwitchRequest(*controller_, states, ControlMode::kDisabled, request),
-    SwitchResult::kFailed);
+    Access::buildEnableSwitchRequest(*controller_, states, false, request), SwitchResult::kFailed);
 }
 
 TEST_F(EnableManagerFixture, ModeServiceSwitchesWithoutWaitingForRollingState)
@@ -1041,10 +1058,10 @@ TEST_F(EnableManagerFixture, EnableOnlyCompletesEnableAndDisableWithoutControlle
   for (std::size_t axis = 0; axis < kAxes; ++axis) {
     EXPECT_EQ(command(axis), kCwZero);
   }
-  EXPECT_FALSE(
-    controller_->get_node()
-      ->set_parameter(rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")))
-      .successful);
+  EXPECT_FALSE(controller_->get_node()
+                 ->set_parameter(test::groupedParameter(
+                   rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")), "arms"))
+                 .successful);
 }
 
 TEST_F(EnableManagerFixture, ExplicitDisabledTerminalPolicyDoesNotNeedAnEmptyYamlArray)
@@ -1058,7 +1075,7 @@ TEST_F(EnableManagerFixture, ExplicitDisabledTerminalPolicyDoesNotNeedAnEmptyYam
       [](const auto & p) { return p.get_name() == "ready_to_switch_on_disable_terminal_joints"; }),
     parameters.end());
   rclcpp::NodeOptions options;
-  options.parameter_overrides(parameters);
+  options.parameter_overrides(test::grouped(parameters, "arms"));
   ASSERT_EQ(
     controller_->init("explicit_disabled_terminal", "", options),
     controller_interface::return_type::OK);
@@ -1071,6 +1088,7 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExpli
 {
   auto parameters = parametersWithFixtureTopology(
     {rclcpp::Parameter("disable_terminal_policy", std::string("switch_on_disabled")),
+     rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
      rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller"))});
   parameters.erase(
     std::remove_if(
@@ -1078,16 +1096,17 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotMakeAnOmittedJointPolicyExpli
       [](const auto & p) { return p.get_name() == "ready_to_switch_on_disable_terminal_joints"; }),
     parameters.end());
   rclcpp::NodeOptions options;
-  options.parameter_overrides(parameters);
+  options.parameter_overrides(test::grouped(parameters, "arms"));
   ASSERT_EQ(
     controller_->init("failed_terminal_policy", "", options),
     controller_interface::return_type::OK);
   EXPECT_EQ(
     controller_->on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::ERROR);
+  controller_->get_node()->set_parameter(test::groupedParameter(
+    rclcpp::Parameter("disable_terminal_policy", std::string("joint_list")), "arms"));
   controller_->get_node()->set_parameter(
-    rclcpp::Parameter("disable_terminal_policy", std::string("joint_list")));
-  controller_->get_node()->set_parameter(rclcpp::Parameter("rolling_controller", std::string("")));
+    test::groupedParameter(rclcpp::Parameter("rolling_controller", std::string("")), "arms"));
   EXPECT_EQ(
     controller_->on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::ERROR);
@@ -1188,7 +1207,8 @@ TEST_F(EnableManagerFixture, SuccessfulConfigureRejectsTopologyParameterUpdates)
     SCOPED_TRACE(attempted_update.get_name());
     const auto original = controller_->get_node()->get_parameter(attempted_update.get_name());
 
-    const auto result = controller_->get_node()->set_parameter(attempted_update);
+    const auto result =
+      controller_->get_node()->set_parameter(test::groupedParameter(attempted_update, "arms"));
 
     EXPECT_FALSE(result.successful);
     EXPECT_THAT(result.reason, ::testing::HasSubstr("configured"));
@@ -1199,21 +1219,23 @@ TEST_F(EnableManagerFixture, SuccessfulConfigureRejectsTopologyParameterUpdates)
 TEST_F(EnableManagerFixture, PreConfigureSetParametersCanSelectTopology)
 {
   rclcpp::NodeOptions options;
-  options.parameter_overrides({rclcpp::Parameter("update_rate", 1000)});
+  options.parameter_overrides(test::grouped({rclcpp::Parameter("update_rate", 1000)}, "arms"));
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
   ASSERT_EQ(
     controller_->init("enable_manager_preconfigure_topology", "", options),
     controller_interface::return_type::OK);
 
-  const auto result = controller_->get_node()->set_parameters_atomically({
-    rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
-    rclcpp::Parameter(
-      "enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
-    rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2, 1}),
-    rclcpp::Parameter(
-      "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{"axis_c"}),
-  });
+  const auto result = controller_->get_node()->set_parameters_atomically(test::grouped(
+    {
+      rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
+      rclcpp::Parameter(
+        "enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
+      rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2, 1}),
+      rclcpp::Parameter(
+        "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{"axis_c"}),
+    },
+    "arms"));
 
   ASSERT_TRUE(result.successful) << result.reason;
   ASSERT_EQ(
@@ -1227,13 +1249,15 @@ TEST_F(EnableManagerFixture, PreConfigureSetParametersCanSelectTopology)
 TEST_F(EnableManagerFixture, ExplicitEmptyDisableTerminalPolicyIsValid)
 {
   rclcpp::NodeOptions options;
-  options.parameter_overrides({
-    rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_a"}),
-    rclcpp::Parameter("enable_batch_joint_names", std::vector<std::string>{"axis_a"}),
-    rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{1}),
-    rclcpp::Parameter("ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{}),
-    rclcpp::Parameter("update_rate", 1000),
-  });
+  options.parameter_overrides(test::grouped(
+    {
+      rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_a"}),
+      rclcpp::Parameter("enable_batch_joint_names", std::vector<std::string>{"axis_a"}),
+      rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{1}),
+      rclcpp::Parameter("ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{}),
+      rclcpp::Parameter("update_rate", 1000),
+    },
+    "arms"));
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
 
@@ -1248,10 +1272,13 @@ TEST_F(EnableManagerFixture, ExplicitEmptyDisableTerminalPolicyIsValid)
 TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
 {
   rclcpp::NodeOptions options;
-  options.parameter_overrides(parametersWithFixtureTopology({
-    rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
-    rclcpp::Parameter("update_rate", 1000),
-  }));
+  options.parameter_overrides(test::grouped(
+    parametersWithFixtureTopology({
+      rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
+      rclcpp::Parameter("rolling_controller", std::string("rolling_trajectory_controller")),
+      rclcpp::Parameter("update_rate", 1000),
+    }),
+    "arms"));
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
   ASSERT_EQ(
@@ -1261,15 +1288,17 @@ TEST_F(EnableManagerFixture, FailedConfigureDoesNotFreezeTopologyParameters)
     controller_->on_configure(rclcpp_lifecycle::State()),
     controller_interface::CallbackReturn::ERROR);
 
-  const auto result = controller_->get_node()->set_parameters_atomically({
-    rclcpp::Parameter("rolling_controller", std::string("")),
-    rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
-    rclcpp::Parameter(
-      "enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
-    rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2, 1}),
-    rclcpp::Parameter(
-      "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{"axis_c"}),
-  });
+  const auto result = controller_->get_node()->set_parameters_atomically(test::grouped(
+    {
+      rclcpp::Parameter("rolling_controller", std::string("")),
+      rclcpp::Parameter("managed_joints", std::vector<std::string>{"axis_c", "axis_a", "axis_b"}),
+      rclcpp::Parameter(
+        "enable_batch_joint_names", std::vector<std::string>{"axis_a", "axis_b", "axis_c"}),
+      rclcpp::Parameter("enable_batch_sizes", std::vector<std::int64_t>{2, 1}),
+      rclcpp::Parameter(
+        "ready_to_switch_on_disable_terminal_joints", std::vector<std::string>{"axis_c"}),
+    },
+    "arms"));
 
   ASSERT_TRUE(result.successful) << result.reason;
   ASSERT_EQ(
@@ -1301,13 +1330,15 @@ TEST_F(EnableManagerFixture, ConfigureRejectsEmptyTopologyAndInvalidTerminalJoin
     const auto & topology = invalid_topologies[index];
     auto candidate = std::make_unique<EnableManagerController>();
     rclcpp::NodeOptions options;
-    options.parameter_overrides({
-      rclcpp::Parameter("managed_joints", topology.managed),
-      rclcpp::Parameter("enable_batch_joint_names", topology.flat_batches),
-      rclcpp::Parameter("enable_batch_sizes", topology.batch_sizes),
-      rclcpp::Parameter("ready_to_switch_on_disable_terminal_joints", topology.ready_terminal),
-      rclcpp::Parameter("update_rate", 1000),
-    });
+    options.parameter_overrides(test::grouped(
+      {
+        rclcpp::Parameter("managed_joints", topology.managed),
+        rclcpp::Parameter("enable_batch_joint_names", topology.flat_batches),
+        rclcpp::Parameter("enable_batch_sizes", topology.batch_sizes),
+        rclcpp::Parameter("ready_to_switch_on_disable_terminal_joints", topology.ready_terminal),
+        rclcpp::Parameter("update_rate", 1000),
+      },
+      "arms"));
     options.allow_undeclared_parameters(true);
     options.automatically_declare_parameters_from_overrides(true);
     ASSERT_EQ(
@@ -1323,7 +1354,7 @@ TEST_F(EnableManagerFixture, ActivateRejectsWrongInterfaceCount)
 {
   rclcpp::NodeOptions options;
   options.parameter_overrides(
-    parametersWithFixtureTopology({rclcpp::Parameter("update_rate", 1000)}));
+    test::grouped(parametersWithFixtureTopology({rclcpp::Parameter("update_rate", 1000)}), "arms"));
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
   ASSERT_EQ(
@@ -2497,8 +2528,8 @@ TEST_F(EnableManagerFixture, FixedModeConfigRejectsLengthZeroAndOutOfInt8Range)
         std::vector<std::int64_t>(kAxes, 128), std::vector<std::int64_t>(kAxes, -129)}) {
     EnableManagerController c;
     rclcpp::NodeOptions opts;
-    opts.parameter_overrides(
-      parametersWithFixtureTopology({rclcpp::Parameter("expected_modes", modes)}));
+    opts.parameter_overrides(test::grouped(
+      parametersWithFixtureTopology({rclcpp::Parameter("expected_modes", modes)}), "arms"));
     opts.allow_undeclared_parameters(true);
     opts.automatically_declare_parameters_from_overrides(true);
     ASSERT_EQ(c.init("bad_expected_modes", "", opts), controller_interface::return_type::OK);
@@ -2510,8 +2541,8 @@ TEST_F(EnableManagerFixture, FixedModeConfigRejectsLengthZeroAndOutOfInt8Range)
 TEST_F(FixedModeFixture, ExpectedModePolicyIsFrozenAndBindingsAreValidated)
 {
   bringUpFixed();
-  const auto result = controller_->get_node()->set_parameters_atomically(
-    {rclcpp::Parameter("expected_modes", std::vector<std::int64_t>(kAxes, 9))});
+  const auto result = controller_->get_node()->set_parameters_atomically(test::grouped(
+    {rclcpp::Parameter("expected_modes", std::vector<std::int64_t>(kAxes, 9))}, "arms"));
   EXPECT_FALSE(result.successful);
   controller_->on_deactivate(rclcpp_lifecycle::State());
   controller_->release_interfaces();
@@ -2684,9 +2715,11 @@ TEST_F(EnableManagerFixture, CompanionControllersSwitchWithTheTrajectoryControll
 TEST_F(EnableManagerFixture, CompanionControllersMustBeDistinctFromTheTrajectoryController)
 {
   rclcpp::NodeOptions options;
-  options.parameter_overrides(parametersWithFixtureTopology(
-    {rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
-     rclcpp::Parameter("companion_controllers", std::vector<std::string>{"whole_body_jtc"})}));
+  options.parameter_overrides(test::grouped(
+    parametersWithFixtureTopology(
+      {rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
+       rclcpp::Parameter("companion_controllers", std::vector<std::string>{"whole_body_jtc"})}),
+    "arms"));
   ASSERT_EQ(
     controller_->init("duplicate_companion", "", options), controller_interface::return_type::OK);
   EXPECT_EQ(
@@ -2851,8 +2884,10 @@ TEST(EmergencyStopInput, RegressedSequenceAndMalformedReleaseStop)
 TEST_F(EnableManagerFixture, EmergencyResponseRequiresDeploymentTimeout)
 {
   rclcpp::NodeOptions options;
-  options.parameter_overrides(parametersWithFixtureTopology(
-    {rclcpp::Parameter("update_rate", 1000), rclcpp::Parameter("emergency_stop_response", true)}));
+  options.parameter_overrides(test::grouped(
+    parametersWithFixtureTopology(
+      {rclcpp::Parameter("update_rate", 1000), rclcpp::Parameter("emergency_stop_response", true)}),
+    "arms"));
   options.allow_undeclared_parameters(true);
   options.automatically_declare_parameters_from_overrides(true);
   ASSERT_EQ(

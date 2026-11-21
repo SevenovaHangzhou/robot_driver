@@ -145,6 +145,14 @@ def test_head_confirmation_is_recorded_and_unconfirmed_data_is_rejected(shares, 
     compose(**arguments(shares, "head"), runtime_dir=tmp_path / "mock")
 
 
+def test_advantech_head_real_compose_uses_zlg_can2(shares, tmp_path):
+    # ELECTRI-234: the Advantech head is on the ZLG card's can2 (user 2026-11-22).
+    args = arguments(shares, "head")
+    args["machine_unit"] = "Alfa_V3-Advantech-01"
+    result = compose(**args, runtime_dir=tmp_path / "real", use_mock_hardware=False)
+    assert '<param name="can_interface">can2</param>' in result.robot_description
+
+
 def test_force_compose_never_runs_read_only_cli(shares, tmp_path, monkeypatch):
     def denied(*args, **kwargs):
         pytest.fail("Offline compose accessed ethercat CLI")
@@ -194,7 +202,7 @@ def test_head_sample_c_adapter_is_offline(shares, tmp_path, monkeypatch):
         "module": descriptor,
         "machine": load_yaml(data / descriptor["config_file"]),
         "devices": {path: load_yaml(data / path) for path in descriptor["device_refs"]},
-        "unit": load_yaml(next((data / "units").glob("*/head_zero.yaml"))),
+        "unit": load_yaml(data / "units/Alfa_V3-01/head_zero.yaml"),
         "deployment": load_yaml((data / "units/Alfa_V3-01/deployment.yaml")),
         "robot_model": {
             "joint_limits": yaml.safe_load(

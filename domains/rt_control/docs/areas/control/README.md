@@ -56,3 +56,5 @@
 [arm-control-20261027-01](records/2026-10-27-vacuum-pressure-display.md)#F1-F3：操作台右上角消费左右压力 ROS 话题，AI0=左、AI1=右，显示换算后的 kPa 表压；单路无效或超过 1 秒未更新清除数字，与泵阀和运动准入独立。107 项包测试、构建、质量门禁及真实页面只读验收通过（PASS，T2）。
 
 [control-20261118-01](records/2026-11-18-wheel-observations.md)#F1-F2：新增只读逐轮观测广播器 R-OUT-29（失能与轮子轨迹模式下照常发布）；打滑诊断与逐轮观测的 FL/FR/RL/RR 由标定坐标推出（研华 module_1..4 = FR/RR/FL/RL）。本机构建与包测试通过，mock 与实机未验（UNVERIFIED，T0）。
+
+[control-20261122-01](records/2026-11-22-motion-groups.md)#F1-F2：enable_manager 支持多个运动组（机械臂组、底盘组），各组独立切换模式、只检查本组静止；使能、失能、急停与故障整机一份；静止确认服务按组为 `~/<组>/confirm_standstill`。本机包测试通过，mock 与实机未验（UNVERIFIED，T0）。

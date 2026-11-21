@@ -122,8 +122,8 @@ def test_mock_scope_is_enable_only_with_staged_hardware(shares, tmp_path):
     assert enable["managed_joints"] == JOINTS
     assert enable["enable_batch_joint_names"] == JOINTS
     assert enable["enable_batch_sizes"] == [1] * 7
-    assert enable["motion_controller"] == ""
-    assert enable["rolling_controller"] == ""
+    # Stationary commissioning: no motion group, an enable-only manager.
+    assert "motion_groups" not in enable
     assert "expected_modes" not in enable
 
 
@@ -165,8 +165,9 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert jtc["joints"] == MODEL_JOINTS and jtc["command_interfaces"] == ["position"]
     assert jtc["trajectory_start_consistency_check"]["enabled"] is True
     enable = result.controllers["enable_manager"]["ros__parameters"]
-    assert enable["motion_controller"] == "left_arm_jtc"
-    assert enable["rolling_controller"] == ""
+    assert enable["motion_groups"] == ["arms"]
+    assert enable["arms"]["motion_controller"] == "left_arm_jtc"
+    assert "rolling_controller" not in enable["arms"]
     assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
     assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
     # Velocity follows the URDF; acceleration follows the user-selected RT policy.
@@ -199,11 +200,12 @@ def test_dual_arm_head_uses_one_enable_set_and_an_exclusive_arm_pair(shares, tmp
     enable = result.controllers["enable_manager"]["ros__parameters"]
     assert enable["emergency_stop_response"] is True
     assert enable["emergency_stop_timeout_ms"] == 0
-    assert enable["motion_controller"] == "dual_arm_jtc"
-    assert enable["rolling_controller"] == ("" if jtc_only else "dual_arm_rolling")
+    assert enable["motion_groups"] == ["arms"]
+    assert enable["arms"]["motion_controller"] == "dual_arm_jtc"
+    assert enable["arms"].get("rolling_controller") == (None if jtc_only else "dual_arm_rolling")
     assert enable["companion_controllers"] == ["head_position_controller"]
-    assert result.lifecycle.get("mode_controllers", []) == (
-        [] if jtc_only else ["dual_arm_jtc", "dual_arm_rolling"]
+    assert result.lifecycle.get("mode_controller_groups", []) == (
+        [] if jtc_only else [["dual_arm_jtc", "dual_arm_rolling"]]
     )
     assert "head_position_controller" in result.lifecycle["motion_controllers"]
     assert "head_position_controller" not in result.lifecycle["lifecycle_controllers"]

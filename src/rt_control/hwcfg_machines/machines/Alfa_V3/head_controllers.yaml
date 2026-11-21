@@ -27,8 +27,10 @@ enable_manager:
   ros__parameters:
     # The DaMiao plugin runs the enable sequence; the manager only requests it and,
     # once confirmed, activates the position controller.
-    motion_controller: head_position_controller
-    rolling_controller: ''
+    motion_groups:
+    - head
+    head:
+      motion_controller: head_position_controller
     diagnostic_joint_interfaces:
     - fault_code
     - mos_temperature
