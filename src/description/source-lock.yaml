@@ -1,9 +1,9 @@
 schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
-source_branch: codex/arm-peak-speed-backport
-source_revision: 7cb6f9bb2897f057cd1018f43feee082e5d3d705
-source_tree: a3a5b7f127a2b947c7a991a9884392b398ecae83
+source_branch: codex/arm-planning-acceleration
+source_revision: 3147e940c0ce5aab9d99494ba402de96736890e0
+source_tree: 950263087376d838b7aec5c171a72b1328378951
 imported_path: src/description/robot_description
 model_family: alfa_v3
 default_end_effector: mobile_proxy

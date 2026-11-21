@@ -54,98 +54,98 @@ joints:
     max_effort: 647.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 6.511125307490046
   left_joint2:
     type: revolute
     max_velocity_rad_s: 1.3089969389957472
     max_effort: 647.0
     lower_position_rad: -1.6057029118347832
     upper_position_rad: 2.129301687433082
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 6.511125307490046
   left_joint3:
     type: revolute
     max_velocity_rad_s: 1.3089969389957472
     max_effort: 484.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 6.511125307490046
   left_joint4:
     type: revolute
     max_velocity_rad_s: 1.7488199104983182
     max_effort: 459.0
     lower_position_rad: -2.530727415391778
     upper_position_rad: 2.530727415391778
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 8.698895524864938
   left_joint5:
     type: revolute
     max_velocity_rad_s: 3.1415926535897927
     max_effort: 204.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 15.62680545773123
   left_joint6:
     type: revolute
     max_velocity_rad_s: 3.1415926535897927
     max_effort: 107.0
     lower_position_rad: -1.9198621771937625
     upper_position_rad: 1.9198621771937625
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 15.62680545773123
   left_joint7:
     type: revolute
     max_velocity_rad_s: 3.1415926535897927
     max_effort: 36.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 15.62680545773123
   right_joint1:
     type: revolute
     max_velocity_rad_s: 1.3089969389957472
     max_effort: 647.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 6.511125307490046
   right_joint2:
     type: revolute
     max_velocity_rad_s: 1.3089969389957472
     max_effort: 647.0
     lower_position_rad: -2.129301687433082
     upper_position_rad: 1.6057029118347832
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 6.511125307490046
   right_joint3:
     type: revolute
     max_velocity_rad_s: 1.3089969389957472
     max_effort: 484.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 6.511125307490046
   right_joint4:
     type: revolute
     max_velocity_rad_s: 1.7488199104983182
     max_effort: 459.0
     lower_position_rad: -2.530727415391778
     upper_position_rad: 2.530727415391778
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 8.698895524864938
   right_joint5:
     type: revolute
     max_velocity_rad_s: 3.1415926535897927
     max_effort: 204.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 15.62680545773123
   right_joint6:
     type: revolute
     max_velocity_rad_s: 3.1415926535897927
     max_effort: 107.0
     lower_position_rad: -1.9198621771937625
     upper_position_rad: 1.9198621771937625
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 15.62680545773123
   right_joint7:
     type: revolute
     max_velocity_rad_s: 3.1415926535897927
     max_effort: 36.0
     lower_position_rad: -2.9670597283903604
     upper_position_rad: 2.9670597283903604
-    max_acceleration_rad_s2: 1.0471975511965976
+    max_acceleration_rad_s2: 15.62680545773123
   H1_joint:
     type: revolute
     max_velocity_rad_s: 5.0

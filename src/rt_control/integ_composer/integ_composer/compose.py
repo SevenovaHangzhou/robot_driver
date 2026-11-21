@@ -22,7 +22,7 @@ from .schema.cross_checks import (
     runtime_admission,
 )
 from .schema.manifest_load import load_machine
-from .schema.primitives import load_and_validate, load_yaml, resolve_share_path
+from .schema.primitives import load_and_validate, load_yaml, resolve_share_path, validate_data
 
 
 RECORDER_NAME = "runtime_log_recorder"
@@ -170,6 +170,12 @@ def _robot_skeleton(data, robot_variant, use_mock_hardware, naming, package_shar
         "joints": [joint.attrib["name"] for joint in model_robot.findall("joint")],
         "joint_limits": yaml.safe_load((model_share / variant["joint_limits_file"]).read_text()),
     }
+    validate_data(
+        robot_model["joint_limits"],
+        "model_joint_limits.schema.json",
+        Path(package_share("integ_composer")) / "schema",
+        model_share,
+    )
     # Joint limits for "model_limits" controller parameter sources, both owned by the model:
     # position and velocity from the URDF <limit>, acceleration from its joint limits file.
     model_limits = {}

@@ -19,7 +19,6 @@ parts:
 - manifest/bench_scopes.yaml
 robot_model:
   package: robot_description
-  source_revision: 2b0950f1a5009dda1e93d4737b2894ccefed3734
   variants:
     # Alfav3 dual arms on the deployed mobile base; no named poses or initial positions (user 2026-10-17).
     mobile_proxy:
@@ -52,11 +51,6 @@ layout:
   damiao_can:
     cycle_hz: 1000
 policy_refs:
-  arm_acceleration:
-    package: hwcfg_machines
-    file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
-    schema_package: ctrl_rolling_trajectory
-    schema: acceleration_limits.schema.json
   gravity:
     package: hwcfg_machines
     file: machines/Alfa_V3/policies/gravity_feedforward.yaml

@@ -95,24 +95,6 @@
                       "as": {
                         "type": "string",
                         "minLength": 1
-                      },
-                      "joint_order": {
-                        "type": "object",
-                        "properties": {
-                          "policy": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "path": {
-                            "type": "string",
-                            "minLength": 1
-                          }
-                        },
-                        "required": [
-                          "policy",
-                          "path"
-                        ],
-                        "additionalProperties": false
                       }
                     },
                     "required": [

@@ -168,15 +168,6 @@ def _evaluate(kind, source, name, binding, env):
         share = Path(env["package_share"](source["package"]))
         data = yaml.safe_load(resolve_share_path(share, source["file"]).read_text())
         value = _lookup(data, source["path"], env["context"])
-        if "joint_order" in source:
-            order = source["joint_order"]
-            joints = _lookup(env["policies"][order["policy"]], order["path"], env["context"])
-            if not isinstance(value, dict):
-                raise ValueError(f"Joint-ordered YAML source for {name} must be a mapping")
-            missing = [joint for joint in joints if joint not in value]
-            if missing:
-                raise ValueError(f"YAML source for {name} has no value for {missing}")
-            return [value[joint] for joint in joints]
         return value
     if kind == "policy":
         return _policy(source, env, binding, f"{name}:{source['name']}")
@@ -210,7 +201,7 @@ def _evaluate(kind, source, name, binding, env):
     if kind == "joint_values":
         return _joint_values(source, env)
     if kind == "model_limits":
-        # Joint limits have one owner: the robot model's URDF <limit>, in the order of a policy list.
+        # URDF position/velocity and companion acceleration limits share the model owner.
         joints = _lookup(env["policies"][source["policy"]], source["path"], env["context"])
         limits = env["model_limits"]
         missing = [joint for joint in joints if source["attribute"] not in limits.get(joint, {})]

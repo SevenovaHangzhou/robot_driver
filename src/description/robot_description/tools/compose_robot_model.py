@@ -87,6 +87,23 @@ def apply_arm_module_limits(model):
             'velocity_rad_s': velocities, 'effort_nm': efforts}
 
 
+def arm_planning_accelerations(source=None):
+    """Expand the model-owned planning constraints to both arms, in SI units."""
+    if source is None:
+        source = Path(__file__).resolve().parents[1]/'config/arm_motion_limits.yaml'
+    data = yaml.safe_load(Path(source).read_text())
+    if data.get('schema_version') != 1 or data.get('units') != 'deg/s^2':
+        raise ValueError('arm planning limits require schema 1 and deg/s^2')
+    limits = data.get('planning_acceleration', {})
+    if set(limits) != {f'joint{i}' for i in range(1, 8)}:
+        raise ValueError('arm planning limits require exactly joint1 through joint7')
+    for name, value in limits.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value) or value <= 0:
+            raise ValueError('invalid planning acceleration: '+name)
+    return {f'{side}_{name}': float(np.deg2rad(value))
+            for side in ('left', 'right') for name, value in limits.items()}
+
+
 def enclose_head_meshes(model, root, cell_size=.06):
     """Cover every source head-mesh triangle with a deterministic local sphere.
 
@@ -324,12 +341,13 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
             k['self_collision_ignore'][parent].append(child)
             k['self_collision_ignore'][child].append(parent)
     k['cspace']['default_joint_position'] = [0.0]*len(k['cspace']['joint_names'])
-    k['cspace']['max_acceleration'] = [10.0 if n=='updown' else float(np.pi/3)
+    arm_accelerations = arm_planning_accelerations()
+    k['cspace']['max_acceleration'] = [10.0 if n=='updown' else arm_accelerations[n]
                                        for n in k['cspace']['joint_names']]
     write_yaml(output, 'config/curobo/robot.yaml', {'kinematics': k})
 
-    # Current limits: actual URDF values; arm acceleration from the upstream
-    # control limit contract. Remaining research limits are not calibrated.
+    # Position/velocity/effort come from the URDF; planning acceleration has one
+    # model-owned source shared by execution and cuRobo. Remaining limits are not calibrated.
     limits = {'metadata': {'model_revision': MODEL_REV, 'status': 'software_model_for_review'}, 'joints': {}}
     for joint in model.findall('joint'):
         if joint.get('type')=='fixed':
@@ -344,7 +362,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
             limits['joints'][n].update({'lower_position_'+unit: float(lim.get('lower')),
                                       'upper_position_'+unit: float(lim.get('upper'))})
         if n.startswith(('left_joint','right_joint')):
-            limits['joints'][n]['max_acceleration_rad_s2'] = float(np.pi/3)
+            limits['joints'][n]['max_acceleration_rad_s2'] = arm_accelerations[n]
     write_yaml(output, 'config/joint_limits_alfav3_mobile.yaml', limits)
 
     # Preserve the upstream head joints in the semantic whole-body group.
@@ -367,6 +385,10 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
     variant_paths = {'canonical_urdf': entry, 'visual_urdf': 'urdf/variants/robot_visual.urdf',
         'collision_urdf': 'urdf/variants/robot_collision.urdf', 'curobo_config': 'config/curobo/robot.yaml',
         'curobo_spheres': sphere_path, 'fixed_body_boxes': box_path}
+    tracked_paths = {**variant_paths, 'joint_limits': 'config/joint_limits_alfav3_mobile.yaml',
+        'arm_motion_limits': 'config/arm_motion_limits.yaml'}
+    motion_source = Path(__file__).resolve().parents[1]/'config/arm_motion_limits.yaml'
+    (output/'config/arm_motion_limits.yaml').write_bytes(motion_source.read_bytes())
     manifest = {
         'revision': MODEL_REV, 'status': 'review_candidate', 'sources': {
             'github_description': {'commit': description_ref, 'urdf_sha256': sha(src)},
@@ -394,7 +416,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         'head_collision_fit': head_fit,
         'collision_scope': 'Imported arm/body radii are approximations, not certified conservative envelopes. New head spheres enclose assigned mesh triangles with a 0.5mm surface margin. No payload. Four boxes require an explicit backend; native sphere-only queries are incomplete.',
         'mesh_sources': source_files,
-        'artifacts': {n: {'path': path, 'sha256': sha((output/path).read_bytes())} for n,path in variant_paths.items()}}
+        'artifacts': {n: {'path': path, 'sha256': sha((output/path).read_bytes())} for n,path in tracked_paths.items()}}
     write_json(output, 'config/alfav3_mobile_manifest.json', manifest)
     write_yaml(output, 'config/model_variants.yaml', {'schema_version':1, 'revision':manifest['revision'], **variant_paths})
     write_json(output,'config/mesh_assets.json',{'entry':entry,'files':sorted(source_meshes),

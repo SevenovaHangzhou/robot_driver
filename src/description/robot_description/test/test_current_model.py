@@ -189,7 +189,7 @@ def test_limits_and_inertials():
             assert float(j.find('limit').get('effort'))==effort
             assert np.isclose(MANIFEST['arm_module_limits']['velocity_rad_s'][name],speed)
             assert MANIFEST['arm_module_limits']['effort_nm'][name]==effort
-            assert np.isclose(limits[name]['max_acceleration_rad_s2'],np.pi/3)
+            assert np.isfinite(limits[name]['max_acceleration_rad_s2']) and limits[name]['max_acceleration_rad_s2'] > 0
     for l in m.findall('link'):
         a=l.find('inertial')
         if a is None:continue
@@ -209,7 +209,12 @@ def test_regeneration_preserves_documented_module_limits():
     assert apply_arm_module_limits(model)==MANIFEST['arm_module_limits']
     assert structure(model)==original
     cspace=yaml.safe_load((ROOT/VARIANTS['curobo_config']).read_text())['kinematics']['cspace']
-    expected=[10.0 if name=='updown' else np.pi/3 for name in cspace['joint_names']]
+    from compose_robot_model import arm_planning_accelerations
+    acc=arm_planning_accelerations()
+    expected=[10.0 if name=='updown' else acc[name] for name in cspace['joint_names']]
+    limits=yaml.safe_load((ROOT/'config/joint_limits_alfav3_mobile.yaml').read_text())['joints']
+    for name, value in acc.items():
+        assert np.isclose(limits[name]['max_acceleration_rad_s2'], value, rtol=0, atol=1e-12)
     assert np.allclose(cspace['max_acceleration'],expected,rtol=0,atol=1e-12)
 
 def test_sphere_box_contract_and_references():
@@ -261,3 +266,28 @@ def test_fk_independent_parser():
         q={j.name:float(rng.uniform(-np.pi,np.pi) if j.type=='continuous' else rng.uniform(j.limit.lower,j.limit.upper)) for j in u.actuated_joints}
         u.update_cfg(q)
         for name,t in frames(m,q).items():assert np.allclose(t,u.get_transform(name),atol=1e-10),name
+
+
+@pytest.mark.parametrize('bad_value', [0, -1, float('inf'), float('nan'), True, '42'])
+def test_invalid_planning_acceleration_is_rejected(tmp_path, bad_value):
+    from compose_robot_model import arm_planning_accelerations
+    data=yaml.safe_load((ROOT/'config/arm_motion_limits.yaml').read_text())
+    data['planning_acceleration']['joint4']=bad_value
+    source=tmp_path/'limits.yaml'
+    source.write_text(yaml.safe_dump(data))
+    with pytest.raises(ValueError, match='invalid planning acceleration: joint4'):
+        arm_planning_accelerations(source)
+
+
+def test_planning_acceleration_changes_propagate_and_missing_joint_fails(tmp_path):
+    from compose_robot_model import arm_planning_accelerations
+    data=yaml.safe_load((ROOT/'config/arm_motion_limits.yaml').read_text())
+    data['planning_acceleration']['joint4']=180
+    source=tmp_path/'limits.yaml'
+    source.write_text(yaml.safe_dump(data))
+    values=arm_planning_accelerations(source)
+    assert values['left_joint4'] == values['right_joint4'] == np.pi
+    del data['planning_acceleration']['joint6']
+    source.write_text(yaml.safe_dump(data))
+    with pytest.raises(ValueError, match='exactly joint1 through joint7'):
+        arm_planning_accelerations(source)

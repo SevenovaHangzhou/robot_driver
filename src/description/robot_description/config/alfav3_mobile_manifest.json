@@ -3393,7 +3393,7 @@
     },
     "curobo_config": {
       "path": "config/curobo/robot.yaml",
-      "sha256": "816e863a3cc5a85bbcb4ee2d592c3cff752bddf81adcdd0f203e9c6526f1b75b"
+      "sha256": "6680f9e1420e2c494ac4957199d7f2bed1b55236f8e775d9f755018fc48f37f2"
     },
     "curobo_spheres": {
       "path": "config/curobo/collision_spheres.yaml",
@@ -3402,6 +3402,14 @@
     "fixed_body_boxes": {
       "path": "config/curobo/fixed_body_boxes.yaml",
       "sha256": "7d641eee29d3e46265447a5bbe3df109d7612bba353f0d32b49395ad8731879e"
+    },
+    "joint_limits": {
+      "path": "config/joint_limits_alfav3_mobile.yaml",
+      "sha256": "7b61c48456c9269d5b99b055039c33ed0c3d68bfe7af22b2b3910ba9857109c8"
+    },
+    "arm_motion_limits": {
+      "path": "config/arm_motion_limits.yaml",
+      "sha256": "7d99a02d68c88f6765b7ceb7d410bbb3ea43793a3a582aa730cbd94a66cec89c"
     }
   },
   "arm_module_limits": {
