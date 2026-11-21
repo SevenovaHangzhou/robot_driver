@@ -103,25 +103,28 @@ public:
   static SwitchResult switchJtc(Controller & c, bool a) { return c.switchJtc(a); }
   static void setControlMode(Controller & c, ControlMode mode)
   {
-    c.current_control_mode_.store(mode);
+    c.motion_group_.current_mode.store(mode);
   }
-  static ControlMode controlMode(const Controller & c) { return c.current_control_mode_.load(); }
+  static ControlMode controlMode(const Controller & c)
+  {
+    return c.motion_group_.current_mode.load();
+  }
   static ControlMode detectControlMode(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states)
   {
-    return c.detectControlMode(states);
+    return c.detectControlMode(c.motion_group_, states);
   }
   static ModeSwitchState classifyModeSwitchState(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states,
     ControlMode source, ControlMode target)
   {
-    return c.classifyModeSwitchState(states, source, target);
+    return c.classifyModeSwitchState(c.motion_group_, states, source, target);
   }
   static SwitchResult buildControllerSwitchRequest(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states,
     ControlMode target, controller_manager_msgs::srv::SwitchController::Request & request)
   {
-    return c.buildControllerSwitchRequest(states, target, request);
+    return c.buildControllerSwitchRequest(c.motion_group_, states, target, request);
   }
   static bool waitForControllerManagerServices(Controller & c, std::chrono::milliseconds timeout)
   {
@@ -176,29 +179,33 @@ public:
   static void handleResetFault(Controller & c, Req q, Res s) { c.handleResetFault(q, s); }
   using ModeReq = std::shared_ptr<EnableManagerController::ModeService::Request>;
   using ModeRes = std::shared_ptr<EnableManagerController::ModeService::Response>;
-  static void handleSetMode(Controller & c, ModeReq q, ModeRes s) { c.handleSetMode(q, s); }
+  static void handleSetMode(Controller & c, ModeReq q, ModeRes s)
+  {
+    c.handleSetMode(c.motion_group_, q, s);
+  }
   static void handleJtcState(
     Controller & c, const control_msgs::msg::JointTrajectoryControllerState::SharedPtr & message)
   {
-    c.handleJtcState(message);
+    c.handleJtcState(c.motion_group_, message);
   }
   static auto confirmStandstill(Controller & c)
   {
     auto response = std::make_shared<std_srvs::srv::Trigger::Response>();
-    c.handleConfirmStandstill(std::make_shared<std_srvs::srv::Trigger::Request>(), response);
+    c.handleConfirmStandstill(
+      c.motion_group_, std::make_shared<std_srvs::srv::Trigger::Request>(), response);
     return response;
   }
   using ActualSample = EnableManagerController::ActualSample;
   static bool stableActualInterval(
     const Controller & c, const ActualSample & window_start, const ActualSample & current)
   {
-    return c.stableActualInterval(window_start, current);
+    return c.stableActualInterval(c.motion_group_, window_start, current);
   }
   static void handleRollingState(
     Controller & c,
     const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr & message)
   {
-    c.handleRollingState(message);
+    c.handleRollingState(c.motion_group_, message);
   }
 };
 

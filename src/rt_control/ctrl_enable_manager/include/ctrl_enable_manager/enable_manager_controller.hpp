@@ -177,6 +177,60 @@ private:
     kModeDriveModeTimeout
   };
 
+  // One motion group: the controllers its mode service switches between, the joints whose
+  // standstill admits a switch, and the drives whose operation mode follows the controller set.
+  struct MotionGroup
+  {
+    std::string default_controller;
+    std::string rolling_controller;
+    // Velocity-mode groups (the swerve chassis): default_controller runs VELOCITY_READY and this
+    // trajectory controller FJT_READY; empty for the arms, where default_controller is FJT_READY.
+    std::string trajectory_controller;
+    ControlMode default_mode{ControlMode::kFjtReady};
+    bool mode_switching{false};
+    std::string service_name;
+    std::atomic<ControlMode> current_mode{ControlMode::kDisabled};
+    std::atomic_bool callback_active{false};
+    std::atomic_bool abort_requested{false};
+
+    std::vector<std::string> joint_names;
+    // Realtime writers and service readers share these; the doubles must stay lock-free.
+    std::array<std::atomic<double>, kMaxMotionAxes> sample_positions{};
+    std::atomic<double> sample_feedback_age_ms{0.0};
+    std::atomic<std::uint64_t> sample_time_ns{0U};
+    std::atomic<std::uint64_t> sample_sequence{0U};
+    std::atomic<std::uint64_t> sample_version{0U};
+    std::uint64_t maximum_sample_period_ns{2000000U};
+    std::uint64_t source_state_max_age_ns{100000000U};
+    std::size_t stable_interval_count{5U};
+    std::chrono::milliseconds switch_timeout{500};
+    double feedback_age_limit_ms{500.0};
+    MotionPositions stable_velocity_thresholds{};
+    MotionPositions takeover_tolerances{};
+    mutable std::mutex snapshot_mutex{};
+    CommandSnapshot jtc_snapshot{};
+    CommandSnapshot rolling_snapshot{};
+
+    // Drives whose operation mode follows the controller set; enable checks their startup mode.
+    std::vector<std::string> drive_joint_names;
+    std::vector<std::size_t> drive_axes;
+    std::vector<std::uint8_t> drive_axis;
+    std::size_t drive_command_offset{0U};
+    // CSP requested by the mode switch; the realtime update clears it whenever the group is not
+    // enabled, so every enable starts in the startup mode.
+    std::atomic_bool drive_csp_requested{false};
+    std::array<std::atomic<std::int16_t>, kMaxMotionAxes> drive_mode_display{};
+
+    rclcpp::CallbackGroup::SharedPtr callback_group;
+    rclcpp::Service<ModeService>::SharedPtr mode_service;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr standstill_service;
+    rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr
+      jtc_state_subscription;
+    rclcpp::Subscription<robot_rt_control_interfaces::msg::RollingJointControlState>::SharedPtr
+      rolling_state_subscription;
+  };
+  static_assert(std::atomic<double>::is_always_lock_free);
+
   static DriveState decodeState(std::uint16_t status_word);
   static const char * stageName(Stage stage);
   static const char * phaseName(Phase phase);
@@ -197,13 +251,16 @@ private:
     const std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Request> request,
     std::shared_ptr<robot_rt_control_interfaces::srv::RtEnable::Response> response);
   void handleSetMode(
-    const std::shared_ptr<ModeService::Request> request,
+    MotionGroup & group, const std::shared_ptr<ModeService::Request> request,
     std::shared_ptr<ModeService::Response> response);
   void handleConfirmStandstill(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    MotionGroup & group, const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
-  void handleJtcState(const control_msgs::msg::JointTrajectoryControllerState::SharedPtr message);
+  void handleJtcState(
+    MotionGroup & group,
+    const control_msgs::msg::JointTrajectoryControllerState::SharedPtr message);
   void handleRollingState(
+    MotionGroup & group,
     const robot_rt_control_interfaces::msg::RollingJointControlState::SharedPtr message);
   bool waitForResult(ResultSlot & slot);
   void fillResponse(
@@ -215,40 +272,53 @@ private:
     const char * service, robot_rt_control_interfaces::srv::RtEnable::Response & response,
     std::uint32_t failure_code) const;
   SwitchResult buildControllerSwitchRequest(
+    const MotionGroup & group,
     const controller_manager_msgs::srv::ListControllers::Response & states, ControlMode target,
     controller_manager_msgs::srv::SwitchController::Request & request) const;
   bool controllerStateMatches(
+    const MotionGroup & group,
     const controller_manager_msgs::srv::ListControllers::Response & states,
     ControlMode target) const;
-  bool controllerRunsInMode(const std::string & name, ControlMode target) const;
+  bool controllerRunsInMode(
+    const MotionGroup & group, const std::string & name, ControlMode target) const;
   ControlMode detectControlMode(
+    const MotionGroup & group,
     const controller_manager_msgs::srv::ListControllers::Response & states) const;
   ModeSwitchState classifyModeSwitchState(
+    const MotionGroup & group,
     const controller_manager_msgs::srv::ListControllers::Response & states, ControlMode source,
     ControlMode target) const;
   // True when the displacement rate from window_start to current is below the thresholds.
   bool stableActualInterval(
-    const ActualSample & window_start, const ActualSample & current) const noexcept;
+    const MotionGroup & group, const ActualSample & window_start,
+    const ActualSample & current) const noexcept;
   bool sourceWithinTakeoverTolerance(
-    const MotionPositions & source, const MotionPositions & actual) const noexcept;
-  bool readActualSample(ActualSample & sample) const noexcept;
-  bool readCommandSnapshot(ControlMode mode, CommandSnapshot & snapshot) const;
-  std::uint8_t waitForStandstill(Phase phase, Owner owner, ActualSample & sample);
-  std::uint8_t validateModeSource(ControlMode source, CommandSnapshot & snapshot);
+    const MotionGroup & group, const MotionPositions & source,
+    const MotionPositions & actual) const noexcept;
+  bool motionStatesBound(const MotionGroup & group) const;
+  void resetMotionGroup(MotionGroup & group);
+  void sampleMotionGroup(MotionGroup & group) noexcept;
+  bool readActualSample(const MotionGroup & group, ActualSample & sample) const noexcept;
+  bool readCommandSnapshot(
+    const MotionGroup & group, ControlMode mode, CommandSnapshot & snapshot) const;
+  std::uint8_t waitForStandstill(
+    MotionGroup & group, Phase phase, Owner owner, ActualSample & sample);
+  std::uint8_t validateModeSource(
+    MotionGroup & group, ControlMode source, CommandSnapshot & snapshot);
   bool queryControllerStates(
     controller_manager_msgs::srv::ListControllers::Response & states,
     std::chrono::milliseconds timeout);
-  std::uint8_t executeModeSwitch(ControlMode source, ControlMode target);
-  void convergeAfterUnsafeModeSwitch(bool restart_required);
+  std::uint8_t executeModeSwitch(MotionGroup & group, ControlMode source, ControlMode target);
+  void convergeAfterUnsafeModeSwitch(MotionGroup & group, bool restart_required);
   bool releaseModeOwnership() noexcept;
   // The mode a controller set implies for the switched drives: CSP while the trajectory
   // controller owns a velocity-mode group, else each drive's startup mode.
-  bool switchedDrivesUseCsp(ControlMode mode) const noexcept;
+  bool switchedDrivesUseCsp(const MotionGroup & group, ControlMode mode) const noexcept;
   // Requests the drive mode for `mode`, then waits until every switched drive reports it.
-  bool switchDriveModes(ControlMode mode);
-  bool configureDriveModeSwitching();
-  bool bindDriveModeCommands();
-  void writeDriveModes() noexcept;
+  bool switchDriveModes(MotionGroup & group, ControlMode mode);
+  bool configureDriveModeSwitching(MotionGroup & group);
+  bool bindDriveModeCommands(MotionGroup & group);
+  void writeDriveModes(MotionGroup & group) noexcept;
   bool runningModeConfirmed(std::size_t axis) const noexcept;
   static void populateModeError(
     robot_system_interfaces::msg::ErrorInfo & error, std::uint8_t result);
@@ -346,16 +416,6 @@ private:
   std::atomic_bool enable_callback_active_{false};
   std::atomic_bool disable_callback_active_{false};
   std::atomic_bool reset_callback_active_{false};
-  std::atomic_bool mode_callback_active_{false};
-  std::atomic_bool mode_abort_requested_{false};
-  std::atomic<ControlMode> current_control_mode_{ControlMode::kDisabled};
-  // Realtime writers and service readers share these; the doubles must stay lock-free.
-  static_assert(std::atomic<double>::is_always_lock_free);
-  std::array<std::atomic<double>, kMaxMotionAxes> actual_sample_positions_{};
-  std::atomic<double> actual_sample_feedback_age_ms_{0.0};
-  std::atomic<std::uint64_t> actual_sample_time_ns_{0U};
-  std::atomic<std::uint64_t> actual_sample_sequence_{0U};
-  std::atomic<std::uint64_t> actual_sample_version_{0U};
   std::atomic_bool topology_parameters_frozen_{false};
   std::atomic<std::uint8_t> topology_parameters_explicit_mask_{0U};
 
@@ -371,7 +431,6 @@ private:
   std::atomic<std::int16_t> last_expected_mode_{0};
 
   std::vector<std::string> joint_names_;
-  std::vector<std::string> motion_joint_names_;
   std::vector<std::vector<std::size_t>> enable_batches_;
   std::vector<std::uint8_t> ready_to_switch_on_disable_terminal_;
   std::vector<std::uint16_t> status_words_;
@@ -428,50 +487,17 @@ private:
   double controller_switch_timeout_seconds_{4.0};
   std::chrono::milliseconds service_result_timeout_{30000};
   bool enable_only_{false};  // Derived from the configured controller set.
-  bool motion_mode_switching_{false};
   std::vector<std::string> managed_controllers_;
   std::vector<std::string> companion_controllers_;
-  std::string default_motion_controller_;
-  std::string rolling_motion_controller_;
-  // Velocity-mode groups (the swerve chassis): motion_controller runs VELOCITY_READY and this
-  // trajectory controller FJT_READY; empty for the arms, where motion_controller is FJT_READY.
-  std::string trajectory_motion_controller_;
-  ControlMode motion_controller_mode_{ControlMode::kFjtReady};
-  std::string mode_service_name_;
-  // Drives whose operation mode follows the controller set; enable checks their startup mode.
-  std::vector<std::string> mode_switch_joint_names_;
-  std::vector<std::size_t> mode_switch_axes_;
-  std::vector<std::uint8_t> mode_switch_axis_;
-  std::size_t drive_mode_command_offset_{0U};
-  // CSP requested by the mode switch; the realtime update clears it whenever the group is not
-  // enabled, so every enable starts in the startup mode.
-  std::atomic_bool drive_csp_requested_{false};
-  std::array<std::atomic<std::int16_t>, kMaxMotionAxes> drive_mode_display_{};
-  std::uint64_t mode_switch_maximum_sample_period_ns_{2000000U};
-  std::uint64_t mode_switch_source_state_max_age_ns_{100000000U};
-  std::size_t mode_switch_stable_interval_count_{5U};
-  std::chrono::milliseconds mode_switch_timeout_{500};
-  double mode_switch_feedback_age_limit_ms_{500.0};
-  MotionPositions mode_switch_stable_velocity_thresholds_{};
-  MotionPositions mode_switch_takeover_tolerances_{};
-  mutable std::mutex command_snapshot_mutex_{};
-  CommandSnapshot jtc_command_snapshot_{};
-  CommandSnapshot rolling_command_snapshot_{};
+  MotionGroup motion_group_;
 
   rclcpp::CallbackGroup::SharedPtr enable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr disable_callback_group_;
   rclcpp::CallbackGroup::SharedPtr reset_callback_group_;
-  rclcpp::CallbackGroup::SharedPtr mode_callback_group_;
   rclcpp::CallbackGroup::SharedPtr worker_callback_group_;
   rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr enable_service_;
   rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr disable_service_;
   rclcpp::Service<robot_rt_control_interfaces::srv::RtEnable>::SharedPtr reset_service_;
-  rclcpp::Service<ModeService>::SharedPtr mode_service_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr standstill_service_;
-  rclcpp::Subscription<control_msgs::msg::JointTrajectoryControllerState>::SharedPtr
-    jtc_state_subscription_;
-  rclcpp::Subscription<robot_rt_control_interfaces::msg::RollingJointControlState>::SharedPtr
-    rolling_state_subscription_;
   rclcpp::Client<controller_manager_msgs::srv::ListControllers>::SharedPtr list_client_;
   rclcpp::Client<controller_manager_msgs::srv::SwitchController>::SharedPtr switch_client_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_publisher_;
