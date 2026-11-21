@@ -9,8 +9,11 @@ authorities:
     (base 946ec110)
   module_xy: control frame base_footprint; +X is the user-defined new forward (old base_link -Y), metres;
     user 2026-11-16 negated all four after IMU showed rotation reversed against command with translation correct
-  steering_zero_counts: four-axis inward 135 deg plus enabled-CSP zero capture; module 1 transferred to
-    replacement drive from encoder 11
+  steering_zero_counts: 'user 2026-11-22 (ELECTRI-233): after the 0x7320 fault was cleared with 0x2690=10
+    (resets the fault state and clears the multi-turn count) the zeros were recomputed, without enable or
+    motion, from the external encoders with the unchanged direction/installation offsets and 140:1; all
+    four wheels then read within +/-3 deg of straight, confirmed visually by the user. Superseded: the
+    2026-10 four-axis inward 135 deg capture'
   drive_zero_counts: continuous wheel keeps raw-count origin; 0 is a software offset, not a wheel phase
     calibration
   effective_wheel_radius_m: deployed value 0.1 m (nominal); four-wheel 50 mm command test travelled 50.003 mm
@@ -18,6 +21,7 @@ authorities:
     counts preserved
 pending_facts:
 - physical hard-stop angles, command margin and measurement tolerance
+- enabled low-speed check of the 2026-11-22 steering zeros against the external encoders (ELECTRI-233)
 - bidirectional steering backlash and repeatability (scheduled with IMU variance calibration)
 - steering-axis-to-contact-patch offset
 - motor/external encoder disagreement threshold
@@ -31,7 +35,7 @@ spec:
     module_x_m: 0.305
     module_y_m: -0.305
     effective_wheel_radius_m: 0.1
-    steering_zero_counts: 46212
+    steering_zero_counts: -25747
     drive_zero_counts: 0
     external_encoder_direction: -1
     external_encoder_installation_offset_rad: -0.07118492631211457
@@ -40,7 +44,7 @@ spec:
     module_x_m: -0.305
     module_y_m: -0.305
     effective_wheel_radius_m: 0.1
-    steering_zero_counts: -3394086
+    steering_zero_counts: 11433
     drive_zero_counts: 0
     external_encoder_direction: -1
     external_encoder_installation_offset_rad: -2.1915319248055973
@@ -49,7 +53,7 @@ spec:
     module_x_m: 0.305
     module_y_m: 0.305
     effective_wheel_radius_m: 0.1
-    steering_zero_counts: -3430317
+    steering_zero_counts: 54374
     drive_zero_counts: 0
     external_encoder_direction: -1
     external_encoder_installation_offset_rad: -0.9971827011120579
@@ -58,7 +62,7 @@ spec:
     module_x_m: -0.305
     module_y_m: 0.305
     effective_wheel_radius_m: 0.1
-    steering_zero_counts: 2967074
+    steering_zero_counts: -53061
     drive_zero_counts: 0
     external_encoder_direction: -1
     external_encoder_installation_offset_rad: -23.973339374474527
