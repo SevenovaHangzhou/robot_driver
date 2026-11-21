@@ -80,8 +80,6 @@ enable_manager:
     - right_j5
     - right_j6
     - right_j7
-    motion_controller: ''
-    rolling_controller: ''
     service_result_timeout_ms: 90000
 joint_state_broadcaster:
   ros__parameters:

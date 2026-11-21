@@ -71,9 +71,10 @@ class DiagnosticsNode(Node):
             if name[:1].isalpha() and name.isupper() and isinstance(getattr(codes, name), int)
         }
         self._sensors = SensorWatch()
-        self._mode_controllers = lifecycle.get("mode_controllers", [])
+        self._mode_groups = lifecycle.get("mode_controller_groups", [])
+        switched = {name for group in self._mode_groups for name in group}
         self._motion_controllers = [
-            name for name in lifecycle["motion_controllers"] if name not in self._mode_controllers
+            name for name in lifecycle["motion_controllers"] if name not in switched
         ]
         self._hardware_names = [item["name"] for item in lifecycle["hardware"]]
         report = state_directory() / "self_check" / f"{self._scope}.json"
@@ -181,12 +182,10 @@ class DiagnosticsNode(Node):
         self._controllers = {
             name: states.get(name, "unloaded") for name in self._motion_controllers
         }
-        if self._mode_controllers:
-            # Whichever controller the group's set_control_mode selected (arms or chassis).
-            active = [name for name in self._mode_controllers if states.get(name) == "active"]
-            self._controllers["|".join(self._mode_controllers)] = (
-                "active" if len(active) == 1 else "inactive"
-            )
+        for group in self._mode_groups:
+            # Whichever controller each group's set_control_mode selected (arms, chassis).
+            active = [name for name in group if states.get(name) == "active"]
+            self._controllers["|".join(group)] = "active" if len(active) == 1 else "inactive"
         self._publish()
 
     def _store_hardware(self, future):

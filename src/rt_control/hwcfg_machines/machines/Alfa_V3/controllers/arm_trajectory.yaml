@@ -8,6 +8,7 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
+    motion_group: arms
     tags:
     - trajectory
     - motion
@@ -49,6 +50,7 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
+    motion_group: arms
     tags:
     - trajectory
     - motion
@@ -97,6 +99,7 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
+    motion_group: arms
     tags:
     - trajectory
     - motion
@@ -144,6 +147,7 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
+    motion_group: arms
     tags:
     - rolling
     - motion
@@ -188,6 +192,7 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
+    motion_group: arms
     tags:
     - rolling
     - motion
@@ -231,6 +236,7 @@ controllers:
     actuator_groups:
     - csp
     required_state_modules: []
+    motion_group: arms
     tags:
     - trajectory
     - motion

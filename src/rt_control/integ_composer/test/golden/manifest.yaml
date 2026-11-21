@@ -502,3 +502,21 @@ arch-base-control-mode:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+motion_groups_regeneration:
+  reason: 'ELECTRI-236 user decision 2026-11-22: enable_manager supports several motion groups (arms,
+    chassis) that switch modes independently; its parameters carry motion_groups plus a nested group
+    per member set, and lifecycle lists mode_controller_groups'
+  method: only enable_manager.ros__parameters changed - motion_controller, rolling_controller,
+    mode_service, motion_joints and mode_switch_* moved under the group (arms, or head for head_only)
+    with motion_groups added; empty controller names dropped; stationary cases only drop the two empty
+    names. runtime/lifecycle.yaml mode_controllers became mode_controller_groups. Every other value is
+    unchanged
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - stationary-mock
+  - stationary-real
+  - head-mock
+  - head-real

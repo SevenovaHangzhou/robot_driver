@@ -533,6 +533,32 @@
                 ],
                 "additionalProperties": false
               }
+            },
+            "motion_group": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "description": "Motion group whose mode service switches this controller (enable_manager motion_groups)."
+            },
+            "motion_groups": {
+              "type": "array",
+              "description": "enable_manager only: parameter templates per motion group, emitted as <group>.<parameter> for each group with an activatable member in the scope.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "parameters": {
+                    "$ref": "#/properties/controllers/patternProperties/^.+$/properties/parameters"
+                  }
+                },
+                "required": [
+                  "name",
+                  "parameters"
+                ],
+                "additionalProperties": false
+              }
             }
           },
           "required": [

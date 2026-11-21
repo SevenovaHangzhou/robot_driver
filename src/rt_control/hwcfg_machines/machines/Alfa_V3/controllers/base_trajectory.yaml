@@ -11,6 +11,7 @@ controllers:
     - steering_csp
     - drive_csv
     required_state_modules: []
+    motion_group: base
     tags:
     - base_trajectory
     capabilities:
