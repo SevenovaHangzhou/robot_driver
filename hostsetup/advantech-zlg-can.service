@@ -1,0 +1,17 @@
+[Unit]
+Description=rt-control ZLG PCIe CAN interfaces (can0/can1 250k, can2 1M, can3 500k)
+After=systemd-modules-load.service
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/rt-control-zlg-can
+ExecStop=-/usr/sbin/ip link set can0 down
+ExecStop=-/usr/sbin/ip link set can1 down
+ExecStop=-/usr/sbin/ip link set can2 down
+ExecStop=-/usr/sbin/ip link set can3 down
+
+[Install]
+WantedBy=multi-user.target

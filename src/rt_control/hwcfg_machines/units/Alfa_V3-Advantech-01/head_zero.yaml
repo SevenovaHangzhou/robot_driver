@@ -1,0 +1,14 @@
+schema_version: 1
+kind: unit_calibration
+status: draft
+verified: false
+authorities:
+  source: user 2026-11-22 (ELECTRI-234) placed the head at the mechanical zero pose; FE set-zero on
+    both motors, disabled readback about -0.0002 rad on CAN IDs 1/2
+pending_facts:
+- zero retention after motor power cycle
+- head zero referenced to Robot Model (enabled direction check)
+robot_variant: Alfa_V3
+module: head_gimbal
+spec:
+  zero_rad: 0.0
