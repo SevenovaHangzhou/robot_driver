@@ -39,91 +39,93 @@ bool EnableManagerController::runningModeConfirmed(std::size_t axis) const noexc
 {
   // While enabled a switched drive may be in its startup mode or in CSP; the mode switch itself
   // confirms the mode its controller set needs.
-  return modeConfirmed(axis) || (!mode_switch_axis_.empty() && mode_switch_axis_[axis] != 0U &&
-                                 actual_modes_[axis] == kCspMode);
+  return modeConfirmed(axis) ||
+         (!motion_group_.drive_axis.empty() && motion_group_.drive_axis[axis] != 0U &&
+          actual_modes_[axis] == kCspMode);
 }
 
-bool EnableManagerController::configureDriveModeSwitching()
+bool EnableManagerController::configureDriveModeSwitching(MotionGroup & group)
 {
-  mode_switch_joint_names_ = get_node()->get_parameter("mode_switch_joints").as_string_array();
-  mode_switch_axes_.clear();
-  mode_switch_axis_.assign(joint_names_.size(), 0U);
-  if (mode_switch_joint_names_.empty()) {
-    mode_switch_axis_.clear();
+  group.drive_joint_names = get_node()->get_parameter("mode_switch_joints").as_string_array();
+  group.drive_axes.clear();
+  group.drive_axis.assign(joint_names_.size(), 0U);
+  if (group.drive_joint_names.empty()) {
+    group.drive_axis.clear();
     return true;
   }
   // Only a velocity-mode group switches drive modes, and only drives with a fixed startup mode
   // other than CSP that the standstill check covers.
   if (
-    trajectory_motion_controller_.empty() || expected_modes_.empty() ||
-    mode_switch_joint_names_.size() > kMaxMotionAxes) {
+    group.trajectory_controller.empty() || expected_modes_.empty() ||
+    group.drive_joint_names.size() > kMaxMotionAxes) {
     return false;
   }
-  for (const auto & name : mode_switch_joint_names_) {
+  for (const auto & name : group.drive_joint_names) {
     const auto joint = std::find(joint_names_.begin(), joint_names_.end(), name);
     if (
       joint == joint_names_.end() ||
-      std::find(motion_joint_names_.begin(), motion_joint_names_.end(), name) ==
-        motion_joint_names_.end()) {
+      std::find(group.joint_names.begin(), group.joint_names.end(), name) ==
+        group.joint_names.end()) {
       return false;
     }
     const auto axis = static_cast<std::size_t>(std::distance(joint_names_.begin(), joint));
-    if (mode_switch_axis_[axis] != 0U || expected_modes_[axis] == kCspMode) {
+    if (group.drive_axis[axis] != 0U || expected_modes_[axis] == kCspMode) {
       return false;
     }
-    mode_switch_axis_[axis] = 1U;
-    mode_switch_axes_.push_back(axis);
+    group.drive_axis[axis] = 1U;
+    group.drive_axes.push_back(axis);
   }
   return true;
 }
 
-bool EnableManagerController::bindDriveModeCommands()
+bool EnableManagerController::bindDriveModeCommands(MotionGroup & group)
 {
-  drive_mode_command_offset_ = cia402_axes_.size() + handshake_devices_.size() * 2U;
-  for (std::size_t index = 0U; index < mode_switch_joint_names_.size(); ++index) {
+  group.drive_command_offset = cia402_axes_.size() + handshake_devices_.size() * 2U;
+  for (std::size_t index = 0U; index < group.drive_joint_names.size(); ++index) {
     if (
-      command_interfaces_[drive_mode_command_offset_ + index].get_name() !=
-      mode_switch_joint_names_[index] + "/mode_of_operation") {
+      command_interfaces_[group.drive_command_offset + index].get_name() !=
+      group.drive_joint_names[index] + "/mode_of_operation") {
       return false;
     }
   }
-  drive_csp_requested_.store(false, std::memory_order_release);
-  for (auto & display : drive_mode_display_) {
+  group.drive_csp_requested.store(false, std::memory_order_release);
+  for (auto & display : group.drive_mode_display) {
     display.store(256, std::memory_order_relaxed);
   }
   return true;
 }
 
-void EnableManagerController::writeDriveModes() noexcept
+void EnableManagerController::writeDriveModes(MotionGroup & group) noexcept
 {
-  if (mode_switch_axes_.empty()) {
+  if (group.drive_axes.empty()) {
     return;
   }
   if (phase_.load(std::memory_order_acquire) != Phase::kEnabled) {
-    drive_csp_requested_.store(false, std::memory_order_release);
+    group.drive_csp_requested.store(false, std::memory_order_release);
   }
-  const bool csp = drive_csp_requested_.load(std::memory_order_acquire);
-  for (std::size_t index = 0U; index < mode_switch_axes_.size(); ++index) {
-    const std::size_t axis = mode_switch_axes_[index];
-    (void)command_interfaces_[drive_mode_command_offset_ + index].set_value(
+  const bool csp = group.drive_csp_requested.load(std::memory_order_acquire);
+  for (std::size_t index = 0U; index < group.drive_axes.size(); ++index) {
+    const std::size_t axis = group.drive_axes[index];
+    (void)command_interfaces_[group.drive_command_offset + index].set_value(
       static_cast<double>(csp ? kCspMode : expected_modes_[axis]));
-    drive_mode_display_[index].store(actual_modes_[axis], std::memory_order_release);
+    group.drive_mode_display[index].store(actual_modes_[axis], std::memory_order_release);
   }
 }
 
-bool EnableManagerController::switchedDrivesUseCsp(ControlMode mode) const noexcept
+bool EnableManagerController::switchedDrivesUseCsp(
+  const MotionGroup & group, ControlMode mode) const noexcept
 {
-  return mode == ControlMode::kFjtReady && motion_controller_mode_ == ControlMode::kVelocityReady;
+  return mode == ControlMode::kFjtReady && group.default_mode == ControlMode::kVelocityReady;
 }
 
-bool EnableManagerController::switchDriveModes(ControlMode mode)
+bool EnableManagerController::switchDriveModes(MotionGroup & group, ControlMode mode)
 {
-  if (mode_switch_axes_.empty()) {
+  if (group.drive_axes.empty()) {
     return true;
   }
-  const bool csp = switchedDrivesUseCsp(mode);
-  drive_csp_requested_.store(csp, std::memory_order_release);
-  const auto deadline = std::chrono::steady_clock::now() + mode_switch_timeout_;
+  const bool csp = switchedDrivesUseCsp(group, mode);
+  group.drive_csp_requested.store(csp, std::memory_order_release);
+  const auto deadline = std::chrono::steady_clock::now() + group.switch_timeout;
   while (std::chrono::steady_clock::now() < deadline) {
     if (
       owner_.load(std::memory_order_acquire) != Owner::kMode ||
@@ -131,10 +133,10 @@ bool EnableManagerController::switchDriveModes(ControlMode mode)
       return false;
     }
     bool confirmed = true;
-    for (std::size_t index = 0U; index < mode_switch_axes_.size(); ++index) {
-      const std::int16_t expected = csp ? kCspMode : expected_modes_[mode_switch_axes_[index]];
+    for (std::size_t index = 0U; index < group.drive_axes.size(); ++index) {
+      const std::int16_t expected = csp ? kCspMode : expected_modes_[group.drive_axes[index]];
       confirmed =
-        confirmed && drive_mode_display_[index].load(std::memory_order_acquire) == expected;
+        confirmed && group.drive_mode_display[index].load(std::memory_order_acquire) == expected;
     }
     if (confirmed) {
       return true;

@@ -42,21 +42,33 @@ public:
   static void setPhase(Controller & c, Phase p) { c.phase_.store(p); }
   static Owner owner(const Controller & c) { return c.owner_.load(); }
   static void setOwner(Controller & c, Owner o) { c.owner_.store(o); }
-  static ControlMode controlMode(const Controller & c) { return c.current_control_mode_.load(); }
-  static void setControlMode(Controller & c, ControlMode m) { c.current_control_mode_.store(m); }
-  static void requestCsp(Controller & c, bool csp) { c.drive_csp_requested_.store(csp); }
-  static bool cspRequested(const Controller & c) { return c.drive_csp_requested_.load(); }
+  static ControlMode controlMode(const Controller & c)
+  {
+    return c.motion_group_.current_mode.load();
+  }
+  static void setControlMode(Controller & c, ControlMode m)
+  {
+    c.motion_group_.current_mode.store(m);
+  }
+  static void requestCsp(Controller & c, bool csp)
+  {
+    c.motion_group_.drive_csp_requested.store(csp);
+  }
+  static bool cspRequested(const Controller & c)
+  {
+    return c.motion_group_.drive_csp_requested.load();
+  }
   static bool disableRequested(const Controller & c) { return c.disable_request_.load(); }
   static ControlMode detectControlMode(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states)
   {
-    return c.detectControlMode(states);
+    return c.detectControlMode(c.motion_group_, states);
   }
   static void handleSetMode(
     Controller & c, std::shared_ptr<ModeService::Request> request,
     std::shared_ptr<ModeService::Response> response)
   {
-    c.handleSetMode(request, response);
+    c.handleSetMode(c.motion_group_, request, response);
   }
   static bool activateMotionControllers(Controller & c)
   {
@@ -65,7 +77,7 @@ public:
   static void handleJtcState(
     Controller & c, const control_msgs::msg::JointTrajectoryControllerState::SharedPtr & message)
   {
-    c.handleJtcState(message);
+    c.handleJtcState(c.motion_group_, message);
   }
 };
 
