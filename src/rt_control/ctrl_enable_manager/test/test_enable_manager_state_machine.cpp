@@ -2521,11 +2521,11 @@ TEST_F(FixedModeFixture, ARealControllerActivationFailureIsNotRetriedOrHidden)
   EXPECT_EQ(Access::phase(*controller_), Phase::kRollback);
 }
 
-TEST_F(EnableManagerFixture, FixedModeConfigRejectsLengthZeroAndOutOfInt8Range)
+TEST_F(EnableManagerFixture, FixedModeConfigRejectsLengthAndOutOfInt8Range)
 {
   for (const auto & modes :
-       {std::vector<std::int64_t>{8}, std::vector<std::int64_t>(kAxes, 0),
-        std::vector<std::int64_t>(kAxes, 128), std::vector<std::int64_t>(kAxes, -129)}) {
+       {std::vector<std::int64_t>{8}, std::vector<std::int64_t>(kAxes, 128),
+        std::vector<std::int64_t>(kAxes, -129)}) {
     EnableManagerController c;
     rclcpp::NodeOptions opts;
     opts.parameter_overrides(test::grouped(

@@ -100,3 +100,32 @@ def test_every_switching_group_has_one_exclusive_controller_set():
     # Without its alternate a group has nothing to switch between.
     jtc_only = {"inactive": ["arm_jtc", "swerve", "wheel_jtc", "head"], "active": []}
     assert _mode_controller_groups(jtc_only, BINDINGS) == [["swerve", "wheel_jtc"]]
+
+
+def test_a_group_can_leave_its_startup_mode_unconfirmed():
+    from integ_composer.schema.cross_checks import resolve_enable_groups
+
+    modules = {
+        "chassis": {"mode_groups": [{"name": "drive_csv", "mode_of_operation": 9}]},
+        "arms": {"mode_groups": [{"name": "csp", "mode_of_operation": 8}]},
+    }
+    rendered = {
+        "chassis": {"actuator_groups": {"drive_csv": ["wheel"]}},
+        "arms": {"actuator_groups": {"csp": ["arm_a", "arm_b"]}},
+    }
+    policy = {
+        "mode_confirmation": "startup",
+        "enable_groups": [
+            {"module": "chassis", "mode_group": "drive_csv", "batch_size": 1},
+            # The arm drives report no mode display.
+            {"module": "arms", "mode_group": "csp", "batch_size": 1, "mode_confirmation": "none"},
+        ],
+    }
+    resolve_enable_groups(policy, modules, rendered, ["arm_a", "wheel", "arm_b"])
+    assert policy["managed_joints"] == ["arm_a", "wheel", "arm_b"]
+    assert policy["expected_modes"] == [0, 9, 0]
+    unconfirmed = {
+        "enable_groups": [{"module": "arms", "mode_group": "csp", "batch_size": 1}],
+    }
+    resolve_enable_groups(unconfirmed, modules, rendered, ["arm_a", "arm_b"])
+    assert "expected_modes" not in unconfirmed
