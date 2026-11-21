@@ -210,7 +210,7 @@
     <parent link="base_link" />
     <child link="arm_carriage" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1" upper="0" effort="10" velocity="5" />
+    <limit lower="-1.05" upper="0" effort="10" velocity="0.1666" />
   </joint>
   <link name="base_link">
     <inertial>
@@ -388,8 +388,8 @@
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer3_joint" type="revolute">
-    <origin xyz="-0.305 0.305 -0.01" rpy="3.1415927 0 -1.5707963267948966" />
-    <parent link="base_link" />
+    <origin xyz="0 0.305 -0.01" rpy="3.1415927 0 1.5707963267948966" />
+    <parent link="suspension_link" />
     <child link="steer3" />
     <axis xyz="0 0 1" />
     <limit lower="-2.356194490192345" upper="2.356194490192345" effort="10" velocity="5" />
@@ -398,12 +398,12 @@
     <origin xyz="0 -0.03 0.21" rpy="1.5707963 0 0" />
     <parent link="steer3" />
     <child link="wheel3" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer4_joint" type="revolute">
-    <origin xyz="-0.305 -0.305 0.01" rpy="3.1415927 0 -1.5707963267948966" />
-    <parent link="base_link" />
+    <origin xyz="0 -0.305 0.01" rpy="3.1415927 0 1.5707963267948966" />
+    <parent link="suspension_link" />
     <child link="steer4" />
     <axis xyz="0 0 1" />
     <limit lower="-2.356194490192345" upper="2.356194490192345" effort="10" velocity="5" />
@@ -412,7 +412,7 @@
     <origin xyz="0 -0.03 0.23" rpy="1.5707963 0 0" />
     <parent link="steer4" />
     <child link="wheel4" />
-    <axis xyz="0 0 1" />
+    <axis xyz="0 0 -1" />
     <limit effort="10" velocity="31.4" />
   </joint>
   <link name="imu_link" />
@@ -602,7 +602,7 @@
     <parent link="arm_carriage" />
     <child link="left_link1" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint2" type="revolute">
@@ -610,7 +610,7 @@
     <parent link="left_link1" />
     <child link="left_link2" />
     <axis xyz="1 0 0" />
-    <limit lower="-1.6057029118347832" upper="2.129301687433082" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-1.6057029118347832" upper="2.129301687433082" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint3" type="revolute">
@@ -618,7 +618,7 @@
     <parent link="left_link2" />
     <child link="left_link3" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint4" type="revolute">
@@ -626,7 +626,7 @@
     <parent link="left_link3" />
     <child link="left_link4" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="0.5235987755982988" />
+    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="1.7488199104983182" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint5" type="revolute">
@@ -634,7 +634,7 @@
     <parent link="left_link4" />
     <child link="left_link5" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint6" type="revolute">
@@ -642,7 +642,7 @@
     <parent link="left_link5" />
     <child link="left_link6" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="0.5235987755982988" />
+    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_joint7" type="revolute">
@@ -650,7 +650,7 @@
     <parent link="left_link6" />
     <child link="left_link7" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="left_tool_fixed" type="fixed">
@@ -852,7 +852,7 @@
     <parent link="arm_carriage" />
     <child link="right_link1" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint2" type="revolute">
@@ -860,7 +860,7 @@
     <parent link="right_link1" />
     <child link="right_link2" />
     <axis xyz="0 0 -1" />
-    <limit lower="-2.129301687433082" upper="1.6057029118347832" effort="647" velocity="0.5235987755982988" />
+    <limit lower="-2.129301687433082" upper="1.6057029118347832" effort="647" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint3" type="revolute">
@@ -868,7 +868,7 @@
     <parent link="right_link2" />
     <child link="right_link3" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="484" velocity="1.3089969389957472" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint4" type="revolute">
@@ -876,7 +876,7 @@
     <parent link="right_link3" />
     <child link="right_link4" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="0.5235987755982988" />
+    <limit lower="-2.530727415391778" upper="2.530727415391778" effort="459" velocity="1.7488199104983182" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint5" type="revolute">
@@ -884,7 +884,7 @@
     <parent link="right_link4" />
     <child link="right_link5" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="204" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint6" type="revolute">
@@ -892,7 +892,7 @@
     <parent link="right_link5" />
     <child link="right_link6" />
     <axis xyz="0 0 1" />
-    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="0.5235987755982988" />
+    <limit lower="-1.9198621771937625" upper="1.9198621771937625" effort="107" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_joint7" type="revolute">
@@ -900,7 +900,7 @@
     <parent link="right_link6" />
     <child link="right_link7" />
     <axis xyz="0 0 1" />
-    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="0.5235987755982988" />
+    <limit lower="-2.9670597283903604" upper="2.9670597283903604" effort="36" velocity="3.1415926535897927" />
     <dynamics friction="0.0" damping="0.0" />
   </joint>
   <joint name="right_tool_fixed" type="fixed">
@@ -1053,68 +1053,63 @@
     <child link="lidar_rear" />
     <origin xyz="-0.047 0 1.6240000000000001" rpy="-0 -1.5707963267948966 0" />
   </joint>
-  <!-- A22 channel 1: measuring surface at base_link (0.3145, 0.4850, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_1_link" />
   <joint name="ultrasonic_channel_1_joint" type="fixed">
-    <origin xyz="0.3145 0.4850 0.019" rpy="0 0 1.570796" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_1_link" />
+    <origin xyz="0.3145 0.48499999999999999 0.019" rpy="0 0 1.5707963267948966" />
   </joint>
-  <!-- A22 channel 2: measuring surface at base_link (0.4850, 0.3145, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_2_link" />
   <joint name="ultrasonic_channel_2_joint" type="fixed">
-    <origin xyz="0.4850 0.3145 0.019" rpy="0 0 0.000000" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_2_link" />
+    <origin xyz="0.48499999999999999 0.3145 0.019" rpy="0 0 0" />
   </joint>
-  <!-- A22 channel 3: measuring surface at base_link (0.4850, -0.3145, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_3_link" />
   <joint name="ultrasonic_channel_3_joint" type="fixed">
-    <origin xyz="0.4850 -0.3145 0.019" rpy="0 0 0.000000" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_3_link" />
+    <origin xyz="0.48499999999999999 -0.3145 0.019" rpy="0 0 0" />
   </joint>
-  <!-- A22 channel 4: measuring surface at base_link (0.3145, -0.4850, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_4_link" />
   <joint name="ultrasonic_channel_4_joint" type="fixed">
-    <origin xyz="0.3145 -0.4850 0.019" rpy="0 0 -1.570796" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_4_link" />
+    <origin xyz="0.3145 -0.48499999999999999 0.019" rpy="0 0 -1.5707963267948966" />
   </joint>
-  <!-- A22 channel 5: measuring surface at base_link (-0.3145, -0.4850, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_5_link" />
   <joint name="ultrasonic_channel_5_joint" type="fixed">
-    <origin xyz="-0.3145 -0.4850 0.019" rpy="0 0 -1.570796" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_5_link" />
+    <origin xyz="-0.3145 -0.48499999999999999 0.019" rpy="0 0 -1.5707963267948966" />
   </joint>
-  <!-- A22 channel 6: measuring surface at base_link (-0.4850, -0.3145, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_6_link" />
   <joint name="ultrasonic_channel_6_joint" type="fixed">
-    <origin xyz="-0.4850 -0.3145 0.019" rpy="0 0 3.141593" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_6_link" />
+    <origin xyz="-0.48499999999999999 -0.3145 0.019" rpy="0 0 3.1415926535897931" />
   </joint>
-  <!-- A22 channel 7: measuring surface at base_link (-0.4850, 0.3145, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_7_link" />
   <joint name="ultrasonic_channel_7_joint" type="fixed">
-    <origin xyz="-0.4850 0.3145 0.019" rpy="0 0 3.141593" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_7_link" />
+    <origin xyz="-0.48499999999999999 0.3145 0.019" rpy="0 0 3.1415926535897931" />
   </joint>
-  <!-- A22 channel 8: measuring surface at base_link (-0.3145, 0.4850, 0.019) m,
-       beam along the frame +X (REP-103, x forward y left). Transducer geometry is not modelled. -->
   <link name="ultrasonic_channel_8_link" />
   <joint name="ultrasonic_channel_8_joint" type="fixed">
-    <origin xyz="-0.3145 0.4850 0.019" rpy="0 0 1.570796" />
     <parent link="base_link" />
     <child link="ultrasonic_channel_8_link" />
+    <origin xyz="-0.3145 0.48499999999999999 0.019" rpy="0 0 1.5707963267948966" />
+  </joint>
+  <!-- Active suspension (user 2026-11-18): one actuator midway between the rear steering modules
+       lifts the whole rear axle. +Z up, zero at the bottom of the 0..180 mm stroke, 30 mm/s.
+       effort is an uncalibrated placeholder (TBD); the frame carries no geometry or inertia. -->
+  <link name="suspension_link" />
+  <joint name="suspension" type="prismatic">
+    <origin xyz="-0.305 0 0" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="suspension_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0.18" effort="10" velocity="0.03" />
   </joint>
 </robot>

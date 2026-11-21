@@ -5,14 +5,12 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DESCRIPTION = ROOT / "src/description/robot_description"
 MOBILE_URDF = DESCRIPTION / "urdf/robot_alfav3_mobile.urdf"
 
 
 class TfContractTest(unittest.TestCase):
-
     def test_v3_robot_model_roots_at_base_footprint(self):
         robot = ET.parse(MOBILE_URDF).getroot()
         links = {link.attrib["name"] for link in robot.findall("link")}
@@ -42,6 +40,8 @@ class TfContractTest(unittest.TestCase):
             *(f"left_joint{index}" for index in range(1, 8)),
             *(f"steer{index}_joint" for index in range(1, 5)),
             *(f"wheel{index}_joint" for index in range(1, 5)),
+            # Active suspension (robot_description 51b6b89): state only, rear steering below it.
+            "suspension",
         }
         moving = {name for name, joint in joints.items() if joint.attrib["type"] != "fixed"}
         self.assertEqual(moving, expected)

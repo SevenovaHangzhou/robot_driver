@@ -170,7 +170,9 @@ def test_motion_scope_exposes_the_left_arm_trajectory_capability(shares, tmp_pat
     assert jtc["action_name"] == "/rt/arms/left/follow_joint_trajectory"
     assert jtc["trajectory_topic"] == "/rt/arms/left/joint_trajectory"
     # Velocity follows the URDF; acceleration follows the user-selected RT policy.
-    assert jtc["joint_velocity_limits"] == [math.radians(30.0)] * len(MODEL_JOINTS)
+    # robot_description eca5b04: eRob V3.44 output peak speeds (user 2026-11-22).
+    peaks = (75.0, 75.0, 75.0, 100.2, 180.0, 180.0, 180.0)
+    assert jtc["joint_velocity_limits"] == pytest.approx([math.radians(value) for value in peaks])
     assert jtc["joint_acceleration_limits"] == pytest.approx(
         [math.radians(value) for value in [373.06, 373.06, 373.06, 498.41, 895.35, 895.35, 895.35]]
     )

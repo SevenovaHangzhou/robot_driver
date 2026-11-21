@@ -16,6 +16,7 @@ import numpy as np
 import yaml
 
 from model_geometry import frames, rotation, set_origin, transform
+from approved_collision_fit import apply_approved_fit
 
 DESCRIPTION_REV = '4f9069a86765385d3a2773f1bded3b5cf310218a'
 ALGORITHM_REV = '92bd8cdb4d8b79793c428727db429288c17dd4f2'
@@ -24,9 +25,19 @@ OLD_URDF = RESEARCH+'generated/zero_model_candidate_20261018/robot_rezero_candid
 OLD_CONFIG = RESEARCH+'generated/zero_model_candidate_20261018/fixed.yaml'
 BOX_CONFIG = RESEARCH+'generated/endpoint_optimizer_compare/base_cuboids_20261009/frozen_cuboids.json'
 PREFIX = 'package://robot_description/'
+SUSPENDED_JOINTS = ('steer3_joint', 'steer4_joint')
 MODEL_REV = 'unified-20261112-r2'
 WHEEL_LINKS = {f'{kind}{i}' for kind in ('steer', 'wheel') for i in range(1, 5)}
 HEAD_COLLISION_LINKS = ('H1_Link', 'H2_Link', 'mid360_Link')
+# Rear swerve modules turned 180 deg about their vertical steering axes on the chassis
+# (user 2026-11-19), so the front and rear suspension arms face each other. The wheel
+# contact stays on the steering axis.
+REVERSED_SWERVE_MODULES = (3, 4)
+# Lift travel and planning limits measured on the robot (user 2026-11-22): 1.05 m stroke with the
+# encoder zero at the bottom (-1.05 m) and 2 cm beyond each end to the hard stops; 5 mm per motor
+# turn, so 0.1666 m/s stays just under the user-given 2000 r/min; 0.4 m/s^2. Effort unchanged.
+UPDOWN_LIMITS = {'lower': '-1.05', 'upper': '0', 'velocity': '0.1666'}
+UPDOWN_MAX_ACCELERATION_M_S2 = 0.4
 
 
 def sha(data):
@@ -60,6 +71,31 @@ def write_urdf(root, path, model):
     ET.ElementTree(model).write(target, encoding='utf-8', xml_declaration=True)
     with target.open('ab') as stream:
         stream.write(b'\n')
+
+
+def apply_arm_module_limits(model):
+    """Apply the documented output-side maximum speed and start/stop torque.
+
+    These scalar limits do not specify continuous capability or enforce the
+    torque-speed envelope. Existing planning acceleration limits stay separate.
+    """
+    specs = json.loads((Path(__file__).resolve().parents[1] /
+                        'config/alfav3_arm_module_specs.json').read_text())
+    velocities, efforts = {}, {}
+    for side in specs['applies_to']:
+        for suffix, spec in specs['joints'].items():
+            name = f'{side}_{suffix}'
+            velocity = float(spec['output_peak_rpm'] * 2 * np.pi / 60)
+            effort = spec['startup_stop_peak_torque_nm']
+            limit = model.find(f"joint[@name='{name}']/limit")
+            limit.set('velocity', str(velocity))
+            limit.set('effort', format(effort, 'g'))
+            velocities[name], efforts[name] = velocity, effort
+    return {'source': 'config/alfav3_arm_module_specs.json',
+            'manual': specs['manual'],
+            'velocity_policy': specs['velocity_policy'],
+            'effort_policy': specs['effort_policy'],
+            'velocity_rad_s': velocities, 'effort_nm': efforts}
 
 
 def enclose_head_meshes(model, root, cell_size=.06):
@@ -142,6 +178,9 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
             for collision in list(copied.findall('collision')):
                 copied.remove(collision)
         model.append(copied)
+    updown_limit = model.find("joint[@name='updown']/limit")
+    for key, value in UPDOWN_LIMITS.items():
+        updown_limit.set(key, value)
 
     # Preserve the enclosed base shell approved in the visual review. The two
     # other fixed-body meshes remain from the cuRobo model. Wheel DOFs are kept.
@@ -160,6 +199,23 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         for material in list(collision.findall('material')):
             collision.remove(material)
         base.append(collision)
+
+    # Turning a module turns its steer frame about the steering axis: origin position kept,
+    # rotation pre-multiplied by Rz(pi), which in URDF RPY (R = Rz(y)Ry(p)Rx(r)) is yaw + pi
+    # with roll and pitch unchanged. Joint q stays the module-housing angle measured by
+    # the steering drive and encoder, so the steering axis remains -Z in base_link. The
+    # drive polarity is reversed in the drive so a positive wheel joint still moves the
+    # body along the steering heading; the wheel axis is negated to keep that meaning.
+    swerve_overrides = {}
+    for index in REVERSED_SWERVE_MODULES:
+        origin = model.find(f"joint[@name='steer{index}_joint']/origin")
+        roll, pitch, yaw = origin.get('rpy').split()
+        turned = float(np.arctan2(np.sin(float(yaw) + np.pi), np.cos(float(yaw) + np.pi)))
+        origin.set('rpy', f'{roll} {pitch} {turned!r}')
+        axis = model.find(f"joint[@name='wheel{index}_joint']/axis")
+        axis.set('xyz', ' '.join(format(0.0 - float(v), 'g') for v in axis.get('xyz').split()))
+        swerve_overrides[f'steer{index}_joint'] = 'module turned 180 deg about the steering axis (user 2026-11-19)'
+        swerve_overrides[f'wheel{index}_joint'] = 'axis negated with the drive polarity of the turned module'
 
     old_frames, new_frames = frames(old), frames(model)
     transforms = {}
@@ -217,9 +273,37 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         joint = ET.SubElement(model, 'joint', name=name.replace('_link', '_joint'), type='fixed')
         ET.SubElement(joint, 'parent', link='base_link')
         ET.SubElement(joint, 'child', link=name)
-        set_origin(joint, transform([x, y, .019], [0, 0, np.deg2rad(yaw)]))
+        pose = np.eye(4)
+        pose[:3, :3] = rotation((0, 0, np.deg2rad(yaw)))
+        pose[:3, 3] = (x, y, .019)
+        set_origin(joint, pose)
         ultrasonic_data[name] = {'parent': 'base_link', 'xyz_m': [x, y, .019], 'yaw_deg': yaw,
                                  'note': 'transducer measuring surface; +X is the beam direction'}
+
+    # Active suspension (user 2026-11-18): one actuator midway between the rear steering modules lifts
+    # the whole rear axle, so steer3/steer4 hang below its prismatic joint and keep their pose at zero.
+    # +Z up, zero at the bottom of the 0..180 mm stroke, 30 mm/s; effort is an uncalibrated placeholder.
+    suspension_xyz = np.array([-.305, 0., 0.])
+    model.append(ET.Comment(
+        ' Active suspension (user 2026-11-18): one actuator midway between the rear steering modules\n'
+        '       lifts the whole rear axle. +Z up, zero at the bottom of the 0..180 mm stroke, 30 mm/s.\n'
+        '       effort is an uncalibrated placeholder (TBD); the frame carries no geometry or inertia. '))
+    ET.SubElement(model, 'link', name='suspension_link')
+    joint = ET.SubElement(model, 'joint', name='suspension', type='prismatic')
+    ET.SubElement(joint, 'origin', xyz='-0.305 0 0', rpy='0 0 0')
+    ET.SubElement(joint, 'parent', link='base_link')
+    ET.SubElement(joint, 'child', link='suspension_link')
+    ET.SubElement(joint, 'axis', xyz='0 0 1')
+    ET.SubElement(joint, 'limit', lower='0', upper='0.18', effort='10', velocity='0.03')
+    for name in SUSPENDED_JOINTS:
+        steer = model.find(f"joint[@name='{name}']")
+        steer.find('parent').set('link', 'suspension_link')
+        origin = steer.find('origin')
+        local = np.fromstring(origin.get('xyz'), sep=' ') - suspension_xyz
+        origin.set('xyz', ' '.join(format(float(v), 'g') for v in local))
+    suspension_data = {'joint': 'suspension', 'parent': 'base_link', 'xyz_m': suspension_xyz.tolist(),
+        'axis': [0, 0, 1], 'stroke_m': [0, .18], 'max_velocity_m_s': .03, 'effort': 'TBD (placeholder 10)',
+        'suspended_joints': list(SUSPENDED_JOINTS), 'note': 'rear axle moves as a whole; zero at the bottom'}
 
     # Vendor only meshes actually used by the composite. Source hashes are
     # taken from pinned Git blobs, not a dirty research checkout or /tmp copy.
@@ -244,6 +328,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         target.write_bytes(data)
         source_meshes[path] = data
 
+    arm_module_limits = apply_arm_module_limits(model)
     entry = 'urdf/robot_alfav3_mobile.urdf'
     write_urdf(output, entry, model)
     for variant in ('visual', 'collision'):
@@ -266,6 +351,8 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
                              'radius': s['radius']} for s in spheres if s['radius']>0]
     head_spheres, head_fit = enclose_head_meshes(model, output)
     sphere_map.update(head_spheres)
+    approved = apply_approved_fit(sphere_map)
+    head_fit = {name: dict(method='approved_morphit', **entry) for name, entry in approved['links'].items()}
     sphere_path = 'config/curobo/collision_spheres.yaml'
     write_yaml(output, sphere_path, {'collision_spheres': sphere_map})
     boxes = json.loads(boxes_bytes)
@@ -298,7 +385,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
             k['self_collision_ignore'][parent].append(child)
             k['self_collision_ignore'][child].append(parent)
     k['cspace']['default_joint_position'] = [0.0]*len(k['cspace']['joint_names'])
-    k['cspace']['max_acceleration'] = [10.0 if n=='updown' else float(np.pi/3)
+    k['cspace']['max_acceleration'] = [UPDOWN_MAX_ACCELERATION_M_S2 if n=='updown' else float(np.pi/3)
                                        for n in k['cspace']['joint_names']]
     write_yaml(output, 'config/curobo/robot.yaml', {'kinematics': k})
 
@@ -319,6 +406,8 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
                                       'upper_position_'+unit: float(lim.get('upper'))})
         if n.startswith(('left_joint','right_joint')):
             limits['joints'][n]['max_acceleration_rad_s2'] = float(np.pi/3)
+        if n == 'updown':
+            limits['joints'][n]['max_acceleration_m_s2'] = UPDOWN_MAX_ACCELERATION_M_S2
     write_yaml(output, 'config/joint_limits_alfav3_mobile.yaml', limits)
 
     # Preserve the upstream head joints in the semantic whole-body group.
@@ -349,10 +438,12 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
                 'boxes_sha256': sha(boxes_bytes)}},
         'composition': {'arm_joint1_to_7_and_geometry': 'github_description',
             'base_lift_carriage': 'curobo_pr82', 'head_and_sensors': 'github_description, original parents and local joint transforms',
-            'steering_wheels': 'github_description joints/visuals/inertials; collision represented by chassis shell',
+            'steering_wheels': 'github_description joints/visuals/inertials; collision represented by chassis shell; '
+                'modules ' + ', '.join(map(str, REVERSED_SWERVE_MODULES)) + ' turned 180 deg about the steering axis',
             'base_collision': 'approved enclosed visual shell',
             'tcp': tool_data, 'tool_link_geometry_inertia_and_ft_sensors': 'github_description',
-            'radars': radar_data, 'ultrasonics': ultrasonic_data},
+            'radars': radar_data, 'ultrasonics': ultrasonic_data,
+            'active_suspension': suspension_data},
         'link_count': len(model.findall('link')), 'movable_joint_count': len(limits['joints']),
         'sphere_count': sum(map(len,sphere_map.values())), 'fixed_box_count': len(boxes['cuboids']),
         'arm_new_link_from_old_link_zero': {n:t.tolist() for n,t in transforms.items()},
@@ -361,11 +452,14 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         'github_full_joint_contract': {j.get('name'): structure(j) for j in upstream.findall('joint')},
         'github_link_names': [l.get('name') for l in upstream.findall('link')],
         'joint_overrides': {'base_footprint_to_base_link': 'PR82 root: z=.335m, yaw=0',
-            'updown': 'PR82 lift (same local transform as upstream)',
+            'updown': 'PR82 lift (same local transform as upstream); limits measured on the robot '
+                '(user 2026-11-22): -1.05..0 m, 0.1666 m/s',
             'left_tool0_fixed': 'agreed own TCP distance and axes',
-            'right_tool0_fixed': 'agreed own TCP distance and axes'},
+            'right_tool0_fixed': 'agreed own TCP distance and axes', **swerve_overrides},
+        'joint_reparents': {name: 'suspension_link' for name in SUSPENDED_JOINTS},
+        'arm_module_limits': arm_module_limits,
         'head_collision_fit': head_fit,
-        'collision_scope': 'Imported arm/body radii are approximations, not certified conservative envelopes. New head spheres enclose assigned mesh triangles with a 0.5mm surface margin. No payload. Four boxes require an explicit backend; native sphere-only queries are incomplete.',
+        'collision_scope': approved['policy'] + ' Arms unchanged; no payload; four fixed-body boxes unchanged.',
         'mesh_sources': source_files,
         'artifacts': {n: {'path': path, 'sha256': sha((output/path).read_bytes())} for n,path in variant_paths.items()}}
     write_json(output, 'config/alfav3_mobile_manifest.json', manifest)

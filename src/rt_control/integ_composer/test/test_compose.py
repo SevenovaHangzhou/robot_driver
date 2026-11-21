@@ -237,7 +237,11 @@ def test_rolling_limits_use_urdf_velocity_and_acceleration_policy(shares, tmp_pa
         **inputs(shares), runtime_dir=tmp_path / "runtime", use_mock_hardware=True, jtc_only=False
     )
     parameters = result.controllers["rolling_trajectory_controller"]["ros__parameters"]
-    assert set(parameters["joint_velocity_limits"]) == {math.radians(30.0)}
+    # robot_description eca5b04: eRob V3.44 output peak speeds, J1..J7 per arm (user 2026-11-22).
+    peaks = dict(zip(range(1, 8), (75.0, 75.0, 75.0, 100.2, 180.0, 180.0, 180.0)))
+    assert parameters["joint_velocity_limits"] == pytest.approx(
+        [math.radians(peaks[int(joint[-1])]) for joint in parameters["joints"]]
+    )
     assert parameters["joint_acceleration_limits"] == pytest.approx(
         [ARM_ACCELERATION_LIMITS[joint] for joint in parameters["joints"]]
     )

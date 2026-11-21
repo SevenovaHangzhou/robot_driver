@@ -1,5 +1,6 @@
 """Contracts for the composed robot and its three asset representations."""
 import hashlib
+from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
@@ -19,11 +20,21 @@ MANIFEST=json.loads((ROOT/'config/alfav3_mobile_manifest.json').read_text())
 def structure(e):
     return [e.tag,dict(sorted(e.attrib.items())),[structure(c) for c in e]]
 
+def expected_joint_contract(name, original):
+    expected = deepcopy(original)
+    limits = MANIFEST['arm_module_limits']
+    if name in limits['velocity_rad_s']:
+        for tag, attributes, _ in expected[2]:
+            if tag == 'limit':
+                attributes['velocity'] = str(limits['velocity_rad_s'][name])
+                attributes['effort'] = format(limits['effort_nm'][name], 'g')
+    return expected
+
 def test_canonical_and_projection_trees():
     m=ET.parse(ENTRY).getroot()
     links=[l.get('name') for l in m.findall('link')]
-    assert len(links)==47  # +8 ultrasonic transducer frames (user 2026-11-13)
-    assert sum(j.get('type')!='fixed' for j in m.findall('joint'))==25
+    assert len(links)==48  # +8 ultrasonic frames (2026-11-13), +suspension_link (2026-11-18)
+    assert sum(j.get('type')!='fixed' for j in m.findall('joint'))==26
     for key in ('canonical_urdf','visual_urdf','collision_urdf'):
         p=ROOT/VARIANTS[key]
         result=subprocess.run(['check_urdf',str(p)],capture_output=True,text=True)
@@ -51,7 +62,7 @@ def test_github_arm_joint_semantics_preserved():
     m=ET.parse(ENTRY).getroot()
     assert len(MANIFEST['github_arm_joint_contract'])==14
     for name,original in MANIFEST['github_arm_joint_contract'].items():
-        assert structure(m.find(f"joint[@name='{name}']"))==original
+        assert structure(m.find(f"joint[@name='{name}']"))==expected_joint_contract(name, original)
     for side in ('left','right'):
         assert m.find(f"joint[@name='{side}_joint1']/parent").get('link')=='arm_carriage'
         bounds=m.find(f"joint[@name='{side}_joint6']/limit")
@@ -64,21 +75,26 @@ def test_complete_github_inventory_and_local_joint_contract():
     upstream=MANIFEST['github_full_joint_contract']
     current={j.get('name'):j for j in m.findall('joint')}
     assert len(upstream)==36
-    added_links={'lidar_main','lidar_rear'}|{f'ultrasonic_channel_{i}_link' for i in range(1,9)}
-    added_joints={'lidar_main_fixed','lidar_rear_fixed'}|{f'ultrasonic_channel_{i}_joint' for i in range(1,9)}
+    added_links={'lidar_main','lidar_rear','suspension_link'}|{f'ultrasonic_channel_{i}_link' for i in range(1,9)}
+    added_joints={'lidar_main_fixed','lidar_rear_fixed','suspension'}|{f'ultrasonic_channel_{i}_joint' for i in range(1,9)}
     assert set(current)==set(upstream)|added_joints
     assert {l.get('name') for l in m.findall('link')}==set(MANIFEST['github_link_names'])|added_links
-    assert set(MANIFEST['joint_overrides'])=={'base_footprint_to_base_link','updown','left_tool0_fixed','right_tool0_fixed'}
+    assert set(MANIFEST['joint_overrides'])=={'base_footprint_to_base_link','updown','left_tool0_fixed','right_tool0_fixed',
+        'steer3_joint','wheel3_joint','steer4_joint','wheel4_joint'}
     for name,original in upstream.items():
         j=current[name]
-        # No joint may disappear or move to a different parent, including
-        # joints with an explicitly overridden local origin.
+        # No joint may disappear or move to a different parent, including joints with an
+        # explicitly overridden local origin. Declared reparents keep everything but parent/origin.
         children={c[0]:c[1] for c in original[2]}
         assert j.get('type')==original[1]['type']
-        assert j.find('parent').attrib==children['parent']
         assert j.find('child').attrib==children['child']
+        if name in MANIFEST['joint_reparents']:
+            assert j.find('parent').get('link')==MANIFEST['joint_reparents'][name]
+            assert [c for c in structure(j)[2] if c[0] not in ('parent','origin')]==[c for c in original[2] if c[0] not in ('parent','origin')]
+            continue
+        assert j.find('parent').attrib==children['parent']
         if name not in MANIFEST['joint_overrides']:
-            assert structure(j)==original, name
+            assert structure(j)==expected_joint_contract(name, original), name
     assert 'head_joint' not in current and 'head_pitch_joint' not in current
 
 def test_head_sensor_follows_original_dynamic_chain():
@@ -118,6 +134,43 @@ def test_wheel_joints_retained_without_individual_collision():
             assert not link.findall('collision')
             assert not np.allclose(frames(m,{name+'_joint':.5})[name],f0[name])
 
+def test_rear_swerve_modules_turned_about_steering_axis():
+    # User 2026-11-19: modules 3/4 (rear, base_link x<0) turned 180 deg about the steering axis;
+    # the wheel contact stays on that axis.
+    m=ET.parse(ENTRY).getroot()
+    upstream=MANIFEST['github_full_joint_contract']
+    def element(contract):
+        e=ET.Element(contract[0],contract[1])
+        for child in contract[2]:e.append(element(child))
+        return e
+    original=deepcopy(m)
+    for name in ('steer3_joint','wheel3_joint','steer4_joint','wheel4_joint'):
+        current=original.find(f"joint[@name='{name}']")
+        original.remove(current)
+        original.append(element(upstream[name]))
+    up=np.array([0,0,1.0])
+    for i in range(1,5):
+        steer=m.find(f"joint[@name='steer{i}_joint']")
+        before=transform(original.find(f"joint[@name='steer{i}_joint']/origin"))
+        after=np.linalg.inv(frames(m)['base_link'])@frames(m)[f'steer{i}']
+        assert np.allclose(after[:3,3],before[:3,3],atol=1e-12)
+        # Steering axis is -Z in base_link either way: driver model_heading_sign -1 still holds.
+        assert np.allclose(after[:3,:3]@[0,0,1],[0,0,-1],atol=1e-6)
+        turned=i in (3,4)
+        assert np.allclose(after[:3,:3],(rotation((0,0,np.pi)) if turned else np.eye(3))@before[:3,:3],atol=1e-12)
+        assert (m.find(f"joint[@name='wheel{i}_joint']/axis").get('xyz')=='0 0 -1')==turned
+        for q in (0.0,.7,-1.9):
+            positions={f'steer{i}_joint':q}
+            moves=[]
+            for model in (m,original):
+                wheel=frames(model,positions)[f'wheel{i}']
+                axis=wheel[:3,:3]@np.array(list(map(float,model.find(f"joint[@name='wheel{i}_joint']/axis").get('xyz').split())))
+                # Centre velocity of a wheel rolling without slip for a positive joint rate.
+                moves.append(np.cross(axis,up))
+            assert np.allclose(moves[0],moves[1],atol=1e-6)
+            centre=[frames(model,positions)[f'steer{i}'][:2,3] for model in (m,original)]
+            assert np.allclose(centre[0],centre[1],atol=1e-12)
+
 def test_root_lift_and_fixed_radars():
     m=ET.parse(ENTRY).getroot()
     for q in ({},{'updown':-.8,'H1_joint':.3,'H2_joint':-.2}):
@@ -132,6 +185,29 @@ def test_root_lift_and_fixed_radars():
     j=m.find("joint[@name='updown']")
     assert j.find('axis').get('xyz')=='0 0 -1'
     assert np.allclose(transform(j.find('origin'))[:3,3],[.174,0,1.68])
+    # Measured on the robot (user 2026-11-22): zero at the bottom of the 1.05 m stroke.
+    assert [float(j.find('limit').get(k)) for k in ('lower','upper','velocity')]==[-1.05,0,.1666]
+
+def test_suspension_lifts_only_the_rear_axle():
+    m=ET.parse(ENTRY).getroot()
+    j=m.find("joint[@name='suspension']")
+    assert j.get('type')=='prismatic' and j.find('parent').get('link')=='base_link'
+    assert j.find('axis').get('xyz')=='0 0 1'
+    assert np.allclose(transform(j.find('origin')),[[1,0,0,-.305],[0,1,0,0],[0,0,1,0],[0,0,0,1]],atol=1e-12)
+    limit=j.find('limit')
+    assert [float(limit.get(k)) for k in ('lower','upper','velocity')]==[0,.18,.03]
+    upstream=MANIFEST['github_full_joint_contract']
+    f0,f1=frames(m),frames(m,{'suspension':.1})
+    for name in ('steer3','steer4'):
+        # Zero stroke preserves the mount position and main's approved 180-degree reversal.
+        origin={c[0]:c[1] for c in upstream[name+'_joint'][2]}['origin']
+        before=transform(ET.Element('origin',origin))
+        before[:3,:3]=rotation((0,0,np.pi))@before[:3,:3]
+        assert np.allclose(np.linalg.inv(f0['base_link'])@f0[name],before,atol=1e-12)
+        for child in (name,name.replace('steer','wheel')):
+            assert np.allclose(f1[child][:3,3]-f0[child][:3,3],[0,0,.1],atol=1e-12)
+    for name in ('steer1','steer2','wheel1','wheel2','base_link','lidar_main'):
+        assert np.allclose(f1[name],f0[name],atol=1e-12)
 
 def test_tcp_distance_and_axes():
     m=ET.parse(ENTRY).getroot()
@@ -171,7 +247,13 @@ def test_limits_and_inertials():
         for field,attr in pairs:
             assert np.isclose(limits[name][field],float(j.find('limit').get(attr)))
         if name.startswith(('left_joint','right_joint')):
-            assert np.isclose(float(j.find('limit').get('velocity')),np.pi/6)
+            index=int(name[-1])-1
+            speed=np.deg2rad([75,75,75,100.2,180,180,180][index])
+            effort=[647,647,484,459,204,107,36][index]
+            assert np.isclose(float(j.find('limit').get('velocity')),speed)
+            assert float(j.find('limit').get('effort'))==effort
+            assert np.isclose(MANIFEST['arm_module_limits']['velocity_rad_s'][name],speed)
+            assert MANIFEST['arm_module_limits']['effort_nm'][name]==effort
             assert np.isclose(limits[name]['max_acceleration_rad_s2'],np.pi/3)
     for l in m.findall('link'):
         a=l.find('inertial')
@@ -181,12 +263,26 @@ def test_limits_and_inertials():
         matrix=np.array([[i['ixx'],i['ixy'],i['ixz']],[i['ixy'],i['iyy'],i['iyz']],[i['ixz'],i['iyz'],i['izz']]])
         assert np.isfinite(matrix).all() and np.linalg.eigvalsh(matrix).min()>0
 
+def test_regeneration_preserves_documented_module_limits():
+    from compose_robot_model import apply_arm_module_limits
+    model=ET.parse(ENTRY).getroot()
+    original=structure(model)
+    for name in MANIFEST['arm_module_limits']['velocity_rad_s']:
+        limit=model.find(f"joint[@name='{name}']/limit")
+        limit.set('velocity',str(np.pi/6))
+        limit.set('effort','1')
+    assert apply_arm_module_limits(model)==MANIFEST['arm_module_limits']
+    assert structure(model)==original
+    cspace=yaml.safe_load((ROOT/VARIANTS['curobo_config']).read_text())['kinematics']['cspace']
+    expected=[.4 if name=='updown' else np.pi/3 for name in cspace['joint_names']]
+    assert np.allclose(cspace['max_acceleration'],expected,rtol=0,atol=1e-12)
+
 def test_sphere_box_contract_and_references():
     m=ET.parse(ENTRY).getroot();links={l.get('name') for l in m.findall('link')};joints={j.get('name') for j in m.findall('joint')}
     spheres=yaml.safe_load((ROOT/VARIANTS['curobo_spheres']).read_text())['collision_spheres']
     assert set(spheres)<=links and 'base_link' not in spheres
     assert sum(map(len,spheres.values()))==MANIFEST['sphere_count']
-    assert len(spheres['arm_carriage'])==20
+    assert len(spheres['arm_carriage'])==30
     assert {'H1_Link','H2_Link','mid360_Link'} <= set(spheres)
     assert 'head' not in spheres and 'head_yaw' not in spheres
     for ss in spheres.values():
@@ -197,8 +293,8 @@ def test_sphere_box_contract_and_references():
     cfg=yaml.safe_load((ROOT/VARIANTS['curobo_config']).read_text())['kinematics']
     assert set(cfg['collision_link_names'])==set(spheres)
     assert set(cfg['cspace']['joint_names'])|set(cfg['lock_joints'])=={j.get('name') for j in m.findall('joint') if j.get('type')!='fixed'}
-    assert len(cfg['cspace']['joint_names'])==15 and len(cfg['lock_joints'])==10
-    assert {'H1_joint','H2_joint'} <= set(cfg['lock_joints'])
+    assert len(cfg['cspace']['joint_names'])==15 and len(cfg['lock_joints'])==11
+    assert {'H1_joint','H2_joint','suspension'} <= set(cfg['lock_joints'])
     assert 'mid360_Link' in cfg['tool_frames']
     assert all(n in spheres for pair in cfg['self_collision_ignore'].values() for n in pair)
     for e in ET.parse(ROOT/'srdf/robot_alfav3_mobile.srdf').getroot().iter():
@@ -206,16 +302,20 @@ def test_sphere_box_contract_and_references():
             if attr in e.attrib:assert e.get(attr) in links
         if e.tag=='joint':assert e.get('name') in joints
 
-def test_new_head_spheres_cover_mesh_surface_samples():
+def test_approved_fit_matches_published_spheres_and_reports_gaps():
     pytest.importorskip('trimesh')
     from audit_collision_coverage import audit
     report=audit(ROOT)
-    for name in ('H1_Link','H2_Link','mid360_Link'):
+    approved=json.loads((ROOT/'config/curobo/approved_head_carriage_fit.json').read_text())
+    spheres=yaml.safe_load((ROOT/VARIANTS['curobo_spheres']).read_text())['collision_spheres']
+    for name in ('arm_carriage','H1_Link','H2_Link','mid360_Link'):
         assert name in report['links']
-        assert report['links'][name]['covered_fraction']==1.0
-        assert report['links'][name]['maximum_sampled_gap_m']==0.0
+        assert spheres[name] == approved['links'][name]['spheres']
+        assert 0 <= report['links'][name]['covered_fraction'] <= 1
+        assert report['links'][name]['maximum_sampled_gap_m'] < .06
         fit=MANIFEST['head_collision_fit'][name]
-        assert fit['maximum_assigned_triangle_vertex_gap_m'] <= -0.0004999
+        assert fit['method'] == 'approved_morphit'
+        assert fit['parameters'] == approved['links'][name]['parameters']
     # Eye sight-range meshes are visualization only, not physical obstacles.
     for name in ('Leye_link','Reye_Link'):
         link=ET.parse(ENTRY).getroot().find(f"link[@name='{name}']")

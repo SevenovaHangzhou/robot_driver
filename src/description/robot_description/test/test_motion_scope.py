@@ -14,7 +14,7 @@ def test_control_scope_and_home_cover_only_declared_axes():
     joints = {j.get('name'): j for j in model.findall('joint') if j.get('type') != 'fixed'}
     controlled, other = scope['controlled_joints'], scope['state_only_joints']
     assert len(controlled) == len(set(controlled)) == 15
-    assert len(other) == len(set(other)) == 10
+    assert len(other) == len(set(other)) == 11
     assert not set(controlled) & set(other)
     assert set(controlled) | set(other) == set(joints)
     assert set(home['positions']) == set(controlled)
@@ -24,7 +24,7 @@ def test_control_scope_and_home_cover_only_declared_axes():
         assert math.isfinite(value)
         limit = joints[name].find('limit')
         assert float(limit.get('lower')) <= value <= float(limit.get('upper'))
-    assert home['positions']['updown'] == -.3
+    assert home['positions']['updown'] == 0.
     for side, degrees in [('left',[65,-75,20,-90,0,-40,90]), ('right',[-65,75,-20,90,0,40,-90])]:
         for index,value in enumerate(degrees,1):
             assert math.isclose(home['positions'][f'{side}_joint{index}'],math.radians(value),abs_tol=1e-12)

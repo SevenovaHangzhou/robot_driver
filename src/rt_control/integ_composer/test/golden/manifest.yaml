@@ -502,3 +502,17 @@ arch-base-control-mode:
   - arm-real
   - arm-mock-jtc
   - arm-real-jtc
+description_updown_limits_regeneration:
+  reason: 'ELECTRI-241 2026-11-22: robot_description main 09a7ca4 (tree b13cd94) - updown -1.05..0 m and
+    0.1666 m/s (user 2026-11-22), with the upstream commits since 98d498e: active suspension joint,
+    rear swerve modules turned 180 deg, eRob V3.44 arm peak speeds (user 2026-11-22 keeps them)'
+  method: compose output written only where the canonical form differs; arm and head cases differ in
+    robot_description.xml, arm cases in the JTC/rolling joint_velocity_limits; emergency-stop fields and
+    joint_acceleration_limits, which the comparison overrides, are left as frozen
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - head-mock
+  - head-real
