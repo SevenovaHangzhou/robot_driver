@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "ctrl_enable_manager/enable_manager_controller.hpp"
+#include "motion_group_parameters.hpp"
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
@@ -44,31 +45,31 @@ public:
   static void setOwner(Controller & c, Owner o) { c.owner_.store(o); }
   static ControlMode controlMode(const Controller & c)
   {
-    return c.motion_group_.current_mode.load();
+    return c.motion_groups_[0].current_mode.load();
   }
   static void setControlMode(Controller & c, ControlMode m)
   {
-    c.motion_group_.current_mode.store(m);
+    c.motion_groups_[0].current_mode.store(m);
   }
   static void requestCsp(Controller & c, bool csp)
   {
-    c.motion_group_.drive_csp_requested.store(csp);
+    c.motion_groups_[0].drive_csp_requested.store(csp);
   }
   static bool cspRequested(const Controller & c)
   {
-    return c.motion_group_.drive_csp_requested.load();
+    return c.motion_groups_[0].drive_csp_requested.load();
   }
   static bool disableRequested(const Controller & c) { return c.disable_request_.load(); }
   static ControlMode detectControlMode(
     const Controller & c, const controller_manager_msgs::srv::ListControllers::Response & states)
   {
-    return c.detectControlMode(c.motion_group_, states);
+    return c.detectControlMode(c.motion_groups_[0], states);
   }
   static void handleSetMode(
     Controller & c, std::shared_ptr<ModeService::Request> request,
     std::shared_ptr<ModeService::Response> response)
   {
-    c.handleSetMode(c.motion_group_, request, response);
+    c.handleSetMode(c.motion_groups_[0], request, response);
   }
   static bool activateMotionControllers(Controller & c)
   {
@@ -77,7 +78,7 @@ public:
   static void handleJtcState(
     Controller & c, const control_msgs::msg::JointTrajectoryControllerState::SharedPtr & message)
   {
-    c.handleJtcState(c.motion_group_, message);
+    c.handleJtcState(c.motion_groups_[0], message);
   }
 };
 
@@ -154,7 +155,7 @@ public:
       replace(parameters, parameter);
     }
     rclcpp::NodeOptions options;
-    options.parameter_overrides(parameters);
+    options.parameter_overrides(test::grouped(parameters, "base"));
     options.allow_undeclared_parameters(true);
     options.automatically_declare_parameters_from_overrides(true);
     controller_ = std::make_unique<EnableManagerController>();

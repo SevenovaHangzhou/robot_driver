@@ -130,7 +130,11 @@ def compose(
         bindings,
     )
     peripherals = _optional_peripherals(
-        data["deployment"], control_scope, use_mock_hardware, config_root / "units" / machine_unit, files
+        data["deployment"],
+        control_scope,
+        use_mock_hardware,
+        config_root / "units" / machine_unit,
+        files,
     )
     if peripherals:
         lifecycle["optional_peripherals"] = peripherals
@@ -337,6 +341,7 @@ def _controllers(
         "rendered_modules": rendered_modules,
         "selected": selected_names,
         "tags": {name: bindings[name].get("tags", []) for name in selected_names},
+        "motion_groups": {name: bindings[name].get("motion_group") for name in selected_names},
         "naming": naming,
         "runtime_values": {"startup_id": startup_id, "robot_description": model_description},
         "runtime_parameters": runtime_parameters,
@@ -472,17 +477,16 @@ def _output_files(runtime, runtime_files, robot_description, controllers, order)
     }
 
 
-def _mode_controllers(order, bindings):
-    """Controllers a mode service switches between: arms trajectory/rolling, or the chassis
-    velocity controller (enable_target) and its wheel trajectory controller."""
-    tags = {name: set(bindings[name].get("tags", [])) for name in order["inactive"]}
-    for alternate, group in (
-        ("rolling", {"trajectory", "rolling"}),
-        ("base_trajectory", {"enable_target", "base_trajectory"}),
-    ):
-        if any(alternate in names for names in tags.values()):
-            return [name for name, names in tags.items() if names & group]
-    return []
+def _mode_controller_groups(order, bindings):
+    """Per motion group, the controllers its mode service switches between: the arms'
+    trajectory/rolling controllers, the chassis' velocity and wheel trajectory controllers."""
+    switched = {"enable_target", "rolling", "base_trajectory"}
+    groups = {}
+    for name in order["inactive"]:
+        group = bindings[name].get("motion_group")
+        if group is not None and switched & set(bindings[name].get("tags", [])):
+            groups.setdefault(group, []).append(name)
+    return [names for names in groups.values() if len(names) > 1]
 
 
 def _optional_peripherals(deployment, control_scope, use_mock_hardware, unit_root, files):
@@ -536,8 +540,12 @@ def _lifecycle(
         "publish_robot_state": bool(scope.get("publish_robot_state", False)),
         "hardware_activation_order": list(hardware_order),
         "motion_controllers": list(order["inactive"]),
-        # Switched by the group's set_control_mode: exactly one of them is active when enabled.
-        **({"mode_controllers": mode} if (mode := _mode_controllers(order, bindings)) else {}),
+        # Switched by each group's set_control_mode: exactly one per group is active when enabled.
+        **(
+            {"mode_controller_groups": groups}
+            if (groups := _mode_controller_groups(order, bindings))
+            else {}
+        ),
         "lifecycle_controllers": list(order["active"]),
         **({"recorder_controllers": recorders} if recorders else {}),
         # One process owns an IgH master or a CAN interface at a time (supervisor locks).

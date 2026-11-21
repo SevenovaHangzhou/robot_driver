@@ -39,14 +39,14 @@ bool EnableManagerController::runningModeConfirmed(std::size_t axis) const noexc
 {
   // While enabled a switched drive may be in its startup mode or in CSP; the mode switch itself
   // confirms the mode its controller set needs.
-  return modeConfirmed(axis) ||
-         (!motion_group_.drive_axis.empty() && motion_group_.drive_axis[axis] != 0U &&
-          actual_modes_[axis] == kCspMode);
+  return modeConfirmed(axis) || (!drive_switch_axis_.empty() && drive_switch_axis_[axis] != 0U &&
+                                 actual_modes_[axis] == kCspMode);
 }
 
 bool EnableManagerController::configureDriveModeSwitching(MotionGroup & group)
 {
-  group.drive_joint_names = get_node()->get_parameter("mode_switch_joints").as_string_array();
+  group.drive_joint_names =
+    get_node()->get_parameter(group.name + ".mode_switch_joints").as_string_array();
   group.drive_axes.clear();
   group.drive_axis.assign(joint_names_.size(), 0U);
   if (group.drive_joint_names.empty()) {
@@ -80,7 +80,11 @@ bool EnableManagerController::configureDriveModeSwitching(MotionGroup & group)
 
 bool EnableManagerController::bindDriveModeCommands(MotionGroup & group)
 {
+  // command_interface_configuration: every group's switched drives after the handshake devices.
   group.drive_command_offset = cia402_axes_.size() + handshake_devices_.size() * 2U;
+  for (std::size_t index = 0U; &motion_groups_[index] != &group; ++index) {
+    group.drive_command_offset += motion_groups_[index].drive_joint_names.size();
+  }
   for (std::size_t index = 0U; index < group.drive_joint_names.size(); ++index) {
     if (
       command_interfaces_[group.drive_command_offset + index].get_name() !=

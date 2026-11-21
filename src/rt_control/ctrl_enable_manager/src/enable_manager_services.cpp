@@ -157,9 +157,14 @@ void EnableManagerController::handleDisable(
   }
 
   Owner current_owner = owner_.load(std::memory_order_acquire);
-  if (motion_group_.mode_switching && current_owner == Owner::kMode) {
-    motion_group_.abort_requested.store(true, std::memory_order_release);
-    const auto mode_deadline = std::chrono::steady_clock::now() + motion_group_.switch_timeout * 5;
+  if (current_owner == Owner::kMode) {
+    // Whichever group is switching: abort it and wait up to five of the longest switch steps.
+    abortModeSwitches();
+    std::chrono::milliseconds longest_step{0};
+    for (std::size_t index = 0U; index < motion_group_count_; ++index) {
+      longest_step = std::max(longest_step, motion_groups_[index].switch_timeout);
+    }
+    const auto mode_deadline = std::chrono::steady_clock::now() + longest_step * 5;
     while (active_.load(std::memory_order_acquire) &&
            owner_.load(std::memory_order_acquire) == Owner::kMode &&
            std::chrono::steady_clock::now() < mode_deadline) {
@@ -169,7 +174,7 @@ void EnableManagerController::handleDisable(
     phase = phase_.load(std::memory_order_acquire);
     if (current_owner == Owner::kMode) {
       restart_required_.store(true, std::memory_order_release);
-      motion_group_.current_mode.store(ControlMode::kRestartRequired, std::memory_order_release);
+      storeGroupModes(ControlMode::kRestartRequired);
       jtc_deactivation_required_.store(true, std::memory_order_release);
       emergency_jtc_deactivate_request_.store(true, std::memory_order_release);
       disable_request_.store(true, std::memory_order_release);
@@ -374,17 +379,14 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
     clear_in_progress();
     return SwitchResult::kAmbiguous;
   }
-  // Enable starts the group in its motion controller's mode (velocity for the chassis).
-  const ControlMode target = activate ? motion_group_.default_mode : ControlMode::kDisabled;
   auto request = std::make_shared<controller_manager_msgs::srv::SwitchController::Request>();
-  const SwitchResult plan_result =
-    buildControllerSwitchRequest(motion_group_, before, target, *request);
+  const SwitchResult plan_result = buildEnableSwitchRequest(before, activate, *request);
   if (plan_result != SwitchResult::kSuccess) {
     clear_in_progress();
     return plan_result;
   }
   if (request->activate_controllers.empty() && request->deactivate_controllers.empty()) {
-    const bool matches = controllerStateMatches(motion_group_, before, target);
+    const bool matches = enableStateMatches(before, activate);
     clear_in_progress();
     return matches ? SwitchResult::kSuccess : SwitchResult::kFailed;
   }
@@ -403,9 +405,7 @@ EnableManagerController::SwitchResult EnableManagerController::switchJtc(bool ac
     const auto switch_response = future.get();
     if (switch_response != nullptr && switch_response->ok) {
       controller_manager_msgs::srv::ListControllers::Response after;
-      if (
-        queryControllerStates(after, timeout) &&
-        controllerStateMatches(motion_group_, after, target)) {
+      if (queryControllerStates(after, timeout) && enableStateMatches(after, activate)) {
         result = SwitchResult::kSuccess;
       }
     } else {

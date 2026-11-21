@@ -332,7 +332,8 @@ def test_chassis_enable_policy_is_derived_from_module_mode_groups(shares, tmp_pa
     assert params["enable_batch_joint_names"] == steering + drive
     assert params["enable_batch_sizes"] == [2, 2, 2, 2]
     assert params["expected_modes"] == [9, 8] * 4
-    assert params["motion_controller"] == "swerve_controller"
+    assert params["motion_groups"] == ["base"]
+    assert params["base"]["motion_controller"] == "swerve_controller"
     assert params["ready_state_interfaces"] == [f"steering_encoder_{n}/ready" for n in range(1, 5)]
     assert params["ready_hold_time"] == 0.05
     assert params["motion_fault_topic"] == "/swerve_controller/fault_stop"
@@ -357,7 +358,7 @@ def test_chassis_lifecycle_activates_state_sources_before_actuators(shares, tmp_
     assert lifecycle["hardware_activation_order"] == order
     assert lifecycle["motion_controllers"] == ["swerve_controller", "base_wheel_jtc"]
     # R-IN-23 switches between them; exactly one is active while enabled.
-    assert lifecycle["mode_controllers"] == ["swerve_controller", "base_wheel_jtc"]
+    assert lifecycle["mode_controller_groups"] == [["swerve_controller", "base_wheel_jtc"]]
     assert lifecycle["lifecycle_controllers"] == [
         "joint_state_broadcaster",
         "rt_internal_state_broadcaster",
@@ -376,7 +377,7 @@ def test_chassis_mode_switch_wires_the_wheel_trajectory_controller_and_drive_whe
     result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
     wheels = [f"wheel{n}_joint" for n in range(1, 5)]
     joints = [f"steer{n}_joint" for n in range(1, 5)] + wheels
-    manager = result.controllers["enable_manager"]["ros__parameters"]
+    manager = result.controllers["enable_manager"]["ros__parameters"]["base"]
     assert manager["trajectory_controller"] == "base_wheel_jtc"
     assert manager["mode_service"] == "/rt/base/set_control_mode"
     assert manager["mode_switch_joints"] == wheels

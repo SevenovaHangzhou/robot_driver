@@ -267,7 +267,7 @@ def test_one_of_the_switched_mode_controllers_must_be_active(runtime):
     generated, _ = runtime
     lifecycle = yaml.safe_load((generated / "lifecycle.yaml").read_text())
     lifecycle["motion_controllers"] = ["arm_jtc", "arm_rolling", "head"]
-    lifecycle["mode_controllers"] = ["arm_jtc", "arm_rolling"]
+    lifecycle["mode_controller_groups"] = [["arm_jtc", "arm_rolling"]]
     (generated / "lifecycle.yaml").write_text(yaml.safe_dump(lifecycle))
     node = DiagnosticsNode(
         codes=CODES,
@@ -287,4 +287,32 @@ def test_one_of_the_switched_mode_controllers_must_be_active(runtime):
     assert set(rolling.values()) == {"active"}
     neither = store(arm_jtc="inactive", arm_rolling="inactive", head="active")
     assert neither["arm_jtc|arm_rolling"] == "inactive"
+    node.destroy_node()
+
+
+def test_each_motion_group_needs_one_active_mode_controller(runtime):
+    generated, _ = runtime
+    lifecycle = yaml.safe_load((generated / "lifecycle.yaml").read_text())
+    lifecycle["motion_controllers"] = ["arm_jtc", "arm_rolling", "swerve", "wheel_jtc"]
+    lifecycle["mode_controller_groups"] = [["arm_jtc", "arm_rolling"], ["swerve", "wheel_jtc"]]
+    (generated / "lifecycle.yaml").write_text(yaml.safe_dump(lifecycle))
+    node = DiagnosticsNode(
+        codes=CODES,
+        parameter_overrides=[
+            Parameter("generated_dir", value=str(generated)),
+            Parameter("control_scope", value="arms_only"),
+        ],
+    )
+    response = ListControllers.Response()
+    response.controller = [
+        ControllerState(name=name, state=state)
+        for name, state in (
+            ("arm_jtc", "inactive"),
+            ("arm_rolling", "active"),
+            ("swerve", "inactive"),
+            ("wheel_jtc", "inactive"),
+        )
+    ]
+    node._store_controllers(SimpleNamespace(result=lambda: response))
+    assert node._controllers == {"arm_jtc|arm_rolling": "active", "swerve|wheel_jtc": "inactive"}
     node.destroy_node()

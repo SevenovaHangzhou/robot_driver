@@ -66,18 +66,19 @@ void EnableManagerController::handleRollingState(
 
 bool EnableManagerController::motionStatesBound(const MotionGroup & group) const
 {
-  // state_interface_configuration lists the group positions, then the EtherCAT data age, right
-  // after the CiA402 axes.
+  // state_interface_configuration lists every group's positions after the CiA402 axes, then
+  // one shared EtherCAT data age.
   if (group.joint_names.empty()) {
     return true;
   }
-  const std::size_t offset = cia402_axes_.size();
   for (std::size_t axis = 0U; axis < group.joint_names.size(); ++axis) {
-    if (state_interfaces_[offset + axis].get_name() != group.joint_names[axis] + "/position") {
+    if (
+      state_interfaces_[group.state_offset + axis].get_name() !=
+      group.joint_names[axis] + "/position") {
       return false;
     }
   }
-  return state_interfaces_[offset + group.joint_names.size()].get_name() ==
+  return state_interfaces_[motion_age_state_index_].get_name() ==
          "ethercat_domain/process_data_age_ms";
 }
 
@@ -97,13 +98,12 @@ void EnableManagerController::resetMotionGroup(MotionGroup & group)
   if (group.joint_names.empty()) {
     return;
   }
-  const std::size_t offset = cia402_axes_.size();
   for (std::size_t axis = 0U; axis < group.joint_names.size(); ++axis) {
     group.sample_positions[axis].store(
-      state_interfaces_[offset + axis].get_value(), std::memory_order_relaxed);
+      state_interfaces_[group.state_offset + axis].get_value(), std::memory_order_relaxed);
   }
   group.sample_feedback_age_ms.store(
-    state_interfaces_[offset + group.joint_names.size()].get_value(), std::memory_order_relaxed);
+    state_interfaces_[motion_age_state_index_].get_value(), std::memory_order_relaxed);
 }
 
 void EnableManagerController::sampleMotionGroup(MotionGroup & group) noexcept
@@ -112,14 +112,13 @@ void EnableManagerController::sampleMotionGroup(MotionGroup & group) noexcept
   if (group.joint_names.empty()) {
     return;
   }
-  const std::size_t offset = cia402_axes_.size();
   group.sample_version.fetch_add(1U, std::memory_order_acq_rel);
   for (std::size_t axis = 0U; axis < group.joint_names.size(); ++axis) {
     group.sample_positions[axis].store(
-      state_interfaces_[offset + axis].get_value(), std::memory_order_relaxed);
+      state_interfaces_[group.state_offset + axis].get_value(), std::memory_order_relaxed);
   }
   group.sample_feedback_age_ms.store(
-    state_interfaces_[offset + group.joint_names.size()].get_value(), std::memory_order_relaxed);
+    state_interfaces_[motion_age_state_index_].get_value(), std::memory_order_relaxed);
   group.sample_time_ns.store(steadyNowNs(), std::memory_order_relaxed);
   group.sample_sequence.fetch_add(1U, std::memory_order_relaxed);
   group.sample_version.fetch_add(1U, std::memory_order_release);
@@ -557,7 +556,7 @@ EnableManagerController::SwitchResult EnableManagerController::buildControllerSw
 {
   request.activate_controllers.clear();
   request.deactivate_controllers.clear();
-  for (const auto & name : managed_controllers_) {
+  for (const auto & name : group.controllers) {
     const auto controller = std::find_if(
       states.controller.begin(), states.controller.end(),
       [&name](const auto & candidate) { return candidate.name == name; });
@@ -583,7 +582,7 @@ bool EnableManagerController::controllerStateMatches(
   const MotionGroup & group, const controller_manager_msgs::srv::ListControllers::Response & states,
   ControlMode target) const
 {
-  for (const auto & name : managed_controllers_) {
+  for (const auto & name : group.controllers) {
     const auto controller = std::find_if(
       states.controller.begin(), states.controller.end(),
       [&name](const auto & candidate) { return candidate.name == name; });

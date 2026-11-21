@@ -29,6 +29,7 @@ add_library(enable_manager_controller SHARED
   src/enable_manager_drive_modes.cpp
   src/enable_manager_emergency_stop.cpp
   src/enable_manager_services.cpp
+  src/enable_manager_motion_groups.cpp
   src/handshake_device.cpp
 )
 target_compile_features(enable_manager_controller PUBLIC cxx_std_17)
@@ -117,6 +118,13 @@ if(BUILD_TESTING)
   target_compile_features(test_drive_mode_switch PUBLIC cxx_std_17)
   target_link_libraries(test_drive_mode_switch enable_manager_controller)
   ament_target_dependencies(test_drive_mode_switch
+    control_msgs controller_manager_msgs hardware_interface rclcpp robot_rt_control_interfaces
+    robot_system_interfaces)
+
+  ament_add_gmock(test_motion_groups test/test_motion_groups.cpp)
+  target_compile_features(test_motion_groups PUBLIC cxx_std_17)
+  target_link_libraries(test_motion_groups enable_manager_controller)
+  ament_target_dependencies(test_motion_groups
     control_msgs controller_manager_msgs hardware_interface rclcpp robot_rt_control_interfaces
     robot_system_interfaces)
 endif()
