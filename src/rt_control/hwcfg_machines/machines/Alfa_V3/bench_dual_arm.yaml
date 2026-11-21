@@ -9,6 +9,7 @@ authorities:
   encoder_policy: user 2026-10-24 confirms right J3/J4 single-turn; 0x730F may be reset at disabled startup
   direction: left confirmed 2026-10-18; right all +1 confirmed by user per joint 2026-10-22; direction unchanged by ring migration
 pending_facts:
+- Tongyi suspension drive at ring18 is a passive bench responder (user 2026-11-17, bench test of the active suspension); remove when it leaves this bus
 - BluePoint sensors at rings8/16 are topology-only; force PDO/driver integration deferred
 - right arm drive firmware (torque-sensor PDO not yet verified on the right drives)
 - 'PP Halt policy: live firmware has no 0x605D object'
@@ -34,6 +35,9 @@ spec:
   - ring_position: 17
     profile: inovance_gr10_coupler
     identity_key: coupler_subdevice
+  - ring_position: 18
+    profile: tongyi_xmc_esc
+    identity_key: xmc_esc
   branches:
     left:
       connector: X2

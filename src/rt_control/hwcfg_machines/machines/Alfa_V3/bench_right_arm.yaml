@@ -13,6 +13,7 @@ authorities:
   direction: left confirmed 2026-10-18; right all +1 confirmed by user per joint 2026-10-22; direction
     unchanged by ring migration
 pending_facts:
+- Tongyi suspension drive at ring18 is a passive bench responder (user 2026-11-17, bench test of the active suspension); remove when it leaves this bus
 - right arm drive firmware (torque-sensor PDO not yet verified on the right drives)
 - 'PP Halt policy: live firmware has no 0x605D object'
 - coupler runtime state/DC and ESI display-version difference
@@ -56,6 +57,9 @@ spec:
   - ring_position: 17
     profile: inovance_gr10_coupler
     identity_key: coupler_subdevice
+  - ring_position: 18
+    profile: tongyi_xmc_esc
+    identity_key: xmc_esc
   branches:
     right:
       connector: X3
