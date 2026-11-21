@@ -6,7 +6,9 @@ authorities:
   host: Advantech MIC-770V3W chassis bench, read back 2026-10-14..17 (ELECTRI-127)
   ethercat_mac: IgH master 0 attached device
   can: ZLG PCIe CAN card (user 2026-11-05) - can0 left battery slot, can1 right battery slot,
-    can3 external steering encoders + IMU (node 1); bitrate per canopen.bitrate_kbps; master node 127
+    can3 external steering encoders + IMU (node 1); bitrate per canopen.bitrate_kbps; master node 127.
+    User 2026-11-22 (ELECTRI-234) - can2 head gimbal (DaMiao IDs 1/2) at 1 Mbit/s; host boot bring-up
+    hostsetup/advantech-zlg-can.sh (can0/can1 250k, can2 1M, can3 500k)
   realtime: host read back 2026-11-05 - isolcpus/nohz_full 6,7; SMT sibling 7 offline (rt-control-cpu-layout);
     rt_cpu 6, IgH run_on_cpu=6; irqaffinity/housekeeping 0-5,8-27 (user 2026-11-05)
 pending_facts: []
@@ -16,6 +18,10 @@ hardware_options:
   force_sensors: none
 can_interfaces:
   swerve_encoders: can3
+  head: can2
+  # Golden Phoenix BMS, one battery per bus; periph_bms still reads only its own can_interface.
+  bms_left: can0
+  bms_right: can1
 ethercat:
   master_id: 0
 host_id: user-MIC-770V3W
