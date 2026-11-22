@@ -28,6 +28,7 @@ state_only_joints:
 - wheel3_joint
 - steer4_joint
 - wheel4_joint
+- suspension
 home_resource: config/poses/home.yaml
 missing_state_policy: require_explicit_state
 execution_policy: reject_joints_outside_controlled_set

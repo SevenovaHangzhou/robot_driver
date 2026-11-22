@@ -6,7 +6,7 @@
     "right"
   ],
   "effort_policy": "output-side startup/stop peak torque; not continuous rated or momentary shock torque",
-  "velocity_policy": "peak_velocity_rad_s = published output-side peak rpm * 2*pi/60; no second gearbox conversion. The URDF arm velocity limit is the lower motion limit in alfav3_mobile_manifest.json arm_motion_limits",
+  "velocity_policy": "URDF arm velocity = published output-side peak rpm * 2*pi/60; no second gearbox conversion. Module speed ceiling; load-dependent operating limits are configured separately.",
   "version_status": "110H V6 explicitly listed; other supplied revision suffixes not individually verified by these tables",
   "limitations": "Independent scalar caps do not enforce duty cycle, temperature or torque-speed envelope. Tables retain latest specifications; version-specific drawings take precedence.",
   "joints": {
@@ -108,5 +108,28 @@
       "printed_page": 3,
       "pdf_page": 14
     }
+  },
+  "velocity_reference": {
+    "manual": "eRob机器人关节模组用户手册_V3.44.pdf",
+    "tables": [
+      "2-2 (A)",
+      "2-3 (B)",
+      "2-4 (C)",
+      "12-1"
+    ],
+    "printed_pages": [
+      3,
+      4,
+      5,
+      52,
+      53
+    ],
+    "pdf_pages": [
+      14,
+      15,
+      16,
+      63,
+      64
+    ]
   }
 }

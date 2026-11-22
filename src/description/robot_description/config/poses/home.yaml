@@ -6,7 +6,7 @@ units:
   revolute: rad
   prismatic: m
 model_revision: unified-20261112-r2
-source:
+based_on:
   release: alfa-v3-curobo-legacy-26.11.10-buildable
   path: program/research/curobo_v3/config/rezero_home.json
   sha256: a92f213f93f4114fac7b79c472fc22a394a9ae6ea67b2f89db3b0260c141ba98
@@ -14,9 +14,16 @@ source:
 validation:
   status: user_selected_joint_reference
   collision_checked: false
-  new_model_task_verified: false
+  new_model_task_verified: true
+  scope: Six top-grasp tasks, two fresh runs per Home setting, all24 complete; ideal planning only, not hardware certification
+decision:
+  date: '2026-11-17'
+  source: User-approved Home updown0 after six-task comparison
+  change: Only updown changes from -0.3m to 0m; fourteen arm Home angles unchanged
+  algorithm_repository: 231055558/alfa-v3-curobo-legacy-architecture
+  algorithm_config: research/curobo_v3/config/rezero_home.json
 positions:
-  updown: -0.3
+  updown: 0.0
   left_joint1: 1.1344640137963142
   left_joint2: -1.3089969389957472
   left_joint3: 0.3490658503988659
