@@ -2,6 +2,7 @@
 # J1-J3: 373.06 deg/s^2; J4: 498.41 deg/s^2; J5-J7: 895.35 deg/s^2.
 # Velocity limits remain owned by the selected robot URDF.
 # FJT and rolling select these values by joint name, in their own policy order.
+# updown (prismatic, m/s^2): user 2026-11-22, the Advantech 15-axis trajectory includes the lift.
 acceleration_rad_s2:
   left_joint1: 6.511125307490046
   left_joint2: 6.511125307490046
@@ -17,3 +18,4 @@ acceleration_rad_s2:
   right_joint5: 15.62680545773123
   right_joint6: 15.62680545773123
   right_joint7: 15.62680545773123
+  updown: 0.4

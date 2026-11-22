@@ -17,6 +17,7 @@ parts:
 - manifest/profiles.yaml
 - manifest/scopes.yaml
 - manifest/bench_scopes.yaml
+- manifest/advantech.yaml
 robot_model:
   package: robot_description
   source_revision: 2b0950f1a5009dda1e93d4737b2894ccefed3734
@@ -100,6 +101,23 @@ policy_refs:
   motion:
     package: hwcfg_machines
     file: machines/Alfa_V3/policies/Alfa_V3_arm_tolerances.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: arm_tolerances.schema.json
+  # Advantech full machine (ELECTRI-239).
+  advantech_enable:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_advantech_enable_policy.yaml
+    schema_package: ctrl_enable_manager
+    schema: enable_policy.schema.json
+  advantech_arms_motion:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_advantech_arms_motion.yaml
+    schema_package: ctrl_rolling_trajectory
+    schema: base_motion.schema.json
+  # The same two arms as the bench: its 14-axis rolling values.
+  advantech_arm_rolling:
+    package: hwcfg_machines
+    file: machines/Alfa_V3/policies/Alfa_V3_bench_dual_arm_motion.yaml
     schema_package: ctrl_rolling_trajectory
     schema: arm_tolerances.schema.json
   bench_suspension_enable:

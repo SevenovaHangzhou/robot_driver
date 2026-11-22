@@ -48,3 +48,4 @@ optional_peripherals:
   config_file: lpms_nav3.yaml
   scopes:
   - chassis_only
+  - advantech_full

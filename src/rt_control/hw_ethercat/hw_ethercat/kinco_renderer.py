@@ -333,6 +333,8 @@ def render(request, share, validate_module, validate_unit, validate_device):
     )
 
     exports.update(offline_exports(request, axes))
+    # Every chassis joint in bus order, e.g. for a joint state broadcaster beside other modules.
+    exports["joint_names"] = list(managed)
 
     params = {
         "master_id": topology["master_id"],

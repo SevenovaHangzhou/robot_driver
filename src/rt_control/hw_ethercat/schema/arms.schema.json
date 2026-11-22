@@ -107,6 +107,11 @@
               ],
               "additionalProperties": false
             }
+          },
+          "esc_ring_position": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ring position of the coupler whose port feeds this branch; 0 (the main coupler) when absent."
           }
         },
         "required": [

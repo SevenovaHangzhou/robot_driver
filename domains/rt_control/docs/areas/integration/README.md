@@ -54,3 +54,5 @@
 | integration-20261116-02#F1 | 操作网页迁至 robot_operator_web，本仓库删除 integ_operator_web | [网页迁出](records/2026-11-16-operator-web-moved.md) | PARTIAL（.40 待改用单制品与新网页；双实例补丁已丢弃） |
 
 控制器实现见[control](../control/README.md)；生命周期见[protocol](../protocol/README.md)；机型组合输入见[hw-config](../hw-config/README.md)。同一原始记录跨资产事实按对应区引用。
+
+- integration-20261122-01#F1–F2：研华整机组合 `advantech_full`（27 从站拓扑；双臂组与底盘组各自切换；双臂沿用台架零点）。见[记录](records/2026-11-22-advantech-full-machine.md)。

@@ -6,7 +6,8 @@ authorities:
   verification: exercised on the Advantech chassis bench with enable and motion (ELECTRI-127, 2026-10-14..16)
   source: robot_hw_ethercat/config/machines/alfa_v3_swerve_chassis.draft.yaml
   field_facts: ELECTRI-127 Advantech chassis bench, deployed profile.runtime.yaml (base 946ec110), 2026-10-14..16
-  ring_position: live eight-slave enumeration; even rings drive, odd rings steering
+  ring_position: 'Advantech scan 2026-11-22 - the chassis follows the main coupler (0) and the lift (1) on
+    port 1: rings 2..9, drive then steering per module (formerly 0..7 when wired alone)'
   direction: 'user real-motion corrections 2026-10-16: reverse all four drive and all four steering axes; user
     2026-11-16: drive reversal moved into the drives (Kinco 607E=1 stored on rings 0/2/4/6), drive direction +1'
   model_heading_sign: steerN_joint origin rpy (pi, 0, -pi/2) flips the joint axis to -Z, so heading = -q
@@ -29,7 +30,7 @@ spec:
     role: steering
     robot_model_joint: steer1_joint
     model_heading_sign: -1
-    ring_position: 1
+    ring_position: 3
     device: devices/kinco_smc60s_0040_fd124s.yaml
     direction: -1
     mode_of_operation: 8
@@ -39,7 +40,7 @@ spec:
     role: steering
     robot_model_joint: steer2_joint
     model_heading_sign: -1
-    ring_position: 3
+    ring_position: 5
     device: devices/kinco_smc60s_0040_fd124s.yaml
     direction: -1
     mode_of_operation: 8
@@ -49,7 +50,7 @@ spec:
     role: steering
     robot_model_joint: steer3_joint
     model_heading_sign: -1
-    ring_position: 5
+    ring_position: 7
     device: devices/kinco_smc60s_0040_fd124s.yaml
     direction: -1
     mode_of_operation: 8
@@ -59,7 +60,7 @@ spec:
     role: steering
     robot_model_joint: steer4_joint
     model_heading_sign: -1
-    ring_position: 7
+    ring_position: 9
     device: devices/kinco_smc60s_0040_fd124s.yaml
     direction: -1
     mode_of_operation: 8
@@ -68,7 +69,7 @@ spec:
   - module_position: module_1
     role: drive
     robot_model_joint: wheel1_joint
-    ring_position: 0
+    ring_position: 2
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: 1
     mode_of_operation: 9
@@ -79,7 +80,7 @@ spec:
   - module_position: module_2
     role: drive
     robot_model_joint: wheel2_joint
-    ring_position: 2
+    ring_position: 4
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: 1
     mode_of_operation: 9
@@ -90,7 +91,7 @@ spec:
   - module_position: module_3
     role: drive
     robot_model_joint: wheel3_joint
-    ring_position: 4
+    ring_position: 6
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: 1
     mode_of_operation: 9
@@ -101,7 +102,7 @@ spec:
   - module_position: module_4
     role: drive
     robot_model_joint: wheel4_joint
-    ring_position: 6
+    ring_position: 8
     device: devices/kinco_smc80s_0075_fd134s.yaml
     direction: 1
     mode_of_operation: 9

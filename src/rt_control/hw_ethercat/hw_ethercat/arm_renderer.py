@@ -268,6 +268,12 @@ def render(request, share, validate_module, validate_unit, validate_device):
             {
                 "main_esc_port": branch["main_esc_port"],
                 "downstream": min(axis["ring_position"] for axis in branch["axes"]),
+                # The coupler that feeds the branch (a sub-coupler on the full machine).
+                **(
+                    {"esc_ring_position": branch["esc_ring_position"]}
+                    if "esc_ring_position" in branch
+                    else {}
+                ),
             }
             for branch in spec["branches"].values()
         ],

@@ -75,10 +75,13 @@ def preflight(expected_topology, *, run=None):
                 break
         if "State: PREOP" not in block:
             findings.append(_finding(address, "offline", "Unexpected slave AL state (not PREOP)"))
-    main = blocks[0][1]
+    ports = {int(position): block for position, block in blocks}
     for branch in topology["branches"] + topology["internal_ports"]:
+        coupler = ports.get(branch.get("esc_ring_position", 0), "")
         match = re.search(
-            rf"^\s+{branch['main_esc_port']}\s+(?:MII|EBUS)\s+up\s+open\s+yes\s+(\d+)\b", main, re.M
+            rf"^\s+{branch['main_esc_port']}\s+(?:MII|EBUS)\s+up\s+open\s+yes\s+(\d+)\b",
+            coupler,
+            re.M,
         )
         if not match or int(match.group(1)) != branch["downstream"]:
             findings.append(

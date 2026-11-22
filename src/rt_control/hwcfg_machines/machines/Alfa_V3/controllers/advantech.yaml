@@ -1,0 +1,97 @@
+# Part of controllers.yaml (merged by integ_composer read_with_parts): Advantech full machine
+# (ELECTRI-239, user 2026-11-22). The arms group switches between a 15-axis trajectory controller
+# (both arms and the lift, sent as one goal) and the 14-axis rolling controller; the lift holds
+# while rolling runs.
+controllers:
+  advantech_arms_jtc:
+    module: advantech_dual_arm
+    name: arms_jtc
+    plugin: joint_trajectory_controller/JointTrajectoryController
+    package: ctrl_rolling_trajectory
+    actuator_groups:
+    - csp
+    required_state_modules: []
+    motion_group: arms
+    tags:
+    - trajectory
+    - motion
+    - enable_target
+    capabilities:
+    - name: arm_joint_trajectory
+      topic: /rt/arms/follow_joint_trajectory
+      type: control_msgs/action/FollowJointTrajectory
+    - name: arm_joint_stream
+      topic: /rt/arms/joint_trajectory
+      type: trajectory_msgs/msg/JointTrajectory
+    parameters:
+    # The lift is another module, so the joints are not matched to this module's actuator group.
+    - policy:
+        name: motion
+        path: joints
+        as: joints
+    - policy:
+        name: motion
+        path: jtc
+    - interface:
+        name: arms_trajectory
+        as: action_name
+    - interface:
+        name: arms_joint_stream
+        as: trajectory_topic
+    - model_limits:
+        policy: motion
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: motion
+          path: joints
+        as: joint_acceleration_limits
+  advantech_arms_rolling:
+    module: advantech_dual_arm
+    name: arms_rolling
+    plugin: ctrl_rolling_trajectory/RollingTrajectoryController
+    package: ctrl_rolling_trajectory
+    actuator_groups:
+    - csp
+    required_state_modules: []
+    motion_group: arms
+    tags:
+    - rolling
+    - motion
+    parameters:
+    - policy:
+        name: arm_rolling
+        path: joints
+        as: joints
+        match: actuator_groups
+    - policy:
+        name: arm_rolling
+        path: rolling
+    - model_limits:
+        policy: arm_rolling
+        path: joints
+        attribute: lower
+        as: joint_position_lower
+    - model_limits:
+        policy: arm_rolling
+        path: joints
+        attribute: upper
+        as: joint_position_upper
+    - model_limits:
+        policy: arm_rolling
+        path: joints
+        attribute: velocity
+        as: joint_velocity_limits
+    - yaml:
+        package: hwcfg_machines
+        file: machines/Alfa_V3/policies/arm_acceleration_limits.yaml
+        path: acceleration_rad_s2
+        joint_order:
+          policy: arm_rolling
+          path: joints
+        as: joint_acceleration_limits
