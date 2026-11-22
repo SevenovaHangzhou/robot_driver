@@ -275,4 +275,4 @@
 | 2026-11-22 | hw-config | [研华 CAN 口分配与头部零点](docs/areas/hw-config/records/2026-11-22-advantech-can-map.md) | PARTIAL（T2）：can2 1 Mbit/s 下头部两台失能反馈无故障，机械零位设零后读回约 0 rad；开机自动启用、断电保持与使能方向未验 |
 | 2026-11-22 | hw-config | [研华转角零点按外置编码器重算](docs/areas/hw-config/records/2026-11-22-advantech-steering-zero.md) | PARTIAL（T2）：0x7320 清除后只读换算四个转向零点，外置编码器显示四轮在 ±3° 内并经目视确认；使能低速核对未做 |
 | 2026-11-22 | hw-config | [研华转向零点符号更正](docs/areas/hw-config/records/2026-11-22-advantech-steering-zero-sign.md) | PARTIAL（T2）：整机使能 `swerve_controller` 因电机/编码器差两倍角度被拒；按 q = −外置角重算四个零点，失能读回换算一致；使能后激活与低速转向未做 |
-| 2026-11-22 | chassis-control | [研华电机/外置编码器差阈值放宽到 2°](docs/areas/control/records/2026-11-22-swerve-encoder-difference-2deg.md) | PARTIAL：整机转向到 −65° 时 module_3 差 1.046° 超 1° 触发 feedback_fault；按用户决定放到 2°，实机复测未做 |
+| 2026-11-22 | chassis-control | [研华电机/外置编码器差阈值放宽到 4°](docs/areas/control/records/2026-11-22-swerve-encoder-difference.md) | PARTIAL：整机转向到 −65° 时 module_3 差 1.046° 超 1° 触发 feedback_fault；2° 仍触发，实测方向相关回差约 4°，按用户决定放到 4°，实机复测未做 |

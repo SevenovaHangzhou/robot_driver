@@ -41,10 +41,10 @@ swerve_controller:
     max_body_acceleration: 1.0
     max_body_jerk: 4.0
     velocity_deadband: 0.001
-    # User 2026-11-22 (ELECTRI-233): 2 deg. With the steering zeros captured near 0 deg the motor and
-    # external angles differ by up to ~1 deg at -65 deg (module-dependent sign; backlash or encoder
-    # linearity unmeasured); 1 deg tripped feedback_fault while steering. Also the steering hold tolerance.
-    max_encoder_difference: 0.03490658503988659
+    # User 2026-11-22 (ELECTRI-233): 4 deg. Motor vs external heading differ by up to 3.6 deg at rest
+    # and the sign flips with the steering direction (gear backlash, about 4 deg peak-to-peak on
+    # module_3/4); 1 and 2 deg tripped feedback_fault. Also the steering hold tolerance.
+    max_encoder_difference: 0.06981317007977318
     max_update_period: 0.2
     slip_residual_threshold: 1.0
     # User 2026-10-21: align_first (default) stops all four wheels while any module is more

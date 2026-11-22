@@ -61,4 +61,4 @@
 
 [control-20261122-02](records/2026-11-22-partial-mode-confirmation.md)#F1：`expected_modes` 中 0 表示不确认该关节启动模式（无模式显示的驱动），使能策略可按组设置。本机包测试通过，mock 与实机未验（UNVERIFIED，T0）。
 
-[control-20261122-03](records/2026-11-22-swerve-encoder-difference-2deg.md)#F1：研华底盘电机/外置编码器差与转向保持偏差门限放到 2°（用户 2026-11-22，临时值；1° 时 −65° 转向触发 feedback_fault）。实机待验（PARTIAL）。
+[control-20261122-03](records/2026-11-22-swerve-encoder-difference.md)#F1：研华底盘电机/外置编码器差与转向保持偏差门限放到 4°（用户 2026-11-22，临时值；1°/2° 均触发 feedback_fault，实测回差约 4° 峰峰值）。实机待验（PARTIAL）。
