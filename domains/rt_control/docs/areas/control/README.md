@@ -60,3 +60,5 @@
 [control-20261122-01](records/2026-11-22-motion-groups.md)#F1-F2：enable_manager 支持多个运动组（机械臂组、底盘组），各组独立切换模式、只检查本组静止；使能、失能、急停与故障整机一份；静止确认服务按组为 `~/<组>/confirm_standstill`。本机包测试通过，mock 与实机未验（UNVERIFIED，T0）。
 
 [control-20261122-02](records/2026-11-22-partial-mode-confirmation.md)#F1：`expected_modes` 中 0 表示不确认该关节启动模式（无模式显示的驱动），使能策略可按组设置。本机包测试通过，mock 与实机未验（UNVERIFIED，T0）。
+
+[control-20261122-03](records/2026-11-22-swerve-encoder-difference-2deg.md)#F1：研华底盘电机/外置编码器差与转向保持偏差门限放到 2°（用户 2026-11-22，临时值；1° 时 −65° 转向触发 feedback_fault）。实机待验（PARTIAL）。
