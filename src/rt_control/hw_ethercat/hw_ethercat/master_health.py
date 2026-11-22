@@ -13,12 +13,11 @@ def responder_count(request):
     count = 0
     for peer in peers:
         spec = peer["spec"]
-        count += (
-            len(spec["axes"])
-            if "axes" in spec
-            else sum(len(branch["axes"]) for branch in spec["branches"].values())
-        )
-        count += len(spec.get("extra_responders", []))
+        if "axes" in spec:
+            count += len(spec["axes"])
+        elif "branches" in spec:
+            count += sum(len(branch["axes"]) for branch in spec["branches"].values())
+        count += len(spec.get("sensors", [])) + len(spec.get("extra_responders", []))
     return count
 
 

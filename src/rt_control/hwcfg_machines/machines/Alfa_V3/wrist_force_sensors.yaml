@@ -4,14 +4,16 @@ status: draft
 verified: false
 authorities:
   source: live EtherCAT identity and PDO readback 2026-10-24 on ar-Default-string
+  full_machine: user 2026-11-22 (ELECTRI-238) - Advantech ring 18 left wrist, 26 right wrist; frames
+    left_ft_sensor_link/right_ft_sensor_link from the Robot Model; raw values until the scale is confirmed
 pending_facts:
 - re-scan both absolute ring positions after any physical topology change
 - P140000100 engineering-unit scale confirmation
-- authoritative frame IDs and installed sensor-axis orientation
+- installed sensor-axis orientation relative to the Robot Model frames
 - long-run DC/sample-counter behavior and reserved-field behavior
 - sample freshness policy for closed-loop force-control admission
-- positions 8/16 apply to the observed eighteen-responder dual-arm layout only;
-  complete robot topology remains TBD
+- positions 8/16 apply to the observed eighteen-responder dual-arm bench layout; the Advantech
+  full machine uses full_ring_positions
 robot_variant: Alfa_V3
 module: wrist_force_sensors
 master_system: ecat_arms
@@ -20,14 +22,14 @@ spec:
   - side: left
     ring_position: 8
     profile: bluepoint_p140000100
-    frame_id: TBD
+    frame_id: left_ft_sensor_link
     binding: left_wrist
     sensor_name: left_wrist_force_sensor
     controller_name: left_wrist_force_sensor_broadcaster
   - side: right
     ring_position: 16
     profile: bluepoint_p140000100
-    frame_id: TBD
+    frame_id: right_ft_sensor_link
     binding: right_wrist
     sensor_name: right_wrist_force_sensor
     controller_name: right_wrist_force_sensor_broadcaster
@@ -49,4 +51,7 @@ spec:
   - 14
   - 15
   - 17
-  full_ring_positions: TBD
+  # Advantech scan 2026-11-22: each arm's tail after J7 (left 18, right 26; user 2026-11-22).
+  full_ring_positions:
+  - 18
+  - 26
