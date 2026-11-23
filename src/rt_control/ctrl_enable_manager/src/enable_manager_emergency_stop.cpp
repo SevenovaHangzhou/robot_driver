@@ -1,5 +1,8 @@
 #include "ctrl_enable_manager/enable_manager_controller.hpp"
 
+#include <algorithm>
+#include <iterator>
+
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "rclcpp/qos.hpp"
 
@@ -48,6 +51,39 @@ bool EnableManagerController::emergencyStopBlocksReset() const noexcept
           emergency_jtc_deactivate_request_.load(std::memory_order_acquire) ||
           jtc_deactivation_required_.load(std::memory_order_acquire) ||
           switch_in_progress_.load(std::memory_order_acquire));
+}
+
+bool EnableManagerController::configureEmergencyDisableVoltage()
+{
+  const auto joints =
+    get_node()->get_parameter("emergency_disable_voltage_joints").as_string_array();
+  std::vector<std::uint8_t> candidate(joint_names_.size(), 0U);
+  for (const auto & joint : joints) {
+    const auto found = std::find(joint_names_.begin(), joint_names_.end(), joint);
+    const auto axis = static_cast<std::size_t>(std::distance(joint_names_.begin(), found));
+    if (found == joint_names_.end() || candidate[axis] != 0U) {
+      RCLCPP_ERROR(
+        get_node()->get_logger(),
+        "emergency_disable_voltage_joints must be a unique managed-joint subset");
+      return false;
+    }
+    candidate[axis] = 1U;
+  }
+  emergency_disable_voltage_ = std::move(candidate);
+  return true;
+}
+
+std::uint16_t EnableManagerController::emergencyStopCommand(
+  std::size_t axis, DriveState state) const noexcept
+{
+  if (axis < emergency_disable_voltage_.size() && emergency_disable_voltage_[axis] != 0U) {
+    // Disable Voltage with the quick-stop bit high: no Quick Stop for these drives.
+    return state == DriveState::kSwitchOnDisabled ? 0x0000U : 0x0005U;
+  }
+  if (state == DriveState::kOperationEnabled || state == DriveState::kQuickStopActive) {
+    return 0x0002U;
+  }
+  return state == DriveState::kSwitchedOn ? 0x0006U : 0x0000U;
 }
 
 }  // namespace ctrl_enable_manager

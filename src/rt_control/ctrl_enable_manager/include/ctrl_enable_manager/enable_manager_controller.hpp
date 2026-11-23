@@ -346,6 +346,8 @@ private:
   SwitchResult switchJtc(bool activate);
   void handleNonRtFaultStop();
   bool configureEmergencyStop();
+  bool configureEmergencyDisableVoltage();
+  std::uint16_t emergencyStopCommand(std::size_t axis, DriveState state) const noexcept;
   bool emergencyStopBlocksEnable() const noexcept;
   bool emergencyStopBlocksReset() const noexcept;
   void updateEmergencyStop(std::int64_t now_ns);
@@ -454,6 +456,10 @@ private:
   std::vector<std::string> joint_names_;
   std::vector<std::vector<std::size_t>> enable_batches_;
   std::vector<std::uint8_t> ready_to_switch_on_disable_terminal_;
+  // Axes that an emergency stop disables with Disable Voltage (0x0005) instead of Quick Stop:
+  // the Tongyi XMC_ESC keeps the motor energized after 0x0002 and then ignores the disable
+  // sequence; 0x0005 disables it at once, de-energizes the motor and engages the brake (vendor).
+  std::vector<std::uint8_t> emergency_disable_voltage_;
   std::vector<std::uint16_t> status_words_;
   std::vector<std::int16_t> expected_modes_;
   std::vector<std::int16_t> actual_modes_;
