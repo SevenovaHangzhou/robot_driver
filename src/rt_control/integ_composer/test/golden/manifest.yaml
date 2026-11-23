@@ -527,3 +527,15 @@ description_updown_limits_regeneration:
   - stationary-real
   - head-mock
   - head-real
+description_updown_travel_regeneration:
+  reason: 'ELECTRI-241 2026-11-23: robot_description main 405f9ee (tree 760b4a5) - updown -1.033..+0.017 m
+    (user 2026-11-23, stroke ends in the calibrated joint coordinate); upstream stow pose resources
+    (robot_description #22) add no composed output'
+  method: only the updown limit element of robot_description.xml changes in the arm and head cases
+  cases:
+  - arm-mock
+  - arm-real
+  - arm-mock-jtc
+  - arm-real-jtc
+  - head-mock
+  - head-real

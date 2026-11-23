@@ -185,8 +185,8 @@ def test_root_lift_and_fixed_radars():
     j=m.find("joint[@name='updown']")
     assert j.find('axis').get('xyz')=='0 0 -1'
     assert np.allclose(transform(j.find('origin'))[:3,3],[.174,0,1.68])
-    # Measured on the robot (user 2026-11-22): zero at the bottom of the 1.05 m stroke.
-    assert [float(j.find('limit').get(k)) for k in ('lower','upper','velocity')]==[-1.05,0,.1666]
+    # Stroke ends measured on the robot (user 2026-11-23): -1.033 m to +0.017 m, 1.05 m in total.
+    assert [float(j.find('limit').get(k)) for k in ('lower','upper','velocity')]==[-1.033,.017,.1666]
 
 def test_suspension_lifts_only_the_rear_axle():
     m=ET.parse(ENTRY).getroot()

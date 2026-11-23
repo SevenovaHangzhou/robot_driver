@@ -3909,15 +3909,15 @@
   "artifacts": {
     "canonical_urdf": {
       "path": "urdf/robot_alfav3_mobile.urdf",
-      "sha256": "837e6a902663e0d051b04bc7a87a888cdaa8d1b5079f644efcd5078629f3d843"
+      "sha256": "05cda7b5b3c6605726e2156f8554176b2e26cccc374a10a2a4127d1484b12c22"
     },
     "visual_urdf": {
       "path": "urdf/variants/robot_visual.urdf",
-      "sha256": "6dceb2a00812122c9e402a09c78c5c48ed492bac2b7015e62a75aba64018a670"
+      "sha256": "4526f3c9e5a6fe69bd3aae7d3487aba49157d6787f24954695f1ae338a091045"
     },
     "collision_urdf": {
       "path": "urdf/variants/robot_collision.urdf",
-      "sha256": "25115672d0d643b8325faa629698b1fcbed32e3dae00dfb842bf6dddb336afec"
+      "sha256": "e2c6fd776e46f3436373cd4a6526b0b8500acd32ea644e8125bfd42c5b97fed3"
     },
     "curobo_config": {
       "path": "config/curobo/robot.yaml",

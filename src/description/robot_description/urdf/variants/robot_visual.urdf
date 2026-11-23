@@ -114,7 +114,7 @@
     <parent link="base_link" />
     <child link="arm_carriage" />
     <axis xyz="0 0 -1" />
-    <limit lower="-1.05" upper="0" effort="10" velocity="0.1666" />
+    <limit lower="-1.033" upper="0.017" effort="10" velocity="0.1666" />
   </joint>
   <link name="base_link">
     <inertial>

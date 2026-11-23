@@ -33,10 +33,11 @@ HEAD_COLLISION_LINKS = ('H1_Link', 'H2_Link', 'mid360_Link')
 # (user 2026-11-19), so the front and rear suspension arms face each other. The wheel
 # contact stays on the steering axis.
 REVERSED_SWERVE_MODULES = (3, 4)
-# Lift travel and planning limits measured on the robot (user 2026-11-22): 1.05 m stroke with the
-# encoder zero at the bottom (-1.05 m) and 2 cm beyond each end to the hard stops; 5 mm per motor
-# turn, so 0.1666 m/s stays just under the user-given 2000 r/min; 0.4 m/s^2. Effort unchanged.
-UPDOWN_LIMITS = {'lower': '-1.05', 'upper': '0', 'velocity': '0.1666'}
+# Lift travel measured on the robot in the calibrated joint coordinate (user 2026-11-23): the
+# stroke ends are -1.033 m (2 cm above the bottom hard stop) and +0.017 m (top); 1.05 m in total.
+# Speed and acceleration (user 2026-11-22): 5 mm per motor turn, so 0.1666 m/s stays just under
+# the user-given 2000 r/min; 0.4 m/s^2. Effort unchanged.
+UPDOWN_LIMITS = {'lower': '-1.033', 'upper': '0.017', 'velocity': '0.1666'}
 UPDOWN_MAX_ACCELERATION_M_S2 = 0.4
 
 

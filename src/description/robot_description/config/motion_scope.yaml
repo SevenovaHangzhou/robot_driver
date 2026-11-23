@@ -30,5 +30,6 @@ state_only_joints:
 - wheel4_joint
 - suspension
 home_resource: config/poses/home.yaml
+stow_resource: config/poses/stow.yaml
 missing_state_policy: require_explicit_state
 execution_policy: reject_joints_outside_controlled_set
