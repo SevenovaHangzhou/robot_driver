@@ -1,0 +1,24 @@
+{
+  "revision": "carriage-assembly-approved-20261124",
+  "source_commit": "7bdd71dbc3a81a876e92f1a2aa704e984cf55f1c",
+  "source_urdf_sha256": "ffed1ab9bf5b4e6d7839d5f25726f7c8c47ce660b2d38c4c7ec3db7432c157b2",
+  "base_xyz_m": [
+    0.07478297093,
+    0,
+    0.37
+  ],
+  "wheel_mount_x_compensation_m": -0.07478297093,
+  "lift_reference_reading_m": 0.0,
+  "lift_direction_in_base": [
+    0,
+    0,
+    1
+  ],
+  "motion_lift_limits_m": [
+    -1.0,
+    0.0
+  ],
+  "alignment": "left/right link1 negative Z intersection at zero J1 aligned to point_arm_carriage; retain source upper-body orientation",
+  "collision_spheres": "unchanged link-local centers/radii",
+  "fixed_boxes": "approved_fixed_body_boxes.yaml"
+}

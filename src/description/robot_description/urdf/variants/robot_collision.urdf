@@ -2,145 +2,10 @@
 <robot name="alfa_robot_v3">
   <link name="base_footprint" />
   <joint name="base_footprint_to_base_link" type="fixed">
-    <origin xyz="0 0 0.335" rpy="0 0 0" />
+    <origin xyz="0.07478297093 0 0.37" rpy="0 0 0" />
     <parent link="base_footprint" />
     <child link="base_link" />
   </joint>
-  <link name="arm_carriage">
-    <inertial>
-      <origin xyz="0.23241894 1.4548597e-09 0.35398238" rpy="0 0 0" />
-      <mass value="42.349928" />
-      <inertia ixx="1.461624" iyy="1.1919986" izz="1.2166646" ixy="0.00047758911" ixz="0.028235631" iyz="-2.4308674e-08" />
-    </inertial>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_014_surface_shell_014-a0f5a6901345.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_004_surface_shell_004-5c8de5afa407.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_003_solid_003-b2cd56d30593.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_058_solid_058-86611fa58d21.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_050_solid_050-d2a80cadc42c.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_002_solid_002-cc0c5ce4401a.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_005_surface_shell_005-c3b5d0926db4.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_015_surface_shell_015-3f1e8dbb0074.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_018_surface_shell_018-5443449d2b9b.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_008_surface_shell_008-05cdb29c7788.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_006_surface_shell_006-05c645d276fb.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_009_surface_shell_009-a7fca2be3dfc.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_016_surface_shell_016-03e89afa43dc.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_019_surface_shell_019-a61cb522c782.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_017_surface_shell_017-1917586987ba.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="-0.174 0 1.68" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_007_surface_shell_007-4ef6cae1e708.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-  </link>
-  <joint name="updown" type="prismatic">
-    <origin xyz="0.174 0 1.68" rpy="3.1415927 0 0" />
-    <parent link="base_link" />
-    <child link="arm_carriage" />
-    <axis xyz="0 0 -1" />
-    <limit lower="-1.05" upper="0" effort="10" velocity="0.1666" />
-  </joint>
-  <link name="base_link">
-    <inertial>
-      <origin xyz="-0.036137515 -0.00063829515 0.22563075" rpy="0 0 0" />
-      <mass value="982.58382" />
-      <inertia ixx="294.37355" iyy="291.98628" izz="131.56855" ixy="0.038878568" ixz="-6.0994854" iyz="-0.18347327" />
-    </inertial>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/base_link.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_049_solid_049-7d4e9d80ee1c.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/curobo_body/part_048_solid_048-ae9fa2f35ada.stl" scale="1 1 1" />
-      </geometry>
-    </collision>
-  </link>
   <link name="steer1">
     <inertial>
       <origin xyz="0 -0.00049602482 0.12712431" rpy="0 0 0" />
@@ -198,7 +63,7 @@
     </inertial>
   </link>
   <joint name="steer1_joint" type="revolute">
-    <origin xyz="0.305 0.305 0.01" rpy="3.1415927 0 -1.5707963267948966" />
+    <origin xyz="0.23021702907 0.30499999999999999 0.01" rpy="3.1415927 0 -1.5707963267948966" />
     <parent link="base_link" />
     <child link="steer1" />
     <axis xyz="0 0 1" />
@@ -212,7 +77,7 @@
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer2_joint" type="revolute">
-    <origin xyz="0.305 -0.305 0.01" rpy="3.1415927 0 -1.5707963267948966" />
+    <origin xyz="0.23021702907 -0.30499999999999999 0.01" rpy="3.1415927 0 -1.5707963267948966" />
     <parent link="base_link" />
     <child link="steer2" />
     <axis xyz="0 0 1" />
@@ -226,7 +91,7 @@
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer3_joint" type="revolute">
-    <origin xyz="0 0.305 -0.01" rpy="3.1415927 0 1.5707963267948966" />
+    <origin xyz="-0.074782970929999998 0.30499999999999999 -0.01" rpy="3.1415927 0 1.5707963267948966" />
     <parent link="suspension_link" />
     <child link="steer3" />
     <axis xyz="0 0 1" />
@@ -240,7 +105,7 @@
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer4_joint" type="revolute">
-    <origin xyz="0 -0.305 0.01" rpy="3.1415927 0 1.5707963267948966" />
+    <origin xyz="-0.074782970929999998 -0.30499999999999999 0.01" rpy="3.1415927 0 1.5707963267948966" />
     <parent link="suspension_link" />
     <child link="steer4" />
     <axis xyz="0 0 1" />
@@ -659,7 +524,7 @@
     </collision>
   </link>
   <joint name="H1_joint" type="revolute">
-    <origin xyz="0.26699999999999902 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
+    <origin xyz="0.316999999999999 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
     <parent link="arm_carriage" />
     <child link="H1_Link" />
     <axis xyz="0 0 1" />
@@ -750,9 +615,6 @@
     <child link="ultrasonic_channel_8_link" />
     <origin xyz="-0.3145 0.48499999999999999 0.019" rpy="0 0 1.5707963267948966" />
   </joint>
-  <!-- Active suspension (user 2026-11-18): one actuator midway between the rear steering modules
-       lifts the whole rear axle. +Z up, zero at the bottom of the 0..180 mm stroke, 30 mm/s.
-       effort is an uncalibrated placeholder (TBD); the frame carries no geometry or inertia. -->
   <link name="suspension_link" />
   <joint name="suspension" type="prismatic">
     <origin xyz="-0.305 0 0" rpy="0 0 0" />
@@ -761,4 +623,37 @@
     <axis xyz="0 0 1" />
     <limit lower="0" upper="0.18" effort="10" velocity="0.03" />
   </joint>
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.171183971011858 -0.000129721535203758 0.2285902433026" rpy="0 0 0" />
+      <mass value="82.9166597447495" />
+      <inertia ixx="6.71556027886353" ixy="0.00158896810470935" ixz="-0.0250490270766453" iyy="6.50997380502877" iyz="0.00149548598169378" izz="5.01168022532608" />
+    </inertial>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/carriage_assembly/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="updown" type="prismatic">
+    <origin xyz="0.10221702907332161 -4.6924356516980034e-06 1.6629011602730945" rpy="-3.1415926071795868 -0 0" />
+    <parent link="base_link" />
+    <child link="arm_carriage" />
+    <axis xyz="0 0 -1" />
+    <limit lower="-1.033" upper="0.017" velocity="0.1666" effort="10.0" />
+  </joint>
+  <link name="arm_carriage">
+    <inertial>
+      <origin xyz="0.19207773490838501 0.00017524358196211766 0.33832026890927169" rpy="3.1415926071795868 -0 0" />
+      <mass value="6.91206500222801" />
+      <inertia ixx="0.0951205381356033" ixy="-1.01743233049949E-06" ixz="-0.000224126861869537" iyy="0.0638555942093084" iyz="2.52095622939563E-05" izz="0.0719081650713444" />
+    </inertial>
+    <collision>
+      <origin xyz="-0.0030000000000000027 -4.6245421065173766e-06 1.4629011602733106" rpy="3.1415926071795868 -0 0" />
+      <geometry>
+        <mesh filename="package://robot_description/mesh/carriage_assembly/up_and_down.STL" />
+      </geometry>
+    </collision>
+  </link>
 </robot>
