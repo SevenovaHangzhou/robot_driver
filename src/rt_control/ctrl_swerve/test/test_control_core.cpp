@@ -58,6 +58,269 @@ TEST(ControlConfiguration, UnspecifiedGeometryCannotActivate)
   EXPECT_THROW(ControlCore{config}, std::invalid_argument);
 }
 
+class NavigationCapabilityTest : public testing::Test
+{
+protected:
+  static CoreConfig navigation_config()
+  {
+    auto c = synthetic_config();
+    c.max_linear_speed = 1.0;
+    c.max_angular_speed = 0.8;
+    c.max_linear_acceleration = 1.0;
+    c.max_angular_acceleration = kPi / 8.0;
+    c.max_body_jerk = 4.0;
+    c.max_wheel_acceleration = 2.0;
+    c.setpoint.alignment_threshold_rad = kPi / 2.0;
+    c.setpoint.maximum_steering_slew_radps = kPi / 2.0;
+    c.setpoint.maximum_steering_acceleration_radps2 = kPi;
+    c.setpoint.maximum_steering_jerk_radps3 = 1.745329;
+    return c;
+  }
+  CoreConfig config{navigation_config()};
+  ControlCore core{config};
+  ModuleFeedbackArray feedback{};
+  static constexpr double dt{0.001};
+
+  void SetUp() override
+  {
+    for (size_t i = 0; i < 4; ++i) {
+      auto & module = feedback[i];
+      module.valid = module.enabled = module.encoder_valid = true;
+      module.steering_position = module.steering_angle =
+        std::atan2(config.locations[i].x, -config.locations[i].y);
+    }
+    ASSERT_TRUE(core.activate(feedback));
+  }
+
+  ControlOutput tick(ChassisSpeeds command = {}, bool request = true, bool fresh = true)
+  {
+    const auto output = core.update(feedback, command, fresh, dt, std::nullopt, request);
+    for (size_t i = 0; i < 4; ++i) {
+      feedback[i].steering_position = feedback[i].steering_angle = output.steering_position[i];
+      feedback[i].wheel_velocity = output.drive_velocity[i];
+      feedback[i].wheel_position += output.drive_velocity[i] * dt;
+    }
+    return output;
+  }
+
+  void admit()
+  {
+    for (int i = 0; i < 60; ++i) {
+      tick();
+    }
+    ASSERT_TRUE(core.execution_snapshot().rotation_active);
+  }
+};
+
+TEST_F(NavigationCapabilityTest, AdmissionRequiresContinuousStoppedFreshHealthyZeroCommand)
+{
+  for (int i = 0; i < 49; ++i) {
+    tick();
+    EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  }
+  feedback[2].wheel_velocity = 0.101;  // 0.0101 m/s is above the stopped threshold.
+  tick();
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  for (int i = 0; i < 49; ++i) {
+    tick();
+  }
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  tick({}, false);
+  for (int i = 0; i < 49; ++i) {
+    tick();
+  }
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  feedback[0].encoder_valid = false;
+  tick();
+  feedback[0].encoder_valid = true;
+  for (int i = 0; i < 49; ++i) {
+    tick();
+  }
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  tick();
+  tick();
+  EXPECT_TRUE(core.execution_snapshot().rotation_active);
+  // Even a sub-deadband translation revokes; pure rotation cannot readmit while moving.
+  tick({1e-9, 0.0, 0.0});
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  for (int i = 0; i < 100; ++i) {
+    tick({0.0, 0.0, 0.1});
+  }
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+}
+
+TEST_F(NavigationCapabilityTest, AdmissionWaitsForDriveOutputsNotOnlyWheelFeedback)
+{
+  for (int i = 0; i < 3000; ++i) {
+    tick({0.0, 0.0, 0.8}, false);
+  }
+  for (int i = 0; i < 60; ++i) {
+    for (auto & module : feedback) {
+      module.wheel_velocity = 0.0;
+    }
+    const auto output = tick();
+    EXPECT_GT(std::abs(output.drive_velocity[0]), 0.0);
+    EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  }
+}
+
+TEST_F(NavigationCapabilityTest, RotationLimitsRevokeWithoutBodyVelocityStep)
+{
+  admit();
+  double previous = 0.0;
+  for (int i = 0; i < 4000; ++i) {
+    tick({0.0, 0.0, 3.0});
+    const auto & state = core.execution_snapshot();
+    ASSERT_TRUE(state.rotation_active);
+    EXPECT_LE(std::abs(state.body_acceleration.omega_radps), 1.5 + 1e-9);
+    EXPECT_LE(std::abs(state.body_reference.omega_radps - previous), 1.5 * dt + 1e-9);
+    previous = state.body_reference.omega_radps;
+  }
+  EXPECT_NEAR(previous, 1.5, 1e-9);
+  // Request expiry lowers the advertised limit immediately, but brakes the moving reference.
+  for (int i = 0; i < 4000; ++i) {
+    const auto output = tick({0.0, 0.0, 3.0}, false);
+    const auto & state = core.execution_snapshot();
+    EXPECT_FALSE(state.rotation_active);
+    EXPECT_DOUBLE_EQ(state.max_angular_speed, 0.8);
+    EXPECT_LE(std::abs(state.body_acceleration.omega_radps), kPi / 8.0 + 1e-9);
+    EXPECT_LE(std::abs(state.body_reference.omega_radps - previous), kPi / 8.0 * dt + 1e-9);
+    for (size_t m = 0; m < 4; ++m) {
+      EXPECT_DOUBLE_EQ(
+        state.modules[m].wheel_reference, output.drive_velocity[m] * config.wheel_radius[m]);
+      EXPECT_LE(std::abs(state.modules[m].wheel_reference), config.max_wheel_speed + 1e-9);
+    }
+    previous = state.body_reference.omega_radps;
+  }
+  EXPECT_NEAR(previous, 0.8, 1e-9);
+}
+
+TEST_F(NavigationCapabilityTest, TranslationRevocationBrakesBeforeIntroducingTranslation)
+{
+  admit();
+  for (int i = 0; i < 4000; ++i) {
+    tick({0.0, 0.0, 1.5});
+  }
+  for (int i = 0; i < 100; ++i) {
+    tick({0.5, 0.0, 1.5});
+    const auto & state = core.execution_snapshot();
+    EXPECT_FALSE(state.rotation_active);
+    EXPECT_GT(state.body_reference.omega_radps, 0.8);
+    EXPECT_DOUBLE_EQ(state.body_reference.vx_mps, 0.0);
+    EXPECT_DOUBLE_EQ(state.body_reference.vy_mps, 0.0);
+  }
+}
+
+TEST_F(NavigationCapabilityTest, EverySafetyReturnAndLifecycleRevokesAndRefreshesSnapshot)
+{
+  admit();
+  auto output = tick({}, true, false);
+  EXPECT_EQ(core.execution_snapshot().status, ControlStatus::command_timeout);
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  admit();
+  output = tick({0.0, 0.0, std::numeric_limits<double>::quiet_NaN()});
+  EXPECT_EQ(core.execution_snapshot().status, ControlStatus::invalid_command);
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  EXPECT_FALSE(core.execution_snapshot().ready);
+  admit();
+  feedback[1].encoder_valid = false;
+  tick();
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  EXPECT_FALSE(core.execution_snapshot().ready);
+  EXPECT_TRUE(std::isnan(core.execution_snapshot().modules[1].steering_encoder));
+  feedback[1].encoder_valid = true;
+  admit();
+  feedback[2].valid = false;
+  output = tick();
+  const auto & fault = core.execution_snapshot();
+  EXPECT_EQ(fault.status, ControlStatus::feedback_fault);
+  EXPECT_FALSE(fault.rotation_active);
+  EXPECT_FALSE(fault.ready);
+  EXPECT_TRUE(std::isnan(fault.modules[2].wheel_actual));
+  for (size_t i = 0; i < 4; ++i) {
+    EXPECT_DOUBLE_EQ(fault.modules[i].wheel_reference, 0.0);
+    EXPECT_DOUBLE_EQ(fault.modules[i].steering_reference, output.steering_position[i]);
+    EXPECT_DOUBLE_EQ(fault.modules[i].steering_rate, 0.0);
+  }
+  feedback[2].valid = true;
+  admit();
+  core.deactivate();
+  EXPECT_EQ(core.execution_snapshot().status, ControlStatus::inactive);
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  EXPECT_FALSE(core.execution_snapshot().ready);
+  ASSERT_TRUE(core.activate(feedback));
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  tick();
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+}
+
+TEST_F(NavigationCapabilityTest, HoldFaultCannotAdmitUntilNewActivation)
+{
+  admit();
+  feedback[0].steering_position += 0.3;
+  feedback[0].steering_angle = feedback[0].steering_position;
+  tick();
+  EXPECT_EQ(core.execution_snapshot().status, ControlStatus::steering_hold_fault);
+  for (int i = 0; i < 100; ++i) {
+    tick();
+  }
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+  ASSERT_TRUE(core.activate(feedback));
+  admit();
+}
+
+TEST_F(NavigationCapabilityTest, OrdinaryMixedCommandKeepsIndependentBodyLimits)
+{
+  for (int i = 0; i < 6000; ++i) {
+    tick({2.0, 2.0, 3.0}, false);
+    const auto & state = core.execution_snapshot();
+    EXPECT_FALSE(state.rotation_active);
+    EXPECT_LE(std::hypot(state.body_reference.vx_mps, state.body_reference.vy_mps), 1.0 + 1e-9);
+    EXPECT_LE(std::abs(state.body_reference.omega_radps), 0.8 + 1e-9);
+    EXPECT_LE(
+      std::hypot(state.body_acceleration.vx_mps, state.body_acceleration.vy_mps), 1.0 + 1e-9);
+    EXPECT_LE(std::abs(state.body_acceleration.omega_radps), kPi / 8.0 + 1e-9);
+  }
+  const auto & reference = core.execution_snapshot().body_reference;
+  EXPECT_NEAR(std::hypot(reference.vx_mps, reference.vy_mps), 1.0, 1e-9);
+  EXPECT_NEAR(reference.omega_radps, 0.8, 1e-9);
+}
+
+TEST_F(NavigationCapabilityTest, FeedbackValidityIsIndependentOfCommandAndLifecycleReadiness)
+{
+  feedback[0].wheel_position = 2.5;
+  core.update(feedback, {}, false, dt);
+  const auto & timeout = core.execution_snapshot();
+  EXPECT_TRUE(timeout.feedback_valid);
+  EXPECT_TRUE(timeout.ready);
+  EXPECT_DOUBLE_EQ(timeout.modules[0].wheel_position, 2.5);
+  core.update(feedback, {0.0, 0.0, std::numeric_limits<double>::quiet_NaN()}, true, dt);
+  EXPECT_TRUE(core.execution_snapshot().feedback_valid);
+  EXPECT_FALSE(core.execution_snapshot().ready);
+  feedback[0].enabled = false;
+  core.update(feedback, {}, true, dt, std::nullopt, true);
+  EXPECT_FALSE(core.execution_snapshot().feedback_valid);
+  EXPECT_FALSE(core.execution_snapshot().rotation_active);
+}
+
+TEST_F(NavigationCapabilityTest, MidRampRevocationStopsIncreasingTheTurnRate)
+{
+  admit();
+  for (int i = 0; i < 900; ++i) {
+    tick({0.0, 0.0, 1.5});
+  }
+  const auto before = core.execution_snapshot();
+  ASSERT_GT(before.body_reference.omega_radps, 0.8);
+  ASSERT_GT(before.body_acceleration.omega_radps, 0.0);
+  tick({0.0, 0.0, 1.5}, false);
+  const auto & after = core.execution_snapshot();
+  EXPECT_FALSE(after.rotation_active);
+  EXPECT_LE(after.body_reference.omega_radps, before.body_reference.omega_radps);
+  EXPECT_LE(
+    std::abs(after.body_reference.omega_radps - before.body_reference.omega_radps),
+    config.max_angular_acceleration * dt + 1e-9);
+}
+
 TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)
 {
   const auto result = core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
@@ -71,7 +334,8 @@ TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)
 TEST(ControlCoreBodyShaper, GatedStartWaitsThenRampsOnTheSCurve)
 {
   auto config = synthetic_config();
-  config.max_body_acceleration = 1.0;
+  config.max_linear_acceleration = 1.0;
+  config.max_angular_acceleration = kPi / 8.0;
   config.max_body_jerk = 4.0;
   ControlCore core{config};
   ModuleFeedbackArray feedback{};

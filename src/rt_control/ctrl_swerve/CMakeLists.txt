@@ -18,7 +18,7 @@ add_library(swerve_math SHARED
   src/swerve_kinematics.cpp src/swerve_odometry.cpp src/swerve_setpoint.cpp
   src/odometry_covariance.cpp src/control_core.cpp src/body_velocity_shaper.cpp)
 target_link_libraries(swerve_math PUBLIC ruckig::ruckig)
-add_library(swerve_controller SHARED src/swerve_controller.cpp)
+add_library(swerve_controller SHARED src/swerve_controller.cpp src/navigation_feedback.cpp)
 target_link_libraries(swerve_controller PUBLIC swerve_math)
 ament_target_dependencies(swerve_controller PUBLIC ${dependencies})
 

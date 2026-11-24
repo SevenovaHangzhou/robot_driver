@@ -370,7 +370,8 @@ TEST(SwerveKinematicsTest, AlignFirstGateHoldsAllWheelsUntilRelease)
 TEST(SwerveKinematicsTest, BodyShaperKeepsDirectionAndLimits)
 {
   BodyShaperLimits limits;
-  limits.acceleration = 1.0;
+  limits.linear_acceleration = 1.0;
+  limits.angular_acceleration = kPi / 8.0;
   limits.jerk = 4.0;
   limits.rotation_radius_m = 0.5;
   BodyVelocityShaper shaper{limits};
@@ -385,7 +386,8 @@ TEST(SwerveKinematicsTest, BodyShaperKeepsDirectionAndLimits)
     EXPECT_NEAR(shaped.vy_mps * target.vx_mps, shaped.vx_mps * target.vy_mps, 1e-12);
     EXPECT_NEAR(shaped.omega_radps * target.vx_mps, shaped.vx_mps * target.omega_radps, 1e-12);
     const auto & a = shaper.acceleration();
-    EXPECT_LE(std::hypot(a[0], a[1], a[2]), limits.acceleration + 1e-9);
+    EXPECT_LE(std::hypot(a[0], a[1]), limits.linear_acceleration + 1e-9);
+    EXPECT_LE(std::abs(a[2]) / limits.rotation_radius_m, limits.angular_acceleration + 1e-9);
     EXPECT_TRUE(shaper.valid());
     EXPECT_LE(
       std::hypot(a[0] - previous_a[0], a[1] - previous_a[1], a[2] - previous_a[2]),
@@ -437,7 +439,8 @@ TEST(SwerveKinematicsTest, BodyShaperKeepsDirectionAndLimits)
     shaped = shaper.step(moving, period);
     ASSERT_TRUE(shaper.valid());
     const auto & a = shaper.acceleration();
-    EXPECT_LE(std::hypot(a[0], a[1], a[2]), limits.acceleration + 1e-9);
+    EXPECT_LE(std::hypot(a[0], a[1]), limits.linear_acceleration + 1e-9);
+    EXPECT_LE(std::abs(a[2]) / limits.rotation_radius_m, limits.angular_acceleration + 1e-9);
     EXPECT_LE(
       std::hypot(a[0] - previous_a[0], a[1] - previous_a[1], a[2] - previous_a[2]),
       limits.jerk * period + 1e-8);

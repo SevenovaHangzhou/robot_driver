@@ -30,7 +30,8 @@ SwerveSetpointParameters setpoint_parameters(const CoreConfig & config)
 BodyShaperLimits body_limits(const CoreConfig & config)
 {
   BodyShaperLimits limits;
-  limits.acceleration = config.max_body_acceleration;
+  limits.linear_acceleration = config.max_linear_acceleration;
+  limits.angular_acceleration = config.max_angular_acceleration;
   limits.jerk = config.max_body_jerk;
   double radius{0.0};
   for (const auto & location : config.locations) {
@@ -48,6 +49,12 @@ void validate(const CoreConfig & c)
     !positive(c.max_encoder_difference) || !positive(c.max_update_period) ||
     !positive(c.velocity_deadband) || !positive(c.slip_residual_threshold) ||
     !positive(c.encoder_fault_window) || !(c.max_angular_speed * c.max_update_period < kPi)) {
+    throw std::invalid_argument("Swerve limits and timing must be explicitly configured");
+  }
+  if (
+    !positive(c.max_rotation_speed) || !positive(c.max_rotation_acceleration) ||
+    !positive(c.rotation_stop_speed) || !positive(c.rotation_stop_hold) ||
+    !(c.max_rotation_speed * c.max_update_period < kPi)) {
     throw std::invalid_argument("Swerve limits and timing must be explicitly configured");
   }
   std::array<SwerveModuleMeasurement, 4> sample{};
@@ -76,6 +83,94 @@ ControlCore::ControlCore(const CoreConfig & config)
   validate(config_);
   last_steering_targets_.fill(std::numeric_limits<double>::quiet_NaN());
   output_.steering_position = last_steering_targets_;
+  refresh_snapshot({});
+}
+
+void ControlCore::update_rotation_capability(
+  const ModuleFeedbackArray & feedback, const ChassisSpeeds & command, bool command_fresh,
+  double dt, bool requested) noexcept
+{
+  rotation_requested_ = requested;
+  bool eligible = active_ && requested && command_fresh && !hold_fault_latched_ && positive(dt) &&
+                  dt <= config_.max_update_period && std::isfinite(command.omega_radps) &&
+                  command.vx_mps == 0.0 && command.vy_mps == 0.0;
+  bool stopped = command.omega_radps == 0.0;
+  for (size_t i = 0; i < 4; ++i) {
+    eligible = eligible && module_ready(feedback[i], i) && encoder_consistent(feedback[i], i);
+    stopped = stopped &&
+              std::abs(feedback[i].wheel_velocity * config_.wheel_radius[i]) <=
+                config_.rotation_stop_speed &&
+              output_.drive_velocity[i] == 0.0;
+  }
+  if (!eligible) {
+    rotation_active_ = false;
+    rotation_stopped_time_ = 0.0;
+  } else if (!rotation_active_) {
+    rotation_stopped_time_ = stopped ? rotation_stopped_time_ + dt : 0.0;
+    rotation_active_ = rotation_stopped_time_ >= config_.rotation_stop_hold;
+  }
+}
+
+void ControlCore::refresh_snapshot(const ModuleFeedbackArray & feedback) noexcept
+{
+  const double unavailable = std::numeric_limits<double>::quiet_NaN();
+  snapshot_.status = output_.status;
+  snapshot_.feedback_valid = true;
+  snapshot_.rotation_active = rotation_active_;
+  snapshot_.rotation_requested = rotation_requested_;
+  snapshot_.gated = setpoints_.gated();
+  snapshot_.waiting = active_ && body_alignment_waiting_ && body_shaper_.enabled();
+  snapshot_.ready =
+    active_ && !hold_fault_latched_ &&
+    (output_.status == ControlStatus::running || output_.status == ControlStatus::alignment_gated ||
+     output_.status == ControlStatus::command_timeout);
+  snapshot_.body_reference = body_shaper_.velocity();
+  snapshot_.body_acceleration = body_shaper_.body_acceleration();
+  snapshot_.body_measured = output_.measured_twist;
+  if (output_.valid_modules == 0U) {
+    snapshot_.body_measured = {
+      unavailable, unavailable,
+      output_.imu_fallback ? unavailable : output_.measured_twist.omega_radps};
+  }
+  snapshot_.max_linear_speed = config_.max_linear_speed;
+  snapshot_.max_angular_speed =
+    rotation_active_ ? config_.max_rotation_speed : config_.max_angular_speed;
+  snapshot_.max_linear_acceleration = config_.max_linear_acceleration;
+  snapshot_.max_angular_acceleration =
+    rotation_active_ ? config_.max_rotation_acceleration : config_.max_angular_acceleration;
+  snapshot_.max_body_jerk = config_.max_body_jerk;
+  const auto & goals = setpoints_.goals();
+  for (size_t i = 0; i < 4; ++i) {
+    auto & module = snapshot_.modules[i];
+    const auto & sample = feedback[i];
+    module.ready = module_ready(sample, i) && encoder_consistent(sample, i);
+    snapshot_.feedback_valid = snapshot_.feedback_valid && module.ready;
+    snapshot_.ready = snapshot_.ready && module.ready;
+    module.reversed = goals[i].reversed;
+    module.steering_actual = measurement_valid(sample) ? sample.steering_position : unavailable;
+    module.steering_encoder = sample.encoder_valid && std::isfinite(sample.steering_angle)
+                                ? sample.steering_angle
+                                : unavailable;
+    module.steering_target = goals[i].target_angle_rad;
+    module.steering_reference = output_.steering_position[i];
+    module.steering_rate = setpoints_.steering_rates()[i];
+    module.steering_acceleration = setpoints_.steering_accelerations()[i];
+    module.steering_error = module.steering_target - module.steering_encoder;
+    module.wheel_actual =
+      measurement_valid(sample) ? sample.wheel_velocity * config_.wheel_radius[i] : unavailable;
+    module.wheel_position = measurement_valid(sample) ? sample.wheel_position : unavailable;
+    module.wheel_target = goals[i].speed_mps;
+    module.wheel_reference = output_.drive_velocity[i] * config_.wheel_radius[i];
+    module.wheel_max_speed = config_.max_wheel_speed;
+    module.wheel_max_acceleration = config_.max_wheel_acceleration;
+    module.steering_min = config_.steering_min[i] + config_.steering_limit_margin[i];
+    module.steering_max = config_.steering_max[i] - config_.steering_limit_margin[i];
+    module.steering_max_rate = config_.setpoint.maximum_steering_slew_radps;
+    module.steering_max_acceleration = config_.setpoint.maximum_steering_acceleration_radps2;
+    module.steering_max_jerk = config_.setpoint.maximum_steering_jerk_radps3;
+    module.wheel_radius = config_.wheel_radius[i];
+    module.location = config_.locations[i];
+  }
 }
 
 bool ControlCore::hold_deviation(
@@ -168,7 +263,8 @@ std::array<SwerveModulePosition, 4> ControlCore::positions(
 
 bool ControlCore::activate(const ModuleFeedbackArray & feedback)
 {
-  active_ = false;
+  deactivate();
+  refresh_snapshot(feedback);
   // A successful new activation is the only place feedback initializes the hold.
   if (!feedback_ready(feedback)) {
     return false;
@@ -193,6 +289,7 @@ bool ControlCore::activate(const ModuleFeedbackArray & feedback)
   imu_fallback_ = true;
   output_ = stop(feedback, ControlStatus::command_timeout);
   active_ = true;
+  refresh_snapshot(feedback);
   return true;
 }
 
@@ -202,6 +299,15 @@ void ControlCore::deactivate() noexcept
   previous_speeds_.fill(0.0);
   body_shaper_.reset();
   setpoints_.reset();
+  body_alignment_waiting_ = true;
+  rotation_active_ = rotation_requested_ = false;
+  rotation_stopped_time_ = 0.0;
+  output_.status = ControlStatus::inactive;
+  output_.drive_velocity.fill(0.0);
+  output_.measured_twist = {};
+  output_.valid_modules = 0U;
+  output_.imu_fallback = true;
+  refresh_snapshot({});
 }
 
 void ControlCore::observe(const ModuleFeedbackArray & feedback, std::optional<YawSample> imu)
@@ -284,6 +390,8 @@ void ControlCore::observe(const ModuleFeedbackArray & feedback, std::optional<Ya
 
 ControlOutput ControlCore::stop(const ModuleFeedbackArray & feedback, ControlStatus status)
 {
+  rotation_active_ = false;
+  rotation_stopped_time_ = 0.0;
   holding_modules_.fill(true);
   if (active_ && hold_deviation(feedback, holding_modules_)) {
     hold_fault_latched_ = true;
@@ -335,7 +443,17 @@ ControlOutput ControlCore::ramp_stop(
 
 ControlOutput ControlCore::update(
   const ModuleFeedbackArray & feedback, ChassisSpeeds command, bool command_fresh, double dt,
-  std::optional<YawSample> imu)
+  std::optional<YawSample> imu, bool rotation_requested)
+{
+  update_rotation_capability(feedback, command, command_fresh, dt, rotation_requested);
+  observe(feedback, imu);
+  update_command(feedback, command, command_fresh, dt);
+  refresh_snapshot(feedback);
+  return output_;
+}
+
+ControlOutput ControlCore::update_command(
+  const ModuleFeedbackArray & feedback, ChassisSpeeds command, bool command_fresh, double dt)
 {
   if (!active_) {
     return stop(feedback, ControlStatus::inactive);
@@ -343,7 +461,6 @@ ControlOutput ControlCore::update(
   if (hold_fault_latched_) {
     return stop(feedback, ControlStatus::steering_hold_fault);
   }
-  observe(feedback, imu);
   if (!feedback_ready(feedback)) {
     return stop(feedback, ControlStatus::feedback_fault);
   }
@@ -373,8 +490,18 @@ ControlOutput ControlCore::update(
     command.vx_mps *= config_.max_linear_speed / linear;
     command.vy_mps *= config_.max_linear_speed / linear;
   }
-  command.omega_radps =
-    std::clamp(command.omega_radps, -config_.max_angular_speed, config_.max_angular_speed);
+  const double angular_speed =
+    rotation_active_ ? config_.max_rotation_speed : config_.max_angular_speed;
+  command.omega_radps = std::clamp(command.omega_radps, -angular_speed, angular_speed);
+  body_shaper_.set_angular_acceleration(
+    rotation_active_ ? config_.max_rotation_acceleration : config_.max_angular_acceleration);
+  // A revoked high-rate turn brakes continuously to the ordinary limit before any
+  // translation is introduced. Revocation never resets an in-flight body trajectory.
+  if (
+    !rotation_active_ &&
+    std::abs(body_shaper_.velocity().omega_radps) > config_.max_angular_speed) {
+    command.vx_mps = command.vy_mps = 0.0;
+  }
   std::array<double, 4> angles{};
   for (size_t i = 0; i < 4; ++i) {
     angles[i] = feedback[i].steering_position;

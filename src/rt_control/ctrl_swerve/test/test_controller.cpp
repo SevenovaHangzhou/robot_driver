@@ -461,3 +461,101 @@ TEST_F(SwerveControllerTest, SteeringMotionParametersAreCappedAndAppliedOnActiva
   send(1.0);
   EXPECT_GT(commands[1], 0.0);
 }
+
+TEST_F(SwerveControllerTest, ExecutionFeedbackSeparatesFinalTargetAndReferenceAndPreservesUnits)
+{
+  using State = std_msgs::msg::Float64MultiArray;
+  State::SharedPtr execution, compatibility;
+  sensor_msgs::msg::JointState::SharedPtr joints;
+  auto state_sub = client->create_subscription<State>(
+    "/rt/base/execution_state", robot_interfaces_qos::fast_state(),
+    [&](State::SharedPtr value) { execution = value; });
+  auto compat_sub = client->create_subscription<State>(
+    "/rt_control/chassis/execution_state", robot_interfaces_qos::fast_state(),
+    [&](State::SharedPtr value) { compatibility = value; });
+  auto joint_sub = client->create_subscription<sensor_msgs::msg::JointState>(
+    "/rt_control/chassis/joint_states", robot_interfaces_qos::fast_state(),
+    [&](sensor_msgs::msg::JointState::SharedPtr value) { joints = value; });
+  for (std::size_t i = 0; i < 4; ++i) {
+    state("d" + std::to_string(i) + "/velocity", 1.25);
+    state("d" + std::to_string(i) + "/position", 3.0);
+  }
+  send(0.0, 1.0);
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return execution && compatibility && joints && execution->data[30] == 1.0 &&
+           execution->data[1] == compatibility->data[1];
+  });
+  ASSERT_EQ(execution->data.size(), 91U);
+  EXPECT_EQ(execution->layout.dim[0].label, "rt_base_execution_state_v1");
+  EXPECT_DOUBLE_EQ(execution->data[0], 1.0);
+  EXPECT_NEAR(execution->data[36], ctrl_swerve::kPi / 2.0, 1e-9);
+  EXPECT_LT(execution->data[33], execution->data[36]);
+  EXPECT_NEAR(execution->data[32], 0.125, 1e-12);
+  EXPECT_EQ(joints->name[0], "module_1_steering");
+  EXPECT_EQ(joints->name[1], "module_1_wheel");
+  EXPECT_DOUBLE_EQ(joints->position[1], 3.0);
+  EXPECT_DOUBLE_EQ(joints->velocity[1], 1.25);
+  EXPECT_TRUE(std::isnan(joints->velocity[0]));
+  for (std::size_t i = 0; i < execution->data.size(); ++i) {
+    if (std::isnan(execution->data[i])) {
+      EXPECT_TRUE(std::isnan(compatibility->data[i]));
+    } else {
+      EXPECT_DOUBLE_EQ(execution->data[i], compatibility->data[i]);
+    }
+  }
+  state("e0/feedback_age_ms", 1000.0);
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return execution->data[44] == 0.0;
+  });
+  EXPECT_TRUE(std::isnan(execution->data[31]));
+}
+
+TEST_F(SwerveControllerTest, RotationLeaseExpiresAndReactivationCannotInheritRequest)
+{
+  auto request = client->create_publisher<std_msgs::msg::Bool>(
+    "/rt/base/terminal_rotation_request", robot_interfaces_qos::control());
+  std_msgs::msg::Float64MultiArray::SharedPtr execution;
+  bool active = false;
+  auto state_sub = client->create_subscription<std_msgs::msg::Float64MultiArray>(
+    "/rt/base/execution_state", robot_interfaces_qos::fast_state(),
+    [&](std_msgs::msg::Float64MultiArray::SharedPtr value) { execution = value; });
+  auto active_sub = client->create_subscription<std_msgs::msg::Bool>(
+    "/rt/base/terminal_rotation_active", robot_interfaces_qos::fast_state(),
+    [&](std_msgs::msg::Bool::SharedPtr value) { active = value->data; });
+  spin_until([&]() {
+    return request->get_subscription_count() == 1 && publisher->get_subscription_count() == 1;
+  });
+  std_msgs::msg::Bool intent;
+  intent.data = true;
+  send_without_wait(0.0);
+  request->publish(intent);
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return active && execution && execution->data[7] == 1.0;
+  });
+  EXPECT_DOUBLE_EQ(execution->data[19], 1.5);
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return !active && execution->data[8] == 0.0 && execution->data[7] == 0.0;
+  });
+  EXPECT_DOUBLE_EQ(execution->data[19], 3.0);  // Synthetic ordinary cap.
+  send_without_wait(0.0);
+  request->publish(intent);
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return active && execution->data[7] == 1.0;
+  });
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  spin_until([&]() { return !active && execution->data[28] == 0.0; });
+  bind();
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  send_without_wait(0.0);
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
+    return execution->data[28] == 1.0 && execution->data[30] == 1.0;
+  });
+  EXPECT_DOUBLE_EQ(execution->data[7], 0.0);
+  EXPECT_DOUBLE_EQ(execution->data[8], 0.0);
+}
