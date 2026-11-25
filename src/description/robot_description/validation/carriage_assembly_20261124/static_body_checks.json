@@ -1,0 +1,15 @@
+{
+  "scope": "CPU sphere/OBB at named poses only; excludes arm_carriage against base as current algorithm does; not self/environment/path validation",
+  "poses": [
+    {
+      "pose": "home",
+      "robot_vs_body_clear_at_1mm_tolerance": true,
+      "collisions": []
+    },
+    {
+      "pose": "stow",
+      "robot_vs_body_clear_at_1mm_tolerance": true,
+      "collisions": []
+    }
+  ]
+}

@@ -80,9 +80,13 @@ CallbackReturn SwerveController::on_init()
   auto_declare<double>("max_steering_acceleration_limit", 1.5707963267948966);
   // S-curve steering (user 2026-10-18): jerk limit; infinity keeps the trapezoidal profile.
   auto_declare<double>("max_steering_jerk", std::numeric_limits<double>::infinity());
-  // Chassis twist S-curve (user 2026-10-22), wheel-rim units; infinity disables it.
-  auto_declare<double>("max_body_acceleration", std::numeric_limits<double>::infinity());
+  auto_declare<double>("max_linear_acceleration", std::numeric_limits<double>::infinity());
+  auto_declare<double>("max_angular_acceleration", std::numeric_limits<double>::infinity());
   auto_declare<double>("max_body_jerk", std::numeric_limits<double>::infinity());
+  auto_declare<double>("max_rotation_speed", 1.5);
+  auto_declare<double>("max_rotation_acceleration", 1.5);
+  auto_declare<double>("rotation_stop_speed", 0.01);
+  auto_declare<double>("rotation_stop_hold", 0.05);
   auto_declare<double>("max_steering_jerk_limit", 17.453292519943297);
   for (const auto * name : {"steering_joints", "drive_joints", "steering_encoders"}) {
     auto_declare<std::vector<std::string>>(name, {});
@@ -121,7 +125,7 @@ CallbackReturn SwerveController::on_init()
   // stopped while any module error exceeds align_first_threshold and restart only once every
   // module is within align_first_release. steer_while_driving: cos(error) scaling with the
   // operator-tunable alignment_threshold gate.
-  auto_declare<std::string>("drive_mode", "align_first");
+  auto_declare<std::string>("drive_mode", "steer_while_driving");
   auto_declare<double>("align_first_threshold", 0.08726646259971647);  // 5 deg
   auto_declare<double>("align_first_release", 0.05235987755982988);    // 3 deg
   auto_declare<std::string>("imu_frame_id", "");
@@ -224,7 +228,12 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     config_.velocity_deadband = number("velocity_deadband");
     config_.max_encoder_difference = number("max_encoder_difference");
     config_.encoder_fault_window = number("encoder_fault_window");
-    config_.max_body_acceleration = number("max_body_acceleration");
+    config_.max_linear_acceleration = number("max_linear_acceleration");
+    config_.max_angular_acceleration = number("max_angular_acceleration");
+    config_.max_rotation_speed = number("max_rotation_speed");
+    config_.max_rotation_acceleration = number("max_rotation_acceleration");
+    config_.rotation_stop_speed = number("rotation_stop_speed");
+    config_.rotation_stop_hold = number("rotation_stop_hold");
     config_.max_body_jerk = number("max_body_jerk");
     config_.max_update_period = number("max_update_period");
     config_.slip_residual_threshold = number("slip_residual_threshold");
@@ -273,9 +282,9 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     auto candidate = std::make_unique<ControlCore>(config_);
     RCLCPP_INFO(
       get_node()->get_logger(),
-      "body velocity shaping: %s, acceleration %.3f m/s^2, jerk %.3f m/s^3",
-      std::isfinite(config_.max_body_acceleration) ? "enabled" : "disabled",
-      config_.max_body_acceleration, config_.max_body_jerk);
+      "body velocity shaping: acceleration %.3f m/s^2, yaw acceleration %.3f rad/s^2, jerk %.3f "
+      "m/s^3",
+      config_.max_linear_acceleration, config_.max_angular_acceleration, config_.max_body_jerk);
 
     const auto steer = get_node()->get_parameter("steering_joints").as_string_array();
     const auto drive = get_node()->get_parameter("drive_joints").as_string_array();
@@ -366,6 +375,7 @@ CallbackReturn SwerveController::on_configure(const rclcpp_lifecycle::State &)
     diagnostic_timer_ = get_node()->create_wall_timer(
       std::chrono::milliseconds(100), [this]() { publish_diagnostics(); });
     slipping_mask_.store(0U);
+    navigation_feedback_ = std::make_unique<NavigationFeedback>(get_node());
   } catch (const std::exception & error) {
     core_.reset();
     RCLCPP_ERROR(get_node()->get_logger(), "Swerve configuration rejected: %s", error.what());
@@ -451,6 +461,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
   if (!core_ || active_.load()) {
     return CallbackReturn::ERROR;
   }
+  reset_steering_observations();
   auto bind = [](const auto & names, auto & handles, auto & result) {
     if (names.size() != result.size() || handles.size() != result.size()) {
       return false;
@@ -499,6 +510,14 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
       [this, generation = generation_](geometry_msgs::msg::Twist::ConstSharedPtr message) {
         accept_command(*message, generation);
       });
+    rotation_subscription_ = get_node()->create_subscription<std_msgs::msg::Bool>(
+      "/rt/base/terminal_rotation_request", robot_interfaces_qos::control(),
+      [this, generation = generation_](std_msgs::msg::Bool::ConstSharedPtr message) {
+        std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+        if (active_.load() && generation == generation_) {
+          rotation_buffer_.writeFromNonRT({steady_now(), generation, message->data});
+        }
+      });
     if (imu_enabled_) {
       imu_subscription_ = get_node()->create_subscription<sensor_msgs::msg::Imu>(
         "~/imu", robot_interfaces_qos::fast_state(),
@@ -509,6 +528,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     block_before_ns_ = steady_now();
     command_buffer_.writeFromNonRT(Command{});
     imu_buffer_.writeFromNonRT(ImuSample{});
+    rotation_buffer_.writeFromNonRT(RotationRequest{});
     publish_elapsed_ = 0.0;
     last_output_ = core_->update(feedback, {}, false, 0.004);
     if (!write_output(last_output_)) {
@@ -527,6 +547,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
     std::fill(states_.begin(), states_.end(), nullptr);
     command_subscription_.reset();
     imu_subscription_.reset();
+    rotation_subscription_.reset();
     RCLCPP_ERROR(get_node()->get_logger(), "Swerve activation failed: %s", error.what());
     return CallbackReturn::ERROR;
   }
@@ -615,9 +636,17 @@ CallbackReturn SwerveController::on_deactivate(const rclcpp_lifecycle::State &)
   ready_.store(false);
   command_subscription_.reset();
   imu_subscription_.reset();
+  rotation_subscription_.reset();
+  rotation_buffer_.writeFromNonRT(RotationRequest{});
+  reset_steering_observations();
   stop_outputs();
   if (core_) {
     core_->deactivate();
+    if (navigation_feedback_) {
+      navigation_feedback_->publish(
+        core_->execution_snapshot(), get_node()->now(), 0.02, false, false, false,
+        ControlStatus::inactive, observed_steering_rates_);
+    }
   }
   std::fill(commands_.begin(), commands_.end(), nullptr);
   std::fill(states_.begin(), states_.end(), nullptr);
@@ -633,6 +662,8 @@ CallbackReturn SwerveController::on_cleanup(const rclcpp_lifecycle::State & stat
   std::lock_guard<std::mutex> guard(lifecycle_mutex_);
   command_subscription_.reset();
   imu_subscription_.reset();
+  rotation_subscription_.reset();
+  navigation_feedback_.reset();
   diagnostic_timer_.reset();
   diagnostic_publisher_.reset();
   fault_stop_timer_.reset();
@@ -716,8 +747,12 @@ controller_interface::return_type SwerveController::update(
                        fresh(imu.received_ns, now, imu_timeout_)
                      ? std::optional<YawSample>(imu.yaw)
                      : std::nullopt;
+  const auto request = *rotation_buffer_.readFromRT();
+  const bool request_fresh = request.requested && request.generation == generation_ &&
+                             request.received_ns > block_before_ns_ &&
+                             fresh(request.received_ns, now, 0.3) && !fault_latched_.load();
   try {
-    last_output_ = core_->update(feedback, command.speeds, command_fresh, dt, yaw);
+    last_output_ = core_->update(feedback, command.speeds, command_fresh, dt, yaw, request_fresh);
   } catch (const std::exception &) {
     ready_.store(false);
     block_before_ns_ = now;
@@ -725,6 +760,10 @@ controller_interface::return_type SwerveController::update(
     status_.store(ControlStatus::feedback_fault);
     slipping_mask_.store(0U);
     track_fault(ControlStatus::feedback_fault, feedback, now);
+    reset_steering_observations();
+    navigation_feedback_->publish(
+      core_->execution_snapshot(), time, 0.02, true, false, false, ControlStatus::feedback_fault,
+      observed_steering_rates_);
     return controller_interface::return_type::ERROR;
   }
   if (last_output_.status == ControlStatus::steering_hold_fault) {
@@ -742,6 +781,10 @@ controller_interface::return_type SwerveController::update(
     status_.store(ControlStatus::steering_limit);
     slipping_mask_.store(0U);
     track_fault(ControlStatus::steering_limit, feedback, now);
+    reset_steering_observations();
+    navigation_feedback_->publish(
+      core_->execution_snapshot(), time, 0.02, true, false, false, ControlStatus::steering_limit,
+      observed_steering_rates_);
     return controller_interface::return_type::ERROR;
   }
   status_.store(last_output_.status);
@@ -751,6 +794,10 @@ controller_interface::return_type SwerveController::update(
     ready_.store(false);
     block_before_ns_ = now;
   }
+  observe_steering(feedback, time, now, ready_.load() && !fault_latched_.load());
+  navigation_feedback_->publish(
+    core_->execution_snapshot(), time, dt, true, ready_.load() && !fault_latched_.load(),
+    request_fresh && !fault_latched_.load(), last_output_.status, observed_steering_rates_);
   unsigned int slipping_mask{0U};
   for (size_t i = 0; i < last_output_.slipping_modules.size(); ++i) {
     if (last_output_.slipping_modules[i]) {

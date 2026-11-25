@@ -31,20 +31,19 @@ the hardware configuration/commissioning process, not by this controller.
 
 ## Chassis Velocity S-Curve
 
-Optional `max_body_acceleration` and `max_body_jerk` limit the norm of acceleration
-and jerk of `(vx, vy, omega * R)`, where `R` is the largest module distance from the
-body origin. Units are m/s² and m/s³. Both parameters are read during configure;
-set both to finite positive values to enable, or both to `.inf` to retain the
-existing behaviour. The template enables 1.0 m/s² and 4.0 m/s³ for the authorized
-Advantech deployment; these are initial tuning values, with real stopping distance
-and navigation interaction still awaiting operator acceptance. No new command topic is introduced.
+`max_linear_acceleration` bounds the XY acceleration norm; `max_angular_acceleration`
+bounds yaw acceleration separately. `max_body_jerk` retains the norm bound on
+`(vx, vy, omega * R)`, with `R` the farthest module radius. These replace the old
+combined `max_body_acceleration` parameter; regenerate deployed artifacts rather
+than reusing old runtime YAML. The template uses 1 m/s translation, 1 m/s² XY
+acceleration, 0.8 rad/s ordinary yaw, π/8 rad/s² ordinary yaw acceleration and
+4 m/s³ equivalent-radius jerk. Actual stopping distance requires hardware acceptance.
 
-The implementation uses Ruckig's fixed three-axis velocity interface before
-inverse kinematics. Component limits are the norm limits divided by √3. Phase
-synchronization preserves ratios for collinear states, including starts from rest;
-arbitrary moving retargets use time synchronization when phase synchronization is
-not possible. There is no nonzero startup seed. Steering is planned while wheels
-wait at zero, and acceleration starts only after the alignment gate releases.
+Ruckig uses fixed three-axis velocity inputs before inverse kinematics. Steering
+is planned while wheels wait at zero, then velocity shaping starts after the
+selected alignment gate releases. The default `steer_while_driving` mode retains
+cosine compensation and a 90-degree target-minus-actual error gate; the 5/3-degree
+threshold/release hysteresis applies only to explicitly selected `align_first`.
 
 Normal zero-velocity commands use the same S-curve to stop. The 500 ms command
 watchdog, alignment stops, and invalid-feedback stops retain their existing stop
@@ -53,10 +52,15 @@ wheel-speed saturation and per-wheel acceleration limits still apply downstream,
 so the body shaper is not a guarantee of exact wheel coordination in every transient.
 Odometry continues to use measured wheel feedback, never the smoothed command.
 
-For reference only, a local simulation using 1.0 m/s² and 4.0 m/s³ stops from
-0.3 m/s in approximately 0.77 s over 0.115 m. These are software results, not measured
-hardware stopping performance. Navigation must account for the resulting delay and
-stopping distance. Persistent rotation still requires command/feedback diagnosis.
+Navigation must account for the shaping delay and measured stopping distance.
+On rotation authorization revocation, the advertised limits change immediately.
+The user-approved reference policy (2026-11-25, #339) retains shaping state:
+outward angular acceleration may briefly persist while the new acceleration
+bound and jerk trajectory converge. Angular velocity is not hard-clipped and
+must converge to the ordinary limit; translation from a pure spin waits until
+both ordinary angular velocity and acceleration bounds permit it. Emergency
+stops retain priority. This replaces the initial PR336 policy that immediately
+cleared outward angular acceleration, which did not match the published predictor.
 
 ## Hardware Interface Contract
 
@@ -93,10 +97,47 @@ Endpoints (N-04 and R-OUT-02 are public contract names):
 | --- | --- | --- |
 | `/rt/base/cmd_vel` | `geometry_msgs/msg/Twist` | Planar chassis velocity (N-04) |
 | `/rt/base/odom` | `nav_msgs/msg/Odometry` | Measured motion, published at 50 Hz (R-OUT-02) |
+| `/rt/base/terminal_rotation_request` | `std_msgs/msg/Bool` | Navigation intent with 300 ms local monotonic lease |
+| `/rt/base/terminal_rotation_active` | `std_msgs/msg/Bool` | Actual admitted rotation state, 50 Hz |
+| `/rt/base/execution_state` | `std_msgs/msg/Float64MultiArray` | Internal execution snapshot, v1 / 91 fields, 100 Hz |
+| `/rt_control/chassis/execution_state` | `std_msgs/msg/Float64MultiArray` | Explicitly requested same-snapshot compatibility endpoint |
+| `/rt_control/chassis/joint_states` | `sensor_msgs/msg/JointState` | Normalized physical-module feedback, 100 Hz; not URDF joint state |
 | `~/imu` (optional) | `sensor_msgs/msg/Imu` | Already aligned, configured base-frame IMU |
 | `~/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | Controller execution state |
 
 No odometry TF, global joint-state publisher or enable/reset/zero service is created.
+
+Rotation admission requires a fresh zero velocity command, healthy enabled feedback,
+all measured wheel speeds <= `rotation_stop_speed` (0.01 m/s), and zero drive output
+continuously for `rotation_stop_hold` (0.05 s). Only admitted pure rotation uses
+`max_rotation_speed` / `max_rotation_acceleration` (1.5 rad/s / 1.5 rad/s²).
+Translation, false/expired intent, stale command, invalid feedback, faults and
+deactivation revoke authorization. Every activation needs a newly received request.
+
+Application schema authority is `robot_interfaces/contract/navigation-execution-v1.md`
+([correction #339](https://github.com/SevenovaHangzhou/robot_driver/issues/339)). The
+91-field wire format follows the published FollowMPPI v3.0.4 consumer: 27 header
+fields and four 16-field modules, each with an explicit physical module ID. The
+undeployed 31+4×15 proposal is withdrawn; never publish both layouts on the same
+topic. Final steering goals and limited references are distinct; global translation
+branch, per-module holding and effective gate/release/hysteresis restore prediction state;
+execution wheel speeds are m/s. Normalized JointState uses neutral interleaved
+`module_N_steering` / `module_N_wheel` names, steering heading θ, wheel rad/s, and
+NaN for unavailable observations. Do not feed it to robot_state_publisher. Module
+order is the physical wiring order, not a guessed wheel quadrant or model suffix.
+No model, mapping, motor direction, calibration, existing wheel observations or
+odometry interface changes are included. Publish disabled snapshots while configured;
+consumers must also apply freshness checks. Interface review and coordinated release
+must precede downstream SHA pinning and navigation deployment.
+
+Steering velocity is an observation derived only from fresh calibrated encoder
+samples, not a reference trajectory or a repeated ROS publication. The current
+CANopen interface exposes receive age rather than a device sequence; a strict age
+fall at the controller cycle identifies a newly received sample. At least two valid
+samples are needed. Missing feedback, invalid time and lifecycle reset invalidate
+the history, leaving NaN until a new pair exists. This is host receive timing, not
+a claim of hardware-synchronized sampling. Verify timing and stopping detection on
+the target before deployment; never replace unknown rates with zero.
 
 Command freshness follows N-04: at most 500 ms since local receipt of Twist,
 with no fabricated message timestamp or frame. Non-finite/non-planar commands
@@ -164,6 +205,14 @@ colcon build --packages-up-to ctrl_swerve --cmake-args -DBUILD_TESTING=ON
 colcon test --packages-select ctrl_swerve
 colcon test-result --verbose
 ```
+
+For offline integration with the navigation handoff, configure with
+`-DFOLLOW_MPPI_REFERENCE_DIR=/path/to/driver_handoff_20261124/reference_code`.
+This builds the supplied real decoder and production prediction sources outside
+the repository, and enables consumer/stop checks, source-lock verification and
+stepwise replay. The default package tests do not establish cross-repository
+compatibility without this option. Keep the reference bundle immutable and record
+its source lock with the test evidence; do not vendor a second navigation tree.
 
 `SWERVE_ENABLE_COVERAGE=ON` instruments the two package libraries with GCC coverage.
 Tests use synthetic geometry and in-memory or GenericSystem hardware and cover the

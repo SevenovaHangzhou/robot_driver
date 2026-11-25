@@ -1,5 +1,5 @@
 schema_version: 1
-model_revision: unified-20261112-r2
+model_revision: carriage-assembly-approved-20261124
 model_entry: urdf/robot_alfav3_mobile.urdf
 controlled_joints:
 - updown
@@ -30,5 +30,6 @@ state_only_joints:
 - wheel4_joint
 - suspension
 home_resource: config/poses/home.yaml
+stow_resource: config/poses/stow.yaml
 missing_state_policy: require_explicit_state
 execution_policy: reject_joints_outside_controlled_set

@@ -1,0 +1,236 @@
+{
+  "changes": [
+    {
+      "link": "suspension_link",
+      "source": "active_suspension_link",
+      "position_delta_mm": [
+        -74.7829709267,
+        0.0,
+        -82.0
+      ]
+    },
+    {
+      "link": "imu_link",
+      "source": "imu_link",
+      "position_delta_mm": [
+        -60.782970926700045,
+        0.0,
+        -133.00002545799998
+      ]
+    },
+    {
+      "link": "lidar_main",
+      "source": "front_mid360",
+      "position_delta_mm": [
+        -62.65286477686899,
+        0.0,
+        -40.72868345796997
+      ]
+    },
+    {
+      "link": "lidar_rear",
+      "source": "behind_mid360",
+      "position_delta_mm": [
+        -109.78297092669999,
+        0.0,
+        -66.39000000000017
+      ]
+    },
+    {
+      "link": "steer1",
+      "source": "steer1",
+      "position_delta_mm": [
+        3.2999991628201997e-09,
+        0.0,
+        -24.500000000000007
+      ]
+    },
+    {
+      "link": "wheel1",
+      "source": "wheel1",
+      "position_delta_mm": [
+        -30.002987555723585,
+        0.0,
+        -50.00000139230648
+      ]
+    },
+    {
+      "link": "steer2",
+      "source": "steer2",
+      "position_delta_mm": [
+        3.2999991628201997e-09,
+        0.0,
+        -24.500000000000007
+      ]
+    },
+    {
+      "link": "wheel2",
+      "source": "wheel2",
+      "position_delta_mm": [
+        -30.002987555723585,
+        0.0,
+        -50.00000139230648
+      ]
+    },
+    {
+      "link": "steer3",
+      "source": "steer4",
+      "position_delta_mm": [
+        3.3000269183958153e-09,
+        0.0,
+        -84.99999999999999
+      ]
+    },
+    {
+      "link": "wheel3",
+      "source": "wheel4",
+      "position_delta_mm": [
+        30.002986634119377,
+        0.0,
+        -50.00000139230645
+      ]
+    },
+    {
+      "link": "steer4",
+      "source": "steer3",
+      "position_delta_mm": [
+        3.3000269183958153e-09,
+        0.0,
+        -74.00000000000001
+      ]
+    },
+    {
+      "link": "wheel4",
+      "source": "wheel3",
+      "position_delta_mm": [
+        30.002987562323447,
+        0.0,
+        -50.00000139230648
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_1_link",
+      "source": "ultrasonic_channel_8_link",
+      "position_delta_mm": [
+        -74.7829709267,
+        -5.500000000000005,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_2_link",
+      "source": "ultrasonic_channel_1_link",
+      "position_delta_mm": [
+        -80.2829709267,
+        0.0,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_3_link",
+      "source": "ultrasonic_channel_2_link",
+      "position_delta_mm": [
+        -80.2829709267,
+        0.0,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_4_link",
+      "source": "ultrasonic_channel_3_link",
+      "position_delta_mm": [
+        -74.7829709267,
+        5.500000000000005,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_5_link",
+      "source": "ultrasonic_channel_4_link",
+      "position_delta_mm": [
+        -74.7829709267,
+        5.500000000000005,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_6_link",
+      "source": "ultrasonic_channel_5_link",
+      "position_delta_mm": [
+        -69.28297092669999,
+        0.0,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_7_link",
+      "source": "ultrasonic_channel_6_link",
+      "position_delta_mm": [
+        -69.28297092669999,
+        0.0,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "ultrasonic_channel_8_link",
+      "source": "ultrasonic_channel_7_link",
+      "position_delta_mm": [
+        -74.7829709267,
+        -5.500000000000005,
+        -1.734723475976807e-14
+      ]
+    },
+    {
+      "link": "H1_Link",
+      "source": "H1_Link",
+      "position_delta_mm": [
+        -5.551115123125783e-13,
+        0.004675488964806533,
+        193.24883972690498
+      ]
+    },
+    {
+      "link": "H2_Link",
+      "source": "H2_Link",
+      "position_delta_mm": [
+        -5.551115123125783e-13,
+        0.004686917482412966,
+        9.998747202835334
+      ]
+    },
+    {
+      "link": "mid360_Link",
+      "source": "head_mid360",
+      "position_delta_mm": [
+        0.00012784480940553067,
+        0.004689981431228986,
+        9.998987763765399
+      ]
+    },
+    {
+      "link": "Leye_link",
+      "source": "head_camera_left",
+      "position_delta_mm": [
+        0.0001512150393789824,
+        0.004612731045468277,
+        9.996314374028925
+      ]
+    }
+  ],
+  "head_sphere_fit": {
+    "H1_Link": {
+      "count": 5,
+      "method": "preview vertex-covering cluster spheres +1mm; needs review"
+    },
+    "H2_Link": {
+      "count": 1,
+      "method": "preview vertex-covering cluster spheres +1mm; needs review"
+    },
+    "mid360_Link": {
+      "count": 1,
+      "method": "preview vertex-covering cluster spheres +1mm; needs review"
+    }
+  },
+  "removed_box": "base_box_003",
+  "scope": "preview only; missing source inertia may retain old provisional values; no dynamics acceptance"
+}
