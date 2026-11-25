@@ -103,7 +103,8 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
     assert bus["options"]["dcf_path"] == bundle and bus["master"]["baudrate"] == 500
     assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
-    assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
+    # module_1 carries node 14 (hw-config-20261122-05).
+    assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 14
     diagnostics = yaml.safe_load(result.files["diagnostics.yaml"])
     drives = [device for device in diagnostics["devices"] if device["role"] == "drive"]
     assert len(drives) == 8 and {d["fault_table"] for d in drives} == {"kinco_fd"}
@@ -132,8 +133,8 @@ def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(shar
     ):
         assert params[name] == swerve[name], name
     # hw-config-20261116-02#F1: module_1..4 are FR, RR, FL, RL.
-    assert params["module_x"] == [0.305, -0.305, 0.305, -0.305]
-    assert params["module_y"] == [-0.305, -0.305, 0.305, 0.305]
+    assert params["module_x"] == [0.305, 0.305, -0.305, -0.305]
+    assert params["module_y"] == [0.305, -0.305, 0.305, -0.305]
     assert params["chassis_calibration_id"].startswith("swerve_chassis:sha256:")
     assert params["encoder_calibration_id"].startswith("swerve_encoders:sha256:")
     assert params["publish_rate"] == 100.0

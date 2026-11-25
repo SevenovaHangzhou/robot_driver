@@ -63,6 +63,8 @@
 
 [chassis-control-20261122-01](records/2026-11-22-swerve-continuous-default.md)#F1：研华底盘默认行驶方式改为连续模式 `steer_while_driving`（用户 2026-11-22），对齐模式 `align_first` 保留为配置项，运行中不切换。实机未测（UNVERIFIED）。
 
+[control-20261122-04](records/2026-11-22-lift-emergency-disable-voltage.md)#F1–F2：同毅升降急停只用 0x0005（立即断使能、退磁、抱闸，厂家确认），不用快速停止；研华整机紧急停机对 `updown` 发 0x0005，其他轴不变。单元测试通过，实机待验（PARTIAL）。
+
 [chassis-control-20261124-01](records/2026-11-24-navigation-adaptation.md)#F1–F3：导航默认连续转舵、平移/旋转独立限制、300ms旋转授权及100Hz内部执行反馈。本机构建与108项包测试、16项组合测试通过；模型/标定不改，接口待评审发布及导航迁移，未部署或实车验证（UNVERIFIED，T0）。
 
 [chassis-control-20261125-01](records/2026-11-25-navigation-compatibility.md)#F1–F3：取代前条错误反馈布局，恢复FollowMPPI的27+4×16协议，补真实舵速观测与预测恢复状态；用户批准参考撤权整形。实际消费端4用例和逐步回放5用例通过，包级126独立用例最终通过；接口发布、映射联调及仿真/实车待验（UNVERIFIED，T0）。

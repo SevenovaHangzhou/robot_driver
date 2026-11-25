@@ -5,6 +5,10 @@ verified: false
 authorities:
   identity: ESI V3-DOC-2026-023 (XMC_ESC_250325) = .40 ring 18 readback 2026-11-17 (HW 1.0, SW 5.11)
   motor_encoder_counts_per_revolution: user 2026-11-17 (vendor), 65535 counts per motor turn
+  stop_commands: 'vendor via user 2026-11-22 (control-20261122-04) - 0x6040=0x0005 disables at once,
+    de-energizes the motor and engages the brake; Quick Stop 0x0002 keeps the motor energized and the
+    drive then ignores 0x0007/0x0006/0x0000 (Advantech 2026-11-22), so Quick Stop is not used. The ESI
+    declares no 0x605A..0x605E or 0x6085'
 pending_facts:
 - motor model, rated/peak current and force (6073/6075 read back 0)
 - units of 0x606C, 0x6078, 0x2300/0x2301 and 0x6079

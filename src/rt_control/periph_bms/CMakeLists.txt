@@ -10,6 +10,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
+find_package(diagnostic_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(infra_socketcan REQUIRED)
 find_package(Threads REQUIRED)
@@ -49,6 +50,7 @@ target_link_libraries(bms_node_component
   bms_protocol bms_dual_battery_controller bms_can_transport Threads::Threads)
 ament_target_dependencies(
   bms_node_component
+  diagnostic_msgs
   infra_socketcan
   rclcpp
   robot_interfaces_qos
