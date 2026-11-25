@@ -275,3 +275,4 @@
 | 2026-11-22 | hw-config | [研华 CAN 口分配与头部零点](docs/areas/hw-config/records/2026-11-22-advantech-can-map.md) | PARTIAL（T2）：can2 1 Mbit/s 下头部两台失能反馈无故障，机械零位设零后读回约 0 rad；开机自动启用、断电保持与使能方向未验 |
 | 2026-11-22 | hw-config | [研华转角零点按外置编码器重算](docs/areas/hw-config/records/2026-11-22-advantech-steering-zero.md) | PARTIAL（T2）：0x7320 清除后只读换算四个转向零点，外置编码器显示四轮在 ±3° 内并经目视确认；使能低速核对未做 |
 | 2026-11-22 | hw-config | [研华转向零点符号更正](docs/areas/hw-config/records/2026-11-22-advantech-steering-zero-sign.md) | PARTIAL（T2）：整机使能 `swerve_controller` 因电机/编码器差两倍角度被拒；按 q = −外置角重算四个零点，失能读回换算一致；使能后激活与低速转向未做 |
+| 2026-11-22 | control | [同毅升降急停改发 0x0005](docs/areas/control/records/2026-11-22-lift-emergency-disable-voltage.md) | PARTIAL：故障停机后升降停在 0x8637；改为急停对升降发 0x0005；单元与组合测试通过，实机故障停机未测 |

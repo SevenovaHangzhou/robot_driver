@@ -29,6 +29,11 @@ enable_groups:
   mode_confirmation: none
 mode_confirmation: startup
 ready_to_switch_on_disable_terminal_joints: []
+# Tongyi XMC_ESC (lift): after Quick Stop 0x0002 the motor stays energized and the drive ignores
+# the disable sequence; 0x0005 disables it at once, de-energizes the motor and engages the brake
+# (vendor, user 2026-11-22). An emergency stop therefore sends 0x0005 to the lift.
+emergency_disable_voltage_joints:
+- updown
 runtime_views:
   normal:
     parameter_names:
@@ -40,3 +45,4 @@ runtime_views:
     - controller_switch_timeout
     - service_result_timeout_ms
     - ready_hold_time
+    - emergency_disable_voltage_joints
