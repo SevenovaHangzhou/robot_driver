@@ -3,12 +3,13 @@ kind: unit_calibration
 status: ready
 verified: true
 authorities:
-  verification: ring, direction, zero, coordinates and encoder offsets exercised on the Advantech bench
-    with enable and motion (ELECTRI-127, 2026-10-14..16); backlash is pending and not consumed
+  verification: existing motor and encoder calibration retained; module XY corrected by user confirmation
+    on 2026-11-25, pending enabled full-machine direction and odometry validation
   source: ELECTRI-127 Advantech chassis bench deployed profile.runtime.yaml / controllers.runtime.yaml
     (base 946ec110)
-  module_xy: control frame base_footprint; +X is the user-defined new forward (old base_link -Y), metres;
-    user 2026-11-16 negated all four after IMU showed rotation reversed against command with translation correct
+  module_xy: 'user 2026-11-25 (ELECTRI-247): base_footprint +X forward, +Y left; module_1/2/3/4 =
+    FL/FR/RL/RR at steering rings 3/5/7/9; supersedes the 2026-11-16 FR/RR/FL/RL assignment.
+    Motor rings, zero counts, directions and external encoder bindings are unchanged.'
   steering_zero_counts: 'user 2026-11-22 (ELECTRI-233): after the 0x7320 fault was cleared with 0x2690=10
     (resets the fault state and clears the multi-turn count) the zeros were recomputed, without enable or
     motion, from the external encoders with the unchanged direction/installation offsets and 140:1; all
@@ -21,6 +22,7 @@ authorities:
   external_encoder: direction/offset negated with the user steering-direction correction 2026-10-16; zero
     counts preserved
 pending_facts:
+- enabled full-machine translation, rotation and wheel-observation corner check after ELECTRI-247 geometry correction
 - physical hard-stop angles, command margin and measurement tolerance
 - enabled low-speed check of the 2026-11-22 steering zeros against the external encoders (ELECTRI-233)
 - bidirectional steering backlash and repeatability (scheduled with IMU variance calibration)
@@ -34,7 +36,7 @@ spec:
   modules:
   - module_position: module_1
     module_x_m: 0.305
-    module_y_m: -0.305
+    module_y_m: 0.305
     effective_wheel_radius_m: 0.1
     steering_zero_counts: 38164
     drive_zero_counts: 0
@@ -42,7 +44,7 @@ spec:
     external_encoder_installation_offset_rad: -0.07118492631211457
     backlash_rad: TBD
   - module_position: module_2
-    module_x_m: -0.305
+    module_x_m: 0.305
     module_y_m: -0.305
     effective_wheel_radius_m: 0.1
     steering_zero_counts: 78291
@@ -51,7 +53,7 @@ spec:
     external_encoder_installation_offset_rad: -2.1915319248055973
     backlash_rad: TBD
   - module_position: module_3
-    module_x_m: 0.305
+    module_x_m: -0.305
     module_y_m: 0.305
     effective_wheel_radius_m: 0.1
     steering_zero_counts: -28551
@@ -61,7 +63,7 @@ spec:
     backlash_rad: TBD
   - module_position: module_4
     module_x_m: -0.305
-    module_y_m: 0.305
+    module_y_m: -0.305
     effective_wheel_radius_m: 0.1
     steering_zero_counts: 101892
     drive_zero_counts: 0

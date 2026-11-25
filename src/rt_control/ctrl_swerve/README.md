@@ -4,7 +4,8 @@ Protocol-independent four-module swerve algorithms and a ROS 2 Humble
 `ctrl_swerve/SwerveController` plugin. Modules are indexed in wiring order
 (`module_1..4`); front/rear and left/right labels are derived from each module's
 calibrated `module_x/module_y`, never from the index. On `Alfa_V3-Advantech-01`
-module 1..4 are FR, RR, FL, RL (hw-config-20261116-02#F1).
+module 1..4 are FL, FR, RL, RR (user 2026-11-25, ELECTRI-247; supersedes the
+2026-11-16 corner assignment). Steering rings remain 3/5/7/9.
 See [NOTICE.md](NOTICE.md) for the exact source revision of the migrated math.
 
 ## Implemented
