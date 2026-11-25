@@ -3076,12 +3076,12 @@
     "updown": "Calibrated prismatic base_link -> arm_carriage; CAD-only frames collapsed, geometry/inertia transformed into arm_carriage",
     "left_tool0_fixed": "agreed own TCP distance and axes",
     "right_tool0_fixed": "agreed own TCP distance and axes",
-    "steer3_joint": "Retain source orientation, compensate base_link X shift by -74.78297093 mm",
+    "steer3_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm",
     "wheel3_joint": "axis negated with the drive polarity of the turned module",
-    "steer4_joint": "Retain source orientation, compensate base_link X shift by -74.78297093 mm",
+    "steer4_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm",
     "wheel4_joint": "axis negated with the drive polarity of the turned module",
-    "steer1_joint": "Retain source orientation, compensate base_link X shift by -74.78297093 mm",
-    "steer2_joint": "Retain source orientation, compensate base_link X shift by -74.78297093 mm"
+    "steer1_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm",
+    "steer2_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm"
   },
   "joint_reparents": {
     "steer3_joint": "suspension_link",
@@ -3809,15 +3809,15 @@
   "artifacts": {
     "canonical_urdf": {
       "path": "urdf/robot_alfav3_mobile.urdf",
-      "sha256": "ff3d2e76cff0bbf53e2b49461c631b684303cd06d3df877d4890eb82aebb4207"
+      "sha256": "bcfa03d81834392f590b52f062ffbda94e34a1d7957e42906eac10855fc2417a"
     },
     "visual_urdf": {
       "path": "urdf/variants/robot_visual.urdf",
-      "sha256": "4fd467e28cbf78c36021142f00e219905609057c56156d7fc3384ddf452cc244"
+      "sha256": "b50bb164361cec29c33f6622596b637785a1efda76cfb5cbdf492654dae1b6ea"
     },
     "collision_urdf": {
       "path": "urdf/variants/robot_collision.urdf",
-      "sha256": "7940129e0b603b3573508c02afa7673b4810a698f706f480c4d7fd0b8b277998"
+      "sha256": "9c2c0deeeed0a28b8b3b71574bc71a46f32462eeb239db9252cdcefe0309cecc"
     },
     "curobo_config": {
       "path": "config/curobo/robot.yaml",

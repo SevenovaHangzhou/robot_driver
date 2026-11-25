@@ -23,7 +23,7 @@ hw-config-20261122-03 按 11-22 卷尺推算的零点，把升降行程写成 Ro
 
 ## 改动
 
-- robot_description#23 已将 `updown` 限位改为 `[-1.033, 0.017]` m。合并前按用户裁决保留主线更新的正式装配模型 `fa636d3`，不再导入旧快照 `405f9ee`，模型和金样不变。
+- robot_description#23 已将 `updown` 限位改为 `[-1.033, 0.017]` m。合并前按用户裁决保留主线正式装配模型及其后续轮组修正 `a41105c`（robot_description#27），不再导入旧快照 `405f9ee`，模型和金样不变。
 - `machines/Alfa_V3/updown.yaml`：`stroke_min_m` −1.05 → −1.033，`stroke_max_m` 0 → 0.017；`hard_stop_margin_m`
   0.02 不变，启动预检原始位置窗口为 −1.053..+0.037 m。
 - 只补齐硬件行程与预检范围，使其与当前正式模型一致。

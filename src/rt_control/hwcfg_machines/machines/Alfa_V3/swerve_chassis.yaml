@@ -71,9 +71,7 @@ spec:
     robot_model_joint: wheel1_joint
     ring_position: 2
     device: devices/kinco_smc80s_0075_fd134s.yaml
-    # Front wheels (module_1/2) rolled backward with the stored 607E and the Robot Model frame (user 2026-11-22,
-    # hw-config-20261122-05); reversed in software because the drives stayed in OP with an AL error.
-    direction: -1
+    direction: 1
     mode_of_operation: 9
     # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
     mode_switching: true
@@ -84,9 +82,7 @@ spec:
     robot_model_joint: wheel2_joint
     ring_position: 4
     device: devices/kinco_smc80s_0075_fd134s.yaml
-    # Front wheels (module_1/2) rolled backward with the stored 607E and the Robot Model frame (user 2026-11-22,
-    # hw-config-20261122-05); reversed in software because the drives stayed in OP with an AL error.
-    direction: -1
+    direction: 1
     mode_of_operation: 9
     # Startup CSV; CSP while the wheel trajectory controller owns the chassis (R-IN-23).
     mode_switching: true

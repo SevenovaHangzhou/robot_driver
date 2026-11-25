@@ -47,7 +47,7 @@ def test_lift_moves_whole_upper_assembly_not_chassis_or_wheels():
             np.testing.assert_allclose(current[link],zero[link],atol=1e-12)
 
 
-def test_upper_body_relative_kinematics_and_wheel_heading_preserved():
+def test_upper_body_relative_kinematics_and_wheel_mount_alignment():
     source=ET.parse(ROOT/'config/carriage_assembly/assembled_reference.urdf').getroot()
     robot=model()
     rng=np.random.default_rng(24)
@@ -57,9 +57,12 @@ def test_upper_body_relative_kinematics_and_wheel_heading_preserved():
         for name in ('left_link1','right_link1','left_tool0','right_tool0','H1_Link','H2_Link','mid360_Link'):
             np.testing.assert_allclose(np.linalg.inv(old['arm_carriage'])@old[name],np.linalg.inv(new['arm_carriage'])@new[name],atol=1e-12)
         for i in range(1,5):
-            for name in (f'steer{i}',f'wheel{i}'):
-                np.testing.assert_allclose(new[name][:3,3]-old[name][:3,3],[0,0,.035],atol=1e-10)
-                np.testing.assert_allclose(new[name][:3,:3],old[name][:3,:3],atol=1e-12)
+            quarter_turn=np.array([[0,-1,0],[1,0,0],[0,0,1]])
+            steer=f'steer{i}'
+            for name in (steer,f'wheel{i}'):
+                expected_position=old[steer][:3,3]+[0,0,.035]+quarter_turn@(old[name][:3,3]-old[steer][:3,3])
+                np.testing.assert_allclose(new[name][:3,3],expected_position,atol=1e-10)
+                np.testing.assert_allclose(new[name][:3,:3],quarter_turn@old[name][:3,:3],atol=1e-12)
 
 
 def test_approved_four_boxes_and_unchanged_spheres():
