@@ -24,10 +24,13 @@ struct CoreConfig
   // External encoder monitor: invalid, out of range or > max_encoder_difference from the
   // motor-derived angle for longer than this window raises feedback_fault (seconds).
   double encoder_fault_window{0.05};
-  // Chassis twist S-curve before inverse kinematics (wheel-rim units, see BodyShaperLimits).
-  // Infinite acceleration disables it; max_wheel_acceleration stays the per-wheel backstop.
-  double max_body_acceleration{std::numeric_limits<double>::infinity()};
+  // XY norm and angular acceleration are independent; jerk uses equivalent wheel radius.
+  // All three +infinity disables body shaping for non-navigation configurations.
+  double max_linear_acceleration{std::numeric_limits<double>::infinity()};
+  double max_angular_acceleration{std::numeric_limits<double>::infinity()};
   double max_body_jerk{std::numeric_limits<double>::infinity()};
+  double max_rotation_speed{1.5}, max_rotation_acceleration{1.5};
+  double rotation_stop_speed{0.01}, rotation_stop_hold{0.05};
   SwerveSetpointParameters setpoint{};
 };
 
@@ -70,6 +73,36 @@ struct ControlOutput
   bool slip_detected{false};
 };
 
+struct ModuleExecutionSnapshot
+{
+  bool ready{false}, reversed{false}, holding{false};
+  double steering_actual{0.0}, steering_encoder{0.0};
+  double steering_target{0.0}, steering_reference{0.0};
+  double steering_rate{0.0}, steering_acceleration{0.0}, steering_error{0.0};
+  double wheel_actual{0.0}, wheel_target{0.0}, wheel_reference{0.0};
+  double wheel_position{0.0};
+  double wheel_max_speed{0.0}, wheel_max_acceleration{0.0};
+  double steering_min{0.0}, steering_max{0.0};
+  double steering_max_rate{0.0}, steering_max_acceleration{0.0}, steering_max_jerk{0.0};
+  double wheel_radius{0.0};
+  Translation2d location{};
+};
+
+// Fixed-size SI state. Steering goals precede profiling; wheel references are the final
+// applied output in m/s. Measured fields are NaN when their feedback is unavailable.
+struct ExecutionSnapshot
+{
+  ControlStatus status{ControlStatus::inactive};
+  bool ready{false}, feedback_valid{false}, rotation_active{false}, rotation_requested{false};
+  bool gated{false}, waiting{false};
+  int translation_branch{-1};
+  double gate{0.0}, release{0.0}, flip_hysteresis{0.0};
+  ChassisSpeeds body_reference{}, body_acceleration{}, body_measured{};
+  double max_linear_speed{0.0}, max_angular_speed{0.0};
+  double max_linear_acceleration{0.0}, max_angular_acceleration{0.0}, max_body_jerk{0.0};
+  std::array<ModuleExecutionSnapshot, 4> modules{};
+};
+
 class ControlCore
 {
 public:
@@ -81,9 +114,16 @@ public:
   bool hold_fault_latched() const noexcept { return hold_fault_latched_; }
   ControlOutput update(
     const ModuleFeedbackArray & feedback, ChassisSpeeds command, bool command_fresh, double dt,
-    std::optional<YawSample> imu = std::nullopt);
+    std::optional<YawSample> imu = std::nullopt, bool rotation_requested = false);
+  const ExecutionSnapshot & execution_snapshot() const noexcept { return snapshot_; }
 
 private:
+  ControlOutput update_command(
+    const ModuleFeedbackArray & feedback, ChassisSpeeds command, bool command_fresh, double dt);
+  void refresh_snapshot(const ModuleFeedbackArray & feedback) noexcept;
+  void update_rotation_capability(
+    const ModuleFeedbackArray & feedback, const ChassisSpeeds & command, bool command_fresh,
+    double dt, bool requested) noexcept;
   bool measurement_valid(const ModuleFeedback & feedback) const noexcept;
   bool module_ready(const ModuleFeedback & feedback, std::size_t index) const noexcept;
   bool encoder_consistent(const ModuleFeedback & feedback, std::size_t index) const noexcept;
@@ -108,6 +148,9 @@ private:
   std::array<bool, 4> holding_modules_{};
   std::array<double, 4> encoder_bad_time_{};
   ControlOutput output_;
+  ExecutionSnapshot snapshot_{};
+  bool rotation_active_{false}, rotation_requested_{false};
+  double rotation_stopped_time_{0.0};
   double yaw_{0.0}, last_imu_yaw_{0.0};
   bool active_{false}, imu_fallback_{true}, hold_fault_latched_{false};
 };

@@ -5,7 +5,7 @@ scope: motion_controlled_joints
 units:
   revolute: rad
   prismatic: m
-model_revision: unified-20261112-r2
+model_revision: carriage-assembly-approved-20261124
 based_on:
   release: alfa-v3-curobo-legacy-26.11.10-buildable
   path: program/research/curobo_v3/config/rezero_home.json
@@ -15,7 +15,8 @@ validation:
   status: user_selected_joint_reference
   collision_checked: false
   new_model_task_verified: true
-  scope: Six top-grasp tasks, two fresh runs per Home setting, all24 complete; ideal planning only, not hardware certification
+  scope: Six top-grasp tasks, two fresh runs per Home setting, all24 complete; ideal
+    planning only, not hardware certification
 decision:
   date: '2026-11-17'
   source: User-approved Home updown0 after six-task comparison

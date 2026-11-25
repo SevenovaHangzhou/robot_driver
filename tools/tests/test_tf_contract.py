@@ -23,10 +23,8 @@ class TfContractTest(unittest.TestCase):
         self.assertEqual(base_joint.attrib["type"], "fixed")
         self.assertEqual(base_joint.find("parent").attrib["link"], "base_footprint")
         self.assertEqual(base_joint.find("child").attrib["link"], "base_link")
-        # Model main 98d498e: base_link sits 0.335 m above base_footprint with no yaw.
-        # The previous model used z=0.32 with a 90 deg yaw, so this is a deliberate
-        # frame change that consumers must be checked against.
-        self.assertEqual(base_joint.find("origin").attrib["xyz"], "0 0 0.335")
+        # Approved carriage assembly, expressed in metres in base_footprint.
+        self.assertEqual(base_joint.find("origin").attrib["xyz"], "0.07478297093 0 0.37")
         self.assertEqual(base_joint.find("origin").attrib["rpy"], "0 0 0")
 
     def test_v3_control_joint_names_are_present_in_the_model_sources(self):

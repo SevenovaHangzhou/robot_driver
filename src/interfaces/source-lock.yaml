@@ -1,7 +1,7 @@
 schema_version: 1
 repository: https://github.com/SevenovaHangzhou/robot_interfaces.git
-# robot_interfaces main after #22 (R-OUT-29 wheel observations).
-commit: f54ddffb5f58b67e17ec4a76b5e4610844507592
+# robot_interfaces main after #27 (FollowMPPI compatibility correction).
+commit: 76082540f9642c1c7e7b86e16f9b7902ce93da64
 contract_version: 1.0.0
 vendor_path: src/vendor/robot_interfaces
 vendored_packages:

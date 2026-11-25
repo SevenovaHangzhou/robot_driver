@@ -1,0 +1,977 @@
+{
+  "source_assembly": "\\\\Sevenova\\sev\\Mechanical\\三代机v1.0\\urdf\\出车urdf\\urdf出车版本.SLDASM",
+  "links": 42,
+  "joints": 41,
+  "meshes": {
+    "base_link": {
+      "triangles": 401753,
+      "source_components": [
+        "base link-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.5,
+          -0.22300000488758087,
+          -0.734000027179718
+        ],
+        [
+          0.5,
+          1.5750000476837158,
+          0.26600000262260437
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "active_suspension_link": {
+      "triangles": 18602,
+      "source_components": [
+        "底盘舵轮组焊支架-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.4424999952316312,
+          -0.22800000202655818,
+          -0.694000001192103
+        ],
+        [
+          0.44249999523162564,
+          0.22200000095367411,
+          -0.38299999678135915
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "steer1": {
+      "triangles": 357196,
+      "source_components": [
+        "轮组-1/舵轮_转向主体-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.17050000395666126,
+          -0.36250000214021005,
+          -0.08897363614623098
+        ],
+        [
+          0.4429594140876389,
+          -0.11499999975602293,
+          0.23096769082959157
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "wheel1": {
+      "triangles": 21308,
+      "source_components": [
+        "轮组-1/舵轮_行走轮-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.271999993585453,
+          -0.38999077444712915,
+          -0.028993750329656856
+        ],
+        [
+          0.3350000020493127,
+          -0.19000922655503544,
+          0.17098779756243687
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "steer2": {
+      "triangles": 357196,
+      "source_components": [
+        "轮组-2/舵轮_转向主体-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.4394999960433388,
+          -0.36250000214020983,
+          -0.08897363614623079
+        ],
+        [
+          -0.16704058591236118,
+          -0.11499999975602271,
+          0.23096769082959173
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "wheel2": {
+      "triangles": 21308,
+      "source_components": [
+        "轮组-2/舵轮_行走轮-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.338000006414547,
+          -0.38999077444712893,
+          -0.02899375032965669
+        ],
+        [
+          -0.2749999979506874,
+          -0.19000922655503522,
+          0.17098779756243704
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "steer3": {
+      "triangles": 357196,
+      "source_components": [
+        "轮组-3/舵轮_转向主体-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.44295941408764467,
+          -0.3625000021402101,
+          -0.6989676908296113
+        ],
+        [
+          -0.1705000039566671,
+          -0.11499999975602307,
+          -0.37902636385378874
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "wheel3": {
+      "triangles": 21308,
+      "source_components": [
+        "轮组-3/舵轮_行走轮-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.33500000204931846,
+          -0.38999077444712926,
+          -0.6389877975624566
+        ],
+        [
+          -0.2719999935854589,
+          -0.19000922655503555,
+          -0.43900624967036284
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "steer4": {
+      "triangles": 357196,
+      "source_components": [
+        "轮组-4/舵轮_转向主体-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.16704058591235527,
+          -0.36250000214021016,
+          -0.6989676908296111
+        ],
+        [
+          0.43949999604333295,
+          -0.11499999975602312,
+          -0.3790263638537886
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "wheel4": {
+      "triangles": 21308,
+      "source_components": [
+        "轮组-4/舵轮_行走轮-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.2749999979506816,
+          -0.38999077444712926,
+          -0.6389877975624564
+        ],
+        [
+          0.33800000641454114,
+          -0.1900092265550356,
+          -0.43900624967036267
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_1_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.2900052048713049,
+          -0.009999999612569883,
+          0.2229999991059138
+        ],
+        [
+          0.3389947951287111,
+          0.007999999612569768,
+          0.24650000004748152
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_2_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-3"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.3389947951287111,
+          -0.009999999612569765,
+          0.22299999910591384
+        ],
+        [
+          -0.2900052048713049,
+          0.007999999612569876,
+          0.24650000004748154
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_3_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-4"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.48050000004749177,
+          -0.00999999961256972,
+          0.05600520487129283
+        ],
+        [
+          -0.45699999910592437,
+          0.007999999612569903,
+          0.10499479512869908
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_4_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-5"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.48050000004749177,
+          -0.00999999961256972,
+          -0.5729947951287186
+        ],
+        [
+          -0.45699999910592437,
+          0.007999999612569903,
+          -0.5240052048713124
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_5_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-6"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.3389947951287111,
+          -0.009999999612569765,
+          -0.714500000047501
+        ],
+        [
+          -0.2900052048713049,
+          0.007999999612569876,
+          -0.6909999991059333
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_6_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-7"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.2900052048713049,
+          -0.009999999612569881,
+          -0.714500000047501
+        ],
+        [
+          0.3389947951287111,
+          0.007999999612569766,
+          -0.6909999991059333
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_7_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-8"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.45699999910592437,
+          -0.009999999612569886,
+          -0.5729947951287186
+        ],
+        [
+          0.48050000004749177,
+          0.007999999612569733,
+          -0.5240052048713124
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "ultrasonic_channel_8_link": {
+      "triangles": 1972,
+      "source_components": [
+        "超声波测距-2"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.45699999910592437,
+          -0.009999999612569886,
+          0.05600520487129281
+        ],
+        [
+          0.48050000004749177,
+          0.007999999612569733,
+          0.10499479512869908
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "imu_link": {
+      "triangles": 54704,
+      "source_components": [
+        "IMU-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.02100000057545122,
+          -0.17400002545795612,
+          0.1435499865028194
+        ],
+        [
+          0.02100000258359499,
+          -0.1527029506035822,
+          0.2080000008854202
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "front_mid360": {
+      "triangles": 321498,
+      "source_components": [
+        "mid-360（带point）-2"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.032436922192578946,
+          -0.051276109244543025,
+          0.16114038737410608
+        ],
+        [
+          0.032436922192568184,
+          0.016931626113630614,
+          0.2561130582750688
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "behind_mid360": {
+      "triangles": 321498,
+      "source_components": [
+        "mid-360（带point）-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.03243692219256402,
+          1.4756100010132784,
+          -0.3290971004243856
+        ],
+        [
+          0.032436922192583116,
+          1.570046922192573,
+          -0.26900000021121556
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "updown_link": {
+      "triangles": 1006591,
+      "source_components": [
+        "胸口-1",
+        "15度固定件-1",
+        "15度固定件-2",
+        "J1电机J2电机-eRob170H××I97+++1codex-1",
+        "J1电机J2电机-eRob170H××I97+++1codex-2"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.3310144782625016,
+          1.1299410048872225,
+          -0.11600000357627877
+        ],
+        [
+          0.3310144782624937,
+          1.469999992847442,
+          0.32900000417232533
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "chest_camera_left": {
+      "triangles": 179148,
+      "source_components": [
+        "ZED X-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.08986754728774668,
+          1.1005616742324629,
+          0.28544706534020403
+        ],
+        [
+          0.08986731673449,
+          1.2546705026411653,
+          0.3956147699300364
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "H1_Link": {
+      "triangles": 597856,
+      "source_components": [
+        "相机云台回转111-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.047500001323965015,
+          1.4249999964374316,
+          0.2100000025954619
+        ],
+        [
+          0.04750000120923239,
+          1.5624999994176638,
+          0.30749999901918323
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "H2_Link": {
+      "triangles": 21848,
+      "source_components": [
+        "相机云台俯仰111-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.05000000074506011,
+          1.504004873448246,
+          0.2051260798900846
+        ],
+        [
+          0.05000000074505601,
+          1.6546875752877916,
+          0.3137055231749441
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "head_camera_left": {
+      "triangles": 179148,
+      "source_components": [
+        "ZED X-2"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.08986737468149324,
+          1.628159220407282,
+          0.23367914849778465
+        ],
+        [
+          0.08986722043845999,
+          1.7934968388476715,
+          0.29286615097781477
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "head_mid360": {
+      "triangles": 321498,
+      "source_components": [
+        "mid-360（带point）-3"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.03243692219257311,
+          1.544565205250699,
+          0.226082460399608
+        ],
+        [
+          0.032436922192574,
+          1.6149506452280165,
+          0.3195877640389805
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "right_link1": {
+      "triangles": 466792,
+      "source_components": [
+        "part1++1codex-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.5315766683780487,
+          1.2861766619463084,
+          0.13149999650277205
+        ],
+        [
+          -0.26383738672185214,
+          1.4897196838358944,
+          0.30781226408094386
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "right_link2": {
+      "triangles": 560619,
+      "source_components": [
+        "part2++1codex-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -0.682591144210534,
+          1.294734150375705,
+          0.13200000042654556
+        ],
+        [
+          -0.34959114736958,
+          1.4947341533559377,
+          0.28681226188875725
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "right_link3": {
+      "triangles": 592976,
+      "source_components": [
+        "part3++1codex-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -1.032596040433992,
+          1.3102341519850305,
+          0.11259027923084874
+        ],
+        [
+          -0.6475911474887021,
+          1.4721841516154819,
+          0.30540971438028003
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "right_link4": {
+      "triangles": 545111,
+      "source_components": [
+        "part4++1codex-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -1.1835911425713184,
+          1.31018414810345,
+          0.11199999687082632
+        ],
+        [
+          -0.8455911318722844,
+          1.4836841557449143,
+          0.3060000026186088
+        ]
+      ],
+      "source_tessellation_failures": 12
+    },
+    "right_link5": {
+      "triangles": 1157169,
+      "source_components": [
+        "part5-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -1.4770911373276443,
+          1.3272341031159813,
+          0.12954714535377398
+        ],
+        [
+          -1.1730911471028045,
+          1.5407341260041651,
+          0.2924528570344266
+        ]
+      ],
+      "source_tessellation_failures": 1
+    },
+    "right_link6": {
+      "triangles": 412052,
+      "source_components": [
+        "part6-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -1.4595911294880821,
+          1.3382341525445418,
+          0.17199999831344812
+        ],
+        [
+          -1.38519112176332,
+          1.4512341505775888,
+          0.24599999926712252
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "right_link7": {
+      "triangles": 31797,
+      "source_components": [
+        "link7-1"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          -1.5194911451998634,
+          1.3632342622422762,
+          0.17750011038577113
+        ],
+        [
+          -1.4585911434132142,
+          1.4262340414893666,
+          0.24400000186305856
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "left_link1": {
+      "triangles": 466792,
+      "source_components": [
+        "part1++1codex-2"
+      ],
+      "mirrored": false,
+      "world_bounds_at_cad_pose": [
+        [
+          0.2638373867218445,
+          1.286176661946337,
+          0.13149999650276428
+        ],
+        [
+          0.5315766681672363,
+          1.4897196847755447,
+          0.3078122640809361
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "left_link2": {
+      "triangles": 560619,
+      "source_components": [
+        "part2++1codex-1"
+      ],
+      "mirrored": true,
+      "world_bounds_at_cad_pose": [
+        [
+          0.34959114736958,
+          1.294734150375705,
+          0.13200000042654556
+        ],
+        [
+          0.682591144210534,
+          1.4947341533559377,
+          0.28681226188875725
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "left_link3": {
+      "triangles": 592976,
+      "source_components": [
+        "part3++1codex-1"
+      ],
+      "mirrored": true,
+      "world_bounds_at_cad_pose": [
+        [
+          0.6475911474887021,
+          1.3102341519850305,
+          0.11259027923084874
+        ],
+        [
+          1.032596040433992,
+          1.4721841516154819,
+          0.30540971438028003
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "left_link4": {
+      "triangles": 545111,
+      "source_components": [
+        "part4++1codex-1"
+      ],
+      "mirrored": true,
+      "world_bounds_at_cad_pose": [
+        [
+          0.8455911318722844,
+          1.31018414810345,
+          0.11199999687082632
+        ],
+        [
+          1.1835911425713184,
+          1.4836841557449143,
+          0.3060000026186088
+        ]
+      ],
+      "source_tessellation_failures": 12
+    },
+    "left_link5": {
+      "triangles": 1157169,
+      "source_components": [
+        "part5-1"
+      ],
+      "mirrored": true,
+      "world_bounds_at_cad_pose": [
+        [
+          1.1730911471028045,
+          1.3272341031159813,
+          0.12954714535377398
+        ],
+        [
+          1.4770911373276443,
+          1.5407341260041651,
+          0.2924528570344266
+        ]
+      ],
+      "source_tessellation_failures": 1
+    },
+    "left_link6": {
+      "triangles": 412052,
+      "source_components": [
+        "part6-1"
+      ],
+      "mirrored": true,
+      "world_bounds_at_cad_pose": [
+        [
+          1.38519112176332,
+          1.3382341525445418,
+          0.17199999831344812
+        ],
+        [
+          1.4595911294880821,
+          1.4512341505775888,
+          0.24599999926712252
+        ]
+      ],
+      "source_tessellation_failures": 0
+    },
+    "left_link7": {
+      "triangles": 31797,
+      "source_components": [
+        "link7-1"
+      ],
+      "mirrored": true,
+      "world_bounds_at_cad_pose": [
+        [
+          1.4585911434132142,
+          1.3632342622422762,
+          0.17750011038577113
+        ],
+        [
+          1.5194911451998634,
+          1.4262340414893666,
+          0.24400000186305856
+        ]
+      ],
+      "source_tessellation_failures": 0
+    }
+  },
+  "lift_pose_verification": [
+    {
+      "lift_m": 0.0,
+      "max_transform_error": 6.137591739390163e-13
+    },
+    {
+      "lift_m": 0.525,
+      "max_transform_error": 6.137591739390163e-13
+    },
+    {
+      "lift_m": 1.05,
+      "max_transform_error": 6.137591739390163e-13
+    }
+  ],
+  "arm_axis_checks_legacy_cad": [
+    {
+      "joint": "right_joint1",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    },
+    {
+      "joint": "right_joint2",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    },
+    {
+      "joint": "right_joint3",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 0.9999999999932538,
+      "alignment_angle_deg": 0.00021045823441599067,
+      "low_alignment": false
+    },
+    {
+      "joint": "right_joint4",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 0.9999999999932538,
+      "alignment_angle_deg": 0.00021045823441599067,
+      "low_alignment": false
+    },
+    {
+      "joint": "right_joint5",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 0.9999999999932538,
+      "alignment_angle_deg": 0.00021045823441599067,
+      "low_alignment": false
+    },
+    {
+      "joint": "right_joint6",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 0.9999999999932538,
+      "alignment_angle_deg": 0.00021045823441599067,
+      "low_alignment": false
+    },
+    {
+      "joint": "right_joint7",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 0.9999999999932538,
+      "alignment_angle_deg": 0.00021045823441599067,
+      "low_alignment": false
+    },
+    {
+      "joint": "left_joint1",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    },
+    {
+      "joint": "left_joint2",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    },
+    {
+      "joint": "left_joint3",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    },
+    {
+      "joint": "left_joint4",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    },
+    {
+      "joint": "left_joint5",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    },
+    {
+      "joint": "left_joint6",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 0.9088373277435993,
+      "alignment_angle_deg": 24.654829902482685,
+      "low_alignment": true
+    },
+    {
+      "joint": "left_joint7",
+      "old_reference": "D:\\codex and sw\\output\\LA77_mount_TF_20261027\\source.urdf",
+      "alignment_abs_cos": 1.0,
+      "alignment_angle_deg": 0.0,
+      "low_alignment": false
+    }
+  ],
+  "links_without_cad_inertia": [
+    "steer1",
+    "wheel1",
+    "steer2",
+    "wheel2",
+    "steer3",
+    "wheel3",
+    "steer4",
+    "wheel4",
+    "front_mid360",
+    "behind_mid360",
+    "chest_camera_left",
+    "head_camera_left",
+    "head_mid360",
+    "right_link5",
+    "right_link6",
+    "right_link7",
+    "left_link5",
+    "left_link6",
+    "left_link7"
+  ],
+  "left_mirrored_links": [
+    "left_link2",
+    "left_link3",
+    "left_link4",
+    "left_link5",
+    "left_link6",
+    "left_link7"
+  ],
+  "legacy_limits_viewer_commit": "0c712168afe2247d28bfc3cba6c91166f47e6b5e",
+  "limits_note": "active suspension uses zero placeholders pending motion controls; upper lift, steer and head efforts/speeds also placeholders. Arm velocity and effort copied at legacy viewer precision.",
+  "assembly_and_rigid_body_pose_only": true
+}

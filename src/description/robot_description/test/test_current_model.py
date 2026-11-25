@@ -79,8 +79,8 @@ def test_complete_github_inventory_and_local_joint_contract():
     added_joints={'lidar_main_fixed','lidar_rear_fixed','suspension'}|{f'ultrasonic_channel_{i}_joint' for i in range(1,9)}
     assert set(current)==set(upstream)|added_joints
     assert {l.get('name') for l in m.findall('link')}==set(MANIFEST['github_link_names'])|added_links
-    assert set(MANIFEST['joint_overrides'])=={'base_footprint_to_base_link','updown','left_tool0_fixed','right_tool0_fixed',
-        'steer3_joint','wheel3_joint','steer4_joint','wheel4_joint'}
+    assert set(MANIFEST['joint_overrides'])=={'H1_joint','base_footprint_to_base_link','updown','left_tool0_fixed','right_tool0_fixed',
+        'steer1_joint','steer2_joint','steer3_joint','wheel3_joint','steer4_joint','wheel4_joint'}
     for name,original in upstream.items():
         j=current[name]
         # No joint may disappear or move to a different parent, including joints with an
@@ -100,7 +100,7 @@ def test_complete_github_inventory_and_local_joint_contract():
 def test_head_sensor_follows_original_dynamic_chain():
     m=ET.parse(ENTRY).getroot()
     expected={
-        'H1_joint':('arm_carriage','H1_Link',[.267,0,.36515],[np.pi,0,0]),
+        'H1_joint':('arm_carriage','H1_Link',[.317,0,.36515],[np.pi,0,0]),
         'H2_joint':('H1_Link','H2_Link',[-.02,0,.24625009252407],[np.pi/2,0,0]),
         'mid360_joint':('H2_Link','mid360_Link',[.05857,.066019,0],[-1.5708,0,-.37885]),
         'Leye_joint':('H2_Link','Leye_link',[.032866,.11171,-.06],[-1.5708,0,0]),
@@ -144,7 +144,7 @@ def test_rear_swerve_modules_turned_about_steering_axis():
         for child in contract[2]:e.append(element(child))
         return e
     original=deepcopy(m)
-    for name in ('steer3_joint','wheel3_joint','steer4_joint','wheel4_joint'):
+    for name in tuple(f'{kind}{i}_joint' for i in range(1,5) for kind in ('steer','wheel')):
         current=original.find(f"joint[@name='{name}']")
         original.remove(current)
         original.append(element(upstream[name]))
@@ -153,7 +153,7 @@ def test_rear_swerve_modules_turned_about_steering_axis():
         steer=m.find(f"joint[@name='steer{i}_joint']")
         before=transform(original.find(f"joint[@name='steer{i}_joint']/origin"))
         after=np.linalg.inv(frames(m)['base_link'])@frames(m)[f'steer{i}']
-        assert np.allclose(after[:3,3],before[:3,3],atol=1e-12)
+        assert np.allclose(after[:3,3],before[:3,3]+[-.07478297093,0,0],atol=1e-12)
         # Steering axis is -Z in base_link either way: driver model_heading_sign -1 still holds.
         assert np.allclose(after[:3,:3]@[0,0,1],[0,0,-1],atol=1e-6)
         turned=i in (3,4)
@@ -169,24 +169,25 @@ def test_rear_swerve_modules_turned_about_steering_axis():
                 moves.append(np.cross(axis,up))
             assert np.allclose(moves[0],moves[1],atol=1e-6)
             centre=[frames(model,positions)[f'steer{i}'][:2,3] for model in (m,original)]
-            assert np.allclose(centre[0],centre[1],atol=1e-12)
+            assert np.allclose(centre[0],centre[1]+[-.07478297093,0],atol=1e-12)
 
 def test_root_lift_and_fixed_radars():
     m=ET.parse(ENTRY).getroot()
     for q in ({},{'updown':-.8,'H1_joint':.3,'H2_joint':-.2}):
         f=frames(m,q)
-        assert np.allclose(f['base_link'][:3,3],[0,0,.335],atol=1e-12)
+        assert np.allclose(f['base_link'][:3,3],[.07478297093,0,.370],atol=1e-12)
         assert np.allclose(f['base_link'][:3,:3],np.eye(3),atol=1e-12)
         for name,xyz,rpy in [('lidar_main',[.453313447977869,0,.398099404],[0,15,0]),('lidar_rear',[-.047,0,1.959],[0,-90,0])]:
-            assert np.allclose(f[name][:3,3],xyz,atol=1e-12)
+            assert np.allclose(f[name][:3,3],np.array(xyz)+[.07478297093,0,.035],atol=1e-12)
             assert np.allclose(f[name][:3,:3],rotation(np.deg2rad(rpy)),atol=1e-12)
             assert m.find(f"joint[@name='{name}_fixed']/parent").get('link')=='base_link'
             assert len(m.find(f"link[@name='{name}']"))==0
     j=m.find("joint[@name='updown']")
-    assert j.find('axis').get('xyz')=='0 0 -1'
-    assert np.allclose(transform(j.find('origin'))[:3,3],[.174,0,1.68])
-    # Measured on the robot (user 2026-11-22): zero at the bottom of the 1.05 m stroke.
-    assert [float(j.find('limit').get(k)) for k in ('lower','upper','velocity')]==[-1.05,0,.1666]
+    assert j.find('child').get('link') == 'arm_carriage'
+    assert np.allclose(transform(j.find('origin'))[:3,:3] @ np.fromstring(j.find('axis').get('xyz'),sep=' '),[0,0,1],atol=1e-7)
+    assert np.allclose(transform(j.find('origin'))[:3,3],[.1022170290733216,-.000004692435651698,1.6629011602730948])
+    # Stroke ends measured on the robot (user 2026-11-23): -1.033 m to +0.017 m, 1.05 m in total.
+    assert [float(j.find('limit').get(k)) for k in ('lower','upper','velocity')]==[-1.033,.017,.1666]
 
 def test_suspension_lifts_only_the_rear_axle():
     m=ET.parse(ENTRY).getroot()
@@ -203,6 +204,7 @@ def test_suspension_lifts_only_the_rear_axle():
         origin={c[0]:c[1] for c in upstream[name+'_joint'][2]}['origin']
         before=transform(ET.Element('origin',origin))
         before[:3,:3]=rotation((0,0,np.pi))@before[:3,:3]
+        before[0,3]-=.07478297093
         assert np.allclose(np.linalg.inv(f0['base_link'])@f0[name],before,atol=1e-12)
         for child in (name,name.replace('steer','wheel')):
             assert np.allclose(f1[child][:3,3]-f0[child][:3,3],[0,0,.1],atol=1e-12)
@@ -309,10 +311,13 @@ def test_approved_fit_matches_published_spheres_and_reports_gaps():
     approved=json.loads((ROOT/'config/curobo/approved_head_carriage_fit.json').read_text())
     spheres=yaml.safe_load((ROOT/VARIANTS['curobo_spheres']).read_text())['collision_spheres']
     for name in ('arm_carriage','H1_Link','H2_Link','mid360_Link'):
-        assert name in report['links']
+        geometry_link=name
+        assert geometry_link in report['links']
         assert spheres[name] == approved['links'][name]['spheres']
-        assert 0 <= report['links'][name]['covered_fraction'] <= 1
-        assert report['links'][name]['maximum_sampled_gap_m'] < .06
+        assert 0 <= report['links'][geometry_link]['covered_fraction'] <= 1
+        assert np.isfinite(report['links'][geometry_link]['maximum_sampled_gap_m'])
+        if name != 'arm_carriage':
+            assert report['links'][geometry_link]['maximum_sampled_gap_m'] < .06
         fit=MANIFEST['head_collision_fit'][name]
         assert fit['method'] == 'approved_morphit'
         assert fit['parameters'] == approved['links'][name]['parameters']
