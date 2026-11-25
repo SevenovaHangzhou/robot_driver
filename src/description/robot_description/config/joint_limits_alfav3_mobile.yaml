@@ -6,8 +6,8 @@ joints:
     type: prismatic
     max_velocity_m_s: 0.1666
     max_effort: 10.0
-    lower_position_m: -1.05
-    upper_position_m: 0.0
+    lower_position_m: -1.033
+    upper_position_m: 0.017
     max_acceleration_m_s2: 0.4
   steer1_joint:
     type: revolute

@@ -1,0 +1,12 @@
+{
+  "states_checked": 8,
+  "retained_links": 48,
+  "removed_frames": [
+    "up_and_down",
+    "point_arm_carriage"
+  ],
+  "maximum_pose_matrix_difference": 4.641020678874952e-08,
+  "maximum_geometry_and_inertia_pose_difference": 4.641020639973778e-08,
+  "inertia_tensor_and_mass_unchanged": true,
+  "axis_policy": "original exact local -Z retained for cuRobo cardinal-axis support; rounded source pi produces <50nm/m world-axis difference"
+}

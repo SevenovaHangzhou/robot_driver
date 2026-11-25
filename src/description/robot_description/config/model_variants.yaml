@@ -1,5 +1,5 @@
 schema_version: 1
-revision: unified-20261112-r2
+revision: carriage-assembly-approved-20261124
 canonical_urdf: urdf/robot_alfav3_mobile.urdf
 visual_urdf: urdf/variants/robot_visual.urdf
 collision_urdf: urdf/variants/robot_collision.urdf

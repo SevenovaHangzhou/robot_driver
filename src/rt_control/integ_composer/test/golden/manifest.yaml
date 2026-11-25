@@ -527,3 +527,8 @@ description_updown_limits_regeneration:
   - stationary-real
   - head-mock
   - head-real
+
+approved_carriage_model_regeneration:
+  reason: ELECTRI-246, approved carriage model fa636d3
+  cases: [arm-mock, arm-real, arm-mock-jtc, arm-real-jtc, head-mock, head-real]
+  changed_files: [robot_description.xml]

@@ -1,0 +1,22 @@
+{
+  "name": "stow",
+  "date": "2026-11-22",
+  "description_base_commit": "09a7ca4",
+  "pose_resource": "config/poses/stow.yaml",
+  "valid": true,
+  "self_collision_cost": 0.0,
+  "body_collision_cost": 0.0,
+  "joint_bound_cost": 0.0,
+  "ground_collision": false,
+  "scope": "Empty static robot; published 15-axis cuRobo configuration with all other joints locked; self-collision, four fixed-body cuboids, ground and joint limits only",
+  "excluded": ["external obstacles", "payload", "extra planning clearance", "transition path", "hardware execution"],
+  "lift_m": 0.0,
+  "left_deg": [60, -85, 20, -90, 0, -40, 90],
+  "right_deg": [-60, 85, -20, 90, 0, 40, -90],
+  "model_sha256": {
+    "urdf/robot_alfav3_mobile.urdf": "837e6a902663e0d051b04bc7a87a888cdaa8d1b5079f644efcd5078629f3d843",
+    "config/curobo/robot.yaml": "3f2fde261ccc45b8ca304376f33bef4c964bd280aaff0fafba6bfabb06e5788c",
+    "config/curobo/collision_spheres.yaml": "f57f7a7f23e7f5f7161b59c06eeb6c62fc85f5a77173bf7f89afd15a50c1fca9",
+    "config/curobo/fixed_body_boxes.yaml": "7d641eee29d3e46265447a5bbe3df109d7612bba353f0d32b49395ad8731879e"
+  }
+}
