@@ -1,4 +1,5 @@
 #include "ctrl_swerve/body_velocity_shaper.hpp"
+#include "ctrl_swerve/motion_shaping.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -53,16 +54,10 @@ void BodyVelocityShaper::set_angular_acceleration(double limit) noexcept
   if (!enabled()) {
     return;
   }
-  const double bound = limit * limits_.rotation_radius_m;
-  if (
-    bound < input_.max_acceleration[2] &&
-    input_.current_acceleration[2] * input_.current_velocity[2] > 0.0) {
-    input_.current_acceleration[2] = 0.0;
-  }
-  input_.max_acceleration[2] = bound;
-  // Revocation may lower the bound mid-ramp. Keep velocity continuous; a safety-limit
-  // transition may step acceleration rather than retaining the revoked acceleration.
-  input_.current_acceleration[2] = std::clamp(input_.current_acceleration[2], -bound, bound);
+  // Preserve the moving state when authorization changes. prepare/finish apply
+  // the new hard bounds while Ruckig removes the existing acceleration; a brief
+  // continued velocity increase is part of the published prediction behavior.
+  limits_.angular_acceleration = limit;
 }
 
 ChassisSpeeds BodyVelocityShaper::step(const ChassisSpeeds & target, double dt) noexcept
@@ -87,11 +82,19 @@ ChassisSpeeds BodyVelocityShaper::step(const ChassisSpeeds & target, double dt) 
     input_.current_acceleration.fill(0.0);
     return target;
   }
+  motion_shaping::prepare(
+    input_, limits_.linear_acceleration, limits_.angular_acceleration, limits_.rotation_radius_m,
+    limits_.jerk);
   generator_.delta_time = dt;
   const auto result = generator_.update(input_, output_);
   if (result != ruckig::Result::Working && result != ruckig::Result::Finished) {
     valid_ = false;
     return {};
+  }
+  if (motion_shaping::finish(
+        input_, output_, dt, limits_.linear_acceleration, limits_.angular_acceleration,
+        limits_.rotation_radius_m)) {
+    generator_.reset();
   }
   output_.pass_to_input(input_);
   return {

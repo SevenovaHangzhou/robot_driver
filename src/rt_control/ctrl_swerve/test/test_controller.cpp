@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <thread>
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "pluginlib/class_loader.hpp"
@@ -139,6 +140,23 @@ protected:
     for (size_t i = 0; i < 4; ++i) {
       EXPECT_DOUBLE_EQ(commands[2 * i + 1], 0.0);
     }
+  }
+
+  void configure_finite_feedback_limits()
+  {
+    ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+    ASSERT_EQ(controller.on_cleanup(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+    for (const auto & result : controller.get_node()->set_parameters(
+           {{"max_steering_acceleration", 10.0},
+            {"max_steering_jerk", 10.0},
+            {"max_linear_acceleration", 1.0},
+            {"max_angular_acceleration", 1.0},
+            {"max_body_jerk", 4.0}})) {
+      ASSERT_TRUE(result.successful) << result.reason;
+    }
+    ASSERT_EQ(controller.on_configure(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+    bind();
+    ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
   }
 };
 
@@ -464,6 +482,9 @@ TEST_F(SwerveControllerTest, SteeringMotionParametersAreCappedAndAppliedOnActiva
 
 TEST_F(SwerveControllerTest, ExecutionFeedbackSeparatesFinalTargetAndReferenceAndPreservesUnits)
 {
+  configure_finite_feedback_limits();
+  ASSERT_FALSE(HasFatalFailure());
+  using W = ctrl_swerve::ExecutionStateWire;
   using State = std_msgs::msg::Float64MultiArray;
   State::SharedPtr execution, compatibility;
   sensor_msgs::msg::JointState::SharedPtr joints;
@@ -483,20 +504,24 @@ TEST_F(SwerveControllerTest, ExecutionFeedbackSeparatesFinalTargetAndReferenceAn
   send(0.0, 1.0);
   spin_until([&]() {
     controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
-    return execution && compatibility && joints && execution->data[30] == 1.0 &&
-           execution->data[1] == compatibility->data[1];
+    return execution && compatibility && joints && execution->data[W::Ready] == 1.0 &&
+           execution->data[W::Sequence] == compatibility->data[W::Sequence] &&
+           execution->data[W::Modules + W::Goal] > 0.1;
   });
   ASSERT_EQ(execution->data.size(), 91U);
   EXPECT_EQ(execution->layout.dim[0].label, "rt_base_execution_state_v1");
   EXPECT_DOUBLE_EQ(execution->data[0], 1.0);
-  EXPECT_NEAR(execution->data[36], ctrl_swerve::kPi / 2.0, 1e-9);
-  EXPECT_LT(execution->data[33], execution->data[36]);
-  EXPECT_NEAR(execution->data[32], 0.125, 1e-12);
+  EXPECT_NEAR(execution->data[W::Modules + W::Goal], ctrl_swerve::kPi / 2.0, 1e-9);
+  EXPECT_LT(execution->data[W::Modules + W::ReferenceAngle], execution->data[W::Modules + W::Goal]);
+  EXPECT_NEAR(execution->data[W::Modules + W::WheelVelocity], 0.125, 1e-12);
+  for (const double value : execution->data) {
+    EXPECT_TRUE(std::isfinite(value));
+  }
   EXPECT_EQ(joints->name[0], "module_1_steering");
   EXPECT_EQ(joints->name[1], "module_1_wheel");
   EXPECT_DOUBLE_EQ(joints->position[1], 3.0);
   EXPECT_DOUBLE_EQ(joints->velocity[1], 1.25);
-  EXPECT_TRUE(std::isnan(joints->velocity[0]));
+  EXPECT_TRUE(std::isnan(joints->velocity[0]));  // Fixed age is not a second hardware frame.
   for (std::size_t i = 0; i < execution->data.size(); ++i) {
     if (std::isnan(execution->data[i])) {
       EXPECT_TRUE(std::isnan(compatibility->data[i]));
@@ -507,13 +532,16 @@ TEST_F(SwerveControllerTest, ExecutionFeedbackSeparatesFinalTargetAndReferenceAn
   state("e0/feedback_age_ms", 1000.0);
   spin_until([&]() {
     controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
-    return execution->data[44] == 0.0;
+    return execution->data[W::Ready] == 0.0;
   });
-  EXPECT_TRUE(std::isnan(execution->data[31]));
+  EXPECT_TRUE(std::isnan(execution->data[W::Modules + W::Angle]));
 }
 
 TEST_F(SwerveControllerTest, RotationLeaseExpiresAndReactivationCannotInheritRequest)
 {
+  configure_finite_feedback_limits();
+  ASSERT_FALSE(HasFatalFailure());
+  using W = ctrl_swerve::ExecutionStateWire;
   auto request = client->create_publisher<std_msgs::msg::Bool>(
     "/rt/base/terminal_rotation_request", robot_interfaces_qos::control());
   std_msgs::msg::Float64MultiArray::SharedPtr execution;
@@ -522,7 +550,7 @@ TEST_F(SwerveControllerTest, RotationLeaseExpiresAndReactivationCannotInheritReq
     "/rt/base/execution_state", robot_interfaces_qos::fast_state(),
     [&](std_msgs::msg::Float64MultiArray::SharedPtr value) { execution = value; });
   auto active_sub = client->create_subscription<std_msgs::msg::Bool>(
-    "/rt/base/terminal_rotation_active", robot_interfaces_qos::fast_state(),
+    "/rt/base/terminal_rotation_active", rclcpp::QoS(1).reliable().durability_volatile(),
     [&](std_msgs::msg::Bool::SharedPtr value) { active = value->data; });
   spin_until([&]() {
     return request->get_subscription_count() == 1 && publisher->get_subscription_count() == 1;
@@ -533,29 +561,97 @@ TEST_F(SwerveControllerTest, RotationLeaseExpiresAndReactivationCannotInheritReq
   request->publish(intent);
   spin_until([&]() {
     controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
-    return active && execution && execution->data[7] == 1.0;
+    return active && execution && execution->data[W::Ready] == 1.0;
   });
-  EXPECT_DOUBLE_EQ(execution->data[19], 1.5);
+  EXPECT_DOUBLE_EQ(execution->data[W::SteeringJerk], 10.0);
   spin_until([&]() {
     controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
-    return !active && execution->data[8] == 0.0 && execution->data[7] == 0.0;
+    return !active && execution->data[W::Ready] == 1.0;
   });
-  EXPECT_DOUBLE_EQ(execution->data[19], 3.0);  // Synthetic ordinary cap.
+  EXPECT_DOUBLE_EQ(execution->data[W::SteeringJerk], 10.0);
   send_without_wait(0.0);
   request->publish(intent);
   spin_until([&]() {
     controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
-    return active && execution->data[7] == 1.0;
+    return active && execution->data[W::Ready] == 1.0;
   });
   ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
-  spin_until([&]() { return !active && execution->data[28] == 0.0; });
+  spin_until([&]() { return !active && execution->data[W::Status] == 0.0; });
   bind();
   ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
   send_without_wait(0.0);
   spin_until([&]() {
     controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.004));
-    return execution->data[28] == 1.0 && execution->data[30] == 1.0;
+    return execution->data[W::Ready] == 1.0 &&
+           execution->data[W::Status] == static_cast<double>(ctrl_swerve::ControlStatus::running);
   });
-  EXPECT_DOUBLE_EQ(execution->data[7], 0.0);
-  EXPECT_DOUBLE_EQ(execution->data[8], 0.0);
+  EXPECT_FALSE(active);
+  EXPECT_DOUBLE_EQ(execution->data[W::BodyVelocity + 2], 0.0);
+}
+
+TEST_F(SwerveControllerTest, EncoderReceiveAgeControlsObservedVelocityAcrossLifecycle)
+{
+  configure_finite_feedback_limits();
+  ASSERT_FALSE(HasFatalFailure());
+  sensor_msgs::msg::JointState::SharedPtr joints;
+  auto subscription = client->create_subscription<sensor_msgs::msg::JointState>(
+    "/rt_control/chassis/joint_states", rclcpp::SensorDataQoS(),
+    [&](sensor_msgs::msg::JointState::SharedPtr message) { joints = message; });
+  auto received = std::chrono::steady_clock::now();
+  double angle = 0.0;
+  const auto tick = [&](bool receive, bool moving) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    const auto now = std::chrono::steady_clock::now();
+    if (receive && now - received >= std::chrono::milliseconds(4)) {
+      if (moving) {
+        angle += 0.1 * std::chrono::duration<double>(now - received).count();
+      }
+      received = now;
+    }
+    const double age_ms = std::chrono::duration<double, std::milli>(now - received).count();
+    for (std::size_t i = 0; i < 4; ++i) {
+      state("e" + std::to_string(i) + "/position", angle);
+      state("e" + std::to_string(i) + "/feedback_age_ms", age_ms);
+    }
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.001));
+  };
+  spin_until([&]() {
+    tick(true, false);
+    return joints && std::isfinite(joints->velocity[0]);
+  });
+  ASSERT_TRUE(joints);
+  for (std::size_t i = 0; i < 4; ++i) {
+    EXPECT_DOUBLE_EQ(joints->velocity[2 * i], 0.0);
+  }
+  spin_until([&]() {
+    tick(true, true);
+    return joints && std::isfinite(joints->velocity[0]) && joints->velocity[0] > 0.01;
+  });
+  EXPECT_GT(joints->velocity[0], 0.01);
+  spin_until([&]() {
+    tick(false, false);
+    return joints && std::isnan(joints->velocity[0]);
+  });
+  EXPECT_TRUE(std::isnan(joints->velocity[0]));
+  ASSERT_EQ(controller.on_deactivate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  for (std::size_t i = 0; i < 4; ++i) {
+    state("e" + std::to_string(i) + "/position", 0.0);
+    state("e" + std::to_string(i) + "/feedback_age_ms", 0.0);
+  }
+  bind();
+  ASSERT_EQ(controller.on_activate(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
+  const auto reactivated = controller.get_node()->now().nanoseconds();
+  joints.reset();
+  spin_until([&]() {
+    controller.update(controller.get_node()->now(), rclcpp::Duration::from_seconds(0.001));
+    return joints && rclcpp::Time(joints->header.stamp).nanoseconds() > reactivated;
+  });
+  EXPECT_TRUE(std::isnan(joints->velocity[0]));  // Cached zero-age samples remain unknown.
+  angle = 0.0;
+  received = std::chrono::steady_clock::now();
+  spin_until([&]() {
+    tick(true, false);
+    return joints && std::isfinite(joints->velocity[0]);
+  });
+  EXPECT_DOUBLE_EQ(joints->velocity[0], 0.0);
 }

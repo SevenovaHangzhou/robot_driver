@@ -75,7 +75,7 @@ struct ControlOutput
 
 struct ModuleExecutionSnapshot
 {
-  bool ready{false}, reversed{false};
+  bool ready{false}, reversed{false}, holding{false};
   double steering_actual{0.0}, steering_encoder{0.0};
   double steering_target{0.0}, steering_reference{0.0};
   double steering_rate{0.0}, steering_acceleration{0.0}, steering_error{0.0};
@@ -95,6 +95,8 @@ struct ExecutionSnapshot
   ControlStatus status{ControlStatus::inactive};
   bool ready{false}, feedback_valid{false}, rotation_active{false}, rotation_requested{false};
   bool gated{false}, waiting{false};
+  int translation_branch{-1};
+  double gate{0.0}, release{0.0}, flip_hysteresis{0.0};
   ChassisSpeeds body_reference{}, body_acceleration{}, body_measured{};
   double max_linear_speed{0.0}, max_angular_speed{0.0};
   double max_linear_acceleration{0.0}, max_angular_acceleration{0.0}, max_body_jerk{0.0};

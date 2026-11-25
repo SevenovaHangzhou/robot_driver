@@ -119,7 +119,13 @@ void ControlCore::refresh_snapshot(const ModuleFeedbackArray & feedback) noexcep
   snapshot_.rotation_active = rotation_active_;
   snapshot_.rotation_requested = rotation_requested_;
   snapshot_.gated = setpoints_.gated();
-  snapshot_.waiting = active_ && body_alignment_waiting_ && body_shaper_.enabled();
+  snapshot_.waiting = body_alignment_waiting_;
+  snapshot_.translation_branch = setpoints_.translation_branch();
+  snapshot_.gate = config_.setpoint.alignment_threshold_rad;
+  snapshot_.release = std::isnan(config_.setpoint.alignment_release_rad)
+                        ? snapshot_.gate
+                        : config_.setpoint.alignment_release_rad;
+  snapshot_.flip_hysteresis = config_.setpoint.flip_hysteresis_rad;
   snapshot_.ready =
     active_ && !hold_fault_latched_ &&
     (output_.status == ControlStatus::running || output_.status == ControlStatus::alignment_gated ||
@@ -147,6 +153,7 @@ void ControlCore::refresh_snapshot(const ModuleFeedbackArray & feedback) noexcep
     snapshot_.feedback_valid = snapshot_.feedback_valid && module.ready;
     snapshot_.ready = snapshot_.ready && module.ready;
     module.reversed = goals[i].reversed;
+    module.holding = holding_modules_[i];
     module.steering_actual = measurement_valid(sample) ? sample.steering_position : unavailable;
     module.steering_encoder = sample.encoder_valid && std::isfinite(sample.steering_angle)
                                 ? sample.steering_angle
@@ -155,7 +162,9 @@ void ControlCore::refresh_snapshot(const ModuleFeedbackArray & feedback) noexcep
     module.steering_reference = output_.steering_position[i];
     module.steering_rate = setpoints_.steering_rates()[i];
     module.steering_acceleration = setpoints_.steering_accelerations()[i];
-    module.steering_error = module.steering_target - module.steering_encoder;
+    // Match the selected branch's motor-derived, safe-range planning angle, not the
+    // independent external encoder monitor (nor the rate-limited reference angle).
+    module.steering_error = goals[i].error_rad;
     module.wheel_actual =
       measurement_valid(sample) ? sample.wheel_velocity * config_.wheel_radius[i] : unavailable;
     module.wheel_position = measurement_valid(sample) ? sample.wheel_position : unavailable;
@@ -493,13 +502,18 @@ ControlOutput ControlCore::update_command(
   const double angular_speed =
     rotation_active_ ? config_.max_rotation_speed : config_.max_angular_speed;
   command.omega_radps = std::clamp(command.omega_radps, -angular_speed, angular_speed);
+  const auto previous_body = body_shaper_.velocity();
+  const auto previous_acceleration = body_shaper_.body_acceleration();
   body_shaper_.set_angular_acceleration(
     rotation_active_ ? config_.max_rotation_acceleration : config_.max_angular_acceleration);
-  // A revoked high-rate turn brakes continuously to the ordinary limit before any
-  // translation is introduced. Revocation never resets an in-flight body trajectory.
+  // A revoked spin must enter the ordinary envelope before translation starts.
+  // Do not suppress already-moving XY: numerical angular overshoot at the settled
+  // limit must not repeatedly retarget an ordinary mixed trajectory to zero XY.
   if (
     !rotation_active_ &&
-    std::abs(body_shaper_.velocity().omega_radps) > config_.max_angular_speed) {
+    std::hypot(previous_body.vx_mps, previous_body.vy_mps) <= config_.velocity_deadband &&
+    (std::abs(previous_body.omega_radps) > config_.max_angular_speed ||
+     std::abs(previous_acceleration.omega_radps) > config_.max_angular_acceleration)) {
     command.vx_mps = command.vy_mps = 0.0;
   }
   std::array<double, 4> angles{};

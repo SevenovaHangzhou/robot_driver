@@ -461,6 +461,7 @@ CallbackReturn SwerveController::on_activate(const rclcpp_lifecycle::State &)
   if (!core_ || active_.load()) {
     return CallbackReturn::ERROR;
   }
+  reset_steering_observations();
   auto bind = [](const auto & names, auto & handles, auto & result) {
     if (names.size() != result.size() || handles.size() != result.size()) {
       return false;
@@ -637,13 +638,14 @@ CallbackReturn SwerveController::on_deactivate(const rclcpp_lifecycle::State &)
   imu_subscription_.reset();
   rotation_subscription_.reset();
   rotation_buffer_.writeFromNonRT(RotationRequest{});
+  reset_steering_observations();
   stop_outputs();
   if (core_) {
     core_->deactivate();
     if (navigation_feedback_) {
       navigation_feedback_->publish(
-        core_->execution_snapshot(), get_node()->now(), 0.02, false, false, false, false,
-        ControlStatus::inactive);
+        core_->execution_snapshot(), get_node()->now(), 0.02, false, false, false,
+        ControlStatus::inactive, observed_steering_rates_);
     }
   }
   std::fill(commands_.begin(), commands_.end(), nullptr);
@@ -758,9 +760,10 @@ controller_interface::return_type SwerveController::update(
     status_.store(ControlStatus::feedback_fault);
     slipping_mask_.store(0U);
     track_fault(ControlStatus::feedback_fault, feedback, now);
+    reset_steering_observations();
     navigation_feedback_->publish(
-      core_->execution_snapshot(), time, 0.02, true, false, false, false,
-      ControlStatus::feedback_fault);
+      core_->execution_snapshot(), time, 0.02, true, false, false, ControlStatus::feedback_fault,
+      observed_steering_rates_);
     return controller_interface::return_type::ERROR;
   }
   if (last_output_.status == ControlStatus::steering_hold_fault) {
@@ -778,9 +781,10 @@ controller_interface::return_type SwerveController::update(
     status_.store(ControlStatus::steering_limit);
     slipping_mask_.store(0U);
     track_fault(ControlStatus::steering_limit, feedback, now);
+    reset_steering_observations();
     navigation_feedback_->publish(
-      core_->execution_snapshot(), time, 0.02, true, false, false, false,
-      ControlStatus::steering_limit);
+      core_->execution_snapshot(), time, 0.02, true, false, false, ControlStatus::steering_limit,
+      observed_steering_rates_);
     return controller_interface::return_type::ERROR;
   }
   status_.store(last_output_.status);
@@ -790,9 +794,10 @@ controller_interface::return_type SwerveController::update(
     ready_.store(false);
     block_before_ns_ = now;
   }
+  observe_steering(feedback, time, now, ready_.load() && !fault_latched_.load());
   navigation_feedback_->publish(
     core_->execution_snapshot(), time, dt, true, ready_.load() && !fault_latched_.load(),
-    command_fresh, request_fresh && !fault_latched_.load(), last_output_.status);
+    request_fresh && !fault_latched_.load(), last_output_.status, observed_steering_rates_);
   unsigned int slipping_mask{0U};
   for (size_t i = 0; i < last_output_.slipping_modules.size(); ++i) {
     if (last_output_.slipping_modules[i]) {

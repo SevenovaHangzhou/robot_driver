@@ -303,22 +303,79 @@ TEST_F(NavigationCapabilityTest, FeedbackValidityIsIndependentOfCommandAndLifecy
   EXPECT_FALSE(core.execution_snapshot().rotation_active);
 }
 
-TEST_F(NavigationCapabilityTest, MidRampRevocationStopsIncreasingTheTurnRate)
+TEST_F(NavigationCapabilityTest, MidRampRevocationBoundsTransientAndDelaysTranslation)
 {
   admit();
   for (int i = 0; i < 900; ++i) {
     tick({0.0, 0.0, 1.5});
   }
-  const auto before = core.execution_snapshot();
-  ASSERT_GT(before.body_reference.omega_radps, 0.8);
-  ASSERT_GT(before.body_acceleration.omega_radps, 0.0);
-  tick({0.0, 0.0, 1.5}, false);
-  const auto & after = core.execution_snapshot();
-  EXPECT_FALSE(after.rotation_active);
-  EXPECT_LE(after.body_reference.omega_radps, before.body_reference.omega_radps);
-  EXPECT_LE(
-    std::abs(after.body_reference.omega_radps - before.body_reference.omega_radps),
-    config.max_angular_acceleration * dt + 1e-9);
+  auto previous = core.execution_snapshot();
+  ASSERT_GT(previous.body_reference.omega_radps, 0.8);
+  ASSERT_GT(previous.body_acceleration.omega_radps, 0.0);
+  bool decelerated = false;
+  for (int i = 0; i < 6000; ++i) {
+    tick({0.4, 0.0, 1.5}, false);
+    const auto current = core.execution_snapshot();
+    EXPECT_FALSE(current.rotation_active);
+    EXPECT_LE(
+      std::abs(current.body_acceleration.omega_radps), config.max_angular_acceleration + 1e-9);
+    EXPECT_LE(
+      std::abs(current.body_reference.omega_radps - previous.body_reference.omega_radps),
+      config.max_angular_acceleration * dt + 1e-9);
+    if (i == 0) {
+      // Approved reference policy removes the outward acceleration over time,
+      // rather than forcing it to zero on the authorization boundary.
+      EXPECT_GT(current.body_reference.omega_radps, previous.body_reference.omega_radps);
+    }
+    if (
+      std::hypot(previous.body_reference.vx_mps, previous.body_reference.vy_mps) <=
+        config.velocity_deadband &&
+      (std::abs(previous.body_reference.omega_radps) > config.max_angular_speed ||
+       std::abs(previous.body_acceleration.omega_radps) > config.max_angular_acceleration)) {
+      EXPECT_DOUBLE_EQ(current.body_reference.vx_mps, 0.0);
+      EXPECT_DOUBLE_EQ(current.body_reference.vy_mps, 0.0);
+    }
+    decelerated =
+      decelerated || current.body_reference.omega_radps < previous.body_reference.omega_radps;
+    previous = current;
+  }
+  EXPECT_TRUE(decelerated);
+  EXPECT_NEAR(previous.body_reference.omega_radps, config.max_angular_speed, 1e-9);
+  EXPECT_NEAR(previous.body_reference.vx_mps, 0.4, 1e-9);
+  EXPECT_NEAR(previous.body_reference.vy_mps, 0.0, 1e-9);
+}
+
+TEST_F(NavigationCapabilityTest, SnapshotExportsRealHoldBranchAndEffectivePolicy)
+{
+  EXPECT_EQ(core.execution_snapshot().translation_branch, -1);
+  for (const auto & module : core.execution_snapshot().modules) {
+    EXPECT_TRUE(module.holding);
+  }
+  tick({0.5, 0.0, 0.0}, false);
+  const auto state = core.execution_snapshot();
+  EXPECT_GE(state.translation_branch, 0);
+  EXPECT_DOUBLE_EQ(state.gate, config.setpoint.alignment_threshold_rad);
+  EXPECT_DOUBLE_EQ(state.release, state.gate);  // NaN configuration means no hysteresis.
+  EXPECT_DOUBLE_EQ(state.flip_hysteresis, config.setpoint.flip_hysteresis_rad);
+  for (const auto & module : state.modules) {
+    // Initial alignment has zero wheel output without being a holding module.
+    EXPECT_DOUBLE_EQ(module.wheel_reference, 0.0);
+    EXPECT_FALSE(module.holding);
+  }
+}
+
+TEST_F(ControlCoreTest, SnapshotErrorUsesSelectedMotorPlanningBranchNotEncoderMonitor)
+{
+  for (auto & module : feedback) {
+    module.steering_angle = 0.1;
+  }
+  core.update(feedback, {1.0, 0.0, 0.0}, true, 0.004);
+  for (const auto & module : core.execution_snapshot().modules) {
+    EXPECT_DOUBLE_EQ(module.steering_actual, 0.0);
+    EXPECT_DOUBLE_EQ(module.steering_encoder, 0.1);
+    EXPECT_DOUBLE_EQ(module.steering_error, 0.0);
+    EXPECT_DOUBLE_EQ(module.steering_target, 0.0);
+  }
 }
 
 TEST_F(ControlCoreTest, CommandsOnlyCspPositionsAndCsvVelocities)

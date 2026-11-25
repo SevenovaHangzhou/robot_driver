@@ -14,12 +14,59 @@
 
 namespace ctrl_swerve
 {
-// Wire layout: robot_interfaces contract/navigation-execution-v1.md (#334).
-constexpr std::size_t kExecutionStateSize = 91;
+// Deployed FollowMPPI v1 ABI: 27 header values plus four identified 16-value modules.
+struct ExecutionStateWire
+{
+  enum : std::size_t {
+    Version = 0,
+    Stamp = 1,
+    Sequence = 2,
+    Ready = 3,
+    Status = 4,
+    Gated = 5,
+    Waiting = 6,
+    TranslationBranch = 7,
+    BodyVelocity = 8,
+    BodyAcceleration = 11,
+    MeasuredTwist = 14,
+    SteeringSpeed = 17,
+    SteeringAcceleration = 18,
+    SteeringJerk = 19,
+    BodyAccelerationLimit = 20,
+    BodyJerk = 21,
+    WheelAcceleration = 22,
+    WheelSpeed = 23,
+    Gate = 24,
+    Release = 25,
+    FlipHysteresis = 26,
+    Modules = 27,
+    Stride = 16,
+    Size = 91
+  };
+  enum : std::size_t {
+    Id = 0,
+    Angle = 1,
+    WheelVelocity = 2,
+    ReferenceAngle = 3,
+    ReferenceRate = 4,
+    ReferenceAcceleration = 5,
+    ReferenceWheelVelocity = 6,
+    Reversed = 7,
+    Holding = 8,
+    Goal = 9,
+    Error = 10,
+    Minimum = 11,
+    Maximum = 12,
+    Radius = 13,
+    X = 14,
+    Y = 15
+  };
+};
+constexpr std::size_t kExecutionStateSize = ExecutionStateWire::Size;
 using ExecutionStateArray = std::array<double, kExecutionStateSize>;
 ExecutionStateArray encode_execution_state(
   const ExecutionSnapshot & snapshot, double stamp, uint64_t sequence, bool enabled, bool ready,
-  bool command_fresh, bool request_fresh, ControlStatus status) noexcept;
+  ControlStatus status) noexcept;
 
 class NavigationFeedback final
 {
@@ -27,7 +74,8 @@ public:
   explicit NavigationFeedback(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node);
   void publish(
     const ExecutionSnapshot & snapshot, const rclcpp::Time & stamp, double dt, bool enabled,
-    bool ready, bool command_fresh, bool request_fresh, ControlStatus status);
+    bool ready, bool request_fresh, ControlStatus status,
+    const std::array<double, 4> & observed_steering_rates);
 
 private:
   using StateMessage = std_msgs::msg::Float64MultiArray;

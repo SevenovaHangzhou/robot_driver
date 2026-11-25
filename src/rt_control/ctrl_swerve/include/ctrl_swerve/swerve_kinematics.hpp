@@ -130,6 +130,10 @@ public:
     return steering_accelerations_;
   }
   bool gated() const noexcept { return gated_; }
+  int translation_branch() const noexcept
+  {
+    return translation_reversed_.has_value() ? (*translation_reversed_ ? 1 : 0) : -1;
+  }
 
 private:
   SwerveSetpointParameters parameters_;

@@ -53,9 +53,14 @@ so the body shaper is not a guarantee of exact wheel coordination in every trans
 Odometry continues to use measured wheel feedback, never the smoothed command.
 
 Navigation must account for the shaping delay and measured stopping distance.
-On rotation authorization revocation, the advertised limits change immediately;
-an existing high-rate rotation decelerates continuously and translation waits until
-the ordinary angular limit is reached. Safety stops retain priority over jerk continuity.
+On rotation authorization revocation, the advertised limits change immediately.
+The user-approved reference policy (2026-11-25, #339) retains shaping state:
+outward angular acceleration may briefly persist while the new acceleration
+bound and jerk trajectory converge. Angular velocity is not hard-clipped and
+must converge to the ordinary limit; translation from a pure spin waits until
+both ordinary angular velocity and acceleration bounds permit it. Emergency
+stops retain priority. This replaces the initial PR336 policy that immediately
+cleared outward angular acceleration, which did not match the published predictor.
 
 ## Hardware Interface Contract
 
@@ -110,9 +115,12 @@ Translation, false/expired intent, stale command, invalid feedback, faults and
 deactivation revoke authorization. Every activation needs a newly received request.
 
 Application schema authority is `robot_interfaces/contract/navigation-execution-v1.md`
-([design #334](https://github.com/SevenovaHangzhou/robot_driver/issues/334)). The 91-field
-layout is our explicitly defined v1, not inferred compatibility with an unavailable
-navigation source copy. Final steering goals and limited references are distinct;
+([correction #339](https://github.com/SevenovaHangzhou/robot_driver/issues/339)). The
+91-field wire format follows the published FollowMPPI v3.0.4 consumer: 27 header
+fields and four 16-field modules, each with an explicit physical module ID. The
+undeployed 31+4×15 proposal is withdrawn; never publish both layouts on the same
+topic. Final steering goals and limited references are distinct; global translation
+branch, per-module holding and effective gate/release/hysteresis restore prediction state;
 execution wheel speeds are m/s. Normalized JointState uses neutral interleaved
 `module_N_steering` / `module_N_wheel` names, steering heading θ, wheel rad/s, and
 NaN for unavailable observations. Do not feed it to robot_state_publisher. Module
@@ -121,6 +129,15 @@ No model, mapping, motor direction, calibration, existing wheel observations or
 odometry interface changes are included. Publish disabled snapshots while configured;
 consumers must also apply freshness checks. Interface review and coordinated release
 must precede downstream SHA pinning and navigation deployment.
+
+Steering velocity is an observation derived only from fresh calibrated encoder
+samples, not a reference trajectory or a repeated ROS publication. The current
+CANopen interface exposes receive age rather than a device sequence; a strict age
+fall at the controller cycle identifies a newly received sample. At least two valid
+samples are needed. Missing feedback, invalid time and lifecycle reset invalidate
+the history, leaving NaN until a new pair exists. This is host receive timing, not
+a claim of hardware-synchronized sampling. Verify timing and stopping detection on
+the target before deployment; never replace unknown rates with zero.
 
 Command freshness follows N-04: at most 500 ms since local receipt of Twist,
 with no fabricated message timestamp or frame. Non-finite/non-planar commands
@@ -188,6 +205,14 @@ colcon build --packages-up-to ctrl_swerve --cmake-args -DBUILD_TESTING=ON
 colcon test --packages-select ctrl_swerve
 colcon test-result --verbose
 ```
+
+For offline integration with the navigation handoff, configure with
+`-DFOLLOW_MPPI_REFERENCE_DIR=/path/to/driver_handoff_20261124/reference_code`.
+This builds the supplied real decoder and production prediction sources outside
+the repository, and enables consumer/stop checks, source-lock verification and
+stepwise replay. The default package tests do not establish cross-repository
+compatibility without this option. Keep the reference bundle immutable and record
+its source lock with the test evidence; do not vendor a second navigation tree.
 
 `SWERVE_ENABLE_COVERAGE=ON` instruments the two package libraries with GCC coverage.
 Tests use synthetic geometry and in-memory or GenericSystem hardware and cover the

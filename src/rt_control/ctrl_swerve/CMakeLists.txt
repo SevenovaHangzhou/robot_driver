@@ -18,7 +18,8 @@ add_library(swerve_math SHARED
   src/swerve_kinematics.cpp src/swerve_odometry.cpp src/swerve_setpoint.cpp
   src/odometry_covariance.cpp src/control_core.cpp src/body_velocity_shaper.cpp)
 target_link_libraries(swerve_math PUBLIC ruckig::ruckig)
-add_library(swerve_controller SHARED src/swerve_controller.cpp src/navigation_feedback.cpp)
+add_library(swerve_controller SHARED src/swerve_controller.cpp src/navigation_feedback.cpp
+  src/steering_velocity_observer.cpp)
 target_link_libraries(swerve_controller PUBLIC swerve_math)
 ament_target_dependencies(swerve_controller PUBLIC ${dependencies})
 
@@ -52,6 +53,45 @@ if(BUILD_TESTING)
   endforeach()
   ament_add_gtest(test_controller test/test_controller.cpp)
   target_link_libraries(test_controller swerve_controller)
+  ament_add_gtest(test_navigation_feedback test/test_navigation_feedback.cpp)
+  target_link_libraries(test_navigation_feedback swerve_controller)
+  # Offline cross-repository proof; the supplied source stays outside this repository.
+  set(FOLLOW_MPPI_REFERENCE_DIR "" CACHE PATH "FollowMPPI handoff reference_code directory")
+  if(FOLLOW_MPPI_REFERENCE_DIR)
+    find_package(tf2 REQUIRED)
+    find_package(tf2_geometry_msgs REQUIRED)
+    set(prediction "${FOLLOW_MPPI_REFERENCE_DIR}/navigation_prediction")
+    set(production "${prediction}/third_party/production_swerve")
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME navigation_reference_integrity
+      COMMAND ${Python3_EXECUTABLE} ${prediction}/test/test_production_snapshot.py)
+    add_library(nav_compat_prediction STATIC
+      ${prediction}/src/driver_prediction.cpp
+      ${production}/src/control_core.cpp
+      ${production}/src/body_velocity_shaper.cpp
+      ${production}/src/swerve_kinematics.cpp
+      ${production}/src/swerve_setpoint.cpp
+      ${production}/src/swerve_odometry.cpp
+      ${production}/src/odometry_covariance.cpp)
+    target_compile_features(nav_compat_prediction PUBLIC cxx_std_17)
+    target_include_directories(nav_compat_prediction PUBLIC
+      ${prediction}/include ${production}/include)
+    target_link_libraries(nav_compat_prediction PUBLIC ruckig::ruckig)
+    ament_add_gtest(test_navigation_consumer test/test_navigation_consumer.cpp)
+    target_include_directories(test_navigation_consumer PRIVATE ${FOLLOW_MPPI_REFERENCE_DIR})
+    target_link_libraries(test_navigation_consumer swerve_controller nav_compat_prediction)
+    ament_target_dependencies(test_navigation_consumer tf2 tf2_geometry_msgs)
+    ament_add_gtest(test_navigation_replay
+      test/navigation_replay.cpp test/navigation_replay_reference.cpp
+      ${production}/src/control_core.cpp
+      ${production}/src/body_velocity_shaper.cpp
+      ${production}/src/swerve_kinematics.cpp
+      ${production}/src/swerve_setpoint.cpp
+      ${production}/src/swerve_odometry.cpp
+      ${production}/src/odometry_covariance.cpp)
+    target_include_directories(test_navigation_replay PRIVATE ${production}/include)
+    target_link_libraries(test_navigation_replay swerve_math)
+  endif()
   ament_add_gtest(test_controller_manager test/test_controller_manager.cpp)
   target_link_libraries(test_controller_manager swerve_controller)
   ament_target_dependencies(test_controller_manager controller_manager)

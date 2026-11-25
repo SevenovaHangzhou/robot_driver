@@ -19,6 +19,7 @@
 #include "ctrl_swerve/control_core.hpp"
 #include "ctrl_swerve/odometry_covariance.hpp"
 #include "ctrl_swerve/navigation_feedback.hpp"
+#include "ctrl_swerve/steering_velocity_observer.hpp"
 
 namespace ctrl_swerve
 {
@@ -58,6 +59,9 @@ private:
   };
   static int64_t steady_now() noexcept;
   ModuleFeedbackArray read_feedback() const;
+  void reset_steering_observations() noexcept;
+  void observe_steering(
+    const ModuleFeedbackArray & feedback, const rclcpp::Time & stamp, int64_t now, bool valid);
   [[nodiscard]] bool write_output(const ControlOutput & output);
   void stop_outputs();
   void accept_command(const geometry_msgs::msg::Twist & message, uint64_t generation);
@@ -78,6 +82,9 @@ private:
   realtime_tools::RealtimeBuffer<ImuSample> imu_buffer_;
   realtime_tools::RealtimeBuffer<RotationRequest> rotation_buffer_;
   std::unique_ptr<NavigationFeedback> navigation_feedback_;
+  std::array<SteeringVelocityObserver, 4> steering_observers_{};
+  std::array<double, 4> observed_steering_rates_{};
+  int64_t last_observation_stamp_ns_{0};
   std::atomic_bool active_{false}, ready_{false};
   std::atomic<ControlStatus> status_{ControlStatus::inactive};
   // Motion fault: latched until deactivation; ready for ordered disable once wheels stopped.
