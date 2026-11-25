@@ -153,13 +153,70 @@ bool PackState::has_fault() const noexcept
   if (!fault_frame_s) {
     return false;
   }
-  for (std::size_t index = 0U; index < fault_bytes.size(); ++index) {
-    const std::uint8_t mask = index == 3U ? 0x0FU : (index == 6U ? 0x7FU : 0xFFU);
-    if ((fault_bytes[index] & mask) != 0U) {
+  std::array<const AlarmSpec *, kAlarmSpecs.size()> found{};
+  return active_alarms(found) != 0U || vendor_fault_code() != 0U;
+}
+
+std::size_t PackState::active_alarms(
+  std::array<const AlarmSpec *, kAlarmSpecs.size()> & out) const noexcept
+{
+  std::size_t count = 0U;
+  if (!fault_frame_s) {
+    return count;
+  }
+  for (const auto & spec : kAlarmSpecs) {
+    const auto mask = static_cast<std::uint8_t>(1U << spec.bit);
+    if ((fault_bytes[spec.byte] & mask) != 0U) {
+      out[count] = &spec;
+      ++count;
+    }
+  }
+  return count;
+}
+
+bool PackState::has_alarm_of_kind(const AlarmKind kind) const noexcept
+{
+  if (!fault_frame_s) {
+    return false;
+  }
+  for (const auto & spec : kAlarmSpecs) {
+    const auto mask = static_cast<std::uint8_t>(1U << spec.bit);
+    if (spec.kind == kind && (fault_bytes[spec.byte] & mask) != 0U) {
       return true;
     }
   }
   return false;
+}
+
+bool PackState::has_warning_level(const AlarmLevel level) const noexcept
+{
+  if (!fault_frame_s) {
+    return false;
+  }
+  for (const auto & spec : kAlarmSpecs) {
+    const auto mask = static_cast<std::uint8_t>(1U << spec.bit);
+    if (spec.level == level && (fault_bytes[spec.byte] & mask) != 0U) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::uint8_t PackState::vendor_fault_code() const noexcept
+{
+  return fault_frame_s ? fault_bytes[7U] : 0U;
+}
+
+bool PackState::has_temperature_alarm() const noexcept
+{
+  return has_alarm_of_kind(AlarmKind::kTemperatureHigh) ||
+         has_alarm_of_kind(AlarmKind::kTemperatureLow) ||
+         has_alarm_of_kind(AlarmKind::kTemperatureDelta);
+}
+
+bool PackState::has_non_temperature_alarm() const noexcept
+{
+  return has_alarm_of_kind(AlarmKind::kOther) || vendor_fault_code() != 0U;
 }
 
 bool PackState::status_fresh(const double now_s, const double timeout_s) const noexcept
@@ -222,6 +279,8 @@ bool GoldenPhoenixPack::ingest(
   if (can_id == make_can_id(kCellTemperatureDataId, host_address_, bms_address_)) {
     state.max_cell_temperature_c = static_cast<double>(data[0U]) - 40.0;
     state.min_cell_temperature_c = static_cast<double>(data[2U]) - 40.0;
+    state.mos_temperature_c = static_cast<double>(data[4U]) - 40.0;
+    state.board_temperature_c = static_cast<double>(data[5U]) - 40.0;
     state.temperature_frame_s = now_s;
     return true;
   }
