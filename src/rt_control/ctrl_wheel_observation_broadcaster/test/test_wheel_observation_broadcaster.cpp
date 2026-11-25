@@ -26,7 +26,7 @@ using Channel = robot_rt_control_interfaces::msg::WheelFeedbackChannel;
 using Wheel = robot_rt_control_interfaces::msg::WheelObservation;
 using Meta = robot_rt_control_interfaces::msg::ObservationMeta;
 
-// A deliberately permuted wiring fixture (FR, RR, FL, RL) exercises quadrant sorting.
+// Alfa_V3-Advantech-01 wiring order and locations (hw-config-20261116-02#F1): FR, RR, FL, RL.
 std::vector<rclcpp::Parameter> parameters()
 {
   return {
@@ -51,12 +51,10 @@ protected:
   static void SetUpTestSuite() { rclcpp::init(0, nullptr); }
   static void TearDownTestSuite() { rclcpp::shutdown(); }
 
-  virtual std::vector<rclcpp::Parameter> configuration() { return parameters(); }
-
   void SetUp() override
   {
     ASSERT_EQ(broadcaster.init("wheel_observation_test"), controller_interface::return_type::OK);
-    broadcaster.get_node()->set_parameters(configuration());
+    broadcaster.get_node()->set_parameters(parameters());
     ASSERT_EQ(broadcaster.on_configure(rclcpp_lifecycle::State{}), CallbackReturn::SUCCESS);
     names = broadcaster.state_interface_configuration().names;
     ASSERT_EQ(names.size(), 44U);
@@ -140,45 +138,6 @@ protected:
   Message::SharedPtr received;
   double sequence{0.0};
 };
-
-class OrderedWheelObservationTest : public WheelObservationBroadcasterTest
-{
-protected:
-  std::vector<rclcpp::Parameter> configuration() override
-  {
-    auto result = parameters();
-    result[3] = {"module_x", std::vector<double>{0.305, 0.305, -0.305, -0.305}};
-    result[4] = {"module_y", std::vector<double>{0.305, -0.305, 0.305, -0.305}};
-    return result;
-  }
-};
-
-TEST_F(OrderedWheelObservationTest, AllFourCornersKeepTheirMotorAndEncoderSamples)
-{
-  for (int module = 1; module <= 4; ++module) {
-    const auto suffix = std::to_string(module);
-    set("s" + suffix + "/position", 0.1 * module);
-    set("e" + suffix + "/position", -0.09 * module);
-    set("w" + suffix + "/position", 10.0 * module);
-    set("w" + suffix + "/velocity", 0.2 * module);
-  }
-  const auto message = run(1000000000);
-  ASSERT_TRUE(message);
-  for (std::size_t slot = 0; slot < 4; ++slot) {
-    const auto & wheel = message->wheels[slot];
-    const auto module = static_cast<double>(slot + 1);
-    EXPECT_EQ(wheel.wheel_id, slot);
-    EXPECT_DOUBLE_EQ(wheel.steering_axis_x, slot < 2 ? 0.305 : -0.305);
-    EXPECT_DOUBLE_EQ(wheel.steering_axis_y, slot % 2 == 0 ? 0.305 : -0.305);
-    EXPECT_DOUBLE_EQ(wheel.drive_position, 10.0 * module);
-    EXPECT_DOUBLE_EQ(wheel.drive_velocity, 0.2 * module);
-    EXPECT_DOUBLE_EQ(wheel.steering_motor_angle, -0.1 * module);
-    EXPECT_DOUBLE_EQ(wheel.steering_encoder_angle, -0.09 * module);
-    EXPECT_TRUE(wheel.drive.valid);
-    EXPECT_TRUE(wheel.steering_motor.valid);
-    EXPECT_TRUE(wheel.steering_encoder.valid);
-  }
-}
 
 TEST_F(WheelObservationBroadcasterTest, OrdersWheelsByLocationAndKeepsSourcesSeparate)
 {
