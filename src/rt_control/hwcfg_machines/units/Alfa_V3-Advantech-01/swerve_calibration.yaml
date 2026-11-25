@@ -7,19 +7,24 @@ authorities:
     with enable and motion (ELECTRI-127, 2026-10-14..16); backlash is pending and not consumed
   source: ELECTRI-127 Advantech chassis bench deployed profile.runtime.yaml / controllers.runtime.yaml
     (base 946ec110)
-  module_xy: control frame base_footprint; +X is the user-defined new forward (old base_link -Y), metres;
-    user 2026-11-16 negated all four after IMU showed rotation reversed against command with translation correct
+  module_xy: control frame base_footprint = Robot Model base frame (+X toward the lift and arms, +Y
+    left), metres; module_k sits at the Robot Model steerK_joint origin (user 2026-11-22 - forward is the
+    arm side, wheels at q=0 roll forward; hand-turn readback 2026-11-22 module_1..4 = front-left,
+    front-right, rear-left, rear-right; hw-config-20261122-05). Supersedes the 2026-11-16 chassis-only
+    frame (+X old base_link -Y, all four negated after rotation was reversed)
   steering_zero_counts: 'user 2026-11-22 (ELECTRI-233): after the 0x7320 fault was cleared with 0x2690=10
     (resets the fault state and clears the multi-turn count) the zeros were recomputed, without enable or
     motion, from the external encoders with the unchanged direction/installation offsets and 140:1; all
     four wheels then read within +/-3 deg of straight, confirmed visually by the user. Sign corrected
-    2026-11-22 (ELECTRI-233, hw-config-20261122-04): q = -external heading (heading = -q, model_heading_sign),
-    recomputed from the disabled q and encoder readback. Superseded: the 2026-10 four-axis inward 135 deg capture'
+    2026-11-22 (hw-config-20261122-04), then recomputed against the external encoder of each module after
+    the encoder-to-module mapping was corrected (hw-config-20261122-05). Superseded: the 2026-10
+    four-axis inward 135 deg capture'
   drive_zero_counts: continuous wheel keeps raw-count origin; 0 is a software offset, not a wheel phase
     calibration
   effective_wheel_radius_m: deployed value 0.1 m (nominal); four-wheel 50 mm command test travelled 50.003 mm
-  external_encoder: direction/offset negated with the user steering-direction correction 2026-10-16; zero
-    counts preserved
+  external_encoder: direction/offset negated with the user steering-direction correction 2026-10-16; each
+    installation offset follows its physical encoder node, now node 14/12/11/13 on module_1..4
+    (hw-config-20261122-05)
 pending_facts:
 - physical hard-stop angles, command margin and measurement tolerance
 - enabled low-speed check of the 2026-11-22 steering zeros against the external encoders (ELECTRI-233)
@@ -34,37 +39,37 @@ spec:
   modules:
   - module_position: module_1
     module_x_m: 0.305
-    module_y_m: -0.305
+    module_y_m: 0.305
     effective_wheel_radius_m: 0.1
-    steering_zero_counts: 38164
+    steering_zero_counts: 88244
     drive_zero_counts: 0
     external_encoder_direction: -1
-    external_encoder_installation_offset_rad: -0.07118492631211457
+    external_encoder_installation_offset_rad: -23.973339374474527
     backlash_rad: TBD
   - module_position: module_2
-    module_x_m: -0.305
+    module_x_m: 0.305
     module_y_m: -0.305
     effective_wheel_radius_m: 0.1
-    steering_zero_counts: 78291
+    steering_zero_counts: 77701
     drive_zero_counts: 0
     external_encoder_direction: -1
     external_encoder_installation_offset_rad: -2.1915319248055973
     backlash_rad: TBD
   - module_position: module_3
-    module_x_m: 0.305
-    module_y_m: 0.305
-    effective_wheel_radius_m: 0.1
-    steering_zero_counts: -28551
-    drive_zero_counts: 0
-    external_encoder_direction: -1
-    external_encoder_installation_offset_rad: -0.9971827011120579
-    backlash_rad: TBD
-  - module_position: module_4
     module_x_m: -0.305
     module_y_m: 0.305
     effective_wheel_radius_m: 0.1
-    steering_zero_counts: 101892
+    steering_zero_counts: 41338
     drive_zero_counts: 0
     external_encoder_direction: -1
-    external_encoder_installation_offset_rad: -23.973339374474527
+    external_encoder_installation_offset_rad: -0.07118492631211457
+    backlash_rad: TBD
+  - module_position: module_4
+    module_x_m: -0.305
+    module_y_m: -0.305
+    effective_wheel_radius_m: 0.1
+    steering_zero_counts: -19355
+    drive_zero_counts: 0
+    external_encoder_direction: -1
+    external_encoder_installation_offset_rad: -0.9971827011120579
     backlash_rad: TBD
