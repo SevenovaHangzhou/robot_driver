@@ -11,3 +11,13 @@ Source: https://github.com/SevenovaHangzhou/robot_driver/tree/7bd20cf21299c6b590
 OdometryParameters retains only protocol-neutral covariance configuration.
 Production controller parameters must be provided explicitly; the math tests
 use synthetic values and do not certify hardware or mechanical calibration.
+
+The 2026-11-25 FollowMPPI compatibility correction (#339) ports the prepare/finish
+motion envelope from the supplied `driver_handoff_20261124` production snapshot.
+Reference `include/swerve_driver/motion_shaping.hpp` SHA256:
+`152af2cb71e803bf237d0388c5f49dc66d6c35681b23eccbe56996e2860e485a`.
+The reference source lock and Apache-2.0 license remain in the external handoff;
+the optional replay tests compile that immutable reference, rather than vendoring
+another navigation source tree. Published Navigation baseline:
+`3f09209babca43a716d842f58fe30a5e1fbe48a2`; simulation baseline:
+`e48feba61073c02bec666f052e55f1fc547257cf`.

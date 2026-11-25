@@ -370,7 +370,8 @@ TEST(SwerveKinematicsTest, AlignFirstGateHoldsAllWheelsUntilRelease)
 TEST(SwerveKinematicsTest, BodyShaperKeepsDirectionAndLimits)
 {
   BodyShaperLimits limits;
-  limits.acceleration = 1.0;
+  limits.linear_acceleration = 1.0;
+  limits.angular_acceleration = kPi / 8.0;
   limits.jerk = 4.0;
   limits.rotation_radius_m = 0.5;
   BodyVelocityShaper shaper{limits};
@@ -385,7 +386,8 @@ TEST(SwerveKinematicsTest, BodyShaperKeepsDirectionAndLimits)
     EXPECT_NEAR(shaped.vy_mps * target.vx_mps, shaped.vx_mps * target.vy_mps, 1e-12);
     EXPECT_NEAR(shaped.omega_radps * target.vx_mps, shaped.vx_mps * target.omega_radps, 1e-12);
     const auto & a = shaper.acceleration();
-    EXPECT_LE(std::hypot(a[0], a[1], a[2]), limits.acceleration + 1e-9);
+    EXPECT_LE(std::hypot(a[0], a[1]), limits.linear_acceleration + 1e-9);
+    EXPECT_LE(std::abs(a[2]) / limits.rotation_radius_m, limits.angular_acceleration + 1e-9);
     EXPECT_TRUE(shaper.valid());
     EXPECT_LE(
       std::hypot(a[0] - previous_a[0], a[1] - previous_a[1], a[2] - previous_a[2]),
@@ -437,7 +439,8 @@ TEST(SwerveKinematicsTest, BodyShaperKeepsDirectionAndLimits)
     shaped = shaper.step(moving, period);
     ASSERT_TRUE(shaper.valid());
     const auto & a = shaper.acceleration();
-    EXPECT_LE(std::hypot(a[0], a[1], a[2]), limits.acceleration + 1e-9);
+    EXPECT_LE(std::hypot(a[0], a[1]), limits.linear_acceleration + 1e-9);
+    EXPECT_LE(std::abs(a[2]) / limits.rotation_radius_m, limits.angular_acceleration + 1e-9);
     EXPECT_LE(
       std::hypot(a[0] - previous_a[0], a[1] - previous_a[1], a[2] - previous_a[2]),
       limits.jerk * period + 1e-8);
@@ -680,4 +683,62 @@ TEST(SwerveKinematicsTest, ModuleLabelFollowsCalibratedLocationNotIndex)
     module_quadrant({std::numeric_limits<double>::quiet_NaN(), 0.3}), ModuleQuadrant::unknown);
   EXPECT_STREQ(module_quadrant_name(ModuleQuadrant::unknown), "unknown");
 }
+TEST(BodyVelocityShaperTest, SingleAxesUseFullPlanarAccelerationBudget)
+{
+  for (const ChassisSpeeds target : {ChassisSpeeds{1.0, 0.0, 0.0}, ChassisSpeeds{0.0, -1.0, 0.0}}) {
+    BodyVelocityShaper shaper{{1.0, 4.0, 0.5, kPi / 8.0}};
+    double peak = 0.0;
+    for (int i = 0; i < 2000; ++i) {
+      (void)shaper.step(target, 0.001);
+      ASSERT_TRUE(shaper.valid());
+      const auto acceleration = shaper.body_acceleration();
+      peak = std::max(peak, std::hypot(acceleration.vx_mps, acceleration.vy_mps));
+    }
+    EXPECT_NEAR(peak, 1.0, 1e-9);
+  }
+}
+
+TEST(BodyVelocityShaperTest, NoncollinearRetargetRespectsPlanarAndAngularBounds)
+{
+  BodyVelocityShaper shaper{{1.0, 4.0, 0.5, kPi / 8.0}};
+  ChassisSpeeds previous{};
+  for (const auto target :
+       {ChassisSpeeds{1.0, 0.0, 0.0}, ChassisSpeeds{-0.4, 0.8, 0.8}, ChassisSpeeds{0.3, -0.5, -0.8},
+        ChassisSpeeds{}}) {
+    for (int i = 0; i < 700; ++i) {
+      const auto velocity = shaper.step(target, 0.001);
+      ASSERT_TRUE(shaper.valid());
+      const auto acceleration = shaper.body_acceleration();
+      EXPECT_LE(std::hypot(acceleration.vx_mps, acceleration.vy_mps), 1.0 + 1e-9);
+      EXPECT_LE(std::abs(acceleration.omega_radps), kPi / 8.0 + 1e-9);
+      EXPECT_LE(
+        std::hypot(velocity.vx_mps - previous.vx_mps, velocity.vy_mps - previous.vy_mps),
+        0.001 + 1e-9);
+      EXPECT_LE(std::abs(velocity.omega_radps - previous.omega_radps), kPi / 8.0 * 0.001 + 1e-9);
+      previous = velocity;
+    }
+  }
+}
+
+TEST(SwerveSetpointGeneratorTest, TranslationBranchIsIndependentOfPerWheelReverseFlags)
+{
+  SwerveSetpointGenerator generator{{kPi / 2.0, kPi / 60.0, kPi / 2.0}};
+  std::array<double, 4> angles{};
+  std::array<SwerveModuleState, 4> desired{};
+  generator.reset(angles);
+  EXPECT_EQ(generator.translation_branch(), -1);
+  desired.fill({1.0, 0.0});
+  (void)generator.generate(desired, angles, 0.001);
+  EXPECT_EQ(generator.translation_branch(), 0);
+  desired.fill({1.0, kPi});
+  (void)generator.generate(desired, angles, 0.001);
+  EXPECT_EQ(generator.translation_branch(), 1);
+  desired[0].angle_rad = 2.9;
+  (void)generator.generate(desired, angles, 0.001);
+  EXPECT_EQ(generator.translation_branch(), -1);
+  for (const auto & goal : generator.goals()) {
+    EXPECT_TRUE(goal.reversed);
+  }
+}
+
 }  // namespace ctrl_swerve
