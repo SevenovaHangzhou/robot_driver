@@ -69,6 +69,8 @@ def test_two_motion_groups_and_one_enable_state(shares, tmp_path, mock):
     assert {modes[f"wheel{n}_joint"] for n in range(1, 5)} == {9}
     assert {modes[f"steer{n}_joint"] for n in range(1, 5)} == {8}
     assert manager["emergency_stop_response"] is False
+    # The Tongyi lift is stopped with Disable Voltage (0x0005), never Quick Stop (vendor 2026-11-22).
+    assert manager["emergency_disable_voltage_joints"] == ["updown"]
     assert result.lifecycle["mode_controller_groups"] == [
         ["arms_jtc", "arms_rolling"],
         ["swerve_controller", "base_wheel_jtc"],
