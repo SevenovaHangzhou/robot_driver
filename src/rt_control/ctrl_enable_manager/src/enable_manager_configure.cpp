@@ -58,6 +58,7 @@ controller_interface::CallbackReturn EnableManagerController::on_init()
   auto_declare<std::vector<std::string>>("enable_batch_joint_names", {});
   auto_declare<std::vector<std::int64_t>>("enable_batch_sizes", {});
   auto_declare<std::vector<std::string>>("ready_to_switch_on_disable_terminal_joints", {});
+  auto_declare<std::vector<std::string>>("emergency_disable_voltage_joints", {});
   auto_declare<std::vector<std::string>>("handshake_devices", {});
   auto_declare<std::vector<std::string>>("diagnostic_joints", {});
   auto_declare<std::vector<std::string>>("diagnostic_joint_interfaces", {});
@@ -161,7 +162,7 @@ EnableManagerController::state_interface_configuration() const
 controller_interface::CallbackReturn EnableManagerController::on_configure(
   const rclcpp_lifecycle::State &)
 {
-  if (!configureTopology()) {
+  if (!configureTopology() || !configureEmergencyDisableVoltage()) {
     return controller_interface::CallbackReturn::ERROR;
   }
 

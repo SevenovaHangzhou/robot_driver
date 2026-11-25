@@ -56,6 +56,14 @@
         "type": "string"
       }
     },
+    "emergency_disable_voltage_joints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "description": "Joints that an emergency stop disables with Disable Voltage (0x0005) instead of Quick Stop."
+    },
     "runtime_views": {
       "type": "object",
       "additionalProperties": {

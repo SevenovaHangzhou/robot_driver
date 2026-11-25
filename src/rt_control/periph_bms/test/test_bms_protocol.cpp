@@ -206,4 +206,72 @@ TEST(BmsProtocolTest, RecognizesDefinedFaultsPerPack)
   EXPECT_FALSE(pack.status_fresh(5.0, 1.0));
 }
 
+TEST(BmsProtocolTest, DecodesMosAndBoardTemperature)
+{
+  periph_bms::GoldenPhoenixPack decoder{periph_bms::ByteOrder::kBigEndian, 2U, 0x40U};
+  periph_bms::PackState pack;
+  // 65 -> 25 C, 60 -> 20 C, 100 -> 60 C (MOS), 82 -> 42 C (board)
+  const std::array<std::uint8_t, 8U> temperature{65U, 1U, 60U, 2U, 100U, 82U, 3U, 0U};
+  ASSERT_TRUE(decoder.ingest(pack, 0x18924002U, temperature.data(), temperature.size(), 1.0));
+  EXPECT_DOUBLE_EQ(*pack.max_cell_temperature_c, 25.0);
+  EXPECT_DOUBLE_EQ(*pack.min_cell_temperature_c, 20.0);
+  EXPECT_DOUBLE_EQ(*pack.mos_temperature_c, 60.0);
+  EXPECT_DOUBLE_EQ(*pack.board_temperature_c, 42.0);
+}
+
+TEST(BmsProtocolTest, ReportsTemperatureAlarmsWithoutClearanceOfMeasurements)
+{
+  periph_bms::GoldenPhoenixPack decoder{periph_bms::ByteOrder::kAuto, 1U, 0x40U};
+  periph_bms::PackState pack;
+  // Byte 1 bit 4: discharge over temperature, first level.
+  std::array<std::uint8_t, 8U> faults{0U, 0x10U, 0U, 0U, 0U, 0U, 0U, 0U};
+  ASSERT_TRUE(decoder.ingest(pack, 0x18984001U, faults.data(), faults.size(), 1.0));
+  std::array<const periph_bms::AlarmSpec *, periph_bms::kAlarmSpecs.size()> active{};
+  ASSERT_EQ(pack.active_alarms(active), 1U);
+  EXPECT_STREQ(active[0]->code.data(), "discharge_over_temperature_first");
+  EXPECT_EQ(active[0]->level, periph_bms::AlarmLevel::kFirst);
+  EXPECT_EQ(active[0]->kind, periph_bms::AlarmKind::kTemperatureHigh);
+  EXPECT_TRUE(pack.has_temperature_alarm());
+  EXPECT_FALSE(pack.has_non_temperature_alarm());
+  EXPECT_TRUE(pack.has_fault());
+  EXPECT_TRUE(pack.has_warning_level(periph_bms::AlarmLevel::kFirst));
+  EXPECT_FALSE(pack.has_warning_level(periph_bms::AlarmLevel::kSecond));
+}
+
+TEST(BmsProtocolTest, SeparatesNonTemperatureAlarmsAndVendorCode)
+{
+  periph_bms::GoldenPhoenixPack decoder{periph_bms::ByteOrder::kAuto, 1U, 0x40U};
+  periph_bms::PackState pack;
+  const std::array<std::uint8_t, 8U> voltage{0x01U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
+  ASSERT_TRUE(decoder.ingest(pack, 0x18984001U, voltage.data(), voltage.size(), 1.0));
+  EXPECT_FALSE(pack.has_temperature_alarm());
+  EXPECT_TRUE(pack.has_non_temperature_alarm());
+  EXPECT_EQ(pack.vendor_fault_code(), 0U);
+
+  const std::array<std::uint8_t, 8U> vendor{0U, 0U, 0U, 0U, 0U, 0U, 0U, 0x03U};
+  ASSERT_TRUE(decoder.ingest(pack, 0x18984001U, vendor.data(), vendor.size(), 2.0));
+  EXPECT_EQ(pack.vendor_fault_code(), 3U);
+  EXPECT_TRUE(pack.has_fault());
+  EXPECT_TRUE(pack.has_non_temperature_alarm());
+  std::array<const periph_bms::AlarmSpec *, periph_bms::kAlarmSpecs.size()> active{};
+  EXPECT_EQ(pack.active_alarms(active), 0U);
+}
+
+TEST(BmsProtocolTest, IgnoresReservedBitsAndStaleFaultFrames)
+{
+  periph_bms::GoldenPhoenixPack decoder{periph_bms::ByteOrder::kAuto, 1U, 0x40U};
+  periph_bms::PackState pack;
+  const std::array<std::uint8_t, 8U> reserved{0U, 0U, 0U, 0xF0U, 0U, 0U, 0x80U, 0U};
+  ASSERT_TRUE(decoder.ingest(pack, 0x18984001U, reserved.data(), reserved.size(), 1.0));
+  EXPECT_FALSE(pack.has_fault());
+  EXPECT_FALSE(pack.has_temperature_alarm());
+  EXPECT_FALSE(pack.has_non_temperature_alarm());
+
+  periph_bms::PackState empty;
+  EXPECT_FALSE(empty.has_fault());
+  EXPECT_FALSE(empty.has_temperature_alarm());
+  std::array<const periph_bms::AlarmSpec *, periph_bms::kAlarmSpecs.size()> active{};
+  EXPECT_EQ(empty.active_alarms(active), 0U);
+}
+
 }  // namespace

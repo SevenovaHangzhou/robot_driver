@@ -3052,5 +3052,56 @@ TEST_F(EnableManagerFixture, EmergencyReceiverGetsLatchedDdsState)
   EXPECT_EQ(Access::reportedStopState(*controller_), StopMessage::PRESSED);
 }
 
+// Tongyi XMC_ESC (updown) keeps the motor energized after Quick Stop and then ignores the disable
+// sequence; the vendor confirmed 0x0005 disables it at once and engages the brake.
+TEST_F(EnableManagerFixture, EmergencyStopDisablesListedAxesWithDisableVoltage)
+{
+  constexpr std::size_t kUpdown = 13U;
+  ASSERT_STREQ(kJointNames[kUpdown], "updown");
+  initAndConfigure(
+    "emergency_disable_voltage",
+    {rclcpp::Parameter("emergency_disable_voltage_joints", std::vector<std::string>{"updown"})});
+  activate();
+  setAllStatus(kSwSwitchOnDisabled);
+  ASSERT_TRUE(spinUntilPhase(Phase::kIdle, 200));
+  Access::setPhase(*controller_, Phase::kEnabled);
+  setAllStatus(kSwOperationEnabled);
+  setStatus(0, kSwFault);  // A fault on another axis starts the emergency stop.
+  updateTimes(1);
+  ASSERT_EQ(Access::phase(*controller_), Phase::kEmergencyQuickStop);
+  EXPECT_EQ(command(kUpdown), 0x0005);
+  for (std::size_t axis = 1; axis < kUpdown; ++axis) {
+    EXPECT_EQ(command(axis), kCwQuickStop) << "axis " << axis;
+  }
+  for (int tick = 0; tick < 200 && Access::phase(*controller_) != Phase::kFailed; ++tick) {
+    stepDriveResponses();
+    updateTimes(1);
+  }
+  EXPECT_EQ(Access::phase(*controller_), Phase::kFailed);
+  EXPECT_EQ(Access::decode(status(kUpdown)), DriveState::kSwitchOnDisabled);
+  EXPECT_EQ(command(kUpdown), kCwZero);
+}
+
+TEST_F(EnableManagerFixture, ConfigureRejectsInvalidEmergencyDisableVoltageJoints)
+{
+  for (const auto & joints :
+       std::vector<std::vector<std::string>>{{"no_such_joint"}, {"updown", "updown"}}) {
+    EnableManagerController c;
+    rclcpp::NodeOptions opts;
+    opts.parameter_overrides(test::grouped(
+      parametersWithFixtureTopology(
+        {rclcpp::Parameter("motion_controller", std::string("whole_body_jtc")),
+         rclcpp::Parameter("emergency_disable_voltage_joints", joints)}),
+      "arms"));
+    opts.allow_undeclared_parameters(true);
+    opts.automatically_declare_parameters_from_overrides(true);
+    ASSERT_EQ(
+      c.init("emergency_disable_voltage_bad", "", opts), controller_interface::return_type::OK);
+    EXPECT_EQ(
+      c.on_configure(rclcpp_lifecycle::State()), controller_interface::CallbackReturn::ERROR)
+      << joints.front();
+  }
+}
+
 }  // namespace
 }  // namespace ctrl_enable_manager

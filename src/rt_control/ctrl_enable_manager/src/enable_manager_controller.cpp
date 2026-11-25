@@ -757,12 +757,7 @@ void EnableManagerController::updateEmergencyQuickStop(std::int64_t now_ns)
   bool any_operation_enabled = false;
   for (std::size_t axis = 0; axis < cia402_axes_.size(); ++axis) {
     const DriveState state = decodeState(status_words_[axis]);
-    std::uint16_t command = 0x0000U;
-    if (state == DriveState::kOperationEnabled || state == DriveState::kQuickStopActive) {
-      command = 0x0002U;
-    } else if (state == DriveState::kSwitchedOn) {
-      command = 0x0006U;
-    }
+    const std::uint16_t command = emergencyStopCommand(axis, state);
     any_operation_enabled = any_operation_enabled || state == DriveState::kOperationEnabled;
     setControlWord(axis, command);
   }
