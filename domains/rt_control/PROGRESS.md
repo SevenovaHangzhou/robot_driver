@@ -276,5 +276,4 @@
 | 2026-11-22 | hw-config | [研华转角零点按外置编码器重算](docs/areas/hw-config/records/2026-11-22-advantech-steering-zero.md) | PARTIAL（T2）：0x7320 清除后只读换算四个转向零点，外置编码器显示四轮在 ±3° 内并经目视确认；使能低速核对未做 |
 | 2026-11-22 | hw-config | [研华转向零点符号更正](docs/areas/hw-config/records/2026-11-22-advantech-steering-zero-sign.md) | PARTIAL（T2）：整机使能 `swerve_controller` 因电机/编码器差两倍角度被拒；按 q = −外置角重算四个零点，失能读回换算一致；使能后激活与低速转向未做 |
 | 2026-11-22 | chassis-control | [舵轮默认改为连续模式](docs/areas/control/records/2026-11-22-swerve-continuous-default.md) | UNVERIFIED：`drive_mode` 默认 `steer_while_driving`；实机未测 |
-| 2026-11-22 | hw-config | [研华舵轮编码器对应与轮组坐标更正](docs/areas/hw-config/records/2026-11-22-advantech-swerve-module-map.md) | PARTIAL（T2）：逐轮手转读回发现外置编码器对应错误（节点 14/12/11/13），坐标改为 Robot Model，零点按正确配对重算；部署后读回与旋转方向未验 |
 | 2026-11-22 | control | [同毅升降急停改发 0x0005](docs/areas/control/records/2026-11-22-lift-emergency-disable-voltage.md) | PARTIAL：故障停机后升降停在 0x8637；改为急停对升降发 0x0005；单元与组合测试通过，实机故障停机未测 |

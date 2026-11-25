@@ -75,6 +75,10 @@ def build(root):
     for i in range(1, 5):
         origin = model.find(f"joint[@name='steer{i}_joint']/origin")
         xyz = np.fromstring(origin.get('xyz'), sep=' ')
+        # Fixed mounting correction: zero steering and positive wheel rate roll along footprint +X.
+        # Steering remains clockwise about footprint Z (heading=-q); no encoder zero is changed.
+        roll, pitch, yaw = origin.get('rpy').split()
+        origin.set('rpy', f'{roll} {pitch} {float(yaw) + np.pi/2:.17g}')
         xyz[0] += policy['wheel_mount_x_compensation_m']
         origin.set('xyz', ' '.join(format(v, '.17g') for v in xyz))
     fk = frames(model)
@@ -137,7 +141,7 @@ def build(root):
     manifest['joint_overrides']['updown'] = 'Calibrated prismatic base_link -> arm_carriage; CAD-only frames collapsed, geometry/inertia transformed into arm_carriage'
     manifest['joint_overrides']['base_footprint_to_base_link'] = 'User-approved xyz=0.07478297093,0,0.370 m'
     for i in range(1,5):
-        manifest['joint_overrides'][f'steer{i}_joint'] = 'Retain source orientation, compensate base_link X shift by -74.78297093 mm'
+        manifest['joint_overrides'][f'steer{i}_joint'] = 'Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm'
     manifest['assembly_mount_offset_m'] = offset.tolist()
     manifest['assembly_axis_reverse_distances_m'] = (-parameters).tolist()
     for metadata in manifest['artifacts'].values():
