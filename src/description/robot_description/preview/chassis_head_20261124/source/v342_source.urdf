@@ -1,0 +1,982 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="alfav3_mobile_1124">
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-0.2882305247976 -0.0002254271261818 0.1506511049705" rpy="0 0 0" />
+      <mass value="454.1452756124" />
+      <inertia ixx="75.36218367058" ixy="0.006977898102449" ixz="10.99217405994" iyy="70.12425236132" iyz="0.007697909107811" izz="57.40864114718" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/base_link.stl" />
+      </geometry>
+      <material name="base_link_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/base_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="active_suspension_link">
+    <inertial>
+      <origin xyz="-0.001933682648615 6.331929207112e-05 0.05083543381649" rpy="0 0 0" />
+      <mass value="59.24165980113" />
+      <inertia ixx="3.165264881335" ixy="-0.0002572861840224" ixz="-0.0152964718696" iyy="0.7942934460099" iyz="0.0001399017847938" izz="3.239589110051" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/active_suspension_link.stl" />
+      </geometry>
+      <material name="active_suspension_link_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/active_suspension_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="active_suspension_joint" type="prismatic">
+    <origin xyz="-0.3797829709267 0 -0.082" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="active_suspension_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="steer1">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer1.stl" />
+      </geometry>
+      <material name="steer1_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer1.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="steer1_joint" type="revolute">
+    <origin xyz="0.2302170290733 0.305 -0.0145" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="steer1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.268928027593" upper="2.268928027593" effort="0" velocity="0" />
+  </joint>
+  <link name="wheel1">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel1.stl" />
+      </geometry>
+      <material name="wheel1_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel1.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="wheel1_joint" type="continuous">
+    <origin xyz="-2.976884676084e-06 0 -0.2555" rpy="0 0 0" />
+    <parent link="steer1" />
+    <child link="wheel1" />
+    <axis xyz="0 1 0" />
+  </joint>
+  <link name="steer2">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer2.stl" />
+      </geometry>
+      <material name="steer2_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer2.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="steer2_joint" type="revolute">
+    <origin xyz="0.2302170290733 -0.305 -0.0145" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="steer2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.268928027593" upper="2.268928027593" effort="0" velocity="0" />
+  </joint>
+  <link name="wheel2">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel2.stl" />
+      </geometry>
+      <material name="wheel2_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel2.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="wheel2_joint" type="continuous">
+    <origin xyz="-2.976884676084e-06 0 -0.2555" rpy="0 0 0" />
+    <parent link="steer2" />
+    <child link="wheel2" />
+    <axis xyz="0 1 0" />
+  </joint>
+  <link name="steer3">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer3.stl" />
+      </geometry>
+      <material name="steer3_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer3.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="steer3_joint" type="revolute">
+    <origin xyz="0 -0.305 0.018" rpy="0 0 0" />
+    <parent link="active_suspension_link" />
+    <child link="steer3" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.268928027593" upper="2.268928027593" effort="0" velocity="0" />
+  </joint>
+  <link name="wheel3">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel3.stl" />
+      </geometry>
+      <material name="wheel3_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel3.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="wheel3_joint" type="continuous">
+    <origin xyz="2.976884675987e-06 0 -0.206" rpy="0 0 0" />
+    <parent link="steer3" />
+    <child link="wheel3" />
+    <axis xyz="0 1 0" />
+  </joint>
+  <link name="steer4">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer4.stl" />
+      </geometry>
+      <material name="steer4_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/steer4.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="steer4_joint" type="revolute">
+    <origin xyz="0 0.305 -0.013" rpy="0 0 0" />
+    <parent link="active_suspension_link" />
+    <child link="steer4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.268928027593" upper="2.268928027593" effort="0" velocity="0" />
+  </joint>
+  <link name="wheel4">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel4.stl" />
+      </geometry>
+      <material name="wheel4_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/wheel4.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="wheel4_joint" type="continuous">
+    <origin xyz="2.976884675987e-06 0 -0.175" rpy="0 0 0" />
+    <parent link="steer4" />
+    <child link="wheel4" />
+    <axis xyz="0 1 0" />
+  </joint>
+  <link name="ultrasonic_channel_1_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-2.379976437875e-23" ixz="8.630168266397e-24" iyy="7.544422238428e-07" iyz="9.742848898026e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_1_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_1_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_1_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_1_fixed" type="fixed">
+    <origin xyz="0.4047170290733 0.3145 0.019" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_1_link" />
+  </joint>
+  <link name="ultrasonic_channel_2_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-6.677281703182e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_2_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_2_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_2_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_2_fixed" type="fixed">
+    <origin xyz="0.4047170290733 -0.3145 0.019" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_2_link" />
+  </joint>
+  <link name="ultrasonic_channel_3_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-5.100738595837e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_3_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_3_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_3_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_3_fixed" type="fixed">
+    <origin xyz="0.2397170290733 -0.4795 0.019" rpy="0 0 -1.570796326795" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_3_link" />
+  </joint>
+  <link name="ultrasonic_channel_4_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-3.897783854697e-23" ixz="-2.137460416464e-23" iyy="7.544422238428e-07" iyz="6.468818102728e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_4_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_4_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_4_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_4_fixed" type="fixed">
+    <origin xyz="-0.3892829709267 -0.4795 0.019" rpy="0 0 -1.570796326795" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_4_link" />
+  </joint>
+  <link name="ultrasonic_channel_5_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-3.897783854697e-23" ixz="-2.137460416464e-23" iyy="7.544422238428e-07" iyz="6.814089653871e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_5_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_5_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_5_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_5_fixed" type="fixed">
+    <origin xyz="-0.5542829709267 -0.3145 0.019" rpy="0 0 -3.14159265359" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_5_link" />
+  </joint>
+  <link name="ultrasonic_channel_6_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-9.187241383508e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_6_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_6_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_6_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_6_fixed" type="fixed">
+    <origin xyz="-0.5542829709267 0.3145 0.019" rpy="0 0 3.14159265359" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_6_link" />
+  </joint>
+  <link name="ultrasonic_channel_7_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-5.100738595837e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_7_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_7_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_7_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_7_fixed" type="fixed">
+    <origin xyz="-0.3892829709267 0.4795 0.019" rpy="0 0 1.570796326795" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_7_link" />
+  </joint>
+  <link name="ultrasonic_channel_8_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-2.028764622455e-24" ixz="-2.289844706821e-23" iyy="7.544422238428e-07" iyz="4.374820283579e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_8_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_8_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/ultrasonic_channel_8_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="ultrasonic_channel_8_fixed" type="fixed">
+    <origin xyz="0.2397170290733 0.4795 0.019" rpy="0 0 1.570796326795" />
+    <parent link="base_link" />
+    <child link="ultrasonic_channel_8_link" />
+  </joint>
+  <link name="imu_link">
+    <inertial>
+      <origin xyz="3.539254491008e-06 0.00396518115022 -0.01194033758994" rpy="0 0 0" />
+      <mass value="0.01937552841289" />
+      <inertia ixx="6.352047310557e-06" ixy="1.484030323214e-09" ixz="-2.702560710364e-10" iyy="4.251834461352e-06" iyz="1.934949585648e-07" izz="8.828396041317e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/imu_link.stl" />
+      </geometry>
+      <material name="imu_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/imu_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="imu_fixed" type="fixed">
+    <origin xyz="0.3422170290733 0 -0.133000025458" rpy="0 0 1.570796326795" />
+    <parent link="base_link" />
+    <child link="imu_link" />
+  </joint>
+  <link name="front_mid360">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/front_mid360.stl" />
+      </geometry>
+      <material name="front_mid360_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/front_mid360.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="front_mid360_fixed" type="fixed">
+    <origin xyz="0.390660583201 0 0.02237072054203" rpy="0 0.2617993877992 0" />
+    <parent link="base_link" />
+    <child link="front_mid360" />
+  </joint>
+  <link name="behind_mid360">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/behind_mid360.stl" />
+      </geometry>
+      <material name="behind_mid360_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/behind_mid360.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="behind_mid360_fixed" type="fixed">
+    <origin xyz="-0.1567829709267 0 1.55761" rpy="0 -1.570796326795 0" />
+    <parent link="base_link" />
+    <child link="behind_mid360" />
+  </joint>
+  <link name="updown_link">
+    <inertial>
+      <origin xyz="0.2337008441384 -9.704152861025e-05 0.09287216761971" rpy="0 0 0" />
+      <mass value="33.56459350074" />
+      <inertia ixx="1.622721934326" ixy="-0.0008250218811402" ixz="-0.04012019895847" iyy="0.468296175702" iyz="-0.0001264538695073" izz="1.717139019007" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/updown_link.stl" />
+      </geometry>
+      <material name="updown_link_color">
+        <color rgba="0.44 0.61 0.72 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/updown_link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="updown" type="prismatic">
+    <origin xyz="0.09921702907332 0 0.2" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="updown_link" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="1.05" effort="0" velocity="0" />
+  </joint>
+  <link name="point_arm_carriage" />
+  <joint name="arm_carriage_fixed" type="fixed">
+    <origin xyz="0.269 0 0.04774990747593" rpy="0 0 0" />
+    <parent link="updown_link" />
+    <child link="point_arm_carriage" />
+  </joint>
+  <link name="chest_camera_left">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/chest_camera_left.stl" />
+      </geometry>
+      <material name="chest_camera_left_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/chest_camera_left.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="chest_camera_left_fixed" type="fixed">
+    <origin xyz="0.3833149179216 0.05999988247221 -0.1042408112015" rpy="0 0.5235987755983 0" />
+    <parent link="updown_link" />
+    <child link="chest_camera_left" />
+  </joint>
+  <link name="H1_Link">
+    <inertial>
+      <origin xyz="-0.001660566151387 -0.001777193626525 0.0666913928842" rpy="0 0 0" />
+      <mass value="0.6327690099072" />
+      <inertia ixx="0.002387679275529" ixy="7.455433033096e-06" ixz="5.857636765772e-05" iyy="0.00249083944256" iyz="5.191846607698e-06" izz="0.000722591764458" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/H1_Link.stl" />
+      </geometry>
+      <material name="H1_Link_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/H1_Link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="H1_joint" type="revolute">
+    <origin xyz="0.32 0 0.241" rpy="0 0 0" />
+    <parent link="updown_link" />
+    <child link="H1_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.7853981633974" upper="0.7853981633974" effort="0" velocity="0" />
+  </joint>
+  <link name="H2_Link">
+    <inertial>
+      <origin xyz="0.008186998021403 0.05440968718622 0.0004598439335442" rpy="0 0 0" />
+      <mass value="0.1638258252758" />
+      <inertia ixx="0.000464328445162" ixy="6.178653458862e-05" ixz="-6.076049138729e-07" iyy="0.0002455707647379" iyz="-4.064742147718e-06" izz="0.0003858943546332" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/H2_Link.stl" />
+      </geometry>
+      <material name="H2_Link_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/H2_Link.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="H2_joint" type="revolute">
+    <origin xyz="-0.02 0 0.063" rpy="1.570796326795 0 0" />
+    <parent link="H1_Link" />
+    <child link="H2_Link" />
+    <axis xyz="0 0 1" />
+    <limit lower="-0.6981317007977" upper="0.610865238198" effort="0" velocity="0" />
+  </joint>
+  <link name="head_camera_left">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/head_camera_left.stl" />
+      </geometry>
+      <material name="head_camera_left_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/head_camera_left.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="head_camera_left_fixed" type="fixed">
+    <origin xyz="0.03286615121504 0.1117075699558 -0.05999992062909" rpy="-1.570796326795 0 0" />
+    <parent link="H2_Link" />
+    <child link="head_camera_left" />
+  </joint>
+  <link name="head_mid360">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/head_mid360.stl" />
+      </geometry>
+      <material name="head_mid360_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/head_mid360.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="head_mid360_fixed" type="fixed">
+    <origin xyz="0.05857012784481 0.06601924056093 0" rpy="-1.570796326795 0 -0.3788450448076" />
+    <parent link="H2_Link" />
+    <child link="head_mid360" />
+  </joint>
+  <link name="right_link1">
+    <inertial>
+      <origin xyz="-6.72114519231e-06 -0.01671373742059 -0.0127985939069" rpy="0 0 0" />
+      <mass value="12.08176792617" />
+      <inertia ixx="0.05256190789318" ixy="0.0006342744419891" ixz="8.318747693776e-06" iyy="0.05343151346443" iyz="-0.003359481392288" izz="0.04080420454571" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link1.stl" />
+      </geometry>
+      <material name="right_link1_color">
+        <color rgba="0.31 0.47 0.59 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link1.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_joint1" type="revolute">
+    <origin xyz="0 -0.4365911437482 0.1169842443899" rpy="0 -1.308996938996 1.570796326795" />
+    <parent link="point_arm_carriage" />
+    <child link="right_link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="647" velocity="1.309" />
+  </joint>
+  <link name="right_link2">
+    <inertial>
+      <origin xyz="1.002751358401e-05 0.1690250593549 0.0004810876505013" rpy="0 0 0" />
+      <mass value="9.001704067435" />
+      <inertia ixx="0.03855722128181" ixy="-4.90809549149e-06" ixz="9.773924542538e-07" iyy="0.03028364118562" iyz="-9.705646024764e-05" izz="0.04734694054595" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link2.stl" />
+      </geometry>
+      <material name="right_link2_color">
+        <color rgba="0.31 0.47 0.59 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link2.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_joint2" type="revolute">
+    <origin xyz="0 -9.305223258593e-12 0" rpy="1.570796326795 -0.2617993877991 0" />
+    <parent link="right_link1" />
+    <child link="right_link2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.129301687433" upper="1.605702911835" effort="647" velocity="1.309" />
+  </joint>
+  <link name="right_link3">
+    <inertial>
+      <origin xyz="-1.740454950924e-06 -0.003642482879867 0.02551792486639" rpy="0 0 0" />
+      <mass value="11.22764247542" />
+      <inertia ixx="0.0873413719052" ixy="2.973717154788e-06" ixz="-6.04286994454e-06" iyy="0.08257683319975" iyz="0.001156534425101" izz="0.0388615532509" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link3.stl" />
+      </geometry>
+      <material name="right_link3_color">
+        <color rgba="0.31 0.47 0.59 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link3.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_joint3" type="revolute">
+    <origin xyz="0 0.506000000045 0" rpy="1.570796326795 1.570796326795 0" />
+    <parent link="right_link2" />
+    <child link="right_link3" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="484" velocity="1.309" />
+  </joint>
+  <link name="right_link4">
+    <inertial>
+      <origin xyz="3.636624340168e-06 -0.1673572742719 0.0003121805129052" rpy="0 0 0" />
+      <mass value="4.616" />
+      <inertia ixx="0.0313104951391" ixy="-3.384295350596e-07" ixz="-0.000693553399828" iyy="0.01686913544625" iyz="0.00106952106937" izz="0.03839680152758" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link4.stl" />
+      </geometry>
+      <material name="right_link4_color">
+        <color rgba="0.31 0.47 0.59 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link4.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_joint4" type="revolute">
+    <origin xyz="0 0 0" rpy="1.570796326795 0 0" />
+    <parent link="right_link3" />
+    <child link="right_link4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.530727415392" upper="2.530727415392" effort="459" velocity="1.749" />
+  </joint>
+  <link name="right_link5">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link5.stl" />
+      </geometry>
+      <material name="right_link5_color">
+        <color rgba="0.31 0.47 0.59 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link5.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_joint5" type="revolute">
+    <origin xyz="0 -0.474 0" rpy="1.570796326795 0 0" />
+    <parent link="right_link4" />
+    <child link="right_link5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="204" velocity="3.142" />
+  </joint>
+  <link name="right_link6">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link6.stl" />
+      </geometry>
+      <material name="right_link6_color">
+        <color rgba="0.31 0.47 0.59 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link6.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_joint6" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.570796326795 0 3.14159265359" />
+    <parent link="right_link5" />
+    <child link="right_link6" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.919862177194" upper="1.919862177194" effort="107" velocity="3.142" />
+  </joint>
+  <link name="right_link7">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link7.stl" />
+      </geometry>
+      <material name="right_link7_color">
+        <color rgba="0.31 0.47 0.59 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/right_link7.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="right_joint7" type="revolute">
+    <origin xyz="0 0 0" rpy="1.570796326795 0 0" />
+    <parent link="right_link6" />
+    <child link="right_link7" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="36" velocity="3.142" />
+  </joint>
+  <link name="left_link1">
+    <inertial>
+      <origin xyz="-6.721145184442e-06 -0.01671373742059 -0.0127985939069" rpy="0 0 0" />
+      <mass value="12.08176792617" />
+      <inertia ixx="0.05256190789318" ixy="0.0006342744419892" ixz="8.318747693823e-06" iyy="0.05343151346443" iyz="-0.003359481392288" izz="0.04080420454571" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link1.stl" />
+      </geometry>
+      <material name="left_link1_color">
+        <color rgba="0.4 0.55 0.66 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link1.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_joint1" type="revolute">
+    <origin xyz="0 0.4365911437482 0.1169842443899" rpy="0 1.308996938996 1.570796326795" />
+    <parent link="point_arm_carriage" />
+    <child link="left_link1" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="647" velocity="1.309" />
+  </joint>
+  <link name="left_link2">
+    <inertial>
+      <origin xyz="-1.002751358401e-05 0.1690250593549 0.0004810876505013" rpy="0 0 0" />
+      <mass value="9.001704067435" />
+      <inertia ixx="0.03855722128181" ixy="4.90809549149e-06" ixz="-9.773924542538e-07" iyy="0.03028364118562" iyz="-9.705646024764e-05" izz="0.04734694054595" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link2.stl" />
+      </geometry>
+      <material name="left_link2_color">
+        <color rgba="0.4 0.55 0.66 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link2.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_joint2" type="revolute">
+    <origin xyz="0 -9.312550730556e-12 0" rpy="1.570796326795 0.2617993877992 0" />
+    <parent link="left_link1" />
+    <child link="left_link2" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.605702911835" upper="2.129301687433" effort="647" velocity="1.309" />
+  </joint>
+  <link name="left_link3">
+    <inertial>
+      <origin xyz="-1.740454950924e-06 0.003642482879867 0.02551792486639" rpy="0 0 0" />
+      <mass value="11.22764247542" />
+      <inertia ixx="0.0873413719052" ixy="-2.973717154788e-06" ixz="-6.04286994454e-06" iyy="0.08257683319975" iyz="-0.001156534425101" izz="0.0388615532509" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link3.stl" />
+      </geometry>
+      <material name="left_link3_color">
+        <color rgba="0.4 0.55 0.66 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link3.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_joint3" type="revolute">
+    <origin xyz="0 0.506000000045 0" rpy="1.570796326795 1.570796326795 0" />
+    <parent link="left_link2" />
+    <child link="left_link3" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="484" velocity="1.309" />
+  </joint>
+  <link name="left_link4">
+    <inertial>
+      <origin xyz="3.636624340168e-06 -0.1673572742719 -0.0003121805129052" rpy="0 0 0" />
+      <mass value="4.616" />
+      <inertia ixx="0.0313104951391" ixy="-3.384295350596e-07" ixz="0.000693553399828" iyy="0.01686913544625" iyz="-0.00106952106937" izz="0.03839680152758" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link4.stl" />
+      </geometry>
+      <material name="left_link4_color">
+        <color rgba="0.4 0.55 0.66 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link4.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_joint4" type="revolute">
+    <origin xyz="0 0 0" rpy="1.570796326795 0 0" />
+    <parent link="left_link3" />
+    <child link="left_link4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.530727415392" upper="2.530727415392" effort="459" velocity="1.749" />
+  </joint>
+  <link name="left_link5">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link5.stl" />
+      </geometry>
+      <material name="left_link5_color">
+        <color rgba="0.4 0.55 0.66 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link5.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_joint5" type="revolute">
+    <origin xyz="0 -0.474 0" rpy="-1.570796326795 0 3.14159265359" />
+    <parent link="left_link4" />
+    <child link="left_link5" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="204" velocity="3.142" />
+  </joint>
+  <link name="left_link6">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link6.stl" />
+      </geometry>
+      <material name="left_link6_color">
+        <color rgba="0.4 0.55 0.66 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link6.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_joint6" type="revolute">
+    <origin xyz="0 0 0" rpy="-1.570796326795 0 3.14159265359" />
+    <parent link="left_link5" />
+    <child link="left_link6" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.919862177194" upper="1.919862177194" effort="107" velocity="3.142" />
+  </joint>
+  <link name="left_link7">
+    <visual>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link7.stl" />
+      </geometry>
+      <material name="left_link7_color">
+        <color rgba="0.4 0.55 0.66 1" />
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="package://alfav3_mobile_1124/meshes/left_link7.stl" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="left_joint7" type="revolute">
+    <origin xyz="0 0 0" rpy="1.570796326795 0 0" />
+    <parent link="left_link6" />
+    <child link="left_link7" />
+    <axis xyz="0 0 1" />
+    <limit lower="-2.96705972839" upper="2.96705972839" effort="36" velocity="3.142" />
+  </joint>
+</robot>

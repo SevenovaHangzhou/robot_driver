@@ -60,3 +60,7 @@
 [control-20261122-01](records/2026-11-22-motion-groups.md)#F1-F2：enable_manager 支持多个运动组（机械臂组、底盘组），各组独立切换模式、只检查本组静止；使能、失能、急停与故障整机一份；静止确认服务按组为 `~/<组>/confirm_standstill`。本机包测试通过，mock 与实机未验（UNVERIFIED，T0）。
 
 [control-20261122-02](records/2026-11-22-partial-mode-confirmation.md)#F1：`expected_modes` 中 0 表示不确认该关节启动模式（无模式显示的驱动），使能策略可按组设置。本机包测试通过，mock 与实机未验（UNVERIFIED，T0）。
+
+[chassis-control-20261124-01](records/2026-11-24-navigation-adaptation.md)#F1–F3：导航默认连续转舵、平移/旋转独立限制、300ms旋转授权及100Hz内部执行反馈。本机构建与108项包测试、16项组合测试通过；模型/标定不改，接口待评审发布及导航迁移，未部署或实车验证（UNVERIFIED，T0）。
+
+[chassis-control-20261125-01](records/2026-11-25-navigation-compatibility.md)#F1–F3：取代前条错误反馈布局，恢复FollowMPPI的27+4×16协议，补真实舵速观测与预测恢复状态；用户批准参考撤权整形。实际消费端4用例和逐步回放5用例通过，包级126独立用例最终通过；接口发布、映射联调及仿真/实车待验（UNVERIFIED，T0）。

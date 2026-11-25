@@ -33,10 +33,11 @@ HEAD_COLLISION_LINKS = ('H1_Link', 'H2_Link', 'mid360_Link')
 # (user 2026-11-19), so the front and rear suspension arms face each other. The wheel
 # contact stays on the steering axis.
 REVERSED_SWERVE_MODULES = (3, 4)
-# Lift travel and planning limits measured on the robot (user 2026-11-22): 1.05 m stroke with the
-# encoder zero at the bottom (-1.05 m) and 2 cm beyond each end to the hard stops; 5 mm per motor
-# turn, so 0.1666 m/s stays just under the user-given 2000 r/min; 0.4 m/s^2. Effort unchanged.
-UPDOWN_LIMITS = {'lower': '-1.05', 'upper': '0', 'velocity': '0.1666'}
+# Lift travel measured on the robot in the calibrated joint coordinate (user 2026-11-23): the
+# stroke ends are -1.033 m (2 cm above the bottom hard stop) and +0.017 m (top); 1.05 m in total.
+# Speed and acceleration (user 2026-11-22): 5 mm per motor turn, so 0.1666 m/s stays just under
+# the user-given 2000 r/min; 0.4 m/s^2. Effort unchanged.
+UPDOWN_LIMITS = {'lower': '-1.033', 'upper': '0.017', 'velocity': '0.1666'}
 UPDOWN_MAX_ACCELERATION_M_S2 = 0.4
 
 
@@ -172,6 +173,11 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         elif element.tag == 'joint' and element.get('name') in ('base_footprint_to_base_link', 'updown'):
             element = old_joints[element.get('name')]
         copied = deepcopy(element)
+        if copied.tag == 'joint' and copied.get('name') == 'H1_joint':
+            origin = copied.find('origin')
+            pose = transform(origin)
+            xyz = pose[:3, 3] + .050 * pose[:3, 0]
+            origin.set('xyz', ' '.join(format(value, '.17g') for value in xyz))
         if copied.tag == 'link' and copied.get('name') in WHEEL_LINKS:
             # Wheel joints, visuals and inertials stay. The approved planning
             # collision model uses the chassis shell rather than wheel contact.
@@ -437,7 +443,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
                 'urdf_sha256': sha(old_bytes), 'fixed_yaml_sha256': sha(old_config_bytes),
                 'boxes_sha256': sha(boxes_bytes)}},
         'composition': {'arm_joint1_to_7_and_geometry': 'github_description',
-            'base_lift_carriage': 'curobo_pr82', 'head_and_sensors': 'github_description, original parents and local joint transforms',
+            'base_lift_carriage': 'curobo_pr82', 'head_and_sensors': 'H1 mount shifted 50 mm along its local +X at zero; downstream mounts from github_description',
             'steering_wheels': 'github_description joints/visuals/inertials; collision represented by chassis shell; '
                 'modules ' + ', '.join(map(str, REVERSED_SWERVE_MODULES)) + ' turned 180 deg about the steering axis',
             'base_collision': 'approved enclosed visual shell',
@@ -451,7 +457,8 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
             if j.get('name') in {f'{side}_joint{i}' for side in ('left','right') for i in range(1,8)}},
         'github_full_joint_contract': {j.get('name'): structure(j) for j in upstream.findall('joint')},
         'github_link_names': [l.get('name') for l in upstream.findall('link')],
-        'joint_overrides': {'base_footprint_to_base_link': 'PR82 root: z=.335m, yaw=0',
+        'joint_overrides': {'H1_joint': 'H1 mount 50 mm forward along local +X at zero (ELECTRI-244)',
+            'base_footprint_to_base_link': 'PR82 root: z=.335m, yaw=0',
             'updown': 'PR82 lift (same local transform as upstream); limits measured on the robot '
                 '(user 2026-11-22): -1.05..0 m, 0.1666 m/s',
             'left_tool0_fixed': 'agreed own TCP distance and axes',
@@ -484,4 +491,6 @@ if __name__ == '__main__':
     parser.add_argument('--description-ref', default=DESCRIPTION_REV)
     parser.add_argument('--algorithm-ref', default=ALGORITHM_REV)
     args = parser.parse_args()
+    if (args.output_root/'config/carriage_assembly/approval.json').exists():
+        parser.error('Current approved assembly must be rebuilt with tools/compose_approved_carriage.py; this historical builder would restore the old model')
     build(args.description_repo, args.algorithm_repo, args.output_root, args.description_ref, args.algorithm_ref)

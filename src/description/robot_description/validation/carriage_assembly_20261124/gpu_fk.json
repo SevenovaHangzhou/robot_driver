@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "samples": 32,
+  "dof": 15,
+  "sphere_checks": 7648,
+  "mode": "published_planning_preset",
+  "queried_frames": [
+    "left_tool0",
+    "right_tool0",
+    "lidar_main",
+    "lidar_rear",
+    "H1_Link",
+    "H2_Link",
+    "mid360_Link",
+    "Leye_link",
+    "Reye_Link",
+    "left_ft_sensor_link",
+    "right_ft_sensor_link",
+    "steer1",
+    "steer2",
+    "steer3",
+    "steer4",
+    "wheel1",
+    "wheel2",
+    "wheel3",
+    "wheel4"
+  ],
+  "maximum_sphere_component_error_m": 3.7600794078329614e-07,
+  "maximum_tool_translation_error_m": 2.863949184472858e-07,
+  "maximum_tool_rotation_matrix_error": 3.874303065089548e-07,
+  "scope": "GPU FK and sphere transforms vs independent CPU URDF FK; not collision coverage or planning acceptance"
+}

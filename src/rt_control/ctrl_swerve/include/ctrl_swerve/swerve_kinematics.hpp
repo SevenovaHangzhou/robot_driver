@@ -117,6 +117,23 @@ public:
     const std::array<bool, kSwerveModuleCount> & hold_modules = {});
   void reset() noexcept;
   void reset(const std::array<double, kSwerveModuleCount> & targets) noexcept;
+  const std::array<OptimizedModuleState, kSwerveModuleCount> & goals() const noexcept
+  {
+    return goals_;
+  }
+  const std::array<double, kSwerveModuleCount> & steering_rates() const noexcept
+  {
+    return steering_rates_;
+  }
+  const std::array<double, kSwerveModuleCount> & steering_accelerations() const noexcept
+  {
+    return steering_accelerations_;
+  }
+  bool gated() const noexcept { return gated_; }
+  int translation_branch() const noexcept
+  {
+    return translation_reversed_.has_value() ? (*translation_reversed_ ? 1 : 0) : -1;
+  }
 
 private:
   SwerveSetpointParameters parameters_;
@@ -125,6 +142,7 @@ private:
   std::array<std::optional<double>, kSwerveModuleCount> previous_targets_{};
   std::array<double, kSwerveModuleCount> steering_rates_{};
   std::array<double, kSwerveModuleCount> steering_accelerations_{};
+  std::array<OptimizedModuleState, kSwerveModuleCount> goals_{};
   bool gated_{false};
   // One jerk-limited step toward a goal ``delta`` away; updates rate and acceleration.
   double jerk_limited_step(std::size_t index, double delta, double dt_seconds) noexcept;

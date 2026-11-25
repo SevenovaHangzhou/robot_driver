@@ -168,10 +168,12 @@ AlignmentResult SwerveSetpointGenerator::generate(
         const double rate = steering_rates_[index];
         const double slower = std::max(0.0, std::abs(rate) - rate_step);
         steering_rates_[index] = std::copysign(slower, rate);
+        steering_accelerations_[index] = (steering_rates_[index] - rate) / dt_seconds;
         *previous_targets_[index] += steering_rates_[index] * dt_seconds;
       }
       const double hold = *previous_targets_[index];
       result.modules[index] = {0.0, hold, hold - planning_angles[index], reversed_[index]};
+      goals_[index] = result.modules[index];
       result.maximum_error_rad =
         std::max(result.maximum_error_rad, std::abs(result.modules[index].error_rad));
       continue;
@@ -189,6 +191,7 @@ AlignmentResult SwerveSetpointGenerator::generate(
         parameters_.angle_limits[index]);
     }
     reversed_[index] = optimized.reversed;
+    goals_[index] = optimized;
 
     if (!previous_targets_[index].has_value()) {
       previous_targets_[index] = planning_angles[index];
@@ -224,6 +227,7 @@ AlignmentResult SwerveSetpointGenerator::generate(
       rate = step / dt_seconds;
     }
     steering_rates_[index] = rate;
+    steering_accelerations_[index] = (rate - previous_rate) / dt_seconds;
     const double limited_target = *previous_targets_[index] + step;
     previous_targets_[index] = limited_target;
 
@@ -253,6 +257,7 @@ void SwerveSetpointGenerator::reset(const std::array<double, kSwerveModuleCount>
   reset();
   for (std::size_t i{0U}; i < targets.size(); ++i) {
     previous_targets_[i] = targets[i];
+    goals_[i].target_angle_rad = targets[i];
   }
   steering_rates_.fill(0.0);
 }
@@ -264,6 +269,7 @@ void SwerveSetpointGenerator::reset() noexcept
   previous_targets_.fill(std::nullopt);
   steering_rates_.fill(0.0);
   steering_accelerations_.fill(0.0);
+  goals_.fill({});
   gated_ = false;
 }
 
