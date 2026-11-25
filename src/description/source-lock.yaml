@@ -2,7 +2,7 @@ schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
 source_branch: fix/wheel-forward-zero
-source_revision: 428351ec929dab05b801de0a50ab121bcbe806d7
+source_revision: a41105cb709eeaabf6aa740d47b1935a4f694608
 source_tree: 6f6afd6f326d1aef0e9da4b1608c670a8cf6c86b
 imported_path: src/description/robot_description
 model_family: alfa_v3
