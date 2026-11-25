@@ -63,7 +63,7 @@
     </inertial>
   </link>
   <joint name="steer1_joint" type="revolute">
-    <origin xyz="0.23021702907 0.30499999999999999 0.01" rpy="3.1415927 0 0" />
+    <origin xyz="0.23021702907 0.30499999999999999 0.01" rpy="3.1415927 0 -1.5707963267948966" />
     <parent link="base_link" />
     <child link="steer1" />
     <axis xyz="0 0 1" />
@@ -77,7 +77,7 @@
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer2_joint" type="revolute">
-    <origin xyz="0.23021702907 -0.30499999999999999 0.01" rpy="3.1415927 0 0" />
+    <origin xyz="0.23021702907 -0.30499999999999999 0.01" rpy="3.1415927 0 -1.5707963267948966" />
     <parent link="base_link" />
     <child link="steer2" />
     <axis xyz="0 0 1" />
@@ -91,7 +91,7 @@
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer3_joint" type="revolute">
-    <origin xyz="-0.074782970929999998 0.30499999999999999 -0.01" rpy="3.1415927 0 3.1415926535897931" />
+    <origin xyz="-0.074782970929999998 0.30499999999999999 -0.01" rpy="3.1415927 0 1.5707963267948966" />
     <parent link="suspension_link" />
     <child link="steer3" />
     <axis xyz="0 0 1" />
@@ -105,7 +105,7 @@
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer4_joint" type="revolute">
-    <origin xyz="-0.074782970929999998 -0.30499999999999999 0.01" rpy="3.1415927 0 3.1415926535897931" />
+    <origin xyz="-0.074782970929999998 -0.30499999999999999 0.01" rpy="3.1415927 0 1.5707963267948966" />
     <parent link="suspension_link" />
     <child link="steer4" />
     <axis xyz="0 0 1" />

@@ -528,11 +528,6 @@ description_updown_limits_regeneration:
   - head-mock
   - head-real
 
-wheel_forward_zero_model_regeneration:
-  reason: ELECTRI-247, model 428351e makes positive wheel rate roll footprint +X at zero steering
-  cases: [arm-mock, arm-real, arm-mock-jtc, arm-real-jtc, head-mock, head-real]
-  changed_files: [robot_description.xml]
-
 approved_carriage_model_regeneration:
   reason: ELECTRI-246, approved carriage model fa636d3
   cases: [arm-mock, arm-real, arm-mock-jtc, arm-real-jtc, head-mock, head-real]

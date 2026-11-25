@@ -134,9 +134,9 @@ def test_wheel_joints_retained_without_individual_collision():
             assert not link.findall('collision')
             assert not np.allclose(frames(m,{name+'_joint':.5})[name],f0[name])
 
-def test_wheel_zero_heading_forward_and_rear_reversal_preserved():
-    # Rear modules keep their 180-degree mounting reversal and opposite wheel joint axis.
-    # All modules additionally rotate +90 degrees around the parent Z to make q=0 roll +X.
+def test_rear_swerve_modules_turned_about_steering_axis():
+    # User 2026-11-19: modules 3/4 (rear, base_link x<0) turned 180 deg about the steering axis;
+    # the wheel contact stays on that axis.
     m=ET.parse(ENTRY).getroot()
     upstream=MANIFEST['github_full_joint_contract']
     def element(contract):
@@ -157,14 +157,17 @@ def test_wheel_zero_heading_forward_and_rear_reversal_preserved():
         # Steering axis is -Z in base_link either way: driver model_heading_sign -1 still holds.
         assert np.allclose(after[:3,:3]@[0,0,1],[0,0,-1],atol=1e-6)
         turned=i in (3,4)
-        assert np.allclose(after[:3,:3],rotation((0,0,np.pi/2 + (np.pi if turned else 0)))@before[:3,:3],atol=1e-12)
+        assert np.allclose(after[:3,:3],(rotation((0,0,np.pi)) if turned else np.eye(3))@before[:3,:3],atol=1e-12)
         assert (m.find(f"joint[@name='wheel{i}_joint']/axis").get('xyz')=='0 0 -1')==turned
-        for q in (0.0,np.pi/2,-np.pi/2,.7,-1.9):
+        for q in (0.0,.7,-1.9):
             positions={f'steer{i}_joint':q}
-            wheel=frames(m,positions)[f'wheel{i}']
-            axis=wheel[:3,:3]@np.fromstring(m.find(f"joint[@name='wheel{i}_joint']/axis").get('xyz'),sep=' ')
-            # Positive wheel rate rolls along heading=-q (the existing control convention).
-            assert np.allclose(np.cross(axis,up),[np.cos(q),-np.sin(q),0],atol=1e-6)
+            moves=[]
+            for model in (m,original):
+                wheel=frames(model,positions)[f'wheel{i}']
+                axis=wheel[:3,:3]@np.array(list(map(float,model.find(f"joint[@name='wheel{i}_joint']/axis").get('xyz').split())))
+                # Centre velocity of a wheel rolling without slip for a positive joint rate.
+                moves.append(np.cross(axis,up))
+            assert np.allclose(moves[0],moves[1],atol=1e-6)
             centre=[frames(model,positions)[f'steer{i}'][:2,3] for model in (m,original)]
             assert np.allclose(centre[0],centre[1]+[-.07478297093,0],atol=1e-12)
 
@@ -197,10 +200,10 @@ def test_suspension_lifts_only_the_rear_axle():
     upstream=MANIFEST['github_full_joint_contract']
     f0,f1=frames(m),frames(m,{'suspension':.1})
     for name in ('steer3','steer4'):
-        # Zero stroke preserves the mount position; rear reversal plus forward-zero rotation.
+        # Zero stroke preserves the mount position and main's approved 180-degree reversal.
         origin={c[0]:c[1] for c in upstream[name+'_joint'][2]}['origin']
         before=transform(ET.Element('origin',origin))
-        before[:3,:3]=rotation((0,0,3*np.pi/2))@before[:3,:3]
+        before[:3,:3]=rotation((0,0,np.pi))@before[:3,:3]
         before[0,3]-=.07478297093
         assert np.allclose(np.linalg.inv(f0['base_link'])@f0[name],before,atol=1e-12)
         for child in (name,name.replace('steer','wheel')):
