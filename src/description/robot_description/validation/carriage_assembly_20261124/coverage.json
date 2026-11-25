@@ -1,0 +1,133 @@
+{
+  "status": "measured_not_conservative_certificate",
+  "links": {
+    "left_link1": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1280,
+      "covered_fraction": 0.68046875,
+      "maximum_sampled_gap_m": 0.014086791331224952
+    },
+    "left_link2": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1472,
+      "covered_fraction": 0.6175271739130435,
+      "maximum_sampled_gap_m": 0.013266266146336102
+    },
+    "left_link3": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1552,
+      "covered_fraction": 0.6771907216494846,
+      "maximum_sampled_gap_m": 0.012239172023814228
+    },
+    "left_link4": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1248,
+      "covered_fraction": 0.5849358974358975,
+      "maximum_sampled_gap_m": 0.01777550721256045
+    },
+    "left_link5": {
+      "method": "sphere_union_surface_sample",
+      "samples": 2312,
+      "covered_fraction": 0.47837370242214533,
+      "maximum_sampled_gap_m": 0.02121188010037056
+    },
+    "left_link6": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1312,
+      "covered_fraction": 0.7728658536585366,
+      "maximum_sampled_gap_m": 0.005115983683520127
+    },
+    "left_link7": {
+      "method": "sphere_union_surface_sample",
+      "samples": 944,
+      "covered_fraction": 0.6080508474576272,
+      "maximum_sampled_gap_m": 0.026321627788984864
+    },
+    "left_tool_link": {
+      "method": "sphere_union_surface_sample",
+      "samples": 2032,
+      "covered_fraction": 0.4827755905511811,
+      "maximum_sampled_gap_m": 0.024027781162758596
+    },
+    "right_link1": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1280,
+      "covered_fraction": 0.74453125,
+      "maximum_sampled_gap_m": 0.018159762537879792
+    },
+    "right_link2": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1472,
+      "covered_fraction": 0.6066576086956522,
+      "maximum_sampled_gap_m": 0.015283552482946244
+    },
+    "right_link3": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1552,
+      "covered_fraction": 0.6804123711340206,
+      "maximum_sampled_gap_m": 0.012157923248749591
+    },
+    "right_link4": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1248,
+      "covered_fraction": 0.6818910256410257,
+      "maximum_sampled_gap_m": 0.01629516040934044
+    },
+    "right_link5": {
+      "method": "sphere_union_surface_sample",
+      "samples": 2312,
+      "covered_fraction": 0.40657439446366783,
+      "maximum_sampled_gap_m": 0.020056209395860884
+    },
+    "right_link6": {
+      "method": "sphere_union_surface_sample",
+      "samples": 1312,
+      "covered_fraction": 0.6242378048780488,
+      "maximum_sampled_gap_m": 0.006194056350522437
+    },
+    "right_link7": {
+      "method": "sphere_union_surface_sample",
+      "samples": 944,
+      "covered_fraction": 0.4766949152542373,
+      "maximum_sampled_gap_m": 0.024752919191897885
+    },
+    "right_tool_link": {
+      "method": "sphere_union_surface_sample",
+      "samples": 2032,
+      "covered_fraction": 0.45718503937007876,
+      "maximum_sampled_gap_m": 0.0203916394395416
+    },
+    "H1_Link": {
+      "method": "sphere_union_surface_sample",
+      "samples": 506424,
+      "covered_fraction": 0.3564207067595533,
+      "maximum_sampled_gap_m": 0.021085312991313197
+    },
+    "H2_Link": {
+      "method": "sphere_union_surface_sample",
+      "samples": 22672,
+      "covered_fraction": 0.18291284403669725,
+      "maximum_sampled_gap_m": 0.04664520095250778
+    },
+    "mid360_Link": {
+      "method": "sphere_union_surface_sample",
+      "samples": 190484,
+      "covered_fraction": 0.3927993952247958,
+      "maximum_sampled_gap_m": 0.033236719337969456
+    },
+    "base_link": {
+      "method": "four_box_union_surface_sample",
+      "samples": 629952,
+      "covered_fraction": 0.9866069160824952,
+      "maximum_sampled_gap_m": 0.004000028610229411
+    },
+    "arm_carriage": {
+      "method": "sphere_union_surface_sample",
+      "samples": 310784,
+      "covered_fraction": 0.5958897497940692,
+      "maximum_sampled_gap_m": 0.04845388361381124
+    }
+  },
+  "method": "all mesh vertices and face centroids; no radius inflation; local coverage invariant under each rigid link FK",
+  "maximum_sampled_gap_m": 0.04845388361381124
+}

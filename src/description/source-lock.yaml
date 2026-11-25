@@ -2,8 +2,8 @@ schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
 source_branch: main
-source_revision: 405f9ee91ffbe4864f99d0dbfeef5b3fdf59a00a
-source_tree: 760b4a55c559e960903426c0e2ab07c0004851a8
+source_revision: fa636d3ce89a9f27109d64ee68a48d878d6ea143
+source_tree: fc59e2cebe5892a801264310872dc2e1d75dd6f0
 imported_path: src/description/robot_description
 model_family: alfa_v3
 default_end_effector: mobile_proxy

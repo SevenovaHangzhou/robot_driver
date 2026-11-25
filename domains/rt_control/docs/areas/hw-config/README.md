@@ -43,4 +43,5 @@
 - hw-config-20261122-02#F1–F2：研华转角驱动对 `0x2690` 写 10 会清除多圈计数，之后须重算转向零点；零点见 hw-config-20261122-04。见[记录](records/2026-11-22-advantech-steering-zero.md)。
 - hw-config-20261122-04#F1–F2：研华转向零点满足 `q = −外置编码器航向角`；2026-11-22 零点为 38164/78291/−28551/101892（更正 -02 的符号）。见[记录](records/2026-11-22-advantech-steering-zero-sign.md)。
 - hw-config-20261123-01#F1：研华升降在当前关节坐标（零点 8887150 不变）中行程为 −1.033..+0.017 m；Robot Model 与 `updown.yaml` 已按此更正。见[记录](records/2026-11-23-description-updown-travel.md)。
+- hw-config-20261124-01：研华整机正式四盒模型 fa636d3、根 TF 与离线组合验证。见[记录](records/2026-11-24-approved-carriage.md)。
 - hw-config-20261122-03#F1–F2：Robot Model 快照同步到 robot_description 09a7ca4（升降 [-1.05, 0] m、0.1666 m/s；主动悬挂关节；后舵轮反装；双臂速度采用 eRob 手册峰值，用户 2026-11-22）。见[记录](records/2026-11-22-description-updown-limits.md)。

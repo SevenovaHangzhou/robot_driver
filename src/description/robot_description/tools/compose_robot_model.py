@@ -173,6 +173,11 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
         elif element.tag == 'joint' and element.get('name') in ('base_footprint_to_base_link', 'updown'):
             element = old_joints[element.get('name')]
         copied = deepcopy(element)
+        if copied.tag == 'joint' and copied.get('name') == 'H1_joint':
+            origin = copied.find('origin')
+            pose = transform(origin)
+            xyz = pose[:3, 3] + .050 * pose[:3, 0]
+            origin.set('xyz', ' '.join(format(value, '.17g') for value in xyz))
         if copied.tag == 'link' and copied.get('name') in WHEEL_LINKS:
             # Wheel joints, visuals and inertials stay. The approved planning
             # collision model uses the chassis shell rather than wheel contact.
@@ -438,7 +443,7 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
                 'urdf_sha256': sha(old_bytes), 'fixed_yaml_sha256': sha(old_config_bytes),
                 'boxes_sha256': sha(boxes_bytes)}},
         'composition': {'arm_joint1_to_7_and_geometry': 'github_description',
-            'base_lift_carriage': 'curobo_pr82', 'head_and_sensors': 'github_description, original parents and local joint transforms',
+            'base_lift_carriage': 'curobo_pr82', 'head_and_sensors': 'H1 mount shifted 50 mm along its local +X at zero; downstream mounts from github_description',
             'steering_wheels': 'github_description joints/visuals/inertials; collision represented by chassis shell; '
                 'modules ' + ', '.join(map(str, REVERSED_SWERVE_MODULES)) + ' turned 180 deg about the steering axis',
             'base_collision': 'approved enclosed visual shell',
@@ -452,7 +457,8 @@ def build(description_repo, algorithm_repo, output, description_ref=DESCRIPTION_
             if j.get('name') in {f'{side}_joint{i}' for side in ('left','right') for i in range(1,8)}},
         'github_full_joint_contract': {j.get('name'): structure(j) for j in upstream.findall('joint')},
         'github_link_names': [l.get('name') for l in upstream.findall('link')],
-        'joint_overrides': {'base_footprint_to_base_link': 'PR82 root: z=.335m, yaw=0',
+        'joint_overrides': {'H1_joint': 'H1 mount 50 mm forward along local +X at zero (ELECTRI-244)',
+            'base_footprint_to_base_link': 'PR82 root: z=.335m, yaw=0',
             'updown': 'PR82 lift (same local transform as upstream); limits measured on the robot '
                 '(user 2026-11-22): -1.05..0 m, 0.1666 m/s',
             'left_tool0_fixed': 'agreed own TCP distance and axes',
@@ -485,4 +491,6 @@ if __name__ == '__main__':
     parser.add_argument('--description-ref', default=DESCRIPTION_REV)
     parser.add_argument('--algorithm-ref', default=ALGORITHM_REV)
     args = parser.parse_args()
+    if (args.output_root/'config/carriage_assembly/approval.json').exists():
+        parser.error('Current approved assembly must be rebuilt with tools/compose_approved_carriage.py; this historical builder would restore the old model')
     build(args.description_repo, args.algorithm_repo, args.output_root, args.description_ref, args.algorithm_ref)

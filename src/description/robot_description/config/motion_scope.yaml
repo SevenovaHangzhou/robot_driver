@@ -1,5 +1,5 @@
 schema_version: 1
-model_revision: unified-20261112-r2
+model_revision: carriage-assembly-approved-20261124
 model_entry: urdf/robot_alfav3_mobile.urdf
 controlled_joints:
 - updown

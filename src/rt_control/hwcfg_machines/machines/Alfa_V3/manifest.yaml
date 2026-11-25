@@ -20,7 +20,7 @@ parts:
 - manifest/advantech.yaml
 robot_model:
   package: robot_description
-  source_revision: 2b0950f1a5009dda1e93d4737b2894ccefed3734
+  source_revision: fa636d3ce89a9f27109d64ee68a48d878d6ea143
   variants:
     # Alfav3 dual arms on the deployed mobile base; no named poses or initial positions (user 2026-10-17).
     mobile_proxy:

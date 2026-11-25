@@ -5,7 +5,7 @@ scope: motion_controlled_joints
 units:
   revolute: rad
   prismatic: m
-model_revision: unified-20261112-r2
+model_revision: carriage-assembly-approved-20261124
 decision:
   date: '2026-11-22'
   source: User-selected empty navigation stow pose from the offline 15-axis editor
@@ -15,7 +15,8 @@ validation:
   collision_checked: true
   new_model_task_verified: false
   report: validation/stow_20261122.json
-  scope: Empty robot self-collision, full four body cuboids, ground and joint limits; no external obstacles or hardware motion
+  scope: Empty robot self-collision, full four body cuboids, ground and joint limits;
+    no external obstacles or hardware motion
 positions:
   updown: 0.0
   left_joint1: 1.0471975511965976

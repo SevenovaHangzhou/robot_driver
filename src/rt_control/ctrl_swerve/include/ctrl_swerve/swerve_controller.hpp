@@ -18,6 +18,8 @@
 #include "sensor_msgs/msg/imu.hpp"
 #include "ctrl_swerve/control_core.hpp"
 #include "ctrl_swerve/odometry_covariance.hpp"
+#include "ctrl_swerve/navigation_feedback.hpp"
+#include "ctrl_swerve/steering_velocity_observer.hpp"
 
 namespace ctrl_swerve
 {
@@ -49,8 +51,17 @@ private:
     uint64_t generation{0};
     bool valid{false};
   };
+  struct RotationRequest
+  {
+    int64_t received_ns{0};
+    uint64_t generation{0};
+    bool requested{false};
+  };
   static int64_t steady_now() noexcept;
   ModuleFeedbackArray read_feedback() const;
+  void reset_steering_observations() noexcept;
+  void observe_steering(
+    const ModuleFeedbackArray & feedback, const rclcpp::Time & stamp, int64_t now, bool valid);
   [[nodiscard]] bool write_output(const ControlOutput & output);
   void stop_outputs();
   void accept_command(const geometry_msgs::msg::Twist & message, uint64_t generation);
@@ -69,6 +80,11 @@ private:
   std::array<OdometryCovariances, 8> covariances_{};
   realtime_tools::RealtimeBuffer<Command> command_buffer_;
   realtime_tools::RealtimeBuffer<ImuSample> imu_buffer_;
+  realtime_tools::RealtimeBuffer<RotationRequest> rotation_buffer_;
+  std::unique_ptr<NavigationFeedback> navigation_feedback_;
+  std::array<SteeringVelocityObserver, 4> steering_observers_{};
+  std::array<double, 4> observed_steering_rates_{};
+  int64_t last_observation_stamp_ns_{0};
   std::atomic_bool active_{false}, ready_{false};
   std::atomic<ControlStatus> status_{ControlStatus::inactive};
   // Motion fault: latched until deactivation; ready for ordered disable once wheels stopped.
@@ -98,11 +114,12 @@ private:
   double imu_timeout_{0.0}, max_imu_yaw_step_{0.0}, quaternion_tolerance_{0.0};
   bool imu_enabled_{false};
   // drive_mode (configure-time): align_first stops the wheels until all four modules align.
-  bool align_first_{true};
+  bool align_first_{false};
   std::string imu_frame_;
   ControlOutput last_output_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr command_subscription_;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr rotation_subscription_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odometry_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<nav_msgs::msg::Odometry>> realtime_odometry_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostic_publisher_;
