@@ -1,0 +1,6 @@
+{
+  "default_urdf_structurally_identical_to_approved_preview": true,
+  "rebuild_hashes_unchanged": true,
+  "cpu_tests_passed": 22,
+  "scope": "no robot execution; removal of unrequested +90 degree wheel correction"
+}

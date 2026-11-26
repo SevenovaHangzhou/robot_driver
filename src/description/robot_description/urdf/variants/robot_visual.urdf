@@ -7,170 +7,209 @@
     <child link="base_link" />
   </joint>
   <link name="steer1">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/steer1.stl" />
+      </geometry>
+      <material name="steer1_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+      <origin xyz="0 -2.7755575615628914e-17 0" rpy="3.1415926535897931 -4.6410206666284834e-08 -1.5707963267948966" />
+    </visual>
     <inertial>
       <origin xyz="0 -0.00049602482 0.12712431" rpy="0 0 0" />
       <mass value="0.67282569" />
       <inertia ixx="0.0052806641" iyy="0.0048283205" izz="0.0015774072" ixy="0" ixz="0" iyz="3.4333553e-05" />
     </inertial>
-    <visual>
-      <origin xyz="-0.305 0.305 0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_061_solid_061.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <link name="wheel1">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/wheel1.stl" />
+      </geometry>
+      <material name="wheel1_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="1.5707963267948966 -2.9019287349242606e-25 1.9615310104140961e-08" />
+    </visual>
     <inertial>
-      <origin xyz="3.5386183e-09 3.8364939e-10 -0.03" rpy="0 0 0" />
+      <origin xyz="-0.029999999999999999 3.8364938999999999e-10 -3.5386183018369698e-09" rpy="-0 1.5707963267948966 0" />
       <mass value="2.251654" />
       <inertia ixx="0.0062790399" iyy="0.0062790398" izz="0.011207087" ixy="0" ixz="0" iyz="0" />
     </inertial>
-    <visual>
-      <origin xyz="-0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_062_solid_062.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <link name="steer2">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/steer2.stl" />
+      </geometry>
+      <material name="steer2_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+      <origin xyz="0 -2.7755575615628914e-17 0" rpy="3.1415926535897931 -4.6410206666284834e-08 -1.5707963267948966" />
+    </visual>
     <inertial>
       <origin xyz="0 -0.00049602482 0.12712431" rpy="0 0 0" />
       <mass value="0.67282569" />
       <inertia ixx="0.0052806641" iyy="0.0048283205" izz="0.0015774072" ixy="0" ixz="0" iyz="3.4333553e-05" />
     </inertial>
-    <visual>
-      <origin xyz="-0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_059_solid_059.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <link name="wheel2">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/wheel2.stl" />
+      </geometry>
+      <material name="wheel2_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="1.5707963267948966 -2.9019287349242606e-25 1.9615310104140961e-08" />
+    </visual>
     <inertial>
-      <origin xyz="3.5386188e-09 3.8364939e-10 -0.03" rpy="0 0 0" />
+      <origin xyz="-0.029999999999999999 3.8364938999999999e-10 -3.53861880183697e-09" rpy="-0 1.5707963267948966 0" />
       <mass value="2.251654" />
       <inertia ixx="0.0062790399" iyy="0.0062790398" izz="0.011207087" ixy="0" ixz="0" iyz="0" />
     </inertial>
-    <visual>
-      <origin xyz="-0.305 -0.22 0.275" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_060_solid_060.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <link name="steer3">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/steer4.stl" />
+      </geometry>
+      <material name="steer4_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="3.1415926535897931 4.6410206666284834e-08 1.5707963267948966" />
+    </visual>
     <inertial>
       <origin xyz="0 -0.00049602482 0.10712431" rpy="0 0 0" />
       <mass value="0.67282569" />
       <inertia ixx="0.0052806641" iyy="0.0048283205" izz="0.0015774072" ixy="0" ixz="0" iyz="3.4333553e-05" />
     </inertial>
-    <visual>
-      <origin xyz="0.305 0.305 -0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_065_solid_065.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <link name="wheel3">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/wheel4.stl" />
+      </geometry>
+      <material name="wheel4_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="-1.5707963267948966 1.2246467962454241e-16 -3.1415926339744833" />
+    </visual>
     <inertial>
-      <origin xyz="-3.538619e-09 3.8364972e-10 -0.03" rpy="0 0 0" />
+      <origin xyz="-0.029999999999999999 3.8364972000000001e-10 3.53861899816303e-09" rpy="-0 1.5707963267948966 0" />
       <mass value="2.251654" />
       <inertia ixx="0.0062790399" iyy="0.0062790398" izz="0.011207087" ixy="0" ixz="0" iyz="0" />
     </inertial>
-    <visual>
-      <origin xyz="0.305 -0.22 -0.335" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_066_solid_066.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <link name="steer4">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/steer3.stl" />
+      </geometry>
+      <material name="steer3_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+      <origin xyz="0 0 -1.3877787807814457e-17" rpy="3.1415926535897931 4.6410206666284834e-08 1.5707963267948966" />
+    </visual>
     <inertial>
       <origin xyz="0 -0.00049602482 0.12712431" rpy="0 0 0" />
       <mass value="0.67282569" />
       <inertia ixx="0.0052806641" iyy="0.0048283205" izz="0.0015774072" ixy="0" ixz="0" iyz="3.4333553e-05" />
     </inertial>
-    <visual>
-      <origin xyz="0.305 -0.305 0.01" rpy="-3.1415927 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_063_solid_063.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <link name="wheel4">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/wheel3.stl" />
+      </geometry>
+      <material name="wheel3_color">
+        <color rgba="0.18 0.2 0.23 1" />
+      </material>
+      <origin xyz="5.5511151231257827e-17 0 3.3990776836172276e-33" rpy="-1.5707963267948966 1.2246467962454241e-16 -3.1415926339744833" />
+    </visual>
     <inertial>
-      <origin xyz="-3.5386178e-09 3.8364883e-10 -0.03" rpy="0 0 0" />
+      <origin xyz="-0.029999999999999999 3.8364883000000002e-10 3.53861779816303e-09" rpy="-0 1.5707963267948966 0" />
       <mass value="2.251654" />
       <inertia ixx="0.0062790399" iyy="0.0062790398" izz="0.011207087" ixy="0" ixz="0" iyz="0" />
     </inertial>
-    <visual>
-      <origin xyz="0.305 -0.22 0.275" rpy="1.5707963 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/chassis/part_064_solid_064.stl" scale="0.001 0.001 0.001" />
-      </geometry>
-    </visual>
   </link>
   <joint name="steer1_joint" type="revolute">
-    <origin xyz="0.23021702907 0.30499999999999999 0.01" rpy="3.1415927 0 -1.5707963267948966" />
+    <origin xyz="0.23021702907329999 0.30499999999999999 -0.014500000000000001" rpy="-3.1415926071795868 -0 -1.5707963267948966" />
     <parent link="base_link" />
     <child link="steer1" />
     <axis xyz="0 0 1" />
     <limit lower="-2.356194490192345" upper="2.356194490192345" effort="10" velocity="5" />
   </joint>
   <joint name="wheel1_joint" type="continuous">
-    <origin xyz="0 -0.03 0.23" rpy="1.5707963 0 0" />
+    <origin xyz="0 2.9887424838337395e-06 0.25549999999986162" rpy="1.5707963267948966 -2.6794896585028636e-08 -1.5707963267948966" />
     <parent link="steer1" />
     <child link="wheel1" />
     <axis xyz="0 0 1" />
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer2_joint" type="revolute">
-    <origin xyz="0.23021702907 -0.30499999999999999 0.01" rpy="3.1415927 0 -1.5707963267948966" />
+    <origin xyz="0.23021702907329999 -0.30499999999999999 -0.014500000000000001" rpy="-3.1415926071795868 -0 -1.5707963267948966" />
     <parent link="base_link" />
     <child link="steer2" />
     <axis xyz="0 0 1" />
     <limit lower="-2.356194490192345" upper="2.356194490192345" effort="10" velocity="5" />
   </joint>
   <joint name="wheel2_joint" type="continuous">
-    <origin xyz="0 -0.03 0.23" rpy="1.5707963 0 0" />
+    <origin xyz="0 2.9887424838337395e-06 0.25549999999986162" rpy="1.5707963267948966 -2.6794896585028636e-08 -1.5707963267948966" />
     <parent link="steer2" />
     <child link="wheel2" />
     <axis xyz="0 0 1" />
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer3_joint" type="revolute">
-    <origin xyz="-0.074782970929999998 0.30499999999999999 -0.01" rpy="3.1415927 0 1.5707963267948966" />
+    <origin xyz="0 0.30499999999999999 -0.012999999999999998" rpy="-3.1415926071795868 -0 1.5707963267948966" />
     <parent link="suspension_link" />
     <child link="steer3" />
     <axis xyz="0 0 1" />
     <limit lower="-2.356194490192345" upper="2.356194490192345" effort="10" velocity="5" />
   </joint>
   <joint name="wheel3_joint" type="continuous">
-    <origin xyz="0 -0.03 0.21" rpy="1.5707963 0 0" />
+    <origin xyz="0 2.9850064621750327e-06 0.17499999999986166" rpy="1.5707963267948966 -2.6794896585028636e-08 -1.5707963267948966" />
     <parent link="steer3" />
     <child link="wheel3" />
     <axis xyz="0 0 -1" />
     <limit effort="10" velocity="31.4" />
   </joint>
   <joint name="steer4_joint" type="revolute">
-    <origin xyz="-0.074782970929999998 -0.30499999999999999 0.01" rpy="3.1415927 0 1.5707963267948966" />
+    <origin xyz="0 -0.30499999999999999 0.018000000000000002" rpy="-3.1415926071795868 -0 1.5707963267948966" />
     <parent link="suspension_link" />
     <child link="steer4" />
     <axis xyz="0 0 1" />
     <limit lower="-2.356194490192345" upper="2.356194490192345" effort="10" velocity="5" />
   </joint>
   <joint name="wheel4_joint" type="continuous">
-    <origin xyz="0 -0.03 0.23" rpy="1.5707963 0 0" />
+    <origin xyz="0 2.9864451785988066e-06 0.20599999999986163" rpy="1.5707963267948966 -2.6794896585028636e-08 -1.5707963267948966" />
     <parent link="steer4" />
     <child link="wheel4" />
     <axis xyz="0 0 -1" />
     <limit effort="10" velocity="31.4" />
   </joint>
-  <link name="imu_link" />
+  <link name="imu_link">
+    <inertial>
+      <origin xyz="3.5392544910080001e-06 0.0039651811502200004 -0.01194033758994" rpy="0 -0 0" />
+      <mass value="0.01937552841289" />
+      <inertia ixx="6.352047310557e-06" ixy="1.484030323214e-09" ixz="-2.702560710364e-10" iyy="4.251834461352e-06" iyz="1.934949585648e-07" izz="8.828396041317e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/imu_link.stl" />
+      </geometry>
+      <material name="imu_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="base_link_to_imu" type="fixed">
     <parent link="base_link" />
     <child link="imu_link" />
-    <origin xyz="0.403 0 0" rpy="0 0 0" />
+    <origin xyz="0.34221702907329998 0 -0.13300002545799999" rpy="0 -0 1.570796326795" />
   </joint>
   <link name="left_link1">
     <inertial>
@@ -578,90 +617,81 @@
   </joint>
   <link name="H1_Link">
     <inertial>
-      <origin xyz="-0.0193101466822019 -0.00462200038728198 0.2299480657906" rpy="0 0 0" />
-      <mass value="0.279891410655859" />
-      <inertia ixx="8.24197069582363E-05" ixy="-8.60735780941269E-07" ixz="2.71318714227839E-06" iyy="0.000134686827989522" iyz="6.77194801653851E-07" izz="9.74516431435526E-05" />
+      <origin xyz="-0.001660566151387 -0.0017771936265249999 0.066691392884199993" rpy="0 -0 0" />
+      <mass value="0.6327690099072" />
+      <inertia ixx="0.002387679275529" ixy="7.455433033096e-06" ixz="5.857636765772e-05" iyy="0.00249083944256" iyz="5.191846607698e-06" izz="0.000722591764458" />
     </inertial>
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/head/H1_Link.STL" />
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/H1_Link.stl" />
       </geometry>
-      <material name="H1_Link_material">
-        <color rgba="0.866666666666667 0.909803921568627 1 1" />
+      <material name="H1_Link_color">
+        <color rgba="0.6 0.64 0.7 1" />
       </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
     </visual>
   </link>
   <link name="H2_Link">
     <inertial>
-      <origin xyz="0.0047910972112475 0.0422440779975193 0.000136722359139303" rpy="0 0 0" />
-      <mass value="1.51565299644841" />
-      <inertia ixx="0.00176955579249004" ixy="9.16527122719249E-05" ixz="-5.03934525838653E-08" iyy="0.00120739216276253" iyz="-6.99930879521429E-07" izz="0.00171762008713826" />
+      <origin xyz="0.0081869980214030001 0.054409687186220003 0.00045984393354419999" rpy="0 -0 0" />
+      <mass value="0.1638258252758" />
+      <inertia ixx="0.000464328445162" ixy="6.178653458862e-05" ixz="-6.076049138729e-07" iyy="0.0002455707647379" iyz="-4.064742147718e-06" izz="0.0003858943546332" />
     </inertial>
     <visual>
-      <origin xyz="0.02 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/head/H2_Link.STL" />
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/H2_Link.stl" />
       </geometry>
-      <material name="H2_Link_material">
-        <color rgba="0.866666666666667 0.909803921568627 1 1" />
+      <material name="H2_Link_color">
+        <color rgba="0.6 0.64 0.7 1" />
       </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
     </visual>
   </link>
   <link name="Leye_link">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="package://robot_description/mesh/head/Leye_link.STL" />
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/head_camera_left.stl" />
       </geometry>
-      <material name="Leye_link_material">
-        <color rgba="0.850980392156863 1 0.258823529411765 0.15" />
+      <material name="head_camera_left_color">
+        <color rgba="0.28 0.35 0.4 1" />
       </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
     </visual>
   </link>
   <link name="Reye_Link">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/head/Reye_Link.STL" />
-      </geometry>
-      <material name="Reye_Link_material">
-        <color rgba="0.850980392156863 1 0.258823529411765 0.15" />
-      </material>
-    </visual>
-  </link>
+    </link>
   <link name="mid360_Link">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/head_mid360.stl" />
+      </geometry>
+      <material name="head_mid360_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 -3.1554436208840472e-30 0" rpy="-2.2732949210130414e-31 1.3221231024823159e-17 3.4385884033471673e-30" />
+    </visual>
     <inertial>
       <origin xyz="0 0.014781538397073746 -0.01695144921541214" rpy="0 0 0" />
       <mass value="0.375" />
       <inertia ixx="0.00039156229099928004" ixy="0" ixz="0" iyy="0.0002443836536081545" iyz="0" izz="0.0004102171177228931" />
     </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <geometry>
-        <mesh filename="package://robot_description/mesh/head/mid360_Link.STL" />
-      </geometry>
-      <material name="mid360_Link_material">
-        <color rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
-      </material>
-    </visual>
   </link>
   <joint name="H1_joint" type="revolute">
-    <origin xyz="0.316999999999999 0 0.36514999999999997" rpy="3.1415926535897931 0 0" />
+    <origin xyz="0.31699999999999839 -4.6844576833577856e-06 0.17190116027331204" rpy="3.1415926071795868 -0 0" />
     <parent link="arm_carriage" />
     <child link="H1_Link" />
     <axis xyz="0 0 1" />
     <limit lower="-0.7853981633974483" upper="0.7853981633974483" effort="10" velocity="5" />
   </joint>
   <joint name="H2_joint" type="revolute">
-    <origin xyz="-0.02 0 0.24625009252407" rpy="1.5707963267949 0 0" />
+    <origin xyz="-0.020000000000000018 0 0.062999999999999945" rpy="1.570796326795 -0 0" />
     <parent link="H1_Link" />
     <child link="H2_Link" />
     <axis xyz="0 0 1" />
     <limit lower="-0.6981317007977318" upper="0.6108652381980153" effort="10" velocity="5" />
   </joint>
   <joint name="Leye_joint" type="fixed">
-    <origin xyz="0.032866 0.11171 -0.06" rpy="-1.5708 0 0" />
+    <origin xyz="0.032866151215039996 0.11170756995579989 -0.059999920629089994" rpy="-1.570796326795 -0 0" />
     <parent link="H2_Link" />
     <child link="Leye_link" />
     <axis xyz="0 0 0" />
@@ -673,74 +703,229 @@
     <axis xyz="0 0 0" />
   </joint>
   <joint name="mid360_joint" type="fixed">
-    <origin xyz="0.05857 0.066019 0" rpy="-1.5708 0 -0.37885" />
+    <origin xyz="0.058570127844809972 0.066019240560929893 2.5243548967072378e-29" rpy="-1.570796326795 1.2047712816437939e-30 -0.37884504480760006" />
     <parent link="H2_Link" />
     <child link="mid360_Link" />
     <axis xyz="0 0 0" />
   </joint>
-  <link name="lidar_main" />
+  <link name="lidar_main">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/front_mid360.stl" />
+      </geometry>
+      <material name="front_mid360_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -4.793249824617318e-17 0" />
+    </visual>
+  </link>
   <joint name="lidar_main_fixed" type="fixed">
     <parent link="base_link" />
     <child link="lidar_main" />
-    <origin xyz="0.45331344797786899 0 0.06309940399999997" rpy="0 0.26179938779914941 0" />
+    <origin xyz="0.390660583201 0 0.022370720542030001" rpy="0 0.26179938779919998 0" />
   </joint>
-  <link name="lidar_rear" />
+  <link name="lidar_rear">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/behind_mid360.stl" />
+      </geometry>
+      <material name="behind_mid360_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="lidar_rear_fixed" type="fixed">
     <parent link="base_link" />
     <child link="lidar_rear" />
-    <origin xyz="-0.047 0 1.6240000000000001" rpy="-0 -1.5707963267948966 0" />
+    <origin xyz="-0.15678297092669999 0 1.5576099999999999" rpy="-0 -1.5707963267947933 0" />
   </joint>
-  <link name="ultrasonic_channel_1_link" />
+  <link name="ultrasonic_channel_1_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-2.028764622455e-24" ixz="-2.289844706821e-23" iyy="7.544422238428e-07" iyz="4.374820283579e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_8_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_8_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_1_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_1_link" />
-    <origin xyz="0.3145 0.48499999999999999 0.019" rpy="0 0 1.5707963267948966" />
+    <origin xyz="0.2397170290733 0.47949999999999998 0.019" rpy="0 -0 1.570796326795" />
   </joint>
-  <link name="ultrasonic_channel_2_link" />
+  <link name="ultrasonic_channel_2_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-2.379976437875e-23" ixz="8.630168266397e-24" iyy="7.544422238428e-07" iyz="9.742848898026e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_1_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_1_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_2_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_2_link" />
-    <origin xyz="0.48499999999999999 0.3145 0.019" rpy="0 0 0" />
+    <origin xyz="0.40471702907329998 0.3145 0.019" rpy="0 -0 0" />
   </joint>
-  <link name="ultrasonic_channel_3_link" />
+  <link name="ultrasonic_channel_3_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-6.677281703182e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_2_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_2_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_3_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_3_link" />
-    <origin xyz="0.48499999999999999 -0.3145 0.019" rpy="0 0 0" />
+    <origin xyz="0.40471702907329998 -0.3145 0.019" rpy="0 -0 0" />
   </joint>
-  <link name="ultrasonic_channel_4_link" />
+  <link name="ultrasonic_channel_4_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-5.100738595837e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_3_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_3_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_4_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_4_link" />
-    <origin xyz="0.3145 -0.48499999999999999 0.019" rpy="0 0 -1.5707963267948966" />
+    <origin xyz="0.2397170290733 -0.47949999999999998 0.019" rpy="0 -0 -1.570796326795" />
   </joint>
-  <link name="ultrasonic_channel_5_link" />
+  <link name="ultrasonic_channel_5_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-3.897783854697e-23" ixz="-2.137460416464e-23" iyy="7.544422238428e-07" iyz="6.468818102728e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_4_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_4_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_5_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_5_link" />
-    <origin xyz="-0.3145 -0.48499999999999999 0.019" rpy="0 0 -1.5707963267948966" />
+    <origin xyz="-0.3892829709267 -0.47949999999999998 0.019" rpy="0 -0 -1.570796326795" />
   </joint>
-  <link name="ultrasonic_channel_6_link" />
+  <link name="ultrasonic_channel_6_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="-3.897783854697e-23" ixz="-2.137460416464e-23" iyy="7.544422238428e-07" iyz="6.814089653871e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_5_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_5_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_6_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_6_link" />
-    <origin xyz="-0.48499999999999999 -0.3145 0.019" rpy="0 0 3.1415926535897931" />
+    <origin xyz="-0.55428297092669998 -0.3145 0.019" rpy="0 -0 3.1415926535895866" />
   </joint>
-  <link name="ultrasonic_channel_7_link" />
+  <link name="ultrasonic_channel_7_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-9.187241383508e-22" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_6_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_6_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_7_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_7_link" />
-    <origin xyz="-0.48499999999999999 0.3145 0.019" rpy="0 0 3.1415926535897931" />
+    <origin xyz="-0.55428297092669998 0.3145 0.019" rpy="0 -0 -3.1415926535895866" />
   </joint>
-  <link name="ultrasonic_channel_8_link" />
+  <link name="ultrasonic_channel_8_link">
+    <inertial>
+      <origin xyz="-0.0113771688108 0 0" rpy="0 -0 0" />
+      <mass value="0.01190341287465" />
+      <inertia ixx="1.230909665535e-06" ixy="3.897783854697e-23" ixz="2.137460416464e-23" iyy="7.544422238428e-07" iyz="-5.100738595837e-23" izz="1.449170906996e-06" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/ultrasonic_channel_7_link.stl" />
+      </geometry>
+      <material name="ultrasonic_channel_7_link_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="ultrasonic_channel_8_joint" type="fixed">
     <parent link="base_link" />
     <child link="ultrasonic_channel_8_link" />
-    <origin xyz="-0.3145 0.48499999999999999 0.019" rpy="0 0 1.5707963267948966" />
+    <origin xyz="-0.3892829709267 0.47949999999999998 0.019" rpy="0 -0 1.570796326795" />
   </joint>
-  <link name="suspension_link" />
+  <link name="suspension_link">
+    <inertial>
+      <origin xyz="-0.001933682648615 6.3319292071119997e-05 0.05083543381649" rpy="0 -0 0" />
+      <mass value="59.24165980113" />
+      <inertia ixx="3.165264881335" ixy="-0.0002572861840224" ixz="-0.0152964718696" iyy="0.7942934460099" iyz="0.0001399017847938" izz="3.239589110051" />
+    </inertial>
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/active_suspension_link.stl" />
+      </geometry>
+      <material name="active_suspension_link_color">
+        <color rgba="0.6 0.64 0.7 1" />
+      </material>
+      <origin xyz="0 0 0" rpy="0 -0 0" />
+    </visual>
+  </link>
   <joint name="suspension" type="prismatic">
-    <origin xyz="-0.305 0 0" rpy="0 0 0" />
+    <origin xyz="-0.37978297092669999 0 -0.082000000000000003" rpy="0 -0 0" />
     <parent link="base_link" />
     <child link="suspension_link" />
     <axis xyz="0 0 1" />
@@ -785,4 +970,19 @@
       </material>
     </visual>
   </link>
+  <link name="chest_camera_left">
+    <visual>
+      <geometry>
+        <mesh filename="package://robot_description/preview/chassis_head_20261124/meshes/chest_camera_left.stl" />
+      </geometry>
+      <material name="chest_camera_left_color">
+        <color rgba="0.28 0.35 0.4 1" />
+      </material>
+    </visual>
+  </link>
+  <joint name="chest_camera_left_fixed" type="fixed">
+    <parent link="arm_carriage" />
+    <child link="chest_camera_left" />
+    <origin xyz="0.38031491792159833 -0.060004550907195968 0.51714197425941877" rpy="3.1415925999999028 -0.52359877559829937 2.679494519694078e-08" />
+  </joint>
 </robot>

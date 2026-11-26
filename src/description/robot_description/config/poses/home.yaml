@@ -5,7 +5,7 @@ scope: motion_controlled_joints
 units:
   revolute: rad
   prismatic: m
-model_revision: carriage-assembly-approved-20261124
+model_revision: chassis-head-default-20261125
 based_on:
   release: alfa-v3-curobo-legacy-26.11.10-buildable
   path: program/research/curobo_v3/config/rezero_home.json

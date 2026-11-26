@@ -17,6 +17,8 @@ class TfContractTest(unittest.TestCase):
         joints = {joint.attrib["name"]: joint for joint in robot.findall("joint")}
 
         self.assertEqual(robot.attrib["name"], "alfa_robot_v3")
+        self.assertIn("chest_camera_left", links)
+        self.assertEqual(joints["chest_camera_left_fixed"].find("child").get("link"), "chest_camera_left")
         self.assertIn("base_footprint", links)
         self.assertNotIn("world", links)
         base_joint = joints["base_footprint_to_base_link"]

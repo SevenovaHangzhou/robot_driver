@@ -17,17 +17,19 @@ from integ_composer.schema.manifest_load import read_with_parts
 
 PACKAGE = Path(__file__).resolve().parents[1]
 RT = PACKAGE.parent
-for owner in ("hw_ethercat", "hw_canopen"):
+for owner in ("hw_ethercat", "hw_canopen", "hw_can_damiao"):
     sys.path.insert(0, str(RT / owner))
 from hw_ethercat import rt_control_renderer as ETHERCAT
 from hw_ethercat.kinco_renderer import conversion_factors
 from hw_canopen import rt_control_renderer as CANOPEN
+from hw_can_damiao import rt_control_renderer as HEAD
 
 
 @pytest.fixture
 def shares(monkeypatch):
     monkeypatch.setattr(ETHERCAT, "_share", lambda: RT / "hw_ethercat")
     monkeypatch.setattr(CANOPEN, "_share", lambda: RT / "hw_canopen")
+    monkeypatch.setattr(HEAD, "_share", lambda: RT / "hw_can_damiao")
     lookup = {path.name: path for path in RT.iterdir() if path.is_dir()}
     lookup["robot_description"] = RT.parent / "description/robot_description"
     return lookup
@@ -117,8 +119,13 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     assert lifecycle["bus_locks"] == ["can-can3", "ethercat-master-0"]
 
 
-def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(shares, tmp_path):
-    result = compose(**arguments(shares), runtime_dir=tmp_path / "real", use_mock_hardware=False)
+@pytest.mark.parametrize("scope", ["chassis_only", "advantech_full"])
+@pytest.mark.parametrize("mock", [False, True])
+def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(
+    shares, tmp_path, scope, mock
+):
+    selection = {**arguments(shares), "physical_profile": scope, "control_scope": scope}
+    result = compose(**selection, runtime_dir=tmp_path / "artifact", use_mock_hardware=mock)
     params = result.controllers["wheel_observation_broadcaster"]["ros__parameters"]
     swerve = result.controllers["swerve_controller"]["ros__parameters"]
     for name in (
@@ -132,9 +139,44 @@ def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(shar
         "feedback_timeout",
     ):
         assert params[name] == swerve[name], name
-    # hw-config-20261116-02#F1: module_1..4 are FR, RR, FL, RL.
+    # Module order follows the verified Advantech calibration (#326).
     assert params["module_x"] == [0.305, 0.305, -0.305, -0.305]
     assert params["module_y"] == [0.305, -0.305, 0.305, -0.305]
+    assert params["steering_joints"] == [f"steer{i}_joint" for i in range(1, 5)]
+    assert params["drive_joints"] == [f"wheel{i}_joint" for i in range(1, 5)]
+    assert params["steering_encoders"] == [f"steering_encoder_{i}" for i in range(1, 5)]
+    assert params["steering_to_yaw_sign"] == [-1.0] * 4
+    assert result.controllers["base_wheel_jtc"]["ros__parameters"]["joints"] == (
+        params["steering_joints"] + params["drive_joints"]
+    )
+    if not mock:
+        robot = ET.fromstring(result.robot_description)
+        hardware_joints = {
+            joint.get("name"): joint for joint in robot.findall("ros2_control/joint")
+        }
+        # Renaming the corners must not reorder motor rings, zero captures or CAN sensors.
+        for i, zero in enumerate((88244, 77701, 41338, -19355), 1):
+            steering = hardware_joints[f"steer{i}_joint"]
+            drive = hardware_joints[f"wheel{i}_joint"]
+            assert int(steering.find("param[@name='ec_module.position']").text) == 2 * i + 1
+            assert int(drive.find("param[@name='ec_module.position']").text) == 2 * i
+            config = yaml.safe_load(result.files[f"steer{i}_joint.yaml"])["kinco_cyclic_mode"]
+            assert config["position_offset_counts"] == zero
+            # The model's mounting origins and control geometry must name the same corner.
+            mount = robot.find(f"joint[@name='steer{i}_joint']")
+            xyz = [float(v) for v in mount.find("origin").get("xyz").split()]
+            parent = mount.find("parent").get("link")
+            while parent != "base_footprint":
+                ancestor = next(
+                    j for j in robot.findall("joint") if j.find("child").get("link") == parent
+                )
+                origin = ancestor.find("origin")
+                assert [float(v) for v in origin.get("rpy").split()] == [0, 0, 0]
+                xyz = [v + float(offset) for v, offset in zip(xyz, origin.get("xyz").split())]
+                parent = ancestor.find("parent").get("link")
+            assert xyz[:2] == pytest.approx([params["module_x"][i - 1], params["module_y"][i - 1]])
+        bus = yaml.safe_load(result.files["canopen_bus.yaml"])
+        assert [bus[f"steering_encoder_{i}"]["node_id"] for i in range(1, 5)] == [14, 12, 11, 13]
     assert params["chassis_calibration_id"].startswith("swerve_chassis:sha256:")
     assert params["encoder_calibration_id"].startswith("swerve_encoders:sha256:")
     assert params["publish_rate"] == 100.0
