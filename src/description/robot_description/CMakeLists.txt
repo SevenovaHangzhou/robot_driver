@@ -11,7 +11,7 @@ if(BUILD_TESTING)
 endif()
 
 # Mesh assets are classified by robot part; URDF package:// paths match this layout.
-install(DIRECTORY urdf srdf config mesh docs validation DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY urdf srdf config mesh docs validation preview DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY tools DESTINATION share/${PROJECT_NAME} FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)
 
 ament_package()

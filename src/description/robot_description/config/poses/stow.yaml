@@ -5,7 +5,7 @@ scope: motion_controlled_joints
 units:
   revolute: rad
   prismatic: m
-model_revision: carriage-assembly-approved-20261124
+model_revision: chassis-head-default-20261125
 decision:
   date: '2026-11-22'
   source: User-selected empty navigation stow pose from the offline 15-axis editor

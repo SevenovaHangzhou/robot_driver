@@ -171,4 +171,9 @@ def build(root):
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[1])
-    build(parser.parse_args().root.resolve())
+    root=parser.parse_args().root.resolve()
+    if (root/'preview/chassis_head_20261124/urdf/preview_corrected.urdf').exists():
+        from promote_chassis_head import build as promote
+        promote(root)
+    else:
+        build(root)

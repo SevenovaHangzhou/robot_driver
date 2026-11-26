@@ -1,5 +1,5 @@
 {
-  "revision": "carriage-assembly-approved-20261124",
+  "revision": "chassis-head-default-20261125",
   "status": "review_candidate",
   "sources": {
     "github_description": {
@@ -16,9 +16,9 @@
   "composition": {
     "arm_joint1_to_7_and_geometry": "github_description",
     "base_lift_carriage": "approved CAD carriage assembly; q=reference reading matches visual approval",
-    "head_and_sensors": "H1 mount shifted 50 mm along its local +X at zero; downstream mounts from github_description",
+    "head_and_sensors": "approved v3.4.2 mapped TF/meshes from preview; original arm kinematics retained",
     "steering_wheels": "github_description joints/visuals/inertials; collision represented by chassis shell; modules 3, 4 turned 180 deg about the steering axis",
-    "base_collision": "approved four base_link boxes plus CAD mesh projection",
+    "base_collision": "three boxes 001/002/004; 003 removed",
     "tcp": {
       "left": {
         "parent": "left_link7",
@@ -193,10 +193,10 @@
     },
     "carriage_collision": "30 original arm_carriage-local spheres, rigidly following approved mount"
   },
-  "link_count": 48,
+  "link_count": 49,
   "movable_joint_count": 26,
   "sphere_count": 239,
-  "fixed_box_count": 4,
+  "fixed_box_count": 3,
   "arm_new_link_from_old_link_zero": {
     "left_link1": [
       [
@@ -3076,12 +3076,12 @@
     "updown": "Calibrated prismatic base_link -> arm_carriage; CAD-only frames collapsed, geometry/inertia transformed into arm_carriage",
     "left_tool0_fixed": "agreed own TCP distance and axes",
     "right_tool0_fixed": "agreed own TCP distance and axes",
-    "steer3_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm",
+    "steer3_joint": "Approved preview mount and orientation, without additional +90deg correction",
     "wheel3_joint": "axis negated with the drive polarity of the turned module",
-    "steer4_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm",
+    "steer4_joint": "Approved preview mount and orientation, without additional +90deg correction",
     "wheel4_joint": "axis negated with the drive polarity of the turned module",
-    "steer1_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm",
-    "steer2_joint": "Align positive rolling at zero steering with footprint +X; compensate base_link X shift by -74.78297093 mm"
+    "steer1_joint": "Approved preview mount and orientation, without additional +90deg correction",
+    "steer2_joint": "Approved preview mount and orientation, without additional +90deg correction"
   },
   "joint_reparents": {
     "steer3_joint": "suspension_link",
@@ -3126,71 +3126,6 @@
     }
   },
   "head_collision_fit": {
-    "H1_Link": {
-      "method": "approved_morphit",
-      "parameters": {
-        "count": 5,
-        "iterations": 1000,
-        "coverage": 500.0,
-        "protrusion": 1000.0,
-        "seed": 42
-      },
-      "input_mesh_ply_sha256": "d8fff25eb22669d1be4ef2212259c882634f356633fb03ad870122535da7e54e",
-      "source_result_sha256": "211b0a38db66db3cb4bd49a66a54f2917c9b5c249fb7d8024d32eadd8493ede1",
-      "metrics": {
-        "num_spheres": 5,
-        "coverage": 0.5643377304077148,
-        "protrusion": 0.22800001502037048,
-        "protrusion_dist_mean": 0.0013604715932160616,
-        "protrusion_dist_p95": 0.0031468940433114767,
-        "surface_gap_mean": 0.0034625381231307983,
-        "surface_gap_p95": 0.012502344325184822,
-        "max_uncovered_gap": 0.020284201949834824,
-        "volume_ratio": 0.37510626234245176
-      },
-      "spheres": [
-        {
-          "center": [
-            -0.019748084247112274,
-            -0.0024663149379193783,
-            0.24632269144058228
-          ],
-          "radius": 0.03140944615006447
-        },
-        {
-          "center": [
-            -0.0016343629686161876,
-            -0.021035291254520416,
-            0.20602379739284515
-          ],
-          "radius": 0.00649277726188302
-        },
-        {
-          "center": [
-            -0.033181894570589066,
-            -0.026901841163635254,
-            0.20602530241012573
-          ],
-          "radius": 0.0033751449082046747
-        },
-        {
-          "center": [
-            0.0005840183584950864,
-            0.014654363505542278,
-            0.2003082036972046
-          ],
-          "radius": 0.004242367576807737
-        },
-        {
-          "center": [
-            -0.043069399893283844,
-            0.004068998619914055,
-            0.20524510741233826
-          ],
-          "radius": 0.004988306667655706
-        }
-      ]
-    },
     "arm_carriage": {
       "method": "approved_morphit",
       "parameters": {
@@ -3455,75 +3390,9 @@
           "radius": 0.0650518611073494
         }
       ]
-    },
-    "H2_Link": {
-      "method": "approved_morphit",
-      "parameters": {
-        "count": 1,
-        "iterations": 1000,
-        "coverage": 100.0,
-        "protrusion": 100.0,
-        "seed": 42
-      },
-      "input_mesh_ply_sha256": "b2d340c74daf67181d0e42ef7b04f63a857dc03a47c8bdc09e3df750c6f7415e",
-      "source_result_sha256": "0d2fa5fbdfdd57b3a750ac2ef0b8e056329ebc5e5d783b524b0ad418c7d16ea2",
-      "metrics": {
-        "num_spheres": 1,
-        "coverage": 0.18890073895454407,
-        "protrusion": 0.85999995470047,
-        "protrusion_dist_mean": 0.011993899010121822,
-        "protrusion_dist_p95": 0.029761429876089096,
-        "surface_gap_mean": 0.01304672472178936,
-        "surface_gap_p95": 0.03619248792529106,
-        "max_uncovered_gap": 0.04549045115709305,
-        "volume_ratio": 0.24367821289290198
-      },
-      "spheres": [
-        {
-          "center": [
-            0.007255931384861469,
-            0.04831181466579437,
-            -0.0036623538471758366
-          ],
-          "radius": 0.04564465582370758
-        }
-      ]
-    },
-    "mid360_Link": {
-      "method": "approved_morphit",
-      "parameters": {
-        "count": 1,
-        "iterations": 1000,
-        "coverage": 100.0,
-        "protrusion": 100.0,
-        "seed": 42
-      },
-      "input_mesh_ply_sha256": "5f5658c268ffb572ef0ce6897f9d93fc0f8f1f7684eb7f18bcdef8f8229d0f9c",
-      "source_result_sha256": "3f52372774508e685832b2d5a5288470385e6a5faba346cb480cc8ddf0e7ad2c",
-      "metrics": {
-        "num_spheres": 1,
-        "coverage": 0.6197123527526855,
-        "protrusion": 0.5949999690055847,
-        "protrusion_dist_mean": 0.0020720919128507376,
-        "protrusion_dist_p95": 0.004869047552347183,
-        "surface_gap_mean": 0.004993508569896221,
-        "surface_gap_p95": 0.016934437677264214,
-        "max_uncovered_gap": 0.03304152935743332,
-        "volume_ratio": 0.2835181997814838
-      },
-      "spheres": [
-        {
-          "center": [
-            -0.001368228462524712,
-            0.0029074561316519976,
-            -0.020132293924689293
-          ],
-          "radius": 0.029209161177277565
-        }
-      ]
     }
   },
-  "collision_scope": "239 unchanged link-local spheres + user-approved 4 base_link boxes; no payload. Mesh collision projections retained. Not a coverage or real-motion certificate.",
+  "collision_scope": "232 unchanged arm/carriage spheres + 7 candidate head spheres; three approved base_link boxes; chest camera has mesh but no spheres; not a conservative coverage or dynamics certificate",
   "mesh_sources": {
     "mesh/chassis/part_061_solid_061.stl": {
       "repo": "SevenovaHangzhou/robot_description",
@@ -3809,15 +3678,15 @@
   "artifacts": {
     "canonical_urdf": {
       "path": "urdf/robot_alfav3_mobile.urdf",
-      "sha256": "bcfa03d81834392f590b52f062ffbda94e34a1d7957e42906eac10855fc2417a"
+      "sha256": "7610af03e4c2ec5f3650bab4590a8c111b6ae1de9baba966a1d62e67855c8ddf"
     },
     "visual_urdf": {
       "path": "urdf/variants/robot_visual.urdf",
-      "sha256": "b50bb164361cec29c33f6622596b637785a1efda76cfb5cbdf492654dae1b6ea"
+      "sha256": "54c3db7755e916328315be33cebdf1e1d9bf30fadeba6dadff425a9bd2d8f955"
     },
     "collision_urdf": {
       "path": "urdf/variants/robot_collision.urdf",
-      "sha256": "9c2c0deeeed0a28b8b3b71574bc71a46f32462eeb239db9252cdcefe0309cecc"
+      "sha256": "2347ff3018672133ceb740c7d51a0c72003a639d44741b5b3542a772b36117a1"
     },
     "curobo_config": {
       "path": "config/curobo/robot.yaml",
@@ -3825,11 +3694,11 @@
     },
     "curobo_spheres": {
       "path": "config/curobo/collision_spheres.yaml",
-      "sha256": "f57f7a7f23e7f5f7161b59c06eeb6c62fc85f5a77173bf7f89afd15a50c1fca9"
+      "sha256": "8903bcd9bc515428aeacc3ea6036054f099d3931fbc4a4e8588f74694d4ddcef"
     },
     "fixed_body_boxes": {
       "path": "config/curobo/fixed_body_boxes.yaml",
-      "sha256": "ac7ec38ea58ed976748a0a2aa36071569107a04bca6896849680faf04ab170fc"
+      "sha256": "f0ff6b037383bd456569ba7dd0f8ebad1c254063ac5c90f1de9475370692b81d"
     }
   },
   "carriage_assembly": {
@@ -3864,5 +3733,15 @@
   "assembly_axis_reverse_distances_m": [
     0.45198601646903797,
     0.4519972521225901
-  ]
+  ],
+  "default_model_source": {
+    "urdf": "preview/chassis_head_20261124/urdf/preview_corrected.urdf",
+    "preview_commit": "2a7141b52db75b7c5f8cca43d534cf3d94f29352",
+    "wheel_orientation": "zero-pose wheel geometry from approved preview; wheel hub local Z aligned to axle",
+    "limitations": "head sphere fit candidate; chest camera has no sphere representation; some source inertia uses old provisional fallback; not full planning/dynamics validation"
+  },
+  "candidate_head_collision_fit": {
+    "source": "preview/chassis_head_20261124/config/curobo/collision_spheres.preview.yaml",
+    "method": "vertex clusters plus 1mm; candidate, not full collision validation"
+  }
 }

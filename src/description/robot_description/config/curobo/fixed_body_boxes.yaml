@@ -32,19 +32,6 @@ cuboids:
   - 0.0
   - 0.0
   - 0.0
-- name: base_box_003
-  center:
-  - -0.33
-  - 0.0
-  - 0.39
-  dimensions:
-  - 0.35
-  - 1.0
-  - 0.21
-  rpy_rad:
-  - 0.0
-  - 0.0
-  - 0.0
 - name: base_box_004
   center:
   - 0.023
