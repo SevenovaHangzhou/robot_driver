@@ -105,7 +105,8 @@ def test_advantech_unit_composes_real_chassis_with_owner_preflight_plan(shares, 
     bus = yaml.safe_load(result.files["canopen_bus.yaml"])
     assert bus["options"]["dcf_path"] == bundle and bus["master"]["baudrate"] == 500
     assert bus["steering_encoder_1"]["dcf"] == "steering_encoder_1.eds"
-    assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 11
+    # module_1 carries node 14 (hw-config-20261122-05).
+    assert bus["steering_encoder_1"]["tpdo"][2]["cob_id"] == 0x80000280 + 14
     diagnostics = yaml.safe_load(result.files["diagnostics.yaml"])
     drives = [device for device in diagnostics["devices"] if device["role"] == "drive"]
     assert len(drives) == 8 and {d["fault_table"] for d in drives} == {"kinco_fd"}
@@ -138,7 +139,7 @@ def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(
         "feedback_timeout",
     ):
         assert params[name] == swerve[name], name
-    # User 2026-11-25: module_1..4 are FL, FR, RL, RR, at steering rings 3/5/7/9.
+    # Module order follows the verified Advantech calibration (#326).
     assert params["module_x"] == [0.305, 0.305, -0.305, -0.305]
     assert params["module_y"] == [0.305, -0.305, 0.305, -0.305]
     assert params["steering_joints"] == [f"steer{i}_joint" for i in range(1, 5)]
@@ -154,7 +155,7 @@ def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(
             joint.get("name"): joint for joint in robot.findall("ros2_control/joint")
         }
         # Renaming the corners must not reorder motor rings, zero captures or CAN sensors.
-        for i, zero in enumerate((38164, 78291, -28551, 101892), 1):
+        for i, zero in enumerate((88244, 77701, 41338, -19355), 1):
             steering = hardware_joints[f"steer{i}_joint"]
             drive = hardware_joints[f"wheel{i}_joint"]
             assert int(steering.find("param[@name='ec_module.position']").text) == 2 * i + 1
@@ -175,7 +176,7 @@ def test_wheel_observations_bind_the_swerve_wiring_geometry_and_calibration(
                 parent = ancestor.find("parent").get("link")
             assert xyz[:2] == pytest.approx([params["module_x"][i - 1], params["module_y"][i - 1]])
         bus = yaml.safe_load(result.files["canopen_bus.yaml"])
-        assert [bus[f"steering_encoder_{i}"]["node_id"] for i in range(1, 5)] == [11, 12, 13, 14]
+        assert [bus[f"steering_encoder_{i}"]["node_id"] for i in range(1, 5)] == [14, 12, 11, 13]
     assert params["chassis_calibration_id"].startswith("swerve_chassis:sha256:")
     assert params["encoder_calibration_id"].startswith("swerve_encoders:sha256:")
     assert params["publish_rate"] == 100.0

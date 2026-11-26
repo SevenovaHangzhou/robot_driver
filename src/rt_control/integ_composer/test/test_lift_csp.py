@@ -95,10 +95,10 @@ def test_real_lift_runs_the_cia402_drive_in_csp(render):
 
     topology = result["expected_topology"]
     assert [item["ring_position"] for item in topology["responders"]] == [1]
-    # A start outside the hard stops (2 cm beyond -1.05..0 m) means a wrong zero.
+    # A start outside the hard stops (2 cm beyond -1.033..+0.017 m) means a wrong zero.
     (window,) = topology["position_windows"]
-    assert window["raw_min"] == pytest.approx(ZERO - 1.07 * COUNTS_PER_METRE)
-    assert window["raw_max"] == pytest.approx(ZERO + 0.02 * COUNTS_PER_METRE)
+    assert window["raw_min"] == pytest.approx(ZERO - 1.053 * COUNTS_PER_METRE)
+    assert window["raw_max"] == pytest.approx(ZERO + 0.037 * COUNTS_PER_METRE)
     assert -12503 > window["raw_min"] and -12503 < window["raw_max"]
 
 
