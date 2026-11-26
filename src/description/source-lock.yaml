@@ -1,8 +1,8 @@
 schema_version: 1
 package: robot_description
 repository: https://github.com/SevenovaHangzhou/robot_description.git
-source_branch: fix/wheel-hub-axis
-source_revision: 0e7c20e923aecc4469a7f8db93f027d766320dc6
+source_branch: main
+source_revision: 7653ef25b736b7f1efffcc4e1b160ad2cbb2158a
 source_tree: 7aba9f6c57705c9f1de632aadd7cb6e83e884f26
 imported_path: src/description/robot_description
 model_family: alfa_v3
